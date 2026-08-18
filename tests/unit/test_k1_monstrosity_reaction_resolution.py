@@ -3,7 +3,12 @@ from __future__ import annotations
 import unittest
 
 from towr.domain.attack_models import ConditionOnGiveGroundOrWoundSpec
-from towr.domain.condition_models import Condition, ConditionState
+from towr.domain.condition_models import (
+    Condition,
+    ConditionState,
+    EffectClassification,
+    EffectImmunity,
+)
 from towr.domain.injury_models import (
     AdditionalProfileWound,
     DecisionOwner,
@@ -62,12 +67,19 @@ def source(
     reaction: MonstrosityReactionSpec | None = None,
     additional_wounds: tuple[AdditionalProfileWound, ...] = (),
     terrifying: bool = False,
+    psychological_terrifying: bool = False,
+    effect_immunities: tuple[EffectImmunity, ...] = (),
 ) -> MonstrosityReactionRequest:
     effects = (
         (
             ConditionOnGiveGroundOrWoundSpec(
                 Condition.BROKEN,
                 "RULE-NPC:terrifying",
+                (
+                    EffectClassification.PSYCHOLOGICAL
+                    if psychological_terrifying
+                    else EffectClassification.UNCLASSIFIED
+                ),
             ),
         )
         if terrifying
@@ -79,6 +91,7 @@ def source(
         or MonstrousFlightReactionSpec("RULE-NPC:monstrous-flight"),
         additional_profile_wounds=additional_wounds,
         give_ground_or_wound_effects=effects,
+        target_effect_immunities=effect_immunities,
     )
 
 
@@ -351,6 +364,46 @@ class K1MonstrosityReactionResolutionTests(unittest.TestCase):
                 "RULE-NPC:undead-monstrosity",
                 extra.rule_id,
                 "RULE-NPC:terrifying",
+            ),
+        )
+
+    def test_undead_reaction_wound_blocks_psychological_terrifying(self) -> None:
+        immunity = EffectImmunity(
+            EffectClassification.PSYCHOLOGICAL,
+            "RULE-NPC:undead-monstrosity-immunity",
+        )
+        result = resolve_monstrosity_reaction(
+            request(
+                reaction_source=source(
+                    reaction=UndeadMonstrosityReactionSpec(
+                        "RULE-NPC:undead-monstrosity"
+                    ),
+                    terrifying=True,
+                    psychological_terrifying=True,
+                    effect_immunities=(immunity,),
+                )
+            )
+        )
+
+        self.assertIs(
+            result.outcome,
+            MonstrosityReactionOutcome.SUFFER_WOUND,
+        )
+        self.assertEqual(result.state.wounds, 1)
+        self.assertFalse(result.state.conditions.has(Condition.BROKEN))
+        self.assertEqual(len(result.condition_applications), 1)
+        application = result.condition_applications[0]
+        self.assertTrue(application.blocked)
+        self.assertEqual(
+            application.source_rule_id,
+            "RULE-NPC:terrifying",
+        )
+        self.assertEqual(application.blocked_by_rule_id, immunity.rule_id)
+        self.assertEqual(
+            result.applied_rule_ids,
+            (
+                "RULE-NPC:undead-monstrosity",
+                immunity.rule_id,
             ),
         )
 

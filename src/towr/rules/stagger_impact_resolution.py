@@ -5,7 +5,9 @@ from typing import Protocol
 
 from towr.domain.attack_models import ConditionOnGiveGroundOrWoundSpec
 from towr.domain.condition_models import (
+    ConditionApplicationRequest,
     ConditionState,
+    EffectImmunity,
     StaggerRequest,
     StaggerResult,
 )
@@ -26,6 +28,9 @@ from towr.domain.resolution_models import (
     StaggerImpactResult,
     TargetInjuryPolicy,
     TargetInjuryState,
+)
+from towr.rules.condition_effect_resolution import (
+    resolve_condition_application,
 )
 from towr.rules.dice import RandomSource
 from towr.rules.injury_resolution import (
@@ -76,6 +81,8 @@ def resolve_stagger_impact(
                 resolution_id=request.id,
                 condition=effect.condition,
                 rule_id=effect.rule_id,
+                classification=effect.classification,
+                target_effect_immunities=request.target_effect_immunities,
             )
             for effect in give_ground_effects
         )
@@ -109,6 +116,7 @@ def resolve_stagger_impact(
     return _apply_conditions_after_accepted_wound(
         result,
         request.give_ground_or_wound_effects,
+        request.target_effect_immunities,
     )
 
 
@@ -216,6 +224,7 @@ def _with_conditions(
 def _apply_conditions_after_accepted_wound(
     result: StaggerImpactResult,
     effects: tuple[ConditionOnGiveGroundOrWoundSpec, ...],
+    target_effect_immunities: tuple[EffectImmunity, ...],
 ) -> StaggerImpactResult:
     character_wound_accepted = (
         result.character_wound is not None
@@ -231,16 +240,40 @@ def _apply_conditions_after_accepted_wound(
         return result
 
     state = result.state
+    new_applications = []
     for effect in effects:
+        application = resolve_condition_application(
+            ConditionApplicationRequest(
+                id=f"{result.request_id}:{effect.rule_id}:condition",
+                state=state.conditions,
+                condition=effect.condition,
+                source_rule_id=effect.rule_id,
+                classification=effect.classification,
+                immunities=target_effect_immunities,
+            )
+        )
         state = _with_conditions(
             state,
-            state.conditions.with_condition(effect.condition),
+            application.state,
         )
+        new_applications.append(application)
     return replace(
         result,
         state=state,
-        applied_rule_ids=(
-            *result.applied_rule_ids,
-            *(effect.rule_id for effect in effects),
+        applied_rule_ids=tuple(
+            dict.fromkeys(
+                (
+                    *result.applied_rule_ids,
+                    *(
+                        rule_id
+                        for application in new_applications
+                        for rule_id in application.applied_rule_ids
+                    ),
+                )
+            )
+        ),
+        condition_applications=(
+            *result.condition_applications,
+            *new_applications,
         ),
     )

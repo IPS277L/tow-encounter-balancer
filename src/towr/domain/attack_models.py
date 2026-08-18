@@ -178,6 +178,7 @@ class ConditionAfterGiveGroundSpec:
 
     condition: Condition
     rule_id: str
+    classification: EffectClassification = EffectClassification.UNCLASSIFIED
 
     def __post_init__(self) -> None:
         if not isinstance(self.condition, Condition):
@@ -187,6 +188,10 @@ class ConditionAfterGiveGroundSpec:
                 "Staggered after Give Ground requires the Stagger impact policy"
             )
         _validate_rule_id(self.rule_id)
+        if not isinstance(self.classification, EffectClassification):
+            raise TypeError(
+                "classification must be an EffectClassification"
+            )
 
 
 @dataclass(frozen=True, slots=True)
@@ -195,6 +200,7 @@ class ConditionOnHitSpec:
 
     condition: Condition
     rule_id: str
+    classification: EffectClassification = EffectClassification.UNCLASSIFIED
 
     def __post_init__(self) -> None:
         if not isinstance(self.condition, Condition):
@@ -204,6 +210,10 @@ class ConditionOnHitSpec:
                 "Staggered on hit requires the Stagger impact policy"
             )
         _validate_rule_id(self.rule_id)
+        if not isinstance(self.classification, EffectClassification):
+            raise TypeError(
+                "classification must be an EffectClassification"
+            )
 
 
 @dataclass(frozen=True, slots=True)
@@ -212,6 +222,7 @@ class ConditionOnGiveGroundOrWoundSpec:
 
     condition: Condition
     rule_id: str
+    classification: EffectClassification = EffectClassification.UNCLASSIFIED
 
     def __post_init__(self) -> None:
         if not isinstance(self.condition, Condition):
@@ -221,6 +232,10 @@ class ConditionOnGiveGroundOrWoundSpec:
                 "Staggered requires the Stagger impact policy"
             )
         _validate_rule_id(self.rule_id)
+        if not isinstance(self.classification, EffectClassification):
+            raise TypeError(
+                "classification must be an EffectClassification"
+            )
 
 
 SecondaryEffectSpec = (

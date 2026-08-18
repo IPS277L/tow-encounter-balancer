@@ -2,7 +2,11 @@ from __future__ import annotations
 
 from typing import Protocol
 
-from towr.domain.condition_models import Condition, ConditionState
+from towr.domain.condition_models import (
+    Condition,
+    ConditionApplicationRequest,
+    ConditionState,
+)
 from towr.domain.injury_models import (
     DecisionOwner,
     ProfileInjuryState,
@@ -27,6 +31,9 @@ from towr.domain.resolution_models import (
     UnsteadyReactionSpec,
 )
 from towr.domain.test_models import Skill
+from towr.rules.condition_effect_resolution import (
+    resolve_condition_application,
+)
 from towr.rules.injury_resolution import resolve_profile_wound
 
 
@@ -226,6 +233,10 @@ def _resolve_reaction_give_ground(
             resolution_id=request.source.resolution_id,
             condition=effect.condition,
             rule_id=effect.rule_id,
+            classification=effect.classification,
+            target_effect_immunities=(
+                request.source.target_effect_immunities
+            ),
         )
         for effect in effects
     )
@@ -264,12 +275,24 @@ def _resolve_reaction_wound(
     )
     state = wound.state
     effects = request.source.give_ground_or_wound_effects
+    applications = []
     if wound.wounds_inflicted > 0:
         for effect in effects:
+            application = resolve_condition_application(
+                ConditionApplicationRequest(
+                    id=f"{request.id}:{effect.rule_id}:outcome-condition",
+                    state=state.conditions,
+                    condition=effect.condition,
+                    source_rule_id=effect.rule_id,
+                    classification=effect.classification,
+                    immunities=request.source.target_effect_immunities,
+                )
+            )
             state = _with_conditions(
                 state,
-                state.conditions.with_condition(effect.condition),
+                application.state,
             )
+            applications.append(application)
     return MonstrosityReactionResolutionResult(
         request_id=request.id,
         source_resolution_id=request.source.resolution_id,
@@ -278,11 +301,20 @@ def _resolve_reaction_wound(
         outcome=MonstrosityReactionOutcome.SUFFER_WOUND,
         profile_wound=wound,
         follow_ups=(wound.state_change,),
-        applied_rule_ids=(
-            reaction_rule_id,
-            *wound.applied_rule_ids,
-            *(effect.rule_id for effect in effects),
+        applied_rule_ids=tuple(
+            dict.fromkeys(
+                (
+                    reaction_rule_id,
+                    *wound.applied_rule_ids,
+                    *(
+                        rule_id
+                        for application in applications
+                        for rule_id in application.applied_rule_ids
+                    ),
+                )
+            )
         ),
+        condition_applications=tuple(applications),
     )
 
 

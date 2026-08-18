@@ -13,6 +13,7 @@ from towr.domain.attack_models import (
 from towr.domain.condition_models import (
     Condition,
     ConditionApplicationResult,
+    EffectClassification,
     EffectImmunity,
     StaggerResult,
 )
@@ -98,6 +99,10 @@ class ConditionAfterGiveGroundRequest:
     resolution_id: str
     condition: Condition
     rule_id: str
+    classification: EffectClassification = EffectClassification.UNCLASSIFIED
+    target_effect_immunities: tuple[EffectImmunity, ...] = field(
+        default_factory=tuple
+    )
 
     def __post_init__(self) -> None:
         _validate_non_empty_string(self.resolution_id, "resolution_id")
@@ -108,6 +113,15 @@ class ConditionAfterGiveGroundRequest:
                 "Staggered after Give Ground requires the Stagger impact policy"
             )
         _validate_non_empty_string(self.rule_id, "rule_id")
+        if not isinstance(self.classification, EffectClassification):
+            raise TypeError(
+                "classification must be an EffectClassification"
+            )
+        object.__setattr__(
+            self,
+            "target_effect_immunities",
+            _normalize_effect_immunities(self.target_effect_immunities),
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -212,6 +226,9 @@ class MonstrosityReactionRequest:
     give_ground_or_wound_effects: tuple[
         ConditionOnGiveGroundOrWoundSpec, ...
     ] = field(default_factory=tuple)
+    target_effect_immunities: tuple[EffectImmunity, ...] = field(
+        default_factory=tuple
+    )
 
     def __post_init__(self) -> None:
         _validate_non_empty_string(self.resolution_id, "resolution_id")
@@ -247,6 +264,11 @@ class MonstrosityReactionRequest:
             self,
             "give_ground_or_wound_effects",
             effects,
+        )
+        object.__setattr__(
+            self,
+            "target_effect_immunities",
+            _normalize_effect_immunities(self.target_effect_immunities),
         )
 
 
@@ -341,6 +363,9 @@ class MonstrosityReactionResolutionResult:
     profile_wound: ProfileWoundResult | None
     follow_ups: tuple[FollowUpRequest, ...]
     applied_rule_ids: tuple[str, ...]
+    condition_applications: tuple[ConditionApplicationResult, ...] = field(
+        default_factory=tuple
+    )
 
 
 @dataclass(frozen=True, slots=True)
@@ -477,6 +502,9 @@ class StaggerImpactRequest:
     give_ground_or_wound_effects: tuple[
         ConditionOnGiveGroundOrWoundSpec, ...
     ] = field(default_factory=tuple)
+    target_effect_immunities: tuple[EffectImmunity, ...] = field(
+        default_factory=tuple
+    )
 
     def __post_init__(self) -> None:
         _validate_non_empty_string(self.id, "Stagger impact request id")
@@ -535,6 +563,11 @@ class StaggerImpactRequest:
             "give_ground_or_wound_effects",
             outcome_effects,
         )
+        object.__setattr__(
+            self,
+            "target_effect_immunities",
+            _normalize_effect_immunities(self.target_effect_immunities),
+        )
         _validate_target_policy_state(
             self.target_policy,
             self.target_state,
@@ -557,15 +590,40 @@ class StaggerImpactResult:
     profile_wound: ProfileWoundResult | None
     follow_ups: tuple[FollowUpRequest, ...]
     applied_rule_ids: tuple[str, ...]
+    condition_applications: tuple[ConditionApplicationResult, ...] = field(
+        default_factory=tuple
+    )
 
 
 @dataclass(frozen=True, slots=True)
 class ConditionAfterGiveGroundResult:
     resolution_id: str
     state: TargetInjuryState
-    condition: Condition
-    was_already_present: bool
-    applied_rule_ids: tuple[str, ...]
+    application: ConditionApplicationResult
+
+    @property
+    def condition(self) -> Condition:
+        return self.application.condition
+
+    @property
+    def was_already_present(self) -> bool:
+        return self.application.was_already_present
+
+    @property
+    def blocked(self) -> bool:
+        return self.application.blocked
+
+    @property
+    def source_rule_id(self) -> str:
+        return self.application.source_rule_id
+
+    @property
+    def blocked_by_rule_id(self) -> str | None:
+        return self.application.blocked_by_rule_id
+
+    @property
+    def applied_rule_ids(self) -> tuple[str, ...]:
+        return self.application.applied_rule_ids
 
 
 @dataclass(frozen=True, slots=True)
@@ -831,17 +889,11 @@ class KernelAttackRequest:
             "additional_profile_wounds",
             tuple(self.additional_profile_wounds),
         )
-        immunities = tuple(self.target_effect_immunities)
-        if not all(isinstance(item, EffectImmunity) for item in immunities):
-            raise TypeError(
-                "target_effect_immunities must contain EffectImmunity values"
-            )
-        classifications = tuple(item.classification for item in immunities)
-        if len(set(classifications)) != len(classifications):
-            raise ValueError(
-                "target effect immunity classifications must be unique"
-            )
-        object.__setattr__(self, "target_effect_immunities", immunities)
+        object.__setattr__(
+            self,
+            "target_effect_immunities",
+            _normalize_effect_immunities(self.target_effect_immunities),
+        )
         self._validate_policy_state()
         self._validate_policy_options()
 
@@ -928,6 +980,9 @@ class ResolutionResult:
     monstrosity_impact: MonstrosityImpactResult | None
     follow_ups: tuple[FollowUpRequest, ...]
     applied_secondary_rule_ids: tuple[str, ...] = field(default_factory=tuple)
+    condition_applications: tuple[ConditionApplicationResult, ...] = field(
+        default_factory=tuple
+    )
 
 
 def _validate_bool(value: bool, name: str) -> None:
@@ -940,6 +995,22 @@ def _validate_non_empty_string(value: str, name: str) -> None:
         raise TypeError(f"{name} must be a string")
     if not value.strip():
         raise ValueError(f"{name} must not be empty")
+
+
+def _normalize_effect_immunities(
+    values: tuple[EffectImmunity, ...],
+) -> tuple[EffectImmunity, ...]:
+    immunities = tuple(values)
+    if not all(isinstance(item, EffectImmunity) for item in immunities):
+        raise TypeError(
+            "target_effect_immunities must contain EffectImmunity values"
+        )
+    classifications = tuple(item.classification for item in immunities)
+    if len(set(classifications)) != len(classifications):
+        raise ValueError(
+            "target effect immunity classifications must be unique"
+        )
+    return immunities
 
 
 def _validate_target_policy_state(

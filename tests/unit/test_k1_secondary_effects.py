@@ -20,6 +20,8 @@ from towr.domain.attack_models import (
 from towr.domain.condition_models import (
     Condition,
     ConditionState,
+    EffectClassification,
+    EffectImmunity,
     StaggerChoice,
 )
 from towr.domain.injury_models import (
@@ -93,6 +95,7 @@ def request(
     policy: TargetInjuryPolicy = TargetInjuryPolicy.PLAYER,
     state: CharacterInjuryState | ProfileInjuryState | None = None,
     impact_spec: ImpactSpec | None = None,
+    effect_immunities: tuple[EffectImmunity, ...] = (),
 ) -> KernelAttackRequest:
     if state is None:
         state = CharacterInjuryState()
@@ -103,6 +106,7 @@ def request(
         target_state=state,
         can_target_leave_zone=True,
         target_has_given_ground_this_round=False,
+        target_effect_immunities=effect_immunities,
         monstrosity_reaction=(
             MonstrousFlightReactionSpec("RULE-MONSTER:monstrous-flight")
             if policy is TargetInjuryPolicy.MONSTROSITY
@@ -342,6 +346,37 @@ class K1SecondaryEffectTests(unittest.TestCase):
             (effect.rule_id,),
         )
 
+    def test_psychological_condition_on_hit_is_blocked(self) -> None:
+        immunity = EffectImmunity(
+            EffectClassification.PSYCHOLOGICAL,
+            "RULE-NPC:undead-immunity",
+        )
+        effect = ConditionOnHitSpec(
+            Condition.BROKEN,
+            "RULE-ATTACK:psychological-hit",
+            EffectClassification.PSYCHOLOGICAL,
+        )
+        result = resolve_kernel_attack(
+            request(
+                effect,
+                policy=TargetInjuryPolicy.CHAMPION,
+                effect_immunities=(immunity,),
+            ),
+            SequenceRandom([1, 10, 10]),
+        )
+
+        self.assertTrue(result.target_state.conditions.has(Condition.STAGGERED))
+        self.assertFalse(result.target_state.conditions.has(Condition.BROKEN))
+        self.assertEqual(len(result.condition_applications), 1)
+        application = result.condition_applications[0]
+        self.assertTrue(application.blocked)
+        self.assertEqual(application.source_rule_id, effect.rule_id)
+        self.assertEqual(application.blocked_by_rule_id, immunity.rule_id)
+        self.assertEqual(
+            result.applied_secondary_rule_ids,
+            (immunity.rule_id,),
+        )
+
     def test_near_miss_does_not_cancel_condition_on_hit(self) -> None:
         effect = ConditionOnHitSpec(
             Condition.DRAINED,
@@ -492,6 +527,87 @@ class K1SecondaryEffectTests(unittest.TestCase):
         self.assertTrue(result.target_state.conditions.has(Condition.BROKEN))
         self.assertEqual(result.applied_secondary_rule_ids, (effect.rule_id,))
 
+    def test_psychological_terrifying_is_blocked_after_wound(self) -> None:
+        immunity = EffectImmunity(
+            EffectClassification.PSYCHOLOGICAL,
+            "RULE-NPC:undead-immunity",
+        )
+        effect = ConditionOnGiveGroundOrWoundSpec(
+            Condition.BROKEN,
+            "RULE-NPC:terrifying",
+            EffectClassification.PSYCHOLOGICAL,
+        )
+        result = resolve_kernel_attack(
+            request(
+                effect,
+                impact_spec=DamageImpactSpec(
+                    DamageProfile(5),
+                    ResilienceProfile(toughness=4, bonus=1),
+                ),
+                policy=TargetInjuryPolicy.CHAMPION,
+                effect_immunities=(immunity,),
+            ),
+            SequenceRandom([1, 10, 10, 1]),
+        )
+
+        assert result.character_wound is not None
+        self.assertTrue(result.character_wound.wound_accepted)
+        self.assertFalse(result.target_state.conditions.has(Condition.BROKEN))
+        self.assertEqual(len(result.condition_applications), 1)
+        self.assertTrue(result.condition_applications[0].blocked)
+        self.assertEqual(
+            result.applied_secondary_rule_ids,
+            (immunity.rule_id,),
+        )
+
+    def test_psychological_fearsome_is_blocked_after_give_ground(self) -> None:
+        immunity = EffectImmunity(
+            EffectClassification.PSYCHOLOGICAL,
+            "RULE-NPC:undead-immunity",
+        )
+        effect = ConditionAfterGiveGroundSpec(
+            Condition.BROKEN,
+            "RULE-NPC:fearsome",
+            EffectClassification.PSYCHOLOGICAL,
+        )
+        result = resolve_kernel_attack(
+            request(
+                effect,
+                state=CharacterInjuryState(
+                    conditions=ConditionState(
+                        frozenset({Condition.STAGGERED})
+                    )
+                ),
+                policy=TargetInjuryPolicy.CHAMPION,
+                effect_immunities=(immunity,),
+            ),
+            SequenceRandom([1, 10, 10]),
+            decisions=GiveGroundDecisions(),
+        )
+
+        follow_up = result.follow_ups[1]
+        assert isinstance(follow_up, ConditionAfterGiveGroundRequest)
+        self.assertEqual(
+            follow_up.target_effect_immunities,
+            (immunity,),
+        )
+        condition_result = resolve_condition_after_give_ground(
+            follow_up,
+            result.target_state,
+        )
+        self.assertTrue(condition_result.blocked)
+        self.assertEqual(
+            condition_result.source_rule_id,
+            effect.rule_id,
+        )
+        self.assertEqual(
+            condition_result.blocked_by_rule_id,
+            immunity.rule_id,
+        )
+        self.assertFalse(
+            condition_result.state.conditions.has(Condition.BROKEN)
+        )
+
     def test_near_miss_prevents_terrifying_wound_trigger(self) -> None:
         effect = ConditionOnGiveGroundOrWoundSpec(
             Condition.BROKEN,
@@ -538,9 +654,14 @@ class K1SecondaryEffectTests(unittest.TestCase):
         self.assertEqual(result.applied_secondary_rule_ids, ())
 
     def test_kernel_carries_terrifying_into_monstrosity_reaction(self) -> None:
+        immunity = EffectImmunity(
+            EffectClassification.PSYCHOLOGICAL,
+            "RULE-NPC:undead-immunity",
+        )
         effect = ConditionOnGiveGroundOrWoundSpec(
             Condition.BROKEN,
             "RULE-NPC:terrifying",
+            EffectClassification.PSYCHOLOGICAL,
         )
         result = resolve_kernel_attack(
             request(
@@ -551,6 +672,7 @@ class K1SecondaryEffectTests(unittest.TestCase):
                     DamageProfile(5),
                     ResilienceProfile(toughness=4, bonus=1),
                 ),
+                effect_immunities=(immunity,),
             ),
             SequenceRandom([1, 10, 10]),
             decisions=GiveGroundDecisions(),
@@ -564,6 +686,7 @@ class K1SecondaryEffectTests(unittest.TestCase):
             reaction.give_ground_or_wound_effects,
             (effect,),
         )
+        self.assertEqual(reaction.target_effect_immunities, (immunity,))
 
 
 if __name__ == "__main__":

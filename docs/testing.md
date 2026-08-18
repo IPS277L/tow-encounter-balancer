@@ -120,6 +120,10 @@ py -3.12 -m unittest discover -s tests -v
 - психологическая иммунность сохраняет source/blocking Rule IDs и не удаляет уже существующий Condition;
 - Bone Dragon блокирует психологический replacement Condition до прямого/Staggered reducer;
 - одно значение Broken без психологической классификации не активирует иммунитет;
+- психологический Condition-on-hit блокируется после обычного impact без отмены самого impact;
+- Terrifying после принятой Wound блокируется без отмены Wound;
+- Fearsome переносит classification/immunity через Give Ground follow-up и блокируется только после движения;
+- Bone Dragon Reaction переносит immunity и блокирует психологический Terrifying после профильной Wound;
 - полный путь `Attack → Impact → Staggered/Wound → state + follow-ups`;
 - отсутствие скрытого выбора при Glorious, повторном Staggered, Near Miss и Monstrosity Reaction.
 

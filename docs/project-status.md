@@ -105,10 +105,15 @@ K1 — реализация книжного resolution kernel. Прототип
 - `ConditionImpactSpec` передаёт классификацию, а `KernelAttackRequest` — иммунитеты цели;
 - Bone Dragon блокирует психологический replacement Condition до прямого или Staggered reducer;
 - остальные secondary/Hazard/non-Condition пути пока намеренно не считают подключёнными к иммунитету.
+- психологическая классификация добавлена в `ConditionOnHitSpec`, `ConditionOnGiveGroundOrWoundSpec` и `ConditionAfterGiveGroundSpec`;
+- непосредственные secondary Conditions используют общий resolver и сохраняют `condition_applications` в resolution result;
+- after-Give-Ground follow-up переносит classification и immunity snapshot через границу движения;
+- Stagger impact и Monstrosity Reaction сохраняют блокировки outcome Conditions без отмены Give Ground или Wound;
+- Fearsome/Terrifying с явной психологической классификацией не накладывают Broken на undead-профиль.
 
 ## Проверено
 
-- 161 unit/integration тест успешно проходит на Python 3.12, из них 141 относится к K1;
+- 165 unit/integration тестов успешно проходят на Python 3.12, из них 145 относятся к K1;
 - исходники и тесты успешно проходят `compileall`.
 
 ## Исходный материал
@@ -131,12 +136,12 @@ K1 — реализация книжного resolution kernel. Прототип
 - spatial-поиск и стабильная сортировка secondary/Zone целей, а также разные последствия hit/miss ещё не имеют общего battle orchestration;
 - для Monstrous Flight при полностью невозможном Give Ground книга не задаёт fallback; K1 требует внешнего ruling;
 - `SuppressRegenerationNextTurnRequest` ещё некому сохранить и погасить без нового turn orchestration;
-- психологическая иммунность undead-профилей пока подключена только к replacement Condition; secondary/Hazard и не-Condition эффекты ещё требуют миграции;
+- психологическая иммунность undead-профилей подключена к боевым Condition-фазам; Hazard и не-Condition эффекты ещё требуют миграции;
 - Monte Carlo, JSON, CLI и балансировщик ещё не входят в текущий срез.
 
 ## Следующий шаг
 
-Перевести `ConditionOnHitSpec`, `ConditionOnGiveGroundOrWoundSpec` и `ConditionAfterGiveGroundSpec` на общий source-classified Condition application. Передавать иммунитеты цели через непосредственный и отложенный пути, сохранять блокировки в trace/result и проверить Fearsome/Terrifying против undead-профиля. Hazard и не-Condition психологические эффекты оставить отдельными последующими срезами.
+Нормализовать психологическую immunity на границе Hazard: определить, блокирует ли классификация всю экспозицию до Test или только отдельные failure Conditions, затем провести явную classification/immunity через `HazardImpactSpec`, `HazardExposureRequest`, одиночный и Zone Hazard paths. Не распространять решение на не-Condition forced movement/spell effects без отдельного книжного анализа.
 
 ## Последняя проверка
 
@@ -147,7 +152,7 @@ $env:PYTHONPATH = "src"
 py -3.12 -m unittest discover -s tests -v
 ```
 
-Результат: `Ran 161 tests ... OK`.
+Результат: `Ran 165 tests ... OK`.
 
 ```powershell
 py -3.12 -m compileall -q src tests tools

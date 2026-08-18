@@ -184,27 +184,53 @@ def _apply_post_hit_secondary(
 ) -> ResolutionResult:
     follow_ups = list(result.follow_ups)
     state = result.target_state
+    condition_applications = list(result.condition_applications)
     condition_on_hit_rule_ids: list[str] = []
     for effect in request.attack.secondary_effects:
         if not isinstance(effect, ConditionOnHitSpec):
             continue
+        application = resolve_condition_application(
+            ConditionApplicationRequest(
+                id=f"{request.id}:{effect.rule_id}:on-hit-condition",
+                state=state.conditions,
+                condition=effect.condition,
+                source_rule_id=effect.rule_id,
+                classification=effect.classification,
+                immunities=request.target_effect_immunities,
+            )
+        )
         state = _with_conditions(
             state,
-            state.conditions.with_condition(effect.condition),
+            application.state,
         )
-        condition_on_hit_rule_ids.append(effect.rule_id)
+        condition_applications.append(application)
+        condition_on_hit_rule_ids.extend(application.applied_rule_ids)
     outcome_condition_rule_ids: list[str] = []
     if _wound_was_accepted(result):
         for effect in request.attack.secondary_effects:
             if not isinstance(effect, ConditionOnGiveGroundOrWoundSpec):
                 continue
-            if effect.rule_id in result.applied_secondary_rule_ids:
+            if any(
+                application.source_rule_id == effect.rule_id
+                for application in result.condition_applications
+            ):
                 continue
+            application = resolve_condition_application(
+                ConditionApplicationRequest(
+                    id=f"{request.id}:{effect.rule_id}:outcome-condition",
+                    state=state.conditions,
+                    condition=effect.condition,
+                    source_rule_id=effect.rule_id,
+                    classification=effect.classification,
+                    immunities=request.target_effect_immunities,
+                )
+            )
             state = _with_conditions(
                 state,
-                state.conditions.with_condition(effect.condition),
+                application.state,
             )
-            outcome_condition_rule_ids.append(effect.rule_id)
+            condition_applications.append(application)
+            outcome_condition_rule_ids.extend(application.applied_rule_ids)
     rule_ids = [
         *applied_rule_ids,
         *condition_on_hit_rule_ids,
@@ -227,7 +253,8 @@ def _apply_post_hit_secondary(
         result,
         target_state=state,
         follow_ups=tuple(follow_ups),
-        applied_secondary_rule_ids=tuple(rule_ids),
+        applied_secondary_rule_ids=tuple(dict.fromkeys(rule_ids)),
+        condition_applications=tuple(condition_applications),
     )
 
 
@@ -262,6 +289,7 @@ def _resolve_stagger_impact(
                 for effect in request.attack.secondary_effects
                 if isinstance(effect, ConditionOnGiveGroundOrWoundSpec)
             ),
+            target_effect_immunities=request.target_effect_immunities,
         ),
         rng,
         decisions=decisions,
@@ -278,6 +306,7 @@ def _resolve_stagger_impact(
         monstrosity_impact=None,
         follow_ups=impact.follow_ups,
         applied_secondary_rule_ids=impact.applied_rule_ids,
+        condition_applications=impact.condition_applications,
     )
 
 
@@ -312,15 +341,23 @@ def _resolve_condition_impact(
             profile_wound=None,
             monstrosity_impact=None,
             follow_ups=(),
+            condition_applications=(application,),
         )
     if spec.condition is Condition.STAGGERED:
-        return _resolve_stagger_impact(
+        resolved = _resolve_stagger_impact(
             request,
             attack,
             state,
             rng,
             decisions,
             replacement_impact=result,
+        )
+        return replace(
+            resolved,
+            condition_applications=(
+                application,
+                *resolved.condition_applications,
+            ),
         )
 
     updated_state = _with_conditions(
@@ -338,6 +375,7 @@ def _resolve_condition_impact(
         profile_wound=None,
         monstrosity_impact=None,
         follow_ups=(),
+        condition_applications=(application,),
     )
 
 
@@ -489,6 +527,9 @@ def _resolve_monstrosity(
                             effect,
                             ConditionOnGiveGroundOrWoundSpec,
                         )
+                    ),
+                    target_effect_immunities=(
+                        request.target_effect_immunities
                     ),
                 ),
             ),

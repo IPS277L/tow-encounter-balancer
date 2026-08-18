@@ -53,12 +53,23 @@ def resolve_condition_after_give_ground(
 ) -> ConditionAfterGiveGroundResult:
     if not isinstance(state, (CharacterInjuryState, ProfileInjuryState)):
         raise TypeError("state must be a TargetInjuryState")
-    was_already_present = state.conditions.has(request.condition)
-    conditions = state.conditions.with_condition(request.condition)
+    application = resolve_condition_application(
+        ConditionApplicationRequest(
+            id=(
+                f"{request.resolution_id}:{request.rule_id}:"
+                "after-give-ground-condition"
+            ),
+            state=state.conditions,
+            condition=request.condition,
+            source_rule_id=request.rule_id,
+            classification=request.classification,
+            immunities=request.target_effect_immunities,
+        )
+    )
     if isinstance(state, CharacterInjuryState):
         updated_state: TargetInjuryState = CharacterInjuryState(
             wounds=state.wounds,
-            conditions=conditions,
+            conditions=application.state,
             active_wound_effects=state.active_wound_effects,
             dead=state.dead,
         )
@@ -66,13 +77,11 @@ def resolve_condition_after_give_ground(
         updated_state = ProfileInjuryState(
             wounds=state.wounds,
             wound_limit=state.wound_limit,
-            conditions=conditions,
+            conditions=application.state,
             defeated=state.defeated,
         )
     return ConditionAfterGiveGroundResult(
         resolution_id=request.resolution_id,
         state=updated_state,
-        condition=request.condition,
-        was_already_present=was_already_present,
-        applied_rule_ids=(request.rule_id,),
+        application=application,
     )
