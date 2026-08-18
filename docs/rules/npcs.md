@@ -67,7 +67,7 @@ Griffon, Dragon и Wyvern при срабатывании Monstrous Flight да�
 
 При срабатывании Unsteady Giant получает Prone. Когда Giant действительно падает Prone, все существа в его Zone, включая самого Giant, проверяют Athletics против Hazard (3). Источник: GM Guide, страница 183.
 
-В K1 `UnsteadyReactionSpec` добавляет Prone к состоянию Giant и возвращает `ReactorZoneHazardRequest`. Этот запрос означает всех существ в Zone реагирующего Giant, но не выбирает их без spatial state. Если Giant уже Prone, Condition не накладывается повторно и Hazard не создаётся: результат явно получает исход `ALREADY_PRONE`. Staggered при падении не снимается. Условие Terrifying не срабатывает, поскольку Unsteady само по себе не создаёт Give Ground или Wound.
+В K1 `UnsteadyReactionSpec` добавляет Prone к состоянию Giant и возвращает `ReactorZoneHazardRequest`. Этот запрос означает всех существ в Zone реагирующего Giant, но не выбирает их без spatial state. После внешнего выбора `ReactorZoneHazardResolutionRequest` требует включить Giant и исполняет общий Test/Hazard pipeline для каждой уникальной цели в переданном порядке. Если Giant уже Prone, Condition не накладывается повторно и Hazard не создаётся: результат явно получает исход `ALREADY_PRONE`. Staggered при падении не снимается. Условие Terrifying не срабатывает, поскольку Unsteady само по себе не создаёт Give Ground или Wound.
 
 ## RULE-NPC-014 — Monstrous Regeneration Reaction
 
@@ -95,7 +95,7 @@ Ghorgon и Troll Hag в конце своего хода могут выбрат
 - профильные атаки с обычным Damage и формулировкой `hits inflict Condition` используют `ConditionOnHitSpec`, не replacement impact;
 - Terrifying у Dragon/Wyvern использует `ConditionOnGiveGroundOrWoundSpec`: Broken следует только после Give Ground или принятой Wound, но не после Near Miss;
 - Monstrous Flight у Griffon/Dragon/Wyvern разрешается отдельным типизированным resolver и сохраняет различие между лимитом Reaction «в текущем ходу» и общим Give Ground «раз за раунд»;
-- Unsteady у Giant применяет Prone и только при новом падении создаёт Hazard (3) для всех существ в Zone;
+- Unsteady у Giant применяет Prone и только при новом падении создаёт Hazard (3), который после внешнего spatial-выбора исполняется для самого Giant и всех остальных существ в Zone;
 - Monstrous Regeneration у Ghorgon/Troll Hag создаёт source-aware запрет регенерации на следующий ход без немедленного изменения injury state;
 - Undead Monstrosity у Bone Dragon различает обязательную Wound без всадника и внешний выбор Wound/Give Ground/Prone при Liche или Tomb King;
 - правило отсутствия Staggered за неудачную Melee-атаку поддерживается явным исключением в `AttackRequest` и сохраняется в trace.

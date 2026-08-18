@@ -106,6 +106,9 @@ py -3.12 -m unittest discover -s tests -v
 - новое падение Giant накладывает Prone, сохраняет Staggered и создаёт Athletics Hazard (3) для всех существ в его Zone;
 - уже Prone Giant не падает повторно и не создаёт повторный Zone Hazard;
 - Give Ground context отклоняется для Unsteady как неприменимый к этой Reaction;
+- Zone Hazard batch обязан включать реагирующего и иметь уникальные target/Test IDs;
+- выбранные Zone-цели проходят Test и Hazard слева направо на общем RNG с отдельными trace и состояниями;
+- Zone Hazard executor передаёт Test/Wound decisions, injury policy и failure Conditions в общие resolvers;
 - Monstrous Regeneration сохраняется kernel как конкретный Reaction spec;
 - Reaction Ghorgon/Troll Hag не меняет injury state и создаёт ровно один source-aware запрет регенерации на следующий ход;
 - suppression не маскируется Condition и не запускает Terrifying;

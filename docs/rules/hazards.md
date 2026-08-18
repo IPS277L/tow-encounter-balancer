@@ -27,4 +27,6 @@
 
 Выбор всех существ в Zone для Blasting Charge, его срабатывание в Zone атакующего при промахе и прочие area-правила относятся к конкретному `SecondaryEffectSpec`, а не к универсальной семантике Hazard.
 
-Unsteady Giant использует отдельный `ReactorZoneHazardRequest`: он фиксирует Hazard (3), Athletics и область «сам реагирующий Giant и все остальные существа в его Zone». Spatial orchestration выбирает конкретные разные цели и создаёт для каждой обычную `HazardExposureRequest`; дальнейшие Test и injury policy остаются общими.
+Unsteady Giant использует отдельный `ReactorZoneHazardRequest`: он фиксирует Hazard (3), Athletics и область «сам реагирующий Giant и все остальные существа в его Zone». Spatial orchestration выбирает конкретные разные цели, их актуальные Test-профили и injury contexts и передаёт стабильный порядок в `ReactorZoneHazardResolutionRequest`. Запрос обязан включать самого реагирующего и отклоняет повторные target/Test IDs.
+
+`resolve_reactor_zone_hazard` слева направо создаёт для каждой цели обычную `HazardExposureRequest`, выполняет общий Test и передаёт результат в `resolve_hazard`. Все цели используют один внедрённый RNG в указанном порядке, но сохраняют собственные `TestResult`, `HazardResolutionResult`, состояния и решения Test/Wound. Executor не ищет существ по Zone и не определяет spatial-порядок.

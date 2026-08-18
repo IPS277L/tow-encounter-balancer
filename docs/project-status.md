@@ -94,10 +94,15 @@ K1 — реализация книжного resolution kernel. Прототип
 - Liche/Tomb King открывает внешний выбор владельца `MONSTROSITY` между доступными Wound, Give Ground и Prone;
 - resolver заранее исключает Give Ground после уже выполненного в раунде перемещения, при невозможном перемещении или Prone и исключает повторное падение Prone;
 - общий request теперь принимает закрытый union профильных Reaction contexts вместо необязательных Give Ground флагов.
+- реализован `ReactorZoneHazardResolutionRequest` для уже выбранного стабильного порядка существ в Zone;
+- batch обязан включать реагирующего и отклоняет повторные target IDs и Test request IDs;
+- `resolve_reactor_zone_hazard` слева направо проводит каждую цель через общие Test/Hazard resolvers на одном RNG;
+- результат каждой Zone-цели сохраняет exposure, полный Test trace, собственный injury state и Hazard result;
+- Test/Wound decision providers, Near Miss, четыре injury policy и failure Conditions переиспользуются без отдельной area-логики.
 
 ## Проверено
 
-- 148 unit/integration тестов успешно проходят на Python 3.12, из них 128 относятся к K1;
+- 153 unit/integration теста успешно проходят на Python 3.12, из них 133 относятся к K1;
 - исходники и тесты успешно проходят `compileall`.
 
 ## Исходный материал
@@ -117,7 +122,7 @@ K1 — реализация книжного resolution kernel. Прототип
 - внешние последствия Wound для инвентаря и анатомии пока являются typed follow-up;
 - защита Endurance после заживления `Ruptured organs` ещё не подключена к физическому impact;
 - автоматическая замена неподходящей строки Wounds Table для не-физического Hazard требует отдельной GM/simulation policy;
-- spatial-выбор вторичных целей/существ для Zone Hazard и разные последствия hit/miss ещё не имеют общего orchestration;
+- spatial-поиск и стабильная сортировка secondary/Zone целей, а также разные последствия hit/miss ещё не имеют общего battle orchestration;
 - для Monstrous Flight при полностью невозможном Give Ground книга не задаёт fallback; K1 требует внешнего ruling;
 - `SuppressRegenerationNextTurnRequest` ещё некому сохранить и погасить без нового turn orchestration;
 - иммунитет Bone Dragon к психологическим эффектам и Conditions требует типизированной классификации эффектов и пока не исполняется;
@@ -125,7 +130,7 @@ K1 — реализация книжного resolution kernel. Прототип
 
 ## Следующий шаг
 
-Реализовать executor для `ReactorZoneHazardRequest`: spatial orchestration должно передать явно выбранный стабильный порядок существ в Zone, после чего каждое из них пройдёт общий Test/Hazard pipeline. Поиск и порядок целей не переносить внутрь resolution kernel.
+Нормализовать и реализовать психологическую невосприимчивость Bone Dragon (GM Guide, страница 172): добавить явную классификацию источника психологического эффекта и профильную immunity policy, не выводя психологическую природу только из значения `Condition`. Начать с общего Condition application path и сохранить Rule ID заблокированного эффекта в результате.
 
 ## Последняя проверка
 
@@ -136,7 +141,7 @@ $env:PYTHONPATH = "src"
 py -3.12 -m unittest discover -s tests -v
 ```
 
-Результат: `Ran 148 tests ... OK`.
+Результат: `Ran 153 tests ... OK`.
 
 ```powershell
 py -3.12 -m compileall -q src tests tools
