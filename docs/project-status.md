@@ -72,10 +72,14 @@ K1 — реализация книжного resolution kernel. Прототип
 - Damage, Staggered/Wound и injury policy завершаются до применения on-hit Condition;
 - Near Miss отменяет Wound, но не дополнительный Condition успешного попадания;
 - фазовый trace сохраняет порядок on-hit Condition до отложенных Give Ground/secondary-target follow-ups.
+- добавлен `ConditionOnGiveGroundOrWoundSpec` для Terrifying у Dragon/Wyvern;
+- Broken ставится после принятой Wound либо откладывается строго после `GiveGroundRequest`;
+- Near Miss, первый Staggered и альтернативный repeated-Staggered исход Terrifying не запускают;
+- тот же условный эффект работает в общем Stagger impact для профильной вторичной цели.
 
 ## Проверено
 
-- 125 unit/integration тестов успешно проходят на Python 3.12, из них 105 относятся к K1;
+- 131 unit/integration тест успешно проходит на Python 3.12, из них 111 относятся к K1;
 - исходники и тесты успешно проходят `compileall`.
 
 ## Исходный материал
@@ -95,12 +99,13 @@ K1 — реализация книжного resolution kernel. Прототип
 - внешние последствия Wound для инвентаря и анатомии пока являются typed follow-up;
 - защита Endurance после заживления `Ruptured organs` ещё не подключена к физическому impact;
 - автоматическая замена неподходящей строки Wounds Table для не-физического Hazard требует отдельной GM/simulation policy;
-- spatial-выбор вторичных целей, условия на конкретный исход Staggered/Wound, разные последствия hit/miss и профильные Reactions ещё не имеют общего orchestration;
+- spatial-выбор вторичных целей, разные последствия hit/miss и профильные Reactions ещё не имеют общего orchestration;
+- отдельная `MonstrosityReactionRequest` пока не сообщает фактический исход, поэтому Give Ground внутри Reaction не запускает условный secondary effect;
 - Monte Carlo, JSON, CLI и балансировщик ещё не входят в текущий срез.
 
 ## Следующий шаг
 
-Реализовать Terrifying как условный secondary effect: Broken, если атака заставила цель Give Ground либо фактически принять Wound; Near Miss не должен считаться принятой Wound. Spatial-выбор и старый battle loop пока не подключать.
+Типизировать результат исполнения `MonstrosityReactionRequest`, включая фактический Give Ground, чтобы условные secondary effects могли реагировать на исход follow-up без рекурсивного вызова kernel. Начать с одного конкретного книжного профиля; spatial-выбор и старый battle loop пока не подключать.
 
 ## Последняя проверка
 
@@ -111,7 +116,7 @@ $env:PYTHONPATH = "src"
 py -3.12 -m unittest discover -s tests -v
 ```
 
-Результат: `Ran 125 tests ... OK`.
+Результат: `Ran 131 tests ... OK`.
 
 ```powershell
 py -3.12 -m compileall -q src tests tools

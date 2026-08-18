@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+from dataclasses import replace
 from typing import Protocol
 
+from towr.domain.attack_models import ConditionOnGiveGroundOrWoundSpec
 from towr.domain.condition_models import (
     ConditionState,
     StaggerRequest,
@@ -65,13 +67,17 @@ def resolve_stagger_impact(
     )
     state = _with_conditions(request.target_state, stagger.state)
     if stagger.gave_ground:
+        give_ground_effects = (
+            *request.after_give_ground_effects,
+            *request.give_ground_or_wound_effects,
+        )
         condition_follow_ups = tuple(
             ConditionAfterGiveGroundRequest(
                 resolution_id=request.id,
                 condition=effect.condition,
                 rule_id=effect.rule_id,
             )
-            for effect in request.after_give_ground_effects
+            for effect in give_ground_effects
         )
         return StaggerImpactResult(
             request_id=request.id,
@@ -85,7 +91,7 @@ def resolve_stagger_impact(
                 *condition_follow_ups,
             ),
             applied_rule_ids=tuple(
-                effect.rule_id for effect in request.after_give_ground_effects
+                effect.rule_id for effect in give_ground_effects
             ),
         )
     if not stagger.wound_requested:
@@ -99,7 +105,11 @@ def resolve_stagger_impact(
             follow_ups=(),
             applied_rule_ids=(),
         )
-    return _resolve_stagger_wound(request, state, stagger, rng, decisions)
+    result = _resolve_stagger_wound(request, state, stagger, rng, decisions)
+    return _apply_conditions_after_accepted_wound(
+        result,
+        request.give_ground_or_wound_effects,
+    )
 
 
 def _resolve_stagger_wound(
@@ -200,4 +210,37 @@ def _with_conditions(
         wound_limit=state.wound_limit,
         conditions=conditions,
         defeated=state.defeated,
+    )
+
+
+def _apply_conditions_after_accepted_wound(
+    result: StaggerImpactResult,
+    effects: tuple[ConditionOnGiveGroundOrWoundSpec, ...],
+) -> StaggerImpactResult:
+    character_wound_accepted = (
+        result.character_wound is not None
+        and result.character_wound.wound_accepted
+    )
+    profile_wound_accepted = (
+        result.profile_wound is not None
+        and result.profile_wound.wounds_inflicted > 0
+    )
+    if not effects or not (
+        character_wound_accepted or profile_wound_accepted
+    ):
+        return result
+
+    state = result.state
+    for effect in effects:
+        state = _with_conditions(
+            state,
+            state.conditions.with_condition(effect.condition),
+        )
+    return replace(
+        result,
+        state=state,
+        applied_rule_ids=(
+            *result.applied_rule_ids,
+            *(effect.rule_id for effect in effects),
+        ),
     )

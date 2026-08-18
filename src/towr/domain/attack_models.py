@@ -201,11 +201,29 @@ class ConditionOnHitSpec:
         _validate_rule_id(self.rule_id)
 
 
+@dataclass(frozen=True, slots=True)
+class ConditionOnGiveGroundOrWoundSpec:
+    """Apply a Condition after Give Ground or an accepted Wound."""
+
+    condition: Condition
+    rule_id: str
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.condition, Condition):
+            raise TypeError("condition must be a Condition")
+        if self.condition is Condition.STAGGERED:
+            raise ValueError(
+                "Staggered requires the Stagger impact policy"
+            )
+        _validate_rule_id(self.rule_id)
+
+
 SecondaryEffectSpec = (
     ProneBeforeGiveGroundSpec
     | NearbyTargetsStaggerSpec
     | ConditionAfterGiveGroundSpec
     | ConditionOnHitSpec
+    | ConditionOnGiveGroundOrWoundSpec
 )
 
 
@@ -251,6 +269,7 @@ class AttackRequest:
                     NearbyTargetsStaggerSpec,
                     ConditionAfterGiveGroundSpec,
                     ConditionOnHitSpec,
+                    ConditionOnGiveGroundOrWoundSpec,
                 ),
             )
             for item in effects
@@ -261,11 +280,15 @@ class AttackRequest:
         rule_ids = tuple(item.rule_id for item in effects)
         if len(set(rule_ids)) != len(rule_ids):
             raise ValueError("secondary effect rule_ids must be unique")
+        damage_only_effects = (
+            ConditionOnHitSpec,
+            ConditionOnGiveGroundOrWoundSpec,
+        )
         if any(
-            isinstance(item, ConditionOnHitSpec) for item in effects
+            isinstance(item, damage_only_effects) for item in effects
         ) and not isinstance(self.impact_spec, DamageImpactSpec):
             raise ValueError(
-                "ConditionOnHitSpec requires a normal DamageImpactSpec"
+                "on-hit/outcome Conditions require a normal DamageImpactSpec"
             )
         object.__setattr__(self, "secondary_effects", effects)
 

@@ -7,6 +7,7 @@ from towr.domain.attack_models import (
     AttackOutcome,
     AttackResult,
     ConditionAfterGiveGroundSpec,
+    ConditionOnGiveGroundOrWoundSpec,
     ConditionOnHitSpec,
     ConditionImpactSpec,
     DamageImpactSpec,
@@ -188,9 +189,22 @@ def _apply_post_hit_secondary(
             state.conditions.with_condition(effect.condition),
         )
         condition_on_hit_rule_ids.append(effect.rule_id)
+    outcome_condition_rule_ids: list[str] = []
+    if _wound_was_accepted(result):
+        for effect in request.attack.secondary_effects:
+            if not isinstance(effect, ConditionOnGiveGroundOrWoundSpec):
+                continue
+            if effect.rule_id in result.applied_secondary_rule_ids:
+                continue
+            state = _with_conditions(
+                state,
+                state.conditions.with_condition(effect.condition),
+            )
+            outcome_condition_rule_ids.append(effect.rule_id)
     rule_ids = [
         *applied_rule_ids,
         *condition_on_hit_rule_ids,
+        *outcome_condition_rule_ids,
         *result.applied_secondary_rule_ids,
     ]
     for effect in request.attack.secondary_effects:
@@ -238,6 +252,11 @@ def _resolve_stagger_impact(
                 effect
                 for effect in request.attack.secondary_effects
                 if isinstance(effect, ConditionAfterGiveGroundSpec)
+            ),
+            give_ground_or_wound_effects=tuple(
+                effect
+                for effect in request.attack.secondary_effects
+                if isinstance(effect, ConditionOnGiveGroundOrWoundSpec)
             ),
         ),
         rng,
@@ -491,3 +510,11 @@ def _with_conditions(
         conditions=conditions,
         defeated=state.defeated,
     )
+
+
+def _wound_was_accepted(result: ResolutionResult) -> bool:
+    if result.character_wound is not None:
+        return result.character_wound.wound_accepted
+    if result.profile_wound is not None:
+        return result.profile_wound.wounds_inflicted > 0
+    return False

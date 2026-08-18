@@ -3,7 +3,10 @@ from __future__ import annotations
 import unittest
 
 from tests.helpers import SequenceRandom
-from towr.domain.attack_models import ConditionAfterGiveGroundSpec
+from towr.domain.attack_models import (
+    ConditionAfterGiveGroundSpec,
+    ConditionOnGiveGroundOrWoundSpec,
+)
 from towr.domain.condition_models import (
     Condition,
     ConditionState,
@@ -68,6 +71,9 @@ def target(
     can_leave_zone: bool = True,
     wound_negation_options: tuple[WoundNegationOption, ...] = (),
     after_give_ground_effects: tuple[ConditionAfterGiveGroundSpec, ...] = (),
+    give_ground_or_wound_effects: tuple[
+        ConditionOnGiveGroundOrWoundSpec, ...
+    ] = (),
 ) -> IdentifiedStaggerTarget:
     if state is None:
         state = CharacterInjuryState()
@@ -81,6 +87,7 @@ def target(
             target_has_given_ground_this_round=False,
             wound_negation_options=wound_negation_options,
             after_give_ground_effects=after_give_ground_effects,
+            give_ground_or_wound_effects=give_ground_or_wound_effects,
         ),
     )
 
@@ -252,6 +259,32 @@ class K1SecondaryTargetResolutionTests(unittest.TestCase):
             impact.follow_ups[1],
             ConditionAfterGiveGroundRequest,
         )
+        self.assertEqual(impact.applied_rule_ids, (effect.rule_id,))
+
+    def test_secondary_target_applies_condition_after_profile_wound(self) -> None:
+        effect = ConditionOnGiveGroundOrWoundSpec(
+            Condition.BROKEN,
+            "RULE-NPC:terrifying",
+        )
+        secondary = target(
+            "minion",
+            policy=TargetInjuryPolicy.MINION,
+            state=ProfileInjuryState(
+                wounds=0,
+                wound_limit=1,
+                conditions=staggered_prone(),
+            ),
+            give_ground_or_wound_effects=(effect,),
+        )
+        result = resolve_nearby_targets_stagger(
+            batch(secondary),
+            SequenceRandom([]),
+        )
+
+        impact = result.targets[0].impact
+        assert impact.profile_wound is not None
+        self.assertEqual(impact.profile_wound.wounds_inflicted, 1)
+        self.assertTrue(impact.state.conditions.has(Condition.BROKEN))
         self.assertEqual(impact.applied_rule_ids, (effect.rule_id,))
 
 

@@ -6,6 +6,7 @@ from tests.helpers import SequenceRandom
 from towr.domain.attack_models import (
     AttackRequest,
     ConditionAfterGiveGroundSpec,
+    ConditionOnGiveGroundOrWoundSpec,
     ConditionOnHitSpec,
     ConditionImpactSpec,
     DamageImpactSpec,
@@ -115,6 +116,24 @@ class K1SecondaryEffectTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             attack(
                 ConditionOnHitSpec(Condition.DRAINED, "RULE-INVALID"),
+                impact_spec=ConditionImpactSpec(
+                    Condition.BURDENED,
+                    "RULE-REPLACEMENT",
+                ),
+            )
+
+    def test_outcome_condition_requires_damage_and_cannot_be_staggered(self) -> None:
+        with self.assertRaises(ValueError):
+            ConditionOnGiveGroundOrWoundSpec(
+                Condition.STAGGERED,
+                "RULE-INVALID",
+            )
+        with self.assertRaises(ValueError):
+            attack(
+                ConditionOnGiveGroundOrWoundSpec(
+                    Condition.BROKEN,
+                    "RULE-INVALID",
+                ),
                 impact_spec=ConditionImpactSpec(
                     Condition.BURDENED,
                     "RULE-REPLACEMENT",
@@ -415,6 +434,99 @@ class K1SecondaryEffectTests(unittest.TestCase):
             result.applied_secondary_rule_ids,
             (on_hit.rule_id, after_ground.rule_id),
         )
+
+    def test_terrifying_queues_broken_after_give_ground(self) -> None:
+        effect = ConditionOnGiveGroundOrWoundSpec(
+            Condition.BROKEN,
+            "RULE-NPC:terrifying",
+        )
+        result = resolve_kernel_attack(
+            request(
+                effect,
+                state=CharacterInjuryState(
+                    conditions=ConditionState(
+                        frozenset({Condition.STAGGERED})
+                    )
+                ),
+            ),
+            SequenceRandom([1, 10, 10]),
+            decisions=GiveGroundDecisions(),
+        )
+
+        self.assertFalse(result.target_state.conditions.has(Condition.BROKEN))
+        self.assertEqual(len(result.follow_ups), 2)
+        self.assertIsInstance(result.follow_ups[0], GiveGroundRequest)
+        self.assertIsInstance(
+            result.follow_ups[1],
+            ConditionAfterGiveGroundRequest,
+        )
+        self.assertEqual(result.applied_secondary_rule_ids, (effect.rule_id,))
+
+    def test_terrifying_applies_broken_after_accepted_wound(self) -> None:
+        effect = ConditionOnGiveGroundOrWoundSpec(
+            Condition.BROKEN,
+            "RULE-NPC:terrifying",
+        )
+        result = resolve_kernel_attack(
+            request(
+                effect,
+                impact_spec=DamageImpactSpec(
+                    DamageProfile(5),
+                    ResilienceProfile(toughness=4, bonus=1),
+                ),
+            ),
+            SequenceRandom([1, 10, 10, 1]),
+        )
+
+        assert result.character_wound is not None
+        self.assertTrue(result.character_wound.wound_accepted)
+        self.assertTrue(result.target_state.conditions.has(Condition.BROKEN))
+        self.assertEqual(result.applied_secondary_rule_ids, (effect.rule_id,))
+
+    def test_near_miss_prevents_terrifying_wound_trigger(self) -> None:
+        effect = ConditionOnGiveGroundOrWoundSpec(
+            Condition.BROKEN,
+            "RULE-NPC:terrifying",
+        )
+        near_miss = WoundNegationOption("RULE-FATE:near-miss")
+        result = resolve_kernel_attack(
+            KernelAttackRequest(
+                id="resolution",
+                attack=attack(
+                    effect,
+                    impact_spec=DamageImpactSpec(
+                        DamageProfile(5),
+                        ResilienceProfile(toughness=4, bonus=1),
+                    ),
+                ),
+                target_policy=TargetInjuryPolicy.PLAYER,
+                target_state=CharacterInjuryState(),
+                can_target_leave_zone=True,
+                target_has_given_ground_this_round=False,
+                wound_negation_options=(near_miss,),
+            ),
+            SequenceRandom([1, 10, 10, 10]),
+            decisions=GiveGroundDecisions(wound_negation=near_miss.rule_id),
+        )
+
+        assert result.character_wound is not None
+        self.assertFalse(result.character_wound.wound_accepted)
+        self.assertFalse(result.target_state.conditions.has(Condition.BROKEN))
+        self.assertEqual(result.applied_secondary_rule_ids, ())
+
+    def test_terrifying_does_not_trigger_on_first_stagger(self) -> None:
+        effect = ConditionOnGiveGroundOrWoundSpec(
+            Condition.BROKEN,
+            "RULE-NPC:terrifying",
+        )
+        result = resolve_kernel_attack(
+            request(effect),
+            SequenceRandom([1, 10, 10]),
+        )
+
+        self.assertTrue(result.target_state.conditions.has(Condition.STAGGERED))
+        self.assertFalse(result.target_state.conditions.has(Condition.BROKEN))
+        self.assertEqual(result.applied_secondary_rule_ids, ())
 
 
 if __name__ == "__main__":

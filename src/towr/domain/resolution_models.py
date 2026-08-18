@@ -7,6 +7,7 @@ from towr.domain.attack_models import (
     AttackRequest,
     AttackResult,
     ConditionAfterGiveGroundSpec,
+    ConditionOnGiveGroundOrWoundSpec,
     HazardImpactSpec,
 )
 from towr.domain.condition_models import Condition, StaggerResult
@@ -190,6 +191,9 @@ class StaggerImpactRequest:
     after_give_ground_effects: tuple[ConditionAfterGiveGroundSpec, ...] = field(
         default_factory=tuple
     )
+    give_ground_or_wound_effects: tuple[
+        ConditionOnGiveGroundOrWoundSpec, ...
+    ] = field(default_factory=tuple)
 
     def __post_init__(self) -> None:
         _validate_non_empty_string(self.id, "Stagger impact request id")
@@ -227,6 +231,27 @@ class StaggerImpactRequest:
         if len(set(rule_ids)) != len(rule_ids):
             raise ValueError("after-Give-Ground effect rule_ids must be unique")
         object.__setattr__(self, "after_give_ground_effects", effects)
+        outcome_effects = tuple(self.give_ground_or_wound_effects)
+        if not all(
+            isinstance(item, ConditionOnGiveGroundOrWoundSpec)
+            for item in outcome_effects
+        ):
+            raise TypeError(
+                "give_ground_or_wound_effects must contain "
+                "ConditionOnGiveGroundOrWoundSpec values"
+            )
+        outcome_rule_ids = tuple(item.rule_id for item in outcome_effects)
+        if len(set(outcome_rule_ids)) != len(outcome_rule_ids):
+            raise ValueError("outcome Condition rule_ids must be unique")
+        if set(rule_ids) & set(outcome_rule_ids):
+            raise ValueError(
+                "Give-Ground Condition rule_ids must be unique across phases"
+            )
+        object.__setattr__(
+            self,
+            "give_ground_or_wound_effects",
+            outcome_effects,
+        )
         _validate_target_policy_state(
             self.target_policy,
             self.target_state,

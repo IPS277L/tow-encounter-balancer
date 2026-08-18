@@ -77,6 +77,9 @@ py -3.12 -m unittest discover -s tests -v
 - Damage/Staggered/Wound полностью разрешается до on-hit Condition;
 - Near Miss отменяет Wound, но сохраняет дополнительный Condition попадания;
 - on-hit Condition появляется до отложенного Give Ground → Condition.
+- Terrifying ставит Broken после Give Ground либо фактически принятой Wound;
+- Near Miss, первый Staggered и Fall Prone не запускают Terrifying;
+- условие принятой Wound одинаково работает в kernel и для профильной вторичной цели.
 
 Группы K1 Staggered:
 
