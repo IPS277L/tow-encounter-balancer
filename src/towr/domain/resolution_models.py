@@ -59,6 +59,19 @@ class MonstrosityReactionOutcome(str, Enum):
     REGENERATION_SUPPRESSED = "regeneration_suppressed"
 
 
+class MonstrousRegenerationChoice(str, Enum):
+    REGENERATE = "regenerate"
+    SKIP = "skip"
+
+
+class MonstrousRegenerationOutcome(str, Enum):
+    HEALED = "healed"
+    DECLINED = "declined"
+    SUPPRESSED_AND_CONSUMED = "suppressed_and_consumed"
+    UNAVAILABLE_UNWOUNDED = "unavailable_unwounded"
+    UNAVAILABLE_FIRE_WOUNDS = "unavailable_fire_wounds"
+
+
 class BoneDragonRider(str, Enum):
     LICHE = "liche"
     TOMB_KING = "tomb_king"
@@ -376,6 +389,65 @@ class SuppressRegenerationNextTurnRequest:
     def __post_init__(self) -> None:
         _validate_non_empty_string(self.resolution_id, "resolution_id")
         _validate_non_empty_string(self.rule_id, "rule_id")
+
+
+@dataclass(frozen=True, slots=True)
+class MonstrousRegenerationEndTurnRequest:
+    """Resolve one Ghorgon or Troll Hag end-turn regeneration window."""
+
+    id: str
+    target_id: str
+    target_state: ProfileInjuryState
+    has_non_fire_wound: bool
+    pending_suppression: SuppressRegenerationNextTurnRequest | None = None
+    rule_id: str = "RULE-NPC-014:monstrous-regeneration"
+
+    def __post_init__(self) -> None:
+        _validate_non_empty_string(
+            self.id,
+            "Monstrous Regeneration end-turn request id",
+        )
+        _validate_non_empty_string(self.target_id, "target_id")
+        if not isinstance(self.target_state, ProfileInjuryState):
+            raise TypeError("target_state must be a ProfileInjuryState")
+        if self.target_state.defeated:
+            raise ValueError("a defeated Monstrosity cannot regenerate")
+        _validate_bool(self.has_non_fire_wound, "has_non_fire_wound")
+        if self.target_state.wounds == 0 and self.has_non_fire_wound:
+            raise ValueError(
+                "an unwounded Monstrosity cannot have a non-fire Wound"
+            )
+        _validate_non_empty_string(self.rule_id, "rule_id")
+        if self.pending_suppression is not None:
+            if not isinstance(
+                self.pending_suppression,
+                SuppressRegenerationNextTurnRequest,
+            ):
+                raise TypeError(
+                    "pending_suppression must be a "
+                    "SuppressRegenerationNextTurnRequest"
+                )
+            if self.pending_suppression.rule_id != self.rule_id:
+                raise ValueError(
+                    "pending suppression must originate from the same "
+                    "Monstrous Regeneration rule"
+                )
+
+
+@dataclass(frozen=True, slots=True)
+class MonstrousRegenerationEndTurnResult:
+    request_id: str
+    target_id: str
+    state: ProfileInjuryState
+    outcome: MonstrousRegenerationOutcome
+    decision_owner: DecisionOwner | None
+    allowed_choices: tuple[MonstrousRegenerationChoice, ...]
+    selected_choice: MonstrousRegenerationChoice | None
+    wounds_healed: int
+    condition_application: ConditionApplicationResult | None
+    state_change: ProfileStateChangeRequest | None
+    consumed_suppression: SuppressRegenerationNextTurnRequest | None
+    applied_rule_ids: tuple[str, ...]
 
 
 @dataclass(frozen=True, slots=True)

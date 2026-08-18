@@ -87,7 +87,9 @@ K1 — реализация книжного resolution kernel. Прототип
 - уже Prone Giant не создаёт Hazard повторно, а Terrifying не реагирует на исход Unsteady.
 - добавлен `MonstrousRegenerationReactionSpec` для Ghorgon/Troll Hag и исход `REGENERATION_SUPPRESSED`;
 - Reaction сохраняет injury state и создаёт один `SuppressRegenerationNextTurnRequest` с Rule ID источника;
-- добровольное end-turn лечение, огненный источник Wound и однократное потребление suppression оставлены будущему turn orchestration;
+- добавлен отдельный `MonstrousRegenerationEndTurnRequest`, который принимает сохранённый suppression-снимок и однократно погашает его до проверки Wounds и решений;
+- без suppression отсутствие Wounds/неогненной Wound закрывает Ability, а доступная ветвь требует выбора Actor и лечит ровно 1 профильную Wound;
+- Ghorgon и Troll Hag используют одинаковое правило: Staggered добавляется только при отсутствии, а уже Staggered Monstrosity всё равно может регенерировать;
 - Terrifying не реагирует на suppression, поскольку Give Ground/Wound не произошли.
 - добавлены `UndeadMonstrosityReactionSpec` и отдельный mounted context для Bone Dragon;
 - без всадника Reaction детерминированно наносит профильную Wound, включая дополнительные профильные Wounds и Terrifying;
@@ -151,10 +153,16 @@ K1 — реализация книжного resolution kernel. Прототип
 - Staggered, отсутствие Wounds и отсутствие допустимой неогненной Wound закрывают Regeneration без обращения к decision provider;
 - доступная Regeneration требует явного выбора Regenerate/Skip, а выбранное лечение применяет source-aware Staggered и уменьшает профильные Wounds ровно на 1;
 - результат лечения возвращает `ProfileStateChangeRequest`, а provenance огненных Wounds пока поступает явным `has_non_fire_wound`.
+- нормализованы `RULE-NPC-024` Mother Knows Best (GM Guide, страница 181) и общий `RULE-MAGIC-003` Rule of Nine для магического противодействия (Player’s Guide, страницы 74 и 157);
+- Troll Hag зафиксирована как Level 2 Wizard и получает обычный source-aware +1d к Casting Tests только при 0 Wounds;
+- общий `NpcWizardCastingOppositionRequest` принимает Long Range/round-budget снимки и завершённый `OpposedTestResult` с проверкой Casting/Willpower Test IDs;
+- недоступная по дальности или уже использованная Reaction не принимает выполненную проверку, а доступная объявленная ветвь помечает round budget использованным независимо от исхода и девяток;
+- девятки Willpower-проверки реагирующего NPC Wizard создают `MiscastPoolIncreaseRequest` для его собственного пула независимо от победителя opposition;
+- Rule of Nine учитывает девятки после допустимых перебросов и отклоняет trace, в котором исходную девятку перебросили вопреки книге.
 
 ## Проверено
 
-- 208 unit/integration тестов успешно проходят на Python 3.12, из них 188 относятся к K1;
+- 225 unit/integration тестов успешно проходят на Python 3.12, из них 205 относятся к K1;
 - исходники и тесты успешно проходят `compileall`.
 
 ## Исходный материал
@@ -176,19 +184,20 @@ K1 — реализация книжного resolution kernel. Прототип
 - автоматическая замена неподходящей строки Wounds Table для не-физического Hazard требует отдельной GM/simulation policy;
 - spatial-поиск и стабильная сортировка secondary/Zone целей, а также разные последствия hit/miss ещё не имеют общего battle orchestration;
 - для Monstrous Flight при полностью невозможном Give Ground книга не задаёт fallback; K1 требует внешнего ruling;
-- `SuppressRegenerationNextTurnRequest` ещё некому сохранить и погасить без нового turn orchestration;
+- turn orchestration ещё должно привязать и сохранить `SuppressRegenerationNextTurnRequest` между Reaction и ближайшим end-turn окном той же сущности; end-turn reducer уже однократно погашает переданный запрос;
 - `DropHeldHandItemRequest` ещё некому применить без inventory state и policy выбора конкретного удерживаемого предмета;
 - K1-фабрики Soporific Breath, Troll Vomit и Swamp Breath не расходуют действие, не проверяют Staggered/дальность и не выбирают цель или Zone без battle orchestration;
 - battle loop ещё должен вызывать Stupidity entry points после каждой принятой Wound/снятия Distracted и создавать свежее Ability-state в начале следующего боя;
 - общий `ConditionState` пока не хранит источник или объект Distracted; Stupidity компенсирует это собственным source-aware состоянием, но полная replacement-семантика требует будущего решения;
-- полный casting pipeline ещё должен вычислять base Potency из последнего Casting Test, запускать target-scoped Potency preflight и не создавать spell effects для `has_effect=False`;
-- профильные Wounds пока не хранят provenance огня; Troll Regeneration получает только явный снимок наличия хотя бы одной допустимой неогненной Wound;
+- полный casting pipeline ещё должен накапливать Casting successes, вычислять base Potency, запускать target-scoped Potency preflight и не создавать spell effects для `has_effect=False`;
+- `MiscastPoolIncreaseRequest` пока не применяет изменяемое состояние пула и не запускает Miscast при превышении Wizard Level; общий Test resolver ещё допускает выбор девятки для Glorious reroll, поэтому casting/opposition boundary отклоняет такой неправильный trace постфактум;
+- профильные Wounds пока не хранят provenance огня; обычная и Monstrous Regeneration получают только явный снимок наличия хотя бы одной допустимой неогненной Wound;
 - психологическая иммунность undead-профилей подключена к боевым Condition/Hazard-фазам и `Curse of Cowardly Flight`; остальные конкретные non-Condition эффекты требуют отдельного анализа;
 - Monte Carlo, JSON, CLI и балансировщик ещё не входят в текущий срез.
 
 ## Следующий шаг
 
-Расширить общий end-turn Regeneration reducer на `Monstrous Regeneration` Ghorgon/Troll Hag (GM Guide, страницы 151 и 181): разрешить Monstrosity profile, учесть и однократно погасить `SuppressRegenerationNextTurnRequest`, сохранить различие Troll Hag «Staggered только если ещё нет» и Ghorgon/Troll Hag fire-Wound restriction. Не добавлять полный turn loop.
+Добавить минимальный `WizardMagicState` и reducer применения `MiscastPoolIncreaseRequest` по Player’s Guide, страницы 157–159: увеличить пул, при превышении Wizard Level создать typed запрос броска всей Miscast Pool и очистить её только после отдельного результата таблицы. Одновременно добавить casting-specific запрет перебрасывать девятки до выполнения reroll, не реализуя пока накопление Exacting Casting successes или полную Miscast Table.
 
 ## Последняя проверка
 
@@ -199,7 +208,7 @@ $env:PYTHONPATH = "src"
 py -3.12 -m unittest discover -s tests -v
 ```
 
-Результат: `Ran 208 tests ... OK`.
+Результат: `Ran 225 tests ... OK`.
 
 ```powershell
 py -3.12 -m compileall -q src tests tools

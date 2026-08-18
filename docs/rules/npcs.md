@@ -73,7 +73,9 @@ Griffon, Dragon и Wyvern при срабатывании Monstrous Flight да�
 
 Ghorgon и Troll Hag в конце своего хода могут выбрать восстановление одной Wound, получая Staggered, если этого Condition ещё нет. Wound от огня восстановить нельзя. Если их Reaction срабатывает, они не могут регенерировать на следующем ходу. Источник: GM Guide, страницы 151 и 181.
 
-Текущий K1-срез реализует только немедленное последствие Reaction: `MonstrousRegenerationReactionSpec` возвращает исход `REGENERATION_SUPPRESSED` и source-aware `SuppressRegenerationNextTurnRequest`. Состояние, Wounds и Conditions при этом не меняются. Future turn orchestration должно сохранить запрет, применить его к следующей возможности регенерации и однократно погасить. Добровольное end-turn лечение, Staggered и проверка огненного источника Wound пока не исполняются без turn/wound-source state.
+K1 разделяет две фазы. `MonstrousRegenerationReactionSpec` возвращает исход `REGENERATION_SUPPRESSED` и source-aware `SuppressRegenerationNextTurnRequest`, не меняя состояние немедленно. В конце следующего хода `MonstrousRegenerationEndTurnRequest` принимает этот сохранённый запрет, пропускает возможность регенерации и однократно возвращает его как `consumed_suppression`; decision provider при этом не вызывается. Запрет гасится в ближайшее end-turn окно даже при отсутствии Wounds, чтобы он не переносился на последующие ходы.
+
+Без запрета ноль Wounds и отсутствие хотя бы одной неогненной Wound закрывают способность детерминированно. Иначе контроллер действующей Monstrosity (`DecisionOwner.ACTOR`) выбирает Regenerate/Skip. Regenerate лечит ровно 1 Wound и добавляет source-aware Staggered только при его отсутствии; уже Staggered Ghorgon или Troll Hag всё равно может лечиться без повторного Condition. Обе книги профилей используют одинаковую формулировку этой механики. Конкретную неогненную Wound пока выбирает внешний слой через снимок `has_non_fire_wound`, а turn orchestration должно связать suppression с правильной сущностью между фазами.
 
 ## RULE-NPC-015 — Undead Monstrosity Reaction
 
@@ -143,6 +145,14 @@ Stone Troll получает +1 Resilience относительно обычно
 
 При выборе Regenerate общий Condition reducer сначала фиксирует source-aware Staggered, затем профиль теряет ровно 1 Wound. Результат возвращает `ProfileStateChangeRequest`, чтобы внешний слой обновил диапазон характеристик Troll. Счётчик профильных Wounds пока не хранит источник каждой Wound, поэтому K1 не выбирает конкретную рану и доверяет orchestration только булев факт наличия допустимой неогненной Wound.
 
+## RULE-NPC-024 — Mother Knows Best
+
+Troll Hag является Level 2 Wizard. Пока у неё 0 Wounds, она получает +1d на Casting Tests. Раз за раунд она может Oppose Casting Test мага в Long Range с помощью Willpower; выпавшие на её проверке девятки добавляются в её собственный Miscast Pool. Источник: GM Guide, страница 181; общее правило магического противодействия и девяток — Player’s Guide, страницы 74 и 157.
+
+`mother_knows_best_casting_modifier` возвращает обычный source-aware `DiceModifier(+1)`, только если актуальный `ProfileInjuryState` содержит 0 Wounds. Бонус подчиняется общему пределу пула и должен прикрепляться только к Casting Test. `TROLL_HAG_WIZARD_LEVEL` фиксирует книжный Level 2.
+
+Противодействие использует общий NPC Wizard reducer из `RULE-MAGIC-003`. Request явно содержит актуальные дальность и факт использования в текущем раунде, а для объявленной доступной Reaction — завершённую Opposed-проверку с ожидаемыми Test IDs. Результат помечает round budget использованным даже при поражении или отсутствии девяток; Miscast follow-up создаётся только при ненулевом количестве девяток. Полный casting/round loop должен принять добровольное решение до броска и сохранить оба изменяемых состояния.
+
 ## Реализация injury policies в K1
 
 - Minion получает один Wound и сразу становится defeated;
@@ -156,7 +166,7 @@ Stone Troll получает +1 Resilience относительно обычно
 - Terrifying у Dragon/Wyvern использует `ConditionOnGiveGroundOrWoundSpec`: Broken следует только после Give Ground или принятой Wound, но не после Near Miss;
 - Monstrous Flight у Griffon/Dragon/Wyvern разрешается отдельным типизированным resolver и сохраняет различие между лимитом Reaction «в текущем ходу» и общим Give Ground «раз за раунд»;
 - Unsteady у Giant применяет Prone и только при новом падении создаёт Hazard (3), который после внешнего spatial-выбора исполняется для самого Giant и всех остальных существ в Zone;
-- Monstrous Regeneration у Ghorgon/Troll Hag создаёт source-aware запрет регенерации на следующий ход без немедленного изменения injury state;
+- Monstrous Regeneration у Ghorgon/Troll Hag создаёт source-aware запрет без немедленной мутации, а end-turn resolver однократно погашает его либо требует выбор Actor, лечит одну неогненную Wound и добавляет Staggered только при отсутствии;
 - Undead Monstrosity у Bone Dragon различает обязательную Wound без всадника и внешний выбор Wound/Give Ground/Prone при Liche или Tomb King;
 - психологическая иммунность undead-профилей блокирует явно классифицированные replacement/on-hit/outcome/after-Give-Ground Conditions, Hazards и оба последствия `Curse of Cowardly Flight`;
 - Foul Stench после уже определённого входа в Zone сохраняет выбор цели между typed inventory follow-up и Distracted;
@@ -165,6 +175,7 @@ Stone Troll получает +1 Resilience относительно обычно
 - Troll Stupidity хранит battle-scoped suppression отдельно от Condition, выдаёт –1d на все Tests и принимает явные результаты Wound/Leadership/другого снятия;
 - Stone Troll имеет нормализованный Resilience 6 и target-scoped –1 Potency preflight с полной блокировкой эффекта при нуле;
 - обычная Troll Regeneration проверяет Staggered/наличие неогненной Wound, требует решения Actor и возвращает Staggered плюс профильное лечение;
+- Mother Knows Best даёт Troll Hag обычный +1d к Casting при 0 Wounds и через общий NPC Wizard resolver учитывает Long Range, round budget и собственные Miscast dice от девяток Willpower opposition;
 - правило отсутствия Staggered за неудачную Melee-атаку поддерживается явным исключением в `AttackRequest` и сохраняется в trace.
 
-Проверки находятся в `tests/unit/test_k1_injury_resolution.py`, `tests/unit/test_k1_monstrosity_resolution.py`, `tests/unit/test_k1_monstrosity_reaction_resolution.py` и `tests/unit/test_k1_kernel.py`.
+Проверки находятся в `tests/unit/test_k1_injury_resolution.py`, `tests/unit/test_k1_monstrosity_resolution.py`, `tests/unit/test_k1_monstrosity_reaction_resolution.py`, `tests/unit/test_k1_monstrous_regeneration_resolution.py`, `tests/unit/test_k1_mother_knows_best.py` и `tests/unit/test_k1_kernel.py`.

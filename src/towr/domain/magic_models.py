@@ -1,6 +1,89 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from enum import Enum
+
+from towr.domain.test_models import OpposedTestResult
+
+
+class NpcWizardCastingOppositionOutcome(str, Enum):
+    RESOLVED = "resolved"
+    UNAVAILABLE_OUT_OF_RANGE = "unavailable_out_of_range"
+    UNAVAILABLE_ALREADY_USED = "unavailable_already_used"
+
+
+@dataclass(frozen=True, slots=True)
+class MiscastPoolIncreaseRequest:
+    resolution_id: str
+    target_id: str
+    amount: int
+    source_test_id: str
+    trigger_rule_id: str
+    rule_id: str = "RULE-MAGIC-003:rule-of-nine"
+
+    def __post_init__(self) -> None:
+        _validate_non_empty_string(self.resolution_id, "resolution_id")
+        _validate_non_empty_string(self.target_id, "target_id")
+        _validate_positive_int(self.amount, "Miscast Pool increase")
+        _validate_non_empty_string(self.source_test_id, "source_test_id")
+        _validate_non_empty_string(self.trigger_rule_id, "trigger_rule_id")
+        _validate_non_empty_string(self.rule_id, "rule_id")
+
+
+@dataclass(frozen=True, slots=True)
+class NpcWizardCastingOppositionRequest:
+    id: str
+    caster_id: str
+    reactor_id: str
+    opposed_test_id: str
+    casting_test_id: str
+    reactor_willpower_test_id: str
+    caster_in_long_range: bool
+    has_opposed_casting_this_round: bool
+    opposition: OpposedTestResult | None
+    rule_id: str
+
+    def __post_init__(self) -> None:
+        _validate_non_empty_string(
+            self.id,
+            "NPC Wizard Casting opposition request id",
+        )
+        _validate_non_empty_string(self.caster_id, "caster_id")
+        _validate_non_empty_string(self.reactor_id, "reactor_id")
+        if self.caster_id == self.reactor_id:
+            raise ValueError("caster and reacting Wizard must be different")
+        _validate_non_empty_string(self.opposed_test_id, "opposed_test_id")
+        _validate_non_empty_string(self.casting_test_id, "casting_test_id")
+        _validate_non_empty_string(
+            self.reactor_willpower_test_id,
+            "reactor_willpower_test_id",
+        )
+        if self.casting_test_id == self.reactor_willpower_test_id:
+            raise ValueError("Casting and Willpower Test ids must be different")
+        _validate_bool(self.caster_in_long_range, "caster_in_long_range")
+        _validate_bool(
+            self.has_opposed_casting_this_round,
+            "has_opposed_casting_this_round",
+        )
+        if self.opposition is not None and not isinstance(
+            self.opposition,
+            OpposedTestResult,
+        ):
+            raise TypeError("opposition must be an OpposedTestResult")
+        _validate_non_empty_string(self.rule_id, "rule_id")
+
+
+@dataclass(frozen=True, slots=True)
+class NpcWizardCastingOppositionResult:
+    request_id: str
+    caster_id: str
+    reactor_id: str
+    outcome: NpcWizardCastingOppositionOutcome
+    opposition: OpposedTestResult | None
+    opposition_used_this_round: bool
+    miscast_dice_added: int
+    follow_ups: tuple[MiscastPoolIncreaseRequest, ...]
+    applied_rule_ids: tuple[str, ...]
 
 
 @dataclass(frozen=True, slots=True)
@@ -63,3 +146,15 @@ def _validate_non_empty_string(value: str, name: str) -> None:
         raise TypeError(f"{name} must be a string")
     if not value.strip():
         raise ValueError(f"{name} must not be empty")
+
+
+def _validate_positive_int(value: int, name: str) -> None:
+    if not isinstance(value, int) or isinstance(value, bool):
+        raise TypeError(f"{name} must be an integer")
+    if value < 1:
+        raise ValueError(f"{name} must be positive")
+
+
+def _validate_bool(value: bool, name: str) -> None:
+    if not isinstance(value, bool):
+        raise TypeError(f"{name} must be a boolean")

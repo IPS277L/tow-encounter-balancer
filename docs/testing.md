@@ -112,6 +112,14 @@ py -3.12 -m unittest discover -s tests -v
 - Monstrous Regeneration сохраняется kernel как конкретный Reaction spec;
 - Reaction Ghorgon/Troll Hag не меняет injury state и создаёт ровно один source-aware запрет регенерации на следующий ход;
 - suppression не маскируется Condition и не запускает Terrifying;
+- сохранённый suppression пропускает ближайшее end-turn окно, не вызывает decision provider и возвращается ровно один раз как consumed;
+- suppression погашается даже при нуле Wounds, поэтому не переносится на более поздний ход;
+- без suppression лечение требует решения Actor, блокируется при отсутствии неогненной Wound и уменьшает Wounds ровно на 1;
+- Ghorgon/Troll Hag получает Staggered только при его отсутствии, а уже Staggered Monstrosity продолжает иметь право на лечение;
+- Mother Knows Best даёт обычный +1d Casting modifier только при 0 Wounds и не обходит предел пула;
+- Long Range и once-per-round снимки закрывают недоступную NPC Wizard opposition без готового Test result;
+- завершённая opposition обязана содержать ожидаемые Casting/Willpower Test IDs, а её исход не влияет на подсчёт девяток Troll Hag;
+- девятки создают typed увеличение собственного Miscast Pool, отсутствие девяток всё равно расходует round budget, а переброшенная исходная девятка отклоняется;
 - немонтированный Bone Dragon при Reaction автоматически получает профильную Wound;
 - Liche/Tomb King открывает явный выбор владельца Monstrosity между доступными Wound, Give Ground и Prone;
 - недоступные Give Ground/Prone исключаются до decision policy, а неподдерживаемый выбор отклоняется;
