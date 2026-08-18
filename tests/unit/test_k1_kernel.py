@@ -29,6 +29,7 @@ from towr.domain.resolution_models import (
     HazardImpactResult,
     KernelAttackRequest,
     MonstrosityReactionRequest,
+    MonstrousFlightReactionSpec,
     TargetInjuryPolicy,
 )
 from towr.domain.test_models import Skill, TestProfile, TestRequest
@@ -103,8 +104,8 @@ def kernel_request(
         can_target_leave_zone=True,
         target_has_given_ground_this_round=False,
         wound_negation_options=negation_options,
-        monstrosity_reaction_rule_id=(
-            "RULE-MONSTER:reaction"
+        monstrosity_reaction=(
+            MonstrousFlightReactionSpec("RULE-MONSTER:monstrous-flight")
             if policy is TargetInjuryPolicy.MONSTROSITY
             else None
         ),
@@ -300,6 +301,12 @@ class K1KernelTests(unittest.TestCase):
         self.assertIsNone(result.profile_wound)
         self.assertEqual(len(result.follow_ups), 1)
         self.assertIsInstance(result.follow_ups[0], MonstrosityReactionRequest)
+        reaction = result.follow_ups[0]
+        assert isinstance(reaction, MonstrosityReactionRequest)
+        self.assertIsInstance(
+            reaction.reaction,
+            MonstrousFlightReactionSpec,
+        )
 
     def test_monstrosity_wound_choice_flows_into_profile_policy(self) -> None:
         result = resolve_kernel_attack(

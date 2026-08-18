@@ -39,6 +39,7 @@ from towr.domain.resolution_models import (
     HazardImpactResult,
     KernelAttackRequest,
     MonstrosityReactionRequest,
+    MonstrousFlightReactionSpec,
     NearbyTargetsStaggerRequest,
     ReplacementImpactResult,
     ResolutionResult,
@@ -441,7 +442,10 @@ def _resolve_monstrosity(
         decisions=decisions,
     )
     if impact.reaction_requested:
-        assert request.monstrosity_reaction_rule_id is not None
+        assert isinstance(
+            request.monstrosity_reaction,
+            MonstrousFlightReactionSpec,
+        )
         return ResolutionResult(
             request_id=request.id,
             attack=attack,
@@ -455,7 +459,18 @@ def _resolve_monstrosity(
             follow_ups=(
                 MonstrosityReactionRequest(
                     resolution_id=request.id,
-                    reaction_rule_id=request.monstrosity_reaction_rule_id,
+                    reaction=request.monstrosity_reaction,
+                    additional_profile_wounds=(
+                        request.additional_profile_wounds
+                    ),
+                    give_ground_or_wound_effects=tuple(
+                        effect
+                        for effect in request.attack.secondary_effects
+                        if isinstance(
+                            effect,
+                            ConditionOnGiveGroundOrWoundSpec,
+                        )
+                    ),
                 ),
             ),
         )

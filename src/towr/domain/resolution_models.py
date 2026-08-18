@@ -37,6 +37,16 @@ class TargetInjuryPolicy(str, Enum):
     MONSTROSITY = "monstrosity"
 
 
+class GiveGroundDestinationPreference(str, Enum):
+    ANY_VALID_ADJACENT = "any_valid_adjacent"
+    VERTICAL_MIDAIR_IF_ABLE = "vertical_midair_if_able"
+
+
+class MonstrosityReactionOutcome(str, Enum):
+    GIVE_GROUND = "give_ground"
+    SUFFER_WOUND = "suffer_wound"
+
+
 @dataclass(frozen=True, slots=True)
 class AttackerStaggerRequest:
     attack_id: str
@@ -47,6 +57,21 @@ class AttackerStaggerRequest:
 class GiveGroundRequest:
     resolution_id: str
     rule_id: str = "RULE-HEALTH-003:give-ground"
+    destination_preference: GiveGroundDestinationPreference = (
+        GiveGroundDestinationPreference.ANY_VALID_ADJACENT
+    )
+
+    def __post_init__(self) -> None:
+        _validate_non_empty_string(self.resolution_id, "resolution_id")
+        _validate_non_empty_string(self.rule_id, "rule_id")
+        if not isinstance(
+            self.destination_preference,
+            GiveGroundDestinationPreference,
+        ):
+            raise TypeError(
+                "destination_preference must be a "
+                "GiveGroundDestinationPreference"
+            )
 
 
 @dataclass(frozen=True, slots=True)
@@ -79,9 +104,95 @@ class NearbyTargetsStaggerRequest:
 
 
 @dataclass(frozen=True, slots=True)
+class MonstrousFlightReactionSpec:
+    rule_id: str
+
+    def __post_init__(self) -> None:
+        _validate_non_empty_string(self.rule_id, "rule_id")
+
+
+MonstrosityReactionSpec = MonstrousFlightReactionSpec
+
+
+@dataclass(frozen=True, slots=True)
 class MonstrosityReactionRequest:
     resolution_id: str
+    reaction: MonstrosityReactionSpec
+    additional_profile_wounds: tuple[AdditionalProfileWound, ...] = field(
+        default_factory=tuple
+    )
+    give_ground_or_wound_effects: tuple[
+        ConditionOnGiveGroundOrWoundSpec, ...
+    ] = field(default_factory=tuple)
+
+    def __post_init__(self) -> None:
+        _validate_non_empty_string(self.resolution_id, "resolution_id")
+        if not isinstance(self.reaction, MonstrousFlightReactionSpec):
+            raise TypeError("reaction must be a MonstrosityReactionSpec")
+        additional_wounds = tuple(self.additional_profile_wounds)
+        if not all(
+            isinstance(item, AdditionalProfileWound)
+            for item in additional_wounds
+        ):
+            raise TypeError(
+                "additional_profile_wounds must contain "
+                "AdditionalProfileWound values"
+            )
+        object.__setattr__(
+            self,
+            "additional_profile_wounds",
+            additional_wounds,
+        )
+        effects = tuple(self.give_ground_or_wound_effects)
+        if not all(
+            isinstance(item, ConditionOnGiveGroundOrWoundSpec)
+            for item in effects
+        ):
+            raise TypeError(
+                "give_ground_or_wound_effects must contain "
+                "ConditionOnGiveGroundOrWoundSpec values"
+            )
+        rule_ids = tuple(item.rule_id for item in effects)
+        if len(set(rule_ids)) != len(rule_ids):
+            raise ValueError("outcome Condition rule_ids must be unique")
+        object.__setattr__(
+            self,
+            "give_ground_or_wound_effects",
+            effects,
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class MonstrosityReactionResolutionRequest:
+    id: str
+    source: MonstrosityReactionRequest
+    state: ProfileInjuryState
+    has_given_ground_this_turn: bool
+    can_give_ground: bool
+
+    def __post_init__(self) -> None:
+        _validate_non_empty_string(self.id, "Monstrosity reaction request id")
+        if not isinstance(self.source, MonstrosityReactionRequest):
+            raise TypeError("source must be a MonstrosityReactionRequest")
+        if not isinstance(self.state, ProfileInjuryState):
+            raise TypeError("state must be a ProfileInjuryState")
+        _validate_bool(
+            self.has_given_ground_this_turn,
+            "has_given_ground_this_turn",
+        )
+        _validate_bool(self.can_give_ground, "can_give_ground")
+
+
+@dataclass(frozen=True, slots=True)
+class MonstrosityReactionResolutionResult:
+    request_id: str
+    source_resolution_id: str
     reaction_rule_id: str
+    state: ProfileInjuryState
+    outcome: MonstrosityReactionOutcome
+    profile_wound: ProfileWoundResult | None
+    follow_ups: tuple[FollowUpRequest, ...]
+    applied_rule_ids: tuple[str, ...]
 
 
 @dataclass(frozen=True, slots=True)
@@ -474,7 +585,7 @@ class KernelAttackRequest:
     additional_profile_wounds: tuple[AdditionalProfileWound, ...] = field(
         default_factory=tuple
     )
-    monstrosity_reaction_rule_id: str | None = None
+    monstrosity_reaction: MonstrosityReactionSpec | None = None
 
     def __post_init__(self) -> None:
         if not isinstance(self.id, str):
@@ -565,16 +676,16 @@ class KernelAttackRequest:
                 "Player/Champion uses Wounds Table dice, not profile wounds"
             )
         if self.target_policy is TargetInjuryPolicy.MONSTROSITY:
-            if (
-                not isinstance(self.monstrosity_reaction_rule_id, str)
-                or not self.monstrosity_reaction_rule_id.strip()
+            if not isinstance(
+                self.monstrosity_reaction,
+                MonstrousFlightReactionSpec,
             ):
                 raise ValueError(
-                    "Monstrosity requires monstrosity_reaction_rule_id"
+                    "Monstrosity requires a MonstrosityReactionSpec"
                 )
-        elif self.monstrosity_reaction_rule_id is not None:
+        elif self.monstrosity_reaction is not None:
             raise ValueError(
-                "monstrosity_reaction_rule_id is only valid for Monstrosity"
+                "monstrosity_reaction is only valid for Monstrosity"
             )
 
 

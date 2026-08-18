@@ -98,6 +98,10 @@ py -3.12 -m unittest discover -s tests -v
 - общая policy Player/Champion;
 - Minion, профильный лимит Brute/Monstrosity и преобразование extra table die в Wound;
 - владелец решения Monstrosity Wound/Reaction для обоих порогов Damage;
+- Monstrous Flight после выбора Reaction возвращает Give Ground либо профильную Wound в зависимости от Give Ground в текущем ходу;
+- Give Ground от Monstrous Flight сохраняет предпочтение вертикальной midair-зоны и ставит Terrifying после движения;
+- Wound от повторной Monstrous Flight проходит общую профильную injury policy, включая дополнительные Wounds и Terrifying;
+- полностью невозможный Give Ground завершается явной ошибкой неоднозначности, а не скрытым исходом;
 - полный путь `Attack → Impact → Staggered/Wound → state + follow-ups`;
 - отсутствие скрытого выбора при Glorious, повторном Staggered, Near Miss и Monstrosity Reaction.
 

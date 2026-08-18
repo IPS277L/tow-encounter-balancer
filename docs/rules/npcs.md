@@ -57,6 +57,12 @@ NPC не получает автоматически все свойства о�
 
 Универсального AoE-правила нет. Число атак, цели и вторичные эффекты определяются конкретным профилем атаки, оружия, Special Ability или Monstrosity. Старый прототипный алгоритм AoE отменён пользователем.
 
+## RULE-NPC-012 — Monstrous Flight Reaction
+
+Griffon, Dragon и Wyvern при срабатывании Monstrous Flight дают Ground, предпочитая вертикальное перемещение в midair Zone, если оно доступно. Если Monstrosity уже давала Ground в текущем ходу, вместо этого она получает Wound. Источник: GM Guide, страницы 175, 177–178.
+
+В K1 kernel переносит конкретный `MonstrousFlightReactionSpec`, дополнительные профильные Wounds исходной атаки и условные эффекты в `MonstrosityReactionRequest`. После добавления актуального spatial-контекста `resolve_monstrosity_reaction` возвращает типизированный `GIVE_GROUND` либо `SUFFER_WOUND`. В первой ветви `GiveGroundRequest` сохраняет предпочтение `VERTICAL_MIDAIR_IF_ABLE`; во второй используется общая профильная injury policy. Terrifying применяется после подтверждённого исхода тем же правилом, что и для обычного impact.
+
 ## Реализация injury policies в K1
 
 - Minion получает один Wound и сразу становится defeated;
@@ -68,6 +74,7 @@ NPC не получает автоматически все свойства о�
 - прямое наложение Staggered без Damage, например вторичный эффект Blunderbuss, использует общую repeated-Staggered policy и не запускает Monstrosity Reaction;
 - профильные атаки с обычным Damage и формулировкой `hits inflict Condition` используют `ConditionOnHitSpec`, не replacement impact;
 - Terrifying у Dragon/Wyvern использует `ConditionOnGiveGroundOrWoundSpec`: Broken следует только после Give Ground или принятой Wound, но не после Near Miss;
+- Monstrous Flight у Griffon/Dragon/Wyvern разрешается отдельным типизированным resolver и сохраняет различие между лимитом Reaction «в текущем ходу» и общим Give Ground «раз за раунд»;
 - правило отсутствия Staggered за неудачную Melee-атаку поддерживается явным исключением в `AttackRequest` и сохраняется в trace.
 
-Проверки находятся в `tests/unit/test_k1_injury_resolution.py`, `tests/unit/test_k1_monstrosity_resolution.py` и `tests/unit/test_k1_kernel.py`.
+Проверки находятся в `tests/unit/test_k1_injury_resolution.py`, `tests/unit/test_k1_monstrosity_resolution.py`, `tests/unit/test_k1_monstrosity_reaction_resolution.py` и `tests/unit/test_k1_kernel.py`.

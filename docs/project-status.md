@@ -76,10 +76,15 @@ K1 — реализация книжного resolution kernel. Прототип
 - Broken ставится после принятой Wound либо откладывается строго после `GiveGroundRequest`;
 - Near Miss, первый Staggered и альтернативный repeated-Staggered исход Terrifying не запускают;
 - тот же условный эффект работает в общем Stagger impact для профильной вторичной цели.
+- `KernelAttackRequest` теперь принимает типизированный `MonstrosityReactionSpec`, а не исполняемую строку Rule ID;
+- реализованы `MonstrosityReactionRequest → MonstrosityReactionResolutionResult` и первый конкретный `MonstrousFlightReactionSpec` для Griffon/Dragon/Wyvern;
+- Monstrous Flight возвращает Give Ground с предпочтением vertical midair либо профильную Wound, если Monstrosity уже давала Ground в текущем ходу;
+- дополнительные профильные Wounds и Terrifying проходят через результат Reaction с сохранением Rule ID;
+- невозможный Give Ground зафиксирован как книжная неоднозначность без скрытого default.
 
 ## Проверено
 
-- 131 unit/integration тест успешно проходит на Python 3.12, из них 111 относятся к K1;
+- 136 unit/integration тестов успешно проходят на Python 3.12, из них 116 относятся к K1;
 - исходники и тесты успешно проходят `compileall`.
 
 ## Исходный материал
@@ -99,13 +104,13 @@ K1 — реализация книжного resolution kernel. Прототип
 - внешние последствия Wound для инвентаря и анатомии пока являются typed follow-up;
 - защита Endurance после заживления `Ruptured organs` ещё не подключена к физическому impact;
 - автоматическая замена неподходящей строки Wounds Table для не-физического Hazard требует отдельной GM/simulation policy;
-- spatial-выбор вторичных целей, разные последствия hit/miss и профильные Reactions ещё не имеют общего orchestration;
-- отдельная `MonstrosityReactionRequest` пока не сообщает фактический исход, поэтому Give Ground внутри Reaction не запускает условный secondary effect;
+- spatial-выбор вторичных целей, разные последствия hit/miss и остальные профильные Reactions ещё не имеют общего orchestration;
+- для Monstrous Flight при полностью невозможном Give Ground книга не задаёт fallback; K1 требует внешнего ruling;
 - Monte Carlo, JSON, CLI и балансировщик ещё не входят в текущий срез.
 
 ## Следующий шаг
 
-Типизировать результат исполнения `MonstrosityReactionRequest`, включая фактический Give Ground, чтобы условные secondary effects могли реагировать на исход follow-up без рекурсивного вызова kernel. Начать с одного конкретного книжного профиля; spatial-выбор и старый battle loop пока не подключать.
+Реализовать `UnsteadyReactionSpec` для Giant (GM Guide, страница 183): применить Prone к Giant и создать типизированный запрос Hazard (3) для всех существ в его Zone. Выбор существ оставить spatial orchestration; старый battle loop пока не подключать.
 
 ## Последняя проверка
 
@@ -116,7 +121,7 @@ $env:PYTHONPATH = "src"
 py -3.12 -m unittest discover -s tests -v
 ```
 
-Результат: `Ran 131 tests ... OK`.
+Результат: `Ran 136 tests ... OK`.
 
 ```powershell
 py -3.12 -m compileall -q src tests tools

@@ -24,6 +24,7 @@ from towr.domain.condition_models import (
 )
 from towr.domain.injury_models import (
     CharacterInjuryState,
+    MonstrosityImpactChoice,
     ProfileInjuryState,
     ProfileStateChangeRequest,
     WoundNegationOption,
@@ -34,6 +35,8 @@ from towr.domain.resolution_models import (
     ConsumeWoundNegationRequest,
     GiveGroundRequest,
     KernelAttackRequest,
+    MonstrosityReactionRequest,
+    MonstrousFlightReactionSpec,
     NearbyTargetsStaggerRequest,
     TargetInjuryPolicy,
 )
@@ -58,6 +61,12 @@ class GiveGroundDecisions:
 
     def choose_wound_negation(self, **_: object) -> str | None:
         return self.wound_negation
+
+    def choose_monstrosity_impact(
+        self,
+        **_: object,
+    ) -> MonstrosityImpactChoice:
+        return MonstrosityImpactChoice.TRIGGER_REACTION
 
 
 def attack(
@@ -94,8 +103,8 @@ def request(
         target_state=state,
         can_target_leave_zone=True,
         target_has_given_ground_this_round=False,
-        monstrosity_reaction_rule_id=(
-            "RULE-MONSTER:reaction"
+        monstrosity_reaction=(
+            MonstrousFlightReactionSpec("RULE-MONSTER:monstrous-flight")
             if policy is TargetInjuryPolicy.MONSTROSITY
             else None
         ),
@@ -527,6 +536,34 @@ class K1SecondaryEffectTests(unittest.TestCase):
         self.assertTrue(result.target_state.conditions.has(Condition.STAGGERED))
         self.assertFalse(result.target_state.conditions.has(Condition.BROKEN))
         self.assertEqual(result.applied_secondary_rule_ids, ())
+
+    def test_kernel_carries_terrifying_into_monstrosity_reaction(self) -> None:
+        effect = ConditionOnGiveGroundOrWoundSpec(
+            Condition.BROKEN,
+            "RULE-NPC:terrifying",
+        )
+        result = resolve_kernel_attack(
+            request(
+                effect,
+                policy=TargetInjuryPolicy.MONSTROSITY,
+                state=ProfileInjuryState(wounds=0, wound_limit=3),
+                impact_spec=DamageImpactSpec(
+                    DamageProfile(5),
+                    ResilienceProfile(toughness=4, bonus=1),
+                ),
+            ),
+            SequenceRandom([1, 10, 10]),
+            decisions=GiveGroundDecisions(),
+        )
+
+        self.assertEqual(len(result.follow_ups), 1)
+        reaction = result.follow_ups[0]
+        self.assertIsInstance(reaction, MonstrosityReactionRequest)
+        assert isinstance(reaction, MonstrosityReactionRequest)
+        self.assertEqual(
+            reaction.give_ground_or_wound_effects,
+            (effect,),
+        )
 
 
 if __name__ == "__main__":
