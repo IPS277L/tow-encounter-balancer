@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "towr-encounter-balancer"
+version = "0.1.0"
+description = "Deterministic combat simulator and encounter balancer for TOWR"
+readme = "README.md"
+requires-python = ">=3.12"
+license = { file = "LICENSE" }
+authors = [{ name = "TOWR contributors" }]
+dependencies = []
+
+[project.optional-dependencies]
+rulebook = ["pypdf>=6.16,<7"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
