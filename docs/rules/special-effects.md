@@ -10,6 +10,8 @@
 
 В K1 `ConditionAfterGiveGroundSpec` подключается к общему Stagger impact. Только если repeated-Staggered завершился выбором Give Ground, reducer возвращает сначала `GiveGroundRequest`, затем `ConditionAfterGiveGroundRequest`. Condition не появляется в состоянии до исполнения второго follow-up. Так моделируются Prone от Troublemakers Out! (Player’s Guide, страница 31) и Broken от Fearsome (GM Guide, страницы 136, 145–146, 174 и 180). Staggered этим spec не маскируется, поскольку повторное состояние требует собственной decision/injury policy.
 
+`ConditionOnHitSpec` разрешён только вместе с обычным `DamageImpactSpec`. На попадании сначала полностью разрешается Damage, Staggered/Wound и injury policy, затем Condition добавляется к итоговому состоянию. Поэтому Near Miss отменяет Wound, но не дополнительный Condition самого попадания. Этот вариант покрывает serrated maw Dragon (`Dam 7, hits inflict Drained`) и Venomous Tail Wyvern (`Dam 6, hits inflict Drained`) из GM Guide, страницы 177–178. Staggered запрещён и здесь: для него требуется repeated-Staggered policy; Prone с явно указанным порядком «before Give Ground» использует отдельный spec.
+
 ## RULE-EFFECT-002 — модификаторы проверки
 
 Свойства оружия, Talents, состояния, дистанция и контекст могут добавлять или убирать кубы, делать Test Grim/Glorious либо добавлять фиксированные успехи. После сбора модификаторов применяются предел пула и правило единственного куба из `RULE-TEST-003`, если эффект явно не разрешает превысить предел.
@@ -48,7 +50,7 @@
 - `ConditionImpactSpec` наносит одно Condition вместо Damage;
 - `HazardImpactSpec` создаёт экспозицию Hazard с рейтингом и названным Skill вместо Damage.
 
-На промахе replacement impact не применяется. Прямой Staggered использует общий reducer повторного Staggered; остальные Conditions добавляются к состоянию цели. Hazard сначала создаёт `HazardExposureRequest`, поскольку профиль нужного Skill принадлежит orchestration, а затем отдельный resolver сравнивает Test с рейтингом и вызывает существующую injury policy. Эффекты «Damage плюс Condition», несколько целей, принудительное перемещение и разные последствия попадания/промаха не маскируются этими тремя вариантами: для них нужен следующий `SecondaryEffectSpec` или именованный resolver.
+На промахе replacement impact не применяется. Прямой Staggered использует общий reducer повторного Staggered; остальные Conditions добавляются к состоянию цели. Hazard сначала создаёт `HazardExposureRequest`, поскольку профиль нужного Skill принадлежит orchestration, а затем отдельный resolver сравнивает Test с рейтингом и вызывает существующую injury policy. Damage плюс простой не-Staggered Condition представлен `ConditionOnHitSpec`; несколько целей, принудительное перемещение и разные последствия конкретных исходов не маскируются вариантами `ImpactSpec`.
 
 ## RULE-EFFECT-006 — дополнительные цели задаются эффектом
 
@@ -64,11 +66,12 @@
 
 Источник: Player’s Guide, страницы 74, 95–96; GM Guide, страницы 90, 149, 177, 181–185.
 
-В K1 реализованы три узких варианта `SecondaryEffectSpec`:
+В K1 реализованы четыре узких варианта `SecondaryEffectSpec`:
 
 - `ProneBeforeGiveGroundSpec` на успешном попадании накладывает Prone до разрешения обычного Staggered. Поэтому уже Staggered цель не может после этого выбрать Give Ground или повторное Prone. Флаг `affects_monstrosities` выражает различие между Noble Steed, который исключает Monstrosity, и атаками без такого исключения. Источники: Player’s Guide, страница 124; GM Guide, страницы 106, 126, 136 и 174;
 - `NearbyTargetsStaggerSpec` на попадании добавляет `NearbyTargetsStaggerRequest` после полного результата основной цели. Запрос означает всех других существ, которые находились в Close Range от основной цели в момент попадания. Источник свойства Blunderbuss: Player’s Guide, страница 95;
-- `ConditionAfterGiveGroundSpec` добавляет не-Staggered Condition только после выбранного Give Ground; он работает через общий `StaggerImpactRequest` и поэтому может сопровождать как основную, так и уже выбранную вторичную цель.
+- `ConditionAfterGiveGroundSpec` добавляет не-Staggered Condition только после выбранного Give Ground; он работает через общий `StaggerImpactRequest` и поэтому может сопровождать как основную, так и уже выбранную вторичную цель;
+- `ConditionOnHitSpec` сохраняет обычный Damage pipeline и после его результата добавляет простой Condition к основной цели.
 
 Kernel не ищет существ по Zones. Spatial orchestration фиксирует подходящие цели в момент попадания и передаёт их как упорядоченный набор `IdentifiedStaggerTarget`. `resolve_nearby_targets_stagger` отклоняет основную или повторную цель и слева направо применяет к каждой общий `StaggerImpactRequest`: первое/повторное Staggered, Give Ground, Prone, Wound, нужную injury policy и Wound follow-ups. Состояния и результаты остаются привязаны к `target_id`; RNG и decision provider используются последовательно в том же порядке.
 

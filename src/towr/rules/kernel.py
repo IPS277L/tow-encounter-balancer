@@ -7,6 +7,7 @@ from towr.domain.attack_models import (
     AttackOutcome,
     AttackResult,
     ConditionAfterGiveGroundSpec,
+    ConditionOnHitSpec,
     ConditionImpactSpec,
     DamageImpactSpec,
     HazardImpactSpec,
@@ -177,8 +178,19 @@ def _apply_post_hit_secondary(
     applied_rule_ids: tuple[str, ...],
 ) -> ResolutionResult:
     follow_ups = list(result.follow_ups)
+    state = result.target_state
+    condition_on_hit_rule_ids: list[str] = []
+    for effect in request.attack.secondary_effects:
+        if not isinstance(effect, ConditionOnHitSpec):
+            continue
+        state = _with_conditions(
+            state,
+            state.conditions.with_condition(effect.condition),
+        )
+        condition_on_hit_rule_ids.append(effect.rule_id)
     rule_ids = [
         *applied_rule_ids,
+        *condition_on_hit_rule_ids,
         *result.applied_secondary_rule_ids,
     ]
     for effect in request.attack.secondary_effects:
@@ -195,6 +207,7 @@ def _apply_post_hit_secondary(
         return result
     return replace(
         result,
+        target_state=state,
         follow_ups=tuple(follow_ups),
         applied_secondary_rule_ids=tuple(rule_ids),
     )

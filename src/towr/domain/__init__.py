@@ -4,6 +4,7 @@ from towr.domain.actions import AttackAction, InlineRollSource, StatRollSource
 from towr.domain.attack_models import (
     AttackRequest,
     ConditionAfterGiveGroundSpec,
+    ConditionOnHitSpec,
     ConditionImpactSpec,
     DamageImpactSpec,
     DamageProfile,
@@ -49,6 +50,7 @@ __all__ = [
     "ConditionAfterGiveGroundRequest",
     "ConditionAfterGiveGroundResult",
     "ConditionAfterGiveGroundSpec",
+    "ConditionOnHitSpec",
     "ConditionImpactSpec",
     "ConditionState",
     "DamageImpactSpec",

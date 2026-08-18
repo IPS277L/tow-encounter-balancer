@@ -68,10 +68,14 @@ K1 — реализация книжного resolution kernel. Прототип
 - общий Stagger impact ставит Condition follow-up строго после `GiveGroundRequest` и только при выборе Give Ground;
 - `resolve_condition_after_give_ground` применяет отложенное Condition без преждевременного изменения состояния;
 - after-Give-Ground эффекты работают для основной и явно выбранных вторичных целей.
+- добавлен `ConditionOnHitSpec`, допустимый только с обычным `DamageImpactSpec`;
+- Damage, Staggered/Wound и injury policy завершаются до применения on-hit Condition;
+- Near Miss отменяет Wound, но не дополнительный Condition успешного попадания;
+- фазовый trace сохраняет порядок on-hit Condition до отложенных Give Ground/secondary-target follow-ups.
 
 ## Проверено
 
-- 120 unit/integration тестов успешно проходят на Python 3.12, из них 100 относятся к K1;
+- 125 unit/integration тестов успешно проходят на Python 3.12, из них 105 относятся к K1;
 - исходники и тесты успешно проходят `compileall`.
 
 ## Исходный материал
@@ -91,12 +95,12 @@ K1 — реализация книжного resolution kernel. Прототип
 - внешние последствия Wound для инвентаря и анатомии пока являются typed follow-up;
 - защита Endurance после заживления `Ruptured organs` ещё не подключена к физическому impact;
 - автоматическая замена неподходящей строки Wounds Table для не-физического Hazard требует отдельной GM/simulation policy;
-- spatial-выбор вторичных целей, эффекты «Damage плюс Condition», разные последствия hit/miss и профильные Reactions ещё не имеют общего orchestration;
+- spatial-выбор вторичных целей, условия на конкретный исход Staggered/Wound, разные последствия hit/miss и профильные Reactions ещё не имеют общего orchestration;
 - Monte Carlo, JSON, CLI и балансировщик ещё не входят в текущий срез.
 
 ## Следующий шаг
 
-Добавить `ConditionOnHitSpec` для атак, которые сохраняют обычный Damage и дополнительно накладывают Condition, начав с профильных атак `Dam 7, hits inflict Drained`; spatial-выбор и старый battle loop пока не подключать.
+Реализовать Terrifying как условный secondary effect: Broken, если атака заставила цель Give Ground либо фактически принять Wound; Near Miss не должен считаться принятой Wound. Spatial-выбор и старый battle loop пока не подключать.
 
 ## Последняя проверка
 
@@ -107,7 +111,7 @@ $env:PYTHONPATH = "src"
 py -3.12 -m unittest discover -s tests -v
 ```
 
-Результат: `Ran 120 tests ... OK`.
+Результат: `Ran 125 tests ... OK`.
 
 ```powershell
 py -3.12 -m compileall -q src tests tools

@@ -184,10 +184,28 @@ class ConditionAfterGiveGroundSpec:
         _validate_rule_id(self.rule_id)
 
 
+@dataclass(frozen=True, slots=True)
+class ConditionOnHitSpec:
+    """Apply a non-Staggered Condition after resolving normal Damage."""
+
+    condition: Condition
+    rule_id: str
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.condition, Condition):
+            raise TypeError("condition must be a Condition")
+        if self.condition is Condition.STAGGERED:
+            raise ValueError(
+                "Staggered on hit requires the Stagger impact policy"
+            )
+        _validate_rule_id(self.rule_id)
+
+
 SecondaryEffectSpec = (
     ProneBeforeGiveGroundSpec
     | NearbyTargetsStaggerSpec
     | ConditionAfterGiveGroundSpec
+    | ConditionOnHitSpec
 )
 
 
@@ -232,6 +250,7 @@ class AttackRequest:
                     ProneBeforeGiveGroundSpec,
                     NearbyTargetsStaggerSpec,
                     ConditionAfterGiveGroundSpec,
+                    ConditionOnHitSpec,
                 ),
             )
             for item in effects
@@ -242,6 +261,12 @@ class AttackRequest:
         rule_ids = tuple(item.rule_id for item in effects)
         if len(set(rule_ids)) != len(rule_ids):
             raise ValueError("secondary effect rule_ids must be unique")
+        if any(
+            isinstance(item, ConditionOnHitSpec) for item in effects
+        ) and not isinstance(self.impact_spec, DamageImpactSpec):
+            raise ValueError(
+                "ConditionOnHitSpec requires a normal DamageImpactSpec"
+            )
         object.__setattr__(self, "secondary_effects", effects)
 
 

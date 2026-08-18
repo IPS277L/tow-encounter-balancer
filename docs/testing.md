@@ -73,6 +73,10 @@ py -3.12 -m unittest discover -s tests -v
 - Give Ground follow-up всегда предшествует Condition follow-up;
 - отложенный reducer применяет Condition без преждевременной мутации состояния;
 - тот же after-Give-Ground эффект доступен вторичным целям.
+- Condition-on-hit требует обычный Damage и не срабатывает при промахе;
+- Damage/Staggered/Wound полностью разрешается до on-hit Condition;
+- Near Miss отменяет Wound, но сохраняет дополнительный Condition попадания;
+- on-hit Condition появляется до отложенного Give Ground → Condition.
 
 Группы K1 Staggered:
 

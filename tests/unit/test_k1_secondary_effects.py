@@ -6,6 +6,7 @@ from tests.helpers import SequenceRandom
 from towr.domain.attack_models import (
     AttackRequest,
     ConditionAfterGiveGroundSpec,
+    ConditionOnHitSpec,
     ConditionImpactSpec,
     DamageImpactSpec,
     DamageProfile,
@@ -24,10 +25,12 @@ from towr.domain.injury_models import (
     CharacterInjuryState,
     ProfileInjuryState,
     ProfileStateChangeRequest,
+    WoundNegationOption,
 )
 from towr.domain.resolution_models import (
     AttackerStaggerRequest,
     ConditionAfterGiveGroundRequest,
+    ConsumeWoundNegationRequest,
     GiveGroundRequest,
     KernelAttackRequest,
     NearbyTargetsStaggerRequest,
@@ -44,11 +47,16 @@ class GiveGroundDecisions:
     def __init__(
         self,
         choice: StaggerChoice = StaggerChoice.GIVE_GROUND,
+        wound_negation: str | None = None,
     ) -> None:
         self.choice = choice
+        self.wound_negation = wound_negation
 
     def choose_repeated_stagger(self, **_: object) -> StaggerChoice:
         return self.choice
+
+    def choose_wound_negation(self, **_: object) -> str | None:
+        return self.wound_negation
 
 
 def attack(
@@ -101,6 +109,18 @@ class K1SecondaryEffectTests(unittest.TestCase):
                 "RULE-INVALID",
             )
 
+    def test_condition_on_hit_requires_damage_and_cannot_be_staggered(self) -> None:
+        with self.assertRaises(ValueError):
+            ConditionOnHitSpec(Condition.STAGGERED, "RULE-INVALID")
+        with self.assertRaises(ValueError):
+            attack(
+                ConditionOnHitSpec(Condition.DRAINED, "RULE-INVALID"),
+                impact_spec=ConditionImpactSpec(
+                    Condition.BURDENED,
+                    "RULE-REPLACEMENT",
+                ),
+            )
+
     def test_secondary_effect_rule_ids_must_be_unique(self) -> None:
         with self.assertRaises(ValueError):
             attack(
@@ -114,12 +134,17 @@ class K1SecondaryEffectTests(unittest.TestCase):
             request(
                 ProneBeforeGiveGroundSpec("RULE-MOUNT:noble-steed"),
                 NearbyTargetsStaggerSpec("RULE-WEAPON:blunderbuss"),
+                ConditionOnHitSpec(
+                    Condition.DRAINED,
+                    "RULE-ATTACK:draining-hit",
+                ),
                 state=state,
             ),
             SequenceRandom([10, 10, 10]),
         )
 
         self.assertIs(result.target_state, state)
+        self.assertFalse(result.target_state.conditions.has(Condition.DRAINED))
         self.assertEqual(result.applied_secondary_rule_ids, ())
         self.assertEqual(len(result.follow_ups), 1)
         self.assertIsInstance(result.follow_ups[0], AttackerStaggerRequest)
@@ -270,6 +295,126 @@ class K1SecondaryEffectTests(unittest.TestCase):
         self.assertTrue(result.target_state.conditions.has(Condition.PRONE))
         self.assertEqual(result.follow_ups, ())
         self.assertEqual(result.applied_secondary_rule_ids, ())
+
+    def test_condition_on_hit_is_added_after_normal_damage_impact(self) -> None:
+        effect = ConditionOnHitSpec(
+            Condition.DRAINED,
+            "RULE-ATTACK:serrated-maw",
+        )
+        result = resolve_kernel_attack(
+            request(effect),
+            SequenceRandom([1, 10, 10]),
+        )
+
+        self.assertIsNotNone(result.stagger)
+        self.assertTrue(result.target_state.conditions.has(Condition.STAGGERED))
+        self.assertTrue(result.target_state.conditions.has(Condition.DRAINED))
+        self.assertEqual(
+            result.applied_secondary_rule_ids,
+            (effect.rule_id,),
+        )
+
+    def test_near_miss_does_not_cancel_condition_on_hit(self) -> None:
+        effect = ConditionOnHitSpec(
+            Condition.DRAINED,
+            "RULE-ATTACK:venomous-tail",
+        )
+        near_miss = WoundNegationOption("RULE-FATE:near-miss")
+        result = resolve_kernel_attack(
+            KernelAttackRequest(
+                id="resolution",
+                attack=attack(
+                    effect,
+                    impact_spec=DamageImpactSpec(
+                        DamageProfile(5),
+                        ResilienceProfile(toughness=4, bonus=1),
+                    ),
+                ),
+                target_policy=TargetInjuryPolicy.PLAYER,
+                target_state=CharacterInjuryState(
+                    conditions=ConditionState(
+                        frozenset({Condition.STAGGERED})
+                    )
+                ),
+                can_target_leave_zone=True,
+                target_has_given_ground_this_round=False,
+                wound_negation_options=(near_miss,),
+            ),
+            SequenceRandom([1, 10, 10, 10]),
+            decisions=GiveGroundDecisions(
+                wound_negation=near_miss.rule_id,
+            ),
+        )
+
+        assert result.character_wound is not None
+        self.assertFalse(result.character_wound.wound_accepted)
+        self.assertTrue(result.target_state.conditions.has(Condition.STAGGERED))
+        self.assertTrue(result.target_state.conditions.has(Condition.DRAINED))
+        self.assertIsInstance(result.follow_ups[0], ConsumeWoundNegationRequest)
+        self.assertEqual(
+            result.applied_secondary_rule_ids,
+            (effect.rule_id,),
+        )
+
+    def test_condition_on_hit_is_applied_after_an_accepted_wound(self) -> None:
+        effect = ConditionOnHitSpec(
+            Condition.DRAINED,
+            "RULE-ATTACK:serrated-maw",
+        )
+        result = resolve_kernel_attack(
+            request(
+                effect,
+                impact_spec=DamageImpactSpec(
+                    DamageProfile(5),
+                    ResilienceProfile(toughness=4, bonus=1),
+                ),
+            ),
+            SequenceRandom([1, 10, 10, 1]),
+        )
+
+        assert result.character_wound is not None
+        self.assertTrue(result.character_wound.wound_accepted)
+        self.assertEqual(len(result.target_state.wounds), 1)
+        self.assertTrue(result.target_state.conditions.has(Condition.DRAINED))
+        self.assertEqual(
+            result.applied_secondary_rule_ids,
+            (effect.rule_id,),
+        )
+
+    def test_condition_on_hit_precedes_after_give_ground_follow_up(self) -> None:
+        after_ground = ConditionAfterGiveGroundSpec(
+            Condition.BROKEN,
+            "RULE-NPC:fearsome",
+        )
+        on_hit = ConditionOnHitSpec(
+            Condition.DRAINED,
+            "RULE-ATTACK:serrated-maw",
+        )
+        result = resolve_kernel_attack(
+            request(
+                after_ground,
+                on_hit,
+                state=CharacterInjuryState(
+                    conditions=ConditionState(
+                        frozenset({Condition.STAGGERED})
+                    )
+                ),
+            ),
+            SequenceRandom([1, 10, 10]),
+            decisions=GiveGroundDecisions(),
+        )
+
+        self.assertTrue(result.target_state.conditions.has(Condition.DRAINED))
+        self.assertFalse(result.target_state.conditions.has(Condition.BROKEN))
+        self.assertIsInstance(result.follow_ups[0], GiveGroundRequest)
+        self.assertIsInstance(
+            result.follow_ups[1],
+            ConditionAfterGiveGroundRequest,
+        )
+        self.assertEqual(
+            result.applied_secondary_rule_ids,
+            (on_hit.rule_id, after_ground.rule_id),
+        )
 
 
 if __name__ == "__main__":
