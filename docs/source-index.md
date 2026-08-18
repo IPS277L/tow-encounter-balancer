@@ -26,7 +26,7 @@
 - страницы 152–174: магия;
 - страницы 175–191: описание мира.
 
-Встроенное оглавление указывает ключевые страницы для прототипа: `Rolling Dice` — 107, `Opposed Tests` — 109, `Combat` — 112, `Hazards` — 115–116, `Attack Tests` — 118, `Failed Attacks` и `Successful Attacks` — 119, `Wounds & Conditions` — 121, `Conditions` — 122–123.
+Встроенное оглавление указывает ключевые страницы для прототипа: `Rolling Dice` — 107, `Opposed Tests` — 109, `Combat` — 112, `Hazards` — 115–116, `Attack Tests` — 118, `Failed Attacks` и `Successful Attacks` — 119, `Wounds & Conditions` — 121, `Conditions` — 122–123. Конкретные secondary effects: Blunderbuss — 95, Noble Steed — 124.
 
 ### Извлечение
 
@@ -59,7 +59,7 @@
 - страницы 81–88: магические предметы;
 - страницы 89–186: типы NPC, формат профилей, фракции, противники и монстры.
 
-Ключевые страницы для проекта: `Preparing for Battle` — 60, `Balancing Encounters` — 62, `Types of NPC` — 89–90, `Understanding NPC Profiles` — 91.
+Ключевые страницы для проекта: `Preparing for Battle` — 60, `Balancing Encounters` — 62, `Types of NPC` — 89–90, `Understanding NPC Profiles` — 91. Репрезентативные варианты Prone до Give Ground находятся на страницах 106, 126, 136 и 174.
 
 ### Извлечение
 

@@ -65,7 +65,7 @@ validate target/range/action
 - `AttackRequest` — одна атака по одной основной цели;
 - `TestModifier`, `TieModifier`, `DamageModifier`, `ResilienceModifier` — числовые изменения своей фазы;
 - `ImpactSpec` — обычный Damage либо явная замена результата;
-- `SecondaryEffectSpec` — конкретное правило дополнительных целей, не общий AoE;
+- `SecondaryEffectSpec` — конкретное фазовое или multi-target правило, не общий AoE;
 - `InjuryPolicy` — Player/Champion, Minion, Brute или Monstrosity;
 - `DecisionRequest[T]` / `DecisionProvider` — контролируемый выбор;
 - `FollowUpRequest` — дополнительная атака, Test, перемещение или эффект после завершения операции.
@@ -109,4 +109,6 @@ validate target/range/action
 
 Kernel исполняет непосредственный эффект принятой строки Wounds Table как часть текущей injury-фазы, но не исполняет созданные им follow-up рекурсивно. Endurance использует общий Test resolver после того, как orchestration предоставит профиль персонажа; изменения инвентаря и анатомии остаются отдельными типизированными запросами.
 
-`DamageImpactSpec` проходит полный Damage/Resilience pipeline. `ConditionImpactSpec` не вычисляет Damage; Staggered передаётся существующей repeated-Stagger policy, остальные Conditions применяются непосредственно. `HazardImpactSpec` возвращает `HazardExposureRequest` с рейтингом и Skill. После внешнего Test `resolve_hazard` вычисляет shortfall, передаёт его как базовое число кубов/профильных Wounds в общую injury policy и применяет failure Conditions. Выбор нескольких целей, Damage с дополнительным Condition и уникальные профильные Reactions ещё требуют secondary/named resolvers.
+`DamageImpactSpec` проходит полный Damage/Resilience pipeline. `ConditionImpactSpec` не вычисляет Damage; Staggered передаётся существующей repeated-Stagger policy, остальные Conditions применяются непосредственно. `HazardImpactSpec` возвращает `HazardExposureRequest` с рейтингом и Skill. После внешнего Test `resolve_hazard` вычисляет shortfall, передаёт его как базовое число кубов/профильных Wounds в общую injury policy и применяет failure Conditions.
+
+Первые `SecondaryEffectSpec` задают две разные фазы. `ProneBeforeGiveGroundSpec` изменяет состояние основной цели до repeated-Staggered decision. `NearbyTargetsStaggerSpec` после завершения основной цели создаёт `NearbyTargetsStaggerRequest`; поиск существ, снимок их позиции и детерминированный порядок остаются обязанностью будущего spatial orchestration. Применённые secondary rules записываются в `ResolutionResult.applied_secondary_rule_ids`. Damage с дополнительным Condition и уникальные профильные Reactions ещё требуют secondary/named resolvers.

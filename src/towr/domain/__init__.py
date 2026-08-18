@@ -7,7 +7,10 @@ from towr.domain.attack_models import (
     DamageImpactSpec,
     DamageProfile,
     HazardImpactSpec,
+    NearbyTargetsStaggerSpec,
+    ProneBeforeGiveGroundSpec,
     ResilienceProfile,
+    SecondaryEffectSpec,
 )
 from towr.domain.combatants import CombatantDefinition, CombatantState, Side
 from towr.domain.condition_models import Condition, ConditionState
@@ -18,6 +21,7 @@ from towr.domain.resolution_models import (
     HazardResolutionRequest,
     HazardResolutionResult,
     KernelAttackRequest,
+    NearbyTargetsStaggerRequest,
     ResolutionResult,
 )
 from towr.domain.results import BattleOutcome, BattleResult
@@ -46,9 +50,13 @@ __all__ = [
     "HazardResolutionRequest",
     "HazardResolutionResult",
     "KernelAttackRequest",
+    "NearbyTargetsStaggerRequest",
+    "NearbyTargetsStaggerSpec",
     "ProfileInjuryState",
+    "ProneBeforeGiveGroundSpec",
     "ResilienceProfile",
     "ResolutionResult",
+    "SecondaryEffectSpec",
     "Side",
     "Skill",
     "StatBlock",

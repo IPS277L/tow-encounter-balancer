@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import replace
 from typing import Protocol
 
 from towr.domain.attack_models import (
@@ -10,6 +11,8 @@ from towr.domain.attack_models import (
     HazardImpactSpec,
     ImpactOutcome,
     MissConsequence,
+    NearbyTargetsStaggerSpec,
+    ProneBeforeGiveGroundSpec,
 )
 from towr.domain.condition_models import (
     Condition,
@@ -36,6 +39,7 @@ from towr.domain.resolution_models import (
     HazardImpactResult,
     KernelAttackRequest,
     MonstrosityReactionRequest,
+    NearbyTargetsStaggerRequest,
     ReplacementImpactResult,
     ResolutionResult,
     TargetInjuryPolicy,
@@ -93,32 +97,106 @@ def resolve_kernel_attack(
             follow_ups=follow_ups,
         )
 
+    effective_request, applied_secondary_rule_ids = (
+        _apply_pre_stagger_secondary(request)
+    )
     if isinstance(attack.impact_spec, ConditionImpactSpec):
-        return _resolve_condition_impact(
-            request,
+        result = _resolve_condition_impact(
+            effective_request,
             attack,
             attack.impact_spec,
             rng,
             decisions,
         )
-    if isinstance(attack.impact_spec, HazardImpactSpec):
-        return _resolve_hazard_impact(request, attack, attack.impact_spec)
+    elif isinstance(attack.impact_spec, HazardImpactSpec):
+        result = _resolve_hazard_impact(
+            effective_request,
+            attack,
+            attack.impact_spec,
+        )
+    else:
+        assert isinstance(attack.impact_spec, DamageImpactSpec)
+        assert attack.damage is not None
+        assert attack.effective_resilience is not None
+        if effective_request.target_policy is TargetInjuryPolicy.MONSTROSITY:
+            result = _resolve_monstrosity(
+                effective_request,
+                attack,
+                rng,
+                decisions,
+            )
+        elif attack.impact is ImpactOutcome.WOUND:
+            result = _resolve_wound(
+                effective_request,
+                attack,
+                effective_request.target_state,
+                rng,
+                decisions,
+            )
+        else:
+            result = _resolve_stagger_impact(
+                effective_request,
+                attack,
+                effective_request.target_state,
+                rng,
+                decisions,
+            )
+    return _apply_post_hit_secondary(
+        effective_request,
+        result,
+        applied_secondary_rule_ids,
+    )
 
-    assert isinstance(attack.impact_spec, DamageImpactSpec)
-    assert attack.damage is not None
-    assert attack.effective_resilience is not None
-    if request.target_policy is TargetInjuryPolicy.MONSTROSITY:
-        return _resolve_monstrosity(request, attack, rng, decisions)
 
-    if attack.impact is ImpactOutcome.WOUND:
-        return _resolve_wound(request, attack, request.target_state, rng, decisions)
+def _apply_pre_stagger_secondary(
+    request: KernelAttackRequest,
+) -> tuple[KernelAttackRequest, tuple[str, ...]]:
+    state = request.target_state
+    applied_rule_ids: list[str] = []
+    for effect in request.attack.secondary_effects:
+        if not isinstance(effect, ProneBeforeGiveGroundSpec):
+            continue
+        if (
+            request.target_policy is TargetInjuryPolicy.MONSTROSITY
+            and not effect.affects_monstrosities
+        ):
+            continue
+        state = _with_conditions(
+            state,
+            state.conditions.with_condition(Condition.PRONE),
+        )
+        applied_rule_ids.append(effect.rule_id)
+    if not applied_rule_ids:
+        return request, ()
+    return (
+        replace(request, target_state=state),
+        tuple(applied_rule_ids),
+    )
 
-    return _resolve_stagger_impact(
-        request,
-        attack,
-        request.target_state,
-        rng,
-        decisions,
+
+def _apply_post_hit_secondary(
+    request: KernelAttackRequest,
+    result: ResolutionResult,
+    applied_rule_ids: tuple[str, ...],
+) -> ResolutionResult:
+    follow_ups = list(result.follow_ups)
+    rule_ids = list(applied_rule_ids)
+    for effect in request.attack.secondary_effects:
+        if not isinstance(effect, NearbyTargetsStaggerSpec):
+            continue
+        follow_ups.append(
+            NearbyTargetsStaggerRequest(
+                resolution_id=request.id,
+                rule_id=effect.rule_id,
+            )
+        )
+        rule_ids.append(effect.rule_id)
+    if not rule_ids:
+        return result
+    return replace(
+        result,
+        follow_ups=tuple(follow_ups),
+        applied_secondary_rule_ids=tuple(rule_ids),
     )
 
 

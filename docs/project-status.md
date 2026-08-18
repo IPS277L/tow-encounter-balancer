@@ -56,10 +56,14 @@ K1 — реализация книжного resolution kernel. Прототип
 - shortfall Hazard задаёт базовое число кубов Wounds Table либо профильных Wounds, отдельно от untreated/modifier effects;
 - поддержаны Wound-only, Condition-only и Wound+Condition Hazards для всех четырёх injury policies;
 - Near Miss отменяет Wound от Hazard, но не отменяет его независимые failure Conditions.
+- добавлен закрытый `SecondaryEffectSpec` с первыми фазовыми и multi-target вариантами;
+- `ProneBeforeGiveGroundSpec` применяется до repeated-Staggered decision и поддерживает книжное исключение Monstrosity;
+- эффект Blunderbuss создаёт `NearbyTargetsStaggerRequest` только при попадании и после результата основной цели;
+- применённые secondary Rule ID сохраняются в `ResolutionResult`.
 
 ## Проверено
 
-- 105 unit/integration тестов успешно проходят на Python 3.12, из них 85 относятся к K1;
+- 110 unit/integration тестов успешно проходят на Python 3.12, из них 90 относятся к K1;
 - исходники и тесты успешно проходят `compileall`.
 
 ## Исходный материал
@@ -79,12 +83,12 @@ K1 — реализация книжного resolution kernel. Прототип
 - внешние последствия Wound для инвентаря и анатомии пока являются typed follow-up;
 - защита Endurance после заживления `Ruptured organs` ещё не подключена к физическому impact;
 - автоматическая замена неподходящей строки Wounds Table для не-физического Hazard требует отдельной GM/simulation policy;
-- multi-target, эффекты «Damage плюс Condition», разные последствия hit/miss, профильные Reactions и secondary effects ещё не имеют общего orchestration;
+- spatial-выбор и исполнение нескольких вторичных целей, эффекты «Damage плюс Condition», разные последствия hit/miss и профильные Reactions ещё не имеют общего orchestration;
 - Monte Carlo, JSON, CLI и балансировщик ещё не входят в текущий срез.
 
 ## Следующий шаг
 
-Добавить конкретный `SecondaryEffectSpec` для эффектов после Damage и нескольких целей, начав с книжных `Prone before Give Ground` и Blunderbuss; старый battle loop пока не подключать.
+Добавить executor для `NearbyTargetsStaggerRequest`, принимающий уже выбранный детерминированно упорядоченный набор разных вторичных целей и применяющий к каждой общую Staggered/injury policy; spatial-выбор и старый battle loop пока не подключать.
 
 ## Последняя проверка
 
@@ -95,7 +99,7 @@ $env:PYTHONPATH = "src"
 py -3.12 -m unittest discover -s tests -v
 ```
 
-Результат: `Ran 105 tests ... OK`.
+Результат: `Ran 110 tests ... OK`.
 
 ```powershell
 py -3.12 -m compileall -q src tests tools

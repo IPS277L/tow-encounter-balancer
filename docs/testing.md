@@ -56,6 +56,15 @@ py -3.12 -m unittest discover -s tests -v
 - failure Conditions применяются после Wound и не отменяются Near Miss;
 - результат постороннего Test нельзя передать другой экспозиции.
 
+Группы K1 Secondary effects:
+
+- secondary effects не срабатывают при промахе;
+- Prone применяется до repeated-Staggered и тем самым запрещает Give Ground;
+- конкретный эффект может исключить Monstrosity;
+- Blunderbuss создаёт typed request для других существ в Close Range от цели;
+- multi-target request ставится после последствий основной цели;
+- Rule ID применённых secondary effects сохраняются в результате.
+
 Группы K1 Staggered:
 
 - первое получение состояния без дополнительного выбора;

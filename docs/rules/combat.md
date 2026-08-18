@@ -72,7 +72,7 @@ Damage = base weapon Damage + attacker_successes - defender_successes
 - чистое разрешение одной атаки: `src/towr/rules/attack_resolution.py`;
 - детерминированные проверки: `tests/unit/test_k1_attack_resolution.py`.
 
-Текущий resolver поддерживает одну основную цель, opposed/unopposed атаку, книжный tie-break, обычный Damage, коэффициент успехов профильной атаки, эффективный Resilience, игнорирование брони и последствие промаха в Close Range. Он возвращает `ImpactOutcome`, но ещё не изменяет состояние цели: применение Staggered, Wound и заменяющих impact относится к следующему срезу K1.
+Чистый Attack resolver поддерживает одну основную цель, opposed/unopposed атаку, книжный tie-break, обычный Damage, коэффициент успехов профильной атаки, эффективный Resilience, игнорирование брони и последствие промаха в Close Range. `resolve_kernel_attack` применяет к основной цели Staggered, Wound и replacement impact, исполняет фазовый `ProneBeforeGiveGroundSpec` и возвращает остальные действия типизированными follow-up. Поиск вторичных целей по Zones остаётся вне K1.
 
 ## RULE-COMBAT-010 — завершение боя
 

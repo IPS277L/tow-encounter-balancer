@@ -146,6 +146,31 @@ ImpactSpec = DamageImpactSpec | ConditionImpactSpec | HazardImpactSpec
 
 
 @dataclass(frozen=True, slots=True)
+class ProneBeforeGiveGroundSpec:
+    """Inflict Prone on a hit before resolving any repeated Staggered."""
+
+    rule_id: str
+    affects_monstrosities: bool = True
+
+    def __post_init__(self) -> None:
+        _validate_rule_id(self.rule_id)
+        _validate_bool(self.affects_monstrosities, "affects_monstrosities")
+
+
+@dataclass(frozen=True, slots=True)
+class NearbyTargetsStaggerSpec:
+    """On a hit, request Staggered for creatures near the primary target."""
+
+    rule_id: str
+
+    def __post_init__(self) -> None:
+        _validate_rule_id(self.rule_id)
+
+
+SecondaryEffectSpec = ProneBeforeGiveGroundSpec | NearbyTargetsStaggerSpec
+
+
+@dataclass(frozen=True, slots=True)
 class AttackRequest:
     id: str
     attacker_test: TestRequest
@@ -154,6 +179,9 @@ class AttackRequest:
     is_close_range: bool
     attacker_is_staggered: bool
     close_miss_stagger_immunity_rule_id: str | None = None
+    secondary_effects: tuple[SecondaryEffectSpec, ...] = field(
+        default_factory=tuple
+    )
 
     def __post_init__(self) -> None:
         if not isinstance(self.id, str):
@@ -175,6 +203,21 @@ class AttackRequest:
         _validate_bool(self.attacker_is_staggered, "attacker_is_staggered")
         if self.close_miss_stagger_immunity_rule_id is not None:
             _validate_rule_id(self.close_miss_stagger_immunity_rule_id)
+        effects = tuple(self.secondary_effects)
+        if not all(
+            isinstance(
+                item,
+                (ProneBeforeGiveGroundSpec, NearbyTargetsStaggerSpec),
+            )
+            for item in effects
+        ):
+            raise TypeError(
+                "secondary_effects must contain SecondaryEffectSpec values"
+            )
+        rule_ids = tuple(item.rule_id for item in effects)
+        if len(set(rule_ids)) != len(rule_ids):
+            raise ValueError("secondary effect rule_ids must be unique")
+        object.__setattr__(self, "secondary_effects", effects)
 
 
 @dataclass(frozen=True, slots=True)

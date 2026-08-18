@@ -1,6 +1,6 @@
 # Модификаторы и специальные эффекты
 
-Основные источники: `BOOK-PLAYER-GUIDE`, страницы 73–81, 92–97, 111–112; `BOOK-GM-GUIDE`, страницы 89–91 и профили NPC на страницах 92–185. Статус: фазовая модель и базовые replacement impacts `implemented`; полный каталог Talents, предметов и NPC остаётся `draft`.
+Основные источники: `BOOK-PLAYER-GUIDE`, страницы 73–81, 92–97, 111–112, 124; `BOOK-GM-GUIDE`, страницы 89–91 и профили NPC на страницах 92–185. Статус: фазовая модель, базовые replacement impacts и первые secondary effects `implemented`; полный каталог Talents, предметов и NPC остаётся `draft`.
 
 ## RULE-EFFECT-001 — эффект привязан к фазе
 
@@ -61,6 +61,13 @@
 Примеры разных моделей: Blunderbuss, Oil Flask, Blasting Charge, Cleaving Blow, Monstrosity с несколькими отдельными атаками и профильные способности существ.
 
 Источник: Player’s Guide, страницы 74, 95–96; GM Guide, страницы 90, 149, 177, 181–185.
+
+В K1 реализованы два узких варианта `SecondaryEffectSpec`:
+
+- `ProneBeforeGiveGroundSpec` на успешном попадании накладывает Prone до разрешения обычного Staggered. Поэтому уже Staggered цель не может после этого выбрать Give Ground или повторное Prone. Флаг `affects_monstrosities` выражает различие между Noble Steed, который исключает Monstrosity, и атаками без такого исключения. Источники: Player’s Guide, страница 124; GM Guide, страницы 106, 126, 136 и 174;
+- `NearbyTargetsStaggerSpec` на попадании добавляет `NearbyTargetsStaggerRequest` после полного результата основной цели. Запрос означает всех других существ, которые находились в Close Range от основной цели в момент попадания. Источник свойства Blunderbuss: Player’s Guide, страница 95.
+
+Kernel не ищет существ по Zones и не применяет к ним состояние сам. Будущий spatial orchestration должен зафиксировать подходящие разные цели, упорядочить их детерминированно и разрешить для каждой обычную repeated-Staggered/injury policy. Остальные свойства Blunderbuss — диапазон, бонус кубов и reload — принадлежат своим фазам и этим spec не реализуются.
 
 ## RULE-EFFECT-007 — последующие действия не являются частью броска
 

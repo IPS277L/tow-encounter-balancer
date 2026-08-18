@@ -48,6 +48,18 @@ class GiveGroundRequest:
 
 
 @dataclass(frozen=True, slots=True)
+class NearbyTargetsStaggerRequest:
+    """Stagger every other creature that was near the primary target on hit."""
+
+    resolution_id: str
+    rule_id: str
+
+    def __post_init__(self) -> None:
+        _validate_non_empty_string(self.resolution_id, "resolution_id")
+        _validate_non_empty_string(self.rule_id, "rule_id")
+
+
+@dataclass(frozen=True, slots=True)
 class MonstrosityReactionRequest:
     resolution_id: str
     reaction_rule_id: str
@@ -129,6 +141,7 @@ FollowUpRequest = (
     | GiveGroundRequest
     | HazardExposureRequest
     | MonstrosityReactionRequest
+    | NearbyTargetsStaggerRequest
     | WoundEnduranceTestRequest
     | WoundConsequenceRequest
     | WoundChoiceRequest
@@ -393,6 +406,7 @@ class ResolutionResult:
     profile_wound: ProfileWoundResult | None
     monstrosity_impact: MonstrosityImpactResult | None
     follow_ups: tuple[FollowUpRequest, ...]
+    applied_secondary_rule_ids: tuple[str, ...] = field(default_factory=tuple)
 
 
 def _validate_bool(value: bool, name: str) -> None:
