@@ -116,6 +116,10 @@ py -3.12 -m unittest discover -s tests -v
 - Liche/Tomb King открывает явный выбор владельца Monstrosity между доступными Wound, Give Ground и Prone;
 - недоступные Give Ground/Prone исключаются до decision policy, а неподдерживаемый выбор отклоняется;
 - Give Ground и Wound от Undead Monstrosity запускают Terrifying, тогда как Prone не запускает;
+- общий Condition application блокирует только совпавшую явную классификацию источника;
+- психологическая иммунность сохраняет source/blocking Rule IDs и не удаляет уже существующий Condition;
+- Bone Dragon блокирует психологический replacement Condition до прямого/Staggered reducer;
+- одно значение Broken без психологической классификации не активирует иммунитет;
 - полный путь `Attack → Impact → Staggered/Wound → state + follow-ups`;
 - отсутствие скрытого выбора при Glorious, повторном Staggered, Near Miss и Monstrosity Reaction.
 

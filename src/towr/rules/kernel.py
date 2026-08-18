@@ -19,6 +19,7 @@ from towr.domain.attack_models import (
 )
 from towr.domain.condition_models import (
     Condition,
+    ConditionApplicationRequest,
     ConditionState,
 )
 from towr.domain.injury_models import (
@@ -46,6 +47,9 @@ from towr.domain.resolution_models import (
     TargetInjuryPolicy,
 )
 from towr.rules.attack_resolution import resolve_attack
+from towr.rules.condition_effect_resolution import (
+    resolve_condition_application,
+)
 from towr.rules.dice import RandomSource
 from towr.rules.injury_resolution import (
     WoundDecisionProvider,
@@ -285,11 +289,30 @@ def _resolve_condition_impact(
     decisions: ResolutionDecisionProvider | None,
 ) -> ResolutionResult:
     state = request.target_state
-    result = ConditionImpactResult(
-        condition=spec.condition,
-        was_already_present=state.conditions.has(spec.condition),
-        applied_rule_ids=(spec.rule_id,),
+    application = resolve_condition_application(
+        ConditionApplicationRequest(
+            id=f"{request.id}:condition-impact",
+            state=state.conditions,
+            condition=spec.condition,
+            source_rule_id=spec.rule_id,
+            classification=spec.classification,
+            immunities=request.target_effect_immunities,
+        )
     )
+    result = ConditionImpactResult(application=application)
+    if application.blocked:
+        return ResolutionResult(
+            request_id=request.id,
+            attack=attack,
+            replacement_impact=result,
+            target_state=state,
+            stagger=None,
+            character_wound=None,
+            wound_effect=None,
+            profile_wound=None,
+            monstrosity_impact=None,
+            follow_ups=(),
+        )
     if spec.condition is Condition.STAGGERED:
         return _resolve_stagger_impact(
             request,
@@ -302,7 +325,7 @@ def _resolve_condition_impact(
 
     updated_state = _with_conditions(
         state,
-        state.conditions.with_condition(spec.condition),
+        application.state,
     )
     return ResolutionResult(
         request_id=request.id,

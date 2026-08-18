@@ -1,11 +1,50 @@
 from __future__ import annotations
 
+from towr.domain.condition_models import (
+    ConditionApplicationRequest,
+    ConditionApplicationResult,
+)
 from towr.domain.injury_models import CharacterInjuryState, ProfileInjuryState
 from towr.domain.resolution_models import (
     ConditionAfterGiveGroundRequest,
     ConditionAfterGiveGroundResult,
     TargetInjuryState,
 )
+
+
+def resolve_condition_application(
+    request: ConditionApplicationRequest,
+) -> ConditionApplicationResult:
+    was_already_present = request.state.has(request.condition)
+    blocking_immunity = next(
+        (
+            immunity
+            for immunity in request.immunities
+            if immunity.classification is request.classification
+        ),
+        None,
+    )
+    if blocking_immunity is not None:
+        return ConditionApplicationResult(
+            request_id=request.id,
+            state=request.state,
+            condition=request.condition,
+            was_already_present=was_already_present,
+            blocked=True,
+            source_rule_id=request.source_rule_id,
+            blocked_by_rule_id=blocking_immunity.rule_id,
+            applied_rule_ids=(blocking_immunity.rule_id,),
+        )
+    return ConditionApplicationResult(
+        request_id=request.id,
+        state=request.state.with_condition(request.condition),
+        condition=request.condition,
+        was_already_present=was_already_present,
+        blocked=False,
+        source_rule_id=request.source_rule_id,
+        blocked_by_rule_id=None,
+        applied_rule_ids=(request.source_rule_id,),
+    )
 
 
 def resolve_condition_after_give_ground(

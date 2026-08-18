@@ -10,7 +10,12 @@ from towr.domain.attack_models import (
     ConditionOnGiveGroundOrWoundSpec,
     HazardImpactSpec,
 )
-from towr.domain.condition_models import Condition, StaggerResult
+from towr.domain.condition_models import (
+    Condition,
+    ConditionApplicationResult,
+    EffectImmunity,
+    StaggerResult,
+)
 from towr.domain.injury_models import (
     AdditionalProfileWound,
     CharacterInjuryState,
@@ -395,9 +400,31 @@ class HazardExposureRequest:
 
 @dataclass(frozen=True, slots=True)
 class ConditionImpactResult:
-    condition: Condition
-    was_already_present: bool
-    applied_rule_ids: tuple[str, ...]
+    application: ConditionApplicationResult
+
+    @property
+    def condition(self) -> Condition:
+        return self.application.condition
+
+    @property
+    def was_already_present(self) -> bool:
+        return self.application.was_already_present
+
+    @property
+    def blocked(self) -> bool:
+        return self.application.blocked
+
+    @property
+    def source_rule_id(self) -> str:
+        return self.application.source_rule_id
+
+    @property
+    def blocked_by_rule_id(self) -> str | None:
+        return self.application.blocked_by_rule_id
+
+    @property
+    def applied_rule_ids(self) -> tuple[str, ...]:
+        return self.application.applied_rule_ids
 
 
 @dataclass(frozen=True, slots=True)
@@ -771,6 +798,9 @@ class KernelAttackRequest:
         default_factory=tuple
     )
     monstrosity_reaction: MonstrosityReactionSpec | None = None
+    target_effect_immunities: tuple[EffectImmunity, ...] = field(
+        default_factory=tuple
+    )
 
     def __post_init__(self) -> None:
         if not isinstance(self.id, str):
@@ -801,6 +831,17 @@ class KernelAttackRequest:
             "additional_profile_wounds",
             tuple(self.additional_profile_wounds),
         )
+        immunities = tuple(self.target_effect_immunities)
+        if not all(isinstance(item, EffectImmunity) for item in immunities):
+            raise TypeError(
+                "target_effect_immunities must contain EffectImmunity values"
+            )
+        classifications = tuple(item.classification for item in immunities)
+        if len(set(classifications)) != len(classifications):
+            raise ValueError(
+                "target effect immunity classifications must be unique"
+            )
+        object.__setattr__(self, "target_effect_immunities", immunities)
         self._validate_policy_state()
         self._validate_policy_options()
 

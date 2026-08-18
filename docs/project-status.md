@@ -99,10 +99,16 @@ K1 — реализация книжного resolution kernel. Прототип
 - `resolve_reactor_zone_hazard` слева направо проводит каждую цель через общие Test/Hazard resolvers на одном RNG;
 - результат каждой Zone-цели сохраняет exposure, полный Test trace, собственный injury state и Hazard result;
 - Test/Wound decision providers, Near Miss, четыре injury policy и failure Conditions переиспользуются без отдельной area-логики.
+- добавлены `EffectClassification.PSYCHOLOGICAL` и source-aware `EffectImmunity` для undead-профилей страниц 166–172;
+- реализован общий `ConditionApplicationRequest → ConditionApplicationResult`, сохраняющий source Rule ID и blocking immunity Rule ID;
+- неклассифицированные эффекты не считаются психологическими по значению Condition;
+- `ConditionImpactSpec` передаёт классификацию, а `KernelAttackRequest` — иммунитеты цели;
+- Bone Dragon блокирует психологический replacement Condition до прямого или Staggered reducer;
+- остальные secondary/Hazard/non-Condition пути пока намеренно не считают подключёнными к иммунитету.
 
 ## Проверено
 
-- 153 unit/integration теста успешно проходят на Python 3.12, из них 133 относятся к K1;
+- 161 unit/integration тест успешно проходит на Python 3.12, из них 141 относится к K1;
 - исходники и тесты успешно проходят `compileall`.
 
 ## Исходный материал
@@ -125,12 +131,12 @@ K1 — реализация книжного resolution kernel. Прототип
 - spatial-поиск и стабильная сортировка secondary/Zone целей, а также разные последствия hit/miss ещё не имеют общего battle orchestration;
 - для Monstrous Flight при полностью невозможном Give Ground книга не задаёт fallback; K1 требует внешнего ruling;
 - `SuppressRegenerationNextTurnRequest` ещё некому сохранить и погасить без нового turn orchestration;
-- иммунитет Bone Dragon к психологическим эффектам и Conditions требует типизированной классификации эффектов и пока не исполняется;
+- психологическая иммунность undead-профилей пока подключена только к replacement Condition; secondary/Hazard и не-Condition эффекты ещё требуют миграции;
 - Monte Carlo, JSON, CLI и балансировщик ещё не входят в текущий срез.
 
 ## Следующий шаг
 
-Нормализовать и реализовать психологическую невосприимчивость Bone Dragon (GM Guide, страница 172): добавить явную классификацию источника психологического эффекта и профильную immunity policy, не выводя психологическую природу только из значения `Condition`. Начать с общего Condition application path и сохранить Rule ID заблокированного эффекта в результате.
+Перевести `ConditionOnHitSpec`, `ConditionOnGiveGroundOrWoundSpec` и `ConditionAfterGiveGroundSpec` на общий source-classified Condition application. Передавать иммунитеты цели через непосредственный и отложенный пути, сохранять блокировки в trace/result и проверить Fearsome/Terrifying против undead-профиля. Hazard и не-Condition психологические эффекты оставить отдельными последующими срезами.
 
 ## Последняя проверка
 
@@ -141,7 +147,7 @@ $env:PYTHONPATH = "src"
 py -3.12 -m unittest discover -s tests -v
 ```
 
-Результат: `Ran 153 tests ... OK`.
+Результат: `Ran 161 tests ... OK`.
 
 ```powershell
 py -3.12 -m compileall -q src tests tools

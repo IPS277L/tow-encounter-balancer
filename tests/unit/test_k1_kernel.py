@@ -12,7 +12,13 @@ from towr.domain.attack_models import (
     ImpactSpec,
     ResilienceProfile,
 )
-from towr.domain.condition_models import Condition, ConditionState, StaggerChoice
+from towr.domain.condition_models import (
+    Condition,
+    ConditionState,
+    EffectClassification,
+    EffectImmunity,
+    StaggerChoice,
+)
 from towr.domain.injury_models import (
     CharacterInjuryState,
     MonstrosityImpactChoice,
@@ -100,6 +106,7 @@ def kernel_request(
     impact_spec: ImpactSpec | None = None,
     negation_options: tuple[WoundNegationOption, ...] = (),
     reaction: MonstrosityReactionSpec | None = None,
+    effect_immunities: tuple[EffectImmunity, ...] = (),
 ) -> KernelAttackRequest:
     return KernelAttackRequest(
         id="resolution",
@@ -109,6 +116,7 @@ def kernel_request(
         can_target_leave_zone=True,
         target_has_given_ground_this_round=False,
         wound_negation_options=negation_options,
+        target_effect_immunities=effect_immunities,
         monstrosity_reaction=(
             reaction
             or MonstrousFlightReactionSpec(
@@ -207,6 +215,99 @@ class K1KernelTests(unittest.TestCase):
         self.assertIsNone(result.stagger)
         self.assertIsNone(result.character_wound)
         self.assertIsNone(result.attack.damage)
+
+    def test_bone_dragon_immunity_blocks_psychological_condition(self) -> None:
+        immunity = EffectImmunity(
+            EffectClassification.PSYCHOLOGICAL,
+            "RULE-NPC:undead-monstrosity-immunity",
+        )
+        result = resolve_kernel_attack(
+            kernel_request(
+                policy=TargetInjuryPolicy.MONSTROSITY,
+                state=ProfileInjuryState(wounds=0, wound_limit=5),
+                impact_spec=ConditionImpactSpec(
+                    Condition.BROKEN,
+                    "RULE-SPELL:psychological-condition",
+                    EffectClassification.PSYCHOLOGICAL,
+                ),
+                reaction=UndeadMonstrosityReactionSpec(
+                    "RULE-NPC:undead-monstrosity-reaction"
+                ),
+                effect_immunities=(immunity,),
+            ),
+            SequenceRandom([1, 10, 10]),
+        )
+
+        impact = result.replacement_impact
+        assert isinstance(impact, ConditionImpactResult)
+        self.assertTrue(impact.blocked)
+        self.assertEqual(
+            impact.source_rule_id,
+            "RULE-SPELL:psychological-condition",
+        )
+        self.assertEqual(
+            impact.blocked_by_rule_id,
+            immunity.rule_id,
+        )
+        self.assertEqual(impact.applied_rule_ids, (immunity.rule_id,))
+        self.assertFalse(result.target_state.conditions.has(Condition.BROKEN))
+        self.assertIsNone(result.monstrosity_impact)
+
+    def test_bone_dragon_immunity_does_not_infer_from_condition(self) -> None:
+        immunity = EffectImmunity(
+            EffectClassification.PSYCHOLOGICAL,
+            "RULE-NPC:undead-monstrosity-immunity",
+        )
+        result = resolve_kernel_attack(
+            kernel_request(
+                policy=TargetInjuryPolicy.MONSTROSITY,
+                state=ProfileInjuryState(wounds=0, wound_limit=5),
+                impact_spec=ConditionImpactSpec(
+                    Condition.BROKEN,
+                    "RULE-EFFECT:unclassified-broken",
+                ),
+                reaction=UndeadMonstrosityReactionSpec(
+                    "RULE-NPC:undead-monstrosity-reaction"
+                ),
+                effect_immunities=(immunity,),
+            ),
+            SequenceRandom([1, 10, 10]),
+        )
+
+        impact = result.replacement_impact
+        assert isinstance(impact, ConditionImpactResult)
+        self.assertFalse(impact.blocked)
+        self.assertTrue(result.target_state.conditions.has(Condition.BROKEN))
+
+    def test_psychological_stagger_is_blocked_before_stagger_policy(self) -> None:
+        immunity = EffectImmunity(
+            EffectClassification.PSYCHOLOGICAL,
+            "RULE-NPC:undead-monstrosity-immunity",
+        )
+        result = resolve_kernel_attack(
+            kernel_request(
+                policy=TargetInjuryPolicy.MONSTROSITY,
+                state=ProfileInjuryState(wounds=0, wound_limit=5),
+                impact_spec=ConditionImpactSpec(
+                    Condition.STAGGERED,
+                    "RULE-EFFECT:psychological-stagger",
+                    EffectClassification.PSYCHOLOGICAL,
+                ),
+                reaction=UndeadMonstrosityReactionSpec(
+                    "RULE-NPC:undead-monstrosity-reaction"
+                ),
+                effect_immunities=(immunity,),
+            ),
+            SequenceRandom([1, 10, 10]),
+        )
+
+        impact = result.replacement_impact
+        assert isinstance(impact, ConditionImpactResult)
+        self.assertTrue(impact.blocked)
+        self.assertIsNone(result.stagger)
+        self.assertFalse(
+            result.target_state.conditions.has(Condition.STAGGERED)
+        )
 
     def test_stagger_replacement_uses_normal_repeated_stagger_policy(self) -> None:
         result = resolve_kernel_attack(

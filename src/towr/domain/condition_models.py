@@ -18,6 +18,26 @@ class Condition(str, Enum):
     STAGGERED = "staggered"
 
 
+class EffectClassification(str, Enum):
+    UNCLASSIFIED = "unclassified"
+    PSYCHOLOGICAL = "psychological"
+
+
+@dataclass(frozen=True, slots=True)
+class EffectImmunity:
+    classification: EffectClassification
+    rule_id: str
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.classification, EffectClassification):
+            raise TypeError(
+                "classification must be an EffectClassification"
+            )
+        if self.classification is EffectClassification.UNCLASSIFIED:
+            raise ValueError("an immunity must name a classified effect")
+        _validate_non_empty_string(self.rule_id, "immunity rule_id")
+
+
 class StaggerChoice(str, Enum):
     GIVE_GROUND = "give_ground"
     FALL_PRONE = "fall_prone"
@@ -56,6 +76,47 @@ class ConditionState:
 
 
 @dataclass(frozen=True, slots=True)
+class ConditionApplicationRequest:
+    id: str
+    state: ConditionState
+    condition: Condition
+    source_rule_id: str
+    classification: EffectClassification = EffectClassification.UNCLASSIFIED
+    immunities: tuple[EffectImmunity, ...] = field(default_factory=tuple)
+
+    def __post_init__(self) -> None:
+        _validate_non_empty_string(self.id, "Condition application id")
+        if not isinstance(self.state, ConditionState):
+            raise TypeError("state must be a ConditionState")
+        if not isinstance(self.condition, Condition):
+            raise TypeError("condition must be a Condition")
+        _validate_non_empty_string(self.source_rule_id, "source_rule_id")
+        if not isinstance(self.classification, EffectClassification):
+            raise TypeError(
+                "classification must be an EffectClassification"
+            )
+        immunities = tuple(self.immunities)
+        if not all(isinstance(item, EffectImmunity) for item in immunities):
+            raise TypeError("immunities must contain EffectImmunity values")
+        classifications = tuple(item.classification for item in immunities)
+        if len(set(classifications)) != len(classifications):
+            raise ValueError("effect immunity classifications must be unique")
+        object.__setattr__(self, "immunities", immunities)
+
+
+@dataclass(frozen=True, slots=True)
+class ConditionApplicationResult:
+    request_id: str
+    state: ConditionState
+    condition: Condition
+    was_already_present: bool
+    blocked: bool
+    source_rule_id: str
+    blocked_by_rule_id: str | None
+    applied_rule_ids: tuple[str, ...]
+
+
+@dataclass(frozen=True, slots=True)
 class StaggerRequest:
     id: str
     state: ConditionState
@@ -90,3 +151,10 @@ class StaggerResult:
 def _validate_bool(value: bool, name: str) -> None:
     if not isinstance(value, bool):
         raise TypeError(f"{name} must be a boolean")
+
+
+def _validate_non_empty_string(value: str, name: str) -> None:
+    if not isinstance(value, str):
+        raise TypeError(f"{name} must be a string")
+    if not value.strip():
+        raise ValueError(f"{name} must not be empty")

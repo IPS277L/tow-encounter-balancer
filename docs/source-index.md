@@ -59,7 +59,7 @@
 - страницы 81–88: магические предметы;
 - страницы 89–186: типы NPC, формат профилей, фракции, противники и монстры.
 
-Ключевые страницы для проекта: `Preparing for Battle` — 60, `Balancing Encounters` — 62, `Types of NPC` — 89–90, `Understanding NPC Profiles` — 91. Репрезентативные варианты Prone до Give Ground находятся на страницах 106, 126, 136 и 174; Fearsome после Give Ground — на страницах 136, 145–146, 174 и 180; Monstrous Regeneration — на страницах 151 и 181; Undead Monstrosity и Bone Dragon — на странице 172; Monstrous Flight — на страницах 175, 177–178; Damage плюс Drained и Terrifying — на страницах 177–178; Giant Unsteady — на странице 183.
+Ключевые страницы для проекта: `Preparing for Battle` — 60, `Balancing Encounters` — 62, `Types of NPC` — 89–90, `Understanding NPC Profiles` — 91. Психологическая невосприимчивость undead-профилей повторяется на страницах 166–172; репрезентативные варианты Prone до Give Ground находятся на страницах 106, 126, 136 и 174; Fearsome после Give Ground — на страницах 136, 145–146, 166–171, 174 и 180; Monstrous Regeneration — на страницах 151 и 181; Undead Monstrosity и Bone Dragon — на странице 172; Monstrous Flight — на страницах 175, 177–178; Damage плюс Drained и Terrifying — на страницах 177–178; Giant Unsteady — на странице 183.
 
 ### Извлечение
 

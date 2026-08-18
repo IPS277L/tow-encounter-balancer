@@ -16,7 +16,14 @@ from towr.domain.attack_models import (
     SecondaryEffectSpec,
 )
 from towr.domain.combatants import CombatantDefinition, CombatantState, Side
-from towr.domain.condition_models import Condition, ConditionState
+from towr.domain.condition_models import (
+    Condition,
+    ConditionApplicationRequest,
+    ConditionApplicationResult,
+    ConditionState,
+    EffectClassification,
+    EffectImmunity,
+)
 from towr.domain.encounters import EncounterDefinition
 from towr.domain.injury_models import CharacterInjuryState, ProfileInjuryState
 from towr.domain.resolution_models import (
@@ -73,6 +80,8 @@ __all__ = [
     "ConditionAfterGiveGroundRequest",
     "ConditionAfterGiveGroundResult",
     "ConditionAfterGiveGroundSpec",
+    "ConditionApplicationRequest",
+    "ConditionApplicationResult",
     "ConditionOnHitSpec",
     "ConditionOnGiveGroundOrWoundSpec",
     "ConditionImpactSpec",
@@ -81,6 +90,8 @@ __all__ = [
     "DamageProfile",
     "DicePool",
     "EncounterDefinition",
+    "EffectClassification",
+    "EffectImmunity",
     "GiveGroundDestinationPreference",
     "InlineRollSource",
     "InlineProfile",

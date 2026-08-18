@@ -83,6 +83,14 @@ Ghorgon и Troll Hag в конце своего хода могут выбрат
 
 Указанная в той же Ability невосприимчивость Bone Dragon к психологическим эффектам и Conditions не является частью Reaction resolver. До её реализации входящие эффекты должны получить типизированную психологическую классификацию; одна строка Condition для этого недостаточна.
 
+## RULE-NPC-016 — невосприимчивость к психологическим эффектам
+
+Skeleton, Wight, Vampire, Liche, Tomb King и Bone Dragon невосприимчивы к психологическим эффектам и Conditions. Источник: GM Guide, страницы 166–172.
+
+Психологическая природа принадлежит источнику эффекта, а не значению `Condition`: например, Broken может возникнуть от явно описанного воздействия на страх, но одно наличие Broken не доказывает психологический источник. В K1 источник маркируется `EffectClassification.PSYCHOLOGICAL`, а профиль передаёт `EffectImmunity` с Rule ID своей Ability. Неклассифицированный эффект не блокируется по догадке.
+
+Текущий первый срез применяет эту policy к `ConditionImpactSpec`. Общий `ConditionApplicationRequest → ConditionApplicationResult` сохраняет состояние без изменения при совпадении иммунитета, Rule ID заблокированного источника и Rule ID сработавшей иммунности. Путь Staggered проверяет иммунитет до repeated-Stagger policy. Condition-on-hit, after-Give-Ground, outcome Conditions, Hazards и не-Condition психологические эффекты ещё должны быть переведены на тот же контракт.
+
 ## Реализация injury policies в K1
 
 - Minion получает один Wound и сразу становится defeated;
@@ -98,6 +106,7 @@ Ghorgon и Troll Hag в конце своего хода могут выбрат
 - Unsteady у Giant применяет Prone и только при новом падении создаёт Hazard (3), который после внешнего spatial-выбора исполняется для самого Giant и всех остальных существ в Zone;
 - Monstrous Regeneration у Ghorgon/Troll Hag создаёт source-aware запрет регенерации на следующий ход без немедленного изменения injury state;
 - Undead Monstrosity у Bone Dragon различает обязательную Wound без всадника и внешний выбор Wound/Give Ground/Prone при Liche или Tomb King;
+- психологическая иммунность undead-профилей уже блокирует явно классифицированный replacement Condition, но пока не подключена ко всем secondary/Hazard путям;
 - правило отсутствия Staggered за неудачную Melee-атаку поддерживается явным исключением в `AttackRequest` и сохраняется в trace.
 
 Проверки находятся в `tests/unit/test_k1_injury_resolution.py`, `tests/unit/test_k1_monstrosity_resolution.py`, `tests/unit/test_k1_monstrosity_reaction_resolution.py` и `tests/unit/test_k1_kernel.py`.

@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from enum import Enum
 
-from towr.domain.condition_models import Condition
+from towr.domain.condition_models import Condition, EffectClassification
 from towr.domain.test_models import Skill, TestRequest, TestResult
 
 
@@ -109,11 +109,16 @@ class DamageImpactSpec:
 class ConditionImpactSpec:
     condition: Condition
     rule_id: str
+    classification: EffectClassification = EffectClassification.UNCLASSIFIED
 
     def __post_init__(self) -> None:
         if not isinstance(self.condition, Condition):
             raise TypeError("condition must be a Condition")
         _validate_rule_id(self.rule_id)
+        if not isinstance(self.classification, EffectClassification):
+            raise TypeError(
+                "classification must be an EffectClassification"
+            )
 
 
 @dataclass(frozen=True, slots=True)
