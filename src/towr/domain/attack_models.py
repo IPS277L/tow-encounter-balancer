@@ -3,7 +3,11 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from enum import Enum
 
-from towr.domain.condition_models import Condition, EffectClassification
+from towr.domain.condition_models import (
+    Condition,
+    EffectClassification,
+    RepeatedConditionReplacement,
+)
 from towr.domain.test_models import Skill, TestRequest, TestResult
 
 
@@ -129,6 +133,9 @@ class HazardImpactSpec:
     inflicts_wound: bool = True
     failure_conditions: tuple[Condition, ...] = field(default_factory=tuple)
     classification: EffectClassification = EffectClassification.UNCLASSIFIED
+    repeated_condition_replacements: tuple[
+        RepeatedConditionReplacement, ...
+    ] = field(default_factory=tuple)
 
     def __post_init__(self) -> None:
         _validate_positive_int(self.rating, "Hazard rating")
@@ -141,6 +148,24 @@ class HazardImpactSpec:
             raise TypeError("failure_conditions must contain Condition values")
         if len(set(conditions)) != len(conditions):
             raise ValueError("failure_conditions must be unique")
+        replacements = tuple(self.repeated_condition_replacements)
+        if not all(
+            isinstance(item, RepeatedConditionReplacement)
+            for item in replacements
+        ):
+            raise TypeError(
+                "repeated_condition_replacements must contain "
+                "RepeatedConditionReplacement values"
+            )
+        replaced_conditions = tuple(item.condition for item in replacements)
+        if len(set(replaced_conditions)) != len(replaced_conditions):
+            raise ValueError(
+                "repeated Condition replacements must be unique"
+            )
+        if not set(replaced_conditions).issubset(conditions):
+            raise ValueError(
+                "repeated Condition replacements must target failure_conditions"
+            )
         if not self.inflicts_wound and not conditions:
             raise ValueError(
                 "a Hazard must inflict a Wound or at least one Condition"
@@ -150,6 +175,11 @@ class HazardImpactSpec:
                 "classification must be an EffectClassification"
             )
         object.__setattr__(self, "failure_conditions", conditions)
+        object.__setattr__(
+            self,
+            "repeated_condition_replacements",
+            replacements,
+        )
 
 
 ImpactSpec = DamageImpactSpec | ConditionImpactSpec | HazardImpactSpec

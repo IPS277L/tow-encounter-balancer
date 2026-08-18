@@ -23,17 +23,19 @@
 - Wound проходит общую отмену и специализированный Wound-effect reducer;
 - failure Conditions применяются независимо от того, была ли Wound отменена через Near Miss.
 
+Опциональная `RepeatedConditionReplacement` задаёт книжную замену именно для повторного применения указанного failure Condition. Проверка выполняется после Wound-фазы на актуальном состоянии цели. Поэтому Condition, уже имевшееся до Hazard или только что полученное из Wounds Table, считается повторным; исходное Condition сохраняется, а фактически добавленное replacement Condition записывается в `HazardResolutionResult.failure_conditions` и `condition_applications`. Replacement обязан ссылаться на одно из failure Conditions источника, а для одного Condition допускается не более одной замены.
+
 Рейтинг в модели всегда положительный; обычный Hazard, для которого книга требует хотя бы один успех, представлен рейтингом `1`. Hazard без Wound обязан содержать хотя бы одно failure Condition. Неподходящий результат таблицы для не-физического Hazard по умолчанию не заменяется; будущая GM/simulation policy сможет использовать книжную опцию замены.
 
 Выбор всех существ в Zone для Blasting Charge, его срабатывание в Zone атакующего при промахе и прочие area-правила относятся к конкретному `SecondaryEffectSpec`, а не к универсальной семантике Hazard.
 
-Unsteady Giant использует отдельный `ReactorZoneHazardRequest`: он фиксирует Hazard (3), Athletics и область «сам реагирующий Giant и все остальные существа в его Zone». Spatial orchestration выбирает конкретные разные цели, их актуальные Test-профили и injury contexts и передаёт стабильный порядок в `ReactorZoneHazardResolutionRequest`. Запрос обязан включать самого реагирующего и отклоняет повторные target/Test IDs.
+Общий `ZoneHazardRequest` фиксирует параметры Hazard, но не выбирает Zone или существ. Spatial orchestration передаёт уже выбранные разные цели, их актуальные Test-профили и injury contexts в стабильном порядке через `ZoneHazardResolutionRequest`. `resolve_zone_hazard` слева направо создаёт для каждой цели обычную `HazardExposureRequest`, выполняет общий Test и передаёт результат в `resolve_hazard`. Все цели используют один внедрённый RNG, но сохраняют собственные `TestResult`, `HazardResolutionResult`, состояния и решения Test/Wound. Executor отклоняет повторные target/Test IDs и не знает карты Zones.
 
-`resolve_reactor_zone_hazard` слева направо создаёт для каждой цели обычную `HazardExposureRequest`, выполняет общий Test и передаёт результат в `resolve_hazard`. Все цели используют один внедрённый RNG в указанном порядке, но сохраняют собственные `TestResult`, `HazardResolutionResult`, состояния и решения Test/Wound. Executor не ищет существ по Zone и не определяет spatial-порядок.
+Unsteady Giant сохраняет более узкий `ReactorZoneHazardRequest` и `ReactorZoneHazardResolutionRequest`: эта обёртка дополнительно требует включить самого реагирующего Giant, после чего делегирует общему Zone executor. Soporific Breath использует общий запрос, поскольку выбранная Zone находится в Medium Range и не обязана содержать Forest Dragon.
 
 ## Психологическая классификация и иммунитет
 
-`HazardImpactSpec`, одиночная `HazardExposureRequest` и `ReactorZoneHazardRequest` переносят явную `EffectClassification`. Если вся экспозиция классифицирована как `PSYCHOLOGICAL`, совпавший `EffectImmunity` блокирует Hazard целиком до Test: цель не бросает кубы, не получает Wound или failure Conditions, а результат сохраняет Rule ID источника и иммунитета.
+`HazardImpactSpec`, одиночная `HazardExposureRequest` и `ZoneHazardRequest` переносят явную `EffectClassification`. Если вся экспозиция классифицирована как `PSYCHOLOGICAL`, совпавший `EffectImmunity` блокирует Hazard целиком до Test: цель не бросает кубы, не получает Wound или failure Conditions, а результат сохраняет Rule ID источника и иммунитета.
 
 Классификация относится к источнику целиком и не выводится из Skill проверки либо будущего Condition. Это подтверждает профиль Vampire (Gamemaster’s Guide, страница 168): он иммунен к психологическим эффектам, но солнечный свет остаётся Hazard (2), накладывающим Ablaze и сопротивляемым через Willpower. Поэтому один лишь `Willpower` не превращает Hazard в психологический.
 

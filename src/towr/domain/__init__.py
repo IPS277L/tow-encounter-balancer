@@ -25,6 +25,7 @@ from towr.domain.condition_models import (
     EffectApplicationResult,
     EffectClassification,
     EffectImmunity,
+    RepeatedConditionReplacement,
 )
 from towr.domain.encounters import EncounterDefinition
 from towr.domain.injury_models import (
@@ -80,6 +81,10 @@ from towr.domain.resolution_models import (
     UndeadMonstrosityReactionContext,
     UndeadMonstrosityReactionSpec,
     UnsteadyReactionSpec,
+    ZoneHazardRequest,
+    ZoneHazardResolutionRequest,
+    ZoneHazardResolutionResult,
+    ZoneHazardTargetResult,
 )
 from towr.domain.results import BattleOutcome, BattleResult
 from towr.domain.stats import DicePool, StatBlock
@@ -152,6 +157,7 @@ __all__ = [
     "ReactorZoneHazardResolutionResult",
     "ReactorZoneHazardTargetResult",
     "ProfileInjuryState",
+    "RepeatedConditionReplacement",
     "ProneBeforeGiveGroundSpec",
     "ResilienceProfile",
     "ResolutionResult",
@@ -169,4 +175,8 @@ __all__ = [
     "UndeadMonstrosityReactionContext",
     "UndeadMonstrosityReactionSpec",
     "UnsteadyReactionSpec",
+    "ZoneHazardRequest",
+    "ZoneHazardResolutionRequest",
+    "ZoneHazardResolutionResult",
+    "ZoneHazardTargetResult",
 ]

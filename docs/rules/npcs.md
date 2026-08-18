@@ -99,6 +99,14 @@ Spatial orchestration определяет факт входа и создаёт
 
 Выбранный сброс создаёт `DropHeldHandItemRequest`: resolver не выбирает конкретную руку или предмет и не меняет ещё не существующее inventory state. Distracted проходит общий Condition reducer. Источник не классифицируется как психологический только из-за Condition; книга не задаёт отдельную продолжительность занятости руки после немедленного срабатывания, поэтому K1 не создаёт постоянное ограничение руки.
 
+## RULE-NPC-018 — Soporific Breath
+
+Forest Dragon без Staggered может действием выдохнуть облако в Zone на Medium Range. Все существа в этой Zone делают Endurance Test против Hazard (2), который при провале наносит обычную Wound по shortfall и накладывает Drained. Если при применении Drained уже присутствует, вместо повторного Drained цель получает Defenceless. Источник: GM Guide, страница 177. Находящийся верхом Wood Elf получает эту Ability через Dragon Rider.
+
+`soporific_breath_hazard` нормализует точный книжный источник как общий `ZoneHazardRequest`. Spatial/action orchestration отвечает за проверку отсутствия Staggered у действующего, расход действия, Medium Range, выбор Zone и снимок всех находящихся в ней существ. K1 получает уже выбранные уникальные цели и разрешает их слева направо через общий Test/Hazard pipeline.
+
+`RepeatedConditionReplacement` проверяется после Wound-фазы. Свежая цель получает Drained; уже Drained цель сохраняет Drained и получает Defenceless. Если Drained сначала появился из результата Wounds Table того же Hazard, последующее книжное наложение Drained тоже считается повторным и заменяется на Defenceless. Успешно сопротивляющаяся цель не получает ни Wound, ни Condition.
+
 ## Реализация injury policies в K1
 
 - Minion получает один Wound и сразу становится defeated;
@@ -116,6 +124,7 @@ Spatial orchestration определяет факт входа и создаёт
 - Undead Monstrosity у Bone Dragon различает обязательную Wound без всадника и внешний выбор Wound/Give Ground/Prone при Liche или Tomb King;
 - психологическая иммунность undead-профилей блокирует явно классифицированные replacement/on-hit/outcome/after-Give-Ground Conditions, Hazards и оба последствия `Curse of Cowardly Flight`;
 - Foul Stench после уже определённого входа в Zone сохраняет выбор цели между typed inventory follow-up и Distracted;
+- Soporific Breath использует общий executor выбранной Zone и явную замену повторного Drained на Defenceless после Wound-фазы;
 - правило отсутствия Staggered за неудачную Melee-атаку поддерживается явным исключением в `AttackRequest` и сохраняется в trace.
 
 Проверки находятся в `tests/unit/test_k1_injury_resolution.py`, `tests/unit/test_k1_monstrosity_resolution.py`, `tests/unit/test_k1_monstrosity_reaction_resolution.py` и `tests/unit/test_k1_kernel.py`.

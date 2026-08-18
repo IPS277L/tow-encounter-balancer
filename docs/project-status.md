@@ -124,10 +124,17 @@ K1 — реализация книжного resolution kernel. Прототип
 - инвентарная ветвь возвращает `DropHeldHandItemRequest`, не выбирая предмет и не мутируя отсутствующее inventory state;
 - свободная рука закрывает нос без решения, а невозможность освободить руку автоматически применяет Distracted;
 - вход в Zone остаётся фактом внешнего spatial orchestration, а Condition проходит общий reducer с Rule ID Ability.
+- добавлен общий `ZoneHazardRequest → ZoneHazardResolutionResult` для уже выбранных существ произвольной Zone;
+- Giant-специфичный `ReactorZoneHazardResolutionRequest` сохранил проверку присутствия реагирующего и теперь делегирует общему Zone executor;
+- `RepeatedConditionReplacement` задаёт валидируемую замену повторного failure Condition и проверяется после Wound-фазы на актуальном состоянии;
+- нормализован `RULE-NPC-018` для Soporific Breath Forest Dragon со страницы 177 GM Guide;
+- Endurance Hazard (2) наносит обычную Wound по shortfall и накладывает Drained, а повторный Drained фактически добавляет Defenceless, не удаляя существующий Drained;
+- порядок Wound → failure Condition покрывает случай, когда Drained появился из Wounds Table того же Hazard;
+- доступность действия без Staggered, Medium Range, выбор Zone и её обитателей оставлены внешнему action/spatial orchestration.
 
 ## Проверено
 
-- 180 unit/integration тестов успешно проходят на Python 3.12, из них 160 относятся к K1;
+- 186 unit/integration тестов успешно проходят на Python 3.12, из них 166 относятся к K1;
 - исходники и тесты успешно проходят `compileall`.
 
 ## Исходный материал
@@ -151,12 +158,13 @@ K1 — реализация книжного resolution kernel. Прототип
 - для Monstrous Flight при полностью невозможном Give Ground книга не задаёт fallback; K1 требует внешнего ruling;
 - `SuppressRegenerationNextTurnRequest` ещё некому сохранить и погасить без нового turn orchestration;
 - `DropHeldHandItemRequest` ещё некому применить без inventory state и policy выбора конкретного удерживаемого предмета;
+- K1-фабрика Soporific Breath не расходует действие, не проверяет Staggered действующего и не выбирает Zone/Medium Range без battle orchestration;
 - психологическая иммунность undead-профилей подключена к боевым Condition/Hazard-фазам и `Curse of Cowardly Flight`; остальные конкретные non-Condition эффекты требуют отдельного анализа;
 - Monte Carlo, JSON, CLI и балансировщик ещё не входят в текущий срез.
 
 ## Следующий шаг
 
-Реализовать `Soporific Breath` Forest Dragon (GM Guide, страница 177) поверх Zone Hazard: Endurance против Hazard (2), Drained при провале и явная эскалация повторного Drained в Defenceless. Переиспользовать существующий Hazard/Zone pipeline и не добавлять полный action/spatial selection.
+Нормализовать Troll `Vomit` и Troll Hag `Swamp Breath` (GM Guide, страницы 180–181) поверх существующего Hazard pipeline: одиночный Endurance Hazard (3) по уже выбранной Staggered цели в Close Range и Zone Endurance Hazard (3) в Medium Range. Условия действия и spatial selection оставить внешнему orchestration, не дублировать общий Hazard resolver.
 
 ## Последняя проверка
 
@@ -167,7 +175,7 @@ $env:PYTHONPATH = "src"
 py -3.12 -m unittest discover -s tests -v
 ```
 
-Результат: `Ran 180 tests ... OK`.
+Результат: `Ran 186 tests ... OK`.
 
 ```powershell
 py -3.12 -m compileall -q src tests tools

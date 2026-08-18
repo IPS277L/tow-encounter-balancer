@@ -2,10 +2,14 @@ from __future__ import annotations
 
 from towr.domain.condition_models import (
     Condition,
+    ConditionApplicationRequest,
+    ConditionApplicationResult,
     ConditionState,
     EffectApplicationRequest,
     EffectApplicationResult,
+    EffectClassification,
     EffectImmunity,
+    RepeatedConditionReplacement,
 )
 from towr.domain.injury_models import (
     CharacterInjuryState,
@@ -23,6 +27,9 @@ from towr.domain.resolution_models import (
     HazardResolutionResult,
     TargetInjuryPolicy,
     TargetInjuryState,
+)
+from towr.rules.condition_effect_resolution import (
+    resolve_condition_application,
 )
 from towr.rules.dice import RandomSource
 from towr.rules.effect_resolution import resolve_effect_application
@@ -72,6 +79,7 @@ def resolve_hazard(
             failure_conditions=(),
             follow_ups=(),
             applied_rule_ids=(request.exposure.rule_id,),
+            condition_applications=(),
         )
 
     state = request.target_state
@@ -136,9 +144,29 @@ def resolve_hazard(
             state = profile_wound.state
             follow_ups.append(profile_wound.state_change)
 
-    state = _with_failure_conditions(
+    (
+        state,
+        failure_conditions,
+        condition_applications,
+    ) = _apply_failure_conditions(
+        request.id,
         state,
         request.exposure.failure_conditions,
+        request.exposure.repeated_condition_replacements,
+        request.exposure.rule_id,
+        request.exposure.classification,
+    )
+    applied_rule_ids = tuple(
+        dict.fromkeys(
+            (
+                request.exposure.rule_id,
+                *(
+                    rule_id
+                    for application in condition_applications
+                    for rule_id in application.applied_rule_ids
+                ),
+            )
+        )
     )
     return HazardResolutionResult(
         request_id=request.id,
@@ -150,17 +178,60 @@ def resolve_hazard(
         character_wound=character_wound,
         wound_effect=wound_effect,
         profile_wound=profile_wound,
-        failure_conditions=request.exposure.failure_conditions,
+        failure_conditions=failure_conditions,
         follow_ups=tuple(follow_ups),
-        applied_rule_ids=(request.exposure.rule_id,),
+        applied_rule_ids=applied_rule_ids,
+        condition_applications=condition_applications,
     )
 
 
-def _with_failure_conditions(
+def _apply_failure_conditions(
+    request_id: str,
     state: TargetInjuryState,
     failure_conditions: tuple[Condition, ...],
+    replacements: tuple[RepeatedConditionReplacement, ...],
+    source_rule_id: str,
+    classification: EffectClassification,
+) -> tuple[
+    TargetInjuryState,
+    tuple[Condition, ...],
+    tuple[ConditionApplicationResult, ...],
+]:
+    replacement_by_condition = {
+        replacement.condition: replacement for replacement in replacements
+    }
+    applied_conditions: list[Condition] = []
+    applications: list[ConditionApplicationResult] = []
+    for index, condition in enumerate(failure_conditions):
+        replacement = replacement_by_condition.get(condition)
+        if replacement is not None and state.conditions.has(condition):
+            applied_condition = replacement.replacement
+            application_rule_id = replacement.rule_id
+        else:
+            applied_condition = condition
+            application_rule_id = source_rule_id
+        application = resolve_condition_application(
+            ConditionApplicationRequest(
+                id=(
+                    f"{request_id}:failure-condition:{index}:"
+                    f"{applied_condition.value}"
+                ),
+                state=state.conditions,
+                condition=applied_condition,
+                source_rule_id=application_rule_id,
+                classification=classification,
+            )
+        )
+        state = _with_condition_state(state, application.state)
+        applied_conditions.append(applied_condition)
+        applications.append(application)
+    return state, tuple(applied_conditions), tuple(applications)
+
+
+def _with_condition_state(
+    state: TargetInjuryState,
+    conditions: ConditionState,
 ) -> TargetInjuryState:
-    conditions = _add_conditions(state.conditions, failure_conditions)
     if isinstance(state, CharacterInjuryState):
         return CharacterInjuryState(
             wounds=state.wounds,
@@ -174,12 +245,3 @@ def _with_failure_conditions(
         conditions=conditions,
         defeated=state.defeated,
     )
-
-
-def _add_conditions(
-    state: ConditionState,
-    failure_conditions: tuple[Condition, ...],
-) -> ConditionState:
-    for condition in failure_conditions:
-        state = state.with_condition(condition)
-    return state

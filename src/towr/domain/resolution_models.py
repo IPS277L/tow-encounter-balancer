@@ -16,6 +16,7 @@ from towr.domain.condition_models import (
     EffectApplicationResult,
     EffectClassification,
     EffectImmunity,
+    RepeatedConditionReplacement,
     StaggerResult,
 )
 from towr.domain.injury_models import (
@@ -311,8 +312,8 @@ class MonstrosityReactionResolutionRequest:
 
 
 @dataclass(frozen=True, slots=True)
-class ReactorZoneHazardRequest:
-    """Expose the reactor and every other creature in its Zone to a Hazard."""
+class ZoneHazardRequest:
+    """Describe a Hazard applied to every selected creature in one Zone."""
 
     resolution_id: str
     rating: int
@@ -321,6 +322,9 @@ class ReactorZoneHazardRequest:
     inflicts_wound: bool
     failure_conditions: tuple[Condition, ...]
     classification: EffectClassification = EffectClassification.UNCLASSIFIED
+    repeated_condition_replacements: tuple[
+        RepeatedConditionReplacement, ...
+    ] = field(default_factory=tuple)
 
     def __post_init__(self) -> None:
         _validate_non_empty_string(self.resolution_id, "resolution_id")
@@ -337,6 +341,10 @@ class ReactorZoneHazardRequest:
             raise TypeError("failure_conditions must contain Condition values")
         if len(set(conditions)) != len(conditions):
             raise ValueError("failure_conditions must be unique")
+        replacements = _validate_repeated_condition_replacements(
+            self.repeated_condition_replacements,
+            conditions,
+        )
         if not self.inflicts_wound and not conditions:
             raise ValueError(
                 "a Hazard must inflict a Wound or at least one Condition"
@@ -346,6 +354,16 @@ class ReactorZoneHazardRequest:
                 "classification must be an EffectClassification"
             )
         object.__setattr__(self, "failure_conditions", conditions)
+        object.__setattr__(
+            self,
+            "repeated_condition_replacements",
+            replacements,
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class ReactorZoneHazardRequest(ZoneHazardRequest):
+    """Expose the reactor and every other creature in its Zone to a Hazard."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -391,6 +409,9 @@ class HazardExposureRequest:
     inflicts_wound: bool
     failure_conditions: tuple[Condition, ...]
     classification: EffectClassification = EffectClassification.UNCLASSIFIED
+    repeated_condition_replacements: tuple[
+        RepeatedConditionReplacement, ...
+    ] = field(default_factory=tuple)
 
     def __post_init__(self) -> None:
         _validate_non_empty_string(self.resolution_id, "resolution_id")
@@ -408,6 +429,10 @@ class HazardExposureRequest:
             raise TypeError("failure_conditions must contain Condition values")
         if len(set(conditions)) != len(conditions):
             raise ValueError("failure_conditions must be unique")
+        replacements = _validate_repeated_condition_replacements(
+            self.repeated_condition_replacements,
+            conditions,
+        )
         if not self.inflicts_wound and not conditions:
             raise ValueError(
                 "a Hazard must inflict a Wound or at least one Condition"
@@ -417,6 +442,11 @@ class HazardExposureRequest:
                 "classification must be an EffectClassification"
             )
         object.__setattr__(self, "failure_conditions", conditions)
+        object.__setattr__(
+            self,
+            "repeated_condition_replacements",
+            replacements,
+        )
 
     @classmethod
     def from_spec(
@@ -432,6 +462,9 @@ class HazardExposureRequest:
             rule_id=spec.rule_id,
             inflicts_wound=spec.inflicts_wound,
             failure_conditions=spec.failure_conditions,
+            repeated_condition_replacements=(
+                spec.repeated_condition_replacements
+            ),
             classification=spec.classification,
         )
 
@@ -861,6 +894,23 @@ class IdentifiedHazardTarget:
 
 
 @dataclass(frozen=True, slots=True)
+class ZoneHazardResolutionRequest:
+    id: str
+    source: ZoneHazardRequest
+    targets: tuple[IdentifiedHazardTarget, ...]
+
+    def __post_init__(self) -> None:
+        _validate_non_empty_string(self.id, "Zone Hazard resolution id")
+        if not isinstance(self.source, ZoneHazardRequest):
+            raise TypeError("source must be a ZoneHazardRequest")
+        object.__setattr__(
+            self,
+            "targets",
+            _validate_identified_hazard_targets(self.targets),
+        )
+
+
+@dataclass(frozen=True, slots=True)
 class ReactorZoneHazardResolutionRequest:
     id: str
     source: ReactorZoneHazardRequest
@@ -872,20 +922,30 @@ class ReactorZoneHazardResolutionRequest:
         if not isinstance(self.source, ReactorZoneHazardRequest):
             raise TypeError("source must be a ReactorZoneHazardRequest")
         _validate_non_empty_string(self.reactor_target_id, "reactor_target_id")
-        targets = tuple(self.targets)
+        targets = _validate_identified_hazard_targets(self.targets)
         if not targets:
             raise ValueError("Zone Hazard targets must include the reactor")
-        if not all(isinstance(item, IdentifiedHazardTarget) for item in targets):
-            raise TypeError("targets must contain IdentifiedHazardTarget values")
         target_ids = tuple(item.target_id for item in targets)
         if self.reactor_target_id not in target_ids:
             raise ValueError("Zone Hazard targets must include the reactor")
-        if len(set(target_ids)) != len(target_ids):
-            raise ValueError("Zone Hazard target_ids must be unique")
-        test_ids = tuple(item.avoidance_test.id for item in targets)
-        if len(set(test_ids)) != len(test_ids):
-            raise ValueError("Zone Hazard Test request ids must be unique")
         object.__setattr__(self, "targets", targets)
+
+
+@dataclass(frozen=True, slots=True)
+class ZoneHazardTargetResult:
+    target_id: str
+    exposure: HazardExposureRequest
+    application: EffectApplicationResult
+    avoidance_test: TestResult | None
+    hazard: HazardResolutionResult | None
+
+
+@dataclass(frozen=True, slots=True)
+class ZoneHazardResolutionResult:
+    request_id: str
+    source_resolution_id: str
+    targets: tuple[ZoneHazardTargetResult, ...]
+    applied_rule_ids: tuple[str, ...]
 
 
 @dataclass(frozen=True, slots=True)
@@ -971,6 +1031,9 @@ class HazardResolutionResult:
     failure_conditions: tuple[Condition, ...]
     follow_ups: tuple[FollowUpRequest, ...]
     applied_rule_ids: tuple[str, ...]
+    condition_applications: tuple[ConditionApplicationResult, ...] = field(
+        default_factory=tuple
+    )
 
 
 @dataclass(frozen=True, slots=True)
@@ -1146,6 +1209,44 @@ def _normalize_effect_immunities(
             "target effect immunity classifications must be unique"
         )
     return immunities
+
+
+def _validate_repeated_condition_replacements(
+    values: tuple[RepeatedConditionReplacement, ...],
+    failure_conditions: tuple[Condition, ...],
+) -> tuple[RepeatedConditionReplacement, ...]:
+    replacements = tuple(values)
+    if not all(
+        isinstance(item, RepeatedConditionReplacement)
+        for item in replacements
+    ):
+        raise TypeError(
+            "repeated_condition_replacements must contain "
+            "RepeatedConditionReplacement values"
+        )
+    replaced_conditions = tuple(item.condition for item in replacements)
+    if len(set(replaced_conditions)) != len(replaced_conditions):
+        raise ValueError("repeated Condition replacements must be unique")
+    if not set(replaced_conditions).issubset(failure_conditions):
+        raise ValueError(
+            "repeated Condition replacements must target failure_conditions"
+        )
+    return replacements
+
+
+def _validate_identified_hazard_targets(
+    values: tuple[IdentifiedHazardTarget, ...],
+) -> tuple[IdentifiedHazardTarget, ...]:
+    targets = tuple(values)
+    if not all(isinstance(item, IdentifiedHazardTarget) for item in targets):
+        raise TypeError("targets must contain IdentifiedHazardTarget values")
+    target_ids = tuple(item.target_id for item in targets)
+    if len(set(target_ids)) != len(target_ids):
+        raise ValueError("Zone Hazard target_ids must be unique")
+    test_ids = tuple(item.avoidance_test.id for item in targets)
+    if len(set(test_ids)) != len(test_ids):
+        raise ValueError("Zone Hazard Test request ids must be unique")
+    return targets
 
 
 def _validate_target_policy_state(

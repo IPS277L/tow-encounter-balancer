@@ -9,6 +9,7 @@ from towr.domain.condition_models import (
     ConditionState,
     EffectClassification,
     EffectImmunity,
+    RepeatedConditionReplacement,
 )
 from towr.domain.injury_models import (
     CharacterInjuryState,
@@ -44,6 +45,9 @@ def exposure(
     rating: int,
     inflicts_wound: bool = True,
     failure_conditions: tuple[Condition, ...] = (),
+    repeated_condition_replacements: tuple[
+        RepeatedConditionReplacement, ...
+    ] = (),
 ) -> HazardExposureRequest:
     return HazardExposureRequest.from_spec(
         "hazard-source",
@@ -53,6 +57,9 @@ def exposure(
             "RULE-HAZARD:test",
             inflicts_wound=inflicts_wound,
             failure_conditions=failure_conditions,
+            repeated_condition_replacements=(
+                repeated_condition_replacements
+            ),
         ),
     )
 
@@ -200,6 +207,38 @@ class K1HazardResolutionTests(unittest.TestCase):
         self.assertIsNone(result.character_wound)
         self.assertTrue(result.state.conditions.has(Condition.DRAINED))
         self.assertEqual(result.failure_conditions, (Condition.DRAINED,))
+
+    def test_repeated_failure_condition_can_apply_a_replacement(self) -> None:
+        replacement = RepeatedConditionReplacement(
+            Condition.DRAINED,
+            Condition.DEFENCELESS,
+            "RULE-NPC:test-repeated-drained",
+        )
+        hazard = exposure(
+            rating=1,
+            inflicts_wound=False,
+            failure_conditions=(Condition.DRAINED,),
+            repeated_condition_replacements=(replacement,),
+        )
+        request = HazardResolutionRequest(
+            "hazard",
+            hazard,
+            avoidance_test(hazard, [10]),
+            TargetInjuryPolicy.PLAYER,
+            CharacterInjuryState(
+                conditions=ConditionState(frozenset({Condition.DRAINED}))
+            ),
+        )
+
+        result = resolve_hazard(request, SequenceRandom([]))
+
+        self.assertTrue(result.state.conditions.has(Condition.DRAINED))
+        self.assertTrue(result.state.conditions.has(Condition.DEFENCELESS))
+        self.assertEqual(result.failure_conditions, (Condition.DEFENCELESS,))
+        self.assertEqual(
+            result.applied_rule_ids,
+            (hazard.rule_id, replacement.rule_id),
+        )
 
     def test_profile_npc_suffers_wounds_equal_to_shortfall(self) -> None:
         hazard = exposure(

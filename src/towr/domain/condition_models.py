@@ -24,6 +24,24 @@ class EffectClassification(str, Enum):
 
 
 @dataclass(frozen=True, slots=True)
+class RepeatedConditionReplacement:
+    """Replace a repeated Condition application with another Condition."""
+
+    condition: Condition
+    replacement: Condition
+    rule_id: str
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.condition, Condition):
+            raise TypeError("condition must be a Condition")
+        if not isinstance(self.replacement, Condition):
+            raise TypeError("replacement must be a Condition")
+        if self.condition is self.replacement:
+            raise ValueError("replacement must differ from condition")
+        _validate_non_empty_string(self.rule_id, "replacement rule_id")
+
+
+@dataclass(frozen=True, slots=True)
 class EffectImmunity:
     classification: EffectClassification
     rule_id: str
