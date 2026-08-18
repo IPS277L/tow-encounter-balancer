@@ -351,6 +351,37 @@ class K1KernelTests(unittest.TestCase):
         self.assertEqual(result.follow_ups[0].rating, 3)
         self.assertIsNone(result.attack.damage)
 
+    def test_immunity_blocks_psychological_hazard_before_follow_up(self) -> None:
+        immunity = EffectImmunity(
+            EffectClassification.PSYCHOLOGICAL,
+            "RULE-NPC:undead-psychological-immunity",
+        )
+        state = CharacterInjuryState()
+        result = resolve_kernel_attack(
+            kernel_request(
+                policy=TargetInjuryPolicy.PLAYER,
+                state=state,
+                impact_spec=HazardImpactSpec(
+                    2,
+                    Skill.WILLPOWER,
+                    "RULE-HAZARD:supernatural-fear",
+                    failure_conditions=(Condition.BROKEN,),
+                    classification=EffectClassification.PSYCHOLOGICAL,
+                ),
+                effect_immunities=(immunity,),
+            ),
+            SequenceRandom([1, 10, 10]),
+        )
+
+        impact = result.replacement_impact
+        self.assertIsInstance(impact, HazardImpactResult)
+        assert isinstance(impact, HazardImpactResult)
+        self.assertTrue(impact.blocked)
+        self.assertEqual(impact.blocked_by_rule_id, immunity.rule_id)
+        self.assertEqual(impact.applied_rule_ids, (immunity.rule_id,))
+        self.assertEqual(result.follow_ups, ())
+        self.assertIs(result.target_state, state)
+
     def test_near_miss_preserves_staggered_through_full_attack_flow(self) -> None:
         state = CharacterInjuryState(
             conditions=ConditionState(frozenset({Condition.STAGGERED}))

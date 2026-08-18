@@ -1,6 +1,12 @@
 from __future__ import annotations
 
-from towr.domain.condition_models import Condition, ConditionState
+from towr.domain.condition_models import (
+    Condition,
+    ConditionState,
+    EffectApplicationRequest,
+    EffectApplicationResult,
+    EffectImmunity,
+)
 from towr.domain.injury_models import (
     CharacterInjuryState,
     CharacterWoundRequest,
@@ -12,18 +18,35 @@ from towr.domain.injury_models import (
 from towr.domain.resolution_models import (
     ConsumeWoundNegationRequest,
     FollowUpRequest,
+    HazardExposureRequest,
     HazardResolutionRequest,
     HazardResolutionResult,
     TargetInjuryPolicy,
     TargetInjuryState,
 )
 from towr.rules.dice import RandomSource
+from towr.rules.effect_resolution import resolve_effect_application
 from towr.rules.injury_resolution import (
     WoundDecisionProvider,
     resolve_character_wound,
     resolve_profile_wound,
 )
 from towr.rules.wound_effect_resolution import resolve_wound_effect
+
+
+def resolve_hazard_exposure_application(
+    exposure: HazardExposureRequest,
+    immunities: tuple[EffectImmunity, ...] = (),
+) -> EffectApplicationResult:
+    """Apply source-level immunity before an avoidance Test is rolled."""
+    return resolve_effect_application(
+        EffectApplicationRequest(
+            id=f"{exposure.test_id}:exposure",
+            source_rule_id=exposure.rule_id,
+            classification=exposure.classification,
+            immunities=immunities,
+        )
+    )
 
 
 def resolve_hazard(

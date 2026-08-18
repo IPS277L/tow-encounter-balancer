@@ -3,6 +3,7 @@ from __future__ import annotations
 from towr.domain.condition_models import (
     ConditionApplicationRequest,
     ConditionApplicationResult,
+    EffectApplicationRequest,
 )
 from towr.domain.injury_models import CharacterInjuryState, ProfileInjuryState
 from towr.domain.resolution_models import (
@@ -10,21 +11,22 @@ from towr.domain.resolution_models import (
     ConditionAfterGiveGroundResult,
     TargetInjuryState,
 )
+from towr.rules.effect_resolution import resolve_effect_application
 
 
 def resolve_condition_application(
     request: ConditionApplicationRequest,
 ) -> ConditionApplicationResult:
     was_already_present = request.state.has(request.condition)
-    blocking_immunity = next(
-        (
-            immunity
-            for immunity in request.immunities
-            if immunity.classification is request.classification
-        ),
-        None,
+    effect = resolve_effect_application(
+        EffectApplicationRequest(
+            id=request.id,
+            source_rule_id=request.source_rule_id,
+            classification=request.classification,
+            immunities=request.immunities,
+        )
     )
-    if blocking_immunity is not None:
+    if effect.blocked:
         return ConditionApplicationResult(
             request_id=request.id,
             state=request.state,
@@ -32,8 +34,8 @@ def resolve_condition_application(
             was_already_present=was_already_present,
             blocked=True,
             source_rule_id=request.source_rule_id,
-            blocked_by_rule_id=blocking_immunity.rule_id,
-            applied_rule_ids=(blocking_immunity.rule_id,),
+            blocked_by_rule_id=effect.blocked_by_rule_id,
+            applied_rule_ids=effect.applied_rule_ids,
         )
     return ConditionApplicationResult(
         request_id=request.id,
@@ -43,7 +45,7 @@ def resolve_condition_application(
         blocked=False,
         source_rule_id=request.source_rule_id,
         blocked_by_rule_id=None,
-        applied_rule_ids=(request.source_rule_id,),
+        applied_rule_ids=effect.applied_rule_ids,
     )
 
 

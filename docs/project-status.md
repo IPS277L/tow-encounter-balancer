@@ -110,10 +110,14 @@ K1 — реализация книжного resolution kernel. Прототип
 - after-Give-Ground follow-up переносит classification и immunity snapshot через границу движения;
 - Stagger impact и Monstrosity Reaction сохраняют блокировки outcome Conditions без отмены Give Ground или Wound;
 - Fearsome/Terrifying с явной психологической классификацией не накладывают Broken на undead-профиль.
+- общий `EffectApplicationRequest → EffectApplicationResult` выделен как source-level preflight без мутации состояния;
+- `HazardImpactSpec`, одиночная exposure и Zone Hazard переносят явную psychological classification;
+- совпавший иммунитет блокирует весь психологический Hazard до Test, поэтому не расходует RNG и не создаёт Wound/failure Conditions;
+- `Willpower` и значение failure Condition не используются для неявной классификации; Vampire sunlight Hazard остаётся применимым контрпримером страницы 168.
 
 ## Проверено
 
-- 165 unit/integration тестов успешно проходят на Python 3.12, из них 145 относятся к K1;
+- 169 unit/integration тестов успешно проходят на Python 3.12, из них 149 относятся к K1;
 - исходники и тесты успешно проходят `compileall`.
 
 ## Исходный материал
@@ -136,12 +140,12 @@ K1 — реализация книжного resolution kernel. Прототип
 - spatial-поиск и стабильная сортировка secondary/Zone целей, а также разные последствия hit/miss ещё не имеют общего battle orchestration;
 - для Monstrous Flight при полностью невозможном Give Ground книга не задаёт fallback; K1 требует внешнего ruling;
 - `SuppressRegenerationNextTurnRequest` ещё некому сохранить и погасить без нового turn orchestration;
-- психологическая иммунность undead-профилей подключена к боевым Condition-фазам; Hazard и не-Condition эффекты ещё требуют миграции;
+- психологическая иммунность undead-профилей подключена к боевым Condition- и Hazard-фазам; non-Condition эффекты ещё требуют отдельного анализа и подключения;
 - Monte Carlo, JSON, CLI и балансировщик ещё не входят в текущий срез.
 
 ## Следующий шаг
 
-Нормализовать психологическую immunity на границе Hazard: определить, блокирует ли классификация всю экспозицию до Test или только отдельные failure Conditions, затем провести явную classification/immunity через `HazardImpactSpec`, `HazardExposureRequest`, одиночный и Zone Hazard paths. Не распространять решение на не-Condition forced movement/spell effects без отдельного книжного анализа.
+Провести отдельный книжный анализ психологических non-Condition эффектов: составить перечень forced movement, пропуска действий и иных последствий, определить для каждого source-level или sub-effect границу иммунитета и только затем подключать конкретные фазы. Не считать любой Willpower Test психологическим и не вводить универсальную event-шину.
 
 ## Последняя проверка
 
@@ -152,7 +156,7 @@ $env:PYTHONPATH = "src"
 py -3.12 -m unittest discover -s tests -v
 ```
 
-Результат: `Ran 165 tests ... OK`.
+Результат: `Ran 169 tests ... OK`.
 
 ```powershell
 py -3.12 -m compileall -q src tests tools

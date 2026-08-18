@@ -4,7 +4,12 @@ import unittest
 
 from tests.helpers import SequenceRandom
 from towr.domain.attack_models import HazardImpactSpec
-from towr.domain.condition_models import Condition, ConditionState
+from towr.domain.condition_models import (
+    Condition,
+    ConditionState,
+    EffectClassification,
+    EffectImmunity,
+)
 from towr.domain.injury_models import (
     CharacterInjuryState,
     ProfileInjuryState,
@@ -19,7 +24,10 @@ from towr.domain.resolution_models import (
     TargetInjuryPolicy,
 )
 from towr.domain.test_models import InlineProfile, Skill, TestRequest
-from towr.rules.hazard_resolution import resolve_hazard
+from towr.rules.hazard_resolution import (
+    resolve_hazard,
+    resolve_hazard_exposure_application,
+)
 from towr.rules.test_resolution import resolve_test
 
 
@@ -72,6 +80,49 @@ def old_wound() -> WoundRecord:
 
 
 class K1HazardResolutionTests(unittest.TestCase):
+    def test_matching_immunity_blocks_entire_exposure_before_test(self) -> None:
+        immunity = EffectImmunity(
+            EffectClassification.PSYCHOLOGICAL,
+            "RULE-NPC:undead-psychological-immunity",
+        )
+        hazard = HazardExposureRequest.from_spec(
+            "fear-hazard",
+            HazardImpactSpec(
+                2,
+                Skill.WILLPOWER,
+                "RULE-HAZARD:supernatural-fear",
+                failure_conditions=(Condition.BROKEN,),
+                classification=EffectClassification.PSYCHOLOGICAL,
+            ),
+        )
+
+        result = resolve_hazard_exposure_application(hazard, (immunity,))
+
+        self.assertTrue(result.blocked)
+        self.assertEqual(result.source_rule_id, hazard.rule_id)
+        self.assertEqual(result.blocked_by_rule_id, immunity.rule_id)
+        self.assertEqual(result.applied_rule_ids, (immunity.rule_id,))
+
+    def test_willpower_does_not_imply_psychological_hazard(self) -> None:
+        immunity = EffectImmunity(
+            EffectClassification.PSYCHOLOGICAL,
+            "RULE-NPC:undead-psychological-immunity",
+        )
+        sunlight = HazardExposureRequest.from_spec(
+            "sunlight-hazard",
+            HazardImpactSpec(
+                2,
+                Skill.WILLPOWER,
+                "RULE-NPC:vampire-sunlight",
+                failure_conditions=(Condition.ABLAZE,),
+            ),
+        )
+
+        result = resolve_hazard_exposure_application(sunlight, (immunity,))
+
+        self.assertFalse(result.blocked)
+        self.assertEqual(result.applied_rule_ids, (sunlight.rule_id,))
+
     def test_resolution_rejects_an_unrelated_test_result(self) -> None:
         hazard = exposure(rating=1)
         unrelated = resolve_test(

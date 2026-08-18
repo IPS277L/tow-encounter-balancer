@@ -128,6 +128,7 @@ class HazardImpactSpec:
     rule_id: str
     inflicts_wound: bool = True
     failure_conditions: tuple[Condition, ...] = field(default_factory=tuple)
+    classification: EffectClassification = EffectClassification.UNCLASSIFIED
 
     def __post_init__(self) -> None:
         _validate_positive_int(self.rating, "Hazard rating")
@@ -143,6 +144,10 @@ class HazardImpactSpec:
         if not self.inflicts_wound and not conditions:
             raise ValueError(
                 "a Hazard must inflict a Wound or at least one Condition"
+            )
+        if not isinstance(self.classification, EffectClassification):
+            raise TypeError(
+                "classification must be an EffectClassification"
             )
         object.__setattr__(self, "failure_conditions", conditions)
 

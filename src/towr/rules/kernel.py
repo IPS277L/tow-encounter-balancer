@@ -56,6 +56,7 @@ from towr.rules.injury_resolution import (
     resolve_character_wound,
     resolve_profile_wound,
 )
+from towr.rules.hazard_resolution import resolve_hazard_exposure_application
 from towr.rules.monstrosity_resolution import (
     MonstrosityDecisionProvider,
     resolve_monstrosity_impact,
@@ -385,17 +386,21 @@ def _resolve_hazard_impact(
     spec: HazardImpactSpec,
 ) -> ResolutionResult:
     exposure = HazardExposureRequest.from_spec(request.id, spec)
+    application = resolve_hazard_exposure_application(
+        exposure,
+        request.target_effect_immunities,
+    )
     return ResolutionResult(
         request_id=request.id,
         attack=attack,
-        replacement_impact=HazardImpactResult(exposure),
+        replacement_impact=HazardImpactResult(exposure, application),
         target_state=request.target_state,
         stagger=None,
         character_wound=None,
         wound_effect=None,
         profile_wound=None,
         monstrosity_impact=None,
-        follow_ups=(exposure,),
+        follow_ups=() if application.blocked else (exposure,),
     )
 
 

@@ -3,7 +3,12 @@ from __future__ import annotations
 import unittest
 
 from tests.helpers import SequenceRandom
-from towr.domain.condition_models import Condition, ConditionState
+from towr.domain.condition_models import (
+    Condition,
+    ConditionState,
+    EffectClassification,
+    EffectImmunity,
+)
 from towr.domain.injury_models import (
     CharacterInjuryState,
     ProfileInjuryState,
@@ -54,6 +59,7 @@ class RecordingWoundDecisions:
 def source(
     *,
     failure_conditions: tuple[Condition, ...] = (),
+    classification: EffectClassification = EffectClassification.UNCLASSIFIED,
 ) -> ReactorZoneHazardRequest:
     return ReactorZoneHazardRequest(
         resolution_id="giant-reaction",
@@ -62,6 +68,7 @@ def source(
         rule_id="RULE-NPC:giant-unsteady",
         inflicts_wound=True,
         failure_conditions=failure_conditions,
+        classification=classification,
     )
 
 
@@ -73,6 +80,7 @@ def target(
     state=None,
     quality_modifiers: tuple[QualityModifier, ...] = (),
     wound_negation_options: tuple[WoundNegationOption, ...] = (),
+    effect_immunities: tuple[EffectImmunity, ...] = (),
 ) -> IdentifiedHazardTarget:
     if state is None:
         state = CharacterInjuryState()
@@ -86,6 +94,7 @@ def target(
         target_policy=policy,
         target_state=state,
         wound_negation_options=wound_negation_options,
+        target_effect_immunities=effect_immunities,
     )
 
 
@@ -103,6 +112,54 @@ def batch(
 
 
 class K1ReactorZoneHazardResolutionTests(unittest.TestCase):
+    def test_blocked_target_skips_test_and_does_not_consume_rng(self) -> None:
+        immunity = EffectImmunity(
+            EffectClassification.PSYCHOLOGICAL,
+            "RULE-NPC:undead-psychological-immunity",
+        )
+        test_decisions = RecordingTestDecisions()
+        result = resolve_reactor_zone_hazard(
+            batch(
+                target(
+                    "undead",
+                    quality_modifiers=(
+                        QualityModifier(
+                            "RULE-TEST:glorious",
+                            TestQuality.GLORIOUS,
+                        ),
+                    ),
+                    effect_immunities=(immunity,),
+                ),
+                target("giant"),
+                hazard_source=source(
+                    failure_conditions=(Condition.BROKEN,),
+                    classification=EffectClassification.PSYCHOLOGICAL,
+                ),
+            ),
+            SequenceRandom([1, 2, 3]),
+            test_decisions=test_decisions,
+        )
+
+        undead, giant = result.targets
+        self.assertTrue(undead.application.blocked)
+        self.assertEqual(undead.application.blocked_by_rule_id, immunity.rule_id)
+        self.assertIsNone(undead.avoidance_test)
+        self.assertIsNone(undead.hazard)
+        self.assertIs(
+            undead.exposure.classification,
+            EffectClassification.PSYCHOLOGICAL,
+        )
+        self.assertFalse(giant.application.blocked)
+        assert giant.avoidance_test is not None
+        assert giant.hazard is not None
+        self.assertEqual(giant.avoidance_test.trace.final_values, (1, 2, 3))
+        self.assertTrue(giant.hazard.avoided)
+        self.assertEqual(test_decisions.request_ids, [])
+        self.assertEqual(
+            result.applied_rule_ids,
+            (immunity.rule_id, "RULE-NPC:giant-unsteady"),
+        )
+
     def test_targets_must_include_reactor_and_have_unique_ids(self) -> None:
         with self.assertRaises(ValueError):
             batch()

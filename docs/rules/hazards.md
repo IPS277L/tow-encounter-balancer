@@ -30,3 +30,11 @@
 Unsteady Giant использует отдельный `ReactorZoneHazardRequest`: он фиксирует Hazard (3), Athletics и область «сам реагирующий Giant и все остальные существа в его Zone». Spatial orchestration выбирает конкретные разные цели, их актуальные Test-профили и injury contexts и передаёт стабильный порядок в `ReactorZoneHazardResolutionRequest`. Запрос обязан включать самого реагирующего и отклоняет повторные target/Test IDs.
 
 `resolve_reactor_zone_hazard` слева направо создаёт для каждой цели обычную `HazardExposureRequest`, выполняет общий Test и передаёт результат в `resolve_hazard`. Все цели используют один внедрённый RNG в указанном порядке, но сохраняют собственные `TestResult`, `HazardResolutionResult`, состояния и решения Test/Wound. Executor не ищет существ по Zone и не определяет spatial-порядок.
+
+## Психологическая классификация и иммунитет
+
+`HazardImpactSpec`, одиночная `HazardExposureRequest` и `ReactorZoneHazardRequest` переносят явную `EffectClassification`. Если вся экспозиция классифицирована как `PSYCHOLOGICAL`, совпавший `EffectImmunity` блокирует Hazard целиком до Test: цель не бросает кубы, не получает Wound или failure Conditions, а результат сохраняет Rule ID источника и иммунитета.
+
+Классификация относится к источнику целиком и не выводится из Skill проверки либо будущего Condition. Это подтверждает профиль Vampire (Gamemaster’s Guide, страница 168): он иммунен к психологическим эффектам, но солнечный свет остаётся Hazard (2), накладывающим Ablaze и сопротивляемым через Willpower. Поэтому один лишь `Willpower` не превращает Hazard в психологический.
+
+В Zone Hazard каждая цель проверяет собственный снимок иммунитетов до своего Test. Заблокированная цель остаётся в упорядоченном результате с `avoidance_test=None` и `hazard=None`, не потребляет RNG и не вызывает decision providers; следующие цели продолжают обычный детерминированный pipeline.

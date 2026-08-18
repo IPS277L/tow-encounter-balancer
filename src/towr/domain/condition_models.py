@@ -38,6 +38,38 @@ class EffectImmunity:
         _validate_non_empty_string(self.rule_id, "immunity rule_id")
 
 
+@dataclass(frozen=True, slots=True)
+class EffectApplicationRequest:
+    id: str
+    source_rule_id: str
+    classification: EffectClassification = EffectClassification.UNCLASSIFIED
+    immunities: tuple[EffectImmunity, ...] = field(default_factory=tuple)
+
+    def __post_init__(self) -> None:
+        _validate_non_empty_string(self.id, "Effect application id")
+        _validate_non_empty_string(self.source_rule_id, "source_rule_id")
+        if not isinstance(self.classification, EffectClassification):
+            raise TypeError(
+                "classification must be an EffectClassification"
+            )
+        immunities = tuple(self.immunities)
+        if not all(isinstance(item, EffectImmunity) for item in immunities):
+            raise TypeError("immunities must contain EffectImmunity values")
+        classifications = tuple(item.classification for item in immunities)
+        if len(set(classifications)) != len(classifications):
+            raise ValueError("effect immunity classifications must be unique")
+        object.__setattr__(self, "immunities", immunities)
+
+
+@dataclass(frozen=True, slots=True)
+class EffectApplicationResult:
+    request_id: str
+    blocked: bool
+    source_rule_id: str
+    blocked_by_rule_id: str | None
+    applied_rule_ids: tuple[str, ...]
+
+
 class StaggerChoice(str, Enum):
     GIVE_GROUND = "give_ground"
     FALL_PRONE = "fall_prone"

@@ -13,6 +13,7 @@ from towr.domain.attack_models import (
 from towr.domain.condition_models import (
     Condition,
     ConditionApplicationResult,
+    EffectApplicationResult,
     EffectClassification,
     EffectImmunity,
     StaggerResult,
@@ -318,6 +319,7 @@ class ReactorZoneHazardRequest:
     rule_id: str
     inflicts_wound: bool
     failure_conditions: tuple[Condition, ...]
+    classification: EffectClassification = EffectClassification.UNCLASSIFIED
 
     def __post_init__(self) -> None:
         _validate_non_empty_string(self.resolution_id, "resolution_id")
@@ -337,6 +339,10 @@ class ReactorZoneHazardRequest:
         if not self.inflicts_wound and not conditions:
             raise ValueError(
                 "a Hazard must inflict a Wound or at least one Condition"
+            )
+        if not isinstance(self.classification, EffectClassification):
+            raise TypeError(
+                "classification must be an EffectClassification"
             )
         object.__setattr__(self, "failure_conditions", conditions)
 
@@ -383,6 +389,7 @@ class HazardExposureRequest:
     rule_id: str
     inflicts_wound: bool
     failure_conditions: tuple[Condition, ...]
+    classification: EffectClassification = EffectClassification.UNCLASSIFIED
 
     def __post_init__(self) -> None:
         _validate_non_empty_string(self.resolution_id, "resolution_id")
@@ -404,6 +411,10 @@ class HazardExposureRequest:
             raise ValueError(
                 "a Hazard must inflict a Wound or at least one Condition"
             )
+        if not isinstance(self.classification, EffectClassification):
+            raise TypeError(
+                "classification must be an EffectClassification"
+            )
         object.__setattr__(self, "failure_conditions", conditions)
 
     @classmethod
@@ -420,6 +431,7 @@ class HazardExposureRequest:
             rule_id=spec.rule_id,
             inflicts_wound=spec.inflicts_wound,
             failure_conditions=spec.failure_conditions,
+            classification=spec.classification,
         )
 
 
@@ -455,6 +467,23 @@ class ConditionImpactResult:
 @dataclass(frozen=True, slots=True)
 class HazardImpactResult:
     exposure: HazardExposureRequest
+    application: EffectApplicationResult
+
+    @property
+    def blocked(self) -> bool:
+        return self.application.blocked
+
+    @property
+    def source_rule_id(self) -> str:
+        return self.application.source_rule_id
+
+    @property
+    def blocked_by_rule_id(self) -> str | None:
+        return self.application.blocked_by_rule_id
+
+    @property
+    def applied_rule_ids(self) -> tuple[str, ...]:
+        return self.application.applied_rule_ids
 
 
 ReplacementImpactResult = ConditionImpactResult | HazardImpactResult
@@ -692,6 +721,9 @@ class IdentifiedHazardTarget:
     additional_profile_wounds: tuple[AdditionalProfileWound, ...] = field(
         default_factory=tuple
     )
+    target_effect_immunities: tuple[EffectImmunity, ...] = field(
+        default_factory=tuple
+    )
 
     def __post_init__(self) -> None:
         _validate_non_empty_string(self.target_id, "target_id")
@@ -716,6 +748,11 @@ class IdentifiedHazardTarget:
             self,
             "additional_profile_wounds",
             additional_profile_wounds,
+        )
+        object.__setattr__(
+            self,
+            "target_effect_immunities",
+            _normalize_effect_immunities(self.target_effect_immunities),
         )
         _validate_target_policy_state(self.target_policy, self.target_state)
         _validate_injury_options(
@@ -758,8 +795,9 @@ class ReactorZoneHazardResolutionRequest:
 class ReactorZoneHazardTargetResult:
     target_id: str
     exposure: HazardExposureRequest
-    avoidance_test: TestResult
-    hazard: HazardResolutionResult
+    application: EffectApplicationResult
+    avoidance_test: TestResult | None
+    hazard: HazardResolutionResult | None
 
 
 @dataclass(frozen=True, slots=True)

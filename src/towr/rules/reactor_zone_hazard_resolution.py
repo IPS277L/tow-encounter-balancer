@@ -11,7 +11,10 @@ from towr.domain.resolution_models import (
 )
 from towr.domain.test_models import TestResult
 from towr.rules.dice import RandomSource
-from towr.rules.hazard_resolution import resolve_hazard
+from towr.rules.hazard_resolution import (
+    resolve_hazard,
+    resolve_hazard_exposure_application,
+)
 from towr.rules.injury_resolution import WoundDecisionProvider
 from towr.rules.test_resolution import TestDecisionProvider, resolve_test
 
@@ -26,6 +29,21 @@ def resolve_reactor_zone_hazard(
     results: list[ReactorZoneHazardTargetResult] = []
     for target in request.targets:
         exposure = _exposure(request.source, target)
+        application = resolve_hazard_exposure_application(
+            exposure,
+            target.target_effect_immunities,
+        )
+        if application.blocked:
+            results.append(
+                ReactorZoneHazardTargetResult(
+                    target_id=target.target_id,
+                    exposure=exposure,
+                    application=application,
+                    avoidance_test=None,
+                    hazard=None,
+                )
+            )
+            continue
         avoidance_test = resolve_test(
             target.avoidance_test,
             rng,
@@ -40,6 +58,7 @@ def resolve_reactor_zone_hazard(
             ReactorZoneHazardTargetResult(
                 target_id=target.target_id,
                 exposure=exposure,
+                application=application,
                 avoidance_test=avoidance_test,
                 hazard=hazard,
             )
@@ -49,7 +68,7 @@ def resolve_reactor_zone_hazard(
         source_resolution_id=request.source.resolution_id,
         reactor_target_id=request.reactor_target_id,
         targets=tuple(results),
-        applied_rule_ids=(request.source.rule_id,),
+        applied_rule_ids=_ordered_unique_rule_ids(results),
     )
 
 
@@ -83,4 +102,17 @@ def _exposure(
         rule_id=source.rule_id,
         inflicts_wound=source.inflicts_wound,
         failure_conditions=source.failure_conditions,
+        classification=source.classification,
+    )
+
+
+def _ordered_unique_rule_ids(
+    results: list[ReactorZoneHazardTargetResult],
+) -> tuple[str, ...]:
+    return tuple(
+        dict.fromkeys(
+            rule_id
+            for result in results
+            for rule_id in result.application.applied_rule_ids
+        )
     )
