@@ -52,10 +52,14 @@ K1 — реализация книжного resolution kernel. Прототип
 - обычный Damage, Condition вместо Damage и Hazard вместо Damage разделены вариантами `ImpactSpec`;
 - replacement impact не требует фиктивных Damage/Resilience и не применяется при промахе;
 - прямой Staggered использует общую repeated-Stagger policy, а Hazard создаёт `HazardExposureRequest` с рейтингом и Skill.
+- реализован `HazardResolutionRequest → HazardResolutionResult` с проверкой принадлежности `TestResult`;
+- shortfall Hazard задаёт базовое число кубов Wounds Table либо профильных Wounds, отдельно от untreated/modifier effects;
+- поддержаны Wound-only, Condition-only и Wound+Condition Hazards для всех четырёх injury policies;
+- Near Miss отменяет Wound от Hazard, но не отменяет его независимые failure Conditions.
 
 ## Проверено
 
-- 97 unit/integration тестов успешно проходят на Python 3.12, из них 77 относятся к K1;
+- 105 unit/integration тестов успешно проходят на Python 3.12, из них 85 относятся к K1;
 - исходники и тесты успешно проходят `compileall`.
 
 ## Исходный материал
@@ -74,13 +78,13 @@ K1 — реализация книжного resolution kernel. Прототип
 - применение времени, Treat/Heal и снятие source-aware Wound effects требует будущего battle loop;
 - внешние последствия Wound для инвентаря и анатомии пока являются typed follow-up;
 - защита Endurance после заживления `Ruptured organs` ещё не подключена к физическому impact;
-- `HazardExposureRequest` пока не превращает нехватку успехов в Wound;
+- автоматическая замена неподходящей строки Wounds Table для не-физического Hazard требует отдельной GM/simulation policy;
 - multi-target, эффекты «Damage плюс Condition», разные последствия hit/miss, профильные Reactions и secondary effects ещё не имеют общего orchestration;
 - Monte Carlo, JSON, CLI и балансировщик ещё не входят в текущий срез.
 
 ## Следующий шаг
 
-Реализовать `HazardExposureRequest → HazardResolutionResult`: Test нужного Skill, сравнение успехов с рейтингом, дополнительные кубы Wounds Table и failure Conditions. Затем добавить конкретный `SecondaryEffectSpec`; старый battle loop пока не подключать.
+Добавить конкретный `SecondaryEffectSpec` для эффектов после Damage и нескольких целей, начав с книжных `Prone before Give Ground` и Blunderbuss; старый battle loop пока не подключать.
 
 ## Последняя проверка
 
@@ -91,7 +95,7 @@ $env:PYTHONPATH = "src"
 py -3.12 -m unittest discover -s tests -v
 ```
 
-Результат: `Ran 97 tests ... OK`.
+Результат: `Ran 105 tests ... OK`.
 
 ```powershell
 py -3.12 -m compileall -q src tests tools

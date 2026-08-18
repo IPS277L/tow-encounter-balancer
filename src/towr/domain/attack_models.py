@@ -121,12 +121,25 @@ class HazardImpactSpec:
     rating: int
     avoidance_skill: Skill
     rule_id: str
+    inflicts_wound: bool = True
+    failure_conditions: tuple[Condition, ...] = field(default_factory=tuple)
 
     def __post_init__(self) -> None:
-        _validate_non_negative_int(self.rating, "Hazard rating")
+        _validate_positive_int(self.rating, "Hazard rating")
         if not isinstance(self.avoidance_skill, Skill):
             raise TypeError("avoidance_skill must be a Skill")
         _validate_rule_id(self.rule_id)
+        _validate_bool(self.inflicts_wound, "inflicts_wound")
+        conditions = tuple(self.failure_conditions)
+        if not all(isinstance(item, Condition) for item in conditions):
+            raise TypeError("failure_conditions must contain Condition values")
+        if len(set(conditions)) != len(conditions):
+            raise ValueError("failure_conditions must be unique")
+        if not self.inflicts_wound and not conditions:
+            raise ValueError(
+                "a Hazard must inflict a Wound or at least one Condition"
+            )
+        object.__setattr__(self, "failure_conditions", conditions)
 
 
 ImpactSpec = DamageImpactSpec | ConditionImpactSpec | HazardImpactSpec
@@ -197,6 +210,12 @@ def _validate_non_negative_int(value: int, name: str) -> None:
     _validate_int(value, name)
     if value < 0:
         raise ValueError(f"{name} must not be negative")
+
+
+def _validate_positive_int(value: int, name: str) -> None:
+    _validate_int(value, name)
+    if value < 1:
+        raise ValueError(f"{name} must be positive")
 
 
 def _validate_int(value: int, name: str) -> None:

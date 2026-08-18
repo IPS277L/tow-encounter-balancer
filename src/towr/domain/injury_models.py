@@ -269,11 +269,13 @@ class CharacterWoundRequest:
     subject_type: CharacterWoundType = CharacterWoundType.PLAYER
     dice_modifiers: tuple[WoundDiceModifier, ...] = field(default_factory=tuple)
     negation_options: tuple[WoundNegationOption, ...] = field(default_factory=tuple)
+    base_dice: int = 1
 
     def __post_init__(self) -> None:
         _validate_request_id(self.id, "character wound request")
         if not isinstance(self.state, CharacterInjuryState):
             raise TypeError("state must be a CharacterInjuryState")
+        _validate_positive_int(self.base_dice, "base_dice")
         if not isinstance(self.subject_type, CharacterWoundType):
             raise TypeError("subject_type must be a CharacterWoundType")
         object.__setattr__(self, "dice_modifiers", tuple(self.dice_modifiers))
@@ -460,6 +462,7 @@ class ProfileWoundRequest:
     additional_wounds: tuple[AdditionalProfileWound, ...] = field(
         default_factory=tuple
     )
+    base_wounds: int = 1
 
     def __post_init__(self) -> None:
         _validate_request_id(self.id, "profile wound request")
@@ -467,6 +470,7 @@ class ProfileWoundRequest:
             raise TypeError("npc_type must be a ProfileNpcType")
         if not isinstance(self.state, ProfileInjuryState):
             raise TypeError("state must be a ProfileInjuryState")
+        _validate_positive_int(self.base_wounds, "base_wounds")
         if self.npc_type is ProfileNpcType.MINION and self.state.wound_limit != 1:
             raise ValueError("a Minion must have a wound_limit of 1")
         object.__setattr__(self, "additional_wounds", tuple(self.additional_wounds))

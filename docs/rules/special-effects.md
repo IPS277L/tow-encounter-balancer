@@ -46,7 +46,7 @@
 - `ConditionImpactSpec` наносит одно Condition вместо Damage;
 - `HazardImpactSpec` создаёт экспозицию Hazard с рейтингом и названным Skill вместо Damage.
 
-На промахе replacement impact не применяется. Прямой Staggered использует общий reducer повторного Staggered; остальные Conditions добавляются к состоянию цели. Hazard пока завершается `HazardExposureRequest`, поскольку профиль цели и последующая Wound policy принадлежат orchestration. Эффекты «Damage плюс Condition», несколько целей, принудительное перемещение и разные последствия попадания/промаха не маскируются этими тремя вариантами: для них нужен следующий `SecondaryEffectSpec` или именованный resolver.
+На промахе replacement impact не применяется. Прямой Staggered использует общий reducer повторного Staggered; остальные Conditions добавляются к состоянию цели. Hazard сначала создаёт `HazardExposureRequest`, поскольку профиль нужного Skill принадлежит orchestration, а затем отдельный resolver сравнивает Test с рейтингом и вызывает существующую injury policy. Эффекты «Damage плюс Condition», несколько целей, принудительное перемещение и разные последствия попадания/промаха не маскируются этими тремя вариантами: для них нужен следующий `SecondaryEffectSpec` или именованный resolver.
 
 ## RULE-EFFECT-006 — дополнительные цели задаются эффектом
 

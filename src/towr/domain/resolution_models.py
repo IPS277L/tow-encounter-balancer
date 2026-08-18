@@ -24,7 +24,7 @@ from towr.domain.injury_models import (
     WoundEnduranceTestRequest,
     WoundNegationOption,
 )
-from towr.domain.test_models import Skill
+from towr.domain.test_models import Skill, TestResult
 
 
 class TargetInjuryPolicy(str, Enum):
@@ -62,9 +62,34 @@ class ConsumeWoundNegationRequest:
 @dataclass(frozen=True, slots=True)
 class HazardExposureRequest:
     resolution_id: str
+    test_id: str
     rating: int
     avoidance_skill: Skill
     rule_id: str
+    inflicts_wound: bool
+    failure_conditions: tuple[Condition, ...]
+
+    def __post_init__(self) -> None:
+        _validate_non_empty_string(self.resolution_id, "resolution_id")
+        _validate_non_empty_string(self.test_id, "test_id")
+        if not isinstance(self.rating, int) or isinstance(self.rating, bool):
+            raise TypeError("rating must be an integer")
+        if self.rating < 1:
+            raise ValueError("rating must be positive")
+        if not isinstance(self.avoidance_skill, Skill):
+            raise TypeError("avoidance_skill must be a Skill")
+        _validate_non_empty_string(self.rule_id, "rule_id")
+        _validate_bool(self.inflicts_wound, "inflicts_wound")
+        conditions = tuple(self.failure_conditions)
+        if not all(isinstance(item, Condition) for item in conditions):
+            raise TypeError("failure_conditions must contain Condition values")
+        if len(set(conditions)) != len(conditions):
+            raise ValueError("failure_conditions must be unique")
+        if not self.inflicts_wound and not conditions:
+            raise ValueError(
+                "a Hazard must inflict a Wound or at least one Condition"
+            )
+        object.__setattr__(self, "failure_conditions", conditions)
 
     @classmethod
     def from_spec(
@@ -74,9 +99,12 @@ class HazardExposureRequest:
     ) -> HazardExposureRequest:
         return cls(
             resolution_id=resolution_id,
+            test_id=f"{resolution_id}:hazard",
             rating=spec.rating,
             avoidance_skill=spec.avoidance_skill,
             rule_id=spec.rule_id,
+            inflicts_wound=spec.inflicts_wound,
+            failure_conditions=spec.failure_conditions,
         )
 
 
@@ -109,6 +137,127 @@ FollowUpRequest = (
 
 
 TargetInjuryState = CharacterInjuryState | ProfileInjuryState
+
+
+@dataclass(frozen=True, slots=True)
+class HazardResolutionRequest:
+    id: str
+    exposure: HazardExposureRequest
+    avoidance_test: TestResult
+    target_policy: TargetInjuryPolicy
+    target_state: TargetInjuryState
+    wound_dice_modifiers: tuple[WoundDiceModifier, ...] = field(
+        default_factory=tuple
+    )
+    wound_negation_options: tuple[WoundNegationOption, ...] = field(
+        default_factory=tuple
+    )
+    additional_profile_wounds: tuple[AdditionalProfileWound, ...] = field(
+        default_factory=tuple
+    )
+
+    def __post_init__(self) -> None:
+        _validate_non_empty_string(self.id, "Hazard resolution request id")
+        if not isinstance(self.exposure, HazardExposureRequest):
+            raise TypeError("exposure must be a HazardExposureRequest")
+        if not isinstance(self.avoidance_test, TestResult):
+            raise TypeError("avoidance_test must be a TestResult")
+        if self.avoidance_test.trace.request_id != self.exposure.test_id:
+            raise ValueError("avoidance Test result does not match the exposure")
+        if not isinstance(self.target_policy, TargetInjuryPolicy):
+            raise TypeError("target_policy must be a TargetInjuryPolicy")
+        object.__setattr__(
+            self,
+            "wound_dice_modifiers",
+            tuple(self.wound_dice_modifiers),
+        )
+        object.__setattr__(
+            self,
+            "wound_negation_options",
+            tuple(self.wound_negation_options),
+        )
+        object.__setattr__(
+            self,
+            "additional_profile_wounds",
+            tuple(self.additional_profile_wounds),
+        )
+        self._validate_target()
+        self._validate_options()
+
+    def _validate_target(self) -> None:
+        character_policy = self.target_policy in {
+            TargetInjuryPolicy.PLAYER,
+            TargetInjuryPolicy.CHAMPION,
+        }
+        if character_policy and not isinstance(
+            self.target_state,
+            CharacterInjuryState,
+        ):
+            raise TypeError("Player/Champion requires CharacterInjuryState")
+        if not character_policy and not isinstance(
+            self.target_state,
+            ProfileInjuryState,
+        ):
+            raise TypeError("profile NPC requires ProfileInjuryState")
+        if (
+            self.target_policy is TargetInjuryPolicy.MINION
+            and isinstance(self.target_state, ProfileInjuryState)
+            and self.target_state.wound_limit != 1
+        ):
+            raise ValueError("Minion requires a wound_limit of 1")
+
+    def _validate_options(self) -> None:
+        if not all(
+            isinstance(item, WoundDiceModifier)
+            for item in self.wound_dice_modifiers
+        ):
+            raise TypeError(
+                "wound_dice_modifiers must contain WoundDiceModifier values"
+            )
+        if not all(
+            isinstance(item, WoundNegationOption)
+            for item in self.wound_negation_options
+        ):
+            raise TypeError(
+                "wound_negation_options must contain WoundNegationOption values"
+            )
+        if not all(
+            isinstance(item, AdditionalProfileWound)
+            for item in self.additional_profile_wounds
+        ):
+            raise TypeError(
+                "additional_profile_wounds must contain AdditionalProfileWound values"
+            )
+        character_policy = self.target_policy in {
+            TargetInjuryPolicy.PLAYER,
+            TargetInjuryPolicy.CHAMPION,
+        }
+        if character_policy and self.additional_profile_wounds:
+            raise ValueError(
+                "Player/Champion uses Wounds Table dice, not profile wounds"
+            )
+        if not character_policy and (
+            self.wound_dice_modifiers or self.wound_negation_options
+        ):
+            raise ValueError(
+                "profile NPCs use additional_profile_wounds, not table options"
+            )
+
+
+@dataclass(frozen=True, slots=True)
+class HazardResolutionResult:
+    request_id: str
+    state: TargetInjuryState
+    avoided: bool
+    successes: int
+    rating: int
+    shortfall: int
+    character_wound: CharacterWoundResult | None
+    wound_effect: WoundEffectResult | None
+    profile_wound: ProfileWoundResult | None
+    failure_conditions: tuple[Condition, ...]
+    follow_ups: tuple[FollowUpRequest, ...]
+    applied_rule_ids: tuple[str, ...]
 
 
 @dataclass(frozen=True, slots=True)
@@ -249,3 +398,10 @@ class ResolutionResult:
 def _validate_bool(value: bool, name: str) -> None:
     if not isinstance(value, bool):
         raise TypeError(f"{name} must be a boolean")
+
+
+def _validate_non_empty_string(value: str, name: str) -> None:
+    if not isinstance(value, str):
+        raise TypeError(f"{name} must be a string")
+    if not value.strip():
+        raise ValueError(f"{name} must not be empty")

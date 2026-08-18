@@ -69,7 +69,7 @@ Recover может снимать Staggered и Prone, лечить Wound или 
 - Player/Champion и профильные NPC policies: `src/towr/rules/injury_resolution.py`;
 - сквозные проверки: `tests/unit/test_k1_injury_resolution.py` и `tests/unit/test_k1_kernel.py`.
 
-Player и Champion используют одну policy. Число кубов равно `1 + untreated Wounds + modifiers`, минимум один. Принятая Wound записывает исходные d10 и сумму, удаляет прежний Staggered и отмечает смертельные результаты `24+`. Near Miss и аналогичные доступные отмены выбираются после броска; при отмене исходное состояние, включая Staggered, сохраняется, а расход Fate или другого источника возвращается как `ConsumeWoundNegationRequest`.
+Player и Champion используют одну policy. Для обычной Wound число кубов равно `1 + untreated Wounds + modifiers`, минимум один. Hazard передаёт вместо базовой единицы свой положительный shortfall; остальные слагаемые и минимум не меняются. Принятая Wound записывает исходные d10 и сумму, удаляет прежний Staggered и отмечает смертельные результаты `24+`. Near Miss и аналогичные доступные отмены выбираются после броска; при отмене исходное состояние, включая Staggered, сохраняется, а расход Fate или другого источника возвращается как `ConsumeWoundNegationRequest`.
 
 Каждая принятая рана создаёт `WoundEffectRequest` с конкретным `WoundEntryId`. Специализированный reducer исполняет его ровно один раз внутри kernel и записывает `effect_resolved` в рану.
 

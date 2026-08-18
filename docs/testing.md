@@ -47,6 +47,15 @@ py -3.12 -m unittest discover -s tests -v
 - Hazard вместо Damage как typed exposure с рейтингом и Skill;
 - replacement impact не применяется при промахе.
 
+Группы K1 Hazards:
+
+- успехи, равные рейтингу, полностью избегают Hazard;
+- shortfall задаёт базовые кубы Wounds Table до untreated Wounds;
+- shortfall становится числом Wounds для профильных NPC;
+- Condition-only Hazard не создаёт Wound;
+- failure Conditions применяются после Wound и не отменяются Near Miss;
+- результат постороннего Test нельзя передать другой экспозиции.
+
 Группы K1 Staggered:
 
 - первое получение состояния без дополнительного выбора;

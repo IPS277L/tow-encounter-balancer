@@ -1,6 +1,6 @@
 # Hazards
 
-Источник: `BOOK-PLAYER-GUIDE`, страницы 68, 115–116. Статус: модель экспозиции `implemented` в K1; разрешение Test и последствий `draft`.
+Источник: `BOOK-PLAYER-GUIDE`, страницы 68, 115–116. Статус: модель экспозиции и разрешение последствий `implemented` в K1.
 
 ## RULE-HAZARD-001 — проверка экспозиции
 
@@ -14,6 +14,15 @@
 
 ## RULE-HAZARD-003 — граница K1
 
-`HazardImpactSpec` хранит рейтинг, Skill избегания и Rule ID. При успешной replacement-атаке kernel не подставляет фиктивный Damage, а возвращает `HazardExposureRequest`. Следующий resolver должен принять профиль соответствующего Skill и `TestResult`, вычислить нехватку успехов и передать Wound в существующую Player/Champion либо NPC injury policy.
+`HazardImpactSpec` хранит рейтинг, Skill избегания, наличие Wound, дополнительные failure Conditions и Rule ID. При успешной replacement-атаке kernel не подставляет фиктивный Damage, а возвращает `HazardExposureRequest`. Orchestration строит обычный Test указанного Skill и передаёт его результат вместе с состоянием цели в `resolve_hazard`.
+
+`HazardResolutionResult` явно хранит успехи, рейтинг и shortfall. При `successes >= rating` состояние не меняется. При провале:
+
+- для Player/Champion shortfall становится `base_dice`, после чего добавляются untreated Wounds и обычные модификаторы таблицы;
+- для Minion/Brute/Monstrosity shortfall становится базовым числом профильных Wounds;
+- Wound проходит общую отмену и специализированный Wound-effect reducer;
+- failure Conditions применяются независимо от того, была ли Wound отменена через Near Miss.
+
+Рейтинг в модели всегда положительный; обычный Hazard, для которого книга требует хотя бы один успех, представлен рейтингом `1`. Hazard без Wound обязан содержать хотя бы одно failure Condition. Неподходящий результат таблицы для не-физического Hazard по умолчанию не заменяется; будущая GM/simulation policy сможет использовать книжную опцию замены.
 
 Выбор всех существ в Zone для Blasting Charge, его срабатывание в Zone атакующего при промахе и прочие area-правила относятся к конкретному `SecondaryEffectSpec`, а не к универсальной семантике Hazard.

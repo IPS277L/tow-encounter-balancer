@@ -52,7 +52,10 @@ def resolve_character_wound(
         )
 
     dice_delta = sum(modifier.amount for modifier in request.dice_modifiers)
-    dice = max(1, 1 + request.state.untreated_wounds + dice_delta)
+    dice = max(
+        1,
+        request.base_dice + request.state.untreated_wounds + dice_delta,
+    )
     values = tuple(rng.randint(1, 10) for _ in range(dice))
     total = sum(values)
     entry = lookup_wound(total)
@@ -113,7 +116,7 @@ def resolve_profile_wound(request: ProfileWoundRequest) -> ProfileWoundResult:
         raise ValueError("a defeated NPC cannot suffer another Wound")
 
     additional = sum(item.count for item in request.additional_wounds)
-    wounds_requested = 1 + additional
+    wounds_requested = request.base_wounds + additional
     current_wounds = min(
         request.state.wound_limit,
         request.state.wounds + wounds_requested,

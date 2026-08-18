@@ -23,7 +23,7 @@ R1 охватывает оба основных источника: Player’s G
 - injury policies для Player/Champion, Minion, Brute и Monstrosity;
 - детерминированные тесты с трассировкой к Rule ID.
 
-Готово ядро Test/Opposed/Attack/Staggered/Wound, специализированные эффекты всех строк Wounds Table, заменяющие Damage `ImpactSpec` и единый `ResolutionResult`. До расширения к multi-target orchestration нужно разрешить `HazardExposureRequest` и добавить конкретные secondary effects; Talents и NPC Abilities наращиваются поверх тех же фаз.
+Готово ядро Test/Opposed/Attack/Staggered/Wound, специализированные эффекты всех строк Wounds Table, заменяющие Damage `ImpactSpec`, Hazard resolver и единый `ResolutionResult`. До расширения к multi-target orchestration нужно добавить конкретные secondary effects; Talents и NPC Abilities наращиваются поверх тех же фаз.
 
 Непосредственно связанные Talents, свойства оружия и классы специальных NPC-правил проверены. Полный каталог конкретных Abilities будет наращиваться по профилям, не меняя фазовый контракт K1.
 

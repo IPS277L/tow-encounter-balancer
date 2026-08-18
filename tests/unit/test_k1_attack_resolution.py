@@ -220,6 +220,23 @@ class K1AttackResolutionTests(unittest.TestCase):
             ("RULE-EFFECT-005:hazard-impact",),
         )
 
+    def test_hazard_requires_a_failure_consequence(self) -> None:
+        with self.assertRaises(ValueError):
+            HazardImpactSpec(
+                1,
+                Skill.ENDURANCE,
+                "RULE-INVALID",
+                inflicts_wound=False,
+            )
+
+    def test_hazard_rating_must_be_positive(self) -> None:
+        with self.assertRaises(ValueError):
+            HazardImpactSpec(
+                0,
+                Skill.ENDURANCE,
+                "RULE-INVALID",
+            )
+
     def test_replacement_impact_is_not_applied_on_a_miss(self) -> None:
         result = resolve_attack(
             attack_request(
