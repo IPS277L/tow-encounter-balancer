@@ -13,8 +13,11 @@ from towr.domain.injury_models import (
     ProfileInjuryState,
     ProfileStateChangeRequest,
     ProfileWoundResult,
+    WoundChoiceRequest,
+    WoundConsequenceRequest,
     WoundDiceModifier,
-    WoundEffectRequest,
+    WoundEffectResult,
+    WoundEnduranceTestRequest,
     WoundNegationOption,
 )
 
@@ -56,7 +59,9 @@ FollowUpRequest = (
     | ConsumeWoundNegationRequest
     | GiveGroundRequest
     | MonstrosityReactionRequest
-    | WoundEffectRequest
+    | WoundEnduranceTestRequest
+    | WoundConsequenceRequest
+    | WoundChoiceRequest
     | ProfileStateChangeRequest
 )
 
@@ -192,6 +197,7 @@ class ResolutionResult:
     target_state: TargetInjuryState
     stagger: StaggerResult | None
     character_wound: CharacterWoundResult | None
+    wound_effect: WoundEffectResult | None
     profile_wound: ProfileWoundResult | None
     monstrosity_impact: MonstrosityImpactResult | None
     follow_ups: tuple[FollowUpRequest, ...]

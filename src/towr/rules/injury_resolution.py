@@ -88,6 +88,7 @@ def resolve_character_wound(
     state = CharacterInjuryState(
         wounds=(*request.state.wounds, wound),
         conditions=conditions,
+        active_wound_effects=request.state.active_wound_effects,
         dead=entry.lethal,
     )
     return CharacterWoundResult(
@@ -98,6 +99,7 @@ def resolve_character_wound(
         wound_accepted=True,
         negated_by_rule_id=None,
         effect_request=WoundEffectRequest(
+            id=f"{request.id}:effect",
             wound_sequence=sequence,
             entry_id=entry.id,
             rule_id=f"RULE-WOUND-TABLE:{entry.id.value}",

@@ -61,3 +61,13 @@ py -3.12 -m unittest discover -s tests -v
 - владелец решения Monstrosity Wound/Reaction для обоих порогов Damage;
 - полный путь `Attack → Impact → Staggered/Wound → state + follow-ups`;
 - отсутствие скрытого выбора при Glorious, повторном Staggered, Near Miss и Monstrosity Reaction.
+
+Группы K1 Wound effects:
+
+- явная спецификация каждой строки Wounds Table `1–27+`;
+- однократное применение строки и сохранение источника/срока каждого эффекта;
+- безусловные Conditions, ограничения до Treat/Heal и постоянные последствия;
+- порядок немедленных consequences и Endurance Test;
+- успешный и неуспешный Endurance с Condition либо внешним consequence;
+- обе ветви обязательного выбора `Spilling guts`;
+- сквозная фиксация `WoundEffectResult` в результате kernel.

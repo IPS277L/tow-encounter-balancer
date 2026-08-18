@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from enum import Enum
 
-from towr.domain.condition_models import ConditionState
+from towr.domain.condition_models import Condition, ConditionState
 
 
 class WoundEntryId(str, Enum):
@@ -63,6 +63,67 @@ class DecisionOwner(str, Enum):
     MONSTROSITY = "monstrosity"
 
 
+class WoundEffectDuration(str, Enum):
+    END_OF_NEXT_TURN = "end_of_next_turn"
+    UNTIL_REMOVED = "until_removed"
+    UNTIL_TREATED = "until_treated"
+    UNTIL_HEALED = "until_healed"
+    NEXT_TEST = "next_test"
+    PERMANENT = "permanent"
+
+
+class WoundRestriction(str, Enum):
+    CANNOT_AIM = "cannot_aim"
+    MOVEMENT_IS_DIFFICULT_TERRAIN = "movement_is_difficult_terrain"
+    NEXT_TEST_IS_GRIM = "next_test_is_grim"
+    USING_INJURED_HAND_CAUSES_CRITICAL = (
+        "using_injured_hand_causes_critical"
+    )
+    REMOVING_PRONE_CAUSES_CRITICAL = "removing_prone_causes_critical"
+    NON_RECOVER_ACTION_CAUSES_CRITICAL = (
+        "non_recover_action_causes_critical"
+    )
+    NON_FACE_PROTECTION_ACTION_CAUSES_CRITICAL = (
+        "non_face_protection_action_causes_critical"
+    )
+    INJURED_ARM_UNUSABLE = "injured_arm_unusable"
+    ARM_LOST = "arm_lost"
+    LEG_LOST = "leg_lost"
+    SPEED_IS_SLOW = "speed_is_slow"
+    PHYSICAL_STAGGER_BECOMES_WOUND = (
+        "physical_stagger_becomes_wound"
+    )
+
+
+class WoundEnduranceFailure(str, Enum):
+    DROP_RANDOM_HAND_ITEM = "drop_random_hand_item"
+    FALL_PRONE = "fall_prone"
+    BLINDED_UNTIL_END_OF_NEXT_TURN = (
+        "blinded_until_end_of_next_turn"
+    )
+    LOSE_D10_TEETH = "lose_d10_teeth"
+    LOSE_RANDOM_FINGER = "lose_random_finger"
+    LOSE_RANDOM_EYE = "lose_random_eye"
+
+
+class WoundConsequence(str, Enum):
+    DROP_RANDOM_HAND_ITEM = "drop_random_hand_item"
+    LOSE_D10_TEETH = "lose_d10_teeth"
+    LOSE_RANDOM_FINGER = "lose_random_finger"
+    LOSE_RANDOM_EYE = "lose_random_eye"
+    RANDOMISE_INJURED_ARM = "randomise_injured_arm"
+    RANDOMISE_SEVERED_ARM = "randomise_severed_arm"
+    RANDOMISE_SEVERED_LEG = "randomise_severed_leg"
+    DROP_ONE_HAND_ITEM_AND_CLUTCH_STOMACH = (
+        "drop_one_hand_item_and_clutch_stomach"
+    )
+
+
+class WoundChoice(str, Enum):
+    DROP_AND_CLUTCH_STOMACH = "drop_and_clutch_stomach"
+    BECOME_DEFENCELESS = "become_defenceless"
+
+
 @dataclass(frozen=True, slots=True)
 class WoundTableEntry:
     id: WoundEntryId
@@ -114,6 +175,7 @@ class WoundRecord:
     table_total: int
     roll_values: tuple[int, ...]
     treated: bool = False
+    effect_resolved: bool = False
 
     def __post_init__(self) -> None:
         _validate_positive_int(self.sequence, "wound sequence")
@@ -129,12 +191,47 @@ class WoundRecord:
             raise ValueError("table_total must equal the sum of roll_values")
         object.__setattr__(self, "roll_values", values)
         _validate_bool(self.treated, "treated")
+        _validate_bool(self.effect_resolved, "effect_resolved")
+
+
+@dataclass(frozen=True, slots=True)
+class WoundConditionEffect:
+    wound_sequence: int
+    condition: Condition
+    duration: WoundEffectDuration
+
+    def __post_init__(self) -> None:
+        _validate_positive_int(self.wound_sequence, "wound sequence")
+        if not isinstance(self.condition, Condition):
+            raise TypeError("condition must be a Condition")
+        if not isinstance(self.duration, WoundEffectDuration):
+            raise TypeError("duration must be a WoundEffectDuration")
+
+
+@dataclass(frozen=True, slots=True)
+class WoundRestrictionEffect:
+    wound_sequence: int
+    restriction: WoundRestriction
+    duration: WoundEffectDuration
+
+    def __post_init__(self) -> None:
+        _validate_positive_int(self.wound_sequence, "wound sequence")
+        if not isinstance(self.restriction, WoundRestriction):
+            raise TypeError("restriction must be a WoundRestriction")
+        if not isinstance(self.duration, WoundEffectDuration):
+            raise TypeError("duration must be a WoundEffectDuration")
+
+
+ActiveWoundEffect = WoundConditionEffect | WoundRestrictionEffect
 
 
 @dataclass(frozen=True, slots=True)
 class CharacterInjuryState:
     wounds: tuple[WoundRecord, ...] = field(default_factory=tuple)
     conditions: ConditionState = field(default_factory=ConditionState)
+    active_wound_effects: tuple[ActiveWoundEffect, ...] = field(
+        default_factory=tuple
+    )
     dead: bool = False
 
     def __post_init__(self) -> None:
@@ -146,6 +243,18 @@ class CharacterInjuryState:
         object.__setattr__(self, "wounds", wounds)
         if not isinstance(self.conditions, ConditionState):
             raise TypeError("conditions must be a ConditionState")
+        effects = tuple(self.active_wound_effects)
+        if not all(
+            isinstance(item, (WoundConditionEffect, WoundRestrictionEffect))
+            for item in effects
+        ):
+            raise TypeError(
+                "active_wound_effects must contain active Wound effects"
+            )
+        wound_sequences = {wound.sequence for wound in wounds}
+        if any(item.wound_sequence not in wound_sequences for item in effects):
+            raise ValueError("active Wound effects must refer to an existing Wound")
+        object.__setattr__(self, "active_wound_effects", effects)
         _validate_bool(self.dead, "dead")
 
     @property
@@ -210,15 +319,96 @@ class WoundTableRoll:
 
 @dataclass(frozen=True, slots=True)
 class WoundEffectRequest:
+    id: str
     wound_sequence: int
     entry_id: WoundEntryId
     rule_id: str
 
     def __post_init__(self) -> None:
+        _validate_request_id(self.id, "Wound effect request")
         _validate_positive_int(self.wound_sequence, "wound sequence")
         if not isinstance(self.entry_id, WoundEntryId):
             raise TypeError("entry_id must be a WoundEntryId")
         _validate_rule_id(self.rule_id)
+
+
+@dataclass(frozen=True, slots=True)
+class WoundEnduranceTestRequest:
+    test_id: str
+    wound_sequence: int
+    entry_id: WoundEntryId
+    failure: WoundEnduranceFailure
+    rule_id: str
+
+    def __post_init__(self) -> None:
+        _validate_request_id(self.test_id, "Wound Endurance Test request")
+        _validate_positive_int(self.wound_sequence, "wound sequence")
+        if not isinstance(self.entry_id, WoundEntryId):
+            raise TypeError("entry_id must be a WoundEntryId")
+        if not isinstance(self.failure, WoundEnduranceFailure):
+            raise TypeError("failure must be a WoundEnduranceFailure")
+        _validate_rule_id(self.rule_id)
+
+
+@dataclass(frozen=True, slots=True)
+class WoundConsequenceRequest:
+    wound_sequence: int
+    consequence: WoundConsequence
+    rule_id: str
+
+    def __post_init__(self) -> None:
+        _validate_positive_int(self.wound_sequence, "wound sequence")
+        if not isinstance(self.consequence, WoundConsequence):
+            raise TypeError("consequence must be a WoundConsequence")
+        _validate_rule_id(self.rule_id)
+
+
+@dataclass(frozen=True, slots=True)
+class WoundChoiceRequest:
+    wound_sequence: int
+    options: tuple[WoundChoice, ...]
+    rule_id: str
+
+    def __post_init__(self) -> None:
+        _validate_positive_int(self.wound_sequence, "wound sequence")
+        options = tuple(self.options)
+        if not options:
+            raise ValueError("Wound choice options must not be empty")
+        if not all(isinstance(item, WoundChoice) for item in options):
+            raise TypeError("options must contain WoundChoice values")
+        if len(set(options)) != len(options):
+            raise ValueError("Wound choice options must be unique")
+        object.__setattr__(self, "options", options)
+        _validate_rule_id(self.rule_id)
+
+
+WoundEffectFollowUp = (
+    WoundEnduranceTestRequest | WoundConsequenceRequest | WoundChoiceRequest
+)
+
+
+@dataclass(frozen=True, slots=True)
+class WoundEffectResult:
+    request: WoundEffectRequest
+    state: CharacterInjuryState
+    follow_ups: tuple[WoundEffectFollowUp, ...]
+    applied_rule_ids: tuple[str, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class WoundEnduranceTestResult:
+    request: WoundEnduranceTestRequest
+    state: CharacterInjuryState
+    succeeded: bool
+    follow_ups: tuple[WoundConsequenceRequest, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class WoundChoiceResult:
+    request: WoundChoiceRequest
+    state: CharacterInjuryState
+    selected_choice: WoundChoice
+    follow_ups: tuple[WoundConsequenceRequest, ...]
 
 
 @dataclass(frozen=True, slots=True)

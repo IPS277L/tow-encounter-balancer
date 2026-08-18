@@ -13,9 +13,12 @@ from towr.domain.injury_models import (
     ProfileNpcType,
     ProfileWoundRequest,
     WoundDiceModifier,
+    WoundEffectDuration,
     WoundEntryId,
     WoundNegationOption,
     WoundRecord,
+    WoundRestriction,
+    WoundRestrictionEffect,
 )
 from towr.rules.injury_resolution import (
     InvalidWoundDecisionError,
@@ -90,6 +93,24 @@ class K1CharacterInjuryTests(unittest.TestCase):
         self.assertEqual(result.table_roll.dice, 2)
         self.assertEqual(result.table_roll.total, 9)
         self.assertIs(result.table_roll.entry.id, WoundEntryId.LEG_SPASM)
+
+    def test_new_wound_preserves_active_effects_from_earlier_wounds(self) -> None:
+        prior_effect = WoundRestrictionEffect(
+            1,
+            WoundRestriction.CANNOT_AIM,
+            WoundEffectDuration.UNTIL_TREATED,
+        )
+        state = CharacterInjuryState(
+            wounds=(old_wound(1),),
+            active_wound_effects=(prior_effect,),
+        )
+
+        result = resolve_character_wound(
+            CharacterWoundRequest("next-wound", state),
+            SequenceRandom([1, 1]),
+        )
+
+        self.assertEqual(result.state.active_wound_effects, (prior_effect,))
 
     def test_wound_dice_modifiers_apply_with_minimum_one_die(self) -> None:
         increased = resolve_character_wound(

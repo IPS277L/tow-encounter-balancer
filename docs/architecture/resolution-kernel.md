@@ -103,6 +103,7 @@ validate target/range/action
 - `AttackResult` и все вложенные roll traces;
 - новый снимок состояния основной цели;
 - результат Staggered, Wound или Monstrosity impact;
-- типизированные follow-up для Staggered атакующего, Give Ground, эффекта строки Wounds Table, смены профильного диапазона NPC или Monstrosity Reaction.
+- применённый `WoundEffectResult`, включая условия и ограничения с источником и сроком действия;
+- типизированные follow-up для Staggered атакующего, Give Ground, Endurance/внешних последствий Wound, смены профильного диапазона NPC или Monstrosity Reaction.
 
-Kernel не исполняет follow-up рекурсивно. Уникальные эффекты Wounds Table, заменяющие обычный Damage атаки и конкретные профильные Reactions ещё должны получить специализированные resolvers.
+Kernel исполняет непосредственный эффект принятой строки Wounds Table как часть текущей injury-фазы, но не исполняет созданные им follow-up рекурсивно. Endurance использует общий Test resolver после того, как orchestration предоставит профиль персонажа; изменения инвентаря и анатомии остаются отдельными типизированными запросами. Заменяющие обычный Damage атаки и конкретные профильные Reactions ещё должны получить специализированные resolvers.

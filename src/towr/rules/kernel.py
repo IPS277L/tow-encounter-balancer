@@ -44,6 +44,7 @@ from towr.rules.stagger_resolution import (
     resolve_stagger,
 )
 from towr.rules.test_resolution import TestDecisionProvider
+from towr.rules.wound_effect_resolution import resolve_wound_effect
 
 
 class ResolutionDecisionProvider(
@@ -73,6 +74,7 @@ def resolve_kernel_attack(
             target_state=request.target_state,
             stagger=None,
             character_wound=None,
+            wound_effect=None,
             profile_wound=None,
             monstrosity_impact=None,
             follow_ups=follow_ups,
@@ -119,6 +121,7 @@ def resolve_kernel_attack(
         target_state=updated_state,
         stagger=stagger,
         character_wound=None,
+        wound_effect=None,
         profile_wound=None,
         monstrosity_impact=None,
         follow_ups=follow_ups,
@@ -157,8 +160,12 @@ def _resolve_wound(
             rng,
             decisions=decisions,
         )
+        effect = None
+        target_state = wound.state
         if wound.effect_request is not None:
-            follow_ups.append(wound.effect_request)
+            effect = resolve_wound_effect(wound.effect_request, wound.state)
+            target_state = effect.state
+            follow_ups.extend(effect.follow_ups)
         if wound.negated_by_rule_id is not None:
             follow_ups.append(
                 ConsumeWoundNegationRequest(
@@ -169,9 +176,10 @@ def _resolve_wound(
         return ResolutionResult(
             request_id=request.id,
             attack=attack,
-            target_state=wound.state,
+            target_state=target_state,
             stagger=stagger,
             character_wound=wound,
+            wound_effect=effect,
             profile_wound=None,
             monstrosity_impact=None,
             follow_ups=tuple(follow_ups),
@@ -198,6 +206,7 @@ def _resolve_wound(
         target_state=wound.state,
         stagger=stagger,
         character_wound=None,
+        wound_effect=None,
         profile_wound=wound,
         monstrosity_impact=None,
         follow_ups=tuple(follow_ups),
@@ -230,6 +239,7 @@ def _resolve_monstrosity(
             target_state=impact.state,
             stagger=None,
             character_wound=None,
+            wound_effect=None,
             profile_wound=None,
             monstrosity_impact=impact,
             follow_ups=(
@@ -253,6 +263,7 @@ def _resolve_monstrosity(
             target_state=result.target_state,
             stagger=result.stagger,
             character_wound=result.character_wound,
+            wound_effect=result.wound_effect,
             profile_wound=result.profile_wound,
             monstrosity_impact=impact,
             follow_ups=result.follow_ups,
@@ -263,6 +274,7 @@ def _resolve_monstrosity(
         target_state=impact.state,
         stagger=None,
         character_wound=None,
+        wound_effect=None,
         profile_wound=None,
         monstrosity_impact=impact,
         follow_ups=(),
@@ -277,6 +289,7 @@ def _with_conditions(
         return CharacterInjuryState(
             wounds=state.wounds,
             conditions=conditions,
+            active_wound_effects=state.active_wound_effects,
             dead=state.dead,
         )
     return ProfileInjuryState(

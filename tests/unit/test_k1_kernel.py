@@ -10,6 +10,7 @@ from towr.domain.injury_models import (
     MonstrosityImpactChoice,
     ProfileInjuryState,
     WoundEntryId,
+    WoundEnduranceTestRequest,
     WoundNegationOption,
 )
 from towr.domain.resolution_models import (
@@ -137,6 +138,27 @@ class K1KernelTests(unittest.TestCase):
         )
         self.assertFalse(result.target_state.conditions.has(Condition.STAGGERED))
         self.assertEqual(len(result.follow_ups), 1)
+        self.assertIsNotNone(result.wound_effect)
+        self.assertIsInstance(result.follow_ups[0], WoundEnduranceTestRequest)
+        self.assertEqual(
+            result.follow_ups[0].test_id,
+            "resolution:wound:effect:endurance",
+        )
+
+    def test_wound_effect_conditions_are_committed_by_kernel(self) -> None:
+        result = resolve_kernel_attack(
+            kernel_request(
+                policy=TargetInjuryPolicy.PLAYER,
+                state=CharacterInjuryState(),
+                base_damage=5,
+            ),
+            SequenceRandom([1, 10, 10, 6]),
+        )
+
+        self.assertIsNotNone(result.wound_effect)
+        self.assertIsInstance(result.target_state, CharacterInjuryState)
+        self.assertTrue(result.target_state.conditions.has(Condition.DRAINED))
+        self.assertTrue(result.target_state.wounds[0].effect_resolved)
 
     def test_near_miss_preserves_staggered_through_full_attack_flow(self) -> None:
         state = CharacterInjuryState(
