@@ -1,6 +1,6 @@
 # Раны и состояния
 
-Источник: `BOOK-PLAYER-GUIDE`, преимущественно страницы 119–123 и 190–191. Статус правил: `draft`.
+Источник: `BOOK-PLAYER-GUIDE`, преимущественно страницы 119–123 и 190–191. Статус: Staggered `implemented` в K1; Wounds и остальные Conditions остаются `draft`.
 
 ## RULE-HEALTH-001 — Resilience
 
@@ -54,3 +54,10 @@ Recover может снимать Staggered и Prone, лечить Wound или 
 
 Источник: страницы 118, 121–123.
 
+## Реализация Staggered в K1
+
+- состояние и запросы: `src/towr/domain/condition_models.py`;
+- чистый reducer: `src/towr/rules/stagger_resolution.py`;
+- детерминированные проверки: `tests/unit/test_k1_stagger_resolution.py`.
+
+Первое получение добавляет Staggered без решения. Повторное вычисляет только допустимые варианты с учётом Prone, возможности покинуть Zone и уже использованного Give Ground. При нескольких вариантах требуется явный `StaggerDecisionProvider`; если допустим только Wound, запрос раны создаётся автоматически. Сам Wound пока не применяется: это позволяет будущей injury policy корректно обработать Wounds Table и отмену раны через Near Miss, сохранив прежний Staggered.

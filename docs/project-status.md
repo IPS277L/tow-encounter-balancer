@@ -4,7 +4,7 @@
 
 ## Текущий этап
 
-R1 — подготовка к полному анализу книги правил. Прототип P1 (`1 на 1`) сохранён как исследовательская реализация, но больше не является нормативной основой.
+K1 — реализация книжного resolution kernel. Прототип P1 (`1 на 1`) сохранён как исследовательская реализация, но больше не является нормативной основой.
 
 ## Зафиксировано
 
@@ -28,10 +28,20 @@ R1 — подготовка к полному анализу книги прав
 - принято ADR-0002 о замене P1 через книжный resolution kernel.
 - проверены боевые Talents, свойства обычного оружия и репрезентативные специальные NPC-правила;
 - зафиксированы классы специальных эффектов и точный фазовый контракт K1.
+- реализованы новые неизменяемые `TestProfile`, `InlineProfile`, `TestRequest` и модификаторы K1;
+- реализованы книжные Basic/Opposed Tests, Grim/Glorious, contextual tie-break и детальный `RollTrace`;
+- добровольные Glorious-перебросы вынесены в явный `TestDecisionProvider`;
+- найдено и исправлено в K1 расхождение P1 по естественному пулу из одного куба.
+- реализован чистый resolver одной opposed/unopposed атаки;
+- реализованы книжные attack tie, Damage по разнице успехов, Resilience, игнорирование брони и последствия промаха в Close Range;
+- Attack resolver возвращает обычный `ImpactOutcome` без преждевременной мутации боевого состояния.
+- реализованы неизменяемое множество Conditions и чистый reducer Staggered;
+- повторный Staggered учитывает Prone, доступность Give Ground и лимит одного Give Ground за раунд;
+- выбор Give Ground/Prone/Wound вынесен в явный `StaggerDecisionProvider`, а единственный допустимый Wound выбирается автоматически.
 
 ## Проверено
 
-- 20 unit/integration тестов успешно проходят на Python 3.12;
+- 53 unit/integration теста успешно проходят на Python 3.12, из них 33 относятся к K1;
 - исходники и тесты успешно проходят `compileall`.
 
 ## Исходный материал
@@ -51,7 +61,7 @@ R1 — подготовка к полному анализу книги прав
 
 ## Следующий шаг
 
-Начать K1 с неизменяемых контрактов `TestProfile`, `TestRequest`, `RollTrace` и детерминированного Basic/Opposed Test. Затем добавить Attack/Impact и injury policies, не подключая старый battle loop.
+Реализовать injury policies для Player/Champion, Minion, Brute и Monstrosity: Wounds Table, профильные лимиты, Reactions и отмену Wound. Затем связать `AttackResult` с reducers через единый K1 `ResolutionResult`, не подключая старый battle loop.
 
 ## Последняя проверка
 
@@ -62,7 +72,7 @@ $env:PYTHONPATH = "src"
 py -3.12 -m unittest discover -s tests -v
 ```
 
-Результат: `Ran 20 tests ... OK`.
+Результат: `Ran 53 tests ... OK`.
 
 ```powershell
 py -3.12 -m compileall -q src tests tools
