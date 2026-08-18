@@ -48,10 +48,14 @@ K1 — реализация книжного resolution kernel. Прототип
 - Conditions и ограничения раны сохраняют номер источника и точный срок действия;
 - kernel применяет непосредственный `WoundEffectResult`, а Endurance, инвентарь, анатомия и обязательный выбор возвращаются типизированными запросами;
 - реализованы успешная/неуспешная ветви Endurance и обе ветви `Spilling guts` без скрытых решений.
+- добавлен полный книжный enum из 16 Skills для типизированных ссылок правил;
+- обычный Damage, Condition вместо Damage и Hazard вместо Damage разделены вариантами `ImpactSpec`;
+- replacement impact не требует фиктивных Damage/Resilience и не применяется при промахе;
+- прямой Staggered использует общую repeated-Stagger policy, а Hazard создаёт `HazardExposureRequest` с рейтингом и Skill.
 
 ## Проверено
 
-- 90 unit/integration тестов успешно проходят на Python 3.12, из них 70 относятся к K1;
+- 97 unit/integration тестов успешно проходят на Python 3.12, из них 77 относятся к K1;
 - исходники и тесты успешно проходят `compileall`.
 
 ## Исходный материал
@@ -70,12 +74,13 @@ K1 — реализация книжного resolution kernel. Прототип
 - применение времени, Treat/Heal и снятие source-aware Wound effects требует будущего battle loop;
 - внешние последствия Wound для инвентаря и анатомии пока являются typed follow-up;
 - защита Endurance после заживления `Ruptured organs` ещё не подключена к физическому impact;
-- заменяющие Damage атаки, профильные Reactions и secondary effects пока возвращаются или описываются как follow-up, но не все имеют resolver;
+- `HazardExposureRequest` пока не превращает нехватку успехов в Wound;
+- multi-target, эффекты «Damage плюс Condition», разные последствия hit/miss, профильные Reactions и secondary effects ещё не имеют общего orchestration;
 - Monte Carlo, JSON, CLI и балансировщик ещё не входят в текущий срез.
 
 ## Следующий шаг
 
-Добавить заменяющие обычный Damage `ImpactSpec` и проверить его на книжных атаках/Hazards; старый battle loop пока не подключать.
+Реализовать `HazardExposureRequest → HazardResolutionResult`: Test нужного Skill, сравнение успехов с рейтингом, дополнительные кубы Wounds Table и failure Conditions. Затем добавить конкретный `SecondaryEffectSpec`; старый battle loop пока не подключать.
 
 ## Последняя проверка
 
@@ -86,7 +91,7 @@ $env:PYTHONPATH = "src"
 py -3.12 -m unittest discover -s tests -v
 ```
 
-Результат: `Ran 90 tests ... OK`.
+Результат: `Ran 97 tests ... OK`.
 
 ```powershell
 py -3.12 -m compileall -q src tests tools

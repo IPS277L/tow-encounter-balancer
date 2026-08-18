@@ -3,7 +3,15 @@ from __future__ import annotations
 import unittest
 
 from tests.helpers import SequenceRandom
-from towr.domain.attack_models import AttackRequest, DamageProfile, ResilienceProfile
+from towr.domain.attack_models import (
+    AttackRequest,
+    ConditionImpactSpec,
+    DamageImpactSpec,
+    DamageProfile,
+    HazardImpactSpec,
+    ImpactSpec,
+    ResilienceProfile,
+)
 from towr.domain.condition_models import Condition, ConditionState, StaggerChoice
 from towr.domain.injury_models import (
     CharacterInjuryState,
@@ -15,12 +23,15 @@ from towr.domain.injury_models import (
 )
 from towr.domain.resolution_models import (
     AttackerStaggerRequest,
+    ConditionImpactResult,
     ConsumeWoundNegationRequest,
+    HazardExposureRequest,
+    HazardImpactResult,
     KernelAttackRequest,
     MonstrosityReactionRequest,
     TargetInjuryPolicy,
 )
-from towr.domain.test_models import TestProfile, TestRequest
+from towr.domain.test_models import Skill, TestProfile, TestRequest
 from towr.rules.kernel import resolve_kernel_attack
 
 
@@ -56,13 +67,21 @@ class FixedKernelDecisions:
         return self.monstrosity
 
 
-def attack(*, base_damage: int = 3, close: bool = True) -> AttackRequest:
+def attack(
+    *,
+    base_damage: int = 3,
+    close: bool = True,
+    impact_spec: ImpactSpec | None = None,
+) -> AttackRequest:
+    resolved_impact = impact_spec or DamageImpactSpec(
+        DamageProfile(base_damage),
+        ResilienceProfile(toughness=4, bonus=1),
+    )
     return AttackRequest(
         id="attack",
         attacker_test=TestRequest("attacker", TestProfile(3, 5)),
         defender_test=None,
-        damage=DamageProfile(base_damage),
-        resilience=ResilienceProfile(toughness=4, bonus=1),
+        impact_spec=resolved_impact,
         is_close_range=close,
         attacker_is_staggered=False,
     )
@@ -73,11 +92,12 @@ def kernel_request(
     policy: TargetInjuryPolicy,
     state: CharacterInjuryState | ProfileInjuryState,
     base_damage: int = 3,
+    impact_spec: ImpactSpec | None = None,
     negation_options: tuple[WoundNegationOption, ...] = (),
 ) -> KernelAttackRequest:
     return KernelAttackRequest(
         id="resolution",
-        attack=attack(base_damage=base_damage),
+        attack=attack(base_damage=base_damage, impact_spec=impact_spec),
         target_policy=policy,
         target_state=state,
         can_target_leave_zone=True,
@@ -159,6 +179,67 @@ class K1KernelTests(unittest.TestCase):
         self.assertIsInstance(result.target_state, CharacterInjuryState)
         self.assertTrue(result.target_state.conditions.has(Condition.DRAINED))
         self.assertTrue(result.target_state.wounds[0].effect_resolved)
+
+    def test_condition_impact_replaces_damage_and_updates_target(self) -> None:
+        result = resolve_kernel_attack(
+            kernel_request(
+                policy=TargetInjuryPolicy.PLAYER,
+                state=CharacterInjuryState(),
+                impact_spec=ConditionImpactSpec(
+                    Condition.BURDENED,
+                    "RULE-EQUIPMENT:weighted-net",
+                ),
+            ),
+            SequenceRandom([1, 10, 10]),
+        )
+
+        self.assertIsInstance(result.replacement_impact, ConditionImpactResult)
+        self.assertTrue(result.target_state.conditions.has(Condition.BURDENED))
+        self.assertIsNone(result.stagger)
+        self.assertIsNone(result.character_wound)
+        self.assertIsNone(result.attack.damage)
+
+    def test_stagger_replacement_uses_normal_repeated_stagger_policy(self) -> None:
+        result = resolve_kernel_attack(
+            kernel_request(
+                policy=TargetInjuryPolicy.PLAYER,
+                state=CharacterInjuryState(
+                    conditions=ConditionState(frozenset({Condition.STAGGERED}))
+                ),
+                impact_spec=ConditionImpactSpec(
+                    Condition.STAGGERED,
+                    "RULE-EQUIPMENT:unarmed",
+                ),
+            ),
+            SequenceRandom([1, 10, 10, 1]),
+            decisions=FixedKernelDecisions(),
+        )
+
+        self.assertIsInstance(result.replacement_impact, ConditionImpactResult)
+        self.assertIsNotNone(result.stagger)
+        self.assertIsNotNone(result.character_wound)
+
+    def test_hazard_impact_returns_typed_exposure_without_damage(self) -> None:
+        state = CharacterInjuryState()
+        result = resolve_kernel_attack(
+            kernel_request(
+                policy=TargetInjuryPolicy.PLAYER,
+                state=state,
+                impact_spec=HazardImpactSpec(
+                    3,
+                    Skill.ENDURANCE,
+                    "RULE-EFFECT-005:hazard-impact",
+                ),
+            ),
+            SequenceRandom([1, 10, 10]),
+        )
+
+        self.assertIs(result.target_state, state)
+        self.assertIsInstance(result.replacement_impact, HazardImpactResult)
+        self.assertEqual(len(result.follow_ups), 1)
+        self.assertIsInstance(result.follow_ups[0], HazardExposureRequest)
+        self.assertEqual(result.follow_ups[0].rating, 3)
+        self.assertIsNone(result.attack.damage)
 
     def test_near_miss_preserves_staggered_through_full_attack_flow(self) -> None:
         state = CharacterInjuryState(

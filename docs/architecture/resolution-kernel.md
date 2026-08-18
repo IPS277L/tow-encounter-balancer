@@ -104,6 +104,9 @@ validate target/range/action
 - новый снимок состояния основной цели;
 - результат Staggered, Wound или Monstrosity impact;
 - применённый `WoundEffectResult`, включая условия и ограничения с источником и сроком действия;
+- выбранный `ImpactSpec`: обычный Damage, Condition вместо Damage или Hazard вместо Damage;
 - типизированные follow-up для Staggered атакующего, Give Ground, Endurance/внешних последствий Wound, смены профильного диапазона NPC или Monstrosity Reaction.
 
-Kernel исполняет непосредственный эффект принятой строки Wounds Table как часть текущей injury-фазы, но не исполняет созданные им follow-up рекурсивно. Endurance использует общий Test resolver после того, как orchestration предоставит профиль персонажа; изменения инвентаря и анатомии остаются отдельными типизированными запросами. Заменяющие обычный Damage атаки и конкретные профильные Reactions ещё должны получить специализированные resolvers.
+Kernel исполняет непосредственный эффект принятой строки Wounds Table как часть текущей injury-фазы, но не исполняет созданные им follow-up рекурсивно. Endurance использует общий Test resolver после того, как orchestration предоставит профиль персонажа; изменения инвентаря и анатомии остаются отдельными типизированными запросами.
+
+`DamageImpactSpec` проходит полный Damage/Resilience pipeline. `ConditionImpactSpec` не вычисляет Damage; Staggered передаётся существующей repeated-Stagger policy, остальные Conditions применяются непосредственно. `HazardImpactSpec` возвращает `HazardExposureRequest` с рейтингом и Skill — resolver фактического Hazard и выбор нескольких целей остаются следующими слоями. Damage с дополнительным Condition и уникальные профильные Reactions также ещё требуют secondary/named resolvers.

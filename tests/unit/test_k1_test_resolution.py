@@ -8,6 +8,7 @@ from towr.domain.test_models import (
     DiceModifier,
     InlineProfile,
     QualityModifier,
+    Skill,
     SuccessModifier,
     TestProfile,
     TestQuality,
@@ -23,6 +24,10 @@ from towr.rules.test_resolution import (
 
 
 class K1TestProfileTests(unittest.TestCase):
+    def test_skill_enum_contains_the_complete_book_skill_table(self) -> None:
+        self.assertEqual(len(Skill), 16)
+        self.assertIs(Skill.ENDURANCE, Skill("endurance"))
+
     def test_profile_uses_characteristic_for_dice_and_skill_for_threshold(self) -> None:
         profile = TestProfile(characteristic=4, skill=5)
 

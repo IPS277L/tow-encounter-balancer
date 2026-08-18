@@ -4,6 +4,7 @@ from towr.domain.attack_models import (
     AttackOutcome,
     AttackRequest,
     AttackResult,
+    DamageImpactSpec,
     ImpactOutcome,
     MissConsequence,
 )
@@ -60,6 +61,7 @@ def resolve_attack(
             defender_test=defender_test,
             outcome=AttackOutcome.MISS,
             success_margin=0,
+            impact_spec=request.impact_spec,
             damage=None,
             effective_resilience=None,
             impact=None,
@@ -68,22 +70,42 @@ def resolve_attack(
             applied_rule_ids=miss_rule_ids,
         )
 
-    damage_delta = sum(modifier.amount for modifier in request.damage_modifiers)
+    if not isinstance(request.impact_spec, DamageImpactSpec):
+        applied_rule_ids = (request.impact_spec.rule_id,)
+        if tie_break_applied:
+            applied_rule_ids = (*applied_rule_ids, ATTACK_TIE_RULE_ID)
+        return AttackResult(
+            request_id=request.id,
+            attacker_test=attacker_test,
+            defender_test=defender_test,
+            outcome=AttackOutcome.HIT,
+            success_margin=success_margin,
+            impact_spec=request.impact_spec,
+            damage=None,
+            effective_resilience=None,
+            impact=None,
+            miss_consequence=MissConsequence.NONE,
+            tie_break_applied=tie_break_applied,
+            applied_rule_ids=applied_rule_ids,
+        )
+
+    spec = request.impact_spec
+    damage_delta = sum(modifier.amount for modifier in spec.damage_modifiers)
     total_damage = (
-        request.damage.base
-        + success_margin * request.damage.success_multiplier
+        spec.damage.base
+        + success_margin * spec.damage.success_multiplier
         + damage_delta
     )
     if total_damage < 0:
         raise ValueError("resolved damage must not be negative")
 
     base_resilience = (
-        request.resilience.toughness
-        if request.ignores_armour
-        else request.resilience.total
+        spec.resilience.toughness
+        if spec.ignores_armour
+        else spec.resilience.total
     )
     resilience_delta = sum(
-        modifier.amount for modifier in request.resilience_modifiers
+        modifier.amount for modifier in spec.resilience_modifiers
     )
     effective_resilience = base_resilience + resilience_delta
     if effective_resilience < 0:
@@ -97,8 +119,8 @@ def resolve_attack(
     applied_rule_ids = tuple(
         modifier.rule_id
         for modifiers in (
-            request.damage_modifiers,
-            request.resilience_modifiers,
+            spec.damage_modifiers,
+            spec.resilience_modifiers,
         )
         for modifier in modifiers
     )
@@ -110,6 +132,7 @@ def resolve_attack(
         defender_test=defender_test,
         outcome=AttackOutcome.HIT,
         success_margin=success_margin,
+        impact_spec=spec,
         damage=total_damage,
         effective_resilience=effective_resilience,
         impact=impact,

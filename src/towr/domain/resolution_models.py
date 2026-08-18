@@ -3,8 +3,12 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from enum import Enum
 
-from towr.domain.attack_models import AttackRequest, AttackResult
-from towr.domain.condition_models import StaggerResult
+from towr.domain.attack_models import (
+    AttackRequest,
+    AttackResult,
+    HazardImpactSpec,
+)
+from towr.domain.condition_models import Condition, StaggerResult
 from towr.domain.injury_models import (
     AdditionalProfileWound,
     CharacterInjuryState,
@@ -20,6 +24,7 @@ from towr.domain.injury_models import (
     WoundEnduranceTestRequest,
     WoundNegationOption,
 )
+from towr.domain.test_models import Skill
 
 
 class TargetInjuryPolicy(str, Enum):
@@ -54,10 +59,47 @@ class ConsumeWoundNegationRequest:
     rule_id: str
 
 
+@dataclass(frozen=True, slots=True)
+class HazardExposureRequest:
+    resolution_id: str
+    rating: int
+    avoidance_skill: Skill
+    rule_id: str
+
+    @classmethod
+    def from_spec(
+        cls,
+        resolution_id: str,
+        spec: HazardImpactSpec,
+    ) -> HazardExposureRequest:
+        return cls(
+            resolution_id=resolution_id,
+            rating=spec.rating,
+            avoidance_skill=spec.avoidance_skill,
+            rule_id=spec.rule_id,
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class ConditionImpactResult:
+    condition: Condition
+    was_already_present: bool
+    applied_rule_ids: tuple[str, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class HazardImpactResult:
+    exposure: HazardExposureRequest
+
+
+ReplacementImpactResult = ConditionImpactResult | HazardImpactResult
+
+
 FollowUpRequest = (
     AttackerStaggerRequest
     | ConsumeWoundNegationRequest
     | GiveGroundRequest
+    | HazardExposureRequest
     | MonstrosityReactionRequest
     | WoundEnduranceTestRequest
     | WoundConsequenceRequest
@@ -194,6 +236,7 @@ class KernelAttackRequest:
 class ResolutionResult:
     request_id: str
     attack: AttackResult
+    replacement_impact: ReplacementImpactResult | None
     target_state: TargetInjuryState
     stagger: StaggerResult | None
     character_wound: CharacterWoundResult | None

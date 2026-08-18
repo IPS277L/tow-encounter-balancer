@@ -6,14 +6,19 @@ from tests.helpers import SequenceRandom
 from towr.domain.attack_models import (
     AttackOutcome,
     AttackRequest,
+    ConditionImpactSpec,
+    DamageImpactSpec,
     DamageModifier,
     DamageProfile,
+    HazardImpactSpec,
+    ImpactSpec,
     ImpactOutcome,
     MissConsequence,
     ResilienceModifier,
     ResilienceProfile,
 )
-from towr.domain.test_models import TestProfile, TestRequest
+from towr.domain.condition_models import Condition
+from towr.domain.test_models import Skill, TestProfile, TestRequest
 from towr.rules.attack_resolution import resolve_attack
 
 
@@ -28,21 +33,25 @@ def attack_request(
     miss_immunity_rule_id: str | None = None,
     damage_modifiers: tuple[DamageModifier, ...] = (),
     resilience_modifiers: tuple[ResilienceModifier, ...] = (),
+    impact_spec: ImpactSpec | None = None,
 ) -> AttackRequest:
+    resolved_impact = impact_spec or DamageImpactSpec(
+        damage=damage,
+        resilience=resilience,
+        ignores_armour=ignores_armour,
+        damage_modifiers=damage_modifiers,
+        resilience_modifiers=resilience_modifiers,
+    )
     return AttackRequest(
         id="attack",
         attacker_test=TestRequest("attacker", TestProfile(3, 5)),
         defender_test=(
             TestRequest("defender", TestProfile(2, 5)) if defender else None
         ),
-        damage=damage,
-        resilience=resilience,
+        impact_spec=resolved_impact,
         is_close_range=close,
         attacker_is_staggered=attacker_staggered,
-        ignores_armour=ignores_armour,
         close_miss_stagger_immunity_rule_id=miss_immunity_rule_id,
-        damage_modifiers=damage_modifiers,
-        resilience_modifiers=resilience_modifiers,
     )
 
 
@@ -170,6 +179,64 @@ class K1AttackResolutionTests(unittest.TestCase):
 
         self.assertEqual(result.success_margin, 2)
         self.assertEqual(result.damage, 7)
+
+    def test_condition_impact_replaces_damage_and_resilience(self) -> None:
+        spec = ConditionImpactSpec(
+            Condition.BURDENED,
+            "RULE-EQUIPMENT:weighted-net",
+        )
+
+        result = resolve_attack(
+            attack_request(defender=False, impact_spec=spec),
+            SequenceRandom([1, 10, 10]),
+        )
+
+        self.assertIs(result.outcome, AttackOutcome.HIT)
+        self.assertIs(result.impact_spec, spec)
+        self.assertIsNone(result.damage)
+        self.assertIsNone(result.effective_resilience)
+        self.assertIsNone(result.impact)
+        self.assertEqual(
+            result.applied_rule_ids,
+            ("RULE-EQUIPMENT:weighted-net",),
+        )
+
+    def test_hazard_impact_keeps_rating_and_avoidance_skill(self) -> None:
+        spec = HazardImpactSpec(
+            3,
+            Skill.ENDURANCE,
+            "RULE-EFFECT-005:hazard-impact",
+        )
+
+        result = resolve_attack(
+            attack_request(defender=False, impact_spec=spec),
+            SequenceRandom([1, 10, 10]),
+        )
+
+        self.assertIs(result.impact_spec, spec)
+        self.assertIsNone(result.damage)
+        self.assertEqual(
+            result.applied_rule_ids,
+            ("RULE-EFFECT-005:hazard-impact",),
+        )
+
+    def test_replacement_impact_is_not_applied_on_a_miss(self) -> None:
+        result = resolve_attack(
+            attack_request(
+                defender=False,
+                impact_spec=ConditionImpactSpec(
+                    Condition.BURDENED,
+                    "RULE-EQUIPMENT:weighted-net",
+                ),
+            ),
+            SequenceRandom([10, 10, 10]),
+        )
+
+        self.assertIs(result.outcome, AttackOutcome.MISS)
+        self.assertNotIn(
+            "RULE-EQUIPMENT:weighted-net",
+            result.applied_rule_ids,
+        )
 
 
 if __name__ == "__main__":

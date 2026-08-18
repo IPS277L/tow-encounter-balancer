@@ -3,7 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from enum import Enum
 
-from towr.domain.test_models import TestRequest, TestResult
+from towr.domain.condition_models import Condition
+from towr.domain.test_models import Skill, TestRequest, TestResult
 
 
 class AttackOutcome(str, Enum):
@@ -70,42 +71,26 @@ class ResilienceModifier:
 
 
 @dataclass(frozen=True, slots=True)
-class AttackRequest:
-    id: str
-    attacker_test: TestRequest
-    defender_test: TestRequest | None
+class DamageImpactSpec:
     damage: DamageProfile
     resilience: ResilienceProfile
-    is_close_range: bool
-    attacker_is_staggered: bool
     ignores_armour: bool = False
-    close_miss_stagger_immunity_rule_id: str | None = None
     damage_modifiers: tuple[DamageModifier, ...] = field(default_factory=tuple)
-    resilience_modifiers: tuple[ResilienceModifier, ...] = field(default_factory=tuple)
+    resilience_modifiers: tuple[ResilienceModifier, ...] = field(
+        default_factory=tuple
+    )
 
     def __post_init__(self) -> None:
-        if not isinstance(self.id, str):
-            raise TypeError("attack request id must be a string")
-        if not self.id.strip():
-            raise ValueError("attack request id must not be empty")
-        if not isinstance(self.attacker_test, TestRequest):
-            raise TypeError("attacker_test must be a TestRequest")
-        if self.defender_test is not None and not isinstance(
-            self.defender_test, TestRequest
-        ):
-            raise TypeError("defender_test must be a TestRequest or None")
         if not isinstance(self.damage, DamageProfile):
             raise TypeError("damage must be a DamageProfile")
         if not isinstance(self.resilience, ResilienceProfile):
             raise TypeError("resilience must be a ResilienceProfile")
-        _validate_bool(self.is_close_range, "is_close_range")
-        _validate_bool(self.attacker_is_staggered, "attacker_is_staggered")
         _validate_bool(self.ignores_armour, "ignores_armour")
-        if self.close_miss_stagger_immunity_rule_id is not None:
-            _validate_rule_id(self.close_miss_stagger_immunity_rule_id)
         object.__setattr__(self, "damage_modifiers", tuple(self.damage_modifiers))
         object.__setattr__(
-            self, "resilience_modifiers", tuple(self.resilience_modifiers)
+            self,
+            "resilience_modifiers",
+            tuple(self.resilience_modifiers),
         )
         if not all(
             isinstance(item, DamageModifier) for item in self.damage_modifiers
@@ -121,12 +106,72 @@ class AttackRequest:
 
 
 @dataclass(frozen=True, slots=True)
+class ConditionImpactSpec:
+    condition: Condition
+    rule_id: str
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.condition, Condition):
+            raise TypeError("condition must be a Condition")
+        _validate_rule_id(self.rule_id)
+
+
+@dataclass(frozen=True, slots=True)
+class HazardImpactSpec:
+    rating: int
+    avoidance_skill: Skill
+    rule_id: str
+
+    def __post_init__(self) -> None:
+        _validate_non_negative_int(self.rating, "Hazard rating")
+        if not isinstance(self.avoidance_skill, Skill):
+            raise TypeError("avoidance_skill must be a Skill")
+        _validate_rule_id(self.rule_id)
+
+
+ImpactSpec = DamageImpactSpec | ConditionImpactSpec | HazardImpactSpec
+
+
+@dataclass(frozen=True, slots=True)
+class AttackRequest:
+    id: str
+    attacker_test: TestRequest
+    defender_test: TestRequest | None
+    impact_spec: ImpactSpec
+    is_close_range: bool
+    attacker_is_staggered: bool
+    close_miss_stagger_immunity_rule_id: str | None = None
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.id, str):
+            raise TypeError("attack request id must be a string")
+        if not self.id.strip():
+            raise ValueError("attack request id must not be empty")
+        if not isinstance(self.attacker_test, TestRequest):
+            raise TypeError("attacker_test must be a TestRequest")
+        if self.defender_test is not None and not isinstance(
+            self.defender_test, TestRequest
+        ):
+            raise TypeError("defender_test must be a TestRequest or None")
+        if not isinstance(
+            self.impact_spec,
+            (DamageImpactSpec, ConditionImpactSpec, HazardImpactSpec),
+        ):
+            raise TypeError("impact_spec must be an ImpactSpec")
+        _validate_bool(self.is_close_range, "is_close_range")
+        _validate_bool(self.attacker_is_staggered, "attacker_is_staggered")
+        if self.close_miss_stagger_immunity_rule_id is not None:
+            _validate_rule_id(self.close_miss_stagger_immunity_rule_id)
+
+
+@dataclass(frozen=True, slots=True)
 class AttackResult:
     request_id: str
     attacker_test: TestResult
     defender_test: TestResult | None
     outcome: AttackOutcome
     success_margin: int
+    impact_spec: ImpactSpec
     damage: int | None
     effective_resilience: int | None
     impact: ImpactOutcome | None

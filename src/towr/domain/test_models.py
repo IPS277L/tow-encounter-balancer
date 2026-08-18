@@ -4,6 +4,25 @@ from dataclasses import dataclass, field
 from enum import Enum
 
 
+class Skill(str, Enum):
+    MELEE = "melee"
+    DEFENCE = "defence"
+    SHOOTING = "shooting"
+    THROWING = "throwing"
+    BRAWN = "brawn"
+    TOIL = "toil"
+    SURVIVAL = "survival"
+    ENDURANCE = "endurance"
+    AWARENESS = "awareness"
+    DEXTERITY = "dexterity"
+    ATHLETICS = "athletics"
+    STEALTH = "stealth"
+    WILLPOWER = "willpower"
+    RECALL = "recall"
+    LEADERSHIP = "leadership"
+    CHARM = "charm"
+
+
 class TestQuality(str, Enum):
     NORMAL = "normal"
     GRIM = "grim"

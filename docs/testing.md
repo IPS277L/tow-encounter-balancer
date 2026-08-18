@@ -41,6 +41,11 @@ py -3.12 -m unittest discover -s tests -v
 - строгая граница `Damage > Resilience` для Wound;
 - временное игнорирование брони и фазовые модификаторы Damage/Resilience;
 - Staggered атакующего только за промах в Close Range и только при отсутствии состояния.
+- `DamageImpactSpec` без изменения обычного Damage/Resilience поведения;
+- Condition вместо Damage без фиктивных числовых значений;
+- повторный Staggered replacement через общую decision policy;
+- Hazard вместо Damage как typed exposure с рейтингом и Skill;
+- replacement impact не применяется при промахе.
 
 Группы K1 Staggered:
 

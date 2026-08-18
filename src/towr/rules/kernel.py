@@ -5,10 +5,18 @@ from typing import Protocol
 from towr.domain.attack_models import (
     AttackOutcome,
     AttackResult,
+    ConditionImpactSpec,
+    DamageImpactSpec,
+    HazardImpactSpec,
     ImpactOutcome,
     MissConsequence,
 )
-from towr.domain.condition_models import ConditionState, StaggerRequest, StaggerResult
+from towr.domain.condition_models import (
+    Condition,
+    ConditionState,
+    StaggerRequest,
+    StaggerResult,
+)
 from towr.domain.injury_models import (
     CharacterInjuryState,
     CharacterWoundRequest,
@@ -21,10 +29,14 @@ from towr.domain.injury_models import (
 from towr.domain.resolution_models import (
     AttackerStaggerRequest,
     ConsumeWoundNegationRequest,
+    ConditionImpactResult,
     GiveGroundRequest,
     FollowUpRequest,
+    HazardExposureRequest,
+    HazardImpactResult,
     KernelAttackRequest,
     MonstrosityReactionRequest,
+    ReplacementImpactResult,
     ResolutionResult,
     TargetInjuryPolicy,
 )
@@ -71,6 +83,7 @@ def resolve_kernel_attack(
         return ResolutionResult(
             request_id=request.id,
             attack=attack,
+            replacement_impact=None,
             target_state=request.target_state,
             stagger=None,
             character_wound=None,
@@ -80,6 +93,18 @@ def resolve_kernel_attack(
             follow_ups=follow_ups,
         )
 
+    if isinstance(attack.impact_spec, ConditionImpactSpec):
+        return _resolve_condition_impact(
+            request,
+            attack,
+            attack.impact_spec,
+            rng,
+            decisions,
+        )
+    if isinstance(attack.impact_spec, HazardImpactSpec):
+        return _resolve_hazard_impact(request, attack, attack.impact_spec)
+
+    assert isinstance(attack.impact_spec, DamageImpactSpec)
     assert attack.damage is not None
     assert attack.effective_resilience is not None
     if request.target_policy is TargetInjuryPolicy.MONSTROSITY:
@@ -88,7 +113,24 @@ def resolve_kernel_attack(
     if attack.impact is ImpactOutcome.WOUND:
         return _resolve_wound(request, attack, request.target_state, rng, decisions)
 
-    state = request.target_state
+    return _resolve_stagger_impact(
+        request,
+        attack,
+        request.target_state,
+        rng,
+        decisions,
+    )
+
+
+def _resolve_stagger_impact(
+    request: KernelAttackRequest,
+    attack: AttackResult,
+    state: CharacterInjuryState | ProfileInjuryState,
+    rng: RandomSource,
+    decisions: ResolutionDecisionProvider | None,
+    *,
+    replacement_impact: ReplacementImpactResult | None = None,
+) -> ResolutionResult:
     stagger = resolve_stagger(
         StaggerRequest(
             id=f"{request.id}:stagger",
@@ -113,11 +155,13 @@ def resolve_kernel_attack(
             decisions,
             stagger=stagger,
             initial_follow_ups=follow_ups,
+            replacement_impact=replacement_impact,
         )
         return wound_result
     return ResolutionResult(
         request_id=request.id,
         attack=attack,
+        replacement_impact=replacement_impact,
         target_state=updated_state,
         stagger=stagger,
         character_wound=None,
@@ -125,6 +169,67 @@ def resolve_kernel_attack(
         profile_wound=None,
         monstrosity_impact=None,
         follow_ups=follow_ups,
+    )
+
+
+def _resolve_condition_impact(
+    request: KernelAttackRequest,
+    attack: AttackResult,
+    spec: ConditionImpactSpec,
+    rng: RandomSource,
+    decisions: ResolutionDecisionProvider | None,
+) -> ResolutionResult:
+    state = request.target_state
+    result = ConditionImpactResult(
+        condition=spec.condition,
+        was_already_present=state.conditions.has(spec.condition),
+        applied_rule_ids=(spec.rule_id,),
+    )
+    if spec.condition is Condition.STAGGERED:
+        return _resolve_stagger_impact(
+            request,
+            attack,
+            state,
+            rng,
+            decisions,
+            replacement_impact=result,
+        )
+
+    updated_state = _with_conditions(
+        state,
+        state.conditions.with_condition(spec.condition),
+    )
+    return ResolutionResult(
+        request_id=request.id,
+        attack=attack,
+        replacement_impact=result,
+        target_state=updated_state,
+        stagger=None,
+        character_wound=None,
+        wound_effect=None,
+        profile_wound=None,
+        monstrosity_impact=None,
+        follow_ups=(),
+    )
+
+
+def _resolve_hazard_impact(
+    request: KernelAttackRequest,
+    attack: AttackResult,
+    spec: HazardImpactSpec,
+) -> ResolutionResult:
+    exposure = HazardExposureRequest.from_spec(request.id, spec)
+    return ResolutionResult(
+        request_id=request.id,
+        attack=attack,
+        replacement_impact=HazardImpactResult(exposure),
+        target_state=request.target_state,
+        stagger=None,
+        character_wound=None,
+        wound_effect=None,
+        profile_wound=None,
+        monstrosity_impact=None,
+        follow_ups=(exposure,),
     )
 
 
@@ -137,6 +242,7 @@ def _resolve_wound(
     *,
     stagger: StaggerResult | None = None,
     initial_follow_ups: tuple[FollowUpRequest, ...] = (),
+    replacement_impact: ReplacementImpactResult | None = None,
 ) -> ResolutionResult:
     follow_ups: list[FollowUpRequest] = list(initial_follow_ups)
     if request.target_policy in {
@@ -176,6 +282,7 @@ def _resolve_wound(
         return ResolutionResult(
             request_id=request.id,
             attack=attack,
+            replacement_impact=replacement_impact,
             target_state=target_state,
             stagger=stagger,
             character_wound=wound,
@@ -203,6 +310,7 @@ def _resolve_wound(
     return ResolutionResult(
         request_id=request.id,
         attack=attack,
+        replacement_impact=replacement_impact,
         target_state=wound.state,
         stagger=stagger,
         character_wound=None,
@@ -236,6 +344,7 @@ def _resolve_monstrosity(
         return ResolutionResult(
             request_id=request.id,
             attack=attack,
+            replacement_impact=None,
             target_state=impact.state,
             stagger=None,
             character_wound=None,
@@ -260,6 +369,7 @@ def _resolve_monstrosity(
         return ResolutionResult(
             request_id=result.request_id,
             attack=result.attack,
+            replacement_impact=result.replacement_impact,
             target_state=result.target_state,
             stagger=result.stagger,
             character_wound=result.character_wound,
@@ -271,6 +381,7 @@ def _resolve_monstrosity(
     return ResolutionResult(
         request_id=request.id,
         attack=attack,
+        replacement_impact=None,
         target_state=impact.state,
         stagger=None,
         character_wound=None,
