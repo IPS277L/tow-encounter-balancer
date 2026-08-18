@@ -60,7 +60,7 @@ Recover может снимать Staggered и Prone, лечить Wound или 
 - чистый reducer: `src/towr/rules/stagger_resolution.py`;
 - детерминированные проверки: `tests/unit/test_k1_stagger_resolution.py`.
 
-Первое получение добавляет Staggered без решения. Повторное вычисляет только допустимые варианты с учётом Prone, возможности покинуть Zone и уже использованного Give Ground. При нескольких вариантах требуется явный `StaggerDecisionProvider`; если допустим только Wound, запрос раны создаётся автоматически. Stagger reducer сам не применяет Wound: единый kernel передаёт запрос соответствующей injury policy, которая может принять или отменить рану.
+Первое получение добавляет Staggered без решения. Повторное вычисляет только допустимые варианты с учётом Prone, возможности покинуть Zone и уже использованного Give Ground. При нескольких вариантах требуется явный `StaggerDecisionProvider`; если допустим только Wound, запрос раны создаётся автоматически. Чистый `resolve_stagger` только выбирает исход состояния, а общий `resolve_stagger_impact` передаёт Wound соответствующей injury policy и применяется как основной kernel, так и executor вторичных целей.
 
 ## Реализация Wounds Table в K1
 

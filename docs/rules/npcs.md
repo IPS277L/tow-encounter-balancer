@@ -65,6 +65,7 @@ NPC не получает автоматически все свойства о�
 - Champion использует ту же Wounds Table policy, что и персонаж игрока;
 - изменение диапазона Wounds возвращается как `ProfileStateChangeRequest`, чтобы профильная Ability могла обновить характеристики без скрытой логики в общей policy;
 - Monstrosity Wound/Reaction разрешается в `src/towr/rules/monstrosity_resolution.py` с правильным владельцем решения;
+- прямое наложение Staggered без Damage, например вторичный эффект Blunderbuss, использует общую repeated-Staggered policy и не запускает Monstrosity Reaction;
 - правило отсутствия Staggered за неудачную Melee-атаку поддерживается явным исключением в `AttackRequest` и сохраняется в trace.
 
 Проверки находятся в `tests/unit/test_k1_injury_resolution.py`, `tests/unit/test_k1_monstrosity_resolution.py` и `tests/unit/test_k1_kernel.py`.

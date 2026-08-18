@@ -60,10 +60,14 @@ K1 — реализация книжного resolution kernel. Прототип
 - `ProneBeforeGiveGroundSpec` применяется до repeated-Staggered decision и поддерживает книжное исключение Monstrosity;
 - эффект Blunderbuss создаёт `NearbyTargetsStaggerRequest` только при попадании и после результата основной цели;
 - применённые secondary Rule ID сохраняются в `ResolutionResult`.
+- выделен общий `StaggerImpactRequest → StaggerImpactResult`, используемый основной и вторичными целями;
+- реализован `NearbyTargetsStaggerResolutionRequest` с запретом основной/повторных целей и уникальными impact IDs;
+- executor обрабатывает вторичные цели слева направо, сохраняя target IDs, общий RNG и явные решения;
+- вторичные цели проходят Player/Champion либо профильную NPC injury policy, включая Near Miss и Wound effects.
 
 ## Проверено
 
-- 110 unit/integration тестов успешно проходят на Python 3.12, из них 90 относятся к K1;
+- 115 unit/integration тестов успешно проходят на Python 3.12, из них 95 относятся к K1;
 - исходники и тесты успешно проходят `compileall`.
 
 ## Исходный материал
@@ -83,12 +87,12 @@ K1 — реализация книжного resolution kernel. Прототип
 - внешние последствия Wound для инвентаря и анатомии пока являются typed follow-up;
 - защита Endurance после заживления `Ruptured organs` ещё не подключена к физическому impact;
 - автоматическая замена неподходящей строки Wounds Table для не-физического Hazard требует отдельной GM/simulation policy;
-- spatial-выбор и исполнение нескольких вторичных целей, эффекты «Damage плюс Condition», разные последствия hit/miss и профильные Reactions ещё не имеют общего orchestration;
+- spatial-выбор вторичных целей, эффекты «Damage плюс Condition», разные последствия hit/miss и профильные Reactions ещё не имеют общего orchestration;
 - Monte Carlo, JSON, CLI и балансировщик ещё не входят в текущий срез.
 
 ## Следующий шаг
 
-Добавить executor для `NearbyTargetsStaggerRequest`, принимающий уже выбранный детерминированно упорядоченный набор разных вторичных целей и применяющий к каждой общую Staggered/injury policy; spatial-выбор и старый battle loop пока не подключать.
+Добавить следующий одноцелевой `SecondaryEffectSpec`: Condition после выбранного Give Ground для книжных Troublemakers Out!/Fearsome, не подключая spatial-выбор и старый battle loop.
 
 ## Последняя проверка
 
@@ -99,7 +103,7 @@ $env:PYTHONPATH = "src"
 py -3.12 -m unittest discover -s tests -v
 ```
 
-Результат: `Ran 110 tests ... OK`.
+Результат: `Ran 115 tests ... OK`.
 
 ```powershell
 py -3.12 -m compileall -q src tests tools

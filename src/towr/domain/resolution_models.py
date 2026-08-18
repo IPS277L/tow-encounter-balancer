@@ -153,6 +153,121 @@ TargetInjuryState = CharacterInjuryState | ProfileInjuryState
 
 
 @dataclass(frozen=True, slots=True)
+class StaggerImpactRequest:
+    id: str
+    target_policy: TargetInjuryPolicy
+    target_state: TargetInjuryState
+    can_target_leave_zone: bool
+    target_has_given_ground_this_round: bool
+    wound_dice_modifiers: tuple[WoundDiceModifier, ...] = field(
+        default_factory=tuple
+    )
+    wound_negation_options: tuple[WoundNegationOption, ...] = field(
+        default_factory=tuple
+    )
+    additional_profile_wounds: tuple[AdditionalProfileWound, ...] = field(
+        default_factory=tuple
+    )
+
+    def __post_init__(self) -> None:
+        _validate_non_empty_string(self.id, "Stagger impact request id")
+        if not isinstance(self.target_policy, TargetInjuryPolicy):
+            raise TypeError("target_policy must be a TargetInjuryPolicy")
+        _validate_bool(self.can_target_leave_zone, "can_target_leave_zone")
+        _validate_bool(
+            self.target_has_given_ground_this_round,
+            "target_has_given_ground_this_round",
+        )
+        object.__setattr__(
+            self,
+            "wound_dice_modifiers",
+            tuple(self.wound_dice_modifiers),
+        )
+        object.__setattr__(
+            self,
+            "wound_negation_options",
+            tuple(self.wound_negation_options),
+        )
+        object.__setattr__(
+            self,
+            "additional_profile_wounds",
+            tuple(self.additional_profile_wounds),
+        )
+        _validate_target_policy_state(
+            self.target_policy,
+            self.target_state,
+        )
+        _validate_injury_options(
+            self.target_policy,
+            self.wound_dice_modifiers,
+            self.wound_negation_options,
+            self.additional_profile_wounds,
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class StaggerImpactResult:
+    request_id: str
+    state: TargetInjuryState
+    stagger: StaggerResult
+    character_wound: CharacterWoundResult | None
+    wound_effect: WoundEffectResult | None
+    profile_wound: ProfileWoundResult | None
+    follow_ups: tuple[FollowUpRequest, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class IdentifiedStaggerTarget:
+    target_id: str
+    impact: StaggerImpactRequest
+
+    def __post_init__(self) -> None:
+        _validate_non_empty_string(self.target_id, "target_id")
+        if not isinstance(self.impact, StaggerImpactRequest):
+            raise TypeError("impact must be a StaggerImpactRequest")
+
+
+@dataclass(frozen=True, slots=True)
+class NearbyTargetsStaggerResolutionRequest:
+    id: str
+    source: NearbyTargetsStaggerRequest
+    primary_target_id: str
+    targets: tuple[IdentifiedStaggerTarget, ...]
+
+    def __post_init__(self) -> None:
+        _validate_non_empty_string(self.id, "nearby Stagger resolution id")
+        if not isinstance(self.source, NearbyTargetsStaggerRequest):
+            raise TypeError("source must be a NearbyTargetsStaggerRequest")
+        _validate_non_empty_string(self.primary_target_id, "primary_target_id")
+        targets = tuple(self.targets)
+        if not all(isinstance(item, IdentifiedStaggerTarget) for item in targets):
+            raise TypeError("targets must contain IdentifiedStaggerTarget values")
+        target_ids = tuple(item.target_id for item in targets)
+        if self.primary_target_id in target_ids:
+            raise ValueError("the primary target cannot be a secondary target")
+        if len(set(target_ids)) != len(target_ids):
+            raise ValueError("secondary target_ids must be unique")
+        impact_ids = tuple(item.impact.id for item in targets)
+        if len(set(impact_ids)) != len(impact_ids):
+            raise ValueError("secondary Stagger impact ids must be unique")
+        object.__setattr__(self, "targets", targets)
+
+
+@dataclass(frozen=True, slots=True)
+class NearbyTargetStaggerResult:
+    target_id: str
+    impact: StaggerImpactResult
+
+
+@dataclass(frozen=True, slots=True)
+class NearbyTargetsStaggerResolutionResult:
+    request_id: str
+    source_resolution_id: str
+    targets: tuple[NearbyTargetStaggerResult, ...]
+    applied_rule_ids: tuple[str, ...]
+
+
+@dataclass(frozen=True, slots=True)
 class HazardResolutionRequest:
     id: str
     exposure: HazardExposureRequest
@@ -419,3 +534,65 @@ def _validate_non_empty_string(value: str, name: str) -> None:
         raise TypeError(f"{name} must be a string")
     if not value.strip():
         raise ValueError(f"{name} must not be empty")
+
+
+def _validate_target_policy_state(
+    policy: TargetInjuryPolicy,
+    state: TargetInjuryState,
+) -> None:
+    character_policy = policy in {
+        TargetInjuryPolicy.PLAYER,
+        TargetInjuryPolicy.CHAMPION,
+    }
+    if character_policy and not isinstance(state, CharacterInjuryState):
+        raise TypeError("Player/Champion requires CharacterInjuryState")
+    if not character_policy and not isinstance(state, ProfileInjuryState):
+        raise TypeError("profile NPC requires ProfileInjuryState")
+    if (
+        policy is TargetInjuryPolicy.MINION
+        and isinstance(state, ProfileInjuryState)
+        and state.wound_limit != 1
+    ):
+        raise ValueError("Minion requires a wound_limit of 1")
+
+
+def _validate_injury_options(
+    policy: TargetInjuryPolicy,
+    wound_dice_modifiers: tuple[WoundDiceModifier, ...],
+    wound_negation_options: tuple[WoundNegationOption, ...],
+    additional_profile_wounds: tuple[AdditionalProfileWound, ...],
+) -> None:
+    if not all(
+        isinstance(item, WoundDiceModifier) for item in wound_dice_modifiers
+    ):
+        raise TypeError(
+            "wound_dice_modifiers must contain WoundDiceModifier values"
+        )
+    if not all(
+        isinstance(item, WoundNegationOption)
+        for item in wound_negation_options
+    ):
+        raise TypeError(
+            "wound_negation_options must contain WoundNegationOption values"
+        )
+    if not all(
+        isinstance(item, AdditionalProfileWound)
+        for item in additional_profile_wounds
+    ):
+        raise TypeError(
+            "additional_profile_wounds must contain AdditionalProfileWound values"
+        )
+    character_policy = policy in {
+        TargetInjuryPolicy.PLAYER,
+        TargetInjuryPolicy.CHAMPION,
+    }
+    if character_policy and additional_profile_wounds:
+        raise ValueError(
+            "Player/Champion uses Wounds Table dice, not profile wounds"
+        )
+    if not character_policy and (
+        wound_dice_modifiers or wound_negation_options
+    ):
+        raise ValueError(
+            "profile NPCs use additional_profile_wounds, not table options"
+        )

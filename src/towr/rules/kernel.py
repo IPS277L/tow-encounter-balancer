@@ -17,8 +17,6 @@ from towr.domain.attack_models import (
 from towr.domain.condition_models import (
     Condition,
     ConditionState,
-    StaggerRequest,
-    StaggerResult,
 )
 from towr.domain.injury_models import (
     CharacterInjuryState,
@@ -33,7 +31,6 @@ from towr.domain.resolution_models import (
     AttackerStaggerRequest,
     ConsumeWoundNegationRequest,
     ConditionImpactResult,
-    GiveGroundRequest,
     FollowUpRequest,
     HazardExposureRequest,
     HazardImpactResult,
@@ -42,6 +39,7 @@ from towr.domain.resolution_models import (
     NearbyTargetsStaggerRequest,
     ReplacementImpactResult,
     ResolutionResult,
+    StaggerImpactRequest,
     TargetInjuryPolicy,
 )
 from towr.rules.attack_resolution import resolve_attack
@@ -55,10 +53,8 @@ from towr.rules.monstrosity_resolution import (
     MonstrosityDecisionProvider,
     resolve_monstrosity_impact,
 )
-from towr.rules.stagger_resolution import (
-    StaggerDecisionProvider,
-    resolve_stagger,
-)
+from towr.rules.stagger_impact_resolution import resolve_stagger_impact
+from towr.rules.stagger_resolution import StaggerDecisionProvider
 from towr.rules.test_resolution import TestDecisionProvider
 from towr.rules.wound_effect_resolution import resolve_wound_effect
 
@@ -209,44 +205,33 @@ def _resolve_stagger_impact(
     *,
     replacement_impact: ReplacementImpactResult | None = None,
 ) -> ResolutionResult:
-    stagger = resolve_stagger(
-        StaggerRequest(
-            id=f"{request.id}:stagger",
-            state=state.conditions,
-            can_leave_zone=request.can_target_leave_zone,
-            has_given_ground_this_round=(
+    impact = resolve_stagger_impact(
+        StaggerImpactRequest(
+            id=request.id,
+            target_policy=request.target_policy,
+            target_state=state,
+            can_target_leave_zone=request.can_target_leave_zone,
+            target_has_given_ground_this_round=(
                 request.target_has_given_ground_this_round
             ),
+            wound_dice_modifiers=request.wound_dice_modifiers,
+            wound_negation_options=request.wound_negation_options,
+            additional_profile_wounds=request.additional_profile_wounds,
         ),
+        rng,
         decisions=decisions,
     )
-    updated_state = _with_conditions(state, stagger.state)
-    follow_ups = ()
-    if stagger.gave_ground:
-        follow_ups = (GiveGroundRequest(resolution_id=request.id),)
-    if stagger.wound_requested:
-        wound_result = _resolve_wound(
-            request,
-            attack,
-            updated_state,
-            rng,
-            decisions,
-            stagger=stagger,
-            initial_follow_ups=follow_ups,
-            replacement_impact=replacement_impact,
-        )
-        return wound_result
     return ResolutionResult(
         request_id=request.id,
         attack=attack,
         replacement_impact=replacement_impact,
-        target_state=updated_state,
-        stagger=stagger,
-        character_wound=None,
-        wound_effect=None,
-        profile_wound=None,
+        target_state=impact.state,
+        stagger=impact.stagger,
+        character_wound=impact.character_wound,
+        wound_effect=impact.wound_effect,
+        profile_wound=impact.profile_wound,
         monstrosity_impact=None,
-        follow_ups=follow_ups,
+        follow_ups=impact.follow_ups,
     )
 
 
@@ -317,12 +302,8 @@ def _resolve_wound(
     state: CharacterInjuryState | ProfileInjuryState,
     rng: RandomSource,
     decisions: ResolutionDecisionProvider | None,
-    *,
-    stagger: StaggerResult | None = None,
-    initial_follow_ups: tuple[FollowUpRequest, ...] = (),
-    replacement_impact: ReplacementImpactResult | None = None,
 ) -> ResolutionResult:
-    follow_ups: list[FollowUpRequest] = list(initial_follow_ups)
+    follow_ups: list[FollowUpRequest] = []
     if request.target_policy in {
         TargetInjuryPolicy.PLAYER,
         TargetInjuryPolicy.CHAMPION,
@@ -360,9 +341,9 @@ def _resolve_wound(
         return ResolutionResult(
             request_id=request.id,
             attack=attack,
-            replacement_impact=replacement_impact,
+            replacement_impact=None,
             target_state=target_state,
-            stagger=stagger,
+            stagger=None,
             character_wound=wound,
             wound_effect=effect,
             profile_wound=None,
@@ -388,9 +369,9 @@ def _resolve_wound(
     return ResolutionResult(
         request_id=request.id,
         attack=attack,
-        replacement_impact=replacement_impact,
+        replacement_impact=None,
         target_state=wound.state,
-        stagger=stagger,
+        stagger=None,
         character_wound=None,
         wound_effect=None,
         profile_wound=wound,

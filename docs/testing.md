@@ -64,6 +64,11 @@ py -3.12 -m unittest discover -s tests -v
 - Blunderbuss создаёт typed request для других существ в Close Range от цели;
 - multi-target request ставится после последствий основной цели;
 - Rule ID применённых secondary effects сохраняются в результате.
+- основная цель и повторные secondary target IDs отклоняются;
+- вторичные цели разрешаются слева направо с последовательным RNG;
+- каждая цель использует собственный Stagger context и decision request ID;
+- Player/Champion используют Wounds Table, а Minion/Brute/Monstrosity — профильные Wounds;
+- Near Miss сохраняет исходное Staggered вторичной цели.
 
 Группы K1 Staggered:
 
