@@ -91,6 +91,14 @@ Skeleton, Wight, Vampire, Liche, Tomb King и Bone Dragon невосприимч
 
 Общий `EffectApplicationRequest → EffectApplicationResult` сохраняет Rule ID заблокированного источника и сработавшей иммунности. На эту policy переведены replacement Condition, Condition-on-hit, Condition после принятой Wound и отложенный Condition после Give Ground. Путь Staggered проверяет иммунитет до repeated-Stagger policy. Fearsome/Terrifying должны создаваться с явной психологической классификацией; тогда undead-профиль не получает Broken, а исходные Damage, Wound или Give Ground сохраняются. Та же source-level policy блокирует явно психологический Hazard до Test и весь `Curse of Cowardly Flight` до forced Give Ground. Остальные non-Condition эффекты требуют отдельной явной интеграции.
 
+## RULE-NPC-017 — Foul Stench
+
+Когда Wyvern входит в Zone врага, этот враг должен освободить одну руку, чтобы закрыть нос, либо получить Distracted. Источник: GM Guide, страница 178. Способность также передаётся Orc Boss, находящемуся верхом на Wyvern.
+
+Spatial orchestration определяет факт входа и создаёт отдельный `FoulStenchRequest` для каждого затронутого врага с актуальным снимком доступности рук. Если свободная рука уже есть, цель закрывает нос без решения и потери предмета. Если обе руки заняты и предмет можно отпустить, `DecisionOwner.TARGET` явно выбирает `DROP_HELD_HAND_ITEM` либо `SUFFER_DISTRACTED`. Если освободить руку невозможно, Distracted применяется автоматически.
+
+Выбранный сброс создаёт `DropHeldHandItemRequest`: resolver не выбирает конкретную руку или предмет и не меняет ещё не существующее inventory state. Distracted проходит общий Condition reducer. Источник не классифицируется как психологический только из-за Condition; книга не задаёт отдельную продолжительность занятости руки после немедленного срабатывания, поэтому K1 не создаёт постоянное ограничение руки.
+
 ## Реализация injury policies в K1
 
 - Minion получает один Wound и сразу становится defeated;
@@ -107,6 +115,7 @@ Skeleton, Wight, Vampire, Liche, Tomb King и Bone Dragon невосприимч
 - Monstrous Regeneration у Ghorgon/Troll Hag создаёт source-aware запрет регенерации на следующий ход без немедленного изменения injury state;
 - Undead Monstrosity у Bone Dragon различает обязательную Wound без всадника и внешний выбор Wound/Give Ground/Prone при Liche или Tomb King;
 - психологическая иммунность undead-профилей блокирует явно классифицированные replacement/on-hit/outcome/after-Give-Ground Conditions, Hazards и оба последствия `Curse of Cowardly Flight`;
+- Foul Stench после уже определённого входа в Zone сохраняет выбор цели между typed inventory follow-up и Distracted;
 - правило отсутствия Staggered за неудачную Melee-атаку поддерживается явным исключением в `AttackRequest` и сохраняется в trace.
 
 Проверки находятся в `tests/unit/test_k1_injury_resolution.py`, `tests/unit/test_k1_monstrosity_resolution.py`, `tests/unit/test_k1_monstrosity_reaction_resolution.py` и `tests/unit/test_k1_kernel.py`.

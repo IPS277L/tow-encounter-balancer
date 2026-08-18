@@ -33,6 +33,7 @@ from towr.domain.injury_models import (
     WoundEnduranceTestRequest,
     WoundNegationOption,
 )
+from towr.domain.npc_effect_models import DropHeldHandItemRequest
 from towr.domain.test_models import Skill, TestRequest, TestResult
 
 
@@ -589,6 +590,7 @@ FollowUpRequest = (
     | ConsumeWoundNegationRequest
     | GiveGroundRequest
     | CowardlyFlightWillpowerRequest
+    | DropHeldHandItemRequest
     | HazardExposureRequest
     | MonstrosityReactionRequest
     | NearbyTargetsStaggerRequest

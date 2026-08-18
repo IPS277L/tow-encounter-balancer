@@ -27,7 +27,18 @@ from towr.domain.condition_models import (
     EffectImmunity,
 )
 from towr.domain.encounters import EncounterDefinition
-from towr.domain.injury_models import CharacterInjuryState, ProfileInjuryState
+from towr.domain.injury_models import (
+    CharacterInjuryState,
+    DecisionOwner,
+    ProfileInjuryState,
+)
+from towr.domain.npc_effect_models import (
+    DropHeldHandItemRequest,
+    FoulStenchChoice,
+    FoulStenchOutcome,
+    FoulStenchRequest,
+    FoulStenchResult,
+)
 from towr.domain.resolution_models import (
     BoneDragonRider,
     ConditionAfterGiveGroundRequest,
@@ -99,12 +110,18 @@ __all__ = [
     "CowardlyFlightWillpowerResult",
     "DamageImpactSpec",
     "DamageProfile",
+    "DecisionOwner",
     "DicePool",
     "EncounterDefinition",
     "EffectClassification",
     "EffectImmunity",
     "EffectApplicationRequest",
     "EffectApplicationResult",
+    "DropHeldHandItemRequest",
+    "FoulStenchChoice",
+    "FoulStenchOutcome",
+    "FoulStenchRequest",
+    "FoulStenchResult",
     "GiveGroundRequest",
     "GiveGroundDestinationPreference",
     "InlineRollSource",

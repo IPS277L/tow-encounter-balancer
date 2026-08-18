@@ -61,6 +61,7 @@ class MonstrosityImpactChoice(str, Enum):
 class DecisionOwner(str, Enum):
     ATTACKER = "attacker"
     MONSTROSITY = "monstrosity"
+    TARGET = "target"
 
 
 class WoundEffectDuration(str, Enum):

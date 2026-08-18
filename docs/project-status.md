@@ -119,10 +119,15 @@ K1 — реализация книжного resolution kernel. Прототип
 - незаблокированный spell создаёт строгую очередь `GiveGroundRequest → CowardlyFlightWillpowerRequest`;
 - невозможность Give Ground удаляет только movement follow-up, но не отменяет книжный Willpower Test;
 - импровизированные Illusion Control, `Shackles of Truth` и Necromancy Control не обобщены без конкретного детерминированного правила.
+- нормализован `RULE-NPC-017` для Foul Stench Wyvern со страницы 178 GM Guide;
+- добавлен `DecisionOwner.TARGET` и явный выбор между сбросом удерживаемого предмета и Distracted;
+- инвентарная ветвь возвращает `DropHeldHandItemRequest`, не выбирая предмет и не мутируя отсутствующее inventory state;
+- свободная рука закрывает нос без решения, а невозможность освободить руку автоматически применяет Distracted;
+- вход в Zone остаётся фактом внешнего spatial orchestration, а Condition проходит общий reducer с Rule ID Ability.
 
 ## Проверено
 
-- 174 unit/integration теста успешно проходят на Python 3.12, из них 154 относятся к K1;
+- 180 unit/integration тестов успешно проходят на Python 3.12, из них 160 относятся к K1;
 - исходники и тесты успешно проходят `compileall`.
 
 ## Исходный материал
@@ -145,12 +150,13 @@ K1 — реализация книжного resolution kernel. Прототип
 - spatial-поиск и стабильная сортировка secondary/Zone целей, а также разные последствия hit/miss ещё не имеют общего battle orchestration;
 - для Monstrous Flight при полностью невозможном Give Ground книга не задаёт fallback; K1 требует внешнего ruling;
 - `SuppressRegenerationNextTurnRequest` ещё некому сохранить и погасить без нового turn orchestration;
+- `DropHeldHandItemRequest` ещё некому применить без inventory state и policy выбора конкретного удерживаемого предмета;
 - психологическая иммунность undead-профилей подключена к боевым Condition/Hazard-фазам и `Curse of Cowardly Flight`; остальные конкретные non-Condition эффекты требуют отдельного анализа;
 - Monte Carlo, JSON, CLI и балансировщик ещё не входят в текущий срез.
 
 ## Следующий шаг
 
-Продолжить каталог конкретных NPC Abilities с `Foul Stench` Wyvern (GM Guide, страница 178): смоделировать срабатывание при входе в Zone и явный выбор цели между typed inventory follow-up «освободить одну руку» и `Distracted`, не вводя скрытого решения или полноценного spatial engine.
+Реализовать `Soporific Breath` Forest Dragon (GM Guide, страница 177) поверх Zone Hazard: Endurance против Hazard (2), Drained при провале и явная эскалация повторного Drained в Defenceless. Переиспользовать существующий Hazard/Zone pipeline и не добавлять полный action/spatial selection.
 
 ## Последняя проверка
 
@@ -161,7 +167,7 @@ $env:PYTHONPATH = "src"
 py -3.12 -m unittest discover -s tests -v
 ```
 
-Результат: `Ran 174 tests ... OK`.
+Результат: `Ran 180 tests ... OK`.
 
 ```powershell
 py -3.12 -m compileall -q src tests tools
