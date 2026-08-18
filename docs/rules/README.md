@@ -10,6 +10,7 @@
 - [`combat.md`](combat.md) — атаки, Damage и порядок боевых фаз;
 - [`wounds-and-conditions.md`](wounds-and-conditions.md) — Staggered, Wounds Table и эффекты ран;
 - [`hazards.md`](hazards.md) — рейтинг Hazard, Test и последствия провала;
+- [`magic.md`](magic.md) — заклинания и их детерминированные эффекты;
 - [`npcs.md`](npcs.md) — Minion, Brute, Champion и Monstrosity;
 - [`special-effects.md`](special-effects.md) — фазовая классификация Talents, оружия и Abilities;
 - [`encounter-design.md`](encounter-design.md) — книжные ориентиры построения столкновений.

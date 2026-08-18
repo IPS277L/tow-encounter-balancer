@@ -1,6 +1,6 @@
 # Модификаторы и специальные эффекты
 
-Основные источники: `BOOK-PLAYER-GUIDE`, страницы 31, 73–81, 92–97, 111–112, 124; `BOOK-GM-GUIDE`, страницы 89–91 и профили NPC на страницах 92–185. Статус: фазовая модель, базовые replacement impacts и первые secondary effects `implemented`; полный каталог Talents, предметов и NPC остаётся `draft`.
+Основные источники: `BOOK-PLAYER-GUIDE`, страницы 31, 73–81, 92–97, 111–112, 124, 162; `BOOK-GM-GUIDE`, страницы 89–91 и профили NPC на страницах 92–185. Статус: фазовая модель, базовые replacement impacts и первые secondary effects `implemented`; полный каталог Talents, предметов и NPC остаётся `draft`.
 
 ## RULE-EFFECT-001 — эффект привязан к фазе
 
@@ -113,6 +113,8 @@ Kernel не ищет существ по Zones. Spatial orchestration фикси
 Иммунитет проверяется по явной классификации источника эффекта. `EffectClassification.PSYCHOLOGICAL` не выводится автоматически из Broken, Staggered или другого значения Condition. `EffectImmunity` принадлежит профилю цели и содержит Rule ID Ability. Общий resolver применения Condition при блокировке сохраняет Rule ID источника отдельно от Rule ID применённого иммунитета; неклассифицированное воздействие проходит без предположений.
 
 Этот контракт используется `ConditionImpactSpec`, `ConditionOnHitSpec`, `ConditionOnGiveGroundOrWoundSpec` и `ConditionAfterGiveGroundSpec`. Непосредственные фазы добавляют полный `ConditionApplicationResult` в результат resolution. Отложенная фаза копирует классификацию и иммунитеты в `ConditionAfterGiveGroundRequest`, а её resolver возвращает приложение вместе с обновлённым либо неизменённым состоянием. Поэтому movement/Wound остаются совершившимися даже при блокировке последующего Fearsome/Terrifying Condition.
+
+Для составного психологического источника граница может находиться раньше отдельных последствий. `Curse of Cowardly Flight` (Player’s Guide, страница 162) сначала проходит один source-level preflight, который при блокировке отменяет и forced Give Ground, и Willpower Test с возможным Broken. При отсутствии блокировки resolver выдаёт movement и Test как два упорядоченных follow-up. Это узкий контракт конкретного заклинания, а не универсальная шина принуждения.
 
 ## RULE-EFFECT-010 — профильная способность может быть уникальной
 

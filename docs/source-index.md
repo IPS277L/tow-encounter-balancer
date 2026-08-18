@@ -26,7 +26,7 @@
 - страницы 152–174: магия;
 - страницы 175–191: описание мира.
 
-Встроенное оглавление указывает ключевые страницы для прототипа: `Rolling Dice` — 107, `Opposed Tests` — 109, `Combat` — 112, `Hazards` — 115–116, `Attack Tests` — 118, `Failed Attacks` и `Successful Attacks` — 119, `Wounds & Conditions` — 121, `Conditions` — 122–123. Конкретные secondary effects: Troublemakers Out! — 31, Blunderbuss — 95, Noble Steed — 124.
+Встроенное оглавление указывает ключевые страницы для прототипа: `Rolling Dice` — 107, `Opposed Tests` — 109, `Combat` — 112, `Hazards` — 115–116, `Attack Tests` — 118, `Failed Attacks` и `Successful Attacks` — 119, `Wounds & Conditions` — 121, `Conditions` — 122–123. Конкретные secondary effects: Troublemakers Out! — 31, Blunderbuss — 95, Noble Steed — 124; первый нормализованный составной психологический spell `Curse of Cowardly Flight` — 162.
 
 ### Извлечение
 

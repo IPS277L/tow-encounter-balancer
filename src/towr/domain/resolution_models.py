@@ -486,6 +486,100 @@ class HazardImpactResult:
         return self.application.applied_rule_ids
 
 
+@dataclass(frozen=True, slots=True)
+class CowardlyFlightRequest:
+    """Apply Curse of Cowardly Flight to one already selected enemy."""
+
+    id: str
+    target_id: str
+    potency: int
+    can_give_ground: bool
+    willpower_test: TestRequest
+    target_state: TargetInjuryState
+    target_effect_immunities: tuple[EffectImmunity, ...] = field(
+        default_factory=tuple
+    )
+    rule_id: str = "RULE-MAGIC-001:curse-of-cowardly-flight"
+
+    def __post_init__(self) -> None:
+        _validate_non_empty_string(self.id, "Cowardly Flight request id")
+        _validate_non_empty_string(self.target_id, "target_id")
+        if not isinstance(self.potency, int) or isinstance(self.potency, bool):
+            raise TypeError("potency must be an integer")
+        if self.potency < 1:
+            raise ValueError("potency must be positive")
+        _validate_bool(self.can_give_ground, "can_give_ground")
+        if not isinstance(self.willpower_test, TestRequest):
+            raise TypeError("willpower_test must be a TestRequest")
+        if not isinstance(
+            self.target_state,
+            (CharacterInjuryState, ProfileInjuryState),
+        ):
+            raise TypeError("target_state must be a TargetInjuryState")
+        _validate_non_empty_string(self.rule_id, "rule_id")
+        object.__setattr__(
+            self,
+            "target_effect_immunities",
+            _normalize_effect_immunities(self.target_effect_immunities),
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class CowardlyFlightWillpowerRequest:
+    """Resolve the spell's Test after any Give Ground has completed."""
+
+    id: str
+    target_id: str
+    potency: int
+    test: TestRequest
+    target_state: TargetInjuryState
+    source_application: EffectApplicationResult
+    rule_id: str
+
+    def __post_init__(self) -> None:
+        _validate_non_empty_string(self.id, "Cowardly Flight Test request id")
+        _validate_non_empty_string(self.target_id, "target_id")
+        if not isinstance(self.potency, int) or isinstance(self.potency, bool):
+            raise TypeError("potency must be an integer")
+        if self.potency < 1:
+            raise ValueError("potency must be positive")
+        if not isinstance(self.test, TestRequest):
+            raise TypeError("test must be a TestRequest")
+        if not isinstance(
+            self.target_state,
+            (CharacterInjuryState, ProfileInjuryState),
+        ):
+            raise TypeError("target_state must be a TargetInjuryState")
+        if not isinstance(self.source_application, EffectApplicationResult):
+            raise TypeError(
+                "source_application must be an EffectApplicationResult"
+            )
+        if self.source_application.blocked:
+            raise ValueError("a blocked spell cannot request its Willpower Test")
+        _validate_non_empty_string(self.rule_id, "rule_id")
+        if self.source_application.source_rule_id != self.rule_id:
+            raise ValueError("source application does not match the spell rule")
+
+
+@dataclass(frozen=True, slots=True)
+class CowardlyFlightResult:
+    request_id: str
+    target_id: str
+    application: EffectApplicationResult
+    follow_ups: tuple[GiveGroundRequest | CowardlyFlightWillpowerRequest, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class CowardlyFlightWillpowerResult:
+    request_id: str
+    target_id: str
+    test: TestResult
+    resisted: bool
+    state: TargetInjuryState
+    condition_application: ConditionApplicationResult | None
+    applied_rule_ids: tuple[str, ...]
+
+
 ReplacementImpactResult = ConditionImpactResult | HazardImpactResult
 
 
@@ -494,6 +588,7 @@ FollowUpRequest = (
     | ConditionAfterGiveGroundRequest
     | ConsumeWoundNegationRequest
     | GiveGroundRequest
+    | CowardlyFlightWillpowerRequest
     | HazardExposureRequest
     | MonstrosityReactionRequest
     | NearbyTargetsStaggerRequest

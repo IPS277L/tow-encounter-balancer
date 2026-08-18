@@ -114,10 +114,15 @@ K1 — реализация книжного resolution kernel. Прототип
 - `HazardImpactSpec`, одиночная exposure и Zone Hazard переносят явную psychological classification;
 - совпавший иммунитет блокирует весь психологический Hazard до Test, поэтому не расходует RNG и не создаёт Wound/failure Conditions;
 - `Willpower` и значение failure Condition не используются для неявной классификации; Vampire sunlight Hazard остаётся применимым контрпримером страницы 168.
+- нормализован `RULE-MAGIC-001` для `Curse of Cowardly Flight` со страницы 162 Player’s Guide;
+- один source-level psychological preflight блокирует для undead и forced Give Ground, и последующий Willpower/Broken;
+- незаблокированный spell создаёт строгую очередь `GiveGroundRequest → CowardlyFlightWillpowerRequest`;
+- невозможность Give Ground удаляет только movement follow-up, но не отменяет книжный Willpower Test;
+- импровизированные Illusion Control, `Shackles of Truth` и Necromancy Control не обобщены без конкретного детерминированного правила.
 
 ## Проверено
 
-- 169 unit/integration тестов успешно проходят на Python 3.12, из них 149 относятся к K1;
+- 174 unit/integration теста успешно проходят на Python 3.12, из них 154 относятся к K1;
 - исходники и тесты успешно проходят `compileall`.
 
 ## Исходный материал
@@ -140,12 +145,12 @@ K1 — реализация книжного resolution kernel. Прототип
 - spatial-поиск и стабильная сортировка secondary/Zone целей, а также разные последствия hit/miss ещё не имеют общего battle orchestration;
 - для Monstrous Flight при полностью невозможном Give Ground книга не задаёт fallback; K1 требует внешнего ruling;
 - `SuppressRegenerationNextTurnRequest` ещё некому сохранить и погасить без нового turn orchestration;
-- психологическая иммунность undead-профилей подключена к боевым Condition- и Hazard-фазам; non-Condition эффекты ещё требуют отдельного анализа и подключения;
+- психологическая иммунность undead-профилей подключена к боевым Condition/Hazard-фазам и `Curse of Cowardly Flight`; остальные конкретные non-Condition эффекты требуют отдельного анализа;
 - Monte Carlo, JSON, CLI и балансировщик ещё не входят в текущий срез.
 
 ## Следующий шаг
 
-Провести отдельный книжный анализ психологических non-Condition эффектов: составить перечень forced movement, пропуска действий и иных последствий, определить для каждого source-level или sub-effect границу иммунитета и только затем подключать конкретные фазы. Не считать любой Willpower Test психологическим и не вводить универсальную event-шину.
+Продолжить каталог конкретных NPC Abilities с `Foul Stench` Wyvern (GM Guide, страница 178): смоделировать срабатывание при входе в Zone и явный выбор цели между typed inventory follow-up «освободить одну руку» и `Distracted`, не вводя скрытого решения или полноценного spatial engine.
 
 ## Последняя проверка
 
@@ -156,7 +161,7 @@ $env:PYTHONPATH = "src"
 py -3.12 -m unittest discover -s tests -v
 ```
 
-Результат: `Ran 169 tests ... OK`.
+Результат: `Ran 174 tests ... OK`.
 
 ```powershell
 py -3.12 -m compileall -q src tests tools

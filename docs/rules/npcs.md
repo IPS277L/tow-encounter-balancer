@@ -1,6 +1,6 @@
 # NPC и профили противников
 
-Основной источник: `BOOK-GM-GUIDE`, страницы 89–91. Дополнительный источник: `BOOK-PLAYER-GUIDE`, страница 191. Статус: базовые injury policies `implemented`; профильные Special Abilities остаются `draft`.
+Основной источник: `BOOK-GM-GUIDE`, страницы 89–91. Дополнительный источник: `BOOK-PLAYER-GUIDE`, страница 191. Статус: базовые injury policies `implemented`; каталог профильных Special Abilities `partially implemented`.
 
 ## RULE-NPC-001 — типы NPC
 
@@ -81,7 +81,7 @@ Ghorgon и Troll Hag в конце своего хода могут выбрат
 
 В K1 `UndeadMonstrosityReactionSpec` без mounted-контекста детерминированно применяет общую профильную Wound policy. `UndeadMonstrosityReactionContext` явно называет допустимый тип всадника и сообщает актуальную доступность Give Ground. При наличии всадника resolver передаёт владельцу `MONSTROSITY` только доступные варианты: Wound доступна всегда, Give Ground исключается после уже выполненного в раунде Give Ground, при невозможном перемещении или Prone, а повторное падение Prone исключается. Give Ground создаёт обычный spatial follow-up, Prone меняет состояние непосредственно, Wound поддерживает дополнительные профильные Wounds. Terrifying реагирует только на фактические Give Ground или принятую Wound.
 
-Указанная в той же Ability невосприимчивость Bone Dragon к психологическим эффектам и Conditions не является частью Reaction resolver. До её реализации входящие эффекты должны получить типизированную психологическую классификацию; одна строка Condition для этого недостаточна.
+Указанная в той же Ability невосприимчивость Bone Dragon к психологическим эффектам и Conditions не является частью самой Reaction: входящий источник проходит общий source-level preflight в собственной фазе. Одна строка Condition для классификации по-прежнему недостаточна.
 
 ## RULE-NPC-016 — невосприимчивость к психологическим эффектам
 
@@ -89,7 +89,7 @@ Skeleton, Wight, Vampire, Liche, Tomb King и Bone Dragon невосприимч
 
 Психологическая природа принадлежит источнику эффекта, а не значению `Condition`: например, Broken может возникнуть от явно описанного воздействия на страх, но одно наличие Broken не доказывает психологический источник. В K1 источник маркируется `EffectClassification.PSYCHOLOGICAL`, а профиль передаёт `EffectImmunity` с Rule ID своей Ability. Неклассифицированный эффект не блокируется по догадке.
 
-Общий `ConditionApplicationRequest → ConditionApplicationResult` сохраняет состояние без изменения при совпадении иммунитета, Rule ID заблокированного источника и Rule ID сработавшей иммунности. На эту policy переведены replacement Condition, Condition-on-hit, Condition после принятой Wound и отложенный Condition после Give Ground. Путь Staggered проверяет иммунитет до repeated-Stagger policy. Fearsome/Terrifying должны создаваться с явной психологической классификацией; тогда undead-профиль не получает Broken, а исходные Damage, Wound или Give Ground сохраняются. Hazards и не-Condition психологические эффекты ещё требуют отдельной интеграции.
+Общий `EffectApplicationRequest → EffectApplicationResult` сохраняет Rule ID заблокированного источника и сработавшей иммунности. На эту policy переведены replacement Condition, Condition-on-hit, Condition после принятой Wound и отложенный Condition после Give Ground. Путь Staggered проверяет иммунитет до repeated-Stagger policy. Fearsome/Terrifying должны создаваться с явной психологической классификацией; тогда undead-профиль не получает Broken, а исходные Damage, Wound или Give Ground сохраняются. Та же source-level policy блокирует явно психологический Hazard до Test и весь `Curse of Cowardly Flight` до forced Give Ground. Остальные non-Condition эффекты требуют отдельной явной интеграции.
 
 ## Реализация injury policies в K1
 
@@ -106,7 +106,7 @@ Skeleton, Wight, Vampire, Liche, Tomb King и Bone Dragon невосприимч
 - Unsteady у Giant применяет Prone и только при новом падении создаёт Hazard (3), который после внешнего spatial-выбора исполняется для самого Giant и всех остальных существ в Zone;
 - Monstrous Regeneration у Ghorgon/Troll Hag создаёт source-aware запрет регенерации на следующий ход без немедленного изменения injury state;
 - Undead Monstrosity у Bone Dragon различает обязательную Wound без всадника и внешний выбор Wound/Give Ground/Prone при Liche или Tomb King;
-- психологическая иммунность undead-профилей блокирует явно классифицированные replacement/on-hit/outcome/after-Give-Ground Conditions, но пока не подключена к Hazard и не-Condition эффектам;
+- психологическая иммунность undead-профилей блокирует явно классифицированные replacement/on-hit/outcome/after-Give-Ground Conditions, Hazards и оба последствия `Curse of Cowardly Flight`;
 - правило отсутствия Staggered за неудачную Melee-атаку поддерживается явным исключением в `AttackRequest` и сохраняется в trace.
 
 Проверки находятся в `tests/unit/test_k1_injury_resolution.py`, `tests/unit/test_k1_monstrosity_resolution.py`, `tests/unit/test_k1_monstrosity_reaction_resolution.py` и `tests/unit/test_k1_kernel.py`.
