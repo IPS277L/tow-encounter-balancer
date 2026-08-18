@@ -50,3 +50,14 @@ py -3.12 -m unittest discover -s tests -v
 - запрет Give Ground и повторного Prone для уже лежащей цели;
 - автоматический запрос Wound, если других вариантов нет;
 - сохранение Staggered до окончательного принятия или отмены Wound.
+
+Группы K1 Injury и сквозного kernel:
+
+- все границы Wounds Table от `1–3` до `27+`;
+- один куб плюс untreated Wounds и фазовые модификаторы, минимум один куб;
+- смертельные результаты, снятие Staggered и сохранение состояния при Near Miss;
+- общая policy Player/Champion;
+- Minion, профильный лимит Brute/Monstrosity и преобразование extra table die в Wound;
+- владелец решения Monstrosity Wound/Reaction для обоих порогов Damage;
+- полный путь `Attack → Impact → Staggered/Wound → state + follow-ups`;
+- отсутствие скрытого выбора при Glorious, повторном Staggered, Near Miss и Monstrosity Reaction.

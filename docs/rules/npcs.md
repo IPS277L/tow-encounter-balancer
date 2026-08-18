@@ -1,6 +1,6 @@
 # NPC и профили противников
 
-Основной источник: `BOOK-GM-GUIDE`, страницы 89–91. Дополнительный источник: `BOOK-PLAYER-GUIDE`, страница 191. Статус правил: `draft`.
+Основной источник: `BOOK-GM-GUIDE`, страницы 89–91. Дополнительный источник: `BOOK-PLAYER-GUIDE`, страница 191. Статус: базовые injury policies `implemented`; профильные Special Abilities остаются `draft`.
 
 ## RULE-NPC-001 — типы NPC
 
@@ -57,3 +57,14 @@ NPC не получает автоматически все свойства о�
 
 Универсального AoE-правила нет. Число атак, цели и вторичные эффекты определяются конкретным профилем атаки, оружия, Special Ability или Monstrosity. Старый прототипный алгоритм AoE отменён пользователем.
 
+## Реализация injury policies в K1
+
+- Minion получает один Wound и сразу становится defeated;
+- Brute и Monstrosity считают Wounds до профильного лимита без Wounds Table;
+- дополнительный куб Wounds Table преобразуется в `AdditionalProfileWound`;
+- Champion использует ту же Wounds Table policy, что и персонаж игрока;
+- изменение диапазона Wounds возвращается как `ProfileStateChangeRequest`, чтобы профильная Ability могла обновить характеристики без скрытой логики в общей policy;
+- Monstrosity Wound/Reaction разрешается в `src/towr/rules/monstrosity_resolution.py` с правильным владельцем решения;
+- правило отсутствия Staggered за неудачную Melee-атаку поддерживается явным исключением в `AttackRequest` и сохраняется в trace.
+
+Проверки находятся в `tests/unit/test_k1_injury_resolution.py`, `tests/unit/test_k1_monstrosity_resolution.py` и `tests/unit/test_k1_kernel.py`.

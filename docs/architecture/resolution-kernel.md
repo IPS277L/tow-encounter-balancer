@@ -95,3 +95,14 @@ validate target/range/action
 - kernel не знает о вероятностях и числе симуляций;
 - ошибка неполного контекста завершается явно, а не подставляет скрытый игровой default;
 - follow-up не может изменить уже завершённый результат задним числом.
+
+## Текущая реализация
+
+`src/towr/rules/kernel.py` связывает существующие чистые stages для одной атаки и возвращает `ResolutionResult`:
+
+- `AttackResult` и все вложенные roll traces;
+- новый снимок состояния основной цели;
+- результат Staggered, Wound или Monstrosity impact;
+- типизированные follow-up для Staggered атакующего, Give Ground, эффекта строки Wounds Table, смены профильного диапазона NPC или Monstrosity Reaction.
+
+Kernel не исполняет follow-up рекурсивно. Уникальные эффекты Wounds Table, заменяющие обычный Damage атаки и конкретные профильные Reactions ещё должны получить специализированные resolvers.

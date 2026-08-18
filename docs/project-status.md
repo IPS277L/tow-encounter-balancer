@@ -38,10 +38,16 @@ K1 — реализация книжного resolution kernel. Прототип
 - реализованы неизменяемое множество Conditions и чистый reducer Staggered;
 - повторный Staggered учитывает Prone, доступность Give Ground и лимит одного Give Ground за раунд;
 - выбор Give Ground/Prone/Wound вынесен в явный `StaggerDecisionProvider`, а единственный допустимый Wound выбирается автоматически.
+- реализована полная карта Wounds Table `1–27+`, записи исходных d10 и untreated Wounds;
+- реализованы Player/Champion, Minion, Brute и Monstrosity injury policies;
+- реализована отмена Wound после броска, включая правильное сохранение Staggered при Near Miss;
+- реализован владелец выбора Wound/Reaction для обоих случаев Damage по Monstrosity;
+- правило Monstrosity о неудачной Melee-атаке добавлено как явное трассируемое исключение;
+- создан единый `KernelAttackRequest → ResolutionResult`, возвращающий новое состояние цели и типизированные follow-up.
 
 ## Проверено
 
-- 53 unit/integration теста успешно проходят на Python 3.12, из них 33 относятся к K1;
+- 78 unit/integration тестов успешно проходят на Python 3.12, из них 58 относятся к K1;
 - исходники и тесты успешно проходят `compileall`.
 
 ## Исходный материал
@@ -57,11 +63,13 @@ K1 — реализация книжного resolution kernel. Прототип
 
 - текущие правила и тесты описывают упрощённый прототип и могут противоречить книге;
 - полный каталог всех NPC Abilities, магии, религии и магических предметов ещё не завершён;
+- уникальные последствия отдельных строк Wounds Table пока возвращаются как `WoundEffectRequest`, но ещё не исполняются;
+- заменяющие Damage атаки, профильные Reactions и secondary effects пока возвращаются или описываются как follow-up, но не все имеют resolver;
 - Monte Carlo, JSON, CLI и балансировщик ещё не входят в текущий срез.
 
 ## Следующий шаг
 
-Реализовать injury policies для Player/Champion, Minion, Brute и Monstrosity: Wounds Table, профильные лимиты, Reactions и отмену Wound. Затем связать `AttackResult` с reducers через единый K1 `ResolutionResult`, не подключая старый battle loop.
+Реализовать специализированные `WoundEffectRequest` для строк Wounds Table, начиная с безусловных Conditions и требующих Endurance Test результатов. Затем добавить заменяющие обычный Damage `ImpactSpec`; старый battle loop пока не подключать.
 
 ## Последняя проверка
 
@@ -72,7 +80,7 @@ $env:PYTHONPATH = "src"
 py -3.12 -m unittest discover -s tests -v
 ```
 
-Результат: `Ran 53 tests ... OK`.
+Результат: `Ran 78 tests ... OK`.
 
 ```powershell
 py -3.12 -m compileall -q src tests tools

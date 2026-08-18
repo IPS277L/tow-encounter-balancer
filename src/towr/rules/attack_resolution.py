@@ -53,7 +53,7 @@ def resolve_attack(
         )
 
     if not hit:
-        miss_consequence = _resolve_miss_consequence(request)
+        miss_consequence, miss_rule_ids = _resolve_miss_consequence(request)
         return AttackResult(
             request_id=request.id,
             attacker_test=attacker_test,
@@ -65,7 +65,7 @@ def resolve_attack(
             impact=None,
             miss_consequence=miss_consequence,
             tie_break_applied=False,
-            applied_rule_ids=(),
+            applied_rule_ids=miss_rule_ids,
         )
 
     damage_delta = sum(modifier.amount for modifier in request.damage_modifiers)
@@ -119,7 +119,14 @@ def resolve_attack(
     )
 
 
-def _resolve_miss_consequence(request: AttackRequest) -> MissConsequence:
+def _resolve_miss_consequence(
+    request: AttackRequest,
+) -> tuple[MissConsequence, tuple[str, ...]]:
     if request.is_close_range and not request.attacker_is_staggered:
-        return MissConsequence.STAGGER_ATTACKER
-    return MissConsequence.NONE
+        if request.close_miss_stagger_immunity_rule_id is not None:
+            return (
+                MissConsequence.NONE,
+                (request.close_miss_stagger_immunity_rule_id,),
+            )
+        return MissConsequence.STAGGER_ATTACKER, ()
+    return MissConsequence.NONE, ()

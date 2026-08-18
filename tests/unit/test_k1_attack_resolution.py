@@ -25,6 +25,7 @@ def attack_request(
     damage: DamageProfile = DamageProfile(4),
     resilience: ResilienceProfile = ResilienceProfile(4, 1),
     ignores_armour: bool = False,
+    miss_immunity_rule_id: str | None = None,
     damage_modifiers: tuple[DamageModifier, ...] = (),
     resilience_modifiers: tuple[ResilienceModifier, ...] = (),
 ) -> AttackRequest:
@@ -39,6 +40,7 @@ def attack_request(
         is_close_range=close,
         attacker_is_staggered=attacker_staggered,
         ignores_armour=ignores_armour,
+        close_miss_stagger_immunity_rule_id=miss_immunity_rule_id,
         damage_modifiers=damage_modifiers,
         resilience_modifiers=resilience_modifiers,
     )
@@ -113,6 +115,21 @@ class K1AttackResolutionTests(unittest.TestCase):
         self.assertIs(fresh.miss_consequence, MissConsequence.STAGGER_ATTACKER)
         self.assertIs(already_staggered.miss_consequence, MissConsequence.NONE)
         self.assertIs(ranged.miss_consequence, MissConsequence.NONE)
+
+    def test_monstrosity_rule_can_suppress_close_melee_miss_stagger(self) -> None:
+        result = resolve_attack(
+            attack_request(
+                defender=False,
+                miss_immunity_rule_id="RULE-NPC-005:failed-melee",
+            ),
+            SequenceRandom([10, 10, 10]),
+        )
+
+        self.assertIs(result.miss_consequence, MissConsequence.NONE)
+        self.assertEqual(
+            result.applied_rule_ids,
+            ("RULE-NPC-005:failed-melee",),
+        )
 
     def test_ignoring_armour_uses_toughness_for_this_attack(self) -> None:
         result = resolve_attack(

@@ -79,6 +79,7 @@ class AttackRequest:
     is_close_range: bool
     attacker_is_staggered: bool
     ignores_armour: bool = False
+    close_miss_stagger_immunity_rule_id: str | None = None
     damage_modifiers: tuple[DamageModifier, ...] = field(default_factory=tuple)
     resilience_modifiers: tuple[ResilienceModifier, ...] = field(default_factory=tuple)
 
@@ -100,6 +101,8 @@ class AttackRequest:
         _validate_bool(self.is_close_range, "is_close_range")
         _validate_bool(self.attacker_is_staggered, "attacker_is_staggered")
         _validate_bool(self.ignores_armour, "ignores_armour")
+        if self.close_miss_stagger_immunity_rule_id is not None:
+            _validate_rule_id(self.close_miss_stagger_immunity_rule_id)
         object.__setattr__(self, "damage_modifiers", tuple(self.damage_modifiers))
         object.__setattr__(
             self, "resilience_modifiers", tuple(self.resilience_modifiers)

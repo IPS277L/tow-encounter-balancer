@@ -1,6 +1,6 @@
 # Раны и состояния
 
-Источник: `BOOK-PLAYER-GUIDE`, преимущественно страницы 119–123 и 190–191. Статус: Staggered `implemented` в K1; Wounds и остальные Conditions остаются `draft`.
+Источник: `BOOK-PLAYER-GUIDE`, преимущественно страницы 119–123 и 190–191. Статус: Staggered и базовая Wound policy `implemented` в K1; уникальные эффекты строк таблицы и Recover остаются `draft`.
 
 ## RULE-HEALTH-001 — Resilience
 
@@ -60,4 +60,15 @@ Recover может снимать Staggered и Prone, лечить Wound или 
 - чистый reducer: `src/towr/rules/stagger_resolution.py`;
 - детерминированные проверки: `tests/unit/test_k1_stagger_resolution.py`.
 
-Первое получение добавляет Staggered без решения. Повторное вычисляет только допустимые варианты с учётом Prone, возможности покинуть Zone и уже использованного Give Ground. При нескольких вариантах требуется явный `StaggerDecisionProvider`; если допустим только Wound, запрос раны создаётся автоматически. Сам Wound пока не применяется: это позволяет будущей injury policy корректно обработать Wounds Table и отмену раны через Near Miss, сохранив прежний Staggered.
+Первое получение добавляет Staggered без решения. Повторное вычисляет только допустимые варианты с учётом Prone, возможности покинуть Zone и уже использованного Give Ground. При нескольких вариантах требуется явный `StaggerDecisionProvider`; если допустим только Wound, запрос раны создаётся автоматически. Stagger reducer сам не применяет Wound: единый kernel передаёт запрос соответствующей injury policy, которая может принять или отменить рану.
+
+## Реализация Wounds Table в K1
+
+- модели состояния, записи раны и решений: `src/towr/domain/injury_models.py`;
+- нормативная карта результатов `1–27+`: `src/towr/rules/wound_table.py`;
+- Player/Champion и профильные NPC policies: `src/towr/rules/injury_resolution.py`;
+- сквозные проверки: `tests/unit/test_k1_injury_resolution.py` и `tests/unit/test_k1_kernel.py`.
+
+Player и Champion используют одну policy. Число кубов равно `1 + untreated Wounds + modifiers`, минимум один. Принятая Wound записывает исходные d10 и сумму, удаляет прежний Staggered и отмечает смертельные результаты `24+`. Near Miss и аналогичные доступные отмены выбираются после броска; при отмене исходное состояние, включая Staggered, сохраняется, а расход Fate или другого источника возвращается как `ConsumeWoundNegationRequest`.
+
+Каждая принятая рана возвращает `WoundEffectRequest` с конкретным `WoundEntryId`. Уникальные последствия таблицы — дополнительные Endurance Tests, выбор конечности, временные и постоянные ограничения — будут разрешаться следующим специализированным слоем. Kernel не заменяет их неявным общим штрафом.
