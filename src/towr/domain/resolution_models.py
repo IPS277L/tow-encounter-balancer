@@ -50,6 +50,17 @@ class MonstrosityReactionOutcome(str, Enum):
     REGENERATION_SUPPRESSED = "regeneration_suppressed"
 
 
+class BoneDragonRider(str, Enum):
+    LICHE = "liche"
+    TOMB_KING = "tomb_king"
+
+
+class UndeadMonstrosityReactionChoice(str, Enum):
+    SUFFER_WOUND = "suffer_wound"
+    GIVE_GROUND = "give_ground"
+    FALL_PRONE = "fall_prone"
+
+
 @dataclass(frozen=True, slots=True)
 class AttackerStaggerRequest:
     attack_id: str
@@ -130,15 +141,59 @@ class MonstrousRegenerationReactionSpec:
         _validate_non_empty_string(self.rule_id, "rule_id")
 
 
+@dataclass(frozen=True, slots=True)
+class UndeadMonstrosityReactionSpec:
+    rule_id: str
+
+    def __post_init__(self) -> None:
+        _validate_non_empty_string(self.rule_id, "rule_id")
+
+
 MonstrosityReactionSpec = (
     MonstrousFlightReactionSpec
     | UnsteadyReactionSpec
     | MonstrousRegenerationReactionSpec
+    | UndeadMonstrosityReactionSpec
 )
 _MONSTROSITY_REACTION_SPEC_TYPES = (
     MonstrousFlightReactionSpec,
     UnsteadyReactionSpec,
     MonstrousRegenerationReactionSpec,
+    UndeadMonstrosityReactionSpec,
+)
+
+
+@dataclass(frozen=True, slots=True)
+class MonstrousFlightReactionContext:
+    has_given_ground_this_turn: bool
+    can_give_ground: bool
+
+    def __post_init__(self) -> None:
+        _validate_bool(
+            self.has_given_ground_this_turn,
+            "has_given_ground_this_turn",
+        )
+        _validate_bool(self.can_give_ground, "can_give_ground")
+
+
+@dataclass(frozen=True, slots=True)
+class UndeadMonstrosityReactionContext:
+    rider: BoneDragonRider
+    has_given_ground_this_round: bool
+    can_give_ground: bool
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.rider, BoneDragonRider):
+            raise TypeError("rider must be a BoneDragonRider")
+        _validate_bool(
+            self.has_given_ground_this_round,
+            "has_given_ground_this_round",
+        )
+        _validate_bool(self.can_give_ground, "can_give_ground")
+
+
+MonstrosityReactionContext = (
+    MonstrousFlightReactionContext | UndeadMonstrosityReactionContext
 )
 
 
@@ -195,8 +250,7 @@ class MonstrosityReactionResolutionRequest:
     id: str
     source: MonstrosityReactionRequest
     state: ProfileInjuryState
-    has_given_ground_this_turn: bool | None = None
-    can_give_ground: bool | None = None
+    context: MonstrosityReactionContext | None = None
 
     def __post_init__(self) -> None:
         _validate_non_empty_string(self.id, "Monstrosity reaction request id")
@@ -205,17 +259,25 @@ class MonstrosityReactionResolutionRequest:
         if not isinstance(self.state, ProfileInjuryState):
             raise TypeError("state must be a ProfileInjuryState")
         if isinstance(self.source.reaction, MonstrousFlightReactionSpec):
-            _validate_bool(
-                self.has_given_ground_this_turn,
-                "has_given_ground_this_turn",
-            )
-            _validate_bool(self.can_give_ground, "can_give_ground")
-        elif (
-            self.has_given_ground_this_turn is not None
-            or self.can_give_ground is not None
+            if not isinstance(self.context, MonstrousFlightReactionContext):
+                raise TypeError(
+                    "Monstrous Flight requires "
+                    "MonstrousFlightReactionContext"
+                )
+        elif isinstance(
+            self.source.reaction,
+            UndeadMonstrosityReactionSpec,
         ):
+            if self.context is not None and not isinstance(
+                self.context,
+                UndeadMonstrosityReactionContext,
+            ):
+                raise TypeError(
+                    "Undead Monstrosity requires mounted context or None"
+                )
+        elif self.context is not None:
             raise ValueError(
-                "Give Ground context is only valid for Monstrous Flight"
+                "reaction context is not valid for this Reaction"
             )
 
 

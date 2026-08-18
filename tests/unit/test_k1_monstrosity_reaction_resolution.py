@@ -6,28 +6,55 @@ from towr.domain.attack_models import ConditionOnGiveGroundOrWoundSpec
 from towr.domain.condition_models import Condition, ConditionState
 from towr.domain.injury_models import (
     AdditionalProfileWound,
+    DecisionOwner,
     ProfileInjuryState,
     ProfileStateChangeRequest,
 )
 from towr.domain.resolution_models import (
+    BoneDragonRider,
     ConditionAfterGiveGroundRequest,
     GiveGroundDestinationPreference,
     GiveGroundRequest,
     MonstrosityReactionOutcome,
+    MonstrosityReactionContext,
     MonstrosityReactionRequest,
     MonstrosityReactionResolutionRequest,
     MonstrosityReactionSpec,
     MonstrousFlightReactionSpec,
+    MonstrousFlightReactionContext,
     MonstrousRegenerationReactionSpec,
     ReactorZoneHazardRequest,
     SuppressRegenerationNextTurnRequest,
+    UndeadMonstrosityReactionChoice,
+    UndeadMonstrosityReactionContext,
+    UndeadMonstrosityReactionSpec,
     UnsteadyReactionSpec,
 )
 from towr.domain.test_models import Skill
 from towr.rules.monstrosity_reaction_resolution import (
+    InvalidUndeadMonstrosityDecisionError,
+    MissingUndeadMonstrosityDecisionError,
     UnresolvedMonstrousFlightReactionError,
     resolve_monstrosity_reaction,
 )
+
+
+class FixedUndeadDecision:
+    def __init__(self, choice: UndeadMonstrosityReactionChoice) -> None:
+        self.choice = choice
+        self.owner: DecisionOwner | None = None
+        self.choices: tuple[UndeadMonstrosityReactionChoice, ...] = ()
+
+    def choose_undead_monstrosity_reaction(
+        self,
+        *,
+        owner: DecisionOwner,
+        choices: tuple[UndeadMonstrosityReactionChoice, ...],
+        **_: object,
+    ) -> UndeadMonstrosityReactionChoice:
+        self.owner = owner
+        self.choices = choices
+        return self.choice
 
 
 def source(
@@ -59,6 +86,7 @@ def request(
     *,
     reaction_source: MonstrosityReactionRequest | None = None,
     state: ProfileInjuryState | None = None,
+    reaction_context: MonstrosityReactionContext | None = None,
     has_given_ground: bool = False,
     can_give_ground: bool = True,
 ) -> MonstrosityReactionResolutionRequest:
@@ -71,10 +99,14 @@ def request(
         id="reaction-resolution",
         source=resolved_source,
         state=state or ProfileInjuryState(wounds=0, wound_limit=3),
-        has_given_ground_this_turn=(
-            has_given_ground if is_flight else None
+        context=(
+            MonstrousFlightReactionContext(
+                has_given_ground_this_turn=has_given_ground,
+                can_give_ground=can_give_ground,
+            )
+            if is_flight
+            else reaction_context
         ),
-        can_give_ground=can_give_ground if is_flight else None,
     )
 
 
@@ -86,6 +118,14 @@ class K1MonstrosityReactionResolutionTests(unittest.TestCase):
             UnsteadyReactionSpec("")
         with self.assertRaises(ValueError):
             MonstrousRegenerationReactionSpec(" ")
+        with self.assertRaises(ValueError):
+            UndeadMonstrosityReactionSpec("")
+        with self.assertRaises(TypeError):
+            UndeadMonstrosityReactionContext(
+                rider="liche",  # type: ignore[arg-type]
+                has_given_ground_this_round=False,
+                can_give_ground=True,
+            )
 
     def test_flight_gives_ground_and_queues_terrifying_after_movement(self) -> None:
         result = resolve_monstrosity_reaction(
@@ -213,7 +253,7 @@ class K1MonstrosityReactionResolutionTests(unittest.TestCase):
         self.assertIs(result.state, state)
         self.assertEqual(result.follow_ups, ())
 
-    def test_unsteady_rejects_irrelevant_give_ground_context(self) -> None:
+    def test_unsteady_rejects_irrelevant_reaction_context(self) -> None:
         with self.assertRaises(ValueError):
             MonstrosityReactionResolutionRequest(
                 id="reaction-resolution",
@@ -221,8 +261,10 @@ class K1MonstrosityReactionResolutionTests(unittest.TestCase):
                     reaction=UnsteadyReactionSpec("RULE-NPC:unsteady")
                 ),
                 state=ProfileInjuryState(wounds=0, wound_limit=6),
-                has_given_ground_this_turn=False,
-                can_give_ground=True,
+                context=MonstrousFlightReactionContext(
+                    has_given_ground_this_turn=False,
+                    can_give_ground=True,
+                ),
             )
 
     def test_regeneration_reaction_suppresses_next_turn(self) -> None:
@@ -272,6 +314,153 @@ class K1MonstrosityReactionResolutionTests(unittest.TestCase):
                     "attack-resolution",
                 )
                 self.assertEqual(result.applied_rule_ids, (rule_id,))
+
+    def test_unmounted_undead_reaction_suffers_wound(self) -> None:
+        extra = AdditionalProfileWound("RULE-WEAPON:wound-die")
+        result = resolve_monstrosity_reaction(
+            request(
+                reaction_source=source(
+                    reaction=UndeadMonstrosityReactionSpec(
+                        "RULE-NPC:undead-monstrosity"
+                    ),
+                    additional_wounds=(extra,),
+                    terrifying=True,
+                ),
+                state=ProfileInjuryState(
+                    wounds=0,
+                    wound_limit=5,
+                    conditions=ConditionState(
+                        frozenset({Condition.STAGGERED})
+                    ),
+                ),
+            )
+        )
+
+        self.assertIs(
+            result.outcome,
+            MonstrosityReactionOutcome.SUFFER_WOUND,
+        )
+        assert result.profile_wound is not None
+        self.assertEqual(result.profile_wound.wounds_inflicted, 2)
+        self.assertEqual(result.state.wounds, 2)
+        self.assertFalse(result.state.conditions.has(Condition.STAGGERED))
+        self.assertTrue(result.state.conditions.has(Condition.BROKEN))
+        self.assertEqual(
+            result.applied_rule_ids,
+            (
+                "RULE-NPC:undead-monstrosity",
+                extra.rule_id,
+                "RULE-NPC:terrifying",
+            ),
+        )
+
+    def test_mounted_undead_reaction_can_give_ground(self) -> None:
+        decision = FixedUndeadDecision(
+            UndeadMonstrosityReactionChoice.GIVE_GROUND
+        )
+        result = resolve_monstrosity_reaction(
+            request(
+                reaction_source=source(
+                    reaction=UndeadMonstrosityReactionSpec(
+                        "RULE-NPC:undead-monstrosity"
+                    ),
+                    terrifying=True,
+                ),
+                reaction_context=UndeadMonstrosityReactionContext(
+                    rider=BoneDragonRider.LICHE,
+                    has_given_ground_this_round=False,
+                    can_give_ground=True,
+                ),
+            ),
+            decisions=decision,
+        )
+
+        self.assertIs(result.outcome, MonstrosityReactionOutcome.GIVE_GROUND)
+        self.assertIs(decision.owner, DecisionOwner.MONSTROSITY)
+        self.assertEqual(
+            decision.choices,
+            (
+                UndeadMonstrosityReactionChoice.SUFFER_WOUND,
+                UndeadMonstrosityReactionChoice.GIVE_GROUND,
+                UndeadMonstrosityReactionChoice.FALL_PRONE,
+            ),
+        )
+        self.assertEqual(len(result.follow_ups), 2)
+        movement = result.follow_ups[0]
+        self.assertIsInstance(movement, GiveGroundRequest)
+        assert isinstance(movement, GiveGroundRequest)
+        self.assertIs(
+            movement.destination_preference,
+            GiveGroundDestinationPreference.ANY_VALID_ADJACENT,
+        )
+        self.assertIsInstance(
+            result.follow_ups[1],
+            ConditionAfterGiveGroundRequest,
+        )
+
+    def test_mounted_undead_reaction_can_fall_prone(self) -> None:
+        decision = FixedUndeadDecision(
+            UndeadMonstrosityReactionChoice.FALL_PRONE
+        )
+        result = resolve_monstrosity_reaction(
+            request(
+                reaction_source=source(
+                    reaction=UndeadMonstrosityReactionSpec(
+                        "RULE-NPC:undead-monstrosity"
+                    ),
+                    terrifying=True,
+                ),
+                reaction_context=UndeadMonstrosityReactionContext(
+                    rider=BoneDragonRider.TOMB_KING,
+                    has_given_ground_this_round=False,
+                    can_give_ground=True,
+                ),
+            ),
+            decisions=decision,
+        )
+
+        self.assertIs(result.outcome, MonstrosityReactionOutcome.FALL_PRONE)
+        self.assertTrue(result.state.conditions.has(Condition.PRONE))
+        self.assertFalse(result.state.conditions.has(Condition.BROKEN))
+        self.assertEqual(result.follow_ups, ())
+
+    def test_mounted_undead_reaction_requires_decision(self) -> None:
+        with self.assertRaises(MissingUndeadMonstrosityDecisionError):
+            resolve_monstrosity_reaction(
+                request(
+                    reaction_source=source(
+                        reaction=UndeadMonstrosityReactionSpec(
+                            "RULE-NPC:undead-monstrosity"
+                        )
+                    ),
+                    reaction_context=UndeadMonstrosityReactionContext(
+                        rider=BoneDragonRider.LICHE,
+                        has_given_ground_this_round=False,
+                        can_give_ground=True,
+                    ),
+                )
+            )
+
+    def test_mounted_undead_reaction_rejects_unavailable_choice(self) -> None:
+        decision = FixedUndeadDecision(
+            UndeadMonstrosityReactionChoice.GIVE_GROUND
+        )
+        with self.assertRaises(InvalidUndeadMonstrosityDecisionError):
+            resolve_monstrosity_reaction(
+                request(
+                    reaction_source=source(
+                        reaction=UndeadMonstrosityReactionSpec(
+                            "RULE-NPC:undead-monstrosity"
+                        )
+                    ),
+                    reaction_context=UndeadMonstrosityReactionContext(
+                        rider=BoneDragonRider.TOMB_KING,
+                        has_given_ground_this_round=True,
+                        can_give_ground=True,
+                    ),
+                ),
+                decisions=decision,
+            )
 
 
 if __name__ == "__main__":

@@ -109,6 +109,10 @@ py -3.12 -m unittest discover -s tests -v
 - Monstrous Regeneration сохраняется kernel как конкретный Reaction spec;
 - Reaction Ghorgon/Troll Hag не меняет injury state и создаёт ровно один source-aware запрет регенерации на следующий ход;
 - suppression не маскируется Condition и не запускает Terrifying;
+- немонтированный Bone Dragon при Reaction автоматически получает профильную Wound;
+- Liche/Tomb King открывает явный выбор владельца Monstrosity между доступными Wound, Give Ground и Prone;
+- недоступные Give Ground/Prone исключаются до decision policy, а неподдерживаемый выбор отклоняется;
+- Give Ground и Wound от Undead Monstrosity запускают Terrifying, тогда как Prone не запускает;
 - полный путь `Attack → Impact → Staggered/Wound → state + follow-ups`;
 - отсутствие скрытого выбора при Glorious, повторном Staggered, Near Miss и Monstrosity Reaction.
 

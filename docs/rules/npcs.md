@@ -75,6 +75,14 @@ Ghorgon и Troll Hag в конце своего хода могут выбрат
 
 Текущий K1-срез реализует только немедленное последствие Reaction: `MonstrousRegenerationReactionSpec` возвращает исход `REGENERATION_SUPPRESSED` и source-aware `SuppressRegenerationNextTurnRequest`. Состояние, Wounds и Conditions при этом не меняются. Future turn orchestration должно сохранить запрет, применить его к следующей возможности регенерации и однократно погасить. Добровольное end-turn лечение, Staggered и проверка огненного источника Wound пока не исполняются без turn/wound-source state.
 
+## RULE-NPC-015 — Undead Monstrosity Reaction
+
+Когда срабатывает Reaction немонтированного Bone Dragon, он получает Wound. Если на нём находится Liche или Tomb King, Bone Dragon может вместо Wound дать Ground или упасть Prone. Источник: GM Guide, страница 172.
+
+В K1 `UndeadMonstrosityReactionSpec` без mounted-контекста детерминированно применяет общую профильную Wound policy. `UndeadMonstrosityReactionContext` явно называет допустимый тип всадника и сообщает актуальную доступность Give Ground. При наличии всадника resolver передаёт владельцу `MONSTROSITY` только доступные варианты: Wound доступна всегда, Give Ground исключается после уже выполненного в раунде Give Ground, при невозможном перемещении или Prone, а повторное падение Prone исключается. Give Ground создаёт обычный spatial follow-up, Prone меняет состояние непосредственно, Wound поддерживает дополнительные профильные Wounds. Terrifying реагирует только на фактические Give Ground или принятую Wound.
+
+Указанная в той же Ability невосприимчивость Bone Dragon к психологическим эффектам и Conditions не является частью Reaction resolver. До её реализации входящие эффекты должны получить типизированную психологическую классификацию; одна строка Condition для этого недостаточна.
+
 ## Реализация injury policies в K1
 
 - Minion получает один Wound и сразу становится defeated;
@@ -89,6 +97,7 @@ Ghorgon и Troll Hag в конце своего хода могут выбрат
 - Monstrous Flight у Griffon/Dragon/Wyvern разрешается отдельным типизированным resolver и сохраняет различие между лимитом Reaction «в текущем ходу» и общим Give Ground «раз за раунд»;
 - Unsteady у Giant применяет Prone и только при новом падении создаёт Hazard (3) для всех существ в Zone;
 - Monstrous Regeneration у Ghorgon/Troll Hag создаёт source-aware запрет регенерации на следующий ход без немедленного изменения injury state;
+- Undead Monstrosity у Bone Dragon различает обязательную Wound без всадника и внешний выбор Wound/Give Ground/Prone при Liche или Tomb King;
 - правило отсутствия Staggered за неудачную Melee-атаку поддерживается явным исключением в `AttackRequest` и сохраняется в trace.
 
 Проверки находятся в `tests/unit/test_k1_injury_resolution.py`, `tests/unit/test_k1_monstrosity_resolution.py`, `tests/unit/test_k1_monstrosity_reaction_resolution.py` и `tests/unit/test_k1_kernel.py`.

@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+from typing import Protocol
+
 from towr.domain.condition_models import Condition, ConditionState
 from towr.domain.injury_models import (
+    DecisionOwner,
     ProfileInjuryState,
     ProfileNpcType,
     ProfileWoundRequest,
@@ -13,10 +16,14 @@ from towr.domain.resolution_models import (
     MonstrosityReactionOutcome,
     MonstrosityReactionResolutionRequest,
     MonstrosityReactionResolutionResult,
+    MonstrousFlightReactionContext,
     MonstrousFlightReactionSpec,
     MonstrousRegenerationReactionSpec,
     ReactorZoneHazardRequest,
     SuppressRegenerationNextTurnRequest,
+    UndeadMonstrosityReactionChoice,
+    UndeadMonstrosityReactionContext,
+    UndeadMonstrosityReactionSpec,
     UnsteadyReactionSpec,
 )
 from towr.domain.test_models import Skill
@@ -27,10 +34,32 @@ class UnresolvedMonstrousFlightReactionError(RuntimeError):
     pass
 
 
+class MissingUndeadMonstrosityDecisionError(RuntimeError):
+    pass
+
+
+class InvalidUndeadMonstrosityDecisionError(ValueError):
+    pass
+
+
+class UndeadMonstrosityDecisionProvider(Protocol):
+    def choose_undead_monstrosity_reaction(
+        self,
+        *,
+        request: MonstrosityReactionResolutionRequest,
+        owner: DecisionOwner,
+        choices: tuple[UndeadMonstrosityReactionChoice, ...],
+    ) -> UndeadMonstrosityReactionChoice: ...
+
+
 def resolve_monstrosity_reaction(
     request: MonstrosityReactionResolutionRequest,
+    *,
+    decisions: UndeadMonstrosityDecisionProvider | None = None,
 ) -> MonstrosityReactionResolutionResult:
     reaction = request.source.reaction
+    if isinstance(reaction, UndeadMonstrosityReactionSpec):
+        return _resolve_undead_monstrosity(request, reaction, decisions)
     if isinstance(reaction, MonstrousRegenerationReactionSpec):
         return _resolve_regeneration(request, reaction)
     if isinstance(reaction, UnsteadyReactionSpec):
@@ -38,16 +67,94 @@ def resolve_monstrosity_reaction(
     if not isinstance(reaction, MonstrousFlightReactionSpec):
         raise TypeError("unsupported Monstrosity reaction spec")
 
-    assert request.has_given_ground_this_turn is not None
-    assert request.can_give_ground is not None
-    if request.has_given_ground_this_turn:
-        return _resolve_flight_wound(request, reaction)
-    if not request.can_give_ground:
+    assert isinstance(request.context, MonstrousFlightReactionContext)
+    if request.context.has_given_ground_this_turn:
+        return _resolve_reaction_wound(request, reaction.rule_id)
+    if not request.context.can_give_ground:
         raise UnresolvedMonstrousFlightReactionError(
             "the books do not define a fallback when Monstrous Flight "
             "cannot Give Ground"
         )
-    return _resolve_flight_give_ground(request, reaction)
+    return _resolve_reaction_give_ground(
+        request,
+        reaction.rule_id,
+        GiveGroundDestinationPreference.VERTICAL_MIDAIR_IF_ABLE,
+    )
+
+
+def _resolve_undead_monstrosity(
+    request: MonstrosityReactionResolutionRequest,
+    reaction: UndeadMonstrosityReactionSpec,
+    decisions: UndeadMonstrosityDecisionProvider | None,
+) -> MonstrosityReactionResolutionResult:
+    if request.context is None:
+        return _resolve_reaction_wound(request, reaction.rule_id)
+
+    assert isinstance(request.context, UndeadMonstrosityReactionContext)
+    choices = [UndeadMonstrosityReactionChoice.SUFFER_WOUND]
+    is_prone = request.state.conditions.has(Condition.PRONE)
+    if (
+        not is_prone
+        and request.context.can_give_ground
+        and not request.context.has_given_ground_this_round
+    ):
+        choices.append(UndeadMonstrosityReactionChoice.GIVE_GROUND)
+    if not is_prone:
+        choices.append(UndeadMonstrosityReactionChoice.FALL_PRONE)
+    selected = _choose_undead_monstrosity_reaction(
+        request,
+        tuple(choices),
+        decisions,
+    )
+    if selected is UndeadMonstrosityReactionChoice.GIVE_GROUND:
+        return _resolve_reaction_give_ground(
+            request,
+            reaction.rule_id,
+            GiveGroundDestinationPreference.ANY_VALID_ADJACENT,
+        )
+    if selected is UndeadMonstrosityReactionChoice.FALL_PRONE:
+        state = _with_conditions(
+            request.state,
+            request.state.conditions.with_condition(Condition.PRONE),
+        )
+        return MonstrosityReactionResolutionResult(
+            request_id=request.id,
+            source_resolution_id=request.source.resolution_id,
+            reaction_rule_id=reaction.rule_id,
+            state=state,
+            outcome=MonstrosityReactionOutcome.FALL_PRONE,
+            profile_wound=None,
+            follow_ups=(),
+            applied_rule_ids=(reaction.rule_id,),
+        )
+    return _resolve_reaction_wound(request, reaction.rule_id)
+
+
+def _choose_undead_monstrosity_reaction(
+    request: MonstrosityReactionResolutionRequest,
+    choices: tuple[UndeadMonstrosityReactionChoice, ...],
+    decisions: UndeadMonstrosityDecisionProvider | None,
+) -> UndeadMonstrosityReactionChoice:
+    if len(choices) == 1:
+        return choices[0]
+    if decisions is None:
+        raise MissingUndeadMonstrosityDecisionError(
+            "mounted Undead Monstrosity requires an explicit decision"
+        )
+    selected = decisions.choose_undead_monstrosity_reaction(
+        request=request,
+        owner=DecisionOwner.MONSTROSITY,
+        choices=choices,
+    )
+    if not isinstance(selected, UndeadMonstrosityReactionChoice):
+        raise InvalidUndeadMonstrosityDecisionError(
+            "Undead Monstrosity decision must be a valid choice"
+        )
+    if selected not in choices:
+        raise InvalidUndeadMonstrosityDecisionError(
+            f"Undead Monstrosity choice is not available: {selected.value}"
+        )
+    return selected
 
 
 def _resolve_regeneration(
@@ -108,9 +215,10 @@ def _resolve_unsteady(
     )
 
 
-def _resolve_flight_give_ground(
+def _resolve_reaction_give_ground(
     request: MonstrosityReactionResolutionRequest,
-    reaction: MonstrousFlightReactionSpec,
+    reaction_rule_id: str,
+    destination_preference: GiveGroundDestinationPreference,
 ) -> MonstrosityReactionResolutionResult:
     effects = request.source.give_ground_or_wound_effects
     condition_follow_ups = tuple(
@@ -124,29 +232,27 @@ def _resolve_flight_give_ground(
     return MonstrosityReactionResolutionResult(
         request_id=request.id,
         source_resolution_id=request.source.resolution_id,
-        reaction_rule_id=reaction.rule_id,
+        reaction_rule_id=reaction_rule_id,
         state=request.state,
         outcome=MonstrosityReactionOutcome.GIVE_GROUND,
         profile_wound=None,
         follow_ups=(
             GiveGroundRequest(
                 resolution_id=request.source.resolution_id,
-                destination_preference=(
-                    GiveGroundDestinationPreference.VERTICAL_MIDAIR_IF_ABLE
-                ),
+                destination_preference=destination_preference,
             ),
             *condition_follow_ups,
         ),
         applied_rule_ids=(
-            reaction.rule_id,
+            reaction_rule_id,
             *(effect.rule_id for effect in effects),
         ),
     )
 
 
-def _resolve_flight_wound(
+def _resolve_reaction_wound(
     request: MonstrosityReactionResolutionRequest,
-    reaction: MonstrousFlightReactionSpec,
+    reaction_rule_id: str,
 ) -> MonstrosityReactionResolutionResult:
     wound = resolve_profile_wound(
         ProfileWoundRequest(
@@ -167,13 +273,13 @@ def _resolve_flight_wound(
     return MonstrosityReactionResolutionResult(
         request_id=request.id,
         source_resolution_id=request.source.resolution_id,
-        reaction_rule_id=reaction.rule_id,
+        reaction_rule_id=reaction_rule_id,
         state=state,
         outcome=MonstrosityReactionOutcome.SUFFER_WOUND,
         profile_wound=wound,
         follow_ups=(wound.state_change,),
         applied_rule_ids=(
-            reaction.rule_id,
+            reaction_rule_id,
             *wound.applied_rule_ids,
             *(effect.rule_id for effect in effects),
         ),

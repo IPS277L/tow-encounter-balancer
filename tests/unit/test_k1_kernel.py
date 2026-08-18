@@ -33,6 +33,7 @@ from towr.domain.resolution_models import (
     MonstrousFlightReactionSpec,
     MonstrousRegenerationReactionSpec,
     TargetInjuryPolicy,
+    UndeadMonstrosityReactionSpec,
     UnsteadyReactionSpec,
 )
 from towr.domain.test_models import Skill, TestProfile, TestRequest
@@ -359,6 +360,28 @@ class K1KernelTests(unittest.TestCase):
             kernel_request(
                 policy=TargetInjuryPolicy.MONSTROSITY,
                 state=ProfileInjuryState(wounds=2, wound_limit=6),
+                base_damage=5,
+                reaction=effect,
+            ),
+            SequenceRandom([1, 10, 10]),
+            decisions=FixedKernelDecisions(
+                monstrosity=MonstrosityImpactChoice.TRIGGER_REACTION
+            ),
+        )
+
+        reaction = result.follow_ups[0]
+        self.assertIsInstance(reaction, MonstrosityReactionRequest)
+        assert isinstance(reaction, MonstrosityReactionRequest)
+        self.assertIs(reaction.reaction, effect)
+
+    def test_kernel_carries_undead_monstrosity_reaction_spec(self) -> None:
+        effect = UndeadMonstrosityReactionSpec(
+            "RULE-NPC:undead-monstrosity"
+        )
+        result = resolve_kernel_attack(
+            kernel_request(
+                policy=TargetInjuryPolicy.MONSTROSITY,
+                state=ProfileInjuryState(wounds=0, wound_limit=5),
                 base_damage=5,
                 reaction=effect,
             ),

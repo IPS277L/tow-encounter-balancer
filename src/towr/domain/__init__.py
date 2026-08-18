@@ -20,6 +20,7 @@ from towr.domain.condition_models import Condition, ConditionState
 from towr.domain.encounters import EncounterDefinition
 from towr.domain.injury_models import CharacterInjuryState, ProfileInjuryState
 from towr.domain.resolution_models import (
+    BoneDragonRider,
     ConditionAfterGiveGroundRequest,
     ConditionAfterGiveGroundResult,
     GiveGroundDestinationPreference,
@@ -29,11 +30,13 @@ from towr.domain.resolution_models import (
     IdentifiedStaggerTarget,
     KernelAttackRequest,
     MonstrosityReactionOutcome,
+    MonstrosityReactionContext,
     MonstrosityReactionRequest,
     MonstrosityReactionResolutionRequest,
     MonstrosityReactionResolutionResult,
     MonstrosityReactionSpec,
     MonstrousFlightReactionSpec,
+    MonstrousFlightReactionContext,
     MonstrousRegenerationReactionSpec,
     NearbyTargetStaggerResult,
     NearbyTargetsStaggerRequest,
@@ -44,6 +47,9 @@ from towr.domain.resolution_models import (
     StaggerImpactRequest,
     StaggerImpactResult,
     SuppressRegenerationNextTurnRequest,
+    UndeadMonstrosityReactionChoice,
+    UndeadMonstrosityReactionContext,
+    UndeadMonstrosityReactionSpec,
     UnsteadyReactionSpec,
 )
 from towr.domain.results import BattleOutcome, BattleResult
@@ -55,6 +61,7 @@ __all__ = [
     "AttackRequest",
     "BattleOutcome",
     "BattleResult",
+    "BoneDragonRider",
     "CombatantDefinition",
     "CombatantState",
     "CharacterInjuryState",
@@ -80,11 +87,13 @@ __all__ = [
     "IdentifiedStaggerTarget",
     "KernelAttackRequest",
     "MonstrosityReactionOutcome",
+    "MonstrosityReactionContext",
     "MonstrosityReactionRequest",
     "MonstrosityReactionResolutionRequest",
     "MonstrosityReactionResolutionResult",
     "MonstrosityReactionSpec",
     "MonstrousFlightReactionSpec",
+    "MonstrousFlightReactionContext",
     "MonstrousRegenerationReactionSpec",
     "NearbyTargetStaggerResult",
     "NearbyTargetsStaggerRequest",
@@ -106,5 +115,8 @@ __all__ = [
     "StatRollSource",
     "TestProfile",
     "TestRequest",
+    "UndeadMonstrosityReactionChoice",
+    "UndeadMonstrosityReactionContext",
+    "UndeadMonstrosityReactionSpec",
     "UnsteadyReactionSpec",
 ]

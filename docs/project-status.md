@@ -89,10 +89,15 @@ K1 — реализация книжного resolution kernel. Прототип
 - Reaction сохраняет injury state и создаёт один `SuppressRegenerationNextTurnRequest` с Rule ID источника;
 - добровольное end-turn лечение, огненный источник Wound и однократное потребление suppression оставлены будущему turn orchestration;
 - Terrifying не реагирует на suppression, поскольку Give Ground/Wound не произошли.
+- добавлены `UndeadMonstrosityReactionSpec` и отдельный mounted context для Bone Dragon;
+- без всадника Reaction детерминированно наносит профильную Wound, включая дополнительные профильные Wounds и Terrifying;
+- Liche/Tomb King открывает внешний выбор владельца `MONSTROSITY` между доступными Wound, Give Ground и Prone;
+- resolver заранее исключает Give Ground после уже выполненного в раунде перемещения, при невозможном перемещении или Prone и исключает повторное падение Prone;
+- общий request теперь принимает закрытый union профильных Reaction contexts вместо необязательных Give Ground флагов.
 
 ## Проверено
 
-- 142 unit/integration теста успешно проходят на Python 3.12, из них 122 относятся к K1;
+- 148 unit/integration тестов успешно проходят на Python 3.12, из них 128 относятся к K1;
 - исходники и тесты успешно проходят `compileall`.
 
 ## Исходный материал
@@ -112,14 +117,15 @@ K1 — реализация книжного resolution kernel. Прототип
 - внешние последствия Wound для инвентаря и анатомии пока являются typed follow-up;
 - защита Endurance после заживления `Ruptured organs` ещё не подключена к физическому impact;
 - автоматическая замена неподходящей строки Wounds Table для не-физического Hazard требует отдельной GM/simulation policy;
-- spatial-выбор вторичных целей/существ для Zone Hazard, разные последствия hit/miss и остальные профильные Reactions ещё не имеют общего orchestration;
+- spatial-выбор вторичных целей/существ для Zone Hazard и разные последствия hit/miss ещё не имеют общего orchestration;
 - для Monstrous Flight при полностью невозможном Give Ground книга не задаёт fallback; K1 требует внешнего ruling;
 - `SuppressRegenerationNextTurnRequest` ещё некому сохранить и погасить без нового turn orchestration;
+- иммунитет Bone Dragon к психологическим эффектам и Conditions требует типизированной классификации эффектов и пока не исполняется;
 - Monte Carlo, JSON, CLI и балансировщик ещё не входят в текущий срез.
 
 ## Следующий шаг
 
-Реализовать `UndeadMonstrosityReactionSpec` для Bone Dragon (GM Guide, страница 172): обычная Reaction наносит профильную Wound, а при допустимом всаднике предлагает внешний выбор Give Ground/Prone вместо Wound. Mounted/spatial context передавать явно; старый battle loop пока не подключать.
+Реализовать executor для `ReactorZoneHazardRequest`: spatial orchestration должно передать явно выбранный стабильный порядок существ в Zone, после чего каждое из них пройдёт общий Test/Hazard pipeline. Поиск и порядок целей не переносить внутрь resolution kernel.
 
 ## Последняя проверка
 
@@ -130,7 +136,7 @@ $env:PYTHONPATH = "src"
 py -3.12 -m unittest discover -s tests -v
 ```
 
-Результат: `Ran 142 tests ... OK`.
+Результат: `Ran 148 tests ... OK`.
 
 ```powershell
 py -3.12 -m compileall -q src tests tools
