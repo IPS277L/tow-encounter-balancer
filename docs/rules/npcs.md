@@ -107,6 +107,42 @@ Forest Dragon без Staggered может действием выдохнуть 
 
 `RepeatedConditionReplacement` проверяется после Wound-фазы. Свежая цель получает Drained; уже Drained цель сохраняет Drained и получает Defenceless. Если Drained сначала появился из результата Wounds Table того же Hazard, последующее книжное наложение Drained тоже считается повторным и заменяется на Defenceless. Успешно сопротивляющаяся цель не получает ни Wound, ни Condition.
 
+## RULE-NPC-019 — Troll Vomit
+
+Обычный Troll может действием атаковать уже Staggered врага в Close Range потоком едкой рвоты. Цель делает Endurance Test против Hazard (3). Источник: GM Guide, страница 180.
+
+`troll_vomit_hazard` создаёт одиночную `HazardExposureRequest` без дополнительного Condition. При недостатке успехов общий Hazard resolver наносит Wound по shortfall; при трёх и более успехах цель полностью избегает эффекта. Action orchestration до создания exposure обязан проверить, что цель является врагом, находится в Close Range и уже имеет Staggered.
+
+## RULE-NPC-020 — Troll Hag Swamp Breath
+
+Troll Hag без Staggered может действием извергнуть едкий поток в Zone на Medium Range. Каждое существо в этой Zone делает Endurance Test против Hazard (3). Источник: GM Guide, страница 181.
+
+`troll_hag_swamp_breath_hazard` создаёт общий `ZoneHazardRequest` без дополнительных Conditions. После внешнего выбора Zone и уникального стабильного списка её обитателей общий Zone executor независимо разрешает Test и Wound каждой цели. Проверка Staggered действующей Troll Hag, расход действия, Medium Range и spatial selection не относятся к reducer последствий.
+
+## RULE-NPC-021 — Troll Stupidity
+
+В начале боя Troll Distracted некой несущественной деталью окружения и получает –1d на все Tests. Если Distracted снято, оно не возвращается до окончания боя. Полученная Troll Wound снимает Condition автоматически; союзник также может снять его успешным Leadership Test. Общий способ снятия Distracted, например успешный Willpower Test, также подавляет возврат Stupidity. Источник: GM Guide, страница 180; общее Distracted — Player’s Guide, страница 123.
+
+`TrollStupidityState` отдельно хранит source Rule ID и флаг `suppressed_until_battle_end`. `start_troll_stupidity` применяет начальный Distracted через общий Condition reducer, пока Ability не подавлена. `troll_stupidity_test_modifiers` возвращает ровно один `DiceModifier(-1)` для любого Test активного Troll; это специальная формулировка Stupidity, а не дополнительный второй штраф поверх неё.
+
+Два автоматических пути получают строгие результаты предыдущей фазы: `ProfileWoundResult` должен содержать фактически нанесённую Wound, а `TrollStupidityLeadershipRequest` — уже выполненный Leadership Test. Успех снимает Distracted и подавляет Ability, провал не меняет состояние. `TrollStupidityConditionRemovedRequest` синхронизирует Ability после другого правила, которое уже сняло Condition, и сохраняет его Rule ID. Новый battle создаёт новое несдержанное состояние; текущий K1 не определяет границу боя самостоятельно.
+
+## RULE-NPC-022 — Stone Troll
+
+Stone Troll получает +1 Resilience относительно обычного Troll, то есть итоговый Resilience 6. Любое заклинание, затрагивающее Stone Troll, уменьшает свою Potency на 1; при effective Potency 0 оно не оказывает на эту цель никакого эффекта. Источник: GM Guide, страница 180. Та же механика Potency встречается у Talent Magic Resistance на странице 78 Player’s Guide.
+
+`STONE_TROLL_RESILIENCE` фиксирует нормализованное профильное значение, а `stone_troll_spell_potency_modifier` создаёт `SpellPotencyModifier(-1)` с Rule ID Ability. Общий `resolve_spell_potency` применяется после вычисления книжной Potency Casting Test и до effect resolver конкретного заклинания. Полная загрузка NPC-профиля, Casting/Miscast и выбор целей остаются внешними слоями.
+
+В multi-target случае K1 считает effective Potency отдельно против Stone Troll; другие цели сохраняют исходную Potency. Это локализованная временная трактовка `AMBIGUITY-002`, а не скрытое глобальное изменение результата Casting Test.
+
+## RULE-NPC-023 — Troll Regeneration
+
+В конце своего хода обычный Troll без Staggered может добровольно получить Staggered, чтобы вылечить 1 Wound. Wound, нанесённую огнём, регенерировать нельзя. Источник: GM Guide, страница 180.
+
+`TrollRegenerationRequest` получает актуальное `ProfileInjuryState` и явный provenance-снимок `has_non_fire_wound`. При Staggered, нуле Wounds или отсутствии подходящей неогненной Wound resolver возвращает детерминированный unavailable-outcome и не обращается к decision provider. Если способность доступна, `DecisionOwner.ACTOR` — контроллер действующего Troll — явно выбирает `REGENERATE` либо `SKIP`; скрытого default нет.
+
+При выборе Regenerate общий Condition reducer сначала фиксирует source-aware Staggered, затем профиль теряет ровно 1 Wound. Результат возвращает `ProfileStateChangeRequest`, чтобы внешний слой обновил диапазон характеристик Troll. Счётчик профильных Wounds пока не хранит источник каждой Wound, поэтому K1 не выбирает конкретную рану и доверяет orchestration только булев факт наличия допустимой неогненной Wound.
+
 ## Реализация injury policies в K1
 
 - Minion получает один Wound и сразу становится defeated;
@@ -125,6 +161,10 @@ Forest Dragon без Staggered может действием выдохнуть 
 - психологическая иммунность undead-профилей блокирует явно классифицированные replacement/on-hit/outcome/after-Give-Ground Conditions, Hazards и оба последствия `Curse of Cowardly Flight`;
 - Foul Stench после уже определённого входа в Zone сохраняет выбор цели между typed inventory follow-up и Distracted;
 - Soporific Breath использует общий executor выбранной Zone и явную замену повторного Drained на Defenceless после Wound-фазы;
+- Troll Vomit и Troll Hag Swamp Breath переиспользуют одиночный и Zone Hazard (3) без отдельной injury-логики;
+- Troll Stupidity хранит battle-scoped suppression отдельно от Condition, выдаёт –1d на все Tests и принимает явные результаты Wound/Leadership/другого снятия;
+- Stone Troll имеет нормализованный Resilience 6 и target-scoped –1 Potency preflight с полной блокировкой эффекта при нуле;
+- обычная Troll Regeneration проверяет Staggered/наличие неогненной Wound, требует решения Actor и возвращает Staggered плюс профильное лечение;
 - правило отсутствия Staggered за неудачную Melee-атаку поддерживается явным исключением в `AttackRequest` и сохраняется в trace.
 
 Проверки находятся в `tests/unit/test_k1_injury_resolution.py`, `tests/unit/test_k1_monstrosity_resolution.py`, `tests/unit/test_k1_monstrosity_reaction_resolution.py` и `tests/unit/test_k1_kernel.py`.

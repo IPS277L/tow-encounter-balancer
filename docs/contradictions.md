@@ -34,3 +34,4 @@
 | ID | Формулировки | Влияние | Временная политика |
 |---|---|---|---|
 | AMBIGUITY-001 | Player’s Guide, 119: невозможный Give Ground нельзя выбрать; GM Guide, 175, 177–178: Monstrous Flight при Reaction требует Give Ground и задаёт Wound только после уже выполненного Give Ground в текущем ходу | Не определён исход Reaction для Prone или полностью заблокированной Monstrosity | K1 явно останавливает эту ветвь; скрытая Wound или потеря Reaction не назначается до ruling пользователя/GM |
+| AMBIGUITY-002 | Player’s Guide, 78 и GM Guide, 180: заклинание, затрагивающее устойчивую цель, «reduces its Potency by 1»; multi-target область действия не уточнена | Неясно, уменьшается ли Potency глобально для всех целей либо только effective Potency против устойчивой цели | K1 применяет modifier отдельно к защищённой цели; остальные цели сохраняют исходную Potency |

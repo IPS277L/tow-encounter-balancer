@@ -33,6 +33,8 @@
 
 Unsteady Giant сохраняет более узкий `ReactorZoneHazardRequest` и `ReactorZoneHazardResolutionRequest`: эта обёртка дополнительно требует включить самого реагирующего Giant, после чего делегирует общему Zone executor. Soporific Breath использует общий запрос, поскольку выбранная Zone находится в Medium Range и не обязана содержать Forest Dragon.
 
+Troll Vomit (GM Guide, страница 180) является одиночной Endurance-экспозицией Hazard (3), а Swamp Breath Troll Hag (страница 181) — тем же Hazard (3) для каждого существа выбранной Zone. Оба источника используют стандартную Wound по shortfall без failure Conditions. Требования Staggered/дальности и расход действия проверяются до Hazard pipeline.
+
 ## Психологическая классификация и иммунитет
 
 `HazardImpactSpec`, одиночная `HazardExposureRequest` и `ZoneHazardRequest` переносят явную `EffectClassification`. Если вся экспозиция классифицирована как `PSYCHOLOGICAL`, совпавший `EffectImmunity` блокирует Hazard целиком до Test: цель не бросает кубы, не получает Wound или failure Conditions, а результат сохраняет Rule ID источника и иммунитета.

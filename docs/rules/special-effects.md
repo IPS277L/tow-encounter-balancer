@@ -104,6 +104,8 @@ Kernel не ищет существ по Zones. Spatial orchestration фикси
 
 Foul Stench Wyvern добавляет `DecisionOwner.TARGET`: если у цели нет свободной руки, но есть удерживаемый предмет, она сама выбирает между `DropHeldHandItemRequest` и Distracted. При единственном допустимом исходе decision provider не вызывается.
 
+Добровольная end-turn Regeneration обычного Troll использует `DecisionOwner.ACTOR`: решение принадлежит контроллеру существа, чей ход завершается. Provider вызывается только если Troll не Staggered, имеет Wounds и хотя бы одну допустимую неогненную Wound. Выбор Regenerate сначала применяет source-aware Staggered, затем уменьшает профильные Wounds и создаёт `ProfileStateChangeRequest`; Skip и недоступные ветви состояния не меняют.
+
 Выбор `Wound/Reaction` и исполнение выбранной Reaction являются разными фазами. Для Monstrous Flight kernel сначала возвращает `MonstrosityReactionRequest`; отдельный resolver получает актуальное состояние Monstrosity и сведения о Give Ground в текущем ходу. Результат содержит фактический исход `GIVE_GROUND` или `SUFFER_WOUND`, новое состояние, follow-ups и применённые Rule ID. Так secondary effect вроде Terrifying реагирует на результат Reaction, не заставляя kernel рекурсивно исполнять очередь.
 
 Тот же контракт принимает `UnsteadyReactionSpec`, но не требует Give Ground context. Он различает новое падение и уже имеющийся Prone. Только новое падение создаёт `ReactorZoneHazardRequest` для последующего spatial-выбора всех существ в Zone; это не универсальное событие «Condition изменился», а прямое следствие конкретной профильной Ability Giant. После выбора целей отдельный executor проверяет наличие реагирующего, уникальность IDs и последовательно проводит каждую цель через общие Test/Hazard resolvers.

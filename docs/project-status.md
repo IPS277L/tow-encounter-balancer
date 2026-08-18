@@ -131,10 +131,30 @@ K1 — реализация книжного resolution kernel. Прототип
 - Endurance Hazard (2) наносит обычную Wound по shortfall и накладывает Drained, а повторный Drained фактически добавляет Defenceless, не удаляя существующий Drained;
 - порядок Wound → failure Condition покрывает случай, когда Drained появился из Wounds Table того же Hazard;
 - доступность действия без Staggered, Medium Range, выбор Zone и её обитателей оставлены внешнему action/spatial orchestration.
+- нормализованы `RULE-NPC-019` Troll Vomit и `RULE-NPC-020` Troll Hag Swamp Breath со страниц 180–181 GM Guide;
+- Vomit создаёт одиночную Endurance-exposure Hazard (3), а Swamp Breath — тот же Hazard (3) для уже выбранной Zone;
+- оба источника используют общую Wound по shortfall без дополнительных Conditions и отдельной injury-логики;
+- требования Staggered цели/действующей, Close/Medium Range, расход действия и spatial selection явно оставлены action orchestration.
+- нормализован `RULE-NPC-021` Troll Stupidity со страницы 180 GM Guide и общего Distracted со страницы 123 Player’s Guide;
+- отдельный `TrollStupidityState` хранит source Rule ID и подавление до конца текущего боя;
+- начало боя применяет Distracted через общий Condition reducer, а активная Ability выдаёт –1d на любой Test Troll;
+- фактически нанесённая профильная Wound и успешный Leadership Test снимают Distracted и подавляют его возврат;
+- отдельный typed entry point синхронизирует suppression после обычного или иного внешнего снятия Distracted с сохранением Rule ID причины;
+- провал Leadership и повторная обработка уже подавленной Ability детерминированно сохраняют состояние, а новый бой требует нового несдержанного Ability-state.
+- нормализованы `RULE-MAGIC-002` Magic Resistance (Player’s Guide, страницы 78 и 157) и `RULE-NPC-022` Stone Troll (GM Guide, страница 180);
+- добавлены `SpellPotencyModifier`, target-scoped `SpellPotencyRequest` и чистый reducer между завершённым Casting Test и spell effect;
+- reducer сохраняет base Potency, delta, effective Potency и Rule IDs, ограничивает итог снизу нулём и явно возвращает `has_effect=False` при нуле;
+- Stone Troll фиксирует профильный Resilience 6 и source-aware –1 Potency, а Talent Magic Resistance использует тот же общий контракт;
+- multi-target Potency временно считается отдельно для каждой защищённой цели; неоднозначность формулировки записана как `AMBIGUITY-002`.
+- добавлен `RULE-NPC-023` для обычной Troll Regeneration со страницы 180 GM Guide;
+- новый `DecisionOwner.ACTOR` обозначает контроллера существа, чей добровольный end-turn эффект разрешается;
+- Staggered, отсутствие Wounds и отсутствие допустимой неогненной Wound закрывают Regeneration без обращения к decision provider;
+- доступная Regeneration требует явного выбора Regenerate/Skip, а выбранное лечение применяет source-aware Staggered и уменьшает профильные Wounds ровно на 1;
+- результат лечения возвращает `ProfileStateChangeRequest`, а provenance огненных Wounds пока поступает явным `has_non_fire_wound`.
 
 ## Проверено
 
-- 186 unit/integration тестов успешно проходят на Python 3.12, из них 166 относятся к K1;
+- 208 unit/integration тестов успешно проходят на Python 3.12, из них 188 относятся к K1;
 - исходники и тесты успешно проходят `compileall`.
 
 ## Исходный материал
@@ -158,13 +178,17 @@ K1 — реализация книжного resolution kernel. Прототип
 - для Monstrous Flight при полностью невозможном Give Ground книга не задаёт fallback; K1 требует внешнего ruling;
 - `SuppressRegenerationNextTurnRequest` ещё некому сохранить и погасить без нового turn orchestration;
 - `DropHeldHandItemRequest` ещё некому применить без inventory state и policy выбора конкретного удерживаемого предмета;
-- K1-фабрика Soporific Breath не расходует действие, не проверяет Staggered действующего и не выбирает Zone/Medium Range без battle orchestration;
+- K1-фабрики Soporific Breath, Troll Vomit и Swamp Breath не расходуют действие, не проверяют Staggered/дальность и не выбирают цель или Zone без battle orchestration;
+- battle loop ещё должен вызывать Stupidity entry points после каждой принятой Wound/снятия Distracted и создавать свежее Ability-state в начале следующего боя;
+- общий `ConditionState` пока не хранит источник или объект Distracted; Stupidity компенсирует это собственным source-aware состоянием, но полная replacement-семантика требует будущего решения;
+- полный casting pipeline ещё должен вычислять base Potency из последнего Casting Test, запускать target-scoped Potency preflight и не создавать spell effects для `has_effect=False`;
+- профильные Wounds пока не хранят provenance огня; Troll Regeneration получает только явный снимок наличия хотя бы одной допустимой неогненной Wound;
 - психологическая иммунность undead-профилей подключена к боевым Condition/Hazard-фазам и `Curse of Cowardly Flight`; остальные конкретные non-Condition эффекты требуют отдельного анализа;
 - Monte Carlo, JSON, CLI и балансировщик ещё не входят в текущий срез.
 
 ## Следующий шаг
 
-Нормализовать Troll `Vomit` и Troll Hag `Swamp Breath` (GM Guide, страницы 180–181) поверх существующего Hazard pipeline: одиночный Endurance Hazard (3) по уже выбранной Staggered цели в Close Range и Zone Endurance Hazard (3) в Medium Range. Условия действия и spatial selection оставить внешнему orchestration, не дублировать общий Hazard resolver.
+Расширить общий end-turn Regeneration reducer на `Monstrous Regeneration` Ghorgon/Troll Hag (GM Guide, страницы 151 и 181): разрешить Monstrosity profile, учесть и однократно погасить `SuppressRegenerationNextTurnRequest`, сохранить различие Troll Hag «Staggered только если ещё нет» и Ghorgon/Troll Hag fire-Wound restriction. Не добавлять полный turn loop.
 
 ## Последняя проверка
 
@@ -175,7 +199,7 @@ $env:PYTHONPATH = "src"
 py -3.12 -m unittest discover -s tests -v
 ```
 
-Результат: `Ran 186 tests ... OK`.
+Результат: `Ran 208 tests ... OK`.
 
 ```powershell
 py -3.12 -m compileall -q src tests tools
