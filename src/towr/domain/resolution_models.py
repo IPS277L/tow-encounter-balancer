@@ -47,6 +47,7 @@ class MonstrosityReactionOutcome(str, Enum):
     SUFFER_WOUND = "suffer_wound"
     FALL_PRONE = "fall_prone"
     ALREADY_PRONE = "already_prone"
+    REGENERATION_SUPPRESSED = "regeneration_suppressed"
 
 
 @dataclass(frozen=True, slots=True)
@@ -121,10 +122,23 @@ class UnsteadyReactionSpec:
         _validate_non_empty_string(self.rule_id, "rule_id")
 
 
-MonstrosityReactionSpec = MonstrousFlightReactionSpec | UnsteadyReactionSpec
+@dataclass(frozen=True, slots=True)
+class MonstrousRegenerationReactionSpec:
+    rule_id: str
+
+    def __post_init__(self) -> None:
+        _validate_non_empty_string(self.rule_id, "rule_id")
+
+
+MonstrosityReactionSpec = (
+    MonstrousFlightReactionSpec
+    | UnsteadyReactionSpec
+    | MonstrousRegenerationReactionSpec
+)
 _MONSTROSITY_REACTION_SPEC_TYPES = (
     MonstrousFlightReactionSpec,
     UnsteadyReactionSpec,
+    MonstrousRegenerationReactionSpec,
 )
 
 
@@ -239,6 +253,18 @@ class ReactorZoneHazardRequest:
 
 
 @dataclass(frozen=True, slots=True)
+class SuppressRegenerationNextTurnRequest:
+    """Prevent the reacting profile from regenerating on its next turn."""
+
+    resolution_id: str
+    rule_id: str
+
+    def __post_init__(self) -> None:
+        _validate_non_empty_string(self.resolution_id, "resolution_id")
+        _validate_non_empty_string(self.rule_id, "rule_id")
+
+
+@dataclass(frozen=True, slots=True)
 class MonstrosityReactionResolutionResult:
     request_id: str
     source_resolution_id: str
@@ -333,6 +359,7 @@ FollowUpRequest = (
     | WoundChoiceRequest
     | ProfileStateChangeRequest
     | ReactorZoneHazardRequest
+    | SuppressRegenerationNextTurnRequest
 )
 
 

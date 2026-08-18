@@ -34,6 +34,7 @@ from towr.domain.resolution_models import (
     MonstrosityReactionResolutionResult,
     MonstrosityReactionSpec,
     MonstrousFlightReactionSpec,
+    MonstrousRegenerationReactionSpec,
     NearbyTargetStaggerResult,
     NearbyTargetsStaggerRequest,
     NearbyTargetsStaggerResolutionRequest,
@@ -42,6 +43,7 @@ from towr.domain.resolution_models import (
     ResolutionResult,
     StaggerImpactRequest,
     StaggerImpactResult,
+    SuppressRegenerationNextTurnRequest,
     UnsteadyReactionSpec,
 )
 from towr.domain.results import BattleOutcome, BattleResult
@@ -83,6 +85,7 @@ __all__ = [
     "MonstrosityReactionResolutionResult",
     "MonstrosityReactionSpec",
     "MonstrousFlightReactionSpec",
+    "MonstrousRegenerationReactionSpec",
     "NearbyTargetStaggerResult",
     "NearbyTargetsStaggerRequest",
     "NearbyTargetsStaggerResolutionRequest",
@@ -98,6 +101,7 @@ __all__ = [
     "Skill",
     "StaggerImpactRequest",
     "StaggerImpactResult",
+    "SuppressRegenerationNextTurnRequest",
     "StatBlock",
     "StatRollSource",
     "TestProfile",

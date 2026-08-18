@@ -18,7 +18,9 @@ from towr.domain.resolution_models import (
     MonstrosityReactionResolutionRequest,
     MonstrosityReactionSpec,
     MonstrousFlightReactionSpec,
+    MonstrousRegenerationReactionSpec,
     ReactorZoneHazardRequest,
+    SuppressRegenerationNextTurnRequest,
     UnsteadyReactionSpec,
 )
 from towr.domain.test_models import Skill
@@ -82,6 +84,8 @@ class K1MonstrosityReactionResolutionTests(unittest.TestCase):
             MonstrousFlightReactionSpec(" ")
         with self.assertRaises(ValueError):
             UnsteadyReactionSpec("")
+        with self.assertRaises(ValueError):
+            MonstrousRegenerationReactionSpec(" ")
 
     def test_flight_gives_ground_and_queues_terrifying_after_movement(self) -> None:
         result = resolve_monstrosity_reaction(
@@ -220,6 +224,54 @@ class K1MonstrosityReactionResolutionTests(unittest.TestCase):
                 has_given_ground_this_turn=False,
                 can_give_ground=True,
             )
+
+    def test_regeneration_reaction_suppresses_next_turn(self) -> None:
+        state = ProfileInjuryState(
+            wounds=2,
+            wound_limit=6,
+            conditions=ConditionState(frozenset({Condition.STAGGERED})),
+        )
+        for rule_id in (
+            "RULE-NPC:ghorgon-regeneration",
+            "RULE-NPC:troll-hag-regeneration",
+        ):
+            with self.subTest(rule_id=rule_id):
+                result = resolve_monstrosity_reaction(
+                    request(
+                        reaction_source=source(
+                            reaction=MonstrousRegenerationReactionSpec(
+                                rule_id
+                            ),
+                            terrifying=True,
+                        ),
+                        state=state,
+                    )
+                )
+
+                self.assertIs(
+                    result.outcome,
+                    MonstrosityReactionOutcome.REGENERATION_SUPPRESSED,
+                )
+                self.assertIs(result.state, state)
+                self.assertFalse(
+                    result.state.conditions.has(Condition.BROKEN)
+                )
+                self.assertEqual(len(result.follow_ups), 1)
+                suppression = result.follow_ups[0]
+                self.assertIsInstance(
+                    suppression,
+                    SuppressRegenerationNextTurnRequest,
+                )
+                assert isinstance(
+                    suppression,
+                    SuppressRegenerationNextTurnRequest,
+                )
+                self.assertEqual(suppression.rule_id, rule_id)
+                self.assertEqual(
+                    suppression.resolution_id,
+                    "attack-resolution",
+                )
+                self.assertEqual(result.applied_rule_ids, (rule_id,))
 
 
 if __name__ == "__main__":

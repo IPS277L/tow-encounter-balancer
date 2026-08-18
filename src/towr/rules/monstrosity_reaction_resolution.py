@@ -14,7 +14,9 @@ from towr.domain.resolution_models import (
     MonstrosityReactionResolutionRequest,
     MonstrosityReactionResolutionResult,
     MonstrousFlightReactionSpec,
+    MonstrousRegenerationReactionSpec,
     ReactorZoneHazardRequest,
+    SuppressRegenerationNextTurnRequest,
     UnsteadyReactionSpec,
 )
 from towr.domain.test_models import Skill
@@ -29,6 +31,8 @@ def resolve_monstrosity_reaction(
     request: MonstrosityReactionResolutionRequest,
 ) -> MonstrosityReactionResolutionResult:
     reaction = request.source.reaction
+    if isinstance(reaction, MonstrousRegenerationReactionSpec):
+        return _resolve_regeneration(request, reaction)
     if isinstance(reaction, UnsteadyReactionSpec):
         return _resolve_unsteady(request, reaction)
     if not isinstance(reaction, MonstrousFlightReactionSpec):
@@ -44,6 +48,27 @@ def resolve_monstrosity_reaction(
             "cannot Give Ground"
         )
     return _resolve_flight_give_ground(request, reaction)
+
+
+def _resolve_regeneration(
+    request: MonstrosityReactionResolutionRequest,
+    reaction: MonstrousRegenerationReactionSpec,
+) -> MonstrosityReactionResolutionResult:
+    return MonstrosityReactionResolutionResult(
+        request_id=request.id,
+        source_resolution_id=request.source.resolution_id,
+        reaction_rule_id=reaction.rule_id,
+        state=request.state,
+        outcome=MonstrosityReactionOutcome.REGENERATION_SUPPRESSED,
+        profile_wound=None,
+        follow_ups=(
+            SuppressRegenerationNextTurnRequest(
+                resolution_id=request.source.resolution_id,
+                rule_id=reaction.rule_id,
+            ),
+        ),
+        applied_rule_ids=(reaction.rule_id,),
+    )
 
 
 def _resolve_unsteady(

@@ -106,6 +106,9 @@ py -3.12 -m unittest discover -s tests -v
 - новое падение Giant накладывает Prone, сохраняет Staggered и создаёт Athletics Hazard (3) для всех существ в его Zone;
 - уже Prone Giant не падает повторно и не создаёт повторный Zone Hazard;
 - Give Ground context отклоняется для Unsteady как неприменимый к этой Reaction;
+- Monstrous Regeneration сохраняется kernel как конкретный Reaction spec;
+- Reaction Ghorgon/Troll Hag не меняет injury state и создаёт ровно один source-aware запрет регенерации на следующий ход;
+- suppression не маскируется Condition и не запускает Terrifying;
 - полный путь `Attack → Impact → Staggered/Wound → state + follow-ups`;
 - отсутствие скрытого выбора при Glorious, повторном Staggered, Near Miss и Monstrosity Reaction.
 

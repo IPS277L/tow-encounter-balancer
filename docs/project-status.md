@@ -85,10 +85,14 @@ K1 — реализация книжного resolution kernel. Прототип
 - новое падение Giant накладывает Prone, сохраняет Staggered и создаёт `ReactorZoneHazardRequest` с Athletics Hazard (3);
 - запрос Zone Hazard явно включает самого Giant и всех остальных существ в его Zone, но не выполняет spatial-выбор;
 - уже Prone Giant не создаёт Hazard повторно, а Terrifying не реагирует на исход Unsteady.
+- добавлен `MonstrousRegenerationReactionSpec` для Ghorgon/Troll Hag и исход `REGENERATION_SUPPRESSED`;
+- Reaction сохраняет injury state и создаёт один `SuppressRegenerationNextTurnRequest` с Rule ID источника;
+- добровольное end-turn лечение, огненный источник Wound и однократное потребление suppression оставлены будущему turn orchestration;
+- Terrifying не реагирует на suppression, поскольку Give Ground/Wound не произошли.
 
 ## Проверено
 
-- 140 unit/integration тестов успешно проходят на Python 3.12, из них 120 относятся к K1;
+- 142 unit/integration теста успешно проходят на Python 3.12, из них 122 относятся к K1;
 - исходники и тесты успешно проходят `compileall`.
 
 ## Исходный материал
@@ -110,11 +114,12 @@ K1 — реализация книжного resolution kernel. Прототип
 - автоматическая замена неподходящей строки Wounds Table для не-физического Hazard требует отдельной GM/simulation policy;
 - spatial-выбор вторичных целей/существ для Zone Hazard, разные последствия hit/miss и остальные профильные Reactions ещё не имеют общего orchestration;
 - для Monstrous Flight при полностью невозможном Give Ground книга не задаёт fallback; K1 требует внешнего ruling;
+- `SuppressRegenerationNextTurnRequest` ещё некому сохранить и погасить без нового turn orchestration;
 - Monte Carlo, JSON, CLI и балансировщик ещё не входят в текущий срез.
 
 ## Следующий шаг
 
-Реализовать Monstrous Regeneration Reaction для Ghorgon и Troll Hag (GM Guide, страницы 151 и 181): создать source-aware запрет регенерации на следующий ход. Само end-turn лечение оставить будущему action/turn orchestration; старый battle loop пока не подключать.
+Реализовать `UndeadMonstrosityReactionSpec` для Bone Dragon (GM Guide, страница 172): обычная Reaction наносит профильную Wound, а при допустимом всаднике предлагает внешний выбор Give Ground/Prone вместо Wound. Mounted/spatial context передавать явно; старый battle loop пока не подключать.
 
 ## Последняя проверка
 
@@ -125,7 +130,7 @@ $env:PYTHONPATH = "src"
 py -3.12 -m unittest discover -s tests -v
 ```
 
-Результат: `Ran 140 tests ... OK`.
+Результат: `Ran 142 tests ... OK`.
 
 ```powershell
 py -3.12 -m compileall -q src tests tools

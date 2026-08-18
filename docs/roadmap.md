@@ -23,7 +23,7 @@ R1 охватывает оба основных источника: Player’s G
 - injury policies для Player/Champion, Minion, Brute и Monstrosity;
 - детерминированные тесты с трассировкой к Rule ID.
 
-Готово ядро Test/Opposed/Attack/Staggered/Wound, специализированные эффекты всех строк Wounds Table, заменяющие Damage `ImpactSpec`, Hazard resolver, первые фазовые/multi-target `SecondaryEffectSpec`, Damage плюс Condition, executor выбранных вторичных целей, упорядоченные последствия Give Ground, Terrifying и конкретные Monstrous Flight/Unsteady Reactions. Spatial selection остаётся будущему battle loop; следующие K1-срезы продолжают каталог профильных Reactions без расширения до универсального языка эффектов.
+Готово ядро Test/Opposed/Attack/Staggered/Wound, специализированные эффекты всех строк Wounds Table, заменяющие Damage `ImpactSpec`, Hazard resolver, первые фазовые/multi-target `SecondaryEffectSpec`, Damage плюс Condition, executor выбранных вторичных целей, упорядоченные последствия Give Ground, Terrifying и конкретные Monstrous Flight/Unsteady/Monstrous Regeneration Reactions. Spatial и turn orchestration остаются будущему battle loop; следующие K1-срезы продолжают каталог профильных Reactions без универсального языка эффектов.
 
 Непосредственно связанные Talents, свойства оружия и классы специальных NPC-правил проверены. Полный каталог конкретных Abilities будет наращиваться по профилям, не меняя фазовый контракт K1.
 
