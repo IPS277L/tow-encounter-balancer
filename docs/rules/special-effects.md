@@ -1,12 +1,14 @@
 # Модификаторы и специальные эффекты
 
-Основные источники: `BOOK-PLAYER-GUIDE`, страницы 73–81, 92–97, 111–112, 124; `BOOK-GM-GUIDE`, страницы 89–91 и профили NPC на страницах 92–185. Статус: фазовая модель, базовые replacement impacts и первые secondary effects `implemented`; полный каталог Talents, предметов и NPC остаётся `draft`.
+Основные источники: `BOOK-PLAYER-GUIDE`, страницы 31, 73–81, 92–97, 111–112, 124; `BOOK-GM-GUIDE`, страницы 89–91 и профили NPC на страницах 92–185. Статус: фазовая модель, базовые replacement impacts и первые secondary effects `implemented`; полный каталог Talents, предметов и NPC остаётся `draft`.
 
 ## RULE-EFFECT-001 — эффект привязан к фазе
 
 Специальные правила изменяют не «атаку вообще», а определённую фазу: допустимость действия, выбор профиля, пул, качество броска, сравнение успехов, Damage, Resilience, результат попадания, Staggered, Wound либо действие после результата. Порядок фаз является частью правила.
 
-Примеры: Wild Attack накладывает Staggered до броска; Armour Bane снижает Resilience только после определения Wound; Near Miss применяется после броска Wounds Table.
+Примеры: Wild Attack накладывает Staggered до броска; Armour Bane снижает Resilience только после определения Wound; Near Miss применяется после броска Wounds Table; Troublemakers Out! накладывает Prone после фактического Give Ground.
+
+В K1 `ConditionAfterGiveGroundSpec` подключается к общему Stagger impact. Только если repeated-Staggered завершился выбором Give Ground, reducer возвращает сначала `GiveGroundRequest`, затем `ConditionAfterGiveGroundRequest`. Condition не появляется в состоянии до исполнения второго follow-up. Так моделируются Prone от Troublemakers Out! (Player’s Guide, страница 31) и Broken от Fearsome (GM Guide, страницы 136, 145–146, 174 и 180). Staggered этим spec не маскируется, поскольку повторное состояние требует собственной decision/injury policy.
 
 ## RULE-EFFECT-002 — модификаторы проверки
 
@@ -62,10 +64,11 @@
 
 Источник: Player’s Guide, страницы 74, 95–96; GM Guide, страницы 90, 149, 177, 181–185.
 
-В K1 реализованы два узких варианта `SecondaryEffectSpec`:
+В K1 реализованы три узких варианта `SecondaryEffectSpec`:
 
 - `ProneBeforeGiveGroundSpec` на успешном попадании накладывает Prone до разрешения обычного Staggered. Поэтому уже Staggered цель не может после этого выбрать Give Ground или повторное Prone. Флаг `affects_monstrosities` выражает различие между Noble Steed, который исключает Monstrosity, и атаками без такого исключения. Источники: Player’s Guide, страница 124; GM Guide, страницы 106, 126, 136 и 174;
-- `NearbyTargetsStaggerSpec` на попадании добавляет `NearbyTargetsStaggerRequest` после полного результата основной цели. Запрос означает всех других существ, которые находились в Close Range от основной цели в момент попадания. Источник свойства Blunderbuss: Player’s Guide, страница 95.
+- `NearbyTargetsStaggerSpec` на попадании добавляет `NearbyTargetsStaggerRequest` после полного результата основной цели. Запрос означает всех других существ, которые находились в Close Range от основной цели в момент попадания. Источник свойства Blunderbuss: Player’s Guide, страница 95;
+- `ConditionAfterGiveGroundSpec` добавляет не-Staggered Condition только после выбранного Give Ground; он работает через общий `StaggerImpactRequest` и поэтому может сопровождать как основную, так и уже выбранную вторичную цель.
 
 Kernel не ищет существ по Zones. Spatial orchestration фиксирует подходящие цели в момент попадания и передаёт их как упорядоченный набор `IdentifiedStaggerTarget`. `resolve_nearby_targets_stagger` отклоняет основную или повторную цель и слева направо применяет к каждой общий `StaggerImpactRequest`: первое/повторное Staggered, Give Ground, Prone, Wound, нужную injury policy и Wound follow-ups. Состояния и результаты остаются привязаны к `target_id`; RNG и decision provider используются последовательно в том же порядке.
 

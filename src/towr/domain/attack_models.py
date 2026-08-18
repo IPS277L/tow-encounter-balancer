@@ -167,7 +167,28 @@ class NearbyTargetsStaggerSpec:
         _validate_rule_id(self.rule_id)
 
 
-SecondaryEffectSpec = ProneBeforeGiveGroundSpec | NearbyTargetsStaggerSpec
+@dataclass(frozen=True, slots=True)
+class ConditionAfterGiveGroundSpec:
+    """Apply a non-Staggered Condition after the target Gives Ground."""
+
+    condition: Condition
+    rule_id: str
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.condition, Condition):
+            raise TypeError("condition must be a Condition")
+        if self.condition is Condition.STAGGERED:
+            raise ValueError(
+                "Staggered after Give Ground requires the Stagger impact policy"
+            )
+        _validate_rule_id(self.rule_id)
+
+
+SecondaryEffectSpec = (
+    ProneBeforeGiveGroundSpec
+    | NearbyTargetsStaggerSpec
+    | ConditionAfterGiveGroundSpec
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -207,7 +228,11 @@ class AttackRequest:
         if not all(
             isinstance(
                 item,
-                (ProneBeforeGiveGroundSpec, NearbyTargetsStaggerSpec),
+                (
+                    ProneBeforeGiveGroundSpec,
+                    NearbyTargetsStaggerSpec,
+                    ConditionAfterGiveGroundSpec,
+                ),
             )
             for item in effects
         ):

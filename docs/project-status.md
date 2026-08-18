@@ -1,6 +1,6 @@
 # Текущий статус проекта
 
-Дата обновления: 2026-08-18.
+Дата обновления: 2026-08-19.
 
 ## Текущий этап
 
@@ -64,10 +64,14 @@ K1 — реализация книжного resolution kernel. Прототип
 - реализован `NearbyTargetsStaggerResolutionRequest` с запретом основной/повторных целей и уникальными impact IDs;
 - executor обрабатывает вторичные цели слева направо, сохраняя target IDs, общий RNG и явные решения;
 - вторичные цели проходят Player/Champion либо профильную NPC injury policy, включая Near Miss и Wound effects.
+- добавлен `ConditionAfterGiveGroundSpec` для Troublemakers Out!/Fearsome;
+- общий Stagger impact ставит Condition follow-up строго после `GiveGroundRequest` и только при выборе Give Ground;
+- `resolve_condition_after_give_ground` применяет отложенное Condition без преждевременного изменения состояния;
+- after-Give-Ground эффекты работают для основной и явно выбранных вторичных целей.
 
 ## Проверено
 
-- 115 unit/integration тестов успешно проходят на Python 3.12, из них 95 относятся к K1;
+- 120 unit/integration тестов успешно проходят на Python 3.12, из них 100 относятся к K1;
 - исходники и тесты успешно проходят `compileall`.
 
 ## Исходный материал
@@ -92,18 +96,18 @@ K1 — реализация книжного resolution kernel. Прототип
 
 ## Следующий шаг
 
-Добавить следующий одноцелевой `SecondaryEffectSpec`: Condition после выбранного Give Ground для книжных Troublemakers Out!/Fearsome, не подключая spatial-выбор и старый battle loop.
+Добавить `ConditionOnHitSpec` для атак, которые сохраняют обычный Damage и дополнительно накладывают Condition, начав с профильных атак `Dam 7, hits inflict Drained`; spatial-выбор и старый battle loop пока не подключать.
 
 ## Последняя проверка
 
-2026-08-18:
+2026-08-19:
 
 ```powershell
 $env:PYTHONPATH = "src"
 py -3.12 -m unittest discover -s tests -v
 ```
 
-Результат: `Ran 115 tests ... OK`.
+Результат: `Ran 120 tests ... OK`.
 
 ```powershell
 py -3.12 -m compileall -q src tests tools

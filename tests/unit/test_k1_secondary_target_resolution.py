@@ -3,6 +3,7 @@ from __future__ import annotations
 import unittest
 
 from tests.helpers import SequenceRandom
+from towr.domain.attack_models import ConditionAfterGiveGroundSpec
 from towr.domain.condition_models import (
     Condition,
     ConditionState,
@@ -16,6 +17,7 @@ from towr.domain.injury_models import (
     WoundNegationOption,
 )
 from towr.domain.resolution_models import (
+    ConditionAfterGiveGroundRequest,
     ConsumeWoundNegationRequest,
     GiveGroundRequest,
     IdentifiedStaggerTarget,
@@ -65,6 +67,7 @@ def target(
     state=None,
     can_leave_zone: bool = True,
     wound_negation_options: tuple[WoundNegationOption, ...] = (),
+    after_give_ground_effects: tuple[ConditionAfterGiveGroundSpec, ...] = (),
 ) -> IdentifiedStaggerTarget:
     if state is None:
         state = CharacterInjuryState()
@@ -77,6 +80,7 @@ def target(
             can_target_leave_zone=can_leave_zone,
             target_has_given_ground_this_round=False,
             wound_negation_options=wound_negation_options,
+            after_give_ground_effects=after_give_ground_effects,
         ),
     )
 
@@ -218,6 +222,37 @@ class K1SecondaryTargetResolutionTests(unittest.TestCase):
         self.assertTrue(impact.state.conditions.has(Condition.STAGGERED))
         self.assertTrue(impact.state.conditions.has(Condition.PRONE))
         self.assertIsInstance(impact.follow_ups[0], ConsumeWoundNegationRequest)
+
+    def test_secondary_target_can_emit_after_give_ground_condition(self) -> None:
+        effect = ConditionAfterGiveGroundSpec(
+            Condition.BROKEN,
+            "RULE-NPC:fearsome",
+        )
+        secondary = target(
+            "secondary",
+            state=CharacterInjuryState(
+                conditions=ConditionState(frozenset({Condition.STAGGERED}))
+            ),
+            after_give_ground_effects=(effect,),
+        )
+        result = resolve_nearby_targets_stagger(
+            batch(secondary),
+            SequenceRandom([]),
+            decisions=TargetDecisions(
+                stagger_choices={
+                    "secondary:secondary:stagger": StaggerChoice.GIVE_GROUND,
+                }
+            ),
+        )
+
+        impact = result.targets[0].impact
+        self.assertEqual(len(impact.follow_ups), 2)
+        self.assertIsInstance(impact.follow_ups[0], GiveGroundRequest)
+        self.assertIsInstance(
+            impact.follow_ups[1],
+            ConditionAfterGiveGroundRequest,
+        )
+        self.assertEqual(impact.applied_rule_ids, (effect.rule_id,))
 
 
 if __name__ == "__main__":

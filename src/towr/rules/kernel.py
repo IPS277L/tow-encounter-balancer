@@ -6,6 +6,7 @@ from typing import Protocol
 from towr.domain.attack_models import (
     AttackOutcome,
     AttackResult,
+    ConditionAfterGiveGroundSpec,
     ConditionImpactSpec,
     DamageImpactSpec,
     HazardImpactSpec,
@@ -176,7 +177,10 @@ def _apply_post_hit_secondary(
     applied_rule_ids: tuple[str, ...],
 ) -> ResolutionResult:
     follow_ups = list(result.follow_ups)
-    rule_ids = list(applied_rule_ids)
+    rule_ids = [
+        *applied_rule_ids,
+        *result.applied_secondary_rule_ids,
+    ]
     for effect in request.attack.secondary_effects:
         if not isinstance(effect, NearbyTargetsStaggerSpec):
             continue
@@ -217,6 +221,11 @@ def _resolve_stagger_impact(
             wound_dice_modifiers=request.wound_dice_modifiers,
             wound_negation_options=request.wound_negation_options,
             additional_profile_wounds=request.additional_profile_wounds,
+            after_give_ground_effects=tuple(
+                effect
+                for effect in request.attack.secondary_effects
+                if isinstance(effect, ConditionAfterGiveGroundSpec)
+            ),
         ),
         rng,
         decisions=decisions,
@@ -232,6 +241,7 @@ def _resolve_stagger_impact(
         profile_wound=impact.profile_wound,
         monstrosity_impact=None,
         follow_ups=impact.follow_ups,
+        applied_secondary_rule_ids=impact.applied_rule_ids,
     )
 
 

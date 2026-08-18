@@ -3,6 +3,7 @@
 from towr.domain.actions import AttackAction, InlineRollSource, StatRollSource
 from towr.domain.attack_models import (
     AttackRequest,
+    ConditionAfterGiveGroundSpec,
     ConditionImpactSpec,
     DamageImpactSpec,
     DamageProfile,
@@ -17,6 +18,8 @@ from towr.domain.condition_models import Condition, ConditionState
 from towr.domain.encounters import EncounterDefinition
 from towr.domain.injury_models import CharacterInjuryState, ProfileInjuryState
 from towr.domain.resolution_models import (
+    ConditionAfterGiveGroundRequest,
+    ConditionAfterGiveGroundResult,
     HazardExposureRequest,
     HazardResolutionRequest,
     HazardResolutionResult,
@@ -43,6 +46,9 @@ __all__ = [
     "CombatantState",
     "CharacterInjuryState",
     "Condition",
+    "ConditionAfterGiveGroundRequest",
+    "ConditionAfterGiveGroundResult",
+    "ConditionAfterGiveGroundSpec",
     "ConditionImpactSpec",
     "ConditionState",
     "DamageImpactSpec",

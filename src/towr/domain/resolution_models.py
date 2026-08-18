@@ -6,6 +6,7 @@ from enum import Enum
 from towr.domain.attack_models import (
     AttackRequest,
     AttackResult,
+    ConditionAfterGiveGroundSpec,
     HazardImpactSpec,
 )
 from towr.domain.condition_models import Condition, StaggerResult
@@ -45,6 +46,23 @@ class AttackerStaggerRequest:
 class GiveGroundRequest:
     resolution_id: str
     rule_id: str = "RULE-HEALTH-003:give-ground"
+
+
+@dataclass(frozen=True, slots=True)
+class ConditionAfterGiveGroundRequest:
+    resolution_id: str
+    condition: Condition
+    rule_id: str
+
+    def __post_init__(self) -> None:
+        _validate_non_empty_string(self.resolution_id, "resolution_id")
+        if not isinstance(self.condition, Condition):
+            raise TypeError("condition must be a Condition")
+        if self.condition is Condition.STAGGERED:
+            raise ValueError(
+                "Staggered after Give Ground requires the Stagger impact policy"
+            )
+        _validate_non_empty_string(self.rule_id, "rule_id")
 
 
 @dataclass(frozen=True, slots=True)
@@ -137,6 +155,7 @@ ReplacementImpactResult = ConditionImpactResult | HazardImpactResult
 
 FollowUpRequest = (
     AttackerStaggerRequest
+    | ConditionAfterGiveGroundRequest
     | ConsumeWoundNegationRequest
     | GiveGroundRequest
     | HazardExposureRequest
@@ -168,6 +187,9 @@ class StaggerImpactRequest:
     additional_profile_wounds: tuple[AdditionalProfileWound, ...] = field(
         default_factory=tuple
     )
+    after_give_ground_effects: tuple[ConditionAfterGiveGroundSpec, ...] = field(
+        default_factory=tuple
+    )
 
     def __post_init__(self) -> None:
         _validate_non_empty_string(self.id, "Stagger impact request id")
@@ -193,6 +215,18 @@ class StaggerImpactRequest:
             "additional_profile_wounds",
             tuple(self.additional_profile_wounds),
         )
+        effects = tuple(self.after_give_ground_effects)
+        if not all(
+            isinstance(item, ConditionAfterGiveGroundSpec) for item in effects
+        ):
+            raise TypeError(
+                "after_give_ground_effects must contain "
+                "ConditionAfterGiveGroundSpec values"
+            )
+        rule_ids = tuple(item.rule_id for item in effects)
+        if len(set(rule_ids)) != len(rule_ids):
+            raise ValueError("after-Give-Ground effect rule_ids must be unique")
+        object.__setattr__(self, "after_give_ground_effects", effects)
         _validate_target_policy_state(
             self.target_policy,
             self.target_state,
@@ -214,6 +248,16 @@ class StaggerImpactResult:
     wound_effect: WoundEffectResult | None
     profile_wound: ProfileWoundResult | None
     follow_ups: tuple[FollowUpRequest, ...]
+    applied_rule_ids: tuple[str, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class ConditionAfterGiveGroundResult:
+    resolution_id: str
+    state: TargetInjuryState
+    condition: Condition
+    was_already_present: bool
+    applied_rule_ids: tuple[str, ...]
 
 
 @dataclass(frozen=True, slots=True)

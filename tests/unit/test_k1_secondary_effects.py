@@ -5,6 +5,7 @@ import unittest
 from tests.helpers import SequenceRandom
 from towr.domain.attack_models import (
     AttackRequest,
+    ConditionAfterGiveGroundSpec,
     ConditionImpactSpec,
     DamageImpactSpec,
     DamageProfile,
@@ -26,17 +27,28 @@ from towr.domain.injury_models import (
 )
 from towr.domain.resolution_models import (
     AttackerStaggerRequest,
+    ConditionAfterGiveGroundRequest,
+    GiveGroundRequest,
     KernelAttackRequest,
     NearbyTargetsStaggerRequest,
     TargetInjuryPolicy,
 )
 from towr.domain.test_models import TestProfile, TestRequest
+from towr.rules.condition_effect_resolution import (
+    resolve_condition_after_give_ground,
+)
 from towr.rules.kernel import resolve_kernel_attack
 
 
 class GiveGroundDecisions:
+    def __init__(
+        self,
+        choice: StaggerChoice = StaggerChoice.GIVE_GROUND,
+    ) -> None:
+        self.choice = choice
+
     def choose_repeated_stagger(self, **_: object) -> StaggerChoice:
-        return StaggerChoice.GIVE_GROUND
+        return self.choice
 
 
 def attack(
@@ -82,6 +94,13 @@ def request(
 
 
 class K1SecondaryEffectTests(unittest.TestCase):
+    def test_after_give_ground_condition_cannot_be_staggered(self) -> None:
+        with self.assertRaises(ValueError):
+            ConditionAfterGiveGroundSpec(
+                Condition.STAGGERED,
+                "RULE-INVALID",
+            )
+
     def test_secondary_effect_rule_ids_must_be_unique(self) -> None:
         with self.assertRaises(ValueError):
             attack(
@@ -177,6 +196,80 @@ class K1SecondaryEffectTests(unittest.TestCase):
             result.applied_secondary_rule_ids,
             (effect.rule_id,),
         )
+
+    def test_condition_is_queued_after_give_ground_movement(self) -> None:
+        effect = ConditionAfterGiveGroundSpec(
+            Condition.PRONE,
+            "RULE-TALENT:troublemakers-out",
+        )
+        result = resolve_kernel_attack(
+            request(
+                effect,
+                state=CharacterInjuryState(
+                    conditions=ConditionState(
+                        frozenset({Condition.STAGGERED})
+                    )
+                ),
+            ),
+            SequenceRandom([1, 10, 10]),
+            decisions=GiveGroundDecisions(),
+        )
+
+        self.assertFalse(result.target_state.conditions.has(Condition.PRONE))
+        self.assertEqual(len(result.follow_ups), 2)
+        self.assertIsInstance(result.follow_ups[0], GiveGroundRequest)
+        self.assertIsInstance(
+            result.follow_ups[1],
+            ConditionAfterGiveGroundRequest,
+        )
+        condition_request = result.follow_ups[1]
+        assert isinstance(condition_request, ConditionAfterGiveGroundRequest)
+        applied = resolve_condition_after_give_ground(
+            condition_request,
+            result.target_state,
+        )
+        self.assertTrue(applied.state.conditions.has(Condition.PRONE))
+        self.assertFalse(applied.was_already_present)
+        self.assertEqual(
+            result.applied_secondary_rule_ids,
+            (effect.rule_id,),
+        )
+
+    def test_after_give_ground_effect_does_not_trigger_on_first_stagger(self) -> None:
+        effect = ConditionAfterGiveGroundSpec(
+            Condition.BROKEN,
+            "RULE-NPC:fearsome",
+        )
+        result = resolve_kernel_attack(
+            request(effect),
+            SequenceRandom([1, 10, 10]),
+        )
+
+        self.assertTrue(result.target_state.conditions.has(Condition.STAGGERED))
+        self.assertEqual(result.follow_ups, ())
+        self.assertEqual(result.applied_secondary_rule_ids, ())
+
+    def test_after_give_ground_effect_requires_give_ground_choice(self) -> None:
+        effect = ConditionAfterGiveGroundSpec(
+            Condition.BROKEN,
+            "RULE-NPC:fearsome",
+        )
+        result = resolve_kernel_attack(
+            request(
+                effect,
+                state=CharacterInjuryState(
+                    conditions=ConditionState(
+                        frozenset({Condition.STAGGERED})
+                    )
+                ),
+            ),
+            SequenceRandom([1, 10, 10]),
+            decisions=GiveGroundDecisions(StaggerChoice.FALL_PRONE),
+        )
+
+        self.assertTrue(result.target_state.conditions.has(Condition.PRONE))
+        self.assertEqual(result.follow_ups, ())
+        self.assertEqual(result.applied_secondary_rule_ids, ())
 
 
 if __name__ == "__main__":

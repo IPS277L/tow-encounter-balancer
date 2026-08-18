@@ -69,6 +69,10 @@ py -3.12 -m unittest discover -s tests -v
 - каждая цель использует собственный Stagger context и decision request ID;
 - Player/Champion используют Wounds Table, а Minion/Brute/Monstrosity — профильные Wounds;
 - Near Miss сохраняет исходное Staggered вторичной цели.
+- after-Give-Ground Condition не срабатывает на первом Staggered или при другом выборе;
+- Give Ground follow-up всегда предшествует Condition follow-up;
+- отложенный reducer применяет Condition без преждевременной мутации состояния;
+- тот же after-Give-Ground эффект доступен вторичным целям.
 
 Группы K1 Staggered:
 

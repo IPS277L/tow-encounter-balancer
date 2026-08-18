@@ -16,6 +16,7 @@ from towr.domain.injury_models import (
     ProfileWoundRequest,
 )
 from towr.domain.resolution_models import (
+    ConditionAfterGiveGroundRequest,
     ConsumeWoundNegationRequest,
     FollowUpRequest,
     GiveGroundRequest,
@@ -64,6 +65,14 @@ def resolve_stagger_impact(
     )
     state = _with_conditions(request.target_state, stagger.state)
     if stagger.gave_ground:
+        condition_follow_ups = tuple(
+            ConditionAfterGiveGroundRequest(
+                resolution_id=request.id,
+                condition=effect.condition,
+                rule_id=effect.rule_id,
+            )
+            for effect in request.after_give_ground_effects
+        )
         return StaggerImpactResult(
             request_id=request.id,
             state=state,
@@ -71,7 +80,13 @@ def resolve_stagger_impact(
             character_wound=None,
             wound_effect=None,
             profile_wound=None,
-            follow_ups=(GiveGroundRequest(resolution_id=request.id),),
+            follow_ups=(
+                GiveGroundRequest(resolution_id=request.id),
+                *condition_follow_ups,
+            ),
+            applied_rule_ids=tuple(
+                effect.rule_id for effect in request.after_give_ground_effects
+            ),
         )
     if not stagger.wound_requested:
         return StaggerImpactResult(
@@ -82,6 +97,7 @@ def resolve_stagger_impact(
             wound_effect=None,
             profile_wound=None,
             follow_ups=(),
+            applied_rule_ids=(),
         )
     return _resolve_stagger_wound(request, state, stagger, rng, decisions)
 
@@ -139,6 +155,7 @@ def _resolve_stagger_wound(
             wound_effect=wound_effect,
             profile_wound=None,
             follow_ups=tuple(follow_ups),
+            applied_rule_ids=(),
         )
 
     assert isinstance(state, ProfileInjuryState)
@@ -163,6 +180,7 @@ def _resolve_stagger_wound(
         wound_effect=None,
         profile_wound=wound,
         follow_ups=(wound.state_change,),
+        applied_rule_ids=(),
     )
 
 
