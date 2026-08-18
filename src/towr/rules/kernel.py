@@ -39,7 +39,6 @@ from towr.domain.resolution_models import (
     HazardImpactResult,
     KernelAttackRequest,
     MonstrosityReactionRequest,
-    MonstrousFlightReactionSpec,
     NearbyTargetsStaggerRequest,
     ReplacementImpactResult,
     ResolutionResult,
@@ -442,10 +441,7 @@ def _resolve_monstrosity(
         decisions=decisions,
     )
     if impact.reaction_requested:
-        assert isinstance(
-            request.monstrosity_reaction,
-            MonstrousFlightReactionSpec,
-        )
+        assert request.monstrosity_reaction is not None
         return ResolutionResult(
             request_id=request.id,
             attack=attack,

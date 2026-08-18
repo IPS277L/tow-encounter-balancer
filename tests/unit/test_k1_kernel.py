@@ -29,8 +29,10 @@ from towr.domain.resolution_models import (
     HazardImpactResult,
     KernelAttackRequest,
     MonstrosityReactionRequest,
+    MonstrosityReactionSpec,
     MonstrousFlightReactionSpec,
     TargetInjuryPolicy,
+    UnsteadyReactionSpec,
 )
 from towr.domain.test_models import Skill, TestProfile, TestRequest
 from towr.rules.kernel import resolve_kernel_attack
@@ -95,6 +97,7 @@ def kernel_request(
     base_damage: int = 3,
     impact_spec: ImpactSpec | None = None,
     negation_options: tuple[WoundNegationOption, ...] = (),
+    reaction: MonstrosityReactionSpec | None = None,
 ) -> KernelAttackRequest:
     return KernelAttackRequest(
         id="resolution",
@@ -105,7 +108,10 @@ def kernel_request(
         target_has_given_ground_this_round=False,
         wound_negation_options=negation_options,
         monstrosity_reaction=(
-            MonstrousFlightReactionSpec("RULE-MONSTER:monstrous-flight")
+            reaction
+            or MonstrousFlightReactionSpec(
+                "RULE-MONSTER:monstrous-flight"
+            )
             if policy is TargetInjuryPolicy.MONSTROSITY
             else None
         ),
@@ -323,6 +329,26 @@ class K1KernelTests(unittest.TestCase):
         self.assertIsNotNone(result.profile_wound)
         self.assertIsInstance(result.target_state, ProfileInjuryState)
         self.assertEqual(result.target_state.wounds, 1)
+
+    def test_kernel_carries_unsteady_reaction_spec(self) -> None:
+        effect = UnsteadyReactionSpec("RULE-NPC:unsteady")
+        result = resolve_kernel_attack(
+            kernel_request(
+                policy=TargetInjuryPolicy.MONSTROSITY,
+                state=ProfileInjuryState(wounds=0, wound_limit=6),
+                base_damage=5,
+                reaction=effect,
+            ),
+            SequenceRandom([1, 10, 10]),
+            decisions=FixedKernelDecisions(
+                monstrosity=MonstrosityImpactChoice.TRIGGER_REACTION
+            ),
+        )
+
+        reaction = result.follow_ups[0]
+        self.assertIsInstance(reaction, MonstrosityReactionRequest)
+        assert isinstance(reaction, MonstrosityReactionRequest)
+        self.assertIs(reaction.reaction, effect)
 
 
 if __name__ == "__main__":

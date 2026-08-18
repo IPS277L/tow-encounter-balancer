@@ -38,9 +38,11 @@ from towr.domain.resolution_models import (
     NearbyTargetsStaggerRequest,
     NearbyTargetsStaggerResolutionRequest,
     NearbyTargetsStaggerResolutionResult,
+    ReactorZoneHazardRequest,
     ResolutionResult,
     StaggerImpactRequest,
     StaggerImpactResult,
+    UnsteadyReactionSpec,
 )
 from towr.domain.results import BattleOutcome, BattleResult
 from towr.domain.stats import DicePool, StatBlock
@@ -86,6 +88,7 @@ __all__ = [
     "NearbyTargetsStaggerResolutionRequest",
     "NearbyTargetsStaggerResolutionResult",
     "NearbyTargetsStaggerSpec",
+    "ReactorZoneHazardRequest",
     "ProfileInjuryState",
     "ProneBeforeGiveGroundSpec",
     "ResilienceProfile",
@@ -99,4 +102,5 @@ __all__ = [
     "StatRollSource",
     "TestProfile",
     "TestRequest",
+    "UnsteadyReactionSpec",
 ]

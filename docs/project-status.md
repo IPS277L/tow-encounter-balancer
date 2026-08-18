@@ -81,10 +81,14 @@ K1 — реализация книжного resolution kernel. Прототип
 - Monstrous Flight возвращает Give Ground с предпочтением vertical midair либо профильную Wound, если Monstrosity уже давала Ground в текущем ходу;
 - дополнительные профильные Wounds и Terrifying проходят через результат Reaction с сохранением Rule ID;
 - невозможный Give Ground зафиксирован как книжная неоднозначность без скрытого default.
+- добавлен `UnsteadyReactionSpec` для Giant и исходы `FALL_PRONE`/`ALREADY_PRONE`;
+- новое падение Giant накладывает Prone, сохраняет Staggered и создаёт `ReactorZoneHazardRequest` с Athletics Hazard (3);
+- запрос Zone Hazard явно включает самого Giant и всех остальных существ в его Zone, но не выполняет spatial-выбор;
+- уже Prone Giant не создаёт Hazard повторно, а Terrifying не реагирует на исход Unsteady.
 
 ## Проверено
 
-- 136 unit/integration тестов успешно проходят на Python 3.12, из них 116 относятся к K1;
+- 140 unit/integration тестов успешно проходят на Python 3.12, из них 120 относятся к K1;
 - исходники и тесты успешно проходят `compileall`.
 
 ## Исходный материал
@@ -104,13 +108,13 @@ K1 — реализация книжного resolution kernel. Прототип
 - внешние последствия Wound для инвентаря и анатомии пока являются typed follow-up;
 - защита Endurance после заживления `Ruptured organs` ещё не подключена к физическому impact;
 - автоматическая замена неподходящей строки Wounds Table для не-физического Hazard требует отдельной GM/simulation policy;
-- spatial-выбор вторичных целей, разные последствия hit/miss и остальные профильные Reactions ещё не имеют общего orchestration;
+- spatial-выбор вторичных целей/существ для Zone Hazard, разные последствия hit/miss и остальные профильные Reactions ещё не имеют общего orchestration;
 - для Monstrous Flight при полностью невозможном Give Ground книга не задаёт fallback; K1 требует внешнего ruling;
 - Monte Carlo, JSON, CLI и балансировщик ещё не входят в текущий срез.
 
 ## Следующий шаг
 
-Реализовать `UnsteadyReactionSpec` для Giant (GM Guide, страница 183): применить Prone к Giant и создать типизированный запрос Hazard (3) для всех существ в его Zone. Выбор существ оставить spatial orchestration; старый battle loop пока не подключать.
+Реализовать Monstrous Regeneration Reaction для Ghorgon и Troll Hag (GM Guide, страницы 151 и 181): создать source-aware запрет регенерации на следующий ход. Само end-turn лечение оставить будущему action/turn orchestration; старый battle loop пока не подключать.
 
 ## Последняя проверка
 
@@ -121,7 +125,7 @@ $env:PYTHONPATH = "src"
 py -3.12 -m unittest discover -s tests -v
 ```
 
-Результат: `Ran 136 tests ... OK`.
+Результат: `Ran 140 tests ... OK`.
 
 ```powershell
 py -3.12 -m compileall -q src tests tools

@@ -63,6 +63,12 @@ Griffon, Dragon и Wyvern при срабатывании Monstrous Flight да�
 
 В K1 kernel переносит конкретный `MonstrousFlightReactionSpec`, дополнительные профильные Wounds исходной атаки и условные эффекты в `MonstrosityReactionRequest`. После добавления актуального spatial-контекста `resolve_monstrosity_reaction` возвращает типизированный `GIVE_GROUND` либо `SUFFER_WOUND`. В первой ветви `GiveGroundRequest` сохраняет предпочтение `VERTICAL_MIDAIR_IF_ABLE`; во второй используется общая профильная injury policy. Terrifying применяется после подтверждённого исхода тем же правилом, что и для обычного impact.
 
+## RULE-NPC-013 — Unsteady Reaction
+
+При срабатывании Unsteady Giant получает Prone. Когда Giant действительно падает Prone, все существа в его Zone, включая самого Giant, проверяют Athletics против Hazard (3). Источник: GM Guide, страница 183.
+
+В K1 `UnsteadyReactionSpec` добавляет Prone к состоянию Giant и возвращает `ReactorZoneHazardRequest`. Этот запрос означает всех существ в Zone реагирующего Giant, но не выбирает их без spatial state. Если Giant уже Prone, Condition не накладывается повторно и Hazard не создаётся: результат явно получает исход `ALREADY_PRONE`. Staggered при падении не снимается. Условие Terrifying не срабатывает, поскольку Unsteady само по себе не создаёт Give Ground или Wound.
+
 ## Реализация injury policies в K1
 
 - Minion получает один Wound и сразу становится defeated;
@@ -75,6 +81,7 @@ Griffon, Dragon и Wyvern при срабатывании Monstrous Flight да�
 - профильные атаки с обычным Damage и формулировкой `hits inflict Condition` используют `ConditionOnHitSpec`, не replacement impact;
 - Terrifying у Dragon/Wyvern использует `ConditionOnGiveGroundOrWoundSpec`: Broken следует только после Give Ground или принятой Wound, но не после Near Miss;
 - Monstrous Flight у Griffon/Dragon/Wyvern разрешается отдельным типизированным resolver и сохраняет различие между лимитом Reaction «в текущем ходу» и общим Give Ground «раз за раунд»;
+- Unsteady у Giant применяет Prone и только при новом падении создаёт Hazard (3) для всех существ в Zone;
 - правило отсутствия Staggered за неудачную Melee-атаку поддерживается явным исключением в `AttackRequest` и сохраняется в trace.
 
 Проверки находятся в `tests/unit/test_k1_injury_resolution.py`, `tests/unit/test_k1_monstrosity_resolution.py`, `tests/unit/test_k1_monstrosity_reaction_resolution.py` и `tests/unit/test_k1_kernel.py`.

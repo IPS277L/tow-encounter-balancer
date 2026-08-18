@@ -16,8 +16,12 @@ from towr.domain.resolution_models import (
     MonstrosityReactionOutcome,
     MonstrosityReactionRequest,
     MonstrosityReactionResolutionRequest,
+    MonstrosityReactionSpec,
     MonstrousFlightReactionSpec,
+    ReactorZoneHazardRequest,
+    UnsteadyReactionSpec,
 )
+from towr.domain.test_models import Skill
 from towr.rules.monstrosity_reaction_resolution import (
     UnresolvedMonstrousFlightReactionError,
     resolve_monstrosity_reaction,
@@ -26,6 +30,7 @@ from towr.rules.monstrosity_reaction_resolution import (
 
 def source(
     *,
+    reaction: MonstrosityReactionSpec | None = None,
     additional_wounds: tuple[AdditionalProfileWound, ...] = (),
     terrifying: bool = False,
 ) -> MonstrosityReactionRequest:
@@ -41,9 +46,8 @@ def source(
     )
     return MonstrosityReactionRequest(
         resolution_id="attack-resolution",
-        reaction=MonstrousFlightReactionSpec(
-            "RULE-NPC:monstrous-flight",
-        ),
+        reaction=reaction
+        or MonstrousFlightReactionSpec("RULE-NPC:monstrous-flight"),
         additional_profile_wounds=additional_wounds,
         give_ground_or_wound_effects=effects,
     )
@@ -56,12 +60,19 @@ def request(
     has_given_ground: bool = False,
     can_give_ground: bool = True,
 ) -> MonstrosityReactionResolutionRequest:
+    resolved_source = reaction_source or source()
+    is_flight = isinstance(
+        resolved_source.reaction,
+        MonstrousFlightReactionSpec,
+    )
     return MonstrosityReactionResolutionRequest(
         id="reaction-resolution",
-        source=reaction_source or source(),
+        source=resolved_source,
         state=state or ProfileInjuryState(wounds=0, wound_limit=3),
-        has_given_ground_this_turn=has_given_ground,
-        can_give_ground=can_give_ground,
+        has_given_ground_this_turn=(
+            has_given_ground if is_flight else None
+        ),
+        can_give_ground=can_give_ground if is_flight else None,
     )
 
 
@@ -69,6 +80,8 @@ class K1MonstrosityReactionResolutionTests(unittest.TestCase):
     def test_reaction_spec_requires_rule_id(self) -> None:
         with self.assertRaises(ValueError):
             MonstrousFlightReactionSpec(" ")
+        with self.assertRaises(ValueError):
+            UnsteadyReactionSpec("")
 
     def test_flight_gives_ground_and_queues_terrifying_after_movement(self) -> None:
         result = resolve_monstrosity_reaction(
@@ -141,6 +154,71 @@ class K1MonstrosityReactionResolutionTests(unittest.TestCase):
         with self.assertRaises(UnresolvedMonstrousFlightReactionError):
             resolve_monstrosity_reaction(
                 request(can_give_ground=False)
+            )
+
+    def test_unsteady_applies_prone_and_requests_zone_hazard(self) -> None:
+        result = resolve_monstrosity_reaction(
+            request(
+                reaction_source=source(
+                    reaction=UnsteadyReactionSpec("RULE-NPC:unsteady"),
+                    terrifying=True,
+                ),
+                state=ProfileInjuryState(
+                    wounds=0,
+                    wound_limit=6,
+                    conditions=ConditionState(
+                        frozenset({Condition.STAGGERED})
+                    ),
+                ),
+            )
+        )
+
+        self.assertIs(result.outcome, MonstrosityReactionOutcome.FALL_PRONE)
+        self.assertTrue(result.state.conditions.has(Condition.PRONE))
+        self.assertTrue(result.state.conditions.has(Condition.STAGGERED))
+        self.assertFalse(result.state.conditions.has(Condition.BROKEN))
+        self.assertEqual(len(result.follow_ups), 1)
+        hazard = result.follow_ups[0]
+        self.assertIsInstance(hazard, ReactorZoneHazardRequest)
+        assert isinstance(hazard, ReactorZoneHazardRequest)
+        self.assertEqual(hazard.rating, 3)
+        self.assertIs(hazard.avoidance_skill, Skill.ATHLETICS)
+        self.assertTrue(hazard.inflicts_wound)
+        self.assertEqual(hazard.failure_conditions, ())
+        self.assertEqual(result.applied_rule_ids, ("RULE-NPC:unsteady",))
+
+    def test_unsteady_does_not_repeat_hazard_when_already_prone(self) -> None:
+        state = ProfileInjuryState(
+            wounds=0,
+            wound_limit=6,
+            conditions=ConditionState(frozenset({Condition.PRONE})),
+        )
+        result = resolve_monstrosity_reaction(
+            request(
+                reaction_source=source(
+                    reaction=UnsteadyReactionSpec("RULE-NPC:unsteady")
+                ),
+                state=state,
+            )
+        )
+
+        self.assertIs(
+            result.outcome,
+            MonstrosityReactionOutcome.ALREADY_PRONE,
+        )
+        self.assertIs(result.state, state)
+        self.assertEqual(result.follow_ups, ())
+
+    def test_unsteady_rejects_irrelevant_give_ground_context(self) -> None:
+        with self.assertRaises(ValueError):
+            MonstrosityReactionResolutionRequest(
+                id="reaction-resolution",
+                source=source(
+                    reaction=UnsteadyReactionSpec("RULE-NPC:unsteady")
+                ),
+                state=ProfileInjuryState(wounds=0, wound_limit=6),
+                has_given_ground_this_turn=False,
+                can_give_ground=True,
             )
 
 

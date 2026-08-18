@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from towr.domain.condition_models import ConditionState
+from towr.domain.condition_models import Condition, ConditionState
 from towr.domain.injury_models import (
     ProfileInjuryState,
     ProfileNpcType,
@@ -14,7 +14,10 @@ from towr.domain.resolution_models import (
     MonstrosityReactionResolutionRequest,
     MonstrosityReactionResolutionResult,
     MonstrousFlightReactionSpec,
+    ReactorZoneHazardRequest,
+    UnsteadyReactionSpec,
 )
+from towr.domain.test_models import Skill
 from towr.rules.injury_resolution import resolve_profile_wound
 
 
@@ -26,9 +29,13 @@ def resolve_monstrosity_reaction(
     request: MonstrosityReactionResolutionRequest,
 ) -> MonstrosityReactionResolutionResult:
     reaction = request.source.reaction
+    if isinstance(reaction, UnsteadyReactionSpec):
+        return _resolve_unsteady(request, reaction)
     if not isinstance(reaction, MonstrousFlightReactionSpec):
         raise TypeError("unsupported Monstrosity reaction spec")
 
+    assert request.has_given_ground_this_turn is not None
+    assert request.can_give_ground is not None
     if request.has_given_ground_this_turn:
         return _resolve_flight_wound(request, reaction)
     if not request.can_give_ground:
@@ -37,6 +44,43 @@ def resolve_monstrosity_reaction(
             "cannot Give Ground"
         )
     return _resolve_flight_give_ground(request, reaction)
+
+
+def _resolve_unsteady(
+    request: MonstrosityReactionResolutionRequest,
+    reaction: UnsteadyReactionSpec,
+) -> MonstrosityReactionResolutionResult:
+    was_already_prone = request.state.conditions.has(Condition.PRONE)
+    if was_already_prone:
+        state = request.state
+        outcome = MonstrosityReactionOutcome.ALREADY_PRONE
+        follow_ups = ()
+    else:
+        state = _with_conditions(
+            request.state,
+            request.state.conditions.with_condition(Condition.PRONE),
+        )
+        outcome = MonstrosityReactionOutcome.FALL_PRONE
+        follow_ups = (
+            ReactorZoneHazardRequest(
+                resolution_id=request.source.resolution_id,
+                rating=3,
+                avoidance_skill=Skill.ATHLETICS,
+                rule_id=reaction.rule_id,
+                inflicts_wound=True,
+                failure_conditions=(),
+            ),
+        )
+    return MonstrosityReactionResolutionResult(
+        request_id=request.id,
+        source_resolution_id=request.source.resolution_id,
+        reaction_rule_id=reaction.rule_id,
+        state=state,
+        outcome=outcome,
+        profile_wound=None,
+        follow_ups=follow_ups,
+        applied_rule_ids=(reaction.rule_id,),
+    )
 
 
 def _resolve_flight_give_ground(

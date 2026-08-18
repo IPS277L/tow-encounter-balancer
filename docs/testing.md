@@ -102,6 +102,10 @@ py -3.12 -m unittest discover -s tests -v
 - Give Ground от Monstrous Flight сохраняет предпочтение вертикальной midair-зоны и ставит Terrifying после движения;
 - Wound от повторной Monstrous Flight проходит общую профильную injury policy, включая дополнительные Wounds и Terrifying;
 - полностью невозможный Give Ground завершается явной ошибкой неоднозначности, а не скрытым исходом;
+- Unsteady сохраняется kernel как конкретный Reaction spec без строковой диспетчеризации;
+- новое падение Giant накладывает Prone, сохраняет Staggered и создаёт Athletics Hazard (3) для всех существ в его Zone;
+- уже Prone Giant не падает повторно и не создаёт повторный Zone Hazard;
+- Give Ground context отклоняется для Unsteady как неприменимый к этой Reaction;
 - полный путь `Attack → Impact → Staggered/Wound → state + follow-ups`;
 - отсутствие скрытого выбора при Glorious, повторном Staggered, Near Miss и Monstrosity Reaction.
 

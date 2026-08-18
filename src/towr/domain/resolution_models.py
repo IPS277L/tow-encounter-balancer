@@ -45,6 +45,8 @@ class GiveGroundDestinationPreference(str, Enum):
 class MonstrosityReactionOutcome(str, Enum):
     GIVE_GROUND = "give_ground"
     SUFFER_WOUND = "suffer_wound"
+    FALL_PRONE = "fall_prone"
+    ALREADY_PRONE = "already_prone"
 
 
 @dataclass(frozen=True, slots=True)
@@ -111,7 +113,19 @@ class MonstrousFlightReactionSpec:
         _validate_non_empty_string(self.rule_id, "rule_id")
 
 
-MonstrosityReactionSpec = MonstrousFlightReactionSpec
+@dataclass(frozen=True, slots=True)
+class UnsteadyReactionSpec:
+    rule_id: str
+
+    def __post_init__(self) -> None:
+        _validate_non_empty_string(self.rule_id, "rule_id")
+
+
+MonstrosityReactionSpec = MonstrousFlightReactionSpec | UnsteadyReactionSpec
+_MONSTROSITY_REACTION_SPEC_TYPES = (
+    MonstrousFlightReactionSpec,
+    UnsteadyReactionSpec,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -127,7 +141,7 @@ class MonstrosityReactionRequest:
 
     def __post_init__(self) -> None:
         _validate_non_empty_string(self.resolution_id, "resolution_id")
-        if not isinstance(self.reaction, MonstrousFlightReactionSpec):
+        if not isinstance(self.reaction, _MONSTROSITY_REACTION_SPEC_TYPES):
             raise TypeError("reaction must be a MonstrosityReactionSpec")
         additional_wounds = tuple(self.additional_profile_wounds)
         if not all(
@@ -167,8 +181,8 @@ class MonstrosityReactionResolutionRequest:
     id: str
     source: MonstrosityReactionRequest
     state: ProfileInjuryState
-    has_given_ground_this_turn: bool
-    can_give_ground: bool
+    has_given_ground_this_turn: bool | None = None
+    can_give_ground: bool | None = None
 
     def __post_init__(self) -> None:
         _validate_non_empty_string(self.id, "Monstrosity reaction request id")
@@ -176,11 +190,52 @@ class MonstrosityReactionResolutionRequest:
             raise TypeError("source must be a MonstrosityReactionRequest")
         if not isinstance(self.state, ProfileInjuryState):
             raise TypeError("state must be a ProfileInjuryState")
-        _validate_bool(
-            self.has_given_ground_this_turn,
-            "has_given_ground_this_turn",
-        )
-        _validate_bool(self.can_give_ground, "can_give_ground")
+        if isinstance(self.source.reaction, MonstrousFlightReactionSpec):
+            _validate_bool(
+                self.has_given_ground_this_turn,
+                "has_given_ground_this_turn",
+            )
+            _validate_bool(self.can_give_ground, "can_give_ground")
+        elif (
+            self.has_given_ground_this_turn is not None
+            or self.can_give_ground is not None
+        ):
+            raise ValueError(
+                "Give Ground context is only valid for Monstrous Flight"
+            )
+
+
+@dataclass(frozen=True, slots=True)
+class ReactorZoneHazardRequest:
+    """Expose the reactor and every other creature in its Zone to a Hazard."""
+
+    resolution_id: str
+    rating: int
+    avoidance_skill: Skill
+    rule_id: str
+    inflicts_wound: bool
+    failure_conditions: tuple[Condition, ...]
+
+    def __post_init__(self) -> None:
+        _validate_non_empty_string(self.resolution_id, "resolution_id")
+        if not isinstance(self.rating, int) or isinstance(self.rating, bool):
+            raise TypeError("rating must be an integer")
+        if self.rating < 1:
+            raise ValueError("rating must be positive")
+        if not isinstance(self.avoidance_skill, Skill):
+            raise TypeError("avoidance_skill must be a Skill")
+        _validate_non_empty_string(self.rule_id, "rule_id")
+        _validate_bool(self.inflicts_wound, "inflicts_wound")
+        conditions = tuple(self.failure_conditions)
+        if not all(isinstance(item, Condition) for item in conditions):
+            raise TypeError("failure_conditions must contain Condition values")
+        if len(set(conditions)) != len(conditions):
+            raise ValueError("failure_conditions must be unique")
+        if not self.inflicts_wound and not conditions:
+            raise ValueError(
+                "a Hazard must inflict a Wound or at least one Condition"
+            )
+        object.__setattr__(self, "failure_conditions", conditions)
 
 
 @dataclass(frozen=True, slots=True)
@@ -277,6 +332,7 @@ FollowUpRequest = (
     | WoundConsequenceRequest
     | WoundChoiceRequest
     | ProfileStateChangeRequest
+    | ReactorZoneHazardRequest
 )
 
 
@@ -678,7 +734,7 @@ class KernelAttackRequest:
         if self.target_policy is TargetInjuryPolicy.MONSTROSITY:
             if not isinstance(
                 self.monstrosity_reaction,
-                MonstrousFlightReactionSpec,
+                _MONSTROSITY_REACTION_SPEC_TYPES,
             ):
                 raise ValueError(
                     "Monstrosity requires a MonstrosityReactionSpec"
