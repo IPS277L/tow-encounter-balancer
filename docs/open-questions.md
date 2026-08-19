@@ -25,3 +25,7 @@
 ## Источник Distracted
 
 Общее правило Distracted (Player’s Guide, страница 123) связывает Condition с конкретным объектом отвлечения и заменяет старое Distracted новым. Текущий `ConditionState` хранит только факт наличия Condition и не различает Stupidity, Foul Stench, заклинание или иной источник. `TrollStupidityState` отдельно и однозначно хранит собственный штраф и suppression, но перед полноценной симуляцией нужно решить, станет ли provenance/объект отвлечения частью общего Condition state либо останется в состояниях конкретных Abilities. До этого orchestration обязано явно сообщать Stupidity о внешнем снятии Distracted.
+
+## Spell Recast без определённой недавней истории
+
+Строка Miscast `23–24` (Player’s Guide 1.4, страница 159) требует случайно повторить недавно сотворённое заклинание, но не определяет временную границу `recently`, способ взвешивания повторных сотворений одного spell и исход, если маг ещё не сотворил ни одного подходящего заклинания. Текущий K1 требует от casting orchestration непустой стабильный `MiscastRecentSpellOption` snapshot с уникальными option IDs и случайно выбирает один option; пустой snapshot отклоняется без очистки Miscast Pool. Перед полным battle loop нужна GM/simulation policy для формирования snapshot и пустого случая.

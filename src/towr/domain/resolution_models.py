@@ -46,6 +46,11 @@ class TargetInjuryPolicy(str, Enum):
     MONSTROSITY = "monstrosity"
 
 
+class ZoneHazardPersistence(str, Enum):
+    TRANSIENT = "transient"
+    UNTIL_BATTLE_END = "until_battle_end"
+
+
 class GiveGroundDestinationPreference(str, Enum):
     ANY_VALID_ADJACENT = "any_valid_adjacent"
     VERTICAL_MIDAIR_IF_ABLE = "vertical_midair_if_able"
@@ -338,6 +343,11 @@ class ZoneHazardRequest:
     repeated_condition_replacements: tuple[
         RepeatedConditionReplacement, ...
     ] = field(default_factory=tuple)
+    alternative_avoidance_skills: tuple[Skill, ...] = field(
+        default_factory=tuple
+    )
+    persistence: ZoneHazardPersistence = ZoneHazardPersistence.TRANSIENT
+    zone_anchor_target_id: str | None = None
 
     def __post_init__(self) -> None:
         _validate_non_empty_string(self.resolution_id, "resolution_id")
@@ -347,6 +357,17 @@ class ZoneHazardRequest:
             raise ValueError("rating must be positive")
         if not isinstance(self.avoidance_skill, Skill):
             raise TypeError("avoidance_skill must be a Skill")
+        alternative_skills = tuple(self.alternative_avoidance_skills)
+        if not all(isinstance(item, Skill) for item in alternative_skills):
+            raise TypeError(
+                "alternative_avoidance_skills must contain Skill values"
+            )
+        if self.avoidance_skill in alternative_skills:
+            raise ValueError(
+                "the primary avoidance skill must not be repeated"
+            )
+        if len(set(alternative_skills)) != len(alternative_skills):
+            raise ValueError("alternative avoidance skills must be unique")
         _validate_non_empty_string(self.rule_id, "rule_id")
         _validate_bool(self.inflicts_wound, "inflicts_wound")
         conditions = tuple(self.failure_conditions)
@@ -366,12 +387,28 @@ class ZoneHazardRequest:
             raise TypeError(
                 "classification must be an EffectClassification"
             )
+        if not isinstance(self.persistence, ZoneHazardPersistence):
+            raise TypeError("persistence must be a ZoneHazardPersistence")
+        if self.zone_anchor_target_id is not None:
+            _validate_non_empty_string(
+                self.zone_anchor_target_id,
+                "zone_anchor_target_id",
+            )
         object.__setattr__(self, "failure_conditions", conditions)
+        object.__setattr__(
+            self,
+            "alternative_avoidance_skills",
+            alternative_skills,
+        )
         object.__setattr__(
             self,
             "repeated_condition_replacements",
             replacements,
         )
+
+    @property
+    def avoidance_skills(self) -> tuple[Skill, ...]:
+        return (self.avoidance_skill, *self.alternative_avoidance_skills)
 
 
 @dataclass(frozen=True, slots=True)
@@ -926,6 +963,7 @@ class IdentifiedHazardTarget:
     target_effect_immunities: tuple[EffectImmunity, ...] = field(
         default_factory=tuple
     )
+    selected_avoidance_skill: Skill | None = None
 
     def __post_init__(self) -> None:
         _validate_non_empty_string(self.target_id, "target_id")
@@ -956,6 +994,11 @@ class IdentifiedHazardTarget:
             "target_effect_immunities",
             _normalize_effect_immunities(self.target_effect_immunities),
         )
+        if self.selected_avoidance_skill is not None and not isinstance(
+            self.selected_avoidance_skill,
+            Skill,
+        ):
+            raise TypeError("selected_avoidance_skill must be a Skill or None")
         _validate_target_policy_state(self.target_policy, self.target_state)
         _validate_injury_options(
             self.target_policy,
@@ -975,11 +1018,9 @@ class ZoneHazardResolutionRequest:
         _validate_non_empty_string(self.id, "Zone Hazard resolution id")
         if not isinstance(self.source, ZoneHazardRequest):
             raise TypeError("source must be a ZoneHazardRequest")
-        object.__setattr__(
-            self,
-            "targets",
-            _validate_identified_hazard_targets(self.targets),
-        )
+        targets = _validate_identified_hazard_targets(self.targets)
+        _validate_zone_hazard_skill_choices(self.source, targets)
+        object.__setattr__(self, "targets", targets)
 
 
 @dataclass(frozen=True, slots=True)
@@ -1000,6 +1041,7 @@ class ReactorZoneHazardResolutionRequest:
         target_ids = tuple(item.target_id for item in targets)
         if self.reactor_target_id not in target_ids:
             raise ValueError("Zone Hazard targets must include the reactor")
+        _validate_zone_hazard_skill_choices(self.source, targets)
         object.__setattr__(self, "targets", targets)
 
 
@@ -1319,6 +1361,24 @@ def _validate_identified_hazard_targets(
     if len(set(test_ids)) != len(test_ids):
         raise ValueError("Zone Hazard Test request ids must be unique")
     return targets
+
+
+def _validate_zone_hazard_skill_choices(
+    source: ZoneHazardRequest,
+    targets: tuple[IdentifiedHazardTarget, ...],
+) -> None:
+    allowed = source.avoidance_skills
+    for target in targets:
+        selected = target.selected_avoidance_skill
+        if len(allowed) > 1 and selected is None:
+            raise ValueError(
+                "a Zone Hazard with multiple avoidance skills requires "
+                "an explicit choice for every target"
+            )
+        if selected is not None and selected not in allowed:
+            raise ValueError(
+                "selected avoidance skill is not allowed by the Zone Hazard"
+            )
 
 
 def _validate_target_policy_state(

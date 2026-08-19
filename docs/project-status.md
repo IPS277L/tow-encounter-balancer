@@ -1,6 +1,6 @@
 # Текущий статус проекта
 
-Дата обновления: 2026-08-19.
+Дата обновления: 2026-08-20.
 
 ## Текущий этап
 
@@ -173,10 +173,42 @@ K1 — реализация книжного resolution kernel. Прототип
 - preparation-фаза теряет все накопленные Casting successes и при выбранном доступном заклинании ставит `MiscastSpellCastRequest` перед броском, добавляя к нему `+1d`;
 - реализована полная карта из 21 строки Miscast Table, RNG-бросок pool/bonus dice и `MiscastTableEffectRequest` с сохранением исходных d10, суммы, entry ID и Rule ID;
 - Miscast Pool намеренно остаётся заполненным после броска до отдельного разрешения конкретного табличного эффекта.
+- реализованы отдельные reducers для `Arcane Spill (11–12)`, `Internal Damage (31–32)`, `Zone Hazard (33–34)`, `Ears ringing (35–36)` и `Catastrophic Death (39+)`;
+- Arcane Spill использует общий repeated-Stagger/injury pipeline и сохраняет minor-Lore effect как typed GM follow-up;
+- Internal Damage различает Wounds Table для Player/Champion и профильную Wound NPC, включая существующие Wounds, modifiers и явную negation;
+- добавлен `WoundRecordOrigin.FIXED_ENTRY`: Ears ringing применяется без фиктивного броска, а уже выбранные разные цели разрешаются в стабильном порядке с магом первой целью;
+- Catastrophic Death без Wound roll фиксирует смерть, уничтожение тела и запрет reanimation, а профильного NPC переводит в defeated-состояние;
+- каждый полностью структурированный эффект проверяет source entry/pool snapshot и обнуляет Miscast Pool.
+- реализован `Unnatural Wind (21–22)`: уже выбранные разные цели обрабатываются в стабильном порядке с магом первым, обычные существа получают Prone через общий Condition reducer, Monstrosity явно исключается без мутации;
+- реализован `Zone Hazard (33–34)`: reducer создаёт общий `ZoneHazardRequest` с rating по всем фактически брошенным pool/bonus dice, привязкой к текущей Zone мага и сроком до конца боя;
+- общий Zone Hazard контракт поддерживает основной и альтернативные Skills; при нескольких вариантах каждый участник обязан явно выбрать Endurance либо Athletics до выполнения Test;
+- регистрация Hazard в spatial/battle state остаётся внешним follow-up, а уже выбранные цели исполняются существующим Zone Hazard pipeline.
+- реализован `Hideous Stench (13–14)`: уже зафиксированные разные цели обрабатываются в стабильном порядке, а доступная развилка Give Ground/`–1d` принадлежит каждой цели;
+- невозможный Give Ground автоматически создаёт `MiscastNextTestPenaltyRequest`, не вызывая decision policy; выбранное движение возвращает обычный `GiveGroundRequest`;
+- отдельный `MiscastFellowshipGrimUntilBatheRequest` относится ко всем Tests характеристики Fellowship самого мага, включая назначенный GM нестандартный Skill, и создаётся даже при отсутствии существ в Short Range;
+- после создания всех непосредственных follow-up Hideous Stench очищает Miscast Pool.
+- реализован `Spell Recast (23–24)`: casting orchestration передаёт непустой стабильный snapshot `MiscastRecentSpellOption`, а reducer выбирает один option через внедряемый RNG;
+- результат сохраняет выбранные index/option и создаёт `MiscastSpellRecastApplicationRequest` с Potency 1 без преждевременного исполнения spell effect;
+- выбор новой цели закреплён за `DecisionOwner.GM`; пустая история и повторные option IDs отклоняются до очистки Miscast Pool.
+- реализован `Truthbound (25–26)`: reducer создаёт `MiscastTruthboundUntilDowntimeRequest` для самого мага и очищает Miscast Pool;
+- эффект сохраняет только книжное ограничение «говорить правду в собственном понимании» и срок до следующего downtime, не анализируя реплики и объективную истинность.
+- реализован `Arcane Sight (27–28)`: reducer создаёт caster-scoped state до следующего полнолуния Morrslieb и очищает Miscast Pool;
+- явный `MiscastArcaneSightTestContext` различает затронутую обычную Awareness Test (Grim) и Test обнаружения магического явления (Glorious), не классифицируя Test автоматически.
+- реализован `Feared Foe Illusion (29–30)`: reducer сохраняет подготовленную narrative reference наиболее страшного врага мага и очищает Miscast Pool;
+- в бою appearance действует до battle end, вне боя требует положительную GM-длительность в минутах; смешение duration-ветвей отклоняется.
+- реализован `Daemon Rift (37)`: reducer создаёт `MiscastDaemonManifestationRequest`, привязанный к магу как источнику разрыва, и очищает Miscast Pool;
+- природа Daemon, stat block, точное размещение и начальный курс принадлежат GM; контракт неизменно сохраняет враждебность к магу и союзникам, варианты beguile/corrupt/destroy, возможность немедленного действия либо бегства и оба события возврата в Realm of Chaos.
+- реализован `Fascinating Rift (38)`: reducer принимает выбранную GM Zone в Long Range и стабильный снимок свидетелей, разрешает их слева направо и очищает Miscast Pool;
+- каждый незаблокированный свидетель проходит общий Willpower Test с книжным `−1d`; провал создаёт привязанный к порталу compulsion, а психологическая иммунность отменяет Test до расхода RNG;
+- portal contract фиксирует закрытие только после входа кого-либо или выхода чего-либо; физическое удержание блокирует вход, не снимая compulsion автоматически.
+- реализован `Sunlight Blindness (19–20)`: reducer создаёт caster-scoped `MiscastSunlightBlindnessUntilDowntimeRequest` и очищает Miscast Pool;
+- типизированная illumination policy исключает sunlight/other natural light, разрешает torchlight/other artificial/arcane illumination и сохраняет режим «как глубокой ночью» без общей Blinded Condition или придуманного числового штрафа.
+- реализован `Random Transport (17–18)`: reducer выбирает через внедряемый RNG один элемент стабильного непустого snapshot допустимых Medium Range Zone и очищает Miscast Pool;
+- typed relocation сохраняет origin, выбранные index/destination и Rule ID без мутации карты; пустой snapshot, повторные Zone и текущая Zone отклоняются до броска.
 
 ## Проверено
 
-- 241 unit/integration тест успешно проходит на Python 3.12, из них 221 относится к K1;
+- 272 unit/integration тестов успешно проходят на Python 3.12, из них 252 относятся к K1;
 - исходники и тесты успешно проходят `compileall`.
 
 ## Исходный материал
@@ -203,25 +235,35 @@ K1 — реализация книжного resolution kernel. Прототип
 - battle loop ещё должен вызывать Stupidity entry points после каждой принятой Wound/снятия Distracted и создавать свежее Ability-state в начале следующего боя;
 - общий `ConditionState` пока не хранит источник или объект Distracted; Stupidity компенсирует это собственным source-aware состоянием, но полная replacement-семантика требует будущего решения;
 - полный casting pipeline ещё должен накапливать Casting successes, вычислять base Potency, запускать target-scoped Potency preflight и не создавать spell effects для `has_effect=False`;
-- конкретные эффекты 21 строки Miscast Table и очистка пула после каждого из них ещё не реализованы; текущий pipeline останавливается на `MiscastTableEffectRequest`;
+- пятнадцать строк Miscast Table исполняются и очищают пул; остальные 6 строк ещё требуют собственных reducers либо typed follow-up contracts;
+- battle loop пока не регистрирует и не переиспользует persistent Zone Hazards автоматически; Miscast reducer возвращает достаточный source/anchor/persistence contract для этого слоя;
+- battle/effect state пока не применяет и не погашает next-Test penalty Hideous Stench и не снимает caster Fellowship effect по событию купания; reducer возвращает типизированные запросы для этих границ;
+- понятие «recently», веса повторных spell и пустой случай Spell Recast требуют GM/simulation policy; текущий reducer не очищает пул при пустом snapshot;
+- campaign/effect state пока не регистрирует Truthbound и не снимает его на границе downtime; semantic judgement конкретных реплик намеренно остаётся внешним;
+- campaign/effect state пока не отслеживает полнолуние Morrslieb и не снимает Arcane Sight; применимость слова `most` к обычной Awareness Test сообщает внешний context;
+- battle/campaign state пока не регистрирует appearance Feared Foe Illusion и не отсчитывает внешнюю minute duration; feared-foe reference и «few minutes» определяет GM/orchestration;
+- battle/campaign state пока не создаёт Daemon по `MiscastDaemonManifestationRequest`, не выбирает его stat block/размещение/начальный курс, не планирует немедленное действие и не отслеживает возврат в Realm of Chaos;
+- spatial/battle state пока не выбирает и не регистрирует портал Fascinating Rift, не обнаруживает свидетелей, не исполняет compelled movement/restraint и не отправляет события входа/выхода для закрытия;
+- campaign/scene state пока не регистрирует Sunlight Blindness до downtime и не классифицирует фактические источники освещения сцены;
+- spatial state пока не строит eligible Zone snapshot для Random Transport и не применяет выбранный relocation;
 - профильные Wounds пока не хранят provenance огня; обычная и Monstrous Regeneration получают только явный снимок наличия хотя бы одной допустимой неогненной Wound;
-- психологическая иммунность undead-профилей подключена к боевым Condition/Hazard-фазам и `Curse of Cowardly Flight`; остальные конкретные non-Condition эффекты требуют отдельного анализа;
+- психологическая иммунность undead-профилей подключена к боевым Condition/Hazard-фазам, `Curse of Cowardly Flight` и `Fascinating Rift`; остальные конкретные non-Condition эффекты требуют отдельного анализа;
 - Monte Carlo, JSON, CLI и балансировщик ещё не входят в текущий срез.
 
 ## Следующий шаг
 
-Классифицировать 21 `MiscastTableEntryId` по уже существующим примитивам и реализовать первую детерминированную группу effect reducers: собственный Staggered (`11–12`), собственная Wound (`31–32`), фиксированная `Ears ringing` Wound для целей (`35–36`) и смерть мага (`39+`). Каждый завершённый эффект должен обнулять Miscast Pool; spatial/random/GM-choice строки пока возвращать отдельными typed follow-up, а не скрытые defaults.
+Реализовать `Unnatural Weather (15–16)` как GM-owned эффект локальной области. Книга не задаёт точную площадь, длительность или числовые последствия, поэтому reducer должен сохранить примеры внезапной malefic storm/frigid snow и источник, не изобретая Hazard либо modifiers.
 
 ## Последняя проверка
 
-2026-08-19:
+2026-08-20:
 
 ```powershell
 $env:PYTHONPATH = "src"
 py -3.12 -m unittest discover -s tests -v
 ```
 
-Результат: `Ran 241 tests ... OK`.
+Результат: `Ran 272 tests ... OK`.
 
 ```powershell
 py -3.12 -m compileall -q src tests tools

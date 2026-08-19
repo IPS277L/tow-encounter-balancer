@@ -98,11 +98,14 @@ def hazard_exposure(
     source: ZoneHazardRequest,
     target: IdentifiedHazardTarget,
 ) -> HazardExposureRequest:
+    avoidance_skill = (
+        target.selected_avoidance_skill or source.avoidance_skill
+    )
     return HazardExposureRequest(
         resolution_id=source.resolution_id,
         test_id=target.avoidance_test.id,
         rating=source.rating,
-        avoidance_skill=source.avoidance_skill,
+        avoidance_skill=avoidance_skill,
         rule_id=source.rule_id,
         inflicts_wound=source.inflicts_wound,
         failure_conditions=source.failure_conditions,

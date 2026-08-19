@@ -7,6 +7,8 @@ from towr.domain.injury_models import (
     CharacterInjuryState,
     CharacterWoundRequest,
     CharacterWoundResult,
+    FixedCharacterWoundRequest,
+    FixedCharacterWoundResult,
     ProfileInjuryState,
     ProfileStateChangeRequest,
     ProfileWoundRequest,
@@ -14,6 +16,7 @@ from towr.domain.injury_models import (
     WoundEffectRequest,
     WoundNegationOption,
     WoundRecord,
+    WoundRecordOrigin,
     WoundTableRoll,
 )
 from towr.rules.dice import RandomSource
@@ -108,6 +111,48 @@ def resolve_character_wound(
             rule_id=f"RULE-WOUND-TABLE:{entry.id.value}",
         ),
         applied_rule_ids=modifier_rule_ids,
+    )
+
+
+def resolve_fixed_character_wound(
+    request: FixedCharacterWoundRequest,
+) -> FixedCharacterWoundResult:
+    """Apply a named Wounds Table entry without inventing a dice roll."""
+
+    if request.state.dead:
+        raise ValueError("a dead character cannot suffer another Wound")
+    entry = lookup_wound(request.table_total)
+    if entry.id is not request.entry_id:
+        raise ValueError("fixed Wound entry must match its table total")
+
+    sequence = len(request.state.wounds) + 1
+    wound = WoundRecord(
+        sequence=sequence,
+        entry_id=entry.id,
+        table_total=request.table_total,
+        roll_values=(),
+        origin=WoundRecordOrigin.FIXED_ENTRY,
+    )
+    state = CharacterInjuryState(
+        wounds=(*request.state.wounds, wound),
+        conditions=request.state.conditions.without_condition(
+            Condition.STAGGERED
+        ),
+        active_wound_effects=request.state.active_wound_effects,
+        dead=entry.lethal,
+    )
+    return FixedCharacterWoundResult(
+        request_id=request.id,
+        subject_type=request.subject_type,
+        state=state,
+        entry=entry,
+        effect_request=WoundEffectRequest(
+            id=f"{request.id}:effect",
+            wound_sequence=sequence,
+            entry_id=entry.id,
+            rule_id=f"RULE-WOUND-TABLE:{entry.id.value}",
+        ),
+        applied_rule_ids=(request.source_rule_id,),
     )
 
 

@@ -80,7 +80,7 @@
 | ID | Источник | Классификация | Находка | Влияние/действие | Статус |
 |---|---|---|---|---|---|
 | AUDIT-001 | обе книги | DEFINITION | Актуальные версии — Player’s Guide 1.4 и Gamemaster’s Guide 1.1 | Версии закреплены в реестре и этом журнале | resolved |
-| AUDIT-002 | Player’s Guide 1.4, 157–159 | RULE | Miscast теряет накопленные Casting successes; немедленное заклинание перед таблицей добавляет `+1d`; диапазоны `21–22` и `23–24` не пересекаются | Реализован pipeline до typed table-effect request; `AMBIGUITY-003` закрыта | resolved |
+| AUDIT-002 | Player’s Guide 1.4, 114, 157–159 | RULE | Miscast теряет накопленные Casting successes; немедленное заклинание перед таблицей добавляет `+1d`; диапазоны `21–22` и `23–24` не пересекаются | Реализован pipeline и первые пятнадцать table-effect reducers; `AMBIGUITY-003` закрыта | resolved |
 | AUDIT-003 | Gamemaster’s Guide 1.1 | DEFINITION | Новая пагинация отличается от прежнего локального файла | Все ссылки и весь диапазон 1–192 семантически перепроверены по текущему файлу | resolved |
 | AUDIT-004 | Player’s Guide 1.4, 11 | DEFINITION/RULE | Определены d10, сумма `Nd10` и d100 с `00 = 100` | Добавлен `RULE-DICE-001`; d100 пока не реализован | recorded |
 | AUDIT-005 | Player’s Guide 1.4, 12 | DEFINITION/RULE | Exacting Test накапливает успехи нескольких Tests во времени | Добавлен draft `RULE-TEST-007`; общий lifecycle отсутствует | recorded |
@@ -148,4 +148,4 @@
 
 ## Следующий шаг после аудита
 
-Аудит сверен с traceability, roadmap и project status. Следующий минимальный implementation slice — детерминированные эффекты Miscast Table (`11–12`, `31–32`, `35–36`, `39+`) и очистка Miscast Pool после полностью разрешённого эффекта. Пространственные, случайные и GM-choice строки должны пока возвращать отдельные typed follow-up без скрытых defaults.
+Аудит сверен с traceability, roadmap и project status. Реализованы первые пятнадцать эффектов Miscast Table (`11–14`, `17–39+`) и очистка Miscast Pool. Текущий следующий шаг указан в `project-status.md`; пространственные, случайные и GM-choice строки должны возвращать отдельные typed follow-up без скрытых defaults.

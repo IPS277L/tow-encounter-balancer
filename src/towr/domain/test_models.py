@@ -4,6 +4,15 @@ from dataclasses import dataclass, field
 from enum import Enum
 
 
+class Characteristic(str, Enum):
+    STRENGTH = "strength"
+    TOUGHNESS = "toughness"
+    INITIATIVE = "initiative"
+    AGILITY = "agility"
+    REASON = "reason"
+    FELLOWSHIP = "fellowship"
+
+
 class Skill(str, Enum):
     MELEE = "melee"
     DEFENCE = "defence"

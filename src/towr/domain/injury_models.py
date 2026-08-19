@@ -53,6 +53,11 @@ class CharacterWoundType(str, Enum):
     CHAMPION = "champion"
 
 
+class WoundRecordOrigin(str, Enum):
+    TABLE_ROLL = "table_roll"
+    FIXED_ENTRY = "fixed_entry"
+
+
 class MonstrosityImpactChoice(str, Enum):
     SUFFER_WOUND = "suffer_wound"
     TRIGGER_REACTION = "trigger_reaction"
@@ -61,6 +66,7 @@ class MonstrosityImpactChoice(str, Enum):
 class DecisionOwner(str, Enum):
     ACTOR = "actor"
     ATTACKER = "attacker"
+    GM = "gm"
     MONSTROSITY = "monstrosity"
     TARGET = "target"
 
@@ -178,6 +184,7 @@ class WoundRecord:
     roll_values: tuple[int, ...]
     treated: bool = False
     effect_resolved: bool = False
+    origin: WoundRecordOrigin = WoundRecordOrigin.TABLE_ROLL
 
     def __post_init__(self) -> None:
         _validate_positive_int(self.sequence, "wound sequence")
@@ -185,11 +192,15 @@ class WoundRecord:
             raise TypeError("entry_id must be a WoundEntryId")
         _validate_positive_int(self.table_total, "table_total")
         values = tuple(self.roll_values)
-        if not values:
-            raise ValueError("roll_values must not be empty")
+        if not isinstance(self.origin, WoundRecordOrigin):
+            raise TypeError("origin must be a WoundRecordOrigin")
+        if self.origin is WoundRecordOrigin.TABLE_ROLL and not values:
+            raise ValueError("a table-roll Wound must retain roll_values")
+        if self.origin is WoundRecordOrigin.FIXED_ENTRY and values:
+            raise ValueError("a fixed-entry Wound must not invent roll_values")
         if any(not isinstance(value, int) or not 1 <= value <= 10 for value in values):
             raise ValueError("roll_values must contain d10 results")
-        if sum(values) != self.table_total:
+        if values and sum(values) != self.table_total:
             raise ValueError("table_total must equal the sum of roll_values")
         object.__setattr__(self, "roll_values", values)
         _validate_bool(self.treated, "treated")
@@ -295,6 +306,27 @@ class CharacterWoundRequest:
         option_ids = tuple(item.rule_id for item in self.negation_options)
         if len(set(option_ids)) != len(option_ids):
             raise ValueError("negation option rule IDs must be unique")
+
+
+@dataclass(frozen=True, slots=True)
+class FixedCharacterWoundRequest:
+    id: str
+    state: CharacterInjuryState
+    entry_id: WoundEntryId
+    table_total: int
+    source_rule_id: str
+    subject_type: CharacterWoundType = CharacterWoundType.PLAYER
+
+    def __post_init__(self) -> None:
+        _validate_request_id(self.id, "fixed character Wound request")
+        if not isinstance(self.state, CharacterInjuryState):
+            raise TypeError("state must be a CharacterInjuryState")
+        if not isinstance(self.entry_id, WoundEntryId):
+            raise TypeError("entry_id must be a WoundEntryId")
+        _validate_positive_int(self.table_total, "table_total")
+        _validate_rule_id(self.source_rule_id)
+        if not isinstance(self.subject_type, CharacterWoundType):
+            raise TypeError("subject_type must be a CharacterWoundType")
 
 
 @dataclass(frozen=True, slots=True)
@@ -424,6 +456,16 @@ class CharacterWoundResult:
     wound_accepted: bool
     negated_by_rule_id: str | None
     effect_request: WoundEffectRequest | None
+    applied_rule_ids: tuple[str, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class FixedCharacterWoundResult:
+    request_id: str
+    subject_type: CharacterWoundType
+    state: CharacterInjuryState
+    entry: WoundTableEntry
+    effect_request: WoundEffectRequest
     applied_rule_ids: tuple[str, ...]
 
 
