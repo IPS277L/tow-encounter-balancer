@@ -34,6 +34,10 @@ from towr.domain.injury_models import (
     WoundEnduranceTestRequest,
     WoundNegationOption,
 )
+from towr.domain.magic_models import (
+    SpellCastExecutionResult,
+    SpellEffectApplicationRequest,
+)
 from towr.domain.npc_effect_models import DropHeldHandItemRequest
 from towr.domain.test_models import Skill, TestRequest, TestResult
 
@@ -630,6 +634,65 @@ class HazardImpactResult:
 
 
 @dataclass(frozen=True, slots=True)
+class CowardlyFlightSpellEffectRequest:
+    """Provide target context for an already prepared spell effect."""
+
+    source: SpellEffectApplicationRequest
+    can_give_ground: bool
+    willpower_test: TestRequest
+    target_state: TargetInjuryState
+    target_effect_immunities: tuple[EffectImmunity, ...] = field(
+        default_factory=tuple
+    )
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.source, SpellEffectApplicationRequest):
+            raise TypeError("source must be a SpellEffectApplicationRequest")
+        _validate_bool(self.can_give_ground, "can_give_ground")
+        if not isinstance(self.willpower_test, TestRequest):
+            raise TypeError("willpower_test must be a TestRequest")
+        if not isinstance(
+            self.target_state,
+            (CharacterInjuryState, ProfileInjuryState),
+        ):
+            raise TypeError("target_state must be a TargetInjuryState")
+        object.__setattr__(
+            self,
+            "target_effect_immunities",
+            _normalize_effect_immunities(self.target_effect_immunities),
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class CowardlyFlightZoneBatchRequest:
+    id: str
+    source: SpellCastExecutionResult
+    contexts: tuple[CowardlyFlightSpellEffectRequest, ...]
+    rule_id: str = "RULE-MAGIC-001:curse-of-cowardly-flight"
+
+    def __post_init__(self) -> None:
+        _validate_non_empty_string(self.id, "Cowardly Flight Zone batch id")
+        if not isinstance(self.source, SpellCastExecutionResult):
+            raise TypeError("source must be a SpellCastExecutionResult")
+        contexts = tuple(self.contexts)
+        if not all(
+            isinstance(item, CowardlyFlightSpellEffectRequest)
+            for item in contexts
+        ):
+            raise TypeError(
+                "contexts must contain CowardlyFlightSpellEffectRequest values"
+            )
+        target_ids = tuple(item.source.target_id for item in contexts)
+        if len(set(target_ids)) != len(target_ids):
+            raise ValueError("Cowardly Flight context target IDs must be unique")
+        test_ids = tuple(item.willpower_test.id for item in contexts)
+        if len(set(test_ids)) != len(test_ids):
+            raise ValueError("Cowardly Flight Willpower Test IDs must be unique")
+        object.__setattr__(self, "contexts", contexts)
+        _validate_non_empty_string(self.rule_id, "rule_id")
+
+
+@dataclass(frozen=True, slots=True)
 class CowardlyFlightRequest:
     """Apply Curse of Cowardly Flight to one already selected enemy."""
 
@@ -713,6 +776,42 @@ class CowardlyFlightResult:
 
 
 @dataclass(frozen=True, slots=True)
+class CowardlyFlightMovementFollowUp:
+    target_id: str
+    request: GiveGroundRequest
+
+    def __post_init__(self) -> None:
+        _validate_non_empty_string(self.target_id, "movement target_id")
+        if not isinstance(self.request, GiveGroundRequest):
+            raise TypeError("request must be a GiveGroundRequest")
+
+
+@dataclass(frozen=True, slots=True)
+class CowardlyFlightMovementCompletion:
+    """Confirm that spatial orchestration completed one requested movement."""
+
+    source: CowardlyFlightMovementFollowUp
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.source, CowardlyFlightMovementFollowUp):
+            raise TypeError("source must be a CowardlyFlightMovementFollowUp")
+
+
+@dataclass(frozen=True, slots=True)
+class CowardlyFlightZoneBatchResult:
+    request_id: str
+    source_execution_id: str
+    caster_id: str
+    spell_rule_id: str
+    lore_id: str
+    selected_zone_id: str
+    targets: tuple[CowardlyFlightResult, ...]
+    movement_follow_ups: tuple[CowardlyFlightMovementFollowUp, ...]
+    willpower_follow_ups: tuple[CowardlyFlightWillpowerRequest, ...]
+    applied_rule_ids: tuple[str, ...]
+
+
+@dataclass(frozen=True, slots=True)
 class CowardlyFlightWillpowerResult:
     request_id: str
     target_id: str
@@ -720,6 +819,51 @@ class CowardlyFlightWillpowerResult:
     resisted: bool
     state: TargetInjuryState
     condition_application: ConditionApplicationResult | None
+    applied_rule_ids: tuple[str, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class CowardlyFlightWillpowerBatchRequest:
+    id: str
+    source: CowardlyFlightZoneBatchResult
+    movement_completions: tuple[CowardlyFlightMovementCompletion, ...]
+    rule_id: str = "RULE-MAGIC-001:curse-of-cowardly-flight"
+
+    def __post_init__(self) -> None:
+        _validate_non_empty_string(self.id, "Cowardly Flight Willpower batch id")
+        if not isinstance(self.source, CowardlyFlightZoneBatchResult):
+            raise TypeError("source must be a CowardlyFlightZoneBatchResult")
+        completions = tuple(self.movement_completions)
+        if not all(
+            isinstance(item, CowardlyFlightMovementCompletion)
+            for item in completions
+        ):
+            raise TypeError(
+                "movement_completions must contain "
+                "CowardlyFlightMovementCompletion values"
+            )
+        resolution_ids = tuple(
+            item.source.request.resolution_id for item in completions
+        )
+        if len(set(resolution_ids)) != len(resolution_ids):
+            raise ValueError(
+                "Cowardly Flight movement completion IDs must be unique"
+            )
+        object.__setattr__(self, "movement_completions", completions)
+        _validate_non_empty_string(self.rule_id, "rule_id")
+
+
+@dataclass(frozen=True, slots=True)
+class CowardlyFlightWillpowerBatchResult:
+    request_id: str
+    source_batch_id: str
+    source_execution_id: str
+    caster_id: str
+    spell_rule_id: str
+    lore_id: str
+    selected_zone_id: str
+    completed_movements: tuple[CowardlyFlightMovementCompletion, ...]
+    targets: tuple[CowardlyFlightWillpowerResult, ...]
     applied_rule_ids: tuple[str, ...]
 
 

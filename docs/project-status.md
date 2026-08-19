@@ -161,6 +161,28 @@ K1 — реализация книжного resolution kernel. Прототип
 - Rule of Nine учитывает девятки после допустимых перебросов и отклоняет trace, в котором исходную девятку перебросили вопреки книге.
 - добавлен source-aware `RerollLock`, который заранее исключает девятку из Glorious choices и автоматических Grim rerolls без отдельного магического dice resolver;
 - нормализован `RULE-MAGIC-004` для Miscast Pool по страницам 157–159 Player’s Guide;
+- реализован `CastingTestRequest → CastingTestResult`: общий Test автоматически получает Rule of Nine lock, а successes накапливаются в `WizardMagicState`;
+- активная Casting-попытка хранит объявленный Lore и successes последнего броска для будущей base Potency; даже нулевой бросок сохраняет Lore, а его смена до завершения запрещена;
+- финальные девятки создают один source-aware `MiscastPoolIncreaseRequest`, напрямую совместимый с существующим threshold resolver; Miscast preparation очищает весь Casting snapshot;
+- реализован `CastingDecisionRequest → CastingDecisionResult`: `WAIT` сохраняет активный Casting snapshot, а `CAST` требует spell того же Lore и накопленных successes не меньше CV;
+- normal `CAST` создаёт общий `SpellCastRequest` с base Potency последнего броска и очищает только Casting snapshot; pending Miscast блокирует normal decision, равенство pool уровню — нет;
+- тот же `CastingSpellSelection`/`SpellCastRequest` используется заклинанием перед Miscast, поэтому эта ветвь также сохраняет Lore и base Potency;
+- base Potency 0 разрешена при достаточной накопленной сумме и через общий Potency reducer даёт `has_effect=False` без вымышленного spell effect;
+- добавлены `FormalSpellDefinition`, `SpellTargetKind`, `SpellRange`, `SpellDuration` и первый книжный definition `Curse of Cowardly Flight`: `CV 3`, Battle Magic, `Zone`, `Long`, `Instant`;
+- реализован `SpellTargetPreflightRequest → SpellTargetPreflightResult`: Rule ID/Lore/CV сверяются с definition, неверный subject type и внешний out-of-range факт закрываются до Potency;
+- выбранная Zone отделена от списка затронутых врагов, поэтому валидный пустой affected-target snapshot проходит preflight без искусственной цели;
+- реализован `SpellCastExecutionRequest → SpellCastExecutionResult`: boundary принимает снимок уникальных affected targets в стабильном порядке и независимо разрешает Potency каждой цели;
+- каждый target result сохраняется даже при effective Potency 0, но общий `SpellEffectApplicationRequest` создаётся только при `has_effect=True`;
+- effect request переносит cast/caster/spell/lore/target/effective Potency к следующему конкретному reducer, не проверяя spatial Range/schema и не исполняя универсальный spell effect;
+- `CowardlyFlightSpellEffectRequest` подключает первый formal spell к общему effect follow-up и принимает уже подготовленные movement/Test/injury/immunity snapshots цели;
+- адаптер отклоняет чужой либо несовпадающий spell/source Rule ID и переносит target-local effective Potency в существующий `CowardlyFlightRequest`;
+- сквозной тест подтверждает цепочку cast target → Magic Resistance/Potency → Give Ground → Willpower, сохраняя source-level психологическую иммунность;
+- `SpellCastExecutionResult` сохраняет selected subject, caster, spell Rule ID и Lore даже для пустого affected-target batch;
+- реализован `CowardlyFlightZoneBatchRequest → CowardlyFlightZoneBatchResult`: положительные effects строго сопоставляются с контекстами по target ID, а выход восстанавливает исходный порядок Zone;
+- missing/extra/duplicate/forged contexts и повторные Willpower Test IDs отклоняются; цель с effective Potency 0 контекста не требует;
+- batch корректно принимает пустую Zone и отдельно возвращает movement и Willpower очереди; `CowardlyFlightMovementFollowUp` сохраняет target ID общего Give Ground без разбора строк, spatial movement и Test не исполняются преждевременно;
+- `CowardlyFlightMovementCompletion` типизированно подтверждает исполнение конкретного movement follow-up; Willpower batch принимает подтверждения в любом порядке, но требует их точного полного набора до обращения к RNG;
+- stable Willpower batch перепроверяет целостность movement/Test очередей, выполняет Tests общим RNG в affected-target порядке и сохраняет Zone/caster/spell/Lore provenance; цель без возможного Give Ground всё равно проверяется, пустая Zone не расходует RNG;
 - `WizardMagicState` хранит текущие Miscast dice и накопленные successes Exacting Casting Test, тогда как неизменяемый Wizard Level остаётся явным входом resolver;
 - применение `MiscastPoolIncreaseRequest` различает безопасное равенство уровню и строгое превышение, сохраняет provenance и создаёт `MiscastRollRequest` на весь накопленный пул;
 - сработавший пул не очищается и не принимает новые кубы до результата таблицы, поскольку книга обнуляет его только после разрешения эффекта;
@@ -170,7 +192,7 @@ K1 — реализация книжного resolution kernel. Прототип
 - созданы нормализованные каталоги создания и развития персонажа, Contacts, Skills, Talents, Lores, Equipment, Fate, Downtime, Faith, Spells, Corruption, Magic Items и всех NPC profiles GM Guide;
 - повторно проверенные K1-правила Tests, Wounds, NPC injury policies, undead immunity, Monstrosity Reactions, Troll effects и Miscast lifecycle согласуются с выбранными редакциями; выявленные отсутствующие механики отражены в traceability, а не подменены прототипом;
 - `AMBIGUITY-003` закрыта актуальной страницей 159: диапазоны исправлены на `21–22` и `23–24`;
-- preparation-фаза теряет все накопленные Casting successes и при выбранном доступном заклинании ставит `MiscastSpellCastRequest` перед броском, добавляя к нему `+1d`;
+- preparation-фаза теряет весь Casting snapshot и при выбранном доступном заклинании ставит общий `SpellCastRequest` перед броском, добавляя к нему `+1d`;
 - реализована полная карта из 21 строки Miscast Table, RNG-бросок pool/bonus dice и `MiscastTableEffectRequest` с сохранением исходных d10, суммы, entry ID и Rule ID;
 - Miscast Pool намеренно остаётся заполненным после броска до отдельного разрешения конкретного табличного эффекта.
 - реализованы отдельные reducers для `Arcane Spill (11–12)`, `Internal Damage (31–32)`, `Zone Hazard (33–34)`, `Ears ringing (35–36)` и `Catastrophic Death (39+)`;
@@ -220,7 +242,7 @@ K1 — реализация книжного resolution kernel. Прототип
 
 ## Проверено
 
-- 284 unit/integration теста успешно проходят на Python 3.12, из них 264 относятся к K1;
+- 334 unit/integration теста успешно проходят на Python 3.12, из них 314 относятся к K1;
 - исходники и тесты успешно проходят `compileall`.
 
 ## Исходный материал
@@ -246,7 +268,7 @@ K1 — реализация книжного resolution kernel. Прототип
 - K1-фабрики Soporific Breath, Troll Vomit и Swamp Breath не расходуют действие, не проверяют Staggered/дальность и не выбирают цель или Zone без battle orchestration;
 - battle loop ещё должен вызывать Stupidity entry points после каждой принятой Wound/снятия Distracted и создавать свежее Ability-state в начале следующего боя;
 - общий `ConditionState` пока не хранит источник или объект Distracted; Stupidity компенсирует это собственным source-aware состоянием, но полная replacement-семантика требует будущего решения;
-- полный casting pipeline ещё должен накапливать Casting successes, вычислять base Potency, запускать target-scoped Potency preflight и не создавать spell effects для `has_effect=False`;
+- casting pipeline уже накапливает successes, привязывает их к Lore, разрешает normal CAST/WAIT, schema/Range preflight, target-scoped Potency и конкретный эффект `Curse of Cowardly Flight` через явные фазовые границы; NPC opposition orchestration, spatial target discovery и применение результатов к общему battle state ещё не соединены в battle executor;
 - каждая строка Miscast Table исполняется собственным reducer и очищает пул после структурного разрешения;
 - battle loop пока не регистрирует и не переиспользует persistent Zone Hazards автоматически; Miscast reducer возвращает достаточный source/anchor/persistence contract для этого слоя;
 - battle/effect state пока не применяет и не погашает next-Test penalty Hideous Stench и не снимает caster Fellowship effect по событию купания; reducer возвращает типизированные запросы для этих границ;
@@ -270,7 +292,7 @@ K1 — реализация книжного resolution kernel. Прототип
 
 ## Следующий шаг
 
-Реализовать первый срез полного Casting Test lifecycle: выполнить общий Test с Rule of Nine reroll lock, накопить successes в `WizardMagicState`, сохранить successes последнего броска как будущую base Potency и создать source-aware `MiscastPoolIncreaseRequest` по финальным девяткам. Выбор cast/wait и применение spell effect пока оставить следующей фазе.
+Спроектировать и реализовать минимальный typed spatial contract для Zone graph, размещения существ и фактического `GiveGroundRequest`: проверить соседство/допустимость выхода, лимит один раз за round и Broken при входе во вражескую Zone, затем выдавать `CowardlyFlightMovementCompletion` только после успешной мутации размещения. Не переносить в spatial layer правила Willpower или конкретного заклинания.
 
 ## Последняя проверка
 
@@ -281,7 +303,7 @@ $env:PYTHONPATH = "src"
 py -3.12 -m unittest discover -s tests -v
 ```
 
-Результат: `Ran 284 tests ... OK`.
+Результат: `Ran 334 tests ... OK`.
 
 ```powershell
 py -3.12 -m compileall -q src tests tools

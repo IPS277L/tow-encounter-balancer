@@ -7,8 +7,8 @@ from towr.domain.magic_models import (
     MiscastPreparationResult,
     MiscastRollRequest,
     MiscastRollResult,
-    MiscastSpellCastRequest,
     MiscastTableEffectRequest,
+    SpellCastRequest,
     WizardMagicState,
 )
 from towr.rules.dice import RandomSource
@@ -25,16 +25,18 @@ def prepare_miscast(
         resolution_id=f"{request.id}:roll",
         bonus_dice=bonus_dice,
     )
-    follow_ups: tuple[MiscastSpellCastRequest | MiscastRollRequest, ...]
+    follow_ups: tuple[SpellCastRequest | MiscastRollRequest, ...]
     if spell is None:
         follow_ups = (roll_request,)
     else:
         follow_ups = (
-            MiscastSpellCastRequest(
+            SpellCastRequest(
                 resolution_id=f"{request.id}:cast-before-miscast",
-                target_id=request.source.target_id,
+                caster_id=request.source.target_id,
                 spell_rule_id=spell.spell_rule_id,
+                lore_id=spell.lore_id,
                 casting_value=spell.casting_value,
+                base_potency=request.state.latest_casting_roll_successes,
                 rule_id=request.rule_id,
             ),
             roll_request,
@@ -42,7 +44,12 @@ def prepare_miscast(
     return MiscastPreparationResult(
         request_id=request.id,
         target_id=request.source.target_id,
-        state=replace(request.state, casting_successes=0),
+        state=replace(
+            request.state,
+            casting_successes=0,
+            casting_lore_id=None,
+            latest_casting_roll_successes=0,
+        ),
         previous_casting_successes=request.state.casting_successes,
         follow_ups=follow_ups,
         applied_rule_ids=(request.rule_id,),
@@ -58,10 +65,9 @@ def resolve_miscast_roll(
         raise TypeError("state must be a WizardMagicState")
     if state.miscast_dice != request.pool_dice_count:
         raise ValueError("Miscast Pool state must match the roll request")
-    if state.casting_successes:
+    if state.casting_lore_id is not None:
         raise ValueError(
-            "accumulated Casting successes must be resolved before the "
-            "Miscast roll"
+            "the active Casting Test must be resolved before the Miscast roll"
         )
 
     values = tuple(rng.randint(1, 10) for _ in range(request.dice_count))

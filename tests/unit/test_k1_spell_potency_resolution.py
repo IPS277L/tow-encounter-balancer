@@ -55,6 +55,19 @@ class K1SpellPotencyResolutionTests(unittest.TestCase):
         self.assertEqual(result.effective_potency, 0)
         self.assertFalse(result.has_effect)
 
+    def test_zero_base_potency_has_no_effect_without_a_modifier(self) -> None:
+        result = resolve_spell_potency(
+            SpellPotencyRequest(
+                id="spell:zero-potency",
+                spell_rule_id="RULE-SPELL:test",
+                target_id="target",
+                base_potency=0,
+            )
+        )
+
+        self.assertEqual(result.effective_potency, 0)
+        self.assertFalse(result.has_effect)
+
     def test_other_targets_keep_the_cast_spells_base_potency(self) -> None:
         result = resolve_spell_potency(
             SpellPotencyRequest(

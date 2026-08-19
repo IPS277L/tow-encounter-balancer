@@ -31,6 +31,8 @@
 
 Источник: Player’s Guide 1.4, страница 155. Страницы 152–154 классифицированы как `LORE/SETTING`: преследование Wizards, Hexenguilde, Dhar и восемь Winds сами по себе не создают Test modifiers или corruption без отдельного правила.
 
+K1 представляет этот контракт как неизменяемый `FormalSpellDefinition` с типизированными `SpellTargetKind`, `SpellRange` и `SpellDuration`. Первый экземпляр — `Curse of Cowardly Flight`: `CV 3`, Battle Magic, `Zone`, `Long`, `Instant`. `SpellTargetPreflightRequest` сверяет Rule ID/Lore/CV уже созданного `SpellCastRequest` с определением и возвращает `INVALID_TARGET_KIND` либо `OUT_OF_RANGE` без target execution. Фактический spatial layer сообщает готовый факт `target_within_range` и выбранный subject ID; reducer не вычисляет расстояния самостоятельно.
+
 ## RULE-MAGIC-001 — Curse of Cowardly Flight
 
 Источник: Player’s Guide, страница 162.
@@ -48,13 +50,23 @@ K1 принимает одну уже выбранную цель как `Coward
 - `GiveGroundRequest`, только если движение возможно;
 - `CowardlyFlightWillpowerRequest` всегда, даже если Give Ground невозможен.
 
-Второй resolver вызывается после исполнения предыдущего movement follow-up. Успехи, равные Potency, достаточны для сопротивления; при недостатке успехов общий Condition reducer добавляет Broken и сохраняет Rule ID заклинания. Проверка casting value, выбор Zone, расход действия, Miscast и исполнение пространственного перемещения не входят в этот срез.
+Индивидуальный Willpower resolver вызывается только после исполнения movement follow-up. Успехи, равные Potency, достаточны для сопротивления; при недостатке успехов общий Condition reducer добавляет Broken и сохраняет Rule ID заклинания. Проверка casting value, выбор Zone, расход действия, Miscast и исполнение пространственного перемещения не входят в этот срез.
+
+Общий casting pipeline сначала проверяет выбранную Zone через spell-schema preflight, затем подключается к эффекту через `CowardlyFlightSpellEffectRequest`. Узкий адаптер принимает только `SpellEffectApplicationRequest` с Rule ID этого заклинания, переносит его target-local effective Potency и уже подготовленный контекст цели в существующий `CowardlyFlightRequest`. Другой spell Rule ID или несовпадающий source Rule ID отклоняется; автоматической диспетчеризации произвольных заклинаний нет.
+
+`CowardlyFlightZoneBatchRequest` принимает завершённый `SpellCastExecutionResult` и по одному контексту для каждой цели, у которой effective Potency положительна. Контексты можно передать в любом порядке, но batch сопоставляет их по target ID и возвращает результаты в исходном порядке affected targets. Пропущенный, лишний, повторный или ссылающийся на иной effect context отклоняется; цели с effective Potency 0 контекста не требуют. Пустая Zone создаёт пустой корректный batch. Результат отдельно группирует target-tagged `CowardlyFlightMovementFollowUp` и уже адресованные `willpower_follow_ups`, чтобы battle orchestration завершал все требуемые перемещения до следующей Test-фазы без разбора строковых resolution IDs.
+
+Spatial orchestration подтверждает завершение каждого созданного movement через `CowardlyFlightMovementCompletion`. `CowardlyFlightWillpowerBatchRequest` принимает эти подтверждения в любом порядке, но требует точного соответствия исходной movement-очереди: missing, extra, duplicate и структурно подменённые подтверждения отклоняются до RNG. После gate все Willpower Tests исполняются одним переданным RNG в стабильном affected-target порядке; результаты Broken возвращаются в том же порядке. Цель, которая не могла Give Ground, всё равно проходит Test без movement confirmation, а пустая Zone завершается без RNG. Фактическая смена Zone остаётся ответственностью spatial state.
 
 ## RULE-MAGIC-002 — target-scoped изменение Potency
 
 Potency уже успешно сотворённого заклинания равна числу успехов последнего Casting Test. Magic Resistance (Player’s Guide, страницы 78 и 157) уменьшает Potency любого заклинания, затрагивающего обладателя, на 1; при результате 0 заклинание не оказывает эффекта.
 
-`SpellPotencyRequest` получает исходную положительную Potency, конкретный `target_id` и уникальные source-aware `SpellPotencyModifier`. Чистый reducer суммирует изменения, ограничивает итог снизу нулём и возвращает исходное значение, delta, effective Potency, `has_effect` и применённые Rule IDs. Он вызывается после успешного Casting Test, но до любого эффекта заклинания для этой цели. Если `has_effect=False`, orchestration не создаёт последующие spell-effect запросы.
+`SpellPotencyRequest` получает исходную неотрицательную Potency, конкретный `target_id` и уникальные source-aware `SpellPotencyModifier`. Чистый reducer суммирует изменения, ограничивает итог снизу нулём и возвращает исходное значение, delta, effective Potency, `has_effect` и применённые Rule IDs. Он вызывается после успешного Casting Test, но до любого эффекта заклинания для этой цели. Если последний бросок дал 0 successes, накопленная сумма всё ещё может позволить сотворить заклинание, но его base Potency равна 0 и без повышающего модификатора `has_effect=False`.
+
+`SpellCastExecutionRequest` принимает уже выбранный снимок уникальных `IdentifiedSpellTarget` в стабильном порядке. Для каждой затронутой цели executor независимо строит и разрешает `SpellPotencyRequest`, сохраняя `SpellCastTargetResult` даже при нулевой effective Potency. Только цель с `has_effect=True` получает общий `SpellEffectApplicationRequest`; цели с нулём остаются в результате для трассировки, но не создают effect follow-up. Этот follow-up является типизированным конвертом для следующего конкретного reducer, а не универсальным интерпретатором заклинаний.
+
+Выбранный subject заклинания и затронутые им существа — разные понятия. Для Zone spell валидной целью является сама Zone, поэтому её уже проверенный affected-target snapshot может быть пустым. Spell-schema preflight проверяет subject type и внешний Range-факт до этой границы; executor не обращается к spatial state. Его результат сохраняет selected subject, caster, spell Rule ID и Lore, включая пустой batch, чтобы следующий конкретный reducer мог проверить provenance.
 
 K1 временно трактует Potency как эффективное значение отдельно для защищённой цели: присутствие Stone Troll среди нескольких целей не ослабляет то же заклинание для остальных. Неоднозначность формулировки зафиксирована как `AMBIGUITY-002`.
 
@@ -68,15 +80,25 @@ K1 временно трактует Potency как эффективное зн�
 
 `RerollLock(RULE-MAGIC-003, 9)` подключает запрет до принятия решения о перебросах: девятка исключается и из доступных Glorious failures, и из автоматических Grim successes при необычно высоком пороге. Decision provider не может вернуть заблокированный индекс. Проверка завершённого trace в NPC Wizard resolver остаётся защитой границы на случай, если внешний casting pipeline не передал lock.
 
-## RULE-MAGIC-004 — состояние и порог Miscast Pool
+## RULE-MAGIC-004 — Casting state и порог Miscast Pool
 
 Miscast срабатывает, только когда после магической проверки число кубов в Miscast Pool строго превышает Wizard Level. Равенство уровню означает лишь `Portent of Doom`, но не бросок таблицы. При срабатывании маг бросает весь пул и складывает результаты; пул очищается после разрешения эффекта Miscast. Источник: Player’s Guide, страницы 157–159.
 
-`WizardMagicState` хранит изменяемые Miscast dice и накопленные successes текущего Exacting Casting Test; неизменяемый Wizard Level остаётся входом resolver, а не частью боевого состояния. `MiscastPoolResolutionRequest` применяет source-aware `MiscastPoolIncreaseRequest`. При `pool <= level` он возвращает `ACCUMULATED`; при `pool > level` — `MISCAST_TRIGGERED` и базовый `MiscastRollRequest` на всё новое значение пула.
+Каждый отдельный бросок Casting Test является обычным Test Willpower внутри Exacting Test и требует действия. Перед первым броском маг объявляет Lore, но не обязан выбирать конкретное заклинание. Успехи последовательных бросков накапливаются; объявленный Lore нельзя менять до завершения текущей попытки. Potency будущего заклинания равна successes последнего броска, а не накопленной сумме. Источник: Player’s Guide 1.4, страницы 156–157.
+
+`CastingTestRequest` принимает общий `TestRequest`, объявленный Lore и текущий `WizardMagicState`. Resolver сам добавляет `RerollLock` Rule of Nine до броска, проводит Test через общий RNG/decision pipeline, прибавляет successes к накопленному значению и сохраняет successes последнего броска отдельно. Даже бросок с нулём successes открывает активную Casting-попытку выбранного Lore.
+
+Финальные девятки, включая полученные допустимым перебросом другого значения, создают один source-aware `MiscastPoolIncreaseRequest`; исходная девятка не может быть выбрана ни Grim-, ни Glorious-перебросом. Casting reducer не меняет Miscast Pool напрямую: threshold-фаза применяет follow-up отдельно, поэтому сработавший Miscast можно упорядочить перед обычным решением cast/wait.
+
+После несработавшей threshold-фазы `CastingDecisionRequest` принимает явный `CastingChoice.CAST` либо `WAIT`. `WAIT` не выбирает заклинание и сохраняет весь активный Casting snapshot. `CAST` требует `CastingSpellSelection` того же Lore с `CV <= accumulated successes`, создаёт `SpellCastRequest` с base Potency последнего броска и очищает только Lore/successes/latest-roll state, не меняя Miscast Pool. При `state.miscast_dice > wizard_level` normal decision запрещён до разрешения обязательного Miscast; равенство уровню остаётся допустимым.
+
+`SpellCastRequest` намеренно не содержит целей или конкретного spell effect. Внешняя orchestration-фаза выбирает subject и affected-target snapshot, `SpellTargetPreflightRequest` проверяет schema/Range, а успешный результат создаёт `SpellCastExecutionRequest`. Target executor применяет отдельные Potency modifiers в стабильном порядке и создаёт `SpellEffectApplicationRequest` только для целей с `has_effect=True`; исполнение конкретного эффекта остаётся следующей фазой.
+
+`WizardMagicState` хранит изменяемые Miscast dice, объявленный Lore, накопленные successes текущего Exacting Casting Test и successes последнего броска для будущей base Potency; неизменяемый Wizard Level остаётся входом resolver, а не частью боевого состояния. `MiscastPoolResolutionRequest` применяет source-aware `MiscastPoolIncreaseRequest`. При `pool <= level` он возвращает `ACCUMULATED`; при `pool > level` — `MISCAST_TRIGGERED` и базовый `MiscastRollRequest` на всё новое значение пула.
 
 Сработавший пул намеренно остаётся в состоянии и блокирует новые увеличения. Это не cooldown: кубы нужны для будущего броска, а книга требует обнулить их только после разрешения табличного эффекта.
 
-Перед броском вызывается явная preparation-фаза. Без выбранного заклинания она теряет все накопленные Casting successes и передаёт исходный пул дальше. Если `MiscastSpellSelection` указывает заклинание с Casting Value не выше накопленных successes, результат сначала создаёт `MiscastSpellCastRequest`, затем `MiscastRollRequest` с одним bonus die. Порядок follow-up не позволяет бросить таблицу до разрешения немедленного заклинания. Выбор его целей и применение spell effect остаются обязанностью casting orchestration.
+Перед броском вызывается явная preparation-фаза. Она завершает активную Casting-попытку, очищая накопленные successes, Lore и значение последнего броска. Без выбранного заклинания preparation передаёт исходный пул дальше. Если `CastingSpellSelection` указывает заклинание того же Lore с Casting Value не выше накопленных successes, результат сначала создаёт общий `SpellCastRequest` с сохранённой base Potency, затем `MiscastRollRequest` с одним bonus die. Порядок follow-up не позволяет бросить таблицу до разрешения немедленного заклинания. Выбор его целей и применение spell effect остаются обязанностью casting orchestration.
 
 Roll-фаза использует внедряемый RNG, бросает `pool_dice_count + bonus_dice`, сохраняет исходные значения и сумму и выбирает ровно одну из 21 непересекающейся строки актуальной таблицы. В частности, total `22` означает `UNNATURAL_WIND`, а `23` — `SPELL_RECAST`; `39+` остаётся открытым верхним диапазоном. Результат создаёт source-aware `MiscastTableEffectRequest`, но сохраняет Miscast Pool до отдельного исполнения эффекта. Конкретные табличные эффекты подключаются следующими явными reducers, поскольку включают Conditions, Wounds, Zones, случайные цели, долгосрочные состояния и решения GM.
 

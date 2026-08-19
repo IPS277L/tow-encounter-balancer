@@ -4,11 +4,11 @@ import unittest
 
 from tests.helpers import SequenceRandom
 from towr.domain.magic_models import (
+    CastingSpellSelection,
     MiscastPreparationRequest,
     MiscastRollRequest,
-    MiscastSpellCastRequest,
-    MiscastSpellSelection,
     MiscastTableEntryId,
+    SpellCastRequest,
     WizardMagicState,
 )
 from towr.rules.miscast_resolution import (
@@ -34,7 +34,7 @@ def roll_request(*, pool_dice: int = 3) -> MiscastRollRequest:
 def preparation_request(
     *,
     successes: int = 4,
-    spell: MiscastSpellSelection | None = None,
+    spell: CastingSpellSelection | None = None,
 ) -> MiscastPreparationRequest:
     return MiscastPreparationRequest(
         id="wizard:miscast-preparation",
@@ -42,6 +42,8 @@ def preparation_request(
         state=WizardMagicState(
             miscast_dice=3,
             casting_successes=successes,
+            casting_lore_id="lore:beasts",
+            latest_casting_roll_successes=min(successes, 2),
         ),
         spell_to_cast=spell,
         rule_id=RULE_ID,
@@ -80,6 +82,8 @@ class K1MiscastPreparationTests(unittest.TestCase):
 
         self.assertEqual(result.previous_casting_successes, 4)
         self.assertEqual(result.state.casting_successes, 0)
+        self.assertIsNone(result.state.casting_lore_id)
+        self.assertEqual(result.state.latest_casting_roll_successes, 0)
         self.assertEqual(len(result.follow_ups), 1)
         roll = result.follow_ups[0]
         self.assertIsInstance(roll, MiscastRollRequest)
@@ -92,8 +96,9 @@ class K1MiscastPreparationTests(unittest.TestCase):
         result = prepare_miscast(
             preparation_request(
                 successes=4,
-                spell=MiscastSpellSelection(
+                spell=CastingSpellSelection(
                     spell_rule_id="RULE-SPELL:test",
+                    lore_id="lore:beasts",
                     casting_value=4,
                 ),
             )
@@ -101,19 +106,32 @@ class K1MiscastPreparationTests(unittest.TestCase):
 
         self.assertEqual(len(result.follow_ups), 2)
         spell, roll = result.follow_ups
-        self.assertIsInstance(spell, MiscastSpellCastRequest)
+        self.assertIsInstance(spell, SpellCastRequest)
+        assert isinstance(spell, SpellCastRequest)
+        self.assertEqual(spell.lore_id, "lore:beasts")
+        self.assertEqual(spell.base_potency, 2)
         self.assertIsInstance(roll, MiscastRollRequest)
         assert isinstance(roll, MiscastRollRequest)
         self.assertEqual(roll.pool_dice_count, 3)
         self.assertEqual(roll.bonus_dice, 1)
         self.assertEqual(roll.dice_count, 4)
 
-    def test_spell_requires_enough_accumulated_successes(self) -> None:
+    def test_spell_requires_matching_lore_and_enough_successes(self) -> None:
         with self.assertRaises(ValueError):
             preparation_request(
                 successes=3,
-                spell=MiscastSpellSelection(
+                spell=CastingSpellSelection(
                     spell_rule_id="RULE-SPELL:test",
+                    lore_id="lore:beasts",
+                    casting_value=4,
+                ),
+            )
+
+        with self.assertRaises(ValueError):
+            preparation_request(
+                spell=CastingSpellSelection(
+                    spell_rule_id="RULE-SPELL:test",
+                    lore_id="lore:fire",
                     casting_value=4,
                 ),
             )
@@ -132,10 +150,11 @@ class K1MiscastRollTests(unittest.TestCase):
     def test_roll_uses_pool_and_bonus_dice_and_requests_table_effect(self) -> None:
         prepared = prepare_miscast(
             preparation_request(
-                spell=MiscastSpellSelection(
+                spell=CastingSpellSelection(
                     spell_rule_id="RULE-SPELL:test",
+                    lore_id="lore:beasts",
                     casting_value=4,
-                )
+                ),
             )
         )
         roll = prepared.follow_ups[-1]
@@ -167,7 +186,12 @@ class K1MiscastRollTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             resolve_miscast_roll(
                 request,
-                WizardMagicState(miscast_dice=3, casting_successes=1),
+                WizardMagicState(
+                    miscast_dice=3,
+                    casting_successes=1,
+                    casting_lore_id="lore:beasts",
+                    latest_casting_roll_successes=1,
+                ),
                 SequenceRandom([1, 1, 1]),
             )
         with self.assertRaises(ValueError):

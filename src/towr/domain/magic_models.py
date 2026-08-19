@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from enum import Enum
 
-from towr.domain.test_models import OpposedTestResult
+from towr.domain.test_models import OpposedTestResult, TestRequest, TestResult
 
 
 class NpcWizardCastingOppositionOutcome(str, Enum):
@@ -15,6 +15,42 @@ class NpcWizardCastingOppositionOutcome(str, Enum):
 class MiscastPoolOutcome(str, Enum):
     ACCUMULATED = "accumulated"
     MISCAST_TRIGGERED = "miscast_triggered"
+
+
+class CastingChoice(str, Enum):
+    CAST = "cast"
+    WAIT = "wait"
+
+
+class SpellTargetKind(str, Enum):
+    SELF = "self"
+    CREATURE = "creature"
+    ZONE = "zone"
+    OBJECT = "object"
+    OTHER = "other"
+
+
+class SpellRange(str, Enum):
+    SELF = "self"
+    CLOSE = "close"
+    SHORT = "short"
+    MEDIUM = "medium"
+    LONG = "long"
+    EXTREME = "extreme"
+
+
+class SpellDuration(str, Enum):
+    INSTANT = "instant"
+    POTENCY_TURNS = "potency_turns"
+    BATTLE = "battle"
+    PERMANENT = "permanent"
+    OTHER = "other"
+
+
+class SpellTargetPreflightOutcome(str, Enum):
+    READY = "ready"
+    INVALID_TARGET_KIND = "invalid_target_kind"
+    OUT_OF_RANGE = "out_of_range"
 
 
 class MiscastTableEntryId(str, Enum):
@@ -45,6 +81,8 @@ class MiscastTableEntryId(str, Enum):
 class WizardMagicState:
     miscast_dice: int = 0
     casting_successes: int = 0
+    casting_lore_id: str | None = None
+    latest_casting_roll_successes: int = 0
 
     def __post_init__(self) -> None:
         _validate_non_negative_int(self.miscast_dice, "miscast_dice")
@@ -52,6 +90,52 @@ class WizardMagicState:
             self.casting_successes,
             "casting_successes",
         )
+        _validate_non_negative_int(
+            self.latest_casting_roll_successes,
+            "latest_casting_roll_successes",
+        )
+        if self.casting_lore_id is not None:
+            _validate_non_empty_string(self.casting_lore_id, "casting_lore_id")
+        elif self.casting_successes or self.latest_casting_roll_successes:
+            raise ValueError(
+                "Casting successes require an active casting_lore_id"
+            )
+        if self.latest_casting_roll_successes > self.casting_successes:
+            raise ValueError(
+                "latest Casting roll successes cannot exceed accumulated "
+                "Casting successes"
+            )
+
+
+@dataclass(frozen=True, slots=True)
+class CastingTestRequest:
+    id: str
+    caster_id: str
+    lore_id: str
+    test: TestRequest
+    state: WizardMagicState
+    rule_id: str = "RULE-MAGIC-004:casting-test"
+
+    def __post_init__(self) -> None:
+        _validate_non_empty_string(self.id, "Casting Test request id")
+        _validate_non_empty_string(self.caster_id, "caster_id")
+        _validate_non_empty_string(self.lore_id, "lore_id")
+        if not isinstance(self.test, TestRequest):
+            raise TypeError("test must be a TestRequest")
+        if not isinstance(self.state, WizardMagicState):
+            raise TypeError("state must be a WizardMagicState")
+        if any(lock.value == 9 for lock in self.test.reroll_locks):
+            raise ValueError(
+                "Casting Test owns the Rule of Nine reroll lock"
+            )
+        if (
+            self.state.casting_lore_id is not None
+            and self.state.casting_lore_id != self.lore_id
+        ):
+            raise ValueError(
+                "an active Casting Test cannot switch Magic Lore"
+            )
+        _validate_non_empty_string(self.rule_id, "rule_id")
 
 
 @dataclass(frozen=True, slots=True)
@@ -70,6 +154,113 @@ class MiscastPoolIncreaseRequest:
         _validate_non_empty_string(self.source_test_id, "source_test_id")
         _validate_non_empty_string(self.trigger_rule_id, "trigger_rule_id")
         _validate_non_empty_string(self.rule_id, "rule_id")
+
+
+@dataclass(frozen=True, slots=True)
+class CastingTestResult:
+    request_id: str
+    caster_id: str
+    lore_id: str
+    test: TestResult
+    state: WizardMagicState
+    previous_casting_successes: int
+    latest_roll_successes: int
+    miscast_dice_added: int
+    follow_ups: tuple[MiscastPoolIncreaseRequest, ...]
+    applied_rule_ids: tuple[str, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class CastingSpellSelection:
+    spell_rule_id: str
+    lore_id: str
+    casting_value: int
+
+    def __post_init__(self) -> None:
+        _validate_non_empty_string(self.spell_rule_id, "spell_rule_id")
+        _validate_non_empty_string(self.lore_id, "lore_id")
+        _validate_positive_int(self.casting_value, "casting_value")
+
+
+@dataclass(frozen=True, slots=True)
+class SpellCastRequest:
+    resolution_id: str
+    caster_id: str
+    spell_rule_id: str
+    lore_id: str
+    casting_value: int
+    base_potency: int
+    rule_id: str
+
+    def __post_init__(self) -> None:
+        _validate_non_empty_string(self.resolution_id, "resolution_id")
+        _validate_non_empty_string(self.caster_id, "caster_id")
+        _validate_non_empty_string(self.spell_rule_id, "spell_rule_id")
+        _validate_non_empty_string(self.lore_id, "lore_id")
+        _validate_positive_int(self.casting_value, "casting_value")
+        _validate_non_negative_int(self.base_potency, "base_potency")
+        _validate_non_empty_string(self.rule_id, "rule_id")
+
+
+@dataclass(frozen=True, slots=True)
+class CastingDecisionRequest:
+    id: str
+    caster_id: str
+    state: WizardMagicState
+    wizard_level: int
+    choice: CastingChoice
+    selected_spell: CastingSpellSelection | None = None
+    rule_id: str = "RULE-MAGIC-004:cast-or-wait"
+
+    def __post_init__(self) -> None:
+        _validate_non_empty_string(self.id, "Casting decision request id")
+        _validate_non_empty_string(self.caster_id, "caster_id")
+        if not isinstance(self.state, WizardMagicState):
+            raise TypeError("state must be a WizardMagicState")
+        _validate_positive_int(self.wizard_level, "wizard_level")
+        if not isinstance(self.choice, CastingChoice):
+            raise TypeError("choice must be a CastingChoice")
+        if self.state.casting_lore_id is None:
+            raise ValueError("Casting decision requires an active Casting Test")
+        if self.state.miscast_dice > self.wizard_level:
+            raise ValueError(
+                "a triggered Miscast must be resolved before CAST or WAIT"
+            )
+        if self.selected_spell is not None and not isinstance(
+            self.selected_spell,
+            CastingSpellSelection,
+        ):
+            raise TypeError("selected_spell must be a CastingSpellSelection")
+        if self.choice is CastingChoice.WAIT:
+            if self.selected_spell is not None:
+                raise ValueError("WAIT must not select a spell")
+        elif self.selected_spell is None:
+            raise ValueError("CAST requires a selected spell")
+        else:
+            if self.selected_spell.lore_id != self.state.casting_lore_id:
+                raise ValueError(
+                    "selected spell must belong to the active Magic Lore"
+                )
+            if (
+                self.selected_spell.casting_value
+                > self.state.casting_successes
+            ):
+                raise ValueError(
+                    "selected spell requires more accumulated Casting successes"
+                )
+        _validate_non_empty_string(self.rule_id, "rule_id")
+
+
+@dataclass(frozen=True, slots=True)
+class CastingDecisionResult:
+    request_id: str
+    caster_id: str
+    choice: CastingChoice
+    state: WizardMagicState
+    previous_casting_successes: int
+    base_potency: int | None
+    follow_ups: tuple[SpellCastRequest, ...]
+    applied_rule_ids: tuple[str, ...]
 
 
 @dataclass(frozen=True, slots=True)
@@ -129,21 +320,11 @@ class MiscastRollRequest:
 
 
 @dataclass(frozen=True, slots=True)
-class MiscastSpellSelection:
-    spell_rule_id: str
-    casting_value: int
-
-    def __post_init__(self) -> None:
-        _validate_non_empty_string(self.spell_rule_id, "spell_rule_id")
-        _validate_positive_int(self.casting_value, "casting_value")
-
-
-@dataclass(frozen=True, slots=True)
 class MiscastPreparationRequest:
     id: str
     source: MiscastRollRequest
     state: WizardMagicState
-    spell_to_cast: MiscastSpellSelection | None = None
+    spell_to_cast: CastingSpellSelection | None = None
     rule_id: str = "RULE-MAGIC-004:miscast-pool"
 
     def __post_init__(self) -> None:
@@ -160,9 +341,9 @@ class MiscastPreparationRequest:
             )
         if self.spell_to_cast is not None and not isinstance(
             self.spell_to_cast,
-            MiscastSpellSelection,
+            CastingSpellSelection,
         ):
-            raise TypeError("spell_to_cast must be a MiscastSpellSelection")
+            raise TypeError("spell_to_cast must be a CastingSpellSelection")
         if (
             self.spell_to_cast is not None
             and self.state.casting_successes
@@ -172,26 +353,17 @@ class MiscastPreparationRequest:
                 "the selected spell requires more accumulated Casting "
                 "successes"
             )
+        if (
+            self.spell_to_cast is not None
+            and self.spell_to_cast.lore_id != self.state.casting_lore_id
+        ):
+            raise ValueError(
+                "the selected spell must belong to the active Magic Lore"
+            )
         _validate_non_empty_string(self.rule_id, "rule_id")
 
 
-@dataclass(frozen=True, slots=True)
-class MiscastSpellCastRequest:
-    resolution_id: str
-    target_id: str
-    spell_rule_id: str
-    casting_value: int
-    rule_id: str = "RULE-MAGIC-004:miscast-pool"
-
-    def __post_init__(self) -> None:
-        _validate_non_empty_string(self.resolution_id, "resolution_id")
-        _validate_non_empty_string(self.target_id, "target_id")
-        _validate_non_empty_string(self.spell_rule_id, "spell_rule_id")
-        _validate_positive_int(self.casting_value, "casting_value")
-        _validate_non_empty_string(self.rule_id, "rule_id")
-
-
-MiscastPreparationFollowUp = MiscastSpellCastRequest | MiscastRollRequest
+MiscastPreparationFollowUp = SpellCastRequest | MiscastRollRequest
 
 
 @dataclass(frozen=True, slots=True)
@@ -382,8 +554,8 @@ class SpellPotencyRequest:
             bool,
         ):
             raise TypeError("base_potency must be an integer")
-        if self.base_potency < 1:
-            raise ValueError("base_potency must be positive")
+        if self.base_potency < 0:
+            raise ValueError("base_potency must not be negative")
         modifiers = tuple(self.modifiers)
         if not all(isinstance(item, SpellPotencyModifier) for item in modifiers):
             raise TypeError(
@@ -404,6 +576,158 @@ class SpellPotencyResult:
     potency_delta: int
     effective_potency: int
     has_effect: bool
+    applied_rule_ids: tuple[str, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class FormalSpellDefinition:
+    rule_id: str
+    lore_id: str
+    casting_value: int
+    target_kind: SpellTargetKind
+    range: SpellRange
+    duration: SpellDuration
+
+    def __post_init__(self) -> None:
+        _validate_non_empty_string(self.rule_id, "formal spell rule_id")
+        _validate_non_empty_string(self.lore_id, "formal spell lore_id")
+        _validate_positive_int(self.casting_value, "formal spell casting_value")
+        if not isinstance(self.target_kind, SpellTargetKind):
+            raise TypeError("target_kind must be a SpellTargetKind")
+        if not isinstance(self.range, SpellRange):
+            raise TypeError("range must be a SpellRange")
+        if not isinstance(self.duration, SpellDuration):
+            raise TypeError("duration must be a SpellDuration")
+
+
+@dataclass(frozen=True, slots=True)
+class IdentifiedSpellTarget:
+    target_id: str
+    potency_modifiers: tuple[SpellPotencyModifier, ...] = field(
+        default_factory=tuple
+    )
+
+    def __post_init__(self) -> None:
+        _validate_non_empty_string(self.target_id, "spell target_id")
+        modifiers = tuple(self.potency_modifiers)
+        if not all(isinstance(item, SpellPotencyModifier) for item in modifiers):
+            raise TypeError(
+                "potency_modifiers must contain SpellPotencyModifier values"
+            )
+        rule_ids = tuple(item.rule_id for item in modifiers)
+        if len(set(rule_ids)) != len(rule_ids):
+            raise ValueError("target Potency modifier rule IDs must be unique")
+        object.__setattr__(self, "potency_modifiers", modifiers)
+
+
+@dataclass(frozen=True, slots=True)
+class SpellTargetPreflightRequest:
+    id: str
+    source: SpellCastRequest
+    definition: FormalSpellDefinition
+    selected_target_id: str
+    selected_target_kind: SpellTargetKind
+    target_within_range: bool
+    affected_targets: tuple[IdentifiedSpellTarget, ...] = field(
+        default_factory=tuple
+    )
+    rule_id: str = "RULE-MAGIC-005:spell-schema"
+
+    def __post_init__(self) -> None:
+        _validate_non_empty_string(self.id, "Spell target preflight request id")
+        if not isinstance(self.source, SpellCastRequest):
+            raise TypeError("source must be a SpellCastRequest")
+        if not isinstance(self.definition, FormalSpellDefinition):
+            raise TypeError("definition must be a FormalSpellDefinition")
+        _validate_non_empty_string(self.selected_target_id, "selected_target_id")
+        if not isinstance(self.selected_target_kind, SpellTargetKind):
+            raise TypeError("selected_target_kind must be a SpellTargetKind")
+        _validate_bool(self.target_within_range, "target_within_range")
+        targets = tuple(self.affected_targets)
+        if not all(isinstance(item, IdentifiedSpellTarget) for item in targets):
+            raise TypeError(
+                "affected_targets must contain IdentifiedSpellTarget values"
+            )
+        target_ids = tuple(item.target_id for item in targets)
+        if len(set(target_ids)) != len(target_ids):
+            raise ValueError("affected spell target IDs must be unique")
+        object.__setattr__(self, "affected_targets", targets)
+        _validate_non_empty_string(self.rule_id, "rule_id")
+
+
+@dataclass(frozen=True, slots=True)
+class SpellCastExecutionRequest:
+    id: str
+    source: SpellCastRequest
+    selected_target_id: str
+    targets: tuple[IdentifiedSpellTarget, ...]
+    rule_id: str = "RULE-MAGIC-002:target-scoped-potency"
+
+    def __post_init__(self) -> None:
+        _validate_non_empty_string(self.id, "Spell execution request id")
+        if not isinstance(self.source, SpellCastRequest):
+            raise TypeError("source must be a SpellCastRequest")
+        _validate_non_empty_string(self.selected_target_id, "selected_target_id")
+        targets = tuple(self.targets)
+        if not all(isinstance(item, IdentifiedSpellTarget) for item in targets):
+            raise TypeError("targets must contain IdentifiedSpellTarget values")
+        target_ids = tuple(item.target_id for item in targets)
+        if len(set(target_ids)) != len(target_ids):
+            raise ValueError("Spell execution target IDs must be unique")
+        object.__setattr__(self, "targets", targets)
+        _validate_non_empty_string(self.rule_id, "rule_id")
+
+
+@dataclass(frozen=True, slots=True)
+class SpellTargetPreflightResult:
+    request_id: str
+    source_cast_id: str
+    selected_target_id: str
+    outcome: SpellTargetPreflightOutcome
+    definition: FormalSpellDefinition
+    execution_request: SpellCastExecutionRequest | None
+    applied_rule_ids: tuple[str, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class SpellEffectApplicationRequest:
+    resolution_id: str
+    source_cast_id: str
+    caster_id: str
+    spell_rule_id: str
+    lore_id: str
+    target_id: str
+    potency: int
+    rule_id: str
+
+    def __post_init__(self) -> None:
+        _validate_non_empty_string(self.resolution_id, "resolution_id")
+        _validate_non_empty_string(self.source_cast_id, "source_cast_id")
+        _validate_non_empty_string(self.caster_id, "caster_id")
+        _validate_non_empty_string(self.spell_rule_id, "spell_rule_id")
+        _validate_non_empty_string(self.lore_id, "lore_id")
+        _validate_non_empty_string(self.target_id, "target_id")
+        _validate_positive_int(self.potency, "spell effect potency")
+        _validate_non_empty_string(self.rule_id, "rule_id")
+
+
+@dataclass(frozen=True, slots=True)
+class SpellCastTargetResult:
+    target_id: str
+    potency: SpellPotencyResult
+    effect_request: SpellEffectApplicationRequest | None
+
+
+@dataclass(frozen=True, slots=True)
+class SpellCastExecutionResult:
+    request_id: str
+    source_cast_id: str
+    caster_id: str
+    spell_rule_id: str
+    lore_id: str
+    selected_target_id: str
+    targets: tuple[SpellCastTargetResult, ...]
+    follow_ups: tuple[SpellEffectApplicationRequest, ...]
     applied_rule_ids: tuple[str, ...]
 
 
