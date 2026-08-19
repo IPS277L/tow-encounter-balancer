@@ -26,6 +26,14 @@
 
 Источник: страницы 116–118.
 
+Подробности:
+
+- Aim — Awareness Test; каждый success даёт `+1d` следующей ranged attack по выбранной цели, если между ними не было другого action;
+- Help использует общее правило и даёт по `+1d` за success;
+- Manoeuvre выбирает Run, Charge, Move Quietly или Move Carefully;
+- Improvise применяет подходящий Skill/spell/Ability, но только defeat или Defenceless гарантированно нейтрализует threat;
+- Recover снимает Staggered/Prone, уменьшает Miscast Pool на один die и позволяет взаимодействовать с предметом рядом с врагом; вместо всех этих выгод можно Treat Wound либо Test снятие condition.
+
 ## RULE-COMBAT-005 — выбор навыков атаки и защиты
 
 - Melee используется с подходящим оружием ближнего боя.
@@ -79,3 +87,49 @@ Damage = base weapon Damage + attacker_successes - defender_successes
 Книга предусматривает поражение, недееспособность, сдачу и групповой Retreat. Для симулятора ещё требуется формальная политика определения исхода столкновения.
 
 Источник: страницы 117, 120 и 191. Статус: `needs_clarification` для целей симуляции.
+
+## RULE-COMBAT-011 — Zones и Ranges
+
+Zone имеет контекстный размер/форму и следует естественным границам сцены. Position внутри Zone сохраняет значение для line of sight, cover, concealment, окружения и препятствий.
+
+Ranges: Close — arm’s reach; Short — та же Zone; Medium — одна Zone; Long — две; Extreme — три и более. Эти определения являются graph/spatial input, а не фиксированными метрами.
+
+Источник: страница 114.
+
+## RULE-COMBAT-012 — Speed и ограничения движения
+
+- Slow: free move до Medium, без Run/Charge/Move Quietly/Move Carefully;
+- Normal: free move до Medium и доступ к Manoeuvre;
+- Fast: free move до Long и доступ к Manoeuvre.
+
+Burdened запрещает Manoeuvre, Prone — выход из Zone, Defenceless — любое движение. При длительной погоне более высокий Speed в итоге догоняет; при равенстве либо head start используется Opposed Athletics.
+
+Источник: страница 115.
+
+## RULE-COMBAT-013 — battlefield features
+
+Cover/concealment даёт атакующему `-1d` Shooting. В темноте Long/Extreme не видны; attack по невидимой цели считается Blinded и Grim. Difficult Terrain требует Athletics при пересечении, провал роняет Prone после пересечения; Move Carefully и конкретный Lore обходят Test. В тот же turn нельзя также Athletics для дополнительной Zone Run/Charge.
+
+Источник: страница 115.
+
+## RULE-COMBAT-014 — free actions и Manoeuvre
+
+Раз за turn даётся free move по Speed; вместо него без врага Close можно снять Prone с себя/союзника Close. К incidental actions относятся draw/swap, non-Test reload prep, добровольный Prone, короткая речь и простое взаимодействие Close; рядом с врагом взаимодействие требует Recover.
+
+Run добавляет одну Zone и может добавить вторую успешной Athletics, провал впервые даёт Staggered. Charge достигает цели Medium, даёт Melee `+1d`; Long требует Athletics, провал останавливает за Zone, отменяет attack и впервые даёт Staggered. Charge запрещён при начале Close к врагу. Move Quietly — Stealth против наиболее vigilant Awareness и требует cover/concealment. Move Carefully игнорирует Difficult Terrain и может добавить Awareness search.
+
+Источник: страницы 116–117.
+
+## RULE-COMBAT-015 — Give Ground и Prone
+
+Give Ground перемещает от attacker в выбранную adjacent Zone, максимум раз/round. Вход во вражескую Zone даёт Broken. Путь не проходит через enemies, obstacles или Difficult Terrain; Prone/невозможность покинуть Zone запрещают выбор.
+
+Prone нельзя получить повторно или сочетать с Give Ground. Если уже Staggered+Prone снова получает Staggered, результатом становится Wound.
+
+Источник: страницы 119–120.
+
+## RULE-COMBAT-016 — Retreat
+
+Только единогласная группа объявляет Retreat в начале round/своего side turn. Один персонаж тратит Fate на rearguard; без Fate GM назначает blood, materiel или misfortune cost. При pursuit каждый PC делает Athletics, иногда auto-success от Lore и/или opposed более быстрым врагом. За каждого провалившего бросается `1d10`, суммы определяют Run For Your Lives result; Complications могут вызвать roll даже без провалов.
+
+Источник: страница 120. Табличные исходы `1–3` Lost, `4–6` Mocked, `7–9` Indebted, `10–12` Marked, `13–15` Exposed, `16–18` Hunted, `19–21` Robbed, `22–24` Surrounded, `25+` Trapped требуют campaign-state orchestration.

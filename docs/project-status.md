@@ -19,7 +19,7 @@ K1 — реализация книжного resolution kernel. Прототип
 - старый прототипный алгоритм AoE явно отменён и удалён из целевой документации;
 - установлено, что Player’s Guide и Gamemaster’s Guide имеют приоритет над дизайн-доком, документацией, кодом и тестами прототипа;
 - создана структура для индекса источника, нормализованных правил, лора, противоречий и трассировки.
-- создано приватное постраничное извлечение всех 191 страниц;
+- создано воспроизводимое приватное постраничное извлечение Player’s Guide, позднее обновлённое до всех 192 страниц актуальной редакции;
 - прочитаны и первично нормализованы базовые проверки, бой, атаки, Resilience, Wounds и Conditions;
 - выявлены ключевые расхождения книги с P1 и добавлена начальная трассировка правил.
 - добавлен и полностью извлечён Gamemaster’s Guide;
@@ -121,7 +121,7 @@ K1 — реализация книжного resolution kernel. Прототип
 - незаблокированный spell создаёт строгую очередь `GiveGroundRequest → CowardlyFlightWillpowerRequest`;
 - невозможность Give Ground удаляет только movement follow-up, но не отменяет книжный Willpower Test;
 - импровизированные Illusion Control, `Shackles of Truth` и Necromancy Control не обобщены без конкретного детерминированного правила.
-- нормализован `RULE-NPC-017` для Foul Stench Wyvern со страницы 178 GM Guide;
+- нормализован `RULE-NPC-017` для Foul Stench Wyvern со страницы 180 GM Guide;
 - добавлен `DecisionOwner.TARGET` и явный выбор между сбросом удерживаемого предмета и Distracted;
 - инвентарная ветвь возвращает `DropHeldHandItemRequest`, не выбирая предмет и не мутируя отсутствующее inventory state;
 - свободная рука закрывает нос без решения, а невозможность освободить руку автоматически применяет Distracted;
@@ -129,31 +129,31 @@ K1 — реализация книжного resolution kernel. Прототип
 - добавлен общий `ZoneHazardRequest → ZoneHazardResolutionResult` для уже выбранных существ произвольной Zone;
 - Giant-специфичный `ReactorZoneHazardResolutionRequest` сохранил проверку присутствия реагирующего и теперь делегирует общему Zone executor;
 - `RepeatedConditionReplacement` задаёт валидируемую замену повторного failure Condition и проверяется после Wound-фазы на актуальном состоянии;
-- нормализован `RULE-NPC-018` для Soporific Breath Forest Dragon со страницы 177 GM Guide;
+- нормализован `RULE-NPC-018` для Soporific Breath Forest Dragon со страницы 179 GM Guide;
 - Endurance Hazard (2) наносит обычную Wound по shortfall и накладывает Drained, а повторный Drained фактически добавляет Defenceless, не удаляя существующий Drained;
 - порядок Wound → failure Condition покрывает случай, когда Drained появился из Wounds Table того же Hazard;
 - доступность действия без Staggered, Medium Range, выбор Zone и её обитателей оставлены внешнему action/spatial orchestration.
-- нормализованы `RULE-NPC-019` Troll Vomit и `RULE-NPC-020` Troll Hag Swamp Breath со страниц 180–181 GM Guide;
+- нормализованы `RULE-NPC-019` Troll Vomit и `RULE-NPC-020` Troll Hag Swamp Breath со страниц 182–183 GM Guide;
 - Vomit создаёт одиночную Endurance-exposure Hazard (3), а Swamp Breath — тот же Hazard (3) для уже выбранной Zone;
 - оба источника используют общую Wound по shortfall без дополнительных Conditions и отдельной injury-логики;
 - требования Staggered цели/действующей, Close/Medium Range, расход действия и spatial selection явно оставлены action orchestration.
-- нормализован `RULE-NPC-021` Troll Stupidity со страницы 180 GM Guide и общего Distracted со страницы 123 Player’s Guide;
+- нормализован `RULE-NPC-021` Troll Stupidity со страницы 182 GM Guide и общего Distracted со страницы 123 Player’s Guide;
 - отдельный `TrollStupidityState` хранит source Rule ID и подавление до конца текущего боя;
 - начало боя применяет Distracted через общий Condition reducer, а активная Ability выдаёт –1d на любой Test Troll;
 - фактически нанесённая профильная Wound и успешный Leadership Test снимают Distracted и подавляют его возврат;
 - отдельный typed entry point синхронизирует suppression после обычного или иного внешнего снятия Distracted с сохранением Rule ID причины;
 - провал Leadership и повторная обработка уже подавленной Ability детерминированно сохраняют состояние, а новый бой требует нового несдержанного Ability-state.
-- нормализованы `RULE-MAGIC-002` Magic Resistance (Player’s Guide, страницы 78 и 157) и `RULE-NPC-022` Stone Troll (GM Guide, страница 180);
+- нормализованы `RULE-MAGIC-002` Magic Resistance (Player’s Guide, страницы 78 и 157) и `RULE-NPC-022` Stone Troll (GM Guide, страница 182);
 - добавлены `SpellPotencyModifier`, target-scoped `SpellPotencyRequest` и чистый reducer между завершённым Casting Test и spell effect;
 - reducer сохраняет base Potency, delta, effective Potency и Rule IDs, ограничивает итог снизу нулём и явно возвращает `has_effect=False` при нуле;
 - Stone Troll фиксирует профильный Resilience 6 и source-aware –1 Potency, а Talent Magic Resistance использует тот же общий контракт;
 - multi-target Potency временно считается отдельно для каждой защищённой цели; неоднозначность формулировки записана как `AMBIGUITY-002`.
-- добавлен `RULE-NPC-023` для обычной Troll Regeneration со страницы 180 GM Guide;
+- добавлен `RULE-NPC-023` для обычной Troll Regeneration со страницы 182 GM Guide;
 - новый `DecisionOwner.ACTOR` обозначает контроллера существа, чей добровольный end-turn эффект разрешается;
 - Staggered, отсутствие Wounds и отсутствие допустимой неогненной Wound закрывают Regeneration без обращения к decision provider;
 - доступная Regeneration требует явного выбора Regenerate/Skip, а выбранное лечение применяет source-aware Staggered и уменьшает профильные Wounds ровно на 1;
 - результат лечения возвращает `ProfileStateChangeRequest`, а provenance огненных Wounds пока поступает явным `has_non_fire_wound`.
-- нормализованы `RULE-NPC-024` Mother Knows Best (GM Guide, страница 181) и общий `RULE-MAGIC-003` Rule of Nine для магического противодействия (Player’s Guide, страницы 74 и 157);
+- нормализованы `RULE-NPC-024` Mother Knows Best (GM Guide, страница 183) и общий `RULE-MAGIC-003` Rule of Nine для магического противодействия (Player’s Guide, страницы 74 и 157);
 - Troll Hag зафиксирована как Level 2 Wizard и получает обычный source-aware +1d к Casting Tests только при 0 Wounds;
 - общий `NpcWizardCastingOppositionRequest` принимает Long Range/round-budget снимки и завершённый `OpposedTestResult` с проверкой Casting/Willpower Test IDs;
 - недоступная по дальности или уже использованная Reaction не принимает выполненную проверку, а доступная объявленная ветвь помечает round budget использованным независимо от исхода и девяток;
@@ -161,30 +161,36 @@ K1 — реализация книжного resolution kernel. Прототип
 - Rule of Nine учитывает девятки после допустимых перебросов и отклоняет trace, в котором исходную девятку перебросили вопреки книге.
 - добавлен source-aware `RerollLock`, который заранее исключает девятку из Glorious choices и автоматических Grim rerolls без отдельного магического dice resolver;
 - нормализован `RULE-MAGIC-004` для Miscast Pool по страницам 157–159 Player’s Guide;
-- минимальный `WizardMagicState` хранит только текущие Miscast dice, тогда как неизменяемый Wizard Level остаётся явным входом resolver;
+- `WizardMagicState` хранит текущие Miscast dice и накопленные successes Exacting Casting Test, тогда как неизменяемый Wizard Level остаётся явным входом resolver;
 - применение `MiscastPoolIncreaseRequest` различает безопасное равенство уровню и строгое превышение, сохраняет provenance и создаёт `MiscastRollRequest` на весь накопленный пул;
-- сработавший пул не очищается и не принимает новые кубы до будущего результата таблицы, поскольку книга обнуляет его только после разрешения эффекта.
-- обнаружено `AMBIGUITY-003`: локальная редакция Miscast Table содержит пересечение `21–22`/`22–23`, но официальный Cubicle 7 change log подтверждает исправленную перенумерацию в Player’s Guide v1.3;
-- локальная Player’s Guide датирована 23.06.2025 и недостаточна для следующей table-фазы: v1.3 также меняет правило accumulated Casting successes на странице 157.
+- сработавший пул не очищается и не принимает новые кубы до результата таблицы, поскольку книга обнуляет его только после разрешения эффекта;
+- обе книги обновлены до локальной редакции `Last Edited: 29th January 2026`, полностью повторно извлечены и проиндексированы с новыми хэшами;
+- подтверждены выбранные версии: Player’s Guide `1.4` и Gamemaster’s Guide `1.1`;
+- обе книги напрямую прочитаны по всем страницам `1–192`; полный журнал диапазонов и 62 существенных вывода сохранён в `docs/audits/rulebooks-1.4-1.1.md`;
+- созданы нормализованные каталоги создания и развития персонажа, Contacts, Skills, Talents, Lores, Equipment, Fate, Downtime, Faith, Spells, Corruption, Magic Items и всех NPC profiles GM Guide;
+- повторно проверенные K1-правила Tests, Wounds, NPC injury policies, undead immunity, Monstrosity Reactions, Troll effects и Miscast lifecycle согласуются с выбранными редакциями; выявленные отсутствующие механики отражены в traceability, а не подменены прототипом;
+- `AMBIGUITY-003` закрыта актуальной страницей 159: диапазоны исправлены на `21–22` и `23–24`;
+- preparation-фаза теряет все накопленные Casting successes и при выбранном доступном заклинании ставит `MiscastSpellCastRequest` перед броском, добавляя к нему `+1d`;
+- реализована полная карта из 21 строки Miscast Table, RNG-бросок pool/bonus dice и `MiscastTableEffectRequest` с сохранением исходных d10, суммы, entry ID и Rule ID;
+- Miscast Pool намеренно остаётся заполненным после броска до отдельного разрешения конкретного табличного эффекта.
 
 ## Проверено
 
-- 233 unit/integration тестов успешно проходят на Python 3.12, из них 213 относятся к K1;
+- 241 unit/integration тест успешно проходит на Python 3.12, из них 221 относится к K1;
 - исходники и тесты успешно проходят `compileall`.
 
 ## Исходный материал
 
-- обнаружен `warhammer_the_old_world_roleplaying_game_-_player_s_guide.pdf`;
-- размер: `142493328` байт;
+- актуальный Player’s Guide `1.4`: `Warhammer_the_Old_World_Roleplaying_Game_-_Players_Guide_-_29_01_26_opt.pdf`, 192 страницы и около 607021 извлечённого символа;
+- актуальный Gamemaster’s Guide `1.1`: `Warhammer_the_Old_World_Roleplaying_Game_-_Gamemasters_Guide_-29_01_26_opt.pdf`, 192 страницы и около 624921 извлечённого символа;
 - SHA-256 записан в `docs/source-index.md`;
-- PDF не зашифрован, содержит 191 страницу, встроенное оглавление и извлекаемый текстовый слой;
+- оба PDF не зашифрованы, содержат встроенное оглавление и извлекаемый текстовый слой;
 - добавлен воспроизводимый приватный экстрактор `tools/extract_rulebook.py` и optional dependency `rulebook`.
-- Gamemaster’s Guide: 186 страниц, около 593820 извлечённых символов, SHA-256 записан в `docs/source-index.md`.
 
 ## Известные ограничения
 
-- текущие правила и тесты описывают упрощённый прототип и могут противоречить книге;
-- полный каталог всех NPC Abilities, магии, религии и магических предметов ещё не завершён;
+- старый P1 battle loop остаётся упрощённым прототипом; K1 уже следует книгам, но пока реализует только часть проиндексированных механик;
+- каталоги NPC Abilities, магии, религии и магических предметов завершены как нормативный индекс, но большинство записей ещё не связано с исполняемыми reducers и orchestration;
 - применение времени, Treat/Heal и снятие source-aware Wound effects требует будущего battle loop;
 - внешние последствия Wound для инвентаря и анатомии пока являются typed follow-up;
 - защита Endurance после заживления `Ruptured organs` ещё не подключена к физическому impact;
@@ -197,15 +203,14 @@ K1 — реализация книжного resolution kernel. Прототип
 - battle loop ещё должен вызывать Stupidity entry points после каждой принятой Wound/снятия Distracted и создавать свежее Ability-state в начале следующего боя;
 - общий `ConditionState` пока не хранит источник или объект Distracted; Stupidity компенсирует это собственным source-aware состоянием, но полная replacement-семантика требует будущего решения;
 - полный casting pipeline ещё должен накапливать Casting successes, вычислять base Potency, запускать target-scoped Potency preflight и не создавать spell effects для `has_effect=False`;
-- `MiscastRollRequest` ещё не исполняется: отсутствуют RNG-бросок всего пула, выбор строки Miscast Table, конкретные эффекты и очистка состояния после их разрешения;
-- точный casting/Miscast pipeline заблокирован отсутствием локального Player’s Guide v1.3: нельзя надёжно нормализовать обновлённые страницы 157 и 159 по старой редакции;
+- конкретные эффекты 21 строки Miscast Table и очистка пула после каждого из них ещё не реализованы; текущий pipeline останавливается на `MiscastTableEffectRequest`;
 - профильные Wounds пока не хранят provenance огня; обычная и Monstrous Regeneration получают только явный снимок наличия хотя бы одной допустимой неогненной Wound;
 - психологическая иммунность undead-профилей подключена к боевым Condition/Hazard-фазам и `Curse of Cowardly Flight`; остальные конкретные non-Condition эффекты требуют отдельного анализа;
 - Monte Carlo, JSON, CLI и балансировщик ещё не входят в текущий срез.
 
 ## Следующий шаг
 
-Получить Player’s Guide v1.3, обновить запись/хэш источника и повторно извлечь как минимум страницы 157–159. После этого реализовать `MiscastRollRequest → MiscastTableEffectRequest` по исправленным диапазонам и новой семантике accumulated Casting successes; до обновления источника не кодировать старую таблицу.
+Классифицировать 21 `MiscastTableEntryId` по уже существующим примитивам и реализовать первую детерминированную группу effect reducers: собственный Staggered (`11–12`), собственная Wound (`31–32`), фиксированная `Ears ringing` Wound для целей (`35–36`) и смерть мага (`39+`). Каждый завершённый эффект должен обнулять Miscast Pool; spatial/random/GM-choice строки пока возвращать отдельными typed follow-up, а не скрытые defaults.
 
 ## Последняя проверка
 
@@ -216,7 +221,7 @@ $env:PYTHONPATH = "src"
 py -3.12 -m unittest discover -s tests -v
 ```
 
-Результат: `Ran 233 tests ... OK`.
+Результат: `Ran 241 tests ... OK`.
 
 ```powershell
 py -3.12 -m compileall -q src tests tools

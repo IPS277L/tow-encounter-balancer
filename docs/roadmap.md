@@ -11,7 +11,9 @@
 - сформировать трассировку `книга → правило → код → тест`;
 - пересмотреть архитектуру и roadmap реализации.
 
-R1 охватывает оба основных источника: Player’s Guide и Gamemaster’s Guide редакции 2025 года.
+R1 охватывает оба основных источника в актуальной локальной редакции `Last Edited: 29th January 2026`.
+
+Статус: завершён. Player’s Guide `1.4` и Gamemaster’s Guide `1.1` прочитаны напрямую по всем страницам `1–192`; диапазоны классифицированы, каталоги правил и профилей созданы, расхождения и пробелы реализации внесены в трассировку. Журнал: `audits/rulebooks-1.4-1.1.md`.
 
 ## K1 — книжный resolution kernel
 
@@ -23,11 +25,11 @@ R1 охватывает оба основных источника: Player’s G
 - injury policies для Player/Champion, Minion, Brute и Monstrosity;
 - детерминированные тесты с трассировкой к Rule ID.
 
-Готово ядро Test/Opposed/Attack/Staggered/Wound, специализированные эффекты всех строк Wounds Table, заменяющие Damage `ImpactSpec`, Hazard resolver, первые фазовые/multi-target `SecondaryEffectSpec`, Damage плюс Condition, executors выбранных вторичных/Zone Hazard целей, упорядоченные последствия Give Ground, Terrifying и все найденные явно именованные профильные Reactions: Monstrous Flight, Unsteady, Monstrous Regeneration и Undead Monstrosity. Source-classified психологическая иммунность undead-профилей покрывает боевые Condition/Hazard-фазы и `Curse of Cowardly Flight`; реализованы Foul Stench, Soporific Breath, Troll Hazards, Stupidity, Stone Troll/Magic Resistance Potency, обе Regeneration-ветви, NPC Wizard opposition через Mother Knows Best и минимальный lifecycle Miscast Pool до typed roll request. Spatial target discovery, wound provenance, inventory mutation, полный casting и turn orchestration остаются будущему battle loop; исполнение Miscast Table продолжится после получения точного текста Player’s Guide v1.3. Новые конкретные эффекты подключаются фазово без универсального языка правил.
+Готово ядро Test/Opposed/Attack/Staggered/Wound, специализированные эффекты всех строк Wounds Table, заменяющие Damage `ImpactSpec`, Hazard resolver, первые фазовые/multi-target `SecondaryEffectSpec`, Damage плюс Condition, executors выбранных вторичных/Zone Hazard целей, упорядоченные последствия Give Ground, Terrifying и все найденные явно именованные профильные Reactions: Monstrous Flight, Unsteady, Monstrous Regeneration и Undead Monstrosity. Source-classified психологическая иммунность undead-профилей покрывает боевые Condition/Hazard-фазы и `Curse of Cowardly Flight`; реализованы Foul Stench, Soporific Breath, Troll Hazards, Stupidity, Stone Troll/Magic Resistance Potency, обе Regeneration-ветви, NPC Wizard opposition через Mother Knows Best и Miscast lifecycle до typed table-effect request по актуальным диапазонам. Spatial target discovery, wound provenance, inventory mutation, полный casting, конкретные эффекты Miscast Table и turn orchestration остаются будущему battle loop. Новые конкретные эффекты подключаются фазово без универсального языка правил.
 
 Непосредственно связанные Talents, свойства оружия и классы специальных NPC-правил проверены. Полный каталог конкретных Abilities будет наращиваться по профилям, не меняя фазовый контракт K1.
 
-До завершения достаточной части R1 развитие M2 приостановлено, чтобы не закреплять упрощённые правила прототипа.
+R1 завершён. До M2 продолжается K1: сначала конкретные эффекты Miscast Table, затем недостающий casting/action/turn orchestration по зависимостям, зафиксированным аудитом.
 
 ## P1 — существующий прототип: детерминированный бой 1 на 1
 

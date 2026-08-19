@@ -31,7 +31,7 @@ def resolve_miscast_pool_increase(
             resolution_id=request.id,
             source_resolution_id=request.source.resolution_id,
             target_id=request.source.target_id,
-            dice_count=current,
+            pool_dice_count=current,
             rule_id=request.rule_id,
         )
         if triggered

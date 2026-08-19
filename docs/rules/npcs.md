@@ -1,6 +1,6 @@
 # NPC и профили противников
 
-Основной источник: `BOOK-GM-GUIDE`, страницы 89–91. Дополнительный источник: `BOOK-PLAYER-GUIDE`, страница 191. Статус: базовые injury policies `implemented`; каталог профильных Special Abilities `partially implemented`.
+Основной источник: `BOOK-GM-GUIDE`, версия 1.1, страницы 91–93. Дополнительный источник: `BOOK-PLAYER-GUIDE`, версия 1.4, страница 191. Статус: базовые injury policies `implemented`; каталог профильных Special Abilities `partially implemented`.
 
 ## RULE-NPC-001 — типы NPC
 
@@ -49,9 +49,13 @@ Protection задаёт готовый профиль встречной защ�
 
 Default Skill применяется ко всем навыкам, для которых профиль не задаёт отдельного значения. Явные навыки переопределяют default.
 
+Status, Assets и Lores обычно отсутствуют в NPC profile. Когда они становятся важны, GM назначает их по контексту; для проверки знания Lore он может вместо фиксации списка вызвать Recall Test. Typical Trappings описывают ожидаемую добычу, а не гарантированное содержимое каждого NPC.
+
 ## RULE-NPC-010 — свойства оружия
 
 NPC не получает автоматически все свойства одноимённого оружия игрока. Применяются только эффекты, явно указанные в NPC-профиле или общем правиле.
+
+Special Ability может передаваться rider только тогда, когда сама Ability так говорит; сам факт наличия свойства у mount недостаточен.
 
 ## RULE-NPC-011 — area и multi-target эффекты
 
@@ -59,19 +63,19 @@ NPC не получает автоматически все свойства о�
 
 ## RULE-NPC-012 — Monstrous Flight Reaction
 
-Griffon, Dragon и Wyvern при срабатывании Monstrous Flight дают Ground, предпочитая вертикальное перемещение в midair Zone, если оно доступно. Если Monstrosity уже давала Ground в текущем ходу, вместо этого она получает Wound. Источник: GM Guide, страницы 175, 177–178.
+Griffon, Dragon и Wyvern при срабатывании Monstrous Flight дают Ground, предпочитая вертикальное перемещение в midair Zone, если оно доступно. Если Monstrosity уже давала Ground в текущем ходу, вместо этого она получает Wound. Источник: GM Guide, страницы 177, 179–180.
 
 В K1 kernel переносит конкретный `MonstrousFlightReactionSpec`, дополнительные профильные Wounds исходной атаки и условные эффекты в `MonstrosityReactionRequest`. После добавления актуального spatial-контекста `resolve_monstrosity_reaction` возвращает типизированный `GIVE_GROUND` либо `SUFFER_WOUND`. В первой ветви `GiveGroundRequest` сохраняет предпочтение `VERTICAL_MIDAIR_IF_ABLE`; во второй используется общая профильная injury policy. Terrifying применяется после подтверждённого исхода тем же правилом, что и для обычного impact.
 
 ## RULE-NPC-013 — Unsteady Reaction
 
-При срабатывании Unsteady Giant получает Prone. Когда Giant действительно падает Prone, все существа в его Zone, включая самого Giant, проверяют Athletics против Hazard (3). Источник: GM Guide, страница 183.
+При срабатывании Unsteady Giant получает Prone. Когда Giant действительно падает Prone, все существа в его Zone, включая самого Giant, проверяют Athletics против Hazard (3). Источник: GM Guide, страница 185.
 
 В K1 `UnsteadyReactionSpec` добавляет Prone к состоянию Giant и возвращает `ReactorZoneHazardRequest`. Этот запрос означает всех существ в Zone реагирующего Giant, но не выбирает их без spatial state. После внешнего выбора `ReactorZoneHazardResolutionRequest` требует включить Giant и исполняет общий Test/Hazard pipeline для каждой уникальной цели в переданном порядке. Если Giant уже Prone, Condition не накладывается повторно и Hazard не создаётся: результат явно получает исход `ALREADY_PRONE`. Staggered при падении не снимается. Условие Terrifying не срабатывает, поскольку Unsteady само по себе не создаёт Give Ground или Wound.
 
 ## RULE-NPC-014 — Monstrous Regeneration Reaction
 
-Ghorgon и Troll Hag в конце своего хода могут выбрать восстановление одной Wound, получая Staggered, если этого Condition ещё нет. Wound от огня восстановить нельзя. Если их Reaction срабатывает, они не могут регенерировать на следующем ходу. Источник: GM Guide, страницы 151 и 181.
+Ghorgon и Troll Hag в конце своего хода могут выбрать восстановление одной Wound, получая Staggered, если этого Condition ещё нет. Wound от огня восстановить нельзя. Если их Reaction срабатывает, они не могут регенерировать на следующем ходу. Источник: GM Guide, страницы 153 и 183.
 
 K1 разделяет две фазы. `MonstrousRegenerationReactionSpec` возвращает исход `REGENERATION_SUPPRESSED` и source-aware `SuppressRegenerationNextTurnRequest`, не меняя состояние немедленно. В конце следующего хода `MonstrousRegenerationEndTurnRequest` принимает этот сохранённый запрет, пропускает возможность регенерации и однократно возвращает его как `consumed_suppression`; decision provider при этом не вызывается. Запрет гасится в ближайшее end-turn окно даже при отсутствии Wounds, чтобы он не переносился на последующие ходы.
 
@@ -79,7 +83,7 @@ K1 разделяет две фазы. `MonstrousRegenerationReactionSpec` во�
 
 ## RULE-NPC-015 — Undead Monstrosity Reaction
 
-Когда срабатывает Reaction немонтированного Bone Dragon, он получает Wound. Если на нём находится Liche или Tomb King, Bone Dragon может вместо Wound дать Ground или упасть Prone. Источник: GM Guide, страница 172.
+Когда срабатывает Reaction немонтированного Bone Dragon, он получает Wound. Если на нём находится Liche или Tomb King, Bone Dragon может вместо Wound дать Ground или упасть Prone. Источник: GM Guide, страница 174.
 
 В K1 `UndeadMonstrosityReactionSpec` без mounted-контекста детерминированно применяет общую профильную Wound policy. `UndeadMonstrosityReactionContext` явно называет допустимый тип всадника и сообщает актуальную доступность Give Ground. При наличии всадника resolver передаёт владельцу `MONSTROSITY` только доступные варианты: Wound доступна всегда, Give Ground исключается после уже выполненного в раунде Give Ground, при невозможном перемещении или Prone, а повторное падение Prone исключается. Give Ground создаёт обычный spatial follow-up, Prone меняет состояние непосредственно, Wound поддерживает дополнительные профильные Wounds. Terrifying реагирует только на фактические Give Ground или принятую Wound.
 
@@ -87,7 +91,7 @@ K1 разделяет две фазы. `MonstrousRegenerationReactionSpec` во�
 
 ## RULE-NPC-016 — невосприимчивость к психологическим эффектам
 
-Skeleton, Wight, Vampire, Liche, Tomb King и Bone Dragon невосприимчивы к психологическим эффектам и Conditions. Источник: GM Guide, страницы 166–172.
+Skeleton, Wight, Vampire, Liche, Tomb King и Bone Dragon невосприимчивы к психологическим эффектам и Conditions. Источник: GM Guide, страницы 168–174.
 
 Психологическая природа принадлежит источнику эффекта, а не значению `Condition`: например, Broken может возникнуть от явно описанного воздействия на страх, но одно наличие Broken не доказывает психологический источник. В K1 источник маркируется `EffectClassification.PSYCHOLOGICAL`, а профиль передаёт `EffectImmunity` с Rule ID своей Ability. Неклассифицированный эффект не блокируется по догадке.
 
@@ -95,7 +99,7 @@ Skeleton, Wight, Vampire, Liche, Tomb King и Bone Dragon невосприимч
 
 ## RULE-NPC-017 — Foul Stench
 
-Когда Wyvern входит в Zone врага, этот враг должен освободить одну руку, чтобы закрыть нос, либо получить Distracted. Источник: GM Guide, страница 178. Способность также передаётся Orc Boss, находящемуся верхом на Wyvern.
+Когда Wyvern входит в Zone врага, этот враг должен освободить одну руку, чтобы закрыть нос, либо получить Distracted. Источник: GM Guide, страница 180. Способность также передаётся Orc Boss, находящемуся верхом на Wyvern.
 
 Spatial orchestration определяет факт входа и создаёт отдельный `FoulStenchRequest` для каждого затронутого врага с актуальным снимком доступности рук. Если свободная рука уже есть, цель закрывает нос без решения и потери предмета. Если обе руки заняты и предмет можно отпустить, `DecisionOwner.TARGET` явно выбирает `DROP_HELD_HAND_ITEM` либо `SUFFER_DISTRACTED`. Если освободить руку невозможно, Distracted применяется автоматически.
 
@@ -103,7 +107,7 @@ Spatial orchestration определяет факт входа и создаёт
 
 ## RULE-NPC-018 — Soporific Breath
 
-Forest Dragon без Staggered может действием выдохнуть облако в Zone на Medium Range. Все существа в этой Zone делают Endurance Test против Hazard (2), который при провале наносит обычную Wound по shortfall и накладывает Drained. Если при применении Drained уже присутствует, вместо повторного Drained цель получает Defenceless. Источник: GM Guide, страница 177. Находящийся верхом Wood Elf получает эту Ability через Dragon Rider.
+Forest Dragon без Staggered может действием выдохнуть облако в Zone на Medium Range. Все существа в этой Zone делают Endurance Test против Hazard (2), который при провале наносит обычную Wound по shortfall и накладывает Drained. Если при применении Drained уже присутствует, вместо повторного Drained цель получает Defenceless. Источник: GM Guide, страница 179. Находящийся верхом Wood Elf получает эту Ability через Dragon Rider.
 
 `soporific_breath_hazard` нормализует точный книжный источник как общий `ZoneHazardRequest`. Spatial/action orchestration отвечает за проверку отсутствия Staggered у действующего, расход действия, Medium Range, выбор Zone и снимок всех находящихся в ней существ. K1 получает уже выбранные уникальные цели и разрешает их слева направо через общий Test/Hazard pipeline.
 
@@ -111,19 +115,19 @@ Forest Dragon без Staggered может действием выдохнуть 
 
 ## RULE-NPC-019 — Troll Vomit
 
-Обычный Troll может действием атаковать уже Staggered врага в Close Range потоком едкой рвоты. Цель делает Endurance Test против Hazard (3). Источник: GM Guide, страница 180.
+Обычный Troll может действием атаковать уже Staggered врага в Close Range потоком едкой рвоты. Цель делает Endurance Test против Hazard (3). Источник: GM Guide, страница 182.
 
 `troll_vomit_hazard` создаёт одиночную `HazardExposureRequest` без дополнительного Condition. При недостатке успехов общий Hazard resolver наносит Wound по shortfall; при трёх и более успехах цель полностью избегает эффекта. Action orchestration до создания exposure обязан проверить, что цель является врагом, находится в Close Range и уже имеет Staggered.
 
 ## RULE-NPC-020 — Troll Hag Swamp Breath
 
-Troll Hag без Staggered может действием извергнуть едкий поток в Zone на Medium Range. Каждое существо в этой Zone делает Endurance Test против Hazard (3). Источник: GM Guide, страница 181.
+Troll Hag без Staggered может действием извергнуть едкий поток в Zone на Medium Range. Каждое существо в этой Zone делает Endurance Test против Hazard (3). Источник: GM Guide, страница 183.
 
 `troll_hag_swamp_breath_hazard` создаёт общий `ZoneHazardRequest` без дополнительных Conditions. После внешнего выбора Zone и уникального стабильного списка её обитателей общий Zone executor независимо разрешает Test и Wound каждой цели. Проверка Staggered действующей Troll Hag, расход действия, Medium Range и spatial selection не относятся к reducer последствий.
 
 ## RULE-NPC-021 — Troll Stupidity
 
-В начале боя Troll Distracted некой несущественной деталью окружения и получает –1d на все Tests. Если Distracted снято, оно не возвращается до окончания боя. Полученная Troll Wound снимает Condition автоматически; союзник также может снять его успешным Leadership Test. Общий способ снятия Distracted, например успешный Willpower Test, также подавляет возврат Stupidity. Источник: GM Guide, страница 180; общее Distracted — Player’s Guide, страница 123.
+В начале боя Troll Distracted некой несущественной деталью окружения и получает –1d на все Tests. Если Distracted снято, оно не возвращается до окончания боя. Полученная Troll Wound снимает Condition автоматически; союзник также может снять его успешным Leadership Test. Общий способ снятия Distracted, например успешный Willpower Test, также подавляет возврат Stupidity. Источник: GM Guide, страница 182; общее Distracted — Player’s Guide, страница 123.
 
 `TrollStupidityState` отдельно хранит source Rule ID и флаг `suppressed_until_battle_end`. `start_troll_stupidity` применяет начальный Distracted через общий Condition reducer, пока Ability не подавлена. `troll_stupidity_test_modifiers` возвращает ровно один `DiceModifier(-1)` для любого Test активного Troll; это специальная формулировка Stupidity, а не дополнительный второй штраф поверх неё.
 
@@ -131,7 +135,7 @@ Troll Hag без Staggered может действием извергнуть е
 
 ## RULE-NPC-022 — Stone Troll
 
-Stone Troll получает +1 Resilience относительно обычного Troll, то есть итоговый Resilience 6. Любое заклинание, затрагивающее Stone Troll, уменьшает свою Potency на 1; при effective Potency 0 оно не оказывает на эту цель никакого эффекта. Источник: GM Guide, страница 180. Та же механика Potency встречается у Talent Magic Resistance на странице 78 Player’s Guide.
+Stone Troll получает +1 Resilience относительно обычного Troll, то есть итоговый Resilience 6. Любое заклинание, затрагивающее Stone Troll, уменьшает свою Potency на 1; при effective Potency 0 оно не оказывает на эту цель никакого эффекта. Источник: GM Guide, страница 182. Та же механика Potency встречается у Talent Magic Resistance на странице 78 Player’s Guide.
 
 `STONE_TROLL_RESILIENCE` фиксирует нормализованное профильное значение, а `stone_troll_spell_potency_modifier` создаёт `SpellPotencyModifier(-1)` с Rule ID Ability. Общий `resolve_spell_potency` применяется после вычисления книжной Potency Casting Test и до effect resolver конкретного заклинания. Полная загрузка NPC-профиля, Casting/Miscast и выбор целей остаются внешними слоями.
 
@@ -139,7 +143,7 @@ Stone Troll получает +1 Resilience относительно обычно
 
 ## RULE-NPC-023 — Troll Regeneration
 
-В конце своего хода обычный Troll без Staggered может добровольно получить Staggered, чтобы вылечить 1 Wound. Wound, нанесённую огнём, регенерировать нельзя. Источник: GM Guide, страница 180.
+В конце своего хода обычный Troll без Staggered может добровольно получить Staggered, чтобы вылечить 1 Wound. Wound, нанесённую огнём, регенерировать нельзя. Источник: GM Guide, страница 182.
 
 `TrollRegenerationRequest` получает актуальное `ProfileInjuryState` и явный provenance-снимок `has_non_fire_wound`. При Staggered, нуле Wounds или отсутствии подходящей неогненной Wound resolver возвращает детерминированный unavailable-outcome и не обращается к decision provider. Если способность доступна, `DecisionOwner.ACTOR` — контроллер действующего Troll — явно выбирает `REGENERATE` либо `SKIP`; скрытого default нет.
 
@@ -147,7 +151,7 @@ Stone Troll получает +1 Resilience относительно обычно
 
 ## RULE-NPC-024 — Mother Knows Best
 
-Troll Hag является Level 2 Wizard. Пока у неё 0 Wounds, она получает +1d на Casting Tests. Раз за раунд она может Oppose Casting Test мага в Long Range с помощью Willpower; выпавшие на её проверке девятки добавляются в её собственный Miscast Pool. Источник: GM Guide, страница 181; общее правило магического противодействия и девяток — Player’s Guide, страницы 74 и 157.
+Troll Hag является Level 2 Wizard. Пока у неё 0 Wounds, она получает +1d на Casting Tests. Раз за раунд она может Oppose Casting Test мага в Long Range с помощью Willpower; выпавшие на её проверке девятки добавляются в её собственный Miscast Pool. Источник: GM Guide, страница 183; общее правило магического противодействия и девяток — Player’s Guide, страницы 74 и 157.
 
 `mother_knows_best_casting_modifier` возвращает обычный source-aware `DiceModifier(+1)`, только если актуальный `ProfileInjuryState` содержит 0 Wounds. Бонус подчиняется общему пределу пула и должен прикрепляться только к Casting Test. `TROLL_HAG_WIZARD_LEVEL` фиксирует книжный Level 2.
 

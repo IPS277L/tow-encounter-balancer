@@ -8,11 +8,11 @@
 
 Примеры: Wild Attack накладывает Staggered до броска; Armour Bane снижает Resilience только после определения Wound; Near Miss применяется после броска Wounds Table; Troublemakers Out! накладывает Prone после фактического Give Ground.
 
-В K1 `ConditionAfterGiveGroundSpec` подключается к общему Stagger impact. Только если repeated-Staggered завершился выбором Give Ground, reducer возвращает сначала `GiveGroundRequest`, затем `ConditionAfterGiveGroundRequest`. Condition не появляется в состоянии до исполнения второго follow-up. Так моделируются Prone от Troublemakers Out! (Player’s Guide, страница 31) и Broken от Fearsome (GM Guide, страницы 136, 145–146, 174 и 180). Staggered этим spec не маскируется, поскольку повторное состояние требует собственной decision/injury policy.
+В K1 `ConditionAfterGiveGroundSpec` подключается к общему Stagger impact. Только если repeated-Staggered завершился выбором Give Ground, reducer возвращает сначала `GiveGroundRequest`, затем `ConditionAfterGiveGroundRequest`. Condition не появляется в состоянии до исполнения второго follow-up. Так моделируются Prone от Troublemakers Out! (Player’s Guide, страница 31) и Broken от Fearsome (GM Guide, страницы 138, 147–148, 176 и 182). Staggered этим spec не маскируется, поскольку повторное состояние требует собственной decision/injury policy.
 
-`ConditionOnHitSpec` разрешён только вместе с обычным `DamageImpactSpec`. На попадании сначала полностью разрешается Damage, Staggered/Wound и injury policy, затем Condition добавляется к итоговому состоянию. Поэтому Near Miss отменяет Wound, но не дополнительный Condition самого попадания. Этот вариант покрывает serrated maw Dragon (`Dam 7, hits inflict Drained`) и Venomous Tail Wyvern (`Dam 6, hits inflict Drained`) из GM Guide, страницы 177–178. Staggered запрещён и здесь: для него требуется repeated-Staggered policy; Prone с явно указанным порядком «before Give Ground» использует отдельный spec.
+`ConditionOnHitSpec` разрешён только вместе с обычным `DamageImpactSpec`. На попадании сначала полностью разрешается Damage, Staggered/Wound и injury policy, затем Condition добавляется к итоговому состоянию. Поэтому Near Miss отменяет Wound, но не дополнительный Condition самого попадания. Этот вариант покрывает serrated maw Dragon (`Dam 7, hits inflict Drained`) и Venomous Tail Wyvern (`Dam 6, hits inflict Drained`) из GM Guide, страницы 179–180. Staggered запрещён и здесь: для него требуется repeated-Staggered policy; Prone с явно указанным порядком «before Give Ground» использует отдельный spec.
 
-`ConditionOnGiveGroundOrWoundSpec` описывает Terrifying у Dragon и Wyvern (GM Guide, страницы 177–178). Broken ставится только после одного из двух подтверждённых исходов атаки: выбран Give Ground либо цель фактически приняла Wound. В первом случае общий Stagger reducer создаёт `GiveGroundRequest`, а затем `ConditionAfterGiveGroundRequest`; до исполнения перемещения состояние не меняется. Во втором Condition добавляется после завершения injury policy. Отменённая через Near Miss Wound, первый Staggered и выбор Fall Prone не являются триггерами.
+`ConditionOnGiveGroundOrWoundSpec` описывает Terrifying у Dragon и Wyvern (GM Guide, страницы 179–180). Broken ставится только после одного из двух подтверждённых исходов атаки: выбран Give Ground либо цель фактически приняла Wound. В первом случае общий Stagger reducer создаёт `GiveGroundRequest`, а затем `ConditionAfterGiveGroundRequest`; до исполнения перемещения состояние не меняется. Во втором Condition добавляется после завершения injury policy. Отменённая через Near Miss Wound, первый Staggered и выбор Fall Prone не являются триггерами.
 
 ## RULE-EFFECT-002 — модификаторы проверки
 
@@ -38,13 +38,13 @@
 
 До сравнения Damage с Resilience применяются контекстные модификаторы базового Damage, коэффициента успехов и эффективного Resilience. Игнорирование брони действует только для текущей атаки. Постоянное повреждение брони, например Armour Bane или отдельные NPC-способности, применяется в указанной правилом фазе после определения результата текущей атаки.
 
-Источник: Player’s Guide, страницы 73, 93–97, 119; GM Guide, страницы 91, 155, 167.
+Источник: Player’s Guide, страницы 73, 93–97, 119; GM Guide, страницы 93, 157, 169.
 
 ## RULE-EFFECT-005 — замена обычного результата атаки
 
 Некоторые атаки не вычисляют обычный Damage или заменяют его результатом профиля: Staggered, Burdened, Ablaze, Hazard, принудительным перемещением, захватом либо иным состоянием. Такой профиль должен явно задавать способ разрешения, а не маскироваться числом Damage.
 
-Источник: Player’s Guide, страницы 93, 95–96; GM Guide, профили NPC, в частности страницы 151 и 182.
+Источник: Player’s Guide, страницы 93, 95–96; GM Guide, профили NPC, в частности страницы 153 и 184.
 
 В K1 `ImpactSpec` является закрытым типизированным объединением:
 
@@ -66,11 +66,11 @@
 
 Примеры разных моделей: Blunderbuss, Oil Flask, Blasting Charge, Cleaving Blow, Monstrosity с несколькими отдельными атаками и профильные способности существ.
 
-Источник: Player’s Guide, страницы 74, 95–96; GM Guide, страницы 90, 149, 177, 181–185.
+Источник: Player’s Guide, страницы 74, 95–96; GM Guide, страницы 92, 151, 179, 183–187.
 
 В K1 реализованы пять узких вариантов `SecondaryEffectSpec`:
 
-- `ProneBeforeGiveGroundSpec` на успешном попадании накладывает Prone до разрешения обычного Staggered. Поэтому уже Staggered цель не может после этого выбрать Give Ground или повторное Prone. Флаг `affects_monstrosities` выражает различие между Noble Steed, который исключает Monstrosity, и атаками без такого исключения. Источники: Player’s Guide, страница 124; GM Guide, страницы 106, 126, 136 и 174;
+- `ProneBeforeGiveGroundSpec` на успешном попадании накладывает Prone до разрешения обычного Staggered. Поэтому уже Staggered цель не может после этого выбрать Give Ground или повторное Prone. Флаг `affects_monstrosities` выражает различие между Noble Steed, который исключает Monstrosity, и атаками без такого исключения. Источники: Player’s Guide, страница 124; GM Guide, страницы 108, 128, 138 и 176;
 - `NearbyTargetsStaggerSpec` на попадании добавляет `NearbyTargetsStaggerRequest` после полного результата основной цели. Запрос означает всех других существ, которые находились в Close Range от основной цели в момент попадания. Источник свойства Blunderbuss: Player’s Guide, страница 95;
 - `ConditionAfterGiveGroundSpec` добавляет не-Staggered Condition только после выбранного Give Ground; он работает через общий `StaggerImpactRequest` и поэтому может сопровождать как основную, так и уже выбранную вторичную цель;
 - `ConditionOnHitSpec` сохраняет обычный Damage pipeline и после его результата добавляет простой Condition к основной цели;
@@ -86,7 +86,7 @@ Kernel не ищет существ по Zones. Spatial orchestration фикси
 
 Примеры: Bash Attack, Fight As One, Interceptor, Quick Throw, Rapid Reload, Stand and Shoot и профильные NPC-способности.
 
-Источник: Player’s Guide, страницы 73, 76–80; GM Guide, страницы 90, 136, 173, 178.
+Источник: Player’s Guide, страницы 73, 76–80; GM Guide, страницы 92, 138, 175, 180.
 
 ## RULE-EFFECT-008 — Wound имеет отдельные вмешательства
 
@@ -94,7 +94,7 @@ Kernel не ищет существ по Zones. Spatial orchestration фикси
 
 Примеры: Hardy, Familiar, Near Miss, Blessings of the Lady, оружие с `+1d on Wounds Table` и модели Brute/Monstrosity.
 
-Источник: Player’s Guide, страницы 74–76, 95, 111–112, 121; GM Guide, страницы 89–90.
+Источник: Player’s Guide, страницы 74–76, 95, 111–112, 121; GM Guide, страницы 91–92.
 
 ## RULE-EFFECT-009 — решения принадлежат участникам
 
@@ -124,4 +124,12 @@ Foul Stench Wyvern добавляет `DecisionOwner.TARGET`: если у цел
 
 Книжные NPC содержат как повторяющиеся модификаторы, так и уникальные правила: ограничения целей, проглатывание, регенерацию, случайный выбор атаки, изменение состояния поля и Reactions. Общие случаи представляются типизированными эффектами; действительно уникальное правило допускается как отдельный именованный resolver с Rule ID. Строки описания из PDF не исполняются как код.
 
-Источник: GM Guide, страницы 92–185.
+Источник: GM Guide, страницы 94–187.
+
+## RULE-TALAGAAD-001 — Favoured of Ahalt
+
+Персонаж с этой уникальной Ability может одновременно обозначить ровно одно существо своей добычей. Пока он преследует выбранную добычу, все его Athletics, Awareness, Endurance и Survival Tests являются Glorious, а все остальные Tests — Grim. Эффект длится, пока персонаж не настигнет добычу или не откажется от охоты; отказ вызывает недовольство Ахальта, но книга не задаёт универсального числового последствия.
+
+Это профильная способность конкретного приключенческого материала, а не общее правило Priest of Taal. Книга отдельно допускает, что её может получить персонаж игрока по тёмной милости, поэтому состояние выбранной добычи и завершение охоты должны принадлежать campaign/character layer, а не NPC-only resolver.
+
+Источник: Gamemaster’s Guide 1.1, страница 13.

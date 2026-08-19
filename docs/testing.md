@@ -123,6 +123,9 @@ py -3.12 -m unittest discover -s tests -v
 - Rule of Nine lock исключает девятку из Glorious decision choices и автоматического Grim reroll, включая порог, при котором 9 считается успехом;
 - равенство Miscast Pool и Wizard Level не срабатывает, а строгое превышение создаёт запрос броска всего сохранённого пула;
 - несколько добавленных Miscast dice сохраняют provenance Ability/Rule of Nine/pool rule, а уже сработавший неразрешённый пул не принимает новые кубы;
+- preparation всегда теряет накопленные Casting successes; выбранное доступное заклинание стоит перед Miscast roll и добавляет ровно `+1d`;
+- Miscast roll использует pool и bonus dice, сохраняет все d10 и создаёт typed table-effect request, не очищая пул преждевременно;
+- актуальная таблица покрыта без пробелов и пересечений: `22 → UNNATURAL_WIND`, `23 → SPELL_RECAST`, `39+ → CATASTROPHIC_DEATH`;
 - немонтированный Bone Dragon при Reaction автоматически получает профильную Wound;
 - Liche/Tomb King открывает явный выбор владельца Monstrosity между доступными Wound, Give Ground и Prone;
 - недоступные Give Ground/Prone исключаются до decision policy, а неподдерживаемый выбор отклоняется;

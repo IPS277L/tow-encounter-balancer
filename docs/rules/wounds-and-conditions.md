@@ -48,11 +48,49 @@ Resilience обычно равен Toughness с добавлением защи�
 
 Источник: страница 191. Полные правила NPC находятся в Gamemaster’s Guide и отсутствуют в текущем источнике.
 
-## RULE-HEALTH-007 — Recover
+## RULE-HEALTH-007 — Treatment и Healing
 
-Recover может снимать Staggered и Prone, лечить Wound или пытаться снять другое состояние. После боя выжившие автоматически Recover при наличии безопасной передышки.
+Treatment помечает Wound treated: она больше не добавляет `+1d` к будущей Wounds Table, а её эффекты `until treated` прекращаются. В бою Recover лечит одну Wound персонажа или союзника Close через Recall; Anatomy Lore даёт auto-success, а специальный Lore может сделать то же для конкретной Wound. Нужны подходящие trappings; поиск импровизированных supplies может потребовать Survival/Awareness. После боя при безопасной передышке все Wounds автоматически treated.
+
+Healing удаляет все непостоянные эффекты Wound после указанной длительности: Catch Your Breath, A Night’s Respite либо Rest and Recovery; surgery-required Wound не начинает recovery до операции. При существенном deadline GM может разрешить Endurance для досрочного healing.
 
 Источник: страницы 118, 121–123.
+
+## RULE-HEALTH-008 — общая семантика Conditions
+
+Одновременно бывает не более одного экземпляра каждого Condition. Если effect предлагает выбор нескольких Conditions, уже имеющееся выбрать нельзя. Повторное получение обычно ничего не добавляет, кроме прямо описанных исключений: Staggered запускает выбор последствий, Distracted заменяет прежний объект отвлечения новым.
+
+Condition от ongoing cause нельзя снять, пока не устранена причина. Test на снятие выполняется как Recover; за один Recover можно Test снять только одно Condition либо Treat одну Wound.
+
+| Condition | Effect | Removal |
+|---|---|---|
+| Ablaze | end turn Endurance против fire Hazard (2) | Athletics stop/drop/roll либо water |
+| Blinded | visual Tests Grim; полностью sight-only Tests auto-fail | Awareness либо удалить blindfold/source Wound |
+| Broken | turn тратится на максимально быстрое движение в Zone без врага; Recover только там | Willpower либо Leadership другого |
+| Burdened | Manoeuvre запрещён | Brawn либо убрать груз/причину |
+| Critically Injured | end turn Endurance; провал даёт Defenceless, повтор при Defenceless убивает | Treat source Wound через Recall |
+| Deafened | не слышит, Help запрещён, hearing-only Tests auto-fail, hearing abilities не действуют | Awareness либо убрать источник/подождать |
+| Defenceless | нет movement/actions/opposition; только prompted Tests; successful attack всегда Wound | зависит от источника |
+| Distracted | `-1d` ко всему, не сфокусированному на объекте отвлечения | Willpower в бою либо исчезновение/поражение объекта; повтор заменяет объект |
+| Drained | нельзя получать bonus dice; Glorious только от Fate; penalties/Grim сохраняются | Endurance для краткого либо отдых/устранение причины |
+| Prone | Melee по цели `+1d`, Shooting `-1d`, dismount, нельзя покинуть Zone | Recover либо free move без enemy Close |
+| Staggered | повтор запускает Give Ground/Prone/Wound | Recover либо получение Wound |
+
+Источник: страницы 122–123. `ConditionState` хранит все 11 значений, но generic application не исполняет turn/action ограничения из таблицы.
+
+## RULE-HEALTH-009 — Infection и Festering Wounds
+
+В конце дня, когда персонаж получил хотя бы одну Wound (даже уже treated/healed), он делает Endurance Test. Если successes меньше числа Wounds, полученных в этот день, добавляется Festering Wound. Она считается untreated для `+1d`, не может быть treated и лечится только Rest and Recovery.
+
+Перед этой Test персонаж с Anatomy Lore может сделать Recall; каждый success позволяет ему выбрать себя или союзника для автоматического успеха против Infection.
+
+Источник: страница 122. Требует day/campaign tracking, которого сейчас нет.
+
+## RULE-HEALTH-010 — Surgery
+
+Surgery для отмеченных Wounds требует Anatomy Lore, подходящие facilities/tools/time и Dexterity Test; провал рискует disfigurement/death, а даже успех оставляет указанное Wound permanent consequence. Обычная процедура происходит во время Rest and Recovery; Talent Combat Surgeon отдельно задаёт battle Exacting Dexterity (8), одна Test за action.
+
+Источник: страницы 122 и 74. Общего surgery resolver пока нет.
 
 ## Реализация Staggered в K1
 
