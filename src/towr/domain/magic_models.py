@@ -12,6 +12,19 @@ class NpcWizardCastingOppositionOutcome(str, Enum):
     UNAVAILABLE_ALREADY_USED = "unavailable_already_used"
 
 
+class MiscastPoolOutcome(str, Enum):
+    ACCUMULATED = "accumulated"
+    MISCAST_TRIGGERED = "miscast_triggered"
+
+
+@dataclass(frozen=True, slots=True)
+class WizardMagicState:
+    miscast_dice: int = 0
+
+    def __post_init__(self) -> None:
+        _validate_non_negative_int(self.miscast_dice, "miscast_dice")
+
+
 @dataclass(frozen=True, slots=True)
 class MiscastPoolIncreaseRequest:
     resolution_id: str
@@ -28,6 +41,60 @@ class MiscastPoolIncreaseRequest:
         _validate_non_empty_string(self.source_test_id, "source_test_id")
         _validate_non_empty_string(self.trigger_rule_id, "trigger_rule_id")
         _validate_non_empty_string(self.rule_id, "rule_id")
+
+
+@dataclass(frozen=True, slots=True)
+class MiscastPoolResolutionRequest:
+    id: str
+    source: MiscastPoolIncreaseRequest
+    state: WizardMagicState
+    wizard_level: int
+    rule_id: str = "RULE-MAGIC-004:miscast-pool"
+
+    def __post_init__(self) -> None:
+        _validate_non_empty_string(self.id, "Miscast Pool request id")
+        if not isinstance(self.source, MiscastPoolIncreaseRequest):
+            raise TypeError("source must be a MiscastPoolIncreaseRequest")
+        if not isinstance(self.state, WizardMagicState):
+            raise TypeError("state must be a WizardMagicState")
+        _validate_positive_int(self.wizard_level, "wizard_level")
+        if self.state.miscast_dice > self.wizard_level:
+            raise ValueError(
+                "an already-triggered Miscast must be resolved before "
+                "adding more dice"
+            )
+        _validate_non_empty_string(self.rule_id, "rule_id")
+
+
+@dataclass(frozen=True, slots=True)
+class MiscastRollRequest:
+    resolution_id: str
+    source_resolution_id: str
+    target_id: str
+    dice_count: int
+    rule_id: str = "RULE-MAGIC-004:miscast-pool"
+
+    def __post_init__(self) -> None:
+        _validate_non_empty_string(self.resolution_id, "resolution_id")
+        _validate_non_empty_string(
+            self.source_resolution_id,
+            "source_resolution_id",
+        )
+        _validate_non_empty_string(self.target_id, "target_id")
+        _validate_positive_int(self.dice_count, "Miscast roll dice_count")
+        _validate_non_empty_string(self.rule_id, "rule_id")
+
+
+@dataclass(frozen=True, slots=True)
+class MiscastPoolResolutionResult:
+    request_id: str
+    target_id: str
+    state: WizardMagicState
+    previous_miscast_dice: int
+    dice_added: int
+    outcome: MiscastPoolOutcome
+    roll_request: MiscastRollRequest | None
+    applied_rule_ids: tuple[str, ...]
 
 
 @dataclass(frozen=True, slots=True)
@@ -153,6 +220,13 @@ def _validate_positive_int(value: int, name: str) -> None:
         raise TypeError(f"{name} must be an integer")
     if value < 1:
         raise ValueError(f"{name} must be positive")
+
+
+def _validate_non_negative_int(value: int, name: str) -> None:
+    if not isinstance(value, int) or isinstance(value, bool):
+        raise TypeError(f"{name} must be an integer")
+    if value < 0:
+        raise ValueError(f"{name} must not be negative")
 
 
 def _validate_bool(value: bool, name: str) -> None:

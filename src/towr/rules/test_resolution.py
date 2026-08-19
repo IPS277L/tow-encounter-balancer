@@ -93,19 +93,33 @@ def resolve_test(
     initial_failure_indices = tuple(
         index for index, value in enumerate(initial_values) if value > threshold
     )
+    locked_values = {lock.value for lock in request.reroll_locks}
+    rerollable_success_indices = tuple(
+        index
+        for index in initial_success_indices
+        if initial_values[index] not in locked_values
+    )
+    rerollable_failure_indices = tuple(
+        index
+        for index in initial_failure_indices
+        if initial_values[index] not in locked_values
+    )
 
     if quality is TestQuality.GRIM:
-        reroll_indices = initial_success_indices
+        reroll_indices = rerollable_success_indices
     elif quality is TestQuality.GLORIOUS:
         assert decisions is not None
         chosen_indices = tuple(
             decisions.choose_glorious_rerolls(
                 request=request,
                 initial_values=initial_values,
-                eligible_indices=initial_failure_indices,
+                eligible_indices=rerollable_failure_indices,
             )
         )
-        _validate_glorious_decision(chosen_indices, initial_failure_indices)
+        _validate_glorious_decision(
+            chosen_indices,
+            rerollable_failure_indices,
+        )
         reroll_indices = tuple(sorted(chosen_indices))
     else:
         reroll_indices = ()
@@ -132,6 +146,7 @@ def resolve_test(
             request.dice_modifiers,
             request.quality_modifiers,
             request.success_modifiers,
+            request.reroll_locks,
         )
         for modifier in modifiers
     )

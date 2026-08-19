@@ -6,9 +6,7 @@ from towr.domain.magic_models import (
     NpcWizardCastingOppositionRequest,
     NpcWizardCastingOppositionResult,
 )
-
-
-RULE_OF_NINE_RULE_ID = "RULE-MAGIC-003:rule-of-nine"
+from towr.rules.miscast_pool_resolution import RULE_OF_NINE_RULE_ID
 
 
 class MissingCastingOppositionResultError(RuntimeError):

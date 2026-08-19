@@ -35,12 +35,17 @@ from towr.domain.injury_models import (
 )
 from towr.domain.magic_models import (
     MiscastPoolIncreaseRequest,
+    MiscastPoolOutcome,
+    MiscastPoolResolutionRequest,
+    MiscastPoolResolutionResult,
+    MiscastRollRequest,
     NpcWizardCastingOppositionOutcome,
     NpcWizardCastingOppositionRequest,
     NpcWizardCastingOppositionResult,
     SpellPotencyModifier,
     SpellPotencyRequest,
     SpellPotencyResult,
+    WizardMagicState,
 )
 from towr.domain.npc_effect_models import (
     DropHeldHandItemRequest,
@@ -112,7 +117,13 @@ from towr.domain.resolution_models import (
 )
 from towr.domain.results import BattleOutcome, BattleResult
 from towr.domain.stats import DicePool, StatBlock
-from towr.domain.test_models import InlineProfile, Skill, TestProfile, TestRequest
+from towr.domain.test_models import (
+    InlineProfile,
+    RerollLock,
+    Skill,
+    TestProfile,
+    TestRequest,
+)
 
 __all__ = [
     "AttackAction",
@@ -187,6 +198,10 @@ __all__ = [
     "MonstrousRegenerationOutcome",
     "MonstrousRegenerationReactionSpec",
     "MiscastPoolIncreaseRequest",
+    "MiscastPoolOutcome",
+    "MiscastPoolResolutionRequest",
+    "MiscastPoolResolutionResult",
+    "MiscastRollRequest",
     "NpcWizardCastingOppositionOutcome",
     "NpcWizardCastingOppositionRequest",
     "NpcWizardCastingOppositionResult",
@@ -201,6 +216,7 @@ __all__ = [
     "ReactorZoneHazardTargetResult",
     "ProfileInjuryState",
     "RepeatedConditionReplacement",
+    "RerollLock",
     "ProneBeforeGiveGroundSpec",
     "ResilienceProfile",
     "ResolutionResult",
@@ -221,6 +237,7 @@ __all__ = [
     "UndeadMonstrosityReactionContext",
     "UndeadMonstrosityReactionSpec",
     "UnsteadyReactionSpec",
+    "WizardMagicState",
     "ZoneHazardRequest",
     "ZoneHazardResolutionRequest",
     "ZoneHazardResolutionResult",

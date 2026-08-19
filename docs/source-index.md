@@ -11,8 +11,12 @@
 - Создан: `2025-06-23`, Adobe InDesign 19.5 / Adobe PDF Library 17.0.
 - Издание: Cubicle 7 Entertainment / Games Workshop, copyright 2025; `Last Edited: 23rd June 2025`.
 - Язык: английский.
-- Статус: создано приватное постраничное извлечение; начат нормативный разбор.
+- Статус: создано приватное постраничное извлечение; начат нормативный разбор. Локальный источник старее официальной Player’s Guide v1.3 от октября 2025 года.
 - Git: пользователь самостоятельно следит, чтобы исходный PDF не попал в репозиторий; проект не добавляет книгу в `.gitignore`.
+
+### Более новая официальная редакция
+
+На [официальной странице errata Cubicle 7](https://cubicle7games.com/errata-submission) Player’s Guide указана как версия `1.3`, файл от `03.10.25`. Change log сообщает как минимум два существенных изменения текущего магического среза: страница 157 теперь уточняет потерю накопленных Casting successes при Miscast и последствия сотворения заклинания перед таблицей; результаты страницы 159 перенумерованы для устранения дублирования. Точного обновлённого текста в рабочем каталоге нет, поэтому локальный PDF от 23 июня 2025 года остаётся пригоден для неизменённых правил, но не является достаточным источником для реализации Casting/Miscast Table.
 
 ### Первичная карта
 
@@ -59,7 +63,7 @@
 - страницы 81–88: магические предметы;
 - страницы 89–186: типы NPC, формат профилей, фракции, противники и монстры.
 
-Ключевые страницы для проекта: `Preparing for Battle` — 60, `Balancing Encounters` — 62, `Types of NPC` — 89–90, `Understanding NPC Profiles` — 91. Magic Resistance Talent и общее определение Spell Potency находятся на страницах 78 и 157 Player’s Guide; магическое противодействие и Rule of Nine — на страницах 74 и 157. Психологическая невосприимчивость undead-профилей повторяется на страницах 166–172 GM Guide; репрезентативные варианты Prone до Give Ground находятся на страницах 106, 126, 136 и 174; Fearsome после Give Ground — на страницах 136, 145–146, 166–171, 174 и 180; Monstrous Regeneration — на страницах 151 и 181; Undead Monstrosity и Bone Dragon — на странице 172; Monstrous Flight — на страницах 175, 177–178; Soporific Breath и повторный Drained → Defenceless — на странице 177; Damage плюс Drained, Terrifying и Foul Stench — на страницах 177–178; Stone Troll, Troll Stupidity, Regeneration и Vomit — на странице 180; Troll Hag Swamp Breath и Mother Knows Best — на странице 181; Giant Unsteady — на странице 183.
+Ключевые страницы для проекта: `Preparing for Battle` — 60, `Balancing Encounters` — 62, `Types of NPC` — 89–90, `Understanding NPC Profiles` — 91. Magic Resistance Talent и общее определение Spell Potency находятся на страницах 78 и 157 Player’s Guide; магическое противодействие и Rule of Nine — на страницах 74 и 157; порог, бросок и таблица Miscast Pool — на страницах 157–159, но локальная старая редакция этих страниц не должна использоваться для реализации таблицы (`AMBIGUITY-003`). Психологическая невосприимчивость undead-профилей повторяется на страницах 166–172 GM Guide; репрезентативные варианты Prone до Give Ground находятся на страницах 106, 126, 136 и 174; Fearsome после Give Ground — на страницах 136, 145–146, 166–171, 174 и 180; Monstrous Regeneration — на страницах 151 и 181; Undead Monstrosity и Bone Dragon — на странице 172; Monstrous Flight — на страницах 175, 177–178; Soporific Breath и повторный Drained → Defenceless — на странице 177; Damage плюс Drained, Terrifying и Foul Stench — на страницах 177–178; Stone Troll, Troll Stupidity, Regeneration и Vomit — на странице 180; Troll Hag Swamp Breath и Mother Knows Best — на странице 181; Giant Unsteady — на странице 183.
 
 ### Извлечение
 

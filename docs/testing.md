@@ -120,6 +120,9 @@ py -3.12 -m unittest discover -s tests -v
 - Long Range и once-per-round снимки закрывают недоступную NPC Wizard opposition без готового Test result;
 - завершённая opposition обязана содержать ожидаемые Casting/Willpower Test IDs, а её исход не влияет на подсчёт девяток Troll Hag;
 - девятки создают typed увеличение собственного Miscast Pool, отсутствие девяток всё равно расходует round budget, а переброшенная исходная девятка отклоняется;
+- Rule of Nine lock исключает девятку из Glorious decision choices и автоматического Grim reroll, включая порог, при котором 9 считается успехом;
+- равенство Miscast Pool и Wizard Level не срабатывает, а строгое превышение создаёт запрос броска всего сохранённого пула;
+- несколько добавленных Miscast dice сохраняют provenance Ability/Rule of Nine/pool rule, а уже сработавший неразрешённый пул не принимает новые кубы;
 - немонтированный Bone Dragon при Reaction автоматически получает профильную Wound;
 - Liche/Tomb King открывает явный выбор владельца Monstrosity между доступными Wound, Give Ground и Prone;
 - недоступные Give Ground/Prone исключаются до decision policy, а неподдерживаемый выбор отклоняется;

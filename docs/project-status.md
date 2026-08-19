@@ -159,10 +159,17 @@ K1 — реализация книжного resolution kernel. Прототип
 - недоступная по дальности или уже использованная Reaction не принимает выполненную проверку, а доступная объявленная ветвь помечает round budget использованным независимо от исхода и девяток;
 - девятки Willpower-проверки реагирующего NPC Wizard создают `MiscastPoolIncreaseRequest` для его собственного пула независимо от победителя opposition;
 - Rule of Nine учитывает девятки после допустимых перебросов и отклоняет trace, в котором исходную девятку перебросили вопреки книге.
+- добавлен source-aware `RerollLock`, который заранее исключает девятку из Glorious choices и автоматических Grim rerolls без отдельного магического dice resolver;
+- нормализован `RULE-MAGIC-004` для Miscast Pool по страницам 157–159 Player’s Guide;
+- минимальный `WizardMagicState` хранит только текущие Miscast dice, тогда как неизменяемый Wizard Level остаётся явным входом resolver;
+- применение `MiscastPoolIncreaseRequest` различает безопасное равенство уровню и строгое превышение, сохраняет provenance и создаёт `MiscastRollRequest` на весь накопленный пул;
+- сработавший пул не очищается и не принимает новые кубы до будущего результата таблицы, поскольку книга обнуляет его только после разрешения эффекта.
+- обнаружено `AMBIGUITY-003`: локальная редакция Miscast Table содержит пересечение `21–22`/`22–23`, но официальный Cubicle 7 change log подтверждает исправленную перенумерацию в Player’s Guide v1.3;
+- локальная Player’s Guide датирована 23.06.2025 и недостаточна для следующей table-фазы: v1.3 также меняет правило accumulated Casting successes на странице 157.
 
 ## Проверено
 
-- 225 unit/integration тестов успешно проходят на Python 3.12, из них 205 относятся к K1;
+- 233 unit/integration тестов успешно проходят на Python 3.12, из них 213 относятся к K1;
 - исходники и тесты успешно проходят `compileall`.
 
 ## Исходный материал
@@ -190,14 +197,15 @@ K1 — реализация книжного resolution kernel. Прототип
 - battle loop ещё должен вызывать Stupidity entry points после каждой принятой Wound/снятия Distracted и создавать свежее Ability-state в начале следующего боя;
 - общий `ConditionState` пока не хранит источник или объект Distracted; Stupidity компенсирует это собственным source-aware состоянием, но полная replacement-семантика требует будущего решения;
 - полный casting pipeline ещё должен накапливать Casting successes, вычислять base Potency, запускать target-scoped Potency preflight и не создавать spell effects для `has_effect=False`;
-- `MiscastPoolIncreaseRequest` пока не применяет изменяемое состояние пула и не запускает Miscast при превышении Wizard Level; общий Test resolver ещё допускает выбор девятки для Glorious reroll, поэтому casting/opposition boundary отклоняет такой неправильный trace постфактум;
+- `MiscastRollRequest` ещё не исполняется: отсутствуют RNG-бросок всего пула, выбор строки Miscast Table, конкретные эффекты и очистка состояния после их разрешения;
+- точный casting/Miscast pipeline заблокирован отсутствием локального Player’s Guide v1.3: нельзя надёжно нормализовать обновлённые страницы 157 и 159 по старой редакции;
 - профильные Wounds пока не хранят provenance огня; обычная и Monstrous Regeneration получают только явный снимок наличия хотя бы одной допустимой неогненной Wound;
 - психологическая иммунность undead-профилей подключена к боевым Condition/Hazard-фазам и `Curse of Cowardly Flight`; остальные конкретные non-Condition эффекты требуют отдельного анализа;
 - Monte Carlo, JSON, CLI и балансировщик ещё не входят в текущий срез.
 
 ## Следующий шаг
 
-Добавить минимальный `WizardMagicState` и reducer применения `MiscastPoolIncreaseRequest` по Player’s Guide, страницы 157–159: увеличить пул, при превышении Wizard Level создать typed запрос броска всей Miscast Pool и очистить её только после отдельного результата таблицы. Одновременно добавить casting-specific запрет перебрасывать девятки до выполнения reroll, не реализуя пока накопление Exacting Casting successes или полную Miscast Table.
+Получить Player’s Guide v1.3, обновить запись/хэш источника и повторно извлечь как минимум страницы 157–159. После этого реализовать `MiscastRollRequest → MiscastTableEffectRequest` по исправленным диапазонам и новой семантике accumulated Casting successes; до обновления источника не кодировать старую таблицу.
 
 ## Последняя проверка
 
@@ -208,7 +216,7 @@ $env:PYTHONPATH = "src"
 py -3.12 -m unittest discover -s tests -v
 ```
 
-Результат: `Ran 225 tests ... OK`.
+Результат: `Ran 233 tests ... OK`.
 
 ```powershell
 py -3.12 -m compileall -q src tests tools

@@ -138,12 +138,25 @@ class SuccessModifier:
 
 
 @dataclass(frozen=True, slots=True)
+class RerollLock:
+    rule_id: str
+    value: int
+
+    def __post_init__(self) -> None:
+        _validate_rule_id(self.rule_id)
+        _validate_int(self.value, "locked reroll value")
+        if not 1 <= self.value <= 10:
+            raise ValueError("locked reroll value must be between 1 and 10")
+
+
+@dataclass(frozen=True, slots=True)
 class TestRequest:
     id: str
     profile: RollProfile
     dice_modifiers: tuple[DiceModifier, ...] = field(default_factory=tuple)
     quality_modifiers: tuple[QualityModifier, ...] = field(default_factory=tuple)
     success_modifiers: tuple[SuccessModifier, ...] = field(default_factory=tuple)
+    reroll_locks: tuple[RerollLock, ...] = field(default_factory=tuple)
 
     def __post_init__(self) -> None:
         if not isinstance(self.id, str):
@@ -153,6 +166,7 @@ class TestRequest:
         object.__setattr__(self, "dice_modifiers", tuple(self.dice_modifiers))
         object.__setattr__(self, "quality_modifiers", tuple(self.quality_modifiers))
         object.__setattr__(self, "success_modifiers", tuple(self.success_modifiers))
+        object.__setattr__(self, "reroll_locks", tuple(self.reroll_locks))
         if not isinstance(self.profile, (TestProfile, InlineProfile)):
             raise TypeError("profile must be a TestProfile or InlineProfile")
         if not all(isinstance(item, DiceModifier) for item in self.dice_modifiers):
@@ -165,6 +179,14 @@ class TestRequest:
             isinstance(item, SuccessModifier) for item in self.success_modifiers
         ):
             raise TypeError("success_modifiers must contain SuccessModifier values")
+        if not all(isinstance(item, RerollLock) for item in self.reroll_locks):
+            raise TypeError("reroll_locks must contain RerollLock values")
+        lock_rule_ids = tuple(item.rule_id for item in self.reroll_locks)
+        if len(set(lock_rule_ids)) != len(lock_rule_ids):
+            raise ValueError("reroll lock rule IDs must be unique")
+        lock_values = tuple(item.value for item in self.reroll_locks)
+        if len(set(lock_values)) != len(lock_values):
+            raise ValueError("reroll lock values must be unique")
 
 
 @dataclass(frozen=True, slots=True)
