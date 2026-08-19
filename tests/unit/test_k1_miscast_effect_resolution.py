@@ -31,6 +31,7 @@ from towr.domain.miscast_effect_models import (
     MiscastArcaneSightRequest,
     MiscastArcaneSightTestContext,
     MiscastCatastrophicDeathRequest,
+    MiscastCreatureMovementDirectionMode,
     MiscastDaemonHostilePurpose,
     MiscastDaemonInitialCourse,
     MiscastDaemonReturnTrigger,
@@ -44,18 +45,36 @@ from towr.domain.miscast_effect_models import (
     MiscastFascinatingRiftWitnessOutcome,
     MiscastFearedFoeIllusionDuration,
     MiscastFearedFoeIllusionRequest,
+    MiscastFoodPreservationExample,
+    MiscastFoodSpoilageRangeLimit,
+    MiscastFoodSpoiledRequest,
+    MiscastFoodState,
     MiscastHideousStenchChoice,
     MiscastHideousStenchOutcome,
     MiscastHideousStenchRequest,
     MiscastHideousStenchTarget,
     MiscastIlluminationKind,
     MiscastInternalDamageRequest,
+    MiscastNauseatingWaveRangeLimit,
+    MiscastNauseatingWaveRequest,
+    MiscastObjectSelectionMode,
+    MiscastObjectsTransfiguredRequest,
+    MiscastObjectTransfigurationOutcome,
+    MiscastObjectTransfigurationRangeLimit,
     MiscastRandomTransportRange,
     MiscastRandomTransportRequest,
     MiscastRecentSpellOption,
+    MiscastSenseOfLossRangeLimit,
+    MiscastSenseOfLossRequest,
+    MiscastShadowChitteringOrigin,
+    MiscastShadowChitteringRecurrence,
+    MiscastShadowChitteringRequest,
+    MiscastSmallObjectExample,
     MiscastSpellRecastRequest,
     MiscastSunlightBlindnessRequest,
     MiscastTruthboundRequest,
+    MiscastUnnaturalWeatherExample,
+    MiscastUnnaturalWeatherRequest,
     MiscastUnnaturalWindRequest,
     MiscastZoneHazardRequest,
 )
@@ -85,12 +104,18 @@ from towr.rules.miscast_effect_resolution import (
     resolve_ears_ringing,
     resolve_fascinating_rift,
     resolve_feared_foe_illusion,
+    resolve_food_spoiled,
     resolve_hideous_stench,
     resolve_internal_damage,
+    resolve_nauseating_wave,
+    resolve_objects_transfigured,
     resolve_random_transport,
+    resolve_sense_of_loss,
+    resolve_shadow_chittering,
     resolve_spell_recast,
     resolve_sunlight_blindness,
     resolve_truthbound,
+    resolve_unnatural_weather,
     resolve_unnatural_wind,
     resolve_zone_hazard_effect,
 )
@@ -638,6 +663,268 @@ class K1EarsRingingTests(unittest.TestCase):
                 source=source,
                 magic_state=WizardMagicState(miscast_dice=4),
                 targets=(wizard, wizard),
+            )
+
+
+class K1SenseOfLossTests(unittest.TestCase):
+    def test_preserves_medium_range_targets_without_inventory_loss(
+        self,
+    ) -> None:
+        source = effect_request((2,))
+        result = resolve_sense_of_loss(
+            MiscastSenseOfLossRequest(
+                id="sense-of-loss",
+                source=source,
+                magic_state=WizardMagicState(miscast_dice=1),
+                target_ids=("guard", "ally"),
+            )
+        )
+
+        effect = result.sense_of_loss
+        self.assertEqual(effect.affected_target_ids, ("guard", "ally"))
+        self.assertIs(effect.range_limit, MiscastSenseOfLossRangeLimit.MEDIUM)
+        self.assertTrue(effect.causes_sudden_sense_of_loss)
+        self.assertFalse(effect.can_identify_what_was_misplaced)
+        self.assertFalse(effect.removes_inventory_items)
+        self.assertEqual(result.magic_state.miscast_dice, 0)
+        self.assertEqual(result.applied_rule_ids, (source.rule_id,))
+
+    def test_allows_empty_snapshot_but_rejects_duplicate_targets(self) -> None:
+        source = effect_request((1,))
+        empty = MiscastSenseOfLossRequest(
+            id="empty-sense-of-loss",
+            source=source,
+            magic_state=WizardMagicState(miscast_dice=1),
+            target_ids=(),
+        )
+        self.assertEqual(
+            resolve_sense_of_loss(empty).sense_of_loss.affected_target_ids,
+            (),
+        )
+
+        with self.assertRaises(ValueError):
+            MiscastSenseOfLossRequest(
+                id="duplicate-sense-of-loss",
+                source=source,
+                magic_state=WizardMagicState(miscast_dice=1),
+                target_ids=("guard", "guard"),
+            )
+
+
+class K1NauseatingWaveTests(unittest.TestCase):
+    def test_preserves_stable_short_range_targets_without_other_effect(
+        self,
+    ) -> None:
+        source = effect_request((1, 1, 1, 1))
+        result = resolve_nauseating_wave(
+            MiscastNauseatingWaveRequest(
+                id="nauseating-wave",
+                source=source,
+                magic_state=WizardMagicState(miscast_dice=4),
+                target_ids=("guard", "ally"),
+            )
+        )
+
+        effect = result.nausea
+        self.assertEqual(effect.affected_target_ids, ("guard", "ally"))
+        self.assertIs(effect.range_limit, MiscastNauseatingWaveRangeLimit.SHORT)
+        self.assertTrue(effect.causes_sudden_nausea)
+        self.assertFalse(effect.has_other_effect)
+        self.assertEqual(result.magic_state.miscast_dice, 0)
+        self.assertEqual(result.applied_rule_ids, (source.rule_id,))
+
+    def test_allows_empty_snapshot_but_rejects_duplicate_targets(self) -> None:
+        source = effect_request((1, 1, 1, 1))
+        empty = MiscastNauseatingWaveRequest(
+            id="empty-nauseating-wave",
+            source=source,
+            magic_state=WizardMagicState(miscast_dice=4),
+            target_ids=(),
+        )
+        self.assertEqual(resolve_nauseating_wave(empty).nausea.affected_target_ids, ())
+
+        with self.assertRaises(ValueError):
+            MiscastNauseatingWaveRequest(
+                id="duplicate-nauseating-wave",
+                source=source,
+                magic_state=WizardMagicState(miscast_dice=4),
+                target_ids=("guard", "guard"),
+            )
+
+
+class K1ObjectsTransfiguredTests(unittest.TestCase):
+    def test_rolls_object_count_and_creates_random_spatial_follow_up(
+        self,
+    ) -> None:
+        source = effect_request((1, 1, 1, 2))
+        result = resolve_objects_transfigured(
+            MiscastObjectsTransfiguredRequest(
+                id="objects-transfigured",
+                source=source,
+                magic_state=WizardMagicState(miscast_dice=4),
+            ),
+            SequenceRandom([7]),
+        )
+
+        effect = result.transfiguration
+        self.assertEqual(result.object_count_roll, 7)
+        self.assertEqual(effect.requested_object_count, 7)
+        self.assertEqual(effect.area_anchor_target_id, "wizard")
+        self.assertIs(
+            effect.range_limit,
+            MiscastObjectTransfigurationRangeLimit.SHORT,
+        )
+        self.assertIs(
+            effect.object_selection_mode,
+            MiscastObjectSelectionMode.RANDOM_SMALL_OBJECTS,
+        )
+        self.assertEqual(
+            effect.object_examples,
+            (
+                MiscastSmallObjectExample.COINS,
+                MiscastSmallObjectExample.HALF_BURNED_CANDLE,
+                MiscastSmallObjectExample.OLD_KEY,
+            ),
+        )
+        self.assertFalse(effect.object_examples_are_exhaustive)
+        self.assertIs(
+            effect.transfiguration_outcome,
+            MiscastObjectTransfigurationOutcome.VARIOUS_SMALL_CREATURES,
+        )
+        self.assertIs(effect.creature_choice_owner, DecisionOwner.GM)
+        self.assertIs(
+            effect.movement_direction_mode,
+            MiscastCreatureMovementDirectionMode.RANDOM,
+        )
+        self.assertEqual(result.magic_state.miscast_dice, 0)
+        self.assertEqual(result.applied_rule_ids, (source.rule_id,))
+
+    def test_rejects_a_different_miscast_entry(self) -> None:
+        with self.assertRaises(ValueError):
+            MiscastObjectsTransfiguredRequest(
+                id="objects-transfigured",
+                source=effect_request((1, 2, 2, 2)),
+                magic_state=WizardMagicState(miscast_dice=4),
+            )
+
+
+class K1ShadowChitteringTests(unittest.TestCase):
+    def test_creates_caster_effect_until_mannslieb_full_and_clears_pool(
+        self,
+    ) -> None:
+        source = effect_request((1, 2, 2, 2))
+        result = resolve_shadow_chittering(
+            MiscastShadowChitteringRequest(
+                id="shadow-chittering",
+                source=source,
+                magic_state=WizardMagicState(miscast_dice=4),
+            )
+        )
+
+        effect = result.chittering
+        self.assertEqual(result.caster_id, "wizard")
+        self.assertEqual(effect.listener_id, "wizard")
+        self.assertIs(
+            effect.sound_origin,
+            MiscastShadowChitteringOrigin.NEARBY_SHADOW,
+        )
+        self.assertIs(
+            effect.recurrence,
+            MiscastShadowChitteringRecurrence
+            .FREQUENT_AND_ENTIRELY_UNPREDICTABLE,
+        )
+        self.assertFalse(effect.rule_defines_mechanical_consequences)
+        self.assertEqual(result.magic_state.miscast_dice, 0)
+        self.assertEqual(result.applied_rule_ids, (source.rule_id,))
+
+    def test_rejects_a_different_miscast_entry(self) -> None:
+        with self.assertRaises(ValueError):
+            MiscastShadowChitteringRequest(
+                id="shadow-chittering",
+                source=effect_request((2, 2, 2, 3)),
+                magic_state=WizardMagicState(miscast_dice=4),
+            )
+
+
+class K1FoodSpoiledTests(unittest.TestCase):
+    def test_spoils_fresh_food_in_long_range_and_clears_pool(self) -> None:
+        source = effect_request((2, 2, 2, 3))
+        result = resolve_food_spoiled(
+            MiscastFoodSpoiledRequest(
+                id="food-spoiled",
+                source=source,
+                magic_state=WizardMagicState(miscast_dice=4),
+            )
+        )
+
+        effect = result.food_spoilage
+        self.assertEqual(result.caster_id, "wizard")
+        self.assertEqual(effect.area_anchor_target_id, "wizard")
+        self.assertIs(effect.range_limit, MiscastFoodSpoilageRangeLimit.LONG)
+        self.assertEqual(effect.spoiled_food_states, (MiscastFoodState.FRESH,))
+        self.assertEqual(
+            effect.palatable_food_states,
+            (MiscastFoodState.PRESERVED,),
+        )
+        self.assertEqual(
+            effect.preservation_examples,
+            (
+                MiscastFoodPreservationExample.DRIED,
+                MiscastFoodPreservationExample.SALTED,
+                MiscastFoodPreservationExample.PICKLED,
+            ),
+        )
+        self.assertFalse(effect.preservation_examples_are_exhaustive)
+        self.assertEqual(result.magic_state.miscast_dice, 0)
+        self.assertEqual(result.applied_rule_ids, (source.rule_id,))
+
+    def test_rejects_a_different_miscast_entry(self) -> None:
+        with self.assertRaises(ValueError):
+            MiscastFoodSpoiledRequest(
+                id="food-spoiled",
+                source=effect_request((3, 4, 4, 4)),
+                magic_state=WizardMagicState(miscast_dice=4),
+            )
+
+
+class K1UnnaturalWeatherTests(unittest.TestCase):
+    def test_creates_gm_owned_local_weather_effect_and_clears_pool(
+        self,
+    ) -> None:
+        source = effect_request((3, 4, 4, 4))
+        result = resolve_unnatural_weather(
+            MiscastUnnaturalWeatherRequest(
+                id="unnatural-weather",
+                source=source,
+                magic_state=WizardMagicState(miscast_dice=4),
+            )
+        )
+
+        effect = result.weather_change
+        self.assertEqual(result.caster_id, "wizard")
+        self.assertEqual(effect.local_area_anchor_target_id, "wizard")
+        self.assertIs(effect.affected_area_choice_owner, DecisionOwner.GM)
+        self.assertIs(effect.weather_choice_owner, DecisionOwner.GM)
+        self.assertEqual(
+            effect.book_examples,
+            (
+                MiscastUnnaturalWeatherExample.MALEFIC_STORM_FROM_CLEAR_SKIES,
+                MiscastUnnaturalWeatherExample.FRIGID_SNOW_IN_SOMMERZEIT,
+            ),
+        )
+        self.assertFalse(effect.book_examples_are_exhaustive)
+        self.assertFalse(effect.rule_defines_exact_area)
+        self.assertFalse(effect.rule_defines_duration)
+        self.assertFalse(effect.rule_defines_mechanical_consequences)
+        self.assertEqual(result.magic_state.miscast_dice, 0)
+        self.assertEqual(result.applied_rule_ids, (source.rule_id,))
+
+    def test_rejects_a_different_miscast_entry(self) -> None:
+        with self.assertRaises(ValueError):
+            MiscastUnnaturalWeatherRequest(
+                id="unnatural-weather",
+                source=effect_request((4, 4, 4, 5)),
+                magic_state=WizardMagicState(miscast_dice=4),
             )
 
 

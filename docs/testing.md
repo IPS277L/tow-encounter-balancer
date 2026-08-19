@@ -129,6 +129,12 @@ py -3.12 -m unittest discover -s tests -v
 - Arcane Spill использует общий repeated-Stagger resolver, сохраняет внешний minor-Lore request и очищает Miscast Pool;
 - Hideous Stench сохраняет stable target order, требует решение Target только при доступном Give Ground и автоматически назначает `–1d` при невозможном движении;
 - пустой spatial snapshot Hideous Stench всё равно создаёт Grim для всех Fellowship Tests мага до купания, а неверные/отсутствующие решения и повторные target IDs отклоняются;
+- Sense of Loss сохраняет stable Medium Range target order, допускает пустой snapshot, отклоняет дубликаты и явно не удаляет предметы;
+- Nauseating Wave сохраняет stable Short Range target order, допускает пустой snapshot, отклоняет дубликаты и не создаёт иной эффект помимо внезапной тошноты;
+- Objects Transfigured отдельно бросает `1d10`, сохраняет точное число случайных малых объектов и возвращает Short Range follow-up с GM-owned видом существ и случайными направлениями без inventory mutation;
+- Shadow Chittering создаёт caster-scoped auditory effect до следующего Mannslieb full, сохраняет nearby-shadow origin и unpredictable recurrence без RNG или вымышленного механического penalty;
+- Food Spoiled создаёт Long Range inventory follow-up для всей свежей еды, явно сохраняет пригодность любой preserved food и считает dried/salted/pickled неисчерпывающими примерами;
+- Unnatural Weather создаёт привязанный к магу GM-owned запрос локальной погоды, сохраняет оба книжных примера и явно не определяет точную площадь, длительность или механические последствия;
 - Random Transport выбирает индекс из стабильного набора Medium Range Zone через внедряемый RNG и возвращает relocation без мутации карты; пустой, повторный или содержащий origin snapshot отклоняется;
 - Sunlight Blindness создаёт caster-scoped illumination policy до downtime, разделяет natural и torch/artificial/arcane light и очищает Miscast Pool без вымышленной Blinded Condition или Test modifier;
 - Unnatural Wind требует мага первой уникальной целью, сохраняет stable order, напрямую применяет Prone и не изменяет Monstrosity;

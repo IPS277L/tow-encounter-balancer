@@ -48,6 +48,9 @@ from towr.domain.miscast_effect_models import (
     MiscastFearedFoeIllusionEffectRequest,
     MiscastFearedFoeIllusionRequest,
     MiscastFearedFoeIllusionResult,
+    MiscastFoodSpoilageApplicationRequest,
+    MiscastFoodSpoiledRequest,
+    MiscastFoodSpoiledResult,
     MiscastInternalDamageRequest,
     MiscastInternalDamageResult,
     MiscastFellowshipGrimUntilBatheRequest,
@@ -58,10 +61,22 @@ from towr.domain.miscast_effect_models import (
     MiscastHideousStenchTarget,
     MiscastHideousStenchTargetResult,
     MiscastMinorLoreEffectRequest,
+    MiscastNauseatingWaveApplicationRequest,
+    MiscastNauseatingWaveRequest,
+    MiscastNauseatingWaveResult,
     MiscastNextTestPenaltyRequest,
+    MiscastObjectsTransfigurationApplicationRequest,
+    MiscastObjectsTransfiguredRequest,
+    MiscastObjectsTransfiguredResult,
     MiscastRandomTransportRelocationRequest,
     MiscastRandomTransportRequest,
     MiscastRandomTransportResult,
+    MiscastSenseOfLossApplicationRequest,
+    MiscastSenseOfLossRequest,
+    MiscastSenseOfLossResult,
+    MiscastShadowChitteringRequest,
+    MiscastShadowChitteringResult,
+    MiscastShadowChitteringUntilMannsliebFullRequest,
     MiscastSpellRecastApplicationRequest,
     MiscastSpellRecastRequest,
     MiscastSpellRecastResult,
@@ -71,6 +86,9 @@ from towr.domain.miscast_effect_models import (
     MiscastTruthboundRequest,
     MiscastTruthboundResult,
     MiscastTruthboundUntilDowntimeRequest,
+    MiscastUnnaturalWeatherApplicationRequest,
+    MiscastUnnaturalWeatherRequest,
+    MiscastUnnaturalWeatherResult,
     MiscastUnnaturalWindRequest,
     MiscastUnnaturalWindResult,
     MiscastUnnaturalWindTargetResult,
@@ -420,6 +438,117 @@ def resolve_random_transport(
         selected_index=selected_index,
         selected_destination_zone_id=destination,
         relocation=relocation,
+        applied_rule_ids=(request.source.rule_id,),
+    )
+
+
+def resolve_food_spoiled(
+    request: MiscastFoodSpoiledRequest,
+) -> MiscastFoodSpoiledResult:
+    food_spoilage = MiscastFoodSpoilageApplicationRequest(
+        resolution_id=f"{request.id}:food-spoilage",
+        caster_id=request.source.target_id,
+        area_anchor_target_id=request.source.target_id,
+        rule_id=request.source.rule_id,
+    )
+    return MiscastFoodSpoiledResult(
+        request_id=request.id,
+        caster_id=request.source.target_id,
+        magic_state=_clear_pool(request.magic_state),
+        food_spoilage=food_spoilage,
+        applied_rule_ids=(request.source.rule_id,),
+    )
+
+
+def resolve_objects_transfigured(
+    request: MiscastObjectsTransfiguredRequest,
+    rng: RandomSource,
+) -> MiscastObjectsTransfiguredResult:
+    object_count_roll = rng.randint(1, 10)
+    transfiguration = MiscastObjectsTransfigurationApplicationRequest(
+        resolution_id=f"{request.id}:transfiguration",
+        caster_id=request.source.target_id,
+        area_anchor_target_id=request.source.target_id,
+        requested_object_count=object_count_roll,
+        rule_id=request.source.rule_id,
+    )
+    return MiscastObjectsTransfiguredResult(
+        request_id=request.id,
+        caster_id=request.source.target_id,
+        magic_state=_clear_pool(request.magic_state),
+        object_count_roll=object_count_roll,
+        transfiguration=transfiguration,
+        applied_rule_ids=(request.source.rule_id,),
+    )
+
+
+def resolve_nauseating_wave(
+    request: MiscastNauseatingWaveRequest,
+) -> MiscastNauseatingWaveResult:
+    nausea = MiscastNauseatingWaveApplicationRequest(
+        resolution_id=f"{request.id}:nausea",
+        caster_id=request.source.target_id,
+        affected_target_ids=request.target_ids,
+        rule_id=request.source.rule_id,
+    )
+    return MiscastNauseatingWaveResult(
+        request_id=request.id,
+        caster_id=request.source.target_id,
+        magic_state=_clear_pool(request.magic_state),
+        nausea=nausea,
+        applied_rule_ids=(request.source.rule_id,),
+    )
+
+
+def resolve_sense_of_loss(
+    request: MiscastSenseOfLossRequest,
+) -> MiscastSenseOfLossResult:
+    sense_of_loss = MiscastSenseOfLossApplicationRequest(
+        resolution_id=f"{request.id}:sense-of-loss",
+        caster_id=request.source.target_id,
+        affected_target_ids=request.target_ids,
+        rule_id=request.source.rule_id,
+    )
+    return MiscastSenseOfLossResult(
+        request_id=request.id,
+        caster_id=request.source.target_id,
+        magic_state=_clear_pool(request.magic_state),
+        sense_of_loss=sense_of_loss,
+        applied_rule_ids=(request.source.rule_id,),
+    )
+
+
+def resolve_shadow_chittering(
+    request: MiscastShadowChitteringRequest,
+) -> MiscastShadowChitteringResult:
+    chittering = MiscastShadowChitteringUntilMannsliebFullRequest(
+        resolution_id=f"{request.id}:until-mannslieb-full",
+        listener_id=request.source.target_id,
+        rule_id=request.source.rule_id,
+    )
+    return MiscastShadowChitteringResult(
+        request_id=request.id,
+        caster_id=request.source.target_id,
+        magic_state=_clear_pool(request.magic_state),
+        chittering=chittering,
+        applied_rule_ids=(request.source.rule_id,),
+    )
+
+
+def resolve_unnatural_weather(
+    request: MiscastUnnaturalWeatherRequest,
+) -> MiscastUnnaturalWeatherResult:
+    weather_change = MiscastUnnaturalWeatherApplicationRequest(
+        resolution_id=f"{request.id}:weather-change",
+        caster_id=request.source.target_id,
+        local_area_anchor_target_id=request.source.target_id,
+        rule_id=request.source.rule_id,
+    )
+    return MiscastUnnaturalWeatherResult(
+        request_id=request.id,
+        caster_id=request.source.target_id,
+        magic_state=_clear_pool(request.magic_state),
+        weather_change=weather_change,
         applied_rule_ids=(request.source.rule_id,),
     )
 

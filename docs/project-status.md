@@ -205,10 +205,22 @@ K1 — реализация книжного resolution kernel. Прототип
 - типизированная illumination policy исключает sunlight/other natural light, разрешает torchlight/other artificial/arcane illumination и сохраняет режим «как глубокой ночью» без общей Blinded Condition или придуманного числового штрафа.
 - реализован `Random Transport (17–18)`: reducer выбирает через внедряемый RNG один элемент стабильного непустого snapshot допустимых Medium Range Zone и очищает Miscast Pool;
 - typed relocation сохраняет origin, выбранные index/destination и Rule ID без мутации карты; пустой snapshot, повторные Zone и текущая Zone отклоняются до броска.
+- реализован `Unnatural Weather (15–16)`: reducer создаёт привязанный к магу GM-owned запрос изменения погоды в локальной области и очищает Miscast Pool;
+- оба книжных явления сохранены как примеры, а точная площадь, длительность и механические последствия явно оставлены неопределёнными без вымышленного Hazard, Condition или modifier.
+- реализован `Food Spoiled (9–10)`: reducer создаёт привязанный к магу Long Range spatial/inventory follow-up и очищает Miscast Pool;
+- fresh food помечена для порчи, любая preserved food остаётся пригодной, а dried/salted/pickled сохранены как неисчерпывающие примеры без моделирования предметов внутри kernel.
+- реализован `Shadow Chittering (7–8)`: reducer создаёт caster-scoped auditory effect до следующего полнолуния Mannslieb и очищает Miscast Pool;
+- nearby-shadow origin и frequent/entirely unpredictable recurrence сохранены явно, но отсутствующие в книге Condition, modifier и числовой interval не добавлены.
+- реализован `Objects Transfigured (5–6)`: reducer бросает отдельный `1d10`, сохраняет число объектов, создаёт Short Range spatial/inventory follow-up и очищает Miscast Pool;
+- случайный выбор малых объектов и направлений оставлен внешнему executor, вид различных малых существ принадлежит GM, а книжные примеры не считаются исчерпывающими.
+- реализован `Nauseating Wave (3–4)`: reducer принимает stable snapshot уникальных Short Range target IDs, сохраняет порядок и очищает Miscast Pool;
+- результат фиксирует только внезапную тошноту и явное отсутствие иного эффекта; пустой snapshot допустим, а self-inclusion мага оставлен общей spatial policy.
+- реализован `Sense of Loss (1–2)`: reducer принимает stable snapshot уникальных Medium Range target IDs, сохраняет порядок и очищает Miscast Pool;
+- результат фиксирует ощущение внезапной потери и невозможность назвать потерянное, явно не удаляя предметы; пустой snapshot допустим, self-inclusion остаётся общей spatial policy.
 
 ## Проверено
 
-- 272 unit/integration тестов успешно проходят на Python 3.12, из них 252 относятся к K1;
+- 284 unit/integration теста успешно проходят на Python 3.12, из них 264 относятся к K1;
 - исходники и тесты успешно проходят `compileall`.
 
 ## Исходный материал
@@ -235,7 +247,7 @@ K1 — реализация книжного resolution kernel. Прототип
 - battle loop ещё должен вызывать Stupidity entry points после каждой принятой Wound/снятия Distracted и создавать свежее Ability-state в начале следующего боя;
 - общий `ConditionState` пока не хранит источник или объект Distracted; Stupidity компенсирует это собственным source-aware состоянием, но полная replacement-семантика требует будущего решения;
 - полный casting pipeline ещё должен накапливать Casting successes, вычислять base Potency, запускать target-scoped Potency preflight и не создавать spell effects для `has_effect=False`;
-- пятнадцать строк Miscast Table исполняются и очищают пул; остальные 6 строк ещё требуют собственных reducers либо typed follow-up contracts;
+- каждая строка Miscast Table исполняется собственным reducer и очищает пул после структурного разрешения;
 - battle loop пока не регистрирует и не переиспользует persistent Zone Hazards автоматически; Miscast reducer возвращает достаточный source/anchor/persistence contract для этого слоя;
 - battle/effect state пока не применяет и не погашает next-Test penalty Hideous Stench и не снимает caster Fellowship effect по событию купания; reducer возвращает типизированные запросы для этих границ;
 - понятие «recently», веса повторных spell и пустой случай Spell Recast требуют GM/simulation policy; текущий reducer не очищает пул при пустом snapshot;
@@ -246,13 +258,19 @@ K1 — реализация книжного resolution kernel. Прототип
 - spatial/battle state пока не выбирает и не регистрирует портал Fascinating Rift, не обнаруживает свидетелей, не исполняет compelled movement/restraint и не отправляет события входа/выхода для закрытия;
 - campaign/scene state пока не регистрирует Sunlight Blindness до downtime и не классифицирует фактические источники освещения сцены;
 - spatial state пока не строит eligible Zone snapshot для Random Transport и не применяет выбранный relocation;
+- scene/campaign state пока не выбирает и не регистрирует локальную область, конкретную погоду или GM-defined последствия Unnatural Weather;
+- spatial/inventory state пока не находит и не портит фактические запасы fresh food в Long Range для Food Spoiled;
+- calendar/effect state пока не снимает Shadow Chittering при Mannslieb full и не планирует его непредсказуемые narrative-повторения;
+- spatial/inventory state пока не выбирает случайные малые объекты и направления для Objects Transfigured; случай недостаточного числа объектов требует GM/simulation policy;
+- spatial target discovery пока не формирует полный snapshot Nauseating Wave и не имеет общей policy включения источника для формулировки `within Range of you`;
+- spatial target discovery пока не формирует полный Medium Range snapshot Sense of Loss; та же self-inclusion policy остаётся открытой;
 - профильные Wounds пока не хранят provenance огня; обычная и Monstrous Regeneration получают только явный снимок наличия хотя бы одной допустимой неогненной Wound;
 - психологическая иммунность undead-профилей подключена к боевым Condition/Hazard-фазам, `Curse of Cowardly Flight` и `Fascinating Rift`; остальные конкретные non-Condition эффекты требуют отдельного анализа;
 - Monte Carlo, JSON, CLI и балансировщик ещё не входят в текущий срез.
 
 ## Следующий шаг
 
-Реализовать `Unnatural Weather (15–16)` как GM-owned эффект локальной области. Книга не задаёт точную площадь, длительность или числовые последствия, поэтому reducer должен сохранить примеры внезапной malefic storm/frigid snow и источник, не изобретая Hazard либо modifiers.
+Реализовать первый срез полного Casting Test lifecycle: выполнить общий Test с Rule of Nine reroll lock, накопить successes в `WizardMagicState`, сохранить successes последнего броска как будущую base Potency и создать source-aware `MiscastPoolIncreaseRequest` по финальным девяткам. Выбор cast/wait и применение spell effect пока оставить следующей фазе.
 
 ## Последняя проверка
 
@@ -263,7 +281,7 @@ $env:PYTHONPATH = "src"
 py -3.12 -m unittest discover -s tests -v
 ```
 
-Результат: `Ran 272 tests ... OK`.
+Результат: `Ran 284 tests ... OK`.
 
 ```powershell
 py -3.12 -m compileall -q src tests tools

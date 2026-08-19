@@ -76,6 +76,66 @@ class MiscastRandomTransportRange(str, Enum):
     MEDIUM = "medium"
 
 
+class MiscastUnnaturalWeatherExample(str, Enum):
+    MALEFIC_STORM_FROM_CLEAR_SKIES = "malefic_storm_from_clear_skies"
+    FRIGID_SNOW_IN_SOMMERZEIT = "frigid_snow_in_sommerzeit"
+
+
+class MiscastFoodState(str, Enum):
+    FRESH = "fresh"
+    PRESERVED = "preserved"
+
+
+class MiscastFoodPreservationExample(str, Enum):
+    DRIED = "dried"
+    SALTED = "salted"
+    PICKLED = "pickled"
+
+
+class MiscastFoodSpoilageRangeLimit(str, Enum):
+    LONG = "long"
+
+
+class MiscastShadowChitteringOrigin(str, Enum):
+    NEARBY_SHADOW = "nearby_shadow"
+
+
+class MiscastShadowChitteringRecurrence(str, Enum):
+    FREQUENT_AND_ENTIRELY_UNPREDICTABLE = (
+        "frequent_and_entirely_unpredictable"
+    )
+
+
+class MiscastObjectTransfigurationRangeLimit(str, Enum):
+    SHORT = "short"
+
+
+class MiscastObjectSelectionMode(str, Enum):
+    RANDOM_SMALL_OBJECTS = "random_small_objects"
+
+
+class MiscastSmallObjectExample(str, Enum):
+    COINS = "coins"
+    HALF_BURNED_CANDLE = "half_burned_candle"
+    OLD_KEY = "old_key"
+
+
+class MiscastObjectTransfigurationOutcome(str, Enum):
+    VARIOUS_SMALL_CREATURES = "various_small_creatures"
+
+
+class MiscastCreatureMovementDirectionMode(str, Enum):
+    RANDOM = "random"
+
+
+class MiscastNauseatingWaveRangeLimit(str, Enum):
+    SHORT = "short"
+
+
+class MiscastSenseOfLossRangeLimit(str, Enum):
+    MEDIUM = "medium"
+
+
 class MiscastDaemonHostilePurpose(str, Enum):
     BEGUILE = "beguile"
     CORRUPT = "corrupt"
@@ -632,6 +692,386 @@ class MiscastEarsRingingResult:
     caster_id: str
     magic_state: WizardMagicState
     targets: tuple[MiscastEarsRingingTargetResult, ...]
+    applied_rule_ids: tuple[str, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class MiscastSenseOfLossRequest:
+    id: str
+    source: MiscastTableEffectRequest
+    magic_state: WizardMagicState
+    target_ids: tuple[str, ...]
+
+    def __post_init__(self) -> None:
+        _validate_non_empty_string(self.id, "Sense of Loss request id")
+        _validate_effect_source(
+            self.source,
+            self.magic_state,
+            MiscastTableEntryId.SENSE_OF_LOSS,
+        )
+        targets = tuple(self.target_ids)
+        for target_id in targets:
+            _validate_non_empty_string(target_id, "Sense of Loss target id")
+        if len(set(targets)) != len(targets):
+            raise ValueError("Sense of Loss target ids must be unique")
+        object.__setattr__(self, "target_ids", targets)
+
+
+@dataclass(frozen=True, slots=True)
+class MiscastSenseOfLossApplicationRequest:
+    resolution_id: str
+    caster_id: str
+    affected_target_ids: tuple[str, ...]
+    rule_id: str
+    range_limit: MiscastSenseOfLossRangeLimit = field(
+        init=False,
+        default=MiscastSenseOfLossRangeLimit.MEDIUM,
+    )
+    causes_sudden_sense_of_loss: bool = field(init=False, default=True)
+    can_identify_what_was_misplaced: bool = field(init=False, default=False)
+    removes_inventory_items: bool = field(init=False, default=False)
+
+    def __post_init__(self) -> None:
+        _validate_non_empty_string(self.resolution_id, "resolution_id")
+        _validate_non_empty_string(self.caster_id, "caster_id")
+        targets = tuple(self.affected_target_ids)
+        for target_id in targets:
+            _validate_non_empty_string(target_id, "affected target id")
+        if len(set(targets)) != len(targets):
+            raise ValueError("affected target ids must be unique")
+        object.__setattr__(self, "affected_target_ids", targets)
+        _validate_non_empty_string(self.rule_id, "rule_id")
+
+
+@dataclass(frozen=True, slots=True)
+class MiscastSenseOfLossResult:
+    request_id: str
+    caster_id: str
+    magic_state: WizardMagicState
+    sense_of_loss: MiscastSenseOfLossApplicationRequest
+    applied_rule_ids: tuple[str, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class MiscastNauseatingWaveRequest:
+    id: str
+    source: MiscastTableEffectRequest
+    magic_state: WizardMagicState
+    target_ids: tuple[str, ...]
+
+    def __post_init__(self) -> None:
+        _validate_non_empty_string(self.id, "Nauseating Wave request id")
+        _validate_effect_source(
+            self.source,
+            self.magic_state,
+            MiscastTableEntryId.NAUSEATING_WAVE,
+        )
+        targets = tuple(self.target_ids)
+        for target_id in targets:
+            _validate_non_empty_string(target_id, "Nauseating Wave target id")
+        if len(set(targets)) != len(targets):
+            raise ValueError("Nauseating Wave target ids must be unique")
+        object.__setattr__(self, "target_ids", targets)
+
+
+@dataclass(frozen=True, slots=True)
+class MiscastNauseatingWaveApplicationRequest:
+    resolution_id: str
+    caster_id: str
+    affected_target_ids: tuple[str, ...]
+    rule_id: str
+    range_limit: MiscastNauseatingWaveRangeLimit = field(
+        init=False,
+        default=MiscastNauseatingWaveRangeLimit.SHORT,
+    )
+    causes_sudden_nausea: bool = field(init=False, default=True)
+    has_other_effect: bool = field(init=False, default=False)
+
+    def __post_init__(self) -> None:
+        _validate_non_empty_string(self.resolution_id, "resolution_id")
+        _validate_non_empty_string(self.caster_id, "caster_id")
+        targets = tuple(self.affected_target_ids)
+        for target_id in targets:
+            _validate_non_empty_string(target_id, "affected target id")
+        if len(set(targets)) != len(targets):
+            raise ValueError("affected target ids must be unique")
+        object.__setattr__(self, "affected_target_ids", targets)
+        _validate_non_empty_string(self.rule_id, "rule_id")
+
+
+@dataclass(frozen=True, slots=True)
+class MiscastNauseatingWaveResult:
+    request_id: str
+    caster_id: str
+    magic_state: WizardMagicState
+    nausea: MiscastNauseatingWaveApplicationRequest
+    applied_rule_ids: tuple[str, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class MiscastObjectsTransfiguredRequest:
+    id: str
+    source: MiscastTableEffectRequest
+    magic_state: WizardMagicState
+
+    def __post_init__(self) -> None:
+        _validate_non_empty_string(self.id, "Objects Transfigured request id")
+        _validate_effect_source(
+            self.source,
+            self.magic_state,
+            MiscastTableEntryId.OBJECTS_TRANSFIGURED,
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class MiscastObjectsTransfigurationApplicationRequest:
+    resolution_id: str
+    caster_id: str
+    area_anchor_target_id: str
+    requested_object_count: int
+    rule_id: str
+    range_limit: MiscastObjectTransfigurationRangeLimit = field(
+        init=False,
+        default=MiscastObjectTransfigurationRangeLimit.SHORT,
+    )
+    object_selection_mode: MiscastObjectSelectionMode = field(
+        init=False,
+        default=MiscastObjectSelectionMode.RANDOM_SMALL_OBJECTS,
+    )
+    object_examples: tuple[MiscastSmallObjectExample, ...] = field(
+        init=False,
+        default=(
+            MiscastSmallObjectExample.COINS,
+            MiscastSmallObjectExample.HALF_BURNED_CANDLE,
+            MiscastSmallObjectExample.OLD_KEY,
+        ),
+    )
+    object_examples_are_exhaustive: bool = field(init=False, default=False)
+    transfiguration_outcome: MiscastObjectTransfigurationOutcome = field(
+        init=False,
+        default=MiscastObjectTransfigurationOutcome.VARIOUS_SMALL_CREATURES,
+    )
+    creature_choice_owner: DecisionOwner = field(
+        init=False,
+        default=DecisionOwner.GM,
+    )
+    movement_direction_mode: MiscastCreatureMovementDirectionMode = field(
+        init=False,
+        default=MiscastCreatureMovementDirectionMode.RANDOM,
+    )
+
+    def __post_init__(self) -> None:
+        _validate_non_empty_string(self.resolution_id, "resolution_id")
+        _validate_non_empty_string(self.caster_id, "caster_id")
+        _validate_non_empty_string(
+            self.area_anchor_target_id,
+            "area_anchor_target_id",
+        )
+        if self.area_anchor_target_id != self.caster_id:
+            raise ValueError(
+                "Objects Transfigured range must be anchored to the caster"
+            )
+        if isinstance(self.requested_object_count, bool) or not isinstance(
+            self.requested_object_count,
+            int,
+        ):
+            raise TypeError("requested_object_count must be an integer")
+        if not 1 <= self.requested_object_count <= 10:
+            raise ValueError("requested_object_count must be between 1 and 10")
+        _validate_non_empty_string(self.rule_id, "rule_id")
+
+
+@dataclass(frozen=True, slots=True)
+class MiscastObjectsTransfiguredResult:
+    request_id: str
+    caster_id: str
+    magic_state: WizardMagicState
+    object_count_roll: int
+    transfiguration: MiscastObjectsTransfigurationApplicationRequest
+    applied_rule_ids: tuple[str, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class MiscastShadowChitteringRequest:
+    id: str
+    source: MiscastTableEffectRequest
+    magic_state: WizardMagicState
+
+    def __post_init__(self) -> None:
+        _validate_non_empty_string(self.id, "Shadow Chittering request id")
+        _validate_effect_source(
+            self.source,
+            self.magic_state,
+            MiscastTableEntryId.SHADOW_CHITTERING,
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class MiscastShadowChitteringUntilMannsliebFullRequest:
+    resolution_id: str
+    listener_id: str
+    rule_id: str
+    sound_origin: MiscastShadowChitteringOrigin = field(
+        init=False,
+        default=MiscastShadowChitteringOrigin.NEARBY_SHADOW,
+    )
+    recurrence: MiscastShadowChitteringRecurrence = field(
+        init=False,
+        default=(
+            MiscastShadowChitteringRecurrence.FREQUENT_AND_ENTIRELY_UNPREDICTABLE
+        ),
+    )
+    rule_defines_mechanical_consequences: bool = field(
+        init=False,
+        default=False,
+    )
+
+    def __post_init__(self) -> None:
+        _validate_non_empty_string(self.resolution_id, "resolution_id")
+        _validate_non_empty_string(self.listener_id, "listener_id")
+        _validate_non_empty_string(self.rule_id, "rule_id")
+
+
+@dataclass(frozen=True, slots=True)
+class MiscastShadowChitteringResult:
+    request_id: str
+    caster_id: str
+    magic_state: WizardMagicState
+    chittering: MiscastShadowChitteringUntilMannsliebFullRequest
+    applied_rule_ids: tuple[str, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class MiscastFoodSpoiledRequest:
+    id: str
+    source: MiscastTableEffectRequest
+    magic_state: WizardMagicState
+
+    def __post_init__(self) -> None:
+        _validate_non_empty_string(self.id, "Food Spoiled request id")
+        _validate_effect_source(
+            self.source,
+            self.magic_state,
+            MiscastTableEntryId.FOOD_SPOILED,
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class MiscastFoodSpoilageApplicationRequest:
+    resolution_id: str
+    caster_id: str
+    area_anchor_target_id: str
+    rule_id: str
+    range_limit: MiscastFoodSpoilageRangeLimit = field(
+        init=False,
+        default=MiscastFoodSpoilageRangeLimit.LONG,
+    )
+    spoiled_food_states: tuple[MiscastFoodState, ...] = field(
+        init=False,
+        default=(MiscastFoodState.FRESH,),
+    )
+    palatable_food_states: tuple[MiscastFoodState, ...] = field(
+        init=False,
+        default=(MiscastFoodState.PRESERVED,),
+    )
+    preservation_examples: tuple[MiscastFoodPreservationExample, ...] = field(
+        init=False,
+        default=(
+            MiscastFoodPreservationExample.DRIED,
+            MiscastFoodPreservationExample.SALTED,
+            MiscastFoodPreservationExample.PICKLED,
+        ),
+    )
+    preservation_examples_are_exhaustive: bool = field(
+        init=False,
+        default=False,
+    )
+
+    def __post_init__(self) -> None:
+        _validate_non_empty_string(self.resolution_id, "resolution_id")
+        _validate_non_empty_string(self.caster_id, "caster_id")
+        _validate_non_empty_string(
+            self.area_anchor_target_id,
+            "area_anchor_target_id",
+        )
+        if self.area_anchor_target_id != self.caster_id:
+            raise ValueError("Food Spoiled range must be anchored to the caster")
+        _validate_non_empty_string(self.rule_id, "rule_id")
+
+
+@dataclass(frozen=True, slots=True)
+class MiscastFoodSpoiledResult:
+    request_id: str
+    caster_id: str
+    magic_state: WizardMagicState
+    food_spoilage: MiscastFoodSpoilageApplicationRequest
+    applied_rule_ids: tuple[str, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class MiscastUnnaturalWeatherRequest:
+    id: str
+    source: MiscastTableEffectRequest
+    magic_state: WizardMagicState
+
+    def __post_init__(self) -> None:
+        _validate_non_empty_string(self.id, "Unnatural Weather request id")
+        _validate_effect_source(
+            self.source,
+            self.magic_state,
+            MiscastTableEntryId.UNNATURAL_WEATHER,
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class MiscastUnnaturalWeatherApplicationRequest:
+    resolution_id: str
+    caster_id: str
+    local_area_anchor_target_id: str
+    rule_id: str
+    affected_area_choice_owner: DecisionOwner = field(
+        init=False,
+        default=DecisionOwner.GM,
+    )
+    weather_choice_owner: DecisionOwner = field(
+        init=False,
+        default=DecisionOwner.GM,
+    )
+    book_examples: tuple[MiscastUnnaturalWeatherExample, ...] = field(
+        init=False,
+        default=(
+            MiscastUnnaturalWeatherExample.MALEFIC_STORM_FROM_CLEAR_SKIES,
+            MiscastUnnaturalWeatherExample.FRIGID_SNOW_IN_SOMMERZEIT,
+        ),
+    )
+    book_examples_are_exhaustive: bool = field(init=False, default=False)
+    rule_defines_exact_area: bool = field(init=False, default=False)
+    rule_defines_duration: bool = field(init=False, default=False)
+    rule_defines_mechanical_consequences: bool = field(
+        init=False,
+        default=False,
+    )
+
+    def __post_init__(self) -> None:
+        _validate_non_empty_string(self.resolution_id, "resolution_id")
+        _validate_non_empty_string(self.caster_id, "caster_id")
+        _validate_non_empty_string(
+            self.local_area_anchor_target_id,
+            "local_area_anchor_target_id",
+        )
+        if self.local_area_anchor_target_id != self.caster_id:
+            raise ValueError(
+                "Unnatural Weather local area must be anchored to the caster"
+            )
+        _validate_non_empty_string(self.rule_id, "rule_id")
+
+
+@dataclass(frozen=True, slots=True)
+class MiscastUnnaturalWeatherResult:
+    request_id: str
+    caster_id: str
+    magic_state: WizardMagicState
+    weather_change: MiscastUnnaturalWeatherApplicationRequest
     applied_rule_ids: tuple[str, ...]
 
 
