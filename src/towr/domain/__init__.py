@@ -203,8 +203,10 @@ from towr.domain.resolution_models import (
     CowardlyFlightWillpowerResult,
     CowardlyFlightZoneBatchRequest,
     CowardlyFlightZoneBatchResult,
-    GiveGroundRequest,
     GiveGroundDestinationPreference,
+    GiveGroundRequest,
+    GiveGroundResolutionRequest,
+    GiveGroundResolutionResult,
     HazardExposureRequest,
     HazardResolutionRequest,
     HazardResolutionResult,
@@ -247,6 +249,12 @@ from towr.domain.resolution_models import (
     ZoneHazardTargetResult,
 )
 from towr.domain.results import BattleOutcome, BattleResult
+from towr.domain.spatial_models import (
+    SpatialBattleState,
+    SpatialEntityPlacement,
+    ZoneConnection,
+    ZoneGraph,
+)
 from towr.domain.stats import DicePool, StatBlock
 from towr.domain.test_models import (
     Characteristic,
@@ -324,6 +332,8 @@ __all__ = [
     "TrollRegenerationResult",
     "GiveGroundRequest",
     "GiveGroundDestinationPreference",
+    "GiveGroundResolutionRequest",
+    "GiveGroundResolutionResult",
     "InlineRollSource",
     "InlineProfile",
     "HazardImpactSpec",
@@ -486,6 +496,8 @@ __all__ = [
     "SpellTargetPreflightOutcome",
     "SpellTargetPreflightRequest",
     "SpellTargetPreflightResult",
+    "SpatialBattleState",
+    "SpatialEntityPlacement",
     "StaggerImpactRequest",
     "StaggerImpactResult",
     "SuppressRegenerationNextTurnRequest",
@@ -504,4 +516,6 @@ __all__ = [
     "ZoneHazardResolutionRequest",
     "ZoneHazardResolutionResult",
     "ZoneHazardTargetResult",
+    "ZoneConnection",
+    "ZoneGraph",
 ]

@@ -23,14 +23,23 @@ from towr.domain.resolution_models import (
     CowardlyFlightWillpowerBatchRequest,
     CowardlyFlightWillpowerRequest,
     CowardlyFlightZoneBatchRequest,
+    GiveGroundResolutionRequest,
+)
+from towr.domain.spatial_models import (
+    SpatialBattleState,
+    SpatialEntityPlacement,
+    ZoneConnection,
+    ZoneGraph,
 )
 from towr.domain.test_models import InlineProfile, TestRequest
 from towr.rules.cowardly_flight_resolution import (
     COWARDLY_FLIGHT_RULE_ID,
     COWARDLY_FLIGHT_SPELL_DEFINITION,
+    complete_cowardly_flight_movement,
     resolve_cowardly_flight_zone_batch,
     resolve_cowardly_flight_willpower_batch,
 )
+from towr.rules.spatial_resolution import resolve_give_ground
 from towr.rules.spell_cast_execution import resolve_spell_cast_targets
 from towr.rules.spell_target_preflight import resolve_spell_target_preflight
 
@@ -90,6 +99,72 @@ def zone_batch(
             ),
         )
     )
+
+
+def spell_spatial_state(
+    target_ids: tuple[str, ...],
+    *,
+    origin_zone_id: str = "zone:bridge",
+) -> SpatialBattleState:
+    destination_zone_ids = tuple(
+        f"zone:retreat:{target_id}" for target_id in target_ids
+    )
+    return SpatialBattleState(
+        graph=ZoneGraph(
+            zone_ids=(origin_zone_id, *destination_zone_ids),
+            connections=tuple(
+                ZoneConnection(origin_zone_id, destination_zone_id)
+                for destination_zone_id in destination_zone_ids
+            ),
+        ),
+        placements=tuple(
+            SpatialEntityPlacement(
+                entity_id=target_id,
+                side_id="enemies",
+                zone_id=origin_zone_id,
+            )
+            for target_id in target_ids
+        ),
+    )
+
+
+def movement_completions(
+    follow_ups: tuple[CowardlyFlightMovementFollowUp, ...],
+    *,
+    origin_zone_id: str = "zone:bridge",
+) -> tuple[tuple[CowardlyFlightMovementCompletion, ...], SpatialBattleState]:
+    spatial_state = spell_spatial_state(
+        tuple(item.target_id for item in follow_ups),
+        origin_zone_id=origin_zone_id,
+    )
+    completions: list[CowardlyFlightMovementCompletion] = []
+    for follow_up in follow_ups:
+        resolution = resolve_give_ground(
+            GiveGroundResolutionRequest(
+                source=follow_up.request,
+                state=spatial_state,
+                mover_id=follow_up.target_id,
+                destination_zone_id=f"zone:retreat:{follow_up.target_id}",
+                mover_conditions=CharacterInjuryState().conditions,
+            )
+        )
+        completions.append(
+            complete_cowardly_flight_movement(follow_up, resolution)
+        )
+        spatial_state = resolution.state
+    return tuple(completions), spatial_state
+
+
+def movement_completion(
+    follow_up: CowardlyFlightMovementFollowUp,
+    *,
+    origin_zone_id: str = "zone:bridge",
+) -> CowardlyFlightMovementCompletion:
+    completions, _ = movement_completions(
+        (follow_up,),
+        origin_zone_id=origin_zone_id,
+    )
+    return completions[0]
 
 
 class K1CowardlyFlightZoneBatchTests(unittest.TestCase):
@@ -307,15 +382,16 @@ class K1CowardlyFlightWillpowerBatchTests(unittest.TestCase):
         source = zone_batch(
             (IdentifiedSpellTarget("first"), IdentifiedSpellTarget("second"))
         )
-        completions = tuple(
-            CowardlyFlightMovementCompletion(item)
-            for item in reversed(source.movement_follow_ups)
+        ordered_completions, final_spatial_state = movement_completions(
+            source.movement_follow_ups
         )
+        completions = tuple(reversed(ordered_completions))
 
         result = resolve_cowardly_flight_willpower_batch(
             CowardlyFlightWillpowerBatchRequest(
                 id="wizard:cast:willpower-batch",
                 source=source,
+                spatial_state_after_movements=final_spatial_state,
                 movement_completions=completions,
             ),
             SequenceRandom([10, 10, 1, 1]),
@@ -336,17 +412,55 @@ class K1CowardlyFlightWillpowerBatchTests(unittest.TestCase):
         self.assertEqual(result.source_execution_id, source.source_execution_id)
         self.assertEqual(result.caster_id, "wizard")
         self.assertEqual(result.selected_zone_id, "zone:bridge")
+        self.assertEqual(result.spatial_state, final_spatial_state)
+
+    def test_movements_must_form_one_ordered_spatial_state_chain(self) -> None:
+        source = zone_batch(
+            (IdentifiedSpellTarget("first"), IdentifiedSpellTarget("second"))
+        )
+        initial_state = spell_spatial_state(("first", "second"))
+        independent_completions = []
+        for follow_up in source.movement_follow_ups:
+            resolution = resolve_give_ground(
+                GiveGroundResolutionRequest(
+                    source=follow_up.request,
+                    state=initial_state,
+                    mover_id=follow_up.target_id,
+                    destination_zone_id=(
+                        f"zone:retreat:{follow_up.target_id}"
+                    ),
+                    mover_conditions=CharacterInjuryState().conditions,
+                )
+            )
+            independent_completions.append(
+                complete_cowardly_flight_movement(follow_up, resolution)
+            )
+
+        with self.assertRaises(ValueError):
+            resolve_cowardly_flight_willpower_batch(
+                CowardlyFlightWillpowerBatchRequest(
+                    id="wizard:cast:willpower-batch",
+                    source=source,
+                    spatial_state_after_movements=(
+                        independent_completions[-1].resolution.state
+                    ),
+                    movement_completions=tuple(independent_completions),
+                ),
+                SequenceRandom([]),
+            )
 
     def test_target_without_movement_still_takes_willpower_test(self) -> None:
         source = zone_batch(
             (IdentifiedSpellTarget("trapped"),),
             can_give_ground=False,
         )
+        final_spatial_state = spell_spatial_state(("trapped",))
 
         result = resolve_cowardly_flight_willpower_batch(
             CowardlyFlightWillpowerBatchRequest(
                 id="wizard:cast:willpower-batch",
                 source=source,
+                spatial_state_after_movements=final_spatial_state,
                 movement_completions=(),
             ),
             SequenceRandom([1, 1]),
@@ -358,11 +472,13 @@ class K1CowardlyFlightWillpowerBatchTests(unittest.TestCase):
 
     def test_empty_zone_completes_without_movement_or_rng(self) -> None:
         source = zone_batch(())
+        final_spatial_state = spell_spatial_state(())
 
         result = resolve_cowardly_flight_willpower_batch(
             CowardlyFlightWillpowerBatchRequest(
                 id="wizard:cast:willpower-batch",
                 source=source,
+                spatial_state_after_movements=final_spatial_state,
                 movement_completions=(),
             ),
             SequenceRandom([]),
@@ -376,16 +492,13 @@ class K1CowardlyFlightWillpowerBatchTests(unittest.TestCase):
         source = zone_batch(
             (IdentifiedSpellTarget("first"), IdentifiedSpellTarget("second"))
         )
-        expected = tuple(
-            CowardlyFlightMovementCompletion(item)
-            for item in source.movement_follow_ups
+        expected, final_spatial_state = movement_completions(
+            source.movement_follow_ups
         )
         unrelated = zone_batch((IdentifiedSpellTarget("extra"),))
-        extra = CowardlyFlightMovementCompletion(
-            unrelated.movement_follow_ups[0]
-        )
+        extra = movement_completion(unrelated.movement_follow_ups[0])
         original = source.movement_follow_ups[0]
-        forged = CowardlyFlightMovementCompletion(
+        forged = movement_completion(
             CowardlyFlightMovementFollowUp(
                 target_id="forged-target",
                 request=original.request,
@@ -403,6 +516,7 @@ class K1CowardlyFlightWillpowerBatchTests(unittest.TestCase):
                         CowardlyFlightWillpowerBatchRequest(
                             id="wizard:cast:willpower-batch",
                             source=source,
+                            spatial_state_after_movements=final_spatial_state,
                             movement_completions=completions,
                         ),
                         SequenceRandom([]),
@@ -410,19 +524,37 @@ class K1CowardlyFlightWillpowerBatchTests(unittest.TestCase):
 
     def test_duplicate_movement_confirmation_is_rejected(self) -> None:
         source = zone_batch((IdentifiedSpellTarget("target"),))
-        completion = CowardlyFlightMovementCompletion(
-            source.movement_follow_ups[0]
-        )
+        completion = movement_completion(source.movement_follow_ups[0])
 
         with self.assertRaises(ValueError):
             CowardlyFlightWillpowerBatchRequest(
                 id="wizard:cast:willpower-batch",
                 source=source,
+                spatial_state_after_movements=completion.resolution.state,
                 movement_completions=(completion, completion),
+            )
+
+    def test_movement_must_originate_in_the_selected_zone(self) -> None:
+        source = zone_batch((IdentifiedSpellTarget("target"),))
+        completion = movement_completion(
+            source.movement_follow_ups[0],
+            origin_zone_id="zone:not-the-spell-target",
+        )
+
+        with self.assertRaises(ValueError):
+            resolve_cowardly_flight_willpower_batch(
+                CowardlyFlightWillpowerBatchRequest(
+                    id="wizard:cast:willpower-batch",
+                    source=source,
+                    spatial_state_after_movements=completion.resolution.state,
+                    movement_completions=(completion,),
+                ),
+                SequenceRandom([]),
             )
 
     def test_forged_zone_queues_are_rejected_before_rng(self) -> None:
         source = zone_batch((IdentifiedSpellTarget("target"),))
+        final_spatial_state = spell_spatial_state(("target",))
         fields = dict(
             request_id=source.request_id,
             source_execution_id=source.source_execution_id,
@@ -447,6 +579,7 @@ class K1CowardlyFlightWillpowerBatchTests(unittest.TestCase):
                         CowardlyFlightWillpowerBatchRequest(
                             id="wizard:cast:willpower-batch",
                             source=forged_source,
+                            spatial_state_after_movements=final_spatial_state,
                             movement_completions=(),
                         ),
                         SequenceRandom([]),
@@ -472,12 +605,14 @@ class K1CowardlyFlightWillpowerBatchTests(unittest.TestCase):
             ),
             applied_rule_ids=source.applied_rule_ids,
         )
+        final_spatial_state = spell_spatial_state(("target",))
 
         with self.assertRaises(ValueError):
             resolve_cowardly_flight_willpower_batch(
                 CowardlyFlightWillpowerBatchRequest(
                     id="wizard:cast:willpower-batch",
                     source=forged,
+                    spatial_state_after_movements=final_spatial_state,
                     movement_completions=(),
                 ),
                 SequenceRandom([]),
@@ -485,6 +620,7 @@ class K1CowardlyFlightWillpowerBatchTests(unittest.TestCase):
 
     def test_other_spell_is_rejected_even_for_empty_batch(self) -> None:
         source = zone_batch(())
+        final_spatial_state = spell_spatial_state(())
         alien = type(source)(
             request_id=source.request_id,
             source_execution_id=source.source_execution_id,
@@ -503,6 +639,7 @@ class K1CowardlyFlightWillpowerBatchTests(unittest.TestCase):
                 CowardlyFlightWillpowerBatchRequest(
                     id="wizard:cast:willpower-batch",
                     source=alien,
+                    spatial_state_after_movements=final_spatial_state,
                     movement_completions=(),
                 ),
                 SequenceRandom([]),

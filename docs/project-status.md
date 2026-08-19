@@ -183,6 +183,13 @@ K1 — реализация книжного resolution kernel. Прототип
 - batch корректно принимает пустую Zone и отдельно возвращает movement и Willpower очереди; `CowardlyFlightMovementFollowUp` сохраняет target ID общего Give Ground без разбора строк, spatial movement и Test не исполняются преждевременно;
 - `CowardlyFlightMovementCompletion` типизированно подтверждает исполнение конкретного movement follow-up; Willpower batch принимает подтверждения в любом порядке, но требует их точного полного набора до обращения к RNG;
 - stable Willpower batch перепроверяет целостность movement/Test очередей, выполняет Tests общим RNG в affected-target порядке и сохраняет Zone/caster/spell/Lore provenance; цель без возможного Give Ground всё равно проверяется, пустая Zone не расходует RNG;
+- принят `ADR-0003`: battlefield представлен неориентированным `ZoneGraph`, а неизвестная геометрия внутри Zone остаётся явным path context вместо координат или метров;
+- добавлены `SpatialEntityPlacement` и неизменяемый `SpatialBattleState` со стабильным порядком существ, coalition-like `side_id`, номером round и множеством уже давших Ground;
+- реализован `GiveGroundResolutionRequest → GiveGroundResolutionResult`: проверяются adjacent destination, движение от attacker по graph-distance, Prone/Defenceless, один раз за round, enemy path blocker, obstacle и Difficult Terrain;
+- успешный Give Ground сохраняет порядок остальных размещений, меняет Zone только mover, записывает round usage и накладывает Broken через общий Condition reducer при входе во вражескую Zone;
+- `start_next_spatial_round` очищает round-scoped Give Ground usage без turn/action scheduling;
+- `GiveGroundResolutionResult` сохраняет предыдущий и новый spatial state и валидирует, что изменились только Zone mover и точная round-scoped запись;
+- `CowardlyFlightMovementCompletion` теперь обязательно содержит совпавший успешный generic spatial result, а Willpower gate требует одну ordered state chain из выбранной Zone до переданного final spatial state;
 - `WizardMagicState` хранит текущие Miscast dice и накопленные successes Exacting Casting Test, тогда как неизменяемый Wizard Level остаётся явным входом resolver;
 - применение `MiscastPoolIncreaseRequest` различает безопасное равенство уровню и строгое превышение, сохраняет provenance и создаёт `MiscastRollRequest` на весь накопленный пул;
 - сработавший пул не очищается и не принимает новые кубы до результата таблицы, поскольку книга обнуляет его только после разрешения эффекта;
@@ -242,7 +249,7 @@ K1 — реализация книжного resolution kernel. Прототип
 
 ## Проверено
 
-- 334 unit/integration теста успешно проходят на Python 3.12, из них 314 относятся к K1;
+- 348 unit/integration тестов успешно проходят на Python 3.12, из них 328 относятся к K1;
 - исходники и тесты успешно проходят `compileall`.
 
 ## Исходный материал
@@ -261,7 +268,7 @@ K1 — реализация книжного resolution kernel. Прототип
 - внешние последствия Wound для инвентаря и анатомии пока являются typed follow-up;
 - защита Endurance после заживления `Ruptured organs` ещё не подключена к физическому impact;
 - автоматическая замена неподходящей строки Wounds Table для не-физического Hazard требует отдельной GM/simulation policy;
-- spatial-поиск и стабильная сортировка secondary/Zone целей, а также разные последствия hit/miss ещё не имеют общего battle orchestration;
+- общий Zone graph и Give Ground executor уже существуют, но spatial-поиск/стабильная сортировка secondary/Zone целей, path-context policy, cover/line of sight и vertical/midair metadata ещё не имеют общего battle orchestration;
 - для Monstrous Flight при полностью невозможном Give Ground книга не задаёт fallback; K1 требует внешнего ruling;
 - turn orchestration ещё должно привязать и сохранить `SuppressRegenerationNextTurnRequest` между Reaction и ближайшим end-turn окном той же сущности; end-turn reducer уже однократно погашает переданный запрос;
 - `DropHeldHandItemRequest` ещё некому применить без inventory state и policy выбора конкретного удерживаемого предмета;
@@ -292,7 +299,7 @@ K1 — реализация книжного resolution kernel. Прототип
 
 ## Следующий шаг
 
-Спроектировать и реализовать минимальный typed spatial contract для Zone graph, размещения существ и фактического `GiveGroundRequest`: проверить соседство/допустимость выхода, лимит один раз за round и Broken при входе во вражескую Zone, затем выдавать `CowardlyFlightMovementCompletion` только после успешной мутации размещения. Не переносить в spatial layer правила Willpower или конкретного заклинания.
+Реализовать typed round/side/turn state и базовый action budget по Player’s Guide 1.4, страницы 111–112 и 116: один обычный action за turn, максимум два с Fate/Ability, запрет повторять action и запрет второй атаки без явного override. Пока не исполнять конкретные Attack/Cast/Manoeuvre — результат должен выдавать проверенный action slot для следующей фазовой интеграции.
 
 ## Последняя проверка
 
@@ -303,7 +310,7 @@ $env:PYTHONPATH = "src"
 py -3.12 -m unittest discover -s tests -v
 ```
 
-Результат: `Ran 334 tests ... OK`.
+Результат: `Ran 348 tests ... OK`.
 
 ```powershell
 py -3.12 -m compileall -q src tests tools

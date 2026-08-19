@@ -13,6 +13,7 @@ from towr.domain.attack_models import (
 from towr.domain.condition_models import (
     Condition,
     ConditionApplicationResult,
+    ConditionState,
     EffectApplicationResult,
     EffectClassification,
     EffectImmunity,
@@ -39,6 +40,7 @@ from towr.domain.magic_models import (
     SpellEffectApplicationRequest,
 )
 from towr.domain.npc_effect_models import DropHeldHandItemRequest
+from towr.domain.spatial_models import SpatialBattleState, SpatialEntityPlacement
 from towr.domain.test_models import Skill, TestRequest, TestResult
 
 
@@ -117,6 +119,160 @@ class GiveGroundRequest:
                 "destination_preference must be a "
                 "GiveGroundDestinationPreference"
             )
+
+
+@dataclass(frozen=True, slots=True)
+class GiveGroundResolutionRequest:
+    source: GiveGroundRequest
+    state: SpatialBattleState
+    mover_id: str
+    destination_zone_id: str
+    mover_conditions: ConditionState
+    away_from_entity_id: str | None = None
+    path_entity_ids: tuple[str, ...] = field(default_factory=tuple)
+    crosses_obstacle: bool = False
+    crosses_difficult_terrain: bool = False
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.source, GiveGroundRequest):
+            raise TypeError("source must be a GiveGroundRequest")
+        if not isinstance(self.state, SpatialBattleState):
+            raise TypeError("state must be a SpatialBattleState")
+        _validate_non_empty_string(self.mover_id, "mover_id")
+        _validate_non_empty_string(
+            self.destination_zone_id,
+            "destination_zone_id",
+        )
+        if not isinstance(self.mover_conditions, ConditionState):
+            raise TypeError("mover_conditions must be a ConditionState")
+        if self.away_from_entity_id is not None:
+            _validate_non_empty_string(
+                self.away_from_entity_id,
+                "away_from_entity_id",
+            )
+            if self.away_from_entity_id == self.mover_id:
+                raise ValueError("mover cannot Give Ground away from itself")
+        path_entity_ids = tuple(self.path_entity_ids)
+        for entity_id in path_entity_ids:
+            _validate_non_empty_string(entity_id, "path entity_id")
+        if len(set(path_entity_ids)) != len(path_entity_ids):
+            raise ValueError("path entity IDs must be unique")
+        if self.mover_id in path_entity_ids:
+            raise ValueError("Give Ground path cannot cross the mover")
+        object.__setattr__(self, "path_entity_ids", path_entity_ids)
+        _validate_bool(self.crosses_obstacle, "crosses_obstacle")
+        _validate_bool(
+            self.crosses_difficult_terrain,
+            "crosses_difficult_terrain",
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class GiveGroundResolutionResult:
+    source: GiveGroundRequest
+    mover_id: str
+    origin_zone_id: str
+    destination_zone_id: str
+    previous_state: SpatialBattleState
+    state: SpatialBattleState
+    conditions: ConditionState
+    condition_application: ConditionApplicationResult | None
+    entered_enemy_zone: bool
+    applied_rule_ids: tuple[str, ...]
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.source, GiveGroundRequest):
+            raise TypeError("source must be a GiveGroundRequest")
+        _validate_non_empty_string(self.mover_id, "mover_id")
+        _validate_non_empty_string(self.origin_zone_id, "origin_zone_id")
+        _validate_non_empty_string(
+            self.destination_zone_id,
+            "destination_zone_id",
+        )
+        if self.origin_zone_id == self.destination_zone_id:
+            raise ValueError("Give Ground must change Zone")
+        if not isinstance(self.previous_state, SpatialBattleState):
+            raise TypeError("previous_state must be a SpatialBattleState")
+        if not isinstance(self.state, SpatialBattleState):
+            raise TypeError("state must be a SpatialBattleState")
+        if self.previous_state.graph != self.state.graph:
+            raise ValueError("Give Ground cannot replace the Zone graph")
+        if self.previous_state.round_number != self.state.round_number:
+            raise ValueError("Give Ground cannot advance the round")
+        if not self.state.graph.contains(self.origin_zone_id):
+            raise ValueError("result origin is not in the Zone graph")
+        if not self.state.graph.contains(self.destination_zone_id):
+            raise ValueError("result destination is not in the Zone graph")
+        if not self.state.graph.are_adjacent(
+            self.origin_zone_id,
+            self.destination_zone_id,
+        ):
+            raise ValueError("result movement is not between adjacent Zones")
+        previous_mover = self.previous_state.placement_for(self.mover_id)
+        if previous_mover.zone_id != self.origin_zone_id:
+            raise ValueError("previous state does not match result origin")
+        mover = self.state.placement_for(self.mover_id)
+        if mover.zone_id != self.destination_zone_id:
+            raise ValueError("result state does not contain completed movement")
+        expected_placements = tuple(
+            SpatialEntityPlacement(
+                entity_id=placement.entity_id,
+                side_id=placement.side_id,
+                zone_id=self.destination_zone_id,
+            )
+            if placement.entity_id == self.mover_id
+            else placement
+            for placement in self.previous_state.placements
+        )
+        if self.state.placements != expected_placements:
+            raise ValueError("Give Ground result changed unrelated placements")
+        expected_usage = (
+            *self.previous_state.gave_ground_entity_ids,
+            self.mover_id,
+        )
+        if self.state.gave_ground_entity_ids != expected_usage:
+            raise ValueError("result state does not record exact Give Ground usage")
+        if not isinstance(self.conditions, ConditionState):
+            raise TypeError("conditions must be a ConditionState")
+        if self.condition_application is not None:
+            if not isinstance(
+                self.condition_application,
+                ConditionApplicationResult,
+            ):
+                raise TypeError(
+                    "condition_application must be a "
+                    "ConditionApplicationResult"
+                )
+            if self.condition_application.condition is not Condition.BROKEN:
+                raise ValueError("Give Ground can only apply Broken")
+            if self.condition_application.state != self.conditions:
+                raise ValueError(
+                    "condition application does not match result conditions"
+                )
+        _validate_bool(self.entered_enemy_zone, "entered_enemy_zone")
+        actual_enemy_zone = any(
+            placement.entity_id != self.mover_id
+            and placement.side_id != mover.side_id
+            for placement in self.state.placements_in(
+                self.destination_zone_id
+            )
+        )
+        if self.entered_enemy_zone != actual_enemy_zone:
+            raise ValueError(
+                "enemy-Zone flag does not match result placement state"
+            )
+        if self.entered_enemy_zone != (self.condition_application is not None):
+            raise ValueError(
+                "enemy-Zone flag must match Broken condition application"
+            )
+        applied_rule_ids = tuple(self.applied_rule_ids)
+        if len(set(applied_rule_ids)) != len(applied_rule_ids):
+            raise ValueError("applied_rule_ids must be unique")
+        for rule_id in applied_rule_ids:
+            _validate_non_empty_string(rule_id, "applied rule_id")
+        if self.source.rule_id not in applied_rule_ids:
+            raise ValueError("result must trace its source Give Ground rule")
+        object.__setattr__(self, "applied_rule_ids", applied_rule_ids)
 
 
 @dataclass(frozen=True, slots=True)
@@ -791,10 +947,17 @@ class CowardlyFlightMovementCompletion:
     """Confirm that spatial orchestration completed one requested movement."""
 
     source: CowardlyFlightMovementFollowUp
+    resolution: GiveGroundResolutionResult
 
     def __post_init__(self) -> None:
         if not isinstance(self.source, CowardlyFlightMovementFollowUp):
             raise TypeError("source must be a CowardlyFlightMovementFollowUp")
+        if not isinstance(self.resolution, GiveGroundResolutionResult):
+            raise TypeError("resolution must be a GiveGroundResolutionResult")
+        if self.resolution.source != self.source.request:
+            raise ValueError("movement result does not match its follow-up")
+        if self.resolution.mover_id != self.source.target_id:
+            raise ValueError("movement result does not match its target")
 
 
 @dataclass(frozen=True, slots=True)
@@ -826,6 +989,7 @@ class CowardlyFlightWillpowerResult:
 class CowardlyFlightWillpowerBatchRequest:
     id: str
     source: CowardlyFlightZoneBatchResult
+    spatial_state_after_movements: SpatialBattleState
     movement_completions: tuple[CowardlyFlightMovementCompletion, ...]
     rule_id: str = "RULE-MAGIC-001:curse-of-cowardly-flight"
 
@@ -833,6 +997,13 @@ class CowardlyFlightWillpowerBatchRequest:
         _validate_non_empty_string(self.id, "Cowardly Flight Willpower batch id")
         if not isinstance(self.source, CowardlyFlightZoneBatchResult):
             raise TypeError("source must be a CowardlyFlightZoneBatchResult")
+        if not isinstance(
+            self.spatial_state_after_movements,
+            SpatialBattleState,
+        ):
+            raise TypeError(
+                "spatial_state_after_movements must be a SpatialBattleState"
+            )
         completions = tuple(self.movement_completions)
         if not all(
             isinstance(item, CowardlyFlightMovementCompletion)
@@ -862,6 +1033,7 @@ class CowardlyFlightWillpowerBatchResult:
     spell_rule_id: str
     lore_id: str
     selected_zone_id: str
+    spatial_state: SpatialBattleState
     completed_movements: tuple[CowardlyFlightMovementCompletion, ...]
     targets: tuple[CowardlyFlightWillpowerResult, ...]
     applied_rule_ids: tuple[str, ...]

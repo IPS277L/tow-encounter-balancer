@@ -15,6 +15,7 @@ from towr.domain.magic_models import (
     SpellTargetKind,
 )
 from towr.domain.resolution_models import (
+    CowardlyFlightMovementCompletion,
     CowardlyFlightMovementFollowUp,
     CowardlyFlightRequest,
     CowardlyFlightResult,
@@ -26,6 +27,7 @@ from towr.domain.resolution_models import (
     CowardlyFlightZoneBatchRequest,
     CowardlyFlightZoneBatchResult,
     GiveGroundRequest,
+    GiveGroundResolutionResult,
 )
 from towr.rules.condition_effect_resolution import (
     resolve_condition_application,
@@ -149,6 +151,17 @@ def resolve_cowardly_flight_zone_batch(
                 )
             )
         ),
+    )
+
+
+def complete_cowardly_flight_movement(
+    source: CowardlyFlightMovementFollowUp,
+    resolution: GiveGroundResolutionResult,
+) -> CowardlyFlightMovementCompletion:
+    """Bind a completed generic Give Ground result to its spell follow-up."""
+    return CowardlyFlightMovementCompletion(
+        source=source,
+        resolution=resolution,
     )
 
 
@@ -301,10 +314,43 @@ def resolve_cowardly_flight_willpower_batch(
             "movement completions must match movement follow-ups exactly"
         )
     for resolution_id, expected in expected_by_id.items():
-        if completions_by_id[resolution_id].source != expected:
+        completion = completions_by_id[resolution_id]
+        if completion.source != expected:
             raise ValueError(
                 "movement completion does not match its movement follow-up"
             )
+        if completion.resolution.origin_zone_id != source.selected_zone_id:
+            raise ValueError(
+                "movement completion does not originate in the target Zone"
+            )
+
+    completed_movements = tuple(
+        completions_by_id[item.request.resolution_id]
+        for item in expected_movements
+    )
+    initial_spatial_state = (
+        completed_movements[0].resolution.previous_state
+        if completed_movements
+        else request.spatial_state_after_movements
+    )
+    for target in source.targets:
+        if initial_spatial_state.placement_for(target.target_id).zone_id != (
+            source.selected_zone_id
+        ):
+            raise ValueError(
+                "spell target is not in the selected Zone before movement"
+            )
+    current_spatial_state = initial_spatial_state
+    for completion in completed_movements:
+        if completion.resolution.previous_state != current_spatial_state:
+            raise ValueError(
+                "movement completions do not form one ordered state chain"
+            )
+        current_spatial_state = completion.resolution.state
+    if current_spatial_state != request.spatial_state_after_movements:
+        raise ValueError(
+            "movement completion chain does not match final spatial state"
+        )
 
     results = tuple(
         resolve_cowardly_flight_willpower(
@@ -314,10 +360,6 @@ def resolve_cowardly_flight_willpower_batch(
         )
         for follow_up in expected_willpower
     )
-    completed_movements = tuple(
-        completions_by_id[item.request.resolution_id]
-        for item in expected_movements
-    )
     return CowardlyFlightWillpowerBatchResult(
         request_id=request.id,
         source_batch_id=source.request_id,
@@ -326,6 +368,7 @@ def resolve_cowardly_flight_willpower_batch(
         spell_rule_id=source.spell_rule_id,
         lore_id=source.lore_id,
         selected_zone_id=source.selected_zone_id,
+        spatial_state=current_spatial_state,
         completed_movements=completed_movements,
         targets=results,
         applied_rule_ids=tuple(

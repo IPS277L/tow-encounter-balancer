@@ -144,6 +144,10 @@ py -3.12 -m unittest discover -s tests -v
 - цель с effective Potency 0 не требует effect context, а пустая Zone создаёт пустой корректный batch с сохранённым selected Zone ID;
 - movement-completion gate принимает подтверждения в любом порядке, но до RNG отклоняет missing/extra/duplicate/forged confirmations и подменённые очереди Zone batch;
 - после полного movement gate Willpower Tests используют один RNG и исходный affected-target порядок; невозможность Give Ground не отменяет Test, а пустая Zone не расходует RNG;
+- Zone graph отклоняет неизвестные/self/duplicate connections, а spatial state — неизвестные Zone, повторные entity ID и некорректный round-scoped Give Ground usage;
+- общий Give Ground executor требует соседнюю Zone и при указанном attacker увеличивает graph-distance, запрещает повтор в round, Prone/Defenceless, enemy path blocker, obstacle и Difficult Terrain;
+- успешный Give Ground сохраняет порядок placements, меняет только mover Zone, записывает round usage и после движения накладывает Broken при наличии врага в destination, но не при одном союзнике;
+- переход к следующему spatial round очищает только Give Ground usage; Cowardly completion принимает generic spatial result только для своего target/request, а batch требует одну ordered state chain из selected Zone до final spatial state;
 - равенство Miscast Pool и Wizard Level не срабатывает, а строгое превышение создаёт запрос броска всего сохранённого пула;
 - несколько добавленных Miscast dice сохраняют provenance Ability/Rule of Nine/pool rule, а уже сработавший неразрешённый пул не принимает новые кубы;
 - preparation всегда теряет накопленные Casting successes; выбранное доступное заклинание стоит перед Miscast roll и добавляет ровно `+1d`;

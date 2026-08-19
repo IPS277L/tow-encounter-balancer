@@ -128,6 +128,14 @@ Prone нельзя получить повторно или сочетать с 
 
 Источник: страницы 119–120.
 
+### Реализация spatial Give Ground в K1
+
+`ZoneGraph` хранит стабильные Zone ID и неориентированное соседство без метров и координат. `SpatialBattleState` отдельно хранит стабильный список размещений и использованный в текущем round Give Ground. Стороны представлены coalition-like `side_id`: сущности с разными значениями считаются врагами.
+
+`GiveGroundResolutionRequest` принимает уже выбранную destination Zone, Conditions движущегося существа и явный локальный снимок пути. Общий reducer проверяет соседство, увеличение graph-distance от атакующего при наличии `away_from_entity_id`, Prone/Defenceless, round limit, enemy blockers, obstacle и Difficult Terrain. После успешной проверки он меняет только размещение и round-scoped usage. `GiveGroundResolutionResult` хранит состояния до/после и проверяет точность этой мутации. Вход в Zone с врагом затем накладывает Broken через общий Condition reducer.
+
+Книга не позволяет вывести путь внутри Zone только из графа. Поэтому `path_entity_ids`, `crosses_obstacle` и `crosses_difficult_terrain` сообщает orchestration/GM policy; это не скрытые defaults. Выбор destination, vertical/midair preference, cover, line of sight, Speed и Manoeuvre пока остаются снаружи этого executor. Решение границы зафиксировано в [`ADR-0003`](../decisions/ADR-0003-zone-graph-and-spatial-boundary.md).
+
 ## RULE-COMBAT-016 — Retreat
 
 Только единогласная группа объявляет Retreat в начале round/своего side turn. Один персонаж тратит Fate на rearguard; без Fate GM назначает blood, materiel или misfortune cost. При pursuit каждый PC делает Athletics, иногда auto-success от Lore и/или opposed более быстрым врагом. За каждого провалившего бросается `1d10`, суммы определяют Run For Your Lives result; Complications могут вызвать roll даже без провалов.
