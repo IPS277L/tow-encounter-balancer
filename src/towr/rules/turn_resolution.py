@@ -123,6 +123,12 @@ def end_combat_turn(request: CombatTurnEndRequest) -> CombatTurnEndResult:
         raise ValueError("only the active actor may end this combat turn")
     if not turn.action_slots:
         raise ValueError("a combat turn requires its standard action")
+    if any(
+        slot.declaration.kind is CombatActionKind.ATTACK
+        and not slot.executed
+        for slot in turn.action_slots
+    ):
+        raise ValueError("reserved Attack actions must be executed first")
 
     updated_state = replace(
         request.state,

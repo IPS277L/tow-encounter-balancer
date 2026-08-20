@@ -38,7 +38,9 @@
 
 `CombatRoundState` хранит номер раунда, снимок участников двух сторон, постоянный порядок сторон, завершивших ход участников и не более одного активного `CombatTurnState`. Внутри текущей стороны actor выбирается внешней policy в любом порядке; следующая сторона открывается только после завершения всех ходов текущей. При переходе раунда orchestration передаёт новый снимок допущенных участников, а порядок сторон сохраняется, включая перевёрнутый порядок после засады.
 
-`reserve_combat_action_slot` только проверяет и резервирует `CombatActionSlot`: первый слот обычный, второй обязан ссылаться на Fate либо конкретный Rule ID способности, третьего слота нет. Резолвер не расходует Fate и не исполняет Aim/Attack/Help/Improvise/Manoeuvre/Recover. `CombatActionDeclaration.produces_attack` учитывает обычный Attack, Charge и явно помеченный атакующий Improvise, поэтому скрытая вторая атака отклоняется независимо от формы действия. Два Improvise требуют явного `allows_second_improvise` от GM policy и разных stable approach ID.
+`reserve_combat_action_slot` только проверяет и резервирует `CombatActionSlot`: первый слот обычный, второй обязан ссылаться на Fate либо конкретный Rule ID способности, третьего слота нет. Резолвер не расходует Fate и сам не исполняет Aim/Attack/Help/Improvise/Manoeuvre/Recover. `CombatActionDeclaration.produces_attack` учитывает обычный Attack, Charge и явно помеченный атакующий Improvise, поэтому скрытая вторая атака отклоняется независимо от формы действия. Два Improvise требуют явного `allows_second_improvise` от GM policy и разных stable approach ID.
+
+Первый специализированный executor подключает только `CombatActionKind.ATTACK`. `AttackActionExecutionRequest` связывает active actor, конкретный зарезервированный slot, явно выбранный target ID и готовый `KernelAttackRequest`. После полного `resolve_kernel_attack` slot получает неизменяемый `ActionExecutionReceipt`, а `AttackActionExecutionResult` возвращает round state до/после и вложенный `ResolutionResult`. Не-ATTACK, Charge, чужой/несуществующий, уже исполненный slot либо slot перед незавершённым более ранним действием отклоняются до RNG. Ход нельзя завершить, пока зарезервированный обычный Attack не исполнен. Выбор цели, перенос `target_state` в будущий общий battle state и расход Fate остаются внешними фазами.
 
 ## RULE-COMBAT-005 — выбор навыков атаки и защиты
 
@@ -87,6 +89,8 @@ Damage = base weapon Damage + attacker_successes - defender_successes
 - детерминированные проверки: `tests/unit/test_k1_attack_resolution.py`.
 
 Чистый Attack resolver поддерживает одну основную цель, opposed/unopposed атаку, книжный tie-break, обычный Damage, коэффициент успехов профильной атаки, эффективный Resilience, игнорирование брони и последствие промаха в Close Range. `resolve_kernel_attack` применяет к основной цели Staggered, Wound и replacement impact, исполняет фазовый `ProneBeforeGiveGroundSpec` и возвращает остальные действия типизированными follow-up. Поиск вторичных целей по Zones остаётся вне K1.
+
+`execute_attack_action` является orchestration-адаптером над этим kernel и не дублирует правила атаки. Он обновляет только execution receipt выбранного action slot; состояние цели остаётся в типизированном `ResolutionResult` до появления общего battle aggregate.
 
 ## RULE-COMBAT-010 — завершение боя
 

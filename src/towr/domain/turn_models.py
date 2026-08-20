@@ -32,6 +32,29 @@ class ActionSlotGrant(str, Enum):
 
 
 @dataclass(frozen=True, slots=True)
+class ActionExecutionReceipt:
+    id: str
+    executor_rule_id: str
+    source_request_id: str
+    result_request_id: str
+
+    def __post_init__(self) -> None:
+        _validate_non_empty_string(self.id, "action execution id")
+        _validate_non_empty_string(
+            self.executor_rule_id,
+            "action execution Rule ID",
+        )
+        _validate_non_empty_string(
+            self.source_request_id,
+            "action execution source request id",
+        )
+        _validate_non_empty_string(
+            self.result_request_id,
+            "action execution result request id",
+        )
+
+
+@dataclass(frozen=True, slots=True)
 class CombatActionDeclaration:
     kind: CombatActionKind
     manoeuvre: ManoeuvreKind | None = None
@@ -96,6 +119,7 @@ class CombatActionSlot:
     declaration: CombatActionDeclaration
     grant: ActionSlotGrant
     grant_rule_id: str | None = None
+    execution: ActionExecutionReceipt | None = None
 
     def __post_init__(self) -> None:
         if not isinstance(self.index, int) or isinstance(self.index, bool):
@@ -112,6 +136,15 @@ class CombatActionSlot:
             _validate_non_empty_string(self.grant_rule_id, "grant_rule_id")
         elif self.grant_rule_id is not None:
             raise ValueError("only an Ability action grant may name a Rule ID")
+        if self.execution is not None and not isinstance(
+            self.execution,
+            ActionExecutionReceipt,
+        ):
+            raise TypeError("execution must be an ActionExecutionReceipt")
+
+    @property
+    def executed(self) -> bool:
+        return self.execution is not None
 
 
 @dataclass(frozen=True, slots=True)

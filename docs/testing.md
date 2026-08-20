@@ -204,6 +204,10 @@ py -3.12 -m unittest discover -s tests -v
 - одинаковые actions не повторяются; два разных Improvise требуют явного разрешения GM и разных approach ID;
 - Attack, Charge и атакующий Improvise используют общий предел одной атаки за turn;
 - slot reservation не исполняет action, не расходует Fate и не обращается к RNG/kernel;
+- специализированный Attack executor связывает active actor/target/slot с `KernelAttackRequest → ResolutionResult` и меняет только receipt выбранного slot;
+- не-ATTACK, Charge, чужой, незарезервированный, уже исполненный slot и нарушение порядка slots отклоняются до RNG;
+- сбой kernel не отмечает slot исполненным, а зарезервированный Attack блокирует завершение хода до успешного исполнения;
+- результат Attack execution отклоняет подмену actor, receipt или несвязанную мутацию round state;
 - следующий round получает новый participant snapshot, очищает completed/active turn state и сохраняет порядок сторон.
 
 Группы K1 Wound effects:

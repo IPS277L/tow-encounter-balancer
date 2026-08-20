@@ -251,12 +251,17 @@ K1 — реализация книжного resolution kernel. Прототип
 - типизированы шесть книжных actions и четыре варианта Manoeuvre; Charge, обычный Attack и явно атакующий Improvise используют общий признак `produces_attack`;
 - реализована резервация standard action slot и второго slot от Fate либо Ability с обязательным Rule ID, без третьего action, повтора action и второй атаки;
 - два разных Improvise возможны только с явным разрешением GM policy и разными stable approach ID;
-- turn resolver намеренно не исполняет действие, не расходует Fate/Ability и не обращается к RNG, attack, casting или spatial kernel;
+- slot reservation намеренно не исполняет действие и не расходует Fate/Ability;
 - принято ADR-0004 о границе round/turn/action slots перед новым battle loop.
+- добавлена generic `ActionExecutionReceipt`, которая отмечает только успешно завершённую специализированную фазу и сохраняет source/result request IDs;
+- реализован `AttackActionExecutionRequest → AttackActionExecutionResult`: active actor, выбранный target ID и конкретный обычный Attack slot связываются с готовым `KernelAttackRequest → ResolutionResult`;
+- Attack executor вызывает существующий kernel без дублирования правил, после успеха меняет только receipt выбранного slot и возвращает round state до/после вместе с полным injury/follow-up результатом;
+- не-ATTACK, Charge, чужой, незарезервированный, уже исполненный slot и попытка обойти незавершённый предыдущий slot отклоняются до RNG; сбой kernel оставляет исходный slot зарезервированным;
+- зарезервированный обычный Attack теперь обязан исполниться до завершения хода; target selection и перенос нового injury state в будущий battle aggregate остаются внешними фазами.
 
 ## Проверено
 
-- 364 unit/integration теста успешно проходят на Python 3.12, из них 344 относятся к K1;
+- 372 unit/integration теста успешно проходят на Python 3.12, из них 352 относятся к K1;
 - исходники и тесты успешно проходят `compileall`.
 
 ## Исходный материал
@@ -270,7 +275,8 @@ K1 — реализация книжного resolution kernel. Прототип
 ## Известные ограничения
 
 - старый P1 battle loop остаётся упрощённым прототипом; K1 уже следует книгам, но пока реализует только часть проиндексированных механик;
-- K1 проверяет round/side/turn и action budget, но slot пока не исполняет Attack, casting, movement либо другие эффекты и не расходует источник второго действия;
+- K1 проверяет round/side/turn и action budget; обычный Attack slot исполняется через kernel, но casting, movement и остальные action effects ещё не подключены, а источник второго действия не расходуется;
+- Attack execution возвращает новое injury state цели внутри `ResolutionResult`, но общего battle aggregate для автоматического переноса этого состояния по target ID пока нет;
 - Awareness/амбуш ещё не вычисляет opposition-first порядок: orchestration передаёт уже определённый `side_order`; incidental/free actions и pass/skip не представлены;
 - каталоги NPC Abilities, магии, религии и магических предметов завершены как нормативный индекс, но большинство записей ещё не связано с исполняемыми reducers и orchestration;
 - применение времени, Treat/Heal и снятие source-aware Wound effects требует будущего battle loop;
@@ -308,7 +314,7 @@ K1 — реализация книжного resolution kernel. Прототип
 
 ## Следующий шаг
 
-Реализовать узкую фазу исполнения зарезервированного `CombatActionKind.ATTACK` через существующий `KernelAttackRequest → ResolutionResult`. Новый контракт должен доказуемо связывать actor и конкретный action slot с attack request/result, отклонять не-ATTACK и уже исполненный slot и возвращать обновлённый turn/battle fragment без универсального action dispatcher. Расход Fate, target selection и объединение injury/spatial/magic state пока оставить явными входами/следующей фазой.
+Реализовать специализированную фазу casting attempt для зарезервированного `CombatActionKind.IMPROVISE` через существующий `CastingTestRequest → CastingTestResult`. Контракт должен явно отличать магический Improvise от остальных подходов, связать actor/slot с casting request/result, добавить receipt только после успешного броска и не выполнять автоматически последующий `CAST`/`WAIT`, target discovery или spell effect.
 
 ## Последняя проверка
 
@@ -319,7 +325,7 @@ $env:PYTHONPATH = "src"
 py -3.12 -m unittest discover -s tests -v
 ```
 
-Результат: `Ran 364 tests ... OK`; отдельный K1-набор: `Ran 344 tests ... OK`.
+Результат: `Ran 372 tests ... OK`; отдельный K1-набор: `Ran 352 tests ... OK`.
 
 ```powershell
 py -3.12 -m compileall -q src tests tools

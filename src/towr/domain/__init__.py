@@ -1,5 +1,9 @@
 """Domain definitions independent from battle execution and adapters."""
 
+from towr.domain.action_execution_models import (
+    AttackActionExecutionRequest,
+    AttackActionExecutionResult,
+)
 from towr.domain.actions import AttackAction, InlineRollSource, StatRollSource
 from towr.domain.attack_models import (
     AttackRequest,
@@ -265,6 +269,7 @@ from towr.domain.test_models import (
     TestRequest,
 )
 from towr.domain.turn_models import (
+    ActionExecutionReceipt,
     ActionSlotGrant,
     CombatActionDeclaration,
     CombatActionKind,
@@ -285,8 +290,11 @@ from towr.domain.turn_models import (
 )
 
 __all__ = [
+    "ActionExecutionReceipt",
     "ActionSlotGrant",
     "AttackAction",
+    "AttackActionExecutionRequest",
+    "AttackActionExecutionResult",
     "AttackRequest",
     "BattleOutcome",
     "BattleResult",
