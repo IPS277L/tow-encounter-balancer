@@ -27,6 +27,11 @@ class CastingChoice(str, Enum):
     WAIT = "wait"
 
 
+class CastingAbandonmentOutcome(str, Enum):
+    ENDED_WITHOUT_MISCAST = "ended_without_miscast"
+    MISCAST_PREPARED = "miscast_prepared"
+
+
 class SpellTargetKind(str, Enum):
     SELF = "self"
     CREATURE = "creature"
@@ -274,6 +279,46 @@ class CastingDecisionResult:
 
 
 @dataclass(frozen=True, slots=True)
+class CastingAbandonmentRequest:
+    id: str
+    caster_id: str
+    state: WizardMagicState
+    wizard_level: int
+    spell_to_cast: CastingSpellSelection | None = None
+    rule_id: str = "RULE-MAGIC-004:voluntary-casting-abandonment"
+
+    def __post_init__(self) -> None:
+        _validate_non_empty_string(self.id, "Casting abandonment request id")
+        _validate_non_empty_string(self.caster_id, "caster_id")
+        if not isinstance(self.state, WizardMagicState):
+            raise TypeError("state must be a WizardMagicState")
+        _validate_positive_int(self.wizard_level, "wizard_level")
+        if self.state.casting_lore_id is None:
+            raise ValueError("Casting abandonment requires active Casting")
+        if self.state.miscast_dice > self.wizard_level:
+            raise ValueError(
+                "a triggered Miscast must be prepared before abandoning Casting"
+            )
+        if self.spell_to_cast is not None and not isinstance(
+            self.spell_to_cast,
+            CastingSpellSelection,
+        ):
+            raise TypeError("spell_to_cast must be a CastingSpellSelection")
+        if self.state.miscast_dice == 0 and self.spell_to_cast is not None:
+            raise ValueError("a spell cannot be cast before an absent Miscast")
+        if self.spell_to_cast is not None:
+            if self.spell_to_cast.lore_id != self.state.casting_lore_id:
+                raise ValueError(
+                    "selected spell must belong to the active Magic Lore"
+                )
+            if self.spell_to_cast.casting_value > self.state.casting_successes:
+                raise ValueError(
+                    "selected spell requires more accumulated Casting successes"
+                )
+        _validate_non_empty_string(self.rule_id, "rule_id")
+
+
+@dataclass(frozen=True, slots=True)
 class MiscastPoolResolutionRequest:
     id: str
     source: MiscastPoolIncreaseRequest
@@ -384,6 +429,96 @@ class MiscastPreparationResult:
     previous_casting_successes: int
     follow_ups: tuple[MiscastPreparationFollowUp, ...]
     applied_rule_ids: tuple[str, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class CastingAbandonmentResult:
+    request_id: str
+    caster_id: str
+    wizard_level: int
+    previous_state: WizardMagicState
+    state: WizardMagicState
+    outcome: CastingAbandonmentOutcome
+    preparation: MiscastPreparationResult | None
+    applied_rule_ids: tuple[str, ...]
+
+    def __post_init__(self) -> None:
+        _validate_non_empty_string(
+            self.request_id,
+            "Casting abandonment request_id",
+        )
+        _validate_non_empty_string(self.caster_id, "caster_id")
+        _validate_positive_int(self.wizard_level, "wizard_level")
+        if not isinstance(self.previous_state, WizardMagicState):
+            raise TypeError("previous_state must be a WizardMagicState")
+        if not isinstance(self.state, WizardMagicState):
+            raise TypeError("state must be a WizardMagicState")
+        if not isinstance(self.outcome, CastingAbandonmentOutcome):
+            raise TypeError("outcome must be a CastingAbandonmentOutcome")
+        if self.preparation is not None and not isinstance(
+            self.preparation,
+            MiscastPreparationResult,
+        ):
+            raise TypeError("preparation must be a MiscastPreparationResult")
+        if self.previous_state.casting_lore_id is None:
+            raise ValueError("previous_state must contain active Casting")
+        if self.previous_state.miscast_dice > self.wizard_level:
+            raise ValueError(
+                "previous_state contains an already-triggered Miscast"
+            )
+        if self.state.casting_lore_id is not None:
+            raise ValueError("Casting abandonment must clear the active Lore")
+        if self.state.casting_successes != 0:
+            raise ValueError("Casting abandonment must clear Casting successes")
+        if self.state.latest_casting_roll_successes != 0:
+            raise ValueError(
+                "Casting abandonment must clear latest Casting successes"
+            )
+        if self.state.miscast_dice != self.previous_state.miscast_dice:
+            raise ValueError("Casting abandonment must preserve Miscast Pool")
+
+        rule_ids = tuple(self.applied_rule_ids)
+        if not rule_ids:
+            raise ValueError("applied_rule_ids must not be empty")
+        for rule_id in rule_ids:
+            _validate_non_empty_string(rule_id, "applied Rule ID")
+        if len(set(rule_ids)) != len(rule_ids):
+            raise ValueError("applied_rule_ids must be unique")
+        object.__setattr__(self, "applied_rule_ids", rule_ids)
+
+        if self.previous_state.miscast_dice == 0:
+            if self.outcome is not CastingAbandonmentOutcome.ENDED_WITHOUT_MISCAST:
+                raise ValueError("an empty Miscast Pool cannot prepare a Miscast")
+            if self.preparation is not None:
+                raise ValueError("an empty Miscast Pool has no preparation")
+            return
+
+        if self.outcome is not CastingAbandonmentOutcome.MISCAST_PREPARED:
+            raise ValueError("a non-empty Miscast Pool requires preparation")
+        if self.preparation is None:
+            raise ValueError("Miscast preparation result is required")
+        if self.preparation.target_id != self.caster_id:
+            raise ValueError("Miscast preparation belongs to another caster")
+        if self.preparation.state != self.state:
+            raise ValueError("state must match Miscast preparation")
+        if not set(self.preparation.applied_rule_ids).issubset(rule_ids):
+            raise ValueError("Miscast preparation rules are missing from trace")
+        if (
+            self.preparation.previous_casting_successes
+            != self.previous_state.casting_successes
+        ):
+            raise ValueError("Miscast preparation uses another Casting snapshot")
+        if not self.preparation.follow_ups or not isinstance(
+            self.preparation.follow_ups[-1],
+            MiscastRollRequest,
+        ):
+            raise ValueError("Miscast preparation must end with a roll request")
+        roll = self.preparation.follow_ups[-1]
+        assert isinstance(roll, MiscastRollRequest)
+        if roll.target_id != self.caster_id:
+            raise ValueError("Miscast roll belongs to another caster")
+        if roll.pool_dice_count != self.previous_state.miscast_dice:
+            raise ValueError("Miscast roll must use the preserved Miscast Pool")
 
 
 @dataclass(frozen=True, slots=True)

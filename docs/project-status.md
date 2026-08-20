@@ -1,6 +1,6 @@
 # Текущий статус проекта
 
-Дата обновления: 2026-08-20.
+Дата обновления: 2026-08-21.
 
 ## Текущий этап
 
@@ -275,6 +275,9 @@ K1 — реализация книжного resolution kernel. Прототип
 - реализован `SkippedCastingTestAfterAttackRequest → SkippedCastingTestAfterAttackResult` для книжного примера interrupted Casting: завершённый обычный Attack активного caster создаёт ровно один action-sourced Miscast die;
 - skipped-Test reducer проверяет actor, активный Lore/success snapshot и подлинный Attack executor receipt, затем применяет общий Miscast threshold без изменения Casting snapshot;
 - безопасный порог накапливает die, превышение Wizard Level создаёт обычный triggered roll request; отсутствие активного Casting, pending Miscast, чужой actor и forged receipt/source/state отклоняются.
+- реализован `CastingAbandonmentRequest → CastingAbandonmentResult` как отдельное от action slot добровольное прекращение активной Casting-попытки;
+- при непустом Miscast Pool abandonment переиспользует общую preparation-фазу на всех сохранённых dice, очищает Casting snapshot и сохраняет optional spell → обязательный roll с книжным `+1d`;
+- при пустом пуле Lore/successes/latest roll очищаются без фиктивного Miscast roll; уже triggered `pool > Wizard Level`, spell без Miscast и несовместимые Lore/CV отклоняются.
 
 ## Проверено
 
@@ -307,7 +310,7 @@ K1 — реализация книжного resolution kernel. Прототип
 - K1-фабрики Soporific Breath, Troll Vomit и Swamp Breath не расходуют действие, не проверяют Staggered/дальность и не выбирают цель или Zone без battle orchestration;
 - battle loop ещё должен вызывать Stupidity entry points после каждой принятой Wound/снятия Distracted и создавать свежее Ability-state в начале следующего боя;
 - общий `ConditionState` пока не хранит источник или объект Distracted; Stupidity компенсирует это собственным source-aware состоянием, но полная replacement-семантика требует будущего решения;
-- casting pipeline уже накапливает successes, привязывает их к Lore, применяет post-Test Miscast threshold, разрешает normal CAST/WAIT и triggered preparation, а затем имеет schema/Range preflight, target-scoped Potency и конкретный эффект `Curse of Cowardly Flight` через явные фазовые границы; обычный Attack активного caster применяет skipped-Test die отдельной фазой, но future battle aggregate ещё должен предотвращать повторное потребление одного receipt; добровольное прекращение Casting и остальные non-Casting actions не подключены; NPC opposition orchestration, spatial target discovery и применение результатов к общему battle state ещё не соединены в battle executor;
+- casting pipeline уже накапливает successes, привязывает их к Lore, применяет post-Test Miscast threshold, разрешает normal CAST/WAIT, triggered preparation и добровольное прекращение, а затем имеет schema/Range preflight, target-scoped Potency и конкретный эффект `Curse of Cowardly Flight` через явные фазовые границы; обычный Attack активного caster применяет skipped-Test die отдельной фазой, но future battle aggregate ещё должен предотвращать повторное потребление одного receipt; остальные non-Casting actions не подключены; NPC opposition orchestration, spatial target discovery и применение результатов к общему battle state ещё не соединены в battle executor;
 - каждая строка Miscast Table исполняется собственным reducer и очищает пул после структурного разрешения;
 - battle loop пока не регистрирует и не переиспользует persistent Zone Hazards автоматически; Miscast reducer возвращает достаточный source/anchor/persistence contract для этого слоя;
 - battle/effect state пока не применяет и не погашает next-Test penalty Hideous Stench и не снимает caster Fellowship effect по событию купания; reducer возвращает типизированные запросы для этих границ;
@@ -331,18 +334,18 @@ K1 — реализация книжного resolution kernel. Прототип
 
 ## Следующий шаг
 
-Типизировать добровольное преждевременное прекращение активного Casting по Player’s Guide 1.4, странице 156. Контракт должен очистить Lore/successes/latest-roll snapshot и при непустом Miscast Pool создать обязательный Miscast preparation/roll путь на всех текущих dice; при пустом пуле применить правило страницы 157 «cannot suffer a Miscast» без фиктивного `MiscastRollRequest`. Выбор spell перед возникшим Miscast и дальнейшее исполнение follow-up оставить явными фазами существующего pipeline.
+Типизировать один раз за ход доступное free movement по Player’s Guide 1.4, странице 116. Отдельный incidental-контракт должен перемещать actor через существующий `SpatialBattleState` в допустимую Zone на Medium Range, либо Long Range для явно переданного fast creature, не резервируя action slot. Он должен хранить round-scoped usage, отклонять повтор и оставить Prone-removal alternative отдельной следующей ветвью.
 
 ## Последняя проверка
 
-2026-08-20:
+2026-08-21:
 
 ```powershell
 $env:PYTHONPATH = "src"
 py -3.12 -m unittest discover -s tests -v
 ```
 
-Результат: `Ran 400 tests ... OK`; отдельный K1-набор: `Ran 380 tests ... OK`.
+Результат: `Ran 406 tests ... OK`; отдельный K1-набор: `Ran 386 tests ... OK`.
 
 ```powershell
 py -3.12 -m compileall -q src tests tools

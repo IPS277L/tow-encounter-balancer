@@ -151,6 +151,8 @@ py -3.12 -m unittest discover -s tests -v
 - равенство Miscast Pool и Wizard Level не срабатывает, а строгое превышение создаёт запрос броска всего сохранённого пула;
 - несколько добавленных Miscast dice сохраняют provenance Ability/Rule of Nine/pool rule, а уже сработавший неразрешённый пул не принимает новые кубы;
 - preparation всегда теряет накопленные Casting successes; выбранное доступное заклинание стоит перед Miscast roll и добавляет ровно `+1d`;
+- добровольное прекращение активного Casting с непустым пулом переиспользует preparation на всех текущих dice, допускает тот же optional spell и отклоняет уже triggered pool;
+- добровольное прекращение с пустым пулом очищает Lore/successes/latest roll без `MiscastRollRequest`; spell-before-Miscast в этой ветви недопустим;
 - Miscast roll использует pool и bonus dice, сохраняет все d10 и создаёт typed table-effect request, не очищая пул преждевременно;
 - актуальная таблица покрыта без пробелов и пересечений: `22 → UNNATURAL_WIND`, `23 → SPELL_RECAST`, `39+ → CATASTROPHIC_DEATH`;
 - Arcane Spill использует общий repeated-Stagger resolver, сохраняет внешний minor-Lore request и очищает Miscast Pool;

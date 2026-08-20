@@ -49,6 +49,9 @@ from towr.domain.injury_models import (
     WoundRecordOrigin,
 )
 from towr.domain.magic_models import (
+    CastingAbandonmentOutcome,
+    CastingAbandonmentRequest,
+    CastingAbandonmentResult,
     CastingChoice,
     CastingDecisionRequest,
     CastingDecisionResult,
@@ -309,6 +312,9 @@ __all__ = [
     "BattleOutcome",
     "BattleResult",
     "BoneDragonRider",
+    "CastingAbandonmentOutcome",
+    "CastingAbandonmentRequest",
+    "CastingAbandonmentResult",
     "CastingChoice",
     "CastingActionMiscastPreparationRequest",
     "CastingActionMiscastPreparationResult",
