@@ -28,7 +28,7 @@ CLI / JSON / future GUI
 
 Целевая модель разделяет неизменяемое определение, состояние экземпляра, запрос элементарного разрешения и правила orchestration. Подробный контракт K1 описан в [`resolution-kernel.md`](resolution-kernel.md).
 
-Будущий `BattleEngine` отвечает за раунды, порядок сторон, действия, цели и очередь follow-up. Resolution kernel отвечает только за одну проверку или атаку и возвращает новое состояние, trace, события и последующие запросы.
+Будущий `BattleEngine` отвечает за цели, исполнение действий, объединение состояний и очередь follow-up. Первый независимый orchestration primitive уже задаёт раунды, постоянный порядок двух сторон, выбранный активный ход и проверенные action slots. Resolution kernel отвечает только за одну проверку или атаку и возвращает новое состояние, trace, события и последующие запросы.
 
 `RandomSource` внедряется в движок. Стандартная реализация оборачивает `random.Random`, а тесты используют заданную последовательность результатов.
 
@@ -36,6 +36,8 @@ CLI / JSON / future GUI
 
 Первый K1 spatial primitive использует неизменяемые `ZoneGraph`, `SpatialEntityPlacement` и `SpatialBattleState`. Граф хранит только книжное соседство Zones; неоднозначная позиция внутри Zone передаётся явным контекстом конкретной операции. Общий Give Ground executor меняет размещение и round-scoped usage, не зная о spell, action или UI. Подробности: [`ADR-0003`](../decisions/ADR-0003-zone-graph-and-spatial-boundary.md).
 
+`CombatRoundState` и `CombatTurnState` являются отдельным неизменяемым orchestration-срезом. Они проверяют порядок сторон и бюджет действий, но не владеют injury/spatial/magic state и не вызывают kernel автоматически. Зарезервированный `CombatActionSlot` — разрешение перейти к отдельной фазе исполнения, а не доказательство уже выполненного эффекта. Подробности: [`ADR-0004`](../decisions/ADR-0004-round-turn-and-action-slots.md).
+
 ## Текущая граница
 
-Текущий этап — K1, книжное ядро разрешения и минимальные typed orchestration boundaries без нового battle loop. Реализованный бой `1 на 1` является устаревшим P1; его интерфейсы не обязаны сохраняться. Полный turn/action loop, spatial target discovery, Monte Carlo, сериализация, CLI и балансировщик относятся к следующим этапам.
+Текущий этап — K1, книжное ядро разрешения и минимальные typed orchestration boundaries без нового battle loop. Реализованный бой `1 на 1` является устаревшим P1; его интерфейсы не обязаны сохраняться. Порядок раундов/сторон и action budget уже выделены, но исполнение slots, incidental/free movement, spatial target discovery, завершение боя, Monte Carlo, сериализация, CLI и балансировщик относятся к следующим этапам.

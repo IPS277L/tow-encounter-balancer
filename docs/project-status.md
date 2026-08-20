@@ -246,10 +246,17 @@ K1 — реализация книжного resolution kernel. Прототип
 - результат фиксирует только внезапную тошноту и явное отсутствие иного эффекта; пустой snapshot допустим, а self-inclusion мага оставлен общей spatial policy.
 - реализован `Sense of Loss (1–2)`: reducer принимает stable snapshot уникальных Medium Range target IDs, сохраняет порядок и очищает Miscast Pool;
 - результат фиксирует ощущение внезапной потери и невозможность назвать потерянное, явно не удаляя предметы; пустой snapshot допустим, self-inclusion остаётся общей spatial policy.
+- реализованы неизменяемые `CombatRoundState`, `CombatTurnState` и участники двух книжных сторон;
+- порядок actor внутри стороны выбирается каждый round, следующая сторона открывается только после полного завершения текущей, а opposition-first порядок засады сохраняется при переходе раунда;
+- типизированы шесть книжных actions и четыре варианта Manoeuvre; Charge, обычный Attack и явно атакующий Improvise используют общий признак `produces_attack`;
+- реализована резервация standard action slot и второго slot от Fate либо Ability с обязательным Rule ID, без третьего action, повтора action и второй атаки;
+- два разных Improvise возможны только с явным разрешением GM policy и разными stable approach ID;
+- turn resolver намеренно не исполняет действие, не расходует Fate/Ability и не обращается к RNG, attack, casting или spatial kernel;
+- принято ADR-0004 о границе round/turn/action slots перед новым battle loop.
 
 ## Проверено
 
-- 348 unit/integration тестов успешно проходят на Python 3.12, из них 328 относятся к K1;
+- 364 unit/integration теста успешно проходят на Python 3.12, из них 344 относятся к K1;
 - исходники и тесты успешно проходят `compileall`.
 
 ## Исходный материал
@@ -263,6 +270,8 @@ K1 — реализация книжного resolution kernel. Прототип
 ## Известные ограничения
 
 - старый P1 battle loop остаётся упрощённым прототипом; K1 уже следует книгам, но пока реализует только часть проиндексированных механик;
+- K1 проверяет round/side/turn и action budget, но slot пока не исполняет Attack, casting, movement либо другие эффекты и не расходует источник второго действия;
+- Awareness/амбуш ещё не вычисляет opposition-first порядок: orchestration передаёт уже определённый `side_order`; incidental/free actions и pass/skip не представлены;
 - каталоги NPC Abilities, магии, религии и магических предметов завершены как нормативный индекс, но большинство записей ещё не связано с исполняемыми reducers и orchestration;
 - применение времени, Treat/Heal и снятие source-aware Wound effects требует будущего battle loop;
 - внешние последствия Wound для инвентаря и анатомии пока являются typed follow-up;
@@ -299,7 +308,7 @@ K1 — реализация книжного resolution kernel. Прототип
 
 ## Следующий шаг
 
-Реализовать typed round/side/turn state и базовый action budget по Player’s Guide 1.4, страницы 111–112 и 116: один обычный action за turn, максимум два с Fate/Ability, запрет повторять action и запрет второй атаки без явного override. Пока не исполнять конкретные Attack/Cast/Manoeuvre — результат должен выдавать проверенный action slot для следующей фазовой интеграции.
+Реализовать узкую фазу исполнения зарезервированного `CombatActionKind.ATTACK` через существующий `KernelAttackRequest → ResolutionResult`. Новый контракт должен доказуемо связывать actor и конкретный action slot с attack request/result, отклонять не-ATTACK и уже исполненный slot и возвращать обновлённый turn/battle fragment без универсального action dispatcher. Расход Fate, target selection и объединение injury/spatial/magic state пока оставить явными входами/следующей фазой.
 
 ## Последняя проверка
 
@@ -310,7 +319,7 @@ $env:PYTHONPATH = "src"
 py -3.12 -m unittest discover -s tests -v
 ```
 
-Результат: `Ran 348 tests ... OK`.
+Результат: `Ran 364 tests ... OK`; отдельный K1-набор: `Ran 344 tests ... OK`.
 
 ```powershell
 py -3.12 -m compileall -q src tests tools

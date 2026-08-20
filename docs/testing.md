@@ -195,6 +195,17 @@ py -3.12 -m unittest discover -s tests -v
 - полный путь `Attack → Impact → Staggered/Wound → state + follow-ups`;
 - отсутствие скрытого выбора при Glorious, повторном Staggered, Near Miss и Monstrosity Reaction.
 
+Группа K1 round/turn/action budget:
+
+- round требует уникальных участников обеих сторон, сохраняет player-first либо persistent opposition-first порядок;
+- actor внутри текущей стороны выбирается свободно, но следующая сторона не начинает ход до завершения всех участников текущей;
+- активным бывает только один полный ход, а завершивший ход actor не действует повторно в том же round;
+- первый action использует standard slot, второй требует Fate либо source-aware Ability, третий запрещён;
+- одинаковые actions не повторяются; два разных Improvise требуют явного разрешения GM и разных approach ID;
+- Attack, Charge и атакующий Improvise используют общий предел одной атаки за turn;
+- slot reservation не исполняет action, не расходует Fate и не обращается к RNG/kernel;
+- следующий round получает новый participant snapshot, очищает completed/active turn state и сохраняет порядок сторон.
+
 Группы K1 Wound effects:
 
 - явная спецификация каждой строки Wounds Table `1–27+`;
