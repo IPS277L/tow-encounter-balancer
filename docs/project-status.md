@@ -258,10 +258,27 @@ K1 — реализация книжного resolution kernel. Прототип
 - Attack executor вызывает существующий kernel без дублирования правил, после успеха меняет только receipt выбранного slot и возвращает round state до/после вместе с полным injury/follow-up результатом;
 - не-ATTACK, Charge, чужой, незарезервированный, уже исполненный slot и попытка обойти незавершённый предыдущий slot отклоняются до RNG; сбой kernel оставляет исходный slot зарезервированным;
 - зарезервированный обычный Attack теперь обязан исполниться до завершения хода; target selection и перенос нового injury state в будущий battle aggregate остаются внешними фазами.
+- добавлен `ImproviseKind`, который явно различает Skill, spell и Ability; любой Improvise обязан иметь typed kind и stable approach ID;
+- реализован `CastingAttemptExecutionRequest → CastingAttemptExecutionResult`: только spell Improvise связывает active actor и slot с одним готовым `CastingTestRequest → CastingTestResult`, а approach ID обязан совпадать с Lore;
+- casting executor переиспользует существующий Casting Test, после успеха меняет только receipt выбранного slot и сохраняет Rule of Nine/Miscast follow-up внутри результата для следующей фазы;
+- неверный action/kind/Lore/caster, незарезервированный, уже исполненный slot и обход незавершённого раннего slot отклоняются до RNG; сбой броска не добавляет receipt;
+- зарезервированный spell Improvise обязан исполниться до завершения хода; цели и effect не запускаются автоматически;
+- реализован `CastingActionPostTestRequest → CastingActionPostTestResult`: завершённый casting action связывается с Wizard Level, обязательным Miscast Pool threshold и существующим normal `CastingDecisionRequest → CastingDecisionResult`;
+- post-Test resolver проверяет фактическое число финальных девяток и provenance агрегированного follow-up, применяет увеличение пула до решения и требует совпадения decision по actor, Wizard Level и полному post-pool `WizardMagicState`;
+- при безопасном пороге выполняется явный `CAST`/`WAIT`; при превышении Wizard Level normal decision запрещён, сохраняются накопленные successes и базовый `MiscastRollRequest` для отдельной preparation-фазы;
+- подмена count/target/Test/Lore, отсутствие decision в normal-ветви, его присутствие в triggered-ветви и несвязанный итоговый state отклоняются.
+- реализован `CastingActionMiscastPreparationRequest → CastingActionMiscastPreparationResult`, принимающий только triggered post-Test result и точный внешний `MiscastPreparationRequest`;
+- adapter проверяет actor, source roll и полный post-threshold magic state, после чего переиспользует существующий `prepare_miscast` без дублирования правил;
+- без выбранного spell накопленные Casting successes очищаются и создаётся один Miscast roll исходного пула; допустимый spell создаёт `SpellCastRequest` перед roll, использует Potency последнего Casting Test и добавляет ровно `+1d`;
+- normal post-Test result и подменённые source/state/actor отклоняются; target/spell effect, Miscast roll и table effect остаются внешними упорядоченными фазами.
+- `MiscastPoolIncreaseRequest` теперь типизированно различает `TEST` и `ACTION` source provenance через единый stable `source_id`; Rule of Nine и Mother Knows Best сохраняют фактические Test IDs;
+- реализован `SkippedCastingTestAfterAttackRequest → SkippedCastingTestAfterAttackResult` для книжного примера interrupted Casting: завершённый обычный Attack активного caster создаёт ровно один action-sourced Miscast die;
+- skipped-Test reducer проверяет actor, активный Lore/success snapshot и подлинный Attack executor receipt, затем применяет общий Miscast threshold без изменения Casting snapshot;
+- безопасный порог накапливает die, превышение Wizard Level создаёт обычный triggered roll request; отсутствие активного Casting, pending Miscast, чужой actor и forged receipt/source/state отклоняются.
 
 ## Проверено
 
-- 372 unit/integration теста успешно проходят на Python 3.12, из них 352 относятся к K1;
+- 400 unit/integration тестов успешно проходят на Python 3.12, из них 380 относятся к K1;
 - исходники и тесты успешно проходят `compileall`.
 
 ## Исходный материал
@@ -275,7 +292,7 @@ K1 — реализация книжного resolution kernel. Прототип
 ## Известные ограничения
 
 - старый P1 battle loop остаётся упрощённым прототипом; K1 уже следует книгам, но пока реализует только часть проиндексированных механик;
-- K1 проверяет round/side/turn и action budget; обычный Attack slot исполняется через kernel, но casting, movement и остальные action effects ещё не подключены, а источник второго действия не расходуется;
+- K1 проверяет round/side/turn и action budget; обычный Attack slot исполняется через kernel, а spell Improvise — через один Casting Test, но остальные action effects ещё не подключены и источник второго действия не расходуется;
 - Attack execution возвращает новое injury state цели внутри `ResolutionResult`, но общего battle aggregate для автоматического переноса этого состояния по target ID пока нет;
 - Awareness/амбуш ещё не вычисляет opposition-first порядок: orchestration передаёт уже определённый `side_order`; incidental/free actions и pass/skip не представлены;
 - каталоги NPC Abilities, магии, религии и магических предметов завершены как нормативный индекс, но большинство записей ещё не связано с исполняемыми reducers и orchestration;
@@ -290,7 +307,7 @@ K1 — реализация книжного resolution kernel. Прототип
 - K1-фабрики Soporific Breath, Troll Vomit и Swamp Breath не расходуют действие, не проверяют Staggered/дальность и не выбирают цель или Zone без battle orchestration;
 - battle loop ещё должен вызывать Stupidity entry points после каждой принятой Wound/снятия Distracted и создавать свежее Ability-state в начале следующего боя;
 - общий `ConditionState` пока не хранит источник или объект Distracted; Stupidity компенсирует это собственным source-aware состоянием, но полная replacement-семантика требует будущего решения;
-- casting pipeline уже накапливает successes, привязывает их к Lore, разрешает normal CAST/WAIT, schema/Range preflight, target-scoped Potency и конкретный эффект `Curse of Cowardly Flight` через явные фазовые границы; NPC opposition orchestration, spatial target discovery и применение результатов к общему battle state ещё не соединены в battle executor;
+- casting pipeline уже накапливает successes, привязывает их к Lore, применяет post-Test Miscast threshold, разрешает normal CAST/WAIT и triggered preparation, а затем имеет schema/Range preflight, target-scoped Potency и конкретный эффект `Curse of Cowardly Flight` через явные фазовые границы; обычный Attack активного caster применяет skipped-Test die отдельной фазой, но future battle aggregate ещё должен предотвращать повторное потребление одного receipt; добровольное прекращение Casting и остальные non-Casting actions не подключены; NPC opposition orchestration, spatial target discovery и применение результатов к общему battle state ещё не соединены в battle executor;
 - каждая строка Miscast Table исполняется собственным reducer и очищает пул после структурного разрешения;
 - battle loop пока не регистрирует и не переиспользует persistent Zone Hazards автоматически; Miscast reducer возвращает достаточный source/anchor/persistence contract для этого слоя;
 - battle/effect state пока не применяет и не погашает next-Test penalty Hideous Stench и не снимает caster Fellowship effect по событию купания; reducer возвращает типизированные запросы для этих границ;
@@ -314,7 +331,7 @@ K1 — реализация книжного resolution kernel. Прототип
 
 ## Следующий шаг
 
-Реализовать специализированную фазу casting attempt для зарезервированного `CombatActionKind.IMPROVISE` через существующий `CastingTestRequest → CastingTestResult`. Контракт должен явно отличать магический Improvise от остальных подходов, связать actor/slot с casting request/result, добавить receipt только после успешного броска и не выполнять автоматически последующий `CAST`/`WAIT`, target discovery или spell effect.
+Типизировать добровольное преждевременное прекращение активного Casting по Player’s Guide 1.4, странице 156. Контракт должен очистить Lore/successes/latest-roll snapshot и при непустом Miscast Pool создать обязательный Miscast preparation/roll путь на всех текущих dice; при пустом пуле применить правило страницы 157 «cannot suffer a Miscast» без фиктивного `MiscastRollRequest`. Выбор spell перед возникшим Miscast и дальнейшее исполнение follow-up оставить явными фазами существующего pipeline.
 
 ## Последняя проверка
 
@@ -325,7 +342,7 @@ $env:PYTHONPATH = "src"
 py -3.12 -m unittest discover -s tests -v
 ```
 
-Результат: `Ran 372 tests ... OK`; отдельный K1-набор: `Ran 352 tests ... OK`.
+Результат: `Ran 400 tests ... OK`; отдельный K1-набор: `Ran 380 tests ... OK`.
 
 ```powershell
 py -3.12 -m compileall -q src tests tools

@@ -15,6 +15,7 @@ from towr.domain.turn_models import (
     CombatTurnParticipant,
     CombatTurnStartRequest,
     CombatTurnState,
+    ImproviseKind,
     ManoeuvreKind,
 )
 from towr.rules.turn_resolution import (
@@ -139,6 +140,7 @@ class K1TurnModelTests(unittest.TestCase):
         self.assertTrue(
             CombatActionDeclaration(
                 CombatActionKind.IMPROVISE,
+                improvise_kind=ImproviseKind.SKILL,
                 improvise_approach_id="throw-table",
                 improvise_produces_attack=True,
             ).produces_attack
@@ -323,6 +325,7 @@ class K1TurnResolutionTests(unittest.TestCase):
                 state,
                 CombatActionDeclaration(
                     CombatActionKind.IMPROVISE,
+                    improvise_kind=ImproviseKind.SKILL,
                     improvise_approach_id="drop-chandelier",
                     improvise_produces_attack=True,
                 ),
@@ -335,12 +338,14 @@ class K1TurnResolutionTests(unittest.TestCase):
             state,
             CombatActionDeclaration(
                 CombatActionKind.IMPROVISE,
+                improvise_kind=ImproviseKind.SKILL,
                 improvise_approach_id="kick-table",
             ),
         ).state
 
         second = CombatActionDeclaration(
             CombatActionKind.IMPROVISE,
+            improvise_kind=ImproviseKind.SKILL,
             improvise_approach_id="cut-rope",
         )
         with self.assertRaises(ValueError):
@@ -362,6 +367,7 @@ class K1TurnResolutionTests(unittest.TestCase):
                 state,
                 CombatActionDeclaration(
                     CombatActionKind.IMPROVISE,
+                    improvise_kind=ImproviseKind.SKILL,
                     improvise_approach_id="kick-table",
                 ),
                 grant=ActionSlotGrant.FATE,

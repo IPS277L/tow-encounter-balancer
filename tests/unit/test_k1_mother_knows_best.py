@@ -5,6 +5,7 @@ import unittest
 from tests.helpers import SequenceRandom
 from towr.domain.injury_models import ProfileInjuryState
 from towr.domain.magic_models import (
+    MiscastPoolIncreaseSourceKind,
     NpcWizardCastingOppositionOutcome,
     NpcWizardCastingOppositionRequest,
 )
@@ -149,7 +150,11 @@ class K1MotherKnowsBestTests(unittest.TestCase):
         increase = result.follow_ups[0]
         self.assertEqual(increase.target_id, "troll-hag")
         self.assertEqual(increase.amount, 1)
-        self.assertEqual(increase.source_test_id, WILLPOWER_TEST_ID)
+        self.assertEqual(increase.source_id, WILLPOWER_TEST_ID)
+        self.assertIs(
+            increase.source_kind,
+            MiscastPoolIncreaseSourceKind.TEST,
+        )
         self.assertEqual(increase.trigger_rule_id, MOTHER_KNOWS_BEST_RULE_ID)
         self.assertEqual(increase.rule_id, RULE_OF_NINE_RULE_ID)
         self.assertEqual(

@@ -5,6 +5,7 @@ import unittest
 from tests.helpers import SequenceRandom
 from towr.domain.magic_models import (
     CastingTestRequest,
+    MiscastPoolIncreaseSourceKind,
     MiscastPoolOutcome,
     MiscastPoolResolutionRequest,
     WizardMagicState,
@@ -92,7 +93,11 @@ class K1CastingTestResolutionTests(unittest.TestCase):
         increase = result.follow_ups[0]
         self.assertEqual(increase.amount, 2)
         self.assertEqual(increase.target_id, "wizard")
-        self.assertEqual(increase.source_test_id, "wizard:willpower")
+        self.assertEqual(increase.source_id, "wizard:willpower")
+        self.assertIs(
+            increase.source_kind,
+            MiscastPoolIncreaseSourceKind.TEST,
+        )
         self.assertEqual(increase.trigger_rule_id, CASTING_TEST_RULE_ID)
         self.assertEqual(increase.rule_id, RULE_OF_NINE_RULE_ID)
         self.assertIn(

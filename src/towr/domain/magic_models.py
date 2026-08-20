@@ -17,6 +17,11 @@ class MiscastPoolOutcome(str, Enum):
     MISCAST_TRIGGERED = "miscast_triggered"
 
 
+class MiscastPoolIncreaseSourceKind(str, Enum):
+    TEST = "test"
+    ACTION = "action"
+
+
 class CastingChoice(str, Enum):
     CAST = "cast"
     WAIT = "wait"
@@ -143,7 +148,8 @@ class MiscastPoolIncreaseRequest:
     resolution_id: str
     target_id: str
     amount: int
-    source_test_id: str
+    source_kind: MiscastPoolIncreaseSourceKind
+    source_id: str
     trigger_rule_id: str
     rule_id: str = "RULE-MAGIC-003:rule-of-nine"
 
@@ -151,7 +157,11 @@ class MiscastPoolIncreaseRequest:
         _validate_non_empty_string(self.resolution_id, "resolution_id")
         _validate_non_empty_string(self.target_id, "target_id")
         _validate_positive_int(self.amount, "Miscast Pool increase")
-        _validate_non_empty_string(self.source_test_id, "source_test_id")
+        if not isinstance(self.source_kind, MiscastPoolIncreaseSourceKind):
+            raise TypeError(
+                "source_kind must be a MiscastPoolIncreaseSourceKind"
+            )
+        _validate_non_empty_string(self.source_id, "source_id")
         _validate_non_empty_string(self.trigger_rule_id, "trigger_rule_id")
         _validate_non_empty_string(self.rule_id, "rule_id")
 

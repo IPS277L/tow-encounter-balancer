@@ -25,6 +25,12 @@ class ManoeuvreKind(str, Enum):
     MOVE_CAREFULLY = "move_carefully"
 
 
+class ImproviseKind(str, Enum):
+    SKILL = "skill"
+    SPELL = "spell"
+    ABILITY = "ability"
+
+
 class ActionSlotGrant(str, Enum):
     STANDARD = "standard"
     FATE = "fate"
@@ -58,6 +64,7 @@ class ActionExecutionReceipt:
 class CombatActionDeclaration:
     kind: CombatActionKind
     manoeuvre: ManoeuvreKind | None = None
+    improvise_kind: ImproviseKind | None = None
     improvise_approach_id: str | None = None
     improvise_produces_attack: bool = False
 
@@ -71,14 +78,19 @@ class CombatActionDeclaration:
             raise ValueError("only a Manoeuvre action may name a manoeuvre")
 
         if self.kind is CombatActionKind.IMPROVISE:
+            if not isinstance(self.improvise_kind, ImproviseKind):
+                raise TypeError("Improvise action requires an ImproviseKind")
             if self.improvise_approach_id is None:
                 raise ValueError("Improvise action requires an approach ID")
             _validate_non_empty_string(
                 self.improvise_approach_id,
                 "improvise_approach_id",
             )
-        elif self.improvise_approach_id is not None:
-            raise ValueError("only Improvise may name an approach ID")
+        elif (
+            self.improvise_kind is not None
+            or self.improvise_approach_id is not None
+        ):
+            raise ValueError("only Improvise may name a kind or approach ID")
 
         if not isinstance(self.improvise_produces_attack, bool):
             raise TypeError("improvise_produces_attack must be a boolean")

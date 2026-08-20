@@ -3,6 +3,14 @@
 from towr.domain.action_execution_models import (
     AttackActionExecutionRequest,
     AttackActionExecutionResult,
+    CastingActionMiscastPreparationRequest,
+    CastingActionMiscastPreparationResult,
+    CastingActionPostTestRequest,
+    CastingActionPostTestResult,
+    CastingAttemptExecutionRequest,
+    CastingAttemptExecutionResult,
+    SkippedCastingTestAfterAttackRequest,
+    SkippedCastingTestAfterAttackResult,
 )
 from towr.domain.actions import AttackAction, InlineRollSource, StatRollSource
 from towr.domain.attack_models import (
@@ -50,6 +58,7 @@ from towr.domain.magic_models import (
     FormalSpellDefinition,
     IdentifiedSpellTarget,
     MiscastPoolIncreaseRequest,
+    MiscastPoolIncreaseSourceKind,
     MiscastPoolOutcome,
     MiscastPoolResolutionRequest,
     MiscastPoolResolutionResult,
@@ -286,6 +295,7 @@ from towr.domain.turn_models import (
     CombatTurnStartRequest,
     CombatTurnStartResult,
     CombatTurnState,
+    ImproviseKind,
     ManoeuvreKind,
 )
 
@@ -300,6 +310,12 @@ __all__ = [
     "BattleResult",
     "BoneDragonRider",
     "CastingChoice",
+    "CastingActionMiscastPreparationRequest",
+    "CastingActionMiscastPreparationResult",
+    "CastingActionPostTestRequest",
+    "CastingActionPostTestResult",
+    "CastingAttemptExecutionRequest",
+    "CastingAttemptExecutionResult",
     "CastingDecisionRequest",
     "CastingDecisionResult",
     "CastingSpellSelection",
@@ -379,6 +395,7 @@ __all__ = [
     "GiveGroundResolutionResult",
     "InlineRollSource",
     "InlineProfile",
+    "ImproviseKind",
     "HazardImpactSpec",
     "HazardExposureRequest",
     "HazardResolutionRequest",
@@ -402,6 +419,7 @@ __all__ = [
     "MonstrousRegenerationOutcome",
     "MonstrousRegenerationReactionSpec",
     "MiscastPoolIncreaseRequest",
+    "MiscastPoolIncreaseSourceKind",
     "MiscastPoolOutcome",
     "MiscastPoolResolutionRequest",
     "MiscastPoolResolutionResult",
@@ -526,6 +544,8 @@ __all__ = [
     "SecondaryEffectSpec",
     "Side",
     "Skill",
+    "SkippedCastingTestAfterAttackRequest",
+    "SkippedCastingTestAfterAttackResult",
     "SpellPotencyModifier",
     "SpellPotencyRequest",
     "SpellPotencyResult",

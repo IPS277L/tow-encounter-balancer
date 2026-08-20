@@ -208,6 +208,25 @@ py -3.12 -m unittest discover -s tests -v
 - не-ATTACK, Charge, чужой, незарезервированный, уже исполненный slot и нарушение порядка slots отклоняются до RNG;
 - сбой kernel не отмечает slot исполненным, а зарезервированный Attack блокирует завершение хода до успешного исполнения;
 - результат Attack execution отклоняет подмену actor, receipt или несвязанную мутацию round state;
+- Improvise обязан явно назвать Skill, spell либо Ability и stable approach ID;
+- spell Improvise executor требует Lore, совпадающий с approach ID, и выполняет ровно один общий Casting Test;
+- Casting action post-Test проверяет финальные девятки/provenance и применяет агрегированный Rule of Nine follow-up до любого normal decision;
+- при `pool <= Wizard Level` decision обязан совпасть по actor, level и точному post-pool state, после чего общий reducer выполняет `CAST` либо `WAIT`;
+- при `pool > Wizard Level` normal decision запрещён, Casting snapshot сохраняется и наружу выходит базовый Miscast roll request;
+- отсутствие обязательного decision в normal-ветви, его присутствие в triggered-ветви и подмена count/target/Test/Lore отклоняются;
+- не-spell Improvise, другой action, чужой caster, незарезервированный/повторный slot и незавершённый ранний slot отклоняются до RNG;
+- зарезервированный spell Improvise блокирует завершение хода до успешного Casting Test, а ошибка RNG не добавляет receipt;
+- Casting execution result отклоняет подмену actor или несвязанную мутацию round state;
+- Casting post-Test result отклоняет state, не совпадающий с вложенным decision либо triggered Miscast result;
+- action Miscast preparation принимает только triggered post-Test result с точным source roll, actor и magic state;
+- отказ от spell очищает Casting snapshot и оставляет один Miscast roll без bonus die;
+- допустимый pre-Miscast spell стоит перед roll, получает Potency последнего Casting Test и добавляет roll ровно `+1d`;
+- normal post-Test result и подменённые source/state/actor отклоняются, а итоговый result проверяет actor/state вложенной preparation;
+- Miscast increase provenance закрыто различает фактический Test и завершённое action execution;
+- завершённый обычный Attack активного caster создаёт ровно один action-sourced Miscast die и сохраняет Lore/successes;
+- skipped-Test die проходит общий threshold: накапливается до уровня и создаёт triggered roll при превышении;
+- отсутствие активного Casting, чужой actor, pending Miscast и forged Attack executor receipt отклоняются;
+- skipped-Test result отклоняет подмену source kind/action ID/amount и итогового magic state;
 - следующий round получает новый participant snapshot, очищает completed/active turn state и сохраняет порядок сторон.
 
 Группы K1 Wound effects:

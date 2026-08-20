@@ -16,6 +16,7 @@ from towr.domain.turn_models import (
     CombatTurnStartRequest,
     CombatTurnStartResult,
     CombatTurnState,
+    ImproviseKind,
 )
 
 
@@ -124,11 +125,19 @@ def end_combat_turn(request: CombatTurnEndRequest) -> CombatTurnEndResult:
     if not turn.action_slots:
         raise ValueError("a combat turn requires its standard action")
     if any(
-        slot.declaration.kind is CombatActionKind.ATTACK
+        (
+            slot.declaration.kind is CombatActionKind.ATTACK
+            or (
+                slot.declaration.kind is CombatActionKind.IMPROVISE
+                and slot.declaration.improvise_kind is ImproviseKind.SPELL
+            )
+        )
         and not slot.executed
         for slot in turn.action_slots
     ):
-        raise ValueError("reserved Attack actions must be executed first")
+        raise ValueError(
+            "reserved Attack and spell Improvise actions must execute first"
+        )
 
     updated_state = replace(
         request.state,

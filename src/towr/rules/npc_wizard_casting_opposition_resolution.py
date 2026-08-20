@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from towr.domain.magic_models import (
     MiscastPoolIncreaseRequest,
+    MiscastPoolIncreaseSourceKind,
     NpcWizardCastingOppositionOutcome,
     NpcWizardCastingOppositionRequest,
     NpcWizardCastingOppositionResult,
@@ -67,7 +68,8 @@ def resolve_npc_wizard_casting_opposition(
                 resolution_id=request.id,
                 target_id=request.reactor_id,
                 amount=miscast_dice,
-                source_test_id=request.reactor_willpower_test_id,
+                source_kind=MiscastPoolIncreaseSourceKind.TEST,
+                source_id=request.reactor_willpower_test_id,
                 trigger_rule_id=request.rule_id,
                 rule_id=RULE_OF_NINE_RULE_ID,
             ),

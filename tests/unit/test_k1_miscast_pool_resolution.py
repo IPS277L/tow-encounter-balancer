@@ -5,6 +5,7 @@ import unittest
 from tests.helpers import SequenceRandom
 from towr.domain.magic_models import (
     MiscastPoolIncreaseRequest,
+    MiscastPoolIncreaseSourceKind,
     MiscastPoolOutcome,
     MiscastPoolResolutionRequest,
     WizardMagicState,
@@ -36,7 +37,8 @@ def increase(*, amount: int = 1) -> MiscastPoolIncreaseRequest:
         resolution_id="mother-knows-best:opposition",
         target_id="troll-hag",
         amount=amount,
-        source_test_id="troll-hag:willpower",
+        source_kind=MiscastPoolIncreaseSourceKind.TEST,
+        source_id="troll-hag:willpower",
         trigger_rule_id=TRIGGER_RULE_ID,
         rule_id=RULE_OF_NINE_RULE_ID,
     )

@@ -6,6 +6,7 @@ from towr.domain.magic_models import (
     CastingTestRequest,
     CastingTestResult,
     MiscastPoolIncreaseRequest,
+    MiscastPoolIncreaseSourceKind,
 )
 from towr.rules.dice import RandomSource
 from towr.rules.miscast_pool_resolution import (
@@ -48,7 +49,8 @@ def resolve_casting_test(
                 resolution_id=f"{request.id}:rule-of-nine",
                 target_id=request.caster_id,
                 amount=miscast_dice,
-                source_test_id=request.test.id,
+                source_kind=MiscastPoolIncreaseSourceKind.TEST,
+                source_id=request.test.id,
                 trigger_rule_id=request.rule_id,
                 rule_id=RULE_OF_NINE_RULE_ID,
             ),
