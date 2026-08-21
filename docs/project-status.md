@@ -196,6 +196,12 @@ K1 — реализация книжного resolution kernel. Прототип
 - round-scoped поле уточнено до `free_move_used_entity_ids`, поскольку книжная альтернатива может потратить возможность без перемещения;
 - добавлены `ProneRemovalTargetKind` и `FreeMoveProneRemovalRequest → FreeMoveProneRemovalResult`: self либо отдельный дружественный target в явно подтверждённом Close Range;
 - ветвь запрещена при враге в Close Range, отсутствии Prone или уже использованном free move; успех сохраняет placements/turn slots, удаляет только Prone и записывает общий usage actor;
+- добавлены `RunActionExecutionRequest → RunActionExecutionResult` и специализированный `execute_run_action` для зарезервированного `ManoeuvreKind.RUN`;
+- базовый Run требует active actor, совпавший round и выполненные предыдущие slots, запрещает Slow/Burdened/Prone/Defenceless и перемещает Normal/Fast ровно в одну соседнюю Zone;
+- spatial mutation выполняется до добавления `ActionExecutionReceipt`; free-move/Give Ground usage не меняется, а незавершённый Run теперь запрещает завершить ход;
+- добавлены `RunAthleticsExtensionRequest → RunAthleticsExtensionResult` и три typed outcome опционального Athletics после завершённого базового Run;
+- успешный Athletics перемещает actor во вторую соседнюю extra Zone без нового receipt; провал сохраняет placement и добавляет только отсутствующий Staggered;
+- explicit Difficult Terrain conflict, path blockers и movement Conditions проверяются до RNG; полный Test trace и source-aware Staggered application сохраняются в результате;
 - обычное движение после снятия Prone и снятие Prone после движения одинаково отклоняются, а совпадение Zone намеренно не подменяет Close Range fact;
 - `CowardlyFlightMovementCompletion` теперь обязательно содержит совпавший успешный generic spatial result, а Willpower gate требует одну ordered state chain из выбранной Zone до переданного final spatial state;
 - `WizardMagicState` хранит текущие Miscast dice и накопленные successes Exacting Casting Test, тогда как неизменяемый Wizard Level остаётся явным входом resolver;
@@ -289,7 +295,7 @@ K1 — реализация книжного resolution kernel. Прототип
 
 ## Проверено
 
-- 423 unit/integration теста успешно проходят на Python 3.12, из них 403 относятся к K1;
+- 440 unit/integration тестов успешно проходят на Python 3.12, из них 420 относятся к K1;
 - исходники и тесты успешно проходят `compileall`.
 
 ## Исходный материал
@@ -303,7 +309,7 @@ K1 — реализация книжного resolution kernel. Прототип
 ## Известные ограничения
 
 - старый P1 battle loop остаётся упрощённым прототипом; K1 уже следует книгам, но пока реализует только часть проиндексированных механик;
-- K1 проверяет round/side/turn и action budget; обычный Attack slot исполняется через kernel, а spell Improvise — через один Casting Test, но остальные action effects ещё не подключены и источник второго действия не расходуется;
+- K1 проверяет round/side/turn и action budget; обычный Attack исполняется через kernel, spell Improvise — через один Casting Test, а Run — через базовую spatial mutation и optional Athletics; остальные action effects ещё не подключены и источник второго действия не расходуется;
 - Attack execution возвращает новое injury state цели внутри `ResolutionResult`, но общего battle aggregate для автоматического переноса этого состояния по target ID пока нет;
 - Awareness/амбуш ещё не вычисляет opposition-first порядок: orchestration передаёт уже определённый `side_order`; обе ветви free move представлены, но остальные incidental actions и pass/skip ещё не подключены;
 - каталоги NPC Abilities, магии, религии и магических предметов завершены как нормативный индекс, но большинство записей ещё не связано с исполняемыми reducers и orchestration;
@@ -342,7 +348,7 @@ K1 — реализация книжного resolution kernel. Прототип
 
 ## Следующий шаг
 
-Подключить базовый `ManoeuvreKind.RUN` по Player’s Guide 1.4, странице 117. Специализированный action executor должен принять зарезервированный Run slot, совпавшие active actor/round и `SpatialBattleState`, запретить Slow/Burdened, переместить Normal/Fast actor ровно на одну дополнительную соседнюю Zone и добавить action receipt только после spatial mutation. Optional Athletics для второй extra Zone и его Staggered failure оставить отдельной следующей фазой.
+Начать базовый `ManoeuvreKind.CHARGE` по Player’s Guide 1.4, странице 117. Первый срез должен типизировать уже выбранную вражескую цель в Medium Range, связать зарезервированный Charge slot с active actor/round и `SpatialBattleState`, проверить отсутствие врага Close в начале хода и подготовить movement-to-Close context. После успешного movement выполнить ровно одну готовую `KernelAttackRequest`, добавив `+1d` только если это Melee Attack, и создать receipt лишь после обеих фаз. Long Range Athletics и его fail-short/Staggered оставить отдельным следующим срезом.
 
 ## Последняя проверка
 
@@ -353,7 +359,7 @@ $env:PYTHONPATH = "src"
 py -3.12 -m unittest discover -s tests -v
 ```
 
-Результат: `Ran 423 tests ... OK`; отдельный K1-набор: `Ran 403 tests ... OK`.
+Результат: `Ran 440 tests ... OK`; отдельный K1-набор: `Ran 420 tests ... OK`.
 
 ```powershell
 py -3.12 -m compileall -q src tests tools

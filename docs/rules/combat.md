@@ -1,6 +1,6 @@
 # Бой и атаки
 
-Источник: `BOOK-PLAYER-GUIDE`, преимущественно страницы 111–120. Статус: правила атаки, базовый порядок раунда и бюджет действий `implemented` в K1; эффекты большинства действий и завершение боя ещё требуют нового battle loop.
+Источник: `BOOK-PLAYER-GUIDE`, преимущественно страницы 111–120. Статус: правила атаки, базовый порядок раунда, бюджет действий и базовая ветвь Run `implemented` в K1; эффекты большинства остальных действий и завершение боя ещё требуют нового battle loop.
 
 ## RULE-COMBAT-001 — раунды, стороны и ходы
 
@@ -42,7 +42,9 @@
 
 Первый специализированный executor подключает `CombatActionKind.ATTACK`. `AttackActionExecutionRequest` связывает active actor, конкретный зарезервированный slot, явно выбранный target ID и готовый `KernelAttackRequest`. После полного `resolve_kernel_attack` slot получает неизменяемый `ActionExecutionReceipt`, а `AttackActionExecutionResult` возвращает round state до/после и вложенный `ResolutionResult`. Не-ATTACK, Charge, чужой/несуществующий, уже исполненный slot либо slot перед незавершённым более ранним действием отклоняются до RNG. Выбор цели, перенос `target_state` в будущий общий battle state и расход Fate остаются внешними фазами.
 
-Второй узкий executor подключает только `ImproviseKind.SPELL`. Stable approach ID такого slot обязан совпадать с объявленным Lore в `CastingTestRequest`; caster обязан быть active actor. `execute_casting_attempt` выполняет ровно один Casting Test и только после его успеха добавляет receipt, возвращая полный `CastingTestResult`. Следующая `resolve_casting_action_post_test` сначала применяет его Rule of Nine follow-up к Miscast Pool. При безопасном пороге она требует явный связанный `CastingDecisionRequest` и выполняет normal `CAST`/`WAIT`; при сработавшем Miscast normal decision запрещён. `prepare_casting_action_miscast` связывает triggered result с готовым `MiscastPreparationRequest`: без spell создаётся один roll, а выбранный допустимый spell строго предшествует roll и добавляет `+1d`. Target discovery, spell/table effect и сам Miscast roll не выполняются автоматически. Ход нельзя завершить, пока зарезервированный обычный Attack или spell Improvise не исполнен.
+Второй узкий executor подключает только `ImproviseKind.SPELL`. Stable approach ID такого slot обязан совпадать с объявленным Lore в `CastingTestRequest`; caster обязан быть active actor. `execute_casting_attempt` выполняет ровно один Casting Test и только после его успеха добавляет receipt, возвращая полный `CastingTestResult`. Следующая `resolve_casting_action_post_test` сначала применяет его Rule of Nine follow-up к Miscast Pool. При безопасном пороге она требует явный связанный `CastingDecisionRequest` и выполняет normal `CAST`/`WAIT`; при сработавшем Miscast normal decision запрещён. `prepare_casting_action_miscast` связывает triggered result с готовым `MiscastPreparationRequest`: без spell создаётся один roll, а выбранный допустимый spell строго предшествует roll и добавляет `+1d`. Target discovery, spell/table effect и сам Miscast roll не выполняются автоматически.
+
+Третий специализированный executor подключает базовую ветвь `ManoeuvreKind.RUN`. `RunActionExecutionRequest` связывает active actor/round, зарезервированный Run slot и отдельный `SpatialBattleState`. Slow, Burdened, Prone и Defenceless отклоняются; Normal/Fast перемещаются ровно в одну соседнюю Zone. Enemy path blocker, obstacle и Difficult Terrain также требуют внешней либо отдельной фазы. Сначала создаётся новый spatial snapshot, и лишь затем выбранный slot получает `ActionExecutionReceipt`; при ошибке оба исходных состояния остаются неизменными. Ход нельзя завершить, пока зарезервированный обычный Attack, Run или spell Improvise не исполнен.
 
 Если actor уже имеет активный Casting snapshot и вместо следующего Casting Test исполняет обычный Attack, `SkippedCastingTestAfterAttackRequest` связывает конкретный успешный `AttackActionExecutionResult` с актуальным `WizardMagicState`. Resolver создаёт source-aware увеличение пула ровно на один die и немедленно применяет общий Miscast threshold, не меняя Lore или накопленные successes. Повторное применение того же action result пока предотвращает будущий battle aggregate; добровольное прекращение Casting и другие виды действий остаются отдельными фазами.
 
@@ -143,6 +145,14 @@ Run добавляет одну Zone и может добавить вторую
 Difficult Terrain пока требует отдельной Athletics movement-фазы и не считается автоматически пройденным. Перемещение позиции внутри одной Zone не представимо одним `zone_id` и остаётся внешним spatial context.
 
 `FreeMoveProneRemovalRequest` представляет книжную альтернативу тому же free move. `ProneRemovalTargetKind` явно различает `SELF` и `ALLY`; для союзника обязателен внешний Close Range fact, совпадение `side_id` и отличный от actor target ID. Отдельный `actor_has_enemy_in_close_range` нельзя выводить из общей Zone, поскольку Short и Close Range не совпадают. При наличии такого врага, отсутствии Prone или уже использованном free move reducer закрывается без изменений. Успех удаляет только Prone из переданного `ConditionState`, не меняет placements/action slots и записывает actor в общий `free_move_used_entity_ids`, поэтому после снятия Prone обычное движение уже недоступно и наоборот.
+
+### Реализация базового Run в K1
+
+`execute_run_action` требует уже зарезервированный Run slot и завершённость более раннего slot. Базовая дистанция не зависит от Normal/Fast и равна одной дополнительной соседней Zone; она не расходует и не восстанавливает отдельный free-move usage. Round и spatial snapshots имеют общий номер, а successful result меняет только placement actor и receipt выбранного slot.
+
+Опциональный Athletics Test для второй дополнительной Zone выполняется отдельным `RunAthleticsExtensionRequest → RunAthleticsExtensionResult` после базового Run. Само наличие запроса означает добровольный выбор попытки; он принимает готовый `TestRequest`, вторую соседнюю destination и явный path context. Все spatial-проверки происходят до RNG. Успех перемещает actor ещё на одну Zone; провал оставляет placement прежним и добавляет Staggered только при отсутствии этого Condition. Уже имеющийся Staggered не превращается в repeated-Staggered choice.
+
+Фаза не создаёт второй receipt и сохраняет free-move/Give Ground usage. Явный `tested_difficult_terrain_this_turn` запрещает попытку после Athletics Test для Difficult Terrain; сама extra Zone также не может одновременно пересекать Difficult Terrain. Регистрация уже выбранной optional-фазы и защита от повторного воспроизведения одного base result остаются ответственностью будущего battle aggregate.
 
 ## RULE-COMBAT-015 — Give Ground и Prone
 

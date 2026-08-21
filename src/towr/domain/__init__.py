@@ -193,6 +193,11 @@ from towr.domain.movement_models import (
     FreeMoveProneRemovalResult,
     MovementSpeed,
     ProneRemovalTargetKind,
+    RunAthleticsExtensionRequest,
+    RunAthleticsExtensionResult,
+    RunAthleticsOutcome,
+    RunActionExecutionRequest,
+    RunActionExecutionResult,
 )
 from towr.domain.npc_effect_models import (
     DropHeldHandItemRequest,
@@ -559,6 +564,11 @@ __all__ = [
     "RerollLock",
     "ProneBeforeGiveGroundSpec",
     "ProneRemovalTargetKind",
+    "RunActionExecutionRequest",
+    "RunActionExecutionResult",
+    "RunAthleticsExtensionRequest",
+    "RunAthleticsExtensionResult",
+    "RunAthleticsOutcome",
     "ResilienceProfile",
     "ResolutionResult",
     "SecondaryEffectSpec",

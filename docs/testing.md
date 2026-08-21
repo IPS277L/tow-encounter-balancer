@@ -152,6 +152,14 @@ py -3.12 -m unittest discover -s tests -v
 - снятие Prone вместо движения требует active actor, Prone target и отсутствие врага Close; self не принимает ally-range fact, а ally обязан быть отдельной дружественной целью с явным Close Range;
 - успешная Prone-removal ветвь сохраняет placements/action slots, удаляет только Prone из target Conditions и расходует тот же free-move usage actor;
 - movement после Prone removal и Prone removal после movement одинаково отклоняются как повторное использование общей once-per-turn возможности;
+- базовый Run требует зарезервированный `ManoeuvreKind.RUN`, active actor, совпавший spatial round и завершённость всех более ранних slots;
+- Normal/Fast Run перемещает actor ровно на одну соседнюю Zone, сохраняет free-move/Give Ground usage и лишь после spatial mutation добавляет execution receipt;
+- Slow, Burdened, Prone, Defenceless, неизвестная/несоседняя Zone, enemy path blocker, obstacle и Difficult Terrain закрывают Run без изменения обоих входных состояний;
+- незавершённый Run запрещает конец хода, исполненный slot нельзя использовать повторно, а forged spatial/round/result transitions отклоняются доменной моделью;
+- optional Run Athletics принимает только завершённый base Run и typed Athletics Test; success перемещает ещё на одну соседнюю Zone без нового receipt;
+- failed Athletics не двигает actor и добавляет Staggered только при отсутствии; уже Staggered остаётся единственным без repeated-Staggered choice;
+- Difficult Terrain Test того же turn, terrain на extra path, obstacle, enemy blocker и movement Conditions закрывают optional Test до RNG;
+- Test trace/модификаторы, Conditions и spatial snapshots входят в result invariants; forged outcome/test/application/state отклоняются;
 - общий Give Ground executor требует соседнюю Zone и при указанном attacker увеличивает graph-distance, запрещает повтор в round, Prone/Defenceless, enemy path blocker, obstacle и Difficult Terrain;
 - успешный Give Ground сохраняет порядок placements, меняет только mover Zone, записывает round usage и после движения накладывает Broken при наличии врага в destination, но не при одном союзнике;
 - переход к следующему spatial round очищает Give Ground и free-move usage; Cowardly completion принимает generic spatial result только для своего target/request, а batch требует одну ordered state chain из selected Zone до final spatial state;
