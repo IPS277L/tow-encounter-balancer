@@ -21,9 +21,11 @@ Player’s Guide 1.4 на странице 114 определяет Zones без
 - Связывать free move с active actor/round отдельным composite request, не помещая spatial state внутрь turn state и не создавая action slot. Передавать выбранный маршрут как одну или две последовательные Zone; текущий reducer принимает только уже ясный путь без Difficult Terrain Test.
 - Для альтернативного снятия Prone принимать self/ally как закрытый тип и отдельные Close Range facts. Не выводить Close из совпадения Zone; возвращать новый target `ConditionState` отдельно от spatial state и расходовать тот же free-move usage actor.
 - Для Run переиспользовать тот же Zone graph/path boundary, но не free-move usage: базовая фаза проходит одну соседнюю Zone и завершает action slot, optional Athletics-фаза от её результата может пройти ещё одну. Difficult Terrain Test того же turn передавать явным конфликтующим фактом.
+- Для базового Charge считать target на соседней Zone доказательством Medium Range, перемещать actor в Zone target и требовать отдельный local-context факт достижения Close Range. Выполнять kernel attack только после успешной spatial mutation.
+- Для Long Charge принимать явную intermediate Zone и требовать маршрут из двух последовательных связей без прямого соседства origin/target. Успех Athletics перемещает к target и атакует; провал перемещает только в intermediate Zone, применяет первый Staggered и завершает Charge без атаки. Difficult Terrain остаётся отдельной следующей movement-фазой и взаимно исключается с этим Athletics Test в том же turn.
 
 ## Последствия
 
 Give Ground получает воспроизводимый чистый executor без зависимости от CLI, карты или VTT. Правила соседства, направления, Conditions и round limit проверяются программой, тогда как неоднозначная позиция внутри Zone остаётся явным входом.
 
-Spatial target discovery, стабильная сортировка целей, cover/line of sight, vertical/midair metadata, движение внутри Zone, Difficult Terrain Test и остальные Manoeuvre этим решением не определены. Они добавляются отдельными контрактами по фактической потребности.
+Spatial target discovery, стабильная сортировка целей, cover/line of sight, vertical/midair metadata, движение внутри Zone, Difficult Terrain Test и остальные Manoeuvre этим решением не определены. Они добавляются отдельными контрактами по фактической потребности. Явный Long route доказывает только дальность и не утверждает точную геометрию пути внутри Zone.

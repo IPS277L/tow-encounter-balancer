@@ -28,6 +28,13 @@ from towr.domain.attack_models import (
     SecondaryEffectSpec,
 )
 from towr.domain.combatants import CombatantDefinition, CombatantState, Side
+from towr.domain.charge_models import (
+    ChargeActionExecutionRequest,
+    ChargeActionExecutionResult,
+    LongChargeActionExecutionRequest,
+    LongChargeActionExecutionResult,
+    LongChargeOutcome,
+)
 from towr.domain.condition_models import (
     Condition,
     ConditionApplicationRequest,
@@ -359,6 +366,8 @@ __all__ = [
     "CombatTurnState",
     "CharacterInjuryState",
     "Characteristic",
+    "ChargeActionExecutionRequest",
+    "ChargeActionExecutionResult",
     "Condition",
     "ConditionAfterGiveGroundRequest",
     "ConditionAfterGiveGroundResult",
@@ -427,6 +436,9 @@ __all__ = [
     "IdentifiedSpellTarget",
     "IdentifiedStaggerTarget",
     "KernelAttackRequest",
+    "LongChargeActionExecutionRequest",
+    "LongChargeActionExecutionResult",
+    "LongChargeOutcome",
     "ManoeuvreKind",
     "MonstrosityReactionOutcome",
     "MonstrosityReactionContext",

@@ -37,3 +37,7 @@
 ## Range-формулировки Miscast и сам маг
 
 Строка Miscast `3–4` (Player’s Guide 1.4, страница 159) затрагивает `anyone within Short Range of you`, а `1–2` — `all those within Medium Range`, но ни одна не говорит `including you`; строка `21–22` на той же странице добавляет это уточнение явно. Текущий K1 принимает уже выбранный стабильный target snapshot и не включает либо исключает мага самостоятельно. Перед общим spatial target discovery нужно утвердить единообразную policy self-inclusion для таких формулировок.
+
+## Бонус Charge для Brawn
+
+Определение Charge на странице 117 Player’s Guide 1.4 даёт `+1d`, если последующая атака является Melee. На странице 118 тот же модификатор находится в списке, предварительно названном применимым к Melee и Brawn attacks. Текущий K1 использует узкую формулировку страницы 117: `+1d` получает только `Skill.MELEE`, а Brawn Charge остаётся без бонуса. Нужно решить, считать ли unarmed Brawn Attack «Melee attack» для этого правила.

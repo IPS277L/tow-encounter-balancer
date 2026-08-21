@@ -160,6 +160,16 @@ py -3.12 -m unittest discover -s tests -v
 - failed Athletics не двигает actor и добавляет Staggered только при отсутствии; уже Staggered остаётся единственным без repeated-Staggered choice;
 - Difficult Terrain Test того же turn, terrain на extra path, obstacle, enemy blocker и movement Conditions закрывают optional Test до RNG;
 - Test trace/модификаторы, Conditions и spatial snapshots входят в result invariants; forged outcome/test/application/state отклоняются;
+- базовый Charge требует enemy target ровно на соседней Zone, active reserved Charge slot, отсутствие enemy Close в начале turn и явное достижение Close после movement;
+- Slow/Burdened/Prone/Defenceless, Long/невалидная цель, enemy path blocker, obstacle и Difficult Terrain закрывают Charge до RNG;
+- Melee Charge добавляет ровно один source-aware `+1d`, а Brawn/Shooting/Throwing не получают его; заранее встроенный Charge modifier отклоняется;
+- successful preflight сначала создаёт spatial snapshot, затем исполняет один Close kernel attack и только после результата добавляет receipt; kernel failure оставляет оба входа неизменными;
+- незавершённый/повторный Charge и нарушение порядка slots отклоняются; result invariants защищают target Close fact, movement, prepared attack, bonus и turn transition;
+- Long Charge требует enemy target ровно через две последовательные Zone links без прямого Medium adjacency и сохраняет intermediate Zone в request/result;
+- successful Long Athletics перемещает actor в Zone target, выполняет один Close kernel attack с общей Melee-only `+1d` policy и завершает исходный Charge slot;
+- failed Long Athletics перемещает actor только в intermediate Zone, не подготавливает и не выполняет attack, впервые добавляет Staggered и также завершает Charge slot;
+- уже Staggered на провале остаётся единственным Condition без repeated-Staggered choice; обе ветви разрешают завершить turn;
+- Difficult Terrain Test того же turn, terrain на route, obstacle, enemy blocker, Close в начале turn и stale attack context закрывают Long attempt до RNG; forged outcome/Test/Condition/spatial/kernel/receipt transitions отклоняются;
 - общий Give Ground executor требует соседнюю Zone и при указанном attacker увеличивает graph-distance, запрещает повтор в round, Prone/Defenceless, enemy path blocker, obstacle и Difficult Terrain;
 - успешный Give Ground сохраняет порядок placements, меняет только mover Zone, записывает round usage и после движения накладывает Broken при наличии врага в destination, но не при одном союзнике;
 - переход к следующему spatial round очищает Give Ground и free-move usage; Cowardly completion принимает generic spatial result только для своего target/request, а batch требует одну ordered state chain из selected Zone до final spatial state;

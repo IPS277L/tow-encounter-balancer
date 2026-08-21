@@ -202,6 +202,15 @@ K1 — реализация книжного resolution kernel. Прототип
 - добавлены `RunAthleticsExtensionRequest → RunAthleticsExtensionResult` и три typed outcome опционального Athletics после завершённого базового Run;
 - успешный Athletics перемещает actor во вторую соседнюю extra Zone без нового receipt; провал сохраняет placement и добавляет только отсутствующий Staggered;
 - explicit Difficult Terrain conflict, path blockers и movement Conditions проверяются до RNG; полный Test trace и source-aware Staggered application сохраняются в результате;
+- добавлены `ChargeActionExecutionRequest → ChargeActionExecutionResult` и атомарный executor базового Charge по выбранной enemy target на Medium Range;
+- Charge проверяет active slot/round, enemy adjacency, отсутствие врага Close в начале turn и локальное достижение Close; затем перемещает actor, выполняет один kernel attack и добавляет receipt только после результата;
+- Melee Attack получает ровно один source-aware `+1d`; другие Attack Skills временно не получают бонус, а расхождение формулировок Brawn записано как `AMBIGUITY-007`;
+- Slow/Burdened/Prone/Defenceless, obstacle/enemy path, Difficult Terrain, stale Close/Staggered context и повторный modifier закрываются до RNG;
+- добавлены `LongChargeActionExecutionRequest → LongChargeActionExecutionResult` и три закрытых outcome для Charge enemy ровно на Long Range;
+- request фиксирует Athletics `TestRequest`, route `origin → intermediate → target`, локальный Close fact и готовый kernel attack; прямое Medium adjacency либо разорванный двухзвенный route отклоняются до RNG;
+- Athletics success перемещает actor к target, выполняет Close attack с общей Melee-only `+1d` policy и завершает Charge slot;
+- Athletics failure перемещает actor в intermediate Zone, не подготавливает/не выполняет attack, применяет отсутствующий Staggered и всё равно завершает Charge slot; уже Staggered остаётся одним Condition;
+- Difficult Terrain Athletics того же turn и terrain на route взаимоисключены с Long attempt; result invariants связывают Test trace, Conditions, spatial/turn transitions, optional kernel result и receipt;
 - обычное движение после снятия Prone и снятие Prone после движения одинаково отклоняются, а совпадение Zone намеренно не подменяет Close Range fact;
 - `CowardlyFlightMovementCompletion` теперь обязательно содержит совпавший успешный generic spatial result, а Willpower gate требует одну ordered state chain из выбранной Zone до переданного final spatial state;
 - `WizardMagicState` хранит текущие Miscast dice и накопленные successes Exacting Casting Test, тогда как неизменяемый Wizard Level остаётся явным входом resolver;
@@ -295,7 +304,7 @@ K1 — реализация книжного resolution kernel. Прототип
 
 ## Проверено
 
-- 440 unit/integration тестов успешно проходят на Python 3.12, из них 420 относятся к K1;
+- 462 unit/integration теста успешно проходят на Python 3.12, из них 442 относятся к K1;
 - исходники и тесты успешно проходят `compileall`.
 
 ## Исходный материал
@@ -309,7 +318,7 @@ K1 — реализация книжного resolution kernel. Прототип
 ## Известные ограничения
 
 - старый P1 battle loop остаётся упрощённым прототипом; K1 уже следует книгам, но пока реализует только часть проиндексированных механик;
-- K1 проверяет round/side/turn и action budget; обычный Attack исполняется через kernel, spell Improvise — через один Casting Test, а Run — через базовую spatial mutation и optional Athletics; остальные action effects ещё не подключены и источник второго действия не расходуется;
+- K1 проверяет round/side/turn и action budget; обычный Attack исполняется через kernel, spell Improvise — через Casting pipeline, Run — через две spatial-фазы, а Medium/Long Charge — через атомарные spatial/Test/attack composite; остальные action effects ещё не подключены и источник второго действия не расходуется;
 - Attack execution возвращает новое injury state цели внутри `ResolutionResult`, но общего battle aggregate для автоматического переноса этого состояния по target ID пока нет;
 - Awareness/амбуш ещё не вычисляет opposition-first порядок: orchestration передаёт уже определённый `side_order`; обе ветви free move представлены, но остальные incidental actions и pass/skip ещё не подключены;
 - каталоги NPC Abilities, магии, религии и магических предметов завершены как нормативный индекс, но большинство записей ещё не связано с исполняемыми reducers и orchestration;
@@ -348,7 +357,7 @@ K1 — реализация книжного resolution kernel. Прототип
 
 ## Следующий шаг
 
-Начать базовый `ManoeuvreKind.CHARGE` по Player’s Guide 1.4, странице 117. Первый срез должен типизировать уже выбранную вражескую цель в Medium Range, связать зарезервированный Charge slot с active actor/round и `SpatialBattleState`, проверить отсутствие врага Close в начале хода и подготовить movement-to-Close context. После успешного movement выполнить ровно одну готовую `KernelAttackRequest`, добавив `+1d` только если это Melee Attack, и создать receipt лишь после обеих фаз. Long Range Athletics и его fail-short/Staggered оставить отдельным следующим срезом.
+Подключить общую фазу Difficult Terrain по Player’s Guide 1.4, странице 115. Типизированный request должен принять active actor/round, точный переход через одну границу Zone, готовый Athletics `TestRequest`, Conditions и локальный path context. Пересечение происходит до определения исхода: success сохраняет движение без Condition, failure сохраняет движение и немедленно добавляет Prone. Result должен возвращать явный turn-scoped факт выполненного terrain Test, чтобы optional Run/Long Charge Athletics в том же turn отклонялись. После standalone reducer связать фазу с free move, Run и Charge, не скрывая Test внутри Zone graph.
 
 ## Последняя проверка
 
@@ -359,7 +368,7 @@ $env:PYTHONPATH = "src"
 py -3.12 -m unittest discover -s tests -v
 ```
 
-Результат: `Ran 440 tests ... OK`; отдельный K1-набор: `Ran 420 tests ... OK`.
+Результат: `Ran 462 tests ... OK`; отдельный K1-набор: `Ran 442 tests ... OK`.
 
 ```powershell
 py -3.12 -m compileall -q src tests tools

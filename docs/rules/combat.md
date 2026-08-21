@@ -1,6 +1,6 @@
 # Бой и атаки
 
-Источник: `BOOK-PLAYER-GUIDE`, преимущественно страницы 111–120. Статус: правила атаки, базовый порядок раунда, бюджет действий и базовая ветвь Run `implemented` в K1; эффекты большинства остальных действий и завершение боя ещё требуют нового battle loop.
+Источник: `BOOK-PLAYER-GUIDE`, преимущественно страницы 111–120. Статус: правила атаки, базовый порядок раунда, бюджет действий, обе фазы Run и обе дальности Charge `implemented` в K1; эффекты большинства остальных действий и завершение боя ещё требуют нового battle loop.
 
 ## RULE-COMBAT-001 — раунды, стороны и ходы
 
@@ -44,7 +44,15 @@
 
 Второй узкий executor подключает только `ImproviseKind.SPELL`. Stable approach ID такого slot обязан совпадать с объявленным Lore в `CastingTestRequest`; caster обязан быть active actor. `execute_casting_attempt` выполняет ровно один Casting Test и только после его успеха добавляет receipt, возвращая полный `CastingTestResult`. Следующая `resolve_casting_action_post_test` сначала применяет его Rule of Nine follow-up к Miscast Pool. При безопасном пороге она требует явный связанный `CastingDecisionRequest` и выполняет normal `CAST`/`WAIT`; при сработавшем Miscast normal decision запрещён. `prepare_casting_action_miscast` связывает triggered result с готовым `MiscastPreparationRequest`: без spell создаётся один roll, а выбранный допустимый spell строго предшествует roll и добавляет `+1d`. Target discovery, spell/table effect и сам Miscast roll не выполняются автоматически.
 
-Третий специализированный executor подключает базовую ветвь `ManoeuvreKind.RUN`. `RunActionExecutionRequest` связывает active actor/round, зарезервированный Run slot и отдельный `SpatialBattleState`. Slow, Burdened, Prone и Defenceless отклоняются; Normal/Fast перемещаются ровно в одну соседнюю Zone. Enemy path blocker, obstacle и Difficult Terrain также требуют внешней либо отдельной фазы. Сначала создаётся новый spatial snapshot, и лишь затем выбранный slot получает `ActionExecutionReceipt`; при ошибке оба исходных состояния остаются неизменными. Ход нельзя завершить, пока зарезервированный обычный Attack, Run или spell Improvise не исполнен.
+Третий специализированный executor подключает базовую ветвь `ManoeuvreKind.RUN`. `RunActionExecutionRequest` связывает active actor/round, зарезервированный Run slot и отдельный `SpatialBattleState`. Slow, Burdened, Prone и Defenceless отклоняются; Normal/Fast перемещаются ровно в одну соседнюю Zone. Enemy path blocker, obstacle и Difficult Terrain также требуют внешней либо отдельной фазы. Сначала создаётся новый spatial snapshot, и лишь затем выбранный slot получает `ActionExecutionReceipt`; при ошибке оба исходных состояния остаются неизменными. Ход нельзя завершить, пока зарезервированный обычный Attack, Run, Charge или spell Improvise не исполнен.
+
+Четвёртый executor подключает базовый Charge по цели на Medium Range. `ChargeActionExecutionRequest` связывает зарезервированный Charge slot, active actor/round, вражеский target, movement context и готовый `KernelAttackRequest`. Zone adjacency доказывает Medium Range; попадание в Close Range после входа в Zone цели остаётся отдельным локальным фактом. Slow/Burdened/Prone/Defenceless, враг Close в начале хода, obstacle, enemy path blocker и неподключённый Difficult Terrain закрывают действие до RNG. После spatial mutation выполняется ровно одна Close Range attack, и только после её результата slot получает receipt.
+
+Для `Skill.MELEE` executor добавляет к attacker Test один обычный `DiceModifier(+1d)` с Rule ID Charge. Другие Attack Skills бонус не получают; временная политика для неоднозначного Brawn описана в `docs/contradictions.md`. Исходная и подготовленная `KernelAttackRequest` сохраняются в результате, поэтому бонус нельзя добавить дважды или скрыть в исходном запросе. Ход нельзя завершить с неисполненным Charge.
+
+Пятый executor подключает попытку Charge по цели ровно на Long Range. `LongChargeActionExecutionRequest` принимает тот же зарезервированный slot, готовые Athletics Test и Close attack, а также промежуточную Zone двухзвенного маршрута. Соседство `origin → intermediate → target` при отсутствии прямой связи доказывает Long Range. Все movement/path/Condition проверки и конфликт с Athletics Test для Difficult Terrain того же turn выполняются до RNG.
+
+При успехе Athletics actor входит в Zone цели, достигает явно подтверждённого Close Range и выполняет attack с той же Melee-only политикой `+1d`. При провале actor всё равно перемещается в промежуточную Zone — ровно за одну Zone от цели, — attack не подготавливается и не выполняется, а Staggered добавляется только при его отсутствии. Обе ветви завершают исходный Charge slot одним receipt; result сохраняет Test trace, состояния до/после, Condition application и optional kernel result.
 
 Если actor уже имеет активный Casting snapshot и вместо следующего Casting Test исполняет обычный Attack, `SkippedCastingTestAfterAttackRequest` связывает конкретный успешный `AttackActionExecutionResult` с актуальным `WizardMagicState`. Resolver создаёт source-aware увеличение пула ровно на один die и немедленно применяет общий Miscast threshold, не меняя Lore или накопленные successes. Повторное применение того же action result пока предотвращает будущий battle aggregate; добровольное прекращение Casting и другие виды действий остаются отдельными фазами.
 
@@ -153,6 +161,10 @@ Difficult Terrain пока требует отдельной Athletics movement-
 Опциональный Athletics Test для второй дополнительной Zone выполняется отдельным `RunAthleticsExtensionRequest → RunAthleticsExtensionResult` после базового Run. Само наличие запроса означает добровольный выбор попытки; он принимает готовый `TestRequest`, вторую соседнюю destination и явный path context. Все spatial-проверки происходят до RNG. Успех перемещает actor ещё на одну Zone; провал оставляет placement прежним и добавляет Staggered только при отсутствии этого Condition. Уже имеющийся Staggered не превращается в repeated-Staggered choice.
 
 Фаза не создаёт второй receipt и сохраняет free-move/Give Ground usage. Явный `tested_difficult_terrain_this_turn` запрещает попытку после Athletics Test для Difficult Terrain; сама extra Zone также не может одновременно пересекать Difficult Terrain. Регистрация уже выбранной optional-фазы и защита от повторного воспроизведения одного base result остаются ответственностью будущего battle aggregate.
+
+### Реализация Charge в K1
+
+Medium и Long используют один Charge slot и одинаковую подготовку последующей атаки, но разные типизированные composite contracts. Medium требует одну границу Zone и всегда доходит до attack после preflight. Long требует ровно две границы и сначала выполняет Athletics: success доходит до цели и атакует, failure останавливается в промежуточной Zone, впервые применяет Staggered и завершает действие без attack. Ни одна ветвь не расходует и не восстанавливает free-move/Give Ground usage.
 
 ## RULE-COMBAT-015 — Give Ground и Prone
 
