@@ -12,15 +12,17 @@ Player’s Guide 1.4 на странице 114 определяет Zones без
 
 - Представлять battlefield неизменяемым неориентированным `ZoneGraph` со стабильными Zone ID и связями соседства.
 - Хранить размещение существ отдельно как `SpatialEntityPlacement`; `side_id` означает сторону/коалицию боя, поэтому разные side ID считаются врагами.
-- Хранить round-scoped факт уже выполненного Give Ground в неизменяемом `SpatialBattleState` и очищать его только явным переходом к следующему round.
+- Хранить раздельные round-scoped факты уже выполненного Give Ground и использованного free move в неизменяемом `SpatialBattleState` и очищать их только явным переходом к следующему round. При одном ходе сущности за round второй список однозначно реализует предел free move once per turn как для движения, так и для альтернативного снятия Prone.
 - Передавать выбранный destination и локальный снимок пути в `GiveGroundResolutionRequest`: пересекаемые сущности, obstacle и Difficult Terrain. Эти факты сообщает orchestration/GM policy; reducer их проверяет, но не восстанавливает воображаемую геометрию.
 - Для обычного Give Ground передавать `away_from_entity_id` и требовать увеличения кратчайшего расстояния по Zone graph. Для эффектов без атакующего, включая Curse of Cowardly Flight, поле отсутствует.
 - Применять Broken при входе в Zone с существом другой стороны через общий Condition reducer после успешной мутации размещения.
 - Возвращать общий `GiveGroundResolutionResult` с состоянием до и после операции; его инварианты разрешают изменить только Zone mover и round-scoped usage. Несколько movement образуют проверяемую неизменяемую цепочку состояний.
 - Spell-specific completion может ссылаться на generic result, но spatial reducer не знает о Willpower, Potency или конкретном заклинании.
+- Связывать free move с active actor/round отдельным composite request, не помещая spatial state внутрь turn state и не создавая action slot. Передавать выбранный маршрут как одну или две последовательные Zone; текущий reducer принимает только уже ясный путь без Difficult Terrain Test.
+- Для альтернативного снятия Prone принимать self/ally как закрытый тип и отдельные Close Range facts. Не выводить Close из совпадения Zone; возвращать новый target `ConditionState` отдельно от spatial state и расходовать тот же free-move usage actor.
 
 ## Последствия
 
 Give Ground получает воспроизводимый чистый executor без зависимости от CLI, карты или VTT. Правила соседства, направления, Conditions и round limit проверяются программой, тогда как неоднозначная позиция внутри Zone остаётся явным входом.
 
-Spatial target discovery, стабильная сортировка целей, cover/line of sight, vertical/midair metadata, Speed, Manoeuvre и turn order этим решением не определены. Они добавляются отдельными контрактами по фактической потребности.
+Spatial target discovery, стабильная сортировка целей, cover/line of sight, vertical/midair metadata, движение внутри Zone, Difficult Terrain Test и Manoeuvre этим решением не определены. Они добавляются отдельными контрактами по фактической потребности.

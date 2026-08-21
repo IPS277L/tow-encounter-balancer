@@ -232,6 +232,11 @@ class GiveGroundResolutionResult:
         )
         if self.state.gave_ground_entity_ids != expected_usage:
             raise ValueError("result state does not record exact Give Ground usage")
+        if (
+            self.state.free_move_used_entity_ids
+            != self.previous_state.free_move_used_entity_ids
+        ):
+            raise ValueError("Give Ground cannot change free movement usage")
         if not isinstance(self.conditions, ConditionState):
             raise TypeError("conditions must be a ConditionState")
         if self.condition_application is not None:

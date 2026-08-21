@@ -134,6 +134,16 @@ Run добавляет одну Zone и может добавить вторую
 
 Источник: страницы 116–117.
 
+### Реализация free movement в K1
+
+`MovementSpeed` типизирует Slow, Normal и Fast. `FreeMovementRequest` связывает `SpatialBattleState` с активным actor из отдельного `CombatRoundState`, требует одинаковый номер round и принимает явный маршрут по Zone graph. Slow/Normal могут пересечь одну границу Zone (Medium Range), Fast — до двух (Long Range). Это incidental-фаза: action slot не резервируется и round state не мутируется.
+
+После успешного перехода меняется только Zone actor и `free_move_used_entity_ids`. Список хранится до следующего spatial round: при текущей модели один actor получает один ход за round, поэтому он однозначно представляет книжный предел once per turn отдельно от `gave_ground_entity_ids`. Prone и Defenceless блокируют движение, Burdened не блокирует free move. Явно переданный enemy path blocker или obstacle отклоняет маршрут; союзник на пути не считается врагом.
+
+Difficult Terrain пока требует отдельной Athletics movement-фазы и не считается автоматически пройденным. Перемещение позиции внутри одной Zone не представимо одним `zone_id` и остаётся внешним spatial context.
+
+`FreeMoveProneRemovalRequest` представляет книжную альтернативу тому же free move. `ProneRemovalTargetKind` явно различает `SELF` и `ALLY`; для союзника обязателен внешний Close Range fact, совпадение `side_id` и отличный от actor target ID. Отдельный `actor_has_enemy_in_close_range` нельзя выводить из общей Zone, поскольку Short и Close Range не совпадают. При наличии такого врага, отсутствии Prone или уже использованном free move reducer закрывается без изменений. Успех удаляет только Prone из переданного `ConditionState`, не меняет placements/action slots и записывает actor в общий `free_move_used_entity_ids`, поэтому после снятия Prone обычное движение уже недоступно и наоборот.
+
 ## RULE-COMBAT-015 — Give Ground и Prone
 
 Give Ground перемещает от attacker в выбранную adjacent Zone, максимум раз/round. Вход во вражескую Zone даёт Broken. Путь не проходит через enemies, obstacles или Difficult Terrain; Prone/невозможность покинуть Zone запрещают выбор.
@@ -144,11 +154,11 @@ Prone нельзя получить повторно или сочетать с 
 
 ### Реализация spatial Give Ground в K1
 
-`ZoneGraph` хранит стабильные Zone ID и неориентированное соседство без метров и координат. `SpatialBattleState` отдельно хранит стабильный список размещений и использованный в текущем round Give Ground. Стороны представлены coalition-like `side_id`: сущности с разными значениями считаются врагами.
+`ZoneGraph` хранит стабильные Zone ID и неориентированное соседство без метров и координат. `SpatialBattleState` отдельно хранит стабильный список размещений, использованный в текущем round Give Ground и free move. Стороны представлены coalition-like `side_id`: сущности с разными значениями считаются врагами.
 
 `GiveGroundResolutionRequest` принимает уже выбранную destination Zone, Conditions движущегося существа и явный локальный снимок пути. Общий reducer проверяет соседство, увеличение graph-distance от атакующего при наличии `away_from_entity_id`, Prone/Defenceless, round limit, enemy blockers, obstacle и Difficult Terrain. После успешной проверки он меняет только размещение и round-scoped usage. `GiveGroundResolutionResult` хранит состояния до/после и проверяет точность этой мутации. Вход в Zone с врагом затем накладывает Broken через общий Condition reducer.
 
-Книга не позволяет вывести путь внутри Zone только из графа. Поэтому `path_entity_ids`, `crosses_obstacle` и `crosses_difficult_terrain` сообщает orchestration/GM policy; это не скрытые defaults. Выбор destination, vertical/midair preference, cover, line of sight, Speed и Manoeuvre пока остаются снаружи этого executor. Решение границы зафиксировано в [`ADR-0003`](../decisions/ADR-0003-zone-graph-and-spatial-boundary.md).
+Книга не позволяет вывести путь внутри Zone только из графа. Поэтому `path_entity_ids`, `crosses_obstacle` и `crosses_difficult_terrain` сообщает orchestration/GM policy; это не скрытые defaults. Выбор destination, vertical/midair preference, cover, line of sight и Manoeuvre пока остаются снаружи этого executor. Решение границы зафиксировано в [`ADR-0003`](../decisions/ADR-0003-zone-graph-and-spatial-boundary.md).
 
 ## RULE-COMBAT-016 — Retreat
 

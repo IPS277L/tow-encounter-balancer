@@ -184,11 +184,19 @@ K1 — реализация книжного resolution kernel. Прототип
 - `CowardlyFlightMovementCompletion` типизированно подтверждает исполнение конкретного movement follow-up; Willpower batch принимает подтверждения в любом порядке, но требует их точного полного набора до обращения к RNG;
 - stable Willpower batch перепроверяет целостность movement/Test очередей, выполняет Tests общим RNG в affected-target порядке и сохраняет Zone/caster/spell/Lore provenance; цель без возможного Give Ground всё равно проверяется, пустая Zone не расходует RNG;
 - принят `ADR-0003`: battlefield представлен неориентированным `ZoneGraph`, а неизвестная геометрия внутри Zone остаётся явным path context вместо координат или метров;
-- добавлены `SpatialEntityPlacement` и неизменяемый `SpatialBattleState` со стабильным порядком существ, coalition-like `side_id`, номером round и множеством уже давших Ground;
+- добавлены `SpatialEntityPlacement` и неизменяемый `SpatialBattleState` со стабильным порядком существ, coalition-like `side_id`, номером round и раздельными usage уже давших Ground/использовавших free move;
 - реализован `GiveGroundResolutionRequest → GiveGroundResolutionResult`: проверяются adjacent destination, движение от attacker по graph-distance, Prone/Defenceless, один раз за round, enemy path blocker, obstacle и Difficult Terrain;
 - успешный Give Ground сохраняет порядок остальных размещений, меняет Zone только mover, записывает round usage и накладывает Broken через общий Condition reducer при входе во вражескую Zone;
-- `start_next_spatial_round` очищает round-scoped Give Ground usage без turn/action scheduling;
-- `GiveGroundResolutionResult` сохраняет предыдущий и новый spatial state и валидирует, что изменились только Zone mover и точная round-scoped запись;
+- `start_next_spatial_round` очищает раздельные round-scoped Give Ground/free-movement usage без turn/action scheduling;
+- `GiveGroundResolutionResult` сохраняет предыдущий и новый spatial state и валидирует, что изменились только Zone mover и точная Give Ground запись, не позволяя затронуть free-movement usage;
+- добавлен `MovementSpeed` со Slow/Normal/Fast и `FreeMovementRequest → FreeMovementResult` для incidental free move активного actor без action slot;
+- composite request требует совпадения active turn actor и номера round, принимает явный последовательный Zone route и разрешает одну границу для Slow/Normal либо две для Fast;
+- reducer меняет только placement actor и отдельный once-per-turn usage; Prone/Defenceless, enemy path blocker и obstacle блокируют путь, тогда как Burdened и союзник на пути не блокируют;
+- Difficult Terrain закрывается до отдельной Athletics movement-фазы, движение внутри одной Zone остаётся внешним позиционным context, а повторный free move отклоняется;
+- round-scoped поле уточнено до `free_move_used_entity_ids`, поскольку книжная альтернатива может потратить возможность без перемещения;
+- добавлены `ProneRemovalTargetKind` и `FreeMoveProneRemovalRequest → FreeMoveProneRemovalResult`: self либо отдельный дружественный target в явно подтверждённом Close Range;
+- ветвь запрещена при враге в Close Range, отсутствии Prone или уже использованном free move; успех сохраняет placements/turn slots, удаляет только Prone и записывает общий usage actor;
+- обычное движение после снятия Prone и снятие Prone после движения одинаково отклоняются, а совпадение Zone намеренно не подменяет Close Range fact;
 - `CowardlyFlightMovementCompletion` теперь обязательно содержит совпавший успешный generic spatial result, а Willpower gate требует одну ordered state chain из выбранной Zone до переданного final spatial state;
 - `WizardMagicState` хранит текущие Miscast dice и накопленные successes Exacting Casting Test, тогда как неизменяемый Wizard Level остаётся явным входом resolver;
 - применение `MiscastPoolIncreaseRequest` различает безопасное равенство уровню и строгое превышение, сохраняет provenance и создаёт `MiscastRollRequest` на весь накопленный пул;
@@ -281,7 +289,7 @@ K1 — реализация книжного resolution kernel. Прототип
 
 ## Проверено
 
-- 400 unit/integration тестов успешно проходят на Python 3.12, из них 380 относятся к K1;
+- 423 unit/integration теста успешно проходят на Python 3.12, из них 403 относятся к K1;
 - исходники и тесты успешно проходят `compileall`.
 
 ## Исходный материал
@@ -297,13 +305,13 @@ K1 — реализация книжного resolution kernel. Прототип
 - старый P1 battle loop остаётся упрощённым прототипом; K1 уже следует книгам, но пока реализует только часть проиндексированных механик;
 - K1 проверяет round/side/turn и action budget; обычный Attack slot исполняется через kernel, а spell Improvise — через один Casting Test, но остальные action effects ещё не подключены и источник второго действия не расходуется;
 - Attack execution возвращает новое injury state цели внутри `ResolutionResult`, но общего battle aggregate для автоматического переноса этого состояния по target ID пока нет;
-- Awareness/амбуш ещё не вычисляет opposition-first порядок: orchestration передаёт уже определённый `side_order`; incidental/free actions и pass/skip не представлены;
+- Awareness/амбуш ещё не вычисляет opposition-first порядок: orchestration передаёт уже определённый `side_order`; обе ветви free move представлены, но остальные incidental actions и pass/skip ещё не подключены;
 - каталоги NPC Abilities, магии, религии и магических предметов завершены как нормативный индекс, но большинство записей ещё не связано с исполняемыми reducers и orchestration;
 - применение времени, Treat/Heal и снятие source-aware Wound effects требует будущего battle loop;
 - внешние последствия Wound для инвентаря и анатомии пока являются typed follow-up;
 - защита Endurance после заживления `Ruptured organs` ещё не подключена к физическому impact;
 - автоматическая замена неподходящей строки Wounds Table для не-физического Hazard требует отдельной GM/simulation policy;
-- общий Zone graph и Give Ground executor уже существуют, но spatial-поиск/стабильная сортировка secondary/Zone целей, path-context policy, cover/line of sight и vertical/midair metadata ещё не имеют общего battle orchestration;
+- общий Zone graph, Give Ground и unobstructed free movement executor уже существуют, но spatial-поиск/стабильная сортировка secondary/Zone целей, path-context policy, Difficult Terrain Test, движение внутри Zone, cover/line of sight и vertical/midair metadata ещё не имеют общего battle orchestration;
 - для Monstrous Flight при полностью невозможном Give Ground книга не задаёт fallback; K1 требует внешнего ruling;
 - turn orchestration ещё должно привязать и сохранить `SuppressRegenerationNextTurnRequest` между Reaction и ближайшим end-turn окном той же сущности; end-turn reducer уже однократно погашает переданный запрос;
 - `DropHeldHandItemRequest` ещё некому применить без inventory state и policy выбора конкретного удерживаемого предмета;
@@ -334,7 +342,7 @@ K1 — реализация книжного resolution kernel. Прототип
 
 ## Следующий шаг
 
-Типизировать один раз за ход доступное free movement по Player’s Guide 1.4, странице 116. Отдельный incidental-контракт должен перемещать actor через существующий `SpatialBattleState` в допустимую Zone на Medium Range, либо Long Range для явно переданного fast creature, не резервируя action slot. Он должен хранить round-scoped usage, отклонять повтор и оставить Prone-removal alternative отдельной следующей ветвью.
+Подключить базовый `ManoeuvreKind.RUN` по Player’s Guide 1.4, странице 117. Специализированный action executor должен принять зарезервированный Run slot, совпавшие active actor/round и `SpatialBattleState`, запретить Slow/Burdened, переместить Normal/Fast actor ровно на одну дополнительную соседнюю Zone и добавить action receipt только после spatial mutation. Optional Athletics для второй extra Zone и его Staggered failure оставить отдельной следующей фазой.
 
 ## Последняя проверка
 
@@ -345,7 +353,7 @@ $env:PYTHONPATH = "src"
 py -3.12 -m unittest discover -s tests -v
 ```
 
-Результат: `Ran 406 tests ... OK`; отдельный K1-набор: `Ran 386 tests ... OK`.
+Результат: `Ran 423 tests ... OK`; отдельный K1-набор: `Ran 403 tests ... OK`.
 
 ```powershell
 py -3.12 -m compileall -q src tests tools

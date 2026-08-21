@@ -224,10 +224,12 @@ class K1GiveGroundSpatialResolutionTests(unittest.TestCase):
 
         self.assertEqual(result.state.placement_for("mover").zone_id, "zone:b")
 
-    def test_new_round_resets_only_the_give_ground_limit(self) -> None:
+    def test_new_round_resets_round_scoped_movement_limits(self) -> None:
         first = resolve_give_ground(request(state()))
 
-        next_round = start_next_spatial_round(first.state)
+        next_round = start_next_spatial_round(
+            replace(first.state, free_move_used_entity_ids=("attacker",))
+        )
         second = resolve_give_ground(
             GiveGroundResolutionRequest(
                 source=GiveGroundRequest("second:give-ground"),
@@ -240,6 +242,7 @@ class K1GiveGroundSpatialResolutionTests(unittest.TestCase):
 
         self.assertEqual(next_round.round_number, 2)
         self.assertEqual(next_round.gave_ground_entity_ids, ())
+        self.assertEqual(next_round.free_move_used_entity_ids, ())
         self.assertEqual(second.state.round_number, 2)
         self.assertEqual(second.state.gave_ground_entity_ids, ("mover",))
         self.assertEqual(second.state.placement_for("mover").zone_id, "zone:a")
@@ -256,6 +259,14 @@ class K1GiveGroundSpatialResolutionTests(unittest.TestCase):
 
         with self.assertRaises(ValueError):
             replace(result, state=forged_state)
+        with self.assertRaises(ValueError):
+            replace(
+                result,
+                state=replace(
+                    result.state,
+                    free_move_used_entity_ids=("mover",),
+                ),
+            )
 
 
 if __name__ == "__main__":

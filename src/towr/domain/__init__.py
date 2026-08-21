@@ -186,6 +186,14 @@ from towr.domain.miscast_effect_models import (
     MiscastZoneHazardRequest,
     MiscastZoneHazardResult,
 )
+from towr.domain.movement_models import (
+    FreeMovementRequest,
+    FreeMovementResult,
+    FreeMoveProneRemovalRequest,
+    FreeMoveProneRemovalResult,
+    MovementSpeed,
+    ProneRemovalTargetKind,
+)
 from towr.domain.npc_effect_models import (
     DropHeldHandItemRequest,
     FoulStenchChoice,
@@ -382,6 +390,10 @@ __all__ = [
     "FoulStenchRequest",
     "FoulStenchResult",
     "FormalSpellDefinition",
+    "FreeMovementRequest",
+    "FreeMovementResult",
+    "FreeMoveProneRemovalRequest",
+    "FreeMoveProneRemovalResult",
     "FixedCharacterWoundRequest",
     "FixedCharacterWoundResult",
     "TrollStupidityConditionRemovedRequest",
@@ -424,6 +436,7 @@ __all__ = [
     "MonstrousRegenerationEndTurnResult",
     "MonstrousRegenerationOutcome",
     "MonstrousRegenerationReactionSpec",
+    "MovementSpeed",
     "MiscastPoolIncreaseRequest",
     "MiscastPoolIncreaseSourceKind",
     "MiscastPoolOutcome",
@@ -545,6 +558,7 @@ __all__ = [
     "RepeatedConditionReplacement",
     "RerollLock",
     "ProneBeforeGiveGroundSpec",
+    "ProneRemovalTargetKind",
     "ResilienceProfile",
     "ResolutionResult",
     "SecondaryEffectSpec",

@@ -91,6 +91,7 @@ class SpatialBattleState:
     placements: tuple[SpatialEntityPlacement, ...]
     round_number: int = 1
     gave_ground_entity_ids: tuple[str, ...] = field(default_factory=tuple)
+    free_move_used_entity_ids: tuple[str, ...] = field(default_factory=tuple)
 
     def __post_init__(self) -> None:
         if not isinstance(self.graph, ZoneGraph):
@@ -123,11 +124,26 @@ class SpatialBattleState:
         if not set(gave_ground_entity_ids) <= set(entity_ids):
             raise ValueError("Give Ground state references an unknown entity")
 
+        free_move_used_entity_ids = tuple(self.free_move_used_entity_ids)
+        for entity_id in free_move_used_entity_ids:
+            _validate_non_empty_string(entity_id, "free-move-used entity_id")
+        if len(set(free_move_used_entity_ids)) != len(
+            free_move_used_entity_ids
+        ):
+            raise ValueError("free movement entity IDs must be unique")
+        if not set(free_move_used_entity_ids) <= set(entity_ids):
+            raise ValueError("free movement state references an unknown entity")
+
         object.__setattr__(self, "placements", placements)
         object.__setattr__(
             self,
             "gave_ground_entity_ids",
             gave_ground_entity_ids,
+        )
+        object.__setattr__(
+            self,
+            "free_move_used_entity_ids",
+            free_move_used_entity_ids,
         )
 
     def placement_for(self, entity_id: str) -> SpatialEntityPlacement:

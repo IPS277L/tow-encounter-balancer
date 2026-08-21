@@ -145,6 +145,7 @@ def start_next_spatial_round(state: SpatialBattleState) -> SpatialBattleState:
         state,
         round_number=state.round_number + 1,
         gave_ground_entity_ids=(),
+        free_move_used_entity_ids=(),
     )
 
 
