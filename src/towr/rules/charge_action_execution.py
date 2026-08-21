@@ -240,7 +240,10 @@ def execute_long_charge_action(
         raise ValueError(
             "successful Long Charge must reach Close Range of the target"
         )
-    if request.tested_difficult_terrain_this_turn:
+    if (
+        request.actor_id
+        in request.spatial_state.difficult_terrain_tested_entity_ids
+    ):
         raise ValueError(
             "Long Charge Athletics is unavailable after a Difficult Terrain Test"
         )

@@ -237,6 +237,11 @@ class GiveGroundResolutionResult:
             != self.previous_state.free_move_used_entity_ids
         ):
             raise ValueError("Give Ground cannot change free movement usage")
+        if (
+            self.state.difficult_terrain_tested_entity_ids
+            != self.previous_state.difficult_terrain_tested_entity_ids
+        ):
+            raise ValueError("Give Ground cannot change Difficult Terrain usage")
         if not isinstance(self.conditions, ConditionState):
             raise TypeError("conditions must be a ConditionState")
         if self.condition_application is not None:

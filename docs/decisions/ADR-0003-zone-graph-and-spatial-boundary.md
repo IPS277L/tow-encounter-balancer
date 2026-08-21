@@ -12,7 +12,7 @@ Player’s Guide 1.4 на странице 114 определяет Zones без
 
 - Представлять battlefield неизменяемым неориентированным `ZoneGraph` со стабильными Zone ID и связями соседства.
 - Хранить размещение существ отдельно как `SpatialEntityPlacement`; `side_id` означает сторону/коалицию боя, поэтому разные side ID считаются врагами.
-- Хранить раздельные round-scoped факты уже выполненного Give Ground и использованного free move в неизменяемом `SpatialBattleState` и очищать их только явным переходом к следующему round. При одном ходе сущности за round второй список однозначно реализует предел free move once per turn как для движения, так и для альтернативного снятия Prone.
+- Хранить раздельные round-scoped факты уже выполненного Give Ground, использованного free move и хотя бы одного Difficult Terrain Test в неизменяемом `SpatialBattleState` и очищать их только явным переходом к следующему round. При одном ходе сущности за round эти списки однозначно представляют соответствующие turn limits/conflicts.
 - Передавать выбранный destination и локальный снимок пути в `GiveGroundResolutionRequest`: пересекаемые сущности, obstacle и Difficult Terrain. Эти факты сообщает orchestration/GM policy; reducer их проверяет, но не восстанавливает воображаемую геометрию.
 - Для обычного Give Ground передавать `away_from_entity_id` и требовать увеличения кратчайшего расстояния по Zone graph. Для эффектов без атакующего, включая Curse of Cowardly Flight, поле отсутствует.
 - Применять Broken при входе в Zone с существом другой стороны через общий Condition reducer после успешной мутации размещения.
@@ -23,9 +23,10 @@ Player’s Guide 1.4 на странице 114 определяет Zones без
 - Для Run переиспользовать тот же Zone graph/path boundary, но не free-move usage: базовая фаза проходит одну соседнюю Zone и завершает action slot, optional Athletics-фаза от её результата может пройти ещё одну. Difficult Terrain Test того же turn передавать явным конфликтующим фактом.
 - Для базового Charge считать target на соседней Zone доказательством Medium Range, перемещать actor в Zone target и требовать отдельный local-context факт достижения Close Range. Выполнять kernel attack только после успешной spatial mutation.
 - Для Long Charge принимать явную intermediate Zone и требовать маршрут из двух последовательных связей без прямого соседства origin/target. Успех Athletics перемещает к target и атакует; провал перемещает только в intermediate Zone, применяет первый Staggered и завершает Charge без атаки. Difficult Terrain остаётся отдельной следующей movement-фазой и взаимно исключается с этим Athletics Test в том же turn.
+- Difficult Terrain разрешать отдельным reducer одной Zone boundary: сначала создать crossed spatial state и записать Test usage, затем выполнить Athletics и только на провале применить Prone. Несколько crossings могут потребовать несколько Tests, но usage ID не дублируется. Optional Run/Long Charge читают конфликт из state. Free move и базовый Run принимают nested traversal через provenance-checked consumers; Medium Charge остаётся следующим adapter.
 
 ## Последствия
 
 Give Ground получает воспроизводимый чистый executor без зависимости от CLI, карты или VTT. Правила соседства, направления, Conditions и round limit проверяются программой, тогда как неоднозначная позиция внутри Zone остаётся явным входом.
 
-Spatial target discovery, стабильная сортировка целей, cover/line of sight, vertical/midair metadata, движение внутри Zone, Difficult Terrain Test и остальные Manoeuvre этим решением не определены. Они добавляются отдельными контрактами по фактической потребности. Явный Long route доказывает только дальность и не утверждает точную геометрию пути внутри Zone.
+Spatial target discovery, стабильная сортировка целей, cover/line of sight, vertical/midair metadata, движение внутри Zone, bypass Difficult Terrain через Move Carefully/Lore и остальные Manoeuvre этим решением не определены. Они добавляются отдельными контрактами по фактической потребности. Явный Long route доказывает только дальность и не утверждает точную геометрию пути внутри Zone.

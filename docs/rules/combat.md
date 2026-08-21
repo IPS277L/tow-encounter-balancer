@@ -150,7 +150,7 @@ Run добавляет одну Zone и может добавить вторую
 
 После успешного перехода меняется только Zone actor и `free_move_used_entity_ids`. Список хранится до следующего spatial round: при текущей модели один actor получает один ход за round, поэтому он однозначно представляет книжный предел once per turn отдельно от `gave_ground_entity_ids`. Prone и Defenceless блокируют движение, Burdened не блокирует free move. Явно переданный enemy path blocker или obstacle отклоняет маршрут; союзник на пути не считается врагом.
 
-Difficult Terrain пока требует отдельной Athletics movement-фазы и не считается автоматически пройденным. Перемещение позиции внутри одной Zone не представимо одним `zone_id` и остаётся внешним spatial context.
+Difficult Terrain имеет отдельную общую Athletics movement-фазу. Free move и базовый Run принимают её готовый результат через отдельные composite adapters; прямые reducers по-прежнему закрывают terrain route. Текущий terrain-aware free move покрывает одну границу Zone: Fast-маршрут с несколькими terrain/non-terrain сегментами требует будущего route orchestration. Medium Charge пока не принимает traversal. Перемещение позиции внутри одной Zone не представимо одним `zone_id` и остаётся внешним spatial context.
 
 `FreeMoveProneRemovalRequest` представляет книжную альтернативу тому же free move. `ProneRemovalTargetKind` явно различает `SELF` и `ALLY`; для союзника обязателен внешний Close Range fact, совпадение `side_id` и отличный от actor target ID. Отдельный `actor_has_enemy_in_close_range` нельзя выводить из общей Zone, поскольку Short и Close Range не совпадают. При наличии такого врага, отсутствии Prone или уже использованном free move reducer закрывается без изменений. Успех удаляет только Prone из переданного `ConditionState`, не меняет placements/action slots и записывает actor в общий `free_move_used_entity_ids`, поэтому после снятия Prone обычное движение уже недоступно и наоборот.
 
@@ -160,11 +160,21 @@ Difficult Terrain пока требует отдельной Athletics movement-
 
 Опциональный Athletics Test для второй дополнительной Zone выполняется отдельным `RunAthleticsExtensionRequest → RunAthleticsExtensionResult` после базового Run. Само наличие запроса означает добровольный выбор попытки; он принимает готовый `TestRequest`, вторую соседнюю destination и явный path context. Все spatial-проверки происходят до RNG. Успех перемещает actor ещё на одну Zone; провал оставляет placement прежним и добавляет Staggered только при отсутствии этого Condition. Уже имеющийся Staggered не превращается в repeated-Staggered choice.
 
-Фаза не создаёт второй receipt и сохраняет free-move/Give Ground usage. Явный `tested_difficult_terrain_this_turn` запрещает попытку после Athletics Test для Difficult Terrain; сама extra Zone также не может одновременно пересекать Difficult Terrain. Регистрация уже выбранной optional-фазы и защита от повторного воспроизведения одного base result остаются ответственностью будущего battle aggregate.
+Фаза не создаёт второй receipt и сохраняет free-move/Give Ground usage. Наличие actor в `SpatialBattleState.difficult_terrain_tested_entity_ids` запрещает попытку после Athletics Test для Difficult Terrain; вызывающая сторона больше не передаёт доверенный boolean. Сама extra Zone также не может одновременно пересекать Difficult Terrain. Регистрация уже выбранной optional-фазы и защита от повторного воспроизведения одного base result остаются ответственностью будущего battle aggregate.
+
+Terrain-aware базовый Run разделён на фактическое пересечение и bookkeeping action slot. `DifficultTerrainRunActionExecutionRequest` требует точного совпадения исходных round/spatial snapshots, actor, Conditions, destination, path и obstacle с сохранённым source traversal, а current snapshots — с ещё неисполненным Run slot и crossed state. Затем adapter только добавляет receipt, не бросает Athletics повторно и не меняет spatial state. Провал terrain Athletics поэтому завершает Run уже в destination Zone и сохраняет Prone.
 
 ### Реализация Charge в K1
 
 Medium и Long используют один Charge slot и одинаковую подготовку последующей атаки, но разные типизированные composite contracts. Medium требует одну границу Zone и всегда доходит до attack после preflight. Long требует ровно две границы и сначала выполняет Athletics: success доходит до цели и атакует, failure останавливается в промежуточной Zone, впервые применяет Staggered и завершает действие без attack. Ни одна ветвь не расходует и не восстанавливает free-move/Give Ground usage.
+
+### Реализация Difficult Terrain в K1
+
+`DifficultTerrainTraversalRequest → DifficultTerrainTraversalResult` представляет одно фактическое пересечение границы Zone через terrain. Request связывает active actor/round, исходный spatial snapshot, готовый Athletics `TestRequest`, Conditions, destination и локальный path context. Result сохраняет полный source request и дублирует проверяемые path/obstacle facts, чтобы следующий adapter мог доказать provenance. Prone/Defenceless, obstacle, enemy blocker и несоседняя Zone закрываются до RNG; Burdened не блокирует общий traversal, поскольку Difficult Terrain встречается и при free move.
+
+Reducer сначала создаёт spatial snapshot после пересечения и записывает actor в `difficult_terrain_tested_entity_ids`, затем разрешает Athletics. Success сохраняет Conditions, failure немедленно добавляет Prone через общий Condition reducer, не отменяя movement. Повторное пересечение в том же turn требует новый Test, но не дублирует usage ID. `start_next_spatial_round` очищает usage вместе с Give Ground/free move. Optional Run и Long Charge читают этот авторитетный факт и закрываются до RNG.
+
+`DifficultTerrainFreeMovementRequest` принимает только исходный free-move request с terrain flag, точно соответствующий сохранённому traversal source, и current spatial state, равный crossed state. Adapter добавляет лишь `free_move_used_entity_ids`; failed Athletics сохраняет движение и Prone. Аналогичный Run composite принимает ещё current round state и добавляет только action receipt. Подмена result или его применение к уже обновлённым snapshots отклоняется. Как и остальные pure reducers, точный повтор одного неизменного request воспроизводит тот же результат; глобальную дедупликацию request ID должен обеспечить будущий battle aggregate. Medium Charge и bypass Move Carefully остаются следующими terrain-aware границами.
 
 ## RULE-COMBAT-015 — Give Ground и Prone
 
@@ -176,7 +186,7 @@ Prone нельзя получить повторно или сочетать с 
 
 ### Реализация spatial Give Ground в K1
 
-`ZoneGraph` хранит стабильные Zone ID и неориентированное соседство без метров и координат. `SpatialBattleState` отдельно хранит стабильный список размещений, использованный в текущем round Give Ground и free move. Стороны представлены coalition-like `side_id`: сущности с разными значениями считаются врагами.
+`ZoneGraph` хранит стабильные Zone ID и неориентированное соседство без метров и координат. `SpatialBattleState` отдельно хранит стабильный список размещений и round-scoped факты Give Ground, free move и хотя бы одного Difficult Terrain Test. Стороны представлены coalition-like `side_id`: сущности с разными значениями считаются врагами.
 
 `GiveGroundResolutionRequest` принимает уже выбранную destination Zone, Conditions движущегося существа и явный локальный снимок пути. Общий reducer проверяет соседство, увеличение graph-distance от атакующего при наличии `away_from_entity_id`, Prone/Defenceless, round limit, enemy blockers, obstacle и Difficult Terrain. После успешной проверки он меняет только размещение и round-scoped usage. `GiveGroundResolutionResult` хранит состояния до/после и проверяет точность этой мутации. Вход в Zone с врагом затем накладывает Broken через общий Condition reducer.
 

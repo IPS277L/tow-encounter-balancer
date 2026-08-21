@@ -7,6 +7,8 @@ from towr.domain.condition_models import (
     ConditionApplicationRequest,
 )
 from towr.domain.movement_models import (
+    DifficultTerrainRunActionExecutionRequest,
+    DifficultTerrainRunActionExecutionResult,
     MovementSpeed,
     RunAthleticsExtensionRequest,
     RunAthleticsExtensionResult,
@@ -30,6 +32,9 @@ from towr.rules.test_resolution import TestDecisionProvider, resolve_test
 
 
 RUN_ACTION_EXECUTION_RULE_ID = "RULE-COMBAT-014:run-action-execution"
+DIFFICULT_TERRAIN_RUN_ACTION_EXECUTION_RULE_ID = (
+    "RULE-COMBAT-014:difficult-terrain-run-action-execution"
+)
 RUN_ATHLETICS_EXTENSION_RULE_ID = (
     "RULE-COMBAT-014:run-athletics-extension"
 )
@@ -139,6 +144,81 @@ def execute_run_action(
     )
 
 
+def execute_difficult_terrain_run_action(
+    request: DifficultTerrainRunActionExecutionRequest,
+) -> DifficultTerrainRunActionExecutionResult:
+    """Complete a reserved Run using one proven terrain crossing."""
+    if request.rule_id != DIFFICULT_TERRAIN_RUN_ACTION_EXECUTION_RULE_ID:
+        raise ValueError("terrain Run uses an unknown source rule")
+    source = request.run_action
+    traversal = request.terrain_traversal
+    turn = request.round_state.active_turn
+    assert turn is not None
+    if source.slot_index > len(turn.action_slots):
+        raise ValueError("the requested action slot has not been reserved")
+    earlier_slots = turn.action_slots[: source.slot_index - 1]
+    if any(not slot.executed for slot in earlier_slots):
+        raise ValueError("earlier action slots must be executed first")
+    slot = turn.action_slots[source.slot_index - 1]
+    if (
+        slot.declaration.kind is not CombatActionKind.MANOEUVRE
+        or slot.declaration.manoeuvre is not ManoeuvreKind.RUN
+    ):
+        raise ValueError("only a Run Manoeuvre slot can use this executor")
+    if slot.executed:
+        raise ValueError("the Run action slot has already been executed")
+    if source.speed is MovementSpeed.SLOW:
+        raise ValueError("Slow creatures cannot Run")
+    if source.actor_conditions.has(Condition.BURDENED):
+        raise ValueError("Burdened creatures cannot use Manoeuvres")
+
+    executed_slot = replace(
+        slot,
+        execution=ActionExecutionReceipt(
+            id=request.id,
+            executor_rule_id=request.rule_id,
+            source_request_id=request.id,
+            result_request_id=traversal.request_id,
+        ),
+    )
+    updated_slots = tuple(
+        executed_slot if item.index == source.slot_index else item
+        for item in turn.action_slots
+    )
+    updated_round_state = replace(
+        request.round_state,
+        active_turn=replace(turn, action_slots=updated_slots),
+    )
+    return DifficultTerrainRunActionExecutionResult(
+        request_id=request.id,
+        rule_id=request.rule_id,
+        run_action_request=source,
+        terrain_traversal=traversal,
+        actor_id=source.actor_id,
+        slot_index=source.slot_index,
+        speed=source.speed,
+        origin_zone_id=traversal.origin_zone_id,
+        destination_zone_id=traversal.destination_zone_id,
+        previous_conditions=source.actor_conditions,
+        conditions=traversal.conditions,
+        previous_round_state=request.round_state,
+        round_state=updated_round_state,
+        previous_spatial_state=request.spatial_state,
+        spatial_state=request.spatial_state,
+        slot=executed_slot,
+        applied_rule_ids=tuple(
+            dict.fromkeys(
+                (
+                    request.rule_id,
+                    RUN_ACTION_EXECUTION_RULE_ID,
+                    SPEED_MOVEMENT_RULE_ID,
+                    *traversal.applied_rule_ids,
+                )
+            )
+        ),
+    )
+
+
 def resolve_run_athletics_extension(
     request: RunAthleticsExtensionRequest,
     rng: RandomSource,
@@ -148,7 +228,10 @@ def resolve_run_athletics_extension(
     """Resolve the optional Athletics Test for Run's second extra Zone."""
     if request.rule_id != RUN_ATHLETICS_EXTENSION_RULE_ID:
         raise ValueError("Run Athletics request uses an unknown source rule")
-    if request.tested_difficult_terrain_this_turn:
+    if (
+        request.base_run.actor_id
+        in request.base_run.spatial_state.difficult_terrain_tested_entity_ids
+    ):
         raise ValueError(
             "Run Athletics is unavailable after a Difficult Terrain Test"
         )

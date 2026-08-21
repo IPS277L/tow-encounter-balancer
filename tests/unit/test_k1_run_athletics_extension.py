@@ -95,12 +95,18 @@ def reserved_run() -> CombatRoundState:
     ).state
 
 
-def completed_base_run():
+def completed_base_run(*, terrain_test_recorded: bool = False):
+    state = spatial_state()
+    if terrain_test_recorded:
+        state = replace(
+            state,
+            difficult_terrain_tested_entity_ids=("hero",),
+        )
     return execute_run_action(
         RunActionExecutionRequest(
             id="execute:run",
             round_state=reserved_run(),
-            spatial_state=spatial_state(),
+            spatial_state=state,
             actor_id="hero",
             slot_index=1,
             speed=MovementSpeed.NORMAL,
@@ -118,11 +124,14 @@ def request(
     path_entity_ids: tuple[str, ...] = (),
     crosses_obstacle: bool = False,
     crosses_difficult_terrain: bool = False,
-    tested_difficult_terrain_this_turn: bool = False,
+    terrain_test_recorded: bool = False,
 ) -> RunAthleticsExtensionRequest:
+    base_run = completed_base_run(
+        terrain_test_recorded=terrain_test_recorded
+    )
     return RunAthleticsExtensionRequest(
         id="run:athletics",
-        base_run=completed_base_run(),
+        base_run=base_run,
         athletics_test=athletics_test
         or TestRequest("test:athletics", InlineProfile(1, 5)),
         actor_conditions=conditions,
@@ -130,9 +139,6 @@ def request(
         path_entity_ids=path_entity_ids,
         crosses_obstacle=crosses_obstacle,
         crosses_difficult_terrain=crosses_difficult_terrain,
-        tested_difficult_terrain_this_turn=(
-            tested_difficult_terrain_this_turn
-        ),
     )
 
 
@@ -204,7 +210,7 @@ class K1RunAthleticsExtensionTests(unittest.TestCase):
             request(path_entity_ids=("enemy",)),
             request(crosses_obstacle=True),
             request(crosses_difficult_terrain=True),
-            request(tested_difficult_terrain_this_turn=True),
+            request(terrain_test_recorded=True),
         )
 
         for source in blocked:

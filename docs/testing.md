@@ -147,8 +147,8 @@ py -3.12 -m unittest discover -s tests -v
 - Zone graph отклоняет неизвестные/self/duplicate connections, а spatial state — неизвестные Zone, повторные entity ID и некорректные раздельные Give Ground/free-move usage;
 - free movement требует active actor и совпавший round, не создаёт action slot и меняет только placement actor плюс once-per-turn usage;
 - Slow/Normal пересекают одну Zone boundary, Fast — до двух последовательных связей; неизвестный, несвязный, повторный или возвращающийся к origin маршрут отклоняется;
-- Prone/Defenceless, enemy path blocker и obstacle блокируют free move, Burdened и союзник на пути не блокируют; Difficult Terrain требует будущей Athletics-фазы;
-- повторный free move отклоняется, а переход spatial round очищает его usage одновременно и независимо от Give Ground;
+- Prone/Defenceless, enemy path blocker и obstacle блокируют прямой free move, Burdened и союзник на пути не блокируют; Difficult Terrain исполняется отдельным traversal и принимается terrain-aware composite без второго Test;
+- повторный free move отклоняется, а переход spatial round очищает его usage одновременно и независимо от Give Ground/Difficult Terrain Test;
 - снятие Prone вместо движения требует active actor, Prone target и отсутствие врага Close; self не принимает ally-range fact, а ally обязан быть отдельной дружественной целью с явным Close Range;
 - успешная Prone-removal ветвь сохраняет placements/action slots, удаляет только Prone из target Conditions и расходует тот же free-move usage actor;
 - movement после Prone removal и Prone removal после movement одинаково отклоняются как повторное использование общей once-per-turn возможности;
@@ -158,7 +158,7 @@ py -3.12 -m unittest discover -s tests -v
 - незавершённый Run запрещает конец хода, исполненный slot нельзя использовать повторно, а forged spatial/round/result transitions отклоняются доменной моделью;
 - optional Run Athletics принимает только завершённый base Run и typed Athletics Test; success перемещает ещё на одну соседнюю Zone без нового receipt;
 - failed Athletics не двигает actor и добавляет Staggered только при отсутствии; уже Staggered остаётся единственным без repeated-Staggered choice;
-- Difficult Terrain Test того же turn, terrain на extra path, obstacle, enemy blocker и movement Conditions закрывают optional Test до RNG;
+- подтверждённый Difficult Terrain usage того же turn, terrain на extra path, obstacle, enemy blocker и movement Conditions закрывают optional Test до RNG;
 - Test trace/модификаторы, Conditions и spatial snapshots входят в result invariants; forged outcome/test/application/state отклоняются;
 - базовый Charge требует enemy target ровно на соседней Zone, active reserved Charge slot, отсутствие enemy Close в начале turn и явное достижение Close после movement;
 - Slow/Burdened/Prone/Defenceless, Long/невалидная цель, enemy path blocker, obstacle и Difficult Terrain закрывают Charge до RNG;
@@ -169,7 +169,13 @@ py -3.12 -m unittest discover -s tests -v
 - successful Long Athletics перемещает actor в Zone target, выполняет один Close kernel attack с общей Melee-only `+1d` policy и завершает исходный Charge slot;
 - failed Long Athletics перемещает actor только в intermediate Zone, не подготавливает и не выполняет attack, впервые добавляет Staggered и также завершает Charge slot;
 - уже Staggered на провале остаётся единственным Condition без repeated-Staggered choice; обе ветви разрешают завершить turn;
-- Difficult Terrain Test того же turn, terrain на route, obstacle, enemy blocker, Close в начале turn и stale attack context закрывают Long attempt до RNG; forged outcome/Test/Condition/spatial/kernel/receipt transitions отклоняются;
+- подтверждённый Difficult Terrain usage того же turn, terrain на route, obstacle, enemy blocker, Close в начале turn и stale attack context закрывают Long attempt до RNG; forged outcome/Test/Condition/spatial/kernel/receipt transitions отклоняются;
+- Difficult Terrain traversal требует active actor, adjacent destination, Athletics Test и явный path context; Prone/Defenceless, obstacle и enemy blocker закрываются до RNG, тогда как Burdened/ally не блокируют общий crossing;
+- spatial placement и turn-scoped terrain usage создаются до Test outcome; success сохраняет Conditions, failure после crossing применяет Prone и не откатывает движение;
+- повторный terrain crossing в одном turn делает новый Test без duplicate usage; переход spatial round очищает факт, а forged movement/usage/Test/Condition result отклоняется;
+- terrain result сохраняет полный source request; free-move/Run composites требуют совпадения actor/round, origin state, Conditions, destination, path и obstacle, а подмена provenance закрывается до bookkeeping;
+- terrain-aware free move после success/failure добавляет только общий free-move usage; terrain-aware Run добавляет только receipt, обе ветви сохраняют crossed placement и полученный на провале Prone;
+- попытка применить traversal к уже обновлённому spatial/round snapshot отклоняется; Slow/Burdened и slot-order ограничения базового Run сохраняются после разделения фаз;
 - общий Give Ground executor требует соседнюю Zone и при указанном attacker увеличивает graph-distance, запрещает повтор в round, Prone/Defenceless, enemy path blocker, obstacle и Difficult Terrain;
 - успешный Give Ground сохраняет порядок placements, меняет только mover Zone, записывает round usage и после движения накладывает Broken при наличии врага в destination, но не при одном союзнике;
 - переход к следующему spatial round очищает Give Ground и free-move usage; Cowardly completion принимает generic spatial result только для своего target/request, а batch требует одну ordered state chain из selected Zone до final spatial state;

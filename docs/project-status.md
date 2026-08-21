@@ -184,15 +184,15 @@ K1 — реализация книжного resolution kernel. Прототип
 - `CowardlyFlightMovementCompletion` типизированно подтверждает исполнение конкретного movement follow-up; Willpower batch принимает подтверждения в любом порядке, но требует их точного полного набора до обращения к RNG;
 - stable Willpower batch перепроверяет целостность movement/Test очередей, выполняет Tests общим RNG в affected-target порядке и сохраняет Zone/caster/spell/Lore provenance; цель без возможного Give Ground всё равно проверяется, пустая Zone не расходует RNG;
 - принят `ADR-0003`: battlefield представлен неориентированным `ZoneGraph`, а неизвестная геометрия внутри Zone остаётся явным path context вместо координат или метров;
-- добавлены `SpatialEntityPlacement` и неизменяемый `SpatialBattleState` со стабильным порядком существ, coalition-like `side_id`, номером round и раздельными usage уже давших Ground/использовавших free move;
+- добавлены `SpatialEntityPlacement` и неизменяемый `SpatialBattleState` со стабильным порядком существ, coalition-like `side_id`, номером round и раздельными usage уже давших Ground/использовавших free move/проверявших Difficult Terrain;
 - реализован `GiveGroundResolutionRequest → GiveGroundResolutionResult`: проверяются adjacent destination, движение от attacker по graph-distance, Prone/Defenceless, один раз за round, enemy path blocker, obstacle и Difficult Terrain;
 - успешный Give Ground сохраняет порядок остальных размещений, меняет Zone только mover, записывает round usage и накладывает Broken через общий Condition reducer при входе во вражескую Zone;
-- `start_next_spatial_round` очищает раздельные round-scoped Give Ground/free-movement usage без turn/action scheduling;
+- `start_next_spatial_round` очищает раздельные round-scoped Give Ground/free-movement/Difficult Terrain usage без turn/action scheduling;
 - `GiveGroundResolutionResult` сохраняет предыдущий и новый spatial state и валидирует, что изменились только Zone mover и точная Give Ground запись, не позволяя затронуть free-movement usage;
 - добавлен `MovementSpeed` со Slow/Normal/Fast и `FreeMovementRequest → FreeMovementResult` для incidental free move активного actor без action slot;
 - composite request требует совпадения active turn actor и номера round, принимает явный последовательный Zone route и разрешает одну границу для Slow/Normal либо две для Fast;
 - reducer меняет только placement actor и отдельный once-per-turn usage; Prone/Defenceless, enemy path blocker и obstacle блокируют путь, тогда как Burdened и союзник на пути не блокируют;
-- Difficult Terrain закрывается до отдельной Athletics movement-фазы, движение внутри одной Zone остаётся внешним позиционным context, а повторный free move отклоняется;
+- прямой free-move reducer закрывает Difficult Terrain, а отдельный terrain-aware consumer принимает готовый traversal result; движение внутри одной Zone остаётся внешним позиционным context, повторный free move отклоняется;
 - round-scoped поле уточнено до `free_move_used_entity_ids`, поскольку книжная альтернатива может потратить возможность без перемещения;
 - добавлены `ProneRemovalTargetKind` и `FreeMoveProneRemovalRequest → FreeMoveProneRemovalResult`: self либо отдельный дружественный target в явно подтверждённом Close Range;
 - ветвь запрещена при враге в Close Range, отсутствии Prone или уже использованном free move; успех сохраняет placements/turn slots, удаляет только Prone и записывает общий usage actor;
@@ -202,6 +202,11 @@ K1 — реализация книжного resolution kernel. Прототип
 - добавлены `RunAthleticsExtensionRequest → RunAthleticsExtensionResult` и три typed outcome опционального Athletics после завершённого базового Run;
 - успешный Athletics перемещает actor во вторую соседнюю extra Zone без нового receipt; провал сохраняет placement и добавляет только отсутствующий Staggered;
 - explicit Difficult Terrain conflict, path blockers и movement Conditions проверяются до RNG; полный Test trace и source-aware Staggered application сохраняются в результате;
+- `DifficultTerrainTraversalResult` теперь сохраняет полный исходный request и отдельно валидирует path/obstacle provenance;
+- добавлены `DifficultTerrainFreeMovementRequest → DifficultTerrainFreeMovementResult` и `DifficultTerrainRunActionExecutionRequest → DifficultTerrainRunActionExecutionResult`;
+- оба composite требуют точного совпадения active actor/round, исходного spatial state, Conditions, destination/path/obstacle и current crossed snapshot; Run дополнительно требует прежний unexecuted slot;
+- consumers не обращаются к RNG повторно: free move добавляет только once-per-turn usage, Run — только execution receipt; failure сохраняет crossed placement и Prone;
+- подмена traversal и применение к уже обновлённым current snapshots отклоняются; точный replay неизменного pure request остаётся детерминированным и требует общей дедупликации request ID в будущем battle aggregate;
 - добавлены `ChargeActionExecutionRequest → ChargeActionExecutionResult` и атомарный executor базового Charge по выбранной enemy target на Medium Range;
 - Charge проверяет active slot/round, enemy adjacency, отсутствие врага Close в начале turn и локальное достижение Close; затем перемещает actor, выполняет один kernel attack и добавляет receipt только после результата;
 - Melee Attack получает ровно один source-aware `+1d`; другие Attack Skills временно не получают бонус, а расхождение формулировок Brawn записано как `AMBIGUITY-007`;
@@ -211,6 +216,11 @@ K1 — реализация книжного resolution kernel. Прототип
 - Athletics success перемещает actor к target, выполняет Close attack с общей Melee-only `+1d` policy и завершает Charge slot;
 - Athletics failure перемещает actor в intermediate Zone, не подготавливает/не выполняет attack, применяет отсутствующий Staggered и всё равно завершает Charge slot; уже Staggered остаётся одним Condition;
 - Difficult Terrain Athletics того же turn и terrain на route взаимоисключены с Long attempt; result invariants связывают Test trace, Conditions, spatial/turn transitions, optional kernel result и receipt;
+- добавлены `DifficultTerrainTraversalRequest → DifficultTerrainTraversalResult` и два outcome одного crossing по Player’s Guide 1.4, странице 115;
+- reducer требует active actor, adjacent destination, Athletics Test и локальный path context; Prone/Defenceless, obstacle и enemy blocker отклоняются до RNG, Burdened и союзник не блокируют общий crossing;
+- spatial movement и запись `difficult_terrain_tested_entity_ids` происходят до результата Test; success сохраняет Conditions, failure после crossing применяет Prone без отката позиции;
+- повторное terrain crossing в том же turn выполняет новый Test без duplicate usage, а переход spatial round очищает факт;
+- optional Run и Long Charge больше не доверяют внешнему boolean и автоматически закрываются по подтверждённому terrain usage в `SpatialBattleState`;
 - обычное движение после снятия Prone и снятие Prone после движения одинаково отклоняются, а совпадение Zone намеренно не подменяет Close Range fact;
 - `CowardlyFlightMovementCompletion` теперь обязательно содержит совпавший успешный generic spatial result, а Willpower gate требует одну ordered state chain из выбранной Zone до переданного final spatial state;
 - `WizardMagicState` хранит текущие Miscast dice и накопленные successes Exacting Casting Test, тогда как неизменяемый Wizard Level остаётся явным входом resolver;
@@ -304,7 +314,7 @@ K1 — реализация книжного resolution kernel. Прототип
 
 ## Проверено
 
-- 462 unit/integration теста успешно проходят на Python 3.12, из них 442 относятся к K1;
+- 477 unit/integration тестов успешно проходят на Python 3.12, из них 457 относятся к K1;
 - исходники и тесты успешно проходят `compileall`.
 
 ## Исходный материал
@@ -326,7 +336,7 @@ K1 — реализация книжного resolution kernel. Прототип
 - внешние последствия Wound для инвентаря и анатомии пока являются typed follow-up;
 - защита Endurance после заживления `Ruptured organs` ещё не подключена к физическому impact;
 - автоматическая замена неподходящей строки Wounds Table для не-физического Hazard требует отдельной GM/simulation policy;
-- общий Zone graph, Give Ground и unobstructed free movement executor уже существуют, но spatial-поиск/стабильная сортировка secondary/Zone целей, path-context policy, Difficult Terrain Test, движение внутри Zone, cover/line of sight и vertical/midair metadata ещё не имеют общего battle orchestration;
+- общий Zone graph, Give Ground, unobstructed free movement, standalone Difficult Terrain executor и его free-move/base-Run consumers уже существуют, но terrain result ещё не связан с Medium Charge; Fast route с несколькими terrain/non-terrain сегментами, spatial-поиск/стабильная сортировка secondary/Zone целей, path-context policy, движение внутри Zone, cover/line of sight и vertical/midair metadata ещё не имеют общего battle orchestration;
 - для Monstrous Flight при полностью невозможном Give Ground книга не задаёт fallback; K1 требует внешнего ruling;
 - turn orchestration ещё должно привязать и сохранить `SuppressRegenerationNextTurnRequest` между Reaction и ближайшим end-turn окном той же сущности; end-turn reducer уже однократно погашает переданный запрос;
 - `DropHeldHandItemRequest` ещё некому применить без inventory state и policy выбора конкретного удерживаемого предмета;
@@ -357,7 +367,7 @@ K1 — реализация книжного resolution kernel. Прототип
 
 ## Следующий шаг
 
-Подключить общую фазу Difficult Terrain по Player’s Guide 1.4, странице 115. Типизированный request должен принять active actor/round, точный переход через одну границу Zone, готовый Athletics `TestRequest`, Conditions и локальный path context. Пересечение происходит до определения исхода: success сохраняет движение без Condition, failure сохраняет движение и немедленно добавляет Prone. Result должен возвращать явный turn-scoped факт выполненного terrain Test, чтобы optional Run/Long Charge Athletics в том же turn отклонялись. После standalone reducer связать фазу с free move, Run и Charge, не скрывая Test внутри Zone graph.
+Связать готовый `DifficultTerrainTraversalResult` с Medium Charge. Новый composite должен доказать совпадение исходного Charge movement context и traversal provenance, принять crossed state/Conditions и затем разрешить attack в Close Range. Нужно явно определить post-traversal Prone: движение уже завершено, но attack request обязан отражать актуальные Condition modifiers/context. Подмена result и применение к уже обновлённому slot/state должны отклоняться. После этого реализовать Move Carefully как отдельный bypass без Athletics и terrain Test usage.
 
 ## Последняя проверка
 
@@ -368,7 +378,7 @@ $env:PYTHONPATH = "src"
 py -3.12 -m unittest discover -s tests -v
 ```
 
-Результат: `Ran 462 tests ... OK`; отдельный K1-набор: `Ran 442 tests ... OK`.
+Результат: `Ran 477 tests ... OK`; отдельный K1-набор: `Ran 457 tests ... OK`.
 
 ```powershell
 py -3.12 -m compileall -q src tests tools

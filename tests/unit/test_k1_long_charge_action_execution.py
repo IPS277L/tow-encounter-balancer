@@ -148,13 +148,19 @@ def request(
     path_entity_ids: tuple[str, ...] = (),
     crosses_obstacle: bool = False,
     crosses_difficult_terrain: bool = False,
-    tested_difficult_terrain_this_turn: bool = False,
+    terrain_test_recorded: bool = False,
     skill: Skill = Skill.ATHLETICS,
 ) -> LongChargeActionExecutionRequest:
+    selected_state = state or spatial_state()
+    if terrain_test_recorded:
+        selected_state = replace(
+            selected_state,
+            difficult_terrain_tested_entity_ids=("hero",),
+        )
     return LongChargeActionExecutionRequest(
         id="execute:long-charge",
         round_state=round_state or reserved_charge(),
-        spatial_state=state or spatial_state(),
+        spatial_state=selected_state,
         actor_id="hero",
         target_id="enemy",
         slot_index=1,
@@ -175,9 +181,6 @@ def request(
         path_entity_ids=path_entity_ids,
         crosses_obstacle=crosses_obstacle,
         crosses_difficult_terrain=crosses_difficult_terrain,
-        tested_difficult_terrain_this_turn=(
-            tested_difficult_terrain_this_turn
-        ),
         skill=skill,
     )
 
@@ -300,7 +303,7 @@ class K1LongChargeActionExecutionTests(unittest.TestCase):
             request(path_entity_ids=("blocker",)),
             request(crosses_obstacle=True),
             request(crosses_difficult_terrain=True),
-            request(tested_difficult_terrain_this_turn=True),
+            request(terrain_test_recorded=True),
         )
         for source in blocked:
             with self.subTest(source=source):

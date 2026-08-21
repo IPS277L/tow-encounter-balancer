@@ -43,6 +43,253 @@ class RunAthleticsOutcome(str, Enum):
     FAILED_ALREADY_STAGGERED = "failed_already_staggered"
 
 
+class DifficultTerrainOutcome(str, Enum):
+    CROSSED_SAFELY = "crossed_safely"
+    CROSSED_AND_FELL_PRONE = "crossed_and_fell_prone"
+
+
+@dataclass(frozen=True, slots=True)
+class DifficultTerrainTraversalRequest:
+    id: str
+    round_state: CombatRoundState
+    state: SpatialBattleState
+    actor_id: str
+    actor_conditions: ConditionState
+    athletics_test: TestRequest
+    destination_zone_id: str
+    path_entity_ids: tuple[str, ...] = ()
+    crosses_obstacle: bool = False
+    skill: Skill = Skill.ATHLETICS
+    rule_id: str = "RULE-COMBAT-013:difficult-terrain-traversal"
+
+    def __post_init__(self) -> None:
+        _validate_non_empty_string(self.id, "Difficult Terrain request id")
+        if not isinstance(self.round_state, CombatRoundState):
+            raise TypeError("round_state must be a CombatRoundState")
+        if not isinstance(self.state, SpatialBattleState):
+            raise TypeError("state must be a SpatialBattleState")
+        _validate_non_empty_string(self.actor_id, "actor_id")
+        if not isinstance(self.actor_conditions, ConditionState):
+            raise TypeError("actor_conditions must be a ConditionState")
+        if not isinstance(self.athletics_test, TestRequest):
+            raise TypeError("athletics_test must be a TestRequest")
+        _validate_non_empty_string(
+            self.destination_zone_id,
+            "destination_zone_id",
+        )
+        if not isinstance(self.skill, Skill):
+            raise TypeError("skill must be a Skill")
+        if self.skill is not Skill.ATHLETICS:
+            raise ValueError("Difficult Terrain Test must use Athletics")
+        _validate_bool(self.crosses_obstacle, "crosses_obstacle")
+        _validate_non_empty_string(self.rule_id, "rule_id")
+
+        if self.round_state.round_number != self.state.round_number:
+            raise ValueError("turn and spatial state must use the same round")
+        active_turn = self.round_state.active_turn
+        if active_turn is None:
+            raise ValueError("Difficult Terrain requires an active turn")
+        if active_turn.actor_id != self.actor_id:
+            raise ValueError("Difficult Terrain belongs to another turn actor")
+        self.state.placement_for(self.actor_id)
+
+        path_entity_ids = tuple(self.path_entity_ids)
+        for entity_id in path_entity_ids:
+            _validate_non_empty_string(entity_id, "path entity_id")
+            self.state.placement_for(entity_id)
+        if len(set(path_entity_ids)) != len(path_entity_ids):
+            raise ValueError("Difficult Terrain path entity IDs must be unique")
+        if self.actor_id in path_entity_ids:
+            raise ValueError("Difficult Terrain path cannot cross the actor")
+        object.__setattr__(self, "path_entity_ids", path_entity_ids)
+
+
+@dataclass(frozen=True, slots=True)
+class DifficultTerrainTraversalResult:
+    request_id: str
+    rule_id: str
+    source_request: DifficultTerrainTraversalRequest
+    round_state: CombatRoundState
+    actor_id: str
+    skill: Skill
+    athletics_test_request: TestRequest
+    athletics_test_result: TestResult
+    outcome: DifficultTerrainOutcome
+    origin_zone_id: str
+    destination_zone_id: str
+    path_entity_ids: tuple[str, ...]
+    crosses_obstacle: bool
+    previous_conditions: ConditionState
+    conditions: ConditionState
+    prone_application: ConditionApplicationResult | None
+    previous_state: SpatialBattleState
+    state: SpatialBattleState
+    applied_rule_ids: tuple[str, ...]
+
+    def __post_init__(self) -> None:
+        _validate_non_empty_string(
+            self.request_id,
+            "Difficult Terrain request_id",
+        )
+        _validate_non_empty_string(self.rule_id, "rule_id")
+        if not isinstance(
+            self.source_request,
+            DifficultTerrainTraversalRequest,
+        ):
+            raise TypeError(
+                "source_request must be a DifficultTerrainTraversalRequest"
+            )
+        if not isinstance(self.round_state, CombatRoundState):
+            raise TypeError("round_state must be a CombatRoundState")
+        _validate_non_empty_string(self.actor_id, "actor_id")
+        if not isinstance(self.skill, Skill):
+            raise TypeError("skill must be a Skill")
+        if self.skill is not Skill.ATHLETICS:
+            raise ValueError("Difficult Terrain result must use Athletics")
+        if not isinstance(self.athletics_test_request, TestRequest):
+            raise TypeError("athletics_test_request must be a TestRequest")
+        if not isinstance(self.athletics_test_result, TestResult):
+            raise TypeError("athletics_test_result must be a TestResult")
+        if (
+            self.athletics_test_result.trace.request_id
+            != self.athletics_test_request.id
+        ):
+            raise ValueError("Athletics result belongs to another Test")
+        if not isinstance(self.outcome, DifficultTerrainOutcome):
+            raise TypeError("outcome must be a DifficultTerrainOutcome")
+        _validate_non_empty_string(self.origin_zone_id, "origin_zone_id")
+        _validate_non_empty_string(
+            self.destination_zone_id,
+            "destination_zone_id",
+        )
+        path_entity_ids = tuple(self.path_entity_ids)
+        for entity_id in path_entity_ids:
+            _validate_non_empty_string(entity_id, "path entity_id")
+        if len(set(path_entity_ids)) != len(path_entity_ids):
+            raise ValueError("terrain result path entity IDs must be unique")
+        object.__setattr__(self, "path_entity_ids", path_entity_ids)
+        _validate_bool(self.crosses_obstacle, "crosses_obstacle")
+        if not isinstance(self.previous_conditions, ConditionState):
+            raise TypeError("previous_conditions must be a ConditionState")
+        if not isinstance(self.conditions, ConditionState):
+            raise TypeError("conditions must be a ConditionState")
+        if self.previous_conditions.has(Condition.PRONE):
+            raise ValueError("Prone actor cannot have crossed Difficult Terrain")
+        if self.previous_conditions.has(Condition.DEFENCELESS):
+            raise ValueError(
+                "Defenceless actor cannot have crossed Difficult Terrain"
+            )
+        if not isinstance(self.previous_state, SpatialBattleState):
+            raise TypeError("previous_state must be a SpatialBattleState")
+        if not isinstance(self.state, SpatialBattleState):
+            raise TypeError("state must be a SpatialBattleState")
+
+        source = self.source_request
+        if (
+            self.request_id != source.id
+            or self.rule_id != source.rule_id
+            or self.round_state != source.round_state
+            or self.actor_id != source.actor_id
+            or self.skill is not source.skill
+            or self.athletics_test_request != source.athletics_test
+            or self.destination_zone_id != source.destination_zone_id
+            or self.path_entity_ids != source.path_entity_ids
+            or self.crosses_obstacle is not source.crosses_obstacle
+            or self.previous_conditions != source.actor_conditions
+            or self.previous_state != source.state
+        ):
+            raise ValueError(
+                "Difficult Terrain result does not match its source request"
+            )
+
+        if self.round_state.round_number != self.previous_state.round_number:
+            raise ValueError("turn and terrain result use different rounds")
+        active_turn = self.round_state.active_turn
+        if active_turn is None or active_turn.actor_id != self.actor_id:
+            raise ValueError("Difficult Terrain result belongs to another turn")
+        previous_actor = self.previous_state.placement_for(self.actor_id)
+        if previous_actor.zone_id != self.origin_zone_id:
+            raise ValueError("previous state does not match terrain origin")
+        if not self.previous_state.graph.are_adjacent(
+            self.origin_zone_id,
+            self.destination_zone_id,
+        ):
+            raise ValueError("Difficult Terrain must cross one Zone boundary")
+        expected_placements = tuple(
+            SpatialEntityPlacement(
+                entity_id=placement.entity_id,
+                side_id=placement.side_id,
+                zone_id=self.destination_zone_id,
+            )
+            if placement.entity_id == self.actor_id
+            else placement
+            for placement in self.previous_state.placements
+        )
+        previous_usage = self.previous_state.difficult_terrain_tested_entity_ids
+        expected_usage = (
+            previous_usage
+            if self.actor_id in previous_usage
+            else (*previous_usage, self.actor_id)
+        )
+        expected_state = replace(
+            self.previous_state,
+            placements=expected_placements,
+            difficult_terrain_tested_entity_ids=expected_usage,
+        )
+        if self.state != expected_state:
+            raise ValueError("Difficult Terrain changed unrelated spatial state")
+
+        if self.athletics_test_result.succeeded:
+            if self.outcome is not DifficultTerrainOutcome.CROSSED_SAFELY:
+                raise ValueError("successful terrain Test must cross safely")
+            if self.prone_application is not None:
+                raise ValueError("successful terrain Test cannot apply Prone")
+            if self.conditions != self.previous_conditions:
+                raise ValueError("successful terrain Test changed Conditions")
+        else:
+            if self.outcome is not DifficultTerrainOutcome.CROSSED_AND_FELL_PRONE:
+                raise ValueError("failed terrain Test must fall Prone")
+            application = self.prone_application
+            if not isinstance(application, ConditionApplicationResult):
+                raise TypeError("failed terrain Test requires Prone application")
+            if application.condition is not Condition.PRONE:
+                raise ValueError("failed terrain Test must apply only Prone")
+            if application.request_id != f"{self.request_id}:prone":
+                raise ValueError("Prone application belongs to another Test")
+            if application.source_rule_id != self.rule_id:
+                raise ValueError("Prone application has another source")
+            if application.was_already_present:
+                raise ValueError("moving actor cannot already be Prone")
+            if application.blocked or application.blocked_by_rule_id is not None:
+                raise ValueError("Difficult Terrain Prone cannot be blocked")
+            expected_conditions = self.previous_conditions.with_condition(
+                Condition.PRONE
+            )
+            if application.state != expected_conditions:
+                raise ValueError("Prone application changed unrelated Conditions")
+            if self.conditions != expected_conditions:
+                raise ValueError("failed terrain Test changed unrelated Conditions")
+
+        rule_ids = tuple(self.applied_rule_ids)
+        if not rule_ids:
+            raise ValueError("applied_rule_ids must not be empty")
+        for rule_id in rule_ids:
+            _validate_non_empty_string(rule_id, "applied Rule ID")
+        if len(set(rule_ids)) != len(rule_ids):
+            raise ValueError("applied_rule_ids must be unique")
+        if self.rule_id not in rule_ids:
+            raise ValueError("Difficult Terrain Rule ID is missing from trace")
+        if not set(self.athletics_test_result.trace.applied_rule_ids) <= set(
+            rule_ids
+        ):
+            raise ValueError("Athletics modifier Rule ID is missing from trace")
+        if self.prone_application is not None and not set(
+            self.prone_application.applied_rule_ids
+        ) <= set(rule_ids):
+            raise ValueError("Prone Rule ID is missing from trace")
+        object.__setattr__(self, "applied_rule_ids", rule_ids)
+
+
 @dataclass(frozen=True, slots=True)
 class FreeMovementRequest:
     id: str
@@ -190,6 +437,9 @@ class FreeMovementResult:
                 *self.previous_state.free_move_used_entity_ids,
                 self.actor_id,
             ),
+            difficult_terrain_tested_entity_ids=(
+                self.previous_state.difficult_terrain_tested_entity_ids
+            ),
         )
         if self.state != expected_state:
             raise ValueError("free movement result changed unrelated state")
@@ -208,6 +458,137 @@ class FreeMovementResult:
     @property
     def destination_zone_id(self) -> str:
         return self.traversed_zone_ids[-1]
+
+
+@dataclass(frozen=True, slots=True)
+class DifficultTerrainFreeMovementRequest:
+    id: str
+    free_movement: FreeMovementRequest
+    terrain_traversal: DifficultTerrainTraversalResult
+    state: SpatialBattleState
+    rule_id: str = "RULE-COMBAT-014:difficult-terrain-free-movement"
+
+    def __post_init__(self) -> None:
+        _validate_non_empty_string(
+            self.id,
+            "Difficult Terrain free movement request id",
+        )
+        if not isinstance(self.free_movement, FreeMovementRequest):
+            raise TypeError("free_movement must be a FreeMovementRequest")
+        if not isinstance(
+            self.terrain_traversal,
+            DifficultTerrainTraversalResult,
+        ):
+            raise TypeError(
+                "terrain_traversal must be a DifficultTerrainTraversalResult"
+            )
+        if not isinstance(self.state, SpatialBattleState):
+            raise TypeError("state must be a SpatialBattleState")
+        _validate_non_empty_string(self.rule_id, "rule_id")
+        _validate_difficult_terrain_free_movement_pair(
+            self.free_movement,
+            self.terrain_traversal,
+        )
+        if self.state != self.terrain_traversal.state:
+            raise ValueError(
+                "current state must be the unconsumed terrain result state"
+            )
+
+
+@dataclass(frozen=True, slots=True)
+class DifficultTerrainFreeMovementResult:
+    request_id: str
+    rule_id: str
+    free_movement_request: FreeMovementRequest
+    terrain_traversal: DifficultTerrainTraversalResult
+    round_state: CombatRoundState
+    actor_id: str
+    speed: MovementSpeed
+    origin_zone_id: str
+    destination_zone_id: str
+    previous_conditions: ConditionState
+    conditions: ConditionState
+    previous_state: SpatialBattleState
+    state: SpatialBattleState
+    applied_rule_ids: tuple[str, ...]
+
+    def __post_init__(self) -> None:
+        _validate_non_empty_string(
+            self.request_id,
+            "Difficult Terrain free movement request_id",
+        )
+        _validate_non_empty_string(self.rule_id, "rule_id")
+        if not isinstance(self.free_movement_request, FreeMovementRequest):
+            raise TypeError(
+                "free_movement_request must be a FreeMovementRequest"
+            )
+        if not isinstance(
+            self.terrain_traversal,
+            DifficultTerrainTraversalResult,
+        ):
+            raise TypeError(
+                "terrain_traversal must be a DifficultTerrainTraversalResult"
+            )
+        if not isinstance(self.round_state, CombatRoundState):
+            raise TypeError("round_state must be a CombatRoundState")
+        _validate_non_empty_string(self.actor_id, "actor_id")
+        if not isinstance(self.speed, MovementSpeed):
+            raise TypeError("speed must be a MovementSpeed")
+        _validate_non_empty_string(self.origin_zone_id, "origin_zone_id")
+        _validate_non_empty_string(
+            self.destination_zone_id,
+            "destination_zone_id",
+        )
+        if not isinstance(self.previous_conditions, ConditionState):
+            raise TypeError("previous_conditions must be a ConditionState")
+        if not isinstance(self.conditions, ConditionState):
+            raise TypeError("conditions must be a ConditionState")
+        if not isinstance(self.previous_state, SpatialBattleState):
+            raise TypeError("previous_state must be a SpatialBattleState")
+        if not isinstance(self.state, SpatialBattleState):
+            raise TypeError("state must be a SpatialBattleState")
+
+        source = self.free_movement_request
+        traversal = self.terrain_traversal
+        _validate_difficult_terrain_free_movement_pair(source, traversal)
+        if (
+            self.round_state != source.round_state
+            or self.actor_id != source.actor_id
+            or self.speed is not source.speed
+            or self.origin_zone_id != traversal.origin_zone_id
+            or self.destination_zone_id != traversal.destination_zone_id
+            or self.previous_conditions != source.actor_conditions
+            or self.conditions != traversal.conditions
+            or self.previous_state != traversal.state
+        ):
+            raise ValueError(
+                "Difficult Terrain free movement result has stale provenance"
+            )
+        if self.actor_id in self.previous_state.free_move_used_entity_ids:
+            raise ValueError("terrain result was already consumed as free movement")
+        expected_state = replace(
+            self.previous_state,
+            free_move_used_entity_ids=(
+                *self.previous_state.free_move_used_entity_ids,
+                self.actor_id,
+            ),
+        )
+        if self.state != expected_state:
+            raise ValueError(
+                "Difficult Terrain free movement changed unrelated state"
+            )
+
+        rule_ids = _validate_rule_ids(self.applied_rule_ids)
+        required_rule_ids = {
+            self.rule_id,
+            source.rule_id,
+            *traversal.applied_rule_ids,
+        }
+        if not required_rule_ids <= set(rule_ids):
+            raise ValueError(
+                "Difficult Terrain free movement trace is incomplete"
+            )
+        object.__setattr__(self, "applied_rule_ids", rule_ids)
 
 
 @dataclass(frozen=True, slots=True)
@@ -349,6 +730,9 @@ class FreeMoveProneRemovalResult:
             free_move_used_entity_ids=(
                 *self.previous_state.free_move_used_entity_ids,
                 self.actor_id,
+            ),
+            difficult_terrain_tested_entity_ids=(
+                self.previous_state.difficult_terrain_tested_entity_ids
             ),
         )
         if self.state != expected_state:
@@ -560,6 +944,196 @@ class RunActionExecutionResult:
 
 
 @dataclass(frozen=True, slots=True)
+class DifficultTerrainRunActionExecutionRequest:
+    id: str
+    run_action: RunActionExecutionRequest
+    terrain_traversal: DifficultTerrainTraversalResult
+    round_state: CombatRoundState
+    spatial_state: SpatialBattleState
+    rule_id: str = (
+        "RULE-COMBAT-014:difficult-terrain-run-action-execution"
+    )
+
+    def __post_init__(self) -> None:
+        _validate_non_empty_string(
+            self.id,
+            "Difficult Terrain Run execution request id",
+        )
+        if not isinstance(self.run_action, RunActionExecutionRequest):
+            raise TypeError("run_action must be a RunActionExecutionRequest")
+        if not isinstance(
+            self.terrain_traversal,
+            DifficultTerrainTraversalResult,
+        ):
+            raise TypeError(
+                "terrain_traversal must be a DifficultTerrainTraversalResult"
+            )
+        if not isinstance(self.round_state, CombatRoundState):
+            raise TypeError("round_state must be a CombatRoundState")
+        if not isinstance(self.spatial_state, SpatialBattleState):
+            raise TypeError("spatial_state must be a SpatialBattleState")
+        _validate_non_empty_string(self.rule_id, "rule_id")
+        _validate_difficult_terrain_run_pair(
+            self.run_action,
+            self.terrain_traversal,
+        )
+        if self.round_state != self.run_action.round_state:
+            raise ValueError(
+                "current round state must contain the unexecuted Run slot"
+            )
+        if self.spatial_state != self.terrain_traversal.state:
+            raise ValueError(
+                "current spatial state must be the unconsumed terrain result"
+            )
+
+
+@dataclass(frozen=True, slots=True)
+class DifficultTerrainRunActionExecutionResult:
+    request_id: str
+    rule_id: str
+    run_action_request: RunActionExecutionRequest
+    terrain_traversal: DifficultTerrainTraversalResult
+    actor_id: str
+    slot_index: int
+    speed: MovementSpeed
+    origin_zone_id: str
+    destination_zone_id: str
+    previous_conditions: ConditionState
+    conditions: ConditionState
+    previous_round_state: CombatRoundState
+    round_state: CombatRoundState
+    previous_spatial_state: SpatialBattleState
+    spatial_state: SpatialBattleState
+    slot: CombatActionSlot
+    applied_rule_ids: tuple[str, ...]
+
+    def __post_init__(self) -> None:
+        _validate_non_empty_string(
+            self.request_id,
+            "Difficult Terrain Run execution request_id",
+        )
+        _validate_non_empty_string(self.rule_id, "rule_id")
+        if not isinstance(self.run_action_request, RunActionExecutionRequest):
+            raise TypeError(
+                "run_action_request must be a RunActionExecutionRequest"
+            )
+        if not isinstance(
+            self.terrain_traversal,
+            DifficultTerrainTraversalResult,
+        ):
+            raise TypeError(
+                "terrain_traversal must be a DifficultTerrainTraversalResult"
+            )
+        _validate_non_empty_string(self.actor_id, "actor_id")
+        _validate_slot_index(self.slot_index)
+        if not isinstance(self.speed, MovementSpeed):
+            raise TypeError("speed must be a MovementSpeed")
+        if self.speed is MovementSpeed.SLOW:
+            raise ValueError("a successful Run result cannot use Slow Speed")
+        _validate_non_empty_string(self.origin_zone_id, "origin_zone_id")
+        _validate_non_empty_string(
+            self.destination_zone_id,
+            "destination_zone_id",
+        )
+        if not isinstance(self.previous_conditions, ConditionState):
+            raise TypeError("previous_conditions must be a ConditionState")
+        if not isinstance(self.conditions, ConditionState):
+            raise TypeError("conditions must be a ConditionState")
+        if not isinstance(self.previous_round_state, CombatRoundState):
+            raise TypeError("previous_round_state must be a CombatRoundState")
+        if not isinstance(self.round_state, CombatRoundState):
+            raise TypeError("round_state must be a CombatRoundState")
+        if not isinstance(self.previous_spatial_state, SpatialBattleState):
+            raise TypeError(
+                "previous_spatial_state must be a SpatialBattleState"
+            )
+        if not isinstance(self.spatial_state, SpatialBattleState):
+            raise TypeError("spatial_state must be a SpatialBattleState")
+        if not isinstance(self.slot, CombatActionSlot):
+            raise TypeError("slot must be a CombatActionSlot")
+
+        source = self.run_action_request
+        traversal = self.terrain_traversal
+        _validate_difficult_terrain_run_pair(source, traversal)
+        if (
+            self.actor_id != source.actor_id
+            or self.slot_index != source.slot_index
+            or self.speed is not source.speed
+            or self.origin_zone_id != traversal.origin_zone_id
+            or self.destination_zone_id != traversal.destination_zone_id
+            or self.previous_conditions != source.actor_conditions
+            or self.conditions != traversal.conditions
+            or self.previous_round_state != source.round_state
+            or self.previous_spatial_state != traversal.state
+            or self.spatial_state != traversal.state
+        ):
+            raise ValueError(
+                "Difficult Terrain Run result has stale provenance"
+            )
+        self._validate_round_transition()
+
+        rule_ids = _validate_rule_ids(self.applied_rule_ids)
+        required_rule_ids = {
+            self.rule_id,
+            "RULE-COMBAT-014:run-action-execution",
+            *traversal.applied_rule_ids,
+        }
+        if not required_rule_ids <= set(rule_ids):
+            raise ValueError("Difficult Terrain Run trace is incomplete")
+        object.__setattr__(self, "applied_rule_ids", rule_ids)
+
+    def _validate_round_transition(self) -> None:
+        previous_turn = self.previous_round_state.active_turn
+        current_turn = self.round_state.active_turn
+        if previous_turn is None or current_turn is None:
+            raise ValueError("Difficult Terrain Run requires an active turn")
+        if (
+            previous_turn.actor_id != self.actor_id
+            or current_turn.actor_id != self.actor_id
+        ):
+            raise ValueError("Run actor must own both turn states")
+        if self.slot_index > len(previous_turn.action_slots):
+            raise ValueError("previous state does not contain the Run slot")
+        if any(
+            not item.executed
+            for item in previous_turn.action_slots[: self.slot_index - 1]
+        ):
+            raise ValueError("Run result requires executed earlier slots")
+        previous_slot = previous_turn.action_slots[self.slot_index - 1]
+        if (
+            previous_slot.declaration.kind is not CombatActionKind.MANOEUVRE
+            or previous_slot.declaration.manoeuvre is not ManoeuvreKind.RUN
+        ):
+            raise ValueError("Run result requires a reserved Run slot")
+        if previous_slot.executed:
+            raise ValueError("previous Run slot must be unexecuted")
+        if not self.slot.executed:
+            raise ValueError("result Run slot must be executed")
+        receipt = self.slot.execution
+        assert isinstance(receipt, ActionExecutionReceipt)
+        if (
+            receipt.id != self.request_id
+            or receipt.source_request_id != self.request_id
+            or receipt.result_request_id != self.terrain_traversal.request_id
+            or receipt.executor_rule_id != self.rule_id
+        ):
+            raise ValueError("terrain Run receipt does not match provenance")
+        if self.slot != replace(previous_slot, execution=receipt):
+            raise ValueError("terrain Run may only add its receipt")
+        expected_slots = tuple(
+            self.slot if item.index == self.slot_index else item
+            for item in previous_turn.action_slots
+        )
+        if current_turn != replace(previous_turn, action_slots=expected_slots):
+            raise ValueError("terrain Run changed unrelated turn state")
+        if self.round_state != replace(
+            self.previous_round_state,
+            active_turn=current_turn,
+        ):
+            raise ValueError("terrain Run changed unrelated round state")
+
+
+@dataclass(frozen=True, slots=True)
 class RunAthleticsExtensionRequest:
     id: str
     base_run: RunActionExecutionResult
@@ -569,7 +1143,6 @@ class RunAthleticsExtensionRequest:
     path_entity_ids: tuple[str, ...] = ()
     crosses_obstacle: bool = False
     crosses_difficult_terrain: bool = False
-    tested_difficult_terrain_this_turn: bool = False
     skill: Skill = Skill.ATHLETICS
     rule_id: str = "RULE-COMBAT-014:run-athletics-extension"
 
@@ -593,10 +1166,6 @@ class RunAthleticsExtensionRequest:
         _validate_bool(
             self.crosses_difficult_terrain,
             "crosses_difficult_terrain",
-        )
-        _validate_bool(
-            self.tested_difficult_terrain_this_turn,
-            "tested_difficult_terrain_this_turn",
         )
         _validate_non_empty_string(self.rule_id, "rule_id")
 
@@ -759,6 +1328,63 @@ class RunAthleticsExtensionResult:
         ) <= set(rule_ids):
             raise ValueError("Staggered Rule ID is missing from trace")
         object.__setattr__(self, "applied_rule_ids", rule_ids)
+
+
+def _validate_difficult_terrain_free_movement_pair(
+    movement: FreeMovementRequest,
+    traversal: DifficultTerrainTraversalResult,
+) -> None:
+    terrain_request = traversal.source_request
+    if movement.rule_id != "RULE-COMBAT-014:free-movement":
+        raise ValueError("free movement uses an unknown source rule")
+    if not movement.crosses_difficult_terrain:
+        raise ValueError("free movement must declare Difficult Terrain")
+    if len(movement.traversed_zone_ids) != 1:
+        raise ValueError(
+            "terrain-aware free movement currently supports one Zone boundary"
+        )
+    if (
+        movement.round_state != terrain_request.round_state
+        or movement.state != terrain_request.state
+        or movement.actor_id != terrain_request.actor_id
+        or movement.actor_conditions != terrain_request.actor_conditions
+        or movement.destination_zone_id != terrain_request.destination_zone_id
+        or movement.path_entity_ids != terrain_request.path_entity_ids
+        or movement.crosses_obstacle is not terrain_request.crosses_obstacle
+    ):
+        raise ValueError(
+            "free movement and terrain traversal have different provenance"
+        )
+
+
+def _validate_difficult_terrain_run_pair(
+    run: RunActionExecutionRequest,
+    traversal: DifficultTerrainTraversalResult,
+) -> None:
+    terrain_request = traversal.source_request
+    if not run.crosses_difficult_terrain:
+        raise ValueError("Run must declare Difficult Terrain")
+    if (
+        run.round_state != terrain_request.round_state
+        or run.spatial_state != terrain_request.state
+        or run.actor_id != terrain_request.actor_id
+        or run.actor_conditions != terrain_request.actor_conditions
+        or run.destination_zone_id != terrain_request.destination_zone_id
+        or run.path_entity_ids != terrain_request.path_entity_ids
+        or run.crosses_obstacle is not terrain_request.crosses_obstacle
+    ):
+        raise ValueError("Run and terrain traversal have different provenance")
+
+
+def _validate_rule_ids(values: tuple[str, ...]) -> tuple[str, ...]:
+    rule_ids = tuple(values)
+    if not rule_ids:
+        raise ValueError("applied_rule_ids must not be empty")
+    for rule_id in rule_ids:
+        _validate_non_empty_string(rule_id, "applied Rule ID")
+    if len(set(rule_ids)) != len(rule_ids):
+        raise ValueError("applied_rule_ids must be unique")
+    return rule_ids
 
 
 def _validate_non_empty_string(value: str, name: str) -> None:

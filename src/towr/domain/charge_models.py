@@ -357,7 +357,6 @@ class LongChargeActionExecutionRequest:
     path_entity_ids: tuple[str, ...] = ()
     crosses_obstacle: bool = False
     crosses_difficult_terrain: bool = False
-    tested_difficult_terrain_this_turn: bool = False
     skill: Skill = Skill.ATHLETICS
     rule_id: str = "RULE-COMBAT-014:long-charge-action-execution"
     melee_bonus_rule_id: str = "RULE-COMBAT-009:charge-melee-bonus"
@@ -407,10 +406,6 @@ class LongChargeActionExecutionRequest:
         _validate_bool(
             self.crosses_difficult_terrain,
             "crosses_difficult_terrain",
-        )
-        _validate_bool(
-            self.tested_difficult_terrain_this_turn,
-            "tested_difficult_terrain_this_turn",
         )
         _validate_non_empty_string(self.rule_id, "rule_id")
         _validate_non_empty_string(

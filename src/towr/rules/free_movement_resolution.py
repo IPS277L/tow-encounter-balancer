@@ -4,6 +4,8 @@ from dataclasses import replace
 
 from towr.domain.condition_models import Condition
 from towr.domain.movement_models import (
+    DifficultTerrainFreeMovementRequest,
+    DifficultTerrainFreeMovementResult,
     FreeMovementRequest,
     FreeMovementResult,
     FreeMoveProneRemovalRequest,
@@ -16,6 +18,9 @@ from towr.rules.spatial_resolution import ZONE_GRAPH_RULE_ID
 
 SPEED_MOVEMENT_RULE_ID = "RULE-COMBAT-012:speed"
 FREE_MOVEMENT_RULE_ID = "RULE-COMBAT-014:free-movement"
+DIFFICULT_TERRAIN_FREE_MOVEMENT_RULE_ID = (
+    "RULE-COMBAT-014:difficult-terrain-free-movement"
+)
 FREE_MOVE_PRONE_REMOVAL_RULE_ID = (
     "RULE-COMBAT-014:free-move-prone-removal"
 )
@@ -132,6 +137,53 @@ def resolve_free_movement(request: FreeMovementRequest) -> FreeMovementResult:
                     request.rule_id,
                     SPEED_MOVEMENT_RULE_ID,
                     ZONE_GRAPH_RULE_ID,
+                )
+            )
+        ),
+    )
+
+
+def resolve_difficult_terrain_free_movement(
+    request: DifficultTerrainFreeMovementRequest,
+) -> DifficultTerrainFreeMovementResult:
+    """Consume one proven terrain crossing as the actor's free movement."""
+    if request.rule_id != DIFFICULT_TERRAIN_FREE_MOVEMENT_RULE_ID:
+        raise ValueError(
+            "Difficult Terrain free movement uses an unknown source rule"
+        )
+    source = request.free_movement
+    traversal = request.terrain_traversal
+    if source.actor_id in request.state.free_move_used_entity_ids:
+        raise ValueError("an actor may only use free movement once per turn")
+
+    updated_state = replace(
+        request.state,
+        free_move_used_entity_ids=(
+            *request.state.free_move_used_entity_ids,
+            source.actor_id,
+        ),
+    )
+    return DifficultTerrainFreeMovementResult(
+        request_id=request.id,
+        rule_id=request.rule_id,
+        free_movement_request=source,
+        terrain_traversal=traversal,
+        round_state=source.round_state,
+        actor_id=source.actor_id,
+        speed=source.speed,
+        origin_zone_id=traversal.origin_zone_id,
+        destination_zone_id=traversal.destination_zone_id,
+        previous_conditions=source.actor_conditions,
+        conditions=traversal.conditions,
+        previous_state=request.state,
+        state=updated_state,
+        applied_rule_ids=tuple(
+            dict.fromkeys(
+                (
+                    request.rule_id,
+                    FREE_MOVEMENT_RULE_ID,
+                    SPEED_MOVEMENT_RULE_ID,
+                    *traversal.applied_rule_ids,
                 )
             )
         ),

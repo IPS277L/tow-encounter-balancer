@@ -92,6 +92,9 @@ class SpatialBattleState:
     round_number: int = 1
     gave_ground_entity_ids: tuple[str, ...] = field(default_factory=tuple)
     free_move_used_entity_ids: tuple[str, ...] = field(default_factory=tuple)
+    difficult_terrain_tested_entity_ids: tuple[str, ...] = field(
+        default_factory=tuple
+    )
 
     def __post_init__(self) -> None:
         if not isinstance(self.graph, ZoneGraph):
@@ -134,6 +137,23 @@ class SpatialBattleState:
         if not set(free_move_used_entity_ids) <= set(entity_ids):
             raise ValueError("free movement state references an unknown entity")
 
+        difficult_terrain_tested_entity_ids = tuple(
+            self.difficult_terrain_tested_entity_ids
+        )
+        for entity_id in difficult_terrain_tested_entity_ids:
+            _validate_non_empty_string(
+                entity_id,
+                "Difficult Terrain tested entity_id",
+            )
+        if len(set(difficult_terrain_tested_entity_ids)) != len(
+            difficult_terrain_tested_entity_ids
+        ):
+            raise ValueError("Difficult Terrain tested entity IDs must be unique")
+        if not set(difficult_terrain_tested_entity_ids) <= set(entity_ids):
+            raise ValueError(
+                "Difficult Terrain state references an unknown entity"
+            )
+
         object.__setattr__(self, "placements", placements)
         object.__setattr__(
             self,
@@ -144,6 +164,11 @@ class SpatialBattleState:
             self,
             "free_move_used_entity_ids",
             free_move_used_entity_ids,
+        )
+        object.__setattr__(
+            self,
+            "difficult_terrain_tested_entity_ids",
+            difficult_terrain_tested_entity_ids,
         )
 
     def placement_for(self, entity_id: str) -> SpatialEntityPlacement:
