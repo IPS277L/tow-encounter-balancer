@@ -263,6 +263,11 @@ py -3.12 -m unittest discover -s tests -v
 - зарезервированный spell Improvise блокирует завершение хода до успешного Casting Test, а ошибка RNG не добавляет receipt;
 - Casting execution result отклоняет подмену actor или несвязанную мутацию round state;
 - Casting post-Test result отклоняет state, не совпадающий с вложенным decision либо triggered Miscast result;
+- Skill Improvise исполняет один basic либо opposed Test и завершает slot при success/failure;
+- успешный Test создаёт только заранее одобренный GM Prone/Distracted application request; failure либо отсутствие effect spec не создают generic follow-up;
+- stable approach, actor/round/slot, Test IDs, target participant, GM approval ID и receipt provenance проверяются сквозным результатом;
+- Defenceless, другой Improvise kind, attacking Skill Improvise, несовпавший approach и повторный slot закрываются до RNG;
+- незавершённый Skill Improvise блокирует окончание хода, а Ability Improvise пока остаётся reservation-only границей;
 - action Miscast preparation принимает только triggered post-Test result с точным source roll, actor и magic state;
 - отказ от spell очищает Casting snapshot и оставляет один Miscast roll без bonus die;
 - допустимый pre-Miscast spell стоит перед roll, получает Potency последнего Casting Test и добавляет roll ровно `+1d`;

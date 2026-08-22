@@ -63,6 +63,13 @@ from towr.domain.help_models import (
     HelpBonusApplicationResult,
     HelpBonusSnapshot,
 )
+from towr.domain.skill_improvise_models import (
+    SkillImproviseActionExecutionRequest,
+    SkillImproviseActionExecutionResult,
+    SkillImproviseApproach,
+    SkillImproviseConditionApplicationRequest,
+    SkillImproviseConditionEffect,
+)
 from towr.domain.encounters import EncounterDefinition
 from towr.domain.injury_models import (
     CharacterInjuryState,
@@ -680,6 +687,11 @@ __all__ = [
     "SecondaryEffectSpec",
     "Side",
     "Skill",
+    "SkillImproviseActionExecutionRequest",
+    "SkillImproviseActionExecutionResult",
+    "SkillImproviseApproach",
+    "SkillImproviseConditionApplicationRequest",
+    "SkillImproviseConditionEffect",
     "SkippedCastingTestAfterActionRequest",
     "SkippedCastingTestAfterActionResult",
     "SpellPotencyModifier",

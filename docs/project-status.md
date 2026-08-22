@@ -345,10 +345,15 @@ K1 — реализация книжного resolution kernel. Прототип
 - treatment требует untreated Wound и подходящие trappings, выполняет Recall Test либо auto-success от явно релевантного Lore; успех создаёт `RecoverWoundTreatmentApplicationRequest`, failure завершает action без application;
 - Condition alternative выполняет ровно один релевантный Test, снимает одну не-Staggered/не-Prone Condition только при успехе и `underlying_cause_allows_removal=True`, а failure сохраняет исходный snapshot;
 - Defenceless и Broken в Zone с врагом закрывают Recover до RNG; все валидные ветви, включая failed Tests и пустой standard набор, завершают slot, а незавершённый Recover блокирует окончание хода.
+- реализован `SkillImproviseActionExecutionRequest → SkillImproviseActionExecutionResult`: зарезервированный `ImproviseKind.SKILL` связывает active actor/round, typed Skill/approach и один готовый basic либо opposed Test;
+- basic Test успешен от одного success, opposed Test — только при победе initiator по общему comparator; success и failure одинаково завершают action slot и сохраняют полный Test trace;
+- optional `SkillImproviseConditionEffect` означает явное внешнее GM approval со stable ID; только успех создаёт source-aware `SkillImproviseConditionApplicationRequest`, а отсутствие поддержанного effect не порождает универсальный narrative payload;
+- первая закрытая effect-схема поддерживает только книжные примеры Prone и Distracted; другие Conditions требуют специализированного resolver, а attacking Skill Improvise отклоняется до RNG и остаётся будущему kernel composite;
+- Defenceless, другой Improvise kind, несовпавший approach, чужой actor, незарезервированный/повторный slot и нарушение порядка закрываются до RNG; незавершённый Skill Improvise блокирует окончание хода.
 
 ## Проверено
 
-- 545 unit/integration тестов успешно проходят на Python 3.12, из них 525 относятся к K1;
+- 554 unit/integration теста успешно проходят на Python 3.12, из них 534 относятся к K1;
 - исходники и тесты успешно проходят `compileall`.
 
 ## Исходный материал
@@ -362,7 +367,8 @@ K1 — реализация книжного resolution kernel. Прототип
 ## Известные ограничения
 
 - старый P1 battle loop остаётся упрощённым прототипом; K1 уже следует книгам, но пока реализует только часть проиндексированных механик;
-- K1 проверяет round/side/turn и action budget; Aim исполняет Awareness и создаёт next-action follow-up, Help исполняет собственный Test и создаёт bonus для связанного allied Test, Recover соединяет Condition/magic transitions и external applications, обычный Attack исполняется через kernel, spell Improvise — через Casting pipeline, Run — через две spatial-фазы, Medium/Long Charge — через атомарные spatial/Test/attack composite, Move Carefully — через free-move/search composite, а Move Quietly — через opposed-Test/conditional-hiding composite; Skill/Ability Improvise ещё не подключены, источник второго действия не расходуется;
+- K1 проверяет round/side/turn и action budget; Aim исполняет Awareness и создаёт next-action follow-up, Help исполняет собственный Test и создаёт bonus для связанного allied Test, Recover соединяет Condition/magic transitions и external applications, обычный Attack исполняется через kernel, spell Improvise — через Casting pipeline, Skill Improvise — через basic/opposed Test и optional Condition application, Run — через две spatial-фазы, Medium/Long Charge — через атомарные spatial/Test/attack composite, Move Carefully — через free-move/search composite, а Move Quietly — через opposed-Test/conditional-hiding composite; Ability и attacking Skill Improvise ещё не подключены, источник второго действия не расходуется;
+- Skill Improvise пока только создаёт application request для одобренных GM Prone/Distracted: актуальный target `ConditionState`, immunity snapshot и однократное применение остаются следующей отдельной фазой; disarm, превращение врага в союзника и другие creative outcomes требуют собственных typed effects;
 - Attack execution возвращает новое injury state цели внутри `ResolutionResult`, но общего battle aggregate для автоматического переноса этого состояния по target ID пока нет;
 - Awareness/амбуш ещё не вычисляет opposition-first порядок: orchestration передаёт уже определённый `side_order`; обе ветви free move представлены, но остальные incidental actions и pass/skip ещё не подключены;
 - Aim follow-up является чистой границей без mutable battle aggregate: orchestration ещё должно хранить snapshot, вызвать consume/drop ровно для следующего действия владельца и запретить повторное использование результата; Extreme Range требует отсутствующих range/GM policy и автоматически не разрешается;
@@ -405,7 +411,7 @@ K1 — реализация книжного resolution kernel. Прототип
 
 ## Следующий шаг
 
-Подключить книжный Skill Improvise со страницы 117 как исполняемое действие: зарезервированный `ImproviseKind.SKILL` должен выполнить ровно один готовый `TestRequest`, завершить slot при успехе или провале и вернуть типизированный GM-approved effect application вместо универсального языка эффектов. Нужно связать stable approach ID с выбранным Skill/подходом, сохранить provenance Test/receipt, учесть `improvise_produces_attack`, закрыть `Defenceless` и сделать незавершённый Skill Improvise блокирующим завершение хода. Конкретные примеры Condition можно подключать отдельными application specs, не считать любой успешный Skill автоматически нейтрализовавшим threat.
+Подключить application-фазу успешного Skill Improvise: `SkillImproviseConditionApplicationRequest` должен принимать актуальные `ConditionState` и immunity snapshot выбранной цели, точно проверять action/Test/GM-approval provenance и переиспользовать общий `resolve_condition_application`. Результат должен сохранять blocked/already-present outcome, менять только target Condition state и запрещать повторное потребление одного application request через явный consumed-ID snapshot до появления battle aggregate. Prone/Distracted остаются единственными допустимыми прямыми эффектами; Staggered и attacking Improvise не должны обходить специальные pipelines.
 
 ## Последняя проверка
 
@@ -416,7 +422,7 @@ $env:PYTHONPATH = "src"
 py -3.12 -m unittest discover -s tests -v
 ```
 
-Результат: `Ran 545 tests ... OK`; отдельный K1-набор: `Ran 525 tests ... OK`.
+Результат: `Ran 554 tests ... OK`; отдельный K1-набор: `Ran 534 tests ... OK`.
 
 ```powershell
 py -3.12 -m compileall -q src tests tools
