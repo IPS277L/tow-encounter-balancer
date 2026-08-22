@@ -131,6 +131,7 @@ def end_combat_turn(request: CombatTurnEndRequest) -> CombatTurnEndResult:
                 CombatActionKind.AIM,
                 CombatActionKind.ATTACK,
                 CombatActionKind.HELP,
+                CombatActionKind.RECOVER,
             )
             or (
                 slot.declaration.kind is CombatActionKind.IMPROVISE
@@ -151,8 +152,8 @@ def end_combat_turn(request: CombatTurnEndRequest) -> CombatTurnEndResult:
         for slot in turn.action_slots
     ):
         raise ValueError(
-            "reserved Aim, Attack, Help, Run, Charge, Move Quietly, Move "
-            "Carefully, and spell Improvise actions must execute first"
+            "reserved Aim, Attack, Help, Recover, Run, Charge, Move Quietly, "
+            "Move Carefully, and spell Improvise actions must execute first"
         )
 
     updated_state = replace(

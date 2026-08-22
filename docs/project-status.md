@@ -338,10 +338,16 @@ K1 — реализация книжного resolution kernel. Прототип
 - `Deafened` по странице 123 и глобальный `Defenceless` закрывают Help до RNG; профильные модификаторы самой Help Test остаются обычными входными `DiceModifier`;
 - `HelpBonusApplicationRequest → HelpBonusApplicationResult` принимает только точное совпадение beneficiary/Skill/Test ID и добавляет по одному обычному `+1d` за success под общим pool cap; нулевой snapshot применяется без фиктивного модификатора;
 - source action/Test и подготовленный Test защищены provenance-инвариантами, а зарезервированный Help обязан исполниться до завершения хода.
+- реализован `RecoverActionExecutionRequest → RecoverActionExecutionResult` с закрытыми режимами `STANDARD`, `TREAT_WOUND` и `REMOVE_CONDITION`; альтернативы структурно не могут получить standard benefits;
+- standard Recover снимает Staggered и Prone с одного либо разных self/Close ally targets, объединяет изменения одной цели, уменьшает `WizardMagicState.miscast_dice` ровно на один до минимума 0 и сохраняет остальные casting fields;
+- mount вместо Prone removal и взаимодействие с одним Close object представлены отдельными source-aware follow-up без вымышленного mount/inventory state;
+- treatment требует untreated Wound и подходящие trappings, выполняет Recall Test либо auto-success от явно релевантного Lore; успех создаёт `RecoverWoundTreatmentApplicationRequest`, failure завершает action без application;
+- Condition alternative выполняет ровно один релевантный Test, снимает одну не-Staggered/не-Prone Condition только при успехе и `underlying_cause_allows_removal=True`, а failure сохраняет исходный snapshot;
+- Defenceless и Broken в Zone с врагом закрывают Recover до RNG; все валидные ветви, включая failed Tests и пустой standard набор, завершают slot, а незавершённый Recover блокирует окончание хода.
 
 ## Проверено
 
-- 525 unit/integration тестов успешно проходят на Python 3.12, из них 505 относятся к K1;
+- 542 unit/integration теста успешно проходят на Python 3.12, из них 522 относятся к K1;
 - исходники и тесты успешно проходят `compileall`.
 
 ## Исходный материал
@@ -355,11 +361,13 @@ K1 — реализация книжного resolution kernel. Прототип
 ## Известные ограничения
 
 - старый P1 battle loop остаётся упрощённым прототипом; K1 уже следует книгам, но пока реализует только часть проиндексированных механик;
-- K1 проверяет round/side/turn и action budget; Aim исполняет Awareness и создаёт next-action follow-up, Help исполняет собственный Test и создаёт bonus для связанного allied Test, обычный Attack исполняется через kernel, spell Improvise — через Casting pipeline, Run — через две spatial-фазы, Medium/Long Charge — через атомарные spatial/Test/attack composite, Move Carefully — через free-move/search composite, а Move Quietly — через opposed-Test/conditional-hiding composite; Recover и остальные action effects ещё не подключены, источник второго действия не расходуется;
+- K1 проверяет round/side/turn и action budget; Aim исполняет Awareness и создаёт next-action follow-up, Help исполняет собственный Test и создаёт bonus для связанного allied Test, Recover соединяет Condition/magic transitions и external applications, обычный Attack исполняется через kernel, spell Improvise — через Casting pipeline, Run — через две spatial-фазы, Medium/Long Charge — через атомарные spatial/Test/attack composite, Move Carefully — через free-move/search composite, а Move Quietly — через opposed-Test/conditional-hiding composite; Skill/Ability Improvise ещё не подключены, источник второго действия не расходуется;
 - Attack execution возвращает новое injury state цели внутри `ResolutionResult`, но общего battle aggregate для автоматического переноса этого состояния по target ID пока нет;
 - Awareness/амбуш ещё не вычисляет opposition-first порядок: orchestration передаёт уже определённый `side_order`; обе ветви free move представлены, но остальные incidental actions и pass/skip ещё не подключены;
 - Aim follow-up является чистой границей без mutable battle aggregate: orchestration ещё должно хранить snapshot, вызвать consume/drop ровно для следующего действия владельца и запретить повторное использование результата; Extreme Range требует отсутствующих range/GM policy и автоматически не разрешается;
 - Help bonus также не хранится в mutable battle aggregate: orchestration должно сопоставить его с объявленной upcoming Test, погасить один раз и не переносить на другой Test; книга не задаёт общего ограничения числа одновременно помогающих союзников, поэтому K1 не вводит искусственный лимит;
+- Recover treatment пока только создаёт application request: отметка Wound как treated, удаление её `UNTIL_TREATED` effects и безопасное согласование общей Condition при других источниках требуют отдельного reducer; mount/object follow-ups и automatic end-battle Recover также ещё не применяются;
+- `WizardMagicState` не содержит Wizard Level, поэтому непосредственный Recover reducer уменьшает переданный непросроченный Miscast snapshot; battle orchestration обязано сначала немедленно разрешить уже triggered Miscast Pool и не давать Recover отменить сработавший Miscast;
 - каталоги NPC Abilities, магии, религии и магических предметов завершены как нормативный индекс, но большинство записей ещё не связано с исполняемыми reducers и orchestration;
 - применение времени, Treat/Heal и снятие source-aware Wound effects требует будущего battle loop;
 - внешние последствия Wound для инвентаря и анатомии пока являются typed follow-up;
@@ -396,7 +404,7 @@ K1 — реализация книжного resolution kernel. Прототип
 
 ## Следующий шаг
 
-Реализовать `CombatActionKind.RECOVER` по странице 118. Нужен закрытый выбор между основной ветвью, которая одновременно снимает Staggered и Prone с допустимых self/Close ally целей, уменьшает Miscast Pool на один die и разрешает взаимодействие с предметом рядом с врагом (либо mount вместо отсутствующего Prone), и альтернативой, которая выполняет только Treat Wound или релевантный Test снятия condition. Следует отделить отсутствующие inventory/mount/Treat executors типизированными follow-up, сохранить Condition/magic/spatial provenance и завершать slot при любом валидном наборе фактически доступных выгод.
+Обобщить книжное interrupted Casting со страницы 156: любой завершённый action активного caster, который не был Casting Test, должен создавать ровно один action-sourced Miscast die за пропущенный Casting Test. Существующий Attack-only adapter заменить общим контрактом над проверенным `ActionExecutionReceipt`, сохранив совместимость его публичного результата либо выполнив явную миграцию тестов. Нужно исключить spell Improvise/Casting receipts, проверить actor/source/state, применить общий Miscast threshold и не допустить повторного потребления одного action без future aggregate.
 
 ## Последняя проверка
 
@@ -407,7 +415,7 @@ $env:PYTHONPATH = "src"
 py -3.12 -m unittest discover -s tests -v
 ```
 
-Результат: `Ran 525 tests ... OK`; отдельный K1-набор: `Ran 505 tests ... OK`.
+Результат: `Ran 542 tests ... OK`; отдельный K1-набор: `Ran 522 tests ... OK`.
 
 ```powershell
 py -3.12 -m compileall -q src tests tools

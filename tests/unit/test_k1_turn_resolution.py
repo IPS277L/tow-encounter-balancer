@@ -84,14 +84,18 @@ def reserve(
     )
 
 
-def complete_with_recover(
+def complete_with_skill_improvise(
     state: CombatRoundState,
     actor_id: str,
 ) -> CombatRoundState:
     state = start(state, actor_id)
     state = reserve(
         state,
-        CombatActionDeclaration(CombatActionKind.RECOVER),
+        CombatActionDeclaration(
+            CombatActionKind.IMPROVISE,
+            improvise_kind=ImproviseKind.SKILL,
+            improvise_approach_id="round-progression-placeholder",
+        ),
         actor_id=actor_id,
     ).state
     return end_combat_turn(
@@ -383,16 +387,16 @@ class K1TurnResolutionTests(unittest.TestCase):
             )
 
     def test_side_changes_only_after_every_member_completes_turn(self) -> None:
-        state = complete_with_recover(round_state(), "hero:b")
+        state = complete_with_skill_improvise(round_state(), "hero:b")
         self.assertEqual(state.next_side, CombatSide.PLAYERS_AND_ALLIES)
         with self.assertRaises(ValueError):
             start(state, "enemy:a")
 
-        state = complete_with_recover(state, "hero:a")
+        state = complete_with_skill_improvise(state, "hero:a")
         self.assertEqual(state.next_side, CombatSide.OPPOSITION)
-        state = complete_with_recover(state, "enemy:b")
+        state = complete_with_skill_improvise(state, "enemy:b")
         self.assertEqual(state.next_side, CombatSide.OPPOSITION)
-        state = complete_with_recover(state, "enemy:a")
+        state = complete_with_skill_improvise(state, "enemy:a")
         self.assertTrue(state.round_complete)
         self.assertIsNone(state.next_side)
 
@@ -403,7 +407,7 @@ class K1TurnResolutionTests(unittest.TestCase):
         )
         state = round_state(side_order=opposition_first)
         for actor_id in ("enemy:b", "enemy:a", "hero:a", "hero:b"):
-            state = complete_with_recover(state, actor_id)
+            state = complete_with_skill_improvise(state, actor_id)
 
         result = advance_combat_round(
             CombatRoundAdvanceRequest(
