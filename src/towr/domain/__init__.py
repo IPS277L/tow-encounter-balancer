@@ -12,6 +12,14 @@ from towr.domain.action_execution_models import (
     SkippedCastingTestAfterAttackRequest,
     SkippedCastingTestAfterAttackResult,
 )
+from towr.domain.aim_models import (
+    AimActionExecutionRequest,
+    AimActionExecutionResult,
+    AimBonusSnapshot,
+    AimFollowUpOutcome,
+    AimFollowUpRequest,
+    AimFollowUpResult,
+)
 from towr.domain.actions import AttackAction, InlineRollSource, StatRollSource
 from towr.domain.attack_models import (
     AttackRequest,
@@ -345,6 +353,12 @@ from towr.domain.turn_models import (
 __all__ = [
     "ActionExecutionReceipt",
     "ActionSlotGrant",
+    "AimActionExecutionRequest",
+    "AimActionExecutionResult",
+    "AimBonusSnapshot",
+    "AimFollowUpOutcome",
+    "AimFollowUpRequest",
+    "AimFollowUpResult",
     "AttackAction",
     "AttackActionExecutionRequest",
     "AttackActionExecutionResult",

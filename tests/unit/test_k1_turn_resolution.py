@@ -84,14 +84,14 @@ def reserve(
     )
 
 
-def complete_with_aim(
+def complete_with_help(
     state: CombatRoundState,
     actor_id: str,
 ) -> CombatRoundState:
     state = start(state, actor_id)
     state = reserve(
         state,
-        CombatActionDeclaration(CombatActionKind.AIM),
+        CombatActionDeclaration(CombatActionKind.HELP),
         actor_id=actor_id,
     ).state
     return end_combat_turn(
@@ -383,16 +383,16 @@ class K1TurnResolutionTests(unittest.TestCase):
             )
 
     def test_side_changes_only_after_every_member_completes_turn(self) -> None:
-        state = complete_with_aim(round_state(), "hero:b")
+        state = complete_with_help(round_state(), "hero:b")
         self.assertEqual(state.next_side, CombatSide.PLAYERS_AND_ALLIES)
         with self.assertRaises(ValueError):
             start(state, "enemy:a")
 
-        state = complete_with_aim(state, "hero:a")
+        state = complete_with_help(state, "hero:a")
         self.assertEqual(state.next_side, CombatSide.OPPOSITION)
-        state = complete_with_aim(state, "enemy:b")
+        state = complete_with_help(state, "enemy:b")
         self.assertEqual(state.next_side, CombatSide.OPPOSITION)
-        state = complete_with_aim(state, "enemy:a")
+        state = complete_with_help(state, "enemy:a")
         self.assertTrue(state.round_complete)
         self.assertIsNone(state.next_side)
 
@@ -403,7 +403,7 @@ class K1TurnResolutionTests(unittest.TestCase):
         )
         state = round_state(side_order=opposition_first)
         for actor_id in ("enemy:b", "enemy:a", "hero:a", "hero:b"):
-            state = complete_with_aim(state, actor_id)
+            state = complete_with_help(state, actor_id)
 
         result = advance_combat_round(
             CombatRoundAdvanceRequest(

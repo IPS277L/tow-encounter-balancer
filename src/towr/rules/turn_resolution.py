@@ -127,7 +127,10 @@ def end_combat_turn(request: CombatTurnEndRequest) -> CombatTurnEndResult:
         raise ValueError("a combat turn requires its standard action")
     if any(
         (
-            slot.declaration.kind is CombatActionKind.ATTACK
+            slot.declaration.kind in (
+                CombatActionKind.AIM,
+                CombatActionKind.ATTACK,
+            )
             or (
                 slot.declaration.kind is CombatActionKind.IMPROVISE
                 and slot.declaration.improvise_kind is ImproviseKind.SPELL
@@ -147,7 +150,7 @@ def end_combat_turn(request: CombatTurnEndRequest) -> CombatTurnEndResult:
         for slot in turn.action_slots
     ):
         raise ValueError(
-            "reserved Attack, Run, Charge, Move Quietly, Move Carefully, "
+            "reserved Aim, Attack, Run, Charge, Move Quietly, Move Carefully, "
             "and spell Improvise actions must execute first"
         )
 

@@ -328,10 +328,15 @@ K1 — реализация книжного resolution kernel. Прототип
 - успешное укрытие создаёт typed `MoveQuietlyHiddenAttackOpportunity` для следующей unopposed attack и переносит stable snapshot unaware enemies; повторная позиция отклоняется по внешнему used-position snapshot;
 - Slow/Burdened/Prone/Defenceless, stale opposed/movement/round context, enemy/obstacle/terrain path, уже использованный free move и нарушение slot order закрываются до соответствующего броска;
 - зарезервированный Move Quietly теперь обязан исполниться до завершения хода.
+- реализован `AimActionExecutionRequest → AimActionExecutionResult`: зарезервированный `CombatActionKind.AIM` выполняет Awareness `TestRequest` против выбранного врага, завершает slot при любом исходе и сохраняет полный Test trace;
+- каждый success создаёт `AimBonusSnapshot` с таким же числом bonus dice; failure создаёт валидный нулевой snapshot, а возможность Extreme Range явно оставлена за отдельным решением GM;
+- реализована чистая одноразовая граница `AimFollowUpRequest → AimFollowUpResult`: следующее Shooting/Throwing Attack владельца по той же цели получает обычный `DiceModifier`, подчинённый общему pool cap; другая цель, иной Attack Skill либо любое другое action дают `LOST` без изменения Attack;
+- source Aim/Test/actor/target/action и подготовленный nested attacker Test проверяются сквозными provenance-инвариантами; повторное добавление Aim-модификатора отклоняется;
+- зарезервированный Aim теперь обязан исполниться до завершения хода.
 
 ## Проверено
 
-- 502 unit/integration теста успешно проходят на Python 3.12, из них 482 относятся к K1;
+- 512 unit/integration тестов успешно проходят на Python 3.12, из них 492 относятся к K1;
 - исходники и тесты успешно проходят `compileall`.
 
 ## Исходный материал
@@ -345,9 +350,10 @@ K1 — реализация книжного resolution kernel. Прототип
 ## Известные ограничения
 
 - старый P1 battle loop остаётся упрощённым прототипом; K1 уже следует книгам, но пока реализует только часть проиндексированных механик;
-- K1 проверяет round/side/turn и action budget; обычный Attack исполняется через kernel, spell Improvise — через Casting pipeline, Run — через две spatial-фазы, Medium/Long Charge — через атомарные spatial/Test/attack composite, Move Carefully — через free-move/search composite, а Move Quietly — через opposed-Test/conditional-hiding composite; остальные action effects ещё не подключены и источник второго действия не расходуется;
+- K1 проверяет round/side/turn и action budget; Aim исполняет Awareness и создаёт отдельный follow-up, обычный Attack исполняется через kernel, spell Improvise — через Casting pipeline, Run — через две spatial-фазы, Medium/Long Charge — через атомарные spatial/Test/attack composite, Move Carefully — через free-move/search composite, а Move Quietly — через opposed-Test/conditional-hiding composite; Help/Recover и остальные action effects ещё не подключены, источник второго действия не расходуется;
 - Attack execution возвращает новое injury state цели внутри `ResolutionResult`, но общего battle aggregate для автоматического переноса этого состояния по target ID пока нет;
 - Awareness/амбуш ещё не вычисляет opposition-first порядок: orchestration передаёт уже определённый `side_order`; обе ветви free move представлены, но остальные incidental actions и pass/skip ещё не подключены;
+- Aim follow-up является чистой границей без mutable battle aggregate: orchestration ещё должно хранить snapshot, вызвать consume/drop ровно для следующего действия владельца и запретить повторное использование результата; Extreme Range требует отсутствующих range/GM policy и автоматически не разрешается;
 - каталоги NPC Abilities, магии, религии и магических предметов завершены как нормативный индекс, но большинство записей ещё не связано с исполняемыми reducers и orchestration;
 - применение времени, Treat/Heal и снятие source-aware Wound effects требует будущего battle loop;
 - внешние последствия Wound для инвентаря и анатомии пока являются typed follow-up;
@@ -384,7 +390,7 @@ K1 — реализация книжного resolution kernel. Прототип
 
 ## Следующий шаг
 
-Реализовать `CombatActionKind.AIM` по странице 116. Новый executor должен связать active reserved slot с Awareness `TestRequest`, выбранной целью и типизированным bonus snapshot: каждый success даёт `+1d` только следующей ranged Attack по той же цели, если между Aim и Attack нет другого action. Failure всё равно завершает slot с нулевым бонусом. Нужно сохранить source Test/target/slot provenance, ограничение pool cap оставить общему Test/Attack pipeline, а расход/сброс бонуса оформить отдельной границей без скрытой мутации battle state.
+Реализовать `CombatActionKind.HELP` по страницам 108 и 116. Executor должен связать active reserved slot, помогающего, союзника и самостоятельный `TestRequest` помогающего; Skill может совпадать с основным Test либо быть другим по явному решению GM. Каждый success создаёт `+1d` для связанного Test союзника, failure всё равно завершает slot с нулевым бонусом. Модификатор должен оставаться обычным и подчиняться общему pool cap; source Help/Test/actor/beneficiary provenance и одноразовое применение оформить типизированно без скрытой мутации battle state.
 
 ## Последняя проверка
 
@@ -395,7 +401,7 @@ $env:PYTHONPATH = "src"
 py -3.12 -m unittest discover -s tests -v
 ```
 
-Результат: `Ran 502 tests ... OK`; отдельный K1-набор: `Ran 482 tests ... OK`.
+Результат: `Ran 512 tests ... OK`; отдельный K1-набор: `Ran 492 tests ... OK`.
 
 ```powershell
 py -3.12 -m compileall -q src tests tools
