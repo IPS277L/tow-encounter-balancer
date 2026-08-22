@@ -5,6 +5,7 @@ from dataclasses import replace
 from towr.domain.condition_models import Condition
 from towr.domain.recover_models import (
     RECOVER_ACTION_RULE_ID,
+    RECOVER_TREAT_WOUND_APPLICATION_RULE_ID,
     RecoverActionExecutionRequest,
     RecoverActionExecutionResult,
     RecoverConditionRemovalChoice,
@@ -15,6 +16,9 @@ from towr.domain.recover_models import (
     RecoverTreatWoundChoice,
     RecoverTreatWoundResult,
     RecoverWoundTreatmentApplicationRequest,
+    RecoverWoundTreatmentResolutionRequest,
+    RecoverWoundTreatmentResolutionResult,
+    _expected_wound_treatment_transition,
     _expected_standard_changes,
     _resolution_result_id,
 )
@@ -86,6 +90,44 @@ def execute_recover_action(
         round_state=updated_round_state,
         slot=executed_slot,
         applied_rule_ids=_applied_rule_ids(request, resolution),
+    )
+
+
+def apply_recover_wound_treatment(
+    request: RecoverWoundTreatmentResolutionRequest,
+) -> RecoverWoundTreatmentResolutionResult:
+    """Apply one successful Recover treatment to its exact Wound snapshot."""
+    if request.rule_id != RECOVER_TREAT_WOUND_APPLICATION_RULE_ID:
+        raise ValueError("treatment application uses an unknown source rule")
+    state, removed_effects, removed_conditions = (
+        _expected_wound_treatment_transition(request)
+    )
+    treatment = request.recover.resolution.treatment
+    assert treatment is not None
+    return RecoverWoundTreatmentResolutionResult(
+        request_id=request.id,
+        rule_id=request.rule_id,
+        source_request=request,
+        target_id=request.target_id,
+        wound_sequence=treatment.wound_sequence,
+        previous_state=request.injury_state,
+        state=state,
+        removed_effects=removed_effects,
+        removed_conditions=removed_conditions,
+        previous_consumed_application_ids=request.consumed_application_ids,
+        consumed_application_ids=(
+            *request.consumed_application_ids,
+            treatment.id,
+        ),
+        applied_rule_ids=tuple(
+            dict.fromkeys(
+                (
+                    request.rule_id,
+                    treatment.rule_id,
+                    *request.recover.applied_rule_ids,
+                )
+            )
+        ),
     )
 
 

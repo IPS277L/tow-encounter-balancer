@@ -333,6 +333,10 @@ K1 — реализация книжного resolution kernel. Прототип
 - успешное укрытие создаёт typed `MoveQuietlyHiddenAttackOpportunity` для следующей unopposed attack и переносит stable snapshot unaware enemies; повторная позиция отклоняется по внешнему used-position snapshot;
 - Slow/Burdened/Prone/Defenceless, stale opposed/movement/round context, enemy/obstacle/terrain path, уже использованный free move и нарушение slot order закрываются до соответствующего броска;
 - зарезервированный Move Quietly теперь обязан исполниться до завершения хода.
+- реализован `MoveQuietlyHiddenAttackExecutionRequest → MoveQuietlyHiddenAttackExecutionResult`: source hidden result/opportunity, неизменившиеся placement/hiding-position, current unaware target и готовая Attack с `defender_test=None` проверяются до RNG;
+- валидный composite делегирует существующему `execute_attack_action`, возвращает его обычный result/единственный receipt и только после успеха добавляет opportunity ID в ordered consumed snapshot;
+- kernel failure сохраняет исходную consumption chain и pending Attack slot, повторный ID отклоняется до RNG;
+- отдельная loss boundary погашает opportunity без Attack и различает другое action, уход с hiding position, другую цель и восстановившуюся осведомлённость; eligible unopposed Attack нельзя ошибочно записать как loss.
 - реализован `AimActionExecutionRequest → AimActionExecutionResult`: зарезервированный `CombatActionKind.AIM` выполняет Awareness `TestRequest` против выбранного врага, завершает slot при любом исходе и сохраняет полный Test trace;
 - каждый success создаёт `AimBonusSnapshot` с таким же числом bonus dice; failure создаёт валидный нулевой snapshot, а возможность Extreme Range явно оставлена за отдельным решением GM;
 - реализована чистая одноразовая граница `AimFollowUpRequest → AimFollowUpResult`: следующее Shooting/Throwing Attack владельца по той же цели получает обычный `DiceModifier`, подчинённый общему pool cap; другая цель, иной Attack Skill либо любое другое action дают `LOST` без изменения Attack;
@@ -347,6 +351,9 @@ K1 — реализация книжного resolution kernel. Прототип
 - standard Recover снимает Staggered и Prone с одного либо разных self/Close ally targets, объединяет изменения одной цели, уменьшает `WizardMagicState.miscast_dice` ровно на один до минимума 0 и сохраняет остальные casting fields;
 - mount вместо Prone removal и взаимодействие с одним Close object представлены отдельными source-aware follow-up без вымышленного mount/inventory state;
 - treatment требует untreated Wound и подходящие trappings, выполняет Recall Test либо auto-success от явно релевантного Lore; успех создаёт `RecoverWoundTreatmentApplicationRequest`, failure завершает action без application;
+- реализован `RecoverWoundTreatmentResolutionRequest → RecoverWoundTreatmentResolutionResult`: application принимает точный успешный Recover result и тот же injury snapshot, отмечает только выбранную Wound как treated и снимает только её `UNTIL_TREATED` effects;
+- Condition из снятого wound effect удаляется лишь по explicit snapshot об отсутствии другого источника; внешний источник или известный оставшийся effect другой Wound сохраняет Condition;
+- treatment application ID добавляется ровно один раз в ordered consumed snapshot; stale injury state, failed/non-treatment Recover, повторное применение и forged transition отклоняются без второго action receipt;
 - Condition alternative выполняет ровно один релевантный Test, снимает одну не-Staggered/не-Prone Condition только при успехе и `underlying_cause_allows_removal=True`, а failure сохраняет исходный snapshot;
 - Defenceless и Broken в Zone с врагом закрывают Recover до RNG; все валидные ветви, включая failed Tests и пустой standard набор, завершают slot, а незавершённый Recover блокирует окончание хода.
 - реализован `SkillImproviseActionExecutionRequest → SkillImproviseActionExecutionResult`: зарезервированный `ImproviseKind.SKILL` связывает active actor/round, typed Skill/approach и один готовый basic либо opposed Test;
@@ -363,7 +370,7 @@ K1 — реализация книжного resolution kernel. Прототип
 
 ## Проверено
 
-- 581 unit/integration тест успешно проходит на Python 3.12, из них 561 относится к K1;
+- 597 unit/integration тестов успешно проходят на Python 3.12, из них 577 относятся к K1;
 - исходники и тесты успешно проходят `compileall`.
 
 ## Исходный материал
@@ -377,20 +384,20 @@ K1 — реализация книжного resolution kernel. Прототип
 ## Известные ограничения
 
 - старый P1 battle loop остаётся упрощённым прототипом; K1 уже следует книгам, но пока реализует только часть проиндексированных механик;
-- K1 проверяет round/side/turn и action budget; Aim исполняет Awareness и создаёт next-action follow-up, Help исполняет собственный Test и создаёт bonus для связанного allied Test, Recover соединяет Condition/magic transitions и external applications, обычный Attack исполняется через kernel, spell Improvise — через Casting pipeline, Skill Improvise — через basic/opposed Test и отдельное применение Prone/Distracted, Troll Vomit/Swamp Breath/Soporific Breath — через single-target/Zone Ability Hazard composites, Run — через две spatial-фазы, Medium/Long Charge — через атомарные spatial/Test/attack composite, Move Carefully — через free-move/search composite, а Move Quietly — через opposed-Test/conditional-hiding composite; остальные Ability и attacking Skill Improvise ещё не подключены, источник второго действия не расходуется;
+- K1 проверяет round/side/turn и action budget; Aim исполняет Awareness и создаёт next-action follow-up, Help исполняет собственный Test и создаёт bonus для связанного allied Test, Recover соединяет Condition/magic transitions и external applications, обычный и Move-Quietly-hidden Attack исполняются через kernel, spell Improvise — через Casting pipeline, Skill Improvise — через basic/opposed Test и отдельное применение Prone/Distracted, Troll Vomit/Swamp Breath/Soporific Breath — через single-target/Zone Ability Hazard composites, Run — через две spatial-фазы, Medium/Long Charge — через атомарные spatial/Test/attack composite, Move Carefully — через free-move/search composite, а Move Quietly — через opposed-Test/conditional-hiding composite; остальные Ability и attacking Skill Improvise ещё не подключены, источник второго действия не расходуется;
 - Skill-Improvise consumed application IDs пока не принадлежат battle aggregate: orchestration обязано передавать актуальный ordered snapshot между вызовами; disarm, превращение врага в союзника и другие creative outcomes требуют собственных typed effects;
 - Attack execution возвращает новое injury state цели внутри `ResolutionResult`, но общего battle aggregate для автоматического переноса этого состояния по target ID пока нет;
 - Awareness/амбуш ещё не вычисляет opposition-first порядок: orchestration передаёт уже определённый `side_order`; обе ветви free move представлены, но остальные incidental actions и pass/skip ещё не подключены;
 - Aim follow-up является чистой границей без mutable battle aggregate: orchestration ещё должно хранить snapshot, вызвать consume/drop ровно для следующего действия владельца и запретить повторное использование результата; Extreme Range требует отсутствующих range/GM policy и автоматически не разрешается;
 - Help bonus также не хранится в mutable battle aggregate: orchestration должно сопоставить его с объявленной upcoming Test, погасить один раз и не переносить на другой Test; книга не задаёт общего ограничения числа одновременно помогающих союзников, поэтому K1 не вводит искусственный лимит;
-- Recover treatment пока только создаёт application request: отметка Wound как treated, удаление её `UNTIL_TREATED` effects и безопасное согласование общей Condition при других источниках требуют отдельного reducer; mount/object follow-ups и automatic end-battle Recover также ещё не применяются;
+- Recover treatment action и одноразовое применение выбранной Wound реализованы, но ordered consumed application IDs пока должен хранить внешний orchestration; mount/object follow-ups и automatic end-battle treatment всех Wounds ещё не применяются;
 - `WizardMagicState` не содержит Wizard Level, поэтому непосредственный Recover reducer уменьшает переданный непросроченный Miscast snapshot; battle orchestration обязано сначала немедленно разрешить уже triggered Miscast Pool и не давать Recover отменить сработавший Miscast;
 - каталоги NPC Abilities, магии, религии и магических предметов завершены как нормативный индекс, но большинство записей ещё не связано с исполняемыми reducers и orchestration;
-- применение времени, Treat/Heal и снятие source-aware Wound effects требует будущего battle loop;
+- лечение Wound по времени, automatic end-battle treatment и снятие `UNTIL_HEALED` effects требуют будущих lifecycle/battle boundaries;
 - внешние последствия Wound для инвентаря и анатомии пока являются typed follow-up;
 - защита Endurance после заживления `Ruptured organs` ещё не подключена к физическому impact;
 - автоматическая замена неподходящей строки Wounds Table для не-физического Hazard требует отдельной GM/simulation policy;
-- общий Zone graph, Give Ground, unobstructed free movement, standalone Difficult Terrain executor, его free-move/base-Run/Medium-Charge consumers, Move Carefully bypass и Move Quietly conditional hiding уже существуют; cover/concealment и vigilance для Move Quietly пока поступают готовыми внешними facts, а потребление hidden opportunity следующей Attack ещё не подключено; Lore bypass, смешанный Fast route с terrain/non-terrain сегментами, интерпретация результата Awareness search, spatial-поиск/стабильная сортировка secondary/Zone целей, path-context policy, движение внутри Zone, общий cover/line of sight и vertical/midair metadata ещё не имеют battle orchestration;
+- общий Zone graph, Give Ground, unobstructed free movement, standalone Difficult Terrain executor, его free-move/base-Run/Medium-Charge consumers, Move Carefully bypass, Move Quietly conditional hiding и одноразовое исполнение/потеря hidden Attack уже существуют; cover/concealment, vigilance, current awareness, hiding-position и consumed opportunity snapshots пока поступают готовыми внешними facts; Lore bypass, смешанный Fast route с terrain/non-terrain сегментами, интерпретация результата Awareness search, spatial-поиск/стабильная сортировка secondary/Zone целей, path-context policy, движение внутри Zone, общий cover/line of sight и vertical/midair metadata ещё не имеют battle orchestration;
 - для Monstrous Flight при полностью невозможном Give Ground книга не задаёт fallback; K1 требует внешнего ruling;
 - turn orchestration ещё должно привязать и сохранить `SuppressRegenerationNextTurnRequest` между Reaction и ближайшим end-turn окном той же сущности; end-turn reducer уже однократно погашает переданный запрос;
 - `DropHeldHandItemRequest` ещё некому применить без inventory state и policy выбора конкретного удерживаемого предмета;
@@ -421,7 +428,7 @@ K1 — реализация книжного resolution kernel. Прототип
 
 ## Следующий шаг
 
-Подключить одноразовое потребление `MoveQuietlyHiddenAttackOpportunity` к обычному Attack composite (`RULE-COMBAT-004`, Player’s Guide 1.4, стр. 118). Новый typed request должен связать завершённый Move Quietly result/opportunity, актуальное положение actor в том же `hiding_position_id`, выбранную цель из stable `unaware_enemy_ids`, готовый unopposed `AttackActionExecutionRequest` и ordered snapshot уже потреблённых opportunity IDs. До RNG проверить actor/target/source/spatial/Attack provenance; затем делегировать существующему `execute_attack_action`, добавить ID возможности ровно один раз и вернуть обычный Attack result без отдельного action receipt. Любое другое действие, другая позиция или осведомлённая цель должны погашать возможность отдельным явным исходом, не превращая Attack автоматически в unopposed.
+Реализовать отдельную boundary автоматической обработки всех Wounds в конце боя (`RULE-HEALTH-005`, Player’s Guide 1.4, стр. 121). Контракт должен требовать явный подтверждённый end-of-battle/catch-your-breath context, актуальный `CharacterInjuryState` одной цели и Condition-source snapshots; отметить treated все ещё untreated Wounds, удалить все их `UNTIL_TREATED` effects и сохранить Conditions с другими источниками, permanent/`UNTIL_HEALED` effects и уже обработанные Wounds. Не переиспользовать action receipt или Recall/Lore Test и не выводить завершение боя скрыто из injury state.
 
 ## Последняя проверка
 
@@ -432,7 +439,7 @@ $env:PYTHONPATH = "src"
 py -3.12 -m unittest discover -s tests -v
 ```
 
-Результат: `Ran 581 tests ... OK`; отдельный K1-набор: `Ran 561 tests ... OK`; `compileall` и `git diff --check` успешно завершены (только предупреждения Git о LF/CRLF).
+Результат: `Ran 597 tests ... OK`; отдельный K1-набор: `Ran 577 tests ... OK`; `compileall` и `git diff --check` успешно завершены (только предупреждения Git о LF/CRLF).
 
 ```powershell
 py -3.12 -m compileall -q src tests tools

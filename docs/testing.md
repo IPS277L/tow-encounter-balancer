@@ -187,6 +187,9 @@ py -3.12 -m unittest discover -s tests -v
 - бросается только Awareness выбранного most vigilant enemy; ненулевая ничья принадлежит инициатору, `0:0` и победа opponent дают failure, но каждый исход завершает slot;
 - explicit hiding choice различает отказ, укрытие в текущей Zone и Zone-route; route проходит полный preflight до opposed RNG, обе hiding-ветви применяются только после победы при cover/concealment и новом position ID, а failure/decline не меняют spatial usage;
 - hidden result сохраняет normal/Fast movement transition и typed opportunity для одной следующей unopposed attack; used-position snapshot запрещает повторно спрятаться в раскрытом месте;
+- hidden Attack consumption требует исходный hidden result, неизменившиеся placement/hiding-position, current unaware target из stable observer snapshot и обычную Attack с `defender_test=None`; после preflight она атомарно вызывает стандартный Attack executor и добавляет только его receipt;
+- opportunity ID добавляется в ordered consumed snapshot только после успешного Attack; kernel failure не погашает его, а повторное применение отклоняется до RNG;
+- другое действие, уход с позиции, другая цель и восстановленная осведомлённость дают разные typed loss reasons без Attack и также одноразово погашают opportunity;
 - Slow/Burdened/Prone/Defenceless, ally observer, stale selected Awareness/opposed/movement/round context, enemy/obstacle/terrain path, повторный free move и slot-order violation закрываются до соответствующего RNG; forged outcome/opportunity/spatial/receipt отклоняются;
 - общий Give Ground executor требует соседнюю Zone и при указанном attacker увеличивает graph-distance, запрещает повтор в round, Prone/Defenceless, enemy path blocker, obstacle и Difficult Terrain;
 - успешный Give Ground сохраняет порядок placements, меняет только mover Zone, записывает round usage и после движения накладывает Broken при наличии врага в destination, но не при одном союзнике;
@@ -268,6 +271,9 @@ py -3.12 -m unittest discover -s tests -v
 - stable approach, actor/round/slot, Test IDs, target participant, GM approval ID и receipt provenance проверяются сквозным результатом;
 - отдельная Skill-Improvise application-фаза принимает актуальные Condition/immunity snapshots, применяет Prone/Distracted через общий reducer и сохраняет `blocked`/`was_already_present`;
 - application result меняет только target Condition state, проверяет action/Test/GM provenance и добавляет source application ID в ordered consumed snapshot; повторное потребление отклоняется;
+- успешный Recover treatment применяется только к точному action/injury/Wound snapshot: Recall и auto-Lore отмечают одну Wound treated и потребляют application ID без второго receipt;
+- treatment удаляет лишь эффекты выбранной Wound со сроком `UNTIL_TREATED`, сохраняя permanent/другие wound-scoped effects и несвязанные Conditions;
+- Condition из снятого wound effect удаляется только по точному no-other-source snapshot; внешний либо известный effect другой Wound сохраняет Condition, а stale state, failed/non-treatment Recover, повтор и forged result отклоняются;
 - Defenceless, другой Improvise kind, attacking Skill Improvise, несовпавший approach и повторный slot закрываются до RNG;
 - Troll Vomit требует exact Ability Rule ID/approach и actor Ability snapshot, вражескую Staggered-цель на Close Range и явный Endurance Test, затем переиспользует общий Hazard/Wound pipeline;
 - Endurance success избегает Hazard, failure применяет Wound по shortfall, а actor Staggered сам по себе не запрещает Vomit; Defenceless, wrong ability/kind/target/range/skill, повторный или неупорядоченный slot закрываются до RNG;

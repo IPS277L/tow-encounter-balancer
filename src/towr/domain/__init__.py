@@ -63,6 +63,13 @@ from towr.domain.help_models import (
     HelpBonusApplicationResult,
     HelpBonusSnapshot,
 )
+from towr.domain.hidden_attack_models import (
+    HiddenAttackOpportunityLossReason,
+    MoveQuietlyHiddenAttackExecutionRequest,
+    MoveQuietlyHiddenAttackExecutionResult,
+    MoveQuietlyHiddenAttackLossRequest,
+    MoveQuietlyHiddenAttackLossResult,
+)
 from towr.domain.skill_improvise_models import (
     SkillImproviseActionExecutionRequest,
     SkillImproviseActionExecutionResult,
@@ -330,6 +337,7 @@ from towr.domain.resolution_models import (
 )
 from towr.domain.results import BattleOutcome, BattleResult
 from towr.domain.recover_models import (
+    RECOVER_TREAT_WOUND_APPLICATION_RULE_ID,
     RecoverActionExecutionRequest,
     RecoverActionExecutionResult,
     RecoverConditionChange,
@@ -343,7 +351,10 @@ from towr.domain.recover_models import (
     RecoverStandardResult,
     RecoverTreatWoundChoice,
     RecoverTreatWoundResult,
+    RecoverWoundConditionSourceSnapshot,
     RecoverWoundTreatmentApplicationRequest,
+    RecoverWoundTreatmentResolutionRequest,
+    RecoverWoundTreatmentResolutionResult,
 )
 from towr.domain.soporific_breath_models import (
     SoporificBreathActionExecutionRequest,
@@ -526,6 +537,7 @@ __all__ = [
     "HelpBonusApplicationRequest",
     "HelpBonusApplicationResult",
     "HelpBonusSnapshot",
+    "HiddenAttackOpportunityLossReason",
     "IdentifiedHazardTarget",
     "IdentifiedSpellTarget",
     "IdentifiedStaggerTarget",
@@ -552,6 +564,10 @@ __all__ = [
     "MoveCarefullySearchChoice",
     "MoveQuietlyActionExecutionRequest",
     "MoveQuietlyActionExecutionResult",
+    "MoveQuietlyHiddenAttackExecutionRequest",
+    "MoveQuietlyHiddenAttackExecutionResult",
+    "MoveQuietlyHiddenAttackLossRequest",
+    "MoveQuietlyHiddenAttackLossResult",
     "MoveQuietlyHiddenAttackOpportunity",
     "MoveQuietlyHidingChoice",
     "MoveQuietlyObserver",
@@ -676,6 +692,7 @@ __all__ = [
     "ReactorZoneHazardTargetResult",
     "ProfileInjuryState",
     "RepeatedConditionReplacement",
+    "RECOVER_TREAT_WOUND_APPLICATION_RULE_ID",
     "RecoverActionExecutionRequest",
     "RecoverActionExecutionResult",
     "RecoverConditionChange",
@@ -689,7 +706,10 @@ __all__ = [
     "RecoverStandardResult",
     "RecoverTreatWoundChoice",
     "RecoverTreatWoundResult",
+    "RecoverWoundConditionSourceSnapshot",
     "RecoverWoundTreatmentApplicationRequest",
+    "RecoverWoundTreatmentResolutionRequest",
+    "RecoverWoundTreatmentResolutionResult",
     "RerollLock",
     "ProneBeforeGiveGroundSpec",
     "ProneRemovalTargetKind",
