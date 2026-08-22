@@ -333,10 +333,15 @@ K1 — реализация книжного resolution kernel. Прототип
 - реализована чистая одноразовая граница `AimFollowUpRequest → AimFollowUpResult`: следующее Shooting/Throwing Attack владельца по той же цели получает обычный `DiceModifier`, подчинённый общему pool cap; другая цель, иной Attack Skill либо любое другое action дают `LOST` без изменения Attack;
 - source Aim/Test/actor/target/action и подготовленный nested attacker Test проверяются сквозными provenance-инвариантами; повторное добавление Aim-модификатора отклоняется;
 - зарезервированный Aim теперь обязан исполниться до завершения хода.
+- реализован `HelpActionExecutionRequest → HelpActionExecutionResult`: зарезервированный `CombatActionKind.HELP` выполняет самостоятельный Test помогающего, связывает его с другим участником той же стороны и завершает slot при любом числе successes;
+- `HelpBonusSnapshot` хранит helper/beneficiary, оба Skill и stable ID будущего Test; отличающийся Skill помогающего требует явного GM approval, а failure создаёт валидный нулевой snapshot;
+- `Deafened` по странице 123 и глобальный `Defenceless` закрывают Help до RNG; профильные модификаторы самой Help Test остаются обычными входными `DiceModifier`;
+- `HelpBonusApplicationRequest → HelpBonusApplicationResult` принимает только точное совпадение beneficiary/Skill/Test ID и добавляет по одному обычному `+1d` за success под общим pool cap; нулевой snapshot применяется без фиктивного модификатора;
+- source action/Test и подготовленный Test защищены provenance-инвариантами, а зарезервированный Help обязан исполниться до завершения хода.
 
 ## Проверено
 
-- 512 unit/integration тестов успешно проходят на Python 3.12, из них 492 относятся к K1;
+- 525 unit/integration тестов успешно проходят на Python 3.12, из них 505 относятся к K1;
 - исходники и тесты успешно проходят `compileall`.
 
 ## Исходный материал
@@ -350,10 +355,11 @@ K1 — реализация книжного resolution kernel. Прототип
 ## Известные ограничения
 
 - старый P1 battle loop остаётся упрощённым прототипом; K1 уже следует книгам, но пока реализует только часть проиндексированных механик;
-- K1 проверяет round/side/turn и action budget; Aim исполняет Awareness и создаёт отдельный follow-up, обычный Attack исполняется через kernel, spell Improvise — через Casting pipeline, Run — через две spatial-фазы, Medium/Long Charge — через атомарные spatial/Test/attack composite, Move Carefully — через free-move/search composite, а Move Quietly — через opposed-Test/conditional-hiding composite; Help/Recover и остальные action effects ещё не подключены, источник второго действия не расходуется;
+- K1 проверяет round/side/turn и action budget; Aim исполняет Awareness и создаёт next-action follow-up, Help исполняет собственный Test и создаёт bonus для связанного allied Test, обычный Attack исполняется через kernel, spell Improvise — через Casting pipeline, Run — через две spatial-фазы, Medium/Long Charge — через атомарные spatial/Test/attack composite, Move Carefully — через free-move/search composite, а Move Quietly — через opposed-Test/conditional-hiding composite; Recover и остальные action effects ещё не подключены, источник второго действия не расходуется;
 - Attack execution возвращает новое injury state цели внутри `ResolutionResult`, но общего battle aggregate для автоматического переноса этого состояния по target ID пока нет;
 - Awareness/амбуш ещё не вычисляет opposition-first порядок: orchestration передаёт уже определённый `side_order`; обе ветви free move представлены, но остальные incidental actions и pass/skip ещё не подключены;
 - Aim follow-up является чистой границей без mutable battle aggregate: orchestration ещё должно хранить snapshot, вызвать consume/drop ровно для следующего действия владельца и запретить повторное использование результата; Extreme Range требует отсутствующих range/GM policy и автоматически не разрешается;
+- Help bonus также не хранится в mutable battle aggregate: orchestration должно сопоставить его с объявленной upcoming Test, погасить один раз и не переносить на другой Test; книга не задаёт общего ограничения числа одновременно помогающих союзников, поэтому K1 не вводит искусственный лимит;
 - каталоги NPC Abilities, магии, религии и магических предметов завершены как нормативный индекс, но большинство записей ещё не связано с исполняемыми reducers и orchestration;
 - применение времени, Treat/Heal и снятие source-aware Wound effects требует будущего battle loop;
 - внешние последствия Wound для инвентаря и анатомии пока являются typed follow-up;
@@ -390,7 +396,7 @@ K1 — реализация книжного resolution kernel. Прототип
 
 ## Следующий шаг
 
-Реализовать `CombatActionKind.HELP` по страницам 108 и 116. Executor должен связать active reserved slot, помогающего, союзника и самостоятельный `TestRequest` помогающего; Skill может совпадать с основным Test либо быть другим по явному решению GM. Каждый success создаёт `+1d` для связанного Test союзника, failure всё равно завершает slot с нулевым бонусом. Модификатор должен оставаться обычным и подчиняться общему pool cap; source Help/Test/actor/beneficiary provenance и одноразовое применение оформить типизированно без скрытой мутации battle state.
+Реализовать `CombatActionKind.RECOVER` по странице 118. Нужен закрытый выбор между основной ветвью, которая одновременно снимает Staggered и Prone с допустимых self/Close ally целей, уменьшает Miscast Pool на один die и разрешает взаимодействие с предметом рядом с врагом (либо mount вместо отсутствующего Prone), и альтернативой, которая выполняет только Treat Wound или релевантный Test снятия condition. Следует отделить отсутствующие inventory/mount/Treat executors типизированными follow-up, сохранить Condition/magic/spatial provenance и завершать slot при любом валидном наборе фактически доступных выгод.
 
 ## Последняя проверка
 
@@ -401,7 +407,7 @@ $env:PYTHONPATH = "src"
 py -3.12 -m unittest discover -s tests -v
 ```
 
-Результат: `Ran 512 tests ... OK`; отдельный K1-набор: `Ran 492 tests ... OK`.
+Результат: `Ran 525 tests ... OK`; отдельный K1-набор: `Ran 505 tests ... OK`.
 
 ```powershell
 py -3.12 -m compileall -q src tests tools

@@ -56,6 +56,13 @@ from towr.domain.condition_models import (
     EffectImmunity,
     RepeatedConditionReplacement,
 )
+from towr.domain.help_models import (
+    HelpActionExecutionRequest,
+    HelpActionExecutionResult,
+    HelpBonusApplicationRequest,
+    HelpBonusApplicationResult,
+    HelpBonusSnapshot,
+)
 from towr.domain.encounters import EncounterDefinition
 from towr.domain.injury_models import (
     CharacterInjuryState,
@@ -475,6 +482,11 @@ __all__ = [
     "HazardExposureRequest",
     "HazardResolutionRequest",
     "HazardResolutionResult",
+    "HelpActionExecutionRequest",
+    "HelpActionExecutionResult",
+    "HelpBonusApplicationRequest",
+    "HelpBonusApplicationResult",
+    "HelpBonusSnapshot",
     "IdentifiedHazardTarget",
     "IdentifiedSpellTarget",
     "IdentifiedStaggerTarget",
