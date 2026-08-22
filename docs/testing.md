@@ -271,7 +271,11 @@ py -3.12 -m unittest discover -s tests -v
 - Defenceless, другой Improvise kind, attacking Skill Improvise, несовпавший approach и повторный slot закрываются до RNG;
 - Troll Vomit требует exact Ability Rule ID/approach и actor Ability snapshot, вражескую Staggered-цель на Close Range и явный Endurance Test, затем переиспользует общий Hazard/Wound pipeline;
 - Endurance success избегает Hazard, failure применяет Wound по shortfall, а actor Staggered сам по себе не запрещает Vomit; Defenceless, wrong ability/kind/target/range/skill, повторный или неупорядоченный slot закрываются до RNG;
-- результат Troll Vomit проверяет exposure/Test/Hazard/target/receipt provenance; любой незавершённый Skill/spell/Ability Improvise блокирует окончание хода;
+- Swamp Breath требует exact Ability Rule ID/approach, не-Defenceless и не-Staggered actor, Medium Range Zone и полный ordered target snapshot, в точности совпадающий со всеми spatial placements этой Zone;
+- каждый персонаж Zone, включая союзника или actor, независимо проходит Endurance Hazard (3) на общем RNG; пустая Zone завершает действие без бросков, а receipt появляется только после всего batch;
+- Soporific Breath повторяет строгий Zone/Ability preflight для Endurance Hazard (2), применяет Drained после Wound и заменяет повторный Drained на Defenceless, включая Drained из Wounds Table той же экспозиции;
+- Wood Elf с подтверждённой унаследованной Ability проходит тот же contract; actor/союзники включаются по placements, пустая Zone не обращается к RNG;
+- результаты Troll Vomit, Swamp Breath и Soporific Breath проверяют exposure/Test/Hazard/Condition/target/receipt provenance; любой незавершённый Skill/spell/Ability Improvise блокирует окончание хода;
 - action Miscast preparation принимает только triggered post-Test result с точным source roll, actor и magic state;
 - отказ от spell очищает Casting snapshot и оставляет один Miscast roll без bonus die;
 - допустимый pre-Miscast spell стоит перед roll, получает Potency последнего Casting Test и добавляет roll ровно `+1d`;

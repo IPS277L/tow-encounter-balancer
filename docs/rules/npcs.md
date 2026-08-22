@@ -109,7 +109,7 @@ Spatial orchestration определяет факт входа и создаёт
 
 Forest Dragon без Staggered может действием выдохнуть облако в Zone на Medium Range. Все существа в этой Zone делают Endurance Test против Hazard (2), который при провале наносит обычную Wound по shortfall и накладывает Drained. Если при применении Drained уже присутствует, вместо повторного Drained цель получает Defenceless. Источник: GM Guide, страница 179. Находящийся верхом Wood Elf получает эту Ability через Dragon Rider.
 
-`soporific_breath_hazard` нормализует точный книжный источник как общий `ZoneHazardRequest`. Spatial/action orchestration отвечает за проверку отсутствия Staggered у действующего, расход действия, Medium Range, выбор Zone и снимок всех находящихся в ней существ. K1 получает уже выбранные уникальные цели и разрешает их слева направо через общий Test/Hazard pipeline.
+`soporific_breath_hazard` нормализует точный книжный источник как общий `ZoneHazardRequest`. `SoporificBreathActionExecutionRequest` связывает его с Ability Improvise slot, актуальным `SpatialBattleState`, выбранной Zone на Medium Range и полным ordered `IdentifiedHazardTarget` snapshot. До RNG executor требует точную Ability/approach, активного не-Defenceless и не-Staggered действующего, explicit Endurance для каждой цели и точное совпадение target IDs со всеми placements Zone. Союзники и действующий включаются по фактическому нахождению в Zone; пустая Zone допустима. Общий Zone Hazard сохраняет порядок Wound → Drained и заменяет повторный Drained на Defenceless, а receipt появляется только после полного batch. Wood Elf-наездник использует тот же контракт, если Soporific Breath уже присутствует в его подтверждённом Ability snapshot; mount inheritance отдельно не вычисляется.
 
 `RepeatedConditionReplacement` проверяется после Wound-фазы. Свежая цель получает Drained; уже Drained цель сохраняет Drained и получает Defenceless. Если Drained сначала появился из результата Wounds Table того же Hazard, последующее книжное наложение Drained тоже считается повторным и заменяется на Defenceless. Успешно сопротивляющаяся цель не получает ни Wound, ни Condition.
 
@@ -123,7 +123,7 @@ Forest Dragon без Staggered может действием выдохнуть 
 
 Troll Hag без Staggered может действием извергнуть едкий поток в Zone на Medium Range. Каждое существо в этой Zone делает Endurance Test против Hazard (3). Источник: GM Guide, страница 183.
 
-`troll_hag_swamp_breath_hazard` создаёт общий `ZoneHazardRequest` без дополнительных Conditions. После внешнего выбора Zone и уникального стабильного списка её обитателей общий Zone executor независимо разрешает Test и Wound каждой цели. Проверка Staggered действующей Troll Hag, расход действия, Medium Range и spatial selection не относятся к reducer последствий.
+`troll_hag_swamp_breath_hazard` создаёт общий `ZoneHazardRequest` без дополнительных Conditions. `SwampBreathActionExecutionRequest` связывает его с Ability Improvise slot, актуальным `SpatialBattleState`, выбранной Zone на Medium Range и полным ordered `IdentifiedHazardTarget` snapshot. До RNG executor требует наличие Ability/точный approach, активную не-Defenceless и не-Staggered Troll Hag, explicit Endurance для каждой цели и точное совпадение target IDs со всеми placements Zone. Союзники не фильтруются, а сама Troll Hag включается, если находится в выбранной Zone. Общий Zone Hazard независимо разрешает Test/Wound каждой цели на одном RNG; только после всего batch добавляется receipt. Пустая Zone допустима и завершает action без бросков.
 
 ## RULE-NPC-021 — Troll Stupidity
 
@@ -174,8 +174,8 @@ Troll Hag является Level 2 Wizard. Пока у неё 0 Wounds, она �
 - Undead Monstrosity у Bone Dragon различает обязательную Wound без всадника и внешний выбор Wound/Give Ground/Prone при Liche или Tomb King;
 - психологическая иммунность undead-профилей блокирует явно классифицированные replacement/on-hit/outcome/after-Give-Ground Conditions, Hazards и оба последствия `Curse of Cowardly Flight`;
 - Foul Stench после уже определённого входа в Zone сохраняет выбор цели между typed inventory follow-up и Distracted;
-- Soporific Breath использует общий executor выбранной Zone и явную замену повторного Drained на Defenceless после Wound-фазы;
-- Troll Vomit исполняется как Ability Improvise action composite поверх одиночного Hazard (3), а Troll Hag Swamp Breath пока переиспользует только Zone Hazard (3) без action boundary;
+- Soporific Breath исполняется как Zone Ability Improvise composite, сохраняет Wound → Drained и явную замену повторного Drained на Defenceless;
+- Troll Vomit и Troll Hag Swamp Breath исполняются разными single-target/Zone Ability Improvise composites поверх общего Hazard (3), без отдельной injury-логики;
 - Troll Stupidity хранит battle-scoped suppression отдельно от Condition, выдаёт –1d на все Tests и принимает явные результаты Wound/Leadership/другого снятия;
 - Stone Troll имеет нормализованный Resilience 6 и target-scoped –1 Potency preflight с полной блокировкой эффекта при нуле;
 - обычная Troll Regeneration проверяет Staggered/наличие неогненной Wound, требует решения Actor и возвращает Staggered плюс профильное лечение;

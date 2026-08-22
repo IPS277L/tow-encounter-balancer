@@ -5,10 +5,8 @@ from towr.domain.condition_models import (
     RepeatedConditionReplacement,
 )
 from towr.domain.resolution_models import ZoneHazardRequest
+from towr.domain.soporific_breath_models import SOPORIFIC_BREATH_RULE_ID
 from towr.domain.test_models import Skill
-
-
-SOPORIFIC_BREATH_RULE_ID = "RULE-NPC-018:soporific-breath"
 
 
 def soporific_breath_hazard(

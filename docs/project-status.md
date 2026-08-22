@@ -132,11 +132,15 @@ K1 — реализация книжного resolution kernel. Прототип
 - нормализован `RULE-NPC-018` для Soporific Breath Forest Dragon со страницы 179 GM Guide;
 - Endurance Hazard (2) наносит обычную Wound по shortfall и накладывает Drained, а повторный Drained фактически добавляет Defenceless, не удаляя существующий Drained;
 - порядок Wound → failure Condition покрывает случай, когда Drained появился из Wounds Table того же Hazard;
-- доступность действия без Staggered, Medium Range, выбор Zone и её обитателей оставлены внешнему action/spatial orchestration.
+- Soporific Breath подключён к отдельному Zone Ability action composite: preflight проверяет точную Ability/approach, отсутствие Defenceless/Staggered, Medium Range и полный ordered snapshot placements до RNG;
+- все существа Zone разрешаются на одном RNG, receipt добавляется только после полного batch, а spatial state не мутируется; пустая Zone допустима;
+- Wood Elf-наездник использует тот же контракт через явно подтверждённый inherited Ability snapshot без общего mount/rider engine.
 - нормализованы `RULE-NPC-019` Troll Vomit и `RULE-NPC-020` Troll Hag Swamp Breath со страниц 182–183 GM Guide;
 - Vomit создаёт одиночную Endurance-exposure Hazard (3), а Swamp Breath — тот же Hazard (3) для уже выбранной Zone;
 - оба источника используют общую Wound по shortfall без дополнительных Conditions и отдельной injury-логики;
-- Troll Vomit подключён к action orchestration; для Swamp Breath требования отсутствия Staggered у действующей, Medium Range, расход действия и spatial selection ещё остаются внешними.
+- Troll Vomit подключён к одиночному action orchestration; Swamp Breath — к отдельному Zone action composite с расходом Ability Improvise slot;
+- Swamp Breath preflight требует точный Ability/approach snapshot, активную не-Defenceless и не-Staggered Troll Hag, Medium Range и полный ordered target snapshot всех placements выбранной Zone;
+- союзники и сама действующая включаются по фактическому нахождению в Zone; пустая Zone допустима, а receipt добавляется только после атомарного разрешения всего Endurance Hazard (3) batch на одном RNG.
 - нормализован `RULE-NPC-021` Troll Stupidity со страницы 182 GM Guide и общего Distracted со страницы 123 Player’s Guide;
 - отдельный `TrollStupidityState` хранит source Rule ID и подавление до конца текущего боя;
 - начало боя применяет Distracted через общий Condition reducer, а активная Ability выдаёт –1d на любой Test Troll;
@@ -359,7 +363,7 @@ K1 — реализация книжного resolution kernel. Прототип
 
 ## Проверено
 
-- 564 unit/integration теста успешно проходят на Python 3.12, из них 544 относятся к K1;
+- 581 unit/integration тест успешно проходит на Python 3.12, из них 561 относится к K1;
 - исходники и тесты успешно проходят `compileall`.
 
 ## Исходный материал
@@ -373,7 +377,7 @@ K1 — реализация книжного resolution kernel. Прототип
 ## Известные ограничения
 
 - старый P1 battle loop остаётся упрощённым прототипом; K1 уже следует книгам, но пока реализует только часть проиндексированных механик;
-- K1 проверяет round/side/turn и action budget; Aim исполняет Awareness и создаёт next-action follow-up, Help исполняет собственный Test и создаёт bonus для связанного allied Test, Recover соединяет Condition/magic transitions и external applications, обычный Attack исполняется через kernel, spell Improvise — через Casting pipeline, Skill Improvise — через basic/opposed Test и отдельное применение Prone/Distracted, Troll Vomit — через первый конкретный Ability/Hazard composite, Run — через две spatial-фазы, Medium/Long Charge — через атомарные spatial/Test/attack composite, Move Carefully — через free-move/search composite, а Move Quietly — через opposed-Test/conditional-hiding composite; остальные Ability и attacking Skill Improvise ещё не подключены, источник второго действия не расходуется;
+- K1 проверяет round/side/turn и action budget; Aim исполняет Awareness и создаёт next-action follow-up, Help исполняет собственный Test и создаёт bonus для связанного allied Test, Recover соединяет Condition/magic transitions и external applications, обычный Attack исполняется через kernel, spell Improvise — через Casting pipeline, Skill Improvise — через basic/opposed Test и отдельное применение Prone/Distracted, Troll Vomit/Swamp Breath/Soporific Breath — через single-target/Zone Ability Hazard composites, Run — через две spatial-фазы, Medium/Long Charge — через атомарные spatial/Test/attack composite, Move Carefully — через free-move/search composite, а Move Quietly — через opposed-Test/conditional-hiding composite; остальные Ability и attacking Skill Improvise ещё не подключены, источник второго действия не расходуется;
 - Skill-Improvise consumed application IDs пока не принадлежат battle aggregate: orchestration обязано передавать актуальный ordered snapshot между вызовами; disarm, превращение врага в союзника и другие creative outcomes требуют собственных typed effects;
 - Attack execution возвращает новое injury state цели внутри `ResolutionResult`, но общего battle aggregate для автоматического переноса этого состояния по target ID пока нет;
 - Awareness/амбуш ещё не вычисляет opposition-first порядок: orchestration передаёт уже определённый `side_order`; обе ветви free move представлены, но остальные incidental actions и pass/skip ещё не подключены;
@@ -390,7 +394,7 @@ K1 — реализация книжного resolution kernel. Прототип
 - для Monstrous Flight при полностью невозможном Give Ground книга не задаёт fallback; K1 требует внешнего ruling;
 - turn orchestration ещё должно привязать и сохранить `SuppressRegenerationNextTurnRequest` между Reaction и ближайшим end-turn окном той же сущности; end-turn reducer уже однократно погашает переданный запрос;
 - `DropHeldHandItemRequest` ещё некому применить без inventory state и policy выбора конкретного удерживаемого предмета;
-- Troll Vomit уже расходует Ability Improvise slot и проверяет actor/target/Close Range snapshots, но target selection и перенос его injury state всё ещё принадлежат future battle aggregate; фабрики Soporific Breath и Swamp Breath пока не расходуют действие, не проверяют Staggered/Medium Range и не выбирают Zone без battle orchestration;
+- Troll Vomit, Swamp Breath и Soporific Breath уже расходуют Ability Improvise slot и проверяют свои actor/target/range snapshots, но перенос их итоговых injury states по target ID всё ещё принадлежит future battle aggregate; Dragon Rider inheritance поступает готовым Ability snapshot и пока не вычисляется из mount state;
 - battle loop ещё должен вызывать Stupidity entry points после каждой принятой Wound/снятия Distracted и создавать свежее Ability-state в начале следующего боя;
 - общий `ConditionState` пока не хранит источник или объект Distracted; Stupidity компенсирует это собственным source-aware состоянием, но полная replacement-семантика требует будущего решения;
 - casting pipeline уже накапливает successes, привязывает их к Lore, применяет post-Test Miscast threshold, разрешает normal CAST/WAIT, triggered preparation и добровольное прекращение, а затем имеет schema/Range preflight, target-scoped Potency и конкретный эффект `Curse of Cowardly Flight` через явные фазовые границы; любой завершённый non-Casting action активного caster применяет skipped-Test die отдельной фазой, а чистая consumed-ID chain запрещает повтор одного receipt при корректной передаче snapshot; future battle aggregate ещё должен владеть этим snapshot на протяжении попытки, соединить NPC opposition, spatial target discovery и применение результатов с общим battle state;
@@ -417,7 +421,7 @@ K1 — реализация книжного resolution kernel. Прототип
 
 ## Следующий шаг
 
-Подключить второй конкретный Ability Improvise — Troll Hag Swamp Breath (`RULE-NPC-020`, Gamemaster’s Guide 1.1, стр. 183) — отдельным Zone action composite над существующими `troll_hag_swamp_breath_hazard` и `resolve_zone_hazard`. Request должен связать точный Ability Rule ID/approach и actor Ability snapshot, активную не-Defenceless и не-Staggered Troll Hag, выбранную Zone на Medium Range, актуальный `SpatialBattleState` и полный стабильный `IdentifiedHazardTarget` snapshot всех существ этой Zone. Executor обязан доказать точное совпадение target IDs с placement order, независимо разрешить Endurance Hazard (3) каждой цели на одном RNG и добавить receipt только после всего batch. Не считать breath Attack, не ограничивать цели врагами и не обобщать контракт на Soporific Breath с его Drained/Defenceless replacement.
+Подключить одноразовое потребление `MoveQuietlyHiddenAttackOpportunity` к обычному Attack composite (`RULE-COMBAT-004`, Player’s Guide 1.4, стр. 118). Новый typed request должен связать завершённый Move Quietly result/opportunity, актуальное положение actor в том же `hiding_position_id`, выбранную цель из stable `unaware_enemy_ids`, готовый unopposed `AttackActionExecutionRequest` и ordered snapshot уже потреблённых opportunity IDs. До RNG проверить actor/target/source/spatial/Attack provenance; затем делегировать существующему `execute_attack_action`, добавить ID возможности ровно один раз и вернуть обычный Attack result без отдельного action receipt. Любое другое действие, другая позиция или осведомлённая цель должны погашать возможность отдельным явным исходом, не превращая Attack автоматически в unopposed.
 
 ## Последняя проверка
 
@@ -428,7 +432,7 @@ $env:PYTHONPATH = "src"
 py -3.12 -m unittest discover -s tests -v
 ```
 
-Результат: `Ran 564 tests ... OK`; отдельный K1-набор: `Ran 544 tests ... OK`; `compileall` и `git diff --check` успешно завершены (только предупреждения Git о LF/CRLF).
+Результат: `Ran 581 tests ... OK`; отдельный K1-набор: `Ran 561 tests ... OK`; `compileall` и `git diff --check` успешно завершены (только предупреждения Git о LF/CRLF).
 
 ```powershell
 py -3.12 -m compileall -q src tests tools

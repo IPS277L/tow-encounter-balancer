@@ -345,6 +345,10 @@ from towr.domain.recover_models import (
     RecoverTreatWoundResult,
     RecoverWoundTreatmentApplicationRequest,
 )
+from towr.domain.soporific_breath_models import (
+    SoporificBreathActionExecutionRequest,
+    SoporificBreathActionExecutionResult,
+)
 from towr.domain.spatial_models import (
     SpatialBattleState,
     SpatialEntityPlacement,
@@ -352,6 +356,10 @@ from towr.domain.spatial_models import (
     ZoneGraph,
 )
 from towr.domain.stats import DicePool, StatBlock
+from towr.domain.swamp_breath_models import (
+    SwampBreathActionExecutionRequest,
+    SwampBreathActionExecutionResult,
+)
 from towr.domain.test_models import (
     Characteristic,
     InlineProfile,
@@ -718,8 +726,12 @@ __all__ = [
     "SpellTargetPreflightOutcome",
     "SpellTargetPreflightRequest",
     "SpellTargetPreflightResult",
+    "SoporificBreathActionExecutionRequest",
+    "SoporificBreathActionExecutionResult",
     "SpatialBattleState",
     "SpatialEntityPlacement",
+    "SwampBreathActionExecutionRequest",
+    "SwampBreathActionExecutionResult",
     "StaggerImpactRequest",
     "StaggerImpactResult",
     "SuppressRegenerationNextTurnRequest",
