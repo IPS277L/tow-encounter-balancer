@@ -8,7 +8,10 @@ from towr.domain.condition_models import (
     ConditionApplicationResult,
     ConditionState,
 )
-from towr.domain.movement_models import MovementSpeed
+from towr.domain.movement_models import (
+    DifficultTerrainTraversalResult,
+    MovementSpeed,
+)
 from towr.domain.resolution_models import KernelAttackRequest, ResolutionResult
 from towr.domain.spatial_models import (
     SpatialBattleState,
@@ -309,6 +312,287 @@ class ChargeActionExecutionResult:
             raise ValueError("Charge resolution contains another attacker Test")
         if not self.kernel_request.attack.is_close_range:
             raise ValueError("Charge attack must resolve at Close Range")
+        source_test = self.source_kernel_request.attack.attacker_test
+        if self.attack_skill is Skill.MELEE:
+            if not isinstance(self.melee_bonus, DiceModifier):
+                raise TypeError("Melee Charge requires a DiceModifier")
+            if self.melee_bonus.amount != 1:
+                raise ValueError("Melee Charge bonus must be +1d")
+            expected_test = replace(
+                source_test,
+                dice_modifiers=(
+                    *source_test.dice_modifiers,
+                    self.melee_bonus,
+                ),
+            )
+            expected_kernel = replace(
+                self.source_kernel_request,
+                attack=replace(
+                    self.source_kernel_request.attack,
+                    attacker_test=expected_test,
+                ),
+            )
+            if self.kernel_request != expected_kernel:
+                raise ValueError("Melee Charge prepared the wrong attack")
+        else:
+            if self.melee_bonus is not None:
+                raise ValueError("only Melee Charge receives +1d")
+            if self.kernel_request != self.source_kernel_request:
+                raise ValueError("non-Melee Charge changed its attack")
+
+
+@dataclass(frozen=True, slots=True)
+class DifficultTerrainChargeActionExecutionRequest:
+    id: str
+    charge_action: ChargeActionExecutionRequest
+    terrain_traversal: DifficultTerrainTraversalResult
+    round_state: CombatRoundState
+    spatial_state: SpatialBattleState
+    rule_id: str = (
+        "RULE-COMBAT-014:difficult-terrain-charge-action-execution"
+    )
+
+    def __post_init__(self) -> None:
+        _validate_non_empty_string(
+            self.id,
+            "Difficult Terrain Charge execution request id",
+        )
+        if not isinstance(self.charge_action, ChargeActionExecutionRequest):
+            raise TypeError(
+                "charge_action must be a ChargeActionExecutionRequest"
+            )
+        if not isinstance(
+            self.terrain_traversal,
+            DifficultTerrainTraversalResult,
+        ):
+            raise TypeError(
+                "terrain_traversal must be a DifficultTerrainTraversalResult"
+            )
+        if not isinstance(self.round_state, CombatRoundState):
+            raise TypeError("round_state must be a CombatRoundState")
+        if not isinstance(self.spatial_state, SpatialBattleState):
+            raise TypeError("spatial_state must be a SpatialBattleState")
+        _validate_non_empty_string(self.rule_id, "rule_id")
+        _validate_difficult_terrain_charge_pair(
+            self.charge_action,
+            self.terrain_traversal,
+        )
+        if self.round_state != self.charge_action.round_state:
+            raise ValueError(
+                "current round state must contain the unexecuted Charge slot"
+            )
+        if self.spatial_state != self.terrain_traversal.state:
+            raise ValueError(
+                "current spatial state must be the unconsumed terrain result"
+            )
+
+
+@dataclass(frozen=True, slots=True)
+class DifficultTerrainChargeActionExecutionResult:
+    request_id: str
+    rule_id: str
+    charge_action_request: ChargeActionExecutionRequest
+    terrain_traversal: DifficultTerrainTraversalResult
+    actor_id: str
+    target_id: str
+    slot_index: int
+    speed: MovementSpeed
+    attack_skill: Skill
+    origin_zone_id: str
+    destination_zone_id: str
+    target_in_close_range: bool
+    previous_conditions: ConditionState
+    conditions: ConditionState
+    previous_round_state: CombatRoundState
+    round_state: CombatRoundState
+    previous_spatial_state: SpatialBattleState
+    spatial_state: SpatialBattleState
+    slot: CombatActionSlot
+    source_kernel_request: KernelAttackRequest
+    kernel_request: KernelAttackRequest
+    resolution: ResolutionResult
+    melee_bonus: DiceModifier | None
+    applied_rule_ids: tuple[str, ...]
+
+    def __post_init__(self) -> None:
+        _validate_non_empty_string(
+            self.request_id,
+            "Difficult Terrain Charge request_id",
+        )
+        _validate_non_empty_string(self.rule_id, "rule_id")
+        if not isinstance(
+            self.charge_action_request,
+            ChargeActionExecutionRequest,
+        ):
+            raise TypeError(
+                "charge_action_request must be a ChargeActionExecutionRequest"
+            )
+        if not isinstance(
+            self.terrain_traversal,
+            DifficultTerrainTraversalResult,
+        ):
+            raise TypeError(
+                "terrain_traversal must be a DifficultTerrainTraversalResult"
+            )
+        _validate_non_empty_string(self.actor_id, "actor_id")
+        _validate_non_empty_string(self.target_id, "target_id")
+        _validate_slot_index(self.slot_index)
+        if not isinstance(self.speed, MovementSpeed):
+            raise TypeError("speed must be a MovementSpeed")
+        if self.speed is MovementSpeed.SLOW:
+            raise ValueError("a successful Charge cannot use Slow Speed")
+        if not isinstance(self.attack_skill, Skill):
+            raise TypeError("attack_skill must be a Skill")
+        if self.attack_skill not in _ATTACK_SKILLS:
+            raise ValueError("Charge result requires an Attack Skill")
+        _validate_non_empty_string(self.origin_zone_id, "origin_zone_id")
+        _validate_non_empty_string(
+            self.destination_zone_id,
+            "destination_zone_id",
+        )
+        if self.target_in_close_range is not True:
+            raise ValueError("Charge must finish in Close Range of its target")
+        if not isinstance(self.previous_conditions, ConditionState):
+            raise TypeError("previous_conditions must be a ConditionState")
+        if not isinstance(self.conditions, ConditionState):
+            raise TypeError("conditions must be a ConditionState")
+        if not isinstance(self.previous_round_state, CombatRoundState):
+            raise TypeError("previous_round_state must be a CombatRoundState")
+        if not isinstance(self.round_state, CombatRoundState):
+            raise TypeError("round_state must be a CombatRoundState")
+        if not isinstance(self.previous_spatial_state, SpatialBattleState):
+            raise TypeError(
+                "previous_spatial_state must be a SpatialBattleState"
+            )
+        if not isinstance(self.spatial_state, SpatialBattleState):
+            raise TypeError("spatial_state must be a SpatialBattleState")
+        if not isinstance(self.slot, CombatActionSlot):
+            raise TypeError("slot must be a CombatActionSlot")
+        if not isinstance(self.source_kernel_request, KernelAttackRequest):
+            raise TypeError("source_kernel_request must be a KernelAttackRequest")
+        if not isinstance(self.kernel_request, KernelAttackRequest):
+            raise TypeError("kernel_request must be a KernelAttackRequest")
+        if not isinstance(self.resolution, ResolutionResult):
+            raise TypeError("resolution must be a ResolutionResult")
+
+        source = self.charge_action_request
+        traversal = self.terrain_traversal
+        _validate_difficult_terrain_charge_pair(source, traversal)
+        if (
+            self.actor_id != source.actor_id
+            or self.target_id != source.target_id
+            or self.slot_index != source.slot_index
+            or self.speed is not source.speed
+            or self.attack_skill is not source.attack_skill
+            or self.origin_zone_id != traversal.origin_zone_id
+            or self.destination_zone_id != traversal.destination_zone_id
+            or self.previous_conditions != source.actor_conditions
+            or self.conditions != traversal.conditions
+            or self.previous_round_state != source.round_state
+            or self.previous_spatial_state != traversal.state
+            or self.spatial_state != traversal.state
+            or self.source_kernel_request != source.kernel_request
+        ):
+            raise ValueError(
+                "Difficult Terrain Charge result has stale provenance"
+            )
+        if source.actor_conditions.has(Condition.BURDENED):
+            raise ValueError("Burdened creatures cannot complete a Charge")
+        if source.actor_began_turn_in_enemy_close_range:
+            raise ValueError("Charge cannot begin in Close Range of an enemy")
+        if not source.reaches_target_close_range:
+            raise ValueError("Charge must reach Close Range of its target")
+        if (
+            source.melee_bonus_rule_id
+            != "RULE-COMBAT-009:charge-melee-bonus"
+        ):
+            raise ValueError("Charge result uses an unknown Melee bonus rule")
+        self._validate_round_transition()
+        self._validate_attack_transition()
+
+        rule_ids = _validate_rule_ids(self.applied_rule_ids)
+        required_rule_ids = {
+            self.rule_id,
+            source.rule_id,
+            *traversal.applied_rule_ids,
+        }
+        if not required_rule_ids <= set(rule_ids):
+            raise ValueError("Difficult Terrain Charge trace is incomplete")
+        if self.melee_bonus is not None:
+            if self.melee_bonus.rule_id not in rule_ids:
+                raise ValueError("Charge bonus Rule ID is missing from trace")
+        object.__setattr__(self, "applied_rule_ids", rule_ids)
+
+    def _validate_round_transition(self) -> None:
+        previous_turn = self.previous_round_state.active_turn
+        current_turn = self.round_state.active_turn
+        if previous_turn is None or current_turn is None:
+            raise ValueError("Difficult Terrain Charge requires an active turn")
+        if (
+            previous_turn.actor_id != self.actor_id
+            or current_turn.actor_id != self.actor_id
+        ):
+            raise ValueError("Charge actor must own both turn states")
+        if self.slot_index > len(previous_turn.action_slots):
+            raise ValueError("previous state does not contain the Charge slot")
+        if any(
+            not item.executed
+            for item in previous_turn.action_slots[: self.slot_index - 1]
+        ):
+            raise ValueError("Charge result requires executed earlier slots")
+        previous_slot = previous_turn.action_slots[self.slot_index - 1]
+        if (
+            previous_slot.declaration.kind is not CombatActionKind.MANOEUVRE
+            or previous_slot.declaration.manoeuvre is not ManoeuvreKind.CHARGE
+        ):
+            raise ValueError("Charge result requires a reserved Charge slot")
+        if previous_slot.executed:
+            raise ValueError("previous Charge slot must be unexecuted")
+        if not self.slot.executed:
+            raise ValueError("result Charge slot must be executed")
+        receipt = self.slot.execution
+        assert isinstance(receipt, ActionExecutionReceipt)
+        if (
+            receipt.id != self.request_id
+            or receipt.source_request_id != self.request_id
+            or receipt.result_request_id != self.resolution.request_id
+            or receipt.executor_rule_id != self.rule_id
+        ):
+            raise ValueError("terrain Charge receipt does not match provenance")
+        if self.slot != replace(previous_slot, execution=receipt):
+            raise ValueError("terrain Charge may only add its receipt")
+        expected_slots = tuple(
+            self.slot if item.index == self.slot_index else item
+            for item in previous_turn.action_slots
+        )
+        if current_turn != replace(previous_turn, action_slots=expected_slots):
+            raise ValueError("terrain Charge changed unrelated turn state")
+        if self.round_state != replace(
+            self.previous_round_state,
+            active_turn=current_turn,
+        ):
+            raise ValueError("terrain Charge changed unrelated round state")
+
+    def _validate_attack_transition(self) -> None:
+        if self.resolution.request_id != self.kernel_request.id:
+            raise ValueError("Charge resolution belongs to another attack")
+        if self.resolution.attack.request_id != self.kernel_request.attack.id:
+            raise ValueError("Charge resolution contains another Attack Test")
+        if (
+            self.resolution.attack.attacker_test.trace.request_id
+            != self.kernel_request.attack.attacker_test.id
+        ):
+            raise ValueError("Charge resolution contains another attacker Test")
+        if not self.kernel_request.attack.is_close_range:
+            raise ValueError("Charge attack must resolve at Close Range")
+        expected_staggered = self.conditions.has(Condition.STAGGERED)
+        if (
+            self.kernel_request.attack.attacker_is_staggered
+            is not expected_staggered
+        ):
+            raise ValueError(
+                "Charge attack has stale post-terrain Staggered state"
+            )
         source_test = self.source_kernel_request.attack.attacker_test
         if self.attack_skill is Skill.MELEE:
             if not isinstance(self.melee_bonus, DiceModifier):
@@ -747,6 +1031,30 @@ class LongChargeActionExecutionResult:
             raise ValueError("Staggered application changed unrelated Conditions")
         if self.conditions != expected_conditions:
             raise ValueError("failed Long Charge changed unrelated Conditions")
+
+
+def _validate_difficult_terrain_charge_pair(
+    charge: ChargeActionExecutionRequest,
+    traversal: DifficultTerrainTraversalResult,
+) -> None:
+    terrain_request = traversal.source_request
+    target = charge.spatial_state.placement_for(charge.target_id)
+    if charge.rule_id != "RULE-COMBAT-014:charge-action-execution":
+        raise ValueError("Charge uses an unknown source rule")
+    if not charge.crosses_difficult_terrain:
+        raise ValueError("Charge must declare Difficult Terrain")
+    if (
+        charge.round_state != terrain_request.round_state
+        or charge.spatial_state != terrain_request.state
+        or charge.actor_id != terrain_request.actor_id
+        or charge.actor_conditions != terrain_request.actor_conditions
+        or target.zone_id != terrain_request.destination_zone_id
+        or charge.path_entity_ids != terrain_request.path_entity_ids
+        or charge.crosses_obstacle is not terrain_request.crosses_obstacle
+    ):
+        raise ValueError(
+            "Charge and terrain traversal have different provenance"
+        )
 
 
 def _validate_rule_ids(values: tuple[str, ...]) -> tuple[str, ...]:

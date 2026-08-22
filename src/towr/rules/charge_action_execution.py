@@ -5,6 +5,8 @@ from dataclasses import replace
 from towr.domain.charge_models import (
     ChargeActionExecutionRequest,
     ChargeActionExecutionResult,
+    DifficultTerrainChargeActionExecutionRequest,
+    DifficultTerrainChargeActionExecutionResult,
     LongChargeActionExecutionRequest,
     LongChargeActionExecutionResult,
     LongChargeOutcome,
@@ -34,6 +36,9 @@ CHARGE_ACTION_EXECUTION_RULE_ID = (
     "RULE-COMBAT-014:charge-action-execution"
 )
 CHARGE_MELEE_BONUS_RULE_ID = "RULE-COMBAT-009:charge-melee-bonus"
+DIFFICULT_TERRAIN_CHARGE_ACTION_EXECUTION_RULE_ID = (
+    "RULE-COMBAT-014:difficult-terrain-charge-action-execution"
+)
 LONG_CHARGE_ACTION_EXECUTION_RULE_ID = (
     "RULE-COMBAT-014:long-charge-action-execution"
 )
@@ -195,6 +200,141 @@ def execute_charge_action(
         resolution=resolution,
         melee_bonus=melee_bonus,
         applied_rule_ids=tuple(applied_rule_ids),
+    )
+
+
+def execute_difficult_terrain_charge_action(
+    request: DifficultTerrainChargeActionExecutionRequest,
+    rng: RandomSource,
+    *,
+    decisions: ResolutionDecisionProvider | None = None,
+) -> DifficultTerrainChargeActionExecutionResult:
+    """Attack after consuming one proven Difficult Terrain crossing."""
+    if request.rule_id != DIFFICULT_TERRAIN_CHARGE_ACTION_EXECUTION_RULE_ID:
+        raise ValueError("terrain Charge uses an unknown source rule")
+    source = request.charge_action
+    traversal = request.terrain_traversal
+    if source.melee_bonus_rule_id != CHARGE_MELEE_BONUS_RULE_ID:
+        raise ValueError("Charge request uses an unknown Melee bonus rule")
+
+    turn = request.round_state.active_turn
+    assert turn is not None
+    if source.slot_index > len(turn.action_slots):
+        raise ValueError("the requested action slot has not been reserved")
+    earlier_slots = turn.action_slots[: source.slot_index - 1]
+    if any(not slot.executed for slot in earlier_slots):
+        raise ValueError("earlier action slots must be executed first")
+    slot = turn.action_slots[source.slot_index - 1]
+    if (
+        slot.declaration.kind is not CombatActionKind.MANOEUVRE
+        or slot.declaration.manoeuvre is not ManoeuvreKind.CHARGE
+    ):
+        raise ValueError("only a Charge Manoeuvre slot can use this executor")
+    if slot.executed:
+        raise ValueError("the Charge action slot has already been executed")
+
+    if source.speed is MovementSpeed.SLOW:
+        raise ValueError("Slow creatures cannot Charge")
+    if source.actor_conditions.has(Condition.BURDENED):
+        raise ValueError("Burdened creatures cannot use Manoeuvres")
+    if source.actor_began_turn_in_enemy_close_range:
+        raise ValueError("Charge cannot begin in Close Range of an enemy")
+    if not source.reaches_target_close_range:
+        raise ValueError("Charge movement must reach Close Range of the target")
+
+    attack = source.kernel_request.attack
+    if not attack.is_close_range:
+        raise ValueError("Charge attack must resolve at Close Range")
+    actor_is_staggered = traversal.conditions.has(Condition.STAGGERED)
+    if attack.attacker_is_staggered is not actor_is_staggered:
+        raise ValueError("Charge attack has stale post-terrain Staggered state")
+    if any(
+        modifier.rule_id == source.melee_bonus_rule_id
+        for modifier in attack.attacker_test.dice_modifiers
+    ):
+        raise ValueError("Charge Melee bonus is already present")
+
+    melee_bonus = None
+    prepared_kernel_request = source.kernel_request
+    if source.attack_skill is Skill.MELEE:
+        melee_bonus = DiceModifier(
+            rule_id=source.melee_bonus_rule_id,
+            amount=1,
+        )
+        prepared_kernel_request = replace(
+            source.kernel_request,
+            attack=replace(
+                attack,
+                attacker_test=replace(
+                    attack.attacker_test,
+                    dice_modifiers=(
+                        *attack.attacker_test.dice_modifiers,
+                        melee_bonus,
+                    ),
+                ),
+            ),
+        )
+
+    resolution = resolve_kernel_attack(
+        prepared_kernel_request,
+        rng,
+        decisions=decisions,
+    )
+    executed_slot = replace(
+        slot,
+        execution=ActionExecutionReceipt(
+            id=request.id,
+            executor_rule_id=request.rule_id,
+            source_request_id=request.id,
+            result_request_id=resolution.request_id,
+        ),
+    )
+    updated_slots = tuple(
+        executed_slot if item.index == source.slot_index else item
+        for item in turn.action_slots
+    )
+    updated_round_state = replace(
+        request.round_state,
+        active_turn=replace(turn, action_slots=updated_slots),
+    )
+    return DifficultTerrainChargeActionExecutionResult(
+        request_id=request.id,
+        rule_id=request.rule_id,
+        charge_action_request=source,
+        terrain_traversal=traversal,
+        actor_id=source.actor_id,
+        target_id=source.target_id,
+        slot_index=source.slot_index,
+        speed=source.speed,
+        attack_skill=source.attack_skill,
+        origin_zone_id=traversal.origin_zone_id,
+        destination_zone_id=traversal.destination_zone_id,
+        target_in_close_range=True,
+        previous_conditions=source.actor_conditions,
+        conditions=traversal.conditions,
+        previous_round_state=request.round_state,
+        round_state=updated_round_state,
+        previous_spatial_state=request.spatial_state,
+        spatial_state=request.spatial_state,
+        slot=executed_slot,
+        source_kernel_request=source.kernel_request,
+        kernel_request=prepared_kernel_request,
+        resolution=resolution,
+        melee_bonus=melee_bonus,
+        applied_rule_ids=tuple(
+            dict.fromkeys(
+                (
+                    request.rule_id,
+                    CHARGE_ACTION_EXECUTION_RULE_ID,
+                    *traversal.applied_rule_ids,
+                    *(
+                        (melee_bonus.rule_id,)
+                        if melee_bonus is not None
+                        else ()
+                    ),
+                )
+            )
+        ),
     )
 
 

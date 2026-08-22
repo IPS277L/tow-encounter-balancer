@@ -207,6 +207,11 @@ K1 — реализация книжного resolution kernel. Прототип
 - оба composite требуют точного совпадения active actor/round, исходного spatial state, Conditions, destination/path/obstacle и current crossed snapshot; Run дополнительно требует прежний unexecuted slot;
 - consumers не обращаются к RNG повторно: free move добавляет только once-per-turn usage, Run — только execution receipt; failure сохраняет crossed placement и Prone;
 - подмена traversal и применение к уже обновлённым current snapshots отклоняются; точный replay неизменного pure request остаётся детерминированным и требует общей дедупликации request ID в будущем battle aggregate;
+- добавлены `DifficultTerrainChargeActionExecutionRequest → DifficultTerrainChargeActionExecutionResult` и специализированный Medium Charge consumer готового traversal;
+- composite доказывает совпадение исходного Charge и terrain source по actor/round/spatial origin/target destination/Conditions/path/obstacle, а current snapshots — с crossed state и unexecuted Charge slot;
+- consumer не двигает actor и не бросает Athletics повторно: он проверяет post-terrain Staggered context, подготавливает обычный Melee-only `+1d`, выполняет один Close kernel attack и затем добавляет receipt;
+- failed terrain Athletics сохраняет crossed placement и Prone, но не отменяет Charge attack: книжный Prone запрещает выход из Zone и модифицирует входящие атаки, а не собственную атаку лежащего;
+- Slow/Burdened, enemy Close в начале turn, отсутствие фактического Close после movement, stale attack/duplicate bonus, подмена result и повторное применение к исполненному slot отклоняются;
 - добавлены `ChargeActionExecutionRequest → ChargeActionExecutionResult` и атомарный executor базового Charge по выбранной enemy target на Medium Range;
 - Charge проверяет active slot/round, enemy adjacency, отсутствие врага Close в начале turn и локальное достижение Close; затем перемещает actor, выполняет один kernel attack и добавляет receipt только после результата;
 - Melee Attack получает ровно один source-aware `+1d`; другие Attack Skills временно не получают бонус, а расхождение формулировок Brawn записано как `AMBIGUITY-007`;
@@ -314,7 +319,7 @@ K1 — реализация книжного resolution kernel. Прототип
 
 ## Проверено
 
-- 477 unit/integration тестов успешно проходят на Python 3.12, из них 457 относятся к K1;
+- 485 unit/integration тестов успешно проходят на Python 3.12, из них 465 относятся к K1;
 - исходники и тесты успешно проходят `compileall`.
 
 ## Исходный материал
@@ -336,7 +341,7 @@ K1 — реализация книжного resolution kernel. Прототип
 - внешние последствия Wound для инвентаря и анатомии пока являются typed follow-up;
 - защита Endurance после заживления `Ruptured organs` ещё не подключена к физическому impact;
 - автоматическая замена неподходящей строки Wounds Table для не-физического Hazard требует отдельной GM/simulation policy;
-- общий Zone graph, Give Ground, unobstructed free movement, standalone Difficult Terrain executor и его free-move/base-Run consumers уже существуют, но terrain result ещё не связан с Medium Charge; Fast route с несколькими terrain/non-terrain сегментами, spatial-поиск/стабильная сортировка secondary/Zone целей, path-context policy, движение внутри Zone, cover/line of sight и vertical/midair metadata ещё не имеют общего battle orchestration;
+- общий Zone graph, Give Ground, unobstructed free movement, standalone Difficult Terrain executor и его free-move/base-Run/Medium-Charge consumers уже существуют; Move Carefully/Lore bypass, Fast route с несколькими terrain/non-terrain сегментами, spatial-поиск/стабильная сортировка secondary/Zone целей, path-context policy, движение внутри Zone, cover/line of sight и vertical/midair metadata ещё не имеют общего battle orchestration;
 - для Monstrous Flight при полностью невозможном Give Ground книга не задаёт fallback; K1 требует внешнего ruling;
 - turn orchestration ещё должно привязать и сохранить `SuppressRegenerationNextTurnRequest` между Reaction и ближайшим end-turn окном той же сущности; end-turn reducer уже однократно погашает переданный запрос;
 - `DropHeldHandItemRequest` ещё некому применить без inventory state и policy выбора конкретного удерживаемого предмета;
@@ -367,7 +372,7 @@ K1 — реализация книжного resolution kernel. Прототип
 
 ## Следующий шаг
 
-Связать готовый `DifficultTerrainTraversalResult` с Medium Charge. Новый composite должен доказать совпадение исходного Charge movement context и traversal provenance, принять crossed state/Conditions и затем разрешить attack в Close Range. Нужно явно определить post-traversal Prone: движение уже завершено, но attack request обязан отражать актуальные Condition modifiers/context. Подмена result и применение к уже обновлённому slot/state должны отклоняться. После этого реализовать Move Carefully как отдельный bypass без Athletics и terrain Test usage.
+Реализовать `ManoeuvreKind.MOVE_CAREFULLY` как отдельный composite bypass Difficult Terrain по странице 117. Контракт должен связать active reserved slot с одним terrain-aware free-move route, пересечь его без Athletics и без записи `difficult_terrain_tested_entity_ids`, но потратить обычный `free_move_used_entity_ids`. Нужна явная optional ветвь Awareness search: отказ не обращается к RNG, согласие принимает typed Awareness `TestRequest` и сохраняет полный результат; обе ветви завершают один Move Carefully slot. Slow/Burdened/Prone/Defenceless, enemy/obstacle path, подмена route/current state и повторное исполнение должны закрываться до RNG.
 
 ## Последняя проверка
 
@@ -378,7 +383,7 @@ $env:PYTHONPATH = "src"
 py -3.12 -m unittest discover -s tests -v
 ```
 
-Результат: `Ran 477 tests ... OK`; отдельный K1-набор: `Ran 457 tests ... OK`.
+Результат: `Ran 485 tests ... OK`; отдельный K1-набор: `Ran 465 tests ... OK`.
 
 ```powershell
 py -3.12 -m compileall -q src tests tools

@@ -165,6 +165,9 @@ py -3.12 -m unittest discover -s tests -v
 - Melee Charge добавляет ровно один source-aware `+1d`, а Brawn/Shooting/Throwing не получают его; заранее встроенный Charge modifier отклоняется;
 - successful preflight сначала создаёт spatial snapshot, затем исполняет один Close kernel attack и только после результата добавляет receipt; kernel failure оставляет оба входа неизменными;
 - незавершённый/повторный Charge и нарушение порядка slots отклоняются; result invariants защищают target Close fact, movement, prepared attack, bonus и turn transition;
+- terrain-aware Medium Charge принимает только traversal с совпавшими actor/round/origin/target destination/path/Conditions и current crossed state, затем выполняет attack без повторного движения или Athletics;
+- failed terrain Athletics сохраняет crossed placement и Prone, но не отменяет Charge attack; post-terrain Staggered context, Melee-only `+1d`, slot-order и остальные ограничения базового Charge продолжают проверяться;
+- подменённый traversal/current snapshot, stale attack, duplicate bonus, повторное потребление исполненным slot и forged Condition/spatial/kernel/round results отклоняются;
 - Long Charge требует enemy target ровно через две последовательные Zone links без прямого Medium adjacency и сохраняет intermediate Zone в request/result;
 - successful Long Athletics перемещает actor в Zone target, выполняет один Close kernel attack с общей Melee-only `+1d` policy и завершает исходный Charge slot;
 - failed Long Athletics перемещает actor только в intermediate Zone, не подготавливает и не выполняет attack, впервые добавляет Staggered и также завершает Charge slot;
@@ -173,7 +176,7 @@ py -3.12 -m unittest discover -s tests -v
 - Difficult Terrain traversal требует active actor, adjacent destination, Athletics Test и явный path context; Prone/Defenceless, obstacle и enemy blocker закрываются до RNG, тогда как Burdened/ally не блокируют общий crossing;
 - spatial placement и turn-scoped terrain usage создаются до Test outcome; success сохраняет Conditions, failure после crossing применяет Prone и не откатывает движение;
 - повторный terrain crossing в одном turn делает новый Test без duplicate usage; переход spatial round очищает факт, а forged movement/usage/Test/Condition result отклоняется;
-- terrain result сохраняет полный source request; free-move/Run composites требуют совпадения actor/round, origin state, Conditions, destination, path и obstacle, а подмена provenance закрывается до bookkeeping;
+- terrain result сохраняет полный source request; free-move/Run/Medium-Charge composites требуют совпадения actor/round, origin state, Conditions, destination, path и obstacle, а подмена provenance закрывается до bookkeeping;
 - terrain-aware free move после success/failure добавляет только общий free-move usage; terrain-aware Run добавляет только receipt, обе ветви сохраняют crossed placement и полученный на провале Prone;
 - попытка применить traversal к уже обновлённому spatial/round snapshot отклоняется; Slow/Burdened и slot-order ограничения базового Run сохраняются после разделения фаз;
 - общий Give Ground executor требует соседнюю Zone и при указанном attacker увеличивает graph-distance, запрещает повтор в round, Prone/Defenceless, enemy path blocker, obstacle и Difficult Terrain;

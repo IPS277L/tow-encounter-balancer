@@ -31,6 +31,8 @@ from towr.domain.combatants import CombatantDefinition, CombatantState, Side
 from towr.domain.charge_models import (
     ChargeActionExecutionRequest,
     ChargeActionExecutionResult,
+    DifficultTerrainChargeActionExecutionRequest,
+    DifficultTerrainChargeActionExecutionResult,
     LongChargeActionExecutionRequest,
     LongChargeActionExecutionResult,
     LongChargeOutcome,
@@ -400,6 +402,8 @@ __all__ = [
     "DamageProfile",
     "DecisionOwner",
     "DicePool",
+    "DifficultTerrainChargeActionExecutionRequest",
+    "DifficultTerrainChargeActionExecutionResult",
     "DifficultTerrainOutcome",
     "DifficultTerrainFreeMovementRequest",
     "DifficultTerrainFreeMovementResult",

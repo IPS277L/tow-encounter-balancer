@@ -29,7 +29,7 @@ R1 охватывает оба основных источника в актуа
 
 Непосредственно связанные Talents, свойства оружия и классы специальных NPC-правил проверены. Полный каталог конкретных Abilities будет наращиваться по профилям, не меняя фазовый контракт K1.
 
-R1 завершён; round/side/turn state, базовый action budget, обычный Attack adapter, casting pipeline, обе ветви free move, standalone Difficult Terrain с free-move/base-Run consumers, обе фазы Run и обе дальности Charge реализованы. До M2 продолжается K1: следующий срез подключает terrain result к Medium Charge, включая post-traversal Prone/attack context. Затем реализуется bypass Move Carefully и остальные Manoeuvre/skipped Casting consequences.
+R1 завершён; round/side/turn state, базовый action budget, обычный Attack adapter, casting pipeline, обе ветви free move, standalone Difficult Terrain с free-move/base-Run/Medium-Charge consumers, обе фазы Run и обе дальности Charge реализованы. До M2 продолжается K1: следующий срез реализует Move Carefully как bypass Difficult Terrain с явной optional Awareness-ветвью. Затем подключаются Move Quietly и остальные actions/skipped Casting consequences.
 
 ## P1 — существующий прототип: детерминированный бой 1 на 1
 
