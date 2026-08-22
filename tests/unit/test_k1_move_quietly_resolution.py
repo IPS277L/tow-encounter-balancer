@@ -432,6 +432,10 @@ class K1MoveQuietlyResolutionTests(unittest.TestCase):
                 executor_rule_id="RULE-COMBAT-004:aim-action-execution",
                 source_request_id="aim:test",
                 result_request_id="aim:test",
+                actor_id=turn.actor_id,
+                round_number=state.round_number,
+                slot_index=turn.action_slots[0].index,
+                declaration=turn.action_slots[0].declaration,
             ),
         )
         state = replace(

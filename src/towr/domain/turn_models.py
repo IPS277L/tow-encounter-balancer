@@ -43,6 +43,10 @@ class ActionExecutionReceipt:
     executor_rule_id: str
     source_request_id: str
     result_request_id: str
+    actor_id: str
+    round_number: int
+    slot_index: int
+    declaration: CombatActionDeclaration
 
     def __post_init__(self) -> None:
         _validate_non_empty_string(self.id, "action execution id")
@@ -58,6 +62,26 @@ class ActionExecutionReceipt:
             self.result_request_id,
             "action execution result request id",
         )
+        _validate_non_empty_string(self.actor_id, "action execution actor_id")
+        if not isinstance(self.round_number, int) or isinstance(
+            self.round_number,
+            bool,
+        ):
+            raise TypeError("action execution round_number must be an integer")
+        if self.round_number < 1:
+            raise ValueError("action execution round_number must be positive")
+        if not isinstance(self.slot_index, int) or isinstance(
+            self.slot_index,
+            bool,
+        ):
+            raise TypeError("action execution slot_index must be an integer")
+        if self.slot_index not in (1, 2):
+            raise ValueError("action execution slot_index must be 1 or 2")
+        if not isinstance(self.declaration, CombatActionDeclaration):
+            raise TypeError(
+                "action execution declaration must be a "
+                "CombatActionDeclaration"
+            )
 
 
 @dataclass(frozen=True, slots=True)
@@ -153,6 +177,13 @@ class CombatActionSlot:
             ActionExecutionReceipt,
         ):
             raise TypeError("execution must be an ActionExecutionReceipt")
+        if self.execution is not None:
+            if self.execution.slot_index != self.index:
+                raise ValueError("execution receipt belongs to another slot")
+            if self.execution.declaration != self.declaration:
+                raise ValueError(
+                    "execution receipt uses another action declaration"
+                )
 
     @property
     def executed(self) -> bool:
@@ -196,6 +227,19 @@ class CombatTurnState:
                 )
         if sum(item.declaration.produces_attack for item in slots) > 1:
             raise ValueError("a turn cannot contain a second attack")
+        execution_ids = tuple(
+            item.execution.id
+            for item in slots
+            if item.execution is not None
+        )
+        if len(set(execution_ids)) != len(execution_ids):
+            raise ValueError("action execution receipt IDs must be unique")
+        if any(
+            item.execution is not None
+            and item.execution.actor_id != self.actor_id
+            for item in slots
+        ):
+            raise ValueError("action execution receipt belongs to another actor")
         object.__setattr__(self, "action_slots", slots)
 
 
@@ -248,6 +292,14 @@ class CombatRoundState:
             expected_side = _next_side(participants, side_order, completed)
             if participant.side is not expected_side:
                 raise ValueError("active turn belongs to the wrong side")
+            if any(
+                slot.execution is not None
+                and slot.execution.round_number != self.round_number
+                for slot in self.active_turn.action_slots
+            ):
+                raise ValueError(
+                    "action execution receipt belongs to another round"
+                )
 
         object.__setattr__(self, "participants", participants)
         object.__setattr__(self, "side_order", side_order)

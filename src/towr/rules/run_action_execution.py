@@ -112,6 +112,10 @@ def execute_run_action(
             executor_rule_id=RUN_ACTION_EXECUTION_RULE_ID,
             source_request_id=request.id,
             result_request_id=request.id,
+            actor_id=request.actor_id,
+            round_number=request.round_state.round_number,
+            slot_index=slot.index,
+            declaration=slot.declaration,
         ),
     )
     updated_slots = tuple(
@@ -179,6 +183,10 @@ def execute_difficult_terrain_run_action(
             executor_rule_id=request.rule_id,
             source_request_id=request.id,
             result_request_id=traversal.request_id,
+            actor_id=source.actor_id,
+            round_number=request.round_state.round_number,
+            slot_index=slot.index,
+            declaration=slot.declaration,
         ),
     )
     updated_slots = tuple(

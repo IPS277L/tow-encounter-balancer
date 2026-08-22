@@ -9,8 +9,8 @@ from towr.domain.action_execution_models import (
     CastingActionPostTestResult,
     CastingAttemptExecutionRequest,
     CastingAttemptExecutionResult,
-    SkippedCastingTestAfterAttackRequest,
-    SkippedCastingTestAfterAttackResult,
+    SkippedCastingTestAfterActionRequest,
+    SkippedCastingTestAfterActionResult,
 )
 from towr.domain.aim_models import (
     AimActionExecutionRequest,
@@ -680,8 +680,8 @@ __all__ = [
     "SecondaryEffectSpec",
     "Side",
     "Skill",
-    "SkippedCastingTestAfterAttackRequest",
-    "SkippedCastingTestAfterAttackResult",
+    "SkippedCastingTestAfterActionRequest",
+    "SkippedCastingTestAfterActionResult",
     "SpellPotencyModifier",
     "SpellPotencyRequest",
     "SpellPotencyResult",

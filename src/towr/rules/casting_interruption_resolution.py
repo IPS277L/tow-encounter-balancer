@@ -3,8 +3,8 @@ from __future__ import annotations
 from dataclasses import replace
 
 from towr.domain.action_execution_models import (
-    SkippedCastingTestAfterAttackRequest,
-    SkippedCastingTestAfterAttackResult,
+    SkippedCastingTestAfterActionRequest,
+    SkippedCastingTestAfterActionResult,
 )
 from towr.domain.magic_models import (
     CastingAbandonmentOutcome,
@@ -16,8 +16,6 @@ from towr.domain.magic_models import (
     MiscastPreparationRequest,
     MiscastRollRequest,
 )
-from towr.domain.turn_models import CombatActionKind
-from towr.rules.attack_action_execution import ATTACK_ACTION_EXECUTION_RULE_ID
 from towr.rules.miscast_pool_resolution import (
     MISCAST_POOL_RULE_ID,
     resolve_miscast_pool_increase,
@@ -84,24 +82,17 @@ def abandon_casting(
     )
 
 
-def resolve_skipped_casting_test_after_attack(
-    request: SkippedCastingTestAfterAttackRequest,
-) -> SkippedCastingTestAfterAttackResult:
-    """Add one Miscast die when an active caster spends an action attacking."""
-    attack = request.attack
-    if attack.slot.declaration.kind is not CombatActionKind.ATTACK:
-        raise ValueError("skipped Casting Test source must be an Attack action")
-    receipt = attack.slot.execution
-    assert receipt is not None
-    if receipt.executor_rule_id != ATTACK_ACTION_EXECUTION_RULE_ID:
-        raise ValueError("Attack action receipt uses another executor")
-
+def resolve_skipped_casting_test_after_action(
+    request: SkippedCastingTestAfterActionRequest,
+) -> SkippedCastingTestAfterActionResult:
+    """Add one Miscast die for a completed non-Casting action."""
+    receipt = request.action
     source = MiscastPoolIncreaseRequest(
         resolution_id=f"{request.id}:increase",
         target_id=request.caster_id,
         amount=1,
         source_kind=MiscastPoolIncreaseSourceKind.ACTION,
-        source_id=attack.request_id,
+        source_id=receipt.id,
         trigger_rule_id=request.rule_id,
         rule_id=request.rule_id,
     )
@@ -114,13 +105,20 @@ def resolve_skipped_casting_test_after_attack(
             rule_id=MISCAST_POOL_RULE_ID,
         )
     )
-    return SkippedCastingTestAfterAttackResult(
+    return SkippedCastingTestAfterActionResult(
         request_id=request.id,
         caster_id=request.caster_id,
-        attack=attack,
+        action=receipt,
         source=source,
         miscast_pool=pool,
         state=pool.state,
+        previous_consumed_action_execution_ids=(
+            request.consumed_action_execution_ids
+        ),
+        consumed_action_execution_ids=(
+            *request.consumed_action_execution_ids,
+            receipt.id,
+        ),
         applied_rule_ids=_unique_rule_ids(
             request.rule_id,
             *pool.applied_rule_ids,

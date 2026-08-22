@@ -291,7 +291,7 @@ K1 — реализация книжного resolution kernel. Прототип
 - два разных Improvise возможны только с явным разрешением GM policy и разными stable approach ID;
 - slot reservation намеренно не исполняет действие и не расходует Fate/Ability;
 - принято ADR-0004 о границе round/turn/action slots перед новым battle loop.
-- добавлена generic `ActionExecutionReceipt`, которая отмечает только успешно завершённую специализированную фазу и сохраняет source/result request IDs;
+- добавлена generic `ActionExecutionReceipt`, которая отмечает только успешно завершённую специализированную фазу и сохраняет executor/source/result IDs вместе с actor, round, slot и точной typed action declaration; slot/turn/round snapshots проверяют соответствующие части provenance;
 - реализован `AttackActionExecutionRequest → AttackActionExecutionResult`: active actor, выбранный target ID и конкретный обычный Attack slot связываются с готовым `KernelAttackRequest → ResolutionResult`;
 - Attack executor вызывает существующий kernel без дублирования правил, после успеха меняет только receipt выбранного slot и возвращает round state до/после вместе с полным injury/follow-up результатом;
 - не-ATTACK, Charge, чужой, незарезервированный, уже исполненный slot и попытка обойти незавершённый предыдущий slot отклоняются до RNG; сбой kernel оставляет исходный slot зарезервированным;
@@ -310,9 +310,10 @@ K1 — реализация книжного resolution kernel. Прототип
 - без выбранного spell накопленные Casting successes очищаются и создаётся один Miscast roll исходного пула; допустимый spell создаёт `SpellCastRequest` перед roll, использует Potency последнего Casting Test и добавляет ровно `+1d`;
 - normal post-Test result и подменённые source/state/actor отклоняются; target/spell effect, Miscast roll и table effect остаются внешними упорядоченными фазами.
 - `MiscastPoolIncreaseRequest` теперь типизированно различает `TEST` и `ACTION` source provenance через единый stable `source_id`; Rule of Nine и Mother Knows Best сохраняют фактические Test IDs;
-- реализован `SkippedCastingTestAfterAttackRequest → SkippedCastingTestAfterAttackResult` для книжного примера interrupted Casting: завершённый обычный Attack активного caster создаёт ровно один action-sourced Miscast die;
-- skipped-Test reducer проверяет actor, активный Lore/success snapshot и подлинный Attack executor receipt, затем применяет общий Miscast threshold без изменения Casting snapshot;
-- безопасный порог накапливает die, превышение Wizard Level создаёт обычный triggered roll request; отсутствие активного Casting, pending Miscast, чужой actor и forged receipt/source/state отклоняются.
+- Attack-only interrupted-Casting API явно мигрирован на общий `SkippedCastingTestAfterActionRequest → SkippedCastingTestAfterActionResult`: любой завершённый non-Casting action активного caster создаёт ровно один action-sourced Miscast die;
+- skipped-Test reducer проверяет actor и активный Lore/success snapshot, исключает spell `Improvise` по typed declaration receipt и применяет общий Miscast threshold без изменения Casting snapshot;
+- ordered `consumed_action_execution_ids` возвращается как часть результата: разные действия можно обработать последовательно, а повторное потребление одного execution ID отклоняется ещё до изменения пула;
+- безопасный порог накапливает die, превышение Wizard Level создаёт обычный triggered roll request; отсутствие активного Casting, pending Miscast, чужой actor и forged source/state/consumption chain отклоняются.
 - реализован `CastingAbandonmentRequest → CastingAbandonmentResult` как отдельное от action slot добровольное прекращение активной Casting-попытки;
 - при непустом Miscast Pool abandonment переиспользует общую preparation-фазу на всех сохранённых dice, очищает Casting snapshot и сохраняет optional spell → обязательный roll с книжным `+1d`;
 - при пустом пуле Lore/successes/latest roll очищаются без фиктивного Miscast roll; уже triggered `pool > Wizard Level`, spell без Miscast и несовместимые Lore/CV отклоняются.
@@ -347,7 +348,7 @@ K1 — реализация книжного resolution kernel. Прототип
 
 ## Проверено
 
-- 542 unit/integration теста успешно проходят на Python 3.12, из них 522 относятся к K1;
+- 545 unit/integration тестов успешно проходят на Python 3.12, из них 525 относятся к K1;
 - исходники и тесты успешно проходят `compileall`.
 
 ## Исходный материал
@@ -380,7 +381,7 @@ K1 — реализация книжного resolution kernel. Прототип
 - K1-фабрики Soporific Breath, Troll Vomit и Swamp Breath не расходуют действие, не проверяют Staggered/дальность и не выбирают цель или Zone без battle orchestration;
 - battle loop ещё должен вызывать Stupidity entry points после каждой принятой Wound/снятия Distracted и создавать свежее Ability-state в начале следующего боя;
 - общий `ConditionState` пока не хранит источник или объект Distracted; Stupidity компенсирует это собственным source-aware состоянием, но полная replacement-семантика требует будущего решения;
-- casting pipeline уже накапливает successes, привязывает их к Lore, применяет post-Test Miscast threshold, разрешает normal CAST/WAIT, triggered preparation и добровольное прекращение, а затем имеет schema/Range preflight, target-scoped Potency и конкретный эффект `Curse of Cowardly Flight` через явные фазовые границы; обычный Attack активного caster применяет skipped-Test die отдельной фазой, но future battle aggregate ещё должен предотвращать повторное потребление одного receipt; остальные non-Casting actions не подключены; NPC opposition orchestration, spatial target discovery и применение результатов к общему battle state ещё не соединены в battle executor;
+- casting pipeline уже накапливает successes, привязывает их к Lore, применяет post-Test Miscast threshold, разрешает normal CAST/WAIT, triggered preparation и добровольное прекращение, а затем имеет schema/Range preflight, target-scoped Potency и конкретный эффект `Curse of Cowardly Flight` через явные фазовые границы; любой завершённый non-Casting action активного caster применяет skipped-Test die отдельной фазой, а чистая consumed-ID chain запрещает повтор одного receipt при корректной передаче snapshot; future battle aggregate ещё должен владеть этим snapshot на протяжении попытки, соединить NPC opposition, spatial target discovery и применение результатов с общим battle state;
 - каждая строка Miscast Table исполняется собственным reducer и очищает пул после структурного разрешения;
 - battle loop пока не регистрирует и не переиспользует persistent Zone Hazards автоматически; Miscast reducer возвращает достаточный source/anchor/persistence contract для этого слоя;
 - battle/effect state пока не применяет и не погашает next-Test penalty Hideous Stench и не снимает caster Fellowship effect по событию купания; reducer возвращает типизированные запросы для этих границ;
@@ -404,7 +405,7 @@ K1 — реализация книжного resolution kernel. Прототип
 
 ## Следующий шаг
 
-Обобщить книжное interrupted Casting со страницы 156: любой завершённый action активного caster, который не был Casting Test, должен создавать ровно один action-sourced Miscast die за пропущенный Casting Test. Существующий Attack-only adapter заменить общим контрактом над проверенным `ActionExecutionReceipt`, сохранив совместимость его публичного результата либо выполнив явную миграцию тестов. Нужно исключить spell Improvise/Casting receipts, проверить actor/source/state, применить общий Miscast threshold и не допустить повторного потребления одного action без future aggregate.
+Подключить книжный Skill Improvise со страницы 117 как исполняемое действие: зарезервированный `ImproviseKind.SKILL` должен выполнить ровно один готовый `TestRequest`, завершить slot при успехе или провале и вернуть типизированный GM-approved effect application вместо универсального языка эффектов. Нужно связать stable approach ID с выбранным Skill/подходом, сохранить provenance Test/receipt, учесть `improvise_produces_attack`, закрыть `Defenceless` и сделать незавершённый Skill Improvise блокирующим завершение хода. Конкретные примеры Condition можно подключать отдельными application specs, не считать любой успешный Skill автоматически нейтрализовавшим threat.
 
 ## Последняя проверка
 
@@ -415,7 +416,7 @@ $env:PYTHONPATH = "src"
 py -3.12 -m unittest discover -s tests -v
 ```
 
-Результат: `Ran 542 tests ... OK`; отдельный K1-набор: `Ran 522 tests ... OK`.
+Результат: `Ran 545 tests ... OK`; отдельный K1-набор: `Ran 525 tests ... OK`.
 
 ```powershell
 py -3.12 -m compileall -q src tests tools

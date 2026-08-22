@@ -16,7 +16,13 @@ from towr.domain.magic_models import (
     WizardMagicState,
 )
 from towr.domain.resolution_models import KernelAttackRequest, ResolutionResult
-from towr.domain.turn_models import CombatActionSlot, CombatRoundState
+from towr.domain.turn_models import (
+    ActionExecutionReceipt,
+    CombatActionKind,
+    CombatActionSlot,
+    CombatRoundState,
+    ImproviseKind,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -85,18 +91,22 @@ class AttackActionExecutionResult:
             slot=self.slot,
             source_request_id=self.resolution.request_id,
             result_request_id=self.resolution.request_id,
+            expected_executor_rule_id=(
+                "RULE-COMBAT-004:attack-action-execution"
+            ),
             applied_rule_ids=self.applied_rule_ids,
         )
         object.__setattr__(self, "applied_rule_ids", rule_ids)
 
 
 @dataclass(frozen=True, slots=True)
-class SkippedCastingTestAfterAttackRequest:
+class SkippedCastingTestAfterActionRequest:
     id: str
     caster_id: str
-    attack: AttackActionExecutionResult
+    action: ActionExecutionReceipt
     state: WizardMagicState
     wizard_level: int
+    consumed_action_execution_ids: tuple[str, ...] = ()
     rule_id: str = "RULE-MAGIC-004:skipped-casting-test"
 
     def __post_init__(self) -> None:
@@ -105,35 +115,59 @@ class SkippedCastingTestAfterAttackRequest:
             "skipped Casting Test request id",
         )
         _validate_non_empty_string(self.caster_id, "caster_id")
-        if not isinstance(self.attack, AttackActionExecutionResult):
-            raise TypeError("attack must be an AttackActionExecutionResult")
-        if self.attack.actor_id != self.caster_id:
-            raise ValueError("completed Attack belongs to another actor")
+        if not isinstance(self.action, ActionExecutionReceipt):
+            raise TypeError("action must be an ActionExecutionReceipt")
+        if self.action.actor_id != self.caster_id:
+            raise ValueError("completed action belongs to another actor")
+        declaration = self.action.declaration
+        if (
+            declaration.kind is CombatActionKind.IMPROVISE
+            and declaration.improvise_kind is ImproviseKind.SPELL
+        ):
+            raise ValueError(
+                "a completed Casting Test is not a skipped Casting Test"
+            )
         if not isinstance(self.state, WizardMagicState):
             raise TypeError("state must be a WizardMagicState")
         if self.state.casting_lore_id is None:
             raise ValueError("skipped Casting Test requires active casting")
         _validate_positive_int(self.wizard_level, "wizard_level")
+        consumed = _validate_execution_ids(
+            self.consumed_action_execution_ids,
+        )
+        if self.action.id in consumed:
+            raise ValueError("completed action was already consumed")
+        object.__setattr__(self, "consumed_action_execution_ids", consumed)
         _validate_non_empty_string(self.rule_id, "rule_id")
 
 
 @dataclass(frozen=True, slots=True)
-class SkippedCastingTestAfterAttackResult:
+class SkippedCastingTestAfterActionResult:
     request_id: str
     caster_id: str
-    attack: AttackActionExecutionResult
+    action: ActionExecutionReceipt
     source: MiscastPoolIncreaseRequest
     miscast_pool: MiscastPoolResolutionResult
     state: WizardMagicState
+    previous_consumed_action_execution_ids: tuple[str, ...]
+    consumed_action_execution_ids: tuple[str, ...]
     applied_rule_ids: tuple[str, ...]
 
     def __post_init__(self) -> None:
         _validate_non_empty_string(self.request_id, "skipped request_id")
         _validate_non_empty_string(self.caster_id, "caster_id")
-        if not isinstance(self.attack, AttackActionExecutionResult):
-            raise TypeError("attack must be an AttackActionExecutionResult")
-        if self.attack.actor_id != self.caster_id:
-            raise ValueError("completed Attack belongs to another actor")
+        if not isinstance(self.action, ActionExecutionReceipt):
+            raise TypeError("action must be an ActionExecutionReceipt")
+        if self.action.actor_id != self.caster_id:
+            raise ValueError("completed action belongs to another actor")
+        declaration = self.action.declaration
+        if (
+            declaration.kind is CombatActionKind.IMPROVISE
+            and declaration.improvise_kind is ImproviseKind.SPELL
+        ):
+            raise ValueError(
+                "a completed Casting Test is not a skipped Casting Test"
+            )
         if not isinstance(self.source, MiscastPoolIncreaseRequest):
             raise TypeError("source must be a MiscastPoolIncreaseRequest")
         if self.source.target_id != self.caster_id:
@@ -142,7 +176,7 @@ class SkippedCastingTestAfterAttackResult:
             raise ValueError("one skipped Casting Test adds exactly one die")
         if self.source.source_kind is not MiscastPoolIncreaseSourceKind.ACTION:
             raise ValueError("skipped Casting Test must reference an action")
-        if self.source.source_id != self.attack.request_id:
+        if self.source.source_id != self.action.id:
             raise ValueError("Miscast Pool increase references another action")
         if not isinstance(
             self.miscast_pool,
@@ -159,6 +193,24 @@ class SkippedCastingTestAfterAttackResult:
             raise TypeError("state must be a WizardMagicState")
         if self.state != self.miscast_pool.state:
             raise ValueError("state must match the Miscast Pool result")
+        previous_consumed = _validate_execution_ids(
+            self.previous_consumed_action_execution_ids,
+        )
+        if self.action.id in previous_consumed:
+            raise ValueError("completed action was already consumed")
+        consumed = _validate_execution_ids(
+            self.consumed_action_execution_ids,
+        )
+        if consumed != (*previous_consumed, self.action.id):
+            raise ValueError(
+                "consumed action IDs must append the completed action"
+            )
+        object.__setattr__(
+            self,
+            "previous_consumed_action_execution_ids",
+            previous_consumed,
+        )
+        object.__setattr__(self, "consumed_action_execution_ids", consumed)
         rule_ids = _validate_rule_ids(self.applied_rule_ids)
         object.__setattr__(self, "applied_rule_ids", rule_ids)
 
@@ -217,6 +269,9 @@ class CastingAttemptExecutionResult:
             slot=self.slot,
             source_request_id=self.casting.request_id,
             result_request_id=self.casting.request_id,
+            expected_executor_rule_id=(
+                "RULE-COMBAT-004:casting-improvise-execution"
+            ),
             applied_rule_ids=self.applied_rule_ids,
         )
         object.__setattr__(self, "applied_rule_ids", rule_ids)
@@ -372,6 +427,7 @@ def _validate_execution_transition(
     slot: CombatActionSlot,
     source_request_id: str,
     result_request_id: str,
+    expected_executor_rule_id: str,
     applied_rule_ids: tuple[str, ...],
 ) -> tuple[str, ...]:
     rule_ids = _validate_rule_ids(applied_rule_ids)
@@ -395,6 +451,16 @@ def _validate_execution_transition(
     assert receipt is not None
     if receipt.id != request_id:
         raise ValueError("execution receipt does not match request_id")
+    if receipt.actor_id != actor_id:
+        raise ValueError("execution receipt belongs to another actor")
+    if receipt.round_number != previous_state.round_number:
+        raise ValueError("execution receipt belongs to another round")
+    if receipt.slot_index != slot_index:
+        raise ValueError("execution receipt belongs to another slot")
+    if receipt.declaration != previous_slot.declaration:
+        raise ValueError("execution receipt uses another action declaration")
+    if receipt.executor_rule_id != expected_executor_rule_id:
+        raise ValueError("execution receipt uses another executor")
     if receipt.source_request_id != source_request_id:
         raise ValueError("execution receipt does not match source request")
     if receipt.result_request_id != result_request_id:
@@ -439,6 +505,18 @@ def _validate_rule_ids(values: tuple[str, ...]) -> tuple[str, ...]:
     if len(set(rule_ids)) != len(rule_ids):
         raise ValueError("applied_rule_ids must be unique")
     return rule_ids
+
+
+def _validate_execution_ids(values: tuple[str, ...]) -> tuple[str, ...]:
+    execution_ids = tuple(values)
+    for execution_id in execution_ids:
+        _validate_non_empty_string(
+            execution_id,
+            "consumed action execution id",
+        )
+    if len(set(execution_ids)) != len(execution_ids):
+        raise ValueError("consumed action execution IDs must be unique")
+    return execution_ids
 
 
 def _validate_non_empty_string(value: str, name: str) -> None:

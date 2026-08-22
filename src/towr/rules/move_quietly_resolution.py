@@ -119,6 +119,10 @@ def execute_move_quietly_action(
             executor_rule_id=request.rule_id,
             source_request_id=request.id,
             result_request_id=opposed.request_id,
+            actor_id=request.actor_id,
+            round_number=request.round_state.round_number,
+            slot_index=slot.index,
+            declaration=slot.declaration,
         ),
     )
     updated_slots = tuple(

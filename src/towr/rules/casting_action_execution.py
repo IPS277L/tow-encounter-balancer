@@ -88,6 +88,10 @@ def execute_casting_attempt(
             executor_rule_id=CASTING_IMPROVISE_EXECUTION_RULE_ID,
             source_request_id=request.casting_request.id,
             result_request_id=casting.request_id,
+            actor_id=request.actor_id,
+            round_number=request.state.round_number,
+            slot_index=slot.index,
+            declaration=slot.declaration,
         ),
     )
     updated_slots = tuple(

@@ -56,6 +56,10 @@ def execute_attack_action(
             executor_rule_id=ATTACK_ACTION_EXECUTION_RULE_ID,
             source_request_id=request.kernel_request.id,
             result_request_id=resolution.request_id,
+            actor_id=request.actor_id,
+            round_number=request.state.round_number,
+            slot_index=slot.index,
+            declaration=slot.declaration,
         ),
     )
     updated_slots = tuple(

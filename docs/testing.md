@@ -268,10 +268,11 @@ py -3.12 -m unittest discover -s tests -v
 - допустимый pre-Miscast spell стоит перед roll, получает Potency последнего Casting Test и добавляет roll ровно `+1d`;
 - normal post-Test result и подменённые source/state/actor отклоняются, а итоговый result проверяет actor/state вложенной preparation;
 - Miscast increase provenance закрыто различает фактический Test и завершённое action execution;
-- завершённый обычный Attack активного caster создаёт ровно один action-sourced Miscast die и сохраняет Lore/successes;
+- каждый поддерживаемый non-Casting action receipt активного caster создаёт ровно один action-sourced Miscast die и сохраняет Lore/successes;
 - skipped-Test die проходит общий threshold: накапливается до уровня и создаёт triggered roll при превышении;
-- отсутствие активного Casting, чужой actor, pending Miscast и forged Attack executor receipt отклоняются;
-- skipped-Test result отклоняет подмену source kind/action ID/amount и итогового magic state;
+- spell Improvise, отсутствие активного Casting, чужой actor и pending Miscast отклоняются;
+- ordered consumed-ID snapshot разрешает цепочку разных действий и отклоняет повторное потребление одного execution receipt;
+- skipped-Test result отклоняет подмену source kind/action ID/amount, итогового magic state и consumption chain;
 - следующий round получает новый participant snapshot, очищает completed/active turn state и сохраняет порядок сторон.
 
 Группы K1 Wound effects:
