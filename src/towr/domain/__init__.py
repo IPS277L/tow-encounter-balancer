@@ -218,6 +218,14 @@ from towr.domain.movement_models import (
     RunActionExecutionRequest,
     RunActionExecutionResult,
 )
+from towr.domain.move_quietly_models import (
+    MoveQuietlyActionExecutionRequest,
+    MoveQuietlyActionExecutionResult,
+    MoveQuietlyHiddenAttackOpportunity,
+    MoveQuietlyHidingChoice,
+    MoveQuietlyObserver,
+    MoveQuietlyOutcome,
+)
 from towr.domain.npc_effect_models import (
     DropHeldHandItemRequest,
     FoulStenchChoice,
@@ -477,6 +485,12 @@ __all__ = [
     "MoveCarefullyActionExecutionRequest",
     "MoveCarefullyActionExecutionResult",
     "MoveCarefullySearchChoice",
+    "MoveQuietlyActionExecutionRequest",
+    "MoveQuietlyActionExecutionResult",
+    "MoveQuietlyHiddenAttackOpportunity",
+    "MoveQuietlyHidingChoice",
+    "MoveQuietlyObserver",
+    "MoveQuietlyOutcome",
     "MovementSpeed",
     "MiscastPoolIncreaseRequest",
     "MiscastPoolIncreaseSourceKind",
