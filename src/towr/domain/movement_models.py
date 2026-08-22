@@ -48,6 +48,11 @@ class DifficultTerrainOutcome(str, Enum):
     CROSSED_AND_FELL_PRONE = "crossed_and_fell_prone"
 
 
+class MoveCarefullySearchChoice(str, Enum):
+    DECLINE = "decline"
+    SEARCH = "search"
+
+
 @dataclass(frozen=True, slots=True)
 class DifficultTerrainTraversalRequest:
     id: str
@@ -589,6 +594,267 @@ class DifficultTerrainFreeMovementResult:
                 "Difficult Terrain free movement trace is incomplete"
             )
         object.__setattr__(self, "applied_rule_ids", rule_ids)
+
+
+@dataclass(frozen=True, slots=True)
+class MoveCarefullyActionExecutionRequest:
+    id: str
+    free_movement: FreeMovementRequest
+    slot_index: int
+    search_choice: MoveCarefullySearchChoice
+    awareness_test: TestRequest | None
+    search_skill: Skill | None
+    round_state: CombatRoundState
+    spatial_state: SpatialBattleState
+    rule_id: str = "RULE-COMBAT-014:move-carefully-action-execution"
+
+    def __post_init__(self) -> None:
+        _validate_non_empty_string(self.id, "Move Carefully request id")
+        if not isinstance(self.free_movement, FreeMovementRequest):
+            raise TypeError("free_movement must be a FreeMovementRequest")
+        _validate_slot_index(self.slot_index)
+        if not isinstance(self.search_choice, MoveCarefullySearchChoice):
+            raise TypeError(
+                "search_choice must be a MoveCarefullySearchChoice"
+            )
+        if self.search_choice is MoveCarefullySearchChoice.DECLINE:
+            if self.awareness_test is not None or self.search_skill is not None:
+                raise ValueError(
+                    "declined Move Carefully search cannot include a Test"
+                )
+        else:
+            if not isinstance(self.awareness_test, TestRequest):
+                raise TypeError("search requires an awareness TestRequest")
+            if not isinstance(self.search_skill, Skill):
+                raise TypeError("search_skill must be a Skill")
+            if self.search_skill is not Skill.AWARENESS:
+                raise ValueError("Move Carefully search must use Awareness")
+        if not isinstance(self.round_state, CombatRoundState):
+            raise TypeError("round_state must be a CombatRoundState")
+        if not isinstance(self.spatial_state, SpatialBattleState):
+            raise TypeError("spatial_state must be a SpatialBattleState")
+        _validate_non_empty_string(self.rule_id, "rule_id")
+
+        movement = self.free_movement
+        if movement.rule_id != "RULE-COMBAT-014:free-movement":
+            raise ValueError("Move Carefully uses an unknown movement rule")
+        if not movement.crosses_difficult_terrain:
+            raise ValueError("Move Carefully requires Difficult Terrain")
+        if self.round_state != movement.round_state:
+            raise ValueError(
+                "current round state must contain the unexecuted action slot"
+            )
+        if self.spatial_state != movement.state:
+            raise ValueError(
+                "current spatial state must match the free-move route origin"
+            )
+
+
+@dataclass(frozen=True, slots=True)
+class MoveCarefullyActionExecutionResult:
+    request_id: str
+    rule_id: str
+    source_request: MoveCarefullyActionExecutionRequest
+    actor_id: str
+    slot_index: int
+    speed: MovementSpeed
+    origin_zone_id: str
+    traversed_zone_ids: tuple[str, ...]
+    previous_conditions: ConditionState
+    conditions: ConditionState
+    search_choice: MoveCarefullySearchChoice
+    search_skill: Skill | None
+    awareness_test_request: TestRequest | None
+    awareness_test_result: TestResult | None
+    previous_round_state: CombatRoundState
+    round_state: CombatRoundState
+    previous_spatial_state: SpatialBattleState
+    spatial_state: SpatialBattleState
+    slot: CombatActionSlot
+    applied_rule_ids: tuple[str, ...]
+
+    def __post_init__(self) -> None:
+        _validate_non_empty_string(
+            self.request_id,
+            "Move Carefully request_id",
+        )
+        _validate_non_empty_string(self.rule_id, "rule_id")
+        if not isinstance(
+            self.source_request,
+            MoveCarefullyActionExecutionRequest,
+        ):
+            raise TypeError(
+                "source_request must be a MoveCarefullyActionExecutionRequest"
+            )
+        _validate_non_empty_string(self.actor_id, "actor_id")
+        _validate_slot_index(self.slot_index)
+        if not isinstance(self.speed, MovementSpeed):
+            raise TypeError("speed must be a MovementSpeed")
+        if self.speed is MovementSpeed.SLOW:
+            raise ValueError("Slow creatures cannot Move Carefully")
+        _validate_non_empty_string(self.origin_zone_id, "origin_zone_id")
+        if not isinstance(self.previous_conditions, ConditionState):
+            raise TypeError("previous_conditions must be a ConditionState")
+        if not isinstance(self.conditions, ConditionState):
+            raise TypeError("conditions must be a ConditionState")
+        if not isinstance(self.search_choice, MoveCarefullySearchChoice):
+            raise TypeError(
+                "search_choice must be a MoveCarefullySearchChoice"
+            )
+        if not isinstance(self.previous_round_state, CombatRoundState):
+            raise TypeError("previous_round_state must be a CombatRoundState")
+        if not isinstance(self.round_state, CombatRoundState):
+            raise TypeError("round_state must be a CombatRoundState")
+        if not isinstance(self.previous_spatial_state, SpatialBattleState):
+            raise TypeError(
+                "previous_spatial_state must be a SpatialBattleState"
+            )
+        if not isinstance(self.spatial_state, SpatialBattleState):
+            raise TypeError("spatial_state must be a SpatialBattleState")
+        if not isinstance(self.slot, CombatActionSlot):
+            raise TypeError("slot must be a CombatActionSlot")
+
+        source = self.source_request
+        movement = source.free_movement
+        traversed_zone_ids = tuple(self.traversed_zone_ids)
+        if (
+            self.request_id != source.id
+            or self.rule_id != source.rule_id
+            or self.actor_id != movement.actor_id
+            or self.slot_index != source.slot_index
+            or self.speed is not movement.speed
+            or self.traversed_zone_ids != movement.traversed_zone_ids
+            or self.previous_conditions != movement.actor_conditions
+            or self.conditions != movement.actor_conditions
+            or self.search_choice is not source.search_choice
+            or self.search_skill is not source.search_skill
+            or self.awareness_test_request != source.awareness_test
+            or self.previous_round_state != source.round_state
+            or self.previous_spatial_state != source.spatial_state
+        ):
+            raise ValueError("Move Carefully result has stale provenance")
+        object.__setattr__(self, "traversed_zone_ids", traversed_zone_ids)
+        _validate_move_carefully_success_context(source)
+        actor = self.previous_spatial_state.placement_for(self.actor_id)
+        if actor.zone_id != self.origin_zone_id:
+            raise ValueError("previous state does not match movement origin")
+        self._validate_search_transition()
+        self._validate_spatial_transition()
+        self._validate_round_transition()
+
+        rule_ids = _validate_rule_ids(self.applied_rule_ids)
+        required_rule_ids = {self.rule_id, movement.rule_id}
+        if self.awareness_test_result is not None:
+            required_rule_ids.update(
+                self.awareness_test_result.trace.applied_rule_ids
+            )
+        if not required_rule_ids <= set(rule_ids):
+            raise ValueError("Move Carefully trace is incomplete")
+        object.__setattr__(self, "applied_rule_ids", rule_ids)
+
+    def _validate_search_transition(self) -> None:
+        if self.search_choice is MoveCarefullySearchChoice.DECLINE:
+            if (
+                self.search_skill is not None
+                or self.awareness_test_request is not None
+                or self.awareness_test_result is not None
+            ):
+                raise ValueError("declined search cannot contain a Test")
+            return
+        if self.search_skill is not Skill.AWARENESS:
+            raise ValueError("Move Carefully search must use Awareness")
+        if not isinstance(self.awareness_test_request, TestRequest):
+            raise TypeError("search requires an awareness TestRequest")
+        if not isinstance(self.awareness_test_result, TestResult):
+            raise TypeError("search requires an awareness TestResult")
+        if (
+            self.awareness_test_result.trace.request_id
+            != self.awareness_test_request.id
+        ):
+            raise ValueError("Awareness result belongs to another Test")
+
+    def _validate_spatial_transition(self) -> None:
+        destination_zone_id = self.traversed_zone_ids[-1]
+        expected_placements = tuple(
+            SpatialEntityPlacement(
+                entity_id=placement.entity_id,
+                side_id=placement.side_id,
+                zone_id=destination_zone_id,
+            )
+            if placement.entity_id == self.actor_id
+            else placement
+            for placement in self.previous_spatial_state.placements
+        )
+        expected_state = replace(
+            self.previous_spatial_state,
+            placements=expected_placements,
+            free_move_used_entity_ids=(
+                *self.previous_spatial_state.free_move_used_entity_ids,
+                self.actor_id,
+            ),
+        )
+        if self.spatial_state != expected_state:
+            raise ValueError("Move Carefully changed unrelated spatial state")
+
+    def _validate_round_transition(self) -> None:
+        previous_turn = self.previous_round_state.active_turn
+        current_turn = self.round_state.active_turn
+        if previous_turn is None or current_turn is None:
+            raise ValueError("Move Carefully requires an active turn")
+        if (
+            previous_turn.actor_id != self.actor_id
+            or current_turn.actor_id != self.actor_id
+        ):
+            raise ValueError("Move Carefully actor must own both turn states")
+        if self.slot_index > len(previous_turn.action_slots):
+            raise ValueError("previous state lacks the Move Carefully slot")
+        if any(
+            not item.executed
+            for item in previous_turn.action_slots[: self.slot_index - 1]
+        ):
+            raise ValueError("earlier action slots must be executed first")
+        previous_slot = previous_turn.action_slots[self.slot_index - 1]
+        if (
+            previous_slot.declaration.kind is not CombatActionKind.MANOEUVRE
+            or previous_slot.declaration.manoeuvre
+            is not ManoeuvreKind.MOVE_CAREFULLY
+        ):
+            raise ValueError("result requires a Move Carefully slot")
+        if previous_slot.executed:
+            raise ValueError("previous Move Carefully slot must be unexecuted")
+        if not self.slot.executed:
+            raise ValueError("result Move Carefully slot must be executed")
+        receipt = self.slot.execution
+        assert isinstance(receipt, ActionExecutionReceipt)
+        expected_result_id = (
+            self.awareness_test_result.trace.request_id
+            if self.awareness_test_result is not None
+            else self.request_id
+        )
+        if (
+            receipt.id != self.request_id
+            or receipt.executor_rule_id != self.rule_id
+            or receipt.source_request_id != self.request_id
+            or receipt.result_request_id != expected_result_id
+        ):
+            raise ValueError("Move Carefully receipt has stale provenance")
+        if self.slot != replace(previous_slot, execution=receipt):
+            raise ValueError("Move Carefully may only add its receipt")
+        expected_slots = tuple(
+            self.slot if item.index == self.slot_index else item
+            for item in previous_turn.action_slots
+        )
+        if current_turn != replace(previous_turn, action_slots=expected_slots):
+            raise ValueError("Move Carefully changed unrelated turn state")
+        if self.round_state != replace(
+            self.previous_round_state,
+            active_turn=current_turn,
+        ):
+            raise ValueError("Move Carefully changed unrelated round state")
+
+    @property
+    def destination_zone_id(self) -> str:
+        return self.traversed_zone_ids[-1]
 
 
 @dataclass(frozen=True, slots=True)
@@ -1328,6 +1594,38 @@ class RunAthleticsExtensionResult:
         ) <= set(rule_ids):
             raise ValueError("Staggered Rule ID is missing from trace")
         object.__setattr__(self, "applied_rule_ids", rule_ids)
+
+
+def _validate_move_carefully_success_context(
+    source: MoveCarefullyActionExecutionRequest,
+) -> None:
+    movement = source.free_movement
+    state = source.spatial_state
+    actor = state.placement_for(movement.actor_id)
+    if movement.speed is MovementSpeed.SLOW:
+        raise ValueError("Slow creatures cannot Move Carefully")
+    if movement.actor_conditions.has(Condition.BURDENED):
+        raise ValueError("Burdened creatures cannot use Manoeuvres")
+    if movement.actor_conditions.has(Condition.PRONE):
+        raise ValueError("Prone creatures cannot leave their Zone")
+    if movement.actor_conditions.has(Condition.DEFENCELESS):
+        raise ValueError("Defenceless creatures cannot move")
+    if movement.actor_id in state.free_move_used_entity_ids:
+        raise ValueError("the actor's free movement was already used")
+    if movement.crosses_obstacle:
+        raise ValueError("Move Carefully cannot cross a blocking obstacle")
+
+    previous_zone_id = actor.zone_id
+    for zone_id in movement.traversed_zone_ids:
+        if not state.graph.contains(zone_id):
+            raise ValueError("Move Carefully route references an unknown Zone")
+        if not state.graph.are_adjacent(previous_zone_id, zone_id):
+            raise ValueError("Move Carefully route must follow Zone links")
+        previous_zone_id = zone_id
+    for entity_id in movement.path_entity_ids:
+        crossed = state.placement_for(entity_id)
+        if crossed.side_id != actor.side_id:
+            raise ValueError("Move Carefully cannot pass through an enemy")
 
 
 def _validate_difficult_terrain_free_movement_pair(

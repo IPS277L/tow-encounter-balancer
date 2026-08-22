@@ -1,6 +1,6 @@
 # Текущий статус проекта
 
-Дата обновления: 2026-08-21.
+Дата обновления: 2026-08-22.
 
 ## Текущий этап
 
@@ -316,10 +316,15 @@ K1 — реализация книжного resolution kernel. Прототип
 - реализован `CastingAbandonmentRequest → CastingAbandonmentResult` как отдельное от action slot добровольное прекращение активной Casting-попытки;
 - при непустом Miscast Pool abandonment переиспользует общую preparation-фазу на всех сохранённых dice, очищает Casting snapshot и сохраняет optional spell → обязательный roll с книжным `+1d`;
 - при пустом пуле Lore/successes/latest roll очищаются без фиктивного Miscast roll; уже triggered `pool > Wizard Level`, spell без Miscast и несовместимые Lore/CV отклоняются.
+- реализован `MoveCarefullyActionExecutionRequest → MoveCarefullyActionExecutionResult`: зарезервированный `ManoeuvreKind.MOVE_CAREFULLY` атомарно исполняет обычный free-move route через Difficult Terrain без Athletics Test;
+- composite требует terrain-маршрут, active actor/round и точные current snapshots, расходует `free_move_used_entity_ids`, не меняет `difficult_terrain_tested_entity_ids` и завершает ровно один action slot;
+- optional search представлен явным `DECLINE`/`SEARCH`: отказ не требует RNG, а поиск принимает только `Skill.AWARENESS`, выполняет общий `TestRequest` и сохраняет полный `TestResult`;
+- Normal проходит одну Zone boundary, Fast — до двух; Slow/Burdened/Prone/Defenceless, obstacle, enemy path blocker, повторный free move, stale state и нарушение порядка slots закрываются до RNG;
+- зарезервированный Move Carefully теперь обязан исполниться до завершения хода.
 
 ## Проверено
 
-- 485 unit/integration тестов успешно проходят на Python 3.12, из них 465 относятся к K1;
+- 493 unit/integration теста успешно проходят на Python 3.12, из них 473 относятся к K1;
 - исходники и тесты успешно проходят `compileall`.
 
 ## Исходный материал
@@ -333,7 +338,7 @@ K1 — реализация книжного resolution kernel. Прототип
 ## Известные ограничения
 
 - старый P1 battle loop остаётся упрощённым прототипом; K1 уже следует книгам, но пока реализует только часть проиндексированных механик;
-- K1 проверяет round/side/turn и action budget; обычный Attack исполняется через kernel, spell Improvise — через Casting pipeline, Run — через две spatial-фазы, а Medium/Long Charge — через атомарные spatial/Test/attack composite; остальные action effects ещё не подключены и источник второго действия не расходуется;
+- K1 проверяет round/side/turn и action budget; обычный Attack исполняется через kernel, spell Improvise — через Casting pipeline, Run — через две spatial-фазы, Medium/Long Charge — через атомарные spatial/Test/attack composite, а Move Carefully — через free-move/search composite; остальные action effects ещё не подключены и источник второго действия не расходуется;
 - Attack execution возвращает новое injury state цели внутри `ResolutionResult`, но общего battle aggregate для автоматического переноса этого состояния по target ID пока нет;
 - Awareness/амбуш ещё не вычисляет opposition-first порядок: orchestration передаёт уже определённый `side_order`; обе ветви free move представлены, но остальные incidental actions и pass/skip ещё не подключены;
 - каталоги NPC Abilities, магии, религии и магических предметов завершены как нормативный индекс, но большинство записей ещё не связано с исполняемыми reducers и orchestration;
@@ -341,7 +346,7 @@ K1 — реализация книжного resolution kernel. Прототип
 - внешние последствия Wound для инвентаря и анатомии пока являются typed follow-up;
 - защита Endurance после заживления `Ruptured organs` ещё не подключена к физическому impact;
 - автоматическая замена неподходящей строки Wounds Table для не-физического Hazard требует отдельной GM/simulation policy;
-- общий Zone graph, Give Ground, unobstructed free movement, standalone Difficult Terrain executor и его free-move/base-Run/Medium-Charge consumers уже существуют; Move Carefully/Lore bypass, Fast route с несколькими terrain/non-terrain сегментами, spatial-поиск/стабильная сортировка secondary/Zone целей, path-context policy, движение внутри Zone, cover/line of sight и vertical/midair metadata ещё не имеют общего battle orchestration;
+- общий Zone graph, Give Ground, unobstructed free movement, standalone Difficult Terrain executor, его free-move/base-Run/Medium-Charge consumers и Move Carefully bypass уже существуют; Lore bypass, смешанный Fast route с terrain/non-terrain сегментами, интерпретация результата Awareness search, spatial-поиск/стабильная сортировка secondary/Zone целей, path-context policy, движение внутри Zone, cover/line of sight и vertical/midair metadata ещё не имеют общего battle orchestration;
 - для Monstrous Flight при полностью невозможном Give Ground книга не задаёт fallback; K1 требует внешнего ruling;
 - turn orchestration ещё должно привязать и сохранить `SuppressRegenerationNextTurnRequest` между Reaction и ближайшим end-turn окном той же сущности; end-turn reducer уже однократно погашает переданный запрос;
 - `DropHeldHandItemRequest` ещё некому применить без inventory state и policy выбора конкретного удерживаемого предмета;
@@ -372,18 +377,18 @@ K1 — реализация книжного resolution kernel. Прототип
 
 ## Следующий шаг
 
-Реализовать `ManoeuvreKind.MOVE_CAREFULLY` как отдельный composite bypass Difficult Terrain по странице 117. Контракт должен связать active reserved slot с одним terrain-aware free-move route, пересечь его без Athletics и без записи `difficult_terrain_tested_entity_ids`, но потратить обычный `free_move_used_entity_ids`. Нужна явная optional ветвь Awareness search: отказ не обращается к RNG, согласие принимает typed Awareness `TestRequest` и сохраняет полный результат; обе ветви завершают один Move Carefully slot. Slow/Burdened/Prone/Defenceless, enemy/obstacle path, подмена route/current state и повторное исполнение должны закрываться до RNG.
+Реализовать `ManoeuvreKind.MOVE_QUIETLY` по странице 117. Новый composite должен связать active reserved slot со Stealth/Awareness Opposed Test против заранее выбранного наиболее vigilant enemy и явным cover/concealment context. Failure завершает slot без скрытности и без free move; success при доступном укрытии применяет связанный free-move route и возвращает типизированный hidden/unopposed-next-attack follow-up. Нужно доказать выбор most vigilant enemy через стабильный eligible snapshot/rank и закрыть отсутствие cover, movement blockers, stale Test/route/current snapshots и повторное исполнение до RNG.
 
 ## Последняя проверка
 
-2026-08-21:
+2026-08-22:
 
 ```powershell
 $env:PYTHONPATH = "src"
 py -3.12 -m unittest discover -s tests -v
 ```
 
-Результат: `Ran 485 tests ... OK`; отдельный K1-набор: `Ran 465 tests ... OK`.
+Результат: `Ran 493 tests ... OK`; отдельный K1-набор: `Ran 473 tests ... OK`.
 
 ```powershell
 py -3.12 -m compileall -q src tests tools

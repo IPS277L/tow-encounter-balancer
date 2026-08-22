@@ -135,15 +135,19 @@ def end_combat_turn(request: CombatTurnEndRequest) -> CombatTurnEndResult:
             or (
                 slot.declaration.kind is CombatActionKind.MANOEUVRE
                 and slot.declaration.manoeuvre
-                in (ManoeuvreKind.RUN, ManoeuvreKind.CHARGE)
+                in (
+                    ManoeuvreKind.RUN,
+                    ManoeuvreKind.CHARGE,
+                    ManoeuvreKind.MOVE_CAREFULLY,
+                )
             )
         )
         and not slot.executed
         for slot in turn.action_slots
     ):
         raise ValueError(
-            "reserved Attack, Run, Charge, and spell Improvise actions "
-            "must execute first"
+            "reserved Attack, Run, Charge, Move Carefully, and spell "
+            "Improvise actions must execute first"
         )
 
     updated_state = replace(

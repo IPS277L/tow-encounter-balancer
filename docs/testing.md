@@ -179,6 +179,10 @@ py -3.12 -m unittest discover -s tests -v
 - terrain result сохраняет полный source request; free-move/Run/Medium-Charge composites требуют совпадения actor/round, origin state, Conditions, destination, path и obstacle, а подмена provenance закрывается до bookkeeping;
 - terrain-aware free move после success/failure добавляет только общий free-move usage; terrain-aware Run добавляет только receipt, обе ветви сохраняют crossed placement и полученный на провале Prone;
 - попытка применить traversal к уже обновлённому spatial/round snapshot отклоняется; Slow/Burdened и slot-order ограничения базового Run сохраняются после разделения фаз;
+- Move Carefully требует active reserved slot и terrain-aware `FreeMovementRequest`, переносит actor по Normal/Fast route, расходует free-move usage, сохраняет terrain/Give Ground usage и добавляет ровно один receipt;
+- explicit `DECLINE` не принимает Awareness Test и не расходует RNG; `SEARCH` требует `Skill.AWARENESS`, возвращает полный общий `TestResult` для success и failure и сохраняет его request ID в receipt;
+- Slow/Burdened/Prone/Defenceless, уже использованный free move, obstacle, enemy path blocker, неизвестный/несвязный маршрут, stale round/spatial/Test context и нарушение slot order закрываются до RNG; союзник на пути допустим;
+- незавершённый Move Carefully запрещает конец хода, повторное исполнение отклоняется, а result invariants защищают search choice/trace, movement, usage и receipt transitions;
 - общий Give Ground executor требует соседнюю Zone и при указанном attacker увеличивает graph-distance, запрещает повтор в round, Prone/Defenceless, enemy path blocker, obstacle и Difficult Terrain;
 - успешный Give Ground сохраняет порядок placements, меняет только mover Zone, записывает round usage и после движения накладывает Broken при наличии врага в destination, но не при одном союзнике;
 - переход к следующему spatial round очищает Give Ground и free-move usage; Cowardly completion принимает generic spatial result только для своего target/request, а batch требует одну ordered state chain из selected Zone до final spatial state;
