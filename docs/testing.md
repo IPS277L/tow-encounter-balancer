@@ -274,6 +274,12 @@ py -3.12 -m unittest discover -s tests -v
 - успешный Recover treatment применяется только к точному action/injury/Wound snapshot: Recall и auto-Lore отмечают одну Wound treated и потребляют application ID без второго receipt;
 - treatment удаляет лишь эффекты выбранной Wound со сроком `UNTIL_TREATED`, сохраняя permanent/другие wound-scoped effects и несвязанные Conditions;
 - Condition из снятого wound effect удаляется только по точному no-other-source snapshot; внешний либо известный effect другой Wound сохраняет Condition, а stale state, failed/non-treatment Recover, повтор и forged result отклоняются;
+- automatic end-battle treatment требует target-scoped completed-battle/catch-breath context, живую цель и trappings, но не action slot, Test или RNG;
+- end-battle reducer отмечает все untreated Wounds, сохраняет уже treated и все не-`UNTIL_TREATED` effects, применяет ту же Condition-source policy и однократно погашает context ID;
+- незавершённый бой, отсутствие передышки/инструментов/ран, dead либо другая цель, повторный context и forged batch result отклоняются;
+- `CATCH_YOUR_BREATH` принимает точный post-treatment snapshot, сверяет записи с Wounds Table и исцеляет все и только подходящие ещё активные Wounds без Test/RNG/receipt;
+- healed Wounds остаются в истории с прежними sequences, не считаются активными и не добавляют injury dice; новая Wound продолжает монотонную нумерацию;
+- healing снимает все non-permanent effects выбранной Wound, сохраняет `PERMANENT`, effects других ран и Conditions с известным либо explicit внешним источником; stale/repeated/forged и неполный набор отклоняются;
 - Defenceless, другой Improvise kind, attacking Skill Improvise, несовпавший approach и повторный slot закрываются до RNG;
 - Troll Vomit требует exact Ability Rule ID/approach и actor Ability snapshot, вражескую Staggered-цель на Close Range и явный Endurance Test, затем переиспользует общий Hazard/Wound pipeline;
 - Endurance success избегает Hazard, failure применяет Wound по shortfall, а actor Staggered сам по себе не запрещает Vomit; Defenceless, wrong ability/kind/target/range/skill, повторный или неупорядоченный slot закрываются до RNG;

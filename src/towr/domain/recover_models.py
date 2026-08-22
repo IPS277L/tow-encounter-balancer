@@ -8,6 +8,7 @@ from towr.domain.injury_models import (
     ActiveWoundEffect,
     CharacterInjuryState,
     WoundConditionEffect,
+    WoundConditionSourceSnapshot,
     WoundEffectDuration,
     WoundRestrictionEffect,
 )
@@ -25,6 +26,9 @@ RECOVER_ACTION_RULE_ID = "RULE-COMBAT-004:recover-action-execution"
 RECOVER_TREAT_WOUND_RULE_ID = "RULE-HEALTH-005:recover-treatment"
 RECOVER_TREAT_WOUND_APPLICATION_RULE_ID = (
     "RULE-HEALTH-005:treatment-application"
+)
+END_BATTLE_WOUND_TREATMENT_RULE_ID = (
+    "RULE-HEALTH-005:end-battle-treatment"
 )
 RECOVER_CONDITION_RULE_ID = "RULE-HEALTH-007:recover-condition-removal"
 
@@ -615,18 +619,7 @@ class RecoverActionExecutionResult:
             raise ValueError("Recover changed unrelated round state")
 
 
-@dataclass(frozen=True, slots=True)
-class RecoverWoundConditionSourceSnapshot:
-    condition: Condition
-    has_other_active_source: bool
-
-    def __post_init__(self) -> None:
-        if not isinstance(self.condition, Condition):
-            raise TypeError("condition must be a Condition")
-        _validate_bool(
-            self.has_other_active_source,
-            "has_other_active_source",
-        )
+RecoverWoundConditionSourceSnapshot = WoundConditionSourceSnapshot
 
 
 @dataclass(frozen=True, slots=True)
@@ -648,17 +641,6 @@ class RecoverWoundTreatmentResolutionRequest:
         _validate_non_empty_string(self.target_id, "treatment target_id")
         if not isinstance(self.injury_state, CharacterInjuryState):
             raise TypeError("injury_state must be a CharacterInjuryState")
-        snapshots = tuple(self.condition_source_snapshots)
-        if not all(
-            isinstance(item, RecoverWoundConditionSourceSnapshot)
-            for item in snapshots
-        ):
-            raise TypeError(
-                "condition_source_snapshots must contain source snapshots"
-            )
-        if len({item.condition for item in snapshots}) != len(snapshots):
-            raise ValueError("Condition source snapshots must be unique")
-        object.__setattr__(self, "condition_source_snapshots", snapshots)
         consumed = _validate_consumed_ids(self.consumed_application_ids)
         object.__setattr__(self, "consumed_application_ids", consumed)
         _validate_non_empty_string(self.rule_id, "treatment resolution rule_id")
@@ -679,39 +661,12 @@ class RecoverWoundTreatmentResolutionRequest:
             raise ValueError("treatment uses stale injury state")
         if treatment.id in consumed:
             raise ValueError("treatment application was already consumed")
-
-        removable = _removable_treatment_effects(
+        snapshots = _validate_treatment_condition_snapshots(
             self.injury_state,
-            treatment.wound_sequence,
+            (treatment.wound_sequence,),
+            self.condition_source_snapshots,
         )
-        affected_conditions = {
-            item.condition
-            for item in removable
-            if isinstance(item, WoundConditionEffect)
-            and self.injury_state.conditions.has(item.condition)
-        }
-        if {item.condition for item in snapshots} != affected_conditions:
-            raise ValueError(
-                "Condition source snapshots must match removable active Conditions"
-            )
-        remaining = tuple(
-            effect
-            for effect in self.injury_state.active_wound_effects
-            if effect not in removable
-        )
-        remaining_conditions = {
-            item.condition
-            for item in remaining
-            if isinstance(item, WoundConditionEffect)
-        }
-        if any(
-            not item.has_other_active_source
-            and item.condition in remaining_conditions
-            for item in snapshots
-        ):
-            raise ValueError(
-                "another active Wound effect is a known Condition source"
-            )
+        object.__setattr__(self, "condition_source_snapshots", snapshots)
 
 
 @dataclass(frozen=True, slots=True)
@@ -806,6 +761,190 @@ class RecoverWoundTreatmentResolutionResult:
         object.__setattr__(self, "applied_rule_ids", rule_ids)
 
 
+@dataclass(frozen=True, slots=True)
+class EndBattleTreatmentContext:
+    id: str
+    battle_id: str
+    target_id: str
+    battle_has_ended: bool
+    has_chance_to_catch_breath: bool
+    rule_id: str = END_BATTLE_WOUND_TREATMENT_RULE_ID
+
+    def __post_init__(self) -> None:
+        _validate_non_empty_string(self.id, "end-battle treatment context id")
+        _validate_non_empty_string(self.battle_id, "battle_id")
+        _validate_non_empty_string(self.target_id, "treatment target_id")
+        _validate_bool(self.battle_has_ended, "battle_has_ended")
+        _validate_bool(
+            self.has_chance_to_catch_breath,
+            "has_chance_to_catch_breath",
+        )
+        _validate_non_empty_string(self.rule_id, "end-battle context rule_id")
+
+
+@dataclass(frozen=True, slots=True)
+class EndBattleWoundTreatmentRequest:
+    id: str
+    context: EndBattleTreatmentContext
+    target_id: str
+    injury_state: CharacterInjuryState
+    has_required_trappings_for_all_wounds: bool
+    condition_source_snapshots: tuple[
+        RecoverWoundConditionSourceSnapshot, ...
+    ] = ()
+    consumed_context_ids: tuple[str, ...] = ()
+    rule_id: str = END_BATTLE_WOUND_TREATMENT_RULE_ID
+
+    def __post_init__(self) -> None:
+        _validate_non_empty_string(self.id, "end-battle treatment request id")
+        if not isinstance(self.context, EndBattleTreatmentContext):
+            raise TypeError("context must be an EndBattleTreatmentContext")
+        _validate_non_empty_string(self.target_id, "treatment target_id")
+        if not isinstance(self.injury_state, CharacterInjuryState):
+            raise TypeError("injury_state must be a CharacterInjuryState")
+        _validate_bool(
+            self.has_required_trappings_for_all_wounds,
+            "has_required_trappings_for_all_wounds",
+        )
+        consumed = _validate_consumed_ids(self.consumed_context_ids)
+        object.__setattr__(self, "consumed_context_ids", consumed)
+        _validate_non_empty_string(self.rule_id, "end-battle treatment rule_id")
+
+        if self.context.rule_id != END_BATTLE_WOUND_TREATMENT_RULE_ID:
+            raise ValueError("end-battle context uses an unknown source rule")
+        if self.target_id != self.context.target_id:
+            raise ValueError("injury state belongs to another treatment target")
+        if not self.context.battle_has_ended:
+            raise ValueError("automatic treatment requires a completed battle")
+        if not self.context.has_chance_to_catch_breath:
+            raise ValueError("automatic treatment requires time to catch breath")
+        if self.injury_state.dead:
+            raise ValueError("a dead character cannot treat Wounds")
+        if self.injury_state.untreated_wounds == 0:
+            raise ValueError("automatic treatment requires untreated Wounds")
+        if not self.has_required_trappings_for_all_wounds:
+            raise ValueError("automatic treatment requires suitable trappings")
+        if self.context.id in consumed:
+            raise ValueError("end-battle treatment context was already consumed")
+        sequences = tuple(
+            wound.sequence
+            for wound in self.injury_state.wounds
+            if not wound.treated
+        )
+        snapshots = _validate_treatment_condition_snapshots(
+            self.injury_state,
+            sequences,
+            self.condition_source_snapshots,
+        )
+        object.__setattr__(self, "condition_source_snapshots", snapshots)
+
+
+@dataclass(frozen=True, slots=True)
+class EndBattleWoundTreatmentResult:
+    request_id: str
+    rule_id: str
+    source_request: EndBattleWoundTreatmentRequest
+    target_id: str
+    treated_wound_sequences: tuple[int, ...]
+    previous_state: CharacterInjuryState
+    state: CharacterInjuryState
+    removed_effects: tuple[ActiveWoundEffect, ...]
+    removed_conditions: tuple[Condition, ...]
+    previous_consumed_context_ids: tuple[str, ...]
+    consumed_context_ids: tuple[str, ...]
+    applied_rule_ids: tuple[str, ...]
+
+    def __post_init__(self) -> None:
+        _validate_non_empty_string(
+            self.request_id,
+            "end-battle treatment result request_id",
+        )
+        _validate_non_empty_string(
+            self.rule_id,
+            "end-battle treatment result rule_id",
+        )
+        if not isinstance(self.source_request, EndBattleWoundTreatmentRequest):
+            raise TypeError(
+                "source_request must be an end-battle treatment request"
+            )
+        _validate_non_empty_string(self.target_id, "treatment target_id")
+        sequences = tuple(self.treated_wound_sequences)
+        if not sequences or any(
+            not isinstance(item, int)
+            or isinstance(item, bool)
+            or item < 1
+            for item in sequences
+        ):
+            raise ValueError("treated_wound_sequences must be positive integers")
+        if len(set(sequences)) != len(sequences):
+            raise ValueError("treated_wound_sequences must be unique")
+        object.__setattr__(self, "treated_wound_sequences", sequences)
+        if not isinstance(self.previous_state, CharacterInjuryState):
+            raise TypeError("previous_state must be a CharacterInjuryState")
+        if not isinstance(self.state, CharacterInjuryState):
+            raise TypeError("state must be a CharacterInjuryState")
+        removed_effects = tuple(self.removed_effects)
+        if not all(
+            isinstance(item, (WoundConditionEffect, WoundRestrictionEffect))
+            for item in removed_effects
+        ):
+            raise TypeError("removed_effects must contain active Wound effects")
+        object.__setattr__(self, "removed_effects", removed_effects)
+        removed_conditions = tuple(self.removed_conditions)
+        if not all(isinstance(item, Condition) for item in removed_conditions):
+            raise TypeError("removed_conditions must contain Conditions")
+        if len(set(removed_conditions)) != len(removed_conditions):
+            raise ValueError("removed_conditions must be unique")
+        object.__setattr__(self, "removed_conditions", removed_conditions)
+
+        source = self.source_request
+        expected_sequences = tuple(
+            wound.sequence
+            for wound in source.injury_state.wounds
+            if not wound.treated
+        )
+        if (
+            self.request_id != source.id
+            or self.rule_id != source.rule_id
+            or self.target_id != source.target_id
+            or sequences != expected_sequences
+            or self.previous_state != source.injury_state
+        ):
+            raise ValueError("end-battle treatment result has stale provenance")
+        expected_state, expected_effects, expected_conditions = (
+            _expected_end_battle_treatment_transition(source)
+        )
+        if (
+            self.state != expected_state
+            or removed_effects != expected_effects
+            or removed_conditions != expected_conditions
+        ):
+            raise ValueError(
+                "end-battle treatment changed unrelated injury state"
+            )
+        previous = _validate_consumed_ids(
+            self.previous_consumed_context_ids
+        )
+        if previous != source.consumed_context_ids:
+            raise ValueError("end-battle treatment has stale consumption")
+        consumed = _validate_consumed_ids(self.consumed_context_ids)
+        if consumed != (*previous, source.context.id):
+            raise ValueError(
+                "consumed context IDs must append the end-battle context"
+            )
+        object.__setattr__(self, "previous_consumed_context_ids", previous)
+        object.__setattr__(self, "consumed_context_ids", consumed)
+        rule_ids = _validate_rule_ids(self.applied_rule_ids)
+        required = {
+            self.rule_id,
+            source.context.rule_id,
+            RECOVER_TREAT_WOUND_RULE_ID,
+        }
+        if not required <= set(rule_ids):
+            raise ValueError("end-battle treatment trace is incomplete")
+        object.__setattr__(self, "applied_rule_ids", rule_ids)
+
+
 def _resolution_result_id(
     request: RecoverActionExecutionRequest,
     resolution: RecoverResolution,
@@ -820,31 +959,77 @@ def _resolution_result_id(
 
 def _removable_treatment_effects(
     state: CharacterInjuryState,
-    wound_sequence: int,
+    wound_sequences: tuple[int, ...],
 ) -> tuple[ActiveWoundEffect, ...]:
+    selected = set(wound_sequences)
     return tuple(
         effect
         for effect in state.active_wound_effects
-        if effect.wound_sequence == wound_sequence
+        if effect.wound_sequence in selected
         and effect.duration is WoundEffectDuration.UNTIL_TREATED
     )
 
 
-def _expected_wound_treatment_transition(
-    request: RecoverWoundTreatmentResolutionRequest,
+def _validate_treatment_condition_snapshots(
+    state: CharacterInjuryState,
+    wound_sequences: tuple[int, ...],
+    values: tuple[RecoverWoundConditionSourceSnapshot, ...],
+) -> tuple[RecoverWoundConditionSourceSnapshot, ...]:
+    snapshots = tuple(values)
+    if not all(
+        isinstance(item, RecoverWoundConditionSourceSnapshot)
+        for item in snapshots
+    ):
+        raise TypeError(
+            "condition_source_snapshots must contain source snapshots"
+        )
+    if len({item.condition for item in snapshots}) != len(snapshots):
+        raise ValueError("Condition source snapshots must be unique")
+    removable = _removable_treatment_effects(state, wound_sequences)
+    affected_conditions = {
+        item.condition
+        for item in removable
+        if isinstance(item, WoundConditionEffect)
+        and state.conditions.has(item.condition)
+    }
+    if {item.condition for item in snapshots} != affected_conditions:
+        raise ValueError(
+            "Condition source snapshots must match removable active Conditions"
+        )
+    remaining = tuple(
+        effect
+        for effect in state.active_wound_effects
+        if effect not in removable
+    )
+    remaining_conditions = {
+        item.condition
+        for item in remaining
+        if isinstance(item, WoundConditionEffect)
+    }
+    if any(
+        not item.has_other_active_source
+        and item.condition in remaining_conditions
+        for item in snapshots
+    ):
+        raise ValueError(
+            "another active Wound effect is a known Condition source"
+        )
+    return snapshots
+
+
+def _expected_treatment_transition(
+    state: CharacterInjuryState,
+    wound_sequences: tuple[int, ...],
+    snapshots: tuple[RecoverWoundConditionSourceSnapshot, ...],
 ) -> tuple[
     CharacterInjuryState,
     tuple[ActiveWoundEffect, ...],
     tuple[Condition, ...],
 ]:
-    treatment = request.recover.resolution.treatment
-    assert treatment is not None
-    removed_effects = _removable_treatment_effects(
-        request.injury_state,
-        treatment.wound_sequence,
-    )
+    selected = set(wound_sequences)
+    removed_effects = _removable_treatment_effects(state, wound_sequences)
     snapshot_by_condition = {
-        item.condition: item for item in request.condition_source_snapshots
+        item.condition: item for item in snapshots
     }
     removed_conditions: list[Condition] = []
     for effect in removed_effects:
@@ -857,28 +1042,66 @@ def _expected_wound_treatment_transition(
             and effect.condition not in removed_conditions
         ):
             removed_conditions.append(effect.condition)
-    conditions = request.injury_state.conditions
+    conditions = state.conditions
     for condition in removed_conditions:
         conditions = conditions.without_condition(condition)
-    state = replace(
-        request.injury_state,
-        wounds=tuple(
-            replace(wound, treated=True)
-            if wound.sequence == treatment.wound_sequence
-            else wound
-            for wound in request.injury_state.wounds
+    return (
+        replace(
+            state,
+            wounds=tuple(
+                replace(wound, treated=True)
+                if wound.sequence in selected
+                else wound
+                for wound in state.wounds
+            ),
+            conditions=conditions,
+            active_wound_effects=tuple(
+                effect
+                for effect in state.active_wound_effects
+                if not (
+                    effect.wound_sequence in selected
+                    and effect.duration is WoundEffectDuration.UNTIL_TREATED
+                )
+            ),
         ),
-        conditions=conditions,
-        active_wound_effects=tuple(
-            effect
-            for effect in request.injury_state.active_wound_effects
-            if not (
-                effect.wound_sequence == treatment.wound_sequence
-                and effect.duration is WoundEffectDuration.UNTIL_TREATED
-            )
-        ),
+        removed_effects,
+        tuple(removed_conditions),
     )
-    return state, removed_effects, tuple(removed_conditions)
+
+
+def _expected_wound_treatment_transition(
+    request: RecoverWoundTreatmentResolutionRequest,
+) -> tuple[
+    CharacterInjuryState,
+    tuple[ActiveWoundEffect, ...],
+    tuple[Condition, ...],
+]:
+    treatment = request.recover.resolution.treatment
+    assert treatment is not None
+    return _expected_treatment_transition(
+        request.injury_state,
+        (treatment.wound_sequence,),
+        request.condition_source_snapshots,
+    )
+
+
+def _expected_end_battle_treatment_transition(
+    request: EndBattleWoundTreatmentRequest,
+) -> tuple[
+    CharacterInjuryState,
+    tuple[ActiveWoundEffect, ...],
+    tuple[Condition, ...],
+]:
+    sequences = tuple(
+        wound.sequence
+        for wound in request.injury_state.wounds
+        if not wound.treated
+    )
+    return _expected_treatment_transition(
+        request.injury_state,
+        sequences,
+        request.condition_source_snapshots,
+    )
 
 
 def _expected_standard_changes(

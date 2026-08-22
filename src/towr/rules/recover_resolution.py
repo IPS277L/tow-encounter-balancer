@@ -4,8 +4,12 @@ from dataclasses import replace
 
 from towr.domain.condition_models import Condition
 from towr.domain.recover_models import (
+    END_BATTLE_WOUND_TREATMENT_RULE_ID,
     RECOVER_ACTION_RULE_ID,
     RECOVER_TREAT_WOUND_APPLICATION_RULE_ID,
+    RECOVER_TREAT_WOUND_RULE_ID,
+    EndBattleWoundTreatmentRequest,
+    EndBattleWoundTreatmentResult,
     RecoverActionExecutionRequest,
     RecoverActionExecutionResult,
     RecoverConditionRemovalChoice,
@@ -18,6 +22,7 @@ from towr.domain.recover_models import (
     RecoverWoundTreatmentApplicationRequest,
     RecoverWoundTreatmentResolutionRequest,
     RecoverWoundTreatmentResolutionResult,
+    _expected_end_battle_treatment_transition,
     _expected_wound_treatment_transition,
     _expected_standard_changes,
     _resolution_result_id,
@@ -125,6 +130,47 @@ def apply_recover_wound_treatment(
                     request.rule_id,
                     treatment.rule_id,
                     *request.recover.applied_rule_ids,
+                )
+            )
+        ),
+    )
+
+
+def apply_end_battle_wound_treatment(
+    request: EndBattleWoundTreatmentRequest,
+) -> EndBattleWoundTreatmentResult:
+    """Treat every untreated Wound in one confirmed end-battle window."""
+    if request.rule_id != END_BATTLE_WOUND_TREATMENT_RULE_ID:
+        raise ValueError("end-battle treatment uses an unknown source rule")
+    state, removed_effects, removed_conditions = (
+        _expected_end_battle_treatment_transition(request)
+    )
+    sequences = tuple(
+        wound.sequence
+        for wound in request.injury_state.wounds
+        if not wound.treated
+    )
+    return EndBattleWoundTreatmentResult(
+        request_id=request.id,
+        rule_id=request.rule_id,
+        source_request=request,
+        target_id=request.target_id,
+        treated_wound_sequences=sequences,
+        previous_state=request.injury_state,
+        state=state,
+        removed_effects=removed_effects,
+        removed_conditions=removed_conditions,
+        previous_consumed_context_ids=request.consumed_context_ids,
+        consumed_context_ids=(
+            *request.consumed_context_ids,
+            request.context.id,
+        ),
+        applied_rule_ids=tuple(
+            dict.fromkeys(
+                (
+                    request.rule_id,
+                    request.context.rule_id,
+                    RECOVER_TREAT_WOUND_RULE_ID,
                 )
             )
         ),

@@ -86,6 +86,7 @@ from towr.domain.injury_models import (
     FixedCharacterWoundRequest,
     FixedCharacterWoundResult,
     ProfileInjuryState,
+    WoundConditionSourceSnapshot,
     WoundRecordOrigin,
 )
 from towr.domain.magic_models import (
@@ -337,7 +338,11 @@ from towr.domain.resolution_models import (
 )
 from towr.domain.results import BattleOutcome, BattleResult
 from towr.domain.recover_models import (
+    END_BATTLE_WOUND_TREATMENT_RULE_ID,
     RECOVER_TREAT_WOUND_APPLICATION_RULE_ID,
+    EndBattleTreatmentContext,
+    EndBattleWoundTreatmentRequest,
+    EndBattleWoundTreatmentResult,
     RecoverActionExecutionRequest,
     RecoverActionExecutionResult,
     RecoverConditionChange,
@@ -355,6 +360,11 @@ from towr.domain.recover_models import (
     RecoverWoundTreatmentApplicationRequest,
     RecoverWoundTreatmentResolutionRequest,
     RecoverWoundTreatmentResolutionResult,
+)
+from towr.domain.wound_healing_models import (
+    CATCH_YOUR_BREATH_HEALING_RULE_ID,
+    CatchYourBreathHealingRequest,
+    CatchYourBreathHealingResult,
 )
 from towr.domain.soporific_breath_models import (
     SoporificBreathActionExecutionRequest,
@@ -431,6 +441,9 @@ __all__ = [
     "CastingActionPostTestResult",
     "CastingAttemptExecutionRequest",
     "CastingAttemptExecutionResult",
+    "CATCH_YOUR_BREATH_HEALING_RULE_ID",
+    "CatchYourBreathHealingRequest",
+    "CatchYourBreathHealingResult",
     "CastingDecisionRequest",
     "CastingDecisionResult",
     "CastingSpellSelection",
@@ -692,7 +705,11 @@ __all__ = [
     "ReactorZoneHazardTargetResult",
     "ProfileInjuryState",
     "RepeatedConditionReplacement",
+    "END_BATTLE_WOUND_TREATMENT_RULE_ID",
     "RECOVER_TREAT_WOUND_APPLICATION_RULE_ID",
+    "EndBattleTreatmentContext",
+    "EndBattleWoundTreatmentRequest",
+    "EndBattleWoundTreatmentResult",
     "RecoverActionExecutionRequest",
     "RecoverActionExecutionResult",
     "RecoverConditionChange",
@@ -765,6 +782,7 @@ __all__ = [
     "UnsteadyReactionSpec",
     "WizardMagicState",
     "WoundRecordOrigin",
+    "WoundConditionSourceSnapshot",
     "ZoneHazardRequest",
     "ZoneHazardPersistence",
     "ZoneHazardResolutionRequest",

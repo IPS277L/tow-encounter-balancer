@@ -354,6 +354,13 @@ K1 — реализация книжного resolution kernel. Прототип
 - реализован `RecoverWoundTreatmentResolutionRequest → RecoverWoundTreatmentResolutionResult`: application принимает точный успешный Recover result и тот же injury snapshot, отмечает только выбранную Wound как treated и снимает только её `UNTIL_TREATED` effects;
 - Condition из снятого wound effect удаляется лишь по explicit snapshot об отсутствии другого источника; внешний источник или известный оставшийся effect другой Wound сохраняет Condition;
 - treatment application ID добавляется ровно один раз в ordered consumed snapshot; stale injury state, failed/non-treatment Recover, повторное применение и forged transition отклоняются без второго action receipt;
+- реализован `EndBattleTreatmentContext` и `EndBattleWoundTreatmentRequest → EndBattleWoundTreatmentResult`: target-scoped context явно подтверждает окончание боя и возможность перевести дух, а request требует живую цель, untreated Wounds и подходящие trappings;
+- automatic end-battle reducer без action/Test/RNG отмечает treated все ещё untreated Wounds, снимает только их `UNTIL_TREATED` effects и переиспользует ту же Condition-source policy, сохраняя уже treated Wounds и остальные durations;
+- end-battle context ID однократно погашается во внешнем ordered snapshot; незавершённый бой, отсутствие передышки/инструментов/ран, dead/другая цель, повтор и forged result отклоняются до перехода;
+- `WoundRecord.healed` теперь явно отличает полное заживление от treatment; healed подразумевает treated/resolved, остаётся в историческом ordered журнале и допускает только permanent active effects;
+- `CatchYourBreathHealingRequest → CatchYourBreathHealingResult` потребляет точный `EndBattleWoundTreatmentResult`, сверяет `entry_id`/`table_total` с Wounds Table и одним переходом исцеляет все и только ещё активные Wounds категории `CATCH_YOUR_BREATH`;
+- healing удаляет все non-permanent effects выбранных ран, сохраняет `PERMANENT`, чужие effects и Conditions с известным либо explicit внешним источником; treatment result ID погашается один раз без action receipt, Test или RNG;
+- healed records не считаются `active_wounds`, не добавляют куб к будущему injury roll и не перенумеровываются; следующая Wound продолжает монотонный sequence;
 - Condition alternative выполняет ровно один релевантный Test, снимает одну не-Staggered/не-Prone Condition только при успехе и `underlying_cause_allows_removal=True`, а failure сохраняет исходный snapshot;
 - Defenceless и Broken в Zone с врагом закрывают Recover до RNG; все валидные ветви, включая failed Tests и пустой standard набор, завершают slot, а незавершённый Recover блокирует окончание хода.
 - реализован `SkillImproviseActionExecutionRequest → SkillImproviseActionExecutionResult`: зарезервированный `ImproviseKind.SKILL` связывает active actor/round, typed Skill/approach и один готовый basic либо opposed Test;
@@ -370,7 +377,7 @@ K1 — реализация книжного resolution kernel. Прототип
 
 ## Проверено
 
-- 597 unit/integration тестов успешно проходят на Python 3.12, из них 577 относятся к K1;
+- 613 unit/integration тестов успешно проходят на Python 3.12, из них 593 относятся к K1;
 - исходники и тесты успешно проходят `compileall`.
 
 ## Исходный материал
@@ -390,10 +397,10 @@ K1 — реализация книжного resolution kernel. Прототип
 - Awareness/амбуш ещё не вычисляет opposition-first порядок: orchestration передаёт уже определённый `side_order`; обе ветви free move представлены, но остальные incidental actions и pass/skip ещё не подключены;
 - Aim follow-up является чистой границей без mutable battle aggregate: orchestration ещё должно хранить snapshot, вызвать consume/drop ровно для следующего действия владельца и запретить повторное использование результата; Extreme Range требует отсутствующих range/GM policy и автоматически не разрешается;
 - Help bonus также не хранится в mutable battle aggregate: orchestration должно сопоставить его с объявленной upcoming Test, погасить один раз и не переносить на другой Test; книга не задаёт общего ограничения числа одновременно помогающих союзников, поэтому K1 не вводит искусственный лимит;
-- Recover treatment action и одноразовое применение выбранной Wound реализованы, но ordered consumed application IDs пока должен хранить внешний orchestration; mount/object follow-ups и automatic end-battle treatment всех Wounds ещё не применяются;
+- Recover treatment action, одноразовое применение выбранной Wound и automatic end-battle treatment всех Wounds реализованы, но application/context consumed IDs пока должен хранить внешний orchestration; partial trappings batch намеренно отклоняется до решения `AMBIGUITY-008`, mount/object follow-ups ещё не применяются;
 - `WizardMagicState` не содержит Wizard Level, поэтому непосредственный Recover reducer уменьшает переданный непросроченный Miscast snapshot; battle orchestration обязано сначала немедленно разрешить уже triggered Miscast Pool и не давать Recover отменить сработавший Miscast;
 - каталоги NPC Abilities, магии, религии и магических предметов завершены как нормативный индекс, но большинство записей ещё не связано с исполняемыми reducers и orchestration;
-- лечение Wound по времени, automatic end-battle treatment и снятие `UNTIL_HEALED` effects требуют будущих lifecycle/battle boundaries;
+- `CATCH_YOUR_BREATH` и снятие всех его non-permanent effects реализованы; общий end-encounter healing source для случая без нового treatment result, `A_NIGHTS_RESPITE`, `REST_AND_RECOVERY`, surgery и optional early Endurance Test требуют будущих lifecycle boundaries;
 - внешние последствия Wound для инвентаря и анатомии пока являются typed follow-up;
 - защита Endurance после заживления `Ruptured organs` ещё не подключена к физическому impact;
 - автоматическая замена неподходящей строки Wounds Table для не-физического Hazard требует отдельной GM/simulation policy;
@@ -428,7 +435,7 @@ K1 — реализация книжного resolution kernel. Прототип
 
 ## Следующий шаг
 
-Реализовать отдельную boundary автоматической обработки всех Wounds в конце боя (`RULE-HEALTH-005`, Player’s Guide 1.4, стр. 121). Контракт должен требовать явный подтверждённый end-of-battle/catch-your-breath context, актуальный `CharacterInjuryState` одной цели и Condition-source snapshots; отметить treated все ещё untreated Wounds, удалить все их `UNTIL_TREATED` effects и сохранить Conditions с другими источниками, permanent/`UNTIL_HEALED` effects и уже обработанные Wounds. Не переиспользовать action receipt или Recall/Lore Test и не выводить завершение боя скрыто из injury state.
+Ввести общий source-aware `HealingOpportunity`/end-encounter lifecycle source, чтобы `CATCH_YOUR_BREATH` мог исполняться и когда к этому окну все Wounds уже treated и новый `EndBattleWoundTreatmentResult` не создаётся. Затем добавить consumer `HealingRequirement.NIGHTS_REST` (`RULE-HEALTH-005`, Player’s Guide 1.4, стр. 121 и Wounds Table стр. 190–191) с явным завершённым rest context, сохранив общий переход healed/non-permanent effects/Condition sources и без выдуманного точного времени либо early Endurance policy.
 
 ## Последняя проверка
 
@@ -439,7 +446,7 @@ $env:PYTHONPATH = "src"
 py -3.12 -m unittest discover -s tests -v
 ```
 
-Результат: `Ran 597 tests ... OK`; отдельный K1-набор: `Ran 577 tests ... OK`; `compileall` и `git diff --check` успешно завершены (только предупреждения Git о LF/CRLF).
+Результат: `Ran 613 tests ... OK`; отдельный K1-набор: `Ran 593 tests ... OK`; `compileall`, проверка trailing whitespace новых файлов и `git diff --check` успешно завершены (только предупреждения Git о LF/CRLF).
 
 ```powershell
 py -3.12 -m compileall -q src tests tools

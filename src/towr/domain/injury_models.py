@@ -185,6 +185,7 @@ class WoundRecord:
     treated: bool = False
     effect_resolved: bool = False
     origin: WoundRecordOrigin = WoundRecordOrigin.TABLE_ROLL
+    healed: bool = False
 
     def __post_init__(self) -> None:
         _validate_positive_int(self.sequence, "wound sequence")
@@ -205,6 +206,25 @@ class WoundRecord:
         object.__setattr__(self, "roll_values", values)
         _validate_bool(self.treated, "treated")
         _validate_bool(self.effect_resolved, "effect_resolved")
+        _validate_bool(self.healed, "healed")
+        if self.healed and not self.treated:
+            raise ValueError("a healed Wound must already be treated")
+        if self.healed and not self.effect_resolved:
+            raise ValueError("a healed Wound must have resolved effects")
+
+
+@dataclass(frozen=True, slots=True)
+class WoundConditionSourceSnapshot:
+    condition: Condition
+    has_other_active_source: bool
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.condition, Condition):
+            raise TypeError("condition must be a Condition")
+        _validate_bool(
+            self.has_other_active_source,
+            "has_other_active_source",
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -267,12 +287,30 @@ class CharacterInjuryState:
         wound_sequences = {wound.sequence for wound in wounds}
         if any(item.wound_sequence not in wound_sequences for item in effects):
             raise ValueError("active Wound effects must refer to an existing Wound")
+        healed_sequences = {
+            wound.sequence for wound in wounds if wound.healed
+        }
+        if any(
+            item.wound_sequence in healed_sequences
+            and item.duration is not WoundEffectDuration.PERMANENT
+            for item in effects
+        ):
+            raise ValueError(
+                "a healed Wound may retain only permanent active effects"
+            )
         object.__setattr__(self, "active_wound_effects", effects)
         _validate_bool(self.dead, "dead")
 
     @property
     def untreated_wounds(self) -> int:
-        return sum(not wound.treated for wound in self.wounds)
+        return sum(
+            not wound.treated and not wound.healed
+            for wound in self.wounds
+        )
+
+    @property
+    def active_wounds(self) -> int:
+        return sum(not wound.healed for wound in self.wounds)
 
 
 @dataclass(frozen=True, slots=True)
