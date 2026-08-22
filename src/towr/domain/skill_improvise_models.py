@@ -4,8 +4,10 @@ from dataclasses import dataclass, replace
 
 from towr.domain.condition_models import (
     Condition,
+    ConditionApplicationResult,
     ConditionState,
     EffectClassification,
+    EffectImmunity,
 )
 from towr.domain.test_models import (
     OpposedSide,
@@ -258,6 +260,137 @@ class SkillImproviseActionExecutionResult:
             raise ValueError("Skill Improvise changed unrelated round state")
 
 
+@dataclass(frozen=True, slots=True)
+class SkillImproviseConditionResolutionRequest:
+    id: str
+    source: SkillImproviseActionExecutionResult
+    target_id: str
+    target_state: ConditionState
+    target_immunities: tuple[EffectImmunity, ...] = ()
+    consumed_application_ids: tuple[str, ...] = ()
+    rule_id: str = SKILL_IMPROVISE_CONDITION_RULE_ID
+
+    def __post_init__(self) -> None:
+        _validate_non_empty_string(self.id, "Condition resolution id")
+        if not isinstance(self.source, SkillImproviseActionExecutionResult):
+            raise TypeError(
+                "source must be a SkillImproviseActionExecutionResult"
+            )
+        application = self.source.condition_application
+        if application is None:
+            raise ValueError(
+                "Condition resolution requires a successful approved effect"
+            )
+        _validate_non_empty_string(self.target_id, "Condition target_id")
+        if self.target_id != application.target_id:
+            raise ValueError("Condition state belongs to another target")
+        if not isinstance(self.target_state, ConditionState):
+            raise TypeError("target_state must be a ConditionState")
+        immunities = _validate_immunities(self.target_immunities)
+        consumed = _validate_application_ids(
+            self.consumed_application_ids,
+        )
+        if application.id in consumed:
+            raise ValueError("Condition application was already consumed")
+        _validate_non_empty_string(self.rule_id, "Condition resolution rule_id")
+        object.__setattr__(self, "target_immunities", immunities)
+        object.__setattr__(self, "consumed_application_ids", consumed)
+
+
+@dataclass(frozen=True, slots=True)
+class SkillImproviseConditionResolutionResult:
+    request_id: str
+    rule_id: str
+    source_request: SkillImproviseConditionResolutionRequest
+    source_application: SkillImproviseConditionApplicationRequest
+    target_id: str
+    application: ConditionApplicationResult
+    previous_target_state: ConditionState
+    target_state: ConditionState
+    previous_consumed_application_ids: tuple[str, ...]
+    consumed_application_ids: tuple[str, ...]
+    applied_rule_ids: tuple[str, ...]
+
+    def __post_init__(self) -> None:
+        _validate_non_empty_string(
+            self.request_id,
+            "Condition resolution result request_id",
+        )
+        _validate_non_empty_string(
+            self.rule_id,
+            "Condition resolution result rule_id",
+        )
+        if not isinstance(
+            self.source_request,
+            SkillImproviseConditionResolutionRequest,
+        ):
+            raise TypeError(
+                "source_request must be a "
+                "SkillImproviseConditionResolutionRequest"
+            )
+        if not isinstance(
+            self.source_application,
+            SkillImproviseConditionApplicationRequest,
+        ):
+            raise TypeError(
+                "source_application must be a "
+                "SkillImproviseConditionApplicationRequest"
+            )
+        _validate_non_empty_string(self.target_id, "Condition result target_id")
+        if not isinstance(self.application, ConditionApplicationResult):
+            raise TypeError(
+                "application must be a ConditionApplicationResult"
+            )
+        if not isinstance(self.previous_target_state, ConditionState):
+            raise TypeError("previous_target_state must be a ConditionState")
+        if not isinstance(self.target_state, ConditionState):
+            raise TypeError("target_state must be a ConditionState")
+
+        request = self.source_request
+        expected_source = request.source.condition_application
+        if (
+            self.request_id != request.id
+            or self.rule_id != request.rule_id
+            or self.source_application != expected_source
+            or self.target_id != request.target_id
+            or self.previous_target_state != request.target_state
+        ):
+            raise ValueError("Condition resolution result has stale provenance")
+        assert expected_source is not None
+        _validate_condition_application_result(
+            source=expected_source,
+            previous_state=request.target_state,
+            immunities=request.target_immunities,
+            result=self.application,
+        )
+        if self.target_state != self.application.state:
+            raise ValueError("target_state must match the application result")
+
+        previous_consumed = _validate_application_ids(
+            self.previous_consumed_application_ids,
+        )
+        consumed = _validate_application_ids(
+            self.consumed_application_ids,
+        )
+        if previous_consumed != request.consumed_application_ids:
+            raise ValueError("previous consumed application IDs are stale")
+        if consumed != (*previous_consumed, expected_source.id):
+            raise ValueError(
+                "consumed application IDs must append the source application"
+            )
+        rule_ids = _validate_rule_ids(self.applied_rule_ids)
+        required = {self.rule_id, *self.application.applied_rule_ids}
+        if not required <= set(rule_ids):
+            raise ValueError("Condition resolution trace is incomplete")
+        object.__setattr__(
+            self,
+            "previous_consumed_application_ids",
+            previous_consumed,
+        )
+        object.__setattr__(self, "consumed_application_ids", consumed)
+        object.__setattr__(self, "applied_rule_ids", rule_ids)
+
+
 def _expected_condition_application(
     request: SkillImproviseActionExecutionRequest,
     result: SkillImproviseTestResult,
@@ -337,6 +470,75 @@ def _validate_rule_ids(values: tuple[str, ...]) -> tuple[str, ...]:
     if len(set(rule_ids)) != len(rule_ids):
         raise ValueError("applied_rule_ids must be unique")
     return rule_ids
+
+
+def _validate_immunities(
+    values: tuple[EffectImmunity, ...],
+) -> tuple[EffectImmunity, ...]:
+    immunities = tuple(values)
+    if not all(isinstance(item, EffectImmunity) for item in immunities):
+        raise TypeError("target_immunities must contain EffectImmunity values")
+    classifications = tuple(item.classification for item in immunities)
+    if len(set(classifications)) != len(classifications):
+        raise ValueError("effect immunity classifications must be unique")
+    return immunities
+
+
+def _validate_application_ids(values: tuple[str, ...]) -> tuple[str, ...]:
+    application_ids = tuple(values)
+    for application_id in application_ids:
+        _validate_non_empty_string(
+            application_id,
+            "consumed Condition application id",
+        )
+    if len(set(application_ids)) != len(application_ids):
+        raise ValueError("consumed Condition application IDs must be unique")
+    return application_ids
+
+
+def _validate_condition_application_result(
+    *,
+    source: SkillImproviseConditionApplicationRequest,
+    previous_state: ConditionState,
+    immunities: tuple[EffectImmunity, ...],
+    result: ConditionApplicationResult,
+) -> None:
+    blocking_immunity = next(
+        (
+            immunity
+            for immunity in immunities
+            if immunity.classification is source.classification
+        ),
+        None,
+    )
+    blocked = blocking_immunity is not None
+    expected_state = (
+        previous_state
+        if blocked
+        else previous_state.with_condition(source.condition)
+    )
+    expected_blocker = (
+        blocking_immunity.rule_id
+        if blocking_immunity is not None
+        else None
+    )
+    expected_rule_ids = (
+        (expected_blocker,)
+        if expected_blocker is not None
+        else (source.rule_id,)
+    )
+    if (
+        result.request_id != source.id
+        or result.state != expected_state
+        or result.condition is not source.condition
+        or result.was_already_present
+        is not previous_state.has(source.condition)
+        or result.blocked is not blocked
+        or result.source_rule_id != source.rule_id
+        or result.blocked_by_rule_id != expected_blocker
+        or result.applied_rule_ids != expected_rule_ids
+    ):
+        raise ValueError("Condition application result is inconsistent")
 
 
 def _validate_slot_index(value: int) -> None:

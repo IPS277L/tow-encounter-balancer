@@ -266,8 +266,12 @@ py -3.12 -m unittest discover -s tests -v
 - Skill Improvise исполняет один basic либо opposed Test и завершает slot при success/failure;
 - успешный Test создаёт только заранее одобренный GM Prone/Distracted application request; failure либо отсутствие effect spec не создают generic follow-up;
 - stable approach, actor/round/slot, Test IDs, target participant, GM approval ID и receipt provenance проверяются сквозным результатом;
+- отдельная Skill-Improvise application-фаза принимает актуальные Condition/immunity snapshots, применяет Prone/Distracted через общий reducer и сохраняет `blocked`/`was_already_present`;
+- application result меняет только target Condition state, проверяет action/Test/GM provenance и добавляет source application ID в ordered consumed snapshot; повторное потребление отклоняется;
 - Defenceless, другой Improvise kind, attacking Skill Improvise, несовпавший approach и повторный slot закрываются до RNG;
-- незавершённый Skill Improvise блокирует окончание хода, а Ability Improvise пока остаётся reservation-only границей;
+- Troll Vomit требует exact Ability Rule ID/approach и actor Ability snapshot, вражескую Staggered-цель на Close Range и явный Endurance Test, затем переиспользует общий Hazard/Wound pipeline;
+- Endurance success избегает Hazard, failure применяет Wound по shortfall, а actor Staggered сам по себе не запрещает Vomit; Defenceless, wrong ability/kind/target/range/skill, повторный или неупорядоченный slot закрываются до RNG;
+- результат Troll Vomit проверяет exposure/Test/Hazard/target/receipt provenance; любой незавершённый Skill/spell/Ability Improvise блокирует окончание хода;
 - action Miscast preparation принимает только triggered post-Test result с точным source roll, actor и magic state;
 - отказ от spell очищает Casting snapshot и оставляет один Miscast roll без bonus die;
 - допустимый pre-Miscast spell стоит перед roll, получает Potency последнего Casting Test и добавляет roll ровно `+1d`;

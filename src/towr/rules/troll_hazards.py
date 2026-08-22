@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from towr.domain.troll_vomit_models import TROLL_VOMIT_RULE_ID
 from towr.domain.resolution_models import (
     HazardExposureRequest,
     ZoneHazardRequest,
@@ -7,7 +8,6 @@ from towr.domain.resolution_models import (
 from towr.domain.test_models import Skill
 
 
-TROLL_VOMIT_RULE_ID = "RULE-NPC-019:troll-vomit"
 TROLL_HAG_SWAMP_BREATH_RULE_ID = "RULE-NPC-020:swamp-breath"
 
 

@@ -2,11 +2,14 @@ from __future__ import annotations
 
 from dataclasses import replace
 
-from towr.domain.condition_models import Condition
+from towr.domain.condition_models import Condition, ConditionApplicationRequest
 from towr.domain.skill_improvise_models import (
     SKILL_IMPROVISE_ACTION_RULE_ID,
+    SKILL_IMPROVISE_CONDITION_RULE_ID,
     SkillImproviseActionExecutionRequest,
     SkillImproviseActionExecutionResult,
+    SkillImproviseConditionResolutionRequest,
+    SkillImproviseConditionResolutionResult,
     _expected_condition_application,
     _test_result_id,
     _test_rule_ids,
@@ -17,6 +20,7 @@ from towr.domain.turn_models import (
     CombatActionKind,
     ImproviseKind,
 )
+from towr.rules.condition_effect_resolution import resolve_condition_application
 from towr.rules.dice import RandomSource
 from towr.rules.opposed_test import resolve_opposed_test
 from towr.rules.test_resolution import TestDecisionProvider, resolve_test
@@ -105,5 +109,50 @@ def execute_skill_improvise_action(
         slot=executed_slot,
         applied_rule_ids=tuple(
             dict.fromkeys((request.rule_id, *_test_rule_ids(test_result)))
+        ),
+    )
+
+
+def resolve_skill_improvise_condition(
+    request: SkillImproviseConditionResolutionRequest,
+) -> SkillImproviseConditionResolutionResult:
+    """Apply one successful approved Skill Improvise Condition effect."""
+    if request.rule_id != SKILL_IMPROVISE_CONDITION_RULE_ID:
+        raise ValueError("Condition resolution uses an unknown source rule")
+    source = request.source.condition_application
+    assert source is not None
+    if source.rule_id != request.rule_id:
+        raise ValueError("Condition application uses an unknown source rule")
+
+    application = resolve_condition_application(
+        ConditionApplicationRequest(
+            id=source.id,
+            state=request.target_state,
+            condition=source.condition,
+            source_rule_id=source.rule_id,
+            classification=source.classification,
+            immunities=request.target_immunities,
+        )
+    )
+    return SkillImproviseConditionResolutionResult(
+        request_id=request.id,
+        rule_id=request.rule_id,
+        source_request=request,
+        source_application=source,
+        target_id=request.target_id,
+        application=application,
+        previous_target_state=request.target_state,
+        target_state=application.state,
+        previous_consumed_application_ids=(
+            request.consumed_application_ids
+        ),
+        consumed_application_ids=(
+            *request.consumed_application_ids,
+            source.id,
+        ),
+        applied_rule_ids=tuple(
+            dict.fromkeys(
+                (request.rule_id, *application.applied_rule_ids)
+            )
         ),
     )

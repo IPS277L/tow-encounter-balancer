@@ -136,7 +136,7 @@ K1 — реализация книжного resolution kernel. Прототип
 - нормализованы `RULE-NPC-019` Troll Vomit и `RULE-NPC-020` Troll Hag Swamp Breath со страниц 182–183 GM Guide;
 - Vomit создаёт одиночную Endurance-exposure Hazard (3), а Swamp Breath — тот же Hazard (3) для уже выбранной Zone;
 - оба источника используют общую Wound по shortfall без дополнительных Conditions и отдельной injury-логики;
-- требования Staggered цели/действующей, Close/Medium Range, расход действия и spatial selection явно оставлены action orchestration.
+- Troll Vomit подключён к action orchestration; для Swamp Breath требования отсутствия Staggered у действующей, Medium Range, расход действия и spatial selection ещё остаются внешними.
 - нормализован `RULE-NPC-021` Troll Stupidity со страницы 182 GM Guide и общего Distracted со страницы 123 Player’s Guide;
 - отдельный `TrollStupidityState` хранит source Rule ID и подавление до конца текущего боя;
 - начало боя применяет Distracted через общий Condition reducer, а активная Ability выдаёт –1d на любой Test Troll;
@@ -350,10 +350,16 @@ K1 — реализация книжного resolution kernel. Прототип
 - optional `SkillImproviseConditionEffect` означает явное внешнее GM approval со stable ID; только успех создаёт source-aware `SkillImproviseConditionApplicationRequest`, а отсутствие поддержанного effect не порождает универсальный narrative payload;
 - первая закрытая effect-схема поддерживает только книжные примеры Prone и Distracted; другие Conditions требуют специализированного resolver, а attacking Skill Improvise отклоняется до RNG и остаётся будущему kernel composite;
 - Defenceless, другой Improvise kind, несовпавший approach, чужой actor, незарезервированный/повторный slot и нарушение порядка закрываются до RNG; незавершённый Skill Improvise блокирует окончание хода.
+- реализована отдельная `SkillImproviseConditionResolutionRequest → SkillImproviseConditionResolutionResult` application-фаза: она принимает завершённый action result, актуальные `ConditionState` и immunity snapshot выбранной цели, проверяет сквозную action/Test/target/GM-approval provenance и переиспользует общий `resolve_condition_application`;
+- application result сохраняет `blocked` и `was_already_present`, меняет только Condition state цели и добавляет source application ID в ordered consumed snapshot; повторное потребление того же ID отклоняется до reducer.
+- реализован первый конкретный Ability Improvise `TrollVomitActionExecutionRequest → TrollVomitActionExecutionResult`: actor Ability snapshot и stable approach ID обязаны содержать `RULE-NPC-019:troll-vomit`, а action slot — принадлежать активному actor;
+- preflight до RNG требует не-Defenceless actor, одну вражескую Staggered-цель на Close Range и явный Endurance Test в полном `IdentifiedHazardTarget` snapshot; собственный Staggered Troll не блокируется, поскольку такого ограничения в Vomit нет;
+- executor атомарно переиспользует source-level Hazard preflight, общий Test, Hazard (3) и Wound pipeline, возвращает target injury state вне round state и только после полного результата добавляет один provenance-safe receipt;
+- wrong ability/kind/approach, пометка Attack, неправильная цель/дальность/Condition/Skill, незарезервированный либо повторный slot и нарушение порядка закрываются до RNG; любой незавершённый Ability Improvise теперь блокирует окончание хода.
 
 ## Проверено
 
-- 554 unit/integration теста успешно проходят на Python 3.12, из них 534 относятся к K1;
+- 564 unit/integration теста успешно проходят на Python 3.12, из них 544 относятся к K1;
 - исходники и тесты успешно проходят `compileall`.
 
 ## Исходный материал
@@ -367,8 +373,8 @@ K1 — реализация книжного resolution kernel. Прототип
 ## Известные ограничения
 
 - старый P1 battle loop остаётся упрощённым прототипом; K1 уже следует книгам, но пока реализует только часть проиндексированных механик;
-- K1 проверяет round/side/turn и action budget; Aim исполняет Awareness и создаёт next-action follow-up, Help исполняет собственный Test и создаёт bonus для связанного allied Test, Recover соединяет Condition/magic transitions и external applications, обычный Attack исполняется через kernel, spell Improvise — через Casting pipeline, Skill Improvise — через basic/opposed Test и optional Condition application, Run — через две spatial-фазы, Medium/Long Charge — через атомарные spatial/Test/attack composite, Move Carefully — через free-move/search composite, а Move Quietly — через opposed-Test/conditional-hiding composite; Ability и attacking Skill Improvise ещё не подключены, источник второго действия не расходуется;
-- Skill Improvise пока только создаёт application request для одобренных GM Prone/Distracted: актуальный target `ConditionState`, immunity snapshot и однократное применение остаются следующей отдельной фазой; disarm, превращение врага в союзника и другие creative outcomes требуют собственных typed effects;
+- K1 проверяет round/side/turn и action budget; Aim исполняет Awareness и создаёт next-action follow-up, Help исполняет собственный Test и создаёт bonus для связанного allied Test, Recover соединяет Condition/magic transitions и external applications, обычный Attack исполняется через kernel, spell Improvise — через Casting pipeline, Skill Improvise — через basic/opposed Test и отдельное применение Prone/Distracted, Troll Vomit — через первый конкретный Ability/Hazard composite, Run — через две spatial-фазы, Medium/Long Charge — через атомарные spatial/Test/attack composite, Move Carefully — через free-move/search composite, а Move Quietly — через opposed-Test/conditional-hiding composite; остальные Ability и attacking Skill Improvise ещё не подключены, источник второго действия не расходуется;
+- Skill-Improvise consumed application IDs пока не принадлежат battle aggregate: orchestration обязано передавать актуальный ordered snapshot между вызовами; disarm, превращение врага в союзника и другие creative outcomes требуют собственных typed effects;
 - Attack execution возвращает новое injury state цели внутри `ResolutionResult`, но общего battle aggregate для автоматического переноса этого состояния по target ID пока нет;
 - Awareness/амбуш ещё не вычисляет opposition-first порядок: orchestration передаёт уже определённый `side_order`; обе ветви free move представлены, но остальные incidental actions и pass/skip ещё не подключены;
 - Aim follow-up является чистой границей без mutable battle aggregate: orchestration ещё должно хранить snapshot, вызвать consume/drop ровно для следующего действия владельца и запретить повторное использование результата; Extreme Range требует отсутствующих range/GM policy и автоматически не разрешается;
@@ -384,7 +390,7 @@ K1 — реализация книжного resolution kernel. Прототип
 - для Monstrous Flight при полностью невозможном Give Ground книга не задаёт fallback; K1 требует внешнего ruling;
 - turn orchestration ещё должно привязать и сохранить `SuppressRegenerationNextTurnRequest` между Reaction и ближайшим end-turn окном той же сущности; end-turn reducer уже однократно погашает переданный запрос;
 - `DropHeldHandItemRequest` ещё некому применить без inventory state и policy выбора конкретного удерживаемого предмета;
-- K1-фабрики Soporific Breath, Troll Vomit и Swamp Breath не расходуют действие, не проверяют Staggered/дальность и не выбирают цель или Zone без battle orchestration;
+- Troll Vomit уже расходует Ability Improvise slot и проверяет actor/target/Close Range snapshots, но target selection и перенос его injury state всё ещё принадлежат future battle aggregate; фабрики Soporific Breath и Swamp Breath пока не расходуют действие, не проверяют Staggered/Medium Range и не выбирают Zone без battle orchestration;
 - battle loop ещё должен вызывать Stupidity entry points после каждой принятой Wound/снятия Distracted и создавать свежее Ability-state в начале следующего боя;
 - общий `ConditionState` пока не хранит источник или объект Distracted; Stupidity компенсирует это собственным source-aware состоянием, но полная replacement-семантика требует будущего решения;
 - casting pipeline уже накапливает successes, привязывает их к Lore, применяет post-Test Miscast threshold, разрешает normal CAST/WAIT, triggered preparation и добровольное прекращение, а затем имеет schema/Range preflight, target-scoped Potency и конкретный эффект `Curse of Cowardly Flight` через явные фазовые границы; любой завершённый non-Casting action активного caster применяет skipped-Test die отдельной фазой, а чистая consumed-ID chain запрещает повтор одного receipt при корректной передаче snapshot; future battle aggregate ещё должен владеть этим snapshot на протяжении попытки, соединить NPC opposition, spatial target discovery и применение результатов с общим battle state;
@@ -411,7 +417,7 @@ K1 — реализация книжного resolution kernel. Прототип
 
 ## Следующий шаг
 
-Подключить application-фазу успешного Skill Improvise: `SkillImproviseConditionApplicationRequest` должен принимать актуальные `ConditionState` и immunity snapshot выбранной цели, точно проверять action/Test/GM-approval provenance и переиспользовать общий `resolve_condition_application`. Результат должен сохранять blocked/already-present outcome, менять только target Condition state и запрещать повторное потребление одного application request через явный consumed-ID snapshot до появления battle aggregate. Prone/Distracted остаются единственными допустимыми прямыми эффектами; Staggered и attacking Improvise не должны обходить специальные pipelines.
+Подключить второй конкретный Ability Improvise — Troll Hag Swamp Breath (`RULE-NPC-020`, Gamemaster’s Guide 1.1, стр. 183) — отдельным Zone action composite над существующими `troll_hag_swamp_breath_hazard` и `resolve_zone_hazard`. Request должен связать точный Ability Rule ID/approach и actor Ability snapshot, активную не-Defenceless и не-Staggered Troll Hag, выбранную Zone на Medium Range, актуальный `SpatialBattleState` и полный стабильный `IdentifiedHazardTarget` snapshot всех существ этой Zone. Executor обязан доказать точное совпадение target IDs с placement order, независимо разрешить Endurance Hazard (3) каждой цели на одном RNG и добавить receipt только после всего batch. Не считать breath Attack, не ограничивать цели врагами и не обобщать контракт на Soporific Breath с его Drained/Defenceless replacement.
 
 ## Последняя проверка
 
@@ -422,7 +428,7 @@ $env:PYTHONPATH = "src"
 py -3.12 -m unittest discover -s tests -v
 ```
 
-Результат: `Ran 554 tests ... OK`; отдельный K1-набор: `Ran 534 tests ... OK`.
+Результат: `Ran 564 tests ... OK`; отдельный K1-набор: `Ran 544 tests ... OK`; `compileall` и `git diff --check` успешно завершены (только предупреждения Git о LF/CRLF).
 
 ```powershell
 py -3.12 -m compileall -q src tests tools

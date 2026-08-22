@@ -117,7 +117,7 @@ Forest Dragon без Staggered может действием выдохнуть 
 
 Обычный Troll может действием атаковать уже Staggered врага в Close Range потоком едкой рвоты. Цель делает Endurance Test против Hazard (3). Источник: GM Guide, страница 182.
 
-`troll_vomit_hazard` создаёт одиночную `HazardExposureRequest` без дополнительного Condition. При недостатке успехов общий Hazard resolver наносит Wound по shortfall; при трёх и более успехах цель полностью избегает эффекта. Action orchestration до создания exposure обязан проверить, что цель является врагом, находится в Close Range и уже имеет Staggered.
+`troll_vomit_hazard` создаёт одиночную `HazardExposureRequest` без дополнительного Condition. При недостатке успехов общий Hazard resolver наносит Wound по shortfall; при трёх и более успехах цель полностью избегает эффекта. `TrollVomitActionExecutionRequest` связывает эту экспозицию с зарезервированным Ability Improvise slot: требует Rule ID способности в actor snapshot и approach ID, активного не-Defenceless Troll, явный Endurance Test и вражескую Staggered-цель на Close Range. Executor проходит общие Test → Hazard → Wound reducers и добавляет receipt только после полного результата; Troll может использовать Vomit, даже если сам Staggered, поскольку книга запрещает это только Swamp Breath Troll Hag.
 
 ## RULE-NPC-020 — Troll Hag Swamp Breath
 
@@ -175,7 +175,7 @@ Troll Hag является Level 2 Wizard. Пока у неё 0 Wounds, она �
 - психологическая иммунность undead-профилей блокирует явно классифицированные replacement/on-hit/outcome/after-Give-Ground Conditions, Hazards и оба последствия `Curse of Cowardly Flight`;
 - Foul Stench после уже определённого входа в Zone сохраняет выбор цели между typed inventory follow-up и Distracted;
 - Soporific Breath использует общий executor выбранной Zone и явную замену повторного Drained на Defenceless после Wound-фазы;
-- Troll Vomit и Troll Hag Swamp Breath переиспользуют одиночный и Zone Hazard (3) без отдельной injury-логики;
+- Troll Vomit исполняется как Ability Improvise action composite поверх одиночного Hazard (3), а Troll Hag Swamp Breath пока переиспользует только Zone Hazard (3) без action boundary;
 - Troll Stupidity хранит battle-scoped suppression отдельно от Condition, выдаёт –1d на все Tests и принимает явные результаты Wound/Leadership/другого снятия;
 - Stone Troll имеет нормализованный Resilience 6 и target-scoped –1 Potency preflight с полной блокировкой эффекта при нуле;
 - обычная Troll Regeneration проверяет Staggered/наличие неогненной Wound, требует решения Actor и возвращает Staggered плюс профильное лечение;

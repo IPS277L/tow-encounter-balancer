@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import unittest
+from dataclasses import replace
 
 from towr.domain.turn_models import (
+    ActionExecutionReceipt,
     ActionSlotGrant,
     CombatActionDeclaration,
     CombatActionKind,
@@ -98,6 +100,26 @@ def complete_with_ability_improvise(
         ),
         actor_id=actor_id,
     ).state
+    turn = state.active_turn
+    assert turn is not None
+    slot = turn.action_slots[0]
+    executed_slot = replace(
+        slot,
+        execution=ActionExecutionReceipt(
+            id=f"execute:{actor_id}",
+            executor_rule_id="RULE-TEST:round-progression-placeholder",
+            source_request_id=f"execute:{actor_id}",
+            result_request_id=f"execute:{actor_id}:result",
+            actor_id=actor_id,
+            round_number=state.round_number,
+            slot_index=1,
+            declaration=slot.declaration,
+        ),
+    )
+    state = replace(
+        state,
+        active_turn=replace(turn, action_slots=(executed_slot,)),
+    )
     return end_combat_turn(
         CombatTurnEndRequest(
             id=f"end:{actor_id}",

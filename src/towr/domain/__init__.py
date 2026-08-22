@@ -69,6 +69,8 @@ from towr.domain.skill_improvise_models import (
     SkillImproviseApproach,
     SkillImproviseConditionApplicationRequest,
     SkillImproviseConditionEffect,
+    SkillImproviseConditionResolutionRequest,
+    SkillImproviseConditionResolutionResult,
 )
 from towr.domain.encounters import EncounterDefinition
 from towr.domain.injury_models import (
@@ -358,6 +360,10 @@ from towr.domain.test_models import (
     TestProfile,
     TestRequest,
 )
+from towr.domain.troll_vomit_models import (
+    TrollVomitActionExecutionRequest,
+    TrollVomitActionExecutionResult,
+)
 from towr.domain.turn_models import (
     ActionExecutionReceipt,
     ActionSlotGrant,
@@ -494,6 +500,8 @@ __all__ = [
     "TrollRegenerationOutcome",
     "TrollRegenerationRequest",
     "TrollRegenerationResult",
+    "TrollVomitActionExecutionRequest",
+    "TrollVomitActionExecutionResult",
     "GiveGroundRequest",
     "GiveGroundDestinationPreference",
     "GiveGroundResolutionRequest",
@@ -692,6 +700,8 @@ __all__ = [
     "SkillImproviseApproach",
     "SkillImproviseConditionApplicationRequest",
     "SkillImproviseConditionEffect",
+    "SkillImproviseConditionResolutionRequest",
+    "SkillImproviseConditionResolutionResult",
     "SkippedCastingTestAfterActionRequest",
     "SkippedCastingTestAfterActionResult",
     "SpellPotencyModifier",

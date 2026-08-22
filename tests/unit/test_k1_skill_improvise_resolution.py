@@ -8,12 +8,14 @@ from towr.domain.condition_models import (
     Condition,
     ConditionState,
     EffectClassification,
+    EffectImmunity,
 )
 from towr.domain.skill_improvise_models import (
     SKILL_IMPROVISE_CONDITION_RULE_ID,
     SkillImproviseActionExecutionRequest,
     SkillImproviseApproach,
     SkillImproviseConditionEffect,
+    SkillImproviseConditionResolutionRequest,
 )
 from towr.domain.test_models import (
     OpposedSide,
@@ -37,6 +39,7 @@ from towr.domain.turn_models import (
 )
 from towr.rules.skill_improvise_resolution import (
     execute_skill_improvise_action,
+    resolve_skill_improvise_condition,
 )
 from towr.rules.turn_resolution import (
     end_combat_turn,
@@ -325,6 +328,170 @@ class K1SkillImproviseResolutionTests(unittest.TestCase):
             replace(result, round_state=result.previous_round_state)
         with self.assertRaises(ValueError):
             replace(result, applied_rule_ids=("RULE-COMBAT-004:forged",))
+
+    def test_successful_condition_application_changes_only_target_state(self) -> None:
+        action = execute_skill_improvise_action(
+            request(effect=prone_effect()),
+            SequenceRandom([1, 10]),
+        )
+        source = SkillImproviseConditionResolutionRequest(
+            id="improvise:resolve-condition",
+            source=action,
+            target_id="enemy",
+            target_state=ConditionState(
+                frozenset({Condition.DISTRACTED})
+            ),
+        )
+
+        result = resolve_skill_improvise_condition(source)
+
+        application = action.condition_application
+        assert application is not None
+        self.assertEqual(
+            result.previous_target_state,
+            ConditionState(frozenset({Condition.DISTRACTED})),
+        )
+        self.assertEqual(
+            result.target_state,
+            ConditionState(
+                frozenset({Condition.DISTRACTED, Condition.PRONE})
+            ),
+        )
+        self.assertFalse(result.application.was_already_present)
+        self.assertFalse(result.application.blocked)
+        self.assertEqual(result.consumed_application_ids, (application.id,))
+        self.assertEqual(
+            action.round_state,
+            result.source_request.source.round_state,
+        )
+
+    def test_already_present_and_immunity_outcomes_are_preserved(self) -> None:
+        prone_action = execute_skill_improvise_action(
+            request(effect=prone_effect()),
+            SequenceRandom([1, 10]),
+        )
+        already_present = resolve_skill_improvise_condition(
+            SkillImproviseConditionResolutionRequest(
+                id="improvise:already-prone",
+                source=prone_action,
+                target_id="enemy",
+                target_state=ConditionState(frozenset({Condition.PRONE})),
+            )
+        )
+        self.assertTrue(already_present.application.was_already_present)
+        self.assertEqual(
+            already_present.target_state,
+            ConditionState(frozenset({Condition.PRONE})),
+        )
+
+        distracted_action = execute_skill_improvise_action(
+            request(
+                test=opposed_test(),
+                effect=SkillImproviseConditionEffect(
+                    target_id="enemy",
+                    condition=Condition.DISTRACTED,
+                    gm_approval_id="gm:admonish-approved",
+                    classification=EffectClassification.PSYCHOLOGICAL,
+                ),
+                approach=SkillImproviseApproach(
+                    "knock-down",
+                    Skill.LEADERSHIP,
+                ),
+            ),
+            SequenceRandom([1, 10, 10, 10]),
+        )
+        blocked = resolve_skill_improvise_condition(
+            SkillImproviseConditionResolutionRequest(
+                id="improvise:immune-to-fear",
+                source=distracted_action,
+                target_id="enemy",
+                target_state=ConditionState(),
+                target_immunities=(
+                    EffectImmunity(
+                        EffectClassification.PSYCHOLOGICAL,
+                        "RULE-ABILITY-IMMUNE-TO-PSYCHOLOGY",
+                    ),
+                ),
+            )
+        )
+        self.assertTrue(blocked.application.blocked)
+        self.assertEqual(blocked.target_state, ConditionState())
+        self.assertEqual(
+            blocked.application.blocked_by_rule_id,
+            "RULE-ABILITY-IMMUNE-TO-PSYCHOLOGY",
+        )
+        self.assertIn(
+            "RULE-ABILITY-IMMUNE-TO-PSYCHOLOGY",
+            blocked.applied_rule_ids,
+        )
+
+    def test_condition_application_is_consumed_exactly_once(self) -> None:
+        action = execute_skill_improvise_action(
+            request(effect=prone_effect()),
+            SequenceRandom([1, 10]),
+        )
+        first = resolve_skill_improvise_condition(
+            SkillImproviseConditionResolutionRequest(
+                id="improvise:first-application",
+                source=action,
+                target_id="enemy",
+                target_state=ConditionState(),
+            )
+        )
+
+        with self.assertRaises(ValueError):
+            SkillImproviseConditionResolutionRequest(
+                id="improvise:duplicate-application",
+                source=action,
+                target_id="enemy",
+                target_state=first.target_state,
+                consumed_application_ids=first.consumed_application_ids,
+            )
+
+    def test_condition_resolution_checks_source_and_result_provenance(self) -> None:
+        failed_action = execute_skill_improvise_action(
+            request(effect=prone_effect()),
+            SequenceRandom([10, 10]),
+        )
+        with self.assertRaises(ValueError):
+            SkillImproviseConditionResolutionRequest(
+                id="improvise:no-successful-effect",
+                source=failed_action,
+                target_id="enemy",
+                target_state=ConditionState(),
+            )
+
+        action = execute_skill_improvise_action(
+            request(effect=prone_effect()),
+            SequenceRandom([1, 10]),
+        )
+        source = SkillImproviseConditionResolutionRequest(
+            id="improvise:valid-application",
+            source=action,
+            target_id="enemy",
+            target_state=ConditionState(),
+        )
+        result = resolve_skill_improvise_condition(source)
+        with self.assertRaises(ValueError):
+            replace(source, target_id="hero")
+        with self.assertRaises(ValueError):
+            resolve_skill_improvise_condition(
+                replace(source, rule_id="RULE-COMBAT-004:forged")
+            )
+        application = action.condition_application
+        assert application is not None
+        with self.assertRaises(ValueError):
+            replace(
+                action,
+                condition_application=replace(
+                    application,
+                    gm_approval_id="gm:another-ruling",
+                ),
+            )
+        with self.assertRaises(ValueError):
+            replace(result, target_state=ConditionState())
+        with self.assertRaises(ValueError):
+            replace(result, consumed_application_ids=())
 
 
 if __name__ == "__main__":
