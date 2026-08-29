@@ -1,6 +1,6 @@
 # Раны и состояния
 
-Источник: `BOOK-PLAYER-GUIDE`, преимущественно страницы 119–123 и 190–191. Статус: Staggered, базовая Wound policy и эффекты строк таблицы `implemented` в K1; исполнение внешних последствий и Recover остаются `draft`.
+Источник: `BOOK-PLAYER-GUIDE`, преимущественно страницы 74, 119–123, 136 и 190–191. Статус: Staggered, базовая Wound policy, эффекты строк таблицы, Recover treatment, три healing tiers и ordinary downtime surgery для строк `20–23` implemented в K1; остальные внешние последствия, Infection state, Combat Surgeon и применение риска провала остаются partial/draft.
 
 ## RULE-HEALTH-001 — Resilience
 
@@ -54,6 +54,10 @@ Treatment помечает Wound treated: она больше не добавл�
 
 Healing удаляет все непостоянные эффекты Wound после указанной длительности: Catch Your Breath, A Night’s Respite либо Rest and Recovery; surgery-required Wound не начинает recovery до операции. При существенном deadline GM может разрешить Endurance для досрочного healing.
 
+K1 хранит treated и healed раздельно. `EndEncounterHealingOpportunity` открывает Catch Your Breath после окончания непосредственной опасности, а `NightsRespiteHealingOpportunity` — после спокойного периода, завершённой ранней ночи и наступления утра. Оба reducers требуют treated/resolved Wounds, сверяют их категорию с Wounds Table, снимают все non-permanent effects и сохраняют permanent/другие источники. Точное число часов и optional досрочная Endurance-проверка не входят в обычную Night’s Respite boundary.
+
+`RestAndRecoveryEndeavourRequest` привязывает Endurance Test к конкретному downtime, target и точному injury snapshot. Только успешный результат может быть источником `RestAndRecoveryHealingRequest`; он исцеляет одну выбранную ready Wound, а не полный набор. Строки `16–19` не принимают лишний surgery proof, а `SURGERY_AND_RECOVERY` (`20–23`) требуют успешный `DowntimeSurgeryResult` для той же Wound, цели, injury snapshot и downtime. Application погашает proof перед Endeavour ID и сохраняет permanent consequences. Успех Endeavour также создаёт `FesteringWoundsRecoveryRequest`, но фактическое применение этого follow-up ожидает отдельного Infection/campaign state.
+
 Источник: страницы 118, 121–123.
 
 ## RULE-HEALTH-008 — общая семантика Conditions
@@ -84,13 +88,15 @@ Condition от ongoing cause нельзя снять, пока не устран
 
 Перед этой Test персонаж с Anatomy Lore может сделать Recall; каждый success позволяет ему выбрать себя или союзника для автоматического успеха против Infection.
 
-Источник: страница 122. Требует day/campaign tracking, которого сейчас нет.
+Источник: страницы 122 и 136. Создание Festering Wounds и их day/campaign tracking пока отсутствуют; успешная Rest and Recovery Endeavour уже возвращает typed запрос на снятие всех таких ран без вымышленной мутации состояния.
 
 ## RULE-HEALTH-010 — Surgery
 
 Surgery для отмеченных Wounds требует Anatomy Lore, подходящие facilities/tools/time и Dexterity Test; провал рискует disfigurement/death, а даже успех оставляет указанное Wound permanent consequence. Обычная процедура происходит во время Rest and Recovery; Talent Combat Surgeon отдельно задаёт battle Exacting Dexterity (8), одна Test за action.
 
-Источник: страницы 122 и 74. Общего surgery resolver пока нет.
+K1 `DowntimeSurgeryRequest → DowntimeSurgeryResult` проверяет treated/resolved Wound категории `SURGERY_AND_RECOVERY`, qualified surgeon, theatre, specialist tools, time и recovery supports до RNG. Success является immutable proof и сам не мутирует injury state. Failure возвращает GM-owned `SurgeryFailureRiskRequest` с возможными рисками permanent disfigurement/death, но не выбирает и не применяет outcome (`AMBIGUITY-009`). Paid NPC/campaign cost, supernatural replacements и Combat Surgeon остаются отдельными adapters.
+
+Источник: страницы 122 и 74. Ordinary downtime surgery implemented; Combat Surgeon partial/draft.
 
 ## Реализация Staggered в K1
 
@@ -111,8 +117,8 @@ Player и Champion используют одну policy. Для обычной W
 
 Каждая принятая рана создаёт `WoundEffectRequest` с конкретным `WoundEntryId`. Специализированный reducer исполняет его ровно один раз внутри kernel и записывает `effect_resolved` в рану.
 
-Условия и ограничения хранятся как типизированные `WoundConditionEffect` и `WoundRestrictionEffect` со ссылкой на номер раны и одним из сроков действия: до конца следующего хода, до явного снятия, до лечения, до полного заживления, до следующей проверки либо постоянно. Благодаря этому будущий Recover сможет удалить только эффекты нужного источника, не стирая такое же Condition от другой раны или способности.
+Условия и ограничения хранятся как типизированные `WoundConditionEffect` и `WoundRestrictionEffect` со ссылкой на номер раны и одним из сроков действия: до конца следующего хода, до явного снятия, до лечения, до полного заживления, до следующей проверки либо постоянно. Recover удаляет только `UNTIL_TREATED` effects нужного источника, а реализованные healing tiers — все его non-permanent effects; одинаковая Condition от другой раны или способности сохраняется по explicit source snapshot.
 
 Строки `4`, `5`, `7`, `11`, `12` и `19` создают `WoundEnduranceTestRequest`. Профиль Endurance берётся orchestration-слоем из определения персонажа; `resolve_wound_endurance_test` принимает обычный `TestResult` и либо сохраняет состояние, либо применяет Condition/создаёт конкретный внешний consequence. Случайные предметы, зубы, пальцы, глаза и конечности представлены `WoundConsequenceRequest`, поскольку injury state намеренно не содержит анатомию и инвентарь.
 
-Для `Spilling guts` возвращается явный `WoundChoiceRequest`: персонаж либо роняет предмет и зажимает рану, либо становится Defenceless. Скрытого default нет. Фактическое изменение инвентаря, случайный выбор стороны тела, снятие эффектов по времени/Treat/Heal и особая Endurance-защита после заживления `Ruptured organs` требуют будущего battle/application orchestration.
+Для `Spilling guts` возвращается явный `WoundChoiceRequest`: персонаж либо роняет предмет и зажимает рану, либо становится Defenceless. Скрытого default нет. Фактическое изменение инвентаря, случайный выбор стороны тела, прочие timed effects, применение Festering/surgery-failure follow-up, Combat Surgeon и особая Endurance-защита после заживления `Ruptured organs` требуют будущего battle/campaign application orchestration.

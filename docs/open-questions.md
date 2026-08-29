@@ -49,3 +49,7 @@ Player’s Guide 1.4 на странице 117 требует противопо
 ## End-battle treatment при неполном наборе инструментов
 
 Player’s Guide 1.4 на странице 121 одновременно говорит автоматически обработать все Wounds после боя при возможности перевести дух и запрещает обрабатывать конкретную injury без подходящих trappings. Не уточнено, обрабатываются ли только те раны, для которых инструменты имеются, либо automatic batch вообще требует полного набора. Текущий `EndBattleWoundTreatmentRequest` принимает только явный факт `has_required_trappings_for_all_wounds=True`; частичный случай отклоняется без мутации. Перед inventory orchestration нужно утвердить per-Wound trappings policy (`AMBIGUITY-008`).
+
+## Последствие провала Surgery и наём NPC
+
+Player’s Guide 1.4 на странице 122 говорит только, что провал Dexterity Test несёт риск permanent disfigurement or death; вероятность, обязательность и таблица исхода отсутствуют. Там же обычным способом названа оплата NPC, но книга не задаёт цену и не говорит, становится ли операция автоматически успешной. K1 не подменяет это вероятностями: failed `DowntimeSurgeryResult` возвращает GM-owned `SurgeryFailureRiskRequest` с обоими книжными рисками без мутации state, а квалифицированный NPC использует тот же explicit Test. Перед симуляцией campaign consequences нужна отдельная GM/AI policy (`AMBIGUITY-009`).

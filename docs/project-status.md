@@ -1,6 +1,6 @@
 # Текущий статус проекта
 
-Дата обновления: 2026-08-22.
+Дата обновления: 2026-08-30.
 
 ## Текущий этап
 
@@ -358,9 +358,19 @@ K1 — реализация книжного resolution kernel. Прототип
 - automatic end-battle reducer без action/Test/RNG отмечает treated все ещё untreated Wounds, снимает только их `UNTIL_TREATED` effects и переиспользует ту же Condition-source policy, сохраняя уже treated Wounds и остальные durations;
 - end-battle context ID однократно погашается во внешнем ordered snapshot; незавершённый бой, отсутствие передышки/инструментов/ран, dead/другая цель, повтор и forged result отклоняются до перехода;
 - `WoundRecord.healed` теперь явно отличает полное заживление от treatment; healed подразумевает treated/resolved, остаётся в историческом ordered журнале и допускает только permanent active effects;
-- `CatchYourBreathHealingRequest → CatchYourBreathHealingResult` потребляет точный `EndBattleWoundTreatmentResult`, сверяет `entry_id`/`table_total` с Wounds Table и одним переходом исцеляет все и только ещё активные Wounds категории `CATCH_YOUR_BREATH`;
-- healing удаляет все non-permanent effects выбранных ран, сохраняет `PERMANENT`, чужие effects и Conditions с известным либо explicit внешним источником; treatment result ID погашается один раз без action receipt, Test или RNG;
+- `EndEncounterHealingOpportunity` независимо фиксирует завершение battle/dangerous encounter, окончание непосредственной опасности, target и injury snapshot; optional `EndBattleWoundTreatmentResult` строго сверяется по battle/target/state, но ранее treated Wounds не требуют искусственного нового treatment-result;
+- `CatchYourBreathHealingRequest → CatchYourBreathHealingResult` потребляет этот opportunity, сверяет `entry_id`/`table_total` с Wounds Table и одним переходом исцеляет все и только treated/resolved, ещё не healed Wounds категории `CATCH_YOUR_BREATH`; необработанная запись не исцеляется и не блокирует другие ready Wounds;
+- healing удаляет все non-permanent effects выбранных ран, сохраняет `PERMANENT`, чужие effects и Conditions с известным либо explicit внешним источником; opportunity ID погашается один раз без action receipt, Test или RNG;
 - healed records не считаются `active_wounds`, не добавляют куб к будущему injury roll и не перенумеровываются; следующая Wound продолжает монотонный sequence;
+- `NightsRespiteHealingOpportunity` фиксирует точный target/injury snapshot, спокойный период, завершённую раннюю ночь и наступление утра без вымышленного количества часов;
+- `NightsRespiteHealingRequest → NightsRespiteHealingResult` исцеляет полный ready set `HealingRequirement.NIGHTS_REST` (`8–15`), переиспользует общий non-permanent-effect/Condition transition и однократно погашает rest-opportunity ID без action/Test/RNG;
+- необработанная Night Wound и другие healing tiers сохраняются и не блокируют готовые `NIGHTS_REST`; ordinary respite не исполняет optional early Endurance Test;
+- реализован первый узкий downtime executor `RestAndRecoveryEndeavourRequest → RestAndRecoveryEndeavourResult`: он привязывает Endurance Test к конкретному downtime, target и точному injury snapshot;
+- провал Endeavour не создаёт healing source; успех разрешает application одной выбранной ready Wound и возвращает отдельный `FesteringWoundsRecoveryRequest` для всех Festering Wounds;
+- `RestAndRecoveryHealingRequest → RestAndRecoveryHealingResult` исцеляет ровно одну treated/resolved Wound категории `REST_AND_RECOVERY` (`16–19`) либо `SURGERY_AND_RECOVERY` (`20–23`) с точным successful surgery proof, переиспользует общий transition и однократно погашает sources;
+- реализован `DowntimeSurgeryRequest → DowntimeSurgeryResult`: ordinary surgery проверяет Anatomy Lore, theatre, specialist tools, time, recovery supports, exact Wound/target/state/downtime и выполняет Dexterity Test через внедрённый RNG;
+- surgery success не мутирует injury state и служит proof; failure возвращает GM-owned `SurgeryFailureRiskRequest` с книжными рисками permanent disfigurement/death без скрытого выбора (`AMBIGUITY-009`);
+- другие ready Wounds и `NIGHTS_REST` сохраняются; ordinary строки `16–19` отвергают лишний surgery proof, а healing `20–23` погашает proof перед Endeavour ID и сохраняет permanent consequences; Festering follow-up пока не мутирует отсутствующее Infection/campaign state;
 - Condition alternative выполняет ровно один релевантный Test, снимает одну не-Staggered/не-Prone Condition только при успехе и `underlying_cause_allows_removal=True`, а failure сохраняет исходный snapshot;
 - Defenceless и Broken в Zone с врагом закрывают Recover до RNG; все валидные ветви, включая failed Tests и пустой standard набор, завершают slot, а незавершённый Recover блокирует окончание хода.
 - реализован `SkillImproviseActionExecutionRequest → SkillImproviseActionExecutionResult`: зарезервированный `ImproviseKind.SKILL` связывает active actor/round, typed Skill/approach и один готовый basic либо opposed Test;
@@ -377,7 +387,7 @@ K1 — реализация книжного resolution kernel. Прототип
 
 ## Проверено
 
-- 613 unit/integration тестов успешно проходят на Python 3.12, из них 593 относятся к K1;
+- 639 unit/integration тестов успешно проходят на Python 3.12, из них 619 относятся к K1;
 - исходники и тесты успешно проходят `compileall`.
 
 ## Исходный материал
@@ -400,7 +410,7 @@ K1 — реализация книжного resolution kernel. Прототип
 - Recover treatment action, одноразовое применение выбранной Wound и automatic end-battle treatment всех Wounds реализованы, но application/context consumed IDs пока должен хранить внешний orchestration; partial trappings batch намеренно отклоняется до решения `AMBIGUITY-008`, mount/object follow-ups ещё не применяются;
 - `WizardMagicState` не содержит Wizard Level, поэтому непосредственный Recover reducer уменьшает переданный непросроченный Miscast snapshot; battle orchestration обязано сначала немедленно разрешить уже triggered Miscast Pool и не давать Recover отменить сработавший Miscast;
 - каталоги NPC Abilities, магии, религии и магических предметов завершены как нормативный индекс, но большинство записей ещё не связано с исполняемыми reducers и orchestration;
-- `CATCH_YOUR_BREATH` и снятие всех его non-permanent effects реализованы; общий end-encounter healing source для случая без нового treatment result, `A_NIGHTS_RESPITE`, `REST_AND_RECOVERY`, surgery и optional early Endurance Test требуют будущих lifecycle boundaries;
+- `CATCH_YOUR_BREATH`, независимый end-encounter opportunity, `A Night’s Respite`, успешный `REST_AND_RECOVERY`, ordinary downtime surgery для `20–23` и общий transition снятия non-permanent effects реализованы; Combat Surgeon, применение Festering/surgery-failure follow-ups и optional early Endurance Test требуют будущих lifecycle boundaries;
 - внешние последствия Wound для инвентаря и анатомии пока являются typed follow-up;
 - защита Endurance после заживления `Ruptured organs` ещё не подключена к физическому impact;
 - автоматическая замена неподходящей строки Wounds Table для не-физического Hazard требует отдельной GM/simulation policy;
@@ -435,18 +445,18 @@ K1 — реализация книжного resolution kernel. Прототип
 
 ## Следующий шаг
 
-Ввести общий source-aware `HealingOpportunity`/end-encounter lifecycle source, чтобы `CATCH_YOUR_BREATH` мог исполняться и когда к этому окну все Wounds уже treated и новый `EndBattleWoundTreatmentResult` не создаётся. Затем добавить consumer `HealingRequirement.NIGHTS_REST` (`RULE-HEALTH-005`, Player’s Guide 1.4, стр. 121 и Wounds Table стр. 190–191) с явным завершённым rest context, сохранив общий переход healed/non-permanent effects/Condition sources и без выдуманного точного времени либо early Endurance policy.
+Добавить первую boundary Talent `Combat Surgeon` (`RULE-TALENT-002:combat-surgeon`, Player’s Guide 1.4, стр. 74): после успешного treatment одной Wound с ongoing effect `UNTIL_HEALED` отдельная Recall Test должна при успехе создать source-aware suppression этого эффекта до конца текущего battle, не помечая Wound healed и не удаляя её provenance. Failure ничего не подавляет. Battle surgery с Exacting Dexterity `8` и одним Test за action оставить следующим отдельным action/progress adapter.
 
 ## Последняя проверка
 
-2026-08-22:
+2026-08-30:
 
 ```powershell
 $env:PYTHONPATH = "src"
 py -3.12 -m unittest discover -s tests -v
 ```
 
-Результат: `Ran 613 tests ... OK`; отдельный K1-набор: `Ran 593 tests ... OK`; `compileall`, проверка trailing whitespace новых файлов и `git diff --check` успешно завершены (только предупреждения Git о LF/CRLF).
+Результат: `Ran 639 tests ... OK`; отдельный K1-набор: `Ran 619 tests ... OK`; `compileall`, public-import smoke test, проверка trailing whitespace изменённых файлов и `git diff --check` успешно завершены (только предупреждения Git о LF/CRLF).
 
 ```powershell
 py -3.12 -m compileall -q src tests tools

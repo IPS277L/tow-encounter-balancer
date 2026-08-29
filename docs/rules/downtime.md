@@ -1,6 +1,6 @@
 # Downtime и Endeavours
 
-Источники: `BOOK-PLAYER-GUIDE`, версия 1.4, глава Between Adventures, страницы 131–136; `BOOK-GM-GUIDE`, версия 1.1, Handling Downtime, страница 47. Статус области: `draft`; весь каталог и GM-side cadence проверены, campaign clock и persistent progression в коде отсутствуют.
+Источники: `BOOK-PLAYER-GUIDE`, версия 1.4, глава Between Adventures, страницы 131–136; `BOOK-GM-GUIDE`, версия 1.1, Handling Downtime, страница 47. Статус области: `partial`; Rest and Recovery Endeavour реализована как самостоятельная Test/healing boundary, весь каталог и GM-side cadence проверены, campaign clock и persistent progression в коде отсутствуют.
 
 ## RULE-DOWNTIME-001 — структура
 
@@ -33,6 +33,8 @@ GM объявляет Downtime при достаточной передышке,
 | Wander the Wilds | Survival | next adventure временно получает relevant Environment/Provincial Lore либо `+1d` при уже известном |
 
 Источник: страницы 132–136. Suggested Skills могут заменяться при правдоподобном подходе с разрешения GM.
+
+В первом исполняемом срезе `RestAndRecoveryEndeavourRequest` требует именно книжную Endurance Test и точный downtime/target/injury snapshot. Успех позволяет отдельным reducer исцелить одну выбранную treated/resolved Wound и создаёт typed запрос на снятие всех Festering Wounds; провал не создаёт ни одного из этих эффектов. Строки `20–23` дополнительно требуют успешный ordinary surgery proof из того же downtime. Общая GM-возможность заменять Suggested Skill пока не применяется к этому специализированному healing contract. Campaign allocation Endeavours, paid NPC service и применение Festering/surgery-failure follow-ups остаются внешними границами.
 
 ## RULE-DOWNTIME-003 — favour Contact
 

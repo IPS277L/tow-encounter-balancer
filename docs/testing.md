@@ -277,9 +277,16 @@ py -3.12 -m unittest discover -s tests -v
 - automatic end-battle treatment требует target-scoped completed-battle/catch-breath context, живую цель и trappings, но не action slot, Test или RNG;
 - end-battle reducer отмечает все untreated Wounds, сохраняет уже treated и все не-`UNTIL_TREATED` effects, применяет ту же Condition-source policy и однократно погашает context ID;
 - незавершённый бой, отсутствие передышки/инструментов/ран, dead либо другая цель, повторный context и forged batch result отклоняются;
-- `CATCH_YOUR_BREATH` принимает точный post-treatment snapshot, сверяет записи с Wounds Table и исцеляет все и только подходящие ещё активные Wounds без Test/RNG/receipt;
+- `EndEncounterHealingOpportunity` требует завершённый encounter, окончание непосредственной опасности, target и точный injury snapshot; optional treatment-result обязан совпасть по battle/target/state;
+- `CATCH_YOUR_BREATH` работает после свежего treatment-result либо с ранее treated Wound без нового treatment, сверяет записи с Wounds Table и исцеляет все и только treated/resolved ready Wounds без Test/RNG/receipt; необработанная лёгкая Wound остаётся и не блокирует готовую;
 - healed Wounds остаются в истории с прежними sequences, не считаются активными и не добавляют injury dice; новая Wound продолжает монотонную нумерацию;
-- healing снимает все non-permanent effects выбранной Wound, сохраняет `PERMANENT`, effects других ран и Conditions с известным либо explicit внешним источником; stale/repeated/forged и неполный набор отклоняются;
+- healing требует treated/resolved у каждой выбранной Wound, снимает все её non-permanent effects, сохраняет `PERMANENT`, effects других ран и Conditions с известным либо explicit внешним источником; stale/repeated/forged и неполный набор отклоняются;
+- `NightsRespiteHealingOpportunity` требует `took_it_easy`, завершённую раннюю ночь и наступившее утро, но не кодирует число часов или optional early Endurance Test;
+- `NIGHTS_REST` исцеляет полный ready set строк `8–15`, переиспользует общий healing/Condition transition и consumed-source chain; untreated Night Wound и другие healing tiers сохраняются;
+- `Rest and Recovery` выполняет общий Endurance Test в точном downtime/target/injury context: провал не создаёт source, успех разрешает исцелить ровно одну ready Wound строки `16–19` и возвращает typed follow-up для всех Festering Wounds;
+- ordinary Rest and Recovery не принимает `NIGHTS_REST`; surgery-required строки `20–23` проходят только с successful proof той же Wound/target/state/downtime, а stale target/state, повторный source ID, untreated/unresolved Wound, неверный Skill/Rule ID и forged result отклоняются;
+- ordinary surgery проверяет Anatomy Lore, theatre, specialist tools, time, recovery supports и Dexterity до броска; все строки `20–23` создают usable success proof, а строка `19` отклоняется до RNG;
+- failed surgery не мутирует injury state и возвращает GM-owned risk request с permanent disfigurement/death; forged state/risk provenance и повторное потребление proof отклоняются;
 - Defenceless, другой Improvise kind, attacking Skill Improvise, несовпавший approach и повторный slot закрываются до RNG;
 - Troll Vomit требует exact Ability Rule ID/approach и actor Ability snapshot, вражескую Staggered-цель на Close Range и явный Endurance Test, затем переиспользует общий Hazard/Wound pipeline;
 - Endurance success избегает Hazard, failure применяет Wound по shortfall, а actor Staggered сам по себе не запрещает Vomit; Defenceless, wrong ability/kind/target/range/skill, повторный или неупорядоченный slot закрываются до RNG;

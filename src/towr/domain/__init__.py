@@ -56,6 +56,13 @@ from towr.domain.condition_models import (
     EffectImmunity,
     RepeatedConditionReplacement,
 )
+from towr.domain.downtime_models import (
+    FESTERING_WOUNDS_RECOVERY_RULE_ID,
+    REST_AND_RECOVERY_ENDEAVOUR_RULE_ID,
+    FesteringWoundsRecoveryRequest,
+    RestAndRecoveryEndeavourRequest,
+    RestAndRecoveryEndeavourResult,
+)
 from towr.domain.help_models import (
     HelpActionExecutionRequest,
     HelpActionExecutionResult,
@@ -78,6 +85,14 @@ from towr.domain.skill_improvise_models import (
     SkillImproviseConditionEffect,
     SkillImproviseConditionResolutionRequest,
     SkillImproviseConditionResolutionResult,
+)
+from towr.domain.surgery_models import (
+    DOWNTIME_SURGERY_RULE_ID,
+    SURGERY_FAILURE_RISK_RULE_ID,
+    DowntimeSurgeryRequest,
+    DowntimeSurgeryResult,
+    SurgeryFailureRisk,
+    SurgeryFailureRiskRequest,
 )
 from towr.domain.encounters import EncounterDefinition
 from towr.domain.injury_models import (
@@ -363,8 +378,18 @@ from towr.domain.recover_models import (
 )
 from towr.domain.wound_healing_models import (
     CATCH_YOUR_BREATH_HEALING_RULE_ID,
+    END_ENCOUNTER_HEALING_OPPORTUNITY_RULE_ID,
+    NIGHTS_RESPITE_HEALING_OPPORTUNITY_RULE_ID,
+    NIGHTS_RESPITE_HEALING_RULE_ID,
+    REST_AND_RECOVERY_HEALING_RULE_ID,
     CatchYourBreathHealingRequest,
     CatchYourBreathHealingResult,
+    EndEncounterHealingOpportunity,
+    NightsRespiteHealingOpportunity,
+    NightsRespiteHealingRequest,
+    NightsRespiteHealingResult,
+    RestAndRecoveryHealingRequest,
+    RestAndRecoveryHealingResult,
 )
 from towr.domain.soporific_breath_models import (
     SoporificBreathActionExecutionRequest,
@@ -442,6 +467,14 @@ __all__ = [
     "CastingAttemptExecutionRequest",
     "CastingAttemptExecutionResult",
     "CATCH_YOUR_BREATH_HEALING_RULE_ID",
+    "END_ENCOUNTER_HEALING_OPPORTUNITY_RULE_ID",
+    "FESTERING_WOUNDS_RECOVERY_RULE_ID",
+    "DOWNTIME_SURGERY_RULE_ID",
+    "NIGHTS_RESPITE_HEALING_OPPORTUNITY_RULE_ID",
+    "NIGHTS_RESPITE_HEALING_RULE_ID",
+    "REST_AND_RECOVERY_ENDEAVOUR_RULE_ID",
+    "REST_AND_RECOVERY_HEALING_RULE_ID",
+    "SURGERY_FAILURE_RISK_RULE_ID",
     "CatchYourBreathHealingRequest",
     "CatchYourBreathHealingResult",
     "CastingDecisionRequest",
@@ -699,6 +732,18 @@ __all__ = [
     "NearbyTargetsStaggerResolutionRequest",
     "NearbyTargetsStaggerResolutionResult",
     "NearbyTargetsStaggerSpec",
+    "NightsRespiteHealingOpportunity",
+    "NightsRespiteHealingRequest",
+    "NightsRespiteHealingResult",
+    "FesteringWoundsRecoveryRequest",
+    "RestAndRecoveryEndeavourRequest",
+    "RestAndRecoveryEndeavourResult",
+    "RestAndRecoveryHealingRequest",
+    "RestAndRecoveryHealingResult",
+    "DowntimeSurgeryRequest",
+    "DowntimeSurgeryResult",
+    "SurgeryFailureRisk",
+    "SurgeryFailureRiskRequest",
     "ReactorZoneHazardRequest",
     "ReactorZoneHazardResolutionRequest",
     "ReactorZoneHazardResolutionResult",
@@ -710,6 +755,7 @@ __all__ = [
     "EndBattleTreatmentContext",
     "EndBattleWoundTreatmentRequest",
     "EndBattleWoundTreatmentResult",
+    "EndEncounterHealingOpportunity",
     "RecoverActionExecutionRequest",
     "RecoverActionExecutionResult",
     "RecoverConditionChange",

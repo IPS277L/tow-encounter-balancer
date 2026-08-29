@@ -22,6 +22,7 @@ from towr.domain.recover_models import (
 )
 from towr.domain.wound_healing_models import (
     CatchYourBreathHealingRequest,
+    EndEncounterHealingOpportunity,
 )
 from towr.rules.injury_resolution import resolve_character_wound
 from towr.rules.recover_resolution import apply_end_battle_wound_treatment
@@ -130,11 +131,20 @@ def healing_request(
     rule_id: str | None = None,
 ) -> CatchYourBreathHealingRequest:
     treatment = treatment_result(state)
+    opportunity = EndEncounterHealingOpportunity(
+        id="battle:1:healing-opportunity:hero",
+        encounter_id="battle:1",
+        target_id="hero",
+        injury_state=treatment.state,
+        encounter_has_ended=True,
+        immediate_danger_has_passed=True,
+        treatment=treatment,
+    )
     values = {
         "id": "battle:1:catch-breath:hero",
-        "treatment": treatment,
+        "opportunity": opportunity,
         "target_id": "hero",
-        "injury_state": treatment.state,
+        "injury_state": opportunity.injury_state,
         "wound_sequences": wound_sequences,
         "condition_source_snapshots": (
             WoundConditionSourceSnapshot(
@@ -180,7 +190,7 @@ class K1CatchYourBreathHealingTests(unittest.TestCase):
         self.assertEqual(result.removed_conditions, (Condition.DRAINED,))
         self.assertEqual(
             result.consumed_source_ids,
-            (source.treatment.request_id,),
+            (source.opportunity.id,),
         )
         self.assertFalse(hasattr(result, "slot"))
         self.assertFalse(hasattr(result, "test_result"))
@@ -240,15 +250,94 @@ class K1CatchYourBreathHealingTests(unittest.TestCase):
         self.assertTrue(result.state.conditions.has(Condition.DRAINED))
         self.assertEqual(result.removed_conditions, ())
 
-    def test_request_requires_exact_fresh_post_treatment_state(self) -> None:
+    def test_already_treated_wound_uses_independent_end_encounter_source(
+        self,
+    ) -> None:
+        state = CharacterInjuryState(
+            wounds=(
+                WoundRecord(
+                    1,
+                    WoundEntryId.NICKED_ARM,
+                    4,
+                    (4,),
+                    treated=True,
+                    effect_resolved=True,
+                ),
+                WoundRecord(
+                    2,
+                    WoundEntryId.GASHED_BROW,
+                    7,
+                    (7,),
+                    effect_resolved=True,
+                ),
+            ),
+        )
+        opportunity = EndEncounterHealingOpportunity(
+            id="hazard:1:healing-opportunity:hero",
+            encounter_id="hazard:1",
+            target_id="hero",
+            injury_state=state,
+            encounter_has_ended=True,
+            immediate_danger_has_passed=True,
+        )
+        request = CatchYourBreathHealingRequest(
+            id="hazard:1:catch-breath:hero",
+            opportunity=opportunity,
+            target_id="hero",
+            injury_state=state,
+            wound_sequences=(1,),
+        )
+
+        result = apply_catch_your_breath_healing(request)
+
+        self.assertTrue(result.state.wounds[0].healed)
+        self.assertFalse(result.state.wounds[1].healed)
+        self.assertEqual(result.consumed_source_ids, (opportunity.id,))
+        self.assertNotIn(
+            "RULE-HEALTH-005:end-battle-treatment",
+            result.applied_rule_ids,
+        )
+
+    def test_opportunity_requires_ended_safe_and_selected_wound_treated(
+        self,
+    ) -> None:
+        untreated = injury_state()
+        opportunity = EndEncounterHealingOpportunity(
+            id="hazard:1:healing-opportunity:hero",
+            encounter_id="hazard:1",
+            target_id="hero",
+            injury_state=untreated,
+            encounter_has_ended=True,
+            immediate_danger_has_passed=True,
+        )
+        with self.assertRaises(ValueError):
+            CatchYourBreathHealingRequest(
+                id="hazard:1:catch-breath:hero",
+                opportunity=opportunity,
+                target_id="hero",
+                injury_state=untreated,
+                wound_sequences=(1,),
+            )
+
+        valid = healing_request(untreated).opportunity
+        for values in (
+            {"encounter_has_ended": False},
+            {"immediate_danger_has_passed": False},
+            {"target_id": "ally"},
+            {"encounter_id": "battle:other"},
+        ):
+            with self.subTest(values=values):
+                with self.assertRaises(ValueError):
+                    replace(valid, **values)
+
+    def test_request_requires_exact_fresh_opportunity_state(self) -> None:
         state = injury_state()
-        treatment = treatment_result(state)
         valid = healing_request(state)
         invalid_values = (
             {"target_id": "ally"},
             {"injury_state": state},
             {
-                "consumed_source_ids": (treatment.request_id,),
+                "consumed_source_ids": (valid.opportunity.id,),
             },
         )
         for values in invalid_values:
@@ -257,10 +346,13 @@ class K1CatchYourBreathHealingTests(unittest.TestCase):
                     replace(valid, **values)
 
         unresolved = replace(
-            treatment.state,
+            valid.opportunity.injury_state,
             wounds=(
-                replace(treatment.state.wounds[0], effect_resolved=False),
-                *treatment.state.wounds[1:],
+                replace(
+                    valid.opportunity.injury_state.wounds[0],
+                    effect_resolved=False,
+                ),
+                *valid.opportunity.injury_state.wounds[1:],
             ),
         )
         with self.assertRaises(ValueError):
