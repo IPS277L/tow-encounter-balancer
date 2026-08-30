@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum
+from typing import TYPE_CHECKING, Any
 
 from towr.domain.attack_models import (
     AttackRequest,
@@ -42,6 +43,15 @@ from towr.domain.magic_models import (
 from towr.domain.npc_effect_models import DropHeldHandItemRequest
 from towr.domain.spatial_models import SpatialBattleState, SpatialEntityPlacement
 from towr.domain.test_models import Skill, TestRequest, TestResult
+
+if TYPE_CHECKING:
+    from towr.domain.wound_lifecycle_models import (
+        CharacterWoundLifecycleCompletionResult,
+        CharacterWoundLifecycleRollResult,
+    )
+else:
+    CharacterWoundLifecycleCompletionResult = Any
+    CharacterWoundLifecycleRollResult = Any
 
 
 class TargetInjuryPolicy(str, Enum):
@@ -1077,6 +1087,7 @@ TargetInjuryState = CharacterInjuryState | ProfileInjuryState
 @dataclass(frozen=True, slots=True)
 class StaggerImpactRequest:
     id: str
+    target_id: str
     target_policy: TargetInjuryPolicy
     target_state: TargetInjuryState
     can_target_leave_zone: bool
@@ -1102,6 +1113,7 @@ class StaggerImpactRequest:
 
     def __post_init__(self) -> None:
         _validate_non_empty_string(self.id, "Stagger impact request id")
+        _validate_non_empty_string(self.target_id, "target_id")
         if not isinstance(self.target_policy, TargetInjuryPolicy):
             raise TypeError("target_policy must be a TargetInjuryPolicy")
         _validate_bool(self.can_target_leave_zone, "can_target_leave_zone")
@@ -1187,6 +1199,16 @@ class StaggerImpactResult:
     condition_applications: tuple[ConditionApplicationResult, ...] = field(
         default_factory=tuple
     )
+    pending_character_wound: CharacterWoundLifecycleRollResult | None = None
+    deferred_wound_conditions: tuple[
+        ConditionOnGiveGroundOrWoundSpec, ...
+    ] = field(default_factory=tuple)
+    deferred_wound_condition_immunities: tuple[EffectImmunity, ...] = field(
+        default_factory=tuple
+    )
+    character_wound_completion: (
+        CharacterWoundLifecycleCompletionResult | None
+    ) = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -1229,6 +1251,8 @@ class IdentifiedStaggerTarget:
         _validate_non_empty_string(self.target_id, "target_id")
         if not isinstance(self.impact, StaggerImpactRequest):
             raise TypeError("impact must be a StaggerImpactRequest")
+        if self.impact.target_id != self.target_id:
+            raise ValueError("Stagger impact belongs to another target")
 
 
 @dataclass(frozen=True, slots=True)
@@ -1409,6 +1433,7 @@ class ReactorZoneHazardResolutionResult:
 @dataclass(frozen=True, slots=True)
 class HazardResolutionRequest:
     id: str
+    target_id: str
     exposure: HazardExposureRequest
     avoidance_test: TestResult
     target_policy: TargetInjuryPolicy
@@ -1425,6 +1450,7 @@ class HazardResolutionRequest:
 
     def __post_init__(self) -> None:
         _validate_non_empty_string(self.id, "Hazard resolution request id")
+        _validate_non_empty_string(self.target_id, "target_id")
         if not isinstance(self.exposure, HazardExposureRequest):
             raise TypeError("exposure must be a HazardExposureRequest")
         if not isinstance(self.avoidance_test, TestResult):
@@ -1474,11 +1500,17 @@ class HazardResolutionResult:
     condition_applications: tuple[ConditionApplicationResult, ...] = field(
         default_factory=tuple
     )
+    pending_character_wound: CharacterWoundLifecycleRollResult | None = None
+    deferred_failure_exposure: HazardExposureRequest | None = None
+    character_wound_completion: (
+        CharacterWoundLifecycleCompletionResult | None
+    ) = None
 
 
 @dataclass(frozen=True, slots=True)
 class KernelAttackRequest:
     id: str
+    target_id: str
     attack: AttackRequest
     target_policy: TargetInjuryPolicy
     target_state: TargetInjuryState
@@ -1503,6 +1535,7 @@ class KernelAttackRequest:
             raise TypeError("kernel attack request id must be a string")
         if not self.id.strip():
             raise ValueError("kernel attack request id must not be empty")
+        _validate_non_empty_string(self.target_id, "target_id")
         if not isinstance(self.attack, AttackRequest):
             raise TypeError("attack must be an AttackRequest")
         if not isinstance(self.target_policy, TargetInjuryPolicy):
@@ -1621,6 +1654,16 @@ class ResolutionResult:
     condition_applications: tuple[ConditionApplicationResult, ...] = field(
         default_factory=tuple
     )
+    pending_character_wound: CharacterWoundLifecycleRollResult | None = None
+    deferred_wound_conditions: tuple[
+        ConditionOnGiveGroundOrWoundSpec, ...
+    ] = field(default_factory=tuple)
+    deferred_wound_condition_immunities: tuple[EffectImmunity, ...] = field(
+        default_factory=tuple
+    )
+    character_wound_completion: (
+        CharacterWoundLifecycleCompletionResult | None
+    ) = None
 
 
 def _validate_bool(value: bool, name: str) -> None:

@@ -49,6 +49,8 @@ class AttackActionExecutionRequest:
             raise ValueError("slot_index must be 1 or 2")
         if not isinstance(self.kernel_request, KernelAttackRequest):
             raise TypeError("kernel_request must be a KernelAttackRequest")
+        if self.kernel_request.target_id != self.target_id:
+            raise ValueError("kernel request belongs to another target")
 
 
 @dataclass(frozen=True, slots=True)

@@ -180,6 +180,7 @@ class TrollVomitActionExecutionResult:
             raise ValueError("Troll Vomit Endurance result belongs elsewhere")
         expected_hazard_request = HazardResolutionRequest(
             id=f"{source.id}:hazard",
+            target_id=target.target_id,
             exposure=self.exposure,
             avoidance_test=self.avoidance_test,
             target_policy=target.target_policy,

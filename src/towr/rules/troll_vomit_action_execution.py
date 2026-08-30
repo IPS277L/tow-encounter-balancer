@@ -53,6 +53,7 @@ def execute_troll_vomit_action(
     )
     hazard_request = HazardResolutionRequest(
         id=f"{request.id}:hazard",
+        target_id=request.target.target_id,
         exposure=exposure,
         avoidance_test=avoidance_test,
         target_policy=target.target_policy,

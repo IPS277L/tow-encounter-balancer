@@ -27,6 +27,7 @@ from towr.domain.injury_models import (
     WoundEnduranceTestRequest,
     WoundNegationOption,
 )
+from towr.domain.infection_models import DailyWoundState
 from towr.domain.resolution_models import (
     AttackerStaggerRequest,
     ConditionImpactResult,
@@ -43,7 +44,16 @@ from towr.domain.resolution_models import (
     UnsteadyReactionSpec,
 )
 from towr.domain.test_models import Skill, TestProfile, TestRequest
-from towr.rules.kernel import resolve_kernel_attack
+from towr.domain.wound_lifecycle_models import (
+    CharacterWoundLifecycleCompletionRequest,
+)
+from towr.rules.kernel import (
+    apply_kernel_character_wound_completion,
+    resolve_kernel_attack,
+)
+from towr.rules.wound_lifecycle_resolution import (
+    complete_character_wound_lifecycle,
+)
 
 
 class FixedKernelDecisions:
@@ -110,6 +120,7 @@ def kernel_request(
 ) -> KernelAttackRequest:
     return KernelAttackRequest(
         id="resolution",
+        target_id="target",
         attack=attack(base_damage=base_damage, impact_spec=impact_spec),
         target_policy=policy,
         target_state=state,
@@ -174,15 +185,17 @@ class K1KernelTests(unittest.TestCase):
             WoundEntryId.NICKED_ARM,
         )
         self.assertFalse(result.target_state.conditions.has(Condition.STAGGERED))
-        self.assertEqual(len(result.follow_ups), 1)
-        self.assertIsNotNone(result.wound_effect)
-        self.assertIsInstance(result.follow_ups[0], WoundEnduranceTestRequest)
+        self.assertEqual(result.follow_ups, ())
+        self.assertIsNone(result.wound_effect)
+        self.assertIsNotNone(result.pending_character_wound)
+        assert result.pending_character_wound is not None
         self.assertEqual(
-            result.follow_ups[0].test_id,
-            "resolution:wound:effect:endurance",
+            result.pending_character_wound.source_request.target_id,
+            "target",
         )
+        self.assertFalse(result.target_state.wounds[0].effect_resolved)
 
-    def test_wound_effect_conditions_are_committed_by_kernel(self) -> None:
+    def test_wound_effect_is_deferred_by_kernel(self) -> None:
         result = resolve_kernel_attack(
             kernel_request(
                 policy=TargetInjuryPolicy.PLAYER,
@@ -192,10 +205,31 @@ class K1KernelTests(unittest.TestCase):
             SequenceRandom([1, 10, 10, 6]),
         )
 
-        self.assertIsNotNone(result.wound_effect)
+        self.assertIsNone(result.wound_effect)
+        self.assertIsNotNone(result.pending_character_wound)
         self.assertIsInstance(result.target_state, CharacterInjuryState)
-        self.assertTrue(result.target_state.conditions.has(Condition.DRAINED))
-        self.assertTrue(result.target_state.wounds[0].effect_resolved)
+        self.assertFalse(result.target_state.conditions.has(Condition.DRAINED))
+        self.assertFalse(result.target_state.wounds[0].effect_resolved)
+
+        assert result.pending_character_wound is not None
+        completion = complete_character_wound_lifecycle(
+            CharacterWoundLifecycleCompletionRequest(
+                id="resolution:complete-wound",
+                roll=result.pending_character_wound,
+                current_state=result.target_state,
+                daily_wounds=DailyWoundState("day:1", "target"),
+                daily_registration_id="resolution:daily-wound",
+            )
+        )
+        completed = apply_kernel_character_wound_completion(
+            result,
+            completion,
+        )
+        self.assertIsNone(completed.pending_character_wound)
+        self.assertIs(completed.character_wound_completion, completion)
+        self.assertIsNotNone(completed.wound_effect)
+        self.assertTrue(completed.target_state.conditions.has(Condition.DRAINED))
+        self.assertTrue(completed.target_state.wounds[0].effect_resolved)
 
     def test_condition_impact_replaces_damage_and_updates_target(self) -> None:
         result = resolve_kernel_attack(

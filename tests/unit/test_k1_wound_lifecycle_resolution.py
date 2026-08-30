@@ -205,6 +205,43 @@ class K1CharacterWoundLifecycleTests(unittest.TestCase):
         self.assertEqual(result.state.wounds, ())
         self.assertEqual(result.daily_wounds.wound_count, 0)
 
+    def test_completion_preserves_condition_changes_after_pending_roll(
+        self,
+    ) -> None:
+        source = CharacterInjuryState(
+            conditions=ConditionState(frozenset({Condition.STAGGERED}))
+        )
+        roll = roll_character_wound_lifecycle(
+            roll_request(state=source),
+            SequenceRandom([6]),
+        )
+        current = replace(
+            roll.wound_result.state,
+            conditions=roll.wound_result.state.conditions.with_condition(
+                Condition.PRONE
+            ),
+        )
+
+        accepted = complete_character_wound_lifecycle(
+            completion_request(roll, current_state=current)
+        )
+        self.assertTrue(accepted.state.conditions.has(Condition.PRONE))
+
+        near_miss = complete_character_wound_lifecycle(
+            replace(
+                completion_request(
+                    roll,
+                    near_miss=near_miss_request(
+                        roll.source_request.wound.id
+                    ),
+                    current_state=current,
+                ),
+                id="complete:wound-lifecycle:hero:near-miss",
+            )
+        )
+        self.assertTrue(near_miss.state.conditions.has(Condition.STAGGERED))
+        self.assertTrue(near_miss.state.conditions.has(Condition.PRONE))
+
     def test_preexisting_non_fate_negation_closes_without_side_effects(
         self,
     ) -> None:

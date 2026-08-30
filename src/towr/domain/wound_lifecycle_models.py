@@ -143,7 +143,13 @@ class CharacterWoundLifecycleCompletionRequest:
         )
         if self.roll.request_id in consumed_rolls:
             raise ValueError("Wound lifecycle roll was already consumed")
-        if self.current_state != self.roll.wound_result.state:
+        pending_state = self.roll.wound_result.state
+        if (
+            self.current_state.wounds != pending_state.wounds
+            or self.current_state.active_wound_effects
+            != pending_state.active_wound_effects
+            or self.current_state.dead != pending_state.dead
+        ):
             raise ValueError("Wound lifecycle current injury state is stale")
         target_id = self.roll.source_request.target_id
         if self.daily_wounds.target_id != target_id:
@@ -333,7 +339,7 @@ class CharacterWoundLifecycleCompletionResult:
             != source.roll.wound_result
             or self.near_miss_application.source_request.consumed_effect_ids
             != source.consumed_near_miss_effect_ids
-            or self.state != self.near_miss_application.state
+            or self.state != _state_after_near_miss(source)
             or self.daily_wounds != source.daily_wounds
             or consumed_effects
             != self.near_miss_application.consumed_effect_ids
@@ -399,6 +405,29 @@ def _completion_rule_ids(
         *(registration.applied_rule_ids if registration is not None else ()),
         *(effect.applied_rule_ids if effect is not None else ()),
         request.rule_id,
+    )
+
+
+def _state_after_near_miss(
+    request: CharacterWoundLifecycleCompletionRequest,
+) -> CharacterInjuryState:
+    """Restore the pre-Wound injury while preserving later Condition changes."""
+    pending_conditions = request.roll.wound_result.state.conditions.conditions
+    current_conditions = request.current_state.conditions.conditions
+    source_conditions = (
+        request.roll.source_request.wound.state.conditions.conditions
+    )
+    added = current_conditions - pending_conditions
+    removed = pending_conditions - current_conditions
+    return CharacterInjuryState(
+        wounds=request.roll.source_request.wound.state.wounds,
+        conditions=type(request.current_state.conditions)(
+            (source_conditions - removed) | added
+        ),
+        active_wound_effects=(
+            request.roll.source_request.wound.state.active_wound_effects
+        ),
+        dead=request.roll.source_request.wound.state.dead,
     )
 
 

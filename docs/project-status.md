@@ -414,6 +414,9 @@ K1 — реализация книжного resolution kernel. Прототип
 - добавлен direct `CharacterWoundLifecycleRollRequest → RollResult → CompletionRequest → CompletionResult`: первая фаза выполняет Wounds Table и сохраняет pending Wound без effect, позволяя actor принять решение после видимого roll;
 - completion при Near Miss атомарно вызывает `burn_fate` и exact application без daily receipt/effect; при отказе сначала регистрирует pre-effect Wound в `DailyWoundState`, затем исполняет `resolve_wound_effect`; прежняя non-Fate negation закрывается без обеих фаз;
 - lifecycle проверяет canonical table, target, актуальные injury/day snapshots и ordered consumed roll/effect IDs; player eligibility, lethal cancellation, Staggered, registration-before-effect, stale/replay и forged branches покрыты детерминированно;
+- общий kernel Attack, Stagger impact и Hazard теперь создают pending character-Wound lifecycle для Player/Champion с явным `target_id`; профильные Minion/Brute/Monstrosity Wounds остаются на immediate пути;
+- отдельные application-функции связывают exact lifecycle completion с исходным result, добавляют Wound follow-ups и только затем применяют Wound-dependent attack Conditions; Hazard failure-Conditions исполняются после completion в обеих ветвях, сохраняя порядок Wound effect → repeated Condition и независимость от Near Miss;
+- completion допускает только Condition-delta поверх pending injury snapshot: accepted Wound effect применяется к актуальным Conditions, а Near Miss откатывает саму Wound, сохраняя независимые post-roll Conditions;
 - полностью прочитан и нормализован Retreat страницы 120 Player’s Guide 1.4; зафиксированы единогласие, два допустимых timing window, Fate rearguard, GM-owned alternative price и отдельная pursuit/Run For Your Lives фаза;
 - добавлен `GroupRetreatDeclaration`: battle, ordered PC group, инициатор, полный consent snapshot и round state проверяются без battle aggregate; союзные/сопровождаемые NPC не включаются в защищённую PC-группу автоматически;
 - добавлены `FateSpendKind.TACTICAL_RETREAT`, battle/group-bound `FateTacticalRetreatProof` и атомарный `FateTacticalRetreatSpendRequest → Result`; Glorious, Second Action и Tactical Retreat используют один session pool;
@@ -474,7 +477,7 @@ K1 — реализация книжного resolution kernel. Прототип
 - `WizardMagicState` не содержит Wizard Level, поэтому непосредственный Recover reducer уменьшает переданный непросроченный Miscast snapshot; battle orchestration обязано сначала немедленно разрешить уже triggered Miscast Pool и не давать Recover отменить сработавший Miscast;
 - каталоги NPC Abilities, магии, религии и магических предметов завершены как нормативный индекс, но большинство записей ещё не связано с исполняемыми reducers и orchestration;
 - `CATCH_YOUR_BREATH`, независимый end-encounter opportunity, `A Night’s Respite`, успешный `REST_AND_RECOVERY`, daily Wound/Infection producer, Anatomy Recall/automatic-success branch, persistent Festering state/recovery consumer, ordinary и Combat Surgeon surgery proofs для `20–23`, общий transition снятия non-permanent effects, обе Combat Surgeon boundaries, suppression aggregate/view и полная `Drained` Test preparation реализованы; остальные Condition modifiers, применение surgery-failure follow-up и optional early Endurance Test требуют будущих lifecycle/orchestration boundaries;
-- session Fate resource, обе части Lucky, GM refresh, Glorious producer до/после initial roll, Second Action/Tactical Retreat composites, permanent burn с тремя typed effect requests, Near Miss application и direct two-phase Wound lifecycle, alternative-price proof, общий pursuit и Run For Your Lives aggregate реализованы; kernel/Stagger/Hazard пока используют immediate character-Wound path, а Unmitigated Success, Last Stand и конкретное применение price/campaign follow-ups ещё отсутствуют;
+- session Fate resource, обе части Lucky, GM refresh, Glorious producer до/после initial roll, Second Action/Tactical Retreat composites, permanent burn с тремя typed effect requests, Near Miss application и two-phase Wound lifecycle вместе с kernel/Stagger/Hazard adapters, alternative-price proof, общий pursuit и Run For Your Lives aggregate реализованы; Miscast character-Wound producers пока используют immediate path, а Unmitigated Success, Last Stand и конкретное применение price/campaign follow-ups ещё отсутствуют;
 - Lucky gambling producer принимает уже классифицированный game-of-chance context; отдельного gambling/social action engine и автоматического поиска подходящей Test пока нет;
 - общий Exacting reducer пока принимает Basic contributions и оставляет цену специализированному consumer; Opposed contribution со subtraction/tie-break и другие cost adapters ещё не реализованы;
 - внешние последствия Wound для инвентаря и анатомии пока являются typed follow-up;
@@ -511,7 +514,7 @@ K1 — реализация книжного resolution kernel. Прототип
 
 ## Следующий шаг
 
-Подключить pending character-Wound lifecycle к общим Stagger impact, kernel Attack и Hazard путям: для Player/Champion возвращать roll result до effect и завершать его отдельным application-вызовом с актуальными target/day/Fate snapshots. Профильные Minion/Brute/Monstrosity Wounds оставить на существующем immediate пути; decision policy не должна автоматически расходовать Fate за игрока.
+Перевести оставшиеся Miscast character-Wound producers на actor-owned lifecycle: сначала `Internal Damage`, затем проверить fixed table-entry Wounds (`Ears Ringing` и аналогичные) и спроектировать для них Near Miss без выдуманного dice roll. Profile NPC ветви оставить immediate.
 
 ## Последняя проверка
 
@@ -522,7 +525,7 @@ $env:PYTHONPATH = "src"
 py -3.12 -m unittest discover -s tests -v
 ```
 
-Результат: `Ran 814 tests ... OK`; отдельный K1-набор: `Ran 794 tests ... OK`; `compileall`, public-import smoke test, проверка отсутствия domain→rules imports и `git diff --check` успешно завершены (только предупреждения Git о LF/CRLF).
+Результат: `Ran 816 tests ... OK`; отдельный K1-набор: `Ran 796 tests ... OK`; `compileall`, public-import smoke test, проверка отсутствия domain→rules imports и `git diff --check` успешно завершены (только предупреждения Git о LF/CRLF).
 
 ```powershell
 py -3.12 -m compileall -q src tests tools

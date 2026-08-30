@@ -123,6 +123,7 @@ def attack_execution_request(
         slot_index=slot_index,
         kernel_request=KernelAttackRequest(
             id="attack:kernel",
+            target_id=target_id,
             attack=AttackRequest(
                 id="attack:request",
                 attacker_test=TestRequest(

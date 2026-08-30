@@ -19,6 +19,7 @@ from towr.domain.injury_models import (
     ProfileStateChangeRequest,
     WoundNegationOption,
 )
+from towr.domain.infection_models import DailyWoundState
 from towr.domain.resolution_models import (
     ConditionAfterGiveGroundRequest,
     ConsumeWoundNegationRequest,
@@ -31,6 +32,15 @@ from towr.domain.resolution_models import (
 )
 from towr.rules.secondary_target_resolution import (
     resolve_nearby_targets_stagger,
+)
+from towr.domain.wound_lifecycle_models import (
+    CharacterWoundLifecycleCompletionRequest,
+)
+from towr.rules.stagger_impact_resolution import (
+    apply_stagger_character_wound_completion,
+)
+from towr.rules.wound_lifecycle_resolution import (
+    complete_character_wound_lifecycle,
 )
 
 
@@ -81,6 +91,7 @@ def target(
         target_id=target_id,
         impact=StaggerImpactRequest(
             id=impact_id or f"secondary:{target_id}",
+            target_id=target_id,
             target_policy=policy,
             target_state=state,
             can_target_leave_zone=can_leave_zone,
@@ -176,6 +187,47 @@ class K1SecondaryTargetResolutionTests(unittest.TestCase):
             result.targets[1].impact.follow_ups[0],
             GiveGroundRequest,
         )
+
+    def test_pending_character_wound_applies_outcome_condition_after_completion(
+        self,
+    ) -> None:
+        effect = ConditionOnGiveGroundOrWoundSpec(
+            Condition.BROKEN,
+            "RULE-NPC:terrifying",
+        )
+        result = resolve_nearby_targets_stagger(
+            batch(
+                target(
+                    "player",
+                    state=CharacterInjuryState(
+                        conditions=staggered_prone()
+                    ),
+                    give_ground_or_wound_effects=(effect,),
+                )
+            ),
+            SequenceRandom([6]),
+        )
+        impact = result.targets[0].impact
+        self.assertEqual(impact.deferred_wound_conditions, (effect,))
+        assert impact.pending_character_wound is not None
+        completion = complete_character_wound_lifecycle(
+            CharacterWoundLifecycleCompletionRequest(
+                id="secondary:player:complete-wound",
+                roll=impact.pending_character_wound,
+                current_state=impact.state,
+                daily_wounds=DailyWoundState("day:1", "player"),
+                daily_registration_id="secondary:player:daily-wound",
+            )
+        )
+
+        completed = apply_stagger_character_wound_completion(
+            impact,
+            completion,
+        )
+
+        self.assertTrue(completed.state.conditions.has(Condition.BROKEN))
+        self.assertEqual(completed.applied_rule_ids, (effect.rule_id,))
+        self.assertIs(completed.character_wound_completion, completion)
 
     def test_profile_npcs_use_profile_wound_policy(self) -> None:
         cases = (

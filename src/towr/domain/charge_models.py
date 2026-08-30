@@ -89,6 +89,8 @@ class ChargeActionExecutionRequest:
             raise ValueError("Charge requires an Attack Skill")
         if not isinstance(self.kernel_request, KernelAttackRequest):
             raise TypeError("kernel_request must be a KernelAttackRequest")
+        if self.kernel_request.target_id != self.target_id:
+            raise ValueError("Charge kernel request belongs to another target")
         _validate_bool(
             self.actor_began_turn_in_enemy_close_range,
             "actor_began_turn_in_enemy_close_range",
@@ -193,6 +195,8 @@ class ChargeActionExecutionResult:
             raise TypeError("source_kernel_request must be a KernelAttackRequest")
         if not isinstance(self.kernel_request, KernelAttackRequest):
             raise TypeError("kernel_request must be a KernelAttackRequest")
+        if self.kernel_request.target_id != self.target_id:
+            raise ValueError("Charge kernel request belongs to another target")
         if not isinstance(self.resolution, ResolutionResult):
             raise TypeError("resolution must be a ResolutionResult")
 
@@ -668,6 +672,10 @@ class LongChargeActionExecutionRequest:
             raise TypeError("athletics_test must be a TestRequest")
         if not isinstance(self.kernel_request, KernelAttackRequest):
             raise TypeError("kernel_request must be a KernelAttackRequest")
+        if self.kernel_request.target_id != self.target_id:
+            raise ValueError(
+                "Long Charge kernel request belongs to another target"
+            )
         _validate_non_empty_string(
             self.intermediate_zone_id,
             "intermediate_zone_id",

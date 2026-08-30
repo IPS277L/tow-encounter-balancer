@@ -24,6 +24,7 @@ from towr.domain.wound_lifecycle_models import (
     CharacterWoundLifecycleRollResult,
     _completion_rule_ids,
     _ordered_rule_ids,
+    _state_after_near_miss,
 )
 from towr.rules.dice import RandomSource
 from towr.rules.fate_near_miss_resolution import apply_fate_near_miss
@@ -105,7 +106,7 @@ def complete_character_wound_lifecycle(
         return _completion_result(
             request,
             outcome=CharacterWoundLifecycleOutcome.NEAR_MISS,
-            state=near_miss.state,
+            state=_state_after_near_miss(request),
             daily_wounds=request.daily_wounds,
             fate_burn=fate_burn,
             near_miss=near_miss,

@@ -63,6 +63,7 @@ class K1TrollHazardTests(unittest.TestCase):
         result = resolve_hazard(
             HazardResolutionRequest(
                 id="troll:vomit:hazard",
+                target_id="hero",
                 exposure=exposure,
                 avoidance_test=avoidance_test,
                 target_policy=TargetInjuryPolicy.BRUTE,

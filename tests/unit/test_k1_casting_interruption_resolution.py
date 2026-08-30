@@ -90,6 +90,7 @@ def executed_attack() -> AttackActionExecutionResult:
 def _kernel_attack() -> KernelAttackRequest:
     return KernelAttackRequest(
         id="kernel:attack",
+        target_id="enemy",
         attack=AttackRequest(
             id="attack:test",
             attacker_test=TestRequest(

@@ -29,20 +29,26 @@ from towr.domain.resolution_models import (
     TargetInjuryPolicy,
     TargetInjuryState,
 )
+from towr.domain.wound_lifecycle_models import (
+    CharacterWoundLifecycleCompletionResult,
+    CharacterWoundLifecycleOutcome,
+    CharacterWoundLifecycleRollRequest,
+)
 from towr.rules.condition_effect_resolution import (
     resolve_condition_application,
 )
 from towr.rules.dice import RandomSource
 from towr.rules.injury_resolution import (
     WoundDecisionProvider,
-    resolve_character_wound,
     resolve_profile_wound,
 )
 from towr.rules.stagger_resolution import (
     StaggerDecisionProvider,
     resolve_stagger,
 )
-from towr.rules.wound_effect_resolution import resolve_wound_effect
+from towr.rules.wound_lifecycle_resolution import (
+    roll_character_wound_lifecycle,
+)
 
 
 class StaggerImpactDecisionProvider(
@@ -138,26 +144,22 @@ def _resolve_stagger_wound(
             if request.target_policy is TargetInjuryPolicy.PLAYER
             else CharacterWoundType.CHAMPION
         )
-        wound = resolve_character_wound(
-            CharacterWoundRequest(
-                id=f"{request.id}:wound",
-                state=state,
-                subject_type=subject_type,
-                dice_modifiers=request.wound_dice_modifiers,
-                negation_options=request.wound_negation_options,
+        pending = roll_character_wound_lifecycle(
+            CharacterWoundLifecycleRollRequest(
+                id=f"{request.id}:wound-lifecycle",
+                target_id=request.target_id,
+                wound=CharacterWoundRequest(
+                    id=f"{request.id}:wound",
+                    state=state,
+                    subject_type=subject_type,
+                    dice_modifiers=request.wound_dice_modifiers,
+                    negation_options=request.wound_negation_options,
+                ),
             ),
             rng,
             decisions=decisions,
         )
-        wound_effect = None
-        target_state = wound.state
-        if wound.effect_request is not None:
-            wound_effect = resolve_wound_effect(
-                wound.effect_request,
-                wound.state,
-            )
-            target_state = wound_effect.state
-            follow_ups.extend(wound_effect.follow_ups)
+        wound = pending.wound_result
         if wound.negated_by_rule_id is not None:
             follow_ups.append(
                 ConsumeWoundNegationRequest(
@@ -167,13 +169,24 @@ def _resolve_stagger_wound(
             )
         return StaggerImpactResult(
             request_id=request.id,
-            state=target_state,
+            state=wound.state,
             stagger=stagger,
             character_wound=wound,
-            wound_effect=wound_effect,
+            wound_effect=None,
             profile_wound=None,
             follow_ups=tuple(follow_ups),
             applied_rule_ids=(),
+            pending_character_wound=pending,
+            deferred_wound_conditions=(
+                request.give_ground_or_wound_effects
+                if wound.wound_accepted
+                else ()
+            ),
+            deferred_wound_condition_immunities=(
+                request.target_effect_immunities
+                if wound.wound_accepted
+                else ()
+            ),
         )
 
     assert isinstance(state, ProfileInjuryState)
@@ -221,6 +234,39 @@ def _with_conditions(
     )
 
 
+def apply_stagger_character_wound_completion(
+    result: StaggerImpactResult,
+    completion: CharacterWoundLifecycleCompletionResult,
+) -> StaggerImpactResult:
+    """Commit a pending character Wound, then its outcome Conditions."""
+    if result.pending_character_wound is None:
+        raise ValueError("Stagger impact has no pending character Wound")
+    if completion.source_request.roll != result.pending_character_wound:
+        raise ValueError("Wound completion belongs to another Stagger impact")
+    if completion.previous_state != result.state:
+        raise ValueError("Stagger impact Wound completion used a stale state")
+    follow_ups = list(result.follow_ups)
+    if completion.wound_effect is not None:
+        follow_ups.extend(completion.wound_effect.follow_ups)
+    committed = replace(
+        result,
+        state=completion.state,
+        wound_effect=completion.wound_effect,
+        follow_ups=tuple(follow_ups),
+        pending_character_wound=None,
+        deferred_wound_conditions=(),
+        deferred_wound_condition_immunities=(),
+        character_wound_completion=completion,
+    )
+    if completion.outcome is not CharacterWoundLifecycleOutcome.ACCEPTED:
+        return committed
+    return _apply_conditions_after_accepted_wound(
+        committed,
+        result.deferred_wound_conditions,
+        result.deferred_wound_condition_immunities,
+    )
+
+
 def _apply_conditions_after_accepted_wound(
     result: StaggerImpactResult,
     effects: tuple[ConditionOnGiveGroundOrWoundSpec, ...],
@@ -229,6 +275,7 @@ def _apply_conditions_after_accepted_wound(
     character_wound_accepted = (
         result.character_wound is not None
         and result.character_wound.wound_accepted
+        and result.pending_character_wound is None
     )
     profile_wound_accepted = (
         result.profile_wound is not None

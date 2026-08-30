@@ -46,6 +46,11 @@ from towr.domain.resolution_models import (
     StaggerImpactRequest,
     TargetInjuryPolicy,
 )
+from towr.domain.wound_lifecycle_models import (
+    CharacterWoundLifecycleCompletionResult,
+    CharacterWoundLifecycleOutcome,
+    CharacterWoundLifecycleRollRequest,
+)
 from towr.rules.attack_resolution import resolve_attack
 from towr.rules.condition_effect_resolution import (
     resolve_condition_application,
@@ -53,7 +58,6 @@ from towr.rules.condition_effect_resolution import (
 from towr.rules.dice import RandomSource
 from towr.rules.injury_resolution import (
     WoundDecisionProvider,
-    resolve_character_wound,
     resolve_profile_wound,
 )
 from towr.rules.hazard_resolution import resolve_hazard_exposure_application
@@ -64,7 +68,9 @@ from towr.rules.monstrosity_resolution import (
 from towr.rules.stagger_impact_resolution import resolve_stagger_impact
 from towr.rules.stagger_resolution import StaggerDecisionProvider
 from towr.rules.test_resolution import TestDecisionProvider
-from towr.rules.wound_effect_resolution import resolve_wound_effect
+from towr.rules.wound_lifecycle_resolution import (
+    roll_character_wound_lifecycle,
+)
 
 
 class ResolutionDecisionProvider(
@@ -271,6 +277,7 @@ def _resolve_stagger_impact(
     impact = resolve_stagger_impact(
         StaggerImpactRequest(
             id=request.id,
+            target_id=request.target_id,
             target_policy=request.target_policy,
             target_state=state,
             can_target_leave_zone=request.can_target_leave_zone,
@@ -308,6 +315,11 @@ def _resolve_stagger_impact(
         follow_ups=impact.follow_ups,
         applied_secondary_rule_ids=impact.applied_rule_ids,
         condition_applications=impact.condition_applications,
+        pending_character_wound=impact.pending_character_wound,
+        deferred_wound_conditions=impact.deferred_wound_conditions,
+        deferred_wound_condition_immunities=(
+            impact.deferred_wound_condition_immunities
+        ),
     )
 
 
@@ -422,23 +434,22 @@ def _resolve_wound(
             if request.target_policy is TargetInjuryPolicy.PLAYER
             else CharacterWoundType.CHAMPION
         )
-        wound = resolve_character_wound(
-            CharacterWoundRequest(
-                id=f"{request.id}:wound",
-                state=state,
-                subject_type=subject_type,
-                dice_modifiers=request.wound_dice_modifiers,
-                negation_options=request.wound_negation_options,
+        pending = roll_character_wound_lifecycle(
+            CharacterWoundLifecycleRollRequest(
+                id=f"{request.id}:wound-lifecycle",
+                target_id=request.target_id,
+                wound=CharacterWoundRequest(
+                    id=f"{request.id}:wound",
+                    state=state,
+                    subject_type=subject_type,
+                    dice_modifiers=request.wound_dice_modifiers,
+                    negation_options=request.wound_negation_options,
+                ),
             ),
             rng,
             decisions=decisions,
         )
-        effect = None
-        target_state = wound.state
-        if wound.effect_request is not None:
-            effect = resolve_wound_effect(wound.effect_request, wound.state)
-            target_state = effect.state
-            follow_ups.extend(effect.follow_ups)
+        wound = pending.wound_result
         if wound.negated_by_rule_id is not None:
             follow_ups.append(
                 ConsumeWoundNegationRequest(
@@ -450,13 +461,24 @@ def _resolve_wound(
             request_id=request.id,
             attack=attack,
             replacement_impact=None,
-            target_state=target_state,
+            target_state=wound.state,
             stagger=None,
             character_wound=wound,
-            wound_effect=effect,
+            wound_effect=None,
             profile_wound=None,
             monstrosity_impact=None,
             follow_ups=tuple(follow_ups),
+            pending_character_wound=pending,
+            deferred_wound_conditions=tuple(
+                effect
+                for effect in request.attack.secondary_effects
+                if isinstance(effect, ConditionOnGiveGroundOrWoundSpec)
+            ) if wound.wound_accepted else (),
+            deferred_wound_condition_immunities=(
+                request.target_effect_immunities
+                if wound.wound_accepted
+                else ()
+            ),
         )
 
     assert isinstance(state, ProfileInjuryState)
@@ -573,6 +595,61 @@ def _resolve_monstrosity(
     )
 
 
+def apply_kernel_character_wound_completion(
+    result: ResolutionResult,
+    completion: CharacterWoundLifecycleCompletionResult,
+) -> ResolutionResult:
+    """Commit a pending Wound and then Wound-dependent attack effects."""
+    if result.pending_character_wound is None:
+        raise ValueError("kernel result has no pending character Wound")
+    if completion.source_request.roll != result.pending_character_wound:
+        raise ValueError("Wound completion belongs to another kernel result")
+    if completion.previous_state != result.target_state:
+        raise ValueError("kernel Wound completion used a stale target state")
+    follow_ups = list(result.follow_ups)
+    if completion.wound_effect is not None:
+        follow_ups.extend(completion.wound_effect.follow_ups)
+    state = completion.state
+    applications = list(result.condition_applications)
+    applied_rule_ids: list[str] = []
+    if completion.outcome is CharacterWoundLifecycleOutcome.ACCEPTED:
+        for effect in result.deferred_wound_conditions:
+            application = resolve_condition_application(
+                ConditionApplicationRequest(
+                    id=(
+                        f"{result.request_id}:{effect.rule_id}:"
+                        "outcome-condition"
+                    ),
+                    state=state.conditions,
+                    condition=effect.condition,
+                    source_rule_id=effect.rule_id,
+                    classification=effect.classification,
+                    immunities=(
+                        result.deferred_wound_condition_immunities
+                    ),
+                )
+            )
+            state = _with_conditions(state, application.state)
+            applications.append(application)
+            applied_rule_ids.extend(application.applied_rule_ids)
+    return replace(
+        result,
+        target_state=state,
+        wound_effect=completion.wound_effect,
+        follow_ups=tuple(follow_ups),
+        applied_secondary_rule_ids=tuple(
+            dict.fromkeys(
+                (*result.applied_secondary_rule_ids, *applied_rule_ids)
+            )
+        ),
+        condition_applications=tuple(applications),
+        pending_character_wound=None,
+        deferred_wound_conditions=(),
+        deferred_wound_condition_immunities=(),
+        character_wound_completion=completion,
+    )
+
+
 def _with_conditions(
     state: CharacterInjuryState | ProfileInjuryState,
     conditions: ConditionState,
@@ -594,7 +671,10 @@ def _with_conditions(
 
 def _wound_was_accepted(result: ResolutionResult) -> bool:
     if result.character_wound is not None:
-        return result.character_wound.wound_accepted
+        return (
+            result.pending_character_wound is None
+            and result.character_wound.wound_accepted
+        )
     if result.profile_wound is not None:
         return result.profile_wound.wounds_inflicted > 0
     return False

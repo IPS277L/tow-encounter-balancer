@@ -6,6 +6,7 @@ from dataclasses import replace
 from tests.helpers import SequenceRandom
 from towr.domain.condition_models import Condition, ConditionState
 from towr.domain.injury_models import CharacterInjuryState, ProfileInjuryState
+from towr.domain.infection_models import DailyWoundState
 from towr.domain.resolution_models import (
     IdentifiedHazardTarget,
     TargetInjuryPolicy,
@@ -22,6 +23,12 @@ from towr.domain.spatial_models import (
     ZoneGraph,
 )
 from towr.domain.test_models import InlineProfile, Skill, TestRequest
+from towr.domain.wound_lifecycle_models import (
+    CharacterWoundLifecycleCompletionRequest,
+)
+from towr.rules.hazard_resolution import (
+    apply_hazard_character_wound_completion,
+)
 from towr.domain.turn_models import (
     ActionSlotGrant,
     CombatActionDeclaration,
@@ -41,6 +48,9 @@ from towr.rules.turn_resolution import (
     end_combat_turn,
     reserve_combat_action_slot,
     start_combat_turn,
+)
+from towr.rules.wound_lifecycle_resolution import (
+    complete_character_wound_lifecycle,
 )
 
 
@@ -256,6 +266,22 @@ class K1SoporificBreathActionExecutionTests(unittest.TestCase):
 
         hazard = result.zone_hazard.targets[0].hazard
         assert hazard is not None
+        assert hazard.pending_character_wound is not None
+        completion = complete_character_wound_lifecycle(
+            CharacterWoundLifecycleCompletionRequest(
+                id="soporific-action:player:complete-wound",
+                roll=hazard.pending_character_wound,
+                current_state=hazard.state,
+                daily_wounds=DailyWoundState("day:1", "player"),
+                daily_registration_id=(
+                    "soporific-action:player:daily-wound"
+                ),
+            )
+        )
+        hazard = apply_hazard_character_wound_completion(
+            hazard,
+            completion,
+        )
         self.assertTrue(hazard.state.conditions.has(Condition.DRAINED))
         self.assertTrue(hazard.state.conditions.has(Condition.DEFENCELESS))
         self.assertEqual(

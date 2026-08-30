@@ -31,6 +31,7 @@ from towr.domain.injury_models import (
     ProfileStateChangeRequest,
     WoundNegationOption,
 )
+from towr.domain.infection_models import DailyWoundState
 from towr.domain.resolution_models import (
     AttackerStaggerRequest,
     ConditionAfterGiveGroundRequest,
@@ -43,10 +44,19 @@ from towr.domain.resolution_models import (
     TargetInjuryPolicy,
 )
 from towr.domain.test_models import TestProfile, TestRequest
+from towr.domain.wound_lifecycle_models import (
+    CharacterWoundLifecycleCompletionRequest,
+)
 from towr.rules.condition_effect_resolution import (
     resolve_condition_after_give_ground,
 )
-from towr.rules.kernel import resolve_kernel_attack
+from towr.rules.kernel import (
+    apply_kernel_character_wound_completion,
+    resolve_kernel_attack,
+)
+from towr.rules.wound_lifecycle_resolution import (
+    complete_character_wound_lifecycle,
+)
 
 
 class GiveGroundDecisions:
@@ -101,6 +111,7 @@ def request(
         state = CharacterInjuryState()
     return KernelAttackRequest(
         id="resolution",
+        target_id="target",
         attack=attack(*effects, impact_spec=impact_spec),
         target_policy=policy,
         target_state=state,
@@ -386,6 +397,7 @@ class K1SecondaryEffectTests(unittest.TestCase):
         result = resolve_kernel_attack(
             KernelAttackRequest(
                 id="resolution",
+                target_id="target",
                 attack=attack(
                     effect,
                     impact_spec=DamageImpactSpec(
@@ -506,7 +518,7 @@ class K1SecondaryEffectTests(unittest.TestCase):
         )
         self.assertEqual(result.applied_secondary_rule_ids, (effect.rule_id,))
 
-    def test_terrifying_applies_broken_after_accepted_wound(self) -> None:
+    def test_terrifying_is_deferred_while_wound_is_pending(self) -> None:
         effect = ConditionOnGiveGroundOrWoundSpec(
             Condition.BROKEN,
             "RULE-NPC:terrifying",
@@ -524,10 +536,31 @@ class K1SecondaryEffectTests(unittest.TestCase):
 
         assert result.character_wound is not None
         self.assertTrue(result.character_wound.wound_accepted)
-        self.assertTrue(result.target_state.conditions.has(Condition.BROKEN))
-        self.assertEqual(result.applied_secondary_rule_ids, (effect.rule_id,))
+        self.assertFalse(result.target_state.conditions.has(Condition.BROKEN))
+        self.assertEqual(result.applied_secondary_rule_ids, ())
+        self.assertEqual(result.deferred_wound_conditions, (effect,))
 
-    def test_psychological_terrifying_is_blocked_after_wound(self) -> None:
+        assert result.pending_character_wound is not None
+        completion = complete_character_wound_lifecycle(
+            CharacterWoundLifecycleCompletionRequest(
+                id="resolution:complete-wound",
+                roll=result.pending_character_wound,
+                current_state=result.target_state,
+                daily_wounds=DailyWoundState("day:1", "target"),
+                daily_registration_id="resolution:daily-wound",
+            )
+        )
+        completed = apply_kernel_character_wound_completion(
+            result,
+            completion,
+        )
+        self.assertTrue(completed.target_state.conditions.has(Condition.BROKEN))
+        self.assertEqual(
+            completed.applied_secondary_rule_ids,
+            (effect.rule_id,),
+        )
+
+    def test_psychological_terrifying_waits_for_wound_completion(self) -> None:
         immunity = EffectImmunity(
             EffectClassification.PSYCHOLOGICAL,
             "RULE-NPC:undead-immunity",
@@ -553,12 +586,9 @@ class K1SecondaryEffectTests(unittest.TestCase):
         assert result.character_wound is not None
         self.assertTrue(result.character_wound.wound_accepted)
         self.assertFalse(result.target_state.conditions.has(Condition.BROKEN))
-        self.assertEqual(len(result.condition_applications), 1)
-        self.assertTrue(result.condition_applications[0].blocked)
-        self.assertEqual(
-            result.applied_secondary_rule_ids,
-            (immunity.rule_id,),
-        )
+        self.assertEqual(result.condition_applications, ())
+        self.assertEqual(result.applied_secondary_rule_ids, ())
+        self.assertEqual(result.deferred_wound_conditions, (effect,))
 
     def test_psychological_fearsome_is_blocked_after_give_ground(self) -> None:
         immunity = EffectImmunity(
@@ -617,6 +647,7 @@ class K1SecondaryEffectTests(unittest.TestCase):
         result = resolve_kernel_attack(
             KernelAttackRequest(
                 id="resolution",
+                target_id="target",
                 attack=attack(
                     effect,
                     impact_spec=DamageImpactSpec(

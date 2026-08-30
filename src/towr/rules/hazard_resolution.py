@@ -28,6 +28,10 @@ from towr.domain.resolution_models import (
     TargetInjuryPolicy,
     TargetInjuryState,
 )
+from towr.domain.wound_lifecycle_models import (
+    CharacterWoundLifecycleCompletionResult,
+    CharacterWoundLifecycleRollRequest,
+)
 from towr.rules.condition_effect_resolution import (
     resolve_condition_application,
 )
@@ -35,10 +39,11 @@ from towr.rules.dice import RandomSource
 from towr.rules.effect_resolution import resolve_effect_application
 from towr.rules.injury_resolution import (
     WoundDecisionProvider,
-    resolve_character_wound,
     resolve_profile_wound,
 )
-from towr.rules.wound_effect_resolution import resolve_wound_effect
+from towr.rules.wound_lifecycle_resolution import (
+    roll_character_wound_lifecycle,
+)
 
 
 def resolve_hazard_exposure_application(
@@ -85,6 +90,7 @@ def resolve_hazard(
     state = request.target_state
     character_wound = None
     wound_effect = None
+    pending_character_wound = None
     profile_wound = None
     follow_ups: list[FollowUpRequest] = []
     if request.exposure.inflicts_wound:
@@ -98,26 +104,24 @@ def resolve_hazard(
                 if request.target_policy is TargetInjuryPolicy.PLAYER
                 else CharacterWoundType.CHAMPION
             )
-            character_wound = resolve_character_wound(
-                CharacterWoundRequest(
-                    id=f"{request.id}:wound",
-                    state=state,
-                    base_dice=shortfall,
-                    subject_type=subject_type,
-                    dice_modifiers=request.wound_dice_modifiers,
-                    negation_options=request.wound_negation_options,
+            pending_character_wound = roll_character_wound_lifecycle(
+                CharacterWoundLifecycleRollRequest(
+                    id=f"{request.id}:wound-lifecycle",
+                    target_id=request.target_id,
+                    wound=CharacterWoundRequest(
+                        id=f"{request.id}:wound",
+                        state=state,
+                        base_dice=shortfall,
+                        subject_type=subject_type,
+                        dice_modifiers=request.wound_dice_modifiers,
+                        negation_options=request.wound_negation_options,
+                    ),
                 ),
                 rng,
                 decisions=decisions,
             )
+            character_wound = pending_character_wound.wound_result
             state = character_wound.state
-            if character_wound.effect_request is not None:
-                wound_effect = resolve_wound_effect(
-                    character_wound.effect_request,
-                    character_wound.state,
-                )
-                state = wound_effect.state
-                follow_ups.extend(wound_effect.follow_ups)
             if character_wound.negated_by_rule_id is not None:
                 follow_ups.append(
                     ConsumeWoundNegationRequest(
@@ -144,18 +148,24 @@ def resolve_hazard(
             state = profile_wound.state
             follow_ups.append(profile_wound.state_change)
 
-    (
-        state,
-        failure_conditions,
-        condition_applications,
-    ) = _apply_failure_conditions(
-        request.id,
-        state,
-        request.exposure.failure_conditions,
-        request.exposure.repeated_condition_replacements,
-        request.exposure.rule_id,
-        request.exposure.classification,
-    )
+    deferred_failure_exposure = None
+    if pending_character_wound is not None:
+        failure_conditions = ()
+        condition_applications = ()
+        deferred_failure_exposure = request.exposure
+    else:
+        (
+            state,
+            failure_conditions,
+            condition_applications,
+        ) = _apply_failure_conditions(
+            request.id,
+            state,
+            request.exposure.failure_conditions,
+            request.exposure.repeated_condition_replacements,
+            request.exposure.rule_id,
+            request.exposure.classification,
+        )
     applied_rule_ids = tuple(
         dict.fromkeys(
             (
@@ -182,6 +192,65 @@ def resolve_hazard(
         follow_ups=tuple(follow_ups),
         applied_rule_ids=applied_rule_ids,
         condition_applications=condition_applications,
+        pending_character_wound=pending_character_wound,
+        deferred_failure_exposure=deferred_failure_exposure,
+    )
+
+
+def apply_hazard_character_wound_completion(
+    result: HazardResolutionResult,
+    completion: CharacterWoundLifecycleCompletionResult,
+) -> HazardResolutionResult:
+    """Commit a pending Wound before applying the Hazard failure effects."""
+    if result.pending_character_wound is None:
+        raise ValueError("Hazard result has no pending character Wound")
+    if result.deferred_failure_exposure is None:
+        raise ValueError("Hazard result has no deferred failure exposure")
+    if completion.source_request.roll != result.pending_character_wound:
+        raise ValueError("Wound completion belongs to another Hazard result")
+    if completion.previous_state != result.state:
+        raise ValueError("Hazard Wound completion used a stale target state")
+    exposure = result.deferred_failure_exposure
+    state, conditions, applications = _apply_failure_conditions(
+        result.request_id,
+        completion.state,
+        exposure.failure_conditions,
+        exposure.repeated_condition_replacements,
+        exposure.rule_id,
+        exposure.classification,
+    )
+    follow_ups = list(result.follow_ups)
+    if completion.wound_effect is not None:
+        follow_ups.extend(completion.wound_effect.follow_ups)
+    applied_rule_ids = tuple(
+        dict.fromkeys(
+            (
+                *result.applied_rule_ids,
+                *(
+                    rule_id
+                    for application in applications
+                    for rule_id in application.applied_rule_ids
+                ),
+            )
+        )
+    )
+    return HazardResolutionResult(
+        request_id=result.request_id,
+        state=state,
+        avoided=result.avoided,
+        successes=result.successes,
+        rating=result.rating,
+        shortfall=result.shortfall,
+        character_wound=result.character_wound,
+        wound_effect=completion.wound_effect,
+        profile_wound=result.profile_wound,
+        failure_conditions=conditions,
+        follow_ups=tuple(follow_ups),
+        applied_rule_ids=applied_rule_ids,
+        condition_applications=applications,
+        pending_character_wound=None,
+        deferred_failure_exposure=None,
+        character_wound_completion=completion,
     )
 
 

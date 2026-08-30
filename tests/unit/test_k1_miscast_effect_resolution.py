@@ -192,6 +192,7 @@ class K1ArcaneSpillTests(unittest.TestCase):
                 magic_state=WizardMagicState(miscast_dice=2),
                 stagger_impact=StaggerImpactRequest(
                     id="arcane-spill:wizard",
+                    target_id="wizard",
                     target_policy=TargetInjuryPolicy.PLAYER,
                     target_state=state,
                     can_target_leave_zone=True,

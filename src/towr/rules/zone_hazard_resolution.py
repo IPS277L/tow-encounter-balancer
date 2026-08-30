@@ -84,6 +84,7 @@ def hazard_resolution_request(
 ) -> HazardResolutionRequest:
     return HazardResolutionRequest(
         id=f"{request_id}:{target.target_id}:hazard",
+        target_id=target.target_id,
         exposure=exposure,
         avoidance_test=avoidance_test,
         target_policy=target.target_policy,

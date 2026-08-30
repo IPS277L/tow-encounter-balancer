@@ -18,6 +18,7 @@ from towr.domain.injury_models import (
     WoundNegationOption,
     WoundRecord,
 )
+from towr.domain.infection_models import DailyWoundState
 from towr.domain.resolution_models import (
     ConsumeWoundNegationRequest,
     HazardExposureRequest,
@@ -25,11 +26,18 @@ from towr.domain.resolution_models import (
     TargetInjuryPolicy,
 )
 from towr.domain.test_models import InlineProfile, Skill, TestRequest
+from towr.domain.wound_lifecycle_models import (
+    CharacterWoundLifecycleCompletionRequest,
+)
 from towr.rules.hazard_resolution import (
+    apply_hazard_character_wound_completion,
     resolve_hazard,
     resolve_hazard_exposure_application,
 )
 from towr.rules.test_resolution import resolve_test
+from towr.rules.wound_lifecycle_resolution import (
+    complete_character_wound_lifecycle,
+)
 
 
 class FixedWoundDecision:
@@ -75,6 +83,23 @@ def avoidance_test(
         ),
         SequenceRandom(values),
     )
+
+
+def complete_pending_hazard(result, *, registration: bool = True):
+    pending = result.pending_character_wound
+    assert pending is not None
+    completion = complete_character_wound_lifecycle(
+        CharacterWoundLifecycleCompletionRequest(
+            id=f"{result.request_id}:complete-wound",
+            roll=pending,
+            current_state=result.state,
+            daily_wounds=DailyWoundState("day:1", "target"),
+            daily_registration_id=(
+                f"{result.request_id}:daily-wound" if registration else None
+            ),
+        )
+    )
+    return apply_hazard_character_wound_completion(result, completion)
 
 
 def old_wound() -> WoundRecord:
@@ -140,6 +165,7 @@ class K1HazardResolutionTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             HazardResolutionRequest(
                 "hazard",
+                "target",
                 hazard,
                 unrelated,
                 TargetInjuryPolicy.PLAYER,
@@ -151,6 +177,7 @@ class K1HazardResolutionTests(unittest.TestCase):
         state = CharacterInjuryState()
         request = HazardResolutionRequest(
             "hazard",
+            "target",
             hazard,
             avoidance_test(hazard, [1, 2]),
             TargetInjuryPolicy.PLAYER,
@@ -172,6 +199,7 @@ class K1HazardResolutionTests(unittest.TestCase):
         state = CharacterInjuryState(wounds=(old_wound(),))
         request = HazardResolutionRequest(
             "hazard",
+            "target",
             hazard,
             avoidance_test(hazard, [1, 10]),
             TargetInjuryPolicy.PLAYER,
@@ -185,8 +213,14 @@ class K1HazardResolutionTests(unittest.TestCase):
         self.assertIsNotNone(result.character_wound)
         assert result.character_wound is not None
         self.assertEqual(result.character_wound.table_roll.dice, 3)
-        self.assertTrue(result.state.conditions.has(Condition.PRONE))
-        self.assertTrue(result.state.conditions.has(Condition.DRAINED))
+        self.assertIsNotNone(result.pending_character_wound)
+        self.assertIsNone(result.wound_effect)
+        self.assertFalse(result.state.conditions.has(Condition.PRONE))
+        self.assertFalse(result.state.conditions.has(Condition.DRAINED))
+
+        completed = complete_pending_hazard(result)
+        self.assertTrue(completed.state.conditions.has(Condition.PRONE))
+        self.assertTrue(completed.state.conditions.has(Condition.DRAINED))
 
     def test_condition_only_hazard_does_not_create_wound(self) -> None:
         hazard = exposure(
@@ -196,6 +230,7 @@ class K1HazardResolutionTests(unittest.TestCase):
         )
         request = HazardResolutionRequest(
             "hazard",
+            "target",
             hazard,
             avoidance_test(hazard, [10]),
             TargetInjuryPolicy.PLAYER,
@@ -222,6 +257,7 @@ class K1HazardResolutionTests(unittest.TestCase):
         )
         request = HazardResolutionRequest(
             "hazard",
+            "target",
             hazard,
             avoidance_test(hazard, [10]),
             TargetInjuryPolicy.PLAYER,
@@ -247,6 +283,7 @@ class K1HazardResolutionTests(unittest.TestCase):
         )
         request = HazardResolutionRequest(
             "hazard",
+            "target",
             hazard,
             avoidance_test(hazard, [10]),
             TargetInjuryPolicy.BRUTE,
@@ -269,6 +306,7 @@ class K1HazardResolutionTests(unittest.TestCase):
         near_miss = WoundNegationOption("RULE-FATE:near-miss")
         request = HazardResolutionRequest(
             "hazard",
+            "target",
             hazard,
             avoidance_test(hazard, [10]),
             TargetInjuryPolicy.PLAYER,
@@ -288,6 +326,8 @@ class K1HazardResolutionTests(unittest.TestCase):
         assert result.character_wound is not None
         self.assertFalse(result.character_wound.wound_accepted)
         self.assertTrue(result.state.conditions.has(Condition.STAGGERED))
+        self.assertFalse(result.state.conditions.has(Condition.PRONE))
+        result = complete_pending_hazard(result, registration=False)
         self.assertTrue(result.state.conditions.has(Condition.PRONE))
         self.assertIsInstance(
             result.follow_ups[0],

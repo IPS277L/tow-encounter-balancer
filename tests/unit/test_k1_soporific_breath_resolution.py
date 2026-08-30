@@ -9,6 +9,7 @@ from towr.domain.condition_models import (
     RepeatedConditionReplacement,
 )
 from towr.domain.injury_models import CharacterInjuryState, ProfileInjuryState
+from towr.domain.infection_models import DailyWoundState
 from towr.domain.resolution_models import (
     IdentifiedHazardTarget,
     TargetInjuryPolicy,
@@ -16,11 +17,20 @@ from towr.domain.resolution_models import (
     ZoneHazardResolutionRequest,
 )
 from towr.domain.test_models import InlineProfile, Skill, TestRequest
+from towr.domain.wound_lifecycle_models import (
+    CharacterWoundLifecycleCompletionRequest,
+)
+from towr.rules.hazard_resolution import (
+    apply_hazard_character_wound_completion,
+)
 from towr.rules.soporific_breath import (
     SOPORIFIC_BREATH_RULE_ID,
     soporific_breath_hazard,
 )
 from towr.rules.zone_hazard_resolution import resolve_zone_hazard
+from towr.rules.wound_lifecycle_resolution import (
+    complete_character_wound_lifecycle,
+)
 
 
 def target(
@@ -151,6 +161,20 @@ class K1SoporificBreathResolutionTests(unittest.TestCase):
         hazard = result.targets[0].hazard
         assert hazard is not None
         assert hazard.character_wound is not None
+        assert hazard.pending_character_wound is not None
+        completion = complete_character_wound_lifecycle(
+            CharacterWoundLifecycleCompletionRequest(
+                id="soporific:player:complete-wound",
+                roll=hazard.pending_character_wound,
+                current_state=hazard.state,
+                daily_wounds=DailyWoundState("day:1", "player"),
+                daily_registration_id="soporific:player:daily-wound",
+            )
+        )
+        hazard = apply_hazard_character_wound_completion(
+            hazard,
+            completion,
+        )
         self.assertTrue(hazard.state.conditions.has(Condition.DRAINED))
         self.assertTrue(hazard.state.conditions.has(Condition.DEFENCELESS))
         self.assertEqual(

@@ -89,6 +89,7 @@ def kernel_request(
 ) -> KernelAttackRequest:
     return KernelAttackRequest(
         id=request_id,
+        target_id="enemy",
         attack=AttackRequest(
             id=f"{request_id}:test",
             attacker_test=TestRequest(

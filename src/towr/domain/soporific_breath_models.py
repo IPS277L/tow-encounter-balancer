@@ -414,6 +414,20 @@ def _validate_target_result(
         raise ValueError("Soporific Breath Wound result is inconsistent")
     if hazard.wound_effect is not None and hazard.character_wound is None:
         raise ValueError("Soporific Breath Wound effect is inconsistent")
+    if is_character and hazard.pending_character_wound is not None:
+        if (
+            hazard.pending_character_wound.wound_result
+            != hazard.character_wound
+            or hazard.deferred_failure_exposure != expected_exposure
+            or hazard.wound_effect is not None
+            or hazard.failure_conditions
+            or hazard.condition_applications
+            or hazard.state != hazard.character_wound.state
+        ):
+            raise ValueError(
+                "pending Soporific Breath Wound result is inconsistent"
+            )
+        return
     post_wound_state = (
         hazard.wound_effect.state
         if hazard.wound_effect is not None

@@ -135,6 +135,7 @@ def kernel_request(
 ) -> KernelAttackRequest:
     return KernelAttackRequest(
         id="kernel:charge",
+        target_id="enemy",
         attack=AttackRequest(
             id="attack:charge",
             attacker_test=TestRequest(
