@@ -109,13 +109,17 @@ from towr.domain.test_models import (
     Skill,
     TestQuality,
 )
+from towr.domain.wound_lifecycle_models import (
+    CharacterWoundLifecycleCompletionResult,
+    CharacterWoundLifecycleRollRequest,
+    FixedCharacterWoundLifecycleCompletionResult,
+    FixedCharacterWoundLifecycleRequest,
+)
 from towr.rules.condition_effect_resolution import resolve_condition_application
 from towr.rules.dice import RandomSource
 from towr.rules.effect_resolution import resolve_effect_application
 from towr.rules.injury_resolution import (
     WoundDecisionProvider,
-    resolve_character_wound,
-    resolve_fixed_character_wound,
     resolve_profile_wound,
 )
 from towr.rules.stagger_impact_resolution import (
@@ -123,7 +127,10 @@ from towr.rules.stagger_impact_resolution import (
     resolve_stagger_impact,
 )
 from towr.rules.test_resolution import TestDecisionProvider, resolve_test
-from towr.rules.wound_effect_resolution import resolve_wound_effect
+from towr.rules.wound_lifecycle_resolution import (
+    begin_fixed_character_wound_lifecycle,
+    roll_character_wound_lifecycle,
+)
 
 
 class MissingMiscastHideousStenchDecisionError(RuntimeError):
@@ -323,30 +330,29 @@ def resolve_internal_damage(
         TargetInjuryPolicy.CHAMPION,
     }:
         assert isinstance(request.caster.state, CharacterInjuryState)
-        wound = resolve_character_wound(
-            CharacterWoundRequest(
-                id=f"{request.id}:wound",
-                state=request.caster.state,
-                subject_type=_character_type(request.caster.policy),
-                dice_modifiers=request.wound_dice_modifiers,
-                negation_options=request.wound_negation_options,
+        pending = roll_character_wound_lifecycle(
+            CharacterWoundLifecycleRollRequest(
+                id=f"{request.id}:wound-lifecycle",
+                target_id=request.caster.target_id,
+                wound=CharacterWoundRequest(
+                    id=f"{request.id}:wound",
+                    state=request.caster.state,
+                    subject_type=_character_type(request.caster.policy),
+                    dice_modifiers=request.wound_dice_modifiers,
+                    negation_options=request.wound_negation_options,
+                ),
             ),
             rng,
             decisions=decisions,
         )
-        wound_effect = (
-            resolve_wound_effect(wound.effect_request, wound.state)
-            if wound.effect_request is not None
-            else None
-        )
-        state = wound_effect.state if wound_effect is not None else wound.state
+        wound = pending.wound_result
         return MiscastInternalDamageResult(
             request_id=request.id,
             caster_id=request.caster.target_id,
             magic_state=_clear_pool(request.magic_state),
-            state=state,
+            state=wound.state,
             character_wound=wound,
-            wound_effect=wound_effect,
+            wound_effect=None,
             profile_wound=None,
             consume_wound_negation=(
                 ConsumeWoundNegationRequest(
@@ -358,13 +364,9 @@ def resolve_internal_damage(
             ),
             applied_rule_ids=_unique_rule_ids(
                 request.source.rule_id,
-                *wound.applied_rule_ids,
-                *(
-                    wound_effect.applied_rule_ids
-                    if wound_effect is not None
-                    else ()
-                ),
+                *pending.applied_rule_ids,
             ),
+            pending_character_wound=pending,
         )
 
     assert isinstance(request.caster.state, ProfileInjuryState)
@@ -392,6 +394,34 @@ def resolve_internal_damage(
     )
 
 
+def apply_internal_damage_character_wound_completion(
+    result: MiscastInternalDamageResult,
+    completion: CharacterWoundLifecycleCompletionResult,
+) -> MiscastInternalDamageResult:
+    """Commit a pending Internal Damage Wound after actor-owned choices."""
+    if result.pending_character_wound is None:
+        raise ValueError("Internal Damage result has no pending character Wound")
+    if completion.source_request.roll != result.pending_character_wound:
+        raise ValueError(
+            "Wound completion belongs to another Internal Damage result"
+        )
+    if completion.previous_state != result.state:
+        raise ValueError(
+            "Internal Damage Wound completion used a stale caster state"
+        )
+    return replace(
+        result,
+        state=completion.state,
+        wound_effect=completion.wound_effect,
+        applied_rule_ids=_unique_rule_ids(
+            *result.applied_rule_ids,
+            *completion.applied_rule_ids,
+        ),
+        pending_character_wound=None,
+        character_wound_completion=completion,
+    )
+
+
 def resolve_ears_ringing(
     request: MiscastEarsRingingRequest,
 ) -> MiscastEarsRingingResult:
@@ -411,6 +441,54 @@ def resolve_ears_ringing(
                 for result in results
                 for rule_id in result.applied_rule_ids
             ),
+        ),
+    )
+
+
+def apply_ears_ringing_fixed_character_wound_completion(
+    result: MiscastEarsRingingResult,
+    target_id: str,
+    completion: FixedCharacterWoundLifecycleCompletionResult,
+) -> MiscastEarsRingingResult:
+    """Commit one pending fixed Wound without reopening a Near Miss window."""
+    matching = tuple(
+        (index, target)
+        for index, target in enumerate(result.targets)
+        if target.target_id == target_id
+    )
+    if not matching:
+        raise ValueError("Ears ringing result has no such target")
+    index, target = matching[0]
+    if target.pending_fixed_character_wound is None:
+        raise ValueError("Ears ringing target has no pending fixed Wound")
+    if (
+        completion.source_request.pending
+        != target.pending_fixed_character_wound
+        or completion.source_request.pending.source_request.target_id
+        != target_id
+    ):
+        raise ValueError("fixed Wound completion belongs to another target")
+    if completion.previous_state != target.state:
+        raise ValueError("Ears ringing completion used a stale target state")
+    updated_target = replace(
+        target,
+        state=completion.state,
+        wound_effect=completion.wound_effect,
+        applied_rule_ids=_unique_rule_ids(
+            *target.applied_rule_ids,
+            *completion.applied_rule_ids,
+        ),
+        pending_fixed_character_wound=None,
+        fixed_character_wound_completion=completion,
+    )
+    targets = list(result.targets)
+    targets[index] = updated_target
+    return replace(
+        result,
+        targets=tuple(targets),
+        applied_rule_ids=_unique_rule_ids(
+            *result.applied_rule_ids,
+            *completion.applied_rule_ids,
         ),
     )
 
@@ -772,27 +850,31 @@ def _resolve_ears_ringing_target(
         TargetInjuryPolicy.CHAMPION,
     }:
         assert isinstance(target.state, CharacterInjuryState)
-        wound = resolve_fixed_character_wound(
-            FixedCharacterWoundRequest(
-                id=f"{request.id}:{target.target_id}:wound",
-                state=target.state,
-                entry_id=WoundEntryId.EARS_RINGING,
-                table_total=11,
-                source_rule_id=request.source.rule_id,
-                subject_type=_character_type(target.policy),
+        pending = begin_fixed_character_wound_lifecycle(
+            FixedCharacterWoundLifecycleRequest(
+                id=f"{request.id}:{target.target_id}:wound-lifecycle",
+                target_id=target.target_id,
+                wound=FixedCharacterWoundRequest(
+                    id=f"{request.id}:{target.target_id}:wound",
+                    state=target.state,
+                    entry_id=WoundEntryId.EARS_RINGING,
+                    table_total=11,
+                    source_rule_id=request.source.rule_id,
+                    subject_type=_character_type(target.policy),
+                ),
             )
         )
-        effect = resolve_wound_effect(wound.effect_request, wound.state)
+        wound = pending.wound_result
         return MiscastEarsRingingTargetResult(
             target_id=target.target_id,
-            state=effect.state,
+            state=wound.state,
             fixed_character_wound=wound,
-            wound_effect=effect,
+            wound_effect=None,
             profile_wound=None,
             applied_rule_ids=_unique_rule_ids(
-                *wound.applied_rule_ids,
-                *effect.applied_rule_ids,
+                *pending.applied_rule_ids,
             ),
+            pending_fixed_character_wound=pending,
         )
 
     assert isinstance(target.state, ProfileInjuryState)

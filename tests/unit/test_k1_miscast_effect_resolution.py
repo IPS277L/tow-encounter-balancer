@@ -11,6 +11,11 @@ from towr.domain.condition_models import (
     StaggerChoice,
     StaggerOutcome,
 )
+from towr.domain.fate_models import (
+    FATE_NEAR_MISS_RULE_ID,
+    FateNearMissBurnRequest,
+    FateSessionState,
+)
 from towr.domain.injury_models import (
     CharacterInjuryState,
     DecisionOwner,
@@ -22,6 +27,7 @@ from towr.domain.injury_models import (
     WoundRecord,
     WoundRecordOrigin,
 )
+from towr.domain.infection_models import DailyWoundState
 from towr.domain.magic_models import (
     MiscastTableEffectRequest,
     WizardMagicState,
@@ -79,6 +85,7 @@ from towr.domain.miscast_effect_models import (
     MiscastZoneHazardRequest,
 )
 from towr.domain.resolution_models import (
+    ConsumeWoundNegationRequest,
     GiveGroundRequest,
     IdentifiedHazardTarget,
     StaggerImpactRequest,
@@ -93,9 +100,15 @@ from towr.domain.test_models import (
     TestQuality,
     TestRequest,
 )
+from towr.domain.wound_lifecycle_models import (
+    CharacterWoundLifecycleCompletionRequest,
+    FixedCharacterWoundLifecycleCompletionRequest,
+)
 from towr.rules.miscast_effect_resolution import (
     InvalidMiscastHideousStenchDecisionError,
     MissingMiscastHideousStenchDecisionError,
+    apply_ears_ringing_fixed_character_wound_completion,
+    apply_internal_damage_character_wound_completion,
     arcane_sight_quality_modifier,
     resolve_arcane_spill,
     resolve_arcane_sight,
@@ -118,6 +131,10 @@ from towr.rules.miscast_effect_resolution import (
     resolve_unnatural_weather,
     resolve_unnatural_wind,
     resolve_zone_hazard_effect,
+)
+from towr.rules.wound_lifecycle_resolution import (
+    complete_character_wound_lifecycle,
+    complete_fixed_character_wound_lifecycle,
 )
 from towr.rules.miscast_table import lookup_miscast
 from towr.rules.zone_hazard_resolution import resolve_zone_hazard
@@ -492,7 +509,7 @@ class K1FearedFoeIllusionTests(unittest.TestCase):
 
 
 class K1InternalDamageTests(unittest.TestCase):
-    def test_character_rolls_with_existing_wounds_and_resolves_effect(
+    def test_character_rolls_then_completion_resolves_effect(
         self,
     ) -> None:
         source = effect_request((8, 8, 8, 8))
@@ -529,8 +546,30 @@ class K1InternalDamageTests(unittest.TestCase):
             result.character_wound.table_roll.entry.id,
             WoundEntryId.EARS_RINGING,
         )
-        self.assertIsNotNone(result.wound_effect)
-        self.assertTrue(result.state.conditions.has(Condition.DEAFENED))
+        self.assertIsNone(result.wound_effect)
+        self.assertIsNotNone(result.pending_character_wound)
+        self.assertFalse(result.state.conditions.has(Condition.DEAFENED))
+
+        assert result.pending_character_wound is not None
+        completion = complete_character_wound_lifecycle(
+            CharacterWoundLifecycleCompletionRequest(
+                id="internal-damage:complete-wound",
+                roll=result.pending_character_wound,
+                current_state=result.state,
+                daily_wounds=DailyWoundState("day:1", "wizard"),
+                daily_registration_id="internal-damage:daily-wound",
+            )
+        )
+        completed = apply_internal_damage_character_wound_completion(
+            result,
+            completion,
+        )
+
+        self.assertIsNone(completed.pending_character_wound)
+        self.assertIs(completed.character_wound_completion, completion)
+        self.assertIsNotNone(completed.wound_effect)
+        self.assertTrue(completed.state.conditions.has(Condition.DEAFENED))
+        self.assertEqual(completed.magic_state.miscast_dice, 0)
 
     def test_profile_npc_suffers_one_profile_wound_without_rng(self) -> None:
         source = effect_request((8, 8, 8, 8))
@@ -550,8 +589,61 @@ class K1InternalDamageTests(unittest.TestCase):
 
         self.assertIsNone(result.character_wound)
         self.assertIsNotNone(result.profile_wound)
+        self.assertIsNone(result.pending_character_wound)
         self.assertEqual(result.state.wounds, 1)
         self.assertEqual(result.magic_state.miscast_dice, 0)
+
+    def test_player_can_use_near_miss_before_internal_damage_completion(
+        self,
+    ) -> None:
+        initial = CharacterInjuryState()
+        result = resolve_internal_damage(
+            MiscastInternalDamageRequest(
+                id="internal-damage",
+                source=effect_request((8, 8, 8, 8)),
+                magic_state=WizardMagicState(miscast_dice=4),
+                caster=target(
+                    "wizard",
+                    TargetInjuryPolicy.PLAYER,
+                    initial,
+                ),
+            ),
+            SequenceRandom([6]),
+        )
+
+        assert result.pending_character_wound is not None
+        wound_id = result.pending_character_wound.source_request.wound.id
+        completion = complete_character_wound_lifecycle(
+            CharacterWoundLifecycleCompletionRequest(
+                id="internal-damage:complete-near-miss",
+                roll=result.pending_character_wound,
+                current_state=result.state,
+                daily_wounds=DailyWoundState("day:1", "wizard"),
+                near_miss=FateNearMissBurnRequest(
+                    id="internal-damage:burn-fate",
+                    state=FateSessionState(
+                        session_id="session:1",
+                        actor_id="wizard",
+                        rating=1,
+                        session_spend_limit=1,
+                    ),
+                    wound_negation=ConsumeWoundNegationRequest(
+                        resolution_id=wound_id,
+                        rule_id=FATE_NEAR_MISS_RULE_ID,
+                    ),
+                ),
+            )
+        )
+        completed = apply_internal_damage_character_wound_completion(
+            result,
+            completion,
+        )
+
+        self.assertEqual(completed.state, initial)
+        self.assertIsNone(completed.wound_effect)
+        self.assertIsNone(completion.daily_registration)
+        self.assertIsNotNone(completion.near_miss_application)
+        self.assertEqual(completed.magic_state.miscast_dice, 0)
 
     def test_character_can_resolve_an_explicit_wound_negation(self) -> None:
         source = effect_request((8, 8, 8, 8))
@@ -567,22 +659,46 @@ class K1InternalDamageTests(unittest.TestCase):
                     initial,
                 ),
                 wound_negation_options=(
-                    WoundNegationOption("RULE-FATE-002:near-miss"),
+                    WoundNegationOption("RULE-ABILITY:negate-wound"),
                 ),
             ),
             SequenceRandom([5]),
             decisions=UseFirstWoundNegation(),
         )
 
-        self.assertIs(result.state, initial)
+        self.assertEqual(result.state, initial)
         self.assertIsNone(result.wound_effect)
+        self.assertIsNotNone(result.pending_character_wound)
         self.assertIsNotNone(result.consume_wound_negation)
         assert result.consume_wound_negation is not None
         self.assertEqual(
             result.consume_wound_negation.rule_id,
-            "RULE-FATE-002:near-miss",
+            "RULE-ABILITY:negate-wound",
         )
         self.assertEqual(result.magic_state.miscast_dice, 0)
+
+        assert result.pending_character_wound is not None
+        completion = complete_character_wound_lifecycle(
+            CharacterWoundLifecycleCompletionRequest(
+                id="internal-damage:complete-negated-wound",
+                roll=result.pending_character_wound,
+                current_state=result.state,
+                daily_wounds=DailyWoundState("day:1", "wizard"),
+            )
+        )
+        completed = apply_internal_damage_character_wound_completion(
+            result,
+            completion,
+        )
+        self.assertEqual(completed.state, initial)
+        self.assertIsNone(completed.pending_character_wound)
+        self.assertIs(completed.character_wound_completion, completion)
+
+        with self.assertRaises(ValueError):
+            apply_internal_damage_character_wound_completion(
+                completed,
+                completion,
+            )
 
 
 class K1EarsRingingTests(unittest.TestCase):
@@ -625,18 +741,95 @@ class K1EarsRingingTests(unittest.TestCase):
         self.assertIs(record.entry_id, WoundEntryId.EARS_RINGING)
         self.assertIs(record.origin, WoundRecordOrigin.FIXED_ENTRY)
         self.assertEqual(record.roll_values, ())
-        self.assertTrue(caster.state.conditions.has(Condition.DEAFENED))
+        self.assertFalse(caster.state.conditions.has(Condition.DEAFENED))
         self.assertFalse(caster.state.conditions.has(Condition.STAGGERED))
-        assert caster.wound_effect is not None
-        follow_up = caster.wound_effect.follow_ups[0]
+        self.assertIsNone(caster.wound_effect)
+        self.assertIsNotNone(caster.pending_fixed_character_wound)
+
+        assert caster.pending_fixed_character_wound is not None
+        completion = complete_fixed_character_wound_lifecycle(
+            FixedCharacterWoundLifecycleCompletionRequest(
+                id="ears-ringing:wizard:complete-wound",
+                pending=caster.pending_fixed_character_wound,
+                current_state=caster.state,
+                daily_wounds=DailyWoundState("day:1", "wizard"),
+                daily_registration_id="ears-ringing:wizard:daily-wound",
+            )
+        )
+        completed_result = (
+            apply_ears_ringing_fixed_character_wound_completion(
+                result,
+                "wizard",
+                completion,
+            )
+        )
+        completed_caster = completed_result.targets[0]
+        self.assertIsNone(completed_caster.pending_fixed_character_wound)
+        self.assertIs(
+            completed_caster.fixed_character_wound_completion,
+            completion,
+        )
+        self.assertTrue(
+            completed_caster.state.conditions.has(Condition.DEAFENED)
+        )
+        assert completed_caster.wound_effect is not None
+        follow_up = completed_caster.wound_effect.follow_ups[0]
         self.assertIsInstance(follow_up, WoundEnduranceTestRequest)
         assert isinstance(follow_up, WoundEnduranceTestRequest)
         self.assertIs(follow_up.failure, WoundEnduranceFailure.LOSE_D10_TEETH)
+        self.assertEqual(completion.daily_wounds.wound_count, 1)
+        self.assertEqual(completed_result.magic_state.miscast_dice, 0)
 
         guard = result.targets[1]
         self.assertIsNotNone(guard.profile_wound)
         self.assertEqual(guard.state.wounds, 1)
         self.assertFalse(guard.state.conditions.has(Condition.DEAFENED))
+        self.assertIsNone(guard.pending_fixed_character_wound)
+
+    def test_fixed_completion_is_target_bound_and_consumed_once(self) -> None:
+        result = resolve_ears_ringing(
+            MiscastEarsRingingRequest(
+                id="ears-ringing",
+                source=effect_request((9, 9, 9, 9)),
+                magic_state=WizardMagicState(miscast_dice=4),
+                targets=(
+                    target(
+                        "wizard",
+                        TargetInjuryPolicy.PLAYER,
+                        CharacterInjuryState(),
+                    ),
+                ),
+            )
+        )
+        pending = result.targets[0].pending_fixed_character_wound
+        assert pending is not None
+        completion = complete_fixed_character_wound_lifecycle(
+            FixedCharacterWoundLifecycleCompletionRequest(
+                id="ears-ringing:wizard:complete-wound",
+                pending=pending,
+                current_state=result.targets[0].state,
+                daily_wounds=DailyWoundState("day:1", "wizard"),
+                daily_registration_id="ears-ringing:wizard:daily-wound",
+            )
+        )
+
+        with self.assertRaises(ValueError):
+            apply_ears_ringing_fixed_character_wound_completion(
+                result,
+                "other",
+                completion,
+            )
+        completed = apply_ears_ringing_fixed_character_wound_completion(
+            result,
+            "wizard",
+            completion,
+        )
+        with self.assertRaises(ValueError):
+            apply_ears_ringing_fixed_character_wound_completion(
+                completed,
+                "wizard",
+                completion,
+            )
 
     def test_targets_must_be_unique_and_start_with_caster(self) -> None:
         source = effect_request((9, 9, 9, 9))

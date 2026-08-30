@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum
+from typing import TYPE_CHECKING, Any
 
 from towr.domain.injury_models import (
     AdditionalProfileWound,
@@ -42,6 +43,19 @@ from towr.domain.test_models import (
     TestResult,
     TestQuality,
 )
+
+if TYPE_CHECKING:
+    from towr.domain.wound_lifecycle_models import (
+        CharacterWoundLifecycleCompletionResult,
+        CharacterWoundLifecycleRollResult,
+        FixedCharacterWoundLifecycleCompletionResult,
+        FixedCharacterWoundLifecyclePendingResult,
+    )
+else:
+    CharacterWoundLifecycleCompletionResult = Any
+    CharacterWoundLifecycleRollResult = Any
+    FixedCharacterWoundLifecycleCompletionResult = Any
+    FixedCharacterWoundLifecyclePendingResult = Any
 
 
 class MiscastHideousStenchChoice(str, Enum):
@@ -647,6 +661,10 @@ class MiscastInternalDamageResult:
     profile_wound: ProfileWoundResult | None
     consume_wound_negation: ConsumeWoundNegationRequest | None
     applied_rule_ids: tuple[str, ...]
+    pending_character_wound: CharacterWoundLifecycleRollResult | None = None
+    character_wound_completion: (
+        CharacterWoundLifecycleCompletionResult | None
+    ) = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -684,6 +702,12 @@ class MiscastEarsRingingTargetResult:
     wound_effect: WoundEffectResult | None
     profile_wound: ProfileWoundResult | None
     applied_rule_ids: tuple[str, ...]
+    pending_fixed_character_wound: (
+        FixedCharacterWoundLifecyclePendingResult | None
+    ) = None
+    fixed_character_wound_completion: (
+        FixedCharacterWoundLifecycleCompletionResult | None
+    ) = None
 
 
 @dataclass(frozen=True, slots=True)

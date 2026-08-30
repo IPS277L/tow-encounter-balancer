@@ -17,11 +17,16 @@ from towr.domain.injury_models import (
 )
 from towr.domain.wound_lifecycle_models import (
     CHARACTER_WOUND_LIFECYCLE_RULE_ID,
+    FIXED_CHARACTER_WOUND_LIFECYCLE_RULE_ID,
     CharacterWoundLifecycleCompletionRequest,
     CharacterWoundLifecycleCompletionResult,
     CharacterWoundLifecycleOutcome,
     CharacterWoundLifecycleRollRequest,
     CharacterWoundLifecycleRollResult,
+    FixedCharacterWoundLifecycleCompletionRequest,
+    FixedCharacterWoundLifecycleCompletionResult,
+    FixedCharacterWoundLifecyclePendingResult,
+    FixedCharacterWoundLifecycleRequest,
     _completion_rule_ids,
     _ordered_rule_ids,
     _state_after_near_miss,
@@ -33,6 +38,7 @@ from towr.rules.infection_resolution import register_daily_wound
 from towr.rules.injury_resolution import (
     WoundDecisionProvider,
     resolve_character_wound,
+    resolve_fixed_character_wound,
 )
 from towr.rules.wound_effect_resolution import resolve_wound_effect
 from towr.rules.wound_table import lookup_wound
@@ -61,6 +67,25 @@ def roll_character_wound_lifecycle(
             wound_result.wound_accepted
             and wound_result.subject_type is CharacterWoundType.PLAYER
         ),
+        applied_rule_ids=_ordered_rule_ids(
+            *wound_result.applied_rule_ids,
+            request.rule_id,
+        ),
+    )
+
+
+def begin_fixed_character_wound_lifecycle(
+    request: FixedCharacterWoundLifecycleRequest,
+) -> FixedCharacterWoundLifecyclePendingResult:
+    """Create a pending named Wound without inventing a Wounds Table roll."""
+    if request.rule_id != FIXED_CHARACTER_WOUND_LIFECYCLE_RULE_ID:
+        raise ValueError("fixed Wound lifecycle uses an unknown rule")
+    wound_result = resolve_fixed_character_wound(request.wound)
+    return FixedCharacterWoundLifecyclePendingResult(
+        request_id=request.id,
+        rule_id=request.rule_id,
+        source_request=request,
+        wound_result=wound_result,
         applied_rule_ids=_ordered_rule_ids(
             *wound_result.applied_rule_ids,
             request.rule_id,
@@ -136,6 +161,56 @@ def complete_character_wound_lifecycle(
         daily_wounds=registration.state,
         registration=registration,
         effect=effect,
+    )
+
+
+def complete_fixed_character_wound_lifecycle(
+    request: FixedCharacterWoundLifecycleCompletionRequest,
+) -> FixedCharacterWoundLifecycleCompletionResult:
+    """Register and resolve a fixed Wound; this path has no Near Miss."""
+    if request.rule_id != FIXED_CHARACTER_WOUND_LIFECYCLE_RULE_ID:
+        raise ValueError("fixed Wound completion uses an unknown rule")
+    if request.pending.rule_id != FIXED_CHARACTER_WOUND_LIFECYCLE_RULE_ID:
+        raise ValueError("fixed Wound pending result uses an unknown rule")
+    wound_request = request.pending.source_request.wound
+    canonical_entry = lookup_wound(wound_request.table_total)
+    if canonical_entry != request.pending.wound_result.entry:
+        raise ValueError("fixed Wound lifecycle requires a canonical entry")
+
+    registration = register_daily_wound(
+        DailyWoundRegistrationRequest(
+            id=request.daily_registration_id,
+            state=request.daily_wounds,
+            target_id=request.pending.source_request.target_id,
+            source=request.pending.wound_result,
+        )
+    )
+    effect = resolve_wound_effect(
+        request.pending.wound_result.effect_request,
+        request.current_state,
+    )
+    return FixedCharacterWoundLifecycleCompletionResult(
+        request_id=request.id,
+        rule_id=request.rule_id,
+        source_request=request,
+        wound_result=request.pending.wound_result,
+        daily_registration=registration,
+        wound_effect=effect,
+        previous_state=request.current_state,
+        state=effect.state,
+        previous_daily_wounds=request.daily_wounds,
+        daily_wounds=registration.state,
+        previous_consumed_pending_ids=request.consumed_pending_ids,
+        consumed_pending_ids=(
+            *request.consumed_pending_ids,
+            request.pending.request_id,
+        ),
+        applied_rule_ids=_ordered_rule_ids(
+            *request.pending.applied_rule_ids,
+            *registration.applied_rule_ids,
+            *effect.applied_rule_ids,
+            request.rule_id,
+        ),
     )
 
 

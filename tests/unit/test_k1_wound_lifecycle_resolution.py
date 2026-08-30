@@ -15,7 +15,10 @@ from towr.domain.injury_models import (
     CharacterInjuryState,
     CharacterWoundRequest,
     CharacterWoundType,
+    FixedCharacterWoundRequest,
+    WoundEntryId,
     WoundNegationOption,
+    WoundRecordOrigin,
 )
 from towr.domain.resolution_models import ConsumeWoundNegationRequest
 from towr.domain.wound_lifecycle_models import (
@@ -23,9 +26,13 @@ from towr.domain.wound_lifecycle_models import (
     CharacterWoundLifecycleCompletionRequest,
     CharacterWoundLifecycleOutcome,
     CharacterWoundLifecycleRollRequest,
+    FixedCharacterWoundLifecycleCompletionRequest,
+    FixedCharacterWoundLifecycleRequest,
 )
 from towr.rules.wound_lifecycle_resolution import (
+    begin_fixed_character_wound_lifecycle,
     complete_character_wound_lifecycle,
+    complete_fixed_character_wound_lifecycle,
     roll_character_wound_lifecycle,
 )
 
@@ -339,6 +346,131 @@ class K1CharacterWoundLifecycleTests(unittest.TestCase):
             replace(result, wound_effect=None)
         with self.assertRaisesRegex(ValueError, "accepted branch is stale"):
             replace(result, state=result.previous_state)
+
+
+class K1FixedCharacterWoundLifecycleTests(unittest.TestCase):
+    def test_fixed_wound_registers_then_resolves_without_fake_dice(
+        self,
+    ) -> None:
+        source = CharacterInjuryState(
+            conditions=ConditionState(frozenset({Condition.STAGGERED}))
+        )
+        pending = begin_fixed_character_wound_lifecycle(
+            FixedCharacterWoundLifecycleRequest(
+                id="fixed-lifecycle:hero:1",
+                target_id="hero",
+                wound=FixedCharacterWoundRequest(
+                    id="fixed-wound:hero:1",
+                    state=source,
+                    entry_id=WoundEntryId.EARS_RINGING,
+                    table_total=11,
+                    source_rule_id="RULE-MISCAST-TABLE:ear_damage",
+                ),
+            )
+        )
+
+        wound = pending.wound_result.state.wounds[-1]
+        self.assertIs(wound.origin, WoundRecordOrigin.FIXED_ENTRY)
+        self.assertEqual(wound.roll_values, ())
+        self.assertFalse(
+            pending.wound_result.state.conditions.has(Condition.DEAFENED)
+        )
+        self.assertFalse(
+            pending.wound_result.state.conditions.has(Condition.STAGGERED)
+        )
+
+        completion = complete_fixed_character_wound_lifecycle(
+            FixedCharacterWoundLifecycleCompletionRequest(
+                id="fixed-lifecycle:hero:1:complete",
+                pending=pending,
+                current_state=pending.wound_result.state,
+                daily_wounds=DailyWoundState("day:1", "hero"),
+                daily_registration_id="day:1:hero:fixed-wound:1",
+            )
+        )
+
+        self.assertEqual(completion.daily_wounds.wound_count, 1)
+        self.assertEqual(completion.daily_registration.receipt.wound, wound)
+        self.assertTrue(completion.state.conditions.has(Condition.DEAFENED))
+        self.assertTrue(completion.state.wounds[-1].effect_resolved)
+        self.assertEqual(
+            completion.consumed_pending_ids,
+            (pending.request_id,),
+        )
+
+    def test_fixed_completion_preserves_later_condition_delta(self) -> None:
+        pending = begin_fixed_character_wound_lifecycle(
+            FixedCharacterWoundLifecycleRequest(
+                id="fixed-lifecycle:hero:1",
+                target_id="hero",
+                wound=FixedCharacterWoundRequest(
+                    id="fixed-wound:hero:1",
+                    state=CharacterInjuryState(),
+                    entry_id=WoundEntryId.EARS_RINGING,
+                    table_total=11,
+                    source_rule_id="RULE-MISCAST-TABLE:ear_damage",
+                ),
+            )
+        )
+        current = replace(
+            pending.wound_result.state,
+            conditions=ConditionState(frozenset({Condition.PRONE})),
+        )
+
+        completion = complete_fixed_character_wound_lifecycle(
+            FixedCharacterWoundLifecycleCompletionRequest(
+                id="fixed-lifecycle:hero:1:complete",
+                pending=pending,
+                current_state=current,
+                daily_wounds=DailyWoundState("day:1", "hero"),
+                daily_registration_id="day:1:hero:fixed-wound:1",
+            )
+        )
+
+        self.assertTrue(completion.state.conditions.has(Condition.PRONE))
+        self.assertTrue(completion.state.conditions.has(Condition.DEAFENED))
+
+    def test_fixed_lifecycle_rejects_forgery_stale_state_and_replay(
+        self,
+    ) -> None:
+        lifecycle_request = FixedCharacterWoundLifecycleRequest(
+            id="fixed-lifecycle:hero:1",
+            target_id="hero",
+            wound=FixedCharacterWoundRequest(
+                id="fixed-wound:hero:1",
+                state=CharacterInjuryState(),
+                entry_id=WoundEntryId.EARS_RINGING,
+                table_total=11,
+                source_rule_id="RULE-MISCAST-TABLE:ear_damage",
+            ),
+        )
+        pending = begin_fixed_character_wound_lifecycle(lifecycle_request)
+
+        with self.assertRaises(ValueError):
+            replace(
+                pending,
+                wound_result=replace(
+                    pending.wound_result,
+                    request_id="fixed-wound:other",
+                ),
+            )
+        with self.assertRaises(ValueError):
+            FixedCharacterWoundLifecycleCompletionRequest(
+                id="fixed-lifecycle:hero:1:stale",
+                pending=pending,
+                current_state=CharacterInjuryState(),
+                daily_wounds=DailyWoundState("day:1", "hero"),
+                daily_registration_id="day:1:hero:fixed-wound:1",
+            )
+        with self.assertRaises(ValueError):
+            FixedCharacterWoundLifecycleCompletionRequest(
+                id="fixed-lifecycle:hero:1:replay",
+                pending=pending,
+                current_state=pending.wound_result.state,
+                daily_wounds=DailyWoundState("day:1", "hero"),
+                daily_registration_id="day:1:hero:fixed-wound:1",
+                consumed_pending_ids=(pending.request_id,),
+            )
 
 
 if __name__ == "__main__":

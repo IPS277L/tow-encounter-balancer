@@ -588,6 +588,55 @@ class FixedCharacterWoundResult:
     applied_rule_ids: tuple[str, ...]
 
 
+def validate_fixed_character_wound_result_provenance(
+    request: FixedCharacterWoundRequest,
+    result: FixedCharacterWoundResult,
+) -> None:
+    """Validate a named Wounds Table entry without requiring rolled dice."""
+    if not isinstance(request, FixedCharacterWoundRequest):
+        raise TypeError("request must be a FixedCharacterWoundRequest")
+    if not isinstance(result, FixedCharacterWoundResult):
+        raise TypeError("result must be a FixedCharacterWoundResult")
+    if request.state.dead:
+        raise ValueError("fixed Wound source character was already dead")
+    if (
+        result.request_id != request.id
+        or result.subject_type is not request.subject_type
+        or result.entry.id is not request.entry_id
+        or not result.entry.includes(request.table_total)
+    ):
+        raise ValueError("fixed character Wound belongs to another request")
+
+    sequence = len(request.state.wounds) + 1
+    wound = WoundRecord(
+        sequence=sequence,
+        entry_id=result.entry.id,
+        table_total=request.table_total,
+        roll_values=(),
+        origin=WoundRecordOrigin.FIXED_ENTRY,
+    )
+    expected_state = CharacterInjuryState(
+        wounds=(*request.state.wounds, wound),
+        conditions=request.state.conditions.without_condition(
+            Condition.STAGGERED
+        ),
+        active_wound_effects=request.state.active_wound_effects,
+        dead=result.entry.lethal,
+    )
+    expected_effect = WoundEffectRequest(
+        id=f"{request.id}:effect",
+        wound_sequence=sequence,
+        entry_id=result.entry.id,
+        rule_id=f"RULE-WOUND-TABLE:{result.entry.id.value}",
+    )
+    if (
+        result.state != expected_state
+        or result.effect_request != expected_effect
+        or result.applied_rule_ids != (request.source_rule_id,)
+    ):
+        raise ValueError("fixed character Wound has stale provenance")
+
+
 @dataclass(frozen=True, slots=True)
 class ProfileInjuryState:
     wounds: int

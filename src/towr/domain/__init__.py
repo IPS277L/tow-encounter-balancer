@@ -551,11 +551,16 @@ from towr.domain.wound_healing_models import (
 )
 from towr.domain.wound_lifecycle_models import (
     CHARACTER_WOUND_LIFECYCLE_RULE_ID,
+    FIXED_CHARACTER_WOUND_LIFECYCLE_RULE_ID,
     CharacterWoundLifecycleCompletionRequest,
     CharacterWoundLifecycleCompletionResult,
     CharacterWoundLifecycleOutcome,
     CharacterWoundLifecycleRollRequest,
     CharacterWoundLifecycleRollResult,
+    FixedCharacterWoundLifecycleCompletionRequest,
+    FixedCharacterWoundLifecycleCompletionResult,
+    FixedCharacterWoundLifecyclePendingResult,
+    FixedCharacterWoundLifecycleRequest,
 )
 from towr.domain.soporific_breath_models import (
     SoporificBreathActionExecutionRequest,
@@ -648,6 +653,7 @@ __all__ = [
     "CastingAttemptExecutionRequest",
     "CastingAttemptExecutionResult",
     "CHARACTER_WOUND_LIFECYCLE_RULE_ID",
+    "FIXED_CHARACTER_WOUND_LIFECYCLE_RULE_ID",
     "CATCH_YOUR_BREATH_HEALING_RULE_ID",
     "DAILY_WOUND_REGISTRATION_RULE_ID",
     "END_ENCOUNTER_HEALING_OPPORTUNITY_RULE_ID",
@@ -721,6 +727,10 @@ __all__ = [
     "CharacterWoundLifecycleOutcome",
     "CharacterWoundLifecycleRollRequest",
     "CharacterWoundLifecycleRollResult",
+    "FixedCharacterWoundLifecycleCompletionRequest",
+    "FixedCharacterWoundLifecycleCompletionResult",
+    "FixedCharacterWoundLifecyclePendingResult",
+    "FixedCharacterWoundLifecycleRequest",
     "Characteristic",
     "ChargeActionExecutionRequest",
     "ChargeActionExecutionResult",

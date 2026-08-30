@@ -220,10 +220,10 @@ py -3.12 -m unittest discover -s tests -v
 - строковый/неверный Arcane Sight context отклоняется вместо неявной классификации Test;
 - Feared Foe Illusion сохраняет внешний narrative reference, использует `until battle end` в бою и требует положительное число минут вне боя;
 - in-battle minute duration и out-of-battle эффект без минут отклоняются как смешение разных книжных ветвей;
-- Internal Damage различает Wounds Table Player/Champion и profile Wound NPC, учитывает существующие Wounds и явную negation;
+- Internal Damage различает pending Wounds Table lifecycle Player/Champion и immediate profile Wound NPC; character-ветвь учитывает существующие Wounds и явную non-Fate negation, применяет effect только после daily registration и допускает настоящий Fate Near Miss до обеих операций;
 - Zone Hazard считает rating по pool и bonus dice, сохраняет battle-scoped anchor и предлагает Endurance/Athletics без скрытого выбора;
 - multi-skill Zone Hazard отклоняет цель без явного выбора, а общий executor переносит выбранный Skill в exposure;
-- Ears ringing требует мага первой уникальной целью, сохраняет stable order и создаёт fixed Wound без фиктивных d10; профильные NPC не используют Wounds Table;
+- Ears ringing требует мага первой уникальной целью, сохраняет stable order и создаёт для Player/Champion pending fixed Wound без фиктивных d10 и Near Miss; target-bound completion сначала регистрирует её, затем применяет эффект и не может быть повторён, а профильные NPC остаются immediate;
 - Daemon Rift очищает пул и создаёт GM-owned manifestation contract без выбора профиля или создания NPC; обязательная враждебность, оба начальных курса и оба события возврата в Realm of Chaos сохраняются явно;
 - Fascinating Rift сохраняет GM-selected Long Range Zone и stable witness order, добавляет `−1d` к каждому базовому Willpower Test и создаёт compulsion только при нуле successes;
 - психологическая иммунность блокирует Fascinating Rift до Test без расхода RNG, повторные witness/Test IDs отклоняются, а portal contract содержит только события входа и выхода;
