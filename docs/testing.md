@@ -305,6 +305,10 @@ py -3.12 -m unittest discover -s tests -v
 - Fate session state отделяет permanent rating от session limit, сохраняет ordered actor/session-bound spends и отклоняет исчерпание, повтор ID/Test и перенос истории;
 - Fate consumer до либо после matching initial roll атомарно уменьшает remaining spends, создаёт bound proof и подготовленную Test; уже Glorious блокируется, Grim разрешён и отменяется новым Glorious до обязательных rerolls;
 - staged Test resolution проверяет immutable pool provenance, не перебрасывает initial values после Fate decision и отклоняет любые post-roll изменения кроме одного добавленного Fate Glorious modifier;
+- Unmitigated Success принимает exact завершённый Test и matching initial snapshot для after-roll burn, сохраняет обычный trace/outcome и без RNG возвращает отдельный Total Success;
+- применение Unmitigated требует явных realistic/outcome facts, ограничивает attack одним убитым врагом и одной Wound, погашает effect один раз и отклоняет чужой session/actor, replay и forged Test/result;
+- Last Stand требует exact burn/battle/actor, живой character state и stable sequence ранее полученной Wound; Test/RNG структурно отсутствуют;
+- terminal consumer требует явные final scope/affected subjects/accomplishment references и tone/possibility confirmations, сохраняет порядок feat → death, меняет только `dead` и отклоняет replay/forged result;
 - Second Action composite сначала проверяет полный action budget, затем одним результатом уменьшает тот же session pool и резервирует точно связанный slot `2`; повтор slot, чужой actor, raw/forged proof, одинаковый action, вторая attack и третье действие отклоняются;
 - Glorious и Second Action сохраняются как разные ordered spend kinds одного session state и совместно исчерпывают его limit;
 - producer proof проходит сквозной `Drained → Test` сценарий; unknown Rule ID и подмена state/spend/proof/Test/trace отклоняются;

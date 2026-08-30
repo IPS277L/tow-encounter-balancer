@@ -409,6 +409,10 @@ K1 — реализация книжного resolution kernel. Прототип
 - burn при непустом pool уменьшает ещё доступный allowance текущей session; при уже пустом pool permanent rating меняется сразу, но effective session rating и возможный позднейший GM refresh сохраняют прежний объём до следующей session;
 - три actor-owned запроса `Unmitigated Success`/`Near Miss`/`Last Stand` создают subject-bound proof и отдельные Test/Wound/feat effect requests; Fate reducer не мутирует narrative outcome, injury state или смерть персонажа;
 - Unmitigated Success поддерживает решение до/после matching initial roll и фиксирует Total Success/realistic/attack limits; Near Miss связывает точную отмену Wound и сохранение прежнего Staggered; Last Stand требует suffered-Wound fact и desperate-battle approval, не требует Test и фиксирует смерть после подвига;
+- реализован `FateUnmitigatedSuccessApplicationRequest → Result`: exact завершённый Test и after-roll initial snapshot проверяются без нового RNG, ordinary trace/outcome сохраняются, а отдельный superseding outcome становится книжным `TOTAL_SUCCESS`;
+- лучший исход передаётся stable reference и explicit подтверждением реалистичности; attack-факты ограничены одним убитым врагом и одной Wound, effect ID погашается один раз, а чужой actor/session, повтор и forged Test trace отклоняются;
+- реализован `FateLastStandApplicationRequest → Result`: exact burn/session/actor/battle связывается с актуальным живым character state и конкретной существующей Wound; Test и RNG отсутствуют;
+- final scope, affected subjects и accomplishment consequences передаются непустыми stable references вместе с подтверждениями tone/possibility и optional GM adjustment; reducer фиксирует порядок `FEAT_ACCOMPLISHED → ACTOR_DIED`, меняет только `dead` и однократно погашает effect;
 - реализован `FateNearMissApplicationRequest → Result`: actor-bound burn effect применяется только к exact принятому player `CharacterWoundResult` после канонической Wounds Table и до Wound effect, сохраняет уменьшенный Fate state и возвращает точное pre-Wound injury state;
 - application отменяет в том числе lethal Wound, восстанавливает существовавший Staggered, не добавляет отменённую запись к будущим dice, сохраняет cancelled Wound/discarded effect в trace и погашает effect ID один раз; чужой actor/resolution, Champion, non-accepted, stale, повторный и неканонический результат отклоняются;
 - добавлен direct `CharacterWoundLifecycleRollRequest → RollResult → CompletionRequest → CompletionResult`: первая фаза выполняет Wounds Table и сохраняет pending Wound без effect, позволяя actor принять решение после видимого roll;
@@ -480,7 +484,9 @@ K1 — реализация книжного resolution kernel. Прототип
 - `WizardMagicState` не содержит Wizard Level, поэтому непосредственный Recover reducer уменьшает переданный непросроченный Miscast snapshot; battle orchestration обязано сначала немедленно разрешить уже triggered Miscast Pool и не давать Recover отменить сработавший Miscast;
 - каталоги NPC Abilities, магии, религии и магических предметов завершены как нормативный индекс, но большинство записей ещё не связано с исполняемыми reducers и orchestration;
 - `CATCH_YOUR_BREATH`, независимый end-encounter opportunity, `A Night’s Respite`, успешный `REST_AND_RECOVERY`, daily Wound/Infection producer, Anatomy Recall/automatic-success branch, persistent Festering state/recovery consumer, ordinary и Combat Surgeon surgery proofs для `20–23`, общий transition снятия non-permanent effects, обе Combat Surgeon boundaries, suppression aggregate/view и полная `Drained` Test preparation реализованы; остальные Condition modifiers, применение surgery-failure follow-up и optional early Endurance Test требуют будущих lifecycle/orchestration boundaries;
-- session Fate resource, обе части Lucky, GM refresh, Glorious producer до/после initial roll, Second Action/Tactical Retreat composites, permanent burn с тремя typed effect requests, Near Miss application, rolled и fixed two-phase Wound lifecycles вместе с kernel/Stagger/Hazard/Internal Damage/Ears Ringing adapters, alternative-price proof, общий pursuit и Run For Your Lives aggregate реализованы; Unmitigated Success, Last Stand и конкретное применение price/campaign follow-ups ещё отсутствуют;
+- session Fate resource, обе части Lucky, GM refresh, Glorious producer до/после initial roll, Second Action/Tactical Retreat composites, permanent burn и applications всех трёх видов, rolled и fixed two-phase Wound lifecycles вместе с kernel/Stagger/Hazard/Internal Damage/Ears Ringing adapters, alternative-price proof, общий pursuit и Run For Your Lives aggregate реализованы; конкретное применение price/campaign follow-ups ещё отсутствует;
+- Unmitigated Success application возвращает policy-confirmed Test outcome и книжные attack caps, но применение этого результата к конкретному Attack либо scene aggregate остаётся обязанностью внешнего orchestration;
+- Last Stand application требует уже исполненные внешние feat consequences и только закрывает их terminal смертью; выбор масштаба, целей и конкретных изменений scene остаётся обязанностью policy/orchestration;
 - Lucky gambling producer принимает уже классифицированный game-of-chance context; отдельного gambling/social action engine и автоматического поиска подходящей Test пока нет;
 - общий Exacting reducer пока принимает Basic contributions и оставляет цену специализированному consumer; Opposed contribution со subtraction/tie-break и другие cost adapters ещё не реализованы;
 - внешние последствия Wound для инвентаря и анатомии пока являются typed follow-up;
@@ -517,7 +523,7 @@ K1 — реализация книжного resolution kernel. Прототип
 
 ## Следующий шаг
 
-Реализовать application boundary для Fate `Unmitigated Success`: применить proof/effect к точному Test result, сохранить книжный Total Success и ограничения реалистичности/Attack без повторного броска или скрытого решения. Затем перейти к `Last Stand`.
+Реализовать application consumers для уже выбранной alternative Retreat price, начиная с blood: применить proof-bound запрос к явно выбранному PC через character Wound lifecycle, не выбирая цель внутри reducer. Затем закрыть materiel и misfortune отдельными inventory/campaign boundaries.
 
 ## Последняя проверка
 
@@ -528,7 +534,7 @@ $env:PYTHONPATH = "src"
 py -3.12 -m unittest discover -s tests -v
 ```
 
-Результат: `Ran 821 tests ... OK`; отдельный K1-набор: `Ran 801 tests ... OK`; `compileall`, public-import smoke test, проверка отсутствия domain→rules imports и `git diff --check` успешно завершены (только предупреждения Git о LF/CRLF).
+Результат: `Ran 832 tests ... OK`; отдельный K1-набор: `Ran 812 tests ... OK`; `compileall`, public-import smoke test, проверка отсутствия domain→rules imports и `git diff --check` успешно завершены (только предупреждения Git о LF/CRLF).
 
 ```powershell
 py -3.12 -m compileall -q src tests tools

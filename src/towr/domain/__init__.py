@@ -138,10 +138,21 @@ from towr.domain.fate_models import (
     FateUnmitigatedSuccessEffectRequest,
     prepare_retreat_alternative_price,
 )
+from towr.domain.fate_last_stand_models import (
+    FATE_LAST_STAND_APPLICATION_RULE_ID,
+    FateLastStandApplicationRequest,
+    FateLastStandApplicationResult,
+    FateLastStandResolutionStep,
+)
 from towr.domain.fate_near_miss_models import (
     FATE_NEAR_MISS_APPLICATION_RULE_ID,
     FateNearMissApplicationRequest,
     FateNearMissApplicationResult,
+)
+from towr.domain.fate_unmitigated_success_models import (
+    FATE_UNMITIGATED_SUCCESS_APPLICATION_RULE_ID,
+    FateUnmitigatedSuccessApplicationRequest,
+    FateUnmitigatedSuccessApplicationResult,
 )
 from towr.domain.festering_wound_models import (
     FESTERING_WOUND_DICE_RULE_ID,
@@ -665,12 +676,14 @@ __all__ = [
     "FATE_SESSION_RULE_ID",
     "FATE_BURN_RULE_ID",
     "FATE_LAST_STAND_RULE_ID",
+    "FATE_LAST_STAND_APPLICATION_RULE_ID",
     "FATE_LUCKY_RULE_ID",
     "FATE_NEAR_MISS_RULE_ID",
     "FATE_NEAR_MISS_APPLICATION_RULE_ID",
     "FATE_REFRESH_RULE_ID",
     "FATE_TACTICAL_RETREAT_RULE_ID",
     "FATE_UNMITIGATED_SUCCESS_RULE_ID",
+    "FATE_UNMITIGATED_SUCCESS_APPLICATION_RULE_ID",
     "LUCKY_RULE_ID",
     "DOWNTIME_SURGERY_RULE_ID",
     "DRAINED_TEST_PREPARATION_RULE_ID",
@@ -799,6 +812,9 @@ __all__ = [
     "FateGloriousSpendResult",
     "FateLastStandBurnRequest",
     "FateLastStandEffectRequest",
+    "FateLastStandApplicationRequest",
+    "FateLastStandApplicationResult",
+    "FateLastStandResolutionStep",
     "FateNearMissBurnRequest",
     "FateNearMissEffectRequest",
     "FateNearMissApplicationRequest",
@@ -818,6 +834,8 @@ __all__ = [
     "FateTacticalRetreatSpendResult",
     "FateUnmitigatedSuccessBurnRequest",
     "FateUnmitigatedSuccessEffectRequest",
+    "FateUnmitigatedSuccessApplicationRequest",
+    "FateUnmitigatedSuccessApplicationResult",
     "LuckyGamblingProof",
     "LuckyGamblingTestPreparationRequest",
     "LuckyGamblingTestPreparationResult",
