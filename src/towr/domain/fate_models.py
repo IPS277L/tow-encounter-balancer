@@ -3,6 +3,13 @@ from __future__ import annotations
 from dataclasses import dataclass, field, replace
 from enum import Enum
 
+from towr.domain.retreat_models import (
+    RETREAT_ALTERNATIVE_PRICE_RULE_ID,
+    RETREAT_RULE_ID,
+    GroupRetreatDeclaration,
+    RetreatAlternativePriceRequest,
+    RetreatRearGuardResult,
+)
 from towr.domain.test_models import (
     FATE_GLORIOUS_RULE_ID,
     FateGloriousProof,
@@ -23,11 +30,13 @@ from towr.domain.turn_models import (
 
 FATE_SESSION_RULE_ID = "RULE-FATE-001:session-resource"
 FATE_SECOND_ACTION_RULE_ID = "RULE-FATE-002:second-action"
+FATE_TACTICAL_RETREAT_RULE_ID = "RULE-FATE-002:tactical-retreat"
 
 
 class FateSpendKind(str, Enum):
     GLORIOUS_TEST = "glorious_test"
     SECOND_ACTION = "second_action"
+    TACTICAL_RETREAT = "tactical_retreat"
 
 
 @dataclass(frozen=True, slots=True)
@@ -57,6 +66,11 @@ class FateSpendRecord:
             and self.rule_id != FATE_SECOND_ACTION_RULE_ID
         ):
             raise ValueError("second action spend requires its canonical rule")
+        if (
+            self.kind is FateSpendKind.TACTICAL_RETREAT
+            and self.rule_id != FATE_TACTICAL_RETREAT_RULE_ID
+        ):
+            raise ValueError("Tactical Retreat spend requires its canonical rule")
 
 
 @dataclass(frozen=True, slots=True)
@@ -107,6 +121,13 @@ class FateSessionState:
         )
         if len(set(second_action_ids)) != len(second_action_ids):
             raise ValueError("Fate cannot grant the same second action twice")
+        tactical_retreat_ids = tuple(
+            item.subject_id
+            for item in spends
+            if item.kind is FateSpendKind.TACTICAL_RETREAT
+        )
+        if len(set(tactical_retreat_ids)) != len(tactical_retreat_ids):
+            raise ValueError("Fate cannot fund the same Retreat twice")
         object.__setattr__(self, "spends", spends)
 
     @property
@@ -359,6 +380,170 @@ class FateSecondActionSpendResult:
         object.__setattr__(self, "applied_rule_ids", rule_ids)
 
 
+@dataclass(frozen=True, slots=True)
+class FateTacticalRetreatProof:
+    id: str
+    session_id: str
+    actor_id: str
+    retreat_id: str
+    battle_id: str
+    player_character_ids: tuple[str, ...]
+    source_spend_id: str
+    rule_id: str = FATE_TACTICAL_RETREAT_RULE_ID
+
+    def __post_init__(self) -> None:
+        _validate_non_empty_string(self.id, "Fate Retreat proof id")
+        _validate_non_empty_string(
+            self.session_id,
+            "Fate Retreat proof session_id",
+        )
+        _validate_non_empty_string(self.actor_id, "Fate Retreat proof actor_id")
+        _validate_non_empty_string(self.retreat_id, "Fate Retreat proof retreat_id")
+        _validate_non_empty_string(self.battle_id, "Fate Retreat proof battle_id")
+        player_ids = tuple(self.player_character_ids)
+        if not player_ids:
+            raise ValueError("Fate Retreat proof requires player characters")
+        for player_id in player_ids:
+            _validate_non_empty_string(player_id, "Fate Retreat player ID")
+        if len(set(player_ids)) != len(player_ids):
+            raise ValueError("Fate Retreat player character IDs must be unique")
+        if self.actor_id not in player_ids:
+            raise ValueError("Fate Retreat rearguard must belong to the group")
+        _validate_non_empty_string(
+            self.source_spend_id,
+            "Fate Retreat proof source_spend_id",
+        )
+        _validate_non_empty_string(self.rule_id, "Fate Retreat rule_id")
+        if self.rule_id != FATE_TACTICAL_RETREAT_RULE_ID:
+            raise ValueError("Fate Retreat proof requires its canonical rule")
+        object.__setattr__(self, "player_character_ids", player_ids)
+
+
+@dataclass(frozen=True, slots=True)
+class FateTacticalRetreatSpendRequest:
+    id: str
+    state: FateSessionState
+    retreat: GroupRetreatDeclaration
+    rule_id: str = FATE_TACTICAL_RETREAT_RULE_ID
+
+    def __post_init__(self) -> None:
+        _validate_non_empty_string(self.id, "Fate Retreat request id")
+        if not isinstance(self.state, FateSessionState):
+            raise TypeError("state must be a FateSessionState")
+        if not isinstance(self.retreat, GroupRetreatDeclaration):
+            raise TypeError("retreat must be a GroupRetreatDeclaration")
+        _validate_non_empty_string(self.rule_id, "Fate Retreat rule_id")
+        if self.state.remaining_spends < 1:
+            raise ValueError("no Fate spends remain in this session")
+        if self.state.actor_id not in self.retreat.player_character_ids:
+            raise ValueError("Fate rearguard does not belong to the retreating group")
+        if self.id in {item.id for item in self.state.spends}:
+            raise ValueError("Fate spend request was already consumed")
+        if any(
+            item.kind is FateSpendKind.TACTICAL_RETREAT
+            and item.subject_id == self.retreat.id
+            for item in self.state.spends
+        ):
+            raise ValueError("Fate was already spent on this Retreat")
+
+
+@dataclass(frozen=True, slots=True)
+class FateTacticalRetreatSpendResult:
+    request_id: str
+    rule_id: str
+    source_request: FateTacticalRetreatSpendRequest
+    previous_state: FateSessionState
+    state: FateSessionState
+    spend: FateSpendRecord
+    proof: FateTacticalRetreatProof
+    retreat_result: RetreatRearGuardResult
+    applied_rule_ids: tuple[str, ...]
+
+    def __post_init__(self) -> None:
+        _validate_non_empty_string(
+            self.request_id,
+            "Fate Retreat result request_id",
+        )
+        _validate_non_empty_string(self.rule_id, "Fate Retreat result rule_id")
+        if not isinstance(self.source_request, FateTacticalRetreatSpendRequest):
+            raise TypeError("source_request must be a Fate Retreat request")
+        if not isinstance(self.previous_state, FateSessionState):
+            raise TypeError("previous_state must be a FateSessionState")
+        if not isinstance(self.state, FateSessionState):
+            raise TypeError("state must be a FateSessionState")
+        if not isinstance(self.spend, FateSpendRecord):
+            raise TypeError("spend must be a FateSpendRecord")
+        if not isinstance(self.proof, FateTacticalRetreatProof):
+            raise TypeError("proof must be a FateTacticalRetreatProof")
+        if not isinstance(self.retreat_result, RetreatRearGuardResult):
+            raise TypeError("retreat_result must be a RetreatRearGuardResult")
+
+        expected_spend, expected_proof, expected_state = (
+            _expected_fate_tactical_retreat_spend(self.source_request)
+        )
+        expected_retreat_result = RetreatRearGuardResult(
+            request_id=self.source_request.retreat.id,
+            source_request=self.source_request.retreat,
+            rearguard_actor_id=expected_proof.actor_id,
+            fate_proof_id=expected_proof.id,
+            source_spend_id=expected_spend.id,
+            covered_player_character_ids=(
+                self.source_request.retreat.player_character_ids
+            ),
+            pursuit_decision_required=True,
+            applied_rule_ids=(RETREAT_RULE_ID, self.source_request.rule_id),
+        )
+        if (
+            self.request_id != self.source_request.id
+            or self.rule_id != self.source_request.rule_id
+            or self.previous_state != self.source_request.state
+            or self.spend != expected_spend
+            or self.proof != expected_proof
+            or self.state != expected_state
+            or self.retreat_result != expected_retreat_result
+        ):
+            raise ValueError("Fate Retreat result has stale provenance")
+
+        rule_ids = _validate_rule_ids(self.applied_rule_ids)
+        expected_rule_ids = (
+            self.state.rule_id,
+            *self.retreat_result.applied_rule_ids,
+        )
+        if rule_ids != expected_rule_ids:
+            raise ValueError("Fate Retreat rule trace is incomplete")
+        object.__setattr__(self, "applied_rule_ids", rule_ids)
+
+
+def prepare_retreat_alternative_price(
+    *,
+    request_id: str,
+    retreat: GroupRetreatDeclaration,
+    fate_states: tuple[FateSessionState, ...],
+) -> RetreatAlternativePriceRequest:
+    """Expose the GM-owned price only when every group Fate pool is empty."""
+    _validate_non_empty_string(request_id, "retreat price request id")
+    if not isinstance(retreat, GroupRetreatDeclaration):
+        raise TypeError("retreat must be a GroupRetreatDeclaration")
+    states = tuple(fate_states)
+    if not states or not all(isinstance(item, FateSessionState) for item in states):
+        raise TypeError("fate_states must contain FateSessionState values")
+    actor_ids = tuple(item.actor_id for item in states)
+    if len(set(actor_ids)) != len(actor_ids):
+        raise ValueError("retreat Fate states must have unique actors")
+    if set(actor_ids) != set(retreat.player_character_ids):
+        raise ValueError("retreat price requires Fate state for the full group")
+    if len({item.session_id for item in states}) != 1:
+        raise ValueError("retreat Fate states must belong to one session")
+    if any(item.remaining_spends != 0 for item in states):
+        raise ValueError("alternative Retreat price requires exhausted group Fate")
+    return RetreatAlternativePriceRequest(
+        id=request_id,
+        source_retreat=retreat,
+        exhausted_fate_actor_ids=actor_ids,
+        rule_id=RETREAT_ALTERNATIVE_PRICE_RULE_ID,
+    )
+
+
 def _expected_fate_glorious_spend(
     request: FateGloriousSpendRequest,
 ) -> tuple[
@@ -423,6 +608,31 @@ def _expected_fate_second_action_spend(
         round_number=slot_request.state.round_number,
         slot_index=2,
         declaration=slot_request.declaration,
+        source_spend_id=spend.id,
+        rule_id=request.rule_id,
+    )
+    state = replace(request.state, spends=(*request.state.spends, spend))
+    return spend, proof, state
+
+
+def _expected_fate_tactical_retreat_spend(
+    request: FateTacticalRetreatSpendRequest,
+) -> tuple[FateSpendRecord, FateTacticalRetreatProof, FateSessionState]:
+    spend = FateSpendRecord(
+        id=request.id,
+        session_id=request.state.session_id,
+        actor_id=request.state.actor_id,
+        kind=FateSpendKind.TACTICAL_RETREAT,
+        subject_id=request.retreat.id,
+        rule_id=request.rule_id,
+    )
+    proof = FateTacticalRetreatProof(
+        id=f"{request.id}:proof",
+        session_id=request.state.session_id,
+        actor_id=request.state.actor_id,
+        retreat_id=request.retreat.id,
+        battle_id=request.retreat.battle_id,
+        player_character_ids=request.retreat.player_character_ids,
         source_spend_id=spend.id,
         rule_id=request.rule_id,
     )

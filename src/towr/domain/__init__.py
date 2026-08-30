@@ -102,6 +102,7 @@ from towr.domain.exacting_test_models import (
 from towr.domain.fate_models import (
     FATE_SECOND_ACTION_RULE_ID,
     FATE_SESSION_RULE_ID,
+    FATE_TACTICAL_RETREAT_RULE_ID,
     FateGloriousSpendRequest,
     FateGloriousSpendResult,
     FateSecondActionProof,
@@ -110,6 +111,10 @@ from towr.domain.fate_models import (
     FateSessionState,
     FateSpendKind,
     FateSpendRecord,
+    FateTacticalRetreatProof,
+    FateTacticalRetreatSpendRequest,
+    FateTacticalRetreatSpendResult,
+    prepare_retreat_alternative_price,
 )
 from towr.domain.festering_wound_models import (
     FESTERING_WOUND_DICE_RULE_ID,
@@ -126,6 +131,15 @@ from towr.domain.help_models import (
     HelpBonusApplicationRequest,
     HelpBonusApplicationResult,
     HelpBonusSnapshot,
+)
+from towr.domain.retreat_models import (
+    RETREAT_ALTERNATIVE_PRICE_RULE_ID,
+    RETREAT_RULE_ID,
+    GroupRetreatDeclaration,
+    RetreatAlternativePrice,
+    RetreatAlternativePriceRequest,
+    RetreatRearGuardResult,
+    RetreatTiming,
 )
 from towr.domain.hidden_attack_models import (
     HiddenAttackOpportunityLossReason,
