@@ -127,6 +127,21 @@ from towr.domain.infection_models import (
     EndOfDayInfectionRequest,
     EndOfDayInfectionResult,
 )
+from towr.domain.infection_prevention_models import (
+    ANATOMY_INFECTION_ALLOCATION_RULE_ID,
+    ANATOMY_INFECTION_RECALL_RULE_ID,
+    AUTOMATIC_INFECTION_SUCCESS_APPLICATION_RULE_ID,
+    AUTOMATIC_INFECTION_SUCCESS_RULE_ID,
+    AnatomyInfectionAllocationRequest,
+    AnatomyInfectionAllocationResult,
+    AnatomyInfectionRecallRequest,
+    AnatomyInfectionRecallResult,
+    AutomaticInfectionSuccessApplicationRequest,
+    AutomaticInfectionSuccessApplicationResult,
+    AutomaticInfectionSuccessProof,
+    InfectionPreventionRelationship,
+    InfectionPreventionTarget,
+)
 from towr.domain.skill_improvise_models import (
     SkillImproviseActionExecutionRequest,
     SkillImproviseActionExecutionResult,
@@ -492,6 +507,10 @@ from towr.domain.turn_models import (
 )
 
 __all__ = [
+    "ANATOMY_INFECTION_ALLOCATION_RULE_ID",
+    "ANATOMY_INFECTION_RECALL_RULE_ID",
+    "AUTOMATIC_INFECTION_SUCCESS_APPLICATION_RULE_ID",
+    "AUTOMATIC_INFECTION_SUCCESS_RULE_ID",
     "ActionExecutionReceipt",
     "ActionSlotGrant",
     "AimActionExecutionRequest",
@@ -504,6 +523,13 @@ __all__ = [
     "AttackActionExecutionRequest",
     "AttackActionExecutionResult",
     "AttackRequest",
+    "AnatomyInfectionAllocationRequest",
+    "AnatomyInfectionAllocationResult",
+    "AnatomyInfectionRecallRequest",
+    "AnatomyInfectionRecallResult",
+    "AutomaticInfectionSuccessApplicationRequest",
+    "AutomaticInfectionSuccessApplicationResult",
+    "AutomaticInfectionSuccessProof",
     "BattleOutcome",
     "BattleResult",
     "BoneDragonRider",
@@ -657,6 +683,8 @@ __all__ = [
     "InlineRollSource",
     "InlineProfile",
     "ImproviseKind",
+    "InfectionPreventionRelationship",
+    "InfectionPreventionTarget",
     "HazardImpactSpec",
     "HazardExposureRequest",
     "HazardResolutionRequest",

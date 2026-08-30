@@ -372,6 +372,9 @@ K1 — реализация книжного resolution kernel. Прототип
 - реализован `DailyWoundState` и source-bound registration фактически принятых table-roll/fixed character Wounds: receipt хранит day/target/source/stable Wound identity, Near Miss и повтор не считаются, закрытый день не принимает новые записи;
 - `EndOfDayInfectionRequest → Result` требует непустой журнал, живую совпадающую цель, актуальную историческую injury state и Endurance Test; treated/healed Wounds сохраняются в count, а подмена identity отклоняется;
 - outcome сравнивает successes с дневным числом Wounds отдельно от Basic `succeeded`: любой недобор добавляет ровно одну Festering Wound, достаточный результат сохраняет state, обе ветви закрывают день одним Infection ID;
+- реализован `AnatomyInfectionRecallRequest → Result`: подтверждённая Anatomy Lore открывает отдельную Recall Test, а число successes становится source-bound capacity для профилактики Infection;
+- `AnatomyInfectionAllocationRequest → Result` один раз погашает Recall source, принимает упорядоченный набор разных self/allied целей того же дня и создаёт для каждой immutable automatic-success proof; successes разрешено оставить неиспользованными;
+- `AutomaticInfectionSuccessApplicationRequest → Result` сверяет allocation/proof, day/target, открытую дневную запись и стабильную Wound history, затем без Endurance RNG закрывает день и не меняет injury/Festering state; перерасход, повтор цели/source/proof, чужой или stale context и forged transition отклоняются;
 - `RestAndRecoveryHealingRequest → RestAndRecoveryHealingResult` исцеляет ровно одну treated/resolved Wound категории `REST_AND_RECOVERY` (`16–19`) либо `SURGERY_AND_RECOVERY` (`20–23`) с точным successful surgery proof, переиспользует общий transition и однократно погашает sources;
 - реализован `DowntimeSurgeryRequest → DowntimeSurgeryResult`: ordinary surgery проверяет Anatomy Lore, theatre, specialist tools, time, recovery supports, exact Wound/target/state/downtime и выполняет Dexterity Test через внедрённый RNG;
 - surgery success не мутирует injury state и служит proof; failure возвращает GM-owned `SurgeryFailureRiskRequest` с книжными рисками permanent disfigurement/death без скрытого выбора (`AMBIGUITY-009`);
@@ -403,7 +406,7 @@ K1 — реализация книжного resolution kernel. Прототип
 
 ## Проверено
 
-- 701 unit/integration тест успешно проходит на Python 3.12, из них 681 относится к K1;
+- 714 unit/integration тестов успешно проходят на Python 3.12, из них 694 относятся к K1;
 - исходники и тесты успешно проходят `compileall`.
 
 ## Исходный материал
@@ -426,7 +429,7 @@ K1 — реализация книжного resolution kernel. Прототип
 - Recover treatment action, одноразовое применение выбранной Wound и automatic end-battle treatment всех Wounds реализованы, но application/context consumed IDs пока должен хранить внешний orchestration; partial trappings batch намеренно отклоняется до решения `AMBIGUITY-008`, mount/object follow-ups ещё не применяются;
 - `WizardMagicState` не содержит Wizard Level, поэтому непосредственный Recover reducer уменьшает переданный непросроченный Miscast snapshot; battle orchestration обязано сначала немедленно разрешить уже triggered Miscast Pool и не давать Recover отменить сработавший Miscast;
 - каталоги NPC Abilities, магии, религии и магических предметов завершены как нормативный индекс, но большинство записей ещё не связано с исполняемыми reducers и orchestration;
-- `CATCH_YOUR_BREATH`, независимый end-encounter opportunity, `A Night’s Respite`, успешный `REST_AND_RECOVERY`, daily Wound/Infection producer, persistent Festering state/recovery consumer, ordinary и Combat Surgeon surgery proofs для `20–23`, общий transition снятия non-permanent effects, обе Combat Surgeon boundaries и suppression aggregate/view реализованы; Anatomy prevention, интеграция view в конкретные modifiers, применение surgery-failure follow-up и optional early Endurance Test требуют будущих lifecycle/orchestration boundaries;
+- `CATCH_YOUR_BREATH`, независимый end-encounter opportunity, `A Night’s Respite`, успешный `REST_AND_RECOVERY`, daily Wound/Infection producer, Anatomy Recall/automatic-success branch, persistent Festering state/recovery consumer, ordinary и Combat Surgeon surgery proofs для `20–23`, общий transition снятия non-permanent effects, обе Combat Surgeon boundaries и suppression aggregate/view реализованы; интеграция view в конкретные modifiers, применение surgery-failure follow-up и optional early Endurance Test требуют будущих lifecycle/orchestration boundaries;
 - общий Exacting reducer пока принимает Basic contributions и оставляет цену специализированному consumer; Opposed contribution со subtraction/tie-break и другие cost adapters ещё не реализованы;
 - внешние последствия Wound для инвентаря и анатомии пока являются typed follow-up;
 - защита Endurance после заживления `Ruptured organs` ещё не подключена к физическому impact;
@@ -462,7 +465,7 @@ K1 — реализация книжного resolution kernel. Прототип
 
 ## Следующий шаг
 
-Реализовать профилактическую Anatomy Recall перед Infection. Один source-bound Recall result персонажа с подтверждённой Anatomy Lore должен предоставить capacity по числу successes; explicit ordered выбор разных self/allied day-targets создаёт для каждого одноразовый automatic-Infection-success proof. Application такого proof должна сверять day/target, закрывать непустой `DailyWoundState` без Endurance RNG и не добавлять Festering Wound; повторное назначение цели, перерасход successes, чужой/закрытый день и повторное применение должны отклоняться.
+Подключить первый конкретный consumer Combat Surgeon effective view: вычислять влияние `Condition.DRAINED` на обычный Test так, чтобы canonical injury/Condition provenance не мутировались, suppression той же Wound действительно временно возвращала допустимые bonus dice, а independently sourced Drained продолжал их запрещать. Контракт должен принимать проверяемый effective snapshot и не позволять вручную скрыть неснятые Conditions.
 
 ## Последняя проверка
 
@@ -473,7 +476,7 @@ $env:PYTHONPATH = "src"
 py -3.12 -m unittest discover -s tests -v
 ```
 
-Результат: `Ran 701 tests ... OK`; отдельный K1-набор: `Ran 681 tests ... OK`; `compileall`, public-import smoke test, проверка trailing whitespace изменённых файлов и `git diff --check` успешно завершены (только предупреждения Git о LF/CRLF).
+Результат: `Ran 714 tests ... OK`; отдельный K1-набор: `Ran 694 tests ... OK`; `compileall`, public-import smoke test и `git diff --check` успешно завершены (только предупреждения Git о LF/CRLF).
 
 ```powershell
 py -3.12 -m compileall -q src tests tools
