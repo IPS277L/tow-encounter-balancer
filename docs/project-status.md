@@ -371,6 +371,14 @@ K1 — реализация книжного resolution kernel. Прототип
 - реализован `DowntimeSurgeryRequest → DowntimeSurgeryResult`: ordinary surgery проверяет Anatomy Lore, theatre, specialist tools, time, recovery supports, exact Wound/target/state/downtime и выполняет Dexterity Test через внедрённый RNG;
 - surgery success не мутирует injury state и служит proof; failure возвращает GM-owned `SurgeryFailureRiskRequest` с книжными рисками permanent disfigurement/death без скрытого выбора (`AMBIGUITY-009`);
 - другие ready Wounds и `NIGHTS_REST` сохраняются; ordinary строки `16–19` отвергают лишний surgery proof, а healing `20–23` погашает proof перед Endeavour ID и сохраняет permanent consequences; Festering follow-up пока не мутирует отсутствующее Infection/campaign state;
+- реализован `CombatSurgeonTreatmentRequest → CombatSurgeonTreatmentResult`: после exact successful Recover treatment той же Wound/target/surgeon отдельная Recall Test выполняется через внедрённый RNG без нового action receipt;
+- success создаёт `CombatSurgeonEffectSuppression` с battle/treatment/Test provenance и полным ordered набором всех `UNTIL_HEALED` effects выбранной Wound; failure suppression не создаёт, а treatment-result ID в обоих случаях погашается ровно один раз;
+- suppression не меняет `CharacterInjuryState`, не лечит Wound и не удаляет Conditions/effect provenance; permanent и effects других Wounds не захватываются, а фактическое игнорирование до конца совпадающего battle принадлежит future aggregate;
+- реализован общий `ExactingTestProgress` и Basic-contribution reducer: ordered Test/contributor provenance вычисляет running total, сохраняет zero-progress failure и overshoot, запрещает повтор ID и вклад после completion;
+- реализован `CombatSurgeonBattleSurgeryActionRequest → Result`: matching non-attack Ability Improvise исполняет одну Dexterity Test и один action receipt, привязывая Exacting progress к battle/surgeon/target/surgical Wound/exact injury snapshot;
+- battle surgery требует 8 successes; нулевая Test не уменьшает progress и создаёт GM-owned surgery risk, completion возвращает proof без healing или injury mutation; operating theatre отменён Talent, а tools/supports пока требуются по `AMBIGUITY-010`;
+- `RestAndRecoveryHealingRequest` принимает completed `CombatSurgeonBattleSurgeryProof` как альтернативу ordinary surgery для строк `20–23`: target и стабильная identity Wound (`sequence`, entry, total, rolls, origin) обязаны совпасть, но несвязанные раны/Conditions между battle и downtime могут измениться;
+- battle proof погашается ровно один раз перед Endeavour ID, не применяется после healing и не ослабляет прежний exact state/downtime contract `DowntimeSurgeryResult`;
 - Condition alternative выполняет ровно один релевантный Test, снимает одну не-Staggered/не-Prone Condition только при успехе и `underlying_cause_allows_removal=True`, а failure сохраняет исходный snapshot;
 - Defenceless и Broken в Zone с врагом закрывают Recover до RNG; все валидные ветви, включая failed Tests и пустой standard набор, завершают slot, а незавершённый Recover блокирует окончание хода.
 - реализован `SkillImproviseActionExecutionRequest → SkillImproviseActionExecutionResult`: зарезервированный `ImproviseKind.SKILL` связывает active actor/round, typed Skill/approach и один готовый basic либо opposed Test;
@@ -387,7 +395,7 @@ K1 — реализация книжного resolution kernel. Прототип
 
 ## Проверено
 
-- 639 unit/integration тестов успешно проходят на Python 3.12, из них 619 относятся к K1;
+- 668 unit/integration тестов успешно проходят на Python 3.12, из них 648 относятся к K1;
 - исходники и тесты успешно проходят `compileall`.
 
 ## Исходный материал
@@ -410,7 +418,8 @@ K1 — реализация книжного resolution kernel. Прототип
 - Recover treatment action, одноразовое применение выбранной Wound и automatic end-battle treatment всех Wounds реализованы, но application/context consumed IDs пока должен хранить внешний orchestration; partial trappings batch намеренно отклоняется до решения `AMBIGUITY-008`, mount/object follow-ups ещё не применяются;
 - `WizardMagicState` не содержит Wizard Level, поэтому непосредственный Recover reducer уменьшает переданный непросроченный Miscast snapshot; battle orchestration обязано сначала немедленно разрешить уже triggered Miscast Pool и не давать Recover отменить сработавший Miscast;
 - каталоги NPC Abilities, магии, религии и магических предметов завершены как нормативный индекс, но большинство записей ещё не связано с исполняемыми reducers и orchestration;
-- `CATCH_YOUR_BREATH`, независимый end-encounter opportunity, `A Night’s Respite`, успешный `REST_AND_RECOVERY`, ordinary downtime surgery для `20–23` и общий transition снятия non-permanent effects реализованы; Combat Surgeon, применение Festering/surgery-failure follow-ups и optional early Endurance Test требуют будущих lifecycle boundaries;
+- `CATCH_YOUR_BREATH`, независимый end-encounter opportunity, `A Night’s Respite`, успешный `REST_AND_RECOVERY`, ordinary и Combat Surgeon surgery proofs для `20–23`, общий transition снятия non-permanent effects и обе Combat Surgeon boundaries реализованы; применение suppression/Festering/surgery-failure follow-ups и optional early Endurance Test требуют будущих lifecycle/orchestration boundaries;
+- общий Exacting reducer пока принимает Basic contributions и оставляет цену специализированному consumer; Opposed contribution со subtraction/tie-break и другие cost adapters ещё не реализованы;
 - внешние последствия Wound для инвентаря и анатомии пока являются typed follow-up;
 - защита Endurance после заживления `Ruptured organs` ещё не подключена к физическому impact;
 - автоматическая замена неподходящей строки Wounds Table для не-физического Hazard требует отдельной GM/simulation policy;
@@ -445,7 +454,7 @@ K1 — реализация книжного resolution kernel. Прототип
 
 ## Следующий шаг
 
-Добавить первую boundary Talent `Combat Surgeon` (`RULE-TALENT-002:combat-surgeon`, Player’s Guide 1.4, стр. 74): после успешного treatment одной Wound с ongoing effect `UNTIL_HEALED` отдельная Recall Test должна при успехе создать source-aware suppression этого эффекта до конца текущего battle, не помечая Wound healed и не удаляя её provenance. Failure ничего не подавляет. Battle surgery с Exacting Dexterity `8` и одним Test за action оставить следующим отдельным action/progress adapter.
+Подключить готовый `CombatSurgeonEffectSuppression` к battle-scoped effective-effects aggregate. Следующий срез должен зарегистрировать suppression один раз только для совпадающих `battle_id`/target/Wound и точного набора `UNTIL_HEALED` effects, не удалять их из канонического `CharacterInjuryState`, а возвращать проверяемое effective view для правил боя. Нужно явно сохранить independently sourced Conditions и закрыть повторную регистрацию; перенос suppression в другой battle/target либо на изменённую identity Wound должен отклоняться.
 
 ## Последняя проверка
 
@@ -456,7 +465,7 @@ $env:PYTHONPATH = "src"
 py -3.12 -m unittest discover -s tests -v
 ```
 
-Результат: `Ran 639 tests ... OK`; отдельный K1-набор: `Ran 619 tests ... OK`; `compileall`, public-import smoke test, проверка trailing whitespace изменённых файлов и `git diff --check` успешно завершены (только предупреждения Git о LF/CRLF).
+Результат: `Ran 668 tests ... OK`; отдельный K1-набор: `Ran 648 tests ... OK`; `compileall`, public-import smoke test, проверка trailing whitespace изменённых файлов и `git diff --check` успешно завершены (только предупреждения Git о LF/CRLF).
 
 ```powershell
 py -3.12 -m compileall -q src tests tools

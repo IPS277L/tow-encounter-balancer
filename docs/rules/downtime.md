@@ -34,7 +34,7 @@ GM объявляет Downtime при достаточной передышке,
 
 Источник: страницы 132–136. Suggested Skills могут заменяться при правдоподобном подходе с разрешения GM.
 
-В первом исполняемом срезе `RestAndRecoveryEndeavourRequest` требует именно книжную Endurance Test и точный downtime/target/injury snapshot. Успех позволяет отдельным reducer исцелить одну выбранную treated/resolved Wound и создаёт typed запрос на снятие всех Festering Wounds; провал не создаёт ни одного из этих эффектов. Строки `20–23` дополнительно требуют успешный ordinary surgery proof из того же downtime. Общая GM-возможность заменять Suggested Skill пока не применяется к этому специализированному healing contract. Campaign allocation Endeavours, paid NPC service и применение Festering/surgery-failure follow-ups остаются внешними границами.
+В первом исполняемом срезе `RestAndRecoveryEndeavourRequest` требует именно книжную Endurance Test и точный downtime/target/injury snapshot. Успех позволяет отдельным reducer исцелить одну выбранную treated/resolved Wound и создаёт typed запрос на снятие всех Festering Wounds; провал не создаёт ни одного из этих эффектов. Строки `20–23` дополнительно требуют успешный ordinary surgery proof из того же downtime либо более ранний completed Combat Surgeon battle proof той же Wound. Общая GM-возможность заменять Suggested Skill пока не применяется к этому специализированному healing contract. Campaign allocation Endeavours, paid NPC service и применение Festering/surgery-failure follow-ups остаются внешними границами.
 
 ## RULE-DOWNTIME-003 — favour Contact
 

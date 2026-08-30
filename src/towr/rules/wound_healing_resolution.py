@@ -11,6 +11,8 @@ from towr.domain.wound_healing_models import (
     NightsRespiteHealingResult,
     RestAndRecoveryHealingRequest,
     RestAndRecoveryHealingResult,
+    _rest_and_recovery_surgery_rule_ids,
+    _rest_and_recovery_surgery_source_id,
     expected_catch_your_breath_transition,
     expected_wound_healing_transition,
 )
@@ -156,7 +158,11 @@ def apply_rest_and_recovery_healing(
         previous_consumed_source_ids=request.consumed_source_ids,
         consumed_source_ids=(
             *request.consumed_source_ids,
-            *((request.surgery.request_id,) if request.surgery else ()),
+            *(
+                (_rest_and_recovery_surgery_source_id(request.surgery),)
+                if request.surgery
+                else ()
+            ),
             request.endeavour.request_id,
         ),
         applied_rule_ids=tuple(
@@ -164,7 +170,7 @@ def apply_rest_and_recovery_healing(
                 (
                     request.rule_id,
                     *(
-                        request.surgery.applied_rule_ids
+                        _rest_and_recovery_surgery_rule_ids(request.surgery)
                         if request.surgery is not None
                         else ()
                     ),

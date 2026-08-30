@@ -59,7 +59,9 @@ Exacting Test накапливает successes нескольких Basic Tests 
 
 Если отдельный вклад Opposed, progress равен successes участника минус successes противника. Победа только по tie-break даёт `1` progress. Провал никогда не уменьшает уже накопленный итог, а лишь не продвигает его. Книга приводит ориентиры `4` successes для заметного обязательства, `8` для тяжёлого испытания и `12+` для особенно трудной задачи.
 
-Источник: Player’s Guide 1.4, страницы 12 и 110. Статус: `draft`: накопление Casting successes уже представлено узким магическим состоянием, но общего multi-contributor/cost lifecycle пока нет.
+K1 теперь содержит общий immutable `ExactingTestProgress` и basic-contribution reducer. Каждый вклад хранит собственные request/Test/contributor IDs и полное число successes; нулевой вклад остаётся в trace, но не уменьшает progress, а превышение порога сохраняется. Завершённый progress и повторные request/Test IDs отвергаются. Конкретный consumer обязан сам доказать книжную цену каждого вклада: общий reducer не придумывает action, Coin, risk или favour. Opposed-contribution формула пока остаётся отдельным будущим расширением.
+
+Источник: Player’s Guide 1.4, страницы 12 и 110. Статус: `partially implemented`: Basic contributions и первый action-cost consumer Combat Surgeon реализованы; Opposed contributions и универсальные cost adapters ещё отсутствуют.
 
 ## RULE-TEST-008 — когда и как GM назначает Test
 
@@ -71,8 +73,8 @@ Test назначается, когда исход одновременно на
 
 ## Реализация K1
 
-- контракты: `src/towr/domain/test_models.py`;
-- Basic Test и общий roll pipeline: `src/towr/rules/test_resolution.py`;
+- контракты: `src/towr/domain/test_models.py`, `src/towr/domain/exacting_test_models.py`;
+- Basic Test, общий roll pipeline и Basic Exacting contribution: `src/towr/rules/test_resolution.py`, `src/towr/rules/exacting_test_resolution.py`;
 - Opposed Test: `src/towr/rules/opposed_test.py`;
 - детерминированные проверки: `tests/unit/test_k1_test_resolution.py` и `tests/unit/test_k1_opposed_test.py`.
 

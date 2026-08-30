@@ -53,3 +53,7 @@ Player’s Guide 1.4 на странице 121 одновременно гово
 ## Последствие провала Surgery и наём NPC
 
 Player’s Guide 1.4 на странице 122 говорит только, что провал Dexterity Test несёт риск permanent disfigurement or death; вероятность, обязательность и таблица исхода отсутствуют. Там же обычным способом названа оплата NPC, но книга не задаёт цену и не говорит, становится ли операция автоматически успешной. K1 не подменяет это вероятностями: failed `DowntimeSurgeryResult` возвращает GM-owned `SurgeryFailureRiskRequest` с обоими книжными рисками без мутации state, а квалифицированный NPC использует тот же explicit Test. Перед симуляцией campaign consequences нужна отдельная GM/AI policy (`AMBIGUITY-009`).
+
+## Что именно отменяет Combat Surgeon
+
+Player’s Guide 1.4 на странице 122 отдельно перечисляет operating theatre, specialist medical tools, time и recovery supports, а Combat Surgeon на странице 74 говорит только, что specialist medical facilities не нужны. Текущий battle adapter использует узкую политику: отменяет theatre, заменяет time одной action за каждую Test и всё ещё требует tools/supports. Нужно решить, должно ли более широкое чтение Talent отменять также specialist medical tools и/или recovery supports (`AMBIGUITY-010`).

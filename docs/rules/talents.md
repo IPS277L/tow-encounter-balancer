@@ -24,7 +24,7 @@ Talent выбирается при создании персонажа либо 
 | 74 | Blessings of the Lady | 3 / Bretonnian, High Society, Honour Bound | Ранняя action даёт одну Near Miss Wound-negation на бой; Broken/нарушение vow снимает blessing | нет |
 | 74 | Careful Aim | 3 / Re 4+ | Успешный Aim снимает Staggered | нет |
 | 74 | Cleaving Blow | 4 / S 5+ | Wound two-handed weapon накладывает Staggered на остальных врагов Close | нет |
-| 74 | Combat Surgeon | 3 / Anatomy Lore | Recall временно подавляет ongoing Wound effect; battle surgery — Exacting Dexterity 8, Test за action | нет |
+| 74 | Combat Surgeon | 3 / Anatomy Lore | Recall временно подавляет ongoing Wound effect; battle surgery — Exacting Dexterity 8, Test за action | обе rules-boundaries и battle-proof healing consumer реализованы; suppression aggregate ещё нужен |
 | 74 | Deep Formation | 2 / — | Spear/Short weapon даёт `+1d` союзнику в Zone против Charge Melee | нет |
 | 74 | Defensive Stance | 2 / WS 3+ | После успешной Defence opposition можно не Stagger атакующего и снять свой Staggered | нет |
 | 74 | Dispeller | 3 / Wizard | Раз/round Willpower против Casting; превышение даёт врагу Miscast die; Exacting dispel ongoing spell; все такие 9 создают Miscast dice | частично: есть общие opposed/Miscast primitives, Talent lifecycle нет |
@@ -73,6 +73,20 @@ Talent выбирается при создании персонажа либо 
 | 81 | Vouch For Them | 3 / Silver/Gold, Fel 4+ | NPC применяет ожидания вашего Status к представленному союзнику; disgrace отражается на вас | нет |
 | 81 | Wild Attack | 3 / S 4+ | Если не Staggered, делает следующую Melee Glorious ценой Staggered до броска | нет |
 | 81 | Wizard | 4 / не Dwarf/Halfling, Magic Lore | Разрешает improvised/memorised/formalised spells; до четырёх покупок задают Wizard Level | частично: magic state/pipeline есть, Talent ownership нет |
+
+### Combat Surgeon: treatment-effect boundary
+
+После успешного применения treatment к одной Wound с активными effects `UNTIL_HEALED` владелец Combat Surgeon выполняет отдельную Recall Test. При успехе `CombatSurgeonEffectSuppression` связывает все такие effects выбранной Wound с точными treatment application/result, Test, surgeon, target и `battle_id`; suppression действует только до конца этого battle. Сама `CharacterInjuryState` не меняется: Wound не становится healed, Conditions и `ActiveWoundEffect` не удаляются. Будущий battle aggregate обязан вычислять эффективные последствия с учётом suppression и перестать учитывать его за пределами указанного battle.
+
+Провал не создаёт suppression. В обоих исходах treatment-result ID погашается один раз, поэтому один treatment не даёт повторять Talent Test. Если у выбранной Wound несколько `UNTIL_HEALED` effects (например, `Spilling guts` одновременно даёт Burdened и Drained), они считаются единым ongoing-результатом раны и подавляются вместе. Requirements Talent не являются отдельным runtime-gate Anatomy Lore: по общему правилу страницы 73 Talent, полученный бесплатно при создании, может игнорировать Requirements; request поэтому требует подтверждённое владение самим Combat Surgeon.
+
+Battle surgery представлена `CombatSurgeonBattleSurgeryActionRequest → Result` как non-attack Ability Improvise. Каждая action выполняет одну Basic Dexterity Test и добавляет её successes в общий `ExactingTestProgress`; нулевой вклад не уменьшает итог и возвращает GM-owned `SurgeryFailureRiskRequest`. Progress привязан к одному battle, surgeon, target, Wound и точному injury snapshot. На `8+` successes создаётся immutable proof, но Wound немедленно не исцеляется и injury state не меняется.
+
+Combat Surgeon явно отменяет specialist medical facilities, поэтому operating theatre не является входом battle adapter. Узкая временная политика `AMBIGUITY-010` пока сохраняет отдельно названные specialist medical tools и recovery supports, а достаточную цену времени доказывает action receipt каждой Test. Владелец Talent может оперировать себя либо союзника в Close Range. Completed progress нельзя продолжать или повторно использовать.
+
+Completed `CombatSurgeonBattleSurgeryProof` может заменить ordinary surgery proof при последующем `Rest and Recovery` для той же цели и Wound категории `SURGERY_AND_RECOVERY`. Consumer сверяет стабильную identity Wound (`sequence`, entry, total, rolls и origin), но допускает изменение несвязанных ран/Conditions между battle и downtime; сама выбранная Wound должна оставаться treated/resolved и не healed. Proof ID погашается один раз перед Endeavour ID.
+
+Источник: Player’s Guide 1.4, страницы 74, 110 и 122. Обе непосредственные rules-boundaries и использование completed battle-surgery proof последующим healing implemented; применение suppression battle aggregate остаётся consumer.
 
 ## RULE-TALENT-003 — повторяемые и расходуемые Talents
 

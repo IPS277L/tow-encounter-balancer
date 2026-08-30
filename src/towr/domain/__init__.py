@@ -36,6 +36,21 @@ from towr.domain.attack_models import (
     SecondaryEffectSpec,
 )
 from towr.domain.combatants import CombatantDefinition, CombatantState, Side
+from towr.domain.combat_surgeon_models import (
+    COMBAT_SURGEON_RULE_ID,
+    CombatSurgeonEffectSuppression,
+    CombatSurgeonSuppressionDuration,
+    CombatSurgeonTreatmentRequest,
+    CombatSurgeonTreatmentResult,
+)
+from towr.domain.combat_surgeon_surgery_models import (
+    COMBAT_SURGEON_BATTLE_SURGERY_REQUIRED_SUCCESSES,
+    COMBAT_SURGEON_BATTLE_SURGERY_RULE_ID,
+    CombatSurgeonBattleSurgeryActionRequest,
+    CombatSurgeonBattleSurgeryActionResult,
+    CombatSurgeonBattleSurgeryProgress,
+    CombatSurgeonBattleSurgeryProof,
+)
 from towr.domain.charge_models import (
     ChargeActionExecutionRequest,
     ChargeActionExecutionResult,
@@ -62,6 +77,13 @@ from towr.domain.downtime_models import (
     FesteringWoundsRecoveryRequest,
     RestAndRecoveryEndeavourRequest,
     RestAndRecoveryEndeavourResult,
+)
+from towr.domain.exacting_test_models import (
+    EXACTING_TEST_RULE_ID,
+    ExactingTestContribution,
+    ExactingTestContributionRequest,
+    ExactingTestContributionResult,
+    ExactingTestProgress,
 )
 from towr.domain.help_models import (
     HelpActionExecutionRequest,
@@ -390,6 +412,7 @@ from towr.domain.wound_healing_models import (
     NightsRespiteHealingResult,
     RestAndRecoveryHealingRequest,
     RestAndRecoveryHealingResult,
+    RestAndRecoverySurgeryProof,
 )
 from towr.domain.soporific_breath_models import (
     SoporificBreathActionExecutionRequest,
@@ -484,6 +507,17 @@ __all__ = [
     "CastingTestResult",
     "CombatantDefinition",
     "CombatantState",
+    "COMBAT_SURGEON_RULE_ID",
+    "COMBAT_SURGEON_BATTLE_SURGERY_REQUIRED_SUCCESSES",
+    "COMBAT_SURGEON_BATTLE_SURGERY_RULE_ID",
+    "CombatSurgeonEffectSuppression",
+    "CombatSurgeonBattleSurgeryActionRequest",
+    "CombatSurgeonBattleSurgeryActionResult",
+    "CombatSurgeonBattleSurgeryProgress",
+    "CombatSurgeonBattleSurgeryProof",
+    "CombatSurgeonSuppressionDuration",
+    "CombatSurgeonTreatmentRequest",
+    "CombatSurgeonTreatmentResult",
     "CombatActionDeclaration",
     "CombatActionKind",
     "CombatActionSlot",
@@ -540,6 +574,11 @@ __all__ = [
     "EncounterDefinition",
     "EffectClassification",
     "EffectImmunity",
+    "EXACTING_TEST_RULE_ID",
+    "ExactingTestContribution",
+    "ExactingTestContributionRequest",
+    "ExactingTestContributionResult",
+    "ExactingTestProgress",
     "EffectApplicationRequest",
     "EffectApplicationResult",
     "DropHeldHandItemRequest",
@@ -740,6 +779,7 @@ __all__ = [
     "RestAndRecoveryEndeavourResult",
     "RestAndRecoveryHealingRequest",
     "RestAndRecoveryHealingResult",
+    "RestAndRecoverySurgeryProof",
     "DowntimeSurgeryRequest",
     "DowntimeSurgeryResult",
     "SurgeryFailureRisk",

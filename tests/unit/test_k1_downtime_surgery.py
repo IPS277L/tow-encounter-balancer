@@ -299,6 +299,24 @@ class K1DowntimeSurgeryTests(unittest.TestCase):
                 consumed_source_ids=(surgery.request_id,),
             )
 
+    def test_ordinary_proof_remains_bound_to_exact_injury_state(self) -> None:
+        state = surgical_state()
+        surgery = successful_surgery(state)
+        changed_state = replace(
+            state,
+            conditions=ConditionState({Condition.STAGGERED}),
+        )
+
+        with self.assertRaisesRegex(ValueError, "stale surgery injury state"):
+            RestAndRecoveryHealingRequest(
+                id="changed-after-ordinary-surgery",
+                endeavour=successful_recovery(changed_state),
+                surgery=surgery,
+                target_id="hero",
+                injury_state=changed_state,
+                wound_sequence=1,
+            )
+
     def test_surgery_result_rejects_forged_state_and_risk(self) -> None:
         state = surgical_state()
         success = successful_surgery(state)

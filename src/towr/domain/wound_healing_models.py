@@ -3,6 +3,10 @@ from __future__ import annotations
 from dataclasses import dataclass, replace
 
 from towr.domain.condition_models import Condition
+from towr.domain.combat_surgeon_surgery_models import (
+    COMBAT_SURGEON_BATTLE_SURGERY_RULE_ID,
+    CombatSurgeonBattleSurgeryProof,
+)
 from towr.domain.downtime_models import (
     REST_AND_RECOVERY_ENDEAVOUR_RULE_ID,
     RestAndRecoveryEndeavourResult,
@@ -22,6 +26,11 @@ from towr.domain.recover_models import (
 from towr.domain.surgery_models import (
     DOWNTIME_SURGERY_RULE_ID,
     DowntimeSurgeryResult,
+)
+
+
+RestAndRecoverySurgeryProof = (
+    DowntimeSurgeryResult | CombatSurgeonBattleSurgeryProof
 )
 
 
@@ -467,7 +476,7 @@ class RestAndRecoveryHealingRequest:
     target_id: str
     injury_state: CharacterInjuryState
     wound_sequence: int
-    surgery: DowntimeSurgeryResult | None = None
+    surgery: RestAndRecoverySurgeryProof | None = None
     condition_source_snapshots: tuple[
         WoundConditionSourceSnapshot, ...
     ] = ()
@@ -492,9 +501,11 @@ class RestAndRecoveryHealingRequest:
         sequences = _validate_wound_sequences((self.wound_sequence,))
         if self.surgery is not None and not isinstance(
             self.surgery,
-            DowntimeSurgeryResult,
+            (DowntimeSurgeryResult, CombatSurgeonBattleSurgeryProof),
         ):
-            raise TypeError("surgery must be a downtime surgery result or None")
+            raise TypeError(
+                "surgery must be a downtime or battle surgery proof or None"
+            )
         consumed = _validate_consumed_ids(self.consumed_source_ids)
         object.__setattr__(self, "consumed_source_ids", consumed)
         _validate_non_empty_string(
@@ -520,7 +531,7 @@ class RestAndRecoveryHealingRequest:
             raise ValueError("Rest and Recovery was already consumed")
 
         surgery = self.surgery
-        if surgery is not None:
+        if isinstance(surgery, DowntimeSurgeryResult):
             surgery_source = surgery.source_request
             if surgery.rule_id != DOWNTIME_SURGERY_RULE_ID:
                 raise ValueError("healing requires canonical surgery")
@@ -536,6 +547,22 @@ class RestAndRecoveryHealingRequest:
                 raise ValueError("surgery belongs to another Wound")
             if surgery.request_id in consumed:
                 raise ValueError("surgery proof was already consumed")
+        elif isinstance(surgery, CombatSurgeonBattleSurgeryProof):
+            if surgery.rule_id != COMBAT_SURGEON_BATTLE_SURGERY_RULE_ID:
+                raise ValueError("healing requires canonical battle surgery")
+            if surgery.target_id != self.target_id:
+                raise ValueError(
+                    "battle surgery belongs to another healing target"
+                )
+            if surgery.wound_sequence != self.wound_sequence:
+                raise ValueError("battle surgery belongs to another Wound")
+            _validate_battle_surgery_wound_identity(
+                surgery,
+                self.injury_state,
+                self.wound_sequence,
+            )
+            if surgery.id in consumed:
+                raise ValueError("battle surgery proof was already consumed")
 
         wounds_by_sequence = {
             wound.sequence: wound for wound in self.injury_state.wounds
@@ -643,7 +670,11 @@ class RestAndRecoveryHealingResult:
         consumed = _validate_consumed_ids(self.consumed_source_ids)
         expected_consumed = (
             *previous,
-            *((source.surgery.request_id,) if source.surgery else ()),
+            *(
+                (_rest_and_recovery_surgery_source_id(source.surgery),)
+                if source.surgery
+                else ()
+            ),
             source.endeavour.request_id,
         )
         if consumed != expected_consumed:
@@ -659,10 +690,63 @@ class RestAndRecoveryHealingResult:
             *source.endeavour.applied_rule_ids,
         }
         if source.surgery is not None:
-            required.update(source.surgery.applied_rule_ids)
+            required.update(
+                _rest_and_recovery_surgery_rule_ids(source.surgery)
+            )
         if not required <= set(rule_ids):
             raise ValueError("Rest and Recovery trace is incomplete")
         object.__setattr__(self, "applied_rule_ids", rule_ids)
+
+
+def _rest_and_recovery_surgery_source_id(
+    surgery: RestAndRecoverySurgeryProof,
+) -> str:
+    if isinstance(surgery, DowntimeSurgeryResult):
+        return surgery.request_id
+    return surgery.id
+
+
+def _rest_and_recovery_surgery_rule_ids(
+    surgery: RestAndRecoverySurgeryProof,
+) -> tuple[str, ...]:
+    if isinstance(surgery, DowntimeSurgeryResult):
+        return surgery.applied_rule_ids
+    return (surgery.rule_id,)
+
+
+def _validate_battle_surgery_wound_identity(
+    proof: CombatSurgeonBattleSurgeryProof,
+    current_state: CharacterInjuryState,
+    wound_sequence: int,
+) -> None:
+    proof_wounds = {
+        wound.sequence: wound for wound in proof.injury_state.wounds
+    }
+    current_wounds = {
+        wound.sequence: wound for wound in current_state.wounds
+    }
+    if wound_sequence not in proof_wounds:
+        raise ValueError("battle surgery proof references an unknown Wound")
+    if wound_sequence not in current_wounds:
+        raise ValueError("healing references an unknown Wound")
+    proof_wound = proof_wounds[wound_sequence]
+    current_wound = current_wounds[wound_sequence]
+    proof_identity = (
+        proof_wound.sequence,
+        proof_wound.entry_id,
+        proof_wound.table_total,
+        proof_wound.roll_values,
+        proof_wound.origin,
+    )
+    current_identity = (
+        current_wound.sequence,
+        current_wound.entry_id,
+        current_wound.table_total,
+        current_wound.roll_values,
+        current_wound.origin,
+    )
+    if current_identity != proof_identity:
+        raise ValueError("battle surgery proof belongs to another Wound identity")
 
 
 def expected_catch_your_breath_transition(
