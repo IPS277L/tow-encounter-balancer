@@ -32,6 +32,10 @@ def prepare_drained_test(
                     request.rule_id,
                     *(effective.applied_rule_ids if effective else ()),
                     *(proof.rule_id for proof in request.fate_glorious_proofs),
+                    *(
+                        proof.rule_id
+                        for proof in request.lucky_gambling_proofs
+                    ),
                 )
             )
         ),

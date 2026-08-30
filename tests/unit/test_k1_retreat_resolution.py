@@ -105,12 +105,18 @@ def retreat_declaration(
     )
 
 
-def fate_state(actor_id: str, *, remaining: int = 1) -> FateSessionState:
+def fate_state(
+    actor_id: str,
+    *,
+    remaining: int = 1,
+    has_lucky: bool = False,
+) -> FateSessionState:
     return FateSessionState(
         session_id="session:1",
         actor_id=actor_id,
         rating=1,
         session_spend_limit=remaining,
+        has_lucky=has_lucky,
     )
 
 
@@ -316,6 +322,19 @@ class K1FateTacticalRetreatTests(unittest.TestCase):
             ),
         )
 
+    def test_lucky_can_fund_rearguard_at_zero_session_allowance(self) -> None:
+        result = spend_fate_for_tactical_retreat(
+            FateTacticalRetreatSpendRequest(
+                id="spend:retreat:lucky",
+                state=fate_state("hero", remaining=0, has_lucky=True),
+                retreat=retreat_declaration(),
+            )
+        )
+
+        self.assertEqual(result.spend.session_cost, 0)
+        self.assertEqual(result.state.remaining_spends, 0)
+        self.assertEqual(result.retreat_result.rearguard_actor_id, "hero")
+
     def test_non_group_actor_and_duplicate_retreat_spend_are_rejected(self) -> None:
         retreat = retreat_declaration()
         with self.assertRaisesRegex(ValueError, "does not belong"):
@@ -436,6 +455,15 @@ class K1RetreatAlternativePriceTests(unittest.TestCase):
                 fate_states=(
                     fate_state("hero", remaining=0),
                     fate_state("ally", remaining=1),
+                ),
+            )
+        with self.assertRaisesRegex(ValueError, "exhausted"):
+            prepare_retreat_alternative_price(
+                request_id="retreat:price:lucky-available",
+                retreat=retreat,
+                fate_states=(
+                    fate_state("hero", remaining=0, has_lucky=True),
+                    fate_state("ally", remaining=0),
                 ),
             )
 

@@ -41,6 +41,7 @@ class TestQuality(str, Enum):
 class QualityModifierSource(str, Enum):
     RULE = "rule"
     FATE = "fate"
+    TALENT = "talent"
 
 
 FATE_GLORIOUS_RULE_ID = "RULE-FATE-002:glorious-test"
@@ -150,6 +151,8 @@ class QualityModifier:
             if self.rule_id != FATE_GLORIOUS_RULE_ID:
                 raise ValueError("Fate Glorious requires its canonical rule")
             _validate_source_id(self.source_id, "Fate source_id")
+        elif self.source is QualityModifierSource.TALENT:
+            _validate_source_id(self.source_id, "Talent source_id")
         elif self.source_id is not None:
             raise ValueError("rule-sourced quality cannot name a source_id")
 
@@ -239,6 +242,13 @@ class TestRequest:
             for item in self.quality_modifiers
         ) > 1:
             raise ValueError("Fate cannot be spent on an already Glorious Test")
+        bound_source_ids = tuple(
+            item.source_id
+            for item in self.quality_modifiers
+            if item.source is not QualityModifierSource.RULE
+        )
+        if len(set(bound_source_ids)) != len(bound_source_ids):
+            raise ValueError("bound quality modifier source IDs must be unique")
         if not all(
             isinstance(item, SuccessModifier) for item in self.success_modifiers
         ):

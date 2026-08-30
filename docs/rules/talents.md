@@ -46,7 +46,7 @@ Talent выбирается при создании персонажа либо 
 | 78 | Keen Eyed | 2 / I 4+ | Расширенные зрительные Awareness и lip-reading, если не Blinded | нет |
 | 78 | Lightning Reflexes | 3 / I 5+ | Если не Defenceless, всегда Athletics opposition; первый ход раньше врагов даже в ambush | нет |
 | 78 | Longbeard | 3 / Dwarf, только creation | `+1d` к снятию conditions; задаёт social expectations среди Dwarfs | нет |
-| 78 | Lucky | 4 / — | Первый Fate/session бесплатен даже при Fate 0; gambling Tests Glorious | нет |
+| 78 | Lucky | 4 / — | Первый Fate/session бесплатен даже при Fate 0; gambling Tests Glorious | реализовано: free-first funding для трёх общих spends и proof-bound gambling Test preparation; Drained удаляет Talent Glorious |
 | 78 | Magic Resistance | 3 / — | Затрагивающий spell получает Potency `-1`; при 0 нет эффекта | реализован target-scoped Potency primitive |
 | 79 | Mighty Blow | 3 / S 4+ | Игнорирует dice penalties самого two-handed weapon на Melee | нет |
 | 79 | Night Dweller | 2 / — | Видит Long в темноте; `+1d` против не видящей цели и Broken при Wound/Give Ground | нет |

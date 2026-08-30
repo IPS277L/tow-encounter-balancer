@@ -7,15 +7,33 @@ from tests.helpers import SequenceRandom
 from towr.domain.condition_models import Condition, ConditionState
 from towr.domain.drained_test_models import DrainedTestPreparationRequest
 from towr.domain.fate_models import (
+    FATE_BURN_RULE_ID,
+    FATE_LAST_STAND_RULE_ID,
+    FATE_LUCKY_RULE_ID,
+    FATE_NEAR_MISS_RULE_ID,
+    FATE_REFRESH_RULE_ID,
     FATE_SECOND_ACTION_RULE_ID,
     FATE_SESSION_RULE_ID,
+    FATE_UNMITIGATED_SUCCESS_RULE_ID,
+    FateBurnKind,
     FateGloriousSpendRequest,
+    FateLastStandBurnRequest,
+    FateLastStandEffectRequest,
+    FateNearMissBurnRequest,
+    FateNearMissEffectRequest,
+    FateRefreshRequest,
     FateSecondActionSpendRequest,
     FateSessionState,
     FateSpendKind,
+    FateSpendFunding,
     FateSpendRecord,
+    FateUnmitigatedSuccessBurnRequest,
+    FateUnmitigatedSuccessEffectRequest,
 )
+from towr.domain.injury_models import DecisionOwner
+from towr.domain.resolution_models import ConsumeWoundNegationRequest
 from towr.domain.test_models import (
+    BasicOutcome,
     FATE_GLORIOUS_RULE_ID,
     QualityModifier,
     QualityModifierSource,
@@ -36,6 +54,8 @@ from towr.domain.turn_models import (
 )
 from towr.rules.drained_test_resolution import prepare_drained_test
 from towr.rules.fate_resolution import (
+    burn_fate,
+    refresh_fate,
     spend_fate_for_glorious,
     spend_fate_for_second_action,
 )
@@ -52,12 +72,13 @@ from towr.rules.turn_resolution import (
 )
 
 
-def fate_state(*, rating: int = 2) -> FateSessionState:
+def fate_state(*, rating: int = 2, has_lucky: bool = False) -> FateSessionState:
     return FateSessionState(
         session_id="session:1",
         actor_id="hero",
         rating=rating,
         session_spend_limit=rating,
+        has_lucky=has_lucky,
     )
 
 
@@ -167,6 +188,231 @@ class K1FateSessionTests(unittest.TestCase):
             )
         with self.assertRaisesRegex(ValueError, "canonical rule"):
             replace(spend, rule_id="RULE-FORGED")
+
+
+class K1FateLuckyTests(unittest.TestCase):
+    def test_first_session_spend_is_free_even_at_zero_rating(self) -> None:
+        source = fate_state(rating=0, has_lucky=True)
+
+        result = spend_fate_for_glorious(
+            FateGloriousSpendRequest(
+                id="spend:lucky:free",
+                state=source,
+                test=TestRequest("test:lucky:free", TestProfile(2, 5)),
+            )
+        )
+
+        self.assertTrue(source.lucky_free_spend_available)
+        self.assertTrue(source.can_spend)
+        self.assertIs(result.spend.funding, FateSpendFunding.LUCKY_FREE)
+        self.assertEqual(result.spend.session_cost, 0)
+        self.assertEqual(result.state.remaining_spends, 0)
+        self.assertFalse(result.state.lucky_free_spend_available)
+        self.assertFalse(result.state.can_spend)
+        self.assertEqual(
+            result.applied_rule_ids,
+            (
+                FATE_SESSION_RULE_ID,
+                FATE_LUCKY_RULE_ID,
+                FATE_GLORIOUS_RULE_ID,
+            ),
+        )
+
+    def test_only_first_spend_is_free_then_shared_pool_is_used(self) -> None:
+        first = spend_fate_for_glorious(
+            FateGloriousSpendRequest(
+                id="spend:lucky:first",
+                state=fate_state(rating=1, has_lucky=True),
+                test=TestRequest("test:lucky:first", TestProfile(2, 5)),
+            )
+        )
+        second = spend_fate_for_second_action(
+            FateSecondActionSpendRequest(
+                id="spend:lucky:second",
+                state=first.state,
+                slot_request=second_action_request(),
+            )
+        )
+
+        self.assertEqual(first.state.remaining_spends, 1)
+        self.assertIs(second.spend.funding, FateSpendFunding.SESSION_POOL)
+        self.assertEqual(second.state.remaining_spends, 0)
+        self.assertNotIn(FATE_LUCKY_RULE_ID, second.applied_rule_ids)
+        with self.assertRaisesRegex(ValueError, "no Fate spends remain"):
+            FateGloriousSpendRequest(
+                id="spend:lucky:third",
+                state=second.state,
+                test=TestRequest("test:lucky:third", TestProfile(2, 5)),
+            )
+
+    def test_lucky_funding_cannot_be_forged_or_delayed(self) -> None:
+        paid = FateSpendRecord(
+            id="spend:paid",
+            session_id="session:1",
+            actor_id="hero",
+            kind=FateSpendKind.GLORIOUS_TEST,
+            subject_id="test:paid",
+            rule_id=FATE_GLORIOUS_RULE_ID,
+        )
+        free = replace(paid, funding=FateSpendFunding.LUCKY_FREE)
+        with self.assertRaisesRegex(ValueError, "Lucky actor"):
+            FateSessionState(
+                "session:1",
+                "hero",
+                0,
+                0,
+                spends=(free,),
+            )
+        with self.assertRaisesRegex(ValueError, "first Fate spend must be free"):
+            FateSessionState(
+                "session:1",
+                "hero",
+                1,
+                1,
+                spends=(paid,),
+                has_lucky=True,
+            )
+        with self.assertRaisesRegex(ValueError, "first Fate spend can be free"):
+            FateSessionState(
+                "session:1",
+                "hero",
+                1,
+                1,
+                spends=(paid, replace(free, id="spend:late", subject_id="test:late")),
+                has_lucky=True,
+            )
+
+
+class K1FateRefreshTests(unittest.TestCase):
+    def test_gm_refresh_restores_remaining_spends_to_current_rating(self) -> None:
+        spent = spend_fate_for_glorious(
+            FateGloriousSpendRequest(
+                id="spend:before-refresh",
+                state=fate_state(rating=2),
+                test=TestRequest("test:before-refresh", TestProfile(2, 5)),
+            )
+        )
+        request = FateRefreshRequest(
+            id="refresh:mid-session:1",
+            state=spent.state,
+            mid_session_break_id="break:mid-session:1",
+            gm_approval_id="approval:refresh:1",
+        )
+
+        result = refresh_fate(request)
+
+        self.assertEqual(result.previous_state.remaining_spends, 1)
+        self.assertEqual(result.refresh.restored_spends, 1)
+        self.assertEqual(result.refresh.previous_spend_limit, 2)
+        self.assertEqual(result.refresh.new_spend_limit, 3)
+        self.assertEqual(result.state.remaining_spends, 2)
+        self.assertEqual(result.state.spends, spent.state.spends)
+        self.assertEqual(result.state.refreshes, (result.refresh,))
+        self.assertEqual(
+            result.applied_rule_ids,
+            (FATE_SESSION_RULE_ID, FATE_REFRESH_RULE_ID),
+        )
+
+    def test_refresh_preserves_history_and_can_follow_later_breaks(self) -> None:
+        first = spend_fate_for_glorious(
+            FateGloriousSpendRequest(
+                id="spend:refresh:first",
+                state=fate_state(rating=1),
+                test=TestRequest("test:refresh:first", TestProfile(2, 5)),
+            )
+        )
+        refreshed = refresh_fate(
+            FateRefreshRequest(
+                id="refresh:first",
+                state=first.state,
+                mid_session_break_id="break:first",
+                gm_approval_id="approval:first",
+            )
+        )
+        second = spend_fate_for_glorious(
+            FateGloriousSpendRequest(
+                id="spend:refresh:second",
+                state=refreshed.state,
+                test=TestRequest("test:refresh:second", TestProfile(2, 5)),
+            )
+        )
+
+        with self.assertRaisesRegex(ValueError, "break already refreshed"):
+            FateRefreshRequest(
+                id="refresh:duplicate-break",
+                state=second.state,
+                mid_session_break_id="break:first",
+                gm_approval_id="approval:second",
+            )
+        again = refresh_fate(
+            FateRefreshRequest(
+                id="refresh:second",
+                state=second.state,
+                mid_session_break_id="break:second",
+                gm_approval_id="approval:second",
+            )
+        )
+        self.assertEqual(again.state.remaining_spends, 1)
+        self.assertEqual(len(again.state.spends), 2)
+        self.assertEqual(len(again.state.refreshes), 2)
+
+    def test_refresh_requires_loss_break_and_gm_approval(self) -> None:
+        with self.assertRaisesRegex(ValueError, "already refreshed"):
+            FateRefreshRequest(
+                id="refresh:full",
+                state=fate_state(rating=2),
+                mid_session_break_id="break:full",
+                gm_approval_id="approval:full",
+            )
+        with self.assertRaisesRegex(ValueError, "zero Fate rating"):
+            FateRefreshRequest(
+                id="refresh:zero",
+                state=fate_state(rating=0),
+                mid_session_break_id="break:zero",
+                gm_approval_id="approval:zero",
+            )
+        spent = spend_fate_for_glorious(
+            FateGloriousSpendRequest(
+                id="spend:refresh-owner",
+                state=fate_state(rating=1),
+                test=TestRequest("test:refresh-owner", TestProfile(2, 5)),
+            )
+        )
+        with self.assertRaisesRegex(ValueError, "only the GM"):
+            FateRefreshRequest(
+                id="refresh:wrong-owner",
+                state=spent.state,
+                mid_session_break_id="break:owner",
+                gm_approval_id="approval:owner",
+                decision_owner=DecisionOwner.ACTOR,
+            )
+
+    def test_unknown_rule_and_forged_refresh_are_rejected(self) -> None:
+        spent = spend_fate_for_glorious(
+            FateGloriousSpendRequest(
+                id="spend:refresh-forgery",
+                state=fate_state(rating=1),
+                test=TestRequest("test:refresh-forgery", TestProfile(2, 5)),
+            )
+        )
+        request = FateRefreshRequest(
+            id="refresh:forgery",
+            state=spent.state,
+            mid_session_break_id="break:forgery",
+            gm_approval_id="approval:forgery",
+            rule_id="RULE-UNKNOWN",
+        )
+        with self.assertRaisesRegex(ValueError, "unknown rule"):
+            refresh_fate(request)
+
+        result = refresh_fate(replace(request, rule_id=FATE_REFRESH_RULE_ID))
+        with self.assertRaisesRegex(ValueError, "stale provenance"):
+            replace(result, state=result.previous_state)
+        with self.assertRaisesRegex(ValueError, "stale provenance"):
+            replace(
+                result,
+                refresh=replace(result.refresh, restored_spends=2, new_spend_limit=3),
+            )
 
 
 class K1FateGloriousSpendTests(unittest.TestCase):
@@ -574,6 +820,241 @@ class K1FateSecondActionSpendTests(unittest.TestCase):
             replace(
                 result,
                 applied_rule_ids=(FATE_SECOND_ACTION_RULE_ID,),
+            )
+
+
+class K1FateBurnTests(unittest.TestCase):
+    def test_unmitigated_success_can_be_declared_before_or_after_initial_roll(
+        self,
+    ) -> None:
+        test = TestRequest("hero:test:critical", TestProfile(2, 5))
+        before = burn_fate(
+            FateUnmitigatedSuccessBurnRequest(
+                id="burn:before-roll",
+                state=fate_state(),
+                test=test,
+                gm_scope_agreement_id="agreement:critical-feat",
+            )
+        )
+
+        self.assertEqual(before.state.rating, 1)
+        self.assertEqual(before.state.session_spend_limit, 1)
+        self.assertEqual(before.state.remaining_spends, 1)
+        self.assertEqual(before.burn.kind, FateBurnKind.UNMITIGATED_SUCCESS)
+        self.assertTrue(before.burn.current_session_allowance_reduced)
+        self.assertIsInstance(
+            before.effect_request,
+            FateUnmitigatedSuccessEffectRequest,
+        )
+        self.assertEqual(
+            before.effect_request.minimum_outcome,
+            BasicOutcome.TOTAL_SUCCESS,
+        )
+        self.assertEqual(before.effect_request.maximum_wounds_inflicted, 1)
+        self.assertTrue(before.effect_request.may_not_kill_multiple_enemies)
+        self.assertEqual(
+            before.applied_rule_ids,
+            (
+                FATE_SESSION_RULE_ID,
+                FATE_BURN_RULE_ID,
+                FATE_UNMITIGATED_SUCCESS_RULE_ID,
+            ),
+        )
+
+        initial_roll = roll_test_initial(test, SequenceRandom([1, 10]))
+        after = burn_fate(
+            FateUnmitigatedSuccessBurnRequest(
+                id="burn:after-roll",
+                state=fate_state(rating=1),
+                test=test,
+                initial_roll=initial_roll,
+            )
+        )
+        self.assertEqual(after.effect_request.initial_roll, initial_roll)
+
+        other_roll = roll_test_initial(
+            TestRequest("hero:test:other", TestProfile(2, 5)),
+            SequenceRandom([1, 2]),
+        )
+        with self.assertRaisesRegex(ValueError, "another Test"):
+            FateUnmitigatedSuccessBurnRequest(
+                id="burn:mismatched-roll",
+                state=fate_state(),
+                test=test,
+                initial_roll=other_roll,
+            )
+
+    def test_near_miss_emits_exact_wound_negation_without_state_mutation(
+        self,
+    ) -> None:
+        negation = ConsumeWoundNegationRequest(
+            resolution_id="wound:hero:7",
+            rule_id=FATE_NEAR_MISS_RULE_ID,
+        )
+        result = burn_fate(
+            FateNearMissBurnRequest(
+                id="burn:near-miss",
+                state=fate_state(rating=1),
+                wound_negation=negation,
+            )
+        )
+
+        self.assertEqual(result.state.rating, 0)
+        self.assertEqual(result.proof.subject_id, negation.resolution_id)
+        self.assertIsInstance(result.effect_request, FateNearMissEffectRequest)
+        self.assertEqual(result.effect_request.wound_negation, negation)
+        self.assertTrue(result.effect_request.negates_just_suffered_wound)
+        self.assertTrue(result.effect_request.does_not_increase_future_wound_dice)
+        self.assertTrue(result.effect_request.preserves_pre_wound_staggered)
+
+        with self.assertRaisesRegex(ValueError, "canonical rule"):
+            FateNearMissBurnRequest(
+                id="burn:wrong-negation",
+                state=fate_state(rating=1),
+                wound_negation=replace(negation, rule_id="RULE-OTHER"),
+            )
+
+    def test_last_stand_requires_a_wound_and_emits_terminal_follow_up(self) -> None:
+        with self.assertRaisesRegex(ValueError, "suffered a Wound"):
+            FateLastStandBurnRequest(
+                id="burn:last-stand:invalid",
+                state=fate_state(rating=1),
+                battle_id="battle:1",
+                feat_id="feat:hold-the-gate",
+                desperate_battle_approval_id="approval:desperate-battle",
+                has_suffered_wound=False,
+            )
+
+        result = burn_fate(
+            FateLastStandBurnRequest(
+                id="burn:last-stand",
+                state=fate_state(rating=1),
+                battle_id="battle:1",
+                feat_id="feat:hold-the-gate",
+                desperate_battle_approval_id="approval:desperate-battle",
+                has_suffered_wound=True,
+            )
+        )
+
+        self.assertIsInstance(result.effect_request, FateLastStandEffectRequest)
+        self.assertFalse(result.effect_request.test_required)
+        self.assertTrue(result.effect_request.actor_dies_after_feat)
+        self.assertTrue(result.effect_request.gm_may_adjust_scope)
+        self.assertEqual(result.effect_request.rule_id, FATE_LAST_STAND_RULE_ID)
+
+    def test_exhausted_pool_defers_allowance_penalty_until_next_session(
+        self,
+    ) -> None:
+        spent = spend_fate_for_glorious(
+            FateGloriousSpendRequest(
+                id="spend:all-fate",
+                state=fate_state(rating=1),
+                test=TestRequest("hero:test:spent", TestProfile(2, 5)),
+            )
+        )
+        self.assertEqual(spent.state.remaining_spends, 0)
+
+        burned = burn_fate(
+            FateNearMissBurnRequest(
+                id="burn:while-empty",
+                state=spent.state,
+                wound_negation=ConsumeWoundNegationRequest(
+                    "wound:hero:empty-pool",
+                    FATE_NEAR_MISS_RULE_ID,
+                ),
+            )
+        )
+
+        self.assertEqual(burned.state.rating, 0)
+        self.assertEqual(burned.state.session_spend_limit, 1)
+        self.assertEqual(burned.state.remaining_spends, 0)
+        self.assertFalse(burned.burn.current_session_allowance_reduced)
+        self.assertEqual(burned.state.session_refresh_rating, 1)
+
+        refreshed = refresh_fate(
+            FateRefreshRequest(
+                id="refresh:after-deferred-burn",
+                state=burned.state,
+                mid_session_break_id="break:after-deferred-burn",
+                gm_approval_id="approval:after-deferred-burn",
+            )
+        )
+        self.assertEqual(refreshed.state.rating, 0)
+        self.assertEqual(refreshed.state.remaining_spends, 1)
+        self.assertEqual(refreshed.state.session_refresh_rating, 1)
+
+        next_session = FateSessionState(
+            session_id="session:2",
+            actor_id="hero",
+            rating=refreshed.state.rating,
+            session_spend_limit=refreshed.state.rating,
+        )
+        self.assertEqual(next_session.remaining_spends, 0)
+
+    def test_refresh_and_burn_share_a_validated_resource_event_order(self) -> None:
+        spent = spend_fate_for_glorious(
+            FateGloriousSpendRequest(
+                id="spend:before-events",
+                state=fate_state(),
+                test=TestRequest("hero:test:event", TestProfile(2, 5)),
+            )
+        )
+        refreshed = refresh_fate(
+            FateRefreshRequest(
+                id="refresh:event:1",
+                state=spent.state,
+                mid_session_break_id="break:event:1",
+                gm_approval_id="approval:event:1",
+            )
+        )
+        burned = burn_fate(
+            FateUnmitigatedSuccessBurnRequest(
+                id="burn:event:2",
+                state=refreshed.state,
+                test=TestRequest("hero:test:event:burn", TestProfile(2, 5)),
+            )
+        )
+
+        self.assertEqual(
+            burned.state.resource_event_ids,
+            ("refresh:event:1", "burn:event:2"),
+        )
+        self.assertEqual(burned.state.rating, 1)
+        self.assertEqual(burned.state.remaining_spends, 1)
+        with self.assertRaisesRegex(ValueError, "resource history"):
+            replace(
+                burned.state,
+                resource_event_ids=("burn:event:2", "refresh:event:1"),
+            )
+
+    def test_zero_rating_duplicates_and_forged_results_are_rejected(self) -> None:
+        test = TestRequest("hero:test:burn-once", TestProfile(2, 5))
+        with self.assertRaisesRegex(ValueError, "zero rating"):
+            FateUnmitigatedSuccessBurnRequest(
+                id="burn:zero",
+                state=fate_state(rating=0),
+                test=test,
+            )
+
+        result = burn_fate(
+            FateUnmitigatedSuccessBurnRequest(
+                id="burn:once",
+                state=fate_state(),
+                test=test,
+            )
+        )
+        with self.assertRaisesRegex(ValueError, "subject and kind"):
+            FateUnmitigatedSuccessBurnRequest(
+                id="burn:twice",
+                state=result.state,
+                test=test,
+            )
+        with self.assertRaisesRegex(ValueError, "stale provenance"):
+            replace(result, state=result.previous_state)
+        with self.assertRaisesRegex(ValueError, "stale provenance"):
+            replace(
+                result,
+                effect_request=replace(result.effect_request, actor_id="other"),
             )
 
 

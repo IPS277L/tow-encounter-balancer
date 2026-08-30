@@ -7,6 +7,10 @@ from towr.domain.combat_surgeon_suppression_models import (
     CombatSurgeonEffectiveEffectsResult,
 )
 from towr.domain.condition_models import Condition, ConditionState
+from towr.domain.lucky_models import (
+    LUCKY_RULE_ID,
+    LuckyGamblingProof,
+)
 from towr.domain.test_models import (
     DiceModifier,
     FateGloriousProof,
@@ -30,6 +34,7 @@ class DrainedTestPreparationRequest:
         CombatSurgeonEffectiveEffectsResult | None
     ) = None
     fate_glorious_proofs: tuple[FateGloriousProof, ...] = ()
+    lucky_gambling_proofs: tuple[LuckyGamblingProof, ...] = ()
     rule_id: str = DRAINED_TEST_PREPARATION_RULE_ID
 
     def __post_init__(self) -> None:
@@ -41,6 +46,7 @@ class DrainedTestPreparationRequest:
             raise TypeError("test must be a TestRequest")
         _validate_non_empty_string(self.rule_id, "Drained rule_id")
         _validate_fate_proofs(self)
+        _validate_lucky_gambling_proofs(self)
 
         effective = self.combat_surgeon_effective_effects
         if effective is None:
@@ -110,6 +116,9 @@ class DrainedTestPreparationResult:
             required.update(effective.applied_rule_ids)
         required.update(
             proof.rule_id for proof in source.fate_glorious_proofs
+        )
+        required.update(
+            proof.rule_id for proof in source.lucky_gambling_proofs
         )
         if not required <= set(rule_ids):
             raise ValueError("Drained Test trace is incomplete")
@@ -185,6 +194,33 @@ def _validate_fate_proofs(request: DrainedTestPreparationRequest) -> None:
     ):
         raise ValueError("Fate proof belongs to another actor or Test")
     object.__setattr__(request, "fate_glorious_proofs", proofs)
+
+
+def _validate_lucky_gambling_proofs(
+    request: DrainedTestPreparationRequest,
+) -> None:
+    proofs = tuple(request.lucky_gambling_proofs)
+    if not all(isinstance(item, LuckyGamblingProof) for item in proofs):
+        raise TypeError(
+            "lucky_gambling_proofs must contain Lucky gambling proofs"
+        )
+    expected_ids = tuple(
+        modifier.source_id
+        for modifier in request.test.quality_modifiers
+        if modifier.source is QualityModifierSource.TALENT
+        and modifier.rule_id == LUCKY_RULE_ID
+    )
+    actual_ids = tuple(proof.id for proof in proofs)
+    if actual_ids != expected_ids:
+        raise ValueError(
+            "Lucky proofs must match ordered gambling Glorious modifiers"
+        )
+    if any(
+        proof.actor_id != request.actor_id or proof.test_id != request.test.id
+        for proof in proofs
+    ):
+        raise ValueError("Lucky proof belongs to another actor or Test")
+    object.__setattr__(request, "lucky_gambling_proofs", proofs)
 
 
 def _validate_rule_ids(values: tuple[str, ...]) -> tuple[str, ...]:

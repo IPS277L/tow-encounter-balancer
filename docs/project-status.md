@@ -398,6 +398,17 @@ K1 — реализация книжного resolution kernel. Прототип
 - добавлены `FateSpendKind.SECOND_ACTION`, `FateSecondActionProof` и `FateSecondActionSpendRequest → Result`; proof связывает session/actor/spend с точными round, slot request, declaration и slot `2`;
 - Second Action composite сначала вызывает общий action-budget preflight, затем атомарно возвращает новый session state и зарезервированный slot; одинаковый action, вторая attack, третий action, чужой actor, повтор slot и raw Fate grant отклоняются до итогового spend result;
 - Glorious и Second Action используют один ordered session pool; стабильный Rule ID Second Action исправлен с ошибочного `RULE-FATE-001:second-action` на `RULE-FATE-002:second-action`, а scheduler остаётся независимым от `FateSessionState` и принимает только proof;
+- полностью нормализована ресурсная часть Lucky страницы 78: `FateSpendRecord` различает платный `SESSION_POOL` и нулевой `LUCKY_FREE`, причём у actor с Talent только первая фактическая session-запись обязана быть бесплатной и допустима даже при rating `0`;
+- Glorious, Second Action и Tactical Retreat используют один funding helper; Lucky Rule ID попадает только в trace бесплатного результата, следующая трата расходует обычный pool, а неиспользованный Lucky блокирует alternative Retreat price;
+- реализована вторая часть Lucky страницы 78: `LuckyGamblingTestPreparationRequest → Result` требует Lucky в talent snapshot и явный actor/Test/game-of-chance context, создаёт bound proof и добавляет `TALENT` Glorious без доступа к Fate state и без spend;
+- Lucky gambling Test проходит общий Grim/Glorious resolver; source Test не мутируется, repeat preparation, отсутствующий Talent, Fate-before-Lucky, stale proof/context и forged result отклоняются;
+- `DrainedTestPreparationRequest` принимает ordered Lucky proofs: при active Drained talent-sourced Glorious удаляется и остаётся в trace, тогда как proof-bound `FATE` Glorious сохраняется по книжному исключению страницы 123;
+- добавлен `FateRefreshRequest → Result`: stable mid-session break и GM approval восстанавливают remaining до текущего rating увеличением allowance, не удаляя spend history и не восстанавливая уже использованный Lucky;
+- ordered `FateRefreshRecord` сохраняет previous/restored/new limits; повтор break/approval, refresh полного либо нулевого rating, чужой session/actor и forged/non-contiguous history отклоняются;
+- реализован immutable permanent Fate burn страниц 111–112: `FateBurnRecord` уменьшает rating ровно на `1`, а общий `resource_event_ids` проверяет порядок чередующихся refresh/burn без переписывания spend history;
+- burn при непустом pool уменьшает ещё доступный allowance текущей session; при уже пустом pool permanent rating меняется сразу, но effective session rating и возможный позднейший GM refresh сохраняют прежний объём до следующей session;
+- три actor-owned запроса `Unmitigated Success`/`Near Miss`/`Last Stand` создают subject-bound proof и отдельные Test/Wound/feat effect requests; Fate reducer не мутирует narrative outcome, injury state или смерть персонажа;
+- Unmitigated Success поддерживает решение до/после matching initial roll и фиксирует Total Success/realistic/attack limits; Near Miss связывает точную отмену Wound и сохранение прежнего Staggered; Last Stand требует suffered-Wound fact и desperate-battle approval, не требует Test и фиксирует смерть после подвига;
 - полностью прочитан и нормализован Retreat страницы 120 Player’s Guide 1.4; зафиксированы единогласие, два допустимых timing window, Fate rearguard, GM-owned alternative price и отдельная pursuit/Run For Your Lives фаза;
 - добавлен `GroupRetreatDeclaration`: battle, ordered PC group, инициатор, полный consent snapshot и round state проверяются без battle aggregate; союзные/сопровождаемые NPC не включаются в защищённую PC-группу автоматически;
 - добавлены `FateSpendKind.TACTICAL_RETREAT`, battle/group-bound `FateTacticalRetreatProof` и атомарный `FateTacticalRetreatSpendRequest → Result`; Glorious, Second Action и Tactical Retreat используют один session pool;
@@ -434,7 +445,7 @@ K1 — реализация книжного resolution kernel. Прототип
 
 ## Проверено
 
-- 781 unit/integration тест успешно проходит на Python 3.12; 761 тест относится к K1;
+- 800 unit/integration тестов успешно проходят на Python 3.12; 780 тестов относятся к K1;
 - исходники и тесты успешно проходят `compileall`.
 
 ## Исходный материал
@@ -458,7 +469,8 @@ K1 — реализация книжного resolution kernel. Прототип
 - `WizardMagicState` не содержит Wizard Level, поэтому непосредственный Recover reducer уменьшает переданный непросроченный Miscast snapshot; battle orchestration обязано сначала немедленно разрешить уже triggered Miscast Pool и не давать Recover отменить сработавший Miscast;
 - каталоги NPC Abilities, магии, религии и магических предметов завершены как нормативный индекс, но большинство записей ещё не связано с исполняемыми reducers и orchestration;
 - `CATCH_YOUR_BREATH`, независимый end-encounter opportunity, `A Night’s Respite`, успешный `REST_AND_RECOVERY`, daily Wound/Infection producer, Anatomy Recall/automatic-success branch, persistent Festering state/recovery consumer, ordinary и Combat Surgeon surgery proofs для `20–23`, общий transition снятия non-permanent effects, обе Combat Surgeon boundaries, suppression aggregate/view и полная `Drained` Test preparation реализованы; остальные Condition modifiers, применение surgery-failure follow-up и optional early Endurance Test требуют будущих lifecycle/orchestration boundaries;
-- session Fate resource, Glorious producer до/после initial roll, Second Action и Tactical Retreat composites реализованы; alternative-price proof, общий pursuit и Run For Your Lives aggregate подключены, но конкретное применение price/campaign follow-ups, Lucky/free spend, refresh producer и burn lifecycle ещё отсутствуют;
+- session Fate resource, обе части Lucky, GM refresh, Glorious producer до/после initial roll, Second Action/Tactical Retreat composites, permanent burn с тремя typed effect requests, alternative-price proof, общий pursuit и Run For Your Lives aggregate реализованы; исполнение burn effects и конкретное применение price/campaign follow-ups ещё отсутствуют;
+- Lucky gambling producer принимает уже классифицированный game-of-chance context; отдельного gambling/social action engine и автоматического поиска подходящей Test пока нет;
 - общий Exacting reducer пока принимает Basic contributions и оставляет цену специализированному consumer; Opposed contribution со subtraction/tie-break и другие cost adapters ещё не реализованы;
 - внешние последствия Wound для инвентаря и анатомии пока являются typed follow-up;
 - защита Endurance после заживления `Ruptured organs` ещё не подключена к физическому impact;
@@ -494,7 +506,7 @@ K1 — реализация книжного resolution kernel. Прототип
 
 ## Следующий шаг
 
-Полностью прочитать и нормализовать оставшийся Fate lifecycle страниц 78 и 111–112 Player’s Guide 1.4: бесплатное первое применение от `Lucky`, GM refresh потраченного Fate и permanent burn. Разделить session refresh и необратимое изменение rating, сохранить явного владельца/причину решения и определить первый детерминированный producer/consumer slice без смешивания с уже реализованными paid spends.
+Добавить application boundary для `Near Miss` страницы 112: потребить proof-bound `FateNearMissEffectRequest` вместе с точным принятым `CharacterWoundResult`, подтвердить совпадение resolution/actor/session и вернуть предыдущее `CharacterInjuryState` без только что полученной Wound. Переход обязан сохранить Staggered, существовавший до Wound, не добавлять эту Wound к будущим dice и отклонять повторное либо stale применение.
 
 ## Последняя проверка
 
@@ -505,7 +517,7 @@ $env:PYTHONPATH = "src"
 py -3.12 -m unittest discover -s tests -v
 ```
 
-Результат: `Ran 781 tests ... OK`; отдельный K1-набор: `Ran 761 tests ... OK`; `compileall`, public-import smoke test и `git diff --check` успешно завершены (только предупреждения Git о LF/CRLF).
+Результат: `Ran 800 tests ... OK`; отдельный K1-набор: `Ran 780 tests ... OK`; `compileall`, public-import smoke test и `git diff --check` успешно завершены (только предупреждения Git о LF/CRLF).
 
 ```powershell
 py -3.12 -m compileall -q src tests tools
