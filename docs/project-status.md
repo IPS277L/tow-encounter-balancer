@@ -367,13 +367,21 @@ K1 — реализация книжного resolution kernel. Прототип
 - необработанная Night Wound и другие healing tiers сохраняются и не блокируют готовые `NIGHTS_REST`; ordinary respite не исполняет optional early Endurance Test;
 - реализован первый узкий downtime executor `RestAndRecoveryEndeavourRequest → RestAndRecoveryEndeavourResult`: он привязывает Endurance Test к конкретному downtime, target и точному injury snapshot;
 - провал Endeavour не создаёт healing source; успех разрешает application одной выбранной ready Wound и возвращает отдельный `FesteringWoundsRecoveryRequest` для всех Festering Wounds;
+- реализован persistent target-bound `FesteringWoundState`: записи не смешиваются с ordinary `WoundRecord`, имеют unique record/source IDs, а активное количество предоставляет один агрегированный source-aware modifier дополнительных untreated dice будущему Wounds Table roll;
+- `FesteringWoundsRecoveryApplicationRequest → Result` принимает только successful canonical Rest and Recovery совпадающей цели, погашает отдельный follow-up ID и удаляет все Festering Wounds, не меняя ordinary injury history; пустой state остаётся допустимым consumed no-op;
+- реализован `DailyWoundState` и source-bound registration фактически принятых table-roll/fixed character Wounds: receipt хранит day/target/source/stable Wound identity, Near Miss и повтор не считаются, закрытый день не принимает новые записи;
+- `EndOfDayInfectionRequest → Result` требует непустой журнал, живую совпадающую цель, актуальную историческую injury state и Endurance Test; treated/healed Wounds сохраняются в count, а подмена identity отклоняется;
+- outcome сравнивает successes с дневным числом Wounds отдельно от Basic `succeeded`: любой недобор добавляет ровно одну Festering Wound, достаточный результат сохраняет state, обе ветви закрывают день одним Infection ID;
 - `RestAndRecoveryHealingRequest → RestAndRecoveryHealingResult` исцеляет ровно одну treated/resolved Wound категории `REST_AND_RECOVERY` (`16–19`) либо `SURGERY_AND_RECOVERY` (`20–23`) с точным successful surgery proof, переиспользует общий transition и однократно погашает sources;
 - реализован `DowntimeSurgeryRequest → DowntimeSurgeryResult`: ordinary surgery проверяет Anatomy Lore, theatre, specialist tools, time, recovery supports, exact Wound/target/state/downtime и выполняет Dexterity Test через внедрённый RNG;
 - surgery success не мутирует injury state и служит proof; failure возвращает GM-owned `SurgeryFailureRiskRequest` с книжными рисками permanent disfigurement/death без скрытого выбора (`AMBIGUITY-009`);
-- другие ready Wounds и `NIGHTS_REST` сохраняются; ordinary строки `16–19` отвергают лишний surgery proof, а healing `20–23` погашает proof перед Endeavour ID и сохраняет permanent consequences; Festering follow-up пока не мутирует отсутствующее Infection/campaign state;
+- другие ready Wounds и `NIGHTS_REST` сохраняются; ordinary строки `16–19` отвергают лишний surgery proof, а healing `20–23` погашает proof перед Endeavour ID и сохраняет permanent consequences; Festering follow-up применён к отдельному state независимо от обоих ordinary healing consumers;
 - реализован `CombatSurgeonTreatmentRequest → CombatSurgeonTreatmentResult`: после exact successful Recover treatment той же Wound/target/surgeon отдельная Recall Test выполняется через внедрённый RNG без нового action receipt;
 - success создаёт `CombatSurgeonEffectSuppression` с battle/treatment/Test provenance и полным ordered набором всех `UNTIL_HEALED` effects выбранной Wound; failure suppression не создаёт, а treatment-result ID в обоих случаях погашается ровно один раз;
-- suppression не меняет `CharacterInjuryState`, не лечит Wound и не удаляет Conditions/effect provenance; permanent и effects других Wounds не захватываются, а фактическое игнорирование до конца совпадающего battle принадлежит future aggregate;
+- suppression не меняет `CharacterInjuryState`, не лечит Wound и не удаляет Conditions/effect provenance; permanent и effects других Wounds не захватываются;
+- реализован `CombatSurgeonSuppressionAggregate` и одноразовая registration boundary: только successful canonical suppression регистрируется в том же battle, а повтор suppression/source или вторая запись для target/Wound отклоняются;
+- `CombatSurgeonEffectiveEffectsRequest → Result` сверяет battle/target/stable Wound identity и точный active `UNTIL_HEALED` effect set, возвращая вычисляемые Wound effects и Conditions без мутации injury state;
+- Condition с известным другим wound-effect либо explicit внешним источником сохраняется; unrelated state evolution допустима, stale effect set и перенос suppression отклоняются, а healing делает регистрацию неактивной, сохраняя audit aggregate;
 - реализован общий `ExactingTestProgress` и Basic-contribution reducer: ordered Test/contributor provenance вычисляет running total, сохраняет zero-progress failure и overshoot, запрещает повтор ID и вклад после completion;
 - реализован `CombatSurgeonBattleSurgeryActionRequest → Result`: matching non-attack Ability Improvise исполняет одну Dexterity Test и один action receipt, привязывая Exacting progress к battle/surgeon/target/surgical Wound/exact injury snapshot;
 - battle surgery требует 8 successes; нулевая Test не уменьшает progress и создаёт GM-owned surgery risk, completion возвращает proof без healing или injury mutation; operating theatre отменён Talent, а tools/supports пока требуются по `AMBIGUITY-010`;
@@ -395,7 +403,7 @@ K1 — реализация книжного resolution kernel. Прототип
 
 ## Проверено
 
-- 668 unit/integration тестов успешно проходят на Python 3.12, из них 648 относятся к K1;
+- 701 unit/integration тест успешно проходит на Python 3.12, из них 681 относится к K1;
 - исходники и тесты успешно проходят `compileall`.
 
 ## Исходный материал
@@ -418,7 +426,7 @@ K1 — реализация книжного resolution kernel. Прототип
 - Recover treatment action, одноразовое применение выбранной Wound и automatic end-battle treatment всех Wounds реализованы, но application/context consumed IDs пока должен хранить внешний orchestration; partial trappings batch намеренно отклоняется до решения `AMBIGUITY-008`, mount/object follow-ups ещё не применяются;
 - `WizardMagicState` не содержит Wizard Level, поэтому непосредственный Recover reducer уменьшает переданный непросроченный Miscast snapshot; battle orchestration обязано сначала немедленно разрешить уже triggered Miscast Pool и не давать Recover отменить сработавший Miscast;
 - каталоги NPC Abilities, магии, религии и магических предметов завершены как нормативный индекс, но большинство записей ещё не связано с исполняемыми reducers и orchestration;
-- `CATCH_YOUR_BREATH`, независимый end-encounter opportunity, `A Night’s Respite`, успешный `REST_AND_RECOVERY`, ordinary и Combat Surgeon surgery proofs для `20–23`, общий transition снятия non-permanent effects и обе Combat Surgeon boundaries реализованы; применение suppression/Festering/surgery-failure follow-ups и optional early Endurance Test требуют будущих lifecycle/orchestration boundaries;
+- `CATCH_YOUR_BREATH`, независимый end-encounter opportunity, `A Night’s Respite`, успешный `REST_AND_RECOVERY`, daily Wound/Infection producer, persistent Festering state/recovery consumer, ordinary и Combat Surgeon surgery proofs для `20–23`, общий transition снятия non-permanent effects, обе Combat Surgeon boundaries и suppression aggregate/view реализованы; Anatomy prevention, интеграция view в конкретные modifiers, применение surgery-failure follow-up и optional early Endurance Test требуют будущих lifecycle/orchestration boundaries;
 - общий Exacting reducer пока принимает Basic contributions и оставляет цену специализированному consumer; Opposed contribution со subtraction/tie-break и другие cost adapters ещё не реализованы;
 - внешние последствия Wound для инвентаря и анатомии пока являются typed follow-up;
 - защита Endurance после заживления `Ruptured organs` ещё не подключена к физическому impact;
@@ -454,7 +462,7 @@ K1 — реализация книжного resolution kernel. Прототип
 
 ## Следующий шаг
 
-Подключить готовый `CombatSurgeonEffectSuppression` к battle-scoped effective-effects aggregate. Следующий срез должен зарегистрировать suppression один раз только для совпадающих `battle_id`/target/Wound и точного набора `UNTIL_HEALED` effects, не удалять их из канонического `CharacterInjuryState`, а возвращать проверяемое effective view для правил боя. Нужно явно сохранить independently sourced Conditions и закрыть повторную регистрацию; перенос suppression в другой battle/target либо на изменённую identity Wound должен отклоняться.
+Реализовать профилактическую Anatomy Recall перед Infection. Один source-bound Recall result персонажа с подтверждённой Anatomy Lore должен предоставить capacity по числу successes; explicit ordered выбор разных self/allied day-targets создаёт для каждого одноразовый automatic-Infection-success proof. Application такого proof должна сверять day/target, закрывать непустой `DailyWoundState` без Endurance RNG и не добавлять Festering Wound; повторное назначение цели, перерасход successes, чужой/закрытый день и повторное применение должны отклоняться.
 
 ## Последняя проверка
 
@@ -465,7 +473,7 @@ $env:PYTHONPATH = "src"
 py -3.12 -m unittest discover -s tests -v
 ```
 
-Результат: `Ran 668 tests ... OK`; отдельный K1-набор: `Ran 648 tests ... OK`; `compileall`, public-import smoke test, проверка trailing whitespace изменённых файлов и `git diff --check` успешно завершены (только предупреждения Git о LF/CRLF).
+Результат: `Ran 701 tests ... OK`; отдельный K1-набор: `Ran 681 tests ... OK`; `compileall`, public-import smoke test, проверка trailing whitespace изменённых файлов и `git diff --check` успешно завершены (только предупреждения Git о LF/CRLF).
 
 ```powershell
 py -3.12 -m compileall -q src tests tools

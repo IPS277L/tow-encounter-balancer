@@ -180,6 +180,7 @@ class K1CombatSurgeonTreatmentTests(unittest.TestCase):
         )
         self.assertEqual(suppression.battle_id, "battle:1")
         self.assertEqual(suppression.wound_sequence, 1)
+        self.assertEqual(suppression.wound, treatment.state.wounds[0])
         self.assertIs(
             suppression.duration,
             CombatSurgeonSuppressionDuration.REST_OF_BATTLE,

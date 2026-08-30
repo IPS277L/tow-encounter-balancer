@@ -1,6 +1,6 @@
 # Раны и состояния
 
-Источник: `BOOK-PLAYER-GUIDE`, преимущественно страницы 74, 110, 119–123, 136 и 190–191. Статус: Staggered, базовая Wound policy, эффекты строк таблицы, Recover treatment, три healing tiers, ordinary downtime surgery и Combat Surgeon battle proof для строк `20–23`, а также обе rules-boundaries Combat Surgeon implemented в K1; остальные внешние последствия, Infection state и применение suppression/риска остаются partial/draft.
+Источник: `BOOK-PLAYER-GUIDE`, преимущественно страницы 74, 110, 119–123, 136 и 190–191. Статус: Staggered, базовая Wound policy, эффекты строк таблицы, Recover treatment, три healing tiers, ordinary downtime surgery и Combat Surgeon battle proof для строк `20–23`, обе rules-boundaries Combat Surgeon и suppression aggregate/effective view implemented в K1; остальные внешние последствия, Infection state и применение риска остаются partial/draft.
 
 ## RULE-HEALTH-001 — Resilience
 
@@ -56,7 +56,7 @@ Healing удаляет все непостоянные эффекты Wound по
 
 K1 хранит treated и healed раздельно. `EndEncounterHealingOpportunity` открывает Catch Your Breath после окончания непосредственной опасности, а `NightsRespiteHealingOpportunity` — после спокойного периода, завершённой ранней ночи и наступления утра. Оба reducers требуют treated/resolved Wounds, сверяют их категорию с Wounds Table, снимают все non-permanent effects и сохраняют permanent/другие источники. Точное число часов и optional досрочная Endurance-проверка не входят в обычную Night’s Respite boundary.
 
-`RestAndRecoveryEndeavourRequest` привязывает Endurance Test к конкретному downtime, target и точному injury snapshot. Только успешный результат может быть источником `RestAndRecoveryHealingRequest`; он исцеляет одну выбранную ready Wound, а не полный набор. Строки `16–19` не принимают лишний surgery proof, а `SURGERY_AND_RECOVERY` (`20–23`) требуют либо успешный `DowntimeSurgeryResult` для той же Wound/цели/state/downtime, либо completed `CombatSurgeonBattleSurgeryProof` для той же цели и стабильной identity Wound. Battle snapshot может отличаться от актуального Endeavour state несвязанными ранами и Conditions; подмена sequence, table entry, roll history или origin запрещена. Application погашает proof перед Endeavour ID и сохраняет permanent consequences. Успех Endeavour также создаёт `FesteringWoundsRecoveryRequest`, но фактическое применение этого follow-up ожидает отдельного Infection/campaign state.
+`RestAndRecoveryEndeavourRequest` привязывает Endurance Test к конкретному downtime, target и точному injury snapshot. Только успешный результат может быть источником `RestAndRecoveryHealingRequest`; он исцеляет одну выбранную ready Wound, а не полный набор. Строки `16–19` не принимают лишний surgery proof, а `SURGERY_AND_RECOVERY` (`20–23`) требуют либо успешный `DowntimeSurgeryResult` для той же Wound/цели/state/downtime, либо completed `CombatSurgeonBattleSurgeryProof` для той же цели и стабильной identity Wound. Battle snapshot может отличаться от актуального Endeavour state несвязанными ранами и Conditions; подмена sequence, table entry, roll history или origin запрещена. Application погашает proof перед Endeavour ID и сохраняет permanent consequences. Успех Endeavour также создаёт отдельный `FesteringWoundsRecoveryRequest`; его application consumer погашает именно follow-up ID и удаляет все Festering Wounds цели независимо от ordinary-Wound healing consumer.
 
 Источник: страницы 118, 121–123.
 
@@ -88,15 +88,19 @@ Condition от ongoing cause нельзя снять, пока не устран
 
 Перед этой Test персонаж с Anatomy Lore может сделать Recall; каждый success позволяет ему выбрать себя или союзника для автоматического успеха против Infection.
 
-Источник: страницы 122 и 136. Создание Festering Wounds и их day/campaign tracking пока отсутствуют; успешная Rest and Recovery Endeavour уже возвращает typed запрос на снятие всех таких ран без вымышленной мутации состояния.
+K1 хранит их в отдельном target-bound `FesteringWoundState`, не смешивая с историческими `WoundRecord`. Каждая активная запись предоставляет один дополнительный untreated die через агрегированный `WoundDiceModifier`; пустое состояние не создаёт нулевой modifier. Успешный Rest and Recovery применяет typed follow-up один раз, очищает весь Festering state и не меняет обычную injury history.
+
+`DailyWoundState` регистрирует только фактически принятые `CharacterWoundResult`/`FixedCharacterWoundResult` с day/target/stable Wound identity; Near Miss не считается. End-of-day request требует непустой незакрытый журнал, актуальную историческую injury state и Endurance Test. Он сравнивает successes с полным дневным количеством независимо от позднейших treatment/healing, добавляет не более одной Festering Wound и закрывает день ровно один раз. Обычный Basic `succeeded=True` не заменяет этот порог. Профилактическая Anatomy Recall и автоматический успех выбранных целей пока отсутствуют.
+
+Источник: страницы 122 и 136.
 
 ## RULE-HEALTH-010 — Surgery
 
 Surgery для отмеченных Wounds требует Anatomy Lore, подходящие facilities/tools/time и Dexterity Test; провал рискует disfigurement/death, а даже успех оставляет указанное Wound permanent consequence. Обычная процедура происходит во время Rest and Recovery; Talent Combat Surgeon отдельно задаёт battle Exacting Dexterity (8), одна Test за action.
 
-K1 `DowntimeSurgeryRequest → DowntimeSurgeryResult` проверяет treated/resolved Wound категории `SURGERY_AND_RECOVERY`, qualified surgeon, theatre, specialist tools, time и recovery supports до RNG. Success является immutable proof и сам не мутирует injury state. Failure возвращает GM-owned `SurgeryFailureRiskRequest` с возможными рисками permanent disfigurement/death, но не выбирает и не применяет outcome (`AMBIGUITY-009`). Combat Surgeon treatment branch создаёт source-aware suppression после treatment, а battle branch накапливает 8 Exacting Dexterity successes по одной action/Test и возвращает proof без немедленного healing. Completed battle proof применяется последующим Rest and Recovery по стабильной identity той же Wound; paid NPC/campaign cost и supernatural replacements остаются отдельными adapters.
+K1 `DowntimeSurgeryRequest → DowntimeSurgeryResult` проверяет treated/resolved Wound категории `SURGERY_AND_RECOVERY`, qualified surgeon, theatre, specialist tools, time и recovery supports до RNG. Success является immutable proof и сам не мутирует injury state. Failure возвращает GM-owned `SurgeryFailureRiskRequest` с возможными рисками permanent disfigurement/death, но не выбирает и не применяет outcome (`AMBIGUITY-009`). Combat Surgeon treatment branch создаёт source-aware suppression после treatment; battle aggregate регистрирует её один раз и возвращает non-mutating effective effects/Conditions. Battle surgery branch накапливает 8 Exacting Dexterity successes по одной action/Test и возвращает proof без немедленного healing. Completed battle proof применяется последующим Rest and Recovery по стабильной identity той же Wound; paid NPC/campaign cost и supernatural replacements остаются отдельными adapters.
 
-Источник: страницы 74, 110 и 122. Ordinary downtime surgery, обе Combat Surgeon boundaries и healing consumer battle proof implemented; применение suppression и surgery-failure outcome остаётся partial/draft.
+Источник: страницы 74, 110 и 122. Ordinary downtime surgery, обе Combat Surgeon boundaries, suppression aggregate/view и healing consumer battle proof implemented; surgery-failure outcome остаётся partial/draft.
 
 ## Реализация Staggered в K1
 
@@ -121,4 +125,4 @@ Player и Champion используют одну policy. Для обычной W
 
 Строки `4`, `5`, `7`, `11`, `12` и `19` создают `WoundEnduranceTestRequest`. Профиль Endurance берётся orchestration-слоем из определения персонажа; `resolve_wound_endurance_test` принимает обычный `TestResult` и либо сохраняет состояние, либо применяет Condition/создаёт конкретный внешний consequence. Случайные предметы, зубы, пальцы, глаза и конечности представлены `WoundConsequenceRequest`, поскольку injury state намеренно не содержит анатомию и инвентарь.
 
-Для `Spilling guts` возвращается явный `WoundChoiceRequest`: персонаж либо роняет предмет и зажимает рану, либо становится Defenceless. Скрытого default нет. Фактическое изменение инвентаря, случайный выбор стороны тела, прочие timed effects, применение Festering/surgery-failure follow-up, применение готового Combat Surgeon suppression общим battle aggregate и особая Endurance-защита после заживления `Ruptured organs` требуют будущего battle/campaign application orchestration.
+Для `Spilling guts` возвращается явный `WoundChoiceRequest`: персонаж либо роняет предмет и зажимает рану, либо становится Defenceless. Скрытого default нет. Фактическое изменение инвентаря, случайный выбор стороны тела, прочие timed effects, Anatomy prevention для Infection, применение surgery-failure follow-up, подключение Combat Surgeon effective view к конкретным modifiers и особая Endurance-защита после заживления `Ruptured organs` требуют будущего battle/campaign application orchestration.

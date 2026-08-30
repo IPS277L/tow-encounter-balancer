@@ -6,6 +6,7 @@ from enum import Enum
 from towr.domain.injury_models import (
     ActiveWoundEffect,
     CharacterInjuryState,
+    WoundRecord,
     WoundConditionEffect,
     WoundEffectDuration,
     WoundRestrictionEffect,
@@ -35,6 +36,7 @@ class CombatSurgeonEffectSuppression:
     surgeon_id: str
     target_id: str
     wound_sequence: int
+    wound: WoundRecord
     suppressed_effects: tuple[ActiveWoundEffect, ...]
     duration: CombatSurgeonSuppressionDuration = (
         CombatSurgeonSuppressionDuration.REST_OF_BATTLE
@@ -63,6 +65,18 @@ class CombatSurgeonEffectSuppression:
         _validate_non_empty_string(self.surgeon_id, "suppression surgeon_id")
         _validate_non_empty_string(self.target_id, "suppression target_id")
         _validate_positive_int(self.wound_sequence, "suppression wound_sequence")
+        if not isinstance(self.wound, WoundRecord):
+            raise TypeError("suppression wound must be a WoundRecord")
+        if self.wound.sequence != self.wound_sequence:
+            raise ValueError("suppression wound has another sequence")
+        if (
+            not self.wound.treated
+            or not self.wound.effect_resolved
+            or self.wound.healed
+        ):
+            raise ValueError(
+                "suppression requires a treated, active, resolved Wound"
+            )
         effects = _validate_effects(self.suppressed_effects)
         if not effects:
             raise ValueError("Combat Surgeon must suppress at least one effect")
@@ -269,6 +283,9 @@ def _expected_suppression(
         surgeon_id=request.surgeon_id,
         target_id=request.target_id,
         wound_sequence=request.treatment.wound_sequence,
+        wound=request.injury_state.wounds[
+            request.treatment.wound_sequence - 1
+        ],
         suppressed_effects=_suppressible_effects(request),
         rule_id=request.rule_id,
     )
