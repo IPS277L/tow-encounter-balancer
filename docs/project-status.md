@@ -291,9 +291,9 @@ K1 — реализация книжного resolution kernel. Прототип
 - реализованы неизменяемые `CombatRoundState`, `CombatTurnState` и участники двух книжных сторон;
 - порядок actor внутри стороны выбирается каждый round, следующая сторона открывается только после полного завершения текущей, а opposition-first порядок засады сохраняется при переходе раунда;
 - типизированы шесть книжных actions и четыре варианта Manoeuvre; Charge, обычный Attack и явно атакующий Improvise используют общий признак `produces_attack`;
-- реализована резервация standard action slot и второго slot от Fate либо Ability с обязательным Rule ID, без третьего action, повтора action и второй атаки;
+- реализована резервация standard action slot и второго slot от proof-bound Fate либо Ability с обязательным Rule ID, без третьего action, повтора action и второй атаки; raw Fate grant отклоняется;
 - два разных Improvise возможны только с явным разрешением GM policy и разными stable approach ID;
-- slot reservation намеренно не исполняет действие и не расходует Fate/Ability;
+- обычная slot reservation намеренно не исполняет действие и не расходует Ability; отдельный Fate composite проверяет бюджет, расходует session resource и резервирует второй slot одним результатом;
 - принято ADR-0004 о границе round/turn/action slots перед новым battle loop.
 - добавлена generic `ActionExecutionReceipt`, которая отмечает только успешно завершённую специализированную фазу и сохраняет executor/source/result IDs вместе с actor, round, slot и точной typed action declaration; slot/turn/round snapshots проверяют соответствующие части provenance;
 - реализован `AttackActionExecutionRequest → AttackActionExecutionResult`: active actor, выбранный target ID и конкретный обычный Attack slot связываются с готовым `KernelAttackRequest → ResolutionResult`;
@@ -395,6 +395,9 @@ K1 — реализация книжного resolution kernel. Прототип
 - completion не повторяет initial roll и допускает только исходную Test либо добавление одного Fate Glorious modifier; producer запрещает исчерпанный pool, повтор той же Test и уже Glorious Test, но допускает Grim и отменяет его до обязательного reroll successes;
 - Fate proof сквозным тестом проходит `Drained` preparation и общий Test resolver;
 - исправлен стабильный Rule ID Glorious spend с ошибочного `RULE-FATE-001` на нормативный `RULE-FATE-002`; принято `ADR-0006` о Fate session/spend boundary;
+- добавлены `FateSpendKind.SECOND_ACTION`, `FateSecondActionProof` и `FateSecondActionSpendRequest → Result`; proof связывает session/actor/spend с точными round, slot request, declaration и slot `2`;
+- Second Action composite сначала вызывает общий action-budget preflight, затем атомарно возвращает новый session state и зарезервированный slot; одинаковый action, вторая attack, третий action, чужой actor, повтор slot и raw Fate grant отклоняются до итогового spend result;
+- Glorious и Second Action используют один ordered session pool; стабильный Rule ID Second Action исправлен с ошибочного `RULE-FATE-001:second-action` на `RULE-FATE-002:second-action`, а scheduler остаётся независимым от `FateSessionState` и принимает только proof;
 - реализован общий `ExactingTestProgress` и Basic-contribution reducer: ordered Test/contributor provenance вычисляет running total, сохраняет zero-progress failure и overshoot, запрещает повтор ID и вклад после completion;
 - реализован `CombatSurgeonBattleSurgeryActionRequest → Result`: matching non-attack Ability Improvise исполняет одну Dexterity Test и один action receipt, привязывая Exacting progress к battle/surgeon/target/surgical Wound/exact injury snapshot;
 - battle surgery требует 8 successes; нулевая Test не уменьшает progress и создаёт GM-owned surgery risk, completion возвращает proof без healing или injury mutation; operating theatre отменён Talent, а tools/supports пока требуются по `AMBIGUITY-010`;
@@ -416,7 +419,7 @@ K1 — реализация книжного resolution kernel. Прототип
 
 ## Проверено
 
-- 737 unit/integration тестов успешно проходят на Python 3.12; 717 тестов относятся к K1;
+- 744 unit/integration теста успешно проходят на Python 3.12; 724 теста относятся к K1;
 - исходники и тесты успешно проходят `compileall`.
 
 ## Исходный материал
@@ -430,7 +433,7 @@ K1 — реализация книжного resolution kernel. Прототип
 ## Известные ограничения
 
 - старый P1 battle loop остаётся упрощённым прототипом; K1 уже следует книгам, но пока реализует только часть проиндексированных механик;
-- K1 проверяет round/side/turn и action budget; Aim исполняет Awareness и создаёт next-action follow-up, Help исполняет собственный Test и создаёт bonus для связанного allied Test, Recover соединяет Condition/magic transitions и external applications, обычный и Move-Quietly-hidden Attack исполняются через kernel, spell Improvise — через Casting pipeline, Skill Improvise — через basic/opposed Test и отдельное применение Prone/Distracted, Troll Vomit/Swamp Breath/Soporific Breath — через single-target/Zone Ability Hazard composites, Run — через две spatial-фазы, Medium/Long Charge — через атомарные spatial/Test/attack composite, Move Carefully — через free-move/search composite, а Move Quietly — через opposed-Test/conditional-hiding composite; остальные Ability и attacking Skill Improvise ещё не подключены, источник второго действия не расходуется;
+- K1 проверяет round/side/turn и action budget; Fate Second Action атомарно расходует session pool и резервирует bound slot, Aim исполняет Awareness и создаёт next-action follow-up, Help исполняет собственный Test и создаёт bonus для связанного allied Test, Recover соединяет Condition/magic transitions и external applications, обычный и Move-Quietly-hidden Attack исполняются через kernel, spell Improvise — через Casting pipeline, Skill Improvise — через basic/opposed Test и отдельное применение Prone/Distracted, Troll Vomit/Swamp Breath/Soporific Breath — через single-target/Zone Ability Hazard composites, Run — через две spatial-фазы, Medium/Long Charge — через атомарные spatial/Test/attack composite, Move Carefully — через free-move/search composite, а Move Quietly — через opposed-Test/conditional-hiding composite; остальные Ability и attacking Skill Improvise ещё не подключены;
 - Skill-Improvise consumed application IDs пока не принадлежат battle aggregate: orchestration обязано передавать актуальный ordered snapshot между вызовами; disarm, превращение врага в союзника и другие creative outcomes требуют собственных typed effects;
 - Attack execution возвращает новое injury state цели внутри `ResolutionResult`, но общего battle aggregate для автоматического переноса этого состояния по target ID пока нет;
 - Awareness/амбуш ещё не вычисляет opposition-first порядок: orchestration передаёт уже определённый `side_order`; обе ветви free move представлены, но остальные incidental actions и pass/skip ещё не подключены;
@@ -440,7 +443,7 @@ K1 — реализация книжного resolution kernel. Прототип
 - `WizardMagicState` не содержит Wizard Level, поэтому непосредственный Recover reducer уменьшает переданный непросроченный Miscast snapshot; battle orchestration обязано сначала немедленно разрешить уже triggered Miscast Pool и не давать Recover отменить сработавший Miscast;
 - каталоги NPC Abilities, магии, религии и магических предметов завершены как нормативный индекс, но большинство записей ещё не связано с исполняемыми reducers и orchestration;
 - `CATCH_YOUR_BREATH`, независимый end-encounter opportunity, `A Night’s Respite`, успешный `REST_AND_RECOVERY`, daily Wound/Infection producer, Anatomy Recall/automatic-success branch, persistent Festering state/recovery consumer, ordinary и Combat Surgeon surgery proofs для `20–23`, общий transition снятия non-permanent effects, обе Combat Surgeon boundaries, suppression aggregate/view и полная `Drained` Test preparation реализованы; остальные Condition modifiers, применение surgery-failure follow-up и optional early Endurance Test требуют будущих lifecycle/orchestration boundaries;
-- session Fate resource и Glorious producer до/после initial roll реализованы; second action, Tactical Retreat, Lucky/free spend, refresh producer и burn lifecycle ещё отсутствуют;
+- session Fate resource, Glorious producer до/после initial roll и Second Action composite реализованы; Tactical Retreat, Lucky/free spend, refresh producer и burn lifecycle ещё отсутствуют;
 - общий Exacting reducer пока принимает Basic contributions и оставляет цену специализированному consumer; Opposed contribution со subtraction/tie-break и другие cost adapters ещё не реализованы;
 - внешние последствия Wound для инвентаря и анатомии пока являются typed follow-up;
 - защита Endurance после заживления `Ruptured organs` ещё не подключена к физическому impact;
@@ -476,7 +479,7 @@ K1 — реализация книжного resolution kernel. Прототип
 
 ## Следующий шаг
 
-Связать `FateSessionState` с уже существующей резервацией второго action slot: отдельный typed consumer должен атомарно потратить Fate, выдать slot-bound grant/proof и не позволить `turn_resolution` принять бесплатный внешний `FATE` grant. Сохранить scheduler независимым от session state через узкую orchestration boundary и покрыть повтор, чужой actor/session, второй Attack и третий action детерминированными тестами.
+Прочитать и нормализовать Retreat со страницы 120 Player’s Guide 1.4, затем определить минимальную typed group-retreat/rearguard boundary. После фиксации состава группы, инициатора retreat и результата безопасного отхода подключить третий общий `FateSpendKind` так, чтобы один actor тратил Fate из того же session pool на rearguard без скрытого выбора целей или цены GM.
 
 ## Последняя проверка
 
@@ -487,7 +490,7 @@ $env:PYTHONPATH = "src"
 py -3.12 -m unittest discover -s tests -v
 ```
 
-Результат: `Ran 737 tests ... OK`; отдельный K1-набор: `Ran 717 tests ... OK`; `compileall`, public-import smoke test и `git diff --check` успешно завершены (только предупреждения Git о LF/CRLF).
+Результат: `Ran 744 tests ... OK`; отдельный K1-набор: `Ran 724 tests ... OK`; `compileall`, public-import smoke test и `git diff --check` успешно завершены (только предупреждения Git о LF/CRLF).
 
 ```powershell
 py -3.12 -m compileall -q src tests tools

@@ -248,10 +248,10 @@ py -3.12 -m unittest discover -s tests -v
 - round требует уникальных участников обеих сторон, сохраняет player-first либо persistent opposition-first порядок;
 - actor внутри текущей стороны выбирается свободно, но следующая сторона не начинает ход до завершения всех участников текущей;
 - активным бывает только один полный ход, а завершивший ход actor не действует повторно в том же round;
-- первый action использует standard slot, второй требует Fate либо source-aware Ability, третий запрещён;
+- первый action использует standard slot, второй требует proof-bound Fate либо source-aware Ability, третий запрещён;
 - одинаковые actions не повторяются; два разных Improvise требуют явного разрешения GM и разных approach ID;
 - Attack, Charge и атакующий Improvise используют общий предел одной атаки за turn;
-- slot reservation не исполняет action, не расходует Fate и не обращается к RNG/kernel;
+- обычная slot reservation не исполняет action, не расходует Fate и не обращается к RNG/kernel; raw Fate grant без producer proof отклоняется;
 - специализированный Attack executor связывает active actor/target/slot с `KernelAttackRequest → ResolutionResult` и меняет только receipt выбранного slot;
 - не-ATTACK, Charge, чужой, незарезервированный, уже исполненный slot и нарушение порядка slots отклоняются до RNG;
 - сбой kernel не отмечает slot исполненным, а зарезервированный Attack блокирует завершение хода до успешного исполнения;
@@ -305,6 +305,8 @@ py -3.12 -m unittest discover -s tests -v
 - Fate session state отделяет permanent rating от session limit, сохраняет ordered actor/session-bound spends и отклоняет исчерпание, повтор ID/Test и перенос истории;
 - Fate consumer до либо после matching initial roll атомарно уменьшает remaining spends, создаёт bound proof и подготовленную Test; уже Glorious блокируется, Grim разрешён и отменяется новым Glorious до обязательных rerolls;
 - staged Test resolution проверяет immutable pool provenance, не перебрасывает initial values после Fate decision и отклоняет любые post-roll изменения кроме одного добавленного Fate Glorious modifier;
+- Second Action composite сначала проверяет полный action budget, затем одним результатом уменьшает тот же session pool и резервирует точно связанный slot `2`; повтор slot, чужой actor, raw/forged proof, одинаковый action, вторая attack и третье действие отклоняются;
+- Glorious и Second Action сохраняются как разные ordered spend kinds одного session state и совместно исчерпывают его limit;
 - producer proof проходит сквозной `Drained → Test` сценарий; unknown Rule ID и подмена state/spend/proof/Test/trace отклоняются;
 - Combat Surgeon view возвращает bonus dice и обычный Glorious только при подавлении единственного источника `Drained`; independently sourced Condition продолжает ограничения, stale actor/Condition snapshot, unknown rule и forged result отклоняются;
 - общий Exacting reducer накапливает ordered Basic contributions нескольких персонажей, сохраняет overshoot и нулевой trace-вклад, не уменьшает progress при failure и отвергает completed/reused/forged transitions;

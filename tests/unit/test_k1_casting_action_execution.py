@@ -62,6 +62,11 @@ def reserve_action(
             actor_id="wizard",
             declaration=declaration,
             grant=grant,
+            grant_rule_id=(
+                "RULE-ABILITY:test-extra-action"
+                if grant is ActionSlotGrant.ABILITY
+                else None
+            ),
         )
     ).state
 
@@ -215,7 +220,7 @@ class K1CastingActionExecutionTests(unittest.TestCase):
         state = reserve_action(
             state,
             spell_improvise(),
-            grant=ActionSlotGrant.FATE,
+            grant=ActionSlotGrant.ABILITY,
         )
         with self.assertRaises(ValueError):
             execute_casting_attempt(

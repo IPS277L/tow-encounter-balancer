@@ -72,6 +72,11 @@ def reserve_action(
             actor_id="hero",
             declaration=CombatActionDeclaration(kind),
             grant=grant,
+            grant_rule_id=(
+                "RULE-ABILITY:test-extra-action"
+                if grant is ActionSlotGrant.ABILITY
+                else None
+            ),
         )
     ).state
 
@@ -229,7 +234,7 @@ class K1AimFollowUpTests(unittest.TestCase):
         attack_state = reserve_action(
             aim.round_state,
             CombatActionKind.ATTACK,
-            grant=ActionSlotGrant.FATE,
+            grant=ActionSlotGrant.ABILITY,
         )
         attack = attack_execution_request(
             state=attack_state,

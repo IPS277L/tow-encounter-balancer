@@ -259,7 +259,8 @@ class K1TrollVomitActionExecutionTests(unittest.TestCase):
                     improvise_kind=ImproviseKind.ABILITY,
                     improvise_approach_id=TROLL_VOMIT_RULE_ID,
                 ),
-                ActionSlotGrant.FATE,
+                ActionSlotGrant.ABILITY,
+                "RULE-ABILITY:test-extra-action",
             )
         ).state
         with self.assertRaises(ValueError):

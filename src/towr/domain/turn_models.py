@@ -4,6 +4,9 @@ from dataclasses import dataclass, field
 from enum import Enum
 
 
+ACTION_BUDGET_RULE_ID = "RULE-COMBAT-002:action-budget"
+
+
 class CombatSide(str, Enum):
     PLAYERS_AND_ALLIES = "players_and_allies"
     OPPOSITION = "opposition"

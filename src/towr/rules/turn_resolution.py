@@ -2,7 +2,12 @@ from __future__ import annotations
 
 from dataclasses import replace
 
+from towr.domain.fate_models import (
+    FATE_SECOND_ACTION_RULE_ID,
+    FateSecondActionProof,
+)
 from towr.domain.turn_models import (
+    ACTION_BUDGET_RULE_ID,
     ActionSlotGrant,
     CombatActionKind,
     CombatActionSlot,
@@ -21,8 +26,6 @@ from towr.domain.turn_models import (
 
 
 COMBAT_TURN_RULE_ID = "RULE-COMBAT-001:rounds-sides-turns"
-ACTION_BUDGET_RULE_ID = "RULE-COMBAT-002:action-budget"
-FATE_SECOND_ACTION_RULE_ID = "RULE-FATE-001:second-action"
 
 
 def start_combat_turn(
@@ -56,6 +59,8 @@ def start_combat_turn(
 
 def reserve_combat_action_slot(
     request: CombatActionSlotRequest,
+    *,
+    fate_proof: FateSecondActionProof | None = None,
 ) -> CombatActionSlotResult:
     """Validate and reserve an action slot without executing the action."""
     turn = request.state.active_turn
@@ -71,6 +76,12 @@ def reserve_combat_action_slot(
         raise ValueError("the first action must use the standard slot")
     if slot_count == 1 and request.grant is ActionSlotGrant.STANDARD:
         raise ValueError("the second action requires Fate or an Ability")
+    if request.grant is ActionSlotGrant.FATE:
+        if fate_proof is None:
+            raise ValueError("a Fate action grant requires a spend proof")
+        _validate_fate_second_action_proof(request, fate_proof, slot_count)
+    elif fate_proof is not None:
+        raise ValueError("only a Fate action grant may use a Fate spend proof")
 
     if turn.action_slots:
         previous = turn.action_slots[0].declaration
@@ -113,6 +124,24 @@ def reserve_combat_action_slot(
             dict.fromkeys((ACTION_BUDGET_RULE_ID, *grant_rule_ids))
         ),
     )
+
+
+def _validate_fate_second_action_proof(
+    request: CombatActionSlotRequest,
+    proof: FateSecondActionProof,
+    slot_count: int,
+) -> None:
+    if not isinstance(proof, FateSecondActionProof):
+        raise TypeError("fate_proof must be a FateSecondActionProof")
+    if (
+        proof.actor_id != request.actor_id
+        or proof.slot_request_id != request.id
+        or proof.round_number != request.state.round_number
+        or proof.slot_index != slot_count + 1
+        or proof.declaration != request.declaration
+        or proof.rule_id != FATE_SECOND_ACTION_RULE_ID
+    ):
+        raise ValueError("Fate second action proof belongs to another slot")
 
 
 def end_combat_turn(request: CombatTurnEndRequest) -> CombatTurnEndResult:

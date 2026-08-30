@@ -60,7 +60,7 @@ def attack_execution_request(
     state = reserve_action(
         move_quietly.round_state,
         CombatActionDeclaration(CombatActionKind.ATTACK),
-        grant=ActionSlotGrant.FATE,
+        grant=ActionSlotGrant.ABILITY,
     )
     return AttackActionExecutionRequest(
         id="execute:hidden-attack",

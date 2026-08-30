@@ -353,7 +353,8 @@ class K1SwampBreathActionExecutionTests(unittest.TestCase):
                         TROLL_HAG_SWAMP_BREATH_RULE_ID
                     ),
                 ),
-                ActionSlotGrant.FATE,
+                ActionSlotGrant.ABILITY,
+                "RULE-ABILITY:test-extra-action",
             )
         ).state
         with self.assertRaises(ValueError):

@@ -97,6 +97,11 @@ def reserve_action(
             actor_id="hero",
             declaration=declaration,
             grant=grant,
+            grant_rule_id=(
+                "RULE-ABILITY:test-extra-action"
+                if grant is ActionSlotGrant.ABILITY
+                else None
+            ),
         )
     ).state
 
@@ -235,7 +240,7 @@ class K1RunActionExecutionTests(unittest.TestCase):
         state = reserve_action(
             state,
             run_declaration(),
-            grant=ActionSlotGrant.FATE,
+            grant=ActionSlotGrant.ABILITY,
         )
         with self.assertRaises(ValueError):
             execute_run_action(request(round_state=state, slot_index=2))

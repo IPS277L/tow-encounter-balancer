@@ -7,8 +7,10 @@ from tests.helpers import SequenceRandom
 from towr.domain.condition_models import Condition, ConditionState
 from towr.domain.drained_test_models import DrainedTestPreparationRequest
 from towr.domain.fate_models import (
+    FATE_SECOND_ACTION_RULE_ID,
     FATE_SESSION_RULE_ID,
     FateGloriousSpendRequest,
+    FateSecondActionSpendRequest,
     FateSessionState,
     FateSpendKind,
     FateSpendRecord,
@@ -21,13 +23,32 @@ from towr.domain.test_models import (
     TestQuality,
     TestRequest,
 )
+from towr.domain.turn_models import (
+    ActionSlotGrant,
+    CombatActionDeclaration,
+    CombatActionKind,
+    CombatActionSlotRequest,
+    CombatRoundState,
+    CombatSide,
+    CombatTurnParticipant,
+    CombatTurnStartRequest,
+    ManoeuvreKind,
+)
 from towr.rules.drained_test_resolution import prepare_drained_test
-from towr.rules.fate_resolution import spend_fate_for_glorious
+from towr.rules.fate_resolution import (
+    spend_fate_for_glorious,
+    spend_fate_for_second_action,
+)
 from towr.rules.test_resolution import (
     RerollAllFailures,
     complete_test,
     resolve_test,
     roll_test_initial,
+)
+from towr.rules.turn_resolution import (
+    ACTION_BUDGET_RULE_ID,
+    reserve_combat_action_slot,
+    start_combat_turn,
 )
 
 
@@ -47,6 +68,43 @@ def grim_test(test_id: str = "hero:test") -> TestRequest:
         quality_modifiers=(
             QualityModifier("RULE-GRIM", TestQuality.GRIM),
         ),
+    )
+
+
+def second_action_request(
+    *,
+    first: CombatActionDeclaration | None = None,
+    second: CombatActionDeclaration | None = None,
+    actor_id: str = "hero",
+    request_id: str = "slot:hero:2",
+) -> CombatActionSlotRequest:
+    round_state = CombatRoundState(
+        round_number=1,
+        participants=(
+            CombatTurnParticipant("hero", CombatSide.PLAYERS_AND_ALLIES),
+            CombatTurnParticipant("enemy", CombatSide.OPPOSITION),
+        ),
+    )
+    started = start_combat_turn(
+        CombatTurnStartRequest("turn:hero", round_state, "hero")
+    )
+    first_result = reserve_combat_action_slot(
+        CombatActionSlotRequest(
+            id="slot:hero:1",
+            state=started.state,
+            actor_id="hero",
+            declaration=first
+            or CombatActionDeclaration(CombatActionKind.AIM),
+            grant=ActionSlotGrant.STANDARD,
+        )
+    )
+    return CombatActionSlotRequest(
+        id=request_id,
+        state=first_result.state,
+        actor_id=actor_id,
+        declaration=second
+        or CombatActionDeclaration(CombatActionKind.ATTACK),
+        grant=ActionSlotGrant.FATE,
     )
 
 
@@ -326,6 +384,197 @@ class K1FateGloriousSpendTests(unittest.TestCase):
             replace(result, proof=replace(result.proof, actor_id="other"))
         with self.assertRaisesRegex(ValueError, "trace is incomplete"):
             replace(result, applied_rule_ids=(FATE_GLORIOUS_RULE_ID,))
+
+
+class K1FateSecondActionSpendTests(unittest.TestCase):
+    def test_spend_atomically_reserves_bound_second_action(self) -> None:
+        slot_request = second_action_request()
+        source_state = fate_state()
+
+        result = spend_fate_for_second_action(
+            FateSecondActionSpendRequest(
+                id="spend:second-action",
+                state=source_state,
+                slot_request=slot_request,
+            )
+        )
+
+        self.assertEqual(source_state.remaining_spends, 2)
+        self.assertEqual(result.state.remaining_spends, 1)
+        self.assertIs(result.spend.kind, FateSpendKind.SECOND_ACTION)
+        self.assertEqual(result.spend.subject_id, slot_request.id)
+        self.assertEqual(result.proof.session_id, source_state.session_id)
+        self.assertEqual(result.proof.actor_id, "hero")
+        self.assertEqual(result.proof.slot_request_id, slot_request.id)
+        self.assertEqual(result.proof.round_number, 1)
+        self.assertEqual(result.proof.slot_index, 2)
+        self.assertEqual(result.proof.declaration, slot_request.declaration)
+        self.assertEqual(result.proof.source_spend_id, result.spend.id)
+        self.assertEqual(result.slot_result.slot.index, 2)
+        self.assertIs(result.slot_result.slot.grant, ActionSlotGrant.FATE)
+        self.assertEqual(
+            result.applied_rule_ids,
+            (
+                FATE_SESSION_RULE_ID,
+                ACTION_BUDGET_RULE_ID,
+                FATE_SECOND_ACTION_RULE_ID,
+            ),
+        )
+        self.assertEqual(
+            len(result.slot_result.state.active_turn.action_slots),
+            2,
+        )
+        self.assertEqual(
+            len(slot_request.state.active_turn.action_slots),
+            1,
+        )
+
+    def test_raw_fate_grant_and_mismatched_actor_are_rejected(self) -> None:
+        slot_request = second_action_request()
+        with self.assertRaisesRegex(ValueError, "requires a spend proof"):
+            reserve_combat_action_slot(slot_request)
+
+        with self.assertRaisesRegex(ValueError, "another action actor"):
+            FateSecondActionSpendRequest(
+                id="spend:other",
+                state=replace(fate_state(), actor_id="other"),
+                slot_request=slot_request,
+            )
+        with self.assertRaisesRegex(ValueError, "another action actor"):
+            FateSecondActionSpendRequest(
+                id="spend:request-other",
+                state=fate_state(),
+                slot_request=second_action_request(actor_id="other"),
+            )
+
+    def test_invalid_second_action_does_not_produce_a_spend_result(self) -> None:
+        repeated = second_action_request(
+            first=CombatActionDeclaration(CombatActionKind.AIM),
+            second=CombatActionDeclaration(CombatActionKind.AIM),
+        )
+        with self.assertRaisesRegex(ValueError, "cannot repeat"):
+            spend_fate_for_second_action(
+                FateSecondActionSpendRequest(
+                    id="spend:repeated",
+                    state=fate_state(),
+                    slot_request=repeated,
+                )
+            )
+
+        second_attack = second_action_request(
+            first=CombatActionDeclaration(CombatActionKind.ATTACK),
+            second=CombatActionDeclaration(
+                CombatActionKind.MANOEUVRE,
+                manoeuvre=ManoeuvreKind.CHARGE,
+            ),
+        )
+        with self.assertRaisesRegex(ValueError, "second attack"):
+            spend_fate_for_second_action(
+                FateSecondActionSpendRequest(
+                    id="spend:second-attack",
+                    state=fate_state(),
+                    slot_request=second_attack,
+                )
+            )
+
+    def test_same_bound_slot_cannot_consume_fate_twice(self) -> None:
+        slot_request = second_action_request()
+        first = spend_fate_for_second_action(
+            FateSecondActionSpendRequest(
+                id="spend:first",
+                state=fate_state(),
+                slot_request=slot_request,
+            )
+        )
+
+        with self.assertRaisesRegex(ValueError, "already spent"):
+            FateSecondActionSpendRequest(
+                id="spend:second",
+                state=first.state,
+                slot_request=slot_request,
+            )
+
+    def test_glorious_and_second_action_share_one_session_pool(self) -> None:
+        glorious = spend_fate_for_glorious(
+            FateGloriousSpendRequest(
+                id="spend:glorious-first",
+                state=fate_state(),
+                test=TestRequest("hero:test:shared", TestProfile(2, 5)),
+            )
+        )
+        second_action = spend_fate_for_second_action(
+            FateSecondActionSpendRequest(
+                id="spend:action-second",
+                state=glorious.state,
+                slot_request=second_action_request(),
+            )
+        )
+
+        self.assertEqual(second_action.state.remaining_spends, 0)
+        self.assertEqual(
+            tuple(item.kind for item in second_action.state.spends),
+            (FateSpendKind.GLORIOUS_TEST, FateSpendKind.SECOND_ACTION),
+        )
+
+    def test_third_action_is_rejected_before_spending_fate(self) -> None:
+        second_request = second_action_request()
+        second_slot = reserve_combat_action_slot(
+            replace(
+                second_request,
+                grant=ActionSlotGrant.ABILITY,
+                grant_rule_id="RULE-ABILITY:test-extra-action",
+            )
+        )
+        third_request = CombatActionSlotRequest(
+            id="slot:hero:3",
+            state=second_slot.state,
+            actor_id="hero",
+            declaration=CombatActionDeclaration(CombatActionKind.RECOVER),
+            grant=ActionSlotGrant.FATE,
+        )
+
+        with self.assertRaisesRegex(ValueError, "third action"):
+            spend_fate_for_second_action(
+                FateSecondActionSpendRequest(
+                    id="spend:third-action",
+                    state=fate_state(),
+                    slot_request=third_request,
+                )
+            )
+
+    def test_unknown_rule_and_forged_composite_are_rejected(self) -> None:
+        request = FateSecondActionSpendRequest(
+            id="spend:unknown-second",
+            state=fate_state(),
+            slot_request=second_action_request(),
+            rule_id="RULE-UNKNOWN",
+        )
+        with self.assertRaisesRegex(ValueError, "unknown rule"):
+            spend_fate_for_second_action(request)
+
+        result = spend_fate_for_second_action(
+            replace(request, rule_id=FATE_SECOND_ACTION_RULE_ID)
+        )
+        with self.assertRaisesRegex(ValueError, "stale provenance"):
+            replace(result, state=result.previous_state)
+        with self.assertRaisesRegex(ValueError, "stale provenance"):
+            replace(
+                result,
+                proof=replace(result.proof, actor_id="other"),
+            )
+        with self.assertRaisesRegex(ValueError, "stale provenance"):
+            replace(
+                result,
+                slot_result=replace(
+                    result.slot_result,
+                    applied_rule_ids=(FATE_SECOND_ACTION_RULE_ID,),
+                ),
+            )
+        with self.assertRaisesRegex(ValueError, "trace is incomplete"):
+            replace(
+                result,
+                applied_rule_ids=(FATE_SECOND_ACTION_RULE_ID,),
+            )
 
 
 if __name__ == "__main__":

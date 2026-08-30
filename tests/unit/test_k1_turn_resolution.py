@@ -23,7 +23,6 @@ from towr.domain.turn_models import (
 from towr.rules.turn_resolution import (
     ACTION_BUDGET_RULE_ID,
     COMBAT_TURN_RULE_ID,
-    FATE_SECOND_ACTION_RULE_ID,
     advance_combat_round,
     end_combat_turn,
     reserve_combat_action_slot,
@@ -241,22 +240,19 @@ class K1TurnResolutionTests(unittest.TestCase):
                 grant=ActionSlotGrant.FATE,
             )
 
-    def test_second_action_requires_fate_or_traced_ability(self) -> None:
+    def test_second_action_rejects_unproved_fate_and_accepts_traced_ability(self) -> None:
         state = start(round_state(), "hero:a")
         state = reserve(
             state,
             CombatActionDeclaration(CombatActionKind.AIM),
         ).state
 
-        fate = reserve(
-            state,
-            CombatActionDeclaration(CombatActionKind.ATTACK),
-            grant=ActionSlotGrant.FATE,
-        )
-        self.assertEqual(
-            fate.applied_rule_ids,
-            (ACTION_BUDGET_RULE_ID, FATE_SECOND_ACTION_RULE_ID),
-        )
+        with self.assertRaisesRegex(ValueError, "requires a spend proof"):
+            reserve(
+                state,
+                CombatActionDeclaration(CombatActionKind.ATTACK),
+                grant=ActionSlotGrant.FATE,
+            )
         with self.assertRaises(ValueError):
             reserve(
                 state,
@@ -291,14 +287,16 @@ class K1TurnResolutionTests(unittest.TestCase):
         state = reserve(
             state,
             CombatActionDeclaration(CombatActionKind.ATTACK),
-            grant=ActionSlotGrant.FATE,
+            grant=ActionSlotGrant.ABILITY,
+            grant_rule_id="RULE-ABILITY:test-extra-action",
         ).state
 
         with self.assertRaises(ValueError):
             reserve(
                 state,
                 CombatActionDeclaration(CombatActionKind.RECOVER),
-                grant=ActionSlotGrant.FATE,
+                grant=ActionSlotGrant.ABILITY,
+                grant_rule_id="RULE-ABILITY:test-extra-action",
             )
 
     def test_same_action_cannot_be_repeated(self) -> None:
@@ -318,7 +316,8 @@ class K1TurnResolutionTests(unittest.TestCase):
                     CombatActionKind.MANOEUVRE,
                     manoeuvre=ManoeuvreKind.CHARGE,
                 ),
-                grant=ActionSlotGrant.FATE,
+                grant=ActionSlotGrant.ABILITY,
+                grant_rule_id="RULE-ABILITY:test-extra-action",
             )
 
     def test_charge_and_attack_are_two_attacks_regardless_of_order(self) -> None:
@@ -336,7 +335,8 @@ class K1TurnResolutionTests(unittest.TestCase):
                     reserve(
                         state,
                         second,
-                        grant=ActionSlotGrant.FATE,
+                        grant=ActionSlotGrant.ABILITY,
+                        grant_rule_id="RULE-ABILITY:test-extra-action",
                     )
 
     def test_attack_producing_improvise_uses_attack_limit(self) -> None:
@@ -355,7 +355,8 @@ class K1TurnResolutionTests(unittest.TestCase):
                     improvise_approach_id="drop-chandelier",
                     improvise_produces_attack=True,
                 ),
-                grant=ActionSlotGrant.FATE,
+                grant=ActionSlotGrant.ABILITY,
+                grant_rule_id="RULE-ABILITY:test-extra-action",
             )
 
     def test_two_improvises_need_gm_allowance_and_different_approaches(self) -> None:
@@ -378,12 +379,14 @@ class K1TurnResolutionTests(unittest.TestCase):
             reserve(
                 state,
                 second,
-                grant=ActionSlotGrant.FATE,
+                grant=ActionSlotGrant.ABILITY,
+                grant_rule_id="RULE-ABILITY:test-extra-action",
             )
         allowed = reserve(
             state,
             second,
-            grant=ActionSlotGrant.FATE,
+            grant=ActionSlotGrant.ABILITY,
+            grant_rule_id="RULE-ABILITY:test-extra-action",
             allows_second_improvise=True,
         )
         self.assertEqual(len(allowed.state.active_turn.action_slots), 2)
@@ -396,7 +399,8 @@ class K1TurnResolutionTests(unittest.TestCase):
                     improvise_kind=ImproviseKind.SKILL,
                     improvise_approach_id="kick-table",
                 ),
-                grant=ActionSlotGrant.FATE,
+                grant=ActionSlotGrant.ABILITY,
+                grant_rule_id="RULE-ABILITY:test-extra-action",
                 allows_second_improvise=True,
             )
 

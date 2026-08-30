@@ -108,6 +108,11 @@ def reserve_action(
             actor_id="hero",
             declaration=declaration,
             grant=grant,
+            grant_rule_id=(
+                "RULE-ABILITY:test-extra-action"
+                if grant is ActionSlotGrant.ABILITY
+                else None
+            ),
         )
     ).state
 
@@ -357,7 +362,7 @@ class K1ChargeActionExecutionTests(unittest.TestCase):
         state = reserve_action(
             state,
             charge_declaration(),
-            grant=ActionSlotGrant.FATE,
+            grant=ActionSlotGrant.ABILITY,
         )
         with self.assertRaises(ValueError):
             execute_charge_action(

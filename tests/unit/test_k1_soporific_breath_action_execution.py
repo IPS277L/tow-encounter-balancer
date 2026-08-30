@@ -426,7 +426,8 @@ class K1SoporificBreathActionExecutionTests(unittest.TestCase):
                     improvise_kind=ImproviseKind.ABILITY,
                     improvise_approach_id=SOPORIFIC_BREATH_RULE_ID,
                 ),
-                ActionSlotGrant.FATE,
+                ActionSlotGrant.ABILITY,
+                "RULE-ABILITY:test-extra-action",
             )
         ).state
         with self.assertRaises(ValueError):
