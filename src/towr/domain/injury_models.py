@@ -497,6 +497,87 @@ class CharacterWoundResult:
     applied_rule_ids: tuple[str, ...]
 
 
+def validate_character_wound_result_provenance(
+    request: CharacterWoundRequest,
+    result: CharacterWoundResult,
+) -> None:
+    """Validate the deterministic transition around a Wounds Table roll."""
+    if not isinstance(request, CharacterWoundRequest):
+        raise TypeError("request must be a CharacterWoundRequest")
+    if not isinstance(result, CharacterWoundResult):
+        raise TypeError("result must be a CharacterWoundResult")
+    if request.state.dead:
+        raise ValueError("Wound source character was already dead")
+    if (
+        result.request_id != request.id
+        or result.subject_type is not request.subject_type
+    ):
+        raise ValueError("character Wound result belongs to another request")
+
+    dice = max(
+        1,
+        request.base_dice
+        + request.state.untreated_wounds
+        + sum(item.amount for item in request.dice_modifiers),
+    )
+    table_roll = result.table_roll
+    if (
+        table_roll.dice != dice
+        or len(table_roll.values) != dice
+        or table_roll.total != sum(table_roll.values)
+        or not table_roll.entry.includes(table_roll.total)
+    ):
+        raise ValueError("character Wound roll has stale provenance")
+
+    modifier_rule_ids = tuple(
+        item.rule_id for item in request.dice_modifiers
+    )
+    if not result.wound_accepted:
+        option_rule_ids = {
+            item.rule_id for item in request.negation_options
+        }
+        if (
+            result.negated_by_rule_id not in option_rule_ids
+            or result.effect_request is not None
+            or result.state != request.state
+            or result.applied_rule_ids
+            != (*modifier_rule_ids, result.negated_by_rule_id)
+        ):
+            raise ValueError("negated character Wound has stale provenance")
+        return
+
+    if result.negated_by_rule_id is not None or result.effect_request is None:
+        raise ValueError("accepted character Wound has stale provenance")
+    entry = table_roll.entry
+    sequence = len(request.state.wounds) + 1
+    wound = WoundRecord(
+        sequence=sequence,
+        entry_id=entry.id,
+        table_total=table_roll.total,
+        roll_values=table_roll.values,
+    )
+    expected_state = CharacterInjuryState(
+        wounds=(*request.state.wounds, wound),
+        conditions=request.state.conditions.without_condition(
+            Condition.STAGGERED
+        ),
+        active_wound_effects=request.state.active_wound_effects,
+        dead=entry.lethal,
+    )
+    expected_effect = WoundEffectRequest(
+        id=f"{request.id}:effect",
+        wound_sequence=sequence,
+        entry_id=entry.id,
+        rule_id=f"RULE-WOUND-TABLE:{entry.id.value}",
+    )
+    if (
+        result.state != expected_state
+        or result.effect_request != expected_effect
+        or result.applied_rule_ids != modifier_rule_ids
+    ):
+        raise ValueError("accepted character Wound has stale provenance")
+
+
 @dataclass(frozen=True, slots=True)
 class FixedCharacterWoundResult:
     request_id: str

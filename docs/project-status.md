@@ -409,6 +409,11 @@ K1 — реализация книжного resolution kernel. Прототип
 - burn при непустом pool уменьшает ещё доступный allowance текущей session; при уже пустом pool permanent rating меняется сразу, но effective session rating и возможный позднейший GM refresh сохраняют прежний объём до следующей session;
 - три actor-owned запроса `Unmitigated Success`/`Near Miss`/`Last Stand` создают subject-bound proof и отдельные Test/Wound/feat effect requests; Fate reducer не мутирует narrative outcome, injury state или смерть персонажа;
 - Unmitigated Success поддерживает решение до/после matching initial roll и фиксирует Total Success/realistic/attack limits; Near Miss связывает точную отмену Wound и сохранение прежнего Staggered; Last Stand требует suffered-Wound fact и desperate-battle approval, не требует Test и фиксирует смерть после подвига;
+- реализован `FateNearMissApplicationRequest → Result`: actor-bound burn effect применяется только к exact принятому player `CharacterWoundResult` после канонической Wounds Table и до Wound effect, сохраняет уменьшенный Fate state и возвращает точное pre-Wound injury state;
+- application отменяет в том числе lethal Wound, восстанавливает существовавший Staggered, не добавляет отменённую запись к будущим dice, сохраняет cancelled Wound/discarded effect в trace и погашает effect ID один раз; чужой actor/resolution, Champion, non-accepted, stale, повторный и неканонический результат отклоняются;
+- добавлен direct `CharacterWoundLifecycleRollRequest → RollResult → CompletionRequest → CompletionResult`: первая фаза выполняет Wounds Table и сохраняет pending Wound без effect, позволяя actor принять решение после видимого roll;
+- completion при Near Miss атомарно вызывает `burn_fate` и exact application без daily receipt/effect; при отказе сначала регистрирует pre-effect Wound в `DailyWoundState`, затем исполняет `resolve_wound_effect`; прежняя non-Fate negation закрывается без обеих фаз;
+- lifecycle проверяет canonical table, target, актуальные injury/day snapshots и ordered consumed roll/effect IDs; player eligibility, lethal cancellation, Staggered, registration-before-effect, stale/replay и forged branches покрыты детерминированно;
 - полностью прочитан и нормализован Retreat страницы 120 Player’s Guide 1.4; зафиксированы единогласие, два допустимых timing window, Fate rearguard, GM-owned alternative price и отдельная pursuit/Run For Your Lives фаза;
 - добавлен `GroupRetreatDeclaration`: battle, ordered PC group, инициатор, полный consent snapshot и round state проверяются без battle aggregate; союзные/сопровождаемые NPC не включаются в защищённую PC-группу автоматически;
 - добавлены `FateSpendKind.TACTICAL_RETREAT`, battle/group-bound `FateTacticalRetreatProof` и атомарный `FateTacticalRetreatSpendRequest → Result`; Glorious, Second Action и Tactical Retreat используют один session pool;
@@ -445,7 +450,7 @@ K1 — реализация книжного resolution kernel. Прототип
 
 ## Проверено
 
-- 800 unit/integration тестов успешно проходят на Python 3.12; 780 тестов относятся к K1;
+- 814 unit/integration тестов успешно проходят на Python 3.12; 794 теста относятся к K1;
 - исходники и тесты успешно проходят `compileall`.
 
 ## Исходный материал
@@ -469,7 +474,7 @@ K1 — реализация книжного resolution kernel. Прототип
 - `WizardMagicState` не содержит Wizard Level, поэтому непосредственный Recover reducer уменьшает переданный непросроченный Miscast snapshot; battle orchestration обязано сначала немедленно разрешить уже triggered Miscast Pool и не давать Recover отменить сработавший Miscast;
 - каталоги NPC Abilities, магии, религии и магических предметов завершены как нормативный индекс, но большинство записей ещё не связано с исполняемыми reducers и orchestration;
 - `CATCH_YOUR_BREATH`, независимый end-encounter opportunity, `A Night’s Respite`, успешный `REST_AND_RECOVERY`, daily Wound/Infection producer, Anatomy Recall/automatic-success branch, persistent Festering state/recovery consumer, ordinary и Combat Surgeon surgery proofs для `20–23`, общий transition снятия non-permanent effects, обе Combat Surgeon boundaries, suppression aggregate/view и полная `Drained` Test preparation реализованы; остальные Condition modifiers, применение surgery-failure follow-up и optional early Endurance Test требуют будущих lifecycle/orchestration boundaries;
-- session Fate resource, обе части Lucky, GM refresh, Glorious producer до/после initial roll, Second Action/Tactical Retreat composites, permanent burn с тремя typed effect requests, alternative-price proof, общий pursuit и Run For Your Lives aggregate реализованы; исполнение burn effects и конкретное применение price/campaign follow-ups ещё отсутствуют;
+- session Fate resource, обе части Lucky, GM refresh, Glorious producer до/после initial roll, Second Action/Tactical Retreat composites, permanent burn с тремя typed effect requests, Near Miss application и direct two-phase Wound lifecycle, alternative-price proof, общий pursuit и Run For Your Lives aggregate реализованы; kernel/Stagger/Hazard пока используют immediate character-Wound path, а Unmitigated Success, Last Stand и конкретное применение price/campaign follow-ups ещё отсутствуют;
 - Lucky gambling producer принимает уже классифицированный game-of-chance context; отдельного gambling/social action engine и автоматического поиска подходящей Test пока нет;
 - общий Exacting reducer пока принимает Basic contributions и оставляет цену специализированному consumer; Opposed contribution со subtraction/tie-break и другие cost adapters ещё не реализованы;
 - внешние последствия Wound для инвентаря и анатомии пока являются typed follow-up;
@@ -506,7 +511,7 @@ K1 — реализация книжного resolution kernel. Прототип
 
 ## Следующий шаг
 
-Добавить application boundary для `Near Miss` страницы 112: потребить proof-bound `FateNearMissEffectRequest` вместе с точным принятым `CharacterWoundResult`, подтвердить совпадение resolution/actor/session и вернуть предыдущее `CharacterInjuryState` без только что полученной Wound. Переход обязан сохранить Staggered, существовавший до Wound, не добавлять эту Wound к будущим dice и отклонять повторное либо stale применение.
+Подключить pending character-Wound lifecycle к общим Stagger impact, kernel Attack и Hazard путям: для Player/Champion возвращать roll result до effect и завершать его отдельным application-вызовом с актуальными target/day/Fate snapshots. Профильные Minion/Brute/Monstrosity Wounds оставить на существующем immediate пути; decision policy не должна автоматически расходовать Fate за игрока.
 
 ## Последняя проверка
 
@@ -517,7 +522,7 @@ $env:PYTHONPATH = "src"
 py -3.12 -m unittest discover -s tests -v
 ```
 
-Результат: `Ran 800 tests ... OK`; отдельный K1-набор: `Ran 780 tests ... OK`; `compileall`, public-import smoke test и `git diff --check` успешно завершены (только предупреждения Git о LF/CRLF).
+Результат: `Ran 814 tests ... OK`; отдельный K1-набор: `Ran 794 tests ... OK`; `compileall`, public-import smoke test, проверка отсутствия domain→rules imports и `git diff --check` успешно завершены (только предупреждения Git о LF/CRLF).
 
 ```powershell
 py -3.12 -m compileall -q src tests tools
