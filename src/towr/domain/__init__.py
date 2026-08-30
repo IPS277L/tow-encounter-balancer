@@ -99,6 +99,14 @@ from towr.domain.exacting_test_models import (
     ExactingTestContributionResult,
     ExactingTestProgress,
 )
+from towr.domain.fate_models import (
+    FATE_SESSION_RULE_ID,
+    FateGloriousSpendRequest,
+    FateGloriousSpendResult,
+    FateSessionState,
+    FateSpendKind,
+    FateSpendRecord,
+)
 from towr.domain.festering_wound_models import (
     FESTERING_WOUND_DICE_RULE_ID,
     FESTERING_WOUND_RULE_ID,
@@ -481,6 +489,7 @@ from towr.domain.test_models import (
     Characteristic,
     FATE_GLORIOUS_RULE_ID,
     FateGloriousProof,
+    InitialTestRoll,
     InlineProfile,
     QualityModifierSource,
     RerollLock,
@@ -559,6 +568,7 @@ __all__ = [
     "FESTERING_WOUND_RULE_ID",
     "FESTERING_WOUNDS_RECOVERY_APPLICATION_RULE_ID",
     "FESTERING_WOUNDS_RECOVERY_RULE_ID",
+    "FATE_SESSION_RULE_ID",
     "DOWNTIME_SURGERY_RULE_ID",
     "DRAINED_TEST_PREPARATION_RULE_ID",
     "NIGHTS_RESPITE_HEALING_OPPORTUNITY_RULE_ID",
@@ -665,6 +675,12 @@ __all__ = [
     "DrainedTestPreparationResult",
     "FATE_GLORIOUS_RULE_ID",
     "FateGloriousProof",
+    "InitialTestRoll",
+    "FateGloriousSpendRequest",
+    "FateGloriousSpendResult",
+    "FateSessionState",
+    "FateSpendKind",
+    "FateSpendRecord",
     "FoulStenchChoice",
     "FoulStenchOutcome",
     "FoulStenchRequest",

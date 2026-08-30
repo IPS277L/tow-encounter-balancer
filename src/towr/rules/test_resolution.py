@@ -5,11 +5,14 @@ from typing import Protocol
 from towr.domain.test_models import (
     BasicOutcome,
     BasicTestResult,
+    InitialTestRoll,
+    QualityModifierSource,
     RerollTrace,
     RollTrace,
     TestQuality,
     TestRequest,
     TestResult,
+    _expected_initial_roll_parameters,
 )
 from towr.rules.dice import RandomSource
 
@@ -62,38 +65,71 @@ def resolve_test(
     *,
     decisions: TestDecisionProvider | None = None,
 ) -> TestResult:
-    regular_delta = sum(
-        modifier.amount
-        for modifier in request.dice_modifiers
-        if not modifier.bypasses_pool_cap
-    )
-    bypassing_dice = sum(
-        modifier.amount
-        for modifier in request.dice_modifiers
-        if modifier.bypasses_pool_cap
-    )
-    capped_dice = min(
-        request.profile.base_dice + regular_delta,
-        request.profile.maximum_dice,
-    )
-    dice_before_minimum = capped_dice + bypassing_dice
-    minimum_die_rule_applied = dice_before_minimum < 1
-    rolled_dice = max(1, dice_before_minimum)
-    threshold = 1 if minimum_die_rule_applied else request.profile.threshold
     quality = _resolve_quality(request)
     if quality is TestQuality.GLORIOUS and decisions is None:
         raise MissingTestDecisionError(
             "a Glorious Test requires an explicit TestDecisionProvider"
         )
+    initial_roll = roll_test_initial(request, rng)
+    return complete_test(initial_roll, rng, decisions=decisions)
 
-    initial_values = tuple(rng.randint(1, 10) for _ in range(rolled_dice))
+
+def roll_test_initial(
+    request: TestRequest,
+    rng: RandomSource,
+) -> InitialTestRoll:
+    """Roll only the immutable initial pool, before Grim/Glorious rerolls."""
+    (
+        base_dice,
+        pool_cap,
+        regular_delta,
+        bypassing_dice,
+        dice_before_minimum,
+        rolled_dice,
+        threshold,
+        minimum_die_rule_applied,
+    ) = _expected_initial_roll_parameters(request)
+    return InitialTestRoll(
+        request=request,
+        base_dice=base_dice,
+        pool_cap=pool_cap,
+        regular_dice_delta=regular_delta,
+        cap_bypassing_dice=bypassing_dice,
+        dice_before_minimum=dice_before_minimum,
+        rolled_dice=rolled_dice,
+        threshold=threshold,
+        minimum_die_rule_applied=minimum_die_rule_applied,
+        initial_values=tuple(rng.randint(1, 10) for _ in range(rolled_dice)),
+    )
+
+
+def complete_test(
+    initial_roll: InitialTestRoll,
+    rng: RandomSource,
+    *,
+    request: TestRequest | None = None,
+    decisions: TestDecisionProvider | None = None,
+) -> TestResult:
+    """Complete a snapshotted initial roll without rolling its pool again."""
+    if not isinstance(initial_roll, InitialTestRoll):
+        raise TypeError("initial_roll must be an InitialTestRoll")
+    completion_request = initial_roll.request if request is None else request
+    _validate_completion_request(initial_roll.request, completion_request)
+    quality = _resolve_quality(completion_request)
+    if quality is TestQuality.GLORIOUS and decisions is None:
+        raise MissingTestDecisionError(
+            "a Glorious Test requires an explicit TestDecisionProvider"
+        )
+
+    initial_values = initial_roll.initial_values
+    threshold = initial_roll.threshold
     initial_success_indices = tuple(
         index for index, value in enumerate(initial_values) if value <= threshold
     )
     initial_failure_indices = tuple(
         index for index, value in enumerate(initial_values) if value > threshold
     )
-    locked_values = {lock.value for lock in request.reroll_locks}
+    locked_values = {lock.value for lock in completion_request.reroll_locks}
     rerollable_success_indices = tuple(
         index
         for index in initial_success_indices
@@ -111,7 +147,7 @@ def resolve_test(
         assert decisions is not None
         chosen_indices = tuple(
             decisions.choose_glorious_rerolls(
-                request=request,
+                request=completion_request,
                 initial_values=initial_values,
                 eligible_indices=rerollable_failure_indices,
             )
@@ -138,30 +174,32 @@ def resolve_test(
         final_values[index] = replacement
 
     rolled_successes = sum(value <= threshold for value in final_values)
-    success_delta = sum(modifier.amount for modifier in request.success_modifiers)
+    success_delta = sum(
+        modifier.amount for modifier in completion_request.success_modifiers
+    )
     successes = max(0, rolled_successes + success_delta)
     applied_rule_ids = tuple(
         modifier.rule_id
         for modifiers in (
-            request.dice_modifiers,
-            request.quality_modifiers,
-            request.success_modifiers,
-            request.reroll_locks,
+            completion_request.dice_modifiers,
+            completion_request.quality_modifiers,
+            completion_request.success_modifiers,
+            completion_request.reroll_locks,
         )
         for modifier in modifiers
     )
 
     return TestResult(
         trace=RollTrace(
-            request_id=request.id,
-            base_dice=request.profile.base_dice,
-            pool_cap=request.profile.maximum_dice,
-            regular_dice_delta=regular_delta,
-            cap_bypassing_dice=bypassing_dice,
-            dice_before_minimum=dice_before_minimum,
-            rolled_dice=rolled_dice,
+            request_id=completion_request.id,
+            base_dice=initial_roll.base_dice,
+            pool_cap=initial_roll.pool_cap,
+            regular_dice_delta=initial_roll.regular_dice_delta,
+            cap_bypassing_dice=initial_roll.cap_bypassing_dice,
+            dice_before_minimum=initial_roll.dice_before_minimum,
+            rolled_dice=initial_roll.rolled_dice,
             threshold=threshold,
-            minimum_die_rule_applied=minimum_die_rule_applied,
+            minimum_die_rule_applied=initial_roll.minimum_die_rule_applied,
             quality=quality,
             initial_values=initial_values,
             rerolls=tuple(rerolls),
@@ -208,6 +246,34 @@ def _resolve_quality(request: TestRequest) -> TestQuality:
     if has_grim == has_glorious:
         return TestQuality.NORMAL
     return TestQuality.GRIM if has_grim else TestQuality.GLORIOUS
+
+
+def _validate_completion_request(
+    source: TestRequest,
+    completion: TestRequest,
+) -> None:
+    if not isinstance(completion, TestRequest):
+        raise TypeError("completion request must be a TestRequest")
+    if (
+        completion.id != source.id
+        or completion.profile != source.profile
+        or completion.dice_modifiers != source.dice_modifiers
+        or completion.success_modifiers != source.success_modifiers
+        or completion.reroll_locks != source.reroll_locks
+    ):
+        raise ValueError("completion request changes the snapshotted Test")
+    if completion.quality_modifiers == source.quality_modifiers:
+        return
+    if (
+        len(completion.quality_modifiers) == len(source.quality_modifiers) + 1
+        and completion.quality_modifiers[:-1] == source.quality_modifiers
+        and completion.quality_modifiers[-1].source is QualityModifierSource.FATE
+        and completion.quality_modifiers[-1].quality is TestQuality.GLORIOUS
+    ):
+        return
+    raise ValueError(
+        "completion may only append one Fate Glorious modifier after the initial roll"
+    )
 
 
 def _validate_glorious_decision(

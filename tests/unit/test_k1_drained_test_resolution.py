@@ -56,8 +56,10 @@ def bonus_test() -> TestRequest:
 def fate_test() -> tuple[TestRequest, FateGloriousProof]:
     proof = FateGloriousProof(
         id="fate:hero:test",
+        session_id="session:1",
         actor_id="hero",
         test_id="hero:fate-test",
+        source_spend_id="spend:hero:test",
     )
     test = TestRequest(
         id="hero:fate-test",

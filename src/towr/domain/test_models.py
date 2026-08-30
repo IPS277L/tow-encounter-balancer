@@ -43,7 +43,7 @@ class QualityModifierSource(str, Enum):
     FATE = "fate"
 
 
-FATE_GLORIOUS_RULE_ID = "RULE-FATE-001:glorious-test"
+FATE_GLORIOUS_RULE_ID = "RULE-FATE-002:glorious-test"
 
 
 class BasicOutcome(str, Enum):
@@ -157,14 +157,21 @@ class QualityModifier:
 @dataclass(frozen=True, slots=True)
 class FateGloriousProof:
     id: str
+    session_id: str
     actor_id: str
     test_id: str
+    source_spend_id: str
     rule_id: str = FATE_GLORIOUS_RULE_ID
 
     def __post_init__(self) -> None:
         _validate_source_id(self.id, "Fate proof id")
+        _validate_source_id(self.session_id, "Fate proof session_id")
         _validate_source_id(self.actor_id, "Fate proof actor_id")
         _validate_source_id(self.test_id, "Fate proof test_id")
+        _validate_source_id(
+            self.source_spend_id,
+            "Fate proof source_spend_id",
+        )
         _validate_rule_id(self.rule_id)
         if self.rule_id != FATE_GLORIOUS_RULE_ID:
             raise ValueError("Fate Glorious proof requires its canonical rule")
@@ -244,6 +251,53 @@ class TestRequest:
         lock_values = tuple(item.value for item in self.reroll_locks)
         if len(set(lock_values)) != len(lock_values):
             raise ValueError("reroll lock values must be unique")
+
+
+@dataclass(frozen=True, slots=True)
+class InitialTestRoll:
+    """Immutable snapshot of a Test after its initial dice, before rerolls."""
+
+    request: TestRequest
+    base_dice: int
+    pool_cap: int
+    regular_dice_delta: int
+    cap_bypassing_dice: int
+    dice_before_minimum: int
+    rolled_dice: int
+    threshold: int
+    minimum_die_rule_applied: bool
+    initial_values: tuple[int, ...]
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.request, TestRequest):
+            raise TypeError("request must be a TestRequest")
+        expected = _expected_initial_roll_parameters(self.request)
+        actual = (
+            self.base_dice,
+            self.pool_cap,
+            self.regular_dice_delta,
+            self.cap_bypassing_dice,
+            self.dice_before_minimum,
+            self.rolled_dice,
+            self.threshold,
+            self.minimum_die_rule_applied,
+        )
+        if actual != expected or any(
+            type(value) is not type(expected_value)
+            for value, expected_value in zip(actual, expected, strict=True)
+        ):
+            raise ValueError("initial Test roll has stale pool provenance")
+        values = tuple(self.initial_values)
+        if len(values) != self.rolled_dice:
+            raise ValueError("initial Test values do not match the rolled pool")
+        if any(
+            not isinstance(value, int)
+            or isinstance(value, bool)
+            or not 1 <= value <= 10
+            for value in values
+        ):
+            raise ValueError("initial Test values must be integers from 1 to 10")
+        object.__setattr__(self, "initial_values", values)
 
 
 @dataclass(frozen=True, slots=True)
@@ -329,6 +383,39 @@ class OpposedTestResult:
     consequence: BasicOutcome | None
     tie_break_applied: bool
     tie_break_rule_id: str | None
+
+
+def _expected_initial_roll_parameters(
+    request: TestRequest,
+) -> tuple[int, int, int, int, int, int, int, bool]:
+    regular_delta = sum(
+        modifier.amount
+        for modifier in request.dice_modifiers
+        if not modifier.bypasses_pool_cap
+    )
+    bypassing_dice = sum(
+        modifier.amount
+        for modifier in request.dice_modifiers
+        if modifier.bypasses_pool_cap
+    )
+    capped_dice = min(
+        request.profile.base_dice + regular_delta,
+        request.profile.maximum_dice,
+    )
+    dice_before_minimum = capped_dice + bypassing_dice
+    minimum_die_rule_applied = dice_before_minimum < 1
+    rolled_dice = max(1, dice_before_minimum)
+    threshold = 1 if minimum_die_rule_applied else request.profile.threshold
+    return (
+        request.profile.base_dice,
+        request.profile.maximum_dice,
+        regular_delta,
+        bypassing_dice,
+        dice_before_minimum,
+        rolled_dice,
+        threshold,
+        minimum_die_rule_applied,
+    )
 
 
 def _validate_threshold(value: int) -> None:

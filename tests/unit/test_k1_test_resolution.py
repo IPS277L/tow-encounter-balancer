@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import unittest
+from dataclasses import replace
 
 from tests.helpers import SequenceRandom
 from towr.domain.test_models import (
@@ -18,6 +19,8 @@ from towr.rules.test_resolution import (
     InvalidTestDecisionError,
     MissingTestDecisionError,
     RerollAllFailures,
+    complete_test,
+    roll_test_initial,
     resolve_basic_test,
     resolve_test,
 )
@@ -49,6 +52,64 @@ class K1TestProfileTests(unittest.TestCase):
 
 
 class K1TestResolutionTests(unittest.TestCase):
+    def test_staged_resolution_matches_compatible_one_shot_resolution(self) -> None:
+        request = TestRequest(
+            id="staged",
+            profile=TestProfile(2, 5),
+            quality_modifiers=(
+                QualityModifier("RULE-GLORIOUS", TestQuality.GLORIOUS),
+            ),
+        )
+
+        one_shot = resolve_test(
+            request,
+            SequenceRandom([1, 9, 2]),
+            decisions=RerollAllFailures(),
+        )
+        initial = roll_test_initial(request, SequenceRandom([1, 9]))
+        staged = complete_test(
+            initial,
+            SequenceRandom([2]),
+            decisions=RerollAllFailures(),
+        )
+
+        self.assertEqual(staged, one_shot)
+
+    def test_initial_roll_is_validated_and_cannot_be_forged(self) -> None:
+        request = TestRequest("snapshot", TestProfile(2, 5))
+        initial = roll_test_initial(request, SequenceRandom([1, 9]))
+
+        self.assertEqual(initial.initial_values, (1, 9))
+        with self.assertRaisesRegex(ValueError, "stale pool provenance"):
+            replace(initial, threshold=4)
+        with self.assertRaisesRegex(ValueError, "rolled pool"):
+            replace(initial, initial_values=(1,))
+        with self.assertRaisesRegex(ValueError, "integers from 1 to 10"):
+            replace(initial, initial_values=(1, 11))
+
+    def test_completion_rejects_changes_except_appended_fate_glorious(self) -> None:
+        source = TestRequest("snapshot", TestProfile(2, 5))
+        initial = roll_test_initial(source, SequenceRandom([1, 9]))
+
+        with self.assertRaisesRegex(ValueError, "changes the snapshotted Test"):
+            complete_test(
+                initial,
+                SequenceRandom([]),
+                request=replace(source, profile=TestProfile(3, 5)),
+            )
+        with self.assertRaisesRegex(ValueError, "only append one Fate"):
+            complete_test(
+                initial,
+                SequenceRandom([]),
+                request=replace(
+                    source,
+                    quality_modifiers=(
+                        QualityModifier("RULE-GLORIOUS", TestQuality.GLORIOUS),
+                    ),
+                ),
+                decisions=RerollAllFailures(),
+            )
+
     def test_natural_one_die_pool_uses_normal_skill_threshold(self) -> None:
         request = TestRequest(id="awareness", profile=TestProfile(1, 5))
 
