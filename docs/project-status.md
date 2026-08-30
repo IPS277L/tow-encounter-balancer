@@ -385,6 +385,10 @@ K1 — реализация книжного resolution kernel. Прототип
 - реализован `CombatSurgeonSuppressionAggregate` и одноразовая registration boundary: только successful canonical suppression регистрируется в том же battle, а повтор suppression/source или вторая запись для target/Wound отклоняются;
 - `CombatSurgeonEffectiveEffectsRequest → Result` сверяет battle/target/stable Wound identity и точный active `UNTIL_HEALED` effect set, возвращая вычисляемые Wound effects и Conditions без мутации injury state;
 - Condition с известным другим wound-effect либо explicit внешним источником сохраняется; unrelated state evolution допустима, stale effect set и перенос suppression отклоняются, а healing делает регистрацию неактивной, сохраняя audit aggregate;
+- реализован concrete consumer effective view `DrainedTestPreparationRequest → Result`: он сверяет actor, canonical Conditions и optional полный Combat Surgeon view, затем до RNG удаляет из копии `TestRequest` все положительные regular/cap-bypassing dice modifiers и non-Fate Glorious только при effective `Drained`;
+- `QualityModifierSource` сохраняет обратно совместимый `RULE` default; Fate Glorious требует канонический Rule ID, stable source ID и `FateGloriousProof` того же actor/Test, а вторая трата либо трата на уже Glorious Test отклоняется;
+- penalties, Grim, fixed-success modifiers, reroll locks и подтверждённый Fate Glorious сохраняются; подавление единственного wound-source возвращает bonuses/non-Fate Glorious без мутации injury/Condition/Test provenance, а independently sourced `Drained` продолжает ограничения;
+- removed modifiers, Fate proof и полный view trace сохраняются в preparation result; stale actor/Conditions/proof, unknown Rule ID и forged transition отклоняются;
 - реализован общий `ExactingTestProgress` и Basic-contribution reducer: ordered Test/contributor provenance вычисляет running total, сохраняет zero-progress failure и overshoot, запрещает повтор ID и вклад после completion;
 - реализован `CombatSurgeonBattleSurgeryActionRequest → Result`: matching non-attack Ability Improvise исполняет одну Dexterity Test и один action receipt, привязывая Exacting progress к battle/surgeon/target/surgical Wound/exact injury snapshot;
 - battle surgery требует 8 successes; нулевая Test не уменьшает progress и создаёт GM-owned surgery risk, completion возвращает proof без healing или injury mutation; operating theatre отменён Talent, а tools/supports пока требуются по `AMBIGUITY-010`;
@@ -406,7 +410,7 @@ K1 — реализация книжного resolution kernel. Прототип
 
 ## Проверено
 
-- 714 unit/integration тестов успешно проходят на Python 3.12, из них 694 относятся к K1;
+- 723 unit/integration теста успешно проходят на Python 3.12, из них 703 относятся к K1;
 - исходники и тесты успешно проходят `compileall`.
 
 ## Исходный материал
@@ -429,7 +433,8 @@ K1 — реализация книжного resolution kernel. Прототип
 - Recover treatment action, одноразовое применение выбранной Wound и automatic end-battle treatment всех Wounds реализованы, но application/context consumed IDs пока должен хранить внешний orchestration; partial trappings batch намеренно отклоняется до решения `AMBIGUITY-008`, mount/object follow-ups ещё не применяются;
 - `WizardMagicState` не содержит Wizard Level, поэтому непосредственный Recover reducer уменьшает переданный непросроченный Miscast snapshot; battle orchestration обязано сначала немедленно разрешить уже triggered Miscast Pool и не давать Recover отменить сработавший Miscast;
 - каталоги NPC Abilities, магии, религии и магических предметов завершены как нормативный индекс, но большинство записей ещё не связано с исполняемыми reducers и orchestration;
-- `CATCH_YOUR_BREATH`, независимый end-encounter opportunity, `A Night’s Respite`, успешный `REST_AND_RECOVERY`, daily Wound/Infection producer, Anatomy Recall/automatic-success branch, persistent Festering state/recovery consumer, ordinary и Combat Surgeon surgery proofs для `20–23`, общий transition снятия non-permanent effects, обе Combat Surgeon boundaries и suppression aggregate/view реализованы; интеграция view в конкретные modifiers, применение surgery-failure follow-up и optional early Endurance Test требуют будущих lifecycle/orchestration boundaries;
+- `CATCH_YOUR_BREATH`, независимый end-encounter opportunity, `A Night’s Respite`, успешный `REST_AND_RECOVERY`, daily Wound/Infection producer, Anatomy Recall/automatic-success branch, persistent Festering state/recovery consumer, ordinary и Combat Surgeon surgery proofs для `20–23`, общий transition снятия non-permanent effects, обе Combat Surgeon boundaries, suppression aggregate/view и полная `Drained` Test preparation реализованы; остальные Condition modifiers, применение surgery-failure follow-up и optional early Endurance Test требуют будущих lifecycle/orchestration boundaries;
+- `FateGloriousProof` представляет уже подтверждённую внешнюю трату и не владеет запасом Fate: session resource, producer proof и интерактивное решение после initial roll ещё отсутствуют;
 - общий Exacting reducer пока принимает Basic contributions и оставляет цену специализированному consumer; Opposed contribution со subtraction/tie-break и другие cost adapters ещё не реализованы;
 - внешние последствия Wound для инвентаря и анатомии пока являются typed follow-up;
 - защита Endurance после заживления `Ruptured organs` ещё не подключена к физическому impact;
@@ -465,7 +470,7 @@ K1 — реализация книжного resolution kernel. Прототип
 
 ## Следующий шаг
 
-Подключить первый конкретный consumer Combat Surgeon effective view: вычислять влияние `Condition.DRAINED` на обычный Test так, чтобы canonical injury/Condition provenance не мутировались, suppression той же Wound действительно временно возвращала допустимые bonus dice, а independently sourced Drained продолжал их запрещать. Контракт должен принимать проверяемый effective snapshot и не позволять вручную скрыть неснятые Conditions.
+Добавить минимальный session-scoped Fate state и одноразовый producer `FateGloriousProof`: он должен проверять actor/Test, доступный расход, запрет уже Glorious/повторной траты и возвращать новое immutable состояние. Интерактивный выбор после initial roll не следует прятать внутри RNG resolver; его нужно оформить отдельной фазой с явным initial-roll snapshot либо оставить следующим подэтапом, если сначала реализуется только pre-roll spend.
 
 ## Последняя проверка
 
@@ -476,7 +481,7 @@ $env:PYTHONPATH = "src"
 py -3.12 -m unittest discover -s tests -v
 ```
 
-Результат: `Ran 714 tests ... OK`; отдельный K1-набор: `Ran 694 tests ... OK`; `compileall`, public-import smoke test и `git diff --check` успешно завершены (только предупреждения Git о LF/CRLF).
+Результат: `Ran 723 tests ... OK`; отдельный K1-набор: `Ran 703 tests ... OK`; `compileall`, public-import smoke test и `git diff --check` успешно завершены (только предупреждения Git о LF/CRLF).
 
 ```powershell
 py -3.12 -m compileall -q src tests tools

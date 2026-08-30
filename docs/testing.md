@@ -300,6 +300,9 @@ py -3.12 -m unittest discover -s tests -v
 - successful suppression регистрируется один раз только в aggregate совпадающего battle; failed source, повтор suppression/source и другая target/Wound пара отклоняются;
 - effective view исключает точный active `UNTIL_HEALED` effect set без мутации injury state, сверяет stable Wound identity и сохраняет Condition при известном wound-effect либо explicit внешнем источнике;
 - unrelated state evolution сохраняется, stale effect set/другой battle/target/Wound отклоняются, а healed Wound делает регистрацию неактивной без удаления audit history;
+- `Drained` preparation удаляет все положительные regular/cap-bypassing dice modifiers и non-Fate Glorious, сохраняет penalties, Grim и прочие Test fields, а отсутствие effective Condition оставляет Test неизменным;
+- Glorious с источником Fate требует канонический modifier и proof того же actor/Test, сохраняется при `Drained` и не допускает второй траты; поддельный source, несовпавший proof и forged transition отклоняются;
+- Combat Surgeon view возвращает bonus dice и обычный Glorious только при подавлении единственного источника `Drained`; independently sourced Condition продолжает ограничения, stale actor/Condition snapshot, unknown rule и forged result отклоняются;
 - общий Exacting reducer накапливает ordered Basic contributions нескольких персонажей, сохраняет overshoot и нулевой trace-вклад, не уменьшает progress при failure и отвергает completed/reused/forged transitions;
 - Combat Surgeon battle surgery требует matching non-attack Ability Improvise, Talent, Dexterity, exact battle/surgeon/target/Wound/state, tools/supports и surgery-category Wound; operating theatre не является входом по `AMBIGUITY-010`;
 - каждая Test исполняет ровно один action receipt; 8 accumulated successes создают proof без injury mutation, а нулевая Test сохраняет progress и возвращает GM-owned surgery risk;

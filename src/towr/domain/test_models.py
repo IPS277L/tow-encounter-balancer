@@ -38,6 +38,14 @@ class TestQuality(str, Enum):
     GLORIOUS = "glorious"
 
 
+class QualityModifierSource(str, Enum):
+    RULE = "rule"
+    FATE = "fate"
+
+
+FATE_GLORIOUS_RULE_ID = "RULE-FATE-001:glorious-test"
+
+
 class BasicOutcome(str, Enum):
     FAILURE = "failure"
     MARGINAL_SUCCESS = "marginal_success"
@@ -125,6 +133,8 @@ class DiceModifier:
 class QualityModifier:
     rule_id: str
     quality: TestQuality
+    source: QualityModifierSource = QualityModifierSource.RULE
+    source_id: str | None = None
 
     def __post_init__(self) -> None:
         _validate_rule_id(self.rule_id)
@@ -132,6 +142,32 @@ class QualityModifier:
             raise TypeError("quality must be a TestQuality")
         if self.quality is TestQuality.NORMAL:
             raise ValueError("a quality modifier must be Grim or Glorious")
+        if not isinstance(self.source, QualityModifierSource):
+            raise TypeError("source must be a QualityModifierSource")
+        if self.source is QualityModifierSource.FATE:
+            if self.quality is not TestQuality.GLORIOUS:
+                raise ValueError("Fate can only make a Test Glorious")
+            if self.rule_id != FATE_GLORIOUS_RULE_ID:
+                raise ValueError("Fate Glorious requires its canonical rule")
+            _validate_source_id(self.source_id, "Fate source_id")
+        elif self.source_id is not None:
+            raise ValueError("rule-sourced quality cannot name a source_id")
+
+
+@dataclass(frozen=True, slots=True)
+class FateGloriousProof:
+    id: str
+    actor_id: str
+    test_id: str
+    rule_id: str = FATE_GLORIOUS_RULE_ID
+
+    def __post_init__(self) -> None:
+        _validate_source_id(self.id, "Fate proof id")
+        _validate_source_id(self.actor_id, "Fate proof actor_id")
+        _validate_source_id(self.test_id, "Fate proof test_id")
+        _validate_rule_id(self.rule_id)
+        if self.rule_id != FATE_GLORIOUS_RULE_ID:
+            raise ValueError("Fate Glorious proof requires its canonical rule")
 
 
 @dataclass(frozen=True, slots=True)
@@ -184,6 +220,18 @@ class TestRequest:
             isinstance(item, QualityModifier) for item in self.quality_modifiers
         ):
             raise TypeError("quality_modifiers must contain QualityModifier values")
+        fate_modifiers = tuple(
+            item
+            for item in self.quality_modifiers
+            if item.source is QualityModifierSource.FATE
+        )
+        if len(fate_modifiers) > 1:
+            raise ValueError("a Test cannot spend Fate on Glorious twice")
+        if fate_modifiers and sum(
+            item.quality is TestQuality.GLORIOUS
+            for item in self.quality_modifiers
+        ) > 1:
+            raise ValueError("Fate cannot be spent on an already Glorious Test")
         if not all(
             isinstance(item, SuccessModifier) for item in self.success_modifiers
         ):
@@ -294,6 +342,13 @@ def _validate_rule_id(rule_id: str) -> None:
         raise TypeError("rule_id must be a string")
     if not rule_id.strip():
         raise ValueError("rule_id must not be empty")
+
+
+def _validate_source_id(value: str | None, name: str) -> None:
+    if not isinstance(value, str):
+        raise TypeError(f"{name} must be a string")
+    if not value.strip():
+        raise ValueError(f"{name} must not be empty")
 
 
 def _validate_positive_int(value: int, name: str) -> None:

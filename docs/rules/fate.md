@@ -1,6 +1,6 @@
 # Fate
 
-Источник: `BOOK-PLAYER-GUIDE`, версия 1.4, глава Rules — Fate, страницы 111–112. Статус области: `draft`; injury pipeline умеет вернуть расход Near Miss, но общего session/turn Fate state ещё нет.
+Источник: `BOOK-PLAYER-GUIDE`, версия 1.4, глава Rules — Fate, страницы 111–112. Статус области: `partially implemented`; injury pipeline умеет вернуть расход Near Miss, а Test-модель — проверить actor/Test-bound proof траты на Glorious, но общего session/turn Fate state и producer такого proof ещё нет.
 
 ## RULE-FATE-001 — session resource
 
@@ -15,6 +15,8 @@ Fate можно потратить на одно из трёх общих при
 - обеспечить rearguard при групповом Retreat.
 
 Источник: страница 111.
+
+K1 представляет уже совершённую трату на Glorious типизированным `FateGloriousProof`, связанным с actor и Test. Это позволяет `Drained` сохранить только книжное исключение Fate и отвергнуть строковую подделку. Текущий reducer не списывает session resource и не реализует интерактивное решение после initial roll: эти обязанности остаются будущему Fate orchestration.
 
 ## RULE-FATE-003 — burn Fate
 

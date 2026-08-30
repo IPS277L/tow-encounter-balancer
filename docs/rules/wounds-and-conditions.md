@@ -82,6 +82,8 @@ Condition от ongoing cause нельзя снять, пока не устран
 
 Источник: страницы 122–123. `ConditionState` хранит все 11 значений, но generic application не исполняет turn/action ограничения из таблицы.
 
+`DrainedTestPreparationRequest → Result` является отдельной чистой pre-Test фазой. Она принимает канонический `ConditionState`, готовый `TestRequest` после накопления modifiers и optional проверенный `CombatSurgeonEffectiveEffectsResult`. При effective `Drained` reducer удаляет все положительные `DiceModifier`, включая cap-bypassing, и все обычные источники Glorious, но сохраняет penalties, Grim, fixed-success modifiers, reroll locks и Glorious от Fate. Исключение Fate требует `FateGloriousProof`, привязанный к actor и ID конкретной Test; строковый Rule ID без proof его не подделывает. Если Combat Surgeon подавил единственный источник `Drained`, Test остаётся неизменным; известный другой wound-effect или explicit внешний источник сохраняет ограничения. Исходные Conditions, injury state и Test не мутируются. Запас Fate и интерактивный момент траты после первоначального броска принадлежат внешнему orchestration и пока не моделируются этой фазой.
+
 ## RULE-HEALTH-009 — Infection и Festering Wounds
 
 В конце дня, когда персонаж получил хотя бы одну Wound (даже уже treated/healed), он делает Endurance Test. Если successes меньше числа Wounds, полученных в этот день, добавляется Festering Wound. Она считается untreated для `+1d`, не может быть treated и лечится только Rest and Recovery.

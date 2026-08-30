@@ -87,6 +87,11 @@ from towr.domain.downtime_models import (
     RestAndRecoveryEndeavourRequest,
     RestAndRecoveryEndeavourResult,
 )
+from towr.domain.drained_test_models import (
+    DRAINED_TEST_PREPARATION_RULE_ID,
+    DrainedTestPreparationRequest,
+    DrainedTestPreparationResult,
+)
 from towr.domain.exacting_test_models import (
     EXACTING_TEST_RULE_ID,
     ExactingTestContribution,
@@ -474,7 +479,10 @@ from towr.domain.swamp_breath_models import (
 )
 from towr.domain.test_models import (
     Characteristic,
+    FATE_GLORIOUS_RULE_ID,
+    FateGloriousProof,
     InlineProfile,
+    QualityModifierSource,
     RerollLock,
     Skill,
     TestProfile,
@@ -552,6 +560,7 @@ __all__ = [
     "FESTERING_WOUNDS_RECOVERY_APPLICATION_RULE_ID",
     "FESTERING_WOUNDS_RECOVERY_RULE_ID",
     "DOWNTIME_SURGERY_RULE_ID",
+    "DRAINED_TEST_PREPARATION_RULE_ID",
     "NIGHTS_RESPITE_HEALING_OPPORTUNITY_RULE_ID",
     "NIGHTS_RESPITE_HEALING_RULE_ID",
     "REST_AND_RECOVERY_ENDEAVOUR_RULE_ID",
@@ -652,6 +661,10 @@ __all__ = [
     "EffectApplicationRequest",
     "EffectApplicationResult",
     "DropHeldHandItemRequest",
+    "DrainedTestPreparationRequest",
+    "DrainedTestPreparationResult",
+    "FATE_GLORIOUS_RULE_ID",
+    "FateGloriousProof",
     "FoulStenchChoice",
     "FoulStenchOutcome",
     "FoulStenchRequest",
@@ -865,6 +878,7 @@ __all__ = [
     "ReactorZoneHazardResolutionResult",
     "ReactorZoneHazardTargetResult",
     "ProfileInjuryState",
+    "QualityModifierSource",
     "RepeatedConditionReplacement",
     "END_BATTLE_WOUND_TREATMENT_RULE_ID",
     "RECOVER_TREAT_WOUND_APPLICATION_RULE_ID",
