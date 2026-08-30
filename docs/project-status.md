@@ -402,7 +402,17 @@ K1 — реализация книжного resolution kernel. Прототип
 - добавлен `GroupRetreatDeclaration`: battle, ordered PC group, инициатор, полный consent snapshot и round state проверяются без battle aggregate; союзные/сопровождаемые NPC не включаются в защищённую PC-группу автоматически;
 - добавлены `FateSpendKind.TACTICAL_RETREAT`, battle/group-bound `FateTacticalRetreatProof` и атомарный `FateTacticalRetreatSpendRequest → Result`; Glorious, Second Action и Tactical Retreat используют один session pool;
 - raw rearguard без proof невозможен, а результат сохраняет обязательную внешнюю pursuit decision вместо ложного «безопасного исхода»; при исчерпанном Fate всей группы создаётся только GM-owned blood/materiel/misfortune request без скрытого выбора цены или цели;
-- принято `ADR-0007` о group Retreat boundary; pursuit Tests, Lore auto-success, opposition и таблица последствий оставлены следующему независимому срезу;
+- принято `ADR-0007` о group Retreat boundary;
+- добавлен `RetreatPursuitResolutionRequest → Result`: GM-owned ordered pursuer snapshot явно различает отсутствие погони и требует ровно одну попытку для каждого PC при pursuit;
+- поддержаны basic Athletics, GM-approved Lore automatic success и Opposed Athletics против конкретного pursuer; общий RNG/Test pipeline выполняет попытки в стабильном порядке группы, не выводя opponent из Speed автоматически;
+- Marginal Success требует явного решения: без Complication, принятая Complication со stable ID либо книжный выбор failure вместо высокой цены; duplicate Complication IDs и скрытый default запрещены;
+- pursuit result сохраняет failures/Complications, число обязательных table rolls и GM-optional roll только для нескольких Complications при успехе всей группы;
+- добавлен `RunForYourLivesResolutionRequest → Result`: для каждого failed PC выполняется ровно один ordered `1d10`, а optional multiple-Complications roll требует отдельного типизированного решения GM даже при отказе;
+- individual rolls сохраняют failed actor либо полный набор source Complication IDs, сумма строго классифицируется во все девять книжных диапазонов `Lost`…`Trapped`; отсутствие бросков даёт нулевую сумму без табличного исхода и не расходует RNG;
+- положительный табличный итог создаёт provenance-safe `RunForYourLivesCampaignConsequenceRequest` с battle/Retreat/group/cover-proof/failure/Complication context, но намеренно не мутирует отсутствующие campaign, inventory, reputation, enemy или injury states;
+- добавлен `RetreatAlternativePriceDecision → ResolutionResult`: при исчерпанном Fate всей группы GM обязан выбрать ровно один книжный класс `blood`/`materiel`/`misfortune`, после чего создаётся battle/Retreat/group-bound proof;
+- каждая alternative price ветвь возвращает отдельный GM-owned application follow-up: одну Wound для ещё не выбранного PC, один valuable trapping ещё не выбранного владельца либо одну golden opportunity для полного opposition snapshot; скрытого выбора и мутации state нет;
+- `RetreatPursuitResolutionRequest` теперь принимает закрытый `RetreatCoverResult`: Fate-funded rearguard либо подтверждённую alternative price; дальнейшие Athletics/Lore/opposition/Complication и Run For Your Lives фазы общие, а campaign follow-up сохраняет kind и proof исходного cover;
 - реализован общий `ExactingTestProgress` и Basic-contribution reducer: ordered Test/contributor provenance вычисляет running total, сохраняет zero-progress failure и overshoot, запрещает повтор ID и вклад после completion;
 - реализован `CombatSurgeonBattleSurgeryActionRequest → Result`: matching non-attack Ability Improvise исполняет одну Dexterity Test и один action receipt, привязывая Exacting progress к battle/surgeon/target/surgical Wound/exact injury snapshot;
 - battle surgery требует 8 successes; нулевая Test не уменьшает progress и создаёт GM-owned surgery risk, completion возвращает proof без healing или injury mutation; operating theatre отменён Talent, а tools/supports пока требуются по `AMBIGUITY-010`;
@@ -424,7 +434,7 @@ K1 — реализация книжного resolution kernel. Прототип
 
 ## Проверено
 
-- 755 unit/integration тестов успешно проходят на Python 3.12; 735 тестов относятся к K1;
+- 781 unit/integration тест успешно проходит на Python 3.12; 761 тест относится к K1;
 - исходники и тесты успешно проходят `compileall`.
 
 ## Исходный материал
@@ -448,7 +458,7 @@ K1 — реализация книжного resolution kernel. Прототип
 - `WizardMagicState` не содержит Wizard Level, поэтому непосредственный Recover reducer уменьшает переданный непросроченный Miscast snapshot; battle orchestration обязано сначала немедленно разрешить уже triggered Miscast Pool и не давать Recover отменить сработавший Miscast;
 - каталоги NPC Abilities, магии, религии и магических предметов завершены как нормативный индекс, но большинство записей ещё не связано с исполняемыми reducers и orchestration;
 - `CATCH_YOUR_BREATH`, независимый end-encounter opportunity, `A Night’s Respite`, успешный `REST_AND_RECOVERY`, daily Wound/Infection producer, Anatomy Recall/automatic-success branch, persistent Festering state/recovery consumer, ordinary и Combat Surgeon surgery proofs для `20–23`, общий transition снятия non-permanent effects, обе Combat Surgeon boundaries, suppression aggregate/view и полная `Drained` Test preparation реализованы; остальные Condition modifiers, применение surgery-failure follow-up и optional early Endurance Test требуют будущих lifecycle/orchestration boundaries;
-- session Fate resource, Glorious producer до/после initial roll, Second Action и Tactical Retreat composites реализованы; pursuit/Run For Your Lives, Lucky/free spend, refresh producer и burn lifecycle ещё отсутствуют;
+- session Fate resource, Glorious producer до/после initial roll, Second Action и Tactical Retreat composites реализованы; alternative-price proof, общий pursuit и Run For Your Lives aggregate подключены, но конкретное применение price/campaign follow-ups, Lucky/free spend, refresh producer и burn lifecycle ещё отсутствуют;
 - общий Exacting reducer пока принимает Basic contributions и оставляет цену специализированному consumer; Opposed contribution со subtraction/tie-break и другие cost adapters ещё не реализованы;
 - внешние последствия Wound для инвентаря и анатомии пока являются typed follow-up;
 - защита Endurance после заживления `Ruptured organs` ещё не подключена к физическому impact;
@@ -484,7 +494,7 @@ K1 — реализация книжного resolution kernel. Прототип
 
 ## Следующий шаг
 
-Реализовать следующую фазу Retreat страницы 120: явное решение противника о pursuit и ordered PC-resolution, где каждый участник получает Athletics Test, Lore auto-success либо подходящую opposed Test против более быстрого врага. После фиксации failure/Complication facts отдельным срезом добавить детерминированные `1d10` rolls и агрегацию Run For Your Lives без преждевременного применения campaign consequences.
+Полностью прочитать и нормализовать оставшийся Fate lifecycle страниц 78 и 111–112 Player’s Guide 1.4: бесплатное первое применение от `Lucky`, GM refresh потраченного Fate и permanent burn. Разделить session refresh и необратимое изменение rating, сохранить явного владельца/причину решения и определить первый детерминированный producer/consumer slice без смешивания с уже реализованными paid spends.
 
 ## Последняя проверка
 
@@ -495,7 +505,7 @@ $env:PYTHONPATH = "src"
 py -3.12 -m unittest discover -s tests -v
 ```
 
-Результат: `Ran 755 tests ... OK`; отдельный K1-набор: `Ran 735 tests ... OK`; `compileall`, public-import smoke test и `git diff --check` успешно завершены (только предупреждения Git о LF/CRLF).
+Результат: `Ran 781 tests ... OK`; отдельный K1-набор: `Ran 761 tests ... OK`; `compileall`, public-import smoke test и `git diff --check` успешно завершены (только предупреждения Git о LF/CRLF).
 
 ```powershell
 py -3.12 -m compileall -q src tests tools
