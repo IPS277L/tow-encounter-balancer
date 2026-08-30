@@ -1,6 +1,6 @@
 # Equipment, Coin и Assets
 
-Источник: `BOOK-PLAYER-GUIDE`, версия 1.4, глава Equipment, страницы 90–105. Статус области: `draft`; числовые профили проверены, но inventory/economy/action model в коде отсутствует. Боевые Traits реализованы лишь точечно.
+Источник: `BOOK-PLAYER-GUIDE`, версия 1.4, глава Equipment, страницы 90–105. Статус области: `draft`; числовые профили проверены, существует только минимальный carried-inventory snapshot для Retreat, а полный inventory/economy/action model отсутствует. Боевые Traits реализованы лишь точечно.
 
 ## RULE-EQUIPMENT-001 — Coin и покупки
 
@@ -22,6 +22,8 @@ Barter — Opposed Charm против Willpower. Он либо заменяет 
 В руках помещается одно `2H` melee weapon либо по одному `1H` на каждую руку. При dual wield Traits обоих weapons могут применяться к одной Attack Test, а бонусы к одной Test складываются.
 
 Источник: страница 92. Общая carried-weapon вместимость и число занятых рук — разные ограничения.
+
+Полный inventory/carry-capacity reducer ещё не реализован. Первый минимальный immutable контракт `CarriedInventoryState` хранит только владельца и stable ordered `TrappingSnapshot`; каждая запись содержит instance/definition identity и внешнюю оценку `is_valuable`. Эта оценка не выводится автоматически из Cost tier: она нужна узкому materiel-price consumer Retreat страницы 120. Consumer удаляет выбранный carried item и возвращает его отдельным dropped fact, но пока не размещает предмет в Zone и не обслуживает equip/hand/capacity rules.
 
 ## RULE-EQUIPMENT-003 — melee weapon profiles
 

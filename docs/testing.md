@@ -309,6 +309,10 @@ py -3.12 -m unittest discover -s tests -v
 - применение Unmitigated требует явных realistic/outcome facts, ограничивает attack одним убитым врагом и одной Wound, погашает effect один раз и отклоняет чужой session/actor, replay и forged Test/result;
 - Last Stand требует exact burn/battle/actor, живой character state и stable sequence ранее полученной Wound; Test/RNG структурно отсутствуют;
 - terminal consumer требует явные final scope/affected subjects/accomplishment references и tone/possibility confirmations, сохраняет порядок feat → death, меняет только `dead` и отклоняет replay/forged result;
+- blood price принимает только exact GM-selected alternative-price proof и уже выбранного PC исходной группы, не выбирает цель внутри reducer и отклоняет materiel/dead/wrong-target context до RNG;
+- blood application один раз погашает targetless price follow-up, передаёт `1 + untreated Wounds + modifiers` общему pending lifecycle и принимает только matching completion; accepted Wound регистрируется до effect, Near Miss отменяет Wound без повторного открытия цены;
+- materiel price принимает только exact materiel proof, explicit допустимого PC owner и выбранный carried `TrappingSnapshot` с внешним `is_valuable=True`; другой price/owner, отсутствующий или неценный предмет отклоняются без RNG;
+- materiel application сохраняет исходный ordered inventory, удаляет ровно выбранный item, возвращает его как dropped fact и один раз погашает targetless price application; wrong-owner/duplicate inventory и forged transition отклоняются;
 - Second Action composite сначала проверяет полный action budget, затем одним результатом уменьшает тот же session pool и резервирует точно связанный slot `2`; повтор slot, чужой actor, raw/forged proof, одинаковый action, вторая attack и третье действие отклоняются;
 - Glorious и Second Action сохраняются как разные ordered spend kinds одного session state и совместно исчерпывают его limit;
 - producer proof проходит сквозной `Drained → Test` сценарий; unknown Rule ID и подмена state/spend/proof/Test/trace отклоняются;

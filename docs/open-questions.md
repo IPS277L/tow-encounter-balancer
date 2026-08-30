@@ -12,7 +12,7 @@ Player’s Guide 1.4 на страницах 111–112 ограничивает 
 
 ## Конкретизация альтернативной цены Retreat
 
-Player’s Guide 1.4 на странице 120 разрешает при полностью исчерпанном Fate назначить цену Retreat в blood (одна Wound), materiel (один valuable trapping) или misfortune (golden opportunity для врагов), но не определяет цель Wound, владельца/конкретный предмет и содержание либо получателя возможности. Текущий K1 требует GM выбрать класс цены, создаёт связанный proof и отдельный typed follow-up с полным допустимым snapshot, но ничего не применяет. Перед автоматической симуляцией нужны три policy выбора; безопасного универсального default нет.
+Player’s Guide 1.4 на странице 120 разрешает при полностью исчерпанном Fate назначить цену Retreat в blood (одна Wound), materiel (один valuable trapping) или misfortune (golden opportunity для врагов), но не определяет цель Wound, владельца/конкретный предмет и содержание либо получателя возможности. K1 требует GM выбрать класс цены и создаёт связанный proof с полным допустимым snapshot. Blood consumer принимает явно выбранного PC и проводит Wound через общий lifecycle; автоматической target policy нет. Взаимодействие с Near Miss книга отдельно не оговаривает: временно Wound можно отменить общим burn, но application остаётся погашенным (`AMBIGUITY-011`). Materiel consumer принимает explicit owner/item и внешнюю оценку ценности, не выбирая их и не выводя `valuable` из Cost tier. Misfortune ещё требует campaign consumer и policy выбора конкретной golden opportunity/beneficiary; безопасного универсального default нет.
 
 ## Как ранжировать most vigilant enemy
 

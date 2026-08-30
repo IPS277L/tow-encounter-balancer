@@ -1,6 +1,6 @@
 # Текущий статус проекта
 
-Дата обновления: 2026-08-30.
+Дата обновления: 2026-08-31.
 
 ## Текущий этап
 
@@ -438,6 +438,12 @@ K1 — реализация книжного resolution kernel. Прототип
 - положительный табличный итог создаёт provenance-safe `RunForYourLivesCampaignConsequenceRequest` с battle/Retreat/group/cover-proof/failure/Complication context, но намеренно не мутирует отсутствующие campaign, inventory, reputation, enemy или injury states;
 - добавлен `RetreatAlternativePriceDecision → ResolutionResult`: при исчерпанном Fate всей группы GM обязан выбрать ровно один книжный класс `blood`/`materiel`/`misfortune`, после чего создаётся battle/Retreat/group-bound proof;
 - каждая alternative price ветвь возвращает отдельный GM-owned application follow-up: одну Wound для ещё не выбранного PC, один valuable trapping ещё не выбранного владельца либо одну golden opportunity для полного opposition snapshot; скрытого выбора и мутации state нет;
+- реализован `RetreatBloodPriceWoundRequest → RetreatBloodPriceApplicationResult`: canonical blood proof связывается с явно выбранным живым PC из исходного snapshot, а targetless application ID погашается один раз до броска;
+- blood consumer переиспользует обычный двухфазный character-Wound lifecycle с базовой одной Wound, untreated/modifier dice, non-Fate negation, дневной регистрацией и эффектом; Near Miss доступен после броска и отменяет Wound, но не открывает price application повторно;
+- foreign/stale completion, materiel proof, чужая/мёртвая цель, повтор application и forged result/trace blood-ветви отклоняются; misfortune остаётся отдельной будущей boundary;
+- добавлены минимальные общие `TrappingSnapshot` и `CarriedInventoryState`: stable instance/definition/owner identity, ordered carried items и внешняя contextual-классификация `is_valuable`, без преждевременной модели Cost/capacity/equip/spatial placement;
+- реализован `RetreatMaterielPriceInventoryRequest → RetreatMaterielPriceApplicationResult`: canonical materiel proof связывается с explicit PC owner и конкретным valuable carried trapping, который одним immutable переходом удаляется из inventory и сохраняется как dropped fact;
+- materiel consumer не использует RNG, не выбирает owner/item, не выводит ценность из tier и однократно погашает application ID; другой price/owner, отсутствующий/неценный item, stale/duplicate inventory, replay и forged result отклоняются;
 - `RetreatPursuitResolutionRequest` теперь принимает закрытый `RetreatCoverResult`: Fate-funded rearguard либо подтверждённую alternative price; дальнейшие Athletics/Lore/opposition/Complication и Run For Your Lives фазы общие, а campaign follow-up сохраняет kind и proof исходного cover;
 - реализован общий `ExactingTestProgress` и Basic-contribution reducer: ordered Test/contributor provenance вычисляет running total, сохраняет zero-progress failure и overshoot, запрещает повтор ID и вклад после completion;
 - реализован `CombatSurgeonBattleSurgeryActionRequest → Result`: matching non-attack Ability Improvise исполняет одну Dexterity Test и один action receipt, привязывая Exacting progress к battle/surgeon/target/surgical Wound/exact injury snapshot;
@@ -484,7 +490,7 @@ K1 — реализация книжного resolution kernel. Прототип
 - `WizardMagicState` не содержит Wizard Level, поэтому непосредственный Recover reducer уменьшает переданный непросроченный Miscast snapshot; battle orchestration обязано сначала немедленно разрешить уже triggered Miscast Pool и не давать Recover отменить сработавший Miscast;
 - каталоги NPC Abilities, магии, религии и магических предметов завершены как нормативный индекс, но большинство записей ещё не связано с исполняемыми reducers и orchestration;
 - `CATCH_YOUR_BREATH`, независимый end-encounter opportunity, `A Night’s Respite`, успешный `REST_AND_RECOVERY`, daily Wound/Infection producer, Anatomy Recall/automatic-success branch, persistent Festering state/recovery consumer, ordinary и Combat Surgeon surgery proofs для `20–23`, общий transition снятия non-permanent effects, обе Combat Surgeon boundaries, suppression aggregate/view и полная `Drained` Test preparation реализованы; остальные Condition modifiers, применение surgery-failure follow-up и optional early Endurance Test требуют будущих lifecycle/orchestration boundaries;
-- session Fate resource, обе части Lucky, GM refresh, Glorious producer до/после initial roll, Second Action/Tactical Retreat composites, permanent burn и applications всех трёх видов, rolled и fixed two-phase Wound lifecycles вместе с kernel/Stagger/Hazard/Internal Damage/Ears Ringing adapters, alternative-price proof, общий pursuit и Run For Your Lives aggregate реализованы; конкретное применение price/campaign follow-ups ещё отсутствует;
+- session Fate resource, обе части Lucky, GM refresh, Glorious producer до/после initial roll, Second Action/Tactical Retreat composites, permanent burn и applications всех трёх видов, rolled и fixed two-phase Wound lifecycles вместе с kernel/Stagger/Hazard/Internal Damage/Ears Ringing adapters, alternative-price proof, blood-price Wound consumer, materiel-price inventory consumer, общий pursuit и Run For Your Lives aggregate реализованы; misfortune и campaign follow-ups ещё не применяются;
 - Unmitigated Success application возвращает policy-confirmed Test outcome и книжные attack caps, но применение этого результата к конкретному Attack либо scene aggregate остаётся обязанностью внешнего orchestration;
 - Last Stand application требует уже исполненные внешние feat consequences и только закрывает их terminal смертью; выбор масштаба, целей и конкретных изменений scene остаётся обязанностью policy/orchestration;
 - Lucky gambling producer принимает уже классифицированный game-of-chance context; отдельного gambling/social action engine и автоматического поиска подходящей Test пока нет;
@@ -523,18 +529,18 @@ K1 — реализация книжного resolution kernel. Прототип
 
 ## Следующий шаг
 
-Реализовать application consumers для уже выбранной alternative Retreat price, начиная с blood: применить proof-bound запрос к явно выбранному PC через character Wound lifecycle, не выбирая цель внутри reducer. Затем закрыть materiel и misfortune отдельными inventory/campaign boundaries.
+Реализовать misfortune application consumer для уже выбранной alternative Retreat price: принять explicit enemy beneficiary и stable описание одной golden opportunity, зарегистрировать её через proof-bound одноразовую campaign boundary без скрытого выбора содержания или немедленного исполнения последствия.
 
 ## Последняя проверка
 
-2026-08-30:
+2026-08-31:
 
 ```powershell
 $env:PYTHONPATH = "src"
 py -3.12 -m unittest discover -s tests -v
 ```
 
-Результат: `Ran 832 tests ... OK`; отдельный K1-набор: `Ran 812 tests ... OK`; `compileall`, public-import smoke test, проверка отсутствия domain→rules imports и `git diff --check` успешно завершены (только предупреждения Git о LF/CRLF).
+Результат: `Ran 846 tests ... OK`; отдельный K1-набор: `Ran 826 tests ... OK`; `compileall`, public-import smoke test для blood/materiel price и inventory contracts, проверка отсутствия domain→rules imports и `git diff --check` успешно завершены (только предупреждения Git о LF/CRLF).
 
 ```powershell
 py -3.12 -m compileall -q src tests tools

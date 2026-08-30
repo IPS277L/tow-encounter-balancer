@@ -213,6 +213,14 @@ from towr.domain.retreat_models import (
     RunForYourLivesRollReason,
     classify_run_for_your_lives,
 )
+from towr.domain.retreat_blood_price_models import (
+    RetreatBloodPriceApplicationResult,
+    RetreatBloodPriceWoundRequest,
+)
+from towr.domain.retreat_materiel_price_models import (
+    RetreatMaterielPriceApplicationResult,
+    RetreatMaterielPriceInventoryRequest,
+)
 from towr.domain.hidden_attack_models import (
     HiddenAttackOpportunityLossReason,
     MoveQuietlyHiddenAttackExecutionRequest,
@@ -272,6 +280,7 @@ from towr.domain.injury_models import (
     WoundConditionSourceSnapshot,
     WoundRecordOrigin,
 )
+from towr.domain.inventory_models import CarriedInventoryState, TrappingSnapshot
 from towr.domain.magic_models import (
     CastingAbandonmentOutcome,
     CastingAbandonmentRequest,
@@ -694,6 +703,7 @@ __all__ = [
     "SURGERY_FAILURE_RISK_RULE_ID",
     "CatchYourBreathHealingRequest",
     "CatchYourBreathHealingResult",
+    "CarriedInventoryState",
     "CastingDecisionRequest",
     "CastingDecisionResult",
     "CastingSpellSelection",
@@ -863,6 +873,7 @@ __all__ = [
     "TrollRegenerationResult",
     "TrollVomitActionExecutionRequest",
     "TrollVomitActionExecutionResult",
+    "TrappingSnapshot",
     "GiveGroundRequest",
     "GiveGroundDestinationPreference",
     "GiveGroundResolutionRequest",
@@ -1079,6 +1090,10 @@ __all__ = [
     "RecoverWoundTreatmentApplicationRequest",
     "RecoverWoundTreatmentResolutionRequest",
     "RecoverWoundTreatmentResolutionResult",
+    "RetreatBloodPriceApplicationResult",
+    "RetreatBloodPriceWoundRequest",
+    "RetreatMaterielPriceApplicationResult",
+    "RetreatMaterielPriceInventoryRequest",
     "RerollLock",
     "ProneBeforeGiveGroundSpec",
     "ProneRemovalTargetKind",
