@@ -41,6 +41,12 @@ Capture-ветвь страницы 120 теперь регистрируетс�
 
 `Surrounded` страницы 120 теперь регистрируется через `campaign_conflict_models.py` и `run_for_your_lives_surrounded` modules как отдельный conflict-opportunity hook с exact opposition/encounter-setup references. Текст книги не преобразуется в автоматический battle start, negotiation/manoeuvre Test либо spatial placement.
 
+`Hunted` страницы 120 теперь использует `campaign_hunt_models.py` и `run_for_your_lives_hunted` modules: outcome создаёт inactive threat с explicit pursuer/activation-trigger references, а отдельная фаза активирует её по stable movement-event reference. Текст не превращается в автоматический таймер укрытия, detection, route либо новый pursuit.
+
+`Marked` страницы 120 теперь использует `campaign_enemy_readiness_models.py` и `run_for_your_lives_marked` modules: outcome создаёт pending readiness с explicit enemy/acquired-intelligence/next-action-trigger references, а отдельная фаза фиксирует первый matching action event. Текст не превращается в автоматический bonus, ambush, encounter либо enemy-AI решение.
+
+`Exposed` страницы 120 теперь регистрируется через `campaign_intelligence_models.py` и `run_for_your_lives_exposed` modules: exact enemy/home/shelters/weakness references сохраняются как disclosure, но атака, target, encounter timing и числовой эффект из prose не выводятся.
+
 ### Извлечение
 
 - приватный каталог: `references/private/player-guide-extracted/`;
