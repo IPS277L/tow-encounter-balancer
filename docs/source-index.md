@@ -35,6 +35,12 @@
 
 Direct post-roll порядок Near Miss нормализован в `domain/wound_lifecycle_models.py` и `rules/wound_lifecycle_resolution.py`: первая фаза возвращает pending Wound, вторая выполняет выбранный burn либо окончательные daily registration и Wound effect. Kernel/Hazard adapters пока используют прежний immediate путь.
 
+Уточнение для страницы 120: `run_for_your_lives_trapped_wound` modules уже исполняют Wounds-ветвь `Trapped` последовательно поверх этого direct lifecycle с явным GM-count для каждого affected PC. Формулировка выше о неисполненных эффектах `Trapped` теперь относится к Other branch и к производным последствиям captivity.
+
+Capture-ветвь страницы 120 теперь регистрируется через `campaign_captivity_models.py` и `run_for_your_lives_trapped_capture` modules: один explicit captor reference на affected PC, без автоматического выбора enemy и без исполнения освобождения либо производных последствий. Other branch по-прежнему не применяется.
+
+`Surrounded` страницы 120 теперь регистрируется через `campaign_conflict_models.py` и `run_for_your_lives_surrounded` modules как отдельный conflict-opportunity hook с exact opposition/encounter-setup references. Текст книги не преобразуется в автоматический battle start, negotiation/manoeuvre Test либо spatial placement.
+
 ### Извлечение
 
 - приватный каталог: `references/private/player-guide-extracted/`;

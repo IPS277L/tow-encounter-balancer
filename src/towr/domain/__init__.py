@@ -225,6 +225,14 @@ from towr.domain.campaign_opportunity_models import (
     CampaignGoldenOpportunity,
     CampaignGoldenOpportunityState,
 )
+from towr.domain.campaign_captivity_models import (
+    CampaignCaptivityRecord,
+    CampaignCaptivityState,
+)
+from towr.domain.campaign_conflict_models import (
+    CampaignConflictOpportunity,
+    CampaignConflictOpportunityState,
+)
 from towr.domain.retreat_misfortune_price_models import (
     RetreatMisfortunePriceApplicationResult,
     RetreatMisfortunePriceCampaignRequest,
@@ -242,6 +250,10 @@ from towr.domain.run_for_your_lives_robbed_models import (
     RunForYourLivesRobbedInventoryRequest,
     RunForYourLivesRobbedInventoryResult,
 )
+from towr.domain.run_for_your_lives_surrounded_models import (
+    RunForYourLivesSurroundedRequest,
+    RunForYourLivesSurroundedResult,
+)
 from towr.domain.run_for_your_lives_trapped_models import (
     RunForYourLivesTrappedCostRequest,
     RunForYourLivesTrappedCostResult,
@@ -252,6 +264,17 @@ from towr.domain.run_for_your_lives_trapped_models import (
     TrappedEscapeCostProof,
     TrappedOtherCostApplicationRequest,
     TrappedWoundCostApplicationRequest,
+)
+from towr.domain.run_for_your_lives_trapped_capture_models import (
+    RunForYourLivesTrappedCaptureRequest,
+    RunForYourLivesTrappedCaptureResult,
+    TrappedCaptureAssignment,
+)
+from towr.domain.run_for_your_lives_trapped_wound_models import (
+    RunForYourLivesTrappedWoundRequest,
+    RunForYourLivesTrappedWoundResult,
+    TrappedWoundCostTarget,
+    TrappedWoundCostTargetProgress,
 )
 from towr.domain.hidden_attack_models import (
     HiddenAttackOpportunityLossReason,
@@ -1128,6 +1151,10 @@ __all__ = [
     "RetreatMaterielPriceInventoryRequest",
     "CampaignGoldenOpportunity",
     "CampaignGoldenOpportunityState",
+    "CampaignCaptivityRecord",
+    "CampaignCaptivityState",
+    "CampaignConflictOpportunity",
+    "CampaignConflictOpportunityState",
     "RetreatMisfortunePriceApplicationResult",
     "RetreatMisfortunePriceCampaignRequest",
     "CampaignConsequenceRecord",
@@ -1139,6 +1166,8 @@ __all__ = [
     "RobbedTrappingLossSelection",
     "RunForYourLivesRobbedInventoryRequest",
     "RunForYourLivesRobbedInventoryResult",
+    "RunForYourLivesSurroundedRequest",
+    "RunForYourLivesSurroundedResult",
     "RunForYourLivesTrappedCostRequest",
     "RunForYourLivesTrappedCostResult",
     "TrappedCaptureCostApplicationRequest",
@@ -1148,6 +1177,13 @@ __all__ = [
     "TrappedEscapeCostProof",
     "TrappedOtherCostApplicationRequest",
     "TrappedWoundCostApplicationRequest",
+    "RunForYourLivesTrappedCaptureRequest",
+    "RunForYourLivesTrappedCaptureResult",
+    "TrappedCaptureAssignment",
+    "RunForYourLivesTrappedWoundRequest",
+    "RunForYourLivesTrappedWoundResult",
+    "TrappedWoundCostTarget",
+    "TrappedWoundCostTargetProgress",
     "RerollLock",
     "ProneBeforeGiveGroundSpec",
     "ProneRemovalTargetKind",
