@@ -23,7 +23,7 @@ Barter — Opposed Charm против Willpower. Он либо заменяет 
 
 Источник: страница 92. Общая carried-weapon вместимость и число занятых рук — разные ограничения.
 
-Полный inventory/carry-capacity reducer ещё не реализован. Первый минимальный immutable контракт `CarriedInventoryState` хранит только владельца и stable ordered `TrappingSnapshot`; каждая запись содержит instance/definition identity и внешнюю оценку `is_valuable`. Эта оценка не выводится автоматически из Cost tier: она нужна узкому materiel-price consumer Retreat страницы 120. Consumer удаляет выбранный carried item и возвращает его отдельным dropped fact, но пока не размещает предмет в Zone и не обслуживает equip/hand/capacity rules.
+Полный inventory/carry-capacity reducer ещё не реализован. Первый минимальный immutable контракт `CarriedInventoryState` хранит только владельца и stable ordered `TrappingSnapshot`; каждая запись содержит instance/definition identity и внешнюю оценку `is_valuable`. Эта оценка не выводится автоматически из Cost tier: она нужна узкому materiel-price consumer Retreat страницы 120. Тот же snapshot использует специализированный Run For Your Lives `Robbed` consumer: он требует explicit GM-selection как минимум одного carried item для каждого PC и удаляет все выбранные записи одним ordered batch. Оба consumer возвращают dropped facts, но пока не размещают предметы в Zone, не вычисляют «самый тяжёлый» trapping и не обслуживают equip/hand/capacity rules.
 
 ## RULE-EQUIPMENT-003 — melee weapon profiles
 

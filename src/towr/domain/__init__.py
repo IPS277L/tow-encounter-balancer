@@ -221,6 +221,38 @@ from towr.domain.retreat_materiel_price_models import (
     RetreatMaterielPriceApplicationResult,
     RetreatMaterielPriceInventoryRequest,
 )
+from towr.domain.campaign_opportunity_models import (
+    CampaignGoldenOpportunity,
+    CampaignGoldenOpportunityState,
+)
+from towr.domain.retreat_misfortune_price_models import (
+    RetreatMisfortunePriceApplicationResult,
+    RetreatMisfortunePriceCampaignRequest,
+)
+from towr.domain.campaign_consequence_models import (
+    CampaignConsequenceRecord,
+    CampaignConsequenceState,
+    RunForYourLivesCampaignApplicationRequest,
+    RunForYourLivesCampaignApplicationResult,
+    RunForYourLivesConsequenceSpecification,
+)
+from towr.domain.run_for_your_lives_robbed_models import (
+    RobbedInventoryTransition,
+    RobbedTrappingLossSelection,
+    RunForYourLivesRobbedInventoryRequest,
+    RunForYourLivesRobbedInventoryResult,
+)
+from towr.domain.run_for_your_lives_trapped_models import (
+    RunForYourLivesTrappedCostRequest,
+    RunForYourLivesTrappedCostResult,
+    TrappedCaptureCostApplicationRequest,
+    TrappedEscapeCostApplicationRequest,
+    TrappedEscapeCostDecision,
+    TrappedEscapeCostKind,
+    TrappedEscapeCostProof,
+    TrappedOtherCostApplicationRequest,
+    TrappedWoundCostApplicationRequest,
+)
 from towr.domain.hidden_attack_models import (
     HiddenAttackOpportunityLossReason,
     MoveQuietlyHiddenAttackExecutionRequest,
@@ -1094,6 +1126,28 @@ __all__ = [
     "RetreatBloodPriceWoundRequest",
     "RetreatMaterielPriceApplicationResult",
     "RetreatMaterielPriceInventoryRequest",
+    "CampaignGoldenOpportunity",
+    "CampaignGoldenOpportunityState",
+    "RetreatMisfortunePriceApplicationResult",
+    "RetreatMisfortunePriceCampaignRequest",
+    "CampaignConsequenceRecord",
+    "CampaignConsequenceState",
+    "RunForYourLivesCampaignApplicationRequest",
+    "RunForYourLivesCampaignApplicationResult",
+    "RunForYourLivesConsequenceSpecification",
+    "RobbedInventoryTransition",
+    "RobbedTrappingLossSelection",
+    "RunForYourLivesRobbedInventoryRequest",
+    "RunForYourLivesRobbedInventoryResult",
+    "RunForYourLivesTrappedCostRequest",
+    "RunForYourLivesTrappedCostResult",
+    "TrappedCaptureCostApplicationRequest",
+    "TrappedEscapeCostApplicationRequest",
+    "TrappedEscapeCostDecision",
+    "TrappedEscapeCostKind",
+    "TrappedEscapeCostProof",
+    "TrappedOtherCostApplicationRequest",
+    "TrappedWoundCostApplicationRequest",
     "RerollLock",
     "ProneBeforeGiveGroundSpec",
     "ProneRemovalTargetKind",
