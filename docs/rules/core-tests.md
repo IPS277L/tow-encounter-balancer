@@ -59,9 +59,9 @@ Exacting Test накапливает successes нескольких Basic Tests 
 
 Если отдельный вклад Opposed, progress равен successes участника минус successes противника. Победа только по tie-break даёт `1` progress. Провал никогда не уменьшает уже накопленный итог, а лишь не продвигает его. Книга приводит ориентиры `4` successes для заметного обязательства, `8` для тяжёлого испытания и `12+` для особенно трудной задачи.
 
-K1 теперь содержит общий immutable `ExactingTestProgress` и basic-contribution reducer. Каждый вклад хранит собственные request/Test/contributor IDs и полное число successes; нулевой вклад остаётся в trace, но не уменьшает progress, а превышение порога сохраняется. Завершённый progress и повторные request/Test IDs отвергаются. Конкретный consumer обязан сам доказать книжную цену каждого вклада: общий reducer не придумывает action, Coin, risk или favour. Opposed-contribution формула пока остаётся отдельным будущим расширением.
+K1 содержит общий immutable `ExactingTestProgress` для Basic и Opposed contributions. Basic reducer сам выполняет одну Test и переносит её successes. Opposed reducer принимает уже разрешённый canonical `OpposedTestResult`: победитель добавляет положительную разницу successes, победа через tie-break даёт ровно `1`, проигрыш и double-zero дают нулевой trace-вклад без уменьшения progress. Opposed contribution хранит ID общей проверки и обеих вложенных Test; повтор любого из них отвергается и при последующих Basic contributions. Каждый вклад также хранит request/contributor IDs, overshoot сохраняется, а completed progress закрыт. Конкретный consumer обязан сам доказать книжную цену каждой попытки: общий reducer не придумывает action, Coin, risk или favour.
 
-Источник: Player’s Guide 1.4, страницы 12 и 110. Статус: `partially implemented`: Basic contributions и первый action-cost consumer Combat Surgeon реализованы; Opposed contributions и универсальные cost adapters ещё отсутствуют.
+Источник: Player’s Guide 1.4, страницы 12 и 110. Статус: `partially implemented`: Basic/Opposed contributions и первый action-cost consumer Combat Surgeon реализованы; остальные конкретные price/cost adapters ещё отсутствуют.
 
 ## RULE-TEST-008 — когда и как GM назначает Test
 

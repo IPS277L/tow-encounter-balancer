@@ -94,6 +94,10 @@ from towr.domain.drained_test_models import (
 )
 from towr.domain.exacting_test_models import (
     EXACTING_TEST_RULE_ID,
+    ExactingContribution,
+    ExactingOpposedTestContribution,
+    ExactingOpposedTestContributionRequest,
+    ExactingOpposedTestContributionResult,
     ExactingTestContribution,
     ExactingTestContributionRequest,
     ExactingTestContributionResult,
@@ -247,6 +251,22 @@ from towr.domain.campaign_enemy_readiness_models import (
     CampaignEnemyReadinessActivation,
     CampaignEnemyReadinessState,
 )
+from towr.domain.campaign_debt_models import (
+    CampaignDebtObligation,
+    CampaignDebtState,
+)
+from towr.domain.campaign_reputation_models import (
+    CampaignReputationConsequence,
+    CampaignReputationState,
+)
+from towr.domain.campaign_delay_models import (
+    CampaignDelayConsequence,
+    CampaignDelayState,
+)
+from towr.domain.campaign_trapped_other_models import (
+    CampaignTrappedOtherCost,
+    CampaignTrappedOtherState,
+)
 from towr.domain.retreat_misfortune_price_models import (
     RetreatMisfortunePriceApplicationResult,
     RetreatMisfortunePriceCampaignRequest,
@@ -284,6 +304,18 @@ from towr.domain.run_for_your_lives_marked_models import (
     RunForYourLivesMarkedRegistrationRequest,
     RunForYourLivesMarkedRegistrationResult,
 )
+from towr.domain.run_for_your_lives_indebted_models import (
+    RunForYourLivesIndebtedRequest,
+    RunForYourLivesIndebtedResult,
+)
+from towr.domain.run_for_your_lives_mocked_models import (
+    RunForYourLivesMockedRequest,
+    RunForYourLivesMockedResult,
+)
+from towr.domain.run_for_your_lives_lost_models import (
+    RunForYourLivesLostRequest,
+    RunForYourLivesLostResult,
+)
 from towr.domain.run_for_your_lives_trapped_models import (
     RunForYourLivesTrappedCostRequest,
     RunForYourLivesTrappedCostResult,
@@ -299,6 +331,10 @@ from towr.domain.run_for_your_lives_trapped_capture_models import (
     RunForYourLivesTrappedCaptureRequest,
     RunForYourLivesTrappedCaptureResult,
     TrappedCaptureAssignment,
+)
+from towr.domain.run_for_your_lives_trapped_other_models import (
+    RunForYourLivesTrappedOtherRequest,
+    RunForYourLivesTrappedOtherResult,
 )
 from towr.domain.run_for_your_lives_trapped_wound_models import (
     RunForYourLivesTrappedWoundRequest,
@@ -884,6 +920,10 @@ __all__ = [
     "EffectClassification",
     "EffectImmunity",
     "EXACTING_TEST_RULE_ID",
+    "ExactingContribution",
+    "ExactingOpposedTestContribution",
+    "ExactingOpposedTestContributionRequest",
+    "ExactingOpposedTestContributionResult",
     "ExactingTestContribution",
     "ExactingTestContributionRequest",
     "ExactingTestContributionResult",
@@ -1193,6 +1233,14 @@ __all__ = [
     "CampaignEnemyReadiness",
     "CampaignEnemyReadinessActivation",
     "CampaignEnemyReadinessState",
+    "CampaignDebtObligation",
+    "CampaignDebtState",
+    "CampaignReputationConsequence",
+    "CampaignReputationState",
+    "CampaignDelayConsequence",
+    "CampaignDelayState",
+    "CampaignTrappedOtherCost",
+    "CampaignTrappedOtherState",
     "RetreatMisfortunePriceApplicationResult",
     "RetreatMisfortunePriceCampaignRequest",
     "CampaignConsequenceRecord",
@@ -1216,6 +1264,12 @@ __all__ = [
     "RunForYourLivesMarkedActivationResult",
     "RunForYourLivesMarkedRegistrationRequest",
     "RunForYourLivesMarkedRegistrationResult",
+    "RunForYourLivesIndebtedRequest",
+    "RunForYourLivesIndebtedResult",
+    "RunForYourLivesMockedRequest",
+    "RunForYourLivesMockedResult",
+    "RunForYourLivesLostRequest",
+    "RunForYourLivesLostResult",
     "RunForYourLivesTrappedCostRequest",
     "RunForYourLivesTrappedCostResult",
     "TrappedCaptureCostApplicationRequest",
@@ -1228,6 +1282,8 @@ __all__ = [
     "RunForYourLivesTrappedCaptureRequest",
     "RunForYourLivesTrappedCaptureResult",
     "TrappedCaptureAssignment",
+    "RunForYourLivesTrappedOtherRequest",
+    "RunForYourLivesTrappedOtherResult",
     "RunForYourLivesTrappedWoundRequest",
     "RunForYourLivesTrappedWoundResult",
     "TrappedWoundCostTarget",

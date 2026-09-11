@@ -1,6 +1,6 @@
 # Текущий статус проекта
 
-Дата обновления: 2026-08-31.
+Дата обновления: 2026-09-11.
 
 ## Текущий этап
 
@@ -464,6 +464,10 @@ K1 — реализация книжного resolution kernel. Прототип
 - добавлены ordered `TrappedCaptureAssignment` и `RunForYourLivesTrappedCaptureRequest → Result`: для каждого affected PC GM явно задаёт unique capture ID, stable captor reference и exact consequence reference, а reducer без RNG атомарно регистрирует весь batch;
 - один captor может удерживать нескольких PC; wrong campaign/branch/actor order/reference, уже активный captive, повтор capture ID/source application и forged result отклоняются;
 - captor не выводится из rearguard/opposition автоматически, а escape, release, rescue, inventory и injury effects не исполняются до отдельного lifecycle по `AMBIGUITY-015`;
+- добавлены `CampaignTrappedOtherCost` и `CampaignTrappedOtherState`: минимальный immutable aggregate хранит opaque GM-defined escape prices с affected PC, exact consequence/description references и полным decision/proof/application/campaign/battle/Retreat provenance;
+- реализован `RunForYourLivesTrappedOtherRequest → Result`: consumer принимает только canonical `OTHER` follow-up, без RNG однократно регистрирует одну цену и сохраняет существующую историю aggregate;
+- wrong campaign/branch, повтор record ID/source application и forged state/result отклоняются; cardinality affected PC и consequence references не превращается в несуществующий one-to-one mapping;
+- Other consumer не содержит effect kind или arbitrary payload и не меняет injury, captivity, inventory, economy либо relationship state; конкретное исполнение цены остаётся специализированному consumer по `AMBIGUITY-014`;
 - добавлены `CampaignConflictOpportunity` и `CampaignConflictOpportunityState`: отдельный immutable campaign aggregate хранит зарегистрированные hooks нового конфликта, unique opportunity/source-consequence IDs и полный application/consequence/specification/battle/Retreat provenance;
 - реализован `RunForYourLivesSurroundedRequest → Result`: exact зарегистрированный `SURROUNDED` без RNG требует distinct ordered opposition/encounter-setup references, полностью совпадающие с concrete consequence specification, и однократно дописывает hook;
 - affected subjects переносятся из исходной specification, но новая opposition не выводится из прежнего enemy snapshot; wrong outcome/campaign/reference order, replay, duplicate ID и forged state/result отклоняются;
@@ -480,8 +484,23 @@ K1 — реализация книжного resolution kernel. Прототип
 - реализован `RunForYourLivesMarkedRegistrationRequest → Result`: exact `MARKED` без RNG требует distinct ordered enemy/acquired-intelligence/next-action-trigger references из consequence specification и однократно регистрирует pending readiness;
 - реализован `RunForYourLivesMarkedActivationRequest → Result`: readiness активируется только matching enemy/trigger и explicit action-event reference; одно событие может активировать несколько разных records, повтор одной readiness запрещён;
 - wrong outcome/campaign/reference/order/enemy/trigger, orphan activation, replay, duplicate IDs и forged state/result отклоняются; классификация `move against them`, bonus, ambush, encounter и дальнейший lifecycle не исполняются по `AMBIGUITY-019`;
+- добавлены `CampaignDebtObligation` и `CampaignDebtState`: минимальный immutable campaign aggregate хранит outstanding Indebted obligations с campaign/application/consequence/specification/battle/Retreat provenance;
+- реализован `RunForYourLivesIndebtedRequest → Result`: exact `INDEBTED` без RNG требует distinct ordered creditor/debt/repayment references из consequence specification и однократно регистрирует obligation для исходных affected subjects;
+- existing obligations сохраняются; wrong outcome/campaign/reference order, replay, duplicate ID и forged state/result отклоняются;
+- amount, конкретная услуга, deadline, санкция и repayment transition не исполняются по `AMBIGUITY-020`;
+- добавлены `CampaignReputationConsequence` и `CampaignReputationState`: минимальный immutable campaign aggregate хранит Mocked reputation records с campaign/application/consequence/specification/battle/Retreat provenance;
+- реализован `RunForYourLivesMockedRequest → Result`: exact `MOCKED` без RNG требует непустой ordered unique witness/rival snapshot и distinct gossip/reputation-effect references, полностью совпадающие с consequence specification;
+- existing reputation history сохраняется; wrong outcome/campaign/reference order, empty/duplicate roles, replay, duplicate ID и forged state/result отклоняются;
+- numeric magnitude, social scope, propagation, duration, modifier и recovery не исполняются по `AMBIGUITY-021`;
+- добавлены `CampaignDelayConsequence` и `CampaignDelayState`: минимальный immutable campaign aggregate хранит Lost delay records с campaign/application/consequence/specification/battle/Retreat provenance;
+- реализован `RunForYourLivesLostRequest → Result`: exact `LOST` без RNG требует distinct ordered unfamiliar-territory/intended-destination/return-delay/enemy-opportunity references, полностью совпадающие с consequence specification;
+- existing delay history сохраняется; wrong outcome/campaign/reference order, empty/duplicate roles, replay, duplicate ID и forged state/result отклоняются;
+- числовая длительность, маршрут, spatial movement, calendar advance и конкретные действия врагов не исполняются по `AMBIGUITY-022`;
 - `RetreatPursuitResolutionRequest` теперь принимает закрытый `RetreatCoverResult`: Fate-funded rearguard либо подтверждённую alternative price; дальнейшие Athletics/Lore/opposition/Complication и Run For Your Lives фазы общие, а campaign follow-up сохраняет kind и proof исходного cover;
-- реализован общий `ExactingTestProgress` и Basic-contribution reducer: ordered Test/contributor provenance вычисляет running total, сохраняет zero-progress failure и overshoot, запрещает повтор ID и вклад после completion;
+- реализован общий `ExactingTestProgress` с Basic и Opposed contributions: ordered Test/contributor provenance вычисляет running total, сохраняет zero-progress failure и overshoot, запрещает повтор ID и вклад после completion;
+- добавлены `ExactingOpposedTestContributionRequest → Result`: consumer без RNG принимает canonical `OpposedTestResult`, поддерживает contributor на любой стороне и добавляет положительный success margin, `1` за выигранный tie-break либо `0` при проигрыше/double-zero;
+- Opposed contribution сохраняет wrapper/initiator/opponent Test IDs и не позволяет повторно внести любой из них другим Basic/Opposed путём; mixed progress работает в обоих порядках;
+- foreign или internally inconsistent Opposed result, incomplete trace, replay, completed progress и forged result отклоняются;
 - реализован `CombatSurgeonBattleSurgeryActionRequest → Result`: matching non-attack Ability Improvise исполняет одну Dexterity Test и один action receipt, привязывая Exacting progress к battle/surgeon/target/surgical Wound/exact injury snapshot;
 - battle surgery требует 8 successes; нулевая Test не уменьшает progress и создаёт GM-owned surgery risk, completion возвращает proof без healing или injury mutation; operating theatre отменён Talent, а tools/supports пока требуются по `AMBIGUITY-010`;
 - `RestAndRecoveryHealingRequest` принимает completed `CombatSurgeonBattleSurgeryProof` как альтернативу ordinary surgery для строк `20–23`: target и стабильная identity Wound (`sequence`, entry, total, rolls, origin) обязаны совпасть, но несвязанные раны/Conditions между battle и downtime могут измениться;
@@ -502,7 +521,7 @@ K1 — реализация книжного resolution kernel. Прототип
 
 ## Проверено
 
-- 821 unit/integration тест успешно проходит на Python 3.12; 801 тест относится к K1;
+- 958 unit/integration тестов успешно проходят на Python 3.12; 938 тестов относятся к K1;
 - исходники и тесты успешно проходят `compileall`.
 
 ## Исходный материал
@@ -526,11 +545,11 @@ K1 — реализация книжного resolution kernel. Прототип
 - `WizardMagicState` не содержит Wizard Level, поэтому непосредственный Recover reducer уменьшает переданный непросроченный Miscast snapshot; battle orchestration обязано сначала немедленно разрешить уже triggered Miscast Pool и не давать Recover отменить сработавший Miscast;
 - каталоги NPC Abilities, магии, религии и магических предметов завершены как нормативный индекс, но большинство записей ещё не связано с исполняемыми reducers и orchestration;
 - `CATCH_YOUR_BREATH`, независимый end-encounter opportunity, `A Night’s Respite`, успешный `REST_AND_RECOVERY`, daily Wound/Infection producer, Anatomy Recall/automatic-success branch, persistent Festering state/recovery consumer, ordinary и Combat Surgeon surgery proofs для `20–23`, общий transition снятия non-permanent effects, обе Combat Surgeon boundaries, suppression aggregate/view и полная `Drained` Test preparation реализованы; остальные Condition modifiers, применение surgery-failure follow-up и optional early Endurance Test требуют будущих lifecycle/orchestration boundaries;
-- session Fate resource, обе части Lucky, GM refresh, Glorious producer до/после initial roll, Second Action/Tactical Retreat composites, permanent burn и applications всех трёх видов, rolled и fixed two-phase Wound lifecycles вместе с kernel/Stagger/Hazard/Internal Damage/Ears Ringing adapters, alternative-price proof и все три его application consumers, общий pursuit, Run For Your Lives aggregate/outcome-bound registration, Robbed inventory application, Surrounded conflict-opportunity registration, Hunted threat registration/activation, Marked enemy-readiness registration/activation, Exposed intelligence registration, Trapped cost routing, его Wounds sequencer и Capture active-captivity consumer реализованы; golden opportunity, Surrounded/Hunted/Marked/Exposed execution, Trapped Other/captivity aftermath и остальные три table outcomes ещё не применяются;
+- session Fate resource, обе части Lucky, GM refresh, Glorious producer до/после initial roll, Second Action/Tactical Retreat composites, permanent burn и applications всех трёх видов, rolled и fixed two-phase Wound lifecycles вместе с kernel/Stagger/Hazard/Internal Damage/Ears Ringing adapters, alternative-price proof и все три его application consumers, общий pursuit, Run For Your Lives aggregate/outcome-bound registration и отдельные typed boundaries всех девяти исходов реализованы; golden opportunity, исполнение Surrounded/Hunted/Marked/Exposed/Lost hooks, Indebted repayment, Mocked social execution и исполнение конкретной Trapped Other-цены/captivity aftermath ещё не применяются;
 - Unmitigated Success application возвращает policy-confirmed Test outcome и книжные attack caps, но применение этого результата к конкретному Attack либо scene aggregate остаётся обязанностью внешнего orchestration;
 - Last Stand application требует уже исполненные внешние feat consequences и только закрывает их terminal смертью; выбор масштаба, целей и конкретных изменений scene остаётся обязанностью policy/orchestration;
 - Lucky gambling producer принимает уже классифицированный game-of-chance context; отдельного gambling/social action engine и автоматического поиска подходящей Test пока нет;
-- общий Exacting reducer пока принимает Basic contributions и оставляет цену специализированному consumer; Opposed contribution со subtraction/tie-break и другие cost adapters ещё не реализованы;
+- общий Exacting reducer принимает Basic/Opposed contributions и оставляет цену специализированному consumer; кроме Combat Surgeon, конкретные action/Coin/risk/favour cost adapters ещё не реализованы;
 - внешние последствия Wound для инвентаря и анатомии пока являются typed follow-up;
 - защита Endurance после заживления `Ruptured organs` ещё не подключена к физическому impact;
 - автоматическая замена неподходящей строки Wounds Table для не-физического Hazard требует отдельной GM/simulation policy;
@@ -565,18 +584,18 @@ K1 — реализация книжного resolution kernel. Прототип
 
 ## Следующий шаг
 
-Реализовать outcome `Indebted` как typed campaign-debt aggregate: принять exact registered consequence и explicit stable references на rescuer/creditor, возникший debt и условие/содержание repayment. Не выбирать автоматически сумму, услугу, срок, санкцию или способ погашения долга.
+Реализовать `Reload` как первый следующий action-cost consumer общего Exacting progress по Player’s Guide 1.4, страницам 94–95 и 116: weapon-bound progress на указанное число successes, одна Dexterity Test за зарезервированное action и loaded transition только при completion. Не вводить полный equipment/capacity engine и не расходовать ammunition без отдельного inventory contract.
 
 ## Последняя проверка
 
-2026-08-31:
+2026-09-11:
 
 ```powershell
 $env:PYTHONPATH = "src"
 py -3.12 -m unittest discover -s tests -v
 ```
 
-Результат: `Ran 921 tests ... OK`; отдельный K1-набор: `Ran 901 tests ... OK`; `compileall`, public-import smoke test для Retreat price, inventory, campaign-opportunity, Run For Your Lives campaign-registration, Robbed, Surrounded, Hunted registration/activation, Marked registration/activation, Exposed, Trapped routing, Trapped Wounds и Trapped Capture contracts, проверка отсутствия domain→rules imports и `git diff --check` успешно завершены (только предупреждения Git о LF/CRLF).
+Результат: `Ran 958 tests ... OK`; отдельный K1-набор: `Ran 938 tests ... OK`; `compileall`, public-import smoke test для Basic/Opposed Exacting contributions и Run For Your Lives contracts, проверка отсутствия domain→rules imports и `git diff --check` успешно завершены (только предупреждения Git о LF/CRLF).
 
 ```powershell
 py -3.12 -m compileall -q src tests tools
