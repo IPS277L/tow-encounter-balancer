@@ -68,6 +68,10 @@ Reload — Exacting Dexterity Test, одна Test за action. Если target s
 
 `RangedWeaponAttackExecutionRequest → Result` является единым production entry point над обеими ветвями. Для `FreeReloadWeaponState` он исполняет обычный Shooting Attack и сохраняет состояние оружия без cycle; для `ReloadableWeaponState` маршрутизирует тот же запрос через числовой composite. В обеих ветвях kernel и action receipt создаются ровно один раз. Free-профиль не принимает cycle ID или Repeater bonus. Полный equipment/ammunition state и hidden-opportunity composition остаются отдельными границами.
 
+`MoveQuietlyHiddenRangedAttackExecutionRequest → Result` соединяет этот entry point с уже проверенным hidden-opportunity preflight. Hidden и ranged requests обязаны ссылаться на один exact unopposed Attack; executor запускает только profile-aware ranged path, а затем одним результатом раскрывает hiding position и дописывает opportunity ID в consumption chain. Free, ordinary reloadable и обе Repeater-ветви сохраняют свою обычную семантику. Неуспешное исполнение Attack не расходует opportunity и не меняет weapon state.
+
+`AimRangedWeaponAttackExecutionRequest → Result` аналогично принимает уже разрешённый `AimFollowUpResult` с исходом `APPLIED_TO_RANGED_ATTACK` и точный подготовленный Shooting Attack. Он не вычисляет bonus повторно: `AimFollowUpResult.attack` обязан совпасть с profile-aware request, после чего исполняется один ranged resolver и follow-up ID дописывается в отдельную consumption chain. Нулевой bonus также погашает Aim. Aim и Repeater modifiers складываются до общего обычного pool cap; weapon transition остаётся профильным. Lost/Throwing/foreign/replayed follow-up отклоняются до RNG.
+
 | Weapon | Cost | Optimum | Damage | Hands | Traits |
 |---|---|---|---|---|---|
 | Sling | Brass | Medium | S | 1H | — |

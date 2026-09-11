@@ -359,6 +359,10 @@ py -3.12 -m unittest discover -s tests -v
 - Repeater без бонуса остаётся loaded и не открывает cycle; применение бонуса требует точного профильного modifier и нового cycle, а несогласованные flag/modifier/cycle отклоняются до RNG;
 - единый ranged weapon entry point принимает free и reloadable profile states: free-ветвь сохраняет тот же state, числовая ветвь переиспользует существующий transition, а обе создают ровно один обычный Attack receipt;
 - free-ветвь отклоняет cycle ID, Repeater bonus и не-Shooting Skill до RNG; failed nested Attack не создаёт weapon transition, unified result закрывает provenance/state/trace и не вводит ammunition/inventory fields;
+- combined hidden ranged request требует, чтобы hidden-opportunity preflight и profile-aware request содержали один exact unopposed Attack и разные request IDs;
+- успешный hidden shot для free, ordinary reloadable, обычного Repeater и bonus Repeater создаёт один receipt, применяет соответствующий weapon transition и один раз дописывает opportunity ID; failed Attack не расходует opportunity, forged consumption/trace/result отклоняются;
+- Aim-bound ranged consumer принимает только применённый Shooting follow-up и exact подготовленный Attack, расходует follow-up ID один раз после успешного ranged result и не создаёт mutable bonus state;
+- free и Crossbow ветви сохраняют профильные transitions; Aim и optional Repeater modifiers складываются перед общим pool cap, zero-success Aim всё равно погашается, LOST/Throwing/foreign/replayed follow-up и forged consumption/trace отклоняются;
 - failure вложенного Attack preflight не создаёт нового weapon state, а result отвергает чужой Attack, подмену state и неполный trace;
 - Combat Surgeon battle surgery требует matching non-attack Ability Improvise, Talent, Dexterity, exact battle/surgeon/target/Wound/state, tools/supports и surgery-category Wound; operating theatre не является входом по `AMBIGUITY-010`;
 - каждая Test исполняет ровно один action receipt; 8 accumulated successes создают proof без injury mutation, а нулевая Test сохраняет progress и возвращает GM-owned surgery risk;

@@ -20,6 +20,11 @@ from towr.domain.aim_models import (
     AimFollowUpRequest,
     AimFollowUpResult,
 )
+from towr.domain.aim_ranged_weapon_attack_models import (
+    AIM_RANGED_ATTACK_EXECUTION_RULE_ID,
+    AimRangedWeaponAttackExecutionRequest,
+    AimRangedWeaponAttackExecutionResult,
+)
 from towr.domain.actions import AttackAction, InlineRollSource, StatRollSource
 from towr.domain.attack_models import (
     AttackRequest,
@@ -173,6 +178,10 @@ from towr.domain.help_models import (
     HelpBonusApplicationRequest,
     HelpBonusApplicationResult,
     HelpBonusSnapshot,
+)
+from towr.domain.hidden_ranged_weapon_attack_models import (
+    MoveQuietlyHiddenRangedAttackExecutionRequest,
+    MoveQuietlyHiddenRangedAttackExecutionResult,
 )
 from towr.domain.lucky_models import (
     LUCKY_RULE_ID,
@@ -790,6 +799,9 @@ __all__ = [
     "ActionSlotGrant",
     "AimActionExecutionRequest",
     "AimActionExecutionResult",
+    "AIM_RANGED_ATTACK_EXECUTION_RULE_ID",
+    "AimRangedWeaponAttackExecutionRequest",
+    "AimRangedWeaponAttackExecutionResult",
     "AimBonusSnapshot",
     "AimFollowUpOutcome",
     "AimFollowUpRequest",
@@ -1043,6 +1055,8 @@ __all__ = [
     "HelpBonusApplicationResult",
     "HelpBonusSnapshot",
     "HiddenAttackOpportunityLossReason",
+    "MoveQuietlyHiddenRangedAttackExecutionRequest",
+    "MoveQuietlyHiddenRangedAttackExecutionResult",
     "IdentifiedHazardTarget",
     "IdentifiedSpellTarget",
     "IdentifiedStaggerTarget",

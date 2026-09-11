@@ -1,6 +1,6 @@
 # Текущий статус проекта
 
-Дата обновления: 2026-09-11.
+Дата обновления: 2026-09-12.
 
 ## Текущий этап
 
@@ -530,11 +530,16 @@ K1 — реализация книжного resolution kernel. Прототип
 - `ReloadableWeaponState` хранит ordered unique reload-cycle history, поэтому использованный ID нельзя вернуть после следующего выстрела; closed result отклоняет чужой Attack, подмену состояния и неполный trace;
 - добавлены `RangedWeaponAttackExecutionRequest → Result` и единый `execute_ranged_weapon_attack`: free-профиль исполняет ordinary Shooting и сохраняет weapon state, а reloadable-профиль маршрутизируется через существующий Exacting/Repeater composite;
 - обе ветви возвращают один nested Attack и один action receipt без повторного kernel execution; free-ветвь до RNG отклоняет cycle ID, Repeater bonus и не-Shooting Skill, а closed result проверяет attack/state/trace provenance;
-- combined Move Quietly hidden-shot consumer остаётся вне текущей границы вместе с ammunition/full equipment state.
+- добавлены `MoveQuietlyHiddenRangedAttackExecutionRequest → Result`: он объединяет existing hidden preflight и profile-aware ranged request только при одном exact unopposed Attack и различных request IDs;
+- combined executor вызывает ranged Attack ровно один раз, затем раскрывает hiding position и дописывает opportunity ID; free, ordinary reloadable, обычный и bonus Repeater сохраняют профильные transitions, а failure не расходует opportunity;
+- добавлены `AimRangedWeaponAttackExecutionRequest → Result`: consumer принимает только применённый к Shooting `AimFollowUpResult`, требует один exact prepared Attack и ведёт immutable consumed-follow-up chain;
+- Aim bonus не пересчитывается и не добавляется повторно; free/Crossbow/Repeater transitions исполняются unified ranged resolver ровно один раз, zero-success Aim тоже погашается, а Aim и Repeater modifiers складываются до общего обычного pool cap;
+- LOST/Throwing/foreign/replayed Aim и forged consumption/result/trace отклоняются до либо после единственного execution согласно своей фазе;
+- ammunition/full equipment state остаются вне текущей границы.
 
 ## Проверено
 
-- 990 unit/integration тестов успешно проходят на Python 3.12; 970 тестов относятся к K1;
+- 1002 unit/integration теста успешно проходят на Python 3.12; 982 теста относятся к K1;
 - исходники и тесты успешно проходят `compileall`.
 
 ## Исходный материал
@@ -597,18 +602,18 @@ K1 — реализация книжного resolution kernel. Прототип
 
 ## Следующий шаг
 
-Добавить узкий combined Move Quietly hidden ranged-shot consumer: он должен одним переходом проверить и погасить `MoveQuietlyHiddenAttackOpportunity`, исполнить `RangedWeaponAttackExecutionRequest` ровно один раз и вернуть profile-aware weapon transition без второго kernel execution или action receipt. Поддержать free, ordinary reloadable и Repeater branches; ammunition/full equipment aggregate не добавлять.
+Расширить страницу 95 от reload-подкаталога до минимального typed combat-profile catalog всех 13 ranged weapons: Optimum Range, Damage, hands, вычислимый Max Range и явно именованные trait flags, включая `must Aim` у Hochland Long Rifle. На этом срезе валидировать полноту и книжные значения каталога, не вводя Coin, ammunition, carried capacity или универсальный trait interpreter.
 
 ## Последняя проверка
 
-2026-09-11:
+2026-09-12:
 
 ```powershell
 $env:PYTHONPATH = "src"
 py -3.12 -m unittest discover -s tests -v
 ```
 
-Результат: `Ran 990 tests ... OK`; отдельный K1-набор: `Ran 970 tests ... OK`; `compileall`, public-import smoke test для Reload и unified/profile-aware ranged-shot contracts, проверка отсутствия domain→rules imports и `git diff --check` успешно завершены (только предупреждения Git о LF/CRLF).
+Результат: `Ran 1002 tests ... OK`; отдельный K1-набор: `Ran 982 tests ... OK`; `compileall`, public-import smoke test для Reload и unified/hidden/Aim-bound profile-aware ranged-shot contracts, проверка отсутствия domain→rules imports и `git diff --check` успешно завершены (только предупреждения Git о LF/CRLF).
 
 ```powershell
 py -3.12 -m compileall -q src tests tools
