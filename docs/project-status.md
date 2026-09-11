@@ -518,10 +518,23 @@ K1 — реализация книжного resolution kernel. Прототип
 - preflight до RNG требует не-Defenceless actor, одну вражескую Staggered-цель на Close Range и явный Endurance Test в полном `IdentifiedHazardTarget` snapshot; собственный Staggered Troll не блокируется, поскольку такого ограничения в Vomit нет;
 - executor атомарно переиспользует source-level Hazard preflight, общий Test, Hazard (3) и Wound pipeline, возвращает target injury state вне round state и только после полного результата добавляет один provenance-safe receipt;
 - wrong ability/kind/approach, пометка Attack, неправильная цель/дальность/Condition/Skill, незарезервированный либо повторный slot и нарушение порядка закрываются до RNG; любой незавершённый Ability Improvise теперь блокирует окончание хода.
+- добавлены `RangedWeaponId`, `RangedWeaponReloadProfile` и полный reload-подкаталог всех 13 ranged weapons страницы 95: профили различают free-with-attack, reload-after-every-shot и reload-after-optional-Repeater-bonus, фиксируют точные цели `2–5` и бонусы `+1d/+2d/+3d`;
+- `create_initial_ranged_weapon_reload_state` привязывает `weapon_instance_id` к профилю и создаёт либо отдельный `FreeReloadWeaponState`, либо initial loaded `ReloadableWeaponState`; подмена weapon ID или произвольной reload-цели отклоняется;
+- добавлены `ReloadableWeaponState` и `ReloadActionExecutionRequest → Result`: reload progress привязан к конкретным weapon instance/weapon ID/reload cycle и точной книжной цели successes;
+- Reload исполняется как matching non-attack Skill Improvise, требует Dexterity и не-Defenceless actor; каждая попытка делает ровно одну Basic Test, добавляет один Exacting contribution и завершает один action receipt;
+- partial success и failure оставляют оружие unloaded, zero-progress сохраняется в trace, overshoot допустим, а в активном reload cycle `loaded=True` возникает только при Exacting completion; initial loaded state разрешён без фиктивных прошлых Tests, replay, duplicate Test, stale cycle/weapon/slot и forged result отклоняются;
+- free-профили не используют Exacting action consumer; ammunition, full equipment и inventory state намеренно не добавлены.
+- добавлены `ReloadableRangedAttackExecutionRequest → Result`: composite до RNG требует loaded weapon, `Skill.SHOOTING`, matching ordinary Attack и согласованность профильного reload trigger, затем делегирует существующему Attack executor;
+- любой завершённый выстрел обычного reloadable оружия — hit либо miss — сохраняет nested Attack/receipt, переводит тот же weapon instance в unloaded и создаёт пустой Exacting progress с профильной целью; неисполненный Attack не создаёт нового weapon state;
+- Repeater без бонуса после выстрела остаётся loaded и не открывает reload cycle; выбранный бонус требует ровно профильный modifier и новый cycle, а несогласованные flag/modifier/cycle отклоняются до RNG;
+- `ReloadableWeaponState` хранит ordered unique reload-cycle history, поэтому использованный ID нельзя вернуть после следующего выстрела; closed result отклоняет чужой Attack, подмену состояния и неполный trace;
+- добавлены `RangedWeaponAttackExecutionRequest → Result` и единый `execute_ranged_weapon_attack`: free-профиль исполняет ordinary Shooting и сохраняет weapon state, а reloadable-профиль маршрутизируется через существующий Exacting/Repeater composite;
+- обе ветви возвращают один nested Attack и один action receipt без повторного kernel execution; free-ветвь до RNG отклоняет cycle ID, Repeater bonus и не-Shooting Skill, а closed result проверяет attack/state/trace provenance;
+- combined Move Quietly hidden-shot consumer остаётся вне текущей границы вместе с ammunition/full equipment state.
 
 ## Проверено
 
-- 958 unit/integration тестов успешно проходят на Python 3.12; 938 тестов относятся к K1;
+- 990 unit/integration тестов успешно проходят на Python 3.12; 970 тестов относятся к K1;
 - исходники и тесты успешно проходят `compileall`.
 
 ## Исходный материал
@@ -535,7 +548,7 @@ K1 — реализация книжного resolution kernel. Прототип
 ## Известные ограничения
 
 - старый P1 battle loop остаётся упрощённым прототипом; K1 уже следует книгам, но пока реализует только часть проиндексированных механик;
-- K1 проверяет round/side/turn и action budget; Fate Second Action атомарно расходует session pool и резервирует bound slot, Aim исполняет Awareness и создаёт next-action follow-up, Help исполняет собственный Test и создаёт bonus для связанного allied Test, Recover соединяет Condition/magic transitions и external applications, обычный и Move-Quietly-hidden Attack исполняются через kernel, spell Improvise — через Casting pipeline, Skill Improvise — через basic/opposed Test и отдельное применение Prone/Distracted, Troll Vomit/Swamp Breath/Soporific Breath — через single-target/Zone Ability Hazard composites, Run — через две spatial-фазы, Medium/Long Charge — через атомарные spatial/Test/attack composite, Move Carefully — через free-move/search composite, а Move Quietly — через opposed-Test/conditional-hiding composite; остальные Ability и attacking Skill Improvise ещё не подключены;
+- K1 проверяет round/side/turn и action budget; Fate Second Action атомарно расходует session pool и резервирует bound slot, Reload расходует Skill Improvise на одну weapon-bound Dexterity contribution, loaded Shooting composite после обычного Attack открывает следующий reload cycle, Aim исполняет Awareness и создаёт next-action follow-up, Help исполняет собственный Test и создаёт bonus для связанного allied Test, Recover соединяет Condition/magic transitions и external applications, обычный и Move-Quietly-hidden Attack исполняются через kernel, spell Improvise — через Casting pipeline, Skill Improvise — через basic/opposed Test и отдельное применение Prone/Distracted, Troll Vomit/Swamp Breath/Soporific Breath — через single-target/Zone Ability Hazard composites, Run — через две spatial-фазы, Medium/Long Charge — через атомарные spatial/Test/attack composite, Move Carefully — через free-move/search composite, а Move Quietly — через opposed-Test/conditional-hiding composite; остальные Ability и attacking Skill Improvise ещё не подключены;
 - Skill-Improvise consumed application IDs пока не принадлежат battle aggregate: orchestration обязано передавать актуальный ordered snapshot между вызовами; disarm, превращение врага в союзника и другие creative outcomes требуют собственных typed effects;
 - Attack execution возвращает новое injury state цели внутри `ResolutionResult`, но общего battle aggregate для автоматического переноса этого состояния по target ID пока нет;
 - Awareness/амбуш ещё не вычисляет opposition-first порядок: orchestration передаёт уже определённый `side_order`; обе ветви free move представлены, но остальные incidental actions и pass/skip ещё не подключены;
@@ -549,7 +562,7 @@ K1 — реализация книжного resolution kernel. Прототип
 - Unmitigated Success application возвращает policy-confirmed Test outcome и книжные attack caps, но применение этого результата к конкретному Attack либо scene aggregate остаётся обязанностью внешнего orchestration;
 - Last Stand application требует уже исполненные внешние feat consequences и только закрывает их terminal смертью; выбор масштаба, целей и конкретных изменений scene остаётся обязанностью policy/orchestration;
 - Lucky gambling producer принимает уже классифицированный game-of-chance context; отдельного gambling/social action engine и автоматического поиска подходящей Test пока нет;
-- общий Exacting reducer принимает Basic/Opposed contributions и оставляет цену специализированному consumer; кроме Combat Surgeon, конкретные action/Coin/risk/favour cost adapters ещё не реализованы;
+- общий Exacting reducer принимает Basic/Opposed contributions и оставляет цену специализированному consumer; Combat Surgeon и Reload action adapters реализованы, Coin/risk/favour и другие конкретные стоимости ещё отсутствуют;
 - внешние последствия Wound для инвентаря и анатомии пока являются typed follow-up;
 - защита Endurance после заживления `Ruptured organs` ещё не подключена к физическому impact;
 - автоматическая замена неподходящей строки Wounds Table для не-физического Hazard требует отдельной GM/simulation policy;
@@ -584,7 +597,7 @@ K1 — реализация книжного resolution kernel. Прототип
 
 ## Следующий шаг
 
-Реализовать `Reload` как первый следующий action-cost consumer общего Exacting progress по Player’s Guide 1.4, страницам 94–95 и 116: weapon-bound progress на указанное число successes, одна Dexterity Test за зарезервированное action и loaded transition только при completion. Не вводить полный equipment/capacity engine и не расходовать ammunition без отдельного inventory contract.
+Добавить узкий combined Move Quietly hidden ranged-shot consumer: он должен одним переходом проверить и погасить `MoveQuietlyHiddenAttackOpportunity`, исполнить `RangedWeaponAttackExecutionRequest` ровно один раз и вернуть profile-aware weapon transition без второго kernel execution или action receipt. Поддержать free, ordinary reloadable и Repeater branches; ammunition/full equipment aggregate не добавлять.
 
 ## Последняя проверка
 
@@ -595,7 +608,7 @@ $env:PYTHONPATH = "src"
 py -3.12 -m unittest discover -s tests -v
 ```
 
-Результат: `Ran 958 tests ... OK`; отдельный K1-набор: `Ran 938 tests ... OK`; `compileall`, public-import smoke test для Basic/Opposed Exacting contributions и Run For Your Lives contracts, проверка отсутствия domain→rules imports и `git diff --check` успешно завершены (только предупреждения Git о LF/CRLF).
+Результат: `Ran 990 tests ... OK`; отдельный K1-набор: `Ran 970 tests ... OK`; `compileall`, public-import smoke test для Reload и unified/profile-aware ranged-shot contracts, проверка отсутствия domain→rules imports и `git diff --check` успешно завершены (только предупреждения Git о LF/CRLF).
 
 ```powershell
 py -3.12 -m compileall -q src tests tools

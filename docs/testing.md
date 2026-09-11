@@ -349,6 +349,17 @@ py -3.12 -m unittest discover -s tests -v
 - общий Exacting reducer накапливает ordered Basic и Opposed contributions нескольких персонажей, сохраняет overshoot и нулевой trace-вклад, не уменьшает progress при failure и отвергает completed/reused/forged transitions;
 - Opposed contribution использует готовый canonical result без RNG: победа даёт success margin, выигранный tie-break — `1`, failure/double-zero — `0`; contributor может быть initiator либо opponent;
 - Opposed wrapper/initiator/opponent Test IDs однократны во всём progress и не могут затем повторно использоваться даже Basic-вкладом; mixed contributions работают в обоих порядках;
+- Reload требует matching non-attack Skill Improvise конкретного weapon instance, Dexterity и actor, способного действовать; каждый slot добавляет ровно одну Basic contribution и receipt;
+- частичный успех, failure, overshoot и последовательные раунды сохраняют weapon-bound reload cycle; `loaded` возникает только при completion, а completed/replayed/duplicate-Test/foreign-cycle и forged transitions отклоняются;
+- исходно заряженное оружие допустимо без фиктивного reload progress; разряженное состояние всегда требует активный незавершённый cycle;
+- каталог покрывает ровно все 13 ranged weapons страницы 95 и фиксирует для каждого free/every-shot/optional-bonus trigger, точную reload-цель и Repeater bonus; factory создаёт только согласованный с профилем initial state, а подмена weapon ID или цели отклоняется;
+- free-профиль создаёт отдельное состояние и не попадает в Exacting consumers; контракт намеренно не содержит ammunition либо inventory state;
+- reloadable ranged Attack до RNG требует loaded state и `Skill.SHOOTING`; обычное reloadable оружие требует новый уникальный cycle ID, а Melee/Throwing/Brawn и повтор cycle отклоняются;
+- hit и miss обычного reloadable оружия одинаково завершают один Attack receipt, переводят тот же weapon instance в unloaded и создают пустой Exacting progress; завершённый Reload снова открывает следующий выстрел, сохраняя ordered cycle history;
+- Repeater без бонуса остаётся loaded и не открывает cycle; применение бонуса требует точного профильного modifier и нового cycle, а несогласованные flag/modifier/cycle отклоняются до RNG;
+- единый ranged weapon entry point принимает free и reloadable profile states: free-ветвь сохраняет тот же state, числовая ветвь переиспользует существующий transition, а обе создают ровно один обычный Attack receipt;
+- free-ветвь отклоняет cycle ID, Repeater bonus и не-Shooting Skill до RNG; failed nested Attack не создаёт weapon transition, unified result закрывает provenance/state/trace и не вводит ammunition/inventory fields;
+- failure вложенного Attack preflight не создаёт нового weapon state, а result отвергает чужой Attack, подмену state и неполный trace;
 - Combat Surgeon battle surgery требует matching non-attack Ability Improvise, Talent, Dexterity, exact battle/surgeon/target/Wound/state, tools/supports и surgery-category Wound; operating theatre не является входом по `AMBIGUITY-010`;
 - каждая Test исполняет ровно один action receipt; 8 accumulated successes создают proof без injury mutation, а нулевая Test сохраняет progress и возвращает GM-owned surgery risk;
 - completed battle proof открывает последующий `SURGERY_AND_RECOVERY` для той же цели и stable Wound identity, допускает несвязанные изменения injury state, погашается перед Endeavour ID и отклоняется для другой записи/roll history/origin, другой цели, повтора или уже healed Wound;
