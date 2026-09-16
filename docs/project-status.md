@@ -1,6 +1,6 @@
 # Текущий статус проекта
 
-Дата обновления: 2026-09-12.
+Дата обновления: 2026-09-17.
 
 ## Текущий этап
 
@@ -535,11 +535,18 @@ K1 — реализация книжного resolution kernel. Прототип
 - добавлены `AimRangedWeaponAttackExecutionRequest → Result`: consumer принимает только применённый к Shooting `AimFollowUpResult`, требует один exact prepared Attack и ведёт immutable consumed-follow-up chain;
 - Aim bonus не пересчитывается и не добавляется повторно; free/Crossbow/Repeater transitions исполняются unified ranged resolver ровно один раз, zero-success Aim тоже погашается, а Aim и Repeater modifiers складываются до общего обычного pool cap;
 - LOST/Throwing/foreign/replayed Aim и forged consumption/result/trace отклоняются до либо после единственного execution согласно своей фазе;
-- ammunition/full equipment state остаются вне текущей границы.
+- добавлены `RangedWeaponCombatProfile` и полный combat-каталог всех 13 ranged weapons страницы 95: точные Optimum Range, Strength/fixed Damage, `1H`/`2H` и отдельные именованные numeric/boolean traits;
+- Max Range вычисляется как Long для `1H`, остаётся явным GM-defined значением для обычного `2H` и использует книжный override Medium для Blunderbuss; невозможные range/damage/hands/flag combinations отклоняются моделями;
+- combat profile ссылается на существующий reload profile того же weapon ID, не дублируя trigger, Exacting target или Repeater bonus; каталог проверен по всем книжным строкам, включая `must Aim` Hochland Long Rifle и полный набор Blackpowder weapons;
+- добавлены `RangedWeaponAttackPreparationRequest → Result` и чистый `prepare_ranged_weapon_attack`: weapon state связывается с одним исходным Attack и explicit range/Strength/Blackpowder-Lore/GM/Aim/reload facts без RNG;
+- preparation проверяет Close eligibility, fixed Max Range, GM-defined дальнюю границу `2H`, Extreme только через Aim+GM, mandatory Aim Long Rifle и Blackpowder Lore до создания готового execution request;
+- fixed/Strength Damage, ignores armour, `-1d` вне Optimum, Shortbow/Blunderbuss Shooting bonus, armoured-target Crossbow Damage, character Wounds Table bonus Long Rifle и typed nearby-Stagger Blunderbuss добавляются именованными effects; внешние Rule ID сохраняются, а уже добавленные профильные отклоняются;
+- optional Aim применяется после combat profile через существующий follow-up и возвращается вместе с exact `profile_attack`; готовый request совместим с Aim-bound executor и прежним free/reloadable transition, но preparation ещё не является обязательным proof входом отдельного production executor;
+- secondary target selection, consumption orchestration, ammunition и full equipment state остаются вне текущей границы.
 
 ## Проверено
 
-- 1002 unit/integration теста успешно проходят на Python 3.12; 982 теста относятся к K1;
+- 1017 unit/integration тестов успешно проходят на Python 3.12; 997 тестов относятся к K1;
 - исходники и тесты успешно проходят `compileall`.
 
 ## Исходный материал
@@ -557,7 +564,7 @@ K1 — реализация книжного resolution kernel. Прототип
 - Skill-Improvise consumed application IDs пока не принадлежат battle aggregate: orchestration обязано передавать актуальный ordered snapshot между вызовами; disarm, превращение врага в союзника и другие creative outcomes требуют собственных typed effects;
 - Attack execution возвращает новое injury state цели внутри `ResolutionResult`, но общего battle aggregate для автоматического переноса этого состояния по target ID пока нет;
 - Awareness/амбуш ещё не вычисляет opposition-first порядок: orchestration передаёт уже определённый `side_order`; обе ветви free move представлены, но остальные incidental actions и pass/skip ещё не подключены;
-- Aim follow-up является чистой границей без mutable battle aggregate: orchestration ещё должно хранить snapshot, вызвать consume/drop ровно для следующего действия владельца и запретить повторное использование результата; Extreme Range требует отсутствующих range/GM policy и автоматически не разрешается;
+- Aim follow-up является чистой границей без mutable battle aggregate: orchestration ещё должно хранить snapshot, вызвать consume/drop ровно для следующего действия владельца и запретить повторное использование результата; ranged preparation проверяет Extreme/GM-defined предел и создаёт matching follow-up, но только будущий proof-consuming executor сделает этот путь обязательным production entry point;
 - Help bonus также не хранится в mutable battle aggregate: orchestration должно сопоставить его с объявленной upcoming Test, погасить один раз и не переносить на другой Test; книга не задаёт общего ограничения числа одновременно помогающих союзников, поэтому K1 не вводит искусственный лимит;
 - Recover treatment action, одноразовое применение выбранной Wound и automatic end-battle treatment всех Wounds реализованы, но application/context consumed IDs пока должен хранить внешний orchestration; partial trappings batch намеренно отклоняется до решения `AMBIGUITY-008`, mount/object follow-ups ещё не применяются;
 - `WizardMagicState` не содержит Wizard Level, поэтому непосредственный Recover reducer уменьшает переданный непросроченный Miscast snapshot; battle orchestration обязано сначала немедленно разрешить уже triggered Miscast Pool и не давать Recover отменить сработавший Miscast;
@@ -600,20 +607,31 @@ K1 — реализация книжного resolution kernel. Прототип
 - психологическая иммунность undead-профилей подключена к боевым Condition/Hazard-фазам, `Curse of Cowardly Flight` и `Fascinating Rift`; остальные конкретные non-Condition эффекты требуют отдельного анализа;
 - Monte Carlo, JSON, CLI и балансировщик ещё не входят в текущий срез.
 
+## Завершённый срез 2026-09-17
+
+- добавлен `PreparedRangedWeaponAttackExecutionRequest → Result` и `execute_prepared_ranged_weapon_attack`: обязательная завершённая preparation, одна direct/Aim-bound ветвь и полный preparation/execution trace;
+- результат хранит один nested execution, общий `ranged_attack` view и immutable Aim consumption chain; нулевой Aim также погашается, повтор и подмена provenance отклоняются;
+- добавлены 10 детерминированных тестов нового executor и регрессия Max Range: одноручное оружие не выходит за Long даже с Aim/GM approval (PG 1.4, Equipment, стр. 94);
+- при ошибке исполнения исходные action/weapon/consumption snapshots остаются неизменными; откат RNG не обещается;
+- добавлен обязательный bool `has_enemy_in_close_range` без default: запрет оружия без Close в Optimum проверяется независимо от выбранной цели; Aim/GM approval его не обходят (PG 1.4, Equipment, стр. 94–95);
+- Pistol, Repeater Pistol и Repeater Handbow проходят исключение; исходный факт и отдельный Rule ID сохраняются через prepared/Aim execution, не меняя реальную дальность, reload и последствия промаха;
+- добавлены 7 тестов close-enemy preflight: весь каталог из 13 профилей, строгий тип/обязательность факта, проверка до RNG, Close/far execution, Aim consumption и trace;
+- известные границы: spatial-поиск и актуальность close-enemy fact остаются внешними; ещё нет prepared+hidden composition, ammunition и spatial secondary-target discovery.
+
 ## Следующий шаг
 
-Расширить страницу 95 от reload-подкаталога до минимального typed combat-profile catalog всех 13 ranged weapons: Optimum Range, Damage, hands, вычислимый Max Range и явно именованные trait flags, включая `must Aim` у Hochland Long Rifle. На этом срезе валидировать полноту и книжные значения каталога, не вводя Coin, ammunition, carried capacity или универсальный trait interpreter.
+Связать завершённую ranged preparation с Move Quietly hidden opportunity: проверить exact prepared Attack и текущие hiding/awareness snapshots, вызвать prepared executor ровно один раз и после успешного исполнения погасить hidden opportunity. Сохранить полный preparation/hidden trace, один kernel/receipt/weapon transition и обе immutable consumption chains (hidden и optional Aim). Spatial-поиск целей, ammunition и универсальный trait interpreter не включать.
 
 ## Последняя проверка
 
-2026-09-12:
+2026-09-17:
 
 ```powershell
 $env:PYTHONPATH = "src"
 py -3.12 -m unittest discover -s tests -v
 ```
 
-Результат: `Ran 1002 tests ... OK`; отдельный K1-набор: `Ran 982 tests ... OK`; `compileall`, public-import smoke test для Reload и unified/hidden/Aim-bound profile-aware ranged-shot contracts, проверка отсутствия domain→rules imports и `git diff --check` успешно завершены (только предупреждения Git о LF/CRLF).
+Результат: `Ran 1035 tests ... OK`. Целевой запуск close-enemy/preparation/prepared execution: `Ran 27 tests ... OK`. `compileall`, public-import smoke test новых prepared contracts, проверка отсутствия domain→rules imports и `git diff --check` успешно завершены (только предупреждения Git о LF/CRLF).
 
 ```powershell
 py -3.12 -m compileall -q src tests tools

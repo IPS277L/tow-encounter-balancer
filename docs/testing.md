@@ -1,5 +1,10 @@
 # Тестирование
 
+- close-enemy preflight требует explicit bool без default; все 13 профилей проверяются при дальней цели с/без соседнего врага, Aim/GM approval не обходят запрет; Pistol, Repeater Pistol и Repeater Handbow сохраняют точную дистанцию цели, собственный reload trigger и Close-only miss consequence;
+- Close enemy fact сохраняется через prepared/Aim execution; запрет срабатывает до RNG и receipt, trace нельзя очистить от `RULE-EQUIPMENT-004:close-enemy-restriction`; `false` не отменяет отдельного ограничения Close выбранной цели;
+- prepared executor принимает завершённую preparation, проверяет exact direct/Aim ветвь и сохраняет полный ordered trace без повторного применения modifiers; обе ветви вызывают свой executor ровно один раз и передают тот же RNG/decision provider;
+- direct free/crossbow hit/miss, Aim с нулевым/положительным bonus, обе Repeater-ветви и Extreme Long Rifle сохраняют один новый Attack receipt и профильный weapon transition; прежние snapshots не мутируются при ошибке RNG;
+- consumption chain сохраняет прежние IDs и дополняется только при Aim; replay отклоняется до RNG, подмена execution/source/trace/chain запрещена; `1H` Max Long нельзя обойти Aim и GM approval;
 Правила проверяются детерминированно через заданные последовательности d10. Monte Carlo-тесты не должны зависеть от точного процента побед.
 
 Основная команда:
@@ -353,6 +358,9 @@ py -3.12 -m unittest discover -s tests -v
 - частичный успех, failure, overshoot и последовательные раунды сохраняют weapon-bound reload cycle; `loaded` возникает только при completion, а completed/replayed/duplicate-Test/foreign-cycle и forged transitions отклоняются;
 - исходно заряженное оружие допустимо без фиктивного reload progress; разряженное состояние всегда требует активный незавершённый cycle;
 - каталог покрывает ровно все 13 ranged weapons страницы 95 и фиксирует для каждого free/every-shot/optional-bonus trigger, точную reload-цель и Repeater bonus; factory создаёт только согласованный с профилем initial state, а подмена weapon ID или цели отклоняется;
+- отдельный combat-каталог покрывает те же 13 weapon IDs и сверяет точные Optimum Range, Strength/fixed Damage, hands и все именованные numeric/boolean traits страницы 95; Max Range вычисляется как Long для `1H`, GM-defined для обычного `2H` и Medium для Blunderbuss, а каждая запись ссылается на прежний reload profile;
+- ranged preparation без RNG связывает combat и reload profiles с одним Attack: проверяет Close/Optimum/Maximum/Extreme, GM approval за дальней границей `2H`, Blackpowder Lore и mandatory Aim; выводит exact Damage/ignores-armour/test/Damage/Wounds/secondary modifiers, сохраняет внешние эффекты и отклоняет повтор профильных Rule ID;
+- Long Rifle preparation создаёт Aim follow-up после profile modifiers и готовый request, который проходит существующий Aim-bound executor с одним kernel/receipt/reload transition; Crossbow и Repeater requests проходят прежний unified executor, а Blunderbuss только создаёт typed nearby-target effect без spatial selection;
 - free-профиль создаёт отдельное состояние и не попадает в Exacting consumers; контракт намеренно не содержит ammunition либо inventory state;
 - reloadable ranged Attack до RNG требует loaded state и `Skill.SHOOTING`; обычное reloadable оружие требует новый уникальный cycle ID, а Melee/Throwing/Brawn и повтор cycle отклоняются;
 - hit и miss обычного reloadable оружия одинаково завершают один Attack receipt, переводят тот же weapon instance в unloaded и создают пустой Exacting progress; завершённый Reload снова открывает следующий выстрел, сохраняя ordered cycle history;
