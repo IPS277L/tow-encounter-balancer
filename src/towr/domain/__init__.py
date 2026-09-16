@@ -730,6 +730,15 @@ from towr.domain.ranged_weapon_profiles import (
     ranged_weapon_combat_profile,
     ranged_weapon_reload_profile,
 )
+from towr.domain.hidden_continuation_models import (
+    HiddenOpportunityContinuationOutcome,
+    MoveQuietlyHiddenAttackContinuationRequest,
+    MoveQuietlyHiddenAttackContinuationResult,
+)
+from towr.domain.prepared_hidden_ranged_attack_models import (
+    PreparedHiddenRangedAttackExecutionRequest,
+    PreparedHiddenRangedAttackExecutionResult,
+)
 from towr.domain.prepared_ranged_weapon_attack_models import (
     PREPARED_RANGED_ATTACK_EXECUTION_RULE_ID,
     PreparedRangedWeaponAttackExecutionRequest,
@@ -1308,6 +1317,11 @@ __all__ = [
     "RangedWeaponAttackPreparationResult",
     "PREPARED_RANGED_ATTACK_EXECUTION_RULE_ID",
     "PreparedRangedWeaponAttackExecutionRequest",
+    "PreparedHiddenRangedAttackExecutionRequest",
+    "HiddenOpportunityContinuationOutcome",
+    "MoveQuietlyHiddenAttackContinuationRequest",
+    "MoveQuietlyHiddenAttackContinuationResult",
+    "PreparedHiddenRangedAttackExecutionResult",
     "PreparedRangedWeaponAttackExecutionResult",
     "RANGED_WEAPON_COMBAT_PROFILES",
     "RANGED_WEAPON_PROFILE_RULE_ID",

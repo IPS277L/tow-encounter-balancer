@@ -53,6 +53,14 @@
 | AMBIGUITY-021 | Player’s Guide 1.4, страница 120 говорит, что при `Mocked` rivals или bystanders видят неудачу, люди сплетничают и репутация персонажей страдает | Не определены число/identity свидетелей, охват и скорость слухов, величина/тип репутационного ущерба, affected social groups, duration, modifier и способ восстановления | K1 требует непустой ordered witness/rival snapshot и exact gossip/reputation-effect references, однократно регистрирует `CampaignReputationConsequence` для explicit affected subjects и не применяет числовую social-механику; propagation и recovery требуют отдельного ruling/consumer |
 | AMBIGUITY-022 | Player’s Guide 1.4, страница 120 говорит, что при `Lost` персонажей загоняют в незнакомую местность, возвращение домой занимает время, а враги действуют без помех | Не определены территория и маршрут, числовая длительность, исходная/конечная позиция, calendar effects, конкретные враги и число/тип их действий | K1 требует exact unfamiliar-territory/intended-destination/return-delay/enemy-opportunity references, однократно регистрирует `CampaignDelayConsequence` для explicit affected subjects и не меняет spatial/time/enemy state; исполнение требует отдельного ruling/consumer |
 
+## Расхождения реализации K1 с книгой
+
+### CODE-CONFLICT-001 — non-Attack не равен следующей атаке (исправлено 2026-09-17)
+
+Источник: Player’s Guide 1.4, Rules / Manoeuvre, стр. 117. Move Quietly разрешает следующую атаку из сохранённой позиции без opposition. Прежде в `hidden_attack_models.py`, `_expected_loss_reason`, любое non-Attack действие немедленно становилось `OTHER_ACTION` и расходовало opportunity через loss consumer. Книга не задаёт такого общего основания, поэтому это дефект реализации, а не house rule.
+
+Исправление: `OTHER_ACTION` удалён, добавлен `MoveQuietlyHiddenAttackContinuationRequest → Result` с completed receipt и explicit `position_revealed`. При неизменной позиции без раскрытия возвращается `PRESERVED` и та же chain; departure/reveal дают `LOST` и одноразовое погашение. Старый stationary non-Attack loss отклоняется. `test_k1_hidden_continuation_resolution.py` проверяет цепочку Move Quietly → следующий раунд → Aim → prepared hidden Attack, а правила и ADR синхронизированы. Поиск врагов и определение факта раскрытия остаются внешними.
+
 ## Закрытые неоднозначности
 
 | ID | Старая редакция | Актуальный источник | Решение |

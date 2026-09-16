@@ -53,7 +53,7 @@ def execute_move_quietly_hidden_attack(
 def lose_move_quietly_hidden_attack(
     request: MoveQuietlyHiddenAttackLossRequest,
 ) -> MoveQuietlyHiddenAttackLossResult:
-    """Consume an opportunity when the owner's next action cannot use it."""
+    """Consume an opportunity after leaving its position or an ineligible Attack."""
     if request.rule_id != HIDDEN_ATTACK_OPPORTUNITY_RULE_ID:
         raise ValueError("hidden opportunity loss uses an unknown source rule")
     return MoveQuietlyHiddenAttackLossResult(

@@ -616,11 +616,15 @@ K1 — реализация книжного resolution kernel. Прототип
 - добавлен обязательный bool `has_enemy_in_close_range` без default: запрет оружия без Close в Optimum проверяется независимо от выбранной цели; Aim/GM approval его не обходят (PG 1.4, Equipment, стр. 94–95);
 - Pistol, Repeater Pistol и Repeater Handbow проходят исключение; исходный факт и отдельный Rule ID сохраняются через prepared/Aim execution, не меняя реальную дальность, reload и последствия промаха;
 - добавлены 7 тестов close-enemy preflight: весь каталог из 13 профилей, строгий тип/обязательность факта, проверка до RNG, Close/far execution, Aim consumption и trace;
-- известные границы: spatial-поиск и актуальность close-enemy fact остаются внешними; ещё нет prepared+hidden composition, ammunition и spatial secondary-target discovery.
+- добавлены `PreparedHiddenRangedAttackExecutionRequest → Result` и `execute_prepared_hidden_ranged_attack`: exact hidden/prepared Attack, один вызов prepared executor и единственный kernel/receipt/weapon transition;
+- сохраняются обе независимые consumption chains, revealed hiding-position и полный ordered trace; добавлены 7 тестов free/reloadable/Aim/Repeater, hit/miss, preflight/provenance, replay и ошибки RNG;
+- известные границы: spatial-поиск и актуальность close-enemy/awareness facts остаются внешними; ammunition и spatial secondary-target discovery отсутствуют. `CODE-CONFLICT-001` исправлен: non-Attack continuation сохраняет opportunity без раскрытия/ухода, старый `OTHER_ACTION` удалён.
+- добавлены typed continuation request/result, `PRESERVED`/`LOST`, проверка completed receipt и explicit `position_revealed`; переход без RNG/нового receipt оставляет Aim независимым;
+- добавлены 8 тестов continuation, заменена ошибочная non-Attack loss регрессия; сквозная цепочка Move Quietly → следующий раунд → Aim → prepared hidden Attack проверена с нулевым/положительным Aim и непрерывной consumption chain.
 
 ## Следующий шаг
 
-Связать завершённую ranged preparation с Move Quietly hidden opportunity: проверить exact prepared Attack и текущие hiding/awareness snapshots, вызвать prepared executor ровно один раз и после успешного исполнения погасить hidden opportunity. Сохранить полный preparation/hidden trace, один kernel/receipt/weapon transition и обе immutable consumption chains (hidden и optional Aim). Spatial-поиск целей, ammunition и универсальный trait interpreter не включать.
+Добавить source-bound регистрацию раскрытого hiding position после completed hidden Attack (обычного, profile-aware и prepared): сохранить actor-scoped `used_hiding_position_ids`, связать результат с последующей Move Quietly preparation и отклонять повторное применение одного execution result. Проверить требование нового hiding spot по PG 1.4, Rules / Attack Tests, стр. 118. Не вычислять автоматически осведомлённость врагов и не строить общий battle aggregate.
 
 ## Последняя проверка
 
@@ -631,7 +635,7 @@ $env:PYTHONPATH = "src"
 py -3.12 -m unittest discover -s tests -v
 ```
 
-Результат: `Ran 1035 tests ... OK`. Целевой запуск close-enemy/preparation/prepared execution: `Ran 27 tests ... OK`. `compileall`, public-import smoke test новых prepared contracts, проверка отсутствия domain→rules imports и `git diff --check` успешно завершены (только предупреждения Git о LF/CRLF).
+Результат: `Ran 1050 tests ... OK`. Целевой запуск continuation/hidden attack: `Ran 16 tests ... OK`. `compileall`, public-import smoke test новых hidden continuation contracts, проверка отсутствия domain→rules imports и `git diff --check` успешно завершены (только предупреждения Git о LF/CRLF).
 
 ```powershell
 py -3.12 -m compileall -q src tests tools

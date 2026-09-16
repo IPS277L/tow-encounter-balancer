@@ -272,7 +272,7 @@ class K1HiddenAttackResolutionTests(unittest.TestCase):
                 consumed=result.consumed_opportunity_ids,
             )
 
-    def test_other_action_position_target_and_awareness_have_loss_outcomes(
+    def test_position_target_and_awareness_have_loss_outcomes(
         self,
     ) -> None:
         move_quietly = completed_move_quietly()
@@ -286,13 +286,6 @@ class K1HiddenAttackResolutionTests(unittest.TestCase):
             ),
         )
         cases = (
-            (
-                loss_request(
-                    move_quietly=move_quietly,
-                    kind=CombatActionKind.HELP,
-                ),
-                HiddenAttackOpportunityLossReason.OTHER_ACTION,
-            ),
             (
                 loss_request(
                     move_quietly=move_quietly,
@@ -344,7 +337,7 @@ class K1HiddenAttackResolutionTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             replace(
                 loss,
-                reason=HiddenAttackOpportunityLossReason.OTHER_ACTION,
+                reason=HiddenAttackOpportunityLossReason.POSITION_REVEALED,
             )
 
 

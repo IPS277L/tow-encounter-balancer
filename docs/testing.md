@@ -1,5 +1,7 @@
 # Тестирование
 
+- prepared hidden consumer требует exact final Attack (включая profile/Aim), один раз вызывает prepared executor с тем же RNG/decision provider; сохраняет full preparation/Move Quietly trace, один receipt/weapon transition, revealed position и отдельные hidden/Aim chains;
+- тесты prepared hidden покрывают free/Crossbow hit и miss, нулевой/положительный Aim с обеими Repeater-ветвями, aware/moved/opposed/replayed preflight до RNG, ошибки без мутации, подмену source/trace/consumption; fixture Aim использует следующий раунд; отдельные continuation tests проверяют непрерывную передачу opportunity и chain (`CODE-CONFLICT-001` закрыт);
 - close-enemy preflight требует explicit bool без default; все 13 профилей проверяются при дальней цели с/без соседнего врага, Aim/GM approval не обходят запрет; Pistol, Repeater Pistol и Repeater Handbow сохраняют точную дистанцию цели, собственный reload trigger и Close-only miss consequence;
 - Close enemy fact сохраняется через prepared/Aim execution; запрет срабатывает до RNG и receipt, trace нельзя очистить от `RULE-EQUIPMENT-004:close-enemy-restriction`; `false` не отменяет отдельного ограничения Close выбранной цели;
 - prepared executor принимает завершённую preparation, проверяет exact direct/Aim ветвь и сохраняет полный ordered trace без повторного применения modifiers; обе ветви вызывают свой executor ровно один раз и передают тот же RNG/decision provider;
@@ -194,7 +196,9 @@ py -3.12 -m unittest discover -s tests -v
 - hidden result сохраняет normal/Fast movement transition и typed opportunity для одной следующей unopposed attack; used-position snapshot запрещает повторно спрятаться в раскрытом месте;
 - hidden Attack consumption требует исходный hidden result, неизменившиеся placement/hiding-position, current unaware target из stable observer snapshot и обычную Attack с `defender_test=None`; после preflight она атомарно вызывает стандартный Attack executor и добавляет только его receipt;
 - opportunity ID добавляется в ordered consumed snapshot только после успешного Attack; kernel failure не погашает его, а повторное применение отклоняется до RNG;
-- другое действие, уход с позиции, другая цель и восстановленная осведомлённость дают разные typed loss reasons без Attack и также одноразово погашают opportunity;
+- другое действие само по себе сохраняет opportunity через non-Attack continuation; уход/explicit reveal дают typed loss, а прежний loss consumer сохраняет причины departure/другая цель/aware выбранная цель и больше не принимает stationary non-Attack;
+- continuation требует completed non-attacking receipt, matching actor/round и порядок после Move Quietly; отклоняет Charge/attacking Improvise, stale source, replay, подмену outcome/chain/trace и не создаёт RNG/receipt;
+- сквозная цепочка Move Quietly → следующий раунд → Aim → prepared hidden Attack сохраняет hidden ID до выстрела, затем расходует hidden/Aim IDs один раз; Aim после другого действия по-прежнему теряется независимо от hidden;
 - Slow/Burdened/Prone/Defenceless, ally observer, stale selected Awareness/opposed/movement/round context, enemy/obstacle/terrain path, повторный free move и slot-order violation закрываются до соответствующего RNG; forged outcome/opportunity/spatial/receipt отклоняются;
 - общий Give Ground executor требует соседнюю Zone и при указанном attacker увеличивает graph-distance, запрещает повтор в round, Prone/Defenceless, enemy path blocker, obstacle и Difficult Terrain;
 - успешный Give Ground сохраняет порядок placements, меняет только mover Zone, записывает round usage и после движения накладывает Broken при наличии врага в destination, но не при одном союзнике;
@@ -368,7 +372,7 @@ py -3.12 -m unittest discover -s tests -v
 - единый ranged weapon entry point принимает free и reloadable profile states: free-ветвь сохраняет тот же state, числовая ветвь переиспользует существующий transition, а обе создают ровно один обычный Attack receipt;
 - free-ветвь отклоняет cycle ID, Repeater bonus и не-Shooting Skill до RNG; failed nested Attack не создаёт weapon transition, unified result закрывает provenance/state/trace и не вводит ammunition/inventory fields;
 - combined hidden ranged request требует, чтобы hidden-opportunity preflight и profile-aware request содержали один exact unopposed Attack и разные request IDs;
-- успешный hidden shot для free, ordinary reloadable, обычного Repeater и bonus Repeater создаёт один receipt, применяет соответствующий weapon transition и один раз дописывает opportunity ID; failed Attack не расходует opportunity, forged consumption/trace/result отклоняются;
+- успешный hidden shot для free, ordinary reloadable, обычного Repeater и bonus Repeater создаёт один receipt, применяет соответствующий weapon transition и один раз дописывает opportunity ID; ошибка исполнения Attack не расходует opportunity, forged consumption/trace/result отклоняются;
 - Aim-bound ranged consumer принимает только применённый Shooting follow-up и exact подготовленный Attack, расходует follow-up ID один раз после успешного ranged result и не создаёт mutable bonus state;
 - free и Crossbow ветви сохраняют профильные transitions; Aim и optional Repeater modifiers складываются перед общим pool cap, zero-success Aim всё равно погашается, LOST/Throwing/foreign/replayed follow-up и forged consumption/trace отклоняются;
 - failure вложенного Attack preflight не создаёт нового weapon state, а result отвергает чужой Attack, подмену state и неполный trace;

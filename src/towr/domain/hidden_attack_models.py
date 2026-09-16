@@ -23,7 +23,7 @@ HIDDEN_ATTACK_OPPORTUNITY_RULE_ID = (
 
 
 class HiddenAttackOpportunityLossReason(str, Enum):
-    OTHER_ACTION = "other_action"
+    POSITION_REVEALED = "position_revealed"
     LEFT_HIDING_POSITION = "left_hiding_position"
     DIFFERENT_TARGET = "different_target"
     TARGET_AWARE = "target_aware"
@@ -293,8 +293,6 @@ def _validate_opportunity_source(
 def _expected_loss_reason(
     request: MoveQuietlyHiddenAttackLossRequest,
 ) -> HiddenAttackOpportunityLossReason:
-    if request.declaration.kind is not CombatActionKind.ATTACK:
-        return HiddenAttackOpportunityLossReason.OTHER_ACTION
     source_placement = request.move_quietly.spatial_state.placement_for(
         request.actor_id
     )
@@ -304,6 +302,8 @@ def _expected_loss_reason(
         or request.hiding_position_id != request.opportunity.hiding_position_id
     ):
         return HiddenAttackOpportunityLossReason.LEFT_HIDING_POSITION
+    if request.declaration.kind is not CombatActionKind.ATTACK:
+        raise ValueError("non-Attack requires the hidden continuation contract")
     assert request.target_id is not None
     if request.target_id not in request.opportunity.unaware_enemy_ids:
         return HiddenAttackOpportunityLossReason.DIFFERENT_TARGET
