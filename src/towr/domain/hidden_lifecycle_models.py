@@ -24,6 +24,10 @@ from towr.domain.hidden_movement_models import (
     HiddenFreeMovementLossRequest,
     HiddenFreeMovementLossResult,
 )
+from towr.domain.hidden_give_ground_models import (
+    HiddenGiveGroundLossRequest,
+    HiddenGiveGroundLossResult,
+)
 from towr.domain.move_quietly_models import (
     MOVE_QUIETLY_RULE_ID,
     MoveQuietlyActionExecutionRequest,
@@ -40,6 +44,7 @@ type HiddenLifecycleCompletedResult = (
     | MoveQuietlyHiddenAttackContinuationResult
     | MoveQuietlyHiddenAttackLossResult
     | HiddenFreeMovementLossResult
+    | HiddenGiveGroundLossResult
     | RegisteredHiddenAttackExecutionResult
 )
 
@@ -92,6 +97,8 @@ class HiddenLifecycleApplicationRequest:
             _validate_lifecycle_loss(self.state, completed.source_request)
         elif isinstance(completed, HiddenFreeMovementLossResult):
             _validate_lifecycle_movement(self.state, completed.source_request)
+        elif isinstance(completed, HiddenGiveGroundLossResult):
+            _validate_lifecycle_give_ground(self.state, completed.source_request)
         elif isinstance(completed, RegisteredHiddenAttackExecutionResult):
             _validate_lifecycle_attack(self.state, completed.source_request)
         else:
@@ -216,6 +223,15 @@ def _validate_lifecycle_movement(
     _validate_current_opportunity(state, request.move_quietly, request.consumed_opportunity_ids)
 
 
+def _validate_lifecycle_give_ground(
+    state: HiddenLifecycleState,
+    request: HiddenGiveGroundLossRequest,
+) -> None:
+    if not isinstance(request, HiddenGiveGroundLossRequest):
+        raise TypeError("request must be a HiddenGiveGroundLossRequest")
+    _validate_current_opportunity(state, request.move_quietly, request.consumed_opportunity_ids)
+
+
 def _validate_lifecycle_attack(
     state: HiddenLifecycleState,
     request: RegisteredHiddenAttackExecutionRequest,
@@ -240,6 +256,7 @@ def _lifecycle_state_after(request: HiddenLifecycleApplicationRequest) -> Hidden
     if isinstance(completed, (
         MoveQuietlyHiddenAttackContinuationResult, MoveQuietlyHiddenAttackLossResult,
         HiddenFreeMovementLossResult,
+        HiddenGiveGroundLossResult,
     )):
         return replace(state, active_move_quietly=None,
                        consumed_opportunity_ids=completed.consumed_opportunity_ids)

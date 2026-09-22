@@ -1,6 +1,12 @@
 """Domain definitions independent from battle execution and adapters."""
 
+from towr.domain.hidden_give_ground_models import (
+    HiddenGiveGroundExecutionRequest,
+    HiddenGiveGroundLossRequest,
+    HiddenGiveGroundLossResult,
+)
 from towr.domain.hidden_movement_models import (
+    HiddenFreeMovementExecutionRequest,
     HiddenFreeMovementLossRequest,
     HiddenFreeMovementLossResult,
 )
@@ -1498,5 +1504,9 @@ __all__ = [
     "HiddenLifecycleApplicationResult",
     "HiddenLifecycleState",
     "HiddenFreeMovementLossRequest",
+    "HiddenGiveGroundLossRequest",
+    "HiddenGiveGroundExecutionRequest",
+    "HiddenGiveGroundLossResult",
+    "HiddenFreeMovementExecutionRequest",
     "HiddenFreeMovementLossResult",
 ]

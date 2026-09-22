@@ -658,9 +658,32 @@ K1 — реализация книжного resolution kernel. Прототип
 - opportunity закрывается с LEFT_HIDING_POSITION без повторного движения, нового receipt или регистрации used hiding position; исходные movement/round snapshots и trace доступны во вложенном результате;
 - 10 новых детерминированных тестов проверяют обычный/Fast маршрут после route/same-Zone hiding, чужой actor/source, stale/replay, chronology, историю, ошибки и неизменяемость. Ограничения: актуальные snapshots хранит caller; same-Zone уход, awareness и replacement не добавлены.
 
+- добавлен HiddenFreeMovementExecutionRequest и execute_hidden_lifecycle_free_movement: общий request/result preflight, exact active source/chain до движения, один existing movement resolver и один loss consumer;
+- возвращается прежний HiddenLifecycleApplicationResult с согласованными spatial/lifecycle snapshots; новый receipt, RNG, Attack или регистрация позиции не создаются;
+- 8 новых тестов покрывают Normal/Fast, preflight до движения, movement restrictions, исключения всех стадий, replay с новыми IDs и сохранность существующего Aim receipt. Caller сохраняет оба результата; awareness/replacement и same-Zone movement не добавлены.
+
+- добавлены HiddenGiveGroundLossRequest/Result, consumer completed Give Ground и lifecycle adapter: exact actor/source/chain/placement/graph и chronology, LEFT_HIDING_POSITION без изменения истории укрытий;
+- same-round путь требует точный post-hiding spatial snapshot, включая free-move usage после same-Zone hiding; более поздний round допускает изменения чужих placements. Free-move limit не переносится на Give Ground;
+- сохраняются исходные movement/Conditions/Broken/trace без повторного движения, Condition application, RNG или receipt; готовый loss result применяется напрямую;
+- 10 новых тестов проверяют same/later round, stale snapshots/source/chain, actor/graph, replay, историю, Broken и ошибки. Ограничение: промежуточные same-round spatial changes пока требуют неподключённого доказательства порядка; это API boundary, не house rule.
+
+- добавлен HiddenGiveGroundExecutionRequest и execute_hidden_lifecycle_give_ground: общий request/result validator, active source/chain до движения, один resolve_give_ground и один loss consumer;
+- существующий HiddenLifecycleApplicationResult сохраняет единственный nested movement/Conditions/Broken/source/trace; движение, Condition application и история укрытий не дублируются;
+- 8 новых тестов проверяют same/later round, один movement/Condition/loss, preflight, ограничения пути/Conditions/usage, исключения всех стадий, replay и сохранность истории. Same-round exact-snapshot boundary сохранена.
+
+- optional intervening_movements добавлен в execution/loss Give Ground requests; immutable tuple принимает только completed free-movement/Give Ground других actor;
+- общий preflight проверяет exact continuity от source post-hiding snapshot до Give Ground snapshot, один round/graph и неподвижность владельца; direct empty-chain путь сохранён, chain через rounds запрещена;
+- executor сохраняет те же chain results в loss source, добавляет их Rule IDs в trace и ничего не переисполняет; актуальные чужие Conditions/opportunities остаются у caller;
+- 8 новых тестов покрывают оба consumer/execution пути и сочетания двух типов, разрывы/перестановку/дубли, graph/round, уход владельца, replay, trace и normalization. Прочие spatial transitions и automatic awareness не добавлены.
+
+- добавлен tests/integration/test_k1_hidden_recovery_cycle.py: 2 теста через существующие adapters и scheduler без production изменений;
+- полный сценарий охватывает Move Quietly → чужое движение → Give Ground/Broken → безопасная Zone/Recover/Willpower → новая Move Quietly → Aim → prepared Crossbow Attack; hit/miss и нулевой/положительный Aim проверяются отдельными subcases;
+- unsafe Recover отклоняется до RNG, failed Recover сохраняет Broken и завершённый slot; первый уход не регистрирует позицию, выстрел регистрирует только новое укрытие, независимо погашает Aim/hidden и создаёт unloaded Crossbow reload cycle;
+- snapshots/история/trace и replay guards сохранены; причина Give Ground, awareness и cover передаются явно. Общий battle loop и новые gameplay APIs не добавлены.
+
 ## Следующий шаг
 
-Добавить атомарный executor свободного перемещения для активного hidden lifecycle: source-bound FreeMovementRequest с проверкой владельца, исходного placement/graph, более позднего round и exact source/consumption chain до движения; один existing resolve_free_movement, затем текущий loss consumer и согласованный результат spatial/lifecycle. Проверить ошибки preflight/исполнения, один переход и replay. Не добавлять same-Zone movement, awareness, replacement или battle aggregate.
+Продолжить интеграционный сценарий после первого Crossbow выстрела: передать возвращённый unloaded weapon state, проверить отказ от повторного выстрела до Reload, завершить weapon-bound Reload через существующий Dexterity/Exacting action adapter, подготовить новое укрытие с возвращённой историей и исполнить второй hidden shot. Проверить два reload cycle, запрет прежней использованной позиции и непрерывные consumption chains. Не добавлять новые игровые API, awareness или battle aggregate.
 
 ## Последняя проверка
 
@@ -673,4 +696,4 @@ py -3.14 -m compileall -q src tests tools
 git diff --check
 ```
 
-Полный набор: `Ran 1123 tests ... OK`; целевой запуск free-movement loss, Move Quietly lifecycle, lifecycle и lifecycle-loss модулей: `Ran 40 tests ... OK` (10 + 9 + 14 + 7). Существующие continuation, Aim, registration и composite тесты входят в полный набор. Compileall, public-import smoke, ссылки README/docs/README и `git diff --check` успешно проверены. Проверка на 3.12 в этой сессии не выполнена; прежние 1050 тестов на 3.12 относятся к сессии 2026-09-17.
+Полный набор: `Ran 1159 tests ... OK`; целевой запуск hidden recovery cycle: `Ran 2 tests ... OK` (основной сценарий: hit/miss × Aim 0/1; отдельный failure Recover). Существующие continuation, Aim, registration и composite тесты входят в полный набор. Compileall, public-import smoke, ссылки README/docs/README и `git diff --check` успешно проверены. Проверка на 3.12 в этой сессии не выполнена; прежние 1050 тестов на 3.12 относятся к сессии 2026-09-17.

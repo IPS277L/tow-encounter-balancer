@@ -74,4 +74,8 @@ Pursuit остаётся отдельной immutable boundary поверх proo
 
 Hidden opportunity и её consumption/history теперь можно хранить согласованно в `HiddenLifecycleState` одного actor. Узкие adapters связывают existing Move Quietly, continuation, standalone loss и registered Attack без общего battle aggregate, автоматической awareness или владения Aim/weapon/injury состояниями. Правила хранения и применения описаны в [контракте K1](resolution-kernel.md#hidden-lifecycle-state).
 
-Завершённое свободное движение владельца в другую Zone подключено к hidden lifecycle отдельным source-bound consumer. Он погашает opportunity без повторного движения, action receipt или регистрации использованного укрытия; spatial result хранится во вложенном loss request. [Контракт](../rules/combat.md#actor-scoped-hidden-lifecycle).
+Завершённое свободное движение владельца в другую Zone подключено к hidden lifecycle отдельным source-bound consumer. Он погашает opportunity без повторного движения, action receipt или регистрации использованного укрытия; spatial result хранится во вложенном loss request. Атомарный execute_hidden_lifecycle_free_movement объединяет один existing movement resolver и этот consumer с проверкой source/chain до движения. [Контракт](../rules/combat.md#actor-scoped-hidden-lifecycle).
+
+Completed Give Ground владельца подключён к hidden lifecycle отдельным consumer с сохранением Broken/Condition результата. Same-round ветвь требует exact post-hiding spatial snapshot либо непрерывную цепочку completed free-movement/Give Ground других actor; остальные spatial changes пока не поддержаны. Движение не исполняется повторно, история укрытий не меняется.
+
+Give Ground и его hidden loss также объединены в атомарный executor: один movement/optional Broken, затем один consumer с общим preflight. Вложенный movement result остаётся единственным источником обновлённых spatial/Condition данных.

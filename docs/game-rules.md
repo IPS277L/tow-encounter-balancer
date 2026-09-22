@@ -68,4 +68,12 @@ damage = attacker_successes - defender_successes + weapon
 
 P1 не моделирует Move Quietly и историю укрытий. K1 атомарно исполняет hidden Attack и регистрирует раскрытую позицию независимо от попадания, затем передаёт actor-scoped историю следующей подготовке. Нормативное описание: [регистрация раскрытого укрытия](rules/combat.md#регистрация-раскрытого-укрытия), BOOK-PLAYER-GUIDE 1.4, Rules / Attack Tests, стр. 118.
 
-K1 `HiddenLifecycleState` объединяет активную Move Quietly opportunity и consumption/history одного бойца; Move Quietly всех outcomes, continuation, standalone loss, completed free-movement loss и registered Attack возвращают согласованный snapshot. Это orchestration-контракт книжной реализации, не изменение P1; [подробности](rules/combat.md#actor-scoped-hidden-lifecycle).
+K1 `HiddenLifecycleState` объединяет активную Move Quietly opportunity и consumption/history одного бойца; Move Quietly всех outcomes, continuation, standalone loss, completed free-movement/Give Ground loss и registered Attack возвращают согласованный snapshot. Это orchestration-контракт книжной реализации, не изменение P1; [подробности](rules/combat.md#actor-scoped-hidden-lifecycle).
+
+Свободное движение из укрытия и потеря opportunity теперь доступны одним атомарным K1 adapter: typed source-bound request, один movement resolver, один consumer и общий lifecycle result; игровые правила не меняются (PG 1.4, Rules / Combat Actions и Manoeuvre, стр. 116–117).
+
+Give Ground из укрытия доступен одним атомарным K1 adapter с сохранением единственного movement/Broken result и проверками до движения (PG 1.4, Rules / Manoeuvre, стр. 117; Giving Ground, стр. 119). История укрытий при этом не меняется.
+
+Same-round Give Ground hidden boundary принимает также проверенную цепочку готовых free-movement/Give Ground других бойцов при неизменной позиции владельца. Это расширение подтверждения spatial continuity, не новое правило скрытности.
+
+Интеграционный K1 тест подтверждает полный путь от потери укрытия через Give Ground/Broken и Recover до нового скрытия, Aim и prepared Crossbow Attack. Broken снимается только успешным Willpower в Zone без врага; при failure действие завершается с сохранением Condition. Новых правил или P1 изменений нет.

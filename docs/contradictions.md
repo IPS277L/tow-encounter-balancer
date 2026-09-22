@@ -86,3 +86,13 @@ Standalone loss consumer подключён к HiddenLifecycleState без из�
 Inactive Move Quietly lifecycle adapter принимает failed/declined action results без активации source. Прежнее отклонение этих результатов в application consumer было границей API, теперь она расширена; книжная механика и CODE-CONFLICT-001 не меняются. Replacement уже активной opportunity по-прежнему не реализован.
 
 Completed free-movement loss подключён без нового правила awareness: переход владельца из hidden placement в другую Zone закрывает привязанную к позиции opportunity (PG 1.4, Rules / Manoeuvre, стр. 117). Уход не записывает used hiding position, поскольку Attack не исполнялась. Same-round free move после успешной Move Quietly отклоняется по прежнему usage limit (Combat Actions, стр. 116); CODE-CONFLICT-001 и независимые Aim semantics сохранены. Новых противоречий не выявлено.
+
+Атомарный free-movement executor переиспользует прежние движение и loss consumer; общий preflight перенесён в helper для request/result путей без изменения условий. Новых противоречий и house rules нет; независимый Aim и CODE-CONFLICT-001 сохранены.
+
+Completed Give Ground consumer закрывает привязанную к позиции opportunity (PG 1.4, Rules / Manoeuvre, стр. 117; Giving Ground, стр. 119), не регистрируя used hiding position. Free-move limit не переносится: same-round Give Ground разрешён при exact post-hiding spatial snapshot. Неподдержанная цепочка промежуточных same-round spatial changes — ограничение provenance API; из него нельзя выводить игровой запрет или менять completed movement snapshots. Новых house rules/противоречий не введено.
+
+Атомарный Give Ground executor объединяет прежние movement/Condition и hidden-loss reducers с единым request/result preflight. Новых игровых правил нет: free-move limit не переносится, Broken применяется общим resolver один раз. Same-round exact-snapshot restriction остаётся технической границей; house rule из неё не выводится.
+
+Same-round exact-snapshot граница Give Ground расширена optional цепочкой двух готовых movement типов других actor. Это закрывает часть прежнего provenance gap без нового игрового правила: при неизменной позиции владельца подтверждённые чужие движения не отменяют opportunity сами по себе. Уход владельца в цепочке отклоняется; Condition/awareness semantics и CODE-CONFLICT-001 сохранены.
+
+Сквозной hidden recovery cycle проверен существующими adapters без исправления правил: Broken не снимается простым уходом в безопасную Zone, требует успешного Recover/Willpower; провал оставляет Condition. Give Ground не регистрирует использованное укрытие, последующий выстрел регистрирует его независимо от попадания. Новых противоречий не выявлено.

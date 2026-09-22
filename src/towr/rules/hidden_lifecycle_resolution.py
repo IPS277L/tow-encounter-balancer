@@ -13,17 +13,29 @@ from towr.domain.hidden_lifecycle_models import (
     _validate_lifecycle_loss,
     _validate_lifecycle_move_quietly,
     _validate_lifecycle_movement,
+    _validate_current_opportunity,
+    _validate_lifecycle_give_ground,
 )
-from towr.domain.hidden_movement_models import HiddenFreeMovementLossRequest
+from towr.domain.hidden_give_ground_models import (
+    HiddenGiveGroundExecutionRequest,
+    HiddenGiveGroundLossRequest,
+)
+from towr.domain.hidden_movement_models import (
+    HiddenFreeMovementExecutionRequest,
+    HiddenFreeMovementLossRequest,
+)
 from towr.domain.hiding_position_models import RegisteredHiddenAttackExecutionRequest
 from towr.domain.move_quietly_models import MoveQuietlyActionExecutionRequest
 from towr.rules.dice import RandomSource
+from towr.rules.free_movement_resolution import resolve_free_movement
 from towr.rules.hidden_attack_resolution import lose_move_quietly_hidden_attack
 from towr.rules.hidden_continuation_resolution import continue_move_quietly_hidden_attack
 from towr.rules.hidden_movement_resolution import lose_hidden_opportunity_after_free_movement
+from towr.rules.hidden_give_ground_resolution import lose_hidden_opportunity_after_give_ground
 from towr.rules.hiding_position_resolution import execute_registered_hidden_attack
 from towr.rules.kernel import ResolutionDecisionProvider
 from towr.rules.move_quietly_resolution import execute_move_quietly_action
+from towr.rules.spatial_resolution import resolve_give_ground
 from towr.rules.test_resolution import TestDecisionProvider
 
 
@@ -92,6 +104,54 @@ def apply_hidden_lifecycle_free_movement(
     completed = lose_hidden_opportunity_after_free_movement(request)
     return apply_hidden_lifecycle_result(HiddenLifecycleApplicationRequest(
         id=f"{request.id}:hidden-lifecycle", state=state, completed=completed,
+    ))
+
+
+def execute_hidden_lifecycle_free_movement(
+    state: HiddenLifecycleState,
+    request: HiddenFreeMovementExecutionRequest,
+) -> HiddenLifecycleApplicationResult:
+    """Move once and close the active opportunity in one immutable result."""
+    if not isinstance(request, HiddenFreeMovementExecutionRequest):
+        raise TypeError("request must be a HiddenFreeMovementExecutionRequest")
+    _validate_current_opportunity(state, request.move_quietly, request.consumed_opportunity_ids)
+    movement = resolve_free_movement(request.movement)
+    return apply_hidden_lifecycle_free_movement(state, HiddenFreeMovementLossRequest(
+        id=request.id,
+        move_quietly=request.move_quietly,
+        movement=movement,
+        consumed_opportunity_ids=request.consumed_opportunity_ids,
+        rule_id=request.rule_id,
+    ))
+
+
+def apply_hidden_lifecycle_give_ground(
+    state: HiddenLifecycleState,
+    request: HiddenGiveGroundLossRequest,
+) -> HiddenLifecycleApplicationResult:
+    _validate_lifecycle_give_ground(state, request)
+    completed = lose_hidden_opportunity_after_give_ground(request)
+    return apply_hidden_lifecycle_result(HiddenLifecycleApplicationRequest(
+        id=f"{request.id}:hidden-lifecycle", state=state, completed=completed,
+    ))
+
+
+def execute_hidden_lifecycle_give_ground(
+    state: HiddenLifecycleState,
+    request: HiddenGiveGroundExecutionRequest,
+) -> HiddenLifecycleApplicationResult:
+    """Give Ground once and close the active opportunity in one immutable result."""
+    if not isinstance(request, HiddenGiveGroundExecutionRequest):
+        raise TypeError("request must be a HiddenGiveGroundExecutionRequest")
+    _validate_current_opportunity(state, request.move_quietly, request.consumed_opportunity_ids)
+    movement = resolve_give_ground(request.movement)
+    return apply_hidden_lifecycle_give_ground(state, HiddenGiveGroundLossRequest(
+        id=request.id,
+        move_quietly=request.move_quietly,
+        movement=movement,
+        consumed_opportunity_ids=request.consumed_opportunity_ids,
+        rule_id=request.rule_id,
+        intervening_movements=request.intervening_movements,
     ))
 
 
