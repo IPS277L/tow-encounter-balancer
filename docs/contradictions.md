@@ -68,3 +68,21 @@
 | AMBIGUITY-003 | Player’s Guide от 23.06.2025, страница 159: строки `21–22` и `22–23` пересекались | Player’s Guide от 29.01.2026, страница 159: диапазоны исправлены на `21–22` и `23–24`; страница 157 также уточняет потерю Casting successes и `+1d` за немедленное заклинание | Закрыто 2026-08-19; K1 использует только актуальные диапазоны и новую последовательность Miscast |
 | AMBIGUITY-004 | Gamemaster’s Guide 1.1, страница 66: Endeavour Summary Table перечисляет 16 вариантов и пропускает Wander the Wilds | Player’s Guide 1.4, страницы 131 и 136: основной раздел перечисляет и полностью определяет 17-й Endeavour Wander the Wilds | Закрыто 2026-08-19; summary table считается неполной, каталог и будущая реализация используют все 17 правил Player’s Guide |
 | AMBIGUITY-005 | Gamemaster’s Guide 1.1, страница 190: строка `0 Failure!` ошибочно говорит «You do achieve the desired outcome» | Player’s Guide 1.4, страницы 106–108, и сам заголовок/последствие строки определяют нулевой результат как Failure | Закрыто 2026-08-19; это опечатка reference table, при 0 successes желаемый outcome не достигается |
+
+## Проверка регистрации укрытий 2026-09-22
+
+BOOK-PLAYER-GUIDE 1.4, Rules / Attack Tests, стр. 118 проверен непосредственно по локальному тексту. Регистрация после hit и miss соответствует требованию нового hiding spot; новых противоречий не выявлено. CODE-CONFLICT-001 остаётся закрытым: consumer принимает только completed hidden Attack, а non-Attack сам по себе не раскрывает позицию. Внешний факт раскрытия в continuation не превращается автоматически в историю атакованных позиций.
+
+Атомарный hidden Attack+registration composite добавлен без изменения книжного условия раскрытия (PG 1.4, Rules / Attack Tests, стр. 118). Новых противоречий не выявлено; snapshot checks выполняются до RNG, CODE-CONFLICT-001 и independent Aim semantics сохранены.
+
+Пробел хронологии hidden Attack закрыт: ранее request сверял round атаки с текущим spatial snapshot, но не с исходной Move Quietly. Теперь общий request отклоняет более ранний round и не более поздний slot того же round до RNG (PG 1.4, Rules / Manoeuvre, стр. 117). Это исправление проверки provenance, не house rule; переход через rounds и CODE-CONFLICT-001 сохранены.
+
+Закрыт оставшийся same-round provenance gap: Attack snapshot с другим/отсутствующим completed Move Quietly slot прежде мог использовать отдельный hidden source result того же round. Общий request теперь требует структурно точный slot/receipt до RNG; более поздние rounds допускаются без старого receipt. Игровое правило и independent Aim semantics не изменены.
+
+Hidden lifecycle (2026-09-23) объединяет прежние snapshots без новых правил. CODE-CONFLICT-001 остаётся закрытым: non-Attack continuation без ухода/раскрытия сохраняет opportunity. Неподключённые replacement и standalone loss являются техническими границами нового API; из них не выводится запрет соответствующих книжных действий.
+
+Standalone loss consumer подключён к HiddenLifecycleState без изменения прежних причин потери. Он не считается исполненной атакой и не добавляет used position; stationary non-Attack по-прежнему требует continuation, что сохраняет исправление CODE-CONFLICT-001. Новых правил/противоречий при подключении не выявлено.
+
+Inactive Move Quietly lifecycle adapter принимает failed/declined action results без активации source. Прежнее отклонение этих результатов в application consumer было границей API, теперь она расширена; книжная механика и CODE-CONFLICT-001 не меняются. Replacement уже активной opportunity по-прежнему не реализован.
+
+Completed free-movement loss подключён без нового правила awareness: переход владельца из hidden placement в другую Zone закрывает привязанную к позиции opportunity (PG 1.4, Rules / Manoeuvre, стр. 117). Уход не записывает used hiding position, поскольку Attack не исполнялась. Same-round free move после успешной Move Quietly отклоняется по прежнему usage limit (Combat Actions, стр. 116); CODE-CONFLICT-001 и независимые Aim semantics сохранены. Новых противоречий не выявлено.

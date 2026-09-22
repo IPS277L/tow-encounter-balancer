@@ -1,5 +1,21 @@
 """Domain definitions independent from battle execution and adapters."""
 
+from towr.domain.hidden_movement_models import (
+    HiddenFreeMovementLossRequest,
+    HiddenFreeMovementLossResult,
+)
+from towr.domain.hidden_lifecycle_models import (
+    HiddenLifecycleApplicationRequest,
+    HiddenLifecycleApplicationResult,
+    HiddenLifecycleState,
+)
+from towr.domain.hiding_position_models import (
+    HidingPositionRegistrationRequest,
+    HidingPositionRegistrationResult,
+    HidingPositionState,
+    RegisteredHiddenAttackExecutionRequest,
+    RegisteredHiddenAttackExecutionResult,
+)
 from towr.domain.action_execution_models import (
     AttackActionExecutionRequest,
     AttackActionExecutionResult,
@@ -1473,4 +1489,14 @@ __all__ = [
     "ZoneHazardTargetResult",
     "ZoneConnection",
     "ZoneGraph",
+    "HidingPositionRegistrationRequest",
+    "HidingPositionRegistrationResult",
+    "HidingPositionState",
+    "RegisteredHiddenAttackExecutionRequest",
+    "RegisteredHiddenAttackExecutionResult",
+    "HiddenLifecycleApplicationRequest",
+    "HiddenLifecycleApplicationResult",
+    "HiddenLifecycleState",
+    "HiddenFreeMovementLossRequest",
+    "HiddenFreeMovementLossResult",
 ]

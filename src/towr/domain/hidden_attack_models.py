@@ -80,6 +80,28 @@ class MoveQuietlyHiddenAttackExecutionRequest:
             raise ValueError("hidden Attack has stale actor or target provenance")
         if self.spatial_state.round_number != self.attack.state.round_number:
             raise ValueError("Attack and spatial snapshots must use one round")
+        source_round = self.move_quietly.round_state.round_number
+        attack_round = self.attack.state.round_number
+        if (
+            attack_round < source_round
+            or (
+                attack_round == source_round
+                and self.attack.slot_index <= self.move_quietly.slot.index
+            )
+        ):
+            raise ValueError("hidden Attack must follow Move Quietly")
+        if attack_round == source_round:
+            turn = self.attack.state.active_turn
+            source_slot = self.move_quietly.slot
+            if (
+                turn is None
+                or turn.actor_id != self.actor_id
+                or len(turn.action_slots) < source_slot.index
+                or turn.action_slots[source_slot.index - 1] != source_slot
+            ):
+                raise ValueError(
+                    "same-round hidden Attack must retain the completed Move Quietly slot"
+                )
         source_placement = self.move_quietly.spatial_state.placement_for(
             self.actor_id
         )

@@ -100,3 +100,23 @@ Capture-ветвь страницы 120 регистрируется через 
 - всего извлечено около `624921` символов;
 - элементов встроенного оглавления: `211`;
 - содержимое каталога игнорируется Git.
+
+## Проверка скрытой атаки 2026-09-22
+
+Повторно непосредственно прочитаны `references/private/player-guide-extracted/pages/0117.txt` и `0118.txt` (BOOK-PLAYER-GUIDE 1.4, Rules / Manoeuvre и Attack Tests). Страница 118 связывает раскрытие присутствия с атакой по unaware target без условия попадания и требует Move Quietly к новому hiding spot. Модули hiding_position_models/resolution реализуют регистрацию после трёх hidden executors и передачу actor-scoped истории следующей preparation. Источник достаточен; новых house rules не введено.
+
+В продолжении среза страница 118 повторно проверена непосредственно: composite `execute_registered_hidden_attack` сохраняет то же раскрытие при hit/miss. Изменение касается порядка history preflight → execution → registration, новых игровых правил нет.
+
+Хронология hidden Attack сверена напрямую по страницам 117–118 той же локальной редакции: Move Quietly предоставляет следующую атаку из сохранённой позиции, а не атаку из предшествующего round/slot. Общий preflight теперь проверяет строгий порядок `(round, slot)`; собственного срока истечения книга здесь не задаёт, поэтому нового round-limit нет.
+
+Source-slot binding сверено по тому же нормативному фрагменту Rules / Manoeuvre, стр. 117: hidden Attack использует результат конкретной успешной Move Quietly. Проверка receipt относится к техническому подтверждению source result и не меняет условие следующей атаки или срок жизни opportunity.
+
+## Проверка hidden lifecycle 2026-09-23
+
+Повторно непосредственно сверены BOOK-PLAYER-GUIDE 1.4, Rules / Manoeuvre, стр. 117, и Attack Tests, стр. 118, по локальным pages/0117.txt и 0118.txt. Новый HiddenLifecycleState объединяет уже реализованные source/opportunity/history snapshots и не меняет условие следующей атаки или нового укрытия. Continuation и registered Attack переиспользуют прежние reducers; нового expiry, awareness policy или house rule нет.
+
+Standalone loss → lifecycle сверено по тем же локальным страницам 117–118: связь возможности с исходной позицией и unaware target остаётся прежней. Новый adapter переносит существующую loss-классификацию в actor state, не выполняет Attack и не регистрирует used hiding position. Нового правила раскрытия либо вычисления awareness нет.
+
+Move Quietly → lifecycle adapter проверен по локальному BOOK-PLAYER-GUIDE 1.4, Rules / Manoeuvre, стр. 117: скрытие и next-unopposed-attack возникают после успешного Stealth и использования cover/concealment. FAILED и явный отказ от укрытия завершают действие без hidden opportunity. Общий action receipt и conditional movement переиспользованы из прежнего executor; новые игровые условия не вводились.
+
+Completed free movement → hidden loss непосредственно сверено по локальным pages/0116.txt, 0117.txt и 0118.txt BOOK-PLAYER-GUIDE 1.4: Rules / Combat Actions, стр. 116 — один free move за turn; Manoeuvre, стр. 117 — следующая атака из исходной позиции; Attack Tests, стр. 118 — новое укрытие после атаки. Новый consumer доказывает уход в другую Zone и не считает его атакой или раскрытием для used-position history. Более поздний round нужен для нового free move, а не как срок истечения hidden opportunity.

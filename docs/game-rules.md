@@ -63,3 +63,9 @@ damage = attacker_successes - defender_successes + weapon
 ## Сложность
 
 Текущие диапазоны Easy/Medium/Hard/Impossible являются предварительными целевыми окнами, а не жёсткой полной классификацией. Их нужно хранить в конфигурации и пересмотреть после появления проверенного симулятора.
+
+## Ссылка на книжную реализацию скрытности
+
+P1 не моделирует Move Quietly и историю укрытий. K1 атомарно исполняет hidden Attack и регистрирует раскрытую позицию независимо от попадания, затем передаёт actor-scoped историю следующей подготовке. Нормативное описание: [регистрация раскрытого укрытия](rules/combat.md#регистрация-раскрытого-укрытия), BOOK-PLAYER-GUIDE 1.4, Rules / Attack Tests, стр. 118.
+
+K1 `HiddenLifecycleState` объединяет активную Move Quietly opportunity и consumption/history одного бойца; Move Quietly всех outcomes, continuation, standalone loss, completed free-movement loss и registered Attack возвращают согласованный snapshot. Это orchestration-контракт книжной реализации, не изменение P1; [подробности](rules/combat.md#actor-scoped-hidden-lifecycle).

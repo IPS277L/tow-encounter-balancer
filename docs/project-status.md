@@ -1,6 +1,6 @@
 # Текущий статус проекта
 
-Дата обновления: 2026-09-17.
+Дата обновления: 2026-09-23.
 
 ## Текущий этап
 
@@ -622,23 +622,55 @@ K1 — реализация книжного resolution kernel. Прототип
 - добавлены typed continuation request/result, `PRESERVED`/`LOST`, проверка completed receipt и explicit `position_revealed`; переход без RNG/нового receipt оставляет Aim независимым;
 - добавлены 8 тестов continuation, заменена ошибочная non-Attack loss регрессия; сквозная цепочка Move Quietly → следующий раунд → Aim → prepared hidden Attack проверена с нулевым/положительным Aim и непрерывной consumption chain.
 
+## Завершённый срез 2026-09-22
+
+- непосредственно проверены PG 1.4, Rules / Manoeuvre и Attack Tests, стр. 117–118;
+- добавлены immutable HidingPositionState, registration request/result и consumer ordinary/profile-aware/prepared completed hidden Attack; hit и miss регистрируют позицию одинаково;
+- проверяются actor, повтор внутреннего Attack execution ID, stale source history и ранее использованная позиция;
+- prepare_move_quietly_with_hiding_positions переносит историю в следующий request и запрещает прежнюю позицию до RNG; проверена цепочка до новой hidden Attack в следующем round;
+- добавлены 11 детерминированных тестов; Aim, reload, consumption chains и исходные snapshots сохранены;
+- caller сохраняет актуальный state; execution+registration теперь объединены атомарным composite, preparation использует возвращённую историю; automatic awareness и battle aggregate отсутствуют;
+- добавлены RegisteredHiddenAttackExecutionRequest/Result, общий history preflight до RNG и execute_registered_hidden_attack: ровно один existing executor, один kernel/receipt и одна регистрация;
+- 10 новых тестов проверяют три ветви, hit/miss, replay и stale history до RNG, ошибки исполнения/регистрации, Aim/reload, source и trace. Исключения сохраняют входные snapshots, но не откатывают RNG или decision-provider effects.
+
+- общий hidden Attack request теперь отклоняет более ранний round и тот же/более ранний slot исходного round до RNG; первый slot более позднего round разрешён, expiry не добавлен;
+- добавлены 6 chronology-тестов для ordinary/profile-aware/prepared × direct/registered; порядок non-Attack continuation и независимая семантика Aim сохранены;
+- same-round hidden Attack теперь требует точный completed Move Quietly slot/receipt в своём active-turn snapshot; 6 дополнительных тестов отклоняют отсутствие/подмену и подтверждают structural equality и поздние rounds без прежнего receipt.
+
+## Завершённый срез 2026-09-23
+
+- добавлен HiddenLifecycleState: active Move Quietly source, consumed opportunity IDs и вложенный HidingPositionState; actor/opportunity доступны как views;
+- source-bound application принимает Move Quietly всех outcomes, completed continuation, standalone loss или registered Attack; stale source/chain/history и replay отклоняются;
+- continue_hidden_lifecycle и execute_hidden_lifecycle_attack проверяют snapshot до вызова прежнего reducer/executor; Attack preflight выполняется до RNG;
+- PRESERVED сохраняет тот же snapshot; LOST очищает active source без регистрации атаки; registered Attack атомарно закрывает opportunity и переносит историю укрытий;
+- 14 новых тестов покрывают три Attack ветви, hit/miss, исключения, stale/replay, независимый Aim/reload и два последовательных цикла укрытия;
+- ограничения: caller сохраняет актуальный snapshot; failed/declined Move Quietly не активирует opportunity; replacement активной opportunity пока не подключён; standalone loss consumer подключён. Automatic awareness, battle aggregate и новый expiry не добавлены.
+
+- добавлен lose_hidden_lifecycle_opportunity с exact source/ordered-chain preflight до existing reducer; готовый loss result также принимается application consumer без переисполнения;
+- все три loss-причины закрывают active source и переносят consumed IDs без изменения used positions/attack execution history, без RNG и нового receipt; 7 новых детерминированных тестов проверяют причины, stale/replay, готовый result, ошибки и continuation/attack routing.
+
+- добавлен execute_hidden_lifecycle_move_quietly: inactive actor/history/rule/consumed-source preflight до RNG, один existing executor/opposed Test/receipt и атомарный lifecycle result;
+- application consumer теперь принимает все Move Quietly outcomes: HIDDEN активирует exact source, FAILED/SUCCEEDED_WITHOUT_HIDING сохраняют тот же inactive snapshot; caller сохраняет completed action round/spatial state отдельно;
+- 9 новых тестов проверяют outcomes, same-Zone/route, stale/replay/active-source guards, RNG failure, receipt и loss; сквозная цепочка двух укрытий с Aim/Attack переведена на новый adapter.
+
+- добавлены HiddenFreeMovementLossRequest/Result, consumer completed movement и lifecycle adapter; exact actor/source/chain/placement/graph и chronology проверяются без RNG;
+- более поздний round допускается без старого action receipt; same-round второй free move после скрытия отклоняется, даже при сбросе usage;
+- opportunity закрывается с LEFT_HIDING_POSITION без повторного движения, нового receipt или регистрации used hiding position; исходные movement/round snapshots и trace доступны во вложенном результате;
+- 10 новых детерминированных тестов проверяют обычный/Fast маршрут после route/same-Zone hiding, чужой actor/source, stale/replay, chronology, историю, ошибки и неизменяемость. Ограничения: актуальные snapshots хранит caller; same-Zone уход, awareness и replacement не добавлены.
+
 ## Следующий шаг
 
-Добавить source-bound регистрацию раскрытого hiding position после completed hidden Attack (обычного, profile-aware и prepared): сохранить actor-scoped `used_hiding_position_ids`, связать результат с последующей Move Quietly preparation и отклонять повторное применение одного execution result. Проверить требование нового hiding spot по PG 1.4, Rules / Attack Tests, стр. 118. Не вычислять автоматически осведомлённость врагов и не строить общий battle aggregate.
+Добавить атомарный executor свободного перемещения для активного hidden lifecycle: source-bound FreeMovementRequest с проверкой владельца, исходного placement/graph, более позднего round и exact source/consumption chain до движения; один existing resolve_free_movement, затем текущий loss consumer и согласованный результат spatial/lifecycle. Проверить ошибки preflight/исполнения, один переход и replay. Не добавлять same-Zone movement, awareness, replacement или battle aggregate.
 
 ## Последняя проверка
 
-2026-09-17:
+2026-09-23: Python 3.12 в текущем окружении отсутствует (`py -3.12`: No suitable Python runtime found). Проверки выполнены на установленном Python 3.14:
 
 ```powershell
 $env:PYTHONPATH = "src"
-py -3.12 -m unittest discover -s tests -v
+py -3.14 -m unittest discover -s tests -v
+py -3.14 -m compileall -q src tests tools
+git diff --check
 ```
 
-Результат: `Ran 1050 tests ... OK`. Целевой запуск continuation/hidden attack: `Ran 16 tests ... OK`. `compileall`, public-import smoke test новых hidden continuation contracts, проверка отсутствия domain→rules imports и `git diff --check` успешно завершены (только предупреждения Git о LF/CRLF).
-
-```powershell
-py -3.12 -m compileall -q src tests tools
-```
-
-Результат: успешно.
+Полный набор: `Ran 1123 tests ... OK`; целевой запуск free-movement loss, Move Quietly lifecycle, lifecycle и lifecycle-loss модулей: `Ran 40 tests ... OK` (10 + 9 + 14 + 7). Существующие continuation, Aim, registration и composite тесты входят в полный набор. Compileall, public-import smoke, ссылки README/docs/README и `git diff --check` успешно проверены. Проверка на 3.12 в этой сессии не выполнена; прежние 1050 тестов на 3.12 относятся к сессии 2026-09-17.
