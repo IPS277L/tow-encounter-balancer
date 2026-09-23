@@ -757,12 +757,36 @@ K1 — реализация книжного resolution kernel. Прототип
 - production API и правила не менялись. Локальная PG 1.4, Rules / Combat Actions / Aim, стр. 116 перечитана. Caller по-прежнему выбирает фактически следующее действие и сохраняет актуальную историю.
 
 - общий preflight consumer/executor LOST расширен на ordinary Skill.MELEE Attack по исходной цели Aim; follow-up остаётся LOST без Aim bonus, новые публичные types не добавлены;
-- шесть тестов test_k1_same_target_melee_aim_loss.py проверяют completed/atomic hit/miss × Aim 0/2, same-turn/later-turn, один kernel/receipt/consumer, exact actor/Attack/receipt/chronology, историю следующей preparation, replay между Melee и different-target ветвями до RNG и immutable inputs; 19 прежних тестов сохранены;
-- непосредственно сверены PG 1.4, Rules / Aim, стр. 116 и Attack Tests, стр. 118. Same-target Brawn и Charge/Improvise composition пока вне API; caller хранит актуальную history и выбирает следующее действие.
+- шесть тестов test_k1_same_target_close_attack_aim_loss.py проверяют completed/atomic hit/miss × Aim 0/2, same-turn/later-turn, один kernel/receipt/consumer, exact actor/Attack/receipt/chronology, историю следующей preparation, replay между Melee и different-target ветвями до RNG и immutable inputs; 19 прежних тестов сохранены;
+- непосредственно сверены PG 1.4, Rules / Aim, стр. 116 и Attack Tests, стр. 118. На этом этапе same-target Brawn и Charge/Improvise composition оставались вне API; caller хранит актуальную history и выбирает следующее действие.
+
+- ordinary Skill.BRAWN Attack по исходной цели Aim подключена к общему preflight consume_attack_lost_aim / execute_registered_aim_loss_attack; LOST без бонуса, новые public types не добавлены;
+- общий модуль тестов переименован в test_k1_same_target_close_attack_aim_loss.py: прежние шесть сценариев Melee и шесть Brawn покрывают completed/atomic hit/miss × Aim 0/2, same-turn/later-turn, guards и preparation. Replay проверен между Melee, Brawn и different-target ветвями с новыми IDs до RNG;
+- source/receipt/history/chronology и одно исполнение сохранены. Same-target APPLIED Shooting/Throwing и неподходящий skill отвергаются. PG 1.4, Rules / Aim, стр. 116 и Attack Tests, стр. 118 перечитаны непосредственно; Charge/Brawn ambiguity и composition не затронуты.
+
+- test_k1_aim_target_switch.py расширен двумя сценариями same-target Melee/Brawn → LOST → свежий Aim → APPLIED: 3 теста, 48 сочетаний обоих Aim 0/2 и обоих hit/miss, по четыре реальных раунда;
+- Conditions цели передаются из первого kernel в её Recover, затем recovered target state — во второй Attack. При close miss typed AttackerStaggerRequest применяется общим Condition reducer; явно Close союзник снимает Staggered с hero через Recover до свежего Aim. Изменения Conditions и receipts проверяются;
+- returned Aim history переносится без ручного append IDs, старый source с новыми preparation/Attack/follow-up IDs отклоняется до RNG; по одному kernel/receipt на атаку, свежий бонус и обе source/follow-up chains сохранены;
+- production API и правила не менялись. PG 1.4, Rules / Aim, стр. 116; Recover и Attack Tests, стр. 118; Failed/Successful Attacks, стр. 119 перечитаны непосредственно.
+
+- добавлены AimChargeLossConsumptionRequest/Result, public exports и consume_charge_lost_aim в существующих Aim modules: готовый LOST связывается с completed ordinary Melee Charge по actor/action/declaration/receipt/chronology;
+- общий immutable append и trace сохраняют source/follow-up prefixes однократно и единственный Charge result с движением, kernel, бонусом Charge и receipt; нет нового RNG или повторного исполнения;
+- девять тестов test_k1_aim_charge_loss_consumption.py покрывают hit/miss × Aim 0/2 × same/different target, renamed replay, общую историю non-Attack/Attack LOST/APPLIED, actor/action/receipt/chronology, следующую preparation, типы/provenance/trace и immutable inputs при исключении;
+- PG 1.4, Rules / Aim, стр. 116 и Manoeuvre / Charge, стр. 117 непосредственно сверены. Consumer не защищает от уже использованного внешним executor RNG; atomic wrapper реализован следующим срезом ниже. Long Charge/terrain/Brawn Charge и выбор next action остаются вне среза.
+
+- добавлены RegisteredAimLossChargeExecutionRequest/Result и execute_registered_aim_loss_charge; общий _validate_charge_loss_preflight применяется к pending Charge и completed consumer, проверяет actor/action/declaration/skill/source/follow-up/slot/chronology до executor, движения и RNG;
+- один execute_charge_action и один consume_charge_lost_aim возвращают единственную registration; execution/state — views. Result связывает source Charge ID/actor/target/skill/speed/slot, исходные round/spatial/kernel states, follow-up/history и точную trace;
+- девять новых тестов test_k1_registered_aim_loss_charge.py: hit/miss × Aim 0/2 × same/different target × same-turn/later-first-slot, replay общей истории с новыми IDs до RNG, actor/action/slot/chronology, runtime preflight, ошибки executor/RNG/registration/result, provenance/trace и следующая preparation;
+- snapshots неизменны при исключении, внешние RNG/decision effects не откатываются. Long/terrain/Brawn Charge не подключены; caller хранит состояния и выбирает next action. PG 1.4, Rules / Aim, стр. 116 и Manoeuvre / Charge, стр. 117 непосредственно перечитаны.
+
+- добавлен test_k1_aim_charge_cycle.py: Aim → registered ordinary Melee Charge/LOST → свежий Aim → registered APPLIED; 16 сочетаний обоих Aim 0/2 и обоих hit/miss, четыре реальных раунда;
+- возвращённый spatial state Charge проходит start_next_spatial_round с сохранением placements; target Conditions и close-miss Staggered героя проходят Recover цели/явно Close союзника. Вторая атака получает recovered target state и сохранённый Close Range; обе атаки opposed;
+- проверены только +1d Charge у первой атаки, свежий Aim bonus второй, два kernel-вызова, по одному receipt, обе source/follow-up chains, immutable inputs и replay старого Aim с переименованными Charge/Attack/preparation/follow-up IDs до RNG. Никакого ручного append history;
+- production API и правила не менялись. PG 1.4, Rules / Aim, стр. 116; Manoeuvre / Charge, стр. 117; Recover, стр. 118; Failed/Successful Attacks, стр. 119 непосредственно перечитаны.
 
 ## Следующий шаг
 
-Расширить общий preflight consume_attack_lost_aim / execute_registered_aim_loss_attack на ordinary Brawn Attack по исходной цели Aim с готовым LOST. Сверить PG 1.4, Rules / Aim, стр. 116 и Attack Tests, стр. 118; сохранить guards actor/source/follow-up/exact Attack/receipt/chronology и однократное исполнение. Проверить hit/miss × Aim 0/положительный и replay с новыми IDs до RNG. Новых wrapper types, Charge/Improvise composition и battle aggregate не добавлять; спорный бонус Charge для Brawn не затрагивать.
+Добавить чистую регистрацию LOST Aim после completed Long Charge с Skill.MELEE через LongChargeActionExecutionResult. Поддержать все три LongChargeOutcome: reached-and-attacked и обе stopped-short ветви без атаки; каждое завершённое действие расходует источник Aim однократно. Связать actor/action/declaration/receipt/chronology с готовым LOST, сохранить готовые movement/Test/optional kernel/Conditions без повторного исполнения. Проверить Aim 0/положительный, hit/miss для reached, failed Athletics и already-Staggered, renamed replay и следующую preparation. Не ослаблять ordinary Charge consumer; atomic Long Charge, terrain и Brawn оставить вне среза. Перед изменением сверить PG 1.4, Rules / Aim, стр. 116 и Manoeuvre / Charge, стр. 117.
 
 ## Последняя проверка
 
@@ -775,4 +799,4 @@ py -3.14 -m compileall -q src tests tools
 git diff --check
 ```
 
-Полный набор: `Ran 1253 tests ... OK`; целевой запуск same-target Melee + registered Aim loss Attack + completed consumer: `Ran 25 tests ... OK` (6 + 9 + 10). Интеграция Aim target switch (16 сочетаний) входит в полный набор. Существующие hidden recovery cycle, continuation, Aim, registration и composite тесты входят в полный набор. Compileall, public-import smoke, 24 ссылки README/docs/README и `git diff --check` успешно проверены. Проверка на 3.12 в этой сессии не выполнена; прежние 1050 тестов на 3.12 относятся к сессии 2026-09-17.
+Полный набор: `Ran 1280 tests ... OK`; целевой запуск Aim Charge cycle + Aim target switch: `Ran 4 tests ... OK` (16 + 48 сочетаний). Registered Aim loss Charge, completed consumer и прежние executors входят в полный набор. Интеграция Aim target switch (3 теста/48 сочетаний) входит в полный набор. Существующие hidden recovery cycle, continuation, Aim, registration и composite тесты входят в полный набор. Compileall, public-import smoke, 24 ссылки README/docs/README и `git diff --check` успешно проверены. Проверка на 3.12 в этой сессии не выполнена; прежние 1050 тестов на 3.12 относятся к сессии 2026-09-17.

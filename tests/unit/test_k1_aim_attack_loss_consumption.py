@@ -43,7 +43,7 @@ def pending_inputs(*, values=(1, 2, 10), renamed=False, later_round=None, later_
     turn = reserve_action(turn, CombatActionKind.ATTACK,
                           grant=ActionSlotGrant.ABILITY if slot == 2 else ActionSlotGrant.STANDARD)
     attack = attack_execution_request(state=turn, slot_index=slot, target_id=target)
-    if skill is Skill.MELEE:
+    if skill in (Skill.MELEE, Skill.BRAWN):
         attack = replace(attack, kernel_request=replace(attack.kernel_request,
             attack=replace(attack.kernel_request.attack, is_close_range=True)))
     if renamed:
@@ -163,9 +163,9 @@ class K1AimAttackLossConsumptionTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "must follow Aim"):
             replace(source, follow_up=resolve_aim_follow_up(replace(source.follow_up.source_request, aim=future)))
 
-    def test_applied_non_attack_and_same_target_brawn_lost_are_outside_consumer(self):
+    def test_applied_non_attack_and_noncombat_skill_are_outside_consumer(self):
         source = request()
-        for target, skill in (("enemy", Skill.SHOOTING), ("enemy", Skill.BRAWN)):
+        for target, skill in (("enemy", Skill.SHOOTING), ("enemy", Skill.THROWING), ("enemy", Skill.AWARENESS)):
             with self.subTest(target=target, skill=skill), self.assertRaisesRegex(ValueError, "requires LOST|requires Melee"):
                 request(target=target, skill=skill)
         with self.assertRaisesRegex(ValueError, "ordinary Attack"):

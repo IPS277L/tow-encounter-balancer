@@ -114,7 +114,8 @@ class K1RegisteredAimLossAttackTests(unittest.TestCase):
         cases = (
             (earlier, source.attack), (wrong_follow, wrong_attack),
             pending_inputs(later_round=2, later_second=True),
-            pending_inputs(target="enemy"), pending_inputs(target="enemy", skill=Skill.BRAWN),
+            pending_inputs(target="enemy"), pending_inputs(target="enemy", skill=Skill.THROWING),
+            pending_inputs(target="enemy", skill=Skill.AWARENESS),
             (non_attack_loss().follow_up, source.attack),
         )
         for follow_up, attack in cases:

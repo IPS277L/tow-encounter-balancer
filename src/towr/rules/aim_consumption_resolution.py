@@ -1,6 +1,11 @@
 from __future__ import annotations
 
 from towr.domain.aim_consumption_models import (
+    RegisteredAimLossChargeExecutionRequest,
+    RegisteredAimLossChargeExecutionResult,
+    _validate_charge_loss_preflight,
+    AimChargeLossConsumptionRequest,
+    AimChargeLossConsumptionResult,
     RegisteredAimLossAttackExecutionRequest,
     RegisteredAimLossAttackExecutionResult,
     _validate_attack_loss_preflight,
@@ -27,6 +32,7 @@ from towr.domain.aim_consumption_models import (
 )
 from towr.rules.aim_ranged_weapon_attack_resolution import execute_aim_ranged_weapon_attack
 from towr.rules.attack_action_execution import execute_attack_action
+from towr.rules.charge_action_execution import execute_charge_action
 from towr.rules.dice import RandomSource
 from towr.rules.kernel import ResolutionDecisionProvider
 from towr.rules.prepared_ranged_weapon_attack_resolution import execute_prepared_ranged_weapon_attack
@@ -108,7 +114,7 @@ def execute_registered_aim_loss_attack(
     *,
     decisions: ResolutionDecisionProvider | None = None,
 ) -> RegisteredAimLossAttackExecutionResult:
-    """Execute one different-target or same-target Melee Attack with LOST Aim.
+    """Execute one different-target or same-target Melee/Brawn Attack with LOST Aim.
 
     Input snapshots are immutable; RNG and decision-provider effects are not undone.
     """
@@ -128,8 +134,51 @@ def execute_registered_aim_loss_attack(
     )
 
 
+def execute_registered_aim_loss_charge(
+    request: RegisteredAimLossChargeExecutionRequest,
+    rng: RandomSource,
+    *,
+    decisions: ResolutionDecisionProvider | None = None,
+) -> RegisteredAimLossChargeExecutionResult:
+    """Check Aim history before one Charge and register its sole completed result.
+
+    Input snapshots are immutable; external RNG and decision effects are not undone.
+    """
+    if not isinstance(request, RegisteredAimLossChargeExecutionRequest):
+        raise TypeError("request must be a RegisteredAimLossChargeExecutionRequest")
+    _validate_charge_loss_preflight(request.state, request.follow_up, request.charge)
+    execution = execute_charge_action(request.charge, rng, decisions=decisions)
+    registration = consume_charge_lost_aim(AimChargeLossConsumptionRequest(
+        f"{request.id}:registration", request.state, request.follow_up, execution,
+    ))
+    return RegisteredAimLossChargeExecutionResult(
+        request_id=request.id,
+        rule_id=request.rule_id,
+        source_request=request,
+        registration=registration,
+        applied_rule_ids=_registered_loss_rule_ids(request, registration),
+    )
+
+
+def consume_charge_lost_aim(request: AimChargeLossConsumptionRequest) -> AimChargeLossConsumptionResult:
+    """Register LOST from one completed ordinary Melee Charge without executing it.
+
+    Caller selects the next action and retains the latest history and Charge states.
+    """
+    if not isinstance(request, AimChargeLossConsumptionRequest):
+        raise TypeError("request must be an AimChargeLossConsumptionRequest")
+    return AimChargeLossConsumptionResult(
+        request_id=request.id,
+        rule_id=request.rule_id,
+        source_request=request,
+        previous_state=request.state,
+        state=_consumed_state(request),
+        applied_rule_ids=_attack_loss_rule_ids(request),
+    )
+
+
 def consume_attack_lost_aim(request: AimAttackLossConsumptionRequest) -> AimAttackLossConsumptionResult:
-    """Register LOST after a different-target or same-target Melee Attack.
+    """Register LOST after a different-target or same-target Melee/Brawn Attack.
 
     No Attack, Test or receipt is executed again. Caller retains the latest history
     and identifies the actual next action after Aim.

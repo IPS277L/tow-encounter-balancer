@@ -19,15 +19,16 @@ from towr.rules.kernel import resolve_kernel_attack
 from towr.rules.ranged_weapon_attack_preparation import prepare_ranged_weapon_attack_with_aim_history
 
 
-def melee_request(**kwargs):
-    return registered_request(target="enemy", skill=Skill.MELEE, **kwargs)
-
-
 class K1SameTargetMeleeAimLossTests(unittest.TestCase):
+    skill = Skill.MELEE
+
+    def request(self, **kwargs):
+        return registered_request(target="enemy", skill=self.skill, **kwargs)
+
     def test_completed_hit_miss_zero_positive_aim_consumes_once_without_execution(self):
         for values, hit in product(((10, 10, 10), (1, 2, 10)), (False, True)):
             with self.subTest(values=values, hit=hit):
-                source = completed_request(target="enemy", skill=Skill.MELEE, values=values, hit=hit)
+                source = completed_request(target="enemy", skill=self.skill, values=values, hit=hit)
                 before = deepcopy(source)
                 with (
                     patch.object(consumption, "execute_attack_action") as execute,
@@ -47,14 +48,14 @@ class K1SameTargetMeleeAimLossTests(unittest.TestCase):
                 self.assertEqual(result.state.consumed_aim_follow_up_ids, ("follow:older", "follow:prior", "follow:lost-attack"))
                 self.assertTrue(set(source.execution.applied_rule_ids) <= set(result.applied_rule_ids))
                 self.assertEqual(source, before)
-                for candidate in (source, completed_request(target="enemy", skill=Skill.MELEE, renamed=True)):
+                for candidate in (source, completed_request(target="enemy", skill=self.skill, renamed=True)):
                     with self.assertRaisesRegex(ValueError, "source was already consumed"):
                         consumption.consume_attack_lost_aim(replace(candidate, id="consume:new", state=result.state))
 
     def test_atomic_same_turn_and_later_turn_have_one_kernel_receipt_and_registration(self):
         for values, hit, later in product(((10, 10, 10), (1, 2, 10)), (False, True), (None, 2)):
             with self.subTest(values=values, hit=hit, later=later):
-                source = melee_request(values=values, later_round=later)
+                source = self.request(values=values, later_round=later)
                 before = deepcopy(source)
                 rng = SequenceRandom([1 if hit else 10, 10, 10, 7])
                 with (
@@ -81,11 +82,16 @@ class K1SameTargetMeleeAimLossTests(unittest.TestCase):
                 self.assertEqual(source, before)
 
     def test_renamed_replay_is_blocked_across_same_and_different_target_paths_before_rng(self):
-        for first in (melee_request(), registered_request()):
+        for first in (self.request(), registered_request()):
             history = consumption.execute_registered_aim_loss_attack(first, SequenceRandom([10] * 3)).state
-            for candidate in (melee_request(), melee_request(renamed=True), registered_request(renamed=True)):
+            for candidate in (
+                self.request(), registered_request(renamed=True),
+                registered_request(target="enemy", skill=Skill.MELEE, renamed=True),
+                registered_request(target="enemy", skill=Skill.BRAWN, renamed=True),
+            ):
                 rng, decisions = Mock(), Mock()
-                with self.subTest(first=first.attack.target_id, next=candidate.attack.target_id), patch.object(consumption, "execute_attack_action") as execute:
+                with self.subTest(first=first.attack.target_id, next=candidate.attack.target_id,
+                                  skill=candidate.follow_up.source_request.attack_skill), patch.object(consumption, "execute_attack_action") as execute:
                     with self.assertRaisesRegex(ValueError, "source was already consumed"):
                         consumption.execute_registered_aim_loss_attack(
                             replace(candidate, id="registered:new", state=history), rng, decisions=decisions,
@@ -95,7 +101,7 @@ class K1SameTargetMeleeAimLossTests(unittest.TestCase):
                 self.assertEqual(decisions.mock_calls, [])
 
     def test_exact_attack_actor_history_slot_and_chronology_guards_still_apply(self):
-        source = melee_request()
+        source = self.request()
         for changes in (
             {"state": replace(source.state, actor_id="other")},
             {"state": replace(source.state, consumed_aim_follow_up_ids=(source.follow_up.request_id,))},
@@ -109,9 +115,9 @@ class K1SameTargetMeleeAimLossTests(unittest.TestCase):
             execute.assert_not_called()
             self.assertEqual(rng.mock_calls, [])
         with self.assertRaisesRegex(ValueError, "first slot"):
-            melee_request(later_round=2, later_second=True)
+            self.request(later_round=2, later_second=True)
         with self.assertRaisesRegex(ValueError, "must follow Aim"):
-            melee_request(later_round=1)
+            self.request(later_round=1)
         turn = source.attack.state.active_turn
         attack = replace(source.attack, state=replace(source.attack.state, active_turn=replace(
             turn, action_slots=(*turn.action_slots[:-1], replace(
@@ -123,9 +129,9 @@ class K1SameTargetMeleeAimLossTests(unittest.TestCase):
             replace(source, attack=attack, follow_up=follow)
 
     def test_completed_receipt_and_kernel_cannot_be_rebound(self):
-        source = completed_request(target="enemy", skill=Skill.MELEE)
+        source = completed_request(target="enemy", skill=self.skill)
         for execution in (
-            completed_request(target="enemy", skill=Skill.MELEE, renamed=True).execution,
+            completed_request(target="enemy", skill=self.skill, renamed=True).execution,
             completed_request().execution,
         ):
             with self.subTest(execution=execution), self.assertRaisesRegex(ValueError, "does not match"):
@@ -135,7 +141,7 @@ class K1SameTargetMeleeAimLossTests(unittest.TestCase):
                 execution=replace(source.execution.slot.execution, id="receipt:other"))))
 
     def test_returned_history_blocks_ranged_preparation_for_the_original_target(self):
-        source = melee_request()
+        source = self.request()
         result = consumption.execute_registered_aim_loss_attack(source, SequenceRandom([10] * 3))
         candidate = replace(preparation_request(
             RangedWeaponId.LONGBOW, aim=source.follow_up.source_request.aim,
@@ -145,6 +151,12 @@ class K1SameTargetMeleeAimLossTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "source was already consumed"):
                 prepare_ranged_weapon_attack_with_aim_history(result.state, candidate)
         prepare.assert_not_called()
+
+
+class K1SameTargetBrawnAimLossTests(K1SameTargetMeleeAimLossTests):
+    """The same history and execution contract applies to unarmed attacks."""
+
+    skill = Skill.BRAWN
 
 
 if __name__ == "__main__":

@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass, replace
 
 from towr.domain.action_execution_models import AttackActionExecutionRequest, AttackActionExecutionResult
+from towr.domain.charge_models import ChargeActionExecutionRequest, ChargeActionExecutionResult
 from towr.domain.aim_models import (
     AIM_ACTION_RULE_ID,
     AIM_FOLLOW_UP_RULE_ID,
@@ -10,7 +11,7 @@ from towr.domain.aim_models import (
     AimFollowUpResult,
     _validate_non_empty_string,
 )
-from towr.domain.turn_models import ActionExecutionReceipt, CombatActionKind
+from towr.domain.turn_models import ActionExecutionReceipt, CombatActionKind, ManoeuvreKind
 from towr.domain.test_models import Skill
 from towr.domain.prepared_ranged_weapon_attack_models import (
     PreparedRangedWeaponAttackExecutionRequest,
@@ -27,6 +28,8 @@ from towr.domain.aim_ranged_weapon_attack_models import (
 AIM_LOSS_CONSUMPTION_RULE_ID = "RULE-COMBAT-004:aim-loss-consumption"
 AIM_ATTACK_CONSUMPTION_RULE_ID = "RULE-COMBAT-004:aim-attack-consumption"
 AIM_ATTACK_LOSS_CONSUMPTION_RULE_ID = "RULE-COMBAT-004:aim-attack-loss-consumption"
+AIM_CHARGE_LOSS_CONSUMPTION_RULE_ID = "RULE-COMBAT-004:aim-charge-loss-consumption"
+REGISTERED_AIM_LOSS_CHARGE_RULE_ID = "RULE-COMBAT-004:registered-aim-loss-charge"
 REGISTERED_AIM_LOSS_ATTACK_RULE_ID = "RULE-COMBAT-004:registered-aim-loss-attack"
 REGISTERED_AIM_RANGED_ATTACK_RULE_ID = "RULE-COMBAT-004:registered-aim-ranged-attack"
 REGISTERED_PREPARED_AIM_RANGED_ATTACK_RULE_ID = "RULE-COMBAT-004:registered-prepared-aim-ranged-attack"
@@ -110,6 +113,161 @@ class AimLossConsumptionResult:
         if rules != _consumption_rule_ids(source):
             raise ValueError("Aim loss consumption trace is inconsistent")
         object.__setattr__(self, "applied_rule_ids", rules)
+
+
+@dataclass(frozen=True, slots=True)
+class AimChargeLossConsumptionRequest:
+    id: str
+    state: AimConsumptionState
+    follow_up: AimFollowUpResult
+    execution: ChargeActionExecutionResult
+    rule_id: str = AIM_CHARGE_LOSS_CONSUMPTION_RULE_ID
+
+    def __post_init__(self) -> None:
+        _validate_non_empty_string(self.id, "Aim Charge loss consumption id")
+        if not isinstance(self.execution, ChargeActionExecutionResult):
+            raise TypeError("execution must be a completed ChargeActionExecutionResult")
+        _validate_charge_loss_preflight(self.state, self.follow_up, self.execution)
+        source = self.follow_up.source_request
+        execution = self.execution
+        action = execution.slot.execution
+        if self.rule_id != AIM_CHARGE_LOSS_CONSUMPTION_RULE_ID:
+            raise ValueError("Aim Charge loss uses an unknown rule")
+        if action is None:
+            raise ValueError("Aim Charge loss requires a completed receipt")
+        if self.state.actor_id != source.actor_id or execution.actor_id != source.actor_id or action.actor_id != source.actor_id:
+            raise ValueError("Aim Charge loss belongs to another actor")
+        if (execution.request_id != source.next_action_id or action.id != source.next_action_id
+                or action.declaration != source.declaration or action.executor_rule_id != execution.rule_id
+                or action.round_number != execution.previous_round_state.round_number
+                or action.slot_index != execution.slot_index):
+            raise ValueError("Aim Charge loss receipt does not match its follow-up Charge")
+
+
+@dataclass(frozen=True, slots=True)
+class AimChargeLossConsumptionResult:
+    request_id: str
+    rule_id: str
+    source_request: AimChargeLossConsumptionRequest
+    previous_state: AimConsumptionState
+    state: AimConsumptionState
+    applied_rule_ids: tuple[str, ...]
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.source_request, AimChargeLossConsumptionRequest):
+            raise TypeError("source_request must be an AimChargeLossConsumptionRequest")
+        source = self.source_request
+        if (self.request_id != source.id or self.rule_id != source.rule_id
+                or self.previous_state != source.state or self.state != _consumed_state(source)):
+            raise ValueError("Aim Charge loss has stale provenance or state")
+        rules = _unique_ids(self.applied_rule_ids, "Aim Charge loss rules")
+        if rules != _attack_loss_rule_ids(source):
+            raise ValueError("Aim Charge loss trace is inconsistent")
+        object.__setattr__(self, "applied_rule_ids", rules)
+
+
+@dataclass(frozen=True, slots=True)
+class RegisteredAimLossChargeExecutionRequest:
+    id: str
+    state: AimConsumptionState
+    follow_up: AimFollowUpResult
+    charge: ChargeActionExecutionRequest
+    rule_id: str = REGISTERED_AIM_LOSS_CHARGE_RULE_ID
+
+    def __post_init__(self) -> None:
+        _validate_non_empty_string(self.id, "registered Aim loss Charge id")
+        if self.rule_id != REGISTERED_AIM_LOSS_CHARGE_RULE_ID:
+            raise ValueError("unknown registered Aim loss Charge rule")
+        if not isinstance(self.charge, ChargeActionExecutionRequest):
+            raise TypeError("charge must be a ChargeActionExecutionRequest")
+        _validate_charge_loss_preflight(self.state, self.follow_up, self.charge)
+
+
+@dataclass(frozen=True, slots=True)
+class RegisteredAimLossChargeExecutionResult:
+    request_id: str
+    rule_id: str
+    source_request: RegisteredAimLossChargeExecutionRequest
+    registration: AimChargeLossConsumptionResult
+    applied_rule_ids: tuple[str, ...]
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.source_request, RegisteredAimLossChargeExecutionRequest):
+            raise TypeError("source_request must be a registered Aim loss Charge request")
+        if not isinstance(self.registration, AimChargeLossConsumptionResult):
+            raise TypeError("registration must be an AimChargeLossConsumptionResult")
+        source = self.source_request
+        charge = source.charge
+        execution = self.execution
+        if (self.request_id != source.id or self.rule_id != source.rule_id
+                or self.registration.source_request.id != f"{source.id}:registration"
+                or self.registration.previous_state != source.state
+                or self.registration.source_request.follow_up != source.follow_up
+                or execution.request_id != charge.id or execution.rule_id != charge.rule_id
+                or execution.actor_id != charge.actor_id or execution.target_id != charge.target_id
+                or execution.slot_index != charge.slot_index or execution.speed != charge.speed
+                or execution.attack_skill != charge.attack_skill
+                or execution.previous_round_state != charge.round_state
+                or execution.previous_spatial_state != charge.spatial_state
+                or execution.source_kernel_request != charge.kernel_request):
+            raise ValueError("registered Aim loss Charge has stale provenance")
+        rules = _unique_ids(self.applied_rule_ids, "registered Aim loss Charge rules")
+        if rules != _registered_loss_rule_ids(source, self.registration):
+            raise ValueError("registered Aim loss Charge trace is inconsistent")
+        object.__setattr__(self, "applied_rule_ids", rules)
+
+    @property
+    def execution(self) -> ChargeActionExecutionResult:
+        return self.registration.source_request.execution
+
+    @property
+    def state(self) -> AimConsumptionState:
+        return self.registration.state
+
+
+def _validate_charge_loss_preflight(
+    state: AimConsumptionState,
+    follow_up: AimFollowUpResult,
+    charge: ChargeActionExecutionRequest | ChargeActionExecutionResult,
+) -> None:
+    if not isinstance(state, AimConsumptionState):
+        raise TypeError("state must be an AimConsumptionState")
+    if not isinstance(follow_up, AimFollowUpResult):
+        raise TypeError("follow_up must be a completed AimFollowUpResult")
+    if isinstance(charge, ChargeActionExecutionRequest):
+        action_id, round_state = charge.id, charge.round_state
+    elif isinstance(charge, ChargeActionExecutionResult):
+        action_id, round_state = charge.request_id, charge.previous_round_state
+    else:
+        raise TypeError("charge must be a Charge action request or result")
+    source = follow_up.source_request
+    aim = source.aim
+    if (follow_up.rule_id != AIM_FOLLOW_UP_RULE_ID or aim.rule_id != AIM_ACTION_RULE_ID
+            or charge.rule_id != "RULE-COMBAT-014:charge-action-execution"):
+        raise ValueError("Aim Charge loss uses an unknown rule")
+    if follow_up.outcome is not AimFollowUpOutcome.LOST:
+        raise ValueError("Aim Charge loss requires LOST")
+    if (source.declaration.kind is not CombatActionKind.MANOEUVRE
+            or source.declaration.manoeuvre is not ManoeuvreKind.CHARGE):
+        raise ValueError("Aim Charge loss requires a Charge follow-up")
+    if charge.attack_skill is not Skill.MELEE:
+        raise ValueError("Aim Charge loss currently requires Melee")
+    if state.actor_id != source.actor_id or charge.actor_id != source.actor_id:
+        raise ValueError("Aim Charge loss belongs to another actor")
+    if action_id != source.next_action_id:
+        raise ValueError("Aim Charge loss action does not match its follow-up")
+    turn = round_state.active_turn
+    if (turn is None or turn.actor_id != source.actor_id or charge.slot_index > len(turn.action_slots)
+            or turn.action_slots[charge.slot_index - 1].declaration != source.declaration):
+        raise ValueError("Aim Charge loss slot does not match its follow-up")
+    if (round_state.round_number, charge.slot_index) <= (aim.round_state.round_number, aim.slot.index):
+        raise ValueError("Aim Charge loss must follow Aim")
+    if round_state.round_number > aim.round_state.round_number and charge.slot_index != 1:
+        raise ValueError("Aim Charge loss must use the first slot of a later turn")
+    if aim.request_id in state.consumed_aim_source_ids:
+        raise ValueError("Aim source was already consumed")
+    if follow_up.request_id in state.consumed_aim_follow_up_ids:
+        raise ValueError("Aim follow-up was already consumed")
 
 
 @dataclass(frozen=True, slots=True)
@@ -224,8 +382,8 @@ class RegisteredAimLossAttackExecutionResult:
 
 
 def _registered_loss_rule_ids(
-    request: RegisteredAimLossAttackExecutionRequest,
-    registration: AimAttackLossConsumptionResult,
+    request: RegisteredAimLossAttackExecutionRequest | RegisteredAimLossChargeExecutionRequest,
+    registration: AimAttackLossConsumptionResult | AimChargeLossConsumptionResult,
 ) -> tuple[str, ...]:
     return tuple(dict.fromkeys((request.rule_id, *registration.applied_rule_ids)))
 
@@ -251,8 +409,8 @@ def _validate_attack_loss_preflight(
         raise TypeError("attack must be an AttackActionExecutionRequest")
     if attack != follow_up.attack or attack.id != source.next_action_id:
         raise ValueError("Aim loss Attack does not match its follow-up")
-    if attack.target_id == aim.bonus.target_id and source.attack_skill is not Skill.MELEE:
-        raise ValueError("same-target Aim Attack loss requires Melee")
+    if attack.target_id == aim.bonus.target_id and source.attack_skill not in (Skill.MELEE, Skill.BRAWN):
+        raise ValueError("same-target Aim Attack loss requires Melee or Brawn")
     if state.actor_id != source.actor_id or attack.actor_id != source.actor_id:
         raise ValueError("Aim Attack loss belongs to another actor")
     turn = attack.state.active_turn
@@ -459,7 +617,7 @@ def _attack_consumption_rule_ids(request: AimAttackConsumptionRequest) -> tuple[
     return tuple(dict.fromkeys((request.rule_id, *aim.applied_rule_ids, *request.execution.applied_rule_ids)))
 
 
-def _consumed_state(request: AimLossConsumptionRequest | AimAttackLossConsumptionRequest) -> AimConsumptionState:
+def _consumed_state(request: AimLossConsumptionRequest | AimAttackLossConsumptionRequest | AimChargeLossConsumptionRequest) -> AimConsumptionState:
     return replace(
         request.state,
         consumed_aim_source_ids=(*request.state.consumed_aim_source_ids, request.follow_up.source_request.aim.request_id),
@@ -467,7 +625,7 @@ def _consumed_state(request: AimLossConsumptionRequest | AimAttackLossConsumptio
     )
 
 
-def _attack_loss_rule_ids(request: AimAttackLossConsumptionRequest) -> tuple[str, ...]:
+def _attack_loss_rule_ids(request: AimAttackLossConsumptionRequest | AimChargeLossConsumptionRequest) -> tuple[str, ...]:
     return tuple(dict.fromkeys((
         request.rule_id, *request.follow_up.source_request.aim.applied_rule_ids,
         *request.follow_up.applied_rule_ids, *request.execution.applied_rule_ids,

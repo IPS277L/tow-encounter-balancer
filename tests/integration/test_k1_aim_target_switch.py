@@ -15,11 +15,12 @@ from towr.domain.aim_consumption_models import (
 from towr.domain.aim_models import AimFollowUpOutcome
 from towr.domain.aim_ranged_weapon_attack_models import AimRangedWeaponAttackExecutionRequest
 from towr.domain.attack_models import AttackOutcome, ResilienceProfile
-from towr.domain.condition_models import Condition, ConditionState
+from towr.domain.condition_models import Condition, ConditionApplicationRequest, ConditionState
 from towr.domain.magic_models import WizardMagicState
 from towr.domain.ranged_weapon_attack_models import RangedWeaponAttackExecutionRequest
 from towr.domain.ranged_weapon_profiles import RangedWeaponId
-from towr.domain.recover_models import RecoverActionExecutionRequest, RecoverMode, RecoverStandardChoice
+from towr.domain.recover_models import RecoverActionExecutionRequest, RecoverConditionTarget, RecoverMode, RecoverStandardChoice
+from towr.domain.resolution_models import AttackerStaggerRequest
 from towr.domain.reload_models import create_initial_ranged_weapon_reload_state
 from towr.domain.test_models import Skill
 from towr.domain.turn_models import (
@@ -28,6 +29,7 @@ from towr.domain.turn_models import (
 )
 from towr.rules import aim_consumption_resolution as consumption
 from towr.rules.aim_resolution import execute_aim_action, resolve_aim_follow_up
+from towr.rules.condition_effect_resolution import resolve_condition_application
 from towr.rules.kernel import resolve_kernel_attack
 from towr.rules.ranged_weapon_attack_preparation import prepare_ranged_weapon_attack_with_aim_history
 from towr.rules.recover_resolution import execute_recover_action
@@ -36,8 +38,12 @@ from towr.rules.turn_resolution import (
 )
 
 
-def next_hero_round(state, target_b_conditions=ConditionState()):
-    """Finish real turns; other actors Recover with no selected effects or nearby enemies."""
+def next_hero_round(state, target_conditions=ConditionState(), *, target_id="enemy:other",
+                    hero_conditions=ConditionState(), close_combat=False, spatial=None):
+    """Recover the target and, with an explicitly Close ally, the hero between real turns."""
+    if spatial is not None:
+        assert spatial.round_number == state.round_number
+    recoveries = []
     state = end_combat_turn(CombatTurnEndRequest(
         f"end:{state.round_number}:hero", state, "hero",
     )).state
@@ -51,16 +57,35 @@ def next_hero_round(state, target_b_conditions=ConditionState()):
             f"slot:{action_id}", state, actor, CombatActionDeclaration(CombatActionKind.RECOVER),
             ActionSlotGrant.STANDARD,
         )).state
-        state = execute_recover_action(RecoverActionExecutionRequest(
-            action_id, state, actor, target_b_conditions if actor == "enemy:other" else ConditionState(),
-            False, 1, RecoverMode.STANDARD,
-            RecoverStandardChoice(WizardMagicState()),
-        ), SequenceRandom([])).round_state
+        removal = None
+        if actor == target_id and target_conditions.has(Condition.STAGGERED):
+            removal = RecoverConditionTarget(actor, target_conditions, None)
+        elif actor == "ally" and hero_conditions.has(Condition.STAGGERED):
+            if spatial is not None:
+                assert spatial.placement_for(actor).zone_id == spatial.placement_for("hero").zone_id
+            removal = RecoverConditionTarget("hero", hero_conditions, True)
+        has_enemy_in_zone = close_combat
+        if spatial is not None:
+            placement = spatial.placement_for(actor)
+            has_enemy_in_zone = any(p.side_id != placement.side_id for p in spatial.placements_in(placement.zone_id))
+        recovery = execute_recover_action(RecoverActionExecutionRequest(
+            action_id, state, actor, target_conditions if actor == target_id else ConditionState(),
+            has_enemy_in_zone, 1, RecoverMode.STANDARD,
+            RecoverStandardChoice(WizardMagicState(), staggered_target=removal),
+        ), SequenceRandom([]))
+        recoveries.append(recovery)
+        for change in recovery.resolution.condition_changes:
+            if change.entity_id == target_id:
+                target_conditions = change.conditions
+            elif change.entity_id == "hero":
+                hero_conditions = change.conditions
+        state = recovery.round_state
         state = end_combat_turn(CombatTurnEndRequest(f"end:{action_id}", state, actor)).state
     state = advance_combat_round(CombatRoundAdvanceRequest(
         f"advance:{state.round_number}", state, state.participants,
     )).state
-    return start_combat_turn(CombatTurnStartRequest(f"hero:{state.round_number}", state, "hero")).state
+    state = start_combat_turn(CombatTurnStartRequest(f"hero:{state.round_number}", state, "hero")).state
+    return state, target_conditions, hero_conditions, tuple(recoveries)
 
 
 def pending_attack(state, target, identifier):
@@ -78,9 +103,9 @@ def pending_attack(state, target, identifier):
     ))
 
 
-def follow_up(aim, attack, identifier):
+def follow_up(aim, attack, identifier, *, skill=Skill.SHOOTING):
     return resolve_aim_follow_up(replace(
-        follow_up_request(aim, attack=attack, skill=Skill.SHOOTING), id=identifier,
+        follow_up_request(aim, attack=attack, skill=skill), id=identifier,
     ))
 
 
@@ -95,6 +120,16 @@ def aimed_shot(aim, attack, history, weapon, identifier):
 
 class K1AimTargetSwitchTests(unittest.TestCase):
     def test_lost_on_other_target_then_fresh_aim_applied_across_real_turns(self):
+        self.check_loss_then_fresh_aim(Skill.SHOOTING, "enemy:other")
+
+    def test_same_target_melee_loss_recover_and_fresh_aim_across_real_turns(self):
+        self.check_loss_then_fresh_aim(Skill.MELEE, "enemy")
+
+    def test_same_target_brawn_loss_recover_and_fresh_aim_across_real_turns(self):
+        self.check_loss_then_fresh_aim(Skill.BRAWN, "enemy")
+
+    def check_loss_then_fresh_aim(self, skill, first_target):
+        close_combat = skill in (Skill.MELEE, Skill.BRAWN)
         for first_bonus, fresh_bonus, first_hit, second_hit in product((0, 2), (0, 2), (False, True), (False, True)):
             with self.subTest(first=first_bonus, fresh=fresh_bonus, first_hit=first_hit, second_hit=second_hit):
                 history = AimConsumptionState("hero")
@@ -104,8 +139,12 @@ class K1AimTargetSwitchTests(unittest.TestCase):
                     SequenceRandom([1] * first_bonus + [10] * (3 - first_bonus)),
                 )
                 first_before = deepcopy(first)
-                attack_b = pending_attack(next_hero_round(first.round_state), "enemy:other", "attack:B")
-                lost = follow_up(first, attack_b, "follow:lost")
+                turn, _, _, _ = next_hero_round(first.round_state)
+                attack_b = pending_attack(turn, first_target, "attack:first")
+                if close_combat:
+                    attack_b = replace(attack_b, kernel_request=replace(attack_b.kernel_request,
+                        attack=replace(attack_b.kernel_request.attack, is_close_range=True)))
+                lost = follow_up(first, attack_b, "follow:lost", skill=skill)
                 self.assertIs(lost.outcome, AimFollowUpOutcome.LOST)
                 self.assertIs(lost.attack, attack_b)
                 rng_b = SequenceRandom([1 if first_hit else 10, 10, 10, 7])
@@ -122,14 +161,50 @@ class K1AimTargetSwitchTests(unittest.TestCase):
                     self.assertEqual(history.consumed_aim_follow_up_ids, (lost.request_id,))
                     self.assertEqual(rng_b.randint(1, 10), 7)
 
-                    target_b_conditions = result_b.execution.resolution.target_state.conditions
+                    target_after_attack = result_b.execution.resolution.target_state
+                    hero_conditions = ConditionState()
+                    follow_ups = result_b.execution.resolution.follow_ups
+                    if close_combat and not first_hit:
+                        self.assertEqual(follow_ups, (AttackerStaggerRequest(attack_id=attack_b.kernel_request.attack.id),))
+                        hero_conditions = resolve_condition_application(ConditionApplicationRequest(
+                            f"{follow_ups[0].attack_id}:stagger-attacker", hero_conditions, Condition.STAGGERED,
+                            follow_ups[0].rule_id,
+                        )).state
+                    else:
+                        self.assertEqual(follow_ups, ())
+                    turn, target_conditions, recovered_hero, recoveries = next_hero_round(
+                        result_b.execution.state, target_after_attack.conditions, target_id=first_target,
+                        hero_conditions=hero_conditions, close_combat=close_combat,
+                    )
+                    target_recovery = next(r for r in recoveries if r.source_request.actor_id == first_target)
+                    self.assertIs(target_recovery.source_request.actor_conditions, target_after_attack.conditions)
+                    changes = tuple(c for r in recoveries for c in r.resolution.condition_changes)
+                    self.assertEqual(tuple(c.entity_id for c in changes),
+                                     (first_target,) if first_hit else (("hero",) if close_combat else ()))
+                    for change in changes:
+                        self.assertEqual(change.removed_conditions, (Condition.STAGGERED,))
+                        self.assertTrue(change.previous_conditions.has(Condition.STAGGERED))
+                    self.assertEqual(target_conditions, ConditionState())
+                    self.assertEqual(recovered_hero, ConditionState())
+                    recovered_target = replace(target_after_attack, conditions=target_conditions)
                     fresh_request = aim_request(reserve_action(
-                        next_hero_round(result_b.execution.state, target_b_conditions), CombatActionKind.AIM,
+                        turn, CombatActionKind.AIM,
                     ))
                     fresh = execute_aim_action(replace(
                         fresh_request, id="aim:fresh", awareness_test=replace(fresh_request.awareness_test, id="awareness:fresh"),
                     ), SequenceRandom([1] * fresh_bonus + [10] * (3 - fresh_bonus)))
-                    attack_a = pending_attack(next_hero_round(fresh.round_state, target_b_conditions), "enemy", "attack:A")
+                    turn, next_conditions, next_hero_conditions, idle_recoveries = next_hero_round(
+                        fresh.round_state, recovered_target.conditions, target_id=first_target,
+                        hero_conditions=recovered_hero, close_combat=close_combat,
+                    )
+                    self.assertIs(next_conditions, recovered_target.conditions)
+                    self.assertIs(next_hero_conditions, recovered_hero)
+                    self.assertTrue(all(not r.resolution.condition_changes for r in idle_recoveries))
+                    attack_a = pending_attack(turn, "enemy", "attack:A")
+                    if first_target == "enemy":
+                        attack_a = replace(attack_a, kernel_request=replace(attack_a.kernel_request,
+                            target_state=recovered_target))
+                        self.assertIs(attack_a.kernel_request.target_state, recovered_target)
                     weapon = create_initial_ranged_weapon_reload_state("hero:bow", RangedWeaponId.LONGBOW)
 
                     # A renamed preparation cannot restore the old Aim source.

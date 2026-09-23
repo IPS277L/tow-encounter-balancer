@@ -166,3 +166,13 @@ Same-round movement chain повторно сверена по локальны�
 Для интеграции смены цели Aim 2026-09-24 непосредственно перечитана локальная BOOK-PLAYER-GUIDE 1.4 pages/0116.txt, Rules / Combat Actions / Aim, стр. 116. Сценарий Aim по A → Attack по B / LOST → свежий Aim по A → APPLIED проверяет существующее правило выбранной цели и следующего действия; нового нормативного материала не требуется.
 
 Для same-target Melee Aim LOST 2026-09-24 непосредственно перечитаны локальные BOOK-PLAYER-GUIDE 1.4 pages/0116.txt (Rules / Combat Actions / Aim, стр. 116) и 0118.txt (Rules / Attack Tests, стр. 118). Aim относится к следующей ranged Attack без промежуточных действий; Melee — skill атаки оружием ближнего боя. Регистрация LOST для Melee по исходной цели следует прежнему правилу Aim; источники достаточны.
+
+Для same-target Brawn Aim LOST 2026-09-24 непосредственно перечитаны BOOK-PLAYER-GUIDE 1.4 pages/0116.txt (Rules / Combat Actions / Aim, стр. 116) и 0118.txt (Rules / Attack Tests, стр. 118). Brawn назван skill безоружной атаки; такая Attack не является ranged и расходует Aim без его бонуса даже по исходной цели. Источник достаточен; правило Charge не пересматривалось.
+
+Для same-target Melee/Brawn Aim integration 2026-09-24 непосредственно перечитаны локальные BOOK-PLAYER-GUIDE 1.4 pages/0116.txt (Rules / Aim, стр. 116), 0118.txt (Recover и Attack Tests, стр. 118), 0119.txt (Failed/Successful Attacks, стр. 119). Использованы нормативные абзацы об Aim, снятии Staggered с self/Close ally, Staggered атакующего при close miss и цели при Damage ≤ Resilience; combat example не служил самостоятельным основанием.
+
+Для completed Melee Charge Aim LOST 2026-09-24 непосредственно перечитаны BOOK-PLAYER-GUIDE 1.4 pages/0116.txt (Rules / Aim, стр. 116) и 0117.txt (Manoeuvre / Charge, стр. 117). Charge — действие с движением и атакой, которое прерывает Aim; +1d Melee Charge остаётся отдельным бонусом. Источники достаточны, Brawn/Charge ruling не затрагивался.
+
+Для атомарного ordinary Melee Charge с LOST Aim 2026-09-24 непосредственно перечитаны локальные BOOK-PLAYER-GUIDE 1.4 pages/0116.txt (Rules / Aim, стр. 116) и 0117.txt (Manoeuvre / Charge, стр. 117). Общий guard переносит проверку расхода Aim до движения/RNG; новое толкование Charge или Aim не вводится.
+
+Для Aim → Melee Charge/LOST → свежий Aim → APPLIED integration 2026-09-24 непосредственно перечитаны локальные BOOK-PLAYER-GUIDE 1.4 pages/0116.txt (Rules / Aim, стр. 116), 0117.txt (Manoeuvre / Charge, стр. 117), 0118.txt (Recover, стр. 118), 0119.txt (Failed/Successful Attacks, стр. 119). Нормативные условия Aim, движения/бонуса Charge и Staggered/Recover достаточны; автоматическая awareness не требуется — обе атаки fixture opposed.
