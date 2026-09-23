@@ -1,6 +1,6 @@
 # Текущий статус проекта
 
-Дата обновления: 2026-09-23.
+Дата обновления: 2026-09-24.
 
 ## Текущий этап
 
@@ -681,13 +681,62 @@ K1 — реализация книжного resolution kernel. Прототип
 - unsafe Recover отклоняется до RNG, failed Recover сохраняет Broken и завершённый slot; первый уход не регистрирует позицию, выстрел регистрирует только новое укрытие, независимо погашает Aim/hidden и создаёт unloaded Crossbow reload cycle;
 - snapshots/история/trace и replay guards сохранены; причина Give Ground, awareness и cover передаются явно. Общий battle loop и новые gameplay APIs не добавлены.
 
+- интеграционный hidden recovery cycle продолжен через настоящий weapon-bound Reload и второй hidden Crossbow Attack; production API не менялись;
+- три Dexterity actions проверяют failure/partial/completion (0 → 1 → 2), запрет выстрела до Reload и повторного исполнения slot;
+- следующая Move Quietly получает возвращённую историю и отклоняет прежнее укрытие; второй hit/miss сохраняет Aim consumption, дополняет hidden/history chains и создаёт второй unloaded cycle с новым progress;
+- продолжение начинается с первого промаха; проверены возврат weapon/target/round snapshots, trace и неизменяемость. Новых противоречий нет.
+
+- добавлен четвёртый интеграционный тест: после Reload последовательно исполняются FAILED и SUCCEEDED_WITHOUT_HIDING/DECLINE, затем новая HIDDEN Move Quietly и второй hit/miss;
+- обе неатакующие попытки завершают отдельные slots, сохраняют inactive lifecycle/spatial/loaded weapon/history и уже погашённую Aim chain; replay на возвращённых round snapshots отклоняется до RNG;
+- последующее скрытие использует позицию неудачной попытки, а только завершённая атака добавляет её в used history; trace, два reload cycle и исходные snapshots сохранены. Production API и правила не менялись.
+
+- добавлен пятый интеграционный тест: Move Quietly с unloaded Crossbow → Reload 0/1/2 с continuation по каждому completed receipt → второй hidden hit/miss;
+- при неизменной позиции и explicit отсутствии раскрытия сохраняются тот же lifecycle/source/opportunity и history/consumption chains; weapon/round snapshots последовательно передаются следующему действию;
+- финальный prepared executor вызывается один раз, создаёт один receipt и одну регистрацию; reload cycle и прежняя Aim chain сохранены. Общие части интеграционного сценария вынесены в тестовые helpers без изменения production API.
+
+- добавлен шестой интеграционный тест: explicit раскрытие после Reload с 1 успехом закрывает opportunity без регистрации позиции и сброса weapon progress;
+- повтор continuation отклоняется; следующий Reload заряжает тот же Crossbow, а старая hidden Attack отклоняется до executor/RNG как при stale chain, так и при актуальной consumed chain;
+- новая Move Quietly в другом укрытии и второй hit/miss сохраняют полный consumed prefix и регистрируют только позицию выстрела. Проверены trace, неизменяемость и единственное исполнение/receipt; production API и правила не менялись.
+
+- добавлен седьмой интеграционный тест: Move Quietly → Aim → Reload → hidden Attack, Aim 0/2 × hit/miss;
+- первый completed Reload с нулевым вкладом даёт Aim LOST, а Aim/Reload continuation сохраняют hidden opportunity; финальная атака не получает Aim modifier и расходует ровно два базовых куба;
+- готовый LOST отклоняется Aim-bound request; caller переносит его ID и прежнюю Aim chain. Отдельного consumer терминальной потери Aim пока нет — ограничение записано в open-questions. Production API не менялись.
+
+- реализованы AimConsumptionState и AimLossConsumptionRequest/Result, публичные exports и чистый consume_lost_aim;
+- completed non-Attack LOST связывается по actor/action/declaration/chronology, source/follow-up IDs погашаются однократно; смена follow-up ID не обходит повторную регистрацию;
+- добавлены 10 unit-тестов, интеграционный Aim → Reload → hidden Attack переведён на возвращённую историю; никакого RNG/повторного action/нового receipt. Existing preparation и APPLIED ещё не проверяют эту source history; caller выбирает next action и хранит актуальный snapshot.
+
+- добавлен prepare_ranged_weapon_attack_with_aim_history: actor/source preflight до прежней preparation, без нового result type, RNG или мутации history;
+- 6 новых unit-тестов проверяют free/Crossbow, fresh Aim 0/1 и no-Aim, consumed source с новыми IDs, типы/actor/исключения;
+- интеграция Aim → Reload → hidden Attack использует returned loss history: повторный Aim отвергается до delegate, атака без Aim сохраняет chains. APPLIED source registration и обход низкоуровневого API остаются вне этого среза.
+
+- добавлены AimAttackConsumptionRequest/Result, public exports и register_aim_ranged_attack для готового Aim-bound result;
+- actor/APPLIED/точный Attack receipt/chronology/previous consumed prefix проверяются, source ID и готовая follow-up chain переносятся однократно без повторного исполнения;
+- 9 unit-тестов покрывают free/Crossbow, hit/miss, Aim 0/2, переименованный replay/LOST, prefix/actor/provenance/trace и запрет следующей preparation; интеграция переносит историю первого APPLIED в последующий LOST consumer. Atomic pre-RNG execution+registration реализован следующим срезом ниже.
+
+## Завершённый срез 2026-09-24
+
+- добавлены RegisteredAimRangedAttackExecutionRequest/Result и execute_registered_aim_ranged_attack; общий с completed-result consumer actor/source/prefix/chronology preflight выполняется до RNG;
+- один Aim-bound executor/kernel/receipt и одна registration; immutable result хранит registration, а execution/state доступны как views. Погашенный Aim отвергается при новых wrapper/Attack/execution/follow-up IDs;
+- 9 новых unit-тестов: free/Crossbow, hit/miss, Aim 0/2, точный prefix/actor/chronology, один kernel/receipt, replay до RNG, ошибки и immutable result provenance/trace;
+- входные snapshots не меняются при исключении; уже использованные RNG/decision effects не откатываются. Caller хранит актуальную history и выбирает next action; prepared integration подключена следующим adapter; совместная hidden/Aim integration реализована отдельным adapter ниже. Основание непосредственно сверено: BOOK-PLAYER-GUIDE 1.4, Rules / Combat Actions / Aim, стр. 116.
+
+- добавлены RegisteredPreparedAimRangedAttackExecutionRequest/Result и execute_registered_prepared_aim_ranged_attack: обязательный Aim, общий preflight через точный вложенный Aim request до RNG;
+- один prepared executor сохраняет preparation/profile trace, receipt и weapon state; один consumer регистрирует его единственный вложенный Aim result. Result связывает execution/registration, history доступна как view;
+- 9 новых тестов покрывают free/Crossbow × hit/miss × Aim 0/2, renamed replay до RNG, actor/prefix/chronology, no-Aim/types, один kernel/receipt/registration, историю следующей preparation и исключения. Hidden composition и no-Aim не включены; источник: PG 1.4, Rules / Combat Actions / Aim, стр. 116.
+
+- добавлены registered_hidden_aim_models/resolution, RegisteredHiddenAimAttackExecutionRequest/Result и execute_registered_hidden_aim_attack; принимается только registered prepared hidden Attack с Aim;
+- обе history проверки выполняются до RNG; один existing registered hidden executor и один Aim consumer связывают регистрацию позиции и расход Aim с единственным kernel/receipt. Result сохраняет profile/reload/hidden opportunity/Aim trace и предоставляет execution/aim_state/hiding_position_state как views;
+- 10 новых тестов покрывают free/Crossbow × hit/miss × Aim 0/2, независимый replay обеих историй с новыми IDs, guards до RNG, consumed opportunity, no-Aim/unsupported branches, provenance/trace, исключения и обе следующие preparation;
+- входные snapshots неизменны; RNG/decision effects не откатываются. Caller хранит актуальные истории и opportunity prefix; HiddenLifecycleState пока не объединён с новым adapter. Источники непосредственно сверены: PG 1.4, Rules / Aim, стр. 116; Manoeuvre, стр. 117; Attack Tests, стр. 118.
+
 ## Следующий шаг
 
-Продолжить интеграционный сценарий после первого Crossbow выстрела: передать возвращённый unloaded weapon state, проверить отказ от повторного выстрела до Reload, завершить weapon-bound Reload через существующий Dexterity/Exacting action adapter, подготовить новое укрытие с возвращённой историей и исполнить второй hidden shot. Проверить два reload cycle, запрет прежней использованной позиции и непрерывные consumption chains. Не добавлять новые игровые API, awareness или battle aggregate.
+Подключить совместный prepared hidden/Aim executor к существующему HiddenLifecycleState. Узкий typed request/result должен объединить текущий lifecycle snapshot и RegisteredHiddenAimAttackExecutionRequest; общий _validate_lifecycle_attack проверяет exact source/chain/hiding history до RNG, новый совместный executor вызывается один раз, его готовый registered hidden result применяется через existing lifecycle consumer без повторной атаки. Вернуть linked lifecycle transition и Aim registration с единственным execution. Перевести первый Aim-bound выстрел hidden recovery cycle на этот путь и перенести возвращённую Aim history в последующий LOST consumer/подготовку. Проверить stale lifecycle/source/prefix до RNG, replay, hit/miss/Aim 0 и исключения. Не добавлять no-Aim ветвь, automatic awareness или battle aggregate.
 
 ## Последняя проверка
 
-2026-09-23: Python 3.12 в текущем окружении отсутствует (`py -3.12`: No suitable Python runtime found). Проверки выполнены на установленном Python 3.14:
+2026-09-24: Python 3.12 в текущем окружении отсутствует (`py -3.12`: No suitable Python runtime found). Проверки выполнены на установленном Python 3.14:
 
 ```powershell
 $env:PYTHONPATH = "src"
@@ -696,4 +745,4 @@ py -3.14 -m compileall -q src tests tools
 git diff --check
 ```
 
-Полный набор: `Ran 1159 tests ... OK`; целевой запуск hidden recovery cycle: `Ran 2 tests ... OK` (основной сценарий: hit/miss × Aim 0/1; отдельный failure Recover). Существующие continuation, Aim, registration и composite тесты входят в полный набор. Compileall, public-import smoke, ссылки README/docs/README и `git diff --check` успешно проверены. Проверка на 3.12 в этой сессии не выполнена; прежние 1050 тестов на 3.12 относятся к сессии 2026-09-17.
+Полный набор: `Ran 1217 tests ... OK`; целевой запуск registered hidden Aim Attack: `Ran 10 tests ... OK`. Существующие hidden recovery cycle, continuation, Aim, registration и composite тесты входят в полный набор. Compileall, public-import smoke, 24 ссылки README/docs/README и `git diff --check` успешно проверены. Проверка на 3.12 в этой сессии не выполнена; прежние 1050 тестов на 3.12 относятся к сессии 2026-09-17.

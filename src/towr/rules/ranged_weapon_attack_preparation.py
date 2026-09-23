@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from towr.domain.aim_consumption_models import AimConsumptionState
 from towr.domain.ranged_weapon_attack_preparation_models import (
     RangedWeaponAttackPreparationRequest,
     RangedWeaponAttackPreparationResult,
@@ -9,6 +10,26 @@ from towr.domain.ranged_weapon_attack_preparation_models import (
     _profile_prepared_attack,
 )
 from towr.domain.ranged_weapon_profiles import ranged_weapon_combat_profile
+
+
+def prepare_ranged_weapon_attack_with_aim_history(
+    state: AimConsumptionState,
+    request: RangedWeaponAttackPreparationRequest,
+) -> RangedWeaponAttackPreparationResult:
+    """Reject a consumed Aim source before preparing its bonus.
+
+    Caller retains the latest history and forwards its follow-up IDs to execution.
+    Preparation neither consumes a fresh Aim nor executes an Attack.
+    """
+    if not isinstance(state, AimConsumptionState):
+        raise TypeError("state must be an AimConsumptionState")
+    if not isinstance(request, RangedWeaponAttackPreparationRequest):
+        raise TypeError("request must be a RangedWeaponAttackPreparationRequest")
+    if state.actor_id != request.attack.actor_id:
+        raise ValueError("Aim history belongs to another actor")
+    if request.aim is not None and request.aim.request_id in state.consumed_aim_source_ids:
+        raise ValueError("Aim source was already consumed")
+    return prepare_ranged_weapon_attack(request)
 
 
 def prepare_ranged_weapon_attack(

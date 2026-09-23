@@ -1,5 +1,10 @@
 """Domain definitions independent from battle execution and adapters."""
 
+from towr.domain.registered_hidden_aim_models import (
+    REGISTERED_HIDDEN_AIM_ATTACK_RULE_ID,
+    RegisteredHiddenAimAttackExecutionRequest,
+    RegisteredHiddenAimAttackExecutionResult,
+)
 from towr.domain.hidden_give_ground_models import (
     HiddenGiveGroundExecutionRequest,
     HiddenGiveGroundLossRequest,
@@ -33,6 +38,21 @@ from towr.domain.action_execution_models import (
     CastingAttemptExecutionResult,
     SkippedCastingTestAfterActionRequest,
     SkippedCastingTestAfterActionResult,
+)
+from towr.domain.aim_consumption_models import (
+    REGISTERED_PREPARED_AIM_RANGED_ATTACK_RULE_ID,
+    RegisteredPreparedAimRangedAttackExecutionRequest,
+    RegisteredPreparedAimRangedAttackExecutionResult,
+    REGISTERED_AIM_RANGED_ATTACK_RULE_ID,
+    RegisteredAimRangedAttackExecutionRequest,
+    RegisteredAimRangedAttackExecutionResult,
+    AIM_ATTACK_CONSUMPTION_RULE_ID,
+    AimAttackConsumptionRequest,
+    AimAttackConsumptionResult,
+    AIM_LOSS_CONSUMPTION_RULE_ID,
+    AimConsumptionState,
+    AimLossConsumptionRequest,
+    AimLossConsumptionResult,
 )
 from towr.domain.aim_models import (
     AimActionExecutionRequest,
@@ -855,6 +875,22 @@ __all__ = [
     "AUTOMATIC_INFECTION_SUCCESS_RULE_ID",
     "ActionExecutionReceipt",
     "ActionSlotGrant",
+    "AIM_LOSS_CONSUMPTION_RULE_ID",
+    "AIM_ATTACK_CONSUMPTION_RULE_ID",
+    "REGISTERED_AIM_RANGED_ATTACK_RULE_ID",
+    "REGISTERED_HIDDEN_AIM_ATTACK_RULE_ID",
+    "RegisteredHiddenAimAttackExecutionRequest",
+    "RegisteredHiddenAimAttackExecutionResult",
+    "REGISTERED_PREPARED_AIM_RANGED_ATTACK_RULE_ID",
+    "RegisteredPreparedAimRangedAttackExecutionRequest",
+    "RegisteredPreparedAimRangedAttackExecutionResult",
+    "RegisteredAimRangedAttackExecutionRequest",
+    "RegisteredAimRangedAttackExecutionResult",
+    "AimAttackConsumptionRequest",
+    "AimAttackConsumptionResult",
+    "AimConsumptionState",
+    "AimLossConsumptionRequest",
+    "AimLossConsumptionResult",
     "AimActionExecutionRequest",
     "AimActionExecutionResult",
     "AIM_RANGED_ATTACK_EXECUTION_RULE_ID",
