@@ -728,11 +728,41 @@ K1 — реализация книжного resolution kernel. Прототип
 - добавлены registered_hidden_aim_models/resolution, RegisteredHiddenAimAttackExecutionRequest/Result и execute_registered_hidden_aim_attack; принимается только registered prepared hidden Attack с Aim;
 - обе history проверки выполняются до RNG; один existing registered hidden executor и один Aim consumer связывают регистрацию позиции и расход Aim с единственным kernel/receipt. Result сохраняет profile/reload/hidden opportunity/Aim trace и предоставляет execution/aim_state/hiding_position_state как views;
 - 10 новых тестов покрывают free/Crossbow × hit/miss × Aim 0/2, независимый replay обеих историй с новыми IDs, guards до RNG, consumed opportunity, no-Aim/unsupported branches, provenance/trace, исключения и обе следующие preparation;
-- входные snapshots неизменны; RNG/decision effects не откатываются. Caller хранит актуальные истории и opportunity prefix; HiddenLifecycleState пока не объединён с новым adapter. Источники непосредственно сверены: PG 1.4, Rules / Aim, стр. 116; Manoeuvre, стр. 117; Attack Tests, стр. 118.
+- входные snapshots неизменны; RNG/decision effects не откатываются. Caller хранит актуальные истории и opportunity prefix; HiddenLifecycleState подключён отдельным adapter ниже. Источники непосредственно сверены: PG 1.4, Rules / Aim, стр. 116; Manoeuvre, стр. 117; Attack Tests, стр. 118.
+
+- добавлены hidden_lifecycle_aim_models/resolution, HiddenLifecycleAimAttackExecutionRequest/Result и execute_hidden_lifecycle_aim_attack; общий lifecycle и joint preflight проверяет active source/chain/hiding history и Aim до RNG;
+- один joint executor и один existing lifecycle consumer возвращают связанные immutable результаты с общей trace; state/aim_state/execution — views единственной атаки, opportunity закрывается, обе регистрации сохраняются;
+- 9 новых unit-тестов: free/Crossbow × hit/miss × Aim 0/2, exact source с тем же ID, prefix/order/history, replay до RNG, одно исполнение/receipt/применение, типы/provenance/trace и исключения;
+- первый Aim-bound выстрел hidden recovery cycle переведён на новый путь; ручная регистрация Aim после исполнения удалена, returned history передаётся последующему LOST/подготовке. Все 7 интеграционных тестов проходят;
+- актуальные snapshots и next action выбирает caller, RNG/decision effects при ошибке не откатываются. No-Aim ветвь остаётся в прежнем executor, automatic awareness и battle aggregate не добавлены. Правила непосредственно сверены по PG 1.4, Rules / Aim, стр. 116; Manoeuvre, стр. 117; Attack Tests, стр. 118.
+
+- добавлен восьмой интеграционный тест: первый hidden/Aim выстрел → Reload 0/1/2 → новое укрытие → свежий Aim → второй hidden/Aim выстрел. Оба выстрела используют existing lifecycle adapter и returned histories без ручного append ID;
+- проверены 8 сочетаний первого/второго Aim 0/1 и второго hit/miss; первый выстрел miss. Новый Aim имеет отдельный source ID; повтор первого с переименованной preparation/follow-up отвергается до RNG даже при обходе history-aware preparation;
+- проверяются два kernel-вызова, по одному receipt на выстрел, оба Aim sources/follow-ups, обе использованные позиции, два reload cycle, trace/immutable snapshots и replay. Прежние no-Aim и LOST-after-Reload сценарии сохранены;
+- production API и правила не менялись; непосредственно сверены PG 1.4, Equipment / Ranged Weapons, стр. 94–95; Rules / Aim, стр. 116; Manoeuvre, стр. 117; Attack Tests, стр. 118.
+
+- добавлены AimAttackLossConsumptionRequest/Result, public exports и consume_attack_lost_aim для completed ordinary Attack по другой цели с готовым LOST;
+- проверяются actor, target, исходные Attack/kernel IDs, previous state, slot/receipt/declaration и chronology. Общий immutable append переносит source/follow-up history однократно; RNG, повторного исполнения и нового receipt нет;
+- 10 новых unit-тестов покрывают hit/miss × Aim 0/2, renamed replay, историю прежнего non-Attack LOST/APPLIED, source/state/kernel/receipt/chronology, unsupported outcomes, следующую preparation, типы/provenance/trace и исключения;
+- source rule непосредственно сверено по PG 1.4, Rules / Combat Actions / Aim, стр. 116. На этом этапе same-target LOST/остальные attacking actions и автоматический next-action выбор не добавлены; atomic pre-RNG executor реализован ниже; актуальную history сохраняет caller.
+
+- добавлены RegisteredAimLossAttackExecutionRequest/Result и execute_registered_aim_loss_attack; общий с completed consumer preflight проверяет actor/source/follow-up/target/exact Attack/slot/declaration/chronology до RNG;
+- один execute_attack_action и один consume_attack_lost_aim; result хранит единственную registration, execution/state доступны как views. Нет повторного kernel/receipt/append;
+- 9 новых unit-тестов покрывают hit/miss × Aim 0/2, тот же turn/первый slot следующего, renamed replay и прежний non-Attack LOST/APPLIED до RNG, actor/target/slot/chronology, точный source/trace, исключения и следующую preparation; 10 прежних тестов consumer проходят с общим preflight;
+- входные snapshots неизменны, RNG/decision effects при ошибке не откатываются. На этом этапе same-target LOST и prepared/hidden/Charge adapters не добавлены; caller сохраняет history и выбирает next action. Основание непосредственно сверено: PG 1.4, Rules / Combat Actions / Aim, стр. 116.
+
+- добавлен test_k1_aim_target_switch.py: Aim по A → ordinary Attack по B / LOST → свежий Aim по A → APPLIED; четыре раунда проходят через действительный scheduler, между ходами hero остальные actor исполняют Recover;
+- 16 сочетаний первого/свежего Aim 0/2 и обоих hit/miss проверяют отсутствие бонуса у первой атаки, свежий бонус второй, ровно два kernel-вызова и по одному receipt; returned history переносится без ручного append IDs;
+- переименованные preparation/Attack/follow-up не восстанавливают старый Aim: preparation и прямой registered executor отклоняют source до delegate/RNG. Итоговая история содержит оба sources/follow-ups; snapshots и trace сохранены;
+- production API и правила не менялись. Локальная PG 1.4, Rules / Combat Actions / Aim, стр. 116 перечитана. Caller по-прежнему выбирает фактически следующее действие и сохраняет актуальную историю.
+
+- общий preflight consumer/executor LOST расширен на ordinary Skill.MELEE Attack по исходной цели Aim; follow-up остаётся LOST без Aim bonus, новые публичные types не добавлены;
+- шесть тестов test_k1_same_target_melee_aim_loss.py проверяют completed/atomic hit/miss × Aim 0/2, same-turn/later-turn, один kernel/receipt/consumer, exact actor/Attack/receipt/chronology, историю следующей preparation, replay между Melee и different-target ветвями до RNG и immutable inputs; 19 прежних тестов сохранены;
+- непосредственно сверены PG 1.4, Rules / Aim, стр. 116 и Attack Tests, стр. 118. Same-target Brawn и Charge/Improvise composition пока вне API; caller хранит актуальную history и выбирает следующее действие.
 
 ## Следующий шаг
 
-Подключить совместный prepared hidden/Aim executor к существующему HiddenLifecycleState. Узкий typed request/result должен объединить текущий lifecycle snapshot и RegisteredHiddenAimAttackExecutionRequest; общий _validate_lifecycle_attack проверяет exact source/chain/hiding history до RNG, новый совместный executor вызывается один раз, его готовый registered hidden result применяется через existing lifecycle consumer без повторной атаки. Вернуть linked lifecycle transition и Aim registration с единственным execution. Перевести первый Aim-bound выстрел hidden recovery cycle на этот путь и перенести возвращённую Aim history в последующий LOST consumer/подготовку. Проверить stale lifecycle/source/prefix до RNG, replay, hit/miss/Aim 0 и исключения. Не добавлять no-Aim ветвь, automatic awareness или battle aggregate.
+Расширить общий preflight consume_attack_lost_aim / execute_registered_aim_loss_attack на ordinary Brawn Attack по исходной цели Aim с готовым LOST. Сверить PG 1.4, Rules / Aim, стр. 116 и Attack Tests, стр. 118; сохранить guards actor/source/follow-up/exact Attack/receipt/chronology и однократное исполнение. Проверить hit/miss × Aim 0/положительный и replay с новыми IDs до RNG. Новых wrapper types, Charge/Improvise composition и battle aggregate не добавлять; спорный бонус Charge для Brawn не затрагивать.
 
 ## Последняя проверка
 
@@ -745,4 +775,4 @@ py -3.14 -m compileall -q src tests tools
 git diff --check
 ```
 
-Полный набор: `Ran 1217 tests ... OK`; целевой запуск registered hidden Aim Attack: `Ran 10 tests ... OK`. Существующие hidden recovery cycle, continuation, Aim, registration и composite тесты входят в полный набор. Compileall, public-import smoke, 24 ссылки README/docs/README и `git diff --check` успешно проверены. Проверка на 3.12 в этой сессии не выполнена; прежние 1050 тестов на 3.12 относятся к сессии 2026-09-17.
+Полный набор: `Ran 1253 tests ... OK`; целевой запуск same-target Melee + registered Aim loss Attack + completed consumer: `Ran 25 tests ... OK` (6 + 9 + 10). Интеграция Aim target switch (16 сочетаний) входит в полный набор. Существующие hidden recovery cycle, continuation, Aim, registration и composite тесты входят в полный набор. Compileall, public-import smoke, 24 ссылки README/docs/README и `git diff --check` успешно проверены. Проверка на 3.12 в этой сессии не выполнена; прежние 1050 тестов на 3.12 относятся к сессии 2026-09-17.

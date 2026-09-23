@@ -1,5 +1,10 @@
 """Domain definitions independent from battle execution and adapters."""
 
+from towr.domain.hidden_lifecycle_aim_models import (
+    HIDDEN_LIFECYCLE_AIM_ATTACK_RULE_ID,
+    HiddenLifecycleAimAttackExecutionRequest,
+    HiddenLifecycleAimAttackExecutionResult,
+)
 from towr.domain.registered_hidden_aim_models import (
     REGISTERED_HIDDEN_AIM_ATTACK_RULE_ID,
     RegisteredHiddenAimAttackExecutionRequest,
@@ -40,6 +45,12 @@ from towr.domain.action_execution_models import (
     SkippedCastingTestAfterActionResult,
 )
 from towr.domain.aim_consumption_models import (
+    REGISTERED_AIM_LOSS_ATTACK_RULE_ID,
+    RegisteredAimLossAttackExecutionRequest,
+    RegisteredAimLossAttackExecutionResult,
+    AIM_ATTACK_LOSS_CONSUMPTION_RULE_ID,
+    AimAttackLossConsumptionRequest,
+    AimAttackLossConsumptionResult,
     REGISTERED_PREPARED_AIM_RANGED_ATTACK_RULE_ID,
     RegisteredPreparedAimRangedAttackExecutionRequest,
     RegisteredPreparedAimRangedAttackExecutionResult,
@@ -877,8 +888,17 @@ __all__ = [
     "ActionSlotGrant",
     "AIM_LOSS_CONSUMPTION_RULE_ID",
     "AIM_ATTACK_CONSUMPTION_RULE_ID",
+    "AIM_ATTACK_LOSS_CONSUMPTION_RULE_ID",
+    "REGISTERED_AIM_LOSS_ATTACK_RULE_ID",
+    "RegisteredAimLossAttackExecutionRequest",
+    "RegisteredAimLossAttackExecutionResult",
+    "AimAttackLossConsumptionRequest",
+    "AimAttackLossConsumptionResult",
     "REGISTERED_AIM_RANGED_ATTACK_RULE_ID",
     "REGISTERED_HIDDEN_AIM_ATTACK_RULE_ID",
+    "HIDDEN_LIFECYCLE_AIM_ATTACK_RULE_ID",
+    "HiddenLifecycleAimAttackExecutionRequest",
+    "HiddenLifecycleAimAttackExecutionResult",
     "RegisteredHiddenAimAttackExecutionRequest",
     "RegisteredHiddenAimAttackExecutionResult",
     "REGISTERED_PREPARED_AIM_RANGED_ATTACK_RULE_ID",
