@@ -1,6 +1,16 @@
 from __future__ import annotations
 
 from towr.domain.aim_consumption_models import (
+    RegisteredAimLossLongChargeExecutionRequest,
+    RegisteredAimLossLongChargeExecutionResult,
+    _validate_long_charge_loss_preflight,
+    RegisteredAimLossDifficultTerrainChargeExecutionRequest,
+    RegisteredAimLossDifficultTerrainChargeExecutionResult,
+    _validate_terrain_charge_loss_preflight,
+    AimDifficultTerrainChargeLossConsumptionRequest,
+    AimDifficultTerrainChargeLossConsumptionResult,
+    AimLongChargeLossConsumptionRequest,
+    AimLongChargeLossConsumptionResult,
     RegisteredAimLossChargeExecutionRequest,
     RegisteredAimLossChargeExecutionResult,
     _validate_charge_loss_preflight,
@@ -10,6 +20,8 @@ from towr.domain.aim_consumption_models import (
     RegisteredAimLossAttackExecutionResult,
     _validate_attack_loss_preflight,
     _registered_loss_rule_ids,
+    AimRangedAttackLossConsumptionRequest,
+    AimRangedAttackLossConsumptionResult,
     AimAttackLossConsumptionRequest,
     AimAttackLossConsumptionResult,
     _attack_loss_rule_ids,
@@ -32,7 +44,10 @@ from towr.domain.aim_consumption_models import (
 )
 from towr.rules.aim_ranged_weapon_attack_resolution import execute_aim_ranged_weapon_attack
 from towr.rules.attack_action_execution import execute_attack_action
-from towr.rules.charge_action_execution import execute_charge_action
+from towr.rules.charge_action_execution import execute_charge_action, execute_long_charge_action
+from towr.domain.charge_models import DifficultTerrainChargeActionExecutionRequest
+from towr.rules.charge_action_execution import execute_difficult_terrain_charge_action, _validate_difficult_terrain_charge_action
+from towr.rules.difficult_terrain_resolution import resolve_difficult_terrain_traversal
 from towr.rules.dice import RandomSource
 from towr.rules.kernel import ResolutionDecisionProvider
 from towr.rules.prepared_ranged_weapon_attack_resolution import execute_prepared_ranged_weapon_attack
@@ -134,6 +149,32 @@ def execute_registered_aim_loss_attack(
     )
 
 
+def execute_registered_aim_loss_long_charge(
+    request: RegisteredAimLossLongChargeExecutionRequest,
+    rng: RandomSource,
+    *,
+    decisions: ResolutionDecisionProvider | None = None,
+) -> RegisteredAimLossLongChargeExecutionResult:
+    """Check Aim history before one Long Charge and register its sole completed result.
+
+    Input snapshots are immutable; external RNG and decision effects are not undone.
+    """
+    if not isinstance(request, RegisteredAimLossLongChargeExecutionRequest):
+        raise TypeError("request must be a RegisteredAimLossLongChargeExecutionRequest")
+    _validate_long_charge_loss_preflight(request.state, request.follow_up, request.charge)
+    execution = execute_long_charge_action(request.charge, rng, decisions=decisions)
+    registration = consume_long_charge_lost_aim(AimLongChargeLossConsumptionRequest(
+        f"{request.id}:registration", request.state, request.follow_up, execution,
+    ))
+    return RegisteredAimLossLongChargeExecutionResult(
+        request_id=request.id,
+        rule_id=request.rule_id,
+        source_request=request,
+        registration=registration,
+        applied_rule_ids=_registered_loss_rule_ids(request, registration),
+    )
+
+
 def execute_registered_aim_loss_charge(
     request: RegisteredAimLossChargeExecutionRequest,
     rng: RandomSource,
@@ -160,6 +201,70 @@ def execute_registered_aim_loss_charge(
     )
 
 
+def execute_registered_aim_loss_difficult_terrain_charge(
+    request: RegisteredAimLossDifficultTerrainChargeExecutionRequest, rng: RandomSource,
+    *, decisions: ResolutionDecisionProvider | None = None,
+) -> RegisteredAimLossDifficultTerrainChargeExecutionResult:
+    """Check history and Charge eligibility before one terrain crossing and attack.
+
+    Input snapshots remain immutable; external RNG/decision effects are not undone.
+    """
+    if not isinstance(request, RegisteredAimLossDifficultTerrainChargeExecutionRequest):
+        raise TypeError("request must be a RegisteredAimLossDifficultTerrainChargeExecutionRequest")
+    _validate_terrain_charge_loss_preflight(
+        request.state, request.follow_up, request.action_id, request.charge, request.terrain,
+    )
+    _validate_difficult_terrain_charge_action(request.charge, request.charge.actor_conditions)
+    traversal = resolve_difficult_terrain_traversal(request.terrain, rng, decisions=decisions)
+    execution = execute_difficult_terrain_charge_action(DifficultTerrainChargeActionExecutionRequest(
+        request.action_id, request.charge, traversal, request.charge.round_state, traversal.state,
+    ), rng, decisions=decisions)
+    registration = consume_difficult_terrain_charge_lost_aim(AimDifficultTerrainChargeLossConsumptionRequest(
+        f"{request.id}:registration", request.state, request.follow_up, execution,
+    ))
+    return RegisteredAimLossDifficultTerrainChargeExecutionResult(
+        request.id, request.rule_id, request, registration, _registered_loss_rule_ids(request, registration),
+    )
+
+
+def consume_difficult_terrain_charge_lost_aim(
+    request: AimDifficultTerrainChargeLossConsumptionRequest,
+) -> AimDifficultTerrainChargeLossConsumptionResult:
+    """Register LOST from one completed terrain-aware Medium Melee Charge.
+
+    No traversal, movement, Athletics, attack or Condition is applied again. Caller retains
+    the latest history and selects the actual next action after Aim.
+    """
+    if not isinstance(request, AimDifficultTerrainChargeLossConsumptionRequest):
+        raise TypeError("request must be an AimDifficultTerrainChargeLossConsumptionRequest")
+    return AimDifficultTerrainChargeLossConsumptionResult(
+        request_id=request.id,
+        rule_id=request.rule_id,
+        source_request=request,
+        previous_state=request.state,
+        state=_consumed_state(request),
+        applied_rule_ids=_attack_loss_rule_ids(request),
+    )
+
+
+def consume_long_charge_lost_aim(request: AimLongChargeLossConsumptionRequest) -> AimLongChargeLossConsumptionResult:
+    """Register LOST from completed Melee Long Charge, including stopped-short outcomes.
+
+    No movement, Athletics, attack or Condition is applied again. Caller retains
+    the latest history and selects the actual next action after Aim.
+    """
+    if not isinstance(request, AimLongChargeLossConsumptionRequest):
+        raise TypeError("request must be an AimLongChargeLossConsumptionRequest")
+    return AimLongChargeLossConsumptionResult(
+        request_id=request.id,
+        rule_id=request.rule_id,
+        source_request=request,
+        previous_state=request.state,
+        state=_consumed_state(request),
+        applied_rule_ids=_attack_loss_rule_ids(request),
+    )
+
+
 def consume_charge_lost_aim(request: AimChargeLossConsumptionRequest) -> AimChargeLossConsumptionResult:
     """Register LOST from one completed ordinary Melee Charge without executing it.
 
@@ -168,6 +273,26 @@ def consume_charge_lost_aim(request: AimChargeLossConsumptionRequest) -> AimChar
     if not isinstance(request, AimChargeLossConsumptionRequest):
         raise TypeError("request must be an AimChargeLossConsumptionRequest")
     return AimChargeLossConsumptionResult(
+        request_id=request.id,
+        rule_id=request.rule_id,
+        source_request=request,
+        previous_state=request.state,
+        state=_consumed_state(request),
+        applied_rule_ids=_attack_loss_rule_ids(request),
+    )
+
+
+def consume_ranged_attack_lost_aim(
+    request: AimRangedAttackLossConsumptionRequest,
+) -> AimRangedAttackLossConsumptionResult:
+    """Register LOST after one completed profile-aware shot at another target.
+
+    Preserve the weapon/reload transition and sole Attack; do not execute or reload.
+    Caller retains the latest history and selects the actual next action.
+    """
+    if not isinstance(request, AimRangedAttackLossConsumptionRequest):
+        raise TypeError("request must be an AimRangedAttackLossConsumptionRequest")
+    return AimRangedAttackLossConsumptionResult(
         request_id=request.id,
         rule_id=request.rule_id,
         source_request=request,

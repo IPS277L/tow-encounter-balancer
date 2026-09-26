@@ -1,6 +1,6 @@
 # Текущий статус проекта
 
-Дата обновления: 2026-09-24.
+Дата обновления: 2026-09-27.
 
 ## Текущий этап
 
@@ -784,13 +784,51 @@ K1 — реализация книжного resolution kernel. Прототип
 - проверены только +1d Charge у первой атаки, свежий Aim bonus второй, два kernel-вызова, по одному receipt, обе source/follow-up chains, immutable inputs и replay старого Aim с переименованными Charge/Attack/preparation/follow-up IDs до RNG. Никакого ручного append history;
 - production API и правила не менялись. PG 1.4, Rules / Aim, стр. 116; Manoeuvre / Charge, стр. 117; Recover, стр. 118; Failed/Successful Attacks, стр. 119 непосредственно перечитаны.
 
+- добавлены AimLongChargeLossConsumptionRequest/Result и consume_long_charge_lost_aim для completed Long Charge с Skill.MELEE; поддержаны reached-and-attacked и обе stopped-short ветви без атаки;
+- готовые Athletics, движение, optional kernel, Conditions и receipt сохраняются без повторного исполнения. Проверяются actor/action/declaration/receipt/chronology и общая source/follow-up history; обычный Charge consumer не расширен;
+- 10 новых детерминированных тестов покрывают все outcomes × Aim 0/2 × same/different target, reached hit/miss, already-Staggered, renamed replay между исходами и shared history других consumers, следующую preparation, типы/provenance/trace, противоречивые результаты и неизменность snapshots;
+- непосредственно перечитаны PG 1.4, Rules / Combat Actions / Aim, стр. 116 и Manoeuvre / Charge, стр. 117. Провал Long Charge завершает действие и расходует Aim даже без атаки. Atomic Long Charge пока не подключён; caller хранит актуальные snapshots и выбирает next action.
+
+- добавлены RegisteredAimLossLongChargeExecutionRequest/Result и execute_registered_aim_loss_long_charge; общий pending/completed preflight проверяет actor/action/declaration/slot/chronology/history до исполнения Long Charge и RNG;
+- один execute_long_charge_action и один consume_long_charge_lost_aim поддерживают все три outcomes; результат хранит единственную registration, execution/state доступны как views. Проверяются исходные round/spatial/Conditions/Athletics/kernel states и intermediate Zone;
+- девять новых детерминированных тестов проверяют единственный Athletics и optional kernel/Conditions, reached hit/miss и обе stopped-short ветви, Aim 0/2, same/different target, chronology/replay до RNG, source binding, следующую preparation и исключения. Прежние десять consumer tests сохранены;
+- PG 1.4, Rules / Aim, стр. 116 и Manoeuvre / Charge, стр. 117 перечитаны непосредственно. Внешние RNG/decision effects при исключении не откатываются; snapshots неизменны. Terrain, Brawn и общий battle aggregate не подключены.
+
+- добавлен test_k1_aim_long_charge_cycle.py: 3 интеграционных теста, 32 сочетания трёх LongChargeOutcome, Aim 0/2 и hit/miss доступных атак через четыре реальных раунда;
+- returned spatial state переносится через start_next_spatial_round, hero/target Conditions проходят Recover, Aim history передаётся без ручного append. При stopped-short сохраняется Medium Range второго выстрела, при reached — Close; первый kernel отсутствует при провале Athletics;
+- проверены один Athletics, optional kernel/Staggered application, один receipt Long Charge, свежий Aim bonus и обе source/follow-up chains. Старый Aim с новыми Charge/Athletics/kernel/preparation/Attack/follow-up IDs отклоняется до RNG;
+- test helper next_hero_round получил явный recover_hero=False для сохранения исходного Staggered до Long Charge: союзник ещё не в Close Range героя. После Long Charge явно Close союзник исполняет Recover. Прежние сценарии сохранены;
+- production API не менялся. Непосредственно перечитаны PG 1.4, Rules / Aim, стр. 116; Manoeuvre / Charge, стр. 117; Recover/Attack Tests, стр. 118; Failed/Successful Attacks, стр. 119.
+
+- добавлены AimDifficultTerrainChargeLossConsumptionRequest/Result и consume_difficult_terrain_charge_lost_aim для готового DifficultTerrainChargeActionExecutionResult с Skill.MELEE;
+- LOST связывается с ID composite action/receipt, а не ID вложенного pending Charge. Проверяются actor/action/declaration/receipt/chronology и source/follow-up history; вложенный result сохраняет точные traversal/movement/Conditions/kernel;
+- 10 новых тестов покрывают terrain success/failure × hit/miss × Aim 0/2 × same/different target × уже проверенный crossing, replay/общую историю, source binding, следующую preparation, типы/trace/provenance и неизменность snapshots. Consumer не вызывает traversal/Test/Condition/Charge/kernel;
+- непосредственно перечитаны PG 1.4, Rules / Difficult Terrain, стр. 115; Aim, стр. 116; Manoeuvre / Charge, стр. 117. Ordinary/Long consumers не расширены. Atomic terrain composition, Brawn и battle aggregate пока вне среза.
+
+- добавлены RegisteredAimLossDifficultTerrainChargeExecutionRequest/Result и execute_registered_aim_loss_difficult_terrain_charge: вход содержит исходные Charge и terrain requests, отдельный action_id для composite receipt и общую Aim history;
+- общий pending/completed Aim preflight и проверка terrain pair выполняются до движения/RNG. Charge eligibility вынесена в общий helper прежнего terrain executor и нового adapter; геометрию/возможность crossing проверяет existing traversal до RNG;
+- один resolve_difficult_terrain_traversal → execute_difficult_terrain_charge_action → consume_difficult_terrain_charge_lost_aim. Sole registration хранит exact Charge/traversal source, execution/state — views; Conditions/kernel/receipt не дублируются;
+- 11 новых тестов покрывают оба terrain outcomes, hit/miss, Aim 0/2, same/different target, same/later turn, уже проверенный crossing, shared history/replay, mismatched pair/eligibility до RNG, source/trace, exceptions и следующую preparation. Прежние terrain executor и consumer tests сохранены;
+- непосредственно перечитаны PG 1.4, Rules / Difficult Terrain, стр. 115; Aim, стр. 116; Manoeuvre / Charge, стр. 117. Входные snapshots неизменны; использованные RNG/decision effects при исключении не откатываются. Brawn/Long terrain и battle aggregate не подключены.
+
+- добавлен test_k1_aim_difficult_terrain_charge_cycle.py: 2 интеграционных теста, 64 сочетания обоих terrain outcomes, Aim 0/2 и hit/miss обеих атак через четыре реальных раунда;
+- повторный crossing выполняется после настоящего terrain-aware free movement в том же ходу; готовые usage/позиция/Conditions переходят в Charge. Charge исполняет собственный Athletics один раз; terrain usage не дублируется и сбрасывается только start_next_spatial_round;
+- Prone от terrain, target Staggered либо close-miss Staggered героя передаются в реальные Recover. Общий test helper next_hero_round теперь может снять с явно Close героя Prone и Staggered одним Recover; оба условия используют один snapshot;
+- проверены единственные traversal/Athletics/Prone/kernel/receipt Charge, свежий Aim bonus и обе history chains без ручного append. Replay старого Aim с новыми composite/Charge/terrain/Athletics/kernel/preparation/Attack/follow-up IDs отклоняется до traversal/RNG;
+- production API не менялся. Непосредственно перечитаны PG 1.4, Rules / Difficult Terrain, стр. 115; Aim, стр. 116; Manoeuvre / Charge, стр. 117; Recover/Attack Tests, стр. 118; Failed/Successful Attacks, стр. 119.
+
+- добавлены AimRangedAttackLossConsumptionRequest/Result, public exports и consume_ranged_attack_lost_aim для completed profile-aware Shooting Attack по другой цели с готовым LOST;
+- общий с ordinary Attack loss validator проверяет actor/target/Attack/kernel/receipt/chronology/history; дополнительное exact Attack binding сохраняет исходный запрос целиком. Полный RangedWeaponAttackExecutionResult сохраняет weapon/reload state и profile trace без повторного исполнения;
+- общий immutable append расходует Aim source/follow-up один раз. 11 новых unit-тестов проверяют Longbow/Crossbow × hit/miss × Aim 0/2, единственный reload cycle, shared history в обе стороны, renamed replay, source/receipt/chronology, next preparation, trace и неизменность snapshots;
+- APPLIED-only Aim-bound executor не расширен. Consumer регистрирует уже выполненный выстрел; pre-RNG guard для этой ветви — следующий шаг. Непосредственно перечитаны PG 1.4, Equipment / Ranged Weapons, стр. 94–95; Rules / Combat Actions / Aim, стр. 116. Книжные правила не изменены.
+
 ## Следующий шаг
 
-Добавить чистую регистрацию LOST Aim после completed Long Charge с Skill.MELEE через LongChargeActionExecutionResult. Поддержать все три LongChargeOutcome: reached-and-attacked и обе stopped-short ветви без атаки; каждое завершённое действие расходует источник Aim однократно. Связать actor/action/declaration/receipt/chronology с готовым LOST, сохранить готовые movement/Test/optional kernel/Conditions без повторного исполнения. Проверить Aim 0/положительный, hit/miss для reached, failed Athletics и already-Staggered, renamed replay и следующую preparation. Не ослаблять ordinary Charge consumer; atomic Long Charge, terrain и Brawn оставить вне среза. Перед изменением сверить PG 1.4, Rules / Aim, стр. 116 и Manoeuvre / Charge, стр. 117.
+Добавить атомарное исполнение profile-aware Shooting Attack по другой цели с регистрацией LOST Aim: typed request принимает AimConsumptionState, готовый LOST и исходный RangedWeaponAttackExecutionRequest. Общий pending/completed preflight должен проверить actor/target/exact Attack/slot/chronology/history до RNG; затем один execute_ranged_weapon_attack и один consume_ranged_attack_lost_aim. Result сохраняет единственную registration и полный weapon/reload результат. Проверить free weapon/Crossbow, hit/miss, Aim 0/2, один reload cycle, renamed replay до RNG, source/trace, exceptions и следующую preparation. Сохранить existing optional-reload профиль и APPLIED-only Aim-bound contract. Prepared LOST composition, Brawn Charge и battle aggregate оставить вне среза. Перед изменением перечитать PG 1.4, Equipment / Ranged Weapons, стр. 94–95; Rules / Aim, стр. 116.
 
 ## Последняя проверка
 
-2026-09-24: Python 3.12 в текущем окружении отсутствует (`py -3.12`: No suitable Python runtime found). Проверки выполнены на установленном Python 3.14:
+2026-09-27: Python 3.12 в текущем окружении отсутствует (`py -0p` показывает только Python 3.14). Проверки выполнены на установленном Python 3.14:
 
 ```powershell
 $env:PYTHONPATH = "src"
@@ -799,4 +837,4 @@ py -3.14 -m compileall -q src tests tools
 git diff --check
 ```
 
-Полный набор: `Ran 1280 tests ... OK`; целевой запуск Aim Charge cycle + Aim target switch: `Ran 4 tests ... OK` (16 + 48 сочетаний). Registered Aim loss Charge, completed consumer и прежние executors входят в полный набор. Интеграция Aim target switch (3 теста/48 сочетаний) входит в полный набор. Существующие hidden recovery cycle, continuation, Aim, registration и composite тесты входят в полный набор. Compileall, public-import smoke, 24 ссылки README/docs/README и `git diff --check` успешно проверены. Проверка на 3.12 в этой сессии не выполнена; прежние 1050 тестов на 3.12 относятся к сессии 2026-09-17.
+Полный набор: Ran 1336 tests ... OK, включая 11 новых unit-тестов test_k1_aim_ranged_attack_loss_consumption.py. Прежние ordinary Attack и same-target Melee/Brawn consumer tests проходят с общим validator; все прежние Charge/Aim/hidden integration cycles входят в полный набор. Compileall, public-import smoke, 24 ссылки README/docs/README и git diff --check успешно проверены. Проверка на 3.12 в этой сессии не выполнена; прежние 1050 тестов на 3.12 относятся к сессии 2026-09-17.

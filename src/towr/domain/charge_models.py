@@ -9,6 +9,7 @@ from towr.domain.condition_models import (
     ConditionState,
 )
 from towr.domain.movement_models import (
+    DifficultTerrainTraversalRequest,
     DifficultTerrainTraversalResult,
     MovementSpeed,
 )
@@ -1043,9 +1044,9 @@ class LongChargeActionExecutionResult:
 
 def _validate_difficult_terrain_charge_pair(
     charge: ChargeActionExecutionRequest,
-    traversal: DifficultTerrainTraversalResult,
+    traversal: DifficultTerrainTraversalRequest | DifficultTerrainTraversalResult,
 ) -> None:
-    terrain_request = traversal.source_request
+    terrain_request = traversal.source_request if isinstance(traversal, DifficultTerrainTraversalResult) else traversal
     target = charge.spatial_state.placement_for(charge.target_id)
     if charge.rule_id != "RULE-COMBAT-014:charge-action-execution":
         raise ValueError("Charge uses an unknown source rule")

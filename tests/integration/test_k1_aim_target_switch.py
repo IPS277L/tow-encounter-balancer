@@ -39,8 +39,8 @@ from towr.rules.turn_resolution import (
 
 
 def next_hero_round(state, target_conditions=ConditionState(), *, target_id="enemy:other",
-                    hero_conditions=ConditionState(), close_combat=False, spatial=None):
-    """Recover the target and, with an explicitly Close ally, the hero between real turns."""
+                    hero_conditions=ConditionState(), close_combat=False, spatial=None, recover_hero=True):
+    """Advance real turns; optionally Recover the hero using an explicitly Close ally."""
     if spatial is not None:
         assert spatial.round_number == state.round_number
     recoveries = []
@@ -58,12 +58,18 @@ def next_hero_round(state, target_conditions=ConditionState(), *, target_id="ene
             ActionSlotGrant.STANDARD,
         )).state
         removal = None
+        prone_removal = None
         if actor == target_id and target_conditions.has(Condition.STAGGERED):
             removal = RecoverConditionTarget(actor, target_conditions, None)
-        elif actor == "ally" and hero_conditions.has(Condition.STAGGERED):
+        elif actor == "ally" and recover_hero and (
+            hero_conditions.has(Condition.STAGGERED) or hero_conditions.has(Condition.PRONE)
+        ):
             if spatial is not None:
                 assert spatial.placement_for(actor).zone_id == spatial.placement_for("hero").zone_id
-            removal = RecoverConditionTarget("hero", hero_conditions, True)
+            if hero_conditions.has(Condition.STAGGERED):
+                removal = RecoverConditionTarget("hero", hero_conditions, True)
+            if hero_conditions.has(Condition.PRONE):
+                prone_removal = RecoverConditionTarget("hero", hero_conditions, True)
         has_enemy_in_zone = close_combat
         if spatial is not None:
             placement = spatial.placement_for(actor)
@@ -71,7 +77,7 @@ def next_hero_round(state, target_conditions=ConditionState(), *, target_id="ene
         recovery = execute_recover_action(RecoverActionExecutionRequest(
             action_id, state, actor, target_conditions if actor == target_id else ConditionState(),
             has_enemy_in_zone, 1, RecoverMode.STANDARD,
-            RecoverStandardChoice(WizardMagicState(), staggered_target=removal),
+            RecoverStandardChoice(WizardMagicState(), staggered_target=removal, prone_target=prone_removal),
         ), SequenceRandom([]))
         recoveries.append(recovery)
         for change in recovery.resolution.condition_changes:

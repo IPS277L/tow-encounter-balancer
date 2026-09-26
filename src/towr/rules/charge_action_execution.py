@@ -14,6 +14,7 @@ from towr.domain.charge_models import (
 from towr.domain.condition_models import (
     Condition,
     ConditionApplicationRequest,
+    ConditionState,
 )
 from towr.domain.movement_models import MovementSpeed
 from towr.domain.spatial_models import SpatialEntityPlacement
@@ -21,6 +22,7 @@ from towr.domain.test_models import DiceModifier, Skill
 from towr.domain.turn_models import (
     ActionExecutionReceipt,
     CombatActionKind,
+    CombatActionSlot,
     ManoeuvreKind,
 )
 from towr.rules.dice import RandomSource
@@ -207,21 +209,14 @@ def execute_charge_action(
     )
 
 
-def execute_difficult_terrain_charge_action(
-    request: DifficultTerrainChargeActionExecutionRequest,
-    rng: RandomSource,
-    *,
-    decisions: ResolutionDecisionProvider | None = None,
-) -> DifficultTerrainChargeActionExecutionResult:
-    """Attack after consuming one proven Difficult Terrain crossing."""
-    if request.rule_id != DIFFICULT_TERRAIN_CHARGE_ACTION_EXECUTION_RULE_ID:
-        raise ValueError("terrain Charge uses an unknown source rule")
-    source = request.charge_action
-    traversal = request.terrain_traversal
+def _validate_difficult_terrain_charge_action(
+    source: ChargeActionExecutionRequest, conditions: ConditionState,
+) -> CombatActionSlot:
+    """Check Charge eligibility against the supplied pre- or post-terrain Conditions."""
     if source.melee_bonus_rule_id != CHARGE_MELEE_BONUS_RULE_ID:
         raise ValueError("Charge request uses an unknown Melee bonus rule")
 
-    turn = request.round_state.active_turn
+    turn = source.round_state.active_turn
     assert turn is not None
     if source.slot_index > len(turn.action_slots):
         raise ValueError("the requested action slot has not been reserved")
@@ -249,7 +244,7 @@ def execute_difficult_terrain_charge_action(
     attack = source.kernel_request.attack
     if not attack.is_close_range:
         raise ValueError("Charge attack must resolve at Close Range")
-    actor_is_staggered = traversal.conditions.has(Condition.STAGGERED)
+    actor_is_staggered = conditions.has(Condition.STAGGERED)
     if attack.attacker_is_staggered is not actor_is_staggered:
         raise ValueError("Charge attack has stale post-terrain Staggered state")
     if any(
@@ -257,6 +252,25 @@ def execute_difficult_terrain_charge_action(
         for modifier in attack.attacker_test.dice_modifiers
     ):
         raise ValueError("Charge Melee bonus is already present")
+
+    return slot
+
+
+def execute_difficult_terrain_charge_action(
+    request: DifficultTerrainChargeActionExecutionRequest,
+    rng: RandomSource,
+    *,
+    decisions: ResolutionDecisionProvider | None = None,
+) -> DifficultTerrainChargeActionExecutionResult:
+    """Attack after consuming one proven Difficult Terrain crossing."""
+    if request.rule_id != DIFFICULT_TERRAIN_CHARGE_ACTION_EXECUTION_RULE_ID:
+        raise ValueError("terrain Charge uses an unknown source rule")
+    source = request.charge_action
+    traversal = request.terrain_traversal
+    slot = _validate_difficult_terrain_charge_action(source, traversal.conditions)
+    turn = request.round_state.active_turn
+    assert turn is not None
+    attack = source.kernel_request.attack
 
     melee_bonus = None
     prepared_kernel_request = source.kernel_request
