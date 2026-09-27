@@ -122,4 +122,16 @@
 
 | Правила / решение | Источник | Контракт | Проверка | Граница |
 |---|---|---|---|---|
-| RULE-COMBAT-001..002,004..009; RULE-NPC-002,006..008; ADR-0010 | BOOK-PLAYER-GUIDE 1.4, Rules / Combat и Ambush, стр. 112; Combat Actions, стр. 116; Attack Tests, стр. 118; Failed/Successful Attacks и Giving Ground, стр. 119; BOOK-GM-GUIDE 1.1, Allies and Antagonists / Minions, стр. 91; Understanding NPC Profiles, стр. 93. | domain/npc_round_models.py; engine/npc_round_coordinator.py; existing turn/selection/Attack reducers | test_m2_npc_round_coordinator.py — 10 unit; test_m2_npc_round_cycle.py — 3 integration | Один Minion-раунд, fresh candidates и source-bound typed journal, явные остановки; нет следующего раунда, skip defeated, автоматического acknowledgement или определения победителя |
+| RULE-COMBAT-001..002,004..009; RULE-NPC-002,006..008; ADR-0010 | BOOK-PLAYER-GUIDE 1.4, Rules / Combat и Ambush, стр. 112; Combat Actions, стр. 116; Attack Tests, стр. 118; Failed/Successful Attacks и Giving Ground, стр. 119; BOOK-GM-GUIDE 1.1, Allies and Antagonists / Minions, стр. 91; Understanding NPC Profiles, стр. 93. | domain/npc_round_models.py; engine/npc_round_coordinator.py; existing turn/selection/Attack reducers | test_m2_npc_round_coordinator.py — 10 unit; test_m2_npc_round_cycle.py — 3 integration | Один Minion-раунд, fresh candidates и source-bound typed journal, явные остановки; нет следующего раунда, автоматического acknowledgement или определения победителя; явное исключение defeated см. ниже |
+
+## Исключение defeated из очереди M2
+
+| Основание | Источник | Реализация | Проверки | Граница |
+| --- | --- | --- | --- | --- |
+| RULE-NPC-002; RULE-COMBAT-001..002; ADR-0004/0010 | BOOK-GM-GUIDE 1.1, Allies and Antagonists / Minions, стр. 91; BOOK-PLAYER-GUIDE 1.4, Rules / Combat, стр. 112; Combat Actions, стр. 116. | turn_models.py; turn_resolution.py; npc_round_models.py; npc_round_exclusion_models.py; npc_round_exclusion.py; retreat_models.py (guard) | test_m2_npc_round_exclusion.py — 12 unit; test_m2_npc_round_exclusion_cycle.py — 3 integration | Exact source/history, pending gate, replay, interrupted turn; completed/excluded раздельно, обе очередности, продолжение 2×2 без повторной Attack. Нет победителя/автоматического acknowledgement; Retreat с exclusions пока отклоняется |
+
+## Подтверждение формы поражения Minion M2
+
+| Правило | Источник | Реализация | Проверка | Граница |
+| --- | --- | --- | --- | --- |
+| RULE-NPC-002; ADR-0008/0010 | BOOK-GM-GUIDE 1.1, Allies and Antagonists / Minions, стр. 91. | minion_defeat_models.py; minion_defeat_resolution.py; npc_roster_attack_models.py (история) | test_m2_minion_defeat.py — 11 unit; test_m2_minion_defeat_cycle.py — 2 integration | Три явных исхода, actor/target/GM approval, exact post-Attack source, одно погашение pending, перенос истории. Без повторного kernel/receipt, автоматического выбора и inventory/spatial последствий |

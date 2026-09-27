@@ -256,6 +256,7 @@ class CombatRoundState:
     )
     completed_turn_entity_ids: tuple[str, ...] = field(default_factory=tuple)
     active_turn: CombatTurnState | None = None
+    excluded_turn_entity_ids: tuple[str, ...] = field(default_factory=tuple)
 
     def __post_init__(self) -> None:
         if not isinstance(self.round_number, int) or isinstance(
@@ -280,6 +281,15 @@ class CombatRoundState:
         participant_ids = {item.entity_id for item in participants}
         if not set(completed) <= participant_ids:
             raise ValueError("completed turn references an unknown participant")
+        excluded = tuple(self.excluded_turn_entity_ids)
+        for entity_id in excluded:
+            _validate_non_empty_string(entity_id, "excluded turn entity_id")
+        if len(set(excluded)) != len(excluded):
+            raise ValueError("excluded turn entity IDs must be unique")
+        if not set(excluded) <= participant_ids:
+            raise ValueError("excluded turn references an unknown participant")
+        if set(excluded) & set(completed):
+            raise ValueError("excluded participants cannot have completed turns")
 
         if self.active_turn is not None:
             if not isinstance(self.active_turn, CombatTurnState):
@@ -292,7 +302,9 @@ class CombatRoundState:
                 raise ValueError("active turn side does not match participant")
             if participant.entity_id in completed:
                 raise ValueError("completed participant cannot have an active turn")
-            expected_side = _next_side(participants, side_order, completed)
+            if participant.entity_id in excluded:
+                raise ValueError("excluded participant cannot have an active turn")
+            expected_side = _next_side(participants, side_order, (*completed, *excluded))
             if participant.side is not expected_side:
                 raise ValueError("active turn belongs to the wrong side")
             if any(
@@ -307,17 +319,18 @@ class CombatRoundState:
         object.__setattr__(self, "participants", participants)
         object.__setattr__(self, "side_order", side_order)
         object.__setattr__(self, "completed_turn_entity_ids", completed)
+        object.__setattr__(self, "excluded_turn_entity_ids", excluded)
 
     @property
     def round_complete(self) -> bool:
-        return len(self.completed_turn_entity_ids) == len(self.participants)
+        return len(self.completed_turn_entity_ids) + len(self.excluded_turn_entity_ids) == len(self.participants)
 
     @property
     def next_side(self) -> CombatSide | None:
         return _next_side(
             self.participants,
             self.side_order,
-            self.completed_turn_entity_ids,
+            (*self.completed_turn_entity_ids, *self.excluded_turn_entity_ids),
         )
 
     def participant_for(self, entity_id: str) -> CombatTurnParticipant:

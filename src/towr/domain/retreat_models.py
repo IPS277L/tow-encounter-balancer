@@ -1232,6 +1232,8 @@ def _retreat_cover_proof_id(source: RetreatCoverResult) -> str:
 
 
 def _validate_retreat_timing(state: CombatRoundState) -> None:
+    if state.excluded_turn_entity_ids:
+        raise ValueError("Retreat timing with excluded participants is not supported yet")
     completed = set(state.completed_turn_entity_ids)
     if not completed:
         if state.side_order[0] is CombatSide.PLAYERS_AND_ALLIES:

@@ -43,6 +43,9 @@ class NpcRoundRequest:
                 raise ValueError("round participant side differs from roster")
             if participant.definition.injury_policy is not TargetInjuryPolicy.MINION:
                 raise ValueError("NPC round currently supports Minion participants only")
+            if (member.entity_id in self.round_state.excluded_turn_entity_ids
+                    and not participant.state.injury.defeated):
+                raise ValueError("excluded NPC round participant must be defeated")
         pending = tuple(self.pending_follow_ups)
         if not all(isinstance(item, FollowUpRequest) for item in pending):
             raise TypeError("pending follow-ups must be typed")
@@ -69,6 +72,7 @@ class NpcRoundRequest:
             return round_state.active_turn.actor_id
         return next((actor for actor in self.actor_order
                      if actor not in round_state.completed_turn_entity_ids
+                     and actor not in round_state.excluded_turn_entity_ids
                      and round_state.participant_for(actor).side is round_state.next_side), None)
 
     def selection_context(self, state: NpcRosterAttackState, round_state: CombatRoundState) -> NpcAttackSelectionRequest:

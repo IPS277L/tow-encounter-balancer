@@ -13,6 +13,7 @@ from towr.domain.resolution_models import AttackerStaggerRequest, FollowUpReques
 class NpcRosterAttackState:
     roster: NpcRoster
     consumed_execution_ids: tuple[str, ...] = ()
+    acknowledged_defeat_execution_ids: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         if not isinstance(self.roster, NpcRoster):
@@ -23,6 +24,14 @@ class NpcRosterAttackState:
         if len(set(consumed)) != len(consumed):
             raise ValueError("consumed execution IDs must be unique")
         object.__setattr__(self, "consumed_execution_ids", consumed)
+        acknowledged = tuple(self.acknowledged_defeat_execution_ids)
+        if any(not isinstance(item, str) or not item.strip() for item in acknowledged):
+            raise ValueError("acknowledged defeat execution IDs must be non-empty strings")
+        if len(set(acknowledged)) != len(acknowledged):
+            raise ValueError("acknowledged defeat execution IDs must be unique")
+        if not set(acknowledged) <= set(consumed):
+            raise ValueError("acknowledged defeat requires a consumed execution")
+        object.__setattr__(self, "acknowledged_defeat_execution_ids", acknowledged)
 
 
 @dataclass(frozen=True, slots=True)
@@ -142,9 +151,9 @@ class NpcRosterAttackExecutionResult:
                 injury = replace(injury, conditions=injury.conditions.with_condition(Condition.STAGGERED))
             participants.append(participant if injury == participant.state.injury else
                                 replace(participant, state=replace(participant.state, injury=injury)))
-        return NpcRosterAttackState(
-            NpcRoster(tuple(participants)),
-            (*request.state.consumed_execution_ids, self.execution.request_id),
+        return replace(
+            request.state, roster=NpcRoster(tuple(participants)),
+            consumed_execution_ids=(*request.state.consumed_execution_ids, self.execution.request_id),
         )
 
     @property

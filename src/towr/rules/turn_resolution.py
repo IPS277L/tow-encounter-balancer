@@ -41,6 +41,8 @@ def start_combat_turn(
     participant = state.participant_for(request.actor_id)
     if request.actor_id in state.completed_turn_entity_ids:
         raise ValueError("the participant has already completed this round")
+    if request.actor_id in state.excluded_turn_entity_ids:
+        raise ValueError("the participant is excluded from this round")
     if participant.side is not state.next_side:
         raise ValueError("the participant does not belong to the current side")
 
@@ -210,7 +212,7 @@ def advance_combat_round(
     if request.state.active_turn is not None:
         raise ValueError("an active combat turn must be completed first")
     if not request.state.round_complete:
-        raise ValueError("all participants must complete their turns first")
+        raise ValueError("all participants must complete their turns or be excluded first")
 
     state = CombatRoundState(
         round_number=request.state.round_number + 1,

@@ -39,7 +39,7 @@ IDs связывают значения внутри supplied snapshot, но н�
 
 Источники непосредственно сверены: BOOK-PLAYER-GUIDE 1.4, Rules / Combat, стр. 112; Combat Actions, стр. 116; Attack Tests, стр. 118; Failed/Successful Attacks и Giving Ground, стр. 119; BOOK-GM-GUIDE 1.1, Allies and Antagonists / Minions, стр. 91; Understanding NPC Profiles, стр. 93; Brigands & Footpads, стр. 97.
 
-`NpcRosterAttackState` хранит только roster и ordered consumed execution IDs. Это не общий battle aggregate: round/slot остаётся отдельным `CombatRoundState`, spatial/reload/Fate/Aim histories не объединяются.
+`NpcRosterAttackState` хранит roster, ordered consumed execution IDs и acknowledged_defeat_execution_ids (подмножество consumed IDs для однократного подтверждения формы поражения Minion). Это не общий battle aggregate: round/slot остаётся отдельным `CombatRoundState`, spatial/reload/Fate/Aim histories не объединяются.
 
 Caller заранее выполняет чистые NPC Attack и Protection preparations, затем передаёт их вместе с `AttackActionExecutionRequest`. Новый `NpcRosterAttackExecutionRequest` проверяет полное значение Attack, исходную доступность/профили, target injury и факты equipment/Defenceless из roster. Базовый Protection profile должен совпадать с definition; modifiers/quality остаются явными Test inputs. Выбор awareness/range и тактики не выводится автоматически. Резервирование и окончание хода выполняются прежними turn reducers; исполнение не закрывает ход автоматически.
 
@@ -52,3 +52,5 @@ Caller заранее выполняет чистые NPC Attack и Protection p
 `pending_follow_ups` содержит все follow-ups, кроме уже перенесённого attacker Staggered. В частности, GiveGroundRequest ещё требует spatial исполнения и обновления usage; ProfileStateChangeRequest сохраняет уведомление о defeat и решение caller/GM о его форме. Нельзя интерпретировать готовый receipt как завершение всей очереди последствий. Автоматического исполнения или удаления pending requests нет.
 
 Продолжение: [ADR-0009](ADR-0009-npc-attack-selection-policy.md) добавляет выбор одного подготовленного Minion Attack по явному порядку кандидатов. Контроллер не расширяет roster aggregate и не исполняет kernel; сохраняет pending consequences и сверяет актуальность снимков перед передачей прежнему executor.
+
+Уточнение 2026-09-28: новый Attack result обновляет NpcRosterAttackState через replace и сохраняет acknowledged_defeat_execution_ids. Решение о форме поражения хранится в отдельном MinionDefeatAcknowledgementResult; caller сохраняет этот результат, а roster/history использует для следующего действия. [Контракт](ADR-0010-single-minion-round.md#подтверждение-формы-поражения-minion).

@@ -426,3 +426,7 @@ NpcRosterAttackExecutionRequest связывает существующие NpcP
 Контроллер engine/npc_attack_controller.py формирует уже существующий NpcRosterAttackExecutionRequest из первого допустимого supplied candidate. Проверка require_current_npc_attack_selection сверяет exact roster/history/round/pending перед передачей прежнему executor; kernel API и число исполнений не изменены. [ADR-0009](../decisions/ADR-0009-npc-attack-selection-policy.md).
 
 run_npc_round ограничивает orchestration одним текущим Minion-раундом и сохраняет существующие typed результаты start/reserve/selection/attack/end. Kernel/roster executor не менялись; каждый исполненный Attack переносит возвращённые snapshots следующему actor только при отсутствии pending follow-ups. [ADR-0010](../decisions/ADR-0010-single-minion-round.md).
+
+Исключение defeated Minion из очереди раунда выполняется отдельным reducer/consumer npc_round_exclusion.py без kernel, RNG или нового action receipt. Готовый injury и consumed_execution_ids сохраняются; pending queue должна быть пустой. [ADR-0010](../decisions/ADR-0010-single-minion-round.md).
+
+Minion defeat acknowledgement читает полный готовый NpcRosterAttackExecutionResult и не исполняет kernel повторно. Анонимный ProfileStateChangeRequest не расширен: actor/target берутся из source-bound Attack. [Контракт](../decisions/ADR-0010-single-minion-round.md#подтверждение-формы-поражения-minion).
