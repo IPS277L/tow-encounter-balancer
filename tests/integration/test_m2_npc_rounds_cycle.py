@@ -13,6 +13,7 @@ from towr.domain.npc_rounds_models import NpcRoundsOutcome as Outcome, NpcRounds
 from towr.domain.resolution_models import GiveGroundRequest
 from towr.domain.injury_models import ProfileStateChangeRequest
 from towr.engine import npc_rounds_runner as runner
+from towr.engine.npc_rounds_reporting import summarize_npc_rounds
 from towr.rules import attack_action_execution as attack_executor, npc_round_advance as advance
 
 
@@ -85,12 +86,17 @@ class M2NpcRoundsCycleTests(unittest.TestCase):
             self.assertEqual(rng.randint.call_count, 30)
             self.assertEqual(rng.randint(1, 10), 7)
             prior = stopped.current.state.consumed_execution_ids
+            stopped_summary = summarize_npc_rounds(stopped)
+            self.assertEqual((stopped_summary.executed_attack_count, stopped_summary.newly_completed_round_count), (5, 1))
             unused_plans = Mock()
             remainder = Mock(wraps=SequenceRandom([10] * 18 + [8]))
             finished = runner.run_npc_rounds(NpcRoundsRequest(stopped.current, stopped.spatial_state, 1),
                                              original, unused_plans, remainder)
             self.assertEqual(kernel.call_count, 8)
         self.assertIs(finished.outcome, Outcome.ROUND_LIMIT)
+        finished_summary = summarize_npc_rounds(finished)
+        self.assertEqual((finished_summary.executed_attack_count, finished_summary.newly_completed_round_count), (3, 1))
+        self.assertEqual((finished_summary.initial_round_number, finished_summary.final_round_number), (2, 2))
         self.assertEqual(finished.current.state.consumed_execution_ids[:5], prior)
         self.assertEqual(len(finished.current.state.consumed_execution_ids), 8)
         self.assertEqual(finished.current.round_state.round_number, 2)

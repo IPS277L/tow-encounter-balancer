@@ -181,3 +181,15 @@
 ## Аудит готовности M2
 
 [Матрица пяти пунктов roadmap](audits/m2-readiness.md#матрица-пяти-пунктов-roadmap) сопоставляет source/implementation/tests без изменения статуса K1 правил. RULE-COMBAT-001,015 и RULE-NPC-002 проверены в Minion orchestration; RULE-NPC-003..005 и RULE-EFFECT-006 имеют K1 реализации, но не общий M2 execution path. RULE-HEALTH-008 подключён частично. Источники непосредственно перечитаны: BOOK-PLAYER-GUIDE 1.4, Equipment / Ranged Weapons, стр. 95; Rules / Combat, 112; Giving Ground, 119; Retreat, 120; Conditions, 122–123; BOOK-GM-GUIDE 1.1, Allies and Antagonists / Types of NPC и Understanding NPC Profiles, стр. 91–93; Brigands & Footpads, 97. Полный набор 1625 tests OK. Полный M2 не объявлен завершённым; следующий summary — техническая отчётность одного вызова, без нового игрового Rule ID.
+
+## Сводка одного прогона M2
+
+| Семантика | Источники | Реализация | Проверки | Граница |
+| --- | --- | --- | --- | --- |
+| RULE-COMBAT-001, RULE-NPC-002; технические счётчики ADR-0011 | BOOK-PLAYER-GUIDE 1.4, Rules / Combat, стр. 112; BOOK-GM-GUIDE 1.1, Allies and Antagonists / Minions, стр. 91. | npc_rounds_summary_models.py; npc_rounds_reporting.py | test_m2_npc_rounds_summary.py — 7 unit; расширенные partial-resume и mixed-cycle integration | Source-bound read-only проекция, complete input/старые IDs не считаются новыми, 1/1/4 Attack реального mixed cycle, final participants по посещённым составам; без RNG, новых Rule IDs, winner/survived/disposition |
+
+## Read-only отчёт цепочки M2
+
+| Семантика | Источники | Реализация | Проверки | Граница |
+| --- | --- | --- | --- | --- |
+| RULE-COMBAT-001, RULE-NPC-002, Giving Ground; техническая непрерывность ADR-0011 | BOOK-PLAYER-GUIDE 1.4, Rules / Combat, стр. 112; Giving Ground, стр. 119; BOOK-GM-GUIDE 1.1, Allies and Antagonists / Minions, стр. 91 | npc_rounds_chain_summary_models.py; npc_rounds_reporting.py | test_m2_npc_rounds_chain_summary.py — 7 unit; расширенный mixed follow-up integration | Exact current/spatial, реальные 1/1/4 Attack, explicit dispositions с sources; без исполнения, RNG, winner/survived или нового игрового правила |

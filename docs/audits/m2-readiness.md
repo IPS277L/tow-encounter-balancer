@@ -1,6 +1,6 @@
 # Аудит готовности M2
 
-Дата: 2026-09-28. Основание: [roadmap](../roadmap.md), [аудит K1](k1-readiness.md), [ADR-0008](../decisions/ADR-0008-npc-roster-boundary.md), [ADR-0009](../decisions/ADR-0009-npc-attack-selection-policy.md), [ADR-0010](../decisions/ADR-0010-single-minion-round.md), [ADR-0011](../decisions/ADR-0011-bounded-minion-rounds.md), [трассировка](../rule-traceability.md). На начало аудита рабочее дерево чистое. Production-код и тесты не менялись.
+Дата: 2026-09-28. Основание: [roadmap](../roadmap.md), [аудит K1](k1-readiness.md), [ADR-0008](../decisions/ADR-0008-npc-roster-boundary.md), [ADR-0009](../decisions/ADR-0009-npc-attack-selection-policy.md), [ADR-0010](../decisions/ADR-0010-single-minion-round.md), [ADR-0011](../decisions/ADR-0011-bounded-minion-rounds.md), [трассировка](../rule-traceability.md). При первоначальном аудите рабочее дерево было чистым, production-код и тесты не менялись. Выполнение следующего среза отмечено ниже.
 
 ## Вывод
 
@@ -8,7 +8,7 @@
 
 Из пяти пунктов roadmap два готовы в данном срезе, два частично готовы, multi-target/area orchestration в M2 не реализована. K1 содержит необходимые части, но их наличие не доказывает подключение к roster, controller и runner. Наличие Brute/Champion в определении roster также не означает возможность их исполнения.
 
-Следующий production-срез — **типизированная сводка одного NpcRoundsResult**. Он закрывает первый самостоятельный пробел отчётности, не меняет боевую механику и не объявляет весь M2 завершённым. Полный набор при аудите: **1625 tests OK**, Python 3.14; Python 3.12 отсутствует.
+**Типизированная сводка одного NpcRoundsResult реализована**: первый самостоятельный пробел отчётности закрыт, полный M2 остаётся незавершённым. Read-only отчёт явной цепочки возобновлений с проверкой внешних переходов также реализован; далее — явная оценка цели сценария. Полный набор при аудите: **1625 tests OK**, Python 3.14; Python 3.12 отсутствует.
 
 ## Непосредственно проверенные источники
 
@@ -34,7 +34,7 @@
 | Контроллеры выбора действия и цели | [select_npc_attack](../../src/towr/engine/npc_attack_controller.py), [round coordinator](../../src/towr/engine/npc_round_coordinator.py); [controller tests](../../tests/unit/test_m2_npc_attack_controller.py), [Condition guards](../../tests/unit/test_m2_npc_attack_conditions.py) | **Частично.** Первый допустимый Attack/target по supplied порядку. Нет выбора между Attack/Recover/Manoeuvre и др., автоматической оценки тактики или полного набора eligibility/modifiers | GM 1.1, Allies and Antagonists / Understanding NPC Profiles, 93; PG 1.4, Rules / Combat, 112; Conditions, 122–123. Порядок предпочтения — policy, не правило книги |
 | Несколько различных целей | [source-bound roster Attack](../../src/towr/domain/npc_roster_attack_models.py); [подготовка четырёх участников](../../tests/integration/test_m2_npc_roster_preparation.py), [mixed cycle](../../tests/integration/test_m2_mixed_round_cycle.py), [runner cycle](../../tests/integration/test_m2_npc_rounds_cycle.py) | **Готово для последовательных одиночных Attack.** Actor/target IDs связаны с snapshots, несвязанные участники сохраняются. Это не одновременное поражение нескольких целей | GM 1.1, Allies and Antagonists / Understanding NPC Profiles, 93; Brigands & Footpads, 97 |
 | Книжные multi-target и area через конкретные профили/Hazards/secondary effects | K1: [secondary targets](../../src/towr/rules/secondary_target_resolution.py), [Zone Hazard](../../src/towr/rules/zone_hazard_resolution.py), [secondary tests](../../tests/unit/test_k1_secondary_target_resolution.py), [effects](../rules/special-effects.md). M2 controller выдаёт UNSUPPORTED_EFFECTS, roster executor запрещает secondary_effects; [negative test](../../tests/unit/test_m2_npc_attack_controller.py) test_extra_attack_effects_are_skipped_instead_of_silently_dropped | **Не реализовано в M2**, K1-части готовы. Нет M2 batch application в roster с единым источником и последующими pending. Нельзя снять guard без подключения потребителей | PG 1.4, Equipment / Ranged Weapons / Blunderbuss, 95; GM 1.1, Allies and Antagonists / Monstrosities, 92. Каждый эффект задаёт свой target set/Tests/order |
-| Расширенные результаты одного боя | [NpcRoundsResult](../../src/towr/domain/npc_rounds_models.py) хранит source, rounds/advances, snapshots и stop reason; [journal tests](../../tests/unit/test_m2_npc_rounds_runner.py). [BattleResult](../../src/towr/domain/results.py) и [BattleEngine](../../src/towr/engine/battle.py) относятся к P1 | **Частично.** Есть проверенный журнал одного bounded вызова; нет компактной сводки его метрик, полного отчёта через external resume и контрактов завершения книжного боя/целей сценария. Нет оснований использовать P1 survived/winner как M2 данные | PG 1.4, Rules / Combat, 112; Retreat, 120; GM 1.1, Allies and Antagonists / Minions, 91. Лимит симулятора — техническая настройка |
+| Расширенные результаты одного боя | [NpcRoundsResult](../../src/towr/domain/npc_rounds_models.py) хранит source, rounds/advances, snapshots и stop reason; [journal tests](../../tests/unit/test_m2_npc_rounds_runner.py). [BattleResult](../../src/towr/domain/results.py) и [BattleEngine](../../src/towr/engine/battle.py) относятся к P1 | **Частично.** Есть проверенный журнал одного bounded вызова; [компактная сводка одного вызова](../../src/towr/domain/npc_rounds_summary_models.py) готова; нет полного отчёта через external resume и контрактов завершения книжного боя/целей сценария. Нет оснований использовать P1 survived/winner как M2 данные | PG 1.4, Rules / Combat, 112; Retreat, 120; GM 1.1, Allies and Antagonists / Minions, 91. Лимит симулятора — техническая настройка |
 
 ## Границы, которые нельзя потерять при расширении
 
@@ -62,9 +62,9 @@
 
 Это технические критерии проверки исходного roadmap, не новые house rules. До их закрытия допустимы измерения bounded прогонов, но они не являются завершённой массовой симуляцией исходов боя. Monte Carlo, параллелизм, CLI и балансировщик остаются последующими этапами.
 
-## Следующий законченный production-срез
+## Сводка одного прогона — реализованный срез
 
-Добавить immutable `NpcRoundsSummary` и чистую `summarize_npc_rounds(result)` для **одного** проверенного NpcRoundsResult. Отдельный report module зависит от domain; он не вызывает runner/rules/RNG и не становится владельцем состояния. Точная структура нового публичного контракта документируется при реализации.
+Реализованы immutable `NpcRoundsSummary` и чистая `summarize_npc_rounds(result)` для **одного** проверенного NpcRoundsResult. Отдельный report module зависит от domain; он не вызывает runner/rules/RNG и не становится владельцем состояния. Публичный контракт описан в [ADR-0011](../decisions/ADR-0011-bounded-minion-rounds.md#сводка-одного-вызова-runner).
 
 Критерии приёмки:
 
@@ -79,3 +79,13 @@
 ## Проверки аудита
 
 Повторно выполнен полный `py -3.14 -m unittest discover -s tests -v` с `PYTHONPATH=src`: **1625 tests OK**. Новых тестов в документационном аудите нет. Compileall, локальные ссылки и `git diff --check` успешны. Ссылки таблиц ведут к фактическим contracts/tests, существующие отрицательные проверки использованы как доказательство границ. Новых неоднозначностей правил не найдено; прежние вопросы в [open-questions](../open-questions.md) сохраняются.
+
+## Проверка сводки и следующий срез
+
+2026-09-28: 7 новых [unit tests сводки](../../tests/unit/test_m2_npc_rounds_summary.py) и расширение existing partial-resume/mixed integration закрывают критерии сводки одного вызова выше; полный набор 1632 tests OK. Классификация пяти пунктов M2 не меняется: полная отчётность всё ещё частична. Следующий законченный срез — проверяемая read-only композиция runner results и явных внешних Give Ground/defeat/exclusion/advance results с общей сводкой без повторного счёта. Исполнение переходов, вывод победителя и общий battle aggregate в этот срез не входят.
+
+## Отчёт цепочки — реализованный срез
+
+Реализованы NpcRoundsChainSummary и summarize_npc_rounds_chain: immutable read-only отчёт последовательности готовых runner/Give Ground/defeat acknowledgement/exclusion/explicit advance results. Цепочка начинается и заканчивается runner result; каждый переход проверяется по точному current, а меняющие/использующие spatial результаты — также по spatial snapshot. Счётчики Attack и новых завершений суммируются по сводкам вызовов; visited считает уникальные номера раундов. Финальный stop/blocked/pending сохранён, участники объединены в порядке первого появления с конечными Wounds/Conditions; подтверждения defeat возвращаются с полными источниками. 7 новых unit tests и расширенный mixed integration покрывают 1/1/4 Attack, оба side_order, три dispositions, explicit advance, complete input, no-op, отсутствующий/переставленный/повторный/чужой переход и immutable inputs. Полный набор: 1639 tests OK. Rules/consumers/RNG не исполняются. Источники: BOOK-PLAYER-GUIDE 1.4, Rules / Combat, стр. 112; Giving Ground, стр. 119; BOOK-GM-GUIDE 1.1, Allies and Antagonists / Minions, стр. 91.
+
+[Контракт](../decisions/ADR-0011-bounded-minion-rounds.md#отчёт-цепочки-возобновлений), [unit tests](../../tests/unit/test_m2_npc_rounds_chain_summary.py). Первый критерий закрыт в части композиции и счётчиков; terminal objective/outcome остаётся отдельным следующим контрактом. Остальные критерии M2 не изменились; M3 не начат.

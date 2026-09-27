@@ -22,6 +22,7 @@ from towr.domain.resolution_models import GiveGroundRequest, GiveGroundResolutio
 from towr.domain.spatial_models import SpatialBattleState, SpatialEntityPlacement
 from towr.domain.turn_models import CombatSide, CombatTurnEndResult
 from towr.engine.npc_rounds_runner import run_npc_rounds
+from towr.engine.npc_rounds_reporting import summarize_npc_rounds, summarize_npc_rounds_chain
 from towr.rules import attack_action_execution as attack_executor, npc_give_ground_resolution as give_ground
 from towr.rules import minion_defeat_resolution as defeat, npc_round_exclusion as exclusion, npc_round_advance as advance
 
@@ -149,6 +150,46 @@ class M2NpcRoundsFollowUpCycleTests(unittest.TestCase):
                                      moved.state.roster.participant(survivor).state.injury.conditions)
 
                     rounds = (*first_stop.rounds, *second_stop.rounds, *final.rounds)
+                    reports = tuple(summarize_npc_rounds(r) for r in (first_stop, second_stop, final))
+                    self.assertEqual(tuple(r.executed_attack_count for r in reports), (1, 1, 4))
+                    self.assertEqual(tuple(r.newly_completed_round_count for r in reports), (0, 0, 2))
+                    self.assertEqual(tuple(r.visited_round_count for r in reports), (1, 1, 2))
+                    self.assertEqual(tuple(r.pending_follow_up_count for r in reports), (1, 1, 0))
+                    self.assertEqual(tuple(r.outcome for r in reports), (Outcome.PENDING_FOLLOW_UPS, Outcome.PENDING_FOLLOW_UPS, Outcome.ROUND_LIMIT))
+                    self.assertTrue(all(r.blocked_reason is None for r in reports))
+                    self.assertEqual(tuple(p.actor_id for p in reports[-1].participants),
+                                     tuple(p.entity_id for p in source.round_state.participants))
+                    defeated_record = next(p for p in reports[-1].participants if p.actor_id == defeated)
+                    self.assertEqual((defeated_record.wounds, defeated_record.defeated), (1, True))
+                    self.assertEqual(defeated_record.conditions, final.current.state.roster.participant(defeated).state.injury.conditions)
+                    chain = (first_stop, movement, second_stop, confirmation, removed, final)
+                    chain_before = deepcopy(chain)
+                    report = summarize_npc_rounds_chain(chain)
+                    self.assertEqual(report.call_summaries, reports)
+                    self.assertEqual((report.executed_attack_count, report.newly_completed_round_count,
+                                      report.visited_round_count), (6, 2, 2))
+                    self.assertEqual((report.outcome, report.blocked_reason, report.pending_follow_up_count),
+                                     (Outcome.ROUND_LIMIT, None, 0))
+                    self.assertEqual(report.current, final.current)
+                    self.assertIs(report.spatial_state, final.spatial_state)
+                    self.assertEqual(report.participants, reports[-1].participants)
+                    self.assertEqual(report.defeat_acknowledgements, (confirmation,))
+                    self.assertIs(report.defeat_acknowledgements[0], confirmation)
+                    self.assertIs(report.defeat_acknowledgements[0].source_request.decision.disposition, disposition)
+                    self.assertEqual(summarize_npc_rounds_chain(chain), report)
+                    # Every state-changing boundary is required, ordered and bound to its exact source.
+                    for index in range(1, len(chain) - 1):
+                        for invalid in (chain[:index] + chain[index + 1:],
+                                        chain[:index] + (chain[index],) + chain[index:]):
+                            with self.assertRaisesRegex(ValueError, "source differs"):
+                                summarize_npc_rounds_chain(invalid)
+                    with self.assertRaisesRegex(ValueError, "source differs"):
+                        summarize_npc_rounds_chain((first_stop, movement, second_stop, removed, confirmation, final))
+                    foreign = replace(movement, source_request=replace(movement.source_request,
+                        current=replace(movement.source_request.current, id="foreign")))
+                    with self.assertRaisesRegex(ValueError, "source differs"):
+                        summarize_npc_rounds_chain((first_stop, foreign, *chain[2:]))
+                    self.assertEqual(chain, chain_before)
                     attacks = tuple(s for r in rounds for s in r.steps if isinstance(s, NpcRosterAttackExecutionResult))
                     ids = tuple(a.execution.request_id for a in attacks)
                     self.assertEqual(len(set(ids)), 6)
