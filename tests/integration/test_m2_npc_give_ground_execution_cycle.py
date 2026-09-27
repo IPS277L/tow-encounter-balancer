@@ -4,6 +4,7 @@ from unittest.mock import patch
 from tests.helpers import SequenceRandom
 from tests.unit.test_m2_npc_give_ground import pending_context
 from tests.integration.test_m2_npc_give_ground_cycle import SpatialCandidates
+from towr.domain.npc_attack_selection_models import NpcAttackSelectionBlock
 from towr.domain.npc_round_models import NpcRoundOutcome
 from towr.domain.turn_models import CombatTurnEndResult
 from towr.engine.npc_round_coordinator import run_npc_round
@@ -29,6 +30,10 @@ class M2NpcGiveGroundExecutionCycleTests(unittest.TestCase):
                 rng = SequenceRandom([10] * (6 if enemy else 18) + [7])
                 finished = run_npc_round(current, provider, rng)
                 self.assertIs(finished.outcome, NpcRoundOutcome.SELECTION_BLOCKED if enemy else NpcRoundOutcome.COMPLETE)
+                if enemy:
+                    self.assertIs(finished.blocked_selection.blocked_reason, NpcAttackSelectionBlock.ACTOR_BROKEN)
+                    self.assertEqual(len(finished.blocked_selection.source_request.candidates), 1)
+                    self.assertFalse(finished.round_state.active_turn.action_slots[0].executed)
                 self.assertEqual(kernel.call_count, 2 if enemy else 4)
                 move.assert_called_once_with(source.movement)
                 consume.assert_called_once_with(result.source_request)

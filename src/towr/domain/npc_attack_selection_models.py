@@ -21,6 +21,8 @@ class NpcAttackSelectionBlock(str, Enum):
     ANOTHER_ACTIVE_ACTOR = "another_active_actor"
     UNSUPPORTED_ACTOR = "unsupported_actor"
     ACTOR_DEFEATED = "actor_defeated"
+    ACTOR_BROKEN = "actor_broken"
+    ACTOR_DEFENCELESS = "actor_defenceless"
     SLOT_UNAVAILABLE = "slot_unavailable"
     SLOT_EXECUTED = "slot_executed"
     EXECUTION_CONSUMED = "execution_consumed"

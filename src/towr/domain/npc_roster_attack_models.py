@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass, replace
 
 from towr.domain.action_execution_models import AttackActionExecutionRequest, AttackActionExecutionResult
-from towr.domain.condition_models import Condition
+from towr.domain.condition_models import Condition, ConditionState
 from towr.domain.npc_attack_preparation_models import NpcProtectedAttackPreparationResult
 from towr.domain.npc_roster_models import NpcRoster
 from towr.domain.resolution_models import AttackerStaggerRequest, FollowUpRequest, KernelAttackRequest, TargetInjuryPolicy
@@ -59,6 +59,15 @@ class NpcRosterAttackExecutionRequest:
         validate_npc_roster_attack(self)
 
 
+def npc_attack_blocking_condition(conditions: ConditionState) -> Condition | None:
+    """PG 1.4 Conditions pp122–123; only the ordinary Minion Attack boundary."""
+    if conditions.has(Condition.DEFENCELESS):
+        return Condition.DEFENCELESS
+    if conditions.has(Condition.BROKEN):
+        return Condition.BROKEN
+    return None
+
+
 def validate_npc_roster_attack(request: NpcRosterAttackExecutionRequest) -> None:
     execution, prepared, roster = request.execution, request.preparation, request.state.roster
     if execution.id in request.state.consumed_execution_ids:
@@ -73,6 +82,9 @@ def validate_npc_roster_attack(request: NpcRosterAttackExecutionRequest) -> None
             raise ValueError("NPC roster attack excludes defeated participants")
         if participant.turn_participant not in execution.state.participants:
             raise ValueError("roster actor/side does not match round participants")
+    blocked = npc_attack_blocking_condition(actor.state.injury.conditions)
+    if blocked is not None:
+        raise ValueError(f"NPC actor cannot Attack while {blocked.value}")
     npc = prepared.npc_attack
     source = npc.source_request
     if (npc.snapshot != actor.attack_snapshot(npc.snapshot.id)

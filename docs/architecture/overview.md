@@ -143,3 +143,5 @@ NpcGiveGroundConsumptionRequest/Result связывает completed movement с 
 execute_npc_give_ground объединяет общий pending/completed preflight, одно spatial исполнение и прежний consumer. Возвращает NpcGiveGroundConsumptionResult без нового владельца состояния; domain validator не зависит от rules/engine. [ADR-0010](../decisions/ADR-0010-single-minion-round.md#атомарное-исполнение-give-ground-m2).
 
 npc_round_advance_models.py и npc_round_advance.py согласуют переход combat/spatial snapshots без battle aggregate. Новый request задаёт следующий состав и порядок; result сохраняет источник, оба перехода и continuation view прежнего roster/history. [ADR-0010](../decisions/ADR-0010-single-minion-round.md#явный-переход-к-следующему-раунду-m2).
+
+Общая проверка actor Broken/Defenceless для Minion Attack находится в domain/npc_roster_attack_models.py; её используют controller и existing request/executor validation без циклических зависимостей. Нового состояния или action policy нет. [ADR-0009](../decisions/ADR-0009-npc-attack-selection-policy.md#запрет-attack-по-conditions-атакующего).

@@ -6,6 +6,7 @@ from tests.helpers import SequenceRandom
 from tests.unit.test_m2_npc_give_ground import context
 from tests.unit.test_m2_npc_attack_controller import candidate
 from towr.domain.condition_models import Condition
+from towr.domain.npc_attack_selection_models import NpcAttackSelectionBlock
 from towr.domain.npc_round_models import NpcRoundOutcome
 from towr.domain.turn_models import CombatTurnEndResult
 from towr.engine.npc_round_coordinator import run_npc_round
@@ -20,9 +21,6 @@ class SpatialCandidates:
 
     def get_candidates(self, context):
         self.contexts.append(context)
-        # Eligibility beyond defeat remains explicit. A Broken actor is not asked to Attack.
-        if context.state.roster.participant(context.actor_id).state.injury.conditions.has(Condition.BROKEN):
-            return context
         target = {"brigand:1": "brigand:3", "brigand:2": "brigand:0", "brigand:3": "brigand:1"}[context.actor_id]
         same_zone = self.spatial.placement_for(context.actor_id).zone_id == self.spatial.placement_for(target).zone_id
         proposed = candidate(context.state, context.id + ":candidate", target_id=target,
@@ -64,7 +62,7 @@ class M2NpcGiveGroundCycleTests(unittest.TestCase):
             spatial_resolution.resolve_give_ground(replace(source.movement.source_request,
                 state=spatial, destination_zone_id="zone:c"))
 
-    def test_enemy_zone_broken_reaches_fresh_context_and_provider_stops_that_actor(self):
+    def test_enemy_zone_broken_reaches_fresh_context_and_controller_stops_that_actor(self):
         with (
             patch.object(attack_executor, "resolve_kernel_attack", wraps=attack_executor.resolve_kernel_attack) as kernel,
             patch.object(spatial_resolution, "resolve_give_ground", wraps=spatial_resolution.resolve_give_ground) as move,
@@ -77,6 +75,8 @@ class M2NpcGiveGroundCycleTests(unittest.TestCase):
             self.assertEqual(kernel.call_count, 2)
             self.assertEqual(move.call_count, 1)
         self.assertIs(stopped.outcome, NpcRoundOutcome.SELECTION_BLOCKED)
+        self.assertIs(stopped.blocked_selection.blocked_reason, NpcAttackSelectionBlock.ACTOR_BROKEN)
+        self.assertEqual(len(stopped.blocked_selection.source_request.candidates), 1)
         self.assertEqual(stopped.round_state.completed_turn_entity_ids, ("brigand:0", "brigand:1"))
         self.assertEqual(stopped.round_state.active_turn.actor_id, "brigand:2")
         self.assertFalse(stopped.round_state.active_turn.action_slots[0].executed)

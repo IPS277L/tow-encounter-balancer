@@ -1,11 +1,14 @@
 from __future__ import annotations
 
 from towr.domain.action_execution_models import AttackActionExecutionRequest
+from towr.domain.condition_models import Condition
 from towr.domain.npc_attack_selection_models import (
     NpcAttackCandidate, NpcAttackCandidateRejection as Rejection, NpcAttackSelectionBlock as Block,
     NpcAttackSelectionRequest, NpcAttackSelectionResult, RejectedNpcAttackCandidate,
 )
-from towr.domain.npc_roster_attack_models import NpcRosterAttackExecutionRequest, NpcRosterAttackState
+from towr.domain.npc_roster_attack_models import (
+    NpcRosterAttackExecutionRequest, NpcRosterAttackState, npc_attack_blocking_condition,
+)
 from towr.domain.resolution_models import FollowUpRequest, KernelAttackRequest, TargetInjuryPolicy
 from towr.domain.turn_models import CombatActionKind, CombatRoundState
 from towr.rules.npc_attack_preparation import prepare_npc_attack, prepare_npc_attack_protection
@@ -79,6 +82,11 @@ def _global_block(request: NpcAttackSelectionRequest) -> Block | None:
         return Block.UNSUPPORTED_ACTOR
     if actor.state.injury.defeated:
         return Block.ACTOR_DEFEATED
+    blocked = npc_attack_blocking_condition(actor.state.injury.conditions)
+    if blocked is Condition.DEFENCELESS:
+        return Block.ACTOR_DEFENCELESS
+    if blocked is Condition.BROKEN:
+        return Block.ACTOR_BROKEN
     if request.slot_index > len(turn.action_slots):
         return Block.SLOT_UNAVAILABLE
     slot = turn.action_slots[request.slot_index - 1]

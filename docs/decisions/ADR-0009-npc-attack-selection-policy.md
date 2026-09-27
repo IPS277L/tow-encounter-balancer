@@ -33,3 +33,15 @@ Request связывает roster/history, текущий round, active actor, �
 13 unit tests в `test_m2_npc_attack_controller.py`: порядок вопреки большей Damage альтернативы, причины пропуска/отказа, pending/slot/history, source/type guards, exact handoff, modifiers/quality и propagation неожиданных ошибок.
 
 3 integration tests в `test_m2_npc_attack_controller_execution.py`: восемь сочетаний Axe/Warbow × opposed/unopposed × hit/miss при нескольких целях, единственный kernel/receipt и целевой injury; реальная returned history после ranged miss; сохранение настоящего Give Ground и блокировка следующего выбора. Полный набор: 1532 tests OK на Python 3.14.
+
+## Запрет Attack по Conditions атакующего
+
+Уточнение 2026-09-28. Источники непосредственно перечитаны: BOOK-PLAYER-GUIDE 1.4, Rules / Conditions / Broken, стр. 122; Defenceless, стр. 123; Giving Ground, стр. 119.
+
+Общий domain helper npc_attack_blocking_condition в npc_roster_attack_models.py проверяет текущие actor Conditions. select_npc_attack возвращает ACTOR_DEFENCELESS либо ACTOR_BROKEN до подготовки кандидатов, включая пустой список. При сочетании выбирается Defenceless; это только приоритет диагностики, оба состояния запрещают Attack. Прежние pending/turn/unsupported/defeated guards имеют приоритет. Target Conditions не блокируют actor: Defenceless цели по-прежнему обрабатывается прежней Protection preparation.
+
+validate_npc_roster_attack использует тот же helper при создании NpcRosterAttackExecutionRequest и повторно перед execute_attack_action. Явная preparation/candidate не обходит запрет. Отказ прямого запроса — ValueError до RNG, decisions, kernel и receipt. Проверка актуальности selection продолжает сравнивать весь snapshot: изменение Conditions требует нового выбора.
+
+Coordinator возвращает SELECTION_BLOCKED с новым typed reason; резервированный slot остаётся неисполненным, state/history/Conditions не меняются. Повторный запуск без снятия Condition снова останавливается без повторной reservation. Это ограничение обычной Minion Attack; автоматический Run/Recover, поиск безопасной Zone и другие Condition modifiers не добавлены. Снятие Condition и актуальность внешнего состояния остаются ответственностью caller.
+
+6 новых unit tests в test_m2_npc_attack_conditions.py покрывают оба Conditions/сочетание, обе стороны, пустые/явные candidates, pending/defeated priority, direct request/executor revalidation, stale selection, новые допустимые snapshots после внешнего снятия, target Conditions и повторную остановку coordinator. Три прежних integration tests Give Ground теперь используют provider без фильтра Broken: отказ делает controller, один movement и прежние числа kernel/RNG сохранены. Полный набор: 1610 tests OK на Python 3.14.

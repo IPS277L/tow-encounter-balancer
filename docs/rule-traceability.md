@@ -159,3 +159,9 @@
 | Правила | Источники | Реализация | Проверки | Граница |
 | --- | --- | --- | --- | --- |
 | RULE-COMBAT-001,015; RULE-NPC-002; ADR-0004/0010 | BOOK-PLAYER-GUIDE 1.4, Rules / Combat, стр. 112; Giving Ground, стр. 119; BOOK-GM-GUIDE 1.1, Allies and Antagonists / Minions, стр. 91. | npc_round_advance_models.py; npc_round_advance.py; existing turn/spatial reducers | test_m2_npc_round_advance.py — 8 unit; новый test_next_two_by_one_round_resets_usage_and_keeps_all_histories в test_m2_mixed_round_cycle.py — 6 сочетаний | Exact current/source, один переход каждого состояния, новый supplied состав двух сторон без defeated; все histories/placements/Conditions сохраняются, usage сбрасывается. Нет выбора победителя или battle loop |
+
+## Actor Conditions при Minion Attack M2
+
+| Правила | Источники | Реализация | Проверки | Граница |
+| --- | --- | --- | --- | --- |
+| RULE-HEALTH-008; RULE-COMBAT-015; ADR-0009 | BOOK-PLAYER-GUIDE 1.4, Rules / Conditions / Broken, стр. 122; Defenceless, стр. 123; Giving Ground, стр. 119. | npc_attack_blocking_condition; validate_npc_roster_attack; select_npc_attack | test_m2_npc_attack_conditions.py — 6 новых unit; 3 прежних integration в test_m2_npc_give_ground_cycle.py/test_m2_npc_give_ground_execution_cycle.py обновлены | Broken/Defenceless и сочетание, обе стороны, pending priority, direct guards до RNG/receipt, unexecuted slot, exact snapshot handoff, enemy-Zone Give Ground → Broken → typed отказ без фильтра provider; без автоматического Run/Recover |
