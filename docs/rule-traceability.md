@@ -177,3 +177,7 @@
 | Правила | Источники | Реализация | Проверки | Граница |
 | --- | --- | --- | --- | --- |
 | RULE-COMBAT-001,015; RULE-NPC-002; ADR-0011 | BOOK-PLAYER-GUIDE 1.4, Rules / Combat, стр. 112; Giving Ground, стр. 119; BOOK-GM-GUIDE 1.1, Allies and Antagonists / Minions, стр. 91. | Existing run_npc_rounds, atomic Give Ground, defeat acknowledgement/exclusion, round advance | test_m2_npc_rounds_follow_up_cycle.py — 1 integration / 6 сочетаний | Обе стороны × три dispositions; 6 kernel/receipts, 36 RNG, одно движение/acknowledgement/advance; три реальные histories, обе pending остановки без callbacks/RNG, свежий spatial после resume/advance, replay после второго раунда. Без ручной очистки pending или новых production API |
+
+## Аудит готовности M2
+
+[Матрица пяти пунктов roadmap](audits/m2-readiness.md#матрица-пяти-пунктов-roadmap) сопоставляет source/implementation/tests без изменения статуса K1 правил. RULE-COMBAT-001,015 и RULE-NPC-002 проверены в Minion orchestration; RULE-NPC-003..005 и RULE-EFFECT-006 имеют K1 реализации, но не общий M2 execution path. RULE-HEALTH-008 подключён частично. Источники непосредственно перечитаны: BOOK-PLAYER-GUIDE 1.4, Equipment / Ranged Weapons, стр. 95; Rules / Combat, 112; Giving Ground, 119; Retreat, 120; Conditions, 122–123; BOOK-GM-GUIDE 1.1, Allies and Antagonists / Types of NPC и Understanding NPC Profiles, стр. 91–93; Brigands & Footpads, 97. Полный набор 1625 tests OK. Полный M2 не объявлен завершённым; следующий summary — техническая отчётность одного вызова, без нового игрового Rule ID.

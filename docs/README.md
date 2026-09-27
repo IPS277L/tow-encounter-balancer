@@ -9,6 +9,7 @@
 - [`lore/`](lore/) — отделённый от механики контекст мира;
 - [`game-rules.md`](game-rules.md) — правила существующего упрощённого прототипа;
 - [`audits/k1-readiness.md`](audits/k1-readiness.md) — матрица готовности K1, критерии перехода к M2 и следующий implementation-срез;
+- [`audits/m2-readiness.md`](audits/m2-readiness.md) — пять пунктов M2, фактические границы, остаток перед M3 и следующий срез;
 - [`rule-traceability.md`](rule-traceability.md) — книга → правило → код → тест;
 - [`contradictions.md`](contradictions.md) — расхождения и неоднозначности источника;
 - [`architecture/overview.md`](architecture/overview.md) — слои, зависимости и основные модели;

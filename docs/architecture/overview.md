@@ -147,3 +147,5 @@ npc_round_advance_models.py и npc_round_advance.py согласуют пере�
 Общая проверка actor Broken/Defenceless для Minion Attack находится в domain/npc_roster_attack_models.py; её используют controller и existing request/executor validation без циклических зависимостей. Нового состояния или action policy нет. [ADR-0009](../decisions/ADR-0009-npc-attack-selection-policy.md#запрет-attack-по-conditions-атакующего).
 
 NpcRoundsRequest/Result в domain/npc_rounds_models.py и run_npc_rounds в engine/npc_rounds_runner.py соединяют прежние round/advance adapters. Domain хранит проверенный журнал и views последних snapshots; engine передаёт spatial context кандидатам и получает явный план следующего раунда. Состояние боя не переносится в новый aggregate. [ADR-0011](../decisions/ADR-0011-bounded-minion-rounds.md).
+
+[Аудит M2](../audits/m2-readiness.md) фиксирует фактические границы: NpcRoundsResult — журнал одного bounded вызова, P1 BattleResult не является его отчётом. Следующий read-only summary не владеет состоянием и не запускает rules/RNG; контракт будет реализован отдельным срезом.
