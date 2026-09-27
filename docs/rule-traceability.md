@@ -233,3 +233,11 @@
 | Правила | Источники | Реализация | Проверки | Граница |
 | --- | --- | --- | --- | --- |
 | RULE-EQUIPMENT-004; RULE-EFFECT-006; RULE-NPC-007/008/010 | BOOK-PLAYER-GUIDE 1.4, Equipment / Ranged Weapons, стр. 94–95; Rules / Attack Tests, стр. 118–119; BOOK-GM-GUIDE 1.1, Minions, стр. 91; Understanding NPC Profiles, стр. 93 | npc_blunderbuss_models.py; npc_blunderbuss_resolution.py | test_m2_npc_blunderbuss.py — 8 unit; Blunderbuss integration — empty/fresh/mixed | Один prepared execution/receipt/reload, explicit profile/Protection/weapon/history, no double range; ordinary controller/journal и primary consequences ещё не подключены |
+
+| Правила | Источники | Реализация | Проверки | Граница |
+| --- | --- | --- | --- | --- |
+| RULE-NPC-002 | BOOK-GM-GUIDE 1.1, Allies and Antagonists / Minions, стр. 91; BOOK-PLAYER-GUIDE 1.4, Equipment / Ranged Weapons / Blunderbuss, стр. 95 | npc_blunderbuss_defeat_models.py; npc_blunderbuss_defeat_resolution.py | test_m2_npc_blunderbuss_defeat.py — 8 unit; Blunderbuss integration — 36 сочетаний, exclusion/resume | Полные primary/completion sources, один primary pending и acknowledgement ID; GM approval, secondary decisions сохранены, Wound/RNG не повторяются; primary Give Ground/controller/journal ещё внешние |
+
+| Правила | Источники | Реализация | Проверки | Граница |
+| --- | --- | --- | --- | --- |
+| RULE-COMBAT-015; RULE-EFFECT-006 | BOOK-PLAYER-GUIDE 1.4, Rules / Giving Ground, стр. 119; Equipment / Ranged Weapons / Blunderbuss, стр. 95 | npc_blunderbuss_give_ground_models.py; npc_blunderbuss_give_ground_resolution.py | test_m2_npc_blunderbuss_give_ground.py — 10 unit; test_m2_blunderbuss_primary_give_ground.py — 1 integration / 12 сочетаний | Полные primary/completion sources, одно movement, shared usage, post-secondary Broken, replay/source guards; ordinary controller/journal ещё не расширены |

@@ -14,6 +14,8 @@ from tests.unit.test_m2_npc_nearby_completion import completion_request
 from towr.domain.condition_models import Condition, StaggerChoice
 from towr.domain.injury_models import ProfileStateChangeRequest
 from towr.domain.minion_defeat_models import MinionDefeatDecision, NpcDefeatDisposition
+from towr.domain.npc_blunderbuss_defeat_models import NpcBlunderbussDefeatAcknowledgementRequest
+from towr.domain.npc_round_exclusion_models import NpcRoundExclusionRequest
 from towr.domain.npc_nearby_defeat_models import NpcNearbyDefeatAcknowledgementRequest
 from towr.domain.npc_nearby_consequence_models import NpcNearbyConsequenceChain
 from towr.domain.npc_round_models import NpcRoundOutcome
@@ -26,6 +28,8 @@ from towr.rules.npc_nearby_completion_resolution import complete_npc_nearby_cons
 from towr.engine.npc_round_coordinator import run_npc_round
 from towr.rules.npc_blunderbuss_resolution import execute_npc_blunderbuss_attack, apply_npc_blunderbuss_attack
 from towr.rules.npc_nearby_defeat_resolution import acknowledge_npc_nearby_defeat, apply_npc_nearby_defeat
+from towr.rules.npc_blunderbuss_defeat_resolution import acknowledge_npc_blunderbuss_defeat, apply_npc_blunderbuss_defeat
+from towr.rules.npc_round_exclusion import exclude_defeated_npc, apply_npc_round_exclusion
 
 
 def primary_request(secondary):
@@ -231,6 +235,38 @@ class M2BlunderbussSecondaryRosterTests(unittest.TestCase):
                     self.assertIs(stopped.outcome, NpcRoundOutcome.PENDING_FOLLOW_UPS)
                     self.assertEqual(stopped.steps, ())
                     candidates.get_candidates.assert_not_called()
+                    for primary_disposition in NpcDefeatDisposition:
+                        with self.subTest(primary_disposition=primary_disposition):
+                            confirmation = acknowledge_npc_blunderbuss_defeat(NpcBlunderbussDefeatAcknowledgementRequest(
+                                "primary:ack", resumed, final_spatial, executed, completed,
+                                MinionDefeatDecision("brigand:0", "brigand:2", primary_disposition, True)))
+                            confirmed, confirmed_spatial = apply_npc_blunderbuss_defeat(resumed, final_spatial, confirmation)
+                            self.assertEqual(confirmed.pending_follow_ups, ())
+                            self.assertIs(confirmed.state.roster, resumed.state.roster)
+                            self.assertIs(confirmed_spatial, final_spatial)
+                            self.assertIs(confirmation.weapon_state, weapon)
+                            self.assertEqual(confirmed.state.acknowledged_defeat_execution_ids,
+                                             (*resumed.state.acknowledged_defeat_execution_ids, primary.attack.request_id))
+                            self.assertEqual(confirmed.state.completed_nearby_stagger_sources, (trigger,))
+                            self.assertEqual(confirmation.source_request.completion.source_request.chain.acknowledgements,
+                                             chain.acknowledgements)
+                            for target_id in ("brigand:2", "brigand:3"):
+                                exclusion = exclude_defeated_npc(NpcRoundExclusionRequest(
+                                    f"exclude:{target_id}", confirmed, target_id))
+                                confirmed = apply_npc_round_exclusion(confirmed, exclusion)
+                            provider = Mock()
+                            provider.get_candidates.side_effect = lambda context: context
+                            continued = run_npc_round(confirmed, provider, rng)
+                            self.assertIs(continued.outcome, NpcRoundOutcome.SELECTION_BLOCKED)
+                            self.assertEqual(continued.round_state.completed_turn_entity_ids, ("brigand:0",))
+                            self.assertEqual(continued.round_state.excluded_turn_entity_ids, ("brigand:2", "brigand:3"))
+                            self.assertEqual(continued.state, confirmed.state)
+                            requeued = replace(confirmed, state=continued.state, round_state=continued.round_state,
+                                               pending_follow_ups=resumed.pending_follow_ups)
+                            with self.assertRaisesRegex(ValueError, "already acknowledged"):
+                                apply_npc_blunderbuss_defeat(requeued, confirmed_spatial, confirmation)
+                            with self.assertRaisesRegex(ValueError, "already acknowledged"):
+                                replace(confirmation.source_request, id="new:ack", current=requeued)
                     with self.assertRaisesRegex(ValueError, "already completed"):
                         apply_npc_nearby_completion(resumed, final_spatial, completed)
                     with self.assertRaisesRegex(ValueError, "already completed"):
