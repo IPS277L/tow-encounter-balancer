@@ -43,7 +43,7 @@ R1 завершён; round/side/turn state, базовый action budget, обы
 
 ## M2 — составы и действия после анализа книги
 
-Первый срез реализован: immutable NPC roster (Minion/Brute/Champion), независимые actor states, проекции в K1 preparation и существующие стороны; 13 новых тестов, полный набор 1501 OK. [ADR-0008](decisions/ADR-0008-npc-roster-boundary.md). Следующий срез — один явно выбранный Minion Attack через существующий turn/slot executor с новым roster result; общий battle loop и автоматический выбор действий ещё не реализованы.
+Первый срез реализован: immutable NPC roster (Minion/Brute/Champion), независимые actor states, проекции в K1 preparation и существующие стороны; 13 новых тестов, полный набор 1501 OK. [ADR-0008](decisions/ADR-0008-npc-roster-boundary.md). Один явно выбранный Minion Attack через существующий turn/slot executor с новым roster result реализован: 15 новых тестов, полный набор 1516 OK. Контроллер выбора Attack/цели из явных кандидатов реализован: 16 новых тестов, всего 1532 OK ([ADR-0009](decisions/ADR-0009-npc-attack-selection-policy.md)). Следующий срез — координация одного Minion раунда с явной остановкой на pending/no candidate; общий battle loop ещё не реализован.
 
 - несколько бойцов с обеих сторон;
 - контроллеры выбора действия и цели;

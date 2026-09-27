@@ -704,3 +704,7 @@ Caller передаёт result.attack существующему resolve_attack 
 Контракты: src/towr/domain/protection_models.py; resolver: src/towr/rules/protection_preparation.py. 13 детерминированных тестов tests/unit/test_k1_protection_preparation.py проверяют eligibility matrix, TestProfile/InlineProfile, причины unopposed, отсутствие автоматического выбора и RNG при подготовке, source/trace/immutable guards, opposed tie/double-zero/hit/miss и unopposed success/failure через existing resolve_attack с точным числом бросков. Общий Attack/Protection пункт K1 остаётся частичным до контекстной подготовки выбранного NPC Attack.
 
 Непосредственно перечитаны BOOK-PLAYER-GUIDE 1.4, Abilities / Skills / Defence и Throwing, стр. 68; Equipment / Ranged Weapons, стр. 94; Throwing Weapons, стр. 96; Rules / Attack Tests, стр. 118; BOOK-GM-GUIDE 1.1, Allies and Antagonists / Understanding NPC Profiles, стр. 93.
+
+### Minion Attack через roster M2
+
+Один уже резервированный Attack slot исполняется прежним execute_attack_action. Новая roster composition переносит готовое target injury и закрывает только AttackerStaggerRequest собственного Close miss: добавляет Staggered, не запускает repeated-Stagger выбор при уже имеющемся состоянии. Дальняя атака вне Close на промахе не меняет attacker injury. Give Ground остаётся pending до spatial исполнения. Источник: BOOK-PLAYER-GUIDE 1.4, Rules / Failed Attacks, стр. 119; Combat, стр. 112; Combat Actions, стр. 116. Проверки: test_m2_npc_roster_attack_execution.py, test_m2_npc_roster_attack_turns.py. Новых action budgets или house rules нет.

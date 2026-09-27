@@ -105,3 +105,15 @@
 | Правила | Источник | Статус | Контракт | Проверка | Граница |
 |---|---|---|---|---|---|
 | RULE-NPC-001..004,006..008,010; RULE-COMBAT-002 | BOOK-GM-GUIDE 1.1, Allies and Antagonists / Types of NPC, стр. 91–92; Understanding NPC Profiles, стр. 93; Brigands & Footpads, стр. 97; BOOK-PLAYER-GUIDE 1.4, Rules / Combat, стр. 112; The Battlefield, стр. 114; Attack Tests, стр. 118. | implemented data boundary | domain/npc_roster_models.py; ADR-0008 | test_m2_npc_roster.py — 10 unit; test_m2_npc_roster_preparation.py — 3 integration | Numeric Minion/Brute/Champion definitions и actor states; Attack/Protection/turn projections. Текущие modifiers/equipment/awareness и action eligibility внешние; нет нового игрового правила или scheduler |
+
+## Одно исполнение Minion Attack M2
+
+| Правила | Источник | Реализация | Проверка | Граница |
+|---|---|---|---|---|
+| RULE-COMBAT-002,004..009; RULE-NPC-002,006..008 | BOOK-PLAYER-GUIDE 1.4, Rules / Combat, стр. 112; Combat Actions, стр. 116; Attack Tests, стр. 118; Failed/Successful Attacks и Giving Ground, стр. 119; BOOK-GM-GUIDE 1.1, Allies and Antagonists / Minions, стр. 91; Understanding NPC Profiles, стр. 93; Brigands & Footpads, стр. 97. | npc_roster_attack_models.py; npc_roster_attack_execution.py; existing attack_action_execution.py/kernel.py | test_m2_npc_roster_attack_execution.py — 13 unit (48 основных сочетаний); test_m2_npc_roster_attack_turns.py — 2 integration | Source/slot guards до RNG, один receipt; target injury + Close miss Staggered; exact snapshot/history consumer; pending Give Ground/ProfileStateChange сохранены. Только обычная Minion Attack без дополнительных эффектов |
+
+## Выбор NPC Attack и цели M2
+
+| Ограничения / решение | Источники | Реализация | Проверка | Граница |
+|---|---|---|---|---|
+| RULE-NPC-006..008; RULE-COMBAT-002,005..009; ADR-0009 (controller policy) | BOOK-GM-GUIDE 1.1, Allies and Antagonists / Understanding NPC Profiles, стр. 93; BOOK-PLAYER-GUIDE 1.4, Equipment / Ranged Weapons, стр. 94; Rules / Combat, стр. 112; Range, стр. 114; Attack Tests/Failed/Successful Attacks, стр. 118–119. | npc_attack_selection_models.py; engine/npc_attack_controller.py; existing preparation/executor | test_m2_npc_attack_controller.py — 13 unit; test_m2_npc_attack_controller_execution.py — 3 integration | First viable candidate в supplied порядке, typed rejections, exact snapshot handoff и сохранение pending; не RNG/AI scoring/новое игровое правило; только существующая Minion execution boundary |
