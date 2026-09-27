@@ -153,3 +153,9 @@
 | Правила | Источники | Реализация | Проверки | Граница |
 | --- | --- | --- | --- | --- |
 | RULE-COMBAT-001,015; RULE-HEALTH-003; RULE-NPC-002; ADR-0010 | BOOK-PLAYER-GUIDE 1.4, Rules / Combat, стр. 112; Giving Ground, стр. 119; BOOK-GM-GUIDE 1.1, Allies and Antagonists / Minions, стр. 91. | Существующие coordinator, atomic Give Ground, defeat acknowledgement и exclusion | test_m2_mixed_round_cycle.py — 1 integration / 6 сочетаний | Оба side_order × три dispositions; три Attack, одно движение, свежий spatial context, обе pending остановки, все histories и replay. Без новых production API, нового раунда или автоматического выбора победителя |
+
+## Согласованный переход раунда M2
+
+| Правила | Источники | Реализация | Проверки | Граница |
+| --- | --- | --- | --- | --- |
+| RULE-COMBAT-001,015; RULE-NPC-002; ADR-0004/0010 | BOOK-PLAYER-GUIDE 1.4, Rules / Combat, стр. 112; Giving Ground, стр. 119; BOOK-GM-GUIDE 1.1, Allies and Antagonists / Minions, стр. 91. | npc_round_advance_models.py; npc_round_advance.py; existing turn/spatial reducers | test_m2_npc_round_advance.py — 8 unit; новый test_next_two_by_one_round_resets_usage_and_keeps_all_histories в test_m2_mixed_round_cycle.py — 6 сочетаний | Exact current/source, один переход каждого состояния, новый supplied состав двух сторон без defeated; все histories/placements/Conditions сохраняются, usage сбрасывается. Нет выбора победителя или battle loop |

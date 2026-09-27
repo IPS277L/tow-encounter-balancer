@@ -15,6 +15,7 @@ from towr.domain.condition_models import Condition, StaggerChoice
 from towr.domain.minion_defeat_models import NpcDefeatDisposition
 from towr.domain.npc_give_ground_models import NpcGiveGroundExecutionRequest
 from towr.domain.npc_roster_attack_models import NpcRosterAttackExecutionResult
+from towr.domain.npc_round_advance_models import NpcRoundAdvanceRequest
 from towr.domain.npc_round_exclusion_models import NpcRoundExclusionRequest
 from towr.domain.npc_round_models import NpcRoundOutcome
 from towr.domain.resolution_models import GiveGroundRequest, GiveGroundResolutionRequest
@@ -24,6 +25,7 @@ from towr.engine.npc_round_coordinator import run_npc_round
 from towr.rules import attack_action_execution as attack_executor, npc_give_ground_resolution as give_ground
 from towr.rules.minion_defeat_resolution import acknowledge_minion_defeat, apply_minion_defeat_acknowledgement
 from towr.rules.npc_round_exclusion import exclude_defeated_npc, apply_npc_round_exclusion
+from towr.rules import npc_round_advance as advance
 
 
 class MixedCandidates:
@@ -54,6 +56,12 @@ class M2MixedRoundCycleTests(unittest.TestCase):
         rng.randint.assert_not_called()
 
     def test_give_ground_then_defeat_and_exclusion_preserve_all_histories_in_both_side_orders(self):
+        self.check_mixed_cycle()
+
+    def test_next_two_by_one_round_resets_usage_and_keeps_all_histories(self):
+        self.check_mixed_cycle(advance_round=True)
+
+    def check_mixed_cycle(self, *, advance_round=False):
         for reversed_sides, disposition in product((False, True), NpcDefeatDisposition):
             with self.subTest(reversed_sides=reversed_sides, disposition=disposition):
                 first, second, survivor, defeated = (
@@ -163,3 +171,66 @@ class M2MixedRoundCycleTests(unittest.TestCase):
                     register.assert_called_once_with(movement.source_request)
                     self.assertEqual(rng.randint.call_count, 18)
                     self.assertEqual(rng.randint(1, 10), 7)
+                    if advance_round:
+                        self.check_next_round(final_request, spatial, provider, (first, second, survivor, defeated))
+                        self.assertEqual(kernel.call_count, 6)
+                        move.assert_called_once()
+                        register.assert_called_once()
+
+    def check_next_round(self, current, spatial, provider, roles):
+        first, second, survivor, defeated = roles
+        participants = tuple(current.state.roster.participant(actor).turn_participant for actor in (first, second, survivor))
+        before = deepcopy((current, spatial))
+        request = NpcRoundAdvanceRequest("mixed:round:2", current, spatial, participants, (second, survivor, first))
+        with (
+            patch.object(advance, "advance_combat_round", wraps=advance.advance_combat_round) as combat,
+            patch.object(advance, "start_next_spatial_round", wraps=advance.start_next_spatial_round) as placement,
+        ):
+            result = advance.advance_npc_round(request)
+        combat.assert_called_once_with(request.combat_request)
+        placement.assert_called_once_with(spatial)
+        upcoming, next_spatial = advance.apply_npc_round_advance(current, spatial, result)
+        self.assertEqual((current, spatial), before)
+        self.assertIs(upcoming.state, current.state)
+        self.assertEqual((upcoming.round_state.round_number, next_spatial.round_number), (2, 2))
+        self.assertEqual(upcoming.round_state.side_order, current.round_state.side_order)
+        self.assertIsNone(upcoming.round_state.active_turn)
+        self.assertEqual(upcoming.round_state.completed_turn_entity_ids, ())
+        self.assertEqual(upcoming.round_state.excluded_turn_entity_ids, ())
+        self.assertEqual((next_spatial.gave_ground_entity_ids, next_spatial.free_move_used_entity_ids,
+                          next_spatial.difficult_terrain_tested_entity_ids), ((), (), ()))
+        self.assertEqual(next_spatial.placements, spatial.placements)
+        self.assertEqual(upcoming.state.roster.participant(survivor).state.injury.conditions,
+                         current.state.roster.participant(survivor).state.injury.conditions)
+        provider.spatial = next_spatial
+        provider.targets[second] = survivor
+        rng = Mock(wraps=SequenceRandom([10] * 18 + [8]))
+        next_result = run_npc_round(upcoming, provider, rng)
+        self.assertIs(next_result.outcome, NpcRoundOutcome.COMPLETE)
+        self.assertEqual(next_result.round_state.completed_turn_entity_ids, (second, first, survivor))
+        self.assertEqual(next_result.round_state.participants, participants)
+        self.assertEqual(next_result.round_state.excluded_turn_entity_ids, ())
+        self.assertEqual(next_result.state.roster.participant(defeated), current.state.roster.participant(defeated))
+        self.assertEqual(next_result.state.consumed_execution_ids[:3], current.state.consumed_execution_ids)
+        self.assertEqual(next_result.state.consumed_give_ground_execution_ids, current.state.consumed_give_ground_execution_ids)
+        self.assertEqual(next_result.state.acknowledged_defeat_execution_ids, current.state.acknowledged_defeat_execution_ids)
+        attacks = tuple(s for s in next_result.steps if isinstance(s, NpcRosterAttackExecutionResult))
+        self.assertEqual(len(attacks), 3)
+        new_ids = tuple(a.execution.request_id for a in attacks)
+        self.assertFalse(set(new_ids) & set(current.state.consumed_execution_ids))
+        self.assertEqual(next_result.state.consumed_execution_ids[3:], new_ids)
+        for attack in attacks:
+            slot = attack.source_request.execution.state.active_turn.action_slots[0]
+            self.assertFalse(slot.executed)
+            self.assertEqual(attack.execution.state.active_turn.action_slots[0].execution.round_number, 2)
+        self.assertEqual(tuple(c.actor_id for c, _ in provider.contexts[-3:]), (second, first, survivor))
+        for context, supplied_spatial in provider.contexts[-3:]:
+            self.assertIs(supplied_spatial, next_spatial)
+            self.assertFalse(context.candidates[0].target_has_given_ground_this_round)
+            self.assertNotEqual(context.candidates[0].target_id, defeated)
+        self.assertEqual(rng.randint.call_count, 18)
+        self.assertEqual(rng.randint(1, 10), 8)
+        with self.assertRaisesRegex(ValueError, "source differs"):
+            advance.apply_npc_round_advance(upcoming, next_spatial, result)
+        with self.assertRaisesRegex(ValueError, "source differs"):
+            advance.apply_npc_round_advance(resume(upcoming, next_result), next_spatial, result)

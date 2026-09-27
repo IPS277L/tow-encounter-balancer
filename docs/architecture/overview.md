@@ -141,3 +141,5 @@ MinionDefeatAcknowledgementRequest/Result связывает явное attacker
 NpcGiveGroundConsumptionRequest/Result связывает completed movement с Attack/pending и двумя текущими snapshots. Consumer возвращает пару NpcRoundRequest/SpatialBattleState; round не становится владельцем spatial state. История consumed_give_ground_execution_ids переносится в NpcRosterAttackState, source result хранит caller. [ADR-0010](../decisions/ADR-0010-single-minion-round.md#применение-завершённого-give-ground-к-m2).
 
 execute_npc_give_ground объединяет общий pending/completed preflight, одно spatial исполнение и прежний consumer. Возвращает NpcGiveGroundConsumptionResult без нового владельца состояния; domain validator не зависит от rules/engine. [ADR-0010](../decisions/ADR-0010-single-minion-round.md#атомарное-исполнение-give-ground-m2).
+
+npc_round_advance_models.py и npc_round_advance.py согласуют переход combat/spatial snapshots без battle aggregate. Новый request задаёт следующий состав и порядок; result сохраняет источник, оба перехода и continuation view прежнего roster/history. [ADR-0010](../decisions/ADR-0010-single-minion-round.md#явный-переход-к-следующему-раунду-m2).

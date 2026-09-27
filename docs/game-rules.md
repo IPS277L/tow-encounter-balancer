@@ -175,3 +175,5 @@ M2 связывает завершённый Give Ground с roster/pending че�
 M2 execute_npc_give_ground атомарно объединяет movement и consumer с проверками до движения; правила P1 не менялись. Источник: BOOK-PLAYER-GUIDE 1.4, Rules / Giving Ground, стр. 119. [ADR-0010](decisions/ADR-0010-single-minion-round.md).
 
 Смешанный M2-раунд Give Ground → defeat acknowledgement/exclusion проверен на существующих API для обоих порядков сторон и трёх форм поражения. P1 не менялся. [Трассировка](rule-traceability.md#смешанный-minion-раунд-m2). Источники: BOOK-PLAYER-GUIDE 1.4, Rules / Combat, стр. 112; Giving Ground, стр. 119; BOOK-GM-GUIDE 1.1, Allies and Antagonists / Minions, стр. 91.
+
+M2 получил отдельный source-bound переход к следующему combat/spatial раунду. Автоматический P1 battle loop не переносится; без обеих сторон переход отклоняется без вывода о победителе. [ADR-0010](decisions/ADR-0010-single-minion-round.md). Источники: BOOK-PLAYER-GUIDE 1.4, Rules / Combat, стр. 112; Giving Ground, стр. 119; BOOK-GM-GUIDE 1.1, Allies and Antagonists / Minions, стр. 91.
