@@ -239,7 +239,7 @@ def execute_registered_aim_loss_difficult_terrain_charge(
 def consume_difficult_terrain_charge_lost_aim(
     request: AimDifficultTerrainChargeLossConsumptionRequest,
 ) -> AimDifficultTerrainChargeLossConsumptionResult:
-    """Register LOST from one completed terrain-aware Medium Melee Charge.
+    """Register LOST from one completed terrain-aware Medium Melee/Brawn Charge.
 
     No traversal, movement, Athletics, attack or Condition is applied again. Caller retains
     the latest history and selects the actual next action after Aim.
@@ -257,7 +257,7 @@ def consume_difficult_terrain_charge_lost_aim(
 
 
 def consume_long_charge_lost_aim(request: AimLongChargeLossConsumptionRequest) -> AimLongChargeLossConsumptionResult:
-    """Register LOST from completed Melee Long Charge, including stopped-short outcomes.
+    """Register LOST from Melee/Brawn Long Charge, including stopped-short outcomes.
 
     No movement, Athletics, attack or Condition is applied again. Caller retains
     the latest history and selects the actual next action after Aim.

@@ -22,6 +22,7 @@ from towr.domain.aim_consumption_models import (
 from towr.domain.aim_models import AimFollowUpOutcome
 from towr.domain.attack_models import AttackOutcome
 from towr.domain.ranged_weapon_profiles import RangedWeaponId
+from towr.domain.resolution_models import AttackerStaggerRequest
 from towr.domain.test_models import Skill
 from towr.rules import aim_consumption_resolution as consumption
 from towr.rules.aim_resolution import resolve_aim_follow_up
@@ -61,12 +62,22 @@ def request(*, hit=False, **kwargs):
 
 
 class K1AimDifficultTerrainChargeLossConsumptionTests(unittest.TestCase):
+    skill = Skill.MELEE
+
+    @property
+    def charge_dice(self):
+        return 2 if self.skill is Skill.MELEE else 1
+
+    def make_request(self, **kwargs):
+        kwargs.setdefault("skill", self.skill)
+        return request(**kwargs)
+
     def test_terrain_outcomes_hit_miss_and_aim_preserve_completed_charge(self):
         for values, hit, target, terrain_roll, tested in product(
             ((10, 10, 10), (1, 2, 10)), (False, True), ("enemy", "enemy:other"), (1, 10), (False, True),
         ):
             with self.subTest(values=values, hit=hit, aim_target=target, terrain_roll=terrain_roll, tested=tested):
-                source = request(values=values, hit=hit, aim_target=target, terrain_roll=terrain_roll, already_tested=tested)
+                source = self.make_request(values=values, hit=hit, aim_target=target, terrain_roll=terrain_roll, already_tested=tested)
                 before = deepcopy(source)
                 with (
                     patch("towr.rules.charge_action_execution.execute_difficult_terrain_charge_action") as execute,
@@ -91,9 +102,16 @@ class K1AimDifficultTerrainChargeLossConsumptionTests(unittest.TestCase):
                 self.assertEqual(result.state.consumed_aim_follow_up_ids, ("follow:older", "follow:prior", "follow:charge"))
                 execution = result.source_request.execution
                 self.assertIs(execution.resolution.attack.outcome, AttackOutcome.HIT if hit else AttackOutcome.MISS)
-                self.assertEqual(execution.resolution.attack.attacker_test.trace.rolled_dice, 2)
-                self.assertEqual(execution.resolution.attack.attacker_test.trace.regular_dice_delta, 1)
-                self.assertEqual(execution.melee_bonus.amount, 1)
+                self.assertEqual(execution.resolution.target_state.conditions.has(Condition.STAGGERED), hit)
+                self.assertEqual(execution.resolution.follow_ups, () if hit else (
+                    AttackerStaggerRequest(execution.source_kernel_request.attack.id),))
+                self.assertEqual(execution.resolution.attack.attacker_test.trace.rolled_dice, self.charge_dice)
+                self.assertEqual(execution.resolution.attack.attacker_test.trace.regular_dice_delta, self.charge_dice - 1)
+                if self.skill is Skill.MELEE:
+                    self.assertEqual(execution.melee_bonus.amount, 1)
+                else:
+                    self.assertIsNone(execution.melee_bonus)
+                    self.assertIs(execution.kernel_request, execution.source_kernel_request)
                 traversal = execution.terrain_traversal
                 self.assertEqual(traversal.previous_state.placement_for("hero").zone_id, "zone:a")
                 self.assertIs(execution.previous_spatial_state, traversal.state)
@@ -120,16 +138,19 @@ class K1AimDifficultTerrainChargeLossConsumptionTests(unittest.TestCase):
                     result.state = source.state
 
     def test_source_and_follow_up_replay_with_new_charge_ids(self):
-        source = request()
+        source = self.make_request()
         history = consumption.consume_difficult_terrain_charge_lost_aim(source).state
-        for candidate in (source, request(renamed=True), request(renamed=True, terrain_roll=10, already_tested=True)):
+        other_skill = Skill.BRAWN if self.skill is Skill.MELEE else Skill.MELEE
+        for candidate in (source, self.make_request(renamed=True),
+                          self.make_request(renamed=True, terrain_roll=10, already_tested=True),
+                          self.make_request(renamed=True, skill=other_skill)):
             with self.assertRaisesRegex(ValueError, "source was already consumed"):
                 replace(candidate, id="consume:new", state=history)
         with self.assertRaisesRegex(ValueError, "follow-up was already consumed"):
             replace(source, state=replace(source.state, consumed_aim_follow_up_ids=(source.follow_up.request_id,)))
 
     def test_shared_history_with_non_attack_attack_lost_and_applied(self):
-        source = request()
+        source = self.make_request()
         histories = (
             consumption.consume_lost_aim(non_attack_request()).state,
             consumption.consume_attack_lost_aim(attack_loss_request()).state,
@@ -146,10 +167,10 @@ class K1AimDifficultTerrainChargeLossConsumptionTests(unittest.TestCase):
                 replace(other, state=history)
 
     def test_actor_action_and_receipt_binding(self):
-        source = request()
+        source = self.make_request()
         for changes in (
             {"state": replace(source.state, actor_id="other")},
-            {"execution": request(renamed=True).execution},
+            {"execution": self.make_request(renamed=True).execution},
             {"follow_up": resolve_aim_follow_up(replace(source.follow_up.source_request, next_action_id="other"))},
             {"follow_up": resolve_aim_follow_up(replace(source.follow_up.source_request,
                 next_action_id=source.execution.charge_action_request.id))},
@@ -169,20 +190,20 @@ class K1AimDifficultTerrainChargeLossConsumptionTests(unittest.TestCase):
 
     def test_same_turn_later_first_slot_and_invalid_chronology(self):
         for later in (None, 2, 5):
-            consumption.consume_difficult_terrain_charge_lost_aim(request(later_round=later))
+            consumption.consume_difficult_terrain_charge_lost_aim(self.make_request(later_round=later))
         with self.assertRaisesRegex(ValueError, "must follow Aim"):
-            request(later_round=1)
+            self.make_request(later_round=1)
         with self.assertRaisesRegex(ValueError, "first slot"):
-            request(later_round=2, later_second=True)
+            self.make_request(later_round=2, later_second=True)
 
     def test_unsupported_follow_ups_skills_and_old_consumers_remain_closed(self):
-        source = request()
+        source = self.make_request()
         for follow in (non_attack_request().follow_up, applied_request().execution.source_request.aim_follow_up,
                        attack_loss_request().follow_up):
             with self.assertRaisesRegex(ValueError, "requires LOST|Charge follow-up"):
                 replace(source, follow_up=follow)
         with self.assertRaisesRegex(ValueError, "requires Melee"):
-            request(skill=Skill.BRAWN)
+            self.make_request(skill=Skill.SHOOTING)
         with self.assertRaisesRegex(ValueError, "non-attacking"):
             replace(non_attack_request(), follow_up=source.follow_up, action=source.execution.slot.execution)
         with self.assertRaises(TypeError):
@@ -194,14 +215,16 @@ class K1AimDifficultTerrainChargeLossConsumptionTests(unittest.TestCase):
                 replace(source, execution=other.execution)
 
     def test_nested_traversal_conditions_kernel_and_source_binding(self):
-        source = request(terrain_roll=10)
+        source = self.make_request(terrain_roll=10)
         execution = source.execution
         for changes in (
             {"conditions": execution.previous_conditions},
-            {"terrain_traversal": request().execution.terrain_traversal},
+            {"terrain_traversal": self.make_request().execution.terrain_traversal},
             {"previous_spatial_state": execution.terrain_traversal.previous_state},
             {"charge_action_request": replace(execution.charge_action_request,
                 kernel_request=replace(execution.source_kernel_request, id="other"))},
+            {"charge_action_request": replace(execution.charge_action_request,
+                attack_skill=Skill.BRAWN if self.skill is Skill.MELEE else Skill.MELEE)},
             {"resolution": None},
         ):
             with self.subTest(changes=changes), self.assertRaises((TypeError, ValueError)):
@@ -209,7 +232,7 @@ class K1AimDifficultTerrainChargeLossConsumptionTests(unittest.TestCase):
 
     def test_returned_history_rejects_preparation_with_renamed_ids(self):
         for terrain_roll, tested in product((1, 10), (False, True)):
-            source = request(terrain_roll=terrain_roll, already_tested=tested)
+            source = self.make_request(terrain_roll=terrain_roll, already_tested=tested)
             result = consumption.consume_difficult_terrain_charge_lost_aim(source)
             candidate = replace(preparation_request(RangedWeaponId.LONGBOW,
                 attack=replace(attack_execution_request(), id="attack:new"),
@@ -220,7 +243,7 @@ class K1AimDifficultTerrainChargeLossConsumptionTests(unittest.TestCase):
             prepare.assert_not_called()
 
     def test_types_result_provenance_history_and_trace(self):
-        source = request()
+        source = self.make_request()
         for changes in ({"id": ""}, {"rule_id": "foreign"}, {"state": None}, {"follow_up": None},
                         {"execution": None}, {"execution": source.execution.slot.execution}):
             with self.subTest(changes=changes), self.assertRaises((TypeError, ValueError)):
@@ -236,12 +259,16 @@ class K1AimDifficultTerrainChargeLossConsumptionTests(unittest.TestCase):
                 replace(result, **changes)
 
     def test_result_failure_leaves_input_snapshots_unchanged(self):
-        source = request()
+        source = self.make_request()
         before = deepcopy(source)
         with patch.object(consumption, "AimDifficultTerrainChargeLossConsumptionResult", side_effect=RuntimeError("failed")):
             with self.assertRaisesRegex(RuntimeError, "failed"):
                 consumption.consume_difficult_terrain_charge_lost_aim(source)
         self.assertEqual(source, before)
+
+
+class K1AimDifficultTerrainBrawnChargeLossConsumptionTests(K1AimDifficultTerrainChargeLossConsumptionTests):
+    skill = Skill.BRAWN
 
 
 if __name__ == "__main__":

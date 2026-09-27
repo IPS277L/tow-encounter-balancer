@@ -13,6 +13,7 @@ from tests.unit.test_k1_aim_resolution import attack_execution_request
 from tests.unit.test_k1_ranged_weapon_attack_preparation import preparation_request
 from towr.domain.aim_consumption_models import AimConsumptionState, RegisteredAimLossLongChargeExecutionRequest
 from towr.domain.attack_models import AttackOutcome
+from towr.domain.resolution_models import AttackerStaggerRequest
 from towr.domain.charge_models import LongChargeOutcome
 from towr.domain.condition_models import Condition, ConditionState
 from towr.rules.test_resolution import resolve_test
@@ -36,15 +37,25 @@ def request(**kwargs):
 
 
 class K1RegisteredAimLossLongChargeTests(unittest.TestCase):
+    skill = Skill.MELEE
+
+    @property
+    def charge_dice(self):
+        return 2 if self.skill is Skill.MELEE else 1
+
+    def make_request(self, **kwargs):
+        kwargs.setdefault("skill", self.skill)
+        return request(**kwargs)
+
     def test_one_execution_and_registration_for_all_outcomes_aim_values_and_turns(self):
         outcomes = ((True, False, False), (True, True, False), (False, False, False), (False, False, True))
         for values, (reached, hit, staggered), later, target in product(
             ((10, 10, 10), (1, 2, 10)), outcomes, (None, 2), ("enemy", "enemy:other"),
         ):
             with self.subTest(values=values, reached=reached, hit=hit, staggered=staggered, later=later, target=target):
-                source = request(values=values, later_round=later, aim_target=target, already_staggered=staggered)
+                source = self.make_request(values=values, later_round=later, aim_target=target, already_staggered=staggered)
                 before = deepcopy(source)
-                rng, decisions = SequenceRandom([1, 1 if hit else 10, 10, 7] if reached else [10, 7]), Mock()
+                rng, decisions = SequenceRandom([1, 1 if hit else 10, *([10] * (self.charge_dice - 1)), 7] if reached else [10, 7]), Mock()
                 with (
                     patch.object(consumption, "execute_long_charge_action", wraps=consumption.execute_long_charge_action) as execute,
                     patch.object(consumption, "consume_long_charge_lost_aim", wraps=consumption.consume_long_charge_lost_aim) as register,
@@ -67,9 +78,15 @@ class K1RegisteredAimLossLongChargeTests(unittest.TestCase):
                 execution = result.execution
                 if reached:
                     self.assertIs(execution.outcome, LongChargeOutcome.REACHED_TARGET_AND_ATTACKED)
-                    self.assertEqual(execution.resolution.attack.attacker_test.trace.rolled_dice, 2)
-                    self.assertEqual(execution.resolution.attack.attacker_test.trace.regular_dice_delta, 1)
+                    self.assertEqual(execution.resolution.attack.attacker_test.trace.rolled_dice, self.charge_dice)
+                    self.assertEqual(execution.resolution.attack.attacker_test.trace.regular_dice_delta, self.charge_dice - 1)
                     self.assertIs(execution.resolution.attack.outcome, AttackOutcome.HIT if hit else AttackOutcome.MISS)
+                    self.assertEqual(execution.resolution.target_state.conditions.has(Condition.STAGGERED), hit)
+                    self.assertEqual(sum(isinstance(f, AttackerStaggerRequest)
+                                         for f in execution.resolution.follow_ups), int(not hit))
+                    if self.skill is Skill.BRAWN:
+                        self.assertIsNone(execution.melee_bonus)
+                        self.assertIs(execution.kernel_request, source.charge.kernel_request)
                 else:
                     self.assertIs(execution.outcome, LongChargeOutcome.STOPPED_SHORT_ALREADY_STAGGERED
                                   if staggered else LongChargeOutcome.STOPPED_SHORT_STAGGERED)
@@ -87,17 +104,19 @@ class K1RegisteredAimLossLongChargeTests(unittest.TestCase):
                 self.assertEqual(source, before)
 
     def test_renamed_replay_and_shared_histories_fail_before_charge_rng_or_decisions(self):
-        source = request()
+        source = self.make_request()
         histories = (
-            consumption.execute_registered_aim_loss_long_charge(source, SequenceRandom([1, 10, 10])).state,
+            consumption.execute_registered_aim_loss_long_charge(source, SequenceRandom([1, *([10] * self.charge_dice)])).state,
             consumption.execute_registered_aim_loss_long_charge(source, SequenceRandom([10])).state,
-            consumption.execute_registered_aim_loss_long_charge(request(already_staggered=True), SequenceRandom([10])).state,
+            consumption.execute_registered_aim_loss_long_charge(self.make_request(already_staggered=True), SequenceRandom([10])).state,
             consumption.consume_charge_lost_aim(ordinary_charge_request()).state,
             consumption.consume_lost_aim(non_attack_request()).state,
             consumption.consume_attack_lost_aim(attack_loss_request()).state,
             consumption.register_aim_ranged_attack(applied_request()).state,
         )
-        for history, candidate in product(histories, (source, request(renamed=True))):
+        other_skill = Skill.BRAWN if self.skill is Skill.MELEE else Skill.MELEE
+        for history, candidate in product(histories, (source, self.make_request(renamed=True),
+                                                      self.make_request(skill=other_skill, renamed=True))):
             rng, decisions = Mock(), Mock()
             with self.subTest(id=candidate.charge.id, history=history), patch.object(consumption, "execute_long_charge_action") as execute:
                 with self.assertRaisesRegex(ValueError, "source was already consumed"):
@@ -109,7 +128,7 @@ class K1RegisteredAimLossLongChargeTests(unittest.TestCase):
             self.assertEqual(decisions.mock_calls, [])
 
     def test_actor_action_slot_and_history_guards_before_executor(self):
-        source = request()
+        source = self.make_request()
         turn = source.charge.round_state.active_turn
         wrong_slot = replace(turn.action_slots[-1], declaration=CombatActionDeclaration(CombatActionKind.RECOVER))
         wrong_charge = replace(source.charge, round_state=replace(source.charge.round_state,
@@ -129,16 +148,16 @@ class K1RegisteredAimLossLongChargeTests(unittest.TestCase):
             self.assertEqual(rng.mock_calls, [])
 
     def test_unsupported_skill_and_chronology_before_executor(self):
-        for kwargs in ({"skill": Skill.BRAWN}, {"later_round": 1}, {"later_round": 2, "later_second": True}):
+        for kwargs in ({"skill": Skill.SHOOTING}, {"later_round": 1}, {"later_round": 2, "later_second": True}):
             rng = Mock()
             with self.subTest(kwargs=kwargs), patch.object(consumption, "execute_long_charge_action") as execute:
                 with self.assertRaises(ValueError):
-                    consumption.execute_registered_aim_loss_long_charge(request(**kwargs), rng)
+                    consumption.execute_registered_aim_loss_long_charge(self.make_request(**kwargs), rng)
             execute.assert_not_called()
             self.assertEqual(rng.mock_calls, [])
 
     def test_runtime_rechecks_shared_preflight(self):
-        source, rng = request(), Mock()
+        source, rng = self.make_request(), Mock()
         with (
             patch.object(consumption, "_validate_long_charge_loss_preflight", side_effect=ValueError("preflight failed")) as check,
             patch.object(consumption, "execute_long_charge_action") as execute,
@@ -150,7 +169,7 @@ class K1RegisteredAimLossLongChargeTests(unittest.TestCase):
         self.assertEqual(rng.mock_calls, [])
 
     def test_charge_guards_and_rng_failure_preserve_inputs_without_registration(self):
-        source = request()
+        source = self.make_request()
         for charge in (replace(source.charge, speed=MovementSpeed.SLOW), replace(source.charge, crosses_difficult_terrain=True)):
             rng = Mock()
             with patch.object(consumption, "consume_long_charge_lost_aim") as register:
@@ -174,8 +193,8 @@ class K1RegisteredAimLossLongChargeTests(unittest.TestCase):
         ):
             if reached and staggered:
                 continue
-            source = request(already_staggered=staggered)
-            rng = SequenceRandom([1, 10, 10, 7] if reached else [10, 7])
+            source = self.make_request(already_staggered=staggered)
+            rng = SequenceRandom([1, *([10] * self.charge_dice), 7] if reached else [10, 7])
             before = deepcopy(source)
             with self.subTest(stage=stage), patch.object(consumption, stage, side_effect=RuntimeError("stage failed")):
                 with self.assertRaisesRegex(RuntimeError, "stage failed"):
@@ -185,14 +204,15 @@ class K1RegisteredAimLossLongChargeTests(unittest.TestCase):
 
     def test_result_binds_charge_source_states_kernel_history_and_exact_trace(self):
         for reached, staggered in ((True, False), (False, False), (False, True)):
-            source = request(already_staggered=staggered)
-            result = consumption.execute_registered_aim_loss_long_charge(source, SequenceRandom([1, 10, 10] if reached else [10]))
-            other = consumption.execute_registered_aim_loss_long_charge(request(renamed=True, already_staggered=staggered), SequenceRandom([1, 10, 10] if reached else [10]))
+            source = self.make_request(already_staggered=staggered)
+            result = consumption.execute_registered_aim_loss_long_charge(source, SequenceRandom([1, *([10] * self.charge_dice)] if reached else [10]))
+            other = consumption.execute_registered_aim_loss_long_charge(self.make_request(renamed=True, already_staggered=staggered), SequenceRandom([1, *([10] * self.charge_dice)] if reached else [10]))
             changed_charges = (
                 replace(source.charge, kernel_request=replace(source.charge.kernel_request, id="other")),
                 replace(source.charge, spatial_state=replace(source.charge.spatial_state, free_move_used_entity_ids=())),
                 replace(source.charge, round_state=replace(source.charge.round_state, completed_turn_entity_ids=("ally",))),
                 replace(source.charge, speed=MovementSpeed.FAST),
+                replace(source.charge, attack_skill=Skill.BRAWN if self.skill is Skill.MELEE else Skill.MELEE),
                 replace(source.charge, athletics_test=replace(source.charge.athletics_test, id="other")),
                 replace(source.charge, actor_conditions=ConditionState(frozenset({Condition.PRONE}))),
                 replace(source.charge, intermediate_zone_id="zone:d"),
@@ -209,21 +229,25 @@ class K1RegisteredAimLossLongChargeTests(unittest.TestCase):
                     replace(result, **changes)
 
     def test_types_and_next_preparation_with_returned_history(self):
-        source = request()
+        source = self.make_request()
         for changes in ({"id": ""}, {"rule_id": "other"}, {"state": None}, {"follow_up": None}, {"charge": None}):
             with self.assertRaises((TypeError, ValueError)):
                 replace(source, **changes)
         with self.assertRaises(TypeError):
             consumption.execute_registered_aim_loss_long_charge(None, Mock())
         for reached, staggered in ((True, False), (False, False), (False, True)):
-            source = request(already_staggered=staggered)
-            result = consumption.execute_registered_aim_loss_long_charge(source, SequenceRandom([1, 10, 10] if reached else [10]))
+            source = self.make_request(already_staggered=staggered)
+            result = consumption.execute_registered_aim_loss_long_charge(source, SequenceRandom([1, *([10] * self.charge_dice)] if reached else [10]))
             candidate = replace(preparation_request(RangedWeaponId.LONGBOW,
                 aim=source.follow_up.source_request.aim, attack=replace(attack_execution_request(), id="attack:new")), id="prepare:new")
             with patch("towr.rules.ranged_weapon_attack_preparation.prepare_ranged_weapon_attack") as prepare:
                 with self.assertRaisesRegex(ValueError, "source was already consumed"):
                     prepare_ranged_weapon_attack_with_aim_history(result.state, candidate)
             prepare.assert_not_called()
+
+
+class K1RegisteredAimLossLongBrawnChargeTests(K1RegisteredAimLossLongChargeTests):
+    skill = Skill.BRAWN
 
 
 if __name__ == "__main__":

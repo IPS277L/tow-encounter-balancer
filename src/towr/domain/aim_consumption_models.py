@@ -264,8 +264,8 @@ def _validate_terrain_charge_loss_preflight(
     if (source.declaration.kind is not CombatActionKind.MANOEUVRE
             or source.declaration.manoeuvre is not ManoeuvreKind.CHARGE):
         raise ValueError("Aim terrain Charge loss requires a Charge follow-up")
-    if charge.attack_skill is not Skill.MELEE:
-        raise ValueError("Aim terrain Charge loss currently requires Melee")
+    if charge.attack_skill not in (Skill.MELEE, Skill.BRAWN):
+        raise ValueError("Aim terrain Charge loss currently requires Melee or Brawn")
     if state.actor_id != source.actor_id or charge.actor_id != source.actor_id:
         raise ValueError("Aim terrain Charge loss belongs to another actor")
     if action_id != source.next_action_id:
@@ -476,8 +476,8 @@ def _validate_long_charge_loss_preflight(
     if (source.declaration.kind is not CombatActionKind.MANOEUVRE
             or source.declaration.manoeuvre is not ManoeuvreKind.CHARGE):
         raise ValueError("Aim Long Charge loss requires a Charge follow-up")
-    if charge.attack_skill is not Skill.MELEE:
-        raise ValueError("Aim Long Charge loss currently requires Melee")
+    if charge.attack_skill not in (Skill.MELEE, Skill.BRAWN):
+        raise ValueError("Aim Long Charge loss currently requires Melee or Brawn")
     if state.actor_id != source.actor_id or charge.actor_id != source.actor_id:
         raise ValueError("Aim Long Charge loss belongs to another actor")
     if action_id != source.next_action_id:

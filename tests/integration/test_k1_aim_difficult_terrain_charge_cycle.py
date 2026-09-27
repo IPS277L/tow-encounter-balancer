@@ -5,7 +5,7 @@ import unittest
 from unittest.mock import Mock, patch
 
 from tests.helpers import SequenceRandom
-from tests.integration.test_k1_aim_target_switch import aimed_shot, next_hero_round, pending_attack
+from tests.integration.test_k1_aim_target_switch import next_hero_round, pending_attack
 from tests.unit.test_k1_aim_resolution import active_round, aim_request, reserve_action
 from tests.unit.test_k1_charge_action_execution import (
     charge_declaration, graph, request as charge_request, reserve_action as reserve_charge,
@@ -15,6 +15,7 @@ from towr.domain.aim_consumption_models import (
     AimConsumptionState, RegisteredAimLossDifficultTerrainChargeExecutionRequest, RegisteredAimRangedAttackExecutionRequest,
 )
 from towr.domain.aim_models import AimFollowUpOutcome, AimFollowUpRequest
+from towr.domain.aim_ranged_weapon_attack_models import AimRangedWeaponAttackExecutionRequest
 from towr.domain.attack_models import AttackOutcome, ResilienceProfile
 from towr.domain.condition_models import Condition, ConditionApplicationRequest, ConditionState
 from tests.unit.test_k1_difficult_terrain_charge_action_execution import terrain_request
@@ -23,21 +24,25 @@ from towr.domain.movement_models import DifficultTerrainFreeMovementRequest
 from towr.rules.difficult_terrain_resolution import resolve_difficult_terrain_traversal
 from towr.rules.free_movement_resolution import resolve_difficult_terrain_free_movement
 from towr.rules.test_resolution import resolve_test
-from towr.domain.ranged_weapon_profiles import RangedWeaponId
+from towr.domain.ranged_weapon_profiles import RangedWeaponId, RangedWeaponRange
 from towr.domain.reload_models import create_initial_ranged_weapon_reload_state
 from towr.domain.resolution_models import AttackerStaggerRequest
 from towr.domain.spatial_models import SpatialBattleState, SpatialEntityPlacement, ZoneConnection
-from towr.domain.test_models import TestProfile, TestRequest
+from towr.domain.test_models import Skill, TestProfile, TestRequest
 from towr.domain.turn_models import CombatActionKind
 from towr.rules import aim_consumption_resolution as consumption
 from towr.rules.aim_resolution import execute_aim_action, resolve_aim_follow_up
 from towr.rules.condition_effect_resolution import resolve_condition_application
 from towr.rules.kernel import resolve_kernel_attack
-from towr.rules.ranged_weapon_attack_preparation import prepare_ranged_weapon_attack_with_aim_history
+from towr.rules.ranged_weapon_attack_preparation import (
+    prepare_ranged_weapon_attack, prepare_ranged_weapon_attack_with_aim_history,
+)
 from towr.rules.spatial_resolution import start_next_spatial_round
 
 
 class K1AimDifficultTerrainChargeCycleTests(unittest.TestCase):
+    skill = Skill.MELEE
+
     def test_first_crossing_charge_recover_and_fresh_aim(self):
         self.check_cycle(repeated=False)
 
@@ -45,6 +50,7 @@ class K1AimDifficultTerrainChargeCycleTests(unittest.TestCase):
         self.check_cycle(repeated=True)
 
     def check_cycle(self, *, repeated):
+        charge_bonus = int(self.skill is Skill.MELEE)
         for first_bonus, fresh_bonus, charge_hit, shot_hit, terrain_roll in product(
             (0, 2), (0, 2), (False, True), (False, True), (1, 10),
         ):
@@ -82,7 +88,8 @@ class K1AimDifficultTerrainChargeCycleTests(unittest.TestCase):
                     self.assertEqual(moved.conditions, ConditionState())
                     self.assertEqual(spatial.free_move_used_entity_ids, ("hero",))
                     self.assertEqual(spatial.difficult_terrain_tested_entity_ids, ("hero",))
-                charge = replace(charge_request(round_state=reserve_charge(turn, charge_declaration()), state=spatial),
+                charge = replace(charge_request(round_state=reserve_charge(turn, charge_declaration()),
+                                 state=spatial, attack_skill=self.skill),
                                  crosses_difficult_terrain=True)
                 charge = replace(charge, kernel_request=replace(charge.kernel_request, attack=replace(
                     charge.kernel_request.attack, defender_test=TestRequest("defence:charge", TestProfile(1, 5)),
@@ -100,16 +107,26 @@ class K1AimDifficultTerrainChargeCycleTests(unittest.TestCase):
                 with (
                     patch("towr.rules.charge_action_execution.resolve_kernel_attack", kernel),
                     patch("towr.rules.attack_action_execution.resolve_kernel_attack", kernel),
+                    patch.object(consumption, "register_aim_ranged_attack",
+                                 wraps=consumption.register_aim_ranged_attack) as register_applied,
+                    patch.object(consumption, "consume_difficult_terrain_charge_lost_aim",
+                                 wraps=consumption.consume_difficult_terrain_charge_lost_aim) as register_lost,
                     patch.object(consumption, "resolve_difficult_terrain_traversal",
                                  wraps=consumption.resolve_difficult_terrain_traversal) as traverse,
                     patch("towr.rules.difficult_terrain_resolution.resolve_test", wraps=resolve_test) as athletics,
                     patch("towr.rules.difficult_terrain_resolution.resolve_condition_application",
                           wraps=resolve_condition_application) as prone,
                 ):
-                    rng = SequenceRandom([terrain_roll, 1 if charge_hit else 10, 10, 10, 7])
+                    rng = SequenceRandom([terrain_roll, 1 if charge_hit else 10, *([10] * (1 + charge_bonus)), 7])
                     charged = consumption.execute_registered_aim_loss_difficult_terrain_charge(source, rng)
                     self.assertEqual(rng.randint(1, 10), 7)
                     kernel.assert_called_once()
+                    register_lost.assert_called_once_with(charged.registration.source_request)
+                    self.assertEqual(charged.execution.slot.execution.id, source.action_id)
+                    self.assertNotEqual(charged.execution.slot.execution.id, charge.id)
+                    if self.skill is Skill.BRAWN:
+                        self.assertIsNone(charged.execution.melee_bonus)
+                        self.assertIs(charged.execution.kernel_request, charge.kernel_request)
                     traverse.assert_called_once_with(source.terrain, rng, decisions=None)
                     athletics.assert_called_once_with(source.terrain.athletics_test, rng, decisions=None)
                     self.assertEqual(prone.call_count, int(terrain_roll == 10))
@@ -175,8 +192,22 @@ class K1AimDifficultTerrainChargeCycleTests(unittest.TestCase):
                             attacker_is_staggered=hero_conditions.has(Condition.STAGGERED),
                             defender_test=TestRequest("defence:fresh", TestProfile(1, 5)))))
                     self.assertIs(attack.kernel_request.target_state, target)
-                    weapon = create_initial_ranged_weapon_reload_state("hero:bow", RangedWeaponId.LONGBOW)
-                    stale = aimed_shot(first, attack, history, weapon, "shot:renamed")
+                    self.assertTrue(charged.execution.target_in_close_range)
+                    self.assertEqual(spatial.placement_for("hero").zone_id, spatial.placement_for("enemy").zone_id)
+                    # PG 1.4 p94: Close Range requires a weapon with Close in its Optimum Range.
+                    weapon = create_initial_ranged_weapon_reload_state("hero:pistol", RangedWeaponId.PISTOL)
+                    candidate = replace(preparation_request(RangedWeaponId.PISTOL, attack=attack, aim=fresh,
+                        target_range=RangedWeaponRange.CLOSE, lore=True, has_close_enemy=True,
+                        next_cycle="pistol:reload:1"), weapon_state=weapon)
+                    with self.assertRaises(ValueError):
+                        prepare_ranged_weapon_attack_with_aim_history(history, replace(candidate,
+                            weapon_state=create_initial_ranged_weapon_reload_state("hero:bow", RangedWeaponId.LONGBOW),
+                            next_reload_cycle_id=None))
+                    with self.assertRaises(ValueError):
+                        prepare_ranged_weapon_attack_with_aim_history(history, replace(candidate, has_blackpowder_lore=False))
+                    stale_preparation = prepare_ranged_weapon_attack(replace(candidate, id="prepare:renamed", aim=first))
+                    stale = AimRangedWeaponAttackExecutionRequest("shot:renamed", stale_preparation.aim_follow_up,
+                        stale_preparation.execution, history.consumed_aim_follow_up_ids)
                     rejected_rng = Mock()
                     with patch.object(consumption, "execute_aim_ranged_weapon_attack") as execute:
                         with self.assertRaisesRegex(ValueError, "source was already consumed"):
@@ -188,7 +219,7 @@ class K1AimDifficultTerrainChargeCycleTests(unittest.TestCase):
                     with patch("towr.rules.ranged_weapon_attack_preparation.prepare_ranged_weapon_attack") as prepare:
                         with self.assertRaisesRegex(ValueError, "source was already consumed"):
                             prepare_ranged_weapon_attack_with_aim_history(history, replace(
-                                preparation_request(RangedWeaponId.LONGBOW, attack=attack, aim=first), id="prepare:renamed"))
+                                candidate, aim=first, id="prepare:renamed"))
                     prepare.assert_not_called()
                     with (
                         patch.object(consumption, "resolve_difficult_terrain_traversal") as replay_traversal,
@@ -209,7 +240,10 @@ class K1AimDifficultTerrainChargeCycleTests(unittest.TestCase):
                     execute.assert_not_called()
                     self.assertEqual(rejected_rng.mock_calls, [])
                     kernel.assert_called_once()
-                    shot = aimed_shot(fresh, attack, history, weapon, "shot:fresh")
+                    preparation = prepare_ranged_weapon_attack_with_aim_history(history, candidate)
+                    self.assertIs(preparation.execution.attack.kernel_request.target_state, target)
+                    shot = AimRangedWeaponAttackExecutionRequest("shot:fresh", preparation.aim_follow_up,
+                        preparation.execution, history.consumed_aim_follow_up_ids)
                     rng = SequenceRandom([1 if shot_hit else 10, *([10] * (3 + fresh_bonus)), 7])
                     applied = consumption.execute_registered_aim_ranged_attack(
                         RegisteredAimRangedAttackExecutionRequest("registered:fresh", history, shot), rng)
@@ -218,6 +252,8 @@ class K1AimDifficultTerrainChargeCycleTests(unittest.TestCase):
                     traverse.assert_called_once()
                     athletics.assert_called_once()
                     self.assertEqual(prone.call_count, int(terrain_roll == 10))
+                    register_applied.assert_called_once_with(applied.registration.source_request)
+                    register_lost.assert_called_once_with(charged.registration.source_request)
                 final = applied.execution.ranged_attack.attack
                 self.assertIs(applied.registration.previous_state, charged.state)
                 self.assertEqual(applied.state.consumed_aim_source_ids, (first.request_id, fresh.request_id))
@@ -226,7 +262,7 @@ class K1AimDifficultTerrainChargeCycleTests(unittest.TestCase):
                 self.assertEqual((first.round_state.round_number, charged.execution.round_state.round_number,
                                   fresh.round_state.round_number, final.state.round_number), (1, 2, 3, 4))
                 for execution, state, hit, dice, bonus in (
-                    (charged.execution, charged.execution.round_state, charge_hit, 2, 1),
+                    (charged.execution, charged.execution.round_state, charge_hit, 1 + charge_bonus, charge_bonus),
                     (final, final.state, shot_hit, 3 + fresh_bonus, fresh_bonus),
                 ):
                     self.assertIs(execution.resolution.attack.outcome, AttackOutcome.HIT if hit else AttackOutcome.MISS)
@@ -240,9 +276,17 @@ class K1AimDifficultTerrainChargeCycleTests(unittest.TestCase):
                 self.assertEqual(source, source_before)
                 self.assertEqual(initial_state, initial_spatial)
                 self.assertEqual(history.consumed_aim_source_ids, (first.request_id,))
-                self.assertIs(applied.execution.ranged_attack.weapon_state, weapon)
+                self.assertTrue(weapon.loaded)
+                self.assertFalse(applied.execution.ranged_attack.weapon_state.loaded)
+                self.assertEqual(applied.execution.ranged_attack.weapon_state.reload_cycle_ids, ("pistol:reload:1",))
+                self.assertEqual(applied.execution.ranged_attack.weapon_state.exacting.accumulated_successes, 0)
+                self.assertIs(applied.execution.ranged_attack.source_request, preparation.execution)
                 self.assertTrue(set(charged.registration.applied_rule_ids) <= set(charged.applied_rule_ids))
                 self.assertTrue(set(applied.registration.applied_rule_ids) <= set(applied.applied_rule_ids))
+
+
+class K1AimDifficultTerrainBrawnChargeCycleTests(K1AimDifficultTerrainChargeCycleTests):
+    skill = Skill.BRAWN
 
 
 if __name__ == "__main__":
