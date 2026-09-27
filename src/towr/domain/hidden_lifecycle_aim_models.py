@@ -13,11 +13,15 @@ from towr.domain.prepared_hidden_ranged_attack_models import PreparedHiddenRange
 from towr.domain.registered_hidden_aim_models import (
     RegisteredHiddenAimAttackExecutionRequest,
     RegisteredHiddenAimAttackExecutionResult,
+    RegisteredHiddenAimLossAttackExecutionRequest,
+    RegisteredHiddenAimLossAttackExecutionResult,
+    _validate_registered_hidden_aim_loss_preflight,
     _validate_registered_hidden_aim_preflight,
 )
 
 
 HIDDEN_LIFECYCLE_AIM_ATTACK_RULE_ID = "RULE-COMBAT-014:hidden-lifecycle-aim-attack"
+HIDDEN_LIFECYCLE_AIM_LOSS_ATTACK_RULE_ID = "RULE-COMBAT-014:hidden-lifecycle-aim-loss-attack"
 
 
 @dataclass(frozen=True, slots=True)
@@ -87,9 +91,76 @@ def _validate_lifecycle_aim_attack(
     _validate_registered_hidden_aim_preflight(attack.aim_state, attack.attack)
 
 
+@dataclass(frozen=True, slots=True)
+class HiddenLifecycleAimLossAttackExecutionRequest:
+    id: str
+    state: HiddenLifecycleState
+    attack: RegisteredHiddenAimLossAttackExecutionRequest
+    rule_id: str = HIDDEN_LIFECYCLE_AIM_LOSS_ATTACK_RULE_ID
+
+    def __post_init__(self) -> None:
+        _validate_non_empty_string(self.id, "hidden lifecycle Aim loss Attack id")
+        if self.rule_id != HIDDEN_LIFECYCLE_AIM_LOSS_ATTACK_RULE_ID:
+            raise ValueError("unknown hidden lifecycle Aim loss Attack rule")
+        _validate_lifecycle_aim_loss_attack(self.state, self.attack)
+
+
+@dataclass(frozen=True, slots=True)
+class HiddenLifecycleAimLossAttackExecutionResult:
+    request_id: str
+    rule_id: str
+    source_request: HiddenLifecycleAimLossAttackExecutionRequest
+    attack: RegisteredHiddenAimLossAttackExecutionResult
+    lifecycle: HiddenLifecycleApplicationResult
+    applied_rule_ids: tuple[str, ...]
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.source_request, HiddenLifecycleAimLossAttackExecutionRequest):
+            raise TypeError("source_request must be a hidden lifecycle Aim loss Attack request")
+        if not isinstance(self.attack, RegisteredHiddenAimLossAttackExecutionResult):
+            raise TypeError("attack must be a registered hidden Aim loss Attack result")
+        if not isinstance(self.lifecycle, HiddenLifecycleApplicationResult):
+            raise TypeError("lifecycle must be a HiddenLifecycleApplicationResult")
+        source = self.source_request
+        if (
+            self.request_id != source.id or self.rule_id != source.rule_id
+            or self.attack.source_request != source.attack
+            or self.lifecycle.request_id != f"{source.id}:hidden-lifecycle"
+            or self.lifecycle.previous_state != source.state
+            or self.lifecycle.completed != self.attack.hidden_attack
+        ):
+            raise ValueError("hidden lifecycle Aim loss Attack has stale provenance")
+        rules = _unique_ids(self.applied_rule_ids, "hidden lifecycle Aim loss Attack rules")
+        if rules != _lifecycle_aim_rule_ids(source, self.attack, self.lifecycle):
+            raise ValueError("hidden lifecycle Aim loss Attack trace is inconsistent")
+        object.__setattr__(self, "applied_rule_ids", rules)
+
+    @property
+    def state(self) -> HiddenLifecycleState:
+        return self.lifecycle.state
+
+    @property
+    def aim_state(self) -> AimConsumptionState:
+        return self.attack.aim_state
+
+    @property
+    def execution(self) -> PreparedHiddenRangedAttackExecutionResult:
+        return self.attack.execution
+
+
+def _validate_lifecycle_aim_loss_attack(
+    state: HiddenLifecycleState,
+    attack: RegisteredHiddenAimLossAttackExecutionRequest,
+) -> None:
+    if not isinstance(attack, RegisteredHiddenAimLossAttackExecutionRequest):
+        raise TypeError("attack must be a RegisteredHiddenAimLossAttackExecutionRequest")
+    _validate_lifecycle_attack(state, attack.attack)
+    _validate_registered_hidden_aim_loss_preflight(attack.aim_state, attack.follow_up, attack.attack)
+
+
 def _lifecycle_aim_rule_ids(
-    request: HiddenLifecycleAimAttackExecutionRequest,
-    attack: RegisteredHiddenAimAttackExecutionResult,
+    request: HiddenLifecycleAimAttackExecutionRequest | HiddenLifecycleAimLossAttackExecutionRequest,
+    attack: RegisteredHiddenAimAttackExecutionResult | RegisteredHiddenAimLossAttackExecutionResult,
     lifecycle: HiddenLifecycleApplicationResult,
 ) -> tuple[str, ...]:
     return tuple(dict.fromkeys((request.rule_id, *attack.applied_rule_ids, *lifecycle.applied_rule_ids)))

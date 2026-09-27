@@ -13,6 +13,8 @@ from tests.unit.test_k1_aim_resolution import attack_execution_request
 from tests.unit.test_k1_ranged_weapon_attack_preparation import preparation_request
 from towr.domain.aim_consumption_models import AimConsumptionState, RegisteredAimLossChargeExecutionRequest
 from towr.domain.attack_models import AttackOutcome
+from towr.domain.condition_models import Condition
+from towr.domain.resolution_models import AttackerStaggerRequest
 from towr.domain.movement_models import MovementSpeed
 from towr.domain.ranged_weapon_profiles import RangedWeaponId
 from towr.domain.test_models import Skill
@@ -31,12 +33,22 @@ def request(**kwargs):
 
 
 class K1RegisteredAimLossChargeTests(unittest.TestCase):
+    skill = Skill.MELEE
+
+    @property
+    def charge_dice(self):
+        return 2 if self.skill is Skill.MELEE else 1
+
+    def make_request(self, **kwargs):
+        kwargs.setdefault("skill", self.skill)
+        return request(**kwargs)
+
     def test_one_charge_kernel_receipt_registration_for_hit_miss_aim_zero_positive_and_later_turn(self):
         for values, hit, later, target in product(((10, 10, 10), (1, 2, 10)), (False, True), (None, 2), ("enemy", "enemy:other")):
             with self.subTest(values=values, hit=hit, later=later, target=target):
-                source = request(values=values, later_round=later, aim_target=target)
+                source = self.make_request(values=values, later_round=later, aim_target=target)
                 before = deepcopy(source)
-                rng, decisions = SequenceRandom([1 if hit else 10, 10, 7]), Mock()
+                rng, decisions = SequenceRandom([1 if hit else 10, *([10] * (self.charge_dice - 1)), 7]), Mock()
                 with (
                     patch.object(consumption, "execute_charge_action", wraps=consumption.execute_charge_action) as execute,
                     patch.object(consumption, "consume_charge_lost_aim", wraps=consumption.consume_charge_lost_aim) as register,
@@ -53,9 +65,15 @@ class K1RegisteredAimLossChargeTests(unittest.TestCase):
                 self.assertEqual(result.state.consumed_aim_source_ids, ("source:older", "aim:execute"))
                 self.assertEqual(result.state.consumed_aim_follow_up_ids, ("follow:older", "follow:prior", "follow:charge"))
                 execution = result.execution
-                self.assertEqual(execution.resolution.attack.attacker_test.trace.rolled_dice, 2)
-                self.assertEqual(execution.resolution.attack.attacker_test.trace.regular_dice_delta, 1)
+                self.assertEqual(execution.resolution.attack.attacker_test.trace.rolled_dice, self.charge_dice)
+                self.assertEqual(execution.resolution.attack.attacker_test.trace.regular_dice_delta, self.charge_dice - 1)
                 self.assertIs(execution.resolution.attack.outcome, AttackOutcome.HIT if hit else AttackOutcome.MISS)
+                self.assertEqual(execution.resolution.target_state.conditions.has(Condition.STAGGERED), hit)
+                self.assertEqual(sum(isinstance(f, AttackerStaggerRequest)
+                                     for f in execution.resolution.follow_ups), int(not hit))
+                if self.skill is Skill.BRAWN:
+                    self.assertIsNone(execution.melee_bonus)
+                    self.assertIs(execution.kernel_request, source.charge.kernel_request)
                 self.assertEqual(execution.previous_spatial_state, source.charge.spatial_state)
                 self.assertEqual(execution.spatial_state.placement_for("hero").zone_id, "zone:b")
                 self.assertEqual(execution.round_state.active_turn.action_slots[:-1], source.charge.round_state.active_turn.action_slots[:-1])
@@ -66,14 +84,16 @@ class K1RegisteredAimLossChargeTests(unittest.TestCase):
                 self.assertEqual(source, before)
 
     def test_renamed_replay_and_shared_histories_fail_before_charge_rng_or_decisions(self):
-        source = request()
+        source = self.make_request()
         histories = (
-            consumption.execute_registered_aim_loss_charge(source, SequenceRandom([10, 10])).state,
+            consumption.execute_registered_aim_loss_charge(source, SequenceRandom([10] * self.charge_dice)).state,
             consumption.consume_lost_aim(non_attack_request()).state,
             consumption.consume_attack_lost_aim(attack_loss_request()).state,
             consumption.register_aim_ranged_attack(applied_request()).state,
         )
-        for history, candidate in product(histories, (source, request(renamed=True))):
+        other_skill = Skill.BRAWN if self.skill is Skill.MELEE else Skill.MELEE
+        for history, candidate in product(histories, (source, self.make_request(renamed=True),
+                                                      self.make_request(skill=other_skill, renamed=True))):
             rng, decisions = Mock(), Mock()
             with self.subTest(id=candidate.charge.id, history=history), patch.object(consumption, "execute_charge_action") as execute:
                 with self.assertRaisesRegex(ValueError, "source was already consumed"):
@@ -85,7 +105,7 @@ class K1RegisteredAimLossChargeTests(unittest.TestCase):
             self.assertEqual(decisions.mock_calls, [])
 
     def test_actor_action_slot_and_history_guards_before_executor(self):
-        source = request()
+        source = self.make_request()
         turn = source.charge.round_state.active_turn
         wrong_slot = replace(turn.action_slots[-1], declaration=CombatActionDeclaration(CombatActionKind.RECOVER))
         wrong_charge = replace(source.charge, round_state=replace(source.charge.round_state,
@@ -105,16 +125,16 @@ class K1RegisteredAimLossChargeTests(unittest.TestCase):
             self.assertEqual(rng.mock_calls, [])
 
     def test_unsupported_skill_and_chronology_before_executor(self):
-        for kwargs in ({"skill": Skill.BRAWN}, {"later_round": 1}, {"later_round": 2, "later_second": True}):
+        for kwargs in ({"skill": Skill.SHOOTING}, {"later_round": 1}, {"later_round": 2, "later_second": True}):
             rng = Mock()
             with self.subTest(kwargs=kwargs), patch.object(consumption, "execute_charge_action") as execute:
                 with self.assertRaises(ValueError):
-                    consumption.execute_registered_aim_loss_charge(request(**kwargs), rng)
+                    consumption.execute_registered_aim_loss_charge(self.make_request(**kwargs), rng)
             execute.assert_not_called()
             self.assertEqual(rng.mock_calls, [])
 
     def test_runtime_rechecks_shared_preflight(self):
-        source, rng = request(), Mock()
+        source, rng = self.make_request(), Mock()
         with (
             patch.object(consumption, "_validate_charge_loss_preflight", side_effect=ValueError("preflight failed")) as check,
             patch.object(consumption, "execute_charge_action") as execute,
@@ -126,7 +146,7 @@ class K1RegisteredAimLossChargeTests(unittest.TestCase):
         self.assertEqual(rng.mock_calls, [])
 
     def test_charge_guards_and_rng_failure_preserve_inputs_without_registration(self):
-        source = request()
+        source = self.make_request()
         for charge in (replace(source.charge, speed=MovementSpeed.SLOW), replace(source.charge, crosses_difficult_terrain=True)):
             rng = Mock()
             with patch.object(consumption, "consume_charge_lost_aim") as register:
@@ -136,17 +156,17 @@ class K1RegisteredAimLossChargeTests(unittest.TestCase):
             self.assertEqual(rng.mock_calls, [])
         before = deepcopy(source)
         rng = Mock()
-        rng.randint.side_effect = [1, RuntimeError("RNG failed")]
+        rng.randint.side_effect = [1] * (self.charge_dice - 1) + [RuntimeError("RNG failed")]
         with patch.object(consumption, "consume_charge_lost_aim") as register:
             with self.assertRaisesRegex(RuntimeError, "RNG failed"):
                 consumption.execute_registered_aim_loss_charge(source, rng)
         register.assert_not_called()
         self.assertEqual(source, before)
-        self.assertEqual(rng.randint.call_count, 2)
+        self.assertEqual(rng.randint.call_count, self.charge_dice)
 
     def test_registration_or_result_failure_preserves_snapshots_without_undoing_rng(self):
         for stage in ("consume_charge_lost_aim", "RegisteredAimLossChargeExecutionResult"):
-            source, rng = request(), SequenceRandom([10, 10, 7])
+            source, rng = self.make_request(), SequenceRandom([10] * self.charge_dice + [7])
             before = deepcopy(source)
             with self.subTest(stage=stage), patch.object(consumption, stage, side_effect=RuntimeError("stage failed")):
                 with self.assertRaisesRegex(RuntimeError, "stage failed"):
@@ -155,14 +175,15 @@ class K1RegisteredAimLossChargeTests(unittest.TestCase):
             self.assertEqual(rng.randint(1, 10), 7)
 
     def test_result_binds_charge_source_states_kernel_history_and_exact_trace(self):
-        source = request()
-        result = consumption.execute_registered_aim_loss_charge(source, SequenceRandom([10, 10]))
-        other = consumption.execute_registered_aim_loss_charge(request(renamed=True), SequenceRandom([10, 10]))
+        source = self.make_request()
+        result = consumption.execute_registered_aim_loss_charge(source, SequenceRandom([10] * self.charge_dice))
+        other = consumption.execute_registered_aim_loss_charge(self.make_request(renamed=True), SequenceRandom([10] * self.charge_dice))
         changed_charges = (
             replace(source.charge, kernel_request=replace(source.charge.kernel_request, id="other")),
             replace(source.charge, spatial_state=replace(source.charge.spatial_state, free_move_used_entity_ids=())),
             replace(source.charge, round_state=replace(source.charge.round_state, completed_turn_entity_ids=("ally",))),
             replace(source.charge, speed=MovementSpeed.FAST),
+            replace(source.charge, attack_skill=Skill.BRAWN if self.skill is Skill.MELEE else Skill.MELEE),
         )
         for changes in (
             {"request_id": "other"}, {"rule_id": "other"}, {"source_request": None},
@@ -176,19 +197,23 @@ class K1RegisteredAimLossChargeTests(unittest.TestCase):
                 replace(result, **changes)
 
     def test_types_and_next_preparation_with_returned_history(self):
-        source = request()
+        source = self.make_request()
         for changes in ({"id": ""}, {"rule_id": "other"}, {"state": None}, {"follow_up": None}, {"charge": None}):
             with self.assertRaises((TypeError, ValueError)):
                 replace(source, **changes)
         with self.assertRaises(TypeError):
             consumption.execute_registered_aim_loss_charge(None, Mock())
-        result = consumption.execute_registered_aim_loss_charge(source, SequenceRandom([10, 10]))
+        result = consumption.execute_registered_aim_loss_charge(source, SequenceRandom([10] * self.charge_dice))
         candidate = replace(preparation_request(RangedWeaponId.LONGBOW,
             aim=source.follow_up.source_request.aim, attack=replace(attack_execution_request(), id="attack:new")), id="prepare:new")
         with patch("towr.rules.ranged_weapon_attack_preparation.prepare_ranged_weapon_attack") as prepare:
             with self.assertRaisesRegex(ValueError, "source was already consumed"):
                 prepare_ranged_weapon_attack_with_aim_history(result.state, candidate)
         prepare.assert_not_called()
+
+
+class K1RegisteredAimLossBrawnChargeTests(K1RegisteredAimLossChargeTests):
+    skill = Skill.BRAWN
 
 
 if __name__ == "__main__":

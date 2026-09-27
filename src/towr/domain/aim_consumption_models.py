@@ -21,7 +21,7 @@ from towr.domain.aim_models import (
 from towr.domain.turn_models import ActionExecutionReceipt, CombatActionKind, ManoeuvreKind
 from towr.domain.test_models import Skill
 from towr.domain.movement_models import DifficultTerrainTraversalRequest
-from towr.domain.ranged_weapon_attack_models import RangedWeaponAttackExecutionResult
+from towr.domain.ranged_weapon_attack_models import RangedWeaponAttackExecutionRequest, RangedWeaponAttackExecutionResult
 from towr.domain.prepared_ranged_weapon_attack_models import (
     PreparedRangedWeaponAttackExecutionRequest,
     PreparedRangedWeaponAttackExecutionResult,
@@ -34,8 +34,11 @@ from towr.domain.aim_ranged_weapon_attack_models import (
 )
 
 
+REGISTERED_AIM_LOSS_PREPARED_ATTACK_RULE_ID = "RULE-COMBAT-004:registered-aim-loss-prepared-attack"
+REGISTERED_AIM_LOSS_RANGED_ATTACK_RULE_ID = "RULE-COMBAT-004:registered-aim-loss-ranged-attack"
 AIM_LOSS_CONSUMPTION_RULE_ID = "RULE-COMBAT-004:aim-loss-consumption"
 AIM_ATTACK_CONSUMPTION_RULE_ID = "RULE-COMBAT-004:aim-attack-consumption"
+AIM_PREPARED_ATTACK_LOSS_CONSUMPTION_RULE_ID = "RULE-COMBAT-004:aim-prepared-attack-loss-consumption"
 AIM_RANGED_ATTACK_LOSS_CONSUMPTION_RULE_ID = "RULE-COMBAT-004:aim-ranged-attack-loss-consumption"
 AIM_ATTACK_LOSS_CONSUMPTION_RULE_ID = "RULE-COMBAT-004:aim-attack-loss-consumption"
 AIM_CHARGE_LOSS_CONSUMPTION_RULE_ID = "RULE-COMBAT-004:aim-charge-loss-consumption"
@@ -577,8 +580,8 @@ def _validate_charge_loss_preflight(
     if (source.declaration.kind is not CombatActionKind.MANOEUVRE
             or source.declaration.manoeuvre is not ManoeuvreKind.CHARGE):
         raise ValueError("Aim Charge loss requires a Charge follow-up")
-    if charge.attack_skill is not Skill.MELEE:
-        raise ValueError("Aim Charge loss currently requires Melee")
+    if charge.attack_skill not in (Skill.MELEE, Skill.BRAWN):
+        raise ValueError("Aim Charge loss currently requires Melee or Brawn")
     if state.actor_id != source.actor_id or charge.actor_id != source.actor_id:
         raise ValueError("Aim Charge loss belongs to another actor")
     if action_id != source.next_action_id:
@@ -598,6 +601,47 @@ def _validate_charge_loss_preflight(
 
 
 @dataclass(frozen=True, slots=True)
+class AimPreparedAttackLossConsumptionRequest:
+    id: str
+    state: AimConsumptionState
+    follow_up: AimFollowUpResult
+    execution: PreparedRangedWeaponAttackExecutionResult
+    rule_id: str = AIM_PREPARED_ATTACK_LOSS_CONSUMPTION_RULE_ID
+
+    def __post_init__(self) -> None:
+        _validate_non_empty_string(self.id, "Aim prepared Attack loss consumption id")
+        if self.rule_id != AIM_PREPARED_ATTACK_LOSS_CONSUMPTION_RULE_ID:
+            raise ValueError("Aim prepared Attack loss uses an unknown rule")
+        if not isinstance(self.execution, PreparedRangedWeaponAttackExecutionResult):
+            raise TypeError("execution must be a completed PreparedRangedWeaponAttackExecutionResult")
+        _validate_prepared_attack_loss_preflight(self.state, self.follow_up, self.execution.source_request)
+        _validate_attack_loss_execution(self.state, self.follow_up, self.execution.ranged_attack.attack)
+        # The direct result retains its pre-registration history and full preparation trace.
+
+
+@dataclass(frozen=True, slots=True)
+class AimPreparedAttackLossConsumptionResult:
+    request_id: str
+    rule_id: str
+    source_request: AimPreparedAttackLossConsumptionRequest
+    previous_state: AimConsumptionState
+    state: AimConsumptionState
+    applied_rule_ids: tuple[str, ...]
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.source_request, AimPreparedAttackLossConsumptionRequest):
+            raise TypeError("source_request must be an AimPreparedAttackLossConsumptionRequest")
+        source = self.source_request
+        if (self.request_id != source.id or self.rule_id != source.rule_id
+                or self.previous_state != source.state or self.state != _consumed_state(source)):
+            raise ValueError("Aim prepared Attack loss has stale provenance or state")
+        rules = _unique_ids(self.applied_rule_ids, "Aim prepared Attack loss rules")
+        if rules != _attack_loss_rule_ids(source):
+            raise ValueError("Aim prepared Attack loss trace is inconsistent")
+        object.__setattr__(self, "applied_rule_ids", rules)
+
+
+@dataclass(frozen=True, slots=True)
 class AimRangedAttackLossConsumptionRequest:
     id: str
     state: AimConsumptionState
@@ -612,10 +656,7 @@ class AimRangedAttackLossConsumptionRequest:
         if not isinstance(self.execution, RangedWeaponAttackExecutionResult):
             raise TypeError("execution must be a completed RangedWeaponAttackExecutionResult")
         _validate_attack_loss_execution(self.state, self.follow_up, self.execution.attack)
-        if self.follow_up.source_request.attack_skill is not Skill.SHOOTING:
-            raise ValueError("Aim ranged Attack loss requires Shooting")
-        if self.execution.source_request.attack != self.follow_up.attack:
-            raise ValueError("Aim ranged Attack source does not match its follow-up Attack")
+        _validate_ranged_attack_loss_preflight(self.state, self.follow_up, self.execution.source_request)
         # Nested ranged result binds the sole Attack and the exact weapon/reload transition.
 
 
@@ -757,11 +798,143 @@ class RegisteredAimLossAttackExecutionResult:
         return self.registration.state
 
 
+@dataclass(frozen=True, slots=True)
+class RegisteredAimLossPreparedAttackExecutionRequest:
+    id: str
+    state: AimConsumptionState
+    follow_up: AimFollowUpResult
+    prepared_attack: PreparedRangedWeaponAttackExecutionRequest
+    rule_id: str = REGISTERED_AIM_LOSS_PREPARED_ATTACK_RULE_ID
+
+    def __post_init__(self) -> None:
+        _validate_non_empty_string(self.id, "registered Aim loss prepared Attack id")
+        if self.rule_id != REGISTERED_AIM_LOSS_PREPARED_ATTACK_RULE_ID:
+            raise ValueError("unknown registered Aim loss prepared Attack rule")
+        _validate_prepared_attack_loss_preflight(self.state, self.follow_up, self.prepared_attack)
+
+
+@dataclass(frozen=True, slots=True)
+class RegisteredAimLossPreparedAttackExecutionResult:
+    request_id: str
+    rule_id: str
+    source_request: RegisteredAimLossPreparedAttackExecutionRequest
+    registration: AimPreparedAttackLossConsumptionResult
+    applied_rule_ids: tuple[str, ...]
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.source_request, RegisteredAimLossPreparedAttackExecutionRequest):
+            raise TypeError("source_request must be a registered Aim loss prepared Attack request")
+        if not isinstance(self.registration, AimPreparedAttackLossConsumptionResult):
+            raise TypeError("registration must be an AimPreparedAttackLossConsumptionResult")
+        source = self.source_request
+        if (
+            self.request_id != source.id or self.rule_id != source.rule_id
+            or self.registration.source_request.id != f"{source.id}:registration"
+            or self.registration.previous_state != source.state
+            or self.registration.source_request.follow_up != source.follow_up
+            or self.execution.source_request != source.prepared_attack
+        ):
+            raise ValueError("registered Aim loss prepared Attack has stale provenance")
+        rules = _unique_ids(self.applied_rule_ids, "registered Aim loss prepared Attack rules")
+        if rules != _registered_loss_rule_ids(source, self.registration):
+            raise ValueError("registered Aim loss prepared Attack trace is inconsistent")
+        object.__setattr__(self, "applied_rule_ids", rules)
+
+    @property
+    def execution(self) -> PreparedRangedWeaponAttackExecutionResult:
+        return self.registration.source_request.execution
+
+    @property
+    def state(self) -> AimConsumptionState:
+        return self.registration.state
+
+
+def _validate_prepared_attack_loss_preflight(
+    state: AimConsumptionState, follow_up: AimFollowUpResult,
+    prepared_attack: PreparedRangedWeaponAttackExecutionRequest,
+) -> None:
+    if not isinstance(prepared_attack, PreparedRangedWeaponAttackExecutionRequest):
+        raise TypeError("prepared_attack must be a PreparedRangedWeaponAttackExecutionRequest")
+    if prepared_attack.preparation.aim_follow_up is not None:
+        raise ValueError("Aim prepared Attack loss requires the direct no-Aim branch")
+    _validate_ranged_attack_loss_preflight(state, follow_up, prepared_attack.preparation.execution)
+    if prepared_attack.consumed_aim_follow_up_ids != state.consumed_aim_follow_up_ids:
+        raise ValueError("Aim prepared Attack loss has stale follow-up history")
+
+
+@dataclass(frozen=True, slots=True)
+class RegisteredAimLossRangedAttackExecutionRequest:
+    id: str
+    state: AimConsumptionState
+    follow_up: AimFollowUpResult
+    ranged_attack: RangedWeaponAttackExecutionRequest
+    rule_id: str = REGISTERED_AIM_LOSS_RANGED_ATTACK_RULE_ID
+
+    def __post_init__(self) -> None:
+        _validate_non_empty_string(self.id, "registered Aim loss ranged Attack id")
+        if self.rule_id != REGISTERED_AIM_LOSS_RANGED_ATTACK_RULE_ID:
+            raise ValueError("unknown registered Aim loss ranged Attack rule")
+        _validate_ranged_attack_loss_preflight(self.state, self.follow_up, self.ranged_attack)
+
+
+@dataclass(frozen=True, slots=True)
+class RegisteredAimLossRangedAttackExecutionResult:
+    request_id: str
+    rule_id: str
+    source_request: RegisteredAimLossRangedAttackExecutionRequest
+    registration: AimRangedAttackLossConsumptionResult
+    applied_rule_ids: tuple[str, ...]
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.source_request, RegisteredAimLossRangedAttackExecutionRequest):
+            raise TypeError("source_request must be a registered Aim loss ranged Attack request")
+        if not isinstance(self.registration, AimRangedAttackLossConsumptionResult):
+            raise TypeError("registration must be an AimRangedAttackLossConsumptionResult")
+        source = self.source_request
+        if (
+            self.request_id != source.id or self.rule_id != source.rule_id
+            or self.registration.source_request.id != f"{source.id}:registration"
+            or self.registration.previous_state != source.state
+            or self.registration.source_request.follow_up != source.follow_up
+            or self.execution.source_request != source.ranged_attack
+        ):
+            raise ValueError("registered Aim loss ranged Attack has stale provenance")
+        rules = _unique_ids(self.applied_rule_ids, "registered Aim loss ranged Attack rules")
+        if rules != _registered_loss_rule_ids(source, self.registration):
+            raise ValueError("registered Aim loss ranged Attack trace is inconsistent")
+        object.__setattr__(self, "applied_rule_ids", rules)
+
+    @property
+    def execution(self) -> RangedWeaponAttackExecutionResult:
+        return self.registration.source_request.execution
+
+    @property
+    def state(self) -> AimConsumptionState:
+        return self.registration.state
+
+
+def _validate_ranged_attack_loss_preflight(
+    state: AimConsumptionState, follow_up: AimFollowUpResult,
+    ranged_attack: RangedWeaponAttackExecutionRequest,
+) -> None:
+    if not isinstance(ranged_attack, RangedWeaponAttackExecutionRequest):
+        raise TypeError("ranged_attack must be a RangedWeaponAttackExecutionRequest")
+    _validate_attack_loss_preflight(
+        state, follow_up, follow_up.attack if isinstance(follow_up, AimFollowUpResult) else None,
+    )
+    if follow_up.source_request.attack_skill is not Skill.SHOOTING:
+        raise ValueError("Aim ranged Attack loss requires Shooting")
+    if ranged_attack.attack != follow_up.attack:
+        raise ValueError("Aim ranged Attack source does not match its follow-up Attack")
+
+
 def _registered_loss_rule_ids(
     request: RegisteredAimLossAttackExecutionRequest | RegisteredAimLossChargeExecutionRequest
-    | RegisteredAimLossLongChargeExecutionRequest | RegisteredAimLossDifficultTerrainChargeExecutionRequest,
+    | RegisteredAimLossLongChargeExecutionRequest | RegisteredAimLossDifficultTerrainChargeExecutionRequest
+    | RegisteredAimLossRangedAttackExecutionRequest | RegisteredAimLossPreparedAttackExecutionRequest,
     registration: AimAttackLossConsumptionResult | AimChargeLossConsumptionResult
-    | AimLongChargeLossConsumptionResult | AimDifficultTerrainChargeLossConsumptionResult,
+    | AimLongChargeLossConsumptionResult | AimDifficultTerrainChargeLossConsumptionResult
+    | AimRangedAttackLossConsumptionResult | AimPreparedAttackLossConsumptionResult,
 ) -> tuple[str, ...]:
     return tuple(dict.fromkeys((request.rule_id, *registration.applied_rule_ids)))
 
@@ -998,7 +1171,7 @@ def _attack_consumption_rule_ids(request: AimAttackConsumptionRequest) -> tuple[
 def _consumed_state(
     request: AimLossConsumptionRequest | AimAttackLossConsumptionRequest
     | AimChargeLossConsumptionRequest | AimLongChargeLossConsumptionRequest | AimDifficultTerrainChargeLossConsumptionRequest
-    | AimRangedAttackLossConsumptionRequest,
+    | AimRangedAttackLossConsumptionRequest | AimPreparedAttackLossConsumptionRequest,
 ) -> AimConsumptionState:
     return replace(
         request.state,
@@ -1010,7 +1183,7 @@ def _consumed_state(
 def _attack_loss_rule_ids(
     request: AimAttackLossConsumptionRequest | AimChargeLossConsumptionRequest
     | AimLongChargeLossConsumptionRequest | AimDifficultTerrainChargeLossConsumptionRequest
-    | AimRangedAttackLossConsumptionRequest,
+    | AimRangedAttackLossConsumptionRequest | AimPreparedAttackLossConsumptionRequest,
 ) -> tuple[str, ...]:
     return tuple(dict.fromkeys((
         request.rule_id, *request.follow_up.source_request.aim.applied_rule_ids,

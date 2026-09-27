@@ -1,6 +1,14 @@
 from __future__ import annotations
 
 from towr.domain.aim_consumption_models import (
+    RegisteredAimLossPreparedAttackExecutionRequest,
+    RegisteredAimLossPreparedAttackExecutionResult,
+    _validate_prepared_attack_loss_preflight,
+    AimPreparedAttackLossConsumptionRequest,
+    AimPreparedAttackLossConsumptionResult,
+    RegisteredAimLossRangedAttackExecutionRequest,
+    RegisteredAimLossRangedAttackExecutionResult,
+    _validate_ranged_attack_loss_preflight,
     RegisteredAimLossLongChargeExecutionRequest,
     RegisteredAimLossLongChargeExecutionResult,
     _validate_long_charge_loss_preflight,
@@ -48,6 +56,7 @@ from towr.rules.charge_action_execution import execute_charge_action, execute_lo
 from towr.domain.charge_models import DifficultTerrainChargeActionExecutionRequest
 from towr.rules.charge_action_execution import execute_difficult_terrain_charge_action, _validate_difficult_terrain_charge_action
 from towr.rules.difficult_terrain_resolution import resolve_difficult_terrain_traversal
+from towr.rules.ranged_weapon_attack_resolution import execute_ranged_weapon_attack
 from towr.rules.dice import RandomSource
 from towr.rules.kernel import ResolutionDecisionProvider
 from towr.rules.prepared_ranged_weapon_attack_resolution import execute_prepared_ranged_weapon_attack
@@ -266,13 +275,83 @@ def consume_long_charge_lost_aim(request: AimLongChargeLossConsumptionRequest) -
 
 
 def consume_charge_lost_aim(request: AimChargeLossConsumptionRequest) -> AimChargeLossConsumptionResult:
-    """Register LOST from one completed ordinary Melee Charge without executing it.
+    """Register LOST from one completed Medium Melee/Brawn Charge without executing it.
 
     Caller selects the next action and retains the latest history and Charge states.
     """
     if not isinstance(request, AimChargeLossConsumptionRequest):
         raise TypeError("request must be an AimChargeLossConsumptionRequest")
     return AimChargeLossConsumptionResult(
+        request_id=request.id,
+        rule_id=request.rule_id,
+        source_request=request,
+        previous_state=request.state,
+        state=_consumed_state(request),
+        applied_rule_ids=_attack_loss_rule_ids(request),
+    )
+
+
+def execute_registered_aim_loss_prepared_attack(
+    request: RegisteredAimLossPreparedAttackExecutionRequest,
+    rng: RandomSource,
+    *, decisions: ResolutionDecisionProvider | None = None,
+) -> RegisteredAimLossPreparedAttackExecutionResult:
+    """Check history before one direct prepared shot and register its LOST Aim.
+
+    Input snapshots remain immutable; external RNG/decision effects are not undone.
+    """
+    if not isinstance(request, RegisteredAimLossPreparedAttackExecutionRequest):
+        raise TypeError("request must be a RegisteredAimLossPreparedAttackExecutionRequest")
+    _validate_prepared_attack_loss_preflight(request.state, request.follow_up, request.prepared_attack)
+    execution = execute_prepared_ranged_weapon_attack(request.prepared_attack, rng, decisions=decisions)
+    registration = consume_prepared_attack_lost_aim(AimPreparedAttackLossConsumptionRequest(
+        f"{request.id}:registration", request.state, request.follow_up, execution,
+    ))
+    return RegisteredAimLossPreparedAttackExecutionResult(
+        request_id=request.id,
+        rule_id=request.rule_id,
+        source_request=request,
+        registration=registration,
+        applied_rule_ids=_registered_loss_rule_ids(request, registration),
+    )
+
+
+def execute_registered_aim_loss_ranged_attack(
+    request: RegisteredAimLossRangedAttackExecutionRequest,
+    rng: RandomSource,
+    *, decisions: ResolutionDecisionProvider | None = None,
+) -> RegisteredAimLossRangedAttackExecutionResult:
+    """Check history before one profile-aware shot and register its LOST Aim.
+
+    Input snapshots remain immutable; external RNG/decision effects are not undone.
+    """
+    if not isinstance(request, RegisteredAimLossRangedAttackExecutionRequest):
+        raise TypeError("request must be a RegisteredAimLossRangedAttackExecutionRequest")
+    _validate_ranged_attack_loss_preflight(request.state, request.follow_up, request.ranged_attack)
+    execution = execute_ranged_weapon_attack(request.ranged_attack, rng, decisions=decisions)
+    registration = consume_ranged_attack_lost_aim(AimRangedAttackLossConsumptionRequest(
+        f"{request.id}:registration", request.state, request.follow_up, execution,
+    ))
+    return RegisteredAimLossRangedAttackExecutionResult(
+        request_id=request.id,
+        rule_id=request.rule_id,
+        source_request=request,
+        registration=registration,
+        applied_rule_ids=_registered_loss_rule_ids(request, registration),
+    )
+
+
+def consume_prepared_attack_lost_aim(
+    request: AimPreparedAttackLossConsumptionRequest,
+) -> AimPreparedAttackLossConsumptionResult:
+    """Register LOST after one completed direct prepared shot at another target.
+
+    Preserve preparation, profile, weapon/reload and sole Attack without re-execution.
+    Caller retains the latest history and selects the actual next action.
+    """
+    if not isinstance(request, AimPreparedAttackLossConsumptionRequest):
+        raise TypeError("request must be an AimPreparedAttackLossConsumptionRequest")
+    return AimPreparedAttackLossConsumptionResult(
         request_id=request.id,
         rule_id=request.rule_id,
         source_request=request,

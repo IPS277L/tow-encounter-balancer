@@ -2,11 +2,12 @@ from __future__ import annotations
 
 from copy import deepcopy
 from dataclasses import replace
+from itertools import product
 import unittest
 from unittest.mock import Mock, patch
 
 from tests.helpers import SequenceRandom
-from tests.unit.test_k1_aim_resolution import aim_request, attack_execution_request
+from tests.unit.test_k1_aim_resolution import aim_request, attack_execution_request, follow_up_request
 from tests.unit.test_k1_hidden_attack_resolution import execution_request as hidden_request
 from tests.unit.test_k1_move_quietly_resolution import (
     move_quietly_declaration, request as quietly_request, reserve_action,
@@ -24,8 +25,12 @@ from towr.domain.hidden_continuation_models import (
 )
 from towr.domain.hidden_give_ground_models import HiddenGiveGroundExecutionRequest
 from towr.domain.hidden_lifecycle_models import HiddenLifecycleApplicationRequest, HiddenLifecycleState
-from towr.domain.hidden_lifecycle_aim_models import HiddenLifecycleAimAttackExecutionRequest
-from towr.domain.registered_hidden_aim_models import RegisteredHiddenAimAttackExecutionRequest
+from towr.domain.hidden_lifecycle_aim_models import (
+    HiddenLifecycleAimAttackExecutionRequest, HiddenLifecycleAimLossAttackExecutionRequest,
+)
+from towr.domain.registered_hidden_aim_models import (
+    RegisteredHiddenAimAttackExecutionRequest, RegisteredHiddenAimLossAttackExecutionRequest,
+)
 from towr.domain.hiding_position_models import HidingPositionState, RegisteredHiddenAttackExecutionRequest
 from towr.domain.move_quietly_models import MoveQuietlyHidingChoice, MoveQuietlyOutcome
 from towr.domain.movement_models import FreeMovementRequest, MovementSpeed
@@ -34,7 +39,8 @@ from towr.domain.prepared_ranged_weapon_attack_models import PreparedRangedWeapo
 from towr.domain.ranged_weapon_profiles import RangedWeaponId
 from towr.domain.magic_models import WizardMagicState
 from towr.domain.recover_models import (
-    RecoverActionExecutionRequest, RecoverConditionRemovalChoice, RecoverMode, RecoverStandardChoice,
+    RecoverActionExecutionRequest, RecoverConditionRemovalChoice, RecoverConditionTarget,
+    RecoverMode, RecoverStandardChoice,
 )
 from towr.domain.reload_models import (
     ReloadActionExecutionRequest, create_initial_ranged_weapon_reload_state, reload_approach_id,
@@ -46,9 +52,13 @@ from towr.domain.turn_models import (
     CombatTurnEndRequest, CombatTurnStartRequest, ImproviseKind,
 )
 from towr.rules import hidden_lifecycle_resolution as lifecycle
+from towr.rules import hiding_position_resolution as hiding_resolution
+from towr.rules import registered_hidden_aim_resolution as joint_resolution
 from towr.rules.aim_resolution import execute_aim_action, resolve_aim_follow_up
 from towr.rules.aim_consumption_resolution import consume_lost_aim
-from towr.rules.hidden_lifecycle_aim_resolution import execute_hidden_lifecycle_aim_attack
+from towr.rules.hidden_lifecycle_aim_resolution import (
+    execute_hidden_lifecycle_aim_attack, execute_hidden_lifecycle_aim_loss_attack,
+)
 from towr.rules.kernel import resolve_kernel_attack
 from towr.rules.free_movement_resolution import resolve_free_movement
 from towr.rules.hiding_position_resolution import prepare_move_quietly_with_hiding_positions
@@ -809,6 +819,244 @@ class K1HiddenRecoveryCycleTests(unittest.TestCase):
         self.assertEqual(replay_rng.mock_calls, [])
 
         return final
+
+    def test_longbow_hidden_lost_new_cover_fresh_aim_applied(self):
+        self.check_hidden_aim_loss_cycle(RangedWeaponId.LONGBOW)
+
+    def test_crossbow_hidden_lost_reload_new_cover_fresh_aim_applied(self):
+        self.check_hidden_aim_loss_cycle(RangedWeaponId.CROSSBOW)
+
+    def check_hidden_aim_loss_cycle(self, weapon_id):
+        for first_bonus, fresh_bonus, first_hit, second_hit in product((0, 2), (0, 2), (False, True), (False, True)):
+            with self.subTest(weapon=weapon_id, first_bonus=first_bonus, fresh_bonus=fresh_bonus,
+                              first_hit=first_hit, second_hit=second_hit):
+                self.complete_hidden_aim_loss_cycle(weapon_id, first_bonus, fresh_bonus, first_hit, second_hit)
+
+    def complete_hidden_aim_loss_cycle(self, weapon_id, first_bonus, fresh_bonus, first_hit, second_hit):
+        history = AimConsumptionState("hero", ("aim:older",), ("follow:older",))
+        initial = HiddenLifecycleState(
+            HidingPositionState("hero", ("hiding:older",), ("attack:older",)),
+            consumed_opportunity_ids=("hidden:older",))
+        weapon = create_initial_ranged_weapon_reload_state("hero:weapon", weapon_id)
+        before = deepcopy((initial, history, weapon))
+        # Stay in zone:a: both enemies are outside Close Range.
+        pending = prepare_move_quietly_with_hiding_positions(initial.hiding_positions, quietly_request(
+            include_movement=False, hiding_choice=MoveQuietlyHidingChoice.HIDE_IN_CURRENT_ZONE,
+            hiding_position_id="hiding:tree"))
+        hidden = lifecycle.execute_hidden_lifecycle_move_quietly(initial, pending, SequenceRandom([1, 10, 10]))
+        spatial = hidden.completed.spatial_state
+        conditions = pending.actor_conditions
+
+        def aim_while_hidden(current, turn, scene, target, identifier, bonus):
+            reserved = reserve_action(turn, CombatActionDeclaration(CombatActionKind.AIM))
+            pending_aim = replace(aim_request(reserved, target_id=target), id=identifier,
+                awareness_test=TestRequest(f"{identifier}:awareness", TestProfile(3, 5)))
+            rng = SequenceRandom([1] * bonus + [10] * (3 - bonus) + [7])
+            aimed = execute_aim_action(pending_aim, rng)
+            self.assertEqual(rng.randint(1, 10), 7)
+            continued = lifecycle.continue_hidden_lifecycle(current, MoveQuietlyHiddenAttackContinuationRequest(
+                f"{identifier}:continue", current.active_move_quietly, current.opportunity, aimed.slot.execution,
+                scene, current.opportunity.hiding_position_id, False, current.consumed_opportunity_ids))
+            self.assertIs(continued.state, current)
+            return aimed
+
+        def prepare_shot(turn, current_weapon, current_history, identifier, cycle, aim=None, target=None):
+            reserved = reserve_action(turn, CombatActionDeclaration(CombatActionKind.ATTACK))
+            attack = attack_execution_request(state=reserved, target_id="guard", attacker_profile=TestProfile(2, 5))
+            kernel = attack.kernel_request
+            attack = replace(attack, id=identifier, kernel_request=replace(kernel, id=f"{identifier}:kernel",
+                target_state=kernel.target_state if target is None else target,
+                attack=replace(kernel.attack, id=f"{identifier}:test",
+                    attacker_test=replace(kernel.attack.attacker_test, id=f"{identifier}:shooting"),
+                    impact_spec=replace(kernel.attack.impact_spec, resilience=ResilienceProfile(20)))))
+            raw = replace(preparation_request(weapon_id, attack=attack, aim=aim,
+                next_cycle=cycle if weapon_id is RangedWeaponId.CROSSBOW else None),
+                id=f"{identifier}:prepare", weapon_state=current_weapon)
+            return prepare_ranged_weapon_attack_with_aim_history(current_history, raw)
+
+        def registered(preparation, current, current_history, scene, identifier):
+            hidden_attack = replace(hidden_request(
+                move_quietly=current.active_move_quietly, attack=preparation.execution.attack,
+                spatial_state=scene, target_id="guard", hiding_position_id=current.opportunity.hiding_position_id,
+                target_is_unaware=True, consumed=current.consumed_opportunity_ids), id=f"{identifier}:hidden")
+            return RegisteredHiddenAttackExecutionRequest(f"{identifier}:registered", current.hiding_positions,
+                PreparedHiddenRangedAttackExecutionRequest(f"{identifier}:combined", hidden_attack,
+                    PreparedRangedWeaponAttackExecutionRequest(f"{identifier}:prepared", preparation,
+                        current_history.consumed_aim_follow_up_ids)))
+
+        turn = next_hero_round(hidden.completed.round_state, spatial)
+        spatial = start_next_spatial_round(spatial)
+        first_aim = aim_while_hidden(hidden.state, turn, spatial, "scout", "aim:lost", first_bonus)
+        turn = next_hero_round(first_aim.round_state, spatial)
+        spatial = start_next_spatial_round(spatial)
+        first_preparation = prepare_shot(turn, weapon, history, "attack:lost", "hero:reload:1")
+        follow = resolve_aim_follow_up(replace(follow_up_request(first_aim,
+            attack=first_preparation.execution.attack, skill=Skill.SHOOTING), id="follow:lost"))
+        self.assertIs(follow.outcome, AimFollowUpOutcome.LOST)
+        self.assertIsNone(follow.modifier)
+        self.assertIsNone(first_preparation.aim_follow_up)
+        source = HiddenLifecycleAimLossAttackExecutionRequest("lifecycle:lost", hidden.state,
+            RegisteredHiddenAimLossAttackExecutionRequest("joint:lost", history, follow,
+                registered(first_preparation, hidden.state, history, spatial, "attack:lost")))
+        source_before = deepcopy(source)
+
+        with (
+            patch("towr.rules.attack_action_execution.resolve_kernel_attack", wraps=resolve_kernel_attack) as kernel,
+            patch.object(hiding_resolution, "execute_prepared_hidden_ranged_attack",
+                         wraps=execute_prepared_hidden_ranged_attack) as execute,
+            patch.object(hiding_resolution, "register_revealed_hiding_position",
+                         wraps=hiding_resolution.register_revealed_hiding_position) as register_cover,
+            patch.object(joint_resolution, "consume_prepared_attack_lost_aim",
+                         wraps=joint_resolution.consume_prepared_attack_lost_aim) as register_lost,
+            patch.object(joint_resolution, "register_aim_ranged_attack",
+                         wraps=joint_resolution.register_aim_ranged_attack) as register_applied,
+            patch("towr.rules.hidden_lifecycle_aim_resolution.apply_hidden_lifecycle_result",
+                  wraps=lifecycle.apply_hidden_lifecycle_result) as apply,
+        ):
+            rng = SequenceRandom([1 if first_hit else 10, 10, 7])
+            first = execute_hidden_lifecycle_aim_loss_attack(source, rng)
+            self.assertEqual(rng.randint(1, 10), 7)
+            first_shot = first.execution.ranged_attack
+            kernel.assert_called_once()
+            execute.assert_called_once_with(source.attack.attack.attack, rng, decisions=None)
+            register_cover.assert_called_once()
+            register_lost.assert_called_once_with(first.attack.aim_registration.source_request)
+            register_applied.assert_not_called()
+            apply.assert_called_once_with(first.lifecycle.source_request)
+            self.assertIs(first.lifecycle.completed, first.attack.hidden_attack)
+            self.assertIs(first.attack.aim_registration.source_request.execution, first.execution.prepared_attack)
+            self.assertEqual(first_shot.attack.resolution.attack.outcome, AttackOutcome.HIT if first_hit else AttackOutcome.MISS)
+            self.assertEqual(first_shot.attack.resolution.attack.attacker_test.trace.rolled_dice, 2)
+            self.assertIsNone(first_shot.attack.resolution.attack.defender_test)
+            self.assertEqual(first.execution.consumed_aim_follow_up_ids, history.consumed_aim_follow_up_ids)
+            self.assertEqual(first.aim_state.consumed_aim_source_ids, ("aim:older", first_aim.request_id))
+            self.assertEqual(first.aim_state.consumed_aim_follow_up_ids, ("follow:older", follow.request_id))
+            self.assertIsNone(first.state.opportunity)
+            self.assertEqual(first.state.consumed_opportunity_ids, ("hidden:older", hidden.state.opportunity.id))
+            self.assertEqual(first.state.hiding_positions.used_hiding_position_ids, ("hiding:older", "hiding:tree"))
+            first_before = deepcopy(first)
+
+            replay_rng = Mock()
+            with self.assertRaises(ValueError):
+                execute_hidden_lifecycle_aim_loss_attack(replace(source, id="replay", state=first.state), replay_rng)
+            with self.assertRaises(ValueError):
+                replace(source.attack, id="joint:replay", aim_state=first.aim_state)
+            with self.assertRaises(ValueError):
+                HiddenLifecycleApplicationRequest("reactivate:old", first.state, hidden.completed)
+            self.assertEqual(replay_rng.mock_calls, [])
+
+            # Complete the struck guard's real turn, carrying its returned Conditions into Recover.
+            target = first_shot.attack.resolution.target_state
+            self.assertEqual(target.conditions.has(Condition.STAGGERED), first_hit)
+            turn = finish_turn(first_shot.attack.state, spatial)
+            turn = start_combat_turn(CombatTurnStartRequest("scout:after-shot", turn, "scout")).state
+            turn = finish_turn(turn, spatial)
+            turn = start_combat_turn(CombatTurnStartRequest("guard:after-shot", turn, "guard")).state
+            turn = reserve_combat_action_slot(CombatActionSlotRequest("guard:recover-slot", turn, "guard",
+                CombatActionDeclaration(CombatActionKind.RECOVER), ActionSlotGrant.STANDARD)).state
+            recovered = execute_recover_action(RecoverActionExecutionRequest(
+                "guard:recover", turn, "guard", target.conditions, has_enemy_in_zone(spatial, "guard"), 1,
+                RecoverMode.STANDARD, RecoverStandardChoice(WizardMagicState(),
+                    staggered_target=(RecoverConditionTarget("guard", target.conditions, None)
+                                      if target.conditions.has(Condition.STAGGERED) else None))),
+                SequenceRandom([]))
+            self.assertIs(recovered.source_request.actor_conditions, target.conditions)
+            self.assertEqual(len(recovered.resolution.condition_changes), int(first_hit))
+            for change in recovered.resolution.condition_changes:
+                self.assertEqual(change.entity_id, "guard")
+                target = replace(target, conditions=change.conditions)
+            self.assertEqual(target.conditions, ConditionState())
+            turn, current_weapon, history = recovered.round_state, first_shot.weapon_state, first.aim_state
+
+            if weapon_id is RangedWeaponId.CROSSBOW:
+                reloaded, spatial, _, reloads = self.reload_crossbow(current_weapon, turn, spatial, conditions)
+                turn, current_weapon = reloaded.round_state, reloaded.state
+                self.assertEqual([r.state.exacting.accumulated_successes for r in reloads], [0, 1, 2])
+            else:
+                self.assertIs(current_weapon, weapon)
+            fresh_hidden = self.hide_again(first.state, turn, spatial, conditions, request_id="quietly:fresh")
+            spatial = fresh_hidden.completed.spatial_state
+            self.assertEqual(fresh_hidden.completed.source_request.used_hiding_position_ids,
+                             first.state.hiding_positions.used_hiding_position_ids)
+            turn = next_hero_round(fresh_hidden.completed.round_state, spatial)
+            spatial = start_next_spatial_round(spatial)
+            fresh_aim = aim_while_hidden(fresh_hidden.state, turn, spatial, "guard", "aim:fresh", fresh_bonus)
+            turn = next_hero_round(fresh_aim.round_state, spatial)
+            spatial = start_next_spatial_round(spatial)
+            preparation = prepare_shot(turn, current_weapon, history, "attack:fresh", "hero:reload:2",
+                                       aim=fresh_aim, target=target)
+            self.assertIs(preparation.execution.attack.kernel_request.target_state, target)
+            self.assertIs(preparation.source_request.weapon_state, current_weapon)
+            self.assertIs(preparation.aim_follow_up.outcome, AimFollowUpOutcome.APPLIED_TO_RANGED_ATTACK)
+            # A new preparation ID cannot revive the old Aim; lower-level chain rollback also fails.
+            expired_attack = replace(preparation.source_request.attack, id="attack:old-aim:new", target_id="scout",
+                kernel_request=replace(preparation.source_request.attack.kernel_request,
+                    id="kernel:old-aim:new", target_id="scout"))
+            with self.assertRaisesRegex(ValueError, "source was already consumed"):
+                prepare_ranged_weapon_attack_with_aim_history(history,
+                    replace(preparation.source_request, id="prepare:old-aim:new", aim=first_aim, attack=expired_attack))
+            prepared_hidden = registered(preparation, fresh_hidden.state, history, spatial, "attack:fresh")
+            with self.assertRaises(ValueError):
+                RegisteredHiddenAimAttackExecutionRequest("joint:stale-prefix", history,
+                    replace(prepared_hidden, attack=replace(prepared_hidden.attack,
+                        prepared_attack=replace(prepared_hidden.attack.prepared_attack,
+                            consumed_aim_follow_up_ids=source.attack.aim_state.consumed_aim_follow_up_ids))))
+            kernel.assert_called_once()
+            second_source = HiddenLifecycleAimAttackExecutionRequest("lifecycle:fresh", fresh_hidden.state,
+                RegisteredHiddenAimAttackExecutionRequest("joint:fresh", history, prepared_hidden))
+            second_before = deepcopy(second_source)
+            rng = SequenceRandom([1 if second_hit else 10, *([10] * (1 + fresh_bonus)), 7])
+            second = execute_hidden_lifecycle_aim_attack(second_source, rng)
+            self.assertEqual(rng.randint(1, 10), 7)
+            self.assertEqual(kernel.call_count, 2)
+            self.assertEqual(execute.call_count, 2)
+            self.assertEqual(register_cover.call_count, 2)
+            register_lost.assert_called_once()
+            register_applied.assert_called_once_with(second.attack.aim_registration.source_request)
+            self.assertEqual(apply.call_count, 2)
+            self.assertIs(second.lifecycle.completed, second.attack.hidden_attack)
+            shot = second.execution.ranged_attack
+            self.assertEqual(shot.attack.resolution.attack.outcome, AttackOutcome.HIT if second_hit else AttackOutcome.MISS)
+            self.assertEqual(shot.attack.resolution.attack.attacker_test.trace.rolled_dice, 2 + fresh_bonus)
+            self.assertIsNone(shot.attack.resolution.attack.defender_test)
+            self.assertEqual(second.aim_state.consumed_aim_source_ids,
+                             (*history.consumed_aim_source_ids, fresh_aim.request_id))
+            self.assertEqual(second.aim_state.consumed_aim_follow_up_ids,
+                             (*history.consumed_aim_follow_up_ids, preparation.aim_follow_up.request_id))
+            self.assertEqual(second.execution.consumed_aim_follow_up_ids, second.aim_state.consumed_aim_follow_up_ids)
+            self.assertEqual(second.state.consumed_opportunity_ids,
+                             (*first.state.consumed_opportunity_ids, fresh_hidden.state.opportunity.id))
+            self.assertEqual(second.state.hiding_positions.used_hiding_position_ids,
+                             ("hiding:older", "hiding:tree", "hiding:rock"))
+            self.assertEqual(second.state.hiding_positions.consumed_attack_execution_ids,
+                             ("attack:older", "attack:lost", "attack:fresh"))
+            self.assertIsNone(second.state.opportunity)
+            for result, prepared in ((first, first_preparation), (second, preparation)):
+                slots = result.execution.ranged_attack.attack.state.active_turn.action_slots
+                self.assertEqual(len(slots), 1)
+                self.assertTrue(slots[0].executed)
+                self.assertEqual(slots[0].execution.id, prepared.execution.attack.id)
+                self.assertTrue(set(prepared.applied_rule_ids) <= set(result.applied_rule_ids))
+                self.assertTrue(set(result.attack.applied_rule_ids) <= set(result.applied_rule_ids))
+                self.assertTrue(set(result.lifecycle.applied_rule_ids) <= set(result.applied_rule_ids))
+            self.assertEqual(first_shot.attack.state.round_number, 3)
+            self.assertEqual(shot.attack.state.round_number, 9 if weapon_id is RangedWeaponId.CROSSBOW else 6)
+            if weapon_id is RangedWeaponId.CROSSBOW:
+                self.assertFalse(shot.weapon_state.loaded)
+                self.assertEqual(shot.weapon_state.reload_cycle_ids, ("hero:reload:1", "hero:reload:2"))
+                self.assertEqual(shot.weapon_state.exacting.accumulated_successes, 0)
+                self.assertEqual(shot.weapon_state.exacting.contributions, ())
+            else:
+                self.assertIs(shot.weapon_state, weapon)
+            with self.assertRaises(ValueError):
+                execute_hidden_lifecycle_aim_attack(replace(second_source, state=second.state), replay_rng)
+            with self.assertRaises(ValueError):
+                HiddenLifecycleApplicationRequest("reapply:fresh", second.state, second.attack.hidden_attack)
+            self.assertEqual(replay_rng.mock_calls, [])
+            self.assertEqual(source, source_before)
+            self.assertEqual(first, first_before)
+            self.assertEqual(second_source, second_before)
+        self.assertEqual((initial, source.attack.aim_state, weapon), before)
 
     def test_failed_recover_keeps_broken_and_completed_slot_without_restoring_opportunity(self):
         first, lost, fled, recovered = self.reach_recovery((10, 10))

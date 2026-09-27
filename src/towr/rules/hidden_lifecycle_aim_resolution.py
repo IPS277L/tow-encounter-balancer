@@ -3,6 +3,9 @@ from __future__ import annotations
 from towr.domain.hidden_lifecycle_aim_models import (
     HiddenLifecycleAimAttackExecutionRequest,
     HiddenLifecycleAimAttackExecutionResult,
+    HiddenLifecycleAimLossAttackExecutionRequest,
+    HiddenLifecycleAimLossAttackExecutionResult,
+    _validate_lifecycle_aim_loss_attack,
     _lifecycle_aim_rule_ids,
     _validate_lifecycle_aim_attack,
 )
@@ -10,7 +13,10 @@ from towr.domain.hidden_lifecycle_models import HiddenLifecycleApplicationReques
 from towr.rules.dice import RandomSource
 from towr.rules.hidden_lifecycle_resolution import apply_hidden_lifecycle_result
 from towr.rules.kernel import ResolutionDecisionProvider
-from towr.rules.registered_hidden_aim_resolution import execute_registered_hidden_aim_attack
+from towr.rules.registered_hidden_aim_resolution import (
+    execute_registered_hidden_aim_attack,
+    execute_registered_hidden_aim_loss_attack,
+)
 
 
 def execute_hidden_lifecycle_aim_attack(
@@ -32,6 +38,34 @@ def execute_hidden_lifecycle_aim_attack(
         f"{request.id}:hidden-lifecycle", request.state, attack.hidden_attack,
     ))
     return HiddenLifecycleAimAttackExecutionResult(
+        request_id=request.id,
+        rule_id=request.rule_id,
+        source_request=request,
+        attack=attack,
+        lifecycle=lifecycle,
+        applied_rule_ids=_lifecycle_aim_rule_ids(request, attack, lifecycle),
+    )
+
+
+def execute_hidden_lifecycle_aim_loss_attack(
+    request: HiddenLifecycleAimLossAttackExecutionRequest,
+    rng: RandomSource,
+    *,
+    decisions: ResolutionDecisionProvider | None = None,
+) -> HiddenLifecycleAimLossAttackExecutionResult:
+    """Execute one hidden shot with LOST Aim and apply its registered result to lifecycle.
+
+    Input snapshots are immutable; RNG and decision-provider effects are not undone.
+    Caller retains the returned lifecycle and Aim histories.
+    """
+    if not isinstance(request, HiddenLifecycleAimLossAttackExecutionRequest):
+        raise TypeError("request must be a HiddenLifecycleAimLossAttackExecutionRequest")
+    _validate_lifecycle_aim_loss_attack(request.state, request.attack)
+    attack = execute_registered_hidden_aim_loss_attack(request.attack, rng, decisions=decisions)
+    lifecycle = apply_hidden_lifecycle_result(HiddenLifecycleApplicationRequest(
+        f"{request.id}:hidden-lifecycle", request.state, attack.hidden_attack,
+    ))
+    return HiddenLifecycleAimLossAttackExecutionResult(
         request_id=request.id,
         rule_id=request.rule_id,
         source_request=request,

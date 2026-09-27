@@ -1,11 +1,17 @@
 """Domain definitions independent from battle execution and adapters."""
 
 from towr.domain.hidden_lifecycle_aim_models import (
+    HIDDEN_LIFECYCLE_AIM_LOSS_ATTACK_RULE_ID,
+    HiddenLifecycleAimLossAttackExecutionRequest,
+    HiddenLifecycleAimLossAttackExecutionResult,
     HIDDEN_LIFECYCLE_AIM_ATTACK_RULE_ID,
     HiddenLifecycleAimAttackExecutionRequest,
     HiddenLifecycleAimAttackExecutionResult,
 )
 from towr.domain.registered_hidden_aim_models import (
+    REGISTERED_HIDDEN_AIM_LOSS_ATTACK_RULE_ID,
+    RegisteredHiddenAimLossAttackExecutionRequest,
+    RegisteredHiddenAimLossAttackExecutionResult,
     REGISTERED_HIDDEN_AIM_ATTACK_RULE_ID,
     RegisteredHiddenAimAttackExecutionRequest,
     RegisteredHiddenAimAttackExecutionResult,
@@ -45,6 +51,15 @@ from towr.domain.action_execution_models import (
     SkippedCastingTestAfterActionResult,
 )
 from towr.domain.aim_consumption_models import (
+    REGISTERED_AIM_LOSS_PREPARED_ATTACK_RULE_ID,
+    RegisteredAimLossPreparedAttackExecutionRequest,
+    RegisteredAimLossPreparedAttackExecutionResult,
+    AIM_PREPARED_ATTACK_LOSS_CONSUMPTION_RULE_ID,
+    AimPreparedAttackLossConsumptionRequest,
+    AimPreparedAttackLossConsumptionResult,
+    REGISTERED_AIM_LOSS_RANGED_ATTACK_RULE_ID,
+    RegisteredAimLossRangedAttackExecutionRequest,
+    RegisteredAimLossRangedAttackExecutionResult,
     REGISTERED_AIM_LOSS_LONG_CHARGE_RULE_ID,
     RegisteredAimLossLongChargeExecutionRequest,
     RegisteredAimLossLongChargeExecutionResult,
@@ -901,6 +916,18 @@ from towr.domain.turn_models import (
 )
 
 __all__ = [
+    "REGISTERED_HIDDEN_AIM_LOSS_ATTACK_RULE_ID",
+    "RegisteredHiddenAimLossAttackExecutionRequest",
+    "RegisteredHiddenAimLossAttackExecutionResult",
+    "REGISTERED_AIM_LOSS_PREPARED_ATTACK_RULE_ID",
+    "RegisteredAimLossPreparedAttackExecutionRequest",
+    "RegisteredAimLossPreparedAttackExecutionResult",
+    "AIM_PREPARED_ATTACK_LOSS_CONSUMPTION_RULE_ID",
+    "AimPreparedAttackLossConsumptionRequest",
+    "AimPreparedAttackLossConsumptionResult",
+    "REGISTERED_AIM_LOSS_RANGED_ATTACK_RULE_ID",
+    "RegisteredAimLossRangedAttackExecutionRequest",
+    "RegisteredAimLossRangedAttackExecutionResult",
     "ANATOMY_INFECTION_ALLOCATION_RULE_ID",
     "ANATOMY_INFECTION_RECALL_RULE_ID",
     "AUTOMATIC_INFECTION_SUCCESS_APPLICATION_RULE_ID",
@@ -938,6 +965,9 @@ __all__ = [
     "AimAttackLossConsumptionResult",
     "REGISTERED_AIM_RANGED_ATTACK_RULE_ID",
     "REGISTERED_HIDDEN_AIM_ATTACK_RULE_ID",
+    "HIDDEN_LIFECYCLE_AIM_LOSS_ATTACK_RULE_ID",
+    "HiddenLifecycleAimLossAttackExecutionRequest",
+    "HiddenLifecycleAimLossAttackExecutionResult",
     "HIDDEN_LIFECYCLE_AIM_ATTACK_RULE_ID",
     "HiddenLifecycleAimAttackExecutionRequest",
     "HiddenLifecycleAimAttackExecutionResult",
