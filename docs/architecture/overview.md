@@ -145,3 +145,5 @@ execute_npc_give_ground объединяет общий pending/completed prefli
 npc_round_advance_models.py и npc_round_advance.py согласуют переход combat/spatial snapshots без battle aggregate. Новый request задаёт следующий состав и порядок; result сохраняет источник, оба перехода и continuation view прежнего roster/history. [ADR-0010](../decisions/ADR-0010-single-minion-round.md#явный-переход-к-следующему-раунду-m2).
 
 Общая проверка actor Broken/Defenceless для Minion Attack находится в domain/npc_roster_attack_models.py; её используют controller и existing request/executor validation без циклических зависимостей. Нового состояния или action policy нет. [ADR-0009](../decisions/ADR-0009-npc-attack-selection-policy.md#запрет-attack-по-conditions-атакующего).
+
+NpcRoundsRequest/Result в domain/npc_rounds_models.py и run_npc_rounds в engine/npc_rounds_runner.py соединяют прежние round/advance adapters. Domain хранит проверенный журнал и views последних snapshots; engine передаёт spatial context кандидатам и получает явный план следующего раунда. Состояние боя не переносится в новый aggregate. [ADR-0011](../decisions/ADR-0011-bounded-minion-rounds.md).

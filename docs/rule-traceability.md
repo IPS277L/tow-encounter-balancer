@@ -165,3 +165,15 @@
 | Правила | Источники | Реализация | Проверки | Граница |
 | --- | --- | --- | --- | --- |
 | RULE-HEALTH-008; RULE-COMBAT-015; ADR-0009 | BOOK-PLAYER-GUIDE 1.4, Rules / Conditions / Broken, стр. 122; Defenceless, стр. 123; Giving Ground, стр. 119. | npc_attack_blocking_condition; validate_npc_roster_attack; select_npc_attack | test_m2_npc_attack_conditions.py — 6 новых unit; 3 прежних integration в test_m2_npc_give_ground_cycle.py/test_m2_npc_give_ground_execution_cycle.py обновлены | Broken/Defenceless и сочетание, обе стороны, pending priority, direct guards до RNG/receipt, unexecuted slot, exact snapshot handoff, enemy-Zone Give Ground → Broken → typed отказ без фильтра provider; без автоматического Run/Recover |
+
+## Ограниченный многораундовый прогон M2
+
+| Правила | Источники | Реализация | Проверки | Граница |
+| --- | --- | --- | --- | --- |
+| RULE-COMBAT-001,015; RULE-NPC-002; ADR-0011 | BOOK-PLAYER-GUIDE 1.4, Rules / Combat, стр. 112; Giving Ground, стр. 119; BOOK-GM-GUIDE 1.1, Allies and Antagonists / Minions, стр. 91. | npc_rounds_models.py; npc_rounds_runner.py; прежние round/advance adapters | test_m2_npc_rounds_runner.py — 10 unit; test_m2_npc_rounds_cycle.py — 4 integration | Два раунда, обе стороны, exact source chain, лимит включая current, explicit следующий состав/порядок, свежий spatial, сохранение histories/Conditions, pending/blocked/defeated и resume без повторных RNG/receipt; без автоматического выбора последствий или победителя |
+
+## Возобновление многораундового M2 после внешних последствий
+
+| Правила | Источники | Реализация | Проверки | Граница |
+| --- | --- | --- | --- | --- |
+| RULE-COMBAT-001,015; RULE-NPC-002; ADR-0011 | BOOK-PLAYER-GUIDE 1.4, Rules / Combat, стр. 112; Giving Ground, стр. 119; BOOK-GM-GUIDE 1.1, Allies and Antagonists / Minions, стр. 91. | Existing run_npc_rounds, atomic Give Ground, defeat acknowledgement/exclusion, round advance | test_m2_npc_rounds_follow_up_cycle.py — 1 integration / 6 сочетаний | Обе стороны × три dispositions; 6 kernel/receipts, 36 RNG, одно движение/acknowledgement/advance; три реальные histories, обе pending остановки без callbacks/RNG, свежий spatial после resume/advance, replay после второго раунда. Без ручной очистки pending или новых production API |
