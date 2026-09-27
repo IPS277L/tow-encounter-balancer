@@ -99,3 +99,9 @@
 | Правила | Источник | Статус | Реализация | Проверка | Граница |
 |---|---|---|---|---|---|
 | RULE-NPC-006..008,010; RULE-COMBAT-005..009; RULE-HEALTH-001..006; RULE-FATE-003:near-miss | BOOK-GM-GUIDE 1.1, Allies and Antagonists / Types of NPC, стр. 91–92; Understanding NPC Profiles, стр. 93; Brigands & Footpads, стр. 97; BOOK-PLAYER-GUIDE 1.4, Rules / Near Miss, стр. 112; Attack Tests, стр. 118; Failed/Successful Attacks, стр. 119; Wounds & Conditions, стр. 121; Wounds Table / Stomach blow (6), стр. 190. | verified integration для заявленного среза | npc_attack_preparation.py; protection_preparation.py; kernel.py; wound_lifecycle_resolution.py | tests/integration/test_k1_npc_attack_kernel_cycle.py — 3 теста / 44 сочетания | Brigand Axe/Warbow; supplied target profiles; Player/Champion accepted Wound, Player Near Miss, Minion/Brute profile injury. Preparation trace хранит caller; эффект только после completion. Полный NPC catalog/Monstrosity integration/автоматические facts не заявлены |
+
+## Состав NPC M2
+
+| Правила | Источник | Статус | Контракт | Проверка | Граница |
+|---|---|---|---|---|---|
+| RULE-NPC-001..004,006..008,010; RULE-COMBAT-002 | BOOK-GM-GUIDE 1.1, Allies and Antagonists / Types of NPC, стр. 91–92; Understanding NPC Profiles, стр. 93; Brigands & Footpads, стр. 97; BOOK-PLAYER-GUIDE 1.4, Rules / Combat, стр. 112; The Battlefield, стр. 114; Attack Tests, стр. 118. | implemented data boundary | domain/npc_roster_models.py; ADR-0008 | test_m2_npc_roster.py — 10 unit; test_m2_npc_roster_preparation.py — 3 integration | Numeric Minion/Brute/Champion definitions и actor states; Attack/Protection/turn projections. Текущие modifiers/equipment/awareness и action eligibility внешние; нет нового игрового правила или scheduler |

@@ -14,6 +14,7 @@
 - [`architecture/overview.md`](architecture/overview.md) — слои, зависимости и основные модели;
 - [`architecture/resolution-kernel.md`](architecture/resolution-kernel.md) — контракт и фазы книжного ядра K1;
 - [`decisions/`](decisions/) — журнал архитектурных решений;
+- [`decisions/ADR-0008-npc-roster-boundary.md`](decisions/ADR-0008-npc-roster-boundary.md) — контракт состава NPC M2, проекции в K1 и явные ограничения;
 - [`roadmap.md`](roadmap.md) — последовательность этапов;
 - [`project-status.md`](project-status.md) — актуальное состояние и следующий шаг;
 - [`open-questions.md`](open-questions.md) — вопросы, требующие решения владельца правил;
