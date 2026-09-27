@@ -8,6 +8,7 @@
 - [`rules/`](rules/) — нормализованные правила, извлечённые из книги и согласованные с пользователем;
 - [`lore/`](lore/) — отделённый от механики контекст мира;
 - [`game-rules.md`](game-rules.md) — правила существующего упрощённого прототипа;
+- [`audits/k1-readiness.md`](audits/k1-readiness.md) — матрица готовности K1, критерии перехода к M2 и следующий implementation-срез;
 - [`rule-traceability.md`](rule-traceability.md) — книга → правило → код → тест;
 - [`contradictions.md`](contradictions.md) — расхождения и неоднозначности источника;
 - [`architecture/overview.md`](architecture/overview.md) — слои, зависимости и основные модели;
