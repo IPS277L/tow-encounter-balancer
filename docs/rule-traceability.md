@@ -193,3 +193,15 @@
 | Семантика | Источники | Реализация | Проверки | Граница |
 | --- | --- | --- | --- | --- |
 | RULE-COMBAT-001, RULE-NPC-002, Giving Ground; техническая непрерывность ADR-0011 | BOOK-PLAYER-GUIDE 1.4, Rules / Combat, стр. 112; Giving Ground, стр. 119; BOOK-GM-GUIDE 1.1, Allies and Antagonists / Minions, стр. 91 | npc_rounds_chain_summary_models.py; npc_rounds_reporting.py | test_m2_npc_rounds_chain_summary.py — 7 unit; расширенный mixed follow-up integration | Exact current/spatial, реальные 1/1/4 Attack, explicit dispositions с sources; без исполнения, RNG, winner/survived или нового игрового правила |
+
+## Явная оценка цели M2
+
+| Семантика | Источники | Реализация | Проверки | Граница |
+| --- | --- | --- | --- | --- |
+| RULE-NPC-002; explicit objective policy ADR-0011 | BOOK-GM-GUIDE 1.1, Allies and Antagonists / Minions, стр. 91 | npc_objective_models.py; npc_objective_evaluation.py | test_m2_npc_objective_evaluation.py — 5 unit; mixed follow-up integration | Defeated конечного roster для заданных участников; achieved независимо от stop/pending/disposition; без исполнения, RNG или автоматического winner |
+
+## Сквозное достижение обеих целей M2
+
+| Семантика | Источники | Реализация | Проверки | Граница |
+| --- | --- | --- | --- | --- |
+| RULE-COMBAT-001, RULE-NPC-002; explicit objective ADR-0011 | BOOK-PLAYER-GUIDE 1.4, Rules / Combat, стр. 112; BOOK-GM-GUIDE 1.1, Allies and Antagonists / Minions, стр. 91 | Existing runner, acknowledgement/exclusion, chain report и objective assessment; production API без изменений | test_m2_npc_objective_cycle.py — 1 integration / 18 сочетаний | 1/1/0 Attack, два receipts, 12 RNG, pending → achieved → final completed/excluded; без advance одной живой стороны и автоматического winner |

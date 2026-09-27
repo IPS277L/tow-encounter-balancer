@@ -13,6 +13,7 @@ from tests.unit.test_m2_npc_roster_attack_execution import change_participant
 from tests.unit.test_m2_npc_round_coordinator import request
 from towr.domain.condition_models import Condition, StaggerChoice
 from towr.domain.minion_defeat_models import NpcDefeatDisposition
+from towr.domain.npc_objective_models import NpcDefeatObjective
 from towr.domain.npc_give_ground_models import NpcGiveGroundExecutionRequest
 from towr.domain.npc_roster_attack_models import NpcRosterAttackExecutionResult
 from towr.domain.npc_round_advance_models import NpcRoundAdvanceRequest
@@ -22,6 +23,7 @@ from towr.domain.resolution_models import GiveGroundRequest, GiveGroundResolutio
 from towr.domain.spatial_models import SpatialBattleState, SpatialEntityPlacement
 from towr.domain.turn_models import CombatSide, CombatTurnEndResult
 from towr.engine.npc_rounds_runner import run_npc_rounds
+from towr.engine.npc_objective_evaluation import assess_npc_defeat_objective
 from towr.engine.npc_rounds_reporting import summarize_npc_rounds, summarize_npc_rounds_chain
 from towr.rules import attack_action_execution as attack_executor, npc_give_ground_resolution as give_ground
 from towr.rules import minion_defeat_resolution as defeat, npc_round_exclusion as exclusion, npc_round_advance as advance
@@ -176,6 +178,25 @@ class M2NpcRoundsFollowUpCycleTests(unittest.TestCase):
                     self.assertEqual(report.defeat_acknowledgements, (confirmation,))
                     self.assertIs(report.defeat_acknowledgements[0], confirmation)
                     self.assertIs(report.defeat_acknowledgements[0].source_request.decision.disposition, disposition)
+                    objective = NpcDefeatObjective((defeated,))
+                    before_defeat = summarize_npc_rounds_chain((first_stop,))
+                    pending_defeat = summarize_npc_rounds_chain(chain[:3])
+                    self.assertFalse(assess_npc_defeat_objective(before_defeat, objective).achieved)
+                    pending_assessment = assess_npc_defeat_objective(pending_defeat, objective)
+                    self.assertTrue(pending_assessment.achieved)
+                    self.assertEqual(pending_assessment.remaining_target_actor_ids, ())
+                    self.assertIs(pending_assessment.source_report, pending_defeat)
+                    self.assertIs(pending_defeat.outcome, Outcome.PENDING_FOLLOW_UPS)
+                    self.assertEqual(pending_defeat.current.pending_follow_ups, second_stop.current.pending_follow_ups)
+                    self.assertEqual(pending_defeat.defeat_acknowledgements, ())
+                    # The defeated target is absent from the final round composition, but participated earlier.
+                    self.assertNotIn(defeated, tuple(p.entity_id for p in final.current.round_state.participants))
+                    assessment = assess_npc_defeat_objective(report, objective)
+                    self.assertTrue(assessment.achieved)
+                    self.assertIs(assessment.source_report.defeat_acknowledgements[0], confirmation)
+                    partial = assess_npc_defeat_objective(report, NpcDefeatObjective((survivor, defeated)))
+                    self.assertFalse(partial.achieved)
+                    self.assertEqual(partial.remaining_target_actor_ids, (survivor,))
                     self.assertEqual(summarize_npc_rounds_chain(chain), report)
                     # Every state-changing boundary is required, ordered and bound to its exact source.
                     for index in range(1, len(chain) - 1):
