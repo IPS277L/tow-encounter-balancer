@@ -9,3 +9,4 @@ def assess_npc_defeat_objective(
 ) -> NpcDefeatObjectiveAssessment:
     """Assess the named targets without executing actions or consuming pending work."""
     return NpcDefeatObjectiveAssessment(report, objective)
+?

@@ -133,3 +133,7 @@ Foul Stench Wyvern добавляет `DecisionOwner.TARGET`: если у цел
 Это профильная способность конкретного приключенческого материала, а не общее правило Priest of Taal. Книга отдельно допускает, что её может получить персонаж игрока по тёмной милости, поэтому состояние выбранной добычи и завершение охоты должны принадлежать campaign/character layer, а не NPC-only resolver.
 
 Источник: Gamemaster’s Guide 1.1, страница 13.
+
+Уточнение реализации RULE-EFFECT-006, 2026-09-28: первый M2 adapter Blunderbuss переносит готовые вторичные Minion Staggered/Prone/Wound states в exact roster и регистрирует source effect однократно. Give Ground и defeat остаются target-scoped pending; ordinary M2 Attack guard не снят. Правило не изменено; ограничения/полный source binding — [ADR-0012](../decisions/ADR-0012-npc-nearby-stagger.md).
+
+Уточнение RULE-EFFECT-006: Give Ground отдельной вторичной цели Blunderbuss связывается с полным primary-bound batch и target ID, исполняется одним прежним movement resolver и регистрируется в consumed_nearby_give_ground. Остальные target-scoped pending сохраняются. Источники: BOOK-PLAYER-GUIDE 1.4, Equipment / Ranged Weapons / Blunderbuss, стр. 95; Rules / Giving Ground, стр. 119. [ADR-0012](../decisions/ADR-0012-npc-nearby-stagger.md#вторичный-give-ground).

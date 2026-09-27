@@ -6,7 +6,33 @@ from towr.domain.action_execution_models import AttackActionExecutionRequest, At
 from towr.domain.condition_models import Condition, ConditionState
 from towr.domain.npc_attack_preparation_models import NpcProtectedAttackPreparationResult
 from towr.domain.npc_roster_models import NpcRoster
-from towr.domain.resolution_models import AttackerStaggerRequest, FollowUpRequest, KernelAttackRequest, TargetInjuryPolicy
+from towr.domain.resolution_models import (
+    AttackerStaggerRequest, FollowUpRequest, KernelAttackRequest, NearbyTargetsStaggerRequest, TargetInjuryPolicy,
+)
+
+
+@dataclass(frozen=True, slots=True)
+class NpcNearbyDefeatKey:
+    source: NearbyTargetsStaggerRequest
+    target_id: str
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.source, NearbyTargetsStaggerRequest):
+            raise TypeError("nearby defeat key requires a typed effect source")
+        if not isinstance(self.target_id, str) or not self.target_id.strip():
+            raise ValueError("nearby defeat key requires a target ID")
+
+
+@dataclass(frozen=True, slots=True)
+class NpcNearbyGiveGroundKey:
+    source: NearbyTargetsStaggerRequest
+    target_id: str
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.source, NearbyTargetsStaggerRequest):
+            raise TypeError("nearby Give Ground key requires a typed effect source")
+        if not isinstance(self.target_id, str) or not self.target_id.strip():
+            raise ValueError("nearby Give Ground key requires a target ID")
 
 
 @dataclass(frozen=True, slots=True)
@@ -15,6 +41,9 @@ class NpcRosterAttackState:
     consumed_execution_ids: tuple[str, ...] = ()
     acknowledged_defeat_execution_ids: tuple[str, ...] = ()
     consumed_give_ground_execution_ids: tuple[str, ...] = ()
+    consumed_nearby_stagger_sources: tuple[NearbyTargetsStaggerRequest, ...] = ()
+    acknowledged_nearby_defeats: tuple[NpcNearbyDefeatKey, ...] = ()
+    consumed_nearby_give_ground: tuple[NpcNearbyGiveGroundKey, ...] = ()
 
     def __post_init__(self) -> None:
         if not isinstance(self.roster, NpcRoster):
@@ -41,6 +70,28 @@ class NpcRosterAttackState:
         if not set(movements) <= set(consumed):
             raise ValueError("consumed Give Ground requires a consumed Attack execution")
         object.__setattr__(self, "consumed_give_ground_execution_ids", movements)
+        nearby = tuple(self.consumed_nearby_stagger_sources)
+        if not all(isinstance(item, NearbyTargetsStaggerRequest) for item in nearby):
+            raise TypeError("consumed nearby Stagger sources must be typed")
+        if len(set(nearby)) != len(nearby):
+            raise ValueError("consumed nearby Stagger sources must be unique")
+        object.__setattr__(self, "consumed_nearby_stagger_sources", nearby)
+        defeats = tuple(self.acknowledged_nearby_defeats)
+        if not all(isinstance(item, NpcNearbyDefeatKey) for item in defeats):
+            raise TypeError("acknowledged nearby defeats require typed keys")
+        if len(set(defeats)) != len(defeats):
+            raise ValueError("acknowledged nearby defeats must be unique")
+        if any(item.source not in nearby for item in defeats):
+            raise ValueError("nearby defeat acknowledgement requires a consumed effect source")
+        object.__setattr__(self, "acknowledged_nearby_defeats", defeats)
+        nearby_movements = tuple(self.consumed_nearby_give_ground)
+        if not all(isinstance(item, NpcNearbyGiveGroundKey) for item in nearby_movements):
+            raise TypeError("consumed nearby Give Ground requires typed keys")
+        if len(set(nearby_movements)) != len(nearby_movements):
+            raise ValueError("consumed nearby Give Ground must be unique")
+        if any(item.source not in nearby for item in nearby_movements):
+            raise ValueError("nearby Give Ground requires a consumed effect source")
+        object.__setattr__(self, "consumed_nearby_give_ground", nearby_movements)
 
 
 @dataclass(frozen=True, slots=True)

@@ -34,4 +34,5 @@ def resolve_nearby_targets_stagger(
         source_resolution_id=request.source.resolution_id,
         targets=results,
         applied_rule_ids=(request.source.rule_id,),
+        source_request=request,
     )

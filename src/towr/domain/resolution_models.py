@@ -1313,6 +1313,25 @@ class NearbyTargetsStaggerResolutionResult:
     source_resolution_id: str
     targets: tuple[NearbyTargetStaggerResult, ...]
     applied_rule_ids: tuple[str, ...]
+    source_request: NearbyTargetsStaggerResolutionRequest
+
+    def __post_init__(self) -> None:
+        source = self.source_request
+        if not isinstance(source, NearbyTargetsStaggerResolutionRequest):
+            raise TypeError("nearby Stagger result requires its full source request")
+        targets = tuple(self.targets)
+        if not all(isinstance(item, NearbyTargetStaggerResult) and isinstance(item.impact, StaggerImpactResult)
+                   for item in targets):
+            raise TypeError("nearby Stagger result requires typed target impacts")
+        if (self.request_id != source.id or self.source_resolution_id != source.source.resolution_id
+                or tuple(self.applied_rule_ids) != (source.source.rule_id,)):
+            raise ValueError("nearby Stagger result differs from source identifiers/rules")
+        if tuple((item.target_id, item.impact.request_id) for item in targets) != tuple(
+            (item.target_id, item.impact.id) for item in source.targets
+        ):
+            raise ValueError("nearby Stagger result differs from ordered source targets")
+        object.__setattr__(self, "targets", targets)
+        object.__setattr__(self, "applied_rule_ids", tuple(self.applied_rule_ids))
 
 
 @dataclass(frozen=True, slots=True)

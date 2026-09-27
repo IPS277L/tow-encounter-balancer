@@ -434,3 +434,7 @@ Minion defeat acknowledgement читает полный готовый NpcRoster
 Готовый GiveGroundResolutionResult теперь сохраняет source_request из resolve_give_ground. M2 consumer требует его для source binding, переносит готовые target Conditions и погашает pending без повторного kernel/movement/Condition исполнения. Legacy results без запроса M2 consumer не принимает. [Контракт](../decisions/ADR-0010-single-minion-round.md#применение-завершённого-give-ground-к-m2).
 
 Атомарный execute_npc_give_ground проверяет M2 source/history до resolve_give_ground и регистрирует готовый результат один раз. Kernel/RNG/receipt не вызываются; подмена returned movement source отклоняется до consumer. [Контракт](../decisions/ADR-0010-single-minion-round.md#атомарное-исполнение-give-ground-m2).
+
+Уточнение 2026-09-28: NearbyTargetsStaggerResolutionResult теперь требует полный source_request; resolver сохраняет его, конструктор проверяет request/source/rule IDs и порядок target/impact IDs. Сам Stagger/Wound pipeline не изменён. Этот provenance использует [M2 roster adapter](../decisions/ADR-0012-npc-nearby-stagger.md); ручное создание K1 result также требует source_request.
+
+Secondary Give Ground M2 также использует прежний resolve_give_ground и требует полный source_request в результате. Source/target/Conditions и once-per-round проверяются до движения; secondary Stagger/Wound, primary Attack, RNG и receipt не повторяются. [ADR-0012](../decisions/ADR-0012-npc-nearby-stagger.md#вторичный-give-ground).

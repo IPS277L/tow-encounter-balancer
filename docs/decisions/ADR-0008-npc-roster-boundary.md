@@ -56,3 +56,7 @@ Caller заранее выполняет чистые NPC Attack и Protection p
 Уточнение 2026-09-28: новый Attack result обновляет NpcRosterAttackState через replace и сохраняет acknowledged_defeat_execution_ids. Решение о форме поражения хранится в отдельном MinionDefeatAcknowledgementResult; caller сохраняет этот результат, а roster/history использует для следующего действия. [Контракт](ADR-0010-single-minion-round.md#подтверждение-формы-поражения-minion).
 
 Уточнение 2026-09-28: NpcRosterAttackState также хранит consumed_give_ground_execution_ids для однократного применения completed Give Ground, как уникальное подмножество consumed Attack IDs. Новый Attack сохраняет эту историю через replace. SpatialBattleState остаётся отдельным snapshot; consumer возвращает его вместе с новым NpcRoundRequest. [ADR-0010](ADR-0010-single-minion-round.md#применение-завершённого-give-ground-к-m2).
+
+Уточнение 2026-09-28: NpcRosterAttackState хранит consumed_nearby_stagger_sources — уникальные NearbyTargetsStaggerRequest (primary resolution ID + rule ID), отдельно от Attack receipts. [ADR-0012](ADR-0012-npc-nearby-stagger.md) описывает first Minion secondary adapter и target-scoped pending; existing ordinary Attack сохраняет историю, но по-прежнему запрещает secondary effects.
+
+Уточнение 2026-09-28: acknowledged_nearby_defeats хранит NpcNearbyDefeatKey(source effect, target ID), отдельно от primary acknowledgement IDs. История требует consumed source и сохраняется через replace. [Контракт](ADR-0012-npc-nearby-stagger.md#подтверждение-secondary-minion-defeat).

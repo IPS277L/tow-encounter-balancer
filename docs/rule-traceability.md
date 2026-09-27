@@ -205,3 +205,19 @@
 | Семантика | Источники | Реализация | Проверки | Граница |
 | --- | --- | --- | --- | --- |
 | RULE-COMBAT-001, RULE-NPC-002; explicit objective ADR-0011 | BOOK-PLAYER-GUIDE 1.4, Rules / Combat, стр. 112; BOOK-GM-GUIDE 1.1, Allies and Antagonists / Minions, стр. 91 | Existing runner, acknowledgement/exclusion, chain report и objective assessment; production API без изменений | test_m2_npc_objective_cycle.py — 1 integration / 18 сочетаний | 1/1/0 Attack, два receipts, 12 RNG, pending → achieved → final completed/excluded; без advance одной живой стороны и автоматического winner |
+
+## Вторичные Staggered-цели Blunderbuss в roster M2
+
+| Правила | Источники | Реализация | Проверки | Граница |
+| --- | --- | --- | --- | --- |
+| RULE-EFFECT-006; Staggered; RULE-NPC-002 | BOOK-PLAYER-GUIDE 1.4, Equipment / Ranged Weapons / Blunderbuss, стр. 95; Rules / Giving Ground, стр. 119; Conditions / Staggered, стр. 123; BOOK-GM-GUIDE 1.1, Allies and Antagonists / Minions, стр. 91 | npc_nearby_stagger_models.py; npc_nearby_stagger_resolution.py; source_request K1 result; consumed_nearby_stagger_sources | test_m2_npc_nearby_stagger.py — 9 unit; test_m2_blunderbuss_secondary_roster.py — 1 integration | Exact supplied secondary request/roster, один resolver/transfer, target-scoped pending; primary M2 guards сохранены, полного runner/AoE нет |
+
+## Подтверждение secondary Minion defeat
+
+| Правила | Источники | Реализация | Проверки | Граница |
+| --- | --- | --- | --- | --- |
+| RULE-NPC-002; RULE-EFFECT-006 | BOOK-GM-GUIDE 1.1, Allies and Antagonists / Minions, стр. 91; BOOK-PLAYER-GUIDE 1.4, Equipment / Ranged Weapons / Blunderbuss, стр. 95 | npc_nearby_defeat_models.py; npc_nearby_defeat_resolution.py; primary binding и acknowledged_nearby_defeats | test_m2_npc_nearby_defeat.py — 8 unit; расширенный Blunderbuss integration | Две независимые target-scoped defeat, source/GM/history/replay guards; без injury/RNG/движения и полного M2 primary execution |
+
+| Правила | Источники | Реализация | Проверки | Граница |
+| --- | --- | --- | --- | --- |
+| RULE-COMBAT-015; RULE-EFFECT-006 | BOOK-PLAYER-GUIDE 1.4, Rules / Giving Ground, стр. 119; Equipment / Ranged Weapons / Blunderbuss, стр. 95 | npc_nearby_give_ground_models.py; npc_nearby_give_ground_resolution.py; consumed_nearby_give_ground | test_m2_npc_nearby_give_ground.py — 10 unit; Blunderbuss integration — три dispositions × safe/enemy | Один movement, exact source/target/history/spatial, Broken/usage, replay; defeat подтверждаются до движений; primary M2 guards сохранены |
