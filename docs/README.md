@@ -14,6 +14,7 @@
 - [`architecture/overview.md`](architecture/overview.md) — слои, зависимости и основные модели;
 - [`architecture/resolution-kernel.md`](architecture/resolution-kernel.md) — контракт и фазы книжного ядра K1;
 - [`decisions/`](decisions/) — журнал архитектурных решений;
+- [`decisions/ADR-0010-single-minion-round.md`](decisions/ADR-0010-single-minion-round.md) — ограниченная координация одного Minion-раунда, остановки и возобновление;
 - [`decisions/ADR-0009-npc-attack-selection-policy.md`](decisions/ADR-0009-npc-attack-selection-policy.md) — выбор NPC Attack/цели по явному порядку и проверка актуальности;
 - [`decisions/ADR-0008-npc-roster-boundary.md`](decisions/ADR-0008-npc-roster-boundary.md) — контракт состава NPC M2, проекции в K1 и явные ограничения;
 - [`roadmap.md`](roadmap.md) — последовательность этапов;

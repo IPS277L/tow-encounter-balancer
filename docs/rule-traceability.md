@@ -117,3 +117,9 @@
 | Ограничения / решение | Источники | Реализация | Проверка | Граница |
 |---|---|---|---|---|
 | RULE-NPC-006..008; RULE-COMBAT-002,005..009; ADR-0009 (controller policy) | BOOK-GM-GUIDE 1.1, Allies and Antagonists / Understanding NPC Profiles, стр. 93; BOOK-PLAYER-GUIDE 1.4, Equipment / Ranged Weapons, стр. 94; Rules / Combat, стр. 112; Range, стр. 114; Attack Tests/Failed/Successful Attacks, стр. 118–119. | npc_attack_selection_models.py; engine/npc_attack_controller.py; existing preparation/executor | test_m2_npc_attack_controller.py — 13 unit; test_m2_npc_attack_controller_execution.py — 3 integration | First viable candidate в supplied порядке, typed rejections, exact snapshot handoff и сохранение pending; не RNG/AI scoring/новое игровое правило; только существующая Minion execution boundary |
+
+## Один Minion-раунд M2
+
+| Правила / решение | Источник | Контракт | Проверка | Граница |
+|---|---|---|---|---|
+| RULE-COMBAT-001..002,004..009; RULE-NPC-002,006..008; ADR-0010 | BOOK-PLAYER-GUIDE 1.4, Rules / Combat и Ambush, стр. 112; Combat Actions, стр. 116; Attack Tests, стр. 118; Failed/Successful Attacks и Giving Ground, стр. 119; BOOK-GM-GUIDE 1.1, Allies and Antagonists / Minions, стр. 91; Understanding NPC Profiles, стр. 93. | domain/npc_round_models.py; engine/npc_round_coordinator.py; existing turn/selection/Attack reducers | test_m2_npc_round_coordinator.py — 10 unit; test_m2_npc_round_cycle.py — 3 integration | Один Minion-раунд, fresh candidates и source-bound typed journal, явные остановки; нет следующего раунда, skip defeated, автоматического acknowledgement или определения победителя |
