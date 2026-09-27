@@ -19,6 +19,7 @@ def execute_npc_nearby_give_ground(request: NpcNearbyGiveGroundExecutionRequest)
         raise ValueError("nearby Give Ground executor returned a different source request")
     return consume_npc_nearby_give_ground(NpcNearbyGiveGroundConsumptionRequest(
         request.id, request.current, request.spatial_state, request.batch, request.target_id, movement, request.previous,
+        request.continuation,
     ))
 
 

@@ -1,52 +1,130 @@
 from copy import deepcopy
 from dataclasses import replace
+from itertools import product
 import unittest
 from unittest.mock import Mock, patch
 
 from tests.helpers import SequenceRandom
-from tests.unit.test_k1_ranged_weapon_attack_preparation import preparation_request
 from tests.unit.test_k1_secondary_target_resolution import TargetDecisions
 from tests.unit.test_m2_npc_nearby_stagger import request as secondary_context
-from tests.unit.test_m2_npc_roster_attack_execution import change_participant, request as attack_context
+from tests.unit.test_m2_npc_blunderbuss import request as primary_context
 from tests.unit.test_m2_npc_nearby_give_ground import movement_request, spatial_context
+from tests.unit.test_m2_npc_nearby_consequences import defeat_request, give_ground_request
+from tests.unit.test_m2_npc_nearby_completion import completion_request
 from towr.domain.condition_models import Condition, StaggerChoice
 from towr.domain.injury_models import ProfileStateChangeRequest
 from towr.domain.minion_defeat_models import MinionDefeatDecision, NpcDefeatDisposition
 from towr.domain.npc_nearby_defeat_models import NpcNearbyDefeatAcknowledgementRequest
+from towr.domain.npc_nearby_consequence_models import NpcNearbyConsequenceChain
+from towr.domain.npc_round_models import NpcRoundOutcome
 from towr.domain.npc_nearby_stagger_models import NpcNearbyStaggerExecutionRequest
-from towr.domain.ranged_weapon_profiles import RangedWeaponId, RangedWeaponRange
 from towr.domain.resolution_models import NearbyTargetsStaggerRequest
 from towr.rules import attack_action_execution as attack_executor, npc_nearby_stagger_resolution as nearby
 from towr.rules import npc_nearby_give_ground_resolution as give_ground
-from towr.rules.ranged_weapon_attack_preparation import prepare_ranged_weapon_attack
-from towr.rules.ranged_weapon_attack_resolution import execute_ranged_weapon_attack
+from towr.rules import npc_nearby_consequence_resolution as consequences
+from towr.rules.npc_nearby_completion_resolution import complete_npc_nearby_consequences, apply_npc_nearby_completion
+from towr.engine.npc_round_coordinator import run_npc_round
+from towr.rules.npc_blunderbuss_resolution import execute_npc_blunderbuss_attack, apply_npc_blunderbuss_attack
 from towr.rules.npc_nearby_defeat_resolution import acknowledge_npc_nearby_defeat, apply_npc_nearby_defeat
 
 
+def primary_request(secondary):
+    source = primary_context(roster=secondary.state.roster)
+    return replace(source, current=replace(source.current,
+        state=replace(secondary.state, roster=source.current.state.roster)))
+
+
 class M2BlunderbussSecondaryRosterTests(unittest.TestCase):
+    def test_primary_executor_empty_secondary_batch_and_completion_keep_one_weapon_transition(self):
+        secondary = secondary_context(targets=())
+        source = primary_request(secondary)
+        rng = Mock(wraps=SequenceRandom([1, 10, 10, 10, 10, 1, 10, 10, 7]))
+        with patch.object(attack_executor, "resolve_kernel_attack", wraps=attack_executor.resolve_kernel_attack) as kernel:
+            executed = execute_npc_blunderbuss_attack(source, rng)
+            current, weapon = apply_npc_blunderbuss_attack(source.current, source.weapon_state, executed)
+            trigger, = current.pending_follow_ups
+            batch = nearby.execute_npc_nearby_stagger(NpcNearbyStaggerExecutionRequest(
+                current.state, replace(secondary.resolution, source=trigger), executed.primary_attack), rng)
+            state = nearby.apply_npc_nearby_stagger(current.state, batch)
+            chain = NpcNearbyConsequenceChain(batch, spatial_context(batch))
+            completion = replace(completion_request(chain), current=replace(current, state=state))
+            result = complete_npc_nearby_consequences(completion)
+            final, spatial = apply_npc_nearby_completion(completion.current, completion.spatial_state, result)
+            self.assertEqual(final.pending_follow_ups, ())
+            self.assertEqual(final.state.completed_nearby_stagger_sources, (trigger,))
+            self.assertEqual(chain.steps, ())
+            self.assertIs(spatial, completion.spatial_state)
+            self.assertIs(weapon, executed.primary_attack.weapon_state)
+            self.assertFalse(weapon.loaded)
+            self.assertEqual(kernel.call_count, 1)
+            self.assertEqual(rng.randint.call_count, 8)
+            self.assertEqual(rng.randint(1, 10), 7)
+
+    def test_completion_of_fresh_secondary_stagger_resumes_round_without_replaying_primary_attack(self):
+        secondary = secondary_context()
+        primary_source = primary_request(secondary)
+        # A tied successful Attack gives no extra Damage: RES 4 receives Staggered, no primary Wound pending.
+        rng = Mock(wraps=SequenceRandom([1, 10, 10, 10, 10, 1, 10, 10, 7]))
+        with (
+            patch.object(attack_executor, "resolve_kernel_attack", wraps=attack_executor.resolve_kernel_attack) as kernel,
+            patch.object(nearby, "resolve_nearby_targets_stagger", wraps=nearby.resolve_nearby_targets_stagger) as resolve,
+            patch.object(give_ground, "resolve_give_ground") as move,
+        ):
+            executed = execute_npc_blunderbuss_attack(primary_source, rng)
+            primary = executed.primary_attack
+            current_round, weapon = apply_npc_blunderbuss_attack(primary_source.current, primary_source.weapon_state, executed)
+            trigger, = primary.attack.resolution.follow_ups
+            self.assertIsInstance(trigger, NearbyTargetsStaggerRequest)
+            current = current_round.state
+            batch = nearby.execute_npc_nearby_stagger(NpcNearbyStaggerExecutionRequest(
+                current, replace(secondary.resolution, source=trigger), primary), rng)
+            chain = NpcNearbyConsequenceChain(batch, spatial_context(batch))
+            self.assertEqual(chain.pending_targets, ())
+            self.assertEqual(chain.steps, ())
+            source = completion_request(chain)
+            source = replace(source, current=replace(current_round, state=chain.state))
+            completed = complete_npc_nearby_consequences(source)
+            resumed, spatial = apply_npc_nearby_completion(source.current, source.spatial_state, completed)
+            self.assertEqual(resumed.pending_follow_ups, ())
+            candidates = Mock()
+            candidates.get_candidates.side_effect = lambda context: context
+            stopped = run_npc_round(resumed, candidates, rng)
+            self.assertIs(stopped.outcome, NpcRoundOutcome.SELECTION_BLOCKED)
+            self.assertEqual(stopped.round_state.completed_turn_entity_ids, ("brigand:0",))
+            candidates.get_candidates.assert_called_once()
+            self.assertEqual(stopped.state.completed_nearby_stagger_sources, (trigger,))
+            self.assertEqual(stopped.state.consumed_execution_ids, current.consumed_execution_ids)
+            self.assertIs(weapon, primary.weapon_state)
+            self.assertFalse(weapon.loaded)
+            self.assertIs(spatial, source.spatial_state)
+            self.assertEqual(kernel.call_count, 1)
+            self.assertEqual(resolve.call_count, 1)
+            move.assert_not_called()
+            self.assertEqual(rng.randint.call_count, 8)
+            self.assertEqual(rng.randint(1, 10), 7)
+            with self.assertRaisesRegex(ValueError, "already completed"):
+                apply_npc_nearby_completion(replace(resumed, state=stopped.state, round_state=stopped.round_state,
+                    pending_follow_ups=source.current.pending_follow_ups), spatial, completed)
+
     def test_real_k1_profile_hit_reload_and_two_scoped_secondary_results_share_one_roster(self):
         secondary = secondary_context(states=((1, (Condition.STAGGERED,)),
                                               (3, (Condition.STAGGERED, Condition.PRONE))),
                                       targets=("brigand:3", "brigand:1"))
-        base = attack_context(selected="warbow", source=secondary.state.roster)
-        # K1 numeric Shooting input; the ordinary M2 executor still rejects secondary effects.
-        prepared = prepare_ranged_weapon_attack(preparation_request(RangedWeaponId.BLUNDERBUSS,
-            attack=base.execution, target_range=RangedWeaponRange.SHORT, lore=True,
-            next_cycle="weapon:blunderbuss:hero:1:reload:1"))
-        before = deepcopy((prepared, secondary))
+        primary_source = primary_request(secondary)
+        before = deepcopy((primary_source, secondary))
         rng = Mock(wraps=SequenceRandom([1, 2, 10, 10, 10, 10, 10, 10, 7]))
         decisions = TargetDecisions(stagger_choices={"impact:brigand:1:stagger": StaggerChoice.GIVE_GROUND})
         with (
             patch.object(attack_executor, "resolve_kernel_attack", wraps=attack_executor.resolve_kernel_attack) as kernel,
             patch.object(nearby, "resolve_nearby_targets_stagger", wraps=nearby.resolve_nearby_targets_stagger) as resolve,
         ):
-            primary = execute_ranged_weapon_attack(prepared.execution, rng)
+            executed = execute_npc_blunderbuss_attack(primary_source, rng)
+            primary = executed.primary_attack
+            current_round, weapon = apply_npc_blunderbuss_attack(primary_source.current, primary_source.weapon_state, executed)
             primary_before = deepcopy(primary)
             trigger, = (f for f in primary.attack.resolution.follow_ups if isinstance(f, NearbyTargetsStaggerRequest))
             self.assertTrue(primary.attack.resolution.target_state.defeated)
-            # Explicit caller transfer of the K1 primary state, pending and receipt is outside this adapter.
-            current = change_participant(secondary.state, 2, injury=primary.attack.resolution.target_state)
-            current = replace(current, consumed_execution_ids=(*current.consumed_execution_ids, primary.attack.request_id))
+            current = current_round.state
             batch = replace(secondary.resolution, source=trigger, primary_target_id=primary.attack.target_id)
             source = NpcNearbyStaggerExecutionRequest(current, batch, primary)
             result = nearby.execute_npc_nearby_stagger(source, rng, decisions=decisions)
@@ -100,12 +178,73 @@ class M2BlunderbussSecondaryRosterTests(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError, "scoped"):
                     NpcNearbyDefeatAcknowledgementRequest("not-defeated", updated, result,
                         MinionDefeatDecision("brigand:0", "brigand:1", disposition, True))
+            for disposition, enemy, movement_first in product(NpcDefeatDisposition, (False, True), (False, True)):
+                with self.subTest(disposition=disposition, enemy=enemy, movement_first=movement_first):
+                    chain = NpcNearbyConsequenceChain(result, spatial_context(result, enemy=enemy))
+                    original = deepcopy(chain)
+                    with (
+                        patch.object(give_ground, "resolve_give_ground", wraps=give_ground.resolve_give_ground) as move,
+                        patch.object(consequences, "apply_npc_nearby_give_ground", wraps=consequences.apply_npc_nearby_give_ground) as apply_move,
+                        patch.object(consequences, "apply_npc_nearby_defeat", wraps=consequences.apply_npc_nearby_defeat) as apply_defeat,
+                    ):
+                        order = ("move", "defeat") if movement_first else ("defeat", "move")
+                        for kind in order:
+                            if kind == "move":
+                                step = give_ground.execute_npc_nearby_give_ground(give_ground_request(chain))
+                            else:
+                                step = acknowledge_npc_nearby_defeat(defeat_request(chain, disposition=disposition))
+                            previous = chain
+                            chain = consequences.apply_npc_nearby_consequence(chain.state, chain.spatial_state, chain, step)
+                            self.assertIs(step.source_request.continuation, previous)
+                            self.assertEqual(chain.pending_targets, step.pending_targets)
+                        self.assertEqual(move.call_count, 1)
+                        self.assertEqual(apply_move.call_count, 1)
+                        self.assertEqual(apply_defeat.call_count, 1)
+                        for step in chain.steps:
+                            with self.assertRaises(ValueError):
+                                consequences.apply_npc_nearby_consequence(chain.state, chain.spatial_state, chain, step)
+                        self.assertEqual(apply_move.call_count, 1)
+                        self.assertEqual(apply_defeat.call_count, 1)
+                    self.assertEqual(chain.pending_targets, ())
+                    self.assertEqual(len(chain.steps), 2)
+                    self.assertEqual(chain.acknowledgements[0].source_request.decision.disposition, disposition)
+                    self.assertEqual(chain.spatial_state.gave_ground_entity_ids, ("brigand:1",))
+                    self.assertEqual(chain.state.roster.participant("brigand:1").state.injury.conditions.has(Condition.BROKEN), enemy)
+                    self.assertIs(chain.state.roster.participant("brigand:2"), updated.roster.participant("brigand:2"))
+                    self.assertIs(chain.batch.source_request.primary_attack, primary)
+                    self.assertEqual(original.steps, ())
+                    self.assertEqual(original.state, updated)
+                    completion = completion_request(chain)
+                    completion = replace(completion, current=replace(current_round, state=chain.state))
+                    completed = complete_npc_nearby_consequences(completion)
+                    resumed, final_spatial = apply_npc_nearby_completion(completion.current, completion.spatial_state, completed)
+                    self.assertEqual(resumed.pending_follow_ups, tuple(f for f in primary.attack.resolution.follow_ups if f != trigger))
+                    self.assertTrue(any(isinstance(f, ProfileStateChangeRequest) for f in resumed.pending_follow_ups))
+                    self.assertEqual(resumed.state.completed_nearby_stagger_sources, (trigger,))
+                    self.assertIs(resumed.state.roster, completion.current.state.roster)
+                    self.assertIs(resumed.round_state, primary.attack.state)
+                    self.assertIs(final_spatial, completion.spatial_state)
+                    self.assertIs(completed.source_request.chain, chain)
+                    self.assertEqual(completed.source_request.chain.acknowledgements, chain.acknowledgements)
+                    candidates = Mock()
+                    stopped = run_npc_round(resumed, candidates, rng)
+                    self.assertIs(stopped.outcome, NpcRoundOutcome.PENDING_FOLLOW_UPS)
+                    self.assertEqual(stopped.steps, ())
+                    candidates.get_candidates.assert_not_called()
+                    with self.assertRaisesRegex(ValueError, "already completed"):
+                        apply_npc_nearby_completion(resumed, final_spatial, completed)
+                    with self.assertRaisesRegex(ValueError, "already completed"):
+                        replace(completion, id="requeued", current=replace(resumed, pending_follow_ups=completion.current.pending_follow_ups))
             self.assertEqual(kernel.call_count, 1)
             self.assertEqual(resolve.call_count, 1)
             self.assertNotEqual(primary.weapon_state, primary.previous_weapon_state)
             self.assertEqual(rng.randint.call_count, 8)
             self.assertEqual(rng.randint(1, 10), 7)
             self.assertEqual(primary, primary_before)
-            self.assertEqual((prepared, secondary), before)
+            self.assertEqual((primary_source, secondary), before)
+            self.assertIs(weapon, primary.weapon_state)
+            self.assertFalse(weapon.loaded)
+            with self.assertRaisesRegex(ValueError, "already consumed"):
+                apply_npc_blunderbuss_attack(current_round, weapon, executed)
             with self.assertRaisesRegex(ValueError, "already consumed"):
                 nearby.apply_npc_nearby_stagger(updated, result)

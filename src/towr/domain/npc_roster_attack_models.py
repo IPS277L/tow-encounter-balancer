@@ -44,6 +44,7 @@ class NpcRosterAttackState:
     consumed_nearby_stagger_sources: tuple[NearbyTargetsStaggerRequest, ...] = ()
     acknowledged_nearby_defeats: tuple[NpcNearbyDefeatKey, ...] = ()
     consumed_nearby_give_ground: tuple[NpcNearbyGiveGroundKey, ...] = ()
+    completed_nearby_stagger_sources: tuple[NearbyTargetsStaggerRequest, ...] = ()
 
     def __post_init__(self) -> None:
         if not isinstance(self.roster, NpcRoster):
@@ -92,6 +93,14 @@ class NpcRosterAttackState:
         if any(item.source not in nearby for item in nearby_movements):
             raise ValueError("nearby Give Ground requires a consumed effect source")
         object.__setattr__(self, "consumed_nearby_give_ground", nearby_movements)
+        completed_nearby = tuple(self.completed_nearby_stagger_sources)
+        if not all(isinstance(item, NearbyTargetsStaggerRequest) for item in completed_nearby):
+            raise TypeError("completed nearby Stagger sources must be typed")
+        if len(set(completed_nearby)) != len(completed_nearby):
+            raise ValueError("completed nearby Stagger sources must be unique")
+        if not set(completed_nearby) <= set(nearby):
+            raise ValueError("completed nearby Stagger requires a consumed effect source")
+        object.__setattr__(self, "completed_nearby_stagger_sources", completed_nearby)
 
 
 @dataclass(frozen=True, slots=True)

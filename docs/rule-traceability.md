@@ -220,4 +220,16 @@
 
 | Правила | Источники | Реализация | Проверки | Граница |
 | --- | --- | --- | --- | --- |
-| RULE-COMBAT-015; RULE-EFFECT-006 | BOOK-PLAYER-GUIDE 1.4, Rules / Giving Ground, стр. 119; Equipment / Ranged Weapons / Blunderbuss, стр. 95 | npc_nearby_give_ground_models.py; npc_nearby_give_ground_resolution.py; consumed_nearby_give_ground | test_m2_npc_nearby_give_ground.py — 10 unit; Blunderbuss integration — три dispositions × safe/enemy | Один movement, exact source/target/history/spatial, Broken/usage, replay; defeat подтверждаются до движений; primary M2 guards сохранены |
+| RULE-COMBAT-015; RULE-EFFECT-006 | BOOK-PLAYER-GUIDE 1.4, Rules / Giving Ground, стр. 119; Equipment / Ranged Weapons / Blunderbuss, стр. 95 | npc_nearby_give_ground_models.py; npc_nearby_give_ground_resolution.py; consumed_nearby_give_ground | test_m2_npc_nearby_give_ground.py — 10 unit; Blunderbuss integration — три dispositions × safe/enemy | Один movement, exact source/target/history/spatial, Broken/usage, replay; чередование через continuation chain; primary M2 guards сохранены |
+
+| Правила | Источники | Реализация | Проверки | Граница |
+| --- | --- | --- | --- | --- |
+| RULE-COMBAT-015; RULE-NPC-002 | BOOK-PLAYER-GUIDE 1.4, Rules / Giving Ground, стр. 119; BOOK-GM-GUIDE 1.1, Allies and Antagonists / Minions, стр. 91 | npc_nearby_consequence_models.py; npc_nearby_consequence_resolution.py; continuation в defeat/Give Ground | test_m2_npc_nearby_consequences.py — 9 unit; Blunderbuss integration — 12 новых сочетаний | Полные решения, exact prefix/roster/spatial, pending без повторного исполнения; primary M2 guards сохранены |
+
+| Правила | Источники | Реализация | Проверки | Граница |
+| --- | --- | --- | --- | --- |
+| RULE-EFFECT-006; RULE-COMBAT-015; RULE-NPC-002 | BOOK-PLAYER-GUIDE 1.4, Equipment / Ranged Weapons / Blunderbuss, стр. 95; Rules / Giving Ground, стр. 119; BOOK-GM-GUIDE 1.1, Allies and Antagonists / Minions, стр. 91 | npc_nearby_completion_models.py; npc_nearby_completion_resolution.py; completed_nearby_stagger_sources | test_m2_npc_nearby_completion.py — 8 unit; Blunderbuss integration — 12 смешанных сочетаний и отдельный resume | Один trigger после полной chain, primary pending сохранены, replay/partial/stale guards; primary M2 execution пока внешний |
+
+| Правила | Источники | Реализация | Проверки | Граница |
+| --- | --- | --- | --- | --- |
+| RULE-EQUIPMENT-004; RULE-EFFECT-006; RULE-NPC-007/008/010 | BOOK-PLAYER-GUIDE 1.4, Equipment / Ranged Weapons, стр. 94–95; Rules / Attack Tests, стр. 118–119; BOOK-GM-GUIDE 1.1, Minions, стр. 91; Understanding NPC Profiles, стр. 93 | npc_blunderbuss_models.py; npc_blunderbuss_resolution.py | test_m2_npc_blunderbuss.py — 8 unit; Blunderbuss integration — empty/fresh/mixed | Один prepared execution/receipt/reload, explicit profile/Protection/weapon/history, no double range; ordinary controller/journal и primary consequences ещё не подключены |

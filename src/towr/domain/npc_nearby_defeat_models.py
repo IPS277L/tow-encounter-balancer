@@ -1,12 +1,16 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, replace
+from typing import TYPE_CHECKING
 
 from towr.domain.injury_models import ProfileNpcType, ProfileStateChangeRequest
 from towr.domain.minion_defeat_models import MinionDefeatDecision
 from towr.domain.npc_nearby_stagger_models import NpcNearbyStaggerExecutionResult
-from towr.domain.npc_roster_attack_models import NpcNearbyDefeatKey, NpcRosterAttackState
+from towr.domain.npc_roster_attack_models import NpcNearbyDefeatKey, NpcNearbyGiveGroundKey, NpcRosterAttackState
 from towr.domain.resolution_models import NearbyTargetStaggerResult
+
+if TYPE_CHECKING:
+    from towr.domain.npc_nearby_consequence_models import NpcNearbyConsequenceChain
 
 
 def _defeated_target_ids(batch: NpcNearbyStaggerExecutionResult) -> tuple[str, ...]:
@@ -41,6 +45,7 @@ class NpcNearbyDefeatAcknowledgementRequest:
     current: NpcRosterAttackState
     batch: NpcNearbyStaggerExecutionResult
     decision: MinionDefeatDecision
+    continuation: NpcNearbyConsequenceChain | None = None
 
     def __post_init__(self) -> None:
         if not isinstance(self.id, str) or not self.id.strip():
@@ -61,7 +66,12 @@ class NpcNearbyDefeatAcknowledgementRequest:
         eligible = _defeated_target_ids(self.batch)
         if self.decision.target_id not in eligible:
             raise ValueError("nearby defeat target must have a new Minion Wound and scoped defeat follow-up")
-        validate_nearby_post_batch_state(self.current, self.batch)
+        if self.continuation is None:
+            validate_nearby_post_batch_state(self.current, self.batch)
+        else:
+            from towr.domain.npc_nearby_consequence_models import validate_nearby_consequence_context
+
+            validate_nearby_consequence_context(self.continuation, self.current, self.batch)
 
     @property
     def key(self) -> NpcNearbyDefeatKey:
@@ -86,9 +96,10 @@ class NpcNearbyDefeatAcknowledgementResult:
     @property
     def pending_targets(self) -> tuple[NearbyTargetStaggerResult, ...]:
         source = self.source_request
-        acknowledged = self.state.acknowledged_nearby_defeats
+        state = self.state
         return tuple(target for target in source.batch.pending_targets
-                     if NpcNearbyDefeatKey(source.key.source, target.target_id) not in acknowledged)
+                     if NpcNearbyDefeatKey(source.key.source, target.target_id) not in state.acknowledged_nearby_defeats
+                     and NpcNearbyGiveGroundKey(source.key.source, target.target_id) not in state.consumed_nearby_give_ground)
 
     @property
     def applied_rule_ids(self) -> tuple[str, ...]:

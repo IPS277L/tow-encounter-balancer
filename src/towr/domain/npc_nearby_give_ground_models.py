@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, replace
+from typing import TYPE_CHECKING
 
 from towr.domain.condition_models import Condition, StaggerChoice, StaggerOutcome
 from towr.domain.npc_nearby_defeat_models import validate_nearby_post_batch_state
@@ -10,6 +11,9 @@ from towr.domain.resolution_models import (
     GiveGroundRequest, GiveGroundResolutionRequest, GiveGroundResolutionResult, NearbyTargetStaggerResult,
 )
 from towr.domain.spatial_models import SpatialBattleState
+
+if TYPE_CHECKING:
+    from towr.domain.npc_nearby_consequence_models import NpcNearbyConsequenceChain
 
 
 @dataclass(frozen=True, slots=True)
@@ -21,6 +25,7 @@ class NpcNearbyGiveGroundExecutionRequest:
     target_id: str
     movement: GiveGroundResolutionRequest
     previous: NpcNearbyGiveGroundConsumptionResult | None = None
+    continuation: NpcNearbyConsequenceChain | None = None
 
     def __post_init__(self) -> None:
         if not isinstance(self.movement, GiveGroundResolutionRequest):
@@ -41,6 +46,7 @@ class NpcNearbyGiveGroundConsumptionRequest:
     target_id: str
     movement: GiveGroundResolutionResult
     previous: NpcNearbyGiveGroundConsumptionResult | None = None
+    continuation: NpcNearbyConsequenceChain | None = None
 
     def __post_init__(self) -> None:
         if not isinstance(self.movement, GiveGroundResolutionResult):
@@ -67,7 +73,13 @@ def validate_nearby_give_ground_context(
     primary = batch.source_request.primary_attack
     if primary is None:
         raise ValueError("nearby Give Ground requires a batch bound to the full primary Attack")
-    if request.previous is None:
+    if request.continuation is not None:
+        from towr.domain.npc_nearby_consequence_models import validate_nearby_consequence_context
+
+        if request.previous is not None:
+            raise ValueError("nearby Give Ground requires either previous movement or continuation, not both")
+        validate_nearby_consequence_context(request.continuation, current, batch, spatial)
+    elif request.previous is None:
         validate_nearby_post_batch_state(current, batch)
     else:
         previous = request.previous

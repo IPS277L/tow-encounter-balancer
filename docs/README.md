@@ -14,7 +14,7 @@
 - [`contradictions.md`](contradictions.md) — расхождения и неоднозначности источника;
 - [`architecture/overview.md`](architecture/overview.md) — слои, зависимости и основные модели;
 - [`architecture/resolution-kernel.md`](architecture/resolution-kernel.md) — контракт и фазы книжного ядра K1;
-- [`decisions/ADR-0012-npc-nearby-stagger.md`](decisions/ADR-0012-npc-nearby-stagger.md) — вторичные Staggered-цели Blunderbuss, source binding и однократный перенос в roster;
+- [`decisions/ADR-0012-npc-nearby-stagger.md`](decisions/ADR-0012-npc-nearby-stagger.md) — профильный Blunderbuss executor, вторичные цели, цепочка последствий и завершение nearby trigger;
 - [`decisions/`](decisions/) — журнал архитектурных решений;
 - [`decisions/ADR-0011-bounded-minion-rounds.md`](decisions/ADR-0011-bounded-minion-rounds.md) — ограниченный прогон Minion-раундов, лимит, snapshots и остановки;
 - [`decisions/ADR-0010-single-minion-round.md`](decisions/ADR-0010-single-minion-round.md) — ограниченная координация одного Minion-раунда, остановки и возобновление;
