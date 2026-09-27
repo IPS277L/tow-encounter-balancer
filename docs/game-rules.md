@@ -169,3 +169,9 @@ M2 использует ограниченный run_npc_round поверх кн
 M2 отличает исключение defeated Minion из очереди раунда от реально завершённого хода; это отдельный source-bound переход без RNG. Старые P1 правила окончания боя не переносятся в новый coordinator. [ADR-0010](decisions/ADR-0010-single-minion-round.md). Основание: BOOK-GM-GUIDE 1.1, Allies and Antagonists / Minions, стр. 91; BOOK-PLAYER-GUIDE 1.4, Rules / Combat, стр. 112; Combat Actions, стр. 116.
 
 M2 теперь отдельно подтверждает форму поражения Minion по явному решению атакующего с GM approval и погашает соответствующий pending ProfileStateChange. Это не новая Wound и не изменение P1 battle loop. [ADR-0010](decisions/ADR-0010-single-minion-round.md). Источник: BOOK-GM-GUIDE 1.1, Allies and Antagonists / Minions, стр. 91.
+
+M2 связывает завершённый Give Ground с roster/pending через отдельный consumer и возвращает обновлённые combat/spatial snapshots. Старый P1 цикл боя не менялся. Источник: BOOK-PLAYER-GUIDE 1.4, Rules / Attack Tests, Failed Attacks и Giving Ground, стр. 119. [ADR-0010](decisions/ADR-0010-single-minion-round.md).
+
+M2 execute_npc_give_ground атомарно объединяет movement и consumer с проверками до движения; правила P1 не менялись. Источник: BOOK-PLAYER-GUIDE 1.4, Rules / Giving Ground, стр. 119. [ADR-0010](decisions/ADR-0010-single-minion-round.md).
+
+Смешанный M2-раунд Give Ground → defeat acknowledgement/exclusion проверен на существующих API для обоих порядков сторон и трёх форм поражения. P1 не менялся. [Трассировка](rule-traceability.md#смешанный-minion-раунд-m2). Источники: BOOK-PLAYER-GUIDE 1.4, Rules / Combat, стр. 112; Giving Ground, стр. 119; BOOK-GM-GUIDE 1.1, Allies and Antagonists / Minions, стр. 91.

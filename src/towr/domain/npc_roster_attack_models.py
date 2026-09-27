@@ -14,6 +14,7 @@ class NpcRosterAttackState:
     roster: NpcRoster
     consumed_execution_ids: tuple[str, ...] = ()
     acknowledged_defeat_execution_ids: tuple[str, ...] = ()
+    consumed_give_ground_execution_ids: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         if not isinstance(self.roster, NpcRoster):
@@ -32,6 +33,14 @@ class NpcRosterAttackState:
         if not set(acknowledged) <= set(consumed):
             raise ValueError("acknowledged defeat requires a consumed execution")
         object.__setattr__(self, "acknowledged_defeat_execution_ids", acknowledged)
+        movements = tuple(self.consumed_give_ground_execution_ids)
+        if any(not isinstance(item, str) or not item.strip() for item in movements):
+            raise ValueError("consumed Give Ground execution IDs must be non-empty strings")
+        if len(set(movements)) != len(movements):
+            raise ValueError("consumed Give Ground execution IDs must be unique")
+        if not set(movements) <= set(consumed):
+            raise ValueError("consumed Give Ground requires a consumed Attack execution")
+        object.__setattr__(self, "consumed_give_ground_execution_ids", movements)
 
 
 @dataclass(frozen=True, slots=True)

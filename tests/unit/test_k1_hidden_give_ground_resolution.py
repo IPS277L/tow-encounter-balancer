@@ -166,12 +166,15 @@ class K1HiddenGiveGroundResolutionTests(unittest.TestCase):
     def test_bad_types_rules_source_and_missing_movement_trace_are_rejected(self):
         state, request, _ = context()
         failed = execute_move_quietly_action(request.move_quietly.source_request, SequenceRandom([10, 10, 1]))
+        foreign_source = replace(request.movement.source, resolution_id=request.move_quietly.request_id)
+        with self.assertRaisesRegex(ValueError, "source request"):
+            replace(request.movement, source=foreign_source)
+        # Legacy results without the new source request still exercise the hidden consumer guard.
         for changes in ({"move_quietly": failed}, {"move_quietly": None}, {"movement": None},
                         {"rule_id": "unknown"}, {"consumed_opportunity_ids": "string"},
                         {"consumed_opportunity_ids": ("dup", "dup")},
                         {"movement": replace(request.movement, applied_rule_ids=(request.movement.source.rule_id,))},
-                        {"movement": replace(request.movement, source=replace(request.movement.source,
-                            resolution_id=request.move_quietly.request_id))}):
+                        {"movement": replace(request.movement, source=foreign_source, source_request=None)}):
             with self.subTest(changes=changes), self.assertRaises((ValueError, TypeError)):
                 replace(request, **changes)
         with self.assertRaises(TypeError):

@@ -111,6 +111,7 @@ def resolve_give_ground(
         conditions = condition_application.state
 
     return GiveGroundResolutionResult(
+        source_request=request,
         source=request.source,
         mover_id=request.mover_id,
         origin_zone_id=mover.zone_id,

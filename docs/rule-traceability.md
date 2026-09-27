@@ -135,3 +135,21 @@
 | Правило | Источник | Реализация | Проверка | Граница |
 | --- | --- | --- | --- | --- |
 | RULE-NPC-002; ADR-0008/0010 | BOOK-GM-GUIDE 1.1, Allies and Antagonists / Minions, стр. 91. | minion_defeat_models.py; minion_defeat_resolution.py; npc_roster_attack_models.py (история) | test_m2_minion_defeat.py — 11 unit; test_m2_minion_defeat_cycle.py — 2 integration | Три явных исхода, actor/target/GM approval, exact post-Attack source, одно погашение pending, перенос истории. Без повторного kernel/receipt, автоматического выбора и inventory/spatial последствий |
+
+## Применение завершённого Give Ground к M2
+
+| Правило | Источник | Реализация | Проверки | Граница |
+| --- | --- | --- | --- | --- |
+| RULE-COMBAT-015; RULE-HEALTH-003; ADR-0008/0010 | BOOK-PLAYER-GUIDE 1.4, Rules / Attack Tests, Failed Attacks и Giving Ground, стр. 119. | npc_give_ground_models.py; npc_give_ground_resolution.py; npc_roster_attack_models.py; resolution_models.py/spatial_resolution.py (source request) | test_m2_npc_give_ground.py — 10 unit; test_m2_npc_give_ground_cycle.py — 2 integration; updated hidden negative test | Exact Attack/movement/current binding, target Conditions и usage без повторного исполнения, одно погашение pending и history. Zone/path facts и общая eligibility внешние; atomic movement adapter реализован ниже |
+
+## Атомарный Give Ground M2
+
+| Правило | Источник | Реализация | Проверки | Граница |
+| --- | --- | --- | --- | --- |
+| RULE-COMBAT-015; RULE-HEALTH-003; ADR-0010 | BOOK-PLAYER-GUIDE 1.4, Rules / Giving Ground, стр. 119. | npc_give_ground_models.py — shared preflight/ExecutionRequest; npc_give_ground_resolution.py — execute_npc_give_ground | test_m2_npc_give_ground_execution.py — 8 unit; test_m2_npc_give_ground_execution_cycle.py — 1 integration / 2 ветви | Guards до movement, один resolver/consumer, exact executed source; без второго kernel/receipt и автоматического выбора Zone |
+
+## Смешанный Minion-раунд M2
+
+| Правила | Источники | Реализация | Проверки | Граница |
+| --- | --- | --- | --- | --- |
+| RULE-COMBAT-001,015; RULE-HEALTH-003; RULE-NPC-002; ADR-0010 | BOOK-PLAYER-GUIDE 1.4, Rules / Combat, стр. 112; Giving Ground, стр. 119; BOOK-GM-GUIDE 1.1, Allies and Antagonists / Minions, стр. 91. | Существующие coordinator, atomic Give Ground, defeat acknowledgement и exclusion | test_m2_mixed_round_cycle.py — 1 integration / 6 сочетаний | Оба side_order × три dispositions; три Attack, одно движение, свежий spatial context, обе pending остановки, все histories и replay. Без новых production API, нового раунда или автоматического выбора победителя |

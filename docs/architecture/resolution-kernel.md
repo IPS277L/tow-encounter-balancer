@@ -430,3 +430,7 @@ run_npc_round ограничивает orchestration одним текущим M
 Исключение defeated Minion из очереди раунда выполняется отдельным reducer/consumer npc_round_exclusion.py без kernel, RNG или нового action receipt. Готовый injury и consumed_execution_ids сохраняются; pending queue должна быть пустой. [ADR-0010](../decisions/ADR-0010-single-minion-round.md).
 
 Minion defeat acknowledgement читает полный готовый NpcRosterAttackExecutionResult и не исполняет kernel повторно. Анонимный ProfileStateChangeRequest не расширен: actor/target берутся из source-bound Attack. [Контракт](../decisions/ADR-0010-single-minion-round.md#подтверждение-формы-поражения-minion).
+
+Готовый GiveGroundResolutionResult теперь сохраняет source_request из resolve_give_ground. M2 consumer требует его для source binding, переносит готовые target Conditions и погашает pending без повторного kernel/movement/Condition исполнения. Legacy results без запроса M2 consumer не принимает. [Контракт](../decisions/ADR-0010-single-minion-round.md#применение-завершённого-give-ground-к-m2).
+
+Атомарный execute_npc_give_ground проверяет M2 source/history до resolve_give_ground и регистрирует готовый результат один раз. Kernel/RNG/receipt не вызываются; подмена returned movement source отклоняется до consumer. [Контракт](../decisions/ADR-0010-single-minion-round.md#атомарное-исполнение-give-ground-m2).

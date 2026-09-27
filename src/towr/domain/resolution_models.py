@@ -189,6 +189,7 @@ class GiveGroundResolutionResult:
     condition_application: ConditionApplicationResult | None
     entered_enemy_zone: bool
     applied_rule_ids: tuple[str, ...]
+    source_request: GiveGroundResolutionRequest | None = None
 
     def __post_init__(self) -> None:
         if not isinstance(self.source, GiveGroundRequest):
@@ -293,6 +294,25 @@ class GiveGroundResolutionResult:
         if self.source.rule_id not in applied_rule_ids:
             raise ValueError("result must trace its source Give Ground rule")
         object.__setattr__(self, "applied_rule_ids", applied_rule_ids)
+        if self.source_request is not None:
+            request = self.source_request
+            if not isinstance(request, GiveGroundResolutionRequest):
+                raise TypeError("source_request must be a GiveGroundResolutionRequest")
+            if (request.source != self.source or request.state != self.previous_state
+                    or request.mover_id != self.mover_id or request.destination_zone_id != self.destination_zone_id):
+                raise ValueError("Give Ground result differs from its source request")
+            expected_conditions = (request.mover_conditions.with_condition(Condition.BROKEN)
+                                   if self.entered_enemy_zone else request.mover_conditions)
+            if self.conditions != expected_conditions:
+                raise ValueError("Give Ground result changed unrelated source Conditions")
+            application = self.condition_application
+            if application is not None and (
+                application.request_id != f"{self.source.resolution_id}:{self.mover_id}:enemy-zone-broken"
+                or application.source_rule_id != "RULE-COMBAT-015:give-ground"
+                or application.was_already_present != request.mover_conditions.has(Condition.BROKEN)
+                or application.blocked or application.blocked_by_rule_id is not None
+            ):
+                raise ValueError("Give Ground Broken application differs from source")
 
 
 @dataclass(frozen=True, slots=True)
