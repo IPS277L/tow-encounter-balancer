@@ -6,7 +6,7 @@
 
 ## Навигация
 
-[Конечный аудит M3](docs/audits/m3-readiness.md) подтверждает переход к M4 в указанной границе сценария. [JSON-контракт v1](docs/decisions/ADR-0016-ranged-simulation-json-v1.md) реализован в Schema и чистых адаптерах; application service и CLI ещё впереди.
+[Конечный аудит M3](docs/audits/m3-readiness.md) подтверждает переход к M4 в указанной границе сценария. [JSON-контракт v1](docs/decisions/ADR-0016-ranged-simulation-json-v1.md) реализован в Schema, чистых адаптерах и application service с явным выбором sequential/process и кодированием ошибок. Следующий шаг — CLI simulate.
 
 - [`docs/README.md`](docs/README.md) — карта документации;
 - [`docs/game-rules.md`](docs/game-rules.md) — зафиксированные правила;

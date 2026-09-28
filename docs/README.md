@@ -19,7 +19,7 @@
 - [`decisions/ADR-0013-ranged-minion-scenario-input.md`](decisions/ADR-0013-ranged-minion-scenario-input.md) — вход и исполнитель Minion-перестрелки, policies/facts, общий бюджет и terminal outcomes;
 - [`decisions/ADR-0014-independent-ranged-simulations.md`](decisions/ADR-0014-independent-ranged-simulations.md) — последовательный M3, seed/index, независимые RNG и компактные агрегаты;
 - [`decisions/ADR-0015-process-ranged-simulations.md`](decisions/ADR-0015-process-ranged-simulations.md) — опциональный M3 в spawn-процессах, ограниченная очередь пакетов, RNG и обработка ошибок;
-- [`decisions/ADR-0016-ranged-simulation-json-v1.md`](decisions/ADR-0016-ranged-simulation-json-v1.md) — реализованные Schema/pure adapters JSON v1, strict input/output и следующий срез M4;
+- [`decisions/ADR-0016-ranged-simulation-json-v1.md`](decisions/ADR-0016-ranged-simulation-json-v1.md) — Schema/pure adapters JSON v1, application service, typed errors и следующий срез CLI;
 - [`../src/towr/adapters/schemas/`](../src/towr/adapters/schemas/) — packaged JSON Schema request/result/error Draft 2020-12;
 - [`examples/m4/README.md`](examples/m4/README.md) — примерные JSON request/result, проверенные через существующие typed APIs;
 - [`decisions/`](decisions/) — журнал архитектурных решений;

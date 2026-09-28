@@ -90,9 +90,9 @@
 
 ## Точный следующий законченный шаг
 
-Первый M4 (Schema и pure adapters) выполнен; актуальный [статус](../project-status.md) сохраняет прежнюю границу правил.
+M4 Schema, pure adapters и application service с error encoding выполнены; актуальный [статус](../project-status.md) сохраняет прежнюю границу правил.
 
-Добавить application service для RangedSimulationCommand: явный dispatch в existing sequential/process runner, передача workers/batch_size без автоматического выбора/fallback, проверка source результата и типизированная ошибка исполнения с сохранённой причиной. Во внешнем JSON adapter добавить кодирование стабильного error envelope по имеющейся схеме; ошибки parsing/admission не превращать в execution_failed или игровые outcomes. Проверить сквозную композицию JSON → command → service → JSON, оба backend и failures без частичного результата. JSON и CLI не импортируются application/domain/engine; CLI simulate остаётся следующим отдельным срезом.
+Следующий срез — CLI simulate поверх parser → application service → result/error encoders: UTF-8 файл/stdin, JSON stdout, stderr/exit codes, protected main и subprocess tests sequential/process/input/I/O failures. Backend/workers задаются явно; без partial results и расширения scenario scope. Полный контракт следующего шага — в project-status.
 
 ## Сводка одного прогона — реализованный срез
 

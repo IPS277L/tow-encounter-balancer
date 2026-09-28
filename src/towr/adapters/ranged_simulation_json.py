@@ -13,6 +13,7 @@ from towr.adapters.ranged_json_schema import validate_ranged_document
 from towr.application.ranged_simulation_models import (
     RangedSimulationCommand, SimulationExecutionMode, SimulationExecutionOptions,
 )
+from towr.application.ranged_simulation_errors import RangedSimulationExecutionError
 from towr.domain.attack_models import DamageProfile, ResilienceProfile
 from towr.domain.condition_models import StaggerChoice
 from towr.domain.injury_models import ProfileInjuryState
@@ -30,6 +31,26 @@ from towr.domain.spatial_models import SpatialBattleState, SpatialEntityPlacemen
 from towr.domain.test_models import InlineProfile, Skill
 from towr.domain.turn_models import CombatRoundState, CombatSide
 from towr.simulation.npc_ranged_models import SEED_SCHEME, NpcRangedSimulationRequest, NpcRangedSimulationResult
+
+
+def encode_ranged_simulation_error(
+    error: RangedSimulationInputError | RangedSimulationExecutionError,
+) -> str:
+    """Encode known boundary errors only; never infer a category from a raw exception."""
+    if isinstance(error, RangedSimulationInputError):
+        code, path = error.code.value, error.path
+    elif isinstance(error, RangedSimulationExecutionError):
+        code, path = "execution_failed", None
+    else:
+        raise TypeError("error encoding requires a typed input or execution error")
+    document = {
+        "schema_version": "1", "kind": "simulation_error", "request_id": error.request_id,
+        "error": {"code": code, "path": path, "message": str(error)},
+    }
+    validate_ranged_document(document, "error")
+    # Malformed input diagnostics may themselves include lone Unicode surrogates.
+    # Escaping keeps even these error envelopes valid UTF-8 text.
+    return json.dumps(document, indent=2, ensure_ascii=True, allow_nan=False) + "\n"
 
 
 def _object(pairs):
