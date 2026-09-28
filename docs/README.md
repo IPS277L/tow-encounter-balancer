@@ -30,10 +30,12 @@
 - [`decisions/ADR-0021-melee-minion-scenario.md`](decisions/ADR-0021-melee-minion-scenario.md) — Melee Minion-сценарий: typed admission, динамический outnumbering, реализованный исполнитель и source-bound result;
 - [`decisions/ADR-0022-independent-melee-simulations.md`](decisions/ADR-0022-independent-melee-simulations.md) — реализованные независимые Melee-прогоны, seed scheme, compact result и aggregate-only summary;
 - [`audits/m6-simulation-readiness.md`](audits/m6-simulation-readiness.md) — аудит массовой Melee-симуляции: seeds, summary, spawn, ошибки, измерения и граница будущего balance;
-- [`decisions/ADR-0024-melee-candidate-assessment.md`](decisions/ADR-0024-melee-candidate-assessment.md) — Melee assessment и модели списка реализованы: точные доли/окно, source, бюджет, top_k; application service — следующий этап;
+- [`decisions/ADR-0024-melee-candidate-assessment.md`](decisions/ADR-0024-melee-candidate-assessment.md) — реализованные Melee assessment, list models и application evaluator: точные доли/окно, source, бюджет, top_k, sequential/process и ошибки;
+- [`decisions/ADR-0025-staged-melee-evaluation.md`](decisions/ADR-0025-staged-melee-evaluation.md) — реализованная поэтапная Melee-оценка: helper, модели этапов/бюджета/цепочки и application service/error; аудит и самостоятельный пример — следующий срез;
 - [`decisions/ADR-0023-process-melee-simulations.md`](decisions/ADR-0023-process-melee-simulations.md) — реализованный контракт опциональных Melee-прогонов в процессах: spawn, bounded queue, те же seed/result и ошибки;
 - [`audits/m6-readiness.md`](audits/m6-readiness.md) — аудит одиночного Melee-сценария и требования к будущим независимым прогонам/summary;
-- [`examples/m6/README.md`](examples/m6/README.md) — полный production Melee пример с seed/budget/выводом и отдельный низкоуровневый constructor probe;
+- [`audits/m6-evaluation-readiness.md`](audits/m6-evaluation-readiness.md) — аудит ADR-0024: source/budget/selection/error boundaries и самостоятельный пример двух составов;
+- [`examples/m6/README.md`](examples/m6/README.md) — production Melee-сценарий, оценка списка в sequential/process с сохранённым выводом и отдельные constructor probes;
 - [`examples/m5/json/README.md`](examples/m5/json/README.md) — запуск CLI balance, JSON request/result и три категории ошибок;
 - [`../src/towr/adapters/schemas/`](../src/towr/adapters/schemas/) — packaged JSON Schema request/result/error Draft 2020-12;
 - [`examples/m4/README.md`](examples/m4/README.md) — примерные JSON request/result, проверенные через существующие typed APIs;

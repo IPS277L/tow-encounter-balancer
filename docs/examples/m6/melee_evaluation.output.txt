@@ -1,0 +1,18 @@
+profile: Footpad; BOOK-GM-GUIDE 1.1 / Allies and Antagonists / Footpad p97
+rules: BOOK-PLAYER-GUIDE 1.4 / Rules pp112,114,118-119,123; BOOK-GM-GUIDE 1.1 / Minions p91
+facts/policies: stationary aware Minions, explicit Close, all Zone actors included; outnumbering approved; repeated Staggered -> Wound; defeat -> knocked out
+seed: 42; seed_scheme: towr:npc-melee-trial:v1; trials_per_candidate: 16
+window: min=1/4, target=1/2, max=3/4; top_k: 1
+budget per evaluation: planned=32; actual=32; max=32
+candidate: footpads:2x1; round_budget: 3; perspective: players_and_allies; objective: E1
+  counts goal/defeated/limit/unsupported: 16/0/0/0
+  rates goal/defeated/limit/unsupported: 1, 0, 0, 0
+  attacks: 39; visited_rounds: 21; status: eligible; window_match: False
+candidate: footpads:2x2; round_budget: 3; perspective: players_and_allies; objective: E1,E2
+  counts goal/defeated/limit/unsupported: 10/3/3/0
+  rates goal/defeated/limit/unsupported: 5/8, 3/16, 3/16, 0
+  attacks: 97; visited_rounds: 37; status: eligible; window_match: True
+selected: ('footpads:2x2',)
+sequential/process reports and selected IDs: equal; process workers=2 batch_size=5
+demonstration runs two complete evaluations: 64 total trials
+input/global RNG unchanged; no remaining child processes

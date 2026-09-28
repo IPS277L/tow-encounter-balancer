@@ -110,7 +110,7 @@ $env:PYTHONPATH = "src"
 Melee assessment contract: exact shares/windows, unsupported, stable ties, budget 20 OK
 ```
 
-Проверяются включённые границы/середина окна [1/4,1/2,3/4], отдельные четыре shares, all-round-limit/all-unsupported, stable ties, общий бюджет пяти observations по четыре trials и большое N без float rounding. Наблюдения заданы вручную и не характеризуют баланс Footpad-состава. Probe не реализует source/budget/error guards будущего evaluator; матрица его будущих тестов в ADR. Запускать без `-O`, чтобы assertions выполнялись.
+Проверяются включённые границы/середина окна [1/4,1/2,3/4], отдельные четыре shares, all-round-limit/all-unsupported, stable ties, общий бюджет пяти observations по четыре trials и большое N без float rounding. Наблюдения заданы вручную и не характеризуют баланс Footpad-состава. Probe не реализует source/budget/error guards evaluator; production API и его тесты теперь реализованы по ADR. Запускать без `-O`, чтобы assertions выполнялись.
 
 ## Оценка одного Melee-кандидата
 
@@ -128,7 +128,7 @@ assessment = assess_melee_candidate(result.source_request, summary, window)
 print(assessment.objective_achieved_rate, assessment.status.value, assessment.window_match)
 ```
 
-Границы этого примера заданы явно и не являются preset сложности. Имя модуля окна историческое: используется тот же ObjectiveRateWindow, без преобразования Melee в ranged. Четыре rates — Fraction со знаменателем все trials; при unsupported > 0 window_match=None, иначе включённое сравнение minimum/maximum. ELIGIBLE может находиться вне окна, target используется ranking моделей списка. Оценщик не запускает бой и не хранит per-trial records; source summary должен целиком совпасть с переданным input. List models реализованы по ADR-0024; service исполнения списка и CLI для Melee assessment ещё не реализованы.
+Границы этого примера заданы явно и не являются preset сложности. Имя модуля окна историческое: используется тот же ObjectiveRateWindow, без преобразования Melee в ranged. Четыре rates — Fraction со знаменателем все trials; при unsupported > 0 window_match=None, иначе включённое сравнение minimum/maximum. ELIGIBLE может находиться вне окна, target используется ranking моделей списка. Оценщик не запускает бой и не хранит per-trial records; source summary должен целиком совпасть с переданным input. List models и service исполнения списка реализованы по ADR-0024; CLI для Melee assessment пока отсутствует.
 
 ## Вход списка Melee-кандидатов
 
@@ -151,4 +151,89 @@ assert request.planned_trials == 200
 assert len(request.simulation_requests) == 2
 ```
 
-Конструктор проверяет полный вход и бюджет, но не исполняет прогоны. `MeleeBalanceCandidateResult(candidate_id, assessment)` связывает готовый assessment со строкой, `MeleeBalanceEvaluationResult(request, rows)` требует полный исходный порядок, exact IDs/sources/window и хранит только агрегаты с входами. `selected_candidate_ids`, `total_trials`, `seed_scheme` вычисляются; среди rows с window_match=True выбираются ближайшие к target, равенство сохраняет порядок входа. Outside/unsupported остаются в отчёте, пустой выбор допустим. Сервис, который получит эти строки из симулятора, — следующий шаг; этот пример не подменяет его собственным боевым циклом.
+Конструктор проверяет полный вход и бюджет, но не исполняет прогоны. `MeleeBalanceCandidateResult(candidate_id, assessment)` связывает готовый assessment со строкой, `MeleeBalanceEvaluationResult(request, rows)` требует полный исходный порядок, exact IDs/sources/window и хранит только агрегаты с входами. `selected_candidate_ids`, `total_trials`, `seed_scheme` вычисляются; среди rows с window_match=True выбираются ближайшие к target, равенство сохраняет порядок входа. Outside/unsupported остаются в отчёте, пустой выбор допустим. Готовый request передаётся application service ниже.
+
+## Исполнение списка Melee-кандидатов
+
+Для `request` из предыдущего примера; process-вызов помещается в импортируемый Python-файл под main guard:
+
+```python
+from towr.application.melee_evaluation_service import evaluate_melee_candidates
+from towr.application.ranged_simulation_models import SimulationExecutionMode, SimulationExecutionOptions
+
+if __name__ == "__main__":
+    execution = SimulationExecutionOptions(SimulationExecutionMode.PROCESS, workers=2, batch_size=25)
+    report = evaluate_melee_candidates(request, execution)
+    assert report.source_request is request
+    assert report.total_trials == request.planned_trials
+    print(report.selected_candidate_ids)
+    for row in report.candidates:
+        print(row.candidate_id, row.assessment.objective_achieved_rate, row.assessment.window_match)
+```
+
+Для sequential передать `SimulationExecutionOptions(SimulationExecutionMode.SEQUENTIAL)` без workers/batch_size. Кандидаты идут по одному; process распараллеливает trials внутри текущего кандидата. Отчёт хранит все aggregate rows в исходном порядке, включая outside/unsupported; selection может быть пустым. При ошибке `MeleeBalanceEvaluationError.candidate_id` указывает кандидата, `__cause__` сохраняет исходную ошибку и worker notes; частичного отчёта, retry или fallback нет. Полные trial records прошлого кандидата освобождаются до следующего запуска. Окно примера — явный вход, не preset сложности.
+
+## Самостоятельный запуск оценки двух составов
+
+[melee_evaluation.py](melee_evaluation.py) строит два допущенных состава Footpad 2×1 и 2×2 через public APIs и соседний builder, без tests/private imports. Все факты Close/awareness/Zone и GM decisions явно заданы для обоих составов. Общие параметры: seed 42, три раунда, по 16 trials, max_total_trials=32, окно [1/4,1/2,3/4], top_k=1.
+
+```powershell
+$env:PYTHONPATH = "src"
+.venv/Scripts/python.exe docs/examples/m6/melee_evaluation.py
+```
+
+Запускать без `-O`: assertions проверяют равенство полных отчётов и выбранных IDs, planned/actual budget, сохранение input/global RNG и завершение дочерних процессов. Скрипт выполняет sequential и process (workers=2, batch_size=5), то есть два полных вызова по 32 trials — всего 64. Оба режима используют один typed request; вызовы независимы, повторного использования результатов нет.
+
+[Сохранённый вывод](melee_evaluation.output.txt) получен на Windows/Python 3.14.5: 2×1 вне окна, 2×2 выбран. Это иллюстрация конкретного seed и малого пакета, не preset и не гарантия истинной вероятности. В assertions нет ожидаемого процента или победителя. Ошибка кандидата печатает ID/исходную причину и пробрасывается с ненулевым exit code; частичного отчёта нет. Полная матрица и ограничения — в [аудите](../../audits/m6-evaluation-readiness.md).
+
+## Проверка контракта поэтапной оценки
+
+[staged_contract_probe.py](staged_contract_probe.py) — конечные синтетические примеры [ADR-0025](../../decisions/ADR-0025-staged-melee-evaluation.md) поверх existing Melee bounded models/assessment, без tests/private imports, runner/RNG и нового production API.
+
+```powershell
+$env:PYTHONPATH = "src"
+.venv/Scripts/python.exe docs/examples/m6/staged_contract_probe.py
+```
+
+Запускать без `-O`. Проверяются outside-window continuation при пустом bounded selected, исключение unsupported, восстановление исходного порядка, включённые границы/финальный пустой выбор, exact Fraction при большом N и бюджеты 240/140/40/2240. Все counts заданы вручную и не описывают измеренный баланс Footpad. Probe не реализует stage admission, report chain guards или обработку stage errors; теперь они реализованы production API и проверены отдельными model/service/integration tests.
+
+## Готовые модели поэтапного запроса
+
+Для двух уже допущенных кандидатов `request` из раздела входа списка выше:
+
+```python
+from towr.balance.melee_staged_evaluation_models import MeleeBalanceStage, MeleeStagedEvaluationRequest
+
+staged = MeleeStagedEvaluationRequest(
+    candidates=request.candidates,
+    master_seed=request.master_seed,
+    stages=(MeleeBalanceStage(10, 2), MeleeBalanceStage(100, 1)),
+    max_total_trials=220,
+    window=request.window,
+)
+assert staged.planned_trials == 2 * 10 + 2 * 100 == 220
+```
+
+Это preflight без симуляции. Для уже готового `MeleeBalanceEvaluationResult` функция `melee_continuation_candidate_ids` из `balance.melee_staged_evaluation` возвращает промежуточный отбор в исходном порядке, включая пригодные outside-window rows. `MeleeStagedEvaluationResult(staged, stage_reports)` проверяет точную цепочку local sources/budgets/keep и законное завершение, хранит только агрегаты с inputs. Финальный выбор использует только последнее окно, прежние попадания не подставляются. Staged application service реализован и принимает этот request, как показано ниже. Старый staged_contract_probe остаётся историческим арифметическим probe, новые модели покрыты отдельными unit tests.
+
+## Исполнение этапов
+
+Для `staged` из предыдущего раздела; вызов process должен находиться в импортируемом Python-файле под main guard:
+
+```python
+from towr.application.melee_staged_evaluation_service import evaluate_melee_candidates_staged
+from towr.application.ranged_simulation_models import SimulationExecutionMode, SimulationExecutionOptions
+
+if __name__ == "__main__":
+    options = SimulationExecutionOptions(SimulationExecutionMode.PROCESS, workers=2, batch_size=25)
+    result = evaluate_melee_candidates_staged(staged, options)
+    assert result.source_request is staged
+    assert result.total_trials <= result.planned_trials <= staged.max_total_trials
+    print(result.status.value, result.selected_candidate_ids, result.total_trials)
+    for index, report in enumerate(result.stage_reports):
+        print(index, report.total_trials, report.selected_candidate_ids)
+```
+
+Для sequential передать `SimulationExecutionOptions(SimulationExecutionMode.SEQUENTIAL)`. Каждый этап выполняет полный пакет с index 0, прежний prefix пересчитывается и входит в бюджет. Промежуточный selected не используется как continuation: outside-window может пройти на уточнение, unsupported исключается. Окончательный выбор берётся только из последнего этапа, либо пуст при ранней остановке NO_ELIGIBLE_CANDIDATES. Все полные stage reports сохраняются.
+
+`MeleeStagedEvaluationError` из `application.melee_staged_evaluation_errors` содержит stage_index с нуля, известный candidate_id (иначе None), а `__cause__` сохраняет цепочку bounded error → исходная причина/worker notes. Ошибка останавливает работу без partial success/retry/fallback. Preflight и финальная ошибка конструктора result проходят напрямую. Самостоятельный пример с полным построением входа и аудит — следующий срез.

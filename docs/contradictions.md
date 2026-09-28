@@ -290,3 +290,13 @@ NPC Attack preparation (2026-09-27) не вводит house rules: примен�
 2026-09-28 — pure Melee assessment реализован по ADR-0024. PG1.4 Rules / Combat, стр. 112 и GM1.1 Allies and Antagonists / Minions, стр. 91 прямо перечитаны: цель за бюджет/visited rounds и defeat не переопределены. Unsupported остаётся отдельной наблюдаемой долей и исключает сравнение с окном без изменения знаменателя; новых расхождений/house rules нет.
 
 2026-09-29 — модели списка Melee ADR-0024 не меняют combat/defeat: PG1.4 Rules / Combat, стр. 112 и GM1.1 Allies and Antagonists / Minions, стр. 91 перечитаны непосредственно. Полный отчёт сохраняет outside/unsupported, selection не превращает их в проигрыши и не сокращает знаменатель. Новый игровой спор/house rule не появился; исполнение списка остаётся отдельным срезом.
+
+2026-09-29 — application evaluator Melee ADR-0024: PG1.4 Rules / Combat, стр. 112 и GM1.1 Allies and Antagonists / Minions, стр. 91 непосредственно сверены. Service не меняет боевое исполнение, критерий цели или смысл defeat; сохраняет четыре исхода существующего summary. Ошибка исполнения не становится unsupported observation или partial success. Новых противоречий/house rules нет.
+
+2026-09-29 — аудит Melee evaluation: непосредственно сверены PG1.4 Rules / Combat, стр. 112; The Battlefield, стр. 114; Attack Modifiers, стр. 118–119; Conditions / Staggered, стр. 123; GM1.1 Allies and Antagonists / Minions, стр. 91 и Footpad, стр. 97. Пример 2×1/2×2 явно задаёт Close/awareness/GM decisions, использует обычный динамический outnumbering и прежний профиль. Выбранный кандидат — результат заданного окна/seed, не правило сложности книги. Новых противоречий/house rules нет.
+
+2026-09-29 — контракт staged Melee ADR-0025: PG1.4 Rules / Combat, стр. 112 и GM1.1 Allies and Antagonists / Minions, стр. 91 перечитаны напрямую. Повторные пакеты не продолжают бой, не меняют round budget или defeat; outside-window промежуточный отбор не объявляется попаданием в итоговое окно. Новых противоречий/house rules нет.
+
+2026-09-29 — staged helper/models ADR-0025: PG1.4 Rules / Combat, стр. 112 и GM1.1 Allies and Antagonists / Minions, стр. 91 сверены напрямую. Round limit остаётся отдельным пригодным наблюдением, unsupported не исключается из знаменателя, промежуточный отбор не считается итоговым попаданием. Combat/defeat не менялись; новых противоречий/house rules нет.
+
+2026-09-29 — staged application ADR-0025: PG1.4 Rules / Combat, стр. 112 и GM1.1 Allies and Antagonists / Minions, стр. 91 непосредственно сверены. Этапы повторяют полные бои и сохраняют четыре исхода/прежний round budget; ошибка исполнения не превращается в unsupported observation или частичный успех. Новых противоречий/house rules нет.

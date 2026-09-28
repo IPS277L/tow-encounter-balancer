@@ -1,6 +1,6 @@
 # ADR-0024: оценка Melee-кандидатов и ограниченного списка
 
-Статус: принято, 2026-09-28. **Pure Melee assessment и list models реализованы (модели списка — 2026-09-29); application evaluator ещё не реализован.** Направление и метрика уже подтверждены пользователем.
+Статус: принято, 2026-09-28. **Pure Melee assessment, list models и application evaluator реализованы (service — 2026-09-29).** Направление и метрика уже подтверждены пользователем.
 
 ## Основание и граница
 
@@ -16,7 +16,7 @@
 
 Melee request/summary/counts/assessment/status/result остаются отдельными типами. Нельзя пропускать ranged summary по совпадению полей или строк enum. Домен, движок и simulation не зависят от balance. Pure balance получает только simulator input и aggregate summary; application исполняет runner, проверяет result и проецирует summary. Full records/journals не сохраняются в balance result.
 
-Для будущего application service переиспользовать существующие [SimulationExecutionMode/Options](../../src/towr/application/ranged_simulation_models.py), без RangedSimulationCommand и JSON adapters. Sequential требует workers/batch_size=None; process требует явные exact integer workers в [1,61] и batch_size > 0. Это ограничение application options уже существует; прямой Melee process API ADR-0023 сохраняет собственную проверку положительности и платформенные ограничения executor. Перенос options, новый wire format и изменение ranged API не входят в этот контракт.
+Application service переиспользует существующие [SimulationExecutionMode/Options](../../src/towr/application/ranged_simulation_models.py), без RangedSimulationCommand и JSON adapters. Sequential требует workers/batch_size=None; process требует явные exact integer workers в [1,61] и batch_size > 0. Это ограничение application options уже существует; прямой Melee process API ADR-0023 сохраняет собственную проверку положительности и платформенные ограничения executor. Перенос options, новый wire format и изменение ranged API не входят в этот контракт.
 
 ## Первый срез: pure assessment одного кандидата
 
@@ -75,7 +75,7 @@ Result требует typed source, всех rows ровно один раз в 
 
 ## Третий срез: application orchestration
 
-Будущие `application/melee_evaluation_service.py` и `melee_evaluation_errors.py`:
+Реализованы [application/melee_evaluation_service.py](../../src/towr/application/melee_evaluation_service.py) и [melee_evaluation_errors.py](../../src/towr/application/melee_evaluation_errors.py):
 
 ```python
 def evaluate_melee_candidates(
@@ -93,7 +93,7 @@ class MeleeBalanceEvaluationError(RuntimeError):
 
 Exception во время конкретного кандидата (runner, pool/pickle, source check, projection, assessment/row construction) оборачивается в MeleeBalanceEvaluationError(candidate_id) через `raise ... from error`: исходные cause и worker index/seed notes сохраняются. Остановить список, не исполнять следующих кандидатов; не возвращать partial result. Ошибки preflight до кандидатов и итогового result constructor распространяются напрямую, без выдуманного candidate ID. KeyboardInterrupt/SystemExit не перехватываются как обычные candidate failures. Cleanup process принадлежит existing backend; retry/fallback/checkpoint/продолжение после ошибки не добавляются. Exception может удерживать traceback; запрет хранения full records относится к успешному aggregate report, не обещает очистки объектов traceback.
 
-## Проверяемые примеры и матрица будущих тестов
+## Проверяемые примеры и матрица тестов
 
 [assessment_contract_probe.py](../examples/m6/assessment_contract_probe.py) использует existing Melee summary и ObjectiveRateWindow, без вызова assessment API. Он был подготовлен до реализации; это конечные синтетические примеры точной арифметики и совместимости входа, **не реализация assessment/evaluator** и не доказательство наблюдаемой вероятности. В нём нет runner/RNG и tests/private imports.
 
@@ -107,7 +107,7 @@ Exception во время конкретного кандидата (runner, poo
 | Service | Exact one call per candidate, выбранный backend/options, source check до projection, освобождение прошлого result; invalid preflight до runner; failure после первого кандидата с ID/cause/notes, отсутствие partial success/fallback, BaseException passthrough |
 | Integration | Заданные d10 → existing sequential/spawn summaries → равные Melee assessments; real list replay/reorder/rename и равные aggregate reports обоих backend, error/cleanup. Не ожидать конкретного Monte Carlo процента |
 
-Существующие [M5 assessment tests](../../tests/unit/test_m5_ranged_assessment.py), [list model tests](../../tests/unit/test_m5_ranged_evaluation.py) и [service tests](../../tests/unit/test_m5_ranged_evaluation_service.py) — основание контракта. Реализованные Melee assessment и list models покрыты отдельными тестами ниже; application service ещё впереди.
+Существующие [M5 assessment tests](../../tests/unit/test_m5_ranged_assessment.py), [list model tests](../../tests/unit/test_m5_ranged_evaluation.py) и [service tests](../../tests/unit/test_m5_ranged_evaluation_service.py) — основание контракта. Реализованные Melee assessment, list models и application service покрыты отдельными тестами ниже.
 
 ## Реализация pure assessment
 
@@ -117,10 +117,14 @@ Exception во время конкретного кандидата (runner, poo
 
 ## Реализация моделей списка
 
-2026-09-29: [четыре frozen модели](../../src/towr/balance/melee_evaluation_models.py) реализованы. [10 model tests](../../tests/unit/test_m6_melee_evaluation.py) проверяют finite tuple copies, exact IDs без нормализации, отказ ranged/неверных типов, общие seed/trials/perspective/round budget и max_total_trials до RNG/runner/pool, rebuild derived inputs при replace. Result требует все строки в исходном порядке с exact ID/source/window; проверены partial/duplicate/reordered/foreign rows и равная копия source. Top_k использует только window_match=True, Fraction distance и входной порядок при равенстве; outside/unsupported сохраняются в полном отчёте, пустой выбор без fallback. Проверены большой N без float rounding, top_k больше числа подходящих rows, производные budget/seed_scheme и отсутствие full records в графе полей. Это модели: исполнение списка ещё не реализовано.
+2026-09-29: [четыре frozen модели](../../src/towr/balance/melee_evaluation_models.py) реализованы. [10 model tests](../../tests/unit/test_m6_melee_evaluation.py) проверяют finite tuple copies, exact IDs без нормализации, отказ ranged/неверных типов, общие seed/trials/perspective/round budget и max_total_trials до RNG/runner/pool, rebuild derived inputs при replace. Result требует все строки в исходном порядке с exact ID/source/window; проверены partial/duplicate/reordered/foreign rows и равная копия source. Top_k использует только window_match=True, Fraction distance и входной порядок при равенстве; outside/unsupported сохраняются в полном отчёте, пустой выбор без fallback. Проверены большой N без float rounding, top_k больше числа подходящих rows, производные budget/seed_scheme и отсутствие full records в графе полей. Исполнение списка реализовано следующим срезом ниже.
 
 ## Порядок реализации
 
-Следующий законченный шаг — `application/melee_evaluation_service.py` и `melee_evaluation_errors.py` по третьему срезу выше: typed explicit execution, один полный existing simulation run на кандидата, source check до projection, summary/assessment/row, освобождение предыдущего full result и полный result в конце. Candidate failure сохраняет ID/cause/notes, без partial result/retry/fallback; BaseException не оборачивается. Добавить deterministic service tests и реальные sequential/spawn integration tests на равные reports, reorder/rename, ошибки pool/source и прекращение после ошибки. Генерация/staged/CLI/JSON в этот срез не входят.
+Третий срез завершён 2026-09-29. [8 service tests](../../tests/unit/test_m6_melee_evaluation_service.py) проверяют backend/order/options, typed preflight включая отказ ranged, foreign/untyped result до projection, source identity, освобождение full result через weak references до следующего runner, candidate ID/cause/notes и остановку на ошибке. Проверены ошибки projector/assessment/row, отсутствие вымышленного candidate ID при ошибке финального отчёта и BaseException passthrough.
+
+[2 integration tests](../../tests/integration/test_m6_melee_evaluation.py) проверяют реальные sequential/spawn reports, rename/reorder invariance, неизменность input/global RNG и отсутствие оставшихся дочерних процессов; pool startup failure сохраняет причину без fallback. Ни один тест не требует конкретного Monte Carlo процента.
+
+[Аудит bounded evaluation](../audits/m6-evaluation-readiness.md) завершён 2026-09-29: все три среза покрыты 30 тестами, [самостоятельный пример](../examples/m6/melee_evaluation.py) исполняет два допущенных состава через sequential/process с равными полными reports/selected IDs. [Отдельный контракт ADR-0025](ADR-0025-staged-melee-evaluation.md) подготовлен по образцу ADR-0018; метрика/игровые правила прежние. Pure continuation helper, staged models и application service/error реализованы; следующий шаг — аудит staged evaluation и самостоятельный пример.
 
 Генерация составов, staged execution/prefix reuse, Melee CLI/JSON, новые метрики/пресеты/confidence, движение/PC/mixed battle и universal rules engine остаются вне контракта. Ranged models/services/wire, Melee simulation и книги не меняются этим решением.

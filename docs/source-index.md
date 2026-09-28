@@ -334,3 +334,13 @@ Same-round movement chain повторно сверена по локальны�
 2026-09-28 — pure Melee assessment ADR-0024: повторно непосредственно перечитаны BOOK-PLAYER-GUIDE 1.4, Rules / Combat, стр. 112 и BOOK-GM-GUIDE 1.1, Allies and Antagonists / Minions, стр. 91. Оценка использует существующие counts/visited rounds и не меняет defeat/disposition. Доли/окно — принятая продуктовая метрика, новых Rule IDs или rulings нет.
 
 2026-09-29 — модели списка Melee-кандидатов ADR-0024: повторно напрямую сверены BOOK-PLAYER-GUIDE 1.4, Rules / Combat, стр. 112 и BOOK-GM-GUIDE 1.1, Allies and Antagonists / Minions, стр. 91. Общий round budget и прежние исходы используются без изменения боевой семантики; typed бюджет/top_k/отчёт — технический контракт. Новых Rule IDs/extraction/rulings нет.
+
+2026-09-29 — application evaluator Melee ADR-0024: непосредственно проверены BOOK-PLAYER-GUIDE 1.4, Rules / Combat, стр. 112 и BOOK-GM-GUIDE 1.1, Allies and Antagonists / Minions, стр. 91 в локальном извлечённом тексте. Service использует прежние simulation/summary и не меняет round/defeat; новых Rule IDs/extraction/rulings нет.
+
+2026-09-29 — аудит Melee evaluation и пример: непосредственно сверены BOOK-PLAYER-GUIDE 1.4, Rules / Combat, стр. 112; The Battlefield, стр. 114; Attack Modifiers, стр. 118–119; Conditions / Staggered, стр. 123; BOOK-GM-GUIDE 1.1, Allies and Antagonists / Minions, стр. 91, и Brigands & Footpads / Footpad, стр. 97. Использован локальный извлечённый текст. Профиль/Close/outnumbering/defeat/SUFFER_WOUND подтверждены; новых правил, house rules или extraction нет.
+
+2026-09-29 — контракт staged Melee ADR-0025: непосредственно перечитаны локальные BOOK-PLAYER-GUIDE 1.4, Rules / Combat, стр. 112 и BOOK-GM-GUIDE 1.1, Allies and Antagonists / Minions, стр. 91. Stage — повторный пакет боёв с прежним round budget, не продолжение раунда; defeat/disposition не меняются. Контракт технический, новых Rule IDs/extraction/rulings нет.
+
+2026-09-29 — pure staged Melee helper/models ADR-0025: напрямую перечитаны BOOK-PLAYER-GUIDE 1.4, Rules / Combat, стр. 112 и BOOK-GM-GUIDE 1.1, Allies and Antagonists / Minions, стр. 91 в локальном извлечённом тексте. Stage/бюджет/цепочка — технический слой над прежними observations, не продолжение боя и не новое правило defeat. Новых extraction/Rule IDs/rulings нет.
+
+2026-09-29 — staged Melee application ADR-0025: непосредственно перечитаны BOOK-PLAYER-GUIDE 1.4, Rules / Combat, стр. 112 и BOOK-GM-GUIDE 1.1, Allies and Antagonists / Minions, стр. 91. Service повторяет независимые боевые пакеты с прежним лимитом; round/defeat/disposition не меняет. Новых Rule IDs/extraction/rulings нет.
