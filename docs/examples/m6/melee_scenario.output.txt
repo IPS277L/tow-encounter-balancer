@@ -1,0 +1,27 @@
+scenario: example:melee; seed: 42; round_budget: 3
+profile: RULE-PROFILE-TALABEC-005; BOOK-GM-GUIDE 1.1 / Allies and Antagonists / Footpad p97
+numeric: Dagger Close 3d/3 Dam2 1H; Athletics 3d/3; RES3; Minion
+rules: BOOK-PLAYER-GUIDE 1.4 / Rules pp107,112,114,118-119,123; BOOK-GM-GUIDE 1.1 pp91,93,97
+perspective: players_and_allies; objective: E1,E2
+side_order: players_and_allies,opposition
+actor_order: P1,P2,E1,E2
+facts: zone_id=arena; all_opponents_in_close_range=True; targets_aware=True; clear_line_of_sight=True; stationary=True; all_zone_combatants_included=True; unmounted_combatants_only=True; no_higher_ground=True; no_additional_rules=True; no_other_test_modifiers=True; can_leave_zone=True
+repeated_stagger: suffer_wound
+policy P1: targets=E1,E2; outnumbering_approved=True; defeats=E1:knocked_out:approved=True,E2:knocked_out:approved=True
+policy P2: targets=E1,E2; outnumbering_approved=True; defeats=E1:knocked_out:approved=True,E2:knocked_out:approved=True
+policy E1: targets=P1,P2; outnumbering_approved=True; defeats=P1:knocked_out:approved=True,P2:knocked_out:approved=True
+policy E2: targets=P1,P2; outnumbering_approved=True; defeats=P1:knocked_out:approved=True,P2:knocked_out:approved=True
+outcome: objective_achieved
+attacks: 6; visited_rounds: 3; completed_rounds: 2
+last_runner_stop: pending_follow_ups; runner_pending: 1; scenario_pending: 0
+defeat_acknowledgements: 3; terminal_acknowledgement: True
+attack example:melee:round:1:actor:P1:selection:execution: P1->E1; dice=3; modifiers=
+attack example:melee:round:1:actor:P2:selection:execution: P2->E1; dice=3; modifiers=
+attack example:melee:round:1:actor:E2:selection:execution: E2->P1; dice=3; modifiers=
+attack example:melee:round:2:actor:P2:selection:execution: P2->E2; dice=3; modifiers=
+attack example:melee:round:2:actor:E2:selection:execution: E2->P2; dice=3; modifiers=
+attack example:melee:round:3:actor:P2:selection:execution: P2->E2; dice=3; modifiers=
+actor P1: wounds=1; defeated=True; conditions=
+actor P2: wounds=0; defeated=False; conditions=
+actor E1: wounds=1; defeated=True; conditions=
+actor E2: wounds=1; defeated=True; conditions=

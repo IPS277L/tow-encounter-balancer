@@ -28,7 +28,8 @@
 - [`decisions/ADR-0019-ranged-composition-generation.md`](decisions/ADR-0019-ranged-composition-generation.md) — реализованный генератор численности по явному резерву: profiles/context, составы, IDs, admission и бюджет;
 - [`decisions/ADR-0020-ranged-balance-json-v1.md`](decisions/ADR-0020-ranged-balance-json-v1.md) — реализованный balance JSON/CLI: Schema/adapters/service, reserve/facts/window, источники/этапы и ошибки;
 - [`decisions/ADR-0021-melee-minion-scenario.md`](decisions/ADR-0021-melee-minion-scenario.md) — Melee Minion-сценарий: typed admission, динамический outnumbering, реализованный исполнитель и source-bound result;
-- [`examples/m6/README.md`](examples/m6/README.md) — исполняемый constructor probe на существующих K1/M2 APIs, не production M6 runner;
+- [`audits/m6-readiness.md`](audits/m6-readiness.md) — аудит одиночного Melee-сценария и требования к будущим независимым прогонам/summary;
+- [`examples/m6/README.md`](examples/m6/README.md) — полный production Melee пример с seed/budget/выводом и отдельный низкоуровневый constructor probe;
 - [`examples/m5/json/README.md`](examples/m5/json/README.md) — запуск CLI balance, JSON request/result и три категории ошибок;
 - [`../src/towr/adapters/schemas/`](../src/towr/adapters/schemas/) — packaged JSON Schema request/result/error Draft 2020-12;
 - [`examples/m4/README.md`](examples/m4/README.md) — примерные JSON request/result, проверенные через существующие typed APIs;
