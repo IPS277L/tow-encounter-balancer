@@ -130,6 +130,10 @@ Damage = base weapon Damage + attacker_successes - defender_successes
 
 Источник: страницы 115, 118–119 и таблицы снаряжения.
 
+Уточнение по непосредственно перечитанному BOOK-PLAYER-GUIDE 1.4, Rules / Attack Tests / Attack Modifiers, стр. 118–119: Melee/Brawn получает `+1d`, если союзников в Zone атакующего, включая его, больше, чем врагов, включая цель. Defeated, Defenceless и non-combatants не считаются; mounted enemy считается одним бойцом. Завершивший ход или Staggered боец продолжает считаться. GM вправе удержать неуместный бонус; пример 7:6 не задаёт автоматический числовой порог. Для Brigand действует отдельное Craven Opportunist: `+2d` вместо `+1d` (BOOK-GM-GUIDE 1.1, Allies and Antagonists / Brigands & Footpads, стр. 97).
+
+K1 принимает готовые modifiers, но автоматический пересчёт численного преимущества ещё не реализован. [ADR-0021](../decisions/ADR-0021-melee-minion-scenario.md) определяет его для следующего ограниченного Melee-сценария: текущий roster/Zone перед каждой Attack, явное решение GM, без Brigand/особых бонусов. Статус этого provider — запланирован; [probe](../examples/m6/README.md) проверяет только композицию существующих APIs.
+
 ## Реализация Attack/Impact в K1
 
 - контракты: `src/towr/domain/attack_models.py`;
