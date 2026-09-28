@@ -30,6 +30,7 @@
 - [`decisions/ADR-0021-melee-minion-scenario.md`](decisions/ADR-0021-melee-minion-scenario.md) — Melee Minion-сценарий: typed admission, динамический outnumbering, реализованный исполнитель и source-bound result;
 - [`decisions/ADR-0022-independent-melee-simulations.md`](decisions/ADR-0022-independent-melee-simulations.md) — реализованные независимые Melee-прогоны, seed scheme, compact result и aggregate-only summary;
 - [`audits/m6-simulation-readiness.md`](audits/m6-simulation-readiness.md) — аудит массовой Melee-симуляции: seeds, summary, spawn, ошибки, измерения и граница будущего balance;
+- [`decisions/ADR-0024-melee-candidate-assessment.md`](decisions/ADR-0024-melee-candidate-assessment.md) — Melee assessment и модели списка реализованы: точные доли/окно, source, бюджет, top_k; application service — следующий этап;
 - [`decisions/ADR-0023-process-melee-simulations.md`](decisions/ADR-0023-process-melee-simulations.md) — реализованный контракт опциональных Melee-прогонов в процессах: spawn, bounded queue, те же seed/result и ошибки;
 - [`audits/m6-readiness.md`](audits/m6-readiness.md) — аудит одиночного Melee-сценария и требования к будущим независимым прогонам/summary;
 - [`examples/m6/README.md`](examples/m6/README.md) — полный production Melee пример с seed/budget/выводом и отдельный низкоуровневый constructor probe;

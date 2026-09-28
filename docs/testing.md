@@ -567,3 +567,21 @@ py -3.12 -m unittest discover -s tests -v
 2026-09-28: [аудит ADR-0022/0023](audits/m6-simulation-readiness.md) сопоставляет public APIs с 46 tests массового среза: 18 unit + 4 integration simulation/summary, 8 unit + 5 integration parallel, 11 profiling/benchmark unit tests. Вместе с прежним одиночным срезом 100 M6 tests (75 unit, 25 integration), подсчёт проверен по AST.
 
 Полная регрессия: **2074 tests OK (133,376 с)**, Windows / Python 3.14.5, включая real spawn и прежние ranged/CLI paths. Compileall, local Markdown paths, git diff --check и source/harness hash обоих process benchmark отчётов успешны. Production src/tests/tools не менялись, 21 существовавший dirty/untracked файл сохранён. Повторные benchmark, Python 3.12/другие ОС, wheel и RSS не проверялись. Следующий шаг — контракт оценки Melee-кандидатов; команды в [project-status.md](project-status.md#последняя-проверка).
+
+## Контракт оценки Melee-кандидатов
+
+2026-09-28: [ADR-0024](decisions/ADR-0024-melee-candidate-assessment.md) определяет будущие pure assessment/list models/service; production реализации пока нет. [Finite probe](examples/m6/assessment_contract_probe.py) проверен из repo и вне cwd: synthetic existing Melee summary + existing ObjectiveRateWindow, точные Fraction/window границы, четыре shares, all-limit/unsupported, stable ties, бюджет 20 и большие N. Это проверка совместимости/арифметики, не новые production guards или Monte Carlo expectations.
+
+**48 existing tests OK (4,624 с)**: M5 assessment/list models/service/integration (26), Melee simulation/summary/integration (22). Compileall, local Markdown paths, git diff --check и hash sources/harness предыдущих измерений успешны. Src/tests/tools не менялись; полный набор не повторялся, последняя полная проверка 2074 OK относится к предыдущему аудиту. Матрица будущих unit/integration tests и отдельные шаги реализации указаны в ADR; следующий — только pure assessment.
+
+## Pure Melee assessment
+
+2026-09-28: [9 unit tests](../tests/unit/test_m6_melee_assessment.py) проверяют [ADR-0024](decisions/ADR-0024-melee-candidate-assessment.md): typed Melee/отказ ranged/full result, exact source и равная копия, frozen/derived поля, общий ObjectiveRateWindow/class/pickle path, четыре Fraction rates со всеми trials, unsupported=None, inclusive/point windows, all-limit/all-unsupported и большое N без float rounding. Обход полей исключает retained trial records; RNG/runner/pool/JSON запрещены в pure assessment.
+
+[1 integration test](../tests/integration/test_m6_melee_assessment.py) исполняет реальный sequential/spawn Melee с заданными d10 и сравнивает assessment по готовым summary: три исхода по 1/3, точечное окно 1/3, exact parent source. 20 Melee/M5 assessment tests OK (3,576 с); полная регрессия **2084 tests OK (133,298 с)** на Windows / Python 3.14.5. Compileall, ссылки и git diff --check успешны. List models/service, другие ОС/Python 3.12, wheel и benchmark этим шагом не проверяются. Команды — в [project-status.md](project-status.md#последняя-проверка).
+
+## Модели списка Melee-кандидатов
+
+2026-09-29: [10 model tests](../tests/unit/test_m6_melee_evaluation.py) проверяют [melee_evaluation_models.py](../src/towr/balance/melee_evaluation_models.py): frozen tuples/exact IDs, derived simulation inputs/rebuild, отказ ranged/неверных типов, common perspective/round budget/seed/trials и полный бюджет до RNG/runner/pool. Полный result требует исходные IDs/order/sources/window; проверены partial/duplicate/foreign records, равная копия source, стабильные Fraction ties/top_k, пустой выбор, большой N и отсутствие full results/records. init=False override dataclasses.replace отвергается TypeError/ValueError в зависимости от runtime; запрет изменения derived inputs сохраняется.
+
+37 релевантных Melee/M5 tests OK (0,116 с); после уточнения исключения replace новые 10 tests повторены — OK (0,094 с). Полный набор **2094 tests OK (213,686 с)**, Windows / Python 3.14.5. Compileall, локальные ссылки и git diff --check успешны; пример list input из docs/examples/m6/README.md проверен без запуска боя. Application service/integration исполнения списка — следующий срез. Domain/engine/simulation и прежний ranged API не менялись; другие ОС/Python 3.12, wheel и benchmark не проверялись. Команды — в [project-status.md](project-status.md#последняя-проверка).

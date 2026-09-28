@@ -94,3 +94,61 @@ Melee contract: 3 trials; spawn workers 1/2 == sequential; pickle/source/summary
 Явные параметры: Footpad 2×2 из build_scenario, master_seed 20260928, 3 trials, budget 3, workers 1/2. Проверяются request/factory pickle round trip, переставленная подача/сбор records, равенство sequential, parent source identity, child PID, неизменность initial/global RNG, ошибка ребёнка и отсутствие оставшихся детей. Запускать обычным Python без `-O`, чтобы assertions выполнялись.
 
 Probe имеет только фиксированные три задачи и не реализует batching/bounded queue/error notes. Он не является benchmark или новым CLI; production API и матрица его tests описаны в ADR. Игровые источники и facts берутся из прежнего Footpad-примера выше.
+
+## Проверка контракта оценки кандидатов
+
+[ADR-0024](../../decisions/ADR-0024-melee-candidate-assessment.md) подготовлен, pure Melee assessment теперь реализован, evaluator списка пока отсутствует. [assessment_contract_probe.py](assessment_contract_probe.py) использует builder из одиночного примера, существующие typed summary и ObjectiveRateWindow. Это конечный пример на синтетических агрегатах без RNG/исполнения боя и без imports tests/private API.
+
+```powershell
+$env:PYTHONPATH = "src"
+.venv/Scripts/python.exe docs/examples/m6/assessment_contract_probe.py
+```
+
+Ожидаемый вывод:
+
+```text
+Melee assessment contract: exact shares/windows, unsupported, stable ties, budget 20 OK
+```
+
+Проверяются включённые границы/середина окна [1/4,1/2,3/4], отдельные четыре shares, all-round-limit/all-unsupported, stable ties, общий бюджет пяти observations по четыре trials и большое N без float rounding. Наблюдения заданы вручную и не характеризуют баланс Footpad-состава. Probe не реализует source/budget/error guards будущего evaluator; матрица его будущих тестов в ADR. Запускать без `-O`, чтобы assertions выполнялись.
+
+## Оценка одного Melee-кандидата
+
+Для `result` из массового прогона выше (sequential либо process):
+
+```python
+from fractions import Fraction
+from towr.balance.ranged_assessment_models import ObjectiveRateWindow
+from towr.balance.melee_assessment import assess_melee_candidate
+from towr.simulation.npc_melee_summary import summarize_npc_melee_simulation
+
+window = ObjectiveRateWindow(Fraction(1, 4), Fraction(1, 2), Fraction(3, 4))
+summary = summarize_npc_melee_simulation(result)
+assessment = assess_melee_candidate(result.source_request, summary, window)
+print(assessment.objective_achieved_rate, assessment.status.value, assessment.window_match)
+```
+
+Границы этого примера заданы явно и не являются preset сложности. Имя модуля окна историческое: используется тот же ObjectiveRateWindow, без преобразования Melee в ranged. Четыре rates — Fraction со знаменателем все trials; при unsupported > 0 window_match=None, иначе включённое сравнение minimum/maximum. ELIGIBLE может находиться вне окна, target используется ranking моделей списка. Оценщик не запускает бой и не хранит per-trial records; source summary должен целиком совпасть с переданным input. List models реализованы по ADR-0024; service исполнения списка и CLI для Melee assessment ещё не реализованы.
+
+## Вход списка Melee-кандидатов
+
+Для уже допущенных `scenario_a` и `scenario_b` с общей perspective_side и round budget:
+
+```python
+from fractions import Fraction
+from towr.balance.ranged_assessment_models import ObjectiveRateWindow
+from towr.balance.melee_evaluation_models import MeleeBalanceCandidate, MeleeBalanceEvaluationRequest
+
+request = MeleeBalanceEvaluationRequest(
+    candidates=(MeleeBalanceCandidate("a", scenario_a), MeleeBalanceCandidate("b", scenario_b)),
+    master_seed=42,
+    trials_per_candidate=100,
+    max_total_trials=200,
+    window=ObjectiveRateWindow(Fraction(1, 4), Fraction(1, 2), Fraction(3, 4)),
+    top_k=1,
+)
+assert request.planned_trials == 200
+assert len(request.simulation_requests) == 2
+```
+
+Конструктор проверяет полный вход и бюджет, но не исполняет прогоны. `MeleeBalanceCandidateResult(candidate_id, assessment)` связывает готовый assessment со строкой, `MeleeBalanceEvaluationResult(request, rows)` требует полный исходный порядок, exact IDs/sources/window и хранит только агрегаты с входами. `selected_candidate_ids`, `total_trials`, `seed_scheme` вычисляются; среди rows с window_match=True выбираются ближайшие к target, равенство сохраняет порядок входа. Outside/unsupported остаются в отчёте, пустой выбор допустим. Сервис, который получит эти строки из симулятора, — следующий шаг; этот пример не подменяет его собственным боевым циклом.

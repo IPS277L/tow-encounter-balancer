@@ -328,3 +328,9 @@ Same-round movement chain повторно сверена по локальны�
 2026-09-28 — benchmark Melee sequential/process: повторно сверены BOOK-GM-GUIDE 1.1, Allies and Antagonists / Brigands & Footpads / Footpad, стр. 97 (Dagger, Athletics, RES, Lurker вне боя) и BOOK-PLAYER-GUIDE 1.4, Rules / Attack Modifiers, стр. 119 (обычный outnumbering и GM discretion). Прежние fixtures/политики не менялись; новый harness измеряет existing APIs, новых Rule IDs нет.
 
 2026-09-28 — аудит массовой Melee-симуляции ADR-0022/0023: непосредственно перечитаны BOOK-PLAYER-GUIDE 1.4, Rules / Combat, стр. 112; Attack Tests / Attack Modifiers, стр. 118–119; BOOK-GM-GUIDE 1.1, Allies and Antagonists / Minions, стр. 91; Brigands & Footpads / Footpad, стр. 97. Сопоставлены прежние порядок хода, обычный outnumbering/GM discretion, defeat/disposition и benchmark fixture. Новых редакций, Rule IDs, extraction или rulings нет.
+
+2026-09-28 — контракт Melee assessment ADR-0024: прямо перечитаны BOOK-PLAYER-GUIDE 1.4, Rules / Combat, стр. 112 и BOOK-GM-GUIDE 1.1, Allies and Antagonists / Minions, стр. 91. Смысл visited round и defeat сохраняется; Fraction-метрика/окно/top_k — подтверждённый продуктовый контракт, не книжное правило. Новых Rule IDs/extraction/rulings нет.
+
+2026-09-28 — pure Melee assessment ADR-0024: повторно непосредственно перечитаны BOOK-PLAYER-GUIDE 1.4, Rules / Combat, стр. 112 и BOOK-GM-GUIDE 1.1, Allies and Antagonists / Minions, стр. 91. Оценка использует существующие counts/visited rounds и не меняет defeat/disposition. Доли/окно — принятая продуктовая метрика, новых Rule IDs или rulings нет.
+
+2026-09-29 — модели списка Melee-кандидатов ADR-0024: повторно напрямую сверены BOOK-PLAYER-GUIDE 1.4, Rules / Combat, стр. 112 и BOOK-GM-GUIDE 1.1, Allies and Antagonists / Minions, стр. 91. Общий round budget и прежние исходы используются без изменения боевой семантики; typed бюджет/top_k/отчёт — технический контракт. Новых Rule IDs/extraction/rulings нет.

@@ -284,3 +284,9 @@ NPC Attack preparation (2026-09-27) не вводит house rules: примен�
 2026-09-28 — Melee process benchmark сохраняет RULE-PROFILE-TALABEC-005/RULE-COMBAT-009 и прежний допуск. Напрямую проверены GM1.1 Allies and Antagonists / Footpad, стр. 97 и PG1.4 Rules / Attack Modifiers, стр. 119. Производительность не меняет игровых исходов/метрики; новых расхождений и house rules нет.
 
 2026-09-28 — [аудит массового Melee M6](audits/m6-simulation-readiness.md): противоречий текущей simulation/summary границы ADR-0022/0023 с прямо перечитанными PG1.4 Rules, стр. 112/118–119 и GM1.1 Allies and Antagonists, стр. 91/97 не найдено. ROUND_LIMIT/UNSUPPORTED_PATH не подменяют игровые исходы, terminal suffix не создаёт Attack/раунд. Ограничения памяти, custom RNG и проверки происхождения summary зафиксированы как технические, а не house rules.
+
+2026-09-28 — [ADR-0024](decisions/ADR-0024-melee-candidate-assessment.md) не меняет боевые правила: PG1.4 Rules / Combat, стр. 112 и GM1.1 Allies and Antagonists / Minions, стр. 91 сверены напрямую. Доля цели за budget не выдаётся за победу PC/неограниченного боя или обязательную смерть всех NPC. Round limit/unsupported сохраняются; новых противоречий/house rules нет.
+
+2026-09-28 — pure Melee assessment реализован по ADR-0024. PG1.4 Rules / Combat, стр. 112 и GM1.1 Allies and Antagonists / Minions, стр. 91 прямо перечитаны: цель за бюджет/visited rounds и defeat не переопределены. Unsupported остаётся отдельной наблюдаемой долей и исключает сравнение с окном без изменения знаменателя; новых расхождений/house rules нет.
+
+2026-09-29 — модели списка Melee ADR-0024 не меняют combat/defeat: PG1.4 Rules / Combat, стр. 112 и GM1.1 Allies and Antagonists / Minions, стр. 91 перечитаны непосредственно. Полный отчёт сохраняет outside/unsupported, selection не превращает их в проигрыши и не сокращает знаменатель. Новый игровой спор/house rule не появился; исполнение списка остаётся отдельным срезом.
