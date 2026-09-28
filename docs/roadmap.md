@@ -55,7 +55,7 @@ R1 завершён; round/side/turn state, базовый action budget, обы
 
 ## M3 — массовая симуляция
 
-Первый срез реализован: последовательные независимые прогоны NpcRangedScenario, versioned master seed/index, compact records и typed агрегаты четырёх исходов, Attack и visited rounds. Воспроизводимость проверена при обратном порядке и изменении размера пакета; реальный параллелизм ещё не реализован. [ADR-0014](decisions/ADR-0014-independent-ranged-simulations.md), 1780 tests OK. Benchmark/profiling baseline готов ([измерения](benchmarks/README.md), 1784 tests OK). Однократное построение NpcRosterAttackExecutionResult.state реализовано: guards сохранены, records совпали с baseline, 1787 tests OK. Следующий срез — опциональное исполнение M3 в процессах с прежними seed/records и проверкой spawn, ошибок и реального времени; параллелизм пока не реализован.
+Реализованы последовательные и опциональные spawn-прогоны NpcRangedScenario с одной seed scheme и compact result; проверены независимые RNG, разные workers/разбиение, ошибки и ограниченная очередь. [ADR-0014](decisions/ADR-0014-independent-ranged-simulations.md), [ADR-0015](decisions/ADR-0015-process-ranged-simulations.md). Baseline, однократное построение Attack state и сравнение sequential/spawn на 100/1000 trials готовы ([измерения](benchmarks/README.md)); 1797 tests OK. Следующий срез — конечный аудит четырёх пунктов M3 и определение первого минимального JSON-контракта M4 для текущего игрового scope.
 
 - независимые seed для прогонов;
 - агрегированные метрики;

@@ -17,6 +17,7 @@
 - [`decisions/ADR-0012-npc-nearby-stagger.md`](decisions/ADR-0012-npc-nearby-stagger.md) — профильный Blunderbuss executor, вторичные цели, цепочка последствий и завершение nearby trigger;
 - [`decisions/ADR-0013-ranged-minion-scenario-input.md`](decisions/ADR-0013-ranged-minion-scenario-input.md) — вход и исполнитель Minion-перестрелки, policies/facts, общий бюджет и terminal outcomes;
 - [`decisions/ADR-0014-independent-ranged-simulations.md`](decisions/ADR-0014-independent-ranged-simulations.md) — последовательный M3, seed/index, независимые RNG и компактные агрегаты;
+- [`decisions/ADR-0015-process-ranged-simulations.md`](decisions/ADR-0015-process-ranged-simulations.md) — опциональный M3 в spawn-процессах, ограниченная очередь пакетов, RNG и обработка ошибок;
 - [`decisions/`](decisions/) — журнал архитектурных решений;
 - [`decisions/ADR-0011-bounded-minion-rounds.md`](decisions/ADR-0011-bounded-minion-rounds.md) — ограниченный прогон Minion-раундов, лимит, snapshots и остановки;
 - [`decisions/ADR-0010-single-minion-round.md`](decisions/ADR-0010-single-minion-round.md) — ограниченная координация одного Minion-раунда, остановки и возобновление;
