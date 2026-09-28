@@ -1,0 +1,52 @@
+{
+  "schema_version": "1",
+  "kind": "npc_ranged_simulation",
+  "request_id": "example:brigands:1x1",
+  "ruleset": "towr-pg1.4-gmg1.1",
+  "simulation": {"master_seed": "20260928", "trials": 3, "round_budget": 5},
+  "execution": {"mode": "sequential"},
+  "scenario": {
+    "definitions": [
+      {
+        "id": "brigand:ranged",
+        "source_rule_id": "RULE-PROFILE-TALABEC-004",
+        "resilience": {"toughness": 3, "bonus": 1},
+        "attack": {
+          "id": "warbow", "source_rule_id": "RULE-PROFILE-TALABEC-004:warbow",
+          "dice": 3, "threshold": 3, "damage": 3
+        },
+        "protection": {
+          "source_rule_id": "RULE-PROFILE-TALABEC-004:protection", "dice": 3, "threshold": 2
+        }
+      }
+    ],
+    "actors": [
+      {"id": "archer:a", "definition_id": "brigand:ranged", "side": "players_and_allies", "zone_id": "left"},
+      {"id": "archer:b", "definition_id": "brigand:ranged", "side": "opposition", "zone_id": "right"}
+    ],
+    "battlefield": {
+      "zone_ids": ["left", "right"],
+      "connections": [{"first_zone_id": "left", "second_zone_id": "right"}]
+    },
+    "side_order": ["players_and_allies", "opposition"],
+    "actor_order": ["archer:a", "archer:b"],
+    "perspective_side": "players_and_allies",
+    "objective_target_ids": ["archer:b"],
+    "facts": {
+      "target_range": "medium",
+      "has_enemy_in_close_range": false,
+      "targets_aware": true,
+      "clear_line_of_sight": true,
+      "stationary": true,
+      "unmodified_tests": true,
+      "no_additional_rules": true,
+      "ammunition_sufficient": true,
+      "requires_reload_action": false
+    },
+    "repeated_stagger_choice": "suffer_wound",
+    "actor_policies": [
+      {"actor_id": "archer:a", "targets": [{"target_id": "archer:b", "disposition": "knocked_out", "gm_approved": true}]},
+      {"actor_id": "archer:b", "targets": [{"target_id": "archer:a", "disposition": "knocked_out", "gm_approved": true}]}
+    ]
+  }
+}

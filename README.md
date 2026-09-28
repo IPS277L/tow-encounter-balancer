@@ -6,6 +6,8 @@
 
 ## Навигация
 
+[Конечный аудит M3](docs/audits/m3-readiness.md) подтверждает переход к M4 в указанной границе сценария. [JSON-контракт v1](docs/decisions/ADR-0016-ranged-simulation-json-v1.md) определён; Schema, adapters и CLI ещё не реализованы.
+
 - [`docs/README.md`](docs/README.md) — карта документации;
 - [`docs/game-rules.md`](docs/game-rules.md) — зафиксированные правила;
 - [`docs/source-policy.md`](docs/source-policy.md) — приоритет книги и других источников;

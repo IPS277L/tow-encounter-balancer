@@ -422,3 +422,7 @@ py -3.12 -m unittest discover -s tests -v
 ## M3 в процессах
 
 5 unit tests test_m3_npc_ranged_parallel.py проверяют guards до pool, очередь <= 2 * workers, обратное завершение/неполный хвост, неверные records и cleanup при ошибке. 3 integration tests с тем же именем запускают настоящие spawn-процессы: три состава, workers 1/2, batches 1/3, parent PID guard, injected exact RNG, prefix при расширении, child exception/index/seed, отсутствие оставшихся детей и immutable input/global RNG. 2 unit tests test_m3_parallel_benchmark.py проверяют сравнение records/параметры. Полный набор 1797 OK на Python 3.14.5. Benchmark запускается отдельно от suite; tests не устанавливают порог ускорения. [Контракт](decisions/ADR-0015-process-ranged-simulations.md), [замеры](benchmarks/README.md#сравнение-последовательного-режима-и-spawn).
+
+## Аудит M3 и контракт M4
+
+2026-09-28: полный набор повторно 1797 tests OK (Python 3.14.5, 29,165 с), включая real spawn. В этом документальном срезе tests/src не менялись. JSON-пример M4 через одноразовый mapping probe проходит existing domain constructors; sequential и spawn workers=2/batch_size=1 совпали. Сохранённый output проверен JSON round-trip. Это положительный пример контракта, а не доказательство ещё не реализованного parser/Schema. Следующий срез должен покрыть strict parsing, cross-references и source binding по [ADR-0016](decisions/ADR-0016-ranged-simulation-json-v1.md#порядок-реализации-m4).

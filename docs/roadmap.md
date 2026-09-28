@@ -55,7 +55,7 @@ R1 завершён; round/side/turn state, базовый action budget, обы
 
 ## M3 — массовая симуляция
 
-Реализованы последовательные и опциональные spawn-прогоны NpcRangedScenario с одной seed scheme и compact result; проверены независимые RNG, разные workers/разбиение, ошибки и ограниченная очередь. [ADR-0014](decisions/ADR-0014-independent-ranged-simulations.md), [ADR-0015](decisions/ADR-0015-process-ranged-simulations.md). Baseline, однократное построение Attack state и сравнение sequential/spawn на 100/1000 trials готовы ([измерения](benchmarks/README.md)); 1797 tests OK. Следующий срез — конечный аудит четырёх пунктов M3 и определение первого минимального JSON-контракта M4 для текущего игрового scope.
+Реализованы последовательные и опциональные spawn-прогоны NpcRangedScenario с одной seed scheme и compact result; проверены независимые RNG, разные workers/разбиение, ошибки и ограниченная очередь. [ADR-0014](decisions/ADR-0014-independent-ranged-simulations.md), [ADR-0015](decisions/ADR-0015-process-ranged-simulations.md). Baseline, однократное построение Attack state и сравнение sequential/spawn на 100/1000 trials готовы ([измерения](benchmarks/README.md)); 1797 tests OK. [Конечный аудит](audits/m3-readiness.md) закрывает все четыре критерия для текущего scenario scope; переход к M4 подтверждён.
 
 - независимые seed для прогонов;
 - агрегированные метрики;
@@ -63,6 +63,8 @@ R1 завершён; round/side/turn state, базовый action budget, обы
 - профилирование и только затем оптимизация.
 
 ## M4 — контракты приложения
+
+JSON v1 определён в [ADR-0016](decisions/ADR-0016-ranged-simulation-json-v1.md), [примеры](examples/m4/README.md) проверены через existing typed constructors и sequential/spawn. Реализация ещё впереди: сначала три Schema и pure adapters с frozen command/options, затем application service, затем CLI simulate. Не сериализовать внутренние receipts/history и не обходить scenario admission.
 
 - JSON Schema и адаптеры;
 - application services;

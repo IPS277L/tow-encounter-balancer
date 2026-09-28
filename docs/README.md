@@ -10,6 +10,7 @@
 - [`game-rules.md`](game-rules.md) — правила существующего упрощённого прототипа;
 - [`audits/k1-readiness.md`](audits/k1-readiness.md) — матрица готовности K1, критерии перехода к M2 и следующий implementation-срез;
 - [`audits/m2-readiness.md`](audits/m2-readiness.md) — пять пунктов M2, фактические границы, остаток перед M3 и следующий срез;
+- [`audits/m3-readiness.md`](audits/m3-readiness.md) — закрытие четырёх критериев M3 и граница перехода к M4;
 - [`rule-traceability.md`](rule-traceability.md) — книга → правило → код → тест;
 - [`contradictions.md`](contradictions.md) — расхождения и неоднозначности источника;
 - [`architecture/overview.md`](architecture/overview.md) — слои, зависимости и основные модели;
@@ -18,6 +19,8 @@
 - [`decisions/ADR-0013-ranged-minion-scenario-input.md`](decisions/ADR-0013-ranged-minion-scenario-input.md) — вход и исполнитель Minion-перестрелки, policies/facts, общий бюджет и terminal outcomes;
 - [`decisions/ADR-0014-independent-ranged-simulations.md`](decisions/ADR-0014-independent-ranged-simulations.md) — последовательный M3, seed/index, независимые RNG и компактные агрегаты;
 - [`decisions/ADR-0015-process-ranged-simulations.md`](decisions/ADR-0015-process-ranged-simulations.md) — опциональный M3 в spawn-процессах, ограниченная очередь пакетов, RNG и обработка ошибок;
+- [`decisions/ADR-0016-ranged-simulation-json-v1.md`](decisions/ADR-0016-ranged-simulation-json-v1.md) — согласованный JSON v1, strict input/output и порядок реализации M4;
+- [`examples/m4/README.md`](examples/m4/README.md) — примерные JSON request/result, проверенные через существующие typed APIs;
 - [`decisions/`](decisions/) — журнал архитектурных решений;
 - [`decisions/ADR-0011-bounded-minion-rounds.md`](decisions/ADR-0011-bounded-minion-rounds.md) — ограниченный прогон Minion-раундов, лимит, snapshots и остановки;
 - [`decisions/ADR-0010-single-minion-round.md`](decisions/ADR-0010-single-minion-round.md) — ограниченная координация одного Minion-раунда, остановки и возобновление;

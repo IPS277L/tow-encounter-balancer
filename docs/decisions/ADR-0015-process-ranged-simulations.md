@@ -49,3 +49,5 @@ if __name__ == "__main__":
 [tools/benchmark_m3_parallel.py](../../tools/benchmark_m3_parallel.py) сравнивает обычный wall-clock на тех же fixtures с учётом pickle, spawn/imports, выполнения и shutdown нового пула при каждом повторе. Mode order чередуется, records сравниваются целиком. Memory/RSS дочерних процессов и cProfile в этот отчёт не входят. [Результаты и ограничения](../benchmarks/README.md).
 
 Постоянный pool, автоматический подбор workers/batch size, distributed execution, retry/checkpoint, сокращение validation и расширение правил не входят в решение.
+
+M3 закрыт в указанной границе [конечным аудитом](../audits/m3-readiness.md). Wire execution options и ограничения первого M4 определены в [ADR-0016](ADR-0016-ranged-simulation-json-v1.md); JSON никогда не передаёт callable/pickle.

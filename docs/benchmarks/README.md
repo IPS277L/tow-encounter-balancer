@@ -84,4 +84,6 @@ py -3.14 -m tools.benchmark_m3_parallel --trials 1000 --master-seed 20260928 --r
 
 ## Точный следующий шаг
 
-Провести конечный аудит M3 по четырём пунктам roadmap: независимые seeds, агрегаты, воспроизводимость при параллелизме, profiling до оптимизаций. Сопоставить production API, тесты и два размера benchmark; зафиксировать подтверждённые границы и оставшиеся ограничения. При выполненных критериях определить первый законченный срез M4: минимальный версионированный JSON-вход/выход для уже допущенного ranged Minion-сценария, явные facts/policies и выбор режима исполнения. Не расширять игровой scope и не начинать балансировщик; новые performance-срезы не добавлять без измеренного основания.
+Аудит M3 завершён; его граница и доказательства записаны в [матрице](../audits/m3-readiness.md).
+
+Реализовать первый срез M4 по ADR-0016: JSON Schema request/result/error, frozen application command/execution options и pure adapters strict JSON → NpcRangedSimulationRequest, typed result → JSON. Сохранить все domain admission guards; проверить positive examples, unknown/duplicate keys, типы/версии/seed boundaries, ID references, facts/GM policies и source binding результата. Parsing/encoding не запускают RNG/pool. Application service, исполнение из JSON и CLI оставить следующими отдельными шагами; игровые правила и scenario scope не расширять.

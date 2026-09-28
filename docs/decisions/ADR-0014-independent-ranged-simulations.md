@@ -49,3 +49,5 @@
 ## Опциональный process runner
 
 Реализован отдельным API без изменения sequential contracts: [ADR-0015](ADR-0015-process-ranged-simulations.md). Реальные spawn workers сохраняют каждый trial record независимо от разбиения; ошибки не превращаются в исходы, полные журналы не передаются. Все четыре исхода сохраняются прежним result constructor. Полный набор 1797 tests OK; [wall-clock сравнение](../benchmarks/README.md#сравнение-последовательного-режима-и-spawn) включает новый pool при каждом запуске.
+
+[Конечный аудит M3](../audits/m3-readiness.md), 2026-09-28: четыре критерия roadmap выполнены для admitted ranged Minions; 1797 tests повторно OK. Следующий этап — [JSON-контракт M4](ADR-0016-ranged-simulation-json-v1.md), без изменения seed/aggregate semantics.
