@@ -442,3 +442,7 @@ py -3.12 -m unittest discover -s tests -v
 ## Конечный аудит M4 и контракт M5
 
 [Матрица](audits/m4-readiness.md) связывает четыре критерия M4 с 43 tests (30 unit, 13 integration). Полный набор повторно **1840 tests OK**, Python 3.14.5, 44,292 с. Установленные ранее module/console entry points проверены из временного cwd без PYTHONPATH: sequential/process дают равные records/summary. Compileall/pip check/diff check и локальные ссылки успешны. Src/tests/pyproject.toml в этом документальном срезе не менялись; существующие незакоммиченные CLI-файлы сохранены. [ADR-0017](decisions/ADR-0017-ranged-candidate-assessment.md) задаёт тесты следующей summary-проекции, но они ещё не реализованы; продуктовый выбор метрики M5 ожидает ответа.
+
+## Aggregate-only сводка M3 для M5
+
+9 unit tests [test_m3_npc_ranged_summary.py](../tests/unit/test_m3_npc_ranged_summary.py): все четыре counts, source/means, frozen state, constructor/replace guards типов/сумм/раундов/атак, отсутствие result/records в графе полей и отсутствие RNG/runner/pool при projection. 1 [integration test](../tests/integration/test_m3_npc_ranged_summary.py) сравнивает настоящие sequential/spawn с injected deterministic RNG: objective/side defeat/round limit и равные aggregates/source. Полный набор **1850 tests OK**, Python 3.14.5, 43,902 с; compileall/pip check/diff check успешны. Контракт [ADR-0017](decisions/ADR-0017-ranged-candidate-assessment.md). Existing M3 result/service/CLI v1 не менялись; метрика M5 подтверждена, но assessment пока не реализован.

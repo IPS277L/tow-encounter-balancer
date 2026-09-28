@@ -6,7 +6,7 @@
 
 ## Навигация
 
-[Конечный аудит M4](docs/audits/m4-readiness.md) подтверждает готовность Schema, чистых адаптеров, application service и CLI simulate в указанной границе сценария. [JSON-контракт v1](docs/decisions/ADR-0016-ranged-simulation-json-v1.md) поддерживает явный выбор sequential/process и кодирование ошибок. Следующий шаг — отдельная агрегированная сводка M3 для будущего балансировщика; [контракт M5](docs/decisions/ADR-0017-ranged-candidate-assessment.md) отделяет её от пока предложенной продуктовой метрики сложности.
+[Конечный аудит M4](docs/audits/m4-readiness.md) подтверждает готовность Schema, чистых адаптеров, application service и CLI simulate в указанной границе сценария. [JSON-контракт v1](docs/decisions/ADR-0016-ranged-simulation-json-v1.md) поддерживает явный выбор sequential/process и кодирование ошибок. Отдельная агрегированная сводка M3 для будущего балансировщика реализована. Для [первого M5](docs/decisions/ADR-0017-ranged-candidate-assessment.md) подтверждена метрика достижения цели за лимит раундов с явным окном без пресетов; следующий шаг — чистая оценка одного кандидата.
 
 - [`docs/README.md`](docs/README.md) — карта документации;
 - [`docs/game-rules.md`](docs/game-rules.md) — зафиксированные правила;

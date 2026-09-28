@@ -92,7 +92,7 @@
 
 M4 Schema, pure adapters, application service и CLI simulate выполнены; актуальный [статус](../project-status.md) сохраняет прежнюю границу правил.
 
-[Аудит M4](m4-readiness.md) завершён. Следующий срез — aggregate-only NpcRangedSimulationSummary/projector по [ADR-0017](../decisions/ADR-0017-ranged-candidate-assessment.md), без records/RNG/новых правил. Продуктовая метрика M5 пока ожидает ответа; pure summary от неё не зависит. Полный контракт следующего шага — в project-status.
+[Аудит M4](m4-readiness.md) завершён. Aggregate-only NpcRangedSimulationSummary/projector реализованы по [ADR-0017](../decisions/ADR-0017-ranged-candidate-assessment.md); метрика M5 подтверждена пользователем. Следующий срез — pure single-candidate assessment по готовой сводке и явному окну вероятности цели за лимит, без RNG/runner/новых правил. Полный контракт следующего шага — в project-status.
 
 ## Сводка одного прогона — реализованный срез
 

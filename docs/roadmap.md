@@ -73,7 +73,7 @@ M4 реализован по [ADR-0016](decisions/ADR-0016-ranged-simulation-jso
 
 ## M5 — балансировщик
 
-Первый технический контракт — [ADR-0017](decisions/ADR-0017-ranged-candidate-assessment.md). Следующий implementation-срез: aggregate-only summary M3 с exact source/counts/totals/means без records/RNG; он независим от определения сложности. Затем предлагаются оценка явных кандидатов, числовое окно вероятности цели и bounded evaluation. Продуктовый вопрос о цели в Minion-сценарии вместо полноценной победы игроков ещё ожидает ответа; Easy/Medium presets не приняты. Это последовательность внутри M5, а не отмена staged search и генерации.
+Первый технический срез [ADR-0017](decisions/ADR-0017-ranged-candidate-assessment.md) реализован: aggregate-only summary M3 с exact source/counts/totals/means без records/RNG, 9 unit + 1 real spawn integration test, полный набор 1850 OK. Пользователь подтвердил метрику цели в Minion-сценарии за лимит с отдельными round_limit/unsupported_path и явным окном без Easy/Medium presets. Следующий срез — pure single-candidate assessment; затем bounded evaluation. Это последовательность внутри M5, а не отмена staged search и генерации.
 
 - ограничения кандидатов;
 - конфигурируемые окна сложности;

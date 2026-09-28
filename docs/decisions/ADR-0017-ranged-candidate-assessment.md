@@ -1,6 +1,6 @@
 # ADR-0017: агрегаты и ограниченная оценка кандидатов M5
 
-Статус: технический следующий срез определён, 2026-09-28. Контракт оценки кандидатов — **предложение**, до подтверждения продуктовой метрики; код M5 ещё не реализован. [Аудит M4](../audits/m4-readiness.md) завершён.
+Статус: aggregate-only summary/projection **реализованы**, 2026-09-28. Пользователь подтвердил первую метрику: доля достижения заданной цели за лимит раундов, отдельные round_limit/unsupported_path и явное числовое окно без Easy/Medium presets. Следующий срез — pure single-candidate assessment; bounded evaluation/ранжирование остаются предложением и ещё не реализованы. [Аудит M4](../audits/m4-readiness.md) завершён.
 
 ## Основание и решения разного уровня
 
@@ -8,14 +8,14 @@ AGENTS.md требует, чтобы балансировщик получал �
 
 Исходный дизайн, разделы 19–22, предлагает player victory rate, приблизительные окна Easy/Medium/Hard/Impossible, желаемую длительность и многоэтапный поиск. Это продуктовые ориентиры прототипа, не нормативные правила книги и не готовый контракт первого M5. Текущий [NpcRangedScenario](ADR-0013-ranged-minion-scenario-input.md) допускает только Minions; objective перечисляет всех противников perspective_side. OBJECTIVE_ACHIEVED означает поражение противоположной стороны в данном сценарии, а не утверждение о смерти всех NPC или победе полноценной группы PC.
 
-Пользователю предложен ограниченный первый M5: оценка достижения заданной цели за явный round budget, отдельные shares round_limit/unsupported_path, числовое окно без именованных пресетов. Подтверждение ещё не получено; это не house rule и не повод менять engine. Без ответа можно выполнить только независимый aggregate-only срез ниже.
+Пользователь подтвердил ограниченный первый M5: оценка достижения заданной цели за явный round budget, отдельные shares round_limit/unsupported_path, числовое окно без именованных пресетов. Это продуктовый выбор метрики, не house rule и не повод менять engine. Первым реализован независимый aggregate-only срез ниже; следующим оценщик использует эту сводку без исполнения боя.
 
 ## Первый implementation-срез: только сводка M3
 
-Предлагаемые публичные имена:
+Реализованные публичные API:
 
-- `simulation/npc_ranged_summary_models.py`: frozen, slots `NpcRangedSimulationSummary`.
-- `simulation/npc_ranged_summary.py`: `summarize_npc_ranged_simulation(result) -> NpcRangedSimulationSummary`.
+- [simulation/npc_ranged_summary_models.py](../../src/towr/simulation/npc_ranged_summary_models.py): frozen, slots `NpcRangedSimulationSummary`.
+- [simulation/npc_ranged_summary.py](../../src/towr/simulation/npc_ranged_summary.py): `summarize_npc_ranged_simulation(result) -> NpcRangedSimulationSummary`.
 
 Сводка хранит только `source_request`, typed `outcome_counts`, `total_attack_count`, `total_visited_round_count`. Число прогонов берётся из `source_request.trials`; mean_attack_count и mean_visited_round_count вычисляются из сумм, как в M3, а не передаются независимо. Ни trial records, ни seed на каждый trial, ни журналы, terminal injury snapshots или ссылка на полный result не удерживаются. Сам input simulator разрешён архитектурной границей и остаётся неизменяемым.
 
@@ -23,11 +23,13 @@ AGENTS.md требует, чтобы балансировщик получал �
 
 Средние вычисляются с тем же смыслом, что сейчас: visited rounds включают посещённый последний раунд, даже если он не завершён; unsupported/round_limit записи не отбрасываются. Это не средняя длительность только выигранного или полностью завершённого боя. Rates и difficulty labels в первый срез не входят. M3 result, CLI/JSON v1 и существующие service APIs сохраняются; отдельного endpoint или сериализации сводки пока нет.
 
-Следующие детерминированные тесты обязательны: точные четыре outcome counts и totals, совпадение means с M3, frozen inputs/summary, неверные types/count sums/budgets, отсутствие trial/result references, отсутствие RNG/runner при проекции; реальная sequential/process композиция даёт равные сводки одного source. Это не Monte Carlo-тест на конкретную вероятность.
+[9 unit tests](../../tests/unit/test_m3_npc_ranged_summary.py) проверяют точные четыре outcome counts и totals, совпадение means с M3, frozen inputs/summary, неверные types/count sums/budgets, отсутствие trial/result references в графе полей и отсутствие RNG/runner при проекции. [Integration test](../../tests/integration/test_m3_npc_ranged_summary.py) сравнивает сводки настоящих sequential/spawn с injected deterministic RNG, тремя исходами и exact source. Это не Monte Carlo-тест на конкретную вероятность. Набор с четырьмя outcomes отдельно проверяет, что unsupported observation с нулём атак остаётся в общем знаменателе means.
+
+Конкретные guards: N = source.trials, B = source.scenario.initial.max_rounds, A = len(source.scenario.initial.current.actor_order), L = counts.round_limit, T = counts.objective_achieved + counts.side_defeated. Требуются сумма counts = N, `L * B + (N - L) <= total_visited_round_count <= N * B` и `T <= total_attack_count <= A * total_visited_round_count`. `trials` и обе means — свойства; dataclasses.replace повторяет validation. Равенство summary включает source: одинаковые totals другого master_seed не дают равный summary. При прямом конструировании допустимые агрегаты всё равно не являются доказательством исполнения; M3 result и projector — штатный путь их получения.
 
 ## Предложение последующей границы M5
 
-После подтверждения метрики отдельный `balance` слой зависит только от simulation input/summary contracts. Никаких JSON, CLI, engine calls, игровых журналов, RNG или знания Attack/Wound resolution внутри evaluator. Application orchestration исполняет прежний runner, создаёт aggregate summary и передаёт его оценщику. UI/JSON для balance появятся отдельным решением, а не расширением simulation v1 без версии.
+Для подтверждённой метрики отдельный `balance` слой зависит только от simulation input/summary contracts. Никаких JSON, CLI, engine calls, игровых журналов, RNG или знания Attack/Wound resolution внутри evaluator. Application orchestration исполняет прежний runner, создаёт aggregate summary и передаёт его оценщику. UI/JSON для balance появятся отдельным решением, а не расширением simulation v1 без версии.
 
 | Модель (предварительное имя) | Содержание |
 | --- | --- |
@@ -61,8 +63,8 @@ Staged search остаётся следующим этапом roadmap. Перв
 
 ## Порядок продолжения
 
-1. Реализовать и проверить aggregate-only summary/projection, независимо от ответа на вопрос о сложности.
-2. Подтвердить или скорректировать продуктовую метрику из [open-questions](../open-questions.md#первая-метрика-m5); после этого принять соответствующие разделы ADR и реализовать pure single-candidate assessment с детерминированными тестами границ/unsupported.
+1. Aggregate-only summary/projection реализованы и проверены; существующие M3 result/service/CLI v1 не менялись.
+2. Метрика [подтверждена](../open-questions.md#первая-метрика-m5). Реализовать pure single-candidate assessment: exact input/summary source, четыре доли по всем trials, явное Fraction-окно и производный match; unsupported observations сохраняются и исключают пригодность оценки. Детерминированно проверить границы, denominator, source, frozen state и отсутствие RNG/runner; не добавлять список кандидатов, ranking или application execution в этот срез.
 3. Отдельным срезом соединить конечный список кандидатов с existing runners, бюджетом и source-checked отчётом. Затем обсудить staged search и генерацию, сохранив M5 в roadmap.
 
-Новых Rule IDs, трактовок книг или house rules этот документ не вводит. Book-dependent semantics остаются в ADR-0013/0014; книги для технического аудита повторно не извлекались. Продуктовая гипотеза явно отделена от уже проверенной механики.
+Новых Rule IDs, трактовок книг или house rules этот документ не вводит. Book-dependent semantics остаются в ADR-0013/0014; книги для технических срезов повторно не извлекались. Подтверждённая продуктовая метрика отделена от уже проверенной механики. Проверка summary-среза: 1850 tests OK, Python 3.14.5, включая real spawn; compileall/pip check/diff check успешны.
