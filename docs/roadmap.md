@@ -64,7 +64,7 @@ R1 завершён; round/side/turn state, базовый action budget, обы
 
 ## M4 — контракты приложения
 
-M4 реализован по [ADR-0016](decisions/ADR-0016-ranged-simulation-json-v1.md): request/result/error Schema, frozen command/options, pure JSON adapters и typed application service. Явный dispatch сохраняет workers/batch_size, стандартный RNG и source результата; ошибки исполнения сохраняют причину, внешний encoder выдаёт error envelope без partial results. Полный набор 1825 tests OK; [примеры](examples/m4/README.md) проверены через service с real sequential/spawn. Следующий срез — CLI simulate с protected main, UTF-8 I/O, exit codes и subprocess tests. Новые игровые правила и внутренние receipts/history в wire input не добавляются.
+M4 реализован по [ADR-0016](decisions/ADR-0016-ranged-simulation-json-v1.md): request/result/error Schema, frozen command/options, pure JSON adapters, typed application service и CLI simulate. [Конечный аудит](audits/m4-readiness.md) закрывает четыре критерия ниже; 1840 tests повторно OK, module/console entry point × sequential/process проверены без PYTHONPATH. [Примеры запуска](examples/m4/README.md). Новые игровые правила и внутренние receipts/history в wire input не добавляются.
 
 - JSON Schema и адаптеры;
 - application services;
@@ -72,6 +72,8 @@ M4 реализован по [ADR-0016](decisions/ADR-0016-ranged-simulation-jso
 - примеры входа и выхода.
 
 ## M5 — балансировщик
+
+Первый технический контракт — [ADR-0017](decisions/ADR-0017-ranged-candidate-assessment.md). Следующий implementation-срез: aggregate-only summary M3 с exact source/counts/totals/means без records/RNG; он независим от определения сложности. Затем предлагаются оценка явных кандидатов, числовое окно вероятности цели и bounded evaluation. Продуктовый вопрос о цели в Minion-сценарии вместо полноценной победы игроков ещё ожидает ответа; Easy/Medium presets не приняты. Это последовательность внутри M5, а не отмена staged search и генерации.
 
 - ограничения кандидатов;
 - конфигурируемые окна сложности;

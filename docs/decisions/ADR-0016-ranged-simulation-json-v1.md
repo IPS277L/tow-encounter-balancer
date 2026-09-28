@@ -1,6 +1,6 @@
 # ADR-0016: минимальный JSON-контракт ranged M3
 
-Статус: контракт принят, 2026-09-28; JSON Schema, pure adapters, application service и error encoding **реализованы**. Следующий срез — CLI simulate.
+Статус: контракт принят, 2026-09-28; JSON Schema, pure adapters, application service, error encoding и CLI simulate **реализованы**. [Конечный аудит M4](../audits/m4-readiness.md) завершён; следующий технический срез определён в [ADR-0017](ADR-0017-ranged-candidate-assessment.md).
 
 ## Основание и границы
 
@@ -130,7 +130,7 @@ Encoder требует result.source_request == command.request; весь result
 
 ## Ошибки
 
-Формат для будущей application/CLI boundary, отдельно от успешного результата:
+Формат application/CLI boundary, отдельно от успешного результата:
 
 ```json
 {
@@ -151,7 +151,7 @@ Request_id — проверенный ID либо null, если его нель
 
 **Первый срез выполнен:** три JSON Schema (request/result/error), frozen application command/options и pure JSON adapters: strict parse → typed request, typed result → output. Проверены positive examples, unknown/duplicate keys, uint64 seed boundaries, types/enums, source binding и cross-reference/facts/policy отказы до RNG/pool. Product application service, запуск из JSON и CLI в этот срез не входят.
 
-Application service с выбором прежнего sequential/process API и стабильными errors реализован следующим срезом ниже. Далее — CLI simulate с protected main и примерами использования. Таймауты, service resource quotas и streaming больших результатов не выводятся из числовых границ схемы; автоматический подбор workers не вводится. Никакие лимиты JSON не заменяют книжные правила.
+Application service с выбором прежнего sequential/process API, стабильные errors и CLI simulate с protected main реализованы следующими срезами ниже; конечный аудит M4 завершён. Таймауты, service resource quotas и streaming больших результатов не выводятся из числовых границ схемы; автоматический подбор workers не вводится. Никакие лимиты JSON не заменяют книжные правила.
 
 ## Реализация первого среза
 
@@ -177,3 +177,23 @@ Service проверяет тип результата и точное раве�
 Внешний encode_ranged_simulation_error(error) → str принимает только RangedSimulationInputError или RangedSimulationExecutionError. Для input сохраняются code/path/request_id/message; для execution — execution_failed, path=null и общее сообщение `Simulation execution failed`. Причина/traceback доступны Python caller, но в JSON не сериализуются. Неизвестные исключения дают TypeError, а не автоматически выбранную категорию. Envelope проверяется готовой error Schema, заканчивается LF; ensure_ascii=True сохраняет UTF-8 вывод даже при lone surrogate в диагностике malformed input. Ошибки parsing/admission возникают до service и не становятся execution_failed. Это чистое кодирование, без RNG/pool/I/O; application не импортирует adapters/JSON/CLI.
 
 9 новых unit tests проверяют dispatch/options, все outcomes, source/type guards, причины/notes, no retry/fallback, interrupts, коды/pointers/Unicode и отказ неизвестных errors. Два прежних integration tests теперь проходят через service с настоящими sequential/spawn. Ещё 3 integration tests проверяют parsing/admission до dispatch, ошибку после completed trial и сбой создания pool; ошибок с partial summary/trials нет. Полный набор **1825 tests OK**, Python 3.14.5. CLI, автоматический backend selection, timeout/quotas/streaming остаются вне этого среза; правила и domain/engine/simulation не изменены.
+
+## CLI simulate
+
+[cli.main(argv)](../../src/towr/cli.py) — внешний adapter: `python -m towr simulate INPUT` либо установленная команда `towr simulate INPUT`. INPUT обязателен: путь к файлу или `-` для stdin. Относительный путь считается от cwd caller. Файл/stdin читаются как bytes и передаются прежнему strict UTF-8 parser. Далее вызываются application service и encoder; отдельные CLI flags для seed/backend/workers не вводятся. [__main__.py](../../src/towr/__main__.py) защищён `if __name__ == "__main__"`; console entry point объявлен в pyproject.toml. Оба запуска проверены с настоящим spawn, включая установленный wheel вне репозитория без PYTHONPATH.
+
+Для simulation response stdout содержит ровно один JSON v1 документ в UTF-8 с завершающим LF; binary stream исключает зависимость от console code page/PYTHONIOENCODING. Typed input/execution error также выводится в stdout по готовой error Schema; stderr получает краткую строку с кодом и message. Причина исполнения и traceback не печатаются для ожидаемого typed failure. `--help` выводит текст справки в stdout; usage error — текст в stderr, без JSON.
+
+| Exit code | Значение | Stdout |
+| --- | --- | --- |
+| 0 | Полное исполнение либо help | result JSON либо справка |
+| 2 | invalid_json / unsupported_version / invalid_input | error JSON |
+| 2 | Неверные аргументы CLI | Пусто |
+| 3 | execution_failed | error JSON |
+| 4 | Ошибка чтения, записи или диагностики | При ошибке чтения пусто; при ошибке записи доставка не гарантируется |
+
+Все четыре игровых outcomes, включая ROUND_LIMIT/UNSUPPORTED_PATH, являются успешным завершением команды с code 0. Ошибки чтения файла/stdin не классифицируются как invalid_json/execution_failed и не расширяют wire enum: только stderr и code 4. При write/flush failure CLI не пытается писать второй JSON; fd неисправного stdout/stderr перенаправляется в devnull, чтобы повторный flush при shutdown не заменил code 4 на 120. Если недоступен stderr, диагностику доставить нельзя; code 4 сохраняется. Неожиданные программные исключения и KeyboardInterrupt/SystemExit не маскируются typed errors; обычная диагностика Python остаётся доступна.
+
+Исполнение и encoding заканчиваются до первой записи stdout: partial trial result при сбое симуляции отсутствует. Атомарная доставка в ОС/pipe не обещается — при I/O failure получатель может увидеть часть bytes, которую нужно отбросить по ненулевому exit code. Streaming, output-файл/атомарное переименование, timeout, service quotas и backend fallback не добавлены. Весь JSON/result пока хранится в памяти. Application/domain/engine/simulation не импортируют CLI и не менялись.
+
+7 unit tests покрывают typed execution failure, read/write/flush/stderr errors, propagation unexpected encoder error и interrupts. 8 subprocess integration tests покрывают file/stdin, Unicode при ASCII text streams, реальный spawn, строгий ввод/admission, help/usage, missing/directory input, closed stdout/stderr pipes с сохранением code 4 и injected pool startup failure. [Примеры запуска](../examples/m4/README.md).

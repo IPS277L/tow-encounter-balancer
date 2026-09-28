@@ -6,7 +6,7 @@
 
 ## Навигация
 
-[Конечный аудит M3](docs/audits/m3-readiness.md) подтверждает переход к M4 в указанной границе сценария. [JSON-контракт v1](docs/decisions/ADR-0016-ranged-simulation-json-v1.md) реализован в Schema, чистых адаптерах и application service с явным выбором sequential/process и кодированием ошибок. Следующий шаг — CLI simulate.
+[Конечный аудит M4](docs/audits/m4-readiness.md) подтверждает готовность Schema, чистых адаптеров, application service и CLI simulate в указанной границе сценария. [JSON-контракт v1](docs/decisions/ADR-0016-ranged-simulation-json-v1.md) поддерживает явный выбор sequential/process и кодирование ошибок. Следующий шаг — отдельная агрегированная сводка M3 для будущего балансировщика; [контракт M5](docs/decisions/ADR-0017-ranged-candidate-assessment.md) отделяет её от пока предложенной продуктовой метрики сложности.
 
 - [`docs/README.md`](docs/README.md) — карта документации;
 - [`docs/game-rules.md`](docs/game-rules.md) — зафиксированные правила;
@@ -26,3 +26,14 @@ py -3.12 -m venv .venv
 $env:PYTHONPATH = "src"
 .venv/Scripts/python.exe -m unittest discover -s tests -v
 ```
+
+## Запуск симуляции
+
+```powershell
+$env:PYTHONPATH = "src"
+.venv/Scripts/python.exe -m towr simulate docs/examples/m4/ranged-v1.request.json
+```
+
+После установки текущего проекта также доступна `.venv/Scripts/towr.exe simulate INPUT`. `INPUT` — путь к UTF-8 JSON или `-` для stdin. [Пример входа](docs/examples/m4/ranged-v1.request.json) содержит режим, seed, trials и все решения; CLI не переопределяет их. Для процессов задайте в JSON `"execution": {"mode": "process", "workers": 2, "batch_size": 1}`.
+
+Stdout содержит один UTF-8 JSON result или typed error; краткая диагностика идёт в stderr. Exit codes: 0 — полный результат (включая round_limit/unsupported_path), 2 — неверный JSON/admission или аргументы CLI, 3 — ошибка исполнения, 4 — I/O. При ошибке аргументов или чтения файла stdout пуст. [Подробный контракт и ограничения вывода](docs/decisions/ADR-0016-ranged-simulation-json-v1.md#cli-simulate).

@@ -4,7 +4,7 @@
 
 ## Текущий этап
 
-K1/M2/M3 готовы в заявленной границе неподвижного ranged Minion-сценария. M4: три packaged JSON Schema Draft 2020-12, frozen command/options, pure strict parser/result/error encoders и typed application service реализованы. Явный sequential/process dispatch сохраняет options и source; причины сбоев остаются в Python exception, partial results не выдаются. Все existing admission guards и порядок arrays сохранены. [ADR-0016](decisions/ADR-0016-ranged-simulation-json-v1.md). Следующий шаг — CLI simulate. Domain/engine/simulation и правила этим срезом не менялись; полный каталог, общий бой и балансировщик вне текущего scope.
+K1/M2/M3/M4 готовы в заявленной границе неподвижного ranged Minion-сценария; четыре критерия M4 закрыты [аудитом](audits/m4-readiness.md). CLI/Schema/service и installed module/console entry points проверены в sequential/process без PYTHONPATH. [ADR-0017](decisions/ADR-0017-ranged-candidate-assessment.md) выделяет следующий независимый срез — aggregate-only summary M3 для будущего balance layer. Оценка цели/окна сложности M5 пока предложена, ответ пользователя о первой метрике ожидается. Код M5 не реализован; правила, исходники и тесты в этом документальном срезе не менялись. Полный каталог, PC-сценарии и общий бой остаются вне текущего scope.
 
 ## Зафиксировано
 
@@ -643,7 +643,7 @@ K1/M2/M3 готовы в заявленной границе неподвижн�
 - source-bound application принимает Move Quietly всех outcomes, completed continuation, standalone loss или registered Attack; stale source/chain/history и replay отклоняются;
 - continue_hidden_lifecycle и execute_hidden_lifecycle_attack проверяют snapshot до вызова прежнего reducer/executor; Attack preflight выполняется до RNG;
 - PRESERVED сохраняет тот же snapshot; LOST очищает active source без регистрации атаки; registered Attack атомарно закрывает opportunity и переносит историю укрытий;
-- 14 новых тестов покрывают три Attack ветви, hit/miss, исключения, stale/replay, независимый Aim/reload и два последовательных цикла укрытия;
+- 15 новых тестов покрывают три Attack ветви, hit/miss, исключения, stale/replay, независимый Aim/reload и два последовательных цикла укрытия;
 - ограничения: caller сохраняет актуальный snapshot; failed/declined Move Quietly не активирует opportunity; replacement активной opportunity пока не подключён; standalone loss consumer подключён. Automatic awareness, battle aggregate и новый expiry не добавлены.
 
 - добавлен lose_hidden_lifecycle_opportunity с exact source/ordered-chain preflight до existing reducer; готовый loss result также принимается application consumer без переисполнения;
@@ -975,9 +975,13 @@ K1/M2/M3 готовы в заявленной границе неподвижн�
 
 - Завершён M4 application service: execute_ranged_simulation явно выбирает sequential/process, передаёт workers/batch_size и проверяет source результата. RangedSimulationExecutionError сохраняет request_id и исходную причину; внешний error encoder различает input/admission/execution, не выдаёт partial results и не сериализует traceback. 9 unit + 3 integration tests добавлены, 2 прежних проходят через service с real spawn; полный набор 1825 tests OK. [ADR-0016](decisions/ADR-0016-ranged-simulation-json-v1.md#application-service-и-кодирование-ошибок). Правила и нижние слои не менялись; CLI остаётся следующим срезом.
 
+- Реализован CLI simulate: python -m towr / установленный towr, обязательный INPUT (файл либо - для stdin), binary UTF-8 response и отдельная диагностика stderr. Коды 0/2/3/4 различают complete result, input/usage, execution и I/O; protected main поддерживает spawn. До записи собирается полный response; ошибка stdout не вызывает второй JSON или shutdown exit 120. 15 новых тестов; полный набор 1840 OK. Wheel/module/console entry point проверены без PYTHONPATH с реальными процессами. [Контракт](decisions/ADR-0016-ranged-simulation-json-v1.md#cli-simulate). Атомарная доставка bytes при I/O failure, streaming, timeout и output-файл вне среза.
+
+- Конечный аудит M4 завершён: Schema/adapters, service, CLI и примеры сопоставлены с public APIs и 43 M4 tests; полный набор повторно 1840 OK. Установленные module/console × sequential/process дают равные records/summary вне repo без PYTHONPATH. Существующие незакоммиченные CLI/entry point/tests сохранены, новых изменений src/tests/pyproject.toml нет. ADR-0017 описывает aggregate-only summary и предложение bounded candidate assessment без генерации/новых правил; продуктовый вопрос о метрике задан, ответ ещё не получен. [Аудит](audits/m4-readiness.md), [вопрос](open-questions.md#первая-метрика-m5).
+
 ## Следующий шаг
 
-Добавить CLI simulate как внешний adapter над готовыми parser → application service → result/error encoders. Зафиксировать синтаксис запуска, UTF-8 ввод из файла/stdin, полный JSON stdout, диагностику stderr и exit codes для успеха, input/execution/I/O errors. Обеспечить protected main для spawn; не выбирать backend/workers автоматически и не выдавать partial result. Проверить subprocess-вызовы с примером в sequential/process, malformed/admission input и I/O failures; обновить ADR/README с командами. Не переносить JSON/CLI в application/domain/engine и не расширять scenario scope.
+Реализовать NpcRangedSimulationSummary и summarize_npc_ranged_simulation по первому срезу ADR-0017: frozen source_request + outcome_counts + total_attack_count/total_visited_round_count, производные trials/means, проверки типов/сумм/бюджетов. Summary не удерживает per-trial records или полный result; projector принимает готовый M3 result и не вызывает RNG/runner/JSON. Детерминированно проверить равенство агрегатов, четыре outcomes, frozen/source/guards и real sequential/process projection. Не менять existing M3 result/service/CLI v1; rate windows, ranking и candidate execution ещё не реализовывать. Если пользователь ответил на вопрос о метрике, отдельно зафиксировать ответ в ADR/open-questions; отсутствие ответа не мешает этому aggregate-only шагу.
 
 ## Последняя проверка
 
@@ -992,4 +996,4 @@ $env:PYTHONPATH = "src"
 git diff --check
 ```
 
-Полный набор: Ran 1825 tests ... OK (31,533 с), включая real spawn. Добавлены 9 unit + 3 integration tests сервиса/error encoder; два прежних integration tests переведены на service. Проверены explicit dispatch/options, source/type guards, cause/notes, interrupts, категории ошибок, Unicode, сбои после completed trial и при создании pool без partial output/fallback. Compileall, pip check, локальные ссылки README/docs/README и изменённой документации, JSON syntax, git diff --check успешны. Рабочее дерево на старте чистое. Незакоммиченные изменения: новые application service/errors и два unit test файла, обновлённые JSON adapter/integration tests и документация. Domain/engine/simulation не менялись. Wheel/benchmark в этом срезе повторно не запускались. Commit/push не выполнялись.
+Полный набор повторно: Ran 1840 tests ... OK (44,292 с), включая real spawn и 43 M4 tests. Установленный ранее wheel проверен без переустановки: Python -I -m towr и towr.exe из другого cwd без PYTHONPATH, sequential/process; records и summary совпали. Compileall, pip check, локальные ссылки README/docs/README и изменённой документации, JSON syntax, git diff --check успешны. На старте уже были 17 незакоммиченных файлов предыдущего CLI-среза; они сохранены, исходники/тесты/pyproject.toml не менялись. В этом срезе добавлены только docs/audits/m4-readiness.md, docs/decisions/ADR-0017-ranged-candidate-assessment.md и синхронизирована документация. Книги/benchmark/wheel build повторно не запускались, новых Rule IDs нет. Commit/push не выполнялись.

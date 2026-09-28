@@ -24,11 +24,11 @@ Player’s Guide 1.4 на странице 117 требует противопо
 
 ## Значение ничьей для балансировки
 
-Ничья является отдельным исходом. Перед реализацией балансировщика нужно решить, учитывается ли она как поражение игроков или влияет на отдельную функцию оценки. В базовой статистике она будет публиковаться отдельным `draw_rate`.
+Вопрос относился к прототипу с draw_rate. Текущий M3 имеет четыре исхода: objective_achieved, side_defeated, round_limit и unsupported_path; он не сообщает ничью. ROUND_LIMIT нельзя автоматически переименовать в draw или поражение. Для первого M5 предлагается сохранять все четыре доли отдельно, не исключать остановки из знаменателя и оценивать только цель в пределах бюджета; продуктовый выбор вынесен ниже. Если будущий simulator введёт настоящий draw, его влияние на сложность потребует отдельного решения.
 
 ## Лимит раундов
 
-Лимит подтверждён, но его продуктовый default ещё не выбран. M1 использует явное обязательное значение конфигурации движка; application layer позже задаст пользовательский default.
+Лимит подтверждён, но его продуктовый default ещё не выбран. M3/M4 требуют явный round_budget; CLI не добавляет default. Первый контракт M5 сохраняет обязательный общий лимит сравниваемых кандидатов, не выводя длительность или difficulty из числа раундов автоматически.
 
 ## Порядок multi-target целей
 
@@ -136,4 +136,12 @@ Process runner не вводит новых rulings. Пользовательс�
 
 Четыре критерия M3 закрыты [аудитом](audits/m3-readiness.md), новых вопросов к книге нет. Контракт [ADR-0016](decisions/ADR-0016-ranged-simulation-json-v1.md) фиксирует JSON v1, decimal/hex seeds, explicit facts/GM decisions, два режима исполнения и strict parsing. Это согласованная техническая граница, не house rule. Schema validator выбран: jsonschema >=4.18,<5 и referencing >=0.28.4,<1 с Draft 2020-12; pure adapters реализованы, новых rulings нет. Общие service quotas/timeout/streaming не определены и не подменяются числовыми диапазонами схемы; первый M4 остаётся локальным инструментом без автоматического backend selection.
 
-M4 application service реализован: caller соединяет parser → execute_ranged_simulation → result/error encoder. Структурная Schema не заменяет strict lexical parsing/domain admission; low-level snapshots, которые нельзя losslessly выразить v1, encoder отклоняет. Service фиксирует стандартный backend/RNG путь random.Random и сохраняет исходную причину сбоя в __cause__; JSON содержит только общее execution_failed message. Происхождение custom injected RNG не доказуемо по compact result, и такой low-level результат нельзя выдавать encoder за v1 исполнение. CLI ещё впереди; новых вопросов к правилам нет.
+M4 application service и CLI simulate реализованы: parser → execute_ranged_simulation → result/error encoder. Структурная Schema не заменяет strict lexical parsing/domain admission; low-level snapshots, которые нельзя losslessly выразить v1, encoder отклоняет. Service фиксирует стандартный backend/RNG путь random.Random и сохраняет исходную причину сбоя в __cause__; JSON содержит только общее execution_failed message. Происхождение custom injected RNG не доказуемо по compact result, и такой low-level результат нельзя выдавать encoder за v1 исполнение. CLI использует binary UTF-8 и отдельный I/O exit code; при сбое доставки нельзя гарантировать полный stdout, получатель должен проверять exit code. Timeout/quotas/streaming/атомарный output-файл не реализованы. Новых вопросов к правилам нет; пользовательское определение сложности и границы первого M5 нужно зафиксировать после конечного аудита M4.
+
+## Первая метрика M5
+
+[Аудит M4](audits/m4-readiness.md) закрывает технические критерии. Исходный дизайн определяет сложность через победу игроков, но нынешний вход допускает только Minions с явно заданной perspective_side и целью поражения всех противников. Пользователю задан вопрос: начать первый M5 с вероятности достижения этой цели за round budget и явного числового окна без Easy/Medium presets либо сначала расширять симуляцию до полноценной стороны PC. **Ответ пока не получен.**
+
+[ADR-0017](decisions/ADR-0017-ranged-candidate-assessment.md) предлагает первый вариант: denominator = все trials, round_limit отдельно, unsupported observations исключают candidate из подбора без удаления самих наблюдений, mean rounds остаётся описательным. Эти продуктовые разделы пока не приняты. Именованные окна прототипа и формула с весами не считаются подтверждёнными defaults.
+
+Независимый безопасный следующий шаг — aggregate-only summary с exact simulator input, четырьмя counts и прежними totals/means. Она не назначает сложность, не ранжирует candidates и не меняет игровые outcomes; для её реализации ответ не требуется. Target duration, генерация состава, staged budgets и confidence policy обсуждаются после выбора первой метрики.

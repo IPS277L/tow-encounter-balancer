@@ -12,6 +12,9 @@ license = { file = "LICENSE" }
 authors = [{ name = "TOWR contributors" }]
 dependencies = ["jsonschema>=4.18,<5", "referencing>=0.28.4,<1"]
 
+[project.scripts]
+towr = "towr.cli:main"
+
 [project.optional-dependencies]
 rulebook = ["pypdf>=6.16,<7"]
 

@@ -3,7 +3,7 @@
 - [ranged-v1.request.json](ranged-v1.request.json) — numeric ranged Minion 1×1, seed 20260928, 3 trials, budget 5, sequential mode.
 - [ranged-v1.result.json](ranged-v1.result.json) — полный proposed output с исходным запросом, runtime, seed scheme, compact records и summary.
 
-Это примеры [ADR-0016](../../decisions/ADR-0016-ranged-simulation-json-v1.md). Production JSON adapters, Schema и application service реализованы; CLI simulate ещё отсутствует. Integration tests читают request, исполняют service через sequential/spawn и сравнивают encoded result с примером.
+Это примеры [ADR-0016](../../decisions/ADR-0016-ranged-simulation-json-v1.md). Production JSON adapters, Schema, application service и CLI simulate реализованы. Integration tests читают request, исполняют service/CLI через sequential/spawn и сравнивают encoded result с примером.
 
 2026-09-28 выполнена одноразовая проверка отображения всех полей запроса в существующие public constructors по разделу «Преобразование и семантические проверки» ADR. NpcRangedScenario admission успешен. Настоящие run_npc_ranged_simulation и run_npc_ranged_simulation_parallel(workers=2, batch_size=1) дали равные typed results. Сохранённый result сформирован из sequential result и проверен JSON round-trip: три side_defeated, 10 Attack, 5 посещённых раундов. Эти значения иллюстрируют конкретный seed, а не оценку вероятности или порог статистического теста.
 
@@ -41,4 +41,34 @@ if __name__ == "__main__":
     main()
 ```
 
-Для process заменить execution в запросе на `{"mode": "process", "workers": 2, "batch_size": 1}`. Service не подбирает параметры и не делает fallback. Это пример API: политика файлового I/O/stdout encoding/exit codes появится в отдельном CLI срезе.
+Для process заменить execution в запросе на `{"mode": "process", "workers": 2, "batch_size": 1}`. Service не подбирает параметры и не делает fallback. Python-фрагмент выше демонстрирует API; готовая политика файлового I/O/stdout encoding/exit codes предоставляется CLI.
+
+## Запуск CLI
+
+Из корня проекта после установки зависимостей:
+
+```powershell
+$env:PYTHONPATH = "src"
+.venv/Scripts/python.exe -m towr simulate docs/examples/m4/ranged-v1.request.json
+```
+
+После установки текущей версии проекта (`.venv/Scripts/python.exe -m pip install .`) доступна также команда `.venv/Scripts/towr.exe simulate INPUT`. Для stdin используйте `simulate -` и передайте полный UTF-8 документ до EOF. Режим, workers/batch_size, seed и trials задаются только JSON-входом; command-line override отсутствует.
+
+Stdout — один result/error JSON; stderr — диагностика. Коды 0/2/3/4 означают success, input/usage error, execution failure и I/O failure. Help — текст и code 0. Ошибка чтения файла или аргументов не выдаёт JSON. При сбое доставки stdout документ может быть неполным; caller должен проверить exit code. [Полный контракт](../../decisions/ADR-0016-ranged-simulation-json-v1.md#cli-simulate).
+
+Пример передачи stdin без перекодирования оболочкой (из Python в установленном окружении):
+
+```python
+from pathlib import Path
+import subprocess
+import sys
+
+completed = subprocess.run(
+    [sys.executable, "-m", "towr", "simulate", "-"],
+    input=Path("docs/examples/m4/ranged-v1.request.json").read_bytes(),
+    capture_output=True,
+)
+sys.stdout.buffer.write(completed.stdout)
+sys.stderr.buffer.write(completed.stderr)
+raise SystemExit(completed.returncode)
+```

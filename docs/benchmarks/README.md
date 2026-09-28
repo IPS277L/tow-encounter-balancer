@@ -84,6 +84,6 @@ py -3.14 -m tools.benchmark_m3_parallel --trials 1000 --master-seed 20260928 --r
 
 ## Точный следующий шаг
 
-M4 Schema, pure adapters и application service с error encoding выполнены; актуальный [статус](../project-status.md) сохраняет прежнюю границу правил.
+M4 Schema, pure adapters, application service и CLI simulate выполнены; актуальный [статус](../project-status.md) сохраняет прежнюю границу правил.
 
-Следующий срез — CLI simulate поверх parser → application service → result/error encoders: UTF-8 файл/stdin, JSON stdout, stderr/exit codes, protected main и subprocess tests sequential/process/input/I/O failures. Backend/workers задаются явно; без partial results и расширения scenario scope. Полный контракт следующего шага — в project-status. Повторный benchmark для этого технического среза не требуется.
+[Аудит M4](../audits/m4-readiness.md) завершён; следующий срез — aggregate-only summary/projector M3 по [ADR-0017](../decisions/ADR-0017-ranged-candidate-assessment.md). Продуктовая метрика M5 пока не принята; summary не меняет RNG/runner. Backend/workers по-прежнему задаются явно; новый benchmark без изменения алгоритма исполнения не требуется.
