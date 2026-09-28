@@ -104,7 +104,7 @@ PC, перемещение, смешанный бой и полный катал
 Направление выбрано пользователем после закрытия ADR-0027. [Контракт ADR-0028](decisions/ADR-0028-mixed-minion-scenario.md) и [конечный probe](examples/m7/README.md) подготовлены: неподвижные numeric Minions, fixed-role Melee/Close и Shooting/Medium, явные дальности всех enemy pairs, Athletics Protection, свежий zone outnumbering и техническая остановка при потере доступных целей.
 
 1. Typed admission реализован: четыре frozen/slotted модели, 25 deterministic tests. Оба fixture probe проходят production admission.
-2. **Следующий срез:** pure candidate projection, source-bound result и runner через existing K1/M2; общий бюджет, terminal suffix, четыре исхода и no-candidate stop без пропуска хода.
-3. Интеграционные сценарии и аудит одиночного mixed-боя с public примером.
+2. Pure candidate projection, source-bound result и runner через existing K1/M2 реализованы: общий бюджет, terminal suffix, четыре исхода и no-candidate stop без пропуска хода. 34 новых tests (8 candidates + 17 result/runner + 9 integration) прошли.
+3. **Следующий срез:** аудит одиночного mixed-боя по книгам/ADR/tests и самостоятельный public пример полного runner; проверить интеграционные границы и при необходимости закрыть найденные пробелы. Первые 9 integration tests уже реализованы.
 
 После этого отдельно определить независимые прогоны/summary/process, подбор составов и JSON/CLI. Старые formats/seed schemes не становятся mixed автоматически. Движение, смена оружия, auto awareness/approvals и общий battle aggregate в первый контракт не входят.

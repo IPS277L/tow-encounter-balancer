@@ -196,7 +196,7 @@ def main():
     assert selection.blocked_reason is NpcAttackSelectionBlock.NO_CANDIDATE
     assert rng.calls == 6 and not stopped.round_state.active_turn.action_slots[0].executed
     print('After the only Close enemy falls: NO_CANDIDATE; slot unexecuted; no wait/move/extra RNG')
-    print('Both fixtures passed production mixed admission; autonomous runner/result validation not implemented')
+    print('Both fixtures passed mixed admission; this composition probe does not exercise the full mixed runner')
 
 
 if __name__ == '__main__':
