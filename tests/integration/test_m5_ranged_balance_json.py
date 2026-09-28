@@ -5,9 +5,7 @@ import unittest
 from tests.unit.test_m5_ranged_balance_json import document
 from towr.adapters.ranged_balance_json import parse_ranged_balance_request as parse, encode_ranged_balance_result as encode
 from towr.adapters.ranged_json_schema import validate_ranged_balance_document
-from towr.application.ranged_balance_models import RangedBalanceResult
-from towr.application.ranged_candidate_generation import generate_ranged_candidates
-from towr.application.ranged_staged_evaluation_service import evaluate_ranged_candidates_staged
+from towr.application.ranged_balance_service import execute_ranged_balance
 
 
 class M5BalanceJsonIntegrationTests(unittest.TestCase):
@@ -17,9 +15,8 @@ class M5BalanceJsonIntegrationTests(unittest.TestCase):
             data = dict(data, execution=execution)
             command = parse(json.dumps(data).encode("utf-8"))
             before = deepcopy(command)
-            generated = generate_ranged_candidates(command.generation_request)
-            evaluated = evaluate_ranged_candidates_staged(generated.evaluation_request, command.execution)
-            result = RangedBalanceResult(generated, evaluated)
+            result = execute_ranged_balance(command)
+            evaluated = result.evaluation_result
             encoded = json.loads(encode(command, result))
             validate_ranged_balance_document(encoded, "result")
             self.assertEqual(encoded["request"], data)

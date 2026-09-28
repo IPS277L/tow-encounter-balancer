@@ -11,12 +11,37 @@ from towr.adapters._ranged_scenario_json import facts_document, parse_facts, par
 from towr.adapters.ranged_balance_json_errors import RangedBalanceInputError
 from towr.adapters.ranged_json_schema import validate_ranged_balance_document
 from towr.application.ranged_balance_models import RangedBalanceCommand, RangedBalanceResult
+from towr.application.ranged_balance_errors import RangedBalanceGenerationError, RangedBalanceExecutionError
 from towr.application.ranged_candidate_generation import _count_vectors
 from towr.application.ranged_candidate_generation_models import RangedCandidateGenerationRequest, RangedCompositionGroup
 from towr.application.ranged_simulation_models import SimulationExecutionMode, SimulationExecutionOptions
 from towr.balance.ranged_assessment_models import ObjectiveRateWindow
 from towr.balance.ranged_staged_evaluation import ranged_continuation_candidate_ids
 from towr.balance.ranged_staged_evaluation_models import RangedBalanceStage
+
+
+def encode_ranged_balance_error(
+    error: RangedBalanceInputError | RangedBalanceGenerationError | RangedBalanceExecutionError,
+) -> str:
+    """Encode known boundary errors only, without cause/traceback or partial reports."""
+    path = candidate_id = counts = stage_index = None
+    if isinstance(error, RangedBalanceInputError):
+        code, path = error.code.value, error.path
+    elif isinstance(error, RangedBalanceGenerationError):
+        code, candidate_id = "generation_failed", error.candidate_id
+        counts = list(error.counts) if error.counts is not None else None
+    elif isinstance(error, RangedBalanceExecutionError):
+        code, candidate_id, stage_index = "execution_failed", error.candidate_id, error.stage_index
+    else:
+        raise TypeError("balance error encoding requires a typed input, generation or execution error")
+    document = {
+        "schema_version": "1", "kind": "balance_error", "request_id": error.request_id,
+        "error": {"code": code, "path": path, "message": str(error), "candidate_id": candidate_id,
+                  "counts": counts, "stage_index": stage_index},
+    }
+    validate_ranged_balance_document(document, "error")
+    # Malformed input messages may contain unpaired Unicode surrogates.
+    return json.dumps(document, indent=2, ensure_ascii=True, allow_nan=False) + "\n"
 
 
 def parse_ranged_balance_request(text: str | bytes) -> RangedBalanceCommand:

@@ -1,6 +1,6 @@
 # Пример первого M5: генерация и поэтапная оценка
 
-[ranged_balance.py](ranged_balance.py) строит typed input через публичные domain/application модели, генерирует пять составов и вызывает существующий staged evaluator. Импортов tests, benchmark harness или private API нет. Это исполняемый пример Python API; команда приложения `towr balance` и JSON balance пока отсутствуют.
+[ranged_balance.py](ranged_balance.py) строит typed input через публичные domain/application модели, генерирует пять составов и вызывает существующий staged evaluator. Импортов tests, benchmark harness или private API нет. Это исполняемый пример Python API; приложение также поддерживает [JSON/CLI balance](json/README.md).
 
 ## Запуск
 
@@ -47,4 +47,4 @@ P1,P2 фиксированы на perspective_side=PLAYERS_AND_ALLIES; они о
 
 [Интеграционный тест](../../../tests/integration/test_m5_example.py) запускает сам скрипт в двух режимах из временного cwd и сравнивает отчёты. Он проверяет бюджет и завершение, не фиксируя конкретную вероятность или selected IDs. [Аудит M5](../../audits/m5-readiness.md) описывает проверенные критерии и оставшиеся ограничения.
 
-Внешний JSON-формат закреплён в [ADR-0020](../../decisions/ADR-0020-ranged-balance-json-v1.md); [JSON-образцы](json/README.md) используют тот же резерв и stages. Schema и pure parser/result encoder реализованы; application service/error encoder/CLI balance ещё впереди.
+Внешний JSON-формат закреплён в [ADR-0020](../../decisions/ADR-0020-ranged-balance-json-v1.md); [JSON-образцы](json/README.md) используют тот же резерв и stages. Schema, parser/result/error encoders, application service и CLI balance реализованы.

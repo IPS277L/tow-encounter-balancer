@@ -1,6 +1,6 @@
 # ADR-0020: JSON balance v1 и CLI balance
 
-Статус: первый срез реализован, 2026-09-28: **три Schema, frozen command/result, strict request parser и result encoder**. Application service, generation/execution error encoder и CLI balance ещё не реализованы. Игровые правила и simulation v1 не меняются.
+Статус: реализован, 2026-09-28: **три Schema, frozen command/result, strict parser, result/error encoders, application service и CLI balance**. Игровые правила и simulation v1 не меняются.
 
 ## Основание и граница
 
@@ -57,13 +57,13 @@ Execution переиспользует SimulationExecutionOptions M4: process wo
 | `RangedBalanceResult(generation_result, evaluation_result)` | RangedCandidateGenerationResult + RangedStagedEvaluationResult; exact `evaluation_result.source_request == generation_result.evaluation_request` |
 | `parse_ranged_balance_request(str \| bytes)` | Strict parse → command; только admission/C/budget, без materialization, RNG/pool/I/O |
 | `encode_ranged_balance_result(command, result)` | Pure source-bound projection → JSON string + LF; не выполняет оценку |
-| `execute_ranged_balance(command)` | Отдельный следующий срез: generate_ranged_candidates → evaluate_ranged_candidates_staged с command.execution → RangedBalanceResult |
+| `execute_ranged_balance(command)` | Реализован: generate_ranged_candidates → evaluate_ranged_candidates_staged с command.execution → RangedBalanceResult |
 
 Result encoder проверяет `result.generation_result.source_request == command.generation_request`, всю существующую generation/staged source chain и lossless command → wire → command. Невыразимые M4-порядки low-level snapshot не теряются молча. Command/result не содержат mutable source dict; command не удерживает материализованные candidates. Balance получает inputs/aggregates; JSON/application не проникают в domain/engine/simulation.
 
 ## Успешный выход: npc_ranged_balance_result
 
-[Пример результата](../examples/m5/json/balance-v1.result.json) получен из реальных aggregate reports существующих APIs; это образец будущего кодирования, а не вывод уже существующей CLI balance.
+[Пример результата](../examples/m5/json/balance-v1.result.json) получен из реальных aggregate reports существующих APIs; он был сохранён при подготовке контракта; готовый encoder воспроизводит его из typed aggregate fixtures, а CLI проверен с тем же входом.
 
 | Поле | Контракт |
 | --- | --- |
@@ -128,7 +128,7 @@ Stdout — один UTF-8 JSON с LF после полного execution+encodin
 
 Точные Monte Carlo counts сохранённого примера — иллюстрация данного runtime, не универсальный statistical test oracle. Детерминированные source/selection/error проверки строятся на явных typed fixtures; real sequential/process должны совпадать между собой без ожидания конкретной вероятности.
 
-**Первый implementation-срез выполнен:** три packaged balance Schema с локальным reuse M4, frozen command/result и pure request parser/result encoder. Общие strict/scenario helpers выделить с M4 regression tests. Проверить request/result examples через новые adapters, точные дроби, preflight, source/lossless/chain guards и реальный typed API round-trip sequential/process. Service orchestration, typed generation/execution error envelope encoding и CLI реализовать отдельным следующим срезом; error Schema уже фиксирует их форму. Не менять низкоуровневые generation/evaluation APIs, правила или simulation v1.
+**Первый implementation-срез выполнен:** три packaged balance Schema с локальным reuse M4, frozen command/result и pure request parser/result encoder. Общие strict/scenario helpers выделить с M4 regression tests. Проверить request/result examples через новые adapters, точные дроби, preflight, source/lossless/chain guards и реальный typed API round-trip sequential/process. Service orchestration, typed generation/execution error envelope encoding и CLI реализованы отдельным срезом ниже; error Schema сохраняет прежнюю форму. Не менять низкоуровневые generation/evaluation APIs, правила или simulation v1.
 
 ## Проверка контрактного среза
 
@@ -139,10 +139,24 @@ Stdout — один UTF-8 JSON с LF после полного execution+encodin
 - [ranged_balance_models.py](../../src/towr/application/ranged_balance_models.py): frozen RangedBalanceCommand/RangedBalanceResult, проверка typed input/options/definition_order и exact generation → staged source.
 - [ranged_balance_json.py](../../src/towr/adapters/ranged_balance_json.py): parse_ranged_balance_request и encode_ranged_balance_result. Parser проверяет reserve/facts/groups/window/stages/C/budget без генерации; encoder проверяет exact source и lossless round-trip, кодирует каталог count vectors и все aggregate stage reports. Counts берутся из общего generator enumeration, не из строки ID. Tuple arrays нормализуются при JSON serialization, дроби сокращаются; финальный continuation пуст.
 - [_ranged_json_common.py](../../src/towr/adapters/_ranged_json_common.py) и [_ranged_scenario_json.py](../../src/towr/adapters/_ranged_scenario_json.py) обслуживают M4 и balance. Общий RangedInputError имеет отдельные simulation/balance subclasses; M4 exception type/code/path сохранены, reserve pointers используют /reserve/scenario. Cross-field generation/budget ошибки могут указывать корень документа (пустой JSON Pointer), поскольку касаются нескольких разделов. Причина сохраняется через __cause__.
-- [ranged_json_schema.py](../../src/towr/adapters/ranged_json_schema.py): новый validate_ranged_balance_document, только bundled Registry. Balance загружает три своих и три M4 документа; simulation validator не зависит от balance схем. Прежние M4 JSON Schema и pyproject.toml не менялись; wildcard package data уже включает новые файлы. Error Schema реализована, error encoder пока отсутствует.
+- [ranged_json_schema.py](../../src/towr/adapters/ranged_json_schema.py): новый validate_ranged_balance_document, только bundled Registry. Balance загружает три своих и три M4 документа; simulation validator не зависит от balance схем. Прежние M4 JSON Schema и pyproject.toml не менялись; wildcard package data уже включает новые файлы. Error Schema и error encoder реализованы; service/CLI описаны ниже.
 
 22 [unit tests](../../tests/unit/test_m5_ranged_balance_json.py) проверяют strict input, все уровни unknown/missing keys, точные дроби, source/type/immutable/lossless guards, C/budget до materialization, отдельные facts, четыре outcomes, tie/continuation/early stop/final unsupported, no generation/RNG/runner/pool при parse/encode и воспроизведение сохранённого aggregate JSON через typed fixtures. 2 [integration tests](../../tests/integration/test_m5_ranged_balance_json.py) проходят реальный generation/staged sequential/spawn и lossless JSON round-trip; проверены разные definitions, независимые orders и полные decisions. Конкретная Monte Carlo-вероятность не ожидается.
 
-Следующий срез — execute_ranged_balance(command), request-bound generation/execution errors с cause/context и их encoder, затем CLI balance с file/stdin, binary UTF-8, exit codes и protected main по контракту выше. Нижние APIs/метрика/правила остаются прежними.
+execute_ranged_balance(command), request-bound generation/execution errors с cause/context, их encoder и CLI balance реализованы следующим срезом ниже. Нижние APIs/метрика/правила остаются прежними.
 
 Проверка реализации: **1943 tests OK**, Python 3.14.5, 126,873 с; compileall/pip check/diff check и локальные ссылки успешны. Wheel установлен и проверен через Python -I вне repo: bundled schemas, все пять examples, real sequential/process round-trip и прежний CLI simulate. Существующие незакоммиченные документы контрактного шага сохранены. Правила/domain/engine/simulation/CLI и pyproject.toml не менялись; service/error encoder/CLI balance остаются следующим срезом.
+
+## Application service, error encoder и CLI balance
+
+[execute_ranged_balance](../../src/towr/application/ranged_balance_service.py) принимает только RangedBalanceCommand. До оценки проверяет type/exact source результата generate_ranged_candidates; затем передаёт готовый staged input и исходные command.execution в evaluate_ranged_candidates_staged. RangedBalanceResult проверяет exact связь generation/evaluation. Standard RNG/backend orchestration остаётся в прежних services. Completed/early-stop/empty selection/unsupported observations возвращаются как успешный typed result, без повторных попыток.
+
+[RangedBalanceGenerationError/RangedBalanceExecutionError](../../src/towr/application/ranged_balance_errors.py) связывают сбой с внешним request_id. Из известных lower errors переносятся candidate/counts либо stage_index/candidate; неизвестный контекст остаётся null. Type/source failures результата относятся к фазе, вернувшей неверный результат. Original cause/notes доступны через цепочку __cause__; interrupts не оборачиваются. [encode_ranged_balance_error](../../src/towr/adapters/ranged_balance_json.py) кодирует только input/generation/execution errors, проверяет готовую Schema и не сериализует cause/traceback/partial reports. Непарные surrogates в сообщении ошибочного ввода экранируются, output остаётся UTF-8.
+
+[CLI](../../src/towr/cli.py) добавляет `balance INPUT` рядом с simulate и разделяет их parse/execute/encode/error types при общем byte I/O. Файл/stdin, отдельный stderr и exit codes 0/2/3/4 соответствуют таблице выше. Complete encoding выполняется до stdout; неожиданная ошибка encoder (включая typed exception) выходит за catch исполнения. При write/flush failure не выдаётся второй JSON; прежняя обработка неисправных streams сохраняет exit 4 при shutdown. __main__ guard и console entry point переиспользуются без изменения pyproject.toml. [Команды и примеры](../examples/m5/json/README.md).
+
+Добавлены 12 [service/error unit tests](../../tests/unit/test_m5_ranged_balance_service.py), 8 [CLI unit tests](../../tests/unit/test_m5_balance_cli.py), 2 [service integration tests](../../tests/integration/test_m5_ranged_balance_service.py) и 6 [CLI subprocess tests](../../tests/integration/test_m5_balance_cli.py). Проверяются оба backend options, source/type guards, известный/неизвестный контекст, cause/notes/interrupts, отсутствие retry/partial output, ошибки второго состава и trial позднего этапа, error examples, Unicode, file/stdin/help/usage, pool failure и broken pipes. Два прежних JSON integration tests теперь проходят через новый service с real sequential/spawn, без ожидания конкретных Monte Carlo counts.
+
+Следующий срез — конечный аудит внешней границы M5: сопоставить Schema/adapters/service/CLI с матрицей контракта и исходными критериями roadmap, зафиксировать оставшиеся продуктовые ограничения и следующий этап. Новые правила, presets и механики из готовности CLI не выводятся.
+
+Проверка внешнего запуска: **1971 tests OK**, Python 3.14.5, 158,354 с; compileall/pip check/diff check и локальные ссылки успешны. Установленный wheel проверен вне repo без PYTHONPATH: module/console × sequential/process дают равные полные reports для пяти составов/136 trials; работают file/stdin, balance input errors и прежний simulate. На старте рабочее дерево чистое; низкоуровневые APIs/правила/schemas/pyproject.toml не менялись.
