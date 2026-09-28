@@ -249,3 +249,19 @@
 | Правила | Источники | Реализация | Проверки | Граница |
 | --- | --- | --- | --- | --- |
 | RULE-EFFECT-006; RULE-COMBAT-001/015; RULE-NPC-002; техническая непрерывность ADR-0011/0012 | BOOK-PLAYER-GUIDE 1.4, Equipment / Ranged Weapons / Blunderbuss, стр. 95; Rules / Combat, стр. 112; Giving Ground, стр. 119; BOOK-GM-GUIDE 1.1, Allies and Antagonists / Minions, стр. 91 | npc_rounds_chain_summary_models.py; summarize_npc_rounds_chain | test_m2_blunderbuss_chain_summary.py — 8 unit; test_m2_blunderbuss_reporting_cycle.py — 1 integration / 72 сочетания | Full primary и consequence prefix, exact snapshots/weapons, ordered GM decisions, partial observations, extra affected targets; no replay/reexecution/double count, без winner или нового игрового правила |
+
+## Повторный аудит M2: admission и terminal boundary
+
+2026-09-28: BOOK-PLAYER-GUIDE 1.4, Rules / Combat, стр. 112; Attack Tests, стр. 118–119; Conditions, стр. 122–123; Equipment / Ranged Weapons / Blunderbuss, стр. 95; BOOK-GM-GUIDE 1.1, Allies and Antagonists / Minions, стр. 91; Understanding NPC Profiles, стр. 93; Brigands & Footpads, стр. 97. Existing test_m2_npc_objective_cycle.py проверяет 18 успешных сочетаний, test_m2_blunderbuss_reporting_cycle.py — 72 сочетания multi-target/report. Это доказательство отдельных paths, не универсальная scenario validation. Read-only Ablaze probe в npc_round_coordinator завершил четыре Attack/24 RNG без end-turn Hazard: scenario admission отсутствует. Следующий контракт должен отклонять unsupported Conditions/типы/эффекты до RNG; затем нужна отдельная terminal orchestration с общим бюджетом. Новые игровые Rule IDs не вводятся: граница и policy технические. [Матрица и целевой сценарий](audits/m2-readiness.md#повторный-аудит-пяти-конечных-критериев).
+
+## Вход ranged Minion-сценария
+
+| Правила / граница | Источники | Реализация | Проверки | Ограничение |
+| --- | --- | --- | --- | --- |
+| RULE-NPC-002/006/007; Staggered; technical admission ADR-0013 | BOOK-PLAYER-GUIDE 1.4, Rules / Combat, стр. 112; Range, стр. 114; Attack Tests, стр. 118; Conditions, стр. 122–123; BOOK-GM-GUIDE 1.1, Allies and Antagonists / Minions, стр. 91; Understanding NPC Profiles, стр. 93; Brigands & Footpads, стр. 97 | npc_ranged_scenario_models.py: NpcRangedScenario/Facts/ActorPolicy | test_m2_npc_ranged_scenario.py — 12 unit; test_m2_npc_ranged_scenario_preflight.py — 3 integration / 8 execution paths | Fresh immutable input, numeric Shooting/Protection, exact composition/spatial/decisions, no unsupported Conditions/effects до RNG; общий бюджет сохранён, terminal orchestration ещё не реализована |
+
+## Замкнутый ranged Minion-сценарий
+
+| Правила / граница | Источники | Реализация | Проверки | Ограничение |
+| --- | --- | --- | --- | --- |
+| RULE-NPC-002/006/007; RULE-COMBAT-001; Staggered; technical scenario outcome | BOOK-PLAYER-GUIDE 1.4, Rules / Combat, стр. 112; Attack Tests, стр. 118–119; Staggered, стр. 123; BOOK-GM-GUIDE 1.1, Allies and Antagonists / Minions, стр. 91; Understanding NPC Profiles, стр. 93 | npc_ranged_scenario_runner.py; npc_ranged_scenario_result_models.py | test_m2_npc_ranged_scenario_runner.py — 10 unit; test_m2_npc_ranged_scenario_cycle.py — 8 integration | Однократные Attack/ack/exclusion, supplied policies, terminal suffix, общий бюджет; без recovery, общего aggregate или новых правил |
