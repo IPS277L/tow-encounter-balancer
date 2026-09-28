@@ -57,3 +57,5 @@ Immutable state и consumed histories защищают от повторного
 6. Детерминированные проверки: distinct RNG, immutable initial, repeat/reverse/expanded batch, четыре outcomes и точные counters, terminal suffix, отсутствие утечки global random state, seed/source/index guards и ошибки без partial result. Статистический тест не требует конкретного процента побед. Сначала последовательный путь; профилирование и process backend отдельно при необходимости.
 
 Проверки текущего аудита записаны в [project-status.md](../project-status.md#последняя-проверка). Правила/production APIs и ranged wire v1 не менялись.
+
+Продолжение после этого аудита: [ADR-0022](../decisions/ADR-0022-independent-melee-simulations.md) реализует описанный последовательный simulation/summary. Добавлены 22 tests; игровой контракт и результаты исходного аудита одиночного сценария выше сохраняются. Следующий шаг — профилирование до оптимизации/process backend; Melee balance/CLI/JSON ещё отсутствуют.

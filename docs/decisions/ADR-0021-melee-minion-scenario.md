@@ -122,3 +122,5 @@ Production candidates/runner/result реализованы следующим с
 Синтетическая Defenceless-проверка относится только к формуле подсчёта; initial admission по-прежнему отвергает эту Condition. Нельзя считать её добавлением тактики Defenceless/Prone или нового сценария. Документальный constructor probe сохранён и не заменяет production runner; CLI/JSON/Monte Carlo/балансировщик Melee ещё не подключены.
 
 2026-09-28 — [аудит одиночного среза](../audits/m6-readiness.md) завершён: обязательства сопоставлены с APIs и 53 existing tests, добавлен один [subprocess test примера](../../tests/integration/test_m6_example.py). Всего M6 54 tests (38 unit, 16 integration). Production src и этот игровой контракт не менялись. Минимальные требования к следующему simulation/summary записаны в аудите как будущий отдельный срез; CLI/JSON/balance ещё не расширены.
+
+Продолжение реализовано по [ADR-0022](ADR-0022-independent-melee-simulations.md): последовательные независимые прогоны и aggregate summary поверх неизменённого одиночного runner. Исход после terminal suffix используется отдельно от raw runner stop. Игровой допуск ADR-0021 не расширен.

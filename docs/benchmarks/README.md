@@ -1,4 +1,4 @@
-# Профилирование M3
+# Профилирование M3 и M6
 
 `tools/profile_m3.py` — developer harness последовательного M3; это не CLI приложения. В исходном baseline domain, engine и simulation не менялись; результат первого performance-среза приведён ниже. [Baseline 2026-09-28](m3-baseline-2026-09-28.md) сохранён вместе с командой, runtime, revision исходного `src`, seed scheme, агрегатами, digest всех trial records и cProfile.
 
@@ -87,3 +87,36 @@ py -3.14 -m tools.benchmark_m3_parallel --trials 1000 --master-seed 20260928 --r
 M4 Schema, pure adapters, application service и CLI simulate выполнены; актуальный [статус](../project-status.md) сохраняет прежнюю границу правил.
 
 [Аудит M4](../audits/m4-readiness.md) завершён; bounded evaluation списка с бюджетом и top_k по [ADR-0017](../decisions/ADR-0017-ranged-candidate-assessment.md) реализован. [ADR-0018](../decisions/ADR-0018-staged-ranged-evaluation.md) реализован с полным учётом повторных пакетов без prefix reuse. Генератор численности по [ADR-0019](../decisions/ADR-0019-ranged-composition-generation.md) реализован: явный резерв участников, неизменные профили/решения, предел составов и полный staged budget. Первый M5 закрыт [аудитом](../audits/m5-readiness.md) в текущем scope; [typed пример](../examples/m5/README.md) проверен в sequential/process. Контракт [JSON balance v1 / CLI balance](../decisions/ADR-0020-ranged-balance-json-v1.md) реализован полностью в текущем scope: Schema/adapters, application service, кодирование ошибок и CLI balance. Внешняя граница M5 закрыта [аудитом](../audits/m5-external-readiness.md); следующий этап M6 — ограниченный контракт ближнего боя Minions, выбранный пользователем. Backend/workers задаются явно, кандидаты исполняются по очереди; прежний simulation runner не менялся, новый benchmark в этом срезе не запускался.
+
+## Melee baseline M6
+
+[tools/profile_m6.py](../../tools/profile_m6.py) измеряет отдельный последовательный pipeline ADR-0022: simulation → aggregate summary. [Сырой baseline](m6-baseline-2026-09-28.md) содержит runtime/CPU, revision с отметкой незакоммиченного src, хеш фактических исходников/harness, seeds, каждый wall repeat, peak Python memory, trial digests и cProfile. Существующие M3 отчёты не перезаписаны; сравнение времени M3/M6 не является сравнением скорости одного сценария, поскольку профили/правила/seed schemes различаются.
+
+```powershell
+$env:PYTHONPATH = "src"
+.venv/Scripts/python.exe tools/profile_m6.py --trials 100 --master-seed 20260928 --round-budget 5 --repeats 3 --top 20 --output docs/benchmarks/m6-baseline-2026-09-28.md
+```
+
+Команда перезаписывает указанный отчёт; будущий замер сохранять под другим именем. Fixture построен из public constructors без imports tests: здоровые Footpad 1×1/2×2/3×2, Dagger Close 3d/3 Dam2 1H, Athletics 3d/3, RES3, полные GM-approved knocked_out decisions. Непосредственно сверены BOOK-GM-GUIDE 1.1, Allies and Antagonists / Brigands & Footpads / Footpad, стр. 97 и BOOK-PLAYER-GUIDE 1.4, Rules / Attack Tests / Attack Modifiers, стр. 118–119. Lurker вне боя не применяется. Явные Close всех вражеских пар, awareness/LOS, stationary, полный состав одной Zone, отсутствие mounts/высоты/других правил и modifiers; обычный outnumbering одобрен всем actors. Выход в соседнюю Zone доступен, тактика повторного Staggered — SUFFER_WOUND. Исходный и целевой порядки заданы roster order.
+
+Методика повторяет M3: warm-up min(3,trials), три отдельных perf_counter повтора, затем отдельные tracemalloc и cProfile, gc.collect вне таймеров. Импорты/fixture вне таймера, summary projection внутри. Полные compact result и aggregate summary сравниваются после каждой фазы; отличие records отклоняется даже при равных aggregates. SHA-256 records использует прежнее текстовое encoding `scheme + LF + index|seed|outcome|attacks|visited_rounds`, без завершающего LF. Source/harness hash: сортированные по relative POSIX path все src/**/*.py и tools/profile_m6.py, для каждого path в UTF-8 + NUL + raw SHA-256 bytes файла, затем общий SHA-256. Включены untracked sources, исключены bytecode и документация. Hash до/после замера обязан совпасть; он связывает отчёт с bytes, но не хранит их копию и не является доказательством происхождения среды.
+
+CPython 3.14.5 / Windows 11. Во время baseline полный набор тестов и другие наши тяжёлые проверки не выполнялись. Успешно совпали результаты всех трёх обычных повторов, memory/profile runs. Внешняя нагрузка ОС не контролировалась. Peak — дополнительные Python allocations пакета, не RSS: заранее созданные input/reference result, импортированные модули не включены. Cumulative rows перекрываются, их нельзя суммировать или трактовать как обычный wall time.
+
+| Состав | Медиана wall, с / 100 trials | Peak Python, КиБ | Цель / поражение / лимит / unsupported | Attack | Посещённых раундов |
+| --- | --- | --- | --- | --- | --- |
+| 1×1 | 0,396322 | 87,8 | 52 / 48 / 0 / 0 | 312 | 182 |
+| 2×2 | 0,770624 | 125,1 | 58 / 42 / 0 / 0 | 606 | 227 |
+| 3×2 | 0,703346 | 148,4 | 96 / 4 / 0 / 0 | 616 | 209 |
+
+Это наблюдения фиксированных seeds, не статистическая гарантия баланса/скорости. Отсутствие round_limit/unsupported в этих 300 trials не отменяет такие исходы; они проверены отдельными тестами simulation. Время не обязано расти с численностью: число ходов/раундов, поражений и resume различается. CPU affinity, RSS, другие ОС/Python 3.12 и большие пакеты не проверялись.
+
+### Выбранный следующий performance-срез
+
+В 2×2 cProfile показывает 21483 вызова dataclasses.replace (cumulative 0,733 с). Это главным образом построение typed snapshots и validation; отключать guards нельзя. Узкий повторяемый источник затрат — [MinionDefeatAcknowledgementResult.continuation](../../src/towr/domain/minion_defeat_models.py): getter каждый раз строит одинаковые roster history и NpcRoundRequest. Из getter вызван replace 1304 раза / 0,065 с для 1×1; 1832 / 0,082 с для 2×2; 1908 / 0,092 с для 3×2. Это количество replace calls, а не количество defeat или чтений property; getter делает два replace. Числа не являются обещанием процента ускорения.
+
+Следующий законченный шаг: однократно построить immutable continuation в MinionDefeatAcknowledgementResult после проверки source, с private derived field `init=False, repr=False, compare=False`. Getter возвращает тот же snapshot. Сохранить все source/GM/receipt/replay guards, удаление только подтверждённого pending, остальные pending и histories; dataclasses.replace(result, source_request=...) должен пересобирать derived value. Не вводить общий cache и не оптимизировать остальные getters одновременно.
+
+Проверить repeated reads без replace/RNG, frozen sources и сохранность чужих pending, typed/foreign/stale/replay отказы и полную регрессию ranged/Melee. Затем повторить baseline в новый отчёт с теми же seeds/параметрами, сравнить три trial digests и агрегаты, wall/peak и replace callers. Сохранённый snapshot продлевает время жизни объекта; возможную цену по памяти оценить вместе со скоростью. Оптимизация пока не выполнена, Melee process backend/балансировщик не добавлены.
+
+Harness покрыт [5 детерминированными тестами](../../tests/unit/test_m6_profiling.py): fixtures, реальная композиция измерений/summary/report, расхождение records в каждой фазе, invalid settings/active profiler и cleanup tracing при ошибке, hash untracked sources/harness. Точные времена, проценты и байты не являются test expectations.

@@ -524,3 +524,15 @@ py -3.12 -m unittest discover -s tests -v
 2026-09-28: [аудит](audits/m6-readiness.md) сопоставил ADR-0021 с APIs и 53 existing tests. Добавлен [один subprocess integration test](../tests/integration/test_m6_example.py) полного production примера: два запуска вне repository cwd с одинаковым output, без требования конкретного победителя/процента. Весь M6 — 54 tests (38 unit + 16 integration), число методов проверено через AST. Source-linked матрица и ограничения находятся в аудите.
 
 Полный набор: **2025 tests OK (143,201 с)** на Python 3.14.5, включая real spawn/CLI. Отдельный новый тест — OK (2,191 с). Compileall src/tests/tools/docs/examples/m6, полный typed пример, прежний constructor probe, локальные Markdown-пути и git diff --check успешны. Production src не менялся; installed wheel, Python 3.12/другие ОС и benchmark заново не проверялись. Команды — в [project-status.md](project-status.md#последняя-проверка).
+
+## Независимые Melee-прогоны и summary
+
+2026-09-28: [ADR-0022](decisions/ADR-0022-independent-melee-simulations.md) реализован. [9 simulation unit](../tests/unit/test_m6_npc_melee_simulation.py), [9 summary unit](../tests/unit/test_m6_npc_melee_summary.py) и [4 integration tests](../tests/integration/test_m6_npc_melee_simulation.py) проверяют отдельные golden seed vectors, допуск до RNG, ordered/full records, immutable sources, четыре исхода, invalid budget/types/source, ошибки без partial output и агрегаты без trial records. Реальные циклы проверяют distinct RNG, replay/reverse/expanded batch, extra draws isolation/global random state, terminal suffix и 2×2 dynamic bonus. Unsupported проверяется controller block с корректными candidates; процент побед не является test expectation.
+
+Полный набор **2047 tests OK (159,283 с)**, Python 3.14.5; отдельно новые 22 — OK (0,482 с). Весь M6 76 tests (56 unit + 20 integration). Compileall, документированный Python API пример на 100 trials, локальные ссылки (пути) и git diff --check успешны. Старые ranged/process/CLI tests входят в полный прогон; Melee backend пока последовательный. Wheel/Python 3.12/другие ОС и performance benchmark не проверялись. Команды — в [project-status.md](project-status.md#последняя-проверка).
+
+## Профилирование Melee M6
+
+2026-09-28: [5 harness tests](../tests/unit/test_m6_profiling.py) проверяют public Footpad fixtures, реальные wall/memory/profile runs вместе с summary, полный record mismatch при равных агрегатах во всех трёх фазах, validation/active profiler/cleanup и hash untracked sources/harness. Измерения не имеют порогов по времени, памяти или проценту побед. [Baseline и методика](benchmarks/README.md#melee-baseline-m6).
+
+Полный набор **2052 tests OK (161,604 с)** на Python 3.14.5, новые 5 отдельно OK (0,559 с). Весь M6 — 81 test (61 unit + 20 integration). Compileall, локальные Markdown-пути, git diff --check и повторное соответствие source/harness hash baseline успешны. Production src этого шага не менялся; прежние незакоммиченные simulation/summary сохранены. Benchmark выполнен отдельно от полного набора тестов. Команды и следующий performance-срез — в [project-status.md](project-status.md#следующий-шаг).

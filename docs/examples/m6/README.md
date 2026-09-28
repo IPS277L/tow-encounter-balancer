@@ -17,7 +17,7 @@ $env:PYTHONPATH = "src"
 
 [Сохранённый вывод](melee_scenario.output.txt), CPython 3.14.5: objective_achieved, 6 Attack, 3 visited_rounds, 2 completed_rounds, 3 defeat acknowledgements. Последняя runner observation — pending_follow_ups, но scenario.current после terminal suffix уже без pending. Счётчики посещённых раундов, завершённых runner раундов и вызовов runner имеют разный смысл; итоговый исход берётся из scenario result.
 
-Именно в этом seed все Attack имеют 3 dice: после поражений преимущество не успевает превратиться в атаку большинства. Бонус 3→4 проверяется production cycle tests и probe ниже. Это воспроизводимый пример одного боя, не оценка вероятности или равновесия сторон. Replay требует того же input, правил и совместимого RNG/runtime; seed сам по себе этого не гарантирует. Stdout — поясняющий текст, не JSON/wire contract; CLI/массовые прогоны/подбор Melee пока отсутствуют.
+Именно в этом seed все Attack имеют 3 dice: после поражений преимущество не успевает превратиться в атаку большинства. Бонус 3→4 проверяется production cycle tests и probe ниже. Это воспроизводимый пример одного боя, не оценка вероятности или равновесия сторон. Replay требует того же input, правил и совместимого RNG/runtime; seed сам по себе этого не гарантирует. Stdout — поясняющий текст, не JSON/wire contract; CLI/подбор Melee пока отсутствуют. Последовательные массовые прогоны и aggregate summary реализованы отдельно по [ADR-0022](../../decisions/ADR-0022-independent-melee-simulations.md); этот скрипт по-прежнему запускает один бой.
 
 ## Низкоуровневая композиция
 
@@ -39,3 +39,21 @@ Footpad 2x2: attack dice 3 -> 4 after defeat; 2 attacks, 13 RNG calls; 4 rejecti
 Две настоящие атаки и два подтверждения GM/exclusion меняют 2:2 на 2:1, затем 2:0. Следующий actor/раунд после последнего поражения не запускается. Проверены неизменность входа, ровно два execution IDs и 13 RNG calls. Отклоняются acknowledgement с чужой Attack, повторное acknowledgement, нулевой и boolean бюджет.
 
 Этот probe не проверяет `NpcMeleeScenarioFacts` (их допуск покрыт unit/integration tests), не является автономным Melee runner, не поддерживает произвольные профили/раскладку и не доказывает факты GM. Матрица реализованного admission/execution находится в ADR и аудите; оба примера сохраняют границы ranged v1.
+
+## Python API массового прогона
+
+Для уже построенного `scenario = build_scenario()` из примера выше:
+
+```python
+from towr.simulation.npc_melee_models import NpcMeleeSimulationRequest
+from towr.simulation.npc_melee_simulation import run_npc_melee_simulation
+from towr.simulation.npc_melee_summary import summarize_npc_melee_simulation
+
+request = NpcMeleeSimulationRequest(scenario, master_seed=42, trials=100)
+result = run_npc_melee_simulation(request)
+summary = summarize_npc_melee_simulation(result)
+print(summary.outcome_counts)
+print(summary.mean_attack_count, summary.mean_visited_round_count)
+```
+
+Здесь master_seed порождает отдельный seed каждого trial: trial 0 не является одиночным запуском Random(42) выше. `result.trials` хранит compact observations для replay, `summary` — только input/aggregate. По умолчанию каждый trial получает новый Random, для детерминированных fixtures можно передать `rng_factory=`. Это Python API без CLI/JSON или оценки сложности; точная доля исходов малого примера не является гарантией баланса.
