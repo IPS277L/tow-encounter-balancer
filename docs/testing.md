@@ -506,3 +506,15 @@ py -3.12 -m unittest discover -s tests -v
 ## Контрактный шаг M6
 
 2026-09-28: [ADR-0021](decisions/ADR-0021-melee-minion-scenario.md) и [constructor probe](examples/m6/README.md), без изменений src/tests. 115 связанных K1/M2 tests — OK (0,416 с), команда перечислена в [project-status](project-status.md#последняя-проверка). Probe: 2 Attack, 13 RNG calls, outnumbering после defeat 3→4 dice, четыре source/replay/budget отказа; deterministic sequence, без Monte Carlo. Compileall examples/m6, локальные Markdown-ссылки и git diff --check проверены. Последний полный набор остаётся 1971 OK из предыдущего аудита M5; новый полный прогон на этом docs-only шаге не проводился. Production Melee admission/runner ещё отсутствуют; их матрица tests зафиксирована в ADR.
+
+## Входной срез M6
+
+2026-09-28: NpcMeleeScenarioFacts/ActorPolicy/Scenario реализованы по [ADR-0021](decisions/ADR-0021-melee-minion-scenario.md). [17 unit tests](../tests/unit/test_m6_npc_melee_scenario.py) проверяют полный admission; [6 integration tests](../tests/integration/test_m6_npc_melee_scenario_preflight.py) — реальный Close miss/Staggered/Wound pipeline, пересчёт обычного бонуса после defeat/GM withholding, источники, однократные receipts и отказ до исполнения. Provider этих tests не является production runner.
+
+Полный набор: **1994 tests OK (132,284 с)** на Python 3.14.5, включая real spawn; отдельные 23 tests OK. Compileall src/tests/tools/docs/examples/m6, существующий constructor probe, локальные Markdown-ссылки и git diff --check успешны. Команды — в [project-status.md](project-status.md#последняя-проверка). Wheel/installed Melee API не проверялись; прежние ranged/CLI tests входят в полный прогон.
+
+## Production Melee runner/result M6
+
+2026-09-28: [ADR-0021](decisions/ADR-0021-melee-minion-scenario.md) реализован в typed scope. Добавлены [6 candidate unit tests](../tests/unit/test_m6_npc_melee_candidates.py), [15 runner/result unit tests](../tests/unit/test_m6_npc_melee_scenario_runner.py), [9 integration tests](../tests/integration/test_m6_npc_melee_scenario_cycle.py): динамический обычный outnumbering/GM withholding, counted actors, pool cap/trace, реальные terminal/resume/budget циклы, 20 повторяемых seeds и отклонение подменённого источника/решения/modifier/порядка. Technical stop проверен с корректными candidates, пустая подмена отклоняется как ошибка источника.
+
+Полный набор: **2024 tests OK (156,741 с)** на Python 3.14.5, включая real spawn; отдельно новые 30 tests OK. Весь M6 — 53 tests (38 unit + 15 integration). Compileall src/tests/tools/docs/examples/m6, старый constructor probe, локальные ссылки и git diff --check успешны. Прежние незакоммиченные изменения входного среза сохранены. Wheel/installed Melee API не проверялись, ranged/CLI regression входит в полный прогон; команды в [project-status.md](project-status.md#последняя-проверка).

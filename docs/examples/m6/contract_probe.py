@@ -1,6 +1,6 @@
 """ADR-0021 feasibility probe using existing public K1/M2 constructors.
 
-This is NOT the future Melee scenario admission or autonomous runner.
+This is NOT the Melee scenario admission or autonomous runner.
 The fixture explicitly supplies Close, awareness, equal ground, no extra rules,
 inability to leave the Zone, and GM approval of ordinary outnumbering bonuses.
 Sources: PG 1.4 Rules pp114,118-119; GM 1.1 Allies and Antagonists pp91,93,97.
