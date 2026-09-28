@@ -4,7 +4,7 @@
 
 ## Текущий этап
 
-K1/M2/M3 готовы в заявленной границе неподвижного ranged Minion-сценария. [Конечный аудит M3](audits/m3-readiness.md) подтвердил четыре критерия roadmap: independent seeds, compact агрегаты, replay при spawn и profiling до оптимизаций. Производительность/ограничения зафиксированы на 100/1000 trials; общая память процессов и универсальный бой не заявлены. Начат контрактный этап M4: [ADR-0016](decisions/ADR-0016-ranged-simulation-json-v1.md) определяет JSON v1 и проверенные примерные документы. Schema, production adapters, application service и CLI ещё не реализованы. Следующий шаг — Schema и pure adapters. Полный каталог, Brute/Champion/Monstrosity, общий area/Hazard loop, автономный Blunderbuss и балансировщик вне этого среза.
+K1/M2/M3 готовы в заявленной границе неподвижного ranged Minion-сценария. Первый M4 реализован: три packaged JSON Schema Draft 2020-12, frozen command/options и pure strict parser/typed encoder. Все existing admission/source guards сохранены; arrays восстанавливаются без потери порядка. [ADR-0016](decisions/ADR-0016-ranged-simulation-json-v1.md). Следующий шаг — application service и error envelope; CLI ещё не реализован. Domain/engine/simulation и правила этим срезом не менялись; полный каталог, общий бой и балансировщик вне текущего scope.
 
 ## Зафиксировано
 
@@ -971,19 +971,23 @@ K1/M2/M3 готовы в заявленной границе неподвижн�
 
 - Конечный аудит M3 завершён: все четыре критерия roadmap сопоставлены с кодом, тестами и исходным/повторным/spawn benchmark. Ограничения записаны, переход к M4 разрешён в прежнем scenario scope. ADR-0016 фиксирует отдельный versioned JSON request/result/error: numeric definitions отдельно от actors, explicit facts/GM policies, decimal master seed/hex trial seed, sequential/process options, strict input и source-bound output. Пример 1×1 отображён в existing constructors и реально исполнен sequential/spawn с равными results; 3 trials дали 3 side_defeated, 10 Attack, 5 visited rounds. Production-код не менялся. [Аудит](audits/m3-readiness.md), [контракт](decisions/ADR-0016-ranged-simulation-json-v1.md), [примеры](examples/m4/README.md).
 
+- Первый M4 реализован в application/ranged_simulation_models.py и adapters/: parse_ranged_simulation_request принимает strict UTF-8 JSON, reject unknown/missing/duplicate keys и lexical float/bool coercion, проверяет version/seed/definitions/references и existing NpcRangedScenario. Frozen command хранит typed request/options/definition_order без mutable dict. Encoder требует exact source и lossless wire projection, возвращает прежние compact records/aggregates с полным echoed request. Три схемы входят в wheel, ссылки разрешаются только локально через jsonschema/referencing. 14 unit + 2 integration tests; полный набор 1813 OK. Wheel установлен и проверен isolated Python без PYTHONPATH. Service/CLI и error orchestration не добавлены. [Контракт/API](decisions/ADR-0016-ranged-simulation-json-v1.md#реализация-первого-среза).
+
 ## Следующий шаг
 
-Реализовать первый срез M4 по ADR-0016: JSON Schema request/result/error, frozen application command/execution options и pure adapters strict JSON → NpcRangedSimulationRequest, typed result → JSON. Сохранить все domain admission guards; проверить positive examples, unknown/duplicate keys, типы/версии/seed boundaries, ID references, facts/GM policies и source binding результата. Parsing/encoding не запускают RNG/pool. Application service, исполнение из JSON и CLI оставить следующими отдельными шагами; игровые правила и scenario scope не расширять.
+Добавить application service для RangedSimulationCommand: явный dispatch в existing sequential/process runner, передача workers/batch_size без автоматического выбора/fallback, проверка source результата и типизированная ошибка исполнения с сохранённой причиной. Во внешнем JSON adapter добавить кодирование стабильного error envelope по имеющейся схеме; ошибки parsing/admission не превращать в execution_failed или игровые outcomes. Проверить сквозную композицию JSON → command → service → JSON, оба backend и failures без частичного результата. JSON и CLI не импортируются application/domain/engine; CLI simulate остаётся следующим отдельным срезом.
 
 ## Последняя проверка
 
-2026-09-28: Python 3.12 отсутствует; проверки выполнены на Python 3.14.5.
+2026-09-28: Python 3.12 отсутствует; проверки выполнены на Python 3.14.5 в локальном .venv с установленными jsonschema 4.26.0 и referencing 0.37.0. Зависимости объявлены в pyproject.toml.
 
 ```powershell
+# После установки проекта/зависимостей по README
 $env:PYTHONPATH = "src"
-py -3.14 -m unittest discover -s tests -v
-py -3.14 -m compileall -q src tests tools
+.venv/Scripts/python.exe -m unittest discover -s tests -v
+.venv/Scripts/python.exe -m compileall -q src tests tools
+.venv/Scripts/python.exe -m pip check
 git diff --check
 ```
 
-Полный набор повторно: Ran 1797 tests ... OK (29,165 с), включая real spawn. Новые unit tests не добавлялись: в этом шаге изменены только документация и JSON-примеры. Одноразовый probe подтвердил admission примера, равенство sequential/process results и JSON round-trip сохранённого ответа; это не production parser. Compileall, JSON-синтаксис примеров, локальные ссылки README/docs/README и изменённой документации, git diff --check успешны. Benchmark повторно не запускался: src не менялся. Рабочее дерево на старте чистое; незакоммичены аудит M3, ADR-0016, примеры и обновлённые README/status/roadmap/сопутствующие docs. Commit/push не выполнялись.
+Полный набор: Ran 1813 tests ... OK (33,569 с), включая real spawn. Новый набор 14 unit + 2 integration проверяет schemas, strict parsing/admission, frozen state, exact source и lossless encoding; examples воспроизводятся через настоящие sequential/process APIs. Wheel собран/установлен в .venv, Python -I загрузил adapter и packaged schemas из site-packages без PYTHONPATH; pip check успешен. Compileall, локальные ссылки README/docs/README и изменённой документации, JSON syntax, git diff --check успешны. Рабочее дерево на старте чистое. Добавлены application/adapters/schemas/tests, обновлены зависимости и документация; domain/engine/simulation не менялись. Benchmark повторно не запускался. Commit/push не выполнялись.

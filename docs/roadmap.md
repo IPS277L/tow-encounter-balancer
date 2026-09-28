@@ -64,7 +64,7 @@ R1 завершён; round/side/turn state, базовый action budget, обы
 
 ## M4 — контракты приложения
 
-JSON v1 определён в [ADR-0016](decisions/ADR-0016-ranged-simulation-json-v1.md), [примеры](examples/m4/README.md) проверены через existing typed constructors и sequential/spawn. Реализация ещё впереди: сначала три Schema и pure adapters с frozen command/options, затем application service, затем CLI simulate. Не сериализовать внутренние receipts/history и не обходить scenario admission.
+Первый M4 реализован по [ADR-0016](decisions/ADR-0016-ranged-simulation-json-v1.md): request/result/error Schema, frozen command/options и pure JSON adapters; 1813 tests OK, установка wheel со схемами проверена. [Примеры](examples/m4/README.md) читаются и кодируются production APIs, с existing sequential/process execution в integration tests. Следующий срез — typed application service и error encoding; затем CLI simulate. Новые игровые правила и внутренние receipts/history в wire input не добавляются.
 
 - JSON Schema и адаптеры;
 - application services;

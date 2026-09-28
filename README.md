@@ -6,7 +6,7 @@
 
 ## Навигация
 
-[Конечный аудит M3](docs/audits/m3-readiness.md) подтверждает переход к M4 в указанной границе сценария. [JSON-контракт v1](docs/decisions/ADR-0016-ranged-simulation-json-v1.md) определён; Schema, adapters и CLI ещё не реализованы.
+[Конечный аудит M3](docs/audits/m3-readiness.md) подтверждает переход к M4 в указанной границе сценария. [JSON-контракт v1](docs/decisions/ADR-0016-ranged-simulation-json-v1.md) реализован в Schema и чистых адаптерах; application service и CLI ещё впереди.
 
 - [`docs/README.md`](docs/README.md) — карта документации;
 - [`docs/game-rules.md`](docs/game-rules.md) — зафиксированные правила;
@@ -18,9 +18,11 @@
 
 ## Локальная проверка
 
-Требуется Python 3.12 или новее.
+Требуется Python 3.12 или новее. Установить проект и зависимости JSON Schema в локальное окружение:
 
 ```powershell
+py -3.12 -m venv .venv
+.venv/Scripts/python.exe -m pip install -e .
 $env:PYTHONPATH = "src"
-py -3.12 -m unittest discover -s tests -v
+.venv/Scripts/python.exe -m unittest discover -s tests -v
 ```

@@ -84,6 +84,6 @@ py -3.14 -m tools.benchmark_m3_parallel --trials 1000 --master-seed 20260928 --r
 
 ## Точный следующий шаг
 
-Аудит M3 завершён; его граница и доказательства записаны в [матрице](../audits/m3-readiness.md).
+Первый M4 (Schema и pure adapters) выполнен; актуальный [статус](../project-status.md) сохраняет прежнюю границу правил.
 
-Реализовать первый срез M4 по ADR-0016: JSON Schema request/result/error, frozen application command/execution options и pure adapters strict JSON → NpcRangedSimulationRequest, typed result → JSON. Сохранить все domain admission guards; проверить positive examples, unknown/duplicate keys, типы/версии/seed boundaries, ID references, facts/GM policies и source binding результата. Parsing/encoding не запускают RNG/pool. Application service, исполнение из JSON и CLI оставить следующими отдельными шагами; игровые правила и scenario scope не расширять.
+Добавить application service для RangedSimulationCommand: явный dispatch в existing sequential/process runner, передача workers/batch_size без автоматического выбора/fallback, проверка source результата и типизированная ошибка исполнения с сохранённой причиной. Во внешнем JSON adapter добавить кодирование стабильного error envelope по имеющейся схеме; ошибки parsing/admission не превращать в execution_failed или игровые outcomes. Проверить сквозную композицию JSON → command → service → JSON, оба backend и failures без частичного результата. JSON и CLI не импортируются application/domain/engine; CLI simulate остаётся следующим отдельным срезом.

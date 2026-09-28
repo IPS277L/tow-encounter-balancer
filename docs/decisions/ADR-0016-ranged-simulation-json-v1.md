@@ -1,6 +1,6 @@
 # ADR-0016: минимальный JSON-контракт ranged M3
 
-Статус: контракт принят, 2026-09-28; JSON Schema, adapters, application service и CLI **ещё не реализованы**.
+Статус: контракт принят, 2026-09-28; JSON Schema и pure adapters **реализованы**. Application service и CLI ещё не реализованы.
 
 ## Основание и границы
 
@@ -111,7 +111,7 @@ Policy содержит `actor_id` и ordered `targets` — массив объ�
 
 ## Успешный выход: npc_ranged_simulation_result
 
-[Пример результата](../examples/m4/ranged-v1.result.json) получен реальным sequential M3 из typed отображения примерного запроса, не вручную выбранными исходами. Формат результата пока иллюстрирует согласованный wire contract; production encoder ещё отсутствует.
+[Пример результата](../examples/m4/ranged-v1.result.json) получен реальным sequential M3 из typed отображения примерного запроса, не вручную выбранными исходами. Production parser/encoder теперь воспроизводят этот пример в integration test; runtime metadata сравнивается с текущим интерпретатором.
 
 | Поле | Значение / смысл |
 | --- | --- |
@@ -149,6 +149,21 @@ Request_id — проверенный ID либо null, если его нель
 
 ## Порядок реализации M4
 
-**Следующий законченный срез:** три JSON Schema (request/result/error), frozen application command/options и pure JSON adapters: strict parse → typed request, typed result → output. Добавить тесты позитивных примеров, unknown/duplicate keys, uint64 seed boundaries, types/enums, source binding и всех cross-reference/facts/policy отказов до RNG/pool. Schema validation и domain admission должны согласовываться; конкретный schema-validator dependency выбирается на этом шаге. Product application service, запуск из JSON и CLI в этот первый срез не входят.
+**Первый срез выполнен:** три JSON Schema (request/result/error), frozen application command/options и pure JSON adapters: strict parse → typed request, typed result → output. Проверены positive examples, unknown/duplicate keys, uint64 seed boundaries, types/enums, source binding и cross-reference/facts/policy отказы до RNG/pool. Product application service, запуск из JSON и CLI в этот срез не входят.
 
 Далее: application service с выбором прежнего sequential/process API и стабильными errors; затем CLI simulate с protected main и примерами использования. Таймауты, service resource quotas и streaming больших результатов не выводятся из числовых границ схемы; автоматический подбор workers не вводится. Никакие лимиты JSON не заменяют книжные правила.
+
+## Реализация первого среза
+
+- [application/ranged_simulation_models.py](../../src/towr/application/ranged_simulation_models.py): frozen RangedSimulationCommand(request, execution, definition_order), SimulationExecutionOptions и typed enum. Порядок definitions хранится отдельно, поскольку он не обязан совпадать с порядком первого появления actors. Другие массивы уже сохранены в domain input. Команда не хранит изменяемый исходный dict.
+- [adapters/ranged_simulation_json.py](../../src/towr/adapters/ranged_simulation_json.py): parse_ranged_simulation_request(str | UTF-8 bytes) и encode_ranged_simulation_result(command, result) → str. Никаких runner/RNG/pool вызовов. Encoder восстанавливает request из typed input, проверяет result.source_request и проверяет обратное отображение wire request в ту же command: low-level snapshots с невыразимым в v1 порядком (например, placements независимо от actors) отклоняются, а не теряются молча.
+- [adapters/ranged_json_errors.py](../../src/towr/adapters/ranged_json_errors.py): RangedSimulationInputError с typed code, path и request_id. Некорректный JSON/duplicate keys дают invalid_json; float/exponent input tokens — invalid_input; неизвестная строковая версия — unsupported_version. Для field/schema/constructor ошибок path указывает известный узел, иногда весь scenario; при невозможности разобрать документ path/request_id могут быть null. Текст message не является стабильным API. Error envelope пока задан только схемой; его application orchestration впереди.
+- [Три схемы](../../src/towr/adapters/schemas/) входят в package data wheel. $id — `urn:towr:ranged-simulation:{request|result|error}:1`; result ссылается на request. Локальный Registry содержит все документы; remote retrieval отсутствует.
+
+Выбран Draft 2020-12 и стандартная библиотека jsonschema `>=4.18,<5`, referencing `>=0.28.4,<1`; проверено с jsonschema 4.26.0/referencing 0.37.0. Использованы публичные [validation API](https://python-jsonschema.readthedocs.io/en/stable/validate/) и [Registry/Resource API](https://python-jsonschema.readthedocs.io/en/stable/referencing/). Собственного универсального schema evaluator нет. Зависимости только во внешнем adapter-слое; domain/engine/simulation не изменялись.
+
+validate_ranged_document(document, kind) проверяет только Schema и поднимает jsonschema.ValidationError. Schema не различает математически целые 1 и 1.0, не доказывает references/GM policies/seed range из decimal string, не проверяет sums/means из records. Эти обязанности выполняют strict reader, domain constructors и typed encoder. Поэтому публичный вход — parse_ranged_simulation_request, а не один вызов Schema validator. Master seed spelling ограничена схемой, верхняя граница uint64 проверяется adapter. Reader также отвергает непарные Unicode surrogates в decoded keys/values, чтобы принятый текст можно было вернуть как UTF-8; правильные пары/Unicode IDs поддержаны. Output allow_nan=False сохраняет только конечные JSON numbers.
+
+Runtime в encoder описывает текущую среду и фиксированный v1 RNG random.Random. Низкоуровневый M3 result не содержит доказательства RNG provenance; caller encoder обязан передавать результат стандартного v1 исполнения, а не выдавать injected custom RNG за него. Будущий application service не открывает RNG factory через JSON.
+
+14 unit + 2 integration tests: все object levels unknown/missing keys, nested duplicates, lexical types/UTF-8/versions, uint64 seeds, process options, facts/GM decisions/ссылки, frozen command, source binding/lossless projection; actual sequential/process с двумя definitions и переставленными orders. Полный набор **1813 tests OK** на Python 3.14.5. Wheel собран/установлен в .venv; isolated Python `-I` загрузил schemas и прочитал пример без PYTHONPATH. CLI/service не добавлены.
