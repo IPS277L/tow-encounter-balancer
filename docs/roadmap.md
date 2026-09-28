@@ -73,7 +73,7 @@ M4 реализован по [ADR-0016](decisions/ADR-0016-ranged-simulation-jso
 
 ## M5 — балансировщик
 
-По [ADR-0017](decisions/ADR-0017-ranged-candidate-assessment.md) реализованы aggregate-only summary M3 и pure single-candidate assessment: точные Fraction rates/window, exact input/summary source и отдельный unsupported status, без records/RNG. Последний срез добавил 9 unit + 1 real spawn integration test, полный набор 1860 OK. Метрика цели за лимит с отдельными остановками и явным окном без пресетов подтверждена пользователем. Следующий срез — bounded evaluation явного списка candidates с общим бюджетом и выбором top_k; staged search и генерация сохраняются последующими задачами M5.
+По [ADR-0017](decisions/ADR-0017-ranged-candidate-assessment.md) реализованы summary, pure assessment и bounded evaluation явного списка кандидатов: общий бюджет и preflight, existing sequential/process runners, source-bound aggregate report и точный top_k только внутри окна. Последний срез: 14 unit + 2 integration tests, полный набор 1876 OK. Подтверждённая метрика цели за лимит сохраняет отдельные остановки без пресетов. Следующий срез — контракт staged evaluation прежнего списка: stages/trials/keep, промежуточный отбор и полный бюджет повторных запусков. Генерация составов, CLI balance и универсальный поиск ещё впереди.
 
 - ограничения кандидатов;
 - конфигурируемые окна сложности;

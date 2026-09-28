@@ -92,7 +92,7 @@
 
 M4 Schema, pure adapters, application service и CLI simulate выполнены; актуальный [статус](../project-status.md) сохраняет прежнюю границу правил.
 
-[Аудит M4](m4-readiness.md) завершён. Aggregate-only summary и pure single-candidate assessment реализованы по [ADR-0017](../decisions/ADR-0017-ranged-candidate-assessment.md). Следующий срез — bounded evaluation явного списка candidates: общий seed/trials/budget, готовые runner/projector/assessor, source-bound отчёт и top_k только из подходящих оценок. Полный контракт следующего шага — в project-status; правила не расширяются.
+[Аудит M4](m4-readiness.md) завершён; bounded evaluation списка и top_k реализованы по [ADR-0017](../decisions/ADR-0017-ranged-candidate-assessment.md). Следующий шаг — контракт staged evaluation того же списка: явные stages/trials/keep, политика продолжения и полный учёт повторных пакетов. Полный следующий срез — в project-status; правила и scenario scope не расширяются.
 
 ## Сводка одного прогона — реализованный срез
 

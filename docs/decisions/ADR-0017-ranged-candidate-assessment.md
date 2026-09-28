@@ -1,6 +1,6 @@
 # ADR-0017: агрегаты и ограниченная оценка кандидатов M5
 
-Статус: aggregate-only summary/projection и pure single-candidate assessment **реализованы**, 2026-09-28. Пользователь подтвердил первую метрику: доля достижения заданной цели за лимит раундов, отдельные round_limit/unsupported_path и явное числовое окно без Easy/Medium presets. Следующий срез — bounded evaluation конечного списка кандидатов; исполнение списка/ранжирование ещё не реализованы. [Аудит M4](../audits/m4-readiness.md) завершён.
+Статус: aggregate-only summary/projection, pure single-candidate assessment и bounded evaluation конечного списка кандидатов **реализованы**, 2026-09-28. Метрика подтверждена пользователем: цель за лимит, отдельные round_limit/unsupported_path и явное окно без пресетов. Исполнение списка и точный выбор top_k готовы; следующий шаг — контракт поэтапной оценки прежнего конечного списка. [Аудит M4](../audits/m4-readiness.md) завершён.
 
 ## Основание и решения разного уровня
 
@@ -41,11 +41,11 @@ Rates/status/match — свойства, их нельзя независимо 
 
 [9 unit tests](../../tests/unit/test_m5_ranged_assessment.py) проверяют точные доли и знаменатель, включённые/точечные границы 0/1, unsupported/все round_limit, типы/порядок window, source mismatch, frozen/derived поля, отсутствие records/RNG/runner/JSON. Проверка с числом trials больше 2**60 показывает различие двух значений, сливающихся при float rounding. [Integration](../../tests/integration/test_m5_ranged_assessment.py) использует настоящие sequential/spawn и injected deterministic RNG: три исхода дают равные source-bound assessments и точное попадание в окно 1/3. Existing simulation/application/CLI APIs не изменены.
 
-## Предложение последующей границы M5
+## Граница bounded evaluation M5
 
 Для подтверждённой метрики отдельный `balance` слой зависит только от simulation input/summary contracts. Никаких JSON, CLI, engine calls, игровых журналов, RNG или знания Attack/Wound resolution внутри evaluator. Application orchestration исполняет прежний runner, создаёт aggregate summary и передаёт его оценщику. UI/JSON для balance появятся отдельным решением, а не расширением simulation v1 без версии.
 
-| Модель (предварительное имя) | Содержание |
+| Реализованная модель | Содержание |
 | --- | --- |
 | RangedBalanceCandidate | Непустой candidate_id и готовый допущенный NpcRangedScenario; сценарий не генерируется и не исправляется оценщиком |
 | RangedBalanceEvaluationRequest | Упорядоченный непустой tuple уникальных candidates, общие master_seed/trials_per_candidate/max_total_trials, одно явное окно цели, top_k |
@@ -59,15 +59,15 @@ Rates/status/match — свойства, их нельзя независимо 
 
 Для N = trials публикуются четыре наблюдаемые доли: objective_achieved/N, side_defeated/N, round_limit/N, unsupported_path/N. Знаменатель никогда не заменяется суммой только terminal outcomes. При отсутствии unsupported вероятность цели трактуется только как оценка достижения цели **в пределах заданного бюджета**, а не победы при неограниченной длительности. ROUND_LIMIT остаётся собственным исходом и не объявляется поражением или ничьей.
 
-При unsupported_path > 0 реализован статус `UNSUPPORTED_OBSERVATIONS`: счётчики и observed shares сохраняются, window_match = None. Будущий selector не должен включать такую оценку в selected. Нет подмены unsupported поражением, исключения таких trials из знаменателя или скрытого rerun. Это ограничение достоверности инструмента, а не новое игровое правило. Ошибка исполнения вообще не создаёт assessment с игровым outcome.
+При unsupported_path > 0 реализован статус `UNSUPPORTED_OBSERVATIONS`: счётчики и observed shares сохраняются, window_match = None. Selector исключает такую оценку из selected. Нет подмены unsupported поражением, исключения таких trials из знаменателя или скрытого rerun. Это ограничение достоверности инструмента, а не новое игровое правило. Ошибка исполнения вообще не создаёт assessment с игровым outcome.
 
-Для пригодных кандидатов сравнение с включёнными границами окна и расстоянием до target выполняется по точным отношениям counts/N; в typed window предлагается stdlib Fraction, без неоднозначного float epsilon. Внутри окна выбираются до top_k по abs(objective_rate − target), равенство сохраняет исходный порядок candidates. Кандидаты вне окна остаются в отчёте; если никто не подходит, selected пуст, а «ближайший» не выдаётся за подходящий. Формула не сочетает разные показатели с выдуманными весами.
+Для пригодных кандидатов сравнение с включёнными границами окна и расстоянием до target выполняется по точным отношениям counts/N; typed window использует stdlib Fraction, без неоднозначного float epsilon. Внутри окна выбираются до top_k по abs(objective_rate − target), равенство сохраняет исходный порядок candidates. Кандидаты вне окна остаются в отчёте; если никто не подходит, selected пуст, а «ближайший» не выдаётся за подходящий. Формула не сочетает разные показатели с выдуманными весами.
 
 Длительность и Attack counts пока только описательные. Target rounds, условные средние по исходам, confidence intervals, доверительная пригодность малого N и именованные difficulty presets требуют отдельного продуктового/статистического контракта. Попадание точечной оценки в окно не является гарантией истинной вероятности. Прежние приблизительные Easy/Medium/Hard/Impossible границы не включаются по умолчанию.
 
-## Предложение seeds, бюджета и исполнения
+## Seeds, бюджет и исполнение
 
-Application строит для каждого candidate прежний NpcRangedSimulationRequest с одним явно заданным master_seed и trials_per_candidate; seed scheme/index M3 не меняются. Candidate ID/порядок не входят в derivation; перестановка кандидатов не меняет наблюдения каждого. Один и тот же trial index имеет один seed у разных сценариев, но разные ветвления могут расходовать RNG по-разному — равенство seed не означает тождественность бросков соответствующих действий или доказанное снижение ошибки сравнения.
+Preflight request строит для каждого candidate прежний NpcRangedSimulationRequest с одним явно заданным master_seed и trials_per_candidate; seed scheme/index M3 не меняются. Candidate ID/порядок не входят в derivation; перестановка кандидатов не меняет наблюдения каждого. Один и тот же trial index имеет один seed у разных сценариев, но разные ветвления могут расходовать RNG по-разному — равенство seed не означает тождественность бросков соответствующих действий или доказанное снижение ошибки сравнения.
 
 Все candidates, окно, positive exact int trials/top_k/max_total_trials и общие поля проверяются до первого runner. `len(candidates) * trials_per_candidate <= max_total_trials` — явный бюджет исполнения; при превышении полный request отклоняется до работы, без неявного уменьшения списка или trials. Каждый candidate оценивается один раз полным пакетом. Несколько candidates исполняются последовательно; опциональный process backend применяется только внутри одного кандидата с явно переданными options. Вложенные pools, автоматический подбор режима и бюджет времени не вводятся.
 
@@ -79,6 +79,23 @@ Staged search остаётся следующим этапом roadmap. Перв
 
 1. Aggregate-only summary/projection реализованы и проверены; существующие M3 result/service/CLI v1 не менялись.
 2. Метрика [подтверждена](../open-questions.md#первая-метрика-m5). Pure single-candidate assessment реализован; точные доли/window, source и unsupported guards проверены без RNG/runner.
-3. Отдельным срезом соединить конечный список кандидатов с existing runners, бюджетом и source-checked отчётом. Затем обсудить staged search и генерацию, сохранив M5 в roadmap.
+3. Bounded evaluation реализован: конечный список соединён с existing runners, бюджетом и source-checked отчётом. Следующий шаг — контракт staged evaluation прежних кандидатов: явные stages/trials/keep, selection для продолжения, полный учёт повторных запусков и source chain. Генерация составов и новые игровые механики остаются отдельными задачами.
 
 Новых Rule IDs, трактовок книг или house rules этот документ не вводит. Book-dependent semantics остаются в ADR-0013/0014; книги для технических срезов повторно не извлекались. Подтверждённая продуктовая метрика отделена от уже проверенной механики. Проверка summary-среза: 1850 tests OK, Python 3.14.5, включая real spawn; compileall/pip check/diff check успешны.
+
+## Реализация конечного списка кандидатов
+
+[balance/ranged_evaluation_models.py](../../src/towr/balance/ranged_evaluation_models.py) содержит frozen/slots модели:
+
+- RangedBalanceCandidate(candidate_id, scenario): непустой ID и уже допущенный NpcRangedScenario — вход существующего симулятора, без самостоятельной генерации профилей.
+- RangedBalanceEvaluationRequest(candidates, master_seed, trials_per_candidate, max_total_trials, window, top_k): tuple-normalization, уникальные IDs, typed window, positive exact int top_k/max_total_trials, общие perspective_side/round budget и существующая uint64 validation seed/trials. Производный simulation_requests строится однократно в preflight, недоступен constructor, исключён из repr/equality; replace пересобирает его. planned_trials = len(candidates) * trials_per_candidate. Превышение бюджета отклоняется; top_k больше числа кандидатов допустим и означает «не больше top_k».
+- RangedBalanceCandidateResult(candidate_id, assessment) связывает stable ID с уже готовой aggregate-only оценкой.
+- RangedBalanceEvaluationResult(source_request, candidates) требует ровно весь исходный список в том же порядке, точные candidate IDs, simulation input и window каждого assessment. Неполные/переставленные/повторные/чужие результаты отклоняются. selected_candidate_ids, total_trials и seed_scheme — производные свойства; их нельзя подставить независимо. Стабильная сортировка по точному расстоянию до target применяется только к window_match=True. Все оценки, включая outside/unsupported, остаются в исходном порядке отчёта.
+
+[application/ranged_evaluation_service.py](../../src/towr/application/ranged_evaluation_service.py): `evaluate_ranged_candidates(request, execution)` принимает полностью проверенный request и явный SimulationExecutionOptions. Кандидаты исполняются последовательно через прежние M3 runners; workers/batch_size передаются без изменений. RNG — стандартный runner default; low-level injection M3 сохранён. После проверки типа/exact source результата выполняются summary projection и pure assessment. Полный compact result не переносится в balance и освобождается до следующего кандидата; application временно держит записи только текущего пакета. Результат хранит inputs и агрегаты, не полный журнал/records.
+
+Любой Exception внутри исполнения/проверки/проекции одного кандидата оборачивается в [RangedBalanceEvaluationError](../../src/towr/application/ranged_evaluation_errors.py) с candidate_id и исходной __cause__, включая notes. Следующие кандидаты не запускаются; partial report, retry и fallback отсутствуют. Неверные типы request/execution дают TypeError до runner; KeyboardInterrupt/SystemExit не оборачиваются. Process caller по-прежнему требует guarded importable main, а cleanup выполняет прежний runner. Execution options/runtime остаются у application caller; этот typed aggregate report не является новым wire форматом или доказательством исполнения.
+
+9 [model tests](../../tests/unit/test_m5_ranged_evaluation.py), 5 [service tests](../../tests/unit/test_m5_ranged_evaluation_service.py) и 2 [integration tests](../../tests/integration/test_m5_ranged_evaluation.py): preflight/types/budget/perspective/rounds, derived/frozen/source/result completeness, exact Fraction ranking и tie-break, outside/unsupported/empty selection, отсутствие records, explicit dispatch, сбой второго кандидата/cause/notes без partial результата, неверный runner result и interrupts. Real sequential/process отчёты совпадают; переименование/перестановка сохраняют оценки по кандидату. Staged search, генерация, CLI balance/JSON, timeout и confidence guarantees не добавлены.
+
+Полный набор: **1876 tests OK**, Python 3.14.5, 60,342 с; compileall/pip check/diff check успешны. Domain/engine/simulation, прежний M4 service и CLI не менялись; правила и seed scheme сохранены.

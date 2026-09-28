@@ -86,4 +86,4 @@ py -3.14 -m tools.benchmark_m3_parallel --trials 1000 --master-seed 20260928 --r
 
 M4 Schema, pure adapters, application service и CLI simulate выполнены; актуальный [статус](../project-status.md) сохраняет прежнюю границу правил.
 
-[Аудит M4](../audits/m4-readiness.md) завершён; summary и pure assessment одного кандидата по [ADR-0017](../decisions/ADR-0017-ranged-candidate-assessment.md) реализованы. Следующий срез — bounded evaluation явного списка с общим бюджетом и top_k. Backend/workers по-прежнему задаются явно; новый benchmark без изменения алгоритма исполнения не требуется.
+[Аудит M4](../audits/m4-readiness.md) завершён; bounded evaluation списка с бюджетом и top_k по [ADR-0017](../decisions/ADR-0017-ranged-candidate-assessment.md) реализован. Следующий шаг — контракт staged evaluation с полным учётом повторных пакетов без предполагаемого prefix reuse. Backend/workers задаются явно, кандидаты исполняются по очереди; прежний simulation runner не менялся, новый benchmark в этом срезе не запускался.
