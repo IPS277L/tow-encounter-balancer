@@ -86,4 +86,4 @@ py -3.14 -m tools.benchmark_m3_parallel --trials 1000 --master-seed 20260928 --r
 
 M4 Schema, pure adapters, application service и CLI simulate выполнены; актуальный [статус](../project-status.md) сохраняет прежнюю границу правил.
 
-[Аудит M4](../audits/m4-readiness.md) завершён; aggregate-only summary/projector M3 по [ADR-0017](../decisions/ADR-0017-ranged-candidate-assessment.md) реализованы. Метрика M5 подтверждена; следующий срез — pure assessment одного кандидата по готовой сводке и явному окну. Backend/workers по-прежнему задаются явно; новый benchmark без изменения алгоритма исполнения не требуется.
+[Аудит M4](../audits/m4-readiness.md) завершён; summary и pure assessment одного кандидата по [ADR-0017](../decisions/ADR-0017-ranged-candidate-assessment.md) реализованы. Следующий срез — bounded evaluation явного списка с общим бюджетом и top_k. Backend/workers по-прежнему задаются явно; новый benchmark без изменения алгоритма исполнения не требуется.

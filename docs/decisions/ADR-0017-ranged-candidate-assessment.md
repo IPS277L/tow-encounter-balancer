@@ -1,6 +1,6 @@
 # ADR-0017: агрегаты и ограниченная оценка кандидатов M5
 
-Статус: aggregate-only summary/projection **реализованы**, 2026-09-28. Пользователь подтвердил первую метрику: доля достижения заданной цели за лимит раундов, отдельные round_limit/unsupported_path и явное числовое окно без Easy/Medium presets. Следующий срез — pure single-candidate assessment; bounded evaluation/ранжирование остаются предложением и ещё не реализованы. [Аудит M4](../audits/m4-readiness.md) завершён.
+Статус: aggregate-only summary/projection и pure single-candidate assessment **реализованы**, 2026-09-28. Пользователь подтвердил первую метрику: доля достижения заданной цели за лимит раундов, отдельные round_limit/unsupported_path и явное числовое окно без Easy/Medium presets. Следующий срез — bounded evaluation конечного списка кандидатов; исполнение списка/ранжирование ещё не реализованы. [Аудит M4](../audits/m4-readiness.md) завершён.
 
 ## Основание и решения разного уровня
 
@@ -8,7 +8,7 @@ AGENTS.md требует, чтобы балансировщик получал �
 
 Исходный дизайн, разделы 19–22, предлагает player victory rate, приблизительные окна Easy/Medium/Hard/Impossible, желаемую длительность и многоэтапный поиск. Это продуктовые ориентиры прототипа, не нормативные правила книги и не готовый контракт первого M5. Текущий [NpcRangedScenario](ADR-0013-ranged-minion-scenario-input.md) допускает только Minions; objective перечисляет всех противников perspective_side. OBJECTIVE_ACHIEVED означает поражение противоположной стороны в данном сценарии, а не утверждение о смерти всех NPC или победе полноценной группы PC.
 
-Пользователь подтвердил ограниченный первый M5: оценка достижения заданной цели за явный round budget, отдельные shares round_limit/unsupported_path, числовое окно без именованных пресетов. Это продуктовый выбор метрики, не house rule и не повод менять engine. Первым реализован независимый aggregate-only срез ниже; следующим оценщик использует эту сводку без исполнения боя.
+Пользователь подтвердил ограниченный первый M5: оценка достижения заданной цели за явный round budget, отдельные shares round_limit/unsupported_path, числовое окно без именованных пресетов. Это продуктовый выбор метрики, не house rule и не повод менять engine. Реализованы aggregate-only сводка и чистый оценщик, использующий её без исполнения боя.
 
 ## Первый implementation-срез: только сводка M3
 
@@ -27,6 +27,20 @@ AGENTS.md требует, чтобы балансировщик получал �
 
 Конкретные guards: N = source.trials, B = source.scenario.initial.max_rounds, A = len(source.scenario.initial.current.actor_order), L = counts.round_limit, T = counts.objective_achieved + counts.side_defeated. Требуются сумма counts = N, `L * B + (N - L) <= total_visited_round_count <= N * B` и `T <= total_attack_count <= A * total_visited_round_count`. `trials` и обе means — свойства; dataclasses.replace повторяет validation. Равенство summary включает source: одинаковые totals другого master_seed не дают равный summary. При прямом конструировании допустимые агрегаты всё равно не являются доказательством исполнения; M3 result и projector — штатный путь их получения.
 
+## Реализованная оценка одного кандидата
+
+[balance/ranged_assessment_models.py](../../src/towr/balance/ranged_assessment_models.py) содержит frozen, slots ObjectiveRateWindow(minimum, target, maximum) и RangedCandidateAssessment(source_request, summary, window). [assess_ranged_candidate(source_request, summary, window)](../../src/towr/balance/ranged_assessment.py) создаёт проверенную оценку. В этом срезе кандидат задан полным NpcRangedSimulationRequest; отдельные candidate_id, список сценариев и batch request появятся на следующей границе, а не дублируются здесь.
+
+Window принимает только явные Fraction, включая Fraction(0)/Fraction(1); int/bool/float/строки автоматически не преобразуются. Требуется `0 <= minimum <= target <= maximum <= 1`; точечное окно допустимо. Target сохраняется для будущего ранжирования, сейчас он только проверяется внутри границ, отдельного score нет. Оценщик требует typed input/aggregate summary/window и точное равенство summary.source_request == source_request. Равный immutable snapshot допускается; другой seed, число trials или scenario отклоняются. Full M3 result вместо summary недопустим.
+
+Свойства objective_achieved_rate, side_defeated_rate, round_limit_rate, unsupported_path_rate возвращают Fraction(count, summary.trials). Знаменатель включает все прогоны, даже round_limit/unsupported. Доли всегда наблюдаемые: при наличии unsupported их нельзя выдавать за пригодную оценку вероятности. Счётчики и descriptive means доступны в сохранённой summary без повторного расчёта боя.
+
+RangedAssessmentStatus — ELIGIBLE либо UNSUPPORTED_OBSERVATIONS, производный от counts.unsupported_path. `window_match` равен True/False только при ELIGIBLE; границы включены и сравниваются точно, без float epsilon. При unsupported возвращается **None**, чтобы отличать непригодную оценку от достоверно вычисленного попадания/непопадания точечной оценки в окно. Даже если все прогоны достигли round limit, оценка пригодна для этой ограниченной по времени метрики: objective rate = 0 и отдельная round_limit_rate = 1. Это не переименование остановки в defeat/draw.
+
+Rates/status/match — свойства, их нельзя независимо передать в конструктор или dataclasses.replace. Оценка хранит только input/summary/window, без trial records, engine/runner/RNG/JSON. Guards проверяют согласованность источника, но не доказывают происхождение вручную сконструированных aggregate counts. ELIGIBLE и window_match не являются confidence guarantee, difficulty preset или гарантией будущей победы.
+
+[9 unit tests](../../tests/unit/test_m5_ranged_assessment.py) проверяют точные доли и знаменатель, включённые/точечные границы 0/1, unsupported/все round_limit, типы/порядок window, source mismatch, frozen/derived поля, отсутствие records/RNG/runner/JSON. Проверка с числом trials больше 2**60 показывает различие двух значений, сливающихся при float rounding. [Integration](../../tests/integration/test_m5_ranged_assessment.py) использует настоящие sequential/spawn и injected deterministic RNG: три исхода дают равные source-bound assessments и точное попадание в окно 1/3. Existing simulation/application/CLI APIs не изменены.
+
 ## Предложение последующей границы M5
 
 Для подтверждённой метрики отдельный `balance` слой зависит только от simulation input/summary contracts. Никаких JSON, CLI, engine calls, игровых журналов, RNG или знания Attack/Wound resolution внутри evaluator. Application orchestration исполняет прежний runner, создаёт aggregate summary и передаёт его оценщику. UI/JSON для balance появятся отдельным решением, а не расширением simulation v1 без версии.
@@ -35,8 +49,8 @@ AGENTS.md требует, чтобы балансировщик получал �
 | --- | --- |
 | RangedBalanceCandidate | Непустой candidate_id и готовый допущенный NpcRangedScenario; сценарий не генерируется и не исправляется оценщиком |
 | RangedBalanceEvaluationRequest | Упорядоченный непустой tuple уникальных candidates, общие master_seed/trials_per_candidate/max_total_trials, одно явное окно цели, top_k |
-| ObjectiveRateWindow | Точные рациональные min/target/max в [0,1], min ≤ target ≤ max; без defaults Easy/Medium и без весов |
-| RangedCandidateAssessment | Exact candidate/request/summary source, вычисленные доли/средние, пригодность оценки и соответствие окну; нельзя независимо передать готовый score |
+| ObjectiveRateWindow (реализовано) | Точные Fraction minimum/target/maximum в [0,1]; без defaults Easy/Medium и без весов |
+| RangedCandidateAssessment (реализовано) | Exact request/summary source, производные доли/status/window_match; candidate_id привяжет внешний batch result |
 | RangedBalanceEvaluationResult | Все assessments в порядке входа, выбранные candidate IDs, фактический бюджет и параметры воспроизведения; не содержит per-trial records |
 
 Первый evaluator не проверяет, что два сценария являются одним и тем же encounter с изменённым ровно одним параметром. Caller явно подаёт разрешённый конечный список альтернатив; отчёт сохраняет каждый полный input. Общими обязаны быть perspective_side и round budget. Более сильные ограничения на неизменную группу/геометрию и генерация допустимых вариантов требуют отдельного контракта. Нельзя автоматически менять composition, свойства профиля, awareness, policies или GM decisions ради попадания в окно.
@@ -45,7 +59,7 @@ AGENTS.md требует, чтобы балансировщик получал �
 
 Для N = trials публикуются четыре наблюдаемые доли: objective_achieved/N, side_defeated/N, round_limit/N, unsupported_path/N. Знаменатель никогда не заменяется суммой только terminal outcomes. При отсутствии unsupported вероятность цели трактуется только как оценка достижения цели **в пределах заданного бюджета**, а не победы при неограниченной длительности. ROUND_LIMIT остаётся собственным исходом и не объявляется поражением или ничьей.
 
-При unsupported_path > 0 предложено помечать оценку `UNSUPPORTED_OBSERVATIONS`: счётчики и observed shares сохраняются, но candidate не получает valid difficulty/window match и не попадает в selected. Нет подмены unsupported поражением, исключения таких trials из знаменателя или скрытого rerun. Это ограничение достоверности инструмента, а не новое игровое правило. Ошибка исполнения вообще не создаёт assessment с игровым outcome.
+При unsupported_path > 0 реализован статус `UNSUPPORTED_OBSERVATIONS`: счётчики и observed shares сохраняются, window_match = None. Будущий selector не должен включать такую оценку в selected. Нет подмены unsupported поражением, исключения таких trials из знаменателя или скрытого rerun. Это ограничение достоверности инструмента, а не новое игровое правило. Ошибка исполнения вообще не создаёт assessment с игровым outcome.
 
 Для пригодных кандидатов сравнение с включёнными границами окна и расстоянием до target выполняется по точным отношениям counts/N; в typed window предлагается stdlib Fraction, без неоднозначного float epsilon. Внутри окна выбираются до top_k по abs(objective_rate − target), равенство сохраняет исходный порядок candidates. Кандидаты вне окна остаются в отчёте; если никто не подходит, selected пуст, а «ближайший» не выдаётся за подходящий. Формула не сочетает разные показатели с выдуманными весами.
 
@@ -64,7 +78,7 @@ Staged search остаётся следующим этапом roadmap. Перв
 ## Порядок продолжения
 
 1. Aggregate-only summary/projection реализованы и проверены; существующие M3 result/service/CLI v1 не менялись.
-2. Метрика [подтверждена](../open-questions.md#первая-метрика-m5). Реализовать pure single-candidate assessment: exact input/summary source, четыре доли по всем trials, явное Fraction-окно и производный match; unsupported observations сохраняются и исключают пригодность оценки. Детерминированно проверить границы, denominator, source, frozen state и отсутствие RNG/runner; не добавлять список кандидатов, ranking или application execution в этот срез.
+2. Метрика [подтверждена](../open-questions.md#первая-метрика-m5). Pure single-candidate assessment реализован; точные доли/window, source и unsupported guards проверены без RNG/runner.
 3. Отдельным срезом соединить конечный список кандидатов с existing runners, бюджетом и source-checked отчётом. Затем обсудить staged search и генерацию, сохранив M5 в roadmap.
 
 Новых Rule IDs, трактовок книг или house rules этот документ не вводит. Book-dependent semantics остаются в ADR-0013/0014; книги для технических срезов повторно не извлекались. Подтверждённая продуктовая метрика отделена от уже проверенной механики. Проверка summary-среза: 1850 tests OK, Python 3.14.5, включая real spawn; compileall/pip check/diff check успешны.
