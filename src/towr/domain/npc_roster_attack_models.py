@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 
 from towr.domain.action_execution_models import AttackActionExecutionRequest, AttackActionExecutionResult
 from towr.domain.condition_models import Condition, ConditionState
@@ -180,6 +180,7 @@ class NpcRosterAttackExecutionResult:
     source_request: NpcRosterAttackExecutionRequest
     executed_request: AttackActionExecutionRequest
     execution: AttackActionExecutionResult
+    _state: NpcRosterAttackState = field(init=False, repr=False, compare=False)
 
     def __post_init__(self) -> None:
         if not isinstance(self.source_request, NpcRosterAttackExecutionRequest):
@@ -207,6 +208,7 @@ class NpcRosterAttackExecutionResult:
         for item in self.handled_follow_ups:
             if item != AttackerStaggerRequest(expected.id):
                 raise ValueError("attacker Staggered follow-up belongs to another attack")
+        object.__setattr__(self, "_state", self._build_state())
 
     @property
     def handled_follow_ups(self) -> tuple[AttackerStaggerRequest, ...]:
@@ -221,6 +223,10 @@ class NpcRosterAttackExecutionResult:
 
     @property
     def state(self) -> NpcRosterAttackState:
+        return self._state
+
+    def _build_state(self) -> NpcRosterAttackState:
+        """Project the validated immutable execution once, without replaying it."""
         request = self.source_request
         participants = []
         for participant in request.state.roster.participants:

@@ -25,6 +25,7 @@
 - [`roadmap.md`](roadmap.md) — последовательность этапов;
 - [`project-status.md`](project-status.md) — актуальное состояние и следующий шаг;
 - [`open-questions.md`](open-questions.md) — вопросы, требующие решения владельца правил;
+- [`benchmarks/README.md`](benchmarks/README.md) — воспроизводимый M3 benchmark, baseline времени/памяти и следующий performance-срез;
 - [`testing.md`](testing.md) — стратегия и команды проверки;
 - [`TOWR_Combat_Simulator_&_Encounter_Balancer_—_Context_and_Technical.md`](TOWR_Combat_Simulator_&_Encounter_Balancer_—_Context_and_Technical.md) — исходный полный дизайн-док.
 

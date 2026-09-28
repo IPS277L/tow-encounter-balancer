@@ -4,7 +4,7 @@
 
 ## Текущий этап
 
-K1/M2 готовы в заявленной границе неподвижного ranged Minion-сценария. Начат M3: независимые последовательные прогоны с master seed/index и typed агрегатами четырёх исходов реализованы. Проверены воспроизводимость, независимость порядка/размера пакета и RNG; фактического параллелизма ещё нет. Следующий шаг — benchmark/profiling baseline перед оптимизацией. [Контракт M3](decisions/ADR-0014-independent-ranged-simulations.md). Полный каталог, Brute/Champion/Monstrosity, общий area/Hazard loop и автономный Blunderbuss вне первого M3; P1 не является нормативной основой.
+K1/M2 готовы в заявленной границе неподвижного ranged Minion-сценария. Начат M3: независимые последовательные прогоны с master seed/index и typed агрегатами четырёх исходов реализованы. Проверены воспроизводимость, независимость порядка/размера пакета и RNG; фактического параллелизма ещё нет. Benchmark baseline и первый измеренный performance-срез готовы: immutable roster Attack result state строится один раз; trial records совпали, guards сохранены. Следующий шаг — опциональный process-based runner M3. [Контракт M3](decisions/ADR-0014-independent-ranged-simulations.md). Полный каталог, Brute/Champion/Monstrosity, общий area/Hazard loop и автономный Blunderbuss вне первого M3; P1 не является нормативной основой.
 
 ## Зафиксировано
 
@@ -963,13 +963,17 @@ K1/M2 готовы в заявленной границе неподвижног
 
 - Первый M3 реализован в towr.simulation: NpcRangedSimulationRequest, компактные NpcRangedTrialSummary, NpcRangedSimulationResult/OutcomeCounts и последовательные run_npc_ranged_trial/run_npc_ranged_simulation. Seed scheme v1 использует SHA-256(master seed/index с фиксированным encoding); отдельный RNG на индекс, immutable scenario не переносит continuation между trials. Четыре исхода считаются отдельно, Attack/visited rounds суммируются и усредняются; полный журнал каждого боя после проекции не хранится. Проверяются полнота/index/seed/counters и источник runner result; ошибки не превращаются в игровые outcomes или частичный успешный пакет. 8 unit и 3 integration tests, полный набор 1780 tests OK. [ADR-0014](decisions/ADR-0014-independent-ranged-simulations.md). Фактический параллелизм, profiling и оптимизация пока не реализованы.
 
+- Добавлен tools/profile_m3.py: admitted fixtures 1×1/2×2/3×2 без test imports, фиксированные seeds/policies, отдельные обычные тайминги, tracemalloc и cProfile с replace callers. Каждый повтор сравнивает полные compact trial records. Baseline: 100 trials, seed 20260928, budget 5, 3 повтора; медианы 0,306063/0,703143/0,647570 с, peak Python allocations 96,7/145,1/149,3 КиБ. Это не RSS. Основные затраты связаны с повторным созданием/валидацией snapshots; выбран узкий следующий кандидат NpcRosterAttackExecutionResult.state (4334 replace calls на 810 Attack в 2×2). Код src не менялся, оптимизация и параллелизм не добавлены. 4 новых unit tests; полный набор 1784 tests OK. [Методика и выводы](benchmarks/README.md), [сырой baseline](benchmarks/m3-baseline-2026-09-28.md).
+
+- NpcRosterAttackExecutionResult сохраняет derived immutable state после прежней source/receipt validation; повторные чтения и consumer возвращают тот же snapshot. Private init=False/compare=False/repr=False field не входит в constructor/equality/hash/repr; dataclasses.replace повторяет validation и строит новый snapshot. Алгоритм Wounds/Conditions и перенос всех histories не менялись. 3 новых unit tests; полный набор 1787 tests OK. Все три trial digests/агрегаты совпали с baseline; replace calls из проекции в 2×2: 4334 → 1798, в 3×2: 3972 → 1635. Медианы wall 0,273343/0,584341/0,643556 с на 100 trials (−10,7%/−16,9%/−0,6%); peak Python 96,6/144,7/149,0 КиБ, не RSS. [Сравнение](benchmarks/README.md#однократное-построение-attack-state), [отчёт](benchmarks/m3-cached-attack-state-2026-09-28.md).
+
 ## Следующий шаг
 
-Добавить воспроизводимый benchmark/profiling harness для последовательного M3 и измерить representative Minion-пакеты (1×1, 2×2, 3×2) с фиксированными master seed, trials и round budget. Зафиксировать runtime/команду, время, peak memory и основные затраты cProfile; подтвердить неизменность агрегатов при повторении. По измерениям выбрать один обоснованный следующий performance-срез. Не оптимизировать и не добавлять параллелизм до получения baseline; без CLI/JSON приложения, балансировщика и новых правил. Контракт: [ADR-0014](decisions/ADR-0014-independent-ranged-simulations.md).
+Добавить отдельный опциональный process-based runner M3 для существующего NpcRangedSimulationRequest: явное число workers, неизменная seed scheme по trial index, отдельный RNG на trial и прежний NpcRangedSimulationResult с полным упорядоченным набором compact records. Последовательный API сохранить. Проверить реальные spawn-процессы, равенство последовательному результату при разных workers/разбиении пакета и распространение ошибок без частичного успешного результата; не передавать полные журналы между процессами. Измерить wall time с учётом запуска процессов на тех же сценариях; ускорение не предполагать заранее. Без CLI/JSON приложения, новых игровых правил и дальнейшего снятия validation.
 
 ## Последняя проверка
 
-2026-09-28: Python 3.12 в текущем окружении отсутствует (`py -0p` показывает только Python 3.14). Проверки выполнены на установленном Python 3.14:
+2026-09-28: Python 3.12 отсутствует; проверки выполнены на Python 3.14.5.
 
 ```powershell
 $env:PYTHONPATH = "src"
@@ -978,4 +982,4 @@ py -3.14 -m compileall -q src tests tools
 git diff --check
 ```
 
-Полный набор: Ran 1780 tests ... OK. Добавлены 8 unit tests и 3 integration tests; exact Monte Carlo проценты не проверяются. Compileall, локальные ссылки README/docs/README и изменённой документации, git diff --check успешны. Python 3.12 отсутствует; проверено на Python 3.14. Рабочее дерево на старте чистое. Добавлены пакет simulation, два тестовых модуля и ADR-0014, обновлена документация. Commit/push не выполнялись.
+Полный набор: Ran 1787 tests ... OK. Три новых unit tests дополняют прежнюю матрицу Melee/Shooting: eager snapshot/repeated reads, frozen state, replace с переносом всех histories, equality/hash/repr, отказ до построения state. Финальный benchmark выполнен после завершения тестов, отдельно от тяжёлых проверок; все records совпали внутри фаз и по SHA-256 с исходным baseline. Compileall, локальные ссылки README/docs/README и изменённой документации, git diff --check успешны. На старте уже были незакоммиченные harness/tests/benchmark/docs предыдущего шага; они сохранены. Текущий срез меняет один domain-модуль, его тесты, документацию и добавляет отдельный отчёт. Commit/push не выполнялись.

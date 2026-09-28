@@ -1,5 +1,5 @@
 from copy import deepcopy
-from dataclasses import replace
+from dataclasses import FrozenInstanceError, replace
 from itertools import product
 import unittest
 from unittest.mock import Mock, patch
@@ -12,10 +12,11 @@ from towr.domain.attack_models import ConditionOnHitSpec, ResilienceProfile
 from towr.domain.condition_models import Condition, StaggerChoice
 from towr.domain.injury_models import ProfileInjuryState, ProfileStateChangeRequest
 from towr.domain.npc_roster_attack_models import (
-    NpcRosterAttackExecutionRequest, NpcRosterAttackState,
+    NpcNearbyDefeatKey, NpcNearbyGiveGroundKey,
+    NpcRosterAttackExecutionRequest, NpcRosterAttackExecutionResult, NpcRosterAttackState,
 )
 from towr.domain.npc_roster_models import NpcRoster
-from towr.domain.resolution_models import GiveGroundRequest, KernelAttackRequest, TargetInjuryPolicy
+from towr.domain.resolution_models import GiveGroundRequest, KernelAttackRequest, NearbyTargetsStaggerRequest, TargetInjuryPolicy
 from towr.domain.test_models import DiceModifier, InlineProfile
 from towr.domain.turn_models import (
     ActionSlotGrant,
@@ -65,6 +66,67 @@ def change_participant(source, index, **changes):
 
 
 class M2NpcRosterAttackExecutionTests(unittest.TestCase):
+    def test_state_is_built_before_first_read_and_reused_without_execution(self):
+        for selected, dice in product(("axe", "warbow"), ([10] * 6, [1, 2, 10, 10, 10, 10])):
+            with self.subTest(selected=selected, dice=dice):
+                source = request(selected=selected)
+                before = deepcopy(source)
+                rng = Mock(wraps=SequenceRandom(dice))
+                result = execution.execute_npc_roster_attack(source, rng)
+                # Even the first public read must not construct or execute anything.
+                with patch.object(NpcRosterAttackExecutionResult, "_build_state",
+                                  side_effect=AssertionError("state rebuilt")), patch(
+                    "towr.domain.npc_roster_attack_models.replace", side_effect=AssertionError("snapshot rebuilt")
+                ):
+                    state = result.state
+                    for _ in range(3):
+                        self.assertIs(result.state, state)
+                        self.assertIs(execution.apply_npc_roster_attack_result(source.state, result), state)
+                    with self.assertRaisesRegex(ValueError, "already consumed"):
+                        execution.apply_npc_roster_attack_result(state, result)
+                self.assertEqual(rng.randint.call_count, 6)
+                self.assertEqual(source, before)
+                self.assertEqual(state.roster.participant("brigand:2").state.injury,
+                                 result.execution.resolution.target_state)
+                self.assertEqual(state.roster.participant("brigand:0").state.injury.conditions.has(Condition.STAGGERED),
+                                 selected == "axe" and dice[0] == 10)
+                with self.assertRaises(FrozenInstanceError):
+                    result._state = source.state
+                with self.assertRaises(FrozenInstanceError):
+                    state.consumed_execution_ids = ()
+
+    def test_replacing_result_rebuilds_derived_state_and_preserves_all_histories(self):
+        source = request(selected="warbow")
+        result = execution.execute_npc_roster_attack(source, SequenceRandom([10] * 6))
+        effect = NearbyTargetsStaggerRequest("earlier:attack", "RULE-EFFECT-006")
+        history = replace(source.state, consumed_execution_ids=("earlier",),
+            acknowledged_defeat_execution_ids=("earlier",), consumed_give_ground_execution_ids=("earlier",),
+            consumed_nearby_stagger_sources=(effect,),
+            acknowledged_nearby_defeats=(NpcNearbyDefeatKey(effect, "brigand:1"),),
+            consumed_nearby_give_ground=(NpcNearbyGiveGroundKey(effect, "brigand:3"),),
+            completed_nearby_stagger_sources=(effect,))
+        changed = replace(result, source_request=replace(source, state=history))
+        self.assertEqual(changed.state, replace(history, consumed_execution_ids=("earlier", source.execution.id)))
+        self.assertIsNot(changed.state, result.state)
+        self.assertEqual(result.state.consumed_execution_ids, (source.execution.id,))
+        rebuilt = replace(result)
+        self.assertIsNot(rebuilt.state, result.state)
+        self.assertEqual(rebuilt, result)
+        self.assertEqual(hash(rebuilt), hash(result))
+        self.assertNotIn(", _state=", repr(result))
+        with self.assertRaises((TypeError, ValueError)):
+            replace(result, _state=history)
+
+    def test_invalid_result_is_rejected_before_derived_state_construction(self):
+        source = request()
+        result = execution.execute_npc_roster_attack(source, SequenceRandom([10] * 6))
+        with patch.object(NpcRosterAttackExecutionResult, "_build_state") as build:
+            with self.assertRaisesRegex(ValueError, "does not match"):
+                replace(result, executed_request=replace(source.execution, id="foreign"))
+            with self.assertRaisesRegex(ValueError, "does not match preparation"):
+                replace(result, source_request=request(selected="warbow"))
+            build.assert_not_called()
+
     def test_one_reserved_attack_updates_only_actor_and_target_for_48_outcomes(self):
         for selected, aware, outcome, actor_staggered, target_staggered in product(
             ("axe", "warbow"), (False, True), ("miss", "stagger", "wound"), (False, True), (False, True),

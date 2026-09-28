@@ -55,7 +55,7 @@ R1 завершён; round/side/turn state, базовый action budget, обы
 
 ## M3 — массовая симуляция
 
-Первый срез реализован: последовательные независимые прогоны NpcRangedScenario, versioned master seed/index, compact records и typed агрегаты четырёх исходов, Attack и visited rounds. Воспроизводимость проверена при обратном порядке и изменении размера пакета; реальный параллелизм ещё не реализован. [ADR-0014](decisions/ADR-0014-independent-ranged-simulations.md), 1780 tests OK. Следующий срез — воспроизводимый benchmark/profiling baseline перед выбором оптимизаций или параллелизма.
+Первый срез реализован: последовательные независимые прогоны NpcRangedScenario, versioned master seed/index, compact records и typed агрегаты четырёх исходов, Attack и visited rounds. Воспроизводимость проверена при обратном порядке и изменении размера пакета; реальный параллелизм ещё не реализован. [ADR-0014](decisions/ADR-0014-independent-ranged-simulations.md), 1780 tests OK. Benchmark/profiling baseline готов ([измерения](benchmarks/README.md), 1784 tests OK). Однократное построение NpcRosterAttackExecutionResult.state реализовано: guards сохранены, records совпали с baseline, 1787 tests OK. Следующий срез — опциональное исполнение M3 в процессах с прежними seed/records и проверкой spawn, ошибок и реального времени; параллелизм пока не реализован.
 
 - независимые seed для прогонов;
 - агрегированные метрики;

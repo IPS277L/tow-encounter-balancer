@@ -412,3 +412,9 @@ py -3.12 -m unittest discover -s tests -v
 ## Первый M3
 
 8 unit tests в test_m3_npc_ranged_simulation.py и 3 integration tests с тем же именем: versioned seed golden vectors, input/index guards до RNG, четыре исхода, точные counters на заданных d10, source guards/errors, replay, обратный порядок и расширение пакета, отдельные RNG и отсутствие воздействия на global random state. Число бросков одного trial не сдвигает другой. Проценты Monte Carlo не фиксируются. Полный набор 1780 tests OK на Python 3.14; фактический multiprocessing не проверялся. [Контракт](decisions/ADR-0014-independent-ranged-simulations.md).
+
+## M3 benchmark/profiling harness
+
+Четыре теста test_m3_profiling.py проверяют declared numeric fixtures, раздельные timing/memory/profile runs, равенство полных trial records, отказ при их расхождении даже с одинаковыми агрегатами и cleanup tracemalloc при ошибке. Замеры не запускаются параллельно с full suite; время и память не имеют жёсткого порога в unittest. Полный набор 1784 tests OK. [Команда, baseline и ограничения](benchmarks/README.md).
+
+Три новых unit tests в test_m2_npc_roster_attack_execution.py дополняют прежнюю матрицу Melee/Shooting: готовый state доступен без повторных replace/RNG, сохранены frozen inputs и все histories, dataclasses.replace пересобирает state, неверный source отклоняется до проекции. Полный набор 1787 tests OK. [Повторный benchmark](benchmarks/m3-cached-attack-state-2026-09-28.md) сравнен с исходным: три trial digests и все агрегаты совпали; runtime thresholds не добавлены.
