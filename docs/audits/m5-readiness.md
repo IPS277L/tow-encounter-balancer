@@ -39,6 +39,8 @@ Sequential/process дают одинаковые отчёты после executi
 
 Python 3.12 в среде отсутствует; Windows / CPython 3.14.5 проверен с текущим src через PYTHONPATH. На момент исходного typed-аудита wheel, другие ОС и huge inputs не проверялись заново; последующие проверки установленного JSON/CLI balance описаны в ADR-0020. Скрипт примера не создаёт `towr balance` или JSON wire contract; его stdout не имеет гарантий доставки/версии M4.
 
-Контракт внешней границы зафиксирован в [ADR-0020](../decisions/ADR-0020-ranged-balance-json-v1.md), включая [JSON-примеры](../examples/m5/json/README.md), точные дроби, reserve/family facts, source-bound stage reports и категории ошибок. Три packaged Schema и pure adapters с frozen command/result реализованы по ADR-0020. Service/error orchestration и CLI balance реализованы по ADR-0020; следующий срез — конечный аудит внешней границы; итог текущего аудита относится к typed Python API.
+Контракт внешней границы зафиксирован в [ADR-0020](../decisions/ADR-0020-ranged-balance-json-v1.md), включая [JSON-примеры](../examples/m5/json/README.md), точные дроби, reserve/family facts, source-bound stage reports и категории ошибок. Три packaged Schema и pure adapters с frozen command/result реализованы по ADR-0020. Service/error orchestration и CLI balance реализованы по ADR-0020; [конечный аудит внешней границы](m5-external-readiness.md) завершён; итог текущего аудита относится к typed Python API.
 
 Итоговая проверка: **1919 tests OK**, Python 3.14.5, 72,765 с, включая настоящий spawn и запуск примера вне repo. Compileall (src/tests/tools/docs/examples/m5), pip check, локальные ссылки и git diff --check успешны. Ни production src, ни pyproject.toml не менялись; commit/push не выполнялись.
+
+Продолжение после закрытого JSON/CLI M5 выбрано пользователем: M6 — расширение боевой симуляции, первым шагом ограниченный контракт ближнего боя Minions. [Roadmap](../roadmap.md).

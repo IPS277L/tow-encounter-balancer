@@ -13,6 +13,7 @@
 - [`audits/m3-readiness.md`](audits/m3-readiness.md) — закрытие четырёх критериев M3 и граница перехода к M4;
 - [`audits/m4-readiness.md`](audits/m4-readiness.md) — Schema/service/CLI/examples, проверка установленного пакета и граница M5;
 - [`audits/m5-readiness.md`](audits/m5-readiness.md) — четыре критерия первого M5, 69 tests, runnable пример и граница будущего JSON/CLI balance;
+- [`audits/m5-external-readiness.md`](audits/m5-external-readiness.md) — закрытие JSON/CLI M5: матрица контракта, 52 external tests, installed parity и переход к M6;
 - [`rule-traceability.md`](rule-traceability.md) — книга → правило → код → тест;
 - [`contradictions.md`](contradictions.md) — расхождения и неоднозначности источника;
 - [`architecture/overview.md`](architecture/overview.md) — слои, зависимости и основные модели;
