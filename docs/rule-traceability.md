@@ -241,3 +241,11 @@
 | Правила | Источники | Реализация | Проверки | Граница |
 | --- | --- | --- | --- | --- |
 | RULE-COMBAT-015; RULE-EFFECT-006 | BOOK-PLAYER-GUIDE 1.4, Rules / Giving Ground, стр. 119; Equipment / Ranged Weapons / Blunderbuss, стр. 95 | npc_blunderbuss_give_ground_models.py; npc_blunderbuss_give_ground_resolution.py | test_m2_npc_blunderbuss_give_ground.py — 10 unit; test_m2_blunderbuss_primary_give_ground.py — 1 integration / 12 сочетаний | Полные primary/completion sources, одно movement, shared usage, post-secondary Broken, replay/source guards; ordinary controller/journal ещё не расширены |
+
+| Правила | Источники | Реализация | Проверки | Граница |
+| --- | --- | --- | --- | --- |
+| RULE-COMBAT-001; RULE-EQUIPMENT-004; RULE-EFFECT-006; RULE-NPC-007/008/010 | BOOK-PLAYER-GUIDE 1.4, Equipment / Ranged Weapons / Blunderbuss, стр. 95; Rules / Combat, стр. 112; BOOK-GM-GUIDE 1.1, Allies and Antagonists / Understanding NPC Profiles, стр. 93 | npc_round_request_models.py; npc_round_weapon_models.py; npc_blunderbuss_selection_models.py; npc_attack_controller.py; npc_round_coordinator.py; round journal/continuation/summary | test_m2_npc_blunderbuss_round.py — 7 unit; test_m2_blunderbuss_round_cycle.py — 1 integration / 24 сочетания | Один existing prepared executor и оружейный переход, typed candidate/full source, stop/resume; ordinary secondary guard сохранён, внешний Blunderbuss journal в chain summary ещё не подключён |
+
+| Правила | Источники | Реализация | Проверки | Граница |
+| --- | --- | --- | --- | --- |
+| RULE-EFFECT-006; RULE-COMBAT-001/015; RULE-NPC-002; техническая непрерывность ADR-0011/0012 | BOOK-PLAYER-GUIDE 1.4, Equipment / Ranged Weapons / Blunderbuss, стр. 95; Rules / Combat, стр. 112; Giving Ground, стр. 119; BOOK-GM-GUIDE 1.1, Allies and Antagonists / Minions, стр. 91 | npc_rounds_chain_summary_models.py; summarize_npc_rounds_chain | test_m2_blunderbuss_chain_summary.py — 8 unit; test_m2_blunderbuss_reporting_cycle.py — 1 integration / 72 сочетания | Full primary и consequence prefix, exact snapshots/weapons, ordered GM decisions, partial observations, extra affected targets; no replay/reexecution/double count, без winner или нового игрового правила |

@@ -54,8 +54,7 @@ def run_npc_rounds(
         if not isinstance(result, NpcRoundResult) or result.source_request != current:
             raise ValueError("round result differs from executed request")
         rounds.append(result)
-        current = replace(current, state=result.state, round_state=result.round_state,
-                          pending_follow_ups=result.pending_follow_ups)
+        current = result.continuation
         if result.outcome is not NpcRoundOutcome.COMPLETE or index + 1 == request.max_rounds:
             return NpcRoundsResult(request, tuple(rounds), tuple(advances))
         planned = next_rounds.get_next_round(current, spatial)

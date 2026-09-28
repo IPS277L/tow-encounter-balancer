@@ -6,6 +6,14 @@ from typing import TypeAlias
 from towr.domain.minion_defeat_models import MinionDefeatAcknowledgementResult
 from towr.domain.npc_attack_selection_models import NpcAttackSelectionBlock
 from towr.domain.npc_give_ground_models import NpcGiveGroundConsumptionResult
+from towr.domain.npc_blunderbuss_models import NpcBlunderbussAttackExecutionResult
+from towr.domain.npc_blunderbuss_defeat_models import NpcBlunderbussDefeatAcknowledgementResult
+from towr.domain.npc_blunderbuss_give_ground_models import NpcBlunderbussGiveGroundConsumptionResult
+from towr.domain.npc_nearby_stagger_models import NpcNearbyStaggerExecutionResult
+from towr.domain.npc_nearby_defeat_models import NpcNearbyDefeatAcknowledgementResult
+from towr.domain.npc_nearby_give_ground_models import NpcNearbyGiveGroundConsumptionResult
+from towr.domain.npc_nearby_completion_models import NpcNearbyCompletionResult
+from towr.domain.npc_nearby_consequence_models import NpcNearbyConsequenceChain
 from towr.domain.npc_round_advance_models import NpcRoundAdvanceResult
 from towr.domain.npc_round_exclusion_models import NpcRoundExclusionResult
 from towr.domain.npc_round_models import NpcRoundRequest
@@ -17,6 +25,12 @@ from towr.domain.spatial_models import SpatialBattleState
 NpcRoundsChainStep: TypeAlias = (
     NpcRoundsResult | NpcGiveGroundConsumptionResult | MinionDefeatAcknowledgementResult
     | NpcRoundExclusionResult | NpcRoundAdvanceResult
+    | NpcNearbyStaggerExecutionResult | NpcNearbyDefeatAcknowledgementResult | NpcNearbyGiveGroundConsumptionResult
+    | NpcNearbyCompletionResult | NpcBlunderbussDefeatAcknowledgementResult | NpcBlunderbussGiveGroundConsumptionResult
+)
+
+NpcRoundsDefeatAcknowledgement: TypeAlias = (
+    MinionDefeatAcknowledgementResult | NpcNearbyDefeatAcknowledgementResult | NpcBlunderbussDefeatAcknowledgementResult
 )
 
 
@@ -28,28 +42,65 @@ class NpcRoundsChainSummary:
 
     def __post_init__(self) -> None:
         steps = tuple(self.source_steps)
-        if not all(isinstance(step, (NpcRoundsResult, NpcGiveGroundConsumptionResult,
-                                    MinionDefeatAcknowledgementResult, NpcRoundExclusionResult,
-                                    NpcRoundAdvanceResult)) for step in steps):
+        if not all(isinstance(step, NpcRoundsChainStep) for step in steps):
             raise TypeError("NPC rounds chain requires typed completed results")
         if not steps or not isinstance(steps[0], NpcRoundsResult) or not isinstance(steps[-1], NpcRoundsResult):
             raise ValueError("NPC rounds chain must begin and end with a runner result")
         current, spatial = steps[0].source_request.current, steps[0].source_request.spatial_state
+        attacks: dict[str, NpcBlunderbussAttackExecutionResult] = {}
+        nearby: NpcNearbyConsequenceChain | None = None
+        completed: NpcNearbyCompletionResult | None = None
         for index, step in enumerate(steps):
             source = step.source_request
+            if isinstance(step, NpcNearbyStaggerExecutionResult):
+                primary = source.primary_attack
+                attack = attacks.get(primary.attack.request_id) if primary is not None else None
+                if (nearby is not None or attack is None or primary != attack.primary_attack
+                        or source.state != current.state or current != attack.continuation):
+                    raise ValueError("nearby batch source differs from the journal's primary Attack/current snapshot")
+                nearby = NpcNearbyConsequenceChain(step, spatial)
+                completed = None
+                current = replace(current, state=nearby.state)
+                continue
+            if isinstance(step, (NpcNearbyDefeatAcknowledgementResult, NpcNearbyGiveGroundConsumptionResult)):
+                if nearby is None:
+                    raise ValueError("secondary consequence requires its batch in the journal")
+                nearby = replace(nearby, steps=(*nearby.steps, step))
+                current, spatial = replace(current, state=nearby.state), nearby.spatial_state
+                continue
+            if isinstance(step, NpcNearbyCompletionResult):
+                if nearby is None or source.chain != nearby:
+                    raise ValueError("nearby completion differs from the full journal consequence prefix")
+            elif isinstance(step, (NpcBlunderbussDefeatAcknowledgementResult, NpcBlunderbussGiveGroundConsumptionResult)):
+                primary_id = source.attack.primary_attack.attack.request_id
+                if nearby is not None or source.completion != completed or source.attack != attacks.get(primary_id):
+                    raise ValueError("primary consequence differs from the journal Attack/completion/decisions")
+            elif nearby is not None and not isinstance(step, NpcRoundsResult):
+                raise ValueError("unfinished nearby chain permits only its consequences or runner observations")
             expected_current = source.source if isinstance(step, NpcRoundExclusionResult) else source.current
             if current != expected_current:
                 raise ValueError(f"NPC rounds chain step {index} source differs from current snapshot")
-            if isinstance(step, (NpcRoundsResult, NpcGiveGroundConsumptionResult, NpcRoundAdvanceResult)):
+            if isinstance(step, (NpcRoundsResult, NpcGiveGroundConsumptionResult, NpcRoundAdvanceResult,
+                                 NpcNearbyCompletionResult, NpcBlunderbussDefeatAcknowledgementResult,
+                                 NpcBlunderbussGiveGroundConsumptionResult)):
                 if spatial != source.spatial_state:
                     raise ValueError(f"NPC rounds chain step {index} source differs from spatial snapshot")
                 spatial = step.spatial_state
             if isinstance(step, NpcRoundsResult):
+                for combat_round in step.rounds:
+                    for action in combat_round.steps:
+                        if isinstance(action, NpcBlunderbussAttackExecutionResult):
+                            identifier = action.primary_attack.attack.request_id
+                            if identifier in attacks:
+                                raise ValueError("Blunderbuss Attack is repeated in the journal")
+                            attacks[identifier] = action
                 current = step.current
             elif isinstance(step, NpcRoundExclusionResult):
                 current = replace(current, round_state=step.round_state)
             else:
                 current = step.continuation
+            if isinstance(step, NpcNearbyCompletionResult):
+                completed, nearby = step, None
         object.__setattr__(self, "source_steps", steps)
 
     @property
@@ -104,13 +155,18 @@ class NpcRoundsChainSummary:
         return sum(summary.executed_attack_count for summary in self.call_summaries)
 
     @property
-    def defeat_acknowledgements(self) -> tuple[MinionDefeatAcknowledgementResult, ...]:
+    def defeat_acknowledgements(self) -> tuple[NpcRoundsDefeatAcknowledgement, ...]:
         """Explicit decisions with their full sources; never inferred from history IDs."""
-        return tuple(step for step in self.source_steps if isinstance(step, MinionDefeatAcknowledgementResult))
+        return tuple(step for step in self.source_steps if isinstance(step, NpcRoundsDefeatAcknowledgement))
 
     @property
     def participants(self) -> tuple[NpcRoundsParticipantSummary, ...]:
-        actor_ids = dict.fromkeys(record.actor_id for summary in self.call_summaries for record in summary.participants)
+        actor_ids = {}
+        for step in self.source_steps:
+            if isinstance(step, NpcRoundsResult):
+                actor_ids.update((record.actor_id, None) for record in NpcRoundsSummary(step).participants)
+            elif isinstance(step, NpcNearbyStaggerExecutionResult):
+                actor_ids.update((target.target_id, None) for target in step.resolution.targets)
         roster = self.current.state.roster
         records = []
         for actor_id in actor_ids:

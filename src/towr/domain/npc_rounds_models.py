@@ -52,8 +52,7 @@ class NpcRoundsResult:
         for index, result in enumerate(rounds):
             if result.source_request != current:
                 raise ValueError("round result differs from current source")
-            current = replace(current, state=result.state, round_state=result.round_state,
-                              pending_follow_ups=result.pending_follow_ups)
+            current = result.continuation
             if index < len(advances):
                 advance = advances[index]
                 if result.outcome is not NpcRoundOutcome.COMPLETE:
@@ -69,8 +68,7 @@ class NpcRoundsResult:
     @property
     def current(self) -> NpcRoundRequest:
         last = self.rounds[-1]
-        return replace(last.source_request, state=last.state, round_state=last.round_state,
-                       pending_follow_ups=last.pending_follow_ups)
+        return last.continuation
 
     @property
     def spatial_state(self) -> SpatialBattleState:

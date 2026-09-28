@@ -3,6 +3,9 @@ from __future__ import annotations
 from dataclasses import dataclass, field, replace
 from enum import Enum
 
+from towr.domain.npc_round_request_models import NpcRoundRequest
+from towr.domain.npc_round_weapon_models import NpcRoundWeaponState
+from towr.domain.npc_blunderbuss_models import NpcBlunderbussAttackExecutionResult
 from towr.domain.npc_attack_selection_models import NpcAttackSelectionRequest, NpcAttackSelectionResult
 from towr.domain.npc_roster_attack_models import NpcRosterAttackExecutionResult, NpcRosterAttackState
 from towr.domain.resolution_models import FollowUpRequest, TargetInjuryPolicy
@@ -19,70 +22,8 @@ class NpcRoundOutcome(str, Enum):
     DEFEATED_ACTOR = "defeated_actor"
 
 
-@dataclass(frozen=True, slots=True)
-class NpcRoundRequest:
-    id: str
-    state: NpcRosterAttackState
-    round_state: CombatRoundState
-    actor_order: tuple[str, ...]
-    pending_follow_ups: tuple[FollowUpRequest, ...]
-
-    def __post_init__(self) -> None:
-        if not isinstance(self.id, str) or not self.id.strip():
-            raise ValueError("NPC round request requires a non-empty string id")
-        if not isinstance(self.state, NpcRosterAttackState) or not isinstance(self.round_state, CombatRoundState):
-            raise TypeError("NPC round requires typed roster and round snapshots")
-        order = tuple(self.actor_order)
-        if not all(isinstance(actor, str) and actor.strip() for actor in order):
-            raise ValueError("actor order requires non-empty string IDs")
-        if len(set(order)) != len(order) or set(order) != {p.entity_id for p in self.round_state.participants}:
-            raise ValueError("actor order must contain every round participant exactly once")
-        for member in self.round_state.participants:
-            participant = self.state.roster.participant(member.entity_id)
-            if participant.turn_participant != member:
-                raise ValueError("round participant side differs from roster")
-            if participant.definition.injury_policy is not TargetInjuryPolicy.MINION:
-                raise ValueError("NPC round currently supports Minion participants only")
-            if (member.entity_id in self.round_state.excluded_turn_entity_ids
-                    and not participant.state.injury.defeated):
-                raise ValueError("excluded NPC round participant must be defeated")
-        pending = tuple(self.pending_follow_ups)
-        if not all(isinstance(item, FollowUpRequest) for item in pending):
-            raise TypeError("pending follow-ups must be typed")
-        turn = self.round_state.active_turn
-        if turn is not None:
-            if len(turn.action_slots) > 1 or any(
-                slot.declaration != CombatActionDeclaration(CombatActionKind.ATTACK)
-                or slot.grant is not ActionSlotGrant.STANDARD for slot in turn.action_slots
-            ):
-                raise ValueError("NPC round accepts only one standard Attack slot")
-            if turn.action_slots and turn.action_slots[0].executed:
-                receipt = turn.action_slots[0].execution
-                if (receipt.id not in self.state.consumed_execution_ids
-                        or receipt.executor_rule_id != "RULE-COMBAT-004:attack-action-execution"):
-                    raise ValueError("executed Attack receipt requires matching consumed roster history")
-        object.__setattr__(self, "actor_order", order)
-        object.__setattr__(self, "pending_follow_ups", pending)
-
-    def actor_prefix(self, actor_id: str) -> str:
-        return f"{self.id}:round:{self.round_state.round_number}:actor:{actor_id}"
-
-    def next_actor(self, round_state: CombatRoundState) -> str | None:
-        if round_state.active_turn is not None:
-            return round_state.active_turn.actor_id
-        return next((actor for actor in self.actor_order
-                     if actor not in round_state.completed_turn_entity_ids
-                     and actor not in round_state.excluded_turn_entity_ids
-                     and round_state.participant_for(actor).side is round_state.next_side), None)
-
-    def selection_context(self, state: NpcRosterAttackState, round_state: CombatRoundState) -> NpcAttackSelectionRequest:
-        actor_id = round_state.active_turn.actor_id
-        return NpcAttackSelectionRequest(self.actor_prefix(actor_id) + ":selection", state, round_state,
-                                        actor_id, 1, (), ())
-
-
 NpcRoundStep = (CombatTurnStartResult | CombatActionSlotResult | NpcAttackSelectionResult
-                | NpcRosterAttackExecutionResult | CombatTurnEndResult)
+                | NpcRosterAttackExecutionResult | NpcBlunderbussAttackExecutionResult | CombatTurnEndResult)
 
 
 @dataclass(frozen=True, slots=True)
@@ -93,6 +34,7 @@ class NpcRoundResult:
     _round: CombatRoundState = field(init=False, repr=False)
     _pending: tuple[FollowUpRequest, ...] = field(init=False, repr=False)
     _outcome: NpcRoundOutcome = field(init=False, repr=False)
+    _weapons: tuple[NpcRoundWeaponState, ...] = field(init=False, repr=False)
 
     def __post_init__(self) -> None:
         if not isinstance(self.source_request, NpcRoundRequest):
@@ -102,12 +44,26 @@ class NpcRoundResult:
             raise TypeError("NPC round steps must contain typed transition results")
         if len(steps) > 5 * len(self.source_request.round_state.participants):
             raise ValueError("NPC round exceeds its bounded transition count")
-        state, combat_round, pending, outcome = _validate_steps(self.source_request, steps)
+        state, combat_round, pending, outcome, weapons = _validate_steps(self.source_request, steps)
         object.__setattr__(self, "steps", steps)
         object.__setattr__(self, "_state", state)
         object.__setattr__(self, "_round", combat_round)
         object.__setattr__(self, "_pending", pending)
         object.__setattr__(self, "_outcome", outcome)
+        object.__setattr__(self, "_weapons", weapons)
+
+    @property
+    def weapons(self) -> tuple[NpcRoundWeaponState, ...]:
+        return self._weapons
+
+    @property
+    def continuation(self) -> NpcRoundRequest:
+        return replace(self.source_request, state=self.state, round_state=self.round_state,
+                       pending_follow_ups=self.pending_follow_ups, weapons=self.weapons)
+
+    @property
+    def executed_attack_count(self) -> int:
+        return sum(isinstance(step, (NpcRosterAttackExecutionResult, NpcBlunderbussAttackExecutionResult)) for step in self.steps)
 
     @property
     def state(self) -> NpcRosterAttackState:
@@ -133,10 +89,11 @@ class NpcRoundResult:
 
 
 def _validate_steps(source: NpcRoundRequest, steps: tuple[NpcRoundStep, ...]) -> tuple[
-    NpcRosterAttackState, CombatRoundState, tuple[FollowUpRequest, ...], NpcRoundOutcome,
+    NpcRosterAttackState, CombatRoundState, tuple[FollowUpRequest, ...], NpcRoundOutcome, tuple[NpcRoundWeaponState, ...],
 ]:
     """Check provenance and state transfer, without executing Tests or rules again."""
     state, combat_round, pending = source.state, source.round_state, source.pending_follow_ups
+    weapons = source.weapons
     selection = None
     for step in steps:
         actor_id = source.next_actor(combat_round)
@@ -146,7 +103,7 @@ def _validate_steps(source: NpcRoundRequest, steps: tuple[NpcRoundStep, ...]) ->
             raise ValueError("defeated actor cannot progress a turn")
         prefix = source.actor_prefix(actor_id)
         turn = combat_round.active_turn
-        if selection is not None and not isinstance(step, NpcRosterAttackExecutionResult):
+        if selection is not None and not isinstance(step, (NpcRosterAttackExecutionResult, NpcBlunderbussAttackExecutionResult)):
             raise ValueError("selected attack must be the next transition")
         if isinstance(step, CombatTurnStartResult):
             expected_turn = CombatTurnState(actor_id, combat_round.participant_for(actor_id).side)
@@ -163,9 +120,19 @@ def _validate_steps(source: NpcRoundRequest, steps: tuple[NpcRoundStep, ...]) ->
         elif isinstance(step, NpcAttackSelectionResult):
             if turn is None or len(turn.action_slots) != 1 or turn.action_slots[0].executed:
                 raise ValueError("selection requires one unexecuted Attack slot")
-            if replace(step.source_request, candidates=()) != source.selection_context(state, combat_round):
+            if replace(step.source_request, candidates=()) != replace(source, weapons=weapons).selection_context(state, combat_round):
                 raise ValueError("selection does not use the current roster/round context")
             selection = step
+        elif isinstance(step, NpcBlunderbussAttackExecutionResult):
+            if selection is None or step.source_request != selection.execution_request:
+                raise ValueError("Blunderbuss execution does not match selected attack")
+            current = replace(source, state=state, round_state=combat_round, pending_follow_ups=pending, weapons=weapons)
+            if step.source_request.current != current:
+                raise ValueError("Blunderbuss journal uses stale round/weapon context")
+            continuation = step.continuation
+            state, combat_round, pending, weapons = (continuation.state, continuation.round_state,
+                                                    continuation.pending_follow_ups, continuation.weapons)
+            selection = None
         elif isinstance(step, NpcRosterAttackExecutionResult):
             if selection is None or step.source_request != selection.execution_request:
                 raise ValueError("execution does not match selected attack")
@@ -191,4 +158,4 @@ def _validate_steps(source: NpcRoundRequest, steps: tuple[NpcRoundStep, ...]) ->
         outcome = NpcRoundOutcome.SELECTION_BLOCKED
     else:
         raise ValueError("round result stops before completion or an explicit blocking outcome")
-    return state, combat_round, pending, outcome
+    return state, combat_round, pending, outcome, weapons

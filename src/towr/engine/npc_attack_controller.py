@@ -1,5 +1,10 @@
 from __future__ import annotations
 
+from towr.domain.npc_round_request_models import NpcRoundRequest
+from towr.domain.npc_blunderbuss_models import NpcBlunderbussAttackExecutionRequest
+from towr.domain.npc_blunderbuss_selection_models import candidate_weapon, candidate_protection, candidate_preparation
+from towr.rules.protection_preparation import prepare_protection
+from towr.rules.ranged_weapon_attack_preparation import prepare_ranged_weapon_attack
 from towr.domain.action_execution_models import AttackActionExecutionRequest
 from towr.domain.condition_models import Condition
 from towr.domain.npc_attack_selection_models import (
@@ -27,6 +32,22 @@ def select_npc_attack(request: NpcAttackSelectionRequest) -> NpcAttackSelectionR
         if reason is not None:
             rejected.append(RejectedNpcAttackCandidate(candidate.id, reason))
             continue
+        if candidate.blunderbuss is not None:
+            try:
+                weapon = candidate_weapon(request, candidate)
+                protection_source = candidate_protection(request, candidate)
+            except ValueError as error:
+                rejected.append(RejectedNpcAttackCandidate(candidate.id, Rejection.WEAPON_CONTEXT, str(error)))
+                continue
+            protection = prepare_protection(protection_source)
+            try:
+                prepared_weapon = prepare_ranged_weapon_attack(candidate_preparation(request, candidate, protection))
+                execution = NpcBlunderbussAttackExecutionRequest(request.id + ":blunderbuss", request.round_context,
+                    weapon, candidate.attack_profile_id, protection, prepared_weapon)
+            except ValueError as error:
+                rejected.append(RejectedNpcAttackCandidate(candidate.id, Rejection.WEAPON_CONTEXT, str(error)))
+                continue
+            return NpcAttackSelectionResult(request, candidate, execution, tuple(rejected), None)
         # Only validation at these two known context boundaries becomes a rejection.
         # Unexpected failures from a reducer are not swallowed as "no candidate".
         try:
@@ -56,8 +77,8 @@ def select_npc_attack(request: NpcAttackSelectionRequest) -> NpcAttackSelectionR
 
 def require_current_npc_attack_selection(
     selection: NpcAttackSelectionResult, state: NpcRosterAttackState, round_state: CombatRoundState,
-    *, pending_follow_ups: tuple[FollowUpRequest, ...],
-) -> NpcRosterAttackExecutionRequest:
+    *, pending_follow_ups: tuple[FollowUpRequest, ...], round_context: NpcRoundRequest | None = None,
+) -> NpcRosterAttackExecutionRequest | NpcBlunderbussAttackExecutionRequest:
     """Hand the existing executable request to the caller after exact snapshot checks."""
     if not isinstance(selection, NpcAttackSelectionResult):
         raise TypeError("selection must be an NpcAttackSelectionResult")
@@ -66,6 +87,8 @@ def require_current_npc_attack_selection(
         raise ValueError("selection has stale roster/round/pending follow-ups; select again")
     if selection.execution_request is None:
         raise ValueError("selection has no executable attack")
+    if isinstance(selection.execution_request, NpcBlunderbussAttackExecutionRequest) and round_context != source.round_context:
+        raise ValueError("Blunderbuss selection has stale or missing current round/weapon context")
     return selection.execution_request
 
 
@@ -113,6 +136,6 @@ def _candidate_block(request: NpcAttackSelectionRequest, candidate: NpcAttackCan
     if target.turn_participant not in request.round_state.participants:
         return Rejection.TARGET_NOT_IN_ROUND
     profile = next(p for p in actor.definition.attacks if p.id == candidate.attack_profile_id)
-    if profile.secondary_effects:
+    if profile.secondary_effects and candidate.blunderbuss is None:
         return Rejection.UNSUPPORTED_EFFECTS
     return None

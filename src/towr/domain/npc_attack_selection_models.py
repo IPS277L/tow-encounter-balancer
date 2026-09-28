@@ -3,6 +3,10 @@ from __future__ import annotations
 from dataclasses import dataclass
 from enum import Enum
 
+from towr.domain.npc_round_request_models import NpcRoundRequest
+from towr.domain.npc_round_weapon_models import NpcBlunderbussCandidateContext
+from towr.domain.npc_blunderbuss_models import NpcBlunderbussAttackExecutionRequest
+from towr.domain.npc_blunderbuss_selection_models import candidate_weapon, candidate_protection, candidate_preparation
 from towr.domain.condition_models import Condition
 from towr.domain.npc_attack_preparation_models import (
     NPC_OUTSIDE_OPTIMUM_RULE_ID, NpcAttackPreparationRequest, NpcAttackPreparationResult,
@@ -38,6 +42,7 @@ class NpcAttackCandidateRejection(str, Enum):
     UNSUPPORTED_EFFECTS = "unsupported_effects"
     ATTACK_CONTEXT = "attack_context"
     PROTECTION_CONTEXT = "protection_context"
+    WEAPON_CONTEXT = "weapon_context"
 
 
 @dataclass(frozen=True, slots=True)
@@ -54,8 +59,11 @@ class NpcAttackCandidate:
     can_target_leave_zone: bool
     target_has_given_ground_this_round: bool
     dice_modifiers: tuple[DiceModifier, ...] = ()
+    blunderbuss: NpcBlunderbussCandidateContext | None = None
 
     def __post_init__(self) -> None:
+        if self.blunderbuss is not None and not isinstance(self.blunderbuss, NpcBlunderbussCandidateContext):
+            raise TypeError("candidate Blunderbuss context must be typed")
         for value in (self.id, self.attack_profile_id, self.target_id):
             _identifier(value)
         if not isinstance(self.target_range, RangedWeaponRange):
@@ -115,6 +123,7 @@ class NpcAttackSelectionRequest:
     slot_index: int
     candidates: tuple[NpcAttackCandidate, ...]
     pending_follow_ups: tuple[FollowUpRequest, ...]
+    round_context: NpcRoundRequest | None = None
 
     def __post_init__(self) -> None:
         _identifier(self.id)
@@ -125,6 +134,12 @@ class NpcAttackSelectionRequest:
             raise TypeError("slot_index must be an integer")
         if self.slot_index not in (1, 2):
             raise ValueError("slot_index must be 1 or 2")
+        if self.round_context is not None:
+            current = self.round_context
+            if not isinstance(current, NpcRoundRequest):
+                raise TypeError("selection round context must be typed")
+            if current.state != self.state or current.round_state != self.round_state or current.pending_follow_ups != self.pending_follow_ups:
+                raise ValueError("selection round context differs from current snapshots")
         candidates = tuple(self.candidates)
         if not all(isinstance(item, NpcAttackCandidate) for item in candidates):
             raise TypeError("candidates must contain NpcAttackCandidate values")
@@ -171,7 +186,7 @@ class RejectedNpcAttackCandidate:
 class NpcAttackSelectionResult:
     source_request: NpcAttackSelectionRequest
     selected_candidate: NpcAttackCandidate | None
-    execution_request: NpcRosterAttackExecutionRequest | None
+    execution_request: NpcRosterAttackExecutionRequest | NpcBlunderbussAttackExecutionRequest | None
     rejected: tuple[RejectedNpcAttackCandidate, ...]
     blocked_reason: NpcAttackSelectionBlock | None
 
@@ -191,22 +206,33 @@ class NpcAttackSelectionResult:
             if len(rejected) != expected_count:
                 raise ValueError("blocked selection has inconsistent candidate rejections")
         else:
-            if self.blocked_reason is not None or not isinstance(self.execution_request, NpcRosterAttackExecutionRequest):
+            if self.blocked_reason is not None or not isinstance(self.execution_request, (NpcRosterAttackExecutionRequest, NpcBlunderbussAttackExecutionRequest)):
                 raise ValueError("selected candidate requires an executable request and no block")
             if len(rejected) >= len(source.candidates) or self.selected_candidate != source.candidates[len(rejected)]:
                 raise ValueError("selected candidate must follow rejected preference prefix")
-            selected, prepared = self.selected_candidate, self.execution_request.preparation
-            execution = self.execution_request.execution
-            if (source.pending_follow_ups or self.execution_request.state != source.state
-                    or execution.state != source.round_state or execution.actor_id != source.actor_id
-                    or execution.slot_index != source.slot_index or execution.id != source.execution_id
-                    or execution.target_id != selected.target_id
-                    or execution.kernel_request.id != source.id + ":kernel"
-                    or execution.kernel_request.can_target_leave_zone != selected.can_target_leave_zone
-                    or execution.kernel_request.target_has_given_ground_this_round != selected.target_has_given_ground_this_round
-                    or prepared.npc_attack.source_request != selected.attack_preparation_request(source)
-                    or prepared.protection.source_request != selected.protection_preparation_request(source, prepared.npc_attack)):
-                raise ValueError("selected execution does not match exact source/candidate context")
+            if isinstance(self.execution_request, NpcBlunderbussAttackExecutionRequest):
+                selected, execution = self.selected_candidate, self.execution_request
+                if (selected.blunderbuss is None or execution.current != source.round_context
+                        or execution.id != source.id + ":blunderbuss" or execution.attack_profile_id != selected.attack_profile_id
+                        or execution.weapon_state != candidate_weapon(source, selected)
+                        or execution.protection.source_request != candidate_protection(source, selected)
+                        or execution.preparation.source_request != candidate_preparation(source, selected, execution.protection)):
+                    raise ValueError("selected Blunderbuss execution differs from source/candidate/weapon")
+            else:
+                if self.selected_candidate.blunderbuss is not None:
+                    raise ValueError("Blunderbuss candidate cannot use ordinary execution")
+                selected, prepared = self.selected_candidate, self.execution_request.preparation
+                execution = self.execution_request.execution
+                if (source.pending_follow_ups or self.execution_request.state != source.state
+                        or execution.state != source.round_state or execution.actor_id != source.actor_id
+                        or execution.slot_index != source.slot_index or execution.id != source.execution_id
+                        or execution.target_id != selected.target_id
+                        or execution.kernel_request.id != source.id + ":kernel"
+                        or execution.kernel_request.can_target_leave_zone != selected.can_target_leave_zone
+                        or execution.kernel_request.target_has_given_ground_this_round != selected.target_has_given_ground_this_round
+                        or prepared.npc_attack.source_request != selected.attack_preparation_request(source)
+                        or prepared.protection.source_request != selected.protection_preparation_request(source, prepared.npc_attack)):
+                    raise ValueError("selected execution does not match exact source/candidate context")
         object.__setattr__(self, "rejected", rejected)
 
     @property

@@ -3,6 +3,8 @@ from __future__ import annotations
 from dataclasses import replace
 from typing import Protocol
 
+from towr.domain.npc_blunderbuss_models import NpcBlunderbussAttackExecutionRequest
+from towr.rules.npc_blunderbuss_resolution import execute_npc_blunderbuss_attack, apply_npc_blunderbuss_attack
 from towr.domain.npc_attack_selection_models import NpcAttackSelectionRequest
 from towr.domain.npc_round_models import NpcRoundRequest, NpcRoundResult, NpcRoundStep
 from towr.domain.turn_models import (
@@ -30,6 +32,7 @@ def run_npc_round(
     if not isinstance(request, NpcRoundRequest):
         raise TypeError("request must be an NpcRoundRequest")
     state, combat_round, pending = request.state, request.round_state, request.pending_follow_ups
+    weapons = request.weapons
     steps: list[NpcRoundStep] = []
     # Each iteration closes at most one turn. There is no next-round/battle loop.
     for _ in range(len(combat_round.participants) + 1):
@@ -52,7 +55,8 @@ def run_npc_round(
             combat_round = reserved.state
         slot = combat_round.active_turn.action_slots[0]
         if not slot.executed:
-            context = request.selection_context(state, combat_round)
+            current = replace(request, state=state, round_state=combat_round, pending_follow_ups=pending, weapons=weapons)
+            context = current.selection_context(state, combat_round)
             supplied = candidates.get_candidates(context)
             if not isinstance(supplied, NpcAttackSelectionRequest):
                 raise TypeError("candidate provider must return an NpcAttackSelectionRequest")
@@ -62,11 +66,17 @@ def run_npc_round(
             steps.append(selected)
             if selected.execution_request is None:
                 return NpcRoundResult(request, tuple(steps))
-            executable = require_current_npc_attack_selection(selected, state, combat_round, pending_follow_ups=pending)
-            attack = execute_npc_roster_attack(executable, rng, decisions=decisions)
+            executable = require_current_npc_attack_selection(selected, state, combat_round,
+                pending_follow_ups=pending, round_context=current)
+            if isinstance(executable, NpcBlunderbussAttackExecutionRequest):
+                attack = execute_npc_blunderbuss_attack(executable, rng, decisions=decisions)
+                current, _ = apply_npc_blunderbuss_attack(current, executable.weapon_state, attack)
+                state, combat_round, pending, weapons = current.state, current.round_state, current.pending_follow_ups, current.weapons
+            else:
+                attack = execute_npc_roster_attack(executable, rng, decisions=decisions)
+                state = apply_npc_roster_attack_result(state, attack)
+                combat_round, pending = attack.execution.state, attack.pending_follow_ups
             steps.append(attack)
-            state = apply_npc_roster_attack_result(state, attack)
-            combat_round, pending = attack.execution.state, attack.pending_follow_ups
             if pending:
                 return NpcRoundResult(request, tuple(steps))
         ended = end_combat_turn(CombatTurnEndRequest(prefix + ":end", combat_round, actor_id))

@@ -71,8 +71,7 @@ class NpcRoundsSummary:
 
     @property
     def executed_attack_count(self) -> int:
-        return sum(isinstance(step, NpcRosterAttackExecutionResult)
-                   for result in self.source_result.rounds for step in result.steps)
+        return sum(result.executed_attack_count for result in self.source_result.rounds)
 
     @property
     def participants(self) -> tuple[NpcRoundsParticipantSummary, ...]:

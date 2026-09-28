@@ -6,7 +6,7 @@ from towr.domain.attack_models import AttackRequest, DamageImpactSpec, DamagePro
 from towr.domain.condition_models import Condition
 from towr.domain.npc_attack_preparation_models import NPC_OUTSIDE_OPTIMUM_RULE_ID
 from towr.domain.npc_roster_attack_models import npc_attack_blocking_condition
-from towr.domain.npc_round_models import NpcRoundRequest
+from towr.domain.npc_round_request_models import NpcRoundRequest
 from towr.domain.prepared_ranged_weapon_attack_models import (
     PreparedRangedWeaponAttackExecutionRequest, PreparedRangedWeaponAttackExecutionResult,
 )
@@ -63,6 +63,9 @@ def validate_npc_blunderbuss_attack(request: NpcBlunderbussAttackExecutionReques
         raise ValueError("NPC Blunderbuss requires its actor's reserved unexecuted Attack slot")
     if request.weapon_state != source.weapon_state or request.weapon_state.weapon_id is not RangedWeaponId.BLUNDERBUSS:
         raise ValueError("NPC Blunderbuss preparation differs from current weapon/profile")
+    if current.weapons and not any(item.actor_id == execution.actor_id and item.attack_profile_id == request.attack_profile_id
+                                   and item.weapon_state == request.weapon_state for item in current.weapons):
+        raise ValueError("NPC Blunderbuss differs from the round weapon binding/state")
     if source.aim is not None or prepared.aim_follow_up is not None:
         raise ValueError("NPC Blunderbuss currently excludes Aim composition")
     actor = current.state.roster.participant(execution.actor_id)
@@ -148,7 +151,11 @@ class NpcBlunderbussAttackExecutionResult:
             if p.state.actor_id == attack.target_id else p for p in source.current.state.roster.participants)
         state = replace(source.current.state, roster=replace(source.current.state.roster, participants=participants),
                         consumed_execution_ids=(*source.current.state.consumed_execution_ids, attack.request_id))
-        return replace(source.current, state=state, round_state=attack.state, pending_follow_ups=attack.resolution.follow_ups)
+        weapons = tuple(replace(item, weapon_state=self.weapon_state)
+                        if item.weapon_state.weapon_instance_id == source.weapon_state.weapon_instance_id else item
+                        for item in source.current.weapons)
+        return replace(source.current, state=state, round_state=attack.state,
+                       pending_follow_ups=attack.resolution.follow_ups, weapons=weapons)
 
     @property
     def weapon_state(self) -> ReloadableWeaponState:
