@@ -1,6 +1,6 @@
 # ADR-0017: агрегаты и ограниченная оценка кандидатов M5
 
-Статус: aggregate-only summary/projection, pure single-candidate assessment и bounded evaluation конечного списка кандидатов **реализованы**, 2026-09-28. Метрика подтверждена пользователем: цель за лимит, отдельные round_limit/unsupported_path и явное окно без пресетов. Исполнение списка и точный выбор top_k готовы; следующий шаг — контракт поэтапной оценки прежнего конечного списка. [Аудит M4](../audits/m4-readiness.md) завершён.
+Статус: aggregate-only summary/projection, pure single-candidate assessment и bounded evaluation конечного списка кандидатов **реализованы**, 2026-09-28. Метрика подтверждена пользователем: цель за лимит, отдельные round_limit/unsupported_path и явное окно без пресетов. Исполнение списка и точный выбор top_k готовы; поэтапная оценка прежнего списка реализована по [ADR-0018](ADR-0018-staged-ranged-evaluation.md). [Аудит M4](../audits/m4-readiness.md) завершён.
 
 ## Основание и решения разного уровня
 
@@ -73,13 +73,13 @@ Preflight request строит для каждого candidate прежний Np
 
 При runner failure/source mismatch вычисление заканчивается типизированной ошибкой с candidate_id и исходной причиной. Уже вычисленные summaries не выдаются как complete evaluation result. Никаких retries/checkpoints или продолжения после исключения. UNSUPPORTED_OBSERVATIONS — assessment по готовому результату, а не исключение runner. Отчёт хранит общий seed/trials, полный source каждого кандидата и seed scheme; runtime/code provenance остаётся обязанностью application/report adapter, как в M4.
 
-Staged search остаётся следующим этапом roadmap. Первый evaluator не обещает reuse prefix или адаптивное увеличение N; бюджет будущего повторного полного запуска должен учитывать все реально исполненные trials, пока не появится отдельный контракт incremental evaluation. Universal optimizer, изменение правил, общий battle aggregate и PC/Minion смешанная модель вне решения.
+Staged evaluation реализован по [ADR-0018](ADR-0018-staged-ranged-evaluation.md) поверх этого API. Первый evaluator не обещает reuse prefix или адаптивное увеличение N; бюджет будущего повторного полного запуска должен учитывать все реально исполненные trials, пока не появится отдельный контракт incremental evaluation. Universal optimizer, изменение правил, общий battle aggregate и PC/Minion смешанная модель вне решения.
 
 ## Порядок продолжения
 
 1. Aggregate-only summary/projection реализованы и проверены; существующие M3 result/service/CLI v1 не менялись.
 2. Метрика [подтверждена](../open-questions.md#первая-метрика-m5). Pure single-candidate assessment реализован; точные доли/window, source и unsupported guards проверены без RNG/runner.
-3. Bounded evaluation реализован: конечный список соединён с existing runners, бюджетом и source-checked отчётом. Следующий шаг — контракт staged evaluation прежних кандидатов: явные stages/trials/keep, selection для продолжения, полный учёт повторных запусков и source chain. Генерация составов и новые игровые механики остаются отдельными задачами.
+3. Bounded evaluation реализован: конечный список соединён с existing runners, бюджетом и source-checked отчётом. [ADR-0018](ADR-0018-staged-ranged-evaluation.md) реализован: явные stages/trials/keep, отдельный selection для продолжения, полный учёт повторных запусков и проверяемая source chain. Следующий шаг — контракт ограниченной генерации составов из явно заданных Minion-профилей и ограничений численности; характеристики профилей автоматически не меняются. Генерация составов и новые игровые механики остаются отдельными задачами.
 
 Новых Rule IDs, трактовок книг или house rules этот документ не вводит. Book-dependent semantics остаются в ADR-0013/0014; книги для технических срезов повторно не извлекались. Подтверждённая продуктовая метрика отделена от уже проверенной механики. Проверка summary-среза: 1850 tests OK, Python 3.14.5, включая real spawn; compileall/pip check/diff check успешны.
 

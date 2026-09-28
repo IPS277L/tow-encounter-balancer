@@ -92,7 +92,7 @@
 
 M4 Schema, pure adapters, application service и CLI simulate выполнены; актуальный [статус](../project-status.md) сохраняет прежнюю границу правил.
 
-[Аудит M4](m4-readiness.md) завершён; bounded evaluation списка и top_k реализованы по [ADR-0017](../decisions/ADR-0017-ranged-candidate-assessment.md). Следующий шаг — контракт staged evaluation того же списка: явные stages/trials/keep, политика продолжения и полный учёт повторных пакетов. Полный следующий срез — в project-status; правила и scenario scope не расширяются.
+[Аудит M4](m4-readiness.md) завершён; bounded evaluation списка и top_k реализованы по [ADR-0017](../decisions/ADR-0017-ranged-candidate-assessment.md). [ADR-0018](../decisions/ADR-0018-staged-ranged-evaluation.md) реализован: stages/trials/keep, промежуточный отбор, полный учёт повторных пакетов и проверяемая цепочка reports. Следующий шаг — контракт ограниченной генерации составов из явно заданных Minion-профилей и ограничений численности; характеристики профилей автоматически не меняются. Полный следующий срез — в project-status; правила и scenario scope не расширяются.
 
 ## Сводка одного прогона — реализованный срез
 

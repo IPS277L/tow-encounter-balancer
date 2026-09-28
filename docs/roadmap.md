@@ -73,7 +73,7 @@ M4 реализован по [ADR-0016](decisions/ADR-0016-ranged-simulation-jso
 
 ## M5 — балансировщик
 
-По [ADR-0017](decisions/ADR-0017-ranged-candidate-assessment.md) реализованы summary, pure assessment и bounded evaluation явного списка кандидатов: общий бюджет и preflight, existing sequential/process runners, source-bound aggregate report и точный top_k только внутри окна. Последний срез: 14 unit + 2 integration tests, полный набор 1876 OK. Подтверждённая метрика цели за лимит сохраняет отдельные остановки без пресетов. Следующий срез — контракт staged evaluation прежнего списка: stages/trials/keep, промежуточный отбор и полный бюджет повторных запусков. Генерация составов, CLI balance и универсальный поиск ещё впереди.
+По [ADR-0017](decisions/ADR-0017-ranged-candidate-assessment.md) реализованы summary, pure assessment и bounded evaluation явного списка кандидатов: общий бюджет и preflight, existing sequential/process runners, source-bound aggregate report и точный top_k только внутри окна. Последний срез: 14 unit + 2 integration tests, полный набор 1876 OK. Подтверждённая метрика цели за лимит сохраняет отдельные остановки без пресетов. [Staged evaluation](decisions/ADR-0018-staged-ranged-evaluation.md) реализован: typed models, continuation helper и application service с полными отчётами, промежуточным уточнением пригодных outside-window и полным бюджетом повторных запусков. Добавлены 23 детерминированных теста. Следующий шаг — контракт ограниченной генерации составов из явно заданных Minion-профилей и ограничений численности; характеристики профилей автоматически не меняются. Генерация составов, CLI balance и универсальный поиск ещё впереди.
 
 - ограничения кандидатов;
 - конфигурируемые окна сложности;
