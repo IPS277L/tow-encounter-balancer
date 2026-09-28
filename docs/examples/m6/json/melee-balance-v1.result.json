@@ -1,0 +1,607 @@
+{
+  "schema_version": "1",
+  "kind": "npc_melee_balance_result",
+  "request": {
+    "schema_version": "1",
+    "kind": "npc_melee_balance",
+    "request_id": "example:melee:balance:json",
+    "ruleset": "towr-pg1.4-gmg1.1",
+    "reserve": {
+      "initial_request_id": "example:melee:reserve",
+      "round_budget": 3,
+      "scenario": {
+        "definitions": [
+          {
+            "id": "example:footpad",
+            "source_rule_id": "RULE-PROFILE-TALABEC-005",
+            "resilience": {
+              "toughness": 3,
+              "bonus": 0
+            },
+            "attack": {
+              "id": "dagger",
+              "source_rule_id": "RULE-PROFILE-TALABEC-005:dagger",
+              "dice": 3,
+              "threshold": 3,
+              "damage": 2,
+              "hands": "1h"
+            },
+            "protection": {
+              "source_rule_id": "RULE-PROFILE-TALABEC-005:protection",
+              "skill": "athletics",
+              "dice": 3,
+              "threshold": 3
+            }
+          }
+        ],
+        "actors": [
+          {
+            "id": "P1",
+            "definition_id": "example:footpad",
+            "side": "players_and_allies",
+            "zone_id": "arena"
+          },
+          {
+            "id": "P2",
+            "definition_id": "example:footpad",
+            "side": "players_and_allies",
+            "zone_id": "arena"
+          },
+          {
+            "id": "E1",
+            "definition_id": "example:footpad",
+            "side": "opposition",
+            "zone_id": "arena"
+          },
+          {
+            "id": "E2",
+            "definition_id": "example:footpad",
+            "side": "opposition",
+            "zone_id": "arena"
+          },
+          {
+            "id": "E3",
+            "definition_id": "example:footpad",
+            "side": "opposition",
+            "zone_id": "arena"
+          }
+        ],
+        "battlefield": {
+          "zone_ids": [
+            "arena",
+            "exit"
+          ],
+          "connections": [
+            {
+              "first_zone_id": "arena",
+              "second_zone_id": "exit"
+            }
+          ]
+        },
+        "side_order": [
+          "players_and_allies",
+          "opposition"
+        ],
+        "actor_order": [
+          "P1",
+          "P2",
+          "E1",
+          "E2",
+          "E3"
+        ],
+        "perspective_side": "players_and_allies",
+        "objective_target_ids": [
+          "E3",
+          "E2",
+          "E1"
+        ],
+        "facts": {
+          "zone_id": "arena",
+          "all_opponents_in_close_range": true,
+          "targets_aware": true,
+          "clear_line_of_sight": true,
+          "stationary": true,
+          "all_zone_combatants_included": true,
+          "unmounted_combatants_only": true,
+          "no_higher_ground": true,
+          "no_additional_rules": true,
+          "no_other_test_modifiers": true,
+          "can_leave_zone": true
+        },
+        "repeated_stagger_choice": "suffer_wound",
+        "actor_policies": [
+          {
+            "actor_id": "P1",
+            "outnumbering_bonus_approved": true,
+            "targets": [
+              {
+                "target_id": "E3",
+                "disposition": "knocked_out",
+                "gm_approved": true
+              },
+              {
+                "target_id": "E2",
+                "disposition": "knocked_out",
+                "gm_approved": true
+              },
+              {
+                "target_id": "E1",
+                "disposition": "knocked_out",
+                "gm_approved": true
+              }
+            ]
+          },
+          {
+            "actor_id": "P2",
+            "outnumbering_bonus_approved": false,
+            "targets": [
+              {
+                "target_id": "E3",
+                "disposition": "knocked_out",
+                "gm_approved": true
+              },
+              {
+                "target_id": "E2",
+                "disposition": "knocked_out",
+                "gm_approved": true
+              },
+              {
+                "target_id": "E1",
+                "disposition": "knocked_out",
+                "gm_approved": true
+              }
+            ]
+          },
+          {
+            "actor_id": "E1",
+            "outnumbering_bonus_approved": true,
+            "targets": [
+              {
+                "target_id": "P1",
+                "disposition": "knocked_out",
+                "gm_approved": true
+              },
+              {
+                "target_id": "P2",
+                "disposition": "knocked_out",
+                "gm_approved": true
+              }
+            ]
+          },
+          {
+            "actor_id": "E2",
+            "outnumbering_bonus_approved": true,
+            "targets": [
+              {
+                "target_id": "P1",
+                "disposition": "knocked_out",
+                "gm_approved": true
+              },
+              {
+                "target_id": "P2",
+                "disposition": "knocked_out",
+                "gm_approved": true
+              }
+            ]
+          },
+          {
+            "actor_id": "E3",
+            "outnumbering_bonus_approved": true,
+            "targets": [
+              {
+                "target_id": "P1",
+                "disposition": "knocked_out",
+                "gm_approved": true
+              },
+              {
+                "target_id": "P2",
+                "disposition": "knocked_out",
+                "gm_approved": true
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "generation": {
+      "groups": [
+        {
+          "group_id": "A",
+          "actor_ids": [
+            "E2",
+            "E1"
+          ],
+          "minimum_count": 0,
+          "maximum_count": 2
+        },
+        {
+          "group_id": "B",
+          "actor_ids": [
+            "E3"
+          ],
+          "minimum_count": 0,
+          "maximum_count": 1
+        }
+      ],
+      "facts": {
+        "zone_id": "arena",
+        "all_opponents_in_close_range": true,
+        "targets_aware": true,
+        "clear_line_of_sight": true,
+        "stationary": true,
+        "all_zone_combatants_included": true,
+        "unmounted_combatants_only": true,
+        "no_higher_ground": true,
+        "no_additional_rules": true,
+        "no_other_test_modifiers": true,
+        "can_leave_zone": true
+      },
+      "candidate_id_prefix": "footpads",
+      "max_candidates": 5
+    },
+    "evaluation": {
+      "master_seed": "42",
+      "stages": [
+        {
+          "trials_per_candidate": 2,
+          "keep": 2
+        },
+        {
+          "trials_per_candidate": 4,
+          "keep": 1
+        }
+      ],
+      "max_total_trials": 18,
+      "window": {
+        "minimum": {
+          "numerator": 1,
+          "denominator": 4
+        },
+        "target": {
+          "numerator": 1,
+          "denominator": 2
+        },
+        "maximum": {
+          "numerator": 3,
+          "denominator": 4
+        }
+      }
+    },
+    "execution": {
+      "mode": "sequential"
+    }
+  },
+  "seed_scheme": "towr:npc-melee-trial:v1",
+  "runtime": {
+    "package_version": "0.1.0",
+    "python_implementation": "CPython",
+    "python_version": "3.14.5",
+    "rng": "random.Random"
+  },
+  "candidate_count": 5,
+  "planned_trials": 18,
+  "total_trials": 18,
+  "candidates": [
+    {
+      "candidate_id": "footpads:counts:0,1",
+      "counts": [
+        0,
+        1
+      ]
+    },
+    {
+      "candidate_id": "footpads:counts:1,0",
+      "counts": [
+        1,
+        0
+      ]
+    },
+    {
+      "candidate_id": "footpads:counts:1,1",
+      "counts": [
+        1,
+        1
+      ]
+    },
+    {
+      "candidate_id": "footpads:counts:2,0",
+      "counts": [
+        2,
+        0
+      ]
+    },
+    {
+      "candidate_id": "footpads:counts:2,1",
+      "counts": [
+        2,
+        1
+      ]
+    }
+  ],
+  "stage_reports": [
+    {
+      "stage_index": 0,
+      "trials_per_candidate": 2,
+      "keep": 2,
+      "total_trials": 10,
+      "candidates": [
+        {
+          "candidate_id": "footpads:counts:0,1",
+          "summary": {
+            "trials": 2,
+            "outcome_counts": {
+              "objective_achieved": 2,
+              "side_defeated": 0,
+              "round_limit": 0,
+              "unsupported_path": 0
+            },
+            "total_attack_count": 6,
+            "total_visited_round_count": 3,
+            "mean_attack_count": 3.0,
+            "mean_visited_round_count": 1.5
+          },
+          "rates": {
+            "objective_achieved": {
+              "numerator": 1,
+              "denominator": 1
+            },
+            "side_defeated": {
+              "numerator": 0,
+              "denominator": 1
+            },
+            "round_limit": {
+              "numerator": 0,
+              "denominator": 1
+            },
+            "unsupported_path": {
+              "numerator": 0,
+              "denominator": 1
+            }
+          },
+          "status": "eligible",
+          "window_match": false
+        },
+        {
+          "candidate_id": "footpads:counts:1,0",
+          "summary": {
+            "trials": 2,
+            "outcome_counts": {
+              "objective_achieved": 2,
+              "side_defeated": 0,
+              "round_limit": 0,
+              "unsupported_path": 0
+            },
+            "total_attack_count": 6,
+            "total_visited_round_count": 3,
+            "mean_attack_count": 3.0,
+            "mean_visited_round_count": 1.5
+          },
+          "rates": {
+            "objective_achieved": {
+              "numerator": 1,
+              "denominator": 1
+            },
+            "side_defeated": {
+              "numerator": 0,
+              "denominator": 1
+            },
+            "round_limit": {
+              "numerator": 0,
+              "denominator": 1
+            },
+            "unsupported_path": {
+              "numerator": 0,
+              "denominator": 1
+            }
+          },
+          "status": "eligible",
+          "window_match": false
+        },
+        {
+          "candidate_id": "footpads:counts:1,1",
+          "summary": {
+            "trials": 2,
+            "outcome_counts": {
+              "objective_achieved": 1,
+              "side_defeated": 1,
+              "round_limit": 0,
+              "unsupported_path": 0
+            },
+            "total_attack_count": 14,
+            "total_visited_round_count": 5,
+            "mean_attack_count": 7.0,
+            "mean_visited_round_count": 2.5
+          },
+          "rates": {
+            "objective_achieved": {
+              "numerator": 1,
+              "denominator": 2
+            },
+            "side_defeated": {
+              "numerator": 1,
+              "denominator": 2
+            },
+            "round_limit": {
+              "numerator": 0,
+              "denominator": 1
+            },
+            "unsupported_path": {
+              "numerator": 0,
+              "denominator": 1
+            }
+          },
+          "status": "eligible",
+          "window_match": true
+        },
+        {
+          "candidate_id": "footpads:counts:2,0",
+          "summary": {
+            "trials": 2,
+            "outcome_counts": {
+              "objective_achieved": 1,
+              "side_defeated": 1,
+              "round_limit": 0,
+              "unsupported_path": 0
+            },
+            "total_attack_count": 14,
+            "total_visited_round_count": 5,
+            "mean_attack_count": 7.0,
+            "mean_visited_round_count": 2.5
+          },
+          "rates": {
+            "objective_achieved": {
+              "numerator": 1,
+              "denominator": 2
+            },
+            "side_defeated": {
+              "numerator": 1,
+              "denominator": 2
+            },
+            "round_limit": {
+              "numerator": 0,
+              "denominator": 1
+            },
+            "unsupported_path": {
+              "numerator": 0,
+              "denominator": 1
+            }
+          },
+          "status": "eligible",
+          "window_match": true
+        },
+        {
+          "candidate_id": "footpads:counts:2,1",
+          "summary": {
+            "trials": 2,
+            "outcome_counts": {
+              "objective_achieved": 1,
+              "side_defeated": 1,
+              "round_limit": 0,
+              "unsupported_path": 0
+            },
+            "total_attack_count": 13,
+            "total_visited_round_count": 4,
+            "mean_attack_count": 6.5,
+            "mean_visited_round_count": 2.0
+          },
+          "rates": {
+            "objective_achieved": {
+              "numerator": 1,
+              "denominator": 2
+            },
+            "side_defeated": {
+              "numerator": 1,
+              "denominator": 2
+            },
+            "round_limit": {
+              "numerator": 0,
+              "denominator": 1
+            },
+            "unsupported_path": {
+              "numerator": 0,
+              "denominator": 1
+            }
+          },
+          "status": "eligible",
+          "window_match": true
+        }
+      ],
+      "selected_candidate_ids": [
+        "footpads:counts:1,1",
+        "footpads:counts:2,0"
+      ],
+      "continuation_candidate_ids": [
+        "footpads:counts:1,1",
+        "footpads:counts:2,0"
+      ]
+    },
+    {
+      "stage_index": 1,
+      "trials_per_candidate": 4,
+      "keep": 1,
+      "total_trials": 8,
+      "candidates": [
+        {
+          "candidate_id": "footpads:counts:1,1",
+          "summary": {
+            "trials": 4,
+            "outcome_counts": {
+              "objective_achieved": 3,
+              "side_defeated": 1,
+              "round_limit": 0,
+              "unsupported_path": 0
+            },
+            "total_attack_count": 23,
+            "total_visited_round_count": 9,
+            "mean_attack_count": 5.75,
+            "mean_visited_round_count": 2.25
+          },
+          "rates": {
+            "objective_achieved": {
+              "numerator": 3,
+              "denominator": 4
+            },
+            "side_defeated": {
+              "numerator": 1,
+              "denominator": 4
+            },
+            "round_limit": {
+              "numerator": 0,
+              "denominator": 1
+            },
+            "unsupported_path": {
+              "numerator": 0,
+              "denominator": 1
+            }
+          },
+          "status": "eligible",
+          "window_match": true
+        },
+        {
+          "candidate_id": "footpads:counts:2,0",
+          "summary": {
+            "trials": 4,
+            "outcome_counts": {
+              "objective_achieved": 3,
+              "side_defeated": 1,
+              "round_limit": 0,
+              "unsupported_path": 0
+            },
+            "total_attack_count": 23,
+            "total_visited_round_count": 9,
+            "mean_attack_count": 5.75,
+            "mean_visited_round_count": 2.25
+          },
+          "rates": {
+            "objective_achieved": {
+              "numerator": 3,
+              "denominator": 4
+            },
+            "side_defeated": {
+              "numerator": 1,
+              "denominator": 4
+            },
+            "round_limit": {
+              "numerator": 0,
+              "denominator": 1
+            },
+            "unsupported_path": {
+              "numerator": 0,
+              "denominator": 1
+            }
+          },
+          "status": "eligible",
+          "window_match": true
+        }
+      ],
+      "selected_candidate_ids": [
+        "footpads:counts:1,1"
+      ],
+      "continuation_candidate_ids": []
+    }
+  ],
+  "status": "completed",
+  "selected_candidate_ids": [
+    "footpads:counts:1,1"
+  ]
+}

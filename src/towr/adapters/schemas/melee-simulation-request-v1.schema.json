@@ -1,0 +1,395 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:towr:melee-simulation:request:1",
+  "$comment": "Structural contract. Strict token spelling and semantic admission are adapter responsibilities.",
+  "type": "object",
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "1"
+    },
+    "kind": {
+      "type": "string",
+      "const": "npc_melee_simulation"
+    },
+    "request_id": {
+      "$ref": "#/$defs/id"
+    },
+    "ruleset": {
+      "type": "string",
+      "const": "towr-pg1.4-gmg1.1"
+    },
+    "simulation": {
+      "$ref": "urn:towr:ranged-simulation:request:1#/properties/simulation"
+    },
+    "execution": {
+      "$ref": "urn:towr:ranged-simulation:request:1#/properties/execution"
+    },
+    "scenario": {
+      "type": "object",
+      "properties": {
+        "definitions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/definition"
+          },
+          "minItems": 1
+        },
+        "actors": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/actor"
+          },
+          "minItems": 2
+        },
+        "battlefield": {
+          "type": "object",
+          "properties": {
+            "zone_ids": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/id"
+              },
+              "minItems": 1,
+              "uniqueItems": true
+            },
+            "connections": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "first_zone_id": {
+                    "$ref": "#/$defs/id"
+                  },
+                  "second_zone_id": {
+                    "$ref": "#/$defs/id"
+                  }
+                },
+                "required": [
+                  "first_zone_id",
+                  "second_zone_id"
+                ],
+                "additionalProperties": false
+              },
+              "minItems": 0
+            }
+          },
+          "required": [
+            "zone_ids",
+            "connections"
+          ],
+          "additionalProperties": false
+        },
+        "side_order": {
+          "const": [
+            "players_and_allies",
+            "opposition"
+          ]
+        },
+        "actor_order": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/id"
+          },
+          "minItems": 2,
+          "uniqueItems": true
+        },
+        "perspective_side": {
+          "$ref": "#/$defs/side"
+        },
+        "objective_target_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/id"
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "facts": {
+          "type": "object",
+          "properties": {
+            "zone_id": {
+              "$ref": "#/$defs/id"
+            },
+            "all_opponents_in_close_range": {
+              "type": "boolean",
+              "const": true
+            },
+            "targets_aware": {
+              "type": "boolean",
+              "const": true
+            },
+            "clear_line_of_sight": {
+              "type": "boolean",
+              "const": true
+            },
+            "stationary": {
+              "type": "boolean",
+              "const": true
+            },
+            "all_zone_combatants_included": {
+              "type": "boolean",
+              "const": true
+            },
+            "unmounted_combatants_only": {
+              "type": "boolean",
+              "const": true
+            },
+            "no_higher_ground": {
+              "type": "boolean",
+              "const": true
+            },
+            "no_additional_rules": {
+              "type": "boolean",
+              "const": true
+            },
+            "no_other_test_modifiers": {
+              "type": "boolean",
+              "const": true
+            },
+            "can_leave_zone": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "zone_id",
+            "all_opponents_in_close_range",
+            "targets_aware",
+            "clear_line_of_sight",
+            "stationary",
+            "all_zone_combatants_included",
+            "unmounted_combatants_only",
+            "no_higher_ground",
+            "no_additional_rules",
+            "no_other_test_modifiers",
+            "can_leave_zone"
+          ],
+          "additionalProperties": false
+        },
+        "repeated_stagger_choice": {
+          "type": "string",
+          "const": "suffer_wound"
+        },
+        "actor_policies": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/policy"
+          },
+          "minItems": 2
+        }
+      },
+      "required": [
+        "definitions",
+        "actors",
+        "battlefield",
+        "side_order",
+        "actor_order",
+        "perspective_side",
+        "objective_target_ids",
+        "facts",
+        "repeated_stagger_choice",
+        "actor_policies"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "required": [
+    "schema_version",
+    "kind",
+    "request_id",
+    "ruleset",
+    "simulation",
+    "execution",
+    "scenario"
+  ],
+  "additionalProperties": false,
+  "$defs": {
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "\\S"
+    },
+    "side": {
+      "enum": [
+        "players_and_allies",
+        "opposition"
+      ]
+    },
+    "definition": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "source_rule_id": {
+          "$ref": "#/$defs/id"
+        },
+        "resilience": {
+          "type": "object",
+          "properties": {
+            "toughness": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "bonus": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          "required": [
+            "toughness",
+            "bonus"
+          ],
+          "additionalProperties": false
+        },
+        "attack": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "$ref": "#/$defs/id"
+            },
+            "source_rule_id": {
+              "$ref": "#/$defs/id"
+            },
+            "dice": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "threshold": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 10
+            },
+            "damage": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "hands": {
+              "enum": [
+                "1h",
+                "2h"
+              ]
+            }
+          },
+          "required": [
+            "id",
+            "source_rule_id",
+            "dice",
+            "threshold",
+            "damage",
+            "hands"
+          ],
+          "additionalProperties": false
+        },
+        "protection": {
+          "type": "object",
+          "properties": {
+            "source_rule_id": {
+              "$ref": "#/$defs/id"
+            },
+            "dice": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "threshold": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 10
+            },
+            "skill": {
+              "enum": [
+                "athletics",
+                "defence"
+              ]
+            }
+          },
+          "required": [
+            "source_rule_id",
+            "dice",
+            "threshold",
+            "skill"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "id",
+        "source_rule_id",
+        "resilience",
+        "attack",
+        "protection"
+      ],
+      "additionalProperties": false
+    },
+    "actor": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "definition_id": {
+          "$ref": "#/$defs/id"
+        },
+        "side": {
+          "$ref": "#/$defs/side"
+        },
+        "zone_id": {
+          "$ref": "#/$defs/id"
+        }
+      },
+      "required": [
+        "id",
+        "definition_id",
+        "side",
+        "zone_id"
+      ],
+      "additionalProperties": false
+    },
+    "policy": {
+      "type": "object",
+      "properties": {
+        "actor_id": {
+          "$ref": "#/$defs/id"
+        },
+        "targets": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "target_id": {
+                "$ref": "#/$defs/id"
+              },
+              "disposition": {
+                "enum": [
+                  "killed",
+                  "knocked_out",
+                  "disarmed_and_surrendered"
+                ]
+              },
+              "gm_approved": {
+                "type": "boolean",
+                "const": true
+              }
+            },
+            "required": [
+              "target_id",
+              "disposition",
+              "gm_approved"
+            ],
+            "additionalProperties": false
+          },
+          "minItems": 1
+        },
+        "outnumbering_bonus_approved": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "actor_id",
+        "targets",
+        "outnumbering_bonus_approved"
+      ],
+      "additionalProperties": false
+    }
+  }
+}

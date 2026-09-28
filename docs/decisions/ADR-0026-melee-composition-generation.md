@@ -143,3 +143,5 @@ Result проверяет полный ordered staged input и exact projection 
 Пользователь выбрал JSON/CLI для Melee. Следующий законченный шаг — ADR-0027 отдельной внешней границы simulation/balance с сохранением existing typed APIs и ranged v1. В этом аудите production src/tests/tools не менялись; реализация wire/CLI впереди.
 
 Полная регрессия аудита: **2164 tests OK (148,644 с)**, Windows/Python 3.14.5; compileall, 1360 локальных Markdown-путей и git diff --check успешны.
+
+[Контракт внешней границы ADR-0027](ADR-0027-melee-json-cli-v1.md) подготовлен: separate simulation/balance wire и команды, сохранение explicit family facts/GM flags/full source. Simulation Schema/command и pure adapters реализованы; simulation service/error encoder и simulate-melee также реализованы; далее — balance Schema/models и pure adapters.
