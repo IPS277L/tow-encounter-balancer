@@ -12,6 +12,7 @@
 - [`audits/m2-readiness.md`](audits/m2-readiness.md) — пять пунктов M2, фактические границы, остаток перед M3 и следующий срез;
 - [`audits/m3-readiness.md`](audits/m3-readiness.md) — закрытие четырёх критериев M3 и граница перехода к M4;
 - [`audits/m4-readiness.md`](audits/m4-readiness.md) — Schema/service/CLI/examples, проверка установленного пакета и граница M5;
+- [`audits/m5-readiness.md`](audits/m5-readiness.md) — четыре критерия первого M5, 69 tests, runnable пример и граница будущего JSON/CLI balance;
 - [`rule-traceability.md`](rule-traceability.md) — книга → правило → код → тест;
 - [`contradictions.md`](contradictions.md) — расхождения и неоднозначности источника;
 - [`architecture/overview.md`](architecture/overview.md) — слои, зависимости и основные модели;
@@ -26,6 +27,7 @@
 - [`decisions/ADR-0019-ranged-composition-generation.md`](decisions/ADR-0019-ranged-composition-generation.md) — реализованный генератор численности по явному резерву: profiles/context, составы, IDs, admission и бюджет;
 - [`../src/towr/adapters/schemas/`](../src/towr/adapters/schemas/) — packaged JSON Schema request/result/error Draft 2020-12;
 - [`examples/m4/README.md`](examples/m4/README.md) — примерные JSON request/result, проверенные через существующие typed APIs;
+- [`examples/m5/README.md`](examples/m5/README.md) — typed Python пример generation → staged evaluation, оба backend и сохранённый текстовый отчёт;
 - [`decisions/`](decisions/) — журнал архитектурных решений;
 - [`decisions/ADR-0011-bounded-minion-rounds.md`](decisions/ADR-0011-bounded-minion-rounds.md) — ограниченный прогон Minion-раундов, лимит, snapshots и остановки;
 - [`decisions/ADR-0010-single-minion-round.md`](decisions/ADR-0010-single-minion-round.md) — ограниченная координация одного Minion-раунда, остановки и возобновление;

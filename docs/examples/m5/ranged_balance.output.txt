@@ -1,0 +1,22 @@
+execution: sequential
+runtime: CPython 3.14.5
+seed: 42; scheme: towr:npc-ranged-trial:v1
+scope: stationary numeric ranged Minions; fixed P1,P2; reserves A1,A2 / B1
+round_budget: 3; perspective: players_and_allies
+window: [1/4, 3/4]; target: 1/2; final_top_k: 2
+candidates: 5; max_candidates: 5
+planned_trials: 136; max_total_trials: 136
+stage 1: trials_per_candidate=8 keep=3 total_trials=40
+  example:counts:0,1 (A=0,B=1): objective=8 side_defeated=0 round_limit=0 unsupported_path=0 rate=1 window=no
+  example:counts:1,0 (A=1,B=0): objective=8 side_defeated=0 round_limit=0 unsupported_path=0 rate=1 window=no
+  example:counts:1,1 (A=1,B=1): objective=2 side_defeated=4 round_limit=2 unsupported_path=0 rate=1/4 window=yes
+  example:counts:2,0 (A=2,B=0): objective=2 side_defeated=4 round_limit=2 unsupported_path=0 rate=1/4 window=yes
+  example:counts:2,1 (A=2,B=1): objective=0 side_defeated=6 round_limit=2 unsupported_path=0 rate=0 window=no
+  continue: example:counts:0,1, example:counts:1,1, example:counts:2,0
+stage 2: trials_per_candidate=32 keep=2 total_trials=96
+  example:counts:0,1 (A=0,B=1): objective=31 side_defeated=0 round_limit=1 unsupported_path=0 rate=31/32 window=no
+  example:counts:1,1 (A=1,B=1): objective=13 side_defeated=9 round_limit=10 unsupported_path=0 rate=13/32 window=yes
+  example:counts:2,0 (A=2,B=0): objective=13 side_defeated=9 round_limit=10 unsupported_path=0 rate=13/32 window=yes
+status: completed
+actual_trials: 136
+final_selected: example:counts:1,1, example:counts:2,0

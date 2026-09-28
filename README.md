@@ -6,7 +6,7 @@
 
 ## Навигация
 
-[Конечный аудит M4](docs/audits/m4-readiness.md) подтверждает готовность Schema, чистых адаптеров, application service и CLI simulate в указанной границе сценария. [JSON-контракт v1](docs/decisions/ADR-0016-ranged-simulation-json-v1.md) поддерживает явный выбор sequential/process и кодирование ошибок. Для [первого M5](docs/decisions/ADR-0017-ranged-candidate-assessment.md) реализована оценка явного списка кандидатов с бюджетом и выбором подходящих top_k: точная доля достижения цели за лимит, отдельные остановки и явное окно без пресетов. Это typed Python API; CLI balance пока отсутствует. [Поэтапная оценка](docs/decisions/ADR-0018-staged-ranged-evaluation.md) реализована: промежуточное уточнение, общий бюджет повторных прогонов и полные отчёты этапов. Генератор численности по [ADR-0019](docs/decisions/ADR-0019-ranged-composition-generation.md) реализован: явный резерв участников, неизменные профили/решения, предел составов и полный staged budget. Следующий шаг — сквозной аудит первого M5 и воспроизводимый пример генерации → поэтапной оценки.
+[Конечный аудит M4](docs/audits/m4-readiness.md) подтверждает готовность Schema, чистых адаптеров, application service и CLI simulate в указанной границе сценария. [JSON-контракт v1](docs/decisions/ADR-0016-ranged-simulation-json-v1.md) поддерживает явный выбор sequential/process и кодирование ошибок. Для [первого M5](docs/decisions/ADR-0017-ranged-candidate-assessment.md) реализована оценка явного списка кандидатов с бюджетом и выбором подходящих top_k: точная доля достижения цели за лимит, отдельные остановки и явное окно без пресетов. Это typed Python API; CLI balance пока отсутствует. [Поэтапная оценка](docs/decisions/ADR-0018-staged-ranged-evaluation.md) реализована: промежуточное уточнение, общий бюджет повторных прогонов и полные отчёты этапов. Генератор численности по [ADR-0019](docs/decisions/ADR-0019-ranged-composition-generation.md) реализован: явный резерв участников, неизменные профили/решения, предел составов и полный staged budget. Первый M5 закрыт [аудитом](docs/audits/m5-readiness.md) в текущем scope; [typed пример](docs/examples/m5/README.md) проверен в sequential/process. Следующий шаг — отдельный контракт JSON balance v1 и CLI balance.
 
 - [`docs/README.md`](docs/README.md) — карта документации;
 - [`docs/game-rules.md`](docs/game-rules.md) — зафиксированные правила;
@@ -37,3 +37,15 @@ $env:PYTHONPATH = "src"
 После установки текущего проекта также доступна `.venv/Scripts/towr.exe simulate INPUT`. `INPUT` — путь к UTF-8 JSON или `-` для stdin. [Пример входа](docs/examples/m4/ranged-v1.request.json) содержит режим, seed, trials и все решения; CLI не переопределяет их. Для процессов задайте в JSON `"execution": {"mode": "process", "workers": 2, "batch_size": 1}`.
 
 Stdout содержит один UTF-8 JSON result или typed error; краткая диагностика идёт в stderr. Exit codes: 0 — полный результат (включая round_limit/unsupported_path), 2 — неверный JSON/admission или аргументы CLI, 3 — ошибка исполнения, 4 — I/O. При ошибке аргументов или чтения файла stdout пуст. [Подробный контракт и ограничения вывода](docs/decisions/ADR-0016-ranged-simulation-json-v1.md#cli-simulate).
+
+## Пример подбора составов
+
+[Исполняемый пример M5](docs/examples/m5/README.md) генерирует пять составов и оценивает их в два этапа. Из корня репозитория:
+
+```powershell
+$env:PYTHONPATH = "src"
+.venv/Scripts/python.exe docs/examples/m5/ranged_balance.py --mode sequential
+.venv/Scripts/python.exe docs/examples/m5/ranged_balance.py --mode process
+```
+
+Вход задан в Python: фиксированный резерв Minions, явные факты и решения ведущего, seed 42 и бюджет 136 прогонов. Команда `towr balance` пока не реализована.
