@@ -29,6 +29,7 @@
 - [`decisions/ADR-0020-ranged-balance-json-v1.md`](decisions/ADR-0020-ranged-balance-json-v1.md) — реализованный balance JSON/CLI: Schema/adapters/service, reserve/facts/window, источники/этапы и ошибки;
 - [`decisions/ADR-0021-melee-minion-scenario.md`](decisions/ADR-0021-melee-minion-scenario.md) — Melee Minion-сценарий: typed admission, динамический outnumbering, реализованный исполнитель и source-bound result;
 - [`decisions/ADR-0022-independent-melee-simulations.md`](decisions/ADR-0022-independent-melee-simulations.md) — реализованные независимые Melee-прогоны, seed scheme, compact result и aggregate-only summary;
+- [`decisions/ADR-0023-process-melee-simulations.md`](decisions/ADR-0023-process-melee-simulations.md) — контракт будущих опциональных Melee-прогонов в процессах: spawn, bounded queue, те же seed/result и ошибки;
 - [`audits/m6-readiness.md`](audits/m6-readiness.md) — аудит одиночного Melee-сценария и требования к будущим независимым прогонам/summary;
 - [`examples/m6/README.md`](examples/m6/README.md) — полный production Melee пример с seed/budget/выводом и отдельный низкоуровневый constructor probe;
 - [`examples/m5/json/README.md`](examples/m5/json/README.md) — запуск CLI balance, JSON request/result и три категории ошибок;

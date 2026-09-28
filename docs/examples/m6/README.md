@@ -57,3 +57,22 @@ print(summary.mean_attack_count, summary.mean_visited_round_count)
 ```
 
 Здесь master_seed порождает отдельный seed каждого trial: trial 0 не является одиночным запуском Random(42) выше. `result.trials` хранит compact observations для replay, `summary` — только input/aggregate. По умолчанию каждый trial получает новый Random, для детерминированных fixtures можно передать `rng_factory=`. Это Python API без CLI/JSON или оценки сложности; точная доля исходов малого примера не является гарантией баланса.
+
+## Проверка совместимости будущего process backend
+
+[ADR-0023](../../decisions/ADR-0023-process-melee-simulations.md) подготовлен; production Melee process runner ещё не реализован. [process_contract_probe.py](process_contract_probe.py) использует builder из одиночного примера и existing public trial/result/summary через стандартный spawn pool. Нет imports tests/private APIs или переопределения боевых правил.
+
+```powershell
+$env:PYTHONPATH = "src"
+.venv/Scripts/python.exe docs/examples/m6/process_contract_probe.py
+```
+
+Ожидаемый вывод:
+
+```text
+Melee contract: 3 trials; spawn workers 1/2 == sequential; pickle/source/summary OK; child failure/cleanup OK
+```
+
+Явные параметры: Footpad 2×2 из build_scenario, master_seed 20260928, 3 trials, budget 3, workers 1/2. Проверяются request/factory pickle round trip, переставленная подача/сбор records, равенство sequential, parent source identity, child PID, неизменность initial/global RNG, ошибка ребёнка и отсутствие оставшихся детей. Запускать обычным Python без `-O`, чтобы assertions выполнялись.
+
+Probe имеет только фиксированные три задачи и не реализует batching/bounded queue/error notes. Он не является benchmark или новым CLI; полный future API и матрица его tests описаны в ADR. Игровые источники и facts берутся из прежнего Footpad-примера выше.

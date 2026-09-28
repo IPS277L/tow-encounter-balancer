@@ -274,3 +274,7 @@ NPC Attack preparation (2026-09-27) не вводит house rules: примен�
 2026-09-28 — ADR-0022 не вводит новых трактовок: PG 1.4 Rules / Combat (112), GM 1.1 Allies and Antagonists / Minions (91) прямо сверены. Агрегация берёт scenario outcome после terminal suffix, не pending последнего runner; остановки сохраняются отдельно. Прежние ambiguities не затронуты.
 
 2026-09-28 — profiling M6 не меняет трактовок. Footpad fixture и ordinary outnumbering прямо сверены по GM1.1 Allies and Antagonists / Brigands & Footpads, стр. 97; PG1.4 Rules / Attack Modifiers, стр. 118–119. Наблюдаемые проценты/время 100 trials не являются rule defaults. Кандидат оптимизации касается повторной immutable проекции, не правил/guards; реализация ещё впереди.
+
+2026-09-28 — однократная Minion defeat continuation не меняет RULE-NPC-002: BOOK-GM-GUIDE 1.1, Allies and Antagonists / Minions, стр. 91 прямо перепроверена. Сохранены явные GM decisions, full source и replay guards; новое внутреннее поле хранит прежнюю проекцию. Новых rulings/противоречий нет.
+
+2026-09-28 — ADR-0023 не вводит игровых rulings: PG1.4 Rules / Combat (112), GM1.1 Allies and Antagonists / Minions (91) напрямую сверены. Worker использует existing Melee trial и scenario outcome после terminal suffix. Пустая подмена candidates остаётся source error, не тестовым способом получить допустимый unsupported. Контракт backend не означает изменения метрики или automatic awareness/GM decisions.

@@ -536,3 +536,15 @@ py -3.12 -m unittest discover -s tests -v
 2026-09-28: [5 harness tests](../tests/unit/test_m6_profiling.py) проверяют public Footpad fixtures, реальные wall/memory/profile runs вместе с summary, полный record mismatch при равных агрегатах во всех трёх фазах, validation/active profiler/cleanup и hash untracked sources/harness. Измерения не имеют порогов по времени, памяти или проценту побед. [Baseline и методика](benchmarks/README.md#melee-baseline-m6).
 
 Полный набор **2052 tests OK (161,604 с)** на Python 3.14.5, новые 5 отдельно OK (0,559 с). Весь M6 — 81 test (61 unit + 20 integration). Compileall, локальные Markdown-пути, git diff --check и повторное соответствие source/harness hash baseline успешны. Production src этого шага не менялся; прежние незакоммиченные simulation/summary сохранены. Benchmark выполнен отдельно от полного набора тестов. Команды и следующий performance-срез — в [project-status.md](project-status.md#следующий-шаг).
+
+## Однократная Minion defeat continuation
+
+2026-09-28: три новых теста в [test_m2_minion_defeat.py](../tests/unit/test_m2_minion_defeat.py) проверяют eager projection, repeated reads/apply без replace, сохранность immutable input и чужих pending/всех histories, rebuild при replace source, equality/hash/repr и отказы до builder. Прежние stale/foreign/replay тесты и ranged/Melee consumers сохраняются. Ошибка передачи init=False поля в dataclasses.replace допускает TypeError/ValueError в зависимости от Python; проверка не ослабляет domain guard.
+
+Полный набор **2055 tests OK (126,598 с)**, Python 3.14.5; отдельные common M2/Melee tests — 44 OK (0,696 с). Compileall, локальные Markdown-пути и git diff --check успешны. [Повторный benchmark](benchmarks/README.md#однократная-minion-defeat-continuation) выполнен отдельно после тестов, все digests/агрегаты baseline сохранены. Точное время/память не являются test thresholds; неизменность результатов и число построений проверены отдельно. Python 3.12/другие ОС, wheel/RSS не проверялись.
+
+## Контракт Melee process backend
+
+2026-09-28: [ADR-0023](decisions/ADR-0023-process-melee-simulations.md) определяет будущий backend и его unit/real-spawn matrix. Production parallel API ещё не реализован. [Finite probe](examples/m6/process_contract_probe.py) проверен из repo и вне cwd: existing Melee trial в настоящих spawn children, workers 1/2, три переставленных record, pickle/request/summary equality, child exception и cleanup. Probe не заменяет будущие bounded queue/error-note tests.
+
+**30 existing tests OK (14,047 с)**: 22 Melee simulation/summary и 8 ranged parallel. Compileall, local Markdown paths, git diff --check и production/harness hash прежнего benchmark успешны. В этом контрактном шаге src/tests не менялись; полный набор не повторялся, последняя полная проверка 2055 OK принадлежит предыдущему performance-срезу. Python 3.12/другие ОС и performance процессов Melee не проверены. Команды — в [project-status.md](project-status.md#последняя-проверка).

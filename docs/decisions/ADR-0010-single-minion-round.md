@@ -129,3 +129,13 @@ Stale/replay/mismatched queue отбрасываются до movement. Ошиб
 Actor eligibility уточнена в [ADR-0009](ADR-0009-npc-attack-selection-policy.md#запрет-attack-по-conditions-атакующего): Broken/Defenceless дают SELECTION_BLOCKED до исполнения Attack, pending сохраняет приоритет. Coordinator не закрывает такой slot и не выбирает вместо него другое действие.
 
 Ограниченная композиция нескольких таких раундов реализована отдельно в [ADR-0011](ADR-0011-bounded-minion-rounds.md). Сам run_npc_round по-прежнему не запускает следующий раунд; новый runner сохраняет его остановки и использует прежний explicit advance.
+
+## Однократная проекция Minion defeat continuation
+
+2026-09-28: выбранный по [Melee baseline](../benchmarks/README.md#выбранный-следующий-performance-срез) срез реализован в [MinionDefeatAcknowledgementResult](../../src/towr/domain/minion_defeat_models.py). После прежней typed source validation конструктор один раз строит `_continuation`; поле frozen/slotted, `init=False, repr=False, compare=False`. Getter возвращает тот же immutable NpcRoundRequest. При dataclasses.replace(result, source_request=...) derived snapshot строится заново; передать его через constructor/replace нельзя. Equality/hash/repr по-прежнему определяются публичным source_request.
+
+Алгоритм проекции прежний: добавить execution ID в acknowledged history, удалить ровно соответствующий ProfileStateChange, сохранить остальные pending в прежнем порядке и все другие поля current. Никаких kernel/RNG/новых Wounds, equipment changes или повторного consumption. Apply по-прежнему проверяет exact current/source; чтение continuation и повторный apply к исходному snapshot не заменяют обязанность caller хранить returned state. Повторный apply к returned state отклоняется. Request guards GM/attacker/target/receipt/history/foreign Attack не менялись.
+
+Изменяется время жизни проекции: она создаётся сразу с result и удерживается до его освобождения; поэтому стоимость памяти проверяется наряду с временем. Private field не является внешним wire контрактом и не создаёт общего cache/battle aggregate. [Три новых unit tests](../../tests/unit/test_m2_minion_defeat.py) проверяют два replace при построении и отсутствие повторного построения при чтениях/apply, immutable source/roster/round/очередь/все histories, rebuild при новом source, identity contract и отказ до projection. Прежние foreign/stale/replay и integration tests сохраняются.
+
+Книжная семантика RULE-NPC-002 не меняется: BOOK-GM-GUIDE 1.1, Allies and Antagonists / Minions, стр. 91 непосредственно перепроверена. Выбор disposition и подтверждение GM остаются явными. Результаты измерений — в [benchmarks](../benchmarks/README.md), полной проверки — в [project-status](../project-status.md#последняя-проверка).

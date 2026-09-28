@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from enum import Enum
 
 from towr.domain.injury_models import ProfileNpcType, ProfileStateChangeRequest
@@ -81,13 +81,19 @@ class MinionDefeatAcknowledgementRequest:
 @dataclass(frozen=True, slots=True)
 class MinionDefeatAcknowledgementResult:
     source_request: MinionDefeatAcknowledgementRequest
+    _continuation: NpcRoundRequest = field(init=False, repr=False, compare=False)
 
     def __post_init__(self) -> None:
         if not isinstance(self.source_request, MinionDefeatAcknowledgementRequest):
             raise TypeError("defeat acknowledgement result requires its typed source request")
+        object.__setattr__(self, "_continuation", self._build_continuation())
 
     @property
     def continuation(self) -> NpcRoundRequest:
+        return self._continuation
+
+    def _build_continuation(self) -> NpcRoundRequest:
+        """Project the validated immutable source once, without replaying defeat."""
         source = self.source_request
         current = source.current
         index = current.pending_follow_ups.index(source.follow_up)

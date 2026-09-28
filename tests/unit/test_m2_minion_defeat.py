@@ -1,7 +1,7 @@
 from copy import deepcopy
 from dataclasses import FrozenInstanceError, replace
 import unittest
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 from tests.helpers import SequenceRandom
 from tests.unit.test_m2_npc_round_coordinator import Candidates, request, resume
@@ -16,6 +16,7 @@ from towr.domain.npc_round_models import NpcRoundOutcome
 from towr.domain.resolution_models import GiveGroundRequest
 from towr.engine.npc_round_coordinator import run_npc_round
 from towr.rules.minion_defeat_resolution import acknowledge_minion_defeat, apply_minion_defeat_acknowledgement
+from towr.domain import minion_defeat_models as models
 
 
 def defeat_context():
@@ -31,6 +32,75 @@ def acknowledgement(current, attack, disposition=NpcDefeatDisposition.KNOCKED_OU
 
 
 class M2MinionDefeatTests(unittest.TestCase):
+    def test_continuation_is_built_once_and_preserves_pending_and_all_histories(self):
+        current, attack = defeat_context()
+        before, after = GiveGroundRequest("before"), GiveGroundRequest("after")
+        current = replace(current, pending_follow_ups=(before, *current.pending_follow_ups, after))
+        source = acknowledgement(current, attack)
+        original = deepcopy(source)
+        with patch.object(models, "replace", wraps=replace) as construct:
+            result = acknowledge_minion_defeat(source)
+            self.assertEqual(construct.call_count, 2)
+        with patch.object(models, "replace", side_effect=AssertionError("snapshot rebuilt")), \
+                patch("towr.rules.kernel.resolve_kernel_attack", side_effect=AssertionError("defeat replayed")):
+            updated = result.continuation
+            for _ in range(3):
+                self.assertIs(result.continuation, updated)
+                self.assertIs(apply_minion_defeat_acknowledgement(current, result), updated)
+        expected_state = replace(current.state, acknowledged_defeat_execution_ids=(
+            *current.state.acknowledged_defeat_execution_ids, attack.execution.request_id))
+        self.assertEqual(updated, replace(current, state=expected_state, pending_follow_ups=(before, after)))
+        self.assertIs(updated.state.roster, current.state.roster)
+        self.assertIs(updated.round_state, current.round_state)
+        self.assertIs(updated.pending_follow_ups[0], before)
+        self.assertIs(updated.pending_follow_ups[1], after)
+        self.assertEqual(source, original)
+        with self.assertRaises(FrozenInstanceError):
+            result._continuation = current
+        with self.assertRaises(FrozenInstanceError):
+            updated.pending_follow_ups = ()
+        with self.assertRaisesRegex(ValueError, "source differs"):
+            apply_minion_defeat_acknowledgement(updated, result)
+
+    def test_replace_rebuilds_derived_continuation_from_new_source_without_changing_identity_contract(self):
+        current, attack = defeat_context()
+        result = acknowledge_minion_defeat(acknowledgement(current, attack))
+        extra = GiveGroundRequest("extra")
+        new_source = replace(result.source_request, current=replace(current,
+            id="new-context", pending_follow_ups=(*current.pending_follow_ups, extra)))
+        with patch.object(models, "replace", wraps=replace) as construct:
+            rebuilt = replace(result, source_request=new_source)
+            self.assertEqual(construct.call_count, 2)
+        self.assertEqual(rebuilt.continuation.id, "new-context")
+        self.assertEqual(rebuilt.continuation.pending_follow_ups, (extra,))
+        self.assertEqual(result.continuation.pending_follow_ups, ())
+        self.assertNotEqual(rebuilt, result)
+        same = replace(result)
+        self.assertEqual(same, result)
+        self.assertEqual(hash(same), hash(result))
+        self.assertIsNot(same.continuation, result.continuation)
+        self.assertNotIn("_continuation=", repr(result))
+        with self.assertRaises(TypeError):
+            MinionDefeatAcknowledgementResult(result.source_request, _continuation=current)
+        with self.assertRaises((TypeError, ValueError)):
+            replace(result, _continuation=current)
+
+    def test_invalid_source_is_rejected_before_projection(self):
+        current, attack = defeat_context()
+        source = acknowledgement(current, attack)
+        result = acknowledge_minion_defeat(source)
+        with patch.object(models.MinionDefeatAcknowledgementResult, "_build_continuation",
+                          side_effect=AssertionError("invalid source projected")) as build:
+            with self.assertRaises(TypeError):
+                MinionDefeatAcknowledgementResult(None)
+            with self.assertRaises(TypeError):
+                replace(result, source_request=None)
+            with self.assertRaises(ValueError):
+                acknowledge_minion_defeat(replace(source, decision=replace(source.decision, gm_approved=False)))
+            with self.assertRaises(ValueError):
+                acknowledge_minion_defeat(replace(source, current=result.continuation))
+            build.assert_not_called()
+
     def test_all_dispositions_record_choice_without_reapplying_injury_receipt_or_equipment(self):
         current, attack = defeat_context()
         before = deepcopy(current)
