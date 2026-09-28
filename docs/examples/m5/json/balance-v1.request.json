@@ -1,0 +1,259 @@
+{
+  "schema_version": "1",
+  "kind": "npc_ranged_balance",
+  "ruleset": "towr-pg1.4-gmg1.1",
+  "request_id": "example:balance",
+  "reserve": {
+    "initial_request_id": "example:reserve",
+    "round_budget": 3,
+    "scenario": {
+      "definitions": [
+        {
+          "id": "example:archer",
+          "source_rule_id": "RULE-PROFILE-TALABEC-004",
+          "resilience": {
+            "toughness": 3,
+            "bonus": 1
+          },
+          "attack": {
+            "id": "warbow",
+            "source_rule_id": "RULE-PROFILE-TALABEC-004:warbow",
+            "dice": 3,
+            "threshold": 3,
+            "damage": 3
+          },
+          "protection": {
+            "source_rule_id": "RULE-PROFILE-TALABEC-004:protection",
+            "dice": 3,
+            "threshold": 2
+          }
+        }
+      ],
+      "actors": [
+        {
+          "id": "P1",
+          "definition_id": "example:archer",
+          "side": "players_and_allies",
+          "zone_id": "left"
+        },
+        {
+          "id": "P2",
+          "definition_id": "example:archer",
+          "side": "players_and_allies",
+          "zone_id": "left"
+        },
+        {
+          "id": "A1",
+          "definition_id": "example:archer",
+          "side": "opposition",
+          "zone_id": "right"
+        },
+        {
+          "id": "A2",
+          "definition_id": "example:archer",
+          "side": "opposition",
+          "zone_id": "right"
+        },
+        {
+          "id": "B1",
+          "definition_id": "example:archer",
+          "side": "opposition",
+          "zone_id": "right"
+        }
+      ],
+      "battlefield": {
+        "zone_ids": [
+          "left",
+          "right"
+        ],
+        "connections": [
+          {
+            "first_zone_id": "left",
+            "second_zone_id": "right"
+          }
+        ]
+      },
+      "side_order": [
+        "players_and_allies",
+        "opposition"
+      ],
+      "actor_order": [
+        "P1",
+        "P2",
+        "A1",
+        "A2",
+        "B1"
+      ],
+      "perspective_side": "players_and_allies",
+      "objective_target_ids": [
+        "A1",
+        "A2",
+        "B1"
+      ],
+      "facts": {
+        "target_range": "medium",
+        "has_enemy_in_close_range": false,
+        "targets_aware": true,
+        "clear_line_of_sight": true,
+        "stationary": true,
+        "unmodified_tests": true,
+        "no_additional_rules": true,
+        "ammunition_sufficient": true,
+        "requires_reload_action": false
+      },
+      "repeated_stagger_choice": "suffer_wound",
+      "actor_policies": [
+        {
+          "actor_id": "P1",
+          "targets": [
+            {
+              "target_id": "A1",
+              "disposition": "knocked_out",
+              "gm_approved": true
+            },
+            {
+              "target_id": "A2",
+              "disposition": "knocked_out",
+              "gm_approved": true
+            },
+            {
+              "target_id": "B1",
+              "disposition": "knocked_out",
+              "gm_approved": true
+            }
+          ]
+        },
+        {
+          "actor_id": "P2",
+          "targets": [
+            {
+              "target_id": "A1",
+              "disposition": "knocked_out",
+              "gm_approved": true
+            },
+            {
+              "target_id": "A2",
+              "disposition": "knocked_out",
+              "gm_approved": true
+            },
+            {
+              "target_id": "B1",
+              "disposition": "knocked_out",
+              "gm_approved": true
+            }
+          ]
+        },
+        {
+          "actor_id": "A1",
+          "targets": [
+            {
+              "target_id": "P1",
+              "disposition": "knocked_out",
+              "gm_approved": true
+            },
+            {
+              "target_id": "P2",
+              "disposition": "knocked_out",
+              "gm_approved": true
+            }
+          ]
+        },
+        {
+          "actor_id": "A2",
+          "targets": [
+            {
+              "target_id": "P1",
+              "disposition": "knocked_out",
+              "gm_approved": true
+            },
+            {
+              "target_id": "P2",
+              "disposition": "knocked_out",
+              "gm_approved": true
+            }
+          ]
+        },
+        {
+          "actor_id": "B1",
+          "targets": [
+            {
+              "target_id": "P1",
+              "disposition": "knocked_out",
+              "gm_approved": true
+            },
+            {
+              "target_id": "P2",
+              "disposition": "knocked_out",
+              "gm_approved": true
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "generation": {
+    "groups": [
+      {
+        "group_id": "A",
+        "actor_ids": [
+          "A1",
+          "A2"
+        ],
+        "minimum_count": 0,
+        "maximum_count": 2
+      },
+      {
+        "group_id": "B",
+        "actor_ids": [
+          "B1"
+        ],
+        "minimum_count": 0,
+        "maximum_count": 1
+      }
+    ],
+    "facts": {
+      "target_range": "medium",
+      "has_enemy_in_close_range": false,
+      "targets_aware": true,
+      "clear_line_of_sight": true,
+      "stationary": true,
+      "unmodified_tests": true,
+      "no_additional_rules": true,
+      "ammunition_sufficient": true,
+      "requires_reload_action": false
+    },
+    "candidate_id_prefix": "example",
+    "max_candidates": 5
+  },
+  "evaluation": {
+    "master_seed": "42",
+    "stages": [
+      {
+        "trials_per_candidate": 8,
+        "keep": 3
+      },
+      {
+        "trials_per_candidate": 32,
+        "keep": 2
+      }
+    ],
+    "max_total_trials": 136,
+    "window": {
+      "minimum": {
+        "numerator": 1,
+        "denominator": 4
+      },
+      "target": {
+        "numerator": 1,
+        "denominator": 2
+      },
+      "maximum": {
+        "numerator": 3,
+        "denominator": 4
+      }
+    }
+  },
+  "execution": {
+    "mode": "sequential"
+  }
+}

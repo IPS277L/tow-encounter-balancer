@@ -1,0 +1,13 @@
+{
+  "schema_version": "1",
+  "kind": "balance_error",
+  "request_id": "example:balance",
+  "error": {
+    "code": "execution_failed",
+    "path": null,
+    "message": "Balance evaluation failed",
+    "candidate_id": "example:counts:1,1",
+    "counts": null,
+    "stage_index": 1
+  }
+}

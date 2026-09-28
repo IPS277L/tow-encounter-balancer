@@ -1,0 +1,258 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:towr:ranged-balance:result:1",
+  "$comment": "Structural contract. Strict tokens, source chains and derived values are checked by typed adapters.",
+  "type": "object",
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "1"
+    },
+    "kind": {
+      "type": "string",
+      "const": "npc_ranged_balance_result"
+    },
+    "request": {
+      "$ref": "urn:towr:ranged-balance:request:1"
+    },
+    "seed_scheme": {
+      "$ref": "urn:towr:ranged-simulation:result:1#/properties/seed_scheme"
+    },
+    "runtime": {
+      "$ref": "urn:towr:ranged-simulation:result:1#/properties/runtime"
+    },
+    "candidate_count": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "planned_trials": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "total_trials": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "candidates": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "candidate_id": {
+            "$ref": "urn:towr:ranged-simulation:request:1#/$defs/id"
+          },
+          "counts": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "minItems": 1
+          }
+        },
+        "required": [
+          "candidate_id",
+          "counts"
+        ],
+        "additionalProperties": false
+      },
+      "minItems": 1
+    },
+    "stage_reports": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "stage_index": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "trials_per_candidate": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 18446744073709551615
+          },
+          "keep": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "total_trials": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "candidates": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "candidate_id": {
+                  "$ref": "urn:towr:ranged-simulation:request:1#/$defs/id"
+                },
+                "summary": {
+                  "type": "object",
+                  "properties": {
+                    "trials": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 18446744073709551615
+                    },
+                    "outcome_counts": {
+                      "$ref": "urn:towr:ranged-simulation:result:1#/properties/summary/properties/outcome_counts"
+                    },
+                    "total_attack_count": {
+                      "$ref": "urn:towr:ranged-simulation:result:1#/properties/summary/properties/total_attack_count"
+                    },
+                    "total_visited_round_count": {
+                      "$ref": "urn:towr:ranged-simulation:result:1#/properties/summary/properties/total_visited_round_count"
+                    },
+                    "mean_attack_count": {
+                      "$ref": "urn:towr:ranged-simulation:result:1#/properties/summary/properties/mean_attack_count"
+                    },
+                    "mean_visited_round_count": {
+                      "$ref": "urn:towr:ranged-simulation:result:1#/properties/summary/properties/mean_visited_round_count"
+                    }
+                  },
+                  "required": [
+                    "trials",
+                    "outcome_counts",
+                    "total_attack_count",
+                    "total_visited_round_count",
+                    "mean_attack_count",
+                    "mean_visited_round_count"
+                  ],
+                  "additionalProperties": false
+                },
+                "rates": {
+                  "type": "object",
+                  "properties": {
+                    "objective_achieved": {
+                      "$ref": "urn:towr:ranged-balance:request:1#/$defs/fraction"
+                    },
+                    "side_defeated": {
+                      "$ref": "urn:towr:ranged-balance:request:1#/$defs/fraction"
+                    },
+                    "round_limit": {
+                      "$ref": "urn:towr:ranged-balance:request:1#/$defs/fraction"
+                    },
+                    "unsupported_path": {
+                      "$ref": "urn:towr:ranged-balance:request:1#/$defs/fraction"
+                    }
+                  },
+                  "required": [
+                    "objective_achieved",
+                    "side_defeated",
+                    "round_limit",
+                    "unsupported_path"
+                  ],
+                  "additionalProperties": false
+                },
+                "status": {
+                  "enum": [
+                    "eligible",
+                    "unsupported_observations"
+                  ]
+                },
+                "window_match": {
+                  "type": [
+                    "boolean",
+                    "null"
+                  ]
+                }
+              },
+              "required": [
+                "candidate_id",
+                "summary",
+                "rates",
+                "status",
+                "window_match"
+              ],
+              "additionalProperties": false,
+              "allOf": [
+                {
+                  "if": {
+                    "properties": {
+                      "status": {
+                        "const": "eligible"
+                      }
+                    }
+                  },
+                  "then": {
+                    "properties": {
+                      "window_match": {
+                        "type": "boolean"
+                      }
+                    }
+                  },
+                  "else": {
+                    "properties": {
+                      "window_match": {
+                        "type": "null"
+                      }
+                    }
+                  }
+                }
+              ]
+            },
+            "minItems": 1
+          },
+          "selected_candidate_ids": {
+            "type": "array",
+            "items": {
+              "$ref": "urn:towr:ranged-simulation:request:1#/$defs/id"
+            },
+            "minItems": 0,
+            "uniqueItems": true
+          },
+          "continuation_candidate_ids": {
+            "type": "array",
+            "items": {
+              "$ref": "urn:towr:ranged-simulation:request:1#/$defs/id"
+            },
+            "minItems": 0,
+            "uniqueItems": true
+          }
+        },
+        "required": [
+          "stage_index",
+          "trials_per_candidate",
+          "keep",
+          "total_trials",
+          "candidates",
+          "selected_candidate_ids",
+          "continuation_candidate_ids"
+        ],
+        "additionalProperties": false
+      },
+      "minItems": 1
+    },
+    "status": {
+      "enum": [
+        "completed",
+        "no_eligible_candidates"
+      ]
+    },
+    "selected_candidate_ids": {
+      "type": "array",
+      "items": {
+        "$ref": "urn:towr:ranged-simulation:request:1#/$defs/id"
+      },
+      "minItems": 0,
+      "uniqueItems": true
+    }
+  },
+  "required": [
+    "schema_version",
+    "kind",
+    "request",
+    "seed_scheme",
+    "runtime",
+    "candidate_count",
+    "planned_trials",
+    "total_trials",
+    "candidates",
+    "stage_reports",
+    "status",
+    "selected_candidate_ids"
+  ],
+  "additionalProperties": false
+}

@@ -1,0 +1,635 @@
+{
+  "schema_version": "1",
+  "kind": "npc_ranged_balance_result",
+  "request": {
+    "schema_version": "1",
+    "kind": "npc_ranged_balance",
+    "ruleset": "towr-pg1.4-gmg1.1",
+    "request_id": "example:balance",
+    "reserve": {
+      "initial_request_id": "example:reserve",
+      "round_budget": 3,
+      "scenario": {
+        "definitions": [
+          {
+            "id": "example:archer",
+            "source_rule_id": "RULE-PROFILE-TALABEC-004",
+            "resilience": {
+              "toughness": 3,
+              "bonus": 1
+            },
+            "attack": {
+              "id": "warbow",
+              "source_rule_id": "RULE-PROFILE-TALABEC-004:warbow",
+              "dice": 3,
+              "threshold": 3,
+              "damage": 3
+            },
+            "protection": {
+              "source_rule_id": "RULE-PROFILE-TALABEC-004:protection",
+              "dice": 3,
+              "threshold": 2
+            }
+          }
+        ],
+        "actors": [
+          {
+            "id": "P1",
+            "definition_id": "example:archer",
+            "side": "players_and_allies",
+            "zone_id": "left"
+          },
+          {
+            "id": "P2",
+            "definition_id": "example:archer",
+            "side": "players_and_allies",
+            "zone_id": "left"
+          },
+          {
+            "id": "A1",
+            "definition_id": "example:archer",
+            "side": "opposition",
+            "zone_id": "right"
+          },
+          {
+            "id": "A2",
+            "definition_id": "example:archer",
+            "side": "opposition",
+            "zone_id": "right"
+          },
+          {
+            "id": "B1",
+            "definition_id": "example:archer",
+            "side": "opposition",
+            "zone_id": "right"
+          }
+        ],
+        "battlefield": {
+          "zone_ids": [
+            "left",
+            "right"
+          ],
+          "connections": [
+            {
+              "first_zone_id": "left",
+              "second_zone_id": "right"
+            }
+          ]
+        },
+        "side_order": [
+          "players_and_allies",
+          "opposition"
+        ],
+        "actor_order": [
+          "P1",
+          "P2",
+          "A1",
+          "A2",
+          "B1"
+        ],
+        "perspective_side": "players_and_allies",
+        "objective_target_ids": [
+          "A1",
+          "A2",
+          "B1"
+        ],
+        "facts": {
+          "target_range": "medium",
+          "has_enemy_in_close_range": false,
+          "targets_aware": true,
+          "clear_line_of_sight": true,
+          "stationary": true,
+          "unmodified_tests": true,
+          "no_additional_rules": true,
+          "ammunition_sufficient": true,
+          "requires_reload_action": false
+        },
+        "repeated_stagger_choice": "suffer_wound",
+        "actor_policies": [
+          {
+            "actor_id": "P1",
+            "targets": [
+              {
+                "target_id": "A1",
+                "disposition": "knocked_out",
+                "gm_approved": true
+              },
+              {
+                "target_id": "A2",
+                "disposition": "knocked_out",
+                "gm_approved": true
+              },
+              {
+                "target_id": "B1",
+                "disposition": "knocked_out",
+                "gm_approved": true
+              }
+            ]
+          },
+          {
+            "actor_id": "P2",
+            "targets": [
+              {
+                "target_id": "A1",
+                "disposition": "knocked_out",
+                "gm_approved": true
+              },
+              {
+                "target_id": "A2",
+                "disposition": "knocked_out",
+                "gm_approved": true
+              },
+              {
+                "target_id": "B1",
+                "disposition": "knocked_out",
+                "gm_approved": true
+              }
+            ]
+          },
+          {
+            "actor_id": "A1",
+            "targets": [
+              {
+                "target_id": "P1",
+                "disposition": "knocked_out",
+                "gm_approved": true
+              },
+              {
+                "target_id": "P2",
+                "disposition": "knocked_out",
+                "gm_approved": true
+              }
+            ]
+          },
+          {
+            "actor_id": "A2",
+            "targets": [
+              {
+                "target_id": "P1",
+                "disposition": "knocked_out",
+                "gm_approved": true
+              },
+              {
+                "target_id": "P2",
+                "disposition": "knocked_out",
+                "gm_approved": true
+              }
+            ]
+          },
+          {
+            "actor_id": "B1",
+            "targets": [
+              {
+                "target_id": "P1",
+                "disposition": "knocked_out",
+                "gm_approved": true
+              },
+              {
+                "target_id": "P2",
+                "disposition": "knocked_out",
+                "gm_approved": true
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "generation": {
+      "groups": [
+        {
+          "group_id": "A",
+          "actor_ids": [
+            "A1",
+            "A2"
+          ],
+          "minimum_count": 0,
+          "maximum_count": 2
+        },
+        {
+          "group_id": "B",
+          "actor_ids": [
+            "B1"
+          ],
+          "minimum_count": 0,
+          "maximum_count": 1
+        }
+      ],
+      "facts": {
+        "target_range": "medium",
+        "has_enemy_in_close_range": false,
+        "targets_aware": true,
+        "clear_line_of_sight": true,
+        "stationary": true,
+        "unmodified_tests": true,
+        "no_additional_rules": true,
+        "ammunition_sufficient": true,
+        "requires_reload_action": false
+      },
+      "candidate_id_prefix": "example",
+      "max_candidates": 5
+    },
+    "evaluation": {
+      "master_seed": "42",
+      "stages": [
+        {
+          "trials_per_candidate": 8,
+          "keep": 3
+        },
+        {
+          "trials_per_candidate": 32,
+          "keep": 2
+        }
+      ],
+      "max_total_trials": 136,
+      "window": {
+        "minimum": {
+          "numerator": 1,
+          "denominator": 4
+        },
+        "target": {
+          "numerator": 1,
+          "denominator": 2
+        },
+        "maximum": {
+          "numerator": 3,
+          "denominator": 4
+        }
+      }
+    },
+    "execution": {
+      "mode": "sequential"
+    }
+  },
+  "seed_scheme": "towr:npc-ranged-trial:v1",
+  "runtime": {
+    "package_version": "0.1.0",
+    "python_implementation": "CPython",
+    "python_version": "3.14.5",
+    "rng": "random.Random"
+  },
+  "candidate_count": 5,
+  "planned_trials": 136,
+  "total_trials": 136,
+  "candidates": [
+    {
+      "candidate_id": "example:counts:0,1",
+      "counts": [
+        0,
+        1
+      ]
+    },
+    {
+      "candidate_id": "example:counts:1,0",
+      "counts": [
+        1,
+        0
+      ]
+    },
+    {
+      "candidate_id": "example:counts:1,1",
+      "counts": [
+        1,
+        1
+      ]
+    },
+    {
+      "candidate_id": "example:counts:2,0",
+      "counts": [
+        2,
+        0
+      ]
+    },
+    {
+      "candidate_id": "example:counts:2,1",
+      "counts": [
+        2,
+        1
+      ]
+    }
+  ],
+  "stage_reports": [
+    {
+      "stage_index": 0,
+      "trials_per_candidate": 8,
+      "keep": 3,
+      "total_trials": 40,
+      "candidates": [
+        {
+          "candidate_id": "example:counts:0,1",
+          "summary": {
+            "trials": 8,
+            "outcome_counts": {
+              "objective_achieved": 8,
+              "side_defeated": 0,
+              "round_limit": 0,
+              "unsupported_path": 0
+            },
+            "total_attack_count": 30,
+            "total_visited_round_count": 15,
+            "mean_attack_count": 3.75,
+            "mean_visited_round_count": 1.875
+          },
+          "rates": {
+            "objective_achieved": {
+              "numerator": 1,
+              "denominator": 1
+            },
+            "side_defeated": {
+              "numerator": 0,
+              "denominator": 1
+            },
+            "round_limit": {
+              "numerator": 0,
+              "denominator": 1
+            },
+            "unsupported_path": {
+              "numerator": 0,
+              "denominator": 1
+            }
+          },
+          "status": "eligible",
+          "window_match": false
+        },
+        {
+          "candidate_id": "example:counts:1,0",
+          "summary": {
+            "trials": 8,
+            "outcome_counts": {
+              "objective_achieved": 8,
+              "side_defeated": 0,
+              "round_limit": 0,
+              "unsupported_path": 0
+            },
+            "total_attack_count": 30,
+            "total_visited_round_count": 15,
+            "mean_attack_count": 3.75,
+            "mean_visited_round_count": 1.875
+          },
+          "rates": {
+            "objective_achieved": {
+              "numerator": 1,
+              "denominator": 1
+            },
+            "side_defeated": {
+              "numerator": 0,
+              "denominator": 1
+            },
+            "round_limit": {
+              "numerator": 0,
+              "denominator": 1
+            },
+            "unsupported_path": {
+              "numerator": 0,
+              "denominator": 1
+            }
+          },
+          "status": "eligible",
+          "window_match": false
+        },
+        {
+          "candidate_id": "example:counts:1,1",
+          "summary": {
+            "trials": 8,
+            "outcome_counts": {
+              "objective_achieved": 2,
+              "side_defeated": 4,
+              "round_limit": 2,
+              "unsupported_path": 0
+            },
+            "total_attack_count": 55,
+            "total_visited_round_count": 19,
+            "mean_attack_count": 6.875,
+            "mean_visited_round_count": 2.375
+          },
+          "rates": {
+            "objective_achieved": {
+              "numerator": 1,
+              "denominator": 4
+            },
+            "side_defeated": {
+              "numerator": 1,
+              "denominator": 2
+            },
+            "round_limit": {
+              "numerator": 1,
+              "denominator": 4
+            },
+            "unsupported_path": {
+              "numerator": 0,
+              "denominator": 1
+            }
+          },
+          "status": "eligible",
+          "window_match": true
+        },
+        {
+          "candidate_id": "example:counts:2,0",
+          "summary": {
+            "trials": 8,
+            "outcome_counts": {
+              "objective_achieved": 2,
+              "side_defeated": 4,
+              "round_limit": 2,
+              "unsupported_path": 0
+            },
+            "total_attack_count": 55,
+            "total_visited_round_count": 19,
+            "mean_attack_count": 6.875,
+            "mean_visited_round_count": 2.375
+          },
+          "rates": {
+            "objective_achieved": {
+              "numerator": 1,
+              "denominator": 4
+            },
+            "side_defeated": {
+              "numerator": 1,
+              "denominator": 2
+            },
+            "round_limit": {
+              "numerator": 1,
+              "denominator": 4
+            },
+            "unsupported_path": {
+              "numerator": 0,
+              "denominator": 1
+            }
+          },
+          "status": "eligible",
+          "window_match": true
+        },
+        {
+          "candidate_id": "example:counts:2,1",
+          "summary": {
+            "trials": 8,
+            "outcome_counts": {
+              "objective_achieved": 0,
+              "side_defeated": 6,
+              "round_limit": 2,
+              "unsupported_path": 0
+            },
+            "total_attack_count": 64,
+            "total_visited_round_count": 17,
+            "mean_attack_count": 8.0,
+            "mean_visited_round_count": 2.125
+          },
+          "rates": {
+            "objective_achieved": {
+              "numerator": 0,
+              "denominator": 1
+            },
+            "side_defeated": {
+              "numerator": 3,
+              "denominator": 4
+            },
+            "round_limit": {
+              "numerator": 1,
+              "denominator": 4
+            },
+            "unsupported_path": {
+              "numerator": 0,
+              "denominator": 1
+            }
+          },
+          "status": "eligible",
+          "window_match": false
+        }
+      ],
+      "selected_candidate_ids": [
+        "example:counts:1,1",
+        "example:counts:2,0"
+      ],
+      "continuation_candidate_ids": [
+        "example:counts:0,1",
+        "example:counts:1,1",
+        "example:counts:2,0"
+      ]
+    },
+    {
+      "stage_index": 1,
+      "trials_per_candidate": 32,
+      "keep": 2,
+      "total_trials": 96,
+      "candidates": [
+        {
+          "candidate_id": "example:counts:0,1",
+          "summary": {
+            "trials": 32,
+            "outcome_counts": {
+              "objective_achieved": 31,
+              "side_defeated": 0,
+              "round_limit": 1,
+              "unsupported_path": 0
+            },
+            "total_attack_count": 119,
+            "total_visited_round_count": 56,
+            "mean_attack_count": 3.71875,
+            "mean_visited_round_count": 1.75
+          },
+          "rates": {
+            "objective_achieved": {
+              "numerator": 31,
+              "denominator": 32
+            },
+            "side_defeated": {
+              "numerator": 0,
+              "denominator": 1
+            },
+            "round_limit": {
+              "numerator": 1,
+              "denominator": 32
+            },
+            "unsupported_path": {
+              "numerator": 0,
+              "denominator": 1
+            }
+          },
+          "status": "eligible",
+          "window_match": false
+        },
+        {
+          "candidate_id": "example:counts:1,1",
+          "summary": {
+            "trials": 32,
+            "outcome_counts": {
+              "objective_achieved": 13,
+              "side_defeated": 9,
+              "round_limit": 10,
+              "unsupported_path": 0
+            },
+            "total_attack_count": 236,
+            "total_visited_round_count": 84,
+            "mean_attack_count": 7.375,
+            "mean_visited_round_count": 2.625
+          },
+          "rates": {
+            "objective_achieved": {
+              "numerator": 13,
+              "denominator": 32
+            },
+            "side_defeated": {
+              "numerator": 9,
+              "denominator": 32
+            },
+            "round_limit": {
+              "numerator": 5,
+              "denominator": 16
+            },
+            "unsupported_path": {
+              "numerator": 0,
+              "denominator": 1
+            }
+          },
+          "status": "eligible",
+          "window_match": true
+        },
+        {
+          "candidate_id": "example:counts:2,0",
+          "summary": {
+            "trials": 32,
+            "outcome_counts": {
+              "objective_achieved": 13,
+              "side_defeated": 9,
+              "round_limit": 10,
+              "unsupported_path": 0
+            },
+            "total_attack_count": 236,
+            "total_visited_round_count": 84,
+            "mean_attack_count": 7.375,
+            "mean_visited_round_count": 2.625
+          },
+          "rates": {
+            "objective_achieved": {
+              "numerator": 13,
+              "denominator": 32
+            },
+            "side_defeated": {
+              "numerator": 9,
+              "denominator": 32
+            },
+            "round_limit": {
+              "numerator": 5,
+              "denominator": 16
+            },
+            "unsupported_path": {
+              "numerator": 0,
+              "denominator": 1
+            }
+          },
+          "status": "eligible",
+          "window_match": true
+        }
+      ],
+      "selected_candidate_ids": [
+        "example:counts:1,1",
+        "example:counts:2,0"
+      ],
+      "continuation_candidate_ids": []
+    }
+  ],
+  "status": "completed",
+  "selected_candidate_ids": [
+    "example:counts:1,1",
+    "example:counts:2,0"
+  ]
+}
