@@ -1,8 +1,8 @@
 # M7: контракт смешанного боя
 
-[ADR-0028](../../decisions/ADR-0028-mixed-minion-scenario.md) описывает отдельный неподвижный numeric Minion-сценарий с Melee/Close и Shooting/Medium. Production-вход и полный исполнитель пока не реализованы.
+[ADR-0028](../../decisions/ADR-0028-mixed-minion-scenario.md) описывает отдельный неподвижный numeric Minion-сценарий с Melee/Close и Shooting/Medium. Production-вход реализован; полный mixed-исполнитель пока не реализован.
 
-[mixed_contract_probe.py](mixed_contract_probe.py) проверяет совместимость existing public K1/M2 APIs на трёх фиксированных примерах. Он явно задаёт пары/дальности, осведомлённость, видимость, отсутствие применимых дополнительных правил, решения GM и недоступность отхода. Close не вычисляется по общей Zone.
+[mixed_contract_probe.py](mixed_contract_probe.py) проверяет совместимость existing public K1/M2 APIs на трёх фиксированных примерах. Оба fixture сначала проходят NpcMixedScenario admission. Пример явно задаёт пары/дальности, осведомлённость, видимость, отсутствие применимых дополнительных правил, решения GM и недоступность отхода. Close не вычисляется по общей Zone.
 
 ```powershell
 $env:PYTHONPATH = "src"
@@ -13,4 +13,4 @@ $env:PYTHONPATH = "src"
 
 Источники: BOOK-PLAYER-GUIDE 1.4, Equipment / Ranged Weapons, стр. 94; Rules / Range, стр. 114; Attack Tests / Failed Attacks / Attack Modifiers, стр. 118–119. BOOK-GM-GUIDE 1.1, Allies and Antagonists / Minions, стр. 91; Understanding NPC Profiles, стр. 93; Brigands & Footpads, стр. 97. Используются числовые проекции Footpad Dagger и Brigand Warbow; полный Brigand Melee с Craven Opportunist не поддержан.
 
-Probe не является валидатором arbitrary input, не запускает полный battle loop и не доказывает ещё не реализованные mixed result/source guards. Следующий срез — typed admission и детерминированные проверки его границ.
+Probe передаёт два фиксированных fixture production admission, затем исполняет прежнюю композицию K1/M2. Он не запускает полный mixed battle loop и не доказывает ещё не реализованные mixed result/source guards. Следующий срез — provider/result/runner. Все 25 проверок входа находятся в tests/unit/test_m7_npc_mixed_scenario.py.

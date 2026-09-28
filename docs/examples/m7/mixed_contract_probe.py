@@ -1,4 +1,4 @@
-"""ADR-0028 feasibility only: public K1/M2 APIs, not mixed admission/runner.
+"""ADR-0028 admission and public K1/M2 composition, not a mixed scenario runner.
 
 Authored fixtures assert awareness, LOS, stationary positions, no extra rules,
 ordinary outnumbering approved and no available escape. Pair ranges are explicit.
@@ -7,15 +7,18 @@ PG1.4 Equipment p94; Rules pp114,118-119; GM1.1 NPC profiles pp91,93,97.
 from dataclasses import dataclass, replace
 
 from towr.domain.attack_models import DamageProfile, ResilienceProfile
-from towr.domain.condition_models import Condition
+from towr.domain.condition_models import Condition, StaggerChoice
 from towr.domain.injury_models import ProfileInjuryState
 from towr.domain.minion_defeat_models import MinionDefeatAcknowledgementRequest, MinionDefeatDecision, NpcDefeatDisposition
 from towr.domain.npc_attack_preparation_models import NpcAttackProfile
 from towr.domain.npc_attack_selection_models import NpcAttackCandidate, NpcAttackSelectionBlock, NpcAttackSelectionRequest, NpcAttackSelectionResult
+from towr.domain.npc_mixed_scenario_models import NpcMixedActorPolicy, NpcMixedPairRange, NpcMixedScenario, NpcMixedScenarioFacts
+from towr.domain.npc_objective_models import NpcDefeatObjective
 from towr.domain.npc_roster_attack_models import NpcRosterAttackExecutionResult, NpcRosterAttackState
 from towr.domain.npc_roster_models import NpcDefinition, NpcParticipantSnapshot, NpcParticipantState, NpcProtectionProfile, NpcRoster
 from towr.domain.npc_round_exclusion_models import NpcRoundExclusionRequest
 from towr.domain.npc_round_models import NpcRoundOutcome, NpcRoundRequest
+from towr.domain.npc_rounds_models import NpcRoundsRequest
 from towr.domain.ranged_weapon_profiles import RangedWeaponHands as Hands, RangedWeaponRange as Range
 from towr.domain.resolution_models import TargetInjuryPolicy
 from towr.domain.spatial_models import SpatialBattleState, SpatialEntityPlacement, ZoneConnection, ZoneGraph
@@ -79,6 +82,28 @@ def initial(*, blocked=False):
     return request, FixtureCandidates(spatial, pairs)
 
 
+def admitted_fixture(*, blocked=False):
+    request, provider = initial(blocked=blocked)
+    actors = request.state.roster.participants
+    policies = tuple(NpcMixedActorPolicy(
+        actor.state.actor_id,
+        tuple(target.state.actor_id for target in actors if target.state.side is not actor.state.side),
+        tuple(MinionDefeatDecision(actor.state.actor_id, target.state.actor_id,
+                                  NpcDefeatDisposition.KNOCKED_OUT, True)
+              for target in actors if target.state.side is not actor.state.side),
+        outnumbering_bonus_approved=True, can_leave_zone=False,
+    ) for actor in actors)
+    scenario = NpcMixedScenario(
+        NpcRoundsRequest(request, provider.spatial, 2),
+        NpcMixedScenarioFacts(True, True, True, True, True, True, True, True, True, False),
+        tuple(NpcMixedPairRange(*pair) for pair in provider.pairs), policies,
+        StaggerChoice.SUFFER_WOUND, CombatSide.PLAYERS_AND_ALLIES,
+        NpcDefeatObjective(tuple(actor.state.actor_id for actor in actors
+                                if actor.state.side is CombatSide.OPPOSITION)),
+    )
+    return scenario, provider
+
+
 @dataclass(frozen=True)
 class FixtureCandidates:
     spatial: SpatialBattleState
@@ -133,7 +158,8 @@ def attacks(report):
 
 
 def main():
-    source, provider = initial()
+    admitted, provider = admitted_fixture()
+    source = admitted.initial.current
     rng = FixedDice((1, 2, 3, 10, 10, 10, 1, 2, 3, 10, 10, 10, 10))
     shot = run_npc_round(source, provider, rng)
     first, = attacks(shot)
@@ -158,7 +184,8 @@ def main():
     assert all(not p.state.injury.conditions.conditions for p in source.state.roster.participants)
     print('Five misses: only four Close attackers Staggered; remote ally does not give local outnumbering')
 
-    source, provider = initial(blocked=True)
+    admitted, provider = admitted_fixture(blocked=True)
+    source = admitted.initial.current
     rng = FixedDice((1, 2, 3, 10, 10, 10))
     shot = run_npc_round(source, provider, rng)
     first, = attacks(shot)
@@ -169,7 +196,7 @@ def main():
     assert selection.blocked_reason is NpcAttackSelectionBlock.NO_CANDIDATE
     assert rng.calls == 6 and not stopped.round_state.active_turn.action_slots[0].executed
     print('After the only Close enemy falls: NO_CANDIDATE; slot unexecuted; no wait/move/extra RNG')
-    print('Probe only: mixed admission, autonomous runner and result validation are not implemented')
+    print('Both fixtures passed production mixed admission; autonomous runner/result validation not implemented')
 
 
 if __name__ == '__main__':

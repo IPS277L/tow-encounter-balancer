@@ -1,6 +1,6 @@
 # ADR-0028: неподвижный смешанный бой Minions
 
-Статус: принято, 2026-09-29. **Контракт и проверочный пример; production mixed admission/provider/runner/result ещё не реализованы.** Пользователь выбрал смешанный дальний и ближний бой после закрытия ADR-0027. Это следующий этап M7; существующие ranged/Melee APIs и wire v1 сохраняют свои границы.
+Статус: принято, 2026-09-29. **Production mixed admission реализован и проверен; provider/runner/result ещё не реализованы.** Пользователь выбрал смешанный дальний и ближний бой после закрытия ADR-0027. Это следующий этап M7; существующие ranged/Melee APIs и wire v1 сохраняют свои границы.
 
 ## Источники
 
@@ -88,3 +88,11 @@ Pure projection `mixed_scenario_candidates(scenario, context, spatial)` пров
 После аудита отдельно определяются независимые прогоны/summary/process, balance/generation и mixed JSON/CLI. Не переносить автоматически старые seed scheme, wire kinds или admissibility на новый бой. Текущий этап не добавляет движение, переключение оружия, новый scheduler, общий battle aggregate, универсальную систему правил, auto awareness/GM approval или новый пресет сложности. Подтверждённая метрика цели за лимит остаётся ориентиром для будущего агрегирования, но сам агрегатор этим ADR не реализуется.
 
 Проверка контрактного среза: три сценария probe успешны; 78 существующих K1/M2/M6 tests OK (0,161 с), compileall примера, 1509 локальных Markdown-путей и diff --check успешны. Windows/Python 3.14.5. Production src/tests не менялись; полный набор повторно не запускался (последняя полная проверка 2298 OK). Точные команды — в статусе проекта.
+
+## Реализация первого среза
+
+[Четыре модели](../../src/towr/domain/npc_mixed_scenario_models.py) реализованы. Конструкторы проверяют весь admission без RNG/исполнения, копируют ordered sequences в tuple и сохраняют sources. `policy_for(actor_id)` возвращает исходную policy; `range_for(first_actor_id, second_actor_id)` читает supplied дальность в обоих направлениях. Unknown/self/friendly lookup отвергается, исходный порядок и направление pair records не нормализуются. Никаких cached mutable maps в состоянии нет.
+
+[25 unit tests](../../tests/unit/test_m7_npc_mixed_scenario.py) покрывают valid 2×1/3×2/2×2, обе perspective, dispositions и bool policies, неизменяемость/порядки, fresh guards, обе роли, numeric profile границы, Athletics-only, все enemy pairs, начальную доступность и запрет bow при любом Close-враге. Более ранняя недоступная цель остаётся в полной policy; дальнейший выбор доступной цели относится к provider. Оба fixture [probe](../examples/m7/mixed_contract_probe.py) теперь сначала строят production NpcMixedScenario, затем проверяют прежнюю композицию public K1/M2. Mixed provider/result/runner ещё не реализованы; следующий срез указан в roadmap/status.
+
+Проверка первого implementation-среза: 25 новых tests OK; полный набор **2323 tests OK (249,411 с)**, Windows/Python 3.14.5. Оба production-admitted fixture и три сценария probe успешны; compileall, 1515 локальных Markdown-путей, diff --check и whitespace новых файлов успешны. Исходное дерево было чистым. Commit/push не выполнялись.
