@@ -265,3 +265,7 @@
 | Правила / граница | Источники | Реализация | Проверки | Ограничение |
 | --- | --- | --- | --- | --- |
 | RULE-NPC-002/006/007; RULE-COMBAT-001; Staggered; technical scenario outcome | BOOK-PLAYER-GUIDE 1.4, Rules / Combat, стр. 112; Attack Tests, стр. 118–119; Staggered, стр. 123; BOOK-GM-GUIDE 1.1, Allies and Antagonists / Minions, стр. 91; Understanding NPC Profiles, стр. 93 | npc_ranged_scenario_runner.py; npc_ranged_scenario_result_models.py | test_m2_npc_ranged_scenario_runner.py — 10 unit; test_m2_npc_ranged_scenario_cycle.py — 8 integration | Однократные Attack/ack/exclusion, supplied policies, terminal suffix, общий бюджет; без recovery, общего aggregate или новых правил |
+
+## M3: техническое повторение сценария
+
+M3 не вводит новых Rule IDs. simulation/npc_ranged_models.py и npc_ranged_simulation.py повторяют existing NpcRangedScenario и сохраняют четыре outcome, Attack count и visited rounds. Нормативная семантика — BOOK-PLAYER-GUIDE 1.4, Rules / Combat, стр. 112; BOOK-GM-GUIDE 1.1, Allies and Antagonists / Minions, стр. 91. Seed/index и агрегаты определены в [ADR-0014](decisions/ADR-0014-independent-ranged-simulations.md). Проверки: test_m3_npc_ranged_simulation.py в unit (8) и integration (3); ошибки не становятся игровыми результатами, полные журналы не включаются в compact records.

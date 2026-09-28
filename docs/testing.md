@@ -408,3 +408,7 @@ py -3.12 -m unittest discover -s tests -v
 - успешный и неуспешный Endurance с Condition либо внешним consequence;
 - обе ветви обязательного выбора `Spilling guts`;
 - сквозная фиксация `WoundEffectResult` в результате kernel.
+
+## Первый M3
+
+8 unit tests в test_m3_npc_ranged_simulation.py и 3 integration tests с тем же именем: versioned seed golden vectors, input/index guards до RNG, четыре исхода, точные counters на заданных d10, source guards/errors, replay, обратный порядок и расширение пакета, отдельные RNG и отсутствие воздействия на global random state. Число бросков одного trial не сдвигает другой. Проценты Monte Carlo не фиксируются. Полный набор 1780 tests OK на Python 3.14; фактический multiprocessing не проверялся. [Контракт](decisions/ADR-0014-independent-ranged-simulations.md).

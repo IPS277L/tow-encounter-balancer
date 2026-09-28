@@ -55,7 +55,7 @@ R1 завершён; round/side/turn state, базовый action budget, обы
 
 ## M3 — массовая симуляция
 
-Следующий срез: последовательные независимые прогоны NpcRangedScenario с master seed/index и typed агрегатами четырёх исходов. Лимит и unsupported считаются отдельно от terminal outcomes. RNG каждого trial независим; параллелизм и профилирование пока не добавляются.
+Первый срез реализован: последовательные независимые прогоны NpcRangedScenario, versioned master seed/index, compact records и typed агрегаты четырёх исходов, Attack и visited rounds. Воспроизводимость проверена при обратном порядке и изменении размера пакета; реальный параллелизм ещё не реализован. [ADR-0014](decisions/ADR-0014-independent-ranged-simulations.md), 1780 tests OK. Следующий срез — воспроизводимый benchmark/profiling baseline перед выбором оптимизаций или параллелизма.
 
 - независимые seed для прогонов;
 - агрегированные метрики;
