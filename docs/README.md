@@ -23,6 +23,7 @@
 - [`decisions/ADR-0016-ranged-simulation-json-v1.md`](decisions/ADR-0016-ranged-simulation-json-v1.md) — Schema/pure adapters JSON v1, application service, typed errors и CLI simulate;
 - [`decisions/ADR-0017-ranged-candidate-assessment.md`](decisions/ADR-0017-ranged-candidate-assessment.md) — aggregate-only summary, single-candidate assessment и реализованный bounded M5 evaluator с бюджетом/top_k;
 - [`decisions/ADR-0018-staged-ranged-evaluation.md`](decisions/ADR-0018-staged-ranged-evaluation.md) — реализованная поэтапная оценка: промежуточный отбор, повторные пакеты, бюджет и цепочка reports;
+- [`decisions/ADR-0019-ranged-composition-generation.md`](decisions/ADR-0019-ranged-composition-generation.md) — реализованный генератор численности по явному резерву: profiles/context, составы, IDs, admission и бюджет;
 - [`../src/towr/adapters/schemas/`](../src/towr/adapters/schemas/) — packaged JSON Schema request/result/error Draft 2020-12;
 - [`examples/m4/README.md`](examples/m4/README.md) — примерные JSON request/result, проверенные через существующие typed APIs;
 - [`decisions/`](decisions/) — журнал архитектурных решений;

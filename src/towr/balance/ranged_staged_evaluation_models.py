@@ -21,6 +21,24 @@ class RangedBalanceStage:
             raise ValueError("stage keep must be a positive integer")
 
 
+def _validate_stages(stages: tuple[RangedBalanceStage, ...]) -> None:
+    if not stages:
+        raise ValueError("staged evaluation requires at least one stage")
+    if not all(isinstance(stage, RangedBalanceStage) for stage in stages):
+        raise TypeError("staged evaluation requires typed stages")
+    if any(right.trials_per_candidate <= left.trials_per_candidate for left, right in zip(stages, stages[1:])):
+        raise ValueError("stage trials must strictly increase")
+
+
+def _planned_trials(candidate_count: int, stages: tuple[RangedBalanceStage, ...]) -> int:
+    """Count complete reruns for an already validated non-empty candidate family."""
+    total = 0
+    for stage in stages:
+        total += candidate_count * stage.trials_per_candidate
+        candidate_count = min(candidate_count, stage.keep)
+    return total
+
+
 @dataclass(frozen=True, slots=True)
 class RangedStagedEvaluationRequest:
     candidates: tuple[RangedBalanceCandidate, ...]
@@ -32,12 +50,7 @@ class RangedStagedEvaluationRequest:
     def __post_init__(self) -> None:
         candidates = tuple(self.candidates)
         stages = tuple(self.stages)
-        if not stages:
-            raise ValueError("staged evaluation requires at least one stage")
-        if not all(isinstance(stage, RangedBalanceStage) for stage in stages):
-            raise TypeError("staged evaluation requires typed stages")
-        if any(right.trials_per_candidate <= left.trials_per_candidate for left, right in zip(stages, stages[1:])):
-            raise ValueError("stage trials must strictly increase")
+        _validate_stages(stages)
         if type(self.max_total_trials) is not int or self.max_total_trials < 1:
             raise ValueError("max_total_trials must be a positive integer")
         object.__setattr__(self, "candidates", candidates)
@@ -49,12 +62,7 @@ class RangedStagedEvaluationRequest:
 
     @property
     def planned_trials(self) -> int:
-        count = len(self.candidates)
-        total = 0
-        for stage in self.stages:
-            total += count * stage.trials_per_candidate
-            count = min(count, stage.keep)
-        return total
+        return _planned_trials(len(self.candidates), self.stages)
 
 
 def _stage_request(

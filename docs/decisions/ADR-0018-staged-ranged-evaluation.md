@@ -87,6 +87,8 @@ RangedBalanceEvaluationError оборачивается в RangedStagedEvaluatio
 
 14 [model tests](../../tests/unit/test_m5_ranged_staged_evaluation.py) покрывают примеры и бюджеты 240/140/40, точные ties и float-collapse, 1–3 этапа, рост keep без возврата кандидатов, ROUND_LIMIT, preflight, frozen/replace, source/order/chain guards и отсутствие records. 7 [service tests](../../tests/unit/test_m5_ranged_staged_evaluation_service.py) проверяют exact requests/options, полные повторные пакеты с index 0, раннюю остановку, продолжение outside-window, сбой второго этапа с полной cause/notes chain, чужой report до следующего вызова и interrupts. 2 [integration tests](../../tests/integration/test_m5_ranged_staged_evaluation.py) сравнивают реальные sequential/process отчёты, переименование IDs и pool startup failure без fallback. Конкретная Monte Carlo-вероятность не ожидается.
 
-Следующий шаг — контракт ограниченной генерации составов из явно заданных Minion-профилей и ограничений численности; характеристики профилей автоматически не меняются.
+Генератор численности по [ADR-0019](ADR-0019-ranged-composition-generation.md) реализован: явный резерв участников, неизменные профили/решения, предел составов и полный staged budget. Следующий шаг — сквозной аудит первого M5 и воспроизводимый пример генерации → поэтапной оценки.
 
 Проверка реализации: **1899 tests OK**, Python 3.14.5, 51,479 с; compileall/pip check/diff check успешны. На старте уже имелись незакоммиченные изменения документации и этот ADR; они сохранены. Domain/engine/simulation, bounded evaluator и M4 не менялись. Prefix reuse, performance gains, генерация составов и CLI balance не заявляются.
+
+При реализации ADR-0019 stage admission и расчёт planned_trials выделены в общие внутренние _validate_stages/_planned_trials того же models-модуля. Это переиспользование прежних guards/формулы при preflight ещё не материализованного семейства; публичный staged API и исполнение не изменены.
