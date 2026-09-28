@@ -1,4 +1,4 @@
-"""Local command-line adapter for admitted simulations and ranged balance."""
+"""Local command-line adapter for admitted ranged and Melee encounters."""
 import argparse
 import os
 from pathlib import Path
@@ -18,12 +18,17 @@ from towr.adapters.ranged_balance_json import (
 from towr.adapters.ranged_balance_json_errors import RangedBalanceInputError
 from towr.application.ranged_balance_errors import RangedBalanceGenerationError, RangedBalanceExecutionError
 from towr.application.ranged_balance_service import execute_ranged_balance
-from towr.adapters.melee_json_errors import MeleeSimulationInputError
+from towr.adapters.melee_json_errors import MeleeSimulationInputError, MeleeBalanceInputError
 from towr.adapters.melee_simulation_json import (
     encode_melee_simulation_error, encode_melee_simulation_result, parse_melee_simulation_request,
 )
 from towr.application.melee_simulation_errors import MeleeSimulationExecutionError
 from towr.application.melee_simulation_service import execute_melee_simulation
+from towr.adapters.melee_balance_json import (
+    encode_melee_balance_error, encode_melee_balance_result, parse_melee_balance_request,
+)
+from towr.application.melee_balance_errors import MeleeBalanceGenerationError, MeleeBalanceExecutionError
+from towr.application.melee_balance_service import execute_melee_balance
 
 
 def _diagnose(message: str) -> bool:
@@ -48,7 +53,7 @@ def _silence_failed_stream(stream: TextIO) -> None:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(prog="towr", description="Simulate TOWR Minion encounters or balance a ranged encounter.")
+    parser = argparse.ArgumentParser(prog="towr", description="Simulate or balance TOWR Minion encounters.")
     commands = parser.add_subparsers(dest="command", required=True)
     simulate = commands.add_parser("simulate", help="execute a JSON v1 request")
     simulate.add_argument("input", metavar="INPUT", help="UTF-8 JSON file, or - for stdin")
@@ -56,6 +61,8 @@ def main(argv: list[str] | None = None) -> int:
     balance.add_argument("input", metavar="INPUT", help="UTF-8 JSON file, or - for stdin")
     melee = commands.add_parser("simulate-melee", help="execute a Melee JSON v1 request")
     melee.add_argument("input", metavar="INPUT", help="UTF-8 JSON file, or - for stdin")
+    melee_balance = commands.add_parser("balance-melee", help="generate and evaluate a Melee JSON balance v1 request")
+    melee_balance.add_argument("input", metavar="INPUT", help="UTF-8 JSON file, or - for stdin")
     args = parser.parse_args(argv)
 
     if args.command == "balance":
@@ -66,6 +73,10 @@ def main(argv: list[str] | None = None) -> int:
         parse, execute, encode = parse_melee_simulation_request, execute_melee_simulation, encode_melee_simulation_result
         encode_error, input_error = encode_melee_simulation_error, MeleeSimulationInputError
         execution_errors = (MeleeSimulationExecutionError,)
+    elif args.command == "balance-melee":
+        parse, execute, encode = parse_melee_balance_request, execute_melee_balance, encode_melee_balance_result
+        encode_error, input_error = encode_melee_balance_error, MeleeBalanceInputError
+        execution_errors = (MeleeBalanceGenerationError, MeleeBalanceExecutionError)
     else:
         parse, execute, encode = parse_ranged_simulation_request, execute_ranged_simulation, encode_ranged_simulation_result
         encode_error, input_error = encode_ranged_simulation_error, RangedSimulationInputError
@@ -87,7 +98,7 @@ def main(argv: list[str] | None = None) -> int:
         status = 2
     except execution_errors as error:
         output = encode_error(error)
-        code = "generation_failed" if isinstance(error, RangedBalanceGenerationError) else "execution_failed"
+        code = "generation_failed" if isinstance(error, (RangedBalanceGenerationError, MeleeBalanceGenerationError)) else "execution_failed"
         diagnostic = f"{code}: {error}"
         status = 3
     else:

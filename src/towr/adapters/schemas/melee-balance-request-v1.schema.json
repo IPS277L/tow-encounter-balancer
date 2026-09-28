@@ -1,0 +1,197 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:towr:melee-balance:request:1",
+  "$comment": "Structural contract. Strict tokens, source chains and derived values are checked by typed adapters.",
+  "type": "object",
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "1"
+    },
+    "kind": {
+      "type": "string",
+      "const": "npc_melee_balance"
+    },
+    "ruleset": {
+      "type": "string",
+      "const": "towr-pg1.4-gmg1.1"
+    },
+    "request_id": {
+      "$ref": "urn:towr:melee-simulation:request:1#/$defs/id"
+    },
+    "reserve": {
+      "type": "object",
+      "properties": {
+        "initial_request_id": {
+          "$ref": "urn:towr:melee-simulation:request:1#/$defs/id"
+        },
+        "round_budget": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "scenario": {
+          "$ref": "urn:towr:melee-simulation:request:1#/properties/scenario"
+        }
+      },
+      "required": [
+        "initial_request_id",
+        "round_budget",
+        "scenario"
+      ],
+      "additionalProperties": false
+    },
+    "generation": {
+      "type": "object",
+      "properties": {
+        "groups": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "group_id": {
+                "$ref": "urn:towr:melee-simulation:request:1#/$defs/id"
+              },
+              "actor_ids": {
+                "type": "array",
+                "items": {
+                  "$ref": "urn:towr:melee-simulation:request:1#/$defs/id"
+                },
+                "minItems": 1,
+                "uniqueItems": true
+              },
+              "minimum_count": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "maximum_count": {
+                "type": "integer",
+                "minimum": 0
+              }
+            },
+            "required": [
+              "group_id",
+              "actor_ids",
+              "minimum_count",
+              "maximum_count"
+            ],
+            "additionalProperties": false
+          },
+          "minItems": 1
+        },
+        "facts": {
+          "$ref": "urn:towr:melee-simulation:request:1#/properties/scenario/properties/facts"
+        },
+        "candidate_id_prefix": {
+          "$ref": "urn:towr:melee-simulation:request:1#/$defs/id"
+        },
+        "max_candidates": {
+          "type": "integer",
+          "minimum": 1
+        }
+      },
+      "required": [
+        "groups",
+        "facts",
+        "candidate_id_prefix",
+        "max_candidates"
+      ],
+      "additionalProperties": false
+    },
+    "evaluation": {
+      "type": "object",
+      "properties": {
+        "master_seed": {
+          "$ref": "urn:towr:ranged-simulation:request:1#/properties/simulation/properties/master_seed"
+        },
+        "stages": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "trials_per_candidate": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 18446744073709551615
+              },
+              "keep": {
+                "type": "integer",
+                "minimum": 1
+              }
+            },
+            "required": [
+              "trials_per_candidate",
+              "keep"
+            ],
+            "additionalProperties": false
+          },
+          "minItems": 1
+        },
+        "max_total_trials": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "window": {
+          "type": "object",
+          "properties": {
+            "minimum": {
+              "$ref": "#/$defs/fraction"
+            },
+            "target": {
+              "$ref": "#/$defs/fraction"
+            },
+            "maximum": {
+              "$ref": "#/$defs/fraction"
+            }
+          },
+          "required": [
+            "minimum",
+            "target",
+            "maximum"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "master_seed",
+        "stages",
+        "max_total_trials",
+        "window"
+      ],
+      "additionalProperties": false
+    },
+    "execution": {
+      "$ref": "urn:towr:ranged-simulation:request:1#/properties/execution"
+    }
+  },
+  "required": [
+    "schema_version",
+    "kind",
+    "ruleset",
+    "request_id",
+    "reserve",
+    "generation",
+    "evaluation",
+    "execution"
+  ],
+  "additionalProperties": false,
+  "$defs": {
+    "fraction": {
+      "type": "object",
+      "properties": {
+        "numerator": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "denominator": {
+          "type": "integer",
+          "minimum": 1
+        }
+      },
+      "required": [
+        "numerator",
+        "denominator"
+      ],
+      "additionalProperties": false
+    }
+  }
+}

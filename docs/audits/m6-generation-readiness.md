@@ -50,4 +50,4 @@ Source guards доказывают структурную согласованн
 
 Пользователь выбрал следующий этап: **JSON/CLI для Melee**. [ADR-0027](../decisions/ADR-0027-melee-json-cli-v1.md) внешней границы simulation и balance подготовлен: версии/discriminators и команды, явные numeric scenarios/reserve/facts/GM policies, execution options/seed/stages/budget, aggregate/staged outputs и typed errors, Schema/adapters/application/CLI boundaries и матрица допустимых/отклоняемых примеров. Сначала контракт, затем отдельные реализации. Существующие ranged v1 wire/CLI сохраняются; новых боевых правил, автоматических approvals, каталога или universal rules engine этот этап не добавляет.
 
-Продолжение: контракт JSON/CLI ADR-0027 проверен конечным mapping probe поверх existing APIs; production wire ещё не реализован. Следующий срез — Melee simulation Schema/command и pure adapters. Это не расширяет вывод данного аудита на JSON/CLI.
+Продолжение: production Melee JSON/CLI реализован и отдельно закрыт [аудитом внешней границы](m6-external-readiness.md). Вывод настоящего аудита по-прежнему относится к typed генерации.

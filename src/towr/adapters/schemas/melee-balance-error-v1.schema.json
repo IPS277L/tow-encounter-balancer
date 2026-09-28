@@ -1,0 +1,164 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:towr:melee-balance:error:1",
+  "$comment": "Structural contract. Strict tokens, source chains and derived values are checked by typed adapters.",
+  "type": "object",
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "1"
+    },
+    "kind": {
+      "type": "string",
+      "const": "melee_balance_error"
+    },
+    "request_id": {
+      "anyOf": [
+        {
+          "$ref": "urn:towr:melee-simulation:request:1#/$defs/id"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "error": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "enum": [
+            "invalid_json",
+            "unsupported_version",
+            "invalid_input",
+            "generation_failed",
+            "execution_failed"
+          ]
+        },
+        "path": {
+          "$ref": "urn:towr:melee-simulation:error:1#/properties/error/properties/path"
+        },
+        "message": {
+          "$ref": "urn:towr:melee-simulation:request:1#/$defs/id"
+        },
+        "candidate_id": {
+          "anyOf": [
+            {
+              "$ref": "urn:towr:melee-simulation:request:1#/$defs/id"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "counts": {
+          "anyOf": [
+            {
+              "type": "array",
+              "items": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "minItems": 1
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "stage_index": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "code",
+        "path",
+        "message",
+        "candidate_id",
+        "counts",
+        "stage_index"
+      ],
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "code": {
+                "enum": [
+                  "invalid_json",
+                  "unsupported_version",
+                  "invalid_input"
+                ]
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "candidate_id": {
+                "type": "null"
+              },
+              "counts": {
+                "type": "null"
+              },
+              "stage_index": {
+                "type": "null"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "code": {
+                "const": "generation_failed"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "path": {
+                "type": "null"
+              },
+              "stage_index": {
+                "type": "null"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "code": {
+                "const": "execution_failed"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "path": {
+                "type": "null"
+              },
+              "counts": {
+                "type": "null"
+              }
+            }
+          }
+        }
+      ]
+    }
+  },
+  "required": [
+    "schema_version",
+    "kind",
+    "request_id",
+    "error"
+  ],
+  "additionalProperties": false
+}

@@ -13,3 +13,7 @@ class MeleeInputError(ValueError):
 
 class MeleeSimulationInputError(MeleeInputError):
     pass
+
+
+class MeleeBalanceInputError(MeleeInputError):
+    pass
