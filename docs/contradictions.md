@@ -278,3 +278,9 @@ NPC Attack preparation (2026-09-27) не вводит house rules: примен�
 2026-09-28 — однократная Minion defeat continuation не меняет RULE-NPC-002: BOOK-GM-GUIDE 1.1, Allies and Antagonists / Minions, стр. 91 прямо перепроверена. Сохранены явные GM decisions, full source и replay guards; новое внутреннее поле хранит прежнюю проекцию. Новых rulings/противоречий нет.
 
 2026-09-28 — ADR-0023 не вводит игровых rulings: PG1.4 Rules / Combat (112), GM1.1 Allies and Antagonists / Minions (91) напрямую сверены. Worker использует existing Melee trial и scenario outcome после terminal suffix. Пустая подмена candidates остаётся source error, не тестовым способом получить допустимый unsupported. Контракт backend не означает изменения метрики или automatic awareness/GM decisions.
+
+2026-09-28 — production Melee process backend по ADR-0023 сохраняет existing trial/terminal suffix. PG1.4 Rules / Combat, стр. 112 и GM1.1 Allies and Antagonists / Minions, стр. 91 прямо перечитаны. Новых расхождений нет; source-consistent test-only controller stop проверяет unsupported отдельно от exception.
+
+2026-09-28 — Melee process benchmark сохраняет RULE-PROFILE-TALABEC-005/RULE-COMBAT-009 и прежний допуск. Напрямую проверены GM1.1 Allies and Antagonists / Footpad, стр. 97 и PG1.4 Rules / Attack Modifiers, стр. 119. Производительность не меняет игровых исходов/метрики; новых расхождений и house rules нет.
+
+2026-09-28 — [аудит массового Melee M6](audits/m6-simulation-readiness.md): противоречий текущей simulation/summary границы ADR-0022/0023 с прямо перечитанными PG1.4 Rules, стр. 112/118–119 и GM1.1 Allies and Antagonists, стр. 91/97 не найдено. ROUND_LIMIT/UNSUPPORTED_PATH не подменяют игровые исходы, terminal suffix не создаёт Attack/раунд. Ограничения памяти, custom RNG и проверки происхождения summary зафиксированы как технические, а не house rules.

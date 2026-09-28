@@ -58,9 +58,27 @@ print(summary.mean_attack_count, summary.mean_visited_round_count)
 
 Здесь master_seed порождает отдельный seed каждого trial: trial 0 не является одиночным запуском Random(42) выше. `result.trials` хранит compact observations для replay, `summary` — только input/aggregate. По умолчанию каждый trial получает новый Random, для детерминированных fixtures можно передать `rng_factory=`. Это Python API без CLI/JSON или оценки сложности; точная доля исходов малого примера не является гарантией баланса.
 
-## Проверка совместимости будущего process backend
+## Python API запуска в процессах
 
-[ADR-0023](../../decisions/ADR-0023-process-melee-simulations.md) подготовлен; production Melee process runner ещё не реализован. [process_contract_probe.py](process_contract_probe.py) использует builder из одиночного примера и existing public trial/result/summary через стандартный spawn pool. Нет imports tests/private APIs или переопределения боевых правил.
+В импортируемом скрипте рядом с `melee_scenario.py`:
+
+```python
+from melee_scenario import build_scenario
+from towr.simulation.npc_melee_models import NpcMeleeSimulationRequest
+from towr.simulation.npc_melee_parallel import run_npc_melee_simulation_parallel
+from towr.simulation.npc_melee_summary import summarize_npc_melee_simulation
+
+if __name__ == "__main__":
+    request = NpcMeleeSimulationRequest(build_scenario(), master_seed=42, trials=100)
+    result = run_npc_melee_simulation_parallel(request, workers=2, batch_size=32)
+    print(summarize_npc_melee_simulation(result).outcome_counts)
+```
+
+Каждый вызов создаёт и закрывает spawn pool; даже workers=1 запускает ребёнка. Custom RNG factory должна быть импортируемой/picklable и создавать свежий RNG по seed. Lambda/локальные closures не подходят. Результат совпадает с sequential при тех же input/RNG/runtime; при ошибке частичный результат не возвращается. [Измерения 100/1000 trials](../../benchmarks/README.md#melee-sequential-и-spawn) показывают расходы spawn на малых пакетах и локальный выигрыш двух workers для 1000 trials 2×2/3×2; автоматического выбора режима нет. Подробности — [ADR-0023](../../decisions/ADR-0023-process-melee-simulations.md).
+
+## Историческая проверка совместимости process backend
+
+Перед реализацией [ADR-0023](../../decisions/ADR-0023-process-melee-simulations.md) был подготовлен отдельный probe совместимости. [process_contract_probe.py](process_contract_probe.py) использует builder из одиночного примера и existing public trial/result/summary через стандартный spawn pool. Нет imports tests/private APIs или переопределения боевых правил.
 
 ```powershell
 $env:PYTHONPATH = "src"
@@ -75,4 +93,4 @@ Melee contract: 3 trials; spawn workers 1/2 == sequential; pickle/source/summary
 
 Явные параметры: Footpad 2×2 из build_scenario, master_seed 20260928, 3 trials, budget 3, workers 1/2. Проверяются request/factory pickle round trip, переставленная подача/сбор records, равенство sequential, parent source identity, child PID, неизменность initial/global RNG, ошибка ребёнка и отсутствие оставшихся детей. Запускать обычным Python без `-O`, чтобы assertions выполнялись.
 
-Probe имеет только фиксированные три задачи и не реализует batching/bounded queue/error notes. Он не является benchmark или новым CLI; полный future API и матрица его tests описаны в ADR. Игровые источники и facts берутся из прежнего Footpad-примера выше.
+Probe имеет только фиксированные три задачи и не реализует batching/bounded queue/error notes. Он не является benchmark или новым CLI; production API и матрица его tests описаны в ADR. Игровые источники и facts берутся из прежнего Footpad-примера выше.

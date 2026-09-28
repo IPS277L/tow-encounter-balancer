@@ -1,0 +1,54 @@
+# Аудит массовой Melee-симуляции M6
+
+Дата: 2026-09-28. Проверены [ADR-0022](../decisions/ADR-0022-independent-melee-simulations.md), [ADR-0023](../decisions/ADR-0023-process-melee-simulations.md), production APIs, тесты и сохранённые измерения. На старте 21 dirty/untracked файл; прежняя работа сохранена. В этом аудите меняется только документация.
+
+**Независимые sequential/process Melee-прогоны и aggregate summary готовы в границе ADR-0021. Можно готовить контракт оценки Melee-кандидатов.** Одиночный сценарий отдельно закрыт [первым аудитом M6](m6-readiness.md). Подбор Melee-составов ещё не реализован.
+
+## Матрица контракта
+
+| Обязанность | Реализация | Свидетельство проверки |
+| --- | --- | --- |
+| Допущенный immutable input | [NpcMeleeSimulationRequest](../../src/towr/simulation/npc_melee_models.py) принимает только NpcMeleeScenario и exact int uint64 seed/trials, без bool/coercion; каждый trial использует тот же initial | [9 simulation unit tests](../../tests/unit/test_m6_npc_melee_simulation.py): invalid request/index до RNG, отсутствие смешения ranged/Melee типов; допуск самого сценария покрыт первым аудитом |
+| Стабильные seeds и отдельный RNG | `npc_melee_trial_seed`: SHA-256 от versioned имени, NUL и двух uint64 big-endian; `run_npc_melee_trial` создаёт RNG для абсолютного index | Golden vectors, отличие от ranged v1; [4 integration tests](../../tests/integration/test_m6_npc_melee_simulation.py): replay/reverse/prefix, разные RNG, лишние броски одного trial не сдвигают другой, global random неизменен |
+| Семантика одного наблюдения | [Trial executor](../../src/towr/simulation/npc_melee_simulation.py) проверяет typed scenario result и равенство source_scenario входному значению; outcome берёт после terminal suffix, Attack/visited rounds — из runner report | Unit: foreign/type/error stop; integration: 2×2 с динамическим бонусом, 13 d10 и 2 Attack/1 visited round на trial, raw runner pending при достигнутой цели, без повторного kernel/нового раунда |
+| Полнота и четыре исхода | Frozen [TrialSummary/SimulationResult/OutcomeCounts](../../src/towr/simulation/npc_melee_models.py): tuple copy, index sort, все индексы/seed, typed outcome и counters; source budget/actor bounds | Simulation unit: missing/duplicate/foreign records, строки/чужие enum/числовые coercions, terminal minimum и ROUND_LIMIT budget; source-consistent controller stop отдельно даёт unsupported, а не exception |
+| Aggregate-only boundary | [Summary model](../../src/towr/simulation/npc_melee_summary_models.py) и [pure projector](../../src/towr/simulation/npc_melee_summary.py) сохраняют исходный request, counts и totals, без result/records/journals; means производные | [9 summary tests](../../tests/unit/test_m6_npc_melee_summary.py): обход всех полей без trial records, frozen source, сумма counts, round/Attack bounds, no RNG/runner/pool, exact parent source identity |
+| Ограниченная очередь процессов | [Parallel executor](../../src/towr/simulation/npc_melee_parallel.py): typed/options/callable/pickle preflight, свежий spawn pool, lazy absolute batches, не более 2×workers outstanding futures, существующий trial/result | [8 parallel unit tests](../../tests/unit/test_m6_npc_melee_parallel.py): reversed completion, tail/batch > trials, parent request identity, guards; [5 real-spawn tests](../../tests/integration/test_m6_npc_melee_parallel.py): 1×1/2×2/3×2, workers 1/2, partitions/prefix и records/summary equality |
+| Ошибки и освобождение процессов | Worker добавляет index/seed note к Exception; нет retry/fallback/partial success; pending cancel и context-manager shutdown | Parallel unit: worker/initial-submit/refill/wait failures, result rejection после shutdown, необёрнутые KeyboardInterrupt/SystemExit; integration: child PID, RNG exception с note, input/global RNG и отсутствие оставшихся детей. Import/transport/BrokenProcessPool не перехватываются кодом; отдельная инъекция каждого сбоя стандартной библиотеки не заявляется |
+| Измерения до изменения исполнения | [Profiling](../../tools/profile_m6.py), однократная defeat continuation и [process comparison](../../tools/benchmark_m6_parallel.py) сохраняют outcomes/records | [5 profiling](../../tests/unit/test_m6_profiling.py) + [6 benchmark tests](../../tests/unit/test_m6_parallel_benchmark.py): fixtures, mismatch при равных aggregates, параметры/порядок/summary/source hash; [отчёты](../benchmarks/README.md#melee-sequential-и-spawn) включают pool startup/shutdown |
+
+В этом срезе 46 tests: 22 simulation/summary, 13 parallel, 11 profiling/benchmark. Вместе с 54 tests одиночного сценария — **100 M6 tests: 75 unit и 25 integration** (проверено по AST). Матрица описывает разные уровни покрытия; синтетические записи проверяют guards, реальные циклы — исполнение, замеры — воспроизводимость конкретных входов. Тесты не требуют точного Monte Carlo процента.
+
+## Книжная и архитектурная граница
+
+Непосредственно перечитаны BOOK-PLAYER-GUIDE 1.4, Rules / Combat, стр. 112; Rules / Attack Tests / Attack Modifiers, стр. 118–119; BOOK-GM-GUIDE 1.1, Allies and Antagonists / Minions, стр. 91; Brigands & Footpads / Footpad, стр. 97. Сохраняются RULE-COMBAT-001/009, RULE-NPC-002 и RULE-PROFILE-TALABEC-005. Параллельны независимые бои, не ходы одного боя. Minion defeat/disposition и обычный outnumbering/GM discretion исполняются прежним сценарием. Новых Rule IDs, rulings или house rules нет.
+
+Допуск по [ADR-0021](../decisions/ADR-0021-melee-minion-scenario.md) прежний: здоровые Minions, обычная numeric Close Melee и Protection, fresh initial, полный roster одной Zone с отдельно утверждённым Close, awareness/LOS и отсутствием дополнительных правил; фиксированные actor/target policies, явные GM decisions, SUFFER_WOUND при повторном Staggered. Обычный outnumbering вычисляется заново перед Attack. Footpad fixture не переносит в бой внебоевой Lurker. Ни число Minions, ни одна Zone сами по себе не доказывают остальные facts.
+
+Импорты проверены: domain/engine/rules не зависят от simulation; domain/engine/rules/balance не импортируют multiprocessing/concurrent.futures. Balance использует input/summary, application выполняет orchestration. Ни форматы ranged v1, ни его seed scheme/ошибки не меняются. Общий scheduler, battle aggregate и универсальный язык правил не введены.
+
+## Память, повторяемость и производительность
+
+Result хранит O(trials) компактных записей. Каждый активный worker временно удерживает журнал своего текущего боя, а очередь и IPC — пакеты/копии входа. Summary после освобождения result не удерживает records, но сохраняет полный начальный request. Ограничение числа futures не является RSS quota, streaming или практическим лимитом uint64 trials. Миллионы прогонов/большие составы и общая память детей не проверены.
+
+Replay требует тех же input/правил и совместимого RNG/runtime. Произвольная factory может зависеть от внешнего состояния; её независимость не доказывается. Process factory должна быть importable/picklable, main — с guard; успешный pickle не доказывает импорт в ребёнке. Pickle используется внутри доверенного Python API. Structural source/seed/counter guards не удостоверяют подлинность вручную собранных observations или внешних GM facts. Сравнение source_scenario выполняется по значению; parent result/summary сохраняют исходный объект request.
+
+На исключении новые игровые исходы не создаются. Отмена может не остановить уже переданную в process queue работу; shutdown дожидается выполняющегося кода. Нет timeout/hard kill, persistent pool, retries/checkpoints или отката side effects custom factory. Технический unsupported проверен controller stop с исходными candidates; пустая подмена candidates остаётся source error.
+
+Сохранённые [100-trial](../benchmarks/m6-parallel-100-2026-09-28.md) и [1000-trial](../benchmarks/m6-parallel-1000-2026-09-28.md) отчёты: seed 20260928, budget 5, batch_size 32, workers 1/2, три повтора. На 100 spawn медленнее; на 1000 два workers дают local sequential/process 1,317 для 2×2 и 1,347 для 3×2. Для 1×1 отношение 1,045, диапазоны повторов перекрываются. Это не универсальный порог или гарантия ускорения. Другие workers/batch_size, CPU affinity и внешняя нагрузка не исследованы.
+
+Source/harness hash `68242ce2d97df7380616cb3f4d3067f5839a32b5a8ff8e00b9d884206b3d7c6e` перепроверен и совпадает с обоими отчётами. Замеры в аудите не повторяются. Все 54 timed batches имели равные соответствующие records/summary; три 100-trial digests совпали с прежним baseline. На 1000 trials ROUND_LIMIT встречался отдельно, unsupported в этих seeds не встретился. Ни один такой исход не удаляется из знаменателя.
+
+## Передача в будущий Melee balance
+
+Граница уже готова: `NpcMeleeSimulationRequest` и `NpcMeleeSimulationSummary`. Будущий чистый assessment получает их и явно заданное окно; не вызывает runner/RNG, не читает kernel/journals и не исправляет scenario facts или GM policies. Application выбирает существующий sequential/process API и проецирует только завершённый result; exception не становится assessment.
+
+Сохраняется подтверждённая пользователем [метрика ADR-0017](../decisions/ADR-0017-ranged-candidate-assessment.md): доля достижения caller-supplied цели за общий round budget, denominator = все trials; round_limit отдельно, unsupported делает оценку непригодной без удаления observations. Точные доли/window comparison, явные minimum/target/maximum, без Easy/Medium presets. Это не оценка победы PC или победы без ограничения времени. Means описательные; confidence intervals и гарантии истинной вероятности сюда не входят.
+
+Следующий законченный шаг — **контракт ADR-0024 оценки Melee-кандидатов**: pure assessment одного input/summary, затем ограниченный явный список с общими seed/trials/perspective/round budget, проверкой max_total_trials до исполнения и отчётом всех кандидатов с выбором top_k по точному расстоянию до target. Зафиксировать source/error и бюджетные границы, порядок при равенстве, отказ от частичного отчёта и явный backend только внутри одного кандидата. Решить в контракте минимальное переиспользование окна без смешения ranged/Melee request/outcome типов. Это техническое продолжение принятой метрики; повторного согласования направления не требуется.
+
+Реализация assessment/evaluator, генерация численности, staged evaluation и CLI/JSON — последующие срезы. PC, движение/Charge/Brawn, mixed ranged/Melee, новые NPC abilities и общий бой не входят в вывод аудита.
+
+## Проверки
+
+Полная регрессия: **2074 tests OK (133,376 с)**, Windows / Python 3.14.5. Compileall, локальные Markdown-пути и git diff --check успешны. Команды фиксируются в [project-status.md](../project-status.md#последняя-проверка). Python 3.12/другие ОС, wheel и повторные benchmark runs в этом аудите не проверяются. Новые тесты не добавлены: текущие контракты покрыты существующим набором; production src/tests/tools не меняются. Commit/push не выполняются.

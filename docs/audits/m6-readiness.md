@@ -58,4 +58,4 @@ Immutable state и consumed histories защищают от повторного
 
 Проверки текущего аудита записаны в [project-status.md](../project-status.md#последняя-проверка). Правила/production APIs и ranged wire v1 не менялись.
 
-Продолжение после этого аудита: [ADR-0022](../decisions/ADR-0022-independent-melee-simulations.md) реализует описанный последовательный simulation/summary. Добавлены 22 tests; игровой контракт и результаты исходного аудита одиночного сценария выше сохраняются. Следующий шаг — профилирование до оптимизации/process backend; Melee balance/CLI/JSON ещё отсутствуют.
+Продолжение после этого аудита: [ADR-0022](../decisions/ADR-0022-independent-melee-simulations.md) реализует описанный последовательный simulation/summary. Добавлены 22 tests; игровой контракт и результаты исходного аудита одиночного сценария выше сохраняются. Профилирование, оптимизация continuation и process backend теперь закрыты [аудитом массовой Melee-симуляции](m6-simulation-readiness.md). Melee balance/CLI/JSON ещё отсутствуют; следующий шаг — контракт оценки кандидатов.

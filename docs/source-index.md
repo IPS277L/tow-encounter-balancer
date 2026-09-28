@@ -322,3 +322,9 @@ Same-round movement chain повторно сверена по локальны�
 2026-09-28 — оптимизация MinionDefeatAcknowledgementResult.continuation: непосредственно перепроверена BOOK-GM-GUIDE 1.1, Allies and Antagonists / Minions, стр. 91. Правило одной Wound и отдельного attacker/GM disposition сохраняется. Изменено только время построения immutable projection, без новых Rule IDs, редакций или extraction.
 
 2026-09-28 — контракт process Melee / ADR-0023: непосредственно перечитаны BOOK-PLAYER-GUIDE 1.4, Rules / Combat, стр. 112 и BOOK-GM-GUIDE 1.1, Allies and Antagonists / Minions, стр. 91. Параллельны независимые полные trials, не ходы одного боя; terminal defeat и явный disposition сохраняются. Seed/очередь/транспорт — технический контракт; новых Rule IDs/редакций/extraction нет.
+
+2026-09-28 — реализация ADR-0023: повторно непосредственно сверены BOOK-PLAYER-GUIDE 1.4, Rules / Combat, стр. 112 и BOOK-GM-GUIDE 1.1, Allies and Antagonists / Minions, стр. 91. Spawn распределяет независимые trials; ход/defeat/GM policies не изменены, новых Rule IDs нет.
+
+2026-09-28 — benchmark Melee sequential/process: повторно сверены BOOK-GM-GUIDE 1.1, Allies and Antagonists / Brigands & Footpads / Footpad, стр. 97 (Dagger, Athletics, RES, Lurker вне боя) и BOOK-PLAYER-GUIDE 1.4, Rules / Attack Modifiers, стр. 119 (обычный outnumbering и GM discretion). Прежние fixtures/политики не менялись; новый harness измеряет existing APIs, новых Rule IDs нет.
+
+2026-09-28 — аудит массовой Melee-симуляции ADR-0022/0023: непосредственно перечитаны BOOK-PLAYER-GUIDE 1.4, Rules / Combat, стр. 112; Attack Tests / Attack Modifiers, стр. 118–119; BOOK-GM-GUIDE 1.1, Allies and Antagonists / Minions, стр. 91; Brigands & Footpads / Footpad, стр. 97. Сопоставлены прежние порядок хода, обычный outnumbering/GM discretion, defeat/disposition и benchmark fixture. Новых редакций, Rule IDs, extraction или rulings нет.

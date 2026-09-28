@@ -136,3 +136,34 @@ Harness покрыт [5 детерминированными тестами](../
 Сохранённый snapshot удерживается вместе с result: добавлена ссылка и продлено время жизни проекции. В измеренном incremental peak Python роста не видно, но это не доказательство уменьшения памяти каждого result или всего процесса; RSS не измерялся. Наблюдаемая разница wall time включает шум среды: повтор 2×2 лежит между 0,532522 и 0,760313 с, CPU affinity/частота и нагрузка ОС не контролировались, запуски baseline/после не чередовались. Поэтому весь процент разницы нельзя приписать только этому изменению или обещать его на другом host. Надёжный структурный результат — отсутствие повторного построения getter и меньше replace при идентичных игровых результатах.
 
 Три новых unit tests проверяют eager construction, repeated reads/apply без построения, сохранность source/очереди/histories, rebuild через dataclasses.replace, immutable value/identity contract и отказ invalid source до builder. Полный набор **2055 tests OK (126,598 с)**, Python 3.14.5, включая ranged/Melee и реальные spawn workers. Следующий шаг — отдельный контракт опционального Melee process runner; дальнейшая оптимизация других getters в этот срез не включалась.
+
+## Melee sequential и spawn
+
+[Harness](../../tools/benchmark_m6_parallel.py) сравнивает прежние Footpad fixtures 1×1/2×2/3×2 из tools/profile_m6.py через публичные sequential/process APIs ADR-0022/0023. Seed 20260928, round budget 5, workers 1/2, batch_size 32, три повтора; отчёты: [100 trials](m6-parallel-100-2026-09-28.md) и [1000 trials](m6-parallel-1000-2026-09-28.md).
+
+```powershell
+$env:PYTHONPATH = "src"
+.venv/Scripts/python.exe -m tools.benchmark_m6_parallel --trials 100 --master-seed 20260928 --round-budget 5 --workers 1 2 --batch-size 32 --repeats 3 --output docs/benchmarks/m6-parallel-100-2026-09-28.md
+.venv/Scripts/python.exe -m tools.benchmark_m6_parallel --trials 1000 --master-seed 20260928 --round-budget 5 --workers 1 2 --batch-size 32 --repeats 3 --output docs/benchmarks/m6-parallel-1000-2026-09-28.md
+```
+
+Импорты/создание fixture и gc.collect вне таймера; warm-up min(3,trials) только в родителе. Каждый process run создаёт и закрывает отдельный spawn pool: сериализация, импорты детей, исполнение, сбор/валидация результата, shutdown и проекция summary входят в wall time. Порядок режимов чередуется между повторами, сравнение результатов выполняется после таймера. Проверяются все compact records и summary, включая exact parent request; изменение отдельных trial при равных агрегатах всё равно отклоняется. Активные cProfile/tracemalloc запрещены. Во время измерений наши тесты/прочие тяжёлые проверки не запускались.
+
+Source/harness SHA-256 охватывает все src/**/*.py (включая untracked), tools/profile_m6.py и tools/benchmark_m6_parallel.py: сортировка по relative POSIX path, UTF-8 path + NUL + raw SHA-256 bytes каждого файла, затем общий SHA-256. Перед/после hash должен совпасть; изменение source отклоняется до записи отчёта. Bytecode/docs исключены. Этот состав hash отличается от sequential baseline добавленным benchmark-файлом; для сопоставления результатов используются отдельные trial digests.
+
+[6 детерминированных tests](../../tests/unit/test_m6_parallel_benchmark.py) проверяют preflight, чередование/число вызовов, полные records при равных агрегатах, изменённую summary/чужой source, охват source hash и сохранение существующего отчёта при смене sources. Скорость/процент/точные времена не являются test expectations. Память процессов/RSS, CPU affinity, другие ОС/Python 3.12, другие batch_size/числа workers и точная граница окупаемости не измеряются.
+
+Оба отчёта получены на CPython 3.14.5 / Windows 11, source/harness hash `68242ce2d97df7380616cb3f4d3067f5839a32b5a8ff8e00b9d884206b3d7c6e`. Production sources и прежний profile_m6.py в этом шаге не менялись; существовавшие 16 dirty/untracked файлов сохранены. Это локальные измерения; нагрузка ОС/частота CPU не контролировались.
+
+| Trials | Состав | Sequential median, с | Spawn 1 worker, с | Spawn 2 workers, с | Sequential / 2 workers |
+| --- | --- | --- | --- | --- | --- |
+| 100 | 1×1 | 0,239749 | 1,214179 | 1,244014 | 0,193 |
+| 100 | 2×2 | 0,667988 | 1,665821 | 1,631946 | 0,409 |
+| 100 | 3×2 | 0,564308 | 1,523539 | 1,446229 | 0,390 |
+| 1000 | 1×1 | 2,533090 | 3,384226 | 2,423846 | 1,045 |
+| 1000 | 2×2 | 5,379529 | 6,382962 | 4,085481 | 1,317 |
+| 1000 | 3×2 | 5,747761 | 6,755413 | 4,267088 | 1,347 |
+
+На 100 trials spawn медленнее во всех составах; один worker медленнее также на 1000. Для 1000 trials два workers дали локальное преимущество 2×2/3×2. Разница 1×1 мала, диапазоны повторов перекрываются; гарантии выигрыша или точного порога из неё не следует. Автоматический backend/CPU count, persistent pool, подбор batch_size и дополнительная оптимизация не добавлены.
+
+Все 54 полных timed batches (два объёма × три состава × три режима × три повтора) имеют равные records/summary внутри соответствующего входа. Три 100-trial digests и агрегаты совпали с прежним sequential baseline/continuation report. На 1000 trials сохраняются отдельные ROUND_LIMIT (1/2/3 соответственно составам); unsupported в этих seeds не встретился, но проверен deterministic tests. Исходы не фильтруются, denominator/метрика не меняются. [Аудит массовой Melee-симуляции](../audits/m6-simulation-readiness.md) завершён; hash sources/harness совпадает с отчётами. Следующий шаг — контракт оценки Melee-кандидатов, без автоматического выбора backend по этим измерениям.

@@ -543,8 +543,27 @@ py -3.12 -m unittest discover -s tests -v
 
 Полный набор **2055 tests OK (126,598 с)**, Python 3.14.5; отдельные common M2/Melee tests — 44 OK (0,696 с). Compileall, локальные Markdown-пути и git diff --check успешны. [Повторный benchmark](benchmarks/README.md#однократная-minion-defeat-continuation) выполнен отдельно после тестов, все digests/агрегаты baseline сохранены. Точное время/память не являются test thresholds; неизменность результатов и число построений проверены отдельно. Python 3.12/другие ОС, wheel/RSS не проверялись.
 
-## Контракт Melee process backend
+## Контракт Melee process backend (до реализации)
 
 2026-09-28: [ADR-0023](decisions/ADR-0023-process-melee-simulations.md) определяет будущий backend и его unit/real-spawn matrix. Production parallel API ещё не реализован. [Finite probe](examples/m6/process_contract_probe.py) проверен из repo и вне cwd: existing Melee trial в настоящих spawn children, workers 1/2, три переставленных record, pickle/request/summary equality, child exception и cleanup. Probe не заменяет будущие bounded queue/error-note tests.
 
 **30 existing tests OK (14,047 с)**: 22 Melee simulation/summary и 8 ranged parallel. Compileall, local Markdown paths, git diff --check и production/harness hash прежнего benchmark успешны. В этом контрактном шаге src/tests не менялись; полный набор не повторялся, последняя полная проверка 2055 OK принадлежит предыдущему performance-срезу. Python 3.12/другие ОС и performance процессов Melee не проверены. Команды — в [project-status.md](project-status.md#последняя-проверка).
+
+
+## Реализация Melee process backend
+
+2026-09-28: [ADR-0023](decisions/ADR-0023-process-melee-simulations.md) реализован. [8 unit tests](../tests/unit/test_m6_npc_melee_parallel.py) проверяют typed/options/callable/pickle preflight, queue ≤2*workers, reverse completion/tail, абсолютные indices и seed notes, initial/refill submission/wait/worker failures, cancellation/exit, отказ existing result guards и распространение BaseException. [5 integration tests](../tests/integration/test_m6_npc_melee_parallel.py) проверяют настоящий spawn на 1×1/2×2/3×2, workers 1/2 и разных batch_size, records/summary/prefix equality, child PID, parent source identity, input/global RNG/cleanup, child failure и terminal suffix с динамическим бонусом. Три игровых исхода заданы d10; unsupported проверен one-shot controller stop с исходными candidates, без изменения production API.
+
+**13 новых tests OK (14,505 с)**; полный набор **2068 tests OK (130,803 с)** на Windows / Python 3.14.5. Compileall, local Markdown paths и git diff --check успешны. Скорость Melee process, другие ОС/Python 3.12 и wheel в этом шаге не проверялись. Следующий шаг — отдельный benchmark с startup/shutdown и проверкой всех records/aggregates. Команды — в [project-status.md](project-status.md#последняя-проверка).
+
+## Benchmark Melee sequential/process
+
+2026-09-28: [6 новых tests](../tests/unit/test_m6_parallel_benchmark.py) проверяют [benchmark harness](../tools/benchmark_m6_parallel.py): preflight до исполнения, запрет активного profiler/tracemalloc, порядок режимов/число повторов, full-record mismatch при равной summary, отдельное изменение summary/foreign source, hash untracked production и обоих harness modules, сохранение прежнего output при смене source hash. Точные времена или Monte Carlo проценты не проверяются.
+
+**24 релевантных tests OK (14,963 с)**: новый benchmark (6), прежнее профилирование (5), Melee parallel unit (8) и real-spawn integration (5). Измерения 100/1000 trials выполняются отдельно от тестов; методика и ограничения — в [benchmarks/README.md](benchmarks/README.md#melee-sequential-и-spawn). Production-код этого шага не менялся; последняя полная регрессия 2068 OK относится к предыдущей реализации backend, новый harness проверен указанным набором.
+
+## Аудит массовой Melee-симуляции
+
+2026-09-28: [аудит ADR-0022/0023](audits/m6-simulation-readiness.md) сопоставляет public APIs с 46 tests массового среза: 18 unit + 4 integration simulation/summary, 8 unit + 5 integration parallel, 11 profiling/benchmark unit tests. Вместе с прежним одиночным срезом 100 M6 tests (75 unit, 25 integration), подсчёт проверен по AST.
+
+Полная регрессия: **2074 tests OK (133,376 с)**, Windows / Python 3.14.5, включая real spawn и прежние ranged/CLI paths. Compileall, local Markdown paths, git diff --check и source/harness hash обоих process benchmark отчётов успешны. Production src/tests/tools не менялись, 21 существовавший dirty/untracked файл сохранён. Повторные benchmark, Python 3.12/другие ОС, wheel и RSS не проверялись. Следующий шаг — контракт оценки Melee-кандидатов; команды в [project-status.md](project-status.md#последняя-проверка).

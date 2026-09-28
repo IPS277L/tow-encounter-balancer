@@ -1,6 +1,6 @@
 # ADR-0023: опциональные Melee-прогоны в процессах
 
-Статус: принято, 2026-09-28. **Контракт подготовлен; production process API ещё не реализован.**
+Статус: принято, 2026-09-28. **Реализовано; 8 unit и 5 real-spawn integration tests.**
 
 ## Основание и граница
 
@@ -10,7 +10,7 @@
 
 ## Публичный API и зависимости
 
-Будущий модуль `towr.simulation.npc_melee_parallel`:
+Модуль [towr.simulation.npc_melee_parallel](../../src/towr/simulation/npc_melee_parallel.py):
 
 ```python
 run_npc_melee_simulation_parallel(
@@ -19,7 +19,7 @@ run_npc_melee_simulation_parallel(
 ) -> NpcMeleeSimulationResult
 ```
 
-Это целевой API, не существующий импорт. Вход/выход и `summarize_npc_melee_simulation` остаются прежними; новый result wrapper не требуется. Sequential API самостоятельный, выбор process явный. Backend не меняет master_seed/trials/round budget/facts/policies и не конвертирует ranged request в Melee. Ranged backend, seeds и wire v1 не меняются.
+API реализован. Вход/выход и `summarize_npc_melee_simulation` остаются прежними; новый result wrapper не требуется. Sequential API самостоятельный, выбор process явный. Backend не меняет master_seed/trials/round budget/facts/policies и не конвертирует ranged request в Melee. Ranged backend, seeds и wire v1 не меняются.
 
 Процессы принадлежат simulation; domain/engine/rules/balance не импортируют multiprocessing. Реализация использует существующий `run_npc_melee_trial`, не дублирует scenario loop, kernel, terminal consequences или summary. Не вводится generic scheduler/rules engine ради общего кода двух backend.
 
@@ -57,24 +57,34 @@ KeyboardInterrupt/SystemExit не преобразуются в игровые �
 
 ## Матрица реализации и проверки
 
-| Обязанность | Готовое основание | Что проверить в новом backend |
+| Обязанность | Готовое основание | Проверяемые обязанности backend |
 | --- | --- | --- |
 | Immutable request и seed | [Melee models](../../src/towr/simulation/npc_melee_models.py), ADR-0022 | Типы/options/callable/pickle до pool; ranged request отвергается |
 | Один trial и terminal outcome | [Melee trial](../../src/towr/simulation/npc_melee_simulation.py) | Абсолютные indices; terminal suffix/dynamic bonus без повторного kernel/RNG |
 | Bounded spawn orchestration | [Ranged backend](../../src/towr/simulation/npc_ranged_parallel.py) | Новый отдельный модуль; max 2×workers, reverse completion, uneven tail, workers=1 всё ещё spawn |
 | Полнота и source/result | Existing NpcMeleeSimulationResult | Parent source identity; missing/duplicate/foreign seed/untyped outcome/counters отклоняются; workers не возвращают full journal |
 | Summary | [Чистая проекция](../../src/towr/simulation/npc_melee_summary.py) | Полное равенство sequential/process summaries, без trial records в aggregate |
-| Ошибки | [Ranged unit tests](../../tests/unit/test_m3_npc_ranged_parallel.py) как образец, не свидетельство готовности Melee | Child index/seed notes, submission/wait/result failures, cancellation/exit без partial result, сохранение source |
-| Настоящие процессы | [Ranged integration tests](../../tests/integration/test_m3_npc_ranged_parallel.py) как образец | Melee 1×1/2×2/3×2, workers 1/2, batch 1/3 и больше trials; equality всех records/summary, расширение prefix, child PID/global RNG/input/cleanup, child failure |
+| Ошибки | [Melee unit tests](../../tests/unit/test_m6_npc_melee_parallel.py) | Child index/seed notes, submission/wait/result failures, cancellation/exit без partial result, сохранение source |
+| Настоящие процессы | [Melee integration tests](../../tests/integration/test_m6_npc_melee_parallel.py) | Melee 1×1/2×2/3×2, workers 1/2, batch 1/3 и больше trials; equality всех records/summary, расширение prefix, child PID/global RNG/input/cleanup, child failure |
 
-Тесты детерминированные: заданные d10 для точных outcomes/counters и seed replay без требования конкретного Monte Carlo процента. Четыре outcomes проверяются отдельно; малый real-seed набор не обязан естественно породить unsupported. Инъекция test-only controller stop остаётся внутри импортируемого тестового helper ребёнка, не нового production API.
+Тесты детерминированные: заданные d10 для точных outcomes/counters и seed replay без требования конкретного Monte Carlo процента. Четыре outcomes проверяются отдельно; малый real-seed набор не обязан естественно породить unsupported. Инъекция test-only controller stop находится в импортируемом RNG factory helper теста: он устанавливает одноразовый selector с исходными candidates и восстанавливает его перед возвратом решения. Это проверка транспорта unsupported, не production factory policy; основной replay использует Random(seed).
 
 ## Проверка совместимости до реализации
 
 [process_contract_probe.py](../examples/m6/process_contract_probe.py) использует прежний 2×2 Footpad builder из runnable примера, existing public Melee trial/result/summary и стандартный spawn pool. Проверяет pickle round trip request/factory, три trial при workers 1/2 с переставленной подачей/сбором, parent source identity, равенство records/summary sequential, настоящий child PID, неизменные input/global RNG, передачу child exception и закрытие детей.
 
-Это конечный probe совместимости объектов и trial, **не production parallel runner**: он не реализует batch scheduler, bounded queue, error notes или матрицу отказов нового API. Успех probe не считается закрытием критериев backend; src/tests не меняются контрактным шагом. Проверенные команды/результат — в [project-status.md](../project-status.md#последняя-проверка).
+Это конечный probe совместимости объектов и trial, **не production parallel runner**: он не реализует batch scheduler, bounded queue, error notes или матрицу отказов нового API. Успех probe не считается закрытием критериев backend; src/tests не меняются контрактным шагом. Production проверки теперь перечислены ниже; актуальные команды/результат — в [project-status.md](../project-status.md#последняя-проверка).
+
+## Реализация и проверка
+
+[Backend](../../src/towr/simulation/npc_melee_parallel.py) использует existing trial executor и result constructor. [8 unit tests](../../tests/unit/test_m6_npc_melee_parallel.py) проверяют preflight/pickle до pool, bounded queue с обратным завершением, абсолютные indices/хвост, compact records, отказ worker/initial submission/refill/wait, cancellation/exit, guards result и необёрнутые BaseException. Тип outcome проверяется existing trial constructor по ADR-0022.
+
+[5 integration tests](../../tests/integration/test_m6_npc_melee_parallel.py) запускают настоящий spawn: 1×1/2×2/3×2, workers 1/2, batch 1/2/3 и больше trials, records/summary equality и prefix. Заданные d10 проверяют три игровых исхода и terminal suffix с динамическим бонусом (2 Attack/1 visited round на trial); source-consistent controller stop даёт отдельный unsupported без RNG. Child PID, parent source identity, input/global RNG, передача exception с index/seed и закрытие процессов проверены. Производительность этим набором не измеряется.
+
+## Сравнение sequential/process
+
+[Harness и отчёты](../benchmarks/README.md#melee-sequential-и-spawn) готовы: прежние 1×1/2×2/3×2, seed 20260928, budget 5, 100/1000 trials, workers 1/2, batch_size 32 и три повтора. Сравниваются все records/summary, wall включает startup/serialization/shutdown; hash sources/двух harness modules проверяется до/после. На 100 trials spawn медленнее, на 1000 два workers дают локальное отношение sequential/process 1,317/1,347 для 2×2/3×2, для 1×1 — 1,045 с перекрывающимися диапазонами повторов. Это не гарантия скорости или автоматический порог; RSS не измерен. Добавлены [6 tests harness](../../tests/unit/test_m6_parallel_benchmark.py); production API не менялся.
 
 ## Следующий законченный шаг
 
-Реализовать `simulation/npc_melee_parallel.py` по этому контракту и отдельные unit/real-spawn integration tests. После успешной регрессии отдельно сравнить sequential/process на одинаковых fixtures/seeds, учитывая создание/закрытие pool и сериализацию; не обещать ускорения по прежнему ranged benchmark. Wire/application/balance и автоматический выбор режима не добавлять.
+[Конечный аудит независимых Melee-прогонов и summary](../audits/m6-simulation-readiness.md) выполнен: 46 tests массового среза, 100 M6 tests суммарно, полная регрессия 2074 OK. Source/harness hash прежних измерений совпал; production API не менялся. Следующий шаг — контракт оценки Melee-кандидатов: pure input/summary assessment и ограниченный явный список с бюджетом по принятой метрике. Реализация balance, генератор и CLI/JSON остаются отдельными срезами.
