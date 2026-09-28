@@ -49,3 +49,5 @@
 Продолжение реализации ADR-0025, 2026-09-29: pure helper и frozen staged models готовы, 17 новых deterministic tests. Это слой input/aggregate chain, не исполнение этапов; следующим срезом остаются application service/error. Аудит ADR-0024 и его исходные результаты сохранены.
 
 Продолжение ADR-0025, 2026-09-29: staged application service/error реализованы, добавлены 9 unit + 2 real sequential/spawn integration tests. Результаты этого аудита по ADR-0024 сохранены; следующий шаг — отдельный аудит staged evaluation и самостоятельный пример.
+
+Продолжение, 2026-09-29: [отдельный аудит staged evaluation](m6-staged-evaluation-readiness.md) завершён, самостоятельный пример проверен. Готовность ADR-0024/0025 ограничена явно заданными списками; следующий контракт — ограниченная генерация Melee-составов из резерва. Исторические проверки выше сохранены.

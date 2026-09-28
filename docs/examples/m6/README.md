@@ -236,4 +236,43 @@ if __name__ == "__main__":
 
 Для sequential передать `SimulationExecutionOptions(SimulationExecutionMode.SEQUENTIAL)`. Каждый этап выполняет полный пакет с index 0, прежний prefix пересчитывается и входит в бюджет. Промежуточный selected не используется как continuation: outside-window может пройти на уточнение, unsupported исключается. Окончательный выбор берётся только из последнего этапа, либо пуст при ранней остановке NO_ELIGIBLE_CANDIDATES. Все полные stage reports сохраняются.
 
-`MeleeStagedEvaluationError` из `application.melee_staged_evaluation_errors` содержит stage_index с нуля, известный candidate_id (иначе None), а `__cause__` сохраняет цепочку bounded error → исходная причина/worker notes. Ошибка останавливает работу без partial success/retry/fallback. Preflight и финальная ошибка конструктора result проходят напрямую. Самостоятельный пример с полным построением входа и аудит — следующий срез.
+`MeleeStagedEvaluationError` из `application.melee_staged_evaluation_errors` содержит stage_index с нуля, известный candidate_id (иначе None), а `__cause__` сохраняет цепочку bounded error → исходная причина/worker notes. Ошибка останавливает работу без partial success/retry/fallback. Preflight и финальная ошибка конструктора result проходят напрямую. Самостоятельный пример с полным построением входа и аудит готовы, см. ниже.
+
+## Самостоятельный запуск поэтапной оценки
+
+[melee_staged_evaluation.py](melee_staged_evaluation.py) переиспользует public builders/printer из соседнего примера: явные Footpad 2×1 и 2×2, seed 42, три раунда, окно [1/4,1/2,3/4]. Этапы: 8 trials на кандидата / keep=1, затем 32 / keep=1. Верхний бюджет на вызов — 2×8+1×32=48; финальный пакет исполняется целиком с index 0, первые 8 повторяются.
+
+```powershell
+$env:PYTHONPATH = "src"
+.venv/Scripts/python.exe docs/examples/m6/melee_staged_evaluation.py
+```
+
+Запускать без `-O`: assertions сравнивают полные sequential/process reports и selected IDs, сохраняют input/global RNG и проверяют cleanup. Process использует workers=2, batch_size=5. В [сохранённом выводе](melee_staged_evaluation.output.txt) actual=48 на вызов, вместе оба режима исполняют 96 trials. Видны все строки каждого этапа, local selected, отдельные continuation IDs и финальный status/selected. В этом seed/runtime 2×2 проходит с 5/8 и уточняется до 17/32, затем выбирается; assertions не фиксируют эту вероятность или winner. Это наблюдение малого пакета, не preset и не гарантия баланса.
+
+При сбое скрипт печатает stage/candidate/cause и пробрасывает исключение; частичного отчёта нет. Проверенная инъекция ошибки второго этапа сохраняет полную staged → bounded → root cause/notes и не запускает второй backend после сбоя. Границы готовности, матрица и следующий контракт — в [аудите](../../audits/m6-staged-evaluation-readiness.md).
+
+## Контракт генерации из резерва
+
+[generation_contract_probe.py](generation_contract_probe.py) проверяет конечный пример [ADR-0026](../../decisions/ADR-0026-melee-composition-generation.md): два фиксированных Footpad, резерв A=(E2,E1), B=(E3), пять вручную заданных count vectors. Public constructors проверяют согласованные начальные состояния; сохраняются snapshots/graph, исходный порядок бойцов и целей, полные defeat decisions и GM outnumbering flags (включая False у P2). Family facts подтверждены отдельно; невыбранные резервисты отсутствуют в конкретном бою.
+
+```powershell
+$env:PYTHONPATH = "src"
+.venv/Scripts/python.exe docs/examples/m6/generation_contract_probe.py
+```
+
+Stages 10/100 с keep 2/1 дают полный planned budget 250. Проверены четыре отказа existing constructors: budget 249, неполные combatants Zone, другая Zone и can_leave_zone без пути. Сам probe не вызывает production preflight: арифметика max_candidates остаётся иллюстрацией. Реализованные [group/request](../../../src/towr/application/melee_candidate_generation_models.py) отдельно покрыты [13 unit tests](../../../tests/unit/test_m6_melee_candidate_generation_models.py). Скрипт не запускает симуляцию/RNG и не оценивает вероятности. Production group/request и construction/result/error реализованы; [14 новых tests](../../../tests/unit/test_m6_melee_candidate_generation.py) проверяют materialization и защиту результата. Этот исторический probe по-прежнему вручную строит конечный пример. [5 integration tests](../../../tests/integration/test_m6_melee_candidate_generation.py) уже проверяют production generator → staged evaluation и динамический outnumbering на generated scenarios. [Самостоятельный production-пример](melee_balance.py) и [аудит ADR-0026](../../audits/m6-generation-readiness.md) завершены; описание запуска ниже. Источники: PG1.4 Rules / The Battlefield / Range, стр. 114; Attack Modifiers, стр. 118–119; GM1.1 Allies and Antagonists / Minions, стр. 91; Understanding NPC Profiles, стр. 93; Brigands & Footpads / Footpad, стр. 97.
+
+## Генерация и поэтапная оценка через production API
+
+[melee_balance.py](melee_balance.py) собирает явный резерв Footpad P1,P2/E1,E2,E3 через public constructors и builder из melee_scenario.py, задаёт отдельные family facts и GM policies, вызывает generate_melee_candidates и передаёт его evaluation_request в existing staged evaluator. Tests/private imports отсутствуют. A=(E2,E1) 0..2, B=(E3) 0..1 дают пять составов; обычный бонус разрешён всем, кроме P2, defeat означает knocked_out. Это явно выбранные решения для всего семейства.
+
+```powershell
+$env:PYTHONPATH = "src"
+.venv/Scripts/python.exe docs/examples/m6/melee_balance.py
+```
+
+Скрипт выполняет оба режима и сравнивает полные отчёты: sequential/process (workers=2,batch_size=5), seed 42, три раунда, окно [1/4,1/2,3/4], stages 8/32 keep 2/1. Верхний бюджет на один вызов 5×8+2×32=104, оба режима вместе — 208 trials в проверенном запуске. Каждый этап исполняет полный пакет с index 0. Вывод содержит исходные facts/policies, reserve/groups/IDs/actors/цели, все counts/rates/totals, continuation и final selection; формат текста не является wire API.
+
+[Сохранённый вывод](melee_balance.output.txt): после уточнения обе оценки 26/32=13/16 превышают максимум окна 3/4; COMPLETED с пустым итоговым выбором допустим. Скрипт не требует заранее заданного процента/победителя и не добавляет fallback. Input/global RNG неизменны, дети завершены. При generation/staged error пишет контекст в stderr и пробрасывает исключение с cause/notes, без partial stdout или продолжения другим backend; этот путь проверен инъекцией ошибки. Пример выводит результат в stdout; файл с сохранённым выводом подготовлен отдельно при аудите.
+
+Источники: BOOK-PLAYER-GUIDE 1.4, Rules / Combat, стр. 112; The Battlefield / Range, стр. 114; Attack Modifiers, стр. 118–119; Conditions / Staggered, стр. 123; BOOK-GM-GUIDE 1.1, Allies and Antagonists / Minions, стр. 91; Understanding NPC Profiles, стр. 93; Footpad, стр. 97. [Аудит ADR-0026](../../audits/m6-generation-readiness.md) фиксирует границы применимости и стоимости. Melee JSON/CLI пока отсутствует; следующий шаг — его отдельный контракт.

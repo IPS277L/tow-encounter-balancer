@@ -1,0 +1,39 @@
+profile: RULE-PROFILE-TALABEC-005; BOOK-GM-GUIDE 1.1 / Allies and Antagonists / Footpad p97
+numeric: Dagger Close 3d/3 Dam2 1H; Athletics 3d/3; RES3; Minion; aware battle
+rules: BOOK-PLAYER-GUIDE 1.4 / Rules pp112,114,118-119,123; BOOK-GM-GUIDE 1.1 pp91,93,97
+reserve: ('P1', 'P2', 'E1', 'E2', 'E3'); fixed perspective: players_and_allies
+seed: 42; seed_scheme: towr:npc-melee-trial:v1; round_budget: 3
+window: min=1/4, target=1/2, max=3/4
+family facts: zone_id=arena; all_opponents_in_close_range=True; targets_aware=True; clear_line_of_sight=True; stationary=True; all_zone_combatants_included=True; unmounted_combatants_only=True; no_higher_ground=True; no_additional_rules=True; no_other_test_modifiers=True; can_leave_zone=True
+omitted reserve actors are absent from each battle; graph: arena <-> exit; repeated Staggered -> Wound
+group A: reserve=('E2', 'E1'); counts=0..2
+group B: reserve=('E3',); counts=0..1
+policy P1: targets=('E3', 'E2', 'E1'); outnumbering_approved=True; defeats=(('E3', 'knocked_out', True), ('E2', 'knocked_out', True), ('E1', 'knocked_out', True))
+policy P2: targets=('E3', 'E2', 'E1'); outnumbering_approved=False; defeats=(('E3', 'knocked_out', True), ('E2', 'knocked_out', True), ('E1', 'knocked_out', True))
+policy E1: targets=('P1', 'P2'); outnumbering_approved=True; defeats=(('P1', 'knocked_out', True), ('P2', 'knocked_out', True))
+policy E2: targets=('P1', 'P2'); outnumbering_approved=True; defeats=(('P1', 'knocked_out', True), ('P2', 'knocked_out', True))
+policy E3: targets=('P1', 'P2'); outnumbering_approved=True; defeats=(('P1', 'knocked_out', True), ('P2', 'knocked_out', True))
+generated: 5; max_candidates: 5
+candidate: footpads:counts:0,1; initial: footpads:counts:0,1:initial; actors=('P1', 'P2', 'E3'); objective=('E3',)
+candidate: footpads:counts:1,0; initial: footpads:counts:1,0:initial; actors=('P1', 'P2', 'E2'); objective=('E2',)
+candidate: footpads:counts:1,1; initial: footpads:counts:1,1:initial; actors=('P1', 'P2', 'E2', 'E3'); objective=('E3', 'E2')
+candidate: footpads:counts:2,0; initial: footpads:counts:2,0:initial; actors=('P1', 'P2', 'E1', 'E2'); objective=('E2', 'E1')
+candidate: footpads:counts:2,1; initial: footpads:counts:2,1:initial; actors=('P1', 'P2', 'E1', 'E2', 'E3'); objective=('E3', 'E2', 'E1')
+stages (full trials per candidate, keep): ((8, 2), (32, 1))
+staged budget per evaluation: planned=104; actual=104; max=104
+stage index: 0; trials per candidate: 8; actual trials: 40
+  footpads:counts:0,1: counts goal/defeated/limit/unsupported=6/2/0/0; rates=3/4,1/4,0,0; attacks=24; visited_rounds=12; status=eligible; window_match=True
+  footpads:counts:1,0: counts goal/defeated/limit/unsupported=6/2/0/0; rates=3/4,1/4,0,0; attacks=24; visited_rounds=12; status=eligible; window_match=True
+  footpads:counts:1,1: counts goal/defeated/limit/unsupported=6/1/1/0; rates=3/4,1/8,1/8,0; attacks=49; visited_rounds=20; status=eligible; window_match=True
+  footpads:counts:2,0: counts goal/defeated/limit/unsupported=6/1/1/0; rates=3/4,1/8,1/8,0; attacks=49; visited_rounds=20; status=eligible; window_match=True
+  footpads:counts:2,1: counts goal/defeated/limit/unsupported=1/7/0/0; rates=1/8,7/8,0,0; attacks=53; visited_rounds=16; status=eligible; window_match=False
+  local selected: ('footpads:counts:0,1', 'footpads:counts:1,0')
+  continuation (original candidate order): ('footpads:counts:0,1', 'footpads:counts:1,0')
+stage index: 1; trials per candidate: 32; actual trials: 64
+  footpads:counts:0,1: counts goal/defeated/limit/unsupported=26/6/0/0; rates=13/16,3/16,0,0; attacks=117; visited_rounds=56; status=eligible; window_match=False
+  footpads:counts:1,0: counts goal/defeated/limit/unsupported=26/6/0/0; rates=13/16,3/16,0,0; attacks=117; visited_rounds=56; status=eligible; window_match=False
+  local selected: ()
+staged status: completed; final selected: ()
+sequential/process full reports and selected IDs: equal; workers=2 batch_size=5
+two complete evaluations: 208 trials; each stage reruns its full batch from index 0
+input/global RNG unchanged; no remaining child processes; output is an observation, not a difficulty preset
