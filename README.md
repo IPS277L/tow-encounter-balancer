@@ -91,3 +91,5 @@ $env:PYTHONPATH = "src"
 После установки текущей версии доступна также `towr simulate-mixed INPUT`; `-` читает stdin. [Пример и ограничения](docs/examples/m7/json/README.md) задают неподвижный бой numeric Minions, явные Close/Medium пары, решения GM и seed/backend. Результат содержит сводку четырёх исходов. Подбор смешанных составов доступен через `towr balance-mixed INPUT`; результат содержит каталог составов, отчёты этапов и итоговый выбор.
 
 Пользователь выбрал следующий этап — **M8: магия в боевой симуляции**. Первый шаг — инвентаризация существующей магии K1 и ограниченный книжный контракт интеграции; поддержка магии в текущем CLI этим не объявляется.
+
+Подготовлен [первый контракт M8](docs/decisions/ADR-0035-cowardly-flight-casting-boundary.md) и [проверочный пример](docs/examples/m8/README.md): одно Casting-действие с Curse of Cowardly Flight, перенос WizardMagicState, explicit CAST/WAIT и обязательный Miscast как pending остановка. Это композиция K1, не полный бой с магами; production input/executor ещё нет. Следующий срез — immutable input models и preflight.

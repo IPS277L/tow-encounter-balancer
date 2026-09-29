@@ -141,4 +141,11 @@ PC, перемещение, смешанный бой и полный катал
 
 ## M8 — магия в боевой симуляции
 
-Направление выбрано пользователем после внешнего аудита M7. **Первый срез — ограниченный контракт интеграции:** инвентаризация existing K1 casting/spell/Miscast APIs и tests, прямая сверка книг, минимальные caster/target/effect границы, action/state transitions, явные решения caller/GM и unsupported paths. Результат — отдельный ADR и конечный пример композиции существующих APIs; затем уточнить последовательность реализации. Наличие K1 магии не означает готовую поддержку spells в battle simulation. Полный каталог, универсальный battle aggregate и автоматические игровые решения в первый срез не включаются.
+Направление выбрано пользователем после внешнего аудита M7. [Первый контракт ADR-0035](decisions/ADR-0035-cowardly-flight-casting-boundary.md) и [finite probe](examples/m8/README.md) подготовлены. Inventory K1 и прямая сверка книг показали готовность отдельных Casting/Miscast/Curse reducers и отсутствие общего magic encounter. Книжных Champion-магов нельзя превратить в Minions ради M7 admission.
+
+1. Контракт одного Casting-действия с Curse of Cowardly Flight готов: actor/state/slot, explicit CAST_WHEN_READY, неподвижные Minion-цели без ухода, WAITING/SPELL_RESOLVED/MISCAST_REQUIRED. 177 existing K1 tests и public probe на 24 scripted d10 прошли.
+2. **Следующий срез:** frozen input models и полный preflight без RNG/executor.
+3. Result models и узкий executor через existing K1, deterministic source/branch/action tests.
+4. Аудит boundary/production example. Затем отдельный контракт полного magic encounter: caster injury model, action dispatch, следующие ходы Broken и обязательные Miscast outcomes. Следующая последовательность реализации уточняется этим контрактом.
+
+Массовые magic-прогоны, метрика/подбор и новый JSON/CLI не объявляются готовыми по наличию одного действия. Полный каталог, универсальный battle aggregate и автоматические решения GM в первый boundary не входят. Это этапы выбранной магии, не переключение плана на движение или reload.

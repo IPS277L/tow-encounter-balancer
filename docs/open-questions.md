@@ -162,4 +162,8 @@ Summary, pure assessment и bounded evaluator реализованы: явный
 
 ## Магия в боевой симуляции — M8
 
-Пользователь выбрал магию после закрытия [ADR-0034](decisions/ADR-0034-mixed-json-cli-v1.md). Выбор направления закрыт; движение и reload не стали следующим этапом. Минимальный caster/target scope, набор эффектов, политики выбора заклинания/целей, Casting/Miscast и границы unsupported ещё предстоит определить в контракте после инвентаризации K1 и прямой сверки книг. Автоматической поддержки всех spells из наличия их resolvers не следует. Существенные неоднозначности правил требуют отдельного вопроса; конкретных новых house rules пока нет.
+Направление выбрано; [ADR-0035](decisions/ADR-0035-cowardly-flight-casting-boundary.md) фиксирует первый необходимый boundary: один ready Wizard actor/standard spell Improvise, explicit CAST_WHEN_READY, Curse of Cowardly Flight по healthy Minion-целям, которые фактически не могут Give Ground. Caster injury model этим не задаётся. Авторские profile numbers не подменяют книжных Champion-магов. Полный battle scope ещё не реализован.
+
+При pool > Level возвращается MISCAST_REQUIRED с exact pending source/state; spell перед Miscast и таблица требуют отдельного продолжения. Это не отказ от разрешённого desperate cast и не пропуск обязательного эффекта. Magic Resistance, opposition/Mixing и Miscast effects остаются вне первого допуска, поэтому AMBIGUITY-002 и открытые вопросы recent spells/objects/ranges не требуют нового house rule сейчас. При расширении их нужно решить явно. Broken сохраняется, следующий ход и статус победы не выводятся автоматически.
+
+Следующий срез — input models/preflight. Для дальнейшего encounter отдельно определить caster injury, action dispatch, Broken turns и Miscast ownership; повторного выбора направления не требуется.
