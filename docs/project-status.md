@@ -7,7 +7,7 @@
 K1/M2/M3/M4 готовы в заявленной границе неподвижного ranged Minion-сценария; M4 закрыт [аудитом](audits/m4-readiness.md). По [ADR-0017](decisions/ADR-0017-ranged-candidate-assessment.md) реализованы summary, pure assessment и bounded evaluation явного списка кандидатов: preflight бюджета/общих параметров, последовательная orchestration с явным sequential/process backend внутри кандидата, source-bound aggregate report и точный top_k. Outside/unsupported оценки сохраняются, но не выбираются. [Поэтапная оценка](decisions/ADR-0018-staged-ranged-evaluation.md) реализована: промежуточное уточнение допускает outside-window, окончательный выбор использует только последний этап; бюджет учитывает полные повторные пакеты, отчёт проверяет всю цепочку источников. Генератор численности по [ADR-0019](decisions/ADR-0019-ranged-composition-generation.md) реализован: явный резерв участников, неизменные профили/решения, предел составов и полный staged budget. Первый M5 закрыт [аудитом](audits/m5-readiness.md) в текущем scope; [typed пример](examples/m5/README.md) проверен в sequential/process. Контракт [JSON balance v1 / CLI balance](decisions/ADR-0020-ranged-balance-json-v1.md) реализован полностью в текущем scope: Schema/adapters, application service, кодирование ошибок и CLI balance. Внешняя граница M5 закрыта [аудитом](audits/m5-external-readiness.md). Для выбранного M6 принят [ADR-0021](decisions/ADR-0021-melee-minion-scenario.md): неподвижный ближний бой Minions с явным Close и динамическим численным преимуществом. Typed вход NpcMeleeScenario реализован: чистый допуск состава, явных фактов и решений. Одиночный Melee-сценарий закрыт [аудитом](audits/m6-readiness.md); [полный typed пример](examples/m6/README.md) проверен через production runner. По [ADR-0022](decisions/ADR-0022-independent-melee-simulations.md) реализованы последовательные независимые Melee-прогоны и aggregate summary: отдельная seed scheme, новый RNG на trial, четыре исхода и compact records. [Первый performance-срез Melee](benchmarks/README.md#однократная-minion-defeat-continuation) завершён: continuation строится один раз с сохранением проверок, trial digests/агрегаты совпали с baseline. [ADR-0023](decisions/ADR-0023-process-melee-simulations.md) реализован: опциональный Melee process runner, явный spawn, bounded queue и прежние seed/result/summary; равенство sequential проверено в реальных процессах. [Сравнение sequential/process](benchmarks/README.md#melee-sequential-и-spawn) завершено: результаты совпали, расходы spawn заметны на 100 trials; на 1000 два workers быстрее в измеренных 2×2/3×2. [Аудит массовой Melee-симуляции](audits/m6-simulation-readiness.md) завершён: sequential/process, summary и измерения готовы в текущем scope. [ADR-0024](decisions/ADR-0024-melee-candidate-assessment.md) реализован в части pure assessment одного Melee-кандидата: exact source, четыре Fraction rates, общий ObjectiveRateWindow и unsupported/window guards. Модели ограниченного списка с бюджетом, полным source-bound отчётом и stable Fraction top_k реализованы. Application evaluator исполняет список через existing sequential/process APIs, сохраняет candidate ID/cause при ошибке и возвращает только полный отчёт с агрегатами. [Аудит bounded Melee evaluation](audits/m6-evaluation-readiness.md) завершён; [самостоятельный пример](examples/m6/melee_evaluation.py) проверен в sequential/process. [Контракт ADR-0025](decisions/ADR-0025-staged-melee-evaluation.md) подготовлен: полные повторные пакеты, верхний бюджет, отдельные continuation/final selection и exact report chain. Pure continuation helper и frozen staged models реализованы: 17 deterministic tests покрывают preflight, бюджет, порядок и exact report chain. Staged application service/error реализованы: existing bounded evaluator на каждом этапе, exact source до продолжения, stage/candidate/cause и остановка без partial/retry/fallback. [Аудит staged Melee evaluation](audits/m6-staged-evaluation-readiness.md) завершён; [самостоятельный пример](examples/m6/melee_staged_evaluation.py) проверен в sequential/process. [Контракт генерации ADR-0026](decisions/ADR-0026-melee-composition-generation.md) подготовлен: явный резерв и family facts/GM policies, детерминированные составы и полный staged budget. Конечный constructor probe проверен. MeleeCompositionGroup/MeleeCandidateGenerationRequest реализованы: frozen/slotted вход, точное разбиение резерва, отдельные family facts/Zone/escape path, seed/stages/window и пределы C/полного budget до перебора. 13 deterministic tests прошли. Pure generator, source-bound result и typed generation error реализованы: полные согласованные составы, неизменные решения GM, exact source guards и ошибки без partial result. Добавлены 14 tests (всего generation 27). Integration генерация → staged evaluation проверена: полные sequential/process reports, повтор/rename prefix и бюджет совпадают; scripted RNG подтверждает динамический outnumbering и True/False GM flags. Добавлены 5 integration tests (всего generation 32). [Аудит генерации Melee](audits/m6-generation-readiness.md) завершён; [самостоятельный пример](examples/m6/melee_balance.py) проверен в sequential/process. [Контракт Melee JSON/CLI ADR-0027](decisions/ADR-0027-melee-json-cli-v1.md) подготовлен: отдельные simulate-melee/balance-melee, явные facts/GM policies, aggregate simulation и staged balance outputs. [Конечные примеры](examples/m6/json/README.md) проверены через typed APIs; simulation Schema/command и pure parser/summary encoder реализованы, добавлены 25 tests с ranged regression. Simulation service/error encoder и команда simulate-melee реализованы; module/console и оба backend проверены в установленном wheel. Balance Schema/models и pure parser/result encoder реализованы (34 tests); balance service/errors/error encoder и balance-melee также реализованы. [Общий аудит Melee JSON/CLI](audits/m6-external-readiness.md) завершён; ADR-0027 закрыт в текущей границе numeric Minions. Правила, domain/engine и прежние ranged API/CLI сохраняются; Melee simulation добавлен отдельно. Генерация за пределами заданного резерва, PC-сценарии и общий бой вне текущего scope.
 
 
-Следующее направление выбрано: **M7 — смешанный дальний и ближний бой**. [ADR-0028](decisions/ADR-0028-mixed-minion-scenario.md) и [probe](examples/m7/README.md) подготовлены; typed admission реализован и проверен 25 tests. Provider/result/runner реализованы (34 новых tests); далее аудит одиночного mixed-сценария и public пример. Смешанные Monte Carlo/balance/CLI пока не подключены.
+Следующее направление выбрано: **M7 — смешанный дальний и ближний бой**. [ADR-0028](decisions/ADR-0028-mixed-minion-scenario.md) и [probe](examples/m7/README.md) подготовлены; typed admission реализован и проверен 25 tests. Одиночный mixed-сценарий закрыт [аудитом](audits/m7-readiness.md): 60 tests M7, самостоятельный public пример и сохранённый вывод проверены. [ADR-0029](decisions/ADR-0029-independent-mixed-simulations.md) и конечный probe независимых mixed-прогонов/summary подготовлены. Production модели, последовательный исполнитель и pure summary реализованы с 25 новыми tests. [Аудит последовательной simulation](audits/m7-simulation-readiness.md) завершён; production-пример и subprocess test проверены (26 simulation tests). [Профилирование mixed-пакетов](benchmarks/README.md#m7-исходное-профилирование-mixed-simulation) завершено без изменений production, добавлены семь tests harness. Далее проверить однократное построение NpcRoundResult.continuation по измеренному повторному чтению. Mixed process/balance/CLI пока не подключены.
 
 ## Зафиксировано
 
@@ -1048,9 +1048,114 @@ K1/M2/M3/M4 готовы в заявленной границе неподвиж
 
 ## Следующий шаг
 
-Провести аудит одиночного mixed-сценария [ADR-0028](decisions/ADR-0028-mixed-minion-scenario.md): сопоставить admission, кандидатные пары/доступность, fresh Zone outnumbering, обе роли Attack/Protection, outcomes/budget/terminal suffix и source/replay guards с книгами и 59 tests M7. Добавить самостоятельный пример полного run_npc_mixed_scenario через public APIs, без tests/private builders, с явными facts/policies и сохранённым поясняющим выводом. Проверить input/RNG/счётчики и документировать no-candidate unsupported как техническую границу, не исход игры. По результатам аудита закрыть найденные пробелы, обновить readiness/status/roadmap. Не добавлять движение, смену оружия, магию, общий battle aggregate или mixed Monte Carlo/balance/CLI в этот срез.
+Проверить узкую оптимизацию NpcRoundResult.continuation: один раз строить validated immutable NpcRoundRequest после полной проверки steps и хранить его в init=False/repr=False/compare=False поле. Сохранить public value semantics, source/replay guards, pending, weapons и histories; dataclasses.replace должен пересчитывать проекцию, pickle/deepcopy — сохранять её значение. Покрыть все четыре NpcRoundOutcome и Blunderbuss/weapon continuation, отсутствие RNG/повторного исполнения. Затем повторить тот же mixed benchmark (100 trials, seed=20260929, budget=5) и сравнить три trial digests, полные records/summary, wall time и peak allocation. При отсутствии воспроизводимого выигрыша или неприемлемой цене памяти отказаться от изменения. Другие caches, ослабление validation, process, balance/CLI и игровые расширения в этот шаг не входят.
 
 ## Последняя проверка
+
+2026-09-29, Windows / Python 3.14.5: добавлены [developer harness](../tools/profile_m7.py), [7 deterministic tests](../tests/unit/test_m7_profiling.py) и [исходный отчёт](benchmarks/m7-baseline-2026-09-29.md). Production src не менялся. Три admitted состава 2×1/3×2/2×2 (последний с двумя лучниками), 100 trials, master_seed=20260929, budget=5, три wall repeats и раздельные tracemalloc/cProfile. Во всех пяти измерительных пакетах каждого состава полные records/summary равны; canonical trial digests и source/harness SHA-256 сохранены. С прогревом выполнено 1509 trials.
+
+Медианы 0,262295 / 0,590020 / 0,396317 с; peak Python allocation 86,6 / 152,7 / 120,9 KiB, не RSS. Counts achieved/defeated/limit/unsupported: 84/0/0/16, 86/0/0/14, 3/8/0/89; unsupported не фильтруется и не является поражением. В каждом составе NpcRoundResult.continuation выполняет replace около 4,4–4,9 раза на result — выбран узкий эксперимент следующего шага, ускорение пока не реализовано/не обещано. Методика/ограничения и точные команды находятся в отчёте и benchmarks/README.md.
+
+**7 targeted tests OK (0,505 с); полная регрессия — 2391 tests OK (227,194 с)**. Compileall src/tests/tools/docs/examples/m7, 1671 локальный Markdown-путь, git diff --check и whitespace untracked файлов успешны. AST-проверка harness подтвердила отсутствие tests/private/application/adapters imports. Source/harness SHA-256 после проверок совпадает с отчётом; измерения выполнялись до полной регрессии, без параллельного запуска тестов.
+
+Непосредственно перечитаны BOOK-PLAYER-GUIDE 1.4, Equipment / Ranged Weapons, стр. 94; Rules / The Battlefield / Range, стр. 114; Attack Tests / Attack Modifiers, стр. 118; Failed Attacks / Successful Attacks / Giving Ground, стр. 119; BOOK-GM-GUIDE 1.1, Allies and Antagonists / Minions, стр. 91; Understanding NPC Profiles, стр. 93; Brigands & Footpads, стр. 97. Новых Rule IDs/house rules нет. Обновлены source index, трассировка, contradictions, ADR/архитектура/status/roadmap и README.
+
+Все 30 исходных dirty/untracked файлов сохранены. Добавлены tools/profile_m7.py, tests/unit/test_m7_profiling.py и docs/benchmarks/m7-baseline-2026-09-29.md; вместе с документацией остаются незакоммиченными. Commit/push не выполнялись. Другие ОС/Python 3.12, installed wheel, mixed process и более крупные batches в этом шаге не проверялись.
+
+```powershell
+$env:PYTHONPATH = "src"
+.venv/Scripts/python.exe tools/profile_m7.py --trials 100 --master-seed 20260929 --round-budget 5 --repeats 3 --top 20 --output docs/benchmarks/m7-baseline-2026-09-29.md
+.venv/Scripts/python.exe -m unittest tests.unit.test_m7_profiling -q
+.venv/Scripts/python.exe -m unittest discover -s tests -q
+.venv/Scripts/python.exe -m compileall -q src tests tools docs/examples/m7
+git -c core.safecrlf=false diff --check
+```
+
+## Предыдущая проверка (аудит mixed simulation)
+
+2026-09-29, Windows / Python 3.14.5: [аудит последовательной mixed simulation/summary](audits/m7-simulation-readiness.md) завершён. Четыре production модуля и 25 existing tests сопоставлены с ADR-0029; исправлений production src не потребовалось. Добавлены самостоятельный mixed_simulation.py, сохранённый вывод и один subprocess integration test.
+
+**26 tests simulation OK (2,108 с)**. Пример использует public builder одиночного сценария, production simulation/summary API, master_seed=42, trials=8, round_budget=2. Полные results/summaries повторились для обоих составов, initial/global RNG неизменны, отдельные compact records согласованы с агрегатами. Сохранённые counts: 3×2 — 6/0/2/0, 49 Attack/15 visited; 2×2 — 0/1/0/7, 27 Attack/12 visited. Семь unsupported не названы поражениями и не исключены из знаменателя. Каждый пакет повторяется целиком, всего 32 trials на запуск примера; повторы/разные составы не складываются в один отчёт. Subprocess test повторяет пример из временного каталога и не ожидает фиксированного случайного процента.
+
+**Полная регрессия: 2384 tests OK (226,194 с)**. Compileall src/tests/tools/docs/examples/m7, 1654 локальных Markdown-пути, git diff --check и whitespace новых файлов успешны. AST-проверка подтвердила направление зависимостей mixed simulation, отсутствие обратных импортов в domain/engine и tests/private imports в примере.
+
+Напрямую перечитаны BOOK-PLAYER-GUIDE 1.4, Rules / Combat, стр. 112; Attack Tests / Attack Modifiers / Failed Attacks / Successful Attacks, стр. 118–119; BOOK-GM-GUIDE 1.1, Allies and Antagonists / Minions, стр. 91; Understanding NPC Profiles, стр. 93; Brigands & Footpads, стр. 97. Новых Rule IDs/house rules нет, прототип/игровые правила и production API не менялись.
+
+Все 26 исходных dirty/untracked файлов сохранены. Добавлены audit/example/output/test, обновлена связанная документация. Commit/push не выполнялись. Python 3.12/другие ОС, installed wheel и performance не проверялись; профилирование — следующий шаг, mixed process/balance/CLI ещё отсутствуют.
+
+```powershell
+$env:PYTHONPATH = "src"
+.venv/Scripts/python.exe docs/examples/m7/mixed_simulation.py
+.venv/Scripts/python.exe -m unittest tests.unit.test_m7_npc_mixed_simulation tests.unit.test_m7_npc_mixed_summary tests.integration.test_m7_npc_mixed_simulation tests.integration.test_m7_simulation_example -q
+.venv/Scripts/python.exe -m unittest discover -s tests -q
+.venv/Scripts/python.exe -m compileall -q src tests tools docs/examples/m7
+git -c core.safecrlf=false diff --check
+```
+
+## Предыдущая проверка (реализация mixed simulation)
+
+2026-09-29, Windows / Python 3.14.5: последовательный слой [ADR-0029](decisions/ADR-0029-independent-mixed-simulations.md) реализован. Добавлены четыре simulation-модуля: mixed request/seed/trial/result/counts, sequential trial/batch runner, aggregate summary model и pure summary projection. Frozen/slotted состояния, отдельная seed scheme, новый внедряемый RNG на trial и точный исходный scenario сохраняются; источники проверяются до компактной проекции.
+
+**25 новых tests OK (0,182 с)**: 12 unit simulation, 9 summary, 4 integration. На одном 2×2 input все четыре реальных исхода дают counts 1/1/1/1, 17 Attack/6 visited rounds и RNG calls 24/24/48/6. Проверены resume/terminal suffix без двойных counters, GM withholding/dynamic bonus, полноценный NO_CANDIDATE, immutable initial/global RNG, repeat/reverse/expanded prefix. Unit отвергают неправильные seeds/индексы/полноту/counters, ranged/Melee типы и чужой полный scenario даже при одинаковом ID; ошибка/interrupt второго trial не запускает третий и не выдаёт partial result. Summary не сохраняет result/trial/боевые журналы и не исполняет RNG/runner/pool.
+
+**Полная регрессия: 2383 tests OK (231,801 с)**. Compileall src/tests/tools/docs/examples/m7, 1611 локальных Markdown-путей, git diff --check и whitespace новых файлов успешны. AST-проверка четырёх новых modules подтвердила направление зависимостей и отсутствие ranged/Melee типов; старые tracked src/tests/tools не менялись.
+
+Напрямую перечитаны BOOK-PLAYER-GUIDE 1.4, Rules / Combat, стр. 112; Attack Tests / Attack Modifiers / Failed Attacks / Successful Attacks, стр. 118–119; BOOK-GM-GUIDE 1.1, Allies and Antagonists / Minions, стр. 91. Новых игровых Rule IDs/house rules нет. Domain/engine/K1, ranged/Melee simulation и их seed schemes, wire/CLI и старый прототип не менялись.
+
+Сохранены все 19 исходных dirty/untracked файлов. Добавлены четыре production-файла и три test-файла, обновлена документация. Commit/push не выполнялись. Python 3.12/другие ОС, installed wheel и performance не проверялись. Mixed process/balance/CLI ещё отсутствуют; аудит simulation/пример — следующий шаг.
+
+```powershell
+$env:PYTHONPATH = "src"
+.venv/Scripts/python.exe -m unittest tests.unit.test_m7_npc_mixed_simulation tests.unit.test_m7_npc_mixed_summary tests.integration.test_m7_npc_mixed_simulation -q
+.venv/Scripts/python.exe -m unittest discover -s tests -q
+.venv/Scripts/python.exe -m compileall -q src tests tools docs/examples/m7
+git -c core.safecrlf=false diff --check
+```
+
+## Предыдущая проверка (контракт mixed simulation)
+
+2026-09-29, Windows / Python 3.14.5: подготовлен [контракт ADR-0029](decisions/ADR-0029-independent-mixed-simulations.md) независимых последовательных mixed-прогонов и summary. Зафиксированы отдельная seed scheme/vectors, API четырёх будущих модулей, строгий вход/полный result, четыре исхода, точные counters и aggregate-only summary; production реализация ещё впереди.
+
+[Конечный probe](examples/m7/simulation_contract_probe.py) проверен из корня и временного каталога; [вывод](examples/m7/simulation_contract_probe.output.txt) сохранён. На одном immutable 2×2 сценарии четыре scripted trial дали counts 1/1/1/1, 17 Attack/6 visited rounds, 24/24/48/6 RNG calls. Ещё 22 seeded вызова подтвердили repeat/reverse/expanded prefix и изоляцию дополнительных бросков trial 0; initial/global RNG неизменны, terminal suffix и реальная потеря цели спроецированы. Три golden vectors сверены через to_bytes/struct и отличаются от ranged/Melee. Probe не реализует production constructors/guards/summary.
+
+**103 релевантных tests OK (2,751 с)**: все 60 M7 и existing ranged/Melee simulation/summary. Новых unittest tests в контрактном срезе нет; src/tests/tools не менялись. Полный набор повторно не запускался; последняя полная регрессия остаётся **2358 tests OK (229,941 с)** из аудита ниже.
+
+Compileall src/tests/tools/docs/examples/m7, 1594 локальных Markdown-пути, git diff --check и whitespace новых файлов успешны. Probe импортирует только публичные APIs/пример, без tests/private builders. Существующие src/tests/tools в этом срезе не менялись.
+
+Непосредственно перечитаны BOOK-PLAYER-GUIDE 1.4, Rules / Combat, стр. 112; Attack Tests / Attack Modifiers, стр. 118–119; Failed Attacks / Successful Attacks, стр. 119; BOOK-GM-GUIDE 1.1, Allies and Antagonists / Minions, стр. 91. Seed/aggregation — технические контракты, новых Rule IDs/house rules нет. Правила боя и старый прототип не менялись.
+
+Сохранены все 16 существовавших dirty/untracked файлов; добавлены ADR-0029, simulation probe и его вывод, дополнена связанная документация. Commit/push не выполнялись. Python 3.12/другие ОС, installed wheel и performance в этом срезе не проверялись.
+
+```powershell
+$env:PYTHONPATH = "src"
+.venv/Scripts/python.exe docs/examples/m7/simulation_contract_probe.py
+.venv/Scripts/python.exe -m unittest tests.unit.test_m7_npc_mixed_scenario tests.unit.test_m7_npc_mixed_candidates tests.unit.test_m7_npc_mixed_scenario_runner tests.integration.test_m7_npc_mixed_scenario_cycle tests.integration.test_m7_example tests.unit.test_m6_npc_melee_simulation tests.unit.test_m6_npc_melee_summary tests.integration.test_m6_npc_melee_simulation tests.unit.test_m3_npc_ranged_simulation tests.unit.test_m3_npc_ranged_summary tests.integration.test_m3_npc_ranged_simulation tests.integration.test_m3_npc_ranged_summary -q
+.venv/Scripts/python.exe -m compileall -q src tests tools docs/examples/m7
+git -c core.safecrlf=false diff --check
+```
+
+## Предыдущая проверка (аудит одиночного mixed-сценария)
+
+2026-09-29, Windows / Python 3.14.5: [аудит одиночного mixed-сценария](audits/m7-readiness.md) завершён. Admission/provider/result/runner и K1/M2 source guards сопоставлены с ADR-0028 и 59 существующими tests. Production src не менялся; исправлений в нём не потребовалось.
+
+Добавлены самостоятельный mixed_scenario.py, сохранённый вывод и один subprocess integration test. Пять scripted случаев проверяют четыре исхода, доступный приоритет целей, актуальный Zone bonus, Close/Medium miss, 13/60/24/6/12 RNG calls и terminal suffix; source/global RNG неизменны. Отдельные Random(42) дают равные полные результаты без требования конкретного победителя. Пример строит input через public APIs без tests/private builders и запускается из временного каталога. **60 tests M7 OK (1,220 с)**.
+
+**Полная регрессия: 2358 tests OK (229,941 с)**. Compileall src/tests/tools/docs/examples/m7, 1564 локальных Markdown-пути, git diff --check и whitespace новых файлов успешны. AST-проверка mixed imports подтвердила границы domain/engine и отсутствие tests/private imports в примере; git diff подтверждает отсутствие изменений production src.
+
+Напрямую перечитаны BOOK-PLAYER-GUIDE 1.4, Equipment / Ranged Weapons, стр. 94; Rules / Combat и Ambush, стр. 112; The Battlefield / Range, стр. 114; Cover and Concealment, стр. 115; Combat Actions, стр. 116; Attack Tests / Attack Modifiers / Failed Attacks / Giving Ground, стр. 118–119; Conditions / Staggered, стр. 123. BOOK-GM-GUIDE 1.1, Allies and Antagonists / Minions, стр. 91; Understanding NPC Profiles, стр. 93; Brigands & Footpads, стр. 97. Новых Rule IDs/house rules нет; прототип и игровые правила не менялись.
+
+Рабочее дерево на старте чистое. Новые audit/example/output/test и обновления документации не закоммичены; commit/push не выполнялись. Python 3.12/другие ОС, installed wheel и performance не проверялись. Mixed simulation/balance/CLI пока отсутствуют; следующий шаг указан выше.
+
+```powershell
+$env:PYTHONPATH = "src"
+.venv/Scripts/python.exe docs/examples/m7/mixed_scenario.py
+.venv/Scripts/python.exe -m unittest tests.unit.test_m7_npc_mixed_scenario tests.unit.test_m7_npc_mixed_candidates tests.unit.test_m7_npc_mixed_scenario_runner tests.integration.test_m7_npc_mixed_scenario_cycle tests.integration.test_m7_example -q
+.venv/Scripts/python.exe -m unittest discover -s tests -q
+.venv/Scripts/python.exe -m compileall -q src tests tools docs/examples/m7
+git -c core.safecrlf=false diff --check
+```
+
+## Предыдущая проверка (mixed provider/result/runner)
 
 2026-09-29, Windows / Python 3.14.5: второй implementation-срез ADR-0028 реализован. Добавлены pure mixed_scenario_candidates, NpcMixedScenarioResult/Outcome и run_npc_mixed_scenario. Provider читает supplied enemy pair ranges, фильтрует живые доступные цели, сохраняет полную policy и использует target-specific escape; Melee outnumbering пересчитывается по текущему roster в Zone атакующего с GM flag. Shooting не получает бонус; дальности/awareness не выводятся из геометрии.
 

@@ -1,0 +1,10 @@
+seed scheme: towr:npc-mixed-trial:v1; three golden vectors/struct encoding/family separation OK
+scripted 0: objective_achieved; attacks=4; visited_rounds=2; rng=24
+scripted 1: side_defeated; attacks=4; visited_rounds=1; rng=24
+scripted 2: round_limit; attacks=8; visited_rounds=2; rng=48
+scripted 3: unsupported_path; attacks=1; visited_rounds=1; rng=6
+illustrative aggregate: outcomes=1/1/1/1; total_attacks=17; total_visited_rounds=6
+scripted goal share=1/4 over ALL trials; unsupported=1/4 remains separate; not a balance estimate
+22 seeded runs: replay/reverse/expanded prefix/extra draws in trial 0 preserve other indexed records
+26 total runner calls; immutable initial/global RNG unchanged; terminal suffix and real no-target stop projected
+Production mixed simulation request/result/summary and their guards are NOT implemented by this probe

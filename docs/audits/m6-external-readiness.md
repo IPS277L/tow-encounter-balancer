@@ -50,4 +50,4 @@
 
 241 targeted/regression tests OK (178,641 с); compileall, 1488 локальных Markdown-путей, diff --check и whitespace untracked файлов успешны. Результаты текущего запуска и точные команды приведены в [статусе проекта](../project-status.md#последняя-проверка). Отдельный набор ADR-0027 содержит 134 tests; regression дополнительно включает прежние ranged JSON/services/CLI. Последняя полная проверка реализации: 2298 tests OK; audit не изменяет src/tests.
 
-План ADR-0027 исчерпан. Пользователь выбрал смешанный дальний и ближний бой: [ADR-0028](../decisions/ADR-0028-mixed-minion-scenario.md) и [probe M7](../examples/m7/README.md) подготовлены. Production mixed admission и mixed runner реализованы; отдельный аудит одиночного mixed-сценария ещё предстоит. Вывод этого аудита относится только к ADR-0027.
+План ADR-0027 исчерпан. Пользователь выбрал смешанный дальний и ближний бой: [ADR-0028](../decisions/ADR-0028-mixed-minion-scenario.md) и [probe M7](../examples/m7/README.md) подготовлены. Production mixed admission и mixed runner реализованы; одиночный mixed-сценарий закрыт [отдельным аудитом](m7-readiness.md). Вывод этого аудита относится только к ADR-0027.

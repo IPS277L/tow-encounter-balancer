@@ -1,6 +1,6 @@
 # ADR-0028: неподвижный смешанный бой Minions
 
-Статус: принято, 2026-09-29. **Production mixed admission, provider, runner и result реализованы; аудит одиночного mixed-сценария остаётся следующим срезом.** Пользователь выбрал смешанный дальний и ближний бой после закрытия ADR-0027. Это следующий этап M7; существующие ranged/Melee APIs и wire v1 сохраняют свои границы.
+Статус: принято, 2026-09-29. **Production mixed admission, provider, runner и result реализованы; одиночный сценарий закрыт [аудитом](../audits/m7-readiness.md).** Пользователь выбрал смешанный дальний и ближний бой после закрытия ADR-0027. Это следующий этап M7; существующие ranged/Melee APIs и wire v1 сохраняют свои границы.
 
 ## Источники
 
@@ -106,3 +106,7 @@ Runner использует один bounded round call на остаток ра
 [8 candidate tests](../../tests/unit/test_m7_npc_mixed_candidates.py), [17 runner/result tests](../../tests/unit/test_m7_npc_mixed_scenario_runner.py) и [9 integration tests](../../tests/integration/test_m7_npc_mixed_scenario_cycle.py) прошли. Scripted cases проверяют 3→4 dice после defeat от Shooting, реальные no-target остановки, пропуск недоступной первой цели, GM withholding, repeated Staggered через advance, четыре исхода, source/replay guards и отсутствие повторного kernel/receipt. Seeded сравнения требуют только воспроизводимости/границ, не фиксированного процента. Дополнительного battle aggregate и обобщения старых runners нет. Следующий срез — отдельный аудит одиночного mixed-сценария и public пример полного runner.
 
 Проверка второго implementation-среза: **34 новых tests OK (0,230 с)**; полный набор **2357 tests OK (244,425 с)**, Windows/Python 3.14.5. Три scripted сценария composition probe, compileall src/tests/tools/docs/examples/m7, 1525 локальных Markdown-путей, diff --check и whitespace новых файлов успешны. Полный самостоятельный пример runner и аудит остаются следующим срезом. Commit/push не выполнялись.
+
+## Аудит одиночного сценария
+
+[Матрица готовности](../audits/m7-readiness.md) завершена: production исправлений не потребовалось, 59 existing tests сопоставлены с контрактом и книгами. Добавлены самостоятельный [mixed_scenario.py](../examples/m7/mixed_scenario.py), [вывод](../examples/m7/mixed_scenario.output.txt) и subprocess test (всего 60 tests M7). Пять scripted случаев покрывают четыре исхода, приоритет доступных целей, расход RNG и terminal suffix; отдельный seeded replay проверяет полное равенство без фиксированного победителя. [Контракт ADR-0029](ADR-0029-independent-mixed-simulations.md) независимых последовательных mixed-прогонов и summary реализован в последовательной typed границе; [аудит simulation](../audits/m7-simulation-readiness.md) и production-пример завершены, следующий шаг — профилирование. Process/balance/CLI остаются отдельными шагами.

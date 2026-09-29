@@ -1,0 +1,54 @@
+ADR-0029 sequential mixed simulation; seed_scheme=towr:npc-mixed-trial:v1
+sources: PG1.4 Rules pp112,118-119; GM1.1 Allies and Antagonists pp91,93,97
+profiles: Footpad Dagger Close 3d/3 Dam2 RES3 Athletics 3d/3; Brigand Warbow Medium-Long 3d/3 Dam3 RES4 Athletics 3d/2
+facts: targets_aware=True; clear_line_of_sight=True; stationary=True; all_zone_combatants_included=True; unmounted_combatants_only=True; no_higher_ground=True; no_additional_rules=True; no_other_test_modifiers=True; ammunition_sufficient=True; requires_reload_action=False
+decisions: every defeat knocked_out/GM-approved; repeated_stagger=suffer_wound; fixed Attack-only policy
+case: 3x2_one_archer; master_seed=42; trials=8; round_budget=2
+  actor_order=Pbow,P1,P2,E1,E2
+  placements=Pbow@rear,P1@arena,P2@arena,E1@arena,E2@arena
+  pairs=Pbow/E1:medium,Pbow/E2:medium,P1/E1:close,P1/E2:close,P2/E1:close,P2/E2:close
+  perspective=players_and_allies; objective=E1,E2
+  policy Pbow: targets=E1,E2; outnumbering_approved=True; can_leave_zone=False
+  policy P1: targets=E1,E2; outnumbering_approved=True; can_leave_zone=False
+  policy P2: targets=E1,E2; outnumbering_approved=True; can_leave_zone=False
+  policy E1: targets=Pbow,P1,P2; outnumbering_approved=True; can_leave_zone=False
+  policy E2: targets=Pbow,P1,P2; outnumbering_approved=True; can_leave_zone=False
+  counts=objective_achieved:6,side_defeated:0,round_limit:2,unsupported_path:0
+  total_attacks=49; total_visited_rounds=15
+  mean_attacks=6.125; mean_visited_rounds=1.875
+  observed_goal_share=3/4; denominator=ALL 8 trials
+  trial 0: seed=8191a56f8a2abc01faa60eb2b989e036b04a2cab866e5ba86642d2b26e6fa27e; outcome=objective_achieved; attacks=2; visited_rounds=1
+  trial 1: seed=d1fa4d1910df292c2ae3f055a34a5210daa12d11f05dced49d2586680f01e9ee; outcome=objective_achieved; attacks=5; visited_rounds=2
+  trial 2: seed=dda0e6983326d6d812a4772bd4f69fd13562b2141b3d4f1f95e15e81dd04c90c; outcome=round_limit; attacks=8; visited_rounds=2
+  trial 3: seed=9abb8d13751bad5d683830cb02885d26f1d616c50de72ecd6e423a97cc531595; outcome=objective_achieved; attacks=8; visited_rounds=2
+  trial 4: seed=53663d1c46d16529eb95ea92fd334f409766ceb0a0026947f2557fa466e3c76c; outcome=objective_achieved; attacks=7; visited_rounds=2
+  trial 5: seed=9de5806d0c4f8a70179dae85f301d9a34e3c3af35345ce1e67b27cf6667099ac; outcome=objective_achieved; attacks=6; visited_rounds=2
+  trial 6: seed=e5c02a3f5675208055e6efe687122684ba1f77b235f770f72250a1b48b19f357; outcome=round_limit; attacks=8; visited_rounds=2
+  trial 7: seed=ecbb86faf8c674f5ecc8b5aea0a13fe836004fecafbbd4ec7cf59e50a9165ed7; outcome=objective_achieved; attacks=5; visited_rounds=2
+  Full result and summary replay equal; input/global RNG unchanged; summary has no trial records
+case: 2x2_two_archers; master_seed=42; trials=8; round_budget=2
+  actor_order=Pbow,P1,E1,E2
+  placements=Pbow@rear,P1@arena,E1@arena,E2@far
+  pairs=Pbow/E1:medium,Pbow/E2:medium,P1/E1:close,P1/E2:medium
+  perspective=players_and_allies; objective=E1,E2
+  policy Pbow: targets=E1,E2; outnumbering_approved=True; can_leave_zone=False
+  policy P1: targets=E1,E2; outnumbering_approved=True; can_leave_zone=False
+  policy E1: targets=Pbow,P1; outnumbering_approved=True; can_leave_zone=False
+  policy E2: targets=Pbow,P1; outnumbering_approved=True; can_leave_zone=False
+  counts=objective_achieved:0,side_defeated:1,round_limit:0,unsupported_path:7
+  total_attacks=27; total_visited_rounds=12
+  mean_attacks=3.375; mean_visited_rounds=1.5
+  observed_goal_share=0; denominator=ALL 8 trials
+  trial 0: seed=8191a56f8a2abc01faa60eb2b989e036b04a2cab866e5ba86642d2b26e6fa27e; outcome=unsupported_path; attacks=1; visited_rounds=1
+  trial 1: seed=d1fa4d1910df292c2ae3f055a34a5210daa12d11f05dced49d2586680f01e9ee; outcome=unsupported_path; attacks=1; visited_rounds=1
+  trial 2: seed=dda0e6983326d6d812a4772bd4f69fd13562b2141b3d4f1f95e15e81dd04c90c; outcome=unsupported_path; attacks=1; visited_rounds=1
+  trial 3: seed=9abb8d13751bad5d683830cb02885d26f1d616c50de72ecd6e423a97cc531595; outcome=side_defeated; attacks=8; visited_rounds=2
+  trial 4: seed=53663d1c46d16529eb95ea92fd334f409766ceb0a0026947f2557fa466e3c76c; outcome=unsupported_path; attacks=5; visited_rounds=2
+  trial 5: seed=9de5806d0c4f8a70179dae85f301d9a34e3c3af35345ce1e67b27cf6667099ac; outcome=unsupported_path; attacks=5; visited_rounds=2
+  trial 6: seed=e5c02a3f5675208055e6efe687122684ba1f77b235f770f72250a1b48b19f357; outcome=unsupported_path; attacks=5; visited_rounds=2
+  trial 7: seed=ecbb86faf8c674f5ecc8b5aea0a13fe836004fecafbbd4ec7cf59e50a9165ed7; outcome=unsupported_path; attacks=1; visited_rounds=1
+  Full result and summary replay equal; input/global RNG unchanged; summary has no trial records
+32 trials executed including replays; counts above describe 8 trials per input, not pooled compositions
+Visited rounds include interrupted last rounds; resume and terminal suffix add no extra round/Attack
+Unsupported remains separate and inside the denominator; no conditional win rate or balance assessment
+This small seeded sample demonstrates the API; its outcome counts are not a statistical test oracle

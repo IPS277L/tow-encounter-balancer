@@ -1,0 +1,23 @@
+ADR-0028: stationary mixed Minions; explicit Close/Medium pairs; round_budget=2
+sources: PG1.4 Equipment p94; Rules pp114,118-119,123; GM1.1 Allies and Antagonists pp91,93,97
+profiles: Dagger Close 3d/3 Dam2 RES3 Athletics 3d/3; Warbow Medium-Long 3d/3 Dam3 RES4 Athletics 3d/2
+facts: targets_aware=True; clear_line_of_sight=True; stationary=True; all_zone_combatants_included=True; unmounted_combatants_only=True; no_higher_ground=True; no_additional_rules=True; no_other_test_modifiers=True; ammunition_sufficient=True; requires_reload_action=False
+policy: first living reachable enemy; all defeats knocked_out/GM-approved; outnumbering approved; can_leave_zone=False; repeated_stagger=suffer_wound
+formation A: Pbow@rear,P1/P2/E1/E2@arena; formation B: Pbow@rear,P1/E1@arena,E2@far
+shot_then_melee: objective_achieved; attacks=2; rounds=1/0 visited/completed; rng=13
+  defeats=2; terminal_suffix=True; last_runner_stop=pending_follow_ups; pending=1->0
+  Medium shot Pbow->E1; Close attack P1->E2; pools=3/4 after local 2:2->2:1
+all_misses: round_limit; attacks=10; rounds=2/2 visited/completed; rng=60
+  defeats=0; terminal_suffix=False; last_runner_stop=round_limit; pending=0->0
+  Remote ally gives no local bonus; only Close attackers Staggered; repeated misses do not escalate
+opposition_wins: side_defeated; attacks=4; rounds=1/0 visited/completed; rng=24
+  defeats=2; terminal_suffix=True; last_runner_stop=pending_follow_ups; pending=1->0
+  Defeated allies had completed their turns: no exclusions required
+close_targets_exhausted: unsupported_path; attacks=1; rounds=1/0 visited/completed; rng=6
+  defeats=1; terminal_suffix=False; last_runner_stop=selection_blocked; pending=0->0
+  E2 is alive at Medium; P1 has no Close target; slot unexecuted; no automatic wait/move
+reachable_priority: objective_achieved; attacks=2; rounds=1/0 visited/completed; rng=12
+  defeats=2; terminal_suffix=True; last_runner_stop=pending_follow_ups; pending=1->0
+  P1 skips remote E2, defeats E1; Pbow then defeats E2
+seed=42: full results repeat with separate RNGs; bounded execution; no fixed random winner required
+All sources/global RNG unchanged; five scripted cases and seeded replay passed
