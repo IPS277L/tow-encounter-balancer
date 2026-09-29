@@ -318,10 +318,29 @@ $env:PYTHONPATH = "src"
 
 [MixedCompositionGroup/MixedCandidateGenerationRequest](../../../src/towr/application/mixed_candidate_generation_models.py) реализуют первый срез ADR-0033. Caller передаёт admitted mixed reserve, ordered groups, отдельные facts/pair_ranges, prefix, caps, seed, stages и окно. Family pairs должны точно совпадать с ordered template pairs; group/request принимают tuple/list и сохраняют tuple snapshots. C/planned_trials вычисляются без materialization и исполнения; при недопустимых bounds/partition/типах/парах/бюджете constructor отклоняет вход. [15 tests](../../../tests/unit/test_m7_mixed_candidate_generation_models.py) проверяют публичный контракт, включая C=2**40−1 и сохранение source/GM policies.
 
-Этот request не строит кандидатов и не доказывает допустимость каждого subset. При bounds с потерей единственного Close-врага он учитывает соответствующий vector в C/budget; construction теперь явно отклоняет такой состав. Следующий срез — integration с existing staged evaluation.
+Этот request не строит кандидатов и не доказывает допустимость каждого subset. При bounds с потерей единственного Close-врага он учитывает соответствующий vector в C/budget; construction теперь явно отклоняет такой состав. Integration с existing staged evaluation теперь проверена (см. ниже); следующий срез — standalone production-пример и аудит.
 
 ## Production генерация составов
 
 [generate_mixed_candidates](../../../src/towr/application/mixed_candidate_generation.py) принимает MixedCandidateGenerationRequest и возвращает immutable MixedCandidateGenerationResult с source_request/evaluation_request. Для каждого prefix-count vector строится полный initial scenario с детерминированным ID; ordered pair ranges, full snapshots/GM decisions/flags и весь graph сохраняются. Result сверяет полный ordered staged input с исходным резервом. Генерация не вызывает симуляцию или оценку; передача evaluation_request в existing staged service остаётся отдельным явным действием.
 
 [MixedCandidateGenerationError](../../../src/towr/application/mixed_candidate_generation_errors.py) сообщает candidate_id/counts; исходная ошибка и notes доступны через __cause__. Недопустимый subset (потеря Melee/Shooting-роли или начальной цели) прерывает весь вызов, даже если предыдущие составы допущены; partial результата нет. Interrupts и финальные staged/result constructor errors не оборачиваются вымышленным candidate context. [17 tests](../../../tests/unit/test_m7_mixed_candidate_generation.py) дополняют 15 preflight tests. Самостоятельный production-пример со staged execution и его аудит ещё впереди; конечный generation_contract_probe остаётся проверкой constructor contract.
+
+## Проверка генератора с поэтапной оценкой
+
+[6 integration tests](../../../tests/integration/test_m7_mixed_candidate_generation.py) используют production generator/staged APIs. Четыре состава и stages=(2,keep=2),(4,keep=1) дают planned budget 16; real sequential/process reports совпадают, повтор и rename prefix сохраняют observations/selection после нормализации source IDs. Точные natural Monte Carlo проценты/победитель не закреплены. Отдельный importable RNG с промахами подтверждает полный actual=planned=16 на каждый backend и оплату повторного пакета без prefix reuse.
+
+Scripted public runner проверяет шесть generated вариантов с локальными 2:1/2:2/2:3 и удалёнными стрелками: точные trace/pools/RNG calls, True/False GM approvals, появление бонуса после поражения врага и исчезновение после поражения союзника. Полные решения disarmed_and_surrendered сохранены. Source/global RNG/cleanup проверены; production код не менялся. Самостоятельный public пример и аудит ADR-0033 теперь завершены (см. ниже).
+
+## Самостоятельный подбор mixed-составов
+
+```powershell
+$env:PYTHONPATH = "src"
+.venv/Scripts/python.exe docs/examples/m7/mixed_balance.py
+```
+
+[Скрипт](mixed_balance.py), [сохранённый вывод](mixed_balance.output.txt) и [аудит](../../audits/m7-generation-readiness.md) закрывают typed generator ADR-0033 в его границе. Явный резерв: Pbow/P1/P2 фиксированы, A=(E2,E1) Footpad Dagger 1..2, B=(E3) Brigand Warbow 0..1. Fixed placements и Close/Medium pairs, отдельные family facts, полные GM decisions/flags. Script строит четыре состава через production generator и сравнивает полные sequential/process reports; seed 42, два раунда, stages 8/32 keep 2/1, окно [1/4,1/2,3/4], planned=96 на вызов. Все actors — numeric Minions; код не импортирует tests/private helpers.
+
+В сохранённом выводе actual=96 на backend (192 trials за запуск). На первом этапе варианты с E3 исключены из-за unsupported; два состава вне окна продолжаются для уточнения. На втором 1,0 имеет 15/16 целей вне окна, а 2,0 — 3/4 целей и unsupported; итог COMPLETED с пустым выбором. Это наблюдение seed/runtime, не preset/гарантия вероятности. Assertions проверяют равенство отчётов, inputs/global RNG/cleanup, не конкретный процент/победителя. Каждый этап повторяет полный пакет с index 0.
+
+Два cwd дают одинаковый stdout и пустой stderr. Реальный generation failure и инъекция ошибки второго этапа после 32 trials сохраняют candidate/counts либо stage/candidate/cause/notes, дают пустой stdout и останавливают дальнейшее исполнение. Текстовый вывод — учебный отчёт, не wire format. Следующее направление выбрано: контракт JSON/CLI для mixed simulation/balance без новых боевых правил.

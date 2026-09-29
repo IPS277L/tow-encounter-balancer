@@ -1,0 +1,41 @@
+profiles: Footpad Dagger / Brigand Warbow; BOOK-GM-GUIDE 1.1 / Allies and Antagonists pp91,93,97
+numeric: Dagger Close 3d/3 Dam2 1H RES3 Athletics 3d/3; Warbow Medium-Long 3d/3 Dam3 2H RES4 Athletics 3d/2
+rules: BOOK-PLAYER-GUIDE 1.4 / Equipment p94; Rules pp112,114,118-119,123; BOOK-GM-GUIDE 1.1 pp91,93,97
+reserve: ('Pbow', 'P1', 'P2', 'E1', 'E2', 'E3'); fixed perspective: players_and_allies
+seed: 42; seed_scheme: towr:npc-mixed-trial:v1; round_budget: 2
+window: min=1/4, target=1/2, max=3/4
+family facts: targets_aware=True; clear_line_of_sight=True; stationary=True; all_zone_combatants_included=True; unmounted_combatants_only=True; no_higher_ground=True; no_additional_rules=True; no_other_test_modifiers=True; ammunition_sufficient=True; requires_reload_action=False
+placements: Pbow@rear; P1/P2/E1/E2@arena; E3@far; all actors are Minions
+family pairs: (('Pbow', 'E1', 'medium'), ('Pbow', 'E2', 'medium'), ('P1', 'E1', 'close'), ('P1', 'E2', 'close'), ('P2', 'E1', 'close'), ('P2', 'E2', 'close'), ('Pbow', 'E3', 'medium'), ('P1', 'E3', 'medium'), ('P2', 'E3', 'medium'))
+no movement/weapon switching; no available target -> unsupported_path, not defeat
+omitted reserve actors are absent from each battle; graph: rear/arena/far triangle; repeated Staggered -> Wound
+group A: reserve=('E2', 'E1'); counts=1..2
+group B: reserve=('E3',); counts=0..1
+policy Pbow: targets=('E3', 'E2', 'E1'); outnumbering_approved=True; can_leave_zone=False; defeats=(('E3', 'knocked_out', True), ('E2', 'knocked_out', True), ('E1', 'knocked_out', True))
+policy P1: targets=('E3', 'E2', 'E1'); outnumbering_approved=True; can_leave_zone=False; defeats=(('E3', 'knocked_out', True), ('E2', 'knocked_out', True), ('E1', 'knocked_out', True))
+policy P2: targets=('E3', 'E2', 'E1'); outnumbering_approved=False; can_leave_zone=True; defeats=(('E3', 'knocked_out', True), ('E2', 'knocked_out', True), ('E1', 'knocked_out', True))
+policy E1: targets=('Pbow', 'P1', 'P2'); outnumbering_approved=True; can_leave_zone=False; defeats=(('Pbow', 'knocked_out', True), ('P1', 'knocked_out', True), ('P2', 'knocked_out', True))
+policy E2: targets=('Pbow', 'P1', 'P2'); outnumbering_approved=True; can_leave_zone=False; defeats=(('Pbow', 'knocked_out', True), ('P1', 'knocked_out', True), ('P2', 'knocked_out', True))
+policy E3: targets=('Pbow', 'P1', 'P2'); outnumbering_approved=True; can_leave_zone=False; defeats=(('Pbow', 'knocked_out', True), ('P1', 'knocked_out', True), ('P2', 'knocked_out', True))
+generated: 4; max_candidates: 4
+candidate: mixed:counts:1,0; initial: mixed:counts:1,0:initial; actors=('Pbow', 'P1', 'P2', 'E2'); objective=('E2',)
+candidate: mixed:counts:1,1; initial: mixed:counts:1,1:initial; actors=('Pbow', 'P1', 'P2', 'E2', 'E3'); objective=('E3', 'E2')
+candidate: mixed:counts:2,0; initial: mixed:counts:2,0:initial; actors=('Pbow', 'P1', 'P2', 'E1', 'E2'); objective=('E2', 'E1')
+candidate: mixed:counts:2,1; initial: mixed:counts:2,1:initial; actors=('Pbow', 'P1', 'P2', 'E1', 'E2', 'E3'); objective=('E3', 'E2', 'E1')
+stages (full trials per candidate, keep): ((8, 2), (32, 1))
+staged budget per evaluation: planned=96; actual=96; max=96
+stage index: 0; trials per candidate: 8; actual trials: 32
+  mixed:counts:1,0: counts goal/defeated/limit/unsupported=7/0/1/0; rates=7/8,0,1/8,0; attacks=21; visited_rounds=10; status=eligible; window_match=False
+  mixed:counts:1,1: counts goal/defeated/limit/unsupported=5/0/2/1; rates=5/8,0,1/4,1/8; attacks=50; visited_rounds=15; status=unsupported_observations; window_match=None
+  mixed:counts:2,0: counts goal/defeated/limit/unsupported=7/0/1/0; rates=7/8,0,1/8,0; attacks=48; visited_rounds=15; status=eligible; window_match=False
+  mixed:counts:2,1: counts goal/defeated/limit/unsupported=5/0/2/1; rates=5/8,0,1/4,1/8; attacks=63; visited_rounds=16; status=unsupported_observations; window_match=None
+  local selected: ()
+  continuation (original candidate order): ('mixed:counts:1,0', 'mixed:counts:2,0')
+stage index: 1; trials per candidate: 32; actual trials: 64
+  mixed:counts:1,0: counts goal/defeated/limit/unsupported=30/0/2/0; rates=15/16,0,1/16,0; attacks=93; visited_rounds=43; status=eligible; window_match=False
+  mixed:counts:2,0: counts goal/defeated/limit/unsupported=24/0/4/4; rates=3/4,0,1/8,1/8; attacks=183; visited_rounds=57; status=unsupported_observations; window_match=None
+  local selected: ()
+staged status: completed; final selected: ()
+sequential/process full reports and selected IDs: equal; workers=2 batch_size=5
+two complete evaluations: 192 trials; each stage reruns its full batch from index 0
+input/global RNG unchanged; no remaining child processes; output is an observation, not a difficulty preset

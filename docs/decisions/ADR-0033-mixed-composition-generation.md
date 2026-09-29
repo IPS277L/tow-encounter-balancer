@@ -1,6 +1,6 @@
 # ADR-0033: ограниченная генерация mixed-составов
 
-Статус: принято, 2026-09-29. **Контракт/probe, production group/request и construction/result/error реализованы; integration и production-пример с аудитом ещё впереди.** Основа — [ADR-0028](ADR-0028-mixed-minion-scenario.md), [ADR-0031](ADR-0031-mixed-candidate-assessment.md), [ADR-0032](ADR-0032-staged-mixed-evaluation.md) и [аудит staged evaluation](../audits/m7-staged-evaluation-readiness.md). Технический образец — [ADR-0026](ADR-0026-melee-composition-generation.md); отдельные mixed типы сохраняют admission и явные пары дистанций.
+Статус: принято, 2026-09-29. **Контракт/probe, production group/request, construction/result/error, integration, самостоятельный пример и аудит завершены в заявленной границе.** Основа — [ADR-0028](ADR-0028-mixed-minion-scenario.md), [ADR-0031](ADR-0031-mixed-candidate-assessment.md), [ADR-0032](ADR-0032-staged-mixed-evaluation.md) и [аудит staged evaluation](../audits/m7-staged-evaluation-readiness.md). Технический образец — [ADR-0026](ADR-0026-melee-composition-generation.md); отдельные mixed типы сохраняют admission и явные пары дистанций.
 
 ## Источники и граница
 
@@ -94,7 +94,7 @@ Probe вручную задаёт конечные векторы, строит 
 | Result | Exact source/full projection; equal copies, foreign types, order/missing/duplicates; подмена pairs/orientation/facts/flags/profile/позиции/цели/ID; immutable source и отсутствие observations |
 | Integration | Generation → existing staged service; полные sequential/process reports равны; repeat/rename prefix; локальный outnumbering до/после defeat при разных составах, удалённый стрелок не учитывается в другой Zone, полные GM decisions; без exact Monte Carlo percentages |
 
-Первый срез — **MixedCompositionGroup и MixedCandidateGenerationRequest с полным preflight/derived C/planned_trials и tests** — реализован без перебора/материализации. Construction/result/error также реализованы; следующий срез — integration, затем самостоятельный production-пример с аудитом. Existing M6 tests служат техническим ориентиром, не заменяют mixed checks. Domain/engine/simulation/evaluation, игровые правила, метрика и ранее согласованный roadmap направления не меняются.
+Первый срез — **MixedCompositionGroup и MixedCandidateGenerationRequest с полным preflight/derived C/planned_trials и tests** — реализован без перебора/материализации. Construction/result/error, integration, самостоятельный production-пример и аудит также завершены; следующий выбранный этап — контракт mixed JSON/CLI. Existing M6 tests служат техническим ориентиром, не заменяют mixed checks. Domain/engine/simulation/evaluation, игровые правила, метрика и ранее согласованный roadmap направления не меняются.
 
 ## Реализованный первый срез
 
@@ -115,3 +115,21 @@ Result сравнивает полные projections и общие staged пар
 Следующий шаг — сквозная integration генерация → existing staged service через оба backend, повтор/rename prefix и динамический локальный outnumbering до/после defeat при разных составах и True/False GM flags. Самостоятельный production-пример и аудит затем; JSON/CLI и новые игровые действия вне среза.
 
 Полная регрессия после второго среза: **2509 tests OK (327,280 с)**, Windows/Python 3.14.5; compileall, локальные ссылки, finite probe и git diff --check успешны. Commit/push не выполнялись.
+
+## Сквозная integration
+
+2026-09-29: [6 integration tests](../../tests/integration/test_m7_mixed_candidate_generation.py) завершают связь generator → existing staged service в текущем контракте (всего generation 38 tests: 15 preflight, 17 construction/result/error, 6 integration). Четыре generated candidates, stages 2/4 keep 2/1, planned budget 16. Реальные sequential/process workers=2/batch_size=3 дают равные полные reports/selection; повтор генерации/исполнения воспроизводим. Rename prefix меняет candidate/initial IDs, но сохраняет seeds и все assessments после нормализации source IDs, а также выбранные составы. Natural RNG observations не закреплены точными процентами/победителем; actual budget проверяется по выполненным полным отчётам и ограничивается planned.
+
+Отдельный importable finite RNG с промахами внедрён на existing simulation boundary. Сам generator, staged/bounded evaluation и реальные sequential/spawn runners не подменяются. Все четыре состава поддержаны, два проходят на следующий этап; stages исполняют четыре полных пакета по 2 и два по 4: actual=planned=16 на backend, без prefix reuse. Проверены parent source identity, неизменность входа/global RNG и отсутствие оставшихся дочерних процессов.
+
+Scripted public runner получает шесть generated составов с 1..3 Melee-врагами и 0..1 удалённым стрелком. Локальные соотношения 2:1/2:2/2:3 дают ожидаемые Attack trace/pools и точное число RNG calls при True/False GM approval. Дистанции сохраняются; удалённые стрелки не учитываются в чужой Zone, а Shooting не получает Melee-бонус. Поражение врага от дальнего выстрела меняет local 2:2→2:1 для следующей Melee-атаки; поражение союзника меняет 2:1→1:1 в следующем раунде при неизменном approval. Полные явно заданные DISARMED_AND_SURRENDERED decisions сохраняются в acknowledgement, pending после разрешения пуст. Production исправлений не потребовалось.
+
+Непосредственно перечитаны BOOK-PLAYER-GUIDE 1.4, Equipment / Ranged Weapons, стр. 94; Rules / The Battlefield / Range, стр. 114; Attack Tests / Attack Modifiers, стр. 118–119; BOOK-GM-GUIDE 1.1, Allies and Antagonists / Minions, стр. 91; Understanding NPC Profiles, стр. 93; Brigands & Footpads, стр. 97. Новых правил/house rules нет. Следующий шаг — самостоятельный production-пример генерация → staged evaluation и аудит контракта; новые действия/Abilities и JSON/CLI вне этого среза.
+
+Полная регрессия после integration: **2515 tests OK (401,383 с)**, Windows/Python 3.14.5; отдельно 6 tests OK (23,033 с). Compileall, локальные ссылки и git diff --check успешны. Commit/push не выполнялись.
+
+## Итог аудита
+
+[Аудит](../audits/m7-generation-readiness.md) сопоставил 38 tests и public APIs с контрактом; production исправлений не потребовалось. [mixed_balance.py](../examples/m7/mixed_balance.py) через public builder задаёт резерв Footpad Dagger/Brigand Warbow и отдельные family facts/pairs/GM policies, строит четыре состава и сравнивает полные sequential/process staged reports. Seed 42, два раунда, stages 8/32 keep 2/1, верхний budget 96 на backend. [Вывод](../examples/m7/mixed_balance.output.txt): actual=96 на каждый вызов, final COMPLETED/пустой выбор; один уточнённый состав вне окна, другой имеет unsupported на его границе. Assertions не фиксируют Monte Carlo проценты/победителя.
+
+Проверены два cwd с одинаковым stdout, реальные generation failure и инъекция late-stage failure после 32 trials без partial stdout, сохранение cause/notes и остановка до следующего backend. Source/global RNG/cleanup и layer/public imports сохранены. Полная регрессия: **2515 tests OK (300,008 с)**, Windows/Python 3.14.5; compileall, локальные ссылки и diff/whitespace успешны. Все 665 существовавших src/tests/tools файлов неизменны; новых unittest tests нет. Пользователь выбрал продолжение — JSON/CLI mixed simulation/balance, сначала отдельный контракт без новых боевых правил. Commit/push не выполнялись.
