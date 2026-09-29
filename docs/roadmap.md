@@ -144,8 +144,12 @@ PC, перемещение, смешанный бой и полный катал
 Направление выбрано пользователем после внешнего аудита M7. [Первый контракт ADR-0035](decisions/ADR-0035-cowardly-flight-casting-boundary.md) и [finite probe](examples/m8/README.md) подготовлены. Inventory K1 и прямая сверка книг показали готовность отдельных Casting/Miscast/Curse reducers и отсутствие общего magic encounter. Книжных Champion-магов нельзя превратить в Minions ради M7 admission.
 
 1. Контракт одного Casting-действия с Curse of Cowardly Flight готов: actor/state/slot, explicit CAST_WHEN_READY, неподвижные Minion-цели без ухода, WAITING/SPELL_RESOLVED/MISCAST_REQUIRED. 177 existing K1 tests и public probe на 24 scripted d10 прошли.
-2. **Следующий срез:** frozen input models и полный preflight без RNG/executor.
-3. Result models и узкий executor через existing K1, deterministic source/branch/action tests.
-4. Аудит boundary/production example. Затем отдельный контракт полного magic encounter: caster injury model, action dispatch, следующие ходы Broken и обязательные Miscast outcomes. Следующая последовательность реализации уточняется этим контрактом.
+2. Frozen input models и полный preflight реализованы без RNG/executor; 23 новых deterministic tests, 200 вместе со связанными K1 — OK.
+3. Result models и узкий executor реализованы через existing K1: 24 unit и 2 integration tests; с input и связанным K1 — 226 OK. Полные normal traces/source/state/branch guards, один Casting roll/receipt и ordered target Tests.
+4. [Аудит boundary](audits/m8-casting-readiness.md) и [production-пример](examples/m8/casting_action.py) завершены: 227 связанных tests, запуск из temporary cwd и установленного wheel. Исправлений production не потребовалось.
+5. [Контракт интеграции ADR-0036](decisions/ADR-0036-magic-encounter-integration.md) готов: Champion injury, первый состав/тактика, ownership/dispatch, Broken/Miscast continuation и точные unsupported stops; инвентаризация отличает готовые K1 reducers от отсутствующих roster consumers.
+6. **Следующий срез:** actor-bound Casting → roster consumer: frozen state/source-bound result, однократное применение magic/Conditions/receipt, pending Miscast и guards, без нового RNG/loop.
+7. Затем Champion attack/Wound bridge, актуальные Casting targets/Give Ground и Broken/interruptions; после этих зависимостей — отдельный scenario/runner с objective/лимитом и exact unsupported для неисполняемых последствий.
+8. Miscast consumers расширять отдельными срезами с явным решением неоднозначностей; завершить заявленную границу encounter примером и аудитом до массовых прогонов.
 
 Массовые magic-прогоны, метрика/подбор и новый JSON/CLI не объявляются готовыми по наличию одного действия. Полный каталог, универсальный battle aggregate и автоматические решения GM в первый boundary не входят. Это этапы выбранной магии, не переключение плана на движение или reload.

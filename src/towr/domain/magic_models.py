@@ -900,3 +900,15 @@ def _validate_non_negative_int(value: int, name: str) -> None:
 def _validate_bool(value: bool, name: str) -> None:
     if not isinstance(value, bool):
         raise TypeError(f"{name} must be a boolean")
+
+
+# PG1.4, Battle Magic / Curse of Cowardly Flight, p162.
+# Shared canonical data: rules retain their historical public re-export.
+COWARDLY_FLIGHT_SPELL_DEFINITION = FormalSpellDefinition(
+    rule_id="RULE-MAGIC-001:curse-of-cowardly-flight",
+    lore_id="lore:battle-magic",
+    casting_value=3,
+    target_kind=SpellTargetKind.ZONE,
+    range=SpellRange.LONG,
+    duration=SpellDuration.INSTANT,
+)

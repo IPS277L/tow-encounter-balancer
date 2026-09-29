@@ -1,6 +1,6 @@
 # ADR-0035: первая граница Casting-действия для M8
 
-Статус: принято как ограниченный технический контракт, 2026-09-29. Production models/executor ещё не реализованы. Пользователь выбрал **магию в боевой симуляции** после закрытия ADR-0034. Этот ADR задаёт первый необходимый узел интеграции, а не обещает завершённый бой с магами.
+Статус: принято как ограниченный технический контракт, 2026-09-29. Input/preflight, result models и executor реализованы и закрыты [аудитом](../audits/m8-casting-readiness.md) в указанной границе одного действия. Standalone production-пример проверен; следующий шаг — контракт magic encounter. Пользователь выбрал **магию в боевой симуляции** после закрытия ADR-0034. Этот ADR задаёт первый необходимый узел интеграции, а не обещает завершённый бой с магами.
 
 ## Основание и инвентаризация
 
@@ -47,9 +47,9 @@ Spatial snapshot сохраняет caster/участников и выбран�
 
 Почему именно этот spell: его конкретный effect reducer уже готов, источник не наносит Damage и не требует добавить ещё один kernel или трактовать spell как weapon Attack. Изолированная граница позволяет получить точные состояния Broken, не притворяясь, что текущий M7 умеет следующий ход такой цели.
 
-## Планируемые typed APIs
+## Typed APIs
 
-Новые узкие модули `domain/cowardly_flight_casting_models.py` и `engine/cowardly_flight_casting.py`; CLI/adapters/balance не импортируются.
+Узкие модули `domain/cowardly_flight_casting_models.py`, `domain/cowardly_flight_casting_result_models.py` и `engine/cowardly_flight_casting.py`; CLI/adapters/balance не импортируются. Result/guards отделены от input для читаемости.
 
 - `CastingCasterDefinition(id, source_rule_id, wizard_level, casting_profile: InlineProfile)` — immutable описание мага, без injury/round state.
 - `CowardlyFlightCastingTarget(actor_id, willpower_profile: InlineProfile, injury: ProfileInjuryState, can_give_ground)` — текущий target snapshot с указанным выше допуском.
@@ -80,10 +80,36 @@ Result не завершает ход/бой и не делает end-battle Rec
 
 ## Что отложено и порядок следующих шагов
 
-1. **Следующий срез:** pure frozen input models и preflight нового boundary; без executor/RNG.
-2. Result models и один executor по указанным трём веткам; deterministic unit/integration с существующим scheduler/K1.
-3. Аудит boundary и public production example. Затем отдельный контракт перехода к полноценному magic encounter: caster injury model, action dispatch, следующие ходы Broken и обязательные Miscast outcomes.
+1. Pure frozen input models и preflight нового boundary реализованы; без executor/RNG.
+2. Result models и один executor по указанным трём веткам реализованы; 24 unit и 2 integration tests с существующим scheduler/K1 прошли.
+3. Аудит boundary и public production example завершены. **Следующий срез:** отдельный контракт перехода к magic encounter: caster injury model, action dispatch, следующие ходы Broken и обязательные Miscast outcomes, с инвентаризацией необходимых consumers до реализации runner.
 
 Miscast effects, desperate spell до таблицы, Recover/interruption/abandonment, Mixing/opposition/Dispeller, spell damage, длительные эффекты, движение, PC/Champion wounds в encounter, массовые прогоны, метрика и JSON/CLI магии здесь не реализуются. Это последующие зависимости M8, не отмена выбранного пользователем направления. **Нельзя выдавать этот первый boundary за поддержку полного боя с магами или подавлять Miscast для получения оценок баланса.**
 
 `AMBIGUITY-002` о Magic Resistance и открытые вопросы recent spell/пустой истории Spell Recast, objects/ranges таблицы Miscast остаются открытыми. Текущий допуск их не использует и не выбирает house rule. При подключении соответствующих последствий потребуется отдельное решение по существенной неоднозначности.
+
+## Реализованный input/preflight
+
+[Модели](../../src/towr/domain/cowardly_flight_casting_models.py) проверяют допуск в constructors; отдельного executor или вызовов K1/RNG нет. `CowardlyFlightCastingPolicy.CAST_WHEN_READY` обязателен без default. `CastingCasterDefinition.id` — ID повторно используемого определения, не actor ID; только request связывает definition, actor и caller-supplied WizardMagicState. Последний не содержит actor ID, поэтому история его принадлежности остаётся ответственностью caller. Профили — InlineProfile без custom pool cap, facts охватывают также target Willpower.
+
+Уточнения технической границы: требуется ровно один зарезервированный, неисполненный standard slot 1 с Battle Magic spell Improvise без признака Attack. Spatial round совпадает с CombatRoundState; placements охватывают ровно всех участников и сохраняют стороны. Это не admission промежуточного battle snapshot с удалёнными defeated участниками. Completed/excluded turn IDs сами по себе не исключают врага из эффекта: такой ID описывает доступность хода, не injury. Все враги выбранной Zone обязаны иметь healthy target snapshot в порядке round participants; spatial order произволен. Пустая Zone допустима. Spatial turn history сохраняется, не очищается. Range и can_give_ground не выводятся из графа.
+
+[23 deterministic tests](../../tests/unit/test_m8_cowardly_flight_casting_models.py) покрывают свежий/WAIT input, pool == Level и обязательный Miscast, slot/actor/Lore, настоящий K1 executed receipt, полный target состав/порядок/стороны, пустую Zone, обе стороны caster, сохранение spatial history, wrong types/facts, immutable tuple-copy и отсутствие исполнения/RNG. Вместе с 177 связанными K1 tests — 200 OK. Книжные правила не менялись; result/executor добавлены следующим срезом ниже, full encounter ещё отсутствует.
+
+## Реализованный result/executor
+
+[Executor](../../src/towr/engine/cowardly_flight_casting.py) принимает admitted request и RNG. CastingAttempt исполняется один раз; pure post-pool projection нужна для явного CAST_WHEN_READY, затем post-Test проверяет исходный Casting result. WAIT и mandatory Miscast возвращаются без target Tests. В normal CAST выполняются canonical preflight → target Potency → Curse Zone batch → ordered Willpower. Пустая Zone и Potency 0 сохраняют полноценные фазовые результаты без дополнительных бросков. End-turn/Recover/Miscast preparation не выполняются.
+
+[Result](../../src/towr/domain/cowardly_flight_casting_result_models.py) хранит `source`, `execution`, `post_test`, `status` и optional `preflight`, `spell`, `zone`, `willpower`. Для SPELL_RESOLVED обязательны все четыре spell-фазы; для WAITING/MISCAST_REQUIRED они запрещены. `round_state`, `magic_state`, `spatial_state`, `targets` и `pending_miscast` — вычисляемые read-only свойства из проверенных вложенных данных, без второго независимо передаваемого снимка. `targets` — tuple из `CowardlyFlightCastingTargetState(actor_id, injury)`: выход допускает Broken и потому не переиспользует healthy-only входной тип. Target order и unchanged/no-effect цели сохраняются.
+
+Guards связывают action/source round, профиль и normal RollTrace, accumulated/latest successes, Rule-of-Nine pool, decision/CV/Potency, canonical definition/subject, каждый target effect/context и Willpower/Broken/spatial state. Проверка trace только сверяет записанные значения d10/профиль/итоги, не вызывает resolver или RNG. Same-ID splice другого состояния, профиля, уровня, цели, порядка, ветки или pending Miscast отклоняется. Full source не удостоверяет внешние GM facts или исторического владельца actor-agnostic WizardMagicState. Старый immutable input остаётся воспроизводимым; returned executed slot повторно не допускается.
+
+Canonical `COWARDLY_FLIGHT_SPELL_DEFINITION` хранится в domain/magic_models.py; прежний `towr.rules.cowardly_flight_resolution` реэкспортирует тот же объект. Значения и Rule ID не изменились. Это позволяет domain guards проверять полное определение без обратного импорта rules. Stable derived IDs: request ID для action receipt; `:casting`, `:willpower`, `:post-test`/`:decision`, `:preflight`, `:zone`, `:willpower-batch` для соответствующих фаз. Вложенные target IDs формируются existing K1. Исключения проходят без retry/partial result и без отката RNG.
+
+[24 unit tests](../../tests/unit/test_m8_cowardly_flight_casting.py) и [2 integration tests](../../tests/integration/test_m8_cowardly_flight_casting.py) проверяют три ветки, trace/source guards, latest Potency, pool == Level / > Level, отсутствие rerolls, нулевую Potency, пустую Zone, natural single die, Willpower 9 без влияния на pool мага, повторяемость, ошибки и реальные scheduler transitions. В integration остальные участники явно выполняют Recover со своим пустым magic state; pool ожидающего мага не очищается между раундами. Это проверка нескольких действий, не готовый battle runner. Следующий шаг — аудит и standalone production example, затем отдельный контракт полноценного magic encounter.
+
+Проверка реализации 2026-09-29: 226 связанных tests и полный набор 2713 tests — OK (395,812 с); `compileall`, public K1 probe и `git diff --check` успешны. Последующий аудит и standalone production example описаны ниже.
+
+## Завершённый аудит
+
+[Аудит](../audits/m8-casting-readiness.md) подтвердил текущий контракт без production-исправлений. [Самостоятельный пример](../examples/m8/casting_action.py) и [сохранённый вывод](../examples/m8/casting_action.output.txt): шесть supplied activations, 24 scripted d10, все три ветки, latest Potency/Broken, нулевая Potency и empty Zone, запрет повторного returned slot/чужого actor/pending Miscast до RNG. Новый subprocess test проверяет запуск вне cwd; 50 tests M8, 227 вместе со связанным K1 — OK. Offline wheel собран/установлен в отдельный build target, происхождение импортированного engine проверено, вывод совпал. Полный suite последней реализации остаётся 2713 OK; в аудите добавлен один test и production не менялся. Следующий этап — отдельный контракт magic encounter, не автоматическое подключение к M7.

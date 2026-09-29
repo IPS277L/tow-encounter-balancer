@@ -1,0 +1,8 @@
+WAIT: accumulated=1; pool=0; dice=3; receipt=first-action
+CAST: accumulated_before=3; potency=2; first=resisted; second=Broken; dice=9; receipt=second-action
+POOL == LEVEL: waiting; pool=2; accumulated=1; dice=3
+POOL > LEVEL: miscast_required; pool=3; accumulated=3; pending retained; dice=3
+ZERO POTENCY: spell_resolved; targets=2; Willpower Tests=0; dice=3
+EMPTY ZONE: spell_resolved; targets=0; Willpower Tests=0; dice=3
+24 scripted d10; one receipt per action; replay/actor/pending guards before RNG; inputs/global RNG unchanged
+Scope: supplied activations; no full battle, Miscast resolution or next Broken turn

@@ -9,10 +9,7 @@ from towr.domain.condition_models import (
     EffectClassification,
 )
 from towr.domain.magic_models import (
-    FormalSpellDefinition,
-    SpellDuration,
-    SpellRange,
-    SpellTargetKind,
+    COWARDLY_FLIGHT_SPELL_DEFINITION,
 )
 from towr.domain.resolution_models import (
     CowardlyFlightMovementCompletion,
@@ -37,15 +34,7 @@ from towr.rules.effect_resolution import resolve_effect_application
 from towr.rules.test_resolution import TestDecisionProvider, resolve_test
 
 
-COWARDLY_FLIGHT_RULE_ID = "RULE-MAGIC-001:curse-of-cowardly-flight"
-COWARDLY_FLIGHT_SPELL_DEFINITION = FormalSpellDefinition(
-    rule_id=COWARDLY_FLIGHT_RULE_ID,
-    lore_id="lore:battle-magic",
-    casting_value=3,
-    target_kind=SpellTargetKind.ZONE,
-    range=SpellRange.LONG,
-    duration=SpellDuration.INSTANT,
-)
+COWARDLY_FLIGHT_RULE_ID = COWARDLY_FLIGHT_SPELL_DEFINITION.rule_id
 
 
 def resolve_cowardly_flight_spell_effect(
