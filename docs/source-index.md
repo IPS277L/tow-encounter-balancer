@@ -384,3 +384,9 @@ M6 balance pure JSON ADR-0027: повторно прочитаны локаль�
 2026-09-29 — [ADR-0030](decisions/ADR-0030-process-mixed-simulations.md): непосредственно перечитаны BOOK-PLAYER-GUIDE 1.4, Rules / Combat, стр. 112; BOOK-GM-GUIDE 1.1, Allies and Antagonists / Minions, стр. 91. Round/turn/action и defeat/disposition остаются внутри existing mixed runner; process scheduling не вводит новых правил.
 
 2026-09-29 — реализация [mixed process ADR-0030](decisions/ADR-0030-process-mixed-simulations.md): прямо перечитаны BOOK-PLAYER-GUIDE 1.4, Rules / Combat, стр. 112; Attack Tests / Attack Modifiers, стр. 118; Failed Attacks / Successful Attacks, стр. 119; BOOK-GM-GUIDE 1.1, Allies and Antagonists / Minions, стр. 91. Process runner сохраняет existing trial/terminal suffix и GM facts; игровой механики не добавляет.
+
+2026-09-29 — [общий аудит массовой mixed-симуляции](audits/m7-mass-simulation-readiness.md): прямо перечитаны BOOK-PLAYER-GUIDE 1.4, Rules / Combat, стр. 112; Attack Tests / Attack Modifiers, стр. 118–119; Failed Attacks / Successful Attacks, стр. 119; BOOK-GM-GUIDE 1.1, Allies and Antagonists / Minions, стр. 91; Brigands & Footpads, стр. 97. Правила и numeric fixtures сохраняются; seed/summary/process — технический слой, новых извлечённых правил нет.
+
+2026-09-29 — [ADR-0031](decisions/ADR-0031-mixed-candidate-assessment.md): непосредственно перечитаны BOOK-PLAYER-GUIDE 1.4, Rules / Combat, стр. 112; BOOK-GM-GUIDE 1.1, Allies and Antagonists / Minions, стр. 91. Round/turn/action и defeat/disposition прежние; метрика/окно/бюджет/ranking — технический контракт, не новое игровое правило.
+
+2026-09-29 — pure mixed assessment [ADR-0031](decisions/ADR-0031-mixed-candidate-assessment.md#реализация-pure-assessment): прямо перечитаны BOOK-PLAYER-GUIDE 1.4, Rules / Combat, стр. 112 и BOOK-GM-GUIDE 1.1, Allies and Antagonists / Minions, стр. 91. Игровые правила прежние; точные доли/окно — техническая проекция existing summary.

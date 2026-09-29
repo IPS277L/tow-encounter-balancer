@@ -116,4 +116,38 @@ if __name__ == "__main__":
     main()
 ```
 
-Импортируемый main и guard обязательны для spawn; stdin/REPL не обещаны. Custom `rng_factory` должна быть top-level/picklable и создавать независимый RNG только по seed. Все четыре outcomes сохраняются, unsupported не отбрасывается. Pool закрывается на каждый вызов, при ошибке ожидает уже начатую работу; partial result/retry/fallback отсутствуют. Bounded очередь не ограничивает суммарное хранение всех compact records. [11 unit tests](../../../tests/unit/test_m7_npc_mixed_parallel.py) и [6 real-spawn tests](../../../tests/integration/test_m7_npc_mixed_parallel.py) проверяют API. [Сравнение sequential/process](../../benchmarks/README.md#mixed-sequential-и-spawn) выполнено на 100/1000 trials; локальные результаты не обещают универсального ускорения. Автоматического backend нет; следующий шаг — общий аудит массовой mixed-симуляции.
+Импортируемый main и guard обязательны для spawn; stdin/REPL не обещаны. Custom `rng_factory` должна быть top-level/picklable и создавать независимый RNG только по seed. Все четыре outcomes сохраняются, unsupported не отбрасывается. Pool закрывается на каждый вызов, при ошибке ожидает уже начатую работу; partial result/retry/fallback отсутствуют. Bounded очередь не ограничивает суммарное хранение всех compact records. [11 unit tests](../../../tests/unit/test_m7_npc_mixed_parallel.py) и [6 real-spawn tests](../../../tests/integration/test_m7_npc_mixed_parallel.py) проверяют API. [Сравнение sequential/process](../../benchmarks/README.md#mixed-sequential-и-spawn) выполнено на 100/1000 trials; локальные результаты не обещают универсального ускорения. Автоматического backend нет. [Общий аудит массовой mixed-симуляции](../../audits/m7-mass-simulation-readiness.md) завершён; [контракт оценки mixed-кандидатов ADR-0031](../../decisions/ADR-0031-mixed-candidate-assessment.md) подготовлен. Pure mixed assessment реализован; list models/evaluator ещё впереди.
+
+## Контракт оценки mixed-кандидатов
+
+[ADR-0031](../../decisions/ADR-0031-mixed-candidate-assessment.md), [assessment_contract_probe.py](assessment_contract_probe.py) и [сохранённый вывод](assessment_contract_probe.output.txt). Запуск из корня:
+
+```powershell
+$env:PYTHONPATH = "src"
+.venv/Scripts/python.exe docs/examples/m7/assessment_contract_probe.py
+```
+
+Probe использует только existing public constructors/APIs и builder mixed_scenario.py. Синтетическая часть проверяет Fraction/inclusive windows, stable ties, арифметику бюджета, all-limit/all-unsupported и большой N без float rounding; это не simulation observations и не будущие production guards. Реальная часть исполняет один scripted 2×2 input в sequential и production spawn: по четыре trials, одинаковые results/summaries, counts=1/1/1/1, 17 Attack/6 visited. Goal=1/4 внутри окна, но unsupported=1/4 делает будущую оценку непригодной. Parent source/global RNG/cleanup проверены; всего восемь реальных trials на запуск. Пример работает и из отдельного cwd при абсолютном PYTHONPATH к src. Пример не реализует assessment/list/evaluator API. Pure assessment уже реализован отдельно и проверен своими tests; list models/evaluator — следующие срезы.
+
+## Python API оценки одного mixed-кандидата
+
+[Реализованный первый срез ADR-0031](../../decisions/ADR-0031-mixed-candidate-assessment.md#реализация-pure-assessment) принимает input, готовую aggregate summary и явное окно. Пример с builder из этой папки:
+
+```python
+from fractions import Fraction
+from mixed_scenario import build_scenario
+from towr.balance.mixed_assessment import assess_mixed_candidate
+from towr.balance.mixed_assessment_models import ObjectiveRateWindow
+from towr.simulation.npc_mixed_models import NpcMixedSimulationRequest
+from towr.simulation.npc_mixed_simulation import run_npc_mixed_simulation
+from towr.simulation.npc_mixed_summary import summarize_npc_mixed_simulation
+
+request = NpcMixedSimulationRequest(build_scenario(), master_seed=42, trials=4)
+summary = summarize_npc_mixed_simulation(run_npc_mixed_simulation(request))
+assessment = assess_mixed_candidate(
+    request, summary, ObjectiveRateWindow(Fraction(1, 4), Fraction(1, 2), Fraction(3, 4)),
+)
+print(assessment.status.value, assessment.objective_achieved_rate, assessment.window_match)
+```
+
+Сам assessment не запускает симуляцию: её вызов выше нужен только для получения summary. Все четыре доли сохраняют denominator=N; любое unsupported даёт window_match=None. ELIGIBLE с False означает пригодные наблюдения вне окна. Равная копия полного input допустима, чужие facts/seed/budget и ranged/Melee summary отклоняются. Окно/метрика не утверждают истинную вероятность или полноту тактики. [9 unit](../../../tests/unit/test_m7_mixed_assessment.py) и [1 real sequential/spawn integration test](../../../tests/integration/test_m7_mixed_assessment.py) проверяют готовые API. Следующий шаг — модели списка, пока без application execution/JSON/CLI.

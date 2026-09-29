@@ -1,6 +1,6 @@
 # ADR-0030: опциональные mixed-прогоны в процессах
 
-Статус: контракт принят в согласованном направлении M7, 2026-09-29. **Production backend реализован; 11 unit и 6 real-spawn integration tests.** Конечный transport probe сохранён как исторический пример; проверки готового API описаны в конце.
+Статус: контракт принят в согласованном направлении M7, 2026-09-29. **Production backend реализован; 11 unit и 6 real-spawn integration tests.** Измерения и [общий аудит массовой mixed-симуляции](../audits/m7-mass-simulation-readiness.md) завершены. Конечный transport probe сохранён как исторический пример; проверки готового API описаны в конце.
 
 ## Основание и граница
 
@@ -106,4 +106,4 @@ Probe не проверяет будущие public options/preflight, лени�
 
 [Сравнение](../benchmarks/README.md#mixed-sequential-и-spawn) выполнено для прежних mixed fixtures 2×1/3×2/2×2, 100/1000 trials, master_seed=20260929, budget=5, workers=1/2, batch_size=32, три чередующихся повтора. Все 54 полных результата и summary равны внутри соответствующего входа; canonical digests и четыре outcomes сохранены. Source/harness hash совпадает до/после, 100-trial digests совпали с baseline.
 
-На 100 trials spawn медленнее; на 1000 один worker также медленнее, два workers дают локальные 1,298×/1,196× для 3×2/2×2. В 2×1 диапазоны перекрываются. Измерения включают fresh pool startup/serialization/shutdown; памяти процессов, других платформ и универсального порога полезности они не устанавливают. Auto backend/persistent pool не добавлены. Шесть новых tests проверяют корректность harness, не скорость. Production API и правила не менялись; следующий срез — общий аудит массовой mixed-симуляции по ADR-0029/0030.
+На 100 trials spawn медленнее; на 1000 один worker также медленнее, два workers дают локальные 1,298×/1,196× для 3×2/2×2. В 2×1 диапазоны перекрываются. Измерения включают fresh pool startup/serialization/shutdown; памяти процессов, других платформ и универсального порога полезности они не устанавливают. Auto backend/persistent pool не добавлены. Шесть новых tests проверяют корректность harness, не скорость. Production API и правила не менялись; [общий аудит ADR-0029/0030](../audits/m7-mass-simulation-readiness.md) завершён; текущий hash совпал с отчётами. Следующий срез — контракт оценки mixed-кандидатов.

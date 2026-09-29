@@ -72,3 +72,7 @@ Visited rounds включают незавершённый последний р
 ## Реализация следующего process-среза
 
 [Backend ADR-0030](../../src/towr/simulation/npc_mixed_parallel.py) реализован с 11 unit/6 real-spawn integration tests. Source/seed/result/summary прежние, реальные unsupported не фильтруются. Это дополнение к sequential; [end-to-end измерения sequential/process](../benchmarks/README.md#mixed-sequential-и-spawn) завершены на 100/1000 trials с полным равенством результатов. Следующий срез — общий аудит массового mixed-слоя по ADR-0029/0030, включая source/seed/outcomes, ошибки/cleanup, summaries и границы применимости измерений. Прежний аудит sequential не является самостоятельным performance-аудитом process.
+
+## Общий аудит завершён
+
+[Аудит массовой mixed-симуляции](m7-mass-simulation-readiness.md) объединяет готовые sequential/process/summary и сохранённые измерения. Проверены 56 tests слоя (116 M7 суммарно), текущий source/harness hash совпадает с обоими process отчётами. Следующий срез — контракт оценки mixed-кандидатов; исходные результаты последовательного аудита выше остаются историческими.

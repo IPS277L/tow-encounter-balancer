@@ -1,6 +1,6 @@
 # ADR-0029: независимые последовательные mixed-прогоны и summary
 
-Статус: принято и реализовано, 2026-09-29, в последовательной typed границе ниже. [Аудит последовательной simulation](../audits/m7-simulation-readiness.md) завершён; самостоятельный пример готового API проверен. Профилирование и эксперимент с continuation завершены (кеширование отклонено); контракт опционального mixed process runner ADR-0030 реализован; сравнение sequential/process — следующий шаг.
+Статус: принято и реализовано, 2026-09-29, в последовательной typed границе ниже. [Аудит последовательной simulation](../audits/m7-simulation-readiness.md) завершён; самостоятельный пример готового API проверен. Профилирование и эксперимент с continuation завершены (кеширование отклонено); контракт опционального mixed process runner ADR-0030 реализован; сравнение sequential/process и [общий аудит массовой mixed-симуляции](../audits/m7-mass-simulation-readiness.md) завершены. Следующий слой — контракт оценки mixed-кандидатов.
 
 ## Основание и граница
 
@@ -122,3 +122,7 @@ T <= total_attack_count <= A*total_visited_round_count
 [ADR-0030](ADR-0030-process-mixed-simulations.md) и [transport probe](../examples/m7/process_contract_probe.py) готовы. Existing sequential request/trial/result/summary сохраняются; probe проверяет полное равенство результатов и четыре реальные mixed outcomes в дочерних процессах. Production process orchestration и её tests — следующий срез, не часть реализованного ADR-0029.
 
 [Production mixed process API](../../src/towr/simulation/npc_mixed_parallel.py) по ADR-0030 реализован с 17 новыми tests. Existing request/result/summary и seed scheme ADR-0029 сохранены; последующий performance-срез не меняет правила агрегации.
+
+## Общий аудит массового слоя
+
+[Аудит ADR-0029/0030](../audits/m7-mass-simulation-readiness.md) завершён: models/trial/sequential/summary и process API согласованы с 56 existing tests слоя, включая profiling/comparison. Source/seed/four outcomes и aggregate-only граница сохраняются, исправления production не потребовались. Подготовка отдельного контракта оценки mixed-кандидатов — следующий срез; технические ограничения симулятора не становятся игровой тактикой.

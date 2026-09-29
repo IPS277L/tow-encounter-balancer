@@ -1,0 +1,8 @@
+Synthetic arithmetic only: shares=1/4,3/4,1/2,1,1/2; matches=True,True,True,False,None
+Synthetic selection: C,A; reordered ties: C,B; planned=20 fits cap=20, exceeds cap=19
+Point window zero/all-limit/all-unsupported and large exact Fraction: OK
+Existing ObjectiveRateWindow and SimulationExecutionOptions/pickle paths: OK
+Real scripted sequential/spawn: full results/summaries equal; outcomes=1/1/1/1; attacks=17; visited=6
+Real goal share=1/4 of ALL trials; unsupported=1/4 -> proposed window_match=None
+8 real trials total; source/global RNG unchanged; children closed
+Mixed assessment/list/service APIs and their guards are NOT implemented by this probe
