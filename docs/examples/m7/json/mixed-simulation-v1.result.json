@@ -1,0 +1,303 @@
+{
+  "schema_version": "1",
+  "kind": "npc_mixed_simulation_result",
+  "request": {
+    "schema_version": "1",
+    "kind": "npc_mixed_simulation",
+    "request_id": "example:mixed",
+    "ruleset": "towr-pg1.4-gmg1.1",
+    "simulation": {
+      "master_seed": "42",
+      "trials": 8,
+      "round_budget": 2
+    },
+    "execution": {
+      "mode": "sequential"
+    },
+    "scenario": {
+      "definitions": [
+        {
+          "id": "brigand:warbow",
+          "source_rule_id": "BOOK-GM-GUIDE:1.1:p97:brigand",
+          "resilience": {
+            "toughness": 3,
+            "bonus": 1
+          },
+          "attack": {
+            "id": "warbow",
+            "source_rule_id": "BOOK-GM-GUIDE:1.1:p97:warbow",
+            "skill": "shooting",
+            "range_min": "medium",
+            "range_max": "long",
+            "dice": 3,
+            "threshold": 3,
+            "damage": 3,
+            "hands": "2h"
+          },
+          "protection": {
+            "source_rule_id": "BOOK-GM-GUIDE:1.1:p97:brigand:athletics",
+            "skill": "athletics",
+            "dice": 3,
+            "threshold": 2
+          }
+        },
+        {
+          "id": "footpad:dagger",
+          "source_rule_id": "BOOK-GM-GUIDE:1.1:p97:footpad",
+          "resilience": {
+            "toughness": 3,
+            "bonus": 0
+          },
+          "attack": {
+            "id": "dagger",
+            "source_rule_id": "BOOK-GM-GUIDE:1.1:p97:dagger",
+            "skill": "melee",
+            "range_min": "close",
+            "range_max": "close",
+            "dice": 3,
+            "threshold": 3,
+            "damage": 2,
+            "hands": "1h"
+          },
+          "protection": {
+            "source_rule_id": "BOOK-GM-GUIDE:1.1:p97:footpad:athletics",
+            "skill": "athletics",
+            "dice": 3,
+            "threshold": 3
+          }
+        }
+      ],
+      "actors": [
+        {
+          "id": "Pbow",
+          "definition_id": "brigand:warbow",
+          "side": "players_and_allies",
+          "zone_id": "rear"
+        },
+        {
+          "id": "P1",
+          "definition_id": "footpad:dagger",
+          "side": "players_and_allies",
+          "zone_id": "arena"
+        },
+        {
+          "id": "P2",
+          "definition_id": "footpad:dagger",
+          "side": "players_and_allies",
+          "zone_id": "arena"
+        },
+        {
+          "id": "E1",
+          "definition_id": "footpad:dagger",
+          "side": "opposition",
+          "zone_id": "arena"
+        },
+        {
+          "id": "E2",
+          "definition_id": "footpad:dagger",
+          "side": "opposition",
+          "zone_id": "arena"
+        }
+      ],
+      "battlefield": {
+        "zone_ids": [
+          "rear",
+          "arena",
+          "far"
+        ],
+        "connections": [
+          {
+            "first_zone_id": "rear",
+            "second_zone_id": "arena"
+          },
+          {
+            "first_zone_id": "arena",
+            "second_zone_id": "far"
+          },
+          {
+            "first_zone_id": "rear",
+            "second_zone_id": "far"
+          }
+        ]
+      },
+      "side_order": [
+        "players_and_allies",
+        "opposition"
+      ],
+      "actor_order": [
+        "Pbow",
+        "P1",
+        "P2",
+        "E1",
+        "E2"
+      ],
+      "perspective_side": "players_and_allies",
+      "objective_target_ids": [
+        "E1",
+        "E2"
+      ],
+      "facts": {
+        "targets_aware": true,
+        "clear_line_of_sight": true,
+        "stationary": true,
+        "all_zone_combatants_included": true,
+        "unmounted_combatants_only": true,
+        "no_higher_ground": true,
+        "no_additional_rules": true,
+        "no_other_test_modifiers": true,
+        "ammunition_sufficient": true,
+        "requires_reload_action": false
+      },
+      "pair_ranges": [
+        {
+          "first_actor_id": "Pbow",
+          "second_actor_id": "E1",
+          "target_range": "medium"
+        },
+        {
+          "first_actor_id": "Pbow",
+          "second_actor_id": "E2",
+          "target_range": "medium"
+        },
+        {
+          "first_actor_id": "P1",
+          "second_actor_id": "E1",
+          "target_range": "close"
+        },
+        {
+          "first_actor_id": "P1",
+          "second_actor_id": "E2",
+          "target_range": "close"
+        },
+        {
+          "first_actor_id": "P2",
+          "second_actor_id": "E1",
+          "target_range": "close"
+        },
+        {
+          "first_actor_id": "P2",
+          "second_actor_id": "E2",
+          "target_range": "close"
+        }
+      ],
+      "repeated_stagger_choice": "suffer_wound",
+      "actor_policies": [
+        {
+          "actor_id": "Pbow",
+          "outnumbering_bonus_approved": true,
+          "can_leave_zone": false,
+          "targets": [
+            {
+              "target_id": "E1",
+              "disposition": "knocked_out",
+              "gm_approved": true
+            },
+            {
+              "target_id": "E2",
+              "disposition": "knocked_out",
+              "gm_approved": true
+            }
+          ]
+        },
+        {
+          "actor_id": "P1",
+          "outnumbering_bonus_approved": true,
+          "can_leave_zone": false,
+          "targets": [
+            {
+              "target_id": "E1",
+              "disposition": "knocked_out",
+              "gm_approved": true
+            },
+            {
+              "target_id": "E2",
+              "disposition": "knocked_out",
+              "gm_approved": true
+            }
+          ]
+        },
+        {
+          "actor_id": "P2",
+          "outnumbering_bonus_approved": true,
+          "can_leave_zone": false,
+          "targets": [
+            {
+              "target_id": "E1",
+              "disposition": "knocked_out",
+              "gm_approved": true
+            },
+            {
+              "target_id": "E2",
+              "disposition": "knocked_out",
+              "gm_approved": true
+            }
+          ]
+        },
+        {
+          "actor_id": "E1",
+          "outnumbering_bonus_approved": true,
+          "can_leave_zone": false,
+          "targets": [
+            {
+              "target_id": "Pbow",
+              "disposition": "knocked_out",
+              "gm_approved": true
+            },
+            {
+              "target_id": "P1",
+              "disposition": "knocked_out",
+              "gm_approved": true
+            },
+            {
+              "target_id": "P2",
+              "disposition": "knocked_out",
+              "gm_approved": true
+            }
+          ]
+        },
+        {
+          "actor_id": "E2",
+          "outnumbering_bonus_approved": true,
+          "can_leave_zone": false,
+          "targets": [
+            {
+              "target_id": "Pbow",
+              "disposition": "knocked_out",
+              "gm_approved": true
+            },
+            {
+              "target_id": "P1",
+              "disposition": "knocked_out",
+              "gm_approved": true
+            },
+            {
+              "target_id": "P2",
+              "disposition": "knocked_out",
+              "gm_approved": true
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "seed_scheme": "towr:npc-mixed-trial:v1",
+  "runtime": {
+    "package_version": "0.1.0",
+    "python_implementation": "CPython",
+    "python_version": "3.14.5",
+    "rng": "random.Random"
+  },
+  "summary": {
+    "trials": 8,
+    "outcome_counts": {
+      "objective_achieved": 6,
+      "side_defeated": 0,
+      "round_limit": 2,
+      "unsupported_path": 0
+    },
+    "total_attack_count": 49,
+    "total_visited_round_count": 15,
+    "mean_attack_count": 6.125,
+    "mean_visited_round_count": 1.875
+  }
+}

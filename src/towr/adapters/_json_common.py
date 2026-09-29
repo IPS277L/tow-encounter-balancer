@@ -6,9 +6,10 @@ import json
 from jsonschema import ValidationError
 from towr.adapters.ranged_json_errors import RangedInputError, RangedInputErrorCode as Code
 from towr.adapters.melee_json_errors import MeleeInputError
+from towr.adapters.mixed_json_errors import MixedInputError
 
 
-InputErrorType = type[RangedInputError] | type[MeleeInputError]
+InputErrorType = type[RangedInputError] | type[MeleeInputError] | type[MixedInputError]
 
 
 def _object(pairs, error_type):

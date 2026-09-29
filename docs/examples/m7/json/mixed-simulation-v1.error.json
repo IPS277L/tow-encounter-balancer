@@ -1,0 +1,10 @@
+{
+  "schema_version": "1",
+  "kind": "mixed_simulation_error",
+  "request_id": "example:mixed",
+  "error": {
+    "code": "invalid_input",
+    "path": "/scenario/pair_ranges",
+    "message": "scenario requires every enemy pair exactly once"
+  }
+}

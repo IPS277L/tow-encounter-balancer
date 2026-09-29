@@ -1,0 +1,16 @@
+{
+  "schema_version": "1",
+  "kind": "mixed_balance_error",
+  "request_id": "example:mixed:balance:json",
+  "error": {
+    "code": "generation_failed",
+    "path": null,
+    "message": "Mixed candidate generation failed",
+    "candidate_id": "mixed:counts:0,1",
+    "counts": [
+      0,
+      1
+    ],
+    "stage_index": null
+  }
+}

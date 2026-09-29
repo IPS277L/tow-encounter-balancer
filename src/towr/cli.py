@@ -1,4 +1,4 @@
-"""Local command-line adapter for admitted ranged and Melee encounters."""
+"""Local command-line adapter for admitted ranged, Melee and mixed encounters."""
 import argparse
 import os
 from pathlib import Path
@@ -29,6 +29,17 @@ from towr.adapters.melee_balance_json import (
 )
 from towr.application.melee_balance_errors import MeleeBalanceGenerationError, MeleeBalanceExecutionError
 from towr.application.melee_balance_service import execute_melee_balance
+from towr.adapters.mixed_json_errors import MixedSimulationInputError, MixedBalanceInputError
+from towr.adapters.mixed_simulation_json import (
+    encode_mixed_simulation_error, encode_mixed_simulation_result, parse_mixed_simulation_request,
+)
+from towr.application.mixed_simulation_errors import MixedSimulationExecutionError
+from towr.application.mixed_simulation_service import execute_mixed_simulation
+from towr.adapters.mixed_balance_json import (
+    encode_mixed_balance_error, encode_mixed_balance_result, parse_mixed_balance_request,
+)
+from towr.application.mixed_balance_errors import MixedBalanceGenerationError, MixedBalanceExecutionError
+from towr.application.mixed_balance_service import execute_mixed_balance
 
 
 def _diagnose(message: str) -> bool:
@@ -63,6 +74,10 @@ def main(argv: list[str] | None = None) -> int:
     melee.add_argument("input", metavar="INPUT", help="UTF-8 JSON file, or - for stdin")
     melee_balance = commands.add_parser("balance-melee", help="generate and evaluate a Melee JSON balance v1 request")
     melee_balance.add_argument("input", metavar="INPUT", help="UTF-8 JSON file, or - for stdin")
+    mixed = commands.add_parser("simulate-mixed", help="execute a mixed JSON v1 request")
+    mixed.add_argument("input", metavar="INPUT", help="UTF-8 JSON file, or - for stdin")
+    mixed_balance = commands.add_parser("balance-mixed", help="generate and evaluate a mixed JSON balance v1 request")
+    mixed_balance.add_argument("input", metavar="INPUT", help="UTF-8 JSON file, or - for stdin")
     args = parser.parse_args(argv)
 
     if args.command == "balance":
@@ -77,6 +92,14 @@ def main(argv: list[str] | None = None) -> int:
         parse, execute, encode = parse_melee_balance_request, execute_melee_balance, encode_melee_balance_result
         encode_error, input_error = encode_melee_balance_error, MeleeBalanceInputError
         execution_errors = (MeleeBalanceGenerationError, MeleeBalanceExecutionError)
+    elif args.command == "balance-mixed":
+        parse, execute, encode = parse_mixed_balance_request, execute_mixed_balance, encode_mixed_balance_result
+        encode_error, input_error = encode_mixed_balance_error, MixedBalanceInputError
+        execution_errors = (MixedBalanceGenerationError, MixedBalanceExecutionError)
+    elif args.command == "simulate-mixed":
+        parse, execute, encode = parse_mixed_simulation_request, execute_mixed_simulation, encode_mixed_simulation_result
+        encode_error, input_error = encode_mixed_simulation_error, MixedSimulationInputError
+        execution_errors = (MixedSimulationExecutionError,)
     else:
         parse, execute, encode = parse_ranged_simulation_request, execute_ranged_simulation, encode_ranged_simulation_result
         encode_error, input_error = encode_ranged_simulation_error, RangedSimulationInputError
@@ -98,7 +121,7 @@ def main(argv: list[str] | None = None) -> int:
         status = 2
     except execution_errors as error:
         output = encode_error(error)
-        code = "generation_failed" if isinstance(error, (RangedBalanceGenerationError, MeleeBalanceGenerationError)) else "execution_failed"
+        code = "generation_failed" if isinstance(error, (RangedBalanceGenerationError, MeleeBalanceGenerationError, MixedBalanceGenerationError)) else "execution_failed"
         diagnostic = f"{code}: {error}"
         status = 3
     else:
