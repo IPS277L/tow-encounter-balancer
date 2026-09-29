@@ -60,3 +60,15 @@ Visited rounds включают незавершённый последний р
 ## Выполненный следующий срез: профилирование
 
 [Методика и исходный отчёт](../benchmarks/README.md#m7-исходное-профилирование-mixed-simulation) готовы. Три admitted fixtures прошли по пять измерительных пакетов каждый, records/summary совпали; добавлены семь deterministic tests harness. Production src не менялся. Точный следующий шаг — проверить однократное построение NpcRoundResult.continuation, сохранить все guards/value semantics и сопоставить wall time/память/digests с baseline. Ускорение и mixed process ещё не реализованы.
+
+## Итог эксперимента round continuation
+
+[Измерения и отказ](../benchmarks/m7-round-continuation-review.md): source/result correctness сохранялась, но критерий подтверждённой общей пользы не выполнен. Кандидат снят, production восстановлен. Следующий срез — контракт опционального mixed process runner с прежними четырьмя исходами и без автоматического backend.
+
+## Следующий контракт подготовлен
+
+[ADR-0030](../decisions/ADR-0030-process-mixed-simulations.md) фиксирует отдельный опциональный mixed process runner с прежними seed/result/summary. [Конечный transport probe](../examples/m7/process_contract_probe.py) проверяет fixed partitions и реальные четыре исхода; production preflight/bounded queue/cancellation остаются обязательствами следующей реализации. Аудит sequential не объявляет отсутствующий process backend готовым.
+
+## Реализация следующего process-среза
+
+[Backend ADR-0030](../../src/towr/simulation/npc_mixed_parallel.py) реализован с 11 unit/6 real-spawn integration tests. Source/seed/result/summary прежние, реальные unsupported не фильтруются. Это дополнение к sequential; [end-to-end измерения sequential/process](../benchmarks/README.md#mixed-sequential-и-spawn) завершены на 100/1000 trials с полным равенством результатов. Следующий срез — общий аудит массового mixed-слоя по ADR-0029/0030, включая source/seed/outcomes, ошибки/cleanup, summaries и границы применимости измерений. Прежний аудит sequential не является самостоятельным performance-аудитом process.

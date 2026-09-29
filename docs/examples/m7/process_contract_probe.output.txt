@@ -1,0 +1,15 @@
+ADR-0030 finite mixed process contract probe; seed_scheme=towr:npc-mixed-trial:v1
+Existing mixed trial/result/summary; explicit spawn; this is not the production parallel API
+seeded 3x2: workers=1; batch_lengths=(3, 2); full result/summary equal
+seeded 3x2: workers=2; batch_lengths=(2, 2, 1); full result/summary equal
+seeded 3x2: workers=2; batch_lengths=(5,); full result/summary equal
+seeded 2x2: workers=1; batch_lengths=(3, 2); full result/summary equal
+seeded 2x2: workers=2; batch_lengths=(2, 2, 1); full result/summary equal
+seeded 2x2: workers=2; batch_lengths=(5,); full result/summary equal
+scripted 2x2: achieved/defeated/limit/unsupported=1/1/1/1; attacks=17; visited=6
+Real no-Close-target stop retained; denominator=4; no extra Attack/round for terminal suffix
+Local lambda rejected by parent pickle; no pool created for this check
+Child factory error at index=1 keeps type/message/seed note; no partial result
+49 completed trials + one failed factory call; inputs/global RNG unchanged; children closed
+Not verified here: public preflight, lazy refill/bounded scheduling, cancel/submission/wait failures
+No throughput claim, process API, auto backend, balance, JSON/CLI or new game rules

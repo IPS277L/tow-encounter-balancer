@@ -65,7 +65,7 @@ print(summary.total_attack_count, summary.total_visited_round_count)
 
 `result.trials` хранит упорядоченные index/seed/outcome/Attack/visited записи. `summary` содержит только source request, четыре counts и суммы; готовый result и боевые журналы в ней не удерживаются. Каждый trial начинает с исходного immutable scenario, получает новый RNG и полный round budget. Свой источник передаётся через `rng_factory(seed)`; фабрика отвечает за отдельные потоки.
 
-Terminal suffix учитывается в исходе, resume не добавляет раунд, неподдержанный путь сохраняется отдельно. Ошибка фабрики/runner/source прерывает пакет без partial result. Mean properties описывают число Attack и посещённых раундов; неподдержанные trials не исключаются. Sequential API проверен 25 unit/integration tests; [аудит simulation](../../audits/m7-simulation-readiness.md) завершён. Следующий шаг — профилирование.
+Terminal suffix учитывается в исходе, resume не добавляет раунд, неподдержанный путь сохраняется отдельно. Ошибка фабрики/runner/source прерывает пакет без partial result. Mean properties описывают число Attack и посещённых раундов; неподдержанные trials не исключаются. Sequential API проверен 25 unit/integration tests; [аудит simulation](../../audits/m7-simulation-readiness.md) завершён. Профилирование и эксперимент continuation завершены; контракт следующего process-среза описан ниже.
 
 ## Самостоятельный пример simulation/summary
 
@@ -78,4 +78,42 @@ $env:PYTHONPATH = "src"
 
 [Сохранённый вывод](mixed_simulation.output.txt) содержит явные facts/placements/pair ranges/GM policies, четыре counts, Attack/visited totals, средние и компактные index/seed/outcome records. Источники и global RNG неизменны. Доля цели использует все trials; в observed 2×2 пакете семь технических остановок остаются unsupported, а не поражениями. Наблюдения этой маленькой выборки не являются оценкой баланса, отсутствия unsupported в другой выборке недостаточно для доказательства полной тактики.
 
-[Subprocess test](../../../tests/integration/test_m7_simulation_example.py) запускает пример дважды из временного каталога и сравнивает stdout, не закрепляя конкретный случайный процент. Вместе с ним последовательный simulation-слой покрыт 26 tests. Mixed process/balance/CLI остаются дальнейшими расширениями.
+[Subprocess test](../../../tests/integration/test_m7_simulation_example.py) запускает пример дважды из временного каталога и сравнивает stdout, не закрепляя конкретный случайный процент. Вместе с ним последовательный simulation-слой покрыт 26 tests. Mixed process API реализован ниже; mixed balance/CLI остаются дальнейшими расширениями.
+
+## Контракт process backend: конечный probe
+
+[ADR-0030](../../decisions/ADR-0030-process-mixed-simulations.md) определяет отдельный `run_npc_mixed_simulation_parallel`, теперь реализованный в production; этот раздел сохраняет исторический probe контрактного шага. [process_contract_probe.py](process_contract_probe.py) проверяет сериализацию существующего mixed request/trial/result через настоящий ProcessPoolExecutor со spawn и конечными заранее заданными partitions. Он использует public builder соседнего примера, без tests/private imports.
+
+```powershell
+$env:PYTHONPATH = "src"
+.venv/Scripts/python.exe docs/examples/m7/process_contract_probe.py
+```
+
+[Вывод](process_contract_probe.output.txt): 3×2/2×2, 5 trials, seed=42, budget=2, workers 1/2 и partitions 3+2/2+2+1/5; полные result/summary равны sequential при обратном порядке получения. Отдельные четыре scripted trials на одном 2×2 input дают все четыре outcome, 17 Attack/6 visited, включая настоящий NO_CANDIDATE. Проверены parent source identity, child PID, pickle, отдельные RNG/input/cleanup и ошибка фабрики с index/seed note. 49 завершённых trials и один отказ factory на запуск; статистического oracle и обещания ускорения нет.
+
+Probe **не** является новым simulation backend: он не проверяет будущие public preflight/options, lazy refill, общую bound очереди, cancellation/submission/wait failures. Они покрываются tests готового backend ниже; результаты probe сами по себе их не доказывают. Движение, смена оружия, auto approvals, balance и JSON/CLI не добавлены.
+
+## Готовый Python API: optional process
+
+[run_npc_mixed_simulation_parallel](../../../src/towr/simulation/npc_mixed_parallel.py) возвращает тот же NpcMixedSimulationResult, что и sequential. `workers` задаётся явно; `batch_size=32` — default, не рекомендация о скорости. Пример для скрипта рядом с mixed_scenario.py; запускать с PYTHONPATH=src:
+
+```python
+from mixed_scenario import build_scenario
+from towr.simulation.npc_mixed_models import NpcMixedSimulationRequest
+from towr.simulation.npc_mixed_simulation import run_npc_mixed_simulation
+from towr.simulation.npc_mixed_parallel import run_npc_mixed_simulation_parallel
+from towr.simulation.npc_mixed_summary import summarize_npc_mixed_simulation
+
+
+def main():
+    request = NpcMixedSimulationRequest(build_scenario(two_archers=True), 42, 8)
+    result = run_npc_mixed_simulation_parallel(request, workers=2, batch_size=3)
+    assert result == run_npc_mixed_simulation(request)
+    print(summarize_npc_mixed_simulation(result).outcome_counts)
+
+
+if __name__ == "__main__":
+    main()
+```
+
+Импортируемый main и guard обязательны для spawn; stdin/REPL не обещаны. Custom `rng_factory` должна быть top-level/picklable и создавать независимый RNG только по seed. Все четыре outcomes сохраняются, unsupported не отбрасывается. Pool закрывается на каждый вызов, при ошибке ожидает уже начатую работу; partial result/retry/fallback отсутствуют. Bounded очередь не ограничивает суммарное хранение всех compact records. [11 unit tests](../../../tests/unit/test_m7_npc_mixed_parallel.py) и [6 real-spawn tests](../../../tests/integration/test_m7_npc_mixed_parallel.py) проверяют API. [Сравнение sequential/process](../../benchmarks/README.md#mixed-sequential-и-spawn) выполнено на 100/1000 trials; локальные результаты не обещают универсального ускорения. Автоматического backend нет; следующий шаг — общий аудит массовой mixed-симуляции.

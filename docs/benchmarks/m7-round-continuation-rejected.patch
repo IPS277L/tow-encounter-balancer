@@ -1,0 +1,29 @@
+--- a/src/towr/domain/npc_round_models.py
++++ b/src/towr/domain/npc_round_models.py
+@@ -35,6 +35,7 @@
+     _pending: tuple[FollowUpRequest, ...] = field(init=False, repr=False)
+     _outcome: NpcRoundOutcome = field(init=False, repr=False)
+     _weapons: tuple[NpcRoundWeaponState, ...] = field(init=False, repr=False)
++    _continuation: NpcRoundRequest = field(init=False, repr=False, compare=False)
+ 
+     def __post_init__(self) -> None:
+         if not isinstance(self.source_request, NpcRoundRequest):
+@@ -51,6 +52,7 @@
+         object.__setattr__(self, "_pending", pending)
+         object.__setattr__(self, "_outcome", outcome)
+         object.__setattr__(self, "_weapons", weapons)
++        object.__setattr__(self, "_continuation", self._build_continuation())
+ 
+     @property
+     def weapons(self) -> tuple[NpcRoundWeaponState, ...]:
+@@ -58,6 +60,10 @@
+ 
+     @property
+     def continuation(self) -> NpcRoundRequest:
++        return self._continuation
++
++    def _build_continuation(self) -> NpcRoundRequest:
++        """Project the fully validated journal once, without replaying transitions."""
+         return replace(self.source_request, state=self.state, round_state=self.round_state,
+                        pending_follow_ups=self.pending_follow_ups, weapons=self.weapons)
+ 

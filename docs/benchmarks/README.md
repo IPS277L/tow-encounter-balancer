@@ -189,3 +189,26 @@ CPython 3.14.5 / Windows 11; source/harness SHA-256 `529d908bbfa1885419038f94845
 Проверить узкую оптимизацию NpcRoundResult.continuation: один раз строить validated immutable NpcRoundRequest после полной проверки steps и хранить его в init=False/repr=False/compare=False поле. Сохранить public value semantics, source/replay guards, pending, weapons и histories; dataclasses.replace должен пересчитывать проекцию, pickle/deepcopy — сохранять её значение. Покрыть все четыре NpcRoundOutcome и Blunderbuss/weapon continuation, отсутствие RNG/повторного исполнения. Затем повторить тот же mixed benchmark (100 trials, seed=20260929, budget=5) и сравнить три trial digests, полные records/summary, wall time и peak allocation. При отсутствии воспроизводимого выигрыша или неприемлемой цене памяти отказаться от изменения. Другие caches, ослабление validation, process, balance/CLI и игровые расширения в этот шаг не входят.
 
 Память — incremental traced Python allocations одного пакета, не RSS; ранее созданные fixtures/reference results не входят. Профилировщик меняет время исполнения. CPU affinity/частота и фоновая нагрузка ОС не контролировались, времена локальные. Mixed spawn, большие пакеты, другие Python/ОС и installed wheel не измерялись. Результаты прежних M3/M6 не являются benchmark mixed backend. Семь tests проверяют fixtures, equality полных records даже при равных агрегатах, реальный unsupported, очистку tracer при исключении, параметры измерения, состав source hash и сохранение прежнего отчёта при изменении sources; порог скорости/случайный процент не фиксируют.
+
+## Эксперимент с round continuation: отказ от кеширования
+
+[Разбор и воспроизведение](m7-round-continuation-review.md) содержат свежие before/candidate отчёты и дополнительное чередующееся сравнение. Кандидат корректен на проверенных сценариях и устраняет повторные построения, но убедительный общий wall-time выигрыш не подтверждён; на 3×2 улучшения нет, выигрыш 2×2 не воспроизведён при чередовании. Диапазоны заметно перекрываются. Production и tests восстановлены, profile_m7.py не менялся. Сохранённый patch — исторический артефакт, не активная оптимизация. Следующий шаг — контракт опционального mixed process, без обещания ускорения или auto backend.
+
+## Mixed sequential и spawn
+
+[Harness](../../tools/benchmark_m7_parallel.py), [6 deterministic tests](../../tests/unit/test_m7_parallel_benchmark.py), отчёты [100 trials](m7-parallel-100-2026-09-29.md) и [1000 trials](m7-parallel-1000-2026-09-29.md). Используются прежние fixtures tools/profile_m7.py: 2×1/3×2 с одним лучником и 2×2 с двумя; master_seed=20260929, round_budget=5. Три повтора чередуют sequential / workers=1 / workers=2 и обратный порядок, batch_size=32. Каждый process вызов создаёт новый spawn pool: wall time включает serialization, startup/imports, исполнение, сбор/валидацию и shutdown; summary projection также внутри замера. Создание fixtures, parent warm-up по три trials, gc.collect и equality checks вне таймера. cProfile/tracemalloc не включены.
+
+| Trials | Состав | Sequential median, с | Spawn 1 worker, с | Spawn 2 workers, с | Sequential / 2 workers |
+| --- | --- | --- | --- | --- | --- |
+| 100 | 2×1 | 0,259038 | 1,189841 | 1,228855 | 0,211 |
+| 100 | 3×2 | 0,583309 | 1,482604 | 1,458259 | 0,400 |
+| 100 | 2×2 | 0,406256 | 1,317309 | 1,320704 | 0,308 |
+| 1000 | 2×1 | 2,575308 | 3,447408 | 2,548045 | 1,011 |
+| 1000 | 3×2 | 5,640643 | 6,520649 | 4,345600 | 1,298 |
+| 1000 | 2×2 | 3,950737 | 4,863299 | 3,302101 | 1,196 |
+
+На 100 trials оба process режима медленнее sequential во всех составах; один worker медленнее также на 1000. Два workers на 1000 дали локальное преимущество 3×2/2×2. Для 2×1 диапазоны повторов перекрываются (sequential 2,562–2,836 с, process 2,546–2,617 с), разница медиан не обосновывает обещание выигрыша. Это измерения Windows 11 / CPython 3.14.5 на одном компьютере; CPU affinity/частота и внешняя нагрузка ОС не контролировались. Память процессов/RSS, другие Python/ОС, большие бюджеты, другие worker counts/batch sizes и installed wheel не измерялись. Auto backend, persistent pool и новые caches не добавлены.
+
+Все 54 timed batches (два объёма × три состава × три режима × три повтора) имеют равные полные records/summary внутри соответствующего входа; всего 29 700 timed trials и 18 warm-up. Три 100-trial digests/counts/Attack/visited совпали с исходным mixed baseline. На 1000 trials achieved/defeated/limit/unsupported равны 875/0/0/125, 852/0/0/148 и 32/136/1/831 соответственно составам. Реальные unsupported остаются отдельным техническим исходом: их нельзя отфильтровать, считать поражениями или использовать оставшиеся trials как новый denominator. Эти проценты не являются оценкой баланса или test oracle.
+
+Source/harness SHA-256 обоих отчётов: `a7598993f8153e00c0d5b25b230a86f11d33df559407ce9ca75944acbf34ce59`, проверен до/после каждого замера. Область hash: все src/**/*.py, включая untracked, tools/profile_m7.py и tools/benchmark_m7_parallel.py; алгоритм paths/content тот же, что у profiling. Область шире исторического baseline, поэтому общий hash между ними напрямую не сравнивается. Production src и profile_m7.py не менялись в этом срезе; все 24 существовавших dirty/untracked файла сохранены. Следующий шаг — общий аудит массовой mixed-симуляции по ADR-0029/0030; балансировщик и JSON/CLI остаются отдельными этапами.

@@ -1,6 +1,6 @@
 # ADR-0029: независимые последовательные mixed-прогоны и summary
 
-Статус: принято и реализовано, 2026-09-29, в последовательной typed границе ниже. [Аудит последовательной simulation](../audits/m7-simulation-readiness.md) завершён; самостоятельный пример готового API проверен. Следующий шаг — профилирование.
+Статус: принято и реализовано, 2026-09-29, в последовательной typed границе ниже. [Аудит последовательной simulation](../audits/m7-simulation-readiness.md) завершён; самостоятельный пример готового API проверен. Профилирование и эксперимент с continuation завершены (кеширование отклонено); контракт опционального mixed process runner ADR-0030 реализован; сравнение sequential/process — следующий шаг.
 
 ## Основание и граница
 
@@ -112,3 +112,13 @@ T <= total_attack_count <= A*total_visited_round_count
 ## Исходное профилирование
 
 [Отчёт и методика](../benchmarks/README.md#m7-исходное-профилирование-mixed-simulation) фиксируют неизменённый sequential на трёх составах, 100 trials, seed=20260929, budget=5. Полные results/summaries совпадают во всех измерительных режимах; source hash сохранён. Unsupported counts 16/14/89 не фильтруются. По повторным чтениям NpcRoundResult.continuation выбран следующий эксперимент: однократное построение validated immutable continuation с прежними source/replay guards и проверкой пользы по тем же пакетам. Это ещё не оптимизация и не решение о process backend; новые игровые правила не вводятся.
+
+## Итог эксперимента continuation
+
+[Проверка кандидата](../benchmarks/m7-round-continuation-review.md) сохранила records/summary/source/seed semantics, но не дала убедительного общего ускорения. Кеширование NpcRoundResult.continuation отклонено, исходный production восстановлен. Новой архитектурной гарантии identity getter или сериализации cache нет. Следующий ADR должен определить отдельный опциональный mixed process runner; ADR-0029 по-прежнему закрывает последовательные trials/summary, auto backend не вводится.
+
+## Контракт опционального process backend
+
+[ADR-0030](ADR-0030-process-mixed-simulations.md) и [transport probe](../examples/m7/process_contract_probe.py) готовы. Existing sequential request/trial/result/summary сохраняются; probe проверяет полное равенство результатов и четыре реальные mixed outcomes в дочерних процессах. Production process orchestration и её tests — следующий срез, не часть реализованного ADR-0029.
+
+[Production mixed process API](../../src/towr/simulation/npc_mixed_parallel.py) по ADR-0030 реализован с 17 новыми tests. Existing request/result/summary и seed scheme ADR-0029 сохранены; последующий performance-срез не меняет правила агрегации.
