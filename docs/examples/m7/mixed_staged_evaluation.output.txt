@@ -1,0 +1,38 @@
+stages (full trials per candidate, keep): ((8, 1), (32, 1))
+staged budget per evaluation: planned=48; actual=48; max=48
+stage index: 0
+profiles: Footpad Dagger / Brigand Warbow; BOOK-GM-GUIDE 1.1 / Allies and Antagonists pp91,93,97
+rules: BOOK-PLAYER-GUIDE 1.4 / Equipment p94; Rules pp112,114,118-119,123
+facts/policies: stationary aware Minions, explicit Close/Medium, fixed weapons and target order; outnumbering approved; repeated Staggered -> Wound; defeat -> knocked out
+no movement/weapon switching; no available target -> unsupported_path, not defeat
+seed: 42; seed_scheme: towr:npc-mixed-trial:v1; trials_per_candidate: 8
+window: min=1/4, target=1/2, max=3/4; top_k: 1
+budget per evaluation: planned=16; actual=16; max=16
+candidate: one-bow:3x2; round_budget: 2; perspective: players_and_allies; objective: E1,E2
+  counts goal/defeated/limit/unsupported: 6/0/2/0
+  rates goal/defeated/limit/unsupported: 3/4, 0, 1/4, 0
+  attacks: 49; visited_rounds: 15; status: eligible; window_match: True
+candidate: two-bows:2x2; round_budget: 2; perspective: players_and_allies; objective: E1,E2
+  counts goal/defeated/limit/unsupported: 0/1/0/7
+  rates goal/defeated/limit/unsupported: 0, 1/8, 0, 7/8
+  attacks: 27; visited_rounds: 12; status: unsupported_observations; window_match: None
+selected: ('one-bow:3x2',)
+continuation IDs (not local selected): ('one-bow:3x2',)
+stage index: 1
+profiles: Footpad Dagger / Brigand Warbow; BOOK-GM-GUIDE 1.1 / Allies and Antagonists pp91,93,97
+rules: BOOK-PLAYER-GUIDE 1.4 / Equipment p94; Rules pp112,114,118-119,123
+facts/policies: stationary aware Minions, explicit Close/Medium, fixed weapons and target order; outnumbering approved; repeated Staggered -> Wound; defeat -> knocked out
+no movement/weapon switching; no available target -> unsupported_path, not defeat
+seed: 42; seed_scheme: towr:npc-mixed-trial:v1; trials_per_candidate: 32
+window: min=1/4, target=1/2, max=3/4; top_k: 1
+budget per evaluation: planned=32; actual=32; max=32
+candidate: one-bow:3x2; round_budget: 2; perspective: players_and_allies; objective: E1,E2
+  counts goal/defeated/limit/unsupported: 22/0/7/3
+  rates goal/defeated/limit/unsupported: 11/16, 0, 7/32, 3/32
+  attacks: 188; visited_rounds: 58; status: unsupported_observations; window_match: None
+selected: ()
+staged status: completed; final selected: ()
+sequential/process full stage reports and selected IDs: equal; process workers=2 batch_size=3
+demonstration executes two complete evaluations: 96 trials
+each stage reruns its full batch from index 0; repeated prefixes are included in the budget
+input/global RNG unchanged; no remaining child processes

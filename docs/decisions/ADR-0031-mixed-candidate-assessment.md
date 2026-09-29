@@ -1,6 +1,6 @@
 # ADR-0031: оценка mixed-кандидатов и ограниченного списка
 
-Статус: контракт принят в согласованном направлении M7, 2026-09-29. **Pure mixed assessment реализован; list models и application evaluator ещё не реализованы.** Подготовлен конечный проверочный пример. Направление и метрика уже подтверждены пользователем.
+Статус: контракт принят в согласованном направлении M7, 2026-09-29. **Pure mixed assessment, list models и application evaluator реализованы; аудит завершён.** Самостоятельный пример и сохранённый вывод проверены. Направление и метрика уже подтверждены пользователем.
 
 ## Основание и граница
 
@@ -54,7 +54,7 @@ ELIGIBLE означает пригодность наблюдений к сра�
 
 ## Второй срез: модели конечного списка
 
-Предлагаемый `balance/mixed_evaluation_models.py`, отдельные frozen/slotted модели:
+Реализованный [balance/mixed_evaluation_models.py](../../src/towr/balance/mixed_evaluation_models.py) содержит отдельные frozen/slotted модели:
 
 | Модель | Поля и производные значения |
 | --- | --- |
@@ -75,7 +75,7 @@ Result требует typed source и все rows ровно один раз в 
 
 ## Третий срез: application orchestration
 
-Предлагаются `application/mixed_evaluation_service.py` и `mixed_evaluation_errors.py`:
+Реализованы [application/mixed_evaluation_service.py](../../src/towr/application/mixed_evaluation_service.py) и [mixed_evaluation_errors.py](../../src/towr/application/mixed_evaluation_errors.py):
 
 ```python
 def evaluate_mixed_candidates(
@@ -124,3 +124,31 @@ Exception внутри кандидата (runner/pool/pickle/source/projection/
 Следующий срез — модели конечного списка из второго раздела контракта: preflight общего бюджета, complete ordered source/window report и stable Fraction ranking без исполнения. Application service/errors и аудит следуют отдельно. Исторический contract probe не вызывает новые assessment APIs и не заменяет их tests.
 
 Проверка implementation-среза: **28 профильных tests OK (2,629 с)**, включая 10 новых и M5/M6 assessment regression; **2424 tests полного набора OK (259,355 с)**. Compileall, 1843 локальных Markdown-пути, AST import boundaries и diff/whitespace успешны. Новый API snippet проверен из отдельного cwd. Все 18 исходных dirty/untracked файлов сохранены; добавлены два balance модуля и два test-файла, документация обновлена. Domain/engine/simulation/tools и игровые правила не менялись. Python 3.12/другие ОС, installed wheel и performance не проверялись; commit/push не выполнялись.
+
+## Реализация моделей списка
+
+2026-09-29: MixedBalanceCandidate/Request/CandidateResult/EvaluationResult реализованы в отдельном balance модуле. Candidates/rows копируются в tuple, derived simulation_requests пересобираются при replace; общий seed/trials и perspective/round budget проверяются до исполнения. Полный planned_trials должен помещаться в max_total_trials. Result допускает только полный упорядоченный список с exact IDs/source/window; selection производный, stable Fraction distance, только window_match=True, без outside/unsupported fallback.
+
+[11 deterministic tests](../../tests/unit/test_m7_mixed_evaluation.py) проверяют IDs/coercion/types и отказ ranged/Melee families, frozen/slotted/tuple copies, budget/common fields, derived rebuild, seed independence от labels, source/window/order guards, ties/top_k/empty selection и N=2**60+1 без float rounding. Реальные admitted mixed alternatives 3×2 и 2×2 сохраняют свои пары/политики/сценарии; подмена escape facts, GM approval или pair order отклоняется в отчёте. Наблюдения для ranking здесь синтетические; симуляция не запускается. Граф полей не удерживает full results/records/journals, успешный отчёт сохраняет исходный parent request.
+
+Следующий срез — application/mixed_evaluation_service.py и mixed_evaluation_errors.py из третьего раздела: один existing полный run на кандидата, exact source до projection, aggregate row, освобождение full result и ошибки с candidate ID/cause/notes без partial/retry/fallback. Затем аудит bounded evaluation. Rules/simulation и прежние ranged/Melee APIs в этом срезе не менялись.
+
+Проверка моделей списка: **39 профильных tests OK (0,073 с)**, включая 11 новых и mixed assessment/M5/M6 list regression; **2435 tests полного набора OK (259,621 с)**. Compileall, 1855 локальных Markdown-путей, AST import boundaries, diff/whitespace успешны. Пример входа списка проверен из отдельного cwd без исполнения trials. На старте дерево чистое; добавлены balance model и unit tests, документация синхронизирована. Application service ещё не реализован. Python 3.12/другие ОС, installed wheel и performance не проверялись; commit/push не выполнялись.
+
+## Реализация application evaluator
+
+2026-09-29: evaluate_mixed_candidates связывает existing simulation → summary → assessment → row в полном исходном порядке. Typed request/options проверяются до runner; один полный existing sequential/process вызов на кандидата, exact type/source до projection, исходный parent request в report. Full result освобождается перед следующим runner. MixedBalanceEvaluationError сохраняет candidate_id и original cause/notes; нет partial result/retry/fallback. Ошибки preflight/final constructor и BaseException распространяются напрямую.
+
+[8 unit tests](../../tests/unit/test_m7_mixed_evaluation_service.py) проверяют backend/options/order/call count, source identity, invalid request/options включая ranged/Melee, foreign/untyped result до projection (seed/GM approval/pair order), освобождение full result через weakref, ошибку второго кандидата без третьего с ID/cause/notes, projection/assessment/row failures, BaseException и final constructor boundary.
+
+[3 integration tests](../../tests/integration/test_m7_mixed_evaluation.py): реальные sequential/spawn reports для 2×1 и 2×2 с двумя лучниками, repeat/reorder/rename, исходный input/global RNG и cleanup; startup failure без fallback. Дополнительный scripted 2×2 пакет сохраняет counts=1/1/1/1 и 17 Attack/6 visited в обоих режимах: goal=1/4 совпадает с point window, но unsupported даёт пустой selection при сохранении всех четырёх trials. RNG внедрён в existing simulation boundary через тестовый wrapper, production service нового rng_factory параметра не получает. Monte Carlo процент или победитель тестами не закрепляется.
+
+Следующий срез — аудит bounded mixed evaluation: матрица ADR-0031, 32 tests трёх срезов, самостоятельный public пример полного списка в sequential/process с сохранённым выводом, source/error/aggregate-only границы и ограничения пригодности. Staged/generation и JSON/CLI ещё не реализованы этим контрактом.
+
+Проверка application-среза: **24 профильных tests OK (4,267 с)**, включая 11 новых и M5/M6 service regression; **2446 tests полного набора OK (288,674 с)**. Compileall, 1873 локальных Markdown-пути, AST import boundaries и diff/whitespace успешны. Guarded API snippet проверен из отдельного cwd: полные sequential/process reports равны, по 16 trials на вызов, stderr пуст. Все 13 исходных dirty/untracked файлов сохранены; добавлены service/error и два test-файла, документация обновлена. Python 3.12/другие ОС, installed wheel и performance не проверялись; commit/push не выполнялись.
+
+## Аудит bounded evaluation
+
+2026-09-29: [аудит](../audits/m7-evaluation-readiness.md) сопоставил все 32 tests с pure assessment/list/service/error границами. [Самостоятельный пример](../examples/m7/mixed_evaluation.py) двух составов сравнивает полные sequential/process reports, planned/actual=16, input/global RNG/cleanup; вывод сохранён. Entry point с ошибкой второго кандидата после первого реального run сохраняет ID/cause/notes и пустой stdout, process не запускается. Production исправлений не потребовалось. Следующий контракт — staged evaluation явного mixed-списка по образцу ADR-0025; реализация, generation и JSON/CLI не входят в этот аудит.
+
+Продолжение, 2026-09-29: [контракт staged mixed evaluation ADR-0032](ADR-0032-staged-mixed-evaluation.md) подготовлен; конечный probe проверяет синтетические aggregates и budgets без исполнения боя. Pure helper и frozen staged models реализованы с 19 deterministic tests; staged service/error также реализованы (9 unit/3 integration tests), отдельный staged аудит завершён; следующий контракт — генерация mixed-составов из явного резерва. Bounded API и результаты его аудита сохранены.

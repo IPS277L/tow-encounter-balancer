@@ -1,0 +1,2 @@
+Mixed staged contract: synthetic continuation/order/ties, windows, budgets 240/140/40/2240 OK
+No staged models/service, battle execution, RNG, or chain/error guards are implemented by this probe

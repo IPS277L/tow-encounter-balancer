@@ -1,0 +1,12 @@
+family:counts:1,0: actor_order=('Pbow', 'P1', 'P2', 'E2'); P1 targets=('E2',); pairs=3
+family:counts:1,1: actor_order=('Pbow', 'P1', 'P2', 'E2', 'E3'); P1 targets=('E3', 'E2'); pairs=6
+family:counts:2,0: actor_order=('Pbow', 'P1', 'P2', 'E1', 'E2'); P1 targets=('E2', 'E1'); pairs=6
+family:counts:2,1: actor_order=('Pbow', 'P1', 'P2', 'E1', 'E2', 'E3'); P1 targets=('E3', 'E2', 'E1'); pairs=9
+constructor rejection: budget
+constructor rejection: family facts
+constructor rejection: missing pair
+constructor rejection: no Close target
+constructor rejection: no Shooting role
+4 admitted candidates; full staged budget=240; widened family C=5/budget=250 includes invalid (0,1)
+5 constructor rejections; source/global RNG unchanged
+contract probe only: no production generation API, runner, random draws or observed probabilities

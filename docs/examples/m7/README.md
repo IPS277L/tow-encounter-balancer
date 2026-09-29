@@ -116,7 +116,7 @@ if __name__ == "__main__":
     main()
 ```
 
-Импортируемый main и guard обязательны для spawn; stdin/REPL не обещаны. Custom `rng_factory` должна быть top-level/picklable и создавать независимый RNG только по seed. Все четыре outcomes сохраняются, unsupported не отбрасывается. Pool закрывается на каждый вызов, при ошибке ожидает уже начатую работу; partial result/retry/fallback отсутствуют. Bounded очередь не ограничивает суммарное хранение всех compact records. [11 unit tests](../../../tests/unit/test_m7_npc_mixed_parallel.py) и [6 real-spawn tests](../../../tests/integration/test_m7_npc_mixed_parallel.py) проверяют API. [Сравнение sequential/process](../../benchmarks/README.md#mixed-sequential-и-spawn) выполнено на 100/1000 trials; локальные результаты не обещают универсального ускорения. Автоматического backend нет. [Общий аудит массовой mixed-симуляции](../../audits/m7-mass-simulation-readiness.md) завершён; [контракт оценки mixed-кандидатов ADR-0031](../../decisions/ADR-0031-mixed-candidate-assessment.md) подготовлен. Pure mixed assessment реализован; list models/evaluator ещё впереди.
+Импортируемый main и guard обязательны для spawn; stdin/REPL не обещаны. Custom `rng_factory` должна быть top-level/picklable и создавать независимый RNG только по seed. Все четыре outcomes сохраняются, unsupported не отбрасывается. Pool закрывается на каждый вызов, при ошибке ожидает уже начатую работу; partial result/retry/fallback отсутствуют. Bounded очередь не ограничивает суммарное хранение всех compact records. [11 unit tests](../../../tests/unit/test_m7_npc_mixed_parallel.py) и [6 real-spawn tests](../../../tests/integration/test_m7_npc_mixed_parallel.py) проверяют API. [Сравнение sequential/process](../../benchmarks/README.md#mixed-sequential-и-spawn) выполнено на 100/1000 trials; локальные результаты не обещают универсального ускорения. Автоматического backend нет. [Общий аудит массовой mixed-симуляции](../../audits/m7-mass-simulation-readiness.md) завершён; [контракт оценки mixed-кандидатов ADR-0031](../../decisions/ADR-0031-mixed-candidate-assessment.md) подготовлен. Pure mixed assessment, list models и application evaluator реализованы; следующий шаг — аудит bounded mixed evaluation.
 
 ## Контракт оценки mixed-кандидатов
 
@@ -127,7 +127,7 @@ $env:PYTHONPATH = "src"
 .venv/Scripts/python.exe docs/examples/m7/assessment_contract_probe.py
 ```
 
-Probe использует только existing public constructors/APIs и builder mixed_scenario.py. Синтетическая часть проверяет Fraction/inclusive windows, stable ties, арифметику бюджета, all-limit/all-unsupported и большой N без float rounding; это не simulation observations и не будущие production guards. Реальная часть исполняет один scripted 2×2 input в sequential и production spawn: по четыре trials, одинаковые results/summaries, counts=1/1/1/1, 17 Attack/6 visited. Goal=1/4 внутри окна, но unsupported=1/4 делает будущую оценку непригодной. Parent source/global RNG/cleanup проверены; всего восемь реальных trials на запуск. Пример работает и из отдельного cwd при абсолютном PYTHONPATH к src. Пример не реализует assessment/list/evaluator API. Pure assessment уже реализован отдельно и проверен своими tests; list models/evaluator — следующие срезы.
+Probe использует только existing public constructors/APIs и builder mixed_scenario.py. Синтетическая часть проверяет Fraction/inclusive windows, stable ties, арифметику бюджета, all-limit/all-unsupported и большой N без float rounding; это не simulation observations и не будущие production guards. Реальная часть исполняет один scripted 2×2 input в sequential и production spawn: по четыре trials, одинаковые results/summaries, counts=1/1/1/1, 17 Attack/6 visited. Goal=1/4 внутри окна, но unsupported=1/4 делает будущую оценку непригодной. Parent source/global RNG/cleanup проверены; всего восемь реальных trials на запуск. Пример работает и из отдельного cwd при абсолютном PYTHONPATH к src. Пример не реализует assessment/list/evaluator API. Pure assessment, list models и application evaluator реализованы отдельно и проверены своими tests; исторический probe не подменяет их проверки.
 
 ## Python API оценки одного mixed-кандидата
 
@@ -150,4 +150,178 @@ assessment = assess_mixed_candidate(
 print(assessment.status.value, assessment.objective_achieved_rate, assessment.window_match)
 ```
 
-Сам assessment не запускает симуляцию: её вызов выше нужен только для получения summary. Все четыре доли сохраняют denominator=N; любое unsupported даёт window_match=None. ELIGIBLE с False означает пригодные наблюдения вне окна. Равная копия полного input допустима, чужие facts/seed/budget и ranged/Melee summary отклоняются. Окно/метрика не утверждают истинную вероятность или полноту тактики. [9 unit](../../../tests/unit/test_m7_mixed_assessment.py) и [1 real sequential/spawn integration test](../../../tests/integration/test_m7_mixed_assessment.py) проверяют готовые API. Следующий шаг — модели списка, пока без application execution/JSON/CLI.
+Сам assessment не запускает симуляцию: её вызов выше нужен только для получения summary. Все четыре доли сохраняют denominator=N; любое unsupported даёт window_match=None. ELIGIBLE с False означает пригодные наблюдения вне окна. Равная копия полного input допустима, чужие facts/seed/budget и ranged/Melee summary отклоняются. Окно/метрика не утверждают истинную вероятность или полноту тактики. [9 unit](../../../tests/unit/test_m7_mixed_assessment.py) и [1 real sequential/spawn integration test](../../../tests/integration/test_m7_mixed_assessment.py) проверяют готовые API. Модели списка и application execution реализованы следующими срезами ниже; JSON/CLI ещё не добавлены.
+
+## Python API моделей списка mixed-кандидатов
+
+[Модели ADR-0031](../../../src/towr/balance/mixed_evaluation_models.py) проверяют вход без запуска симуляции. Builder берётся из этой папки:
+
+```python
+from fractions import Fraction
+from mixed_scenario import build_scenario
+from towr.balance.mixed_evaluation_models import (
+    MixedBalanceCandidate, MixedBalanceEvaluationRequest, ObjectiveRateWindow,
+)
+
+request = MixedBalanceEvaluationRequest(
+    candidates=(
+        MixedBalanceCandidate("one-bow", build_scenario()),
+        MixedBalanceCandidate("two-bows", build_scenario(two_archers=True)),
+    ),
+    master_seed=42, trials_per_candidate=8, max_total_trials=16,
+    window=ObjectiveRateWindow(Fraction(1, 4), Fraction(1, 2), Fraction(3, 4)), top_k=1,
+)
+print(request.planned_trials, tuple(item.trials for item in request.simulation_requests))
+```
+
+Оба сценария сохраняют свой полный исходный input; общий budget=16 проверен, но эти прогоны ещё не исполнены. MixedBalanceCandidateResult связывает ID с готовым assessment; MixedBalanceEvaluationResult требует все rows в исходном порядке с matching source/window, сохраняет outside/unsupported и выбирает только window_match=True по точному расстоянию до target. При равенстве сохраняется порядок входа; если подходящих нет, выбор пуст. [11 tests](../../../tests/unit/test_m7_mixed_evaluation.py) проверяют модели и синтетическое ranking без RNG/runner. Application evaluator реализован следующим срезом ниже.
+
+## Python API исполнения mixed-списка
+
+[Сервис](../../../src/towr/application/mixed_evaluation_service.py) принимает готовый request и явные existing execution options. Полный пример с builder из этой папки:
+
+```python
+from fractions import Fraction
+from mixed_scenario import build_scenario
+from towr.application.mixed_evaluation_service import evaluate_mixed_candidates
+from towr.application.ranged_simulation_models import SimulationExecutionMode as Mode, SimulationExecutionOptions
+from towr.balance.mixed_evaluation_models import (
+    MixedBalanceCandidate, MixedBalanceEvaluationRequest, ObjectiveRateWindow,
+)
+
+
+def main():
+    request = MixedBalanceEvaluationRequest(
+        candidates=(
+            MixedBalanceCandidate("one-bow", build_scenario()),
+            MixedBalanceCandidate("two-bows", build_scenario(two_archers=True)),
+        ),
+        master_seed=42, trials_per_candidate=8, max_total_trials=16,
+        window=ObjectiveRateWindow(Fraction(1, 4), Fraction(1, 2), Fraction(3, 4)), top_k=1,
+    )
+    sequential = evaluate_mixed_candidates(request, SimulationExecutionOptions(Mode.SEQUENTIAL))
+    process = evaluate_mixed_candidates(request, SimulationExecutionOptions(Mode.PROCESS, workers=2, batch_size=3))
+    assert sequential == process
+    print(process.total_trials, process.selected_candidate_ids)
+
+
+if __name__ == "__main__":
+    main()
+```
+
+Для spawn необходим импортируемый script и main guard, не stdin/REPL. Один вызов исполняет 16 trials, оба режима в примере — 32; report хранит входы и aggregate assessments. Любой unsupported не выбирается, даже при goal rate внутри окна; пустой selection — допустимый полный результат. Ошибка кандидата даёт MixedBalanceEvaluationError с candidate_id и __cause__ (включая исходные worker notes), без частичного отчёта; preflight/final constructor и interrupts распространяются напрямую. [8 unit](../../../tests/unit/test_m7_mixed_evaluation_service.py) и [3 integration tests](../../../tests/integration/test_m7_mixed_evaluation.py) проверяют сервис. [Общий аудит](../../audits/m7-evaluation-readiness.md) завершён; generation/staged/JSON/CLI сюда не входят.
+
+## Самостоятельная оценка mixed-списка
+
+```powershell
+$env:PYTHONPATH = "src"
+.venv/Scripts/python.exe docs/examples/m7/mixed_evaluation.py
+```
+
+[Скрипт](mixed_evaluation.py) и [сохранённый вывод](mixed_evaluation.output.txt): два явно заданных состава 3×2/2×2, один/два лучника, seed 42, два раунда, по 8 trials, окно [1/4,1/2,3/4], top_k=1. Planned/actual=16 на вызов; sequential и process workers=2/batch_size=3 исполняют 32 trials суммарно. Проверяются полные reports, source identity, input/global RNG и завершение процессов. Наблюдавшиеся counts/selected не являются статистической гарантией и не зашиты в assertions.
+
+Вывод появляется после обоих успешных вызовов. Ошибка кандидата сообщает ID/cause в stderr и пробрасывается с исходными notes; частичного stdout нет. Проверена ошибка второго кандидата после успешных 8 trials первого. Пример работает из корня и отдельного cwd с абсолютным PYTHONPATH к src, без tests/private imports. [Контракт ADR-0032](../../decisions/ADR-0032-staged-mixed-evaluation.md) подготовлен; pure helper/models и application service/error реализованы; аудит staged evaluation завершён, следующий шаг — контракт генерации mixed-составов.
+
+## Контракт поэтапной оценки mixed-списка
+
+```powershell
+$env:PYTHONPATH = "src"
+.venv/Scripts/python.exe docs/examples/m7/staged_contract_probe.py
+```
+
+[ADR-0032](../../decisions/ADR-0032-staged-mixed-evaluation.md), [probe](staged_contract_probe.py) и [сохранённый вывод](staged_contract_probe.output.txt). Это конечная проверка арифметики на существующих mixed bounded reports, без staged production API, исполнения боя или RNG. Используются два явно заданных вида сценария 3×2/2×2; counts синтетические и не доказывают достижимость исходов боем.
+
+Окно [9/20,1/2,11/20], порядок A,B,C,D: вне окна A=4/10 и D=6/10 продолжают уточнение, C=5/10 с unsupported исключается. Следующий input сохраняет (A,D), даже если D ближе. Проверены exact Fraction/ties/границы, финальный пустой выбор, all-round-limit/all-unsupported и бюджеты полных повторных пакетов 240/140/40/2240. Seeds прежнего prefix совпадают, но service вычисляет пакет заново. Probe не вызывает production staged models и не проверяет chain/error guards. Pure helper и frozen stage/request/result/status теперь реализованы и проверены отдельными tests; application service/error также реализованы; отдельный staged аудит завершён; следующий срез — контракт генерации.
+
+## Python API моделей поэтапной оценки
+
+[Модели](../../../src/towr/balance/mixed_staged_evaluation_models.py) задают stages/input/aggregate result; [helper](../../../src/towr/balance/mixed_staged_evaluation.py) выбирает продолжение из готового bounded report. Пример с builder из этой папки:
+
+```python
+from fractions import Fraction
+from mixed_scenario import build_scenario
+from towr.balance.mixed_evaluation_models import MixedBalanceCandidate
+from towr.balance.mixed_staged_evaluation_models import (
+    MixedBalanceStage, MixedStagedEvaluationRequest,
+)
+from towr.balance.ranged_assessment_models import ObjectiveRateWindow
+
+request = MixedStagedEvaluationRequest(
+    candidates=(
+        MixedBalanceCandidate("one-bow", build_scenario()),
+        MixedBalanceCandidate("two-bows", build_scenario(two_archers=True)),
+    ),
+    master_seed=42, stages=(MixedBalanceStage(8, 1), MixedBalanceStage(32, 1)),
+    max_total_trials=48,
+    window=ObjectiveRateWindow(Fraction(1, 4), Fraction(1, 2), Fraction(3, 4)),
+)
+assert request.planned_trials == 2 * 8 + 1 * 32 == 48
+```
+
+Конструирование не исполняет trials. `mixed_continuation_candidate_ids(report)` оставляет до top_k ближайших пригодных кандидатов, в том числе outside-window, и возвращает исходный порядок. Итоговый выбор использует только window matches последнего этапа. MixedStagedEvaluationResult проверяет всю source-bound цепочку; любой unsupported исключает продолжение, а законченный последний этап с пустым выбором остаётся COMPLETED. [19 tests](../../../tests/unit/test_m7_mixed_staged_evaluation.py) проверяют модели/helper. Application staged runner теперь реализован, пример вызова приведён ниже.
+
+## Python API исполнения этапов
+
+[Service](../../../src/towr/application/mixed_staged_evaluation_service.py) принимает staged request и явные execution options. Пример с готовым builder списка из этой папки:
+
+```python
+from mixed_evaluation import build_request
+from towr.application.mixed_staged_evaluation_service import evaluate_mixed_candidates_staged
+from towr.application.ranged_simulation_models import SimulationExecutionMode as Mode, SimulationExecutionOptions
+from towr.balance.mixed_staged_evaluation_models import MixedBalanceStage, MixedStagedEvaluationRequest
+
+
+def main():
+    base = build_request()
+    request = MixedStagedEvaluationRequest(
+        candidates=base.candidates, master_seed=base.master_seed,
+        stages=(MixedBalanceStage(8, 1), MixedBalanceStage(32, 1)),
+        max_total_trials=48, window=base.window,
+    )
+    sequential = evaluate_mixed_candidates_staged(request, SimulationExecutionOptions(Mode.SEQUENTIAL))
+    process = evaluate_mixed_candidates_staged(request, SimulationExecutionOptions(Mode.PROCESS, 2, 3))
+    assert sequential == process
+    assert sequential.source_request is request and process.source_request is request
+    assert sequential.total_trials <= request.planned_trials == 48
+    print(process.planned_trials, process.total_trials, process.status.value, process.selected_candidate_ids)
+
+
+if __name__ == "__main__":
+    main()
+```
+
+Для spawn нужен импортируемый script с main guard, не stdin/REPL. Каждый stage исполняет полный пакет с index 0; planned=2×8+1×32=48 на один вызов, оба backend оплачиваются отдельно. Reports сохраняют все агрегаты исполненных stages; unsupported исключает continuation/выбор. Ошибка даёт MixedStagedEvaluationError с zero-based stage_index, известным candidate_id или None и цепочкой __cause__ до исходных notes. Нет partial result/retry/fallback; preflight/final constructor и interrupts проходят напрямую. [9 unit](../../../tests/unit/test_m7_mixed_staged_evaluation_service.py) и [3 integration tests](../../../tests/integration/test_m7_mixed_staged_evaluation.py) проверяют реализацию; [самостоятельный пример](mixed_staged_evaluation.py) с [выводом](mixed_staged_evaluation.output.txt) и [аудит](../../audits/m7-staged-evaluation-readiness.md) теперь завершены.
+
+## Самостоятельная поэтапная mixed-оценка
+
+```powershell
+$env:PYTHONPATH = "src"
+.venv/Scripts/python.exe docs/examples/m7/mixed_staged_evaluation.py
+```
+
+[Скрипт](mixed_staged_evaluation.py) и [сохранённый вывод](mixed_staged_evaluation.output.txt) используют прежние явные составы 3×2/2×2 с одним/двумя лучниками, seed 42, два раунда и окно [1/4,1/2,3/4]. Stages=(8,keep=1),(32,keep=1), planned=2×8+1×32=48 на вызов. Sequential и process workers=2/batch_size=3 дают одинаковые полные reports; observed actual=48 на каждый backend, всего 96 trials на запуск скрипта. Проверяются input/global RNG, parent identity и отсутствие оставшихся детей. Повторный prefix оплачивается; оценки stages не складываются как независимые observations.
+
+В сохранённом выводе 3×2 проходит первый этап, но на втором получает unsupported и исключается из итогового выбора, даже при доле цели внутри окна. Раннее попадание не возвращается. Конкретные counts/победитель в assertions не закреплены. Печать начинается только после двух успешных вызовов и проверок; ошибка сохраняет stage/candidate/cause/notes, идёт в stderr и пробрасывается без partial stdout. Проверена инъекция ошибки второго этапа после 16 реальных trials первого. [Аудит](../../audits/m7-staged-evaluation-readiness.md) фиксирует ограничения и следующий контракт генерации.
+
+## Контракт генерации mixed-составов
+
+```powershell
+$env:PYTHONPATH = "src"
+.venv/Scripts/python.exe docs/examples/m7/generation_contract_probe.py
+```
+
+[ADR-0033](../../decisions/ADR-0033-mixed-composition-generation.md), [probe](generation_contract_probe.py) и [вывод](generation_contract_probe.output.txt) задают конечный резерв: Pbow/P1/P2 фиксированы, A=(E2,E1) Footpad Dagger 1..2, B=(E3) Brigand Warbow 0..1. Четыре вручную заданных вектора сохраняют independent orders, snapshots, explicit Close/Medium pairs, весь graph и полные GM decisions/флаги; stages 10/100 keep 2/1 требуют 240 trials, но не исполняются.
+
+При A.minimum=0 C=5/budget=250 включает недопустимый (0,1): P1/P2 теряют Close-цель. Отдельно показана потеря единственной Shooting-роли при противоположной perspective. Existing constructors отклоняют оба примера, missing pair, несогласованные facts и budget=239. Семейство нельзя молча сократить до четырёх допустимых кандидатов. Это проверка public constructors, не production generation/preflight/error API и не Monte Carlo-измерение. Typed group/request preflight теперь реализован; probe остаётся конечным примером public constructors. Runner/RNG/pool в нём не исполняются.
+
+## Production preflight генерации
+
+[MixedCompositionGroup/MixedCandidateGenerationRequest](../../../src/towr/application/mixed_candidate_generation_models.py) реализуют первый срез ADR-0033. Caller передаёт admitted mixed reserve, ordered groups, отдельные facts/pair_ranges, prefix, caps, seed, stages и окно. Family pairs должны точно совпадать с ordered template pairs; group/request принимают tuple/list и сохраняют tuple snapshots. C/planned_trials вычисляются без materialization и исполнения; при недопустимых bounds/partition/типах/парах/бюджете constructor отклоняет вход. [15 tests](../../../tests/unit/test_m7_mixed_candidate_generation_models.py) проверяют публичный контракт, включая C=2**40−1 и сохранение source/GM policies.
+
+Этот request не строит кандидатов и не доказывает допустимость каждого subset. При bounds с потерей единственного Close-врага он учитывает соответствующий vector в C/budget; construction теперь явно отклоняет такой состав. Следующий срез — integration с existing staged evaluation.
+
+## Production генерация составов
+
+[generate_mixed_candidates](../../../src/towr/application/mixed_candidate_generation.py) принимает MixedCandidateGenerationRequest и возвращает immutable MixedCandidateGenerationResult с source_request/evaluation_request. Для каждого prefix-count vector строится полный initial scenario с детерминированным ID; ordered pair ranges, full snapshots/GM decisions/flags и весь graph сохраняются. Result сверяет полный ordered staged input с исходным резервом. Генерация не вызывает симуляцию или оценку; передача evaluation_request в existing staged service остаётся отдельным явным действием.
+
+[MixedCandidateGenerationError](../../../src/towr/application/mixed_candidate_generation_errors.py) сообщает candidate_id/counts; исходная ошибка и notes доступны через __cause__. Недопустимый subset (потеря Melee/Shooting-роли или начальной цели) прерывает весь вызов, даже если предыдущие составы допущены; partial результата нет. Interrupts и финальные staged/result constructor errors не оборачиваются вымышленным candidate context. [17 tests](../../../tests/unit/test_m7_mixed_candidate_generation.py) дополняют 15 preflight tests. Самостоятельный production-пример со staged execution и его аудит ещё впереди; конечный generation_contract_probe остаётся проверкой constructor contract.
