@@ -22,6 +22,7 @@ from towr.domain.magic_models import (
     SpellTargetPreflightResult, WizardMagicState,
 )
 from towr.domain.resolution_models import (
+    CowardlyFlightMovementCompletion, CowardlyFlightMovementFollowUp, GiveGroundRequest,
     CowardlyFlightResult, CowardlyFlightWillpowerRequest, CowardlyFlightWillpowerResult,
     CowardlyFlightWillpowerBatchResult, CowardlyFlightZoneBatchResult,
 )
@@ -32,6 +33,7 @@ from towr.domain.turn_models import CombatRoundState
 
 class CowardlyFlightCastingStatus(str, Enum):
     WAITING = "waiting"
+    MOVEMENT_REQUIRED = "movement_required"
     SPELL_RESOLVED = "spell_resolved"
     MISCAST_REQUIRED = "miscast_required"
 
@@ -70,13 +72,18 @@ class CowardlyFlightCastingResult:
                 raise TypeError(f"Casting result requires {kind.__name__}")
         _validate_casting(self)
         _validate_post_test(self)
-        if self.status is CowardlyFlightCastingStatus.SPELL_RESOLVED:
+        if self.status in (CowardlyFlightCastingStatus.SPELL_RESOLVED,
+                           CowardlyFlightCastingStatus.MOVEMENT_REQUIRED):
             for value, kind in ((self.preflight, SpellTargetPreflightResult),
                                 (self.spell, SpellCastExecutionResult),
-                                (self.zone, CowardlyFlightZoneBatchResult),
-                                (self.willpower, CowardlyFlightWillpowerBatchResult)):
+                                (self.zone, CowardlyFlightZoneBatchResult)):
                 if not isinstance(value, kind):
                     raise TypeError(f"resolved spell requires {kind.__name__}")
+            if self.status is CowardlyFlightCastingStatus.SPELL_RESOLVED:
+                if not isinstance(self.willpower, CowardlyFlightWillpowerBatchResult):
+                    raise TypeError("resolved spell requires CowardlyFlightWillpowerBatchResult")
+            elif self.willpower is not None:
+                raise ValueError("pending movement cannot contain Willpower results")
             _validate_spell(self)
         elif any(v is not None for v in (self.preflight, self.spell, self.zone, self.willpower)):
             raise ValueError("WAIT/Miscast cannot contain spell phases")
@@ -91,7 +98,12 @@ class CowardlyFlightCastingResult:
 
     @property
     def spatial_state(self) -> SpatialBattleState:
-        return self.source.spatial_state
+        return self.source.spatial_state if self.willpower is None else self.willpower.spatial_state
+
+    @property
+    def pending_movements(self) -> tuple[CowardlyFlightMovementFollowUp, ...]:
+        return (self.zone.movement_follow_ups
+                if self.status is CowardlyFlightCastingStatus.MOVEMENT_REQUIRED else ())
 
     @property
     def pending_miscast(self) -> MiscastRollRequest | None:
@@ -175,6 +187,10 @@ def _validate_post_test(result: CowardlyFlightCastingResult) -> None:
         ready = state.casting_successes >= SPELL.casting_value
         expected_status = (CowardlyFlightCastingStatus.SPELL_RESOLVED if ready
                            else CowardlyFlightCastingStatus.WAITING)
+        if (ready and casting.latest_roll_successes > 0
+                and any(t.can_give_ground for t in source.targets)
+                and result.status is CowardlyFlightCastingStatus.MOVEMENT_REQUIRED):
+            expected_status = CowardlyFlightCastingStatus.MOVEMENT_REQUIRED
         cast = () if not ready else (SpellCastRequest(
             identifier + ":decision:cast", source.actor_id, SPELL.rule_id, SPELL.lore_id,
             SPELL.casting_value, casting.latest_roll_successes, "RULE-MAGIC-004:cast-or-wait"),)
@@ -211,6 +227,7 @@ def _validate_spell(result: CowardlyFlightCastingResult) -> None:
     spell_targets = []
     zone_targets = []
     willpower_requests = []
+    movement_requests = []
     for index, target in enumerate(source.targets):
         prefix = f"{execution_id}:target:{index}"
         effect = None
@@ -227,7 +244,14 @@ def _validate_spell(result: CowardlyFlightCastingResult) -> None:
                 TestRequest(effect.resolution_id + ":willpower", target.willpower_profile),
                 target.injury, application, SPELL.rule_id)
             willpower_requests.append(willpower)
-            zone_targets.append(CowardlyFlightResult(effect.resolution_id, target.actor_id, application, (willpower,)))
+            movements = ()
+            if target.can_give_ground:
+                movement = GiveGroundRequest(
+                    effect.resolution_id + f":{target.actor_id}:give-ground", SPELL.rule_id)
+                movements = (movement,)
+                movement_requests.append(CowardlyFlightMovementFollowUp(target.actor_id, movement))
+            zone_targets.append(CowardlyFlightResult(
+                effect.resolution_id, target.actor_id, application, (*movements, willpower)))
         spell_targets.append(SpellCastTargetResult(target.actor_id, SpellPotencyResult(
             prefix + ":potency", SPELL.rule_id, target.actor_id, potency, 0, potency, potency > 0, ()), effect))
     spell_rules = ("RULE-MAGIC-002:target-scoped-potency",)
@@ -238,12 +262,21 @@ def _validate_spell(result: CowardlyFlightCastingResult) -> None:
     zone_rules = (*spell_rules, SPELL.rule_id)
     _equal(result.zone, CowardlyFlightZoneBatchResult(
         source.id + ":zone", execution_id, source.actor_id, SPELL.rule_id, SPELL.lore_id,
-        source.selected_zone_id, tuple(zone_targets), (), tuple(willpower_requests), zone_rules,
+        source.selected_zone_id, tuple(zone_targets), tuple(movement_requests), tuple(willpower_requests), zone_rules,
     ), "Zone source/effects/contexts")
+    if result.status is CowardlyFlightCastingStatus.MOVEMENT_REQUIRED:
+        if not movement_requests:
+            raise ValueError("pending movement requires a positive Give Ground effect")
+        return
     batch = result.willpower
+    validate_cowardly_flight_casting_movements(result, batch.completed_movements, batch.spatial_state)
+    movements_by_target = {item.source.target_id: item.resolution for item in batch.completed_movements}
     if not isinstance(batch.targets, tuple) or len(batch.targets) != len(willpower_requests):
         raise ValueError("Willpower results must match positive effect targets exactly")
     for request, resolved in zip(willpower_requests, batch.targets):
+        movement = movements_by_target.get(request.target_id)
+        if movement is not None:
+            request = replace(request, target_state=replace(request.target_state, conditions=movement.conditions))
         if not isinstance(resolved, CowardlyFlightWillpowerResult):
             raise TypeError("Willpower result must be typed")
         _normal_test(resolved.test, request.test.id, request.test.profile)
@@ -253,12 +286,73 @@ def _validate_spell(result: CowardlyFlightCastingResult) -> None:
         if not resisted:
             state = replace(state, conditions=state.conditions.with_condition(Condition.BROKEN))
             application = ConditionApplicationResult(
-                request.id + ":broken", state.conditions, Condition.BROKEN, False, False,
+                request.id + ":broken", state.conditions, Condition.BROKEN,
+                request.target_state.conditions.has(Condition.BROKEN), False,
                 SPELL.rule_id, None, (SPELL.rule_id,))
         _equal(resolved, CowardlyFlightWillpowerResult(
             request.id, request.target_id, resolved.test, resisted, state, application, (SPELL.rule_id,),
         ), "Willpower source/state/Broken")
     _equal(batch, CowardlyFlightWillpowerBatchResult(
         source.id + ":willpower-batch", result.zone.request_id, execution_id, source.actor_id,
-        SPELL.rule_id, SPELL.lore_id, source.selected_zone_id, source.spatial_state, (), batch.targets, zone_rules,
+        SPELL.rule_id, SPELL.lore_id, source.selected_zone_id, batch.spatial_state,
+        batch.completed_movements, batch.targets,
+        tuple(dict.fromkeys((*zone_rules, *(rule_id for item in batch.completed_movements
+                                           for rule_id in item.resolution.applied_rule_ids)))),
     ), "Willpower batch source/spatial")
+
+
+def validate_cowardly_flight_casting_movements(
+    casting: CowardlyFlightCastingResult,
+    completions: tuple[CowardlyFlightMovementCompletion, ...],
+    final_spatial: SpatialBattleState,
+) -> None:
+    """Validate the complete ordered movement chain against the Casting source.
+
+    No movement, Test or route selection occurs here. PG1.4 pp119, 162.
+    Full GiveGround source requests are mandatory at this M8 boundary.
+    """
+    if not isinstance(completions, tuple) or not all(
+        isinstance(c, CowardlyFlightMovementCompletion) for c in completions
+    ):
+        raise TypeError("Casting movements must be a tuple of typed completions")
+    if not isinstance(final_spatial, SpatialBattleState):
+        raise TypeError("Casting movement completion requires typed final spatial state")
+    if tuple(c.source for c in completions) != casting.zone.movement_follow_ups:
+        raise ValueError("Casting movements must match every pending follow-up in order")
+    spatial = casting.source.spatial_state
+    targets = {t.actor_id: t for t in casting.source.targets}
+    for completion in completions:
+        movement = completion.resolution
+        request = movement.source_request
+        if request is None:
+            raise ValueError("Casting movement requires its complete source request")
+        target = targets[completion.source.target_id]
+        if (request.state != spatial or request.away_from_entity_id != casting.source.actor_id
+                or request.mover_conditions != target.injury.conditions
+                or movement.origin_zone_id != casting.source.selected_zone_id):
+            raise ValueError("Casting movement source/spatial/caster/Conditions differ")
+        if (request.mover_id in spatial.gave_ground_entity_ids
+                or request.mover_conditions.has(Condition.PRONE)
+                or request.mover_conditions.has(Condition.DEFENCELESS)
+                or request.crosses_obstacle or request.crosses_difficult_terrain):
+            raise ValueError("Casting movement is unavailable in the current round/route")
+        mover = spatial.placement_for(request.mover_id)
+        if any(spatial.placement_for(i).side_id != mover.side_id for i in request.path_entity_ids):
+            raise ValueError("Casting movement cannot cross an enemy")
+        # Distances validate the recorded direction; they do not select a route.
+        distances = {spatial.placement_for(casting.source.actor_id).zone_id: 0}
+        frontier = list(distances)
+        for zone_id in frontier:
+            for adjacent in spatial.graph.adjacent_zone_ids(zone_id):
+                if adjacent not in distances:
+                    distances[adjacent] = distances[zone_id] + 1
+                    frontier.append(adjacent)
+        origin = distances.get(mover.zone_id)
+        destination = distances.get(request.destination_zone_id)
+        if origin is None or destination is None or destination <= origin:
+            raise ValueError("Casting Give Ground must move away from the caster")
+        expected_rules = tuple(dict.fromkeys((
+            request.source.rule_id, "RULE-COMBAT-011:zones-and-ranges", "RULE-COMBAT-015:give-ground")))
+        _equal(movement.applied_rule_ids, expected_rules, "movement trace")
+        spatial = movement.state
+    _equal(final_spatial, spatial, "final movement state")

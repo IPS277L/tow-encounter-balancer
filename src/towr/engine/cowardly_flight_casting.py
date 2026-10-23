@@ -1,6 +1,12 @@
 """One Casting action; no end-turn, battle loop or Miscast completion (ADR-0035)."""
 from __future__ import annotations
 
+from dataclasses import replace
+
+from towr.domain.cowardly_flight_casting_completion_models import (
+    CowardlyFlightCastingCompletionRequest, CowardlyFlightCastingCompletionResult,
+)
+
 from towr.domain.action_execution_models import CastingActionPostTestRequest, CastingAttemptExecutionRequest
 from towr.domain.cowardly_flight_casting_models import CowardlyFlightCastingRequest
 from towr.domain.cowardly_flight_casting_result_models import (
@@ -82,7 +88,40 @@ def execute_cowardly_flight_casting(
     ) for effect in spell.follow_ups)
     zone = resolve_cowardly_flight_zone_batch(CowardlyFlightZoneBatchRequest(
         request.id + ":zone", spell, contexts))
+    if zone.movement_follow_ups:
+        return CowardlyFlightCastingResult(
+            request, execution, post, CowardlyFlightCastingStatus.MOVEMENT_REQUIRED,
+            preflight, spell, zone)
     willpower = resolve_cowardly_flight_willpower_batch(CowardlyFlightWillpowerBatchRequest(
         request.id + ":willpower-batch", zone, request.spatial_state, ()), rng)
     return CowardlyFlightCastingResult(request, execution, post, CowardlyFlightCastingStatus.SPELL_RESOLVED,
                                        preflight, spell, zone, willpower)
+
+
+def complete_cowardly_flight_casting(
+    request: CowardlyFlightCastingCompletionRequest, rng: RandomSource,
+) -> CowardlyFlightCastingCompletionResult:
+    """Resolve only Willpower after all source-bound movements; no Casting retry."""
+    if not isinstance(request, CowardlyFlightCastingCompletionRequest):
+        raise TypeError("request must be a CowardlyFlightCastingCompletionRequest")
+    pending = request.pending
+    willpower = resolve_cowardly_flight_willpower_batch(CowardlyFlightWillpowerBatchRequest(
+        pending.source.id + ":willpower-batch", pending.zone,
+        request.spatial_state_after_movements, request.movement_completions), rng)
+    casting = replace(pending, status=CowardlyFlightCastingStatus.SPELL_RESOLVED, willpower=willpower)
+    return CowardlyFlightCastingCompletionResult(request, casting)
+
+
+def apply_cowardly_flight_casting_completion(
+    current: CowardlyFlightCastingResult, result: CowardlyFlightCastingCompletionResult,
+) -> CowardlyFlightCastingResult:
+    """Replace the exact current pending result once, without movement or RNG."""
+    if not isinstance(current, CowardlyFlightCastingResult):
+        raise TypeError("current must be a CowardlyFlightCastingResult")
+    if not isinstance(result, CowardlyFlightCastingCompletionResult):
+        raise TypeError("result must be a CowardlyFlightCastingCompletionResult")
+    if current.status is not CowardlyFlightCastingStatus.MOVEMENT_REQUIRED:
+        raise ValueError("Curse completion was already consumed or movement is not pending")
+    if current != result.source.pending:
+        raise ValueError("Curse completion belongs to a different current pending result")
+    return result.casting

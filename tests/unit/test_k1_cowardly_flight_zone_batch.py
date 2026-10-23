@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import unittest
+from dataclasses import replace
 
 from tests.helpers import SequenceRandom
 from towr.domain.condition_models import (
@@ -168,6 +169,37 @@ def movement_completion(
 
 
 class K1CowardlyFlightZoneBatchTests(unittest.TestCase):
+    def test_willpower_preserves_broken_from_movement_into_enemy_zone(self):
+        source = zone_batch((IdentifiedSpellTarget("target"),))
+        follow_up = source.movement_follow_ups[0]
+        spatial = spell_spatial_state(("target",))
+        spatial = replace(spatial, placements=(*spatial.placements,
+            SpatialEntityPlacement("enemy", "players", "zone:retreat:target")))
+        movement = resolve_give_ground(GiveGroundResolutionRequest(
+            follow_up.request, spatial, "target", "zone:retreat:target", CharacterInjuryState().conditions))
+        completion = complete_cowardly_flight_movement(follow_up, movement)
+        request = CowardlyFlightWillpowerBatchRequest("batch", source, movement.state, (completion,))
+        for dice, resisted in (([1, 1], True), ([10, 10], False)):
+            with self.subTest(resisted=resisted):
+                result = resolve_cowardly_flight_willpower_batch(request, SequenceRandom(dice))
+                target = result.targets[0]
+                self.assertEqual(target.resisted, resisted)
+                self.assertTrue(target.state.conditions.has(Condition.BROKEN))
+                if not resisted:
+                    self.assertTrue(target.condition_application.was_already_present)
+                self.assertIn("RULE-COMBAT-015:give-ground", result.applied_rule_ids)
+
+    def test_movement_cannot_erase_conditions_before_willpower(self):
+        source = zone_batch((IdentifiedSpellTarget("target"),))
+        state = CharacterInjuryState(conditions=CharacterInjuryState().conditions.with_condition(Condition.STAGGERED))
+        willpower = replace(source.willpower_follow_ups[0], target_state=state)
+        target = replace(source.targets[0], follow_ups=(source.targets[0].follow_ups[0], willpower))
+        source = replace(source, targets=(target,), willpower_follow_ups=(willpower,))
+        movements, spatial = movement_completions(source.movement_follow_ups)
+        with self.assertRaisesRegex(ValueError, "movement Conditions"):
+            resolve_cowardly_flight_willpower_batch(
+                CowardlyFlightWillpowerBatchRequest("batch", source, spatial, movements), SequenceRandom([]))
+
     def test_batch_restores_effect_order_from_unordered_contexts(self) -> None:
         source = execution(
             (

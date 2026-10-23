@@ -341,13 +341,31 @@ def resolve_cowardly_flight_willpower_batch(
             "movement completion chain does not match final spatial state"
         )
 
+    movements_by_target = {item.source.target_id: item.resolution for item in completed_movements}
+    current_willpower = []
+    for follow_up in expected_willpower:
+        movement = movements_by_target.get(follow_up.target_id)
+        if movement is not None:
+            # Giving Ground into an enemy Zone applies Broken before this Test.
+            # Resistance to the spell cannot remove that independently applied Condition.
+            expected_conditions = (follow_up.target_state.conditions.with_condition(Condition.BROKEN)
+                                   if movement.entered_enemy_zone else follow_up.target_state.conditions)
+            if movement.conditions != expected_conditions:
+                raise ValueError("movement Conditions differ from the affected target snapshot")
+            if (movement.source_request is not None
+                    and movement.source_request.mover_conditions != follow_up.target_state.conditions):
+                raise ValueError("movement source Conditions differ from the affected target snapshot")
+            follow_up = replace(follow_up, target_state=replace(
+                follow_up.target_state, conditions=movement.conditions))
+        current_willpower.append(follow_up)
+
     results = tuple(
         resolve_cowardly_flight_willpower(
             follow_up,
             rng,
             decisions=decisions,
         )
-        for follow_up in expected_willpower
+        for follow_up in current_willpower
     )
     return CowardlyFlightWillpowerBatchResult(
         request_id=request.id,
@@ -365,6 +383,8 @@ def resolve_cowardly_flight_willpower_batch(
                 (
                     *source.applied_rule_ids,
                     request.rule_id,
+                    *(rule_id for completion in completed_movements
+                      for rule_id in completion.resolution.applied_rule_ids),
                     *(
                         rule_id
                         for result in results

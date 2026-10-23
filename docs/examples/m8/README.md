@@ -35,4 +35,4 @@ $env:PYTHONPATH = "src"
 
 Источники: **BOOK-PLAYER-GUIDE 1.4**, Rules / Combat Actions / Improvise, стр. 117; Conditions / Broken, стр. 122; Magic in the Old World / Casting a Spell / Interrupted Casting, стр. 156; Spell Potency / Miscasts and the Rule of Nine, стр. 157; Formal Spells, стр. 160; Battle Magic / Curse of Cowardly Flight, стр. 162. **BOOK-GM-GUIDE 1.1**, Allies and Antagonists / Champions, стр. 92; Hermit Witch, стр. 130.
 
-Следующий шаг — отдельный книжный контракт magic encounter: Champion injury, action dispatch, Broken turns и обязательные Miscast continuations. Полноценная магия в боевой симуляции пока не реализована.
+[Контракт интеграции ADR-0036](../../decisions/ADR-0036-magic-encounter-integration.md) и standalone Give Ground completion реализованы. Пример casting_action.py сохраняет исходную границу без движения. Следующий шаг — перенести MOVEMENT_REQUIRED и spatial/Conditions в roster/Champion owner; затем Broken turns/interruptions/end-turn и обязательные Miscast continuations. Полного encounter runner ещё нет.

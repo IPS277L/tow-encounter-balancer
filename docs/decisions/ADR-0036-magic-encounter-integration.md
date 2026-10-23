@@ -1,6 +1,6 @@
 # ADR-0036: состояние и обязательные продолжения первого боя с магом
 
-Статус: принято как ограниченный технический контракт, 2026-09-29. Реализация encounter ещё отсутствует. Направление «магия в боевой симуляции» уже выбрано пользователем. [ADR-0035](ADR-0035-cowardly-flight-casting-boundary.md) закрывает только одно Casting-действие; этот ADR определяет зависимости до первого runner.
+Статус: принято как ограниченный технический контракт, 2026-09-29. Actor-bound Casting → roster consumer, Minion Attack → Champion bridge и их ограниченная передача актуальных состояний реализованы; самого encounter ещё нет. Направление «магия в боевой симуляции» уже выбрано пользователем. [ADR-0035](ADR-0035-cowardly-flight-casting-boundary.md) закрывает только одно Casting-действие; этот ADR определяет зависимости до первого runner.
 
 ## Проверенные источники
 
@@ -75,3 +75,105 @@ Curse сохраняет правило BOOK-PLAYER-GUIDE 1.4, Battle Magic / Cu
 6. **Расширение обязательных Miscast continuations.** Вводить owners/effect consumers отдельными ограниченными срезами; до включения неоднозначных ветвей получить решение пользователя. После покрытия заявленных путей — самостоятельный пример и аудит encounter; затем отдельный план массовой симуляции.
 
 Критерии первого consumer: WAIT/CAST/MISCAST_REQUIRED, обе стороны caster, caster definition ID != actor ID, несколько целей/пустая Zone, exact before/after, сохранение неучаствующих бойцов, replay/stale/source rejection и неизменность входа. Tests используют готовый executor и scripted RNG только для получения исходного результата; сам consumer не получает RNG. Конкретные имена новых классов уточняются при реализации, перечисленная граница является контрактом.
+
+## Реализованный первый consumer
+
+Модели находятся в [npc_roster_casting_models.py](../../src/towr/domain/npc_roster_casting_models.py); pure application — в [npc_roster_casting_resolution.py](../../src/towr/rules/npc_roster_casting_resolution.py).
+
+- `NpcCastingWizardState(actor_id, caster, magic_state)` явно связывает отдельное CastingCasterDefinition и WizardMagicState с участником. ID actor, NPC definition и Casting definition могут различаться.
+- `NpcRosterCastingState(roster, wizard, round_state, spatial_state, consumed_execution_ids=(), pending_miscast=None)` — frozen/slotted снимок только этого среза. Допускается один здоровый Champion без Wounds/Conditions и живые Minions; полученный Broken у Minion сохраняется. Injured Champion, Brute, второй Champion и defeated/live projection пока не поддержаны. Ordered roster participants и spatial sides/round/coverage должны совпадать с round snapshot.
+- `NpcRosterCastingRequest(state, casting)` создаётся **до исполнения** и связывает полный снимок с конкретным CowardlyFlightCastingRequest. Проверяет actor/definition/magic/round/spatial, target injury, историю исполнения и отсутствие pending. Профили Willpower и facts остаются явно заданными входами ADR-0035; roster не содержит такого каталога и не вычисляет их автоматически.
+- `NpcRosterCastingResult(source, casting)` связывает исходный запрос с уже полученным CowardlyFlightCastingResult; сравнивается весь Casting request. `.state` — вычисляемая read-only проекция, отдельный произвольный post-state передать нельзя.
+- `apply_npc_roster_casting_result(state, result)` сверяет **весь** текущий state с source, включая нетронутых участников и histories; отклоняет повторный execution ID. Возвращает один согласованный снимок с magic/target injury/receipt/consumed ID, сохраняя definitions, equipment/resilience и остальных бойцов. Не вызывает executor, resolver или RNG.
+
+Порядок вызова: bound request → existing `execute_cowardly_flight_casting(bound.casting, rng)` → `NpcRosterCastingResult(bound, casting_result)` → apply к актуальному `bound.state`. Caller сохраняет возвращённое состояние; чистая функция не может запретить намеренно восстановить старую копию вместе с её историей.
+
+`pending_miscast` хранит **полный Casting result**, а не только roll request: доступны исходный snapshot, traces, накопленные successes, pool и pending source. Поля проверяются против текущего actor/magic/round/spatial/target injury и consumed history. Этот pending блокирует создание нового bound Casting request; consumer не выбирает desperate cast и не очищает pool. Для будущего общего dispatch понадобится собственная обработка продолжения. Наличие consumer не означает реализацию ходов Broken, Champion attack или full runner.
+
+[11 unit tests](../../tests/unit/test_m8_npc_roster_casting.py) и [3 integration tests](../../tests/integration/test_m8_npc_roster_casting.py) проверяют frozen/type/source/replay/stale guards, несовпадение IDs, сохранность pending, отсутствие RNG, обе стороны, WAIT/CAST/MISCAST_REQUIRED, empty Zone/zero Potency и WAIT → CAST через реальные K1 turn/round transitions. Следующий срез — Minion Attack → Champion bridge с обязательным Wound lifecycle/pending.
+
+## Реализованный Minion Attack → Champion bridge
+
+2026-09-30. [Модели](../../src/towr/domain/npc_champion_attack_models.py) и [executor/application](../../src/towr/rules/npc_champion_attack_execution.py) связывают existing protected NPC preparation, один Attack slot, kernel и Character Wound lifecycle. Действующий Minion → Minion API не менялся.
+
+`NpcChampionAttackState` хранит полный NpcRoster, CombatRoundState, DailyWoundState одного Champion, consumed execution/roll IDs и необязательный полный pending result. `NpcChampionAttackRequest` связывает state, NpcProtectedAttackPreparationResult и AttackActionExecutionRequest. `NpcChampionAttackResult` сохраняет source, исходное исполнение (включая pending Wound roll), завершённый ResolutionResult и optional CharacterWoundLifecycleCompletionResult; `.state` — вычисляемая проекция, `.pending_follow_ups` — ещё не применённые запросы.
+
+Перед RNG проверяются: враждебные Minion/Champion, живые actor/target, точный порядок roster/round, один unexecuted STANDARD Attack slot, текущая доступность attack, Resilience/Protection/equipment, исходные injury, открытый actor-scoped daily ledger и histories. Допуск initial Conditions — только Staggered; Wounds допускаются, если эффект уже resolved и нет active wound effects/restrictions. Иные состояния требуют отдельного адаптера текущих профилей; они не игнорируются. Дополнительные attack effects, negation, Fate и особые NPC abilities исключены. Numeric preparation и явные modifiers/GM range facts сохраняются как вход существующего API; новые правила их расчёта не вводятся.
+
+`execute_npc_champion_attack(request, rng, decisions=None)` вызывает existing `execute_attack_action` один раз. Если kernel вернул Wound, вызываются existing completion и `apply_kernel_character_wound_completion`: регистрация в переданном дневном ledger, эффекты раны и source chain сохраняются. Второго Attack/Wound roll нет. У Champion нет Player Near Miss. Повторный Staggered использует existing injectable kernel decisions; Give Ground не исполняется пространственно этим адаптером.
+
+`apply_npc_champion_attack_result(state, result)` не принимает RNG и проверяет весь актуальный source state, в том числе остальных участников. Проекция переносит current injury, один receipt, daily/consumption histories и непосредственно применяет только AttackerStaggerRequest от Close miss. Остальные follow-ups, например Give Ground, Endurance/drop/random body-part requests, остаются в полном pending result и блокируют новый attack request. Смерть из завершённой Wounds Table сохраняется как `dead`, без encounter victory/удаления участника. Существующие injury restrictions и Conditions после completion остаются в roster; отсутствие immediate pending не означает допуск такого бойца к любому следующему действию.
+
+При ошибке callback/RNG/completion исключение распространяется без retry/fallback; полного результата не выдаётся. Pure consumer не защищает от намеренного восстановления старого state вместе с историей. Полное объединение владельцев magic/spatial/attack ещё не реализовано: caller сохраняет WizardMagicState и SpatialState вне данного адаптера. В частности, старый NpcRosterCastingState пока требует здорового Champion и не принимает автоматически раненого мага.
+
+[13 unit tests](../../tests/unit/test_m8_npc_champion_attack.py) и [3 integration tests](../../tests/integration/test_m8_npc_champion_attack.py) проверяют miss/Stagger/Wound, Drained, pending effects/Give Ground, Close miss, source/replay/stale/history guards, untreated/treated dice, повторные раны и смерть. Integration использует supplied activations, а не новый encounter runner.
+
+Непосредственные источники: BOOK-PLAYER-GUIDE 1.4, Rules / Attack Tests, стр. 118–119; Wounds & Conditions, стр. 121; Wounds Table, стр. 190–191. BOOK-GM-GUIDE 1.1, Allies and Antagonists / Champions, стр. 92. Новых Rule IDs/house rules нет. Следующий срез — Casting из актуального roster: совместимая граница injured caster/текущих target Conditions, live projection и обязательных продолжений, с отдельной проверкой разрешённых профилей; затем Give Ground и Broken/interruptions по плану.
+
+## Casting из актуального roster и передача атаки
+
+2026-10-02. Расширение снимает healthy-only ограничение состояния; прежние описания первого среза выше и аудит ADR-0035 относятся к прежнему допуску. Общего battle runner/dispatch не добавлено.
+
+### Хранение и допуск
+
+`NpcRosterCastingState` хранит текущий injury Champion, в том числе раны или смерть, и полный roster Minions, включая defeated. Хранение такого снимка не разрешает Casting. `NpcRosterCastingRequest` допускает живого caster с Conditions из множества **Staggered/Drained**, resolved Wounds и только соответствующими активными WoundConditionEffect. Другие active effects/restrictions и unresolved Wounds отклоняются до RNG. В частности, NEXT_TEST_IS_GRIM не теряется и не превращается в обычный roll. Known shield и положительный текущий Resilience bonus также отклоняются: первый normal boundary не интерпретирует происхождение bonus и не поддерживает armour/bulky Casting. Явные facts ADR-0035 по-прежнему обязательны.
+
+BOOK-PLAYER-GUIDE 1.4, Rules / Conditions, стр. 122–123: Staggered сам по себе не меняет Test; Drained запрещает bonus dice и Glorious, но не мешает уже normal немодифицированному Test этого boundary. Это не общее игнорирование Drained. Caster Broken должен уходить/Recover, Defenceless не может действовать; они и прочие пока не поддержанные Conditions отклоняются. BOOK-PLAYER-GUIDE 1.4, Wounds Table, стр. 190: Stomach blow даёт Drained до конца следующего хода; Casting consumer сохраняет эффект и не завершает ход/не истекает его длительность.
+
+Цели Curse теперь допускают **Staggered/Drained/Broken**, сохраняя все Conditions. У уже Broken цели Willpower всё равно исполняется; неудача возвращает `was_already_present=True`, успех не снимает Broken. BOOK-PLAYER-GUIDE 1.4, Rules / Conditions, стр. 122–123; Battle Magic / Curse of Cowardly Flight, стр. 162. Только живые Minions с wound_limit=1, по-прежнему фактически неспособные Give Ground, normal Willpower без bonus dice/Glorious/immunity/modifiers. Прочие Conditions отклоняются; иммунитет/осведомлённость не вычисляются.
+
+### Проекции и подготовка
+
+`state.casting_round_state` и `state.casting_spatial_state` фильтруют **injury.dead/defeated**, сохраняя порядок оставшихся участников, стороны, graph, round number и актуальные placements. Completed/excluded turn IDs сами по себе не удаляют живую цель. IDs погибших убираются только из проекций, включая их completed/excluded IDs. Если live round теряет сторону или active actor, запрос не допускается; это техническая граница текущего combat round, не automatic victory или новый objective.
+
+`NpcRosterCastingTargetContext(actor_id, willpower_profile, can_give_ground)` содержит явно заданные profile/факт движения, без копии injury. Pure `prepare_npc_roster_casting(request_id=..., state=..., selected_zone_id=..., targets=..., facts=..., policy=...)` в [существующем модуле](../../src/towr/rules/npc_roster_casting_resolution.py) берёт injuries из roster и строит bound request по live projections. Все живые враги выбранной Zone должны иметь context в стабильном round order; пропуски, дубли и мёртвые цели отклоняются. Это не каталог Willpower и не автоматическое определение доступности движения.
+
+После Casting проекция результата переносит только исполненный active-turn receipt в полный исходный round. Full roster, defeated entries, полный spatial snapshot и исходные histories исключённых/завершённых участников остаются у caller; effect применяется только к живым целям. Pending Miscast сверяется с live projection, но не удаляет архивные snapshots из state.
+
+### Связь двух владельцев
+
+Опциональный `NpcRosterCastingState.champion_attack` — existing NpcChampionAttackState того же caster/day, с точно такими же полными roster/round. Его consumed execution IDs должны сохраняться в общей истории этого Casting owner. Это связь двух конкретных адаптеров ADR-0036, без универсального event/aggregate API.
+
+[Типизированная передача](../../src/towr/domain/npc_roster_champion_attack_models.py):
+
+1. До RNG создать `NpcRosterChampionAttackRequest(state, attack)`: проверить attached owner, полный source, pending Miscast и execution ID.
+2. Исполнить уже существующий `execute_npc_champion_attack(bound.attack, rng, decisions=...)`.
+3. Создать `NpcRosterChampionAttackResult(bound, attack_result)`; full attack source должен совпасть.
+4. Pure [apply_npc_roster_champion_attack_result](../../src/towr/rules/npc_roster_champion_attack_resolution.py) проверяет актуальный полный state/replay и возвращает согласованный снимок. Roster/round/daily/pending/attack histories приходят из результата атаки; WizardMagicState и SpatialState сохраняются. ID атаки добавляется в общую историю; отдельная attack history остаётся у Champion owner.
+
+Подготовка следующего Casting блокируется при attached pending attack. После Casting attached owner обновляется теми же roster/round, сохраняя daily ledger, roll IDs и attack history. Для следующей активации caller использует K1 turn transitions и передаёт одинаковый round обоим owners; сам wrapper не завершает ходы и не пропускает эффекты. Простое попадание по магу не считается пропущенным им Casting-действием и не очищает накопленные successes/pool (PG1.4, Magic in the Old World / Interrupted Casting, стр. 156).
+
+Опциональный owner оставлен для первоначального standalone Casting API. Полная передача/блокировка attack pending гарантируется при использовании нового bound пути; ручное пересоздание состояния с отброшенными owners/histories находится вне чистого API, как и восстановление старой копии. Старые low-level executors сами по себе не становятся encounter dispatcher.
+
+[12 unit tests](../../tests/unit/test_m8_current_roster_casting.py) и [7 integration tests](../../tests/integration/test_m8_champion_casting_handoff.py) покрывают injuries/Conditions, real Wound → Casting, повторный Broken, live/archive projections, полный pending обоих направлений, общую и отдельную histories, текущую броню/щит, stale/replay/purity и одинаковый round обоих owners. Два прежних negative admission tests обновлены под расширенный допуск. Всего 99 M8 tests проходят.
+
+Следующий срез — Give Ground для Curse: source-bound movement completion с актуальным spatial snapshot, затем Willpower по всем исходным affected targets, включая ушедших. До этого `can_give_ground=True` остаётся отказом до Casting RNG. Следующие ходы Broken/interruptions и end-turn Wound effect lifecycle ещё не интегрированы в runner.
+
+
+## Двухфазное Casting с Give Ground
+
+2026-10-02. Реализован самостоятельный контракт одного Curse-действия и его completion; перенос движений в NpcRosterCastingState — следующий срез. Непосредственно перечитаны BOOK-PLAYER-GUIDE 1.4, Rules / Attack Tests / Giving Ground, стр. 119; Conditions / Broken, стр. 122; Drained / Prone / Defenceless, стр. 123; Battle Magic / Curse of Cowardly Flight, стр. 162. Новых игровых Rule IDs или house rules нет.
+
+### Первая фаза
+
+CowardlyFlightCastingTarget теперь допускает явное can_give_ground=True. Доступность по-прежнему задаёт caller как факт, а не как выбор отказаться от обязательного ухода. Известная gave_ground_entity_ids запрещает заявлять повторный уход этого участника в том же раунде уже при подготовке запроса. Остальной normal admission не расширен: только living Minions со Staggered/Drained/Broken, прежние profiles/facts; Prone и другие неподдержанные Conditions отклоняются.
+
+[Executor](../../src/towr/engine/cowardly_flight_casting.py) после единственного Casting roll/receipt готовит spell/Zone как прежде. Если положительный эффект потребовал хотя бы один Give Ground, возвращается MOVEMENT_REQUIRED с полными preflight/spell/Zone, неизменными spatial/target snapshots и ordered pending_movements. Willpower ещё не исполняется, включая цели без движения. WAITING, MISCAST_REQUIRED и нулевая Potency не создают такие движения. Текущий action уже потрачен; completion не требует другого слота, не заканчивает ход и не повторяет Casting.
+
+### Движения и completion
+
+Caller явно задаёт destination, path_entity_ids и route facts для каждого pending item, по исходному порядку целей. Existing resolve_give_ground исполняет движение без RNG; complete_cowardly_flight_movement связывает результат с конкретным follow-up. Все движения образуют одну цепочку: первый previous_state равен исходному Casting spatial, каждый следующий использует результат предыдущего. При изменении положения факты маршрута должны соответствовать актуальному снимку.
+
+[CompletionRequest/Result](../../src/towr/domain/cowardly_flight_casting_completion_models.py) сохраняют полный pending Casting и требуют полный GiveGround source_request для каждого движения. Проверяются точные follow-ups/цели/порядок/число, Conditions, исходная Zone, направление от actor мага, история раунда, route restrictions, текущий пространственный снимок и итог цепочки. Нельзя пропустить уход, подтвердить чужое движение, заменить graph/round/history или передать только совпадающий ID. Полный результат Casting также проверяет эти связи и normal Willpower traces без обращения к RNG/resolvers.
+
+complete_cowardly_flight_casting(request, rng) исполняет только ordered Willpower исходных affected targets, включая ушедших. Изменения Conditions от Give Ground переносятся до Test. В K1 устранён CODE-CONFLICT-003: Broken, полученный во вражеской destination Zone, сохраняется при успешном сопротивлении Curse; неудача повторного применения возвращает was_already_present=True. Иные Conditions и injury не теряются. Batch сохраняет movement chain, итоговый spatial и трассировку движения.
+
+apply_cowardly_flight_casting_completion(current, result) заменяет только точный текущий MOVEMENT_REQUIRED result; повторное применение к завершённому result запрещено. Применение не двигает и не бросает кубы. Caller обязан сохранять возвращённое состояние: намеренное восстановление старого pending с историей находится вне чистого API. Ошибки RNG/completion распространяются без retry/fallback и без завершённого результата; pending source остаётся неизменным. Некорректные/неполные движения отклоняются до Willpower RNG; они не превращаются в разрешение пропустить уход.
+
+### Граница этого среза
+
+NpcRosterCastingRequest пока явно отклоняет can_give_ground=True до Casting RNG: прежний roster consumer ещё не хранит MOVEMENT_REQUIRED и не переносит spatial completion. Standalone completion нельзя выдавать за завершённую интеграцию roster/Champion owner. Нет автоматического выбора укрытия, маршрута или доступности движения, общей battle aggregate, runner, Broken turn policy либо Miscast completion.
+
+[19 unit tests](../../tests/unit/test_m8_cowardly_flight_casting_movement.py), [5 integration tests](../../tests/integration/test_m8_cowardly_flight_casting_movement.py) и 2 новых [K1 tests](../../tests/unit/test_k1_cowardly_flight_zone_batch.py) проверяют оба этапа, исходный порядок/состав целей, remote caster, движение во вражескую Zone, Conditions/history, pending/source/replay/route guards и чистое применение. Прежний negative admission test обновлён под расширенный standalone допуск. Всего 123 M8 tests проходят.
+
+Следующий шаг: подключить MOVEMENT_REQUIRED к NpcRosterCastingState и bound Champion handoff. Сохранять полный pending, переносить roster Conditions и live spatial completion обратно в полный snapshot с архивными entries, расходовать Casting ID один раз, блокировать новое Casting/атаку до completion и проверить source/replay/daily histories. Затем Broken/interruptions и end-turn Wound lifecycle по прежнему плану.

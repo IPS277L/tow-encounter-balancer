@@ -9,6 +9,7 @@ from __future__ import annotations
 from dataclasses import dataclass, fields
 from enum import Enum
 
+from towr.domain.condition_models import Condition
 from towr.domain.injury_models import ProfileInjuryState
 from towr.domain.magic_models import WizardMagicState
 from towr.domain.spatial_models import SpatialBattleState
@@ -47,7 +48,11 @@ class CastingCasterDefinition:
 
 @dataclass(frozen=True, slots=True)
 class CowardlyFlightCastingTarget:
-    """One healthy Minion enemy, factually unable to Give Ground."""
+    """One living Minion enemy with explicit Give Ground availability.
+
+    ADR-0036 permits Staggered, Drained and existing Broken under the
+    unchanged normal, unmodified Willpower profile (PG1.4 pp122-123).
+    """
 
     actor_id: str
     willpower_profile: InlineProfile
@@ -59,12 +64,12 @@ class CowardlyFlightCastingTarget:
         _normal_profile(self.willpower_profile, "willpower_profile")
         if not isinstance(self.injury, ProfileInjuryState):
             raise TypeError("target injury must be a ProfileInjuryState")
-        if self.injury != ProfileInjuryState(0, 1):
-            raise ValueError("Casting boundary requires healthy Minions without Conditions")
+        if self.injury.wound_limit != 1 or self.injury.defeated:
+            raise ValueError("Casting boundary requires living Minions")
+        if not self.injury.conditions.conditions <= {Condition.STAGGERED, Condition.DRAINED, Condition.BROKEN}:
+            raise ValueError("Casting target has unsupported Conditions for normal Willpower")
         if not isinstance(self.can_give_ground, bool):
             raise TypeError("can_give_ground must be an explicit boolean")
-        if self.can_give_ground:
-            raise ValueError("Casting boundary does not yet support Give Ground")
 
 
 @dataclass(frozen=True, slots=True)
@@ -179,6 +184,8 @@ class CowardlyFlightCastingRequest:
         )
         if tuple(t.actor_id for t in targets) != expected_targets:
             raise ValueError("targets must match all selected Zone enemies in round participant order")
+        if any(t.can_give_ground and t.actor_id in spatial.gave_ground_entity_ids for t in targets):
+            raise ValueError("a target that already gave ground this round cannot Give Ground again")
         object.__setattr__(self, "targets", targets)
 
 

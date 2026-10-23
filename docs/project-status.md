@@ -1,6 +1,6 @@
 # Текущий статус проекта
 
-Дата обновления: 2026-09-29.
+Дата обновления: 2026-10-02.
 
 ## Текущий этап
 
@@ -9,7 +9,7 @@ K1/M2/M3/M4 готовы в заявленной границе неподвиж
 
 Следующее направление выбрано: **M7 — смешанный дальний и ближний бой**. [ADR-0028](decisions/ADR-0028-mixed-minion-scenario.md) и [probe](examples/m7/README.md) подготовлены; typed admission реализован и проверен 25 tests. Одиночный mixed-сценарий закрыт [аудитом](audits/m7-readiness.md): 60 tests M7, самостоятельный public пример и сохранённый вывод проверены. [ADR-0029](decisions/ADR-0029-independent-mixed-simulations.md) и конечный probe независимых mixed-прогонов/summary подготовлены. Production модели, последовательный исполнитель и pure summary реализованы с 25 новыми tests. [Аудит последовательной simulation](audits/m7-simulation-readiness.md) завершён; production-пример и subprocess test проверены (26 simulation tests). [Профилирование mixed-пакетов](benchmarks/README.md#m7-исходное-профилирование-mixed-simulation) завершено без изменений production, добавлены семь tests harness. [Эксперимент с кешированием continuation](benchmarks/m7-round-continuation-review.md) завершён отказом: устойчивое ускорение не подтверждено, production восстановлен. [Контракт ADR-0030](decisions/ADR-0030-process-mixed-simulations.md) и конечный process transport probe готовы; отдельный mixed process backend реализован с 17 новыми tests. [Сравнение sequential/process](benchmarks/README.md#mixed-sequential-и-spawn) завершено: 54 полных результата/summary равны, два workers локально быстрее на 1000 trials для 3×2/2×2. [Общий аудит массовой mixed-симуляции](audits/m7-mass-simulation-readiness.md) завершён: 56 tests слоя и 116 M7, production исправлений не потребовалось. [ADR-0031](decisions/ADR-0031-mixed-candidate-assessment.md) и конечный assessment probe подготовлены. Pure assessment одного mixed-кандидата реализован: отдельные frozen model/status/helper, exact source и четыре Fraction rates; 9 unit/1 integration test. Модели списка с бюджетом и stable ranking также реализованы (11 deterministic tests). Application service/errors также реализованы: полный existing run и source-bound aggregate report, 8 unit/3 integration tests. [Аудит bounded mixed evaluation](audits/m7-evaluation-readiness.md) завершён; [самостоятельный пример](examples/m7/mixed_evaluation.py) и сохранённый вывод проверены. [Контракт ADR-0032](decisions/ADR-0032-staged-mixed-evaluation.md) и [конечный probe](examples/m7/staged_contract_probe.py) подготовлены: полные повторные пакеты, верхний бюджет, отдельные continuation/final selection и exact report chain. [Pure helper](../src/towr/balance/mixed_staged_evaluation.py) и [frozen staged models](../src/towr/balance/mixed_staged_evaluation_models.py) реализованы: 19 deterministic tests. [Staged service/error](../src/towr/application/mixed_staged_evaluation_service.py) реализованы: 9 unit/3 real-backend integration tests, полный source до продолжения и stage/candidate/cause context. [Аудит staged mixed evaluation](audits/m7-staged-evaluation-readiness.md) завершён; [самостоятельный пример](examples/m7/mixed_staged_evaluation.py) и вывод проверены. [Контракт ADR-0033](decisions/ADR-0033-mixed-composition-generation.md) и [конечный probe](examples/m7/generation_contract_probe.py) подготовлены: явный резерв, family facts/pairs/policies, полный бюджет и отказ при недопустимом поднаборе. [Group/request preflight](decisions/ADR-0033-mixed-composition-generation.md#реализованный-первый-срез) реализован: 15 deterministic tests, C/полный бюджет без materialization. [Генератор/result/error](decisions/ADR-0033-mixed-composition-generation.md#реализованный-второй-срез) реализованы: 17 новых tests, полные проекции, source guards и отказ без пропуска недопустимого состава. [Integration генератора](decisions/ADR-0033-mixed-composition-generation.md#сквозная-integration) проверена: 6 новых tests, равные sequential/process reports, повтор/rename prefix, полный scripted budget и динамический локальный outnumbering. [Аудит генерации](audits/m7-generation-readiness.md) завершён; [самостоятельный пример](examples/m7/mixed_balance.py) и сохранённый вывод проверены. [Контракт Mixed JSON/CLI ADR-0034](decisions/ADR-0034-mixed-json-cli-v1.md) и [конечные примеры](examples/m7/json/README.md) подготовлены: отдельные simulate-mixed/balance-mixed, explicit pairs/facts/actor policies, aggregate outputs и phase-specific errors. Simulation Schema/command/pure parser/summary encoder реализованы: 29 unit и 2 real-backend integration tests. Simulation service/errors/error encoder и simulate-mixed реализованы (39 новых tests). Balance Schema/command/result/pure parser/result encoder реализованы (38 новых tests). Balance service/application errors/error encoder и balance-mixed реализованы (41 новый test). [Общий аудит mixed JSON/CLI](audits/m7-external-readiness.md) завершён; ADR-0034 закрыт в текущей границе numeric Minions. Mixed evaluation доступна через typed Python API; simulation и balance доступны через JSON/CLI.
 
-Первый контракт M8 [ADR-0035](decisions/ADR-0035-cowardly-flight-casting-boundary.md), public probe и typed input/preflight одного Casting-действия готовы (23 новых tests). Result/executor с тремя ветвями также готовы (26 новых tests); boundary закрыт [аудитом](audits/m8-casting-readiness.md), standalone production example проверен из внешнего cwd и wheel. [Контракт интеграции ADR-0036](decisions/ADR-0036-magic-encounter-integration.md) готов: inventory, первый состав, ownership/dispatch, обязательные continuations и порядок зависимостей. Следующий срез — actor-bound Casting → roster consumer; сам encounter пока отсутствует.
+Первый контракт M8 [ADR-0035](decisions/ADR-0035-cowardly-flight-casting-boundary.md), public probe и typed input/preflight одного Casting-действия готовы (23 новых tests). Result/executor с тремя ветвями также готовы (26 новых tests); boundary закрыт [аудитом](audits/m8-casting-readiness.md), standalone production example проверен из внешнего cwd и wheel. [Контракт интеграции ADR-0036](decisions/ADR-0036-magic-encounter-integration.md) готов: inventory, первый состав, ownership/dispatch, обязательные continuations и порядок зависимостей. Actor-bound Casting → roster consumer реализован: immutable state/request/result, exact source/replay guards и pending Miscast. Minion Attack → Champion bridge также реализован: отдельные state/request/result, один kernel Attack, completion Wound и блокирующие follow-ups. Casting из актуального roster и bound передача Champion attack также реализованы: ограниченный injured-caster/Conditions admission, live projections, полный pending и histories. Следующий срез — Give Ground для Curse; сам encounter пока отсутствует.
 
 ## Зафиксировано
 
@@ -612,6 +612,8 @@ K1/M2/M3/M4 готовы в заявленной границе неподвиж
 - психологическая иммунность undead-профилей подключена к боевым Condition/Hazard-фазам, `Curse of Cowardly Flight` и `Fascinating Rift`; остальные конкретные non-Condition эффекты требуют отдельного анализа;
 - Monte Carlo, JSON, CLI и балансировщик ещё не входят в текущий срез.
 
+- M8 standalone MOVEMENT_REQUIRED/completion поддерживает Give Ground и последующий Willpower исходных целей, но NpcRosterCastingState ещё не хранит этот pending/spatial chain. Bound roster request временно отклоняет can_give_ground=True до RNG; перенос в owner — следующий шаг ADR-0036. Broken turns/end-turn и полный magic runner пока отсутствуют.
+
 ## Завершённый срез 2026-09-17
 
 - добавлен `PreparedRangedWeaponAttackExecutionRequest → Result` и `execute_prepared_ranged_weapon_attack`: обязательная завершённая preparation, одна direct/Aim-bound ветвь и полный preparation/execution trace;
@@ -1050,9 +1052,132 @@ K1/M2/M3/M4 готовы в заявленной границе неподвиж
 
 ## Следующий шаг
 
-Реализовать первый срез [ADR-0036](decisions/ADR-0036-magic-encounter-integration.md): frozen actor-bound state/input/result и pure consumer существующего CowardlyFlightCastingResult в NpcRoster. Один явный Champion caster с отдельным CastingCasterDefinition и WizardMagicState; exact source roster/round/spatial/magic/target injury, атомарный перенос Conditions/magic/receipt, consumed execution IDs, stale/replay/чужой actor rejection и блокирующий pending Miscast. Сохранить границу ADR-0035, без RNG в consumer, loop или расширения целей. Детерминированные tests: WAIT/CAST/MISCAST_REQUIRED, обе стороны, разные definition/actor IDs, несколько/ноль targets и неизменность остальных бойцов. Затем Champion attack bridge → актуальные Casting targets/уход → Broken/interruptions → отдельный runner. План уже выбран; нового согласования направления не требуется.
+Следующий срез [ADR-0036](decisions/ADR-0036-magic-encounter-integration.md): перенести реализованный standalone Give Ground completion в NpcRosterCastingState и bound Champion handoff. Хранить полный MOVEMENT_REQUIRED, блокировать новое Casting/атаку до completion, применять Conditions и live spatial chain к полному roster/spatial с архивными entries, расходовать Casting ID один раз и сохранять daily/attack histories. Проверить source/replay/stale/once-per-round и все исходные Willpower targets. Сейчас только roster boundary отклоняет can_give_ground=True до RNG; standalone API уже поддерживает уход. Затем Broken/interruptions и end-turn Wound lifecycle, далее отдельный scenario/runner. Не вводить auto awareness/маршруты или общий battle aggregate; существенные книжные неоднозначности вынести пользователю.
 
 ## Последняя проверка
+
+2026-10-02, Windows / Python 3.14.5: standalone двухфазный Curse Casting/Zone → Give Ground → Willpower реализован по ADR-0036. Исправлен CODE-CONFLICT-003: Broken от ухода во вражескую Zone сохраняется до/после Willpower. Один Casting receipt, typed source/completion, полная spatial chain, original target order и replay guards. Roster boundary явно сохраняет отказ can_give_ground=True до следующего среза интеграции.
+
+19 новых M8 unit, 5 integration и 2 K1 tests — OK; всего 123 M8 tests — OK. Полный набор **2789 tests — OK (348,291 с)**, включая real spawn/CLI. compileall, imports из src, 2443 локальные Markdown file paths и git diff --check успешны. Лог полной проверки — ignored build/m8-give-ground-tests.log.
+
+```powershell
+$env:PYTHONPATH = "src"
+.venv/Scripts/python.exe -m unittest discover -s tests/unit -p 'test_m8*.py' -q
+.venv/Scripts/python.exe -m unittest discover -s tests/integration -p 'test_m8*.py' -q
+.venv/Scripts/python.exe -m unittest discover -s tests -v
+.venv/Scripts/python.exe -m compileall -q src tests tools docs/examples/m8
+git -c core.safecrlf=false diff --check
+```
+
+Незакоммиченные файлы этого среза (включая дополнения к уже существовавшим изменениям):
+
+- src/towr/domain/cowardly_flight_casting_completion_models.py (новый); src/towr/domain/cowardly_flight_casting_models.py; src/towr/domain/cowardly_flight_casting_result_models.py; src/towr/domain/npc_roster_casting_models.py; src/towr/engine/cowardly_flight_casting.py; src/towr/rules/cowardly_flight_resolution.py.
+- tests/unit/test_m8_cowardly_flight_casting_movement.py и tests/integration/test_m8_cowardly_flight_casting_movement.py (новые); tests/unit/test_k1_cowardly_flight_zone_batch.py; tests/unit/test_m8_cowardly_flight_casting_models.py.
+- README.md; docs/README.md; docs/architecture/overview.md; docs/decisions/ADR-0035-cowardly-flight-casting-boundary.md; docs/decisions/ADR-0036-magic-encounter-integration.md; docs/contradictions.md; docs/game-rules.md; docs/open-questions.md; docs/project-status.md; docs/roadmap.md; docs/rule-traceability.md; docs/rules/combat.md; docs/rules/magic.md; docs/source-index.md; docs/examples/m8/README.md.
+
+На старте было 28 dirty/untracked paths. 12 несвязанных preexisting paths неизменны по SHA-256; 16 дополнялись в рамках задачи. Сейчас 37 dirty/untracked paths: 9 добавились к начальному статусу, из них 3 новых файла. Предшествующие изменения в дополненных файлах сохранены и не приписываются этому срезу.
+
+Начальный dirty snapshot сохранён в ignored build/m8-give-ground-before.json; существующие изменения не сброшены и не считаются новыми. Commit/push не выполнялись. Книги перечитаны непосредственно: PG1.4 Rules / Giving Ground, стр. 119; Conditions, стр. 122–123; Battle Magic / Curse, стр. 162. Книжных неоднозначностей для этого среза не осталось. Installed wheel/Python 3.12/другие ОС отдельно не проверялись.
+
+Полный текущий git status --short (включает работу предшествующих сессий):
+
+```text
+ M README.md
+ M docs/README.md
+ M docs/architecture/overview.md
+ M docs/contradictions.md
+ M docs/decisions/ADR-0035-cowardly-flight-casting-boundary.md
+ M docs/decisions/ADR-0036-magic-encounter-integration.md
+ M docs/examples/m8/README.md
+ M docs/game-rules.md
+ M docs/open-questions.md
+ M docs/project-status.md
+ M docs/roadmap.md
+ M docs/rule-traceability.md
+ M docs/rules/combat.md
+ M docs/rules/magic.md
+ M docs/rules/wounds-and-conditions.md
+ M docs/source-index.md
+ M src/towr/domain/cowardly_flight_casting_models.py
+ M src/towr/domain/cowardly_flight_casting_result_models.py
+ M src/towr/engine/cowardly_flight_casting.py
+ M src/towr/rules/cowardly_flight_resolution.py
+ M tests/unit/test_k1_cowardly_flight_zone_batch.py
+ M tests/unit/test_m8_cowardly_flight_casting_models.py
+?? src/towr/domain/cowardly_flight_casting_completion_models.py
+?? src/towr/domain/npc_champion_attack_models.py
+?? src/towr/domain/npc_roster_casting_models.py
+?? src/towr/domain/npc_roster_champion_attack_models.py
+?? src/towr/rules/npc_champion_attack_execution.py
+?? src/towr/rules/npc_roster_casting_resolution.py
+?? src/towr/rules/npc_roster_champion_attack_resolution.py
+?? tests/integration/test_m8_champion_casting_handoff.py
+?? tests/integration/test_m8_cowardly_flight_casting_movement.py
+?? tests/integration/test_m8_npc_champion_attack.py
+?? tests/integration/test_m8_npc_roster_casting.py
+?? tests/unit/test_m8_cowardly_flight_casting_movement.py
+?? tests/unit/test_m8_current_roster_casting.py
+?? tests/unit/test_m8_npc_champion_attack.py
+?? tests/unit/test_m8_npc_roster_casting.py
+```
+
+## Предыдущая проверка (Casting из актуального roster)
+
+2026-10-02, Windows / Python 3.14.5: реализованы Casting из актуального roster и bound передача Champion attack по [ADR-0036](decisions/ADR-0036-magic-encounter-integration.md). Casting state теперь хранит текущий injury/архив defeated, а отдельный preflight допускает живого caster со Staggered/Drained и resolved Wounds только с поддержанными condition effects. Builder берёт target injury из roster; live projection не считает completed/excluded turns доказательством гибели. Application возвращает receipt в полный round, сохраняя архивные entries и spatial. Targets допускают Staggered/Drained/Broken; repeated Broken сохраняет was_already_present, успешный resistance не снимает Condition.
+
+[Bound attack models](../src/towr/domain/npc_roster_champion_attack_models.py) и [pure application](../src/towr/rules/npc_roster_champion_attack_resolution.py) проверяют attached owner до RNG, полный source и replay, сохраняют WizardMagicState/SpatialState, daily/roll histories и pending; последующий Casting синхронизирует roster/round обоих owners. Pending attack блокирует Casting preparation; pending Miscast блокирует новый bound attack. Incoming Wound не считается пропуском Casting самим магом. Новых правил/house rules нет.
+
+**19 новых tests (12 unit + 7 integration); всего 99 M8 tests — OK (1,083 с)**. Проверены real Stomach blow → K1 turn transitions → Casting, сохранность Drained/магии/раны/daily/history, повторный Broken, live/archive projections, stale/replay и pending обоих направлений. Два прежних negative admission tests изменены под новый scope. **Полная регрессия: 2763 tests — OK (494,999 с)**, включая real spawn/CLI и прежние ranged/melee/mixed. Лог — ignored build/m8-current-roster-tests.log. Compileall, local Markdown links, domain import boundaries и git diff --check — OK.
+
+Непосредственно перечитаны BOOK-PLAYER-GUIDE 1.4, Rules / Conditions, стр. 122–123; Magic in the Old World / Casting a Spell / Interrupted Casting / Miscasts, стр. 156–157; Battle Magic / Curse of Cowardly Flight, стр. 162; Wounds Table / Superficial injury и Stomach blow, стр. 190; BOOK-GM-GUIDE 1.1, Allies and Antagonists / Champions, стр. 92. Drained не игнорируется: текущая граница использует только normal profile без bonus dice/Glorious. Иные Wound restrictions/Conditions и текущие shield/положительный Resilience bonus отклоняются до RNG.
+
+Исходные 20 dirty/untracked файлов сохранены. В этом шаге добавлены два production и два test modules; целевым образом расширены четыре существующих production-модуля и два теста, документация синхронизирована. SHA-256 подтвердил отсутствие изменений остальных существовавших src/tests/tools. Commit/push не выполнялись. Python 3.12/другие ОС и installed wheel этого среза не проверялись.
+
+Ограничения: no Give Ground, только перечисленные Conditions и normal unmodified profiles. Live round должен сохранять обе стороны/active actor. Полного encounter/автоматического terminal objective нет. Wound effects не истекают в Casting action; end-turn lifecycle, Broken/interruptions и Miscast effect consumers остаются отдельными этапами. Ручное восстановление старых snapshots или удаление owners/histories вне pure API не предотвращается.
+
+```powershell
+$env:PYTHONPATH = "src"
+.venv/Scripts/python.exe -m unittest discover -s tests -p "test_m8*.py" -q
+.venv/Scripts/python.exe -m unittest discover -s tests -v
+.venv/Scripts/python.exe -m compileall -q src tests tools docs/examples/m8
+git -c core.safecrlf=false diff --check
+```
+
+## Предыдущая проверка (Minion Attack → Champion)
+
+2026-09-30, Windows / Python 3.14.5: реализован отдельный Minion Attack → Champion bridge [ADR-0036](decisions/ADR-0036-magic-encounter-integration.md). [Frozen state/request/result](../src/towr/domain/npc_champion_attack_models.py) связывают текущие roster/round/injury/Resilience/Protection и дневной ledger. [Executor/application](../src/towr/rules/npc_champion_attack_execution.py) исполняет один existing Attack, завершает Wound lifecycle с регистрацией/эффектами и применяет результат ровно один раз. Исходная execution с Wound roll и completed kernel сохраняются. Follow-ups, требующие отдельного consumer, остаются в полном pending и блокируют следующий attack request; terminal victory не вычисляется. Прежний Minion → Minion API не менялся.
+
+**16 новых tests — OK (0,043 с)**: 13 unit + 3 integration. Покрыты miss/Staggered/Wound/Drained, Close miss, Give Ground/Prone, pending effect/source/replay/stale/history guards, untreated/treated Wound dice, повторные раны и смерть. Дополнительно вручную проверен existing repeated Staggered → SUFFER_WOUND → completion. **Полная регрессия: 2744 tests — OK (513,899 с)**, включая real spawn/CLI, прежние ranged/melee/mixed и оба новых M8 consumers. Лог — ignored build/m8-champion-full-tests.log. Compileall, local Markdown links, import boundaries и git diff --check — OK.
+
+SHA-256 подтверждает неизменность всех существовавших src/tests/tools относительно начала этого шага, включая предыдущий незакоммиченный Casting consumer. Исходные 15 dirty/untracked файлов сохранены. В этом шаге добавлены два production-модуля и два test-модуля; обновлена документация. Commit/push не выполнялись. Непосредственно перечитаны PG1.4 Rules / Attack Tests, стр. 118–119; Wounds & Conditions, стр. 121; Wounds Table, стр. 190–191; GM1.1 Allies and Antagonists / Champions, стр. 92. Новых Rule IDs/house rules нет.
+
+Ограничения: один standard Attack, ordinary numeric preparation, initial Conditions только Staggered, resolved Wounds без active restrictions; дополнительные effects/negation/Fate/особые abilities не поддержаны. Magic/spatial сохраняет caller отдельно; объединённого encounter state/dispatch нет. Injured caster не проходит прежний healthy-only Casting state автоматически. Pending effect/movement consumers, следующие ходы Broken и полный battle runner остаются впереди. Python 3.12/другие ОС и installed wheel этого среза не проверялись.
+
+```powershell
+$env:PYTHONPATH = "src"
+.venv/Scripts/python.exe -m unittest tests.unit.test_m8_npc_champion_attack tests.integration.test_m8_npc_champion_attack -q
+.venv/Scripts/python.exe -m unittest discover -s tests -v
+.venv/Scripts/python.exe -m compileall -q src tests tools docs/examples/m8
+git -c core.safecrlf=false diff --check
+```
+
+## Предыдущая проверка (Casting → roster consumer)
+
+2026-09-29, Windows / Python 3.14.5: реализован первый consumer [ADR-0036](decisions/ADR-0036-magic-encounter-integration.md). [Frozen модели](../src/towr/domain/npc_roster_casting_models.py) явно связывают Champion actor с Casting definition/magic state и полным roster/round/spatial snapshot до исполнения. [Pure application](../src/towr/rules/npc_roster_casting_resolution.py) переносит результат одного Casting без RNG: Conditions целей, magic, receipt, consumed ID и полный pending Miscast. Exact source guards охватывают весь state, включая остальных бойцов; replay/stale и normal Casting при pending отклоняются. Новых игровых правил нет.
+
+**14 новых tests — OK (0,022 с)**: 11 unit + 3 integration, обе стороны, WAIT/CAST/MISCAST_REQUIRED, разные definition/actor IDs, empty Zone/zero Potency, реальная смена раунда, source/replay/pending/type/immutability guards и отсутствие RNG. **Полная регрессия: 2728 tests — OK (392,778 с)**, включая real spawn/CLI и прежние сценарии. Лог — ignored build/m8-roster-full-tests.log. Compileall, локальные Markdown-ссылки, import boundaries и git diff --check — OK. SHA-256 подтвердил неизменность всех существовавших файлов src/tests/tools; добавлены только два production-модуля и два test-модуля. Рабочее дерево на старте чистое; commit/push не выполнялись.
+
+Непосредственно перечитаны BOOK-PLAYER-GUIDE 1.4, Magic in the Old World / Miscasts and the Rule of Nine, стр. 157; Battle Magic / Curse of Cowardly Flight, стр. 162; BOOK-GM-GUIDE 1.1, Allies and Antagonists / Champions, стр. 92. Первый state допускает здорового Champion и живых Minions. Injured Champion, live projection после defeat, следующие ходы Broken, разрешение Miscast и full runner пока не поддержаны. Python 3.12/другие ОС и installed wheel этого среза не проверялись.
+
+```powershell
+$env:PYTHONPATH = "src"
+.venv/Scripts/python.exe -m unittest tests.unit.test_m8_npc_roster_casting tests.integration.test_m8_npc_roster_casting -q
+.venv/Scripts/python.exe -m unittest discover -s tests -q
+.venv/Scripts/python.exe -m compileall -q src tests tools docs/examples/m8
+git -c core.safecrlf=false diff --check
+```
+
+## Предыдущая проверка (контракт интеграции M8)
 
 2026-09-29, Windows / Python 3.14.5: подготовлен [ADR-0036](decisions/ADR-0036-magic-encounter-integration.md), инвентаризированы NpcRoster/attack, Champion Wounds, Casting, Broken/Recover и Miscast consumers. Выбран ограниченный авторский Champion-Wizard + Minions, зафиксированы ownership, pending/unsupported_path и шесть последовательных срезов. Исходный roster attack поддерживает только Minion → Minion; отдельные K1 reducers не объявлены готовым encounter. Непосредственно проверены PG1.4 Rules / Recover, стр. 118; Giving Ground, стр. 119; Wounds & Conditions, стр. 121–122; Wounds Table, стр. 190; Magic in the Old World / Casting/Miscasts, стр. 156–157, 159; GM1.1 Allies and Antagonists / Minions/Champions, стр. 91–92; Hermit Witch, стр. 130. Новых игровых правил/house rules нет.
 

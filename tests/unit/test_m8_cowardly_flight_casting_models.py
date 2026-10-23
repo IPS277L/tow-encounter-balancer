@@ -139,11 +139,11 @@ class CowardlyFlightCastingAdmissionTests(unittest.TestCase):
                 with self.assertRaises(ValueError):
                     replace(model, **{name: InlineProfile(3, 3, 6)})
 
-    def test_only_healthy_minion_targets_without_conditions_are_admitted(self):
+    def test_only_live_minions_with_supported_conditions_are_admitted(self):
         target = casting_input().targets[0]
         for injury in (ProfileInjuryState(0, 2), ProfileInjuryState(1, 1, defeated=True),
-                       ProfileInjuryState(0, 1, ConditionState((Condition.BROKEN,))),
-                       ProfileInjuryState(0, 1, ConditionState((Condition.STAGGERED,)))):
+                       ProfileInjuryState(0, 1, ConditionState((Condition.DISTRACTED,))),
+                       ProfileInjuryState(0, 1, ConditionState((Condition.BLINDED,)))):
             with self.subTest(injury=injury), self.assertRaises(ValueError):
                 replace(target, injury=injury)
         with self.assertRaises(TypeError):
@@ -151,8 +151,7 @@ class CowardlyFlightCastingAdmissionTests(unittest.TestCase):
 
     def test_give_ground_cannot_be_suppressed_implicitly(self):
         target = casting_input().targets[0]
-        with self.assertRaises(ValueError):
-            replace(target, can_give_ground=True)
+        self.assertTrue(replace(target, can_give_ground=True).can_give_ground)
         for bad in (0, None, "false"):
             with self.assertRaises(TypeError):
                 replace(target, can_give_ground=bad)
