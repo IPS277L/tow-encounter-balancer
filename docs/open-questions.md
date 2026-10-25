@@ -172,3 +172,12 @@ Bridge Champion не меняет книжные injury rules: поддержи�
 
 
 M8 Give Ground, 2026-10-02: standalone двухфазный контракт реализован, новых вопросов по проверенным PG1.4 стр. 119/122–123/162 нет. Явная can_give_ground означает актуальную фактическую возможность, не разрешение выбрать отказ от обязательного ухода. Destination/path/route facts задаёт caller для текущего spatial; они не выводятся автоматически. Broken от enemy destination не снимается Willpower против Curse. Технический временный scope: NpcRosterCastingRequest пока отвергает can_give_ground=True до RNG; следующим срезом перенести полный MOVEMENT_REQUIRED и completed spatial/Conditions в owner, не пропускать pending. Далее прежние Broken/interruptions/end-turn/Miscast вопросы.
+
+## Проверки dataclasses на Python 3.12
+
+2026-10-25, macOS arm64 / Python 3.12.15: на текущем коммите `837592f` полный набор выполнил 2789 tests с 33 errors. Все 123 M8 tests проходят. Ошибки относятся к существующим ожиданиям исключений в трёх tests:
+
+- `tests/unit/test_k1_registered_aim_loss_prepared_attack.py` и `tests/unit/test_k1_registered_aim_loss_ranged_attack.py`: присваивание frozen/slotted property `.state` ожидает `FrozenInstanceError`, но Python 3.12 выдаёт `TypeError` — по 16 subtests;
+- `tests/unit/test_m5_ranged_evaluation.py`: `dataclasses.replace(..., simulation_requests=())` для поля `init=False` ожидает `TypeError`, фактически выдаётся `ValueError` — одна ошибка.
+
+Все 33 сигнатуры совпали с отдельным воспроизведением на прежнем чистом HEAD `c92760a`; локальный Casting consumer из stash для них не нужен. Безопасное временное положение: полная проверка под Python 3.12 остаётся красной, новые M8 проверки проходят. Исправление ожиданий tests для поддерживаемых версий Python — отдельная задача; игровые правила и production ради этих assertions не менялись. Проверка Windows / Python 3.14.5 ниже в истории статуса относится к другому окружению и не заменяет эту проверку.

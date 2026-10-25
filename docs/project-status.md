@@ -1,6 +1,6 @@
 # Текущий статус проекта
 
-Дата обновления: 2026-10-02.
+Дата обновления: 2026-10-25.
 
 ## Текущий этап
 
@@ -564,6 +564,7 @@ K1/M2/M3/M4 готовы в заявленной границе неподвиж
 
 ## Известные ограничения
 
+- на macOS / Python 3.12.15 полная проверка текущего `837592f` имеет 33 существующие ошибки ожиданий исключений dataclasses в трёх tests; все 123 M8 tests проходят. Подробности — в [open-questions](open-questions.md#проверки-dataclasses-на-python-312) и последней проверке ниже;
 - старый P1 battle loop остаётся упрощённым прототипом; K1 уже следует книгам, но пока реализует только часть проиндексированных механик;
 - K1 проверяет round/side/turn и action budget; Fate Second Action атомарно расходует session pool и резервирует bound slot, Reload расходует Skill Improvise на одну weapon-bound Dexterity contribution, loaded Shooting composite после обычного Attack открывает следующий reload cycle, Aim исполняет Awareness и создаёт next-action follow-up, Help исполняет собственный Test и создаёт bonus для связанного allied Test, Recover соединяет Condition/magic transitions и external applications, обычный и Move-Quietly-hidden Attack исполняются через kernel, spell Improvise — через Casting pipeline, Skill Improvise — через basic/opposed Test и отдельное применение Prone/Distracted, Troll Vomit/Swamp Breath/Soporific Breath — через single-target/Zone Ability Hazard composites, Run — через две spatial-фазы, Medium/Long Charge — через атомарные spatial/Test/attack composite, Move Carefully — через free-move/search composite, а Move Quietly — через opposed-Test/conditional-hiding composite; остальные Ability и attacking Skill Improvise ещё не подключены;
 - Skill-Improvise consumed application IDs пока не принадлежат battle aggregate: orchestration обязано передавать актуальный ordered snapshot между вызовами; disarm, превращение врага в союзника и другие creative outcomes требуют собственных typed effects;
@@ -1055,6 +1056,19 @@ K1/M2/M3/M4 готовы в заявленной границе неподвиж
 Следующий срез [ADR-0036](decisions/ADR-0036-magic-encounter-integration.md): перенести реализованный standalone Give Ground completion в NpcRosterCastingState и bound Champion handoff. Хранить полный MOVEMENT_REQUIRED, блокировать новое Casting/атаку до completion, применять Conditions и live spatial chain к полному roster/spatial с архивными entries, расходовать Casting ID один раз и сохранять daily/attack histories. Проверить source/replay/stale/once-per-round и все исходные Willpower targets. Сейчас только roster boundary отклоняет can_give_ground=True до RNG; standalone API уже поддерживает уход. Затем Broken/interruptions и end-turn Wound lifecycle, далее отдельный scenario/runner. Не вводить auto awareness/маршруты или общий battle aggregate; существенные книжные неоднозначности вынести пользователю.
 
 ## Последняя проверка
+
+2026-10-25, macOS arm64 / Python 3.12.15: сопоставлены `stash@{0}` (`699ad0e`, 17 путей) и полученный из GitHub `837592f`. Текущая ветка содержит Casting → roster consumer и следующие зависимости M8; локальные альтернативные модели/consumer/tests и устаревшие описания этапа не восстановлены. Отдельно перенесены только игнорирование `.DS_Store` и сведения о совместимости tests с Python 3.12. Stash сохранён как резервная копия; src/tests и текущий план не менялись, следующий этап разработки не начат.
+
+Проверка при сравнении на том же `837592f`: **123 M8 tests — OK (0,227 с)**; полный набор **2789 tests, 33 errors (85,946 с)**. Все 33 сигнатуры совпадают с ранее проверенным чистым `c92760a`: 32 `TypeError` при присваивании frozen/slotted property вместо ожидаемого `FrozenInstanceError` и один `ValueError` от `replace` поля `init=False` вместо ожидаемого `TypeError`. Это известное ограничение test expectations под Python 3.12, не успешная полная регрессия. Точные модули и временное положение — в [open-questions](open-questions.md#проверки-dataclasses-на-python-312). Лог полной проверки: `/private/tmp/towr-github-review-tests.log` (временный, не часть репозитория).
+
+```sh
+PYTHONPATH=src /private/tmp/towr-test-venv/bin/python -m unittest discover -s tests -p 'test_m8*.py' -q
+PYTHONPATH=src /private/tmp/towr-test-venv/bin/python -m unittest discover -s tests -q
+```
+
+`git check-ignore -v .DS_Store` и `git diff --check` — OK. При переносе только `.gitignore` и документации полный набор повторно не запускался; результаты выше относятся к проверке непосредственно перед переносом. Незакоммиченные изменения этого шага: `.gitignore`, `docs/project-status.md`, `docs/open-questions.md`. Commit/push не выполнялись.
+
+## Предыдущая проверка (standalone Give Ground M8)
 
 2026-10-02, Windows / Python 3.14.5: standalone двухфазный Curse Casting/Zone → Give Ground → Willpower реализован по ADR-0036. Исправлен CODE-CONFLICT-003: Broken от ухода во вражескую Zone сохраняется до/после Willpower. Один Casting receipt, typed source/completion, полная spatial chain, original target order и replay guards. Roster boundary явно сохраняет отказ can_give_ground=True до следующего среза интеграции.
 
