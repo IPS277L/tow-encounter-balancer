@@ -172,8 +172,65 @@ apply_cowardly_flight_casting_completion(current, result) заменяет то�
 
 ### Граница этого среза
 
-NpcRosterCastingRequest пока явно отклоняет can_give_ground=True до Casting RNG: прежний roster consumer ещё не хранит MOVEMENT_REQUIRED и не переносит spatial completion. Standalone completion нельзя выдавать за завершённую интеграцию roster/Champion owner. Нет автоматического выбора укрытия, маршрута или доступности движения, общей battle aggregate, runner, Broken turn policy либо Miscast completion.
+На 2026-10-02 NpcRosterCastingRequest ещё отклонял can_give_ground=True до Casting RNG. Эта граница снята срезом 2026-10-25 ниже. Standalone completion и интеграция roster не добавляют автоматического выбора укрытия, маршрута или доступности движения, общей battle aggregate, runner, Broken turn policy либо Miscast completion.
 
 [19 unit tests](../../tests/unit/test_m8_cowardly_flight_casting_movement.py), [5 integration tests](../../tests/integration/test_m8_cowardly_flight_casting_movement.py) и 2 новых [K1 tests](../../tests/unit/test_k1_cowardly_flight_zone_batch.py) проверяют оба этапа, исходный порядок/состав целей, remote caster, движение во вражескую Zone, Conditions/history, pending/source/replay/route guards и чистое применение. Прежний negative admission test обновлён под расширенный standalone допуск. Всего 123 M8 tests проходят.
 
-Следующий шаг: подключить MOVEMENT_REQUIRED к NpcRosterCastingState и bound Champion handoff. Сохранять полный pending, переносить roster Conditions и live spatial completion обратно в полный snapshot с архивными entries, расходовать Casting ID один раз, блокировать новое Casting/атаку до completion и проверить source/replay/daily histories. Затем Broken/interruptions и end-turn Wound lifecycle по прежнему плану.
+Следующий на тот момент шаг — подключение MOVEMENT_REQUIRED к NpcRosterCastingState и bound Champion handoff — реализован ниже. Далее Broken/interruptions и end-turn Wound lifecycle по прежнему плану.
+
+## Give Ground completion в roster/Champion owner
+
+2026-10-25: MOVEMENT_REQUIRED интегрирован в существующий actor-bound owner. Непосредственно перечитаны BOOK-PLAYER-GUIDE 1.4, Rules / Giving Ground, стр. 119; Conditions / Broken, стр. 122; Drained / Prone / Defenceless, стр. 123; Battle Magic / Curse of Cowardly Flight, стр. 162. Книжные правила и Rule IDs не меняются.
+
+`NpcRosterCastingState.pending_movement` хранит полный low-level `CowardlyFlightCastingResult` только со статусом MOVEMENT_REQUIRED. Проверяются actor/caster, exact magic/live round/spatial/target injury и наличие уже consumed Casting ID. Pending не сосуществует с Miscast/незавершённой Champion attack. Подготовка нового Casting, прямой bound Casting request и bound Champion attack request блокируются до RNG. Новый can_give_ground=True admission сохраняет explicit movement facts и все существующие ограничения normal Casting/target Conditions.
+
+Initial `NpcRosterCastingResult` переносит единственный action receipt и magic, записывает Casting ID один раз и сохраняет pending. Пространственный переход ещё не публикуется в owner; Willpower не выполняется. Полностью completed low-level result с выполненными движениями нельзя передать вместо initial result: требуется отдельная completion boundary.
+
+[Completion models](../../src/towr/domain/npc_roster_casting_completion_models.py):
+
+- `NpcRosterCastingCompletionRequest(state, completion)` связывает весь current owner до Willpower RNG с existing `CowardlyFlightCastingCompletionRequest`. Нужен тот же полный pending movement, а low-level request проверяет все ordered Give Ground sources и точный spatial chain.
+- Caller исполняет existing `complete_cowardly_flight_casting(bound.completion, rng)` — только Willpower исходных affected targets, включая ушедших. Движения, Casting, receipt и решение о маршруте не повторяются.
+- `NpcRosterCastingCompletionResult(source, completion)` требует точный полный low-level source. Derived `.state` переносит injury/Conditions всех исходных целей, обновляет live placements в полном spatial в прежнем порядке и добавляет только новые Give Ground IDs к полной history. Архивные placements и все прежние usage IDs сохраняются. Wizard magic, round/receipt, общая execution history и Champion daily/roll/attack histories не расходуются повторно; attached Champion roster синхронизируется. Pending movement очищается.
+- [Pure application](../../src/towr/rules/npc_roster_casting_completion_resolution.py) `apply_npc_roster_casting_completion(current, result)` требует exact current owner, включая не затронутых spell бойцов, archived entries, attached owner и history. Completed/no-pending, stale/foreign source и повтор completion отклоняются; равные immutable копии допустимы. Новый RNG или движение отсутствуют.
+
+```python
+bound = NpcRosterCastingCompletionRequest(current, movement_completion_request)
+completed = complete_cowardly_flight_casting(bound.completion, rng)
+result = NpcRosterCastingCompletionResult(bound, completed)
+current = apply_npc_roster_casting_completion(current, result)
+```
+
+Live spatial projection теперь фильтрует по living participants также gave_ground/free_move_used/difficult_terrain_tested IDs: SpatialBattleState не допускает history ссылок на отсутствующие placements. Полный source хранит эти архивные IDs; completion сохраняет их исходный порядок. Это исправление допуска архивного снимка, а не сброс once-per-round. Defeated архивный entry не становится активным врагом в destination Zone.
+
+При ошибке/неполной movement chain или исключении Willpower RNG source owner остаётся pending; partial movements caller хранит отдельно и не выдаёт за завершённый roster. API не повторяет броски и не выбирает retry/маршрут. Pure snapshots по-прежнему не удостоверяют намеренное пересоздание owner с отброшенными pending/history или восстановление старой копии. Полного battle dispatcher, Broken turn и Miscast completion здесь нет.
+
+[15 unit tests](../../tests/unit/test_m8_npc_roster_casting_completion.py) и [5 integration tests](../../tests/integration/test_m8_npc_roster_casting_completion.py): pending/dispatch/source/replay/type guards, обе стороны Wizard, одна/две перемещаемые цели, original Willpower order, enemy destination/Broken, once-per-round, архивные placements и все usage histories, неизменность inputs/global RNG и ошибка второго target Test. Real Champion Wound → Casting → Give Ground → Willpower сохраняет Drained, daily receipt, один Casting receipt и обе execution histories. Два прежних negative tests обновлены под новый допуск; всего 143 M8 tests проходят.
+
+Первый срез Broken turn/Casting interruptions реализован ниже; далее Broken Run, end-turn Wound effects и отдельный scenario/runner. Никаких автоматических GM решений или универсального aggregate.
+
+## Первый Broken Recover и Casting interruption
+
+2026-10-25. Непосредственно перечитаны BOOK-PLAYER-GUIDE 1.4, Rules / Combat Actions, стр. 116; Manoeuvre / Run, стр. 117; Recover, стр. 118; Conditions / Broken, стр. 122; Magic in the Old World / Interrupted Casting, стр. 156; Miscasts and the Rule of Nine, стр. 157. Первый законченный переход поддерживает две ситуации: действующий Broken уже в Zone без живых врагов либо достигает её одним legal free move. После этого исполняется self Recover / Willpower. Обязательный Run, terrain/obstacle traversal, отсутствие выхода и произвольные другие действия в этот допуск не входят и отклоняются до RNG; они не заменяются ожиданием или Recover среди врагов.
+
+[Модели](../../src/towr/domain/npc_broken_recover_models.py): `NpcBrokenRecoverRequest(id, state, actor_id, willpower_profile, movement, fastest_route_confirmed, underlying_cause_allows_removal)`. State — полный NpcRosterCastingState, actor — Wizard-Champion либо living Minion. Нужны Broken и только поддержанные дополнительные Staggered/Drained, один зарезервированный unexecuted STANDARD Recover slot. Resolved Champion Wounds допустимы только с согласованными Staggered/Drained WoundConditionEffect; underlying Broken от активной Wound и другие ограничения не игнорируются. Normal InlineProfile без modifiers/Grim/Glorious задаёт caller; отсутствие этих modifiers — технический scope, не отмена книжных penalties.
+
+`movement` — None для уже безопасного actor либо полный `FreeMovementRequest` с derived ID `request.id + ':free-move'`, exact actor/round/spatial/Conditions и актуальными path facts. Поддерживаются Normal/Fast free routes в их existing лимите; Slow может Recover в уже безопасной Zone, но free route для него не допускается existing моделью. Route должен закончиться на первой безопасной Zone, не пересекать препятствия/terrain/врагов и не использовать уже потраченный free move. Враждебность destination/intermediate Zones определяется по текущему roster: defeated/dead архивные entries не становятся врагами. Graph не доказывает Close/blocked route. Caller явно подтверждает быстрейший допустимый уход и возможность снять Condition; эти два bool обязательны и не имеют defaults. Движок не сравнивает альтернативные маршруты, не назначает GM facts и не вычисляет actor Speed из имени/числовых профилей.
+
+[Executor/application](../../src/towr/engine/npc_broken_recover.py):
+
+1. `execute_npc_broken_recover(request, rng)` исполняет existing `resolve_free_movement`, если нужно, затем один `execute_recover_action` в режиме REMOVE_CONDITION / BROKEN / WILLPOWER. Движение не создаёт receipt; успех и провал Recover создают один action receipt. Снятие Broken заменяет все standard Recover benefits: Staggered/Prone не снимаются, Miscast Pool не уменьшается, предметы/лечение не добавляются.
+2. Только если actor — bound Wizard и `casting_lore_id is not None`, existing `resolve_skipped_casting_test_after_action` получает ровно этот Recover receipt и добавляет один action-sourced Miscast die. Free move сам по себе не пропускает Casting Test; ход другого actor не меняет магию Wizard. Девятки ordinary Recover Willpower не запускают Rule of Nine. После завершённого spell при неактивном Casting дополнительного die нет, даже если остался Miscast Pool.
+3. `NpcBrokenRecoverResult(source, movement, recover, interruption)` сохраняет все lower-level results и проверяет exact sources, normal d10 trace/profile, движение и source-bound skipped-Test result. Derived `.state` переносит Conditions, spatial usage, round/receipt и одну запись общего execution ID; синхронизирует attached Champion roster/round, сохраняя Wounds, active effects, daily ledger и отдельные attack/roll histories. Не завершает ход, не истекает Wound effects, не выбирает следующего actor и не вызывает Cast/Miscast table.
+4. `apply_npc_broken_recover_result(current, result)` принимает только весь exact current owner/history; repeated ID и stale/foreign snapshots отклоняются. Pure projection/application не двигают и не бросают повторно. При ошибке RNG source owner остаётся неизменным, partial move/Recover state не публикуется как завершённый owner; rollback RNG или автоматический retry не выполняются.
+
+`NpcRosterCastingState.pending_interruption` — отдельный optional `SkippedCastingTestAfterActionResult` только для triggered Miscast. Он сохраняет exact Recover receipt, action-sourced increase, pool/successes/Lore и исходный MiscastRollRequest до preparation/desperate choice. Проверяются owner/magic/round/receipt/history и roll source/count; запрещено совмещать с другим обязательным pending. Normal bound Casting/preparation, Champion attack и ещё один Broken Recover блокируются. При pool == Level pending нет; при pool > Level successes/pool не очищаются и таблица не бросается. Это очередная честная остановка, не реализованный полный Miscast effect consumer. Ручное пересоздание owner с отброшенными pending/history остаётся вне гарантий pure snapshot API.
+
+```python
+result = execute_npc_broken_recover(request, rng)
+current = apply_npc_broken_recover_result(current, result)
+# current.pending_interruption requires its own continuation before dispatch.
+```
+
+[20 unit tests](../../tests/unit/test_m8_npc_broken_recover.py) и [3 integration tests](../../tests/integration/test_m8_npc_broken_recover.py) покрывают safe/moving actor, Normal/Fast routes, success/failure, обе стороны/Wizard/Minion, free/action usage, existing Conditions, shared histories, frozen/source/type/replay/stale guards и RNG failure. Real Curse → Broken Minion → free move → Recover проходит реальные K1 turns. Real Champion Wound/daily history сохраняется при Wizard Recover; Broken у мага в этом fixture задаётся явно, тест не объявляет поддержку Curse по Champion. Активный cast переносит successes, +1 die и pending при превышении Level; обычные Willpower 9 дают только один skipped die. Всего 166 M8 tests проходят; прежние 143 tests сохраняются.
+
+Следующий законченный срез — Broken, которому для достижения безопасной Zone нужен Run: bound переход через existing free move/Run и тот же action-sourced interruption, с явными route facts и source/history guards. Terrain/Athletics/нет выхода требуют отдельного допуска или exact unsupported будущего runner. После этого end-turn Wound lifecycle и отдельный scenario/runner. Новых игровых Rule IDs или house rules нет.

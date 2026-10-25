@@ -269,11 +269,13 @@ class CowardlyFlightCastingMovementTests(unittest.TestCase):
         self.assertEqual(rng.calls, 0)
         self.assertEqual(request, before)
 
-    def test_roster_boundary_still_rejects_movement_before_casting_rng(self):
-        bound = bound_request()
-        casting = replace(bound.casting, targets=tuple(replace(t, can_give_ground=True) for t in bound.casting.targets))
-        with self.assertRaisesRegex(ValueError, 'roster does not yet support'):
-            replace(bound, casting=casting)
+    def test_roster_boundary_admits_movement_and_keeps_pending(self):
+        bound = bound_request(movement_input())
+        result = pending(bound.casting)
+        from towr.domain.npc_roster_casting_models import NpcRosterCastingResult
+        current = NpcRosterCastingResult(bound, result).state
+        self.assertIs(current.pending_movement, result)
+        self.assertEqual(current.spatial_state, bound.state.spatial_state)
 
 
 if __name__ == '__main__':

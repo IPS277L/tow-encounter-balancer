@@ -3,13 +3,16 @@ from __future__ import annotations
 
 from dataclasses import dataclass, replace
 
+from towr.domain.action_execution_models import SkippedCastingTestAfterActionResult
 from towr.domain.condition_models import Condition
 from towr.domain.cowardly_flight_casting_models import (
     CastingCasterDefinition, CowardlyFlightCastingRequest,
 )
-from towr.domain.cowardly_flight_casting_result_models import CowardlyFlightCastingResult
+from towr.domain.cowardly_flight_casting_result_models import (
+    CowardlyFlightCastingResult, CowardlyFlightCastingStatus,
+)
 from towr.domain.injury_models import WoundConditionEffect
-from towr.domain.magic_models import WizardMagicState
+from towr.domain.magic_models import MiscastPoolOutcome, MiscastRollRequest, WizardMagicState
 from towr.domain.npc_champion_attack_models import NpcChampionAttackState
 from towr.domain.npc_roster_models import NpcRoster
 from towr.domain.resolution_models import TargetInjuryPolicy
@@ -61,6 +64,8 @@ class NpcRosterCastingState:
     consumed_execution_ids: tuple[str, ...] = ()
     pending_miscast: CowardlyFlightCastingResult | None = None
     champion_attack: NpcChampionAttackState | None = None
+    pending_movement: CowardlyFlightCastingResult | None = None
+    pending_interruption: SkippedCastingTestAfterActionResult | None = None
 
     def __post_init__(self) -> None:
         for value, kind in (
@@ -105,7 +110,8 @@ class NpcRosterCastingState:
                 raise ValueError("Casting history must retain all bound Champion attack executions")
         pending = self.pending_miscast
         if pending is None:
-            if self.wizard.magic_state.miscast_dice > self.wizard.caster.wizard_level:
+            if (self.wizard.magic_state.miscast_dice > self.wizard.caster.wizard_level
+                    and self.pending_interruption is None):
                 raise ValueError("mandatory Miscast requires its pending Casting result")
         else:
             _typed(pending, CowardlyFlightCastingResult)
@@ -121,6 +127,50 @@ class NpcRosterCastingState:
             for target in pending.targets:
                 if self.roster.participant(target.actor_id).state.injury != target.injury:
                     raise ValueError("pending Miscast target snapshot differs from roster")
+        movement = self.pending_movement
+        if movement is not None:
+            _typed(movement, CowardlyFlightCastingResult)
+            if movement.status is not CowardlyFlightCastingStatus.MOVEMENT_REQUIRED:
+                raise ValueError("pending movement requires MOVEMENT_REQUIRED")
+            if (pending is not None or self.pending_interruption is not None
+                    or self.champion_attack is not None and self.champion_attack.pending is not None):
+                raise ValueError("pending movement cannot coexist with another mandatory continuation")
+            if (movement.source.actor_id != self.wizard.actor_id
+                    or movement.source.caster != self.wizard.caster
+                    or movement.magic_state != self.wizard.magic_state
+                    or movement.round_state != self.casting_round_state
+                    or movement.spatial_state != self.casting_spatial_state
+                    or movement.source.id not in consumed):
+                raise ValueError("pending movement must match the applied Casting state")
+            for target in movement.targets:
+                if self.roster.participant(target.actor_id).state.injury != target.injury:
+                    raise ValueError("pending movement target snapshot differs from roster")
+        interruption = self.pending_interruption
+        if interruption is not None:
+            _typed(interruption, SkippedCastingTestAfterActionResult)
+            if (pending is not None or movement is not None
+                    or self.champion_attack is not None and self.champion_attack.pending is not None):
+                raise ValueError("pending interruption cannot coexist with another mandatory continuation")
+            turn = self.round_state.active_turn
+            pool = interruption.miscast_pool
+            if pool.roll_request is not None:
+                _typed(pool.roll_request, MiscastRollRequest)
+            if (interruption.caster_id != self.wizard.actor_id
+                    or interruption.state != self.wizard.magic_state
+                    or interruption.consumed_action_execution_ids != consumed
+                    or pool.outcome is not MiscastPoolOutcome.MISCAST_TRIGGERED
+                    or pool.roll_request is None
+                    or self.wizard.magic_state.miscast_dice <= self.wizard.caster.wizard_level
+                    or pool.previous_miscast_dice != self.wizard.magic_state.miscast_dice - 1
+                    or pool.roll_request.target_id != self.wizard.actor_id
+                    or pool.roll_request.resolution_id != pool.request_id
+                    or pool.roll_request.source_resolution_id != interruption.source.resolution_id
+                    or pool.roll_request.pool_dice_count != self.wizard.magic_state.miscast_dice
+                    or pool.roll_request.bonus_dice != 0
+                    or turn is None or turn.actor_id != self.wizard.actor_id
+                    or interruption.action.round_number != self.round_state.round_number
+                    or not any(slot.execution == interruption.action for slot in turn.action_slots)):
+                raise ValueError("pending interruption must match the applied action/magic/history")
 
     @property
     def casting_round_state(self) -> CombatRoundState:
@@ -137,7 +187,11 @@ class NpcRosterCastingState:
     def casting_spatial_state(self) -> SpatialBattleState:
         live = {p.entity_id for p in self.casting_round_state.participants}
         return replace(self.spatial_state, placements=tuple(
-            p for p in self.spatial_state.placements if p.entity_id in live))
+            p for p in self.spatial_state.placements if p.entity_id in live),
+            gave_ground_entity_ids=tuple(i for i in self.spatial_state.gave_ground_entity_ids if i in live),
+            free_move_used_entity_ids=tuple(i for i in self.spatial_state.free_move_used_entity_ids if i in live),
+            difficult_terrain_tested_entity_ids=tuple(
+                i for i in self.spatial_state.difficult_terrain_tested_entity_ids if i in live))
 
 
 @dataclass(frozen=True, slots=True)
@@ -151,8 +205,10 @@ class NpcRosterCastingRequest:
         _typed(self.state, NpcRosterCastingState)
         _typed(self.casting, CowardlyFlightCastingRequest)
         state, casting = self.state, self.casting
-        if any(t.can_give_ground for t in casting.targets):
-            raise ValueError("Casting roster does not yet support pending Give Ground")
+        if state.pending_interruption is not None:
+            raise ValueError("pending interruption Miscast blocks normal Casting")
+        if state.pending_movement is not None:
+            raise ValueError("pending movement blocks normal Casting")
         if state.pending_miscast is not None:
             raise ValueError("pending Miscast blocks normal Casting")
         if state.champion_attack is not None and state.champion_attack.pending is not None:
@@ -192,6 +248,8 @@ class NpcRosterCastingResult:
         _typed(self.casting, CowardlyFlightCastingResult)
         if self.casting.source != self.source.casting:
             raise ValueError("Casting result must match the complete bound request")
+        if self.casting.willpower is not None and self.casting.willpower.completed_movements:
+            raise ValueError("movement completion must use the roster completion boundary")
 
     @property
     def state(self) -> NpcRosterCastingState:
@@ -215,6 +273,8 @@ class NpcRosterCastingResult:
             round_state=combat, champion_attack=champion,
             consumed_execution_ids=(*previous.consumed_execution_ids, casting.source.id),
             pending_miscast=casting if casting.pending_miscast is not None else None,
+            pending_movement=(casting if casting.status is CowardlyFlightCastingStatus.MOVEMENT_REQUIRED
+                              else None),
         )
 
 

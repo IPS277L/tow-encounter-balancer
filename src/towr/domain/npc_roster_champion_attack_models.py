@@ -17,6 +17,10 @@ class NpcRosterChampionAttackRequest:
             raise TypeError('handoff requires typed Casting state and Champion attack request')
         if self.state.pending_miscast is not None:
             raise ValueError('pending Miscast blocks Champion attack dispatch')
+        if self.state.pending_interruption is not None:
+            raise ValueError('pending interruption Miscast blocks Champion attack dispatch')
+        if self.state.pending_movement is not None:
+            raise ValueError('pending movement blocks Champion attack dispatch')
         if self.state.champion_attack is None or self.state.champion_attack != self.attack.state:
             raise ValueError('Champion attack must match the current bound owner')
         if self.attack.execution.id in self.state.consumed_execution_ids:

@@ -125,8 +125,7 @@ class CurrentRosterCastingTests(unittest.TestCase):
         original = bound_request()
         context = NpcRosterCastingTargetContext('second', original.casting.targets[0].willpower_profile, False)
         for targets in ((), (context,), (context, context),
-                        (replace(context, actor_id='first'), context),
-                        (replace(context, can_give_ground=True), replace(context, actor_id='first'))):
+                        (replace(context, actor_id='first'), context)):
             with self.subTest(targets=targets), self.assertRaises(ValueError):
                 prepare(original.state, targets=targets)
         with self.assertRaises(TypeError):
