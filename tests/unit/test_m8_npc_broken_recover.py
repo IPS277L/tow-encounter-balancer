@@ -86,6 +86,13 @@ class NpcBrokenRecoverTests(unittest.TestCase):
         self.assertIs(result.state.spatial_state, source.state.spatial_state)
         self.assertEqual(result.state.spatial_state.free_move_used_entity_ids, ())
 
+    def test_slow_actor_can_use_ordinary_free_move_and_recover_without_run(self):
+        source = request()
+        source = replace(source, movement=replace(source.movement, speed=MovementSpeed.SLOW))
+        result = execute(source, CountingDice([1, 2, 3]))
+        self.assertEqual(result.state.spatial_state.placement_for('wizard').zone_id, 'empty')
+        self.assertFalse(result.state.roster.participant('wizard').state.injury.conditions.has(Condition.BROKEN))
+
     def test_minion_turn_does_not_interrupt_wizards_casting(self):
         source = request(actor='first', pool=2)
         result = execute(source, CountingDice([1, 2, 3]))

@@ -10,10 +10,7 @@ from dataclasses import dataclass, replace
 from towr.domain.action_execution_models import SkippedCastingTestAfterActionResult
 from towr.domain.condition_models import Condition
 from towr.domain.injury_models import CharacterInjuryState, WoundConditionEffect
-from towr.domain.magic_models import (
-    MiscastPoolIncreaseRequest, MiscastPoolIncreaseSourceKind, MiscastPoolOutcome,
-    MiscastPoolResolutionResult, MiscastRollRequest,
-)
+from towr.domain.npc_action_interruption import validate_npc_casting_interruption
 from towr.domain.movement_models import FreeMovementRequest, FreeMovementResult
 from towr.domain.npc_roster_casting_models import NpcRosterCastingState
 from towr.domain.npc_roster_models import NpcRoster
@@ -167,12 +164,8 @@ class NpcBrokenRecoverResult:
             profile.threshold, False, TestQuality.NORMAL, values, (), values, successes, 0, successes, (),
         ):
             raise ValueError('Broken recovery Test trace differs from its normal profile')
-        active = (source.actor_id == source.state.wizard.actor_id
-                  and source.state.wizard.magic_state.casting_lore_id is not None)
-        if active:
-            _validate_interruption(self)
-        elif self.interruption is not None:
-            raise ValueError('only the active Casting Wizard receives a skipped-Test die')
+        validate_npc_casting_interruption(source.state, source.actor_id, source.id,
+                                          self.recover.slot.execution, self.interruption)
 
     @property
     def state(self) -> NpcRosterCastingState:
@@ -203,28 +196,3 @@ def _has_enemy(state: NpcRosterCastingState, actor_id: str, zone: str) -> bool:
                 and state.spatial_state.placement_for(participant.state.actor_id).zone_id == zone):
             return True
     return False
-
-
-def _validate_interruption(result: NpcBrokenRecoverResult) -> None:
-    source = result.source
-    wizard = source.state.wizard
-    identifier = source.id + ':skipped-casting'
-    rule = 'RULE-MAGIC-004:skipped-casting-test'
-    pool_rule = 'RULE-MAGIC-004:miscast-pool'
-    magic = replace(wizard.magic_state, miscast_dice=wizard.magic_state.miscast_dice + 1)
-    triggered = magic.miscast_dice > wizard.caster.wizard_level
-    roll = (MiscastRollRequest(identifier + ':miscast-pool', identifier + ':increase',
-                              wizard.actor_id, magic.miscast_dice, rule_id=pool_rule) if triggered else None)
-    expected = SkippedCastingTestAfterActionResult(
-        identifier, wizard.actor_id, result.recover.slot.execution,
-        MiscastPoolIncreaseRequest(identifier + ':increase', wizard.actor_id, 1,
-            MiscastPoolIncreaseSourceKind.ACTION, source.id, rule, rule),
-        MiscastPoolResolutionResult(identifier + ':miscast-pool', wizard.actor_id, magic,
-            wizard.magic_state.miscast_dice, 1,
-            MiscastPoolOutcome.MISCAST_TRIGGERED if triggered else MiscastPoolOutcome.ACCUMULATED,
-            roll, (rule, pool_rule)),
-        magic, source.state.consumed_execution_ids,
-        (*source.state.consumed_execution_ids, source.id), (rule, pool_rule),
-    )
-    if result.interruption != expected:
-        raise ValueError('skipped Casting result differs from the completed Recover/magic/history')
