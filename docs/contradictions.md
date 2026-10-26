@@ -422,3 +422,19 @@ BOOK-PLAYER-GUIDE 1.4, Rules / Attack Tests / Giving Ground, стр. 119: вхо
 ### Scheduling полного owner M8, 2026-10-26
 
 Сверены BOOK-PLAYER-GUIDE 1.4, Rules / Combat, стр. 112; Combat Actions, стр. 116; Giving Ground, стр. 119; Wounds Table / Stomach blow, стр. 190. Новых противоречий/house rules нет. M2 live projection удаляет defeated, а M8 root сохраняет полный roster/round/placements: это разные технические контракты. [Новые wrappers](decisions/ADR-0037-magic-scenario-runner.md#full-owner-startadvance) используют K1 с архивом и исключениями. Due/untracked timers и living exclusion отклоняются вместо придумывания хронологии; полностью неактивный состав не переводится в новый раунд и не получает здесь terminal outcome.
+
+### Journal/result M8, 2026-10-26
+
+Новых книжных противоречий/house rules нет. Прямо сверены BOOK-PLAYER-GUIDE 1.4, Rules / Combat, стр. 112; Conditions / Broken, стр. 122; Magic in the Old World / Miscasts, стр. 157; Battle Magic / Curse, стр. 162; BOOK-GM-GUIDE 1.1, Allies and Antagonists / Minions, стр. 91. [Typed result](decisions/ADR-0037-magic-scenario-runner.md#typed-журнал-и-результат) отличает технический unsupported от победы/поражения/лимита, не скрывает pending за narrative и не снимает Miscast Pool до effect consumer. Staged Curse prefix не означает applied root. Objective-first и max_rounds — технические политики опыта, не нормативные правила окончания боя.
+
+### M8 automatic ordinary Attack availability, 2026-10-26
+
+При подключении [runner](decisions/ADR-0037-magic-scenario-runner.md#single-run-executor) выявлен технический пробел: manual KernelAttackRequest уже хранит can_target_leave_zone, но scenario не задавал его для Wizard/союзных Minion targets. Curse away-route не является тем же фактом. BOOK-PLAYER-GUIDE 1.4, Rules / Giving Ground, стр. 119 прямо учитывает Conditions, невозможность покинуть Zone и препятствия; graph adjacency недостаточна. Optional typed frame.attack_departures сохраняет caller bool, а отсутствие останавливает automatic Attack до RNG. Это уточнение input contract, не house rule/автоматический запрет Give Ground. Нормативных противоречий не найдено; остальные проверенные источники: PG1.4 Rules/Combat/Recover/Broken, стр. 112/118/122; Magic, стр. 156–157/162; Wounds Table, стр. 190; GM1.1 Allies and Antagonists, стр. 91–92.
+
+### Аудит одиночного magic encounter, 2026-10-26
+
+Новых противоречий/house rules не выявлено. [Readiness audit](audits/m8-encounter-readiness.md) сверил PG1.4 Rules / Combat/Combat Actions/Recover/Giving Ground/Broken, стр. 112/116–119/122; Magic in the Old World / Casting/Interrupted Casting/Potency/Miscasts, стр. 156–157; Battle Magic / Curse, стр. 162; Wounds Table, стр. 190; GM1.1 Allies and Antagonists / Minions/Champions, стр. 91–92. Normative Interrupted Casting прочитан до примерного эпизода; lore/example не вводят отдельные правила. Технические stops для Wound/Miscast/неизвестных facts сохраняются. Одиночный scope закрыт без расширения gameplay; последующие массовые прогоны должны агрегировать unsupported отдельно.
+
+### Контракт независимой magic simulation, 2026-10-26
+
+Новых противоречий/house rules не выявлено. [ADR-0038](decisions/ADR-0038-independent-magic-simulations.md) сохраняет normative rules single-run: PG1.4 Rules / Combat/Broken, стр. 112/122; Magic in the Old World / Miscasts, стр. 157; Battle Magic / Curse, стр. 162; Wounds Table, стр. 190–191; GM1.1 Allies and Antagonists / Minions/Champions, стр. 91–92. Compact record различает shared input и final owner, started/completed/actions, terminal outcome и unsupported. Нулевая action остановка не исправляется фиктивным действием; одинаковые ID/seed другого полного input не считаются той же записью. RNG scheme и arithmetic bounds — технические решения, не правила книги.

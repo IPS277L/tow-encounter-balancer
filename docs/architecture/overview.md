@@ -301,3 +301,29 @@ M8 defeat closure (2026-10-26): domain/npc_roster_minion_defeat_models.py и rul
 2026-10-26: [domain models](../../src/towr/domain/npc_roster_turn_models.py) и [pure functions](../../src/towr/rules/npc_roster_turn_resolution.py), контракт [ADR-0037](../decisions/ADR-0037-magic-scenario-runner.md#full-owner-startadvance). Start связывает exact полный source с одним K1 start и STANDARD reservation; advance связывает один K1 round и spatial advance. Typed results проверяют полные raw DTO, application требует exact current source. Это scheduling, action admission остаётся в consumers. RNG/receipt действия не создаются.
 
 Пять pending families и некорректная хронология живого Wizard блокируют переход до reducers. Дедлайн раны сохраняется из original Attack, expiry выполняется существующим end-turn. Advance сохраняет full roster/participants/graph/placements, оба ledgers и все histories; исключает dead/defeated, обновляет Champion round, сбрасывает только три spatial usage списка. Живые excluded actors и полностью неактивный состав требуют отдельного encounter решения. M2 Minion-only round API не меняется.
+
+## Журнал одного magic encounter
+
+2026-10-26: [ADR-0037 typed журнал/result](../decisions/ADR-0037-magic-scenario-runner.md#typed-журнал-и-результат) реализован в domain/npc_magic_step_models.py, npc_magic_journal_policy.py и npc_magic_scenario_result_models.py. Закрытый union десяти existing bound results сохраняет полные child sources/Tests/pending; before/after выводятся, а current вычисляется из непрерывной source chain. Caller не передаёт отдельный final owner. Политики/scene routes и phase/receipt IDs проверяются без исполнения rules/engine и без RNG.
+
+Outcome/counters — derived properties. Поддержанный незавершённый prefix не является result; unsupported требует exact typed diagnosis текущего owner. Public diagnose_npc_magic_unsupported распознаёт ограниченные stops, но не разрешает произвольные исключения как игровой исход. Staged Curse prefix хранится отдельно от ещё не обновлённого root pending. Consumer boundaries и другие scenario families прежние; новый runner будет отдельным engine-слоем.
+
+## Single-run magic encounter
+
+2026-10-26: [engine/npc_magic_scenario_runner.py](../../src/towr/engine/npc_magic_scenario_runner.py) реализует [ADR-0037](../decisions/ADR-0037-magic-scenario-runner.md#single-run-executor). Полный preflight до RNG, один bootstrap, source-checked dispatch десяти bound transitions, public pure terminal/diagnosis helpers и итоговый typed journal. Core rules и другие runners не зависят от нового executor; универсального dispatcher/event bus нет. Application проверяет exact request/current и переносит derived result.state без повторного reducer.
+
+Frame дополнен optional attack_departures: explicit ordinary can_leave_zone для автоматической подготовки KernelAttackRequest. Missing row — stop до Attack RNG, False не заменяется adjacency. Curse routes остаются отдельными facts. Полные pending обслуживаются до другого actor/end-turn/outcome, partial Curse prefix не публикуется как root. Ожидаемые технические stops распознаются до narrow constructors; исключения исполнения не ловятся как игровой исход.
+
+## Проверенная граница одиночного M8
+
+2026-10-26: [readiness audit](../audits/m8-encounter-readiness.md) закрыл single-run typed API ADR-0037; production dependencies и source не менялись. [Standalone example](../examples/m8/magic_scenario.py) использует только public APIs, не импортирует tests/probes и проверен одним скопированным файлом из external cwd/installed wheel. Все 388 installed production .py совпали с audited source.
+
+Следующий слой — отдельный контракт последовательных независимых magic trials и aggregate-only summary. Один trial сохраняет текущий bounded scope/точные unsupported stops; domain/engine не получают зависимость на simulation/application/balance. Самого массового runner, нового dispatcher или общей системы правил ещё нет.
+
+## Контракт последовательной magic simulation
+
+2026-10-26: [ADR-0038](../decisions/ADR-0038-independent-magic-simulations.md) определяет отдельные future modules в simulation для magic request/record/result, trial/sequential и pure aggregate summary. Production API ещё не добавлен; [finite probe](../examples/m8/simulation_contract_probe.py) вызывает существующий single-run и проецирует локальные observations.
+
+NpcMagicTrialRecord будет хранить одну shared ссылку на полный NpcMagicScenario input, index/seed/outcome и counters actions/started/completed. Source reference не включает final owner/журнал и переиспользуется между trials; parent rejects другой полный input даже с тем же ID/seed. Request N не хранится в record, чтобы расширение prefix не меняло прежние records. Summary сохраняет полный request и четыре counts/три totals без records/results/diagnostics. Эти structural guards не доказывают происхождение dice после удаления журналов.
+
+Новая зависимость направлена simulation → engine/domain, без изменения rules/engine или Minion-only families. RNG factory даёт отдельный поток на trial; real unsupported становится record, неожиданные ошибки прерывают пакет без partial result/retry. Seed namespace magic отличается от ranged/Melee/mixed; общего generic backend не добавляется.

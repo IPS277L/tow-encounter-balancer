@@ -1,0 +1,10 @@
+OBJECTIVE: 9 d10; objective_achieved; rounds 1/1; actions 2; stop -
+PERSPECTIVE: 9 d10; perspective_defeated; rounds 1/1; actions 2; stop -
+LIMIT: 30 d10; round_limit_reached; rounds 2/2; actions 6; stop -
+MISCAST: 3 d10; unsupported_path; rounds 1/0; actions 1; stop miscast_preparation
+CURSE RECOVER: 15 d10; round_limit_reached; rounds 1/1; actions 3; stop -
+WOUND EXPIRY: 25 d10; objective_achieved; rounds 2/2; actions 5; stop -
+WOUND STOP: 7 d10; unsupported_path; rounds 1/0; actions 1; stop pending_wound_effect
+MISSING FRAME: 6 d10; unsupported_path; rounds 1/0; actions 1; stop missing_scene
+MISSING DEPARTURE: 3 d10; unsupported_path; rounds 1/0; actions 1; stop missing_route
+107 scripted d10; public API only; full owners/sources/global RNG preserved; no post-battle recovery

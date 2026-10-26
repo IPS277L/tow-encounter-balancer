@@ -164,12 +164,24 @@ class NpcMagicBrokenPlan:
 
 
 @dataclass(frozen=True, slots=True)
+class NpcMagicAttackDeparture:
+    """Explicit ordinary-Attack target availability, not a Curse away-route."""
+    actor_id: str
+    can_leave_zone: bool
+
+    def __post_init__(self) -> None:
+        _identifier(self.actor_id)
+        _boolean(self.can_leave_zone)
+
+
+@dataclass(frozen=True, slots=True)
 class NpcMagicSceneFrame:
     key: NpcMagicSceneKey
     pair_ranges: tuple[NpcMagicPairRange, ...]
     zone_ranges: tuple[NpcMagicZoneRange, ...]
     give_ground_plans: tuple[NpcMagicGiveGroundPlan, ...]
     broken_plans: tuple[NpcMagicBrokenPlan, ...]
+    attack_departures: tuple[NpcMagicAttackDeparture, ...] = ()
 
     def __post_init__(self) -> None:
         if not isinstance(self.key, NpcMagicSceneKey):
@@ -177,6 +189,8 @@ class NpcMagicSceneFrame:
         for name, kind in (('pair_ranges', NpcMagicPairRange), ('zone_ranges', NpcMagicZoneRange),
                            ('give_ground_plans', NpcMagicGiveGroundPlan), ('broken_plans', NpcMagicBrokenPlan)):
             object.__setattr__(self, name, _ordered(getattr(self, name), kind, name))
+        object.__setattr__(self, 'attack_departures', _ordered(
+            self.attack_departures, NpcMagicAttackDeparture, 'attack departures'))
 
 
 def _distance(graph: ZoneGraph, origin: str, destination: str) -> int | None:
@@ -220,6 +234,11 @@ def validate_magic_scene_frame(
                 or not spatial.graph.contains(placement.zone_id)):
             raise ValueError('frame placement differs from roster side/graph')
     zones = {p.entity_id: p.zone_id for p in placements}
+    departures = tuple(p.actor_id for p in frame.attack_departures)
+    if len(set(departures)) != len(departures) or not set(departures) <= live:
+        raise ValueError('attack departures must name distinct live actors')
+    if any(p.can_leave_zone and not spatial.graph.adjacent_zone_ids(zones[p.actor_id]) for p in frame.attack_departures):
+        raise ValueError('can_leave_zone requires an adjacent Zone')
     sides = {p.state.actor_id: p.state.side for p in roster.participants}
     expected = {frozenset((a, b)) for a in live for b in live if sides[a] is not sides[b]}
     actual = []

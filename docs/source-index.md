@@ -464,3 +464,19 @@ Actor-bound consumer M8: непосредственно перечитаны BOO
 ### Проверка scheduling полного owner M8, 2026-10-26
 
 Прямо перечитаны локальные BOOK-PLAYER-GUIDE 1.4, Rules / Combat, стр. 112; Combat Actions, стр. 116; Giving Ground, стр. 119; Wounds Table / Stomach blow, стр. 190. [ADR-0037](decisions/ADR-0037-magic-scenario-runner.md#full-owner-startadvance) переносит существующие scheduler/spatial reducers без новых Rule IDs/house rules. Источники достаточны для этого среза; дополнительные правила победы/условий не выводятся из scheduling.
+
+### Проверка journal/result M8, 2026-10-26
+
+Прямо прочитаны локальные BOOK-PLAYER-GUIDE 1.4, Rules / Combat, стр. 112; Conditions / Broken, стр. 122; Magic in the Old World / Miscasts and the Rule of Nine, стр. 157; Battle Magic / Curse of Cowardly Flight, стр. 162; BOOK-GM-GUIDE 1.1, Allies and Antagonists / Minions, стр. 91. [Typed журнал ADR-0037](decisions/ADR-0037-magic-scenario-runner.md#typed-журнал-и-результат) только связывает existing transitions. Источники достаточны для сохранения pending/порядка и отличия Broken от defeat; objective-first и лимит явно остаются параметрами эксперимента, новых Rule IDs нет.
+
+### Проверка single-run M8, 2026-10-26
+
+Прямо перечитаны локальные BOOK-PLAYER-GUIDE 1.4: Rules / Combat, стр. 112; Recover, стр. 118; Giving Ground, стр. 119; Conditions / Broken, стр. 122; Magic in the Old World / Interrupted Casting и Miscasts, стр. 156–157; Battle Magic / Curse, стр. 162; Wounds Table / Stomach blow, стр. 190. BOOK-GM-GUIDE 1.1: Allies and Antagonists / Minions и Champions, стр. 91–92. [ADR-0037 runner](decisions/ADR-0037-magic-scenario-runner.md#single-run-executor) связывает existing transitions, новых правил/house rules нет. PG119 перечисляет ограничения Give Ground по Conditions/пути/возможности ухода: одного соседства недостаточно, доступность остаётся explicit fact.
+
+### Аудит одиночного M8, 2026-10-26
+
+Прямо перечитаны локальные BOOK-PLAYER-GUIDE 1.4: Rules / Combat, стр. 112; The Battlefield / Zones and Range / Speed, стр. 114–115; Combat Actions/Improvise/Recover/Giving Ground, стр. 116–119; Conditions / Broken, стр. 122; Magic in the Old World / Casting a Spell/Interrupted Casting/Spell Potency/Miscasts, стр. 156–157; Battle Magic / Curse of Cowardly Flight, стр. 162; Wounds Table / Stomach blow, стр. 190. BOOK-GM-GUIDE 1.1: Allies and Antagonists / Minions и Champions, стр. 91–92. [Readiness matrix](audits/m8-encounter-readiness.md) связывает правила с existing APIs/tests; нормативный абзац Interrupted Casting проверен отдельно от примера. Новых извлечённых правил/Rule IDs/house rules нет. Production source не изменился.
+
+### Контракт независимых magic-прогонов, 2026-10-26
+
+Для [ADR-0038](decisions/ADR-0038-independent-magic-simulations.md) прямо перечитаны BOOK-PLAYER-GUIDE 1.4, Rules / Combat, стр. 112; Conditions / Broken, стр. 122; Magic in the Old World / Miscasts, стр. 157; Battle Magic / Curse of Cowardly Flight, стр. 162; Wounds Table / Superficial injury и lethal rows, стр. 190–191. BOOK-GM-GUIDE 1.1, Allies and Antagonists / Minions и Champions, стр. 91–92. Probe использует существующий Wound lifecycle/defeat/archive без новой death policy. Seeds/агрегация — технический контракт; новых Rule IDs/house rules нет.

@@ -1,6 +1,6 @@
 # ADR-0037: первый scenario/runner с Champion-Wizard
 
-Статус: принят как ограниченный технический контракт, 2026-10-26. Production scenario input/pure admission и bound Minion handoff/defeat closure/start/advance **реализованы**; encounter result/runner ещё не реализованы. [ADR-0036](ADR-0036-magic-encounter-integration.md) задаёт владельцев отдельных действий и обязательных продолжений; этот ADR фиксирует их композицию. [Конечный probe](../examples/m8/encounter_contract_probe.py) проверяет admission, существующие API и оставшиеся стыки, без эмуляции будущего runner.
+Статус: принят как ограниченный технический контракт, 2026-10-26. Production scenario input/admission, bound action/turn transitions, typed journal/result/unsupported и single-run runner реализованы; одиночная граница закрыта [аудитом](../audits/m8-encounter-readiness.md) 2026-10-26. [ADR-0036](ADR-0036-magic-encounter-integration.md) задаёт владельцев отдельных действий и обязательных продолжений; этот ADR фиксирует их композицию. [Конечный input probe](../examples/m8/encounter_contract_probe.py) сохраняет самостоятельную проверку нижних API; runner probe описан ниже.
 
 ## Источники и граница
 
@@ -24,7 +24,7 @@ Wound/Drained expiry сохраняет уже проверенные PG1.4, Rul
 
 ## Реализованный typed вход
 
-[Scenario/facts/actor policies](../../src/towr/domain/npc_magic_scenario_models.py) и [scene models](../../src/towr/domain/npc_magic_scene_models.py) доступны как typed Python API. Это frozen/slotted domain models с ordered tuple copies и строгими enum/bool/int guards; domain не импортирует engine/rules/CLI/balance, не исполняет действия/Tests и не получает RNG. Сохраняются полные определения/факты, включая False в GM approvals, без нормализации в «всё разрешено». Step/result/unsupported/runner ниже остаются контрактом.
+[Scenario/facts/actor policies](../../src/towr/domain/npc_magic_scenario_models.py) и [scene models](../../src/towr/domain/npc_magic_scene_models.py) доступны как typed Python API. Это frozen/slotted domain models с ordered tuple copies и строгими enum/bool/int guards; domain не импортирует engine/rules/CLI/balance, не исполняет действия/Tests и не получает RNG. Сохраняются полные определения/факты, включая False в GM approvals, без нормализации в «всё разрешено». Step/result/unsupported реализованы ниже; single-run runner реализован ниже.
 
 `NpcMagicScenario`:
 
@@ -88,11 +88,11 @@ Minion owner синхронизирован в Casting/completion, Champion atta
 | End-turn | Bound Stomach Blow expiry, phase receipts, pending guards | Применение после завершения on-action последствий. Другие Conditions/effects сохраняются и останавливают путь. При closed scene source snapshots выводятся из оставшихся известных Wounds, без внешней причины. |
 | Start/advance/archive | [Full-owner wrappers](#full-owner-startadvance) над K1 turn/slot/round и spatial reducers реализованы | Caller выбирает actor/declaration; action admission и encounter journal остаются отдельными границами. |
 
-Minion defeat сначала подтверждается supplied decision, затем исключается из ещё ожидающих ходов. Если уже завершил ход, второй completed/excluded marker не создаётся. Dead Champion также исключается; Defenceless/Prone/Broken не приравниваются к смерти. Архивные roster/placements сохраняются и не становятся живыми combatants. При advance используются полный roster/round participants и исключения dead/defeated, а live projections готовятся отдельно; иначе существующий root invariant roster/round нарушится. Spatial usage обновляется existing `start_next_spatial_round`, все action/daily/roll/expiry/phase histories сохраняются. Новый день/Infection/healing автоматически не открываются.
+Minion defeat сначала подтверждается supplied decision, затем исключается из ещё ожидающих ходов. Если уже завершил ход, второй completed/excluded marker не создаётся. При advance dead Champion также исключается; awaiting dead Champion текущего round без отдельного exclusion consumer даёт chronology stop; Defenceless/Prone/Broken не приравниваются к смерти. Архивные roster/placements сохраняются и не становятся живыми combatants. При advance используются полный roster/round participants и исключения dead/defeated, а live projections готовятся отдельно; иначе существующий root invariant roster/round нарушится. Spatial usage обновляется existing `start_next_spatial_round`, все action/daily/roll/expiry/phase histories сохраняются. Новый день/Infection/healing автоматически не открываются.
 
 ## Исполнение, остановки и результат
 
-Планируемая сигнатура: `run_npc_magic_scenario(scenario: NpcMagicScenario, rng: RandomSource) -> NpcMagicScenarioResult`. Один внедрённый RNG на вызов; сценарий/глобальный RNG не меняются. Непредвиденные исключения и BaseException проходят наружу, без retry/fallback или partial success.
+Реализованная сигнатура: `run_npc_magic_scenario(scenario: NpcMagicScenario, rng: RandomSource) -> NpcMagicScenarioResult`. Один внедрённый RNG на вызов; сценарий/глобальный RNG не меняются. Непредвиденные исключения и BaseException проходят наружу, без retry/fallback или partial success.
 
 Порядок исполнения:
 
@@ -102,7 +102,7 @@ Minion defeat сначала подтверждается supplied decision, з�
 4. Исполнить один существующий action executor. Применить result к exact полному source один раз; выполнить поддержанные Give Ground/Willpower/Minion acknowledgement continuations. Если выбранный путь не поддержан, сохранить весь уже полученный post-roll state, receipts и pending, без новых Tests.
 5. Завершить ход bound end-turn, включая due expiry. Если оно не поддержано, stop раньше outcome/лимита. Затем проверить objective, поражение perspective и только затем завершённый round limit. Для следующего раунда выполнить bound round/spatial advance.
 
-Четыре **будущих**, отдельных от M7 enum outcomes:
+Четыре реализованных outcome отдельного от M7 enum:
 
 | Outcome | Условие |
 | --- | --- |
@@ -113,7 +113,7 @@ Minion defeat сначала подтверждается supplied decision, з�
 
 Objective-first при совпадении terminal predicates — явный технический приоритет оценки, как у прежних bounded scenarios. Broken, уход в другую Zone и пустая target Zone сами не удовлетворяют defeat objective. Проверка лимита не запускает новый turn/slot/каст. Post-battle Recover/treatment/healing — отдельная opportunity, не часть combat result.
 
-`NpcMagicScenarioResult` сохраняет полный `source`, ordered closed-union `steps`, derived `current` owner, outcome и optional `unsupported`. `current` вычисляется по непрерывной chain, не принимается независимо от неё. Каждый step связывает полный before/after owner и конкретный typed reducer result; foreign source/actor/round, дубликат receipt/phase ID, пропуск pending, заменённый order/facts/policy и незаконный terminal suffix отклоняются без нового RNG. Будут отдельные counters начатых/завершённых раундов и исполненных actions: начало раунда не выдаётся за его завершение.
+`NpcMagicScenarioResult` сохраняет полный `source`, ordered closed-union `steps`, derived `current` owner, outcome и optional `unsupported`. `current` вычисляется по непрерывной chain, не принимается независимо от неё. Каждый step связывает полный before/after owner и конкретный typed reducer result; foreign source/actor/round, дубликат receipt/phase ID, пропуск pending, заменённый order/facts/policy и незаконный terminal suffix отклоняются без нового RNG. Реализованы отдельные counters начатых/завершённых раундов и исполненных actions: начало раунда не выдаётся за его завершение.
 
 `NpcMagicUnsupported` имеет typed `phase`, `reason`, actor ID (None только до выбора actor), точный source ID и ordered missing actor/Zone IDs. Для missing scene хранится `required_scene_key`; только для staging Give Ground разрешён проверенный `staged_movements` prefix, принадлежащий текущему pending. Полный pending result остаётся в `current` и соответствующем step, не заменяется строкой. Минимальные причины: missing scene/range/route facts, no legal target, unsupported Broken route, unsupported actor/target injury, pending Wound effect, attack Give Ground, Miscast preparation/effect, unsupported end-turn/chronology. Зарезервированный, но не исполненный slot сохраняется. В ветви Miscast первый runner останавливается **до preparation**: сохраняет pool/successes и desperate choice, не бросает таблицу и не очищает pool. Неизвестные GM decisions не выбираются автоматически.
 
@@ -121,7 +121,7 @@ Objective-first при совпадении terminal predicates — явный �
 
 ## Probe и порядок реализации
 
-[encounter_contract_probe.py](../examples/m8/encounter_contract_probe.py), [вывод](../examples/m8/encounter_contract_probe.output.txt): три authored actor IDs и public API. Production scenario admission расходует 0 d10, сохраняет fresh initial owner и допускает отсутствие будущего frame. Из принятого initial owner исполняется реальный Curse; после движения lookup нового key возвращает None. Цепочки используют 38 scripted d10: real Stomach Blow → Casting → expiry, pending Wound stop, Curse → Give Ground → Willpower/Broken → end-turn, pending Miscast stop bound Minion handoff/defeat acknowledgement и завершение реального раунда → full-owner advance/start. Все supplied активации начинают существующий scheduler; промежуточных неисполненных ходов нет. Четыре outcomes и общий loop пока не проверяются — таких API нет.
+[encounter_contract_probe.py](../examples/m8/encounter_contract_probe.py), [вывод](../examples/m8/encounter_contract_probe.output.txt): три authored actor IDs и public API. Production scenario admission расходует 0 d10, сохраняет fresh initial owner и допускает отсутствие будущего frame. Из принятого initial owner исполняется реальный Curse; после движения lookup нового key возвращает None. Цепочки используют 38 scripted d10: real Stomach Blow → Casting → expiry, pending Wound stop, Curse → Give Ground → Willpower/Broken → end-turn, pending Miscast stop, bound Minion handoff/defeat acknowledgement и завершение реального раунда → full-owner advance/start. Все supplied активации начинают существующий scheduler; промежуточных неисполненных ходов нет. Этот probe не вызывает новый typed result и не проверяет общий loop; journal probe и tests ниже проверяют реализованный result API.
 
 [31 deterministic admission test](../../tests/unit/test_m8_npc_magic_scenario.py): обе Wizard/perspective стороны, independent orders, scope/type/tuple/frozen/source guards, canonical spell, definitions/equipment/health/daily/history, complete hostile pairs/Zone facts, directed True/False approvals, fresh availability, Give Ground/Slow/free Recover/Normal/Fast Run, archive/path/first-safe guards, optional future frames и отсутствие scheduler/Test/global RNG mutations. Вместе с прежними тестами проходят все 238 M8 tests.
 
@@ -129,8 +129,8 @@ Objective-first при совпадении terminal predicates — явный �
 
 1. Frozen `NpcMagicScenario`/actor policies/facts/frame models и pure admission реализованы, 31 новый test. Runner/RNG не добавлены; полнота будущих frames не требуется.
 2. Bound Minion → Minion handoff, defeat acknowledgement/exclusion и full-owner start/advance реализованы: 25 + 14 + 17 tests, 294 M8 суммарно. Сохраняются magic/daily/Wound timers, оба ledgers, archived roster/placements и межсемейные pending/replay guards.
-3. **Следующий законченный срез:** frozen steps/result/unsupported и pure validation непрерывной full-owner chain, без runner/RNG. Затем отдельно single-run executor с current-state projections и точными stops. Не расширять Champion/Conditions admission для обхода законной остановки.
-4. Аудит одиночной границы и самостоятельный production-пример; затем отдельно решать дальнейшие consumers и массовые прогоны.
+3. Frozen steps/result/unsupported и pure validation full-owner chain реализованы: 30 новых tests. Single-run executor реализован: ещё 40 tests, 364 M8 суммарно; current-state projections, explicit departure facts и точные stops. Champion/Conditions admission не расширен.
+4. Аудит одиночной границы и самостоятельный production-пример завершены: 365 M8 tests, external-cwd и installed-wheel parity. Следующий срез — отдельный контракт последовательных независимых magic-прогонов без расширения текущего admission/consumers.
 
 ## Bound Minion Attack handoff
 
@@ -154,7 +154,7 @@ current = apply_npc_roster_minion_attack_result(current, result)
 
 [19 unit tests](../../tests/unit/test_m8_npc_roster_minion_attack.py) и [6 integration tests](../../tests/integration/test_m8_npc_roster_minion_attack.py): один executor/receipt, miss/stagger/defeat/Close miss/Give Ground, active cast другого actor, true pending stops, stale/type/slot/hostility/usage/history guards и отсутствие partial result при ошибке RNG. Real WAIT → Minion Attack; Curse → Give Ground → Broken target → Minion Attack; Champion Wound/daily → Minion miss → Casting → expiry и Broken Recover/Run сохраняют оба ledgers и full histories. Все 263 M8 tests проходят. Public probe теперь проверяет реальный handoff на прежних 32 scripted d10, с блокировкой end-turn.
 
-Bound Minion defeat acknowledgement/exclusion и full-owner start/advance реализованы ниже. Encounter result/runner остаются отдельными задачами; raw M2 helpers вручную не обходят full-root pending.
+Bound Minion defeat acknowledgement/exclusion, full-owner start/advance и encounter result/runner реализованы ниже; raw M2 helpers вручную не обходят full-root pending.
 
 ## Bound Minion defeat acknowledgement/exclusion
 
@@ -179,7 +179,7 @@ current = apply_npc_roster_minion_defeat_result(current, result)
 
 [10 unit tests](../../tests/unit/test_m8_npc_roster_minion_defeat.py) и [4 integration tests](../../tests/integration/test_m8_npc_roster_minion_defeat.py) проверяют три choices, GM/source/type/frozen/queue/replay guards, одинаковый anonymous follow-up другой атаки, отсутствие dummy round/RNG/повторного Attack, last enemy, already-completed target, два последовательных defeat и real Wound/daily → defeat closure → Casting → expiry. Все 277 M8 tests и 31 релевантный existing M2 test проходят. Public probe дополнен 0-d10 acknowledgement/exclusion и явным end-turn при прежних 32 scripted d10.
 
-Full-owner start/advance реализованы ниже. Encounter result/unsupported/runner, attack Give Ground и другие Miscast consumers остаются отдельными задачами.
+Full-owner start/advance, typed journal/result/unsupported и runner реализованы ниже. Attack Give Ground и другие Miscast consumers остаются отдельными задачами.
 
 ## Full-owner start/advance
 
@@ -194,3 +194,51 @@ Full-owner start/advance реализованы ниже. Encounter result/unsup
 `apply_npc_roster_turn_start_result(current, result)` и `apply_npc_roster_round_advance_result(current, result)` требуют exact full source и не вызывают reducers повторно. Active/completed turn и incomplete next round отклоняют replay; отдельная история scheduling receipts не добавлена. Восстановление старого полного snapshot остаётся за границей pure API. Ошибка любого child reducer не публикует частичный root.
 
 [14 unit tests](../../tests/unit/test_m8_npc_roster_turn.py) и [3 integration tests](../../tests/integration/test_m8_npc_roster_turn.py) проверяют reducer counts, frozen/type/source/side/slot/pending/clock guards, raw DTO подмены, reset usage, archive, stale/replay и отсутствие RNG. Реальные chains: Curse/Give Ground → полный раунд → advance; Wound после хода мага → advance → Casting/expiry; defeat acknowledgement → оставшиеся ходы → advance с архивной целью. Все 294 M8 tests проходят. Public probe использует эти wrappers и завершает оставшийся реальный ход союзника перед advance/start: 38 scripted d10 (дополнительные 6 — Attack, сами фазы 0).
+
+## Typed журнал и результат
+
+2026-10-26. [Step/diagnostic models](../../src/towr/domain/npc_magic_step_models.py), [policy validation](../../src/towr/domain/npc_magic_journal_policy.py) и [result/diagnosis](../../src/towr/domain/npc_magic_scenario_result_models.py) реализованы без runner, RNG или повторного исполнения reducers. Источники прямо проверены: BOOK-PLAYER-GUIDE 1.4, Rules / Combat, стр. 112; Conditions / Broken, стр. 122; Magic in the Old World / Miscasts, стр. 157; Battle Magic / Curse of Cowardly Flight, стр. 162; BOOK-GM-GUIDE 1.1, Allies and Antagonists / Minions, стр. 91. Objective-first и общий лимит — параметры технического эксперимента; новых игровых правил/house rules нет.
+
+`NpcMagicStep(result)` принимает ровно десять existing full-owner result types: turn start, round advance, Casting, Curse completion, Champion Attack, Minion Attack, defeat acknowledgement, Broken Recover, Broken Run и end-turn. Before/after выводятся из source.state/result.state; отдельные snapshots caller не задаёт. Child results сохраняют все receipts, Tests и полные pending. Идентификатор completion — original Casting ID+:completion, остальные — ID соответствующего bound request/action. Actor ID берётся из активного хода; у advance он None.
+
+`NpcMagicScenarioResult(source, steps, unsupported=None)` начинает chain ровно с source.initial_runtime_state; initial bootstrap не повторяется между шагами. Каждый before равен всему предыдущему after. Primary phase/action IDs используют namespace scenario.id+: и не повторяются; start дополнительно резервирует свои :start/:slot IDs. Foreign magic/spatial/daily/ledger, потеря/перестановка шага, повторный ID и source substitution отклоняются. Current выводится при проверке chain и доступен как read-only property, без отдельного входного post-state.
+
+Проверяются scenario activation_order, normal role/declaration, первая доступная цель/Zone, Willpower/Speed/GM approval и отсутствие добавочных Protection modifiers, supplied defeat decision и exact Broken/Give Ground routes каждого промежуточного frame. Champion с неподдержанным injury не исчезает из target priority. Existing consumers продолжают проверять роль, Conditions и фактическую возможность действия. Kernel can_target_leave_zone сохраняется в полном Attack source; движение от ordinary Attack не выполняется журналом. Closed-scene expiry не допускает придуманной внешней причины Condition: other source выводится из оставшихся известных Wound effects.
+
+Outcome выводится: pending или активный ход требуют точной unsupported остановки; после обязательного end-turn проверяются objective, perspective defeat и завершённый max_rounds. Дополнительный step после terminal state запрещён. Bare prefix с ещё поддержанным действием/completion/end-turn/advance не является завершённым result и отклоняется. `started_rounds` считает раунды с настоящим start-turn, `completed_rounds` — bound end-turn, завершившие round; `executed_actions` — общий root execution ledger. Advance/acknowledgement/completion не увеличивают число действий.
+
+`NpcMagicUnsupported(phase, reason, actor_id, source_id, missing_actor_ids=(), missing_zone_ids=(), required_scene_key=None, staged_movements=())` сохраняет typed phase/reason, ordered IDs и точную сцену. `diagnose_npc_magic_unsupported(scenario, state, source_id, staged=())` чисто распознаёт остановку или возвращает None. Result требует полного равенства diagnosis: pending source ID имеет приоритет, иначе используется последний step ID (scenario.id до первого шага). Actor None допустим только до выбора хода. Caller не может заменить неизвестную причину общей строкой либо выдать поддержанный continuation за unsupported.
+
+Распознаются missing scene, missing Curse route, no legal target, missing Broken plan, actor/target injury, Wound pending, ordinary attack Give Ground, Miscast до preparation, неподдержанный end-turn и chronology. Все range rows обязательны уже в supplied frame; отдельная missing-range остановка недостижима в этом admission. Неизвестный Broken route представлен BROKEN_ROUTE, а не фиктивным can_leave_zone=False.
+
+Только pending Curse допускает staged prefix: каждый movement связан с исходным follow-up, exact spatial/Conditions/caster, ordered source и supplied frame/route/trace. Missing intermediate frame сохраняет первый ещё ожидающий actor и требуемый key. Root остаётся до всей chain; prefix не выдаётся за applied state или дополнительный action. После последнего movement отсутствующий post-movement frame не блокирует уже обязательный Willpower completion. Ветви Miscast сохраняют pool/successes/desperate choice до preparation/table; новые consumers не добавлены.
+
+[19 unit tests](../../tests/unit/test_m8_npc_magic_scenario_result.py) и [11 integration tests](../../tests/integration/test_m8_npc_magic_scenario_result.py): четыре outcomes, source/order/namespace/phase/target/GM/fact/route/terminal guards, полный pending, два реальных раунда и advance, Wound/daily/expiry, необходимый Broken Run и staged Curse. Все 324 M8 tests проходят. [Public journal probe](../examples/m8/journal_contract_probe.py) и [вывод](../examples/m8/journal_contract_probe.output.txt) проверяют explicit Miscast и WAIT → Minion defeat → acknowledgement → end-turn chains на 12 scripted d10; validation расходует 0. Это отдельный probe моделей, он не вызывает автоматический runner, реализованный ниже.
+
+## Single-run executor
+
+2026-10-26: [run_npc_magic_scenario](../../src/towr/engine/npc_magic_scenario_runner.py) реализован. Перед RNG повторно проверяется полный typed scenario; bootstrap Minion ledger выполняется один раз. Один caller RNG передаётся Casting, Shooting, Wound и Recover. Глобальный RNG, исходные snapshots, день, healing и post-battle Recover не меняются. Источники прямо перечитаны: BOOK-PLAYER-GUIDE 1.4, Rules / Combat, стр. 112; Recover, стр. 118; Giving Ground, стр. 119; Broken, стр. 122; Magic / Interrupted Casting и Miscasts, стр. 156–157; Battle Magic / Curse, стр. 162; Wounds Table / Stomach blow, стр. 190; BOOK-GM-GUIDE 1.1, Allies and Antagonists / Minions и Champions, стр. 91–92. Новых игровых Rule IDs/house rules нет.
+
+При автоматической сборке ordinary Attack обнаружился отсутствовавший source fact: can_target_leave_zone был explicit только в вручную собранном KernelAttackRequest. Он не выводится из графа или из Curse away-route. Добавлен `NpcMagicAttackDeparture(actor_id, can_leave_zone)` и optional ordered `NpcMagicSceneFrame.attack_departures=()`. Это отдельные typed bool facts для distinct live actors; True требует adjacent Zone, но наличие adjacency само не доказывает доступность. Пропуск разрешён во входе: runner останавливается перед выбранной Attack с ACTION/MISSING_ROUTE и target ID. False сохраняется как False. При наличии строки journal проверяет exact совпадение kernel flag; старый вручную собранный bound result по-прежнему хранит explicit source fact в самом request. Curse plans и ordinary departures не заменяют друг друга; actual Give Ground после ordinary Attack остаётся неподдержанным continuation.
+
+Runner использует public pure `npc_magic_terminal_outcome`, `diagnose_npc_magic_unsupported`, actor/target policy projections и существующие full-owner request/result boundaries. Он сначала обслуживает pending, затем исполненный action/end-turn, после полного завершения хода — objective/perspective/лимит. Обёртка publish требует exact request source, весь current owner и scenario policy до переноса derived result.state; foreign result/ID отклоняется до следующего Test. Reducers и Tests не повторяются ради application или финального журнала.
+
+Activation order применяется внутри текущей scheduler side; новый STANDARD slot не запускается после outcome/лимита. Broken использует supplied safe Recover, free move/Recover либо full free move/Run. Missing plan сохраняет reserved Recover slot и даёт BROKEN_ROUTE, без wait/Attack или RNG. Замкнутая сцена позволяет вывести condition_sources из оставшихся известных Wounds при due expiry; внешняя причина не придумывается. Awaiting dead Champion без consumer текущего раунда остаётся chronology stop, архив не удаляется.
+
+Curse movement staging проходит ordered follow-ups ровно один раз с frame lookup каждого промежуточного key. При missing frame/route возвращается полный исходный root pending и проверенный prefix; Willpower ещё не бросается. После всех движений один existing completion выполняет ordered Willpower исходных целей и переносит spatial/Conditions. Для Minion defeat выбирается только supplied GM decision и выполняется один bound acknowledgement/exclusion, затем явный end-turn. SUFFER_WOUND provider передаётся kernel; Glorious rerolls/Fate/новая тактика не выбираются.
+
+Каждая итерация публикует фазу/действие или возвращает result; число turns/actions ограничено составом и max_rounds, movement prefix — числом pending targets. Неожиданные ValueError, RNG errors и BaseException проходят наружу без retry, partial success или подмены на UNSUPPORTED_PATH. Полные Wound/Miscast и иные непокрытые consumers остаются stops.
+
+[19 unit tests](../../tests/unit/test_m8_npc_magic_scenario_runner.py) и [21 integration tests](../../tests/integration/test_m8_npc_magic_scenario_runner.py): четыре outcomes, один RNG/точные budgets, два раунда, archive/live Casting, daily/Wound/expiry, repeated Staggered, directed approval, оба Broken movement paths/Run, missing scene/route/prefix и ошибки без повторов. Всего 364 M8 tests проходят. [Runner probe](../examples/m8/scenario_runner_probe.py) и [вывод](../examples/m8/scenario_runner_probe.output.txt) показывают пять вызовов/51 scripted d10, без private/tests imports. Это smoke probe; аудит одиночной границы и проверка установленного wheel завершены ниже.
+
+## Readiness одиночной границы
+
+2026-10-26: [аудит](../audits/m8-encounter-readiness.md) завершён. Input/frames/runner/journal/diagnosis и existing consumers сопоставлены с локальными PG1.4/GM1.1 и объявленным scope. Production исправлений не потребовалось; все 733 исходных Python-файла src/tests/tools сохранены побайтно. Добавлены standalone [magic_scenario.py](../examples/m8/magic_scenario.py), [вывод](../examples/m8/magic_scenario.output.txt) и [subprocess test](../../tests/integration/test_m8_magic_scenario_example.py); всего 365 M8 tests.
+
+Девять independent calls/107 scripted d10 покрывают four outcomes, реальный Broken Recover и Wound/daily/expiry/stops. Один скопированный файл работает вне repo и через offline installed wheel с -S; код загружен из installed target, вывод совпал, stderr пуст. Это готовность bounded single-run typed API, не полного каталога/CLI.
+
+Неизвестные GM facts и неподдержанные continuations остаются точными stops. Новых игровых Rule IDs/house rules нет. Следующий срез — контракт последовательных независимых magic-прогонов/compact records/aggregate summary без изменения этого admission; implementation массового runner в аудит не входит.
+
+## Следующий слой: последовательные trials
+
+2026-10-26: [ADR-0038](ADR-0038-independent-magic-simulations.md) и [finite probe](../examples/m8/simulation_contract_probe.py) подготовлены. Single-run source/gameplay/consumers не меняются. Новый контракт отдельно определяет magic seed namespace, source-bound compact records, actions/started/completed counters и summary без журналов. Production simulation implementation ещё впереди; первым срезом будут pure seed/request/record/counts/result models.

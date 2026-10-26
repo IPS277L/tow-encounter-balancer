@@ -59,3 +59,5 @@ Windows / Python 3.14.5: **227 связанных tests — OK (1,004 с)**, в�
 Не подменять Champion мага Minion-моделью, Broken победой или обязательный Miscast успешным завершением. Не добавлять общий battle aggregate, новые spells, Monte Carlo/balance или JSON/CLI по одному факту готовности action boundary. Направление остаётся выбранной пользователем магией; повторного выбора направления не требуется.
 
 Продолжение аудита: [ADR-0036](../decisions/ADR-0036-magic-encounter-integration.md) подготовлен. Inventory подтверждает разрыв между отдельными K1 reducers и encounter consumers; ближайшая реализация — actor-bound Casting → roster application, затем зависимости в порядке ADR. Выводы этого аудита об отсутствии полного encounter остаются в силе.
+
+Продолжение 2026-10-26: ограниченный одиночный encounter ADR-0037 реализован и закрыт [новым аудитом](m8-encounter-readiness.md), со standalone example и installed-wheel проверкой. Этот документ сохраняет историческую границу одного Casting-действия; актуальные возможности и ограничения полного заявленного scenario находятся в новом аудите.

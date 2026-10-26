@@ -1,0 +1,11 @@
+seed scheme: towr:npc-magic-trial:v1; three golden vectors/struct encoding/family separation OK
+scripted 0: objective_achieved; actions=2; rounds=1/1; d10=9
+scripted 1: perspective_defeated; actions=9; rounds=4/4; d10=48
+scripted 2: round_limit_reached; actions=12; rounds=4/4; d10=60
+scripted 3: unsupported_path; actions=1; rounds=1/0; d10=3
+illustrative aggregate: outcomes=1/1/1/1; actions=24; started=10; completed=9; 120 scripted d10
+all four observations retained; unsupported is neither defeat nor discarded; no balance metric
+zero-action missing-departure stop: 0 d10; rounds=1/0; same ID/seed, different full source
+26 seeded calls: repeat/reverse/prefix/extra-draw isolation/renamed-ID observations OK
+31 total single-run calls; immutable sources/global RNG unchanged; no full journal in observations
+Production magic simulation request/record/result/summary and validation are NOT implemented by this probe

@@ -1,0 +1,3 @@
+MISCAST JOURNAL: 3 d10; 2 bound steps; exact source/pending/pool retained; no preparation or table
+OBJECTIVE JOURNAL: 9 d10; 7 bound steps; acknowledgement/end-turn required; archive and both ledgers retained
+12 scripted d10; journal validation uses 0; sources/global RNG unchanged; no automatic runner

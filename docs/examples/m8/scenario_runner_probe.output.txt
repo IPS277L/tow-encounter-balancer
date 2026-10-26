@@ -1,0 +1,6 @@
+OBJECTIVE: 6 d10; objective_achieved; rounds 1/0; actions 1; steps 4
+PERSPECTIVE: 6 d10; perspective_defeated; rounds 1/0; actions 1; steps 4
+LIMIT: 30 d10; round_limit_reached; rounds 2/2; actions 6; steps 19
+MISCAST: 3 d10; unsupported_path; rounds 1/0; actions 1; steps 2
+MISSING FRAME: 6 d10; unsupported_path; rounds 1/0; actions 1; steps 5
+51 scripted d10; full owners/sources retained; global RNG unchanged; no Miscast effect or post-battle recovery
