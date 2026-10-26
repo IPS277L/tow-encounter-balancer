@@ -504,3 +504,7 @@ Authored fixtures напрямую сверены с PG 1.4: Rules / Combat, с�
 ### Общий аудит массовой magic simulation, 2026-10-27
 
 Повторно непосредственно прочитаны локальные извлечения BOOK-PLAYER-GUIDE1.4: Rules / Combat, стр.112; Conditions / Broken, стр.122; Magic in the Old World / Spell Potency / Miscasts and the Rule of Nine, стр.157; Battle Magic / Curse of Cowardly Flight, стр.162; Wounds Table, стр.190–191. BOOK-GM-GUIDE1.1: Allies and Antagonists / Minions и Champions, стр.91–92. Все страницы доступны; [общий аудит ADR-0038/0039](audits/m8-mass-simulation-readiness.md) сохраняет single-run scope, mandatory pending и различие NPC injury policies. Новых Rule IDs/house rules нет. Устаревшая фраза об отсутствии GM Guide в RULE-HEALTH-006 заменена ссылкой на доступный нормативный источник и нормализованные NPC rules; механика не менялась.
+
+### Контракт оценки magic-кандидатов, 2026-10-27
+
+Для [ADR-0040](decisions/ADR-0040-magic-candidate-assessment.md) непосредственно сверены локальные BOOK-PLAYER-GUIDE 1.4: Rules / Combat, стр.112; Conditions / Broken, стр.122; Magic in the Old World / Spell Potency / Miscasts and the Rule of Nine, стр.157; Battle Magic / Curse of Cowardly Flight, стр.162; Wounds Table, стр.190–191. BOOK-GM-GUIDE 1.1: Allies and Antagonists / Minions и Champions, стр.91–92. Window/квоты/ranking — принятая продуктовая метрика M5–M7, не игровое правило. Full source, mandatory pending и различие NPC policies сохраняются; новых Rule IDs/house rules нет.

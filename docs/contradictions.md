@@ -462,3 +462,7 @@ ADR-0038 реализован без новых игровых решений: �
 ### Общий аудит массовой magic simulation, 2026-10-27
 
 [Аудит ADR-0038/0039](audits/m8-mass-simulation-readiness.md): прямая сверка PG1.4 Rules / Combat112, Conditions / Broken122, Magic in the Old World / Potency / Miscasts157, Battle Magic / Curse162, Wounds Table190–191 и GM1.1 Allies and Antagonists / Minions / Champions91–92 не выявила новых противоречий или house rules. Старые Miscast ambiguities остаются открытыми; unsupported не фильтруется и не разрешается подбором seeds. Исправлена только устаревшая информация о недоступности GM Guide в RULE-HEALTH-006; выбранные книги/механика прежние.
+
+### Контракт magic assessment, 2026-10-27
+
+[ADR-0040](decisions/ADR-0040-magic-candidate-assessment.md) не добавляет игровых правил и не разрешает старые Miscast ambiguities. Напрямую сверены PG1.4 Rules / Combat112, Conditions / Broken122, Magic in the Old World / Potency / Miscasts157, Battle Magic / Curse162, Wounds Table190–191 и GM1.1 Allies and Antagonists / Minions / Champions91–92. Любой наблюдавшийся unsupported делает оценку непригодной; он не поражение/ничья и остаётся в N. Проверочный полный N3 запускается независимо, не получается удалением записи из N4. Новых противоречий/house rules нет; production assessment/list/service ещё не реализованы.

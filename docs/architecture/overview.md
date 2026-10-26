@@ -331,3 +331,10 @@ NpcMagicTrialRecord хранит одну shared ссылку на полный 
 [ADR-0039](../decisions/ADR-0039-process-magic-simulations.md) реализован отдельным npc_magic_parallel: свежий spawn pool, ленивые абсолютные ranges и bound 2W. Transported full source проверяется до rebinding к parent input; replace заново запускает scalar/Enum/counter guards после pickle. Final result собирается после shutdown. Ошибки не становятся outcomes; cancel/shutdown ждут начатую работу. Process orchestration не переносится во внутренние слои.
 
 [Общий аудит массовой magic simulation](../audits/m8-mass-simulation-readiness.md) сопоставляет эти пять модулей, 131 existing test, public examples/installed parity и сохранённое performance-сравнение. Assessment/balance, generation и JSON/CLI остаются отдельными последующими контрактами.
+
+
+## Контракт оценки magic-кандидатов
+
+2026-10-27: [ADR-0040](../decisions/ADR-0040-magic-candidate-assessment.md) реализован в части pure assessment: balance/magic_assessment_models.py и magic_assessment.py. Модели списка в magic_evaluation_models.py также реализованы: typed candidates/request/rows/result, полный budget preflight, derived simulation requests и pure stable ranking. Application/magic_evaluation_service.py и magic_evaluation_errors.py следуют отдельным срезом. Pure assessment получает полный magic simulation input и aggregate summary без RNG/records/journals; full source и native magic counters сохраняются. Будущий application service будет проверять full source результата до summary, исполнять полный пакет один раз на кандидата и освобождать result до следующего runner; успешный report aggregate-only.
+
+Переиспользуются те же ObjectiveRateWindow из balance.ranged_assessment_models и SimulationExecutionOptions из application.ranged_simulation_models, без переноса/копий/общей иерархии и без смешения families. Domain/engine/simulation не приобретают outward dependencies. [Конечный probe](../examples/m8/assessment_contract_probe.py) проверяет арифметику и existing simulation; pure assessment реализован отдельно от probe; list models реализованы, service ещё не добавлен. Следующий порядок: service/errors/integration → аудит.

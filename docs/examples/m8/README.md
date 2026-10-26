@@ -155,3 +155,19 @@ PYTHONPATH=src python docs/examples/m8/magic_parallel.py
 [Пример](magic_parallel.py) копируется вместе с соседними [magic_simulation.py](magic_simulation.py) и [magic_scenario.py](magic_scenario.py). [Вывод](magic_parallel.output.txt) совпадает в root, external cwd и installed wheel без PYTHONPATH. Шесть public calls исполняют 24 trials в spawn, включая workers=1, batch>N/workers>batches, четыре scripted outcomes и zero-action stop. Input/global RNG и parent source identity сохраняются, дети закрываются. Это correctness evidence, не throughput или difficulty measurement.
 
 30 новых tests покрывают preflight/transport/bounded lazy scheduling, ошибки и реальные процессы; три первоначальных contract probe файла сохранены побайтно. [Performance-сравнение](../../benchmarks/README.md#m8-sequential-и-spawn) завершено отдельно с startup/serialization/normalization/shutdown; [общий аудит массовой simulation](../../audits/m8-mass-simulation-readiness.md) закрыт. Auto backend, cache, balance/generation и JSON/CLI не добавлены.
+
+## Контракт оценки magic-кандидатов
+
+[ADR-0040](../../decisions/ADR-0040-magic-candidate-assessment.md) задаёт отдельные assessment/list/service types; pure assessment и list models реализованы, service остаётся будущим срезом. Переиспользуются существующие ObjectiveRateWindow и SimulationExecutionOptions; вся выборка N остаётся знаменателем, любой наблюдавшийся unsupported запрещает window assessment.
+
+```sh
+PYTHONPATH=src python docs/examples/m8/assessment_contract_probe.py
+```
+
+[Probe](assessment_contract_probe.py) копируется вместе с magic_simulation.py и magic_scenario.py. [Вывод](assessment_contract_probe.output.txt) проверяется external-cwd subprocess test. Синтетические summaries показывают inclusive/point windows, stable Fraction ties, бюджет 20 / cap 19 и большие N без float rounding; это арифметика, не реализованный production preflight.
+
+Реальные полные N4 sequential/spawn дают outcomes1/1/1/1, actions24/started10/completed9: goal1/4 в окне, но unsupported требует будущего match=None. Независимый полный N3 исполняется заново в обоих backend, без фильтрации N4: outcomes1/1/1/0, totals23/9/9, goal1/3 и future match=True. Всего 14 trials за четыре calls; полные results/summary, original source identity/input/global RNG и cleanup проверены. Scripted observations не являются Monte Carlo difficulty estimate. Pure assessment реализован в production отдельно от probe; list models с preflight/report/ranking также готовы. Следующий срез — service/errors/integration; staged/generation/JSON/CLI ещё не реализованы.
+
+Pure API: [assess_magic_candidate](../../../src/towr/balance/magic_assessment.py) принимает NpcMagicSimulationRequest, NpcMagicSimulationSummary и тот же ObjectiveRateWindow. [Frozen assessment](../../../src/towr/balance/magic_assessment_models.py) сохраняет полный source, возвращает четыре Fraction rates от всех N и status/window_match без runner/RNG/records. Любой unsupported даёт None; равная immutable копия source допускается, foreign input отклоняется.
+
+[Magic list models](../../../src/towr/balance/magic_evaluation_models.py) принимают готовые authored scenarios, общий seed/N/round budget/perspective и полный max_total_trials до исполнения. Request не вызывает RNG/runner; report содержит все aggregate rows в исходном порядке и выбирает только window_match=True по точной Fraction distance с сохранением ties. Само исполнение списка появится в application service отдельным срезом.

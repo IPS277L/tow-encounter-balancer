@@ -12,7 +12,7 @@
 
 - [Обзор и направление зависимостей](architecture/overview.md), [resolution kernel](architecture/resolution-kernel.md).
 - [ADR](decisions/): [K1](decisions/ADR-0002-book-first-resolution-kernel.md), [ranged input](decisions/ADR-0013-ranged-minion-scenario-input.md), [melee](decisions/ADR-0021-melee-minion-scenario.md), [mixed](decisions/ADR-0028-mixed-minion-scenario.md).
-- M8: [Casting](decisions/ADR-0035-cowardly-flight-casting-boundary.md), [интеграция](decisions/ADR-0036-magic-encounter-integration.md), [single-run](decisions/ADR-0037-magic-scenario-runner.md), [independent sequential simulation](decisions/ADR-0038-independent-magic-simulations.md), [process backend ADR-0039](decisions/ADR-0039-process-magic-simulations.md).
+- M8: [Casting](decisions/ADR-0035-cowardly-flight-casting-boundary.md), [интеграция](decisions/ADR-0036-magic-encounter-integration.md), [single-run](decisions/ADR-0037-magic-scenario-runner.md), [independent sequential simulation](decisions/ADR-0038-independent-magic-simulations.md), [process backend ADR-0039](decisions/ADR-0039-process-magic-simulations.md), [assessment/list contract ADR-0040](decisions/ADR-0040-magic-candidate-assessment.md) (pure assessment/list models реализованы; service ещё нет).
 
 ## Готовность и примеры
 

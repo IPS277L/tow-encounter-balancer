@@ -2,7 +2,7 @@
 
 Симулятор боёв и инструмент подбора сложности столкновений для настольной RPG TOWR.
 
-Готовы ограниченные неподвижные ranged, melee и mixed Minion-сценарии: одиночные бои, независимые sequential/process прогоны, агрегаты, поэтапный подбор и генерация составов из заданного резерва, JSON/CLI. Магия M8 поддерживает отдельный ограниченный бой с одним Champion-Wizard и Curse of Cowardly Flight, а также независимые sequential/process прогоны и aggregate-only summary. Полный каталог и универсальный бой ещё не реализованы.
+Готовы ограниченные неподвижные ranged, melee и mixed Minion-сценарии: одиночные бои, независимые sequential/process прогоны, агрегаты, поэтапный подбор и генерация составов из заданного резерва, JSON/CLI. Магия M8 поддерживает отдельный ограниченный бой с одним Champion-Wizard и Curse of Cowardly Flight, а также независимые sequential/process прогоны, aggregate-only summary и pure оценку одного кандидата. Полный каталог и универсальный бой ещё не реализованы.
 
 ## Навигация
 
@@ -105,3 +105,5 @@ PYTHONPATH=src python docs/examples/m8/magic_parallel.py
 ```
 
 Workers/batch_size выбираются явно; автоматического выбора backend нет. [Сравнение производительности](docs/benchmarks/README.md#m8-sequential-и-spawn) включает startup/serialization/shutdown: на 100 trials процессы медленнее, на 1000 два workers локально быстрее в двух боевых inputs. Контроль с нулём действий быстрее последовательно; общего обещания ускорения нет.
+
+[Контракт оценки magic-кандидатов ADR-0040](docs/decisions/ADR-0040-magic-candidate-assessment.md) и [конечный проверочный пример](docs/examples/m8/assessment_contract_probe.py) подготовлены. Контрактный пример сохраняет прежнюю границу проверки арифметики и existing simulation APIs. Pure `assess_magic_candidate` реализован: полный input/summary/window, четыре точные Fraction rates и unsupported guard. [Модели списка](src/towr/balance/magic_evaluation_models.py) с полным preflight бюджета, aggregate report и stable Fraction ranking реализованы. Application evaluator ещё не реализован.

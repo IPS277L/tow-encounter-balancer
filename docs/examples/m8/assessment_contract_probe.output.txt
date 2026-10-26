@@ -1,0 +1,10 @@
+Synthetic arithmetic only: shares=1/4,3/4,1/2,1,1/2; matches=True,True,True,False,None
+Synthetic selection: C,A; reordered ties: C,B; planned=20 fits cap=20, exceeds cap=19
+Point window zero/all-limit/all-unsupported and large exact Fraction: OK
+Existing ObjectiveRateWindow and SimulationExecutionOptions/pickle paths: OK
+Real N=4 sequential/spawn: full results/summaries equal; outcomes=1/1/1/1; actions=24; started=10; completed=9
+Real goal share=1/4 of ALL trials; unsupported=1/4 -> proposed window_match=None
+Independent complete N=3 sequential/spawn: outcomes=1/1/1/0; actions=23; started=9; completed=9
+Independent N=3 goal share=1/3 -> proposed window_match=True; N=4 observations were not filtered
+14 real trials in four calls; original parent inputs/global RNG preserved; child processes closed
+Magic assessment/list/service APIs and their guards are NOT implemented by this probe
