@@ -127,3 +127,31 @@ PYTHONPATH=src python docs/examples/m8/magic_simulation.py
 Четыре scripted trials одного input дают все четыре исхода: totals 24 actions / 10 started / 9 completed и 120 d10. Отдельный replay проверяет 3 Champion Wounds/daily receipts/rolls, смерть Wizard и архив defeated ally. Zero-action missing-departure stop использует иной полный source при тех же ID/seed; смешивание records отклоняется. Ещё 26 seeded calls проверяют repeat/reverse/prefix/extra-draw isolation/rename; всего 32 single-run calls. Input/global RNG сохраняются. Counts и totals — наблюдения finite scripts, не Monte Carlo rates или difficulty.
 
 [Аудит ADR-0038](../../audits/m8-simulation-readiness.md) закрывает только последовательный simulation/summary слой. Process backend, profiling, assessment/balance/generation и JSON/CLI не добавлены; single-run scope и обязательные unsupported stops сохраняются.
+
+
+## Контракт magic process transport/spawn
+
+[ADR-0039](../../decisions/ADR-0039-process-magic-simulations.md), [finite probe](process_contract_probe.py), [stored output](process_contract_probe.output.txt) и [аудит](../../audits/m8-process-contract-readiness.md) готовы. Этот probe предшествовал production API: он использует existing trial/result/summary и фиксированные маленькие partitions, без lazy/refill/cancel scheduler. Готовая реализация проверена отдельно ниже.
+
+В активированном Python 3.12+ окружении:
+
+```sh
+PYTHONPATH=src python docs/examples/m8/process_contract_probe.py
+```
+
+Для внешнего cwd нужны три соседних файла: этот probe, [magic_simulation.py](magic_simulation.py), [magic_scenario.py](magic_scenario.py). Root и external-cwd subprocess дают одинаковый stdout и пустой stderr. 19 успешных transported trials в 10 fixed batches, отдельный failed batch и шесть закрытых spawn pools; точное число worker startups не фиксируется.
+
+Проверены workers=1/2 и reverse collection, четыре scripted outcomes одного source (24 actions / 10 started / 9 completed, 120 d10 на полный N=4 run), отдельный zero-action stop. После проверки full source все final records разделяют исходный parent scenario; межпакетные pickle copies не накапливаются в итоговом result. 15 отрицательных post-pickle проверок покрывают source/type/index/seed/Enum/bool/counters. Factory failure index1 сохраняет обе notes, marker0/1 подтверждает отсутствие index2; partial result не выдаётся. Performance, public preflight, lazy scheduling и прочие executor failures этим не проверены.
+
+
+## Опциональный process backend — production API
+
+[run_npc_magic_simulation_parallel](../../../src/towr/simulation/npc_magic_parallel.py) реализует ADR-0039; [аудит](../../audits/m8-process-readiness.md) отделяет готовый API от исторического probe. Public request/result/summary и seed scheme сохраняются, все итоговые records используют исходный parent scenario. Workers/batch_size — явные положительные int; default batch_size=32 не объявляется optimum.
+
+```sh
+PYTHONPATH=src python docs/examples/m8/magic_parallel.py
+```
+
+[Пример](magic_parallel.py) копируется вместе с соседними [magic_simulation.py](magic_simulation.py) и [magic_scenario.py](magic_scenario.py). [Вывод](magic_parallel.output.txt) совпадает в root, external cwd и installed wheel без PYTHONPATH. Шесть public calls исполняют 24 trials в spawn, включая workers=1, batch>N/workers>batches, четыре scripted outcomes и zero-action stop. Input/global RNG и parent source identity сохраняются, дети закрываются. Это correctness evidence, не throughput или difficulty measurement.
+
+30 новых tests покрывают preflight/transport/bounded lazy scheduling, ошибки и реальные процессы; три первоначальных contract probe файла сохранены побайтно. Следующий отдельный performance-срез сравнит sequential/process на больших N с startup/serialization/normalization/shutdown. Auto backend, cache, balance/generation и JSON/CLI не добавлены.

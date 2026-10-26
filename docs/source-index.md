@@ -490,3 +490,13 @@ Actor-bound consumer M8: непосредственно перечитаны BOO
 ### Первый profiling baseline M8, 2026-10-26
 
 Authored fixtures напрямую сверены с PG 1.4: Rules / Combat, стр. 112; Battlefield / Actions / Recover / Giving Ground, стр. 114–119; Conditions / Broken, стр. 122; Magic in the Old World / Casting / Potency / Miscasts, стр. 156–157; Battle Magic / Curse, стр. 162; Wounds Table, стр. 190–191. GM 1.1: Allies and Antagonists / Minions / Champions, стр. 91–92. Названия глав/точные страницы и граница нормативного текста — в [аудите](audits/m8-profiling-readiness.md). Числа/GM routes задаются как experiment inputs, не выдаются за книжный NPC. Production rules не менялись; новых Rule IDs/house rules нет.
+
+
+### Контракт magic process transport/spawn, 2026-10-26
+
+Для ADR-0039 непосредственно сверены локальные PG 1.4: Rules / Combat, стр. 112; Conditions / Broken, стр. 122; Magic in the Old World / Potency / Miscasts, стр. 157; Battle Magic / Curse of Cowardly Flight, стр. 162; Wounds Table, стр. 190–191. GM 1.1: Allies and Antagonists / Minions и Champions, стр. 91–92. Source/seed/pickle/worker scheduling — технический контракт, который не исполняет неподдержанные pending вместо существующего runner. Новых Rule IDs/house rules нет; [аудит](audits/m8-process-contract-readiness.md).
+
+
+### Реализация process backend M8, 2026-10-26
+
+Непосредственно сверены PG 1.4: Rules / Combat, стр. 112; Conditions / Broken, стр. 122; Magic in the Old World / Miscasts, стр. 157; Battle Magic / Curse of Cowardly Flight, стр. 162; Wounds Table, стр. 190–191. GM 1.1: Allies and Antagonists / Minions и Champions, стр. 91–92. Process backend использует existing magic trial; full source проверяется до parent rebinding, pending и четыре outcomes сохраняются. Новых Rule IDs/house rules нет, старые неоднозначности не обходятся transport. [Аудит готовности](audits/m8-process-readiness.md).

@@ -595,3 +595,13 @@ py -3.12 -m unittest discover -s tests -v
 ## Первый profiling-срез M8
 
 34 новых tests: 10 test_m8_benchmark_fixtures и 24 test_m8_profiling. Проверены явные authored scenes/archive/Curse/Broken/Wounds, zero-action control, независимые wall/trace/profile фазы, full-record/summary equality, input/global RNG, strict preflight/source manifest, monitoring guard Python 3.12, cleanup и atomic output preservation. Порог скорости/памяти не задаётся. [Аудит](audits/m8-profiling-readiness.md): 3114 total / прежние 33 errors, exact error Counters равны ADR-0038 baseline. Runtime/performance evidence — в [сыром отчёте](benchmarks/m8-baseline-2026-10-26.md).
+
+
+## Контракт process transport/spawn M8
+
+[ADR-0039](decisions/ADR-0039-process-magic-simulations.md) и [finite probe](examples/m8/process_contract_probe.py): 19 успешных transported trials/10 fixed batches, шесть pools с child PID diagnostics, source-before-rebinding, full result/summary equality, четыре scripted outcomes, zero-action source и 15 post-pickle negatives. Новый test_m8_magic_process_contract_probe запускает трёхфайловый public bundle из external cwd: 1 OK (1,811 с), stdout равен stored output/stderr пуст. Полный набор 3115 tests / прежние 33 errors (92,443 с), exact error Counters равны profiling baseline. [Аудит](audits/m8-process-contract-readiness.md) отделяет finite transport evidence от ещё отсутствующих public scheduler/preflight/error tests.
+
+
+## Production magic process backend ADR-0039
+
+30 новых tests: 23 test_m8_npc_magic_parallel unit, 6 real-spawn integration того же имени и 1 test_m8_magic_parallel_example. Проверены preflight до pool без parent RNG, lazy absolute ranges/bound2W/hugeN, source-before-rebinding и forged pickle fields, all-done-before-refill, worker/parent/constructor errors/cancel/shutdown, child PID, full sequential equality/parent identity, четыре outcomes/zero action, repeat/prefix/extra-draw isolation. External-cwd пример и installed wheel stdout совпали; 411 installed Python/Schema files равны src. Полный набор 3145 tests / прежние 33 errors (97,011 с), exact error Counters равны contract baseline. [Аудит](audits/m8-process-readiness.md), [пример](examples/m8/magic_parallel.py); performance не является test oracle и ещё не измерен.

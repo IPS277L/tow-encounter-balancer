@@ -497,3 +497,13 @@ RULE-COMBAT-001/002 и existing once-per-round spatial usage: BOOK-PLAYER-GUIDE 
 ## M8 — первый profiling baseline ADR-0038
 
 [Contract](benchmarks/m8-profiling-contract.md), [fixtures](../tools/m8_benchmark_fixtures.py), [harness](../tools/profile_m8.py) и [audit](audits/m8-profiling-readiness.md) не добавляют Rule IDs или production consumers. 10 fixture tests проверяют реальные Curse/Broken/archive/Wound chains и zero-action unsupported; 24 harness tests — полные records/summary, seed digest/counters/source manifest, measurement isolation/monitoring/cleanup/output. Primary source references: PG 1.4, Rules / Combat, стр. 112; Battlefield / Actions, стр. 114–119; Conditions / Broken, стр. 122; Magic in the Old World, стр. 156–157; Battle Magic / Curse, стр. 162; Wounds Table, стр. 190–191; GM 1.1, Allies and Antagonists, стр. 91–92. [Raw report](benchmarks/m8-baseline-2026-10-26.md) сохраняет все четыре outcomes и не фильтрует unsupported; скорость не меняет игровые правила.
+
+
+## M8 — контракт process transport/spawn ADR-0039
+
+[ADR-0039](decisions/ADR-0039-process-magic-simulations.md), [finite probe](examples/m8/process_contract_probe.py), [output](examples/m8/process_contract_probe.output.txt) и [audit](audits/m8-process-contract-readiness.md) сохраняют игровые переходы ADR-0037/0038. Полный source проверяется после pickle до canonical rebinding, scalar/counter guards проходят constructor заново; четыре outcomes и zero-action stop сохраняются. Один external-cwd subprocess test проверяет finite transport, но не готовность production backend. Primary sources: PG 1.4 Rules / Combat, стр. 112; Conditions / Broken, стр. 122; Magic in the Old World / Miscasts, стр. 157; Battle Magic / Curse, стр. 162; Wounds Table, стр. 190–191; GM 1.1 Allies and Antagonists / Minions/Champions, стр. 91–92. Новых Rule IDs и src implementation в контрактном срезе нет.
+
+
+## M8 — production process backend ADR-0039
+
+[Модуль](../src/towr/simulation/npc_magic_parallel.py), [аудит](audits/m8-process-readiness.md) и [public пример](examples/m8/magic_parallel.py) сохраняют prior single-run rules, seed/result/summary и source/counter guards ADR-0038. 23 unit + 6 real-spawn + 1 example test проверяют строгую transport normalization, bound2W/lazy scheduling, fail-fast/cleanup и полные sequential observations без фильтрации unsupported. Parent record references нормализуются только после full-source equality и constructor revalidation. Sources: PG 1.4 Rules / Combat, стр. 112; Conditions / Broken, стр. 122; Magic in the Old World / Miscasts, стр. 157; Battle Magic / Curse, стр. 162; Wounds Table, стр. 190–191; GM 1.1 Allies and Antagonists / Minions/Champions, стр. 91–92. Новых игровых Rule IDs и изменений domain/engine/rules нет.

@@ -1,0 +1,9 @@
+ADR-0039 public magic process API; explicit spawn; unchanged indexed seeds and single-run scope
+seeded N=5: workers=1; batch_size=2; full result/summary equal; parent input shared
+seeded N=5: workers=2; batch_size=2; full result/summary equal; parent input shared
+seeded N=5: workers=2; batch_size=32; full result/summary equal; parent input shared
+scripted N=4: workers=1; outcomes=1/1/1/1; actions=24; started=10; completed=9; 120 d10
+scripted N=4: workers=2; outcomes=1/1/1/1; actions=24; started=10; completed=9; 120 d10
+zero-action stop: unsupported retained; rounds=1/0; 0 draws
+24 spawned trials in six public API calls; inputs/global RNG preserved; child processes closed
+No throughput claim, automatic backend selection, balance metric, JSON/CLI or new game rules

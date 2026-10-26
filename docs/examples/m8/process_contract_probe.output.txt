@@ -1,0 +1,14 @@
+ADR-0039 finite magic process contract probe; seed_scheme=towr:npc-magic-trial:v1
+Existing public trial/result/summary; explicit spawn; tuple-only records and separate child PID diagnostics
+seeded N=5: workers=1; batch_lengths=(3, 2); reverse collection/full result/summary equal
+seeded N=5: workers=2; batch_lengths=(2, 2, 1); reverse collection/full result/summary equal
+Pickle sources: equal but separate across batches; shared within each batch; final records share original parent input
+scripted N=4: workers=1; outcomes=1/1/1/1; actions=24; started=10; completed=9; 120 d10
+scripted N=4: workers=2; outcomes=1/1/1/1; actions=24; started=10; completed=9; 120 d10
+Separate zero-action missing-departure source: unsupported retained; rounds=1/0; 0 d10
+15 post-pickle negative payload/source/index/seed/Enum/bool/counter checks rejected before canonical acceptance
+Local lambda rejected by parent pickle before pool creation
+Child failure at index=1 preserves type/message/both notes; index=2 never called; no partial result
+19 successful transported trials in 10 fixed batches; one failed batch; inputs/global RNG unchanged; all six spawn pools closed
+Not verified: public preflight, lazy refill, cancellation/submission/wait failures, larger N, other runtimes or performance
+No production process API, cache, backend selection, balance, JSON/CLI or new game rules

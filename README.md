@@ -2,7 +2,7 @@
 
 Симулятор боёв и инструмент подбора сложности столкновений для настольной RPG TOWR.
 
-Готовы ограниченные неподвижные ranged, melee и mixed Minion-сценарии: одиночные бои, независимые sequential/process прогоны, агрегаты, поэтапный подбор и генерация составов из заданного резерва, JSON/CLI. Магия M8 поддерживает отдельный ограниченный бой с одним Champion-Wizard и Curse of Cowardly Flight, а также независимые последовательные прогоны и aggregate-only summary. Полный каталог и универсальный бой ещё не реализованы.
+Готовы ограниченные неподвижные ranged, melee и mixed Minion-сценарии: одиночные бои, независимые sequential/process прогоны, агрегаты, поэтапный подбор и генерация составов из заданного резерва, JSON/CLI. Магия M8 поддерживает отдельный ограниченный бой с одним Champion-Wizard и Curse of Cowardly Flight, а также независимые sequential/process прогоны и aggregate-only summary. Полный каталог и универсальный бой ещё не реализованы.
 
 ## Навигация
 
@@ -11,7 +11,7 @@
 - [Документация и нормативные источники](docs/README.md), [иерархия источников](docs/source-policy.md), [трассировка правил](docs/rule-traceability.md).
 - [Архитектура](docs/architecture/overview.md), [roadmap](docs/roadmap.md).
 - Внешние границы: [ranged](docs/audits/m5-external-readiness.md), [melee](docs/audits/m6-external-readiness.md), [mixed](docs/audits/m7-external-readiness.md).
-- Магия: [single-run](docs/audits/m8-encounter-readiness.md), [simulation ADR-0038](docs/decisions/ADR-0038-independent-magic-simulations.md), [примеры](docs/examples/m8/README.md).
+- Магия: [single-run](docs/audits/m8-encounter-readiness.md), [simulation ADR-0038](docs/decisions/ADR-0038-independent-magic-simulations.md), [process ADR-0039](docs/decisions/ADR-0039-process-magic-simulations.md), [примеры](docs/examples/m8/README.md).
 
 ## Локальная проверка
 
@@ -87,7 +87,7 @@ $env:PYTHONPATH = "src"
 
 После установки текущей версии доступна также `towr simulate-mixed INPUT`; `-` читает stdin. [Пример и ограничения](docs/examples/m7/json/README.md) задают неподвижный бой numeric Minions, явные Close/Medium пары, решения GM и seed/backend. Результат содержит сводку четырёх исходов. Подбор смешанных составов доступен через `towr balance-mixed INPUT`; результат содержит каталог составов, отчёты этапов и итоговый выбор.
 
-## Магия: последовательные прогоны через Python API
+## Магия: независимые прогоны через Python API
 
 ```sh
 PYTHONPATH=src python docs/examples/m8/magic_simulation.py
@@ -95,4 +95,13 @@ PYTHONPATH=src python docs/examples/m8/magic_simulation.py
 
 [Пример](docs/examples/m8/magic_simulation.py) использует public simulation API и соседний [builder одиночного боя](docs/examples/m8/magic_scenario.py). Он проверяет четыре исхода, свежий RNG на trial, полный source и воспроизводимость. [Вывод](docs/examples/m8/magic_simulation.output.txt) — finite scripted evidence, не оценка сложности.
 
-ADR-0038 сохраняет текущий single-run scope и отдельный UNSUPPORTED_PATH. Magic process backend, метрика/подбор и JSON/CLI требуют последующих контрактов; неизвестные GM facts и обязательные неподдержанные эффекты не заменяются автоматическими решениями.
+ADR-0038 сохраняет текущий single-run scope и отдельный UNSUPPORTED_PATH. Метрика/подбор и JSON/CLI требуют последующих контрактов; неизвестные GM facts и обязательные неподдержанные эффекты не заменяются автоматическими решениями.
+
+
+Опциональный процессный API [ADR-0039](docs/decisions/ADR-0039-process-magic-simulations.md) доступен отдельно через `run_npc_magic_simulation_parallel(request, workers=..., batch_size=...)`. [Публичный пример](docs/examples/m8/magic_parallel.py) использует explicit spawn, сохраняет seeds/result/summary и общий исходный scenario. Для копирования нужны также соседние magic_simulation.py и magic_scenario.py.
+
+```sh
+PYTHONPATH=src python docs/examples/m8/magic_parallel.py
+```
+
+Workers/batch_size выбираются явно; автоматического выбора backend нет. Корректность и [аудит](docs/audits/m8-process-readiness.md) не означают ускорение: sequential/process performance с учётом startup/serialization/shutdown проверяется следующим отдельным этапом.

@@ -12,7 +12,7 @@
 
 - [Обзор и направление зависимостей](architecture/overview.md), [resolution kernel](architecture/resolution-kernel.md).
 - [ADR](decisions/): [K1](decisions/ADR-0002-book-first-resolution-kernel.md), [ranged input](decisions/ADR-0013-ranged-minion-scenario-input.md), [melee](decisions/ADR-0021-melee-minion-scenario.md), [mixed](decisions/ADR-0028-mixed-minion-scenario.md).
-- M8: [Casting](decisions/ADR-0035-cowardly-flight-casting-boundary.md), [интеграция](decisions/ADR-0036-magic-encounter-integration.md), [single-run](decisions/ADR-0037-magic-scenario-runner.md), [independent sequential simulation](decisions/ADR-0038-independent-magic-simulations.md).
+- M8: [Casting](decisions/ADR-0035-cowardly-flight-casting-boundary.md), [интеграция](decisions/ADR-0036-magic-encounter-integration.md), [single-run](decisions/ADR-0037-magic-scenario-runner.md), [independent sequential simulation](decisions/ADR-0038-independent-magic-simulations.md), [process backend ADR-0039](decisions/ADR-0039-process-magic-simulations.md).
 
 ## Готовность и примеры
 
@@ -28,3 +28,9 @@
 
 
 M8 performance: [ограниченный контракт](benchmarks/m8-profiling-contract.md), [исходный sequential baseline](benchmarks/m8-baseline-2026-10-26.md), [аудит и следующий шаг](audits/m8-profiling-readiness.md). Это измерение developer harness, не новый backend или оценка сложности.
+
+
+M8 process contract: [аудит ADR-0039](audits/m8-process-contract-readiness.md), [конечный public transport probe](examples/m8/process_contract_probe.py) и [stored output](examples/m8/process_contract_probe.output.txt). Контрактный probe сохранён как историческая evidence; готовый scheduler проверен отдельными unit/real-spawn tests, performance ещё не измерен.
+
+
+M8 process API: [production readiness](audits/m8-process-readiness.md), [самостоятельный пример](examples/m8/magic_parallel.py) и [stored output](examples/m8/magic_parallel.output.txt). Public calls сохраняют исходный scenario/result/summary, workers/batch_size выбираются явно.
