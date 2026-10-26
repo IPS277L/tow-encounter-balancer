@@ -35,6 +35,8 @@ from towr.domain.npc_magic_scene_models import (
 from towr.domain.npc_objective_models import NpcDefeatObjective
 from towr.domain.npc_roster_attack_models import NpcRosterAttackExecutionRequest
 from towr.domain.npc_roster_minion_attack_models import NpcRosterMinionAttackRequest
+from towr.domain.npc_roster_minion_defeat_models import NpcRosterMinionDefeatRequest
+from towr.domain.npc_roster_turn_models import NpcRosterTurnStartRequest, NpcRosterRoundAdvanceRequest
 from towr.domain.npc_roster_casting_completion_models import (
     NpcRosterCastingCompletionRequest, NpcRosterCastingCompletionResult,
 )
@@ -55,8 +57,7 @@ from towr.domain.resolution_models import GiveGroundResolutionRequest, KernelAtt
 from towr.domain.spatial_models import SpatialBattleState, SpatialEntityPlacement, ZoneConnection, ZoneGraph
 from towr.domain.test_models import InlineProfile, Skill
 from towr.domain.turn_models import (
-    ActionSlotGrant, CombatActionDeclaration, CombatActionKind, CombatActionSlotRequest,
-    CombatRoundState, CombatSide, CombatTurnStartRequest, ImproviseKind,
+    CombatActionDeclaration, CombatActionKind, CombatRoundState, CombatSide, ImproviseKind,
 )
 from towr.engine.cowardly_flight_casting import execute_cowardly_flight_casting, complete_cowardly_flight_casting
 from towr.rules.cowardly_flight_resolution import complete_cowardly_flight_movement
@@ -64,12 +65,18 @@ from towr.rules.npc_attack_preparation import prepare_npc_attack, prepare_npc_at
 from towr.rules.npc_champion_attack_execution import execute_npc_champion_attack
 from towr.rules.npc_roster_attack_execution import apply_npc_roster_attack_result
 from towr.rules.npc_roster_minion_attack_resolution import execute_npc_roster_minion_attack, apply_npc_roster_minion_attack_result
+from towr.rules.npc_roster_minion_defeat_resolution import (
+    acknowledge_npc_roster_minion_defeat, apply_npc_roster_minion_defeat_result,
+)
 from towr.rules.npc_roster_casting_completion_resolution import apply_npc_roster_casting_completion
 from towr.rules.npc_roster_casting_resolution import prepare_npc_roster_casting, apply_npc_roster_casting_result
 from towr.rules.npc_roster_champion_attack_resolution import apply_npc_roster_champion_attack_result
 from towr.rules.npc_wound_turn_end import end_npc_wound_turn, apply_npc_wound_turn_end_result
 from towr.rules.spatial_resolution import resolve_give_ground
-from towr.rules.turn_resolution import reserve_combat_action_slot, start_combat_turn
+from towr.rules.npc_roster_turn_resolution import (
+    start_npc_roster_turn, apply_npc_roster_turn_start_result,
+    advance_npc_roster_round, apply_npc_roster_round_advance_result,
+)
 
 
 class ScriptedDice:
@@ -155,31 +162,29 @@ def admitted_scenario(*, wizard_side: CombatSide = CombatSide.PLAYERS_AND_ALLIES
 def activation(state: NpcRosterCastingState, actor: str, kind: CombatActionKind) -> NpcRosterCastingState:
     """One explicit start/slot, with the existing scheduler enforcing side order."""
     identifier = f'probe:{state.round_state.round_number}:{actor}'
-    combat = start_combat_turn(CombatTurnStartRequest(identifier + ':start', state.round_state, actor)).state
     declaration = (CombatActionDeclaration(kind, improvise_kind=ImproviseKind.SPELL,
         improvise_approach_id=BATTLE_MAGIC_LORE_ID) if kind is CombatActionKind.IMPROVISE
         else CombatActionDeclaration(kind))
-    combat = reserve_combat_action_slot(CombatActionSlotRequest(
-        identifier + ':slot', combat, actor, declaration, ActionSlotGrant.STANDARD)).state
-    return replace(state, round_state=combat, champion_attack=replace(state.champion_attack, round_state=combat))
+    request = NpcRosterTurnStartRequest(identifier, state, actor, declaration)
+    return apply_npc_roster_turn_start_result(state, start_npc_roster_turn(request))
 
 
 def attack_parts(
-    state: NpcRosterCastingState, target_id: str,
+    state: NpcRosterCastingState, target_id: str, *, actor_id: str = 'enemy', prefix: str = 'probe',
 ) -> tuple[NpcProtectedAttackPreparationResult, AttackActionExecutionRequest]:
     """Supplied Short/awareness/route facts are only valid in this initial arena."""
     assert all(p.zone_id == 'arena' for p in state.spatial_state.placements)
-    actor, target = state.roster.participant('enemy'), state.roster.participant(target_id)
+    actor, target = state.roster.participant(actor_id), state.roster.participant(target_id)
     prepared = prepare_npc_attack(NpcAttackPreparationRequest(
-        'probe:prepare', 'probe:attack', 'probe:attacker-test', actor.attack_snapshot('probe:snapshot'),
+        prefix + ':prepare', prefix + ':attack', prefix + ':attacker-test', actor.attack_snapshot(prefix + ':snapshot'),
         'shot', target_id, RangedWeaponRange.SHORT, target.state.current_resilience,
         False, actor.state.injury.conditions.has(Condition.STAGGERED), False))
     protected = prepare_npc_attack_protection(prepared, ProtectionPreparationRequest(
-        'probe:protect', target_id, prepared.attack, Skill.SHOOTING, True, False,
+        prefix + ':protect', target_id, prepared.attack, Skill.SHOOTING, True, False,
         target.state.wields_weapon, target.state.holds_shield, Skill.ATHLETICS,
-        target.protection_options('probe:protection-test')))
-    execution = AttackActionExecutionRequest('probe:shot', state.round_state, 'enemy', target_id, 1,
-        KernelAttackRequest('probe:kernel', target_id, protected.attack, target.definition.injury_policy,
+        target.protection_options(prefix + ':protection-test')))
+    execution = AttackActionExecutionRequest(prefix + ':shot', state.round_state, actor_id, target_id, 1,
+        KernelAttackRequest(prefix + ':kernel', target_id, protected.attack, target.definition.injury_policy,
                             target.state.injury, True, False))
     return protected, execution
 
@@ -256,6 +261,27 @@ def main() -> None:
     expect_rejection(lambda: apply_npc_roster_casting_result(final, result), ValueError, 'already been consumed')
     print(f'WOUND -> CAST -> END: {calls + rng.calls} d10; Drained expires; Wound/daily/magic/history retained')
 
+    # Finish the actual remaining turn before advancing the complete owner.
+    current = activation(final, 'ally', CombatActionKind.ATTACK)
+    protected, execution = attack_parts(current, 'enemy', actor_id='ally', prefix='probe:round-end')
+    source = NpcRosterMinionAttackRequest(current,
+        NpcRosterAttackExecutionRequest(current.minion_attack, protected, execution))
+    rng = ScriptedDice((10, 10, 10, 10, 10, 10))
+    current = apply_npc_roster_minion_attack_result(current, execute_npc_roster_minion_attack(source, rng))
+    rng.exhausted()
+    ended = finish_turn(current, 'ally')
+    assert ended.round_state.round_complete
+    advanced = apply_npc_roster_round_advance_result(ended,
+        advance_npc_roster_round(NpcRosterRoundAdvanceRequest('probe:advance', ended)))
+    next_turn = activation(advanced, 'enemy', CombatActionKind.ATTACK)
+    assert next_turn.round_state.round_number == next_turn.spatial_state.round_number == 2
+    assert next_turn.spatial_state.placements == ended.spatial_state.placements
+    assert next_turn.wizard is ended.wizard and next_turn.minion_attack is ended.minion_attack
+    assert next_turn.champion_attack.daily_wounds == ended.champion_attack.daily_wounds
+    assert next_turn.consumed_execution_ids == ended.consumed_execution_ids
+    assert next_turn.round_state.active_turn.action_slots[0].execution is None
+    print('ROUND ADVANCE -> START: 6 d10 for remaining ally Attack; 0 for phases; round 2; full histories retained')
+
     _, pending, calls = incoming(4)
     assert pending.champion_attack.pending is not None
     assert pending.champion_attack.pending.pending_follow_ups
@@ -324,8 +350,20 @@ def main() -> None:
     expect_rejection(lambda: apply_npc_roster_attack_result(state, attack), TypeError, 'NpcRosterAttackState')
     assert state == before
     print('MINION HANDOFF: 6 d10; full defeat pending; root/Minion histories agree; magic retained; end-turn blocked')
+    decision = MinionDefeatDecision('enemy', 'ally', NpcDefeatDisposition.KNOCKED_OUT, True)
+    defeat = acknowledge_npc_roster_minion_defeat(NpcRosterMinionDefeatRequest('probe:defeat:ally', final, decision))
+    closed = apply_npc_roster_minion_defeat_result(final, defeat)
+    assert closed.pending_minion_attack is None and closed.minion_attack.acknowledged_defeat_execution_ids == ('probe:shot',)
+    assert closed.round_state.excluded_turn_entity_ids == ('ally',)
+    assert closed.roster is final.roster and closed.wizard is final.wizard and closed.spatial_state is final.spatial_state
+    assert closed.consumed_execution_ids == final.consumed_execution_ids
+    ended = finish_turn(closed, 'enemy')
+    assert ended.round_state.completed_turn_entity_ids == ('enemy',)
+    assert ended.round_state.excluded_turn_entity_ids == ('ally',)
+    expect_rejection(lambda: apply_npc_roster_minion_defeat_result(closed, defeat), ValueError, 'already acknowledged')
+    print('DEFEAT ACK: 0 d10; supplied knockout recorded; only target excluded; pending closed; explicit end-turn allowed')
     assert original.consumed_execution_ids == () and getstate() == global_rng
-    print('32 scripted d10; public API only; sources/global RNG unchanged; no scenario runner or four-outcome claim')
+    print('38 scripted d10; public API only; sources/global RNG unchanged; no scenario runner or four-outcome claim')
 
 
 if __name__ == '__main__':

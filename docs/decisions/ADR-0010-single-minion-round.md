@@ -139,3 +139,9 @@ Actor eligibility уточнена в [ADR-0009](ADR-0009-npc-attack-selection-p
 Изменяется время жизни проекции: она создаётся сразу с result и удерживается до его освобождения; поэтому стоимость памяти проверяется наряду с временем. Private field не является внешним wire контрактом и не создаёт общего cache/battle aggregate. [Три новых unit tests](../../tests/unit/test_m2_minion_defeat.py) проверяют два replace при построении и отсутствие повторного построения при чтениях/apply, immutable source/roster/round/очередь/все histories, rebuild при новом source, identity contract и отказ до projection. Прежние foreign/stale/replay и integration tests сохраняются.
 
 Книжная семантика RULE-NPC-002 не меняется: BOOK-GM-GUIDE 1.1, Allies and Antagonists / Minions, стр. 91 непосредственно перепроверена. Выбор disposition и подтверждение GM остаются явными. Результаты измерений — в [benchmarks](../benchmarks/README.md), полной проверки — в [project-status](../project-status.md#последняя-проверка).
+
+2026-10-26, M8: общие чистые defeat/exclusion проверки и projections вынесены в helpers внутри прежних domain modules. MinionDefeatAcknowledgementRequest/Result и NpcRoundExclusionRequest/Result/functions сохраняют API, Minion-only context, queue/identity/replay semantics; 31 релевантный M2 test проходит. [ADR-0037](ADR-0037-magic-scenario-runner.md#bound-minion-defeat-acknowledgementexclusion) использует эти helpers по full magic owner, без фиктивного NpcRoundRequest с Champion. Новых игровых правил нет.
+
+## Scheduling mixed owner M8
+
+2026-10-26: [ADR-0037 full-owner start/advance](ADR-0037-magic-scenario-runner.md#full-owner-startadvance) используют K1 scheduler напрямую: архивные participants/placements и обе стороны сохраняются, dead/defeated исключаются из ожидающих ходов нового раунда. M2 live projection/Minion-only request сюда не подставляются. Публичные M2 API в этом срезе не менялись.
