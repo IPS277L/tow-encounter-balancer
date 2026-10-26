@@ -43,3 +43,7 @@ Player’s Guide 1.4 на странице 121 различает treatment и h
 ## Последствия
 
 Injury history остаётся проверяемой и пригодной для воспроизведения, а treatment нельзя спутать с полным healing, временным suppression, Festering infection state или завершённой surgery. Реализованы `Catch Your Breath`, `A Night’s Respite`, успешная `Rest and Recovery`, отдельный Festering state/recovery consumer, daily Wound tracking, обе ветви закрытия end-of-day Infection, ordinary downtime surgery и Combat Surgeon battle proof для строк `20–23`, обе непосредственные ветви Combat Surgeon, battle-scoped suppression aggregate/effective view и полная Test preparation для `Drained`. Fate proof теперь создаёт session-resource consumer; остальные Condition modifiers, применение surgery-failure follow-up и optional early Endurance Test остаются отдельными будущими границами.
+
+## Отдельное истечение временного эффекта M8
+
+2026-10-26: [ADR-0036](ADR-0036-magic-encounter-integration.md#первый-end-turn-wound-lifecycle) добавляет узкий end-turn для Stomach Blow, без изменения healing APIs. BOOK-PLAYER-GUIDE 1.4, Rules / Wounds & Conditions, стр. 121–123; Wounds Table, стр. 190: expiry Drained удаляет только due END_OF_NEXT_TURN effect, сохраняет historical Wound и treated/healed flags. Exact source/target-turn clock хранится в owner; отдельный phase receipt защищает от повторного применения. Existing WoundConditionSourceSnapshot сохраняет другие ongoing sources; untracked timers не истекают по одному текущему round или имени Condition. Это не лечение и не окончание encounter.

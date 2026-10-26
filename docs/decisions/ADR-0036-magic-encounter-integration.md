@@ -264,3 +264,41 @@ current = apply_npc_broken_run_result(current, result)
 [18 unit](../../tests/unit/test_m8_npc_broken_run.py) и [4 integration tests](../../tests/integration/test_m8_npc_broken_run.py): Normal/Fast, Wizard/Minion, один free move/Run, отсутствие RNG/Recover, source/type/path/replay/stale/receipt/pending guards, canonical trace, archived histories и отказ Run без partial state. Real Curse → Broken Minion → free move → Run и real Champion Wound/daily → Wizard Run сохраняют оба источника. Broken мага по-прежнему задаётся initial fact, не объявлением Curse по Champion. Дополнительный [Slow/free-move regression](../../tests/unit/test_m8_npc_broken_recover.py) закрепляет существующее корректное поведение; исправлена только прежняя неточная фраза документации. Всего 189 M8 tests проходят (23 новых проверки, включая regression); прежние 166 сохраняются.
 
 Следующий срез — actor-bound end-turn Wound lifecycle: перенос нужных expiry/Condition transitions с source/turn guards и блокировкой при обязательном pending, затем отдельный scenario/runner. Terrain/Athletics и full Miscast effects остаются отдельными consumers. Новых игровых Rule IDs или house rules нет.
+
+## Первый end-turn Wound lifecycle
+
+2026-10-26. Непосредственно перечитаны BOOK-PLAYER-GUIDE 1.4, Rules / Wounds & Conditions, стр. 121–123; Wounds Table, стр. 190–191. Stomach Blow (6) даёт Drained до конца следующего хода цели (стр. 190). Condition существует в одном экземпляре, но ongoing cause не позволяет снять её до устранения причины (стр. 122). Истечение временного эффекта не лечит Wound, не выполняет Recover и не уменьшает untreated count (стр. 121).
+
+[Source/clock records](../../src/towr/domain/npc_wound_turn_models.py) дополняют полный Casting owner двумя immutable ordered histories:
+
+- `wound_expiries: tuple[NpcStomachBlowExpiry, ...]`. Bound Champion attack projection автоматически регистрирует полный accepted/resolved Stomach Blow result. Actor, exact historical Wound identity, effect, action ID, daily receipt и consumed roll history сверяются с текущим owner. Deadline получается из исходного attack round: текущий раунд, если цель ещё не завершила ход; следующий раунд, если завершила. Обычная внешняя атака не происходит в ходе цели. Caller не передаёт произвольный deadline.
+- `wound_turn_end_receipts: tuple[NpcWoundTurnEndReceipt, ...]`. Phase ID, actor/round и expired attack IDs предотвращают повторный end-turn и возвращение уже истёкшего источника. Action history остаётся отдельной и не получает фиктивного действия.
+
+Excluded target сохраняет законно полученный effect/source: accepted attack не отменяется из-за отсутствия будущей хронологии. Попытка завершить ход такой цели требует отдельного контракта и отклоняется. Own-turn Wounds и прочие источники timed effects не получают выдуманный clock.
+
+[NpcWoundTurnEndRequest](../../src/towr/domain/npc_wound_turn_end_models.py) принимает `id, state, actor_id, condition_sources`. Первый допуск — живой активный Champion/Minion, один исполненный STANDARD slot, Conditions только Staggered/Drained/Broken. Wizard action уже должен пройти bound consumer с зарегистрированным receipt, чтобы end-turn не обходил skipped Casting. Все четыре pending (Miscast, movement, interruption, Champion attack) блокируют вход до scheduler. Unresolved Wounds, restrictions и другие Conditions, в том числе Ablaze/Critically Injured с обязательными end-turn Tests, отклоняются до исполнения.
+
+У действующего Wizard каждый END_OF_NEXT_TURN effect должен иметь exact зарегистрированный источник и быть due именно в этом ходе; ранние, просроченные и untracked timers отклоняются. Для каждой истекающей Condition требуется ровно один `WoundConditionSourceSnapshot`. `has_other_active_source=False` запрещён, если остаётся известный Wound source; `True` сохраняет Condition от другой Wound или явно заданной внешней причины. Поддержанные неистекающие Staggered/Drained effects остаются. Завершение хода другого actor не меняет эффекты мага.
+
+[End/application](../../src/towr/rules/npc_wound_turn_end.py):
+
+```python
+request = NpcWoundTurnEndRequest(
+    'end:wizard', current, current.wizard.actor_id,
+    (WoundConditionSourceSnapshot(Condition.DRAINED, False),),
+)
+result = end_npc_wound_turn(request)
+current = apply_npc_wound_turn_end_result(current, result)
+```
+
+Executor вызывает existing `end_combat_turn` один раз. Result проверяет весь scheduler transition: source, completed actor/turn, round participants/order/history, next side, round-complete bool и Rule ID. Derived state атомарно переносит истёкшие effects/Conditions, full roster/round/attached Champion и phase receipt. Wound records/flags, WizardMagicState, spatial/usage, daily ledger и action/roll histories сохраняются. Pure application требует exact текущий snapshot и не исполняет scheduler/Tests повторно. RNG в этом переходе отсутствует.
+
+[14 unit tests](../../tests/unit/test_m8_npc_wound_turn_end.py) и [4 integration tests](../../tests/integration/test_m8_npc_wound_turn_end.py) проверяют source/clock до и после хода цели, независимые sources, чужой actor, типы/immutable/replay/stale/pending guards, точный scheduler result и real Wound → Casting/Broken Recover/Broken Run → expiry. У Wizard Broken остаётся explicit initial fact; Curse по Champion этим не объявляется. Все 207 M8 tests проходят; прежние 189 сохранены.
+
+Это первый timed transition, без общего lifecycle dispatcher. Gashed Brow/Blinded, прочие timed effects, многослотовые turns, terrain/Athletics и полные Miscast effects требуют своих consumers. Следующий срез — отдельный scenario/runner contract и finite probe с полным unsupported_path, objective и лимитом; production runner следует после контракта. Новых игровых Rule IDs/house rules нет.
+
+## Отдельный scenario/runner contract
+
+2026-10-26: [ADR-0037](ADR-0037-magic-scenario-runner.md) и [finite probe](../examples/m8/encounter_contract_probe.py) подготовлены после первого end-turn. Зафиксированы authored состав/политики, finite scene frames, objective/лимит, full source-bound steps/result и exact unsupported. Inventory выявил обязательный bound Minion → Minion handoff/acknowledgement/exclusion к magic owner и start/advance wrappers; готовый M2 executor их не заменяет. Probe проверяет 32 scripted d10 существующих API без общего loop; новые scenario constructors/четыре outcomes им не объявляются реализованными. Следующий срез — frozen scenario input/pure admission по ADR-0037, затем недостающие стыки и runner.
+
+2026-10-26: первый implementation-срез [ADR-0037](ADR-0037-magic-scenario-runner.md#реализованный-typed-вход) завершён: typed frozen scenario/actor policies/facts/scene frames и pure admission. 31 новый deterministic test, 238 M8 суммарно. Probe начинает с production constructor без RNG; прежние 32 d10 и action chains сохранены. Следующий шаг — bound перенос одного Minion Attack к magic owner с full pending/двумя histories; acknowledgement/exclusion/start/advance и runner идут отдельно.

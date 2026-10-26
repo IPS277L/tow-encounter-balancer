@@ -3,6 +3,8 @@ from dataclasses import dataclass, replace
 
 from towr.domain.npc_champion_attack_models import NpcChampionAttackRequest, NpcChampionAttackResult
 from towr.domain.npc_roster_casting_models import NpcRosterCastingState
+from towr.domain.npc_wound_turn_models import NpcStomachBlowExpiry
+from towr.domain.injury_models import WoundEntryId
 
 
 @dataclass(frozen=True, slots=True)
@@ -41,6 +43,12 @@ class NpcRosterChampionAttackResult:
     @property
     def state(self) -> NpcRosterCastingState:
         previous, updated = self.source.state, self.attack.state
+        expiries = previous.wound_expiries
+        completion = self.attack.completion
+        if (completion is not None and completion.wound_effect is not None
+                and completion.wound_effect.request.entry_id is WoundEntryId.STOMACH_BLOW):
+            expiries = (*expiries, NpcStomachBlowExpiry(self.attack))
         return replace(previous, roster=updated.roster, round_state=updated.round_state,
                        champion_attack=updated, consumed_execution_ids=(
-                           *previous.consumed_execution_ids, self.attack.execution.request_id))
+                           *previous.consumed_execution_ids, self.attack.execution.request_id),
+                       wound_expiries=expiries)

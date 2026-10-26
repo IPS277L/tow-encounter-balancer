@@ -15,6 +15,7 @@ from towr.domain.injury_models import WoundConditionEffect
 from towr.domain.magic_models import MiscastPoolOutcome, MiscastRollRequest, WizardMagicState
 from towr.domain.npc_champion_attack_models import NpcChampionAttackState
 from towr.domain.npc_roster_models import NpcRoster
+from towr.domain.npc_wound_turn_models import NpcStomachBlowExpiry, NpcWoundTurnEndReceipt
 from towr.domain.resolution_models import TargetInjuryPolicy
 from towr.domain.spatial_models import SpatialBattleState
 from towr.domain.turn_models import CombatRoundState
@@ -66,6 +67,8 @@ class NpcRosterCastingState:
     champion_attack: NpcChampionAttackState | None = None
     pending_movement: CowardlyFlightCastingResult | None = None
     pending_interruption: SkippedCastingTestAfterActionResult | None = None
+    wound_expiries: tuple[NpcStomachBlowExpiry, ...] = ()
+    wound_turn_end_receipts: tuple[NpcWoundTurnEndReceipt, ...] = ()
 
     def __post_init__(self) -> None:
         for value, kind in (
@@ -171,6 +174,39 @@ class NpcRosterCastingState:
                     or interruption.action.round_number != self.round_state.round_number
                     or not any(slot.execution == interruption.action for slot in turn.action_slots)):
                 raise ValueError("pending interruption must match the applied action/magic/history")
+        for name, kind in (('wound_expiries', NpcStomachBlowExpiry),
+                           ('wound_turn_end_receipts', NpcWoundTurnEndReceipt)):
+            values = getattr(self, name)
+            if not isinstance(values, (tuple, list)) or not all(isinstance(v, kind) for v in values):
+                raise TypeError(f'{name} requires ordered {kind.__name__} values')
+            object.__setattr__(self, name, tuple(values))
+        receipts = self.wound_turn_end_receipts
+        keys = tuple((r.actor_id, r.round_number) for r in receipts)
+        ended_ids = tuple(r.id for r in receipts)
+        expired_ids = tuple(i for r in receipts for i in r.expired_attack_ids)
+        if (len(set(keys)) != len(keys) or len(set(ended_ids)) != len(ended_ids)
+                or len(set(expired_ids)) != len(expired_ids) or not set(expired_ids) <= set(consumed)):
+            raise ValueError('Wound turn-end history repeats a turn/source or loses action history')
+        for receipt in receipts:
+            self.roster.participant(receipt.actor_id)
+            if (receipt.round_number > self.round_state.round_number
+                    or receipt.round_number == self.round_state.round_number
+                    and receipt.actor_id not in self.round_state.completed_turn_entity_ids
+                    or receipt.expired_attack_ids and receipt.actor_id != self.wizard.actor_id):
+                raise ValueError('Wound turn-end receipt differs from the completed actor/round')
+        expiry_ids = tuple(e.attack_id for e in self.wound_expiries)
+        if len(set(expiry_ids)) != len(expiry_ids) or set(expiry_ids) & set(expired_ids):
+            raise ValueError('Wound expiry source was duplicated or already consumed')
+        for expiry in self.wound_expiries:
+            champion = self.champion_attack
+            wound = next((w for w in actor.state.injury.wounds if w.sequence == expiry.wound.sequence), None)
+            if (expiry.actor_id != self.wizard.actor_id or expiry.attack_id not in consumed
+                    or champion is None or expiry.attack_id not in champion.consumed_execution_ids
+                    or expiry.source.completion.daily_registration.receipt not in champion.daily_wounds.receipts
+                    or not set(expiry.source.completion.consumed_roll_ids) <= set(champion.consumed_wound_roll_ids)
+                    or wound is None or not expiry.matches_wound(wound)
+                    or expiry.effect not in actor.state.injury.active_wound_effects):
+                raise ValueError('Wound expiry differs from the current Champion/source/history')
 
     @property
     def casting_round_state(self) -> CombatRoundState:
