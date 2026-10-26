@@ -17,6 +17,8 @@ def prepare_npc_roster_casting(
     """Build a bound request from current injury and live projections, no RNG."""
     if not isinstance(state, NpcRosterCastingState):
         raise TypeError('state must be an NpcRosterCastingState')
+    if state.pending_minion_attack is not None:
+        raise ValueError('pending Minion attack blocks normal Casting')
     if state.pending_interruption is not None:
         raise ValueError('pending interruption Miscast blocks normal Casting')
     if state.pending_movement is not None:

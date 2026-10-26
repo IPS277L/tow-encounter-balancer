@@ -26,6 +26,8 @@ class NpcRosterCastingCompletionRequest:
             raise TypeError("state must be an NpcRosterCastingState")
         if not isinstance(self.completion, CowardlyFlightCastingCompletionRequest):
             raise TypeError("completion must be a CowardlyFlightCastingCompletionRequest")
+        if self.state.pending_minion_attack is not None:
+            raise ValueError('pending Minion attack blocks Curse completion')
         if self.state.pending_movement is None:
             raise ValueError("roster completion requires pending movement")
         if self.completion.pending != self.state.pending_movement:
@@ -71,4 +73,6 @@ class NpcRosterCastingCompletionResult:
         if champion is not None:
             champion = replace(champion, roster=roster)
         return replace(previous, roster=roster, spatial_state=spatial,
+                       minion_attack=(None if previous.minion_attack is None else
+                                      replace(previous.minion_attack, roster=roster)),
                        champion_attack=champion, pending_movement=None)

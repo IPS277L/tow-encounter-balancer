@@ -51,8 +51,10 @@ PYTHONPATH=src python docs/examples/m8/encounter_contract_probe.py
 - 7 d10: Nicked Arm сохраняет полный Endurance follow-up и блокирует end-turn.
 - 6 d10: Curse → обязательный Give Ground → Willpower/Broken → end-turn; один Casting receipt, обновлённые позиции, Broken не defeat.
 - 3 d10: Miscast сохраняет весь pool/source/receipt и останавливается до preparation/table/desperate choice.
-- 6 d10: M2 Minion Attack создаёт defeat/pending, но его application принимает только M2 owner. Magic owner не обновляется автоматически; будущий bound handoff ещё нужен.
+- 6 d10: bound Minion Attack вызывает existing M2 один раз и атомарно переносит defeat/full pending в magic owner. Общая и Minion histories совпадают; Champion/daily/magic/spatial сохраняются. End-turn блокируется до будущего acknowledgement/exclusion.
 
 Принятый scenario.initial далее используется в реальной Curse → Give Ground цепочке; после движения новый key отсутствует в supplied frames, без выдуманного контекста. [31 deterministic test](../../../tests/unit/test_m8_npc_magic_scenario.py) дополнительно проверяет frozen/source/type/role/partition/Range/Speed/route guards, обе Wizard/perspective стороны и independent orders. Все 238 M8 tests проходят.
 
-Probe не выбирает маршруты/тактику автоматически, не выполняет полный бой и не проверяет четыре будущих outcomes. Следующий срез — bound handoff одного Minion Attack к magic owner; затем acknowledgement/exclusion/start/advance и runner.
+`scenario.initial_runtime_state` присоединяет пустой Minion ledger до первой активации; сам scenario.initial остаётся fresh admitted source. Probe использует этот runtime в Curse, incoming Champion Wound и Minion handoff. [Bound models](../../../src/towr/domain/npc_roster_minion_attack_models.py) и [executor/application](../../../src/towr/rules/npc_roster_minion_attack_resolution.py) сохраняют полный source/pending без второго Attack. 19 unit + 6 integration tests покрывают перенос/блокировки/оба ledgers, все 263 M8 tests проходят.
+
+Probe не выбирает маршруты/тактику автоматически, не выполняет полный бой и не проверяет четыре будущих outcomes. Следующий срез — bound Minion defeat acknowledgement/exclusion, затем start/advance и encounter runner. Raw M2 application по-прежнему принимает только M2 owner; новый wrapper не меняет эту границу.

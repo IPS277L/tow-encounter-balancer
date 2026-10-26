@@ -14,6 +14,7 @@ from towr.domain.cowardly_flight_casting_result_models import (
 from towr.domain.injury_models import WoundConditionEffect
 from towr.domain.magic_models import MiscastPoolOutcome, MiscastRollRequest, WizardMagicState
 from towr.domain.npc_champion_attack_models import NpcChampionAttackState
+from towr.domain.npc_roster_attack_models import NpcRosterAttackExecutionResult, NpcRosterAttackState
 from towr.domain.npc_roster_models import NpcRoster
 from towr.domain.npc_wound_turn_models import NpcStomachBlowExpiry, NpcWoundTurnEndReceipt
 from towr.domain.resolution_models import TargetInjuryPolicy
@@ -69,6 +70,8 @@ class NpcRosterCastingState:
     pending_interruption: SkippedCastingTestAfterActionResult | None = None
     wound_expiries: tuple[NpcStomachBlowExpiry, ...] = ()
     wound_turn_end_receipts: tuple[NpcWoundTurnEndReceipt, ...] = ()
+    minion_attack: NpcRosterAttackState | None = None
+    pending_minion_attack: NpcRosterAttackExecutionResult | None = None
 
     def __post_init__(self) -> None:
         for value, kind in (
@@ -111,6 +114,30 @@ class NpcRosterCastingState:
                 raise ValueError("Champion attack owner must match the current caster/roster/round")
             if not set(self.champion_attack.consumed_execution_ids) <= set(consumed):
                 raise ValueError("Casting history must retain all bound Champion attack executions")
+        if self.minion_attack is not None:
+            _typed(self.minion_attack, NpcRosterAttackState)
+            if self.minion_attack.roster != self.roster:
+                raise ValueError('Minion attack owner must match the current full roster')
+        families = tuple(owner.consumed_execution_ids for owner in (self.champion_attack, self.minion_attack)
+                         if owner is not None)
+        for history in families:
+            identifiers = set(history)
+            if tuple(i for i in consumed if i in identifiers) != history:
+                raise ValueError('root must retain ordered attack history subsequences')
+        if len(families) == 2 and set(families[0]) & set(families[1]):
+            raise ValueError('Champion and Minion attack histories cannot share execution IDs')
+        minion_pending = self.pending_minion_attack
+        if minion_pending is not None:
+            _typed(minion_pending, NpcRosterAttackExecutionResult)
+            if (self.minion_attack is None or not minion_pending.pending_follow_ups
+                    or minion_pending.state != self.minion_attack
+                    or minion_pending.execution.state != self.round_state
+                    or not consumed or consumed[-1] != minion_pending.execution.request_id):
+                raise ValueError('pending Minion attack must match applied roster/round/history/follow-ups')
+            if (self.pending_miscast is not None or self.pending_movement is not None
+                    or self.pending_interruption is not None
+                    or self.champion_attack is not None and self.champion_attack.pending is not None):
+                raise ValueError('pending Minion attack cannot coexist with another mandatory continuation')
         pending = self.pending_miscast
         if pending is None:
             if (self.wizard.magic_state.miscast_dice > self.wizard.caster.wizard_level
@@ -241,6 +268,8 @@ class NpcRosterCastingRequest:
         _typed(self.state, NpcRosterCastingState)
         _typed(self.casting, CowardlyFlightCastingRequest)
         state, casting = self.state, self.casting
+        if state.pending_minion_attack is not None:
+            raise ValueError('pending Minion attack blocks normal Casting')
         if state.pending_interruption is not None:
             raise ValueError("pending interruption Miscast blocks normal Casting")
         if state.pending_movement is not None:
@@ -303,10 +332,13 @@ class NpcRosterCastingResult:
         champion = previous.champion_attack
         if champion is not None:
             champion = replace(champion, roster=roster, round_state=combat)
+        minion = previous.minion_attack
+        if minion is not None:
+            minion = replace(minion, roster=roster)
         return replace(
             previous, roster=roster,
             wizard=replace(previous.wizard, magic_state=casting.magic_state),
-            round_state=combat, champion_attack=champion,
+            round_state=combat, champion_attack=champion, minion_attack=minion,
             consumed_execution_ids=(*previous.consumed_execution_ids, casting.source.id),
             pending_miscast=casting if casting.pending_miscast is not None else None,
             pending_movement=(casting if casting.status is CowardlyFlightCastingStatus.MOVEMENT_REQUIRED

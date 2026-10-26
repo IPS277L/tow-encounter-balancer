@@ -1,6 +1,6 @@
 # ADR-0037: первый scenario/runner с Champion-Wizard
 
-Статус: принят как ограниченный технический контракт, 2026-10-26. Production scenario input/pure admission **реализованы**; result/runner ещё не реализованы. [ADR-0036](ADR-0036-magic-encounter-integration.md) задаёт владельцев отдельных действий и обязательных продолжений; этот ADR фиксирует их композицию. [Конечный probe](../examples/m8/encounter_contract_probe.py) проверяет admission, существующие API и оставшиеся стыки, без эмуляции будущего runner.
+Статус: принят как ограниченный технический контракт, 2026-10-26. Production scenario input/pure admission и bound Minion Attack handoff **реализованы**; encounter result/runner ещё не реализованы. [ADR-0036](ADR-0036-magic-encounter-integration.md) задаёт владельцев отдельных действий и обязательных продолжений; этот ADR фиксирует их композицию. [Конечный probe](../examples/m8/encounter_contract_probe.py) проверяет admission, существующие API и оставшиеся стыки, без эмуляции будущего runner.
 
 ## Источники и граница
 
@@ -75,15 +75,15 @@ Give Ground plan содержит actor_id, can_leave_zone, destination/route л
 
 ## Единый владелец и недостающие стыки
 
-Сохраняется узкий `NpcRosterCastingState` ADR-0036. Планируется добавить optional `minion_attack: NpcRosterAttackState` и полный `pending_minion_attack: NpcRosterAttackExecutionResult | None`, по аналогии с attached Champion owner. Pure admission первого среза принимает существующий начальный substrate без этого расширения. Отдельный runtime initializer второго среза один раз присоединяет пустой ledger до первого действия; initial runtime state выводится точно из сохранённого scenario source, без action receipt/RNG. Во всех переходах ordered roster один и тот же; общая root execution history содержит обе attack families/Casting/Broken actions, семейные ledgers сохраняют свои subsequences. Нельзя заново создать пустой `NpcRosterAttackState` при каждой атаке. Любой pending одной семьи блокирует остальные до completion.
+Сохраняется узкий `NpcRosterCastingState` ADR-0036. Реализованы optional `minion_attack: NpcRosterAttackState` и полный `pending_minion_attack: NpcRosterAttackExecutionResult | None`. Pure admission принимает fresh substrate без присоединённого ledger; `scenario.initial_runtime_state` выводит начальный runtime owner из полного source и присоединяет пустой ledger без action receipt/RNG. Это bootstrap до первого действия, не способ продолжить старый run с очищенной историей. Во всех переходах ordered roster один и тот же; общая root execution history содержит обе attack families/Casting/Broken actions, семейные ledgers сохраняют ordered subsequences и не пересекаются по IDs. Нельзя заново создать пустой `NpcRosterAttackState` при каждой атаке. Любой pending одной семьи блокирует остальные до completion.
 
-При добавлении Minion owner потребуется синхронизировать его также в существующих Casting/completion, Champion attack, Broken и expiry projections. Обновлять только attack handoff недостаточно: изменение Condition цели в Curse тоже меняет общий roster. Это часть второго среза и его regression tests, без изменения RNG/правил прежних consumers.
+Minion owner синхронизирован в Casting/completion, Champion attack, Broken Recover и expiry projections. Broken Run сохраняет его неизменным, поскольку roster не меняется. Истории ledger сохраняются во всех этих переходах; правила/RNG прежних consumers не менялись. Новый pending блокирует все bound action families и end-turn; legacy M2 API не становится общим dispatcher.
 
 | Компонент | Что уже есть | Что требуется перед loop |
 | --- | --- | --- |
 | Casting и Curse movement | Bound request/result/application, MOVEMENT_REQUIRED и source-bound completion | Scene facts/zone policy и вызов continuation до end-turn. |
 | Minion → Champion | Bound attack, daily ledger, Wound registration/effects и full pending | Точный pre-dispatch admission по текущим Conditions. Bridge сейчас допускает только Staggered и resolved Wounds без active effects; Drained/Broken target нельзя тихо атаковать без этого допуска. |
-| Minion → Minion | M2 request/result/application; отдельно acknowledgement и exclusion | **Нового bound handoff к magic owner пока нет.** Нужны source/replay guards, синхронизация roster/round/attached ledgers и полный pending, затем bound acknowledgement/exclusion без второго Attack. |
+| Minion → Minion | M2 request/result/application и bound handoff к magic owner реализованы; полный pending и обе histories сохраняются | Bound acknowledgement/exclusion ещё нужны; raw M2 helpers не заменяют их и не вызываются автоматически. |
 | Broken | Bound safe/free-move Recover, Run и skipped Casting | Выбор explicit plan из текущего frame; unsupported для иных маршрутов. |
 | End-turn | Bound Stomach Blow expiry, phase receipts, pending guards | Применение после завершения on-action последствий. Другие Conditions/effects сохраняются и останавливают путь. При closed scene source snapshots выводятся из оставшихся известных Wounds, без внешней причины. |
 | Start/advance/archive | K1 turn/slot/round и spatial reducers | Отдельные full-owner wrappers с проверкой полного source и результата; raw scheduler result сам по себе не доказательство корректного переноса owner. |
@@ -128,6 +128,30 @@ Objective-first при совпадении terminal predicates — явный �
 Реализация разделяется на законченные срезы:
 
 1. Frozen `NpcMagicScenario`/actor policies/facts/frame models и pure admission реализованы, 31 новый test. Runner/RNG не добавлены; полнота будущих frames не требуется.
-2. **Следующий законченный срез:** bound Minion → Minion handoff к magic owner с typed state/request/result, exact source/replay/pending guards и синхронизацией всех projections с attached Minion ledger. Сначала перенос одного existing Attack и сохранение полного pending, без runner и повторного Attack. Затем отдельные bound acknowledgement/exclusion и full-owner start/advance wrappers. Проверить unchanged magic/daily/Wound timers, обе attack histories и межсемейные pending/replay guards.
+2. Bound Minion → Minion handoff реализован: 19 unit + 6 integration tests, 263 M8 суммарно. **Следующий законченный срез:** bound подтверждение формы Minion defeat по supplied GM decision и исключение из ожидающих ходов с погашением exact pending, без повторного Attack. Далее full-owner start/advance wrappers. Сохранять magic/daily/Wound timers, обе attack histories и межсемейные pending/replay guards.
 3. Frozen steps/result/unsupported и single-run executor с current-state projections и точными stops. Не расширять Champion/Conditions admission для обхода законной остановки; дополнительный consumer — отдельный срез.
 4. Аудит одиночной границы и самостоятельный production-пример; затем отдельно решать дальнейшие consumers и массовые прогоны.
+
+## Bound Minion Attack handoff
+
+2026-10-26. [Models](../../src/towr/domain/npc_roster_minion_attack_models.py) и [executor/application](../../src/towr/rules/npc_roster_minion_attack_resolution.py) связывают existing ordinary M2 execution с полным magic owner. Прямо проверены BOOK-PLAYER-GUIDE 1.4, Rules / Attack Tests/Failed Attacks/Giving Ground, стр. 118–119; Conditions/Broken/Drained, стр. 122–123; BOOK-GM-GUIDE 1.1, Allies and Antagonists / Minions, стр. 91. Новых игровых Rule IDs/house rules нет.
+
+`NpcRosterMinionAttackRequest(state, attack)` связывает полный pre-action NpcRosterCastingState с NpcRosterAttackExecutionRequest до Attack RNG. Требуются attached Minion owner, точный roster/history и полный current round, активный Minion с одним unexecuted STANDARD Attack slot, живая hostile Minion цель, новый общий execution ID. M2 проверяет preparation/Protection/current injury/equipment; wrapper сверяет Give Ground usage с spatial и требует соседнюю Zone при can_leave=True. Range/другие GM route facts остаются caller-owned, не выводятся из названий Zones.
+
+Первый допуск Conditions: actor — только Staggered; target — Staggered/Broken. Broken запрещает normal Attack самому actor, но не делает его недоступной целью. Drained/Prone/Ablaze и другие состояния требуют собственного source-aware admission и отклоняются. Обычные Melee/Shooting из M2 поддержаны, без secondary effects, extra slots или автоматической тактики. Champion как target по-прежнему требует своего отдельного bridge.
+
+`execute_npc_roster_minion_attack(request, rng, decisions=None)` вызывает existing execute_npc_roster_attack ровно один раз. `NpcRosterMinionAttackResult(source, attack)` сверяет полный M2 source, а derived `.state` переносит roster/round/receipt/общий ID и attached Minion ledger, синхронизирует Champion owner. WizardMagicState, spatial/usage, daily/roll/expiry/phase histories сохраняются. Чужой actor не получает skipped Casting die за мага. `apply_npc_roster_minion_attack_result(current, result)` требует exact current full source, отклоняет stale/replay и не выполняет reducer/Test/RNG повторно.
+
+Любой pending пяти семейств блокирует новый bound dispatch; Minion pending содержит полный NpcRosterAttackExecutionResult с source/preparation/execution/follow-ups, связан с текущим roster/round/history. Miss/first Staggered не создают pending, Close miss применяет existing handled AttackerStaggerRequest. ProfileStateChange после defeat или Give Ground после repeated Staggered остаются в pending. Нет automatic disposition, acknowledgement, exclusion, движения, end-turn, terminal result или второго Attack. После defeat последнего врага pending/будущий terminal check используют полный owner: legacy live round projection требует обе стороны и не служит терминальным отчётом.
+
+```python
+current = scenario.initial_runtime_state  # once per run, before the first action
+# Caller starts/reserves the actual Minion turn and binds its M2 request.
+request = NpcRosterMinionAttackRequest(current, prepared_m2_request)
+result = execute_npc_roster_minion_attack(request, rng)
+current = apply_npc_roster_minion_attack_result(current, result)
+```
+
+[19 unit tests](../../tests/unit/test_m8_npc_roster_minion_attack.py) и [6 integration tests](../../tests/integration/test_m8_npc_roster_minion_attack.py): один executor/receipt, miss/stagger/defeat/Close miss/Give Ground, active cast другого actor, true pending stops, stale/type/slot/hostility/usage/history guards и отсутствие partial result при ошибке RNG. Real WAIT → Minion Attack; Curse → Give Ground → Broken target → Minion Attack; Champion Wound/daily → Minion miss → Casting → expiry и Broken Recover/Run сохраняют оба ledgers и full histories. Все 263 M8 tests проходят. Public probe теперь проверяет реальный handoff на прежних 32 scripted d10, с блокировкой end-turn.
+
+Следующий срез — bound Minion defeat acknowledgement/exclusion с exact pending/GM decision, включая последнюю цель, уже завершившую ход цель и сохранение обоих owners. Start/advance и encounter result/runner остаются отдельными задачами; raw M2 helpers вручную не обходят новый pending.

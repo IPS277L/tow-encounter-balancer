@@ -17,6 +17,8 @@ class NpcRosterChampionAttackRequest:
     def __post_init__(self) -> None:
         if not isinstance(self.state, NpcRosterCastingState) or not isinstance(self.attack, NpcChampionAttackRequest):
             raise TypeError('handoff requires typed Casting state and Champion attack request')
+        if self.state.pending_minion_attack is not None:
+            raise ValueError('pending Minion attack blocks Champion attack dispatch')
         if self.state.pending_miscast is not None:
             raise ValueError('pending Miscast blocks Champion attack dispatch')
         if self.state.pending_interruption is not None:
@@ -49,6 +51,8 @@ class NpcRosterChampionAttackResult:
                 and completion.wound_effect.request.entry_id is WoundEntryId.STOMACH_BLOW):
             expiries = (*expiries, NpcStomachBlowExpiry(self.attack))
         return replace(previous, roster=updated.roster, round_state=updated.round_state,
+                       minion_attack=(None if previous.minion_attack is None else
+                                      replace(previous.minion_attack, roster=updated.roster)),
                        champion_attack=updated, consumed_execution_ids=(
                            *previous.consumed_execution_ids, self.attack.execution.request_id),
                        wound_expiries=expiries)

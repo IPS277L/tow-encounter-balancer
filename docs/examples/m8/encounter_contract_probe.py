@@ -33,7 +33,8 @@ from towr.domain.npc_magic_scene_models import (
     NpcMagicRouteFacts, NpcMagicSceneFrame, NpcMagicSceneKey, NpcMagicZoneRange,
 )
 from towr.domain.npc_objective_models import NpcDefeatObjective
-from towr.domain.npc_roster_attack_models import NpcRosterAttackExecutionRequest, NpcRosterAttackState
+from towr.domain.npc_roster_attack_models import NpcRosterAttackExecutionRequest
+from towr.domain.npc_roster_minion_attack_models import NpcRosterMinionAttackRequest
 from towr.domain.npc_roster_casting_completion_models import (
     NpcRosterCastingCompletionRequest, NpcRosterCastingCompletionResult,
 )
@@ -61,7 +62,8 @@ from towr.engine.cowardly_flight_casting import execute_cowardly_flight_casting,
 from towr.rules.cowardly_flight_resolution import complete_cowardly_flight_movement
 from towr.rules.npc_attack_preparation import prepare_npc_attack, prepare_npc_attack_protection
 from towr.rules.npc_champion_attack_execution import execute_npc_champion_attack
-from towr.rules.npc_roster_attack_execution import execute_npc_roster_attack, apply_npc_roster_attack_result
+from towr.rules.npc_roster_attack_execution import apply_npc_roster_attack_result
+from towr.rules.npc_roster_minion_attack_resolution import execute_npc_roster_minion_attack, apply_npc_roster_minion_attack_result
 from towr.rules.npc_roster_casting_completion_resolution import apply_npc_roster_casting_completion
 from towr.rules.npc_roster_casting_resolution import prepare_npc_roster_casting, apply_npc_roster_casting_result
 from towr.rules.npc_roster_champion_attack_resolution import apply_npc_roster_champion_attack_result
@@ -115,9 +117,9 @@ def initial(*, wizard_side: CombatSide = CombatSide.PLAYERS_AND_ALLIES) -> NpcRo
         champion_attack=NpcChampionAttackState(roster, combat, DailyWoundState('probe:day', 'wizard')))
 
 
-def admitted_scenario() -> NpcMagicScenario:
+def admitted_scenario(*, wizard_side: CombatSide = CombatSide.PLAYERS_AND_ALLIES) -> NpcMagicScenario:
     """Fresh two-Zone authored scene; no future frame coverage is promised."""
-    state = initial()
+    state = initial(wizard_side=wizard_side)
     normal = MovementSpeed.NORMAL
     willpower = InlineProfile(3, 3)
     knocked_out = NpcDefeatDisposition.KNOCKED_OUT
@@ -146,7 +148,7 @@ def admitted_scenario() -> NpcMagicScenario:
         no_casting_opposition=True, no_mixing_winds=True, no_potency_modifiers=True, no_effect_immunities=True,
     )
     return NpcMagicScenario('probe:scenario', state, facts, ('wizard', 'ally', 'enemy'), actors, (frame,),
-        CombatSide.PLAYERS_AND_ALLIES, NpcDefeatObjective(('enemy',)), 3, StaggerChoice.SUFFER_WOUND,
+        wizard_side, NpcDefeatObjective(('enemy',)), 3, StaggerChoice.SUFFER_WOUND,
         COWARDLY_FLIGHT_SPELL_DEFINITION)
 
 
@@ -183,7 +185,8 @@ def attack_parts(
 
 
 def incoming(wound_roll: int) -> tuple[NpcRosterCastingState, NpcRosterCastingState, int]:
-    state = activation(initial(wizard_side=CombatSide.OPPOSITION), 'enemy', CombatActionKind.ATTACK)
+    state = activation(admitted_scenario(wizard_side=CombatSide.OPPOSITION).initial_runtime_state,
+                       'enemy', CombatActionKind.ATTACK)
     protected, execution = attack_parts(state, 'wizard')
     source = NpcRosterChampionAttackRequest(state, NpcChampionAttackRequest(state.champion_attack, protected, execution))
     rng = ScriptedDice((1, 2, 3, 10, 10, 10, wound_roll))
@@ -261,7 +264,7 @@ def main() -> None:
 
     # Independent default-order activation. Complete the real movement pending,
     # then end this Wizard turn; no intervening ally/enemy turns are invented.
-    owner = activation(scenario.initial, 'wizard', CombatActionKind.IMPROVISE)
+    owner = activation(scenario.initial_runtime_state, 'wizard', CombatActionKind.IMPROVISE)
     cast = casting(owner, 'probe:curse', can_give_ground=True)
     rng = ScriptedDice((1, 2, 3, 10, 10, 10))
     result = NpcRosterCastingResult(cast, execute_cowardly_flight_casting(cast.casting, rng))
@@ -301,18 +304,26 @@ def main() -> None:
     expect_rejection(lambda: finish_turn(pending, 'wizard'), ValueError, 'mandatory pending')
     print('MISCAST STOP: 3 d10; full pool/source/receipt retained; no preparation, table or automatic desperate cast')
 
-    state = activation(initial(wizard_side=CombatSide.OPPOSITION), 'enemy', CombatActionKind.ATTACK)
+    state = activation(admitted_scenario(wizard_side=CombatSide.OPPOSITION).initial_runtime_state,
+                       'enemy', CombatActionKind.ATTACK)
     protected, execution = attack_parts(state, 'ally')
-    source = NpcRosterAttackExecutionRequest(NpcRosterAttackState(state.roster), protected, execution)
+    source = NpcRosterMinionAttackRequest(state, NpcRosterAttackExecutionRequest(state.minion_attack, protected, execution))
     before = deepcopy(state)
     rng = ScriptedDice((1, 2, 3, 10, 10, 10))
-    attack = execute_npc_roster_attack(source, rng)
-    lower = apply_npc_roster_attack_result(source.state, attack)
+    result = execute_npc_roster_minion_attack(source, rng)
+    attack = result.attack
+    final = apply_npc_roster_minion_attack_result(state, result)
     rng.exhausted()
-    assert lower.roster.participant('ally').state.injury.defeated and attack.pending_follow_ups
+    assert final.roster.participant('ally').state.injury.defeated and attack.pending_follow_ups
+    assert final.pending_minion_attack is attack
+    assert final.minion_attack.consumed_execution_ids == final.consumed_execution_ids == ('probe:shot',)
+    assert final.champion_attack.consumed_execution_ids == ()
+    assert final.minion_attack.roster == final.champion_attack.roster == final.roster
+    assert final.wizard is state.wizard and final.spatial_state is state.spatial_state
+    expect_rejection(lambda: finish_turn(final, 'enemy'), ValueError, 'pending Minion attack')
     expect_rejection(lambda: apply_npc_roster_attack_result(state, attack), TypeError, 'NpcRosterAttackState')
     assert state == before
-    print('MINION HANDOFF GAP: 6 d10; M2 defeat/pending exists; Casting owner unchanged; bound adapter still needed')
+    print('MINION HANDOFF: 6 d10; full defeat pending; root/Minion histories agree; magic retained; end-turn blocked')
     assert original.consumed_execution_ids == () and getstate() == global_rng
     print('32 scripted d10; public API only; sources/global RNG unchanged; no scenario runner or four-outcome claim')
 

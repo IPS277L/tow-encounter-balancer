@@ -63,6 +63,8 @@ class NpcBrokenRunRequest:
         object.__setattr__(self, 'run_path_entity_ids', path)
 
         state, movement = self.state, self.movement
+        if state.pending_minion_attack is not None:
+            raise ValueError('pending Minion attack blocks Broken Run')
         if (state.pending_miscast is not None or state.pending_movement is not None
                 or state.pending_interruption is not None
                 or state.champion_attack is not None and state.champion_attack.pending is not None):

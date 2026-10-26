@@ -52,6 +52,8 @@ class NpcBrokenRecoverRequest:
             if not value:
                 raise ValueError(f'{name} is required by this Broken recovery boundary')
         state = self.state
+        if state.pending_minion_attack is not None:
+            raise ValueError('pending Minion attack blocks Broken recovery')
         if (state.pending_miscast is not None or state.pending_movement is not None
                 or state.pending_interruption is not None
                 or state.champion_attack is not None and state.champion_attack.pending is not None):
@@ -181,6 +183,7 @@ class NpcBrokenRecoverResult:
         pending = (self.interruption if self.interruption is not None
                    and self.interruption.miscast_pool.roll_request is not None else None)
         return replace(old, roster=roster, wizard=wizard, champion_attack=champion,
+                       minion_attack=(None if old.minion_attack is None else replace(old.minion_attack, roster=roster)),
                        round_state=self.recover.round_state,
                        spatial_state=old.spatial_state if self.movement is None else self.movement.state,
                        consumed_execution_ids=(*old.consumed_execution_ids, source.id),

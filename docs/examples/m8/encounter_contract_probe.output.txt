@@ -3,5 +3,5 @@ WOUND -> CAST -> END: 10 d10; Drained expires; Wound/daily/magic/history retaine
 WOUND STOP: 7 d10; full Endurance follow-up retained; no end-turn or terminal outcome
 CURSE -> GIVE GROUND -> WILLPOWER -> END: 6 d10; one receipt; Broken is not defeat; scene changed
 MISCAST STOP: 3 d10; full pool/source/receipt retained; no preparation, table or automatic desperate cast
-MINION HANDOFF GAP: 6 d10; M2 defeat/pending exists; Casting owner unchanged; bound adapter still needed
+MINION HANDOFF: 6 d10; full defeat pending; root/Minion histories agree; magic retained; end-turn blocked
 32 scripted d10; public API only; sources/global RNG unchanged; no scenario runner or four-outcome claim

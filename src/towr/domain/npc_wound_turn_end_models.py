@@ -29,6 +29,8 @@ class NpcWoundTurnEndRequest:
             raise TypeError('condition sources require ordered WoundConditionSourceSnapshot values')
         object.__setattr__(self, 'condition_sources', tuple(self.condition_sources))
         state = self.state
+        if state.pending_minion_attack is not None:
+            raise ValueError('pending Minion attack blocks turn end')
         if (state.pending_miscast is not None or state.pending_movement is not None
                 or state.pending_interruption is not None
                 or state.champion_attack is not None and state.champion_attack.pending is not None):
@@ -125,5 +127,6 @@ class NpcWoundTurnEndResult:
         receipt = NpcWoundTurnEndReceipt(source.id, source.actor_id, old.round_state.round_number,
                                        tuple(e.attack_id for e in source.expiries))
         return replace(old, roster=roster, round_state=self.turn_end.state, champion_attack=champion,
+                       minion_attack=(None if old.minion_attack is None else replace(old.minion_attack, roster=roster)),
                        wound_expiries=tuple(e for e in old.wound_expiries if e not in source.expiries),
                        wound_turn_end_receipts=(*old.wound_turn_end_receipts, receipt))

@@ -4,7 +4,7 @@ PG1.4 Equipment / Ranged Weapons p94; Rules pp112,114-115,119,122;
 Battle Magic / Curse p162. GM1.1 Allies and Antagonists pp91-92.
 No runner, RNG, request generation, tactical selection or current-turn admission.
 """
-from dataclasses import dataclass, fields
+from dataclasses import dataclass, fields, replace
 
 from towr.domain.condition_models import StaggerChoice
 from towr.domain.cowardly_flight_casting_models import CowardlyFlightCastingPolicy
@@ -20,6 +20,7 @@ from towr.domain.npc_magic_scene_models import (
 )
 from towr.domain.npc_objective_models import NpcDefeatObjective
 from towr.domain.npc_roster_casting_models import NpcRosterCastingState
+from towr.domain.npc_roster_attack_models import NpcRosterAttackState
 from towr.domain.ranged_weapon_profiles import RangedWeaponHands, RangedWeaponRange
 from towr.domain.resolution_models import TargetInjuryPolicy
 from towr.domain.spatial_models import SpatialBattleState
@@ -229,6 +230,14 @@ class NpcMagicScenario:
         object.__setattr__(self, 'activation_order', order)
         object.__setattr__(self, 'actors', actors)
         object.__setattr__(self, 'scene_frames', scene_frames)
+
+    @property
+    def initial_runtime_state(self) -> NpcRosterCastingState:
+        """Pure bootstrap from the admitted fresh source; no action or RNG.
+
+        Reusing an old initial snapshot is not continuation of a current run.
+        """
+        return replace(self.initial, minion_attack=NpcRosterAttackState(self.initial.roster))
 
     @property
     def initial_frame(self) -> NpcMagicSceneFrame:
