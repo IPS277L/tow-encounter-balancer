@@ -11,7 +11,7 @@
 - [Документация и нормативные источники](docs/README.md), [иерархия источников](docs/source-policy.md), [трассировка правил](docs/rule-traceability.md).
 - [Архитектура](docs/architecture/overview.md), [roadmap](docs/roadmap.md).
 - Внешние границы: [ranged](docs/audits/m5-external-readiness.md), [melee](docs/audits/m6-external-readiness.md), [mixed](docs/audits/m7-external-readiness.md).
-- Магия: [single-run](docs/audits/m8-encounter-readiness.md), [simulation ADR-0038](docs/decisions/ADR-0038-independent-magic-simulations.md), [process ADR-0039](docs/decisions/ADR-0039-process-magic-simulations.md), [примеры](docs/examples/m8/README.md).
+- Магия: [single-run](docs/audits/m8-encounter-readiness.md), [simulation ADR-0038](docs/decisions/ADR-0038-independent-magic-simulations.md), [process ADR-0039](docs/decisions/ADR-0039-process-magic-simulations.md), [общий аудит массовой simulation](docs/audits/m8-mass-simulation-readiness.md), [примеры](docs/examples/m8/README.md).
 
 ## Локальная проверка
 
@@ -104,4 +104,4 @@ ADR-0038 сохраняет текущий single-run scope и отдельны�
 PYTHONPATH=src python docs/examples/m8/magic_parallel.py
 ```
 
-Workers/batch_size выбираются явно; автоматического выбора backend нет. Корректность и [аудит](docs/audits/m8-process-readiness.md) не означают ускорение: sequential/process performance с учётом startup/serialization/shutdown проверяется следующим отдельным этапом.
+Workers/batch_size выбираются явно; автоматического выбора backend нет. [Сравнение производительности](docs/benchmarks/README.md#m8-sequential-и-spawn) включает startup/serialization/shutdown: на 100 trials процессы медленнее, на 1000 два workers локально быстрее в двух боевых inputs. Контроль с нулём действий быстрее последовательно; общего обещания ускорения нет.

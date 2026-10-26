@@ -226,3 +226,22 @@ Repeated validated state projections видны в profile, но cache/осла�
 
 
 После добавления production magic process module ADR-0039 общий source/harness hash изменился: manifest включает весь src. Старый baseline выше относится к предыдущему дереву; existing sequential/engine/rules и оба harness файла не менялись. Нового performance-вывода по process из readiness tests или public example нет. Следующий benchmark должен сравнить оба backend на одном актуальном дереве и включить startup/serialization/normalization/shutdown; control остаётся отдельным от боевых workloads.
+
+## M8 sequential и spawn
+
+[Методика](m8-parallel-comparison-contract.md), [harness](../../tools/benchmark_m8_parallel.py), [17 deterministic tests](../../tests/unit/test_m8_parallel_benchmark.py), сырые отчёты [100](m8-parallel-100-2026-10-27.md) и [1000 trials](m8-parallel-1000-2026-10-27.md), [проверка готовности среза](../audits/m8-parallel-comparison-readiness.md). Прежние authored fixtures и seed=20261026/B=4 не менялись. Workers1/2, batch32, три чередующихся повтора, новый spawn pool на вызов. Все startup/imports/serialization/normalization/shutdown costs и summary включены в wall.
+
+| N | Case | Sequential median, с | Spawn 1 worker, с | Spawn 2 workers, с | Sequential / 2 workers |
+| --- | --- | --- | --- | --- | --- |
+| 100 | curse-routes | 0,186316 | 0,442264 | 0,374865 | 0,497 |
+| 100 | champion-pressure | 0,216594 | 0,469757 | 0,395578 | 0,548 |
+| 100 | missing-departure (control) | 0,015486 | 0,262543 | 0,260722 | 0,059 |
+| 1000 | curse-routes | 1,787840 | 2,088794 | 1,187143 | 1,506 |
+| 1000 | champion-pressure | 1,995281 | 2,272136 | 1,289606 | 1,547 |
+| 1000 | missing-departure (control) | 0,151947 | 0,405315 | 0,334191 | 0,455 |
+
+На N100 процессы медленнее во всех cases. На N1000 два workers локально быстрее двух боевых inputs; наблюдённые диапазоны не пересекаются: curse sequential 1,784–1,822 с против process 1,185–1,188; pressure 1,994–2,005 против 1,277–1,290. Один worker медленнее везде. Zero-action/zero-draw control быстрее sequential на обоих N; его нельзя усреднять с боем. Это CPython3.12.15/macOS26.5.1 arm64, batch32; CPU affinity/частота и внешняя нагрузка ОС не контролировались. Другие workload/host/runtime, память/RSS, workers/batch search, persistent pool и installed-wheel performance не измерены. Auto backend/cache и production-оптимизаций нет.
+
+Все 54 measured full results/summary равны внутри соответствующего входа, original parent request/scenario identity сохранена. Input/global RNG/active children неизменны. Исполнено 29 700 measured trials +18 warm-up. N100 digests/counts/actions/started/completed точно совпали с historical baseline. На N1000 counts achieved/defeated/limit/unsupported: 783/0/57/160 и 629/0/250/121 для боевых cases; control 0/0/0/1000. Totals actions/started/completed: 5193/2059/1899, 5720/2412/2291 и 0/1000/0. Unsupported включены в общий N; данные не являются метрикой сложности или test oracle.
+
+Source/harness SHA-256 обоих отчётов: `f20131529ea476bfc61b3f37c29262b1dbe13f60cdca615b8f5c44e7dd55130d`, одинаков до/после и независимо пересчитан при ревью. Manifest — 396 files: весь src Python + profile_m8, fixtures и новый harness, алгоритм paths/content описан в методике. Он шире historical profiling manifest; старый hash напрямую не сравнивается. Production src, fixtures и прежние tools/tests не менялись. [Общий аудит массовой magic simulation](../audits/m8-mass-simulation-readiness.md) завершён: текущий source/harness hash совпал с обоими отчётами, повторные замеры не потребовались. Следующий шаг — отдельный assessment-контракт/probe.

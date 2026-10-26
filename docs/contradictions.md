@@ -458,3 +458,7 @@ ADR-0038 реализован без новых игровых решений: �
 ### Production process backend M8, 2026-10-26
 
 [Аудит ADR-0039](audits/m8-process-readiness.md): прямо перечитаны PG 1.4 Rules / Combat, стр. 112; Conditions / Broken, стр. 122; Magic in the Old World / Miscasts, стр. 157; Battle Magic / Curse, стр. 162; Wounds Table, стр. 190–191; GM 1.1 Allies and Antagonists / Minions/Champions, стр. 91–92. Технический backend не меняет игровой scope и не закрывает старые Wound/Miscast ambiguities. Full-source/strict constructor guards действуют после pickle, unsupported не заменяется failure/defeat. Новых противоречий или house rules нет; performance не выводится из equality tests.
+
+### Общий аудит массовой magic simulation, 2026-10-27
+
+[Аудит ADR-0038/0039](audits/m8-mass-simulation-readiness.md): прямая сверка PG1.4 Rules / Combat112, Conditions / Broken122, Magic in the Old World / Potency / Miscasts157, Battle Magic / Curse162, Wounds Table190–191 и GM1.1 Allies and Antagonists / Minions / Champions91–92 не выявила новых противоречий или house rules. Старые Miscast ambiguities остаются открытыми; unsupported не фильтруется и не разрешается подбором seeds. Исправлена только устаревшая информация о недоступности GM Guide в RULE-HEALTH-006; выбранные книги/механика прежние.

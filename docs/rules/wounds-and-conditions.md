@@ -48,7 +48,7 @@ Resilience обычно равен Toughness с добавлением защи�
 - Champion получает Wounds как персонаж игрока и использует таблицу.
 - Monstrosity имеет профильное число Wounds и профильные реакции на них.
 
-Источник: страница 191. Полные правила NPC находятся в Gamemaster’s Guide и отсутствуют в текущем источнике.
+Источники: BOOK-PLAYER-GUIDE 1.4, Wounds Table, страница 191; BOOK-GM-GUIDE 1.1, Allies and Antagonists / Minions, Brutes, Champions, Monstrosities, страницы 91–92. Подробные правила NPC нормализованы в [npcs.md](npcs.md).
 
 ## RULE-HEALTH-007 — Treatment и Healing
 

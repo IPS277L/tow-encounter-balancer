@@ -22,7 +22,7 @@
 | M3–M5 | [Массовый ranged](audits/m3-readiness.md), [JSON simulation](audits/m4-readiness.md), [внешний balance](audits/m5-external-readiness.md) | [M5](examples/m5/README.md) |
 | M6 | [Melee simulation/balance JSON/CLI](audits/m6-external-readiness.md) | [M6](examples/m6/README.md) |
 | M7 | [Mixed simulation/balance JSON/CLI](audits/m7-external-readiness.md) | [M7](examples/m7/README.md) |
-| M8 | [Одиночный магический бой](audits/m8-encounter-readiness.md), [последовательная simulation](audits/m8-simulation-readiness.md) | [M8](examples/m8/README.md), [production simulation](examples/m8/magic_simulation.py) |
+| M8 | [Одиночный магический бой](audits/m8-encounter-readiness.md), [последовательная simulation](audits/m8-simulation-readiness.md), [общий аудит sequential/process](audits/m8-mass-simulation-readiness.md) | [M8](examples/m8/README.md), [production simulation](examples/m8/magic_simulation.py) |
 
 [Тестирование](testing.md) и [benchmarks](benchmarks/README.md) содержат evidence отдельных границ. Наличие записи каталога или отдельного reducer не означает готовность полного сценария.
 
@@ -30,7 +30,9 @@
 M8 performance: [ограниченный контракт](benchmarks/m8-profiling-contract.md), [исходный sequential baseline](benchmarks/m8-baseline-2026-10-26.md), [аудит и следующий шаг](audits/m8-profiling-readiness.md). Это измерение developer harness, не новый backend или оценка сложности.
 
 
-M8 process contract: [аудит ADR-0039](audits/m8-process-contract-readiness.md), [конечный public transport probe](examples/m8/process_contract_probe.py) и [stored output](examples/m8/process_contract_probe.output.txt). Контрактный probe сохранён как историческая evidence; готовый scheduler проверен отдельными unit/real-spawn tests, performance ещё не измерен.
+M8 process contract: [аудит ADR-0039](audits/m8-process-contract-readiness.md), [конечный public transport probe](examples/m8/process_contract_probe.py) и [stored output](examples/m8/process_contract_probe.output.txt). Контрактный probe сохранён как историческая evidence; готовый scheduler проверен отдельными unit/real-spawn tests; [performance-сравнение](benchmarks/README.md#m8-sequential-и-spawn) завершено отдельно.
 
 
 M8 process API: [production readiness](audits/m8-process-readiness.md), [самостоятельный пример](examples/m8/magic_parallel.py) и [stored output](examples/m8/magic_parallel.output.txt). Public calls сохраняют исходный scenario/result/summary, workers/batch_size выбираются явно.
+
+M8 sequential/process performance: [методика](benchmarks/m8-parallel-comparison-contract.md), [100](benchmarks/m8-parallel-100-2026-10-27.md) / [1000 trials](benchmarks/m8-parallel-1000-2026-10-27.md), [проверка готовности среза](audits/m8-parallel-comparison-readiness.md). Локальные времена не определяют backend автоматически.

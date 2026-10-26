@@ -500,3 +500,7 @@ Authored fixtures напрямую сверены с PG 1.4: Rules / Combat, с�
 ### Реализация process backend M8, 2026-10-26
 
 Непосредственно сверены PG 1.4: Rules / Combat, стр. 112; Conditions / Broken, стр. 122; Magic in the Old World / Miscasts, стр. 157; Battle Magic / Curse of Cowardly Flight, стр. 162; Wounds Table, стр. 190–191. GM 1.1: Allies and Antagonists / Minions и Champions, стр. 91–92. Process backend использует existing magic trial; full source проверяется до parent rebinding, pending и четыре outcomes сохраняются. Новых Rule IDs/house rules нет, старые неоднозначности не обходятся transport. [Аудит готовности](audits/m8-process-readiness.md).
+
+### Общий аудит массовой magic simulation, 2026-10-27
+
+Повторно непосредственно прочитаны локальные извлечения BOOK-PLAYER-GUIDE1.4: Rules / Combat, стр.112; Conditions / Broken, стр.122; Magic in the Old World / Spell Potency / Miscasts and the Rule of Nine, стр.157; Battle Magic / Curse of Cowardly Flight, стр.162; Wounds Table, стр.190–191. BOOK-GM-GUIDE1.1: Allies and Antagonists / Minions и Champions, стр.91–92. Все страницы доступны; [общий аудит ADR-0038/0039](audits/m8-mass-simulation-readiness.md) сохраняет single-run scope, mandatory pending и различие NPC injury policies. Новых Rule IDs/house rules нет. Устаревшая фраза об отсутствии GM Guide в RULE-HEALTH-006 заменена ссылкой на доступный нормативный источник и нормализованные NPC rules; механика не менялась.

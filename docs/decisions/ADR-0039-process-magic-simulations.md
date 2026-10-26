@@ -4,7 +4,7 @@
 
 ## Основание и граница
 
-[ADR-0038](ADR-0038-independent-magic-simulations.md) и [аудит sequential simulation](../audits/m8-simulation-readiness.md) закрыты. [Исходный profiling](../audits/m8-profiling-readiness.md) дал 0,18–0,22 с на 100 trials двух ограниченных боевых inputs на одном host. Это основание исследовать способ исполнения, не обещание ускорения. Process startup/serialization/shutdown и большие N пока не измерены. Общая архитектура следует [mixed ADR-0030](ADR-0030-process-mixed-simulations.md), но magic record содержит полный input scenario, поэтому перенос и владение source описаны отдельно.
+[ADR-0038](ADR-0038-independent-magic-simulations.md) и [аудит sequential simulation](../audits/m8-simulation-readiness.md) закрыты. [Исходный profiling](../audits/m8-profiling-readiness.md) дал 0,18–0,22 с на 100 trials двух ограниченных боевых inputs на одном host. Это основание исследовать способ исполнения, не обещание ускорения. На момент принятия контракта process startup/serialization/shutdown и большие N ещё не измерялись; последующее [сравнение](../benchmarks/README.md#m8-sequential-и-spawn) выполнено отдельным срезом. Общая архитектура следует [mixed ADR-0030](ADR-0030-process-mixed-simulations.md), но magic record содержит полный input scenario, поэтому перенос и владение source описаны отдельно.
 
 Single-run admission, authored Wizard/Minions, Curse, Wound/Conditions/timing, scene facts, tactics и обязательные unsupported stops [ADR-0037](ADR-0037-magic-scenario-runner.md) сохраняются. Книги задают игровые переходы, не количество workers или формат pickle. Прямо сверены PG 1.4, Rules / Combat, стр. 112; Conditions / Broken, стр. 122; Magic in the Old World / Miscasts, стр. 157; Battle Magic / Curse of Cowardly Flight, стр. 162; Wounds Table, стр. 190–191; GM 1.1, Allies and Antagonists / Minions и Champions, стр. 91–92. Новых Rule IDs/house rules нет.
 
@@ -99,7 +99,7 @@ Root и external-cwd трёхфайловый bundle дали тот же stdout
 | Real spawn | Workers1/2, несколько partitions, полный sequential/result/summary equality, repeat/reverse/prefix/extra-draw isolation; четыре real outcomes, zero-action unsupported и input/global RNG/cleanup |
 | Performance после готовности | Отдельно sequential/process на большем N с startup/serialization/shutdown, source manifest и равными полными records/summary; no timing threshold в tests |
 
-Production module и его unit/real-spawn integration tests реализованы по этой матрице. Следующий законченный шаг — отдельное сравнение sequential/process с большими N и полными startup/serialization/shutdown costs. Assessment/balance/generation, JSON/CLI и новые gameplay consumers требуют дальнейших отдельных срезов.
+Production module и его unit/real-spawn integration tests реализованы по этой матрице. Отдельное [сравнение sequential/process](../benchmarks/README.md#m8-sequential-и-spawn) на N100/1000 с полными startup/serialization/shutdown costs завершено; [общий аудит массовой magic simulation](../audits/m8-mass-simulation-readiness.md) завершён, следующий шаг — отдельный assessment-контракт/probe. Assessment/balance/generation, JSON/CLI и новые gameplay consumers требуют дальнейших отдельных срезов.
 
 
 ## Реализация и проверка готового API
