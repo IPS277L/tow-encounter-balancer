@@ -590,3 +590,8 @@ py -3.12 -m unittest discover -s tests -v
 ## ADR-0038: последовательные magic-прогоны
 
 40 новых unit tests и 9 integration tests покрывают seed golden vectors, strict type/family/source/index/counter guards, fresh RNG и остановку ошибок без partial/retry, aggregate-only summary, четыре реальных outcomes, Wound/death/archive и zero-action stop, pending Miscast, expiry, Curse/Broken, repeat/reverse/prefix/rename/extra-draw isolation. Subprocess test проверяет два public example файла вне repository cwd; installed-wheel parity проверена отдельно. Полная регрессия и существующие Python 3.12 dataclasses errors перечислены в [аудите](audits/m8-simulation-readiness.md) и [статусе](project-status.md#последняя-проверка).
+
+
+## Первый profiling-срез M8
+
+34 новых tests: 10 test_m8_benchmark_fixtures и 24 test_m8_profiling. Проверены явные authored scenes/archive/Curse/Broken/Wounds, zero-action control, независимые wall/trace/profile фазы, full-record/summary equality, input/global RNG, strict preflight/source manifest, monitoring guard Python 3.12, cleanup и atomic output preservation. Порог скорости/памяти не задаётся. [Аудит](audits/m8-profiling-readiness.md): 3114 total / прежние 33 errors, exact error Counters равны ADR-0038 baseline. Runtime/performance evidence — в [сыром отчёте](benchmarks/m8-baseline-2026-10-26.md).

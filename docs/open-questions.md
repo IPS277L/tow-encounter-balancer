@@ -6,7 +6,7 @@
 
 M2/M6/M7 завершены для ограниченных numeric Minion-сценариев; их исходы, массовые прогоны и подбор не означают поддержку произвольного боя. Первый M8 допускает одного authored Champion-Wizard с Curse of Cowardly Flight и numeric Shooting Minions; неизвестные scene facts и обязательные неподдержанные продолжения дают отдельный UNSUPPORTED_PATH. Broken и другая Zone не считаются defeat. Никакая остановка не исключается из числа trials.
 
-Для ADR-0038 новых игровых решений не требуется: повторяется тот же fresh input, у каждого trial отдельный RNG; исходный single-run scope сохраняется. Process/backend, оценка кандидата, generation и JSON/CLI требуют отдельных контрактов после аудита последовательного слоя. Полную поддержку Miscast нельзя объявить по наличию отдельных reducers.
+Для ADR-0038 новых игровых решений не требуется: повторяется тот же fresh input, у каждого trial отдельный RNG; исходный single-run scope сохраняется. Process/backend, оценка кандидата, generation и JSON/CLI требуют отдельных контрактов после аудита последовательного слоя. Полную поддержку Miscast нельзя объявить по наличию отдельных reducers. Первый [profiling baseline](benchmarks/m8-baseline-2026-10-26.md) завершён: case-specific unsupported сохранены, process speedup не измерен. Следующий технический вопрос — transport full-source magic records через spawn и общая identity исходного input в родителе; это отдельный контракт, не игровая неоднозначность.
 
 <a id="первая-метрика-m5"></a>
 
@@ -86,7 +86,7 @@ Player’s Guide 1.4 на странице 122 отдельно перечисл
 
 ## Проверки dataclasses на Python 3.12
 
-Последняя полная проверка ADR-0038: 3080 tests, 33 существующие errors на macOS arm64 / Python 3.12.15. Ошибки воспроизведены на прежних чистых коммитах:
+Последняя полная проверка после profiling M8: 3114 tests, 33 существующие errors на macOS arm64 / Python 3.12.15. Ошибки воспроизведены на прежних чистых коммитах:
 
 - `test_k1_registered_aim_loss_prepared_attack.py` и `test_k1_registered_aim_loss_ranged_attack.py`: 32 subtests ожидают FrozenInstanceError при записи frozen/slotted property `.state`, Python 3.12 выдаёт TypeError.
 - `test_m5_ranged_evaluation.py`: один test ожидает TypeError при dataclasses.replace поля init=False, фактически получается ValueError.

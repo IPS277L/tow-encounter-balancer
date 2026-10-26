@@ -135,4 +135,4 @@ Public rates/means/window/evaluator и новая метрика сложнос�
 
 [Production-пример](../examples/m8/magic_simulation.py) использует соседний public magic_scenario.py; вывод проверен из внешнего cwd и установленного wheel без PYTHONPATH. Его 32 single-run calls и scripted totals не являются Monte Carlo-метрикой. Полный suite и ограничения окружения перечислены в [аудите](../audits/m8-simulation-readiness.md) и [актуальном статусе](../project-status.md#последняя-проверка).
 
-Следующий законченный шаг — отдельный контракт первого profiling-среза последовательных magic-пакетов: исходные workload/наблюдения и критерии измерения, без автоматического process backend или gameplay расширения.
+Первый profiling-срез завершён без изменения этого API: [контракт](../benchmarks/m8-profiling-contract.md), [baseline](../benchmarks/m8-baseline-2026-10-26.md), [аудит](../audits/m8-profiling-readiness.md). Следующий шаг — отдельный magic process transport/spawn contract и конечный probe; process executor и обещание ускорения этим не добавлены.

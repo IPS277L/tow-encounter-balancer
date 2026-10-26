@@ -25,3 +25,6 @@
 | M8 | [Одиночный магический бой](audits/m8-encounter-readiness.md), [последовательная simulation](audits/m8-simulation-readiness.md) | [M8](examples/m8/README.md), [production simulation](examples/m8/magic_simulation.py) |
 
 [Тестирование](testing.md) и [benchmarks](benchmarks/README.md) содержат evidence отдельных границ. Наличие записи каталога или отдельного reducer не означает готовность полного сценария.
+
+
+M8 performance: [ограниченный контракт](benchmarks/m8-profiling-contract.md), [исходный sequential baseline](benchmarks/m8-baseline-2026-10-26.md), [аудит и следующий шаг](audits/m8-profiling-readiness.md). Это измерение developer harness, не новый backend или оценка сложности.

@@ -443,3 +443,8 @@ BOOK-PLAYER-GUIDE 1.4, Rules / Attack Tests / Giving Ground, стр. 119: вхо
 ### Аудит последовательной magic simulation, 2026-10-26
 
 ADR-0038 реализован без новых игровых решений: непосредственно сверены PG1.4 Combat, стр. 112; Broken, стр. 122; Miscasts, стр. 157; Curse of Cowardly Flight, стр. 162; Wounds Table, стр. 190–191; GM1.1 Minions/Champions, стр. 91–92. Input и single-run scope неизменны, mandatory pending сохраняется; четыре исхода не фильтруются. Старые неоднозначности Spell Recast/Objects Transfigured/self-inclusion остаются открытыми и не обходятся подбором seeds или молчаливым продолжением. Новых CODE-CONFLICT/house rules нет. [Аудит](audits/m8-simulation-readiness.md).
+
+
+### Первый profiling-срез M8, 2026-10-26
+
+[Fixtures/harness audit](audits/m8-profiling-readiness.md) не выявил новых книжных противоречий. Напрямую сверены PG 1.4, Rules / Combat, стр. 112; Battlefield / Actions, стр. 114–119; Conditions / Broken, стр. 122; Magic in the Old World / Casting / Miscasts, стр. 156–157; Battle Magic / Curse, стр. 162; Wounds Table, стр. 190–191; GM 1.1, Allies and Antagonists / Minions / Champions, стр. 91–92. Статистические observations не разрешают старые Miscast ambiguities: unsupported остаётся отдельным outcome. Выявленная Python3.12 sys.monitoring особенность относится к developer instrumentation guard, не к игровым правилам. Новых house rules нет.
