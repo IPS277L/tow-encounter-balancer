@@ -1,6 +1,6 @@
 # ADR-0038: независимые последовательные magic-прогоны и summary
 
-Статус: принят как ограниченный технический контракт, 2026-10-26. Production simulation models/seed/trial/batch/summary ещё не реализованы. [Конечный probe](../examples/m8/simulation_contract_probe.py) проверяет proposed seed encoding и проекцию существующего single-run result; он не заменяет будущие constructors/error guards.
+Статус: реализован и проверен в ограниченной последовательной границе, 2026-10-26; [аудит](../audits/m8-simulation-readiness.md). Models/seed/trial/batch/summary и public production-пример готовы. Первоначальный [конечный probe](../examples/m8/simulation_contract_probe.py) сохранён как историческая проверка контракта; constructors/error guards проверены отдельными production tests.
 
 ## Основание и граница
 
@@ -10,11 +10,11 @@
 
 Заимствуется направление зависимостей [ADR-0029](ADR-0029-independent-mixed-simulations.md), без reuse Minion-only record/result/summary types. Magic result имеет собственный enum, считает все executed actions и различает started/completed rounds. NpcMixedOutcomeCounts и равные строки старых Enum не заменяют magic types.
 
-## Планируемые API и зависимости
+## API и зависимости
 
 Только towr.simulation зависит от engine/domain и rules.RandomSource. Обратных зависимостей нет; application/balance/CLI не входят в этот контракт. Общий simulator abstraction/event bus/язык правил не вводится.
 
-| Будущий модуль в src/towr/simulation | Планируемые public имена |
+| Модуль в src/towr/simulation | Public имена |
 | --- | --- |
 | npc_magic_models.py | SEED_SCHEME, npc_magic_trial_seed, NpcMagicSimulationRequest, NpcMagicTrialRecord, NpcMagicOutcomeCounts, NpcMagicSimulationResult |
 | npc_magic_simulation.py | run_npc_magic_trial, run_npc_magic_simulation |
@@ -117,13 +117,22 @@ Public rates/means/window/evaluator и новая метрика сложнос�
 
 Ещё 26 seeded calls проверяют repeat/reverse/expanded prefix, extra draws только в своём trial и rename-ID counters. Три golden vectors сопоставлены с независимым struct >QQ encoding и существующими ranged/Melee/mixed schemes. [Вывод](../examples/m8/simulation_contract_probe.output.txt) сохраняет observations, а не Monte Carlo-проценты. Вход/global RNG неизменны. Всего probe вызывает существующий runner 31 раз; будущие simulation models/summary/error guards пока не исполняются.
 
-## Порядок реализации и обязательные tests
+## Реализованные срезы и обязательные tests
 
 | Срез | Что сделать и проверить |
 | --- | --- |
-| **Следующий законченный шаг: seed/request/record/result models** | Frozen request/record/counts/result, golden vectors/uint64/uint256 guards, strict bool/type/family/Enum отказ, full source и parent seed/index binding, сортировка/полнота, нулевой action unsupported, разные started/completed, premature limit и bounds. Без RNG factory/engine calls |
-| Затем trial/sequential + summary | Один RNG и existing run на trial, source check до projection, полный batch либо тот же exception, без новых вызовов после ошибки; pure aggregate projection/count sum/bounds, отсутствие records/result/journals в summary |
-| Integration и воспроизводимость | Четыре real outcomes одного input, реальная Wound/death/defeat chain и archive, Miscast pending/zero-action stop, repeat/reverse/prefix/rename/extra-draw isolation, input/global RNG unchanged; никакого фиксированного Monte Carlo-процента |
-| Аудит слоя и standalone production example | После реализации сопоставить публичные модели/runner/summary и tests, проверить пакет из внешнего cwd/installed wheel. Только затем отдельные profiling/process/assessment contracts |
+| **Seed/request/record/counts/result models — готово** | Frozen request/record/counts/result, golden vectors/uint64/uint256 guards, strict bool/type/family/Enum отказ, full source и parent seed/index binding, сортировка/полнота, нулевой action unsupported, разные started/completed, premature limit и bounds. Без RNG factory/engine calls |
+| Trial/sequential + summary — готово | Один RNG и existing run на trial, source check до projection, полный batch либо тот же exception, без новых вызовов после ошибки; pure aggregate projection/count sum/bounds, отсутствие records/result/journals в summary |
+| Integration и воспроизводимость — готово | Четыре real outcomes одного input, реальная Wound/death/defeat chain и archive, Miscast pending/zero-action stop, repeat/reverse/prefix/rename/extra-draw isolation, input/global RNG unchanged; никакого фиксированного Monte Carlo-процента |
+| Аудит слоя и standalone production example — готово | После реализации сопоставить публичные модели/runner/summary и tests, проверить пакет из внешнего cwd/installed wheel. Только затем отдельные profiling/process/assessment contracts |
 
 Новый generic framework, процессы, изменение gameplay admission/consumers, балансировщик, generation, JSON/CLI и performance в этот контракт не включены. Эти ограничения не обходятся прямой передачей нового initial snapshot или отбрасыванием unsupported.
+
+
+## Проверенная реализация
+
+Четыре отдельных simulation-модуля реализуют API выше без изменений domain/engine/rules. 40 новых unit tests и 9 integration tests проверяют strict type/source/bounds, source до scalar projection, один fresh RNG на trial, отказ без retry/partial, четыре реальных outcomes, Wound/death/archive, zero-action unsupported, repeat/reverse/prefix/rename и изоляцию дополнительных бросков. Aggregate-only summary не удерживает records/results/journals.
+
+[Production-пример](../examples/m8/magic_simulation.py) использует соседний public magic_scenario.py; вывод проверен из внешнего cwd и установленного wheel без PYTHONPATH. Его 32 single-run calls и scripted totals не являются Monte Carlo-метрикой. Полный suite и ограничения окружения перечислены в [аудите](../audits/m8-simulation-readiness.md) и [актуальном статусе](../project-status.md#последняя-проверка).
+
+Следующий законченный шаг — отдельный контракт первого profiling-среза последовательных magic-пакетов: исходные workload/наблюдения и критерии измерения, без автоматического process backend или gameplay расширения.

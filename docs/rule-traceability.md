@@ -485,3 +485,10 @@ RULE-COMBAT-001/002 и existing once-per-round spatial usage: BOOK-PLAYER-GUIDE 
 ### M8 independent simulation contract, 2026-10-26
 
 [ADR-0038](decisions/ADR-0038-independent-magic-simulations.md), [finite probe](examples/m8/simulation_contract_probe.py), [output](examples/m8/simulation_contract_probe.output.txt): existing single-run rules/source/counters проецируются в illustrative records. На одном input четыре real outcomes/120 scripted d10; отдельный zero-action unsupported и 26 seeded reproducibility calls. Primary sources: PG1.4 Rules / Combat/Broken, стр. 112/122; Magic in the Old World / Miscasts, стр. 157; Battle Magic / Curse, стр. 162; Wounds Table, стр. 190–191; GM1.1 Allies and Antagonists / Minions/Champions, стр. 91–92. Новых игровых Rule IDs и production simulation validators нет; требуемые guards/tests перечислены в ADR.
+
+
+## M8 — независимые последовательные magic-прогоны ADR-0038
+
+Технический слой не добавляет игровых Rule IDs. [Модели/seed](../src/towr/simulation/npc_magic_models.py), [trial/batch](../src/towr/simulation/npc_magic_simulation.py), [summary models](../src/towr/simulation/npc_magic_summary_models.py) и [pure projection](../src/towr/simulation/npc_magic_summary.py) повторяют audited ADR-0037 scope. Full-source compact records сохраняют четыре outcomes, actions и started/completed rounds; unsupported остаётся отдельным исходом. Source-bound projection не исполняет Wound/Miscast effects и не превращает Broken в defeat.
+
+Проверки: test_m8_npc_magic_simulation_models (16), test_m8_npc_magic_simulation unit (13) / integration (8), test_m8_npc_magic_summary (11), external-cwd test_m8_magic_simulation_example (1) — всего 49 новых tests. Книжная база: PG1.4 Rules/Combat, стр. 112; Conditions/Broken, стр. 122; Magic/Miscasts, стр. 157; Battle Magic/Curse, стр. 162; Wounds Table, стр. 190–191; GM1.1 Allies and Antagonists/Minions, Champions, стр. 91–92. [Аудит](audits/m8-simulation-readiness.md) и [public пример](examples/m8/magic_simulation.py).

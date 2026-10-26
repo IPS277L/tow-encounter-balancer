@@ -1,0 +1,11 @@
+seed scheme: towr:npc-magic-trial:v1; fresh RNG per indexed trial
+scripted 0: objective_achieved; actions=2; rounds=1/1; d10=9
+scripted 1: perspective_defeated; actions=9; rounds=4/4; d10=48
+scripted 2: round_limit_reached; actions=12; rounds=4/4; d10=60
+scripted 3: unsupported_path; actions=1; rounds=1/0; d10=3
+production summary: outcomes=1/1/1/1; actions=24; started=10; completed=9; 120 scripted d10
+summary retains input and aggregates; unsupported is counted separately; no battle journals or balance metric
+replay: three Champion Wounds/daily receipts/rolls; dead Wizard; defeated ally retained in archive; 48 d10
+zero-action missing-departure stop: 0 d10; rounds=1/0; foreign full source rejected despite same ID/seed
+26 seeded calls: repeat/reverse/prefix/extra-draw isolation/renamed-ID observations OK
+32 total single-run calls; immutable sources/global RNG preserved; public production simulation APIs only

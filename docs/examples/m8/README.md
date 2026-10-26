@@ -103,7 +103,7 @@ PYTHONPATH=src /private/tmp/towr-test-venv/bin/python docs/examples/m8/magic_sce
 
 ## Контракт независимых magic-прогонов
 
-[ADR-0038](../../decisions/ADR-0038-independent-magic-simulations.md) и [simulation_contract_probe.py](simulation_contract_probe.py) готовы как технический контракт. Production simulation models/seed/trial/batch/summary пока отсутствуют; probe использует existing single-run и локальные illustrative observations, не их будущие validators.
+[ADR-0038](../../decisions/ADR-0038-independent-magic-simulations.md) и [simulation_contract_probe.py](simulation_contract_probe.py) готовы как технический контракт. Этот probe предшествовал production API и использует локальные illustrative observations; готовая реализация и её validators описаны ниже.
 
 ```sh
 PYTHONPATH=src /private/tmp/towr-test-venv/bin/python docs/examples/m8/simulation_contract_probe.py
@@ -113,4 +113,17 @@ PYTHONPATH=src /private/tmp/towr-test-venv/bin/python docs/examples/m8/simulatio
 
 Предложены magic seed namespace и три golden vectors, проверенные также struct encoding; ranged/Melee/mixed seeds не меняются. Ещё 26 seeded calls проверяют repeat/reverse/расширение prefix, extra-draw isolation и rename-ID observations. Во всём probe 31 single-run call, вход/global RNG неизменны; ожидаемые Monte Carlo-проценты не фиксируются.
 
-Compact record хранит shared immutable input и scalars, без final owner/journal/pending. Parent проверяет полный source и derived seed/index; summary получает input и totals/counts, без records. Следующий implementation-срез — только pure magic seed/request/record/counts/result models, затем отдельно execution/summary. Новая метрика/процессы/JSON/CLI не вводятся.
+Compact record хранит shared immutable input и scalars, без final owner/journal/pending. Parent проверяет полный source и derived seed/index; summary получает input и totals/counts, без records. Production models, execution и summary теперь реализованы и проверены [аудитом](../../audits/m8-simulation-readiness.md). Новая метрика/процессы/JSON/CLI не вводятся.
+
+
+## Независимые последовательные прогоны — production API
+
+```sh
+PYTHONPATH=src python docs/examples/m8/magic_simulation.py
+```
+
+[magic_simulation.py](magic_simulation.py) использует public NpcMagicSimulationRequest, run_npc_magic_trial/run_npc_magic_simulation и summarize_npc_magic_simulation. Для копирования примера нужны два соседних файла: он и [magic_scenario.py](magic_scenario.py). [Stored output](magic_simulation.output.txt) проверен внешним subprocess test и на установленном wheel без PYTHONPATH.
+
+Четыре scripted trials одного input дают все четыре исхода: totals 24 actions / 10 started / 9 completed и 120 d10. Отдельный replay проверяет 3 Champion Wounds/daily receipts/rolls, смерть Wizard и архив defeated ally. Zero-action missing-departure stop использует иной полный source при тех же ID/seed; смешивание records отклоняется. Ещё 26 seeded calls проверяют repeat/reverse/prefix/extra-draw isolation/rename; всего 32 single-run calls. Input/global RNG сохраняются. Counts и totals — наблюдения finite scripts, не Monte Carlo rates или difficulty.
+
+[Аудит ADR-0038](../../audits/m8-simulation-readiness.md) закрывает только последовательный simulation/summary слой. Process backend, profiling, assessment/balance/generation и JSON/CLI не добавлены; single-run scope и обязательные unsupported stops сохраняются.

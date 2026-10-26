@@ -1,0 +1,2415 @@
+> Архив состояния до автономной вехи ADR-0038, 2026-10-26. Исторические формулировки ниже не задают текущий следующий шаг. Актуальный документ: [project-status.md](project-status.md).
+
+# Текущий статус проекта
+
+Дата обновления: 2026-10-26.
+
+## Текущий этап
+
+K1/M2/M3/M4 готовы в заявленной границе неподвижного ranged Minion-сценария; M4 закрыт [аудитом](audits/m4-readiness.md). По [ADR-0017](decisions/ADR-0017-ranged-candidate-assessment.md) реализованы summary, pure assessment и bounded evaluation явного списка кандидатов: preflight бюджета/общих параметров, последовательная orchestration с явным sequential/process backend внутри кандидата, source-bound aggregate report и точный top_k. Outside/unsupported оценки сохраняются, но не выбираются. [Поэтапная оценка](decisions/ADR-0018-staged-ranged-evaluation.md) реализована: промежуточное уточнение допускает outside-window, окончательный выбор использует только последний этап; бюджет учитывает полные повторные пакеты, отчёт проверяет всю цепочку источников. Генератор численности по [ADR-0019](decisions/ADR-0019-ranged-composition-generation.md) реализован: явный резерв участников, неизменные профили/решения, предел составов и полный staged budget. Первый M5 закрыт [аудитом](audits/m5-readiness.md) в текущем scope; [typed пример](examples/m5/README.md) проверен в sequential/process. Контракт [JSON balance v1 / CLI balance](decisions/ADR-0020-ranged-balance-json-v1.md) реализован полностью в текущем scope: Schema/adapters, application service, кодирование ошибок и CLI balance. Внешняя граница M5 закрыта [аудитом](audits/m5-external-readiness.md). Для выбранного M6 принят [ADR-0021](decisions/ADR-0021-melee-minion-scenario.md): неподвижный ближний бой Minions с явным Close и динамическим численным преимуществом. Typed вход NpcMeleeScenario реализован: чистый допуск состава, явных фактов и решений. Одиночный Melee-сценарий закрыт [аудитом](audits/m6-readiness.md); [полный typed пример](examples/m6/README.md) проверен через production runner. По [ADR-0022](decisions/ADR-0022-independent-melee-simulations.md) реализованы последовательные независимые Melee-прогоны и aggregate summary: отдельная seed scheme, новый RNG на trial, четыре исхода и compact records. [Первый performance-срез Melee](benchmarks/README.md#однократная-minion-defeat-continuation) завершён: continuation строится один раз с сохранением проверок, trial digests/агрегаты совпали с baseline. [ADR-0023](decisions/ADR-0023-process-melee-simulations.md) реализован: опциональный Melee process runner, явный spawn, bounded queue и прежние seed/result/summary; равенство sequential проверено в реальных процессах. [Сравнение sequential/process](benchmarks/README.md#melee-sequential-и-spawn) завершено: результаты совпали, расходы spawn заметны на 100 trials; на 1000 два workers быстрее в измеренных 2×2/3×2. [Аудит массовой Melee-симуляции](audits/m6-simulation-readiness.md) завершён: sequential/process, summary и измерения готовы в текущем scope. [ADR-0024](decisions/ADR-0024-melee-candidate-assessment.md) реализован в части pure assessment одного Melee-кандидата: exact source, четыре Fraction rates, общий ObjectiveRateWindow и unsupported/window guards. Модели ограниченного списка с бюджетом, полным source-bound отчётом и stable Fraction top_k реализованы. Application evaluator исполняет список через existing sequential/process APIs, сохраняет candidate ID/cause при ошибке и возвращает только полный отчёт с агрегатами. [Аудит bounded Melee evaluation](audits/m6-evaluation-readiness.md) завершён; [самостоятельный пример](examples/m6/melee_evaluation.py) проверен в sequential/process. [Контракт ADR-0025](decisions/ADR-0025-staged-melee-evaluation.md) подготовлен: полные повторные пакеты, верхний бюджет, отдельные continuation/final selection и exact report chain. Pure continuation helper и frozen staged models реализованы: 17 deterministic tests покрывают preflight, бюджет, порядок и exact report chain. Staged application service/error реализованы: existing bounded evaluator на каждом этапе, exact source до продолжения, stage/candidate/cause и остановка без partial/retry/fallback. [Аудит staged Melee evaluation](audits/m6-staged-evaluation-readiness.md) завершён; [самостоятельный пример](examples/m6/melee_staged_evaluation.py) проверен в sequential/process. [Контракт генерации ADR-0026](decisions/ADR-0026-melee-composition-generation.md) подготовлен: явный резерв и family facts/GM policies, детерминированные составы и полный staged budget. Конечный constructor probe проверен. MeleeCompositionGroup/MeleeCandidateGenerationRequest реализованы: frozen/slotted вход, точное разбиение резерва, отдельные family facts/Zone/escape path, seed/stages/window и пределы C/полного budget до перебора. 13 deterministic tests прошли. Pure generator, source-bound result и typed generation error реализованы: полные согласованные составы, неизменные решения GM, exact source guards и ошибки без partial result. Добавлены 14 tests (всего generation 27). Integration генерация → staged evaluation проверена: полные sequential/process reports, повтор/rename prefix и бюджет совпадают; scripted RNG подтверждает динамический outnumbering и True/False GM flags. Добавлены 5 integration tests (всего generation 32). [Аудит генерации Melee](audits/m6-generation-readiness.md) завершён; [самостоятельный пример](examples/m6/melee_balance.py) проверен в sequential/process. [Контракт Melee JSON/CLI ADR-0027](decisions/ADR-0027-melee-json-cli-v1.md) подготовлен: отдельные simulate-melee/balance-melee, явные facts/GM policies, aggregate simulation и staged balance outputs. [Конечные примеры](examples/m6/json/README.md) проверены через typed APIs; simulation Schema/command и pure parser/summary encoder реализованы, добавлены 25 tests с ranged regression. Simulation service/error encoder и команда simulate-melee реализованы; module/console и оба backend проверены в установленном wheel. Balance Schema/models и pure parser/result encoder реализованы (34 tests); balance service/errors/error encoder и balance-melee также реализованы. [Общий аудит Melee JSON/CLI](audits/m6-external-readiness.md) завершён; ADR-0027 закрыт в текущей границе numeric Minions. Правила, domain/engine и прежние ranged API/CLI сохраняются; Melee simulation добавлен отдельно. Генерация за пределами заданного резерва, PC-сценарии и общий бой вне текущего scope.
+
+
+Следующее направление выбрано: **M7 — смешанный дальний и ближний бой**. [ADR-0028](decisions/ADR-0028-mixed-minion-scenario.md) и [probe](examples/m7/README.md) подготовлены; typed admission реализован и проверен 25 tests. Одиночный mixed-сценарий закрыт [аудитом](audits/m7-readiness.md): 60 tests M7, самостоятельный public пример и сохранённый вывод проверены. [ADR-0029](decisions/ADR-0029-independent-mixed-simulations.md) и конечный probe независимых mixed-прогонов/summary подготовлены. Production модели, последовательный исполнитель и pure summary реализованы с 25 новыми tests. [Аудит последовательной simulation](audits/m7-simulation-readiness.md) завершён; production-пример и subprocess test проверены (26 simulation tests). [Профилирование mixed-пакетов](benchmarks/README.md#m7-исходное-профилирование-mixed-simulation) завершено без изменений production, добавлены семь tests harness. [Эксперимент с кешированием continuation](benchmarks/m7-round-continuation-review.md) завершён отказом: устойчивое ускорение не подтверждено, production восстановлен. [Контракт ADR-0030](decisions/ADR-0030-process-mixed-simulations.md) и конечный process transport probe готовы; отдельный mixed process backend реализован с 17 новыми tests. [Сравнение sequential/process](benchmarks/README.md#mixed-sequential-и-spawn) завершено: 54 полных результата/summary равны, два workers локально быстрее на 1000 trials для 3×2/2×2. [Общий аудит массовой mixed-симуляции](audits/m7-mass-simulation-readiness.md) завершён: 56 tests слоя и 116 M7, production исправлений не потребовалось. [ADR-0031](decisions/ADR-0031-mixed-candidate-assessment.md) и конечный assessment probe подготовлены. Pure assessment одного mixed-кандидата реализован: отдельные frozen model/status/helper, exact source и четыре Fraction rates; 9 unit/1 integration test. Модели списка с бюджетом и stable ranking также реализованы (11 deterministic tests). Application service/errors также реализованы: полный existing run и source-bound aggregate report, 8 unit/3 integration tests. [Аудит bounded mixed evaluation](audits/m7-evaluation-readiness.md) завершён; [самостоятельный пример](examples/m7/mixed_evaluation.py) и сохранённый вывод проверены. [Контракт ADR-0032](decisions/ADR-0032-staged-mixed-evaluation.md) и [конечный probe](examples/m7/staged_contract_probe.py) подготовлены: полные повторные пакеты, верхний бюджет, отдельные continuation/final selection и exact report chain. [Pure helper](../src/towr/balance/mixed_staged_evaluation.py) и [frozen staged models](../src/towr/balance/mixed_staged_evaluation_models.py) реализованы: 19 deterministic tests. [Staged service/error](../src/towr/application/mixed_staged_evaluation_service.py) реализованы: 9 unit/3 real-backend integration tests, полный source до продолжения и stage/candidate/cause context. [Аудит staged mixed evaluation](audits/m7-staged-evaluation-readiness.md) завершён; [самостоятельный пример](examples/m7/mixed_staged_evaluation.py) и вывод проверены. [Контракт ADR-0033](decisions/ADR-0033-mixed-composition-generation.md) и [конечный probe](examples/m7/generation_contract_probe.py) подготовлены: явный резерв, family facts/pairs/policies, полный бюджет и отказ при недопустимом поднаборе. [Group/request preflight](decisions/ADR-0033-mixed-composition-generation.md#реализованный-первый-срез) реализован: 15 deterministic tests, C/полный бюджет без materialization. [Генератор/result/error](decisions/ADR-0033-mixed-composition-generation.md#реализованный-второй-срез) реализованы: 17 новых tests, полные проекции, source guards и отказ без пропуска недопустимого состава. [Integration генератора](decisions/ADR-0033-mixed-composition-generation.md#сквозная-integration) проверена: 6 новых tests, равные sequential/process reports, повтор/rename prefix, полный scripted budget и динамический локальный outnumbering. [Аудит генерации](audits/m7-generation-readiness.md) завершён; [самостоятельный пример](examples/m7/mixed_balance.py) и сохранённый вывод проверены. [Контракт Mixed JSON/CLI ADR-0034](decisions/ADR-0034-mixed-json-cli-v1.md) и [конечные примеры](examples/m7/json/README.md) подготовлены: отдельные simulate-mixed/balance-mixed, explicit pairs/facts/actor policies, aggregate outputs и phase-specific errors. Simulation Schema/command/pure parser/summary encoder реализованы: 29 unit и 2 real-backend integration tests. Simulation service/errors/error encoder и simulate-mixed реализованы (39 новых tests). Balance Schema/command/result/pure parser/result encoder реализованы (38 новых tests). Balance service/application errors/error encoder и balance-mixed реализованы (41 новый test). [Общий аудит mixed JSON/CLI](audits/m7-external-readiness.md) завершён; ADR-0034 закрыт в текущей границе numeric Minions. Mixed evaluation доступна через typed Python API; simulation и balance доступны через JSON/CLI.
+
+Первый контракт M8 [ADR-0035](decisions/ADR-0035-cowardly-flight-casting-boundary.md), public probe и typed input/preflight одного Casting-действия готовы (23 новых tests). Result/executor с тремя ветвями также готовы (26 новых tests); boundary закрыт [аудитом](audits/m8-casting-readiness.md), standalone production example проверен из внешнего cwd и wheel. [Контракт интеграции ADR-0036](decisions/ADR-0036-magic-encounter-integration.md) готов: inventory, первый состав, ownership/dispatch, обязательные continuations и порядок зависимостей. Actor-bound Casting → roster consumer реализован: immutable state/request/result, exact source/replay guards и pending Miscast. Minion Attack → Champion bridge также реализован: отдельные state/request/result, один kernel Attack, completion Wound и блокирующие follow-ups. Casting из актуального roster и bound передача Champion attack также реализованы: ограниченный injured-caster/Conditions admission, live projections, полный pending и histories. Give Ground/completion подключён к roster/Champion owner: MOVEMENT_REQUIRED, блокировка dispatch, exact completion и перенос live spatial/Conditions в полный snapshot. Первый Broken-переход safe/free move → Recover с Casting interruption реализован. Broken Run через полный free move + одну дополнительную Zone также реализован, без бесплатного Recover. Первый end-turn переход Stomach Blow → expiry Drained реализован с source/turn guards и сохранением full owner/history. Terrain/Athletics, остальные timed effects и сам encounter пока отсутствуют. [Контракт первого scenario/runner ADR-0037](decisions/ADR-0037-magic-scenario-runner.md) и finite probe готовы: full source/pending, finite scene frames и inventory недостающих стыков. Production scenario input/pure admission реализованы: frozen policies/frames и 31 новый deterministic test, 238 M8 суммарно. Bound Minion Attack handoff и runtime bootstrap также реализованы: full pending, оба ledgers и синхронизация projections, 25 новых tests / 263 M8 суммарно. Bound defeat acknowledgement/exclusion также реализованы: 14 новых tests, 277 M8 суммарно; full-owner start/advance также реализованы: 17 новых tests, 294 M8 суммарно. Typed encounter steps/result/unsupported и pure chain validation также реализованы: 30 новых tests, 324 M8 суммарно. Single-run executor также реализован: ещё 40 tests, 364 M8; один RNG, explicit departure facts и source-checked actions/continuations/end-turn. [Аудит одиночной границы](audits/m8-encounter-readiness.md) завершён: 365 M8 tests, standalone public example и installed-wheel parity. [ADR-0038](decisions/ADR-0038-independent-magic-simulations.md) и finite simulation probe готовы: отдельная seed scheme/full-source compact records, action/started/completed counters и aggregate-only summary. Следующий срез — pure seed и frozen request/record/counts/result; production simulation API ещё не реализован.
+
+## Зафиксировано
+
+- прочитан исходный дизайн-док;
+- уточнены правила промаха, диапазона кубов, ничьей, выбора целей и лимита раундов;
+- определены архитектурные границы и порядок будущих этапов;
+- создан протокол передачи контекста между сессиями;
+- разделены неизменяемые определения бойцов и изменяемое состояние боя;
+- реализованы stat/inline источники броска, d10, встречная проверка, damage/RES, два режима stagger, раны и выбывание;
+- реализованы фазы игроков и монстров, заданный порядок нескольких атак, стабильный выбор цели, ничья и предел раундов;
+- добавлены внедряемый RNG и отключаемый структурированный журнал событий;
+- старый прототипный алгоритм AoE явно отменён и удалён из целевой документации;
+- установлено, что Player’s Guide и Gamemaster’s Guide имеют приоритет над дизайн-доком, документацией, кодом и тестами прототипа;
+- создана структура для индекса источника, нормализованных правил, лора, противоречий и трассировки.
+- создано воспроизводимое приватное постраничное извлечение Player’s Guide, позднее обновлённое до всех 192 страниц актуальной редакции;
+- прочитаны и первично нормализованы базовые проверки, бой, атаки, Resilience, Wounds и Conditions;
+- выявлены ключевые расхождения книги с P1 и добавлена начальная трассировка правил.
+- добавлен и полностью извлечён Gamemaster’s Guide;
+- нормализованы базовые типы NPC, формат профиля, особенности Monstrosity и книжные ориентиры encounter design;
+- пользователь подтвердил удаление временного AoE и подход resolution-kernel-first;
+- принято ADR-0002 о замене P1 через книжный resolution kernel.
+- проверены боевые Talents, свойства обычного оружия и репрезентативные специальные NPC-правила;
+- зафиксированы классы специальных эффектов и точный фазовый контракт K1.
+- реализованы новые неизменяемые `TestProfile`, `InlineProfile`, `TestRequest` и модификаторы K1;
+- реализованы книжные Basic/Opposed Tests, Grim/Glorious, contextual tie-break и детальный `RollTrace`;
+- добровольные Glorious-перебросы вынесены в явный `TestDecisionProvider`;
+- найдено и исправлено в K1 расхождение P1 по естественному пулу из одного куба.
+- реализован чистый resolver одной opposed/unopposed атаки;
+- реализованы книжные attack tie, Damage по разнице успехов, Resilience, игнорирование брони и последствия промаха в Close Range;
+- Attack resolver возвращает обычный `ImpactOutcome` без преждевременной мутации боевого состояния.
+- реализованы неизменяемое множество Conditions и чистый reducer Staggered;
+- повторный Staggered учитывает Prone, доступность Give Ground и лимит одного Give Ground за раунд;
+- выбор Give Ground/Prone/Wound вынесен в явный `StaggerDecisionProvider`, а единственный допустимый Wound выбирается автоматически.
+- реализована полная карта Wounds Table `1–27+`, записи исходных d10 и untreated Wounds;
+- реализованы Player/Champion, Minion, Brute и Monstrosity injury policies;
+- реализована отмена Wound после броска, включая правильное сохранение Staggered при Near Miss;
+- реализован владелец выбора Wound/Reaction для обоих случаев Damage по Monstrosity;
+- правило Monstrosity о неудачной Melee-атаке добавлено как явное трассируемое исключение;
+- создан единый `KernelAttackRequest → ResolutionResult`, возвращающий новое состояние цели и типизированные follow-up.
+- реализованы спецификации уникальных эффектов всех строк Wounds Table `1–27+`;
+- Conditions и ограничения раны сохраняют номер источника и точный срок действия;
+- kernel применяет непосредственный `WoundEffectResult`, а Endurance, инвентарь, анатомия и обязательный выбор возвращаются типизированными запросами;
+- реализованы успешная/неуспешная ветви Endurance и обе ветви `Spilling guts` без скрытых решений.
+- добавлен полный книжный enum из 16 Skills для типизированных ссылок правил;
+- обычный Damage, Condition вместо Damage и Hazard вместо Damage разделены вариантами `ImpactSpec`;
+- replacement impact не требует фиктивных Damage/Resilience и не применяется при промахе;
+- прямой Staggered использует общую repeated-Stagger policy, а Hazard создаёт `HazardExposureRequest` с рейтингом и Skill.
+- реализован `HazardResolutionRequest → HazardResolutionResult` с проверкой принадлежности `TestResult`;
+- shortfall Hazard задаёт базовое число кубов Wounds Table либо профильных Wounds, отдельно от untreated/modifier effects;
+- поддержаны Wound-only, Condition-only и Wound+Condition Hazards для всех четырёх injury policies;
+- Near Miss отменяет Wound от Hazard, но не отменяет его независимые failure Conditions.
+- добавлен закрытый `SecondaryEffectSpec` с первыми фазовыми и multi-target вариантами;
+- `ProneBeforeGiveGroundSpec` применяется до repeated-Staggered decision и поддерживает книжное исключение Monstrosity;
+- эффект Blunderbuss создаёт `NearbyTargetsStaggerRequest` только при попадании и после результата основной цели;
+- применённые secondary Rule ID сохраняются в `ResolutionResult`.
+- выделен общий `StaggerImpactRequest → StaggerImpactResult`, используемый основной и вторичными целями;
+- реализован `NearbyTargetsStaggerResolutionRequest` с запретом основной/повторных целей и уникальными impact IDs;
+- executor обрабатывает вторичные цели слева направо, сохраняя target IDs, общий RNG и явные решения;
+- вторичные цели проходят Player/Champion либо профильную NPC injury policy, включая Near Miss и Wound effects.
+- добавлен `ConditionAfterGiveGroundSpec` для Troublemakers Out!/Fearsome;
+- общий Stagger impact ставит Condition follow-up строго после `GiveGroundRequest` и только при выборе Give Ground;
+- `resolve_condition_after_give_ground` применяет отложенное Condition без преждевременного изменения состояния;
+- after-Give-Ground эффекты работают для основной и явно выбранных вторичных целей.
+- добавлен `ConditionOnHitSpec`, допустимый только с обычным `DamageImpactSpec`;
+- Damage, Staggered/Wound и injury policy завершаются до применения on-hit Condition;
+- Near Miss отменяет Wound, но не дополнительный Condition успешного попадания;
+- фазовый trace сохраняет порядок on-hit Condition до отложенных Give Ground/secondary-target follow-ups.
+- добавлен `ConditionOnGiveGroundOrWoundSpec` для Terrifying у Dragon/Wyvern;
+- Broken ставится после принятой Wound либо откладывается строго после `GiveGroundRequest`;
+- Near Miss, первый Staggered и альтернативный repeated-Staggered исход Terrifying не запускают;
+- тот же условный эффект работает в общем Stagger impact для профильной вторичной цели.
+- `KernelAttackRequest` теперь принимает типизированный `MonstrosityReactionSpec`, а не исполняемую строку Rule ID;
+- реализованы `MonstrosityReactionRequest → MonstrosityReactionResolutionResult` и первый конкретный `MonstrousFlightReactionSpec` для Griffon/Dragon/Wyvern;
+- Monstrous Flight возвращает Give Ground с предпочтением vertical midair либо профильную Wound, если Monstrosity уже давала Ground в текущем ходу;
+- дополнительные профильные Wounds и Terrifying проходят через результат Reaction с сохранением Rule ID;
+- невозможный Give Ground зафиксирован как книжная неоднозначность без скрытого default.
+- добавлен `UnsteadyReactionSpec` для Giant и исходы `FALL_PRONE`/`ALREADY_PRONE`;
+- новое падение Giant накладывает Prone, сохраняет Staggered и создаёт `ReactorZoneHazardRequest` с Athletics Hazard (3);
+- запрос Zone Hazard явно включает самого Giant и всех остальных существ в его Zone, но не выполняет spatial-выбор;
+- уже Prone Giant не создаёт Hazard повторно, а Terrifying не реагирует на исход Unsteady.
+- добавлен `MonstrousRegenerationReactionSpec` для Ghorgon/Troll Hag и исход `REGENERATION_SUPPRESSED`;
+- Reaction сохраняет injury state и создаёт один `SuppressRegenerationNextTurnRequest` с Rule ID источника;
+- добавлен отдельный `MonstrousRegenerationEndTurnRequest`, который принимает сохранённый suppression-снимок и однократно погашает его до проверки Wounds и решений;
+- без suppression отсутствие Wounds/неогненной Wound закрывает Ability, а доступная ветвь требует выбора Actor и лечит ровно 1 профильную Wound;
+- Ghorgon и Troll Hag используют одинаковое правило: Staggered добавляется только при отсутствии, а уже Staggered Monstrosity всё равно может регенерировать;
+- Terrifying не реагирует на suppression, поскольку Give Ground/Wound не произошли.
+- добавлены `UndeadMonstrosityReactionSpec` и отдельный mounted context для Bone Dragon;
+- без всадника Reaction детерминированно наносит профильную Wound, включая дополнительные профильные Wounds и Terrifying;
+- Liche/Tomb King открывает внешний выбор владельца `MONSTROSITY` между доступными Wound, Give Ground и Prone;
+- resolver заранее исключает Give Ground после уже выполненного в раунде перемещения, при невозможном перемещении или Prone и исключает повторное падение Prone;
+- общий request теперь принимает закрытый union профильных Reaction contexts вместо необязательных Give Ground флагов.
+- реализован `ReactorZoneHazardResolutionRequest` для уже выбранного стабильного порядка существ в Zone;
+- batch обязан включать реагирующего и отклоняет повторные target IDs и Test request IDs;
+- `resolve_reactor_zone_hazard` слева направо проводит каждую цель через общие Test/Hazard resolvers на одном RNG;
+- результат каждой Zone-цели сохраняет exposure, полный Test trace, собственный injury state и Hazard result;
+- Test/Wound decision providers, Near Miss, четыре injury policy и failure Conditions переиспользуются без отдельной area-логики.
+- добавлены `EffectClassification.PSYCHOLOGICAL` и source-aware `EffectImmunity` для undead-профилей страниц 166–172;
+- реализован общий `ConditionApplicationRequest → ConditionApplicationResult`, сохраняющий source Rule ID и blocking immunity Rule ID;
+- неклассифицированные эффекты не считаются психологическими по значению Condition;
+- `ConditionImpactSpec` передаёт классификацию, а `KernelAttackRequest` — иммунитеты цели;
+- Bone Dragon блокирует психологический replacement Condition до прямого или Staggered reducer;
+- остальные secondary/Hazard/non-Condition пути пока намеренно не считают подключёнными к иммунитету.
+- психологическая классификация добавлена в `ConditionOnHitSpec`, `ConditionOnGiveGroundOrWoundSpec` и `ConditionAfterGiveGroundSpec`;
+- непосредственные secondary Conditions используют общий resolver и сохраняют `condition_applications` в resolution result;
+- after-Give-Ground follow-up переносит classification и immunity snapshot через границу движения;
+- Stagger impact и Monstrosity Reaction сохраняют блокировки outcome Conditions без отмены Give Ground или Wound;
+- Fearsome/Terrifying с явной психологической классификацией не накладывают Broken на undead-профиль.
+- общий `EffectApplicationRequest → EffectApplicationResult` выделен как source-level preflight без мутации состояния;
+- `HazardImpactSpec`, одиночная exposure и Zone Hazard переносят явную psychological classification;
+- совпавший иммунитет блокирует весь психологический Hazard до Test, поэтому не расходует RNG и не создаёт Wound/failure Conditions;
+- `Willpower` и значение failure Condition не используются для неявной классификации; Vampire sunlight Hazard остаётся применимым контрпримером страницы 168.
+- нормализован `RULE-MAGIC-001` для `Curse of Cowardly Flight` со страницы 162 Player’s Guide;
+- один source-level psychological preflight блокирует для undead и forced Give Ground, и последующий Willpower/Broken;
+- незаблокированный spell создаёт строгую очередь `GiveGroundRequest → CowardlyFlightWillpowerRequest`;
+- невозможность Give Ground удаляет только movement follow-up, но не отменяет книжный Willpower Test;
+- импровизированные Illusion Control, `Shackles of Truth` и Necromancy Control не обобщены без конкретного детерминированного правила.
+- нормализован `RULE-NPC-017` для Foul Stench Wyvern со страницы 180 GM Guide;
+- добавлен `DecisionOwner.TARGET` и явный выбор между сбросом удерживаемого предмета и Distracted;
+- инвентарная ветвь возвращает `DropHeldHandItemRequest`, не выбирая предмет и не мутируя отсутствующее inventory state;
+- свободная рука закрывает нос без решения, а невозможность освободить руку автоматически применяет Distracted;
+- вход в Zone остаётся фактом внешнего spatial orchestration, а Condition проходит общий reducer с Rule ID Ability.
+- добавлен общий `ZoneHazardRequest → ZoneHazardResolutionResult` для уже выбранных существ произвольной Zone;
+- Giant-специфичный `ReactorZoneHazardResolutionRequest` сохранил проверку присутствия реагирующего и теперь делегирует общему Zone executor;
+- `RepeatedConditionReplacement` задаёт валидируемую замену повторного failure Condition и проверяется после Wound-фазы на актуальном состоянии;
+- нормализован `RULE-NPC-018` для Soporific Breath Forest Dragon со страницы 179 GM Guide;
+- Endurance Hazard (2) наносит обычную Wound по shortfall и накладывает Drained, а повторный Drained фактически добавляет Defenceless, не удаляя существующий Drained;
+- порядок Wound → failure Condition покрывает случай, когда Drained появился из Wounds Table того же Hazard;
+- Soporific Breath подключён к отдельному Zone Ability action composite: preflight проверяет точную Ability/approach, отсутствие Defenceless/Staggered, Medium Range и полный ordered snapshot placements до RNG;
+- все существа Zone разрешаются на одном RNG, receipt добавляется только после полного batch, а spatial state не мутируется; пустая Zone допустима;
+- Wood Elf-наездник использует тот же контракт через явно подтверждённый inherited Ability snapshot без общего mount/rider engine.
+- нормализованы `RULE-NPC-019` Troll Vomit и `RULE-NPC-020` Troll Hag Swamp Breath со страниц 182–183 GM Guide;
+- Vomit создаёт одиночную Endurance-exposure Hazard (3), а Swamp Breath — тот же Hazard (3) для уже выбранной Zone;
+- оба источника используют общую Wound по shortfall без дополнительных Conditions и отдельной injury-логики;
+- Troll Vomit подключён к одиночному action orchestration; Swamp Breath — к отдельному Zone action composite с расходом Ability Improvise slot;
+- Swamp Breath preflight требует точный Ability/approach snapshot, активную не-Defenceless и не-Staggered Troll Hag, Medium Range и полный ordered target snapshot всех placements выбранной Zone;
+- союзники и сама действующая включаются по фактическому нахождению в Zone; пустая Zone допустима, а receipt добавляется только после атомарного разрешения всего Endurance Hazard (3) batch на одном RNG.
+- нормализован `RULE-NPC-021` Troll Stupidity со страницы 182 GM Guide и общего Distracted со страницы 123 Player’s Guide;
+- отдельный `TrollStupidityState` хранит source Rule ID и подавление до конца текущего боя;
+- начало боя применяет Distracted через общий Condition reducer, а активная Ability выдаёт –1d на любой Test Troll;
+- фактически нанесённая профильная Wound и успешный Leadership Test снимают Distracted и подавляют его возврат;
+- отдельный typed entry point синхронизирует suppression после обычного или иного внешнего снятия Distracted с сохранением Rule ID причины;
+- провал Leadership и повторная обработка уже подавленной Ability детерминированно сохраняют состояние, а новый бой требует нового несдержанного Ability-state.
+- нормализованы `RULE-MAGIC-002` Magic Resistance (Player’s Guide, страницы 78 и 157) и `RULE-NPC-022` Stone Troll (GM Guide, страница 182);
+- добавлены `SpellPotencyModifier`, target-scoped `SpellPotencyRequest` и чистый reducer между завершённым Casting Test и spell effect;
+- reducer сохраняет base Potency, delta, effective Potency и Rule IDs, ограничивает итог снизу нулём и явно возвращает `has_effect=False` при нуле;
+- Stone Troll фиксирует профильный Resilience 6 и source-aware –1 Potency, а Talent Magic Resistance использует тот же общий контракт;
+- multi-target Potency временно считается отдельно для каждой защищённой цели; неоднозначность формулировки записана как `AMBIGUITY-002`.
+- добавлен `RULE-NPC-023` для обычной Troll Regeneration со страницы 182 GM Guide;
+- новый `DecisionOwner.ACTOR` обозначает контроллера существа, чей добровольный end-turn эффект разрешается;
+- Staggered, отсутствие Wounds и отсутствие допустимой неогненной Wound закрывают Regeneration без обращения к decision provider;
+- доступная Regeneration требует явного выбора Regenerate/Skip, а выбранное лечение применяет source-aware Staggered и уменьшает профильные Wounds ровно на 1;
+- результат лечения возвращает `ProfileStateChangeRequest`, а provenance огненных Wounds пока поступает явным `has_non_fire_wound`.
+- нормализованы `RULE-NPC-024` Mother Knows Best (GM Guide, страница 183) и общий `RULE-MAGIC-003` Rule of Nine для магического противодействия (Player’s Guide, страницы 74 и 157);
+- Troll Hag зафиксирована как Level 2 Wizard и получает обычный source-aware +1d к Casting Tests только при 0 Wounds;
+- общий `NpcWizardCastingOppositionRequest` принимает Long Range/round-budget снимки и завершённый `OpposedTestResult` с проверкой Casting/Willpower Test IDs;
+- недоступная по дальности или уже использованная Reaction не принимает выполненную проверку, а доступная объявленная ветвь помечает round budget использованным независимо от исхода и девяток;
+- девятки Willpower-проверки реагирующего NPC Wizard создают `MiscastPoolIncreaseRequest` для его собственного пула независимо от победителя opposition;
+- Rule of Nine учитывает девятки после допустимых перебросов и отклоняет trace, в котором исходную девятку перебросили вопреки книге.
+- добавлен source-aware `RerollLock`, который заранее исключает девятку из Glorious choices и автоматических Grim rerolls без отдельного магического dice resolver;
+- нормализован `RULE-MAGIC-004` для Miscast Pool по страницам 157–159 Player’s Guide;
+- реализован `CastingTestRequest → CastingTestResult`: общий Test автоматически получает Rule of Nine lock, а successes накапливаются в `WizardMagicState`;
+- активная Casting-попытка хранит объявленный Lore и successes последнего броска для будущей base Potency; даже нулевой бросок сохраняет Lore, а его смена до завершения запрещена;
+- финальные девятки создают один source-aware `MiscastPoolIncreaseRequest`, напрямую совместимый с существующим threshold resolver; Miscast preparation очищает весь Casting snapshot;
+- реализован `CastingDecisionRequest → CastingDecisionResult`: `WAIT` сохраняет активный Casting snapshot, а `CAST` требует spell того же Lore и накопленных successes не меньше CV;
+- normal `CAST` создаёт общий `SpellCastRequest` с base Potency последнего броска и очищает только Casting snapshot; pending Miscast блокирует normal decision, равенство pool уровню — нет;
+- тот же `CastingSpellSelection`/`SpellCastRequest` используется заклинанием перед Miscast, поэтому эта ветвь также сохраняет Lore и base Potency;
+- base Potency 0 разрешена при достаточной накопленной сумме и через общий Potency reducer даёт `has_effect=False` без вымышленного spell effect;
+- добавлены `FormalSpellDefinition`, `SpellTargetKind`, `SpellRange`, `SpellDuration` и первый книжный definition `Curse of Cowardly Flight`: `CV 3`, Battle Magic, `Zone`, `Long`, `Instant`;
+- реализован `SpellTargetPreflightRequest → SpellTargetPreflightResult`: Rule ID/Lore/CV сверяются с definition, неверный subject type и внешний out-of-range факт закрываются до Potency;
+- выбранная Zone отделена от списка затронутых врагов, поэтому валидный пустой affected-target snapshot проходит preflight без искусственной цели;
+- реализован `SpellCastExecutionRequest → SpellCastExecutionResult`: boundary принимает снимок уникальных affected targets в стабильном порядке и независимо разрешает Potency каждой цели;
+- каждый target result сохраняется даже при effective Potency 0, но общий `SpellEffectApplicationRequest` создаётся только при `has_effect=True`;
+- effect request переносит cast/caster/spell/lore/target/effective Potency к следующему конкретному reducer, не проверяя spatial Range/schema и не исполняя универсальный spell effect;
+- `CowardlyFlightSpellEffectRequest` подключает первый formal spell к общему effect follow-up и принимает уже подготовленные movement/Test/injury/immunity snapshots цели;
+- адаптер отклоняет чужой либо несовпадающий spell/source Rule ID и переносит target-local effective Potency в существующий `CowardlyFlightRequest`;
+- сквозной тест подтверждает цепочку cast target → Magic Resistance/Potency → Give Ground → Willpower, сохраняя source-level психологическую иммунность;
+- `SpellCastExecutionResult` сохраняет selected subject, caster, spell Rule ID и Lore даже для пустого affected-target batch;
+- реализован `CowardlyFlightZoneBatchRequest → CowardlyFlightZoneBatchResult`: положительные effects строго сопоставляются с контекстами по target ID, а выход восстанавливает исходный порядок Zone;
+- missing/extra/duplicate/forged contexts и повторные Willpower Test IDs отклоняются; цель с effective Potency 0 контекста не требует;
+- batch корректно принимает пустую Zone и отдельно возвращает movement и Willpower очереди; `CowardlyFlightMovementFollowUp` сохраняет target ID общего Give Ground без разбора строк, spatial movement и Test не исполняются преждевременно;
+- `CowardlyFlightMovementCompletion` типизированно подтверждает исполнение конкретного movement follow-up; Willpower batch принимает подтверждения в любом порядке, но требует их точного полного набора до обращения к RNG;
+- stable Willpower batch перепроверяет целостность movement/Test очередей, выполняет Tests общим RNG в affected-target порядке и сохраняет Zone/caster/spell/Lore provenance; цель без возможного Give Ground всё равно проверяется, пустая Zone не расходует RNG;
+- принят `ADR-0003`: battlefield представлен неориентированным `ZoneGraph`, а неизвестная геометрия внутри Zone остаётся явным path context вместо координат или метров;
+- добавлены `SpatialEntityPlacement` и неизменяемый `SpatialBattleState` со стабильным порядком существ, coalition-like `side_id`, номером round и раздельными usage уже давших Ground/использовавших free move/проверявших Difficult Terrain;
+- реализован `GiveGroundResolutionRequest → GiveGroundResolutionResult`: проверяются adjacent destination, движение от attacker по graph-distance, Prone/Defenceless, один раз за round, enemy path blocker, obstacle и Difficult Terrain;
+- успешный Give Ground сохраняет порядок остальных размещений, меняет Zone только mover, записывает round usage и накладывает Broken через общий Condition reducer при входе во вражескую Zone;
+- `start_next_spatial_round` очищает раздельные round-scoped Give Ground/free-movement/Difficult Terrain usage без turn/action scheduling;
+- `GiveGroundResolutionResult` сохраняет предыдущий и новый spatial state и валидирует, что изменились только Zone mover и точная Give Ground запись, не позволяя затронуть free-movement usage;
+- добавлен `MovementSpeed` со Slow/Normal/Fast и `FreeMovementRequest → FreeMovementResult` для incidental free move активного actor без action slot;
+- composite request требует совпадения active turn actor и номера round, принимает явный последовательный Zone route и разрешает одну границу для Slow/Normal либо две для Fast;
+- reducer меняет только placement actor и отдельный once-per-turn usage; Prone/Defenceless, enemy path blocker и obstacle блокируют путь, тогда как Burdened и союзник на пути не блокируют;
+- прямой free-move reducer закрывает Difficult Terrain, а отдельный terrain-aware consumer принимает готовый traversal result; движение внутри одной Zone остаётся внешним позиционным context, повторный free move отклоняется;
+- round-scoped поле уточнено до `free_move_used_entity_ids`, поскольку книжная альтернатива может потратить возможность без перемещения;
+- добавлены `ProneRemovalTargetKind` и `FreeMoveProneRemovalRequest → FreeMoveProneRemovalResult`: self либо отдельный дружественный target в явно подтверждённом Close Range;
+- ветвь запрещена при враге в Close Range, отсутствии Prone или уже использованном free move; успех сохраняет placements/turn slots, удаляет только Prone и записывает общий usage actor;
+- добавлены `RunActionExecutionRequest → RunActionExecutionResult` и специализированный `execute_run_action` для зарезервированного `ManoeuvreKind.RUN`;
+- базовый Run требует active actor, совпавший round и выполненные предыдущие slots, запрещает Slow/Burdened/Prone/Defenceless и перемещает Normal/Fast ровно в одну соседнюю Zone;
+- spatial mutation выполняется до добавления `ActionExecutionReceipt`; free-move/Give Ground usage не меняется, а незавершённый Run теперь запрещает завершить ход;
+- добавлены `RunAthleticsExtensionRequest → RunAthleticsExtensionResult` и три typed outcome опционального Athletics после завершённого базового Run;
+- успешный Athletics перемещает actor во вторую соседнюю extra Zone без нового receipt; провал сохраняет placement и добавляет только отсутствующий Staggered;
+- explicit Difficult Terrain conflict, path blockers и movement Conditions проверяются до RNG; полный Test trace и source-aware Staggered application сохраняются в результате;
+- `DifficultTerrainTraversalResult` теперь сохраняет полный исходный request и отдельно валидирует path/obstacle provenance;
+- добавлены `DifficultTerrainFreeMovementRequest → DifficultTerrainFreeMovementResult` и `DifficultTerrainRunActionExecutionRequest → DifficultTerrainRunActionExecutionResult`;
+- оба composite требуют точного совпадения active actor/round, исходного spatial state, Conditions, destination/path/obstacle и current crossed snapshot; Run дополнительно требует прежний unexecuted slot;
+- consumers не обращаются к RNG повторно: free move добавляет только once-per-turn usage, Run — только execution receipt; failure сохраняет crossed placement и Prone;
+- подмена traversal и применение к уже обновлённым current snapshots отклоняются; точный replay неизменного pure request остаётся детерминированным и требует общей дедупликации request ID в будущем battle aggregate;
+- добавлены `DifficultTerrainChargeActionExecutionRequest → DifficultTerrainChargeActionExecutionResult` и специализированный Medium Charge consumer готового traversal;
+- composite доказывает совпадение исходного Charge и terrain source по actor/round/spatial origin/target destination/Conditions/path/obstacle, а current snapshots — с crossed state и unexecuted Charge slot;
+- consumer не двигает actor и не бросает Athletics повторно: он проверяет post-terrain Staggered context, подготавливает обычный Melee-only `+1d`, выполняет один Close kernel attack и затем добавляет receipt;
+- failed terrain Athletics сохраняет crossed placement и Prone, но не отменяет Charge attack: книжный Prone запрещает выход из Zone и модифицирует входящие атаки, а не собственную атаку лежащего;
+- Slow/Burdened, enemy Close в начале turn, отсутствие фактического Close после movement, stale attack/duplicate bonus, подмена result и повторное применение к исполненному slot отклоняются;
+- добавлены `ChargeActionExecutionRequest → ChargeActionExecutionResult` и атомарный executor базового Charge по выбранной enemy target на Medium Range;
+- Charge проверяет active slot/round, enemy adjacency, отсутствие врага Close в начале turn и локальное достижение Close; затем перемещает actor, выполняет один kernel attack и добавляет receipt только после результата;
+- Melee Attack получает ровно один source-aware `+1d`; другие Attack Skills временно не получают бонус, а расхождение формулировок Brawn записано как `AMBIGUITY-007`;
+- Slow/Burdened/Prone/Defenceless, obstacle/enemy path, Difficult Terrain, stale Close/Staggered context и повторный modifier закрываются до RNG;
+- добавлены `LongChargeActionExecutionRequest → LongChargeActionExecutionResult` и три закрытых outcome для Charge enemy ровно на Long Range;
+- request фиксирует Athletics `TestRequest`, route `origin → intermediate → target`, локальный Close fact и готовый kernel attack; прямое Medium adjacency либо разорванный двухзвенный route отклоняются до RNG;
+- Athletics success перемещает actor к target, выполняет Close attack с общей Melee-only `+1d` policy и завершает Charge slot;
+- Athletics failure перемещает actor в intermediate Zone, не подготавливает/не выполняет attack, применяет отсутствующий Staggered и всё равно завершает Charge slot; уже Staggered остаётся одним Condition;
+- Difficult Terrain Athletics того же turn и terrain на route взаимоисключены с Long attempt; result invariants связывают Test trace, Conditions, spatial/turn transitions, optional kernel result и receipt;
+- добавлены `DifficultTerrainTraversalRequest → DifficultTerrainTraversalResult` и два outcome одного crossing по Player’s Guide 1.4, странице 115;
+- reducer требует active actor, adjacent destination, Athletics Test и локальный path context; Prone/Defenceless, obstacle и enemy blocker отклоняются до RNG, Burdened и союзник не блокируют общий crossing;
+- spatial movement и запись `difficult_terrain_tested_entity_ids` происходят до результата Test; success сохраняет Conditions, failure после crossing применяет Prone без отката позиции;
+- повторное terrain crossing в том же turn выполняет новый Test без duplicate usage, а переход spatial round очищает факт;
+- optional Run и Long Charge больше не доверяют внешнему boolean и автоматически закрываются по подтверждённому terrain usage в `SpatialBattleState`;
+- обычное движение после снятия Prone и снятие Prone после движения одинаково отклоняются, а совпадение Zone намеренно не подменяет Close Range fact;
+- `CowardlyFlightMovementCompletion` теперь обязательно содержит совпавший успешный generic spatial result, а Willpower gate требует одну ordered state chain из выбранной Zone до переданного final spatial state;
+- `WizardMagicState` хранит текущие Miscast dice и накопленные successes Exacting Casting Test, тогда как неизменяемый Wizard Level остаётся явным входом resolver;
+- применение `MiscastPoolIncreaseRequest` различает безопасное равенство уровню и строгое превышение, сохраняет provenance и создаёт `MiscastRollRequest` на весь накопленный пул;
+- сработавший пул не очищается и не принимает новые кубы до результата таблицы, поскольку книга обнуляет его только после разрешения эффекта;
+- обе книги обновлены до локальной редакции `Last Edited: 29th January 2026`, полностью повторно извлечены и проиндексированы с новыми хэшами;
+- подтверждены выбранные версии: Player’s Guide `1.4` и Gamemaster’s Guide `1.1`;
+- обе книги напрямую прочитаны по всем страницам `1–192`; полный журнал диапазонов и 62 существенных вывода сохранён в `docs/audits/rulebooks-1.4-1.1.md`;
+- созданы нормализованные каталоги создания и развития персонажа, Contacts, Skills, Talents, Lores, Equipment, Fate, Downtime, Faith, Spells, Corruption, Magic Items и всех NPC profiles GM Guide;
+- повторно проверенные K1-правила Tests, Wounds, NPC injury policies, undead immunity, Monstrosity Reactions, Troll effects и Miscast lifecycle согласуются с выбранными редакциями; выявленные отсутствующие механики отражены в traceability, а не подменены прототипом;
+- `AMBIGUITY-003` закрыта актуальной страницей 159: диапазоны исправлены на `21–22` и `23–24`;
+- preparation-фаза теряет весь Casting snapshot и при выбранном доступном заклинании ставит общий `SpellCastRequest` перед броском, добавляя к нему `+1d`;
+- реализована полная карта из 21 строки Miscast Table, RNG-бросок pool/bonus dice и `MiscastTableEffectRequest` с сохранением исходных d10, суммы, entry ID и Rule ID;
+- Miscast Pool намеренно остаётся заполненным после броска до отдельного разрешения конкретного табличного эффекта.
+- реализованы отдельные reducers для `Arcane Spill (11–12)`, `Internal Damage (31–32)`, `Zone Hazard (33–34)`, `Ears ringing (35–36)` и `Catastrophic Death (39+)`;
+- Arcane Spill использует общий repeated-Stagger/injury pipeline и сохраняет minor-Lore effect как typed GM follow-up;
+- Internal Damage различает pending Wounds Table lifecycle для Player/Champion и immediate профильную Wound NPC, включая существующие Wounds, modifiers, non-Fate negation и настоящее окно Near Miss;
+- добавлен `WoundRecordOrigin.FIXED_ENTRY`: Ears ringing создаёт pending character Wound без фиктивного броска, завершает её через daily registration → effect без Near Miss и сохраняет стабильный порядок разных целей с магом первой целью; профильные NPC остаются immediate;
+- Catastrophic Death без Wound roll фиксирует смерть, уничтожение тела и запрет reanimation, а профильного NPC переводит в defeated-состояние;
+- каждый полностью структурированный эффект проверяет source entry/pool snapshot и обнуляет Miscast Pool.
+- реализован `Unnatural Wind (21–22)`: уже выбранные разные цели обрабатываются в стабильном порядке с магом первым, обычные существа получают Prone через общий Condition reducer, Monstrosity явно исключается без мутации;
+- реализован `Zone Hazard (33–34)`: reducer создаёт общий `ZoneHazardRequest` с rating по всем фактически брошенным pool/bonus dice, привязкой к текущей Zone мага и сроком до конца боя;
+- общий Zone Hazard контракт поддерживает основной и альтернативные Skills; при нескольких вариантах каждый участник обязан явно выбрать Endurance либо Athletics до выполнения Test;
+- регистрация Hazard в spatial/battle state остаётся внешним follow-up, а уже выбранные цели исполняются существующим Zone Hazard pipeline.
+- реализован `Hideous Stench (13–14)`: уже зафиксированные разные цели обрабатываются в стабильном порядке, а доступная развилка Give Ground/`–1d` принадлежит каждой цели;
+- невозможный Give Ground автоматически создаёт `MiscastNextTestPenaltyRequest`, не вызывая decision policy; выбранное движение возвращает обычный `GiveGroundRequest`;
+- отдельный `MiscastFellowshipGrimUntilBatheRequest` относится ко всем Tests характеристики Fellowship самого мага, включая назначенный GM нестандартный Skill, и создаётся даже при отсутствии существ в Short Range;
+- после создания всех непосредственных follow-up Hideous Stench очищает Miscast Pool.
+- реализован `Spell Recast (23–24)`: casting orchestration передаёт непустой стабильный snapshot `MiscastRecentSpellOption`, а reducer выбирает один option через внедряемый RNG;
+- результат сохраняет выбранные index/option и создаёт `MiscastSpellRecastApplicationRequest` с Potency 1 без преждевременного исполнения spell effect;
+- выбор новой цели закреплён за `DecisionOwner.GM`; пустая история и повторные option IDs отклоняются до очистки Miscast Pool.
+- реализован `Truthbound (25–26)`: reducer создаёт `MiscastTruthboundUntilDowntimeRequest` для самого мага и очищает Miscast Pool;
+- эффект сохраняет только книжное ограничение «говорить правду в собственном понимании» и срок до следующего downtime, не анализируя реплики и объективную истинность.
+- реализован `Arcane Sight (27–28)`: reducer создаёт caster-scoped state до следующего полнолуния Morrslieb и очищает Miscast Pool;
+- явный `MiscastArcaneSightTestContext` различает затронутую обычную Awareness Test (Grim) и Test обнаружения магического явления (Glorious), не классифицируя Test автоматически.
+- реализован `Feared Foe Illusion (29–30)`: reducer сохраняет подготовленную narrative reference наиболее страшного врага мага и очищает Miscast Pool;
+- в бою appearance действует до battle end, вне боя требует положительную GM-длительность в минутах; смешение duration-ветвей отклоняется.
+- реализован `Daemon Rift (37)`: reducer создаёт `MiscastDaemonManifestationRequest`, привязанный к магу как источнику разрыва, и очищает Miscast Pool;
+- природа Daemon, stat block, точное размещение и начальный курс принадлежат GM; контракт неизменно сохраняет враждебность к магу и союзникам, варианты beguile/corrupt/destroy, возможность немедленного действия либо бегства и оба события возврата в Realm of Chaos.
+- реализован `Fascinating Rift (38)`: reducer принимает выбранную GM Zone в Long Range и стабильный снимок свидетелей, разрешает их слева направо и очищает Miscast Pool;
+- каждый незаблокированный свидетель проходит общий Willpower Test с книжным `−1d`; провал создаёт привязанный к порталу compulsion, а психологическая иммунность отменяет Test до расхода RNG;
+- portal contract фиксирует закрытие только после входа кого-либо или выхода чего-либо; физическое удержание блокирует вход, не снимая compulsion автоматически.
+- реализован `Sunlight Blindness (19–20)`: reducer создаёт caster-scoped `MiscastSunlightBlindnessUntilDowntimeRequest` и очищает Miscast Pool;
+- типизированная illumination policy исключает sunlight/other natural light, разрешает torchlight/other artificial/arcane illumination и сохраняет режим «как глубокой ночью» без общей Blinded Condition или придуманного числового штрафа.
+- реализован `Random Transport (17–18)`: reducer выбирает через внедряемый RNG один элемент стабильного непустого snapshot допустимых Medium Range Zone и очищает Miscast Pool;
+- typed relocation сохраняет origin, выбранные index/destination и Rule ID без мутации карты; пустой snapshot, повторные Zone и текущая Zone отклоняются до броска.
+- реализован `Unnatural Weather (15–16)`: reducer создаёт привязанный к магу GM-owned запрос изменения погоды в локальной области и очищает Miscast Pool;
+- оба книжных явления сохранены как примеры, а точная площадь, длительность и механические последствия явно оставлены неопределёнными без вымышленного Hazard, Condition или modifier.
+- реализован `Food Spoiled (9–10)`: reducer создаёт привязанный к магу Long Range spatial/inventory follow-up и очищает Miscast Pool;
+- fresh food помечена для порчи, любая preserved food остаётся пригодной, а dried/salted/pickled сохранены как неисчерпывающие примеры без моделирования предметов внутри kernel.
+- реализован `Shadow Chittering (7–8)`: reducer создаёт caster-scoped auditory effect до следующего полнолуния Mannslieb и очищает Miscast Pool;
+- nearby-shadow origin и frequent/entirely unpredictable recurrence сохранены явно, но отсутствующие в книге Condition, modifier и числовой interval не добавлены.
+- реализован `Objects Transfigured (5–6)`: reducer бросает отдельный `1d10`, сохраняет число объектов, создаёт Short Range spatial/inventory follow-up и очищает Miscast Pool;
+- случайный выбор малых объектов и направлений оставлен внешнему executor, вид различных малых существ принадлежит GM, а книжные примеры не считаются исчерпывающими.
+- реализован `Nauseating Wave (3–4)`: reducer принимает stable snapshot уникальных Short Range target IDs, сохраняет порядок и очищает Miscast Pool;
+- результат фиксирует только внезапную тошноту и явное отсутствие иного эффекта; пустой snapshot допустим, а self-inclusion мага оставлен общей spatial policy.
+- реализован `Sense of Loss (1–2)`: reducer принимает stable snapshot уникальных Medium Range target IDs, сохраняет порядок и очищает Miscast Pool;
+- результат фиксирует ощущение внезапной потери и невозможность назвать потерянное, явно не удаляя предметы; пустой snapshot допустим, self-inclusion остаётся общей spatial policy.
+- реализованы неизменяемые `CombatRoundState`, `CombatTurnState` и участники двух книжных сторон;
+- порядок actor внутри стороны выбирается каждый round, следующая сторона открывается только после полного завершения текущей, а opposition-first порядок засады сохраняется при переходе раунда;
+- типизированы шесть книжных actions и четыре варианта Manoeuvre; Charge, обычный Attack и явно атакующий Improvise используют общий признак `produces_attack`;
+- реализована резервация standard action slot и второго slot от proof-bound Fate либо Ability с обязательным Rule ID, без третьего action, повтора action и второй атаки; raw Fate grant отклоняется;
+- два разных Improvise возможны только с явным разрешением GM policy и разными stable approach ID;
+- обычная slot reservation намеренно не исполняет действие и не расходует Ability; отдельный Fate composite проверяет бюджет, расходует session resource и резервирует второй slot одним результатом;
+- принято ADR-0004 о границе round/turn/action slots перед новым battle loop.
+- добавлена generic `ActionExecutionReceipt`, которая отмечает только успешно завершённую специализированную фазу и сохраняет executor/source/result IDs вместе с actor, round, slot и точной typed action declaration; slot/turn/round snapshots проверяют соответствующие части provenance;
+- реализован `AttackActionExecutionRequest → AttackActionExecutionResult`: active actor, выбранный target ID и конкретный обычный Attack slot связываются с готовым `KernelAttackRequest → ResolutionResult`;
+- Attack executor вызывает существующий kernel без дублирования правил, после успеха меняет только receipt выбранного slot и возвращает round state до/после вместе с полным injury/follow-up результатом;
+- не-ATTACK, Charge, чужой, незарезервированный, уже исполненный slot и попытка обойти незавершённый предыдущий slot отклоняются до RNG; сбой kernel оставляет исходный slot зарезервированным;
+- зарезервированный обычный Attack теперь обязан исполниться до завершения хода; target selection и перенос нового injury state в будущий battle aggregate остаются внешними фазами.
+- добавлен `ImproviseKind`, который явно различает Skill, spell и Ability; любой Improvise обязан иметь typed kind и stable approach ID;
+- реализован `CastingAttemptExecutionRequest → CastingAttemptExecutionResult`: только spell Improvise связывает active actor и slot с одним готовым `CastingTestRequest → CastingTestResult`, а approach ID обязан совпадать с Lore;
+- casting executor переиспользует существующий Casting Test, после успеха меняет только receipt выбранного slot и сохраняет Rule of Nine/Miscast follow-up внутри результата для следующей фазы;
+- неверный action/kind/Lore/caster, незарезервированный, уже исполненный slot и обход незавершённого раннего slot отклоняются до RNG; сбой броска не добавляет receipt;
+- зарезервированный spell Improvise обязан исполниться до завершения хода; цели и effect не запускаются автоматически;
+- реализован `CastingActionPostTestRequest → CastingActionPostTestResult`: завершённый casting action связывается с Wizard Level, обязательным Miscast Pool threshold и существующим normal `CastingDecisionRequest → CastingDecisionResult`;
+- post-Test resolver проверяет фактическое число финальных девяток и provenance агрегированного follow-up, применяет увеличение пула до решения и требует совпадения decision по actor, Wizard Level и полному post-pool `WizardMagicState`;
+- при безопасном пороге выполняется явный `CAST`/`WAIT`; при превышении Wizard Level normal decision запрещён, сохраняются накопленные successes и базовый `MiscastRollRequest` для отдельной preparation-фазы;
+- подмена count/target/Test/Lore, отсутствие decision в normal-ветви, его присутствие в triggered-ветви и несвязанный итоговый state отклоняются.
+- реализован `CastingActionMiscastPreparationRequest → CastingActionMiscastPreparationResult`, принимающий только triggered post-Test result и точный внешний `MiscastPreparationRequest`;
+- adapter проверяет actor, source roll и полный post-threshold magic state, после чего переиспользует существующий `prepare_miscast` без дублирования правил;
+- без выбранного spell накопленные Casting successes очищаются и создаётся один Miscast roll исходного пула; допустимый spell создаёт `SpellCastRequest` перед roll, использует Potency последнего Casting Test и добавляет ровно `+1d`;
+- normal post-Test result и подменённые source/state/actor отклоняются; target/spell effect, Miscast roll и table effect остаются внешними упорядоченными фазами.
+- `MiscastPoolIncreaseRequest` теперь типизированно различает `TEST` и `ACTION` source provenance через единый stable `source_id`; Rule of Nine и Mother Knows Best сохраняют фактические Test IDs;
+- Attack-only interrupted-Casting API явно мигрирован на общий `SkippedCastingTestAfterActionRequest → SkippedCastingTestAfterActionResult`: любой завершённый non-Casting action активного caster создаёт ровно один action-sourced Miscast die;
+- skipped-Test reducer проверяет actor и активный Lore/success snapshot, исключает spell `Improvise` по typed declaration receipt и применяет общий Miscast threshold без изменения Casting snapshot;
+- ordered `consumed_action_execution_ids` возвращается как часть результата: разные действия можно обработать последовательно, а повторное потребление одного execution ID отклоняется ещё до изменения пула;
+- безопасный порог накапливает die, превышение Wizard Level создаёт обычный triggered roll request; отсутствие активного Casting, pending Miscast, чужой actor и forged source/state/consumption chain отклоняются.
+- реализован `CastingAbandonmentRequest → CastingAbandonmentResult` как отдельное от action slot добровольное прекращение активной Casting-попытки;
+- при непустом Miscast Pool abandonment переиспользует общую preparation-фазу на всех сохранённых dice, очищает Casting snapshot и сохраняет optional spell → обязательный roll с книжным `+1d`;
+- при пустом пуле Lore/successes/latest roll очищаются без фиктивного Miscast roll; уже triggered `pool > Wizard Level`, spell без Miscast и несовместимые Lore/CV отклоняются.
+- реализован `MoveCarefullyActionExecutionRequest → MoveCarefullyActionExecutionResult`: зарезервированный `ManoeuvreKind.MOVE_CAREFULLY` атомарно исполняет обычный free-move route через Difficult Terrain без Athletics Test;
+- composite требует terrain-маршрут, active actor/round и точные current snapshots, расходует `free_move_used_entity_ids`, не меняет `difficult_terrain_tested_entity_ids` и завершает ровно один action slot;
+- optional search представлен явным `DECLINE`/`SEARCH`: отказ не требует RNG, а поиск принимает только `Skill.AWARENESS`, выполняет общий `TestRequest` и сохраняет полный `TestResult`;
+- Normal проходит одну Zone boundary, Fast — до двух; Slow/Burdened/Prone/Defenceless, obstacle, enemy path blocker, повторный free move, stale state и нарушение порядка slots закрываются до RNG;
+- зарезервированный Move Carefully теперь обязан исполниться до завершения хода.
+- реализован `MoveQuietlyActionExecutionRequest → MoveQuietlyActionExecutionResult`: зарезервированный `ManoeuvreKind.MOVE_QUIETLY` выполняет общий Stealth/Awareness `OpposedTestRequest` и завершает slot при любом исходе;
+- eligible enemies представлены стабильным снимком `MoveQuietlyObserver`; executor выбирает максимальный внешний `vigilance_priority`, а при равенстве сохраняет порядок снимка, не выводя отсутствующую в книге формулу бдительности;
+- contextual tie принадлежит инициатору, но `0:0` остаётся общим провалом; бросается Awareness только выбранного наиболее vigilant enemy;
+- явный hiding choice различает отказ, укрытие внутри текущей Zone и Zone-route; все hiding-ветви требуют cover/concealment, новый `hiding_position_id` и расходуют free move только после победы Stealth, тогда как failure и отказ сохраняют spatial state;
+- успешное укрытие создаёт typed `MoveQuietlyHiddenAttackOpportunity` для следующей unopposed attack и переносит stable snapshot unaware enemies; повторная позиция отклоняется по внешнему used-position snapshot;
+- Slow/Burdened/Prone/Defenceless, stale opposed/movement/round context, enemy/obstacle/terrain path, уже использованный free move и нарушение slot order закрываются до соответствующего броска;
+- зарезервированный Move Quietly теперь обязан исполниться до завершения хода.
+- реализован `MoveQuietlyHiddenAttackExecutionRequest → MoveQuietlyHiddenAttackExecutionResult`: source hidden result/opportunity, неизменившиеся placement/hiding-position, current unaware target и готовая Attack с `defender_test=None` проверяются до RNG;
+- валидный composite делегирует существующему `execute_attack_action`, возвращает его обычный result/единственный receipt и только после успеха добавляет opportunity ID в ordered consumed snapshot;
+- kernel failure сохраняет исходную consumption chain и pending Attack slot, повторный ID отклоняется до RNG;
+- отдельная loss boundary погашает opportunity без Attack и различает другое action, уход с hiding position, другую цель и восстановившуюся осведомлённость; eligible unopposed Attack нельзя ошибочно записать как loss.
+- реализован `AimActionExecutionRequest → AimActionExecutionResult`: зарезервированный `CombatActionKind.AIM` выполняет Awareness `TestRequest` против выбранного врага, завершает slot при любом исходе и сохраняет полный Test trace;
+- каждый success создаёт `AimBonusSnapshot` с таким же числом bonus dice; failure создаёт валидный нулевой snapshot, а возможность Extreme Range явно оставлена за отдельным решением GM;
+- реализована чистая одноразовая граница `AimFollowUpRequest → AimFollowUpResult`: следующее Shooting/Throwing Attack владельца по той же цели получает обычный `DiceModifier`, подчинённый общему pool cap; другая цель, иной Attack Skill либо любое другое action дают `LOST` без изменения Attack;
+- source Aim/Test/actor/target/action и подготовленный nested attacker Test проверяются сквозными provenance-инвариантами; повторное добавление Aim-модификатора отклоняется;
+- зарезервированный Aim теперь обязан исполниться до завершения хода.
+- реализован `HelpActionExecutionRequest → HelpActionExecutionResult`: зарезервированный `CombatActionKind.HELP` выполняет самостоятельный Test помогающего, связывает его с другим участником той же стороны и завершает slot при любом числе successes;
+- `HelpBonusSnapshot` хранит helper/beneficiary, оба Skill и stable ID будущего Test; отличающийся Skill помогающего требует явного GM approval, а failure создаёт валидный нулевой snapshot;
+- `Deafened` по странице 123 и глобальный `Defenceless` закрывают Help до RNG; профильные модификаторы самой Help Test остаются обычными входными `DiceModifier`;
+- `HelpBonusApplicationRequest → HelpBonusApplicationResult` принимает только точное совпадение beneficiary/Skill/Test ID и добавляет по одному обычному `+1d` за success под общим pool cap; нулевой snapshot применяется без фиктивного модификатора;
+- source action/Test и подготовленный Test защищены provenance-инвариантами, а зарезервированный Help обязан исполниться до завершения хода.
+- реализован `RecoverActionExecutionRequest → RecoverActionExecutionResult` с закрытыми режимами `STANDARD`, `TREAT_WOUND` и `REMOVE_CONDITION`; альтернативы структурно не могут получить standard benefits;
+- standard Recover снимает Staggered и Prone с одного либо разных self/Close ally targets, объединяет изменения одной цели, уменьшает `WizardMagicState.miscast_dice` ровно на один до минимума 0 и сохраняет остальные casting fields;
+- mount вместо Prone removal и взаимодействие с одним Close object представлены отдельными source-aware follow-up без вымышленного mount/inventory state;
+- treatment требует untreated Wound и подходящие trappings, выполняет Recall Test либо auto-success от явно релевантного Lore; успех создаёт `RecoverWoundTreatmentApplicationRequest`, failure завершает action без application;
+- реализован `RecoverWoundTreatmentResolutionRequest → RecoverWoundTreatmentResolutionResult`: application принимает точный успешный Recover result и тот же injury snapshot, отмечает только выбранную Wound как treated и снимает только её `UNTIL_TREATED` effects;
+- Condition из снятого wound effect удаляется лишь по explicit snapshot об отсутствии другого источника; внешний источник или известный оставшийся effect другой Wound сохраняет Condition;
+- treatment application ID добавляется ровно один раз в ordered consumed snapshot; stale injury state, failed/non-treatment Recover, повторное применение и forged transition отклоняются без второго action receipt;
+- реализован `EndBattleTreatmentContext` и `EndBattleWoundTreatmentRequest → EndBattleWoundTreatmentResult`: target-scoped context явно подтверждает окончание боя и возможность перевести дух, а request требует живую цель, untreated Wounds и подходящие trappings;
+- automatic end-battle reducer без action/Test/RNG отмечает treated все ещё untreated Wounds, снимает только их `UNTIL_TREATED` effects и переиспользует ту же Condition-source policy, сохраняя уже treated Wounds и остальные durations;
+- end-battle context ID однократно погашается во внешнем ordered snapshot; незавершённый бой, отсутствие передышки/инструментов/ран, dead/другая цель, повтор и forged result отклоняются до перехода;
+- `WoundRecord.healed` теперь явно отличает полное заживление от treatment; healed подразумевает treated/resolved, остаётся в историческом ordered журнале и допускает только permanent active effects;
+- `EndEncounterHealingOpportunity` независимо фиксирует завершение battle/dangerous encounter, окончание непосредственной опасности, target и injury snapshot; optional `EndBattleWoundTreatmentResult` строго сверяется по battle/target/state, но ранее treated Wounds не требуют искусственного нового treatment-result;
+- `CatchYourBreathHealingRequest → CatchYourBreathHealingResult` потребляет этот opportunity, сверяет `entry_id`/`table_total` с Wounds Table и одним переходом исцеляет все и только treated/resolved, ещё не healed Wounds категории `CATCH_YOUR_BREATH`; необработанная запись не исцеляется и не блокирует другие ready Wounds;
+- healing удаляет все non-permanent effects выбранных ран, сохраняет `PERMANENT`, чужие effects и Conditions с известным либо explicit внешним источником; opportunity ID погашается один раз без action receipt, Test или RNG;
+- healed records не считаются `active_wounds`, не добавляют куб к будущему injury roll и не перенумеровываются; следующая Wound продолжает монотонный sequence;
+- `NightsRespiteHealingOpportunity` фиксирует точный target/injury snapshot, спокойный период, завершённую раннюю ночь и наступление утра без вымышленного количества часов;
+- `NightsRespiteHealingRequest → NightsRespiteHealingResult` исцеляет полный ready set `HealingRequirement.NIGHTS_REST` (`8–15`), переиспользует общий non-permanent-effect/Condition transition и однократно погашает rest-opportunity ID без action/Test/RNG;
+- необработанная Night Wound и другие healing tiers сохраняются и не блокируют готовые `NIGHTS_REST`; ordinary respite не исполняет optional early Endurance Test;
+- реализован первый узкий downtime executor `RestAndRecoveryEndeavourRequest → RestAndRecoveryEndeavourResult`: он привязывает Endurance Test к конкретному downtime, target и точному injury snapshot;
+- провал Endeavour не создаёт healing source; успех разрешает application одной выбранной ready Wound и возвращает отдельный `FesteringWoundsRecoveryRequest` для всех Festering Wounds;
+- реализован persistent target-bound `FesteringWoundState`: записи не смешиваются с ordinary `WoundRecord`, имеют unique record/source IDs, а активное количество предоставляет один агрегированный source-aware modifier дополнительных untreated dice будущему Wounds Table roll;
+- `FesteringWoundsRecoveryApplicationRequest → Result` принимает только successful canonical Rest and Recovery совпадающей цели, погашает отдельный follow-up ID и удаляет все Festering Wounds, не меняя ordinary injury history; пустой state остаётся допустимым consumed no-op;
+- реализован `DailyWoundState` и source-bound registration фактически принятых table-roll/fixed character Wounds: receipt хранит day/target/source/stable Wound identity, Near Miss и повтор не считаются, закрытый день не принимает новые записи;
+- `EndOfDayInfectionRequest → Result` требует непустой журнал, живую совпадающую цель, актуальную историческую injury state и Endurance Test; treated/healed Wounds сохраняются в count, а подмена identity отклоняется;
+- outcome сравнивает successes с дневным числом Wounds отдельно от Basic `succeeded`: любой недобор добавляет ровно одну Festering Wound, достаточный результат сохраняет state, обе ветви закрывают день одним Infection ID;
+- реализован `AnatomyInfectionRecallRequest → Result`: подтверждённая Anatomy Lore открывает отдельную Recall Test, а число successes становится source-bound capacity для профилактики Infection;
+- `AnatomyInfectionAllocationRequest → Result` один раз погашает Recall source, принимает упорядоченный набор разных self/allied целей того же дня и создаёт для каждой immutable automatic-success proof; successes разрешено оставить неиспользованными;
+- `AutomaticInfectionSuccessApplicationRequest → Result` сверяет allocation/proof, day/target, открытую дневную запись и стабильную Wound history, затем без Endurance RNG закрывает день и не меняет injury/Festering state; перерасход, повтор цели/source/proof, чужой или stale context и forged transition отклоняются;
+- `RestAndRecoveryHealingRequest → RestAndRecoveryHealingResult` исцеляет ровно одну treated/resolved Wound категории `REST_AND_RECOVERY` (`16–19`) либо `SURGERY_AND_RECOVERY` (`20–23`) с точным successful surgery proof, переиспользует общий transition и однократно погашает sources;
+- реализован `DowntimeSurgeryRequest → DowntimeSurgeryResult`: ordinary surgery проверяет Anatomy Lore, theatre, specialist tools, time, recovery supports, exact Wound/target/state/downtime и выполняет Dexterity Test через внедрённый RNG;
+- surgery success не мутирует injury state и служит proof; failure возвращает GM-owned `SurgeryFailureRiskRequest` с книжными рисками permanent disfigurement/death без скрытого выбора (`AMBIGUITY-009`);
+- другие ready Wounds и `NIGHTS_REST` сохраняются; ordinary строки `16–19` отвергают лишний surgery proof, а healing `20–23` погашает proof перед Endeavour ID и сохраняет permanent consequences; Festering follow-up применён к отдельному state независимо от обоих ordinary healing consumers;
+- реализован `CombatSurgeonTreatmentRequest → CombatSurgeonTreatmentResult`: после exact successful Recover treatment той же Wound/target/surgeon отдельная Recall Test выполняется через внедрённый RNG без нового action receipt;
+- success создаёт `CombatSurgeonEffectSuppression` с battle/treatment/Test provenance и полным ordered набором всех `UNTIL_HEALED` effects выбранной Wound; failure suppression не создаёт, а treatment-result ID в обоих случаях погашается ровно один раз;
+- suppression не меняет `CharacterInjuryState`, не лечит Wound и не удаляет Conditions/effect provenance; permanent и effects других Wounds не захватываются;
+- реализован `CombatSurgeonSuppressionAggregate` и одноразовая registration boundary: только successful canonical suppression регистрируется в том же battle, а повтор suppression/source или вторая запись для target/Wound отклоняются;
+- `CombatSurgeonEffectiveEffectsRequest → Result` сверяет battle/target/stable Wound identity и точный active `UNTIL_HEALED` effect set, возвращая вычисляемые Wound effects и Conditions без мутации injury state;
+- Condition с известным другим wound-effect либо explicit внешним источником сохраняется; unrelated state evolution допустима, stale effect set и перенос suppression отклоняются, а healing делает регистрацию неактивной, сохраняя audit aggregate;
+- реализован concrete consumer effective view `DrainedTestPreparationRequest → Result`: он сверяет actor, canonical Conditions и optional полный Combat Surgeon view, затем до RNG удаляет из копии `TestRequest` все положительные regular/cap-bypassing dice modifiers и non-Fate Glorious только при effective `Drained`;
+- `QualityModifierSource` сохраняет обратно совместимый `RULE` default; Fate Glorious требует канонический Rule ID, stable source ID и `FateGloriousProof` того же actor/Test, а вторая трата либо трата на уже Glorious Test отклоняется;
+- penalties, Grim, fixed-success modifiers, reroll locks и подтверждённый Fate Glorious сохраняются; подавление единственного wound-source возвращает bonuses/non-Fate Glorious без мутации injury/Condition/Test provenance, а independently sourced `Drained` продолжает ограничения;
+- removed modifiers, Fate proof и полный view trace сохраняются в preparation result; stale actor/Conditions/proof, unknown Rule ID и forged transition отклоняются;
+- добавлен `FateSessionState`: permanent rating отделён от session spend limit, а ordered `FateSpendRecord` привязан к session/actor/subject и защищён от повторных ID/Test и переноса истории;
+- `FateGloriousSpendRequest → Result` до initial roll либо после matching `InitialTestRoll` списывает один доступный расход, создаёт session/actor/Test/spend-bound proof и возвращает копию Test с source-classified Glorious без мутации входов;
+- общий Test resolver разделён на `roll_test_initial` и `complete_test`; immutable snapshot проверяет provenance пула/значений, а прежний `resolve_test` сохранён как обратно совместимая композиция;
+- completion не повторяет initial roll и допускает только исходную Test либо добавление одного Fate Glorious modifier; producer запрещает исчерпанный pool, повтор той же Test и уже Glorious Test, но допускает Grim и отменяет его до обязательного reroll successes;
+- Fate proof сквозным тестом проходит `Drained` preparation и общий Test resolver;
+- исправлен стабильный Rule ID Glorious spend с ошибочного `RULE-FATE-001` на нормативный `RULE-FATE-002`; принято `ADR-0006` о Fate session/spend boundary;
+- добавлены `FateSpendKind.SECOND_ACTION`, `FateSecondActionProof` и `FateSecondActionSpendRequest → Result`; proof связывает session/actor/spend с точными round, slot request, declaration и slot `2`;
+- Second Action composite сначала вызывает общий action-budget preflight, затем атомарно возвращает новый session state и зарезервированный slot; одинаковый action, вторая attack, третий action, чужой actor, повтор slot и raw Fate grant отклоняются до итогового spend result;
+- Glorious и Second Action используют один ordered session pool; стабильный Rule ID Second Action исправлен с ошибочного `RULE-FATE-001:second-action` на `RULE-FATE-002:second-action`, а scheduler остаётся независимым от `FateSessionState` и принимает только proof;
+- полностью нормализована ресурсная часть Lucky страницы 78: `FateSpendRecord` различает платный `SESSION_POOL` и нулевой `LUCKY_FREE`, причём у actor с Talent только первая фактическая session-запись обязана быть бесплатной и допустима даже при rating `0`;
+- Glorious, Second Action и Tactical Retreat используют один funding helper; Lucky Rule ID попадает только в trace бесплатного результата, следующая трата расходует обычный pool, а неиспользованный Lucky блокирует alternative Retreat price;
+- реализована вторая часть Lucky страницы 78: `LuckyGamblingTestPreparationRequest → Result` требует Lucky в talent snapshot и явный actor/Test/game-of-chance context, создаёт bound proof и добавляет `TALENT` Glorious без доступа к Fate state и без spend;
+- Lucky gambling Test проходит общий Grim/Glorious resolver; source Test не мутируется, repeat preparation, отсутствующий Talent, Fate-before-Lucky, stale proof/context и forged result отклоняются;
+- `DrainedTestPreparationRequest` принимает ordered Lucky proofs: при active Drained talent-sourced Glorious удаляется и остаётся в trace, тогда как proof-bound `FATE` Glorious сохраняется по книжному исключению страницы 123;
+- добавлен `FateRefreshRequest → Result`: stable mid-session break и GM approval восстанавливают remaining до текущего rating увеличением allowance, не удаляя spend history и не восстанавливая уже использованный Lucky;
+- ordered `FateRefreshRecord` сохраняет previous/restored/new limits; повтор break/approval, refresh полного либо нулевого rating, чужой session/actor и forged/non-contiguous history отклоняются;
+- реализован immutable permanent Fate burn страниц 111–112: `FateBurnRecord` уменьшает rating ровно на `1`, а общий `resource_event_ids` проверяет порядок чередующихся refresh/burn без переписывания spend history;
+- burn при непустом pool уменьшает ещё доступный allowance текущей session; при уже пустом pool permanent rating меняется сразу, но effective session rating и возможный позднейший GM refresh сохраняют прежний объём до следующей session;
+- три actor-owned запроса `Unmitigated Success`/`Near Miss`/`Last Stand` создают subject-bound proof и отдельные Test/Wound/feat effect requests; Fate reducer не мутирует narrative outcome, injury state или смерть персонажа;
+- Unmitigated Success поддерживает решение до/после matching initial roll и фиксирует Total Success/realistic/attack limits; Near Miss связывает точную отмену Wound и сохранение прежнего Staggered; Last Stand требует suffered-Wound fact и desperate-battle approval, не требует Test и фиксирует смерть после подвига;
+- реализован `FateUnmitigatedSuccessApplicationRequest → Result`: exact завершённый Test и after-roll initial snapshot проверяются без нового RNG, ordinary trace/outcome сохраняются, а отдельный superseding outcome становится книжным `TOTAL_SUCCESS`;
+- лучший исход передаётся stable reference и explicit подтверждением реалистичности; attack-факты ограничены одним убитым врагом и одной Wound, effect ID погашается один раз, а чужой actor/session, повтор и forged Test trace отклоняются;
+- реализован `FateLastStandApplicationRequest → Result`: exact burn/session/actor/battle связывается с актуальным живым character state и конкретной существующей Wound; Test и RNG отсутствуют;
+- final scope, affected subjects и accomplishment consequences передаются непустыми stable references вместе с подтверждениями tone/possibility и optional GM adjustment; reducer фиксирует порядок `FEAT_ACCOMPLISHED → ACTOR_DIED`, меняет только `dead` и однократно погашает effect;
+- реализован `FateNearMissApplicationRequest → Result`: actor-bound burn effect применяется только к exact принятому player `CharacterWoundResult` после канонической Wounds Table и до Wound effect, сохраняет уменьшенный Fate state и возвращает точное pre-Wound injury state;
+- application отменяет в том числе lethal Wound, восстанавливает существовавший Staggered, не добавляет отменённую запись к будущим dice, сохраняет cancelled Wound/discarded effect в trace и погашает effect ID один раз; чужой actor/resolution, Champion, non-accepted, stale, повторный и неканонический результат отклоняются;
+- добавлен direct `CharacterWoundLifecycleRollRequest → RollResult → CompletionRequest → CompletionResult`: первая фаза выполняет Wounds Table и сохраняет pending Wound без effect, позволяя actor принять решение после видимого roll;
+- completion при Near Miss атомарно вызывает `burn_fate` и exact application без daily receipt/effect; при отказе сначала регистрирует pre-effect Wound в `DailyWoundState`, затем исполняет `resolve_wound_effect`; прежняя non-Fate negation закрывается без обеих фаз;
+- lifecycle проверяет canonical table, target, актуальные injury/day snapshots и ordered consumed roll/effect IDs; player eligibility, lethal cancellation, Staggered, registration-before-effect, stale/replay и forged branches покрыты детерминированно;
+- общий kernel Attack, Stagger impact и Hazard теперь создают pending character-Wound lifecycle для Player/Champion с явным `target_id`; профильные Minion/Brute/Monstrosity Wounds остаются на immediate пути;
+- отдельные application-функции связывают exact lifecycle completion с исходным result, добавляют Wound follow-ups и только затем применяют Wound-dependent attack Conditions; Hazard failure-Conditions исполняются после completion в обеих ветвях, сохраняя порядок Wound effect → repeated Condition и независимость от Near Miss;
+- completion допускает только Condition-delta поверх pending injury snapshot: accepted Wound effect применяется к актуальным Conditions, а Near Miss откатывает саму Wound, сохраняя независимые post-roll Conditions;
+- Miscast `Internal Damage` теперь использует тот же pending lifecycle для Player/Champion: effect и daily receipt появляются только в completion, настоящий Fate Near Miss отменяет Wound до обеих операций, а точный completion связывается с исходным Miscast result; профильные NPC Wounds остаются immediate;
+- добавлен отдельный fixed-character-Wound lifecycle: pending result проверяет named-entry provenance без dice, completion сохраняет независимый Condition-delta, регистрирует Wound до эффекта и однократно погашает target-bound pending ID; Near Miss структурно отсутствует;
+- Miscast `Ears Ringing` подключён к fixed lifecycle для каждой Player/Champion цели; application обновляет только точную цель и сохраняет очищенный magic state, тогда как профильные цели разрешаются немедленно;
+- полностью прочитан и нормализован Retreat страницы 120 Player’s Guide 1.4; зафиксированы единогласие, два допустимых timing window, Fate rearguard, GM-owned alternative price и отдельная pursuit/Run For Your Lives фаза;
+- добавлен `GroupRetreatDeclaration`: battle, ordered PC group, инициатор, полный consent snapshot и round state проверяются без battle aggregate; союзные/сопровождаемые NPC не включаются в защищённую PC-группу автоматически;
+- добавлены `FateSpendKind.TACTICAL_RETREAT`, battle/group-bound `FateTacticalRetreatProof` и атомарный `FateTacticalRetreatSpendRequest → Result`; Glorious, Second Action и Tactical Retreat используют один session pool;
+- raw rearguard без proof невозможен, а результат сохраняет обязательную внешнюю pursuit decision вместо ложного «безопасного исхода»; при исчерпанном Fate всей группы создаётся только GM-owned blood/materiel/misfortune request без скрытого выбора цены или цели;
+- принято `ADR-0007` о group Retreat boundary;
+- добавлен `RetreatPursuitResolutionRequest → Result`: GM-owned ordered pursuer snapshot явно различает отсутствие погони и требует ровно одну попытку для каждого PC при pursuit;
+- поддержаны basic Athletics, GM-approved Lore automatic success и Opposed Athletics против конкретного pursuer; общий RNG/Test pipeline выполняет попытки в стабильном порядке группы, не выводя opponent из Speed автоматически;
+- Marginal Success требует явного решения: без Complication, принятая Complication со stable ID либо книжный выбор failure вместо высокой цены; duplicate Complication IDs и скрытый default запрещены;
+- pursuit result сохраняет failures/Complications, число обязательных table rolls и GM-optional roll только для нескольких Complications при успехе всей группы;
+- добавлен `RunForYourLivesResolutionRequest → Result`: для каждого failed PC выполняется ровно один ordered `1d10`, а optional multiple-Complications roll требует отдельного типизированного решения GM даже при отказе;
+- individual rolls сохраняют failed actor либо полный набор source Complication IDs, сумма строго классифицируется во все девять книжных диапазонов `Lost`…`Trapped`; отсутствие бросков даёт нулевую сумму без табличного исхода и не расходует RNG;
+- положительный табличный итог создаёт provenance-safe `RunForYourLivesCampaignConsequenceRequest` с battle/Retreat/group/cover-proof/failure/Complication context, но намеренно не мутирует отсутствующие campaign, inventory, reputation, enemy или injury states;
+- добавлен `RetreatAlternativePriceDecision → ResolutionResult`: при исчерпанном Fate всей группы GM обязан выбрать ровно один книжный класс `blood`/`materiel`/`misfortune`, после чего создаётся battle/Retreat/group-bound proof;
+- каждая alternative price ветвь возвращает отдельный GM-owned application follow-up: одну Wound для ещё не выбранного PC, один valuable trapping ещё не выбранного владельца либо одну golden opportunity для полного opposition snapshot; скрытого выбора и мутации state нет;
+- реализован `RetreatBloodPriceWoundRequest → RetreatBloodPriceApplicationResult`: canonical blood proof связывается с явно выбранным живым PC из исходного snapshot, а targetless application ID погашается один раз до броска;
+- blood consumer переиспользует обычный двухфазный character-Wound lifecycle с базовой одной Wound, untreated/modifier dice, non-Fate negation, дневной регистрацией и эффектом; Near Miss доступен после броска и отменяет Wound, но не открывает price application повторно;
+- foreign/stale completion, materiel/misfortune proof, чужая/мёртвая цель, повтор application и forged result/trace blood-ветви отклоняются; остальные цены не проходят через Wound lifecycle;
+- добавлены минимальные общие `TrappingSnapshot` и `CarriedInventoryState`: stable instance/definition/owner identity, ordered carried items и внешняя contextual-классификация `is_valuable`, без преждевременной модели Cost/capacity/equip/spatial placement;
+- реализован `RetreatMaterielPriceInventoryRequest → RetreatMaterielPriceApplicationResult`: canonical materiel proof связывается с explicit PC owner и конкретным valuable carried trapping, который одним immutable переходом удаляется из inventory и сохраняется как dropped fact;
+- materiel consumer не использует RNG, не выбирает owner/item, не выводит ценность из tier и однократно погашает application ID; другой price/owner, отсутствующий/неценный item, stale/duplicate inventory, replay и forged result отклоняются;
+- добавлены узкие `CampaignGoldenOpportunity` и `CampaignGoldenOpportunityState`: stable campaign/opportunity/beneficiary/description/application/battle/Retreat provenance без универсального языка campaign effects;
+- реализован `RetreatMisfortunePriceCampaignRequest → RetreatMisfortunePriceApplicationResult`: canonical misfortune proof связывается с explicit enemy из исходного opposition snapshot и stable reference на GM-authored описание, после чего в aggregate регистрируется ровно одна возможность;
+- misfortune consumer не использует RNG, не выбирает beneficiary/содержание и не исполняет повествовательный эффект; уникальность source application в campaign state запрещает replay, а wrong price/enemy/campaign, duplicate opportunity и forged result отклоняются; индивидуальный beneficiary остаётся временной политикой `AMBIGUITY-012`;
+- добавлены `RunForYourLivesConsequenceSpecification`, `CampaignConsequenceRecord` и `CampaignConsequenceState`: typed outcome и stable GM-authored description/affected-subject/concrete-consequence references отделены от специализированной мутации state;
+- реализован `RunForYourLivesCampaignApplicationRequest → Result`: exact page-120 follow-up и matching specification регистрируются одним immutable переходом с полным battle/Retreat/group/cover/failure/Complication/table provenance;
+- регистрация поддерживает все девять outcomes `Lost`…`Trapped`, не использует RNG и однократно погашает source follow-up; mismatch outcome, пустые/повторные references, cross-campaign/replayed/duplicate state и forged result отклоняются, а inventory/reputation/enemy/injury/spatial effects не исполняются;
+- добавлены `RobbedTrappingLossSelection` и `RobbedInventoryTransition`: selection связывает PC owner, непустой ordered набор item IDs и одну registered consequence reference, transition сохраняет dropped facts и точные previous/new inventory snapshots;
+- реализован `RunForYourLivesRobbedInventoryRequest → Result`: exact registered `ROBBED` принимает полный ordered `CarriedInventoryState` и selection каждого PC исходного Retreat, затем без RNG удаляет все и только выбранные carried trappings одним batch;
+- Robbed consumer не вычисляет вес и число предметов, не использует `is_valuable`, сохраняет survivor order и однократно погашает campaign consequence; wrong outcome/group order/reference, empty/missing/duplicate selection, replay и forged transition/result отклоняются, пустой inventory остаётся `AMBIGUITY-013`;
+- добавлены `TrappedEscapeCostDecision`, `TrappedEscapeCostProof` и три branch-specific application request: GM явно задаёт `WOUNDS`/`CAPTURE`/`OTHER`, affected PC subset и exact consequence references;
+- реализован `RunForYourLivesTrappedCostRequest → Result`: exact registered `TRAPPED` без RNG создаёт ровно один typed follow-up, сохраняет полный campaign/battle/Retreat/cover provenance и однократно погашает campaign consequence;
+- Trapped routing сам не наносит Wounds и не меняет captivity/campaign state: он только создаёт branch follow-up, не выводит affected actor из rearguard и сохраняет отсутствие rearguard у alternative-price cover; wrong outcome/owner/order/reference/replay и forged proof/result отклоняются, точный объём цены остаётся внешним GM input по `AMBIGUITY-014`;
+- добавлены `TrappedWoundCostTarget` и `TrappedWoundCostTargetProgress`: для каждого affected PC они хранят explicit положительное назначение Wounds, исходные/текущие injury и daily snapshots, завершённые lifecycle results, consumed-ID chains и terminal skips;
+- реализован последовательный `RunForYourLivesTrappedWoundRequest → Result`: begin однократно погашает exact Wounds application и создаёт первую pending Wound, advance принимает только её canonical completion и лишь затем бросает следующую в PC/ordinal order;
+- Trapped Wounds переиспользуют общий Near Miss, daily registration и Wound effect lifecycle; accepted Wound увеличивает untreated pool следующей, Near Miss не увеличивает, а lethal completion пропускает остаток назначения погибшего PC и продолжает следующего;
+- wrong branch/group order, нулевое назначение, мёртвая исходная цель, foreign/out-of-order completion, stale daily/consumed chain, replay и forged progress/result отклоняются; capture/other state не затрагиваются Wounds reducer;
+- добавлены `CampaignCaptivityRecord` и `CampaignCaptivityState`: минимальный immutable campaign aggregate хранит только active-captivity facts с campaign/battle/Retreat/cost-proof/consequence/application provenance;
+- добавлены ordered `TrappedCaptureAssignment` и `RunForYourLivesTrappedCaptureRequest → Result`: для каждого affected PC GM явно задаёт unique capture ID, stable captor reference и exact consequence reference, а reducer без RNG атомарно регистрирует весь batch;
+- один captor может удерживать нескольких PC; wrong campaign/branch/actor order/reference, уже активный captive, повтор capture ID/source application и forged result отклоняются;
+- captor не выводится из rearguard/opposition автоматически, а escape, release, rescue, inventory и injury effects не исполняются до отдельного lifecycle по `AMBIGUITY-015`;
+- добавлены `CampaignTrappedOtherCost` и `CampaignTrappedOtherState`: минимальный immutable aggregate хранит opaque GM-defined escape prices с affected PC, exact consequence/description references и полным decision/proof/application/campaign/battle/Retreat provenance;
+- реализован `RunForYourLivesTrappedOtherRequest → Result`: consumer принимает только canonical `OTHER` follow-up, без RNG однократно регистрирует одну цену и сохраняет существующую историю aggregate;
+- wrong campaign/branch, повтор record ID/source application и forged state/result отклоняются; cardinality affected PC и consequence references не превращается в несуществующий one-to-one mapping;
+- Other consumer не содержит effect kind или arbitrary payload и не меняет injury, captivity, inventory, economy либо relationship state; конкретное исполнение цены остаётся специализированному consumer по `AMBIGUITY-014`;
+- добавлены `CampaignConflictOpportunity` и `CampaignConflictOpportunityState`: отдельный immutable campaign aggregate хранит зарегистрированные hooks нового конфликта, unique opportunity/source-consequence IDs и полный application/consequence/specification/battle/Retreat provenance;
+- реализован `RunForYourLivesSurroundedRequest → Result`: exact зарегистрированный `SURROUNDED` без RNG требует distinct ordered opposition/encounter-setup references, полностью совпадающие с concrete consequence specification, и однократно дописывает hook;
+- affected subjects переносятся из исходной specification, но новая opposition не выводится из прежнего enemy snapshot; wrong outcome/campaign/reference order, replay, duplicate ID и forged state/result отклоняются;
+- battle start, manoeuvre/negotiation Tests и difficulty, состав врагов и spatial placement не исполняются по `AMBIGUITY-016`;
+- добавлены `CampaignHuntThreat`, `CampaignHuntActivation` и `CampaignHuntState`: immutable aggregate хранит inactive Hunted threats и отдельную one-shot activation history с campaign/application/consequence/specification/battle/Retreat trace;
+- реализован `RunForYourLivesHuntedRegistrationRequest → Result`: exact `HUNTED` без RNG требует distinct ordered pursuer/activation-trigger references из consequence specification и однократно регистрирует inactive threat;
+- реализован `RunForYourLivesHuntedActivationRequest → Result`: зарегистрированная inactive threat активируется только matching trigger и explicit movement-event reference; одно событие может активировать несколько разных threats, повтор одной threat запрещён;
+- wrong outcome/campaign/reference/order/trigger, orphan activation, replay, duplicate IDs и forged state/result отклоняются; lay-low duration, классификация `move again`, detection, route, pursuit и resolution не исполняются по `AMBIGUITY-017`;
+- добавлены `CampaignIntelligenceExposure` и `CampaignIntelligenceState`: immutable campaign aggregate хранит enemy/home/shelters/weakness disclosure, affected subjects и полный application/consequence/specification/battle/Retreat provenance;
+- реализован `RunForYourLivesExposedRequest → Result`: exact `EXPOSED` без RNG требует ordered role references `(enemy, home, shelters…, weakness)`, полностью совпадающие с consequence specification, и однократно дописывает exposure;
+- shelters обязаны быть непустыми, все role references различны; wrong outcome/campaign/order, empty/duplicate references, replay/duplicate ID и forged state/result отклоняются;
+- выбор атаки/цели, encounter timing, срок знания и механический modifier врагу не исполняются по `AMBIGUITY-018`;
+- добавлены `CampaignEnemyReadiness`, `CampaignEnemyReadinessActivation` и `CampaignEnemyReadinessState`: immutable campaign aggregate хранит pending Marked readiness и отдельную one-shot activation history с campaign/application/consequence/specification/battle/Retreat trace;
+- реализован `RunForYourLivesMarkedRegistrationRequest → Result`: exact `MARKED` без RNG требует distinct ordered enemy/acquired-intelligence/next-action-trigger references из consequence specification и однократно регистрирует pending readiness;
+- реализован `RunForYourLivesMarkedActivationRequest → Result`: readiness активируется только matching enemy/trigger и explicit action-event reference; одно событие может активировать несколько разных records, повтор одной readiness запрещён;
+- wrong outcome/campaign/reference/order/enemy/trigger, orphan activation, replay, duplicate IDs и forged state/result отклоняются; классификация `move against them`, bonus, ambush, encounter и дальнейший lifecycle не исполняются по `AMBIGUITY-019`;
+- добавлены `CampaignDebtObligation` и `CampaignDebtState`: минимальный immutable campaign aggregate хранит outstanding Indebted obligations с campaign/application/consequence/specification/battle/Retreat provenance;
+- реализован `RunForYourLivesIndebtedRequest → Result`: exact `INDEBTED` без RNG требует distinct ordered creditor/debt/repayment references из consequence specification и однократно регистрирует obligation для исходных affected subjects;
+- existing obligations сохраняются; wrong outcome/campaign/reference order, replay, duplicate ID и forged state/result отклоняются;
+- amount, конкретная услуга, deadline, санкция и repayment transition не исполняются по `AMBIGUITY-020`;
+- добавлены `CampaignReputationConsequence` и `CampaignReputationState`: минимальный immutable campaign aggregate хранит Mocked reputation records с campaign/application/consequence/specification/battle/Retreat provenance;
+- реализован `RunForYourLivesMockedRequest → Result`: exact `MOCKED` без RNG требует непустой ordered unique witness/rival snapshot и distinct gossip/reputation-effect references, полностью совпадающие с consequence specification;
+- existing reputation history сохраняется; wrong outcome/campaign/reference order, empty/duplicate roles, replay, duplicate ID и forged state/result отклоняются;
+- numeric magnitude, social scope, propagation, duration, modifier и recovery не исполняются по `AMBIGUITY-021`;
+- добавлены `CampaignDelayConsequence` и `CampaignDelayState`: минимальный immutable campaign aggregate хранит Lost delay records с campaign/application/consequence/specification/battle/Retreat provenance;
+- реализован `RunForYourLivesLostRequest → Result`: exact `LOST` без RNG требует distinct ordered unfamiliar-territory/intended-destination/return-delay/enemy-opportunity references, полностью совпадающие с consequence specification;
+- existing delay history сохраняется; wrong outcome/campaign/reference order, empty/duplicate roles, replay, duplicate ID и forged state/result отклоняются;
+- числовая длительность, маршрут, spatial movement, calendar advance и конкретные действия врагов не исполняются по `AMBIGUITY-022`;
+- `RetreatPursuitResolutionRequest` теперь принимает закрытый `RetreatCoverResult`: Fate-funded rearguard либо подтверждённую alternative price; дальнейшие Athletics/Lore/opposition/Complication и Run For Your Lives фазы общие, а campaign follow-up сохраняет kind и proof исходного cover;
+- реализован общий `ExactingTestProgress` с Basic и Opposed contributions: ordered Test/contributor provenance вычисляет running total, сохраняет zero-progress failure и overshoot, запрещает повтор ID и вклад после completion;
+- добавлены `ExactingOpposedTestContributionRequest → Result`: consumer без RNG принимает canonical `OpposedTestResult`, поддерживает contributor на любой стороне и добавляет положительный success margin, `1` за выигранный tie-break либо `0` при проигрыше/double-zero;
+- Opposed contribution сохраняет wrapper/initiator/opponent Test IDs и не позволяет повторно внести любой из них другим Basic/Opposed путём; mixed progress работает в обоих порядках;
+- foreign или internally inconsistent Opposed result, incomplete trace, replay, completed progress и forged result отклоняются;
+- реализован `CombatSurgeonBattleSurgeryActionRequest → Result`: matching non-attack Ability Improvise исполняет одну Dexterity Test и один action receipt, привязывая Exacting progress к battle/surgeon/target/surgical Wound/exact injury snapshot;
+- battle surgery требует 8 successes; нулевая Test не уменьшает progress и создаёт GM-owned surgery risk, completion возвращает proof без healing или injury mutation; operating theatre отменён Talent, а tools/supports пока требуются по `AMBIGUITY-010`;
+- `RestAndRecoveryHealingRequest` принимает completed `CombatSurgeonBattleSurgeryProof` как альтернативу ordinary surgery для строк `20–23`: target и стабильная identity Wound (`sequence`, entry, total, rolls, origin) обязаны совпасть, но несвязанные раны/Conditions между battle и downtime могут измениться;
+- battle proof погашается ровно один раз перед Endeavour ID, не применяется после healing и не ослабляет прежний exact state/downtime contract `DowntimeSurgeryResult`;
+- Condition alternative выполняет ровно один релевантный Test, снимает одну не-Staggered/не-Prone Condition только при успехе и `underlying_cause_allows_removal=True`, а failure сохраняет исходный snapshot;
+- Defenceless и Broken в Zone с врагом закрывают Recover до RNG; все валидные ветви, включая failed Tests и пустой standard набор, завершают slot, а незавершённый Recover блокирует окончание хода.
+- реализован `SkillImproviseActionExecutionRequest → SkillImproviseActionExecutionResult`: зарезервированный `ImproviseKind.SKILL` связывает active actor/round, typed Skill/approach и один готовый basic либо opposed Test;
+- basic Test успешен от одного success, opposed Test — только при победе initiator по общему comparator; success и failure одинаково завершают action slot и сохраняют полный Test trace;
+- optional `SkillImproviseConditionEffect` означает явное внешнее GM approval со stable ID; только успех создаёт source-aware `SkillImproviseConditionApplicationRequest`, а отсутствие поддержанного effect не порождает универсальный narrative payload;
+- первая закрытая effect-схема поддерживает только книжные примеры Prone и Distracted; другие Conditions требуют специализированного resolver, а attacking Skill Improvise отклоняется до RNG и остаётся будущему kernel composite;
+- Defenceless, другой Improvise kind, несовпавший approach, чужой actor, незарезервированный/повторный slot и нарушение порядка закрываются до RNG; незавершённый Skill Improvise блокирует окончание хода.
+- реализована отдельная `SkillImproviseConditionResolutionRequest → SkillImproviseConditionResolutionResult` application-фаза: она принимает завершённый action result, актуальные `ConditionState` и immunity snapshot выбранной цели, проверяет сквозную action/Test/target/GM-approval provenance и переиспользует общий `resolve_condition_application`;
+- application result сохраняет `blocked` и `was_already_present`, меняет только Condition state цели и добавляет source application ID в ordered consumed snapshot; повторное потребление того же ID отклоняется до reducer.
+- реализован первый конкретный Ability Improvise `TrollVomitActionExecutionRequest → TrollVomitActionExecutionResult`: actor Ability snapshot и stable approach ID обязаны содержать `RULE-NPC-019:troll-vomit`, а action slot — принадлежать активному actor;
+- preflight до RNG требует не-Defenceless actor, одну вражескую Staggered-цель на Close Range и явный Endurance Test в полном `IdentifiedHazardTarget` snapshot; собственный Staggered Troll не блокируется, поскольку такого ограничения в Vomit нет;
+- executor атомарно переиспользует source-level Hazard preflight, общий Test, Hazard (3) и Wound pipeline, возвращает target injury state вне round state и только после полного результата добавляет один provenance-safe receipt;
+- wrong ability/kind/approach, пометка Attack, неправильная цель/дальность/Condition/Skill, незарезервированный либо повторный slot и нарушение порядка закрываются до RNG; любой незавершённый Ability Improvise теперь блокирует окончание хода.
+- добавлены `RangedWeaponId`, `RangedWeaponReloadProfile` и полный reload-подкаталог всех 13 ranged weapons страницы 95: профили различают free-with-attack, reload-after-every-shot и reload-after-optional-Repeater-bonus, фиксируют точные цели `2–5` и бонусы `+1d/+2d/+3d`;
+- `create_initial_ranged_weapon_reload_state` привязывает `weapon_instance_id` к профилю и создаёт либо отдельный `FreeReloadWeaponState`, либо initial loaded `ReloadableWeaponState`; подмена weapon ID или произвольной reload-цели отклоняется;
+- добавлены `ReloadableWeaponState` и `ReloadActionExecutionRequest → Result`: reload progress привязан к конкретным weapon instance/weapon ID/reload cycle и точной книжной цели successes;
+- Reload исполняется как matching non-attack Skill Improvise, требует Dexterity и не-Defenceless actor; каждая попытка делает ровно одну Basic Test, добавляет один Exacting contribution и завершает один action receipt;
+- partial success и failure оставляют оружие unloaded, zero-progress сохраняется в trace, overshoot допустим, а в активном reload cycle `loaded=True` возникает только при Exacting completion; initial loaded state разрешён без фиктивных прошлых Tests, replay, duplicate Test, stale cycle/weapon/slot и forged result отклоняются;
+- free-профили не используют Exacting action consumer; ammunition, full equipment и inventory state намеренно не добавлены.
+- добавлены `ReloadableRangedAttackExecutionRequest → Result`: composite до RNG требует loaded weapon, `Skill.SHOOTING`, matching ordinary Attack и согласованность профильного reload trigger, затем делегирует существующему Attack executor;
+- любой завершённый выстрел обычного reloadable оружия — hit либо miss — сохраняет nested Attack/receipt, переводит тот же weapon instance в unloaded и создаёт пустой Exacting progress с профильной целью; неисполненный Attack не создаёт нового weapon state;
+- Repeater без бонуса после выстрела остаётся loaded и не открывает reload cycle; выбранный бонус требует ровно профильный modifier и новый cycle, а несогласованные flag/modifier/cycle отклоняются до RNG;
+- `ReloadableWeaponState` хранит ordered unique reload-cycle history, поэтому использованный ID нельзя вернуть после следующего выстрела; closed result отклоняет чужой Attack, подмену состояния и неполный trace;
+- добавлены `RangedWeaponAttackExecutionRequest → Result` и единый `execute_ranged_weapon_attack`: free-профиль исполняет ordinary Shooting и сохраняет weapon state, а reloadable-профиль маршрутизируется через существующий Exacting/Repeater composite;
+- обе ветви возвращают один nested Attack и один action receipt без повторного kernel execution; free-ветвь до RNG отклоняет cycle ID, Repeater bonus и не-Shooting Skill, а closed result проверяет attack/state/trace provenance;
+- добавлены `MoveQuietlyHiddenRangedAttackExecutionRequest → Result`: он объединяет existing hidden preflight и profile-aware ranged request только при одном exact unopposed Attack и различных request IDs;
+- combined executor вызывает ranged Attack ровно один раз, затем раскрывает hiding position и дописывает opportunity ID; free, ordinary reloadable, обычный и bonus Repeater сохраняют профильные transitions, а failure не расходует opportunity;
+- добавлены `AimRangedWeaponAttackExecutionRequest → Result`: consumer принимает только применённый к Shooting `AimFollowUpResult`, требует один exact prepared Attack и ведёт immutable consumed-follow-up chain;
+- Aim bonus не пересчитывается и не добавляется повторно; free/Crossbow/Repeater transitions исполняются unified ranged resolver ровно один раз, zero-success Aim тоже погашается, а Aim и Repeater modifiers складываются до общего обычного pool cap;
+- LOST/Throwing/foreign/replayed Aim и forged consumption/result/trace отклоняются до либо после единственного execution согласно своей фазе;
+- добавлены `RangedWeaponCombatProfile` и полный combat-каталог всех 13 ranged weapons страницы 95: точные Optimum Range, Strength/fixed Damage, `1H`/`2H` и отдельные именованные numeric/boolean traits;
+- Max Range вычисляется как Long для `1H`, остаётся явным GM-defined значением для обычного `2H` и использует книжный override Medium для Blunderbuss; невозможные range/damage/hands/flag combinations отклоняются моделями;
+- combat profile ссылается на существующий reload profile того же weapon ID, не дублируя trigger, Exacting target или Repeater bonus; каталог проверен по всем книжным строкам, включая `must Aim` Hochland Long Rifle и полный набор Blackpowder weapons;
+- добавлены `RangedWeaponAttackPreparationRequest → Result` и чистый `prepare_ranged_weapon_attack`: weapon state связывается с одним исходным Attack и explicit range/Strength/Blackpowder-Lore/GM/Aim/reload facts без RNG;
+- preparation проверяет Close eligibility, fixed Max Range, GM-defined дальнюю границу `2H`, Extreme только через Aim+GM, mandatory Aim Long Rifle и Blackpowder Lore до создания готового execution request;
+- fixed/Strength Damage, ignores armour, `-1d` вне Optimum, Shortbow/Blunderbuss Shooting bonus, armoured-target Crossbow Damage, character Wounds Table bonus Long Rifle и typed nearby-Stagger Blunderbuss добавляются именованными effects; внешние Rule ID сохраняются, а уже добавленные профильные отклоняются;
+- optional Aim применяется после combat profile через существующий follow-up и возвращается вместе с exact `profile_attack`; готовый request совместим с Aim-bound executor и прежним free/reloadable transition, но preparation ещё не является обязательным proof входом отдельного production executor;
+- secondary target selection, consumption orchestration, ammunition и full equipment state остаются вне текущей границы.
+
+## Проверено
+
+- 1017 unit/integration тестов успешно проходят на Python 3.12; 997 тестов относятся к K1;
+- исходники и тесты успешно проходят `compileall`.
+
+## Исходный материал
+
+- актуальный Player’s Guide `1.4`: `Warhammer_the_Old_World_Roleplaying_Game_-_Players_Guide_-_29_01_26_opt.pdf`, 192 страницы и около 607021 извлечённого символа;
+- актуальный Gamemaster’s Guide `1.1`: `Warhammer_the_Old_World_Roleplaying_Game_-_Gamemasters_Guide_-29_01_26_opt.pdf`, 192 страницы и около 624921 извлечённого символа;
+- SHA-256 записан в `docs/source-index.md`;
+- оба PDF не зашифрованы, содержат встроенное оглавление и извлекаемый текстовый слой;
+- добавлен воспроизводимый приватный экстрактор `tools/extract_rulebook.py` и optional dependency `rulebook`.
+
+## Известные ограничения
+
+- на macOS / Python 3.12.15 полная проверка текущего `837592f` имеет 33 существующие ошибки ожиданий исключений dataclasses в трёх tests; все 123 M8 tests проходят. Подробности — в [open-questions](open-questions.md#проверки-dataclasses-на-python-312) и последней проверке ниже;
+- старый P1 battle loop остаётся упрощённым прототипом; K1 уже следует книгам, но пока реализует только часть проиндексированных механик;
+- K1 проверяет round/side/turn и action budget; Fate Second Action атомарно расходует session pool и резервирует bound slot, Reload расходует Skill Improvise на одну weapon-bound Dexterity contribution, loaded Shooting composite после обычного Attack открывает следующий reload cycle, Aim исполняет Awareness и создаёт next-action follow-up, Help исполняет собственный Test и создаёт bonus для связанного allied Test, Recover соединяет Condition/magic transitions и external applications, обычный и Move-Quietly-hidden Attack исполняются через kernel, spell Improvise — через Casting pipeline, Skill Improvise — через basic/opposed Test и отдельное применение Prone/Distracted, Troll Vomit/Swamp Breath/Soporific Breath — через single-target/Zone Ability Hazard composites, Run — через две spatial-фазы, Medium/Long Charge — через атомарные spatial/Test/attack composite, Move Carefully — через free-move/search composite, а Move Quietly — через opposed-Test/conditional-hiding composite; остальные Ability и attacking Skill Improvise ещё не подключены;
+- Skill-Improvise consumed application IDs пока не принадлежат battle aggregate: orchestration обязано передавать актуальный ordered snapshot между вызовами; disarm, превращение врага в союзника и другие creative outcomes требуют собственных typed effects;
+- Attack execution возвращает новое injury state цели внутри `ResolutionResult`, но общего battle aggregate для автоматического переноса этого состояния по target ID пока нет;
+- Awareness/амбуш ещё не вычисляет opposition-first порядок: orchestration передаёт уже определённый `side_order`; обе ветви free move представлены, но остальные incidental actions и pass/skip ещё не подключены;
+- Aim follow-up является чистой границей без mutable battle aggregate: orchestration ещё должно хранить snapshot, вызвать consume/drop ровно для следующего действия владельца и запретить повторное использование результата; ranged preparation проверяет Extreme/GM-defined предел и создаёт matching follow-up, но только будущий proof-consuming executor сделает этот путь обязательным production entry point;
+- Help bonus также не хранится в mutable battle aggregate: orchestration должно сопоставить его с объявленной upcoming Test, погасить один раз и не переносить на другой Test; книга не задаёт общего ограничения числа одновременно помогающих союзников, поэтому K1 не вводит искусственный лимит;
+- Recover treatment action, одноразовое применение выбранной Wound и automatic end-battle treatment всех Wounds реализованы, но application/context consumed IDs пока должен хранить внешний orchestration; partial trappings batch намеренно отклоняется до решения `AMBIGUITY-008`, mount/object follow-ups ещё не применяются;
+- `WizardMagicState` не содержит Wizard Level, поэтому непосредственный Recover reducer уменьшает переданный непросроченный Miscast snapshot; battle orchestration обязано сначала немедленно разрешить уже triggered Miscast Pool и не давать Recover отменить сработавший Miscast;
+- каталоги NPC Abilities, магии, религии и магических предметов завершены как нормативный индекс, но большинство записей ещё не связано с исполняемыми reducers и orchestration;
+- `CATCH_YOUR_BREATH`, независимый end-encounter opportunity, `A Night’s Respite`, успешный `REST_AND_RECOVERY`, daily Wound/Infection producer, Anatomy Recall/automatic-success branch, persistent Festering state/recovery consumer, ordinary и Combat Surgeon surgery proofs для `20–23`, общий transition снятия non-permanent effects, обе Combat Surgeon boundaries, suppression aggregate/view и полная `Drained` Test preparation реализованы; остальные Condition modifiers, применение surgery-failure follow-up и optional early Endurance Test требуют будущих lifecycle/orchestration boundaries;
+- session Fate resource, обе части Lucky, GM refresh, Glorious producer до/после initial roll, Second Action/Tactical Retreat composites, permanent burn и applications всех трёх видов, rolled и fixed two-phase Wound lifecycles вместе с kernel/Stagger/Hazard/Internal Damage/Ears Ringing adapters, alternative-price proof и все три его application consumers, общий pursuit, Run For Your Lives aggregate/outcome-bound registration и отдельные typed boundaries всех девяти исходов реализованы; golden opportunity, исполнение Surrounded/Hunted/Marked/Exposed/Lost hooks, Indebted repayment, Mocked social execution и исполнение конкретной Trapped Other-цены/captivity aftermath ещё не применяются;
+- Unmitigated Success application возвращает policy-confirmed Test outcome и книжные attack caps, но применение этого результата к конкретному Attack либо scene aggregate остаётся обязанностью внешнего orchestration;
+- Last Stand application требует уже исполненные внешние feat consequences и только закрывает их terminal смертью; выбор масштаба, целей и конкретных изменений scene остаётся обязанностью policy/orchestration;
+- Lucky gambling producer принимает уже классифицированный game-of-chance context; отдельного gambling/social action engine и автоматического поиска подходящей Test пока нет;
+- общий Exacting reducer принимает Basic/Opposed contributions и оставляет цену специализированному consumer; Combat Surgeon и Reload action adapters реализованы, Coin/risk/favour и другие конкретные стоимости ещё отсутствуют;
+- внешние последствия Wound для инвентаря и анатомии пока являются typed follow-up;
+- защита Endurance после заживления `Ruptured organs` ещё не подключена к физическому impact;
+- автоматическая замена неподходящей строки Wounds Table для не-физического Hazard требует отдельной GM/simulation policy;
+- общий Zone graph, Give Ground, unobstructed free movement, standalone Difficult Terrain executor, его free-move/base-Run/Medium-Charge consumers, Move Carefully bypass, Move Quietly conditional hiding и одноразовое исполнение/потеря hidden Attack уже существуют; cover/concealment, vigilance, current awareness, hiding-position и consumed opportunity snapshots пока поступают готовыми внешними facts; Lore bypass, смешанный Fast route с terrain/non-terrain сегментами, интерпретация результата Awareness search, spatial-поиск/стабильная сортировка secondary/Zone целей, path-context policy, движение внутри Zone, общий cover/line of sight и vertical/midair metadata ещё не имеют battle orchestration;
+- для Monstrous Flight при полностью невозможном Give Ground книга не задаёт fallback; K1 требует внешнего ruling;
+- turn orchestration ещё должно привязать и сохранить `SuppressRegenerationNextTurnRequest` между Reaction и ближайшим end-turn окном той же сущности; end-turn reducer уже однократно погашает переданный запрос;
+- `DropHeldHandItemRequest` ещё некому применить без inventory state и policy выбора конкретного удерживаемого предмета;
+- Troll Vomit, Swamp Breath и Soporific Breath уже расходуют Ability Improvise slot и проверяют свои actor/target/range snapshots, но перенос их итоговых injury states по target ID всё ещё принадлежит future battle aggregate; Dragon Rider inheritance поступает готовым Ability snapshot и пока не вычисляется из mount state;
+- battle loop ещё должен вызывать Stupidity entry points после каждой принятой Wound/снятия Distracted и создавать свежее Ability-state в начале следующего боя;
+- общий `ConditionState` пока не хранит источник или объект Distracted; Stupidity компенсирует это собственным source-aware состоянием, но полная replacement-семантика требует будущего решения;
+- casting pipeline уже накапливает successes, привязывает их к Lore, применяет post-Test Miscast threshold, разрешает normal CAST/WAIT, triggered preparation и добровольное прекращение, а затем имеет schema/Range preflight, target-scoped Potency и конкретный эффект `Curse of Cowardly Flight` через явные фазовые границы; любой завершённый non-Casting action активного caster применяет skipped-Test die отдельной фазой, а чистая consumed-ID chain запрещает повтор одного receipt при корректной передаче snapshot; future battle aggregate ещё должен владеть этим snapshot на протяжении попытки, соединить NPC opposition, spatial target discovery и применение результатов с общим battle state;
+- каждая строка Miscast Table исполняется собственным reducer и очищает пул после структурного разрешения;
+- battle loop пока не регистрирует и не переиспользует persistent Zone Hazards автоматически; Miscast reducer возвращает достаточный source/anchor/persistence contract для этого слоя;
+- battle/effect state пока не применяет и не погашает next-Test penalty Hideous Stench и не снимает caster Fellowship effect по событию купания; reducer возвращает типизированные запросы для этих границ;
+- понятие «recently», веса повторных spell и пустой случай Spell Recast требуют GM/simulation policy; текущий reducer не очищает пул при пустом snapshot;
+- campaign/effect state пока не регистрирует Truthbound и не снимает его на границе downtime; semantic judgement конкретных реплик намеренно остаётся внешним;
+- campaign/effect state пока не отслеживает полнолуние Morrslieb и не снимает Arcane Sight; применимость слова `most` к обычной Awareness Test сообщает внешний context;
+- battle/campaign state пока не регистрирует appearance Feared Foe Illusion и не отсчитывает внешнюю minute duration; feared-foe reference и «few minutes» определяет GM/orchestration;
+- battle/campaign state пока не создаёт Daemon по `MiscastDaemonManifestationRequest`, не выбирает его stat block/размещение/начальный курс, не планирует немедленное действие и не отслеживает возврат в Realm of Chaos;
+- spatial/battle state пока не выбирает и не регистрирует портал Fascinating Rift, не обнаруживает свидетелей, не исполняет compelled movement/restraint и не отправляет события входа/выхода для закрытия;
+- campaign/scene state пока не регистрирует Sunlight Blindness до downtime и не классифицирует фактические источники освещения сцены;
+- spatial state пока не строит eligible Zone snapshot для Random Transport и не применяет выбранный relocation;
+- scene/campaign state пока не выбирает и не регистрирует локальную область, конкретную погоду или GM-defined последствия Unnatural Weather;
+- spatial/inventory state пока не находит и не портит фактические запасы fresh food в Long Range для Food Spoiled;
+- calendar/effect state пока не снимает Shadow Chittering при Mannslieb full и не планирует его непредсказуемые narrative-повторения;
+- spatial/inventory state пока не выбирает случайные малые объекты и направления для Objects Transfigured; случай недостаточного числа объектов требует GM/simulation policy;
+- spatial target discovery пока не формирует полный snapshot Nauseating Wave и не имеет общей policy включения источника для формулировки `within Range of you`;
+- spatial target discovery пока не формирует полный Medium Range snapshot Sense of Loss; та же self-inclusion policy остаётся открытой;
+- профильные Wounds пока не хранят provenance огня; обычная и Monstrous Regeneration получают только явный снимок наличия хотя бы одной допустимой неогненной Wound;
+- психологическая иммунность undead-профилей подключена к боевым Condition/Hazard-фазам, `Curse of Cowardly Flight` и `Fascinating Rift`; остальные конкретные non-Condition эффекты требуют отдельного анализа;
+- Monte Carlo, JSON, CLI и балансировщик ещё не входят в текущий срез.
+
+- M8 Give Ground/completion интегрирован в roster/Champion owner; полный pending блокирует новые bound Casting/атаки, но caller явно готовит маршруты и запускает existing movement/completion. Partial movements хранятся caller отдельно до atomic completion. Broken Recover (safe/free move) и Run (полный free move + одна Zone) готовы. Run при уже потраченном free move, terrain/Athletics, общий dispatch, end-turn и полный magic runner пока вне допуска.
+
+## Завершённый срез 2026-09-17
+
+- добавлен `PreparedRangedWeaponAttackExecutionRequest → Result` и `execute_prepared_ranged_weapon_attack`: обязательная завершённая preparation, одна direct/Aim-bound ветвь и полный preparation/execution trace;
+- результат хранит один nested execution, общий `ranged_attack` view и immutable Aim consumption chain; нулевой Aim также погашается, повтор и подмена provenance отклоняются;
+- добавлены 10 детерминированных тестов нового executor и регрессия Max Range: одноручное оружие не выходит за Long даже с Aim/GM approval (PG 1.4, Equipment, стр. 94);
+- при ошибке исполнения исходные action/weapon/consumption snapshots остаются неизменными; откат RNG не обещается;
+- добавлен обязательный bool `has_enemy_in_close_range` без default: запрет оружия без Close в Optimum проверяется независимо от выбранной цели; Aim/GM approval его не обходят (PG 1.4, Equipment, стр. 94–95);
+- Pistol, Repeater Pistol и Repeater Handbow проходят исключение; исходный факт и отдельный Rule ID сохраняются через prepared/Aim execution, не меняя реальную дальность, reload и последствия промаха;
+- добавлены 7 тестов close-enemy preflight: весь каталог из 13 профилей, строгий тип/обязательность факта, проверка до RNG, Close/far execution, Aim consumption и trace;
+- добавлены `PreparedHiddenRangedAttackExecutionRequest → Result` и `execute_prepared_hidden_ranged_attack`: exact hidden/prepared Attack, один вызов prepared executor и единственный kernel/receipt/weapon transition;
+- сохраняются обе независимые consumption chains, revealed hiding-position и полный ordered trace; добавлены 7 тестов free/reloadable/Aim/Repeater, hit/miss, preflight/provenance, replay и ошибки RNG;
+- известные границы: spatial-поиск и актуальность close-enemy/awareness facts остаются внешними; ammunition и spatial secondary-target discovery отсутствуют. `CODE-CONFLICT-001` исправлен: non-Attack continuation сохраняет opportunity без раскрытия/ухода, старый `OTHER_ACTION` удалён.
+- добавлены typed continuation request/result, `PRESERVED`/`LOST`, проверка completed receipt и explicit `position_revealed`; переход без RNG/нового receipt оставляет Aim независимым;
+- добавлены 8 тестов continuation, заменена ошибочная non-Attack loss регрессия; сквозная цепочка Move Quietly → следующий раунд → Aim → prepared hidden Attack проверена с нулевым/положительным Aim и непрерывной consumption chain.
+
+## Завершённый срез 2026-09-22
+
+- непосредственно проверены PG 1.4, Rules / Manoeuvre и Attack Tests, стр. 117–118;
+- добавлены immutable HidingPositionState, registration request/result и consumer ordinary/profile-aware/prepared completed hidden Attack; hit и miss регистрируют позицию одинаково;
+- проверяются actor, повтор внутреннего Attack execution ID, stale source history и ранее использованная позиция;
+- prepare_move_quietly_with_hiding_positions переносит историю в следующий request и запрещает прежнюю позицию до RNG; проверена цепочка до новой hidden Attack в следующем round;
+- добавлены 11 детерминированных тестов; Aim, reload, consumption chains и исходные snapshots сохранены;
+- caller сохраняет актуальный state; execution+registration теперь объединены атомарным composite, preparation использует возвращённую историю; automatic awareness и battle aggregate отсутствуют;
+- добавлены RegisteredHiddenAttackExecutionRequest/Result, общий history preflight до RNG и execute_registered_hidden_attack: ровно один existing executor, один kernel/receipt и одна регистрация;
+- 10 новых тестов проверяют три ветви, hit/miss, replay и stale history до RNG, ошибки исполнения/регистрации, Aim/reload, source и trace. Исключения сохраняют входные snapshots, но не откатывают RNG или decision-provider effects.
+
+- общий hidden Attack request теперь отклоняет более ранний round и тот же/более ранний slot исходного round до RNG; первый slot более позднего round разрешён, expiry не добавлен;
+- добавлены 6 chronology-тестов для ordinary/profile-aware/prepared × direct/registered; порядок non-Attack continuation и независимая семантика Aim сохранены;
+- same-round hidden Attack теперь требует точный completed Move Quietly slot/receipt в своём active-turn snapshot; 6 дополнительных тестов отклоняют отсутствие/подмену и подтверждают structural equality и поздние rounds без прежнего receipt.
+
+## Завершённый срез 2026-09-23
+
+- добавлен HiddenLifecycleState: active Move Quietly source, consumed opportunity IDs и вложенный HidingPositionState; actor/opportunity доступны как views;
+- source-bound application принимает Move Quietly всех outcomes, completed continuation, standalone loss или registered Attack; stale source/chain/history и replay отклоняются;
+- continue_hidden_lifecycle и execute_hidden_lifecycle_attack проверяют snapshot до вызова прежнего reducer/executor; Attack preflight выполняется до RNG;
+- PRESERVED сохраняет тот же snapshot; LOST очищает active source без регистрации атаки; registered Attack атомарно закрывает opportunity и переносит историю укрытий;
+- 15 новых тестов покрывают три Attack ветви, hit/miss, исключения, stale/replay, независимый Aim/reload и два последовательных цикла укрытия;
+- ограничения: caller сохраняет актуальный snapshot; failed/declined Move Quietly не активирует opportunity; replacement активной opportunity пока не подключён; standalone loss consumer подключён. Automatic awareness, battle aggregate и новый expiry не добавлены.
+
+- добавлен lose_hidden_lifecycle_opportunity с exact source/ordered-chain preflight до existing reducer; готовый loss result также принимается application consumer без переисполнения;
+- все три loss-причины закрывают active source и переносят consumed IDs без изменения used positions/attack execution history, без RNG и нового receipt; 7 новых детерминированных тестов проверяют причины, stale/replay, готовый result, ошибки и continuation/attack routing.
+
+- добавлен execute_hidden_lifecycle_move_quietly: inactive actor/history/rule/consumed-source preflight до RNG, один existing executor/opposed Test/receipt и атомарный lifecycle result;
+- application consumer теперь принимает все Move Quietly outcomes: HIDDEN активирует exact source, FAILED/SUCCEEDED_WITHOUT_HIDING сохраняют тот же inactive snapshot; caller сохраняет completed action round/spatial state отдельно;
+- 9 новых тестов проверяют outcomes, same-Zone/route, stale/replay/active-source guards, RNG failure, receipt и loss; сквозная цепочка двух укрытий с Aim/Attack переведена на новый adapter.
+
+- добавлены HiddenFreeMovementLossRequest/Result, consumer completed movement и lifecycle adapter; exact actor/source/chain/placement/graph и chronology проверяются без RNG;
+- более поздний round допускается без старого action receipt; same-round второй free move после скрытия отклоняется, даже при сбросе usage;
+- opportunity закрывается с LEFT_HIDING_POSITION без повторного движения, нового receipt или регистрации used hiding position; исходные movement/round snapshots и trace доступны во вложенном результате;
+- 10 новых детерминированных тестов проверяют обычный/Fast маршрут после route/same-Zone hiding, чужой actor/source, stale/replay, chronology, историю, ошибки и неизменяемость. Ограничения: актуальные snapshots хранит caller; same-Zone уход, awareness и replacement не добавлены.
+
+- добавлен HiddenFreeMovementExecutionRequest и execute_hidden_lifecycle_free_movement: общий request/result preflight, exact active source/chain до движения, один existing movement resolver и один loss consumer;
+- возвращается прежний HiddenLifecycleApplicationResult с согласованными spatial/lifecycle snapshots; новый receipt, RNG, Attack или регистрация позиции не создаются;
+- 8 новых тестов покрывают Normal/Fast, preflight до движения, movement restrictions, исключения всех стадий, replay с новыми IDs и сохранность существующего Aim receipt. Caller сохраняет оба результата; awareness/replacement и same-Zone movement не добавлены.
+
+- добавлены HiddenGiveGroundLossRequest/Result, consumer completed Give Ground и lifecycle adapter: exact actor/source/chain/placement/graph и chronology, LEFT_HIDING_POSITION без изменения истории укрытий;
+- same-round путь требует точный post-hiding spatial snapshot, включая free-move usage после same-Zone hiding; более поздний round допускает изменения чужих placements. Free-move limit не переносится на Give Ground;
+- сохраняются исходные movement/Conditions/Broken/trace без повторного движения, Condition application, RNG или receipt; готовый loss result применяется напрямую;
+- 10 новых тестов проверяют same/later round, stale snapshots/source/chain, actor/graph, replay, историю, Broken и ошибки. Ограничение: промежуточные same-round spatial changes пока требуют неподключённого доказательства порядка; это API boundary, не house rule.
+
+- добавлен HiddenGiveGroundExecutionRequest и execute_hidden_lifecycle_give_ground: общий request/result validator, active source/chain до движения, один resolve_give_ground и один loss consumer;
+- существующий HiddenLifecycleApplicationResult сохраняет единственный nested movement/Conditions/Broken/source/trace; движение, Condition application и история укрытий не дублируются;
+- 8 новых тестов проверяют same/later round, один movement/Condition/loss, preflight, ограничения пути/Conditions/usage, исключения всех стадий, replay и сохранность истории. Same-round exact-snapshot boundary сохранена.
+
+- optional intervening_movements добавлен в execution/loss Give Ground requests; immutable tuple принимает только completed free-movement/Give Ground других actor;
+- общий preflight проверяет exact continuity от source post-hiding snapshot до Give Ground snapshot, один round/graph и неподвижность владельца; direct empty-chain путь сохранён, chain через rounds запрещена;
+- executor сохраняет те же chain results в loss source, добавляет их Rule IDs в trace и ничего не переисполняет; актуальные чужие Conditions/opportunities остаются у caller;
+- 8 новых тестов покрывают оба consumer/execution пути и сочетания двух типов, разрывы/перестановку/дубли, graph/round, уход владельца, replay, trace и normalization. Прочие spatial transitions и automatic awareness не добавлены.
+
+- добавлен tests/integration/test_k1_hidden_recovery_cycle.py: 2 теста через существующие adapters и scheduler без production изменений;
+- полный сценарий охватывает Move Quietly → чужое движение → Give Ground/Broken → безопасная Zone/Recover/Willpower → новая Move Quietly → Aim → prepared Crossbow Attack; hit/miss и нулевой/положительный Aim проверяются отдельными subcases;
+- unsafe Recover отклоняется до RNG, failed Recover сохраняет Broken и завершённый slot; первый уход не регистрирует позицию, выстрел регистрирует только новое укрытие, независимо погашает Aim/hidden и создаёт unloaded Crossbow reload cycle;
+- snapshots/история/trace и replay guards сохранены; причина Give Ground, awareness и cover передаются явно. Общий battle loop и новые gameplay APIs не добавлены.
+
+- интеграционный hidden recovery cycle продолжен через настоящий weapon-bound Reload и второй hidden Crossbow Attack; production API не менялись;
+- три Dexterity actions проверяют failure/partial/completion (0 → 1 → 2), запрет выстрела до Reload и повторного исполнения slot;
+- следующая Move Quietly получает возвращённую историю и отклоняет прежнее укрытие; второй hit/miss сохраняет Aim consumption, дополняет hidden/history chains и создаёт второй unloaded cycle с новым progress;
+- продолжение начинается с первого промаха; проверены возврат weapon/target/round snapshots, trace и неизменяемость. Новых противоречий нет.
+
+- добавлен четвёртый интеграционный тест: после Reload последовательно исполняются FAILED и SUCCEEDED_WITHOUT_HIDING/DECLINE, затем новая HIDDEN Move Quietly и второй hit/miss;
+- обе неатакующие попытки завершают отдельные slots, сохраняют inactive lifecycle/spatial/loaded weapon/history и уже погашённую Aim chain; replay на возвращённых round snapshots отклоняется до RNG;
+- последующее скрытие использует позицию неудачной попытки, а только завершённая атака добавляет её в used history; trace, два reload cycle и исходные snapshots сохранены. Production API и правила не менялись.
+
+- добавлен пятый интеграционный тест: Move Quietly с unloaded Crossbow → Reload 0/1/2 с continuation по каждому completed receipt → второй hidden hit/miss;
+- при неизменной позиции и explicit отсутствии раскрытия сохраняются тот же lifecycle/source/opportunity и history/consumption chains; weapon/round snapshots последовательно передаются следующему действию;
+- финальный prepared executor вызывается один раз, создаёт один receipt и одну регистрацию; reload cycle и прежняя Aim chain сохранены. Общие части интеграционного сценария вынесены в тестовые helpers без изменения production API.
+
+- добавлен шестой интеграционный тест: explicit раскрытие после Reload с 1 успехом закрывает opportunity без регистрации позиции и сброса weapon progress;
+- повтор continuation отклоняется; следующий Reload заряжает тот же Crossbow, а старая hidden Attack отклоняется до executor/RNG как при stale chain, так и при актуальной consumed chain;
+- новая Move Quietly в другом укрытии и второй hit/miss сохраняют полный consumed prefix и регистрируют только позицию выстрела. Проверены trace, неизменяемость и единственное исполнение/receipt; production API и правила не менялись.
+
+- добавлен седьмой интеграционный тест: Move Quietly → Aim → Reload → hidden Attack, Aim 0/2 × hit/miss;
+- первый completed Reload с нулевым вкладом даёт Aim LOST, а Aim/Reload continuation сохраняют hidden opportunity; финальная атака не получает Aim modifier и расходует ровно два базовых куба;
+- готовый LOST отклоняется Aim-bound request; caller переносит его ID и прежнюю Aim chain. Отдельного consumer терминальной потери Aim пока нет — ограничение записано в open-questions. Production API не менялись.
+
+- реализованы AimConsumptionState и AimLossConsumptionRequest/Result, публичные exports и чистый consume_lost_aim;
+- completed non-Attack LOST связывается по actor/action/declaration/chronology, source/follow-up IDs погашаются однократно; смена follow-up ID не обходит повторную регистрацию;
+- добавлены 10 unit-тестов, интеграционный Aim → Reload → hidden Attack переведён на возвращённую историю; никакого RNG/повторного action/нового receipt. Existing preparation и APPLIED ещё не проверяют эту source history; caller выбирает next action и хранит актуальный snapshot.
+
+- добавлен prepare_ranged_weapon_attack_with_aim_history: actor/source preflight до прежней preparation, без нового result type, RNG или мутации history;
+- 6 новых unit-тестов проверяют free/Crossbow, fresh Aim 0/1 и no-Aim, consumed source с новыми IDs, типы/actor/исключения;
+- интеграция Aim → Reload → hidden Attack использует returned loss history: повторный Aim отвергается до delegate, атака без Aim сохраняет chains. APPLIED source registration и обход низкоуровневого API остаются вне этого среза.
+
+- добавлены AimAttackConsumptionRequest/Result, public exports и register_aim_ranged_attack для готового Aim-bound result;
+- actor/APPLIED/точный Attack receipt/chronology/previous consumed prefix проверяются, source ID и готовая follow-up chain переносятся однократно без повторного исполнения;
+- 9 unit-тестов покрывают free/Crossbow, hit/miss, Aim 0/2, переименованный replay/LOST, prefix/actor/provenance/trace и запрет следующей preparation; интеграция переносит историю первого APPLIED в последующий LOST consumer. Atomic pre-RNG execution+registration реализован следующим срезом ниже.
+
+## Завершённый срез 2026-09-24
+
+- добавлены RegisteredAimRangedAttackExecutionRequest/Result и execute_registered_aim_ranged_attack; общий с completed-result consumer actor/source/prefix/chronology preflight выполняется до RNG;
+- один Aim-bound executor/kernel/receipt и одна registration; immutable result хранит registration, а execution/state доступны как views. Погашенный Aim отвергается при новых wrapper/Attack/execution/follow-up IDs;
+- 9 новых unit-тестов: free/Crossbow, hit/miss, Aim 0/2, точный prefix/actor/chronology, один kernel/receipt, replay до RNG, ошибки и immutable result provenance/trace;
+- входные snapshots не меняются при исключении; уже использованные RNG/decision effects не откатываются. Caller хранит актуальную history и выбирает next action; prepared integration подключена следующим adapter; совместная hidden/Aim integration реализована отдельным adapter ниже. Основание непосредственно сверено: BOOK-PLAYER-GUIDE 1.4, Rules / Combat Actions / Aim, стр. 116.
+
+- добавлены RegisteredPreparedAimRangedAttackExecutionRequest/Result и execute_registered_prepared_aim_ranged_attack: обязательный Aim, общий preflight через точный вложенный Aim request до RNG;
+- один prepared executor сохраняет preparation/profile trace, receipt и weapon state; один consumer регистрирует его единственный вложенный Aim result. Result связывает execution/registration, history доступна как view;
+- 9 новых тестов покрывают free/Crossbow × hit/miss × Aim 0/2, renamed replay до RNG, actor/prefix/chronology, no-Aim/types, один kernel/receipt/registration, историю следующей preparation и исключения. Hidden composition и no-Aim не включены; источник: PG 1.4, Rules / Combat Actions / Aim, стр. 116.
+
+- добавлены registered_hidden_aim_models/resolution, RegisteredHiddenAimAttackExecutionRequest/Result и execute_registered_hidden_aim_attack; принимается только registered prepared hidden Attack с Aim;
+- обе history проверки выполняются до RNG; один existing registered hidden executor и один Aim consumer связывают регистрацию позиции и расход Aim с единственным kernel/receipt. Result сохраняет profile/reload/hidden opportunity/Aim trace и предоставляет execution/aim_state/hiding_position_state как views;
+- 10 новых тестов покрывают free/Crossbow × hit/miss × Aim 0/2, независимый replay обеих историй с новыми IDs, guards до RNG, consumed opportunity, no-Aim/unsupported branches, provenance/trace, исключения и обе следующие preparation;
+- входные snapshots неизменны; RNG/decision effects не откатываются. Caller хранит актуальные истории и opportunity prefix; HiddenLifecycleState подключён отдельным adapter ниже. Источники непосредственно сверены: PG 1.4, Rules / Aim, стр. 116; Manoeuvre, стр. 117; Attack Tests, стр. 118.
+
+- добавлены hidden_lifecycle_aim_models/resolution, HiddenLifecycleAimAttackExecutionRequest/Result и execute_hidden_lifecycle_aim_attack; общий lifecycle и joint preflight проверяет active source/chain/hiding history и Aim до RNG;
+- один joint executor и один existing lifecycle consumer возвращают связанные immutable результаты с общей trace; state/aim_state/execution — views единственной атаки, opportunity закрывается, обе регистрации сохраняются;
+- 9 новых unit-тестов: free/Crossbow × hit/miss × Aim 0/2, exact source с тем же ID, prefix/order/history, replay до RNG, одно исполнение/receipt/применение, типы/provenance/trace и исключения;
+- первый Aim-bound выстрел hidden recovery cycle переведён на новый путь; ручная регистрация Aim после исполнения удалена, returned history передаётся последующему LOST/подготовке. Все 7 интеграционных тестов проходят;
+- актуальные snapshots и next action выбирает caller, RNG/decision effects при ошибке не откатываются. No-Aim ветвь остаётся в прежнем executor, automatic awareness и battle aggregate не добавлены. Правила непосредственно сверены по PG 1.4, Rules / Aim, стр. 116; Manoeuvre, стр. 117; Attack Tests, стр. 118.
+
+- добавлен восьмой интеграционный тест: первый hidden/Aim выстрел → Reload 0/1/2 → новое укрытие → свежий Aim → второй hidden/Aim выстрел. Оба выстрела используют existing lifecycle adapter и returned histories без ручного append ID;
+- проверены 8 сочетаний первого/второго Aim 0/1 и второго hit/miss; первый выстрел miss. Новый Aim имеет отдельный source ID; повтор первого с переименованной preparation/follow-up отвергается до RNG даже при обходе history-aware preparation;
+- проверяются два kernel-вызова, по одному receipt на выстрел, оба Aim sources/follow-ups, обе использованные позиции, два reload cycle, trace/immutable snapshots и replay. Прежние no-Aim и LOST-after-Reload сценарии сохранены;
+- production API и правила не менялись; непосредственно сверены PG 1.4, Equipment / Ranged Weapons, стр. 94–95; Rules / Aim, стр. 116; Manoeuvre, стр. 117; Attack Tests, стр. 118.
+
+- добавлены AimAttackLossConsumptionRequest/Result, public exports и consume_attack_lost_aim для completed ordinary Attack по другой цели с готовым LOST;
+- проверяются actor, target, исходные Attack/kernel IDs, previous state, slot/receipt/declaration и chronology. Общий immutable append переносит source/follow-up history однократно; RNG, повторного исполнения и нового receipt нет;
+- 10 новых unit-тестов покрывают hit/miss × Aim 0/2, renamed replay, историю прежнего non-Attack LOST/APPLIED, source/state/kernel/receipt/chronology, unsupported outcomes, следующую preparation, типы/provenance/trace и исключения;
+- source rule непосредственно сверено по PG 1.4, Rules / Combat Actions / Aim, стр. 116. На этом этапе same-target LOST/остальные attacking actions и автоматический next-action выбор не добавлены; atomic pre-RNG executor реализован ниже; актуальную history сохраняет caller.
+
+- добавлены RegisteredAimLossAttackExecutionRequest/Result и execute_registered_aim_loss_attack; общий с completed consumer preflight проверяет actor/source/follow-up/target/exact Attack/slot/declaration/chronology до RNG;
+- один execute_attack_action и один consume_attack_lost_aim; result хранит единственную registration, execution/state доступны как views. Нет повторного kernel/receipt/append;
+- 9 новых unit-тестов покрывают hit/miss × Aim 0/2, тот же turn/первый slot следующего, renamed replay и прежний non-Attack LOST/APPLIED до RNG, actor/target/slot/chronology, точный source/trace, исключения и следующую preparation; 10 прежних тестов consumer проходят с общим preflight;
+- входные snapshots неизменны, RNG/decision effects при ошибке не откатываются. На этом этапе same-target LOST и prepared/hidden/Charge adapters не добавлены; caller сохраняет history и выбирает next action. Основание непосредственно сверено: PG 1.4, Rules / Combat Actions / Aim, стр. 116.
+
+- добавлен test_k1_aim_target_switch.py: Aim по A → ordinary Attack по B / LOST → свежий Aim по A → APPLIED; четыре раунда проходят через действительный scheduler, между ходами hero остальные actor исполняют Recover;
+- 16 сочетаний первого/свежего Aim 0/2 и обоих hit/miss проверяют отсутствие бонуса у первой атаки, свежий бонус второй, ровно два kernel-вызова и по одному receipt; returned history переносится без ручного append IDs;
+- переименованные preparation/Attack/follow-up не восстанавливают старый Aim: preparation и прямой registered executor отклоняют source до delegate/RNG. Итоговая история содержит оба sources/follow-ups; snapshots и trace сохранены;
+- production API и правила не менялись. Локальная PG 1.4, Rules / Combat Actions / Aim, стр. 116 перечитана. Caller по-прежнему выбирает фактически следующее действие и сохраняет актуальную историю.
+
+- общий preflight consumer/executor LOST расширен на ordinary Skill.MELEE Attack по исходной цели Aim; follow-up остаётся LOST без Aim bonus, новые публичные types не добавлены;
+- шесть тестов test_k1_same_target_close_attack_aim_loss.py проверяют completed/atomic hit/miss × Aim 0/2, same-turn/later-turn, один kernel/receipt/consumer, exact actor/Attack/receipt/chronology, историю следующей preparation, replay между Melee и different-target ветвями до RNG и immutable inputs; 19 прежних тестов сохранены;
+- непосредственно сверены PG 1.4, Rules / Aim, стр. 116 и Attack Tests, стр. 118. На этом этапе same-target Brawn и Charge/Improvise composition оставались вне API; caller хранит актуальную history и выбирает следующее действие.
+
+- ordinary Skill.BRAWN Attack по исходной цели Aim подключена к общему preflight consume_attack_lost_aim / execute_registered_aim_loss_attack; LOST без бонуса, новые public types не добавлены;
+- общий модуль тестов переименован в test_k1_same_target_close_attack_aim_loss.py: прежние шесть сценариев Melee и шесть Brawn покрывают completed/atomic hit/miss × Aim 0/2, same-turn/later-turn, guards и preparation. Replay проверен между Melee, Brawn и different-target ветвями с новыми IDs до RNG;
+- source/receipt/history/chronology и одно исполнение сохранены. Same-target APPLIED Shooting/Throwing и неподходящий skill отвергаются. PG 1.4, Rules / Aim, стр. 116 и Attack Tests, стр. 118 перечитаны непосредственно; Charge/Brawn ambiguity и composition не затронуты.
+
+- test_k1_aim_target_switch.py расширен двумя сценариями same-target Melee/Brawn → LOST → свежий Aim → APPLIED: 3 теста, 48 сочетаний обоих Aim 0/2 и обоих hit/miss, по четыре реальных раунда;
+- Conditions цели передаются из первого kernel в её Recover, затем recovered target state — во второй Attack. При close miss typed AttackerStaggerRequest применяется общим Condition reducer; явно Close союзник снимает Staggered с hero через Recover до свежего Aim. Изменения Conditions и receipts проверяются;
+- returned Aim history переносится без ручного append IDs, старый source с новыми preparation/Attack/follow-up IDs отклоняется до RNG; по одному kernel/receipt на атаку, свежий бонус и обе source/follow-up chains сохранены;
+- production API и правила не менялись. PG 1.4, Rules / Aim, стр. 116; Recover и Attack Tests, стр. 118; Failed/Successful Attacks, стр. 119 перечитаны непосредственно.
+
+- добавлены AimChargeLossConsumptionRequest/Result, public exports и consume_charge_lost_aim в существующих Aim modules: готовый LOST связывается с completed ordinary Melee Charge по actor/action/declaration/receipt/chronology;
+- общий immutable append и trace сохраняют source/follow-up prefixes однократно и единственный Charge result с движением, kernel, бонусом Charge и receipt; нет нового RNG или повторного исполнения;
+- девять тестов test_k1_aim_charge_loss_consumption.py покрывают hit/miss × Aim 0/2 × same/different target, renamed replay, общую историю non-Attack/Attack LOST/APPLIED, actor/action/receipt/chronology, следующую preparation, типы/provenance/trace и immutable inputs при исключении;
+- PG 1.4, Rules / Aim, стр. 116 и Manoeuvre / Charge, стр. 117 непосредственно сверены. Consumer не защищает от уже использованного внешним executor RNG; atomic wrapper реализован следующим срезом ниже. Long Charge/terrain/Brawn Charge и выбор next action остаются вне среза.
+
+- добавлены RegisteredAimLossChargeExecutionRequest/Result и execute_registered_aim_loss_charge; общий _validate_charge_loss_preflight применяется к pending Charge и completed consumer, проверяет actor/action/declaration/skill/source/follow-up/slot/chronology до executor, движения и RNG;
+- один execute_charge_action и один consume_charge_lost_aim возвращают единственную registration; execution/state — views. Result связывает source Charge ID/actor/target/skill/speed/slot, исходные round/spatial/kernel states, follow-up/history и точную trace;
+- девять новых тестов test_k1_registered_aim_loss_charge.py: hit/miss × Aim 0/2 × same/different target × same-turn/later-first-slot, replay общей истории с новыми IDs до RNG, actor/action/slot/chronology, runtime preflight, ошибки executor/RNG/registration/result, provenance/trace и следующая preparation;
+- snapshots неизменны при исключении, внешние RNG/decision effects не откатываются. Long/terrain/Brawn Charge не подключены; caller хранит состояния и выбирает next action. PG 1.4, Rules / Aim, стр. 116 и Manoeuvre / Charge, стр. 117 непосредственно перечитаны.
+
+- добавлен test_k1_aim_charge_cycle.py: Aim → registered ordinary Melee Charge/LOST → свежий Aim → registered APPLIED; 16 сочетаний обоих Aim 0/2 и обоих hit/miss, четыре реальных раунда;
+- возвращённый spatial state Charge проходит start_next_spatial_round с сохранением placements; target Conditions и close-miss Staggered героя проходят Recover цели/явно Close союзника. Вторая атака получает recovered target state и сохранённый Close Range; обе атаки opposed;
+- проверены только +1d Charge у первой атаки, свежий Aim bonus второй, два kernel-вызова, по одному receipt, обе source/follow-up chains, immutable inputs и replay старого Aim с переименованными Charge/Attack/preparation/follow-up IDs до RNG. Никакого ручного append history;
+- production API и правила не менялись. PG 1.4, Rules / Aim, стр. 116; Manoeuvre / Charge, стр. 117; Recover, стр. 118; Failed/Successful Attacks, стр. 119 непосредственно перечитаны.
+
+- добавлены AimLongChargeLossConsumptionRequest/Result и consume_long_charge_lost_aim для completed Long Charge с Skill.MELEE; поддержаны reached-and-attacked и обе stopped-short ветви без атаки;
+- готовые Athletics, движение, optional kernel, Conditions и receipt сохраняются без повторного исполнения. Проверяются actor/action/declaration/receipt/chronology и общая source/follow-up history; обычный Charge consumer не расширен;
+- 10 новых детерминированных тестов покрывают все outcomes × Aim 0/2 × same/different target, reached hit/miss, already-Staggered, renamed replay между исходами и shared history других consumers, следующую preparation, типы/provenance/trace, противоречивые результаты и неизменность snapshots;
+- непосредственно перечитаны PG 1.4, Rules / Combat Actions / Aim, стр. 116 и Manoeuvre / Charge, стр. 117. Провал Long Charge завершает действие и расходует Aim даже без атаки. Atomic Long Charge пока не подключён; caller хранит актуальные snapshots и выбирает next action.
+
+- добавлены RegisteredAimLossLongChargeExecutionRequest/Result и execute_registered_aim_loss_long_charge; общий pending/completed preflight проверяет actor/action/declaration/slot/chronology/history до исполнения Long Charge и RNG;
+- один execute_long_charge_action и один consume_long_charge_lost_aim поддерживают все три outcomes; результат хранит единственную registration, execution/state доступны как views. Проверяются исходные round/spatial/Conditions/Athletics/kernel states и intermediate Zone;
+- девять новых детерминированных тестов проверяют единственный Athletics и optional kernel/Conditions, reached hit/miss и обе stopped-short ветви, Aim 0/2, same/different target, chronology/replay до RNG, source binding, следующую preparation и исключения. Прежние десять consumer tests сохранены;
+- PG 1.4, Rules / Aim, стр. 116 и Manoeuvre / Charge, стр. 117 перечитаны непосредственно. Внешние RNG/decision effects при исключении не откатываются; snapshots неизменны. Terrain, Brawn и общий battle aggregate не подключены.
+
+- добавлен test_k1_aim_long_charge_cycle.py: 3 интеграционных теста, 32 сочетания трёх LongChargeOutcome, Aim 0/2 и hit/miss доступных атак через четыре реальных раунда;
+- returned spatial state переносится через start_next_spatial_round, hero/target Conditions проходят Recover, Aim history передаётся без ручного append. При stopped-short сохраняется Medium Range второго выстрела, при reached — Close; первый kernel отсутствует при провале Athletics;
+- проверены один Athletics, optional kernel/Staggered application, один receipt Long Charge, свежий Aim bonus и обе source/follow-up chains. Старый Aim с новыми Charge/Athletics/kernel/preparation/Attack/follow-up IDs отклоняется до RNG;
+- test helper next_hero_round получил явный recover_hero=False для сохранения исходного Staggered до Long Charge: союзник ещё не в Close Range героя. После Long Charge явно Close союзник исполняет Recover. Прежние сценарии сохранены;
+- production API не менялся. Непосредственно перечитаны PG 1.4, Rules / Aim, стр. 116; Manoeuvre / Charge, стр. 117; Recover/Attack Tests, стр. 118; Failed/Successful Attacks, стр. 119.
+
+- добавлены AimDifficultTerrainChargeLossConsumptionRequest/Result и consume_difficult_terrain_charge_lost_aim для готового DifficultTerrainChargeActionExecutionResult с Skill.MELEE;
+- LOST связывается с ID composite action/receipt, а не ID вложенного pending Charge. Проверяются actor/action/declaration/receipt/chronology и source/follow-up history; вложенный result сохраняет точные traversal/movement/Conditions/kernel;
+- 10 новых тестов покрывают terrain success/failure × hit/miss × Aim 0/2 × same/different target × уже проверенный crossing, replay/общую историю, source binding, следующую preparation, типы/trace/provenance и неизменность snapshots. Consumer не вызывает traversal/Test/Condition/Charge/kernel;
+- непосредственно перечитаны PG 1.4, Rules / Difficult Terrain, стр. 115; Aim, стр. 116; Manoeuvre / Charge, стр. 117. Ordinary/Long consumers не расширены. Atomic terrain composition, Brawn и battle aggregate пока вне среза.
+
+- добавлены RegisteredAimLossDifficultTerrainChargeExecutionRequest/Result и execute_registered_aim_loss_difficult_terrain_charge: вход содержит исходные Charge и terrain requests, отдельный action_id для composite receipt и общую Aim history;
+- общий pending/completed Aim preflight и проверка terrain pair выполняются до движения/RNG. Charge eligibility вынесена в общий helper прежнего terrain executor и нового adapter; геометрию/возможность crossing проверяет existing traversal до RNG;
+- один resolve_difficult_terrain_traversal → execute_difficult_terrain_charge_action → consume_difficult_terrain_charge_lost_aim. Sole registration хранит exact Charge/traversal source, execution/state — views; Conditions/kernel/receipt не дублируются;
+- 11 новых тестов покрывают оба terrain outcomes, hit/miss, Aim 0/2, same/different target, same/later turn, уже проверенный crossing, shared history/replay, mismatched pair/eligibility до RNG, source/trace, exceptions и следующую preparation. Прежние terrain executor и consumer tests сохранены;
+- непосредственно перечитаны PG 1.4, Rules / Difficult Terrain, стр. 115; Aim, стр. 116; Manoeuvre / Charge, стр. 117. Входные snapshots неизменны; использованные RNG/decision effects при исключении не откатываются. Brawn/Long terrain и battle aggregate не подключены.
+
+- добавлен test_k1_aim_difficult_terrain_charge_cycle.py: 2 интеграционных теста, 64 сочетания обоих terrain outcomes, Aim 0/2 и hit/miss обеих атак через четыре реальных раунда;
+- повторный crossing выполняется после настоящего terrain-aware free movement в том же ходу; готовые usage/позиция/Conditions переходят в Charge. Charge исполняет собственный Athletics один раз; terrain usage не дублируется и сбрасывается только start_next_spatial_round;
+- Prone от terrain, target Staggered либо close-miss Staggered героя передаются в реальные Recover. Общий test helper next_hero_round теперь может снять с явно Close героя Prone и Staggered одним Recover; оба условия используют один snapshot;
+- проверены единственные traversal/Athletics/Prone/kernel/receipt Charge, свежий Aim bonus и обе history chains без ручного append. Replay старого Aim с новыми composite/Charge/terrain/Athletics/kernel/preparation/Attack/follow-up IDs отклоняется до traversal/RNG;
+- production API не менялся. Непосредственно перечитаны PG 1.4, Rules / Difficult Terrain, стр. 115; Aim, стр. 116; Manoeuvre / Charge, стр. 117; Recover/Attack Tests, стр. 118; Failed/Successful Attacks, стр. 119.
+
+- добавлены AimRangedAttackLossConsumptionRequest/Result, public exports и consume_ranged_attack_lost_aim для completed profile-aware Shooting Attack по другой цели с готовым LOST;
+- общий с ordinary Attack loss validator проверяет actor/target/Attack/kernel/receipt/chronology/history; дополнительное exact Attack binding сохраняет исходный запрос целиком. Полный RangedWeaponAttackExecutionResult сохраняет weapon/reload state и profile trace без повторного исполнения;
+- общий immutable append расходует Aim source/follow-up один раз. 11 новых unit-тестов проверяют Longbow/Crossbow × hit/miss × Aim 0/2, единственный reload cycle, shared history в обе стороны, renamed replay, source/receipt/chronology, next preparation, trace и неизменность snapshots;
+- APPLIED-only Aim-bound executor не расширен. Consumer регистрирует уже выполненный выстрел; pre-RNG guard для этой ветви — следующий шаг. Непосредственно перечитаны PG 1.4, Equipment / Ranged Weapons, стр. 94–95; Rules / Combat Actions / Aim, стр. 116. Книжные правила не изменены.
+
+- добавлены RegisteredAimLossRangedAttackExecutionRequest/Result и execute_registered_aim_loss_ranged_attack; общий с completed consumer preflight проверяет actor/target/exact Attack/slot/chronology/history до RNG;
+- один execute_ranged_weapon_attack и один consume_ranged_attack_lost_aim. Result хранит sole registration; execution/state — views, exact ranged source включает weapon state, reload cycle и optional bonus;
+- 10 новых unit-тестов покрывают Longbow/Crossbow, hit/miss, Aim 0/2, same/later turn, один kernel/receipt/reload cycle, shared history и renamed replay до RNG, source/trace, exceptions и next preparation. Repeater Crossbow проверен с optional bonus и без него;
+- APPLIED-only Aim-bound contract не расширен. Входные snapshots неизменны; внешние RNG/decision effects при исключении не откатываются. Prepared LOST composition и battle aggregate не добавлены. Непосредственно сверены PG 1.4, Equipment / Ranged Weapons, стр. 94–95; Rules / Combat Actions / Aim, стр. 116.
+
+- добавлен test_k1_aim_ranged_attack_cycle.py: 2 интеграционных теста, 32 сочетания Longbow/Crossbow, Aim 0/2 и hit/miss обоих выстрелов. Longbow проходит четыре реальных раунда, Crossbow — семь;
+- первый выстрел использует готовый профиль без Aim и отдельный LOST follow-up по точному final Attack; existing preparation по-прежнему отвергает Aim другой цели. Второй выстрел получает свежий Aim через history-aware preparation и existing registered APPLIED executor;
+- для Crossbow выполнены три настоящих Reload: провал, частичный прогресс и завершение (0/1/2 successes); returned weapon/round states переходят следующему действию. Второй выстрел открывает только один новый reload cycle. Повтор Reload receipt отвергается до RNG;
+- оба выстрела opposed, попадание без Wound создаёт Staggered, который снимается настоящим Recover цели. Проверены два kernel-вызова, единственные receipts/registrations, непрерывная source/follow-up history без ручного append, свежий бонус и renamed replay старого Aim до подготовки/RNG в LOST и APPLIED ветвях;
+- production API не менялся. Непосредственно перечитаны PG 1.4, Equipment / Ranged Weapons, стр. 94–95; Rules / Combat Actions / Aim, стр. 116; Recover/Attack Tests, стр. 118; Failed/Successful Attacks, стр. 119.
+
+- добавлены AimPreparedAttackLossConsumptionRequest/Result, public exports и consume_prepared_attack_lost_aim: consumer принимает полный PreparedRangedWeaponAttackExecutionResult direct/no-Aim ветви и отдельный LOST по final Attack;
+- общие ordinary/profile-aware guards проверяют actor/exact Attack/kernel/receipt/chronology/history. Входная ordered follow-up history prepared execution обязана совпадать с AimConsumptionState; готовый result сохраняет её прежней, новая запись source/follow-up возвращается только в state регистрации;
+- preparation/profile trace, weapon/reload state и единственный Attack сохраняются без подготовки/исполнения/RNG. 10 новых unit-тестов покрывают Longbow/Crossbow, hit/miss, Aim 0/2, профильный штраф, raw/final source binding, history/replay, chronology/receipt, provenance/trace, next preparation и exceptions;
+- preparation с Aim другой цели и APPLIED-only executor не расширены; атомарный prepared loss guard до RNG — следующий шаг. Непосредственно перечитаны PG 1.4, Equipment / Ranged Weapons, стр. 94–95; Rules / Combat Actions / Aim, стр. 116.
+
+- добавлены RegisteredAimLossPreparedAttackExecutionRequest/Result и execute_registered_aim_loss_prepared_attack; общий с completed consumer preflight проверяет direct/no-Aim branch, actor/exact final Attack/slot/chronology/history и входную ordered prepared chain до RNG;
+- один execute_prepared_ranged_weapon_attack → один consume_prepared_attack_lost_aim. Result хранит sole registration; execution/state — views. Exact source binding включает весь prepared request и preparation/profile/weapon/reload provenance;
+- 10 новых unit-тестов проверяют Longbow/Crossbow, hit/miss, Aim 0/2, same/later turn, профильный штраф, единственные kernel/receipt/reload cycle, replay/shared history до RNG, source/trace, exceptions и следующую preparation. Fixture completed consumer разделён на pending и execution для общих детерминированных входов; прежние 10 тестов сохранены;
+- APPLIED-only contracts не расширены; hidden composition и battle aggregate не добавлены. Входные snapshots неизменны, внешние RNG/decision effects при исключении не откатываются. Непосредственно перечитаны PG 1.4, Equipment / Ranged Weapons, стр. 94–95; Rules / Combat Actions / Aim, стр. 116.
+
+- в test_k1_aim_ranged_attack_cycle.py добавлены два prepared-сценария Longbow/Crossbow поверх общего цикла: всего 4 теста / 64 сочетания, включая прежние 32 profile-aware и новые 32 prepared;
+- первый выстрел выполняет execute_registered_aim_loss_prepared_attack, второй — execute_registered_prepared_aim_ranged_attack. Общий сценарий переносит returned states/history через реальные ходы, Reload 0/1/2 и Recover без дублирования сценарного кода;
+- проверены полная preparation trace обоих выстрелов, exact prepared sources, два prepared executor/kernel и единственные receipts/registrations, новая Aim history отдельно от неизменной direct execution chain, новый Crossbow reload cycle и свежий Aim bonus;
+- старый Aim с новыми IDs отвергается до RNG в обеих prepared ветвях. Перед APPLIED отдельно проверен отказ от устаревшего follow-up prefix. Production API не менялся;
+- непосредственно перечитаны PG 1.4, Equipment / Ranged Weapons, стр. 94–95; Rules / Aim, стр. 116; Recover/Attack Tests, стр. 118; Failed/Successful Attacks, стр. 119.
+
+- добавлены RegisteredHiddenAimLossAttackExecutionRequest/Result и execute_registered_hidden_aim_loss_attack в existing registered hidden Aim modules; отдельный LOST связывается с prepared direct/no-Aim Attack по другой цели;
+- hiding-position и prepared Aim-loss preflight выполняются до RNG. Один execute_registered_hidden_attack регистрирует укрытие и расходует hidden opportunity; consume_prepared_attack_lost_aim регистрирует LOST по тому же вложенному prepared result;
+- результат сохраняет обе регистрации, exact sources, скрытую атаку, preparation/profile/weapon/reload trace и две истории. Вложенная direct Aim chain остаётся прежней, актуальная история возвращается в aim_state;
+- 12 новых unit-тестов проверяют Longbow/Crossbow, hit/miss × Aim 0/2, один kernel/receipt и обе регистрации, replay Aim/укрытия/opportunity до RNG, actor/prefix/awareness guards, exact follow-up/chronology, shared history с другими consumers, source/trace, exceptions и следующие подготовки;
+- существующий APPLIED adapter сохранён; HiddenLifecycleState для LOST подключён следующим описанным срезом. Непосредственно перечитаны PG 1.4, Equipment / Ranged Weapons, стр. 94–95; Rules / Aim, стр. 116; Manoeuvre / Move Quietly, стр. 117; Attack Tests, стр. 118. Автоматический awareness и battle aggregate не добавлены.
+
+- добавлены HiddenLifecycleAimLossAttackExecutionRequest/Result, public exports и execute_hidden_lifecycle_aim_loss_attack; общий lifecycle guard и joint LOST history preflight выполняются до RNG;
+- один joint executor и один apply_hidden_lifecycle_result используют тот же registered hidden result. Active opportunity очищается, обе истории возвращаются без второго kernel/receipt/append; exact source/state/result binding и trace сохраняются;
+- 11 новых unit-тестов проверяют Longbow/Crossbow, hit/miss × Aim 0/2, единственное исполнение/application, inactive/foreign/stale lifecycle, replay до RNG, отдельные APPLIED/LOST contracts, provenance/trace и exceptions;
+- APPLIED lifecycle adapter сохранён. Входные snapshots неизменны, внешние RNG/decision effects не откатываются; awareness и battle aggregate не добавлены. Непосредственно перечитаны BOOK-PLAYER-GUIDE 1.4, Equipment / Ranged Weapons, стр. 94–95; Rules / Combat Actions / Aim, стр. 116; Manoeuvre / Move Quietly, стр. 117; Attack Tests, стр. 118. Интеграционный recovery cycle завершён следующим описанным срезом.
+
+- в test_k1_hidden_recovery_cycle.py добавлены два сценария hidden LOST → новое укрытие → fresh Aim/APPLIED: 32 сочетания Longbow/Crossbow, Aim 0/2 и hit/miss обоих выстрелов;
+- первый выстрел использует execute_hidden_lifecycle_aim_loss_attack, второй — existing APPLIED lifecycle adapter. Returned lifecycle/Aim/weapon histories перенесены через реальные ходы, Reload 0/1/2 и новое укрытие без ручного append;
+- Staggered цели после первого попадания снимается реальным Recover, returned target state передаётся второму Attack. Проверены два kernel/executor/receipt/application, две cover registrations и по одной LOST/APPLIED Aim registration, full preparation trace и новый reload cycle;
+- старые Aim/opportunity/position и stale prepared prefix отвергаются до исполнения; inputs неизменны. Production API не менялся; новые awareness policies и battle aggregate не добавлены. Непосредственно перечитаны BOOK-PLAYER-GUIDE 1.4, Equipment / Ranged Weapons, стр. 94–95; Rules / Aim, стр. 116; Manoeuvre / Move Quietly, стр. 117; Recover/Attack Tests, стр. 118; Failed/Successful Attacks, стр. 119. Все 8 прежних тестов hidden recovery сохранены.
+
+- общий _validate_charge_loss_preflight расширен до Skill.MELEE/Skill.BRAWN для Medium Charge; consume_charge_lost_aim и execute_registered_aim_loss_charge используют прежние typed contracts без новых wrappers;
+- общие consumer/executor tests запускаются для обоих skills: 36 тестов, включая 18 новых Brawn. Покрыты hit/miss × Aim 0/2, исходная/другая цель Aim, same/later turn, receipt/Conditions, одна регистрация/kernel, replay между skills/shared history до executor/RNG, provenance/trace, preparation и exceptions;
+- Brawn сохраняет исходный kernel без Melee-only modifier. Aim bonus не применяется; входные snapshots неизменны, RNG/decision effects не откатываются. Long/terrain Brawn не расширены;
+- непосредственно перечитаны BOOK-PLAYER-GUIDE 1.4, Rules / Combat Actions / Aim, стр. 116; Manoeuvre / Charge, стр. 117; Attack Tests, стр. 118; Failed/Successful Attacks, стр. 119. AMBIGUITY-007 о бонусе Brawn Charge остаётся открытой: сохранена прежняя временная трактовка K1, ruling не принимался.
+
+- test_k1_aim_charge_cycle.py расширен общим Melee/Brawn сценарием: 2 теста / 32 сочетания обоих Aim 0/2 и обоих hit/miss, включая 16 новых Brawn;
+- returned spatial/round/target/Conditions и Aim history перенесены через четыре реальных раунда; Recover снимает готовые Staggered, old Aim с новыми IDs отклоняется до Charge/ranged executor/RNG/preparation, kernel/receipt и обе регистрации однократны;
+- обнаружен CODE-CONFLICT-002: прежний второй выстрел Longbow в Close противоречил PG 1.4 стр. 94–95. Medium fixture исправлен на profile-aware Pistol с Close/Lore, guards против Longbow/отсутствия Lore и единственным reload cycle; аналогичные reached Long/terrain fixtures записаны следующим шагом;
+- production API не менялся. AMBIGUITY-007 сохраняет прежнюю временную трактовку; нового ruling нет. Непосредственно перечитаны BOOK-PLAYER-GUIDE 1.4, Equipment / Ranged Weapons, стр. 94–95; Rules / Aim, стр. 116; Manoeuvre / Charge, стр. 117; Recover/Attack Tests, стр. 118; Failed/Successful Attacks, стр. 119.
+
+- CODE-CONFLICT-002 закрыт: reached Long Charge и terrain Charge cycles используют второй выстрел из profile-aware Pistol в Close с Lore, а stopped-short Long Charge сохраняет Medium и Longbow;
+- сохранены все 5 integration tests / 96 сочетаний, real rounds/Recover/Conditions/usage/history, replay до executor/RNG/preparation и прежние single kernel/traversal/Athletics/receipt/trace проверки;
+- добавлены проверки соответствия дальности Charge result/placements, отказа Longbow в Close и Pistol без Lore, exact preparation.execution/target state, единственной APPLIED registration и нового reload cycle Pistol; Longbow сохраняет free-reload snapshot;
+- production API не менялся, Long/terrain Brawn не подключались, AMBIGUITY-007 не разрешалась. Непосредственно перечитаны BOOK-PLAYER-GUIDE 1.4, Equipment / Ranged Weapons, стр. 94–95; Rules / Aim, стр. 116; Manoeuvre / Charge, стр. 117; Recover/Attack Tests, стр. 118; Failed/Successful Attacks, стр. 119.
+
+- общий _validate_long_charge_loss_preflight расширен до Melee/Brawn; прежние consume_long_charge_lost_aim и execute_registered_aim_loss_long_charge принимают все три outcomes, без новых wrapper types;
+- 38 общих consumer/executor tests (19 новых Brawn) проверяют Aim 0/2, hit/miss, same/different target, same/later turn, stopped-short/уже Staggered, single Athletics/optional kernel/Condition/receipt/registration, source/trace, shared history, preparation и exceptions;
+- replay при смене Melee/Brawn и outcome отвергается до executor/RNG; подмена skill в source result блокируется. Reached Brawn сохраняет исходный kernel и готовые Conditions/follow-ups, Aim bonus не добавляется;
+- входные snapshots неизменны, внешние RNG effects не откатываются. Terrain Brawn не расширен; AMBIGUITY-007 остаётся открытой с прежней временной трактовкой. Непосредственно перечитаны BOOK-PLAYER-GUIDE 1.4, Rules / Aim, стр. 116; Manoeuvre / Charge, стр. 117; Attack Tests, стр. 118; Failed/Successful Attacks, стр. 119.
+
+- Long Melee/Brawn integration использует общий сценарий Aim → registered Long Charge/LOST → Recover → свежий Aim → registered ranged APPLIED: 6 тестов / 64 сочетания (32 новых Brawn). Проверены reached hit/miss и оба stopped-short, Aim 0/2, четыре реальных раунда, перенос returned spatial/Conditions/history, единственные Athletics/optional kernel/receipt/registration и запрет старого Aim с новыми IDs до движения/RNG/preparation. Reached Brawn сохраняет исходный kernel без Melee-only modifier. После достижения цели выстрел проходит profile-aware Pistol/Close с Lore и новым reload cycle; после stopped-short — Longbow/Medium. CODE-CONFLICT-002 остаётся закрытым, AMBIGUITY-007 и прежняя временная бонусная политика не изменены. Production API, terrain Brawn и battle aggregate не расширялись. Основание: BOOK-PLAYER-GUIDE 1.4, Equipment / Ranged Weapons, стр. 94–95; Rules / Aim, стр. 116; Manoeuvre / Charge, стр. 117; Recover/Attack Tests, стр. 118; Failed/Successful Attacks, стр. 119.
+
+- Medium Brawn Charge через Difficult Terrain / LOST Aim подключён через существующие consume_difficult_terrain_charge_lost_aim и execute_registered_aim_loss_difficult_terrain_charge. Общий _validate_terrain_charge_loss_preflight допускает Melee/Brawn; pair/history/eligibility, chronology и composite action_id проверяются до traversal/движения/RNG. Новых wrapper types нет. Общие 42 unit-теста (21 новый Brawn) покрывают terrain success/failure, повторный crossing, hit/miss, Aim 0/2, same/different target, same/later turn, единственные traversal/Prone/kernel/receipt/registration, shared history и next preparation. Replay при смене Melee/Brawn и новых IDs запрещён до traversal/RNG; подмена skill исходного результата отклоняется. Brawn сохраняет исходный kernel без Melee-only бонуса, готовые Conditions и close-miss follow-up. AMBIGUITY-007 и прежняя временная бонусная политика не изменены. Входные snapshots при исключении неизменны, внешние RNG/decision effects не откатываются. Источники непосредственно перечитаны: BOOK-PLAYER-GUIDE 1.4, Rules / Difficult Terrain, стр. 115; Aim, стр. 116; Manoeuvre / Charge, стр. 117; Attack Tests, стр. 118; Failed/Successful Attacks, стр. 119.
+
+- Интеграционный terrain Melee/Brawn цикл Aim → registered Charge/LOST → Recover → свежий Aim → registered ranged APPLIED проверен на общем сценарии: 4 теста / 128 сочетаний, включая 2 новых Brawn теста / 64 сочетания. Обычное и повторное crossing после реального terrain-aware free move сохраняют returned spatial/usage/Conditions/history через четыре раунда. Проверены terrain success/failure, Aim 0/2, hit/miss, единственные traversal/Athletics/Prone/kernel/composite receipt/LOST registration и отдельная APPLIED registration. Brawn сохраняет исходный kernel без Melee-only бонуса; Recover снимает Prone/Staggered с героя и Staggered с цели. Старый Aim с новыми IDs отклоняется до traversal/RNG/preparation. Второй выстрел — profile-aware Pistol в фактическом Close с Lore и новым reload cycle. CODE-CONFLICT-002 остаётся закрытым; AMBIGUITY-007 и прежняя временная бонусная политика сохранены. Production API, Long Charge через terrain и battle aggregate не расширялись. Непосредственно сверены BOOK-PLAYER-GUIDE 1.4, Equipment / Ranged Weapons, стр. 94–95; Rules / Difficult Terrain, стр. 115; Aim, стр. 116; Manoeuvre / Charge, стр. 117; Recover/Attack Tests, стр. 118; Failed/Successful Attacks, стр. 119.
+
+- Завершён [аудит готовности K1](audits/k1-readiness.md): семь пунктов исходного roadmap сопоставлены с contracts/tests, Aim/hidden chains проверены отдельно. Базовые Test/impact/injury стадии готовы в своих границах; контекстный выбор Attack/Protection частичен. Приоритетный пробел — подготовка допустимого Protection, сейчас kernel принимает готовый defender_test. Зафиксированы конечные критерии K1 → M2 и explicit внешние границы без расширения до полного каталога. Исправлены устаревшие записи о Miscast lifecycle, Fate second-action spend и LOST compositions. Production/test-код не менялся; новых rulings нет.
+
+- Реализованы ProtectionTestOption, ProtectionPreparationRequest/Result и prepare_protection. Frozen source-bound preparation проверяет explicit incoming Skill/range, awareness/Defenceless/weapon/shield и выбранную защиту; переносит supplied Test целиком либо возвращает unopposed причины, без RNG. 13 новых тестов покрывают Melee/Brawn/ranged eligibility, Close ranged Melee, typed guards/source/trace, TestProfile/InlineProfile, отсутствие автоматического выбора и композицию с resolve_attack без повторных бросков. Kernel/executors не изменены; preparation trace caller хранит отдельно. Аудит обновлён: Protection закрыт в явной boundary, NPC Attack selection/context binding остаётся следующим срезом. Непосредственно перечитаны BOOK-PLAYER-GUIDE 1.4, Abilities / Skills / Defence и Throwing, стр. 68; Equipment / Ranged Weapons, стр. 94; Throwing Weapons, стр. 96; Rules / Attack Tests, стр. 118; BOOK-GM-GUIDE 1.1, Allies and Antagonists / Understanding NPC Profiles, стр. 93.
+
+- Добавлены npc_attack_preparation_models.py и npc_attack_preparation.py: один numeric Melee/Shooting NPC profile, actor availability snapshot, выбранный ID/target/range и explicit context создают один AttackRequest без RNG. Exact snapshot/target/profile/trace guard и пара NPC Attack/Protection не допускают подмену атаки с прежним ID. Book fixtures Brigand Axe/Warbow и Town Watch Polearm сохраняют собственные dice/threshold/Damage, без PC weapon traits. Проверены Max/Optimum/any-Close/GM approval, явные traits/modifiers и opposed/unopposed один resolve_attack. 13 новых тестов; Throwing/Brawn/non-damage/Extreme/multi-attack, catalog/AI/inventory/slot/reload consumption вне boundary. Источники: BOOK-GM-GUIDE 1.1, Allies and Antagonists / Understanding NPC Profiles, стр. 93; Brigands & Footpads (Brigand, Town Watch), стр. 97; BOOK-PLAYER-GUIDE 1.4, Equipment / Melee Weapons, стр. 92–93; Ranged Weapons, стр. 94; Throwing Weapons, стр. 96; Rules / Range, стр. 114; Attack Tests, стр. 118.
+
+- Завершён NPC preparation → Protection → kernel → injury цикл. tests/integration/test_k1_npc_attack_kernel_cycle.py: 3 теста / 44 сочетания Brigand Axe/Warbow, opposed/unopposed hit/miss, Player/Champion pending Wound → exact completion, Minion defeat и Brute до/на wound limit, Player Near Miss после настоящего броска. Проверены один Attack и требуемые Test/Wound броски, returned target state, сохранение обеих preparation traces, эффект Drained только после принятия Wound, отсутствие эффекта/суточной регистрации при Near Miss и сохранение Staggered. Replay отклоняется с returned consumption history либо на уже завершённом kernel result; защита от отката caller-owned snapshots не заявлена. Production API и правила не менялись. Непосредственно сверены BOOK-GM-GUIDE 1.1, Allies and Antagonists / Types of NPC, стр. 91–92; Understanding NPC Profiles, стр. 93; Brigands & Footpads, стр. 97; BOOK-PLAYER-GUIDE 1.4, Rules / Near Miss, стр. 112; Attack Tests, стр. 118; Failed/Successful Attacks, стр. 119; Wounds & Conditions, стр. 121; Wounds Table / Stomach blow (6), стр. 190. Критерии K1 закрыты для описанного среза, без нового house rule.
+
+- Реализован первый контракт состава M2: domain/npc_roster_models.py содержит NpcDefinition, NpcProtectionProfile, NpcParticipantState/Snapshot и NpcRoster. Frozen определения отделены от actor-scoped injury/availability/current Resilience/equipment state; переиспользуется CombatSide. Проверяются actor/definition IDs, одинаковые определения с одним ID, injury policy/лимит и доступные атаки. Проекции дают NpcAttackSelectionSnapshot, ProtectionTestOption и CombatTurnParticipant без RNG. 10 unit + 3 integration tests проверяют четыре экземпляра Brigand на двух сторонах, выбранную цель Axe/Warbow × opposed/unopposed, returned kernel injury, независимость соседей и отказ подмены Protection. Первый срез допускает Minion/Brute/Champion; Player/Monstrosity отклоняются. Полный каталог, автоматическая awareness/equipment/effective modifiers, action eligibility, result consumer и battle aggregate не добавлены. [ADR-0008](decisions/ADR-0008-npc-roster-boundary.md). BOOK-GM-GUIDE 1.1, Allies and Antagonists / Types of NPC, стр. 91–92; Understanding NPC Profiles, стр. 93; Brigands & Footpads, стр. 97; BOOK-PLAYER-GUIDE 1.4, Rules / Combat, стр. 112; The Battlefield, стр. 114; Attack Tests, стр. 118.
+
+- Реализовано исполнение одной подготовленной Attack Minion по Minion через существующий execute_attack_action: npc_roster_attack_models.py и npc_roster_attack_execution.py. Source-bound request связывает roster/history, оба preparation results и полный AttackActionExecutionRequest. Preflight проверяет actor/side, доступность, Resilience, injury, Protection/equipment и отсутствие неподдержанных эффектов; turn/slot guards existing executor срабатывают до RNG. Единственный kernel/receipt возвращает новый roster: target injury перенесён, Close miss добавляет Staggered атакующему без эскалации. Result хранит полный executed_request, preparation/execution trace и разделяет handled AttackerStaggerRequest и pending follow-ups; Give Ground и ProfileStateChange остаются явными. Consumer требует exact предыдущий snapshot/history и дополняет consumed execution IDs; повтор с returned state отклоняется. 13 unit tests (включая 48 сочетаний Axe/Warbow × opposed/unopposed × miss/Staggered/Wound × исходный Staggered actor/target) и 2 integration tests последовательных ходов. Проверены единственный RNG/receipt, явные modifiers, повторный Staggered/Prone/Give Ground, stale inputs, replay при неизменном injury, чужой actor/slot/result, defeated участник и независимость соседей. Полный набор: 1516 tests OK. Источники: BOOK-PLAYER-GUIDE 1.4, Rules / Combat, стр. 112; Combat Actions, стр. 116; Attack Tests, стр. 118; Failed/Successful Attacks и Giving Ground, стр. 119; BOOK-GM-GUIDE 1.1, Allies and Antagonists / Minions, стр. 91; Understanding NPC Profiles, стр. 93; Brigands & Footpads, стр. 97.
+
+- Добавлен первый контроллер M2: domain/npc_attack_selection_models.py и engine/npc_attack_controller.py. Immutable кандидаты задают Attack/target/context и порядок предпочтения; select_npc_attack без RNG выбирает первый допустимый вариант через прежние preparations. Результат хранит source roster/round, типизированные причины отказа/пропуска, выбранный кандидат и готовый NpcRosterAttackExecutionRequest. Global guards проверяют pending queue, active actor, Minion/defeated, reserved/executed slot и consumed ID. Malformed provenance не маскируется под неподходящий вариант. require_current_npc_attack_selection требует exact текущие roster/history, round и pending queue перед передачей в прежний executor. Непустые follow-ups блокируют выбор и сохраняются; нового исполнения/receipt, RNG, AI scoring и battle loop нет. 13 unit + 3 integration tests, включая 8 сочетаний Axe/Warbow × opposed/unopposed × hit/miss с несколькими целями, один kernel/receipt, returned history и настоящий pending Give Ground. Полный набор: 1532 tests OK; прежние изменения рабочего дерева сохранены. [ADR-0009](decisions/ADR-0009-npc-attack-selection-policy.md). BOOK-GM-GUIDE 1.1, Allies and Antagonists / Understanding NPC Profiles, стр. 93; BOOK-PLAYER-GUIDE 1.4, Equipment / Ranged Weapons, стр. 94; Rules / Combat, стр. 112; Range, стр. 114; Attack Tests/Failed/Successful Attacks, стр. 118–119.
+
+- Реализована ограниченная координация одного Minion-раунда: NpcRoundRequest/Result/Outcome в domain/npc_round_models.py и run_npc_round в engine/npc_round_coordinator.py. Явный actor_order применяется внутри существующего side_order; свежий context provider связан с текущими roster/history/round. Прежние start/reserve/selection/executor/end соединены без повторных kernel/receipt. Typed журнал сохраняет transitions и проверяет source/state/order. Результат возвращает COMPLETE, PENDING_FOLLOW_UPS, SELECTION_BLOCKED либо DEFEATED_ACTOR. Pending queue и неисполненный slot при NO_CANDIDATE сохраняются; после внешней обработки последствий уже исполненный slot закрывается без повторной Attack. Defeated не атакуют, но их автоматическое исключение из очереди ещё не реализовано. Следующий раунд и battle loop не запускаются. 10 unit + 3 integration tests: полный 2×2 раунд, четыре kernel/receipt, оба порядка сторон, свежие состояния, остановки/возобновление, реальные Wound/Give Ground, history/source/trace guards. Полный набор: 1545 tests OK на Python 3.14. [ADR-0010](decisions/ADR-0010-single-minion-round.md). BOOK-PLAYER-GUIDE 1.4, Rules / Combat и Ambush, стр. 112; Combat Actions, стр. 116; Attack Tests, стр. 118; Failed/Successful Attacks и Giving Ground, стр. 119; BOOK-GM-GUIDE 1.1, Allies and Antagonists / Minions, стр. 91; Understanding NPC Profiles, стр. 93.
+
+- Реализован отдельный переход exclude_defeated_npc и exact-source consumer apply_npc_round_exclusion (npc_round_exclusion_models.py, npc_round_exclusion.py). CombatRoundState хранит excluded_turn_entity_ids отдельно от completed_turn_entity_ids: next_side/round_complete учитывают оба списка, participants/side_order сохраняются. Разрешён только defeated Minion без pending follow-ups и ещё не завершённого/исключённого хода. При исключении активного actor источник результата сохраняет interrupted_turn, а действующие roster/history/receipts не меняются. Повтор и stale source отклоняются. Coordinator продолжает с возвращённым запросом без повторной Attack. Все завершённые/исключённые участники дают COMPLETE текущего раунда, не победителя боя. При живом actor без допустимой цели остаётся SELECTION_BLOCKED. Retreat с exclusions явно не поддержан; advance требует новый состав обеих сторон и сбрасывает exclusions текущего раунда. 12 unit + 3 integration tests; полный набор 1560 OK. Источники: BOOK-GM-GUIDE 1.1, Allies and Antagonists / Minions, стр. 91; BOOK-PLAYER-GUIDE 1.4, Rules / Combat, стр. 112; Combat Actions, стр. 116. [ADR-0010](decisions/ADR-0010-single-minion-round.md).
+
+- Реализованы MinionDefeatDecision, MinionDefeatAcknowledgementRequest/Result и acknowledge_minion_defeat/apply_minion_defeat_acknowledgement. Три явных исхода KILLED/KNOCKED_OUT/DISARMED_AND_SURRENDERED требуют выбора атакующего и GM approval. Полный NpcRosterAttackExecutionResult связывает actor/target, exact post-Attack roster/history/round и единственный matching ProfileStateChange. Погашается только этот элемент текущей очереди; другие follow-ups сохраняют порядок и блокируют coordinator/exclusion. NpcRosterAttackState хранит ordered acknowledged_defeat_execution_ids как подмножество consumed_execution_ids; новый Attack сохраняет обе истории. Повтор с новым ID/другим исходом/возвращённым follow-up отклоняется по execution ID. Wound, Conditions, equipment и receipt не переисполняются. Результат хранит явное решение; inventory/spatial последствия и автоматический выбор не добавлены. 11 unit + 2 integration tests; полный набор 1573 OK. Источник: BOOK-GM-GUIDE 1.1, Allies and Antagonists / Minions, стр. 91. [ADR-0010](decisions/ADR-0010-single-minion-round.md).
+
+- Реализованы NpcGiveGroundConsumptionRequest/Result и consume_npc_give_ground/apply_npc_give_ground: полный Minion Attack result связан с завершённым GiveGroundResolutionResult, exact post-Attack roster/history/round, актуальным spatial snapshot, target/attacker и исходными Conditions. Spatial reducer сохраняет полный source_request; результат проверяет соответствие запроса, Conditions и Broken application. Consumer переносит только target Conditions, возвращает готовые movement/usage и погашает один matching pending item; остальные follow-ups сохраняют порядок и блокируют coordinator. Consumed_give_ground_execution_ids переносится через следующие Attack results и блокирует replay даже при отсутствии изменения Conditions. Consumer сверяет оба текущих снимка; kernel/movement/Condition reducers и receipt не повторяются. Legacy GiveGround results без source_request по-прежнему допустимы низкоуровнево, но M2 consumer их отклоняет. Spatial side IDs участников M2 равны CombatSide.value. 10 unit + 2 integration tests; полный набор 1585 OK. Источник: BOOK-PLAYER-GUIDE 1.4, Rules / Attack Tests, Failed Attacks и Giving Ground, стр. 119. [ADR-0010](decisions/ADR-0010-single-minion-round.md).
+
+- Добавлены NpcGiveGroundExecutionRequest и execute_npc_give_ground в существующие npc_give_ground modules. Общий validate_npc_give_ground_context используется pending и completed ветвями: source/history/pending, actor/target/Conditions, оба snapshots, round/side и once-per-round проверяются до spatial reducer. Один resolve_give_ground и один consume_npc_give_ground возвращают прежний NpcGiveGroundConsumptionResult; нового result wrapper, RNG или receipt нет. Проверяется точное совпадение movement.source_request с исполненным запросом. Route legality остаётся в прежнем spatial reducer; при его отказе регистрация не запускается. Immutable inputs сохраняются при ошибке; другие pending и предыдущая defeat history не теряются. 8 unit + 1 integration test с safe/enemy ветвями; полный набор 1594 OK. Источник: BOOK-PLAYER-GUIDE 1.4, Rules / Giving Ground, стр. 119. [ADR-0010](decisions/ADR-0010-single-minion-round.md).
+
+- Смешанный Minion-раунд 2×2 проверен в test_m2_mixed_round_cycle.py: один integration test / 6 сочетаний обоих side_order и трёх defeat dispositions. Реальная Attack создаёт Give Ground; атомарный adapter переносит spatial/Conditions/history; вторая Attack поражает другого Minion, typed acknowledgement погашает ProfileStateChange, exclusion убирает ожидающий ход, выживший завершает раунд дальним Warbow с новой позиции. В каждом сочетании три kernel/receipt, один movement/consumer, 18 RNG вызовов. Обе pending остановки проверены без provider/RNG; очереди не очищаются вручную. Все три истории, исходные receipts, порядок сторон, spatial usage и source immutability сохранены. Replay Give Ground/defeat/exclusion со старым source, новыми IDs и requeued follow-ups отклоняется. Production API не менялся. Полный набор: 1595 tests OK. Источники: BOOK-PLAYER-GUIDE 1.4, Rules / Combat, стр. 112; Giving Ground, стр. 119; BOOK-GM-GUIDE 1.1, Allies and Antagonists / Minions, стр. 91.
+
+- Реализованы NpcRoundAdvanceRequest/Result и advance_npc_round/apply_npc_round_advance. Завершённый раунд с пустой pending queue и согласованный spatial snapshot переходят к следующему номеру через один advance_combat_round и один start_next_spatial_round. Следующий состав и actor_order заданы явно, сверяются с roster/Minion/side/placement; defeated и отсутствие одной из сторон отклоняются. Результат связывает оба перехода с полным источником; consumer проверяет оба текущих снимка и отклоняет replay. Roster, Conditions, placements, persistent side_order и все три histories сохраняются; completed/excluded/active turn и spatial usage сбрасываются. Нет RNG, нового action receipt или автоматического battle loop. 8 новых unit tests и 1 integration test / 6 сочетаний: смешанный 2×2 раунд продолжается явным 2×1 раундом, с новыми Attack IDs и без возврата defeated. Полный набор: 1604 tests OK. Источники: BOOK-PLAYER-GUIDE 1.4, Rules / Combat, стр. 112; Giving Ground, стр. 119; BOOK-GM-GUIDE 1.1, Allies and Antagonists / Minions, стр. 91.
+
+- Запрет обычной Minion Attack при Broken/Defenceless реализован общим domain helper для controller и request/executor validation. Typed ACTOR_BROKEN/ACTOR_DEFENCELESS возвращаются до preparation/RNG; pending и defeated сохраняют приоритет. При сочетании диагностируется Defenceless; Conditions не снимаются, slot остаётся неисполненным. 6 новых unit tests проверяют обе стороны, прямой обход, актуальность snapshot и повторную остановку. Три прежних Give Ground integration tests используют provider без фильтра Broken: запрет обеспечивает controller. Полный набор: 1610 tests OK. Источники: BOOK-PLAYER-GUIDE 1.4, Rules / Conditions / Broken, стр. 122; Defenceless, стр. 123; Giving Ground, стр. 119.
+
+- Реализованы NpcRoundsRequest/Result/Outcome и run_npc_rounds: immutable source-bound журнал прежних round/advance results, views current/spatial/completed_rounds. Max_rounds включает текущий раунд, включая complete input без повторного исполнения; ROUND_LIMIT — техническая остановка. Next-round provider задаёт explicit состав/actor_order; spatial candidate adapter получает актуальный snapshot после каждого advance. Pending/blocked/defeated останавливают прогон без callback следующего раунда. Проверяются source continuity и отсутствие обхода остановок; сохраняются Conditions, placements, persistent side_order и три histories. 10 unit + 4 integration tests покрывают два реальных раунда при обоих side_order, 8 kernel/receipts и 48 RNG вызовов, поздний NO_CANDIDATE/resume, реальные Give Ground/Wound во втором раунде и явное уменьшение состава. Автоматические последствия/победа не добавлены. Полный набор: 1624 tests OK. Источники: BOOK-PLAYER-GUIDE 1.4, Rules / Combat, стр. 112; Giving Ground, стр. 119; BOOK-GM-GUIDE 1.1, Allies and Antagonists / Minions, стр. 91. [ADR-0011](decisions/ADR-0011-bounded-minion-rounds.md).
+
+- Сквозное возобновление run_npc_rounds проверено в test_m2_npc_rounds_follow_up_cycle.py: 1 новый integration test / 6 сочетаний обоих side_order и трёх defeat dispositions. Реальная Attack → pending Give Ground → atomic movement/consumer → runner → Wound → typed acknowledgement/exclusion → runner до ROUND_LIMIT следующего раунда 2×1. Все три histories получены от реальных действий из пустых исходных историй; pending не очищается вручную. В каждом сочетании шесть kernel/receipts, 36 RNG вызовов, один movement/consumer, одно acknowledgement и один combat/spatial advance. Свежий spatial context передаётся автоматически после возобновления и advance; Conditions, placements и persistent side_order сохраняются, usage сбрасывается. Обе pending остановки не вызывают providers/RNG. Старые Attack/Give Ground/defeat/exclusion/advance отклоняются после следующего раунда, включая новые IDs и повторное добавление pending. Исходные snapshots неизменны. Production API не менялся; автоматический выбор последствий или победителя не добавлен. Полный набор: 1625 tests OK. Источники: BOOK-PLAYER-GUIDE 1.4, Rules / Combat, стр. 112; Giving Ground, стр. 119; BOOK-GM-GUIDE 1.1, Allies and Antagonists / Minions, стр. 91.
+
+- Завершён [аудит готовности M2](audits/m2-readiness.md): все пять пунктов roadmap сопоставлены с кодом, тестами и непосредственно перечитанными страницами книг. Два пункта готовы в узком Minion-срезе, два частичны, multi-target/area не подключены к M2. Brute/Champion в roster не означают execution support. Зафиксированы границы Conditions/external policies, неполнота отчёта и критерии перехода к M3. Следующий production-срез — source-bound summary одного NpcRoundsResult, без двойного счёта complete input и прошлых Attack, без выведения победы/смерти. Production-код и тесты не менялись. Полный набор повторно: 1625 tests OK.
+
+- Реализованы NpcRoundsSummary/NpcRoundsParticipantSummary и summarize_npc_rounds: frozen read-only проекция одного готового результата. Метрики зависят от source и не передаются независимо; точные stop/blocked/pending сохраняются. Разделены номера, visited/newly completed и Attack текущего journal; complete input и прежние history IDs не завышают счётчики. Уникальные participants в порядке первого появления включают defeated/excluded, но не extra roster entries; Wounds/Conditions — конечное состояние. 7 новых unit tests плюс расширенные partial-resume и mixed integration: 5/3 и 1/1/4 Attack соответственно, без дополнительных RNG/kernel/receipt. Полный набор: 1632 tests OK. Источники: BOOK-PLAYER-GUIDE 1.4, Rules / Combat, стр. 112; BOOK-GM-GUIDE 1.1, Allies and Antagonists / Minions, стр. 91.
+
+- Реализованы NpcRoundsChainSummary и summarize_npc_rounds_chain: immutable read-only отчёт последовательности готовых runner/Give Ground/defeat acknowledgement/exclusion/explicit advance results. Цепочка начинается и заканчивается runner result; каждый переход проверяется по точному current, а меняющие/использующие spatial результаты — также по spatial snapshot. Счётчики Attack и новых завершений суммируются по сводкам вызовов; visited считает уникальные номера раундов. Финальный stop/blocked/pending сохранён, участники объединены в порядке первого появления с конечными Wounds/Conditions; подтверждения defeat возвращаются с полными источниками. 7 новых unit tests и расширенный mixed integration покрывают 1/1/4 Attack, оба side_order, три dispositions, explicit advance, complete input, no-op, отсутствующий/переставленный/повторный/чужой переход и immutable inputs. Полный набор: 1639 tests OK. Rules/consumers/RNG не исполняются. Источники: BOOK-PLAYER-GUIDE 1.4, Rules / Combat, стр. 112; Giving Ground, стр. 119; BOOK-GM-GUIDE 1.1, Allies and Antagonists / Minions, стр. 91.
+
+- Реализованы frozen NpcDefeatObjective(target_actor_ids), NpcDefeatObjectiveAssessment(source_report, objective) и assess_npc_defeat_objective. Caller явно задаёт непустой упорядоченный набор уникальных actor IDs; неизвестные и не участвовавшие в цепочке entries отклоняются. Achieved и remaining_target_actor_ids вычисляются по defeated конечного roster; источники сохраняются, независимо supplied метрики не допускаются. Цель может быть достигнута при pending и до выбора disposition; эта оценка ничего не погашает и не объявляет winner/killed/survived. 5 новых unit tests и расширенный mixed integration проверяют нулевое/частичное/полное достижение, обе стороны, все три dispositions, ранних участников, pending, stop reasons, source/type/immutable guards. Полный набор: 1644 tests OK на Python 3.14. Источник: BOOK-GM-GUIDE 1.1, Allies and Antagonists / Minions, стр. 91; набор целей — явная policy сценария, не новое книжное правило.
+
+- Сквозной Minion-сценарий 2×2 до поражения обеих явно заданных целей проверен в test_m2_npc_objective_cycle.py: 1 integration test / 18 сочетаний двух side_order и независимых трёх dispositions каждой цели. Две реальные Attack, два acknowledgement/exclusion, три вызова runner с 1/1/0 Attack и 0/0/1 новых завершений. Цель частично достигнута после первой Attack, полностью при pending второй, остаётся achieved после обработки последствий и закрытия раунда. Все histories из пустого входа, два receipts, 12 RNG вызовов; pending/complete наблюдения не исполняют действия, next-round provider/advance не вызываются, односторонний следующий состав отклоняется. Replay и подмена IDs/requeued pending отклоняются, источники неизменны. Production API и правила не менялись. Полный набор: 1645 tests OK на Python 3.14. Источники: BOOK-PLAYER-GUIDE 1.4, Rules / Combat, стр. 112; BOOK-GM-GUIDE 1.1, Allies and Antagonists / Minions, стр. 91.
+
+- Первый adapter вторичных Staggered-целей Blunderbuss к M2 roster реализован: NpcNearbyStaggerExecutionRequest/Result и execute_npc_nearby_stagger/apply_npc_nearby_stagger. Один existing K1 resolver, exact injury/source/history guards, Minion-only вторичные цели без дополнительных эффектов. K1 NearbyTargetsStaggerResolutionResult теперь хранит обязательный полный source_request и проверяет IDs/rules/порядок целей. Новая история consumed_nearby_stagger_sources регистрирует исходный эффект, включая пустой batch; новые batch/impact IDs не обходят replay. Conditions/Wounds перенесены без повторного исполнения; pending_targets сохраняет target IDs и полные impacts, в том числе равные анонимные defeat follow-ups. 9 unit + 1 integration test: fresh/repeated Staggered, Give Ground/Prone/Wound, дружественные цели, порядок, ошибки/истории и реальная K1 профильная Attack/reload перед secondary transfer. Полный набор: 1655 tests OK. Источники: BOOK-PLAYER-GUIDE 1.4, Equipment / Ranged Weapons / Blunderbuss, стр. 95; Rules / Giving Ground, стр. 119; Conditions / Staggered, стр. 123; BOOK-GM-GUIDE 1.1, Allies and Antagonists / Minions, стр. 91. [ADR-0012](decisions/ADR-0012-npc-nearby-stagger.md). Обычная M2 Attack по-прежнему отклоняет secondary effects; полного подключения к runner нет.
+
+- Реализовано подтверждение secondary Minion defeat: NpcNearbyDefeatAcknowledgementRequest/Result и acknowledge_npc_nearby_defeat/apply_npc_nearby_defeat. Batch source теперь может заранее хранить полный primary RangedWeaponAttackExecutionResult; acknowledgement требует эту связь, подтверждённое попадание/trigger, согласованные Attack/Test/Protection и primary target injury/registration. NpcNearbyDefeatKey(source effect, target ID) и acknowledged_nearby_defeats дают однократность по каждой цели, независимо от batch/impact/ack IDs. Exact post-batch roster/history допускает только последовательные подтверждения новых defeat этого же batch. Решение сохраняет источник и GM approval; pending_targets исключает только подтверждённые цели, не смешивая одинаковые ProfileStateChange. 8 новых unit tests и расширенная K1→roster integration: три dispositions, два порядка подтверждения × независимые исходы двух целей (18 сочетаний), primary/GM/type/source guards, stale/replay/истории и сохранение Give Ground. Полный набор: 1663 tests OK на Python 3.14. Источники: BOOK-GM-GUIDE 1.1, Allies and Antagonists / Minions, стр. 91; BOOK-PLAYER-GUIDE 1.4, Equipment / Ranged Weapons / Blunderbuss, стр. 95. Ordinary M2 Attack guards не сняты; RNG/injury повторно не исполняются.
+
+- Реализованы NpcNearbyGiveGroundExecutionRequest/ConsumptionRequest/ConsumptionResult и execute/consume/apply_npc_nearby_give_ground: полный primary-bound batch и target ID связывают Stagger choice с одним movement resolver. До движения проверяются exact roster/history/spatial, attacker/target/Conditions, round/side и once-per-round. Готовые Conditions/spatial/usage переносятся без повторного исполнения; consumed_nearby_give_ground хранит ключ effect source + target ID, независимый от batch/impact/consumer IDs. Defeat acknowledgements и остальные pending сохраняются. Следующая движущаяся цель требует полного previous consumption result и обоих точных snapshots. 10 новых unit tests и расширенная Blunderbuss integration (три dispositions × safe/enemy Zone); полный набор: 1673 tests OK на Python 3.14. Источник: BOOK-PLAYER-GUIDE 1.4, Rules / Giving Ground, стр. 119. Подтверждения defeat пока предшествуют движениям; ordinary M2 secondary guards сохранены.
+
+- Реализованы NpcNearbyConsequenceChain и apply_npc_nearby_consequence: immutable цепочка полных secondary defeat/Give Ground results одного primary-bound batch, с производными roster/history, spatial и pending views. Оба вида запросов принимают optional continuation; чередование разрешено в любом явно выбранном порядке при точном совпадении источников. Каждый шаг сохраняет полный prefix, включая dispositions; равенство конечных snapshots не позволяет заменить решение. Пропуск/перестановка/повтор/чужой batch и stale spatial отклоняются до применения; прежние consumers вызываются однократно, Stagger/Wound/движение/RNG при регистрации цепочки не исполняются. Defeat pending view учитывает уже исполненные движения. 9 новых unit tests (108 сочетаний для двух defeat и движения, все шесть порядков для двух движений и defeat); existing Blunderbuss integration расширена 12 сочетаниями порядков, dispositions и safe/enemy Zone. Полный набор: 1682 tests OK на Python 3.14. В текущем HEAD также устранён отдельный SyntaxError: лишний завершающий `?` в npc_objective_evaluation.py. Источники: BOOK-PLAYER-GUIDE 1.4, Rules / Giving Ground, стр. 119; BOOK-GM-GUIDE 1.1, Allies and Antagonists / Minions, стр. 91. Primary M2 guards сохранены.
+
+- Реализованы NpcNearbyCompletionRequest/Result и complete_npc_nearby_consequences/apply_npc_nearby_completion: завершённая secondary chain связывается с точными roster/history/round/spatial и primary pending. Удаляется ровно matching NearbyTargetsStaggerRequest; primary Wound и прочие pending сохраняются в исходном порядке. Completed_nearby_stagger_sources регистрирует исходный эффект отдельно от его исполнения и блокирует replay с новым completion/batch ID и requeued trigger. Empty и fresh Stagger batch без secondary pending завершаются без фиктивных шагов. Полные primary/secondary sources, decisions, receipt/reload, Conditions и usage сохраняются, reducers/RNG не повторяются. 8 новых unit tests, расширены 12 смешанных integration сочетаний и добавлен integration test возобновления раунда после реальной Attack без primary Wound. Полный набор: 1691 tests OK на Python 3.14. Источники: BOOK-PLAYER-GUIDE 1.4, Equipment / Ranged Weapons / Blunderbuss, стр. 95; Rules / Giving Ground, стр. 119; BOOK-GM-GUIDE 1.1, Allies and Antagonists / Minions, стр. 91. Ordinary M2 secondary guards сохранены; primary execution/перенос пока внешние.
+
+- Реализованы NpcBlunderbussAttackExecutionRequest/Result и execute/apply_npc_blunderbuss_attack: текущий Minion round с reserved Attack slot, current weapon, явный NPC profile ID, полные Protection и ranged preparation связываются до RNG. Поддержанный профиль явно задаёт Shooting/Dam 4/Short/2H и canonical NearbyTargetsStaggerSpec; свойства не выводятся по имени NPC/оружия. Один existing prepared weapon executor сохраняет primary ranged result, receipt, reload и полный trace; continuation переносит target injury, round, pending и consumed Attack ID. Range/Short bonus принадлежат weapon preparation; дублирующий NPC range modifier отклоняется. Проверяются eligibility/availability, exact roster/Test/Protection/Conditions/kernel/slot/weapon, pending и replay; Aim и произвольные эффекты не поддержаны. 8 новых unit tests; 2 прежних integration используют новый primary transfer, добавлен empty-secondary integration. Полный набор: 1700 tests OK на Python 3.14. Источники: BOOK-PLAYER-GUIDE 1.4, Equipment / Ranged Weapons, стр. 94–95; Rules / Attack Tests, стр. 118–119; BOOK-GM-GUIDE 1.1, Allies and Antagonists / Minions, стр. 91; Understanding NPC Profiles, стр. 93. Ordinary M2 guards/controller/journal не расширены.
+
+- Реализованы NpcBlunderbussDefeatAcknowledgementRequest/Result и acknowledge/apply_npc_blunderbuss_defeat: полные primary Attack и secondary completion связываются с исходным post-primary roster/history и точными текущими round/roster/history/pending/spatial. Решение атакующего о primary Minion подтверждается GM. Удаляется ровно primary ProfileStateChange, acknowledged_defeat_execution_ids блокирует replay, включая новый ID/исход и requeued pending. Равные анонимные primary/secondary defeat различаются по полным источникам; неоднозначный дубликат в primary queue отклоняется. Secondary decisions/completion history, прочие pending, roster, round и spatial сохраняются; weapon/reload доступны из исходной атаки без нового перехода. Wound/движение/RNG не исполняются повторно. 8 новых unit tests; existing integration расширена 36 сочетаниями primary/secondary dispositions, порядка вторичных последствий и safe/enemy Zone, с явным exclusion обоих defeated и продолжением раунда. Полный набор: 1708 tests OK на Python 3.14. Источники: BOOK-GM-GUIDE 1.1, Allies and Antagonists / Minions, стр. 91; BOOK-PLAYER-GUIDE 1.4, Equipment / Ranged Weapons / Blunderbuss, стр. 95.
+
+- Реализованы NpcBlunderbussGiveGroundExecutionRequest, ConsumptionRequest/Result и execute/consume/apply_npc_blunderbuss_give_ground. Полные primary Attack и secondary completion связываются с исходным post-primary roster/history и точными current round/roster/history/pending/spatial. До movement проверяются выбор Stagger/Give Ground, единственный primary follow-up, target/attacker/Conditions и общий once-per-round usage. Существующий spatial resolver исполняется один раз; consumer переносит Conditions/placement/usage, удаляет один primary pending и добавляет Attack ID в consumed_give_ground_execution_ids. Сохраняются secondary decisions/completion history, прочие pending и weapon/reload. Replay с новым ID/requeued pending, stale/foreign sources и недопустимые маршруты отклоняются. 10 новых unit tests и 1 integration test / 12 сочетаний подтверждают safe/enemy/уже Broken, пустую цепочку, влияние вторичного движения на враждебность destination, exclusion/round resume. Один primary kernel, 8 RNG и по одному движению каждой цели. Полный набор: 1719 tests OK на Python 3.14. Источники: BOOK-PLAYER-GUIDE 1.4, Rules / Giving Ground, стр. 119; Equipment / Ranged Weapons / Blunderbuss, стр. 95.
+
+- Профильный Blunderbuss подключён к select_npc_attack и run_npc_round через явный NpcBlunderbussCandidateContext. NpcRoundRequest.weapons содержит immutable actor/profile/weapon bindings; source-bound selection использует только текущий snapshot, проверяет eligibility/Protection/Lore/range/reload до RNG и возвращает прежний NpcBlunderbussAttackExecutionRequest. Ordinary candidate по-прежнему отвергает secondary effects. Журнал NpcRoundResult принимает полный Blunderbuss result, проверяет его соответствие selection/current и переносит оружейный переход; continuation возвращает все snapshots вместе. После miss следующий candidate видит unloaded weapon, после hit сохраняется остановка на primary/nearby pending. NpcRoundsResult/runner сохраняют continuation; summary считает обычную и Blunderbuss Attack по одному разу. NpcRoundRequest вынесен в отдельный domain-модуль и реэкспортирован по прежнему пути для устранения цикла зависимостей. 7 новых unit tests и 1 integration test / 24 сочетания покрывают выбор, Short/Medium, hit/miss, unloaded/foreign context, snapshot/journal guards, обе primary consequence ветви, secondary chain, explicit exclusion и resume. Полный набор: 1727 tests OK на Python 3.14. Источники: BOOK-PLAYER-GUIDE 1.4, Equipment / Ranged Weapons / Blunderbuss, стр. 95; Rules / Combat, стр. 112; BOOK-GM-GUIDE 1.1, Allies and Antagonists / Understanding NPC Profiles, стр. 93.
+
+- NpcRoundsChainSummary принимает полные secondary batch, defeat/Give Ground, completion и primary defeat/Give Ground результаты Blunderbuss. Batch связывается с полной primary Attack в предшествующем runner journal и точным post-primary current. Secondary prefix проверяется через read-only NpcNearbyConsequenceChain; completion требует ровно этот полный prefix, primary consequence — тот же Attack/completion с решениями GM. Равные конечные snapshots не допускают подмену disposition. Current/spatial/weapons/history/pending передаются без consumers/RNG; пропуски, перестановки, replay и чужие источники отклоняются. Допустимы partial/no-op runner observations с сохранением полной предшествующей цепочки. Defeat acknowledgements возвращают ordinary, secondary и primary результаты в порядке журнала без nested дубликатов. Participants дополнены фактически затронутыми secondary targets вне состава ходов. Attack считаются только по runner calls. 8 новых unit tests и 1 integration test / 72 сочетания; полный набор: 1736 tests OK на Python 3.14. Источники: BOOK-PLAYER-GUIDE 1.4, Equipment / Ranged Weapons / Blunderbuss, стр. 95; Rules / Combat, стр. 112; Giving Ground, стр. 119; BOOK-GM-GUIDE 1.1, Allies and Antagonists / Minions, стр. 91.
+
+- Повторный аудит M2 завершён: конкретный Blunderbuss multi-target и отчёт цепочки подключены. Остались проверка допустимости заявленного сценария и замкнутое исполнение с terminal assessment/общим бюджетом. Existing objective cycle — скриптовый успешный путь, а не готовый автономный сценарий. Read-only probe подтвердил пропуск обязательного end-turn Ablaze в low-level round; первый входной контракт должен отклонять такие Conditions. Минимальная неподвижная Minion-перестрелка, обязательные facts/policies и конечный порядок работ записаны в аудите. M3 не начат, новых rulings нет.
+
+- Реализованы immutable NpcRangedScenario, NpcRangedScenarioFacts и NpcRangedActorPolicy: preflight свежего первого Minion-раунда, точные roster/round/spatial, один обычный numeric Shooting Medium–Long/2H и Athletics, неизменённая Resilience/equipment, явные facts, все приоритеты/GM decisions, SUFFER_WOUND, objective и бюджет. Начальные Conditions (включая Ablaze), unsupported profiles/effects/types, weapon bindings, used state, неполные решения и несогласованные факты отклоняются до исполнения/RNG. 12 unit и 3 integration tests; valid input проверен на 8 сочетаниях miss/Staggered/repeated Staggered/Wound и side order через существующий executor. Полный набор 1751 tests OK. [ADR-0013](decisions/ADR-0013-ranged-minion-scenario-input.md). Terminal orchestration остаётся следующим срезом; low-level round не стал универсальным валидатором.
+
+- Реализован run_npc_ranged_scenario и immutable NpcRangedScenarioResult. Исполнитель выбирает первую живую цель по supplied порядку, выполняет SUFFER_WOUND, подтверждает Minion defeat существующими consumers и исключает только ещё не походившие цели. Лимит общий для всего сценария; после финального поражения нет лишнего хода/advance. Полные terminal acknowledgement/exclusion сохраняются отдельно от runner_report без фиктивного runner result; current содержит итог после последствий, defeat_acknowledgements включает весь журнал. Различаются OBJECTIVE_ACHIEVED, SIDE_DEFEATED, ROUND_LIMIT и UNSUPPORTED_PATH; исключения исполнения не скрываются. 10 unit и 8 integration tests: источники/решения/модификаторы, оба порядка сторон, все dispositions, смена цели, mid-round terminal, completed target, повторный Staggered через раунды, общий бюджет после resume, 20 воспроизводимых seeds. Полный набор 1769 tests OK. [Контракт](decisions/ADR-0013-ranged-minion-scenario-input.md#исполнитель-и-исход-сценария). Пять критериев M2 перепроверены: переход к первому M3 подтверждён только для заявленного неподвижного ranged Minion-сценария; Blunderbuss остаётся отдельным готовым multi-target path.
+
+- Первый M3 реализован в towr.simulation: NpcRangedSimulationRequest, компактные NpcRangedTrialSummary, NpcRangedSimulationResult/OutcomeCounts и последовательные run_npc_ranged_trial/run_npc_ranged_simulation. Seed scheme v1 использует SHA-256(master seed/index с фиксированным encoding); отдельный RNG на индекс, immutable scenario не переносит continuation между trials. Четыре исхода считаются отдельно, Attack/visited rounds суммируются и усредняются; полный журнал каждого боя после проекции не хранится. Проверяются полнота/index/seed/counters и источник runner result; ошибки не превращаются в игровые outcomes или частичный успешный пакет. 8 unit и 3 integration tests, полный набор 1780 tests OK. [ADR-0014](decisions/ADR-0014-independent-ranged-simulations.md). Фактический параллелизм, profiling и оптимизация пока не реализованы.
+
+- Добавлен tools/profile_m3.py: admitted fixtures 1×1/2×2/3×2 без test imports, фиксированные seeds/policies, отдельные обычные тайминги, tracemalloc и cProfile с replace callers. Каждый повтор сравнивает полные compact trial records. Baseline: 100 trials, seed 20260928, budget 5, 3 повтора; медианы 0,306063/0,703143/0,647570 с, peak Python allocations 96,7/145,1/149,3 КиБ. Это не RSS. Основные затраты связаны с повторным созданием/валидацией snapshots; выбран узкий следующий кандидат NpcRosterAttackExecutionResult.state (4334 replace calls на 810 Attack в 2×2). Код src не менялся, оптимизация и параллелизм не добавлены. 4 новых unit tests; полный набор 1784 tests OK. [Методика и выводы](benchmarks/README.md), [сырой baseline](benchmarks/m3-baseline-2026-09-28.md).
+
+- NpcRosterAttackExecutionResult сохраняет derived immutable state после прежней source/receipt validation; повторные чтения и consumer возвращают тот же snapshot. Private init=False/compare=False/repr=False field не входит в constructor/equality/hash/repr; dataclasses.replace повторяет validation и строит новый snapshot. Алгоритм Wounds/Conditions и перенос всех histories не менялись. 3 новых unit tests; полный набор 1787 tests OK. Все три trial digests/агрегаты совпали с baseline; replace calls из проекции в 2×2: 4334 → 1798, в 3×2: 3972 → 1635. Медианы wall 0,273343/0,584341/0,643556 с на 100 trials (−10,7%/−16,9%/−0,6%); peak Python 96,6/144,7/149,0 КиБ, не RSS. [Сравнение](benchmarks/README.md#однократное-построение-attack-state), [отчёт](benchmarks/m3-cached-attack-state-2026-09-28.md).
+
+- Добавлен run_npc_ranged_simulation_parallel в simulation/npc_ranged_parallel.py: explicit workers/batch_size, fresh spawn pool, не более 2 * workers futures, absolute indices, прежний run_npc_ranged_trial и compact result. Request/options/pickle preflight до пула; исключение trial несёт index/seed, pending отменяются и running children дожидаются, частичного успеха нет. Domain/engine/rules и sequential API не менялись. 5 unit + 3 integration tests с настоящими процессами и injected RNG; 2 теста нового benchmark. Полный набор 1797 tests OK. Замеры 100/1000 trials сравнивают все records и включают startup/shutdown; на 100 trials spawn медленнее. Общая память процессов не измерена, persistent pool/автовыбора режима нет. [Контракт](decisions/ADR-0015-process-ranged-simulations.md), [измерения](benchmarks/README.md#сравнение-последовательного-режима-и-spawn).
+
+- Конечный аудит M3 завершён: все четыре критерия roadmap сопоставлены с кодом, тестами и исходным/повторным/spawn benchmark. Ограничения записаны, переход к M4 разрешён в прежнем scenario scope. ADR-0016 фиксирует отдельный versioned JSON request/result/error: numeric definitions отдельно от actors, explicit facts/GM policies, decimal master seed/hex trial seed, sequential/process options, strict input и source-bound output. Пример 1×1 отображён в existing constructors и реально исполнен sequential/spawn с равными results; 3 trials дали 3 side_defeated, 10 Attack, 5 visited rounds. Production-код не менялся. [Аудит](audits/m3-readiness.md), [контракт](decisions/ADR-0016-ranged-simulation-json-v1.md), [примеры](examples/m4/README.md).
+
+- Первый M4 реализован в application/ranged_simulation_models.py и adapters/: parse_ranged_simulation_request принимает strict UTF-8 JSON, reject unknown/missing/duplicate keys и lexical float/bool coercion, проверяет version/seed/definitions/references и existing NpcRangedScenario. Frozen command хранит typed request/options/definition_order без mutable dict. Encoder требует exact source и lossless wire projection, возвращает прежние compact records/aggregates с полным echoed request. Три схемы входят в wheel, ссылки разрешаются только локально через jsonschema/referencing. 14 unit + 2 integration tests; полный набор 1813 OK. Wheel установлен и проверен isolated Python без PYTHONPATH. Service/CLI и error orchestration не добавлены. [Контракт/API](decisions/ADR-0016-ranged-simulation-json-v1.md#реализация-первого-среза).
+
+- Завершён M4 application service: execute_ranged_simulation явно выбирает sequential/process, передаёт workers/batch_size и проверяет source результата. RangedSimulationExecutionError сохраняет request_id и исходную причину; внешний error encoder различает input/admission/execution, не выдаёт partial results и не сериализует traceback. 9 unit + 3 integration tests добавлены, 2 прежних проходят через service с real spawn; полный набор 1825 tests OK. [ADR-0016](decisions/ADR-0016-ranged-simulation-json-v1.md#application-service-и-кодирование-ошибок). Правила и нижние слои не менялись; CLI остаётся следующим срезом.
+
+- Реализован CLI simulate: python -m towr / установленный towr, обязательный INPUT (файл либо - для stdin), binary UTF-8 response и отдельная диагностика stderr. Коды 0/2/3/4 различают complete result, input/usage, execution и I/O; protected main поддерживает spawn. До записи собирается полный response; ошибка stdout не вызывает второй JSON или shutdown exit 120. 15 новых тестов; полный набор 1840 OK. Wheel/module/console entry point проверены без PYTHONPATH с реальными процессами. [Контракт](decisions/ADR-0016-ranged-simulation-json-v1.md#cli-simulate). Атомарная доставка bytes при I/O failure, streaming, timeout и output-файл вне среза.
+
+- Конечный аудит M4 завершён: Schema/adapters, service, CLI и примеры сопоставлены с public APIs и 43 M4 tests; полный набор повторно 1840 OK. Установленные module/console × sequential/process дают равные records/summary вне repo без PYTHONPATH. Существующие незакоммиченные CLI/entry point/tests сохранены, новых изменений src/tests/pyproject.toml нет. ADR-0017 описывает aggregate-only summary и предложение bounded candidate assessment без генерации/новых правил; продуктовый вопрос о метрике задан, ответ ещё не получен. [Аудит](audits/m4-readiness.md), [вопрос](open-questions.md#первая-метрика-m5).
+
+- Реализованы simulation/npc_ranged_summary_models.py и npc_ranged_summary.py: frozen source/counts/totals, производные trials/means; guards суммы исходов, числа посещённых раундов с учётом ROUND_LIMIT и числа атак. Summary не удерживает result/records, projector не вызывает RNG/runner. 9 unit + 1 real sequential/spawn integration test; полный набор 1850 OK. Пользователь подтвердил метрику цели в пределах бюджета и явное окно без Easy/Medium; вопрос закрыт, следующий assessment не требует повторного подтверждения. [ADR-0017](decisions/ADR-0017-ranged-candidate-assessment.md).
+
+- Реализованы balance/ranged_assessment_models.py и ranged_assessment.py: frozen ObjectiveRateWindow/RangedCandidateAssessment, enum пригодности и assess_ranged_candidate. Exact request/summary source обязателен; четыре Fraction rates/status/window_match производные. Включённые границы и unsupported=None не используют float rounding и не меняют outcomes/denominator. 9 unit + 1 real sequential/spawn integration test; полный набор 1860 OK. [Контракт](decisions/ADR-0017-ranged-candidate-assessment.md#реализованная-оценка-одного-кандидата). Target пока сохраняется для будущего ranking; score/presets/list execution не добавлены.
+
+- Реализованы balance/ranged_evaluation_models.py и application/ranged_evaluation_service.py/errors.py: frozen candidates/request/rows/result, preflight всех input/common seed/trials/perspective/round budget и max_total_trials до runner; reports требуют полный упорядоченный набор exact sources/windows. Сервис исполняет кандидатов однократно по очереди, переносит только summaries/assessments и сохраняет candidate_id/cause/notes при сбое без partial report/retry/fallback. Top_k вычисляется только для window_match=True по Fraction distance с устойчивым входным порядком. 9 model + 5 service unit + 2 integration tests; полный набор 1876 OK. [API](decisions/ADR-0017-ranged-candidate-assessment.md#реализация-конечного-списка-кандидатов).
+
+- Подготовлен [ADR-0018](decisions/ADR-0018-staged-ranged-evaluation.md): typed stages(trials/keep), полный preflight верхнего бюджета, source-bound цепочка полных reports, промежуточный отбор всех пригодных по exact distance с исходным порядком и финальный window_match/top_k. Unsupported исключает продолжение; отсутствие пригодных завершает цепочку явно. Полные повторные пакеты учитываются без prefix reuse. Проверены синтетические граничные примеры на существующих bounded models; staged API ещё не реализован, src/tests не менялись.
+
+- Реализован [ADR-0018](decisions/ADR-0018-staged-ranged-evaluation.md): frozen stage/request/result/status, pure continuation helper и application service/error поверх прежнего bounded evaluator. Все stages и верхний бюджет проверяются до RNG; отчёт требует точную цепочку sources, завершение последнего этапа либо явное исчерпание пригодных кандидатов. Actual budget считает полные повторные пакеты. Добавлены 14 model + 7 service unit и 2 real backend integration tests. Существующие незакоммиченные изменения документации сохранены; domain/engine/simulation, bounded evaluator и M4 не менялись.
+
+- Подготовлен [ADR-0019](decisions/ADR-0019-ranged-composition-generation.md): генерация численности по префиксам групп явного резерва; fixed perspective-side, неизменные definitions/states/IDs/positions/decisions и самостоятельные исходные порядки. Family facts передаются явно для всех составов. Candidate count и полный staged budget проверяются до materialization; результат проверяет exact source projections. Прямо перечитаны GM Guide 1.1, Allies and Antagonists, стр. 91/93/97, и Player’s Guide 1.4, Rules / The Battlefield, стр. 114; новых rulings нет. Read-only probe подтвердил пять допустимых проекций, порядок policies и бюджет 250. Код и тесты не менялись.
+
+- Реализован [ADR-0019](decisions/ADR-0019-ranged-composition-generation.md): три application-модуля для immutable groups/request/result, pure projection и typed error. C/max_candidates и полный staged budget проверяются до перебора; общий расчёт/guards stages переиспользуют прежнюю формулу. Источники, отдельные порядки, family facts и полные decisions сохраняются, каждый scenario проходит admission; result отвергает чужие параметры/кандидаты. 10 model + 7 construction unit и 2 integration tests; существующая незакоммиченная документация сохранена. Domain/engine/simulation и прежние services/CLI не менялись.
+
+- Завершён [аудит первого M5](audits/m5-readiness.md): все четыре критерия roadmap сопоставлены с public APIs и 69 M5 tests (61 unit, 8 integration); scope ограничен supplied резервом неподвижных ranged Minions. Добавлены [typed пример](examples/m5/README.md), сохранённый stdout и один subprocess test запуска вне repo в sequential/process. 136 полных прогонов, равные отчёты и два selected состава в проверенном примере. Книжный numeric профиль/решения/позиции сверены напрямую; production src не менялся.
+
+- Подготовлен [ADR-0020](decisions/ADR-0020-ranged-balance-json-v1.md): отдельный balance v1, reuse M4 scenario без изменения simulation v1, обязательные family facts, точные дроби, IDs/бюджеты, source-bound aggregate-only цепочка, раздельные selected/continuation и ошибки input/generation/execution/I/O. [Пять JSON-примеров](examples/m5/json/README.md) содержат реальный результат пяти составов/136 trials и три явно иллюстративных error envelope. Mapping через existing constructors воспроизводит исходный request; реальные sequential/process reports равны. Production src/tests и CLI не менялись; Schema/adapters остаются следующим срезом.
+
+- Реализован первый срез [ADR-0020](decisions/ADR-0020-ranged-balance-json-v1.md): три packaged balance Schema, frozen RangedBalanceCommand/RangedBalanceResult, pure request parser/result encoder, отдельный typed input error. Общие strict/scenario helpers переиспользуют M4 без изменения старых JSON Schema/формата. Проверяются C/budget до materialization, точные Fraction, lossless orders, generation/staged sources и полная цепочка aggregate reports; selected/continuation разделены. 22 unit + 2 real sequential/spawn integration tests добавлены, полный набор 1943 OK. Wheel установлен и проверен через -I вне repo, включая прежний simulate. Существующие незакоммиченные документы ADR-0020 сохранены и актуализированы.
+
+- Завершён внешний запуск [ADR-0020](decisions/ADR-0020-ranged-balance-json-v1.md): execute_ranged_balance связывает готовые generation/staged APIs с exact source/type checks. Request-bound generation/execution errors сохраняют candidate/counts/stage и original cause/notes; error encoder выдаёт один проверенный envelope без partial reports. CLI balance INPUT поддерживает file/stdin, binary UTF-8, stderr, exit 0/2/3/4 и protected spawn main рядом с simulate. Добавлены 20 unit + 8 integration tests; прежние 2 JSON integration теперь проходят через service. Полный набор 1971 OK. Правила, low-level APIs, schemas и pyproject.toml не менялись.
+
+- Завершён [конечный аудит внешнего M5](audits/m5-external-readiness.md): восемь обязанностей ADR-0020 сопоставлены с Schema/adapters/service/CLI, examples и 52 tests (42 unit, 10 integration). Всего M5 — 121 test (103 unit, 18 integration), без повторного счёта M3 summary. Установленные 299 Python/Schema файлов равны src; module/console × sequential/process вне repo дают равные reports на малом бюджете 7. Полный набор повторно 1971 OK. Production src/tests не менялись. Пользователь выбрал расширение боевой симуляции; roadmap дополнен M6, первым шагом является ограниченный контракт ближнего боя Minions.
+
+- Подготовлен [ADR-0021](decisions/ADR-0021-melee-minion-scenario.md): первый контракт M6 с fresh input, явным Close, динамическим обычным outnumbering, полными GM decisions и ограниченным будущим runner/result. Прямо сверены PG 1.4, Rules, стр. 112/114/118–119/123 и GM 1.1, Allies and Antagonists, стр. 91/93/97. [Constructor probe](examples/m6/README.md) и 115 existing tests подтвердили reuse K1/M2. Реализация Melee admission/runner ещё не начата; новых house rules нет. Рабочее дерево на старте чистое.
+
+- Реализован входной срез [ADR-0021](decisions/ADR-0021-melee-minion-scenario.md): domain/npc_melee_scenario_models.py с тремя frozen/slotted моделями. Pure admission проверяет fresh состав/состояния, numeric Close Melee/Protection, явные facts и полный набор actor/GM policies. 17 unit + 6 integration tests проверяют guards и handoff к existing K1/M2: Close misses без эскалации, слабое попадание после промаха, first/repeated Staggered, пересчёт +1d после defeat либо GM withholding, однократные acknowledgement/exclusion и неизменность источников. Production provider/runner/result ещё не реализованы. Рабочее дерево на старте чистое; существующие ranged API и wire v1 не изменены.
+
+- Реализован production Melee runner/result по [ADR-0021](decisions/ADR-0021-melee-minion-scenario.md): чистые candidates с актуальным outnumbering и stationary spatial guard, полная цепочка источников, единый бюджет раундов, однократные Attack/acknowledgement/exclusion и terminal suffix. Добавлены 30 tests (21 unit + 9 integration), всего M6 53 tests. Проверены GM withholding, completed/Staggered/defeated counting, ordinary cap, все dispositions/оба perspective, resume/terminal и повреждённые reports. Ranged input/runner/wire v1 не изменены. Незакоммиченные документы и входной срез с предыдущего шага сохранены.
+
+- Завершён [аудит одиночного M6](audits/m6-readiness.md): admission, текущие candidates/бонусы, Close miss/Staggered, решения GM, цепочка источников, global budget/terminal/unsupported сопоставлены с public APIs и 53 existing tests. Добавлены полный [typed пример](examples/m6/README.md), сохранённый output и один subprocess test запуска вне repository cwd. Всего M6 54 tests; полный набор 2025 OK. Прямо перепроверены PG 1.4 Rules, стр. 107/112/114/118–119/123 и GM 1.1 Allies and Antagonists, стр. 91/93/97. Production src/правила/ranged v1 не менялись. Рабочее дерево на старте чистое. Требования к отдельным независимым Melee-прогонам и aggregate summary записаны в аудите; реализация ещё не начата.
+
+- Реализован [ADR-0022](decisions/ADR-0022-independent-melee-simulations.md): четыре новых модуля simulation с frozen/slotted request/records/result/summary, отдельной SHA-256 seed scheme, injectable RNG factory и exact scenario source check. Terminal suffix учитывается в outcome; full journals освобождаются после compact projection, summary сохраняет только input/aggregate. 22 новых теста (18 unit + 4 integration) проверяют golden vectors/guards, четыре исхода, ошибки без partial result, independent initial/RNG, replay/reverse/expanded batch, динамический бонус и terminal counts. Domain/engine/rules/balance/ranged v1 не менялись. Рабочее дерево на старте чистое.
+
+- Выполнено профилирование Melee simulation/summary: [tools/profile_m6.py](../tools/profile_m6.py) строит Footpad 1×1/2×2/3×2 через public APIs, сравнивает полные records/aggregates в обычных повторах, tracemalloc и cProfile, сохраняет source/harness hash. [Baseline](benchmarks/README.md#melee-baseline-m6): median 0,396/0,771/0,703 с на 100 trials, peak Python 87,8/125,1/148,4 КиБ; выбран повторный getter MinionDefeatAcknowledgementResult.continuation для следующей оптимизации. Добавлены 5 harness tests. Production src не менялся в этом шаге; 21 существовавший dirty/untracked файл предыдущей реализации сохранён.
+
+- Завершён первый performance-срез Melee: MinionDefeatAcknowledgementResult строит immutable continuation один раз после source validation, private field не входит в init/repr/compare. Три новых unit tests проверяют repeated reads, source/history/pending, rebuild/guards. [Повторный benchmark](benchmarks/README.md#однократная-minion-defeat-continuation) сохранил все trial digests/агрегаты: replace calls 1304/1832/1908 → 200/458/458, peak Python 87,6/125,0/148,4 КиБ. Весь наблюдаемый wall gain нельзя приписать только оптимизации из-за шума среды. Рабочее дерево на старте чистое; алгоритм правил/применения и seed/result контракты не менялись.
+
+- Подготовлен [ADR-0023](decisions/ADR-0023-process-melee-simulations.md): отдельный opt-in Melee process API, spawn, explicit workers/batch_size, bounded queue, прежние seed/result/summary, error notes и cleanup без partial success/fallback. [Finite probe](examples/m6/process_contract_probe.py) исполняет existing trial в реальных дочерних процессах: 3 trials, workers 1/2, pickle/source/record/summary equality, child failure и cleanup. Это контракт/проверка совместимости, production backend ещё не реализован. Существовавшие 15 dirty/untracked файлов сохранены; src/tests в этом шаге не менялись.
+
+- Реализован [Melee process backend ADR-0023](decisions/ADR-0023-process-melee-simulations.md): отдельный simulation/npc_melee_parallel.py поверх existing trial, preflight typed input/options/pickle, fresh spawn pool, ленивые absolute batches и максимум 2*workers futures. Parent result сохраняет exact request, четыре исхода и прежние seed/summary; worker ошибки содержат index/seed, pending отменяются, running work ожидается без fallback/partial success. Добавлены 8 unit + 5 real-spawn integration tests; проверены source-consistent unsupported, terminal suffix/dynamic bonus, prefix/replay, immutable input/global RNG и cleanup. Рабочее дерево на старте чистое. Domain/engine/rules/ranged API не менялись; игровые источники PG1.4 Rules / Combat, стр. 112 и GM1.1 Allies and Antagonists / Minions, стр. 91 перечитаны напрямую.
+
+- Завершён [benchmark Melee sequential/process](benchmarks/README.md#melee-sequential-и-spawn): tools/benchmark_m6_parallel.py переиспользует прежние fixtures/digest, сравнивает все records/summary, чередует режимы и проверяет source/harness hash. Сохранены отчёты 100/1000 trials, seed 20260928, budget 5, workers 1/2, batch 32, три повтора с startup/shutdown. На 100 spawn медленнее; на 1000 два workers дают локальные 1,317×/1,347× для 2×2/3×2, разница 1×1 мала. Все результаты равны; 100-trial digests/агрегаты совпали с baseline. Добавлены 6 tests harness; production/profile_m6.py не менялись, существовавшие 16 dirty/untracked файлов сохранены. Прямо перечитаны GM1.1 Allies and Antagonists / Footpad, стр. 97 и PG1.4 Rules / Attack Modifiers, стр. 119; новых rulings нет.
+
+- Закрыт [аудит массовой Melee-симуляции](audits/m6-simulation-readiness.md): ADR-0022/0023 сопоставлены с public APIs, 46 tests simulation/summary/process/profiling и сохранёнными измерениями. Всего M6 100 tests; полная регрессия 2074 OK. Подтверждены separate seeds/RNG, четыре исхода/terminal suffix, source-bound compact result/aggregate summary, bounded spawn queue и ошибки без partial success. Source/harness hash совпадает с обоими benchmark отчётами; новых замеров не выполнялось. Ограничения памяти/производительности/платформ и граница будущего balance записаны. Production src/tests/tools не менялись, 21 существовавший dirty/untracked файл сохранён. Прямо перечитаны PG1.4 Rules, стр. 112/118–119 и GM1.1 Allies and Antagonists, стр. 91/97; новых rulings нет.
+
+- Подготовлен [ADR-0024](decisions/ADR-0024-melee-candidate-assessment.md): pure Melee input/summary assessment, общий existing ObjectiveRateWindow без переноса класса, затем отдельные list models/service с полным preflight бюджета/source и stable Fraction top_k. Application reuse execution options не смешивает ranged/Melee команды или outcomes. [Finite probe](examples/m6/assessment_contract_probe.py) проверяет синтетические summary, точные границы/доли, unsupported, ties и бюджет 20, без production evaluator/RNG. 48 релевантных existing tests OK. Рабочее дерево на старте чистое; src/tests/tools не менялись. Прямо перечитаны PG1.4 Rules / Combat, стр. 112 и GM1.1 Allies and Antagonists / Minions, стр. 91; новых rulings нет.
+
+- Реализован pure Melee assessment по [ADR-0024](decisions/ADR-0024-melee-candidate-assessment.md): frozen/slotted MeleeCandidateAssessment, отдельный MeleeAssessmentStatus и assess_melee_candidate. Общий ObjectiveRateWindow сохранён без переноса; typed source/summary equality, четыре Fraction rates и derived unsupported/window_match не используют RNG/runner/full records. Добавлены 9 unit + 1 real sequential/spawn integration test. Полный набор 2084 OK; 17 существовавших dirty/untracked файлов сохранены. Engine/simulation/ranged APIs не менялись. Прямо перечитаны PG1.4 Rules / Combat, стр. 112 и GM1.1 Allies and Antagonists / Minions, стр. 91; новых rulings нет.
+
+- 2026-09-29 реализованы [модели списка Melee-кандидатов](../src/towr/balance/melee_evaluation_models.py) по ADR-0024: четыре frozen/slotted модели, полный typed/common-parameter/budget preflight, derived simulation inputs, complete ordered source/window result и stable Fraction top_k. Outside/unsupported остаются в отчёте, partial/foreign/ranged rows отклоняются. 10 новых deterministic model tests покрывают rebuild/frozen/guards/ranking/пустой выбор/большие N и отсутствие full records/RNG. 21 существовавший dirty/untracked файл сохранён; execution service не добавлялся. Прямо перечитаны PG1.4 Rules / Combat, стр. 112 и GM1.1 Allies and Antagonists / Minions, стр. 91; новых rulings нет.
+
+- 2026-09-29 реализован [application evaluator Melee](../src/towr/application/melee_evaluation_service.py) и [typed error](../src/towr/application/melee_evaluation_errors.py) по третьему срезу ADR-0024. Explicit execution/preflight, один полный existing run на кандидата, exact source до projection, summary/assessment/row и освобождение full records до следующего runner. Ошибки сохраняют candidate ID/cause/notes без partial success/retry/fallback; BaseException проходит наружу. Добавлены 8 service tests и 2 integration tests с реальным sequential/spawn. Рабочее дерево на старте чистое. Правила и существующие engine/simulation/ranged APIs не менялись.
+
+- 2026-09-29 завершён [аудит Melee evaluation](audits/m6-evaluation-readiness.md) по ADR-0024: 30 tests покрывают pure assessment/list/service и real sequential/spawn. Добавлен [самостоятельный пример](examples/m6/melee_evaluation.py) двух явно заданных Footpad-составов 2×1/2×2 с сохранённым выводом: равные полные reports/selected IDs, бюджет 32 на вызов (64 для обоих backend), неизменные input/global RNG и cleanup. Error path примера отдельно проверен injected failure: причина/notes сохранены, partial selection не печатается. 17 существовавших dirty/untracked файлов сохранены; production src/tests в этом срезе не менялись.
+
+- 2026-09-29 подготовлен [ADR-0025](decisions/ADR-0025-staged-melee-evaluation.md): отдельные Melee stage/request/result/status и pure continuation helper, верхний бюджет полных повторных пакетов, source/report chain, правила остановки и stage/candidate errors. [Finite probe](examples/m6/staged_contract_probe.py) проверяет синтетические existing bounded reports, exact fractions/order и бюджеты без runner/RNG. Production staged API не реализован; 21 существовавший dirty/untracked файл сохранён, src/tests не менялись.
+
+- 2026-09-29 реализован первый срез ADR-0025: [pure continuation helper](../src/towr/balance/melee_staged_evaluation.py) и [frozen staged models](../src/towr/balance/melee_staged_evaluation_models.py). Полный stage/common-input/budget preflight, точный промежуточный отбор, законные complete/early-stop цепочки и derived status/selection/budgets. 17 новых tests проверяют guards, exact Fraction/order, immutable/replace/no records и отказ ranged без RNG/runner/pool. 23 существовавших dirty/untracked файла сохранены; engine/simulation и существующие APIs не менялись.
+
+- 2026-09-29 реализован второй срез ADR-0025: [staged application service](../src/towr/application/melee_staged_evaluation_service.py) и [error](../src/towr/application/melee_staged_evaluation_errors.py). Один existing bounded call на достигнутый этап, exact source/options, полные повторные пакеты с index 0, early stop/continuation и полный result. Stage/candidate/cause/notes сохраняются; нет partial/retry/fallback. Добавлены 9 unit + 2 real sequential/spawn integration tests. 26 существовавших dirty/untracked файлов сохранены; модели, engine/simulation и прежние APIs не менялись.
+
+- 2026-09-29 завершён [аудит staged Melee evaluation](audits/m6-staged-evaluation-readiness.md): 28 tests ADR-0025 согласованы с helper/models/application contract. Добавлен [самостоятельный пример](examples/m6/melee_staged_evaluation.py) с сохранённым выводом: Footpad 2×1/2×2, stages 8/32 keep=1, planned/actual=48 на вызов, 96 для sequential+process, равные полные reports/selected и input/global RNG/cleanup. Инъекция ошибки второго этапа сохраняет stage/candidate/cause/notes без partial report/fallback. Рабочее дерево на старте чистое; production src/tests не менялись.
+
+## Следующий шаг
+
+Следующий законченный срез [ADR-0038](decisions/ADR-0038-independent-magic-simulations.md): реализовать src/towr/simulation/npc_magic_models.py — magic seed scheme/golden vectors, frozen NpcMagicSimulationRequest/NpcMagicTrialRecord/NpcMagicOutcomeCounts/NpcMagicSimulationResult. Проверить strict uint64/uint256/type/bool/Enum/family guards, полный source каждого record, parent seed/index binding, sorting/полноту, zero-action unsupported, started/completed/action bounds и exact ROUND_LIMIT. Без RNG factory/runner/summary calls. После этого отдельно trial/sequential + aggregate summary, затем integration/audit; процессы, метрика/подбор и JSON/CLI не входят в первый implementation-срез.
+
+## Последняя проверка
+
+2026-10-26, macOS arm64 / Python 3.12.15: [контракт последовательных независимых magic-прогонов ADR-0038](decisions/ADR-0038-independent-magic-simulations.md) и finite public probe подготовлены. На старте сохранён 31 dirty/untracked файл предыдущих M8 шагов, HEAD 5edb786 (M8 P3). Все 734 существовавших Python-файла src/tests/tools сохранены побайтно по SHA-256. Production simulation models/execution/summary не добавлены; commit/push/stash не выполнялись.
+
+Зафиксированы отдельный magic seed namespace/golden vectors, frozen request/record/counts/result и aggregate-only summary. Compact record хранит shared immutable NpcMagicScenario input reference и scalar index/seed/outcome/actions/started/completed, без final owner/journal/pending. Parent проверяет полный source даже при прежних ID/seed; N не входит в record, чтобы расширение prefix сохраняло equality прежних записей. Defined bounds учитывают incomplete round и zero-action unsupported; новая метрика сложности не выбирается. Следующий implementation-срез — только pure seed/request/record/counts/result models.
+
+Новый simulation_contract_probe использует public builder production-примера и existing single-run, без tests/private helpers. На одном input с B=4 получены четыре scripted outcomes, counts=1/1/1/1, actions=24, started=10, completed=9, расход 120 d10. Отдельный missing-departure stop имеет 0 actions/1 started/0 completed и другой полный source при том же ID/seed. Три seed vectors сверены to_bytes/struct и отделены от ranged/Melee/mixed. Ещё 26 seeded calls проверяют repeat/reverse/prefix/extra-draw isolation/rename-ID counters; всего 31 single-run call, initial/global RNG неизменны. Это illustrative projection, не проверка ещё отсутствующих production constructors/factory/error guards.
+
+**390 релевантных existing tests — OK:** все 365 M8 (0,880 с) и 25 M7 simulation/summary (0,052 с). Новых unittest tests в контрактном срезе нет; deterministic assertions находятся в finite probe, будущая test matrix записана в ADR. Два external-cwd запуска probe совпали с сохранённым stdout, stderr пуст. Compileall src/tests/tools/docs/examples/m8, public import AST, 2758 локальных Markdown-путей и whitespace всех 34 dirty/untracked файлов — OK.
+
+Полный suite повторно не запускался: src/tests/tools не менялись. Последняя полная проверка — 3031 tests/33 существующих dataclasses errors Python 3.12 (89,826 с), см. предыдущий audit и [open-questions](open-questions.md#проверки-dataclasses-на-python-312). Этот срез не исправляет и не объявляет зелёным полный suite. Wheel, другие ОС/Python и performance не проверялись заново.
+
+Прямо перечитаны BOOK-PLAYER-GUIDE 1.4, Rules / Combat, стр. 112; Conditions / Broken, стр. 122; Magic in the Old World / Miscasts, стр. 157; Battle Magic / Curse of Cowardly Flight, стр. 162; Wounds Table / Superficial injury и lethal rows, стр. 190–191; BOOK-GM-GUIDE 1.1, Allies and Antagonists / Minions и Champions, стр. 91–92. Probe использует существующие Wound/death/defeat/archive consumers; новых Rule IDs/house rules/неоднозначностей нет. Counter/seed arithmetic — технический контракт.
+
+```sh
+PYTHONPATH=src /private/tmp/towr-test-venv/bin/python docs/examples/m8/simulation_contract_probe.py
+PYTHONPATH=src /private/tmp/towr-test-venv/bin/python -m unittest discover -s tests -p 'test_m8*.py' -q
+PYTHONPATH=src /private/tmp/towr-test-venv/bin/python -m unittest tests.unit.test_m7_npc_mixed_simulation tests.unit.test_m7_npc_mixed_summary tests.integration.test_m7_npc_mixed_simulation -q
+/private/tmp/towr-test-venv/bin/python -m compileall -q src tests tools docs/examples/m8
+git diff --check
+```
+
+Незакоммичены 34 файла, включая исходный 31. Новые в этом срезе: docs/decisions/ADR-0038-independent-magic-simulations.md, docs/examples/m8/simulation_contract_probe.py и его output.txt. Дополнены связанные README/status/open-questions/architecture/roadmap, docs/examples/m8/README.md, ADR-0037, readiness audit, game-rules и source/traceability/contradictions. Существующие source/test файлы и прежние examples не менялись. Исходные 31 пути перечислены в предыдущем audit.
+
+## Предыдущая проверка (аудит одиночного magic encounter)
+
+2026-10-26, macOS arm64 / Python 3.12.15: [readiness audit одиночного magic encounter](audits/m8-encounter-readiness.md) завершён в ограниченной границе ADR-0037. На старте сохранены 26 dirty/untracked файлов предыдущих journal/runner шагов, HEAD 5edb786 (M8 P3). Все 733 существовавших Python-файла src/tests/tools сохранены побайтно по SHA-256; production исправлений не потребовалось. Commit/push/stash не выполнялись.
+
+Сопоставлены input/frames, full-owner action/continuation/end-turn/advance, runner, journal/result/diagnosis и existing тесты. Подтверждены exact source/policy/ID guards, пять blocking pending families, explicit attack_departures/GM routes, archive/live projections, daily/Wound/expiry и порядок pending → end-turn → objective/perspective/лимит. Ранее реализованные Conditions/Champion/Miscast consumers не расширены; текущие stops остаются частью заявленной границы.
+
+Добавлены standalone docs/examples/m8/magic_scenario.py, сохранённый output и один subprocess integration test. Пример импортирует только stdlib/public towr APIs; один скопированный файл запускается из external cwd без sibling probes/tests. Девять independent calls/107 scripted d10 проверяют четыре outcomes, полный Curse → Give Ground → Broken Recover, Wound/daily через advance и снятие Drained, Wound pending, missing frame и missing departure. Источники/оба ledgers/global RNG сохраняются; post-battle Recover/healing/новый день не запускаются.
+
+**365 M8 tests — OK (0,907 с), окончательный повтор — OK (0,857 с).** Полная регрессия: **3031 tests, прежние 33 errors (89,826 с)**. Counter всех error signatures совпал с исходным 3030-test baseline; это существующие ожидания исключений dataclasses под Python 3.12, новых ошибок нет. Полный suite не зелёный; подробности — [open-questions](open-questions.md#проверки-dataclasses-на-python-312). Лог /private/tmp/towr-encounter-audit-tests.log не входит в репозиторий.
+
+Offline wheel 0.1.0 собран из отдельной временной копии pyproject/README/LICENSE/src/towr без PDF/tests и без изменения исходного egg-info, установлен в отдельный target без dependency resolver. Скопированный standalone пример дважды выполнен с -S и только installed target в PYTHONPATH; import origin runner проверен, stdout равен сохранённому, stderr пуст. Все 388 installed production .py совпали с audited source. Setuptools 84.2.1; обычная .venv не менялась. Build/install logs и installed.stdout: /private/tmp/towr-m8-encounter-audit-xutlwitk. Это проверка typed API; magic CLI, другие ОС/Python и performance не проверялись.
+
+Compileall src/tests/tools/docs/examples/m8, AST границы 20 domain/4 engine modules и public imports примера, 2727 локальных Markdown-путей и whitespace всех 31 dirty/untracked файла — OK. Wheel digest/content проверены; PDF/tests не включены. Новый subprocess test использует UTF-8 text stdout и запускает один скопированный файл с timeout 30 с; sibling imports не требуются.
+
+Прямо перечитаны локальные BOOK-PLAYER-GUIDE 1.4, Rules / Combat, стр. 112; Zones/Range/Speed, стр. 114–115; Combat Actions/Improvise/Run/Recover/Giving Ground, стр. 116–119; Conditions / Broken, стр. 122; Magic in the Old World / Casting/Interrupted Casting/Spell Potency/Miscasts, стр. 156–157; Battle Magic / Curse of Cowardly Flight, стр. 162; Wounds Table / Stomach blow, стр. 190; BOOK-GM-GUIDE 1.1, Allies and Antagonists / Minions и Champions, стр. 91–92. Новых Rule IDs/противоречий/house rules нет. Normative Interrupted Casting проверен отдельно от примерного эпизода.
+
+```sh
+PYTHONPATH=src /private/tmp/towr-test-venv/bin/python -m unittest discover -s tests -p 'test_m8*.py' -q
+PYTHONPATH=src /private/tmp/towr-test-venv/bin/python -m unittest discover -s tests -q
+PYTHONPATH=src /private/tmp/towr-test-venv/bin/python docs/examples/m8/magic_scenario.py
+/private/tmp/towr-test-venv/bin/python -m compileall -q src tests tools docs/examples/m8
+git diff --check
+```
+
+Незакоммичен 31 файл, включая исходные 26. Новые в этом аудите: docs/audits/m8-encounter-readiness.md, docs/examples/m8/magic_scenario.py и его output.txt, tests/integration/test_m8_magic_scenario_example.py. Дополнены прежняя документация и docs/audits/m8-casting-readiness.md со ссылкой на закрытый single-run scope. Исходные 26 путей сохранены; их список и предшествующие changes приведены ниже. Следующий срез — контракт последовательных независимых magic-прогонов; его implementation в аудит не входит.
+
+## Предыдущая проверка (single-run magic executor)
+
+2026-10-26, macOS arm64 / Python 3.12.15: [single-run magic executor ADR-0037](decisions/ADR-0037-magic-scenario-runner.md#single-run-executor) реализован. На старте сохранены 19 dirty/untracked файлов предыдущего journal/result slice, HEAD 5edb786 (M8 P3). Новые engine/test/probe файлы добавлены отдельно; прежние journal tests/step model/probe сохранены побайтно. Commit/push/stash не выполнялись.
+
+run_npc_magic_scenario повторно проверяет полный admission до RNG, один раз создаёт runtime ledger и исполняет existing bound transitions с одним caller RNG. Exact request/current source и policy проверяются до публикации derived state. Pending/обязательный end-turn предшествуют objective/perspective/лимиту; нет повторного reducer, automatic recovery/нового дня или retry. Wound/Miscast/scene/Broken unsupported сохраняет полный owner и точный stop, staged Curse prefix остаётся отдельно от root pending.
+
+Уточнён технический вход: optional NpcMagicSceneFrame.attack_departures содержит NpcMagicAttackDeparture(actor_id, can_leave_zone) для automatic ordinary Attack. Curse away-route и adjacency не подменяют этот bool. Missing row даёт ACTION/MISSING_ROUTE до Attack RNG; False сохраняется. Старые manually bound results хранят source fact в KernelAttackRequest; при supplied frame row journal проверяет его совпадение. Публичный npc_magic_terminal_outcome переиспользуется runner/result. Другие actor/Conditions consumers не расширены.
+
+**40 новых tests: 19 unit + 21 integration; все 364 M8 tests — OK (3,939 с).** Последний отдельный запуск 40 runner tests — OK (0,274 с). Проверены четыре outcomes, one-RNG budgets, два раунда/advance, архивная цель и live Casting, Wound/daily/expiry, directed approval, повторный Staggered/SUFFER_WOUND, Broken safe/free Recover и необходимый Run, multi-target Curse/completion/prefix, exact source/ID и ошибки без retry/partial result. 200 дополнительных seeded smoke calls с обеими Wizard-side прошли без неожиданных исключений; это не benchmark и не оценка Monte Carlo rates.
+
+Полная регрессия: **3030 tests, 33 errors (182,971 с)**. Все 33 сигнатуры совпали с исходным 2990-test baseline: прежние ожидания исключений dataclasses под Python 3.12. Новых ошибок нет, полный suite не зелёный; подробности — [open-questions](open-questions.md#проверки-dataclasses-на-python-312). Временный лог /private/tmp/towr-magic-runner-final-tests.log не входит в репозиторий.
+
+Новый scenario_runner_probe вызывает пять независимых сценариев на 51 scripted d10: objective, independent perspective defeat, два завершённых раунда до лимита, Miscast до preparation и Curse → missing frame. Новый и два прежних probes дважды проверены из external cwd: stdout совпал с outputs, stderr пуст. Compileall src/tests/tools/docs/examples/m8, AST domain/engine/public-probe boundaries, 2670 локальных Markdown-путей и whitespace всех 26 dirty/untracked файлов — OK. Исходные step model, два journal test modules и два journal probe files совпадают с начальными SHA-256.
+
+Прямо перечитаны BOOK-PLAYER-GUIDE 1.4, Rules / Combat, стр. 112; Recover, стр. 118; Giving Ground, стр. 119; Conditions / Broken, стр. 122; Magic in the Old World / Interrupted Casting и Miscasts, стр. 156–157; Battle Magic / Curse of Cowardly Flight, стр. 162; Wounds Table / Stomach blow, стр. 190; BOOK-GM-GUIDE 1.1, Allies and Antagonists / Minions и Champions, стр. 91–92. Новых Rule IDs/house rules нет. Actual attack Give Ground, полные Miscast/Wound consumers и awaiting dead Champion chronology остаются stops. Readiness audit, установленный wheel, массовые magic-прогоны/метрика/JSON/CLI и performance не проверялись.
+
+```sh
+PYTHONPATH=src /private/tmp/towr-test-venv/bin/python -m unittest tests.unit.test_m8_npc_magic_scenario_runner tests.integration.test_m8_npc_magic_scenario_runner -q
+PYTHONPATH=src /private/tmp/towr-test-venv/bin/python -m unittest discover -s tests -p 'test_m8*.py' -q
+PYTHONPATH=src /private/tmp/towr-test-venv/bin/python -m unittest discover -s tests -q
+PYTHONPATH=src /private/tmp/towr-test-venv/bin/python docs/examples/m8/scenario_runner_probe.py
+/private/tmp/towr-test-venv/bin/python -m compileall -q src tests tools docs/examples/m8
+git diff --check
+```
+
+Незакоммичены 26 файлов, включая исходные 19. Новые в этом срезе: src/towr/engine/npc_magic_scenario_runner.py, tests/unit/test_m8_npc_magic_scenario_runner.py, tests/integration/test_m8_npc_magic_scenario_runner.py, docs/examples/m8/scenario_runner_probe.py и его output.txt. Дополнены src/towr/domain/npc_magic_scene_models.py, прежние незакоммиченные journal policy/result models, docs/rules/magic.md и связанные документы. Исходные 19 путей перечислены в предыдущей проверке ниже.
+
+## Предыдущая проверка (typed journal/result/unsupported)
+
+2026-10-26, macOS arm64 / Python 3.12.15: [typed journal/result/unsupported ADR-0037](decisions/ADR-0037-magic-scenario-runner.md#typed-журнал-и-результат) реализованы. На старте дерево чистое, HEAD 5edb786 (M8 P3): предыдущий scheduling уже закоммичен пользователем. Existing production/tests/tools не менялись. Commit/push/stash не выполнялись.
+
+Добавлены три domain-модуля: closed union десяти bound results и typed diagnostic, pure scenario/scene/policy validation, result/diagnosis. Before/after/current/outcome/counters выводятся из полной непрерывной chain; отдельный final state caller не задаёт. Проверяются namespace/phase IDs, scenario order, target/Zone priorities, GM disposition/approval, normal Protection и точные маршруты каждого frame. Pending и обязательный end-turn предшествуют terminal checks; поддержанный незавершённый prefix не выдаётся за готовый result. Staged Curse prefix хранится в диагностике отдельно от исходного полного root pending. Нет нового action/reducer/Test/RNG или автоматического runner.
+
+**30 новых tests: 19 unit + 11 integration; все 324 M8 tests — OK (0,355 с), повторный запуск — OK (0,343 с).** Проверены четыре outcomes, source/namespace/actor/target/GM/fact/route/terminal guards, два настоящих раунда/advance, full Wound/daily/pending/expiry, Broken Recover и необходимый Run, missing intermediate scene с проверенным staged prefix и отказ лишнего Protection modifier. Miscast сохраняет полный source/pool до preparation.
+
+Полная регрессия: **2990 tests, 33 errors (89,184 с)**. Все 33 сигнатуры совпали с исходным 2960-test baseline: прежние ожидания исключений dataclasses под Python 3.12. Новых ошибок нет, полный suite не зелёный; подробности — [open-questions](open-questions.md#проверки-dataclasses-на-python-312). Временный лог /private/tmp/towr-magic-journal-final-tests.log не входит в репозиторий. После полной проверки добавлены type guards публичного diagnosis helper; все 324 M8 tests повторно проходят.
+
+Новый public journal_contract_probe проверяет две explicit chains на 12 scripted d10: Miscast-stop и WAIT → Minion defeat → supplied acknowledgement → end-turn → objective. Journal validation расходует 0 d10. Два external-cwd запуска нового и прежнего encounter probes совпали с сохранёнными outputs, stderr пуст. Compileall src/tests/tools/docs/examples/m8, AST domain/public-probe boundaries, 2643 локальных Markdown-пути и whitespace всех 19 dirty/untracked файлов — OK.
+
+Прямо перечитаны BOOK-PLAYER-GUIDE 1.4, Rules / Combat, стр. 112; Conditions / Broken, стр. 122; Magic in the Old World / Interrupted Casting и Miscasts, стр. 156–157; Battle Magic / Curse of Cowardly Flight, стр. 162; BOOK-GM-GUIDE 1.1, Allies and Antagonists / Minions и Champions, стр. 91–92. Новых Rule IDs/house rules нет. Ограничения existing Conditions/Champion, ordinary attack Give Ground, Wound/Miscast consumers прежние. Полный runner, массовые прогоны/метрика, JSON/CLI, новый wheel и performance не проверялись.
+
+```sh
+PYTHONPATH=src /private/tmp/towr-test-venv/bin/python -m unittest tests.unit.test_m8_npc_magic_scenario_result tests.integration.test_m8_npc_magic_scenario_result -q
+PYTHONPATH=src /private/tmp/towr-test-venv/bin/python -m unittest discover -s tests -p 'test_m8*.py' -q
+PYTHONPATH=src /private/tmp/towr-test-venv/bin/python -m unittest discover -s tests -q
+PYTHONPATH=src /private/tmp/towr-test-venv/bin/python docs/examples/m8/journal_contract_probe.py
+/private/tmp/towr-test-venv/bin/python -m compileall -q src tests tools docs/examples/m8
+git diff --check
+```
+
+Незакоммичены 19 файлов. Новые: src/towr/domain/npc_magic_step_models.py, src/towr/domain/npc_magic_journal_policy.py, src/towr/domain/npc_magic_scenario_result_models.py, tests/unit/test_m8_npc_magic_scenario_result.py, tests/integration/test_m8_npc_magic_scenario_result.py, docs/examples/m8/journal_contract_probe.py и его output.txt. Изменены документы: README.md, docs/README.md, docs/project-status.md, docs/open-questions.md, docs/architecture/overview.md, docs/decisions/ADR-0037-magic-scenario-runner.md, docs/roadmap.md, docs/examples/m8/README.md, docs/game-rules.md, docs/source-index.md, docs/rule-traceability.md и docs/contradictions.md.
+
+## Предыдущая проверка (full-owner start/advance)
+
+2026-10-26, macOS arm64 / Python 3.12.15: [full-owner start/advance](decisions/ADR-0037-magic-scenario-runner.md#full-owner-startadvance) реализованы. На старте сохранены 22 dirty/untracked файла предыдущего defeat closure, HEAD 3321977 (M8 P2). Существующие шесть source/test файлов этого шага не менялись; добавлены четыре файла scheduling. Commit/push/stash не выполнялись.
+
+Frozen request/result связывают exact полный source с одним K1 start + STANDARD slot либо одним combat/spatial advance. Все пять pending, living exclusion с неизвестной хронологией и due/untracked next-turn Wound timers отклоняются до reducers. Application сверяет full current/source, не повторяет reducers. Advance сохраняет full roster/round/placements и оба ledgers, исключает dead/defeated, обновляет только round и три usage списка. Magic/daily/Wound/expiry/phase histories сохраняются. Нет action/Test/RNG, автоматического end-turn/expiry/тактики или terminal outcome.
+
+**17 новых tests: 14 unit + 3 integration; все 294 M8 tests — OK (0,318 с).** Реальные chains проходят Give Ground → полный раунд → advance; Wound после хода мага → advance → Casting/expiry; defeat acknowledgement → оставшиеся ходы → advance с архивной целью. Проверены exact source/raw DTO/slot/side/pending/clock/stale/replay guards и отказ child reducer без частичного root.
+
+Полная регрессия: **2960 tests, 33 errors (89,213 с)**. Все 33 сигнатуры совпали с исходным 2943-test baseline: прежние ожидания исключений dataclasses под Python 3.12. Новых ошибок нет, полный suite не зелёный; подробности — [open-questions](open-questions.md#проверки-dataclasses-на-python-312). Временный лог /private/tmp/towr-turn-phases-tests.log не входит в репозиторий. Public probe использует wrappers и завершает реальный оставшийся ход перед advance/start: 38 scripted d10, сами фазы 0 d10.
+
+Два external-cwd запуска probe совпали с сохранённым output, stderr пуст. Compileall src/tests/tools/docs/examples/m8, AST domain/public-probe boundaries, 2617 локальных Markdown-путей и whitespace всех 27 dirty/untracked файлов — OK. Шесть исходных source/test файлов defeat closure совпадают с начальными SHA-256. Повторный запуск всех 294 M8 tests — OK (0,331 с).
+
+Прямо перечитаны BOOK-PLAYER-GUIDE 1.4, Rules / Combat, стр. 112; Combat Actions, стр. 116; Giving Ground, стр. 119; Wounds Table / Stomach blow, стр. 190. Новых Rule IDs/house rules нет. Scheduling резервирует слот; Conditions/роль и право выполнить действие остаются в action consumers. Encounter steps/result/unsupported/runner, attack Give Ground, другие timed effects/Miscast consumers ещё впереди. Другие ОС/Python, новый wheel и performance в этом срезе не проверялись.
+
+```sh
+PYTHONPATH=src /private/tmp/towr-test-venv/bin/python -m unittest discover -s tests -p 'test_m8*.py' -q
+PYTHONPATH=src /private/tmp/towr-test-venv/bin/python -m unittest discover -s tests -q
+PYTHONPATH=src /private/tmp/towr-test-venv/bin/python docs/examples/m8/encounter_contract_probe.py
+/private/tmp/towr-test-venv/bin/python -m compileall -q src tests tools docs/examples/m8
+git diff --check
+```
+
+Незакоммичены 27 файлов, включая исходные 22. Новые в этом срезе: src/towr/domain/npc_roster_turn_models.py, src/towr/rules/npc_roster_turn_resolution.py, tests/unit/test_m8_npc_roster_turn.py, tests/integration/test_m8_npc_roster_turn.py. Дополнены прежние документы и public probe/output, также docs/rules/combat.md; исходный source/tests defeat closure сохранён побайтно. Полный список исходных файлов записан в предыдущей проверке ниже.
+
+## Предыдущая проверка (bound Minion defeat closure)
+
+2026-10-26, macOS arm64 / Python 3.12.15: [bound Minion defeat acknowledgement/exclusion](decisions/ADR-0037-magic-scenario-runner.md#bound-minion-defeat-acknowledgementexclusion) реализованы. На старте рабочее дерево чистое, HEAD 3321977 (M8 P2); предыдущий handoff уже закоммичен пользователем. Commit/push/stash не выполнялись.
+
+Typed source связывает exact текущий full root/pending с explicit MinionDefeatDecision/GM approval. Общие pure defeat/exclusion helpers извлечены из existing M2 domain models: старые wrapper API и Minion-only invariant сохранены, dummy M2 round с Champion не создаётся. Derived state отмечает acknowledgement по exact Attack ID, закрывает только одиночный defeat pending и исключает target, если тот ещё ожидает ход. Completed target сохраняет marker/round, другие pending отвергаются до перехода. Нет нового Attack, injury, action/receipt, RNG, end-turn, advance или terminal outcome. Оба ledgers/magic/spatial/daily/expiry/phase histories и archives сохраняются; disposition хранится в result/source отдельно от generic inventory/Character death.
+
+**14 новых tests: 10 unit + 4 integration; все 277 M8 tests — OK (0,428 с).** Проверены три choices/GM, full source/typed/frozen/stale/replay/queue guards, идентичный анонимный follow-up другой атаки, отказ сложной queue без очистки, last enemy, already-completed target, две последовательные defeat и real Wound/daily → closure → Casting → expiry. 31 existing M2 defeat/exclusion test — OK (0,015 с), включая прежнюю identity/projection semantics.
+
+Полная регрессия: **2943 tests, 33 errors (90,150 с)**. Все 33 сигнатуры совпали с 2929-test baseline: существующие ожидания исключений dataclasses на Python 3.12. Новых ошибок нет, полный suite не зелёный; детали — [open-questions](open-questions.md#проверки-dataclasses-на-python-312). Временный лог /private/tmp/towr-minion-defeat-tests.log не входит в репозиторий. Probe дополнен 0-d10 defeat closure и явным end-turn при прежних 32 scripted d10; два external-cwd запуска совпали с output, stderr пуст. Compileall src/tests/tools/docs/examples/m8 и domain import boundaries — OK. 2591 локальный Markdown file path и финальные whitespace tracked/untracked — OK; повторный запуск 277 M8 tests — OK (0,322 с).
+
+Прямо перечитаны BOOK-GM-GUIDE 1.1, Allies and Antagonists / Minions, стр. 91; BOOK-PLAYER-GUIDE 1.4, Rules / Combat, стр. 112. Новых игровых IDs/house rules нет. Срез обрабатывает только одиночный defeat ProfileStateChange; attack Give Ground/иные queues сохраняются до отдельного consumer. Full-owner start/advance, encounter result/runner, другие ОС/Python, новый wheel и performance не проверялись.
+
+```sh
+PYTHONPATH=src /private/tmp/towr-test-venv/bin/python -m unittest tests.unit.test_m8_npc_roster_minion_defeat tests.integration.test_m8_npc_roster_minion_defeat -q
+PYTHONPATH=src /private/tmp/towr-test-venv/bin/python -m unittest tests.unit.test_m2_minion_defeat tests.unit.test_m2_npc_round_exclusion tests.integration.test_m2_minion_defeat_cycle tests.integration.test_m2_npc_round_exclusion_cycle -q
+PYTHONPATH=src /private/tmp/towr-test-venv/bin/python -m unittest discover -s tests -p 'test_m8*.py' -q
+PYTHONPATH=src /private/tmp/towr-test-venv/bin/python -m unittest discover -s tests -q
+PYTHONPATH=src /private/tmp/towr-test-venv/bin/python docs/examples/m8/encounter_contract_probe.py
+/private/tmp/towr-test-venv/bin/python -m compileall -q src tests tools docs/examples/m8
+git diff --check
+```
+
+Незакоммиченные файлы этого среза:
+
+- Новые: src/towr/domain/npc_roster_minion_defeat_models.py, src/towr/rules/npc_roster_minion_defeat_resolution.py, tests/unit/test_m8_npc_roster_minion_defeat.py, tests/integration/test_m8_npc_roster_minion_defeat.py.
+- Изменены: src/towr/domain/minion_defeat_models.py, src/towr/domain/npc_round_exclusion_models.py.
+- Документация: README.md, docs/README.md, docs/project-status.md, docs/open-questions.md, docs/architecture/overview.md, docs/decisions/ADR-0010-single-minion-round.md, docs/decisions/ADR-0037-magic-scenario-runner.md, docs/roadmap.md, docs/examples/m8/README.md, docs/examples/m8/encounter_contract_probe.py и его output.txt, docs/game-rules.md, docs/rules/npcs.md, docs/source-index.md, docs/rule-traceability.md, docs/contradictions.md.
+
+## Предыдущая проверка (bound Minion Attack handoff)
+
+2026-10-26, macOS arm64 / Python 3.12.15: [bound Minion Attack handoff ADR-0037](decisions/ADR-0037-magic-scenario-runner.md#bound-minion-attack-handoff) реализован. На старте рабочее дерево чистое, HEAD c97d68f (M8 P1): прежние изменения уже закоммичены пользователем. Commit/push/stash не выполнялись.
+
+Runtime bootstrap scenario.initial_runtime_state присоединяет typed Minion ledger без action/RNG. Новый bound request/result связывает полный magic owner с existing M2 source; executor вызывает M2 один раз, pure application сверяет exact current root и переносит roster/round/receipt/pending/оба ledgers. Root проверяет общий roster, disjoint ordered execution subsequences и full pending post-state. Новый pending блокирует Casting/Champion/Broken/completion/end-turn. Все прежние projections синхронизируют Minion child; Run сохраняет его неизменным. Wounds/daily/roll/expiry/phase histories, magic/spatial остаются согласованными. Minion defeat или attack Give Ground сохраняются до отдельного consumer, без automatic acknowledgement/exclusion/disposition или terminal outcome.
+
+**25 новых tests: 19 unit + 6 integration; все 263 M8 tests — OK (0,303 с).** Один M2 call/6 d10, miss/stagger/defeat/Close miss/Give Ground, Broken target, source/type/slot/hostility/usage/history/pending/replay guards и отказ RNG без partial state проверены. Real WAIT → Minion attack не добавляет чужой skipped die; Curse → Give Ground → Broken target → defeat сохраняет archive/usage; Champion Wound → Minion miss → Casting → expiry и Broken Recover/Run сохраняют оба owners/histories.
+
+Полная регрессия: **2929 tests, 33 errors (92,094 с)**. Все 33 сигнатуры совпали с прежним 2904-test baseline — существующие ожидания исключений dataclasses под Python 3.12. Новых ошибок нет, полный suite не зелёный; подробности — [open-questions](open-questions.md#проверки-dataclasses-на-python-312). Временный лог /private/tmp/towr-minion-handoff-tests.log не входит в репозиторий. Public probe использует bootstrap/реальный handoff на прежних 32 d10; два external-cwd запуска совпали с output, stderr пуст. Compileall src/tests/tools/docs/examples/m8, domain boundaries — OK. 2576 локальных Markdown file paths и финальные whitespace checks tracked/untracked — OK. Повторный финальный запуск всех 263 M8 tests — OK (0,298 с).
+
+Прямо перечитаны BOOK-GM-GUIDE 1.1, Allies and Antagonists / Minions, стр. 91; BOOK-PLAYER-GUIDE 1.4, Rules / Attack Tests, стр. 118; Successful/Failed Attacks/Giving Ground, стр. 119; Conditions/Broken/Drained, стр. 122–123. Новых игровых Rule IDs/house rules нет. Actor Conditions ограничены Staggered, target — Staggered/Broken; другие состояния требуют отдельного admission. Bound acknowledgement/exclusion/start/advance, attack Give Ground и encounter runner пока отсутствуют. После defeat последнего врага pending/terminal checks используют полный owner, не legacy live Casting projection. Другие ОС/Python, новый wheel и performance не проверялись.
+
+```sh
+PYTHONPATH=src /private/tmp/towr-test-venv/bin/python -m unittest tests.unit.test_m8_npc_roster_minion_attack tests.integration.test_m8_npc_roster_minion_attack -q
+PYTHONPATH=src /private/tmp/towr-test-venv/bin/python -m unittest discover -s tests -p 'test_m8*.py' -q
+PYTHONPATH=src /private/tmp/towr-test-venv/bin/python -m unittest discover -s tests -q
+PYTHONPATH=src /private/tmp/towr-test-venv/bin/python docs/examples/m8/encounter_contract_probe.py
+/private/tmp/towr-test-venv/bin/python -m compileall -q src tests tools docs/examples/m8
+git diff --check
+```
+
+Незакоммиченные файлы этого среза:
+
+- Новые: src/towr/domain/npc_roster_minion_attack_models.py, src/towr/rules/npc_roster_minion_attack_resolution.py, tests/unit/test_m8_npc_roster_minion_attack.py, tests/integration/test_m8_npc_roster_minion_attack.py.
+- Изменены: src/towr/domain/npc_roster_casting_models.py, src/towr/domain/npc_magic_scenario_models.py, src/towr/domain/npc_roster_champion_attack_models.py, src/towr/domain/npc_roster_casting_completion_models.py, src/towr/domain/npc_broken_recover_models.py, src/towr/domain/npc_broken_run_models.py, src/towr/domain/npc_wound_turn_end_models.py, src/towr/rules/npc_roster_casting_resolution.py.
+- Документация: README.md, docs/README.md, docs/project-status.md, docs/open-questions.md, docs/architecture/overview.md, docs/decisions/ADR-0036-magic-encounter-integration.md, docs/decisions/ADR-0037-magic-scenario-runner.md, docs/roadmap.md, docs/examples/m8/README.md, docs/examples/m8/encounter_contract_probe.py и его output.txt, docs/game-rules.md, docs/rules/npcs.md, docs/source-index.md, docs/rule-traceability.md, docs/contradictions.md.
+
+## Предыдущая проверка (magic scenario admission)
+
+2026-10-26, macOS arm64 / Python 3.12.15: [typed magic scenario input/pure admission ADR-0037](decisions/ADR-0037-magic-scenario-runner.md#реализованный-typed-вход) реализованы. На старте уже было 24 dirty/untracked paths прежних end-turn/contract срезов. Все прежние 7 source/test paths сохранены побайтно; исходные hashes — /private/tmp/towr-magic-admission-before.json (временный файл). Commit/push/stash не выполнялись.
+
+Добавлены frozen NpcMagicScenario/Facts/ActorPolicy и scene Key/Frame/PairRange/ZoneRange/RouteFacts/GiveGroundPlan/BrokenPlan. Constructor проверяет fresh round/spatial/magic/open daily/history, healthy authored Champion + allied/enemy Shooting Minions, canonical Curse, definitions/equipment/Willpower/Speed, exact policies/orders/objective/лимит, полный initial frame и все supplied future frames. Directed GM approvals сохраняют True/False с existing applicability; unknown future key возвращает None. Range/adjacency/away/first-safe/full Run/path/archive checks не выбирают маршрут и не выполняют rules/Tests/RNG. Обычный kernel и прежние consumers не менялись.
+
+**31 новый deterministic unit test; все 238 M8 tests — OK (0,305 с).** Обе Wizard/perspective стороны, independent ordered inputs, tuple/frozen/type/scope/canonical/source guards, health/equipment/daily/history, hostile pairs/все Zone facts, initial availability, GM flags, optional future frames, Slow/free Recover, Normal/Fast Run и archive guards проверены. Новых integration unittest modules нет: public probe расширен production admission (0 d10), принятый source проходит real Curse chain, прежние 32 scripted d10 и pending stops сохранены.
+
+Полная регрессия: **2904 tests, 33 errors (87,458 с)**. Все 33 сигнатуры совпали с предыдущим 2873-test baseline: существующие ожидания исключений dataclasses на Python 3.12; новых ошибок нет, полный suite не зелёный. Подробности — [open-questions](open-questions.md#проверки-dataclasses-на-python-312). Временный лог /private/tmp/towr-magic-admission-tests.log не входит в репозиторий. Два external-cwd запуска probe совпали с сохранённым stdout, stderr пуст; domain import boundaries и compileall src/tests/tools/docs/examples/m8 — OK. 2558 локальных Markdown file paths, whitespace tracked/untracked и финальная проверка сохранности прежнего кода — OK.
+
+Напрямую перечитаны BOOK-PLAYER-GUIDE 1.4, Equipment / Ranged Weapons, стр. 94; Rules / Combat, стр. 112; Zones and Range, стр. 114; Speed, стр. 115; Giving Ground, стр. 119; Conditions / Broken, стр. 122; Battle Magic / Curse, стр. 162; BOOK-GM-GUIDE 1.1, Allies and Antagonists / Minions и Champions, стр. 91–92. Новых Rule IDs/house rules нет. Admission не исполняет бой, не доказывает future coverage/допустимость текущих injuries, не закрывает Miscast или Minion handoff. Result/runner, другие ОС/Python, новый wheel и performance не проверялись.
+
+```sh
+PYTHONPATH=src /private/tmp/towr-test-venv/bin/python -m unittest tests.unit.test_m8_npc_magic_scenario -q
+PYTHONPATH=src /private/tmp/towr-test-venv/bin/python -m unittest discover -s tests -p 'test_m8*.py' -q
+PYTHONPATH=src /private/tmp/towr-test-venv/bin/python -m unittest discover -s tests -q
+PYTHONPATH=src /private/tmp/towr-test-venv/bin/python docs/examples/m8/encounter_contract_probe.py
+/private/tmp/towr-test-venv/bin/python -m compileall -q src tests tools docs/examples/m8
+git diff --check
+```
+
+Незакоммиченные файлы: 24 прежних path плюс 3 новых — src/towr/domain/npc_magic_scenario_models.py, src/towr/domain/npc_magic_scene_models.py, tests/unit/test_m8_npc_magic_scenario.py. В этом шаге дополнены прежние README.md, docs/README.md, docs/project-status.md, docs/open-questions.md, docs/architecture/overview.md, docs/decisions/ADR-0036-magic-encounter-integration.md, docs/decisions/ADR-0037-magic-scenario-runner.md, docs/roadmap.md, docs/examples/m8/README.md, docs/examples/m8/encounter_contract_probe.py и его output.txt, docs/game-rules.md, docs/rules/wounds-and-conditions.md, docs/source-index.md, docs/rule-traceability.md, docs/contradictions.md. Прежние source/test paths и ADR-0005 сохранены без изменений.
+
+## Предыдущая проверка (scenario/runner contract)
+
+2026-10-26, macOS arm64 / Python 3.12.15: [контракт первого magic scenario/runner ADR-0037](decisions/ADR-0037-magic-scenario-runner.md) и [finite probe](examples/m8/encounter_contract_probe.py) подготовлены. На старте уже был 21 dirty/untracked path предыдущего end-turn среза; они сохранены, production src/tests не менялись. Начальные hashes — временный /private/tmp/towr-magic-contract-before.json, не часть репозитория. Commit/push/stash не выполнялись.
+
+Зафиксированы authored состав/профили/Speed и роли, точные activation/target/Zone policies, finite scene frames по full placements/live IDs, objective/лимит, четыре будущих outcomes и typed source/steps/unsupported. Pending/on-action/end-turn приоритетнее terminal checks; будущий runner останавливается до Miscast preparation. Missing frame/route не даёт фиктивной геометрии или can_give_ground=False. Inventory выявил недостающий bound Minion → Minion handoff/acknowledgement/exclusion и full-owner start/advance wrappers, помимо самого loop. Другие Wound/Conditions и Miscast consumers не объявлены поддержанными.
+
+Probe проверяет public existing API на **32 scripted d10**: real Stomach Blow → Casting → expiry; отдельный pending Nicked Arm; Curse → Give Ground → Willpower/Broken → end-turn; pending Miscast; отдельный M2 Minion defeat с сохранённым pending и неизменным magic owner. Нет imports tests/private helpers, выдуманных промежуточных ходов или нового runner. Типизированные production scenario models/четыре outcomes им не проверяются.
+
+**Все 207 existing M8 tests — OK (0,266 с).** Новых unittest tests/production API нет. Два запуска probe из внешнего temporary cwd совпали с сохранённым stdout, stderr пуст; проверены public imports/attributes, compileall src/tests/tools/docs/examples/m8, 2540 локальных Markdown file paths и whitespace tracked/untracked. Все 7 прежних source/test paths и ADR-0005 побайтно совпали с начальными hashes. Полную регрессию не повторяли: production src/tests этого шага неизменны; последняя полная проверка ниже — 2873 tests с 33 известными Python 3.12 dataclasses errors, не зелёный suite.
+
+Напрямую прочитаны BOOK-GM-GUIDE 1.1, Allies and Antagonists / Minions и Champions, стр. 91–92; BOOK-PLAYER-GUIDE 1.4, Rules / Combat, стр. 112; Zones and Range, стр. 114; Recover/Attack Tests/Giving Ground, стр. 118–119; Conditions/Broken, стр. 122; Magic in the Old World / Casting/Interrupted Casting, стр. 156; Potency/Miscasts, стр. 157; релевантные строки Miscast Table, стр. 159; Battle Magic / Curse, стр. 162. Новых Rule IDs/house rules нет. Другие ОС/Python, wheel, performance и production runner не проверялись.
+
+```sh
+PYTHONPATH=src /private/tmp/towr-test-venv/bin/python docs/examples/m8/encounter_contract_probe.py
+PYTHONPATH=src /private/tmp/towr-test-venv/bin/python -m unittest discover -s tests -p 'test_m8*.py' -q
+/private/tmp/towr-test-venv/bin/python -m compileall -q src tests tools docs/examples/m8
+git diff --check
+```
+
+Незакоммиченные файлы: 21 прежний path плюс 3 новых — docs/decisions/ADR-0037-magic-scenario-runner.md, docs/examples/m8/encounter_contract_probe.py и docs/examples/m8/encounter_contract_probe.output.txt. В этом шаге дополнены прежние README.md, docs/README.md, docs/project-status.md, docs/open-questions.md, docs/architecture/overview.md, docs/decisions/ADR-0036-magic-encounter-integration.md, docs/roadmap.md, docs/examples/m8/README.md, docs/game-rules.md, docs/rules/wounds-and-conditions.md, docs/source-index.md, docs/rule-traceability.md и docs/contradictions.md. Прежние 7 source/test paths и ADR-0005 сохранены без изменений.
+
+## Предыдущая проверка (первый end-turn Wound lifecycle)
+
+2026-10-26, macOS arm64 / Python 3.12.15: [первый end-turn Wound lifecycle](decisions/ADR-0036-magic-encounter-integration.md#первый-end-turn-wound-lifecycle) реализован. На старте рабочее дерево чистое, локальный HEAD и read-only GitHub main совпали (`e6d158d`). Commit/push/stash не выполнялись.
+
+Bound Champion attack автоматически сохраняет полный источник Stomach Blow и срок следующего хода цели. Новый end-turn request/result/application закрывает один исполненный STANDARD slot через existing scheduler, истекает только зарегистрированные эффекты и атомарно переносит roster/round/attached Champion. Wound не лечится и не удаляется; магия, spatial, daily ledger и execution/roll histories сохраняются. История turn-end предотвращает повторное применение/requeue. Любой pending блокирует переход; source snapshots обязательны для истекающих Conditions, известный оставшийся Wound source нельзя отрицать. Другой actor не истекает эффект мага. Ablaze/Critically Injured, unsupported restrictions, untracked timers и неоднозначная хронология excluded target отклоняются.
+
+**18 новых tests: 14 unit + 4 integration; все 207 M8 tests — OK (0,298 с).** Real Wound → Casting/Broken Recover/Broken Run → expiry, сохранение Broken/магии/Wound/daily/history, точный source/turn/deadline, pre/post target turn, independent sources, stale/replay/typed/pending guards и запрет повторного scheduler/Test проверены. Полная регрессия: **2873 tests, 33 errors (87,183 с)**. Все 33 сигнатуры совпали с прежним 2855-test baseline: существующие ожидания исключений dataclasses под Python 3.12 (32 TypeError при property assignment и один ValueError при replace init=False). Новых ошибок нет; полный suite остаётся красным. Подробности — [open-questions](open-questions.md#проверки-dataclasses-на-python-312). Временный лог `/private/tmp/towr-wound-turn-end-tests.log` не входит в репозиторий.
+
+Compileall src/tests/tools/docs/examples/m8, domain import boundaries, 2512 локальных Markdown file paths и whitespace checks tracked/untracked — OK. Дополненные subcases pending movement, Broken Minion и typed boundaries повторно покрыты 207 M8 tests (0,298 с).
+
+Прямо перечитаны BOOK-PLAYER-GUIDE 1.4, Rules / Wounds & Conditions, стр. 121–123; Wounds Table, стр. 190–191. Stomach Blow / Drained до конца следующего хода — стр. 190; независимые ongoing causes — стр. 122. Новых игровых Rule IDs/house rules нет. Другие timed effects, own-turn/excluded chronology, многослотовые turns и общий runner остаются за отдельным контрактом. Другие ОС/Python, wheel и performance не проверялись.
+
+```sh
+PYTHONPATH=src /private/tmp/towr-test-venv/bin/python -m unittest discover -s tests -p 'test_m8*.py' -q
+PYTHONPATH=src /private/tmp/towr-test-venv/bin/python -m unittest discover -s tests -q
+/private/tmp/towr-test-venv/bin/python -m compileall -q src tests tools docs/examples/m8
+git diff --check
+```
+
+Незакоммиченные файлы этого среза:
+
+- Новые: `src/towr/domain/npc_wound_turn_models.py`, `src/towr/domain/npc_wound_turn_end_models.py`, `src/towr/rules/npc_wound_turn_end.py`, `tests/unit/test_m8_npc_wound_turn_end.py`, `tests/integration/test_m8_npc_wound_turn_end.py`.
+- Изменены: `src/towr/domain/npc_roster_casting_models.py`, `src/towr/domain/npc_roster_champion_attack_models.py` и документация: `README.md`, `docs/README.md`, `docs/project-status.md`, `docs/open-questions.md`, `docs/architecture/overview.md`, `docs/decisions/ADR-0005-wound-healing-lifecycle.md`, `docs/decisions/ADR-0036-magic-encounter-integration.md`, `docs/roadmap.md`, `docs/examples/m8/README.md`, `docs/game-rules.md`, `docs/rules/wounds-and-conditions.md`, `docs/source-index.md`, `docs/rule-traceability.md`, `docs/contradictions.md`.
+
+## Предыдущая проверка (Broken Run)
+
+2026-10-26, macOS arm64 / Python 3.12.15: [Broken Run в безопасную Zone](decisions/ADR-0036-magic-encounter-integration.md#broken-run-в-безопасную-zone) реализован. На старте рабочее дерево было чистым; read-only `git ls-remote` подтвердил совпадение локального/GitHub `52ab189`. Команды commit/push/stash не выполнялись.
+
+Bound request/result соединяет полный Normal/Fast free move и одну дополнительную safe Run Zone. Проверяются полный source/Speed/Conditions, расход free move, один STANDARD Manoeuvre slot, актуальные route facts/fastest confirmation и отсутствие pending. Все free-route Zones ещё unsafe, Run заканчивается на safe Zone; automatic route selection нет. Исполняются existing free movement и Run ровно по разу, без RNG/Tests/Recover. Broken/Staggered/Drained, roster/injuries и Champion daily/roll/attack histories сохраняются; root/attached round и одна execution history запись согласованы. Активный Casting Wizard получает один receipt-bound skipped die, с прежним pending_interruption при превышении Level. Source/receipt/pool validator общий у Recover/Run; прежний Recover API не менялся.
+
+**23 новых tests: 18 Run unit + 4 integration + 1 Slow/free-move regression. Все 189 M8 tests — OK (0,267 с).** Проверены Normal/Fast, Wizard/Minion, no RNG/Recover, initial Broken и сохранение Conditions, source/type/route/trace/replay/stale/pending guards, один free move/Run, canonical receipt, архивные entries/usage, Run failure без partial owner. Real Curse → Broken Minion → Run и real Champion Wound/daily → Wizard Run сохраняют исходные данные. У Wizard Broken — explicit initial fact; поддержку Curse по Champion эти tests не объявляют. Исправлена прежняя неточная фраза ADR о Slow: существующий K1 позволяет free move и запрещает Run, новое правило/house rule не вводилось.
+
+Полная регрессия: **2855 tests, 33 errors (84,986 с)**. Все 33 сигнатуры совпали с предыдущим 2832-test baseline: существующие ожидания исключений dataclasses под Python 3.12 (32 TypeError property assignment и один ValueError replace init=False). Новых ошибок нет; полный suite не объявляется зелёным. Подробности — [open-questions](open-questions.md#проверки-dataclasses-на-python-312). Лог `/private/tmp/towr-broken-run-tests.log` временный, не часть репозитория.
+
+Compileall src/tests/tools/docs/examples/m8, import boundaries новых модулей, 2496 локальных Markdown file paths и whitespace checks (tracked/untracked) — OK.
+
+Непосредственно перечитаны BOOK-PLAYER-GUIDE 1.4, Rules / Zones and Range, стр. 114; Speed, стр. 115; Combat Actions, стр. 116; Manoeuvre / Run, стр. 117; Recover, стр. 118; Conditions / Broken, стр. 122; Magic in the Old World / Interrupted Casting и Miscasts, стр. 156–157. Новых игровых Rule IDs/house rules нет. Уже потраченный free move, terrain/Athletics extension/нет выхода, end-turn Wound lifecycle и общий runner пока вне этого boundary. Другие ОС/Python, новый wheel и performance этого среза не проверялись.
+
+```sh
+PYTHONPATH=src /private/tmp/towr-test-venv/bin/python -m unittest discover -s tests -p 'test_m8*.py' -q
+PYTHONPATH=src /private/tmp/towr-test-venv/bin/python -m unittest discover -s tests -q
+/private/tmp/towr-test-venv/bin/python -m compileall -q src tests tools docs/examples/m8
+git diff --check
+```
+
+Незакоммиченные файлы этого среза:
+
+- Новые: `src/towr/domain/npc_action_interruption.py`, `src/towr/domain/npc_broken_run_models.py`, `src/towr/engine/npc_broken_run.py`, `tests/unit/test_m8_npc_broken_run.py`, `tests/integration/test_m8_npc_broken_run.py`.
+- Изменены: `src/towr/domain/npc_broken_recover_models.py`, `tests/unit/test_m8_npc_broken_recover.py` и документация: `README.md`, `docs/README.md`, `docs/project-status.md`, `docs/open-questions.md`, `docs/architecture/overview.md`, `docs/decisions/ADR-0036-magic-encounter-integration.md`, `docs/roadmap.md`, `docs/examples/m8/README.md`, `docs/game-rules.md`, `docs/rules/combat.md`, `docs/rules/magic.md`, `docs/rules/wounds-and-conditions.md`, `docs/source-index.md`, `docs/rule-traceability.md`, `docs/contradictions.md`.
+
+## Предыдущая проверка (первый Broken Recover)
+
+2026-10-25, macOS arm64 / Python 3.12.15: [первый Broken Recover / Casting interruption](decisions/ADR-0036-magic-encounter-integration.md#первый-broken-recover-и-casting-interruption) реализован. Read-only `git ls-remote` подтвердил актуальный GitHub `bd72b29`; на старте уже было 23 dirty/untracked paths предыдущего среза Give Ground. Они сохранены; 6 несвязанных source/test paths проверены по SHA-256, остальные 17 существовавших paths целенаправленно дополнены. Исходные hashes — `/private/tmp/towr-broken-before.json` (временный). Команды изменения stash не выполнялись; на финальной read-only проверке список stash пуст.
+
+Поддержаны safe Zone или один legal free move → self Recover/Broken с normal Willpower. Путь прекращается на первой безопасной Zone, его fastest/route/Speed/cause facts остаются за caller. Run/terrain/нет выхода не превращаются в ожидание или Recover среди врагов. Один Recover receipt, и success/failure тратят действие. Альтернативное снятие Condition не уменьшает Miscast Pool и не снимает Staggered. Только активный Casting Wizard получает один action-sourced skipped-Test die; Minion turn/свободное перемещение/ordinary Willpower 9 не добавляют лишних dice. Полный triggered pending_interruption блокирует bound Casting/attack/новый Broken Recover до отдельного Miscast continuation. Sources/normal trace/profile/receipt/history валидируются без нового RNG в application; Wounds/daily/roll/attack histories сохраняются. End-turn/expiry не выполняются.
+
+**23 новых tests: 20 unit + 3 integration; все 166 M8 tests — OK (0,264 с).** Real Curse → Broken Minion → free move → successful/failed Recover проходит K1 turn transitions. Real Champion Wound/daily ledger переносится через Wizard Recover с сохранением Drained и exact skip/pool/history; Broken у Wizard — explicit initial fact, не объявление поддержки Curse по Champion. Проверены safe/unsafe, Normal/Fast, success/failure, trace/source/replay/stale/type/pending guards, no standard benefits, обычные Willpower 9, global RNG/input immutability и failure без partial owner.
+
+Полная регрессия: **2832 tests, 33 errors (90,769 с)**. Все 33 сигнатуры совпадают с предыдущим 2809-test baseline: существующие ожидания исключений dataclasses на Python 3.12 (32 TypeError property assignment и один ValueError replace init=False). Новых ошибок нет; полная проверка не объявляется зелёной. Лог `/private/tmp/towr-broken-recover-tests.log` временный, не часть репозитория. Подробности — [open-questions](open-questions.md#проверки-dataclasses-на-python-312).
+
+Compileall src/tests/tools/docs/examples/m8, import boundaries новых модулей, 2476 локальных Markdown file paths и whitespace checks (tracked/untracked) — OK.
+
+Непосредственно перечитаны BOOK-PLAYER-GUIDE 1.4, Rules / Combat Actions / Manoeuvre / Recover, стр. 116–118; Conditions / Broken, стр. 122; Magic in the Old World / Interrupted Casting / Miscasts, стр. 156–157. Новых игровых Rule IDs/house rules нет. Другие ОС/Python, новый wheel и performance этого среза не проверялись. Commit/push не выполнялись.
+
+```sh
+PYTHONPATH=src /private/tmp/towr-test-venv/bin/python -m unittest discover -s tests -p 'test_m8*.py' -q
+PYTHONPATH=src /private/tmp/towr-test-venv/bin/python -m unittest discover -s tests -q
+/private/tmp/towr-test-venv/bin/python -m compileall -q src tests tools docs/examples/m8
+git diff --check
+```
+
+Новые файлы этого среза: `src/towr/domain/npc_broken_recover_models.py`, `src/towr/engine/npc_broken_recover.py`, `tests/unit/test_m8_npc_broken_recover.py`, `tests/integration/test_m8_npc_broken_recover.py`. Точечно дополнены existing owners/dispatch: `src/towr/domain/npc_roster_casting_models.py`, `src/towr/domain/npc_roster_champion_attack_models.py`, `src/towr/rules/npc_roster_casting_resolution.py`. Новое изменение документа сверх прежнего dirty набора — `docs/rules/wounds-and-conditions.md`; README и остальные 13 существовавших dirty docs дополнены описанием boundary/источников/следующего шага. Всего 28 dirty/untracked paths с учётом предыдущего среза; полный предыдущий список — в проверке ниже. Незакоммиченный Give Ground не приписывается этому срезу.
+
+## Предыдущая проверка (roster Give Ground completion)
+
+2026-10-25, macOS arm64 / Python 3.12.15: интеграция Give Ground completion в roster/Champion owner по [ADR-0036](decisions/ADR-0036-magic-encounter-integration.md#give-ground-completion-в-rosterchampion-owner) завершена. Перед началом read-only `git ls-remote origin refs/heads/main` подтвердил совпадение GitHub и локального `bd72b29`; рабочее дерево было чистым. Stash `699ad0e` не применялся и не менялся.
+
+Добавлены bound completion request/result и pure apply, полный pending_movement и блокировка нового bound Casting/Champion attack до RNG. Initial result расходует Casting ID/receipt один раз; завершение переносит готовые Conditions/live spatial в полный snapshot с архивными placements/usage IDs и сохраняет Wizard/daily/roll/attack histories. Исправлена live spatial projection для архивных usage IDs; они фильтруются только в проекции и сохраняются в полном owner. Routes/movement facts остаются явными; partial movements не публикуются как завершённый roster. Broken turn, interruptions, end-turn Wound effects и полный runner ещё не реализованы.
+
+**20 новых tests (15 unit + 5 integration), все 143 M8 tests — OK (0,238 с).** Проверены обе стороны мага, одна/две перемещаемые цели, исходный порядок Willpower, enemy destination/Broken, source/replay/stale/dispatch/type guards, archive/history restore, отсутствие нового RNG в application и отказ второго target Test без partial owner. Real Champion Wound → Casting → Give Ground → Willpower сохраняет Drained, дневной журнал, один Casting receipt и обе histories. Два прежних negative tests обновлены под новый movement admission.
+
+Полная регрессия: **2809 tests, 33 errors (86,690 с)**. Все 33 сигнатуры точно совпадают с baseline 2789 tests текущего полученного кода: 32 TypeError при присваивании frozen/slotted property и один ValueError от dataclasses.replace(init=False), вместо исключений, ожидаемых старыми tests на Python 3.12. Новых ошибок нет; полная проверка не объявляется зелёной. Подробности baseline — в [open-questions](open-questions.md#проверки-dataclasses-на-python-312). Лог: `/private/tmp/towr-roster-completion-tests.log` (временный).
+
+Compileall src/tests/tools/docs/examples/m8, import boundaries новых модулей, 2460 локальных Markdown file paths и whitespace checks (tracked/untracked) — OK.
+
+Непосредственно перечитаны BOOK-PLAYER-GUIDE 1.4, Rules / Giving Ground, стр. 119; Conditions, стр. 122–123; Battle Magic / Curse of Cowardly Flight, стр. 162. Новых Rule IDs, трактовок или house rules нет. Проверки другой ОС/Python, нового wheel и performance в этом срезе не проводились. Commit/push не выполнялись.
+
+```sh
+PYTHONPATH=src /private/tmp/towr-test-venv/bin/python -m unittest discover -s tests -p 'test_m8*.py' -q
+PYTHONPATH=src /private/tmp/towr-test-venv/bin/python -m unittest discover -s tests -q
+/private/tmp/towr-test-venv/bin/python -m compileall -q src tests tools docs/examples/m8
+git diff --check
+```
+
+Незакоммиченные файлы этого среза:
+
+- Новые: `src/towr/domain/npc_roster_casting_completion_models.py`, `src/towr/rules/npc_roster_casting_completion_resolution.py`, `tests/unit/test_m8_npc_roster_casting_completion.py`, `tests/integration/test_m8_npc_roster_casting_completion.py`.
+- Изменённые production/tests: `src/towr/domain/npc_roster_casting_models.py`, `src/towr/domain/npc_roster_champion_attack_models.py`, `src/towr/rules/npc_roster_casting_resolution.py`, `tests/unit/test_m8_cowardly_flight_casting_movement.py`, `tests/unit/test_m8_current_roster_casting.py`.
+- Документация: `README.md`, `docs/README.md`, `docs/project-status.md`, `docs/open-questions.md`, `docs/architecture/overview.md`, `docs/decisions/ADR-0036-magic-encounter-integration.md`, `docs/roadmap.md`, `docs/game-rules.md`, `docs/rules/combat.md`, `docs/rules/magic.md`, `docs/examples/m8/README.md`, `docs/source-index.md`, `docs/rule-traceability.md`, `docs/contradictions.md`.
+
+## Предыдущая проверка (сравнение stash и Python 3.12)
+
+2026-10-25, macOS arm64 / Python 3.12.15: сопоставлены `stash@{0}` (`699ad0e`, 17 путей) и полученный из GitHub `837592f`. Текущая ветка содержит Casting → roster consumer и следующие зависимости M8; локальные альтернативные модели/consumer/tests и устаревшие описания этапа не восстановлены. Отдельно перенесены только игнорирование `.DS_Store` и сведения о совместимости tests с Python 3.12. Stash сохранён как резервная копия; src/tests и текущий план не менялись, следующий этап разработки не начат.
+
+Проверка при сравнении на том же `837592f`: **123 M8 tests — OK (0,227 с)**; полный набор **2789 tests, 33 errors (85,946 с)**. Все 33 сигнатуры совпадают с ранее проверенным чистым `c92760a`: 32 `TypeError` при присваивании frozen/slotted property вместо ожидаемого `FrozenInstanceError` и один `ValueError` от `replace` поля `init=False` вместо ожидаемого `TypeError`. Это известное ограничение test expectations под Python 3.12, не успешная полная регрессия. Точные модули и временное положение — в [open-questions](open-questions.md#проверки-dataclasses-на-python-312). Лог полной проверки: `/private/tmp/towr-github-review-tests.log` (временный, не часть репозитория).
+
+```sh
+PYTHONPATH=src /private/tmp/towr-test-venv/bin/python -m unittest discover -s tests -p 'test_m8*.py' -q
+PYTHONPATH=src /private/tmp/towr-test-venv/bin/python -m unittest discover -s tests -q
+```
+
+`git check-ignore -v .DS_Store` и `git diff --check` — OK. При переносе только `.gitignore` и документации полный набор повторно не запускался; результаты выше относятся к проверке непосредственно перед переносом. Незакоммиченные изменения этого шага: `.gitignore`, `docs/project-status.md`, `docs/open-questions.md`. Commit/push не выполнялись.
+
+## Предыдущая проверка (standalone Give Ground M8)
+
+2026-10-02, Windows / Python 3.14.5: standalone двухфазный Curse Casting/Zone → Give Ground → Willpower реализован по ADR-0036. Исправлен CODE-CONFLICT-003: Broken от ухода во вражескую Zone сохраняется до/после Willpower. Один Casting receipt, typed source/completion, полная spatial chain, original target order и replay guards. Roster boundary явно сохраняет отказ can_give_ground=True до следующего среза интеграции.
+
+19 новых M8 unit, 5 integration и 2 K1 tests — OK; всего 123 M8 tests — OK. Полный набор **2789 tests — OK (348,291 с)**, включая real spawn/CLI. compileall, imports из src, 2443 локальные Markdown file paths и git diff --check успешны. Лог полной проверки — ignored build/m8-give-ground-tests.log.
+
+```powershell
+$env:PYTHONPATH = "src"
+.venv/Scripts/python.exe -m unittest discover -s tests/unit -p 'test_m8*.py' -q
+.venv/Scripts/python.exe -m unittest discover -s tests/integration -p 'test_m8*.py' -q
+.venv/Scripts/python.exe -m unittest discover -s tests -v
+.venv/Scripts/python.exe -m compileall -q src tests tools docs/examples/m8
+git -c core.safecrlf=false diff --check
+```
+
+Незакоммиченные файлы этого среза (включая дополнения к уже существовавшим изменениям):
+
+- src/towr/domain/cowardly_flight_casting_completion_models.py (новый); src/towr/domain/cowardly_flight_casting_models.py; src/towr/domain/cowardly_flight_casting_result_models.py; src/towr/domain/npc_roster_casting_models.py; src/towr/engine/cowardly_flight_casting.py; src/towr/rules/cowardly_flight_resolution.py.
+- tests/unit/test_m8_cowardly_flight_casting_movement.py и tests/integration/test_m8_cowardly_flight_casting_movement.py (новые); tests/unit/test_k1_cowardly_flight_zone_batch.py; tests/unit/test_m8_cowardly_flight_casting_models.py.
+- README.md; docs/README.md; docs/architecture/overview.md; docs/decisions/ADR-0035-cowardly-flight-casting-boundary.md; docs/decisions/ADR-0036-magic-encounter-integration.md; docs/contradictions.md; docs/game-rules.md; docs/open-questions.md; docs/project-status.md; docs/roadmap.md; docs/rule-traceability.md; docs/rules/combat.md; docs/rules/magic.md; docs/source-index.md; docs/examples/m8/README.md.
+
+На старте было 28 dirty/untracked paths. 12 несвязанных preexisting paths неизменны по SHA-256; 16 дополнялись в рамках задачи. Сейчас 37 dirty/untracked paths: 9 добавились к начальному статусу, из них 3 новых файла. Предшествующие изменения в дополненных файлах сохранены и не приписываются этому срезу.
+
+Начальный dirty snapshot сохранён в ignored build/m8-give-ground-before.json; существующие изменения не сброшены и не считаются новыми. Commit/push не выполнялись. Книги перечитаны непосредственно: PG1.4 Rules / Giving Ground, стр. 119; Conditions, стр. 122–123; Battle Magic / Curse, стр. 162. Книжных неоднозначностей для этого среза не осталось. Installed wheel/Python 3.12/другие ОС отдельно не проверялись.
+
+Полный текущий git status --short (включает работу предшествующих сессий):
+
+```text
+ M README.md
+ M docs/README.md
+ M docs/architecture/overview.md
+ M docs/contradictions.md
+ M docs/decisions/ADR-0035-cowardly-flight-casting-boundary.md
+ M docs/decisions/ADR-0036-magic-encounter-integration.md
+ M docs/examples/m8/README.md
+ M docs/game-rules.md
+ M docs/open-questions.md
+ M docs/project-status.md
+ M docs/roadmap.md
+ M docs/rule-traceability.md
+ M docs/rules/combat.md
+ M docs/rules/magic.md
+ M docs/rules/wounds-and-conditions.md
+ M docs/source-index.md
+ M src/towr/domain/cowardly_flight_casting_models.py
+ M src/towr/domain/cowardly_flight_casting_result_models.py
+ M src/towr/engine/cowardly_flight_casting.py
+ M src/towr/rules/cowardly_flight_resolution.py
+ M tests/unit/test_k1_cowardly_flight_zone_batch.py
+ M tests/unit/test_m8_cowardly_flight_casting_models.py
+?? src/towr/domain/cowardly_flight_casting_completion_models.py
+?? src/towr/domain/npc_champion_attack_models.py
+?? src/towr/domain/npc_roster_casting_models.py
+?? src/towr/domain/npc_roster_champion_attack_models.py
+?? src/towr/rules/npc_champion_attack_execution.py
+?? src/towr/rules/npc_roster_casting_resolution.py
+?? src/towr/rules/npc_roster_champion_attack_resolution.py
+?? tests/integration/test_m8_champion_casting_handoff.py
+?? tests/integration/test_m8_cowardly_flight_casting_movement.py
+?? tests/integration/test_m8_npc_champion_attack.py
+?? tests/integration/test_m8_npc_roster_casting.py
+?? tests/unit/test_m8_cowardly_flight_casting_movement.py
+?? tests/unit/test_m8_current_roster_casting.py
+?? tests/unit/test_m8_npc_champion_attack.py
+?? tests/unit/test_m8_npc_roster_casting.py
+```
+
+## Предыдущая проверка (Casting из актуального roster)
+
+2026-10-02, Windows / Python 3.14.5: реализованы Casting из актуального roster и bound передача Champion attack по [ADR-0036](decisions/ADR-0036-magic-encounter-integration.md). Casting state теперь хранит текущий injury/архив defeated, а отдельный preflight допускает живого caster со Staggered/Drained и resolved Wounds только с поддержанными condition effects. Builder берёт target injury из roster; live projection не считает completed/excluded turns доказательством гибели. Application возвращает receipt в полный round, сохраняя архивные entries и spatial. Targets допускают Staggered/Drained/Broken; repeated Broken сохраняет was_already_present, успешный resistance не снимает Condition.
+
+[Bound attack models](../src/towr/domain/npc_roster_champion_attack_models.py) и [pure application](../src/towr/rules/npc_roster_champion_attack_resolution.py) проверяют attached owner до RNG, полный source и replay, сохраняют WizardMagicState/SpatialState, daily/roll histories и pending; последующий Casting синхронизирует roster/round обоих owners. Pending attack блокирует Casting preparation; pending Miscast блокирует новый bound attack. Incoming Wound не считается пропуском Casting самим магом. Новых правил/house rules нет.
+
+**19 новых tests (12 unit + 7 integration); всего 99 M8 tests — OK (1,083 с)**. Проверены real Stomach blow → K1 turn transitions → Casting, сохранность Drained/магии/раны/daily/history, повторный Broken, live/archive projections, stale/replay и pending обоих направлений. Два прежних negative admission tests изменены под новый scope. **Полная регрессия: 2763 tests — OK (494,999 с)**, включая real spawn/CLI и прежние ranged/melee/mixed. Лог — ignored build/m8-current-roster-tests.log. Compileall, local Markdown links, domain import boundaries и git diff --check — OK.
+
+Непосредственно перечитаны BOOK-PLAYER-GUIDE 1.4, Rules / Conditions, стр. 122–123; Magic in the Old World / Casting a Spell / Interrupted Casting / Miscasts, стр. 156–157; Battle Magic / Curse of Cowardly Flight, стр. 162; Wounds Table / Superficial injury и Stomach blow, стр. 190; BOOK-GM-GUIDE 1.1, Allies and Antagonists / Champions, стр. 92. Drained не игнорируется: текущая граница использует только normal profile без bonus dice/Glorious. Иные Wound restrictions/Conditions и текущие shield/положительный Resilience bonus отклоняются до RNG.
+
+Исходные 20 dirty/untracked файлов сохранены. В этом шаге добавлены два production и два test modules; целевым образом расширены четыре существующих production-модуля и два теста, документация синхронизирована. SHA-256 подтвердил отсутствие изменений остальных существовавших src/tests/tools. Commit/push не выполнялись. Python 3.12/другие ОС и installed wheel этого среза не проверялись.
+
+Ограничения: no Give Ground, только перечисленные Conditions и normal unmodified profiles. Live round должен сохранять обе стороны/active actor. Полного encounter/автоматического terminal objective нет. Wound effects не истекают в Casting action; end-turn lifecycle, Broken/interruptions и Miscast effect consumers остаются отдельными этапами. Ручное восстановление старых snapshots или удаление owners/histories вне pure API не предотвращается.
+
+```powershell
+$env:PYTHONPATH = "src"
+.venv/Scripts/python.exe -m unittest discover -s tests -p "test_m8*.py" -q
+.venv/Scripts/python.exe -m unittest discover -s tests -v
+.venv/Scripts/python.exe -m compileall -q src tests tools docs/examples/m8
+git -c core.safecrlf=false diff --check
+```
+
+## Предыдущая проверка (Minion Attack → Champion)
+
+2026-09-30, Windows / Python 3.14.5: реализован отдельный Minion Attack → Champion bridge [ADR-0036](decisions/ADR-0036-magic-encounter-integration.md). [Frozen state/request/result](../src/towr/domain/npc_champion_attack_models.py) связывают текущие roster/round/injury/Resilience/Protection и дневной ledger. [Executor/application](../src/towr/rules/npc_champion_attack_execution.py) исполняет один existing Attack, завершает Wound lifecycle с регистрацией/эффектами и применяет результат ровно один раз. Исходная execution с Wound roll и completed kernel сохраняются. Follow-ups, требующие отдельного consumer, остаются в полном pending и блокируют следующий attack request; terminal victory не вычисляется. Прежний Minion → Minion API не менялся.
+
+**16 новых tests — OK (0,043 с)**: 13 unit + 3 integration. Покрыты miss/Staggered/Wound/Drained, Close miss, Give Ground/Prone, pending effect/source/replay/stale/history guards, untreated/treated Wound dice, повторные раны и смерть. Дополнительно вручную проверен existing repeated Staggered → SUFFER_WOUND → completion. **Полная регрессия: 2744 tests — OK (513,899 с)**, включая real spawn/CLI, прежние ranged/melee/mixed и оба новых M8 consumers. Лог — ignored build/m8-champion-full-tests.log. Compileall, local Markdown links, import boundaries и git diff --check — OK.
+
+SHA-256 подтверждает неизменность всех существовавших src/tests/tools относительно начала этого шага, включая предыдущий незакоммиченный Casting consumer. Исходные 15 dirty/untracked файлов сохранены. В этом шаге добавлены два production-модуля и два test-модуля; обновлена документация. Commit/push не выполнялись. Непосредственно перечитаны PG1.4 Rules / Attack Tests, стр. 118–119; Wounds & Conditions, стр. 121; Wounds Table, стр. 190–191; GM1.1 Allies and Antagonists / Champions, стр. 92. Новых Rule IDs/house rules нет.
+
+Ограничения: один standard Attack, ordinary numeric preparation, initial Conditions только Staggered, resolved Wounds без active restrictions; дополнительные effects/negation/Fate/особые abilities не поддержаны. Magic/spatial сохраняет caller отдельно; объединённого encounter state/dispatch нет. Injured caster не проходит прежний healthy-only Casting state автоматически. Pending effect/movement consumers, следующие ходы Broken и полный battle runner остаются впереди. Python 3.12/другие ОС и installed wheel этого среза не проверялись.
+
+```powershell
+$env:PYTHONPATH = "src"
+.venv/Scripts/python.exe -m unittest tests.unit.test_m8_npc_champion_attack tests.integration.test_m8_npc_champion_attack -q
+.venv/Scripts/python.exe -m unittest discover -s tests -v
+.venv/Scripts/python.exe -m compileall -q src tests tools docs/examples/m8
+git -c core.safecrlf=false diff --check
+```
+
+## Предыдущая проверка (Casting → roster consumer)
+
+2026-09-29, Windows / Python 3.14.5: реализован первый consumer [ADR-0036](decisions/ADR-0036-magic-encounter-integration.md). [Frozen модели](../src/towr/domain/npc_roster_casting_models.py) явно связывают Champion actor с Casting definition/magic state и полным roster/round/spatial snapshot до исполнения. [Pure application](../src/towr/rules/npc_roster_casting_resolution.py) переносит результат одного Casting без RNG: Conditions целей, magic, receipt, consumed ID и полный pending Miscast. Exact source guards охватывают весь state, включая остальных бойцов; replay/stale и normal Casting при pending отклоняются. Новых игровых правил нет.
+
+**14 новых tests — OK (0,022 с)**: 11 unit + 3 integration, обе стороны, WAIT/CAST/MISCAST_REQUIRED, разные definition/actor IDs, empty Zone/zero Potency, реальная смена раунда, source/replay/pending/type/immutability guards и отсутствие RNG. **Полная регрессия: 2728 tests — OK (392,778 с)**, включая real spawn/CLI и прежние сценарии. Лог — ignored build/m8-roster-full-tests.log. Compileall, локальные Markdown-ссылки, import boundaries и git diff --check — OK. SHA-256 подтвердил неизменность всех существовавших файлов src/tests/tools; добавлены только два production-модуля и два test-модуля. Рабочее дерево на старте чистое; commit/push не выполнялись.
+
+Непосредственно перечитаны BOOK-PLAYER-GUIDE 1.4, Magic in the Old World / Miscasts and the Rule of Nine, стр. 157; Battle Magic / Curse of Cowardly Flight, стр. 162; BOOK-GM-GUIDE 1.1, Allies and Antagonists / Champions, стр. 92. Первый state допускает здорового Champion и живых Minions. Injured Champion, live projection после defeat, следующие ходы Broken, разрешение Miscast и full runner пока не поддержаны. Python 3.12/другие ОС и installed wheel этого среза не проверялись.
+
+```powershell
+$env:PYTHONPATH = "src"
+.venv/Scripts/python.exe -m unittest tests.unit.test_m8_npc_roster_casting tests.integration.test_m8_npc_roster_casting -q
+.venv/Scripts/python.exe -m unittest discover -s tests -q
+.venv/Scripts/python.exe -m compileall -q src tests tools docs/examples/m8
+git -c core.safecrlf=false diff --check
+```
+
+## Предыдущая проверка (контракт интеграции M8)
+
+2026-09-29, Windows / Python 3.14.5: подготовлен [ADR-0036](decisions/ADR-0036-magic-encounter-integration.md), инвентаризированы NpcRoster/attack, Champion Wounds, Casting, Broken/Recover и Miscast consumers. Выбран ограниченный авторский Champion-Wizard + Minions, зафиксированы ownership, pending/unsupported_path и шесть последовательных срезов. Исходный roster attack поддерживает только Minion → Minion; отдельные K1 reducers не объявлены готовым encounter. Непосредственно проверены PG1.4 Rules / Recover, стр. 118; Giving Ground, стр. 119; Wounds & Conditions, стр. 121–122; Wounds Table, стр. 190; Magic in the Old World / Casting/Miscasts, стр. 156–157, 159; GM1.1 Allies and Antagonists / Minions/Champions, стр. 91–92; Hermit Witch, стр. 130. Новых игровых правил/house rules нет.
+
+**177 существующих tests из 13 модулей — OK (1,298 с)**: M8, roster, kernel cycle, Wound lifecycle, Recover, movement, Miscast. Лог — ignored build/m8-encounter-contract-tests.log. Новых production APIs/tests в этом документационном срезе нет; существующие незакоммиченные изменения сохранены. SHA-256 подтверждает неизменность всех 677 Python-файлов src/tests/tools относительно начала шага. Compileall и git diff --check — OK; проверены 2379 локальных Markdown-путей, отсутствующих файлов нет. Новый файл этого шага — ADR-0036; изменены только README и связанная документация. Полный suite не повторялся: последняя полная проверка — 2713 OK до добавления example test предыдущего шага. Python 3.12/другие ОС, wheel и performance в этом срезе не проверялись. Commit/push не выполнялись.
+
+```powershell
+$env:PYTHONPATH = "src"
+.venv/Scripts/python.exe -m unittest tests.unit.test_m8_cowardly_flight_casting_models tests.unit.test_m8_cowardly_flight_casting tests.integration.test_m8_cowardly_flight_casting tests.integration.test_m8_casting_example tests.unit.test_m2_npc_roster tests.unit.test_m2_npc_roster_attack_execution tests.integration.test_k1_npc_attack_kernel_cycle tests.unit.test_k1_wound_lifecycle_resolution tests.unit.test_k1_recover_resolution tests.unit.test_k1_free_movement_resolution tests.unit.test_k1_miscast_resolution tests.unit.test_k1_miscast_pool_resolution tests.unit.test_k1_miscast_effect_resolution -q
+.venv/Scripts/python.exe -m compileall -q src tests tools docs/examples/m8
+git -c core.safecrlf=false diff --check
+```
+
+## Предыдущая проверка (аудит Casting M8)
+
+2026-09-29, Windows / Python 3.14.5: завершён [аудит Casting boundary ADR-0035](audits/m8-casting-readiness.md), добавлены [standalone production example](examples/m8/casting_action.py), [сохранённый вывод](examples/m8/casting_action.output.txt) и subprocess test. Исправлений production-кода не потребовалось. Шесть supplied activations / 24 scripted d10, WAIT → CAST, latest Potency/Broken, pool equality / pending Miscast, zero Potency / empty Zone, один receipt и immutable input/global RNG проверены.
+
+**227 связанных tests — OK (1,004 с)**, из них 50 M8 (включая один новый subprocess test) и 177 K1. Пример из cwd проекта, temporary cwd и установленного wheel даёт одинаковый stdout, stderr пуст. Wheel собран offline с локальным setuptools 84.0.0, `--no-cache-dir`; отдельно установлен в build/m8-casting-audit/installed. Проверен путь импортированного engine под `-S` без src в PYTHONPATH. Build/install logs и installed output — ignored build/m8-audit-*. Полный dependency resolver, CLI магии, Python 3.12/другие ОС и performance не проверялись.
+
+`compileall` и `git diff --check` — OK. Проверены 2348 локальных путей Markdown, отсутствующих файлов нет; четыре новых файла — UTF-8 без BOM и trailing whitespace. SHA-256 подтвердил неизменность всех 676 существовавших Python-файлов src/tests/tools; standalone example использует только public imports. Полный suite повторно не запускался: последняя полная проверка неизменённого production-кода — 2713 tests OK (395,812 с), до добавления одного нового example test. Непосредственно перечитаны PG1.4 Rules / Improvise, стр. 117; Conditions / Broken, стр. 122; Magic in the Old World / Casting/Miscasts, стр. 156–157; Formal Spells, стр. 160; Battle Magic / Curse of Cowardly Flight, стр. 162; GM1.1 Allies and Antagonists / Champions, стр. 92; Hermit Witch, стр. 130. Новых Rule IDs/house rules нет.
+
+При начале шага уже были незакоммиченные input/result/executor, tests и документация предыдущих шагов; они сохранены. В этом шаге добавлены audit, example/output и один test; документация синхронизирована. Полного battle runner, разрешения таблицы Miscast и следующего хода Broken нет. Commit/push не выполнялись.
+
+```powershell
+$env:PYTHONPATH = "src"
+$testModules = Get-ChildItem tests/unit,tests/integration -Filter 'test_k1_*.py' | Where-Object {
+    $_.BaseName -match 'casting|spell|miscast|cowardly_flight|turn_resolution'
+} | ForEach-Object { "tests.$($_.Directory.Name).$($_.BaseName)" }
+.venv/Scripts/python.exe -m unittest tests.unit.test_m8_cowardly_flight_casting_models tests.unit.test_m8_cowardly_flight_casting tests.integration.test_m8_cowardly_flight_casting tests.integration.test_m8_casting_example $testModules -q
+.venv/Scripts/python.exe docs/examples/m8/casting_action.py
+.venv/Scripts/python.exe -m compileall -q src tests tools docs/examples/m8
+git -c core.safecrlf=false diff --check
+```
+
+## Предыдущая проверка (result/executor M8)
+
+2026-09-29, Windows / Python 3.14.5: реализованы [result models/guards](../src/towr/domain/cowardly_flight_casting_result_models.py) и [executor](../src/towr/engine/cowardly_flight_casting.py) по ADR-0035. Один Casting Test/receipt, exact WAIT/CAST/pending Miscast, ordered target Willpower/Broken. Возвращённые snapshots — read-only projections; normal traces и полные фазовые payloads проверяются без resolver/RNG. Canonical definition перенесён в domain/magic_models с прежним rules реэкспортом; правила не изменены. Книги PG1.4, Magic in the Old World / Casting/Miscasts, стр. 156–157; Battle Magic / Curse of Cowardly Flight, стр. 162 перечитаны непосредственно.
+
+**26 новых tests: 24 unit и 2 integration — OK. 226 с input и связанными K1 — OK (0,082 с)**. Integration использует реальные end-turn, Recover остальных участников, advance/start/reserve следующего раунда; accumulated successes/pool мага сохраняются. Public K1 probe на 24 scripted dice снова прошёл. `compileall` и `git diff --check` — OK. **Полная регрессия: 2713 tests — OK (395,812 с)**; лог `build/m8-executor-full-tests.log` (ignored). Проверены 2308 локальных путей Markdown, отсутствующих файлов нет. AST-проверка новых production modules подтвердила направление зависимостей; исходные input models и их 23 tests сохранены byte-for-byte относительно начала шага.
+
+При начале шага уже существовали незакоммиченные input models, их 23 tests и изменения 13 документов от прошлого шага; они сохранены. В этом шаге добавлены result module, engine module, unit/integration test modules; canonical definition перемещён между двумя существующими K1 modules. Документация синхронизирована. Полный magic encounter, Miscast table execution, Broken turns и CLI магии не добавлены. Python 3.12/другие ОС и installed wheel пока не проверялись. Commit/push не выполнялись.
+
+```powershell
+$env:PYTHONPATH = "src"
+.venv/Scripts/python.exe -m unittest discover -s tests -v
+.venv/Scripts/python.exe docs/examples/m8/casting_contract_probe.py
+.venv/Scripts/python.exe -m compileall -q src tests tools docs/examples/m8
+git -c core.safecrlf=false diff --check
+```
+
+## Предыдущая проверка (input/preflight M8)
+
+2026-09-29, Windows / Python 3.14.5: реализованы [frozen input models/preflight](../src/towr/domain/cowardly_flight_casting_models.py) по ADR-0035. Definition/state разделены; explicit policy/facts, standard spell slot, actor/Lore/pool, round/spatial side/Zone и полный target order проверяются без RNG. Target list копируется в tuple; healthy Minions без Conditions/ухода, обе стороны caster и пустая Zone поддержаны. Actor-agnostic WizardMagicState связывает с actor caller; removed-participant spatial snapshots в этот scope не входят.
+
+**23 новых deterministic tests; 200 вместе с 177 связанными K1 — OK (0,032 с)**. Покрыты нормальный/WAIT вход, threshold equality/mandatory Miscast, чужой actor, реальный K1 executed slot, wrong types/facts, target состав/порядок/стороны, completed/excluded turns и неизменность/RNG. Production executor/result пока нет. Повторно сверены BOOK-PLAYER-GUIDE 1.4, Rules / Combat Actions, стр. 116–117; Magic in the Old World / Casting/Miscasts, стр. 156–157; Formal Spells, стр. 160; Battle Magic / Curse of Cowardly Flight, стр. 162. Новых house rules/Rule IDs нет.
+
+`compileall` и `git diff --check` — OK; 2293 локальных пути Markdown существуют. AST-проверка нового domain module подтверждает только stdlib/domain imports. Новые source/test файлы — UTF-8 без BOM, с завершающей новой строкой, без trailing whitespace. Рабочее дерево перед шагом чистое; добавлены domain module и test module, обновлены 13 документов. Существующие K1/engine/CLI не менялись. Полный suite в этом шаге не запускался; последняя полная проверка — 2664 tests OK до добавления 23 новых tests. Python 3.12/другие ОС и installed wheel не проверялись. Commit/push не выполнялись.
+
+```powershell
+$env:PYTHONPATH = "src"
+$testModules = Get-ChildItem tests/unit,tests/integration -Filter 'test_k1_*.py' | Where-Object {
+    $_.BaseName -match 'casting|spell|miscast|cowardly_flight|turn_resolution'
+} | ForEach-Object { "tests.$($_.Directory.Name).$($_.BaseName)" }
+.venv/Scripts/python.exe -m unittest tests.unit.test_m8_cowardly_flight_casting_models $testModules -q
+.venv/Scripts/python.exe -m compileall -q src tests tools docs/examples/m8
+git -c core.safecrlf=false diff --check
+```
+
+## Предыдущая проверка (контракт M8)
+
+2026-09-29, Windows / Python 3.14.5: первый контракт M8 подготовлен — [ADR-0035](decisions/ADR-0035-cowardly-flight-casting-boundary.md), inventory existing casting/spell/Miscast/turn APIs и [public finite probe](examples/m8/casting_contract_probe.py). Выбран необходимый первый узел: одно Casting-действие с canonical Curse of Cowardly Flight. Production models/executor не добавлялись, полный battle scenario с магией и прежний JSON/CLI не менялись.
+
+**177 связанных K1 tests — OK (0,020 с)**, 16 modules: casting/action/post-Test/decision/interruption/abandonment, spell preflight/targets/Potency, Curse effects/batch, Miscast и turn resolution. Лог: build/m8-contract-tests.log (ignored). **Finite probe — OK** в cwd репозитория и отдельном temporary cwd: 24 scripted d10, WAIT → CAST, accumulated 3/Potency2, resisted/Broken, zero Potency, empty Zone, pool == Level/>Level, replay/actor guards до RNG. Stdout совпал, stderr пуст, global RNG сохранён. Это последовательность supplied activations, не battle runner или M8 admission.
+
+Прямо перечитаны BOOK-PLAYER-GUIDE 1.4, Abilities / Dispeller, стр. 74; Rules / Combat Actions, стр. 116–117; Conditions / Broken, стр. 122; Magic in the Old World / Anatomy/Casting/Potency/Miscasts/Formal Spells, стр. 155–160; Improvised Spells, стр. 161; Battle Magic / Curse of Cowardly Flight, стр. 162. BOOK-GM-GUIDE 1.1, Allies and Antagonists / Champions, стр. 92; Hermit Witch/Daemonologist, стр. 130–131. Обе книги доступны. Новых Rule IDs/house rules нет; существующие неоднозначности Magic Resistance и Miscast context не затронуты допуском.
+
+`compileall` и `git diff --check` — OK. Проверены 2282 локальных пути Markdown, отсутствующих файлов нет; новые файлы — UTF-8 без BOM, с завершающей новой строкой. Сравнение SHA-256 подтвердило неизменность всех 688 файлов src/towr, tests и tools.
+
+Рабочее дерево перед шагом чистое. Добавлены ADR-0035, examples/m8/README.md и casting_contract_probe.py; обновлена связанная документация/источники/трассировка. Src/tests/tools не менялись. Commit/push не выполнялись. Полный набор повторно не запускался: последняя полная проверка неизменённого production-кода — 2664 tests OK. Python 3.12/другие ОС, installed wheel и performance этого нового примера не проверялись.
+
+```powershell
+$env:PYTHONPATH = "src"
+$testModules = Get-ChildItem tests/unit,tests/integration -Filter 'test_k1_*.py' | Where-Object {
+    $_.BaseName -match 'casting|spell|miscast|cowardly_flight|turn_resolution'
+} | ForEach-Object { "tests.$($_.Directory.Name).$($_.BaseName)" }
+.venv/Scripts/python.exe -m unittest $testModules -q
+.venv/Scripts/python.exe docs/examples/m8/casting_contract_probe.py
+.venv/Scripts/python.exe -m compileall -q src tests tools docs/examples/m8
+git -c core.safecrlf=false diff --check
+```
+
+## Предыдущая проверка (внешний аудит M7)
+
+2026-09-29, Windows / Python 3.14.5: [общий аудит mixed JSON/CLI](audits/m7-external-readiness.md) завершён. ADR-0034 закрыт в текущей границе numeric Minions: шесть Schema, immutable commands/results, pure adapters, services и обе CLI-команды сопоставлены с контрактом и 149 tests (122 unit/27 integration). Исправлений production-кода и новых tests не потребовалось.
+
+**378 targeted/regression tests — OK (280,372 с)**: все 149 tests внешней границы M7 и 229 M4/M5/M6 JSON/services/CLI. Лог: build/m7-external-audit-tests.log (ignored). Последняя полная проверка неизменённого кода: **2664 tests OK (406,250 с)** из предыдущего среза; полный набор в этом документационном аудите повторно не запускался. Compileall, AST layer boundaries, 2251 локальный Markdown-путь, UTF-8/whitespace новых файлов и git diff --check успешны.
+
+Повторно проверен установленный offline wheel: **374 Python/Schema-файла** равны src, pip check успешен. Module/stdin и console/file × sequential/process вне repo/PYTHONPATH сохраняют request, Unicode, actor flags и равные aggregates обеих mixed-команд. Шесть Schema/local refs, generation failure (0,1), семейства ошибок шести команд, четыре прежние команды и installed help/usage/I/O прошли. Отдельный installed public service/encoder probe подтвердил runtime metadata, source roundtrip, неизменность command/global RNG и cleanup child processes. Contract probe исполнил 48 trials/12 semantic refusals; production balance example — 192 trials (96 на backend), оба через установленный Python вне repo. Saved fixtures не перезаписывались.
+
+Прямо перечитаны BOOK-PLAYER-GUIDE 1.4, Equipment / Ranged Weapons, стр. 94; Rules / The Battlefield / Range, стр. 114; Attack Tests / Attack Modifiers и Failed/Successful Attacks/Giving Ground, стр. 118–119; BOOK-GM-GUIDE 1.1, Allies and Antagonists / Minions, стр. 91; Understanding NPC Profiles, стр. 93; Brigands & Footpads, стр. 97. Новых противоречий, Rule IDs или house rules нет. Источники и трассировка актуализированы.
+
+Изначальные незакоммиченные изменения сохранены; src/tests/tools и JSON fixtures не изменены относительно снимка перед аудитом. Новый файл — docs/audits/m7-external-readiness.md; обновлены README, docs/README, project-status/open-questions, roadmap, architecture/overview, ADR-0034, examples/m7/README и examples/m7/json/README, source-index/rule-traceability/contradictions. Commit/push не выполнялись. Python 3.12/другие ОС и новые performance-измерения не проверялись. Выбранное следующее направление — магия, сначала контракт M8.
+
+```powershell
+$env:PYTHONPATH = "src"
+$testModules = Get-ChildItem tests/unit,tests/integration -Filter '*.py' | Where-Object {
+    $_.BaseName -match '^test_m[4567]_' -and $_.BaseName -match '(json|cli|service)' -and $_.BaseName -notmatch 'evaluation'
+} | ForEach-Object { "tests.$($_.Directory.Name).$($_.BaseName)" }
+.venv/Scripts/python.exe -m unittest $testModules -q
+.venv/Scripts/python.exe -m compileall -q src tests tools docs/examples/m7
+git -c core.safecrlf=false diff --check
+```
+
+## Предыдущая проверка (mixed balance service/CLI)
+
+2026-09-29, Windows / Python 3.14.5: четвёртый implementation-срез ADR-0034 завершён. Добавлены `application/mixed_balance_service.py` и `mixed_balance_errors.py`; mixed balance adapter получил error encoder, CLI — отдельную команду `balance-mixed`. Service передаёт точные generation/evaluation sources и options, возвращает полный MixedBalanceResult. Ошибки generation/evaluation сохраняют внешний request ID, известные candidate/counts либо stage/candidate и цепочку cause/notes; JSON diagnostics общие. Wrong command отвергается до dispatch, BaseException проходит, encoder failures не маскируются.
+
+**41 новый тест — OK**: 17 service/error unit, 12 CLI unit, 3 service integration и 9 CLI integration. Проверены чужой source, порядок pairs и actor escape flags, все phase contexts, invalid subset после успешного preflight, сбой второй materialization и поздний trial failure после полного stage, отсутствие partial/retry/fallback. File/stdin/Unicode, реальные sequential/process, pool failure, interrupts, read/write/flush/closed streams и семейства ошибок всех шести команд покрыты.
+
+**Полная регрессия: 2664 tests — OK (406,250 с)**, exit 0. Лог: build/m7-balance-cli-tests.log (ignored). Compileall src/tests/tools/docs/examples/m7, AST layer boundaries, 2204 локальных Markdown-пути, whitespace/UTF-8 новых файлов и git diff --check успешны.
+
+Wheel собран offline и установлен в чистый venv. Все **374 Python/Schema-файла** установленного пакета равны src; module/stdin и console/file из отдельного cwd без PYTHONPATH дают одинаковые mixed simulation/balance results в sequential/process. Сохраняются Unicode, полный request, actor flags, counts и бюджет. Проверены четыре прежние команды, семейства ошибок шести команд, три simulation и три balance Schema/local refs, реальный generation failure (0,1), injected pool failure с stage/candidate и pip check. Проверка Schema перенесена из длинного `-c` в временный `.py` из-за лимита длины командной строки Windows; после переноса успешна.
+
+Изначальные незакоммиченные изменения сохранены. По SHA-256 среди существовавших src/towr/tests/tools изменены только `cli.py` и `adapters/mixed_balance_json.py`; добавлены два production-модуля и четыре test-модуля `test_m7_mixed_balance_service.py`/`test_m7_mixed_balance_cli.py` в unit/integration. Обновлены README, карта документации, ADR-0034, architecture, roadmap, status/open questions и README примеров M7/JSON. Все эти файлы остаются незакоммиченными вместе с предыдущей работой. Commit/push не выполнялись.
+
+Правила и нижние слои не менялись; новые книжные трактовки не вводились. Сохраняется numeric Minion scope ADR-0028/0034 с явными парами и решениями GM. Python 3.12/другие ОС и новые performance-измерения не проверялись; общий аудит ADR-0034 остаётся следующим шагом.
+
+```powershell
+$env:PYTHONPATH = "src"
+.venv/Scripts/python.exe -m unittest tests.unit.test_m7_mixed_balance_service tests.unit.test_m7_mixed_balance_cli tests.integration.test_m7_mixed_balance_service tests.integration.test_m7_mixed_balance_cli -q
+.venv/Scripts/python.exe -m unittest discover -s tests -q
+.venv/Scripts/python.exe -m compileall -q src tests tools docs/examples/m7
+git -c core.safecrlf=false diff --check
+```
+
+## Предыдущая проверка (mixed balance JSON)
+
+2026-09-29, Windows / Python 3.14.5: третий implementation-срез ADR-0034 реализован. Добавлены три mixed balance Schema, immutable MixedBalanceCommand/Result, pure parser/result encoder и MixedBalanceInputError. Registry разрешает только bundled refs; simulation helper сохраняет API. Общий scenario mapper переиспользует pair helpers для reserve/family assertions; strict reader, simulation Schema, CLI и domain/engine/rules/simulation/balance не менялись.
+
+**38 новых tests — OK (15,201 с)**: 36 unit и 2 real-backend integration. Проверены strict lexical/Schema, exact integers/Fraction, frozen/tuple/replace, independent external ID, family pairs/facts и actor flags, preflight без materialization, допущенный bounds request с generation failure (0,1), lossless source и полная staged chain. Sequential/process reports и wire aggregates равны; saved fixture проверяет форму по заданным observations, без Monte Carlo oracle.
+
+**Полная регрессия: 2623 tests — OK (344,328 с)**, exit 0, включая прежние JSON/CLI/real spawn. Лог: build/m7-balance-json-tests.log (ignored). Compileall src/tests/tools/docs/examples/m7, AST layer boundaries, 2195 локальных Markdown-пути, whitespace новых файлов и git diff --check успешны.
+
+Изначальные изменения сохранены. По SHA-256 existing src/towr/tests/tools изменились только три intended adapters: `_mixed_scenario_json`, mixed_json_errors и mixed_json_schema; добавлены 5 production файлов (models, adapter, три Schema) и 2 test-модуля. Предшествующие CLI/simulation changes и fixtures сохранены. Незакоммичены эти файлы вместе с прежними изменениями; commit/push не выполнялись.
+
+Прямо сверены BOOK-PLAYER-GUIDE 1.4, Rules / The Battlefield / Range, стр. 114 и BOOK-GM-GUIDE 1.1, Allies and Antagonists / Minions, стр. 91. Explicit пары/решения GM и прежний admission сохранены, новых Rule IDs/house rules нет. Новых runtime dependencies нет; новый installed wheel/Python 3.12/другие ОС/performance не проверялись. Balance service/errors/error encoder/CLI остаются следующим срезом.
+
+```powershell
+$env:PYTHONPATH = "src"
+.venv/Scripts/python.exe -m unittest tests.unit.test_m7_mixed_balance_json tests.integration.test_m7_mixed_balance_json -q
+.venv/Scripts/python.exe -m unittest discover -s tests -q
+.venv/Scripts/python.exe -m compileall -q src tests tools docs/examples/m7
+git -c core.safecrlf=false diff --check
+```
+
+## Предыдущая проверка (mixed simulation CLI)
+
+
+2026-09-29, Windows / Python 3.14.5: второй implementation-срез ADR-0034 реализован. Добавлены mixed simulation service/application error, error encoder и отдельная CLI-команда simulate-mixed. Используются existing sequential/process APIs, штатный RNG и прежние exact source guards. Domain/engine/rules/simulation/balance не менялись; четыре прежние команды сохраняются.
+
+**39 новых tests — OK (38,514 с)**: 9 service unit, 6 error JSON, 13 CLI unit, 11 CLI integration. Покрыты exact source (включая pairs/actor flags), wrong families, cause/notes/interrupts, поздняя ошибка после завершённого trial без partial result, generic execution message, четыре исхода как success, UTF-8/file/stdin/real spawn и I/O read/write/flush/closed streams. Конкретные Monte Carlo проценты не закреплены.
+
+**Полная регрессия: 2585 tests — OK (349,513 с)**, exit 0. Лог: build/m7-mixed-cli-tests.log (ignored). Compileall, AST layer boundaries, 2184 локальных Markdown-пути, whitespace новых файлов и git diff --check успешны.
+
+Wheel собран офлайн с setuptools 84.0.0 из локального кэша, установлен с runtime dependencies в чистый временный venv вне репозитория; pip check успешен. Все 367 Python/Schema-файлов установленного пакета совпали с src после нормализации line endings. Без PYTHONPATH, из отдельного cwd: module/stdin и console/file × sequential/process дали равные mixed aggregates, сохранили Unicode и actor flags. Четыре прежние команды проверены через обе точки входа: успешные outputs равны, malformed/wrong-family inputs сохраняют прежние envelopes. Все три mixed Schema/local refs и input error categories проверены в установленном пакете. Новых runtime dependencies нет.
+
+Изначальные изменения сохранены: по SHA-256 existing src/towr/tests/tools изменены только CLI и mixed_simulation_json; добавлены service/error и четыре test-модуля. Generated egg-info от сборки не входит в эту сверку. Незакоммичены эти файлы и предшествующие docs/JSON/parser changes; commit/push не выполнялись. Python 3.12/другие ОС и performance не проверялись. Правила и domain/engine не менялись. Следующий срез — balance Schema/models/pure adapters; balance-mixed ещё не реализован.
+
+```powershell
+$env:PYTHONPATH = "src"
+.venv/Scripts/python.exe -m unittest tests.unit.test_m7_mixed_service tests.unit.test_m7_mixed_error_json tests.unit.test_m7_mixed_cli tests.integration.test_m7_mixed_cli -q
+.venv/Scripts/python.exe -m unittest discover -s tests -q
+.venv/Scripts/python.exe -m compileall -q src tests tools docs/examples/m7
+git -c core.safecrlf=false diff --check
+```
+
+## Предыдущая проверка (mixed simulation JSON)
+
+
+2026-09-29, Windows / Python 3.14.5: первый implementation-срез [ADR-0034](decisions/ADR-0034-mixed-json-cli-v1.md) реализован. Добавлены immutable MixedSimulationCommand, общий scenario mapper, отдельные mixed input errors, strict parser/aggregate summary encoder и три bundled simulation Schema. `_json_common` расширяет лишь тип error factory; domain/engine/rules/simulation/balance и прежние ranged/Melee Schema/API/CLI не менялись.
+
+**31 новый test — OK (3,143 с)**: 29 unit и 2 integration с real spawn. Проверены lexical integers/uint64/UTF-8/version/unknown fields, все nested shapes, used definitions/references, fresh admission, Skill/Range/Hands/Athletics, полный ordered enemy-pair список без reverse duplicates, actor-scoped escape/outnumbering/GM decisions, exact summary source и lossless reconstruction. Полные sequential/process results равны, encoded aggregates совпадают; конкретные Monte Carlo проценты не закреплены. Saved fixtures остаются исходными, parser/encoder сами не исполняют RNG/runner/pool.
+
+**Полная регрессия: 2546 tests — OK (288,168 с)**, включая прежние ranged/Melee/CLI и real spawn. Лог: build/m7-mixed-json-tests.log (ignored); PowerShell оформил перенаправленный stderr unittest как NativeCommandError, итог самого unittest — OK, без failures/errors. Compileall src/tests/tools/docs/examples/m7, AST layer boundaries, 2173 локальных Markdown-пути, whitespace новых файлов и git diff --check успешны.
+
+Прямо перечитаны BOOK-PLAYER-GUIDE 1.4, Equipment / Ranged Weapons, стр. 94; Rules / The Battlefield / Range, стр. 114; Attack Tests / Attack Modifiers, стр. 118–119; BOOK-GM-GUIDE 1.1, Allies and Antagonists / Minions, стр. 91; Understanding NPC Profiles, стр. 93; Brigands & Footpads, стр. 97. Новых Rule IDs/house rules нет. Изначальные изменения документации/примеров сохранены; добавлены 8 production файлов и 2 test-модуля, изменён общий reader. Service/application error/error encoder/CLI и balance wire не входят в завершённый срез. Python 3.12/другие ОС, installed wheel и performance не проверялись; commit/push не выполнялись.
+
+```powershell
+$env:PYTHONPATH = "src"
+.venv/Scripts/python.exe -m unittest tests.unit.test_m7_mixed_json tests.integration.test_m7_mixed_json -q
+.venv/Scripts/python.exe -m unittest discover -s tests -q
+.venv/Scripts/python.exe -m compileall -q src tests tools docs/examples/m7
+git -c core.safecrlf=false diff --check
+```
+
+## Предыдущая проверка (контракт Mixed JSON/CLI)
+
+
+2026-09-29, Windows / Python 3.14.5: подготовлены [контракт Mixed JSON/CLI ADR-0034](decisions/ADR-0034-mixed-json-cli-v1.md), [шесть JSON fixtures и матрица допуска/ошибок](examples/m7/json/README.md), [конечный mapping probe](examples/m7/json_contract_probe.py). Контракт задаёт отдельные simulate-mixed/balance-mixed, strict numeric/lexical boundary, exact source/ordered pairs/actor policies, aggregate outputs и phase-specific errors/exit codes. Production Schema/adapters/services/CLI ещё не реализованы.
+
+Probe отображает два authored requests в existing typed builders без потери заданных scenario fields. Simulation=8 trials, balance C=4/stages 2/4 keep 2/1/planned=actual=16 на backend; полные sequential/process results/reports равны. Проверены 12 constructor rejections и реальный generation failure (0,1) после preflight C=5/budget=18, без silent skip. Input/global RNG/children сохранены. Saved results — runtime observations, не statistical oracle; error fixtures — авторские формы будущих envelopes, не production output. Strict lexical/Schema/общий lossless codec не заявлены проверенными этим probe.
+
+**Релевантные существующие tests: 122 — OK (31,473 с)**: Melee simulation/balance JSON unit/integration и mixed scenario/generation unit/integration. Новых unittest tests нет. Последняя полная регрессия остаётся **2515 tests — OK (300,008 с)** из generation audit; в этом documentation/contract-срезе полностью не повторялась. SHA-256 всех 665 src/tests/tools файлов совпали со снимком начала среза. Compileall src/tests/tools/docs/examples/m7, public-import AST probe, 2162 локальных Markdown-пути, шесть JSON documents/echoed request и whitespace/diff --check успешны. Schema validation пока не выполнялась: mixed Schema ещё нет. Незакоммичены только README/documentation/examples: 11 изменённых файлов, 9 новых (ADR, probe, JSON README и шесть fixtures).
+
+Прямо перечитаны BOOK-PLAYER-GUIDE 1.4, Equipment / Ranged Weapons, стр. 94; Rules / The Battlefield / Range, стр. 114; Attack Tests / Attack Modifiers, стр. 118–119; BOOK-GM-GUIDE 1.1, Allies and Antagonists / Minions, стр. 91; Understanding NPC Profiles, стр. 93; Brigands & Footpads, стр. 97. Новых Rule IDs/house rules/открытых игровых вопросов нет. На старте дерево чистое. Python 3.12/другие ОС, installed mixed CLI и новые performance-измерения не проверялись; commit/push не выполнялись.
+
+```powershell
+$env:PYTHONPATH = "src"
+.venv/Scripts/python.exe docs/examples/m7/json_contract_probe.py
+.venv/Scripts/python.exe -m unittest tests.unit.test_m6_melee_json tests.integration.test_m6_melee_json tests.unit.test_m6_melee_balance_json tests.integration.test_m6_melee_balance_json tests.unit.test_m7_mixed_candidate_generation_models tests.unit.test_m7_mixed_candidate_generation tests.integration.test_m7_mixed_candidate_generation tests.unit.test_m7_npc_mixed_scenario -q
+.venv/Scripts/python.exe -m compileall -q src tests tools docs/examples/m7
+git -c core.safecrlf=false diff --check
+```
+
+
+## Предыдущая полная проверка (mixed generation integration)
+
+2026-09-29, Windows / Python 3.14.5: [integration ADR-0033](decisions/ADR-0033-mixed-composition-generation.md#сквозная-integration) завершена. Добавлены [6 integration tests](../tests/integration/test_m7_mixed_candidate_generation.py), generation всего 38 (15 preflight, 17 construction/result/error, 6 integration). Production исправлений не потребовалось.
+
+**Полная регрессия: 2515 tests — OK (401,383 с)**, включая real spawn/ranged/Melee/CLI. Отдельный запуск новых tests — 6 OK (23,033 с). Четыре generated candidates проходят existing staged evaluator: полные sequential/process reports и selection равны, repeat/rename prefix сохраняют seeds/observations/составы после нормализации source IDs. Natural observations не фиксируют точные проценты/победителя; actual проверяется по полным reports и ограничен planned. Отдельный finite RNG с промахами через existing simulation boundary подтверждает два полных этапа 4×2+2×4=16 trials на каждый backend, без prefix reuse. Source/global RNG/parent identity/cleanup сохранены.
+
+Scripted public runner проверяет шесть generated составов с локальными 2:1/2:2/2:3 и 0..1 удалённым вражеским стрелком при True/False GM flags. Точные attack traces/pools/RNG calls подтверждают локальность бонуса: удалённые стрелки не входят в другую Zone, Shooting не получает Melee-бонус. После поражения врага дальним выстрелом 2:2→2:1 включает бонус следующей Melee-атаки; поражение союзника меняет 2:1→1:1 и убирает бонус при прежнем approval. Полные disarmed_and_surrendered decisions сохранены, pending после разрешения пуст.
+
+Compileall src/tests/tools/docs/examples/m7, локальные Markdown-пути, whitespace нового файла и git diff --check успешны. SHA-256 всех 664 существовавших src/tests/tools файлов совпали со снимком начала среза; добавлен только integration module. Рабочее дерево на старте чистое; изменены документация/ADR/книжная трассировка, добавлен тестовый файл. Лог: build/m7-generation-integration-tests.log (ignored).
+
+Прямо перечитаны BOOK-PLAYER-GUIDE 1.4, Equipment / Ranged Weapons, стр. 94; Rules / The Battlefield / Range, стр. 114; Attack Tests / Attack Modifiers, стр. 118–119; BOOK-GM-GUIDE 1.1, Allies and Antagonists / Minions, стр. 91; Understanding NPC Profiles, стр. 93; Brigands & Footpads, стр. 97. Новых Rule IDs/house rules нет. Самостоятельный public production-пример и аудит генератора — следующий срез. Python 3.12/другие ОС, installed wheel и новые performance-измерения не проверялись; commit/push не выполнялись.
+
+```powershell
+$env:PYTHONPATH = "src"
+.venv/Scripts/python.exe -m unittest tests.integration.test_m7_mixed_candidate_generation -q
+.venv/Scripts/python.exe -m unittest discover -s tests -q
+.venv/Scripts/python.exe -m compileall -q src tests tools docs/examples/m7
+git -c core.safecrlf=false diff --check
+```
+
+## Предыдущая полная проверка (mixed generation construction)
+
+2026-09-29, Windows / Python 3.14.5: второй production-срез [ADR-0033](decisions/ADR-0033-mixed-composition-generation.md#реализованный-второй-срез) реализован: [generate_mixed_candidates](../src/towr/application/mixed_candidate_generation.py), [MixedCandidateGenerationResult](../src/towr/application/mixed_candidate_generation_models.py) и [MixedCandidateGenerationError](../src/towr/application/mixed_candidate_generation_errors.py). Ordered prefix-count projections сохраняют исходные snapshots, независимые порядки, весь graph, явные пары/факты, полные defeat decisions и True/False policy flags. Каждый subset заново проходит mixed admission; ошибка не пропускается и не возвращает partial result. Result проверяет полный source/staged input и полную projection каждого count vector; cause/notes и границы interrupts/final constructors сохраняются.
+
+**Полная регрессия: 2509 tests — OK (327,280 с)**, включая real spawn/ranged/Melee/CLI. Добавлены [17 deterministic tests](../tests/unit/test_m7_mixed_candidate_generation.py); вместе с 15 preflight — 32 tests, отдельный запуск 32 OK (0,164 с). Проверены четыре ordered vectors, исключение all-zero без dedup, обе perspective, ограниченные maximum, repeat/rename prefix, сохранение independent orders/pair orientation/GM flags/full decisions/facts/graph, exact source/result substitutions и отсутствие records/runner/RNG/pool. Реальное отсутствие Close-цели отклоняет первый subset либо третий после двух успешных; потеря единственной Shooting-роли также отклоняется. Инъекция второго failure сохраняет candidate/counts/cause/notes, interrupts и финальные ошибки не оборачиваются.
+
+Compileall src/tests/tools/docs/examples/m7, конечный generation probe, локальные Markdown-пути, AST import boundaries новых production модулей, whitespace новых файлов и git diff --check успешны. Из 661 существовавшего src/tests/tools файла изменена только mixed_candidate_generation_models.py; SHA-256 остальных 660 совпали со снимком начала среза. Добавлены generator/error и unit tests. Все 38 исходных dirty/untracked файлов сохранены с указанным целевым дополнением модели; документация/ADR/книжная трассировка обновлены. Лог: build/m7-generation-construction-tests.log (ignored).
+
+Прямо перечитаны BOOK-PLAYER-GUIDE 1.4, Equipment / Ranged Weapons, стр. 94; Rules / The Battlefield / Range, стр. 114; Attack Tests / Attack Modifiers, стр. 118–119; BOOK-GM-GUIDE 1.1, Allies and Antagonists / Minions/Understanding NPC Profiles/Brigands & Footpads, стр. 91/93/97. Новых Rule IDs/house rules нет. Domain/engine/simulation/evaluator не менялись. Сквозная integration генератора с staged evaluation и динамическим outnumbering остаётся следующим срезом; самостоятельный production-пример и аудит затем. Python 3.12/другие ОС, installed wheel и performance не проверялись; commit/push не выполнялись.
+
+```powershell
+$env:PYTHONPATH = "src"
+.venv/Scripts/python.exe -m unittest tests.unit.test_m7_mixed_candidate_generation tests.unit.test_m7_mixed_candidate_generation_models -q
+.venv/Scripts/python.exe -m unittest discover -s tests -q
+.venv/Scripts/python.exe -m compileall -q src tests tools docs/examples/m7
+.venv/Scripts/python.exe docs/examples/m7/generation_contract_probe.py
+git -c core.safecrlf=false diff --check
+```
+
+## Предыдущая полная проверка (mixed generation preflight)
+
+2026-09-29, Windows / Python 3.14.5: первый production-срез [ADR-0033](decisions/ADR-0033-mixed-composition-generation.md#реализованный-первый-срез) реализован. [MixedCompositionGroup/MixedCandidateGenerationRequest](../src/towr/application/mixed_candidate_generation_models.py) — frozen/slotted, typed mixed inputs, tuple copies, exact partition/full definitions, explicit family facts и exact ordered pair_ranges, seed/window/все stages, арифметические candidate_count/planned_trials/caps без перебора/материализации.
+
+**Полная регрессия: 2492 tests — OK (276,023 с)**, включая real spawn/ranged/Melee/CLI. Добавлены [15 deterministic tests](../tests/unit/test_m7_mixed_candidate_generation_models.py); отдельный запуск — 15 OK (0,095 с). Проверены 4/240 и отказы 3/239, расширенный C=5/budget=250 с недопустимым поднабором без фильтрации, fixed/all-zero bounds, обе perspective, wrong families, порядок/ориентация/значения/обязательность пар, неизменяемость и полные GM policies/escape facts. Сорок групп дают C=2**40−1 и budget=C+2 без enumeration/projection/candidate/RNG/runner/pool, с одной seed admission.
+
+Compileall src/tests/tools/docs/examples/m7, конечный generation probe, локальные Markdown-пути, AST imports нового модуля, whitespace новых файлов и git diff --check успешны. SHA-256 всех 659 ранее существовавших src/tests/tools файлов совпали со снимком начала среза; в этих каталогах добавлены только новый module и его unit tests. Лог полной проверки: build/m7-generation-preflight-tests.log (ignored). Все 36 исходных dirty/untracked файлов сохранены; обновлены текущая документация, ADR и книжная трассировка.
+
+Повторно прямо перечитаны BOOK-PLAYER-GUIDE 1.4, Equipment / Ranged Weapons, стр. 94; Rules / The Battlefield / Range, стр. 114; Attack Tests / Attack Modifiers, стр. 118–119; BOOK-GM-GUIDE 1.1, Allies and Antagonists / Minions/Understanding NPC Profiles/Brigands & Footpads, стр. 91/93/97. Новых Rule IDs/house rules нет. Request не гарантирует допустимость каждого subset; construction/result/error и повторный mixed admission остаются следующим срезом. Domain/engine/simulation/evaluation не менялись. Python 3.12/другие ОС, installed wheel и performance не проверялись; commit/push не выполнялись.
+
+```powershell
+$env:PYTHONPATH = "src"
+.venv/Scripts/python.exe -m unittest tests.unit.test_m7_mixed_candidate_generation_models -q
+.venv/Scripts/python.exe -m unittest discover -s tests -q
+.venv/Scripts/python.exe -m compileall -q src tests tools docs/examples/m7
+.venv/Scripts/python.exe docs/examples/m7/generation_contract_probe.py
+git -c core.safecrlf=false diff --check
+```
+
+## Предыдущая проверка (контракт mixed generation)
+
+2026-09-29, Windows / Python 3.14.5: [контракт ADR-0033](decisions/ADR-0033-mixed-composition-generation.md) и [конечный generation probe](examples/m7/generation_contract_probe.py) готовы. Определены fixed perspective, prefix-count группы, separate family facts/pairs и неизменные GM policies, exact projection/admission, C/caps/полный staged budget и отказ без silent skip/partial. Production group/request/generator/result/error ещё не реализованы.
+
+**85 релевантных tests — OK (7,597 с)**: M6 generation models/construction/integration, M7 mixed scenario/cycle и staged models/helper. Полная регрессия в этом срезе не повторялась; последняя полная — 2477 OK в аудите ниже. Новых unittest tests нет.
+
+Probe через public constructors допускает четыре вручную заданных состава и сохраняет snapshots, independent target/group/actor orders, family pairs/facts, полный graph, полные defeat decisions и True/False GM flags. Staged planned=240 без исполнения trials; расширенные bounds дают C=5/budget=250, но включают недопустимый (0,1). Проверены пять constructor refusals: budget, family facts, missing pair, потеря Close-цели и единственной Shooting-роли. Два запуска из корня/отдельного cwd дали одинаковый [stdout](examples/m7/generation_contract_probe.output.txt) и пустой stderr; отдельный запуск с запрещёнными runner/simulation/evaluator/pool/random APIs прошёл. Источник/global RNG неизменны. Арифметические cap assertions не заменяют будущие production request tests.
+
+Compileall src/tests/tools/docs/examples/m7, AST public imports probe, локальные Markdown-пути и git diff --check успешны. SHA-256 всех 659 файлов src/tests/tools совпали со снимком начала среза. Все 33 исходных dirty/untracked файла сохранены; добавлены ADR-0033, probe и его вывод, документация/книжная трассировка синхронизированы. Непосредственно перечитаны BOOK-PLAYER-GUIDE 1.4, Equipment / Ranged Weapons, стр. 94; Rules / The Battlefield / Range, стр. 114; Attack Tests / Attack Modifiers, стр. 118–119; BOOK-GM-GUIDE 1.1, Allies and Antagonists / Minions/Understanding NPC Profiles/Brigands & Footpads, стр. 91/93/97. Новых Rule IDs/house rules нет; domain/engine/simulation/evaluation не менялись. Python 3.12/другие ОС, installed wheel и performance не проверялись; commit/push не выполнялись.
+
+```powershell
+$env:PYTHONPATH = "src"
+.venv/Scripts/python.exe docs/examples/m7/generation_contract_probe.py
+.venv/Scripts/python.exe -m unittest tests.unit.test_m6_melee_candidate_generation_models tests.unit.test_m6_melee_candidate_generation tests.integration.test_m6_melee_candidate_generation tests.unit.test_m7_npc_mixed_scenario tests.integration.test_m7_npc_mixed_scenario_cycle tests.unit.test_m7_mixed_staged_evaluation -q
+.venv/Scripts/python.exe -m compileall -q src tests tools docs/examples/m7
+git -c core.safecrlf=false diff --check
+```
+
+## Предыдущая полная проверка (аудит staged mixed evaluation)
+
+2026-09-29, Windows / Python 3.14.5: [аудит staged mixed evaluation](audits/m7-staged-evaluation-readiness.md) завершён. Сопоставлены 31 tests ADR-0032 (19 models/helper, 9 service, 3 integration) с upper budget, exact source/report chain, continuation/final selection, full reruns и error boundaries; production исправлений не потребовалось.
+
+[Самостоятельный пример](examples/m7/mixed_staged_evaluation.py) и [сохранённый вывод](examples/m7/mixed_staged_evaluation.output.txt): два явных mixed-состава 3×2/2×2, seed 42, stages 8/32 keep=1, sequential/process workers=2/batch_size=3. Полные reports/selected равны, parent/input/global RNG/cleanup сохранены, planned/actual=48 на вызов. Два запуска из корня и отдельного cwd дали одинаковый stdout и пустой stderr, всего 192 trials. Финальный unsupported внутри окна даёт COMPLETED с пустым выбором, раннее попадание не возвращается; Monte Carlo процент/победитель в assertions не закреплены.
+
+Отдельная инъекция ошибки после 16 реальных trials первого этапа: stage_index=1, candidate ID из фактического stage request, bounded → root cause/notes сохранены, исключение проброшено. stdout пуст, ошибка в stderr, process не запускается; input/global RNG/children неизменны. **Полная регрессия: 2477 tests OK (278,851 с)**, включая real spawn/ranged/Melee/CLI. Compileall src/tests/tools/docs/examples/m7, 2019 локальных Markdown-путей, AST import boundaries, public imports примера и diff/whitespace успешны. SHA-256 всех 659 файлов src/tests/tools совпали со снимком начала среза. Лог: build/m7-staged-audit-tests.log (ignored).
+
+Все 30 исходных dirty/untracked файлов сохранены; добавлены аудит, пример и его вывод, обновлены документация/книжная трассировка. Src/tests/tools не менялись, новых unittest tests нет. Прямо перечитаны BOOK-PLAYER-GUIDE 1.4, Equipment / Ranged Weapons, стр. 94; Rules / Combat/The Battlefield/Attack Tests/Conditions, стр. 112/114/118–119/123; BOOK-GM-GUIDE 1.1, Allies and Antagonists / Minions/Understanding NPC Profiles/Brigands & Footpads, стр. 91/93/97. Новых Rule IDs/house rules нет. Python 3.12/другие ОС, installed wheel и performance не проверялись; commit/push не выполнялись.
+
+```powershell
+$env:PYTHONPATH = "src"
+.venv/Scripts/python.exe docs/examples/m7/mixed_staged_evaluation.py
+.venv/Scripts/python.exe -m unittest discover -s tests -v
+.venv/Scripts/python.exe -m compileall -q src tests tools docs/examples/m7
+git -c core.safecrlf=false diff --check
+```
+
+## Предыдущая проверка (mixed staged application service)
+
+2026-09-29, Windows / Python 3.14.5: реализованы [mixed staged service](../src/towr/application/mixed_staged_evaluation_service.py) и [error](../src/towr/application/mixed_staged_evaluation_errors.py) по ADR-0032. Existing bounded evaluator вызывается один раз на каждый достигнутый stage, с тем же execution options; полный typed source проверяется до продолжения. Полные повторные пакеты с index 0, общий `_stage_request`, исходный parent source и aggregate-only report chain. Ошибка сохраняет stage_index/candidate_id/cause/notes без partial/retry/fallback; preflight/final constructor/BaseException напрямую.
+
+Добавлены **9 unit + 3 integration tests**. Проверены exact calls/options, outside continuation, reduced budget/early stop, full reruns в обоих backend, сбой второго этапа без третьего; foreign seed/pair order/GM approvals и отказ ranged/Melee; ошибки сборки stage/continuation/final constructor и interrupts. Real sequential/spawn: два mixed-состава, replay/rename/reorder, input/global RNG/cleanup и startup error chain. Scripted N=3 outside-window prefix (1/1/1/0, 16 Attack/5 visited) проходит в N=4 (1/1/1/1, 17 Attack/6 visited); goal=1/4 совпадает с point window, но unsupported даёт COMPLETED с пустым выбором, total=7. Первый stage N=4 останавливается до N=5: total=4 из planned=9, NO_ELIGIBLE_CANDIDATES. Процент Monte Carlo не закреплён.
+
+**32 профильных tests OK (16,398 с)** с M5/M6 service/integration regression. **Полная регрессия: 2477 tests OK (270,788 с)**, включая real spawn/ranged/Melee/CLI. Compileall src/tests/tools/docs/examples/m7, 1981 локальный Markdown-путь, AST import boundaries и diff/whitespace успешны. Guarded API snippet из README проверен из отдельного cwd: full reports равны, planned/actual=48 на каждый backend, status=COMPLETED, stderr пуст. SHA-256 всех 655 исходных файлов src/tests/tools прежние; добавлены только четыре новых файла. Лог полного набора: build/m7-staged-service-tests.log (ignored).
+
+Все 26 исходных dirty/untracked файлов сохранены; добавлены два application модуля и два test-файла, документация синхронизирована. Balance/domain/engine/simulation/tools и игровые правила не менялись. Прямо перечитаны BOOK-PLAYER-GUIDE 1.4, Rules / Combat, стр. 112 и BOOK-GM-GUIDE 1.1, Allies and Antagonists / Minions, стр. 91; новых Rule IDs/house rules нет. Python 3.12/другие ОС, installed wheel и performance не проверялись; commit/push не выполнялись.
+
+```powershell
+$env:PYTHONPATH = "src"
+.venv/Scripts/python.exe -m unittest tests.unit.test_m7_mixed_staged_evaluation_service tests.integration.test_m7_mixed_staged_evaluation tests.unit.test_m6_melee_staged_evaluation_service tests.integration.test_m6_melee_staged_evaluation tests.unit.test_m5_ranged_staged_evaluation_service tests.integration.test_m5_ranged_staged_evaluation -q
+.venv/Scripts/python.exe -m unittest discover -s tests -v
+.venv/Scripts/python.exe -m compileall -q src tests tools docs/examples/m7
+git -c core.safecrlf=false diff --check
+```
+
+## Предыдущая проверка (pure mixed staged models)
+
+2026-09-29, Windows / Python 3.14.5: реализованы [pure helper](../src/towr/balance/mixed_staged_evaluation.py) и [frozen staged models/status](../src/towr/balance/mixed_staged_evaluation_models.py) по первому срезу ADR-0032. Верхний бюджет всех stages до исполнения, exact source цепочки, outside-window continuation в исходном порядке, unsupported early stop и итоговый выбор только последнего этапа. Общая внутренняя `_stage_request` связывает model guards с будущим service.
+
+[19 новых deterministic tests](../tests/unit/test_m7_mixed_staged_evaluation.py): 1–3 этапа, бюджеты 240/140/40/1140, keep growth, точные Fraction/ties/большие N, all-limit/unsupported, partial/extra/reordered/foreign chains, late source/local budget/seed/window/keep. Реальные формы входа mixed 3×2/2×2 сохраняют pairs/facts/policies; изменённые pair order, GM approval, escape facts или порядок objective отклоняются при одинаковых observations на обоих этапах. Проверены frozen/tuple copies/replace, равная копия source, pickle/class identities, отказ ranged/Melee и отсутствие RNG/runner/pool/JSON/full records. Наблюдения синтетические, staged execution ещё нет.
+
+**61 профильный test OK (0,203 с)**, включая новые mixed models, existing mixed bounded и M5/M6 staged model regression. Новый public request из README проверен из отдельного cwd (planned=48, без исполнения); historical contract probe по-прежнему выдаёт сохранённый вывод. **Полная регрессия: 2465 tests OK (267,398 с)**, включая real spawn/ranged/Melee/CLI. Compileall src/tests/tools/docs/examples/m7, 1962 локальных Markdown-пути, AST import boundaries и diff/whitespace успешны. Лог: build/m7-staged-models-tests.log (ignored).
+
+Все 23 исходных dirty/untracked файла сохранены; добавлены два balance модуля и один test-файл, обновлена документация. SHA-256 всех 652 существовавших файлов src/tests/tools не изменились; application/domain/engine/simulation и wire contracts прежние. Прямо перечитаны BOOK-PLAYER-GUIDE 1.4, Rules / Combat, стр. 112 и BOOK-GM-GUIDE 1.1, Allies and Antagonists / Minions, стр. 91; новых Rule IDs/house rules нет. Python 3.12/другие ОС, installed wheel и performance не проверялись; commit/push не выполнялись.
+
+```powershell
+$env:PYTHONPATH = "src"
+.venv/Scripts/python.exe -m unittest tests.unit.test_m7_mixed_staged_evaluation tests.unit.test_m7_mixed_evaluation tests.unit.test_m5_ranged_staged_evaluation tests.unit.test_m6_melee_staged_evaluation -q
+.venv/Scripts/python.exe -m unittest discover -s tests -v
+.venv/Scripts/python.exe -m compileall -q src tests tools docs/examples/m7
+git -c core.safecrlf=false diff --check
+```
+
+## Предыдущая проверка (контракт staged mixed evaluation)
+
+2026-09-29, Windows / Python 3.14.5: подготовлен [ADR-0032](decisions/ADR-0032-staged-mixed-evaluation.md), планируемые frozen types/helper/service/error, полный бюджет повторных пакетов, continuation/final selection, exact report chain и матрица проверок. [Конечный probe](examples/m7/staged_contract_probe.py) с [сохранённым выводом](examples/m7/staged_contract_probe.output.txt) прошёл из корня и отдельного cwd, stdout равен и stderr пуст. Отдельно прошёл с запрещёнными RNG/runner/evaluator/pool calls; global RNG неизменен. Проверены синтетические mixed reports 3×2/2×2, порядок/ties/окно, unsupported/round_limit и бюджеты 240/140/40/2240. Бой не исполнялся; staged models/service/chain guards ещё не реализованы.
+
+**60 existing tests OK (10,789 с)**: 32 mixed assessment/list/service tests ADR-0031 и 28 Melee staged tests ADR-0025, включая реальные sequential/spawn integration. Лог: build/m7-staged-contract-tests.log (ignored). Полный набор повторно не запускался; последняя полная проверка — 2446 OK (302,736 с) в предыдущем аудите. Compileall src/tests/tools/docs/examples/m7, 1941 локальный Markdown-путь, public imports probe и diff/whitespace успешны. SHA-256 всех 652 файлов src/tests/tools совпали со снимком начала среза.
+
+Все 20 исходных dirty/untracked файлов сохранены; добавлены ADR, probe и его вывод, обновлена документация. Src/tests/tools и игровые правила не менялись, новых unittest tests нет. Прямо перечитаны BOOK-PLAYER-GUIDE 1.4, Rules / Combat, стр. 112 и BOOK-GM-GUIDE 1.1, Allies and Antagonists / Minions, стр. 91; новых Rule IDs/house rules нет. Python 3.12/другие ОС, installed wheel и performance не проверялись; commit/push не выполнялись.
+
+```powershell
+$env:PYTHONPATH = "src"
+.venv/Scripts/python.exe docs/examples/m7/staged_contract_probe.py
+.venv/Scripts/python.exe -m unittest tests.unit.test_m7_mixed_assessment tests.integration.test_m7_mixed_assessment tests.unit.test_m7_mixed_evaluation tests.unit.test_m7_mixed_evaluation_service tests.integration.test_m7_mixed_evaluation tests.unit.test_m6_melee_staged_evaluation tests.unit.test_m6_melee_staged_evaluation_service tests.integration.test_m6_melee_staged_evaluation -v
+.venv/Scripts/python.exe -m compileall -q src tests tools docs/examples/m7
+git -c core.safecrlf=false diff --check
+```
+
+## Предыдущая проверка (аудит mixed evaluation)
+
+2026-09-29, Windows / Python 3.14.5: [аудит mixed evaluation ADR-0031](audits/m7-evaluation-readiness.md) завершён. Сопоставлены 32 existing tests: 9 assessment unit + 1 integration, 11 list models, 8 service + 3 integration. Source/window/report, полный бюджет, stable Fraction ranking, unsupported и ошибки соответствуют контракту; production исправлений не потребовалось.
+
+[Самостоятельный пример](examples/m7/mixed_evaluation.py) и [вывод](examples/m7/mixed_evaluation.output.txt) проверены из корня и отдельного cwd: два явных состава 3×2/2×2, sequential/process workers=2/batch_size=3, полные reports равны. Planned/actual=16 на вызов, 32 trials на запуск скрипта, 64 на два проверочных запуска. Input/global RNG неизменны, дочерних процессов не осталось. Отдельный injected failure после 8 реальных trials первого кандидата сохраняет ID второго/cause/notes и пробрасывается; stdout пуст, ошибка в stderr, process не запускается. Monte Carlo процент/победитель в assertions не закреплены.
+
+**Полная регрессия: 2446 tests — OK (302,736 с)**, включая real spawn/ranged/Melee/CLI. Лог: build/m7-evaluation-audit-tests.log (ignored). Compileall src/tests/tools/docs/examples/m7, 1910 локальных Markdown-путей, AST import boundaries, public imports примера и diff/whitespace успешны.
+
+Все 17 исходных dirty/untracked файлов сохранены; добавлены аудит, пример и его вывод, обновлены документация/книжная трассировка. Src/tests/tools в этом срезе не менялись, новых unittest tests нет. Прямо перечитаны BOOK-PLAYER-GUIDE 1.4, Equipment / Ranged Weapons, стр. 94; Rules / Combat/The Battlefield/Attack Tests/Conditions, стр. 112/114/118–119/123; BOOK-GM-GUIDE 1.1, Allies and Antagonists / Minions/Understanding NPC Profiles/Brigands & Footpads, стр. 91/93/97. Новых Rule IDs/house rules нет. Python 3.12/другие ОС, installed wheel и performance не проверялись; commit/push не выполнялись.
+
+```powershell
+$env:PYTHONPATH = "src"
+.venv/Scripts/python.exe docs/examples/m7/mixed_evaluation.py
+.venv/Scripts/python.exe -m unittest discover -s tests -v
+.venv/Scripts/python.exe -m compileall -q src tests tools docs/examples/m7
+git -c core.safecrlf=false diff --check
+```
+
+## Предыдущая проверка (mixed application evaluator)
+
+2026-09-29, Windows / Python 3.14.5: реализованы [mixed_evaluation_service.py](../src/towr/application/mixed_evaluation_service.py) и [mixed_evaluation_errors.py](../src/towr/application/mixed_evaluation_errors.py) по третьему срезу ADR-0031. Typed request/options до runner, один полный existing run на каждого кандидата, выбранный sequential/process и явные options. Typed result/exact source проверяются до summary; assessment/row сохраняют только агрегаты, full result освобождается до следующего вызова. Полный отчёт сохраняет parent source. Candidate errors сохраняют ID/cause/notes без partial/retry/fallback; BaseException/preflight/final constructor не получают вымышленный candidate context.
+
+Добавлены **8 unit + 3 integration tests**. Проверены options/order/call count, foreign seed/GM approval/pair order и wrong family/type до projection, освобождение full results через weakref, ошибка второго кандидата без третьего, projection/assessment/row/final constructor и interrupts. Real sequential/spawn: два разных mixed-состава, repeat/reorder/rename, полный report equality, input/global RNG/cleanup и startup failure. Scripted 2×2 сохраняет counts=1/1/1/1, 17 Attack/6 visited, все N=4; точное попадание goal=1/4 в point window не выбирает unsupported candidate. **24 профильных tests OK (4,267 с)** вместе с M5/M6 service regression. **Полная регрессия: 2446 tests OK (288,674 с)**, включая real spawn/ranged/Melee/CLI. Compileall src/tests/tools/docs/examples/m7, 1873 локальных Markdown-пути, AST import boundaries и diff/whitespace успешны. Новый guarded Python API snippet проверен из отдельного cwd: полные sequential/process reports равны, по 16 trials на вызов, stderr пуст. Лог: build/m7-evaluation-service-tests.log (ignored).
+
+Все 13 существовавших dirty/untracked файлов сохранены; добавлены два application модуля и два test-файла, документация синхронизирована. Balance models, domain/engine/simulation/tools, правила, метрика и wire contracts не менялись. Прямо перечитаны BOOK-PLAYER-GUIDE 1.4, Rules / Combat, стр. 112 и BOOK-GM-GUIDE 1.1, Allies and Antagonists / Minions, стр. 91. Новых Rule IDs/house rules нет. Commit/push не выполнялись; Python 3.12/другие ОС, installed wheel и performance не проверялись.
+
+```powershell
+$env:PYTHONPATH = "src"
+.venv/Scripts/python.exe -m unittest tests.unit.test_m7_mixed_evaluation_service tests.integration.test_m7_mixed_evaluation tests.unit.test_m6_melee_evaluation_service tests.unit.test_m5_ranged_evaluation_service -q
+.venv/Scripts/python.exe -m unittest discover -s tests -v
+.venv/Scripts/python.exe -m compileall -q src tests tools docs/examples/m7
+git -c core.safecrlf=false diff --check
+```
+
+## Предыдущая проверка (mixed list models)
+
+2026-09-29, Windows / Python 3.14.5: реализованы [четыре frozen/slotted mixed list models](../src/towr/balance/mixed_evaluation_models.py) по второму срезу [ADR-0031](decisions/ADR-0031-mixed-candidate-assessment.md#реализация-моделей-списка). Exact IDs/types, finite tuple copies, общие seed/trials/perspective/round budget и planned_trials/max_total_trials до исполнения. Derived simulation_requests пересобираются при replace; result требует полный ordered ID/source/window report. Stable Fraction top_k выбирает только window_match=True, сохраняет outside/unsupported в полном отчёте и допускает пустой выбор без fallback. RNG/runner/pool не вызываются, full records/journals не удерживаются.
+
+Добавлены [11 deterministic tests](../tests/unit/test_m7_mixed_evaluation.py): numeric/type/ID guards, отказ ranged/Melee families, frozen/slotted/tuple copy/derived rebuild, полный budget, ordered source/window, ties/top_k/empty selection, N=2**60+1 без float rounding. Mixed alternatives 3×2/2×2 сохраняют pairs/policies/source при rename; подмена escape facts, GM approval или pair order отклоняется. **39 профильных tests OK (0,073 с)** вместе с mixed assessment и M5/M6 list regression. **Полная регрессия: 2435 tests OK (259,621 с)**, включая real spawn/ranged/Melee/CLI. Compileall src/tests/tools/docs/examples/m7, 1855 локальных Markdown-путей, AST import boundaries, git diff --check и whitespace новых файлов успешны. Новый Python API snippet проверен из отдельного cwd: planned=16, два derived input по 8 trials, stderr пуст. Лог полного набора: build/m7-evaluation-models-tests.log (ignored).
+
+Рабочее дерево на старте чистое (HEAD 0c1da01). Добавлены один balance module и один test-файл, документация синхронизирована. Existing assessment, domain/engine/simulation/tools, метрика и wire contracts не менялись. Прямо перечитаны BOOK-PLAYER-GUIDE 1.4, Rules / Combat, стр. 112 и BOOK-GM-GUIDE 1.1, Allies and Antagonists / Minions, стр. 91. Новых Rule IDs/house rules нет. Commit/push не выполнялись. Application evaluator пока отсутствует; Python 3.12/другие ОС, installed wheel и performance не проверялись.
+
+```powershell
+$env:PYTHONPATH = "src"
+.venv/Scripts/python.exe -m unittest tests.unit.test_m7_mixed_evaluation tests.unit.test_m7_mixed_assessment tests.unit.test_m6_melee_evaluation tests.unit.test_m5_ranged_evaluation -q
+.venv/Scripts/python.exe -m unittest discover -s tests -v
+.venv/Scripts/python.exe -m compileall -q src tests tools docs/examples/m7
+git -c core.safecrlf=false diff --check
+```
+
+## Предыдущая проверка (pure mixed assessment)
+
+2026-09-29, Windows / Python 3.14.5: реализован pure mixed assessment по [ADR-0031](decisions/ADR-0031-mixed-candidate-assessment.md#реализация-pure-assessment): [модель/status](../src/towr/balance/mixed_assessment_models.py), [helper](../src/towr/balance/mixed_assessment.py). Typed mixed input/aggregate summary, полный source equality и тот же ObjectiveRateWindow обязательны. Четыре Fraction rates от всех N, derived status/window_match, inclusive/point windows и unsupported=None; frozen/slotted, без RNG/runner/records. Existing ranged/Melee classes и pickle paths сохраняются.
+
+Добавлены **9 unit + 1 integration test**. Четыре реальные scripted mixed outcomes дают counts 1/1/1/1, 17 Attack/6 visited и непригодность при точном point window=1/4. Отдельный supported prefix даёт 1/1/1/0, 16 Attack/5 visited и ELIGIBLE/True при point window=1/3. Полные sequential/spawn results/summaries/assessments равны, input/global RNG/cleanup проверены. Unit покрывают foreign families/source/seed/budget/escape facts/GM approval/pair order, равную копию, frozen/replace, большие N и отсутствие retained records/journals/исполнения. Отдельно **28 tests OK (2,629 с)** вместе с M5/M6 assessment regression. **Полная регрессия: 2424 tests OK (259,355 с)**, включая real spawn/ranged/Melee/CLI. Compileall src/tests/tools/docs/examples/m7, 1843 локальных Markdown-пути, AST import boundaries и diff/whitespace успешны. Новый Python API snippet проверен из отдельного временного cwd, stderr пуст. Лог полного набора: build/m7-assessment-tests.log (ignored).
+
+Все 18 исходных dirty/untracked файлов сохранены; добавлены два production balance модуля и два test-файла, документация синхронизирована. Domain/engine/simulation, tools, правила, метрика и wire contracts не менялись. Общий benchmark hash охватывает весь src, поэтому старые отчёты остаются историческими после добавления balance файлов; новых замеров нет. Прямо перечитаны BOOK-PLAYER-GUIDE 1.4, Rules / Combat, стр. 112 и BOOK-GM-GUIDE 1.1, Allies and Antagonists / Minions, стр. 91. Новых Rule IDs/house rules нет. Commit/push не выполнялись; Python 3.12/другие ОС, installed wheel и performance не проверялись.
+
+```powershell
+$env:PYTHONPATH = "src"
+.venv/Scripts/python.exe -m unittest tests.unit.test_m7_mixed_assessment tests.integration.test_m7_mixed_assessment tests.unit.test_m5_ranged_assessment tests.unit.test_m6_melee_assessment -q
+.venv/Scripts/python.exe -m unittest discover -s tests -v
+.venv/Scripts/python.exe -m compileall -q src tests tools docs/examples/m7
+git -c core.safecrlf=false diff --check
+```
+
+## Предыдущая проверка (контракт mixed assessment)
+
+2026-09-29, Windows / Python 3.14.5: подготовлен [ADR-0031](decisions/ADR-0031-mixed-candidate-assessment.md) для pure mixed assessment и bounded list evaluation. Сохранены метрика цели от всех N trials, четыре Fraction rates, inclusive/point window, unsupported=None, stable ranking и полный budget/source/report. Existing ObjectiveRateWindow и application execution options сохраняют class/import/pickle paths; mixed types отдельные. Production assessment/list/service ещё не реализованы.
+
+[Конечный probe](examples/m7/assessment_contract_probe.py) проверен из корня и отдельного временного cwd; [stdout](examples/m7/assessment_contract_probe.output.txt) сохранён, stderr пуст. Синтетические наблюдения проверяют shares/windows/ties, арифметику бюджета 20 против caps 20/19, all-limit/all-unsupported и N=2**60+1 без float rounding. Отдельно existing sequential/spawn исполняют по четыре реальных scripted mixed trials: counts=1/1/1/1, 17 Attack/6 visited, полные result/summary равны. При goal=1/4 внутри окна unsupported=1/4 делает будущий window_match=None. Один запуск выполняет 8 trials, два проверенных запуска — 16; parent source/global RNG неизменны, дети завершены. Пример не реализует будущие assessment/list/service guards.
+
+**81 релевантный test OK (22,130 с)**: mixed simulation/summary/process, M6 assessment/list/service/integration и M5 assessment/window. Полный набор повторно не запускался: src/tests/tools не менялись, предыдущая полная регрессия — **2414 tests OK (248,047 с)**. Compileall src/tests/tools/docs/examples/m7, 1827 локальных Markdown-путей, public imports нового probe, неизменный source/harness hash и diff/whitespace checks успешны.
+
+Прямо перечитаны BOOK-PLAYER-GUIDE 1.4, Rules / Combat, стр. 112; BOOK-GM-GUIDE 1.1, Allies and Antagonists / Minions, стр. 91. Новых Rule IDs/house rules нет. Все 15 существовавших dirty/untracked файлов сохранены; добавлены ADR, probe и output, документация синхронизирована. Commit/push не выполнялись. Python 3.12/другие ОС, installed wheel и performance не проверялись.
+
+```powershell
+$env:PYTHONPATH = "src"
+.venv/Scripts/python.exe docs/examples/m7/assessment_contract_probe.py
+.venv/Scripts/python.exe -m unittest tests.unit.test_m7_npc_mixed_simulation tests.unit.test_m7_npc_mixed_summary tests.integration.test_m7_npc_mixed_simulation tests.unit.test_m7_npc_mixed_parallel tests.integration.test_m7_npc_mixed_parallel tests.unit.test_m6_melee_assessment tests.unit.test_m6_melee_evaluation tests.unit.test_m6_melee_evaluation_service tests.integration.test_m6_melee_assessment tests.integration.test_m6_melee_evaluation tests.unit.test_m5_ranged_assessment -q
+.venv/Scripts/python.exe -m compileall -q src tests tools docs/examples/m7
+git -c core.safecrlf=false diff --check
+```
+
+## Предыдущая проверка (общий аудит массовой mixed-симуляции)
+
+2026-09-29, Windows / Python 3.14.5: завершён [общий аудит массовой mixed-симуляции](audits/m7-mass-simulation-readiness.md). ADR-0029/0030 сопоставлены с пятью production simulation модулями и **56 existing tests** слоя: 12 simulation unit, 9 summary, 4 sequential integration, 1 subprocess example, 11 process unit, 6 real-spawn integration, 7 profiling и 6 comparison. Всего **116 M7 tests**. Подтверждены отдельные seed/RNG, immutable initial, exact source до compact projection, четыре реальные outcomes/terminal counters, aggregate-only summary, bounded spawn и ошибки/cleanup без partial success. Исправлений production и новых tests не потребовалось.
+
+Текущий source/harness hash `a7598993f8153e00c0d5b25b230a86f11d33df559407ce9ca75944acbf34ce59` совпал с обоими process benchmark отчётами. Новых замеров не выполнялось. Ограничения производительности/памяти/платформ и требования к следующему aggregate-only balance-слою записаны; выбор прежней метрики повторно не требуется.
+
+Прямо перечитаны BOOK-PLAYER-GUIDE 1.4, Rules / Combat, стр. 112; Attack Tests / Attack Modifiers, стр. 118–119; Failed Attacks / Successful Attacks, стр. 119; BOOK-GM-GUIDE 1.1, Allies and Antagonists / Minions, стр. 91; Brigands & Footpads, стр. 97. Новых Rule IDs/house rules нет. На старте рабочее дерево чистое (HEAD 9be28b2); добавлен общий аудит и обновлена документация. Src/tests/tools не менялись; commit/push не выполнялись. Python 3.12/другие ОС, installed wheel и повторные benchmarks не проверялись.
+
+**Полная регрессия: 2414 tests OK (248,047 с)**, включая real spawn/ranged/Melee/CLI. Compileall src/tests/tools/docs/examples/m7, 1794 локальных Markdown-пути, AST count/import boundaries, source/harness hash, git diff --check и whitespace нового аудита проверены успешно. Лог: build/m7-mass-audit-tests.log (локальный ignored artifact). Изменены только README.md и 13 существующих документов в docs; добавлен docs/audits/m7-mass-simulation-readiness.md.
+
+```powershell
+$env:PYTHONPATH = "src"
+.venv/Scripts/python.exe -m unittest discover -s tests -v
+.venv/Scripts/python.exe -m compileall -q src tests tools docs/examples/m7
+git -c core.safecrlf=false diff --check
+```
+
+## Предыдущая проверка (benchmark mixed sequential/process)
+
+2026-09-29, Windows / Python 3.14.5: завершён [benchmark mixed sequential/process](benchmarks/README.md#mixed-sequential-и-spawn). Добавлены [harness](../tools/benchmark_m7_parallel.py), [6 deterministic tests](../tests/unit/test_m7_parallel_benchmark.py) и отчёты [100 trials](benchmarks/m7-parallel-100-2026-09-29.md)/[1000 trials](benchmarks/m7-parallel-1000-2026-09-29.md). Прежние fixtures 2×1/3×2/2×2, seed=20260929, budget=5, workers=1/2, batch_size=32, три чередующихся повтора; wall включает fresh spawn startup/serialization/shutdown и summary. Все 54 timed batches равны по полным records/summary; 100-trial digests/counts/Attack/visited совпали с baseline. 29 700 timed trials плюс 18 warm-up. Unsupported сохранён отдельно во всех составах, в 1000-trial 2×2 также получен один ROUND_LIMIT.
+
+На 100 trials оба process режима медленнее; на 1000 один worker также медленнее. Два workers локально быстрее для 3×2 (1,298×) и 2×2 (1,196×); в 2×1 диапазоны времени перекрываются. Source/harness SHA-256: `a7598993f8153e00c0d5b25b230a86f11d33df559407ce9ca75944acbf34ce59`, одинаков в обоих отчётах и проверен до/после. Память процессов/RSS, другие ОС/Python 3.12 и installed wheel не измерялись; нагрузка ОС не контролировалась. Auto backend/persistent pool не добавлены.
+
+**30 релевантных tests OK (18,565 с)**: шесть новых benchmark tests, семь profiling tests и 17 mixed process tests с реальным spawn. Полный набор повторно не запускался: production src и profile_m7.py не менялись; предыдущая полная регрессия — **2408 tests OK (255,257 с)**. Compileall src/tests/tools/docs/examples/m7, 1753 локальных Markdown-пути, source/harness hash, три baseline digests/counts/Attack/visited, git diff --check и whitespace untracked текстовых файлов проверены успешно.
+
+Все 24 существовавших dirty/untracked файла сохранены; добавлены четыре файла (harness, tests, два отчёта), документация синхронизирована. Игровые правила и fixtures не менялись, нового извлечения книг/rulings нет. Commit/push не выполнялись.
+
+```powershell
+$env:PYTHONPATH = "src"
+.venv/Scripts/python.exe -m unittest tests.unit.test_m7_parallel_benchmark tests.unit.test_m7_profiling tests.unit.test_m7_npc_mixed_parallel tests.integration.test_m7_npc_mixed_parallel -q
+.venv/Scripts/python.exe -m compileall -q src tests tools docs/examples/m7
+git -c core.safecrlf=false diff --check
+```
+
+Точные команды обоих benchmark запусков сохранены в отчётах.
+
+## Предыдущая проверка (реализация mixed process)
+
+2026-09-29, Windows / Python 3.14.5: реализован [npc_mixed_parallel.py](../src/towr/simulation/npc_mixed_parallel.py) по [ADR-0030](decisions/ADR-0030-process-mixed-simulations.md). Отдельный public API использует existing mixed trial/result/summary: typed/options/callable/pickle preflight до pool, явный spawn, ленивые абсолютные диапазоны и не более 2×workers futures. Parent source identity и прежние seed/records сохраняются; ошибки получают index/seed note, cleanup не возвращает partial result и не делает retries/fallback. Domain/engine/rules, последовательный API, Melee/ranged backend и tools не менялись.
+
+**17 новых tests OK (17,551 с)**: [11 unit](../tests/unit/test_m7_npc_mixed_parallel.py) и [6 real-spawn integration](../tests/integration/test_m7_npc_mixed_parallel.py). Unit проверяют reverse completion, uneven tail, огромный uint64 request без материализации задач, ошибки initial/refill submission/wait/future/final constructor/startup, interrupts, отмену pending и выход из pool. Integration: 2×1/3×2/2×2, workers 1/2, partitions/prefix/repeat, полное равенство sequential и summary, parent source identity, child PID, input/global RNG/cleanup. Четыре реальные scripted outcomes дают 1/1/1/1, 17 Attack/6 visited; NO_CANDIDATE сохранён без подмены. Проверены dynamic outnumbering/GM withholding, независимость других streams после дополнительных бросков первого trial и child factory failure с исходной note и index/seed.
+
+**Полная регрессия — 2408 tests OK (255,257 с)**. Compileall src/tests/tools/docs/examples/m7, 1735 локальных Markdown-путей, git diff --check и whitespace новых текстовых файлов успешны. AST-проверка подтвердила границы импортов нового backend и отсутствие process-зависимостей в domain/engine/rules/balance. Пример Python API из docs/examples/m7/README.md исполнен из отдельного временного каталога с явным PYTHONPATH; полный process result равен sequential, stderr пуст. Performance нового backend не измеряется тестами, ускорение не обещано. Pool закрывается с ожиданием уже начатой работы, bounded queue не является hard memory limit. Исторический contract probe не подменяет tests готового backend.
+
+Прямо перечитаны BOOK-PLAYER-GUIDE 1.4, Rules / Combat, стр. 112; Attack Tests / Attack Modifiers, стр. 118; Failed Attacks / Successful Attacks, стр. 119; BOOK-GM-GUIDE 1.1, Allies and Antagonists / Minions, стр. 91. Новых Rule IDs/house rules нет. Все 21 исходный dirty/untracked файл сохранены. Добавлены один production модуль и два test-файла; документация обновлена. Commit/push не выполнялись. Другие ОС/Python 3.12, installed wheel, mixed process benchmarks/balance/JSON/CLI не проверялись.
+
+```powershell
+$env:PYTHONPATH = "src"
+.venv/Scripts/python.exe -m unittest tests.unit.test_m7_npc_mixed_parallel tests.integration.test_m7_npc_mixed_parallel -q
+.venv/Scripts/python.exe -m unittest discover -s tests -v
+.venv/Scripts/python.exe -m compileall -q src tests tools docs/examples/m7
+git -c core.safecrlf=false diff --check
+```
+
+## Предыдущая проверка (контракт mixed process)
+
+2026-09-29, Windows / Python 3.14.5: подготовлен [ADR-0030](decisions/ADR-0030-process-mixed-simulations.md) — контракт опционального mixed process runner. Сопоставлены existing Melee/ranged backend и tests, mixed trial/result/summary и ADR-0029. Зафиксированы separate API, preflight/options/pickle, явный spawn, абсолютные indices, bounded queue, прежние source/seed/four outcomes, errors/cleanup без partial result, матрица реализации. Production backend пока отсутствует; src/tests/tools не менялись.
+
+Добавлены [конечный transport probe](examples/m7/process_contract_probe.py) и [вывод](examples/m7/process_contract_probe.output.txt). Два состава 3×2/2×2, 5 trials, seed=42, budget=2; partitions 3+2/2+2+1/5, workers 1/2, обратный порядок получения — полные result/summary равны sequential. Четыре scripted outcomes на одном input: counts 1/1/1/1, 17 Attack/6 visited; реальный unsupported без подмены контроллера сохранён. Parent source identity, child PID, pickle round-trip, input/global RNG, lambda refusal и child factory error с index/seed note/cleanup проверены. На запуск — 49 завершённых trials и один отказ factory. Маленький probe не реализует/не проверяет production scheduling/preflight/cancellation; скорость процессов не измеряется.
+
+**47 релевантных existing tests OK (29,509 с)**: Melee/ranged process и mixed simulation/summary. Probe прошёл из корня и временного каталога, stdout полностью одинаков, stderr пуст; вывод сохранён. Compileall src/tests/tools/docs/examples/m7, 1716 локальных Markdown-путей, git diff --check и whitespace untracked текстовых файлов успешны. AST-проверка probe подтвердила public imports без tests/private/application/adapters; исходный source/harness SHA-256 сохранён. Полный набор в контрактном срезе не повторяется: production не изменён, последняя полная регрессия — 2391 OK (223,864 с) из предыдущего среза; предшествовавший CLI timeout описан ниже.
+
+Прямо перечитаны BOOK-PLAYER-GUIDE 1.4, Rules / Combat, стр. 112; BOOK-GM-GUIDE 1.1, Allies and Antagonists / Minions, стр. 91. Scheduling — технический контракт, новых Rule IDs/house rules нет. Обновлены source index/traceability/contradictions, архитектура, roadmap/status и README. Все 14 исходных dirty/untracked файлов сохранены. Commit/push не выполнялись. Другие ОС/Python 3.12, installed wheel, mixed performance/balance/JSON/CLI не проверялись.
+
+```powershell
+$env:PYTHONPATH = "src"
+.venv/Scripts/python.exe docs/examples/m7/process_contract_probe.py
+.venv/Scripts/python.exe -m unittest tests.unit.test_m6_npc_melee_parallel tests.integration.test_m6_npc_melee_parallel tests.unit.test_m3_npc_ranged_parallel tests.integration.test_m3_npc_ranged_parallel tests.unit.test_m7_npc_mixed_simulation tests.unit.test_m7_npc_mixed_summary tests.integration.test_m7_npc_mixed_simulation tests.integration.test_m7_simulation_example -q
+.venv/Scripts/python.exe -m compileall -q src tests tools docs/examples/m7
+git -c core.safecrlf=false diff --check
+```
+
+## Предыдущая проверка (эксперимент round continuation)
+
+2026-09-29, Windows / Python 3.14.5: проверен кандидат однократного NpcRoundResult.continuation. После полной validation строился immutable request в init=False/repr=False/compare=False поле. **Кандидат отклонён по performance-критерию**: дополнительное чередующееся сравнение не подтвердило убедительный общий выигрыш. Production src и tests восстановлены; source/harness hash снова равен baseline `529d908bbfa1885419038f94845dfcf3718db6d663e807d8252e669ed6f5ff43`. Изменения игровых правил, API и инструмента profile_m7.py отсутствуют.
+
+[Разбор](benchmarks/m7-round-continuation-review.md) сохраняет два свежих отчёта, времена чередующихся пакетов, исторический patch и конечный probe. Пять wall repeats плюс отдельные memory/profile до/кандидат: median 2×1 0,266529→0,252417; 3×2 0,569703→0,572916; 2×2 0,400679→0,363014 с. Чередование по пять пар: 0,261082→0,236101; 0,517685→0,527695; 0,358579→0,359195 с. Диапазоны перекрываются, CPU/ОС не фиксированы; выигрыш второго состава не обнаружен, третьего не воспроизведён. Peak Python allocation практически прежний, не RSS. Построения continuation сократились 860→182 / 1568→360 / 1494→304, но это само по себе не wall-time выигрыш.
+
+25 targeted tests кандидата OK (0,205 с), включая семь временных tests cache semantics и existing round/Blunderbuss проверки. Полные 300 trial records/summary до/после равны; все три digests совпали с прежним baseline. Все четыре исхода сохранялись, unsupported counts 16/14/89 не исключались. Временные cache tests удалены вместе с отклонённым кодом; новых production tests в итоговом diff нет. После восстановления первый полный прогон: 2391 tests, один error (940,178 с) — TimeoutExpired 45 с у subprocess simulate-melee без аргумента в existing CLI usage test. Отдельный повтор этого теста прошёл (1 OK, 6,162 с), код/таймауты не менялись. **Повторная полная регрессия — 2391 tests OK (223,864 с)**. Причина первого таймаута не установлена; повторный сбой не воспроизведён. Compileall src/tests/tools/docs/examples/m7/docs/benchmarks, 1684 локальных Markdown-пути, git diff --check и whitespace новых текстовых файлов успешны. Сохранённый patch проходит git apply --check без применения. Архивный probe проверен на отказ для восстановленного source до создания копии; его измерительная версия исполнялась из build, отличие архивной версии — guard кандидата и уникальное имя временной папки.
+
+Рабочее дерево на старте было чистым. Добавлены только пять benchmark-артефактов и обновления документации; src/tests/tools в итоговом diff не менялись. Книги заново не извлекались: это технический эксперимент без новой трактовки, правила и traceability прежние. Installed wheel, другие ОС/Python 3.12 и mixed process backend не проверялись. Commit/push не выполнялись.
+
+```powershell
+$env:PYTHONPATH = "src"
+# До изменения и на кандидате, соответственно:
+.venv/Scripts/python.exe tools/profile_m7.py --trials 100 --master-seed 20260929 --round-budget 5 --repeats 5 --top 20 --output docs/benchmarks/m7-round-continuation-before-2026-09-29.md
+.venv/Scripts/python.exe tools/profile_m7.py --trials 100 --master-seed 20260929 --round-budget 5 --repeats 5 --top 20 --output docs/benchmarks/m7-cached-round-continuation-2026-09-29.md
+# После отказа и восстановления исходного production:
+.venv/Scripts/python.exe -m unittest discover -s tests -q
+.venv/Scripts/python.exe -m compileall -q src tests tools docs/examples/m7 docs/benchmarks
+git -c core.safecrlf=false diff --check
+```
+
+## Предыдущая проверка (исходное mixed-профилирование)
+
+2026-09-29, Windows / Python 3.14.5: добавлены [developer harness](../tools/profile_m7.py), [7 deterministic tests](../tests/unit/test_m7_profiling.py) и [исходный отчёт](benchmarks/m7-baseline-2026-09-29.md). Production src не менялся. Три admitted состава 2×1/3×2/2×2 (последний с двумя лучниками), 100 trials, master_seed=20260929, budget=5, три wall repeats и раздельные tracemalloc/cProfile. Во всех пяти измерительных пакетах каждого состава полные records/summary равны; canonical trial digests и source/harness SHA-256 сохранены. С прогревом выполнено 1509 trials.
+
+Медианы 0,262295 / 0,590020 / 0,396317 с; peak Python allocation 86,6 / 152,7 / 120,9 KiB, не RSS. Counts achieved/defeated/limit/unsupported: 84/0/0/16, 86/0/0/14, 3/8/0/89; unsupported не фильтруется и не является поражением. В каждом составе NpcRoundResult.continuation выполняет replace около 4,4–4,9 раза на result — выбран узкий эксперимент следующего шага, ускорение пока не реализовано/не обещано. Методика/ограничения и точные команды находятся в отчёте и benchmarks/README.md.
+
+**7 targeted tests OK (0,505 с); полная регрессия — 2391 tests OK (227,194 с)**. Compileall src/tests/tools/docs/examples/m7, 1671 локальный Markdown-путь, git diff --check и whitespace untracked файлов успешны. AST-проверка harness подтвердила отсутствие tests/private/application/adapters imports. Source/harness SHA-256 после проверок совпадает с отчётом; измерения выполнялись до полной регрессии, без параллельного запуска тестов.
+
+Непосредственно перечитаны BOOK-PLAYER-GUIDE 1.4, Equipment / Ranged Weapons, стр. 94; Rules / The Battlefield / Range, стр. 114; Attack Tests / Attack Modifiers, стр. 118; Failed Attacks / Successful Attacks / Giving Ground, стр. 119; BOOK-GM-GUIDE 1.1, Allies and Antagonists / Minions, стр. 91; Understanding NPC Profiles, стр. 93; Brigands & Footpads, стр. 97. Новых Rule IDs/house rules нет. Обновлены source index, трассировка, contradictions, ADR/архитектура/status/roadmap и README.
+
+Все 30 исходных dirty/untracked файлов сохранены. Добавлены tools/profile_m7.py, tests/unit/test_m7_profiling.py и docs/benchmarks/m7-baseline-2026-09-29.md; вместе с документацией остаются незакоммиченными. Commit/push не выполнялись. Другие ОС/Python 3.12, installed wheel, mixed process и более крупные batches в этом шаге не проверялись.
+
+```powershell
+$env:PYTHONPATH = "src"
+.venv/Scripts/python.exe tools/profile_m7.py --trials 100 --master-seed 20260929 --round-budget 5 --repeats 3 --top 20 --output docs/benchmarks/m7-baseline-2026-09-29.md
+.venv/Scripts/python.exe -m unittest tests.unit.test_m7_profiling -q
+.venv/Scripts/python.exe -m unittest discover -s tests -q
+.venv/Scripts/python.exe -m compileall -q src tests tools docs/examples/m7
+git -c core.safecrlf=false diff --check
+```
+
+## Предыдущая проверка (аудит mixed simulation)
+
+2026-09-29, Windows / Python 3.14.5: [аудит последовательной mixed simulation/summary](audits/m7-simulation-readiness.md) завершён. Четыре production модуля и 25 existing tests сопоставлены с ADR-0029; исправлений production src не потребовалось. Добавлены самостоятельный mixed_simulation.py, сохранённый вывод и один subprocess integration test.
+
+**26 tests simulation OK (2,108 с)**. Пример использует public builder одиночного сценария, production simulation/summary API, master_seed=42, trials=8, round_budget=2. Полные results/summaries повторились для обоих составов, initial/global RNG неизменны, отдельные compact records согласованы с агрегатами. Сохранённые counts: 3×2 — 6/0/2/0, 49 Attack/15 visited; 2×2 — 0/1/0/7, 27 Attack/12 visited. Семь unsupported не названы поражениями и не исключены из знаменателя. Каждый пакет повторяется целиком, всего 32 trials на запуск примера; повторы/разные составы не складываются в один отчёт. Subprocess test повторяет пример из временного каталога и не ожидает фиксированного случайного процента.
+
+**Полная регрессия: 2384 tests OK (226,194 с)**. Compileall src/tests/tools/docs/examples/m7, 1654 локальных Markdown-пути, git diff --check и whitespace новых файлов успешны. AST-проверка подтвердила направление зависимостей mixed simulation, отсутствие обратных импортов в domain/engine и tests/private imports в примере.
+
+Напрямую перечитаны BOOK-PLAYER-GUIDE 1.4, Rules / Combat, стр. 112; Attack Tests / Attack Modifiers / Failed Attacks / Successful Attacks, стр. 118–119; BOOK-GM-GUIDE 1.1, Allies and Antagonists / Minions, стр. 91; Understanding NPC Profiles, стр. 93; Brigands & Footpads, стр. 97. Новых Rule IDs/house rules нет, прототип/игровые правила и production API не менялись.
+
+Все 26 исходных dirty/untracked файлов сохранены. Добавлены audit/example/output/test, обновлена связанная документация. Commit/push не выполнялись. Python 3.12/другие ОС, installed wheel и performance не проверялись; профилирование — следующий шаг, mixed process/balance/CLI ещё отсутствуют.
+
+```powershell
+$env:PYTHONPATH = "src"
+.venv/Scripts/python.exe docs/examples/m7/mixed_simulation.py
+.venv/Scripts/python.exe -m unittest tests.unit.test_m7_npc_mixed_simulation tests.unit.test_m7_npc_mixed_summary tests.integration.test_m7_npc_mixed_simulation tests.integration.test_m7_simulation_example -q
+.venv/Scripts/python.exe -m unittest discover -s tests -q
+.venv/Scripts/python.exe -m compileall -q src tests tools docs/examples/m7
+git -c core.safecrlf=false diff --check
+```
+
+## Предыдущая проверка (реализация mixed simulation)
+
+2026-09-29, Windows / Python 3.14.5: последовательный слой [ADR-0029](decisions/ADR-0029-independent-mixed-simulations.md) реализован. Добавлены четыре simulation-модуля: mixed request/seed/trial/result/counts, sequential trial/batch runner, aggregate summary model и pure summary projection. Frozen/slotted состояния, отдельная seed scheme, новый внедряемый RNG на trial и точный исходный scenario сохраняются; источники проверяются до компактной проекции.
+
+**25 новых tests OK (0,182 с)**: 12 unit simulation, 9 summary, 4 integration. На одном 2×2 input все четыре реальных исхода дают counts 1/1/1/1, 17 Attack/6 visited rounds и RNG calls 24/24/48/6. Проверены resume/terminal suffix без двойных counters, GM withholding/dynamic bonus, полноценный NO_CANDIDATE, immutable initial/global RNG, repeat/reverse/expanded prefix. Unit отвергают неправильные seeds/индексы/полноту/counters, ranged/Melee типы и чужой полный scenario даже при одинаковом ID; ошибка/interrupt второго trial не запускает третий и не выдаёт partial result. Summary не сохраняет result/trial/боевые журналы и не исполняет RNG/runner/pool.
+
+**Полная регрессия: 2383 tests OK (231,801 с)**. Compileall src/tests/tools/docs/examples/m7, 1611 локальных Markdown-путей, git diff --check и whitespace новых файлов успешны. AST-проверка четырёх новых modules подтвердила направление зависимостей и отсутствие ranged/Melee типов; старые tracked src/tests/tools не менялись.
+
+Напрямую перечитаны BOOK-PLAYER-GUIDE 1.4, Rules / Combat, стр. 112; Attack Tests / Attack Modifiers / Failed Attacks / Successful Attacks, стр. 118–119; BOOK-GM-GUIDE 1.1, Allies and Antagonists / Minions, стр. 91. Новых игровых Rule IDs/house rules нет. Domain/engine/K1, ranged/Melee simulation и их seed schemes, wire/CLI и старый прототип не менялись.
+
+Сохранены все 19 исходных dirty/untracked файлов. Добавлены четыре production-файла и три test-файла, обновлена документация. Commit/push не выполнялись. Python 3.12/другие ОС, installed wheel и performance не проверялись. Mixed process/balance/CLI ещё отсутствуют; аудит simulation/пример — следующий шаг.
+
+```powershell
+$env:PYTHONPATH = "src"
+.venv/Scripts/python.exe -m unittest tests.unit.test_m7_npc_mixed_simulation tests.unit.test_m7_npc_mixed_summary tests.integration.test_m7_npc_mixed_simulation -q
+.venv/Scripts/python.exe -m unittest discover -s tests -q
+.venv/Scripts/python.exe -m compileall -q src tests tools docs/examples/m7
+git -c core.safecrlf=false diff --check
+```
+
+## Предыдущая проверка (контракт mixed simulation)
+
+2026-09-29, Windows / Python 3.14.5: подготовлен [контракт ADR-0029](decisions/ADR-0029-independent-mixed-simulations.md) независимых последовательных mixed-прогонов и summary. Зафиксированы отдельная seed scheme/vectors, API четырёх будущих модулей, строгий вход/полный result, четыре исхода, точные counters и aggregate-only summary; production реализация ещё впереди.
+
+[Конечный probe](examples/m7/simulation_contract_probe.py) проверен из корня и временного каталога; [вывод](examples/m7/simulation_contract_probe.output.txt) сохранён. На одном immutable 2×2 сценарии четыре scripted trial дали counts 1/1/1/1, 17 Attack/6 visited rounds, 24/24/48/6 RNG calls. Ещё 22 seeded вызова подтвердили repeat/reverse/expanded prefix и изоляцию дополнительных бросков trial 0; initial/global RNG неизменны, terminal suffix и реальная потеря цели спроецированы. Три golden vectors сверены через to_bytes/struct и отличаются от ranged/Melee. Probe не реализует production constructors/guards/summary.
+
+**103 релевантных tests OK (2,751 с)**: все 60 M7 и existing ranged/Melee simulation/summary. Новых unittest tests в контрактном срезе нет; src/tests/tools не менялись. Полный набор повторно не запускался; последняя полная регрессия остаётся **2358 tests OK (229,941 с)** из аудита ниже.
+
+Compileall src/tests/tools/docs/examples/m7, 1594 локальных Markdown-пути, git diff --check и whitespace новых файлов успешны. Probe импортирует только публичные APIs/пример, без tests/private builders. Существующие src/tests/tools в этом срезе не менялись.
+
+Непосредственно перечитаны BOOK-PLAYER-GUIDE 1.4, Rules / Combat, стр. 112; Attack Tests / Attack Modifiers, стр. 118–119; Failed Attacks / Successful Attacks, стр. 119; BOOK-GM-GUIDE 1.1, Allies and Antagonists / Minions, стр. 91. Seed/aggregation — технические контракты, новых Rule IDs/house rules нет. Правила боя и старый прототип не менялись.
+
+Сохранены все 16 существовавших dirty/untracked файлов; добавлены ADR-0029, simulation probe и его вывод, дополнена связанная документация. Commit/push не выполнялись. Python 3.12/другие ОС, installed wheel и performance в этом срезе не проверялись.
+
+```powershell
+$env:PYTHONPATH = "src"
+.venv/Scripts/python.exe docs/examples/m7/simulation_contract_probe.py
+.venv/Scripts/python.exe -m unittest tests.unit.test_m7_npc_mixed_scenario tests.unit.test_m7_npc_mixed_candidates tests.unit.test_m7_npc_mixed_scenario_runner tests.integration.test_m7_npc_mixed_scenario_cycle tests.integration.test_m7_example tests.unit.test_m6_npc_melee_simulation tests.unit.test_m6_npc_melee_summary tests.integration.test_m6_npc_melee_simulation tests.unit.test_m3_npc_ranged_simulation tests.unit.test_m3_npc_ranged_summary tests.integration.test_m3_npc_ranged_simulation tests.integration.test_m3_npc_ranged_summary -q
+.venv/Scripts/python.exe -m compileall -q src tests tools docs/examples/m7
+git -c core.safecrlf=false diff --check
+```
+
+## Предыдущая проверка (аудит одиночного mixed-сценария)
+
+2026-09-29, Windows / Python 3.14.5: [аудит одиночного mixed-сценария](audits/m7-readiness.md) завершён. Admission/provider/result/runner и K1/M2 source guards сопоставлены с ADR-0028 и 59 существующими tests. Production src не менялся; исправлений в нём не потребовалось.
+
+Добавлены самостоятельный mixed_scenario.py, сохранённый вывод и один subprocess integration test. Пять scripted случаев проверяют четыре исхода, доступный приоритет целей, актуальный Zone bonus, Close/Medium miss, 13/60/24/6/12 RNG calls и terminal suffix; source/global RNG неизменны. Отдельные Random(42) дают равные полные результаты без требования конкретного победителя. Пример строит input через public APIs без tests/private builders и запускается из временного каталога. **60 tests M7 OK (1,220 с)**.
+
+**Полная регрессия: 2358 tests OK (229,941 с)**. Compileall src/tests/tools/docs/examples/m7, 1564 локальных Markdown-пути, git diff --check и whitespace новых файлов успешны. AST-проверка mixed imports подтвердила границы domain/engine и отсутствие tests/private imports в примере; git diff подтверждает отсутствие изменений production src.
+
+Напрямую перечитаны BOOK-PLAYER-GUIDE 1.4, Equipment / Ranged Weapons, стр. 94; Rules / Combat и Ambush, стр. 112; The Battlefield / Range, стр. 114; Cover and Concealment, стр. 115; Combat Actions, стр. 116; Attack Tests / Attack Modifiers / Failed Attacks / Giving Ground, стр. 118–119; Conditions / Staggered, стр. 123. BOOK-GM-GUIDE 1.1, Allies and Antagonists / Minions, стр. 91; Understanding NPC Profiles, стр. 93; Brigands & Footpads, стр. 97. Новых Rule IDs/house rules нет; прототип и игровые правила не менялись.
+
+Рабочее дерево на старте чистое. Новые audit/example/output/test и обновления документации не закоммичены; commit/push не выполнялись. Python 3.12/другие ОС, installed wheel и performance не проверялись. Mixed simulation/balance/CLI пока отсутствуют; следующий шаг указан выше.
+
+```powershell
+$env:PYTHONPATH = "src"
+.venv/Scripts/python.exe docs/examples/m7/mixed_scenario.py
+.venv/Scripts/python.exe -m unittest tests.unit.test_m7_npc_mixed_scenario tests.unit.test_m7_npc_mixed_candidates tests.unit.test_m7_npc_mixed_scenario_runner tests.integration.test_m7_npc_mixed_scenario_cycle tests.integration.test_m7_example -q
+.venv/Scripts/python.exe -m unittest discover -s tests -q
+.venv/Scripts/python.exe -m compileall -q src tests tools docs/examples/m7
+git -c core.safecrlf=false diff --check
+```
+
+## Предыдущая проверка (mixed provider/result/runner)
+
+2026-09-29, Windows / Python 3.14.5: второй implementation-срез ADR-0028 реализован. Добавлены pure mixed_scenario_candidates, NpcMixedScenarioResult/Outcome и run_npc_mixed_scenario. Provider читает supplied enemy pair ranges, фильтрует живые доступные цели, сохраняет полную policy и использует target-specific escape; Melee outnumbering пересчитывается по текущему roster в Zone атакующего с GM flag. Shooting не получает бонус; дальности/awareness не выводятся из геометрии.
+
+Runner соединяет existing round/defeat acknowledgement/exclusion/advance с общим бюджетом и внедряемым RNG. Результат сохраняет полный source и terminal suffix без повторного Attack, проверяет actual candidates/доступный приоритет/decisions/бюджет и отсутствие работы после terminal. Четыре исхода разделены; реальная потеря всех Close-целей даёт unsupported_path/NO_CANDIDATE с неисполненным slot, без автоматического пропуска хода. Старые admission, ranged/Melee APIs и wire не менялись.
+
+**34 новых tests OK (0,230 с)**: 8 candidates, 17 result/runner и 9 integration (всего M7 59). Проверены terminal/side defeat/round limit/unsupported, fresh bonus после defeat, отсутствие бонуса от remote ally и у Shooting, completed/Staggered/Defenceless count, обе ветви miss, повторный Staggered между раундами, полный бюджет при resume, GM flags/dispositions, target/actor order, source substitution, replay и повторяемость seeded input без MC thresholds. Подмены дальности, escape, устаревшего бонуса, порядка advance и post-terminal observations отклоняются.
+
+**Полная регрессия: 2357 tests OK (244,425 с)**. Три scripted сценария прежнего M7 probe успешны; compileall src/tests/tools/docs/examples/m7, 1525 локальных Markdown-путей, git diff --check и whitespace новых файлов проверены успешно. На старте дерево чистое. Новые два production-файла и три test-файла, документация и диагностическая строка старого probe остаются незакоммиченными. Source RNG/errors не маскируются исходом боя; новых house rules нет. Python 3.12/другие ОС, installed wheel и performance этим срезом не проверялись. Commit/push не выполнялись.
+
+```powershell
+$env:PYTHONPATH = "src"
+.venv/Scripts/python.exe -m unittest tests.unit.test_m7_npc_mixed_candidates tests.unit.test_m7_npc_mixed_scenario_runner tests.integration.test_m7_npc_mixed_scenario_cycle -q
+.venv/Scripts/python.exe -m unittest discover -s tests -q
+.venv/Scripts/python.exe docs/examples/m7/mixed_contract_probe.py
+.venv/Scripts/python.exe -m compileall -q src tests tools docs/examples/m7
+git -c core.safecrlf=false diff --check
+```
+
+## Предыдущая проверка (mixed admission)
+
+2026-09-29, Windows / Python 3.14.5: первый implementation-срез ADR-0028 завершён. Добавлен domain/npc_mixed_scenario_models.py: NpcMixedPairRange, NpcMixedScenarioFacts, NpcMixedActorPolicy и NpcMixedScenario, frozen/slotted без RNG/исполнения. Проверяются свежий Minion roster/round/spatial, обе Attack-роли, единственная Athletics Protection, полные enemy pairs и их геометрическая согласованность, отсутствие любого Close-врага у стрелка, доступная начальная цель каждого actor, полные policies/objective и общий бюджет. policy_for/range_for читают сохранённые данные; направление pair lookup симметрично, исходный порядок записей не меняется.
+
+**25 новых deterministic tests OK (повтор после прерывания: 0,099 с)**: 2×1/3×2/2×2, обе perspective/dispositions/GM flags, list→tuple/frozen/slots/replace, все initial Conditions, профили/equipment/Protection, pairs/targets/geometry, fresh histories/pending/weapons/round/spatial и отказы до RNG/runner. Оба fixture самостоятельного M7 probe прошли production admission; прежние три scripted сценария и точные RNG counts сохранены. Исполнитель и результат mixed-сценария ещё не реализованы.
+
+**Полная регрессия: 2323 tests OK (249,411 с)** на Windows/Python 3.14.5. Compileall src/tests/tools/docs/examples/m7, 1515 локальных Markdown-путей, git diff --check и whitespace новых файлов успешны. Новый domain-модуль импортирует только domain; старые APIs/CLI и engine не менялись.
+
+Прямо сверены BOOK-PLAYER-GUIDE 1.4, Equipment / Ranged Weapons, стр. 94; Rules / The Battlefield / Range, стр. 114; Attack Tests / Attack Modifiers, стр. 118–119; BOOK-GM-GUIDE 1.1, Allies and Antagonists / Minions, стр. 91; Understanding NPC Profiles, стр. 93. Факты/решения передаются явно; новых house rules нет. Python 3.12/другие ОС, wheel и performance этим срезом не проверялись. На старте рабочее дерево чистое; новые модели/tests и обновления docs/probe остаются незакоммиченными. Commit/push не выполнялись.
+
+```powershell
+$env:PYTHONPATH = "src"
+.venv/Scripts/python.exe -m unittest tests.unit.test_m7_npc_mixed_scenario -q
+.venv/Scripts/python.exe -m unittest discover -s tests -q
+.venv/Scripts/python.exe docs/examples/m7/mixed_contract_probe.py
+.venv/Scripts/python.exe -m compileall -q src tests tools docs/examples/m7
+git -c core.safecrlf=false diff --check
+```
+
+## Предыдущая проверка (контракт M7)
+
+2026-09-29, Windows / Python 3.14.5: пользователь выбрал смешанный дальний и ближний бой. Принят [ADR-0028](decisions/ADR-0028-mixed-minion-scenario.md), подготовлен [конечный probe M7](examples/m7/README.md). Production mixed API ещё нет; текущие src/tests не менялись. Контракт явно ограничивает profiles/Protection, все enemy pair ranges, стационарность и выбор только доступных целей. Потеря последней доступной цели приводит к unsupported stop, а не автоматической новой тактике.
+
+Напрямую проверены BOOK-PLAYER-GUIDE 1.4, Equipment / Ranged Weapons, стр. 94; Rules / Combat, стр. 112; Range, стр. 114; Cover and Concealment, стр. 115; Combat Actions, стр. 116; Attack Tests / Attack Modifiers / Failed Attacks / Giving Ground, стр. 118–119; Conditions / Staggered, стр. 123. BOOK-GM-GUIDE 1.1, Allies and Antagonists / Minions, стр. 91; Understanding NPC Profiles, стр. 93; Brigands & Footpads, стр. 97. Новых неоднозначностей/house rules нет.
+
+Probe прошёл: Medium shot → Close attack (3/4 dice, 13 RNG calls, две receipts/defeat); пять misses (30 RNG calls, только Close attackers получают Staggered); после потери единственной Close-цели NO_CANDIDATE без Attack/RNG, slot неисполнен. Источники неизменны. **78 релевантных tests OK (0,161 с)**. Первоначальная команда содержала два неверных имени Melee test modules; после исправления на существующие test_m6_npc_melee_* весь выбранный набор успешен. Полная регрессия не повторялась: последняя 2298 OK относится к реализации ADR-0027, последующий аудит дал 241 OK. Python 3.12/другие ОС и performance в этом шаге не проверялись.
+
+Compileall docs/examples/m7, 1509 локальных Markdown-путей, git diff --check и whitespace untracked файлов успешны.
+
+Сохранён 31 существовавший dirty/untracked файл. Добавлены ADR-0028 и два файла примера M7, обновлена связанная документация. Код production, tests, tools, игровые правила и старый прототип не менялись. Commit/push не выполнялись.
+
+```powershell
+$env:PYTHONPATH = "src"
+.venv/Scripts/python.exe docs/examples/m7/mixed_contract_probe.py
+.venv/Scripts/python.exe -m unittest tests.unit.test_k1_npc_attack_preparation tests.unit.test_k1_protection_preparation tests.unit.test_m2_npc_round_coordinator tests.unit.test_m2_npc_rounds_runner tests.unit.test_m6_npc_melee_scenario tests.unit.test_m6_npc_melee_scenario_runner -q
+.venv/Scripts/python.exe -m compileall -q docs/examples/m7
+git -c core.safecrlf=false diff --check
+```
+
+## Предыдущая проверка (аудит Melee JSON/CLI)
+
+2026-09-29, Windows / Python 3.14.5: завершающий [аудит Melee JSON/CLI](audits/m6-external-readiness.md) выполнен. **241 targeted/regression tests OK (178,641 с)**, включая все 134 tests ADR-0027 и прежние ranged JSON/services/CLI. Первоначальный служебный запуск unittest из stdin дал шесть spawn errors: Windows не может импортировать `<stdin>`. Повтор через штатный `python -m unittest` успешен; production-код не требовал исправления. Последняя полная регрессия реализации остаётся **2298 tests OK (251,752 с)**; весь набор повторно не запускался, поскольку src/tests не менялись.
+
+Повторно проверен установленный wheel предыдущего среза: все 337 Python/Schema файлов равны src, `pip check` успешен. Вне repo/PYTHONPATH при ASCII text streams проверены module/console × sequential/process для обеих Melee-команд, UTF-8/file/stdin, полные равные JSON, balance planned=actual=18, обе ranged-команды, четыре input error families и help/usage/missing-file I/O. Шесть validators разрешают bundled refs; tests package отсутствует. Standalone contract probe (52 trials, семь semantic refusals) и balance example (208 trials) успешны на установленном Python. Первоначально аудиторский скрипт ожидал ошибочное ranged имя `ranged_simulation_error`; сверка существующего контракта и повтор подтвердили прежние `simulation_error`/`balance_error`. Форматы не менялись.
+
+Напрямую сверены PG1.4 Rules / Range, стр. 114; Attack Tests / Attack Modifiers, стр. 118–119; GM1.1 Allies and Antagonists / Minions, стр. 91; Understanding NPC Profiles, стр. 93; Brigands & Footpads, стр. 97. Новых house rules нет. Python 3.12/другие ОС и performance не проверялись. Все 29 существовавших dirty/untracked файлов сохранены; добавлен audit, обновлена документация. Src/tests/tools не изменялись, commit/push не выполнялись.
+
+Compileall src/tests/tools/docs/examples/m6, 1488 локальных Markdown-путей, git diff --check и whitespace untracked файлов проверены успешно.
+
+Для повторения targeted suite: 12 модулей ADR-0027 (`tests.unit.test_m6_melee_json`, `test_m6_melee_service`, `test_m6_melee_error_json`, `test_m6_melee_cli`, `test_m6_melee_balance_json`, `test_m6_melee_balance_service`, `test_m6_melee_balance_cli` и integration варианты JSON/CLI обоих семейств плюс balance service). Regression дополнительно включает M4/M5 JSON/services/CLI.
+
+```powershell
+$env:PYTHONPATH = "src"
+$testModules = Get-ChildItem tests/unit,tests/integration -Filter '*.py' | Where-Object {
+    $_.Name -match '^test_m[45].*(json|service|cli)\.py$' -or
+    $_.Name -match '^test_m6_melee_(json|service|error_json|cli|balance_json|balance_service|balance_cli)\.py$'
+} | ForEach-Object { "tests.$($_.Directory.Name).$($_.BaseName)" }
+.venv/Scripts/python.exe -m unittest @testModules -q
+.venv/Scripts/python.exe -m compileall -q src tests tools docs/examples/m6
+git -c core.safecrlf=false diff --check
+```
+
+## Предыдущая проверка (balance service/CLI)
+
+2026-09-29, Windows / Python 3.14.5: четвёртый срез ADR-0027 завершён. Реализованы Melee balance service/application errors, JSON error encoder и CLI balance-melee. Service связывает exact generation/evaluation sources и options, возвращает только полный MeleeBalanceResult. Generation/execution errors сохраняют внешний request ID, доступные candidate/counts/stage и Python cause/notes; wire messages общие. BaseException и encoder failures не маскируются, repeats/fallback/partial output отсутствуют.
+
+Добавлены **39 tests**: 16 unit service/errors, 12 unit CLI, 2 integration service и 9 integration CLI. Новые tests **OK (46,255 с)**; **полная регрессия: 2298 tests — OK (251,752 с)**, включая все четыре CLI-команды и real spawn. Проверены ошибки после готового composition/этапа/trial, exact sources и phase context, closed streams/read/write/flush/диагностика, cross-family отказы, early stop/final unsupported/пустой выбор как success. Compileall src/tests/tools/docs/examples/m6, 1440 локальных Markdown-путей и git diff --check успешны; whitespace новых tests проверен отдельно.
+
+Wheel собран офлайн с setuptools 84.0.0 из подготовленного локального кэша и установлен с runtime dependencies в новый чистый временный venv вне repo. PYTHONPATH удалён, text streams ASCII. Все **337 Python/Schema файлов** совпали с src после нормализации line endings. Melee simulation и balance: module/console × sequential/process дали равные JSON после исключения echoed execution. Для balance каждый запуск оценил пять составов с planned=actual=18; file/stdin и все шесть Schema/local refs проверены. Прежние ranged simulate/balance работают через обе точки входа; malformed input сохраняет собственный error kind каждой из четырёх команд. Installed pip check успешен. Это проверка реализации; общий readiness audit ADR-0027 остаётся следующим срезом.
+
+Все 22 существовавших изменённых/untracked файла сохранены. Добавлены два application-файла и четыре test-файла; дополнены Melee balance JSON adapter, CLI и документация. Игровые правила, метрика, domain/engine, generator/staged evaluator, ranged formats и shared identities не менялись. Python 3.12/другие ОС и performance не проверялись. Commit/push не выполнялись.
+
+```powershell
+$env:PYTHONPATH = "src"
+.venv/Scripts/python.exe -m unittest tests.unit.test_m6_melee_balance_service tests.unit.test_m6_melee_balance_cli tests.integration.test_m6_melee_balance_service tests.integration.test_m6_melee_balance_cli -q
+.venv/Scripts/python.exe -m unittest discover -s tests -q
+.venv/Scripts/python.exe -m compileall -q src tests tools docs/examples/m6
+.venv/Scripts/python.exe -m pip wheel . --no-deps --no-index --no-cache-dir --find-links dist/melee-cli-build-deps --wheel-dir dist/melee-balance-cli-check --disable-pip-version-check
+git -c core.safecrlf=false diff --check
+```
+
+## Предыдущая проверка (balance pure JSON)
+
+2026-09-29, Windows / Python 3.14.5: третий срез ADR-0027 завершён. Реализованы три packaged Melee balance Schema request/result/error, frozen/slotted MeleeBalanceCommand/Result, MeleeBalanceInputError, pure parser/result encoder. Reserve переиспользует общий Melee scenario mapper; family facts проходят отдельный generation preflight. Parser проверяет C/полный staged budget до materialization/RNG, encoder требует exact generation/evaluation sources, полную цепочку reports и lossless command. Counts/sums/budgets сохраняют integer precision, Fraction нормализуются, local/continuation/final selection разделены.
+
+Добавлены **32 unit + 2 integration tests**; новые **34 tests OK (19,973 с)**. **Полная регрессия: 2259 tests — OK (199,197 с)**, включая ranged и Melee simulation JSON/CLI и real spawn. Saved balance fixtures приняты Schema/parser и воспроизведены encoder из typed aggregate chain; два реальных sequential/process варианта имеют равные полные reports и JSON (кроме echoed execution). Compileall src/tests/tools/docs/examples/m6, 1427 локальных Markdown-путей и git diff --check успешны; syntax/whitespace новых файлов проверены отдельно.
+
+Прямо сверены PG1.4, Rules / Attack Tests / Attack Modifiers, стр. 118–119; GM1.1, Allies and Antagonists / Minions, стр. 91; Understanding NPC Profiles, стр. 93. Explicit family facts/GM flags/hands/Protection Skill не выводятся и не меняются адаптером; новых house rules/метрик нет. Shared execution/window identities и ranged formats сохранены; domain/engine/generator/staged evaluator не менялись.
+
+На старте дерево было чистым. Добавлены пять src-файлов и два test-файла; изменены Melee errors/Schema registry и документация. Balance service/application errors/error encoder/CLI, новый installed wheel, Python 3.12/другие ОС и performance этим срезом не проверялись. Общий installed аудит остаётся после balance-melee. Commit/push не выполнялись.
+
+```powershell
+$env:PYTHONPATH = "src"
+.venv/Scripts/python.exe -m unittest tests.unit.test_m6_melee_balance_json tests.integration.test_m6_melee_balance_json -q
+.venv/Scripts/python.exe -m unittest discover -s tests -q
+.venv/Scripts/python.exe -m compileall -q src tests tools docs/examples/m6
+git -c core.safecrlf=false diff --check
+```
+
+## Предыдущая проверка (simulation service/CLI)
+
+2026-09-29, Windows / Python 3.14.5: второй срез ADR-0027 завершён. Реализованы Melee simulation service/execution error, JSON error encoder и CLI simulate-melee; source checks покрывают полный result и summary. Сохраняются exact options, штатный RNG, request ID/cause/notes и четыре игровых исхода. Ошибка encoder не маскируется execution failure; повторов, fallback и partial summary нет. Общий CLI I/O также обрабатывает закрытые Python-потоки как exit 4.
+
+Добавлены **36 tests** (service, error JSON, unit/integration CLI), всего Melee JSON/CLI 61. Релевантные новые tests: **36 OK (29,920 с)**. **Полная регрессия: 2225 tests — OK (188,355 с)**, включая прежние ranged JSON/CLI и real spawn. Compileall src/tests/tools/docs/examples/m6, 1414 локальных Markdown-путей и git diff --check успешны.
+
+Wheel собран и установлен заново: первоначальная сборка не получила setuptools из-за недоступной сети; офлайн-сборка с setuptools 84.0.0 из существующего pip cache и `--no-cache-dir` прошла. Новый временный venv вне репозитория содержит wheel и его runtime dependencies, PYTHONPATH удалён, text streams ASCII. Все **330 Python/Schema файлов** установленного пакета совпали с src после нормализации line endings. Module/console × sequential/process (8 Melee trials на вызов) дали одинаковые summary; file/stdin, три bundled Schema/local refs, error envelopes и прежние ranged simulate/balance проверены через обе точки входа. Installed pip check успешен. Это проверка simulation CLI; общий аудит с balance-melee остаётся впереди.
+
+Прежние незакоммиченные изменения сохранены. Добавлены два application-файла и четыре test-файла; дополнены Melee JSON adapter, CLI и документация. Игровые правила, метрика, ranged wire и shared class identities не менялись. Balance wire/service/CLI, Python 3.12/другие ОС и performance этим срезом не проверялись. Commit/push не выполнялись.
+
+```powershell
+$env:PYTHONPATH = "src"
+.venv/Scripts/python.exe -m unittest tests.unit.test_m6_melee_service tests.unit.test_m6_melee_error_json tests.unit.test_m6_melee_cli tests.integration.test_m6_melee_cli -q
+.venv/Scripts/python.exe -m unittest discover -s tests -q
+.venv/Scripts/python.exe -m compileall -q src tests tools docs/examples/m6
+# setuptools wheel предварительно скопирован из существующего локального pip cache:
+.venv/Scripts/python.exe -m pip wheel . --no-deps --no-index --no-cache-dir --find-links dist/melee-cli-build-deps --wheel-dir dist/melee-cli-check --disable-pip-version-check
+git -c core.safecrlf=false diff --check
+```
+
+## Предыдущая проверка (simulation pure JSON)
+
+2026-09-29, Windows / Python 3.14.5: первый implementation-срез ADR-0027 завершён. Три packaged Melee simulation Schema request/result/error, frozen/slotted command, typed input errors, pure scenario mapper/parser/aggregate summary encoder реализованы. Добавлены **23 unit + 2 integration tests**: strict lexical/Schema/semantic admission, explicit facts/GM flags/hands/Protection Skill, lossless orders/echo, exact summary source, крупные integers, отсутствие RNG/pool в adapters и полное sequential/process равенство. Shared lexical reader вынесен с совместимыми ranged reexports; ranged formats и shared class identities сохранены.
+
+**Полная регрессия: 2189 tests — OK (155,055 с)**, включая прежние ranged JSON/CLI и real spawn. При завершающей проверке error Schema найден и устранён допуск JSON Pointer, состоящего только из перевода строки (особенность `$` в regex); после этой локальной правки новые **25 tests повторно OK (2,136 с)**. Полный набор после неё не повторялся; ranged Schema не менялись. Compileall src/tests/tools/docs/examples/m6, 1402 локальных Markdown-пути и git diff --check успешны. Saved simulation fixtures проверены production parser/encoder; сохранённые Monte Carlo counts не используются как oracle свежего прогона.
+
+Исходные незакоммиченные изменения README/docs и семь контрактных артефактов сохранены. Добавлены девять src-файлов и два test-файла; изменены общий strict reader и связанная документация. Simulation service/error encoder/CLI, balance wire, установленный wheel, Python 3.12/другие ОС и новые benchmarks этим срезом не проверялись. Commit/push не выполнялись.
+
+```powershell
+$env:PYTHONPATH = "src"
+.venv/Scripts/python.exe -m unittest tests.unit.test_m6_melee_json tests.integration.test_m6_melee_json -q
+.venv/Scripts/python.exe -m unittest discover -s tests -q
+.venv/Scripts/python.exe -m compileall -q src tests tools docs/examples/m6
+git -c core.safecrlf=false diff --check
+```
+
+## Предыдущая проверка (контракт JSON/CLI)
+
+2026-09-29, Windows / Python 3.14.5: контракт ADR-0027 и семь новых артефактов (ADR, finite probe, README, два request и два result JSON) подготовлены. **108 релевантных tests — OK (78,161 с)**: existing ranged JSON/CLI unit/integration и все 32 Melee generation tests. Probe сопоставил JSON с полными typed examples: simulation 8 trials и balance пять составов с planned/actual 18; полные sequential/process результаты равны, семь семантических отказов проверены, source unchanged. Всего probe исполнил 52 trials, result fixtures — наблюдения текущего runtime. Strict lexical/Schema/new CLI этим probe не реализованы и не проверены; это матрица следующего среза. Полная регрессия не повторялась, последняя — 2164 OK из аудита ниже. Compileall src/tests/tools/docs/examples/m6, 1392 локальных Markdown-путей, JSON syntax/nonfinite и git diff --check успешны. Рабочее дерево на старте чистое; production src/tests/tools не менялись, новых unittest tests нет. Обновлены status/roadmap/архитектура и книжная трассировка. Python 3.12/другие ОС, wheel и benchmark не проверялись. Commit/push не выполнялись.
+
+```powershell
+$env:PYTHONPATH = "src"
+.venv/Scripts/python.exe docs/examples/m6/json_contract_probe.py --write-examples
+.venv/Scripts/python.exe -m unittest tests.unit.test_m4_ranged_json tests.unit.test_m4_ranged_error_json tests.unit.test_m4_cli tests.integration.test_m4_ranged_json tests.integration.test_m4_cli tests.unit.test_m5_ranged_balance_json tests.unit.test_m5_balance_cli tests.integration.test_m5_ranged_balance_json tests.integration.test_m5_balance_cli tests.unit.test_m6_melee_candidate_generation_models tests.unit.test_m6_melee_candidate_generation tests.integration.test_m6_melee_candidate_generation -q
+.venv/Scripts/python.exe -m compileall -q src tests tools docs/examples/m6
+git -c core.safecrlf=false diff --check
+```
+
+## Предыдущая полная проверка (аудит generation M6)
+
+2026-09-29, Windows / Python 3.14.5: **2164 tests — OK (148,644 с)**, полный набор с real spawn/ranged/CLI. Аудит ADR-0026 сопоставил public APIs и 32 tests (13 preflight + 14 construction/result/error + 5 integration); новых unittest tests нет. Самостоятельный melee_balance.py через public APIs построил пять Footpad-составов, выполнил stages 8/32 keep 2/1 в sequential/process и сравнил полные reports/selection. Planned/actual=104 на backend, всего 208 trials; уточнённые оценки двух составов 26/32 вышли за окно [1/4,1/2,3/4], итог COMPLETED с пустым выбором. Сохранён вывод; assertions не фиксируют Monte Carlo проценты/победителя. Input/global RNG/cleanup успешны. Инъекция generation/staged failures проверила stderr, тот же exception/cause/notes, пустой stdout и отсутствие дальнейшего backend. AST-проверены границы domain/engine/simulation и отсутствие tests/private imports в новом примере. Compileall src/tests/tools/docs/examples/m6, 1360 локальных Markdown-путей и git diff --check успешны. 26 существовавших dirty/untracked файлов сохранены; добавлены аудит, пример и вывод, документация синхронизирована. Production src/tests/tools не менялись. Пользователь выбрал следующий этап JSON/CLI для Melee; пока готов только typed Python API. Python 3.12/другие ОС, wheel и новые benchmarks не проверялись; предыдущие замеры не заявляются как performance generator. Commit/push не выполнялись.
+
+```powershell
+$env:PYTHONPATH = "src"
+.venv/Scripts/python.exe docs/examples/m6/melee_balance.py
+.venv/Scripts/python.exe -m unittest discover -s tests -q
+.venv/Scripts/python.exe -m compileall -q src tests tools docs/examples/m6
+git -c core.safecrlf=false diff --check
+```
+
+## Предыдущая полная проверка (generation integration M6)
+
+2026-09-29, Windows / Python 3.14.5: **2164 tests — OK (140,874 с)**, полный набор с real spawn/ranged/CLI. Добавлены 5 integration tests ADR-0026 (отдельный запуск 5 OK, 7,292 с), всего generation 32. Пять generated candidates проходят существующий staged evaluator с stages 2/4, keep 2/1 и полным planned/actual budget 18; полные sequential/process reports и selected IDs равны, повтор генерации/исполнения воспроизводим, rename prefix сохраняет seeds/assessments/выбранные составы. Input/global RNG неизменны, дочерние процессы завершены. Scripted RNG через public runner проверяет initial outnumbering 2×1/2×2/2×3, появление бонуса после defeat врага и исчезновение после defeat союзника; True/False GM flags, точные trace/pools/RNG calls и defeat decisions сохраняются. Новых production ошибок не обнаружено; src/tools не менялись. Compileall src/tests/tools/docs/examples/m6, 1320 локальных Markdown-путей и git diff --check успешны. 25 существовавших dirty/untracked файлов сохранены; добавлен tests/integration/test_m6_melee_candidate_generation.py, документация синхронизирована. Самостоятельный production-пример и аудит ADR-0026 ещё впереди. Python 3.12/другие ОС, wheel и benchmark не проверялись. Commit/push не выполнялись.
+
+```powershell
+$env:PYTHONPATH = "src"
+.venv/Scripts/python.exe -m unittest tests.integration.test_m6_melee_candidate_generation -q
+.venv/Scripts/python.exe -m unittest discover -s tests -q
+.venv/Scripts/python.exe -m compileall -q src tests tools docs/examples/m6
+git -c core.safecrlf=false diff --check
+```
+
+## Предыдущая полная проверка (generation construction M6)
+
+2026-09-29, Windows / Python 3.14.5: **2159 tests — OK (137,836 с)**, полный набор с real spawn/ranged/CLI. Добавлены 14 deterministic tests construction/result/error ADR-0026; вместе с request preflight — 27 tests (отдельный запуск 27 OK, 0,111 с до последних дополнительных assertions; окончательное состояние покрыто полным набором). generate_melee_candidates строит все согласованные начальные сценарии; immutable result сверяет полный generation source и exact ordered staged input. Сохранены snapshots/independent orders/graph/family facts/полные GM policies, включая True/False flags. Проверены обе perspective-side, пять count vectors/IDs без dedup, caps до materialization, source/facts/GM flag/position/profile/ID substitutions, frozen/equal copies/no records, отсутствие runner/RNG/pool, ошибка второго состава с counts/ID/cause/notes и остановкой, interrupts и final constructor boundaries. Compileall src/tests/tools/docs/examples/m6, 1314 локальных Markdown-путей и git diff --check успешны. 22 существовавших dirty/untracked файла сохранены; добавлены generator/error и construction/result tests, дополнена существующая модель результата и синхронизирована документация. Domain/engine/simulation/ranged API не менялись. Сквозная integration генератор → staged evaluation, production-пример и аудит ADR-0026 ещё впереди. Python 3.12/другие ОС, wheel и benchmark не проверялись. Commit/push не выполнялись.
+
+```powershell
+$env:PYTHONPATH = "src"
+.venv/Scripts/python.exe -m unittest tests.unit.test_m6_melee_candidate_generation tests.unit.test_m6_melee_candidate_generation_models -q
+.venv/Scripts/python.exe -m unittest discover -s tests -q
+.venv/Scripts/python.exe -m compileall -q src tests tools docs/examples/m6
+git -c core.safecrlf=false diff --check
+```
+
+## Предыдущая полная проверка (generation preflight M6)
+
+2026-09-29, Windows / Python 3.14.5: **2145 tests — OK (142,433 с)**, полный набор с real spawn/ranged/CLI. Добавлены 13 deterministic tests group/request preflight ADR-0026 (отдельный запуск: 13 OK, 0,090 с). Реализованы frozen/slotted MeleeCompositionGroup и MeleeCandidateGenerationRequest: exact reserve partition/full definitions, обе perspective-side, отдельные family facts/Zone/escape path, typed Melee/seed/stages/window, C/max_candidates и полный planned_trials/max_total_trials до перебора. False/True GM flags и полные decisions сохраняются в template. Проверен арифметический вход C=2**40−1 без создания кандидатов, RNG/runner/pool; seed admission вызывается один раз. Construction/result/error ещё не реализованы. Compileall src/tests/tools/docs/examples/m6, 1300 локальных Markdown-путей и git diff --check успешны. 20 существовавших dirty/untracked файлов сохранены; добавлены application model и unit tests, документация синхронизирована. Domain/engine/simulation/ranged API не менялись. Python 3.12/другие ОС, wheel и benchmark не проверялись. Commit/push не выполнялись.
+
+```powershell
+$env:PYTHONPATH = "src"
+.venv/Scripts/python.exe -m unittest tests.unit.test_m6_melee_candidate_generation_models -q
+.venv/Scripts/python.exe -m unittest discover -s tests -q
+.venv/Scripts/python.exe -m compileall -q src tests tools docs/examples/m6
+git -c core.safecrlf=false diff --check
+```
+
+## Предыдущая проверка (контракт генерации M6)
+
+2026-09-29, Windows / Python 3.14.5: контракт ADR-0026 и finite constructor probe готовы. **59 релевантных tests — OK (5,619 с)**: M5 generation models/construction/integration, Melee scenario/preflight и staged models. Probe допускает пять вручную заданных составов, сохраняет orders/snapshots/GM flags/decisions/graph/facts; planned budget 250, четыре отказа existing constructors, source unchanged. Это не production generator и не Monte Carlo-измерение. Полная регрессия в этом срезе не повторялась; последняя — 2132 OK из аудита ниже. Compileall, 1289 локальных Markdown-путей и git diff --check успешны. 18 исходных dirty/untracked файлов сохранены; добавлены ADR-0026 и probe, документация синхронизирована. Production src/tests/tools не менялись; новых unittest tests нет. Python 3.12/другие ОС, wheel и benchmark не проверялись. Commit/push не выполнялись.
+
+```powershell
+$env:PYTHONPATH = "src"
+.venv/Scripts/python.exe docs/examples/m6/generation_contract_probe.py
+.venv/Scripts/python.exe -m unittest tests.unit.test_m5_ranged_candidate_generation_models tests.unit.test_m5_ranged_candidate_generation tests.integration.test_m5_ranged_candidate_generation tests.unit.test_m6_npc_melee_scenario tests.integration.test_m6_npc_melee_scenario_preflight tests.unit.test_m6_melee_staged_evaluation -q
+.venv/Scripts/python.exe -m compileall -q src tests tools docs/examples/m6
+git -c core.safecrlf=false diff --check
+```
+
+## Предыдущая полная проверка (аудит staged M6)
+
+2026-09-29, Windows / Python 3.14.5: **2132 tests — OK (136,244 с)**, полный набор с real spawn/ranged/CLI. Аудит сопоставил 28 existing tests ADR-0025 (17 model/helper + 9 service + 2 integration) с матрицей контракта. Самостоятельный melee_staged_evaluation.py проверен: два явных Footpad-состава, stages 8/32 keep=1, полные sequential/process reports/selected равны, actual=48 на вызов и 96 суммарно, input/global RNG неизменны, дети завершены. Сохранён вывод. Отдельная инъекция ошибки после двух реальных candidate runs первого этапа подтвердила stage_index=1, candidate/cause/notes, отсутствие partial report и запуска process после сбоя. AST-проверка импортов подтвердила границы domain/engine/simulation. Compileall src/tests/tools/docs/examples/m6, 1265 локальных Markdown-путей и git diff --check успешны. Рабочее дерево на старте чистое; добавлены аудит, пример и его вывод, обновлена документация. Production src/tests/tools не менялись, новых unittest tests не добавлено. Python 3.12/другие ОС, wheel и повторные benchmark не проверялись. Commit/push не выполнялись.
+
+```powershell
+$env:PYTHONPATH = "src"
+.venv/Scripts/python.exe docs/examples/m6/melee_staged_evaluation.py
+.venv/Scripts/python.exe -m unittest discover -s tests -q
+.venv/Scripts/python.exe -m compileall -q src tests tools docs/examples/m6
+git diff --check
+```
+
+## Предыдущая полная проверка (аудит M5)
+
+2026-09-28: Python 3.12 отсутствует; проверки выполнены на Python 3.14.5 в локальном .venv с установленными jsonschema 4.26.0 и referencing 0.37.0. Зависимости объявлены в pyproject.toml.
+
+```powershell
+# После установки проекта/зависимостей по README
+$env:PYTHONPATH = "src"
+.venv/Scripts/python.exe -m unittest discover -s tests -v
+.venv/Scripts/python.exe -m compileall -q src tests tools docs/examples/m5
+.venv/Scripts/python.exe -m pip check
+git diff --check
+```
+
+Полный набор: Ran 1971 tests ... OK (157,948 с), Python 3.14.5, включая real spawn. В этом аудите src/tests/pyproject.toml не менялись. Проверены 52 tests внешнего M5 и 121 M5 test суммарно (AST count), contract/implementation/source/error/CLI boundaries. Все 299 installed Python/Schema файлов равны текущим src; повторный installed probe вне repo без PYTHONPATH проверил module/console × sequential/process, file/stdin, пять составов и равные aggregate reports на planned/actual budget 7. Полный пример 136 trials покрывается existing JSON integration tests; wheel заново не собирался/не устанавливался. Compileall (src/tests/tools/docs/examples/m5), pip check, локальные ссылки и git diff --check успешны. Рабочее дерево на старте чистое; изменены только документация и книжная трассировка. Прямо перечитаны BOOK-GM-GUIDE 1.1, Allies and Antagonists, стр. 91/93/97 и BOOK-PLAYER-GUIDE 1.4, Rules / The Battlefield, стр. 114. Новых Rule IDs/house rules нет. Python 3.12/другие ОС, повторный PDF extraction и benchmark не проверялись. Commit/push не выполнялись.

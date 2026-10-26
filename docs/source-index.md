@@ -480,3 +480,8 @@ Actor-bound consumer M8: непосредственно перечитаны BOO
 ### Контракт независимых magic-прогонов, 2026-10-26
 
 Для [ADR-0038](decisions/ADR-0038-independent-magic-simulations.md) прямо перечитаны BOOK-PLAYER-GUIDE 1.4, Rules / Combat, стр. 112; Conditions / Broken, стр. 122; Magic in the Old World / Miscasts, стр. 157; Battle Magic / Curse of Cowardly Flight, стр. 162; Wounds Table / Superficial injury и lethal rows, стр. 190–191. BOOK-GM-GUIDE 1.1, Allies and Antagonists / Minions и Champions, стр. 91–92. Probe использует существующий Wound lifecycle/defeat/archive без новой death policy. Seeds/агрегация — технический контракт; новых Rule IDs/house rules нет.
+
+
+### Реализация и аудит независимых magic-прогонов, 2026-10-26
+
+Для ADR-0038 непосредственно сверены локальные PG1.4 Rules / Combat, стр. 112; Conditions / Broken, стр. 122; Magic in the Old World / Miscasts, стр. 157; Battle Magic / Curse of Cowardly Flight, стр. 162; Wounds Table, стр. 190–191; GM1.1 Allies and Antagonists / Minions и Champions, стр. 91–92. Последовательный слой повторяет существующий runner без изменения игровых переходов: Broken не defeat, pending не теряется, completion/end-turn не новые actions. Seeds/records/summary — технический контракт. Новых Rule IDs/house rules нет; [аудит](audits/m8-simulation-readiness.md).

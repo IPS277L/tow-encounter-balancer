@@ -438,3 +438,8 @@ BOOK-PLAYER-GUIDE 1.4, Rules / Attack Tests / Giving Ground, стр. 119: вхо
 ### Контракт независимой magic simulation, 2026-10-26
 
 Новых противоречий/house rules не выявлено. [ADR-0038](decisions/ADR-0038-independent-magic-simulations.md) сохраняет normative rules single-run: PG1.4 Rules / Combat/Broken, стр. 112/122; Magic in the Old World / Miscasts, стр. 157; Battle Magic / Curse, стр. 162; Wounds Table, стр. 190–191; GM1.1 Allies and Antagonists / Minions/Champions, стр. 91–92. Compact record различает shared input и final owner, started/completed/actions, terminal outcome и unsupported. Нулевая action остановка не исправляется фиктивным действием; одинаковые ID/seed другого полного input не считаются той же записью. RNG scheme и arithmetic bounds — технические решения, не правила книги.
+
+
+### Аудит последовательной magic simulation, 2026-10-26
+
+ADR-0038 реализован без новых игровых решений: непосредственно сверены PG1.4 Combat, стр. 112; Broken, стр. 122; Miscasts, стр. 157; Curse of Cowardly Flight, стр. 162; Wounds Table, стр. 190–191; GM1.1 Minions/Champions, стр. 91–92. Input и single-run scope неизменны, mandatory pending сохраняется; четыре исхода не фильтруются. Старые неоднозначности Spell Recast/Objects Transfigured/self-inclusion остаются открытыми и не обходятся подбором seeds или молчаливым продолжением. Новых CODE-CONFLICT/house rules нет. [Аудит](audits/m8-simulation-readiness.md).
