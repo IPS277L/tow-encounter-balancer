@@ -1,4 +1,4 @@
-"""Local command-line adapter for admitted ranged, Melee and mixed encounters."""
+"""Local command-line adapter for admitted ranged, Melee, mixed and magic encounters."""
 import argparse
 import os
 from pathlib import Path
@@ -40,6 +40,12 @@ from towr.adapters.mixed_balance_json import (
 )
 from towr.application.mixed_balance_errors import MixedBalanceGenerationError, MixedBalanceExecutionError
 from towr.application.mixed_balance_service import execute_mixed_balance
+from towr.adapters.magic_json_errors import MagicSimulationInputError
+from towr.adapters.magic_simulation_json import (
+    encode_magic_simulation_error, encode_magic_simulation_result, parse_magic_simulation_request,
+)
+from towr.application.magic_simulation_errors import MagicSimulationExecutionError
+from towr.application.magic_simulation_service import execute_magic_simulation
 
 
 def _diagnose(message: str) -> bool:
@@ -64,7 +70,7 @@ def _silence_failed_stream(stream: TextIO) -> None:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(prog="towr", description="Simulate or balance TOWR Minion encounters.")
+    parser = argparse.ArgumentParser(prog="towr", description="Simulate or balance TOWR encounters.")
     commands = parser.add_subparsers(dest="command", required=True)
     simulate = commands.add_parser("simulate", help="execute a JSON v1 request")
     simulate.add_argument("input", metavar="INPUT", help="UTF-8 JSON file, or - for stdin")
@@ -78,6 +84,8 @@ def main(argv: list[str] | None = None) -> int:
     mixed.add_argument("input", metavar="INPUT", help="UTF-8 JSON file, or - for stdin")
     mixed_balance = commands.add_parser("balance-mixed", help="generate and evaluate a mixed JSON balance v1 request")
     mixed_balance.add_argument("input", metavar="INPUT", help="UTF-8 JSON file, or - for stdin")
+    magic = commands.add_parser("simulate-magic", help="execute an authored magic JSON v1 request")
+    magic.add_argument("input", metavar="INPUT", help="UTF-8 JSON file, or - for stdin")
     args = parser.parse_args(argv)
 
     if args.command == "balance":
@@ -100,6 +108,10 @@ def main(argv: list[str] | None = None) -> int:
         parse, execute, encode = parse_mixed_simulation_request, execute_mixed_simulation, encode_mixed_simulation_result
         encode_error, input_error = encode_mixed_simulation_error, MixedSimulationInputError
         execution_errors = (MixedSimulationExecutionError,)
+    elif args.command == "simulate-magic":
+        parse, execute, encode = parse_magic_simulation_request, execute_magic_simulation, encode_magic_simulation_result
+        encode_error, input_error = encode_magic_simulation_error, MagicSimulationInputError
+        execution_errors = (MagicSimulationExecutionError,)
     else:
         parse, execute, encode = parse_ranged_simulation_request, execute_ranged_simulation, encode_ranged_simulation_result
         encode_error, input_error = encode_ranged_simulation_error, RangedSimulationInputError
@@ -121,7 +133,10 @@ def main(argv: list[str] | None = None) -> int:
         status = 2
     except execution_errors as error:
         output = encode_error(error)
-        code = "generation_failed" if isinstance(error, (RangedBalanceGenerationError, MeleeBalanceGenerationError, MixedBalanceGenerationError)) else "execution_failed"
+        if isinstance(error, MagicSimulationExecutionError):
+            code = "simulation_failed"
+        else:
+            code = "generation_failed" if isinstance(error, (RangedBalanceGenerationError, MeleeBalanceGenerationError, MixedBalanceGenerationError)) else "execution_failed"
         diagnostic = f"{code}: {error}"
         status = 3
     else:

@@ -544,3 +544,7 @@ Authored fixtures напрямую сверены с PG 1.4: Rules / Combat, с�
 ## Simulation pure wire ADR-0043
 
 2026-10-28: [Первый срез](decisions/ADR-0043-magic-json-cli-v1.md#реализованный-первый-срез) реализует только technical JSON admission/encoding existing fresh scenario и native summary. Напрямую сверены BOOK-PLAYER-GUIDE1.4: Magic in the Old World / Casting a Spell / Interrupted Casting, стр.156; Spell Potency / Miscasts, стр.157; Battle Magic / Curse, стр.162; BOOK-GM-GUIDE1.1: Allies and Antagonists / Minions / Champions, стр.91–92. Full spell, separate Willpower/GM decisions, explicit scenes/routes и Champion owner не упрощаются. Новых Rule IDs/игровых правил/house rules/противоречий нет; domain/engine/rules/simulation прежние. [Tests](../tests/unit/test_m8_magic_json.py) проверяют технические границы; service/CLI остаются отдельно.
+
+## Simulation execution/CLI ADR-0043
+
+2026-10-28: [Второй срез](decisions/ADR-0043-magic-json-cli-v1.md#реализованный-второй-срез) добавляет только service/error boundary/CLI поверх unchanged magic simulator. Напрямую сверены BOOK-PLAYER-GUIDE1.4: Magic in the Old World / Spell Potency / Miscasts, стр.157; Battle Magic / Curse of Cowardly Flight, стр.162; BOOK-GM-GUIDE1.1: Allies and Antagonists / Minions / Champions, стр.91–92. Full authored source/GM facts, exact unsupported stops и distinct Champion/Minion injury policies сохраняются. Новых Rule IDs/игровых правил/house rules/противоречий нет; simulation/domain/engine/rules прежние. Execution failures не подменяют unsupported outcome.

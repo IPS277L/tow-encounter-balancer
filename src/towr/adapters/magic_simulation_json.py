@@ -10,9 +10,27 @@ from towr.adapters.magic_json_errors import MagicSimulationInputError
 from towr.adapters.magic_json_schema import validate_magic_simulation_document
 from towr.adapters.ranged_json_errors import RangedInputErrorCode as Code
 from towr.application.magic_simulation_models import MagicSimulationCommand
+from towr.application.magic_simulation_errors import MagicSimulationExecutionError
 from towr.application.ranged_simulation_models import SimulationExecutionMode, SimulationExecutionOptions
 from towr.simulation.npc_magic_models import NpcMagicSimulationRequest, SEED_SCHEME
 from towr.simulation.npc_magic_summary_models import NpcMagicSimulationSummary
+
+
+def encode_magic_simulation_error(
+    error: MagicSimulationInputError | MagicSimulationExecutionError,
+) -> str:
+    """Encode this boundary's failures without causes, notes or partial results."""
+    if isinstance(error, MagicSimulationInputError):
+        code, path, message = error.code.value, error.path, str(error)
+    elif isinstance(error, MagicSimulationExecutionError):
+        code, path, message = 'simulation_failed', None, 'Magic simulation execution failed'
+    else:
+        raise TypeError('error encoding requires a magic simulation input or execution error')
+    document = {'schema_version': '1', 'kind': 'magic_simulation_error', 'request_id': error.request_id,
+        'error': {'code': code, 'path': path, 'message': message}}
+    validate_magic_simulation_document(document, 'error')
+    # Invalid input diagnostics can contain escaped lone Unicode surrogates.
+    return json.dumps(document, ensure_ascii=True, indent=2, allow_nan=False) + '\n'
 
 
 def parse_magic_simulation_request(text: str | bytes) -> MagicSimulationCommand:

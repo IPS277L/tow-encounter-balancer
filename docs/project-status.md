@@ -4,11 +4,11 @@
 
 ## Текущий этап
 
-**M8: simulation pure wire ADR-0043 реализован.** [Frozen command](../src/towr/application/magic_simulation_models.py), [общий mapper](../src/towr/adapters/_magic_scenario_json.py), [strict parser/summary encoder](../src/towr/adapters/magic_simulation_json.py), три packaged Schema, local registry и Magic input errors готовы. Service/execution errors/error encoder/CLI и balance wire ещё не реализованы.
+**M8: simulation JSON/CLI ADR-0043 реализован (срезы1/2).** Готовы command/mapper/strict parser/native summary encoder/три Schema, [application service](../src/towr/application/magic_simulation_service.py), [execution error](../src/towr/application/magic_simulation_errors.py), [error encoder](../src/towr/adapters/magic_simulation_json.py) и `simulate-magic INPUT`. Balance wire/команда и общий аудит ещё впереди.
 
-Полный fresh source сохраняет независимые request/scenario/day IDs, definition/roster/placement/activation/scene orders, canonical spell, все facts/profiles/GM decisions/routes и archives/empty-live. Encoder сравнивает полный summary source и reconstruct-check command; нижние слои не менялись. Shared reader расширен только import/type union нового error family, все прежние function AST сохранены.
+Service исполняет existing sequential/process runner с exact options/default indexed RNG и проверяет полный result/source до summary и полный summary/source после неё. Ошибка привязана к external command.request_id, Python cause/notes сохраняются; JSON/stderr содержат generic simulation_failed. Все native outcomes — success/exit0. CLI использует прежний byte I/O/exit0/2/3/4; encoder errors/BaseException проходят напрямую, partial output/retry/fallback отсутствуют.
 
-30 новых tests (28 unit +2 real-backend integration) проверяют strict admission, source/lossless/purity и sequential/spawn equality без Monte Carlo/winner assertions. [Матрица/примеры API](examples/m8/json/README.md), [ADR](decisions/ADR-0043-magic-json-cli-v1.md#реализованный-первый-срез). Работа идёт небольшими срезами до проверяемой вехи по [AGENTS.md](../AGENTS.md#автономная-работа-до-согласованной-вехи), с независимым review/tests. На старте дерево было чистым (`c229e97 M8 P12`); commit/push выполняет пользователь.
+38 новых tests (11 service +16 unit CLI/error +11 subprocess integration) проверяют source/dispatch/errors/I/O и real spawn. Вместе с30tests первого среза —68. [Формат/API/CLI примеры](examples/m8/json/README.md), [ADR](decisions/ADR-0043-magic-json-cli-v1.md#реализованный-второй-срез). На старте дерево было чистым (`84d0374 M8 P13`); работа небольшими срезами с независимыми tests/review по [AGENTS.md](../AGENTS.md#автономная-работа-до-согласованной-вехи). Commit/push выполняет пользователь.
 
 ## Зафиксировано
 
@@ -21,11 +21,11 @@
 | M8 performance | [Замеры](benchmarks/README.md#m8-sequential-и-spawn); локальное преимущество w2 для двух N1000 inputs, не auto backend |
 | M8 bounded/staged | [ADR-0040 audit](audits/m8-evaluation-readiness.md), [ADR-0041 audit](audits/m8-staged-evaluation-readiness.md), public/installed examples |
 | M8 generation | [ADR-0042 audit](audits/m8-generation-readiness.md), 41 implementation +3 example tests, late failures/installed parity |
-| M8 JSON/CLI | Simulation pure wire (срез1) готов; service/CLI (срез2), balance wire/execution (3/4) и общий аудит (5) следуют отдельно |
+| M8 JSON/CLI | Simulation wire/service/error encoder/CLI (срезы1/2) готовы; balance wire/execution (3/4) и общий аудит (5) следуют отдельно |
 
 ## Ограничения
 
-- [Политика источников](source-policy.md): PG1.4/GM1.1 выше прототипа. В текущем срезе напрямую сверены PG1.4 Magic in the Old World / Casting / Interrupted Casting156, Potency/Miscasts157, Battle Magic / Curse162; GM1.1 Allies and Antagonists / Minions / Champions91–92. Другие ранее сверенные references сохранены в ADR-0042/0043. Новых игровых правил/house rules нет.
+- [Политика источников](source-policy.md): PG1.4/GM1.1 выше прототипа. В текущем срезе напрямую сверены PG1.4 Magic in the Old World / Potency / Miscasts157, Battle Magic / Curse162; GM1.1 Allies and Antagonists / Minions / Champions91–92. Прежний Casting/Interrupted Casting reference156 сохраняется. Другие ранее сверенные references сохранены в ADR-0042/0043. Новых игровых правил/house rules нет.
 - Прежний magic scope: Curse, Broken Recover/Run, Stomach Blow → Drained expiry. Другие обязательные Wound/Miscast/chronology, ordinary Attack Give Ground, неизвестные scene/route дают exact unsupported stops. Broken/другая Zone не defeat; unsupported остаётся в N и исключает кандидата из continuation.
 - Fresh-only wire не является сохранением произвольного текущего боя. Simulation encoder отклоняет неподдержанный source при lossless reconstruct-check. External request ID, scenario ID и day ID независимы; definitions/roster/placements/activation/frames/routes/GM decisions сохраняют отдельные порядки.
 - Полные повторные пакеты:10→100 оплачивает110, stages не независимы, prefix вычисляется заново. Intermediate eligible может продолжать вне окна, final selection требует window_match. Нельзя пропускать invalid generated subset или уменьшать заявленный C/budget после preflight.
@@ -35,23 +35,23 @@
 
 ## Следующий шаг
 
-**Срез2 ADR-0043: simulation execution/CLI.** Реализовать application execute_magic_simulation и MagicSimulationExecutionError с external request ID/cause/notes; dispatch existing sequential/process runner по прежним options, exact result/source до summary. Добавить error encoder и отдельную команду simulate-magic с existing UTF-8/I/O/exit0/2/3/4 boundary. Проверить все native outcomes как success, phase errors без raw cause/partial/retry/fallback, file/stdin/Unicode/usage/write/flush/closed streams, real spawn и installed module/console, регрессию шести прежних команд. Balance wire/execution идут срезами3/4, затем общий аудит. Gameplay scope/roadmap не расширять.
+**Срез3 ADR-0043: balance pure wire.** Реализовать три packaged balance Schema/local registry, frozen MagicBalanceCommand(request_id,generation_request,execution,definition_order) и MagicBalanceResult(generation_result,evaluation_result), pure parser/result encoder с готовым shared scenario mapper. Проверить independent IDs/orders, separate exact family facts/frames, groups без Wizard/обе perspective, C/caps/полный staged budget/все stages, Fraction normalization, полный source chain и catalog без ID parsing, early/final/unsupported semantics. Parse/encode не запускают generation service/RNG/runner/pool. Balance service/errors/error encoder/CLI — отдельный срез4; затем общий аудит5. Gameplay scope/roadmap не расширять.
 
 ## Последняя проверка
 
-**30 новых tests — OK**: 28 unit +2 integration, все прошли также в полной регрессии. Strict UTF-8/duplicate/nonfinite/float/exponent/version/required/unknown/nullable/type/uint64 и большие exact integers; независимые IDs/все orders, обе Wizard sides/perspectives, full canonical profiles/spell/facts/policies, Close/Short/Medium/Long/Extreme, three route fields/GM flags, archives/empty-live. Native четыре counts/три totals, same-ID foreign full source, UTF-8 lossless refusal, frozen/copy/pickle и запрет RNG/runner/pool при parse/encode проверены. Real sequential/spawn full results/summary одинаковы, global RNG/children сохранены. Независимое read-only ревью блокеров не выявило.
+**38 новых tests — OK**:11service unit (0,104с) и27CLI/error unit/integration (12,749с); два усиленных существующих случая отдельно0,406с. Все38 прошли и в полной регрессии. Exact dispatch/default RNG/options, full same-ID foreign result/summary/source, all native outcomes success, externalID/cause/notes/BaseException, late real trial failure/no-next/partial/fallback и input/global RNG/children guards проверены. CLI покрывает file/stdin/Unicode, malformed/version/admission, pool failure, usage/read/write/flush/closed Python streams/pipes, typed encoder errors direct и все7error families. Независимое read-only ревью блокеров не выявило.
 
-Offline wheel: все **431 Python/Schema files** совпали с src; из isolated extracted package (`-I`, external cwd, без PYTHONPATH) проверены import path, все3Schema и pure strict request/summary round-trip. Полный installed CLI audit относится к следующим срезам; новых команд пока нет. Build log `/private/tmp/towr-m8-simulation-wire-build.log`, report `/private/tmp/towr-m8-simulation-wire-wheel-report.json`.
+Fresh offline wheel установлен в отдельный venv; все **433 Python/Schema files** равны src/wheel/installed site. Schema dependencies скопированы offline из проверочного окружения (versions в report); package import paths проверены. Без PYTHONPATH из external cwd прошли installed module (`-I -m towr`) и console entrypoint, sequential/process полное wire/summary parity, relative file/Unicode stdin/input/I/O exits, late failure после первого real trial и все6прежних commands success/error families. Report `/private/tmp/towr-m8-simulation-cli-installed-report.json`; wheel SHA-256 `3ff5665bf6c1271e1d68b6d82ebe80cc22ec79297f3e8aa4b8860d195508a20c`. Совместный magic simulation/balance audit остаётся срезом5.
 
-Полная регрессия: **3316 tests / 33 прежних errors (118,879 с)**. Точные Counters полных error headers/subtests и exception signatures равны предыдущим3286tests, новых ошибок нет. Лог `/private/tmp/towr-m8-simulation-wire-tests.log`. 32 frozen/slotted Aim .state и одна dataclasses.replace(init=False) — прежние Python3.12 assertions; полный suite не объявляется зелёным.
+Полная регрессия: **3354 tests / 33 прежних errors (135,207 с)**. Точные Counters полных error headers/subtests/exception signatures равны предыдущим3316tests, новых ошибок нет. Лог `/private/tmp/towr-m8-simulation-cli-tests.log`. 32 frozen/slotted Aim .state и одна dataclasses.replace(init=False) — прежние Python3.12 assertions; полный suite не объявляется зелёным.
 
-Compileall, local Markdown paths/selected anchors, import boundaries311core modules и whitespace/diff — OK. Все **866 из867 исходных Python/JSON files** побайтно сохранены; единственное исключение — `_json_common.py` с прежним function AST. Все domain/engine/rules/simulation/balance, прежние tests/tools/examples/probes/fixtures неизменны. Source/harness hash теперь `d0755ccc5313aa5ddc100ae12dc2233a0aef595896b5a66d99ace0ce068e649b` вследствие нового wire слоя; performance не переизмерялся. Report `/private/tmp/towr-m8-simulation-wire-checks-report.json`.
+Compileall, local Markdown paths/selected anchors, import boundaries311core modules и whitespace/diff — OK. Все **875 из877 исходных Python/JSON files** сохранены; исключения cli.py (новый route/diagnostic code) и magic_simulation_json.py (новый error encoder/import). Все прежние pure adapter functions,6dispatch paths, read/write byte I/O и stream helper AST равны HEAD. Domain/engine/rules/simulation/balance, прежние tests/tools/examples/probes/fixtures неизменны. Source/harness hash `0c5800b5c686206a8c9e545427effc0f3097bc3868e177cb08275635ddbfd7aa`; новый внешний слой не является performance-замером. Report `/private/tmp/towr-m8-simulation-cli-checks-report.json`.
 
 ```sh
 PYTHONPATH=src /private/tmp/towr-test-venv/bin/python -m unittest discover -s tests -v
 PYTHONPATH=src /private/tmp/towr-test-venv/bin/python -m compileall -q src tests tools
-/private/tmp/towr-test-venv/bin/python /private/tmp/verify_m8_simulation_wire_wheel.py
-PYTHONPATH=src /private/tmp/towr-test-venv/bin/python /private/tmp/check_m8_simulation_wire.py --regression
+/private/tmp/towr-test-venv/bin/python /private/tmp/verify_m8_simulation_cli_installed.py
+PYTHONPATH=src /private/tmp/towr-test-venv/bin/python /private/tmp/check_m8_simulation_cli.py --regression
 git diff --check
 ```
 
