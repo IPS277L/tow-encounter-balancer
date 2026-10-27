@@ -539,3 +539,26 @@ RULE-COMBAT-001/002 и existing once-per-round spatial usage: BOOK-PLAYER-GUIDE 
 ## M8 — контракт staged evaluation ADR-0041
 
 [Контракт](decisions/ADR-0041-staged-magic-evaluation.md), [synthetic probe](examples/m8/staged_contract_probe.py), [output](examples/m8/staged_contract_probe.output.txt) и [subprocess test](../tests/integration/test_m8_magic_staged_contract_probe.py) не добавляют production staged API/Rule IDs. Existing magic bounded models сохраняют full source, native counts и actions/started/completed; probe проверяет только continuation/final selection, бюджеты полных повторов, Fraction/order и indexed-seed prefix без battle/RNG/pool. Прямые источники: PG1.4 Rules / Combat112, Conditions / Broken122, Magic in the Old World / Casting156 / Potency / Miscasts157, Battle Magic / Curse162, Wounds Table190–191; GM1.1 Allies and Antagonists / Minions / Champions91–92. Source/report chain и stage/candidate errors — future technical guards, их реализация следует отдельными срезами.
+
+## M8 — pure staged helper/models ADR-0041
+
+[Helper](../src/towr/balance/magic_staged_evaluation.py), [models](../src/towr/balance/magic_staged_evaluation_models.py) и [21 deterministic test](../tests/unit/test_m8_magic_staged_evaluation.py) реализуют первый технический срез [ADR-0041](decisions/ADR-0041-staged-magic-evaluation.md#реализация-первого-среза-helper-и-frozen-models): strict preflight/budget, exact source/report chain, separate continuation/final selection и derived statuses. Игровые Rule IDs и source boundaries прежние; нового извлечения книг или house rules нет. Pure API получает только bounded inputs/aggregates без runner/RNG/records; service следует отдельно.
+
+## M8 — staged application service ADR-0041
+
+[Service](../src/towr/application/magic_staged_evaluation_service.py), [error](../src/towr/application/magic_staged_evaluation_errors.py), [9 unit](../tests/unit/test_m8_magic_staged_evaluation_service.py) и [3 integration](../tests/integration/test_m8_magic_staged_evaluation.py) реализуют второй технический срез [ADR-0041](decisions/ADR-0041-staged-magic-evaluation.md#реализация-второго-среза-application-staged-service). Source/report chain, полные повторные пакеты и stage/candidate errors сохраняют existing bounded/simulation APIs. Scripted N3→N4/early N4→N5 не удаляют unsupported из N и не продолжают прежний бой. Новых Rule IDs/house rules и извлечения книг нет; normative references ADR-0037/0038/0039/0040/0041 прежние. Общий аудит/public production example следует отдельно.
+
+
+## Общий аудит staged magic evaluation ADR-0041
+
+2026-10-27: [Аудит](audits/m8-staged-evaluation-readiness.md) непосредственно сверил BOOK-PLAYER-GUIDE1.4: Rules / Combat, стр.112; Conditions / Broken, стр.122; Magic in the Old World / Casting a Spell / Interrupted Casting, стр.156; Spell Potency / Miscasts and the Rule of Nine, стр.157; Battle Magic / Curse of Cowardly Flight, стр.162; Wounds Table, стр.190–191; BOOK-GM-GUIDE1.1: Allies and Antagonists / Minions и Champions, стр.91–92. Full reruns/окно/continuation/budget — технический контракт; mandatory pending, Broken против defeat и NPC injury policies сохранены. Public example использует authored numeric inputs; новых Rule IDs/house rules/противоречий нет. Production rules не менялись.
+
+
+## Контракт генерации magic-составов ADR-0042
+
+2026-10-27: [ADR-0042](decisions/ADR-0042-magic-composition-generation.md) и [finite probe](examples/m8/generation_contract_probe.py) сохраняют fixed Wizard/Champion и explicit family facts/scene routes при отборе Minion-reserve. Непосредственно сверены BOOK-PLAYER-GUIDE1.4: Equipment / Ranged Weapons, стр.94; Rules / Combat, стр.112; The Battlefield / Range / Speed, стр.114–115; Giving Ground, стр.119; Conditions / Broken, стр.122; Magic in the Old World / Casting a Spell / Interrupted Casting, стр.156; Spell Potency / Miscasts, стр.157; Battle Magic / Curse, стр.162; Wounds Table, стр.190–191; BOOK-GM-GUIDE1.1: Allies and Antagonists / Minions / Champions, стр.91–92. Generation/counts/caps/frame collision policy — технический контракт, не новые игровые Rule IDs/house rules. Invalid route/subset не исправляется автоматически; прежние ambiguities и unsupported остаются. Production rules не менялись, новых противоречий не выявлено.
+
+
+## M8 — preflight моделей генерации ADR-0042
+
+[MagicCompositionGroup/MagicCandidateGenerationRequest](../src/towr/application/magic_candidate_generation_models.py) реализуют первый технический срез [ADR-0042](decisions/ADR-0042-magic-composition-generation.md): fixed Wizard при обеих perspective, полные definitions/partition и exact ordered family frames, полный арифметический C/staged budget до enumeration/materialization. Новых Rule IDs/house rules/извлечения книг нет; ранее прямо сверенные references ADR-0042 сохраняются. Group/request получает admitted input и не исполняет бой/scene projection, не подтверждает допустимость всех subsets. [15 deterministic tests](../tests/unit/test_m8_magic_candidate_generation_models.py) проверяют полный preflight и арифметические budgets без исполнения.

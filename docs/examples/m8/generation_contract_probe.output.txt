@@ -1,0 +1,15 @@
+(1, 0): roster=('wizard', 'ally', 'E2'); pairs=2; frames=1; E2 path=()
+(1, 1): roster=('wizard', 'ally', 'E2', 'E3'); pairs=4; frames=1; E2 path=()
+(2, 0): roster=('wizard', 'ally', 'E1', 'E2'); pairs=4; frames=2; E2 path=('E1',)
+(2, 1): roster=('wizard', 'ally', 'E1', 'E2', 'E3'); pairs=6; frames=2; E2 path=('E1',)
+manual C=4; public staged planned=240; 10->100 full rerun; indexed seed prefix/renamed IDs equal
+opposite perspective: all E fixed; Wizard retained outside groups; variable ally prefix=1
+manual all-zero exclusion: Wizard always requires an allied and an opposing Minion
+rejected: public staged budget239
+rejected: missing live hostile pair
+rejected: manual family frame source mismatch
+rejected: same projected key with unequal facts
+rejected: removing enemy invalidates supplied moving Broken plan
+rejected: removing sole Wizard ally
+bounds/group/type/cap/source/result/error guards remain future production work
+public constructors only; input/global RNG unchanged; no runner/RNG/evaluation/pool execution

@@ -474,3 +474,13 @@ ADR-0038 реализован без новых игровых решений: �
 ### Контракт staged magic evaluation, 2026-10-27
 
 [ADR-0041](decisions/ADR-0041-staged-magic-evaluation.md) сохраняет игровые границы по прямой сверке PG1.4 Rules / Combat112, Conditions / Broken122, Magic in the Old World / Casting156 / Potency / Miscasts157, Battle Magic / Curse162, Wounds Table190–191 и GM1.1 Allies and Antagonists / Minions / Champions91–92. Новых противоречий/house rules нет. Outside-window continuation отличается от final selection технической задачей уточнения; unsupported исключает целого кандидата из дальнейших этапов, но не удаляется из trial denominator. Старые Miscast ambiguities остаются открытыми.
+
+
+## Общий аудит staged magic evaluation ADR-0041
+
+2026-10-27: [Аудит](audits/m8-staged-evaluation-readiness.md) непосредственно сверил BOOK-PLAYER-GUIDE1.4: Rules / Combat, стр.112; Conditions / Broken, стр.122; Magic in the Old World / Casting a Spell / Interrupted Casting, стр.156; Spell Potency / Miscasts and the Rule of Nine, стр.157; Battle Magic / Curse of Cowardly Flight, стр.162; Wounds Table, стр.190–191; BOOK-GM-GUIDE1.1: Allies and Antagonists / Minions и Champions, стр.91–92. Full reruns/окно/continuation/budget — технический контракт; mandatory pending, Broken против defeat и NPC injury policies сохранены. Public example использует authored numeric inputs; новых Rule IDs/house rules/противоречий нет. Production rules не менялись.
+
+
+## Контракт генерации magic-составов ADR-0042
+
+2026-10-27: [ADR-0042](decisions/ADR-0042-magic-composition-generation.md) и [finite probe](examples/m8/generation_contract_probe.py) сохраняют fixed Wizard/Champion и explicit family facts/scene routes при отборе Minion-reserve. Непосредственно сверены BOOK-PLAYER-GUIDE1.4: Equipment / Ranged Weapons, стр.94; Rules / Combat, стр.112; The Battlefield / Range / Speed, стр.114–115; Giving Ground, стр.119; Conditions / Broken, стр.122; Magic in the Old World / Casting a Spell / Interrupted Casting, стр.156; Spell Potency / Miscasts, стр.157; Battle Magic / Curse, стр.162; Wounds Table, стр.190–191; BOOK-GM-GUIDE1.1: Allies and Antagonists / Minions / Champions, стр.91–92. Generation/counts/caps/frame collision policy — технический контракт, не новые игровые Rule IDs/house rules. Invalid route/subset не исправляется автоматически; прежние ambiguities и unsupported остаются. Production rules не менялись, новых противоречий не выявлено.

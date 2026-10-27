@@ -166,7 +166,7 @@ PYTHONPATH=src python docs/examples/m8/assessment_contract_probe.py
 
 [Probe](assessment_contract_probe.py) копируется вместе с magic_simulation.py и magic_scenario.py. [Вывод](assessment_contract_probe.output.txt) проверяется external-cwd subprocess test. Синтетические summaries показывают inclusive/point windows, stable Fraction ties, бюджет 20 / cap 19 и большие N без float rounding; это арифметика, не реализованный production preflight.
 
-Реальные полные N4 sequential/spawn дают outcomes1/1/1/1, actions24/started10/completed9: goal1/4 в окне, но unsupported требует будущего match=None. Независимый полный N3 исполняется заново в обоих backend, без фильтрации N4: outcomes1/1/1/0, totals23/9/9, goal1/3 и future match=True. Всего 14 trials за четыре calls; полные results/summary, original source identity/input/global RNG и cleanup проверены. Scripted observations не являются Monte Carlo difficulty estimate. Pure assessment реализован в production отдельно от probe; list models с preflight/report/ranking также готовы. Service/errors/integration также реализованы; общий аудит и самостоятельный production example также завершены. Staged/generation/JSON/CLI ещё не реализованы.
+Реальные полные N4 sequential/spawn дают outcomes1/1/1/1, actions24/started10/completed9: goal1/4 в окне, но unsupported требует будущего match=None. Независимый полный N3 исполняется заново в обоих backend, без фильтрации N4: outcomes1/1/1/0, totals23/9/9, goal1/3 и future match=True. Всего 14 trials за четыре calls; полные results/summary, original source identity/input/global RNG и cleanup проверены. Scripted observations не являются Monte Carlo difficulty estimate. Pure assessment реализован в production отдельно от probe; list models с preflight/report/ranking также готовы. Service/errors/integration также реализованы; общий аудит и самостоятельный production example также завершены. Staged реализован отдельным срезом ниже; production generation/JSON/CLI ещё не готовы.
 
 Pure API: [assess_magic_candidate](../../../src/towr/balance/magic_assessment.py) принимает NpcMagicSimulationRequest, NpcMagicSimulationSummary и тот же ObjectiveRateWindow. [Frozen assessment](../../../src/towr/balance/magic_assessment_models.py) сохраняет полный source, возвращает четыре Fraction rates от всех N и status/window_match без runner/RNG/records. Любой unsupported даёт None; равная immutable копия source допускается, foreign input отклоняется.
 
@@ -181,7 +181,7 @@ PYTHONPATH=src python docs/examples/m8/magic_evaluation.py
 
 [magic_evaluation.py](magic_evaluation.py) копируется вместе с magic_simulation.py и magic_scenario.py. Он вызывает public evaluate_magic_candidates для двух authored target-priority альтернатив в sequential/process (workers2/batch3): seed42/B4/N8, planned/max16 на evaluation, окно [1/4,1/2,3/4], top_k2. Полные reports/source identity/budget и input/global RNG/children проверяются до первого stdout. [Stored output](magic_evaluation.output.txt) — finite observation, не difficulty estimate; пустой selection допустим.
 
-[Два integration tests](../../../tests/integration/test_m8_magic_evaluation_example.py) проверяют external-cwd bundle и поздний отказ второго кандидата после первых8 real trials: stdout пуст, stderr содержит ID/cause/note, процессный run не стартует. Fresh installed wheel вне repo без PYTHONPATH дал тот же успех и корректный error path; все416 Python/Schema files равны src. [Общий аудит](../../audits/m8-evaluation-readiness.md) фиксирует sources/ownership/ограничения. Staged/generation и JSON/CLI требуют следующих отдельных контрактов.
+[Два integration tests](../../../tests/integration/test_m8_magic_evaluation_example.py) проверяют external-cwd bundle и поздний отказ второго кандидата после первых8 real trials: stdout пуст, stderr содержит ID/cause/note, процессный run не стартует. Fresh installed wheel вне repo без PYTHONPATH дал тот же успех и корректный error path; все416 Python/Schema files равны src. [Общий аудит](../../audits/m8-evaluation-readiness.md) фиксирует sources/ownership/ограничения. Staged закрыт отдельным аудитом ниже; generation развивается по ADR-0042, M8 JSON/CLI требует следующего контракта.
 
 
 ## Контракт поэтапной оценки magic-списка
@@ -190,6 +190,38 @@ PYTHONPATH=src python docs/examples/m8/magic_evaluation.py
 PYTHONPATH=src python docs/examples/m8/staged_contract_probe.py
 ```
 
-[ADR-0041](../../decisions/ADR-0041-staged-magic-evaluation.md), [probe](staged_contract_probe.py) и [stored output](staged_contract_probe.output.txt) фиксируют finite synthetic cases через existing bounded models. Для копирования нужны также magic_simulation.py и magic_scenario.py. Бой/RNG/pool не исполняются; будущие staged models/service/budget/chain/error guards пример не реализует.
+[ADR-0041](../../decisions/ADR-0041-staged-magic-evaluation.md), [probe](staged_contract_probe.py) и [stored output](staged_contract_probe.output.txt) фиксируют finite synthetic cases через existing bounded models. Для копирования нужны также magic_simulation.py и magic_scenario.py. Бой/RNG/pool не исполняются; production staged guards и service пример не реализует; helper/models проверены отдельно.
 
-Continuation выбирает ELIGIBLE даже вне окна и возвращает исходный порядок; финал требует window_match=True. Проверены budgets240/140/40/2240, полный повтор10→100 вместо prefix reuse, exact Fraction/ties/point windows/all-limit/all-unsupported и indexed-seed prefix. Числа — synthetic aggregates, не Monte Carlo observations. Следующий срез — pure helper/frozen staged models; application orchestration следует отдельно.
+Continuation выбирает ELIGIBLE даже вне окна и возвращает исходный порядок; финал требует window_match=True. Проверены budgets240/140/40/2240, полный повтор10→100 вместо prefix reuse, exact Fraction/ties/point windows/all-limit/all-unsupported и indexed-seed prefix. Числа — synthetic aggregates, не Monte Carlo observations. Pure helper/frozen staged models реализованы отдельно от probe; application orchestration/error и real-backend integration также реализованы; [общий аудит](../../audits/m8-staged-evaluation-readiness.md) завершён, production example приведён ниже.
+
+[magic_continuation_candidate_ids](../../../src/towr/balance/magic_staged_evaluation.py) принимает полный bounded report и возвращает ELIGIBLE survivors в исходном порядке, включая outside-window. [Staged models](../../../src/towr/balance/magic_staged_evaluation_models.py) проверяют upper budget и непрерывную exact source/report chain, различают early exhaustion и complete final с пустым выбором. Полные stage reports сохраняют все observations; runner/RNG/pool в этих pure APIs нет.
+
+[evaluate_magic_candidates_staged](../../../src/towr/application/magic_staged_evaluation_service.py) принимает готовый MagicStagedEvaluationRequest и explicit SimulationExecutionOptions, исполняет полный bounded run по достигнутым этапам. [MagicStagedEvaluationError](../../../src/towr/application/magic_staged_evaluation_errors.py) хранит stage_index (с 0) и optional candidate_id, полная cause/worker-note chain сохраняется. Process требует importable main guard; retry/fallback/partial success нет. Самостоятельный staged production example появится вместе с общим аудитом.
+
+
+## Поэтапная оценка magic-кандидатов
+
+```sh
+PYTHONPATH=src python docs/examples/m8/magic_staged_evaluation.py
+```
+
+[Самостоятельный пример](magic_staged_evaluation.py) использует public staged API и builder/printer из magic_evaluation.py. Для запуска вне репозитория скопируйте четыре файла: magic_staged_evaluation.py, magic_evaluation.py, magic_simulation.py и magic_scenario.py; пакет towr должен быть установлен. Process требует importable entry point с main guard.
+
+Две authored альтернативы меняют только enemy target priority. Seed 42, B4, окно [1/4,1/2,3/4], этапы (8,keep=1),(32,keep=1), верхний бюджет 2×8+1×32=48 trials на backend. Каждый этап заново исполняет полный пакет от index0; 8→32 стоит 40 на продолжающего кандидата. Counts этапов не складываются в одну оценку.
+
+Полные sequential/process reports, source identity, planned/actual, input/global RNG и отсутствие детей проверяются до печати. Process workers=2/batch_size=3. [Stored output](magic_staged_evaluation.output.txt) — локальные observations CPython3.12.15/macOS arm64: N8 ally-first даёт 6 goals/2 unsupported; wizard-first 8 goals/0 unsupported вне окна и продолжает. Финальный N32 wizard-first даёт 23 goals/4 round_limit/5 unsupported: goal23/32 в окне, но selected пуст, status COMPLETED. Actual48 на backend, 96 на запуск. Это наблюдение, не preset/гарантия сложности/ожидаемый победитель тестов.
+
+При ошибке второго этапа entry point сохраняет stage_index/candidate_id и cause/notes, stdout пуст. [Два integration tests](../../../tests/integration/test_m8_magic_staged_evaluation_example.py) проверяют четыре скопированных файла из external cwd и поздний отказ после реальных 16 trials первого этапа. [Аудит](../../audits/m8-staged-evaluation-readiness.md) содержит installed-package evidence и ограничения; новых gameplay правил, generation или M8 JSON/CLI нет.
+
+
+## Контракт генерации magic-составов
+
+```sh
+PYTHONPATH=src python docs/examples/m8/generation_contract_probe.py
+```
+
+[ADR-0042](../../decisions/ADR-0042-magic-composition-generation.md), [probe](generation_contract_probe.py) и [stored output](generation_contract_probe.output.txt) задают четыре конечных vectors вручную и строят public domain/staged inputs без battle/RNG/evaluator/pool. Для копирования нужен также magic_scenario.py. Wizard+ally fixed; groups A=(E2,E1)1..2 и B=(E3)0..1 дают roster sizes3/4/4/5, pair counts2/4/4/6. Stages10keep2/100keep1 требуют240. Другой perspective сохраняет Wizard вне groups; all-zero Minion vector исключён ради обязательных allied/opposing Minions.
+
+Проекции сохраняют full snapshots/caster/day_id/whole graph, независимые orders, priorities/defeat decisions, True/False flags и seed prefix. Два source frames различаются перемещением E1: удаление E1 объединяет только полностью равные projections; конфликт оставшегося departure flag отклоняется. Удаление врага, делающее moving Broken plan недопустимым, также отвергается, без автоматического Recover. Всего шесть refusals: staged budget239, missing pair, manual frame-source mismatch, conflicting collapse, invalid Broken plan и удаление единственного Wizard ally.
+
+Ручные arithmetic/equality/projection assertions демонстрируют будущие semantics; production group/request/C/cap/ordered frame source guards реализованы отдельно от probe; construction/result/error и generator **ещё не реализованы**. [Один subprocess test](../../../tests/integration/test_m8_magic_generation_contract_probe.py) проверяет two-file external-cwd/stdout parity. Empty-live/archive projection остаётся обязательной последующей production проверкой; [group/request models](../../../src/towr/application/magic_candidate_generation_models.py) и их deterministic tests проверяют preflight отдельно от ручного probe. Новых игровых правил/house rules нет.

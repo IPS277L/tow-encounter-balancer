@@ -1,6 +1,6 @@
 # ADR-0041: поэтапная оценка явного magic-списка
 
-Статус: контракт подготовлен в согласованном направлении M8, 2026-10-27. **Production staged helper/models/service ещё не реализованы.** [Finite probe](../examples/m8/staged_contract_probe.py) использует existing bounded models для синтетических примеров; он не заменяет будущие guards или исполнение этапов.
+Статус: контракт подготовлен в согласованном направлении M8, 2026-10-27. **Pure continuation helper, frozen staged models и application service реализованы; [общий аудит](../audits/m8-staged-evaluation-readiness.md) и самостоятельный production example завершены.** [Finite probe](../examples/m8/staged_contract_probe.py) использует existing bounded models для синтетических примеров; он не заменяет production tests и аудит исполнения этапов.
 
 ## Основание и граница
 
@@ -10,9 +10,9 @@ Single-run scope ADR-0037 неизменен: один authored Champion-Wizard/
 
 Непосредственно сверены локальные BOOK-PLAYER-GUIDE 1.4, Rules / Combat, стр.112; Conditions / Broken, стр.122; Magic in the Old World / Casting a Spell / Interrupted Casting, стр.156; Spell Potency / Miscasts and the Rule of Nine, стр.157; Battle Magic / Curse of Cowardly Flight, стр.162; Wounds Table, стр.190–191; BOOK-GM-GUIDE 1.1, Allies and Antagonists / Minions и Champions, стр.91–92. Broken/другая Zone не defeat, Champion не Minion, mandatory pending не исчезает ради оценки. Этапы/окно/отбор/бюджет — технический контракт, не house rule; новых Rule IDs нет.
 
-## Будущий pure typed API
+## Pure typed API
 
-Отдельные balance/magic_staged_evaluation.py и magic_staged_evaluation_models.py:
+Реализованы [balance/magic_staged_evaluation.py](../../src/towr/balance/magic_staged_evaluation.py) и [magic_staged_evaluation_models.py](../../src/towr/balance/magic_staged_evaluation_models.py):
 
 | Тип / функция | Поля или результат |
 | --- | --- |
@@ -70,9 +70,9 @@ Result требует typed root request и непустую tuple/list typed ma
 
 Status/selection/budgets/seed_scheme — derived, не init fields. Сохраняется исходный parent request успешного application result. Result не удерживает simulation results/records/journals/RNG/execution options. Structural guards проверяют согласованность supplied aggregates, не происхождение dice или истинность вероятностей.
 
-## Будущий application API и ошибки
+## Application API и ошибки
 
-Отдельные application/magic_staged_evaluation_service.py и magic_staged_evaluation_errors.py:
+Реализованы [application/magic_staged_evaluation_service.py](../../src/towr/application/magic_staged_evaluation_service.py) и [magic_staged_evaluation_errors.py](../../src/towr/application/magic_staged_evaluation_errors.py):
 
 ```python
 def evaluate_magic_candidates_staged(
@@ -132,3 +132,37 @@ Bounded selection пуст, continuation=(A,D). Финальные49/100 и51/10
 Полная регрессия: **3205 tests / 33 прежних errors (101,004 с)**; Counter полных error headers/signatures точно равен previous baseline, новых ошибок нет. Compileall, 3040 локальных Markdown-путей, 77 anchors, public imports и whitespace — OK. Код production/прежние Python-файлы не менялись; source/harness hash `ac055c19711c8d2f124931f3b07c3ff7dbadeb51829bf785544980cbaebb0ec1` сохранён, новых performance-измерений нет. Итоговые commands/checks — в [статусе](../project-status.md#последняя-проверка).
 
 Независимый reviewer сопоставил ADR/probe/tests и непосредственно книжные страницы, блокеров нет. На старте 21 existing dirty/untracked файлов учтены отдельно; commit/push не выполнялись. Следующий срез — pure helper/frozen staged models с deterministic tests, затем application service/real-backend integration и аудит.
+
+## Реализация первого среза: helper и frozen models
+
+2026-10-27: magic_continuation_candidate_ids и MagicBalanceStage/MagicStagedEvaluationRequest/Result/Status реализованы двумя отдельными balance modules. Helper выбирает ELIGIBLE, включая outside-window, по exact Fraction distance/top_k и возвращает original order. Final selection остаётся window-only из последнего bounded report.
+
+Strict tuple/list/type/int guards не потребляют generators и не приводят bool/float/str. Все stage specs и candidate input проверяются до execution; общий бюджет — полные повторные пакеты с Python integer без cap на сумму. Private _stage_request единообразно задаёт exact local cap/source/N/window/keep; result требует всю законную source/report chain. Early exhaustion и complete final с empty/all-unsupported selection различаются. Модели не исполняют runner/RNG/pool и не удерживают records/journals.
+
+[21 новый deterministic test](../../tests/unit/test_m8_magic_staged_evaluation.py) — **OK (0,047 с)**. Проверены budgets240/140/40/2240/1140 и big integers, strict containers без consumption, late invalid specs/common fields, exact local requests/seed prefix, Fraction/order/ties/large-N, early/final/one-stage unsupported и literal all-unsupported/zero-action. Chain guards отвергают partial/extra/reordered/restored IDs, foreign seed/N/window/cap/keep и same-ID Wizard/profile/pair-frame source в обоих этапах. Equal copies без rebinding, frozen/replace/pickle и recursive aggregate-only purity проверены; ranking observations синтетические.
+
+Независимый reviewer сопоставил production/tests с ADR, блокеров нет. На старте HEAD a422d25 и чистое дерево; прежние APIs/классы, domain/engine/rules/simulation/application/tools и contract probe/output/test не менялись. Общий source/harness hash изменился из-за двух новых balance modules, новых performance-измерений нет. Installed wheel новых staged models и другие runtime/ОС в этом срезе не проверялись; прежняя installed evidence выше относится к контрактному probe.
+
+Следующий срез — application/magic_staged_evaluation_service.py и magic_staged_evaluation_errors.py: existing bounded evaluator по достигнутым этапам с тем же execution options, полные повторные пакеты и stage/candidate cause chain без partial/retry/fallback. Затем отдельный аудит/public production example. Полная регрессия: **3226 tests / 33 прежних errors (105,554 с)**, точные error Counters равны предыдущей вехе, новых ошибок нет. Compileall, 3056 локальных Markdown-путей, 75 anchors, import boundaries/purity и whitespace — OK. Команды — в [статусе](../project-status.md#последняя-проверка).
+
+## Реализация второго среза: application staged service
+
+2026-10-27: evaluate_magic_candidates_staged и MagicStagedEvaluationError реализованы двумя отдельными application modules. Typed root/options до работы, exact local stage request, один existing bounded evaluator на достигнутый этап с тем же объектом execution. Typed report/full source проверяется до continuation/следующего вызова; полные пакеты повторяются от index0. Early exhaustion/final-empty semantics сохраняются.
+
+MagicBalanceEvaluationError оборачивается со stage_index/candidate_id, полная cause/worker-note chain остаётся доступна; прочие stage errors имеют candidate_id=None. Preflight/final constructor и BaseException проходят напрямую. Нет следующего этапа после ошибки, partial success, retry/fallback/checkpoint, нового rng_factory или pools/framework. Успешный staged result хранит inputs и полные aggregate stage reports.
+
+[9 unit tests](../../tests/unit/test_m8_magic_staged_evaluation_service.py) и [3 real-backend integration](../../tests/integration/test_m8_magic_staged_evaluation.py) — **12 OK (1,720 с)**. Проверены exact local calls/options identity, outside continuation, полный повтор N10/N100 и seeds, upper/actual budgets 240/140/40, typed full source до helper, equal source copies без rebinding, second-stage candidate failure без третьего и nested cause/notes. Source guards покрывают other families и same-ID Wizard/profile/frames, seed/N/window/local cap/keep; assembly/continuation errors, interrupts и final constructor boundaries сохранены.
+
+Real sequential/spawn reports равны для двух authored альтернатив при repeat/rename/reorder. Scripted N3→N4 даёт actual7, COMPLETED с пустым финалом: поддержанный outside-window prefix продолжает, финальный N4 содержит unsupported при goal в point window. N4→N5 останавливается после 4 trials с NO_ELIGIBLE_CANDIDATES; N5 не исполняется. Native counts/totals 23/9/9 и 24/10/9, input/global RNG/children и child PID проверены. Startup failure сохраняет staged→candidate→original error chain без fallback.
+
+Независимый reviewer сопоставил production/tests с ADR, блокеров нет. На старте 14 existing dirty/untracked файлов pure-среза учтены отдельно; прежние Python-файлы/guards/probe/output/test не менялись. Domain/engine/rules/simulation/balance и shared classes прежние; source/harness hash меняется только из-за новых application modules, новых performance-замеров нет. Installed wheel нового staged service в этом срезе не проверялся. Полная регрессия: **3238 tests / 33 прежних errors (106,089 с)**, точные Counters ошибок равны предыдущей вехе; новых ошибок нет. Compileall, 3072 Markdown-пути, 78 anchors, import boundaries/purity, исходные Python SHA и whitespace — OK. Команды/ограничения — в [статусе](../project-status.md#последняя-проверка).
+
+Следующий срез — общий аудит staged magic evaluation: pure models/helper/service/error, все tests и ограничения контракта; standalone production example полного sequential/process staged report со stored output, поздняя ошибка без partial stdout и installed-package parity. Generation/prefix reuse/JSON/CLI и новые gameplay consumers в аудит не входят.
+
+
+## Общий аудит staged evaluation
+
+2026-10-27: [Readiness matrix](../audits/m8-staged-evaluation-readiness.md) закрыла ADR-0041: 33 implementation tests и два новых example tests, public four-file example/stored output, late stage/candidate failure без partial stdout, external cwd и fresh installed parity420 files. Production src и прежние tests/tools не менялись; scope/источники/ошибки/границы памяти прежние. Полная регрессия: 3240 tests / 33 прежних errors (115,653 с), точные error Counters равны предыдущей вехе, новых ошибок нет. Следующий срез — контракт ограниченной генерации magic-кандидатов, без production реализации до фиксации проекций и бюджетов.
+
+
+Продолжение после аудита: [ADR-0042](ADR-0042-magic-composition-generation.md) и [finite probe](../examples/m8/generation_contract_probe.py) ограниченной генерации magic-составов подготовлены. Staged helper/models/service не меняются; новый generator будет передавать полный готовый MagicStagedEvaluationRequest. Следующий implementation-срез — group/request preflight, без materialization/новых gameplay rules.

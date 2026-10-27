@@ -643,3 +643,28 @@ py -3.12 -m unittest discover -s tests -v
 [Новый subprocess test](../tests/integration/test_m8_magic_staged_contract_probe.py) запускает [synthetic probe](examples/m8/staged_contract_probe.py) из external cwd: 1 OK (0,259 с), stdout равен stored output/stderr пуст. Проверены finite continuation/final selection и budgets240/140/40/2240, Fraction/order/ties/point windows/all-limit/unsupported/zero-action и seed prefix через existing bounded models. Staged admission/chain/error guards и battle execution не реализованы.
 
 Тот же three-file probe на installed package без PYTHONPATH прошёл обычный и guarded запуск с запрещёнными RNG/runner/evaluator/pool calls; 416 files равны current src. Полная регрессия: **3205 tests / 33 прежних errors (101,004 с)**, точные error Counters равны предыдущей вехе, новых ошибок нет; файловые проверки — в [статусе](project-status.md#последняя-проверка). Performance/Monte Carlo oracle не добавлены, production/прежние tests не менялись.
+
+## Pure staged magic models ADR-0041
+
+[21 новый deterministic test](../tests/unit/test_m8_magic_staged_evaluation.py) — OK (0,047 с). Проверены strict type/tuple-list guards без consumption, полный upper budget и local requests, continuation против final selection, Fraction/order/ties, раннее исчерпание и complete final с empty selection, точная source/report chain и same-ID source variants, equal copies/frozen/replace/pickle и recursive aggregate-only purity. Runner/RNG/pool не исполняются, observations синтетические. На этапе pure-среза application service ещё не был реализован; его проверки приведены ниже. Полная регрессия: **3226 tests / 33 прежних errors (105,554 с)**, точные error Counters равны предыдущей вехе, новых ошибок нет. [Команды/ограничения](project-status.md#последняя-проверка).
+
+## Magic staged application service ADR-0041
+
+[9 unit tests](../tests/unit/test_m8_magic_staged_evaluation_service.py) + [3 real-backend integration](../tests/integration/test_m8_magic_staged_evaluation.py) — 12 OK (1,720 с). Проверены stage calls/source до continuation, same execution identity, full reruns/index0, early/final statuses, nested stage/candidate/cause/notes или candidate=None, no next/retry/fallback/partial, preflight/final constructor/BaseException. Real sequential/spawn reports и N3→N4/early N4→N5 сохраняют native counts/totals, RNG/input/cleanup; процессный scripted RNG проверяет child PID, factory остаётся на existing simulation boundary. Процент Monte Carlo или winner не закрепляются. Полная регрессия: **3238 tests / 33 прежних errors (106,089 с)**; точные Counters имён/subtests и exception signatures равны предыдущему прогону, новых ошибок нет. Compileall, Markdown paths/anchors, import boundaries/purity, исходные Python SHA и whitespace — OK. [Команды/ограничения](project-status.md#последняя-проверка).
+
+
+## Аудит staged magic evaluation ADR-0041
+
+[Два новых example tests](../tests/integration/test_m8_magic_staged_evaluation_example.py) — OK (1,562 с): four-file external-cwd bundle/stdout parity и late stage failure после16real trials с динамическим candidate ID, полной cause/notes chain, empty stdout и input/RNG/children guards. Итого35 tests ADR-0041. [Аудит](audits/m8-staged-evaluation-readiness.md) фиксирует fresh installed parity420 files и оба subprocess paths без PYTHONPATH. Полная регрессия: **3240 tests / 33 прежних errors (115,653 с)**; точные Counters error headers/signatures равны предыдущему прогону, новых ошибок нет. Production и прежние tests/tools не менялись; Monte Carlo accuracy/performance не переоценивались.
+
+
+## Контракт magic generation ADR-0042
+
+[Один subprocess test](../tests/integration/test_m8_magic_generation_contract_probe.py) — OK (0,240 с): two-file external-cwd bundle даёт [stored output](examples/m8/generation_contract_probe.output.txt), stderr пуст. Finite manual vectors/projections проверяют C4/budget240, full seed prefix, обе perspective, fixed Wizard/caster/day/graph/policies/orders, equal-key collapse против conflict и invalid Broken route. Шесть отказов public constructors/manual assertions не заменяют будущие production group/request/result/error tests.
+
+Прежний installed wheel по420 Python/Schema files побайтно совпал с current src. Новый two-file probe без PYTHONPATH вне repo прошёл обычным и guarded запуском с запрещёнными RNG/runner/evaluator/pool calls. Fresh build не требовался: production не менялся. Полная регрессия: **3241 tests / 33 прежних errors (104,698 с)**, точные error Counters равны предыдущему прогону, новых ошибок нет. Файловые проверки — в [статусе](project-status.md#последняя-проверка). Monte Carlo/performance не измерялись.
+
+
+## Magic generation group/request ADR-0042
+
+[15 новых deterministic tests](../tests/unit/test_m8_magic_candidate_generation_models.py) — **OK (0,024 с)**: strict types/containers без consumption, обе perspective/Wizard sides и exact partition/definitions, mandatory full frame source, seeds/все stages/C/caps и budgets240/250/110/1140/4×uint64max, frozen/replace/pickle. Real admitted template с будущим invalid Broken subset принимается без projection. Forty-group C=2**40−1 и caps проверены при запрете enumeration/candidate/staged/projection/RNG/runner/pool; ровно одна seed admission. Construction/result/error и simulation не исполняются. Полная регрессия: **3256 tests / 33 прежних errors (105,847 с)**, точные error Counters равны предыдущему прогону, новых ошибок нет. Compileall, Markdown paths/anchors, import boundaries/purity, 794 исходных Python/JSON SHA и whitespace — OK. [Команды/ограничения](project-status.md#последняя-проверка); новых installed/performance проверок нет.

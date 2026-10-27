@@ -4,11 +4,11 @@
 
 ## Текущий этап
 
-**M8: контракт staged evaluation ADR-0041 и synthetic probe подготовлены.** [ADR](decisions/ADR-0041-staged-magic-evaluation.md) фиксирует full reruns, общий верхний budget, outside-window continuation против final selection, strict typed models, exact stage source/report chain и stage/candidate errors. **Production staged helper/models/service ещё не реализованы.**
+**M8: первый production-срез генерации ADR-0042 реализован.** [Frozen group/request](../src/towr/application/magic_candidate_generation_models.py) проверяют typed reserve/partition без Wizard, full definitions, explicit family facts/ordered frames, все stages/seed/window и арифметические C/budget caps до enumeration/materialization. [15 tests](../tests/unit/test_m8_magic_candidate_generation_models.py) подтверждают guards, обе perspective, immutable sources и огромный C без исполнения.
 
-[Probe](examples/m8/staged_contract_probe.py) собирает синтетические агрегаты через existing bounded models, проверяет конечную арифметику и не исполняет бой/RNG/pool. Прежний [bounded evaluator ADR-0040](audits/m8-evaluation-readiness.md) и его public example/installed audit остаются готовы; runtime код в текущем срезе не менялся.
+[ADR-0042](decisions/ADR-0042-magic-composition-generation.md) и [finite probe](examples/m8/generation_contract_probe.py) сохраняются. Group/request не обещает допустимость каждого subset; construction/result/error/полная проекция и integration ещё не реализованы. Прежние staged/bounded/simulation APIs и single-run scope не менялись.
 
-Работа до согласованной вехи идёт небольшими шагами без подтверждения между ними; независимые probe/tests/review делегируются с раздельным владением файлами. [Режим](../AGENTS.md#автономная-работа-до-согласованной-вехи). Commit/push выполняет пользователь.
+Работа до согласованной вехи идёт небольшими шагами без подтверждения между ними; независимые tests/review делегируются с раздельным владением файлами. [Режим](../AGENTS.md#автономная-работа-до-согласованной-вехи). Commit/push выполняет пользователь.
 
 ## Зафиксировано
 
@@ -19,33 +19,35 @@
 | M8 single-run | Один authored Champion-Wizard/Curse и numeric Shooting Minions, explicit scene facts/policies, полный owner/journal; [аудит](audits/m8-encounter-readiness.md) |
 | M8 simulation | ADR-0038/0039, indexed fresh RNG, full-source records/summary, четыре outcomes/три totals и bounded spawn; [общий аудит](audits/m8-mass-simulation-readiness.md) |
 | M8 performance | [Замеры](benchmarks/README.md#m8-sequential-и-spawn): N100 spawn медленнее, N1000 w2 локально быстрее двух боевых inputs в 1,506/1,547 раза; control быстрее sequential. Auto backend нет |
-| M8 bounded evaluation | [ADR-0040](decisions/ADR-0040-magic-candidate-assessment.md): assessment/list/service/error закрыты общим аудитом, public example и installed parity |
-| M8 staged contract | ADR-0041/probe готовы; pure helper/models, service и их аудит — последующие срезы |
+| M8 bounded evaluation | [ADR-0040](decisions/ADR-0040-magic-candidate-assessment.md) закрыт общим аудитом, public example и installed parity |
+| M8 staged evaluation | [Аудит ADR-0041](audits/m8-staged-evaluation-readiness.md) завершён: 33 implementation + 2 example tests, public example, late failure и installed parity |
+| M8 generation | ADR-0042/finite probe и frozen group/request готовы; construction/result/error — следующий срез |
 
 ## Ограничения
 
-- [Политика источников](source-policy.md): PG1.4/GM1.1 выше прототипа. Для ADR-0041 прямо сверены PG1.4 Combat112, Broken122, Casting156, Potency/Miscasts157, Curse162, Wounds190–191 и GM1.1 Minions/Champions91–92; главы/выводы — в ADR. Новых Rule IDs/house rules нет, стадии/окно/бюджет/ranking — технический контракт по образцу M7.
-- Magic scope прежний: Curse, Broken Recover/Run и Stomach Blow → Drained expiry. Остальные обязательные Wound/Miscast/chronology, обычный Attack Give Ground и неизвестные scene/route — unsupported stops. Их не фильтруют и не считают defeat/draw; Broken/другая Zone сами по себе не defeat.
-- Synthetic probe не реализует staged admission/chain/error guards и не доказывает достижимость observations. Переход 10→100 оплачивает 110 full rerun trials; stages не независимы, prefix вычисляется заново. Intermediate ELIGIBLE вне окна может продолжать, но финал требует window_match=True. Любой unsupported исключает целого кандидата из следующих этапов, сохраняя все N текущего report.
-- Полные NPC/spell/Talent/item каталоги, PC-сценарии и универсальная тактика/battle orchestration не готовы. [Открытые вопросы](open-questions.md) сохраняются. ELIGIBLE/window_match не доказывают полноту тактики или истинную вероятность; budget не RSS quota.
-- Generation/JSON/CLI M8, prefix reuse, confidence presets, новые consumers/cache/framework/persistent pool и auto backend не добавлены. Shared class paths/options и simulation RNG boundary прежние; stages не добавляются в seed encoding.
-- Performance локален для прежних workloads/runtime. Новых замеров/installed-wheel performance нет. Runtime package соответствует предыдущему wheel, но его README metadata исторический; для нового probe wheel не пересобирался.
+- [Политика источников](source-policy.md): PG1.4/GM1.1 выше прототипа. Прямые references ADR-0042: PG1.4 Equipment94, Combat112, Range/Speed114–115, Giving Ground119, Broken122, Casting156, Potency/Miscasts157, Curse162, Wounds190–191; GM1.1 Minions/Champions91–92; главы/выводы — в ADR. Контракт генерации не добавляет игровых правил или house rules; книжные ссылки сверены напрямую.
+- Magic scope прежний: Curse, Broken Recover/Run и Stomach Blow → Drained expiry. Другие обязательные Wound/Miscast/chronology, обычный Attack Give Ground и неизвестные scene/route — unsupported stops; их не фильтруют и не считают defeat/draw. Broken/другая Zone не defeat.
+- Переход 10→100 оплачивает 110 trials, stages не независимы, prefix вычисляется заново. N строго растёт; keep может расти/убывать без возвращения отсеянных. Intermediate ELIGIBLE вне окна может продолжать, финал требует window_match=True. Любой unsupported исключает целого кандидата из следующих этапов, но сохраняется в N текущего report.
+- Полные NPC/spell/Talent/item каталоги, PC-сценарии и универсальная тактика/battle orchestration не готовы. [Открытые вопросы](open-questions.md) сохраняются. Source guards не доказывают происхождение manual aggregates, ELIGIBLE/window_match — не гарантия полноты или истинной вероятности; budget не RSS cap.
+- Materialization generation/JSON/CLI M8, prefix reuse, confidence presets, новые consumers/cache/framework/persistent pool и auto backend не добавлены. Shared classes/options и simulation RNG boundary прежние. Process caller использует importable main guard; default RNG не становится новым параметром staged service.
+- Cleanup ждёт running work; traceback может удерживать объекты, rollback side effects/мгновенный kill не обещаются. Успешный result содержит inputs/aggregate reports без trial records/journals.
+- Общий src/harness hash меняется при добавлении application modules; simulation/engine/tools неизменны, новых performance-замеров нет. Прежний installed wheel staged API проверен на CPython3.12.15/macOS arm64; новый generation models API, другие runtime/ОС/RSS в этом срезе не проверены.
 - 33 прежних dataclasses errors Python3.12 — отдельная задача; [причина](open-questions.md#проверки-dataclasses-на-python-312). Полный suite не зелёный; новые ошибки сверяются отдельно.
 
 ## Следующий шаг
 
-Реализовать первый срез ADR-0041: balance/magic_staged_evaluation.py (magic_continuation_candidate_ids) и magic_staged_evaluation_models.py (MagicBalanceStage, MagicStagedEvaluationRequest/Result/Status) с общей private _stage_request. Strict tuple/list/int/type guards, полный upper budget, строго возрастающий N и положительный keep (он может меняться в обе стороны), полный input и exact report chain, early-exhaust/final-empty semantics, derived fields и aggregate-only ownership. Добавить deterministic tests без runner/RNG/pool. Затем отдельно application service/error и real-backend integration, далее аудит/public production example. Generation/prefix reuse/JSON/CLI и новые consumers не расширять автоматически.
+Реализовать второй срез ADR-0042: application/magic_candidate_generation.py, MagicCandidateGenerationResult в models и magic_candidate_generation_errors.py. Ordered count vectors/IDs; full fresh roster/round/spatial/Champion daily с прежним Wizard/caster/day_id; полные projections policies/objective/всех supplied scene frames/route entities. Equal-key collapse только при полном равенстве, conflict и invalid Broken route прерывают всё семейство; каждый subset проходит existing admission. Общая внутренняя projection function для construction/result guards, exact source, error ID/counts/cause/notes без skip/partial/retry; BaseException/final constructors напрямую. Deterministic tests; integration/public production example/аудит затем, без новых gameplay consumers/JSON/CLI/prefix reuse.
 
 ## Последняя проверка
 
-Root synthetic probe и external-cwd three-file bundle дают stored stdout/empty stderr; новый subprocess test — **1 OK (0,259 с)**. Проверены continuation/final selection/order/ties/point windows/all-limit/all-unsupported/zero-action, budgets240/140/40/2240 против excluded incremental220, large Fraction и seed prefix. Inputs/global RNG/children сохранены; battles не запускались.
+15 новых tests — **OK (0,024 с)**: strict types/containers, четыре Wizard-side/perspective сочетания, exact partition/full definitions/family frames, budgets240/250/110/1140/4×uint64max, все stages/seed/caps, frozen/replace/pickle и источники. C=2**40−1 проверен без enumeration/candidate/staged/projection/RNG/runner/pool с одной seed admission. Будущий invalid Broken subset не проецируется при preflight. Независимое read-only ревью production/tests блокеров не выявило.
 
-Тот же probe вне repo без PYTHONPATH прошёл на прежнем installed wheel обычным и guarded запуском (RNG/runner/evaluator/pool calls запрещены). Все 416 Python/Schema files равны src/wheel/installed package. Evidence `/private/tmp/towr-m8-staged-contract-installed-report.json`; fresh build не требовался, runtime unchanged. Независимое read-only ревью источников/контракта/probe — блокеров нет.
+Полная регрессия: **3256 tests / 33 прежних errors (105,847 с)**. Точные Counters полных error headers/subtests и exception signatures равны предыдущему прогону 3241 tests, новых ошибок нет. 32 прежние frozen/slotted Aim .state и одна dataclasses.replace(init=False) на Python3.12 остаются отдельной задачей; полный suite не зелёный. Лог `/private/tmp/towr-m8-generation-models-tests.log`. Новый source/harness hash `8db7068c27e521d8fec8959bf7198ccd563bbd42fd90c81d856ac75181e818b4` изменился только из-за нового application module; simulation/engine/tools прежние, новых performance-измерений нет. Installed API нового файла в этом срезе не проверялся.
 
-Полная регрессия: **3205 tests / 33 прежних errors (101,004 с)**. Counter полных error headers/signatures точно равен предыдущему baseline; новых ошибок нет, полный suite не зелёный. Compileall, 3040 локальных Markdown-путей, 77 anchors, public imports и whitespace — OK. Лог `/private/tmp/towr-m8-staged-contract-tests.log`. Current source/harness manifest 401 files / `ac055c19711c8d2f124931f3b07c3ff7dbadeb51829bf785544980cbaebb0ec1` не менялся; benchmark не повторялся. Прежние Python-файлы и source boundaries сохраняются побайтно.
+Файловые проверки — OK: compileall, 3144 локальных Markdown-пути/83 anchors, import boundaries 311 core modules, purity пяти magic balance modules и imports нового preflight module, SHA всех 794 исходных Python/JSON файлов src/tests/tools, whitespace. Прежние probe/output/test сохранены побайтно.
 
 ```sh
-PYTHONPATH=src /private/tmp/towr-test-venv/bin/python -m unittest tests.integration.test_m8_magic_staged_contract_probe -q
+PYTHONPATH=src /private/tmp/towr-test-venv/bin/python -m unittest tests.unit.test_m8_magic_candidate_generation_models -q
 PYTHONPATH=src /private/tmp/towr-test-venv/bin/python -m unittest discover -s tests -q
 PYTHONPATH=src /private/tmp/towr-test-venv/bin/python -m compileall -q src tests tools docs/examples/m8
 git diff --check
@@ -55,4 +57,4 @@ git diff --check
 
 [Архив статуса](project-status-history.md) и [история вопросов](open-questions-history.md) — исторические evidence, не текущая очередь. Прежние readiness reports — через [индекс](README.md), книги — [source-index](source-index.md).
 
-На старте HEAD c8f1f84 (M8 P9) и 21 existing dirty/untracked файл предыдущих срезов. Они учтены как исходные; runtime/examples/tests/output сохраняются побайтно, общая документация синхронизирована. Добавлены ADR-0041, synthetic probe/output и один subprocess test. Commit/push не выполнялись. Всего 25 незакоммиченных файлов, включая исходные 21; новые пути этого среза — ADR-0041, probe/output и один test. Точный diff — `git status --short`.
+На старте HEAD a422d25 (M8 P10) и 28 dirty/untracked файлов прежних срезов. Исходные src/tests/tools сохранены побайтно; добавлены generation models и один файл с 15 tests, общие документы синхронизированы. Всего 30 dirty/untracked файлов, включая 28 исходных. Commit/push не выполнялись; точный diff — git status --short.
