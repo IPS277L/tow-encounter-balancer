@@ -1,0 +1,1034 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:towr:magic-simulation:request:1",
+  "$comment": "Structural contract. Strict token spelling and semantic admission are adapter responsibilities.",
+  "type": "object",
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "1"
+    },
+    "kind": {
+      "type": "string",
+      "const": "npc_magic_simulation"
+    },
+    "request_id": {
+      "$ref": "#/$defs/id"
+    },
+    "ruleset": {
+      "type": "string",
+      "const": "towr-pg1.4-gmg1.1"
+    },
+    "simulation": {
+      "$ref": "urn:towr:ranged-simulation:request:1#/properties/simulation"
+    },
+    "execution": {
+      "$ref": "urn:towr:ranged-simulation:request:1#/properties/execution"
+    },
+    "scenario": {
+      "$ref": "#/$defs/scenario"
+    }
+  },
+  "required": [
+    "schema_version",
+    "kind",
+    "request_id",
+    "ruleset",
+    "simulation",
+    "execution",
+    "scenario"
+  ],
+  "additionalProperties": false,
+  "$defs": {
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "\\S"
+    },
+    "side": {
+      "enum": [
+        "players_and_allies",
+        "opposition"
+      ]
+    },
+    "profile": {
+      "type": "object",
+      "properties": {
+        "dice": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "threshold": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 10
+        }
+      },
+      "required": [
+        "dice",
+        "threshold"
+      ],
+      "additionalProperties": false
+    },
+    "resilience": {
+      "type": "object",
+      "properties": {
+        "toughness": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "bonus": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "toughness",
+        "bonus"
+      ],
+      "additionalProperties": false
+    },
+    "attack": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "source_rule_id": {
+          "$ref": "#/$defs/id"
+        },
+        "skill": {
+          "type": "string",
+          "const": "shooting"
+        },
+        "dice": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "threshold": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 10
+        },
+        "damage": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "range_min": {
+          "enum": [
+            "short",
+            "medium",
+            "long"
+          ]
+        },
+        "range_max": {
+          "enum": [
+            "short",
+            "medium",
+            "long"
+          ]
+        },
+        "hands": {
+          "enum": [
+            "1h",
+            "2h"
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "source_rule_id",
+        "skill",
+        "dice",
+        "threshold",
+        "damage",
+        "range_min",
+        "range_max",
+        "hands"
+      ],
+      "additionalProperties": false
+    },
+    "protection": {
+      "type": "object",
+      "properties": {
+        "source_rule_id": {
+          "$ref": "#/$defs/id"
+        },
+        "skill": {
+          "type": "string",
+          "const": "athletics"
+        },
+        "dice": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "threshold": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 10
+        }
+      },
+      "required": [
+        "source_rule_id",
+        "skill",
+        "dice",
+        "threshold"
+      ],
+      "additionalProperties": false
+    },
+    "definition": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "source_rule_id": {
+          "$ref": "#/$defs/id"
+        },
+        "injury_policy": {
+          "enum": [
+            "champion",
+            "minion"
+          ]
+        },
+        "wound_limit": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 1
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "resilience": {
+          "$ref": "#/$defs/resilience"
+        },
+        "attacks": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/attack"
+          },
+          "minItems": 0,
+          "maxItems": 1
+        },
+        "protection": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/protection"
+          },
+          "minItems": 1,
+          "maxItems": 1
+        }
+      },
+      "required": [
+        "id",
+        "source_rule_id",
+        "injury_policy",
+        "wound_limit",
+        "resilience",
+        "attacks",
+        "protection"
+      ],
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "injury_policy": {
+                "type": "string",
+                "const": "champion"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "wound_limit": {
+                "type": "null"
+              },
+              "attacks": {
+                "maxItems": 0
+              },
+              "resilience": {
+                "properties": {
+                  "bonus": {
+                    "type": "integer",
+                    "const": 0
+                  }
+                }
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "wound_limit": {
+                "type": "integer",
+                "const": 1
+              },
+              "attacks": {
+                "minItems": 1
+              }
+            }
+          }
+        }
+      ]
+    },
+    "actor": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "definition_id": {
+          "$ref": "#/$defs/id"
+        },
+        "side": {
+          "$ref": "#/$defs/side"
+        }
+      },
+      "required": [
+        "id",
+        "definition_id",
+        "side"
+      ],
+      "additionalProperties": false
+    },
+    "placement": {
+      "type": "object",
+      "properties": {
+        "entity_id": {
+          "$ref": "#/$defs/id"
+        },
+        "side_id": {
+          "$ref": "#/$defs/side"
+        },
+        "zone_id": {
+          "$ref": "#/$defs/id"
+        }
+      },
+      "required": [
+        "entity_id",
+        "side_id",
+        "zone_id"
+      ],
+      "additionalProperties": false
+    },
+    "connection": {
+      "type": "object",
+      "properties": {
+        "first_zone_id": {
+          "$ref": "#/$defs/id"
+        },
+        "second_zone_id": {
+          "$ref": "#/$defs/id"
+        }
+      },
+      "required": [
+        "first_zone_id",
+        "second_zone_id"
+      ],
+      "additionalProperties": false
+    },
+    "battlefield": {
+      "type": "object",
+      "properties": {
+        "zone_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/id"
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "connections": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/connection"
+          },
+          "minItems": 0
+        }
+      },
+      "required": [
+        "zone_ids",
+        "connections"
+      ],
+      "additionalProperties": false
+    },
+    "wizard": {
+      "type": "object",
+      "properties": {
+        "actor_id": {
+          "$ref": "#/$defs/id"
+        },
+        "caster": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "$ref": "#/$defs/id"
+            },
+            "source_rule_id": {
+              "$ref": "#/$defs/id"
+            },
+            "wizard_level": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 4
+            },
+            "casting_profile": {
+              "$ref": "#/$defs/profile"
+            }
+          },
+          "required": [
+            "id",
+            "source_rule_id",
+            "wizard_level",
+            "casting_profile"
+          ],
+          "additionalProperties": false
+        },
+        "day_id": {
+          "$ref": "#/$defs/id"
+        }
+      },
+      "required": [
+        "actor_id",
+        "caster",
+        "day_id"
+      ],
+      "additionalProperties": false
+    },
+    "spell": {
+      "type": "object",
+      "properties": {
+        "rule_id": {
+          "type": "string",
+          "const": "RULE-MAGIC-001:curse-of-cowardly-flight"
+        },
+        "lore_id": {
+          "type": "string",
+          "const": "lore:battle-magic"
+        },
+        "casting_value": {
+          "type": "integer",
+          "const": 3
+        },
+        "target_kind": {
+          "type": "string",
+          "const": "zone"
+        },
+        "range": {
+          "type": "string",
+          "const": "long"
+        },
+        "duration": {
+          "type": "string",
+          "const": "instant"
+        }
+      },
+      "required": [
+        "rule_id",
+        "lore_id",
+        "casting_value",
+        "target_kind",
+        "range",
+        "duration"
+      ],
+      "additionalProperties": false
+    },
+    "defeat_decision": {
+      "type": "object",
+      "properties": {
+        "attacker_id": {
+          "$ref": "#/$defs/id"
+        },
+        "target_id": {
+          "$ref": "#/$defs/id"
+        },
+        "disposition": {
+          "enum": [
+            "killed",
+            "knocked_out",
+            "disarmed_and_surrendered"
+          ]
+        },
+        "gm_approved": {
+          "type": "boolean",
+          "const": true
+        }
+      },
+      "required": [
+        "attacker_id",
+        "target_id",
+        "disposition",
+        "gm_approved"
+      ],
+      "additionalProperties": false
+    },
+    "policy": {
+      "type": "object",
+      "properties": {
+        "actor_id": {
+          "$ref": "#/$defs/id"
+        },
+        "willpower": {
+          "$ref": "#/$defs/profile"
+        },
+        "speed": {
+          "enum": [
+            "slow",
+            "normal",
+            "fast"
+          ]
+        },
+        "target_actor_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/id"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        },
+        "defeat_decisions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/defeat_decision"
+          },
+          "minItems": 0
+        },
+        "attack_id": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/id"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "casting_policy": {
+          "anyOf": [
+            {
+              "type": "string",
+              "const": "cast_when_ready"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "zone_priorities": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/id"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        }
+      },
+      "required": [
+        "actor_id",
+        "willpower",
+        "speed",
+        "target_actor_ids",
+        "defeat_decisions",
+        "attack_id",
+        "casting_policy",
+        "zone_priorities"
+      ],
+      "additionalProperties": false
+    },
+    "route": {
+      "type": "object",
+      "properties": {
+        "path_entity_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/id"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        },
+        "crosses_obstacle": {
+          "type": "boolean"
+        },
+        "crosses_difficult_terrain": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "path_entity_ids",
+        "crosses_obstacle",
+        "crosses_difficult_terrain"
+      ],
+      "additionalProperties": false
+    },
+    "pair_range": {
+      "type": "object",
+      "properties": {
+        "first_actor_id": {
+          "$ref": "#/$defs/id"
+        },
+        "second_actor_id": {
+          "$ref": "#/$defs/id"
+        },
+        "target_range": {
+          "enum": [
+            "close",
+            "short",
+            "medium",
+            "long",
+            "extreme"
+          ]
+        },
+        "first_range_approved_by_gm": {
+          "type": "boolean"
+        },
+        "second_range_approved_by_gm": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "first_actor_id",
+        "second_actor_id",
+        "target_range",
+        "first_range_approved_by_gm",
+        "second_range_approved_by_gm"
+      ],
+      "additionalProperties": false
+    },
+    "zone_range": {
+      "type": "object",
+      "properties": {
+        "zone_id": {
+          "$ref": "#/$defs/id"
+        },
+        "target_range": {
+          "enum": [
+            "short",
+            "medium",
+            "long",
+            "extreme"
+          ]
+        }
+      },
+      "required": [
+        "zone_id",
+        "target_range"
+      ],
+      "additionalProperties": false
+    },
+    "give_ground_plan": {
+      "type": "object",
+      "properties": {
+        "actor_id": {
+          "$ref": "#/$defs/id"
+        },
+        "can_leave_zone": {
+          "type": "boolean"
+        },
+        "destination_zone_id": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/id"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "route": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/route"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "impossible_confirmed": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "actor_id",
+        "can_leave_zone",
+        "destination_zone_id",
+        "route",
+        "impossible_confirmed"
+      ],
+      "additionalProperties": false
+    },
+    "broken_plan": {
+      "type": "object",
+      "properties": {
+        "actor_id": {
+          "$ref": "#/$defs/id"
+        },
+        "kind": {
+          "enum": [
+            "safe_recover",
+            "free_move_recover",
+            "free_move_run"
+          ]
+        },
+        "free_move_zone_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/id"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        },
+        "free_move_route": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/route"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "run_destination_zone_id": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/id"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "run_route": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/route"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "fastest_route_confirmed": {
+          "type": "boolean",
+          "const": true
+        }
+      },
+      "required": [
+        "actor_id",
+        "kind",
+        "free_move_zone_ids",
+        "free_move_route",
+        "run_destination_zone_id",
+        "run_route",
+        "fastest_route_confirmed"
+      ],
+      "additionalProperties": false
+    },
+    "attack_departure": {
+      "type": "object",
+      "properties": {
+        "actor_id": {
+          "$ref": "#/$defs/id"
+        },
+        "can_leave_zone": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "actor_id",
+        "can_leave_zone"
+      ],
+      "additionalProperties": false
+    },
+    "scene_key": {
+      "type": "object",
+      "properties": {
+        "placements": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/placement"
+          },
+          "minItems": 1
+        },
+        "live_actor_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/id"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        }
+      },
+      "required": [
+        "placements",
+        "live_actor_ids"
+      ],
+      "additionalProperties": false
+    },
+    "scene_frame": {
+      "type": "object",
+      "properties": {
+        "key": {
+          "$ref": "#/$defs/scene_key"
+        },
+        "pair_ranges": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/pair_range"
+          },
+          "minItems": 0
+        },
+        "zone_ranges": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/zone_range"
+          },
+          "minItems": 1
+        },
+        "give_ground_plans": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/give_ground_plan"
+          },
+          "minItems": 0
+        },
+        "broken_plans": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/broken_plan"
+          },
+          "minItems": 0
+        },
+        "attack_departures": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/attack_departure"
+          },
+          "minItems": 0
+        }
+      },
+      "required": [
+        "key",
+        "pair_ranges",
+        "zone_ranges",
+        "give_ground_plans",
+        "broken_plans",
+        "attack_departures"
+      ],
+      "additionalProperties": false
+    },
+    "facts": {
+      "type": "object",
+      "properties": {
+        "authored_wizard_profile": {
+          "type": "boolean",
+          "const": true
+        },
+        "targets_aware": {
+          "type": "boolean",
+          "const": true
+        },
+        "clear_line_of_sight": {
+          "type": "boolean",
+          "const": true
+        },
+        "all_combatants_included": {
+          "type": "boolean",
+          "const": true
+        },
+        "unmounted_combatants_only": {
+          "type": "boolean",
+          "const": true
+        },
+        "no_additional_rules": {
+          "type": "boolean",
+          "const": true
+        },
+        "no_other_test_modifiers": {
+          "type": "boolean",
+          "const": true
+        },
+        "no_cover_or_concealment": {
+          "type": "boolean",
+          "const": true
+        },
+        "no_terrain_or_obstacles": {
+          "type": "boolean",
+          "const": true
+        },
+        "no_external_scene_changes": {
+          "type": "boolean",
+          "const": true
+        },
+        "no_external_condition_sources": {
+          "type": "boolean",
+          "const": true
+        },
+        "ammunition_sufficient": {
+          "type": "boolean",
+          "const": true
+        },
+        "requires_reload_action": {
+          "type": "boolean",
+          "const": false
+        },
+        "knows_battle_magic": {
+          "type": "boolean",
+          "const": true
+        },
+        "spell_memorised": {
+          "type": "boolean",
+          "const": true
+        },
+        "no_bulky_items": {
+          "type": "boolean",
+          "const": true
+        },
+        "no_casting_opposition": {
+          "type": "boolean",
+          "const": true
+        },
+        "no_mixing_winds": {
+          "type": "boolean",
+          "const": true
+        },
+        "no_potency_modifiers": {
+          "type": "boolean",
+          "const": true
+        },
+        "no_effect_immunities": {
+          "type": "boolean",
+          "const": true
+        }
+      },
+      "required": [
+        "authored_wizard_profile",
+        "targets_aware",
+        "clear_line_of_sight",
+        "all_combatants_included",
+        "unmounted_combatants_only",
+        "no_additional_rules",
+        "no_other_test_modifiers",
+        "no_cover_or_concealment",
+        "no_terrain_or_obstacles",
+        "no_external_scene_changes",
+        "no_external_condition_sources",
+        "ammunition_sufficient",
+        "requires_reload_action",
+        "knows_battle_magic",
+        "spell_memorised",
+        "no_bulky_items",
+        "no_casting_opposition",
+        "no_mixing_winds",
+        "no_potency_modifiers",
+        "no_effect_immunities"
+      ],
+      "additionalProperties": false
+    },
+    "scenario": {
+      "type": "object",
+      "properties": {
+        "scenario_id": {
+          "$ref": "#/$defs/id"
+        },
+        "definitions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/definition"
+          },
+          "minItems": 2
+        },
+        "actors": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/actor"
+          },
+          "minItems": 3
+        },
+        "battlefield": {
+          "$ref": "#/$defs/battlefield"
+        },
+        "placements": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/placement"
+          },
+          "minItems": 3
+        },
+        "side_order": {
+          "const": [
+            "players_and_allies",
+            "opposition"
+          ]
+        },
+        "activation_order": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/id"
+          },
+          "minItems": 3,
+          "uniqueItems": true
+        },
+        "perspective_side": {
+          "$ref": "#/$defs/side"
+        },
+        "objective_target_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/id"
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "facts": {
+          "$ref": "#/$defs/facts"
+        },
+        "wizard": {
+          "$ref": "#/$defs/wizard"
+        },
+        "spell": {
+          "$ref": "#/$defs/spell"
+        },
+        "actor_policies": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/policy"
+          },
+          "minItems": 3
+        },
+        "scene_frames": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/scene_frame"
+          },
+          "minItems": 1
+        },
+        "repeated_stagger_choice": {
+          "type": "string",
+          "const": "suffer_wound"
+        }
+      },
+      "required": [
+        "scenario_id",
+        "definitions",
+        "actors",
+        "battlefield",
+        "placements",
+        "side_order",
+        "activation_order",
+        "perspective_side",
+        "objective_target_ids",
+        "facts",
+        "wizard",
+        "spell",
+        "actor_policies",
+        "scene_frames",
+        "repeated_stagger_choice"
+      ],
+      "additionalProperties": false
+    }
+  }
+}

@@ -249,10 +249,10 @@ Seed42, B1, окно [1/4,1/2,3/4], stages=(8,keep2),(32,keep1), upper budget96 
 
 ## Конечный JSON/CLI-контракт
 
-[ADR-0043](../../decisions/ADR-0043-magic-json-cli-v1.md) и [полевая матрица с шестью fixtures](json/README.md) готовы. Production Schema/parser/encoder/services/команды ещё не реализованы. Из корня:
+[ADR-0043](../../decisions/ADR-0043-magic-json-cli-v1.md) и [полевая матрица с шестью fixtures](json/README.md) готовы. Simulation pure wire реализован; simulation service/error encoder/CLI и balance wire ещё не реализованы. Из корня:
 
 ```sh
 PYTHONPATH=src python docs/examples/m8/json_contract_probe.py
 ```
 
-[Probe](json_contract_probe.py) вручную отображает два известных входа в public typed APIs и обратно, сравнивает полные sequential/process results, проверяет13semantic rejects и ошибку projected subset после preflight. [Вывод](json_contract_probe.output.txt) не содержит Monte Carlo/winner assertions. Для внешнего cwd нужны также magic_balance.py, magic_simulation.py, magic_scenario.py и каталог json с шестью fixtures. Это finite mapping evidence, не strict parser/Schema/error validation; следующий срез — simulation pure wire.
+[Probe](json_contract_probe.py) вручную отображает два известных входа в public typed APIs и обратно, сравнивает полные sequential/process results, проверяет13semantic rejects и ошибку projected subset после preflight. [Вывод](json_contract_probe.output.txt) не содержит Monte Carlo/winner assertions. Для внешнего cwd нужны также magic_balance.py, magic_simulation.py, magic_scenario.py и каталог json с шестью fixtures. Это finite mapping evidence, не strict parser/Schema/error validation; следующий срез — simulation service/error encoder/CLI.

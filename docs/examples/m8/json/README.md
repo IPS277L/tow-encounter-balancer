@@ -1,6 +1,6 @@
 # Magic JSON v1: конечные примеры контракта
 
-[ADR-0043](../../../decisions/ADR-0043-magic-json-cli-v1.md) задаёт будущие `simulate-magic` и `balance-magic`. **Эти команды, production Schema/parser/encoder/services ещё не реализованы.** Здесь зафиксированы шесть документов и ручное отображение двух конкретных входов в существующий public Python API. Это не универсальный JSON importer и не проверка строгой лексики.
+[ADR-0043](../../../decisions/ADR-0043-magic-json-cli-v1.md) задаёт будущие `simulate-magic` и `balance-magic`. **Команды/services и balance wire ещё не реализованы; simulation pure parser/summary encoder и три Schema уже готовы.** Здесь зафиксированы шесть документов и ручное отображение двух конкретных входов в существующий public Python API. Это не универсальный JSON importer и не проверка строгой лексики.
 
 | Назначение | Simulation | Balance |
 | --- | --- | --- |
@@ -12,7 +12,7 @@
 
 ## Матрица отображения
 
-Все перечисленные поля обязательны; `null` и пустые массивы явные. Полная нормативная полевая матрица и будущие guards — в ADR. Поля, не представленные fresh-only форматом, encoder обязан отклонить при потере информации.
+Все перечисленные поля обязательны; `null` и пустые массивы явные. Полная нормативная полевая матрица и будущие guards — в ADR. Поля, не представленные fresh-only форматом, simulation encoder отклоняет при потере информации.
 
 | JSON path | Python / проверяемая граница |
 | --- | --- |
@@ -35,7 +35,7 @@
 | `rates.round_limit_reached` | Python `round_limit_rate`; все N, включая unsupported, в знаменателе |
 | `/error` | Input либо phase-specific code/path/message; у balance внутри error также nullable candidate_id/counts/stage_index |
 
-Порядок definitions в будущем хранится отдельно в command; production tests обязаны проверить его перестановку независимо от roster. Ручной inverse в probe использует только порядок definitions этих известных fixtures. Он не реализует общий lossless guard или отказ для всех произвольных неподдержанных источников.
+Порядок definitions хранится отдельно в MagicSimulationCommand; production tests проверяют его перестановку независимо от roster. Ручной inverse в probe использует только порядок definitions этих известных fixtures. Он не реализует общий lossless guard или отказ для всех произвольных неподдержанных источников.
 
 ## Запуск probe
 
@@ -47,4 +47,20 @@ PYTHONPATH=src python docs/examples/m8/json_contract_probe.py
 
 Для копирования нужны четыре Python-файла: `json_contract_probe.py`, `magic_balance.py`, `magic_simulation.py`, `magic_scenario.py`, а также этот каталог `json` с шестью fixtures. [Probe](../json_contract_probe.py) запускает реальные public simulation/generation/staged APIs: полное sequential/process равенство, round-trip известных request/scenario/execution, 13 semantic constructor rejects и реальную generation failure `(1,0)` после успешного C4/budget16 preflight. Проверяются неизменность raw/typed inputs, глобального RNG и отсутствие оставшихся children. [Stored stdout](../json_contract_probe.output.txt) проверяется [subprocess test](../../../../tests/integration/test_m8_magic_json_contract_probe.py) из внешнего cwd.
 
-Обычный запуск не перезаписывает fixtures и не использует saved results как oracle. Явный `--write-results` обновляет только оба result JSON текущим runtime; error fixtures остаются иллюстрациями. Лексические отказы, unknown/required fields, version dispatch, все enum/order варианты, Schema и error validation относятся к предстоящим production tests. Сначала реализуется simulation pure wire, затем execution/CLI, balance pure wire, balance execution/CLI и общий аудит.
+Обычный запуск не перезаписывает fixtures и не использует saved results как oracle. Явный `--write-results` обновляет только оба result JSON текущим runtime; error fixtures остаются иллюстрациями. Simulation production tests проверяют лексические отказы, unknown/required/nullable fields, version dispatch, enum/order mappings и lossless source. Error Schema проверена отдельно; error encoder ещё отсутствует. Далее идут simulation execution/CLI, balance pure wire, balance execution/CLI и общий аудит.
+
+## Чистый simulation API
+
+```python
+from pathlib import Path
+from towr.adapters.magic_simulation_json import parse_magic_simulation_request, encode_magic_simulation_result
+from towr.simulation.npc_magic_simulation import run_npc_magic_simulation
+from towr.simulation.npc_magic_summary import summarize_npc_magic_simulation
+
+command = parse_magic_simulation_request(
+    Path("docs/examples/m8/json/magic-simulation-v1.request.json").read_bytes())
+result = run_npc_magic_simulation(command.request)
+print(encode_magic_simulation_result(command, summarize_npc_magic_simulation(result)), end="")
+```
+
+Здесь вызывающий код явно выбирает sequential runner. Pure parser/encoder не исполняют `execution` и не запускают RNG/процессы; будущий service сделает dispatch по options. Вход process уже допускается и сохраняется losslessly. Для ручного process вызова используйте public `run_npc_magic_simulation_parallel` с явными options и importable main guard. Валидация формы доступна через `validate_magic_simulation_document(document, kind)`; числа с float/exponent tokens отклоняет именно strict parser, Schema не заменяет эту проверку.
