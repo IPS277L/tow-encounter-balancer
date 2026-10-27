@@ -1,6 +1,6 @@
 # ADR-0040: оценка magic-кандидатов и ограниченного списка
 
-Статус: контракт подготовлен в согласованном направлении M8, 2026-10-27. **Pure assessment и list models реализованы; application service ещё не реализован.** Конечный probe проверяет арифметику и existing simulation APIs; он не заменяет будущие модели/guards/evaluator.
+Статус: контракт подготовлен в согласованном направлении M8, 2026-10-27. **Pure assessment, list models и application service реализованы; общий аудит bounded evaluation завершён.** [Readiness](../audits/m8-evaluation-readiness.md) и public production example проверены, включая installed wheel. Конечный probe проверяет арифметику и existing simulation APIs; он не заменяет отдельные production tests и общий аудит evaluator.
 
 ## Основание и граница
 
@@ -86,7 +86,7 @@ Selection — только `window_match is True`, stable sort по `abs(objecti
 
 ## Третий срез: application orchestration
 
-Будущие application/magic_evaluation_service.py и magic_evaluation_errors.py:
+Реализованы [application/magic_evaluation_service.py](../../src/towr/application/magic_evaluation_service.py) и [magic_evaluation_errors.py](../../src/towr/application/magic_evaluation_errors.py):
 
 ```python
 def evaluate_magic_candidates(
@@ -158,3 +158,28 @@ Derived simulation_requests сохраняют исходные scenarios и п�
 На старте сохранены 20 existing dirty/untracked файлов предыдущих срезов; старые Python/probe/output/test не менялись. Simulation/engine/rules и seed scheme прежние; новый общий source/harness hash обусловлен добавлением balance model, новых замеров нет. Installed wheel/новый runtime evaluator этим срезом не проверялись. Полная регрессия: **3190 tests / 33 прежних errors (99,608 с)**; точные error Counters равны предыдущей вехе, новых ошибок нет. Compileall, 2956 локальных Markdown-путей, 68 anchors, AST boundaries/purity и whitespace — OK. Команды — в [статусе](../project-status.md#последняя-проверка).
 
 Следующий срез: application/magic_evaluation_service.py и magic_evaluation_errors.py по третьему разделу. Один полный run на кандидата, typed result/full source до summary, aggregate rows, освобождение full result до следующего runner; candidate ID/cause/notes при ordinary errors без partial/retry/fallback. Затем отдельный аудит bounded evaluation.
+
+## Реализация третьего среза: application evaluator
+
+2026-10-27: evaluate_magic_candidates и MagicBalanceEvaluationError реализованы в двух отдельных application modules. Typed request/options проверяются до runner, кандидаты исполняются в исходном порядке полными existing sequential/process пакетами. Native typed result и полный source проверяются до summary; затем pure assessment/row. Full result освобождается перед следующим runner. Финальный report сохраняет исходный request и только inputs/агрегаты.
+
+Ordinary candidate failures получают candidate ID и original cause/worker notes без следующего кандидата, partial success, retry или fallback. Preflight/final constructor и BaseException распространяются напрямую. Existing options и RNG boundary прежние; service не принимает новый rng_factory, не создаёт generic scheduler или persistent pool.
+
+[9 unit tests](../../tests/unit/test_m8_magic_evaluation_service.py) и [3 real-backend integration](../../tests/integration/test_m8_magic_evaluation.py) — **12 OK (1,160 с)**. Проверены order/backend/options/call count, full-source/type guards до projection (seed/N/Wizard/profile/scene departures), equal source copy без rebinding, invalid families/no-run, first/second failure и cause/notes/no-third, summary/assessment/row failures, interrupts/final-constructor и weakref release обоих backend. Tests не ослабляют типизацию ради подменённых результатов.
+
+Реальные две authored альтернативы сохраняют полные sequential/spawn reports при repeat/reorder/rename. N4 и независимо выполненный N3 со scripted RNG на existing simulation boundary дают counts1/1/1/1 и 1/1/1/0, totals24/10/9 и 23/9/9; unsupported остаётся в N4 и запрещает selection даже при goal в point window. Child PID, input/global RNG/cleanup проверены; production service использует default RNG. Pool startup failure сохраняет cause/ID без sequential fallback.
+
+Независимый reviewer сопоставил production/tests с контрактом, блокеров нет. На старте HEAD c8f1f84 и чистое дерево; добавлены только service/error и два test-файла, общие документы синхронизированы. Domain/engine/rules/simulation/balance, shared classes и прежние APIs не менялись. Installed wheel нового evaluation API и его performance этим срезом не проверялись. Полная регрессия: **3202 tests / 33 прежних errors (100,419 с)**, точные error Counters равны предыдущей вехе, новых ошибок нет. Compileall, 2971 локальный Markdown-путь, 71 anchor, import boundaries и whitespace — OK. Команды — в [статусе](../project-status.md#последняя-проверка).
+
+Следующий срез — общий аудит bounded magic evaluation: матрица ADR-0040 и существующие tests, самостоятельный public пример полного списка в sequential/process со stored output и installed-package проверкой. Подтвердить source/error/aggregate-only/cleanup границы и ограничения пригодности; staged/generation/JSON/CLI и новые gameplay consumers в аудит не входят.
+
+
+## Общий аудит bounded evaluation
+
+2026-10-27: [Readiness](../audits/m8-evaluation-readiness.md) сопоставил пять production modules и 39 implementation tests; исправлений src не потребовалось. [Public example](../examples/m8/magic_evaluation.py) сравнивает полные reports двух authored альтернатив в sequential/process, planned/actual16 на evaluation и 32 trials на запуск, сохраняет input/source/global RNG/children. [Stored output](../examples/m8/magic_evaluation.output.txt) не является оценкой истинной вероятности.
+
+[Два новых subprocess tests](../../tests/integration/test_m8_magic_evaluation_example.py) проверяют external cwd/stdout и поздний отказ второго кандидата после первого real N8 run без partial stdout; ID/cause/notes сохранены, process не запускается. После усиления parent проверки отсутствия AssertionError повторены только эти два tests: OK (1,148 с). Fresh installed wheel проверен отдельно: 416 Python/Schema files равны src, успех/поздняя ошибка воспроизведены вне repo без PYTHONPATH.
+
+Полная регрессия до one-line test assertion: 3204 tests / прежние 33 errors (100,650 с); точный Counter ошибок сравнивается с baseline. Runtime/example program не менялись; после добавления assertNotIn повторены затронутые2 tests, полного повторения без runtime изменения нет. Команды и итоговые файловые проверки — в [статусе](../project-status.md#последняя-проверка). Начальные15 existing dirty files учтены, service/error/tests сохранены побайтно. Commit/push не выполнялись.
+
+Следующий контракт — ADR-0041 поэтапной оценки явного magic-списка с полными повторными пакетами и верхним бюджетом. Сначала ADR/probe, затем implementation; generation/JSON/CLI и новые gameplay consumers остаются отдельными направлениями.

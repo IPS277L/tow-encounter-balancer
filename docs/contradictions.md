@@ -466,3 +466,11 @@ ADR-0038 реализован без новых игровых решений: �
 ### Контракт magic assessment, 2026-10-27
 
 [ADR-0040](decisions/ADR-0040-magic-candidate-assessment.md) не добавляет игровых правил и не разрешает старые Miscast ambiguities. Напрямую сверены PG1.4 Rules / Combat112, Conditions / Broken122, Magic in the Old World / Potency / Miscasts157, Battle Magic / Curse162, Wounds Table190–191 и GM1.1 Allies and Antagonists / Minions / Champions91–92. Любой наблюдавшийся unsupported делает оценку непригодной; он не поражение/ничья и остаётся в N. Проверочный полный N3 запускается независимо, не получается удалением записи из N4. Новых противоречий/house rules нет; production assessment/list/service ещё не реализованы.
+
+### Общий аудит bounded magic evaluation, 2026-10-27
+
+[Readiness ADR-0040](audits/m8-evaluation-readiness.md): прямая сверка PG1.4 Rules / Combat112, Conditions / Broken122, Magic in the Old World / Casting156 / Potency / Miscasts157, Battle Magic / Curse162, Wounds Table190–191 и GM1.1 Allies and Antagonists / Minions / Champions91–92 не выявила новых противоречий/house rules. Метрика/window не меняют игровые переходы. Unsupported остаётся в N, не превращается в defeat/draw; прежние Miscast ambiguities остаются открытыми. Пустой selection в public example корректен и не является основанием менять правила или фильтровать observations.
+
+### Контракт staged magic evaluation, 2026-10-27
+
+[ADR-0041](decisions/ADR-0041-staged-magic-evaluation.md) сохраняет игровые границы по прямой сверке PG1.4 Rules / Combat112, Conditions / Broken122, Magic in the Old World / Casting156 / Potency / Miscasts157, Battle Magic / Curse162, Wounds Table190–191 и GM1.1 Allies and Antagonists / Minions / Champions91–92. Новых противоречий/house rules нет. Outside-window continuation отличается от final selection технической задачей уточнения; unsupported исключает целого кандидата из дальнейших этапов, но не удаляется из trial denominator. Старые Miscast ambiguities остаются открытыми.

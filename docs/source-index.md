@@ -508,3 +508,11 @@ Authored fixtures напрямую сверены с PG 1.4: Rules / Combat, с�
 ### Контракт оценки magic-кандидатов, 2026-10-27
 
 Для [ADR-0040](decisions/ADR-0040-magic-candidate-assessment.md) непосредственно сверены локальные BOOK-PLAYER-GUIDE 1.4: Rules / Combat, стр.112; Conditions / Broken, стр.122; Magic in the Old World / Spell Potency / Miscasts and the Rule of Nine, стр.157; Battle Magic / Curse of Cowardly Flight, стр.162; Wounds Table, стр.190–191. BOOK-GM-GUIDE 1.1: Allies and Antagonists / Minions и Champions, стр.91–92. Window/квоты/ranking — принятая продуктовая метрика M5–M7, не игровое правило. Full source, mandatory pending и различие NPC policies сохраняются; новых Rule IDs/house rules нет.
+
+### Общий аудит bounded magic evaluation, 2026-10-27
+
+[Аудит ADR-0040](audits/m8-evaluation-readiness.md) непосредственно сверил BOOK-PLAYER-GUIDE 1.4, Rules / Combat, стр.112; Conditions / Broken, стр.122; Magic in the Old World / Casting a Spell / Interrupted Casting, стр.156; Spell Potency / Miscasts and the Rule of Nine, стр.157; Battle Magic / Curse of Cowardly Flight, стр.162; Wounds Table, стр.190–191. BOOK-GM-GUIDE 1.1: Allies and Antagonists / Minions и Champions, стр.91–92. Public example использует authored numeric inputs, не именованные книжные NPC. Окно/бюджет/ranking — технический контракт; новых Rule IDs/house rules нет, unsupported/pending и injury policies сохраняются.
+
+### Контракт staged magic evaluation, 2026-10-27
+
+Для [ADR-0041](decisions/ADR-0041-staged-magic-evaluation.md) прямо сверены локальные BOOK-PLAYER-GUIDE 1.4: Rules / Combat, стр.112; Conditions / Broken, стр.122; Magic in the Old World / Casting a Spell / Interrupted Casting, стр.156; Spell Potency / Miscasts and the Rule of Nine, стр.157; Battle Magic / Curse of Cowardly Flight, стр.162; Wounds Table, стр.190–191. BOOK-GM-GUIDE 1.1: Allies and Antagonists / Minions и Champions, стр.91–92. Stages/отбор/бюджет — технический контракт по образцу M7, не house rule. Полный stage rerun не продолжает прежний turn; mandatory pending и NPC injury policies не меняются. Новых Rule IDs нет.

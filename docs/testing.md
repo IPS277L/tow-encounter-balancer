@@ -627,3 +627,19 @@ py -3.12 -m unittest discover -s tests -v
 ## Magic list models ADR-0040
 
 [15 новых deterministic tests](../tests/unit/test_m8_magic_evaluation.py) — OK (0,040 с). Проверены strict tuple/list/type/ID/int guards, непрочитанные generators, общий perspective/scenario.max_rounds, полный бюджет и произведение >uint64 без trial enumeration, derived request rebuild при replace, complete ordered report/full source/window, stable Fraction ranking/ties/top_k/empty selection, rename/reorder/other families и immutable/pickle aggregate-only ownership. RNG/runner/pool/JSON не исполняются; ranking observations синтетические. Application service ещё не реализован. Полная регрессия: **3190 tests / 33 прежних errors (99,608 с)**, точные error Counters равны предыдущей вехе, новых ошибок нет. [Команды и ограничения](project-status.md#последняя-проверка).
+
+## Magic application evaluator ADR-0040
+
+[9 unit tests](../tests/unit/test_m8_magic_evaluation_service.py) + [3 real-backend integration](../tests/integration/test_m8_magic_evaluation.py) — 12 OK (1,160 с). Проверены typed preflight, точные вызовы/order/backend/options, full source до summary, equal copies без rebinding, candidate ID/cause/notes/no-next/retry/fallback, projection/assessment/row errors, BaseException/final constructor и weakref release. Реальные authored alternatives и N4/N3 sequential/spawn дают полные равные reports; repeat/reorder/rename, native counts/totals, unsupported guard, child PID/input/global RNG/cleanup сохранены. RNG внедрён только через existing simulation boundary в tests. Ожидаемые Monte Carlo winner/проценты не закрепляются. Полная регрессия: **3202 tests / 33 прежних errors (100,419 с)**, точные error Counters равны предыдущей вехе, новых ошибок нет. [Команды/ограничения](project-status.md#последняя-проверка).
+
+## Общий аудит bounded magic evaluation
+
+[39 implementation tests](audits/m8-evaluation-readiness.md#матрица-готовности) сопоставлены с ADR-0040. [Два новых example tests](../tests/integration/test_m8_magic_evaluation_example.py) проверяют three-file external cwd/stdout parity и поздний отказ второго кандидата после 8 real trials первого с empty stdout и сохранением ID/cause/notes. После усиления parent assertNotIn('AssertionError',stderr) — 2 OK (1,148 с). Всего 41 bounded evaluation test, historical contract probe отдельно.
+
+Полная регрессия до однострочного test assertion: **3204 tests / прежние 33 errors (100,650 с)**; после изменения повторены только затронутые 2 tests, runtime/example program неизменны. Fresh installed wheel 416 Python/Schema files равны src, success и late error path проверены без PYTHONPATH вне repo. [Статус](project-status.md#последняя-проверка) содержит точное baseline-сравнение и файловые проверки; Monte Carlo accuracy/performance не объявляются проверенными.
+
+## Контракт staged magic evaluation ADR-0041
+
+[Новый subprocess test](../tests/integration/test_m8_magic_staged_contract_probe.py) запускает [synthetic probe](examples/m8/staged_contract_probe.py) из external cwd: 1 OK (0,259 с), stdout равен stored output/stderr пуст. Проверены finite continuation/final selection и budgets240/140/40/2240, Fraction/order/ties/point windows/all-limit/unsupported/zero-action и seed prefix через existing bounded models. Staged admission/chain/error guards и battle execution не реализованы.
+
+Тот же three-file probe на installed package без PYTHONPATH прошёл обычный и guarded запуск с запрещёнными RNG/runner/evaluator/pool calls; 416 files равны current src. Полная регрессия: **3205 tests / 33 прежних errors (101,004 с)**, точные error Counters равны предыдущей вехе, новых ошибок нет; файловые проверки — в [статусе](project-status.md#последняя-проверка). Performance/Monte Carlo oracle не добавлены, production/прежние tests не менялись.

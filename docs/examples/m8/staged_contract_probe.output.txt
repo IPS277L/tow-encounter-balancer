@@ -1,0 +1,7 @@
+Magic staged contract: synthetic continuation A,D differs from empty bounded selection
+Synthetic final selection/order/ties, inclusive and point-zero windows, unsupported/all-limit: OK
+Complete-repeat budgets: planned=240 versus cap239; actual=240/140/40; three-stage upper bound=2240
+Incremental budget220 excluded; large exact Fraction and unchanged indexed-seed prefix: OK
+Native magic actions/started/completed bounds and zero-action unsupported: OK
+Inputs/global RNG unchanged; child processes unchanged; no battle execution or RNG draws
+No staged models/service, budget preflight, report-chain or stage-error guards are implemented by this probe

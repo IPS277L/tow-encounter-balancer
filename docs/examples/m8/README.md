@@ -158,7 +158,7 @@ PYTHONPATH=src python docs/examples/m8/magic_parallel.py
 
 ## Контракт оценки magic-кандидатов
 
-[ADR-0040](../../decisions/ADR-0040-magic-candidate-assessment.md) задаёт отдельные assessment/list/service types; pure assessment и list models реализованы, service остаётся будущим срезом. Переиспользуются существующие ObjectiveRateWindow и SimulationExecutionOptions; вся выборка N остаётся знаменателем, любой наблюдавшийся unsupported запрещает window assessment.
+[ADR-0040](../../decisions/ADR-0040-magic-candidate-assessment.md) задаёт отдельные assessment/list/service types; pure assessment, list models и service реализованы; [общий аудит bounded evaluation](../../audits/m8-evaluation-readiness.md) завершён. Переиспользуются существующие ObjectiveRateWindow и SimulationExecutionOptions; вся выборка N остаётся знаменателем, любой наблюдавшийся unsupported запрещает window assessment.
 
 ```sh
 PYTHONPATH=src python docs/examples/m8/assessment_contract_probe.py
@@ -166,8 +166,30 @@ PYTHONPATH=src python docs/examples/m8/assessment_contract_probe.py
 
 [Probe](assessment_contract_probe.py) копируется вместе с magic_simulation.py и magic_scenario.py. [Вывод](assessment_contract_probe.output.txt) проверяется external-cwd subprocess test. Синтетические summaries показывают inclusive/point windows, stable Fraction ties, бюджет 20 / cap 19 и большие N без float rounding; это арифметика, не реализованный production preflight.
 
-Реальные полные N4 sequential/spawn дают outcomes1/1/1/1, actions24/started10/completed9: goal1/4 в окне, но unsupported требует будущего match=None. Независимый полный N3 исполняется заново в обоих backend, без фильтрации N4: outcomes1/1/1/0, totals23/9/9, goal1/3 и future match=True. Всего 14 trials за четыре calls; полные results/summary, original source identity/input/global RNG и cleanup проверены. Scripted observations не являются Monte Carlo difficulty estimate. Pure assessment реализован в production отдельно от probe; list models с preflight/report/ranking также готовы. Следующий срез — service/errors/integration; staged/generation/JSON/CLI ещё не реализованы.
+Реальные полные N4 sequential/spawn дают outcomes1/1/1/1, actions24/started10/completed9: goal1/4 в окне, но unsupported требует будущего match=None. Независимый полный N3 исполняется заново в обоих backend, без фильтрации N4: outcomes1/1/1/0, totals23/9/9, goal1/3 и future match=True. Всего 14 trials за четыре calls; полные results/summary, original source identity/input/global RNG и cleanup проверены. Scripted observations не являются Monte Carlo difficulty estimate. Pure assessment реализован в production отдельно от probe; list models с preflight/report/ranking также готовы. Service/errors/integration также реализованы; общий аудит и самостоятельный production example также завершены. Staged/generation/JSON/CLI ещё не реализованы.
 
 Pure API: [assess_magic_candidate](../../../src/towr/balance/magic_assessment.py) принимает NpcMagicSimulationRequest, NpcMagicSimulationSummary и тот же ObjectiveRateWindow. [Frozen assessment](../../../src/towr/balance/magic_assessment_models.py) сохраняет полный source, возвращает четыре Fraction rates от всех N и status/window_match без runner/RNG/records. Любой unsupported даёт None; равная immutable копия source допускается, foreign input отклоняется.
 
-[Magic list models](../../../src/towr/balance/magic_evaluation_models.py) принимают готовые authored scenarios, общий seed/N/round budget/perspective и полный max_total_trials до исполнения. Request не вызывает RNG/runner; report содержит все aggregate rows в исходном порядке и выбирает только window_match=True по точной Fraction distance с сохранением ties. Само исполнение списка появится в application service отдельным срезом.
+[Magic list models](../../../src/towr/balance/magic_evaluation_models.py) принимают готовые authored scenarios, общий seed/N/round budget/perspective и полный max_total_trials до исполнения. Request не вызывает RNG/runner; report содержит все aggregate rows в исходном порядке и выбирает только window_match=True по точной Fraction distance с сохранением ties. [evaluate_magic_candidates](../../../src/towr/application/magic_evaluation_service.py) исполняет список по explicit SimulationExecutionOptions; процессный caller использует importable main guard. Ordinary candidate errors сохраняют ID/cause/worker notes, report публикуется только полный.
+
+
+## Самостоятельная оценка списка — production API
+
+```sh
+PYTHONPATH=src python docs/examples/m8/magic_evaluation.py
+```
+
+[magic_evaluation.py](magic_evaluation.py) копируется вместе с magic_simulation.py и magic_scenario.py. Он вызывает public evaluate_magic_candidates для двух authored target-priority альтернатив в sequential/process (workers2/batch3): seed42/B4/N8, planned/max16 на evaluation, окно [1/4,1/2,3/4], top_k2. Полные reports/source identity/budget и input/global RNG/children проверяются до первого stdout. [Stored output](magic_evaluation.output.txt) — finite observation, не difficulty estimate; пустой selection допустим.
+
+[Два integration tests](../../../tests/integration/test_m8_magic_evaluation_example.py) проверяют external-cwd bundle и поздний отказ второго кандидата после первых8 real trials: stdout пуст, stderr содержит ID/cause/note, процессный run не стартует. Fresh installed wheel вне repo без PYTHONPATH дал тот же успех и корректный error path; все416 Python/Schema files равны src. [Общий аудит](../../audits/m8-evaluation-readiness.md) фиксирует sources/ownership/ограничения. Staged/generation и JSON/CLI требуют следующих отдельных контрактов.
+
+
+## Контракт поэтапной оценки magic-списка
+
+```sh
+PYTHONPATH=src python docs/examples/m8/staged_contract_probe.py
+```
+
+[ADR-0041](../../decisions/ADR-0041-staged-magic-evaluation.md), [probe](staged_contract_probe.py) и [stored output](staged_contract_probe.output.txt) фиксируют finite synthetic cases через existing bounded models. Для копирования нужны также magic_simulation.py и magic_scenario.py. Бой/RNG/pool не исполняются; будущие staged models/service/budget/chain/error guards пример не реализует.
+
+Continuation выбирает ELIGIBLE даже вне окна и возвращает исходный порядок; финал требует window_match=True. Проверены budgets240/140/40/2240, полный повтор10→100 вместо prefix reuse, exact Fraction/ties/point windows/all-limit/all-unsupported и indexed-seed prefix. Числа — synthetic aggregates, не Monte Carlo observations. Следующий срез — pure helper/frozen staged models; application orchestration следует отдельно.

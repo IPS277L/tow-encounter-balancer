@@ -1,0 +1,21 @@
+profiles: authored Champion-Wizard Level2 Casting/Willpower3d/3 RES4; Shooting Minions3d/3 Dam3 RES3
+rules: BOOK-PLAYER-GUIDE 1.4 / Combat p112; Broken p122; Magic pp156-157,162; Wounds pp190-191
+NPC injury policies: BOOK-GM-GUIDE 1.1 / Allies and Antagonists pp91-92
+facts/policies: explicit ranges, scene frames, departures, Curse Give Ground and Broken Recover; repeated Staggered -> Wound; Minion defeat -> GM-approved knocked out
+alternatives change enemy target priority only; unsupported remains in ALL trials, not defeat/draw
+seed: 42; seed_scheme: towr:npc-magic-trial:v1; trials_per_candidate: 8
+window: min=1/4, target=1/2, max=3/4; top_k: 2
+budget per evaluation: planned=16; actual=16; max=16
+candidate: ally-first; round_budget: 4; perspective: players_and_allies; objective: enemy
+  counts goal/perspective_defeated/round_limit_reached/unsupported: 6/0/0/2
+  rates goal/perspective_defeated/round_limit/unsupported: 3/4, 0, 0, 1/4
+  actions: 39; started/completed rounds: 17/15; status: unsupported_observations; window_match: None
+candidate: wizard-first; round_budget: 4; perspective: players_and_allies; objective: enemy
+  counts goal/perspective_defeated/round_limit_reached/unsupported: 8/0/0/0
+  rates goal/perspective_defeated/round_limit/unsupported: 1, 0, 0, 0
+  actions: 37; started/completed rounds: 15/15; status: eligible; window_match: False
+selected: ()
+sequential/process full reports and selected IDs: equal; process workers=2 batch_size=3
+demonstration runs two complete evaluations: 32 total trials
+input/global RNG unchanged; no remaining child processes
+finite seeded observations only; eligibility is not tactical completeness or a difficulty guarantee
