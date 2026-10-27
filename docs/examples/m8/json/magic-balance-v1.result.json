@@ -1,0 +1,959 @@
+{
+  "schema_version": "1",
+  "kind": "npc_magic_balance_result",
+  "request": {
+    "schema_version": "1",
+    "kind": "npc_magic_balance",
+    "request_id": "wire:magic:balance",
+    "ruleset": "towr-pg1.4-gmg1.1",
+    "reserve": {
+      "round_budget": 1,
+      "scenario": {
+        "scenario_id": "example:magic:reserve",
+        "definitions": [
+          {
+            "id": "authored:wizard",
+            "source_rule_id": "example:ADR-0037:authored",
+            "injury_policy": "champion",
+            "wound_limit": null,
+            "resilience": {
+              "toughness": 4,
+              "bonus": 0
+            },
+            "attacks": [],
+            "protection": [
+              {
+                "source_rule_id": "example:ADR-0037:authored",
+                "skill": "athletics",
+                "dice": 3,
+                "threshold": 3
+              }
+            ]
+          },
+          {
+            "id": "authored:archer",
+            "source_rule_id": "example:ADR-0037:authored",
+            "injury_policy": "minion",
+            "wound_limit": 1,
+            "resilience": {
+              "toughness": 3,
+              "bonus": 0
+            },
+            "attacks": [
+              {
+                "id": "shot",
+                "source_rule_id": "example:ADR-0037:authored",
+                "skill": "shooting",
+                "dice": 3,
+                "threshold": 3,
+                "damage": 3,
+                "range_min": "short",
+                "range_max": "long",
+                "hands": "2h"
+              }
+            ],
+            "protection": [
+              {
+                "source_rule_id": "example:ADR-0037:authored",
+                "skill": "athletics",
+                "dice": 3,
+                "threshold": 3
+              }
+            ]
+          }
+        ],
+        "actors": [
+          {
+            "id": "wizard",
+            "definition_id": "authored:wizard",
+            "side": "players_and_allies"
+          },
+          {
+            "id": "ally",
+            "definition_id": "authored:archer",
+            "side": "players_and_allies"
+          },
+          {
+            "id": "E1",
+            "definition_id": "authored:archer",
+            "side": "opposition"
+          },
+          {
+            "id": "E2",
+            "definition_id": "authored:archer",
+            "side": "opposition"
+          },
+          {
+            "id": "E3",
+            "definition_id": "authored:archer",
+            "side": "opposition"
+          }
+        ],
+        "battlefield": {
+          "zone_ids": [
+            "arena",
+            "shelter",
+            "boundary"
+          ],
+          "connections": [
+            {
+              "first_zone_id": "arena",
+              "second_zone_id": "shelter"
+            },
+            {
+              "first_zone_id": "shelter",
+              "second_zone_id": "boundary"
+            }
+          ]
+        },
+        "placements": [
+          {
+            "entity_id": "wizard",
+            "side_id": "players_and_allies",
+            "zone_id": "arena"
+          },
+          {
+            "entity_id": "ally",
+            "side_id": "players_and_allies",
+            "zone_id": "arena"
+          },
+          {
+            "entity_id": "E1",
+            "side_id": "opposition",
+            "zone_id": "arena"
+          },
+          {
+            "entity_id": "E2",
+            "side_id": "opposition",
+            "zone_id": "arena"
+          },
+          {
+            "entity_id": "E3",
+            "side_id": "opposition",
+            "zone_id": "arena"
+          }
+        ],
+        "side_order": [
+          "players_and_allies",
+          "opposition"
+        ],
+        "activation_order": [
+          "wizard",
+          "ally",
+          "E1",
+          "E2",
+          "E3"
+        ],
+        "perspective_side": "players_and_allies",
+        "objective_target_ids": [
+          "E3",
+          "E2",
+          "E1"
+        ],
+        "facts": {
+          "authored_wizard_profile": true,
+          "targets_aware": true,
+          "clear_line_of_sight": true,
+          "all_combatants_included": true,
+          "unmounted_combatants_only": true,
+          "no_additional_rules": true,
+          "no_other_test_modifiers": true,
+          "no_cover_or_concealment": true,
+          "no_terrain_or_obstacles": true,
+          "no_external_scene_changes": true,
+          "no_external_condition_sources": true,
+          "ammunition_sufficient": true,
+          "requires_reload_action": false,
+          "knows_battle_magic": true,
+          "spell_memorised": true,
+          "no_bulky_items": true,
+          "no_casting_opposition": true,
+          "no_mixing_winds": true,
+          "no_potency_modifiers": true,
+          "no_effect_immunities": true
+        },
+        "wizard": {
+          "actor_id": "wizard",
+          "caster": {
+            "id": "authored:caster",
+            "source_rule_id": "example:ADR-0037:authored",
+            "wizard_level": 2,
+            "casting_profile": {
+              "dice": 3,
+              "threshold": 3
+            }
+          },
+          "day_id": "example:day"
+        },
+        "spell": {
+          "rule_id": "RULE-MAGIC-001:curse-of-cowardly-flight",
+          "lore_id": "lore:battle-magic",
+          "casting_value": 3,
+          "target_kind": "zone",
+          "range": "long",
+          "duration": "instant"
+        },
+        "scene_frames": [
+          {
+            "key": {
+              "placements": [
+                {
+                  "entity_id": "wizard",
+                  "side_id": "players_and_allies",
+                  "zone_id": "arena"
+                },
+                {
+                  "entity_id": "ally",
+                  "side_id": "players_and_allies",
+                  "zone_id": "arena"
+                },
+                {
+                  "entity_id": "E1",
+                  "side_id": "opposition",
+                  "zone_id": "arena"
+                },
+                {
+                  "entity_id": "E2",
+                  "side_id": "opposition",
+                  "zone_id": "arena"
+                },
+                {
+                  "entity_id": "E3",
+                  "side_id": "opposition",
+                  "zone_id": "arena"
+                }
+              ],
+              "live_actor_ids": [
+                "wizard",
+                "ally",
+                "E1",
+                "E2",
+                "E3"
+              ]
+            },
+            "pair_ranges": [
+              {
+                "first_actor_id": "wizard",
+                "second_actor_id": "E1",
+                "target_range": "short",
+                "first_range_approved_by_gm": false,
+                "second_range_approved_by_gm": false
+              },
+              {
+                "first_actor_id": "wizard",
+                "second_actor_id": "E2",
+                "target_range": "short",
+                "first_range_approved_by_gm": false,
+                "second_range_approved_by_gm": false
+              },
+              {
+                "first_actor_id": "wizard",
+                "second_actor_id": "E3",
+                "target_range": "short",
+                "first_range_approved_by_gm": false,
+                "second_range_approved_by_gm": false
+              },
+              {
+                "first_actor_id": "ally",
+                "second_actor_id": "E1",
+                "target_range": "short",
+                "first_range_approved_by_gm": false,
+                "second_range_approved_by_gm": false
+              },
+              {
+                "first_actor_id": "ally",
+                "second_actor_id": "E2",
+                "target_range": "short",
+                "first_range_approved_by_gm": false,
+                "second_range_approved_by_gm": false
+              },
+              {
+                "first_actor_id": "ally",
+                "second_actor_id": "E3",
+                "target_range": "short",
+                "first_range_approved_by_gm": false,
+                "second_range_approved_by_gm": false
+              }
+            ],
+            "zone_ranges": [
+              {
+                "zone_id": "arena",
+                "target_range": "short"
+              },
+              {
+                "zone_id": "shelter",
+                "target_range": "medium"
+              },
+              {
+                "zone_id": "boundary",
+                "target_range": "long"
+              }
+            ],
+            "give_ground_plans": [
+              {
+                "actor_id": "E1",
+                "can_leave_zone": true,
+                "destination_zone_id": "shelter",
+                "route": {
+                  "path_entity_ids": [],
+                  "crosses_obstacle": false,
+                  "crosses_difficult_terrain": false
+                },
+                "impossible_confirmed": false
+              },
+              {
+                "actor_id": "E2",
+                "can_leave_zone": true,
+                "destination_zone_id": "shelter",
+                "route": {
+                  "path_entity_ids": [],
+                  "crosses_obstacle": false,
+                  "crosses_difficult_terrain": false
+                },
+                "impossible_confirmed": false
+              },
+              {
+                "actor_id": "E3",
+                "can_leave_zone": true,
+                "destination_zone_id": "shelter",
+                "route": {
+                  "path_entity_ids": [],
+                  "crosses_obstacle": false,
+                  "crosses_difficult_terrain": false
+                },
+                "impossible_confirmed": false
+              }
+            ],
+            "broken_plans": [],
+            "attack_departures": [
+              {
+                "actor_id": "wizard",
+                "can_leave_zone": true
+              },
+              {
+                "actor_id": "ally",
+                "can_leave_zone": true
+              },
+              {
+                "actor_id": "E1",
+                "can_leave_zone": true
+              },
+              {
+                "actor_id": "E2",
+                "can_leave_zone": true
+              },
+              {
+                "actor_id": "E3",
+                "can_leave_zone": true
+              }
+            ]
+          }
+        ],
+        "repeated_stagger_choice": "suffer_wound",
+        "actor_policies": [
+          {
+            "actor_id": "wizard",
+            "willpower": {
+              "dice": 3,
+              "threshold": 3
+            },
+            "speed": "normal",
+            "target_actor_ids": [],
+            "defeat_decisions": [],
+            "attack_id": null,
+            "casting_policy": "cast_when_ready",
+            "zone_priorities": [
+              "arena",
+              "shelter",
+              "boundary"
+            ]
+          },
+          {
+            "actor_id": "ally",
+            "willpower": {
+              "dice": 3,
+              "threshold": 3
+            },
+            "speed": "normal",
+            "target_actor_ids": [
+              "E3",
+              "E2",
+              "E1"
+            ],
+            "defeat_decisions": [
+              {
+                "attacker_id": "ally",
+                "target_id": "E3",
+                "disposition": "knocked_out",
+                "gm_approved": true
+              },
+              {
+                "attacker_id": "ally",
+                "target_id": "E2",
+                "disposition": "knocked_out",
+                "gm_approved": true
+              },
+              {
+                "attacker_id": "ally",
+                "target_id": "E1",
+                "disposition": "knocked_out",
+                "gm_approved": true
+              }
+            ],
+            "attack_id": "shot",
+            "casting_policy": null,
+            "zone_priorities": []
+          },
+          {
+            "actor_id": "E1",
+            "willpower": {
+              "dice": 3,
+              "threshold": 3
+            },
+            "speed": "normal",
+            "target_actor_ids": [
+              "wizard",
+              "ally"
+            ],
+            "defeat_decisions": [
+              {
+                "attacker_id": "E1",
+                "target_id": "ally",
+                "disposition": "knocked_out",
+                "gm_approved": true
+              }
+            ],
+            "attack_id": "shot",
+            "casting_policy": null,
+            "zone_priorities": []
+          },
+          {
+            "actor_id": "E2",
+            "willpower": {
+              "dice": 3,
+              "threshold": 3
+            },
+            "speed": "normal",
+            "target_actor_ids": [
+              "wizard",
+              "ally"
+            ],
+            "defeat_decisions": [
+              {
+                "attacker_id": "E2",
+                "target_id": "ally",
+                "disposition": "knocked_out",
+                "gm_approved": true
+              }
+            ],
+            "attack_id": "shot",
+            "casting_policy": null,
+            "zone_priorities": []
+          },
+          {
+            "actor_id": "E3",
+            "willpower": {
+              "dice": 3,
+              "threshold": 3
+            },
+            "speed": "normal",
+            "target_actor_ids": [
+              "wizard",
+              "ally"
+            ],
+            "defeat_decisions": [
+              {
+                "attacker_id": "E3",
+                "target_id": "ally",
+                "disposition": "knocked_out",
+                "gm_approved": true
+              }
+            ],
+            "attack_id": "shot",
+            "casting_policy": null,
+            "zone_priorities": []
+          }
+        ]
+      }
+    },
+    "generation": {
+      "groups": [
+        {
+          "group_id": "A",
+          "actor_ids": [
+            "E2",
+            "E1"
+          ],
+          "minimum_count": 1,
+          "maximum_count": 2
+        },
+        {
+          "group_id": "B",
+          "actor_ids": [
+            "E3"
+          ],
+          "minimum_count": 0,
+          "maximum_count": 1
+        }
+      ],
+      "facts": {
+        "authored_wizard_profile": true,
+        "targets_aware": true,
+        "clear_line_of_sight": true,
+        "all_combatants_included": true,
+        "unmounted_combatants_only": true,
+        "no_additional_rules": true,
+        "no_other_test_modifiers": true,
+        "no_cover_or_concealment": true,
+        "no_terrain_or_obstacles": true,
+        "no_external_scene_changes": true,
+        "no_external_condition_sources": true,
+        "ammunition_sufficient": true,
+        "requires_reload_action": false,
+        "knows_battle_magic": true,
+        "spell_memorised": true,
+        "no_bulky_items": true,
+        "no_casting_opposition": true,
+        "no_mixing_winds": true,
+        "no_potency_modifiers": true,
+        "no_effect_immunities": true
+      },
+      "scene_frames": [
+        {
+          "key": {
+            "placements": [
+              {
+                "entity_id": "wizard",
+                "side_id": "players_and_allies",
+                "zone_id": "arena"
+              },
+              {
+                "entity_id": "ally",
+                "side_id": "players_and_allies",
+                "zone_id": "arena"
+              },
+              {
+                "entity_id": "E1",
+                "side_id": "opposition",
+                "zone_id": "arena"
+              },
+              {
+                "entity_id": "E2",
+                "side_id": "opposition",
+                "zone_id": "arena"
+              },
+              {
+                "entity_id": "E3",
+                "side_id": "opposition",
+                "zone_id": "arena"
+              }
+            ],
+            "live_actor_ids": [
+              "wizard",
+              "ally",
+              "E1",
+              "E2",
+              "E3"
+            ]
+          },
+          "pair_ranges": [
+            {
+              "first_actor_id": "wizard",
+              "second_actor_id": "E1",
+              "target_range": "short",
+              "first_range_approved_by_gm": false,
+              "second_range_approved_by_gm": false
+            },
+            {
+              "first_actor_id": "wizard",
+              "second_actor_id": "E2",
+              "target_range": "short",
+              "first_range_approved_by_gm": false,
+              "second_range_approved_by_gm": false
+            },
+            {
+              "first_actor_id": "wizard",
+              "second_actor_id": "E3",
+              "target_range": "short",
+              "first_range_approved_by_gm": false,
+              "second_range_approved_by_gm": false
+            },
+            {
+              "first_actor_id": "ally",
+              "second_actor_id": "E1",
+              "target_range": "short",
+              "first_range_approved_by_gm": false,
+              "second_range_approved_by_gm": false
+            },
+            {
+              "first_actor_id": "ally",
+              "second_actor_id": "E2",
+              "target_range": "short",
+              "first_range_approved_by_gm": false,
+              "second_range_approved_by_gm": false
+            },
+            {
+              "first_actor_id": "ally",
+              "second_actor_id": "E3",
+              "target_range": "short",
+              "first_range_approved_by_gm": false,
+              "second_range_approved_by_gm": false
+            }
+          ],
+          "zone_ranges": [
+            {
+              "zone_id": "arena",
+              "target_range": "short"
+            },
+            {
+              "zone_id": "shelter",
+              "target_range": "medium"
+            },
+            {
+              "zone_id": "boundary",
+              "target_range": "long"
+            }
+          ],
+          "give_ground_plans": [
+            {
+              "actor_id": "E1",
+              "can_leave_zone": true,
+              "destination_zone_id": "shelter",
+              "route": {
+                "path_entity_ids": [],
+                "crosses_obstacle": false,
+                "crosses_difficult_terrain": false
+              },
+              "impossible_confirmed": false
+            },
+            {
+              "actor_id": "E2",
+              "can_leave_zone": true,
+              "destination_zone_id": "shelter",
+              "route": {
+                "path_entity_ids": [],
+                "crosses_obstacle": false,
+                "crosses_difficult_terrain": false
+              },
+              "impossible_confirmed": false
+            },
+            {
+              "actor_id": "E3",
+              "can_leave_zone": true,
+              "destination_zone_id": "shelter",
+              "route": {
+                "path_entity_ids": [],
+                "crosses_obstacle": false,
+                "crosses_difficult_terrain": false
+              },
+              "impossible_confirmed": false
+            }
+          ],
+          "broken_plans": [],
+          "attack_departures": [
+            {
+              "actor_id": "wizard",
+              "can_leave_zone": true
+            },
+            {
+              "actor_id": "ally",
+              "can_leave_zone": true
+            },
+            {
+              "actor_id": "E1",
+              "can_leave_zone": true
+            },
+            {
+              "actor_id": "E2",
+              "can_leave_zone": true
+            },
+            {
+              "actor_id": "E3",
+              "can_leave_zone": true
+            }
+          ]
+        }
+      ],
+      "candidate_id_prefix": "magic",
+      "max_candidates": 4
+    },
+    "evaluation": {
+      "master_seed": "42",
+      "stages": [
+        {
+          "trials_per_candidate": 2,
+          "keep": 2
+        },
+        {
+          "trials_per_candidate": 4,
+          "keep": 1
+        }
+      ],
+      "max_total_trials": 16,
+      "window": {
+        "minimum": {
+          "numerator": 1,
+          "denominator": 4
+        },
+        "target": {
+          "numerator": 1,
+          "denominator": 2
+        },
+        "maximum": {
+          "numerator": 3,
+          "denominator": 4
+        }
+      }
+    },
+    "execution": {
+      "mode": "sequential"
+    }
+  },
+  "seed_scheme": "towr:npc-magic-trial:v1",
+  "runtime": {
+    "package_version": "0.1.0",
+    "python_implementation": "CPython",
+    "python_version": "3.12.15",
+    "rng": "random.Random"
+  },
+  "candidate_count": 4,
+  "planned_trials": 16,
+  "total_trials": 12,
+  "candidates": [
+    {
+      "candidate_id": "magic:counts:1,0",
+      "counts": [
+        1,
+        0
+      ]
+    },
+    {
+      "candidate_id": "magic:counts:1,1",
+      "counts": [
+        1,
+        1
+      ]
+    },
+    {
+      "candidate_id": "magic:counts:2,0",
+      "counts": [
+        2,
+        0
+      ]
+    },
+    {
+      "candidate_id": "magic:counts:2,1",
+      "counts": [
+        2,
+        1
+      ]
+    }
+  ],
+  "stage_reports": [
+    {
+      "stage_index": 0,
+      "trials_per_candidate": 2,
+      "keep": 2,
+      "total_trials": 8,
+      "candidates": [
+        {
+          "candidate_id": "magic:counts:1,0",
+          "summary": {
+            "trials": 2,
+            "outcome_counts": {
+              "objective_achieved": 1,
+              "perspective_defeated": 0,
+              "round_limit_reached": 1,
+              "unsupported_path": 0
+            },
+            "total_action_count": 5,
+            "total_started_round_count": 2,
+            "total_completed_round_count": 2
+          },
+          "rates": {
+            "objective_achieved": {
+              "numerator": 1,
+              "denominator": 2
+            },
+            "perspective_defeated": {
+              "numerator": 0,
+              "denominator": 1
+            },
+            "round_limit_reached": {
+              "numerator": 1,
+              "denominator": 2
+            },
+            "unsupported_path": {
+              "numerator": 0,
+              "denominator": 1
+            }
+          },
+          "status": "eligible",
+          "window_match": true
+        },
+        {
+          "candidate_id": "magic:counts:1,1",
+          "summary": {
+            "trials": 2,
+            "outcome_counts": {
+              "objective_achieved": 0,
+              "perspective_defeated": 0,
+              "round_limit_reached": 1,
+              "unsupported_path": 1
+            },
+            "total_action_count": 6,
+            "total_started_round_count": 2,
+            "total_completed_round_count": 1
+          },
+          "rates": {
+            "objective_achieved": {
+              "numerator": 0,
+              "denominator": 1
+            },
+            "perspective_defeated": {
+              "numerator": 0,
+              "denominator": 1
+            },
+            "round_limit_reached": {
+              "numerator": 1,
+              "denominator": 2
+            },
+            "unsupported_path": {
+              "numerator": 1,
+              "denominator": 2
+            }
+          },
+          "status": "unsupported_observations",
+          "window_match": null
+        },
+        {
+          "candidate_id": "magic:counts:2,0",
+          "summary": {
+            "trials": 2,
+            "outcome_counts": {
+              "objective_achieved": 0,
+              "perspective_defeated": 0,
+              "round_limit_reached": 1,
+              "unsupported_path": 1
+            },
+            "total_action_count": 6,
+            "total_started_round_count": 2,
+            "total_completed_round_count": 1
+          },
+          "rates": {
+            "objective_achieved": {
+              "numerator": 0,
+              "denominator": 1
+            },
+            "perspective_defeated": {
+              "numerator": 0,
+              "denominator": 1
+            },
+            "round_limit_reached": {
+              "numerator": 1,
+              "denominator": 2
+            },
+            "unsupported_path": {
+              "numerator": 1,
+              "denominator": 2
+            }
+          },
+          "status": "unsupported_observations",
+          "window_match": null
+        },
+        {
+          "candidate_id": "magic:counts:2,1",
+          "summary": {
+            "trials": 2,
+            "outcome_counts": {
+              "objective_achieved": 0,
+              "perspective_defeated": 0,
+              "round_limit_reached": 1,
+              "unsupported_path": 1
+            },
+            "total_action_count": 7,
+            "total_started_round_count": 2,
+            "total_completed_round_count": 1
+          },
+          "rates": {
+            "objective_achieved": {
+              "numerator": 0,
+              "denominator": 1
+            },
+            "perspective_defeated": {
+              "numerator": 0,
+              "denominator": 1
+            },
+            "round_limit_reached": {
+              "numerator": 1,
+              "denominator": 2
+            },
+            "unsupported_path": {
+              "numerator": 1,
+              "denominator": 2
+            }
+          },
+          "status": "unsupported_observations",
+          "window_match": null
+        }
+      ],
+      "selected_candidate_ids": [
+        "magic:counts:1,0"
+      ],
+      "continuation_candidate_ids": [
+        "magic:counts:1,0"
+      ]
+    },
+    {
+      "stage_index": 1,
+      "trials_per_candidate": 4,
+      "keep": 1,
+      "total_trials": 4,
+      "candidates": [
+        {
+          "candidate_id": "magic:counts:1,0",
+          "summary": {
+            "trials": 4,
+            "outcome_counts": {
+              "objective_achieved": 1,
+              "perspective_defeated": 0,
+              "round_limit_reached": 3,
+              "unsupported_path": 0
+            },
+            "total_action_count": 11,
+            "total_started_round_count": 4,
+            "total_completed_round_count": 4
+          },
+          "rates": {
+            "objective_achieved": {
+              "numerator": 1,
+              "denominator": 4
+            },
+            "perspective_defeated": {
+              "numerator": 0,
+              "denominator": 1
+            },
+            "round_limit_reached": {
+              "numerator": 3,
+              "denominator": 4
+            },
+            "unsupported_path": {
+              "numerator": 0,
+              "denominator": 1
+            }
+          },
+          "status": "eligible",
+          "window_match": true
+        }
+      ],
+      "selected_candidate_ids": [
+        "magic:counts:1,0"
+      ],
+      "continuation_candidate_ids": []
+    }
+  ],
+  "status": "completed",
+  "selected_candidate_ids": [
+    "magic:counts:1,0"
+  ]
+}

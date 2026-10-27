@@ -484,3 +484,17 @@ ADR-0038 реализован без новых игровых решений: �
 ## Контракт генерации magic-составов ADR-0042
 
 2026-10-27: [ADR-0042](decisions/ADR-0042-magic-composition-generation.md) и [finite probe](examples/m8/generation_contract_probe.py) сохраняют fixed Wizard/Champion и explicit family facts/scene routes при отборе Minion-reserve. Непосредственно сверены BOOK-PLAYER-GUIDE1.4: Equipment / Ranged Weapons, стр.94; Rules / Combat, стр.112; The Battlefield / Range / Speed, стр.114–115; Giving Ground, стр.119; Conditions / Broken, стр.122; Magic in the Old World / Casting a Spell / Interrupted Casting, стр.156; Spell Potency / Miscasts, стр.157; Battle Magic / Curse, стр.162; Wounds Table, стр.190–191; BOOK-GM-GUIDE1.1: Allies and Antagonists / Minions / Champions, стр.91–92. Generation/counts/caps/frame collision policy — технический контракт, не новые игровые Rule IDs/house rules. Invalid route/subset не исправляется автоматически; прежние ambiguities и unsupported остаются. Production rules не менялись, новых противоречий не выявлено.
+
+
+## Сквозная integration генерации magic-составов ADR-0042
+
+2026-10-27: [7 integration tests](decisions/ADR-0042-magic-composition-generation.md#сквозная-integration) сохраняют RULE-MAGIC-001/004, RULE-NPC-002/004 и existing Combat/scene consumers на generated subsets. Непосредственно сверены BOOK-PLAYER-GUIDE1.4: Rules / Combat, стр.112; Giving Ground, стр.119; Conditions / Broken, стр.122; Magic in the Old World / Casting / Interrupted Casting, стр.156; Spell Potency / Miscasts, стр.157; Battle Magic / Curse, стр.162; BOOK-GM-GUIDE1.1: Allies and Antagonists / Minions / Champions, стр.91–92. Curse/Willpower/Recover order, full defeat decision и архив, exact missing-scene pending и unsupported denominator прежние; новых игровых правил/house rules/противоречий нет. Production rules не менялись.
+
+
+## Общий аудит генерации magic-составов ADR-0042
+
+2026-10-27: [Аудит](audits/m8-generation-readiness.md) прямо сверил BOOK-PLAYER-GUIDE1.4: Equipment / Ranged Weapons, стр.94; Rules / Combat, стр.112; The Battlefield / Range / Speed, стр.114–115; Giving Ground, стр.119; Conditions / Broken, стр.122; Magic in the Old World / Casting a Spell / Interrupted Casting, стр.156; Spell Potency / Miscasts, стр.157; Battle Magic / Curse, стр.162; Wounds Table, стр.190–191; BOOK-GM-GUIDE1.1: Allies and Antagonists / Minions / Champions, стр.91–92. Public generation example использует authored numeric reserve, не именованные книжные NPC; counts/selection/budgets/frame collapse — техническая область поиска, не house rule. Existing pending/unsupported, NPC injury policies и явные scene/GM facts сохранены; новых Rule IDs/противоречий нет, production rules не менялись.
+
+## Контракт Magic JSON/CLI ADR-0043
+
+2026-10-28: [ADR-0043](decisions/ADR-0043-magic-json-cli-v1.md) и [finite JSON/probe](examples/m8/json/README.md) сохраняют existing fresh authored Wizard/Minion scope. Напрямую перечитаны BOOK-PLAYER-GUIDE1.4: Magic in the Old World / Casting a Spell / Interrupted Casting, стр.156; Spell Potency / Miscasts and the Rule of Nine, стр.157; The Lores of Magic / Battle Magic / Curse of Cowardly Flight, стр.162; BOOK-GM-GUIDE1.1: Allies and Antagonists / Types of NPC / Minions, стр.91. CV3/Zone/Long/Instant, отдельные Willpower/GM defeat decisions и unsupported consumers сохраняются. Wire fields/IDs/version/phase errors — технический контракт, новых Rule IDs/house rules/противоречий нет. Production правила не менялись; strict Schema/parser/encoder ещё не реализованы.

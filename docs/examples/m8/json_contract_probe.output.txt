@@ -1,0 +1,3 @@
+exact fixture mapping; simulation 4 trials, balance planned/actual=16/12
+full sequential/process results equal; 13 semantic rejections + generation failure; sources/global RNG/children unchanged
+contract probe only: no Magic production Schema/parser/encoder/CLI or lexical validation

@@ -1,11 +1,14 @@
-"""Immutable magic reserve admission and arithmetic budgets (ADR-0042).
+"""Magic reserve admission and source-bound generated inputs (ADR-0042).
 
-No subset construction, enumeration, simulation or tactical inference.
+Request admission is arithmetic; result validation checks each full projection.
+Neither model runs a battle or infers tactical facts.
 """
 from dataclasses import dataclass
 from math import prod
 
-from towr.balance.magic_staged_evaluation_models import MagicBalanceStage, _planned_trials, _validate_stages
+from towr.balance.magic_staged_evaluation_models import (
+    MagicBalanceStage, MagicStagedEvaluationRequest, _planned_trials, _validate_stages,
+)
 from towr.balance.ranged_assessment_models import ObjectiveRateWindow
 from towr.domain.npc_magic_scenario_models import NpcMagicScenario, NpcMagicScenarioFacts
 from towr.domain.npc_magic_scene_models import NpcMagicSceneFrame
@@ -124,3 +127,27 @@ class MagicCandidateGenerationRequest:
     @property
     def planned_trials(self) -> int:
         return _planned_trials(self.candidate_count, self.stages)
+
+
+@dataclass(frozen=True, slots=True)
+class MagicCandidateGenerationResult:
+    source_request: MagicCandidateGenerationRequest
+    evaluation_request: MagicStagedEvaluationRequest
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.source_request, MagicCandidateGenerationRequest):
+            raise TypeError("generation result requires its typed magic source")
+        if not isinstance(self.evaluation_request, MagicStagedEvaluationRequest):
+            raise TypeError("generation result requires a typed magic staged request")
+        source, evaluation = self.source_request, self.evaluation_request
+        if (evaluation.master_seed != source.master_seed or evaluation.stages != source.stages
+                or evaluation.max_total_trials != source.max_total_trials or evaluation.window != source.window
+                or len(evaluation.candidates) != source.candidate_count):
+            raise ValueError("generated magic evaluation has foreign parameters or an incomplete candidate list")
+        # Resolve the models/construction cycle locally. Rebuild one expected
+        # projection at a time without retaining a second complete family.
+        from towr.application.magic_candidate_generation import _count_vectors, _project_candidate
+
+        for counts, candidate in zip(_count_vectors(source), evaluation.candidates):
+            if candidate != _project_candidate(source, counts):
+                raise ValueError("generated magic candidate differs from its exact source projection")

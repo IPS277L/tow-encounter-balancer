@@ -1,60 +1,59 @@
 # Текущий статус проекта
 
-Дата обновления: 2026-10-27.
+Дата обновления: 2026-10-28.
 
 ## Текущий этап
 
-**M8: первый production-срез генерации ADR-0042 реализован.** [Frozen group/request](../src/towr/application/magic_candidate_generation_models.py) проверяют typed reserve/partition без Wizard, full definitions, explicit family facts/ordered frames, все stages/seed/window и арифметические C/budget caps до enumeration/materialization. [15 tests](../tests/unit/test_m8_magic_candidate_generation_models.py) подтверждают guards, обе perspective, immutable sources и огромный C без исполнения.
+**M8: контракт JSON/CLI v1 подготовлен.** [ADR-0043](decisions/ADR-0043-magic-json-cli-v1.md) фиксирует отдельные simulation/balance families, полный fresh scenario/family mapper, strict versioned request/result/error, aggregate outputs и phase errors. [Полевая матрица и шесть JSON fixtures](examples/m8/json/README.md), [finite mapping probe](examples/m8/json_contract_probe.py) и subprocess test готовы. Production Schema/parser/encoder/commands/services/CLI ещё не реализованы.
 
-[ADR-0042](decisions/ADR-0042-magic-composition-generation.md) и [finite probe](examples/m8/generation_contract_probe.py) сохраняются. Group/request не обещает допустимость каждого subset; construction/result/error/полная проекция и integration ещё не реализованы. Прежние staged/bounded/simulation APIs и single-run scope не менялись.
+Probe вручную отображает два известных входа в public typed APIs и обратно. Полные sequential/process results равны; simulation N4, balance C4/stages2/4 keep2/1, planned16/actual12 на backend. Есть13semantic constructor rejects и genuine generation failure counts(1,0) после успешного preflight. Saved rates/selection — наблюдение runtime, не preset/вероятность. Strict lexical/version/unknown/required fields и все enum/order варианты ещё требуют production tests.
 
-Работа до согласованной вехи идёт небольшими шагами без подтверждения между ними; независимые tests/review делегируются с раздельным владением файлами. [Режим](../AGENTS.md#автономная-работа-до-согласованной-вехи). Commit/push выполняет пользователь.
+Работа идёт до согласованной вехи небольшими шагами; независимые проверки делегируются с раздельным владением файлами. [Режим](../AGENTS.md#автономная-работа-до-согласованной-вехи). Commit/push выполняет пользователь. Все23исходно незакоммиченных пути сохранены; production и прежние tests/tools/examples/probes в этом срезе не менялись.
 
 ## Зафиксировано
 
 | Слой | Готовность и граница |
 | --- | --- |
-| R1/K1 | PG1.4/GM1.1 — primary sources; [аудит книг](audits/rulebooks-1.4-1.1.md), [ядро](audits/k1-readiness.md), [трассировка](rule-traceability.md). Полного каталога и универсального боя нет |
-| M2–M7 | Ограниченные numeric Minion ranged/melee/mixed encounters, sequential/process, summary/assessment/stages/generation и JSON/CLI; [M5](audits/m5-external-readiness.md), [M6](audits/m6-external-readiness.md), [M7](audits/m7-external-readiness.md) |
-| M8 single-run | Один authored Champion-Wizard/Curse и numeric Shooting Minions, explicit scene facts/policies, полный owner/journal; [аудит](audits/m8-encounter-readiness.md) |
-| M8 simulation | ADR-0038/0039, indexed fresh RNG, full-source records/summary, четыре outcomes/три totals и bounded spawn; [общий аудит](audits/m8-mass-simulation-readiness.md) |
-| M8 performance | [Замеры](benchmarks/README.md#m8-sequential-и-spawn): N100 spawn медленнее, N1000 w2 локально быстрее двух боевых inputs в 1,506/1,547 раза; control быстрее sequential. Auto backend нет |
-| M8 bounded evaluation | [ADR-0040](decisions/ADR-0040-magic-candidate-assessment.md) закрыт общим аудитом, public example и installed parity |
-| M8 staged evaluation | [Аудит ADR-0041](audits/m8-staged-evaluation-readiness.md) завершён: 33 implementation + 2 example tests, public example, late failure и installed parity |
-| M8 generation | ADR-0042/finite probe и frozen group/request готовы; construction/result/error — следующий срез |
+| R1/K1 | PG1.4/GM1.1 — primary; [книги](audits/rulebooks-1.4-1.1.md), [ядро](audits/k1-readiness.md), [трассировка](rule-traceability.md); универсального боя/каталога нет |
+| M2–M7 | Ограниченные numeric Minion ranged/melee/mixed encounters, sequential/process, assessment/stages/generation, JSON/CLI; [M5](audits/m5-external-readiness.md), [M6](audits/m6-external-readiness.md), [M7](audits/m7-external-readiness.md) |
+| M8 encounter | Один authored Champion-Wizard/Curse и Shooting Minions с explicit facts/policies/frames; [аудит](audits/m8-encounter-readiness.md) |
+| M8 simulation/process | Indexed fresh RNG, full-source records/summary, четыре outcomes/три totals, bounded spawn; [аудит](audits/m8-mass-simulation-readiness.md) |
+| M8 performance | [Замеры](benchmarks/README.md#m8-sequential-и-spawn); локальное преимущество w2 для двух N1000 inputs, не auto backend |
+| M8 bounded/staged | [ADR-0040 audit](audits/m8-evaluation-readiness.md), [ADR-0041 audit](audits/m8-staged-evaluation-readiness.md), public/installed examples |
+| M8 generation | [ADR-0042 audit](audits/m8-generation-readiness.md), 41 implementation +3 example tests, late failures/installed parity |
+| M8 JSON/CLI | Только контракт ADR-0043, матрица/fixtures/finite probe; production реализация начинается со simulation pure wire |
 
 ## Ограничения
 
-- [Политика источников](source-policy.md): PG1.4/GM1.1 выше прототипа. Прямые references ADR-0042: PG1.4 Equipment94, Combat112, Range/Speed114–115, Giving Ground119, Broken122, Casting156, Potency/Miscasts157, Curse162, Wounds190–191; GM1.1 Minions/Champions91–92; главы/выводы — в ADR. Контракт генерации не добавляет игровых правил или house rules; книжные ссылки сверены напрямую.
-- Magic scope прежний: Curse, Broken Recover/Run и Stomach Blow → Drained expiry. Другие обязательные Wound/Miscast/chronology, обычный Attack Give Ground и неизвестные scene/route — unsupported stops; их не фильтруют и не считают defeat/draw. Broken/другая Zone не defeat.
-- Переход 10→100 оплачивает 110 trials, stages не независимы, prefix вычисляется заново. N строго растёт; keep может расти/убывать без возвращения отсеянных. Intermediate ELIGIBLE вне окна может продолжать, финал требует window_match=True. Любой unsupported исключает целого кандидата из следующих этапов, но сохраняется в N текущего report.
-- Полные NPC/spell/Talent/item каталоги, PC-сценарии и универсальная тактика/battle orchestration не готовы. [Открытые вопросы](open-questions.md) сохраняются. Source guards не доказывают происхождение manual aggregates, ELIGIBLE/window_match — не гарантия полноты или истинной вероятности; budget не RSS cap.
-- Materialization generation/JSON/CLI M8, prefix reuse, confidence presets, новые consumers/cache/framework/persistent pool и auto backend не добавлены. Shared classes/options и simulation RNG boundary прежние. Process caller использует importable main guard; default RNG не становится новым параметром staged service.
-- Cleanup ждёт running work; traceback может удерживать объекты, rollback side effects/мгновенный kill не обещаются. Успешный result содержит inputs/aggregate reports без trial records/journals.
-- Общий src/harness hash меняется при добавлении application modules; simulation/engine/tools неизменны, новых performance-замеров нет. Прежний installed wheel staged API проверен на CPython3.12.15/macOS arm64; новый generation models API, другие runtime/ОС/RSS в этом срезе не проверены.
-- 33 прежних dataclasses errors Python3.12 — отдельная задача; [причина](open-questions.md#проверки-dataclasses-на-python-312). Полный suite не зелёный; новые ошибки сверяются отдельно.
+- [Политика источников](source-policy.md): PG1.4/GM1.1 выше прототипа. В текущем срезе напрямую перечитаны PG1.4 Magic in the Old World / Casting / Interrupted Casting156, Potency/Miscasts157, Battle Magic / Curse162; GM1.1 Allies and Antagonists / Minions91. Другие ранее сверенные references сохранены в ADR-0042/0043. Новых игровых правил/house rules нет.
+- Прежний magic scope: Curse, Broken Recover/Run, Stomach Blow → Drained expiry. Другие обязательные Wound/Miscast/chronology, ordinary Attack Give Ground, неизвестные scene/route дают exact unsupported stops. Broken/другая Zone не defeat; unsupported остаётся в N и исключает кандидата из continuation.
+- Fresh-only wire не является сохранением произвольного текущего боя. Будущий encoder обязан reject неподдержанное state/history. External request ID, scenario ID и day ID независимы; definitions/roster/placements/activation/frames/routes/GM decisions сохраняют отдельные порядки.
+- Полные повторные пакеты:10→100 оплачивает110, stages не независимы, prefix вычисляется заново. Intermediate eligible может продолжать вне окна, final selection требует window_match. Нельзя пропускать invalid generated subset или уменьшать заявленный C/budget после preflight.
+- Нет PC/полных NPC/spell/Talent/item каталогов, универсальной тактики, auto facts/backend, prefix reuse/cache/persistent pool. [Открытые вопросы](open-questions.md) сохраняются. Source guards не доказывают происхождение manual aggregates, eligible/window_match — не гарантия полноты/истинной вероятности; budget не RSS cap.
+- Cleanup ждёт running work; traceback может удерживать объекты, rollback/мгновенный kill не обещаются. Process caller требует importable main guard. JSON контракт не меняет RNG boundary/shared classes/шесть прежних команд.
+- Installed проверка — CPython3.12.15/macOS arm64. Другие runtime/ОС/RSS не проверены; benchmarks не повторялись. Полный suite не зелёный:33 прежних dataclasses errors Python3.12 — [отдельная задача](open-questions.md#проверки-dataclasses-на-python-312).
 
 ## Следующий шаг
 
-Реализовать второй срез ADR-0042: application/magic_candidate_generation.py, MagicCandidateGenerationResult в models и magic_candidate_generation_errors.py. Ordered count vectors/IDs; full fresh roster/round/spatial/Champion daily с прежним Wizard/caster/day_id; полные projections policies/objective/всех supplied scene frames/route entities. Equal-key collapse только при полном равенстве, conflict и invalid Broken route прерывают всё семейство; каждый subset проходит existing admission. Общая внутренняя projection function для construction/result guards, exact source, error ID/counts/cause/notes без skip/partial/retry; BaseException/final constructors напрямую. Deterministic tests; integration/public production example/аудит затем, без новых gameplay consumers/JSON/CLI/prefix reuse.
+**Срез1 ADR-0043: simulation pure wire.** Реализовать три packaged simulation Schema/local registry, frozen MagicSimulationCommand с independent request_id/definition_order, shared scenario mapper/inverse, pure parser/summary encoder/input errors. Проверить strict lexical/required/unknown/nullable/version/uint64 boundaries, все field/enum/order mappings, обе стороны Wizard/perspective, fresh/spell/facts/frames/routes/archives/empty-live, round-trip/lossless refusal и exact source без RNG/runner/pool. Service, execution/error encoder и simulate-magic идут отдельным срезом2; balance — срезами3/4, затем общий аудит. Gameplay scope/roadmap не расширять.
 
 ## Последняя проверка
 
-15 новых tests — **OK (0,024 с)**: strict types/containers, четыре Wizard-side/perspective сочетания, exact partition/full definitions/family frames, budgets240/250/110/1140/4×uint64max, все stages/seed/caps, frozen/replace/pickle и источники. C=2**40−1 проверен без enumeration/candidate/staged/projection/RNG/runner/pool с одной seed admission. Будущий invalid Broken subset не проецируется при preflight. Независимое read-only ревью production/tests блокеров не выявило.
+Новый subprocess test — **1 OK (2,035 с)**: four-file +six-fixture bundle из внешнего cwd, stored stdout/stderr parity и fixtures не меняются. Реальные sequential/process результаты сравниваются полностью; inputs/global RNG/children сохранены. Независимое read-only ревью ADR/fixtures/probe/public constructors/книг блокеров не выявило; сохранённые summaries/rates/status/catalog/totals согласованы с native моделями.
 
-Полная регрессия: **3256 tests / 33 прежних errors (105,847 с)**. Точные Counters полных error headers/subtests и exception signatures равны предыдущему прогону 3241 tests, новых ошибок нет. 32 прежние frozen/slotted Aim .state и одна dataclasses.replace(init=False) на Python3.12 остаются отдельной задачей; полный suite не зелёный. Лог `/private/tmp/towr-m8-generation-models-tests.log`. Новый source/harness hash `8db7068c27e521d8fec8959bf7198ccd563bbd42fd90c81d856ac75181e818b4` изменился только из-за нового application module; simulation/engine/tools прежние, новых performance-измерений нет. Installed API нового файла в этом срезе не проверялся.
+Installed reuse: все **423 Python/Schema files** равны текущему src и установленному пакету предыдущего audited wheel. Новый bundle без PYTHONPATH из external cwd прошёл реальный spawn, stdout совпал, fixtures неизменны; import path проверен из installed site. Fresh build не требовался: production не менялся. Wheel SHA-256 `b8a7a7bcf56edef488b2daab6b894e887a7ff50f5dfb4a071d16d416d2308f63`; report `/private/tmp/towr-m8-json-contract-installed-report.json`. Source/harness hash прежний `d4619ad9b4a7dda0464f2931161e95be3e3f5693a706af074ac38bd257afedd1`; performance не переизмерялся.
 
-Файловые проверки — OK: compileall, 3144 локальных Markdown-пути/83 anchors, import boundaries 311 core modules, purity пяти magic balance modules и imports нового preflight module, SHA всех 794 исходных Python/JSON файлов src/tests/tools, whitespace. Прежние probe/output/test сохранены побайтно.
+Полная регрессия: **3286 tests / 33 прежних errors (118,262 с)**. Точные Counters полных error headers/subtests и exception signatures равны предыдущим3285tests, новых ошибок нет. Лог `/private/tmp/towr-m8-json-contract-tests.log`. 32 frozen/slotted Aim .state и одна dataclasses.replace(init=False) — прежние Python3.12 assertions, полный suite не объявляется зелёным.
+
+Файловые проверки: compileall, Markdown paths/selected anchors, import boundaries311core modules/purity5magic balance modules, SHA всех802исходных Python/JSON src/tests/tools и whitespace/diff. Подробный report `/private/tmp/towr-m8-json-contract-checks-report.json`.
 
 ```sh
-PYTHONPATH=src /private/tmp/towr-test-venv/bin/python -m unittest tests.unit.test_m8_magic_candidate_generation_models -q
-PYTHONPATH=src /private/tmp/towr-test-venv/bin/python -m unittest discover -s tests -q
-PYTHONPATH=src /private/tmp/towr-test-venv/bin/python -m compileall -q src tests tools docs/examples/m8
+PYTHONPATH=src /private/tmp/towr-test-venv/bin/python -m unittest tests.integration.test_m8_magic_json_contract_probe -v
+PYTHONPATH=src /private/tmp/towr-test-venv/bin/python -m unittest discover -s tests -v
+PYTHONPATH=src /private/tmp/towr-test-venv/bin/python -m compileall -q src tests tools docs/examples/m8/json_contract_probe.py
+/private/tmp/towr-test-venv/bin/python /private/tmp/verify_m8_magic_json_installed.py
+PYTHONPATH=src /private/tmp/towr-test-venv/bin/python /private/tmp/check_m8_json_contract.py
 git diff --check
 ```
 
-## История и изменения
-
-[Архив статуса](project-status-history.md) и [история вопросов](open-questions-history.md) — исторические evidence, не текущая очередь. Прежние readiness reports — через [индекс](README.md), книги — [source-index](source-index.md).
-
-На старте HEAD a422d25 (M8 P10) и 28 dirty/untracked файлов прежних срезов. Исходные src/tests/tools сохранены побайтно; добавлены generation models и один файл с 15 tests, общие документы синхронизированы. Всего 30 dirty/untracked файлов, включая 28 исходных. Commit/push не выполнялись; точный diff — git status --short.
+Unix-команды отражают текущее окружение; portable запуск — [README](../README.md#локальная-проверка). Temporary evidence доступна только локально; воспроизводимые ADR/probe/test/fixtures находятся в репозитории.

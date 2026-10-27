@@ -562,3 +562,22 @@ RULE-COMBAT-001/002 и existing once-per-round spatial usage: BOOK-PLAYER-GUIDE 
 ## M8 — preflight моделей генерации ADR-0042
 
 [MagicCompositionGroup/MagicCandidateGenerationRequest](../src/towr/application/magic_candidate_generation_models.py) реализуют первый технический срез [ADR-0042](decisions/ADR-0042-magic-composition-generation.md): fixed Wizard при обеих perspective, полные definitions/partition и exact ordered family frames, полный арифметический C/staged budget до enumeration/materialization. Новых Rule IDs/house rules/извлечения книг нет; ранее прямо сверенные references ADR-0042 сохраняются. Group/request получает admitted input и не исполняет бой/scene projection, не подтверждает допустимость всех subsets. [15 deterministic tests](../tests/unit/test_m8_magic_candidate_generation_models.py) проверяют полный preflight и арифметические budgets без исполнения.
+
+
+## M8 — construction/result/error генерации ADR-0042
+
+[Generator](../src/towr/application/magic_candidate_generation.py), [source-bound result](../src/towr/application/magic_candidate_generation_models.py) и [error](../src/towr/application/magic_candidate_generation_errors.py) реализуют второй технический срез [ADR-0042](decisions/ADR-0042-magic-composition-generation.md): полные fresh inputs, все supplied frames/archives/routes, full-equal collapse против conflict и повторный existing scenario admission без skip/partial. Fixed Wizard, pending/unsupported/gameplay scope прежние; новых Rule IDs/house rules/извлечения книг нет. RNG/runner/evaluation не исполняются; [19 deterministic tests](../tests/unit/test_m8_magic_candidate_generation.py) проверяют full projection/source/error guards, сквозная integration следует отдельно.
+
+
+## Сквозная integration генерации magic-составов ADR-0042
+
+2026-10-27: [7 integration tests](decisions/ADR-0042-magic-composition-generation.md#сквозная-integration) сохраняют RULE-MAGIC-001/004, RULE-NPC-002/004 и existing Combat/scene consumers на generated subsets. Непосредственно сверены BOOK-PLAYER-GUIDE1.4: Rules / Combat, стр.112; Giving Ground, стр.119; Conditions / Broken, стр.122; Magic in the Old World / Casting / Interrupted Casting, стр.156; Spell Potency / Miscasts, стр.157; Battle Magic / Curse, стр.162; BOOK-GM-GUIDE1.1: Allies and Antagonists / Minions / Champions, стр.91–92. Curse/Willpower/Recover order, full defeat decision и архив, exact missing-scene pending и unsupported denominator прежние; новых игровых правил/house rules/противоречий нет. Production rules не менялись.
+
+
+## Общий аудит генерации magic-составов ADR-0042
+
+2026-10-27: [Аудит](audits/m8-generation-readiness.md) прямо сверил BOOK-PLAYER-GUIDE1.4: Equipment / Ranged Weapons, стр.94; Rules / Combat, стр.112; The Battlefield / Range / Speed, стр.114–115; Giving Ground, стр.119; Conditions / Broken, стр.122; Magic in the Old World / Casting a Spell / Interrupted Casting, стр.156; Spell Potency / Miscasts, стр.157; Battle Magic / Curse, стр.162; Wounds Table, стр.190–191; BOOK-GM-GUIDE1.1: Allies and Antagonists / Minions / Champions, стр.91–92. Public generation example использует authored numeric reserve, не именованные книжные NPC; counts/selection/budgets/frame collapse — техническая область поиска, не house rule. Existing pending/unsupported, NPC injury policies и явные scene/GM facts сохранены; новых Rule IDs/противоречий нет, production rules не менялись.
+
+## Контракт Magic JSON/CLI ADR-0043
+
+2026-10-28: [ADR-0043](decisions/ADR-0043-magic-json-cli-v1.md) и [finite JSON/probe](examples/m8/json/README.md) сохраняют existing fresh authored Wizard/Minion scope. Напрямую перечитаны BOOK-PLAYER-GUIDE1.4: Magic in the Old World / Casting a Spell / Interrupted Casting, стр.156; Spell Potency / Miscasts and the Rule of Nine, стр.157; The Lores of Magic / Battle Magic / Curse of Cowardly Flight, стр.162; BOOK-GM-GUIDE1.1: Allies and Antagonists / Types of NPC / Minions, стр.91. CV3/Zone/Long/Instant, отдельные Willpower/GM defeat decisions и unsupported consumers сохраняются. Wire fields/IDs/version/phase errors — технический контракт, новых Rule IDs/house rules/противоречий нет. Production правила не менялись; strict Schema/parser/encoder ещё не реализованы.

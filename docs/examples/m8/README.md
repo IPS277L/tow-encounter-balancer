@@ -224,4 +224,35 @@ PYTHONPATH=src python docs/examples/m8/generation_contract_probe.py
 
 Проекции сохраняют full snapshots/caster/day_id/whole graph, независимые orders, priorities/defeat decisions, True/False flags и seed prefix. Два source frames различаются перемещением E1: удаление E1 объединяет только полностью равные projections; конфликт оставшегося departure flag отклоняется. Удаление врага, делающее moving Broken plan недопустимым, также отвергается, без автоматического Recover. Всего шесть refusals: staged budget239, missing pair, manual frame-source mismatch, conflicting collapse, invalid Broken plan и удаление единственного Wizard ally.
 
-Ручные arithmetic/equality/projection assertions демонстрируют будущие semantics; production group/request/C/cap/ordered frame source guards реализованы отдельно от probe; construction/result/error и generator **ещё не реализованы**. [Один subprocess test](../../../tests/integration/test_m8_magic_generation_contract_probe.py) проверяет two-file external-cwd/stdout parity. Empty-live/archive projection остаётся обязательной последующей production проверкой; [group/request models](../../../src/towr/application/magic_candidate_generation_models.py) и их deterministic tests проверяют preflight отдельно от ручного probe. Новых игровых правил/house rules нет.
+Ручные arithmetic/equality/projection assertions демонстрируют будущие semantics; production group/request/C/cap/ordered frame source guards реализованы отдельно от probe; construction/result/error и generator также реализованы отдельно от ручного probe; сквозная integration проверена7tests, [общий аудит](../../audits/m8-generation-readiness.md) завершён. [Один subprocess test](../../../tests/integration/test_m8_magic_generation_contract_probe.py) проверяет two-file external-cwd/stdout parity. Empty-live/archive projection остаётся обязательной последующей production проверкой; [group/request models](../../../src/towr/application/magic_candidate_generation_models.py) и их deterministic tests проверяют preflight отдельно от ручного probe. Новых игровых правил/house rules нет.
+
+
+[generate_magic_candidates](../../../src/towr/application/magic_candidate_generation.py) принимает typed MagicCandidateGenerationRequest и возвращает [MagicCandidateGenerationResult](../../../src/towr/application/magic_candidate_generation_models.py) с исходным request и готовым MagicStagedEvaluationRequest. Порядок vectors/IDs/prefixes и полные projections проверяются exact source guards; invalid subset/frame collision/route прерывает весь вызов с [candidate/counts/cause](../../../src/towr/application/magic_candidate_generation_errors.py), без skip/partial. Result хранит inputs, без observations/RNG/options. Самостоятельный production-пример генерация → evaluation приведён ниже; finite probe выше сохранён как контрактная evidence, не вызывает новый generator.
+
+
+[Backend integration](../../../tests/integration/test_m8_magic_candidate_generation.py) сравнивает полные sequential/spawn reports и parent sources четырёх generated составов, repeat/rename seeds и native counters. Scripted all10 RNG через existing simulation boundary подтверждает4×2+2×4=16 trials на backend и actual child PID. [Generated encounter integration](../../../tests/integration/test_m8_magic_generated_encounters.py) исполняет Curse по1..3 retained targets в roster order, все movements до Willpower, Broken→Recover, полный supplied defeat decision и архивный placement перед следующим Casting. Missing future scene остаётся exact unsupported: один target завершает movement/Willpower, несколько сохраняют полный pending и staged movement без Willpower. Тот же missing-scene family в sequential/spawn даёт unsupported2/2 для каждого из четырёх кандидатов и early actual8/planned16, без следующего этапа. Всего7новыхtests; production и прежние examples/probes/output не менялись.
+
+
+## Генерация и поэтапная оценка magic-составов
+
+```sh
+PYTHONPATH=src python docs/examples/m8/magic_balance.py
+```
+
+[Самостоятельный пример](magic_balance.py) использует только public production APIs. Для копирования нужны два файла: magic_balance.py и magic_scenario.py; пакет towr должен быть установлен. Importable main guard обеспечивает spawn. Старые examples/probes не меняются и не используются новым примером как generator implementation.
+
+Authored Champion-Wizard Level2/Curse и allied Shooting Minion фиксированы. Резерв противоположных Minions E1/E2/E3, groups A=(E2,E1)1..2 и B=(E3)0..1; C4. Явно заданы open arena/shelter/boundary, дистанции, routes, Safe Recover, target priorities/полные GM-approved defeat decisions, departure facts и 128 finite scene keys с архивными placements. Это авторские numeric experiment inputs, не именованные книжные NPC и не общий планировщик scenes.
+
+Seed42, B1, окно [1/4,1/2,3/4], stages=(8,keep2),(32,keep1), upper budget96 на backend. [Stored output](magic_balance.output.txt), CPython3.12.15/macOS arm64: N8 counts по goal/defeated/limit/unsupported —3/0/5/0,0/0/6/2,0/0/6/2,0/0/5/3. Продолжается только counts1,0; финальный N32 даёт9/0/23/0, goal9/32 внутри окна, selected counts1,0. Actual64 на backend (128 на запуск), planned96. Полные пакеты пересчитываются от index0; stages не складываются в одну независимую выборку. Это observation seed/runtime, не preset/гарантия вероятности или ожидаемый победитель assertions.
+
+Пример сравнивает полные sequential/process reports, source identity, budgets, input/global RNG/children до stdout. Затем печатает весь generated catalog и все aggregate rows/counters/stages/continuation/final selection. [Три example tests](../../../tests/integration/test_m8_magic_balance_example.py) проверяют two-file external cwd/stdout parity, поздний generation failure после первого admitted scenario и evaluation failure после8real trials с ID/counts/stage/cause/notes и empty stdout. [Общий аудит](../../audits/m8-generation-readiness.md) содержит fresh installed-package parity и ограничения. M8 JSON/CLI и новые gameplay consumers не входят в пример.
+
+## Конечный JSON/CLI-контракт
+
+[ADR-0043](../../decisions/ADR-0043-magic-json-cli-v1.md) и [полевая матрица с шестью fixtures](json/README.md) готовы. Production Schema/parser/encoder/services/команды ещё не реализованы. Из корня:
+
+```sh
+PYTHONPATH=src python docs/examples/m8/json_contract_probe.py
+```
+
+[Probe](json_contract_probe.py) вручную отображает два известных входа в public typed APIs и обратно, сравнивает полные sequential/process results, проверяет13semantic rejects и ошибку projected subset после preflight. [Вывод](json_contract_probe.output.txt) не содержит Monte Carlo/winner assertions. Для внешнего cwd нужны также magic_balance.py, magic_simulation.py, magic_scenario.py и каталог json с шестью fixtures. Это finite mapping evidence, не strict parser/Schema/error validation; следующий срез — simulation pure wire.

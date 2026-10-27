@@ -1,0 +1,51 @@
+profiles: authored Champion-Wizard Level2 Casting/Willpower3d/3 RES4; Shooting Minions3d/3 Dam3 RES3
+rules: BOOK-PLAYER-GUIDE 1.4 / Combat p112; Broken p122; Magic pp156-157,162; Wounds pp190-191
+NPC injury policies: BOOK-GM-GUIDE 1.1 / Allies and Antagonists pp91-92
+candidates change opposing Minion counts; fixed profiles/policies/scene facts; all unsupported trials remain in N
+reserve: wizard,ally,E1,E2,E3; fixed Wizard and perspective players_and_allies; max_rounds=1
+family scenes: arena-shelter-boundary; explicit ranges/routes/Recover/departures and live keys with archives
+authored frames: 128; omitted reserve actors are absent, not defeated
+group A: reserve=('E2', 'E1'); counts=1..2
+group B: reserve=('E3',); counts=0..1
+generated: 4; max_candidates: 4
+candidate: magic:counts:1,0; actors=('wizard', 'ally', 'E2'); objective=('E2',); frames=8
+candidate: magic:counts:1,1; actors=('wizard', 'ally', 'E2', 'E3'); objective=('E3', 'E2'); frames=32
+candidate: magic:counts:2,0; actors=('wizard', 'ally', 'E1', 'E2'); objective=('E2', 'E1'); frames=32
+candidate: magic:counts:2,1; actors=('wizard', 'ally', 'E1', 'E2', 'E3'); objective=('E3', 'E2', 'E1'); frames=128
+stages (full trials per candidate, keep): ((8, 2), (32, 1))
+staged budget per evaluation: planned=96; actual=64; max=96
+stage index: 0
+seed: 42; seed_scheme: towr:npc-magic-trial:v1; trials_per_candidate: 8
+window: min=1/4, target=1/2, max=3/4; top_k: 2
+budget per evaluation: planned=32; actual=32; max=32
+candidate: magic:counts:1,0; round_budget: 1; perspective: players_and_allies; objective:('E2',)
+  counts goal/perspective_defeated/round_limit_reached/unsupported: 3/0/5/0
+  rates goal/perspective_defeated/round_limit/unsupported: 3/8, 0, 5/8, 0
+  actions: 21; started/completed rounds: 8/8; status: eligible; window_match: True
+candidate: magic:counts:1,1; round_budget: 1; perspective: players_and_allies; objective:('E3', 'E2')
+  counts goal/perspective_defeated/round_limit_reached/unsupported: 0/0/6/2
+  rates goal/perspective_defeated/round_limit/unsupported: 0, 0, 3/4, 1/4
+  actions: 29; started/completed rounds: 8/6; status: unsupported_observations; window_match: None
+candidate: magic:counts:2,0; round_budget: 1; perspective: players_and_allies; objective:('E2', 'E1')
+  counts goal/perspective_defeated/round_limit_reached/unsupported: 0/0/6/2
+  rates goal/perspective_defeated/round_limit/unsupported: 0, 0, 3/4, 1/4
+  actions: 29; started/completed rounds: 8/6; status: unsupported_observations; window_match: None
+candidate: magic:counts:2,1; round_budget: 1; perspective: players_and_allies; objective:('E3', 'E2', 'E1')
+  counts goal/perspective_defeated/round_limit_reached/unsupported: 0/0/5/3
+  rates goal/perspective_defeated/round_limit/unsupported: 0, 0, 5/8, 3/8
+  actions: 35; started/completed rounds: 8/5; status: unsupported_observations; window_match: None
+selected: ('magic:counts:1,0',)
+continuation IDs (not local selected): ('magic:counts:1,0',)
+stage index: 1
+seed: 42; seed_scheme: towr:npc-magic-trial:v1; trials_per_candidate: 32
+window: min=1/4, target=1/2, max=3/4; top_k: 1
+budget per evaluation: planned=32; actual=32; max=32
+candidate: magic:counts:1,0; round_budget: 1; perspective: players_and_allies; objective:('E2',)
+  counts goal/perspective_defeated/round_limit_reached/unsupported: 9/0/23/0
+  rates goal/perspective_defeated/round_limit/unsupported: 9/32, 0, 23/32, 0
+  actions: 87; started/completed rounds: 32/32; status: eligible; window_match: True
+selected: ('magic:counts:1,0',)
+staged status: completed; final selected: ('magic:counts:1,0',)
+sequential/process full reports and selected IDs: equal; process workers=2 batch_size=3
+two complete evaluations: 128 trials; each stage reruns its full batch from index 0
+input/global RNG unchanged; no remaining child processes; finite observations, not a difficulty preset
