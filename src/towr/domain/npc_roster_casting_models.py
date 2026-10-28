@@ -2,6 +2,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, replace
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from towr.domain.npc_roster_miscast_models import NpcRosterMiscastPreparationResult, NpcRosterMiscastRollResult
 
 from towr.domain.action_execution_models import SkippedCastingTestAfterActionResult
 from towr.domain.condition_models import Condition
@@ -72,6 +76,7 @@ class NpcRosterCastingState:
     wound_turn_end_receipts: tuple[NpcWoundTurnEndReceipt, ...] = ()
     minion_attack: NpcRosterAttackState | None = None
     pending_minion_attack: NpcRosterAttackExecutionResult | None = None
+    pending_miscast_continuation: NpcRosterMiscastPreparationResult | NpcRosterMiscastRollResult | None = None
 
     def __post_init__(self) -> None:
         for value, kind in (
@@ -126,6 +131,15 @@ class NpcRosterCastingState:
                 raise ValueError('root must retain ordered attack history subsequences')
         if len(families) == 2 and set(families[0]) & set(families[1]):
             raise ValueError('Champion and Minion attack histories cannot share execution IDs')
+        prefix = self.pending_miscast_continuation
+        if prefix is not None:
+            from towr.domain.npc_roster_miscast_models import NpcRosterMiscastPreparationResult, NpcRosterMiscastRollResult
+            if not isinstance(prefix, (NpcRosterMiscastPreparationResult, NpcRosterMiscastRollResult)):
+                raise TypeError('Miscast pending requires typed preparation or roll result')
+            if (self.pending_miscast is not None or self.pending_interruption is not None
+                    or self.pending_movement is not None or self.pending_minion_attack is not None
+                    or self.champion_attack is not None and self.champion_attack.pending is not None):
+                raise ValueError('prepared Miscast pending cannot coexist with another mandatory continuation')
         minion_pending = self.pending_minion_attack
         if minion_pending is not None:
             _typed(minion_pending, NpcRosterAttackExecutionResult)
@@ -141,7 +155,7 @@ class NpcRosterCastingState:
         pending = self.pending_miscast
         if pending is None:
             if (self.wizard.magic_state.miscast_dice > self.wizard.caster.wizard_level
-                    and self.pending_interruption is None):
+                    and self.pending_interruption is None and prefix is None):
                 raise ValueError("mandatory Miscast requires its pending Casting result")
         else:
             _typed(pending, CowardlyFlightCastingResult)
@@ -234,6 +248,9 @@ class NpcRosterCastingState:
                     or wound is None or not expiry.matches_wound(wound)
                     or expiry.effect not in actor.state.injury.active_wound_effects):
                 raise ValueError('Wound expiry differs from the current Champion/source/history')
+        if prefix is not None:
+            from towr.domain.npc_roster_miscast_models import validate_npc_miscast_continuation_context
+            validate_npc_miscast_continuation_context(self)
 
     @property
     def casting_round_state(self) -> CombatRoundState:
@@ -268,6 +285,8 @@ class NpcRosterCastingRequest:
         _typed(self.state, NpcRosterCastingState)
         _typed(self.casting, CowardlyFlightCastingRequest)
         state, casting = self.state, self.casting
+        if state.pending_miscast_continuation is not None:
+            raise ValueError('prepared Miscast pending blocks normal Casting')
         if state.pending_minion_attack is not None:
             raise ValueError('pending Minion attack blocks normal Casting')
         if state.pending_interruption is not None:

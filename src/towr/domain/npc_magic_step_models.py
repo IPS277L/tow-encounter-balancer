@@ -9,6 +9,7 @@ from towr.domain.npc_magic_scene_models import NpcMagicSceneKey, _identifier, _i
 from towr.domain.npc_roster_casting_completion_models import NpcRosterCastingCompletionResult
 from towr.domain.npc_roster_casting_models import NpcRosterCastingResult, NpcRosterCastingState
 from towr.domain.npc_roster_champion_attack_models import NpcRosterChampionAttackResult
+from towr.domain.npc_roster_dead_champion_models import NpcRosterDeadChampionExclusionResult
 from towr.domain.npc_roster_minion_attack_models import NpcRosterMinionAttackResult
 from towr.domain.npc_roster_minion_defeat_models import NpcRosterMinionDefeatResult
 from towr.domain.npc_roster_turn_models import NpcRosterTurnStartResult, NpcRosterRoundAdvanceResult
@@ -19,12 +20,14 @@ from towr.domain.resolution_models import CowardlyFlightMovementCompletion
 NpcMagicStepResult: TypeAlias = (
     NpcRosterTurnStartResult | NpcRosterRoundAdvanceResult | NpcRosterCastingResult
     | NpcRosterCastingCompletionResult | NpcRosterChampionAttackResult | NpcRosterMinionAttackResult
-    | NpcRosterMinionDefeatResult | NpcBrokenRecoverResult | NpcBrokenRunResult | NpcWoundTurnEndResult
+    | NpcRosterMinionDefeatResult | NpcRosterDeadChampionExclusionResult
+    | NpcBrokenRecoverResult | NpcBrokenRunResult | NpcWoundTurnEndResult
 )
 _RESULT_TYPES = (
     NpcRosterTurnStartResult, NpcRosterRoundAdvanceResult, NpcRosterCastingResult,
     NpcRosterCastingCompletionResult, NpcRosterChampionAttackResult, NpcRosterMinionAttackResult,
-    NpcRosterMinionDefeatResult, NpcBrokenRecoverResult, NpcBrokenRunResult, NpcWoundTurnEndResult,
+    NpcRosterMinionDefeatResult, NpcRosterDeadChampionExclusionResult,
+    NpcBrokenRecoverResult, NpcBrokenRunResult, NpcWoundTurnEndResult,
 )
 
 
@@ -88,6 +91,8 @@ class NpcMagicUnsupportedReason(str, Enum):
     WOUND_EFFECT = 'pending_wound_effect'
     ATTACK_GIVE_GROUND = 'attack_give_ground'
     MISCAST_PREPARATION = 'miscast_preparation'
+    MISCAST_ROLL = 'miscast_roll'
+    MISCAST_EFFECT = 'miscast_effect'
     END_TURN = 'unsupported_end_turn'
     CHRONOLOGY = 'unsupported_chronology'
 

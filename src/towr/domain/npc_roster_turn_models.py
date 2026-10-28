@@ -33,6 +33,8 @@ def _inactive_ids(state: NpcRosterCastingState) -> tuple[str, ...]:
 def _validate_phase_source(state: NpcRosterCastingState) -> None:
     if not isinstance(state, NpcRosterCastingState):
         raise TypeError('phase requires the complete roster state')
+    if state.pending_miscast_continuation is not None:
+        raise ValueError('prepared Miscast blocks scheduling')
     if (state.pending_minion_attack is not None or state.pending_miscast is not None
             or state.pending_movement is not None or state.pending_interruption is not None
             or state.champion_attack is not None and state.champion_attack.pending is not None):

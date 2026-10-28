@@ -52,6 +52,8 @@ class NpcBrokenRecoverRequest:
             if not value:
                 raise ValueError(f'{name} is required by this Broken recovery boundary')
         state = self.state
+        if state.pending_miscast_continuation is not None:
+            raise ValueError('prepared Miscast blocks Broken recovery')
         if state.pending_minion_attack is not None:
             raise ValueError('pending Minion attack blocks Broken recovery')
         if (state.pending_miscast is not None or state.pending_movement is not None

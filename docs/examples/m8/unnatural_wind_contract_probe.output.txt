@@ -1,0 +1,8 @@
+PREFIX GAP: current root rejects prepared magic under old pending; future typed prefix is required
+WIND 21: 3 Casting + 3 table d10; targets=('wizard', 'ally', 'enemy'); pool3->0; actual unsupported_end_turn
+WIND 22: 3 Casting + 3 table d10; targets=('wizard', 'ally', 'enemy'); pool3->0; actual unsupported_end_turn
+OUTSIDE: 3 prior + 3 table d10; targets=('wizard', 'ally'); root/archives/histories preserved
+ARCHIVE: 9 prior + 3 table d10; targets=('wizard', 'ally', 'enemy2'); root/archives/histories preserved
+AVAILABLE SPELL DECLINED: 18 prior + 3 table d10; targets=('wizard', 'ally', 'enemy'); root/archives/histories preserved
+OTHER ROW 30: one retained K1 roll/pool3; no effect, cleanup or retry; not a published future prefix
+57 scripted d10; public APIs plus manual final projection; no new consumer/journal/runner; global RNG unchanged

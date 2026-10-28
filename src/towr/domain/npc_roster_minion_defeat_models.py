@@ -26,6 +26,8 @@ class NpcRosterMinionDefeatRequest:
         if not isinstance(self.state, NpcRosterCastingState) or not isinstance(self.decision, MinionDefeatDecision):
             raise TypeError('bound defeat requires typed full state and decision')
         old = self.state
+        if old.pending_miscast_continuation is not None:
+            raise ValueError('prepared Miscast blocks Minion defeat completion')
         attack = old.pending_minion_attack
         if attack is None or old.minion_attack is None:
             raise ValueError('bound defeat requires the current full pending Minion attack')

@@ -1,6 +1,6 @@
 # Magic JSON v1: конечные примеры контракта
 
-[ADR-0043](../../../decisions/ADR-0043-magic-json-cli-v1.md) задаёт будущие `simulate-magic` и `balance-magic`. **Simulation parser/service/result+error encoder/три Schema и команда `simulate-magic` реализованы; balance wire/команда ещё не реализованы.** Здесь зафиксированы шесть документов и ручное отображение двух конкретных входов в существующий public Python API. Это не универсальный JSON importer и не проверка строгой лексики.
+[ADR-0043](../../../decisions/ADR-0043-magic-json-cli-v1.md) задаёт реализованные `simulate-magic` и `balance-magic`. **Оба семейства parser/service/result+error encoder, шесть Schema и CLI проверены [общим аудитом](../../../audits/m8-external-readiness.md).** Здесь зафиксированы шесть документов и ручное отображение двух конкретных входов в существующий public Python API. Это не универсальный JSON importer и не проверка строгой лексики.
 
 | Назначение | Simulation | Balance |
 | --- | --- | --- |
@@ -8,11 +8,11 @@
 | Result | [Агрегат](magic-simulation-v1.result.json) | [Каталог и полные reports](magic-balance-v1.result.json) |
 | Error | [Неверная pair table](magic-simulation-v1.error.json) | [Ошибка проекции subset](magic-balance-v1.error.json) |
 
-Вход simulation: authored Wizard/Minions, seed42, N4, round budget4. Balance: две prefix-count группы, C4, stages2/4 с keep2/1 и полным верхним budget16, round budget1. Reserve и family содержат одинаковый initial frame; future coverage намеренно неполная. Отсутствующая сцена сохраняет `unsupported_path`, не достраивается автоматически. Stored results — наблюдение CPython3.12.15, не вероятность сложности или preset выбора. Simulation error document соответствует production encoder; balance error document пока иллюстрирует формат будущего encoder.
+Вход simulation: authored Wizard/Minions, seed42, N4, round budget4. Balance: две prefix-count группы, C4, stages2/4 с keep2/1 и полным верхним budget16, round budget1. Reserve и family содержат одинаковый initial frame; future coverage намеренно неполная. Отсутствующая сцена сохраняет `unsupported_path`, не достраивается автоматически. Stored results — наблюдение CPython3.12.15, не вероятность сложности или preset выбора. Error documents иллюстрируют форму; фактические runtime messages задаются константами production encoder, input message зависит от ошибки admission.
 
 ## Матрица отображения
 
-Все перечисленные поля обязательны; `null` и пустые массивы явные. Полная нормативная полевая матрица и будущие guards — в ADR. Поля, не представленные fresh-only форматом, simulation encoder отклоняет при потере информации.
+Все перечисленные поля обязательны; `null` и пустые массивы явные. Нормативные поля — в ADR, полная матрица реализованных guards/tests — в аудите. Оба encoder отклоняют source, который нельзя представить fresh-only форматом без потери информации.
 
 | JSON path | Python / проверяемая граница |
 | --- | --- |
@@ -35,7 +35,7 @@
 | `rates.round_limit_reached` | Python `round_limit_rate`; все N, включая unsupported, в знаменателе |
 | `/error` | Input либо phase-specific code/path/message; у balance внутри error также nullable candidate_id/counts/stage_index |
 
-Порядок definitions хранится отдельно в MagicSimulationCommand; production tests проверяют его перестановку независимо от roster. Ручной inverse в probe использует только порядок definitions этих известных fixtures. Он не реализует общий lossless guard или отказ для всех произвольных неподдержанных источников.
+Порядок definitions хранится отдельно в MagicSimulationCommand и MagicBalanceCommand; production tests проверяют его перестановку независимо от roster. Ручной inverse в probe использует только порядок definitions этих известных fixtures. Он не реализует общий lossless guard или отказ для всех произвольных неподдержанных источников.
 
 ## Запуск probe
 
@@ -47,7 +47,7 @@ PYTHONPATH=src python docs/examples/m8/json_contract_probe.py
 
 Для копирования нужны четыре Python-файла: `json_contract_probe.py`, `magic_balance.py`, `magic_simulation.py`, `magic_scenario.py`, а также этот каталог `json` с шестью fixtures. [Probe](../json_contract_probe.py) запускает реальные public simulation/generation/staged APIs: полное sequential/process равенство, round-trip известных request/scenario/execution, 13 semantic constructor rejects и реальную generation failure `(1,0)` после успешного C4/budget16 preflight. Проверяются неизменность raw/typed inputs, глобального RNG и отсутствие оставшихся children. [Stored stdout](../json_contract_probe.output.txt) проверяется [subprocess test](../../../../tests/integration/test_m8_magic_json_contract_probe.py) из внешнего cwd.
 
-Обычный запуск не перезаписывает fixtures и не использует saved results как oracle. Явный `--write-results` обновляет только оба result JSON текущим runtime; error fixtures остаются иллюстрациями. Simulation production tests проверяют лексические отказы, unknown/required/nullable fields, version dispatch, enum/order mappings и lossless source. Simulation error encoder/service/CLI также проверены. Далее идут balance pure wire, balance execution/CLI и общий аудит.
+Обычный запуск не перезаписывает fixtures и не использует saved results как oracle. Явный `--write-results` обновляет только оба result JSON текущим runtime; error fixtures остаются иллюстрациями. Simulation production tests проверяют лексические отказы, unknown/required/nullable fields, version dispatch, enum/order mappings и lossless source. Simulation error encoder/service/CLI также проверены. Balance pure wire также проверен production tests. Balance execution/CLI также проверены; общий аудит обеих families завершён.
 
 ## Чистый simulation API
 
@@ -73,4 +73,45 @@ PYTHONPATH=src python -m towr simulate-magic docs/examples/m8/json/magic-simulat
 
 Установленный `towr simulate-magic INPUT` принимает relative file или `-`/stdin. Для process задайте `"execution": {"mode": "process", "workers": 2, "batch_size": 3}`. Полный input echo сохраняет independent external request ID/scenario ID/day ID; runtime metadata не гарантирует воспроизводимость между Python versions.
 
-Stdout — один result/error object и newline, stderr — краткая диагностика. Exit0 включает все native outcomes,2 — input/usage,3 — simulation_failed с generic message и path=null,4 — I/O. Read/usage failure оставляет stdout пустым; при output failure нет второго error write. Python cause/notes доступны вызывающему service, но не попадают в JSON. Error encoder отвергает другие families; balance-magic ещё отсутствует. Полный installed audit обоих magic commands будет после balance implementation.
+Stdout — один result/error object и newline, stderr — краткая диагностика. Exit0 включает все native outcomes,2 — input/usage,3 — simulation_failed с generic message и path=null,4 — I/O. Read/usage failure оставляет stdout пустым; при output failure нет второго error write. Python cause/notes доступны вызывающему service, но не попадают в JSON. Error encoder отвергает другие families; balance-magic также доступна. Общий аудит обоих magic commands завершён.
+
+## Чистый balance API
+
+```python
+from pathlib import Path
+from towr.adapters.magic_balance_json import parse_magic_balance_request, encode_magic_balance_result
+from towr.application.magic_balance_models import MagicBalanceResult
+from towr.application.magic_candidate_generation import generate_magic_candidates
+from towr.application.magic_staged_evaluation_service import evaluate_magic_candidates_staged
+
+command = parse_magic_balance_request(
+    Path("docs/examples/m8/json/magic-balance-v1.request.json").read_bytes())
+generated = generate_magic_candidates(command.generation_request)
+evaluated = evaluate_magic_candidates_staged(generated.evaluation_request, command.execution)
+print(encode_magic_balance_result(command, MagicBalanceResult(generated, evaluated)), end="")
+```
+
+Parser делает только admission резерва/отдельных family facts/полных frames и арифметический C/полный staged budget preflight. Пример явно запускает готовые generator/staged APIs; pure encoder не выполняет эти services и не создаёт RNG/pool. Для process требуется importable main guard. Готовый execute_magic_balance(command) связывает эти две фазы с full-source checks и typed errors; команда balance-magic и boundary error encoder также реализованы.
+
+Все supplied frames, включая архивные/unreachable/empty-live, сохраняются по порядку. Success preflight не гарантирует допустимость всех generated subsets: invalid projection позже прерывает generator, не становится input rejection и не пропускается. Каталог содержит все vectors; full stage rows сохраняют unsupported и outside-window observations. Последний requested stage всегда имеет пустую continuation, final selection не берётся из раннего этапа. Input Fraction допускает несокращённый вид, normalized echo/rates сокращаются; все numeric budgets сохраняют integer precision. Семейство формы проверяется через `validate_magic_balance_document(document, kind)`, strict token spelling — через parser.
+
+## Balance CLI
+
+```sh
+PYTHONPATH=src python -m towr balance-magic docs/examples/m8/json/magic-balance-v1.request.json
+```
+
+Установленный `towr balance-magic INPUT` принимает UTF-8 file относительно cwd или `-`/stdin. Process задаётся через `"execution": {"mode": "process", "workers": 2, "batch_size": 3}`. Все stages/caps/window/seed остаются explicit, CLI не переопределяет их. Вывод сохраняет весь catalog и aggregate reports без records/journals.
+
+Exit0 включает completed/no_eligible/empty selection и unsupported observations. Input/usage даёт2, generation_failed/evaluation_failed —3, I/O —4. Runtime error содержит external request ID и известные candidate/counts либо stage/candidate; пути /generation и /evaluation определяются active phase. Другие context slots=null, cause/notes остаются в Python chain. Строгий preflight и поздняя недопустимая проекция — разные ошибки; нет skip/retry/fallback/partial reports. Result/error полностью кодируется до stdout, при output failure второй error object не пишется. Семь прежних команд сохраняют собственные formats/error families; общий аудит M8 JSON/CLI завершён. Проверенная среда — CPython3.12.15/macOS arm64; ограничения остальных runtimes и источник verification evidence указаны в readiness report.
+
+
+## Dead Champion exclusion ADR-0044
+
+[Request](dead-champion-v1.request.json) / [result](dead-champion-v1.result.json) — конечный authored regression witness со стандартным RNG, master seed31/trials1/round budget1. Три enemy archers имеют явные attack1d/10 и Damage10, Wizard Protection1d/1; это диагностические числа, не именованный NPC и не оценка вероятности сложности. Wounds3/2/25 приводят к одной matching exclusion phase до attacker end-turn; outcome round_limit_reached, native totals4/1/1.
+
+```sh
+PYTHONPATH=src python -m towr simulate-magic docs/examples/m8/json/dead-champion-v1.request.json
+```
+
+Для process задать существующий execution `{"mode":"process","workers":2,"batch_size":1}`. Формат/seed scheme прежние, custom RNG fields нет. Saved result содержит runtime проверочного CPython3.12.15, текущий CLI пишет свой runtime. [Propagation test](../../../../tests/integration/test_m8_dead_champion_propagation.py) проверяет actual default-RNG trace, service и внешний CLI sequential/process; [аудит](../../../audits/m8-dead-champion-readiness.md) отдельно проверяет установленный module/console и missing-frame control.

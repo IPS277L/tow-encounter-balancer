@@ -40,12 +40,17 @@ from towr.adapters.mixed_balance_json import (
 )
 from towr.application.mixed_balance_errors import MixedBalanceGenerationError, MixedBalanceExecutionError
 from towr.application.mixed_balance_service import execute_mixed_balance
-from towr.adapters.magic_json_errors import MagicSimulationInputError
+from towr.adapters.magic_json_errors import MagicSimulationInputError, MagicBalanceInputError
 from towr.adapters.magic_simulation_json import (
     encode_magic_simulation_error, encode_magic_simulation_result, parse_magic_simulation_request,
 )
 from towr.application.magic_simulation_errors import MagicSimulationExecutionError
 from towr.application.magic_simulation_service import execute_magic_simulation
+from towr.adapters.magic_balance_json import (
+    encode_magic_balance_error, encode_magic_balance_result, parse_magic_balance_request,
+)
+from towr.application.magic_balance_errors import MagicBalanceGenerationError, MagicBalanceExecutionError
+from towr.application.magic_balance_service import execute_magic_balance
 
 
 def _diagnose(message: str) -> bool:
@@ -86,6 +91,8 @@ def main(argv: list[str] | None = None) -> int:
     mixed_balance.add_argument("input", metavar="INPUT", help="UTF-8 JSON file, or - for stdin")
     magic = commands.add_parser("simulate-magic", help="execute an authored magic JSON v1 request")
     magic.add_argument("input", metavar="INPUT", help="UTF-8 JSON file, or - for stdin")
+    magic_balance = commands.add_parser("balance-magic", help="generate and evaluate an authored magic JSON v1 request")
+    magic_balance.add_argument("input", metavar="INPUT", help="UTF-8 JSON file, or - for stdin")
     args = parser.parse_args(argv)
 
     if args.command == "balance":
@@ -112,6 +119,10 @@ def main(argv: list[str] | None = None) -> int:
         parse, execute, encode = parse_magic_simulation_request, execute_magic_simulation, encode_magic_simulation_result
         encode_error, input_error = encode_magic_simulation_error, MagicSimulationInputError
         execution_errors = (MagicSimulationExecutionError,)
+    elif args.command == "balance-magic":
+        parse, execute, encode = parse_magic_balance_request, execute_magic_balance, encode_magic_balance_result
+        encode_error, input_error = encode_magic_balance_error, MagicBalanceInputError
+        execution_errors = (MagicBalanceGenerationError, MagicBalanceExecutionError)
     else:
         parse, execute, encode = parse_ranged_simulation_request, execute_ranged_simulation, encode_ranged_simulation_result
         encode_error, input_error = encode_ranged_simulation_error, RangedSimulationInputError
@@ -135,6 +146,10 @@ def main(argv: list[str] | None = None) -> int:
         output = encode_error(error)
         if isinstance(error, MagicSimulationExecutionError):
             code = "simulation_failed"
+        elif isinstance(error, MagicBalanceGenerationError):
+            code = "generation_failed"
+        elif isinstance(error, MagicBalanceExecutionError):
+            code = "evaluation_failed"
         else:
             code = "generation_failed" if isinstance(error, (RangedBalanceGenerationError, MeleeBalanceGenerationError, MixedBalanceGenerationError)) else "execution_failed"
         diagnostic = f"{code}: {error}"

@@ -26,6 +26,8 @@ class NpcRosterCastingCompletionRequest:
             raise TypeError("state must be an NpcRosterCastingState")
         if not isinstance(self.completion, CowardlyFlightCastingCompletionRequest):
             raise TypeError("completion must be a CowardlyFlightCastingCompletionRequest")
+        if self.state.pending_miscast_continuation is not None:
+            raise ValueError('prepared Miscast blocks Curse completion')
         if self.state.pending_minion_attack is not None:
             raise ValueError('pending Minion attack blocks Curse completion')
         if self.state.pending_movement is None:

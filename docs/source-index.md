@@ -1,5 +1,9 @@
 # Реестр источников
 
+## Инвентаризация continuations и ADR-0044
+
+2026-10-28: [inventory](audits/m8-continuation-inventory.md) и [контракт](decisions/ADR-0044-dead-champion-turn-exclusion.md) сверены непосредственно по BOOK-PLAYER-GUIDE 1.4, гл. V Rules / Combat, стр. 112; Wounds & Conditions, стр. 121; Wounds Table, стр. 190–191; гл. VIII Magic in the Old World / Casting / Interrupted Casting, стр. 156; Spell Potency / Miscasts, стр. 157; Disposing of Miscast Dice, стр. 158; Miscast Table, стр. 159. BOOK-GM-GUIDE 1.1, гл. VII Allies and Antagonists / Minions / Champions, стр. 91–92. Выбран только dead awaiting Champion после полностью завершённого lethal Attack; dying words не становятся action, optional Close trophy не выбирается. Pool нельзя очищать до actual application; Miscast self-inclusion остаётся открытым. Новых Rule IDs/house rules нет, production механика не менялась; finite probe — техническое evidence будущего consumer.
+
 ## BOOK-PLAYER-GUIDE
 
 - Версия: `1.4` (подтверждено пользователем 2026-08-19).
@@ -548,3 +552,35 @@ Authored fixtures напрямую сверены с PG 1.4: Rules / Combat, с�
 ## Simulation execution/CLI ADR-0043
 
 2026-10-28: [Второй срез](decisions/ADR-0043-magic-json-cli-v1.md#реализованный-второй-срез) добавляет только service/error boundary/CLI поверх unchanged magic simulator. Напрямую сверены BOOK-PLAYER-GUIDE1.4: Magic in the Old World / Spell Potency / Miscasts, стр.157; Battle Magic / Curse of Cowardly Flight, стр.162; BOOK-GM-GUIDE1.1: Allies and Antagonists / Minions / Champions, стр.91–92. Full authored source/GM facts, exact unsupported stops и distinct Champion/Minion injury policies сохраняются. Новых Rule IDs/игровых правил/house rules/противоречий нет; simulation/domain/engine/rules прежние. Execution failures не подменяют unsupported outcome.
+
+## Balance pure wire ADR-0043
+
+2026-10-28: [Третий срез](decisions/ADR-0043-magic-json-cli-v1.md#реализованный-третий-срез) отображает existing reserve/family и native generated/staged aggregates без новых battle consumers. Напрямую сверены BOOK-PLAYER-GUIDE1.4: The Lores of Magic / Battle Magic / Curse of Cowardly Flight, стр.162; BOOK-GM-GUIDE1.1: Allies and Antagonists / Minions / Champions, стр.91–92. Полные profiles/spell/GM facts/frames/routes и distinct injury policies сохраняются. Новых Rule IDs/house rules/противоречий нет; C/caps/Fraction/source-chain guards — технический контракт, не игровые правила. Domain/engine/rules/simulation/balance прежние.
+
+## Balance execution/CLI ADR-0043
+
+2026-10-28: [Четвёртый срез](decisions/ADR-0043-magic-json-cli-v1.md#реализованный-четвёртый-срез) соединяет existing generator/staged evaluator с JSON/CLI, без новых battle consumers. Напрямую сверены BOOK-PLAYER-GUIDE1.4: The Lores of Magic / Battle Magic / Curse of Cowardly Flight, стр.162; BOOK-GM-GUIDE1.1: Allies and Antagonists / Minions / Champions, стр.91–92. Full authored profiles/spell/GM facts/frames/routes и exact unsupported stops прежние. Generation/evaluation failures — технические ошибки, не новые игровые исходы; native unsupported не фильтруется. Новых Rule IDs/house rules/противоречий нет, domain/engine/rules/simulation/balance не меняются.
+
+## Общий аудит Magic JSON/CLI ADR-0043
+
+2026-10-28: [Аудит](audits/m8-external-readiness.md#книжная-сверка) напрямую сверил BOOK-PLAYER-GUIDE1.4: Equipment / Ranged Weapons94; Rules / The Battlefield / Zones and Range114 / Speed115; Attack Tests / Giving Ground119; Conditions / Broken122; Magic in the Old World / Casting / Interrupted Casting156 / Potency / Miscasts157; The Lores of Magic / Battle Magic / Curse162; Wounds Table190–191. BOOK-GM-GUIDE1.1: Allies and Antagonists / Minions91 / Champions92. Full authored profiles/GM facts/routes, distinct injury policies и exact unsupported сохранены. Новых Rule IDs/house rules/противоречий нет; production/tests/fixtures при аудите не менялись. Следующий consumer будет отдельным контрактом, не молчаливой заменой pending на success.
+
+
+## Первый production срез ADR-0044
+
+2026-10-28: [реализация](decisions/ADR-0044-dead-champion-turn-exclusion.md#реализованный-первый-срез) напрямую сверена по BOOK-PLAYER-GUIDE 1.4, гл. V Rules / Combat, стр. 112; Wounds Table, стр. 190–191; BOOK-GM-GUIDE 1.1, гл. VII Allies and Antagonists / Champions, стр. 92. Lethal строки 24/25/26/27+ уже закрывает K1; новый consumer лишь исключает owed turn, без Minion disposition, trophy или нового действия от dying words. Необходим exact resolved lethal injury, а не одно dead=True. Новых Rule IDs/house rules нет. Journal/runner integration ещё не реализована.
+
+
+## Journal/runner integration ADR-0044
+
+2026-10-28: [интеграция](decisions/ADR-0044-dead-champion-turn-exclusion.md#реализованная-journalrunner-интеграция) прямо сверена по BOOK-PLAYER-GUIDE1.4, гл.V Rules / Combat112 / Wounds Table190–191, и BOOK-GM-GUIDE1.1, гл.VII Allies and Antagonists / Champions92. Новый журналовый шаг продолжает уже завершённую lethal Attack до attacker end-turn; не создаёт действие или Minion disposition, не меняет Wound и не исполняет dying words/trophy. Dead Wizard не объявляет победу при живых союзниках. Новых Rule IDs/house rules нет; требования immediate full-witness chain и namespace — технический provenance contract.
+
+
+## Итоговый аудит ADR-0044
+
+2026-10-28: [аудит](audits/m8-dead-champion-readiness.md) напрямую сверил BOOK-PLAYER-GUIDE1.4, гл.V Rules / Combat112 / Wounds Table190–191, и BOOK-GM-GUIDE1.1, гл.VII Allies and Antagonists / Champions92. Новый срез добавил только tests/fixtures/docs, production прежний. 45implementation tests +public probe, real sequential/spawn и installed default-RNG CLI подтверждают narrow consumer без новых Rule IDs/house rules/Schema/seed. Authored numeric seed31 fixture — regression witness, не книжный NPC или статистическая оценка. Остальные Wound/Miscast вопросы сохранены.
+
+
+## Контракт Unnatural Wind ADR-0045
+
+2026-10-28: [ADR-0045](decisions/ADR-0045-source-bound-unnatural-wind.md) и [finite probe](examples/m8/unnatural_wind_contract_probe.py) напрямую сверены по BOOK-PLAYER-GUIDE1.4, гл.VIII Magic in the Old World / Casting/Interrupted Casting156 / Potency/Miscasts157–158 / Miscast Table159; гл.V Rules / Range114 / Recover118 / Prone123. BOOK-GM-GUIDE1.1, гл.VII Allies and Antagonists / Minions91 / Champions92. Явный DECLINE допустим, preparation теряет successes/Lore, один table roll не очищает Pool, actual Wind21–22 затрагивает self/allies/enemies withinShort. Close через границу Zone и noncombatant bystander требуют явных scope facts; новые Rule IDs/house rules не вводятся. Первый low-level production срез реализует только preparation/pending/apply с explicit DECLINE, reset successes/Lore/latest и retained Pool; PG1.4 Magic / Miscasts157 прямо перечитан при реализации. One-roll/rolled pending теперь реализованы с повторной прямой сверкой PG1.4, гл.VIII Miscasts157 / Miscast Table159: все dice Pool, сумма и canonical Wind21/22; Pool сохраняется до effect. Wind application ещё впереди; текущие Prone stops сохраняются.

@@ -1,7 +1,8 @@
 """One bounded ADR-0037 encounter over existing full-owner transitions.
 
 PG1.4 Rules pp112,118-119,122,190; Magic pp156-157,162. GM1.1 pp91-92.
-No retry, guessed scene facts, Miscast preparation or new effect consumer.
+No retry, guessed scene facts or Miscast preparation. ADR-0044 death exclusion
+continues a completed lethal Attack before the attacking actor ends its turn.
 """
 from dataclasses import dataclass, replace
 
@@ -20,7 +21,8 @@ from towr.domain.npc_broken_run_models import NpcBrokenRunRequest
 from towr.domain.npc_champion_attack_models import NpcChampionAttackRequest
 from towr.domain.npc_magic_journal_policy import (
     magic_live_ids, magic_scene_key, magic_next_actor, magic_target,
-    magic_movement_prefix, validate_magic_step_policy,
+    magic_movement_prefix, validate_magic_step_policy, validate_magic_step_predecessor,
+    magic_dead_champion_exclusion_attack,
 )
 from towr.domain.npc_magic_scenario_models import NpcMagicScenario
 from towr.domain.npc_magic_scenario_result_models import (
@@ -32,6 +34,7 @@ from towr.domain.npc_roster_attack_models import NpcRosterAttackExecutionRequest
 from towr.domain.npc_roster_casting_models import NpcRosterCastingResult, NpcRosterCastingTargetContext, NpcRosterCastingState
 from towr.domain.npc_roster_casting_completion_models import NpcRosterCastingCompletionRequest, NpcRosterCastingCompletionResult
 from towr.domain.npc_roster_champion_attack_models import NpcRosterChampionAttackRequest, NpcRosterChampionAttackResult
+from towr.domain.npc_roster_dead_champion_models import NpcRosterDeadChampionExclusionRequest
 from towr.domain.npc_roster_minion_attack_models import NpcRosterMinionAttackRequest
 from towr.domain.npc_roster_minion_defeat_models import NpcRosterMinionDefeatRequest
 from towr.domain.npc_roster_turn_models import NpcRosterTurnStartRequest, NpcRosterRoundAdvanceRequest
@@ -48,6 +51,7 @@ from towr.rules.dice import RandomSource
 from towr.rules.npc_attack_preparation import prepare_npc_attack, prepare_npc_attack_protection
 from towr.rules.npc_champion_attack_execution import execute_npc_champion_attack
 from towr.rules.npc_roster_casting_resolution import prepare_npc_roster_casting
+from towr.rules.npc_roster_dead_champion_resolution import exclude_npc_roster_dead_champion
 from towr.rules.npc_roster_minion_attack_resolution import execute_npc_roster_minion_attack
 from towr.rules.npc_roster_minion_defeat_resolution import acknowledge_npc_roster_minion_defeat
 from towr.rules.npc_roster_turn_resolution import start_npc_roster_turn, advance_npc_roster_round
@@ -103,6 +107,7 @@ def run_npc_magic_scenario(scenario: NpcMagicScenario, rng: RandomSource) -> Npc
         step = NpcMagicStep(result)
         if result.source != expected_source or step.before != current:
             raise ValueError('executor returned a result for another full source')
+        validate_magic_step_predecessor(steps[-1] if steps else None, step)
         validate_magic_step_policy(scenario, step)
         current = step.after
         steps.append(step)
@@ -226,6 +231,10 @@ def run_npc_magic_scenario(scenario: NpcMagicScenario, rng: RandomSource) -> Npc
         if target_id == current.wizard.actor_id:
             source = NpcRosterChampionAttackRequest(current, NpcChampionAttackRequest(current.champion_attack, protected, execution))
             publish(NpcRosterChampionAttackResult(source, execute_npc_champion_attack(source.attack, rng, decisions=decisions)), source)
+            attack = magic_dead_champion_exclusion_attack(steps[-1])
+            if attack is not None:
+                source = NpcRosterDeadChampionExclusionRequest(identifier('dead-champion'), current, attack)
+                publish(exclude_npc_roster_dead_champion(source), source)
         else:
             source = NpcRosterMinionAttackRequest(current, NpcRosterAttackExecutionRequest(current.minion_attack, protected, execution))
             publish(execute_npc_roster_minion_attack(source, rng, decisions=decisions), source)

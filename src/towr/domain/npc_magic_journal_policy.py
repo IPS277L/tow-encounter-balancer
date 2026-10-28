@@ -13,6 +13,7 @@ from towr.domain.npc_magic_step_models import NpcMagicStep
 from towr.domain.npc_roster_casting_models import NpcRosterCastingResult, NpcRosterCastingState
 from towr.domain.npc_roster_casting_completion_models import NpcRosterCastingCompletionResult
 from towr.domain.npc_roster_champion_attack_models import NpcRosterChampionAttackResult
+from towr.domain.npc_roster_dead_champion_models import NpcRosterDeadChampionExclusionResult
 from towr.domain.npc_roster_minion_attack_models import NpcRosterMinionAttackResult
 from towr.domain.npc_roster_minion_defeat_models import NpcRosterMinionDefeatResult
 from towr.domain.npc_roster_turn_models import NpcRosterTurnStartResult
@@ -37,6 +38,45 @@ def magic_next_actor(scenario: NpcMagicScenario, state: NpcRosterCastingState) -
     return next((i for i in scenario.activation_order if i in magic_live_ids(state)
                  and i not in (*combat.completed_turn_entity_ids, *combat.excluded_turn_entity_ids)
                  and state.roster.participant(i).state.side is combat.next_side), None)
+
+
+def magic_dead_champion_exclusion_attack(previous: NpcMagicStep | None) -> NpcRosterChampionAttackResult | None:
+    """Identify the owed death phase; its request validates the full completion.
+
+    A completed Wizard turn remains completed. Other mandatory Attack effects
+    retain their existing pending consumer/stop instead of being erased here.
+    """
+    if previous is not None and not isinstance(previous, NpcMagicStep):
+        raise TypeError('death continuation requires a typed previous magic step')
+    if previous is None or not isinstance(previous.result, NpcRosterChampionAttackResult):
+        return None
+    attack = previous.result
+    target_id = attack.attack.execution.target_id
+    combat = attack.attack.execution.state
+    # The bound Attack projects these exact injury/round snapshots. Read them
+    # directly instead of rebuilding a full owner for each ordinary hit/miss.
+    if (attack.attack.pending_follow_ups or not attack.attack.resolution.target_state.dead
+            or target_id != attack.source.state.wizard.actor_id
+            or target_id in (*combat.completed_turn_entity_ids, *combat.excluded_turn_entity_ids)):
+        return None
+    return attack
+
+
+def validate_magic_step_predecessor(previous: NpcMagicStep | None, step: NpcMagicStep | None) -> None:
+    """Require both directions of Attack -> death exclusion, including tail.
+
+    State equality alone cannot bind two Attack witnesses with different dice
+    traces that happen to project to the same full post-state.
+    """
+    if step is not None and not isinstance(step, NpcMagicStep):
+        raise TypeError('death continuation requires a typed next magic step')
+    attack = magic_dead_champion_exclusion_attack(previous)
+    exclusion = step.result if step is not None else None
+    if attack is not None:
+        if not isinstance(exclusion, NpcRosterDeadChampionExclusionResult) or exclusion.source.attack != attack:
+            raise ValueError('completed lethal Attack requires its matching immediate dead Champion exclusion')
+    elif isinstance(exclusion, NpcRosterDeadChampionExclusionResult):
+        raise ValueError('dead Champion exclusion requires its immediate lethal Attack predecessor')
 
 
 def magic_target(scenario: NpcMagicScenario, state: NpcRosterCastingState,

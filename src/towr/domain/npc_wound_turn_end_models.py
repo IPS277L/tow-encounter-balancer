@@ -29,6 +29,8 @@ class NpcWoundTurnEndRequest:
             raise TypeError('condition sources require ordered WoundConditionSourceSnapshot values')
         object.__setattr__(self, 'condition_sources', tuple(self.condition_sources))
         state = self.state
+        if state.pending_miscast_continuation is not None:
+            raise ValueError('prepared Miscast blocks turn end')
         if state.pending_minion_attack is not None:
             raise ValueError('pending Minion attack blocks turn end')
         if (state.pending_miscast is not None or state.pending_movement is not None

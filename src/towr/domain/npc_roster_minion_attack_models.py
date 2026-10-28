@@ -20,6 +20,8 @@ class NpcRosterMinionAttackRequest:
         if not isinstance(self.state, NpcRosterCastingState) or not isinstance(self.attack, NpcRosterAttackExecutionRequest):
             raise TypeError('Minion handoff requires typed full state and M2 request')
         state = self.state
+        if state.pending_miscast_continuation is not None:
+            raise ValueError('prepared Miscast blocks Minion attack dispatch')
         if (state.pending_minion_attack is not None or state.pending_miscast is not None
                 or state.pending_movement is not None or state.pending_interruption is not None
                 or state.champion_attack is not None and state.champion_attack.pending is not None):

@@ -17,6 +17,8 @@ class NpcRosterChampionAttackRequest:
     def __post_init__(self) -> None:
         if not isinstance(self.state, NpcRosterCastingState) or not isinstance(self.attack, NpcChampionAttackRequest):
             raise TypeError('handoff requires typed Casting state and Champion attack request')
+        if self.state.pending_miscast_continuation is not None:
+            raise ValueError('prepared Miscast blocks Champion attack dispatch')
         if self.state.pending_minion_attack is not None:
             raise ValueError('pending Minion attack blocks Champion attack dispatch')
         if self.state.pending_miscast is not None:

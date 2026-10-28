@@ -125,6 +125,8 @@ class NpcMagicScenario:
         if self.spell != COWARDLY_FLIGHT_SPELL_DEFINITION:
             raise ValueError('scenario supports only the canonical Battle Magic Curse definition')
         state = self.initial
+        if state.pending_miscast_continuation is not None:
+            raise ValueError('fresh scenario cannot contain prepared Miscast continuation')
         roster, combat, spatial = state.roster, state.round_state, state.spatial_state
         champion = state.champion_attack
         if champion is None:

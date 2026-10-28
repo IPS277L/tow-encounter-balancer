@@ -10,6 +10,7 @@ from towr.domain.injury_models import WoundConditionEffect, WoundEffectDuration
 from towr.domain.npc_magic_journal_policy import (
     magic_live_ids, magic_scene_key, magic_next_actor, magic_target,
     magic_movement_prefix, validate_magic_step_policy,
+    validate_magic_step_predecessor,
 )
 from towr.domain.npc_magic_scenario_models import NpcMagicScenario
 from towr.domain.npc_magic_scene_models import _ordered, _identifier
@@ -17,13 +18,15 @@ from towr.domain.npc_magic_step_models import (
     NpcMagicStep, NpcMagicScenarioOutcome, NpcMagicPhase, NpcMagicUnsupported, NpcMagicUnsupportedReason,
 )
 from towr.domain.npc_roster_casting_models import NpcRosterCastingState
+from towr.domain.npc_roster_miscast_models import NpcRosterMiscastRollResult
 from towr.domain.npc_roster_turn_models import NpcRosterTurnStartResult
 from towr.domain.npc_wound_turn_end_models import NpcWoundTurnEndResult
 from towr.domain.resolution_models import GiveGroundRequest, CowardlyFlightMovementCompletion
 
 
 def _pending(state: NpcRosterCastingState) -> bool:
-    return (state.pending_minion_attack is not None or state.pending_miscast is not None
+    return (state.pending_miscast_continuation is not None
+            or state.pending_minion_attack is not None or state.pending_miscast is not None
             or state.pending_movement is not None or state.pending_interruption is not None
             or state.champion_attack is not None and state.champion_attack.pending is not None)
 
@@ -95,6 +98,11 @@ def diagnose_npc_magic_unsupported(
 
     if staged and state.pending_movement is None:
         raise ValueError('only Curse movement may retain a staged prefix')
+    if state.pending_miscast_continuation is not None:
+        prefix = state.pending_miscast_continuation
+        if isinstance(prefix, NpcRosterMiscastRollResult):
+            return stop(reason.MISCAST_EFFECT, identifier=prefix.effect_request.resolution_id)
+        return stop(reason.MISCAST_ROLL, identifier=prefix.roll_request.resolution_id)
     if state.pending_miscast is not None:
         return stop(reason.MISCAST_PREPARATION, identifier=state.pending_miscast.source.id)
     if state.pending_interruption is not None:
@@ -188,6 +196,7 @@ class NpcMagicScenarioResult:
             raise TypeError('unsupported diagnosis must be typed')
         current = self.source.initial_runtime_state
         seen: set[str] = set()
+        previous = None
         for step in steps:
             if npc_magic_terminal_outcome(self.source, current) is not None:
                 raise ValueError('journal cannot continue after a terminal outcome')
@@ -200,10 +209,13 @@ class NpcMagicScenarioResult:
             if seen.intersection(identifiers):
                 raise ValueError('journal phase/action IDs must not repeat or collide')
             seen.update(identifiers)
+            validate_magic_step_predecessor(previous, step)
             validate_magic_step_policy(self.source, step)
             current = step.after
+            previous = step
             if current.round_state.round_number > self.source.max_rounds:
                 raise ValueError('journal exceeds the global round budget')
+        validate_magic_step_predecessor(previous, None)
         object.__setattr__(self, '_current', current)
         terminal = npc_magic_terminal_outcome(self.source, current)
         if terminal is not None:

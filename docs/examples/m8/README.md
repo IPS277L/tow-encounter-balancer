@@ -247,12 +247,33 @@ Seed42, B1, окно [1/4,1/2,3/4], stages=(8,keep2),(32,keep1), upper budget96 
 
 Пример сравнивает полные sequential/process reports, source identity, budgets, input/global RNG/children до stdout. Затем печатает весь generated catalog и все aggregate rows/counters/stages/continuation/final selection. [Три example tests](../../../tests/integration/test_m8_magic_balance_example.py) проверяют two-file external cwd/stdout parity, поздний generation failure после первого admitted scenario и evaluation failure после8real trials с ID/counts/stage/cause/notes и empty stdout. [Общий аудит](../../audits/m8-generation-readiness.md) содержит fresh installed-package parity и ограничения. M8 JSON/CLI и новые gameplay consumers не входят в пример.
 
+## Контракт исключения оставшегося хода погибшего Wizard
+
+[ADR-0044](../../decisions/ADR-0044-dead-champion-turn-exclusion.md) и [инвентаризация](../../audits/m8-continuation-inventory.md) ограничивают один consumer. Public [probe](dead_champion_contract_probe.py) / [stdout](dead_champion_contract_probe.output.txt) использует настоящий production runner: fresh v1 Wounds1/2/25 → matching Attack/exclusion/end-turn → round limit. Awaiting Wizard получает одну exclusion phase, completed Wizard пропускается. Без post-death frame exact `missing_scene` возникает после обязательного exclusion, все пять archived entries сохраняются. Всего87scripted d10, без sampling claims.
+
+```sh
+PYTHONPATH=src python docs/examples/m8/dead_champion_contract_probe.py
+```
+
+Для external cwd скопировать два файла: `dead_champion_contract_probe.py` и соседний `magic_scenario.py`; нужен текущий установленный `towr` либо абсолютный PYTHONPATH на src. [Subprocess test](../../../tests/integration/test_m8_dead_champion_contract_probe.py) сравнивает сохранённый stdout. Прежняя ручная проекция заменена проверкой actual bound journal; все остальные owner fields/ledgers, source и global RNG сохраняются. [10 unit journal tests](../../../tests/unit/test_m8_dead_champion_journal.py) и [9 runner integration](../../../tests/integration/test_m8_dead_champion_runner.py) проверяют обязательный порядок/full-witness guards и поведение. [Propagation и итоговый аудит](../../audits/m8-dead-champion-readiness.md) завершены; [default-RNG JSON witness](json/dead-champion-v1.request.json) отдельно проверяет service/CLI при seed31, без custom RNG на wire.
+
 ## Конечный JSON/CLI-контракт
 
-[ADR-0043](../../decisions/ADR-0043-magic-json-cli-v1.md) и [полевая матрица с шестью fixtures](json/README.md) готовы. Simulation JSON/CLI `simulate-magic` реализован; balance wire/команда ещё не реализованы. Из корня:
+[ADR-0043](../../decisions/ADR-0043-magic-json-cli-v1.md) и [полевая матрица с шестью fixtures](json/README.md) готовы. Simulation JSON/CLI `simulate-magic` реализован; balance pure wire также реализован; balance service/error encoder/команда также реализованы. Из корня:
 
 ```sh
 PYTHONPATH=src python docs/examples/m8/json_contract_probe.py
 ```
 
-[Probe](json_contract_probe.py) вручную отображает два известных входа в public typed APIs и обратно, сравнивает полные sequential/process results, проверяет13semantic rejects и ошибку projected subset после preflight. [Вывод](json_contract_probe.output.txt) не содержит Monte Carlo/winner assertions. Для внешнего cwd нужны также magic_balance.py, magic_simulation.py, magic_scenario.py и каталог json с шестью fixtures. Это finite mapping evidence, не strict parser/Schema/error validation; следующий срез — balance pure wire.
+[Probe](json_contract_probe.py) вручную отображает два известных входа в public typed APIs и обратно, сравнивает полные sequential/process results, проверяет13semantic rejects и ошибку projected subset после preflight. [Вывод](json_contract_probe.output.txt) не содержит Monte Carlo/winner assertions. Для внешнего cwd нужны также magic_balance.py, magic_simulation.py, magic_scenario.py и каталог json с шестью fixtures. Это finite mapping evidence, не strict parser/Schema/error validation; [общий аудит simulation/balance JSON/CLI](../../audits/m8-external-readiness.md) завершён в прежнем gameplay scope.
+
+
+## Контракт low-level Unnatural Wind21–22
+
+[ADR-0045](../../decisions/ADR-0045-source-bound-unnatural-wind.md), [probe](unnatural_wind_contract_probe.py) / [stdout](unnatural_wind_contract_probe.output.txt) используют existing public K1/M8 APIs. Bundle: probe и соседний magic_scenario.py; [subprocess test](../../../tests/integration/test_m8_unnatural_wind_contract_probe.py) запускает его из external cwd.
+
+```sh
+PYTHONPATH=src python docs/examples/m8/unnatural_wind_contract_probe.py
+```
+
+57scripted d10: fresh triggers и Wind21/22, ally/self targets, outside enemy, actual defeated archive, explicit decline при доступном spell, другой roll30 с Pool3 без effect/cleanup/retry. Scope отдельно подтверждает no_cross_zone_close/no_external_short_range_creatures; это не general geometry discovery. Existing root отвергает prepared magic под старым pending, поэтому промежуточные K1 значения пока только external variables. Ручная final root projection сохраняет owners/archives/ledgers и показывает действующий Prone END_TURN stop. Этот исторический probe не использует новые prefix/consumer types; interruption origin этим fresh Casting proof не доказывается. Отдельные production preparation и one-roll API уже реализованы и проверены Casting/bound Recover/Run tests; Wind application пока остаётся композицией K1. Новые roll tests отдельно подтверждают retained Pool/полный rolled pending и MISCAST_EFFECT diagnosis. Raw pending по-прежнему не допускает prepared magic без нового owner.

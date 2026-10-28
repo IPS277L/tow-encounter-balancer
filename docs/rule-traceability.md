@@ -1,5 +1,9 @@
 # Трассировка правил
 
+## M8 — контракт dead Champion turn exclusion ADR-0044
+
+2026-10-28: RULE-COMBAT-001/002, RULE-NPC-004 и existing Wound lifecycle сопоставлены с [inventory](audits/m8-continuation-inventory.md), [ADR-0044](decisions/ADR-0044-dead-champion-turn-exclusion.md), [public probe](examples/m8/dead_champion_contract_probe.py) / [stdout](examples/m8/dead_champion_contract_probe.output.txt) и [subprocess test](../tests/integration/test_m8_dead_champion_contract_probe.py). Напрямую прочитаны BOOK-PLAYER-GUIDE 1.4, гл. V Rules / Combat112 / Wounds & Conditions121 / Wounds Table190–191; BOOK-GM-GUIDE 1.1, гл. VII Allies and Antagonists / Minions91 / Champions92. Inventory Miscast prerequisites также проверен по PG1.4, гл. VIII Magic in the Old World, стр. 156–159. Awaiting/completed/missing-frame сценарии показывают точный actual gap и допустимость ручной full-owner projection; новый consumer, journal и resumed runner ещё не реализованы. Новых Rule IDs/house rules нет; эти ссылки не повышают статус будущего consumer до implemented/verified.
+
 Таблица связывает источник, нормализованное правило, реализацию и проверку.
 
 | Rule ID | Источник | Статус | Код | Тесты | Примечание |
@@ -589,3 +593,35 @@ RULE-COMBAT-001/002 и existing once-per-round spatial usage: BOOK-PLAYER-GUIDE 
 ## Simulation execution/CLI ADR-0043
 
 2026-10-28: [Второй срез](decisions/ADR-0043-magic-json-cli-v1.md#реализованный-второй-срез) добавляет только service/error boundary/CLI поверх unchanged magic simulator. Напрямую сверены BOOK-PLAYER-GUIDE1.4: Magic in the Old World / Spell Potency / Miscasts, стр.157; Battle Magic / Curse of Cowardly Flight, стр.162; BOOK-GM-GUIDE1.1: Allies and Antagonists / Minions / Champions, стр.91–92. Full authored source/GM facts, exact unsupported stops и distinct Champion/Minion injury policies сохраняются. Новых Rule IDs/игровых правил/house rules/противоречий нет; simulation/domain/engine/rules прежние. Execution failures не подменяют unsupported outcome.
+
+## Balance pure wire ADR-0043
+
+2026-10-28: [Третий срез](decisions/ADR-0043-magic-json-cli-v1.md#реализованный-третий-срез) отображает existing reserve/family и native generated/staged aggregates без новых battle consumers. Напрямую сверены BOOK-PLAYER-GUIDE1.4: The Lores of Magic / Battle Magic / Curse of Cowardly Flight, стр.162; BOOK-GM-GUIDE1.1: Allies and Antagonists / Minions / Champions, стр.91–92. Полные profiles/spell/GM facts/frames/routes и distinct injury policies сохраняются. Новых Rule IDs/house rules/противоречий нет; C/caps/Fraction/source-chain guards — технический контракт, не игровые правила. Domain/engine/rules/simulation/balance прежние.
+
+## Balance execution/CLI ADR-0043
+
+2026-10-28: [Четвёртый срез](decisions/ADR-0043-magic-json-cli-v1.md#реализованный-четвёртый-срез) соединяет existing generator/staged evaluator с JSON/CLI, без новых battle consumers. Напрямую сверены BOOK-PLAYER-GUIDE1.4: The Lores of Magic / Battle Magic / Curse of Cowardly Flight, стр.162; BOOK-GM-GUIDE1.1: Allies and Antagonists / Minions / Champions, стр.91–92. Full authored profiles/spell/GM facts/frames/routes и exact unsupported stops прежние. Generation/evaluation failures — технические ошибки, не новые игровые исходы; native unsupported не фильтруется. Новых Rule IDs/house rules/противоречий нет, domain/engine/rules/simulation/balance не меняются.
+
+## Общий аудит Magic JSON/CLI ADR-0043
+
+2026-10-28: [Аудит](audits/m8-external-readiness.md#книжная-сверка) напрямую сверил BOOK-PLAYER-GUIDE1.4: Equipment / Ranged Weapons94; Rules / The Battlefield / Zones and Range114 / Speed115; Attack Tests / Giving Ground119; Conditions / Broken122; Magic in the Old World / Casting / Interrupted Casting156 / Potency / Miscasts157; The Lores of Magic / Battle Magic / Curse162; Wounds Table190–191. BOOK-GM-GUIDE1.1: Allies and Antagonists / Minions91 / Champions92. Full authored profiles/GM facts/routes, distinct injury policies и exact unsupported сохранены. Новых Rule IDs/house rules/противоречий нет; production/tests/fixtures при аудите не менялись. Следующий consumer будет отдельным контрактом, не молчаливой заменой pending на success.
+
+
+## M8 — pure dead Champion exclusion ADR-0044
+
+2026-10-28: RULE-COMBAT-001/002, RULE-NPC-004 и existing Wound lifecycle соединены [request/result](../src/towr/domain/npc_roster_dead_champion_models.py) и [pure exclusion/apply](../src/towr/rules/npc_roster_dead_champion_resolution.py). [15 unit](../tests/unit/test_m8_npc_roster_dead_champion.py) + [4 integration](../tests/integration/test_m8_npc_roster_dead_champion.py) проверяют lethal totals 24/25/26/30, exact source/pending/replay/type/frozen guards, слабый WoundEffect DTO, сохранение archives/обоих ledgers и реальную цепочку до следующего раунда. Напрямую проверены BOOK-PLAYER-GUIDE 1.4, гл. V Rules / Combat112 / Wounds Table190–191; BOOK-GM-GUIDE 1.1, гл. VII Allies and Antagonists / Champions92. Новых Rule IDs/house rules нет; implemented относится только к этому pure boundary. Journal/runner и propagation ещё не подключены.
+
+
+## M8 — journal/runner death exclusion ADR-0044
+
+2026-10-28: RULE-COMBAT-001/002, RULE-NPC-004 и existing lethal Wound lifecycle подключены к [closed steps](../src/towr/domain/npc_magic_step_models.py), [predecessor policy](../src/towr/domain/npc_magic_journal_policy.py), [result chain/tail](../src/towr/domain/npc_magic_scenario_result_models.py) и [runner](../src/towr/engine/npc_magic_scenario_runner.py). [10 unit](../tests/unit/test_m8_dead_champion_journal.py) + [9 integration](../tests/integration/test_m8_dead_champion_runner.py) проверяют immediate Attack/exclusion/end order, full witness при равном post-state, пропуск/конец журнала, awaiting/completed, четыре lethal строки, archives/counters/RNG, все4outcomes и remaining allies/new round. [Public probe](examples/m8/dead_champion_contract_probe.py) теперь исполняет production runner вместо ручной проекции. Прямые источники: PG1.4, гл.V Rules / Combat112 / Wounds Table190–191; GM1.1, гл.VII Allies and Antagonists / Champions92. Новых Rule IDs/house rules нет; real batch/wire propagation и итоговый аудит ещё впереди.
+
+
+## M8 — итоговый аудит dead Champion consumer ADR-0044
+
+2026-10-28: [аудит](audits/m8-dead-champion-readiness.md) закрывает RULE-COMBAT-001/002 и RULE-NPC-004 composition только для completed lethal Attack → awaiting Wizard exclusion. Всего45implementation tests (25unit/20integration) и1public probe integration. [7 новых propagation tests](../tests/integration/test_m8_dead_champion_propagation.py) проверяют real trials/sequential/spawn, обе Wizard/perspective sides, native counts/counters/full source, unsupported denominator/prefix, reparsed JSON source и default service/CLI. [Новый request/result](examples/m8/json/README.md#dead-champion-exclusion-adr-0044) при стандартном RNG seed31 даёт Wounds3/2/25/exclusion1 и4/1/1; source/wheel/site442files и installed module/console подтверждены. Прямо сверены PG1.4, гл.V Combat112/Wounds190–191; GM1.1, гл.VII Champions92. Новых игровых Rule IDs/house rules нет; это не verified всего Wound/Miscast каталога.
+
+
+## M8 — контракт source-bound Miscast prefix / Unnatural Wind ADR-0045
+
+2026-10-28: RULE-MAGIC-004 и existing K1 Wind/Prone сопоставлены с [ADR-0045](decisions/ADR-0045-source-bound-unnatural-wind.md), [public finite probe](examples/m8/unnatural_wind_contract_probe.py) / [stdout](examples/m8/unnatural_wind_contract_probe.output.txt), [subprocess test](../tests/integration/test_m8_unnatural_wind_contract_probe.py). Прямые источники: PG1.4, гл.VIII Magic156–159 и гл.V Range114/Recover118/Prone123; GM1.1, гл.VII Minions91/Champions92. 57scripted d10 доказывают fresh Casting triggers, totals21/22, actual K1 effect, outside/archive/доступныйspell-decline и retained otherrow30. Raw root не может хранить prepared magic под прежним pending; ручная final projection сохраняет END_TURN stop. Это contract evidence, не новый Wind consumer, не fresh interruption reachability и не automatic battle. Production preparation реализована отдельно: [models](../src/towr/domain/npc_roster_miscast_models.py), [pure functions](../src/towr/rules/npc_roster_miscast_resolution.py), [18 unit](../tests/unit/test_m8_npc_roster_miscast_preparation.py) / [7 integration](../tests/integration/test_m8_npc_roster_miscast_preparation.py). Explicit DECLINE/five facts, successes/Lore/latest reset, Pool retention, exact raw proof/receipt/history, live archive projections, bound Recover/Run и0RNG проверены; diagnosis MISCAST_ROLL. One-roll/rolled prefix реализованы: [unit](../tests/unit/test_m8_npc_roster_miscast_roll.py) / [integration](../tests/integration/test_m8_npc_roster_miscast_roll.py) проверяют retained Pool/full trace, canonical21/22 iffWind,2d10, соседние/другие rows, malformed DTO/stale/repeat, точное число RNG calls и частичный сбой без partial state. Diagnosis MISCAST_EFFECT, effects ещё не применяются. Прямо перечитаны PG1.4, гл.VIII Miscasts157 / Table159. Новых Rule IDs/house rules нет.

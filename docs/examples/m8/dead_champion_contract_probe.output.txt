@@ -1,0 +1,5 @@
+AWAITING: 30 d10; actual round_limit_reached; 3 resolved Wounds (1, 2, 25)
+JOURNAL: matching Attack -> exclusion -> attacker end; archives/ledgers preserved
+MISSING SCENE CONTROL: 24 d10; exact post-death live key; all 5 archives retained
+COMPLETED: 33 d10; actual round_limit_reached; no exclusion phase
+Public production APIs; automatic journal/runner continuation; sources/global RNG unchanged
