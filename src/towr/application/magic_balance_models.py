@@ -14,8 +14,13 @@ class MagicBalanceCommand:
     generation_request: MagicCandidateGenerationRequest
     execution: SimulationExecutionOptions
     definition_order: tuple[str, ...]
+    schema_version: str = '1'
 
     def __post_init__(self) -> None:
+        if not isinstance(self.schema_version, str):
+            raise TypeError('magic schema version must be a string')
+        if self.schema_version not in ('1', '2'):
+            raise ValueError('unsupported magic schema version')
         if not isinstance(self.request_id, str):
             raise TypeError('magic balance request ID must be a string')
         if not self.request_id.strip():

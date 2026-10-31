@@ -1,11 +1,9 @@
-"""Finite ADR-0047 generation and simulation-v2 transport proof.
+"""Finite ADR-0047 generation and both magic v2 transport proof.
 
 Copy with magic_scenario.py, opted_miscast.py and generation_contract_probe.py.
-Simulation uses the public v2 parser and encoder with complete opted sources.
-Balance v2 still uses a finite manual mapping: its temporary legacy view is
-never executed or presented as an opt-in result. Native opted generation uses
-the public ADR-0047 API. The manual balance mapping is not a validator for
-untrusted documents. No probability claim follows from these authored fixtures.
+Both families use the public v2 parsers and encoders with complete sources.
+Native opted generation uses the public ADR-0047 API. No temporary legacy
+view strips an opted source. No probability claim follows from these fixtures.
 """
 from copy import deepcopy
 from dataclasses import asdict, replace
@@ -28,9 +26,8 @@ from towr.application.ranged_simulation_models import SimulationExecutionMode, S
 from towr.balance.magic_assessment import assess_magic_candidate
 from towr.balance.magic_staged_evaluation_models import MagicBalanceStage
 from towr.balance.ranged_assessment_models import ObjectiveRateWindow
-from towr.domain.npc_magic_scenario_models import NpcMagicMiscastContinuationPolicy, NpcMagicPronePolicy
 from towr.domain.npc_objective_models import NpcDefeatObjective
-from towr.domain.npc_roster_miscast_models import NpcRosterMiscastFacts, NpcRosterMiscastPolicy, NpcRosterUnnaturalWindResult
+from towr.domain.npc_roster_miscast_models import NpcRosterUnnaturalWindResult
 from towr.domain.turn_models import CombatSide
 from towr.engine.npc_magic_scenario_runner import run_npc_magic_scenario
 from towr.simulation.npc_magic_models import NpcMagicSimulationRequest
@@ -44,12 +41,6 @@ def policy_document(policy):
         'choice': policy.choice.value, 'facts': asdict(policy.facts),
         'prone_policy': policy.prone_policy.value,
     }
-
-
-def policy_value(document):
-    return None if document is None else NpcMagicMiscastContinuationPolicy(
-        NpcRosterMiscastPolicy(document['choice']), NpcRosterMiscastFacts(**document['facts']),
-        NpcMagicPronePolicy(document['prone_policy']))
 
 
 def definitions(scenario):
@@ -99,13 +90,21 @@ def main():
         sim_wire, bal_wire = json.loads(json.dumps(sim_doc)), json.loads(json.dumps(bal_doc))
         assert (sim_wire, bal_wire) == documents_before
         sim_command = parse_magic_simulation_request(json.dumps(sim_wire))
-        reserve_policy = policy_value(bal_wire['reserve']['scenario'].pop('miscast_continuation'))
-        family_policy = policy_value(bal_wire['generation'].pop('miscast_continuation'))
+        bal_command = parse_magic_balance_request(json.dumps(bal_wire))
+        reserve_policy = bal_command.generation_request.template_scenario.miscast_continuation
+        family_policy = bal_command.generation_request.miscast_continuation
         assert sim_command.request.scenario.miscast_continuation == reserve_policy == family_policy == value
-        # Local structural legacy views only: restore the saved policy BEFORE use.
-        bal_wire['schema_version'] = '1'
-        bal_base = parse_magic_balance_request(json.dumps(bal_wire))
-        assert bal_base == balance  # all orders/seed/options/budgets
+        assert bal_command == replace(balance, schema_version='2', generation_request=replace(generation,
+            template_scenario=replace(reserve, miscast_continuation=value), miscast_continuation=value))
+        bal_result = execute_magic_balance(bal_command)
+        bal_output = json.loads(encode_magic_balance_result(bal_command, bal_result))
+        assert bal_output['schema_version'] == '2' and bal_output['request'] == bal_doc
+        assert parse_magic_balance_request(json.dumps(bal_output['request'])) == bal_command
+        for candidate in bal_result.generation_result.evaluation_request.candidates:
+            assert candidate.scenario.miscast_continuation == value
+        if value is not None:
+            rejected('v1 balance encoder cannot discard opted source',
+                     lambda: encode_magic_balance_result(replace(bal_command, schema_version='1'), bal_result))
         restored = sim_command.request
         assert sim_command == replace(simulation, schema_version='2',
             request=replace(simulation.request, scenario=replace(legacy, miscast_continuation=value)))
@@ -113,15 +112,12 @@ def main():
         sim_result = json.loads(encode_magic_simulation_result(sim_command, sim_summary))
         assert sim_result['schema_version'] == '2' and sim_result['request'] == sim_doc
         assert parse_magic_simulation_request(json.dumps(sim_result['request'])) == sim_command
-        restored_reserve = replace(bal_base.generation_request.template_scenario,
-                                   miscast_continuation=reserve_policy)
+        restored_reserve = bal_command.generation_request.template_scenario
         assert restored == replace(simulation.request, scenario=replace(legacy, miscast_continuation=value))
         assert restored_reserve == replace(reserve, miscast_continuation=value)
-        assert bal_base.generation_request.facts == generation.facts
-        assert bal_base.generation_request.scene_frames == generation.scene_frames
+        assert bal_command.generation_request.facts == generation.facts
+        assert bal_command.generation_request.scene_frames == generation.scene_frames
         assert (sim_doc, bal_doc) == documents_before
-        rejected('balance parser has no v2 yet', lambda: parse_magic_balance_request(json.dumps(bal_doc)),
-                 MagicBalanceInputError)
         for document, parser, error in ((sim_doc, parse_magic_simulation_request, MagicSimulationInputError),
                                        (bal_doc, parse_magic_balance_request, MagicBalanceInputError)):
             v1_extra = deepcopy(document)
@@ -129,7 +125,7 @@ def main():
             rejected('v1 has no policy field, even null', lambda: parser(json.dumps(v1_extra)), error)
         if value is not None:
             restored_opted = restored
-        print(f'Public simulation v2 / manual balance v2 round-trip: {"null" if value is None else "explicit policy"}; '
+        print(f'Public simulation and balance v2 round-trip: {"null" if value is None else "explicit policy"}; '
               'complete source/orders/seed/budgets preserved')
 
     assert restored_opted is not None
@@ -202,7 +198,7 @@ def main():
     print('Restored opted source: actual Wind trace 16 d10 + matching independent trial 16 d10; no probabilities')
     print('V1/no-family-opt-in guards and same-ID full-source substitution guards remain effective')
     assert (simulation, balance, policy) == before and getstate() == rng_before
-    print('Inputs/global RNG unchanged; public native generation and simulation v2 verified; balance v2 still manual')
+    print('Inputs/global RNG unchanged; public native generation and both magic v2 families verified')
 
 
 if __name__ == '__main__':

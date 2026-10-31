@@ -1,5 +1,7 @@
 # M8: simulation JSON v2 — ADR-0047 этап2
 
+Историческая граница этого отчёта — этап2. Последующий [этап3 balance v2](m8-balance-v2-readiness.md) реализован: temporary balance error refusal заменён encoding версии2, обе magic CLI families принимают1/2; public probe больше не использует manual balance mapping. Числа и matrix ниже остаются evidence этапа2, не повторной проверкой новой сборки.
+
 Дата: 2026-10-31. Реализован сквозной simulation v2 transport; balance v2 и общий installed audit ещё не выполнены. [Контракт](../decisions/ADR-0047-opt-in-generation-and-magic-json-v2.md), [предыдущий generation-срез](m8-opt-in-generation-readiness.md), [актуальный статус](../project-status.md).
 
 Это архитектурный transport ранее утверждённой policy ADR-0046, не новое игровое правило. Domain/engine/rules/simulation, seed scheme и native aggregates в этом срезе не менялись. Книги заново не читались, Rule IDs/house rules не добавлялись. Ниже указаны проверки именно этапа2; исторический installed audit ADR-0046 не считается проверкой текущей сборки.

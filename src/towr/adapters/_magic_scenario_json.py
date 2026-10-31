@@ -164,13 +164,9 @@ def _parse_scenario(data, round_budget, path_prefix, error_type, schema_version)
         spell['rule_id'], spell['lore_id'], spell['casting_value'], SpellTargetKind(spell['target_kind']),
         SpellRange(spell['range']), SpellDuration(spell['duration']))
     continuation = None
-    if schema_version == '2' and data['miscast_continuation'] is not None:
-        raw = data['miscast_continuation']
-        path = f'{path_prefix}/miscast_continuation'
-        continuation = build(path, NpcMagicMiscastContinuationPolicy,
-            build(f'{path}/choice', NpcRosterMiscastPolicy, raw['choice']),
-            build(f'{path}/facts', NpcRosterMiscastFacts, **raw['facts']),
-            build(f'{path}/prone_policy', NpcMagicPronePolicy, raw['prone_policy']))
+    if schema_version == '2':
+        continuation = parse_miscast_continuation(data['miscast_continuation'],
+            path_prefix=f'{path_prefix}/miscast_continuation', error_type=error_type)
     scenario = build(path_prefix, NpcMagicScenario, data['scenario_id'], initial,
         build(f'{path_prefix}/facts', parse_facts, data['facts']), tuple(data['activation_order']), tuple(policies),
         parse_scene_frames(data['scene_frames'], path_prefix=f'{path_prefix}/scene_frames', error_type=error_type),
@@ -178,6 +174,24 @@ def _parse_scenario(data, round_budget, path_prefix, error_type, schema_version)
         round_budget, StaggerChoice(data['repeated_stagger_choice']), spell_definition,
         miscast_continuation=continuation)
     return scenario, tuple(definitions)
+
+
+def parse_miscast_continuation(data: dict | None, *, path_prefix: str,
+                               error_type: type[MagicInputError]) -> NpcMagicMiscastContinuationPolicy | None:
+    """Map one schema-checked explicit assertion, never infer it from another."""
+    if data is None:
+        return None
+    build = partial(build_value, error_type)
+    return build(path_prefix, NpcMagicMiscastContinuationPolicy,
+        build(f'{path_prefix}/choice', NpcRosterMiscastPolicy, data['choice']),
+        build(f'{path_prefix}/facts', NpcRosterMiscastFacts, **data['facts']),
+        build(f'{path_prefix}/prone_policy', NpcMagicPronePolicy, data['prone_policy']))
+
+
+def miscast_continuation_document(policy: NpcMagicMiscastContinuationPolicy | None) -> dict | None:
+    return None if policy is None else {
+        'choice': policy.choice.value, 'facts': asdict(policy.facts),
+        'prone_policy': policy.prone_policy.value}
 
 
 def _profile_document(profile: InlineProfile) -> dict:
@@ -239,8 +253,5 @@ def scenario_document(scenario: NpcMagicScenario, definition_order: tuple[str, .
         'scene_frames': scene_frames_document(scenario.scene_frames),
         'repeated_stagger_choice': scenario.repeated_stagger_choice.value}
     if schema_version == '2':
-        policy = scenario.miscast_continuation
-        document['miscast_continuation'] = None if policy is None else {
-            'choice': policy.choice.value, 'facts': asdict(policy.facts),
-            'prone_policy': policy.prone_policy.value}
+        document['miscast_continuation'] = miscast_continuation_document(scenario.miscast_continuation)
     return document

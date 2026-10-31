@@ -25,9 +25,10 @@ def execute_magic_balance(command: MagicBalanceCommand) -> MagicBalanceResult:
         if generated.source_request != command.generation_request:
             raise ValueError('generation result must belong to the full command request')
     except MagicCandidateGenerationError as error:
-        raise MagicBalanceGenerationError(command.request_id, error.candidate_id, error.counts) from error
+        raise MagicBalanceGenerationError(command.request_id, error.candidate_id, error.counts,
+                                           schema_version=command.schema_version) from error
     except Exception as error:
-        raise MagicBalanceGenerationError(command.request_id) from error
+        raise MagicBalanceGenerationError(command.request_id, schema_version=command.schema_version) from error
     try:
         evaluated = evaluate_magic_candidates_staged(generated.evaluation_request, command.execution)
         if not isinstance(evaluated, MagicStagedEvaluationResult):
@@ -36,6 +37,7 @@ def execute_magic_balance(command: MagicBalanceCommand) -> MagicBalanceResult:
             raise ValueError('evaluation result must belong to the exact generated request')
         return MagicBalanceResult(generated, evaluated)
     except MagicStagedEvaluationError as error:
-        raise MagicBalanceExecutionError(command.request_id, error.stage_index, error.candidate_id) from error
+        raise MagicBalanceExecutionError(command.request_id, error.stage_index, error.candidate_id,
+                                          schema_version=command.schema_version) from error
     except Exception as error:
-        raise MagicBalanceExecutionError(command.request_id) from error
+        raise MagicBalanceExecutionError(command.request_id, schema_version=command.schema_version) from error

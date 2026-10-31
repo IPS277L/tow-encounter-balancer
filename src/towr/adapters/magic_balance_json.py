@@ -1,4 +1,4 @@
-"""Pure magic balance v1 admission/encoding, without generation or simulation."""
+"""Pure magic balance v1/v2 admission/encoding, without generation or simulation."""
 from dataclasses import asdict
 from fractions import Fraction
 from functools import partial
@@ -9,6 +9,7 @@ from towr import __version__
 from towr.adapters._json_common import build_value, parse_seed, read_request
 from towr.adapters._magic_scenario_json import (
     facts_document, parse_facts, parse_scenario, parse_scene_frames, scenario_document, scene_frames_document,
+    miscast_continuation_document, parse_miscast_continuation,
 )
 from towr.adapters.magic_json_errors import MagicBalanceInputError
 from towr.adapters.magic_json_schema import validate_magic_balance_document
@@ -29,8 +30,6 @@ def encode_magic_balance_error(
     """Encode this family's failures without causes, notes or partial reports."""
     path = candidate_id = counts = stage_index = None
     if isinstance(error, MagicBalanceInputError):
-        if error.schema_version != '1':
-            raise ValueError('magic balance v2 error encoding is not supported yet')
         code, path, message = error.code.value, error.path, str(error)
     elif isinstance(error, MagicBalanceGenerationError):
         code, path, candidate_id = 'generation_failed', '/generation', error.candidate_id
@@ -42,29 +41,39 @@ def encode_magic_balance_error(
         message = 'Magic balance evaluation failed'
     else:
         raise TypeError('balance error encoding requires a magic balance input, generation or execution error')
-    document = {'schema_version': '1', 'kind': 'magic_balance_error', 'request_id': error.request_id,
+    document = {'schema_version': error.schema_version, 'kind': 'magic_balance_error', 'request_id': error.request_id,
         'error': {'code': code, 'path': path, 'message': message, 'candidate_id': candidate_id,
             'counts': counts, 'stage_index': stage_index}}
-    validate_magic_balance_document(document, 'error')
+    validate_magic_balance_document(document, 'error', schema_version=error.schema_version)
     # Malformed-input diagnostics can contain escaped lone Unicode surrogates.
     return json.dumps(document, ensure_ascii=True, indent=2, allow_nan=False) + '\n'
 
 
 def parse_magic_balance_request(text: str | bytes) -> MagicBalanceCommand:
     """Read strict JSON, admit the full reserve, and preflight C/staged budget."""
-    document = read_request(text, MagicBalanceInputError, validate_magic_balance_document)
+    document = read_request(text, MagicBalanceInputError, validate_magic_balance_document, magic_v2=True)
     try:
         return _parse_document(document)
     except MagicBalanceInputError as error:
         error.request_id = document['request_id']
+        error.schema_version = document['schema_version']
         raise
 
 
 def _parse_document(document: dict) -> MagicBalanceCommand:
     build = partial(build_value, MagicBalanceInputError)
     reserve, generation, evaluation = document['reserve'], document['generation'], document['evaluation']
+    version = document['schema_version']
     scenario, definition_order = parse_scenario(reserve['scenario'], reserve['round_budget'],
-        path_prefix='/reserve/scenario', error_type=MagicBalanceInputError)
+        path_prefix='/reserve/scenario', error_type=MagicBalanceInputError, schema_version=version)
+    continuation = None
+    if version == '2':
+        continuation = parse_miscast_continuation(generation['miscast_continuation'],
+            path_prefix='/generation/miscast_continuation', error_type=MagicBalanceInputError)
+        if continuation != scenario.miscast_continuation:
+            raise MagicBalanceInputError(Code.INVALID_INPUT,
+                'family Miscast continuation must equal the full reserve policy',
+                path='/generation/miscast_continuation')
     groups = tuple(build(f'/generation/groups/{i}', MagicCompositionGroup, **group)
                    for i, group in enumerate(generation['groups']))
     facts = build('/generation/facts', parse_facts, generation['facts'])
@@ -80,11 +89,11 @@ def _parse_document(document: dict) -> MagicBalanceCommand:
         name: Fraction(value['numerator'], value['denominator']) for name, value in evaluation['window'].items()})
     request = build('', MagicCandidateGenerationRequest, scenario, groups, facts, frames,
         generation['candidate_id_prefix'], generation['max_candidates'], seed, stages,
-        evaluation['max_total_trials'], window)
+        evaluation['max_total_trials'], window, miscast_continuation=continuation)
     execution = document['execution']
     options = build('/execution', SimulationExecutionOptions, SimulationExecutionMode(execution['mode']),
                     execution.get('workers'), execution.get('batch_size'))
-    return build('', MagicBalanceCommand, document['request_id'], request, options, definition_order)
+    return build('', MagicBalanceCommand, document['request_id'], request, options, definition_order, version)
 
 
 def _fraction_document(value: Fraction) -> dict:
@@ -97,9 +106,10 @@ def _request_document(command: MagicBalanceCommand) -> dict:
     execution = {'mode': command.execution.mode.value}
     if command.execution.mode is SimulationExecutionMode.PROCESS:
         execution.update(workers=command.execution.workers, batch_size=command.execution.batch_size)
-    return {'schema_version': '1', 'kind': 'npc_magic_balance', 'request_id': command.request_id,
+    document = {'schema_version': command.schema_version, 'kind': 'npc_magic_balance', 'request_id': command.request_id,
         'ruleset': 'towr-pg1.4-gmg1.1',
-        'reserve': {'round_budget': scenario.max_rounds, 'scenario': scenario_document(scenario, command.definition_order)},
+        'reserve': {'round_budget': scenario.max_rounds, 'scenario': scenario_document(scenario,
+            command.definition_order, schema_version=command.schema_version)},
         'generation': {'groups': [{'group_id': g.group_id, 'actor_ids': list(g.actor_ids),
             'minimum_count': g.minimum_count, 'maximum_count': g.maximum_count} for g in source.groups],
             'facts': facts_document(source.facts), 'scene_frames': scene_frames_document(source.scene_frames),
@@ -108,6 +118,9 @@ def _request_document(command: MagicBalanceCommand) -> dict:
             'max_total_trials': source.max_total_trials,
             'window': {name: _fraction_document(getattr(source.window, name)) for name in ('minimum', 'target', 'maximum')}},
         'execution': execution}
+    if command.schema_version == '2':
+        document['generation']['miscast_continuation'] = miscast_continuation_document(source.miscast_continuation)
+    return document
 
 
 def encode_magic_balance_result(command: MagicBalanceCommand, result: MagicBalanceResult) -> str:
@@ -119,7 +132,7 @@ def encode_magic_balance_result(command: MagicBalanceCommand, result: MagicBalan
         raise ValueError('balance result belongs to a different generation request')
     request_document = _request_document(command)
     if parse_magic_balance_request(json.dumps(request_document)) != command:
-        raise ValueError('balance command cannot be represented losslessly by magic JSON v1')
+        raise ValueError('balance command cannot be represented losslessly by magic JSON')
     evaluation = result.evaluation_result
     catalog = [{'candidate_id': candidate.candidate_id, 'counts': list(counts)}
                for candidate, counts in zip(result.generation_result.evaluation_request.candidates,
@@ -143,12 +156,12 @@ def encode_magic_balance_result(command: MagicBalanceCommand, result: MagicBalan
             'selected_candidate_ids': list(report.selected_candidate_ids),
             'continuation_candidate_ids': list(magic_continuation_candidate_ids(report))
                 if index + 1 < len(source.stages) else []})
-    document = {'schema_version': '1', 'kind': 'npc_magic_balance_result', 'request': request_document,
+    document = {'schema_version': command.schema_version, 'kind': 'npc_magic_balance_result', 'request': request_document,
         'seed_scheme': evaluation.seed_scheme,
         'runtime': {'package_version': __version__, 'python_implementation': platform.python_implementation(),
             'python_version': platform.python_version(), 'rng': 'random.Random'},
         'candidate_count': source.candidate_count, 'planned_trials': evaluation.planned_trials,
         'total_trials': evaluation.total_trials, 'candidates': catalog, 'stage_reports': reports,
         'status': evaluation.status.value, 'selected_candidate_ids': list(evaluation.selected_candidate_ids)}
-    validate_magic_balance_document(document, 'result')
+    validate_magic_balance_document(document, 'result', schema_version=command.schema_version)
     return json.dumps(document, ensure_ascii=False, indent=2, allow_nan=False) + '\n'

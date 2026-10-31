@@ -91,7 +91,7 @@ def main(argv: list[str] | None = None) -> int:
     mixed_balance.add_argument("input", metavar="INPUT", help="UTF-8 JSON file, or - for stdin")
     magic = commands.add_parser("simulate-magic", help="execute an authored magic JSON v1/v2 request")
     magic.add_argument("input", metavar="INPUT", help="UTF-8 JSON file, or - for stdin")
-    magic_balance = commands.add_parser("balance-magic", help="generate and evaluate an authored magic JSON v1 request")
+    magic_balance = commands.add_parser("balance-magic", help="generate and evaluate an authored magic JSON v1/v2 request")
     magic_balance.add_argument("input", metavar="INPUT", help="UTF-8 JSON file, or - for stdin")
     args = parser.parse_args(argv)
 

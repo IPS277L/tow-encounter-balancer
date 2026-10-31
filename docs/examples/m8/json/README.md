@@ -11,7 +11,20 @@ $env:PYTHONPATH = "src"
 
 Для process изменить только `execution` на `{"mode":"process","workers":2,"batch_size":1}`. Request echo/result/error после complete strict decode сохраняют `schema_version='2'`; malformed JSON/UTF-8, duplicate keys, lone surrogates, nonfinite/float/exponent tokens возвращают fallback error v1 и null request ID. Runtime failure имеет версию admitted command. Public validators требуют явного `schema_version='2'`; default остаётся v1. [Полный контракт](../../../decisions/ADR-0047-opt-in-generation-and-magic-json-v2.md), [аудит/tests](../../../audits/m8-simulation-v2-readiness.md).
 
-Этот пример — finite standard-RNG observation, не probability preset; incomplete future frames/прочие Miscast effects остаются unsupported и входят в trials. [Integration test](../../../../tests/integration/test_m8_magic_json_v2.py) проверяет файл и sequential/process CLI. Balance v2 ещё не поддержан. Installed audit обоих v2 families и stored result fixtures предусмотрены общим этапом4; прежние v1 результаты ниже не заменяют новую проверку.
+Этот пример — finite standard-RNG observation, не probability preset; incomplete future frames/прочие Miscast effects остаются unsupported и входят в trials. [Integration test](../../../../tests/integration/test_m8_magic_json_v2.py) проверяет файл и sequential/process CLI. Balance v2 также реализован и описан ниже. Installed audit обоих v2 families и stored result fixtures предусмотрены общим этапом4; прежние v1 результаты ниже не заменяют новую проверку.
+
+## Balance v2 — отдельное family assertion
+
+[Вход](magic-balance-v2.request.json) содержит два обязательных nullable поля: `reserve.scenario.miscast_continuation` и `generation.miscast_continuation`. Оба — null либо одинаковые полные policy objects; caller подтверждает scope отдельно для резерва и каждого generated subset. Несовпадение — input error по `/generation/miscast_continuation`. Отсутствующее поле не заменяется null или значением из другого места.
+
+```powershell
+$env:PYTHONPATH = "src"
+.venv/Scripts/python.exe -m towr balance-magic docs/examples/m8/json/magic-balance-v2.request.json
+```
+
+Для process: `"execution":{"mode":"process","workers":2,"batch_size":1}`. Полный reserve/generation echo, каталог, stages, rates и unsupported denominator прежние. Version2 сохраняется также при policy=null. Успешная проверка входа не гарантирует допустимость всех subsets: поздний generation failure даёт exit3 с known candidate/counts, evaluation failure — со stage/candidate; cause/notes не выходят на wire. До complete strict decode fallback error1/null ID, после распознанной2 — error2; правила совпадают с simulation выше. Pure validators требуют explicit `schema_version='2'`, default остаётся1.
+
+[Аудит balance](../../../audits/m8-balance-v2-readiness.md), [integration tests](../../../../tests/integration/test_m8_magic_balance_json_v2.py). Пример C4/stages2/4/upper budget16 — finite authored observation, не difficulty preset. Installed audit и stored v2 results остаются этапом4; v1 fixtures ниже неизменны.
 
 ## V1 fixtures и первоначальный контракт
 

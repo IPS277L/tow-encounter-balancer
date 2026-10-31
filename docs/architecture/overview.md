@@ -1,12 +1,14 @@
 # Архитектура
 
-## Native generation и versioned simulation transport, ADR-0047
+## Native generation и versioned magic transport, ADR-0047
 
 [ADR-0047](../decisions/ADR-0047-opt-in-generation-and-magic-json-v2.md), этап1 реализован: generation request содержит append-last optional family policy с early typed/full template equality; projection/result guards сохраняют её целиком. [Аудит generation](../audits/m8-opt-in-generation-readiness.md).
 
-Этап2 реализован: `MagicSimulationCommand.schema_version='1'` — append-last metadata, magic input/execution errors получают keyword-only версию. Shared strict reader разрешает v2 только при explicit magic-only option; доверяет версии/ID лишь после полного lexical decode. Mapper принимает explicit keyword-only `schema_version='1'`, устанавливает typed policy до admission. Три новые simulation schemas используют только локальные v1 fragments; registry/cache различает family/kind/version. Full command reconstruct-check включает версию/definition order/policy; service выставляет собственную command version при runtime error. Прежний `simulate-magic` принимает1/2, остальные семь routes пока только1. Balance input error с explicit2 отклоняется encoder, не понижается до1. [Аудит/tests](../audits/m8-simulation-v2-readiness.md).
+Этап2 реализован: `MagicSimulationCommand.schema_version='1'` — append-last metadata, magic input/execution errors получают keyword-only версию. Shared strict reader разрешает v2 только при explicit magic-only option; доверяет версии/ID лишь после полного lexical decode. Mapper принимает explicit keyword-only `schema_version='1'`, устанавливает typed policy до admission. Три новые simulation schemas используют только локальные v1 fragments; registry/cache различает family/kind/version. Full command reconstruct-check включает версию/definition order/policy; service выставляет собственную command version при runtime error. [Аудит simulation](../audits/m8-simulation-v2-readiness.md).
 
-Domain/engine/simulation версию wire не знают; v1 schemas и seed scheme прежние. [Public proof](../examples/m8/opt_in_transport_contract_probe.py) проверяет настоящий opted generator и simulation v2; только balance v2 отображает вручную. Следующие этапы — balance v2 и общий installed audit.
+Этап3 реализован: аналогичная append-last metadata в `MagicBalanceCommand` и keyword-only version у обеих phase errors. Reserve и family policy читаются независимо общим узким mapper; exact equality проверяется по `/generation/miscast_continuation` до generation preflight. Result encoder сохраняет полный generation→staged chain, включая policy. Service выставляет command version и прежний candidate/counts/stage context по active phase. Временный отказ v2 balance errors заменён полным v2 encoding. Три balance schemas ссылаются на local simulation-v2 scenario/policy и неизменные v1 fragments; cache12. [Аудит balance](../audits/m8-balance-v2-readiness.md).
+
+Обе magic CLI-команды принимают1/2, остальные шесть routes — только1. Domain/engine/simulation версию wire не знают; v1 schemas и seed scheme прежние. [Public proof](../examples/m8/opt_in_transport_contract_probe.py) использует настоящий opted generator и обе v2 families без temporary legacy view. Следующий этап — общий installed audit.
 
 ## M8 opt-in journal/runner, ADR-0046 этап 3
 

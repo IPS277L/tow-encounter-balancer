@@ -289,9 +289,8 @@ class M8MagicJsonV2Tests(unittest.TestCase):
     def test_balance_error_cannot_silently_downgrade_shared_v2_metadata(self):
         legacy = MagicBalanceInputError(Code.INVALID_INPUT, 'bad')
         self.assertEqual(json.loads(encode_magic_balance_error(legacy))['schema_version'], '1')
-        future = MagicBalanceInputError(Code.INVALID_INPUT, 'bad', schema_version='2')
-        with self.assertRaises(ValueError):
-            encode_magic_balance_error(future)
+        current = MagicBalanceInputError(Code.INVALID_INPUT, 'bad', schema_version='2')
+        self.assertEqual(json.loads(encode_magic_balance_error(current))['schema_version'], '2')
 
     def test_same_id_policy_substitution_is_rejected_by_encoder_and_service(self):
         opted, legacy = (parse(json.dumps(document(opted=value))) for value in (True, False))

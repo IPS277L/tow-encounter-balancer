@@ -96,11 +96,12 @@ $env:PYTHONPATH = "src"
 .venv/Scripts/python.exe docs/examples/m8/opted_miscast.py
 ```
 
-Четыре scripted сценария проверяют конкретные пути, не вероятности исходов. Policy передаётся явно через Python API; [аудит runner и ограничения](docs/audits/m8-opt-in-miscast-readiness.md). По [ADR-0047](docs/decisions/ADR-0047-opt-in-generation-and-magic-json-v2.md) native generation принимает отдельную family policy, полностью равную template, и сохраняет её в каждом составе. [Аудит generation](docs/audits/m8-opt-in-generation-readiness.md) и [проверочный пример](docs/examples/m8/opt_in_transport_contract_probe.py). JSON/CLI v1 по-прежнему отвергает opt-in. Simulation v2 реализован: required `scenario.miscast_continuation` — `null` либо полная explicit policy; результат и ошибки после строгого разбора сохраняют v2. [Контракт/проверки](docs/audits/m8-simulation-v2-readiness.md). Balance v2 — следующий этап.
+Четыре scripted сценария проверяют конкретные пути, не вероятности исходов. Policy передаётся явно через Python API; [аудит runner и ограничения](docs/audits/m8-opt-in-miscast-readiness.md). По [ADR-0047](docs/decisions/ADR-0047-opt-in-generation-and-magic-json-v2.md) native generation принимает отдельную family policy, полностью равную template, и сохраняет её в каждом составе. [Аудит generation](docs/audits/m8-opt-in-generation-readiness.md) и [проверочный пример](docs/examples/m8/opt_in_transport_contract_probe.py). JSON/CLI v1 по-прежнему отвергает opt-in. Simulation v2 реализован: required `scenario.miscast_continuation` — `null` либо полная explicit policy; результат и ошибки после строгого разбора сохраняют v2. [Контракт/проверки](docs/audits/m8-simulation-v2-readiness.md). Balance v2 также реализован: required nullable policy задаётся отдельно в `reserve.scenario` и `generation`, значения должны полностью совпадать. [Аудит balance v2](docs/audits/m8-balance-v2-readiness.md). Следующий этап — общий installed audit.
 
 ```powershell
 $env:PYTHONPATH = "src"
 .venv/Scripts/python.exe -m towr simulate-magic docs/examples/m8/json/magic-simulation-v2.request.json
+.venv/Scripts/python.exe -m towr balance-magic docs/examples/m8/json/magic-balance-v2.request.json
 ```
 
 ```sh

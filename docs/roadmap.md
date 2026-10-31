@@ -198,11 +198,11 @@ Unsafe Broken+Prone и ongoing Prone Wound restrictions сохраняют expli
 
 ## ADR-0047 — opt-in generation и Magic JSON v2
 
-[Контракт](decisions/ADR-0047-opt-in-generation-and-magic-json-v2.md) и [finite round-trip proof](examples/m8/opt_in_transport_contract_probe.py) подготовлены. Native generation и simulation v2 реализованы; balance v2 ещё нет, v1 сохраняет явный отказ от opt-in. Новые Miscast effects не добавляются.
+[Контракт](decisions/ADR-0047-opt-in-generation-and-magic-json-v2.md) и [finite round-trip proof](examples/m8/opt_in_transport_contract_probe.py) подготовлены. Native generation, simulation v2 и balance v2 реализованы; v1 сохраняет явный отказ от opt-in. Новые Miscast effects не добавляются.
 
 1. **Реализовано:** native generation с explicit отдельной family policy, exact equality с template, полной projection/result validation и integration; None compatibility. [Аудит](audits/m8-opt-in-generation-readiness.md): 14 новых unit +4 integration +1 v1 guard test, настоящий generated Wind/staged/spawn.
 2. **Реализовано:** simulation v2: explicit nullable policy, versioned command/errors/Schema/mapper/service/CLI; v1 неизменен. [Аудит](audits/m8-simulation-v2-readiness.md).
-3. Balance v2: отдельные reserve/family assertions, full catalog/report/source, phase errors и CLI.
+3. **Реализовано:** balance v2: отдельные reserve/family assertions, full catalog/report/source, phase errors и CLI. [Аудит](audits/m8-balance-v2-readiness.md).
 4. Общий аудит: public примеры, двенадцать magic schemas/local refs, installed parity, все CLI families и полная регрессия.
 
-Точный следующий шаг — пункт 3 целиком: balance v2 (три schemas, command/phase errors, separate reserve/family policy, exact source chain, service/CLI/tests), без промежуточного v2 input с v1 output. Затем пункт4 — общий installed/full audit. [Первоначальная контрактная проверка](audits/m8-opt-in-transport-contract.md).
+Точный следующий шаг — пункт4: общий field/guard/source/wheel/installed audit всех12 magic schemas, обеих v2 families и прежних CLI routes; public stored results и полная регрессия с отдельным учётом known errors. Этап3 не заменяет installed evidence. [Первоначальная контрактная проверка](audits/m8-opt-in-transport-contract.md).

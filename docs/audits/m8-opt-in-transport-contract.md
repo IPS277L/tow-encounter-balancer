@@ -2,7 +2,7 @@
 
 Дата: 2026-10-31. Проверяется **проектирование ADR-0047 и конечное ручное отображение**, не реализация opted generator/v2 wire. [Контракт](../decisions/ADR-0047-opt-in-generation-and-magic-json-v2.md), [probe](../examples/m8/opt_in_transport_contract_probe.py), [stdout](../examples/m8/opt_in_transport_contract_probe.output.txt), [subprocess test](../../tests/integration/test_m8_opt_in_transport_contract_probe.py).
 
-Последующие этапы1–2 реализованы и описаны отдельными аудитами: [native generation](m8-opt-in-generation-readiness.md), [simulation v2](m8-simulation-v2-readiness.md). Текущий public probe вызывает production opted generator и simulation v2 parser/encoder; balance v2 остаётся ручным. Ниже сохранён результат первоначальной contract-only проверки, не новая implementation evidence.
+Последующие этапы1–2 реализованы и описаны отдельными аудитами: [native generation](m8-opt-in-generation-readiness.md), [simulation v2](m8-simulation-v2-readiness.md). После [этапа3 balance v2](m8-balance-v2-readiness.md) текущий public probe вызывает production opted generator и обе v2 families; temporary legacy views устранены. Ниже сохранён результат первоначальной contract-only проверки, не новая implementation evidence.
 
 ## Решения и evidence
 

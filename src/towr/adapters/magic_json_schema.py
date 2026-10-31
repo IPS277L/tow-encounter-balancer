@@ -8,12 +8,11 @@ from referencing import Registry, Resource
 
 
 def _require_schema_version(family: str, schema_version: str) -> None:
-    if (type(schema_version) is not str or schema_version not in ("1", "2")
-            or (family == "balance" and schema_version != "1")):
+    if type(schema_version) is not str or schema_version not in ("1", "2"):
         raise ValueError(f"unsupported magic {family} schema version")
 
 
-@lru_cache(maxsize=9)
+@lru_cache(maxsize=12)
 def _validator(kind: str, family: str = "simulation", schema_version: str = "1") -> Draft202012Validator:
     if kind not in ("request", "result", "error"):
         raise ValueError(f"unknown magic {family} schema kind")
@@ -24,8 +23,8 @@ def _validator(kind: str, family: str = "simulation", schema_version: str = "1")
     names = [f"magic-{group}-{name}-v1.schema.json"
              for group in groups for name in ("request", "result", "error")]
     if schema_version == "2":
-        names.extend(f"magic-simulation-{name}-v2.schema.json"
-                     for name in ("request", "result", "error"))
+        names.extend(f"magic-{group}-{name}-v2.schema.json"
+                     for group in groups for name in ("request", "result", "error"))
     names.append("ranged-simulation-request-v1.schema.json")
     documents = {
         name: json.loads(files("towr.adapters.schemas").joinpath(name).read_text(encoding="utf-8"))
