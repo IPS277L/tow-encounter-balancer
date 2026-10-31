@@ -1,0 +1,63 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:towr:magic-simulation:request:2",
+  "$comment": "ADR-0047: explicit nullable continuation; unchanged fragments are bundled v1 references.",
+  "type": "object",
+  "properties": {
+    "schema_version": {"type": "string", "const": "2"},
+    "kind": {"$ref": "urn:towr:magic-simulation:request:1#/properties/kind"},
+    "request_id": {"$ref": "urn:towr:magic-simulation:request:1#/properties/request_id"},
+    "ruleset": {"$ref": "urn:towr:magic-simulation:request:1#/properties/ruleset"},
+    "simulation": {"$ref": "urn:towr:magic-simulation:request:1#/properties/simulation"},
+    "execution": {"$ref": "urn:towr:magic-simulation:request:1#/properties/execution"},
+    "scenario": {"$ref": "#/$defs/scenario"}
+  },
+  "required": ["schema_version", "kind", "request_id", "ruleset", "simulation", "execution", "scenario"],
+  "additionalProperties": false,
+  "$defs": {
+    "miscast_continuation": {
+      "type": ["object", "null"],
+      "properties": {
+        "choice": {"type": "string", "const": "decline_cast_before_miscast"},
+        "facts": {
+          "type": "object",
+          "properties": {
+            "all_combatants_in_roster": {"type": "boolean", "const": true},
+            "no_external_short_range_creatures": {"type": "boolean", "const": true},
+            "unmounted_combatants_only": {"type": "boolean", "const": true},
+            "no_effect_immunities": {"type": "boolean", "const": true},
+            "no_cross_zone_close": {"type": "boolean", "const": true}
+          },
+          "required": ["all_combatants_in_roster", "no_external_short_range_creatures", "unmounted_combatants_only", "no_effect_immunities", "no_cross_zone_close"],
+          "additionalProperties": false
+        },
+        "prone_policy": {"type": "string", "const": "self_stand_when_safe"}
+      },
+      "required": ["choice", "facts", "prone_policy"],
+      "additionalProperties": false
+    },
+    "scenario": {
+      "type": "object",
+      "properties": {
+        "scenario_id": {"$ref": "urn:towr:magic-simulation:request:1#/$defs/scenario/properties/scenario_id"},
+        "definitions": {"$ref": "urn:towr:magic-simulation:request:1#/$defs/scenario/properties/definitions"},
+        "actors": {"$ref": "urn:towr:magic-simulation:request:1#/$defs/scenario/properties/actors"},
+        "battlefield": {"$ref": "urn:towr:magic-simulation:request:1#/$defs/scenario/properties/battlefield"},
+        "placements": {"$ref": "urn:towr:magic-simulation:request:1#/$defs/scenario/properties/placements"},
+        "side_order": {"$ref": "urn:towr:magic-simulation:request:1#/$defs/scenario/properties/side_order"},
+        "activation_order": {"$ref": "urn:towr:magic-simulation:request:1#/$defs/scenario/properties/activation_order"},
+        "perspective_side": {"$ref": "urn:towr:magic-simulation:request:1#/$defs/scenario/properties/perspective_side"},
+        "objective_target_ids": {"$ref": "urn:towr:magic-simulation:request:1#/$defs/scenario/properties/objective_target_ids"},
+        "facts": {"$ref": "urn:towr:magic-simulation:request:1#/$defs/scenario/properties/facts"},
+        "wizard": {"$ref": "urn:towr:magic-simulation:request:1#/$defs/scenario/properties/wizard"},
+        "spell": {"$ref": "urn:towr:magic-simulation:request:1#/$defs/scenario/properties/spell"},
+        "actor_policies": {"$ref": "urn:towr:magic-simulation:request:1#/$defs/scenario/properties/actor_policies"},
+        "scene_frames": {"$ref": "urn:towr:magic-simulation:request:1#/$defs/scenario/properties/scene_frames"},
+        "repeated_stagger_choice": {"$ref": "urn:towr:magic-simulation:request:1#/$defs/scenario/properties/repeated_stagger_choice"},
+        "miscast_continuation": {"$ref": "#/$defs/miscast_continuation"}
+      },
+      "required": ["scenario_id", "definitions", "actors", "battlefield", "placements", "side_order", "activation_order", "perspective_side", "objective_target_ids", "facts", "wizard", "spell", "actor_policies", "scene_frames", "repeated_stagger_choice", "miscast_continuation"],
+      "additionalProperties": false
+    }
+  }
+}

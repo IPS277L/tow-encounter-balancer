@@ -13,6 +13,7 @@ from towr.domain.infection_models import DailyWoundState
 from towr.domain.injury_models import CharacterInjuryState, CharacterWoundType
 from towr.domain.npc_attack_preparation_models import NpcProtectedAttackPreparationResult
 from towr.domain.npc_roster_models import NpcRoster
+from towr.domain.npc_prone_shooting import _validate_prone_shooting
 from towr.domain.resolution_models import (
     AttackerStaggerRequest, FollowUpRequest, KernelAttackRequest, ResolutionResult, TargetInjuryPolicy,
 )
@@ -100,8 +101,8 @@ class NpcChampionAttackRequest:
             raise ValueError('bridge requires living actor and target')
         # Additional Conditions/restrictions need dedicated current-profile adapters.
         for participant in (actor, target):
-            if any(c is not Condition.STAGGERED for c in participant.state.injury.conditions.conditions):
-                raise ValueError('bridge currently supports only initial Staggered')
+            if not participant.state.injury.conditions.conditions <= {Condition.STAGGERED, Condition.PRONE}:
+                raise ValueError('bridge currently supports only initial Staggered or standalone Prone Shooting')
         injury = target.state.injury
         if injury.active_wound_effects or any(not w.effect_resolved for w in injury.wounds):
             raise ValueError('target Wound effects must be resolved and have no active restrictions')
@@ -127,6 +128,7 @@ class NpcChampionAttackRequest:
         if any(p.skill not in profiles or p.test.profile != profiles[p.skill] for p in protection.options):
             raise ValueError('Protection profiles differ from Champion definition')
         kernel = execution.kernel_request
+        _validate_prone_shooting(actor, target, prepared, kernel)
         if kernel != KernelAttackRequest(
             kernel.id, execution.target_id, prepared.attack, TargetInjuryPolicy.CHAMPION,
             injury, kernel.can_target_leave_zone, kernel.target_has_given_ground_this_round,

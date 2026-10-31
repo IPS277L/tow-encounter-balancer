@@ -13,6 +13,7 @@ from towr.domain.npc_magic_journal_policy import (
     validate_magic_step_predecessor,
 )
 from towr.domain.npc_magic_scenario_models import NpcMagicScenario
+from towr.domain.npc_magic_miscast_journal_policy import validate_magic_miscast_predecessor
 from towr.domain.npc_magic_scene_models import _ordered, _identifier
 from towr.domain.npc_magic_step_models import (
     NpcMagicStep, NpcMagicScenarioOutcome, NpcMagicPhase, NpcMagicUnsupported, NpcMagicUnsupportedReason,
@@ -21,6 +22,7 @@ from towr.domain.npc_roster_casting_models import NpcRosterCastingState
 from towr.domain.npc_roster_miscast_models import NpcRosterMiscastRollResult
 from towr.domain.npc_roster_turn_models import NpcRosterTurnStartResult
 from towr.domain.npc_wound_turn_end_models import NpcWoundTurnEndResult
+from towr.domain.npc_roster_prone_models import NpcRosterProneTurnEndResult
 from towr.domain.resolution_models import GiveGroundRequest, CowardlyFlightMovementCompletion
 
 
@@ -57,8 +59,14 @@ def _injury_supported(state: NpcRosterCastingState, actor_id: str,
         return False
     if champion_attack:
         return not injury.active_wound_effects
-    return all(isinstance(e, WoundConditionEffect) and e.condition in conditions - {Condition.BROKEN}
-               and injury.conditions.has(e.condition) for e in injury.active_wound_effects)
+    # Standalone Prone admission must never admit an ongoing Prone Wound cause.
+    return all(isinstance(e, WoundConditionEffect)
+               and e.condition in conditions & {Condition.STAGGERED, Condition.DRAINED}
+               and injury.conditions.has(e.condition)
+               and (Condition.PRONE not in conditions or e.duration in (
+                   WoundEffectDuration.END_OF_NEXT_TURN, WoundEffectDuration.UNTIL_REMOVED,
+                   WoundEffectDuration.UNTIL_TREATED, WoundEffectDuration.UNTIL_HEALED))
+               for e in injury.active_wound_effects)
 
 
 def _bad_clock(state: NpcRosterCastingState) -> bool:
@@ -92,6 +100,7 @@ def diagnose_npc_magic_unsupported(
     reason = NpcMagicUnsupportedReason
     turn = state.round_state.active_turn
     actor_id = turn.actor_id if turn else None
+    opted = scenario.miscast_continuation is not None
 
     def stop(why, *, actors=(), zones=(), key=None, identifier=source_id, prefix=()):
         return NpcMagicUnsupported(phase, why, actor_id, identifier, actors, zones, key, prefix)
@@ -101,11 +110,20 @@ def diagnose_npc_magic_unsupported(
     if state.pending_miscast_continuation is not None:
         prefix = state.pending_miscast_continuation
         if isinstance(prefix, NpcRosterMiscastRollResult):
+            from towr.domain.magic_models import MiscastTableEntryId
+            if opted and prefix.roll.entry.id is MiscastTableEntryId.UNNATURAL_WIND:
+                return None
             return stop(reason.MISCAST_EFFECT, identifier=prefix.effect_request.resolution_id)
+        if opted:
+            return None
         return stop(reason.MISCAST_ROLL, identifier=prefix.roll_request.resolution_id)
     if state.pending_miscast is not None:
+        if opted:
+            return None
         return stop(reason.MISCAST_PREPARATION, identifier=state.pending_miscast.source.id)
     if state.pending_interruption is not None:
+        if opted:
+            return None
         return stop(reason.MISCAST_PREPARATION, identifier=state.pending_interruption.action.id)
     if state.champion_attack is not None and state.champion_attack.pending is not None:
         attack = state.champion_attack.pending
@@ -143,6 +161,8 @@ def diagnose_npc_magic_unsupported(
                                     for e in state.wound_expiries)):
             return stop(reason.CHRONOLOGY)
         conditions = {Condition.STAGGERED, Condition.DRAINED, Condition.BROKEN}
+        if opted:
+            conditions.add(Condition.PRONE)
         if not _injury_supported(state, actor_id, conditions):
             return stop(reason.END_TURN, actors=(actor_id,))
         return None
@@ -151,11 +171,22 @@ def diagnose_npc_magic_unsupported(
     broken = injury.conditions.has(Condition.BROKEN)
     conditions = ({Condition.BROKEN, Condition.STAGGERED, Condition.DRAINED} if broken else
                   {Condition.STAGGERED, Condition.DRAINED} if actor_id == state.wizard.actor_id else {Condition.STAGGERED})
+    if opted:
+        conditions.add(Condition.PRONE)
+        if (_bad_clock(state) or any(e.actor_id == actor_id
+                and e.deadline_round_number != state.round_state.round_number for e in state.wound_expiries)):
+            return stop(reason.CHRONOLOGY)
     if not _injury_supported(state, actor_id, conditions):
         return stop(reason.ACTOR_INJURY, actors=(actor_id,))
     frame = scenario.frame_for(magic_scene_key(state))
     if frame is None:
         return stop(reason.MISSING_SCENE, key=magic_scene_key(state))
+    if opted:
+        from towr.domain.npc_magic_journal_policy import magic_prone_unsafe_broken, magic_prone_stand_eligible
+        if magic_prone_unsafe_broken(state, actor_id):
+            return stop(reason.BROKEN_ROUTE, actors=(actor_id,))
+        if magic_prone_stand_eligible(scenario, state, frame):
+            return None  # Required policy transition precedes target/action checks.
     if broken:
         if not any(p.actor_id == actor_id for p in frame.broken_plans):
             return stop(reason.BROKEN_ROUTE, actors=(actor_id,))
@@ -168,10 +199,12 @@ def diagnose_npc_magic_unsupported(
                         is not state.roster.participant(actor_id).state.side
                         and state.spatial_state.placement_for(i).zone_id == target)
         bad = tuple(i for i in enemies if not _injury_supported(state, i,
-                    {Condition.STAGGERED, Condition.DRAINED, Condition.BROKEN}))
+                    {Condition.STAGGERED, Condition.DRAINED, Condition.BROKEN}
+                    | ({Condition.PRONE} if opted else set())))
     else:
         bad = (() if _injury_supported(state, target,
-               {Condition.STAGGERED} if target == state.wizard.actor_id else {Condition.STAGGERED, Condition.BROKEN},
+               ({Condition.STAGGERED} if target == state.wizard.actor_id else {Condition.STAGGERED, Condition.BROKEN})
+               | ({Condition.PRONE} if opted else set()),
                champion_attack=target == state.wizard.actor_id) else (target,))
     if bad:
         return stop(reason.TARGET_INJURY, actors=bad)
@@ -210,12 +243,14 @@ class NpcMagicScenarioResult:
                 raise ValueError('journal phase/action IDs must not repeat or collide')
             seen.update(identifiers)
             validate_magic_step_predecessor(previous, step)
+            validate_magic_miscast_predecessor(self.source, previous, step)
             validate_magic_step_policy(self.source, step)
             current = step.after
             previous = step
             if current.round_state.round_number > self.source.max_rounds:
                 raise ValueError('journal exceeds the global round budget')
         validate_magic_step_predecessor(previous, None)
+        validate_magic_miscast_predecessor(self.source, previous, None)
         object.__setattr__(self, '_current', current)
         terminal = npc_magic_terminal_outcome(self.source, current)
         if terminal is not None:
@@ -242,7 +277,8 @@ class NpcMagicScenarioResult:
 
     @property
     def completed_rounds(self) -> int:
-        return sum(isinstance(s.result, NpcWoundTurnEndResult) and s.after.round_state.round_complete for s in self.steps)
+        return sum(isinstance(s.result, (NpcWoundTurnEndResult, NpcRosterProneTurnEndResult))
+                   and s.after.round_state.round_complete for s in self.steps)
 
     @property
     def executed_actions(self) -> int:

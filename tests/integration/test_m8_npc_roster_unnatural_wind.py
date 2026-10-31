@@ -13,6 +13,7 @@ from tests.unit.test_m8_npc_roster_miscast_preparation import casting_pending, i
 from towr.domain.condition_models import Condition
 from towr.domain.npc_magic_scenario_result_models import diagnose_npc_magic_unsupported, npc_magic_terminal_outcome
 from towr.domain.npc_magic_step_models import NpcMagicStep, NpcMagicPhase, NpcMagicUnsupportedReason as Reason
+from towr.domain.npc_magic_journal_policy import validate_magic_step_policy
 from towr.domain.npc_roster_models import NpcRoster
 from towr.domain.npc_roster_miscast_models import NpcRosterUnnaturalWindRequest
 from towr.domain.npc_wound_turn_end_models import NpcWoundTurnEndRequest
@@ -104,9 +105,9 @@ class UnnaturalWindIntegrationTests(unittest.TestCase):
         self.assertIs(stop.reason, Reason.TARGET_INJURY)
         self.assertEqual(stop.missing_actor_ids, ('enemy',))
 
-    def test_new_result_is_not_a_closed_journal_step_or_a_fresh_input(self):
+    def test_new_result_is_not_an_admitted_legacy_journal_step_or_a_fresh_input(self):
         source, raw = casting_pending(); result = resolve(request(raw))
-        with self.assertRaises(TypeError): NpcMagicStep(result)
+        with self.assertRaises(ValueError): validate_magic_step_policy(source, NpcMagicStep(result))
         with self.assertRaises(ValueError): replace(source, initial=result.state)
         with self.assertRaises(ValueError): NpcRosterUnnaturalWindRequest(result.source.id, result.state)
         self.assertIsNotNone(raw.pending_miscast)

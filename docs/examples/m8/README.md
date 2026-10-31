@@ -1,5 +1,27 @@
 # Примеры магии M8
 
+## Контракт opt-in generation / JSON v2 — ADR-0047
+
+[Public generation / finite transport probe](opt_in_transport_contract_probe.py) / [сохранённый вывод](opt_in_transport_contract_probe.output.txt), [контракт](../../decisions/ADR-0047-opt-in-generation-and-magic-json-v2.md), [проверка](../../../tests/integration/test_m8_opt_in_transport_contract_probe.py), [аудит generation](../../audits/m8-opt-in-generation-readiness.md). Native opted generation и simulation v2 вызываются через настоящий API; только balance v2 пока отображается вручную. [Пример simulation v2](json/magic-simulation-v2.request.json) доступен прежней CLI-командой; [аудит](../../audits/m8-simulation-v2-readiness.md).
+
+```powershell
+$env:PYTHONPATH = "src"
+.venv/Scripts/python.exe docs/examples/m8/opt_in_transport_contract_probe.py
+```
+
+Для копирования нужны четыре соседних файла: `opt_in_transport_contract_probe.py`, `generation_contract_probe.py`, `magic_scenario.py`, `opted_miscast.py`. Genuine legacy inputs дают полные public v1 request echoes (simulation1/balance4 trials). Simulation null/full policy проходят настоящий v2 parser, runner и encoder с полным source; balance reserve/family пока отображаются вручную. Temporary legacy balance view не исполняется. Orders/IDs/seeds/budgets сохраняются. Четыре настоящих opted subsets и opposite perspective сравниваются с manual и legacy projections плюс явной family policy; восстановленный opted source проверен настоящими Wind trace/trial (16+16 scripted d10) и v2 result round-trip. Это finite evidence, не вероятности; отдельная production acceptance matrix — в аудите. Opted native request обязан передать `miscast_continuation=policy` отдельно от такого же поля template; иначе early preflight откажет.
+
+## Opt-in Miscast runner / Prone — ADR-0046
+
+[opted_miscast.py](opted_miscast.py) / [сохранённый вывод](opted_miscast.output.txt), [проверка внешнего cwd](../../../tests/integration/test_m8_opted_miscast_example.py), [аудит](../../audits/m8-opt-in-miscast-readiness.md). Для копирования нужны два файла: `opted_miscast.py` и соседний `magic_scenario.py`, плюс установленный текущий `towr` либо абсолютный PYTHONPATH на src.
+
+```powershell
+$env:PYTHONPATH = "src"
+.venv/Scripts/python.exe docs/examples/m8/opted_miscast.py
+```
+
+Четыре fresh случая и 50 scripted d10: legacy stop; other-row с сохранённым Pool; Wind в последнем раунде→Prone end/stand/Shooting; следующий раунд→Wizard stand/Casting→objective. Скрипт использует реальный runner и полный journal witness, без подмены pending/результатов; числа доказывают пути, не вероятности. Opt-in доступен через native Python API; generation требует explicit matching family policy, JSON v1 по-прежнему её отвергает.
+
 [ADR-0035](../../decisions/ADR-0035-cowardly-flight-casting-boundary.md) реализован и закрыт [аудитом](../../audits/m8-casting-readiness.md) в границе одного Casting-действия с Curse of Cowardly Flight. [Input](../../../src/towr/domain/cowardly_flight_casting_models.py), [result](../../../src/towr/domain/cowardly_flight_casting_result_models.py) и [executor](../../../src/towr/engine/cowardly_flight_casting.py) доступны через typed Python API. Существующие mixed JSON/CLI не принимают мага или spell.
 
 ## Самостоятельный production-пример

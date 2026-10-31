@@ -201,7 +201,7 @@ class RosterMinionAttackTests(unittest.TestCase):
 
     def test_unsupported_conditions_rejected_before_attack_rng(self):
         for actor, condition in (('ally', Condition.DRAINED), ('enemy', Condition.DRAINED),
-                                 ('enemy', Condition.PRONE), ('enemy', Condition.ABLAZE)):
+                                 ('enemy', Condition.BLINDED), ('enemy', Condition.ABLAZE)):
             state = changed_roster(scenario().initial_runtime_state, lambda p: replace(p, state=replace(p.state,
                 injury=replace(p.state.injury, conditions=p.state.injury.conditions.with_condition(condition))))
                 if p.state.actor_id == actor else p)

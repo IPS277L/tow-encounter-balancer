@@ -18,6 +18,7 @@ from towr.domain.npc_magic_step_models import (
     NpcMagicScenarioOutcome as Outcome,
 )
 from towr.domain.npc_magic_scenario_result_models import NpcMagicScenarioResult, diagnose_npc_magic_unsupported
+from towr.domain.npc_magic_scene_models import NpcMagicAttackDeparture
 from towr.domain.npc_roster_attack_models import NpcRosterAttackExecutionRequest
 from towr.domain.npc_roster_casting_models import NpcRosterCastingResult, NpcRosterCastingTargetContext
 from towr.domain.npc_roster_casting_completion_models import NpcRosterCastingCompletionRequest, NpcRosterCastingCompletionResult
@@ -43,6 +44,12 @@ from towr.rules.spatial_resolution import resolve_give_ground
 class Journal:
     def __init__(self, source=None):
         self.source = scenario() if source is None else source
+        # These hand-built attack fixtures use open arenas and can_leave=True.
+        # Record that authored fact explicitly, just as the runner fixture does.
+        self.source = replace(self.source, scene_frames=tuple(replace(f,
+            attack_departures=f.attack_departures or tuple(
+                NpcMagicAttackDeparture(i, True) for i in f.key.live_actor_ids))
+            for f in self.source.scene_frames))
         self.current = self.source.initial_runtime_state
         self.steps = []
 

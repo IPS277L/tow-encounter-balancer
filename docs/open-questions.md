@@ -1,6 +1,6 @@
 # Открытые вопросы и действующие допущения
 
-Дата: 2026-10-28. Закрытые направления и история реализации перенесены в [архив](open-questions-history.md). Текущий этап и следующий шаг — в [статусе](project-status.md). Этот список не расширяет scope принятых ADR.
+Дата: 2026-10-31. Закрытые направления и история реализации перенесены в [архив](open-questions-history.md). Текущий этап и следующий шаг — в [статусе](project-status.md). Этот список не расширяет scope принятых ADR.
 
 ## Действующая граница симуляции
 
@@ -18,9 +18,11 @@ M2/M6/M7 завершены для ограниченных numeric Minion-сц�
 
 [ADR-0045](decisions/ADR-0045-source-bound-unnatural-wind.md) готов: первый low-level consumer принимает explicit DECLINE_CAST_BEFORE_MISCAST без default. Это легальный книжный выбор, в том числе при доступном spell; desperate CAST и abandonment не подключаются. Required facts подтверждают complete combat roster, отсутствие external Short creatures/bystanders, mounts/immunity и cross-Zone Close. Факты не выводятся из числового профиля/Zone graph.
 
-Preparation → one-roll → actual Wind21–22 реализованы и закрыты [low-level аудитом](audits/m8-unnatural-wind-readiness.md): explicit DECLINE/five facts, full source/trace, effect-before-Pool0 и guards. Other-row/partial failure не очищают Pool. Fresh runner не выбирает decline автоматически, closed journal не принимает новые phases. Наличие low-level consumer не означает resumed battle.
+Preparation → one-roll → actual Wind21–22 реализованы и закрыты [low-level аудитом](audits/m8-unnatural-wind-readiness.md): explicit DECLINE/five facts, full source/trace, effect-before-Pool0 и guards. Other-row/partial failure не очищают Pool. ADR-0045 сам по себе не выбирает decline и не расширяет journal; opt-in integration подключена отдельным ADR-0046 ниже.
 
-[ADR-0046](decisions/ADR-0046-opt-in-miscast-runner-and-prone.md) подготовлен: optional explicit opt-in/None legacy, typed полный origin witness, self-stand-when-safe и scoped Prone adapters. Production ещё нет. Unsafe Broken+Prone, ongoing Prone Wound causes и Run после израсходованной free move остаются honest stops; safe Broken alternative Recover не получает standard benefits. Generation/wire opted sources будут отвергаться явно, без policy loss. Новых книжных ambiguities не выявлено; Miscast self-inclusion других строк ниже остаётся открытым.
+[ADR-0046](decisions/ADR-0046-opt-in-miscast-runner-and-prone.md): реализованы explicit opt-in/None legacy, lossless generation/wire rejection, stand/end, Casting/Curse и Shooting/Protection Prone. Actual target Prone выводит effective Give Ground=False и один −1d incoming Shooting, не меняя authored scene facts. Safe Broken alternative Recover реализован; полный origin witness и автоматическое исполнение подключены в этапе 3. Opted сценарий проходит preparation/roll/Wind21–22, остальные rows сохраняют MISCAST_EFFECT/Pool; None сохраняет прежний stop. Unsafe Broken+Prone, ongoing Prone Wound causes и Run после израсходованной free move остаются honest stops; safe Broken alternative Recover не получает standard benefits. Новых книжных ambiguities не выявлено; Miscast self-inclusion других строк ниже остаётся открытым.
+
+ADR-0046 закрыт [итоговым аудитом](audits/m8-opt-in-miscast-readiness.md): native trial/sequential/process/assessment, public opted example и installed parity проверены. В [ADR-0047](decisions/ADR-0047-opt-in-generation-and-magic-json-v2.md) реализован native generation: explicit отдельная family policy равна template, удалённые резервисты отсутствуют в конкретном сценарии (не external Short bystanders). [Проверки generation](audits/m8-opt-in-generation-readiness.md). Новых книжных ambiguities нет. Simulation v2 с полной nullable policy реализован; strict-decode fallback и сохранение версии ошибок проверены [аудитом transport](audits/m8-simulation-v2-readiness.md). V1 продолжает отвергать opt-in. Следующая граница — balance v2 с отдельными reserve/family assertions, затем общий installed audit. Source-only проверки этапа2 не заменяют installed evidence.
 
 ## Значение ничьей для балансировки
 
@@ -98,7 +100,7 @@ Player’s Guide 1.4 на странице 122 отдельно перечисл
 
 ## Проверки dataclasses на Python 3.12
 
-На macOS arm64 / Python 3.12.15 остаются33существующие ошибки assertions; последний полный прогон указан в [статусе](project-status.md#последняя-проверка). Ошибки воспроизведены на прежних чистых коммитах:
+На macOS arm64 / Python 3.12.15 зафиксированы 33 существующие ошибки assertions; они также воспроизведены на Windows x64 / Python 3.12.4. Последний полный прогон указан в [статусе](project-status.md#последняя-проверка). Исторически ошибки воспроизведены на прежних чистых коммитах:
 
 - `test_k1_registered_aim_loss_prepared_attack.py` и `test_k1_registered_aim_loss_ranged_attack.py`: 32 subtests ожидают FrozenInstanceError при записи frozen/slotted property `.state`, Python 3.12 выдаёт TypeError.
 - `test_m5_ranged_evaluation.py`: один test ожидает TypeError при dataclasses.replace поля init=False, фактически получается ValueError.

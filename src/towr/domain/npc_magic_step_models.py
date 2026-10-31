@@ -12,6 +12,10 @@ from towr.domain.npc_roster_champion_attack_models import NpcRosterChampionAttac
 from towr.domain.npc_roster_dead_champion_models import NpcRosterDeadChampionExclusionResult
 from towr.domain.npc_roster_minion_attack_models import NpcRosterMinionAttackResult
 from towr.domain.npc_roster_minion_defeat_models import NpcRosterMinionDefeatResult
+from towr.domain.npc_roster_miscast_models import (
+    NpcRosterMiscastPreparationResult, NpcRosterMiscastRollResult, NpcRosterUnnaturalWindResult,
+)
+from towr.domain.npc_roster_prone_models import NpcRosterProneStandResult, NpcRosterProneTurnEndResult
 from towr.domain.npc_roster_turn_models import NpcRosterTurnStartResult, NpcRosterRoundAdvanceResult
 from towr.domain.npc_wound_turn_end_models import NpcWoundTurnEndResult
 from towr.domain.resolution_models import CowardlyFlightMovementCompletion
@@ -22,22 +26,40 @@ NpcMagicStepResult: TypeAlias = (
     | NpcRosterCastingCompletionResult | NpcRosterChampionAttackResult | NpcRosterMinionAttackResult
     | NpcRosterMinionDefeatResult | NpcRosterDeadChampionExclusionResult
     | NpcBrokenRecoverResult | NpcBrokenRunResult | NpcWoundTurnEndResult
+    | NpcRosterMiscastPreparationResult | NpcRosterMiscastRollResult | NpcRosterUnnaturalWindResult
+    | NpcRosterProneStandResult | NpcRosterProneTurnEndResult
 )
 _RESULT_TYPES = (
     NpcRosterTurnStartResult, NpcRosterRoundAdvanceResult, NpcRosterCastingResult,
     NpcRosterCastingCompletionResult, NpcRosterChampionAttackResult, NpcRosterMinionAttackResult,
     NpcRosterMinionDefeatResult, NpcRosterDeadChampionExclusionResult,
     NpcBrokenRecoverResult, NpcBrokenRunResult, NpcWoundTurnEndResult,
+    NpcRosterMiscastPreparationResult, NpcRosterMiscastRollResult, NpcRosterUnnaturalWindResult,
+    NpcRosterProneStandResult, NpcRosterProneTurnEndResult,
 )
 
 
 @dataclass(frozen=True, slots=True)
 class NpcMagicStep:
     result: NpcMagicStepResult
+    origin_witness: NpcRosterCastingResult | NpcBrokenRecoverResult | NpcBrokenRunResult | None = None
 
     def __post_init__(self) -> None:
         if type(self.result) not in _RESULT_TYPES:
             raise TypeError('magic step requires a supported full-owner bound result')
+        witness = self.origin_witness
+        if isinstance(self.result, NpcRosterMiscastPreparationResult):
+            if type(witness) not in (NpcRosterCastingResult, NpcBrokenRecoverResult, NpcBrokenRunResult):
+                raise TypeError('Miscast preparation requires its typed full origin witness')
+            state = self.before
+            if witness.state != state:
+                raise ValueError('Miscast origin witness differs from the complete preparation source')
+            proof = witness.casting if isinstance(witness, NpcRosterCastingResult) else witness.interruption
+            pending = state.pending_miscast if isinstance(witness, NpcRosterCastingResult) else state.pending_interruption
+            if pending is None or proof != pending:
+                raise ValueError('Miscast origin witness must retain the exact raw pending proof')
+        elif witness is not None:
+            raise ValueError('only Miscast preparation may retain an origin witness')
 
     @property
     def before(self) -> NpcRosterCastingState:

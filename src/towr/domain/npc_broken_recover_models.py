@@ -1,7 +1,7 @@
 """One supported Broken transition: optional free move, then self Recover.
 
-PG1.4 Rules / Combat Actions pp116-118, Broken p122;
-Magic in the Old World / Interrupted Casting p156. ADR-0036.
+PG1.4 Rules / Combat Actions pp116-118, Broken p122, Prone p123;
+Magic in the Old World / Interrupted Casting p156. ADR-0036/0046.
 """
 from __future__ import annotations
 
@@ -9,7 +9,7 @@ from dataclasses import dataclass, replace
 
 from towr.domain.action_execution_models import SkippedCastingTestAfterActionResult
 from towr.domain.condition_models import Condition
-from towr.domain.injury_models import CharacterInjuryState, WoundConditionEffect
+from towr.domain.injury_models import CharacterInjuryState, WoundConditionEffect, WoundEffectDuration
 from towr.domain.npc_action_interruption import validate_npc_casting_interruption
 from towr.domain.movement_models import FreeMovementRequest, FreeMovementResult
 from towr.domain.npc_roster_casting_models import NpcRosterCastingState
@@ -65,14 +65,31 @@ class NpcBrokenRecoverRequest:
         actor = state.roster.participant(self.actor_id)
         injury = actor.state.injury
         dead = injury.dead if isinstance(injury, CharacterInjuryState) else injury.defeated
-        supported = {Condition.BROKEN, Condition.STAGGERED, Condition.DRAINED}
+        supported = {Condition.BROKEN, Condition.STAGGERED, Condition.DRAINED, Condition.PRONE}
         if dead or not injury.conditions.has(Condition.BROKEN) or not injury.conditions.conditions <= supported:
             raise ValueError('Broken recovery requires a living Broken actor with supported Conditions')
         if isinstance(injury, CharacterInjuryState) and (
             any(not w.effect_resolved for w in injury.wounds) or any(
-                not isinstance(e, WoundConditionEffect) or e.condition not in supported - {Condition.BROKEN}
+                not isinstance(e, WoundConditionEffect) or e.condition not in {Condition.STAGGERED, Condition.DRAINED}
                 or not injury.conditions.has(e.condition) for e in injury.active_wound_effects)):
             raise ValueError('Broken recovery excludes unresolved or unsupported Wound effects')
+        if injury.conditions.has(Condition.PRONE):
+            # A safe alternative Test does not remove Prone or spend free move.
+            # Admission cannot invent an escape route while the actor is Prone.
+            if self.movement is not None and not isinstance(self.movement, FreeMovementRequest):
+                raise TypeError('movement must be a FreeMovementRequest or None')
+            if self.movement is not None:
+                raise ValueError('Prone Broken recovery requires no movement and an already safe Zone')
+            from towr.domain.npc_roster_turn_models import _validate_phase_source
+            _validate_phase_source(state)
+            if isinstance(injury, CharacterInjuryState) and any(e.duration not in (
+                    WoundEffectDuration.END_OF_NEXT_TURN, WoundEffectDuration.UNTIL_REMOVED,
+                    WoundEffectDuration.UNTIL_TREATED, WoundEffectDuration.UNTIL_HEALED)
+                    for e in injury.active_wound_effects):
+                raise ValueError('Prone Broken recovery excludes unsupported Wound durations')
+            if any(e.actor_id == self.actor_id and e.deadline_round_number != state.round_state.round_number
+                   for e in state.wound_expiries):
+                raise ValueError('Prone Broken recovery requires valid target-turn Wound chronology')
         turn = state.round_state.active_turn
         if turn is None or turn.actor_id != self.actor_id or len(turn.action_slots) != 1:
             raise ValueError('Broken recovery requires the active actor and one reserved slot')

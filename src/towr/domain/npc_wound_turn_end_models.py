@@ -6,7 +6,7 @@ from towr.domain.injury_models import WoundConditionEffect, WoundConditionSource
 from towr.domain.npc_roster_casting_models import NpcRosterCastingState
 from towr.domain.npc_roster_models import NpcRoster
 from towr.domain.npc_wound_turn_models import NpcStomachBlowExpiry, NpcWoundTurnEndReceipt
-from towr.domain.turn_models import ActionSlotGrant, CombatTurnEndResult
+from towr.domain.turn_models import ActionSlotGrant, CombatRoundState, CombatTurnEndResult
 
 
 @dataclass(frozen=True, slots=True)
@@ -109,26 +109,35 @@ class NpcWoundTurnEndResult:
     @property
     def state(self) -> NpcRosterCastingState:
         source = self.source
-        old = source.state
-        roster = old.roster
-        if source.expiries:
-            actor = roster.participant(source.actor_id)
-            injury = actor.state.injury
-            conditions = injury.conditions
-            for snapshot in source.condition_sources:
-                if not snapshot.has_other_active_source:
-                    conditions = conditions.without_condition(snapshot.condition)
-            removed = {e.effect for e in source.expiries}
-            injury = replace(injury, conditions=conditions, active_wound_effects=tuple(
-                e for e in injury.active_wound_effects if e not in removed))
-            roster = NpcRoster(tuple(replace(p, state=replace(p.state, injury=injury))
-                                     if p is actor else p for p in roster.participants))
-        champion = old.champion_attack
-        if champion is not None:
-            champion = replace(champion, roster=roster, round_state=self.turn_end.state)
-        receipt = NpcWoundTurnEndReceipt(source.id, source.actor_id, old.round_state.round_number,
-                                       tuple(e.attack_id for e in source.expiries))
-        return replace(old, roster=roster, round_state=self.turn_end.state, champion_attack=champion,
-                       minion_attack=(None if old.minion_attack is None else replace(old.minion_attack, roster=roster)),
-                       wound_expiries=tuple(e for e in old.wound_expiries if e not in source.expiries),
-                       wound_turn_end_receipts=(*old.wound_turn_end_receipts, receipt))
+        return _project_wound_turn_end(source.state, source.id, source.actor_id,
+                                      source.condition_sources, source.expiries, self.turn_end.state)
+
+
+def _project_wound_turn_end(
+    old: NpcRosterCastingState, request_id: str, actor_id: str,
+    condition_sources: tuple[WoundConditionSourceSnapshot, ...],
+    expiries: tuple[NpcStomachBlowExpiry, ...], combat: CombatRoundState,
+) -> NpcRosterCastingState:
+    """Project an already validated end transition; never schedule or strip Prone."""
+    roster = old.roster
+    if expiries:
+        actor = roster.participant(actor_id)
+        injury = actor.state.injury
+        conditions = injury.conditions
+        for snapshot in condition_sources:
+            if not snapshot.has_other_active_source:
+                conditions = conditions.without_condition(snapshot.condition)
+        removed = {e.effect for e in expiries}
+        injury = replace(injury, conditions=conditions, active_wound_effects=tuple(
+            e for e in injury.active_wound_effects if e not in removed))
+        roster = NpcRoster(tuple(replace(p, state=replace(p.state, injury=injury))
+                                 if p is actor else p for p in roster.participants))
+    champion = old.champion_attack
+    if champion is not None:
+        champion = replace(champion, roster=roster, round_state=combat)
+    receipt = NpcWoundTurnEndReceipt(request_id, actor_id, old.round_state.round_number,
+                                   tuple(e.attack_id for e in expiries))
+    return replace(old, roster=roster, round_state=combat, champion_attack=champion,
+                   minion_attack=(None if old.minion_attack is None else replace(old.minion_attack, roster=roster)),
+                   wound_expiries=tuple(e for e in old.wound_expiries if e not in expiries),
+                   wound_turn_end_receipts=(*old.wound_turn_end_receipts, receipt))

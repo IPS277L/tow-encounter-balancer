@@ -1,4 +1,5 @@
 """Pure application of one existing Casting result; never rolls or casts."""
+from towr.domain.condition_models import Condition
 from towr.domain.npc_roster_casting_models import (
     NpcRosterCastingRequest, NpcRosterCastingResult, NpcRosterCastingState,
     NpcRosterCastingTargetContext,
@@ -39,7 +40,8 @@ def prepare_npc_roster_casting(
         state.casting_spatial_state, selected_zone_id,
         tuple(CowardlyFlightCastingTarget(
             t.actor_id, t.willpower_profile, state.roster.participant(t.actor_id).state.injury,
-            t.can_give_ground) for t in targets), facts, policy,
+            t.can_give_ground and not state.roster.participant(t.actor_id).state.injury.conditions.has(
+                Condition.PRONE)) for t in targets), facts, policy,
     )
     return NpcRosterCastingRequest(state, casting)
 

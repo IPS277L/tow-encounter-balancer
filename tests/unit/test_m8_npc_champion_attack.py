@@ -170,7 +170,7 @@ class NpcChampionAttackTests(unittest.TestCase):
     def test_unknown_initial_conditions_are_rejected_before_execution(self):
         source = request()
         for actor_id, condition in ((source.execution.actor_id, Condition.BROKEN),
-                                    (source.execution.target_id, Condition.PRONE),
+                                    (source.execution.target_id, Condition.BLINDED),
                                     (source.execution.target_id, Condition.DRAINED)):
             participant = source.state.roster.participant(actor_id)
             injury = replace(participant.state.injury, conditions=ConditionState((condition,)))

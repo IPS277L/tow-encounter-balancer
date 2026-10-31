@@ -15,7 +15,7 @@ from towr.domain.cowardly_flight_casting_models import (
 from towr.domain.cowardly_flight_casting_result_models import (
     CowardlyFlightCastingResult, CowardlyFlightCastingStatus,
 )
-from towr.domain.injury_models import WoundConditionEffect
+from towr.domain.injury_models import WoundConditionEffect, WoundEffectDuration
 from towr.domain.magic_models import MiscastPoolOutcome, MiscastRollRequest, WizardMagicState
 from towr.domain.npc_champion_attack_models import NpcChampionAttackState
 from towr.domain.npc_roster_attack_models import NpcRosterAttackExecutionResult, NpcRosterAttackState
@@ -299,14 +299,28 @@ class NpcRosterCastingRequest:
             raise ValueError("pending Champion attack blocks normal Casting")
         actor = state.roster.participant(state.wizard.actor_id)
         injury = actor.state.injury
-        safe_conditions = {Condition.STAGGERED, Condition.DRAINED}
-        if injury.dead or not injury.conditions.conditions <= safe_conditions:
+        safe_wound_conditions = {Condition.STAGGERED, Condition.DRAINED}
+        if injury.dead or not injury.conditions.conditions <= safe_wound_conditions | {Condition.PRONE}:
             raise ValueError("caster cannot use this normal Casting boundary in its current condition")
         if any(not w.effect_resolved for w in injury.wounds) or any(
-            not isinstance(e, WoundConditionEffect) or e.condition not in safe_conditions
+            not isinstance(e, WoundConditionEffect) or e.condition not in safe_wound_conditions
             or not injury.conditions.has(e.condition) for e in injury.active_wound_effects
         ):
             raise ValueError("caster has unresolved or unsupported Wound effects")
+        if injury.conditions.has(Condition.PRONE) or any(
+                t.injury.conditions.has(Condition.PRONE) for t in casting.targets):
+            # The scoped Prone context retains full-owner expiry admission.
+            # Local import avoids the scheduling module's owner-type cycle.
+            from towr.domain.npc_roster_turn_models import _validate_phase_source
+            _validate_phase_source(state)
+            if any(e.duration not in (
+                    WoundEffectDuration.END_OF_NEXT_TURN, WoundEffectDuration.UNTIL_REMOVED,
+                    WoundEffectDuration.UNTIL_TREATED, WoundEffectDuration.UNTIL_HEALED)
+                    for e in injury.active_wound_effects):
+                raise ValueError('Prone Casting excludes unsupported Wound durations')
+            if any(e.actor_id == state.wizard.actor_id
+                   and e.deadline_round_number != state.round_state.round_number for e in state.wound_expiries):
+                raise ValueError('Prone Casting requires valid target-turn Wound chronology')
         if actor.state.holds_shield or actor.state.current_resilience.is_armoured:
             raise ValueError("normal Casting excludes current armour/shield")
         if casting.id in state.consumed_execution_ids:

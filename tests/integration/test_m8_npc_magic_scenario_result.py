@@ -157,7 +157,10 @@ class MagicJournalIntegrationTests(unittest.TestCase):
         self.assertIs(result.outcome, Outcome.ROUND_LIMIT_REACHED)
         self.assertFalse(result.current.roster.participant('enemy').state.injury.conditions.has(Condition.BROKEN))
         with self.assertRaisesRegex(ValueError, 'supplied route policy'):
-            replace(result, source=replace(source, scene_frames=(source.initial_frame, replace(future, broken_plans=()))))
+            # Remove only the Broken plan from the actual complete source;
+            # preserve the explicit departure facts used by earlier Attacks.
+            replace(result, source=replace(result.source, scene_frames=tuple(
+                replace(f, broken_plans=()) for f in result.source.scene_frames)))
 
     def test_wound_expiry_and_advance_cannot_invent_external_condition_source(self):
         journal = Journal()

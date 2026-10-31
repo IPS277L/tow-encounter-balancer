@@ -16,11 +16,15 @@ from towr.domain.npc_roster_champion_attack_models import NpcRosterChampionAttac
 from towr.domain.npc_roster_dead_champion_models import NpcRosterDeadChampionExclusionResult
 from towr.domain.npc_roster_minion_attack_models import NpcRosterMinionAttackResult
 from towr.domain.npc_roster_minion_defeat_models import NpcRosterMinionDefeatResult
+from towr.domain.npc_roster_miscast_models import (
+    NpcRosterMiscastPreparationResult, NpcRosterMiscastRollResult, NpcRosterUnnaturalWindResult,
+)
+from towr.domain.npc_roster_prone_models import NpcRosterProneStandResult, NpcRosterProneTurnEndResult
 from towr.domain.npc_roster_turn_models import NpcRosterTurnStartResult
 from towr.domain.npc_wound_turn_end_models import NpcWoundTurnEndResult
 from towr.domain.ranged_weapon_profiles import RangedWeaponHands, RangedWeaponRange as Range
 from towr.domain.resolution_models import CowardlyFlightMovementCompletion, GiveGroundResolutionRequest
-from towr.domain.test_models import Skill, TestRequest
+from towr.domain.test_models import DiceModifier, Skill, TestRequest
 from towr.domain.turn_models import CombatActionDeclaration, CombatActionKind, ImproviseKind, ManoeuvreKind
 
 
@@ -113,6 +117,30 @@ def _frame(scenario: NpcMagicScenario, state: NpcRosterCastingState) -> NpcMagic
     return frame
 
 
+def magic_prone_unsafe_broken(state: NpcRosterCastingState, actor_id: str) -> bool:
+    actor = state.roster.participant(actor_id)
+    conditions = actor.state.injury.conditions
+    zone = state.spatial_state.placement_for(actor_id).zone_id
+    return (conditions.has(Condition.PRONE) and conditions.has(Condition.BROKEN)
+            and any(state.roster.participant(i).state.side is not actor.state.side
+                    and state.spatial_state.placement_for(i).zone_id == zone for i in magic_live_ids(state)))
+
+
+def magic_prone_stand_eligible(scenario: NpcMagicScenario, state: NpcRosterCastingState,
+                             frame: NpcMagicSceneFrame) -> bool:
+    """Chosen technical policy; the bound stand request still validates causes/clock."""
+    turn = state.round_state.active_turn
+    if scenario.miscast_continuation is None or turn is None or turn.action_slots[0].executed:
+        return False
+    actor_id = turn.actor_id
+    if (not state.roster.participant(actor_id).state.injury.conditions.has(Condition.PRONE)
+            or actor_id in state.spatial_state.free_move_used_entity_ids
+            or magic_prone_unsafe_broken(state, actor_id)):
+        return False
+    return not any(pair.target_range is Range.CLOSE and actor_id in (pair.first_actor_id, pair.second_actor_id)
+                   for pair in frame.pair_ranges)
+
+
 def _route(actual: GiveGroundResolutionRequest | FreeMovementRequest, expected: NpcMagicRouteFacts) -> bool:
     return (actual.path_entity_ids == expected.path_entity_ids
             and actual.crosses_obstacle is expected.crosses_obstacle
@@ -161,6 +189,33 @@ def magic_movement_prefix(scenario: NpcMagicScenario, state: NpcRosterCastingSta
 def validate_magic_step_policy(scenario: NpcMagicScenario, step: NpcMagicStep) -> None:
     result, state = step.result, step.before
     actor_id = step.actor_id
+    opted = scenario.miscast_continuation is not None
+    phases = (NpcRosterMiscastPreparationResult, NpcRosterMiscastRollResult, NpcRosterUnnaturalWindResult,
+              NpcRosterProneStandResult, NpcRosterProneTurnEndResult)
+    if isinstance(result, phases) and not opted:
+        raise ValueError('new Miscast/Prone journal phases require scenario opt-in')
+    if isinstance(result, NpcRosterMiscastPreparationResult):
+        policy = scenario.miscast_continuation
+        if result.source.policy is not policy.choice or result.source.facts != policy.facts:
+            raise ValueError('Miscast preparation differs from scenario choice/facts')
+    if isinstance(result, (NpcRosterCastingResult, NpcRosterMinionAttackResult,
+                           NpcRosterChampionAttackResult, NpcBrokenRecoverResult, NpcBrokenRunResult,
+                           NpcRosterProneStandResult)):
+        frame = _frame(scenario, state)
+        if opted and magic_prone_unsafe_broken(state, actor_id):
+            raise ValueError('unsafe Broken+Prone must stop before standing or action')
+        stand = magic_prone_stand_eligible(scenario, state, frame)
+        if isinstance(result, NpcRosterProneStandResult):
+            if not stand:
+                raise ValueError('self-stand differs from the current scene/resource policy')
+        elif stand:
+            raise ValueError('eligible opt-in self-stand is mandatory before action')
+        if not opted and (state.roster.participant(actor_id).state.injury.conditions.has(Condition.PRONE)
+                         or isinstance(result, (NpcRosterMinionAttackResult, NpcRosterChampionAttackResult))
+                         and state.roster.participant(result.source.attack.execution.target_id).state.injury.conditions.has(Condition.PRONE)
+                         or isinstance(result, NpcRosterCastingResult)
+                         and any(t.injury.conditions.has(Condition.PRONE) for t in result.source.casting.targets)):
+            raise ValueError('legacy journal cannot admit Prone actions or targets')
     if isinstance(result, NpcRosterTurnStartResult):
         if actor_id != magic_next_actor(scenario, state):
             raise ValueError('journal activation differs from scenario order')
@@ -187,7 +242,8 @@ def validate_magic_step_policy(scenario: NpcMagicScenario, step: NpcMagicStep) -
         plans = {p.actor_id: p for p in frame.give_ground_plans}
         for target in casting.targets:
             plan = plans[target.actor_id]
-            can_move = plan.can_leave_zone and not plan.impossible_confirmed
+            can_move = (plan.can_leave_zone and not plan.impossible_confirmed
+                        and not target.injury.conditions.has(Condition.PRONE))
             if (target.willpower_profile != scenario.policy_for(target.actor_id).willpower_profile
                     or target.can_give_ground is not can_move):
                 raise ValueError('journal Casting target facts differ from actor/scene policy')
@@ -205,11 +261,15 @@ def validate_magic_step_policy(scenario: NpcMagicScenario, step: NpcMagicStep) -
         approval = pair.first_range_approved_by_gm if pair.first_actor_id == actor_id else pair.second_range_approved_by_gm
         protection = attack.preparation.protection.source_request
         departure = next((d for d in frame.attack_departures if d.actor_id == target_id), None)
-        if departure is not None and execution.kernel_request.can_target_leave_zone is not departure.can_leave_zone:
+        if departure is None:
+            raise ValueError('journal Attack requires the supplied target departure fact')
+        prone = state.roster.participant(target_id).state.injury.conditions.has(Condition.PRONE)
+        modifiers = (DiceModifier('RULE-COMBAT-009:prone-target', -1),) if prone else ()
+        if execution.kernel_request.can_target_leave_zone is not (departure.can_leave_zone and not prone):
             raise ValueError('journal Attack departure differs from supplied scene fact')
         if (source.selected_attack_id != scenario.policy_for(actor_id).attack_id
                 or source.target_range is not pair.target_range or source.range_approved_by_gm is not approval
-                or source.has_enemy_in_close_range or source.dice_modifiers
+                or source.has_enemy_in_close_range or source.dice_modifiers != modifiers
                 or not protection.defender_is_aware or protection.defender_is_defenceless
                 or protection.selected_skill is not Skill.ATHLETICS
                 or any(option.test != TestRequest(option.test.id, option.test.profile) for option in protection.options)
@@ -251,7 +311,7 @@ def validate_magic_step_policy(scenario: NpcMagicScenario, step: NpcMagicStep) -
                 raise ValueError('journal Broken Run differs from supplied route')
         elif source.willpower_profile != scenario.policy_for(actor_id).willpower_profile:
             raise ValueError('journal Recover differs from supplied Willpower')
-    elif isinstance(result, NpcWoundTurnEndResult):
+    elif isinstance(result, (NpcWoundTurnEndResult, NpcRosterProneTurnEndResult)):
         source = result.source
         removed = {e.effect for e in source.expiries}
         injury = state.roster.participant(actor_id).state.injury

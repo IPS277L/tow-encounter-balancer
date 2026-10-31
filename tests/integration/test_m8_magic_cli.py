@@ -134,7 +134,7 @@ with patch.object(simulation, 'run_npc_magic_trial', side_effect=trial) as calle
         invalid = document()
         invalid["scenario"]["facts"]["targets_aware"] = False
         cases = ((b"{", "invalid_json"), (b"\xff", "invalid_json"),
-                 (json.dumps(dict(document(), schema_version="2")).encode(), "unsupported_version"),
+                 (json.dumps(dict(document(), schema_version="3")).encode(), "unsupported_version"),
                  (json.dumps(invalid).encode(), "invalid_input"))
         for raw, code in cases:
             with self.subTest(code=code, raw=raw[:20]):

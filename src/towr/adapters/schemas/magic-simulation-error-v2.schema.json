@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:towr:magic-simulation:error:2",
+  "$comment": "ADR-0047: trusted input or admitted command supplies the version.",
+  "type": "object",
+  "properties": {
+    "schema_version": {"type": "string", "const": "2"},
+    "kind": {"$ref": "urn:towr:magic-simulation:error:1#/properties/kind"},
+    "request_id": {"$ref": "urn:towr:magic-simulation:error:1#/properties/request_id"},
+    "error": {"$ref": "urn:towr:magic-simulation:error:1#/properties/error"}
+  },
+  "required": ["schema_version", "kind", "request_id", "error"],
+  "additionalProperties": false
+}

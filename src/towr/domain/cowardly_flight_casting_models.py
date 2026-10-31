@@ -50,8 +50,9 @@ class CastingCasterDefinition:
 class CowardlyFlightCastingTarget:
     """One living Minion enemy with explicit Give Ground availability.
 
-    ADR-0036 permits Staggered, Drained and existing Broken under the
-    unchanged normal, unmodified Willpower profile (PG1.4 pp122-123).
+    ADR-0036/0046 permit Staggered, Drained, Broken and standalone Prone
+    under the unchanged normal Willpower profile (PG1.4 pp122-123, 162).
+    can_give_ground is effective availability, not an authored route fact.
     """
 
     actor_id: str
@@ -66,10 +67,13 @@ class CowardlyFlightCastingTarget:
             raise TypeError("target injury must be a ProfileInjuryState")
         if self.injury.wound_limit != 1 or self.injury.defeated:
             raise ValueError("Casting boundary requires living Minions")
-        if not self.injury.conditions.conditions <= {Condition.STAGGERED, Condition.DRAINED, Condition.BROKEN}:
+        if not self.injury.conditions.conditions <= {
+                Condition.STAGGERED, Condition.DRAINED, Condition.BROKEN, Condition.PRONE}:
             raise ValueError("Casting target has unsupported Conditions for normal Willpower")
         if not isinstance(self.can_give_ground, bool):
             raise TypeError("can_give_ground must be an explicit boolean")
+        if self.injury.conditions.has(Condition.PRONE) and self.can_give_ground:
+            raise ValueError('a Prone Curse target cannot Give Ground')
 
 
 @dataclass(frozen=True, slots=True)

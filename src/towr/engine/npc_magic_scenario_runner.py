@@ -1,7 +1,8 @@
 """One bounded ADR-0037 encounter over existing full-owner transitions.
 
 PG1.4 Rules pp112,118-119,122,190; Magic pp156-157,162. GM1.1 pp91-92.
-No retry, guessed scene facts or Miscast preparation. ADR-0044 death exclusion
+No retry or guessed scene facts. ADR-0046 explicitly opted Miscast continuation.
+ADR-0044 death exclusion
 continues a completed lethal Attack before the attacking actor ends its turn.
 """
 from dataclasses import dataclass, replace
@@ -23,7 +24,9 @@ from towr.domain.npc_magic_journal_policy import (
     magic_live_ids, magic_scene_key, magic_next_actor, magic_target,
     magic_movement_prefix, validate_magic_step_policy, validate_magic_step_predecessor,
     magic_dead_champion_exclusion_attack,
+    magic_prone_stand_eligible,
 )
+from towr.domain.npc_magic_miscast_journal_policy import validate_magic_miscast_predecessor
 from towr.domain.npc_magic_scenario_models import NpcMagicScenario
 from towr.domain.npc_magic_scenario_result_models import (
     NpcMagicScenarioResult, diagnose_npc_magic_unsupported, npc_magic_terminal_outcome,
@@ -37,6 +40,11 @@ from towr.domain.npc_roster_champion_attack_models import NpcRosterChampionAttac
 from towr.domain.npc_roster_dead_champion_models import NpcRosterDeadChampionExclusionRequest
 from towr.domain.npc_roster_minion_attack_models import NpcRosterMinionAttackRequest
 from towr.domain.npc_roster_minion_defeat_models import NpcRosterMinionDefeatRequest
+from towr.domain.npc_roster_miscast_models import (
+    NpcRosterMiscastPreparationRequest, NpcRosterMiscastPreparationResult,
+    NpcRosterMiscastRollRequest, NpcRosterMiscastRollResult, NpcRosterUnnaturalWindRequest,
+)
+from towr.domain.npc_roster_prone_models import NpcRosterProneStandRequest, NpcRosterProneTurnEndRequest
 from towr.domain.npc_roster_turn_models import NpcRosterTurnStartRequest, NpcRosterRoundAdvanceRequest
 from towr.domain.npc_wound_turn_end_models import NpcWoundTurnEndRequest
 from towr.domain.protection_models import ProtectionPreparationRequest
@@ -54,6 +62,11 @@ from towr.rules.npc_roster_casting_resolution import prepare_npc_roster_casting
 from towr.rules.npc_roster_dead_champion_resolution import exclude_npc_roster_dead_champion
 from towr.rules.npc_roster_minion_attack_resolution import execute_npc_roster_minion_attack
 from towr.rules.npc_roster_minion_defeat_resolution import acknowledge_npc_roster_minion_defeat
+from towr.rules.npc_roster_miscast_resolution import (
+    prepare_npc_roster_miscast, roll_npc_roster_miscast, resolve_npc_roster_unnatural_wind,
+)
+from towr.rules.npc_roster_prone_resolution import stand_npc_roster_prone, end_npc_roster_prone_turn
+from towr.rules.npc_roster_shooting_preparation import prepare_npc_roster_shooting
 from towr.rules.npc_roster_turn_resolution import start_npc_roster_turn, advance_npc_roster_round
 from towr.rules.npc_wound_turn_end import end_npc_wound_turn
 from towr.rules.spatial_resolution import resolve_give_ground
@@ -102,12 +115,13 @@ def run_npc_magic_scenario(scenario: NpcMagicScenario, rng: RandomSource) -> Npc
     def identifier(label: str) -> str:
         return f'{scenario.id}:{len(steps)}:{label}'
 
-    def publish(result: NpcMagicStepResult, expected_source: object) -> None:
+    def publish(result: NpcMagicStepResult, expected_source: object, *, origin_witness=None) -> None:
         nonlocal current
-        step = NpcMagicStep(result)
+        step = NpcMagicStep(result, origin_witness=origin_witness)
         if result.source != expected_source or step.before != current:
             raise ValueError('executor returned a result for another full source')
         validate_magic_step_predecessor(steps[-1] if steps else None, step)
+        validate_magic_miscast_predecessor(scenario, steps[-1] if steps else None, step)
         validate_magic_step_policy(scenario, step)
         current = step.after
         steps.append(step)
@@ -121,6 +135,23 @@ def run_npc_magic_scenario(scenario: NpcMagicScenario, rng: RandomSource) -> Npc
         stop = diagnose_npc_magic_unsupported(scenario, current, last_id)
         if stop is not None:
             return NpcMagicScenarioResult(scenario, tuple(steps), stop)
+        if scenario.miscast_continuation is not None:
+            prefix = current.pending_miscast_continuation
+            if isinstance(prefix, NpcRosterMiscastPreparationResult):
+                source = NpcRosterMiscastRollRequest(prefix.roll_request.resolution_id, current)
+                publish(roll_npc_roster_miscast(source, rng), source)
+                continue
+            if isinstance(prefix, NpcRosterMiscastRollResult):
+                # Diagnosis already stopped every non-Wind row with its Pool intact.
+                source = NpcRosterUnnaturalWindRequest(prefix.effect_request.resolution_id + ':apply', current)
+                publish(resolve_npc_roster_unnatural_wind(source), source)
+                continue
+            if current.pending_miscast is not None or current.pending_interruption is not None:
+                continuation = scenario.miscast_continuation
+                source = NpcRosterMiscastPreparationRequest(identifier('miscast-prepare'), current,
+                    continuation.choice, continuation.facts)
+                publish(prepare_npc_roster_miscast(source), source, origin_witness=steps[-1].result)
+                continue
         if current.pending_movement is not None:
             pending = current.pending_movement
             movements = ()
@@ -173,10 +204,19 @@ def run_npc_magic_scenario(scenario: NpcMagicScenario, rng: RandomSource) -> Npc
             continue
         actor_id = turn.actor_id
         if turn.action_slots[0].executed:
+            if (scenario.miscast_continuation is not None
+                    and current.roster.participant(actor_id).state.injury.conditions.has(Condition.PRONE)):
+                source = NpcRosterProneTurnEndRequest(identifier('end'), current, actor_id, _end_sources(current, actor_id))
+                publish(end_npc_roster_prone_turn(source), source)
+                continue
             source = NpcWoundTurnEndRequest(identifier('end'), current, actor_id, _end_sources(current, actor_id))
             publish(end_npc_wound_turn(source), source)
             continue
         frame = scenario.frame_for(magic_scene_key(current))
+        if magic_prone_stand_eligible(scenario, current, frame):
+            source = NpcRosterProneStandRequest(identifier('stand'), current, actor_id, False, True)
+            publish(stand_npc_roster_prone(source), source)
+            continue
         actor = current.roster.participant(actor_id)
         policy = scenario.policy_for(actor_id)
         action_id = identifier('action')
@@ -216,6 +256,23 @@ def run_npc_magic_scenario(scenario: NpcMagicScenario, rng: RandomSource) -> Npc
         target = current.roster.participant(target_id)
         pair = next(p for p in frame.pair_ranges if {p.first_actor_id, p.second_actor_id} == {actor_id, target_id})
         approval = pair.first_range_approved_by_gm if pair.first_actor_id == actor_id else pair.second_range_approved_by_gm
+        if scenario.miscast_continuation is not None:
+            departure = next(d for d in frame.attack_departures if d.actor_id == target_id)
+            source = prepare_npc_roster_shooting(request_id=action_id, state=current,
+                actor_id=actor_id, target_id=target_id, selected_attack_id=policy.attack_id,
+                target_range=pair.target_range, has_enemy_in_close_range=False,
+                range_approved_by_gm=approval, defender_is_aware=scenario.facts.targets_aware,
+                selected_protection_skill=Skill.ATHLETICS, can_target_leave_zone=departure.can_leave_zone)
+            if isinstance(source, NpcRosterChampionAttackRequest):
+                publish(NpcRosterChampionAttackResult(source,
+                    execute_npc_champion_attack(source.attack, rng, decisions=decisions)), source)
+                attack = magic_dead_champion_exclusion_attack(steps[-1])
+                if attack is not None:
+                    source = NpcRosterDeadChampionExclusionRequest(identifier('dead-champion'), current, attack)
+                    publish(exclude_npc_roster_dead_champion(source), source)
+            else:
+                publish(execute_npc_roster_minion_attack(source, rng, decisions=decisions), source)
+            continue
         prepared = prepare_npc_attack(NpcAttackPreparationRequest(
             action_id + ':prepare', action_id + ':attack', action_id + ':attacker-test', actor.attack_snapshot(action_id + ':snapshot'),
             policy.attack_id, target_id, pair.target_range, target.state.current_resilience, False,

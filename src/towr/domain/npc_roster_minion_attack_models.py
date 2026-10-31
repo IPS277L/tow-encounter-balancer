@@ -8,6 +8,7 @@ from dataclasses import dataclass, replace
 from towr.domain.condition_models import Condition
 from towr.domain.npc_roster_attack_models import NpcRosterAttackExecutionRequest, NpcRosterAttackExecutionResult
 from towr.domain.npc_roster_casting_models import NpcRosterCastingState
+from towr.domain.npc_prone_shooting import _validate_prone_shooting
 from towr.domain.turn_models import ActionSlotGrant, CombatActionDeclaration, CombatActionKind
 
 
@@ -43,10 +44,13 @@ class NpcRosterMinionAttackRequest:
         target = state.roster.participant(execution.target_id)
         if actor.state.side is target.state.side:
             raise ValueError('Minion handoff requires hostile actors')
-        if (not actor.state.injury.conditions.conditions <= {Condition.STAGGERED}
-                or not target.state.injury.conditions.conditions <= {Condition.STAGGERED, Condition.BROKEN}):
+        if (not actor.state.injury.conditions.conditions <= {Condition.STAGGERED, Condition.PRONE}
+                or not target.state.injury.conditions.conditions <= {Condition.STAGGERED, Condition.BROKEN, Condition.PRONE}):
             raise ValueError('Minion handoff has unsupported actor/target Conditions')
         kernel = execution.kernel_request
+        if _validate_prone_shooting(actor, target, self.attack.preparation, kernel):
+            from towr.domain.npc_roster_turn_models import _validate_phase_source
+            _validate_phase_source(state)
         if kernel.target_has_given_ground_this_round != (execution.target_id in state.spatial_state.gave_ground_entity_ids):
             raise ValueError('Minion attack has stale Give Ground usage')
         origin = state.spatial_state.placement_for(execution.target_id).zone_id

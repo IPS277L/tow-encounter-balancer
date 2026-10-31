@@ -1,5 +1,11 @@
 # Реестр источников
 
+2026-10-31: [итоговый аудит ADR-0046](audits/m8-opt-in-miscast-readiness.md) завершает integration/propagation/installed scope на прежних PG1.4/GM1.1 и ранее проверенных страницах. Новое полное чтение книг или изменение источников не заявляется; версия/хэши и нормативные решения прежние.
+
+## Интеграция ADR-0046, этап 3
+
+2026-10-31: journal/runner связывают уже проверенные normative consumers; источники/версии/хэши не изменены. PG1.4, гл.V Free Actions116/Recover118/Prone123, гл.VIII Casting156/Miscasts157–159; GM1.1, гл.VII Minions91/Champions92. [Аудит интеграции](audits/m8-opt-in-runner-integration.md) фиксирует границу автоматизации и tests. Новое полное чтение книг в этом этапе не заявляется.
+
 ## Инвентаризация continuations и ADR-0044
 
 2026-10-28: [inventory](audits/m8-continuation-inventory.md) и [контракт](decisions/ADR-0044-dead-champion-turn-exclusion.md) сверены непосредственно по BOOK-PLAYER-GUIDE 1.4, гл. V Rules / Combat, стр. 112; Wounds & Conditions, стр. 121; Wounds Table, стр. 190–191; гл. VIII Magic in the Old World / Casting / Interrupted Casting, стр. 156; Spell Potency / Miscasts, стр. 157; Disposing of Miscast Dice, стр. 158; Miscast Table, стр. 159. BOOK-GM-GUIDE 1.1, гл. VII Allies and Antagonists / Minions / Champions, стр. 91–92. Выбран только dead awaiting Champion после полностью завершённого lethal Attack; dying words не становятся action, optional Close trophy не выбирается. Pool нельзя очищать до actual application; Miscast self-inclusion остаётся открытым. Новых Rule IDs/house rules нет, production механика не менялась; finite probe — техническое evidence будущего consumer.
@@ -590,5 +596,15 @@ Authored fixtures напрямую сверены с PG 1.4: Rules / Combat, с�
 
 
 ## Контракт ADR-0046
+
+2026-10-31, safe Broken+Prone Recover: прямо сверены BOOK-PLAYER-GUIDE1.4, гл.V Recover118 (alternative вместо всех standard benefits), Conditions/Broken122 (safe Zone/underlying cause), Prone123; гл.VIII Interrupted Casting156 (один die за skipped Casting action). Реализация расширяет только bound admission stationary safe Prone; engine/interruption unchanged. Это адресная сверка, не перечитывание всей книги; новых Rule IDs/house rules нет.
+
+2026-10-31, Shooting/Protection Prone: прямо сверены BOOK-PLAYER-GUIDE1.4, гл.V Rules / Dropping Prone120 и Prone123. Подтверждены target Shooting−1d, запрет повторного Prone/Give Ground и Wound при repeated Staggered; общего penalty собственному Shooting/Protection нет. Это адресная сверка, не перечитывание всей книги. State-derived preparation и bound validators используют прежние Rule IDs, без house rules.
+
+2026-10-31, Casting/Curse Prone: адресно прочитаны BOOK-PLAYER-GUIDE1.4, гл.V Rules / Prone123; гл.VIII Magic / Casting156 и Battle Magic / Curse of Cowardly Flight162. Подтверждены обычные Casting/Willpower Tests и запрет покидать Zone для Prone: требование Curse Give Ground действует только при возможности. Реализация меняет bound admission/effective availability, не authored scene, новые Rule IDs и house rules не вводит. Вся книга повторно не перечитывалась.
+
+2026-10-31: для scoped Prone end-turn прямо сверены локальные BOOK-PLAYER-GUIDE1.4, гл.V Rules / Prone123 и Wounds Table / Stomach Blow190. Prone не имеет end-turn upkeep; Drained от Stomach Blow истекает в конце следующего хода цели. Реализованы отдельный full-owner end consumer и общая expiry/receipt projection с прежним end; старый admission не расширен. Это адресная сверка нужных правил, не повторное чтение всей книги. Новых Rule IDs/house rules нет; journal/automatic runner ещё не подключены.
+
+2026-10-31: для production full-owner self-stand повторно прочитаны локальные страницы BOOK-PLAYER-GUIDE1.4, гл.V Rules / Free Actions116, Conditions122, Prone123. Проверены once-per-turn shared free move, отсутствие enemy Close и запрет снятия ongoing Condition до устранения причины. `npc_roster_prone_models.py` / `npc_roster_prone_resolution.py` связывают existing K1 с полным owner; другие главы в этом срезе заново не анализировались. Новых Rule IDs/house rules нет; scoped end-turn добавлен отдельным срезом выше, runner ещё не подключён.
 
 2026-10-28: прямо перечитаны BOOK-PLAYER-GUIDE1.4, гл.V Rules / Range114 / Free Actions116 / Recover118 / Attack Modifiers119 / Dropping Prone120 / Conditions и Broken122 / Prone123, гл.VIII Magic / Casting и Interrupted Casting156 / Miscasts157–158 / Table159; BOOK-GM-GUIDE1.1, гл.VII Allies and Antagonists / Minions91 / Champions92. [ADR-0046](decisions/ADR-0046-opt-in-miscast-runner-and-prone.md) различает self-stand вместо free move, standard Recover и alternative Broken Test, ongoing cause и unsafe escape ограничения. [12-d10 proof](examples/m8/miscast_runner_contract_probe.py) проверяет existing API prerequisites, не новый runner. Ongoing Prone Wound restrictions и Run-after-spent-free-move остаются unsupported. Новых Rule IDs/house rules/книжных ambiguities нет.

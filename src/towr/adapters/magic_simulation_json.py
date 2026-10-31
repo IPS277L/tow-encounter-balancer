@@ -1,4 +1,4 @@
-"""Pure magic simulation v1 parser/summary encoder (ADR-0043, first slice)."""
+"""Pure magic simulation v1/v2 parser and source-bound aggregate encoders."""
 from dataclasses import asdict
 import json
 import platform
@@ -26,33 +26,35 @@ def encode_magic_simulation_error(
         code, path, message = 'simulation_failed', None, 'Magic simulation execution failed'
     else:
         raise TypeError('error encoding requires a magic simulation input or execution error')
-    document = {'schema_version': '1', 'kind': 'magic_simulation_error', 'request_id': error.request_id,
+    document = {'schema_version': error.schema_version, 'kind': 'magic_simulation_error', 'request_id': error.request_id,
         'error': {'code': code, 'path': path, 'message': message}}
-    validate_magic_simulation_document(document, 'error')
+    validate_magic_simulation_document(document, 'error', schema_version=error.schema_version)
     # Invalid input diagnostics can contain escaped lone Unicode surrogates.
     return json.dumps(document, ensure_ascii=True, indent=2, allow_nan=False) + '\n'
 
 
 def parse_magic_simulation_request(text: str | bytes) -> MagicSimulationCommand:
     """Read strict UTF-8 JSON and admit the full fresh authored scenario."""
-    document = read_request(text, MagicSimulationInputError, validate_magic_simulation_document)
+    document = read_request(text, MagicSimulationInputError, validate_magic_simulation_document, magic_v2=True)
+    version = document['schema_version']
     try:
         options = document['simulation']
         scenario, definitions = parse_scenario(document['scenario'], options['round_budget'],
-            path_prefix='/scenario', error_type=MagicSimulationInputError)
+            path_prefix='/scenario', error_type=MagicSimulationInputError, schema_version=version)
         seed = parse_seed(options['master_seed'], MagicSimulationInputError, '/simulation/master_seed')
         request = build_value(MagicSimulationInputError, '/simulation', NpcMagicSimulationRequest,
                               scenario, seed, options['trials'])
         execution = document['execution']
         return MagicSimulationCommand(document['request_id'], request,
             SimulationExecutionOptions(SimulationExecutionMode(execution['mode']),
-                execution.get('workers'), execution.get('batch_size')), definitions)
+                execution.get('workers'), execution.get('batch_size')), definitions, version)
     except MagicSimulationInputError as error:
         error.request_id = document['request_id']
+        error.schema_version = version
         raise
     except (TypeError, ValueError) as error:
         raise MagicSimulationInputError(Code.INVALID_INPUT, str(error),
-            path='/scenario', request_id=document['request_id']) from error
+            path='/scenario', request_id=document['request_id'], schema_version=version) from error
 
 
 def _request_document(command: MagicSimulationCommand) -> dict:
@@ -60,11 +62,11 @@ def _request_document(command: MagicSimulationCommand) -> dict:
     execution = {'mode': command.execution.mode.value}
     if command.execution.mode is SimulationExecutionMode.PROCESS:
         execution.update(workers=command.execution.workers, batch_size=command.execution.batch_size)
-    return {'schema_version': '1', 'kind': 'npc_magic_simulation', 'request_id': command.request_id,
+    return {'schema_version': command.schema_version, 'kind': 'npc_magic_simulation', 'request_id': command.request_id,
         'ruleset': 'towr-pg1.4-gmg1.1',
         'simulation': {'master_seed': str(command.request.master_seed), 'trials': command.request.trials,
             'round_budget': scenario.max_rounds}, 'execution': execution,
-        'scenario': scenario_document(scenario, command.definition_order)}
+        'scenario': scenario_document(scenario, command.definition_order, schema_version=command.schema_version)}
 
 
 def encode_magic_simulation_result(command: MagicSimulationCommand, summary: NpcMagicSimulationSummary) -> str:
@@ -75,8 +77,8 @@ def encode_magic_simulation_result(command: MagicSimulationCommand, summary: Npc
         raise ValueError('summary belongs to a different full simulation request')
     request_document = _request_document(command)
     if parse_magic_simulation_request(json.dumps(request_document)) != command:
-        raise ValueError('command cannot be represented losslessly by magic JSON v1')
-    document = {'schema_version': '1', 'kind': 'npc_magic_simulation_result', 'request': request_document,
+        raise ValueError('command cannot be represented losslessly by magic JSON')
+    document = {'schema_version': command.schema_version, 'kind': 'npc_magic_simulation_result', 'request': request_document,
         'seed_scheme': SEED_SCHEME,
         'runtime': {'package_version': __version__, 'python_implementation': platform.python_implementation(),
             'python_version': platform.python_version(), 'rng': 'random.Random'},
@@ -84,5 +86,5 @@ def encode_magic_simulation_result(command: MagicSimulationCommand, summary: Npc
             'total_action_count': summary.total_action_count,
             'total_started_round_count': summary.total_started_round_count,
             'total_completed_round_count': summary.total_completed_round_count}}
-    validate_magic_simulation_document(document, 'result')
+    validate_magic_simulation_document(document, 'result', schema_version=command.schema_version)
     return json.dumps(document, ensure_ascii=False, indent=2, allow_nan=False) + '\n'

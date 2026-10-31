@@ -14,6 +14,7 @@ from tests.unit.test_m8_npc_roster_casting_completion import begin, completion_r
 from tests.unit.test_m8_npc_roster_dead_champion import final_attack
 from tests.integration.test_m8_champion_casting_handoff import incoming_attack
 from towr.domain.npc_broken_recover_models import NpcBrokenRecoverRequest
+from towr.domain.npc_magic_journal_policy import validate_magic_step_policy
 from towr.domain.npc_magic_scenario_result_models import diagnose_npc_magic_unsupported, npc_magic_terminal_outcome
 from towr.domain.npc_magic_step_models import NpcMagicStep, NpcMagicUnsupportedReason as Reason, NpcMagicPhase
 from towr.domain.npc_roster_casting_models import NpcRosterCastingRequest
@@ -130,11 +131,11 @@ class MiscastRollIntegrationTests(unittest.TestCase):
         with self.assertRaises(ValueError): NpcRosterCastingCompletionRequest(final, completion_request(moving).completion)
         with self.assertRaises(ValueError): NpcRosterDeadChampionExclusionRequest('next:death', final, final_attack())
 
-    def test_rolled_state_is_not_fresh_input_or_an_admitted_closed_journal_step(self):
+    def test_rolled_state_is_not_fresh_input_or_an_admitted_legacy_journal_step(self):
         scenario, raw = casting_pending(); source = request(raw)
         result = roll(source, Dice((7, 7, 7)))
         with self.assertRaises(ValueError): replace(scenario, initial=result.state)
-        with self.assertRaises(TypeError): NpcMagicStep(result)
+        with self.assertRaises(ValueError): validate_magic_step_policy(scenario, NpcMagicStep(result))
         self.assertIsNotNone(raw.pending_miscast)
         self.assertIsNone(raw.pending_miscast_continuation)
 

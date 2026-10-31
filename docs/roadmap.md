@@ -189,9 +189,20 @@ ADR-0044 завершён в узкой границе; другие Wound/Misca
 
 [Контракт](decisions/ADR-0046-opt-in-miscast-runner-and-prone.md) и [finite proof](examples/m8/miscast_runner_contract_probe.py) готовы. Порядок производства:
 
-1. **Точный следующий срез:** frozen policy/Prone enum, optional scenario field/admission, explicit opted native generation preflight reject и lossless v1 encoder reject. None сохраняет legacy; deterministic type/facts/replace/legacy tests, без нового dispatch.
-2. Bound self-stand/scoped Prone end-turn и normal action/target/safe Broken adapters. Whole-owner/истории/ongoing cause guards; own Tests без нового penalty, Shooting по Prone−1d, effective Give Ground=False.
-3. Closed journal/typed origin witness/predecessor/tail и runner publication/diagnosis/counters одним законченным integration срезом; без пропуска mandatory phases или death guard.
-4. Native simulations/aggregate/source/sequential/process propagation и итоговый аудит/public opted example/installed parity. Generation/wire opt-in остаются отвергнутыми до отдельного контракта.
+1. **Реализовано, 2026-10-31:** frozen policy/Prone enum, optional scenario field/admission, explicit opted native generation preflight reject и lossless v1 encoder reject. None сохраняет legacy; deterministic type/facts/replace/legacy/source/wire tests. Первый срез admission сам по себе не менял runtime; теперь этап 3 ниже подключает opt-in continuation.
+2. **Низкоуровневые переходы реализованы:** full-owner stand/end, Casting/Curse, Shooting/Protection и safe Broken+Prone alternative Recover. Recover не даёт standard benefits, сохраняет Prone/free move и один action-sourced skipped Casting die; 18 unit +4 integration tests. Whole-owner/истории/ongoing cause guards сохранены. **Этап 3 также реализован**; общий propagation/installed аудит также завершён этапом 4.
+3. **Реализовано:** closed journal/typed origin witness/predecessor/tail и runner publication/diagnosis/counters; mandatory preparation→roll→Wind, stand/end и scoped actions. None legacy и death guard сохранены; deterministic journal/runtime/source-policy tests.
+4. **Завершено:** native simulations/aggregate/source/sequential/process propagation и [итоговый аудит](audits/m8-opt-in-miscast-readiness.md)/[public opted example](examples/m8/opted_miscast.py)/installed parity449files. Generation/wire opt-in остаются отвергнутыми до отдельного контракта.
 
 Unsafe Broken+Prone и ongoing Prone Wound restrictions сохраняют explicit stops; standard-Recover fallback, ally help и Run-after-spent-free-move не добавляются этим scope. Нельзя объявлять runtime интеграцию готовой по finite K1 proof.
+
+## ADR-0047 — opt-in generation и Magic JSON v2
+
+[Контракт](decisions/ADR-0047-opt-in-generation-and-magic-json-v2.md) и [finite round-trip proof](examples/m8/opt_in_transport_contract_probe.py) подготовлены. Native generation и simulation v2 реализованы; balance v2 ещё нет, v1 сохраняет явный отказ от opt-in. Новые Miscast effects не добавляются.
+
+1. **Реализовано:** native generation с explicit отдельной family policy, exact equality с template, полной projection/result validation и integration; None compatibility. [Аудит](audits/m8-opt-in-generation-readiness.md): 14 новых unit +4 integration +1 v1 guard test, настоящий generated Wind/staged/spawn.
+2. **Реализовано:** simulation v2: explicit nullable policy, versioned command/errors/Schema/mapper/service/CLI; v1 неизменен. [Аудит](audits/m8-simulation-v2-readiness.md).
+3. Balance v2: отдельные reserve/family assertions, full catalog/report/source, phase errors и CLI.
+4. Общий аудит: public примеры, двенадцать magic schemas/local refs, installed parity, все CLI families и полная регрессия.
+
+Точный следующий шаг — пункт 3 целиком: balance v2 (три schemas, command/phase errors, separate reserve/family policy, exact source chain, service/CLI/tests), без промежуточного v2 input с v1 output. Затем пункт4 — общий installed/full audit. [Первоначальная контрактная проверка](audits/m8-opt-in-transport-contract.md).

@@ -14,6 +14,8 @@ from unittest.mock import patch
 from jsonschema import Draft202012Validator, ValidationError
 
 from tests.unit.test_m4_ranged_json import at, object_paths
+from tests.unit.test_m8_miscast_continuation_policy import continuation_policy
+from towr.adapters._magic_scenario_json import scenario_document
 from towr.adapters.magic_balance_json import parse_magic_balance_request as parse, encode_magic_balance_result as encode
 from towr.adapters.magic_json_errors import MagicBalanceInputError, MagicSimulationInputError
 from towr.adapters.magic_json_schema import validate_magic_balance_document as validate
@@ -86,6 +88,41 @@ def generation_failure_document():
 
 
 class M8MagicBalanceJsonTests(unittest.TestCase):
+    def test_v1_reserve_keeps_none_and_cannot_drop_native_opt_in(self):
+        data = document()
+        command = parse(json.dumps(data))
+        source = command.generation_request
+        self.assertIsNone(source.template_scenario.miscast_continuation)
+        opted = replace(source.template_scenario, miscast_continuation=continuation_policy())
+        with self.assertRaisesRegex(ValueError, 'generation.*Miscast continuation'):
+            replace(source, template_scenario=opted)
+        # Shared simulation/balance projection also rejects before mapping fields.
+        with self.assertRaisesRegex(ValueError, 'Miscast continuation.*losslessly'):
+            scenario_document(opted, command.definition_order)
+        for value in (None, {}, {'choice': 'decline_cast_before_miscast'}):
+            with self.subTest(value=value):
+                data['reserve']['scenario']['miscast_continuation'] = value
+                self.invalid(data)
+
+    def test_v1_cannot_encode_an_admitted_opted_family_or_accept_family_policy_field(self):
+        command = parse(json.dumps(document()))
+        policy = continuation_policy()
+        family = replace(command.generation_request,
+            template_scenario=replace(command.generation_request.template_scenario,
+                                      miscast_continuation=policy),
+            miscast_continuation=policy)
+        opted = replace(command, generation_request=family)
+        result = make_result(opted)  # Synthetic source-bound aggregates, no RNG.
+        self.assertTrue(all(candidate.scenario.miscast_continuation == policy
+            for candidate in result.generation_result.evaluation_request.candidates))
+        with self.assertRaisesRegex(ValueError, 'Miscast continuation.*losslessly'):
+            encode(opted, result)
+        for value in (None, {}, {'choice': 'decline_cast_before_miscast'}):
+            with self.subTest(value=value):
+                data = document()
+                data['generation']['miscast_continuation'] = value
+                self.invalid(data)
+
     def invalid(self, data, code=Code.INVALID_INPUT):
         with self.assertRaises(MagicBalanceInputError) as caught:
             parse(json.dumps(data))

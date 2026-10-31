@@ -1,0 +1,8 @@
+Public v1 request echoes: genuine legacy simulation 1 trial; legacy balance 4 trials; exact sources
+Public simulation v2 / manual balance v2 round-trip: null; complete source/orders/seed/budgets preserved
+Public simulation v2 / manual balance v2 round-trip: explicit policy; complete source/orders/seed/budgets preserved
+Four native opted subsets equal manual/full legacy projections + exact family policy; IDs and seeds unchanged
+Opposite perspective native projection preserves fixed Wizard, full policy and complete source
+Restored opted source: actual Wind trace 16 d10 + matching independent trial 16 d10; no probabilities
+V1/no-family-opt-in guards and same-ID full-source substitution guards remain effective
+Inputs/global RNG unchanged; public native generation and simulation v2 verified; balance v2 still manual

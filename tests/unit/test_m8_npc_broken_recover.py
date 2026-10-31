@@ -257,7 +257,7 @@ class NpcBrokenRecoverTests(unittest.TestCase):
     def test_wrong_conditions_and_death_are_rejected(self):
         source = request()
         for conditions in (ConditionState(), ConditionState((Condition.BROKEN, Condition.DEFENCELESS)),
-                           ConditionState((Condition.BROKEN, Condition.PRONE))):
+                           ConditionState((Condition.BROKEN, Condition.BLINDED))):
             injury = replace(source.state.roster.participant('wizard').state.injury, conditions=conditions)
             with self.assertRaisesRegex(ValueError, 'living Broken actor'):
                 replace(source, state=change_injury(source.state, 'wizard', injury))

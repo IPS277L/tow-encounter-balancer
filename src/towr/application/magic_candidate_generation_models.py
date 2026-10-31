@@ -1,4 +1,4 @@
-"""Magic reserve admission and source-bound generated inputs (ADR-0042).
+"""Magic reserve admission and source-bound inputs (ADR-0042/0047).
 
 Request admission is arithmetic; result validation checks each full projection.
 Neither model runs a battle or infers tactical facts.
@@ -10,7 +10,9 @@ from towr.balance.magic_staged_evaluation_models import (
     MagicBalanceStage, MagicStagedEvaluationRequest, _planned_trials, _validate_stages,
 )
 from towr.balance.ranged_assessment_models import ObjectiveRateWindow
-from towr.domain.npc_magic_scenario_models import NpcMagicScenario, NpcMagicScenarioFacts
+from towr.domain.npc_magic_scenario_models import (
+    NpcMagicMiscastContinuationPolicy, NpcMagicScenario, NpcMagicScenarioFacts,
+)
 from towr.domain.npc_magic_scene_models import NpcMagicSceneFrame
 from towr.simulation.npc_magic_models import NpcMagicSimulationRequest
 
@@ -54,6 +56,8 @@ class MagicCandidateGenerationRequest:
     Separate facts/frames and unchanged template policies apply to every
     projected composition/state. Construction must later admit each subset.
     The Wizard remains fixed even when opposite the perspective side.
+    Miscast opt-in needs a separate, equal whole-family assertion; omitted
+    reserve actors are absent, not external creatures within Short Range.
     """
 
     template_scenario: NpcMagicScenario
@@ -66,10 +70,16 @@ class MagicCandidateGenerationRequest:
     stages: tuple[MagicBalanceStage, ...]
     max_total_trials: int
     window: ObjectiveRateWindow
+    miscast_continuation: NpcMagicMiscastContinuationPolicy | None = None
 
     def __post_init__(self) -> None:
         if not isinstance(self.template_scenario, NpcMagicScenario):
             raise TypeError("generation requires an admitted magic template scenario")
+        if (self.miscast_continuation is not None
+                and not isinstance(self.miscast_continuation, NpcMagicMiscastContinuationPolicy)):
+            raise TypeError("magic generation requires a typed Miscast continuation policy or None")
+        if self.miscast_continuation != self.template_scenario.miscast_continuation:
+            raise ValueError("magic generation Miscast continuation requires an explicit family policy equal to the template")
         if not isinstance(self.facts, NpcMagicScenarioFacts):
             raise TypeError("generation requires explicit magic facts for every composition")
         if not isinstance(self.window, ObjectiveRateWindow):

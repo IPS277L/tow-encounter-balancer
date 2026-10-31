@@ -19,7 +19,10 @@ from towr.domain.minion_defeat_models import MinionDefeatDecision, NpcDefeatDisp
 from towr.domain.movement_models import MovementSpeed
 from towr.domain.npc_attack_preparation_models import NpcAttackProfile
 from towr.domain.npc_champion_attack_models import NpcChampionAttackState
-from towr.domain.npc_magic_scenario_models import NpcMagicActorPolicy, NpcMagicScenario, NpcMagicScenarioFacts
+from towr.domain.npc_magic_scenario_models import (
+    NpcMagicActorPolicy, NpcMagicMiscastContinuationPolicy, NpcMagicPronePolicy,
+    NpcMagicScenario, NpcMagicScenarioFacts,
+)
 from towr.domain.npc_magic_scene_models import (
     NpcMagicAttackDeparture, NpcMagicBrokenPlan, NpcMagicBrokenPlanKind,
     NpcMagicGiveGroundPlan, NpcMagicPairRange, NpcMagicRouteFacts,
@@ -27,6 +30,7 @@ from towr.domain.npc_magic_scene_models import (
 )
 from towr.domain.npc_objective_models import NpcDefeatObjective
 from towr.domain.npc_roster_casting_models import NpcCastingWizardState, NpcRosterCastingState
+from towr.domain.npc_roster_miscast_models import NpcRosterMiscastFacts, NpcRosterMiscastPolicy
 from towr.domain.npc_roster_models import NpcDefinition, NpcParticipantSnapshot, NpcParticipantState, NpcProtectionProfile, NpcRoster
 from towr.domain.ranged_weapon_profiles import RangedWeaponHands as Hands, RangedWeaponRange as Range
 from towr.domain.resolution_models import TargetInjuryPolicy
@@ -75,17 +79,26 @@ def parse_scene_frames(data: list, *, path_prefix: str,
 
 def parse_scenario(data: dict, round_budget: int, *, path_prefix: str = '/scenario',
                    error_type: type[MagicInputError] = MagicSimulationInputError,
+                   schema_version: str = '1',
                    ) -> tuple[NpcMagicScenario, tuple[str, ...]]:
     """Map a schema-checked scenario directly, without a fabricated envelope."""
+    _require_schema_version(schema_version)
     try:
-        return _parse_scenario(data, round_budget, path_prefix, error_type)
-    except MagicInputError:
+        return _parse_scenario(data, round_budget, path_prefix, error_type, schema_version)
+    except MagicInputError as error:
+        error.schema_version = schema_version
         raise
     except (TypeError, ValueError) as error:
-        raise error_type(Code.INVALID_INPUT, str(error), path=path_prefix) from error
+        raise error_type(Code.INVALID_INPUT, str(error), path=path_prefix,
+                         schema_version=schema_version) from error
 
 
-def _parse_scenario(data, round_budget, path_prefix, error_type):
+def _require_schema_version(schema_version: str) -> None:
+    if type(schema_version) is not str or schema_version not in ('1', '2'):
+        raise ValueError('unsupported magic scenario schema version')
+
+
+def _parse_scenario(data, round_budget, path_prefix, error_type, schema_version):
     build = partial(build_value, error_type)
     definitions = {}
     for index, raw in enumerate(data['definitions']):
@@ -150,11 +163,20 @@ def _parse_scenario(data, round_budget, path_prefix, error_type):
     spell_definition = build(f'{path_prefix}/spell', FormalSpellDefinition,
         spell['rule_id'], spell['lore_id'], spell['casting_value'], SpellTargetKind(spell['target_kind']),
         SpellRange(spell['range']), SpellDuration(spell['duration']))
+    continuation = None
+    if schema_version == '2' and data['miscast_continuation'] is not None:
+        raw = data['miscast_continuation']
+        path = f'{path_prefix}/miscast_continuation'
+        continuation = build(path, NpcMagicMiscastContinuationPolicy,
+            build(f'{path}/choice', NpcRosterMiscastPolicy, raw['choice']),
+            build(f'{path}/facts', NpcRosterMiscastFacts, **raw['facts']),
+            build(f'{path}/prone_policy', NpcMagicPronePolicy, raw['prone_policy']))
     scenario = build(path_prefix, NpcMagicScenario, data['scenario_id'], initial,
         build(f'{path_prefix}/facts', parse_facts, data['facts']), tuple(data['activation_order']), tuple(policies),
         parse_scene_frames(data['scene_frames'], path_prefix=f'{path_prefix}/scene_frames', error_type=error_type),
         CombatSide(data['perspective_side']), NpcDefeatObjective(tuple(data['objective_target_ids'])),
-        round_budget, StaggerChoice(data['repeated_stagger_choice']), spell_definition)
+        round_budget, StaggerChoice(data['repeated_stagger_choice']), spell_definition,
+        miscast_continuation=continuation)
     return scenario, tuple(definitions)
 
 
@@ -177,12 +199,16 @@ def scene_frames_document(frames: tuple[NpcMagicSceneFrame, ...]) -> list[dict]:
             for p in f.broken_plans], 'attack_departures': [asdict(p) for p in f.attack_departures]} for f in frames]
 
 
-def scenario_document(scenario: NpcMagicScenario, definition_order: tuple[str, ...]) -> dict:
+def scenario_document(scenario: NpcMagicScenario, definition_order: tuple[str, ...], *,
+                      schema_version: str = '1') -> dict:
     """Project all wire fields; the boundary encoder reconstructs the full source."""
+    _require_schema_version(schema_version)
+    if schema_version == '1' and scenario.miscast_continuation is not None:
+        raise ValueError('Miscast continuation opt-in cannot be represented losslessly by magic JSON v1')
     state = scenario.initial
     definitions = {p.definition.id: p.definition for p in state.roster.participants}
     wizard, caster = state.wizard, state.wizard.caster
-    return {'scenario_id': scenario.id,
+    document = {'scenario_id': scenario.id,
         'definitions': [{'id': d.id, 'source_rule_id': d.source_rule_id, 'injury_policy': d.injury_policy.value,
             'wound_limit': d.wound_limit, 'resilience': {'toughness': d.resilience.toughness, 'bonus': d.resilience.bonus},
             'attacks': [{'id': a.id, 'source_rule_id': a.source_rule_id, 'skill': a.skill.value,
@@ -212,3 +238,9 @@ def scenario_document(scenario: NpcMagicScenario, definition_order: tuple[str, .
             'zone_priorities': list(p.zone_priorities)} for p in scenario.actors],
         'scene_frames': scene_frames_document(scenario.scene_frames),
         'repeated_stagger_choice': scenario.repeated_stagger_choice.value}
+    if schema_version == '2':
+        policy = scenario.miscast_continuation
+        document['miscast_continuation'] = None if policy is None else {
+            'choice': policy.choice.value, 'facts': asdict(policy.facts),
+            'prone_policy': policy.prone_policy.value}
+    return document

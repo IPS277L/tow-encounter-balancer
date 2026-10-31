@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:towr:magic-simulation:result:2",
+  "$comment": "ADR-0047: the full echoed request has the same explicit version.",
+  "type": "object",
+  "properties": {
+    "schema_version": {"type": "string", "const": "2"},
+    "kind": {"$ref": "urn:towr:magic-simulation:result:1#/properties/kind"},
+    "request": {"$ref": "urn:towr:magic-simulation:request:2"},
+    "seed_scheme": {"$ref": "urn:towr:magic-simulation:result:1#/properties/seed_scheme"},
+    "runtime": {"$ref": "urn:towr:magic-simulation:result:1#/properties/runtime"},
+    "summary": {"$ref": "urn:towr:magic-simulation:result:1#/properties/summary"}
+  },
+  "required": ["schema_version", "kind", "request", "seed_scheme", "runtime", "summary"],
+  "additionalProperties": false
+}

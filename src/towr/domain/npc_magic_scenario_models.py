@@ -5,6 +5,7 @@ Battle Magic / Curse p162. GM1.1 Allies and Antagonists pp91-92.
 No runner, RNG, request generation, tactical selection or current-turn admission.
 """
 from dataclasses import dataclass, fields, replace
+from enum import Enum
 
 from towr.domain.condition_models import StaggerChoice
 from towr.domain.cowardly_flight_casting_models import CowardlyFlightCastingPolicy
@@ -21,6 +22,7 @@ from towr.domain.npc_magic_scene_models import (
 from towr.domain.npc_objective_models import NpcDefeatObjective
 from towr.domain.npc_roster_casting_models import NpcRosterCastingState
 from towr.domain.npc_roster_attack_models import NpcRosterAttackState
+from towr.domain.npc_roster_miscast_models import NpcRosterMiscastFacts, NpcRosterMiscastPolicy
 from towr.domain.ranged_weapon_profiles import RangedWeaponHands, RangedWeaponRange
 from towr.domain.resolution_models import TargetInjuryPolicy
 from towr.domain.spatial_models import SpatialBattleState
@@ -95,6 +97,36 @@ class NpcMagicActorPolicy:
                 raise ValueError('Minion policy requires Shooting targets and no Casting Zones')
 
 
+class NpcMagicPronePolicy(str, Enum):
+    SELF_STAND_WHEN_SAFE = 'self_stand_when_safe'
+
+
+@dataclass(frozen=True, slots=True)
+class NpcMagicMiscastContinuationPolicy:
+    """Explicit ADR-0046 opt-in; admission alone does not execute a Miscast.
+
+    Roster completeness, mounts and immunity assertions overlap with scenario
+    facts; both contracts require True. Absence of external Short creatures
+    remains a separate required assertion, never inferred from those facts.
+    """
+
+    choice: NpcRosterMiscastPolicy
+    facts: NpcRosterMiscastFacts
+    prone_policy: NpcMagicPronePolicy
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.choice, NpcRosterMiscastPolicy):
+            raise TypeError('Miscast continuation requires a typed choice')
+        if self.choice is not NpcRosterMiscastPolicy.DECLINE_CAST_BEFORE_MISCAST:
+            raise ValueError('Miscast continuation supports only explicit decline')
+        if not isinstance(self.facts, NpcRosterMiscastFacts):
+            raise TypeError('Miscast continuation requires typed scope facts')
+        if not isinstance(self.prone_policy, NpcMagicPronePolicy):
+            raise TypeError('Miscast continuation requires a typed Prone policy')
+        if self.prone_policy is not NpcMagicPronePolicy.SELF_STAND_WHEN_SAFE:
+            raise ValueError('Miscast continuation supports only self-stand when safe')
+
+
 @dataclass(frozen=True, slots=True)
 class NpcMagicScenario:
     id: str
@@ -108,9 +140,13 @@ class NpcMagicScenario:
     max_rounds: int
     repeated_stagger_choice: StaggerChoice
     spell: FormalSpellDefinition
+    miscast_continuation: NpcMagicMiscastContinuationPolicy | None = None
 
     def __post_init__(self) -> None:
         _identifier(self.id)
+        if (self.miscast_continuation is not None
+                and not isinstance(self.miscast_continuation, NpcMagicMiscastContinuationPolicy)):
+            raise TypeError('magic scenario requires a typed Miscast continuation policy or None')
         for value, kind in ((self.initial, NpcRosterCastingState), (self.facts, NpcMagicScenarioFacts),
                             (self.perspective_side, CombatSide), (self.objective, NpcDefeatObjective),
                             (self.repeated_stagger_choice, StaggerChoice), (self.spell, FormalSpellDefinition)):

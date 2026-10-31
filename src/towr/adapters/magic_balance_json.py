@@ -29,6 +29,8 @@ def encode_magic_balance_error(
     """Encode this family's failures without causes, notes or partial reports."""
     path = candidate_id = counts = stage_index = None
     if isinstance(error, MagicBalanceInputError):
+        if error.schema_version != '1':
+            raise ValueError('magic balance v2 error encoding is not supported yet')
         code, path, message = error.code.value, error.path, str(error)
     elif isinstance(error, MagicBalanceGenerationError):
         code, path, candidate_id = 'generation_failed', '/generation', error.candidate_id

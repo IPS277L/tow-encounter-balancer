@@ -12,6 +12,7 @@ from unittest.mock import patch
 from jsonschema import Draft202012Validator, ValidationError
 
 from tests.unit.test_m4_ranged_json import at, object_paths
+from tests.unit.test_m8_miscast_continuation_policy import continuation_policy
 from towr.adapters.magic_json_errors import MagicSimulationInputError
 from towr.adapters.magic_json_schema import validate_magic_simulation_document as validate
 from towr.adapters.magic_simulation_json import (
@@ -52,6 +53,23 @@ def balance_scenario_document():
 
 
 class M8MagicJsonTests(unittest.TestCase):
+    def test_v1_keeps_none_and_rejects_explicit_opt_in_without_projection(self):
+        data = document()
+        legacy = parse(json.dumps(data))
+        self.assertIsNone(legacy.request.scenario.miscast_continuation)
+        scenario = replace(legacy.request.scenario, miscast_continuation=continuation_policy())
+        command = replace(legacy, request=replace(legacy.request, scenario=scenario))
+        before = deepcopy(command)
+        with (patch('towr.adapters.magic_simulation_json.parse_magic_simulation_request',
+                    side_effect=AssertionError('must reject before round-trip')),
+              self.assertRaisesRegex(ValueError, 'Miscast continuation.*losslessly')):
+            encode(command, summary(command))
+        self.assertEqual(command, before)
+        for value in (None, {}, {'choice': 'decline_cast_before_miscast'}):
+            with self.subTest(value=value):
+                data['scenario']['miscast_continuation'] = value
+                self.assert_invalid(data)
+
     def assert_invalid(self, data, code=Code.INVALID_INPUT):
         with self.assertRaises(MagicSimulationInputError) as caught:
             parse(json.dumps(data))
@@ -134,12 +152,12 @@ class M8MagicJsonTests(unittest.TestCase):
                 parse(raw)
 
     def test_version_ruleset_and_family_have_no_fallback(self):
-        for field, value in (('schema_version', '2'), ('schema_version', 1),
+        for field, value in (('schema_version', '3'), ('schema_version', 1),
                              ('kind', 'npc_ranged_simulation'), ('kind', 'npc_magic_balance'),
                              ('ruleset', 'other')):
             with self.subTest(field=field, value=value):
                 data = dict(document(), **{field: value})
-                error = self.assert_invalid(data, Code.UNSUPPORTED_VERSION if value == '2' else Code.INVALID_INPUT)
+                error = self.assert_invalid(data, Code.UNSUPPORTED_VERSION if value == '3' else Code.INVALID_INPUT)
                 self.assertEqual(error.request_id, data['request_id'])
                 self.assertEqual(error.path, '/' + field)
         for value in ('', ' \t', 1, None):

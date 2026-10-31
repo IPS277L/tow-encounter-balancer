@@ -1,54 +1,35 @@
 # Текущий статус проекта
 
-Дата обновления: 2026-10-28.
+Дата обновления: 2026-10-31.
 
 ## Текущий этап
 
-**M8: контракт ADR-0046 и finite proof готовы; production opt-in/Prone integration ещё не реализована.** [ADR](decisions/ADR-0046-opt-in-miscast-runner-and-prone.md) задаёт optional explicit policy/None legacy, пять facts и self-stand-when-safe. Closed journal получает полный origin witness, scoped Prone adapters сохраняют actual injuries/usage/expiry, own Tests без общего Prone penalty и Shooting target−1d. Unsafe Broken+Prone, ongoing Wound causes и Run-after-spent-free-move остаются honest stops. Generation/wire opt-in отвергается явно, без policy loss.
+**M8 / ADR-0047 этап2: simulation JSON v2 реализован и проверен.** [Контракт](decisions/ADR-0047-opt-in-generation-and-magic-json-v2.md), [аудит simulation v2](audits/m8-simulation-v2-readiness.md), [публичный JSON-вход](examples/m8/json/magic-simulation-v2.request.json). Native opt-in generation этапа1 готов; [его аудит](audits/m8-opt-in-generation-readiness.md). Balance v2 пока не реализован.
 
-[Finite probe](examples/m8/miscast_runner_contract_probe.py) / [stdout](examples/m8/miscast_runner_contract_probe.output.txt) использует existing public APIs:12scripted d10, current actual Wind/END_TURN, отдельные K1 stand/Recover/target modifier и full trace witness proof. K1 results остаются внешними, future full owner/opt-in/journal/resumed battle не имитируются. Независимые source/API/journal review блокеров не выявили; missing-frame/Broken stop priority закреплена явно. [Low-level ADR-0045](audits/m8-unnatural-wind-readiness.md) остаётся закрытым.
+Прежний `simulate-magic INPUT` принимает1/2. V2 требует `scenario.miscast_continuation`: null либо полную explicit policy; command/result/error сохраняют версию. До complete strict lexical decode ошибки используют fallback1 и null request ID; после распознанной2 —2. Runtime service использует версию своего command, не cause. Полный source/command reconstruct-check не допускает потери policy. Три новые local schemas; старые шесть magic v1 schemas неизменны. Остальные семь CLI routes пока толькоv1.
 
-На старте22незакоммиченныхпути при HEAD `d774d23 M8 P15`; предыдущие изменения сохранены и не считаются новой работой. Добавлены ADR-0046, probe/stdout и1subprocess test, документация синхронизирована. Production/все прежние Python/JSON/tests/probes/CLI/runner не менялись. Commit/push выполняет пользователь.
+[Public proof](examples/m8/opt_in_transport_contract_probe.py) использует настоящий opted generator и simulation v2 parser/runner/encoder; только balance v2 portion ещё ручной. V1 запрещает policy field даже null и отказывает native opted source. Shared balance input error с explicit2 временно отклоняется encoder, не понижается молча до1.
 
-## Зафиксировано
+## Готовность и ограничения
 
-| Слой | Готовность и граница |
-| --- | --- |
-| R1/K1 | PG1.4/GM1.1 — primary; [книги](audits/rulebooks-1.4-1.1.md), [ядро](audits/k1-readiness.md), [трассировка](rule-traceability.md); полного каталога/универсального боя нет |
-| M2–M7 | Numeric Minion ranged/melee/mixed: encounters, sequential/process, assessment/stages/generation, JSON/CLI; [M5](audits/m5-external-readiness.md), [M6](audits/m6-external-readiness.md), [M7](audits/m7-external-readiness.md) |
-| M8 encounter/simulation | Один authored Champion-Wizard/Curse и Shooting Minions, explicit scene/GM facts; [encounter](audits/m8-encounter-readiness.md), [mass simulation](audits/m8-mass-simulation-readiness.md). [Замеры](benchmarks/README.md#m8-sequential-и-spawn) не выбирают auto backend |
-| M8 assessment/stages/generation | [ADR-0040](audits/m8-evaluation-readiness.md), [ADR-0041](audits/m8-staged-evaluation-readiness.md), [ADR-0042](audits/m8-generation-readiness.md) закрыты аудитами |
-| M8 JSON/CLI | [ADR-0043](audits/m8-external-readiness.md) закрыт: simulation/balance wire/service/errors/CLI |
-| Dead Champion exclusion | [ADR-0044](audits/m8-dead-champion-readiness.md): pure/journal/runner/propagation закрыты аудитом; installed parity442files относится к тому срезу |
-| Unnatural Wind21–22 | [ADR-0045](audits/m8-unnatural-wind-readiness.md): low-level consumer закрыт, public example/installed parity444files |
-| Opt-in runner/Prone | [ADR-0046](decisions/ADR-0046-opt-in-miscast-runner-and-prone.md): contract/proof готовы; production впереди |
-
-## Ограничения
-
-- [Иерархия источников](source-policy.md): PG1.4/GM1.1 выше прототипа. Источники ADR-0045: PG1.4, гл.VIII Magic156–159 и гл.V Range114/Recover118/Prone123; GM1.1, гл.VII Minions91/Champions92. При реализации прямо перечитаны PG1.4 Miscasts157/Miscast Table159/Range114/Prone123 и GM1.1 Minions91/Champions92. Новых Rule IDs/house rules/книжных ambiguities нет.
-- Fresh runner по-прежнему останавливается на raw MISCAST_PREPARATION; decline автоматически не выбирается, новый result не входит в closed journal. Manual prepared state останавливается на MISCAST_ROLL, rolled — на MISCAST_EFFECT с canonical effect ID. Bound Wind очищает Pool после actual applications, сохраняя Prone END_TURN stop; [исторический probe](examples/m8/unnatural_wind_contract_probe.py) остаётся отдельной композицией existing K1 и ручной final projection.
-- Required assertions: complete combat roster/no external Short creatures, unmounted/noimmunity/no cross-Zone Close. Они не доказывают полноту именованного NPC. Desperate cast, abandonment, другие effect consumers, mounts/Monstrosities/immunities и saved battle не подключаются. Prone END_TURN/ACTOR_INJURY/TARGET_INJURY пока прежние; ADR-0046 планирует scoped adapters, не общий Broken/Recover dispatcher.
-- Existing Curse/Broken/Drained/dead-Champion consumers сохраняют прежние границы. Неизвестные scene/route facts и mandatory Wound/Miscast дают unsupported; trials остаются в N. Aggregate eligibility не доказывает полноту тактики или истинную вероятность сложности.
-- Полные staged reruns, большие exact budgets/Fraction и отсутствие wall-time/RSS caps прежние. Нет universal engine/auto GM facts/backend/cache/persistent pool; process callers требуют importable main guard.
-- CPython3.12.15/macOS arm64; другие runtime/ОС не проверялись.33прежние dataclasses assertions — [отдельный вопрос](open-questions.md#проверки-dataclasses-на-python-312), suite не зелёный. Installed parity444files подтверждена; прежние442files относятся к ADR-0044.
+- PG1.4/GM1.1 — primary; [источники](source-index.md), [трассировка](rule-traceability.md), [открытые вопросы](open-questions.md). Этап2 меняет transport, не боевые правила; domain/engine/rules/simulation и seed scheme прежние.
+- M2–M7 закрыты для ограниченных numeric Minion scenarios. M8 остаётся authored Champion-Wizard/Curse + Shooting Minions, не универсальным боем.
+- [ADR-0046](audits/m8-opt-in-miscast-readiness.md) обслуживает preparation → один roll → Wind21–22 с full journal witness и scoped Prone stand/end/Casting/Shooting/safe Broken Recover. Other-row сохраняет Pool/pending/MISCAST_EFFECT. None сохраняет прежние traces/IDs/draws/stops.
+- Не добавлены desperate cast, abandonment, другие Miscast consumers, ongoing Prone Wounds, unsafe Broken escape, Run-after-spent-free-move, standard Recover fallback или помощь союзника. Fresh-only input не является сохранением/возобновлением боя.
+- Scene/GM facts всегда explicit. Unsupported остаётся в denominator; aggregate eligibility не доказывает полноту тактики. Generated family требует отдельную matching template policy; удалённые резервисты отсутствуют в subset, не становятся external Short bystanders.
+- Предыдущий installed audit ADR-0046 — исторический. Текущие generation/simulation-v2 изменения ещё не проверялись в новом wheel; общий source/wheel/installed audit предусмотрен этапом4. Performance/cross-platform claims нет.
+- HEAD `b7d0a59 M8 P16`. Предыдущие пользовательские изменения сохранены; текущие code/tests/docs также не закоммичены. Commit/push выполняет пользователь.
 
 ## Следующий шаг
 
-**Первый production срез ADR-0046: opt-in models/admission и защита от policy loss.** Добавить frozen NpcMagicPronePolicy/NpcMagicMiscastContinuationPolicy с required choice/five facts/prone policy; optional scenario.miscast_continuation=None в конце контракта. Проверить types/facts/contradictory cross-Zone CLOSE frames до RNG и точное legacy поведение None. Native generation family с opt-in отклонять в model preflight до enumeration/materialization; v1 encoder не должен молча терять policy. Детерминированные constructor/replace/None/source tests и docs. В этом срезе runner dispatch/Prone adapters/journal ещё не подключать; [последовательность](decisions/ADR-0046-opt-in-miscast-runner-and-prone.md#последовательность-реализации).
+**Этап3 ADR-0047 целиком: balance JSON v2.** Ещё три schemas/local registry; append-only command/phase-error version metadata с defaultv1; required nullable policy в reserve и generation с exact equality; full generation/staged source chain; lossless parser/result/error encoders/service/CLI. Проверить separate assertion/mismatch pointer, candidate/counts/stage contexts, позднюю generation failure после успешного preflight, реальные sequential/process и v1/v2null parity. Заменить временный отказ balance encoder от metadata2 полноценным v2 error encoding; simulation v2 и шесть немагических families не ослаблять. Затем общий installed/full audit этапа4.
 
 ## Последняя проверка
 
-**114focused tests — OK (0,324с)**:75existing M8 Miscast/Wind+38existing K1 stand/Recover/NPC preparation+1new probe. Полная регрессия **3548tests/33прежнихerrors (157,820с)**. Точные Counters полных error headers/subtests/exception signatures равны предыдущим3547tests; новых ошибок нет, suite не зелёный.
+**24 новых теста (18 unit +6 integration) прошли.** Focused: 85 смежных tests OK/19,455с, все6integration OK/31,844с, copied public proof1 OK/2,000с; новые unit прошли focused и full suite. Independent review блокеров не оставил. Sandbox WinError5/Pipe/temp-directory проверки повторены вне sandbox успешно. Точные команды/границы — в [аудите](audits/m8-simulation-v2-readiness.md).
 
-Все917исходных Python/JSON и production сохранены побайтно; добавлены2Python files (probe/test), stdout и ADR. Compile новых файлов, Markdown paths/selected anchors, import boundaries315core modules, whitespace/diff и HEAD preservation — OK. Source/harness hash прежний `5c2e50aafba116c13f6b1b6ffffc6eb819cc0a86cc90dea8bbcf53824587f52b`.
+**Полная регрессия: 3772 tests /33 известных errors /0 failures /0 skipped,651,243с**, Windows x64/CPython3.12.4, вне sandbox. Команда: `$env:PYTHONPATH = "src"; .venv/Scripts/python.exe -m unittest discover -s tests -v`; log `.cache/adr0047-simulation-v2-regression.log`. Все33 sorted error headers точно совпадают с baseline `.cache/adr0047-generation-regression.log`:16+16 K1 Aim-loss frozen/slotted TypeError и один M5 replace(init=False) ValueError. Новых ошибок нет; suite с errors не считается зелёным, исправление этих expectations — отдельная задача.
 
-Повторно сверена byte parity444current source/wheel/site files. Новый two-file bundle прошёл из external cwd без PYTHONPATH/PYTHONHOME:12scripted d10, import paths подтверждены, stdout точный/stderr пустой. Reused wheel SHA-256 `a92370976f44c315118b1dca2615e7222b8daa2b41104ab642f646f2cf7f7d3e`; README metadata относится к предыдущему аудиту. Rebuild/CLI/performance не повторялись: production source прежний. Runtime/dependency versions — [аудит ADR-0045](audits/m8-unnatural-wind-readiness.md#установленный-пакет).
+1172 local Markdown paths в12актуальных документах и `git diff --check` — OK. Старые шесть magic v1 schemas не изменены. Новый wheel/installed audit здесь не заявляется.
 
-```sh
-PYTHONPATH=src /private/tmp/towr-test-venv/bin/python -m unittest tests.unit.test_k1_free_move_prone_removal tests.unit.test_k1_recover_resolution tests.unit.test_k1_npc_attack_preparation tests.unit.test_m8_npc_roster_miscast_preparation tests.integration.test_m8_npc_roster_miscast_preparation tests.unit.test_m8_npc_roster_miscast_roll tests.integration.test_m8_npc_roster_miscast_roll tests.unit.test_m8_npc_roster_unnatural_wind tests.integration.test_m8_npc_roster_unnatural_wind tests.integration.test_m8_miscast_runner_contract_probe -v
-PYTHONPATH=src /private/tmp/towr-test-venv/bin/python -m unittest discover -s tests -v
-PYTHONPATH=src /private/tmp/towr-test-venv/bin/python /private/tmp/check_m8_prone_contract.py
-git diff --check
-```
-
-Логи `/private/tmp/towr-m8-prone-contract-focused.log`, `/private/tmp/towr-m8-prone-contract-tests.log`; snapshot `/private/tmp/towr-m8-prone-contract-initial.json`, reports `/private/tmp/towr-m8-prone-contract-report.json`, `/private/tmp/towr-m8-prone-contract-installed-report.json`. Temporary evidence локальна; ADR/source/tests/probe достаточны для первого production среза. Portable команды — [README](../README.md#локальная-проверка). Commit/push не выполнялись.
+Коммиты и push не выполнялись. Локальные `.cache` logs/wheel/venv переносить не требуется.

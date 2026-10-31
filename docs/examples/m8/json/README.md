@@ -1,4 +1,19 @@
-# Magic JSON v1: конечные примеры контракта
+# Magic JSON: v1 fixtures и simulation v2
+
+## Simulation v2 — ADR-0047
+
+[Вход v2](magic-simulation-v2.request.json) явно включает полную Miscast/Prone policy в прежний authored сценарий. `scenario.miscast_continuation` обязателен: `null` сохраняет legacy gameplay, полный object включает ограниченный runner ADR-0046. V1 это поле запрещает даже с `null`. Наличие policy не выбирает версию автоматически.
+
+```powershell
+$env:PYTHONPATH = "src"
+.venv/Scripts/python.exe -m towr simulate-magic docs/examples/m8/json/magic-simulation-v2.request.json
+```
+
+Для process изменить только `execution` на `{"mode":"process","workers":2,"batch_size":1}`. Request echo/result/error после complete strict decode сохраняют `schema_version='2'`; malformed JSON/UTF-8, duplicate keys, lone surrogates, nonfinite/float/exponent tokens возвращают fallback error v1 и null request ID. Runtime failure имеет версию admitted command. Public validators требуют явного `schema_version='2'`; default остаётся v1. [Полный контракт](../../../decisions/ADR-0047-opt-in-generation-and-magic-json-v2.md), [аудит/tests](../../../audits/m8-simulation-v2-readiness.md).
+
+Этот пример — finite standard-RNG observation, не probability preset; incomplete future frames/прочие Miscast effects остаются unsupported и входят в trials. [Integration test](../../../../tests/integration/test_m8_magic_json_v2.py) проверяет файл и sequential/process CLI. Balance v2 ещё не поддержан. Installed audit обоих v2 families и stored result fixtures предусмотрены общим этапом4; прежние v1 результаты ниже не заменяют новую проверку.
+
+## V1 fixtures и первоначальный контракт
 
 [ADR-0043](../../../decisions/ADR-0043-magic-json-cli-v1.md) задаёт реализованные `simulate-magic` и `balance-magic`. **Оба семейства parser/service/result+error encoder, шесть Schema и CLI проверены [общим аудитом](../../../audits/m8-external-readiness.md).** Здесь зафиксированы шесть документов и ручное отображение двух конкретных входов в существующий public Python API. Это не универсальный JSON importer и не проверка строгой лексики.
 

@@ -1,8 +1,10 @@
 # ADR-0046: opt-in Miscast runner и ограниченная поддержка Prone
 
-Статус: принят ограниченный технический контракт, 2026-10-28. Production opt-in/journal/Prone adapters ещё не реализованы. [ADR-0045](ADR-0045-source-bound-unnatural-wind.md) закрыт [low-level аудитом](../audits/m8-unnatural-wind-readiness.md). Этот ADR подключает его готовые фазы и необходимые Prone adapters в прежний authored Champion-Wizard/Shooting Minions scope; универсального боя или каталога effects нет.
+Статус: принят ограниченный технический контракт, 2026-10-28; 2026-10-31 реализован первый срез — opt-in models/admission и generation/wire guards. Этапы 2–3 также реализованы: scoped Prone adapters, closed journal/full witness и opt-in runtime dispatch. Этап 4 завершён; [итоговый аудит](../audits/m8-opt-in-miscast-readiness.md) фиксирует propagation/installed parity и точные результаты полной регрессии с известными assertions. [ADR-0045](ADR-0045-source-bound-unnatural-wind.md) закрыт [low-level аудитом](../audits/m8-unnatural-wind-readiness.md). Этот ADR подключает его готовые фазы и необходимые Prone adapters в прежний authored Champion-Wizard/Shooting Minions scope; универсального боя или каталога effects нет.
 
 ## Источники и граница
+
+Последующее техническое расширение: [ADR-0047 этап1](../audits/m8-opt-in-generation-readiness.md) заменяет первоначальный blanket generation reject на explicit matching family-policy guard. Scope и исторические проверки этого ADR не расширяются; v1 wire refusal сохраняется. Native opted generation теперь доступен отдельно, другие Miscast effects не добавлены.
 
 Непосредственно перечитаны локальные тексты выбранных книг:
 
@@ -19,7 +21,7 @@
 
 ## Явный opt-in и совместимость источника
 
-В domain планируются frozen/slotted:
+В [domain](../../src/towr/domain/npc_magic_scenario_models.py) реализованы frozen/slotted policy и типизированный enum:
 
 - `NpcMagicPronePolicy`: единственный admitted value `SELF_STAND_WHEN_SAFE`.
 - `NpcMagicMiscastContinuationPolicy(choice, facts, prone_policy)`: все поля required, без defaults; choice — существующий `NpcRosterMiscastPolicy.DECLINE_CAST_BEFORE_MISCAST`, facts — существующие пять required `NpcRosterMiscastFacts`, prone_policy — typed enum выше.
@@ -55,7 +57,7 @@ ADR-0045 preparation сохраняет raw interruption/skipped-Test proof, н�
 
 ## Prone self-stand: один полный bound transition
 
-В `domain/npc_roster_prone_models.py` планируются:
+Реализованы в `domain/npc_roster_prone_models.py` и `rules/npc_roster_prone_resolution.py` (2026-10-31):
 
 - `NpcRosterProneStandRequest(id, state, actor_id, actor_has_enemy_in_close_range, underlying_cause_allows_removal)`;
 - `NpcRosterProneStandResult(source, stand: FreeMoveProneRemovalResult)`;
@@ -65,11 +67,17 @@ ADR-0045 preparation сохраняет raw interruption/skipped-Test proof, н�
 
 Projection удаляет только actor Prone, обновляет root/оба child roster references и spatial free-move usage. Placements/Zone, round/slot, magic, consumed execution IDs и все histories не меняются. Apply требует полного source equality; replay/new-ID при used resource отклоняется. Нельзя имитировать stand временным удалением Condition в чужом request или публиковать неполный child owner.
 
+Реализованный low-level self-stand проверен 19 unit и 6 integration tests: все pending families, real Stomach Blow chronology, ongoing cause/restriction guards, точный K1 result и full-source apply. После stand работают existing Casting/Minion Attack, без дополнительного action receipt. Immediate stand после completed Wind action отклоняется. Сам consumer принимает явный Close fact; unsafe Broken routing остаётся отдельной runner policy, same Zone не считается доказательством Close. Scoped end-turn, Casting/Curse и Shooting также реализованы ниже; safe Recover и opt-in journal/runner также реализованы; аудит propagation завершён.
+
 В opted runner policy применяется **до unexecuted action**, после наличия current exact scene frame. `actor_has_enemy_in_close_range` выводится из всех live hostile pair facts этого frame (каждая pair уже обязательна), а не из same Zone/graph. Eligible self-stand обязателен для этой выбранной policy: journal не принимает пропуск stand перед обычным action. Missing frame → MISSING_SCENE до stand/RNG. Stand не повторяется после action и не даёт второй free move. Если normal actor не может встать из-за enemy Close/used resource, он остаётся Prone и может выполнить только прежнее допустимое stationary действие с корректными Prone adapters.
 
 Порядок diagnosis для unexecuted action после mandatory phases: invalid chronology/неподдержанный actor injury или ongoing cause → current frame/MISSING_SCENE → unsafe Broken+Prone/BROKEN_ROUTE → eligible self-stand → target/action checks. Поэтому при одновременно missing frame и unsafe Broken+Prone выбирается MISSING_SCENE, без stand/RNG. Для completed action/end-turn frame не требуется; действуют прежние chronology/expiry checks и scoped Prone end adapter.
 
 ## Scoped action/target/end-turn adapters
+
+Shooting/Protection реализован, 2026-10-31: pure `prepare_npc_roster_shooting` принимает full owner и required range/awareness/Protection/departure facts и возвращает существующий bound Minion/Champion request. Actual Prone target даёт ровно один existing R009 −1d и effective departure=False; no own Prone penalty. `_validate_prone_shooting` в domain проверяет complete prepared modifiers/обычные Protection Tests/target departure. Missing/duplicate/foreign modifier и Prone Melee отклоняются. Full handoff проверяет pending/clock/usage, Champion сохраняет no-active/unresolved-Wound guard. Generic M2 не меняется. 19 unit +4 integration tests; journal source policy/runner factory integration реализованы этапом 3.
+
+Реализовано, 2026-10-31: bound normal Casting принимает standalone Prone caster; Curse target DTO принимает Prone Minion только с effective can_give_ground=False. Helper выводит availability из supplied context AND NOT actual Prone, не меняя context/scene. Casting и Willpower Tests не получают новых modifiers; смешанный batch двигает только eligible targets, затем проверяет все цели в прежнем порядке. Condition whitelist отделён от Staggered/Drained Wound whitelist; Prone context включает полный clock/expiry guard. 15 unit +4 integration tests. Legacy diagnosis/runner ещё закрыты для Prone; opted journal policy с actual Prone AND обновлена вместе с runner на этапе 3.
 
 Prone как standalone Condition допускается ровно в новых безопасных contexts. **Condition whitelist и Wound-effect whitelist разделяются:** нынешние разрешённые active Wound effects остаются Staggered/Drained с прежними chronology/expiry guards. Prone от ongoing Wound, `REMOVING_PRONE_CAUSES_CRITICAL`, unresolved Wound и другие restrictions остаются unsupported даже при opt-in. Не добавлять PRONE сразу в shared set, используемый также для Wound effects.
 
@@ -83,7 +91,11 @@ Prone как standalone Condition допускается ровно в новы�
 
 Старый `NpcWoundTurnEndRequest` не ослабляется; новый end wrapper отделяет admitted Prone context, когда обычный guard отвергает его. Общую узкую projection/expiry логику можно переиспользовать, но не вызывать scheduler дважды. `completed_rounds` должен учитывать обе реальные end result classes, ровно один раз; actions по-прежнему считаются по consumed execution IDs. `None` scenario сохраняет старую diagnosis/runner границу, включая Prone stops для ручных snapshots; низкоуровневые normal action checks расширяются только на явно перечисленные безопасные Prone contexts с детерминированными tests.
 
+Статус end-turn, 2026-10-31: `NpcRosterProneTurnEndRequest/Result` и `end_npc_roster_prone_turn` / `apply_npc_roster_prone_turn_end` реализованы в тех же Prone modules. Admission требует actual Prone и full pending/clock guards; Wound whitelist по-прежнему только Staggered/Drained. Общая private projection с прежним end consumer сохраняет независимые Condition sources, расходует due expiry, обновляет обе child references и прежний receipt. Старый request не ослаблен, scheduler вызывается один раз. 21 unit +4 integration tests проверяют в том числе actual Wind→end→next turn→stand и old projection parity; journal/counters/opted runner расширены этапом 3.
+
 ## Broken/Recover: закрытая часть и явные stops
+
+Реализовано, 2026-10-31: existing `NpcBrokenRecoverRequest` допускает standalone Prone только при movement=None и отсутствии живых врагов в Zone. Separate Wound whitelist остаётся Staggered/Drained; Prone context проверяет full phase clock/expiry, unresolved/ongoing causes/restrictions. Existing REMOVE_CONDITION(BROKEN) и engine/interruption/projection не менялись: нет standard Prone/Staggered removal/Pool−1, free move сохраняется; active Casting Wizard получает один skipped die. 18 unit +4 integration tests проверяют success/failure, actual Wound expiry и Recover→Miscast→Wind→end. Low-level safe request допускает как unused, так и spent free move; обязательный eligible self-stand — реализованная opted runner policy, а не механический запрет Recover.
 
 - Broken **без Prone** следует прежним complete scene routes/Recover/Run без изменений.
 - Уже safe Broken+Prone при available free move/no enemy Close сначала self-stand, затем прежний alternative Willpower Recover. Если free move уже использована, scoped safe Broken Recover может исполнять только alternative Test оставаясь Prone; standard benefits не добавляются. Никакого Prone/Staggered removal/Pool−1 из standard режима в этой ветви нет. Existing action-sourced skipped Casting die остаётся обязательным.
@@ -100,7 +112,9 @@ Production tests должны дополнительно доказать: typed
 
 ## Последовательность реализации
 
-1. **Точный следующий срез:** frozen policy/Prone enum, optional scenario field и полный admission; explicit preflight rejection opted native generation family и lossless wire rejection. Deterministic constructor/replace/types/facts/None-legacy tests. Runner dispatch/Prone/journal в этом первом срезе ещё не подключать; существующие stops остаются честной промежуточной границей.
-2. Bound self-stand/scoped Prone end-turn и перечисленные normal action/target/safe Broken adapters: contract/models → pure execution → integration tests. Whole-owner/history preservation, strict DTO/ongoing cause guards и0RNG вне существующих action Tests. Automatic opt-in loop пока не объявлять готовым.
-3. Closed journal/witness/predecessor/tail/policy и runner dispatch как один законченный интеграционный срез: сначала models/guards, затем publication/diagnosis/counters, полный deterministic аудит сцепления. Не оставлять опубликованный runner несовместимым с новым result validator. Обе origin kinds, other-row, unsafe Broken/scene и legacy None controls.
-4. Native simulation/sequential/process/assessment source propagation и общий аудит/public opted example/installed parity. Native generation/wire opt-in остаются отвергнутыми до собственного контракта; generic engine/другие effects не добавлять. Полная регрессия на границе вехи с отдельным exact учётом известных33dataclasses errors.
+Этап 3 проверен [интеграционным аудитом](../audits/m8-opt-in-runner-integration.md): 304 tests, включая 43 новых. Fresh runtime и authored Recover/Run harness разделены в evidence. Этап 4 также закрыт [итоговым аудитом](../audits/m8-opt-in-miscast-readiness.md) с отдельно учтёнными известными assertions.
+
+1. **Реализовано:** frozen policy/Prone enum, optional scenario field и полный admission; explicit preflight rejection opted native generation family и lossless wire rejection. [Constructor/replace/types/facts tests](../../tests/unit/test_m8_miscast_continuation_policy.py), [None-legacy/native source tests](../../tests/integration/test_m8_miscast_continuation_admission.py) и simulation/balance JSON tests. Совместимость общих facts следует из required True в обоих контрактах; cross-Zone CLOSE проверяет существующий validator всех scene frames. Сам первый admission-срез не менял runtime; автоматическое продолжение подключено отдельным этапом 3 ниже.
+2. **Низкоуровневые переходы реализованы и проверены:** stand/end, Casting/Curse, Shooting/Protection и safe Broken+Prone alternative Recover. Whole-owner/history и strict DTO/ongoing cause/clock guards сохранены; standard benefits и unsafe escape не добавлены. **Этап 3 ниже также реализован**. Общий аудит propagation/installed parity завершён; известные ошибки тестовых ожиданий учтены отдельно.
+3. **Реализовано, 2026-10-31:** closed journal/witness/predecessor/tail/policy и runner dispatch как один законченный интеграционный срез: сначала models/guards, затем publication/diagnosis/counters, полный deterministic аудит сцепления. Не оставлять опубликованный runner несовместимым с новым result validator. Обе origin kinds, other-row, unsafe Broken/scene и legacy None controls.
+4. **Завершено:** native simulation/sequential/process/assessment source propagation и общий аудит/public opted example/installed parity. Native generation/wire opt-in остаются отвергнутыми до собственного контракта; generic engine/другие effects не добавлять. Полная регрессия на границе вехи с отдельным exact учётом известных33dataclasses errors.

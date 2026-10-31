@@ -37,4 +37,4 @@ def execute_magic_simulation(command: MagicSimulationCommand) -> NpcMagicSimulat
             raise ValueError("summary must belong to the full command request")
         return summary
     except Exception as error:
-        raise MagicSimulationExecutionError(command.request_id) from error
+        raise MagicSimulationExecutionError(command.request_id, schema_version=command.schema_version) from error

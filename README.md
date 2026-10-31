@@ -89,6 +89,20 @@ $env:PYTHONPATH = "src"
 
 ## Магия: независимые прогоны через Python API
 
+Для явного opt-in продолжения Miscast→Unnatural Wind и Prone доступен [двухфайловый пример](docs/examples/m8/opted_miscast.py) с соседним `magic_scenario.py`:
+
+```powershell
+$env:PYTHONPATH = "src"
+.venv/Scripts/python.exe docs/examples/m8/opted_miscast.py
+```
+
+Четыре scripted сценария проверяют конкретные пути, не вероятности исходов. Policy передаётся явно через Python API; [аудит runner и ограничения](docs/audits/m8-opt-in-miscast-readiness.md). По [ADR-0047](docs/decisions/ADR-0047-opt-in-generation-and-magic-json-v2.md) native generation принимает отдельную family policy, полностью равную template, и сохраняет её в каждом составе. [Аудит generation](docs/audits/m8-opt-in-generation-readiness.md) и [проверочный пример](docs/examples/m8/opt_in_transport_contract_probe.py). JSON/CLI v1 по-прежнему отвергает opt-in. Simulation v2 реализован: required `scenario.miscast_continuation` — `null` либо полная explicit policy; результат и ошибки после строгого разбора сохраняют v2. [Контракт/проверки](docs/audits/m8-simulation-v2-readiness.md). Balance v2 — следующий этап.
+
+```powershell
+$env:PYTHONPATH = "src"
+.venv/Scripts/python.exe -m towr simulate-magic docs/examples/m8/json/magic-simulation-v2.request.json
+```
+
 ```sh
 PYTHONPATH=src python docs/examples/m8/magic_simulation.py
 ```
@@ -139,4 +153,4 @@ PYTHONPATH=src python -m towr balance-magic docs/examples/m8/json/magic-balance-
 После установки: `towr balance-magic INPUT`; `-` читает UTF-8 stdin. [Резерв/группы/family facts/frames/stages/window](docs/examples/m8/json/README.md) заданы явно; success содержит полный catalog и aggregate reports этапов. Execution выбирается во входе. Exit0 включает unsupported/no_eligible/empty selection;2 — input/usage,3 — generation_failed/evaluation_failed с known context,4 — I/O. Успешный preflight не гарантирует допустимость каждого subset: invalid projection прерывает всё семейство, не пропускается.
 
 
-[ADR-0046](docs/decisions/ADR-0046-opt-in-miscast-runner-and-prone.md) и [finite probe](docs/examples/m8/miscast_runner_contract_probe.py) подготовлены для opt-in подключения Miscast к runner и ограниченных Prone adapters. Policy/журнал/автоматическое продолжение ещё не реализованы; действуют прежние stops.
+[ADR-0046](docs/decisions/ADR-0046-opt-in-miscast-runner-and-prone.md): явная opt-in policy подключает preparation→roll→Wind21–22 и scoped Prone transitions к runner и закрытому журналу с полным origin witness. None сохраняет legacy; JSON v1 явно отвергает opt-in, native generation требует отдельную family policy по ADR-0047. Другие effects и unsafe Broken+Prone остаются unsupported. Propagation, публичный пример и installed audit runner завершены; [актуальный статус](docs/project-status.md).

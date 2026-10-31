@@ -1,0 +1,6 @@
+LEGACY: 3 d10; unsupported_path; rounds 1/0; actions 1; Pool 3; Wind 0; stand -; stop miscast_preparation
+OTHER ROW: 6 d10; unsupported_path; rounds 1/0; actions 1; Pool 3; Wind 0; stand -; stop miscast_effect
+WIND LAST ROUND: 16 d10; round_limit_reached; rounds 1/1; actions 3; Pool 0; Wind 1; stand ally,enemy; stop -
+NEXT ROUND: 25 d10; objective_achieved; rounds 2/2; actions 5; Pool 0; Wind 1; stand ally,enemy,wizard; stop -
+50 scripted d10; finite path evidence, not probabilities; fresh sources and global RNG preserved
+Native generation requires explicit family policy; JSON/CLI v1 rejects opt-in; other Miscast rows remain pending

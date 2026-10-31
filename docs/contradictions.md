@@ -1,5 +1,29 @@
 # Противоречия и неоднозначности
 
+## M8 opt-in journal/runner / ADR-0046, этап 3
+
+2026-10-31: новых книжных противоречий/house rules нет. Автоматизирован только explicit decline → table roll → Wind21–22 с уже согласованной stand-when-safe policy. Другие rows остаются pending; unsafe Broken+Prone/ongoing causes остаются stops. Исправленный missing-departure journal gap — проверка технического source contract, не изменение книжного движения. [Аудит](audits/m8-opt-in-runner-integration.md).
+
+## M8 safe Broken+Prone Recover / ADR-0046, 2026-10-31
+
+Новых противоречий/house rules нет. BOOK-PLAYER-GUIDE1.4, Recover118 отделяет alternative Condition Test от всех standard benefits; Broken122 требует безопасную Zone; Prone123 не запрещает Willpower. Поэтому stationary Recover может снять Broken, сохранив Prone/Staggered/Drained и Pool. Interrupted Casting156 отдельно добавляет один die за пропущенный Casting action. Mandatory eligible self-stand остаётся технической runner policy, а не новым книжным условием такого Test. Unsafe escape/ongoing Wound restrictions не расширены.
+
+## M8 Shooting/Protection Prone / ADR-0046, 2026-10-31
+
+Новых противоречий/house rules нет. BOOK-PLAYER-GUIDE1.4, гл.V Dropping Prone120 и Prone123: incoming Shooting−1d, no Give Ground/повторного Prone, repeated Staggered→Wound. Общий штраф собственным Shooting/Protection не задан. Modifier и effective departure выводятся из actual injury, не переопределяют authored scene facts. Более строгий технический Champion no-active-Wound guard и unsupported Prone Melee сохраняются; это не ограничение книжных возможностей.
+
+## M8 Casting/Curse Prone / ADR-0046, 2026-10-31
+
+Новых противоречий/house rules нет. BOOK-PLAYER-GUIDE1.4, Prone123 не задаёт общего штрафа собственным Casting/Willpower Tests и запрещает покидать Zone. Curse162 требует Give Ground только при возможности, затем Willpower; Casting156 сохраняет обычную проверку. Поэтому authored route availability не отменяет actual Prone: bound helper выводит effective False, не переписывая scene. Ongoing Wound restrictions и unsafe Broken остаются вне нового admission.
+
+## M8 Prone end-turn / ADR-0046, 2026-10-31
+
+Новых противоречий или house rules нет. BOOK-PLAYER-GUIDE1.4, гл.V Rules / Prone123 не задаёт end-turn upkeep; Wounds Table / Stomach Blow190 задаёт отдельный срок Drained. Новый full-owner end сохраняет Prone и обрабатывает прежний expiry с независимыми Condition sources, не расширяя старый end request. Ongoing Prone Wounds/restrictions и automatic runner остаются за границей этого среза.
+
+## M8 self-stand / ADR-0046, 2026-10-31
+
+Новых противоречий или house rules не выявлено. Прямо сверены BOOK-PLAYER-GUIDE1.4, гл.V Rules / Free Actions116, Conditions122, Prone123: явный Close fact не выводится из same Zone; cause confirmation не отменяет известные ongoing Wound effects/restrictions. Самостоятельный self-stand consumer связывает механический переход K1 с полным owner, а не выбирает тактику: запрет unsafe Broken+Prone перед stand остаётся будущей runner policy ADR-0046. Это не разрешение выдуманного standard Recover escape или второго free move.
+
 ## M8 continuation inventory / ADR-0044, 2026-10-28
 
 [Инвентаризация](audits/m8-continuation-inventory.md) и [контракт](decisions/ADR-0044-dead-champion-turn-exclusion.md) не выявили нового книжного противоречия. Непосредственно проверены PG1.4, гл. V Rules / Combat112 / Wounds & Conditions121 / Wounds Table190–191; гл. VIII Magic in the Old World156–159; GM1.1, гл. VII Allies and Antagonists / Minions91 / Champions92. Отсутствующий current-round exclusion dead awaiting Wizard — технический пробел scheduler после уже завершённой lethal Wound, а не house rule. Minion disposition не переносится на Champion; dying words не дают action; Close trophy не исполняется в ranged scope. Miscast self-inclusion и неопределённые narrative/GM effects остаются открытыми. Новый consumer ещё не реализован.

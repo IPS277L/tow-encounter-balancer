@@ -1,6 +1,8 @@
 """Source-bound handoff between the two narrow ADR-0036 action owners."""
 from dataclasses import dataclass, replace
 
+from towr.domain.condition_models import Condition
+
 from towr.domain.npc_champion_attack_models import NpcChampionAttackRequest, NpcChampionAttackResult
 from towr.domain.npc_roster_casting_models import NpcRosterCastingState
 from towr.domain.npc_wound_turn_models import NpcStomachBlowExpiry
@@ -31,6 +33,18 @@ class NpcRosterChampionAttackRequest:
             raise ValueError('Champion attack must match the current bound owner')
         if self.attack.execution.id in self.state.consumed_execution_ids:
             raise ValueError('action execution has already been consumed')
+        execution = self.attack.execution
+        if any(self.state.roster.participant(i).state.injury.conditions.has(Condition.PRONE)
+               for i in (execution.actor_id, execution.target_id)):
+            from towr.domain.npc_roster_turn_models import _validate_phase_source
+            _validate_phase_source(self.state)
+            if execution.kernel_request.target_has_given_ground_this_round != (
+                    execution.target_id in self.state.spatial_state.gave_ground_entity_ids):
+                raise ValueError('Prone Champion handoff has stale Give Ground usage')
+            origin = self.state.spatial_state.placement_for(execution.target_id).zone_id
+            if (execution.kernel_request.can_target_leave_zone
+                    and not self.state.spatial_state.graph.adjacent_zone_ids(origin)):
+                raise ValueError('can_target_leave_zone requires an adjacent Zone')
 
 
 @dataclass(frozen=True, slots=True)
