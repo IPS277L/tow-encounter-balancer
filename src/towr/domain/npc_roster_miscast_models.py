@@ -1,19 +1,25 @@
-"""Explicit decline and source-bound prepared/rolled Miscast owners (ADR-0045).
+"""Source-bound Miscast preparation, roll and Unnatural Wind (ADR-0045).
 
 PG1.4 Magic in the Old World / Interrupted Casting and Miscasts pp156-159.
-Preparation loses Casting progress; the single table roll retains the Pool.
+Preparation loses Casting progress; only the full Wind effect clears the Pool.
 """
 from dataclasses import dataclass, fields, replace
 from enum import Enum
 from typing import cast
 
 from towr.domain.action_execution_models import SkippedCastingTestAfterActionResult
+from towr.domain.condition_models import Condition, ConditionApplicationResult
 from towr.domain.magic_models import (
     MiscastPoolIncreaseRequest, MiscastPoolIncreaseSourceKind, MiscastPoolOutcome,
     MiscastPoolResolutionResult, MiscastPreparationRequest, MiscastPreparationResult, MiscastRollRequest,
     MiscastRollResult, MiscastTableEffectRequest, MiscastTableEntry, MiscastTableEntryId,
 )
 from towr.domain.npc_roster_casting_models import NpcRosterCastingState
+from towr.domain.npc_roster_models import NpcRoster
+from towr.domain.miscast_effect_models import (
+    MiscastEffectTarget, MiscastUnnaturalWindRequest, MiscastUnnaturalWindResult,
+    MiscastUnnaturalWindTargetResult,
+)
 from towr.domain.turn_models import ActionSlotGrant
 
 
@@ -224,6 +230,95 @@ class NpcRosterMiscastRollResult:
     @property
     def state(self) -> NpcRosterCastingState:
         return replace(self.source.state, pending_miscast_continuation=self)
+
+
+@dataclass(frozen=True, slots=True)
+class NpcRosterUnnaturalWindRequest:
+    id: str
+    state: NpcRosterCastingState
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.id, str):
+            raise TypeError('Unnatural Wind ID must be a string')
+        if not self.id.strip():
+            raise ValueError('Unnatural Wind ID must not be blank')
+        if not isinstance(self.state, NpcRosterCastingState):
+            raise TypeError('Unnatural Wind requires the full roster state')
+        prefix = self.state.pending_miscast_continuation
+        if not isinstance(prefix, NpcRosterMiscastRollResult):
+            raise ValueError('Unnatural Wind requires the full rolled pending')
+        if prefix.roll.entry != MiscastTableEntry(MiscastTableEntryId.UNNATURAL_WIND, 21, 22):
+            raise ValueError('Unnatural Wind requires the canonical 21/22 entry')
+        if self.id != prefix.effect_request.resolution_id + ':apply':
+            raise ValueError('Unnatural Wind ID must match the canonical effect application')
+
+    @property
+    def wind_request(self) -> MiscastUnnaturalWindRequest:
+        old = self.state
+        prefix = old.pending_miscast_continuation
+        if not isinstance(prefix, NpcRosterMiscastRollResult):
+            raise ValueError('Unnatural Wind requires its rolled pending')
+        caster = old.wizard.actor_id
+        zone = old.spatial_state.placement_for(caster).zone_id
+        # The prepared source retains all five confirmed scope facts. Under
+        # no external Short creatures / no cross-Zone Close, this set is complete.
+        others = tuple(p for p in old.roster.participants if p.state.actor_id != caster
+                       and not p.state.injury.defeated
+                       and old.spatial_state.placement_for(p.state.actor_id).zone_id == zone)
+        participants = (old.roster.participant(caster), *others)
+        targets = tuple(MiscastEffectTarget(p.state.actor_id, p.definition.injury_policy, p.state.injury)
+                        for p in participants)
+        return MiscastUnnaturalWindRequest(self.id, prefix.effect_request, old.wizard.magic_state, targets)
+
+
+@dataclass(frozen=True, slots=True)
+class NpcRosterUnnaturalWindResult:
+    source: NpcRosterUnnaturalWindRequest
+    wind: MiscastUnnaturalWindResult
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.source, NpcRosterUnnaturalWindRequest) or not isinstance(self.wind, MiscastUnnaturalWindResult):
+            raise TypeError('bound Wind result requires typed source and K1 Wind result')
+        request, wind = self.source.wind_request, self.wind
+        if not isinstance(wind.targets, tuple) or len(wind.targets) != len(request.targets):
+            raise ValueError('Wind must complete every ordered scoped target before Pool cleanup')
+        expected_targets: list[MiscastUnnaturalWindTargetResult] = []
+        rule = request.source.rule_id
+        for target, actual in zip(request.targets, wind.targets):
+            if not isinstance(actual, MiscastUnnaturalWindTargetResult):
+                raise TypeError('Wind requires typed target application results')
+            application = actual.condition_application
+            if (actual.excluded_as_monstrosity is not False
+                    or not isinstance(application, ConditionApplicationResult)
+                    or application.condition is not Condition.PRONE
+                    or type(application.was_already_present) is not bool or application.blocked is not False):
+                raise ValueError('Wind target must retain the actual unblocked Prone application')
+            conditions = target.state.conditions.with_condition(Condition.PRONE)
+            expected_application = ConditionApplicationResult(
+                f'{request.id}:{target.target_id}:prone', conditions, Condition.PRONE,
+                target.state.conditions.has(Condition.PRONE), False, rule, None, (rule,))
+            expected_targets.append(MiscastUnnaturalWindTargetResult(
+                target.target_id, replace(target.state, conditions=conditions), False,
+                expected_application, (rule,)))
+        expected = MiscastUnnaturalWindResult(
+            request.id, request.source.target_id, replace(request.magic_state, miscast_dice=0),
+            tuple(expected_targets), (rule,))
+        if wind != expected:
+            raise ValueError('K1 Wind differs from the complete source/target/injury/Condition transition')
+
+    @property
+    def state(self) -> NpcRosterCastingState:
+        old = self.source.state
+        injuries = {t.target_id: t.state for t in self.wind.targets}
+        roster = NpcRoster(tuple(
+            replace(p, state=replace(p.state, injury=injuries[p.state.actor_id]))
+            if p.state.actor_id in injuries else p for p in old.roster.participants))
+        return replace(old, roster=roster, wizard=replace(old.wizard, magic_state=self.wind.magic_state),
+                       champion_attack=(None if old.champion_attack is None else
+                                        replace(old.champion_attack, roster=roster)),
+                       minion_attack=(None if old.minion_attack is None else
+                                      replace(old.minion_attack, roster=roster)),
+                       pending_miscast_continuation=None)
 
 
 def validate_npc_miscast_continuation_context(state: NpcRosterCastingState) -> None:

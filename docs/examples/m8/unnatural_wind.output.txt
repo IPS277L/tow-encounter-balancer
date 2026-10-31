@@ -1,0 +1,8 @@
+WIND21: 3 prior + 3 table d10; targets=('wizard', 'ally', 'enemy'); pool3->0; unsupported_end_turn
+WIND22: 3 prior + 3 table d10; targets=('wizard', 'ally', 'enemy'); pool3->0; unsupported_end_turn
+OUTSIDE: 3 prior + 3 table d10; targets=('wizard', 'ally'); pool3->0; unsupported_end_turn
+ARCHIVE: 9 prior + 3 table d10; targets=('wizard', 'ally', 'enemy2'); pool3->0; unsupported_end_turn
+AVAILABLE SPELL DECLINED: 18 prior + 3 table d10; targets=('wizard', 'ally', 'enemy'); pool3->0; unsupported_end_turn
+ALREADY PRONE: explicit bound input, not fresh runner reachability; actual application retains Staggered; pool3->0
+OTHER ROW30: complete rolled pending/pool3 retained; Wind rejected before effect; no cleanup/reroll
+63 scripted d10; standalone bound public APIs; owners/histories/global RNG preserved; no resumed battle or interruption claim

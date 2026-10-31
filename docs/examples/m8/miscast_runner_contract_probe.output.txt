@@ -1,0 +1,8 @@
+CURRENT RUNNER: fresh Casting -> bound preparation/roll/Wind21; 3+3 d10; actual END_TURN stop
+SELF STAND K1: explicit no enemy Close; free move spent, no Zone/action change; second/Close attempts rejected
+PRONE TARGET K1: explicit RULE-COMBAT-009:prone-target -1d; actual Shooting Test 3d->2d, 2 draws
+STANDARD RECOVER K1: authored enemy Close; Prone/Staggered removed, Pool2->1; one action, 0 draws
+ALTERNATIVE RECOVER K1: safe Broken Willpower succeeds in 2 draws; Prone/Staggered retained; unsafe Zone rejected
+SOURCE PROOF K1: equal Recover post-state/IDs with different actual dice traces; full witnesses differ
+GAP: K1 stand/Recover results remain external; current full owner still Prone/END_TURN; no future policy/journal/root fabricated
+12 scripted d10; existing public APIs only; global RNG unchanged; contract evidence, not automatic battle continuation

@@ -177,7 +177,21 @@ ADR-0044 завершён в узкой границе; другие Wound/Misca
 
 1. **Реализовано:** required policy/five facts, frozen preparation request/result, typed prepared pending в root, pure preparation/apply и все mandatory dispatch/fresh admission guards. Deterministic tests обоих origin kinds, source/receipt/live projections/facts/choice/replay; 0RNG.
 2. **Реализовано:** bound one-roll request/result/executor/apply, rolled pending и truthful diagnosis. Другой entry сохраняет полный prefix/Pool; total21/22 iff canonical Wind, никакого reroll/cleanup/default desperate cast.
-3. **Точный следующий срез:** bound Wind request/result/pure application с caster+all live scoped Short targets, уже Prone/outside/archive и exact injury/Condition metadata. Полное effect application прежде Pool0; обе child roster references/histories сохранены.
-4. Аудит low-level consumer с public production example/installed parity и прежними Prone stops. Это не поддержка automatic battle continuation; Prone action/target/end-turn/Broken interplay и opt-in runner/JSON policy требуют отдельного контракта.
+3. **Реализовано:** bound Wind request/result/pure application с caster+all live scoped Short targets, уже Prone/outside/archive и exact injury/Condition metadata. Полное effect application прежде Pool0; обе child roster references/histories сохранены.
+4. **Завершено:** [аудит low-level consumer](audits/m8-unnatural-wind-readiness.md) с [public production example](examples/m8/unnatural_wind.py)/installed parity444files и прежними Prone stops. Это не поддержка automatic battle continuation; Prone action/target/end-turn/Broken interplay и opt-in runner/JSON policy требуют отдельного контракта.
 
 Наличие K1 reducer не означает encounter owner. House rules, универсальный Miscast framework, другие Wound/ordinary Give Ground paths этим планом не добавляются.
+
+Следующий шаг после закрытого ADR-0045 — отдельный контракт opt-in подключения готовой Miscast цепочки: explicit decline/facts, exact journal provenance и scoped Prone end-turn/action/target/Recover/free-move/Broken adapters. Сначала finite proof и контракт, затем production маленькими срезами. Новый gameplay consumer, default policy или расширение fresh-only JSON этим аудитом не вводятся.
+
+
+## ADR-0046 — opt-in Miscast runner и Prone
+
+[Контракт](decisions/ADR-0046-opt-in-miscast-runner-and-prone.md) и [finite proof](examples/m8/miscast_runner_contract_probe.py) готовы. Порядок производства:
+
+1. **Точный следующий срез:** frozen policy/Prone enum, optional scenario field/admission, explicit opted native generation preflight reject и lossless v1 encoder reject. None сохраняет legacy; deterministic type/facts/replace/legacy tests, без нового dispatch.
+2. Bound self-stand/scoped Prone end-turn и normal action/target/safe Broken adapters. Whole-owner/истории/ongoing cause guards; own Tests без нового penalty, Shooting по Prone−1d, effective Give Ground=False.
+3. Closed journal/typed origin witness/predecessor/tail и runner publication/diagnosis/counters одним законченным integration срезом; без пропуска mandatory phases или death guard.
+4. Native simulations/aggregate/source/sequential/process propagation и итоговый аудит/public opted example/installed parity. Generation/wire opt-in остаются отвергнутыми до отдельного контракта.
+
+Unsafe Broken+Prone и ongoing Prone Wound restrictions сохраняют explicit stops; standard-Recover fallback, ally help и Run-after-spent-free-move не добавляются этим scope. Нельзя объявлять runtime интеграцию готовой по finite K1 proof.

@@ -276,4 +276,25 @@ PYTHONPATH=src python docs/examples/m8/json_contract_probe.py
 PYTHONPATH=src python docs/examples/m8/unnatural_wind_contract_probe.py
 ```
 
-57scripted d10: fresh triggers и Wind21/22, ally/self targets, outside enemy, actual defeated archive, explicit decline при доступном spell, другой roll30 с Pool3 без effect/cleanup/retry. Scope отдельно подтверждает no_cross_zone_close/no_external_short_range_creatures; это не general geometry discovery. Existing root отвергает prepared magic под старым pending, поэтому промежуточные K1 значения пока только external variables. Ручная final root projection сохраняет owners/archives/ledgers и показывает действующий Prone END_TURN stop. Этот исторический probe не использует новые prefix/consumer types; interruption origin этим fresh Casting proof не доказывается. Отдельные production preparation и one-roll API уже реализованы и проверены Casting/bound Recover/Run tests; Wind application пока остаётся композицией K1. Новые roll tests отдельно подтверждают retained Pool/полный rolled pending и MISCAST_EFFECT diagnosis. Raw pending по-прежнему не допускает prepared magic без нового owner.
+57scripted d10: fresh triggers и Wind21/22, ally/self targets, outside enemy, actual defeated archive, explicit decline при доступном spell, другой roll30 с Pool3 без effect/cleanup/retry. Scope отдельно подтверждает no_cross_zone_close/no_external_short_range_creatures; это не general geometry discovery. Existing root отвергает prepared magic под старым pending, поэтому промежуточные K1 значения пока только external variables. Ручная final root projection сохраняет owners/archives/ledgers и показывает действующий Prone END_TURN stop. Этот исторический probe не использует новые prefix/consumer types; interruption origin этим fresh Casting proof не доказывается. Отдельные production preparation и one-roll API уже реализованы и проверены Casting/bound Recover/Run tests; Отдельный production Wind consumer теперь также реализован: canonical source/ordered complete targets/actual Prone/effect-before-cleanup; этот исторический probe по-прежнему использует прежнюю композицию K1. Новые roll tests отдельно подтверждают retained Pool/полный rolled pending и MISCAST_EFFECT diagnosis. Raw pending по-прежнему не допускает prepared magic без нового owner.
+
+## Самостоятельный Unnatural Wind consumer ADR-0045
+
+[Production example](unnatural_wind.py) / [stdout](unnatural_wind.output.txt), [readiness audit](../../audits/m8-unnatural-wind-readiness.md) и [integration test](../../../tests/integration/test_m8_unnatural_wind_example.py). Один скопированный файл, только stdlib/towr imports; preparation → one-roll → actual Wind через bound public API/apply, без manual post-effect projection.
+
+```sh
+PYTHONPATH=src python docs/examples/m8/unnatural_wind.py
+```
+
+Семь случаев/63scripted d10: Wind21/22/self/allies/enemy, outside, real defeated archive, available spell decline, already-Prone/Staggered и retained other-row30/Pool3. После actual effect — честный Prone END_TURN stop. Already-Prone — явно authored bound input, не fresh scenario reachability; interruption проверен отдельными bound Recover/Run tests. Пример не импортирует historical probe, tests или соседний example. Проверен external cwd/isolated installed wheel без PYTHONPATH;444production Python/Schema files совпали с source/site. Automatic runner/journal/Prone/wire остаются отдельным контрактом.
+
+
+## Контракт Miscast runner / Prone ADR-0046
+
+[ADR](../../decisions/ADR-0046-opt-in-miscast-runner-and-prone.md), [probe](miscast_runner_contract_probe.py) / [stdout](miscast_runner_contract_probe.output.txt), [subprocess test](../../../tests/integration/test_m8_miscast_runner_contract_probe.py). Bundle состоит из probe и соседнего unnatural_wind.py; imports tests/tools не используются.
+
+```sh
+PYTHONPATH=src python docs/examples/m8/miscast_runner_contract_probe.py
+```
+
+12scripted d10 показывают actual Wind/current END_TURN, отдельный K1 self-stand/shared free move/Close rejection, actual Shooting3d→2d, standard Recover против alternative Broken Test и unsafe rejection, разные Recover traces при равном post-state. K1 projections остаются внешними — будущий opt-in/full owner/journal и resumed battle не имитируются. Required caller facts и exact hostile pair frame не заменяются геометрическими догадками. Проверен two-file external cwd, в том числе с existing installed runtime без PYTHONPATH; production пока прежний.

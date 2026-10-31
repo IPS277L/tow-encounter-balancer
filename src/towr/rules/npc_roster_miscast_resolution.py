@@ -1,11 +1,13 @@
-"""Declined Miscast preparation and one table roll; no effect or Pool cleanup."""
+"""Declined Miscast preparation, one table roll and scoped Unnatural Wind."""
 from towr.domain.npc_roster_casting_models import NpcRosterCastingState
 from towr.domain.npc_roster_miscast_models import (
     NpcRosterMiscastPreparationRequest, NpcRosterMiscastPreparationResult,
     NpcRosterMiscastRollRequest, NpcRosterMiscastRollResult,
+    NpcRosterUnnaturalWindRequest, NpcRosterUnnaturalWindResult,
 )
 from towr.rules.dice import RandomSource
 from towr.rules.miscast_resolution import prepare_miscast, resolve_miscast_roll
+from towr.rules.miscast_effect_resolution import resolve_unnatural_wind
 
 
 def prepare_npc_roster_miscast(request: NpcRosterMiscastPreparationRequest) -> NpcRosterMiscastPreparationResult:
@@ -38,4 +40,20 @@ def apply_npc_roster_miscast_roll(
         raise TypeError('Miscast roll application requires typed full state and result')
     if state != result.source.state:
         raise ValueError('Miscast roll belongs to another, already applied or stale full source state')
+    return result.state
+
+
+def resolve_npc_roster_unnatural_wind(request: NpcRosterUnnaturalWindRequest) -> NpcRosterUnnaturalWindResult:
+    if not isinstance(request, NpcRosterUnnaturalWindRequest):
+        raise TypeError('Unnatural Wind requires NpcRosterUnnaturalWindRequest')
+    return NpcRosterUnnaturalWindResult(request, resolve_unnatural_wind(request.wind_request))
+
+
+def apply_npc_roster_unnatural_wind(
+    state: NpcRosterCastingState, result: NpcRosterUnnaturalWindResult,
+) -> NpcRosterCastingState:
+    if not isinstance(state, NpcRosterCastingState) or not isinstance(result, NpcRosterUnnaturalWindResult):
+        raise TypeError('Unnatural Wind application requires typed full state and result')
+    if state != result.source.state:
+        raise ValueError('Unnatural Wind belongs to another, already applied or stale full source state')
     return result.state

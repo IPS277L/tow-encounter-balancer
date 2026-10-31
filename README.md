@@ -120,7 +120,7 @@ PYTHONPATH=src python docs/examples/m8/magic_evaluation.py
 
 ## Магия через JSON/CLI
 
-[Контракт ADR-0045](docs/decisions/ADR-0045-source-bound-unnatural-wind.md) и [finite probe](docs/examples/m8/unnatural_wind_contract_probe.py) готовят следующий low-level Unnatural Wind consumer: explicit decline, один table roll и effect-before-cleanup. Реализованы explicit policy/facts, typed prepared/rolled pending, preparation и однократный table roll с exact-source apply/guards. Pool сохраняется до effect; Wind application — следующий срез; автоматический Prone/runner policy остаётся отдельной границей.
+[Контракт ADR-0045](docs/decisions/ADR-0045-source-bound-unnatural-wind.md) и [finite probe](docs/examples/m8/unnatural_wind_contract_probe.py) готовят следующий low-level Unnatural Wind consumer: explicit decline, один table roll и effect-before-cleanup. Реализованы explicit policy/facts, typed prepared/rolled pending, preparation и однократный table roll с exact-source apply/guards. Wind21–22 применяет Prone всем scoped live Short targets и только затем очищает Pool; [аудит low-level consumer](docs/audits/m8-unnatural-wind-readiness.md) и [самостоятельный пример](docs/examples/m8/unnatural_wind.py) описывают проверки и ограничения; автоматический Prone/runner policy остаётся отдельной границей.
 
 Следующий игровой consumer выбран по [инвентаризации остановок M8](docs/audits/m8-continuation-inventory.md): [ADR-0044](docs/decisions/ADR-0044-dead-champion-turn-exclusion.md) фиксирует исключение оставшегося хода погибшего Wizard после полностью завершённой lethal Attack. Контракт и finite probe готовы; типизированные модели и чистое применение исключения реализованы. Journal/runner интеграция реализована; [аудит consumer и propagation](docs/audits/m8-dead-champion-readiness.md) описывает узкую границу, проверки и [пример JSON/CLI](docs/examples/m8/json/dead-champion-v1.request.json).
 
@@ -137,3 +137,6 @@ PYTHONPATH=src python -m towr balance-magic docs/examples/m8/json/magic-balance-
 ```
 
 После установки: `towr balance-magic INPUT`; `-` читает UTF-8 stdin. [Резерв/группы/family facts/frames/stages/window](docs/examples/m8/json/README.md) заданы явно; success содержит полный catalog и aggregate reports этапов. Execution выбирается во входе. Exit0 включает unsupported/no_eligible/empty selection;2 — input/usage,3 — generation_failed/evaluation_failed с known context,4 — I/O. Успешный preflight не гарантирует допустимость каждого subset: invalid projection прерывает всё семейство, не пропускается.
+
+
+[ADR-0046](docs/decisions/ADR-0046-opt-in-miscast-runner-and-prone.md) и [finite probe](docs/examples/m8/miscast_runner_contract_probe.py) подготовлены для opt-in подключения Miscast к runner и ограниченных Prone adapters. Policy/журнал/автоматическое продолжение ещё не реализованы; действуют прежние stops.

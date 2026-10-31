@@ -170,3 +170,6 @@ M8 pure admission ADR-0037, 2026-10-26: constructors требуют исходн
 
 
 [Итоговый аудит этой M8 composition ADR-0044](../audits/m8-dead-champion-readiness.md) завершён: 45implementation tests +public probe, actual default-RNG death witness, installed seq/process JSON/CLI. Verified относится к завершённой ordinary lethal Attack и awaiting Wizard exclusion, не к остальным Wound/Miscast/death consumers. Книжные основания и ограничения выше сохраняются.
+
+
+[ADR-0046](../decisions/ADR-0046-opt-in-miscast-runner-and-prone.md) задаёт planned opt-in Miscast runner/ограниченные Prone adapters, production ещё не реализован. Источники напрямую перечитаны: PG1.4, гл.V Range114/Free Actions116/Recover118/Attack Modifiers119/Dropping Prone120/Conditions и Broken122/Prone123; гл.VIII Casting156/Miscasts157–159; GM1.1, гл.VII Minions91/Champions92. Self-stand расходует free move только без enemyClose; собственные Tests не получают общего Prone penalty, Shooting по Prone−1d, Give Ground запрещён. Standard Recover и alternative Condition Test не суммируются; ongoing cause guards сохраняются. Unsafe Broken+Prone требует отдельного escape contract и пока остаётся stop. Новых normative Rule IDs/house rules нет; RULE-COMBAT-009/014 переиспользуются.
