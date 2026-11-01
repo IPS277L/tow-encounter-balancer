@@ -1,5 +1,9 @@
 # Трассировка правил
 
+## M8 — simulation JSON/CLI v3, ADR-0051 пункт2
+
+2026-11-01: [simulation3 codec/schema/service/CLI](audits/m8-simulation-v3-readiness.md) реализованы;30newtests проверяют независимые policies/full source/strict trust table и actual parsed9→stand→6expiry в seq/spawn. [Public input](examples/m8/json/magic-simulation-v3.request.json)/[result](examples/m8/json/magic-simulation-v3.result.json), [probe](examples/m8/stationary_wound_transport_contract_probe.py). Это wire propagation существующей границы ADR-0050; PG1.4/GM1.1, Rule IDs и house rules не меняются, нового чтения книг нет. Balance3 ещё unsupported; JSON1/2 lossless отказ stationary policy сохраняется.
+
 ## M8 — generation stationary policy, ADR-0051 пункт1
 
 2026-11-01: [family/preflight/projection/result](audits/m8-stationary-wound-generation-readiness.md) реализованы;19unit/5integration tests, generated3/4actor actual9→stand→Casting/end→6/expiry и full sequential/spawn source chain. Это передача существующего разрешения ADR-0050, новых Rule IDs, house rules или чтения книг нет. RULE-HEALTH-003/005/008 и RULE-COMBAT-014 с прежними PG1.4/GM1.1 источниками не меняются. [Public probe](examples/m8/stationary_wound_transport_contract_probe.py) использует production generator; wire3 mapping пока ручной, JSON1/2 сохраняют lossless отказ.

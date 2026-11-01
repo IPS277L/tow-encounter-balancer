@@ -6,7 +6,7 @@
 
 ## Навигация
 
-Реализована независимая [native stationary-wound policy ADR-0050](docs/decisions/ADR-0050-native-stationary-wound-policy.md): automatic Leg Spasm stand, Casting/Protection/end и Wound6 expiry. [Source/installed/spawn аудит](docs/audits/m8-native-stationary-wound-readiness.md) завершён. Native generation [ADR-0051](docs/decisions/ADR-0051-stationary-wound-generation-and-magic-json-v3.md) передаёт policy всем составам при отдельном matching family assertion; [тесты и аудит](docs/audits/m8-stationary-wound-generation-readiness.md). JSON1/2 явно отвергают stationary policy, simulation/balance v3 — следующие этапы. Точное состояние — в документах ниже.
+Реализован [simulation JSON/CLI v3](docs/audits/m8-simulation-v3-readiness.md): independent stationary/Miscast policies, полный source/echo и корректные версии ошибок. [Публичный JSON](docs/examples/m8/json/magic-simulation-v3.request.json) исполняется через `simulate-magic`. Native generation [ADR-0051](docs/decisions/ADR-0051-stationary-wound-generation-and-magic-json-v3.md) сохраняет отдельный matching family opt-in. JSON1/2 явно отвергают stationary policy; balance v3 — следующий этап. Точное состояние — в документах ниже.
 
 - [Актуальный статус, ограничения, проверки и следующий шаг](docs/project-status.md).
 - [Открытые вопросы и действующие допущения](docs/open-questions.md).

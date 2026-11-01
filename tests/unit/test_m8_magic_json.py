@@ -152,12 +152,12 @@ class M8MagicJsonTests(unittest.TestCase):
                 parse(raw)
 
     def test_version_ruleset_and_family_have_no_fallback(self):
-        for field, value in (('schema_version', '3'), ('schema_version', 1),
+        for field, value in (('schema_version', '4'), ('schema_version', 1),
                              ('kind', 'npc_ranged_simulation'), ('kind', 'npc_magic_balance'),
                              ('ruleset', 'other')):
             with self.subTest(field=field, value=value):
                 data = dict(document(), **{field: value})
-                error = self.assert_invalid(data, Code.UNSUPPORTED_VERSION if value == '3' else Code.INVALID_INPUT)
+                error = self.assert_invalid(data, Code.UNSUPPORTED_VERSION if value == '4' else Code.INVALID_INPUT)
                 self.assertEqual(error.request_id, data['request_id'])
                 self.assertEqual(error.path, '/' + field)
         for value in ('', ' \t', 1, None):

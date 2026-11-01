@@ -1,11 +1,13 @@
-"""Pure magic simulation v1/v2 parser and source-bound aggregate encoders."""
-from dataclasses import asdict
+"""Pure magic simulation v1/v2/v3 parser and source-bound aggregate encoders."""
+from dataclasses import asdict, replace
 import json
 import platform
 
 from towr import __version__
 from towr.adapters._json_common import build_value, parse_seed, read_request
-from towr.adapters._magic_scenario_json import parse_scenario, scenario_document
+from towr.adapters._magic_scenario_json import (
+    _validate_scenario_policy_types, parse_scenario, scenario_document,
+)
 from towr.adapters.magic_json_errors import MagicSimulationInputError
 from towr.adapters.magic_json_schema import validate_magic_simulation_document
 from towr.adapters.ranged_json_errors import RangedInputErrorCode as Code
@@ -35,7 +37,8 @@ def encode_magic_simulation_error(
 
 def parse_magic_simulation_request(text: str | bytes) -> MagicSimulationCommand:
     """Read strict UTF-8 JSON and admit the full fresh authored scenario."""
-    document = read_request(text, MagicSimulationInputError, validate_magic_simulation_document, magic_v2=True)
+    document = read_request(text, MagicSimulationInputError, validate_magic_simulation_document,
+                            magic_versions=('1', '2', '3'))
     version = document['schema_version']
     try:
         options = document['simulation']
@@ -73,6 +76,10 @@ def encode_magic_simulation_result(command: MagicSimulationCommand, summary: Npc
     """Encode an aggregate with exact full source, without RNG/runner/pool calls."""
     if not isinstance(command, MagicSimulationCommand) or not isinstance(summary, NpcMagicSimulationSummary):
         raise TypeError('encoder requires a magic command and magic simulation summary')
+    replace(command.request)
+    replace(summary.source_request)
+    _validate_scenario_policy_types(command.request.scenario)
+    _validate_scenario_policy_types(summary.source_request.scenario)
     if summary.source_request != command.request:
         raise ValueError('summary belongs to a different full simulation request')
     request_document = _request_document(command)

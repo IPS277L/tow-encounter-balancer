@@ -2,6 +2,8 @@
 
 Дата: 2026-11-01. **Пункт1 [ADR-0051](../decisions/ADR-0051-stationary-wound-generation-and-magic-json-v3.md) реализован и проверен, native generation этап закрыт.** [Исходная контрактная проверка](m8-stationary-wound-transport-contract.md) сохраняется отдельно. Simulation3/balance3/schema/CLI и общий installed audit — последующие пункты2–4; весь ADR ещё не закрыт.
 
+**Последующий пункт2 реализован:** [simulation3 audit](m8-simulation-v3-readiness.md). Текущий public probe уже использует production simulation3 и8actual round-trips; ручными остаются8balance3 mappings. Ниже сохранена проверка native generation этапа до wire3; она не является новым installed/console evidence.
+
 ## Контракт и исполнение
 
 `MagicCandidateGenerationRequest.stationary_wound_continuation: NpcMagicStationaryWoundPolicy | None = None` добавлено последним полем. Это отдельное утверждение для всех subsets, независимо от template и Miscast family permission. Caller явно подтверждает обе политики; omitted не наследуется. Удалённые резервисты отсутствуют в конкретном сценарии. Никаких новых игровых переходов, нормализованных Rule IDs или house rules нет; используются PG1.4/GM1.1 и готовая граница ADR-0050. Книги заново не читались.

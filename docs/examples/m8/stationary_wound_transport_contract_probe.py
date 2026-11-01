@@ -1,4 +1,4 @@
-"""ADR-0051 native family generation and finite proposed v3 mapping.
+"""ADR-0051 native family/simulation v3 and finite proposed balance v3 mapping.
 
 Copy with generation_contract_probe.py, magic_scenario.py, opted_miscast.py
 and stationary_wound_runner.py. Genuine legacy v2 echoes are prepared before
@@ -24,6 +24,7 @@ from towr.application.magic_balance_service import execute_magic_balance
 from towr.application.magic_candidate_generation import generate_magic_candidates
 from towr.application.magic_candidate_generation_models import MagicCandidateGenerationRequest, MagicCompositionGroup
 from towr.application.magic_simulation_models import MagicSimulationCommand
+from towr.application.magic_simulation_service import execute_magic_simulation
 from towr.application.magic_staged_evaluation_service import evaluate_magic_candidates_staged
 from towr.application.ranged_simulation_models import SimulationExecutionMode, SimulationExecutionOptions
 from towr.balance.magic_assessment import assess_magic_candidate
@@ -185,7 +186,13 @@ def main():
                     else:
                         assert restored == replace(simulation.request, scenario=template)
                     assert transported == untouched == document
-                    rejected(lambda: parser(json.dumps(document)), error)  # v3 not implemented.
+                    if is_balance:
+                        rejected(lambda: parser(json.dumps(document)), error)  # Balance3 is a later stage.
+                    else:
+                        actual = parser(json.dumps(document))
+                        assert actual == replace(command, schema_version='3', request=restored)
+                        output = json.loads(encode_magic_simulation_result(actual, execute_magic_simulation(actual)))
+                        assert output['schema_version'] == '3' and output['request'] == document
                     old_version = deepcopy(document)
                     old_version['schema_version'] = '2'
                     rejected(lambda: parser(json.dumps(old_version)), error)
@@ -227,10 +234,10 @@ def main():
                     if not opposite and counts == (1, 0):
                         staged_candidates.append(replace(actual, candidate_id=f'policy:{len(staged_candidates)}'))
     assert projection_count == 20 and wire_count == 16
-    print('Finite proposed v3: 16 complete simulation/balance mappings; four independent policy combinations; both perspectives')
+    print('Simulation v3: 8 public roundtrips; balance v3: 8 finite proposed mappings; four policy combinations; both perspectives')
     print('Native generation: 20 full-source subsets match manual projections; both perspectives x four policies; IDs/orders/frames/seeds exact')
     print('Production family preflight checks independent equality/types before projection; proposed v3 fields remain required nullable')
-    print('Production: omitted stationary family rejected; JSON v1/v2 extra fields rejected even null; v3 unsupported')
+    print('Production: simulation v3 accepted; omitted stationary family and JSON v1/v2 extra fields rejected; balance v3 unsupported')
 
     staged = MagicStagedEvaluationRequest(tuple(staged_candidates), 42, (MagicBalanceStage(1, 4),), 4, WINDOW)
     staged_before = deepcopy(staged)
@@ -284,7 +291,7 @@ def main():
     print('Native scripted controls: 8 trials / 138 d10; opted round-limit + unsupported, None two unsupported; denominator 2 per source')
     print('Production v1/v2 encoders reject full opted sources; no stripped opted source or downgraded document used')
     assert fixtures == before and getstate() == rng_before
-    print('Inputs/global RNG unchanged; native generation implemented; finite wire proposal only, no production v3 codec/schema/CLI')
+    print('Inputs/global RNG unchanged; native generation/simulation v3 implemented; balance v3 remains a finite wire proposal')
 
 
 if __name__ == '__main__':

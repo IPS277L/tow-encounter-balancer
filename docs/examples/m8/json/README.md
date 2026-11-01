@@ -1,6 +1,17 @@
-# Magic JSON: v1 fixtures и simulation/balance v2
+# Magic JSON: simulation v3, simulation/balance v2 и v1 fixtures
 
-Будущий stationary transport описан отдельно в [ADR-0051](../../../decisions/ADR-0051-stationary-wound-generation-and-magic-json-v3.md) и [public proof](../stationary_wound_transport_contract_probe.py). Native generation уже поддерживает separate matching stationary family opt-in, [audit](../../../audits/m8-stationary-wound-generation-readiness.md). JSON v3 ещё не реализован; приведённые ниже production v1/v2 fixtures не меняются и не разрешают stationary policy. Не добавлять новое поле в них даже с null и не удалять policy из native opted source для старого encoder.
+## Simulation v3 — независимая stationary policy
+
+[Request](magic-simulation-v3.request.json) содержит обязательный `scenario.stationary_wound_continuation`: `"leg_spasm_stand_and_continue"` либо null, и независимый required nullable Miscast object прежней формы. Нельзя опускать ни одно поле даже при обоих null. [Stored result](magic-simulation-v3.result.json) получен CLI на CPython3.12.4 с полным request3 echo и denominator4; это finite observation, не probability preset для другого runtime.
+
+```powershell
+$env:PYTHONPATH = 'src'
+.venv/Scripts/python.exe -m towr simulate-magic docs/examples/m8/json/magic-simulation-v3.request.json
+```
+
+Для process заменить execution на `{"mode":"process","workers":1,"batch_size":1}`. После полного strict decode simulation3 shape/semantic errors имеют версию3; malformed UTF-8/JSON, duplicate keys, surrogate, float/exponent/nonfinite — fallback1/null ID. Runtime error сохраняет собственную версию command. Null policies не понижают версию. [Контракт](../../../decisions/ADR-0051-stationary-wound-generation-and-magic-json-v3.md), [аудит/tests](../../../audits/m8-simulation-v3-readiness.md), [public proof](../stationary_wound_transport_contract_probe.py).
+
+Native generation использует separate matching family opt-in, а balance JSON3 ещё explicit unsupported до Schema loader. Приведённые ниже production v1/v2 fixtures не меняются и не разрешают stationary policy даже null. Не удалять policy из native opted source ради старого encoder. Fresh-only JSON3 не является save/resume.
 
 ## Simulation v2 — ADR-0047
 

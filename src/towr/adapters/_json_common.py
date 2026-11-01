@@ -1,4 +1,4 @@
-"""Strict JSON reading; v1 by default, with an explicit magic-only v2 path."""
+"""Strict JSON reading; v1 by default, with explicit magic family versions."""
 from collections.abc import Callable
 from functools import partial
 import json
@@ -42,10 +42,16 @@ def build_value(error_type: InputErrorType, path: str, constructor, *args, **kwa
 
 
 def read_request(text: str | bytes, error_type: InputErrorType,
-                 validate: Callable[..., None], *, magic_v2: bool = False) -> dict:
+                 validate: Callable[..., None], *, magic_v2: bool = False,
+                 magic_versions: tuple[str, ...] | None = None) -> dict:
     """Read strict UTF-8 and validate envelope structure; constructors admit rules."""
-    if magic_v2 and not issubclass(error_type, MagicInputError):
-        raise TypeError("v2 reading is restricted to magic boundaries")
+    magic = magic_v2 or magic_versions is not None
+    if magic and not issubclass(error_type, MagicInputError):
+        raise TypeError("versioned reading is restricted to magic boundaries")
+    if magic_versions is not None:
+        if magic_v2 or type(magic_versions) is not tuple or magic_versions not in (("1", "2"), ("1", "2", "3")):
+            raise TypeError("explicit magic versions require one supported family version tuple")
+    supported = magic_versions if magic_versions is not None else (("1", "2") if magic_v2 else ("1",))
     if not isinstance(text, (str, bytes)):
         raise TypeError("request JSON must be str or UTF-8 bytes")
     try:
@@ -75,19 +81,18 @@ def read_request(text: str | bytes, error_type: InputErrorType,
     if not isinstance(request_id, str) or not request_id.strip():
         request_id = None
     version = document.get("schema_version") if isinstance(document, dict) else None
-    supported = ("1", "2") if magic_v2 else ("1",)
     if isinstance(version, str) and version not in supported:
         raise error_type(Code.UNSUPPORTED_VERSION, "unsupported schema_version",
                                          path="/schema_version", request_id=request_id)
     try:
-        if magic_v2:
-            validate(document, "request", schema_version="2" if version == "2" else "1")
+        if magic:
+            validate(document, "request", schema_version=version if version in supported else "1")
         else:
             validate(document, "request")
     except ValidationError as error:
         raise error_type(Code.INVALID_INPUT, error.message,
             path=_pointer(error.absolute_path), request_id=request_id,
-            **({"schema_version": "2" if version == "2" else "1"} if magic_v2 else {})) from error
+            **({"schema_version": version if version in supported else "1"} if magic else {})) from error
     return document
 
 

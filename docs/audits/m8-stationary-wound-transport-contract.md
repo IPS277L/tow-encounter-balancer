@@ -4,7 +4,7 @@
 
 [Probe](../examples/m8/stationary_wound_transport_contract_probe.py), [сохранённый stdout](../examples/m8/stationary_wound_transport_contract_probe.output.txt), [copied-bundle test](../../tests/integration/test_m8_stationary_wound_transport_contract_probe.py).
 
-**Последующий пункт1 реализован:** [native generation audit](m8-stationary-wound-generation-readiness.md). Текущий probe теперь вызывает production opted generator и family preflight, сравнивает20full projections с manual project, восстанавливает полноценный typed generation request. Ручным остаётся только finite wire3 mapping; старые wire отказы сохраняются. Ниже — первоначальная контрактная evidence до реализации, а не актуальный implementation report.
+**Последующие пункты1–2 реализованы:** [native generation audit](m8-stationary-wound-generation-readiness.md), [simulation3 audit](m8-simulation-v3-readiness.md). Текущий probe вызывает production opted generator/family preflight и simulation3 codec/service:20full projections с manual project,8actual simulation3 round-trips и8finite manual balance3 mappings. Ручным остаётся balance3 mapping; старые wire отказы сохраняются. Ниже — первоначальная контрактная evidence до реализации, а не актуальный implementation report.
 
 ## Что проверено
 

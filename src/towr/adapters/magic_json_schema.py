@@ -1,4 +1,4 @@
-"""Magic wire shapes with bundled references only (ADR-0043/0047)."""
+"""Magic wire shapes with bundled references only (ADR-0043/0047/0051)."""
 from functools import lru_cache
 from importlib.resources import files
 import json
@@ -7,12 +7,17 @@ from jsonschema import Draft202012Validator
 from referencing import Registry, Resource
 
 
+_SUPPORTED_VERSIONS = {"simulation": ("1", "2", "3"), "balance": ("1", "2")}
+
+
 def _require_schema_version(family: str, schema_version: str) -> None:
-    if type(schema_version) is not str or schema_version not in ("1", "2"):
+    if family not in _SUPPORTED_VERSIONS:
+        raise ValueError("unknown magic schema family")
+    if type(schema_version) is not str or schema_version not in _SUPPORTED_VERSIONS[family]:
         raise ValueError(f"unsupported magic {family} schema version")
 
 
-@lru_cache(maxsize=12)
+@lru_cache(maxsize=15)
 def _validator(kind: str, family: str = "simulation", schema_version: str = "1") -> Draft202012Validator:
     if kind not in ("request", "result", "error"):
         raise ValueError(f"unknown magic {family} schema kind")
@@ -20,11 +25,9 @@ def _validator(kind: str, family: str = "simulation", schema_version: str = "1")
         raise ValueError("unknown magic schema family")
     _require_schema_version(family, schema_version)
     groups = ("simulation",) if family == "simulation" else ("simulation", "balance")
-    names = [f"magic-{group}-{name}-v1.schema.json"
-             for group in groups for name in ("request", "result", "error")]
-    if schema_version == "2":
-        names.extend(f"magic-{group}-{name}-v2.schema.json"
-                     for group in groups for name in ("request", "result", "error"))
+    versions = _SUPPORTED_VERSIONS[family][:_SUPPORTED_VERSIONS[family].index(schema_version) + 1]
+    names = [f"magic-{group}-{name}-v{version}.schema.json"
+             for group in groups for version in versions for name in ("request", "result", "error")]
     names.append("ranged-simulation-request-v1.schema.json")
     documents = {
         name: json.loads(files("towr.adapters.schemas").joinpath(name).read_text(encoding="utf-8"))

@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:towr:magic-simulation:result:3",
+  "$comment": "ADR-0051: full echoed v3 request carries both independent permissions.",
+  "type": "object",
+  "properties": {
+    "schema_version": {"type": "string", "const": "3"},
+    "kind": {"$ref": "urn:towr:magic-simulation:result:1#/properties/kind"},
+    "request": {"$ref": "urn:towr:magic-simulation:request:3"},
+    "seed_scheme": {"$ref": "urn:towr:magic-simulation:result:1#/properties/seed_scheme"},
+    "runtime": {"$ref": "urn:towr:magic-simulation:result:1#/properties/runtime"},
+    "summary": {"$ref": "urn:towr:magic-simulation:result:1#/properties/summary"}
+  },
+  "required": ["schema_version", "kind", "request", "seed_scheme", "runtime", "summary"],
+  "additionalProperties": false
+}

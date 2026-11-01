@@ -3,7 +3,7 @@
 This module neither supplies scene facts nor executes actions. Admission remains
 in the existing typed scenario/scene constructors (ADR-0037/0043).
 """
-from dataclasses import asdict
+from dataclasses import asdict, replace
 from functools import partial
 
 from towr.adapters._json_common import build_value
@@ -21,7 +21,7 @@ from towr.domain.npc_attack_preparation_models import NpcAttackProfile
 from towr.domain.npc_champion_attack_models import NpcChampionAttackState
 from towr.domain.npc_magic_scenario_models import (
     NpcMagicActorPolicy, NpcMagicMiscastContinuationPolicy, NpcMagicPronePolicy,
-    NpcMagicScenario, NpcMagicScenarioFacts,
+    NpcMagicScenario, NpcMagicScenarioFacts, NpcMagicStationaryWoundPolicy,
 )
 from towr.domain.npc_magic_scene_models import (
     NpcMagicAttackDeparture, NpcMagicBrokenPlan, NpcMagicBrokenPlanKind,
@@ -94,7 +94,7 @@ def parse_scenario(data: dict, round_budget: int, *, path_prefix: str = '/scenar
 
 
 def _require_schema_version(schema_version: str) -> None:
-    if type(schema_version) is not str or schema_version not in ('1', '2'):
+    if type(schema_version) is not str or schema_version not in ('1', '2', '3'):
         raise ValueError('unsupported magic scenario schema version')
 
 
@@ -164,15 +164,19 @@ def _parse_scenario(data, round_budget, path_prefix, error_type, schema_version)
         spell['rule_id'], spell['lore_id'], spell['casting_value'], SpellTargetKind(spell['target_kind']),
         SpellRange(spell['range']), SpellDuration(spell['duration']))
     continuation = None
-    if schema_version == '2':
+    if schema_version in ('2', '3'):
         continuation = parse_miscast_continuation(data['miscast_continuation'],
             path_prefix=f'{path_prefix}/miscast_continuation', error_type=error_type)
+    stationary = None
+    if schema_version == '3':
+        stationary = parse_stationary_wound_continuation(data['stationary_wound_continuation'],
+            path_prefix=f'{path_prefix}/stationary_wound_continuation', error_type=error_type)
     scenario = build(path_prefix, NpcMagicScenario, data['scenario_id'], initial,
         build(f'{path_prefix}/facts', parse_facts, data['facts']), tuple(data['activation_order']), tuple(policies),
         parse_scene_frames(data['scene_frames'], path_prefix=f'{path_prefix}/scene_frames', error_type=error_type),
         CombatSide(data['perspective_side']), NpcDefeatObjective(tuple(data['objective_target_ids'])),
         round_budget, StaggerChoice(data['repeated_stagger_choice']), spell_definition,
-        miscast_continuation=continuation)
+        miscast_continuation=continuation, stationary_wound_continuation=stationary)
     return scenario, tuple(definitions)
 
 
@@ -192,6 +196,33 @@ def miscast_continuation_document(policy: NpcMagicMiscastContinuationPolicy | No
     return None if policy is None else {
         'choice': policy.choice.value, 'facts': asdict(policy.facts),
         'prone_policy': policy.prone_policy.value}
+
+
+def parse_stationary_wound_continuation(data: str | None, *, path_prefix: str,
+                                        error_type: type[MagicInputError]) -> NpcMagicStationaryWoundPolicy | None:
+    if data is None:
+        return None
+    if type(data) is not str:
+        raise error_type(Code.INVALID_INPUT, 'stationary Wound policy requires a string or null', path=path_prefix)
+    return build_value(error_type, path_prefix, NpcMagicStationaryWoundPolicy, data)
+
+
+def _validate_scenario_policy_types(scenario: NpcMagicScenario) -> None:
+    """Equality of a string enum and a raw string does not establish permission."""
+    if not isinstance(scenario, NpcMagicScenario):
+        raise TypeError('scenario mapping requires a typed magic scenario')
+    if not isinstance(scenario.facts, NpcMagicScenarioFacts):
+        raise TypeError('scenario mapping requires typed magic facts')
+    replace(scenario.facts)
+    stationary = scenario.stationary_wound_continuation
+    if stationary is not None and not isinstance(stationary, NpcMagicStationaryWoundPolicy):
+        raise TypeError('scenario mapping requires a typed stationary Wound policy or None')
+    miscast = scenario.miscast_continuation
+    if miscast is not None:
+        if not isinstance(miscast, NpcMagicMiscastContinuationPolicy):
+            raise TypeError('scenario mapping requires a typed Miscast policy or None')
+        replace(miscast)
+        replace(miscast.facts)
 
 
 def _profile_document(profile: InlineProfile) -> dict:
@@ -217,7 +248,8 @@ def scenario_document(scenario: NpcMagicScenario, definition_order: tuple[str, .
                       schema_version: str = '1') -> dict:
     """Project all wire fields; the boundary encoder reconstructs the full source."""
     _require_schema_version(schema_version)
-    if scenario.stationary_wound_continuation is not None:
+    _validate_scenario_policy_types(scenario)
+    if schema_version != '3' and scenario.stationary_wound_continuation is not None:
         raise ValueError('stationary Wound continuation cannot be represented losslessly by magic JSON v1/v2')
     if schema_version == '1' and scenario.miscast_continuation is not None:
         raise ValueError('Miscast continuation opt-in cannot be represented losslessly by magic JSON v1')
@@ -254,6 +286,9 @@ def scenario_document(scenario: NpcMagicScenario, definition_order: tuple[str, .
             'zone_priorities': list(p.zone_priorities)} for p in scenario.actors],
         'scene_frames': scene_frames_document(scenario.scene_frames),
         'repeated_stagger_choice': scenario.repeated_stagger_choice.value}
-    if schema_version == '2':
+    if schema_version in ('2', '3'):
         document['miscast_continuation'] = miscast_continuation_document(scenario.miscast_continuation)
+    if schema_version == '3':
+        policy = scenario.stationary_wound_continuation
+        document['stationary_wound_continuation'] = None if policy is None else policy.value
     return document
