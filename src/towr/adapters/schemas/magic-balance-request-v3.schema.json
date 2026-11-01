@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:towr:magic-balance:request:3",
+  "$comment": "ADR-0051: independent required nullable reserve and family permissions; typed admission checks complete equality.",
+  "type": "object",
+  "properties": {
+    "schema_version": {"type": "string", "const": "3"},
+    "kind": {"$ref": "urn:towr:magic-balance:request:1#/properties/kind"},
+    "ruleset": {"$ref": "urn:towr:magic-balance:request:1#/properties/ruleset"},
+    "request_id": {"$ref": "urn:towr:magic-balance:request:1#/properties/request_id"},
+    "reserve": {
+      "type": "object",
+      "properties": {
+        "round_budget": {"$ref": "urn:towr:magic-balance:request:1#/properties/reserve/properties/round_budget"},
+        "scenario": {"$ref": "urn:towr:magic-simulation:request:3#/$defs/scenario"}
+      },
+      "required": ["round_budget", "scenario"],
+      "additionalProperties": false
+    },
+    "generation": {
+      "type": "object",
+      "properties": {
+        "groups": {"$ref": "urn:towr:magic-balance:request:1#/properties/generation/properties/groups"},
+        "facts": {"$ref": "urn:towr:magic-balance:request:1#/properties/generation/properties/facts"},
+        "candidate_id_prefix": {"$ref": "urn:towr:magic-balance:request:1#/properties/generation/properties/candidate_id_prefix"},
+        "max_candidates": {"$ref": "urn:towr:magic-balance:request:1#/properties/generation/properties/max_candidates"},
+        "scene_frames": {"$ref": "urn:towr:magic-balance:request:1#/properties/generation/properties/scene_frames"},
+        "miscast_continuation": {"$ref": "urn:towr:magic-simulation:request:2#/$defs/miscast_continuation"},
+        "stationary_wound_continuation": {"$ref": "urn:towr:magic-simulation:request:3#/$defs/stationary_wound_continuation"}
+      },
+      "required": ["groups", "facts", "candidate_id_prefix", "max_candidates", "scene_frames", "miscast_continuation", "stationary_wound_continuation"],
+      "additionalProperties": false
+    },
+    "evaluation": {"$ref": "urn:towr:magic-balance:request:1#/properties/evaluation"},
+    "execution": {"$ref": "urn:towr:magic-balance:request:1#/properties/execution"}
+  },
+  "required": ["schema_version", "kind", "ruleset", "request_id", "reserve", "generation", "evaluation", "execution"],
+  "additionalProperties": false
+}

@@ -1,8 +1,10 @@
 # Примеры магии M8
 
-## Stationary family / simulation JSON v3, ADR-0051
+## Stationary family / simulation и balance JSON v3, ADR-0051
 
-[Public probe](stationary_wound_transport_contract_probe.py), [stdout](stationary_wound_transport_contract_probe.output.txt), [контракт](../../decisions/ADR-0051-stationary-wound-generation-and-magic-json-v3.md), [generation audit](../../audits/m8-stationary-wound-generation-readiness.md), [simulation3 audit](../../audits/m8-simulation-v3-readiness.md). Настоящий generator проверяет20full subsets с отдельными family assertions;8simulation3 public round-trips и8manual balance3 mappings сохраняют обе policies и полный source. Simulation JSON/CLI3 реализован, balance3 ещё unsupported; v1/v2 не принимают stationary permission. Для копирования нужны этот файл и четыре helpers: `generation_contract_probe.py`, `magic_scenario.py`, `opted_miscast.py`, `stationary_wound_runner.py`. [Готовый JSON input/output](json/README.md) можно запустить напрямую через CLI.
+[Public probe](stationary_wound_transport_contract_probe.py), [stdout](stationary_wound_transport_contract_probe.output.txt), [контракт](../../decisions/ADR-0051-stationary-wound-generation-and-magic-json-v3.md), [generation audit](../../audits/m8-stationary-wound-generation-readiness.md), [simulation3](../../audits/m8-simulation-v3-readiness.md)/[balance3 audit](../../audits/m8-balance-v3-readiness.md). Настоящий generator проверяет20full subsets;16actual public round-trips обоих v3 families сохраняют независимые policies и полный source. Ручной inverse — oracle конечных fixtures, не production decoder. V1/v2 не принимают stationary permission. Для копирования нужны этот файл и четыре helpers: `generation_contract_probe.py`, `magic_scenario.py`, `opted_miscast.py`, `stationary_wound_runner.py`. [Готовые JSON inputs/outputs](json/README.md) запускаются напрямую через CLI.
+
+[ADR-0051 закрыт installed-аудитом](../../audits/m8-stationary-wound-transport-readiness.md): публичный probe исполнялся из отдельного пятифайлового bundle под installed `python -I`, package465paths/hashes совпали,269transportcommands/28backendcases/36schemas383refs проверены. Отдельный installed `stationary_wound_runner.main()` подтвердил220scripted d10 и actual native spawn; импорт helper как части transport bundle не подменяет этот отдельный запуск.
 
 ## Automatic native stationary policy, ADR-0050
 

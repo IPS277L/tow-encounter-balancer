@@ -33,6 +33,9 @@ def _validate_generation_policy_types(
     """Validate both sides before equality: a string can equal a str Enum."""
     if not isinstance(template, NpcMagicScenario):
         raise TypeError("generation requires an admitted magic template scenario")
+    if not isinstance(template.facts, NpcMagicScenarioFacts):
+        raise TypeError("generation requires explicit magic scenario facts")
+    replace(template.facts)
     for policy in (template.miscast_continuation, miscast):
         if policy is not None:
             if not isinstance(policy, NpcMagicMiscastContinuationPolicy):

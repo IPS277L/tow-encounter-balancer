@@ -153,10 +153,9 @@ class M8MagicJsonV3Tests(unittest.TestCase):
         for invalid_id in ('', ' \t', None, 7):
             self.assertIsNone(self.assert_invalid(dict(document(), request_id=invalid_id), path='/request_id').request_id)
 
-    def test_only_simulation_accepts_v3_metadata_and_balance_rejects_before_schema_loading(self):
+    def test_both_magic_families_accept_v3_metadata_and_unknown_version_precedes_schema_loading(self):
         balance = parse_magic_balance_request(json.dumps(balance_document()))
-        with self.assertRaises(ValueError):
-            replace(balance, schema_version='3')
+        self.assertEqual(replace(balance, schema_version='3').schema_version, '3')
         for constructor, args in ((MagicSimulationInputError, (Code.INVALID_INPUT, 'bad')),
                                   (MagicSimulationExecutionError, ('request',))):
             error = constructor(*args, schema_version='3')
@@ -165,14 +164,15 @@ class M8MagicJsonV3Tests(unittest.TestCase):
         for constructor, args in ((MagicBalanceInputError, (Code.INVALID_INPUT, 'bad')),
                                   (MagicBalanceGenerationError, ('request',)),
                                   (MagicBalanceExecutionError, ('request',))):
+            self.assertEqual(constructor(*args, schema_version='3').schema_version, '3')
             with self.assertRaises(ValueError):
-                constructor(*args, schema_version='3')
+                constructor(*args, schema_version='4')
         with patch('towr.adapters.magic_balance_json.validate_magic_balance_document',
-                   side_effect=AssertionError('unsupported balance3 must precede schema lookup')):
+                   side_effect=AssertionError('unsupported version must precede schema lookup')):
             with self.assertRaises(MagicBalanceInputError) as caught:
-                parse_magic_balance_request(json.dumps({'schema_version': '3', 'request_id': 'balance3'}))
+                parse_magic_balance_request(json.dumps({'schema_version': '4', 'request_id': 'balance4'}))
         self.assertEqual((caught.exception.schema_version, caught.exception.request_id, caught.exception.code),
-                         ('1', 'balance3', Code.UNSUPPORTED_VERSION))
+                         ('1', 'balance4', Code.UNSUPPORTED_VERSION))
 
     def test_same_id_policy_source_substitution_rejected_by_encoder_and_both_service_phases(self):
         on = parse(json.dumps(document()))

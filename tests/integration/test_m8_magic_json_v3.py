@@ -229,9 +229,8 @@ class M8MagicJsonV3IntegrationTests(unittest.TestCase):
         self.assertNotIn(b'private', completed.stdout + completed.stderr)
         self.assertNotIn(b'Traceback', completed.stderr)
 
-    def test_balance_and_six_previous_routes_reject_v3_before_other_input_validation(self):
-        cases = (('balance-magic', 'magic_balance_error', 'm8/json/magic-balance-v2.request.json'),
-            ('simulate', 'simulation_error', 'm4/ranged-v1.request.json'),
+    def test_six_previous_routes_reject_v3_before_other_input_validation(self):
+        cases = (('simulate', 'simulation_error', 'm4/ranged-v1.request.json'),
             ('balance', 'balance_error', 'm5/json/balance-v1.request.json'),
             ('simulate-melee', 'melee_simulation_error', 'm6/json/melee-simulation-v1.request.json'),
             ('balance-melee', 'melee_balance_error', 'm6/json/melee-balance-v1.request.json'),

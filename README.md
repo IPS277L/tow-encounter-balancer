@@ -6,7 +6,7 @@
 
 ## Навигация
 
-Реализован [simulation JSON/CLI v3](docs/audits/m8-simulation-v3-readiness.md): independent stationary/Miscast policies, полный source/echo и корректные версии ошибок. [Публичный JSON](docs/examples/m8/json/magic-simulation-v3.request.json) исполняется через `simulate-magic`. Native generation [ADR-0051](docs/decisions/ADR-0051-stationary-wound-generation-and-magic-json-v3.md) сохраняет отдельный matching family opt-in. JSON1/2 явно отвергают stationary policy; balance v3 — следующий этап. Точное состояние — в документах ниже.
+Закрыт [ADR-0051](docs/decisions/ADR-0051-stationary-wound-generation-and-magic-json-v3.md): native generation и обе JSON/CLI v3 families проверены [source/wheel/installed аудитом](docs/audits/m8-stationary-wound-transport-readiness.md). Independent stationary/Miscast policies и matching reserve/family assertions сохраняют полный source/echo. [Публичные JSON-примеры](docs/examples/m8/json/README.md) исполняются через `simulate-magic` и `balance-magic`; JSON1/2 явно отвергают stationary policy. Следующий срез выбирается по [continuation inventory](docs/audits/m8-continuation-inventory.md). Точное состояние — в документах ниже.
 
 - [Актуальный статус, ограничения, проверки и следующий шаг](docs/project-status.md).
 - [Открытые вопросы и действующие допущения](docs/open-questions.md).

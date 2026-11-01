@@ -2,6 +2,8 @@
 
 Дата: 2026-11-01. **Пункт2 [ADR-0051](../decisions/ADR-0051-stationary-wound-generation-and-magic-json-v3.md) реализован и проверен; simulation3 этап закрыт.** [Native generation](m8-stationary-wound-generation-readiness.md) остаётся закрытым prerequisite. Balance3 и общий installed audit — пункты3–4; весь ADR ещё не закрыт.
 
+**Последующий пункт3 реализован:** [balance3 audit](m8-balance-v3-readiness.md). Текущий registry18magic/36total и обе families1/2/3; balance3 refusal предыдущего этапа заменён actual parser/service/CLI и public probe round-trips. Ниже сохранена evidence промежуточной simulation3 границы до balance3; новый installed audit ещё не выполнен.
+
 ## Реализованная граница
 
 `simulate-magic` принимает JSON1/2/3. Только simulation3 добавляет обязательный nullable `scenario.stationary_wound_continuation`: строка `leg_spasm_stand_and_continue` либо null. Независимое `miscast_continuation` из v2 также обязательно и nullable; choice/facts/prone_policy не сокращаются. Все четыре сочетания допустимы, missing не означает null или permission другой policy. Scope — fresh-only ADR-0050, без новых игровых переходов/save-resume/house rules. PG1.4/GM1.1 и Rule IDs прежние, нового чтения книг нет.

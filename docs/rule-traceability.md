@@ -1,5 +1,13 @@
 # Трассировка правил
 
+## M8 — итоговый transport audit ADR-0051
+
+2026-11-01: [ADR-0051 закрыт](audits/m8-stationary-wound-transport-readiness.md),465source/wheel/installed package hashes,36schemas/383refs/18magic,269transportcommands/28backendcases/3copiedexamples и installed actual9/6 native spawn220d10. Низкоуровневые PG1.4/GM1.1 правила прежние, нового чтения/Rule IDs/house rules нет. Найденный detached candidate facts int1 bypass исправлен собственным facts admission до equality и1newregression; full3987/33known/0failures, новых errors нет. [Inventory](audits/m8-continuation-inventory.md) технически обновлён по13labels; следующий gameplay consumer требует отдельного source-bound контракта.
+
+## M8 — balance JSON/CLI v3, ADR-0051 пункт3
+
+2026-11-01: [balance3 schema/codec/service/CLI](audits/m8-balance-v3-readiness.md) реализованы;30newtests проверяют независимые reserve/family assertions, полную source chain/typed facts/derived cache и actual generated3/4actor9/6seqspawn. [Public input](examples/m8/json/magic-balance-v3.request.json)/[result](examples/m8/json/magic-balance-v3.result.json), [probe](examples/m8/stationary_wound_transport_contract_probe.py) с16actual v3 round-trips. Это propagation готового consumer, новых PG1.4/GM1.1 Rule IDs/house rules или чтения книг нет; общий installed audit ещё предстоит.
+
 ## M8 — simulation JSON/CLI v3, ADR-0051 пункт2
 
 2026-11-01: [simulation3 codec/schema/service/CLI](audits/m8-simulation-v3-readiness.md) реализованы;30newtests проверяют независимые policies/full source/strict trust table и actual parsed9→stand→6expiry в seq/spawn. [Public input](examples/m8/json/magic-simulation-v3.request.json)/[result](examples/m8/json/magic-simulation-v3.result.json), [probe](examples/m8/stationary_wound_transport_contract_probe.py). Это wire propagation существующей границы ADR-0050; PG1.4/GM1.1, Rule IDs и house rules не меняются, нового чтения книг нет. Balance3 ещё unsupported; JSON1/2 lossless отказ stationary policy сохраняется.

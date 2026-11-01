@@ -6,7 +6,7 @@ class MagicBalanceGenerationError(RuntimeError):
                  counts: tuple[int, ...] | None = None, *, schema_version: str = '1') -> None:
         if not isinstance(schema_version, str):
             raise TypeError('magic schema version must be a string')
-        if schema_version not in ('1', '2'):
+        if schema_version not in ('1', '2', '3'):
             raise ValueError('unsupported magic schema version')
         super().__init__('Magic balance candidate generation failed')
         self.request_id = request_id
@@ -20,7 +20,7 @@ class MagicBalanceExecutionError(RuntimeError):
                  candidate_id: str | None = None, *, schema_version: str = '1') -> None:
         if not isinstance(schema_version, str):
             raise TypeError('magic schema version must be a string')
-        if schema_version not in ('1', '2'):
+        if schema_version not in ('1', '2', '3'):
             raise ValueError('unsupported magic schema version')
         super().__init__('Magic balance evaluation failed')
         self.request_id = request_id

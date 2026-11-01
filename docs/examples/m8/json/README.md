@@ -1,4 +1,17 @@
-# Magic JSON: simulation v3, simulation/balance v2 и v1 fixtures
+# Magic JSON: simulation/balance v3, v2 и v1 fixtures
+
+[Общий source/wheel/installed audit ADR-0051](../../../audits/m8-stationary-wound-transport-readiness.md) завершён: обе families1/2/3 и6legacyroutes, module/console/stdin/file/actualprocess,18magic/36schemas/383localrefs. На текущем CPython3.12.4 публичные v2/v3 results совпали с saved bytes; v1 snapshots3.12.15 имеют другую runtime metadata, non-runtime JSON fields совпали при отдельном finite сравнении. Все repository fixtures оставлены неизменными. Эта evidence не означает универсальную cross-runtime вероятность.
+
+## Balance v3 — separate reserve/family assertions
+
+[Request](magic-balance-v3.request.json) явно содержит `reserve.scenario.stationary_wound_continuation` и `generation.stationary_wound_continuation`: обе null либо одна и та же enum string. Miscast object/null также обязателен отдельно в reserve/generation. Mismatch — input error3 по `/generation/stationary_wound_continuation`; missing не заменяется null/наследованием. Native family assertion остаётся обязательным.
+
+```powershell
+$env:PYTHONPATH = 'src'
+.venv/Scripts/python.exe -m towr balance-magic docs/examples/m8/json/magic-balance-v3.request.json
+```
+
+Для process заменить execution на `{"mode":"process","workers":1,"batch_size":1}`. [Stored result](magic-balance-v3.result.json) получен CLI на CPython3.12.4: C4/planned16/actual12 и полные catalog/stages/request3. Это finite observation, не preset/вероятность для другого runtime. При обоих null версия остаётся3. Ошибки после full decode recognized3 имеют3; malformed lexical input — fallback1/null ID. Runtime errors сохраняют собственный candidate/counts либо stage/candidate без cause/notes/partial report. [Contract](../../../decisions/ADR-0051-stationary-wound-generation-and-magic-json-v3.md), [audit/tests](../../../audits/m8-balance-v3-readiness.md).
 
 ## Simulation v3 — независимая stationary policy
 
@@ -11,7 +24,7 @@ $env:PYTHONPATH = 'src'
 
 Для process заменить execution на `{"mode":"process","workers":1,"batch_size":1}`. После полного strict decode simulation3 shape/semantic errors имеют версию3; malformed UTF-8/JSON, duplicate keys, surrogate, float/exponent/nonfinite — fallback1/null ID. Runtime error сохраняет собственную версию command. Null policies не понижают версию. [Контракт](../../../decisions/ADR-0051-stationary-wound-generation-and-magic-json-v3.md), [аудит/tests](../../../audits/m8-simulation-v3-readiness.md), [public proof](../stationary_wound_transport_contract_probe.py).
 
-Native generation использует separate matching family opt-in, а balance JSON3 ещё explicit unsupported до Schema loader. Приведённые ниже production v1/v2 fixtures не меняются и не разрешают stationary policy даже null. Не удалять policy из native opted source ради старого encoder. Fresh-only JSON3 не является save/resume.
+Native generation использует separate matching family opt-in; обе v3 families реализованы. Приведённые ниже production v1/v2 fixtures не меняются и не разрешают stationary policy даже null. Не удалять policy из native opted source ради старого encoder. Fresh-only JSON3 не является save/resume.
 
 ## Simulation v2 — ADR-0047
 

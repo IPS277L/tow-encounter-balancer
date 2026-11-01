@@ -1,12 +1,13 @@
 """Generate and evaluate one admitted magic balance command (ADR-0043)."""
 from towr.application.magic_balance_errors import MagicBalanceGenerationError, MagicBalanceExecutionError
-from towr.application.magic_balance_models import MagicBalanceCommand, MagicBalanceResult
+from towr.application.magic_balance_models import (
+    MagicBalanceCommand, MagicBalanceResult, _validate_generation_result_source, _validate_staged_result_source,
+)
 from towr.application.magic_candidate_generation import generate_magic_candidates
 from towr.application.magic_candidate_generation_errors import MagicCandidateGenerationError
-from towr.application.magic_candidate_generation_models import MagicCandidateGenerationResult
+from towr.application.magic_candidate_generation_models import _validate_generation_source
 from towr.application.magic_staged_evaluation_errors import MagicStagedEvaluationError
 from towr.application.magic_staged_evaluation_service import evaluate_magic_candidates_staged
-from towr.balance.magic_staged_evaluation_models import MagicStagedEvaluationResult
 
 
 def execute_magic_balance(command: MagicBalanceCommand) -> MagicBalanceResult:
@@ -19,9 +20,9 @@ def execute_magic_balance(command: MagicBalanceCommand) -> MagicBalanceResult:
     if not isinstance(command, MagicBalanceCommand):
         raise TypeError('balance execution requires a typed magic balance command')
     try:
+        _validate_generation_source(command.generation_request)
         generated = generate_magic_candidates(command.generation_request)
-        if not isinstance(generated, MagicCandidateGenerationResult):
-            raise TypeError('generator must return a typed magic generation result')
+        _validate_generation_result_source(generated)
         if generated.source_request != command.generation_request:
             raise ValueError('generation result must belong to the full command request')
     except MagicCandidateGenerationError as error:
@@ -31,8 +32,7 @@ def execute_magic_balance(command: MagicBalanceCommand) -> MagicBalanceResult:
         raise MagicBalanceGenerationError(command.request_id, schema_version=command.schema_version) from error
     try:
         evaluated = evaluate_magic_candidates_staged(generated.evaluation_request, command.execution)
-        if not isinstance(evaluated, MagicStagedEvaluationResult):
-            raise TypeError('evaluator must return a typed magic staged result')
+        _validate_staged_result_source(evaluated)
         if evaluated.source_request != generated.evaluation_request:
             raise ValueError('evaluation result must belong to the exact generated request')
         return MagicBalanceResult(generated, evaluated)

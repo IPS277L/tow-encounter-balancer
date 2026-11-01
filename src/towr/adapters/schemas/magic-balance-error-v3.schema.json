@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:towr:magic-balance:error:3",
+  "$comment": "ADR-0051: trusted input or admitted command supplies version3; generation/evaluation phase context is unchanged.",
+  "type": "object",
+  "properties": {
+    "schema_version": {"type": "string", "const": "3"},
+    "kind": {"$ref": "urn:towr:magic-balance:error:1#/properties/kind"},
+    "request_id": {"$ref": "urn:towr:magic-balance:error:1#/properties/request_id"},
+    "error": {"$ref": "urn:towr:magic-balance:error:1#/properties/error"}
+  },
+  "required": ["schema_version", "kind", "request_id", "error"],
+  "additionalProperties": false
+}

@@ -2,7 +2,7 @@
 
 Дата: 2026-11-01. **Пункт1 [ADR-0051](../decisions/ADR-0051-stationary-wound-generation-and-magic-json-v3.md) реализован и проверен, native generation этап закрыт.** [Исходная контрактная проверка](m8-stationary-wound-transport-contract.md) сохраняется отдельно. Simulation3/balance3/schema/CLI и общий installed audit — последующие пункты2–4; весь ADR ещё не закрыт.
 
-**Последующий пункт2 реализован:** [simulation3 audit](m8-simulation-v3-readiness.md). Текущий public probe уже использует production simulation3 и8actual round-trips; ручными остаются8balance3 mappings. Ниже сохранена проверка native generation этапа до wire3; она не является новым installed/console evidence.
+**Последующие пункты2–3 реализованы:** [simulation3](m8-simulation-v3-readiness.md)/[balance3 audit](m8-balance-v3-readiness.md). Текущий public probe использует production codecs/services обоих v3 families и16actual round-trips. Ниже сохранена проверка native generation этапа до wire3; она не является новым installed/console evidence.
 
 ## Контракт и исполнение
 

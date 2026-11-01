@@ -1,6 +1,6 @@
 # M8: инвентаризация обязательных продолжений
 
-Дата: 2026-11-01. Актуализирована после закрытых ADR-0044–0050. Это карта текущих ограничений и выбор следующего узкого consumer, не объявление полного боя готовым. Native stationary policy подключена; список13 continuation labels не изменён.
+Дата: 2026-11-01. Технически актуализирована после реализации ADR-0044–0051: native stationary policy, generation и обе JSON3 families подключены;13continuation labels сверены с текущим enum, новый wire не добавляет gameplay consumers. Это карта ограничений для выбора следующего отдельного контракта, не объявление полного боя готовым. Новых Rule IDs/house rules или чтения книг при этой технической актуализации нет.
 
 ## Уже закрытые prerequisites
 
@@ -10,7 +10,8 @@
 - [ADR-0047](m8-opt-in-transport-readiness.md): explicit family opt-in, simulation/balance JSON v2, installed parity. Это доставка прежнего поведения, не новые Miscast/Wound consumers.
 - [ADR-0048](m8-leg-spasm-stand-readiness.md): source-bound Leg Spasm self-stand, canonical Prone effects removal, сохранение terrain/history и обеих child refs; public/installed/full audit завершён.
 - [ADR-0049](m8-stationary-leg-spasm-readiness.md): explicit full-owner context, Casting/Protection/end и actual6 expiry с persisted typed sources; ручная mixed chain закрыта аудитом.
-- [ADR-0050](m8-native-stationary-wound-readiness.md): независимая native policy, journal/diagnosis/automatic runner, trial/sequential/spawn. Generation/JSON1/2 пока отвергают новую policy.
+- [ADR-0050](m8-native-stationary-wound-readiness.md): независимая native policy, journal/diagnosis/automatic runner, trial/sequential/spawn.
+- [ADR-0051](m8-stationary-wound-transport-readiness.md) закрыт: explicit matching family opt-in, simulation/balance JSON3 и общий source/wheel/installed audit.1/2 явно отвергают stationary permission. Это transport готового scope, не расширение Wound/Miscast правил; последний full suite указан в актуальном статусе.
 
 ## Что останавливает текущий runner
 
@@ -38,7 +39,7 @@ Missing facts, unsupported rules и исключения исполнения н
 
 | Кандидат | Готово | Недостаёт / решение |
 | --- | --- | --- |
-| Wound9 Leg Spasm | Stand48/context49/native policy50 и source/installed/spawn/full audit завершены | Следующий этап — generation family/versioned transport. Повторная9 с уже удалённым Prone cause не поддержана даже без6; history6/Wind Prone также требуют нового stand consumer. |
+| Wound9 Leg Spasm | Stand48/context49/native policy50 и generation/JSON3 propagation51 реализованы; source/installed/spawn проверены | Повторная9 с уже удалённым Prone cause не поддержана даже без6; history6/Wind Prone требуют нового stand consumer. Не расширять whitelist автоматически. |
 | Wound10 Crushed Rib | Drained/UNTIL_TREATED + декларация NEXT_TEST_IS_GRIM | Нужен source-bound first-Test consumption, включая Protection до Casting. Это не Prone-рана и не часть9. |
 | Wound5 Battered Leg | Endurance follow-up; при провале Prone | Нет authored Endurance profile/full-owner follow-up consumer. Новый Test/source contract шире9. |
 | Wound13 Torn Leg /17 Shattered Knee | K1 Conditions/restrictions | Critical-on-stand или ongoing Critical/Burdened, затем Endurance/death. Нельзя обойти общей Prone whitelist. |
@@ -50,9 +51,9 @@ Missing facts, unsupported rules и исключения исполнения н
 
 Wounds1–3 и6 уже поддержаны в ограниченном flow; повторная реализация не нужна. Наличие K1 primitive не означает поддержку полного сценария.
 
-## Книжная сверка и выбранный срез
+## Историческая книжная сверка при выборе ADR-0048
 
-Непосредственно перечитаны локальные PG1.4: гл.V Rules / Difficult Terrain115, Free Actions116, Recover118, Conditions122/Prone123; приложение Wounds Table190–191. Для актуализации Miscast карты — гл.VIII / Miscast Table159. GM1.1: гл.VII Allies and Antagonists / Champions92. Это выбранные страницы, не новое полное чтение книг.
+При выборе ADR-0048 непосредственно перечитаны локальные PG1.4: гл.V Rules / Difficult Terrain115, Free Actions116, Recover118, Conditions122/Prone123; приложение Wounds Table190–191. Для актуализации Miscast карты — гл.VIII / Miscast Table159. GM1.1: гл.VII Allies and Antagonists / Champions92. Это выбранные страницы, не полное чтение книг; техническая актуализация после ADR-0051 не добавляет нового чтения.
 
 Строка9 явно разрешает снять Prone free move/Recover, сохранив Difficult Terrain до лечения. Общая ongoing-cause норма страницы122 не отменяет специальное разрешение9; она всё ещё запрещает произвольное снятие других Wound causes. Снятие Condition не лечит Wound и не стирает её daily/roll provenance. Stand выполняется вместо crossing, не создаёт Athletics Test. Другие движения с restriction этим контрактом не разрешаются.
 
@@ -60,4 +61,4 @@ Wounds1–3 и6 уже поддержаны в ограниченном flow; п
 
 Request/result, canonical projection, один K1 executor и exact-source apply ADR-0048 реализованы и проверены. [Public/installed/full audit](m8-leg-spasm-stand-readiness.md) завершён. [ADR-0049](../decisions/ADR-0049-stationary-leg-spasm-continuation.md) и [finite proof](../examples/m8/stationary_wound_contract_probe.py) подготовлены; low-level stationary continuation и mixed9→6 manual chain реализованы, [аудит](m8-stationary-leg-spasm-readiness.md) завершён. Automatic runner, treatment, Difficult Terrain traversal и wire policy остаются за границей нового low-level контракта. None и обе magic wire versions сохраняют существующее поведение. Новых книжных ambiguities/house rules не выявлено.
 
-[ADR-0050](../decisions/ADR-0050-native-stationary-wound-policy.md) закрыт [native аудитом](m8-native-stationary-wound-readiness.md): первый canonical stand и context49 включены отдельной policy; обе permissions независимы, None сохранён. Следующий ADR-0051 — явная family propagation и versioned wire/CLI, без расширения игровых consumers.
+[ADR-0050](../decisions/ADR-0050-native-stationary-wound-policy.md) закрыт [native аудитом](m8-native-stationary-wound-readiness.md): первый canonical stand и context49 включены отдельной policy; обе permissions независимы, None сохранён. [ADR-0051](../decisions/ADR-0051-stationary-wound-generation-and-magic-json-v3.md) реализует family propagation и versioned wire/CLI, [итоговый audit](m8-stationary-wound-transport-readiness.md). После его закрытия следующий шаг — приоритизация одного из оставшихся consumers выше и новый source-bound контракт с finite proof/книжной сверкой. Конкретный новый gameplay consumer этим inventory не назначен.

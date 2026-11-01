@@ -4,7 +4,7 @@
 
 [Probe](../examples/m8/stationary_wound_transport_contract_probe.py), [сохранённый stdout](../examples/m8/stationary_wound_transport_contract_probe.output.txt), [copied-bundle test](../../tests/integration/test_m8_stationary_wound_transport_contract_probe.py).
 
-**Последующие пункты1–2 реализованы:** [native generation audit](m8-stationary-wound-generation-readiness.md), [simulation3 audit](m8-simulation-v3-readiness.md). Текущий probe вызывает production opted generator/family preflight и simulation3 codec/service:20full projections с manual project,8actual simulation3 round-trips и8finite manual balance3 mappings. Ручным остаётся balance3 mapping; старые wire отказы сохраняются. Ниже — первоначальная контрактная evidence до реализации, а не актуальный implementation report.
+**Последующие пункты1–3 реализованы:** [native generation](m8-stationary-wound-generation-readiness.md), [simulation3](m8-simulation-v3-readiness.md), [balance3 audit](m8-balance-v3-readiness.md). Текущий probe вызывает production generator/family preflight и оба v3 codecs/services:20full projections с manual project и16actual v3 round-trips. Manual inverse — oracle известных fixtures, не production parser. Старые wire отказы сохраняются. Ниже — первоначальная контрактная evidence до реализации, а не актуальный implementation report.
 
 ## Что проверено
 

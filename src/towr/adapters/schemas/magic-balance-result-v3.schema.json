@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:towr:magic-balance:result:3",
+  "$comment": "ADR-0051: full echoed request3 preserves both independent reserve and family permissions; aggregate and phase fragments are unchanged.",
+  "type": "object",
+  "properties": {
+    "schema_version": {"type": "string", "const": "3"},
+    "kind": {"$ref": "urn:towr:magic-balance:result:1#/properties/kind"},
+    "request": {"$ref": "urn:towr:magic-balance:request:3"},
+    "seed_scheme": {"$ref": "urn:towr:magic-balance:result:1#/properties/seed_scheme"},
+    "runtime": {"$ref": "urn:towr:magic-balance:result:1#/properties/runtime"},
+    "candidate_count": {"$ref": "urn:towr:magic-balance:result:1#/properties/candidate_count"},
+    "planned_trials": {"$ref": "urn:towr:magic-balance:result:1#/properties/planned_trials"},
+    "total_trials": {"$ref": "urn:towr:magic-balance:result:1#/properties/total_trials"},
+    "candidates": {"$ref": "urn:towr:magic-balance:result:1#/properties/candidates"},
+    "stage_reports": {"$ref": "urn:towr:magic-balance:result:1#/properties/stage_reports"},
+    "status": {"$ref": "urn:towr:magic-balance:result:1#/properties/status"},
+    "selected_candidate_ids": {"$ref": "urn:towr:magic-balance:result:1#/properties/selected_candidate_ids"}
+  },
+  "required": ["schema_version", "kind", "request", "seed_scheme", "runtime", "candidate_count", "planned_trials", "total_trials", "candidates", "stage_reports", "status", "selected_candidate_ids"],
+  "additionalProperties": false
+}

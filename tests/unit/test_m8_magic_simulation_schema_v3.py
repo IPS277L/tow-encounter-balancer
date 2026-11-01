@@ -1,4 +1,4 @@
-"""ADR-0051 simulation3 shape/registry closure; balance3 stays unsupported here."""
+"""ADR-0051 simulation3 shape/registry closure alongside balance3."""
 from copy import deepcopy
 from importlib.resources import files
 import json
@@ -115,27 +115,27 @@ class MagicSimulationSchemaV3Tests(unittest.TestCase):
                 with self.subTest(version=version, value=value), self.assertRaises(ValidationError):
                     schemas.validate_magic_simulation_document(data, schema_version=version)
 
-    def test_balance3_rejects_before_loading_any_schema_file(self):
+    def test_unknown_balance_version_rejects_before_loading_any_schema_file(self):
         schemas._validator.cache_clear()
-        with patch.object(schemas, 'files', side_effect=AssertionError('no file lookup for unsupported balance3')) as lookup:
+        with patch.object(schemas, 'files', side_effect=AssertionError('no file lookup for unsupported version')) as lookup:
             with self.assertRaisesRegex(ValueError, 'unsupported magic balance schema version'):
-                schemas.validate_magic_balance_document({}, schema_version='3')
+                schemas.validate_magic_balance_document({}, schema_version='4')
             with self.assertRaisesRegex(ValueError, 'unsupported magic balance schema version'):
-                schemas._validator('request', 'balance', '3')
+                schemas._validator('request', 'balance', '4')
             lookup.assert_not_called()
 
-    def test_registry_caches_all_fifteen_current_magic_family_kind_versions(self):
+    def test_registry_caches_all_eighteen_current_magic_family_kind_versions(self):
         schemas._validator.cache_clear()
-        for family, versions in (('simulation', ('1', '2', '3')), ('balance', ('1', '2'))):
+        for family, versions in (('simulation', ('1', '2', '3')), ('balance', ('1', '2', '3'))):
             for version in versions:
                 for kind in ('request', 'result', 'error'):
                     validator = schemas._validator(kind, family, version)
                     self.assertEqual(validator.schema['$id'], f'urn:towr:magic-{family}:{kind}:{version}')
-        self.assertEqual(schemas._validator.cache_info().currsize, 15)
-        self.assertEqual(schemas._validator.cache_info().maxsize, 15)
+        self.assertEqual(schemas._validator.cache_info().currsize, 18)
+        self.assertEqual(schemas._validator.cache_info().maxsize, 18)
         names = tuple(p.name for p in files('towr.adapters.schemas').iterdir() if p.name.endswith('.schema.json'))
-        self.assertEqual(len(names), 33)
-        self.assertEqual(sum(name.startswith('magic-') for name in names), 15)
+        self.assertEqual(len(names), 36)
+        self.assertEqual(sum(name.startswith('magic-') for name in names), 18)
         for version in (None, 3, True, '03', '4'):
             with self.subTest(version=version), self.assertRaises(ValueError):
                 schemas.validate_magic_simulation_document({}, schema_version=version)

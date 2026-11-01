@@ -1,5 +1,5 @@
-"""Pure magic balance v1/v2 admission/encoding, without generation or simulation."""
-from dataclasses import asdict
+"""Pure magic balance v1/v2/v3 admission/encoding, without simulation."""
+from dataclasses import asdict, replace
 from fractions import Fraction
 from functools import partial
 import json
@@ -9,7 +9,7 @@ from towr import __version__
 from towr.adapters._json_common import build_value, parse_seed, read_request
 from towr.adapters._magic_scenario_json import (
     facts_document, parse_facts, parse_scenario, parse_scene_frames, scenario_document, scene_frames_document,
-    miscast_continuation_document, parse_miscast_continuation,
+    miscast_continuation_document, parse_miscast_continuation, parse_stationary_wound_continuation,
 )
 from towr.adapters.magic_json_errors import MagicBalanceInputError
 from towr.adapters.magic_json_schema import validate_magic_balance_document
@@ -17,7 +17,9 @@ from towr.adapters.ranged_json_errors import RangedInputErrorCode as Code
 from towr.application.magic_balance_models import MagicBalanceCommand, MagicBalanceResult
 from towr.application.magic_balance_errors import MagicBalanceGenerationError, MagicBalanceExecutionError
 from towr.application.magic_candidate_generation import _count_vectors
-from towr.application.magic_candidate_generation_models import MagicCandidateGenerationRequest, MagicCompositionGroup
+from towr.application.magic_candidate_generation_models import (
+    MagicCandidateGenerationRequest, MagicCompositionGroup, _validate_generation_source,
+)
 from towr.application.ranged_simulation_models import SimulationExecutionMode, SimulationExecutionOptions
 from towr.balance.magic_staged_evaluation import magic_continuation_candidate_ids
 from towr.balance.magic_staged_evaluation_models import MagicBalanceStage
@@ -51,7 +53,8 @@ def encode_magic_balance_error(
 
 def parse_magic_balance_request(text: str | bytes) -> MagicBalanceCommand:
     """Read strict JSON, admit the full reserve, and preflight C/staged budget."""
-    document = read_request(text, MagicBalanceInputError, validate_magic_balance_document, magic_v2=True)
+    document = read_request(text, MagicBalanceInputError, validate_magic_balance_document,
+                            magic_versions=('1', '2', '3'))
     try:
         return _parse_document(document)
     except MagicBalanceInputError as error:
@@ -67,13 +70,21 @@ def _parse_document(document: dict) -> MagicBalanceCommand:
     scenario, definition_order = parse_scenario(reserve['scenario'], reserve['round_budget'],
         path_prefix='/reserve/scenario', error_type=MagicBalanceInputError, schema_version=version)
     continuation = None
-    if version == '2':
+    if version in ('2', '3'):
         continuation = parse_miscast_continuation(generation['miscast_continuation'],
             path_prefix='/generation/miscast_continuation', error_type=MagicBalanceInputError)
         if continuation != scenario.miscast_continuation:
             raise MagicBalanceInputError(Code.INVALID_INPUT,
                 'family Miscast continuation must equal the full reserve policy',
                 path='/generation/miscast_continuation')
+    stationary = None
+    if version == '3':
+        stationary = parse_stationary_wound_continuation(generation['stationary_wound_continuation'],
+            path_prefix='/generation/stationary_wound_continuation', error_type=MagicBalanceInputError)
+        if stationary != scenario.stationary_wound_continuation:
+            raise MagicBalanceInputError(Code.INVALID_INPUT,
+                'family stationary Wound continuation must equal the full reserve policy',
+                path='/generation/stationary_wound_continuation')
     groups = tuple(build(f'/generation/groups/{i}', MagicCompositionGroup, **group)
                    for i, group in enumerate(generation['groups']))
     facts = build('/generation/facts', parse_facts, generation['facts'])
@@ -89,7 +100,8 @@ def _parse_document(document: dict) -> MagicBalanceCommand:
         name: Fraction(value['numerator'], value['denominator']) for name, value in evaluation['window'].items()})
     request = build('', MagicCandidateGenerationRequest, scenario, groups, facts, frames,
         generation['candidate_id_prefix'], generation['max_candidates'], seed, stages,
-        evaluation['max_total_trials'], window, miscast_continuation=continuation)
+        evaluation['max_total_trials'], window, miscast_continuation=continuation,
+        stationary_wound_continuation=stationary)
     execution = document['execution']
     options = build('/execution', SimulationExecutionOptions, SimulationExecutionMode(execution['mode']),
                     execution.get('workers'), execution.get('batch_size'))
@@ -118,8 +130,11 @@ def _request_document(command: MagicBalanceCommand) -> dict:
             'max_total_trials': source.max_total_trials,
             'window': {name: _fraction_document(getattr(source.window, name)) for name in ('minimum', 'target', 'maximum')}},
         'execution': execution}
-    if command.schema_version == '2':
+    if command.schema_version in ('2', '3'):
         document['generation']['miscast_continuation'] = miscast_continuation_document(source.miscast_continuation)
+    if command.schema_version == '3':
+        policy = source.stationary_wound_continuation
+        document['generation']['stationary_wound_continuation'] = None if policy is None else policy.value
     return document
 
 
@@ -128,6 +143,8 @@ def encode_magic_balance_result(command: MagicBalanceCommand, result: MagicBalan
     if not isinstance(command, MagicBalanceCommand) or not isinstance(result, MagicBalanceResult):
         raise TypeError('balance encoding requires a typed magic command and result')
     source = command.generation_request
+    _validate_generation_source(source)
+    replace(result)
     if result.generation_result.source_request != source:
         raise ValueError('balance result belongs to a different generation request')
     request_document = _request_document(command)

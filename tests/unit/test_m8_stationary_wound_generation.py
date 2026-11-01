@@ -272,6 +272,41 @@ class StationaryWoundGenerationTests(unittest.TestCase):
                 Result(result.source_request, evaluation)
             project.assert_not_called()
 
+    def test_detached_candidate_facts_are_readmitted_before_projection_or_equal_value_comparison(self):
+        rng_before = getstate()
+        for stationary in (None, POLICY):
+            for miscast in (None, continuation_policy()):
+                good = generation.generate_magic_candidates(family(stationary=stationary, miscast=miscast))
+                original = deepcopy(good)
+                for kind in ('integer-true', 'wrong-facts-type'):
+                    bad = deepcopy(good)
+                    candidate = bad.evaluation_request.candidates[0]
+                    facts = deepcopy(candidate.scenario.facts)
+                    if kind == 'integer-true':
+                        object.__setattr__(facts, 'no_external_condition_sources', 1)
+                    else:
+                        facts = None
+                    object.__setattr__(candidate.scenario, 'facts', facts)
+                    self.assertIs(bad.source_request.facts.no_external_condition_sources, True)
+                    self.assertIs(bad.source_request.template_scenario.facts.no_external_condition_sources, True)
+                    if kind == 'integer-true':
+                        self.assertEqual(bad, good)  # 1 == True can conceal the invalid child.
+                    before = deepcopy(bad)
+                    with (self.subTest(stationary=stationary, miscast=miscast is not None, kind=kind),
+                          patch('random.Random', side_effect=AssertionError('result admission cannot draw RNG')),
+                          patch.object(generation, '_project_candidate',
+                              side_effect=AssertionError('reject before projection/equality')) as project):
+                        with self.assertRaises(TypeError):
+                            Result(bad.source_request, bad.evaluation_request)
+                        project.assert_not_called()
+                    self.assertEqual(bad, before)
+                    self.assertIs(candidate.scenario.facts, facts)
+                    if kind == 'integer-true':
+                        self.assertIs(type(facts.no_external_condition_sources), int)
+                self.assertEqual(good, original)
+                self.assertIs(good.evaluation_request.candidates[0].scenario.facts.no_external_condition_sources, True)
+        self.assertEqual(getstate(), rng_before)
+
     def test_same_id_policy_substitution_fails_at_every_candidate_position(self):
         for opted in (False, True):
             result = generation.generate_magic_candidates(family(stationary=POLICY if opted else None))
