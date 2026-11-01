@@ -1,4 +1,4 @@
-"""Finite ADR-0051 proposal, NOT a v3 parser or production family admission.
+"""ADR-0051 native family generation and finite proposed v3 mapping.
 
 Copy with generation_contract_probe.py, magic_scenario.py, opted_miscast.py
 and stationary_wound_runner.py. Genuine legacy v2 echoes are prepared before
@@ -27,7 +27,6 @@ from towr.application.magic_simulation_models import MagicSimulationCommand
 from towr.application.magic_staged_evaluation_service import evaluate_magic_candidates_staged
 from towr.application.ranged_simulation_models import SimulationExecutionMode, SimulationExecutionOptions
 from towr.balance.magic_assessment import assess_magic_candidate
-from towr.balance.magic_evaluation_models import MagicBalanceCandidate
 from towr.balance.magic_staged_evaluation_models import MagicBalanceStage, MagicStagedEvaluationRequest
 from towr.balance.ranged_assessment_models import ObjectiveRateWindow
 from towr.domain.npc_magic_scenario_models import (
@@ -78,18 +77,6 @@ def read_finite_policies(document):
         NpcRosterMiscastFacts(**facts), NpcMagicPronePolicy(raw_miscast['prone_policy'])), stationary
 
 
-def assert_finite_family(template, miscast, stationary):
-    """Proposed pre-projection assertions, explicitly not production admission."""
-    assert template.stationary_wound_continuation is None or isinstance(
-        template.stationary_wound_continuation, Stationary)
-    assert template.miscast_continuation is None or isinstance(
-        template.miscast_continuation, NpcMagicMiscastContinuationPolicy)
-    assert stationary is None or isinstance(stationary, Stationary)
-    assert miscast is None or isinstance(miscast, NpcMagicMiscastContinuationPolicy)
-    assert template.miscast_continuation == miscast
-    assert template.stationary_wound_continuation == stationary
-
-
 def proposed_wire(baseline, miscast, stationary, *, balance):
     result = deepcopy(baseline)
     result['schema_version'] = '3'
@@ -116,10 +103,8 @@ def restore_finite(document, baseline_wire, baseline_command, *, balance):
         original = baseline_command.generation_request
         template = replace(original.template_scenario, miscast_continuation=miscast,
                            stationary_wound_continuation=stationary)
-        assert_finite_family(template, miscast, stationary)
-        # Current production generation cannot represent the new field. Keep
-        # its complete unchanged numeric/facts/order specification separately.
-        return original, template, miscast, stationary
+        return replace(original, template_scenario=template, miscast_continuation=miscast,
+                       stationary_wound_continuation=stationary)
     return replace(baseline_command.request,
         scenario=replace(baseline_command.request.scenario, miscast_continuation=miscast,
                          stationary_wound_continuation=stationary))
@@ -171,23 +156,23 @@ def main():
             for stationary in (None, POLICY):
                 template = replace(original.template_scenario, miscast_continuation=miscast,
                                    stationary_wound_continuation=stationary)
-                assert_finite_family(template, miscast, stationary)
-                rejected(lambda: assert_finite_family(template, miscast, POLICY if stationary is None else None), AssertionError)
-                rejected(lambda: assert_finite_family(template, miscast_policy if miscast is None else None, stationary), AssertionError)
-                rejected(lambda: assert_finite_family(template, miscast, POLICY.value), AssertionError)
+                family = replace(original, template_scenario=template, miscast_continuation=miscast,
+                                 stationary_wound_continuation=stationary)
+                rejected(lambda: replace(family, stationary_wound_continuation=POLICY if stationary is None else None))
+                rejected(lambda: replace(family, miscast_continuation=miscast_policy if miscast is None else None))
+                rejected(lambda: replace(family, stationary_wound_continuation=POLICY.value), TypeError)
                 template_before = deepcopy(template)
                 forged = deepcopy(template)
                 object.__setattr__(forged, FIELD, POLICY.value)
-                rejected(lambda: assert_finite_family(forged, miscast, POLICY), AssertionError)
+                rejected(lambda: replace(family, template_scenario=forged), TypeError)
                 forged_miscast = deepcopy(template)
                 object.__setattr__(forged_miscast, 'miscast_continuation', policy_wire(miscast_policy))
-                rejected(lambda: assert_finite_family(forged_miscast, miscast_policy, stationary), AssertionError)
+                rejected(lambda: replace(family, template_scenario=forged_miscast), TypeError)
                 assert template == template_before
                 if stationary is not None:
                     rejected(lambda: replace(original, template_scenario=template, miscast_continuation=miscast))
-                else:
-                    assert generate_magic_candidates(replace(original, template_scenario=template,
-                        miscast_continuation=miscast)).source_request.template_scenario == template
+                generated = generate_magic_candidates(family)
+                assert generated.source_request is family
                 for is_balance, base, v1_base, command, parser, error in (
                     (False, sim_base, sim_v1, simulation, parse_magic_simulation_request, MagicSimulationInputError),
                     (True, bal_base, bal_v1, balance, parse_magic_balance_request, MagicBalanceInputError)):
@@ -196,7 +181,7 @@ def main():
                     transported = json.loads(json.dumps(document))
                     restored = restore_finite(transported, base, command, balance=is_balance)
                     if is_balance:
-                        assert restored == (original, template, miscast, stationary)
+                        assert restored == family
                     else:
                         assert restored == replace(simulation.request, scenario=template)
                     assert transported == untouched == document
@@ -224,7 +209,8 @@ def main():
                         mismatch['generation'][FIELD] = POLICY.value if stationary is None else None
                         rejected(lambda: restore_finite(mismatch, base, command, balance=True), AssertionError)
                     wire_count += 1
-                for counts, baseline in zip(vectors, baseline_candidates, strict=True):
+                for counts, baseline, actual in zip(vectors, baseline_candidates,
+                        generated.evaluation_request.candidates, strict=True):
                     variable = {i for group in original.groups for i in group.actor_ids}
                     retained = {p.state.actor_id for p in template.initial.roster.participants
                                 if p.state.actor_id not in variable}
@@ -233,17 +219,18 @@ def main():
                     projected = project(template, retained, baseline.candidate_id, original.facts, original.scene_frames)
                     assert projected == replace(baseline.scenario, miscast_continuation=miscast,
                                                 stationary_wound_continuation=stationary)
+                    assert actual.scenario == projected
                     source = NpcMagicSimulationRequest(projected, original.master_seed, 2)
                     reference = NpcMagicSimulationRequest(baseline.scenario, original.master_seed, 2)
                     assert tuple(source.seed_for(i) for i in range(2)) == tuple(reference.seed_for(i) for i in range(2))
                     projection_count += 1
                     if not opposite and counts == (1, 0):
-                        staged_candidates.append(MagicBalanceCandidate(f'policy:{len(staged_candidates)}', projected))
+                        staged_candidates.append(replace(actual, candidate_id=f'policy:{len(staged_candidates)}'))
     assert projection_count == 20 and wire_count == 16
     print('Finite proposed v3: 16 complete simulation/balance mappings; four independent policy combinations; both perspectives')
-    print('Manual family projection: 20 full-source subsets (4 friendly + 1 opposite) x 4 policies; IDs/orders/frames/seeds exact')
-    print('Required nullable fields and separate family equality checked before projection; raw enum strings rejected by finite assertions')
-    print('Production: stationary generation rejected; JSON v1/v2 extra fields rejected even null; v3 unsupported')
+    print('Native generation: 20 full-source subsets match manual projections; both perspectives x four policies; IDs/orders/frames/seeds exact')
+    print('Production family preflight checks independent equality/types before projection; proposed v3 fields remain required nullable')
+    print('Production: omitted stationary family rejected; JSON v1/v2 extra fields rejected even null; v3 unsupported')
 
     staged = MagicStagedEvaluationRequest(tuple(staged_candidates), 42, (MagicBalanceStage(1, 4),), 4, WINDOW)
     staged_before = deepcopy(staged)
@@ -256,7 +243,7 @@ def main():
         assert row.assessment.source_request.scenario == candidate.scenario
         assert row.assessment.summary.source_request == row.assessment.source_request
         assert row.assessment.summary.trials == 1
-    print('Public native staged service: four manual subset candidates -> one stage -> four complete source-bound rows; denominator 4')
+    print('Public native staged service: four generated subset candidates -> one stage -> four complete source-bound rows; denominator 4')
 
     # Real stationary effect and legacy controls through the current native API.
     # Explicit scripts are finite execution evidence, not a sampling experiment.
@@ -297,7 +284,7 @@ def main():
     print('Native scripted controls: 8 trials / 138 d10; opted round-limit + unsupported, None two unsupported; denominator 2 per source')
     print('Production v1/v2 encoders reject full opted sources; no stripped opted source or downgraded document used')
     assert fixtures == before and getstate() == rng_before
-    print('Inputs/global RNG unchanged; finite proposal only, no production v3 codec/schema/CLI/generator implementation')
+    print('Inputs/global RNG unchanged; native generation implemented; finite wire proposal only, no production v3 codec/schema/CLI')
 
 
 if __name__ == '__main__':

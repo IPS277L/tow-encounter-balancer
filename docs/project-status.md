@@ -4,22 +4,26 @@
 
 ## Текущий этап
 
-**M8 / ADR-0051: контракт и finite proof проверены.** [Контракт](decisions/ADR-0051-stationary-wound-generation-and-magic-json-v3.md), [probe](examples/m8/stationary_wound_transport_contract_probe.py)/[stdout](examples/m8/stationary_wound_transport_contract_probe.output.txt), [отчёт](audits/m8-stationary-wound-transport-contract.md). Production propagation ещё не реализована.
+**M8 / ADR-0051, пункт1: native generation реализован и проверен, этап закрыт.** [Контракт](decisions/ADR-0051-stationary-wound-generation-and-magic-json-v3.md), [аудит этапа](audits/m8-stationary-wound-generation-readiness.md), [public probe](examples/m8/stationary_wound_transport_contract_probe.py)/[stdout](examples/m8/stationary_wound_transport_contract_probe.output.txt). Пункты2–4 ещё предстоят.
 
-Контракт задаёт независимую append-last stationary family assertion, strict enum/equality до enumeration и полную subset/source projection. Будущий JSON v3 обеих magic families получает required nullable enum string и отдельный matching balance family field; прежний Miscast nullable object остаётся независимым. Error trust/fallback и fresh-only scope прежние.
+Append-last nullable stationary family assertion независима от Miscast. Typed template/family проверяются до enumeration; factory/result повторяют pure source admission без normalization. Facts/groups/stages/window проверяются собственными constructors. Каждый subset получает обе family policies; candidate types проверяются до exact expected projection. Полные source/seed/ID/budget и generation→staged→report сохраняются.
 
 ## Ограничения
 
-- Native [ADR-0050](decisions/ADR-0050-native-stationary-wound-policy.md) закрыт [аудитом](audits/m8-native-stationary-wound-readiness.md): canonical first9 stand/context49, superficial1–3 и active/expired6, normal Tests, no external causes. Terrain/history сохраняются; Give Ground=False.
-- None сохраняет legacy traces/stops. Повторная9 после stand, Wind Prone с retained terrain, другие wounds/Miscasts и unknown scene facts дают конкретный stop. Miscast и stationary permissions независимы.
-- Production generation и JSON1/2 явно отвергают stationary policy. V3 пока unsupported: ручной finite mapping не является parser/schema/CLI или save/resume.
-- M8 — authored Champion-Wizard/Curse + Shooting Minions; unsupported в denominator. Полный suite имеет33 прежние errors expectations Python3.12 и не считается зелёным.
+- Scope прежний PG1.4/GM1.1 / ADR-0050: canonical first9 stand/context49, superficial1–3 и active/expired6, normal Tests, no external causes. Terrain/history сохраняются, Give Ground=False.
+- None сохраняет legacy traces/stops. Повторная9 после stand, Wind Prone с retained terrain и прочие mandatory effects остаются stop. Miscast и stationary permissions независимы.
+- Native generation требует matching family permission; JSON1/2 явно отвергают stationary source. JSON3/schema/CLI ещё нет; fresh-only формат не save/resume.
+- Unsupported остаётся в denominator. Известные33 errors expectations Python3.12 — отдельная задача, полный suite с ними не зелёный.
 
 ## Последняя проверка
 
-Windows/CPython3.12.4 вне sandbox: **3902tests /33known errors /0failures /0skipped,971,355с**. Все33 exact ERROR headers совпали с предыдущим baseline; новых errors/failures нет. Log `.cache/adr0051-contract-regression.log`.
+Windows/CPython3.12.4 вне sandbox: **3926tests /33known errors /0failures /0skipped,787,439с**. Все33 exact ERROR headers совпали с baseline, все24новых tests прошли; новых errors/failures нет. Log `.cache/adr0051-generation-regression.log`.
 
-Новый copied-bundle test прошёл отдельно и в full suite:20 ручных full-source subsets,16 finite wire mappings,4 настоящих staged rows;8 scripted trials/138d10 и same-ID source substitution controls. Inputs/global RNG неизменны. Source/installed/spawn аудит ADR-0050 остаётся действующим; новый wheel для contract-only среза не собирался. Saved v2 outputs и Markdown-пути проверены; `git diff --check` — OK.
+19new unit/5integration проверяют generated3/4actor actual9→stand→Casting/end→incoming6→expiry48/66scripted d10 и None9/Wound10 controls7. Four policy combinations, staged seq/spawn/full reruns/seed prefix/source/denominator и обе perspectives проверены. Прежние60generation/policy unit и обновлённый copied public bundle также прошли.
+
+Public probe:20actual generator projections/16finite wire mappings/4staged rows;8scripted trials/138d10. Wire3 mapping остаётся ручным. Actual native balance result с policy явно отвергнут JSON1/2 без encoding RNG.
+
+После полной проверки production/tests/probe не менялись. Saved v2 outputs, Markdown-пути и `git diff --check` проверены. Installed v3 audit запланирован в пункте4, новая wire версия ещё не реализована.
 
 ```powershell
 $env:PYTHONPATH = 'src'
@@ -28,8 +32,8 @@ $env:PYTHONPATH = 'src'
 
 ## Точный следующий шаг
 
-Пункт1 ADR-0051 целиком: native generation model/preflight/projection/result guards и deterministic source/None/forged-input tests, затем generated stationary chain через staged sequential/spawn. До enumeration проверять typed template/family; до equality также typed candidate. Полный source сохранять в generation→staged→report.
+Пункт2 ADR-0051 целиком: simulation v3 — три packaged schemas/local registry, command/errors, magic-only family version selection, shared mapper, parser/service/result+error encoder/CLI и actual sequential/process. Required nullable stationary enum string и независимый Miscast object, full source/error version и v1/v2 lossless guards.
 
-После пункта1: simulation3 → balance3 → общий installed/schema/CLI/spawn audit и full regression. Не удалять policy ради старого encoder, не вводить gameplay consumers/save-resume под видом transport.
+Balance3 до пункта3 explicit unsupported: не загружать отсутствующую Schema и не доверять3 раньше полной lexical decode/поддержки конкретной family. Затем balance3 → общий installed/schema/CLI/spawn/full audit. Не вводить новые gameplay consumers или save/resume.
 
-Все прежние незакоммиченные изменения сохранены. В текущем срезе добавлены ADR/probe/stdout/copied test и отчёт, обновлены навигация/архитектура/roadmap/открытые вопросы; production и старые tests/fixtures не менялись. Commit/push выполняет пользователь.
+Изменения текущего этапа не закоммичены. Добавлены audit и19unit/5integration tests; изменены два application файла, public probe/stdout, два прежних unit файла для positional/guard semantics и сопутствующие docs. Commit/push выполняет пользователь.

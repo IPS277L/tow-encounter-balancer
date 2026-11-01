@@ -4,6 +4,8 @@
 
 [Probe](../examples/m8/stationary_wound_transport_contract_probe.py), [сохранённый stdout](../examples/m8/stationary_wound_transport_contract_probe.output.txt), [copied-bundle test](../../tests/integration/test_m8_stationary_wound_transport_contract_probe.py).
 
+**Последующий пункт1 реализован:** [native generation audit](m8-stationary-wound-generation-readiness.md). Текущий probe теперь вызывает production opted generator и family preflight, сравнивает20full projections с manual project, восстанавливает полноценный typed generation request. Ручным остаётся только finite wire3 mapping; старые wire отказы сохраняются. Ниже — первоначальная контрактная evidence до реализации, а не актуальный implementation report.
+
 ## Что проверено
 
 | Граница | Конечная evidence / ограничение |

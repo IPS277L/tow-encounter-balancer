@@ -1,10 +1,10 @@
 # Архитектура
 
-## Stationary family / JSON v3, ADR-0051 — контракт
+## Stationary family / JSON v3, ADR-0051
 
-[ADR-0051](../decisions/ADR-0051-stationary-wound-generation-and-magic-json-v3.md) задаёт append-last typed nullable family assertion независимо от Miscast, strict enum checks до enumeration/equality и lossless projection/result source guards. Будущий JSON v3 обеих magic families получает required nullable enum string у scenario и отдельное matching family поле у balance. Error trust/fallback, command version, fresh-only scope и прежние CLI semantics сохраняются; v1/v2 не расширяются.
+[ADR-0051](../decisions/ADR-0051-stationary-wound-generation-and-magic-json-v3.md), пункт1 реализован: append-last typed nullable family assertion независимо от Miscast, strict enum checks до enumeration/equality и lossless projection/result source guards. Template/request повторно проходят pure admission без исправления исходного объекта; facts/groups/stages/window проверяются собственными constructors. Projection явно передаёт обе family policies. Domain/engine не импортируют application/wire. [Generation audit](../audits/m8-stationary-wound-generation-readiness.md).
 
-[Конечный proof](../examples/m8/stationary_wound_transport_contract_probe.py)/[отчёт](../audits/m8-stationary-wound-transport-contract.md) проверяет ручное отображение и существующие native APIs. Production generator, schemas/registry, parsers/encoders/services/CLI ещё не поддерживают stationary policy. Ручной proof не является admission недоверенного v3 input; domain/engine wire version не знают. Следующий срез — native family models/preflight/projection/result и tests, затем simulation3, balance3 и общий аудит.
+[Public proof](../examples/m8/stationary_wound_transport_contract_probe.py) использует настоящий generator,20exact projections и16ручных v3 mappings. Будущий JSON v3 получает required nullable enum string у scenario и отдельное matching balance family field; Miscast object остаётся независимым. Schemas/registry/parsers/encoders/services/CLI новой версии ещё нет. Native balance со старой metadata разрешён, но JSON1/2 lossless отказ сохраняется. Следующий срез — simulation3 с family-specific version selection, затем balance3 и общий аудит; fresh-only scope прежний.
 
 ## Native stationary policy, ADR-0050
 

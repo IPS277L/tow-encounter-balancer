@@ -1,6 +1,6 @@
 # ADR-0051: stationary-wound family policy и Magic JSON/CLI v3
 
-Дата: 2026-11-01. Статус: **контракт и finite proof проверены; production propagation ещё не реализована**. Основа — [native policy ADR-0050](ADR-0050-native-stationary-wound-policy.md), [generation/v2 ADR-0047](ADR-0047-opt-in-generation-and-magic-json-v2.md) и [native audit](../audits/m8-native-stationary-wound-readiness.md). Конечная проверка контракта: [probe](../examples/m8/stationary_wound_transport_contract_probe.py), [stdout](../examples/m8/stationary_wound_transport_contract_probe.output.txt), [отчёт](../audits/m8-stationary-wound-transport-contract.md). Full regression3902tests/33known errors/0failures/0skipped; exact ERROR headers прежние.
+Дата: 2026-11-01. Статус: **пункт1 реализован; simulation3/balance3 и общий аудит ещё предстоят**. Основа — [native policy ADR-0050](ADR-0050-native-stationary-wound-policy.md), [generation/v2 ADR-0047](ADR-0047-opt-in-generation-and-magic-json-v2.md) и [native audit](../audits/m8-native-stationary-wound-readiness.md). [Generation audit](../audits/m8-stationary-wound-generation-readiness.md), [public probe](../examples/m8/stationary_wound_transport_contract_probe.py)/[stdout](../examples/m8/stationary_wound_transport_contract_probe.output.txt). [Исходная контрактная проверка](../audits/m8-stationary-wound-transport-contract.md) остаётся исторической evidence; актуальная проверка реализации записывается в generation audit.
 
 ## Граница
 
@@ -10,7 +10,7 @@
 
 ## Native family assertion
 
-Добавить последним полем `MagicCandidateGenerationRequest`:
+Добавлено последним полем `MagicCandidateGenerationRequest`:
 
 ```python
 stationary_wound_continuation: NpcMagicStationaryWoundPolicy | None = None
@@ -71,11 +71,11 @@ CLI сохраняет exit0 completed result (включая unsupported),2 inp
 
 ## Этапы реализации после контрактного proof
 
-1. **Native generation:** append-last model, preflight входа/result, явная family projection и source guards. Deterministic tests: все finite vectors/обе perspectives, четыре combinations, старые positional/None IDs/seeds, omitted/mismatch/raw enum, forged/unpickled request до enumeration, same-ID source substitution, invalid/conflicting projected frames и failure без частичного семейства. Реальная generated Leg Spasm chain и None control через staged sequential/spawn, полный report/denominator.
+1. **Native generation реализован и проверен:** append-last model, preflight входа/result, явная family projection и source guards.19unit+5integration tests проверяют finite vectors/обе perspectives, четыре combinations, positional/None IDs/seeds, omitted/mismatch/raw/nested enum, forged/unpickled request до enumeration, same-ID source substitution и late failure без partial family. Actual generated3/4actor chains48/66d10 и None controls проходят staged sequential/spawn с полным report/denominator. Full regression3926tests/33known errors/0failures/0skipped; exact ERROR headers прежние. [Evidence](../audits/m8-stationary-wound-generation-readiness.md).
 2. **Simulation v3:** три schemas/registry, command/errors/shared reader+mapper, parser/service/result+error encoder/CLI вместе с version3 output. Required/unknown/type/null/enum/paths, full source/echo/order, trusted-version table, no RNG в parse/encode, old1/2 rejection и genuine v3 sequential/process. При этом balance3 ещё явно unsupported, а не частично published.
 3. **Balance v3:** ещё три schemas/command/errors, независимые reserve/family assertions и source-bound encoder/service/CLI. Native family preflight до materialization, mismatch pointer, catalog/stages/report chain, candidate/counts/stage error context, real backends. V1/v2 сохранены; v3-null не понижается.
 4. **Общий аудит:** actual public v3 requests/results, all six schemas и local refs, source/wheel/installed path+hash parity, module/console и spawn, обе magic families1/2/3 с null/independent policies, прежние шесть routes. Saved v1/v2 stdout неизменны. Полная регрессия на production границе с exact сравнением прежних33 ERROR headers; известных errors недостаточно, чтобы объявить suite зелёным. В этот момент закрывается implementation ADR, не при наличии одного ручного proof.
 
-Текущий finite probe проверяет только конечные значения ручного отображения, существующие native continuations/source guards и сохранение текущих отказов. Он не production v3 parser/schema, не family admission недоверенного request и не installed/CLI3 evidence. При реализации негативную проверку «current API отвергает3» нужно заменить actual round-trip; отказы старых версий и opted template без family assertion остаются.
+Текущий public probe использует настоящий opted generator и production family admission, сравнивает20full projections с независимым manual project и сохраняет конечное ручное wire3 mapping. Он не production v3 parser/schema или installed/CLI3 evidence. При реализации негативную проверку «current API отвергает3» нужно заменить actual round-trip; отказы старых версий и opted template без family assertion остаются.
 
 Commit/push выполняет пользователь.

@@ -39,9 +39,9 @@ class OptedMagicGenerationTests(unittest.TestCase):
     def test_append_last_default_none_preserves_old_positional_calls_and_output(self):
         source = request()
         names = tuple(field.name for field in fields(source))
-        self.assertEqual(names[-1], 'miscast_continuation')
+        self.assertEqual(names[-2:], ('miscast_continuation', 'stationary_wound_continuation'))
         self.assertIsNone(fields(source)[-1].default)
-        arguments = tuple(getattr(source, name) for name in names[:-1])
+        arguments = tuple(getattr(source, name) for name in names[:-2])
         implicit, explicit = Request(*arguments), Request(*arguments, None)
         self.assertEqual(implicit, explicit)
         self.assertEqual(implicit, source)
@@ -86,7 +86,7 @@ class OptedMagicGenerationTests(unittest.TestCase):
 
     def test_omitted_family_policy_does_not_inherit_opted_template(self):
         source = request()
-        names = tuple(field.name for field in fields(source))[:-1]
+        names = tuple(field.name for field in fields(source))[:-2]
         values = {name: getattr(source, name) for name in names}
         values['template_scenario'] = replace(source.template_scenario,
                                              miscast_continuation=continuation_policy())

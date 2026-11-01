@@ -1,6 +1,6 @@
 # Magic JSON: v1 fixtures и simulation/balance v2
 
-Будущий stationary transport описан отдельно в [ADR-0051](../../../decisions/ADR-0051-stationary-wound-generation-and-magic-json-v3.md) и [finite proof](../stationary_wound_transport_contract_probe.py). V3 ещё не реализован; приведённые ниже production v1/v2 fixtures не меняются и не разрешают stationary policy. Не добавлять новое поле в них даже с null и не удалять policy из native opted source для старого encoder.
+Будущий stationary transport описан отдельно в [ADR-0051](../../../decisions/ADR-0051-stationary-wound-generation-and-magic-json-v3.md) и [public proof](../stationary_wound_transport_contract_probe.py). Native generation уже поддерживает separate matching stationary family opt-in, [audit](../../../audits/m8-stationary-wound-generation-readiness.md). JSON v3 ещё не реализован; приведённые ниже production v1/v2 fixtures не меняются и не разрешают stationary policy. Не добавлять новое поле в них даже с null и не удалять policy из native opted source для старого encoder.
 
 ## Simulation v2 — ADR-0047
 

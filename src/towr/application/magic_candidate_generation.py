@@ -1,4 +1,4 @@
-"""Construct the complete authored magic family without simulation (ADR-0042/0047)."""
+"""Construct the complete authored magic family without simulation (ADR-0042/0047/0051)."""
 from collections.abc import Iterator
 from dataclasses import replace
 from itertools import product
@@ -6,6 +6,7 @@ from itertools import product
 from towr.application.magic_candidate_generation_errors import MagicCandidateGenerationError
 from towr.application.magic_candidate_generation_models import (
     MagicCandidateGenerationRequest, MagicCandidateGenerationResult,
+    _validate_generation_source,
 )
 from towr.balance.magic_evaluation_models import MagicBalanceCandidate
 from towr.balance.magic_staged_evaluation_models import MagicStagedEvaluationRequest
@@ -81,6 +82,7 @@ def _project_candidate(source: MagicCandidateGenerationRequest, counts: tuple[in
                 target_actor_ids=tuple(actor for actor in template.objective.target_actor_ids if actor in keep)),
             max_rounds=template.max_rounds, repeated_stagger_choice=template.repeated_stagger_choice,
             spell=template.spell, miscast_continuation=source.miscast_continuation,
+            stationary_wound_continuation=source.stationary_wound_continuation,
         )
         return MagicBalanceCandidate(candidate_id, scenario)
     except Exception as error:
@@ -89,10 +91,7 @@ def _project_candidate(source: MagicCandidateGenerationRequest, counts: tuple[in
 
 def generate_magic_candidates(request: MagicCandidateGenerationRequest) -> MagicCandidateGenerationResult:
     """Build every candidate or fail with its context; never return a prefix."""
-    if not isinstance(request, MagicCandidateGenerationRequest):
-        raise TypeError("generation requires a typed magic request")
-    if request.template_scenario.stationary_wound_continuation is not None:
-        raise ValueError('stationary Wound policy requires separate generation propagation')
+    _validate_generation_source(request)
     candidates = tuple(_project_candidate(request, counts) for counts in _count_vectors(request))
     evaluation = MagicStagedEvaluationRequest(
         candidates, request.master_seed, request.stages, request.max_total_trials, request.window,

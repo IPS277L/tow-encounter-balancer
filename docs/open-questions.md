@@ -6,15 +6,15 @@
 
 M2/M6/M7 завершены для ограниченных numeric Minion-сценариев; их исходы, массовые прогоны и подбор не означают поддержку произвольного боя. Первый M8 допускает одного authored Champion-Wizard с Curse of Cowardly Flight и numeric Shooting Minions; неизвестные scene facts и обязательные неподдержанные продолжения дают отдельный UNSUPPORTED_PATH. Broken и другая Zone не считаются defeat. Никакая остановка не исключается из числа trials.
 
-Массовые прогоны/оценка сохраняют ограниченный single-run scope. Native API дополнительно поддерживает независимую stationary-wound policy ADR-0050, а JSON1/2/generation пока знают только прежний decline → Wind21–22/standalone Prone opt-in. Исторические закрытые этапы — в [архиве](open-questions-history.md) и профильных аудитах. Никакой опциональный consumer не означает поддержку всех Wounds/Miscasts.
+Массовые прогоны/оценка сохраняют ограниченный single-run scope. Native API и generation с отдельным matching family assertion поддерживают независимую stationary-wound policy ADR-0050/0051; JSON1/2 пока знают только прежний decline → Wind21–22/standalone Prone opt-in. Исторические закрытые этапы — в [архиве](open-questions-history.md) и профильных аудитах. Никакой опциональный consumer не означает поддержку всех Wounds/Miscasts.
 
 <a id="первая-метрика-m5"></a>
 
 ## Leg Spasm: следующая граница M8
 
-[ADR-0050](decisions/ADR-0050-native-stationary-wound-policy.md) и [native/source/installed/spawn аудит](audits/m8-native-stationary-wound-readiness.md) завершены. [Контракт ADR-0051](decisions/ADR-0051-stationary-wound-generation-and-magic-json-v3.md) подготовлен: separate generation family assertion и JSON v3 с required nullable enum string. Production propagation ещё не реализована; точный следующий шаг — native family preflight/projection/result guards. Новых игровых вопросов/house rules нет; новая policy не является разрешением всех Wounds.
+[ADR-0050](decisions/ADR-0050-native-stationary-wound-policy.md) и [native/source/installed/spawn аудит](audits/m8-native-stationary-wound-readiness.md) завершены. Пункт1 [ADR-0051](decisions/ADR-0051-stationary-wound-generation-and-magic-json-v3.md) реализован: [separate generation family assertion/projection/source guards](audits/m8-stationary-wound-generation-readiness.md). Следующий шаг — simulation v3 с required nullable enum string и exact source/error version; balance3 остаётся unsupported до отдельного этапа. Новых игровых вопросов/house rules нет; новая policy не является разрешением всех Wounds.
 
-Действующая граница: canonical first9 stand48/context49, no external causes, Drained iff active6, normal Tests без бонусов/Glorious/Fate. None сохраняет legacy; `miscast_continuation` и stationary permission независимы. Повторная9 после stand не поддержана даже без6; Wind Prone с terrain, unsafe/spent move, другие раны остаются stop. Ordinary movement, Recover/treatment и расширение stand/history6 требуют отдельных consumers. Пока family/wire propagation нет, generation/JSON1/2 явно отвергают stationary policy; удалять её для обхода lossless guards нельзя.
+Действующая граница: canonical first9 stand48/context49, no external causes, Drained iff active6, normal Tests без бонусов/Glorious/Fate. None сохраняет legacy; `miscast_continuation` и stationary permission независимы. Повторная9 после stand не поддержана даже без6; Wind Prone с terrain, unsafe/spent move, другие раны остаются stop. Ordinary movement, Recover/treatment и расширение stand/history6 требуют отдельных consumers. Generation требует отдельный matching opt-in; JSON1/2 явно отвергают stationary policy, удалять её для обхода lossless guards нельзя.
 
 ## Значение ничьей для балансировки
 

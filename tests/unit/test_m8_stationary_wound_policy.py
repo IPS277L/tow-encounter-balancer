@@ -79,7 +79,7 @@ class StationaryWoundPolicyTests(unittest.TestCase):
             source.stationary_wound_continuation = None
         self.assertNotEqual(source, replace(source, stationary_wound_continuation=None))
 
-    def test_generation_rejects_before_collection_reads_projection_or_rng(self):
+    def test_generation_requires_separate_family_before_collection_reads_projection_or_rng(self):
         source = generation_request()
 
         class Unreadable(list):

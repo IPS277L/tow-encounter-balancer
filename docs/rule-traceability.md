@@ -1,5 +1,9 @@
 # Трассировка правил
 
+## M8 — generation stationary policy, ADR-0051 пункт1
+
+2026-11-01: [family/preflight/projection/result](audits/m8-stationary-wound-generation-readiness.md) реализованы;19unit/5integration tests, generated3/4actor actual9→stand→Casting/end→6/expiry и full sequential/spawn source chain. Это передача существующего разрешения ADR-0050, новых Rule IDs, house rules или чтения книг нет. RULE-HEALTH-003/005/008 и RULE-COMBAT-014 с прежними PG1.4/GM1.1 источниками не меняются. [Public probe](examples/m8/stationary_wound_transport_contract_probe.py) использует production generator; wire3 mapping пока ручной, JSON1/2 сохраняют lossless отказ.
+
 ## M8 — native stationary policy, ADR-0050
 
 2026-11-01: RULE-HEALTH-003/005/008 и RULE-COMBAT-014 переиспользуются; PG1.4 Rules115–116/119/121–123, Magic156–157/159, Wounds190; GM1.1 Champions92. [Contract](decisions/ADR-0050-native-stationary-wound-policy.md), [pure helper](../src/towr/domain/npc_magic_stationary_wound_policy.py), [public automatic proof](examples/m8/stationary_wound_runner.py), [12policy unit](../tests/unit/test_m8_stationary_wound_policy.py)/[20runner unit](../tests/unit/test_m8_stationary_wound_runner.py)/[native integration](../tests/integration/test_m8_stationary_wound_runner.py). Native policy/frame/source/clock gating реализованы; новые Rule IDs не вводились. [Audit](audits/m8-native-stationary-wound-readiness.md) проверяет четыре сочетания policies, first9stand, actual6expiry и honest stops. Generation/JSON1/2 новой policy не получают.

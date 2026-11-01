@@ -6,7 +6,7 @@
 
 ## Навигация
 
-Реализована независимая [native stationary-wound policy ADR-0050](docs/decisions/ADR-0050-native-stationary-wound-policy.md): automatic Leg Spasm stand, Casting/Protection/end и Wound6 expiry. [Source/installed/spawn аудит](docs/audits/m8-native-stationary-wound-readiness.md) завершён. [ADR-0051](docs/decisions/ADR-0051-stationary-wound-generation-and-magic-json-v3.md) задаёт отдельное family assertion и будущий JSON v3; [finite proof](docs/examples/m8/stationary_wound_transport_contract_probe.py) проверяет контракт. Production generation/JSON1/2 пока явно отвергают stationary policy. Точное состояние — в документах ниже.
+Реализована независимая [native stationary-wound policy ADR-0050](docs/decisions/ADR-0050-native-stationary-wound-policy.md): automatic Leg Spasm stand, Casting/Protection/end и Wound6 expiry. [Source/installed/spawn аудит](docs/audits/m8-native-stationary-wound-readiness.md) завершён. Native generation [ADR-0051](docs/decisions/ADR-0051-stationary-wound-generation-and-magic-json-v3.md) передаёт policy всем составам при отдельном matching family assertion; [тесты и аудит](docs/audits/m8-stationary-wound-generation-readiness.md). JSON1/2 явно отвергают stationary policy, simulation/balance v3 — следующие этапы. Точное состояние — в документах ниже.
 
 - [Актуальный статус, ограничения, проверки и следующий шаг](docs/project-status.md).
 - [Открытые вопросы и действующие допущения](docs/open-questions.md).

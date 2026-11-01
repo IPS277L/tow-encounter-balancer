@@ -2,7 +2,7 @@
 
 ## Контракт stationary family / JSON v3, ADR-0051
 
-[Finite probe](stationary_wound_transport_contract_probe.py), [stdout](stationary_wound_transport_contract_probe.output.txt), [контракт](../../decisions/ADR-0051-stationary-wound-generation-and-magic-json-v3.md) и [отчёт](../../audits/m8-stationary-wound-transport-contract.md). Ручное отображение сохраняет две независимые policies и полный source; существующие native APIs проверяют реальные исполнения и отказы старых границ. Это контрактный пример: production generation/JSON v3 ещё предстоят, v1/v2 не принимают stationary permission. Точный состав копируемого bundle и команда — в отчёте.
+[Public probe](stationary_wound_transport_contract_probe.py), [stdout](stationary_wound_transport_contract_probe.output.txt), [контракт](../../decisions/ADR-0051-stationary-wound-generation-and-magic-json-v3.md), [generation audit](../../audits/m8-stationary-wound-generation-readiness.md). Настоящий generator проверяет20full subsets с отдельными family assertions;16ручных wire3 mappings сохраняют обе policies и полный source. Production JSON v3 ещё предстоит, v1/v2 не принимают stationary permission. Для копирования нужны этот файл и четыре helpers: `generation_contract_probe.py`, `magic_scenario.py`, `opted_miscast.py`, `stationary_wound_runner.py`; команда/copy test — в аудите.
 
 ## Automatic native stationary policy, ADR-0050
 
@@ -13,7 +13,7 @@ $env:PYTHONPATH = "src"
 .venv/Scripts/python.exe docs/examples/m8/stationary_wound_runner.py
 ```
 
-Для копирования нужны два указанных файла и установленный пакет. Новый пример прошёл под isolated installed `python -I`, включая настоящий spawn. Generation template/new policy и JSON1/2 пока явно отвергаются; не удалять policy для обхода lossless guard.
+Для копирования нужны два указанных файла и установленный пакет. Новый пример прошёл под isolated installed `python -I`, включая настоящий spawn. Native generation теперь требует отдельный matching family opt-in ADR-0051; JSON1/2 по-прежнему явно отвергают stationary policy. Не удалять policy для обхода lossless guard.
 
 ## Stationary Leg Spasm: реальная ручная цепочка ADR-0049
 

@@ -241,11 +241,11 @@ Native policy/runner ADR-0050 реализованы ниже. Generation/wire p
 
 ## ADR-0051 — stationary family assertion и Magic JSON v3
 
-Проверены [контракт](decisions/ADR-0051-stationary-wound-generation-and-magic-json-v3.md), [finite proof](examples/m8/stationary_wound_transport_contract_probe.py) и [отчёт контрактной проверки](audits/m8-stationary-wound-transport-contract.md). Contract boundary regression3902tests/33known errors/0failures, exact ERROR headers прежние. Production propagation ещё не реализована. Независимый typed family opt-in должен сохраняться во всех subsets и полном generation→staged→report source; JSON1/2 продолжают явно отвергать stationary permission. V3 предусматривает required nullable scenario/family enum string и независимое прежнее Miscast поле.
+Проверены [контракт](decisions/ADR-0051-stationary-wound-generation-and-magic-json-v3.md) и [public proof](examples/m8/stationary_wound_transport_contract_probe.py). **Native generation реализован**, [аудит пункта1](audits/m8-stationary-wound-generation-readiness.md); [исходная контрактная проверка](audits/m8-stationary-wound-transport-contract.md) остаётся отдельно. Независимый typed family opt-in сохраняется во всех subsets и полном generation→staged→report source; JSON1/2 продолжают явно отвергать stationary permission. Будущий V3 предусматривает required nullable scenario/family enum string и независимое прежнее Miscast поле.
 
-1. Native generation: append-last family field, strict type/equality preflight до enumeration, projection и generation-result guards; deterministic/source/None tests и generated sequential/spawn flow.
+1. **Реализовано и проверено:** append-last family field, strict type/equality preflight до enumeration, projection и generation-result guards;19unit/5integration tests, generated3/4actor chains48/66d10 и full sequential/spawn source/denominator. Full regression3926tests/33known errors/0failures/0skipped, exact baseline headers прежние; [native этап закрыт](audits/m8-stationary-wound-generation-readiness.md).
 2. Simulation v3: три schemas, command/errors, узкий reader/mapper, parser/encoder/service/CLI и actual backends. Не публиковать v3 input с output/error старой версии.
 3. Balance v3: три schemas, independent reserve/family assertions, exact source chain, phase error contexts, parser/encoder/service/CLI и actual backends.
 4. Общий source/wheel/installed/schema/CLI/spawn audit, saved v1/v2 parity и full regression с отдельным учётом прежних33 errors.
 
-Точный следующий шаг — пункт1 целиком в принятом контракте. Не подменять production временным legacy view, не вводить новые gameplay consumers или save/resume.
+Точный следующий шаг — пункт2 целиком в принятом контракте: simulation3. Пока он реализуется, balance3 остаётся explicit unsupported; reader/registry не должны загружать отсутствующую balance3 Schema. Не подменять production временным legacy view, не вводить новые gameplay consumers или save/resume.
