@@ -8,7 +8,7 @@ from multiprocessing import get_context
 import pickle
 from random import Random
 
-from towr.domain.npc_magic_scenario_models import NpcMagicScenario
+from towr.domain.npc_magic_scenario_models import NpcMagicScenario, NpcMagicStationaryWoundPolicy
 from towr.rules.dice import RandomSource
 from towr.simulation.npc_magic_models import (
     NpcMagicSimulationRequest, NpcMagicSimulationResult, NpcMagicTrialRecord,
@@ -43,6 +43,9 @@ def _normalize_batch(
             raise TypeError("magic worker returned a foreign record type")
         if not isinstance(record.source_scenario, NpcMagicScenario):
             raise TypeError("magic worker record requires its typed source scenario")
+        policy = record.source_scenario.stationary_wound_continuation
+        if policy is not None and not isinstance(policy, NpcMagicStationaryWoundPolicy):
+            raise TypeError('magic worker source requires its typed stationary Wound policy')
         if record.source_scenario != request.scenario:
             raise ValueError("magic worker record belongs to a different full scenario")
         # Unpickling does not call __post_init__. Reconstruct only after the full

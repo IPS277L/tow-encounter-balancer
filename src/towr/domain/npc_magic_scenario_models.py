@@ -101,6 +101,10 @@ class NpcMagicPronePolicy(str, Enum):
     SELF_STAND_WHEN_SAFE = 'self_stand_when_safe'
 
 
+class NpcMagicStationaryWoundPolicy(str, Enum):
+    LEG_SPASM_STAND_AND_CONTINUE = 'leg_spasm_stand_and_continue'
+
+
 @dataclass(frozen=True, slots=True)
 class NpcMagicMiscastContinuationPolicy:
     """Explicit ADR-0046 opt-in; admission alone does not execute a Miscast.
@@ -141,12 +145,16 @@ class NpcMagicScenario:
     repeated_stagger_choice: StaggerChoice
     spell: FormalSpellDefinition
     miscast_continuation: NpcMagicMiscastContinuationPolicy | None = None
+    stationary_wound_continuation: NpcMagicStationaryWoundPolicy | None = None
 
     def __post_init__(self) -> None:
         _identifier(self.id)
         if (self.miscast_continuation is not None
                 and not isinstance(self.miscast_continuation, NpcMagicMiscastContinuationPolicy)):
             raise TypeError('magic scenario requires a typed Miscast continuation policy or None')
+        if (self.stationary_wound_continuation is not None
+                and not isinstance(self.stationary_wound_continuation, NpcMagicStationaryWoundPolicy)):
+            raise TypeError('magic scenario requires a typed stationary Wound policy or None')
         for value, kind in ((self.initial, NpcRosterCastingState), (self.facts, NpcMagicScenarioFacts),
                             (self.perspective_side, CombatSide), (self.objective, NpcDefeatObjective),
                             (self.repeated_stagger_choice, StaggerChoice), (self.spell, FormalSpellDefinition)):

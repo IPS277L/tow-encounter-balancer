@@ -6,6 +6,8 @@
 
 ## Навигация
 
+Реализована независимая [native stationary-wound policy ADR-0050](docs/decisions/ADR-0050-native-stationary-wound-policy.md): automatic Leg Spasm stand, Casting/Protection/end и Wound6 expiry. [Source/installed/spawn аудит](docs/audits/m8-native-stationary-wound-readiness.md) завершён. [ADR-0051](docs/decisions/ADR-0051-stationary-wound-generation-and-magic-json-v3.md) задаёт отдельное family assertion и будущий JSON v3; [finite proof](docs/examples/m8/stationary_wound_transport_contract_probe.py) проверяет контракт. Production generation/JSON1/2 пока явно отвергают stationary policy. Точное состояние — в документах ниже.
+
 - [Актуальный статус, ограничения, проверки и следующий шаг](docs/project-status.md).
 - [Открытые вопросы и действующие допущения](docs/open-questions.md).
 - [Документация и нормативные источники](docs/README.md), [иерархия источников](docs/source-policy.md), [трассировка правил](docs/rule-traceability.md).
@@ -96,7 +98,7 @@ $env:PYTHONPATH = "src"
 .venv/Scripts/python.exe docs/examples/m8/opted_miscast.py
 ```
 
-Четыре scripted сценария проверяют конкретные пути, не вероятности исходов. Policy передаётся явно через Python API; [аудит runner и ограничения](docs/audits/m8-opt-in-miscast-readiness.md). По [ADR-0047](docs/decisions/ADR-0047-opt-in-generation-and-magic-json-v2.md) native generation принимает отдельную family policy, полностью равную template, и сохраняет её в каждом составе. [Аудит generation](docs/audits/m8-opt-in-generation-readiness.md) и [проверочный пример](docs/examples/m8/opt_in_transport_contract_probe.py). JSON/CLI v1 по-прежнему отвергает opt-in. Simulation v2 реализован: required `scenario.miscast_continuation` — `null` либо полная explicit policy; результат и ошибки после строгого разбора сохраняют v2. [Контракт/проверки](docs/audits/m8-simulation-v2-readiness.md). Balance v2 также реализован: required nullable policy задаётся отдельно в `reserve.scenario` и `generation`, значения должны полностью совпадать. [Аудит balance v2](docs/audits/m8-balance-v2-readiness.md). Следующий этап — общий installed audit.
+Четыре scripted сценария проверяют конкретные пути, не вероятности исходов. Policy передаётся явно через Python API; [аудит runner и ограничения](docs/audits/m8-opt-in-miscast-readiness.md). По [ADR-0047](docs/decisions/ADR-0047-opt-in-generation-and-magic-json-v2.md) native generation принимает отдельную family policy, полностью равную template, и сохраняет её в каждом составе. [Аудит generation](docs/audits/m8-opt-in-generation-readiness.md) и [проверочный пример](docs/examples/m8/opt_in_transport_contract_probe.py). JSON/CLI v1 по-прежнему отвергает opt-in. Simulation v2 реализован: required `scenario.miscast_continuation` — `null` либо полная explicit policy; результат и ошибки после строгого разбора сохраняют v2. [Контракт/проверки](docs/audits/m8-simulation-v2-readiness.md). Balance v2 также реализован: required nullable policy задаётся отдельно в `reserve.scenario` и `generation`, значения должны полностью совпадать. [Аудит balance v2](docs/audits/m8-balance-v2-readiness.md). [Общий installed audit ADR-0047 завершён](docs/audits/m8-opt-in-transport-readiness.md): exact parity455files,12magic schemas, обе magic и шесть прежних CLI routes. Сохранённые v2 results доступны в примерах.
 
 ```powershell
 $env:PYTHONPATH = "src"

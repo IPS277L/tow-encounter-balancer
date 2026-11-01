@@ -1,35 +1,35 @@
 # Текущий статус проекта
 
-Дата обновления: 2026-10-31.
+Дата обновления: 2026-11-01.
 
 ## Текущий этап
 
-**M8 / ADR-0047 этап3: balance JSON v2 реализован и проверен.** [Контракт](decisions/ADR-0047-opt-in-generation-and-magic-json-v2.md), [аудит balance v2](audits/m8-balance-v2-readiness.md), [публичный вход](examples/m8/json/magic-balance-v2.request.json). Native generation и [simulation v2](audits/m8-simulation-v2-readiness.md) готовы. Общий installed audit ещё не выполнен.
+**M8 / ADR-0051: контракт и finite proof проверены.** [Контракт](decisions/ADR-0051-stationary-wound-generation-and-magic-json-v3.md), [probe](examples/m8/stationary_wound_transport_contract_probe.py)/[stdout](examples/m8/stationary_wound_transport_contract_probe.output.txt), [отчёт](audits/m8-stationary-wound-transport-contract.md). Production propagation ещё не реализована.
 
-Обе magic CLI-команды принимают1/2, шесть nonmagic routes — только1. Balance v2 требует nullable policy отдельно в `reserve.scenario.miscast_continuation` и `generation.miscast_continuation`; полное равенство проверяется до generation preflight, mismatch pointer — `/generation/miscast_continuation`. Full generation/staged source chain, command/result/error version и phase context сохраняются. Временный отказ balance error2 заменён полноценным encoding2.
+Контракт задаёт независимую append-last stationary family assertion, strict enum/equality до enumeration и полную subset/source projection. Будущий JSON v3 обеих magic families получает required nullable enum string и отдельный matching balance family field; прежний Miscast nullable object остаётся независимым. Error trust/fallback и fresh-only scope прежние.
 
-Все12 magic schemas доступны через local registry; старые шесть v1 schemas неизменны. До complete strict decode error1/requestIDnull, после распознанной2 — error2; runtime version берётся из command. V1 запрещает policy field даже null; v2null сохраняет legacy gameplay, но не понижает wire до1. [Public proof](examples/m8/opt_in_transport_contract_probe.py) использует настоящий generator и обе v2 families без temporary legacy views.
+## Ограничения
 
-## Готовность и ограничения
-
-- PG1.4/GM1.1 — primary; [источники](source-index.md), [трассировка](rule-traceability.md), [открытые вопросы](open-questions.md). Этап3 меняет transport, не правила; domain/engine/rules/simulation/balance и seed schemes прежние.
-- M2–M7 закрыты для ограниченных numeric Minion scenarios. M8 — authored Champion-Wizard/Curse + Shooting Minions, не универсальный бой.
-- [ADR-0046](audits/m8-opt-in-miscast-readiness.md) поддерживает opt-in preparation→один roll→Wind21–22 и scoped Prone; other-row сохраняет Pool/pending/MISCAST_EFFECT. None сохраняет прежние traces/IDs/draws/stops.
-- Не добавлены desperate cast/abandonment, прочие Miscast consumers, ongoing Prone Wounds, unsafe Broken escape, Run-after-spent-free-move, standard Recover fallback или помощь союзника. Fresh-only input не является save/resume.
-- Facts/GM decisions всегда explicit. Unsupported остаётся в denominator; eligibility не доказывает полноту тактики. Family policy подтверждается отдельно; удалённые reserve actors отсутствуют в subset, не становятся external Short bystanders.
-- Source-only проверки этапов1–3 не заменяют новый source/wheel/installed audit. Предыдущий installed audit ADR-0046 — исторический. Performance/cross-platform claims нет.
-- HEAD `39792f6 M8 P17`, рабочая копия перед этапом3 была чистой. Текущие code/tests/docs не закоммичены; commit/push выполняет пользователь.
-
-## Следующий шаг
-
-**Этап4 ADR-0047, общий аудит:** field/guard matrix; свежий wheel/offline install и exact source/wheel/installed parity; все12 magic schemas/local refs; public stored v2 simulation/balance outputs и copied examples; installed module/console для двух magic и шести прежних CLI routes; dependency/runtime context и full regression с отдельным учётом known errors. Не повторять успешные source-only проверки без новых изменений/риска, не расширять gameplay и не объявлять весь ADR закрытым до завершения installed evidence.
+- Native [ADR-0050](decisions/ADR-0050-native-stationary-wound-policy.md) закрыт [аудитом](audits/m8-native-stationary-wound-readiness.md): canonical first9 stand/context49, superficial1–3 и active/expired6, normal Tests, no external causes. Terrain/history сохраняются; Give Ground=False.
+- None сохраняет legacy traces/stops. Повторная9 после stand, Wind Prone с retained terrain, другие wounds/Miscasts и unknown scene facts дают конкретный stop. Miscast и stationary permissions независимы.
+- Production generation и JSON1/2 явно отвергают stationary policy. V3 пока unsupported: ручной finite mapping не является parser/schema/CLI или save/resume.
+- M8 — authored Champion-Wizard/Curse + Shooting Minions; unsupported в denominator. Полный suite имеет33 прежние errors expectations Python3.12 и не считается зелёным.
 
 ## Последняя проверка
 
-**24 новых tests прошли:**18unit OK/14,533с (уточнённая geometry fixture отдельно OK/0,393с),6integration OK/46,373с вне sandbox. 78 смежных unit OK/17,767с; copied public proof1 OK/2,873с. Independent review блокеров не выявил. Команды и границы — в [аудите](audits/m8-balance-v2-readiness.md).
+Windows/CPython3.12.4 вне sandbox: **3902tests /33known errors /0failures /0skipped,971,355с**. Все33 exact ERROR headers совпали с предыдущим baseline; новых errors/failures нет. Log `.cache/adr0051-contract-regression.log`.
 
-**Полная регрессия: 3796 tests /33 известных errors /0 failures /0 skipped,766,473с**, Windows x64/CPython3.12.4, вне sandbox. Команда: `$env:PYTHONPATH = "src"; .venv/Scripts/python.exe -m unittest discover -s tests -v`; log `.cache/adr0047-balance-v2-regression.log`. Все33 sorted error headers точно совпали с `.cache/adr0047-simulation-v2-regression.log`:16+16 K1 Aim-loss frozen/slotted TypeError и один M5 replace(init=False) ValueError. Все24новых tests прошли; новых ошибок нет. Suite с errors не считается зелёным; исправление expectations — отдельная задача.
+Новый copied-bundle test прошёл отдельно и в full suite:20 ручных full-source subsets,16 finite wire mappings,4 настоящих staged rows;8 scripted trials/138d10 и same-ID source substitution controls. Inputs/global RNG неизменны. Source/installed/spawn аудит ADR-0050 остаётся действующим; новый wheel для contract-only среза не собирался. Saved v2 outputs и Markdown-пути проверены; `git diff --check` — OK.
 
-1199 local Markdown paths в13актуальных документах и `git diff --check` — OK. V1 schemas не изменены. Source-only проверки не объявляются installed readiness.
+```powershell
+$env:PYTHONPATH = 'src'
+.venv/Scripts/python.exe -m unittest discover -s tests -v
+```
 
-Коммиты и push не выполнялись. Локальные `.cache` logs/wheel/venv переносить не требуется.
+## Точный следующий шаг
+
+Пункт1 ADR-0051 целиком: native generation model/preflight/projection/result guards и deterministic source/None/forged-input tests, затем generated stationary chain через staged sequential/spawn. До enumeration проверять typed template/family; до equality также typed candidate. Полный source сохранять в generation→staged→report.
+
+После пункта1: simulation3 → balance3 → общий installed/schema/CLI/spawn audit и full regression. Не удалять policy ради старого encoder, не вводить gameplay consumers/save-resume под видом transport.
+
+Все прежние незакоммиченные изменения сохранены. В текущем срезе добавлены ADR/probe/stdout/copied test и отчёт, обновлены навигация/архитектура/roadmap/открытые вопросы; production и старые tests/fixtures не менялись. Commit/push выполняет пользователь.

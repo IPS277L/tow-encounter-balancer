@@ -1,5 +1,27 @@
 # Архитектура
 
+## Stationary family / JSON v3, ADR-0051 — контракт
+
+[ADR-0051](../decisions/ADR-0051-stationary-wound-generation-and-magic-json-v3.md) задаёт append-last typed nullable family assertion независимо от Miscast, strict enum checks до enumeration/equality и lossless projection/result source guards. Будущий JSON v3 обеих magic families получает required nullable enum string у scenario и отдельное matching family поле у balance. Error trust/fallback, command version, fresh-only scope и прежние CLI semantics сохраняются; v1/v2 не расширяются.
+
+[Конечный proof](../examples/m8/stationary_wound_transport_contract_probe.py)/[отчёт](../audits/m8-stationary-wound-transport-contract.md) проверяет ручное отображение и существующие native APIs. Production generator, schemas/registry, parsers/encoders/services/CLI ещё не поддерживают stationary policy. Ручной proof не является admission недоверенного v3 input; domain/engine wire version не знают. Следующий срез — native family models/preflight/projection/result и tests, затем simulation3, balance3 и общий аудит.
+
+## Native stationary policy, ADR-0050
+
+[Контракт](../decisions/ADR-0050-native-stationary-wound-policy.md) реализован: append-last nullable enum у `NpcMagicScenario`, чистая shared eligibility, один новый StandResult в Step union, gating context-bearing прежних result types и dispatch existing consumers. Miscast permission независима. Mandatory continuations/death priority сохранены; selected9 не может обойти canonical source через legacy fallback. Source Enum и transported StandResult повторно проверяются без RNG.
+
+Native trial/sequential/spawn сохраняют полный Scenario, прежние seeds/counters/denominator. Generation/JSON имеют early lossless rejection до отдельной propagation; schemas не расширены. [Source/installed proof](../examples/m8/stationary_wound_runner.py) прошёл, [full audit](../audits/m8-native-stationary-wound-readiness.md) завершён.
+
+## Stationary Leg Spasm, ADR-0049
+
+[Контракт](../decisions/ADR-0049-stationary-leg-spasm-continuation.md) и [finite proof](../examples/m8/stationary_wound_contract_probe.py) подготовлены; low-level реализация проверена, [full audit](../audits/m8-stationary-leg-spasm-readiness.md) завершён. Frozen context хранит полный `NpcRosterCastingState`, Wizard ID и required strict-True no-external-causes fact. Canonical views разделяют movement restriction и Condition causes; active/expired6 связываются с actual attack/expiry/end receipts. Optional keyword-only context в Casting/Champion attack/end сохраняет None admission. Lower attack сравнивает child snapshot, outer bridge — полный owner и actor role; domain не вызывает rules/RNG.
+
+Low-level Casting/Protection/end и настоящий смешанный manual flow9→6 реализованы; автоматическая scenario policy/journal/diagnosis/runner integration — отдельный следующий контракт. `miscast_continuation` не получает нового смысла. Нельзя временно очищать terrain, выводить дальность из Zone или заменять полный source совпадением ID. Effective Give Ground=False не подменяет authored ordinary movement facts.
+
+## Leg Spasm self-stand, ADR-0048
+
+[ADR-0048](../decisions/ADR-0048-source-bound-leg-spasm-stand.md) — реализован и закрыт [аудитом](../audits/m8-leg-spasm-stand-readiness.md). Добавлены отдельные frozen source-bound request/result поверх полного `NpcRosterCastingState` и одного существующего K1 free-move removal. Projection удаляет только canonical Leg Spasm Prone effects, сохраняет movement restriction, Wound/daily/roll provenance и синхронизирует обе child roster references. Existing standalone stand, runner whitelists, Miscast policy и JSON1/2 не меняются. Stationary Casting/Protection/end-turn и автоматический выбор требуют следующего контракта.
+
 ## Native generation и versioned magic transport, ADR-0047
 
 [ADR-0047](../decisions/ADR-0047-opt-in-generation-and-magic-json-v2.md), этап1 реализован: generation request содержит append-last optional family policy с early typed/full template equality; projection/result guards сохраняют её целиком. [Аудит generation](../audits/m8-opt-in-generation-readiness.md).
@@ -8,7 +30,7 @@
 
 Этап3 реализован: аналогичная append-last metadata в `MagicBalanceCommand` и keyword-only version у обеих phase errors. Reserve и family policy читаются независимо общим узким mapper; exact equality проверяется по `/generation/miscast_continuation` до generation preflight. Result encoder сохраняет полный generation→staged chain, включая policy. Service выставляет command version и прежний candidate/counts/stage context по active phase. Временный отказ v2 balance errors заменён полным v2 encoding. Три balance schemas ссылаются на local simulation-v2 scenario/policy и неизменные v1 fragments; cache12. [Аудит balance](../audits/m8-balance-v2-readiness.md).
 
-Обе magic CLI-команды принимают1/2, остальные шесть routes — только1. Domain/engine/simulation версию wire не знают; v1 schemas и seed scheme прежние. [Public proof](../examples/m8/opt_in_transport_contract_probe.py) использует настоящий opted generator и обе v2 families без temporary legacy view. Следующий этап — общий installed audit.
+Обе magic CLI-команды принимают1/2, остальные шесть routes — только1. Domain/engine/simulation версию wire не знают; v1 schemas и seed scheme прежние. [Public proof](../examples/m8/opt_in_transport_contract_probe.py) использует настоящий opted generator и обе v2 families без temporary legacy view. [Общий installed audit](../audits/m8-opt-in-transport-readiness.md) завершён: source/wheel/installed parity455files, все12magic schemas и обе magic/шесть прежних CLI routes. ADR-0047 закрыт без изменения gameplay.
 
 ## M8 opt-in journal/runner, ADR-0046 этап 3
 

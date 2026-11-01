@@ -1,11 +1,12 @@
 """Actor-bound application of an ADR-0035 result; no battle loop (ADR-0036)."""
 from __future__ import annotations
 
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from towr.domain.npc_roster_miscast_models import NpcRosterMiscastPreparationResult, NpcRosterMiscastRollResult
+    from towr.domain.npc_stationary_wound_models import NpcStationaryWoundContext
 
 from towr.domain.action_execution_models import SkippedCastingTestAfterActionResult
 from towr.domain.condition_models import Condition
@@ -238,7 +239,8 @@ class NpcRosterCastingState:
         expiry_ids = tuple(e.attack_id for e in self.wound_expiries)
         if len(set(expiry_ids)) != len(expiry_ids) or set(expiry_ids) & set(expired_ids):
             raise ValueError('Wound expiry source was duplicated or already consumed')
-        for expiry in self.wound_expiries:
+        archived_expiries = tuple(e for receipt in receipts for e in receipt.expired_sources)
+        for expiry in (*self.wound_expiries, *archived_expiries):
             champion = self.champion_attack
             wound = next((w for w in actor.state.injury.wounds if w.sequence == expiry.wound.sequence), None)
             if (expiry.actor_id != self.wizard.actor_id or expiry.attack_id not in consumed
@@ -246,7 +248,7 @@ class NpcRosterCastingState:
                     or expiry.source.completion.daily_registration.receipt not in champion.daily_wounds.receipts
                     or not set(expiry.source.completion.consumed_roll_ids) <= set(champion.consumed_wound_roll_ids)
                     or wound is None or not expiry.matches_wound(wound)
-                    or expiry.effect not in actor.state.injury.active_wound_effects):
+                    or expiry in self.wound_expiries and expiry.effect not in actor.state.injury.active_wound_effects):
                 raise ValueError('Wound expiry differs from the current Champion/source/history')
         if prefix is not None:
             from towr.domain.npc_roster_miscast_models import validate_npc_miscast_continuation_context
@@ -280,11 +282,16 @@ class NpcRosterCastingRequest:
 
     state: NpcRosterCastingState
     casting: CowardlyFlightCastingRequest
+    stationary_wounds: NpcStationaryWoundContext | None = field(default=None, kw_only=True)
 
     def __post_init__(self) -> None:
         _typed(self.state, NpcRosterCastingState)
         _typed(self.casting, CowardlyFlightCastingRequest)
         state, casting = self.state, self.casting
+        if self.stationary_wounds is not None:
+            from towr.domain.npc_stationary_wound_models import NpcStationaryWoundContext
+            _typed(self.stationary_wounds, NpcStationaryWoundContext)
+            self.stationary_wounds.validate_source(state, casting.actor_id)
         if state.pending_miscast_continuation is not None:
             raise ValueError('prepared Miscast pending blocks normal Casting')
         if state.pending_minion_attack is not None:
@@ -302,10 +309,10 @@ class NpcRosterCastingRequest:
         safe_wound_conditions = {Condition.STAGGERED, Condition.DRAINED}
         if injury.dead or not injury.conditions.conditions <= safe_wound_conditions | {Condition.PRONE}:
             raise ValueError("caster cannot use this normal Casting boundary in its current condition")
-        if any(not w.effect_resolved for w in injury.wounds) or any(
+        if self.stationary_wounds is None and (any(not w.effect_resolved for w in injury.wounds) or any(
             not isinstance(e, WoundConditionEffect) or e.condition not in safe_wound_conditions
             or not injury.conditions.has(e.condition) for e in injury.active_wound_effects
-        ):
+        )):
             raise ValueError("caster has unresolved or unsupported Wound effects")
         if injury.conditions.has(Condition.PRONE) or any(
                 t.injury.conditions.has(Condition.PRONE) for t in casting.targets):

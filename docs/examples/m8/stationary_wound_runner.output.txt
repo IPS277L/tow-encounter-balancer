@@ -1,0 +1,8 @@
+AUTOMATIC stationary=on miscast=None: 48 d10; round limit; 9 actions; 3 rounds; 1 stand
+AUTOMATIC stationary=on miscast=on: 48 d10; round limit; 9 actions; 3 rounds; 1 stand
+WOUND 9/6: terrain and both wounds/daily/roll histories retained; Drained expires with its exact witness
+SHOOTING: normal Protection; effective Give Ground=False; no Prone penalty after stand
+LEGACY stationary=None miscast=None: 7 d10; same actor-injury stop
+LEGACY stationary=None miscast=on: 7 d10; same actor-injury stop
+NATIVE sequential/spawn: identical records/summary/full source; round limit + unsupported; denominator 2
+220 scripted d10 across runner and both backends; immutable sources/global RNG; native API only

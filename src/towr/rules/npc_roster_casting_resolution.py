@@ -1,5 +1,6 @@
 """Pure application of one existing Casting result; never rolls or casts."""
 from towr.domain.condition_models import Condition
+from towr.domain.npc_stationary_wound_models import NpcStationaryWoundContext
 from towr.domain.npc_roster_casting_models import (
     NpcRosterCastingRequest, NpcRosterCastingResult, NpcRosterCastingState,
     NpcRosterCastingTargetContext,
@@ -14,6 +15,7 @@ def prepare_npc_roster_casting(
     *, request_id: str, state: NpcRosterCastingState, selected_zone_id: str,
     targets: tuple[NpcRosterCastingTargetContext, ...],
     facts: CowardlyFlightCastingFacts, policy: CowardlyFlightCastingPolicy,
+    stationary_wounds: NpcStationaryWoundContext | None = None,
 ) -> NpcRosterCastingRequest:
     """Build a bound request from current injury and live projections, no RNG."""
     if not isinstance(state, NpcRosterCastingState):
@@ -43,7 +45,7 @@ def prepare_npc_roster_casting(
             t.can_give_ground and not state.roster.participant(t.actor_id).state.injury.conditions.has(
                 Condition.PRONE)) for t in targets), facts, policy,
     )
-    return NpcRosterCastingRequest(state, casting)
+    return NpcRosterCastingRequest(state, casting, stationary_wounds=stationary_wounds)
 
 
 def apply_npc_roster_casting_result(

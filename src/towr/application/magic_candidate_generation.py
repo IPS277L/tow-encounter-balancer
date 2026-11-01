@@ -91,6 +91,8 @@ def generate_magic_candidates(request: MagicCandidateGenerationRequest) -> Magic
     """Build every candidate or fail with its context; never return a prefix."""
     if not isinstance(request, MagicCandidateGenerationRequest):
         raise TypeError("generation requires a typed magic request")
+    if request.template_scenario.stationary_wound_continuation is not None:
+        raise ValueError('stationary Wound policy requires separate generation propagation')
     candidates = tuple(_project_candidate(request, counts) for counts in _count_vectors(request))
     evaluation = MagicStagedEvaluationRequest(
         candidates, request.master_seed, request.stages, request.max_total_trials, request.window,

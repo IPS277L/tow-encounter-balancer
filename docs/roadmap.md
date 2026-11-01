@@ -203,6 +203,49 @@ Unsafe Broken+Prone и ongoing Prone Wound restrictions сохраняют expli
 1. **Реализовано:** native generation с explicit отдельной family policy, exact equality с template, полной projection/result validation и integration; None compatibility. [Аудит](audits/m8-opt-in-generation-readiness.md): 14 новых unit +4 integration +1 v1 guard test, настоящий generated Wind/staged/spawn.
 2. **Реализовано:** simulation v2: explicit nullable policy, versioned command/errors/Schema/mapper/service/CLI; v1 неизменен. [Аудит](audits/m8-simulation-v2-readiness.md).
 3. **Реализовано:** balance v2: отдельные reserve/family assertions, full catalog/report/source, phase errors и CLI. [Аудит](audits/m8-balance-v2-readiness.md).
-4. Общий аудит: public примеры, двенадцать magic schemas/local refs, installed parity, все CLI families и полная регрессия.
+4. **Завершено:** [общий аудит](audits/m8-opt-in-transport-readiness.md): public v2 stored results, все12 magic schemas/30 bundled schemas/324 local refs, exact parity455files,95 child commands, обе magic families в обоих backend и шесть прежних CLI routes. Последняя полная регрессия неизменных production/tests:3796tests/33 known errors/0failures; без повторного полного прогона на этапе4.
 
-Точный следующий шаг — пункт4: общий field/guard/source/wheel/installed audit всех12 magic schemas, обеих v2 families и прежних CLI routes; public stored results и полная регрессия с отдельным учётом known errors. Этап3 не заменяет installed evidence. [Первоначальная контрактная проверка](audits/m8-opt-in-transport-contract.md).
+ADR-0047 закрыт в принятой границе. [Инвентаризация mandatory continuations](audits/m8-continuation-inventory.md) актуализирована с учётом ADR-0044–0047; следующий consumer выбран в ADR-0048 ниже. Другие Miscast/Wound effects и универсальный бой не включаются автоматически. [Первоначальная контрактная проверка](audits/m8-opt-in-transport-contract.md) остаётся исторической evidence.
+
+## ADR-0048 — source-bound Leg Spasm self-stand
+
+[Контракт](decisions/ADR-0048-source-bound-leg-spasm-stand.md), книжная сверка и [finite proof](examples/m8/leg_spasm_contract_probe.py) подготовлены. **Пункты1–3 завершены (2026-11-01), ADR закрыт [аудитом](audits/m8-leg-spasm-stand-readiness.md).** Self-stand снимает только canonical Prone causes Wound9, сохраняя Difficult Terrain, Wound/daily/roll provenance и единственный расход free movement.
+
+1. Выполнено: frozen request/result, strict canonical wound/effect admission и полная immutable projection; source/type/negative tests.
+2. Выполнено: один existing K1 executor + exact-source apply; guards Close/spent move/pending/foreign source/replay, multiple9, обе child roster references и no treatment/healing/RNG.
+3. Выполнено: actual-bound public example, installed audit и полная regression3825tests/33known errors/0failures; новые ошибки отсутствуют. Existing runner/JSON results сохраняются.
+
+Следующий контракт ADR-0049 подготовлен ниже. Automatic stationary Casting/Protection/end, Broken/movement и wire-policy semantics не входят в ADR-0048.
+
+## ADR-0049 — stationary continuation после Leg Spasm stand
+
+[Контракт](decisions/ADR-0049-stationary-leg-spasm-continuation.md), книжная сверка и [finite proof](examples/m8/stationary_wound_contract_probe.py) подготовлены2026-11-01. **Пункты1–4 завершены, ADR закрыт [аудитом](audits/m8-stationary-leg-spasm-readiness.md).** Scope — explicit full-owner context для Casting, incoming Shooting/Protection и end-turn с canonical terrain9 и active/expired6. Typed context=None сохраняет прежний admission; автоматический loop не расширяется.
+
+1. Выполнено: frozen context/canonical source view, strict fact, active/expired6 receipts/witnesses и phase/clock guards;23tests.
+2. Выполнено: Casting/end, полный source/actor-role binding, typed Condition filtering, preservation terrain/history и exact expiry, None behavior;6tests.
+3. Выполнено: incoming Shooting/Protection, lower/outer full-source guard, GiveGround=False, normal Drained Tests, actual новые Wounds/expiry;9tests.
+4. Выполнено: actual manual chain9→stand→Casting/end→incoming6→Casting/end/expiry, copied bundle,458file installed parity,95transport commands и full regression3865tests/33known errors/0failures. Новых ошибок нет.
+
+Native policy/runner ADR-0050 реализованы ниже. Generation/wire propagation — отдельный следующий transport этап. Не переопределять `miscast_continuation` как универсальный Wound opt-in. Ordinary movement, Recover/treatment и другие Wounds за границей.
+
+## ADR-0050 — native stationary-wound policy
+
+[Контракт](decisions/ADR-0050-native-stationary-wound-policy.md), [automatic proof](examples/m8/stationary_wound_runner.py), [итоговый аудит](audits/m8-native-stationary-wound-readiness.md). **Пункты1–4 завершены2026-11-01.** Append-last nullable enum независима от Miscast; None сохраняет traces/stops. Canonical first9 stand и context49 включены в journal/diagnosis/runner, повторная9 и unsupported families не проходят legacy fallback.
+
+1. Выполнено: model/shared eligibility, typed permission, generation/wire early lossless rejection;12unit tests.
+2. Выполнено: journal/diagnosis/dispatch и strict source/scene/clock/transported stand guards;20unit tests.
+3. Выполнено: automatic220d10 public proof, trial/sequential/spawn records/summary/assessment и unsupported denominator;3integration+1copied test.
+4. Выполнено:459file source/wheel/installed parity, настоящий installed spawn,95legacy CLI/JSON commands, full regression3901tests/33known errors/0failures; exact baseline headers прежние.
+
+Следующий шаг — ADR-0051: explicit generation family assertion/projection и отдельный versioned wire/CLI контракт новой policy. До этого opted template generation/JSON1/2 отвергаются, без temporary legacy view. Не вводить save/resume или новые игровые consumers под видом transport.
+
+## ADR-0051 — stationary family assertion и Magic JSON v3
+
+Проверены [контракт](decisions/ADR-0051-stationary-wound-generation-and-magic-json-v3.md), [finite proof](examples/m8/stationary_wound_transport_contract_probe.py) и [отчёт контрактной проверки](audits/m8-stationary-wound-transport-contract.md). Contract boundary regression3902tests/33known errors/0failures, exact ERROR headers прежние. Production propagation ещё не реализована. Независимый typed family opt-in должен сохраняться во всех subsets и полном generation→staged→report source; JSON1/2 продолжают явно отвергать stationary permission. V3 предусматривает required nullable scenario/family enum string и независимое прежнее Miscast поле.
+
+1. Native generation: append-last family field, strict type/equality preflight до enumeration, projection и generation-result guards; deterministic/source/None tests и generated sequential/spawn flow.
+2. Simulation v3: три schemas, command/errors, узкий reader/mapper, parser/encoder/service/CLI и actual backends. Не публиковать v3 input с output/error старой версии.
+3. Balance v3: три schemas, independent reserve/family assertions, exact source chain, phase error contexts, parser/encoder/service/CLI и actual backends.
+4. Общий source/wheel/installed/schema/CLI/spawn audit, saved v1/v2 parity и full regression с отдельным учётом прежних33 errors.
+
+Точный следующий шаг — пункт1 целиком в принятом контракте. Не подменять production временным legacy view, не вводить новые gameplay consumers или save/resume.

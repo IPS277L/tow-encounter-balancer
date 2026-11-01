@@ -27,6 +27,9 @@ from towr.domain.npc_magic_journal_policy import (
     magic_prone_stand_eligible,
 )
 from towr.domain.npc_magic_miscast_journal_policy import validate_magic_miscast_predecessor
+from towr.domain.npc_magic_stationary_wound_policy import (
+    magic_leg_spasm_stand_eligible, magic_stationary_wound_context,
+)
 from towr.domain.npc_magic_scenario_models import NpcMagicScenario
 from towr.domain.npc_magic_scenario_result_models import (
     NpcMagicScenarioResult, diagnose_npc_magic_unsupported, npc_magic_terminal_outcome,
@@ -45,6 +48,7 @@ from towr.domain.npc_roster_miscast_models import (
     NpcRosterMiscastRollRequest, NpcRosterMiscastRollResult, NpcRosterUnnaturalWindRequest,
 )
 from towr.domain.npc_roster_prone_models import NpcRosterProneStandRequest, NpcRosterProneTurnEndRequest
+from towr.domain.npc_roster_leg_spasm_models import NpcRosterLegSpasmStandRequest
 from towr.domain.npc_roster_turn_models import NpcRosterTurnStartRequest, NpcRosterRoundAdvanceRequest
 from towr.domain.npc_wound_turn_end_models import NpcWoundTurnEndRequest
 from towr.domain.protection_models import ProtectionPreparationRequest
@@ -66,6 +70,7 @@ from towr.rules.npc_roster_miscast_resolution import (
     prepare_npc_roster_miscast, roll_npc_roster_miscast, resolve_npc_roster_unnatural_wind,
 )
 from towr.rules.npc_roster_prone_resolution import stand_npc_roster_prone, end_npc_roster_prone_turn
+from towr.rules.npc_roster_leg_spasm_resolution import stand_npc_roster_leg_spasm
 from towr.rules.npc_roster_shooting_preparation import prepare_npc_roster_shooting
 from towr.rules.npc_roster_turn_resolution import start_npc_roster_turn, advance_npc_roster_round
 from towr.rules.npc_wound_turn_end import end_npc_wound_turn
@@ -209,10 +214,16 @@ def run_npc_magic_scenario(scenario: NpcMagicScenario, rng: RandomSource) -> Npc
                 source = NpcRosterProneTurnEndRequest(identifier('end'), current, actor_id, _end_sources(current, actor_id))
                 publish(end_npc_roster_prone_turn(source), source)
                 continue
-            source = NpcWoundTurnEndRequest(identifier('end'), current, actor_id, _end_sources(current, actor_id))
+            source = NpcWoundTurnEndRequest(identifier('end'), current, actor_id, _end_sources(current, actor_id),
+                stationary_wounds=magic_stationary_wound_context(scenario, current, actor_id))
             publish(end_npc_wound_turn(source), source)
             continue
         frame = scenario.frame_for(magic_scene_key(current))
+        if magic_leg_spasm_stand_eligible(scenario, current, frame):
+            source = NpcRosterLegSpasmStandRequest(identifier('leg-spasm-stand'), current, actor_id,
+                False, scenario.facts.no_external_condition_sources)
+            publish(stand_npc_roster_leg_spasm(source), source)
+            continue
         if magic_prone_stand_eligible(scenario, current, frame):
             source = NpcRosterProneStandRequest(identifier('stand'), current, actor_id, False, True)
             publish(stand_npc_roster_prone(source), source)
@@ -250,19 +261,22 @@ def run_npc_magic_scenario(scenario: NpcMagicScenario, rng: RandomSource) -> Npc
                     no_bulky_items=scenario.facts.no_bulky_items, no_casting_opposition=scenario.facts.no_casting_opposition,
                     no_mixing_winds=scenario.facts.no_mixing_winds, no_other_test_modifiers=scenario.facts.no_other_test_modifiers,
                     no_potency_modifiers=scenario.facts.no_potency_modifiers, no_effect_immunities=scenario.facts.no_effect_immunities,
-                    all_zone_enemies_included=True, target_zone_within_long_range=True), policy=policy.casting_policy)
+                    all_zone_enemies_included=True, target_zone_within_long_range=True), policy=policy.casting_policy,
+                stationary_wounds=magic_stationary_wound_context(scenario, current, actor_id))
             publish(NpcRosterCastingResult(source, execute_cowardly_flight_casting(source.casting, rng)), source)
             continue
         target = current.roster.participant(target_id)
         pair = next(p for p in frame.pair_ranges if {p.first_actor_id, p.second_actor_id} == {actor_id, target_id})
         approval = pair.first_range_approved_by_gm if pair.first_actor_id == actor_id else pair.second_range_approved_by_gm
-        if scenario.miscast_continuation is not None:
+        stationary = magic_stationary_wound_context(scenario, current, target_id)
+        if scenario.miscast_continuation is not None or stationary is not None:
             departure = next(d for d in frame.attack_departures if d.actor_id == target_id)
             source = prepare_npc_roster_shooting(request_id=action_id, state=current,
                 actor_id=actor_id, target_id=target_id, selected_attack_id=policy.attack_id,
                 target_range=pair.target_range, has_enemy_in_close_range=False,
                 range_approved_by_gm=approval, defender_is_aware=scenario.facts.targets_aware,
-                selected_protection_skill=Skill.ATHLETICS, can_target_leave_zone=departure.can_leave_zone)
+                selected_protection_skill=Skill.ATHLETICS, can_target_leave_zone=departure.can_leave_zone,
+                stationary_wounds=stationary)
             if isinstance(source, NpcRosterChampionAttackRequest):
                 publish(NpcRosterChampionAttackResult(source,
                     execute_npc_champion_attack(source.attack, rng, decisions=decisions)), source)

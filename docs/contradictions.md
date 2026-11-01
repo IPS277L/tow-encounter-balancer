@@ -1,5 +1,17 @@
 # Противоречия и неоднозначности
 
+## Native policy не заменяет книжные действия, ADR-0050
+
+2026-11-01: PG1.4 Free Actions116/Prone123/Wounds190 разрешают stand9; выбранный автоматический приоритет stand перед Casting — техническая policy, не утверждение, что книга запрещает все остальные действия из Prone. При Close/spent move остаётся unsupported, а не неявный Recover. [ADR-0050](decisions/ADR-0050-native-stationary-wound-policy.md) отделяет Wound permission от Miscast157/159; повторная9 после stand и Wind Prone при terrain не получают лишних consumers. Новых игровых неоднозначностей/house rules нет; family/wire semantics требуют следующего отдельного контракта.
+
+## Leg Spasm: Give Ground и ordinary movement, ADR-0049
+
+2026-11-01: BOOK-PLAYER-GUIDE1.4, гл.V Giving Ground119 запрещает отход через местность, считающуюся Difficult Terrain для персонажа; приложение Wounds Table190 делает всё движение при untreated Leg Spasm таковым. Поэтому снятие Prone не восстанавливает Give Ground. Обычное движение остаётся возможным по отдельным правилам Difficult Terrain115; универсальный `can_move=False` был бы неверен. В kernel поле `can_target_leave_zone` используется для eligibility Give Ground — новый [контракт](decisions/ADR-0049-stationary-leg-spasm-continuation.md) требует отделять это вычисленное право от authored scene departure facts. Новых неоднозначностей/house rules нет; новый low-level context реализован, automatic runner/JSON не расширены.
+
+## Leg Spasm и ongoing Prone, ADR-0048
+
+2026-10-31: новых неоднозначностей/house rules не выявлено. BOOK-PLAYER-GUIDE1.4, приложение / Wounds Table190 явно разрешает снять Prone строки9 free move или Recover; запрет снимать Condition при сохраняющейся причине (гл.V Conditions122) не отменяет это специальное разрешение. Difficult Terrain остаётся до treatment. Общая Prone/UNTIL_REMOVED whitelist недопустима: строка13 добавляет Critical-on-removal,17 имеет другие ongoing causes. [Контракт](decisions/ADR-0048-source-bound-leg-spasm-stand.md) ограничен source-bound self-stand; low-level stand реализован, но automatic runner по-прежнему не допускает retained restriction. Его unsupported stop не считается книжной ошибкой. Никакого автоматического treatment или расширения Miscast policy.
+
 ## M8 opt-in journal/runner / ADR-0046, этап 3
 
 2026-10-31: новых книжных противоречий/house rules нет. Автоматизирован только explicit decline → table roll → Wind21–22 с уже согласованной stand-when-safe policy. Другие rows остаются pending; unsafe Broken+Prone/ongoing causes остаются stops. Исправленный missing-departure journal gap — проверка технического source contract, не изменение книжного движения. [Аудит](audits/m8-opt-in-runner-integration.md).

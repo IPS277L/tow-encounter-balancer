@@ -1,4 +1,7 @@
 """State-derived M8 Shooting preparation; no RNG, policy choice or scene mutation."""
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
 from towr.domain.action_execution_models import AttackActionExecutionRequest
 from towr.domain.condition_models import Condition
 from towr.domain.npc_attack_preparation_models import NpcAttackPreparationRequest
@@ -15,6 +18,9 @@ from towr.domain.resolution_models import KernelAttackRequest
 from towr.domain.test_models import DiceModifier, Skill
 from towr.rules.npc_attack_preparation import prepare_npc_attack, prepare_npc_attack_protection
 
+if TYPE_CHECKING:
+    from towr.domain.npc_stationary_wound_models import NpcStationaryWoundContext
+
 
 def prepare_npc_roster_shooting(
     *, request_id: str, state: NpcRosterCastingState, actor_id: str, target_id: str,
@@ -22,17 +28,26 @@ def prepare_npc_roster_shooting(
     has_enemy_in_close_range: bool, range_approved_by_gm: bool,
     defender_is_aware: bool, selected_protection_skill: Skill | None,
     can_target_leave_zone: bool,
+    stationary_wounds: NpcStationaryWoundContext | None = None,
 ) -> NpcRosterMinionAttackRequest | NpcRosterChampionAttackRequest:
-    """Preserve authored departure and derive effective Prone facts from owner.
+    """Preserve authored departure and derive effective Give Ground eligibility.
 
     Only a normal Shooting action is prepared; callers still own explicit range,
-    awareness and Protection decisions. PG1.4 Rules / Prone pp120,123 (ADR-0046).
+    awareness and Protection decisions. PG1.4 Prone pp120,123 (ADR-0046),
+    Giving Ground p119 / Wounds Table p190 (ADR-0049).
     """
     _validate_phase_source(state)
+    if stationary_wounds is not None:
+        from towr.domain.npc_stationary_wound_models import NpcStationaryWoundContext
+        if not isinstance(stationary_wounds, NpcStationaryWoundContext):
+            raise TypeError('stationary Shooting requires a typed full-source context')
+        stationary_wounds.validate_source(state, target_id)
     if not isinstance(can_target_leave_zone, bool):
         raise TypeError('can_target_leave_zone must be an explicit boolean')
     actor, target = state.roster.participant(actor_id), state.roster.participant(target_id)
     target_prone = target.state.injury.conditions.has(Condition.PRONE)
+    can_give_ground = (can_target_leave_zone and not target_prone
+                       and (stationary_wounds is None or stationary_wounds.can_give_ground))
     prepared = prepare_npc_attack(NpcAttackPreparationRequest(
         request_id + ':prepare', request_id + ':attack', request_id + ':attacker-test',
         actor.attack_snapshot(request_id + ':snapshot'), selected_attack_id, target_id, target_range,
@@ -48,10 +63,10 @@ def prepare_npc_roster_shooting(
         target.protection_options(request_id + ':protection-test')))
     execution = AttackActionExecutionRequest(request_id, state.round_state, actor_id, target_id, 1,
         KernelAttackRequest(request_id + ':kernel', target_id, protected.attack, target.definition.injury_policy,
-            target.state.injury, can_target_leave_zone and not target_prone,
+            target.state.injury, can_give_ground,
             target_id in state.spatial_state.gave_ground_entity_ids))
     if target_id == state.wizard.actor_id:
         return NpcRosterChampionAttackRequest(state, NpcChampionAttackRequest(
-            state.champion_attack, protected, execution))
+            state.champion_attack, protected, execution, stationary_wounds=stationary_wounds))
     return NpcRosterMinionAttackRequest(state, NpcRosterAttackExecutionRequest(
         state.minion_attack, protected, execution))

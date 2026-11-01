@@ -5,7 +5,8 @@ This adapter owns no Casting, spatial movement, or encounter terminal policy.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
+from typing import TYPE_CHECKING
 
 from towr.domain.action_execution_models import AttackActionExecutionRequest, AttackActionExecutionResult
 from towr.domain.condition_models import Condition
@@ -20,7 +21,11 @@ from towr.domain.resolution_models import (
 from towr.domain.turn_models import (
     ActionSlotGrant, CombatActionDeclaration, CombatActionKind, CombatRoundState,
 )
+from towr.domain.test_models import Skill, TestRequest
 from towr.domain.wound_lifecycle_models import CharacterWoundLifecycleCompletionResult
+
+if TYPE_CHECKING:
+    from towr.domain.npc_stationary_wound_models import NpcStationaryWoundContext
 
 
 @dataclass(frozen=True, slots=True)
@@ -70,6 +75,7 @@ class NpcChampionAttackRequest:
     state: NpcChampionAttackState
     preparation: NpcProtectedAttackPreparationResult
     execution: AttackActionExecutionRequest
+    stationary_wounds: NpcStationaryWoundContext | None = field(default=None, kw_only=True)
 
     def __post_init__(self) -> None:
         for value, kind in ((self.state, NpcChampionAttackState),
@@ -77,6 +83,15 @@ class NpcChampionAttackRequest:
                             (self.execution, AttackActionExecutionRequest)):
             _typed(value, kind)
         state, execution, prepared = self.state, self.execution, self.preparation
+        context = self.stationary_wounds
+        if context is not None:
+            # The lower owner lacks magic/spatial/expiry chronology. Keep the
+            # complete pre-action witness rather than admitting effects alone.
+            from towr.domain.npc_stationary_wound_models import NpcStationaryWoundContext
+            _typed(context, NpcStationaryWoundContext)
+            context.validate_source(context.state, execution.target_id)
+            if context.state.champion_attack != state:
+                raise ValueError('stationary Champion attack differs from its full source child owner')
         if state.pending is not None:
             raise ValueError('pending attack follow-ups block another attack')
         if execution.id in state.consumed_execution_ids:
@@ -100,11 +115,11 @@ class NpcChampionAttackRequest:
         if actor.state.injury.defeated or target.state.injury.dead:
             raise ValueError('bridge requires living actor and target')
         # Additional Conditions/restrictions need dedicated current-profile adapters.
-        for participant in (actor, target):
+        for participant in ((actor, target) if context is None else (actor,)):
             if not participant.state.injury.conditions.conditions <= {Condition.STAGGERED, Condition.PRONE}:
                 raise ValueError('bridge currently supports only initial Staggered or standalone Prone Shooting')
         injury = target.state.injury
-        if injury.active_wound_effects or any(not w.effect_resolved for w in injury.wounds):
+        if context is None and (injury.active_wound_effects or any(not w.effect_resolved for w in injury.wounds)):
             raise ValueError('target Wound effects must be resolved and have no active restrictions')
         if state.daily_wounds.target_id != execution.target_id or state.daily_wounds.is_closed:
             raise ValueError('attack requires an open daily Wound state for this target')
@@ -128,6 +143,18 @@ class NpcChampionAttackRequest:
         if any(p.skill not in profiles or p.test.profile != profiles[p.skill] for p in protection.options):
             raise ValueError('Protection profiles differ from Champion definition')
         kernel = execution.kernel_request
+        if context is not None:
+            if npc.selected_profile.skill is not Skill.SHOOTING:
+                raise ValueError('stationary Champion attack is scoped to ordinary Shooting')
+            if source.dice_modifiers:
+                raise ValueError('stationary Shooting requires unchanged normal attack modifiers')
+            if any(p.test != TestRequest(p.test.id, profiles[p.skill]) for p in protection.options):
+                raise ValueError('stationary Protection requires unchanged normal Tests')
+            if kernel.can_target_leave_zone is not False:
+                raise ValueError('Leg Spasm prevents Give Ground until treatment')
+            if kernel.target_has_given_ground_this_round is not (
+                    execution.target_id in context.state.spatial_state.gave_ground_entity_ids):
+                raise ValueError('stationary Champion attack has stale Give Ground usage')
         _validate_prone_shooting(actor, target, prepared, kernel)
         if kernel != KernelAttackRequest(
             kernel.id, execution.target_id, prepared.attack, TargetInjuryPolicy.CHAMPION,

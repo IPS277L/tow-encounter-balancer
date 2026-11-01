@@ -217,6 +217,8 @@ def scenario_document(scenario: NpcMagicScenario, definition_order: tuple[str, .
                       schema_version: str = '1') -> dict:
     """Project all wire fields; the boundary encoder reconstructs the full source."""
     _require_schema_version(schema_version)
+    if scenario.stationary_wound_continuation is not None:
+        raise ValueError('stationary Wound continuation cannot be represented losslessly by magic JSON v1/v2')
     if schema_version == '1' and scenario.miscast_continuation is not None:
         raise ValueError('Miscast continuation opt-in cannot be represented losslessly by magic JSON v1')
     state = scenario.initial

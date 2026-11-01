@@ -1,5 +1,17 @@
 # Реестр источников
 
+## Native stationary continuation, ADR-0050
+
+2026-11-01: непосредственно перечитаны BOOK-PLAYER-GUIDE1.4, Rules115–116/119/121–123, Casting156/Miscasts157/Miscast Table159, Wounds Table190; BOOK-GM-GUIDE1.1, Champions92. Stand/free move, retained terrain/Give Ground запрет и expiry6 не меняются; правило9 Miscast и порядок pending остаются отдельной границей. [ADR-0050](decisions/ADR-0050-native-stationary-wound-policy.md) реализует независимую native policy и automatic journal/diagnosis/runner. [Public proof](examples/m8/stationary_wound_runner.py) проверяет220scripted d10 и source/installed spawn; [full audit](audits/m8-native-stationary-wound-readiness.md) завершён:3901tests/33known errors, новых ошибок нет. Книги/хэши прежние, нового полного чтения и house rules нет.
+
+## Stationary Leg Spasm: контракт ADR-0049
+
+2026-11-01: непосредственно перечитаны локальные BOOK-PLAYER-GUIDE1.4, гл.V Rules / Difficult Terrain115, Free Actions116, Attack Tests118/Giving Ground119, Conditions122/Drained и Prone123; гл.VIII Casting156/Miscasts157; приложение Wounds Table190–191. BOOK-GM-GUIDE1.1, гл.VII Champions92. Wound9 сохраняет Difficult Terrain после stand; правило119 поэтому запрещает Give Ground до treatment, но не любое обычное движение. Wound6 истекает в конце следующего собственного хода. [ADR-0049](decisions/ADR-0049-stationary-leg-spasm-continuation.md) и [finite proof](examples/m8/stationary_wound_contract_probe.py) подготовлены; новый stationary consumer реализован, [actual mixed flow/installed check](audits/m8-stationary-leg-spasm-readiness.md) прошли, полная регрессия завершена:3865tests/33known errors, новых ошибок нет. Нового полного чтения книг, house rules или изменения версий/хэшей нет.
+
+## Leg Spasm: обновление инвентаризации и контракт ADR-0048
+
+2026-10-31: непосредственно перечитаны локальные тексты BOOK-PLAYER-GUIDE1.4: гл.V Rules / Difficult Terrain115, Free Actions116, Recover118, Conditions122/Prone123; приложение Wounds Table190–191; гл.VIII Miscast Table159 для сопоставления следующих continuations. BOOK-GM-GUIDE1.1: гл.VII Allies and Antagonists / Champions92. Строка9 позволяет убрать Prone, сохранив Difficult Terrain до treatment; строки10/13/17 не эквивалентны9. [ADR-0048](decisions/ADR-0048-source-bound-leg-spasm-stand.md) реализован и закрыт [аудитом](audits/m8-leg-spasm-stand-readiness.md) в части low-level full-owner stand (2026-11-01); stationary action/target/runner не открываются. Нового чтения книг при реализации не было. Версии/хэши книг прежние; нового полного чтения нет.
+
 2026-10-31: [итоговый аудит ADR-0046](audits/m8-opt-in-miscast-readiness.md) завершает integration/propagation/installed scope на прежних PG1.4/GM1.1 и ранее проверенных страницах. Новое полное чтение книг или изменение источников не заявляется; версия/хэши и нормативные решения прежние.
 
 ## Интеграция ADR-0046, этап 3

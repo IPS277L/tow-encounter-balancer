@@ -10,6 +10,7 @@ from towr.domain.npc_broken_run_models import NpcBrokenRunResult
 from towr.domain.npc_magic_scenario_models import NpcMagicScenario
 from towr.domain.npc_magic_scene_models import NpcMagicBrokenPlanKind, NpcMagicSceneKey, NpcMagicSceneFrame, NpcMagicRouteFacts
 from towr.domain.npc_magic_step_models import NpcMagicStep
+from towr.domain.npc_magic_stationary_wound_policy import validate_magic_stationary_wound_step
 from towr.domain.npc_roster_casting_models import NpcRosterCastingResult, NpcRosterCastingState
 from towr.domain.npc_roster_casting_completion_models import NpcRosterCastingCompletionResult
 from towr.domain.npc_roster_champion_attack_models import NpcRosterChampionAttackResult
@@ -187,6 +188,7 @@ def magic_movement_prefix(scenario: NpcMagicScenario, state: NpcRosterCastingSta
 
 
 def validate_magic_step_policy(scenario: NpcMagicScenario, step: NpcMagicStep) -> None:
+    validate_magic_stationary_wound_step(scenario, step)
     result, state = step.result, step.before
     actor_id = step.actor_id
     opted = scenario.miscast_continuation is not None
@@ -265,7 +267,8 @@ def validate_magic_step_policy(scenario: NpcMagicScenario, step: NpcMagicStep) -
             raise ValueError('journal Attack requires the supplied target departure fact')
         prone = state.roster.participant(target_id).state.injury.conditions.has(Condition.PRONE)
         modifiers = (DiceModifier('RULE-COMBAT-009:prone-target', -1),) if prone else ()
-        if execution.kernel_request.can_target_leave_zone is not (departure.can_leave_zone and not prone):
+        stationary = getattr(attack, 'stationary_wounds', None)
+        if execution.kernel_request.can_target_leave_zone is not (departure.can_leave_zone and not prone and stationary is None):
             raise ValueError('journal Attack departure differs from supplied scene fact')
         if (source.selected_attack_id != scenario.policy_for(actor_id).attack_id
                 or source.target_range is not pair.target_range or source.range_approved_by_gm is not approval

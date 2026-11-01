@@ -3,7 +3,7 @@
 PG1.4 Rules / Wounds & Conditions pp121-123; Wounds Table p190.
 Only Stomach Blow from a completed ordinary Champion attack is scheduled.
 """
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from towr.domain.condition_models import Condition
 from towr.domain.injury_models import WoundConditionEffect, WoundEffectDuration, WoundEntryId, WoundRecord
@@ -64,8 +64,13 @@ class NpcWoundTurnEndReceipt:
     actor_id: str
     round_number: int
     expired_attack_ids: tuple[str, ...]
+    expired_sources: tuple[NpcStomachBlowExpiry, ...] = field(default=(), kw_only=True)
 
     def __post_init__(self) -> None:
+        if (not isinstance(self.expired_sources, (tuple, list))
+                or not all(isinstance(e, NpcStomachBlowExpiry) for e in self.expired_sources)):
+            raise TypeError('expired sources require bound Stomach Blow witnesses')
+        object.__setattr__(self, 'expired_sources', tuple(self.expired_sources))
         for value in (self.id, self.actor_id):
             if not isinstance(value, str):
                 raise TypeError('turn-end receipt IDs must be strings')
@@ -81,3 +86,8 @@ class NpcWoundTurnEndReceipt:
         if any(not isinstance(i, str) or not i.strip() for i in identifiers) or len(set(identifiers)) != len(identifiers):
             raise ValueError('expired attack IDs must be unique nonblank strings')
         object.__setattr__(self, 'expired_attack_ids', identifiers)
+        if self.expired_sources and (
+                tuple(e.attack_id for e in self.expired_sources) != identifiers
+                or any(e.actor_id != self.actor_id or e.deadline_round_number != self.round_number
+                       for e in self.expired_sources)):
+            raise ValueError('expired source witnesses must match the exact actor, attack order and deadline')

@@ -1,10 +1,13 @@
 """One source-bound M8 end-turn; PG1.4 Rules pp121-123, Wounds Table p190."""
-from dataclasses import dataclass, replace
+from __future__ import annotations
+
+from dataclasses import dataclass, field, replace
 
 from towr.domain.condition_models import Condition
 from towr.domain.injury_models import WoundConditionEffect, WoundConditionSourceSnapshot, WoundEffectDuration
 from towr.domain.npc_roster_casting_models import NpcRosterCastingState
 from towr.domain.npc_roster_models import NpcRoster
+from towr.domain.npc_stationary_wound_models import NpcStationaryWoundContext
 from towr.domain.npc_wound_turn_models import NpcStomachBlowExpiry, NpcWoundTurnEndReceipt
 from towr.domain.turn_models import ActionSlotGrant, CombatRoundState, CombatTurnEndResult
 
@@ -15,10 +18,15 @@ class NpcWoundTurnEndRequest:
     state: NpcRosterCastingState
     actor_id: str
     condition_sources: tuple[WoundConditionSourceSnapshot, ...] = ()
+    stationary_wounds: NpcStationaryWoundContext | None = field(default=None, kw_only=True)
 
     def __post_init__(self) -> None:
         if not isinstance(self.state, NpcRosterCastingState):
             raise TypeError('turn end requires a full roster state')
+        if self.stationary_wounds is not None:
+            if not isinstance(self.stationary_wounds, NpcStationaryWoundContext):
+                raise TypeError('stationary turn end requires a typed wound context')
+            self.stationary_wounds.validate_source(self.state, self.actor_id)
         for identifier in (self.id, self.actor_id):
             if not isinstance(identifier, str):
                 raise TypeError('turn end IDs must be strings')
@@ -57,13 +65,13 @@ class NpcWoundTurnEndRequest:
         if not injury.conditions.conditions <= supported:
             raise ValueError('unsupported end-turn Condition requires a separate consumer')
         if champion:
-            if any(not w.effect_resolved for w in injury.wounds) or any(
+            if self.stationary_wounds is None and (any(not w.effect_resolved for w in injury.wounds) or any(
                 not isinstance(e, WoundConditionEffect) or e.condition not in supported - {Condition.BROKEN}
                 or not injury.conditions.has(e.condition)
                 or e.duration not in (WoundEffectDuration.END_OF_NEXT_TURN, WoundEffectDuration.UNTIL_REMOVED,
                                       WoundEffectDuration.UNTIL_TREATED, WoundEffectDuration.UNTIL_HEALED)
                 for e in injury.active_wound_effects
-            ):
+            )):
                 raise ValueError('unresolved or unsupported end-turn Wound effects')
             timed = tuple(e for e in injury.active_wound_effects
                           if e.duration is WoundEffectDuration.END_OF_NEXT_TURN)
@@ -79,9 +87,15 @@ class NpcWoundTurnEndRequest:
             removed = {e.effect for e in self.expiries}
             for snapshot in self.condition_sources:
                 if not snapshot.has_other_active_source and any(
-                    e not in removed and e.condition is snapshot.condition for e in injury.active_wound_effects
+                    isinstance(e, WoundConditionEffect) and e not in removed
+                    and e.condition is snapshot.condition for e in injury.active_wound_effects
                 ):
                     raise ValueError('another active Wound source cannot be denied')
+                if self.stationary_wounds is not None:
+                    other = any(isinstance(e, WoundConditionEffect) and e not in removed
+                                and e.condition is snapshot.condition for e in injury.active_wound_effects)
+                    if snapshot.has_other_active_source is not other:
+                        raise ValueError('stationary Condition sources must match the complete known causes')
 
     @property
     def expiries(self) -> tuple[NpcStomachBlowExpiry, ...]:
@@ -110,13 +124,15 @@ class NpcWoundTurnEndResult:
     def state(self) -> NpcRosterCastingState:
         source = self.source
         return _project_wound_turn_end(source.state, source.id, source.actor_id,
-                                      source.condition_sources, source.expiries, self.turn_end.state)
+                                      source.condition_sources, source.expiries, self.turn_end.state,
+                                      preserve_expiry_sources=source.stationary_wounds is not None)
 
 
 def _project_wound_turn_end(
     old: NpcRosterCastingState, request_id: str, actor_id: str,
     condition_sources: tuple[WoundConditionSourceSnapshot, ...],
     expiries: tuple[NpcStomachBlowExpiry, ...], combat: CombatRoundState,
+    *, preserve_expiry_sources: bool = False,
 ) -> NpcRosterCastingState:
     """Project an already validated end transition; never schedule or strip Prone."""
     roster = old.roster
@@ -136,7 +152,8 @@ def _project_wound_turn_end(
     if champion is not None:
         champion = replace(champion, roster=roster, round_state=combat)
     receipt = NpcWoundTurnEndReceipt(request_id, actor_id, old.round_state.round_number,
-                                   tuple(e.attack_id for e in expiries))
+                                   tuple(e.attack_id for e in expiries),
+                                   expired_sources=expiries if preserve_expiry_sources else ())
     return replace(old, roster=roster, round_state=combat, champion_attack=champion,
                    minion_attack=(None if old.minion_attack is None else replace(old.minion_attack, roster=roster)),
                    wound_expiries=tuple(e for e in old.wound_expiries if e not in expiries),

@@ -1,0 +1,11 @@
+WOUND 9 / None: 7 d10; actual registered wound; runner stops at actor injury
+BOUND STAND: Prone/cause removed; one free move; terrain/wound/daily/roll history retained
+OWNER: both child rosters synchronized; positions/actions/magic unchanged; source immutable
+GUARDS: stale/replay rejected; runner still stops; result excluded from automatic journal
+WOUND 9 / opted: 7 d10; actual registered wound; runner stops at actor injury
+BOUND STAND: Prone/cause removed; one free move; terrain/wound/daily/roll history retained
+OWNER: both child rosters synchronized; positions/actions/magic unchanged; source immutable
+GUARDS: stale/replay rejected; runner still stops; result excluded from automatic journal
+WOUND 10 CONTROL: 7 d10; bound Leg Spasm stand rejected; source immutable
+WOUND 13 CONTROL: 24 d10; bound Leg Spasm stand rejected; source immutable
+45 scripted d10 total; public APIs only; no stand RNG/Test/treatment/healing

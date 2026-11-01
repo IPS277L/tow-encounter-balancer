@@ -34,6 +34,8 @@ class NpcRosterChampionAttackRequest:
         if self.attack.execution.id in self.state.consumed_execution_ids:
             raise ValueError('action execution has already been consumed')
         execution = self.attack.execution
+        if self.attack.stationary_wounds is not None:
+            self.attack.stationary_wounds.validate_source(self.state, execution.target_id)
         if any(self.state.roster.participant(i).state.injury.conditions.has(Condition.PRONE)
                for i in (execution.actor_id, execution.target_id)):
             from towr.domain.npc_roster_turn_models import _validate_phase_source

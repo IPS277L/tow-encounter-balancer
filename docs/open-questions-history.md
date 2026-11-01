@@ -2,6 +2,24 @@
 
 # Открытые вопросы
 
+## Закрытые boundaries ADR-0044–0047 — перенесено 2026-11-01
+
+Исторический отчёт, ранее находившийся в актуальном списке. Следующая работа определяется только [статусом](project-status.md) и [открытыми вопросами](open-questions.md).
+
+## Закрытая граница dead Champion
+
+[Инвентаризация](audits/m8-continuation-inventory.md) завершена. [ADR-0044](decisions/ADR-0044-dead-champion-turn-exclusion.md) выбран без новых игровых ambiguities: только полный завершённый lethal Attack и awaiting Wizard, before attacker end-turn. Already-completed цель пропускается dispatcher и отклоняется consumer; archives/histories сохраняются. Frozen request/result, pure exclusion/apply и journal/runner integration реализованы. Shared predecessor guard требует полный matching Attack witness и запрещает пропуск фазы; completed Wizard пропускается. Остальные existing stops сохраняются. [Propagation/итоговый аудит](audits/m8-dead-champion-readiness.md) завершены без изменения wire. Остальные причины chronology и mandatory Wound/Miscast/ordinary Attack movement требуют следующих отдельных контрактов. Наличие K1 reducer или stop-кода не доказывает замкнутость consumer/reachability текущего runner. Miscast self-inclusion ниже остаётся открытым; автоматической narrative application/очистки pool нет.
+
+## Контракт ADR-0045 и текущие временные границы
+
+[ADR-0045](decisions/ADR-0045-source-bound-unnatural-wind.md) готов: первый low-level consumer принимает explicit DECLINE_CAST_BEFORE_MISCAST без default. Это легальный книжный выбор, в том числе при доступном spell; desperate CAST и abandonment не подключаются. Required facts подтверждают complete combat roster, отсутствие external Short creatures/bystanders, mounts/immunity и cross-Zone Close. Факты не выводятся из числового профиля/Zone graph.
+
+Preparation → one-roll → actual Wind21–22 реализованы и закрыты [low-level аудитом](audits/m8-unnatural-wind-readiness.md): explicit DECLINE/five facts, full source/trace, effect-before-Pool0 и guards. Other-row/partial failure не очищают Pool. ADR-0045 сам по себе не выбирает decline и не расширяет journal; opt-in integration подключена отдельным ADR-0046 ниже.
+
+[ADR-0046](decisions/ADR-0046-opt-in-miscast-runner-and-prone.md): реализованы explicit opt-in/None legacy, lossless generation/wire rejection, stand/end, Casting/Curse и Shooting/Protection Prone. Actual target Prone выводит effective Give Ground=False и один −1d incoming Shooting, не меняя authored scene facts. Safe Broken alternative Recover реализован; полный origin witness и автоматическое исполнение подключены в этапе 3. Opted сценарий проходит preparation/roll/Wind21–22, остальные rows сохраняют MISCAST_EFFECT/Pool; None сохраняет прежний stop. Unsafe Broken+Prone, ongoing Prone Wound causes и Run после израсходованной free move остаются honest stops; safe Broken alternative Recover не получает standard benefits. Новых книжных ambiguities не выявлено; Miscast self-inclusion других строк ниже остаётся открытым.
+
+ADR-0046 закрыт [итоговым аудитом](audits/m8-opt-in-miscast-readiness.md): native trial/sequential/process/assessment, public opted example и installed parity проверены. В [ADR-0047](decisions/ADR-0047-opt-in-generation-and-magic-json-v2.md) реализован native generation: explicit отдельная family policy равна template, удалённые резервисты отсутствуют в конкретном сценарии (не external Short bystanders). [Проверки generation](audits/m8-opt-in-generation-readiness.md). Новых книжных ambiguities нет. Simulation v2 с полной nullable policy реализован; strict-decode fallback и сохранение версии ошибок проверены [аудитом transport](audits/m8-simulation-v2-readiness.md). V1 продолжает отвергать opt-in. [Balance v2](audits/m8-balance-v2-readiness.md) также реализован: отдельные reserve/family assertions, exact equality и полная versioned chain. [Общий source/wheel/installed audit](audits/m8-opt-in-transport-readiness.md) завершён; ADR-0047 закрыт в согласованной границе. Следующая работа — актуализировать инвентаризацию оставшихся mandatory continuations и выбрать отдельный узкий consumer, не расширяя policy автоматически.
+
 ## Политики выбора для симуляции
 
 Книга оставляет участникам решения: исход повторного Staggered, расход Fate, некоторые Talents, выбор Wound/Reaction у Monstrosity, добровольную Regeneration, ответ цели на Foul Stench и замену неподходящего результата Wounds Table для не-физического Hazard. Kernel сохранит владельца и варианты каждого решения. Перед массовой симуляцией нужно определить набор AI-policy: например, минимизация ожидаемого вреда, удержание позиции или профиль поведения NPC. Без отдельной Hazard-policy безопасный технический default — не заменять выпавшую строку таблицы.

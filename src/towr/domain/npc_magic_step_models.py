@@ -10,6 +10,7 @@ from towr.domain.npc_roster_casting_completion_models import NpcRosterCastingCom
 from towr.domain.npc_roster_casting_models import NpcRosterCastingResult, NpcRosterCastingState
 from towr.domain.npc_roster_champion_attack_models import NpcRosterChampionAttackResult
 from towr.domain.npc_roster_dead_champion_models import NpcRosterDeadChampionExclusionResult
+from towr.domain.npc_roster_leg_spasm_models import NpcRosterLegSpasmStandResult
 from towr.domain.npc_roster_minion_attack_models import NpcRosterMinionAttackResult
 from towr.domain.npc_roster_minion_defeat_models import NpcRosterMinionDefeatResult
 from towr.domain.npc_roster_miscast_models import (
@@ -28,6 +29,7 @@ NpcMagicStepResult: TypeAlias = (
     | NpcBrokenRecoverResult | NpcBrokenRunResult | NpcWoundTurnEndResult
     | NpcRosterMiscastPreparationResult | NpcRosterMiscastRollResult | NpcRosterUnnaturalWindResult
     | NpcRosterProneStandResult | NpcRosterProneTurnEndResult
+    | NpcRosterLegSpasmStandResult
 )
 _RESULT_TYPES = (
     NpcRosterTurnStartResult, NpcRosterRoundAdvanceResult, NpcRosterCastingResult,
@@ -36,6 +38,7 @@ _RESULT_TYPES = (
     NpcBrokenRecoverResult, NpcBrokenRunResult, NpcWoundTurnEndResult,
     NpcRosterMiscastPreparationResult, NpcRosterMiscastRollResult, NpcRosterUnnaturalWindResult,
     NpcRosterProneStandResult, NpcRosterProneTurnEndResult,
+    NpcRosterLegSpasmStandResult,
 )
 
 

@@ -47,6 +47,8 @@ $env:PYTHONPATH = "src"
 
 ## Следующий шаг и ограничения
 
+Последующее завершение: этап4 выполнен в [общем installed-аудите ADR-0047](m8-opt-in-transport-readiness.md). Ниже сохранён следующий шаг на момент окончания этапа3, а не текущая очередь работ.
+
 **Этап4 ADR-0047: общий аудит.** Полная field/guard matrix, свежий wheel/offline install и exact source/wheel/installed parity; все12 magic schemas/local refs; public stored v2 simulation/balance outputs и copied examples; installed module/console для обеих magic и шести прежних CLI routes; dependency/runtime context и полная регрессия с отдельным учётом известных Python assertions. Current source-only checks не заменяют installed evidence; весь ADR пока не закрыт.
 
 Gameplay остаётся прежним: fresh-only input, Wind21–22 и scoped Prone; другие Miscast effects, desperate cast/abandonment, ongoing Prone Wounds/unsafe Broken/Run-after-spent-free-move и неизвестные facts не достраиваются. Unsupported trials остаются в denominator; window eligibility не доказывает полноту тактики. Performance/cross-platform claims нет.

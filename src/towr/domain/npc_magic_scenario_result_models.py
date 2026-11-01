@@ -13,6 +13,11 @@ from towr.domain.npc_magic_journal_policy import (
     validate_magic_step_predecessor,
 )
 from towr.domain.npc_magic_scenario_models import NpcMagicScenario
+from towr.domain.npc_magic_stationary_wound_policy import (
+    magic_leg_spasm_stand_family, magic_leg_spasm_stand_eligible, magic_stationary_wound_context,
+    magic_stationary_wound_policy_enabled,
+    magic_stationary_wound_required,
+)
 from towr.domain.npc_magic_miscast_journal_policy import validate_magic_miscast_predecessor
 from towr.domain.npc_magic_scene_models import _ordered, _identifier
 from towr.domain.npc_magic_step_models import (
@@ -101,6 +106,7 @@ def diagnose_npc_magic_unsupported(
     turn = state.round_state.active_turn
     actor_id = turn.actor_id if turn else None
     opted = scenario.miscast_continuation is not None
+    stationary_opted = magic_stationary_wound_policy_enabled(scenario, state)
 
     def stop(why, *, actors=(), zones=(), key=None, identifier=source_id, prefix=()):
         return NpcMagicUnsupported(phase, why, actor_id, identifier, actors, zones, key, prefix)
@@ -163,7 +169,9 @@ def diagnose_npc_magic_unsupported(
         conditions = {Condition.STAGGERED, Condition.DRAINED, Condition.BROKEN}
         if opted:
             conditions.add(Condition.PRONE)
-        if not _injury_supported(state, actor_id, conditions):
+        if ((not _injury_supported(state, actor_id, conditions)
+                or magic_stationary_wound_required(scenario, state, actor_id))
+                and magic_stationary_wound_context(scenario, state, actor_id) is None):
             return stop(reason.END_TURN, actors=(actor_id,))
         return None
     phase = NpcMagicPhase.ACTION
@@ -173,14 +181,22 @@ def diagnose_npc_magic_unsupported(
                   {Condition.STAGGERED, Condition.DRAINED} if actor_id == state.wizard.actor_id else {Condition.STAGGERED})
     if opted:
         conditions.add(Condition.PRONE)
+    if opted or stationary_opted:
         if (_bad_clock(state) or any(e.actor_id == actor_id
                 and e.deadline_round_number != state.round_state.round_number for e in state.wound_expiries)):
             return stop(reason.CHRONOLOGY)
-    if not _injury_supported(state, actor_id, conditions):
+    leg_stand = magic_leg_spasm_stand_family(scenario, state)
+    if ((not _injury_supported(state, actor_id, conditions)
+            or magic_stationary_wound_required(scenario, state, actor_id)) and not leg_stand
+            and magic_stationary_wound_context(scenario, state, actor_id) is None):
         return stop(reason.ACTOR_INJURY, actors=(actor_id,))
     frame = scenario.frame_for(magic_scene_key(state))
     if frame is None:
         return stop(reason.MISSING_SCENE, key=magic_scene_key(state))
+    if leg_stand:
+        if magic_leg_spasm_stand_eligible(scenario, state, frame):
+            return None
+        return stop(reason.ACTOR_INJURY, actors=(actor_id,))
     if opted:
         from towr.domain.npc_magic_journal_policy import magic_prone_unsafe_broken, magic_prone_stand_eligible
         if magic_prone_unsafe_broken(state, actor_id):
@@ -202,10 +218,12 @@ def diagnose_npc_magic_unsupported(
                     {Condition.STAGGERED, Condition.DRAINED, Condition.BROKEN}
                     | ({Condition.PRONE} if opted else set())))
     else:
-        bad = (() if _injury_supported(state, target,
+        bad = (() if (_injury_supported(state, target,
                ({Condition.STAGGERED} if target == state.wizard.actor_id else {Condition.STAGGERED, Condition.BROKEN})
                | ({Condition.PRONE} if opted else set()),
-               champion_attack=target == state.wizard.actor_id) else (target,))
+               champion_attack=target == state.wizard.actor_id)
+               and not magic_stationary_wound_required(scenario, state, target))
+               or magic_stationary_wound_context(scenario, state, target) is not None else (target,))
     if bad:
         return stop(reason.TARGET_INJURY, actors=bad)
     if actor_id != state.wizard.actor_id and not any(d.actor_id == target for d in frame.attack_departures):

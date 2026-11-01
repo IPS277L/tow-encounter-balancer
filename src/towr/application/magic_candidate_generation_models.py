@@ -75,6 +75,8 @@ class MagicCandidateGenerationRequest:
     def __post_init__(self) -> None:
         if not isinstance(self.template_scenario, NpcMagicScenario):
             raise TypeError("generation requires an admitted magic template scenario")
+        if self.template_scenario.stationary_wound_continuation is not None:
+            raise ValueError("stationary Wound continuation is not yet supported by magic generation")
         if (self.miscast_continuation is not None
                 and not isinstance(self.miscast_continuation, NpcMagicMiscastContinuationPolicy)):
             raise TypeError("magic generation requires a typed Miscast continuation policy or None")

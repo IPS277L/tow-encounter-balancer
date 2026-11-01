@@ -1,0 +1,6 @@
+WOUND 9: actual registered Leg Spasm; stand spends free move; terrain retained
+ROUND 1: bound Casting/end complete; terrain/wound/daily/roll histories retained
+ROUND 2 ATTACK: normal Protection; effective Give Ground=False; actual Wound6 with bound expiry
+ROUND 2 WIZARD: bound Casting/end; only timed Drained expires; both wounds and terrain retained
+ROUND 3: Protection admits expired6 history; child rosters synchronized; sources/global RNG immutable
+39 scripted d10; manual full-owner chain; no treatment/healing or automatic runner permission

@@ -1,0 +1,8 @@
+Finite proposed v3: 16 complete simulation/balance mappings; four independent policy combinations; both perspectives
+Manual family projection: 20 full-source subsets (4 friendly + 1 opposite) x 4 policies; IDs/orders/frames/seeds exact
+Required nullable fields and separate family equality checked before projection; raw enum strings rejected by finite assertions
+Production: stationary generation rejected; JSON v1/v2 extra fields rejected even null; v3 unsupported
+Public native staged service: four manual subset candidates -> one stage -> four complete source-bound rows; denominator 4
+Native scripted controls: 8 trials / 138 d10; opted round-limit + unsupported, None two unsupported; denominator 2 per source
+Production v1/v2 encoders reject full opted sources; no stripped opted source or downgraded document used
+Inputs/global RNG unchanged; finite proposal only, no production v3 codec/schema/CLI/generator implementation

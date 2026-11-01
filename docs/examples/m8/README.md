@@ -1,6 +1,65 @@
 # Примеры магии M8
 
+## Контракт stationary family / JSON v3, ADR-0051
+
+[Finite probe](stationary_wound_transport_contract_probe.py), [stdout](stationary_wound_transport_contract_probe.output.txt), [контракт](../../decisions/ADR-0051-stationary-wound-generation-and-magic-json-v3.md) и [отчёт](../../audits/m8-stationary-wound-transport-contract.md). Ручное отображение сохраняет две независимые policies и полный source; существующие native APIs проверяют реальные исполнения и отказы старых границ. Это контрактный пример: production generation/JSON v3 ещё предстоят, v1/v2 не принимают stationary permission. Точный состав копируемого bundle и команда — в отчёте.
+
+## Automatic native stationary policy, ADR-0050
+
+[Пример](stationary_wound_runner.py) + [magic_scenario.py](magic_scenario.py), [stdout](stationary_wound_runner.output.txt), [copied test](../../../tests/integration/test_m8_stationary_wound_runner_example.py), [audit](../../audits/m8-native-stationary-wound-readiness.md). Авторский numeric Wizard4, четыре сочетания policies, automatic9→stand→Casting/end→incoming6→expiry→следующая защита. При policy-on48d10/9actions/3rounds/1stand, при None7d10 и прежний stop. Native sequential/spawn pair сохраняет full source/records/summary и denominator2. Всего220scripted d10 — конечные paths, не вероятности.
+
+```powershell
+$env:PYTHONPATH = "src"
+.venv/Scripts/python.exe docs/examples/m8/stationary_wound_runner.py
+```
+
+Для копирования нужны два указанных файла и установленный пакет. Новый пример прошёл под isolated installed `python -I`, включая настоящий spawn. Generation template/new policy и JSON1/2 пока явно отвергаются; не удалять policy для обхода lossless guard.
+
+## Stationary Leg Spasm: реальная ручная цепочка ADR-0049
+
+[Пример](stationary_wound_continuation.py) + [leg_spasm_stand.py](leg_spasm_stand.py) + [magic_scenario.py](magic_scenario.py), [stdout](stationary_wound_continuation.output.txt), [copied test](../../../tests/integration/test_m8_stationary_wound_continuation.py), [аудит](../../audits/m8-stationary-leg-spasm-readiness.md). Actual Wound9→stand→Casting/end→incoming6→следующий Casting/end/expiry→Protection в round3.39scripted d10; full bound APIs сохраняют terrain/history и обе child roster references. Никаких ручных injury/clock patches или treatment/healing.
+
+```powershell
+$env:PYTHONPATH = "src"
+.venv/Scripts/python.exe docs/examples/m8/stationary_wound_continuation.py
+```
+
+Все три файла копируются рядом с установленным пакетом. Explicit low-level context не включает automatic runner policy; source/installed stdout равны.
+
+## Stationary Leg Spasm: контрактный пример ADR-0049
+
+[Probe](stationary_wound_contract_probe.py) + [leg_spasm_stand.py](leg_spasm_stand.py) + [magic_scenario.py](magic_scenario.py), [stdout](stationary_wound_contract_probe.output.txt), [copied test](../../../tests/integration/test_m8_stationary_wound_contract_probe.py), [контракт](../../decisions/ADR-0049-stationary-leg-spasm-continuation.md). Actual9→stand сохраняет terrain и честный current runner stop. Отдельные K1 Casting/mixed9+6 результаты не подставляются в root; независимый actual6 control проверяет настоящий attack witness, deadline и expiry. Всего37scripted d10, не вероятности.
+
+```powershell
+$env:PYTHONPATH = "src"
+.venv/Scripts/python.exe docs/examples/m8/stationary_wound_contract_probe.py
+```
+
+Для копирования нужны все три указанных файла и установленный пакет. Это исходный контрактный proof и None-path control; реализованную mixed full-owner chain проверяет новый пример выше.
+
+## Leg Spasm: вставание после реальной раны, ADR-0048
+
+[Пример](leg_spasm_stand.py) + соседний [magic_scenario.py](magic_scenario.py), [сохранённый вывод](leg_spasm_stand.output.txt), [copied-bundle test](../../../tests/integration/test_m8_leg_spasm_stand_example.py), [аудит](../../audits/m8-leg-spasm-stand-readiness.md). Пример получает Wound9 реальным fresh runner при None и explicit policy, затем вызывает `NpcRosterLegSpasmStandRequest`, `stand_npc_roster_leg_spasm` и `apply_npc_roster_leg_spasm_stand`. Снимаются Prone и его canonical cause, расходуется free move; Difficult Terrain и история раны сохраняются. Оба child roster синхронизированы, stale/replay отвергаются. Controls10/13 остаются за границей этого consumer.
+
+```powershell
+$env:PYTHONPATH = "src"
+.venv/Scripts/python.exe docs/examples/m8/leg_spasm_stand.py
+```
+
+Для копирования нужны только два указанных Python-файла и установленный пакет. Полный stdout совпадает при source и isolated wheel install. Всего45scripted d10 — доказательство конечных путей, не оценка вероятности. Runner после stand всё ещё останавливается на retained restriction; automatic Casting/Protection/end-turn требуют следующего контракта.
+
+## Исходный контрактный пример ADR-0048
+
+[Probe](leg_spasm_contract_probe.py) + соседний [magic_scenario.py](magic_scenario.py), [сохранённый вывод](leg_spasm_contract_probe.output.txt), [subprocess test](../../../tests/integration/test_m8_leg_spasm_contract_probe.py), [контракт](../../decisions/ADR-0048-source-bound-leg-spasm-stand.md). Сохраняется как evidence исходной границы до реализации: отдельно показывает K1 self-stand. Текущий полный переход проверяет новый пример выше.
+
+```powershell
+$env:PYTHONPATH = "src"
+.venv/Scripts/python.exe docs/examples/m8/leg_spasm_contract_probe.py
+```
+
 ## Контракт opt-in generation / JSON v2 — ADR-0047
+
+ADR-0047 закрыт [итоговым аудитом](../../audits/m8-opt-in-transport-readiness.md). [Simulation v2 result](json/magic-simulation-v2.result.json) и [balance v2 result](json/magic-balance-v2.result.json) сохранены из реального CLI на CPython3.12.4; это finite observations заданных inputs, не вероятности сложности. Оба примера/probe также проверены из скопированного bundle установленным пакетом.
 
 [Public generation / finite transport probe](opt_in_transport_contract_probe.py) / [сохранённый вывод](opt_in_transport_contract_probe.output.txt), [контракт](../../decisions/ADR-0047-opt-in-generation-and-magic-json-v2.md), [проверка](../../../tests/integration/test_m8_opt_in_transport_contract_probe.py), [аудит generation](../../audits/m8-opt-in-generation-readiness.md). Native opted generation и обе v2 families вызываются через настоящий API, без temporary legacy views. [Balance v2 вход](json/magic-balance-v2.request.json), [аудит](../../audits/m8-balance-v2-readiness.md). [Пример simulation v2](json/magic-simulation-v2.request.json) доступен прежней CLI-командой; [аудит](../../audits/m8-simulation-v2-readiness.md).
 

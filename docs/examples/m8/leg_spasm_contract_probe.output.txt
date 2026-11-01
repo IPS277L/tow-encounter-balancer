@@ -1,0 +1,7 @@
+WOUND 9: 7 d10; actual unsupported_actor_injury; resolved Leg Spasm; no pending
+K1 ONLY: Prone removed in primitive result; free move spent; positions/turn unchanged; no RNG
+OWNER GAP: original Prone/effects/daily history unchanged; terrain must survive a future bound stand
+LEGACY CONTROL: 7 d10; same honest actor-injury stop; no opt-in bypass
+WOUND 10 CONTROL: 7 d10; Drained plus next-Test Grim, not Leg Spasm
+WOUND 13 CONTROL: 24 d10; Prone plus critical-on-removal; bound stand still rejected
+Public APIs only; fresh runner evidence; immutable sources/global RNG; no future continuation fabricated

@@ -1,0 +1,6 @@
+ACTUAL WOUND 9: 7 d10; bound stand complete; terrain retained; None runner still stops
+BOUND CASTING GAP: retained terrain rejected before RNG; original owner unchanged
+K1 CASTING ONLY: 3 d10; action executed in primitive result; no future owner transition fabricated
+K1 MIXED EFFECTS ONLY: 2 d10; terrain plus timed Drained; no root attack/expiry witness created
+ACTUAL WOUND 6 CONTROL: 25 d10; full attack witness; deadline round 2; Drained expires; wound/history retained
+37 scripted d10; immutable sources/global RNG; None path closed; mixed chain checked separately
