@@ -1,5 +1,17 @@
 # Противоречия и неоднозначности
 
+## Передача repeated permission: ADR-0054
+
+2026-11-02: [ADR-0054](decisions/ADR-0054-repeated-leg-spasm-generation-and-magic-json-v4.md) реализует matching family assertion и required nullable field в JSON4. None не даёт разрешения и не наследует template opt-in. Это техническая source/compatibility граница native53, без новых книжных противоречий/house rules. Actual parser/generation/result сверяются с независимым inverse. Unknown5 fallback сохраняет полностью decoded request_id, lexical failures дают null ID. JSON1/2/3 сохраняют lossless refusal.
+
+## Native repeated stand: source validation, ADR-0053
+
+2026-11-01: [ADR-0053](decisions/ADR-0053-native-repeated-leg-spasm-continuation.md) сохраняет книжные правила52, новых нормативных неоднозначностей/house rules нет. Два реальных Attack с одинаковыми ID/source/current и разными dice подтверждают, что finite lineage не доказывает journal membership; publication/Result53 теперь сверяют полные recorded witnesses. Обнаруженный native nested facts int1=True gap закрыт shared admission до RNG/pool/equality, с сохранением original source. [Аудит](audits/m8-native-repeated-leg-spasm-readiness.md). Caller-created cursor по-прежнему не является самостоятельным journal proof.
+
+## Повторная Leg Spasm: техническая граница, ADR-0052
+
+2026-11-01: BOOK-PLAYER-GUIDE1.4, гл.V Free Actions116/Conditions122/Prone123 и приложение Wounds190 не ограничивают stand первой9. Строка9 специально разрешает снятие Prone, terrain остаётся до treatment. Прежний отказ stand48 при ранее удалённом cause — техническая граница этого consumer. [ADR-0052](decisions/ADR-0052-source-bound-repeated-leg-spasm-stand.md) реализован отдельно: явный previous stand и новый bound Attack подтверждают causes, отсутствие effect само по себе не принимается. [Аудит](audits/m8-repeated-leg-spasm-stand-readiness.md). Runtime ещё не включает новый переход автоматически; новых книжных неоднозначностей или house rules нет, остальные Wounds/Miscasts вне scope.
+
 ## Native policy не заменяет книжные действия, ADR-0050
 
 2026-11-01: PG1.4 Free Actions116/Prone123/Wounds190 разрешают stand9; выбранный автоматический приоритет stand перед Casting — техническая policy, не утверждение, что книга запрещает все остальные действия из Prone. При Close/spent move остаётся unsupported, а не неявный Recover. [ADR-0050](decisions/ADR-0050-native-stationary-wound-policy.md) отделяет Wound permission от Miscast157/159; повторная9 после stand и Wind Prone при terrain не получают лишних consumers. Новых игровых неоднозначностей/house rules нет; family/wire semantics требуют следующего отдельного контракта.

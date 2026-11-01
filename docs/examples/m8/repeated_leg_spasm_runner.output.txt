@@ -1,0 +1,8 @@
+NATIVE repeated=on miscast=None: 48 d10; stand48 + stand52; 9 actions; 3 completed rounds
+NATIVE repeated=on miscast=on: 48 d10; stand48 + stand52; 9 actions; 3 completed rounds
+OLD repeated=None stationary=None: 7 d10; unchanged actor-injury stop
+OLD repeated=None stationary=on: 24 d10; unchanged actor-injury stop
+POST-STAND WOUND6: 51 d10; bound Drained expiry at round3 end; all three wounds/daily records and both terrains retained
+ONE REPEAT ONLY: 42 d10; third9 stops; no renewal of prior witnesses or consumed permission
+SEQUENTIAL/SPAWN: exact records/full source/summary; round-limit + unsupported; denominator2
+330 scripted d10 total; bounded journal-derived witnesses; immutable sources/global RNG; native only

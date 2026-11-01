@@ -29,6 +29,8 @@ ROUTES = {
 }
 STATIONARY_FIELD = "stationary_wound_continuation"
 STATIONARY_VALUE = "leg_spasm_stand_and_continue"
+REPEATED_FIELD = "repeated_leg_spasm_continuation"
+REPEATED_VALUE = "stand_once_with_journal_witnesses"
 
 
 def require(condition: bool, message: str) -> None:
@@ -103,10 +105,10 @@ def main() -> None:
             ref_count += 1
     magic_ids = [doc["$id"] for doc in documents if doc["$id"].startswith("urn:towr:magic-")]
     expected_ids = {f"urn:towr:magic-{family}:{kind}:{version}"
-                    for family in ("simulation", "balance") for version in ("1", "2", "3")
+                    for family in ("simulation", "balance") for version in ("1", "2", "3", "4")
                     for kind in ("request", "result", "error")}
-    require(set(magic_ids) == expected_ids and len(magic_ids) == 18, "Magic schema versions/IDs differ")
-    require(len(documents) == 36, "Expected 36 packaged schemas")
+    require(set(magic_ids) == expected_ids and len(magic_ids) == 24, "Magic schema versions/IDs differ")
+    require(len(documents) == 42, "Expected 42 packaged schemas")
     print(f"Bundled schema closure: {len(documents)} schemas / {ref_count} local refs / {len(magic_ids)} magic", flush=True)
 
     environment = dict(os.environ)
@@ -150,11 +152,11 @@ def main() -> None:
     for route, path in ROUTES.items():
         data = read(path)
         invoke(route, data)
-        for version in ("2", "3"):
+        for version in ("2", "3", "4"):
             invalid = dict(data, schema_version=version)
             error = invoke(route, invalid, expected=2)
             require(error["schema_version"] == "1", f"Nonmagic v{version} accepted: {route}")
-        print(f"Legacy route: {route} success + v2/v3 rejection", flush=True)
+        print(f"Legacy route: {route} success + v2/v3/v4 rejection", flush=True)
 
     validators = {"simulation": validate_magic_simulation_document, "balance": validate_magic_balance_document}
     cases = 0
@@ -167,11 +169,14 @@ def main() -> None:
         opted_data = read(f"m8/json/magic-{family}-v2.request.json")
         policy = (opted_data["scenario"] if family == "simulation" else opted_data["reserve"]["scenario"])["miscast_continuation"]
         require(policy is not None, "Public v2 policy fixture must be opted")
-        variants = [("v1", "1", False, False), ("v2-null", "2", False, False),
-                    ("v2-opted", "2", True, False)]
-        variants += [(f"v3-miscast-{int(miscast)}-stationary-{int(stationary)}", "3", miscast, stationary)
+        variants = [("v1", "1", False, False, False), ("v2-null", "2", False, False, False),
+                    ("v2-opted", "2", True, False, False)]
+        variants += [(f"v3-miscast-{int(miscast)}-stationary-{int(stationary)}", "3", miscast, stationary, False)
                      for miscast in (False, True) for stationary in (False, True)]
-        for label, version, miscast, stationary in variants:
+        variants += [(f"v4-miscast-{int(miscast)}-stationary-{int(stationary)}-repeated-{int(repeated)}",
+                      "4", miscast, stationary, repeated)
+                     for miscast in (False, True) for stationary, repeated in ((False, False), (True, False), (True, True))]
+        for label, version, miscast, stationary, repeated in variants:
             # V1/v2 retain their public inputs; synthetic v3 variants use the
             # same authored game parameters, seeds and budgets as legacy.
             data = deepcopy(opted_data if version == "2" else legacy_data)
@@ -179,10 +184,12 @@ def main() -> None:
             scenario = data["scenario"] if family == "simulation" else data["reserve"]["scenario"]
             targets = (scenario,) if family == "simulation" else (scenario, data["generation"])
             for target in targets:
-                if version in ("2", "3"):
+                if version in ("2", "3", "4"):
                     target["miscast_continuation"] = deepcopy(policy) if miscast else None
-                if version == "3":
+                if version in ("3", "4"):
                     target[STATIONARY_FIELD] = STATIONARY_VALUE if stationary else None
+                if version == "4":
+                    target[REPEATED_FIELD] = REPEATED_VALUE if repeated else None
             validate(data, schema_version=version)
             outputs = []
             for mode in ("sequential", "process"):
@@ -225,7 +232,7 @@ def main() -> None:
             print(f"Magic {family} {label}: sequential/process source/module/console match", flush=True)
 
         # Every family/version/error schema is exercised, not just loaded.
-        for version in ("1", "2", "3"):
+        for version in ("1", "2", "3", "4"):
             bad = read(f"m8/json/magic-{family}-v{version}.request.json")
             bad["unexpected"] = True
             error = invoke(route, bad, expected=2)
@@ -251,7 +258,7 @@ def main() -> None:
             validate(error, "error")
             require(error["schema_version"] == "1" and error["request_id"] is None,
                     "Incomplete strict decode trusted metadata")
-        unknown = dict(trusted, schema_version="4")
+        unknown = dict(trusted, schema_version="5")
         error = invoke(route, unknown, expected=2)
         validate(error, "error")
         require(error["schema_version"] == "1" and error["request_id"] == trusted["request_id"]
@@ -307,6 +314,60 @@ def main() -> None:
             "saved_sha256": digest(saved_path.read_bytes()),
             "actual_sha256": digest((work / f"magic-{family}-v3.result.json").read_bytes())}
 
+        trusted4 = read(f"m8/json/magic-{family}-v4.request.json")
+        actual4 = invoke(route, trusted4, save_as=f"magic-{family}-v4.result.json")
+        validate(actual4, "result", schema_version="4")
+        saved4 = fixture_root / f"json/magic-{family}-v4.result.json"
+        saved_document4 = json.loads(saved4.read_text(encoding="utf-8"))
+        validate(saved_document4, "result", schema_version="4")
+        require(actual4["request"] == saved_document4["request"] == trusted4, "Public4 request differs")
+        same_runtime4 = saved_document4["runtime"] == actual4["runtime"]
+        if same_runtime4:
+            require(saved4.read_bytes() == (work / f"magic-{family}-v4.result.json").read_bytes(),
+                    "Public4 saved result differs on same runtime")
+        saved_public_results[family + ":v4"] = {"runtime_equal": same_runtime4,
+            "saved_sha256": digest(saved4.read_bytes()),
+            "actual_sha256": digest((work / f"magic-{family}-v4.result.json").read_bytes())}
+        locations = ("scenario",) if family == "simulation" else ("reserve", "generation")
+        for version in ("1", "2", "3"):
+            for location in locations:
+                for value in (None, REPEATED_VALUE):
+                    old = read(f"m8/json/magic-{family}-v{version}.request.json")
+                    target = old["scenario"] if family == "simulation" else (
+                        old["reserve"]["scenario"] if location == "reserve" else old["generation"])
+                    target[REPEATED_FIELD] = value
+                    error = invoke(route, old, expected=2)
+                    validate(error, "error", schema_version=version)
+                    require(error["schema_version"] == version, "Legacy accepted repeated permission key")
+        for location in locations:
+            wrong = deepcopy(trusted4)
+            target = wrong["scenario"] if family == "simulation" else (
+                wrong["reserve"]["scenario"] if location == "reserve" else wrong["generation"])
+            target[STATIONARY_FIELD] = None
+            error = invoke(route, wrong, expected=2)
+            expected_path = "/scenario/" if family == "simulation" else (
+                "/reserve/scenario/" if location == "reserve" else "/generation/")
+            # A family base mismatch precedes its dependent permission, as in v3.
+            expected_field = STATIONARY_FIELD if location == "generation" else REPEATED_FIELD
+            require(error["schema_version"] == "4" and error["error"]["path"] == expected_path + expected_field,
+                    "V4 dependency/matching priority differs")
+        if family == "balance":
+            for reserve, family_value in ((None, REPEATED_VALUE), (REPEATED_VALUE, None)):
+                wrong = deepcopy(trusted4)
+                wrong["reserve"]["scenario"][REPEATED_FIELD] = reserve
+                wrong["generation"][REPEATED_FIELD] = family_value
+                error = invoke(route, wrong, expected=2)
+                require(error["schema_version"] == "4" and error["error"]["path"] == "/generation/" + REPEATED_FIELD,
+                        "V4 repeated matching pointer differs")
+        for raw in (b'{"schema_version":"4","request_id":"untrusted",',
+                    b'{"schema_version":"4","request_id":"untrusted","request_id":"again"}',
+                    b'{"schema_version":"4","request_id":"untrusted","x":1.0}',
+                    b'{"schema_version":"4","request_id":"untrusted","x":NaN}',
+                    b'{"schema_version":"4","request_id":"untrusted","x":"\\ud800"}',
+                    b'{"schema_version":"4","request_id":"untrusted","x":0} {}', b'\xff'):
+            error = invoke(route, raw, expected=2)
+            require(error["schema_version"] == "1" and error["request_id"] is None, "V4 lexical trust leaked")
+
     # A complete reserve can be admitted yet its first projected subset can
     # invalidate this explicit Broken route. Exercise the actual generation
     # phase and CLI envelope rather than injecting a production exception.
@@ -331,6 +392,13 @@ def main() -> None:
             and error["error"]["code"] == "generation_failed" and error["error"]["path"] == "/generation"
             and error["error"]["counts"] == [1, 0] and error["error"]["candidate_id"] is not None
             and error["error"]["stage_index"] is None, "Actual generation failure lost its context")
+    failure["schema_version"] = "4"
+    failure["reserve"]["scenario"][REPEATED_FIELD] = REPEATED_VALUE
+    failure["generation"][REPEATED_FIELD] = REPEATED_VALUE
+    error4 = invoke("balance-magic", failure, expected=3, save_as="magic-balance-v4.generation-error.json")
+    validate_magic_balance_document(error4, "error", schema_version="4")
+    require(error4["schema_version"] == "4" and error4["error"] == error["error"],
+            "V4 actual generation failure lost its classification/context")
 
     # Runtime evaluation failures are not gameplay fixtures. Check their real
     # native envelopes directly, without patching a runner or claiming a CLI
@@ -341,9 +409,10 @@ from towr.adapters.magic_balance_json import encode_magic_balance_error
 from towr.adapters.magic_simulation_json import encode_magic_simulation_error
 from towr.application.magic_balance_errors import MagicBalanceGenerationError, MagicBalanceExecutionError
 from towr.application.magic_simulation_errors import MagicSimulationExecutionError
-errors = [MagicBalanceGenerationError('own-generation', 'candidate', (1, 0), schema_version='3'),
-          MagicBalanceExecutionError('own-evaluation', 1, 'candidate', schema_version='3'),
-          MagicSimulationExecutionError('own-simulation', schema_version='3')]
+errors = [error for version in ('3', '4') for error in (
+          MagicBalanceGenerationError('own-generation', 'candidate', (1, 0), schema_version=version),
+          MagicBalanceExecutionError('own-evaluation', 1, 'candidate', schema_version=version),
+          MagicSimulationExecutionError('own-simulation', schema_version=version))]
 outputs = []
 for error in errors:
     error.__cause__ = ValueError('private cause')
@@ -358,14 +427,15 @@ print(json.dumps(outputs, sort_keys=True))
             "Native phase-error envelopes differ or expose private diagnostics")
     phase_errors = json.loads(installed_errors)
     for index, error in enumerate(phase_errors):
-        (validate_magic_balance_document if index < 2 else validate_magic_simulation_document)(
-            error, "error", schema_version="3")
-        require(error["schema_version"] == "3" and error["request_id"] == (
-            "own-generation", "own-evaluation", "own-simulation")[index], "Native phase error lost owned metadata")
+        version = '3' if index < 3 else '4'
+        (validate_magic_balance_document if index % 3 < 2 else validate_magic_simulation_document)(
+            error, "error", schema_version=version)
+        require(error["schema_version"] == version and error["request_id"] == (
+            "own-generation", "own-evaluation", "own-simulation")[index % 3], "Native phase error lost owned metadata")
     require(phase_errors[0]["error"]["counts"] == [1, 0]
             and phase_errors[1]["error"]["stage_index"] == 1
             and phase_errors[1]["error"]["candidate_id"] == "candidate", "Native phase context differs")
-    (work / "native-v3-phase-errors.json").write_bytes(installed_errors)
+    (work / "native-v3-v4-phase-errors.json").write_bytes(installed_errors)
 
     # Import only the independent copied bundles, never repository examples/tests.
     bundles = {
@@ -374,11 +444,16 @@ print(json.dumps(outputs, sort_keys=True))
         "stationary-five": (("stationary_wound_transport_contract_probe",),
             ("stationary_wound_transport_contract_probe.py", "generation_contract_probe.py", "magic_scenario.py",
              "opted_miscast.py", "stationary_wound_runner.py")),
+        "repeated-six": (("repeated_leg_spasm_transport_contract_probe",),
+            ("repeated_leg_spasm_transport_contract_probe.py", "generation_contract_probe.py",
+             "stationary_wound_runner.py", "magic_scenario.py",
+             "json/magic-simulation-v3.request.json", "json/magic-balance-v3.request.json")),
     }
     for label, (modules, names) in bundles.items():
         examples = work / label
         examples.mkdir()
         for name in names:
+            (examples / name).parent.mkdir(parents=True, exist_ok=True)
             shutil.copyfile(fixture_root / name, examples / name)
         for module in modules:
             output = run([sys.executable, "-I", "-c",
@@ -397,10 +472,10 @@ print(json.dumps(outputs, sort_keys=True))
         "wheel": str(args.wheel.resolve()), "wheel_sha256": digest(args.wheel.read_bytes()),
         "package_files": len(source_files), "schemas": len(documents), "local_refs": ref_count,
         "magic_schemas": len(magic_ids), "magic_backend_cases": cases, "child_commands": calls,
-        "copied_examples": 3, "copied_bundles": {label: len(spec[1]) for label, spec in bundles.items()},
-        "public_v3_results": saved_public_results, "public_legacy_results": saved_legacy_results,
+        "copied_examples": 4, "copied_bundles": {label: len(spec[1]) for label, spec in bundles.items()},
+        "public_v3_v4_results": saved_public_results, "public_legacy_results": saved_legacy_results,
         "package_file_hashes": source_files,
-        "actual_generation_errors": 1, "native_phase_errors": len(phase_errors),
+        "actual_generation_errors": 2, "native_phase_errors": len(phase_errors),
         "unchanged_example_hashes": fixture_hashes,
         "dependencies": {name: metadata.version(name) for name in (
             "towr-encounter-balancer", "jsonschema", "referencing", "jsonschema-specifications",

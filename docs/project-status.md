@@ -1,37 +1,32 @@
 # Текущий статус проекта
 
-Дата обновления: 2026-11-01.
+Дата обновления: 2026-11-02.
 
 ## Текущий этап
 
-**M8 / ADR-0051 закрыт в принятой границе.** [Контракт](decisions/ADR-0051-stationary-wound-generation-and-magic-json-v3.md), [итоговый audit](audits/m8-stationary-wound-transport-readiness.md), [public JSON](examples/m8/json/README.md). Native generation и обе magic JSON/CLI families1/2/3 проверены в source/wheel/installed/module/console/spawn.
+**M8 / ADR-0054 закрыт: matching generation family и обе Magic JSON/CLI v4 families реализованы и проверены.** [Контракт](decisions/ADR-0054-repeated-leg-spasm-generation-and-magic-json-v4.md), [итоговый аудит](audits/m8-repeated-leg-spasm-transport-readiness.md), [примеры JSON4](examples/m8/json/README.md), [roadmap](roadmap.md).
 
-Independent nullable stationary/Miscast permissions и matching reserve/family assertions сохраняются. Full generation→staged→report→assessment→summary sources и original derived cache проверяются до equality. Audit нашёл/исправил detached candidate facts int1=True gap public generation-result;1newregression + installed negative прошли, facts не нормализуются.
-
-## Ограничения
-
-- PG1.4/GM1.1 / ADR-0050 прежние: canonical first9 stand/context49, superficial1–3 и active/expired6, normal Tests, no external causes; terrain/history сохраняются, Give Ground=False.
-- None сохраняет legacy; repeated9/Wind-Prone с terrain/прочие неподдержанные обязательные effects остаются stop и входят в denominator. Новых gameplay/house rules нет.
-- JSON3 fresh-only, не save/resume.1/2 stationary field запрещён даже null.6nonmagic routes — только1. Registry18magic/36total, default1.
-- 33 прежние expectations errors Python3.12 — отдельная задача; полный suite с ними не зелёный.
+Append-last repeated family assertion, strict3policy matching/dependency и all-candidate preflight сохраняют arithmetic Request/full factory source guards. Required nullable JSON4 fields, own command/error metadata, exact source/cache/echo проверены. JSON1/2/3 запрещают новый key даже null. Gameplay/domain/engine/rules/simulation bytes совпали с native53; новых house rules нет.
 
 ## Последняя проверка
 
-Windows/CPython3.12.4 вне sandbox: **3987tests /33known errors /0failures /0skipped,906,227с**.20generation tests, включая новый detached-facts regression, прошли; все33 exact ERROR headers совпали с предыдущим baseline. Log `.cache/adr0051-final-audit-regression.log`.
+Итоговое покрытие4078tests: **540integration — все прошли; повторный3538unit —33прежние errors,0failures/0skipped**. Exact33ERROR headers совпали с baseline53. Полный4078прогон1010,552с нашёл один устаревший positional-field test; исправлено только его ожидание и повторён весь unit-набор106,399с. Это составной итог, не единый зелёный full run. Детали и логи — в аудите.
 
-Финальный wheel `.cache/adr0051-final-installed-audit/wheels/towr_encounter_balancer-0.1.0-py3-none-any.whl`, SHA256 `9ba0b5433efcb3f99bd8e5a098236a5cfaf358231781023b8231aa6edd388b35`.465package .py/.json source/wheel/installed paths+hashes совпали,36schemas/383local refs/18magic разрешены.269transport childcommands/28backendcases/3copiedexamples прошли; отдельно installed native220d10/actual9→6expiry иseq/spawn fullrecordparity.
-
-Current source/module/console stdout exact. Saved v2/v3 bytes совпали на одинаковом runtime; v1 snapshots3.12.15 отличаются от3.12.4, все non-runtime JSON fields совпали в finite сравнении, raw bytes не объявляются равными. Source/fixture manifests после full suite неизменны. Evidence в final-installed-audit/transport/evidence.json, native/evidence.json и candidate-facts-guard.log.
-
-Первичная `.cache/adr0051-installed-audit` сборка ДО facts fix не используется. Production/tests/helpers/probes после финальных проверок не менялись; Markdown-пути (без anchors) и git diff --check проверены.
+Последняя команда проверки:
 
 ```powershell
 $env:PYTHONPATH = 'src'
-.venv/Scripts/python.exe -m unittest discover -s tests -v
+.venv/Scripts/python.exe -m unittest discover -s tests/unit -t tests -v
 ```
+
+Installed audit:474package source/wheel/installed paths+SHA,42schemas/444localrefs/24magic,52backend cases/486child commands, real spawn, native330/generated1426d10, copied bundles и public2/3/4same-runtime bytes. После регрессии manifest и89example hashes неизменны. WheelSHA/evidence paths и команды воспроизведения сохранены в аудите.
+
+## Ограничения
+
+Native53 scope прежний: один repeated stand с полными journal witnesses, unsupported stops и denominator сохраняются. Третья9, несовместимые6/Wind при repeated stand, Wound10 и новые consumers не открыты.33прежние Python3.12 expectation errors K1/M5 — отдельная задача; полный набор не объявляется зелёным.
 
 ## Точный следующий шаг
 
-[Continuation inventory](audits/m8-continuation-inventory.md) технически актуализирован по13labels/runner/diagnosis и закрытому transport. Сравнить минимальные оставшиеся scopes (Wound10/repeated9/Wind-Prone), выбрать один следующий source-bound consumer и подготовить ADR-0052 + finite proof с адресной книжной сверкой. Новое поведение до этого не реализовать; конкретный следующий consumer пока не назначен.
+Подготовить следующий bounded consumer contract по [inventory](audits/m8-continuation-inventory.md), начав с адресной сверки Crushed Rib (Wound10): PG1.4 Wounds Table190 и existing source-bound next-Test/Protection/Casting lifecycle. Определить границу однократного NEXT_TEST_IS_GRIM и finite proof для будущего ADR-0055 до реализации. Не считать Wound10 уже поддержанным и не угадывать книжные неоднозначности.
 
-Изменения пункта4: audit helper, narrow facts guard,1regression и docs; предшествующие незакоммиченные изменения пункта3 сохранены. Commit/push выполняет пользователь.
+103незакоммиченных файла, включая57предшествующих; commit/push не выполнялись.

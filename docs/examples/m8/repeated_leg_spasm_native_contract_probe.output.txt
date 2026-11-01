@@ -1,0 +1,11 @@
+EXISTING stationary=None miscast=None: 7 d10; first9 actor-injury stop
+EXISTING stationary=None miscast=on: 7 d10; first9 actor-injury stop
+EXISTING stationary=on miscast=None: 24 d10; second9 actor-injury stop
+EXISTING stationary=on miscast=on: 24 d10; second9 actor-injury stop
+CLOSED JOURNAL: reconstructs exactly; stand48 and second Attack witnesses precede actual end/start scheduler tail
+MANUAL stand52: real journal witnesses; two terrains/history retained; no new receipts; old permission refuses journal step
+MEMBERSHIP GAP: alternate actual Attack has same ID/source/current but different dice; low-level52 admits its finite lineage
+REQUIRED NATIVE CONTRACT: bind both full witnesses to recorded prefix members; IDs/projected-state equality alone is insufficient
+NATIVE GUARDS: raw stationary enum and detached int-bool facts rejected by runner before RNG
+NATIVE ADMISSION: original nested facts re-admitted; sources/global RNG unchanged
+86 scripted d10; finite public boundary proof; no future permission types, new gameplay or automatic continuation

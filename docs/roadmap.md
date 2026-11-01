@@ -248,4 +248,36 @@ Native policy/runner ADR-0050 реализованы ниже. Generation/wire p
 3. **Реализовано и проверено:** balance v3 —3schemas/registry18magic36total, independent reserve/family assertions, source guards всех report edges/derived cache, own phase error contexts, parser/encoder/service/CLI.30newtests и actual generated3/4actors48/66d10/stagedseqspawn/CLI/sourceprivacy, public JSON и16actual v3 probe round-trips. Full3986tests/33known errors/0failures/0skipped, exact headers прежние; [balance3 этап закрыт](audits/m8-balance-v3-readiness.md).
 4. **Выполнено:**465package file parity,36schemas/383local refs/18magic,269transportcommands/28backend cases/3copied examples, installed native9/6/spawn220d10. Candidate-facts int1 bypass исправлен с1regression; final full3987tests/33known errors/0failures/0skipped, exact baseline headers прежние. Saved v2/v3 bytes совпали на текущем runtime; v1 provenance/different-runtime body parity указаны отдельно, без ложного byte claim.
 
-Точный следующий шаг — [актуализированный continuation inventory](audits/m8-continuation-inventory.md): сравнить минимальные оставшиеся scopes (Wound10/repeated9/Wind-Prone), выбрать один следующий source-bound consumer и подготовить ADR-0052 + finite proof с адресной книжной сверкой. Конкретный новый gameplay consumer пока не назначен; policy не расширяется автоматически. No save/resume/general rules engine.
+Следующий consumer выбран по [continuation inventory](audits/m8-continuation-inventory.md); его отдельный контракт — ниже. ADR-0051 не расширяет gameplay автоматически.
+
+## ADR-0052 — source-bound повторный Leg Spasm stand
+
+**ADR-0052 закрыт в принятой low-level границе.** [Контракт](decisions/ADR-0052-source-bound-repeated-leg-spasm-stand.md), [actual-bound пример](examples/m8/repeated_leg_spasm_stand.py), [итоговый аудит](audits/m8-repeated-leg-spasm-stand-readiness.md). Исходный [contract probe](examples/m8/repeated_leg_spasm_contract_probe.py) сохраняется как отдельная K1-only evidence; новый пример34d10 использует настоящий consumer и context49/Casting/end, сохраняя None/automatic stop.
+
+1. **Выполнено:** frozen request/result, full current owner + previous stand48 + actual bound Attack с новой rolled9; canonical old/new causes, exact history и pure end-attacker/start-Wizard delta. Старые48/49 validators не ослаблены.
+2. **Выполнено:** один K1 executor/exact-source apply,21unit/3integration с actual post-stand Casting/end. Review обнаружил nested RollTrace rawquality/booldie bypass; narrow pure guard и1regression/6subcases исправили его, independently rechecked.
+3. **Выполнено:** public/copied и installed example34d10,467package paths+hashes source/wheel/installed; full4013tests/33known errors/0failures/0skipped,949,929с. Все33 ERROR headers прежние;26new-scope tests OK. Package/4fixture/wheel manifests после suite неизменны.
+
+Следующий native контракт53 подготовлен ниже; закрытый low-level52 не включает его автоматически. Прежняя policy, правила и wire сохраняют свои границы.
+
+## ADR-0053 — native repeated Leg Spasm continuation
+
+**ADR-0053 закрыт в принятой native границе.** [Контракт](decisions/ADR-0053-native-repeated-leg-spasm-continuation.md), [automatic330d10](examples/m8/repeated_leg_spasm_runner.py), [итоговый аудит](audits/m8-native-repeated-leg-spasm-readiness.md). [Исходный proof86d10](examples/m8/repeated_leg_spasm_native_contract_probe.py) сохраняет old-policy stops; после Step union расширения проверяется policy refusal и исправленный native facts guard.
+
+1. **Выполнено:** typed permission/base dependency, bounded cursor и native facts/source admission; derived full membership без root archive/replay.
+2. **Выполнено:** Step/journal/diagnosis/runner, один repeat, mandatory order, old controls и post-stand6/expiry;14unit пройдены.
+3. **Выполнено:** native trial/sequential/spawn/explicit-list/staged source/records/denominator, parent preflight;5integration и10generation/JSON refusal tests пройдены. Wire/family не расширены.
+4. **Выполнено:** final public/installed330d10,468package parity и real spawn; full4044/33known/0failures/0skipped,916,005с. Все33 ERROR headers baseline прежние,31native/refusal/proof tests OK; manifests после suite совпали. Arithmetic/execution admission разделены, fixtures обновлены; диагностический первый прогон не считается итоговой проверкой.
+
+Следующий контракт54 подготовлен ниже; закрытая native веха53 не открывает generation/JSON автоматически.
+
+## ADR-0054 — repeated family и Magic JSON/CLI v4
+
+**ADR-0054 закрыт в принятой transport границе.** [Контракт](decisions/ADR-0054-repeated-leg-spasm-generation-and-magic-json-v4.md), [production proof96d10](examples/m8/repeated_leg_spasm_transport_contract_probe.py), [generated runner1426d10](examples/m8/repeated_leg_spasm_generation_runner.py), [публичные JSON4](examples/m8/json/README.md), [итоговый аудит](audits/m8-repeated-leg-spasm-transport-readiness.md).
+
+1. Append-last matching family assertion, strict3policy/dependency/all-candidate preflight до enumeration/equality, explicit projection; arithmetic Request/full factory split сохранён. Actual generated3/4actor repeat/post6/third9, обе perspectives, seeds/budget/seq/spawn/staged parity проверены.
+2. Обе magic families1/2/3/4,6new schemas, registry24magic/42total/cache24, required nullable repeated fields, independent reserve/family matching, source/cache guards и own phase errors4. Legacy1/2/3 закрыты для нового поля даже null.
+3. Installed source/wheel/installed474files,42schemas/444refs,52backend cases/486child commands, native330/generated1426 с realPID spawn, copied bundles и public2/3/4same-runtime bytes прошли.
+4. Итоговое покрытие4078tests составное:540integration успешны; после исправления одного старого positional metadata assertion повторены все3538unit —33known errors/0failures. Exact33ERROR headers совпали с baseline53. Полный4078прогон до этого fixture fix имел1failure; единый зелёный full run не заявляется. Production/integration после него не менялись.
+
+Точный следующий шаг — подготовить bounded контракт следующего consumer по inventory: адресно сверить Crushed Rib10 и existing source-bound next-Test/Protection/Casting lifecycle, определить once-only Grim consumption и finite proof будущего ADR-0055. До контракта/книжной сверки runtime и wire не расширять.33прежние Python3.12 expectations остаются отдельной задачей.

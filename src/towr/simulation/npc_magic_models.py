@@ -5,7 +5,9 @@ from collections import Counter
 from dataclasses import dataclass
 from hashlib import sha256
 
-from towr.domain.npc_magic_scenario_models import NpcMagicScenario
+from towr.domain.npc_magic_scenario_models import (
+    NpcMagicScenario, validate_npc_magic_scenario_admission, _validate_magic_scenario_permissions,
+)
 from towr.domain.npc_magic_step_models import NpcMagicScenarioOutcome
 
 
@@ -44,6 +46,9 @@ class NpcMagicSimulationRequest:
     def __post_init__(self) -> None:
         if not isinstance(self.scenario, NpcMagicScenario):
             raise TypeError("magic simulation requires an admitted NpcMagicScenario")
+        # Generation also uses this arithmetic seed/trial admission before
+        # subset construction. Full Scenario admission belongs to execution.
+        _validate_magic_scenario_permissions(self.scenario)
         _uint64(self.master_seed, "master_seed")
         _uint64(self.trials, "trials")
         if self.trials == 0:
@@ -71,6 +76,7 @@ class NpcMagicTrialRecord:
     def __post_init__(self) -> None:
         if not isinstance(self.source_scenario, NpcMagicScenario):
             raise TypeError("magic record requires its full typed source scenario")
+        validate_npc_magic_scenario_admission(self.source_scenario)
         _uint64(self.trial_index, "trial_index")
         _nonnegative_integer(self.seed, "seed")
         if self.seed >= 1 << 256:
@@ -117,6 +123,7 @@ class NpcMagicSimulationResult:
     def __post_init__(self) -> None:
         if not isinstance(self.source_request, NpcMagicSimulationRequest):
             raise TypeError("magic result requires its typed source request")
+        validate_npc_magic_scenario_admission(self.source_request.scenario)
         if not isinstance(self.trials, (tuple, list)):
             raise TypeError("magic trials must be an ordered tuple or list")
         trials = tuple(self.trials)
@@ -126,6 +133,7 @@ class NpcMagicSimulationResult:
             raise ValueError("magic result must contain every requested trial")
         trials = tuple(sorted(trials, key=lambda item: item.trial_index))
         for index, trial in enumerate(trials):
+            validate_npc_magic_scenario_admission(trial.source_scenario)
             if trial.trial_index != index:
                 raise ValueError("magic result has a missing, duplicate or foreign index")
             if trial.seed != self.source_request.seed_for(index):

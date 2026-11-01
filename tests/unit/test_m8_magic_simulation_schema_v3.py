@@ -119,24 +119,24 @@ class MagicSimulationSchemaV3Tests(unittest.TestCase):
         schemas._validator.cache_clear()
         with patch.object(schemas, 'files', side_effect=AssertionError('no file lookup for unsupported version')) as lookup:
             with self.assertRaisesRegex(ValueError, 'unsupported magic balance schema version'):
-                schemas.validate_magic_balance_document({}, schema_version='4')
+                schemas.validate_magic_balance_document({}, schema_version='5')
             with self.assertRaisesRegex(ValueError, 'unsupported magic balance schema version'):
-                schemas._validator('request', 'balance', '4')
+                schemas._validator('request', 'balance', '5')
             lookup.assert_not_called()
 
-    def test_registry_caches_all_eighteen_current_magic_family_kind_versions(self):
+    def test_registry_caches_all_twenty_four_current_magic_family_kind_versions(self):
         schemas._validator.cache_clear()
-        for family, versions in (('simulation', ('1', '2', '3')), ('balance', ('1', '2', '3'))):
+        for family, versions in (('simulation', ('1', '2', '3', '4')), ('balance', ('1', '2', '3', '4'))):
             for version in versions:
                 for kind in ('request', 'result', 'error'):
                     validator = schemas._validator(kind, family, version)
                     self.assertEqual(validator.schema['$id'], f'urn:towr:magic-{family}:{kind}:{version}')
-        self.assertEqual(schemas._validator.cache_info().currsize, 18)
-        self.assertEqual(schemas._validator.cache_info().maxsize, 18)
+        self.assertEqual(schemas._validator.cache_info().currsize, 24)
+        self.assertEqual(schemas._validator.cache_info().maxsize, 24)
         names = tuple(p.name for p in files('towr.adapters.schemas').iterdir() if p.name.endswith('.schema.json'))
-        self.assertEqual(len(names), 36)
-        self.assertEqual(sum(name.startswith('magic-') for name in names), 18)
-        for version in (None, 3, True, '03', '4'):
+        self.assertEqual(len(names), 42)
+        self.assertEqual(sum(name.startswith('magic-') for name in names), 24)
+        for version in (None, 3, True, '03', '5'):
             with self.subTest(version=version), self.assertRaises(ValueError):
                 schemas.validate_magic_simulation_document({}, schema_version=version)
 

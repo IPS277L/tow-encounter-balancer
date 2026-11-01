@@ -38,7 +38,7 @@ def encode_magic_simulation_error(
 def parse_magic_simulation_request(text: str | bytes) -> MagicSimulationCommand:
     """Read strict UTF-8 JSON and admit the full fresh authored scenario."""
     document = read_request(text, MagicSimulationInputError, validate_magic_simulation_document,
-                            magic_versions=('1', '2', '3'))
+                            magic_versions=('1', '2', '3', '4'))
     version = document['schema_version']
     try:
         options = document['simulation']

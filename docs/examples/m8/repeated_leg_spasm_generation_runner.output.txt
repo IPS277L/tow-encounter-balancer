@@ -1,0 +1,5 @@
+GENERATED 3 actors: repeat/post6/third9 = [48, 51, 42]; exact prior stand/attack witnesses; one repeat only
+GENERATED 4 actors: repeat/post6/third9 = [66, 69, 54]; exact prior stand/attack witnesses; one repeat only
+STAGED sequential/spawn: full-source parity; full rerun budget8/8 and seed prefix; 840 scripted d10
+MIXED sequential/spawn: round-limit + Wound10 unsupported; denominator2 per candidate; actual/planned4/8; 256 scripted d10
+1426 scripted d10 total; production generation; immutable sources/global RNG; real child PID checked

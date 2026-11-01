@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:towr:magic-simulation:request:4",
+  "$comment": "ADR-0054: three required nullable permissions; dependency is checked by typed admission, unchanged fragments use bundled v1/v2/v3 refs.",
+  "type": "object",
+  "properties": {
+    "schema_version": {"type": "string", "const": "4"},
+    "kind": {"$ref": "urn:towr:magic-simulation:request:1#/properties/kind"},
+    "request_id": {"$ref": "urn:towr:magic-simulation:request:1#/properties/request_id"},
+    "ruleset": {"$ref": "urn:towr:magic-simulation:request:1#/properties/ruleset"},
+    "simulation": {"$ref": "urn:towr:magic-simulation:request:1#/properties/simulation"},
+    "execution": {"$ref": "urn:towr:magic-simulation:request:1#/properties/execution"},
+    "scenario": {"$ref": "#/$defs/scenario"}
+  },
+  "required": ["schema_version", "kind", "request_id", "ruleset", "simulation", "execution", "scenario"],
+  "additionalProperties": false,
+  "$defs": {
+    "repeated_leg_spasm_continuation": {
+      "oneOf": [
+        {"type": "null"},
+        {"type": "string", "const": "stand_once_with_journal_witnesses"}
+      ]
+    },
+    "scenario": {
+      "type": "object",
+      "properties": {
+        "scenario_id": {"$ref": "urn:towr:magic-simulation:request:1#/$defs/scenario/properties/scenario_id"},
+        "definitions": {"$ref": "urn:towr:magic-simulation:request:1#/$defs/scenario/properties/definitions"},
+        "actors": {"$ref": "urn:towr:magic-simulation:request:1#/$defs/scenario/properties/actors"},
+        "battlefield": {"$ref": "urn:towr:magic-simulation:request:1#/$defs/scenario/properties/battlefield"},
+        "placements": {"$ref": "urn:towr:magic-simulation:request:1#/$defs/scenario/properties/placements"},
+        "side_order": {"$ref": "urn:towr:magic-simulation:request:1#/$defs/scenario/properties/side_order"},
+        "activation_order": {"$ref": "urn:towr:magic-simulation:request:1#/$defs/scenario/properties/activation_order"},
+        "perspective_side": {"$ref": "urn:towr:magic-simulation:request:1#/$defs/scenario/properties/perspective_side"},
+        "objective_target_ids": {"$ref": "urn:towr:magic-simulation:request:1#/$defs/scenario/properties/objective_target_ids"},
+        "facts": {"$ref": "urn:towr:magic-simulation:request:1#/$defs/scenario/properties/facts"},
+        "wizard": {"$ref": "urn:towr:magic-simulation:request:1#/$defs/scenario/properties/wizard"},
+        "spell": {"$ref": "urn:towr:magic-simulation:request:1#/$defs/scenario/properties/spell"},
+        "actor_policies": {"$ref": "urn:towr:magic-simulation:request:1#/$defs/scenario/properties/actor_policies"},
+        "scene_frames": {"$ref": "urn:towr:magic-simulation:request:1#/$defs/scenario/properties/scene_frames"},
+        "repeated_stagger_choice": {"$ref": "urn:towr:magic-simulation:request:1#/$defs/scenario/properties/repeated_stagger_choice"},
+        "miscast_continuation": {"$ref": "urn:towr:magic-simulation:request:2#/$defs/miscast_continuation"},
+        "stationary_wound_continuation": {"$ref": "urn:towr:magic-simulation:request:3#/$defs/stationary_wound_continuation"},
+        "repeated_leg_spasm_continuation": {"$ref": "#/$defs/repeated_leg_spasm_continuation"}
+      },
+      "required": ["scenario_id", "definitions", "actors", "battlefield", "placements", "side_order", "activation_order", "perspective_side", "objective_target_ids", "facts", "wizard", "spell", "actor_policies", "scene_frames", "repeated_stagger_choice", "miscast_continuation", "stationary_wound_continuation", "repeated_leg_spasm_continuation"],
+      "additionalProperties": false
+    }
+  }
+}

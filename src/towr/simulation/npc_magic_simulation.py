@@ -1,6 +1,8 @@
 """Sequential independent trials over the unchanged M8 single-run boundary."""
 from collections.abc import Callable
 from random import Random
+from dataclasses import replace
+from towr.domain.npc_magic_scenario_models import validate_npc_magic_scenario_admission
 
 from towr.domain.npc_magic_scenario_result_models import NpcMagicScenarioResult
 from towr.engine.npc_magic_scenario_runner import run_npc_magic_scenario
@@ -16,10 +18,13 @@ def run_npc_magic_trial(
     """Use a fresh caller-supplied RNG and discard the journal after projection."""
     if not isinstance(request, NpcMagicSimulationRequest):
         raise TypeError("magic trial requires a typed simulation request")
+    replace(request)  # Parent preflight must run before constructing even one RNG.
+    validate_npc_magic_scenario_admission(request.scenario)
     seed = request.seed_for(trial_index)
     result = run_npc_magic_scenario(request.scenario, rng_factory(seed))
     if not isinstance(result, NpcMagicScenarioResult):
         raise TypeError("magic runner must return a typed scenario result")
+    validate_npc_magic_scenario_admission(result.source)
     if result.source != request.scenario:
         raise ValueError("magic result belongs to a different full scenario")
     return NpcMagicTrialRecord(
@@ -38,6 +43,8 @@ def run_npc_magic_simulation(
     """
     if not isinstance(request, NpcMagicSimulationRequest):
         raise TypeError("magic simulation requires a typed request")
+    replace(request)
+    validate_npc_magic_scenario_admission(request.scenario)
     return NpcMagicSimulationResult(request, tuple(
         run_npc_magic_trial(request, index, rng_factory=rng_factory) for index in range(request.trials)
     ))

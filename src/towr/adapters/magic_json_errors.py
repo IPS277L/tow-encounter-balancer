@@ -19,8 +19,8 @@ class MagicInputError(ValueError):
 
 
 class MagicSimulationInputError(MagicInputError):
-    _schema_versions = ("1", "2", "3")
+    _schema_versions = ("1", "2", "3", "4")
 
 
 class MagicBalanceInputError(MagicInputError):
-    _schema_versions = ("1", "2", "3")
+    _schema_versions = ("1", "2", "3", "4")

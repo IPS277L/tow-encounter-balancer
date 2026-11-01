@@ -1,4 +1,16 @@
-# Magic JSON: simulation/balance v3, v2 и v1 fixtures
+# Magic JSON: simulation/balance v4, v3, v2 и v1 fixtures
+
+## V4 — independent repeated Leg Spasm permission
+
+[Simulation request](magic-simulation-v4.request.json) / [result](magic-simulation-v4.result.json) и [balance request](magic-balance-v4.request.json) / [result](magic-balance-v4.result.json) содержат обязательный nullable `repeated_leg_spasm_continuation`: null либо `stand_once_with_journal_witnesses`. У balance reserve и generation имеют отдельные matching assertions. Поле требует selected stationary policy; Miscast независим. Все3 поля обязательны даже при null. Версия остаётся4 в request/result/error; default version1, gameplay scope native53 прежний.
+
+```powershell
+$env:PYTHONPATH = 'src'
+.venv/Scripts/python.exe -m towr simulate-magic docs/examples/m8/json/magic-simulation-v4.request.json
+.venv/Scripts/python.exe -m towr balance-magic docs/examples/m8/json/magic-balance-v4.request.json
+```
+
+Для процессов задать `execution` как `{"mode":"process","workers":2,"batch_size":1}`. Saved results получены на CPython3.12.4 и являются finite observations; сравнение Monte Carlo bytes допустимо только на том же runtime. JSON1/2/3 новое поле запрещают даже null. Семантическая dependency error указывает на scenario repeated field, family mismatch — `/generation/repeated_leg_spasm_continuation`; unknown5 даёт fallback1 с decoded ID, lexical failure — fallback1/null ID. Контракт — [ADR-0054](../../../decisions/ADR-0054-repeated-leg-spasm-generation-and-magic-json-v4.md).
 
 [Общий source/wheel/installed audit ADR-0051](../../../audits/m8-stationary-wound-transport-readiness.md) завершён: обе families1/2/3 и6legacyroutes, module/console/stdin/file/actualprocess,18magic/36schemas/383localrefs. На текущем CPython3.12.4 публичные v2/v3 results совпали с saved bytes; v1 snapshots3.12.15 имеют другую runtime metadata, non-runtime JSON fields совпали при отдельном finite сравнении. Все repository fixtures оставлены неизменными. Эта evidence не означает универсальную cross-runtime вероятность.
 

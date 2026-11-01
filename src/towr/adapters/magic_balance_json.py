@@ -10,6 +10,8 @@ from towr.adapters._json_common import build_value, parse_seed, read_request
 from towr.adapters._magic_scenario_json import (
     facts_document, parse_facts, parse_scenario, parse_scene_frames, scenario_document, scene_frames_document,
     miscast_continuation_document, parse_miscast_continuation, parse_stationary_wound_continuation,
+    parse_repeated_leg_spasm_continuation,
+    validate_scenario_wire_permissions,
 )
 from towr.adapters.magic_json_errors import MagicBalanceInputError
 from towr.adapters.magic_json_schema import validate_magic_balance_document
@@ -54,7 +56,7 @@ def encode_magic_balance_error(
 def parse_magic_balance_request(text: str | bytes) -> MagicBalanceCommand:
     """Read strict JSON, admit the full reserve, and preflight C/staged budget."""
     document = read_request(text, MagicBalanceInputError, validate_magic_balance_document,
-                            magic_versions=('1', '2', '3'))
+                            magic_versions=('1', '2', '3', '4'))
     try:
         return _parse_document(document)
     except MagicBalanceInputError as error:
@@ -70,7 +72,7 @@ def _parse_document(document: dict) -> MagicBalanceCommand:
     scenario, definition_order = parse_scenario(reserve['scenario'], reserve['round_budget'],
         path_prefix='/reserve/scenario', error_type=MagicBalanceInputError, schema_version=version)
     continuation = None
-    if version in ('2', '3'):
+    if version in ('2', '3', '4'):
         continuation = parse_miscast_continuation(generation['miscast_continuation'],
             path_prefix='/generation/miscast_continuation', error_type=MagicBalanceInputError)
         if continuation != scenario.miscast_continuation:
@@ -78,13 +80,22 @@ def _parse_document(document: dict) -> MagicBalanceCommand:
                 'family Miscast continuation must equal the full reserve policy',
                 path='/generation/miscast_continuation')
     stationary = None
-    if version == '3':
+    if version in ('3', '4'):
         stationary = parse_stationary_wound_continuation(generation['stationary_wound_continuation'],
             path_prefix='/generation/stationary_wound_continuation', error_type=MagicBalanceInputError)
         if stationary != scenario.stationary_wound_continuation:
             raise MagicBalanceInputError(Code.INVALID_INPUT,
                 'family stationary Wound continuation must equal the full reserve policy',
                 path='/generation/stationary_wound_continuation')
+    repeated = None
+    if version == '4':
+        repeated = parse_repeated_leg_spasm_continuation(generation['repeated_leg_spasm_continuation'],
+            stationary=stationary, path_prefix='/generation/repeated_leg_spasm_continuation',
+            error_type=MagicBalanceInputError)
+        if repeated != scenario.repeated_leg_spasm_continuation:
+            raise MagicBalanceInputError(Code.INVALID_INPUT,
+                'family repeated Leg Spasm policy must match the template policy',
+                path='/generation/repeated_leg_spasm_continuation')
     groups = tuple(build(f'/generation/groups/{i}', MagicCompositionGroup, **group)
                    for i, group in enumerate(generation['groups']))
     facts = build('/generation/facts', parse_facts, generation['facts'])
@@ -101,7 +112,7 @@ def _parse_document(document: dict) -> MagicBalanceCommand:
     request = build('', MagicCandidateGenerationRequest, scenario, groups, facts, frames,
         generation['candidate_id_prefix'], generation['max_candidates'], seed, stages,
         evaluation['max_total_trials'], window, miscast_continuation=continuation,
-        stationary_wound_continuation=stationary)
+        stationary_wound_continuation=stationary, repeated_leg_spasm_continuation=repeated)
     execution = document['execution']
     options = build('/execution', SimulationExecutionOptions, SimulationExecutionMode(execution['mode']),
                     execution.get('workers'), execution.get('batch_size'))
@@ -130,11 +141,14 @@ def _request_document(command: MagicBalanceCommand) -> dict:
             'max_total_trials': source.max_total_trials,
             'window': {name: _fraction_document(getattr(source.window, name)) for name in ('minimum', 'target', 'maximum')}},
         'execution': execution}
-    if command.schema_version in ('2', '3'):
+    if command.schema_version in ('2', '3', '4'):
         document['generation']['miscast_continuation'] = miscast_continuation_document(source.miscast_continuation)
-    if command.schema_version == '3':
+    if command.schema_version in ('3', '4'):
         policy = source.stationary_wound_continuation
         document['generation']['stationary_wound_continuation'] = None if policy is None else policy.value
+    if command.schema_version == '4':
+        policy = source.repeated_leg_spasm_continuation
+        document['generation']['repeated_leg_spasm_continuation'] = None if policy is None else policy.value
     return document
 
 
@@ -144,6 +158,7 @@ def encode_magic_balance_result(command: MagicBalanceCommand, result: MagicBalan
         raise TypeError('balance encoding requires a typed magic command and result')
     source = command.generation_request
     _validate_generation_source(source)
+    validate_scenario_wire_permissions(source.template_scenario, command.schema_version)
     replace(result)
     if result.generation_result.source_request != source:
         raise ValueError('balance result belongs to a different generation request')

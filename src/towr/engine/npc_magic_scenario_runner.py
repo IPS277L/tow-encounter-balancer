@@ -30,7 +30,11 @@ from towr.domain.npc_magic_miscast_journal_policy import validate_magic_miscast_
 from towr.domain.npc_magic_stationary_wound_policy import (
     magic_leg_spasm_stand_eligible, magic_stationary_wound_context,
 )
-from towr.domain.npc_magic_scenario_models import NpcMagicScenario
+from towr.domain.npc_magic_scenario_models import NpcMagicScenario, validate_npc_magic_scenario_admission
+from towr.domain.npc_magic_repeated_leg_spasm_policy import (
+    initial_magic_repeated_leg_spasm_history, advance_magic_repeated_leg_spasm_history,
+    magic_repeated_leg_spasm_stand_request,
+)
 from towr.domain.npc_magic_scenario_result_models import (
     NpcMagicScenarioResult, diagnose_npc_magic_unsupported, npc_magic_terminal_outcome,
 )
@@ -71,6 +75,7 @@ from towr.rules.npc_roster_miscast_resolution import (
 )
 from towr.rules.npc_roster_prone_resolution import stand_npc_roster_prone, end_npc_roster_prone_turn
 from towr.rules.npc_roster_leg_spasm_resolution import stand_npc_roster_leg_spasm
+from towr.rules.npc_roster_repeated_leg_spasm_resolution import stand_npc_roster_repeated_leg_spasm
 from towr.rules.npc_roster_shooting_preparation import prepare_npc_roster_shooting
 from towr.rules.npc_roster_turn_resolution import start_npc_roster_turn, advance_npc_roster_round
 from towr.rules.npc_wound_turn_end import end_npc_wound_turn
@@ -110,10 +115,11 @@ def run_npc_magic_scenario(scenario: NpcMagicScenario, rng: RandomSource) -> Npc
     """Use one caller RNG until objective, perspective defeat, budget or exact stop."""
     if not isinstance(scenario, NpcMagicScenario):
         raise TypeError('magic runner requires a validated NpcMagicScenario')
-    replace(scenario)  # Recheck complete admission before bootstrap or any RNG.
+    validate_npc_magic_scenario_admission(scenario)
     if not callable(getattr(rng, 'randint', None)):
         raise TypeError('magic runner requires an injected randint source')
     current = scenario.initial_runtime_state
+    repeated_history = initial_magic_repeated_leg_spasm_history(scenario)
     steps: list[NpcMagicStep] = []
     decisions = _Decisions(scenario.repeated_stagger_choice)
 
@@ -121,13 +127,14 @@ def run_npc_magic_scenario(scenario: NpcMagicScenario, rng: RandomSource) -> Npc
         return f'{scenario.id}:{len(steps)}:{label}'
 
     def publish(result: NpcMagicStepResult, expected_source: object, *, origin_witness=None) -> None:
-        nonlocal current
+        nonlocal current, repeated_history
         step = NpcMagicStep(result, origin_witness=origin_witness)
         if result.source != expected_source or step.before != current:
             raise ValueError('executor returned a result for another full source')
         validate_magic_step_predecessor(steps[-1] if steps else None, step)
         validate_magic_miscast_predecessor(scenario, steps[-1] if steps else None, step)
-        validate_magic_step_policy(scenario, step)
+        validate_magic_step_policy(scenario, step, repeated_history=repeated_history)
+        repeated_history = advance_magic_repeated_leg_spasm_history(scenario, repeated_history, step)
         current = step.after
         steps.append(step)
 
@@ -137,7 +144,7 @@ def run_npc_magic_scenario(scenario: NpcMagicScenario, rng: RandomSource) -> Npc
         if npc_magic_terminal_outcome(scenario, current) is not None:
             return NpcMagicScenarioResult(scenario, tuple(steps))
         last_id = steps[-1].id if steps else scenario.id
-        stop = diagnose_npc_magic_unsupported(scenario, current, last_id)
+        stop = diagnose_npc_magic_unsupported(scenario, current, last_id, repeated_history=repeated_history)
         if stop is not None:
             return NpcMagicScenarioResult(scenario, tuple(steps), stop)
         if scenario.miscast_continuation is not None:
@@ -162,7 +169,8 @@ def run_npc_magic_scenario(scenario: NpcMagicScenario, rng: RandomSource) -> Npc
             movements = ()
             spatial = pending.source.spatial_state
             for follow_up in pending.zone.movement_follow_ups:
-                stop = diagnose_npc_magic_unsupported(scenario, current, last_id, movements)
+                stop = diagnose_npc_magic_unsupported(scenario, current, last_id, movements,
+                                                     repeated_history=repeated_history)
                 if stop is not None:
                     return NpcMagicScenarioResult(scenario, tuple(steps), stop)
                 frame = scenario.frame_for(magic_movement_prefix(scenario, current, movements))
@@ -219,6 +227,11 @@ def run_npc_magic_scenario(scenario: NpcMagicScenario, rng: RandomSource) -> Npc
             publish(end_npc_wound_turn(source), source)
             continue
         frame = scenario.frame_for(magic_scene_key(current))
+        repeated_request = magic_repeated_leg_spasm_stand_request(
+            scenario, current, frame, repeated_history, identifier('repeated-leg-spasm-stand'))
+        if repeated_request is not None:
+            publish(stand_npc_roster_repeated_leg_spasm(repeated_request), repeated_request)
+            continue
         if magic_leg_spasm_stand_eligible(scenario, current, frame):
             source = NpcRosterLegSpasmStandRequest(identifier('leg-spasm-stand'), current, actor_id,
                 False, scenario.facts.no_external_condition_sources)

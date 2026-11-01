@@ -1,5 +1,17 @@
 # Раны и состояния
 
+## Доставка native permission: контракт ADR-0054
+
+[ADR-0054](../decisions/ADR-0054-repeated-leg-spasm-generation-and-magic-json-v4.md) передаёт native53 permission через matching generation assertion и Magic JSON4. Новое nullable разрешение требует base stationary policy; Miscast независим. Правила/источники и scope stand52 прежние: третья9, несовместимые6/Wind при stand и другие consumers не добавлены. JSON1/2/3 новое поле запрещают даже null и отказывают при encoding native nonNone.
+
+## Native повторный stand, ADR-0053
+
+[ADR-0053](../decisions/ADR-0053-native-repeated-leg-spasm-continuation.md) включает existing52 в runner при отдельной explicit permission и точных journal witnesses. Нормативные источники/Rule IDs строки9 прежние, нового поведения сверх52 нет. Один repeated stand снимает только новый Prone cause; terrain/history остаются, третья9 даёт stop. Поддержанная Wound6 после stand сохраняет expiry через49. Прежняя stationary policy/None сохраняют свои stops; [аудит](../audits/m8-native-repeated-leg-spasm-readiness.md).
+
+## Повторная Leg Spasm: контракт ADR-0052
+
+Уточнение существующих RULE-HEALTH-005/008 и RULE-COMBAT-014, источник BOOK-PLAYER-GUIDE1.4, гл.V Free Actions116/Conditions122/Prone123 и приложение Wounds Table190; BOOK-GM-GUIDE1.1, гл.VII Champions92. Новая9 снова даёт Prone; предыдущая9 после stand сохраняет только terrain. Один self-stand снимает Condition, расходует одну free move при отсутствии enemy Close и не отменяет terrain до treatment. [ADR-0052](../decisions/ADR-0052-source-bound-repeated-leg-spasm-stand.md) реализован отдельным low-level переходом с доказанными old/new causes, [actual пример и аудит](../audits/m8-repeated-leg-spasm-stand-readiness.md). Automatic runner/policy и старые48/49 validators не расширены; arbitrary Prone causes этим не разрешаются.
+
 ## Native policy для существующих consumers, ADR-0050
 
 [ADR-0050](../decisions/ADR-0050-native-stationary-wound-policy.md) подключает stand48/context49 к journal/diagnosis/runner только при отдельной native policy. Источники PG1.4 Rules115–116/119/121–123, Magic156–157/159, Wounds190; GM1.1 Champions92. Canonical first9 stand тратит free move; terrain и Wounds остаются, Give Ground запрещён, Drained6 истекает по bound clock. Повторная9 после уже снятого cause, Wind Prone при terrain и другие раны не становятся supported. Generation/JSON разрешение policy отдельно; Rule IDs/house rules не добавляются.

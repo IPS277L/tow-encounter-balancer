@@ -253,7 +253,7 @@ raise SystemExit(status)
             (b'{"schema_version":"3","request_id":"seen","x":1,"x":2}', '1', None, 'invalid_json'),
             (json.dumps(mismatch).encode(), '3', mismatch['request_id'], 'invalid_input'),
             (json.dumps(missing).encode(), '3', missing['request_id'], 'invalid_input'),
-            (json.dumps(dict(document(), schema_version='4')).encode(), '1', document()['request_id'], 'unsupported_version'))
+            (json.dumps(dict(document(), schema_version='5')).encode(), '1', document()['request_id'], 'unsupported_version'))
         for raw, version, request_id, code in cases:
             completed = invoke('balance-magic', '-', data=raw)
             self.assertEqual(completed.returncode, 2, completed.stderr)

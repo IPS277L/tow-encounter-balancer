@@ -159,7 +159,7 @@ class M8MagicBalanceJsonV3Tests(unittest.TestCase):
         missing = document()
         del missing['schema_version']
         self.assertEqual(self.invalid(missing, version='1').request_id, missing['request_id'])
-        self.invalid(dict(document(), schema_version='4'), version='1', path='/schema_version', code=Code.UNSUPPORTED_VERSION)
+        self.invalid(dict(document(), schema_version='5'), version='1', path='/schema_version', code=Code.UNSUPPORTED_VERSION)
         self.assertIsNone(self.invalid(dict(document(), request_id=' '), path='/request_id').request_id)
 
     def test_encode_rejects_same_id_policy_substitution_at_generation_and_report_boundaries(self):

@@ -12,7 +12,12 @@ from towr.domain.npc_magic_journal_policy import (
     magic_movement_prefix, validate_magic_step_policy,
     validate_magic_step_predecessor,
 )
-from towr.domain.npc_magic_scenario_models import NpcMagicScenario
+from towr.domain.npc_magic_scenario_models import NpcMagicScenario, validate_npc_magic_scenario_admission
+from towr.domain.npc_magic_repeated_leg_spasm_policy import (
+    NpcMagicRepeatedLegSpasmHistory, initial_magic_repeated_leg_spasm_history,
+    advance_magic_repeated_leg_spasm_history, magic_repeated_leg_spasm_stand_family,
+    magic_repeated_leg_spasm_stand_eligible, _validate_history,
+)
 from towr.domain.npc_magic_stationary_wound_policy import (
     magic_leg_spasm_stand_family, magic_leg_spasm_stand_eligible, magic_stationary_wound_context,
     magic_stationary_wound_policy_enabled,
@@ -95,10 +100,12 @@ def _bad_clock(state: NpcRosterCastingState) -> bool:
 def diagnose_npc_magic_unsupported(
     scenario: NpcMagicScenario, state: NpcRosterCastingState, source_id: str,
     staged: tuple[CowardlyFlightMovementCompletion, ...] = (),
+    *, repeated_history: NpcMagicRepeatedLegSpasmHistory | None = None,
 ) -> NpcMagicUnsupported | None:
     """Recognize a concrete first-boundary stop; never catches constructor errors."""
     if not isinstance(scenario, NpcMagicScenario) or not isinstance(state, NpcRosterCastingState):
         raise TypeError('diagnosis requires typed scenario and full current owner')
+    _validate_history(scenario, state, repeated_history)
     _identifier(source_id)
     staged = _ordered(staged, CowardlyFlightMovementCompletion, 'staged movements')
     phase = NpcMagicPhase.CONTINUATION
@@ -186,13 +193,18 @@ def diagnose_npc_magic_unsupported(
                 and e.deadline_round_number != state.round_state.round_number for e in state.wound_expiries)):
             return stop(reason.CHRONOLOGY)
     leg_stand = magic_leg_spasm_stand_family(scenario, state)
+    repeat_stand = magic_repeated_leg_spasm_stand_family(scenario, state, repeated_history)
     if ((not _injury_supported(state, actor_id, conditions)
-            or magic_stationary_wound_required(scenario, state, actor_id)) and not leg_stand
+            or magic_stationary_wound_required(scenario, state, actor_id)) and not leg_stand and not repeat_stand
             and magic_stationary_wound_context(scenario, state, actor_id) is None):
         return stop(reason.ACTOR_INJURY, actors=(actor_id,))
     frame = scenario.frame_for(magic_scene_key(state))
     if frame is None:
         return stop(reason.MISSING_SCENE, key=magic_scene_key(state))
+    if repeat_stand:
+        if magic_repeated_leg_spasm_stand_eligible(scenario, state, frame, repeated_history):
+            return None
+        return stop(reason.ACTOR_INJURY, actors=(actor_id,))
     if leg_stand:
         if magic_leg_spasm_stand_eligible(scenario, state, frame):
             return None
@@ -241,11 +253,13 @@ class NpcMagicScenarioResult:
     def __post_init__(self) -> None:
         if not isinstance(self.source, NpcMagicScenario):
             raise TypeError('magic journal requires its complete typed scenario')
+        validate_npc_magic_scenario_admission(self.source)
         steps = _ordered(self.steps, NpcMagicStep, 'magic steps')
         object.__setattr__(self, 'steps', steps)
         if self.unsupported is not None and not isinstance(self.unsupported, NpcMagicUnsupported):
             raise TypeError('unsupported diagnosis must be typed')
         current = self.source.initial_runtime_state
+        repeated_history = initial_magic_repeated_leg_spasm_history(self.source)
         seen: set[str] = set()
         previous = None
         for step in steps:
@@ -262,7 +276,8 @@ class NpcMagicScenarioResult:
             seen.update(identifiers)
             validate_magic_step_predecessor(previous, step)
             validate_magic_miscast_predecessor(self.source, previous, step)
-            validate_magic_step_policy(self.source, step)
+            validate_magic_step_policy(self.source, step, repeated_history=repeated_history)
+            repeated_history = advance_magic_repeated_leg_spasm_history(self.source, repeated_history, step)
             current = step.after
             previous = step
             if current.round_state.round_number > self.source.max_rounds:
@@ -277,7 +292,8 @@ class NpcMagicScenarioResult:
         else:
             last_id = steps[-1].id if steps else self.source.id
             staged = self.unsupported.staged_movements if self.unsupported is not None else ()
-            expected = diagnose_npc_magic_unsupported(self.source, current, last_id, staged)
+            expected = diagnose_npc_magic_unsupported(self.source, current, last_id, staged,
+                                                     repeated_history=repeated_history)
             if self.unsupported is None or expected is None or self.unsupported != expected:
                 raise ValueError('journal requires the exact currently unsupported phase/source/diagnosis')
 

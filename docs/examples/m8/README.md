@@ -1,5 +1,29 @@
 # Примеры магии M8
 
+## Repeated permission transport contract, ADR-0054
+
+[Probe](repeated_leg_spasm_transport_contract_probe.py), [stdout](repeated_leg_spasm_transport_contract_probe.output.txt), [контракт](../../decisions/ADR-0054-repeated-leg-spasm-generation-and-magic-json-v4.md), [copied test](../../../tests/integration/test_m8_repeated_leg_spasm_transport_contract_probe.py). Six-file bundle: probe, `generation_contract_probe.py`, `stationary_wound_runner.py`, `magic_scenario.py`, `json/magic-simulation-v3.request.json`, `json/magic-balance-v3.request.json`.
+
+6valid/2invalid policy combinations,12actual public parser4/request-echo roundtrips,30production generated projections против независимого finite oracle и96actual d10. Genuine baseline1/2/3 создаются отдельно до opted sources; flag не стирается. Direct и copied unittest прошли с exact stdout/empty stderr/6file hashes. Пример также исполняет standard seeded balance4 и проверяет полный result source chain. Расширенные unit tests покрывают все4vectors обеих perspectives для6комбинаций. [Публичные JSON4](json/README.md).
+
+[Generated runner](repeated_leg_spasm_generation_runner.py) / [stdout](repeated_leg_spasm_generation_runner.output.txt) копируется с `repeated_leg_spasm_runner.py`, `stationary_wound_runner.py`, `magic_scenario.py`.1426scripted d10: actual generated3/4actor repeat/post6/third9, полные sequential/realPID spawn staged8trials и mixed denominator/budget. Новых gameplay consumers нет.
+
+## Native repeated stand runner, ADR-0053
+
+[Automatic example](repeated_leg_spasm_runner.py), [stdout](repeated_leg_spasm_runner.output.txt), [copied test](../../../tests/integration/test_m8_repeated_leg_spasm_runner_example.py), [аудит](../../audits/m8-native-repeated-leg-spasm-readiness.md). Копировать с `stationary_wound_runner.py` и `magic_scenario.py`. Новая permission явно разрешает stand48 + один stand52; full witnesses выводятся из своего journal.330d10 проверяют48/on-off Miscast,7/24old controls, post-stand6/expiry51, third9stop42 и exact sequential/realPID-checked spawn records/summary/denominator2. Installed Python `-I` даёт тот же stdout,468package paths+hashes совпали. Generation и JSON4 подключены ADR-0054; JSON1/2/3 новое nonNone отвергают.
+
+## Native repeated stand: contract proof ADR-0053
+
+[Probe](repeated_leg_spasm_native_contract_probe.py), [stdout](repeated_leg_spasm_native_contract_probe.output.txt), [контракт](../../decisions/ADR-0053-native-repeated-leg-spasm-continuation.md), [copied test](../../../tests/integration/test_m8_repeated_leg_spasm_native_contract_probe.py). Bundle: probe, `stationary_wound_runner.py`, `magic_scenario.py`. Четыре old-permission combinations62d10 сохраняют stops, actual journal восстанавливается; manual stand52 теперь проверяется на old-policy refusal вместо прежнего TypeError Step. Альтернативная настоящая атака24d10 имеет те же ID/source/current и другие dice: это показывает различие finite lineage и membership, без эмуляции нового cursor. Всего86d10, source/global RNG неизменны. После реализации53 оба raw enum/intfact controls проверяют исправленный native runner до RNG; actual automatic пример вынесен выше.
+
+## Actual повторный Leg Spasm stand, ADR-0052
+
+[Новый bound пример](repeated_leg_spasm_stand.py), [stdout](repeated_leg_spasm_stand.output.txt), [copied test](../../../tests/integration/test_m8_repeated_leg_spasm_stand_example.py), [аудит](../../audits/m8-repeated-leg-spasm-stand-readiness.md). Копировать с `stationary_wound_runner.py` и `magic_scenario.py`. Actual runner24d10 регистрирует first9/stand48/second9 и останавливается; новый low-level stand с полными witnesses снимает только новый Prone cause, сохраняя оба terrain и оба child owner. Затем existing context49 выполняет Casting/end с3d10; None control7d10. Всего34scripted d10; source/global RNG неизменны, runner/journal/policy не расширены. Isolated installed example даёт тот же stdout,467source/wheel/installed package-файлов совпадают. Исходный contract probe ниже остаётся историческим K1-only доказательством.
+
+## Повторный Leg Spasm: контракт ADR-0052
+
+[Probe](repeated_leg_spasm_contract_probe.py), [stdout](repeated_leg_spasm_contract_probe.output.txt), [контракт](../../decisions/ADR-0052-source-bound-repeated-leg-spasm-stand.md), [copied test](../../../tests/integration/test_m8_repeated_leg_spasm_contract_probe.py). Копировать с `stationary_wound_runner.py` и `magic_scenario.py`. Настоящий fresh runner за24d10 получает9→stand48→second9 и останавливается; сохранены полный previous stand и новый bound Attack, terrain/history обоих Wounds. Старый stand48 отвергает повторную историю; отдельный K1 primitive не проецируется в owner. None control7d10. Это исходный contract-only proof; новый actual-bound пример вынесен выше. Monte Carlo обещаний нет.
+
 ## Stationary family / simulation и balance JSON v3, ADR-0051
 
 [Public probe](stationary_wound_transport_contract_probe.py), [stdout](stationary_wound_transport_contract_probe.output.txt), [контракт](../../decisions/ADR-0051-stationary-wound-generation-and-magic-json-v3.md), [generation audit](../../audits/m8-stationary-wound-generation-readiness.md), [simulation3](../../audits/m8-simulation-v3-readiness.md)/[balance3 audit](../../audits/m8-balance-v3-readiness.md). Настоящий generator проверяет20full subsets;16actual public round-trips обоих v3 families сохраняют независимые policies и полный source. Ручной inverse — oracle конечных fixtures, не production decoder. V1/v2 не принимают stationary permission. Для копирования нужны этот файл и четыре helpers: `generation_contract_probe.py`, `magic_scenario.py`, `opted_miscast.py`, `stationary_wound_runner.py`. [Готовые JSON inputs/outputs](json/README.md) запускаются напрямую через CLI.

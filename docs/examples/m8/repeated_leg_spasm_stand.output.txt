@@ -1,0 +1,7 @@
+ACTUAL: 24 scripted d10; first9 -> stand48 -> Casting/end -> second9; unchanged runner actor-injury stop
+BOUND REPEAT: full stand48 + actual Attack witnesses; only new Prone cause removed; one free move; both terrains retained
+OWNER: wounds/d10/daily/roll/consumed histories and positions/actions/magic retained; both child rosters synchronized
+GUARDS: stale/replay/Close/external-cause refusal; new result excluded from automatic journal; sources immutable
+POST-STAND: existing context49 -> bound Casting/end; 3 d10; normal Test; no Prone penalty; Give Ground=False
+NONE CONTROL: 7 d10; first9 stop; automatic repeated9 scope remains unchanged
+34 scripted d10 total; public full-owner consumer only; no stand RNG/Test/treatment/healing or runner permission

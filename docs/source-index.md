@@ -1,5 +1,17 @@
 # Реестр источников
 
+## Repeated permission transport: контракт ADR-0054
+
+2026-11-02: [ADR-0054](decisions/ADR-0054-repeated-leg-spasm-generation-and-magic-json-v4.md) реализован на закрытом native53. Это техническая передача разрешения через generation/JSON4, без чтения новых правил. Нормативная база: BOOK-PLAYER-GUIDE1.4, гл.V Free Actions116/Giving Ground119/Conditions122–123, приложение Wounds Table190; BOOK-GM-GUIDE1.1, гл.VII Champions92. Версии/хэши прежние, новых Rule IDs/house rules нет. [Production proof](examples/m8/repeated_leg_spasm_transport_contract_probe.py) использует actual parser/generator/result4; finite inverse остаётся независимым oracle.
+
+## Native repeated stand: ADR-0053
+
+2026-11-01: [ADR-0053](decisions/ADR-0053-native-repeated-leg-spasm-continuation.md) реализован на прежних источниках low-level52: BOOK-PLAYER-GUIDE1.4, гл.V Free Actions116/Giving Ground119/Conditions122/Prone123, приложение Wounds190; BOOK-GM-GUIDE1.1, гл.VII Champions92. Это техническая native permission/journal граница, без нового чтения страниц/полных книг, Rule IDs, house rules или изменений хэшей. [Automatic330d10/installed/spawn audit](audits/m8-native-repeated-leg-spasm-readiness.md) отделён от исходного contract proof. Native nested facts admission gap закрыт; новая permission доставляется через generation/JSON4 по ADR-0054.
+
+## Повторный Leg Spasm: контракт ADR-0052
+
+2026-11-01: адресно перечитаны локальные BOOK-PLAYER-GUIDE1.4, гл.V Rules / Grim & Glorious Tests108, Free Actions116, Giving Ground119, Conditions122/Drained и Prone123, приложение Wounds Table190; BOOK-GM-GUIDE1.1, гл.VII Champions92. Выбрана повторная9 после подтверждённого stand48: одна Condition, одна free move, terrain до treatment; прежнее снятие cause требует полного witness. Wound10 отложена: её next-Test Grim требует нового consumer расхода, включая Protection. [ADR-0052](decisions/ADR-0052-source-bound-repeated-leg-spasm-stand.md) реализован как отдельный low-level consumer; [actual-bound пример и аудит](audits/m8-repeated-leg-spasm-stand-readiness.md) отделены от исходного finite proof. Runner/policy/wire не расширены. При реализации новых страниц не читали; версии/хэши прежние, нового полного чтения книг, Rule IDs и house rules нет.
+
 ## Native stationary continuation, ADR-0050
 
 2026-11-01: непосредственно перечитаны BOOK-PLAYER-GUIDE1.4, Rules115–116/119/121–123, Casting156/Miscasts157/Miscast Table159, Wounds Table190; BOOK-GM-GUIDE1.1, Champions92. Stand/free move, retained terrain/Give Ground запрет и expiry6 не меняются; правило9 Miscast и порядок pending остаются отдельной границей. [ADR-0050](decisions/ADR-0050-native-stationary-wound-policy.md) реализует независимую native policy и automatic journal/diagnosis/runner. [Public proof](examples/m8/stationary_wound_runner.py) проверяет220scripted d10 и source/installed spawn; [full audit](audits/m8-native-stationary-wound-readiness.md) завершён:3901tests/33known errors, новых ошибок нет. Книги/хэши прежние, нового полного чтения и house rules нет.

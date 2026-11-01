@@ -61,7 +61,8 @@ class MagicRunnerBoundaryTests(unittest.TestCase):
     def test_complete_scenario_preflight_is_rechecked_once_before_rng(self):
         source = admitted(); rng = Dice(())
         failure = ValueError('invalid full admission')
-        with patch('towr.engine.npc_magic_scenario_runner.replace', side_effect=failure) as admission:
+        with patch('towr.engine.npc_magic_scenario_runner.validate_npc_magic_scenario_admission',
+                   side_effect=failure) as admission:
             with self.assertRaises(ValueError) as caught: run(source, rng)
         self.assertIs(caught.exception, failure)
         admission.assert_called_once_with(source)

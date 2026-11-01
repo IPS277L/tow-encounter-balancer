@@ -105,6 +105,10 @@ class NpcMagicStationaryWoundPolicy(str, Enum):
     LEG_SPASM_STAND_AND_CONTINUE = 'leg_spasm_stand_and_continue'
 
 
+class NpcMagicRepeatedLegSpasmPolicy(str, Enum):
+    STAND_ONCE_WITH_JOURNAL_WITNESSES = 'stand_once_with_journal_witnesses'
+
+
 @dataclass(frozen=True, slots=True)
 class NpcMagicMiscastContinuationPolicy:
     """Explicit ADR-0046 opt-in; admission alone does not execute a Miscast.
@@ -146,9 +150,11 @@ class NpcMagicScenario:
     spell: FormalSpellDefinition
     miscast_continuation: NpcMagicMiscastContinuationPolicy | None = None
     stationary_wound_continuation: NpcMagicStationaryWoundPolicy | None = None
+    repeated_leg_spasm_continuation: NpcMagicRepeatedLegSpasmPolicy | None = None
 
     def __post_init__(self) -> None:
         _identifier(self.id)
+        _validate_magic_scenario_permissions(self)
         if (self.miscast_continuation is not None
                 and not isinstance(self.miscast_continuation, NpcMagicMiscastContinuationPolicy)):
             raise TypeError('magic scenario requires a typed Miscast continuation policy or None')
@@ -302,3 +308,35 @@ class NpcMagicScenario:
             if actor.actor_id == actor_id:
                 return actor
         raise ValueError('unknown scenario policy actor')
+
+
+def _validate_magic_scenario_permissions(scenario: NpcMagicScenario) -> None:
+    if not isinstance(scenario.facts, NpcMagicScenarioFacts):
+        raise TypeError('native magic admission requires typed Scenario facts')
+    replace(scenario.facts)
+    miscast = scenario.miscast_continuation
+    if miscast is not None:
+        if not isinstance(miscast, NpcMagicMiscastContinuationPolicy):
+            raise TypeError('native magic admission requires a typed Miscast policy')
+        if not isinstance(miscast.facts, NpcRosterMiscastFacts):
+            raise TypeError('native magic admission requires typed Miscast facts')
+        replace(miscast.facts)
+        replace(miscast)
+    stationary = scenario.stationary_wound_continuation
+    if stationary is not None and not isinstance(stationary, NpcMagicStationaryWoundPolicy):
+        raise TypeError('native magic admission requires a typed stationary policy')
+    repeated = scenario.repeated_leg_spasm_continuation
+    if repeated is not None:
+        if not isinstance(repeated, NpcMagicRepeatedLegSpasmPolicy):
+            raise TypeError('native magic admission requires a typed repeated Leg Spasm policy')
+        if stationary is not NpcMagicStationaryWoundPolicy.LEG_SPASM_STAND_AND_CONTINUE:
+            raise ValueError('repeated Leg Spasm requires the explicit base stationary policy')
+
+
+def validate_npc_magic_scenario_admission(scenario: NpcMagicScenario) -> None:
+    """Readmit original nested facts/permissions before equality, RNG or workers."""
+    if not isinstance(scenario, NpcMagicScenario):
+        raise TypeError('native magic admission requires NpcMagicScenario')
+    _validate_magic_scenario_permissions(scenario)
+    if replace(scenario) != scenario:
+        raise ValueError('native magic source must not require normalization')

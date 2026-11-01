@@ -1,0 +1,6 @@
+ACTUAL: 24 scripted d10; first9 -> stand -> Casting/end -> second9; actor-injury stop
+HISTORY: exact prior StandResult; rolls (9)/(4,5); old terrain + new Prone + new terrain; both child owners
+CURRENT CONSUMER: stand48 rejects missing old Prone pair before execution; no additional RNG
+K1 ONLY: Condition removal and one free move; no crossing/Test; owner/injury deliberately unchanged
+NONE CONTROL: 7 scripted d10; first9 stop; no stand
+31 scripted d10 total; sources/global RNG immutable; finite proof, no new consumer or owner projection

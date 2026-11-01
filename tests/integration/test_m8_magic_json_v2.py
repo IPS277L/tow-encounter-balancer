@@ -100,7 +100,7 @@ class M8MagicJsonV2IntegrationTests(unittest.TestCase):
             (prefix + b'"x":0,"x":1}', '1', 'invalid_json', None),
             (json.dumps(invalid).encode(), '2', 'invalid_input', invalid['request_id']),
             (json.dumps(missing).encode(), '2', 'invalid_input', missing['request_id']),
-            (json.dumps(dict(document(), schema_version='4')).encode(), '1', 'unsupported_version', document()['request_id']),
+            (json.dumps(dict(document(), schema_version='5')).encode(), '1', 'unsupported_version', document()['request_id']),
         ]
         for raw, version, code, request_id in cases:
             with self.subTest(version=version, code=code, raw=raw[:45]):

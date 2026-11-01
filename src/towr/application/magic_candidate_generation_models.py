@@ -1,4 +1,4 @@
-"""Magic reserve admission and source-bound inputs (ADR-0042/0047/0051).
+"""Magic reserve admission and source-bound inputs (ADR-0042/0047/0051/0054).
 
 Request admission is arithmetic; result validation checks each full projection.
 Neither model runs a battle or infers tactical facts.
@@ -12,7 +12,8 @@ from towr.balance.magic_staged_evaluation_models import (
 from towr.balance.ranged_assessment_models import ObjectiveRateWindow
 from towr.domain.npc_magic_scenario_models import (
     NpcMagicMiscastContinuationPolicy, NpcMagicScenario, NpcMagicScenarioFacts,
-    NpcMagicStationaryWoundPolicy,
+    NpcMagicRepeatedLegSpasmPolicy, NpcMagicStationaryWoundPolicy,
+    _validate_magic_scenario_permissions, validate_npc_magic_scenario_admission,
 )
 from towr.domain.npc_magic_scene_models import NpcMagicSceneFrame
 from towr.simulation.npc_magic_models import NpcMagicSimulationRequest
@@ -29,10 +30,14 @@ def _validate_generation_policy_types(
     template: NpcMagicScenario,
     miscast: NpcMagicMiscastContinuationPolicy | None,
     stationary: NpcMagicStationaryWoundPolicy | None,
+    repeated: NpcMagicRepeatedLegSpasmPolicy | None = None,
 ) -> None:
     """Validate both sides before equality: a string can equal a str Enum."""
     if not isinstance(template, NpcMagicScenario):
         raise TypeError("generation requires an admitted magic template scenario")
+    # Arithmetic generation admission must not re-run Scenario construction.
+    # Re-admit its original facts/permissions before equality/materialization.
+    _validate_magic_scenario_permissions(template)
     if not isinstance(template.facts, NpcMagicScenarioFacts):
         raise TypeError("generation requires explicit magic scenario facts")
     replace(template.facts)
@@ -47,18 +52,26 @@ def _validate_generation_policy_types(
     for policy in (template.stationary_wound_continuation, stationary):
         if policy is not None and not isinstance(policy, NpcMagicStationaryWoundPolicy):
             raise TypeError("magic generation requires a typed stationary Wound continuation policy or None")
+    for policy in (template.repeated_leg_spasm_continuation, repeated):
+        if policy is not None and not isinstance(policy, NpcMagicRepeatedLegSpasmPolicy):
+            raise TypeError("magic generation requires a typed repeated Leg Spasm continuation policy or None")
+    if repeated is not None and stationary is not NpcMagicStationaryWoundPolicy.LEG_SPASM_STAND_AND_CONTINUE:
+        raise ValueError("repeated Leg Spasm family permission requires the explicit base stationary policy")
 
 
 def _validate_generation_policies(
     template: NpcMagicScenario,
     miscast: NpcMagicMiscastContinuationPolicy | None,
     stationary: NpcMagicStationaryWoundPolicy | None,
+    repeated: NpcMagicRepeatedLegSpasmPolicy | None = None,
 ) -> None:
-    _validate_generation_policy_types(template, miscast, stationary)
+    _validate_generation_policy_types(template, miscast, stationary, repeated)
     if miscast != template.miscast_continuation:
         raise ValueError("magic generation Miscast continuation requires an explicit family policy equal to the template")
     if stationary != template.stationary_wound_continuation:
         raise ValueError("magic generation stationary Wound continuation requires an explicit family policy equal to the template")
+    if repeated != template.repeated_leg_spasm_continuation:
+        raise ValueError("magic generation repeated Leg Spasm continuation requires an explicit family policy equal to the template")
 
 
 @dataclass(frozen=True, slots=True)
@@ -93,7 +106,7 @@ class MagicCandidateGenerationRequest:
     Separate facts/frames and unchanged template policies apply to every
     projected composition/state. Construction must later admit each subset.
     The Wizard remains fixed even when opposite the perspective side.
-    Both opt-ins need separate, equal whole-family assertions; omitted
+    All three opt-ins need separate, equal whole-family assertions; omitted
     reserve actors are absent, not external creatures within Short Range.
     """
 
@@ -109,10 +122,11 @@ class MagicCandidateGenerationRequest:
     window: ObjectiveRateWindow
     miscast_continuation: NpcMagicMiscastContinuationPolicy | None = None
     stationary_wound_continuation: NpcMagicStationaryWoundPolicy | None = None
+    repeated_leg_spasm_continuation: NpcMagicRepeatedLegSpasmPolicy | None = None
 
     def __post_init__(self) -> None:
         _validate_generation_policies(self.template_scenario, self.miscast_continuation,
-                                      self.stationary_wound_continuation)
+                                      self.stationary_wound_continuation, self.repeated_leg_spasm_continuation)
         for facts in (self.facts, self.template_scenario.facts):
             if not isinstance(facts, NpcMagicScenarioFacts):
                 raise TypeError("generation requires explicit magic facts for every composition")
@@ -185,7 +199,7 @@ def _validate_generation_source(source: MagicCandidateGenerationRequest) -> None
     if not isinstance(source, MagicCandidateGenerationRequest):
         raise TypeError("generation requires a typed magic request")
     _validate_generation_policies(source.template_scenario, source.miscast_continuation,
-                                  source.stationary_wound_continuation)
+                                  source.stationary_wound_continuation, source.repeated_leg_spasm_continuation)
     if replace(source.template_scenario) != source.template_scenario:
         raise ValueError("magic generation template source must retain its admitted form")
     if replace(source) != source:
@@ -204,6 +218,15 @@ class MagicCandidateGenerationResult:
         if not isinstance(self.evaluation_request, MagicStagedEvaluationRequest):
             raise TypeError("generation result requires a typed magic staged request")
         source, evaluation = self.source_request, self.evaluation_request
+        # Reject every malformed/foreign transported child before vector enumeration
+        # or projection. Equality of a string and a str Enum is insufficient.
+        for candidate in evaluation.candidates:
+            try:
+                _validate_generation_policies(candidate.scenario, source.miscast_continuation,
+                    source.stationary_wound_continuation, source.repeated_leg_spasm_continuation)
+                validate_npc_magic_scenario_admission(candidate.scenario)
+            except ValueError as error:
+                raise ValueError("generated magic candidate differs from its exact source projection: " + str(error)) from error
         if (evaluation.master_seed != source.master_seed or evaluation.stages != source.stages
                 or evaluation.max_total_trials != source.max_total_trials or evaluation.window != source.window
                 or len(evaluation.candidates) != source.candidate_count):
@@ -213,7 +236,5 @@ class MagicCandidateGenerationResult:
         from towr.application.magic_candidate_generation import _count_vectors, _project_candidate
 
         for counts, candidate in zip(_count_vectors(source), evaluation.candidates):
-            _validate_generation_policy_types(candidate.scenario, source.miscast_continuation,
-                                               source.stationary_wound_continuation)
             if candidate != _project_candidate(source, counts):
                 raise ValueError("generated magic candidate differs from its exact source projection")

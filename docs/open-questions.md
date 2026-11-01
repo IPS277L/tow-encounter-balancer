@@ -1,20 +1,24 @@
 # Открытые вопросы и действующие допущения
 
-Дата: 2026-11-01. Закрытые направления и история реализации перенесены в [архив](open-questions-history.md). Текущий этап и следующий шаг — в [статусе](project-status.md). Этот список не расширяет scope принятых ADR.
+Дата: 2026-11-02. Закрытые направления и история реализации перенесены в [архив](open-questions-history.md). Текущий этап и следующий шаг — в [статусе](project-status.md). Этот список не расширяет scope принятых ADR.
 
 ## Действующая граница симуляции
 
 M2/M6/M7 завершены для ограниченных numeric Minion-сценариев; их исходы, массовые прогоны и подбор не означают поддержку произвольного боя. Первый M8 допускает одного authored Champion-Wizard с Curse of Cowardly Flight и numeric Shooting Minions; неизвестные scene facts и обязательные неподдержанные продолжения дают отдельный UNSUPPORTED_PATH. Broken и другая Zone не считаются defeat. Никакая остановка не исключается из числа trials.
 
-Массовые прогоны/оценка сохраняют ограниченный single-run scope. Native API, generation с отдельным matching family assertion и обе magic JSON3 families поддерживают независимую stationary-wound policy ADR-0050/0051. JSON1/2 знают только прежний decline → Wind21–22/standalone Prone opt-in. Исторические закрытые этапы — в [архиве](open-questions-history.md) и профильных аудитах. Никакой опциональный consumer не означает поддержку всех Wounds/Miscasts.
+Массовые прогоны/оценка сохраняют ограниченный single-run scope. Native API, generation с отдельным matching family assertion и обе magic JSON3/4 families поддерживают независимую stationary-wound policy ADR-0050/0051. JSON1/2 знают только прежний decline → Wind21–22/standalone Prone opt-in. Исторические закрытые этапы — в [архиве](open-questions-history.md) и профильных аудитах. Никакой опциональный consumer не означает поддержку всех Wounds/Miscasts.
 
 <a id="первая-метрика-m5"></a>
 
-## M8 после ADR-0051
+## M8 — контракт ADR-0054 после native53
 
-[ADR-0050](decisions/ADR-0050-native-stationary-wound-policy.md) и весь [ADR-0051](decisions/ADR-0051-stationary-wound-generation-and-magic-json-v3.md) закрыты: [generation](audits/m8-stationary-wound-generation-readiness.md), [simulation3](audits/m8-simulation-v3-readiness.md), [balance3](audits/m8-balance-v3-readiness.md) и [итоговый source/wheel/installed/spawn audit](audits/m8-stationary-wound-transport-readiness.md). Helper18/36 обновлён; новый detached-facts guard проверен full suite и installed negative. Следующий consumer ещё не выбран: [inventory](audits/m8-continuation-inventory.md) актуализирован, нужен один новый контракт/finite proof с книжной сверкой. Новых ambiguities/house rules нет; policy не разрешает все Wounds.
+[ADR-0050/0051](audits/m8-stationary-wound-transport-readiness.md), low-level [ADR-0052](audits/m8-repeated-leg-spasm-stand-readiness.md) и native [ADR-0053](audits/m8-native-repeated-leg-spasm-readiness.md) закрыты. Новая nullable repeated permission требует base stationary, Miscast независим. Cursor выводится publication/Result из своего admitted prefix; standalone cursor не доказывает membership. Old opt-ins сохраняются.6/Wind при repeated stand и последующие повторы вне52; поддержанный post-stand6/expiry сохраняется. Новых книжных неоднозначностей/house rules нет; Wound10/Wind-Prone+terrain отложены. ADR-0054 передаёт matching family/versioned wire; новые игровые consumers требуют отдельного контракта.
 
-Действующая граница: canonical first9 stand48/context49, no external causes, Drained iff active6, normal Tests без бонусов/Glorious/Fate. None сохраняет legacy; `miscast_continuation` и stationary permission независимы. Повторная9 после stand не поддержана даже без6; Wind Prone с terrain, unsafe/spent move, другие раны остаются stop. Ordinary movement, Recover/treatment и расширение stand/history6 требуют отдельных consumers. Generation требует отдельный matching opt-in; JSON1/2 явно отвергают stationary policy, удалять её для обхода lossless guards нельзя.
+Native detached facts gap закрыт shared admission до equality/RNG/pool. [ADR-0054](decisions/ADR-0054-repeated-leg-spasm-generation-and-magic-json-v4.md) реализует matching append-last repeated family field и required nullable JSON4, exact source/echo/error metadata. Direct и copied production proof прошли; прежнее TEMP ограничение wrapper снято успешным outside-sandbox запуском. [Итоговый аудит](audits/m8-repeated-leg-spasm-transport-readiness.md) закрыт;33прежние Python3.12 expectations остаются отдельной задачей. JSON1/2/3 новое поле запрещают даже null; flag для legacy view не удаляется.
+
+Действующая граница: canonical first9 stand48/context49 и один repeated stand52 с отдельным разрешением53; no external causes, Drained iff active6, normal Tests без бонусов/Glorious/Fate. Новое разрешение требует base stationary, Miscast независим. None/прежняя stationary policy не включают repeat. Wind Prone с terrain, unsafe/spent move, история6 при repeated stand и другие раны остаются stop. Ordinary movement/Recover/treatment требуют иных consumers. Generation требует matching всех3 permissions; JSON1/2 не принимают stationary, JSON1/2/3 не принимают repeated. Следующий gameplay consumer выбирается отдельным контрактом по inventory.
+
+Следующее направление M8 — адресная сверка Crushed Rib10 и source-bound next-Test consumption перед новым bounded контрактом. Wound10 пока не поддержан; книжные неоднозначности не заменяются default policy. Точный следующий шаг — в [статусе](project-status.md).
 
 ## Значение ничьей для балансировки
 

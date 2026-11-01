@@ -11,6 +11,7 @@ from towr.domain.npc_roster_casting_models import NpcRosterCastingResult, NpcRos
 from towr.domain.npc_roster_champion_attack_models import NpcRosterChampionAttackResult
 from towr.domain.npc_roster_dead_champion_models import NpcRosterDeadChampionExclusionResult
 from towr.domain.npc_roster_leg_spasm_models import NpcRosterLegSpasmStandResult
+from towr.domain.npc_roster_repeated_leg_spasm_models import NpcRosterRepeatedLegSpasmStandResult
 from towr.domain.npc_roster_minion_attack_models import NpcRosterMinionAttackResult
 from towr.domain.npc_roster_minion_defeat_models import NpcRosterMinionDefeatResult
 from towr.domain.npc_roster_miscast_models import (
@@ -30,6 +31,7 @@ NpcMagicStepResult: TypeAlias = (
     | NpcRosterMiscastPreparationResult | NpcRosterMiscastRollResult | NpcRosterUnnaturalWindResult
     | NpcRosterProneStandResult | NpcRosterProneTurnEndResult
     | NpcRosterLegSpasmStandResult
+    | NpcRosterRepeatedLegSpasmStandResult
 )
 _RESULT_TYPES = (
     NpcRosterTurnStartResult, NpcRosterRoundAdvanceResult, NpcRosterCastingResult,
@@ -39,6 +41,7 @@ _RESULT_TYPES = (
     NpcRosterMiscastPreparationResult, NpcRosterMiscastRollResult, NpcRosterUnnaturalWindResult,
     NpcRosterProneStandResult, NpcRosterProneTurnEndResult,
     NpcRosterLegSpasmStandResult,
+    NpcRosterRepeatedLegSpasmStandResult,
 )
 
 
@@ -50,6 +53,9 @@ class NpcMagicStep:
     def __post_init__(self) -> None:
         if type(self.result) not in _RESULT_TYPES:
             raise TypeError('magic step requires a supported full-owner bound result')
+        if isinstance(self.result, NpcRosterRepeatedLegSpasmStandResult):
+            from dataclasses import replace
+            replace(self.result)
         witness = self.origin_witness
         if isinstance(self.result, NpcRosterMiscastPreparationResult):
             if type(witness) not in (NpcRosterCastingResult, NpcBrokenRecoverResult, NpcBrokenRunResult):

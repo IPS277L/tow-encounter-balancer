@@ -140,7 +140,7 @@ class M8MagicJsonV3Tests(unittest.TestCase):
             data = document()
             change(data)
             self.assertEqual(self.assert_invalid(data, path=path).request_id, data['request_id'])
-        for version in (None, False, 3, '', '4'):
+        for version in (None, False, 3, '', '5'):
             data = dict(document(), schema_version=version)
             error = self.assert_invalid(data, version='1', path='/schema_version',
                 code=Code.UNSUPPORTED_VERSION if isinstance(version, str) else Code.INVALID_INPUT)
@@ -166,13 +166,13 @@ class M8MagicJsonV3Tests(unittest.TestCase):
                                   (MagicBalanceExecutionError, ('request',))):
             self.assertEqual(constructor(*args, schema_version='3').schema_version, '3')
             with self.assertRaises(ValueError):
-                constructor(*args, schema_version='4')
+                constructor(*args, schema_version='5')
         with patch('towr.adapters.magic_balance_json.validate_magic_balance_document',
                    side_effect=AssertionError('unsupported version must precede schema lookup')):
             with self.assertRaises(MagicBalanceInputError) as caught:
-                parse_magic_balance_request(json.dumps({'schema_version': '4', 'request_id': 'balance4'}))
+                parse_magic_balance_request(json.dumps({'schema_version': '5', 'request_id': 'balance5'}))
         self.assertEqual((caught.exception.schema_version, caught.exception.request_id, caught.exception.code),
-                         ('1', 'balance4', Code.UNSUPPORTED_VERSION))
+                         ('1', 'balance5', Code.UNSUPPORTED_VERSION))
 
     def test_same_id_policy_source_substitution_rejected_by_encoder_and_both_service_phases(self):
         on = parse(json.dumps(document()))
@@ -228,7 +228,12 @@ class M8MagicJsonV3Tests(unittest.TestCase):
             other = 'run_npc_magic_simulation' if mode is Mode.PROCESS else 'run_npc_magic_simulation_parallel'
             for phase in ('command', 'runner', 'summary'):
                 supplied = foreign if phase == 'command' else command
-                returned = result_for(foreign.request if phase == 'runner' else command.request)
+                returned = deepcopy(result_for(command.request))
+                if phase == 'runner':
+                    # Emulate an unpickled/foreign result AFTER valid model
+                    # construction; the record constructor now rejects it too.
+                    object.__setattr__(returned.source_request.scenario.facts,
+                                       'no_external_condition_sources', 1)
                 aggregated = summary(foreign if phase == 'summary' else command)
                 with self.subTest(mode=mode, phase=phase), \
                         patch('random.Random', side_effect=AssertionError('validation must not create RNG')), \

@@ -3,6 +3,11 @@
 PG1.4 Rules pp112,114,119,122; Magic pp156-157,162. GM1.1 pp91-92.
 These checks bind recorded choices to supplied facts, not a general rules engine.
 """
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from towr.domain.npc_magic_repeated_leg_spasm_policy import NpcMagicRepeatedLegSpasmHistory
+
 from towr.domain.condition_models import Condition
 from towr.domain.movement_models import FreeMovementRequest
 from towr.domain.npc_broken_recover_models import NpcBrokenRecoverResult
@@ -187,7 +192,12 @@ def magic_movement_prefix(scenario: NpcMagicScenario, state: NpcRosterCastingSta
                            magic_live_ids(state))
 
 
-def validate_magic_step_policy(scenario: NpcMagicScenario, step: NpcMagicStep) -> None:
+def validate_magic_step_policy(
+    scenario: NpcMagicScenario, step: NpcMagicStep, *,
+    repeated_history: 'NpcMagicRepeatedLegSpasmHistory | None' = None,
+) -> None:
+    from towr.domain.npc_magic_repeated_leg_spasm_policy import validate_magic_repeated_leg_spasm_step
+    validate_magic_repeated_leg_spasm_step(scenario, step, repeated_history)
     validate_magic_stationary_wound_step(scenario, step)
     result, state = step.result, step.before
     actor_id = step.actor_id

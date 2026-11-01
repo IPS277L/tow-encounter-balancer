@@ -99,7 +99,7 @@ class M8MagicBalanceCliIntegrationTests(unittest.TestCase):
         bad=document(); bad['evaluation']['max_total_trials']=15
         wrong_kind=document(); wrong_kind['kind']='npc_magic_simulation'
         for raw,code in ((b'{','invalid_json'),(b'\xff','invalid_json'),
-                         (json.dumps(dict(document(),schema_version='4')).encode(),'unsupported_version'),
+                         (json.dumps(dict(document(),schema_version='5')).encode(),'unsupported_version'),
                          (json.dumps(bad).encode(),'invalid_input'),(json.dumps(wrong_kind).encode(),'invalid_input')):
             completed=invoke('balance-magic','-',data=raw)
             self.assertEqual(completed.returncode,2,completed.stderr)

@@ -1,6 +1,6 @@
 # M8: инвентаризация обязательных продолжений
 
-Дата: 2026-11-01. Технически актуализирована после реализации ADR-0044–0051: native stationary policy, generation и обе JSON3 families подключены;13continuation labels сверены с текущим enum, новый wire не добавляет gameplay consumers. Это карта ограничений для выбора следующего отдельного контракта, не объявление полного боя готовым. Новых Rule IDs/house rules или чтения книг при этой технической актуализации нет.
+Дата: 2026-11-02. Технически актуализирована после реализации ADR-0044–0054: native stationary/repeated policies, matching generation family и обе JSON3/4 families подключены;13continuation labels сверены с текущим enum, новый wire не добавляет gameplay consumers. Это карта ограничений для выбора следующего отдельного контракта, не объявление полного боя готовым. Новых Rule IDs/house rules или чтения книг при этой технической актуализации нет.
 
 ## Уже закрытые prerequisites
 
@@ -23,7 +23,7 @@
 | `missing_route` | Нет нужного Curse route либо ordinary Attack departure fact; adjacency недостаточно. |
 | `no_legal_target` | Explicit policy/range не дают цели; нет автоматического wait/другой тактики. |
 | `unsupported_broken_route` | Нет допустимого supplied plan; unsafe Broken+Prone и Run-after-spent-free-move не закрыты. |
-| `unsupported_actor_injury` | Action adapter не поддерживает current injury. Canonical first9 и post-stand9+6 обслуживаются только новой policy; unsafe/repeated9 и другие ongoing effects остаются stop. |
+| `unsupported_actor_injury` | Canonical first9/post-stand9+6 требуют stationary permission; один repeated stand52 требует дополнительной policy53 и recorded witnesses. Unsafe/repeated-after-consumption, history6 при stand и другие ongoing effects остаются stop. |
 | `unsupported_target_injury` | Target adapter не поддерживает injury. Incoming canonical9+6 получает context только по новой policy; остальные Champion restrictions остаются stop, target нельзя заменить более удобным. |
 | `pending_wound_effect` | Любой `champion_attack.pending`: Endurance/choice/consequence либо ordinary Champion Give Ground. Label шире своего имени. Resolved Wound9 без follow-ups сюда не относится. |
 | `attack_give_ground` | Give Ground в pending Minion Attack. Ordinary Attack movement обоих owners не подключён к magic runner; Curse movement не заменяет его. |
@@ -37,9 +37,15 @@ Missing facts, unsupported rules и исключения исполнения н
 
 ## Сравнение следующих кандидатов
 
+2026-11-02: [ADR-0054](../decisions/ADR-0054-repeated-leg-spasm-generation-and-magic-json-v4.md) реализует matching generation family и versioned JSON4 для существующего native53. [Production proof96d10](../examples/m8/repeated_leg_spasm_transport_contract_probe.py) проверен direct и copied unittest; [итоговый аудит](m8-repeated-leg-spasm-transport-readiness.md) закрыт:474files/42schemas/444refs,52backend cases/486commands;540integration +3538unit,33known errors без новых failures. Это доставка текущего scope, не выбор нового Wound/Miscast consumer и не новая книжная сверка.
+
+Native integration52 закрыта в [ADR-0053](../decisions/ADR-0053-native-repeated-leg-spasm-continuation.md): отдельная permission, bounded derived cursor/full membership и strict admission. [Итоговый audit](m8-native-repeated-leg-spasm-readiness.md): automatic330d10/installed/spawn,468package parity, full4044/33known/0failures без новых errors. Одна repeated9 поддержана только новым opt-in; третья9/несовместимые6/Wind scopes сохраняют stop. Wound10/Wind consumers не добавлены, generation/JSON4 подключены ADR-0054 с отдельным matching family assertion.
+
+2026-11-01: выбран и реализован отдельный low-level **повторный Leg Spasm после одного подтверждённого stand48 и одной новой rolled9**, без6/Wind. [ADR-0052](../decisions/ADR-0052-source-bound-repeated-leg-spasm-stand.md), [actual-bound пример34d10 и аудит](m8-repeated-leg-spasm-stand-readiness.md); [исходный finite proof](../examples/m8/repeated_leg_spasm_contract_probe.py) остаётся K1-only. Адресная сверка PG1.4 Rules108/116/119/122–123/Wounds190 и GM1.1 Champions92 выполнена при контракте; новых страниц/полного чтения при реализации нет. Сам52 не включал runner; отдельная native интеграция53 описана выше, Wound10/Wind не добавляются автоматически.
+
 | Кандидат | Готово | Недостаёт / решение |
 | --- | --- | --- |
-| Wound9 Leg Spasm | Stand48/context49/native policy50 и generation/JSON3 propagation51 реализованы; source/installed/spawn проверены | Повторная9 с уже удалённым Prone cause не поддержана даже без6; history6/Wind Prone требуют нового stand consumer. Не расширять whitelist автоматически. |
+| Wound9 Leg Spasm | Stand48/context49/policy50/transport51, low-level52 и native repeated policy53 с полными journal witnesses | Один repeat только по новому opt-in; consumed/third9/history6/Wind Prone при stand остаются неподдержаны. Generation/JSON4 реализованы в ADR-0054; legacy1/2/3 явно отвергают новое поле. |
 | Wound10 Crushed Rib | Drained/UNTIL_TREATED + декларация NEXT_TEST_IS_GRIM | Нужен source-bound first-Test consumption, включая Protection до Casting. Это не Prone-рана и не часть9. |
 | Wound5 Battered Leg | Endurance follow-up; при провале Prone | Нет authored Endurance profile/full-owner follow-up consumer. Новый Test/source contract шире9. |
 | Wound13 Torn Leg /17 Shattered Knee | K1 Conditions/restrictions | Critical-on-stand или ongoing Critical/Burdened, затем Endurance/death. Нельзя обойти общей Prone whitelist. |
@@ -61,4 +67,4 @@ Wounds1–3 и6 уже поддержаны в ограниченном flow; п
 
 Request/result, canonical projection, один K1 executor и exact-source apply ADR-0048 реализованы и проверены. [Public/installed/full audit](m8-leg-spasm-stand-readiness.md) завершён. [ADR-0049](../decisions/ADR-0049-stationary-leg-spasm-continuation.md) и [finite proof](../examples/m8/stationary_wound_contract_probe.py) подготовлены; low-level stationary continuation и mixed9→6 manual chain реализованы, [аудит](m8-stationary-leg-spasm-readiness.md) завершён. Automatic runner, treatment, Difficult Terrain traversal и wire policy остаются за границей нового low-level контракта. None и обе magic wire versions сохраняют существующее поведение. Новых книжных ambiguities/house rules не выявлено.
 
-[ADR-0050](../decisions/ADR-0050-native-stationary-wound-policy.md) закрыт [native аудитом](m8-native-stationary-wound-readiness.md): первый canonical stand и context49 включены отдельной policy; обе permissions независимы, None сохранён. [ADR-0051](../decisions/ADR-0051-stationary-wound-generation-and-magic-json-v3.md) реализует family propagation и versioned wire/CLI, [итоговый audit](m8-stationary-wound-transport-readiness.md). После его закрытия следующий шаг — приоритизация одного из оставшихся consumers выше и новый source-bound контракт с finite proof/книжной сверкой. Конкретный новый gameplay consumer этим inventory не назначен.
+[ADR-0050/0051](m8-stationary-wound-transport-readiness.md) сохраняют прежние first9/context49/transport permissions. Low-level repeated52 подключён отдельной native policy53, [аудит](m8-native-repeated-leg-spasm-readiness.md). Доставка нового opt-in через generation/wire требует следующего контракта54; Wound10/Wind не получают consumers автоматически.
