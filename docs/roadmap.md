@@ -301,4 +301,22 @@ Native policy/runner ADR-0050 реализованы ниже. Generation/wire p
 3. Выполнено: actual Casting receipt/completion до pool/follow-ups, atomic full-owner projection и pending completion; normal consumed Casting/Protection/end-turn с remaining Drained.62targeted tests пройдены.
 4. Выполнено:477package source/wheel/site files,42schemas/444refs,8commands,actual63/historical25/K1actual33/K1historical40d10. Составное4158покрытие:551integration успешны; после фикса одного устаревшего message expectation повторены все3607unit —33known errors/0failures. Full4158доfixturefix имел1failure; единый full run без failures не заявляется. Exact33ERROR headers совпали с baseline55; manifests/97examples после suite прежние.
 
-После приёмки56 подготовить ADR-0057 native Crushed Rib dispatcher/journal/permission: context выводится из actual prefix, mandatory follow-ups и прежние stops сохраняются. Generation/JSON/wire5 не подключаются без собственного контракта.
+Следующий native контракт57 подготовлен ниже. Generation/JSON/wire5 не подключаются без собственного контракта.
+
+## ADR-0057 — native Crushed Rib dispatcher/journal/permission
+
+**ADR-0057 закрыт в принятой native границе.** [ADR](decisions/ADR-0057-native-crushed-rib-continuation.md), [actual274d10](examples/m8/crushed_rib_native.py), [copied test](../tests/integration/test_m8_crushed_rib_native_example.py), [приёмка](audits/m8-native-crushed-rib-readiness.md). [Исторический59d10](examples/m8/crushed_rib_native_contract_probe.py) теперь проверяет actual None-policy refusal. Gap закрыт, runnerNone stop7d10 сохранён.
+
+1. Выполнено: independent append-last permission,12valid/4invalid combinations, bounded history(state,first consumption) вне root и explicit None refusals для56 markers/pending descendants.17pure tests пройдены.
+2. Выполнено: derived cursor в runner publication/reconstructed Result, diagnosis, actual56 Casting/Protection/end-turn и mandatory pending/death priority. Wound10 не обходит gate через legacy Drained-only/Broken/Prone.5journal tests пройдены, existing Step union прежний.
+3. Выполнено:11native integrations и8gen/wire refusals, seq/spawn/explicit-list/staged source/seed/denominator, parent no-worker preflight. GenerationRequest tail3/arithmetic граница сохранена; JSON1–4 отказывают nonNone57,42schemas прежние.
+4. Выполнено:actual274/copy с realspawn, historical59/owner63/25/K1actual33/historical40 и installed478files/12commands. Один full4201tests/1207,032с:33known errors/0failures/0skipped,572integration OK; exact33ERROR headers baseline прежние. После suite478package/101examples hashes неизменны; весь набор не объявляется зелёным.
+
+## ADR-0058 — Crushed Rib generation и Magic JSON5
+
+**Шаг1 generation реализован; шаги2–4 впереди.** [ADR](decisions/ADR-0058-crushed-rib-generation-and-magic-json-v5.md), [finite probe](examples/m8/crushed_rib_transport_contract_probe.py), [stdout](examples/m8/crushed_rib_transport_contract_probe.output.txt), [copied test](../tests/integration/test_m8_crushed_rib_transport_contract_probe.py). Actual generator строит выбранные3/4-actor subsets и сохраняет разрешение; ручной JSON5 oracle не является production codec. Native57 injury/phase scope не расширяется; JSON1–4 сохраняют lossless refusal.
+
+1. **Выполнено:** append-last family field, strict4policy matching, permissions/facts arithmetic preflight и отдельный full-source/subset admission, original cache guards и explicit projection.12valid/4invalid, huge arithmetic, first/last malformed sources, generated3/4actor projections, обе perspectives, runner57, sequential/spawn/staged source/seed/budget parity проверяются целевыми unit/integration и public copied probe.
+2. Следующий шаг: Simulation5 —3schemas, mapper/command/error/parser/encoder/service/CLI. Промежуточно simulation1–5/balance1–4,27magic/45total/cache27.
+3. Balance5: ещё3schemas, reserve/family matching, полные source/report/cache guards и echo, registry30magic/48total/cache30.
+4. Production public proof, installed/module/console/spawn/offline-schema audit и полная регрессия. Known33 Python3.12 expectation errors сверять отдельно; новый wire не передаёт state/history/save-resume.

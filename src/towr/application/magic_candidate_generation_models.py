@@ -1,4 +1,4 @@
-"""Magic reserve admission and source-bound inputs (ADR-0042/0047/0051/0054).
+"""Magic reserve admission and source-bound inputs (ADR-0042/0047/0051/0054/0058).
 
 Request admission is arithmetic; result validation checks each full projection.
 Neither model runs a battle or infers tactical facts.
@@ -11,7 +11,7 @@ from towr.balance.magic_staged_evaluation_models import (
 )
 from towr.balance.ranged_assessment_models import ObjectiveRateWindow
 from towr.domain.npc_magic_scenario_models import (
-    NpcMagicMiscastContinuationPolicy, NpcMagicScenario, NpcMagicScenarioFacts,
+    NpcMagicCrushedRibPolicy, NpcMagicMiscastContinuationPolicy, NpcMagicScenario, NpcMagicScenarioFacts,
     NpcMagicRepeatedLegSpasmPolicy, NpcMagicStationaryWoundPolicy,
     _validate_magic_scenario_permissions, validate_npc_magic_scenario_admission,
 )
@@ -31,6 +31,7 @@ def _validate_generation_policy_types(
     miscast: NpcMagicMiscastContinuationPolicy | None,
     stationary: NpcMagicStationaryWoundPolicy | None,
     repeated: NpcMagicRepeatedLegSpasmPolicy | None = None,
+    crushed_rib: NpcMagicCrushedRibPolicy | None = None,
 ) -> None:
     """Validate both sides before equality: a string can equal a str Enum."""
     if not isinstance(template, NpcMagicScenario):
@@ -55,6 +56,9 @@ def _validate_generation_policy_types(
     for policy in (template.repeated_leg_spasm_continuation, repeated):
         if policy is not None and not isinstance(policy, NpcMagicRepeatedLegSpasmPolicy):
             raise TypeError("magic generation requires a typed repeated Leg Spasm continuation policy or None")
+    for policy in (template.crushed_rib_continuation, crushed_rib):
+        if policy is not None and not isinstance(policy, NpcMagicCrushedRibPolicy):
+            raise TypeError("magic generation requires a typed Crushed Rib continuation policy or None")
     if repeated is not None and stationary is not NpcMagicStationaryWoundPolicy.LEG_SPASM_STAND_AND_CONTINUE:
         raise ValueError("repeated Leg Spasm family permission requires the explicit base stationary policy")
 
@@ -64,14 +68,17 @@ def _validate_generation_policies(
     miscast: NpcMagicMiscastContinuationPolicy | None,
     stationary: NpcMagicStationaryWoundPolicy | None,
     repeated: NpcMagicRepeatedLegSpasmPolicy | None = None,
+    crushed_rib: NpcMagicCrushedRibPolicy | None = None,
 ) -> None:
-    _validate_generation_policy_types(template, miscast, stationary, repeated)
+    _validate_generation_policy_types(template, miscast, stationary, repeated, crushed_rib)
     if miscast != template.miscast_continuation:
         raise ValueError("magic generation Miscast continuation requires an explicit family policy equal to the template")
     if stationary != template.stationary_wound_continuation:
         raise ValueError("magic generation stationary Wound continuation requires an explicit family policy equal to the template")
     if repeated != template.repeated_leg_spasm_continuation:
         raise ValueError("magic generation repeated Leg Spasm continuation requires an explicit family policy equal to the template")
+    if crushed_rib != template.crushed_rib_continuation:
+        raise ValueError("magic generation Crushed Rib continuation requires an explicit family policy equal to the template")
 
 
 @dataclass(frozen=True, slots=True)
@@ -106,7 +113,7 @@ class MagicCandidateGenerationRequest:
     Separate facts/frames and unchanged template policies apply to every
     projected composition/state. Construction must later admit each subset.
     The Wizard remains fixed even when opposite the perspective side.
-    All three opt-ins need separate, equal whole-family assertions; omitted
+    All four opt-ins need separate, equal whole-family assertions; omitted
     reserve actors are absent, not external creatures within Short Range.
     """
 
@@ -123,10 +130,12 @@ class MagicCandidateGenerationRequest:
     miscast_continuation: NpcMagicMiscastContinuationPolicy | None = None
     stationary_wound_continuation: NpcMagicStationaryWoundPolicy | None = None
     repeated_leg_spasm_continuation: NpcMagicRepeatedLegSpasmPolicy | None = None
+    crushed_rib_continuation: NpcMagicCrushedRibPolicy | None = None
 
     def __post_init__(self) -> None:
         _validate_generation_policies(self.template_scenario, self.miscast_continuation,
-                                      self.stationary_wound_continuation, self.repeated_leg_spasm_continuation)
+                                      self.stationary_wound_continuation, self.repeated_leg_spasm_continuation,
+                                      self.crushed_rib_continuation)
         for facts in (self.facts, self.template_scenario.facts):
             if not isinstance(facts, NpcMagicScenarioFacts):
                 raise TypeError("generation requires explicit magic facts for every composition")
@@ -199,7 +208,8 @@ def _validate_generation_source(source: MagicCandidateGenerationRequest) -> None
     if not isinstance(source, MagicCandidateGenerationRequest):
         raise TypeError("generation requires a typed magic request")
     _validate_generation_policies(source.template_scenario, source.miscast_continuation,
-                                  source.stationary_wound_continuation, source.repeated_leg_spasm_continuation)
+                                  source.stationary_wound_continuation, source.repeated_leg_spasm_continuation,
+                                  source.crushed_rib_continuation)
     if replace(source.template_scenario) != source.template_scenario:
         raise ValueError("magic generation template source must retain its admitted form")
     if replace(source) != source:
@@ -223,7 +233,8 @@ class MagicCandidateGenerationResult:
         for candidate in evaluation.candidates:
             try:
                 _validate_generation_policies(candidate.scenario, source.miscast_continuation,
-                    source.stationary_wound_continuation, source.repeated_leg_spasm_continuation)
+                    source.stationary_wound_continuation, source.repeated_leg_spasm_continuation,
+                    source.crushed_rib_continuation)
                 validate_npc_magic_scenario_admission(candidate.scenario)
             except ValueError as error:
                 raise ValueError("generated magic candidate differs from its exact source projection: " + str(error)) from error

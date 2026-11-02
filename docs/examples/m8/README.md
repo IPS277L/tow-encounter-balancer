@@ -1,5 +1,25 @@
 # Примеры магии M8
 
+## Crushed Rib generation/JSON5 contract probe, ADR-0058
+
+[Probe](crushed_rib_transport_contract_probe.py), [stdout](crushed_rib_transport_contract_probe.output.txt), [copied test](../../../tests/integration/test_m8_crushed_rib_transport_contract_probe.py), [контракт](../../decisions/ADR-0058-crushed-rib-generation-and-magic-json-v5.md). Копировать6Python-файлов: probe, `crushed_rib_native.py`, `crushed_rib_owner.py`, `generation_contract_probe.py`, `stationary_wound_runner.py`, `magic_scenario.py`; нужен установленный пакет либо source PYTHONPATH.
+
+24full-fixture stdlib JSON5 round-trips и48manual3/4actor subsets проверяют все12valid/4invalid permissions, обе CombatSide perspectives, отдельный full-five Wizard-opposite control и полный source. Теперь actual generator58 также строит выбранные3/4-actor subsets с matching permission; separate actual native57 Casting/Protection-first/later normal Test/new4 stop, sequential/realspawn и explicit-list stages проверяются существующими APIs. Generation имеет actual production coverage; JSON5 inverse остаётся ограниченным oracle без production codec. JSON1–4 отказывают opt-in, genuine None bytes сохраняются, unknown5 parser отвергает. Injury/phase scope и RNG/denominator57 неизменны.
+
+647scripted d10 =54genuine None +193direct native +120seq/spawn +280staged; seeded None balance выполняется отдельно. Native actual охватывает4manual subsets; actual generator строит два composition candidates3/4actors. Generation step1 теперь production; final copied test вместе с обновлённым выводом проверяет bundle, полный source/global RNG и oldwire gates.
+
+## Actual native Crushed Rib, ADR-0057
+
+[Пример274d10](crushed_rib_native.py), [stdout](crushed_rib_native.output.txt), [copied test](../../../tests/integration/test_m8_crushed_rib_native_example.py), [приёмка](../../audits/m8-native-crushed-rib-readiness.md). Копировать с `crushed_rib_owner.py`, `stationary_wound_runner.py`, `generation_contract_probe.py`, `magic_scenario.py`.
+
+Casting-first и Protection-first исполняются автоматическим runner с отдельным permission; последующие normal Tests сохраняют первый полный recorded witness. Actual movement/target Willpower, Wound/Miscast pending и lethal exclusion проверены. Два None controls останавливаются на7d10.274=184direct+45seq+45realspawn; compact records/summary/source/seed совпадают, unsupported остаётся в denominator2. Copied test1OK/17,072с; source/global RNG/children и SHA неизменны. На момент этого ADR generation и JSON1–4 новый opt-in ещё не представляли; matching generation добавлен в ADR-0058, JSON1–4 его по-прежнему отвергают.
+
+## Исторический native Crushed Rib contract probe, ADR-0057
+
+[Probe59d10](crushed_rib_native_contract_probe.py), [stdout](crushed_rib_native_contract_probe.output.txt), [copied test](../../../tests/integration/test_m8_crushed_rib_native_contract_probe.py), [контракт](../../decisions/ADR-0057-native-crushed-rib-continuation.md). Копировать с `crushed_rib_owner.py`, `stationary_wound_runner.py`, `generation_contract_probe.py`, `magic_scenario.py`.
+
+Actual manual56 Casting-first/Protection-first/later normal Test сохранены с полными owners/receipts. Два genuine traces имеют одинаковые IDs/final owner, но разные results; standalone56 принимает compatible witness, явно помеченный MANUAL membership oracle отвергает чужой полный result. После реализации57 Step policy/ScenarioResult **отвергают** manual56 journal без permission с новым4/pending; этот control обновлён под закрытый gap, RNG59 прежний. Legacy runnerNone останавливается на first10/7d10. Copied bundle5files проверяет exact stdout/empty stderr и SHA до/после; sources/global RNG неизменны. Новое native исполнение проверяется примером274 выше, stripped owner не используется. На момент ADR-0057 generation также отказывала Crushed Rib; ADR-0058 позднее добавил matching family permission. JSON1–4 по-прежнему отвергают его.
+
 ## Actual full-owner Crushed Rib consumer, ADR-0056
 
 [Пример63d10](crushed_rib_owner.py), [stdout](crushed_rib_owner.output.txt), [copied test](../../../tests/integration/test_m8_crushed_rib_owner_example.py), [приёмка](../../audits/m8-crushed-rib-owner-readiness.md). Копировать с `stationary_wound_runner.py`, `generation_contract_probe.py`, `magic_scenario.py`. Installed/source/copied execution проверены отдельно от исторического proof ниже.

@@ -35,6 +35,10 @@ from towr.domain.npc_magic_repeated_leg_spasm_policy import (
     initial_magic_repeated_leg_spasm_history, advance_magic_repeated_leg_spasm_history,
     magic_repeated_leg_spasm_stand_request,
 )
+from towr.domain.npc_magic_crushed_rib_policy import (
+    initial_magic_crushed_rib_history, advance_magic_crushed_rib_history,
+    magic_crushed_rib_context,
+)
 from towr.domain.npc_magic_scenario_result_models import (
     NpcMagicScenarioResult, diagnose_npc_magic_unsupported, npc_magic_terminal_outcome,
 )
@@ -120,6 +124,7 @@ def run_npc_magic_scenario(scenario: NpcMagicScenario, rng: RandomSource) -> Npc
         raise TypeError('magic runner requires an injected randint source')
     current = scenario.initial_runtime_state
     repeated_history = initial_magic_repeated_leg_spasm_history(scenario)
+    crushed_rib_history = initial_magic_crushed_rib_history(scenario)
     steps: list[NpcMagicStep] = []
     decisions = _Decisions(scenario.repeated_stagger_choice)
 
@@ -127,14 +132,17 @@ def run_npc_magic_scenario(scenario: NpcMagicScenario, rng: RandomSource) -> Npc
         return f'{scenario.id}:{len(steps)}:{label}'
 
     def publish(result: NpcMagicStepResult, expected_source: object, *, origin_witness=None) -> None:
-        nonlocal current, repeated_history
+        nonlocal current, repeated_history, crushed_rib_history
         step = NpcMagicStep(result, origin_witness=origin_witness)
         if result.source != expected_source or step.before != current:
             raise ValueError('executor returned a result for another full source')
         validate_magic_step_predecessor(steps[-1] if steps else None, step)
         validate_magic_miscast_predecessor(scenario, steps[-1] if steps else None, step)
-        validate_magic_step_policy(scenario, step, repeated_history=repeated_history)
-        repeated_history = advance_magic_repeated_leg_spasm_history(scenario, repeated_history, step)
+        validate_magic_step_policy(scenario, step, repeated_history=repeated_history,
+                                   crushed_rib_history=crushed_rib_history)
+        next_repeated = advance_magic_repeated_leg_spasm_history(scenario, repeated_history, step)
+        next_crushed_rib = advance_magic_crushed_rib_history(scenario, crushed_rib_history, step)
+        repeated_history, crushed_rib_history = next_repeated, next_crushed_rib
         current = step.after
         steps.append(step)
 
@@ -144,7 +152,8 @@ def run_npc_magic_scenario(scenario: NpcMagicScenario, rng: RandomSource) -> Npc
         if npc_magic_terminal_outcome(scenario, current) is not None:
             return NpcMagicScenarioResult(scenario, tuple(steps))
         last_id = steps[-1].id if steps else scenario.id
-        stop = diagnose_npc_magic_unsupported(scenario, current, last_id, repeated_history=repeated_history)
+        stop = diagnose_npc_magic_unsupported(scenario, current, last_id, repeated_history=repeated_history,
+                                             crushed_rib_history=crushed_rib_history)
         if stop is not None:
             return NpcMagicScenarioResult(scenario, tuple(steps), stop)
         if scenario.miscast_continuation is not None:
@@ -170,7 +179,8 @@ def run_npc_magic_scenario(scenario: NpcMagicScenario, rng: RandomSource) -> Npc
             spatial = pending.source.spatial_state
             for follow_up in pending.zone.movement_follow_ups:
                 stop = diagnose_npc_magic_unsupported(scenario, current, last_id, movements,
-                                                     repeated_history=repeated_history)
+                                                     repeated_history=repeated_history,
+                                                     crushed_rib_history=crushed_rib_history)
                 if stop is not None:
                     return NpcMagicScenarioResult(scenario, tuple(steps), stop)
                 frame = scenario.frame_for(magic_movement_prefix(scenario, current, movements))
@@ -223,7 +233,8 @@ def run_npc_magic_scenario(scenario: NpcMagicScenario, rng: RandomSource) -> Npc
                 publish(end_npc_roster_prone_turn(source), source)
                 continue
             source = NpcWoundTurnEndRequest(identifier('end'), current, actor_id, _end_sources(current, actor_id),
-                stationary_wounds=magic_stationary_wound_context(scenario, current, actor_id))
+                stationary_wounds=magic_stationary_wound_context(scenario, current, actor_id),
+                crushed_rib_context=magic_crushed_rib_context(scenario, current, actor_id, crushed_rib_history))
             publish(end_npc_wound_turn(source), source)
             continue
         frame = scenario.frame_for(magic_scene_key(current))
@@ -275,21 +286,23 @@ def run_npc_magic_scenario(scenario: NpcMagicScenario, rng: RandomSource) -> Npc
                     no_mixing_winds=scenario.facts.no_mixing_winds, no_other_test_modifiers=scenario.facts.no_other_test_modifiers,
                     no_potency_modifiers=scenario.facts.no_potency_modifiers, no_effect_immunities=scenario.facts.no_effect_immunities,
                     all_zone_enemies_included=True, target_zone_within_long_range=True), policy=policy.casting_policy,
-                stationary_wounds=magic_stationary_wound_context(scenario, current, actor_id))
+                stationary_wounds=magic_stationary_wound_context(scenario, current, actor_id),
+                crushed_rib_context=magic_crushed_rib_context(scenario, current, actor_id, crushed_rib_history))
             publish(NpcRosterCastingResult(source, execute_cowardly_flight_casting(source.casting, rng)), source)
             continue
         target = current.roster.participant(target_id)
         pair = next(p for p in frame.pair_ranges if {p.first_actor_id, p.second_actor_id} == {actor_id, target_id})
         approval = pair.first_range_approved_by_gm if pair.first_actor_id == actor_id else pair.second_range_approved_by_gm
         stationary = magic_stationary_wound_context(scenario, current, target_id)
-        if scenario.miscast_continuation is not None or stationary is not None:
+        crushed_rib = magic_crushed_rib_context(scenario, current, target_id, crushed_rib_history)
+        if scenario.miscast_continuation is not None or stationary is not None or crushed_rib is not None:
             departure = next(d for d in frame.attack_departures if d.actor_id == target_id)
             source = prepare_npc_roster_shooting(request_id=action_id, state=current,
                 actor_id=actor_id, target_id=target_id, selected_attack_id=policy.attack_id,
                 target_range=pair.target_range, has_enemy_in_close_range=False,
                 range_approved_by_gm=approval, defender_is_aware=scenario.facts.targets_aware,
                 selected_protection_skill=Skill.ATHLETICS, can_target_leave_zone=departure.can_leave_zone,
-                stationary_wounds=stationary)
+                stationary_wounds=stationary, crushed_rib_context=crushed_rib)
             if isinstance(source, NpcRosterChampionAttackRequest):
                 publish(NpcRosterChampionAttackResult(source,
                     execute_npc_champion_attack(source.attack, rng, decisions=decisions)), source)

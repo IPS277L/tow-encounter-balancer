@@ -1,5 +1,13 @@
 # Противоречия и неоднозначности
 
+## Crushed Rib generation/transport: контракт ADR-0058
+
+2026-11-03: [ADR-0058](decisions/ADR-0058-crushed-rib-generation-and-magic-json-v5.md) задаёт matching family для generation57 и будущую JSON5 передачу. Generation теперь сохраняет explicit policy; JSON1–4 продолжают lossless refusal. [Probe](examples/m8/crushed_rib_transport_contract_probe.py) отделяет production generation from manual JSON5 oracle. Это transport boundary, не противоречие книге; новых книжных неоднозначностей/house rules нет, injury/phase scope57 не расширяется.
+
+## Native Crushed Rib: journal permission gap, ADR-0057
+
+2026-11-02: обнаруженный допуск continuous manual56 Protection journal без отдельного permission закрыт [реализацией57](decisions/ADR-0057-native-crushed-rib-continuation.md). [Исторический59d10](examples/m8/crushed_rib_native_contract_probe.py) теперь проверяет actual None-policy refusal; runnerNone сохраняет first10/7d10 stop. Native first witness выводится из собственного prefix; equal-current/different-trace, удаление marker и Broken/Prone fallback не обходят gate. [Приёмка](audits/m8-native-crushed-rib-readiness.md). Это исправление технической admission, не расхождение книг/house rule; standalone56 source compatibility по-прежнему не доказывает journal membership.
+
 ## M8 Crushed Rib: технический admission gap, ADR-0056
 
 2026-11-02: старые Wizard Casting/end-turn guards принимали resolved10 с Drained и уже удалённым NEXT_TEST без подтверждения расхода. [Реализованный56](decisions/ADR-0056-source-bound-crushed-rib-owner-bridge.md) закрывает этот технический пробел full-owner witness; удаление context из готового Result/end-turn также отклоняется после десериализации. [Приёмка](audits/m8-crushed-rib-owner-readiness.md). Это не новая книжная неоднозначность или house rule. Последствия после Protection регистрируются полностью; новая Wound ограничивает последующий context, а не удаляется ради допуска.

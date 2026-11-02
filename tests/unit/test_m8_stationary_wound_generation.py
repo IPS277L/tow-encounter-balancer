@@ -116,11 +116,12 @@ class StationaryWoundGenerationTests(unittest.TestCase):
     def test_append_last_none_preserves_both_old_positional_forms(self):
         source = request()
         names = tuple(f.name for f in fields(source))
-        self.assertEqual(names[-3:], ('miscast_continuation', 'stationary_wound_continuation',
-                                      'repeated_leg_spasm_continuation'))
+        self.assertEqual(names[-4:], ('miscast_continuation', 'stationary_wound_continuation',
+                                      'repeated_leg_spasm_continuation', 'crushed_rib_continuation'))
         self.assertIsNone(fields(source)[-1].default)
-        original = tuple(getattr(source, name) for name in names[:-3])
-        values = (Request(*original), Request(*original, None), Request(*original, None, None))
+        original = tuple(getattr(source, name) for name in names[:-4])
+        values = (Request(*original), Request(*original, None), Request(*original, None, None),
+                  Request(*original, None, None, None), Request(*original, None, None, None, None))
         baseline = generation.generate_magic_candidates(source)
         for value in values:
             self.assertEqual(value, source)

@@ -1,4 +1,4 @@
-"""Construct the complete authored magic family without simulation (ADR-0042/0047/0051/0054)."""
+"""Construct the complete authored magic family without simulation (ADR-0042/0047/0051/0054/0058)."""
 from collections.abc import Iterator
 from dataclasses import replace
 from itertools import product
@@ -84,6 +84,7 @@ def _project_candidate(source: MagicCandidateGenerationRequest, counts: tuple[in
             spell=template.spell, miscast_continuation=source.miscast_continuation,
             stationary_wound_continuation=source.stationary_wound_continuation,
             repeated_leg_spasm_continuation=source.repeated_leg_spasm_continuation,
+            crushed_rib_continuation=source.crushed_rib_continuation,
         )
         return MagicBalanceCandidate(candidate_id, scenario)
     except Exception as error:

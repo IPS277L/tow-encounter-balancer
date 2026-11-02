@@ -1,0 +1,9 @@
+CASTING-FIRST:32d10; actual first10 -> failed Grim Casting/pool+2/WAIT -> later normal Protection/Casting; one first journal witness, Drained/history retained
+PROTECTION-FIRST:29d10; current E2 Shooting consumes before Wizard turn; E3 Protection and Casting normal; full journal reconstruction retains exact first result
+NONE: two fresh controls stop at first10/7d10 each; no extra Test, receipt or implicit opt-in
+MANDATORY WOUND:16d10; Protection consumes old effect before new4; actual Endurance follow-up stops before more RNG, both daily/roll receipts retained
+MANDATORY MISCAST:10d10; consuming Casting already applied before pool3/Level2 stop; full pending receipt retained without independent Miscast permission
+MANDATORY MOVEMENT:22d10; one consuming Casting -> pending movement -> normal target Willpower; same first receipt/Drained survive completion without another Casting
+DEATH:61d10; two prior superficial Wounds ->10/one consumption -> later lethal Wound; mandatory exclusion precedes actual missing-scene stop without resetting history
+REAL SPAWN: seq/process compact records and summary identical; common seed prefix/full source retained; one limit +one unsupported stay in denominator2
+274 scripted d10 across direct/seq/spawn; native57 implemented, generation/JSON1-4 remain refused; source/global RNG unchanged; no runtime-percentage oracle

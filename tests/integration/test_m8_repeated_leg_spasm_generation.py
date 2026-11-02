@@ -18,7 +18,9 @@ from towr.application.magic_staged_evaluation_service import evaluate_magic_cand
 from towr.application.ranged_simulation_models import SimulationExecutionMode as Mode, SimulationExecutionOptions as Options
 from towr.balance.magic_staged_evaluation_models import MagicStagedEvaluationStatus
 from towr.domain.condition_models import Condition
-from towr.domain.npc_magic_scenario_models import NpcMagicRepeatedLegSpasmPolicy as Repeated
+from towr.domain.npc_magic_scenario_models import (
+    NpcMagicCrushedRibPolicy as CrushedRib, NpcMagicRepeatedLegSpasmPolicy as Repeated,
+)
 from towr.domain.npc_magic_step_models import NpcMagicScenarioOutcome as Outcome, NpcMagicUnsupportedReason as Reason
 from towr.domain.npc_roster_leg_spasm_models import NpcRosterLegSpasmStandResult
 from towr.domain.npc_roster_repeated_leg_spasm_models import NpcRosterRepeatedLegSpasmStandResult
@@ -27,13 +29,17 @@ from towr.simulation.npc_magic_models import NpcMagicOutcomeCounts
 
 
 POLICY = Repeated.STAND_ONCE_WITH_JOURNAL_WITNESSES
+CRUSHED_RIB_POLICY = CrushedRib.NEXT_TEST_WITH_JOURNAL_WITNESSES
 
 
-def family(*, miscast=False, stationary=True, repeated=True, opposite=False):
+def family(*, miscast=False, stationary=True, repeated=True, crushed_rib=False, opposite=False):
     base = base_family(miscast=miscast, stationary=stationary, opposite=opposite)
     policy = POLICY if repeated else None
     return replace(base, template_scenario=replace(base.template_scenario,
-                   repeated_leg_spasm_continuation=policy), repeated_leg_spasm_continuation=policy)
+                   repeated_leg_spasm_continuation=policy,
+                   crushed_rib_continuation=CRUSHED_RIB_POLICY if crushed_rib else None),
+                   repeated_leg_spasm_continuation=policy,
+                   crushed_rib_continuation=CRUSHED_RIB_POLICY if crushed_rib else None)
 
 
 def script(actor_count, *, stationary=True, repeated=True, tail_kind='normal'):
@@ -63,10 +69,11 @@ class RepeatedLegSpasmGenerationIntegrationTests(unittest.TestCase):
         self.assertEqual(getstate(), self.rng_before)
         self.assertEqual({child.pid for child in active_children()}, self.children_before)
 
-    def test_six_generated_policy_combinations_execute_actual_three_and_four_actor_subsets(self):
-        for miscast, stationary, repeated in product((False, True), repeat=3):
+    def test_twelve_generated_policy_combinations_keep_crushed_permission_in_three_and_four_actor_subsets(self):
+        for miscast, stationary, repeated, crushed_rib in product((False, True), repeat=4):
             if repeated and not stationary: continue
-            source = family(miscast=miscast, stationary=stationary, repeated=repeated)
+            source = family(miscast=miscast, stationary=stationary, repeated=repeated,
+                            crushed_rib=crushed_rib)
             before = deepcopy(source)
             generated = generate_magic_candidates(source)
             self.assertEqual((source.candidate_count, source.planned_trials), (2, 8))
@@ -75,8 +82,11 @@ class RepeatedLegSpasmGenerationIntegrationTests(unittest.TestCase):
                 dice = Dice(script(actors, stationary=stationary, repeated=repeated))
                 result = run_npc_magic_scenario(candidate.scenario, dice)
                 dice.exhausted()
-                with self.subTest(miscast=miscast, stationary=stationary, repeated=repeated, actors=actors):
+                with self.subTest(miscast=miscast, stationary=stationary, repeated=repeated,
+                                  crushed_rib=crushed_rib, actors=actors):
                     self.assertIs(result.source, candidate.scenario)
+                    self.assertIs(candidate.scenario.crushed_rib_continuation,
+                                  CRUSHED_RIB_POLICY if crushed_rib else None)
                     self.assertEqual(sum(isinstance(s.result, NpcRosterLegSpasmStandResult) for s in result.steps), int(stationary))
                     self.assertEqual(sum(isinstance(s.result, NpcRosterRepeatedLegSpasmStandResult) for s in result.steps), int(repeated))
                     if repeated:
@@ -123,17 +133,19 @@ class RepeatedLegSpasmGenerationIntegrationTests(unittest.TestCase):
                 assessment = row.assessment
                 self.assertIs(assessment.source_request.scenario, originals[row.candidate_id])
                 self.assertIs(assessment.source_request.scenario.repeated_leg_spasm_continuation, POLICY)
+                self.assertIs(assessment.source_request.scenario.crushed_rib_continuation,
+                              generated.source_request.crushed_rib_continuation)
                 self.assertEqual(assessment.source_request.scenario.miscast_continuation,
                                  generated.source_request.miscast_continuation)
                 self.assertIs(assessment.summary.source_request, assessment.source_request)
                 self.assertEqual(assessment.summary.trials, assessment.source_request.trials)
 
     def test_actual_sequential_spawn_stages_preserve_sources_denominator_budget_and_seed_prefix(self):
-        generated = generate_magic_candidates(family(miscast=True))
-        before = deepcopy(generated)
         sequential_runner = evaluation.run_npc_magic_simulation
         spawned_runner = evaluation.run_npc_magic_simulation_parallel
-        for mixed in (False, True):
+        for crushed_rib, mixed in ((True, False), (False, True)):
+            generated = generate_magic_candidates(family(miscast=True, crushed_rib=crushed_rib))
+            before = deepcopy(generated)
             captures = []
 
             def factory(source, process=False):

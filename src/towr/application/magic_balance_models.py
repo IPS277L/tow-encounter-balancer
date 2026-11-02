@@ -64,7 +64,8 @@ def _validate_scenario_source(scenario: NpcMagicScenario) -> None:
     replace(scenario.facts)
     _validate_generation_policy_types(scenario, scenario.miscast_continuation,
                                       scenario.stationary_wound_continuation,
-                                      scenario.repeated_leg_spasm_continuation)
+                                      scenario.repeated_leg_spasm_continuation,
+                                      scenario.crushed_rib_continuation)
 
 
 def _validate_staged_request_source(source: MagicStagedEvaluationRequest) -> None:

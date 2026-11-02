@@ -1,5 +1,13 @@
 # Трассировка правил
 
+## Crushed Rib generation/transport: контракт ADR-0058
+
+2026-11-03: прежние RULE-HEALTH-005/008, RULE-TEST-004 и RULE-MAGIC-004 → [контракт58](decisions/ADR-0058-crushed-rib-generation-and-magic-json-v5.md) → [generation request/projection](../src/towr/application/magic_candidate_generation_models.py)/[generator](../src/towr/application/magic_candidate_generation.py) → [unit/integration tests](../tests/unit/test_m8_repeated_leg_spasm_generation.py)/[copied public probe](examples/m8/crushed_rib_transport_contract_probe.py). Игровые правила прежние; generation проверяет matching4-policy source и сохраняет разрешение каждого кандидата. JSON5 APIs/schema остаются будущей работой; JSON1–4 отказывают, чтобы не терять поле.
+
+## Native Crushed Rib: реализация ADR-0057
+
+RULE-HEALTH-005/008, RULE-TEST-004, RULE-MAGIC-004 → [ADR-0057](decisions/ADR-0057-native-crushed-rib-continuation.md) → [policy/history](../src/towr/domain/npc_magic_crushed_rib_policy.py), [runner](../src/towr/engine/npc_magic_scenario_runner.py), [Result/diagnosis](../src/towr/domain/npc_magic_scenario_result_models.py), [actual274d10/приёмка](audits/m8-native-crushed-rib-readiness.md).17pure +5journal unit,11native integrations,8gen/wire refusals и2copied tests проверены по шагам. Полные recorded first results проверяются при publication/reconstruction; foreign equal-current/different-trace, None/marker stripping/Broken fallback отвергаются. [Исторический59d10](examples/m8/crushed_rib_native_contract_probe.py) теперь проверяет закрытый permission gap отказом, сохраняя manual oracle и7d10 None controls. Generation/JSON1–4 scope не расширен.
+
 ## M8 full-owner Crushed Rib: контракт56
 
 RULE-HEALTH-005/008, RULE-TEST-004, RULE-MAGIC-004 → [ADR-0056](decisions/ADR-0056-source-bound-crushed-rib-owner-bridge.md) → [full context/witness](../src/towr/domain/npc_crushed_rib_models.py), [Protection](../src/towr/rules/npc_champion_attack_execution.py), [Casting](../src/towr/engine/cowardly_flight_casting.py), [actual63d10/приёмка](audits/m8-crushed-rib-owner-readiness.md).39новых unit и8actual/copy integration tests реализуют source admission/consumption/pending и before-RNG refusals;62targetedchecks прошли. Consumed injury проецируется в полный M8 через actual result/apply; первый witness сохраняет remaining Drained, новая Wound регистрируется до ограничения context. Исторический [probe25d10](examples/m8/crushed_rib_owner_contract_probe.py) сохранён отдельно. Нормативные страницы и primitives55 — ниже; новых house rules нет.

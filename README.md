@@ -1,6 +1,10 @@
 # TOWR Encounter Balancer
 
-Реализован [ADR-0056](docs/decisions/ADR-0056-source-bound-crushed-rib-owner-bridge.md): ручной typed Crushed Rib bridge для полного M8 owner, actual Protection/Casting и оставшегося Drained с подтверждением расхода. [Actual пример63d10](docs/examples/m8/crushed_rib_owner.py),62целевые проверки и отдельный installed audit прошли; [приёмка](docs/audits/m8-crushed-rib-owner-readiness.md) фиксирует окончательную регрессию. Automatic runner пока останавливается на Wound10. Точный следующий шаг — в [статусе](docs/project-status.md).
+Реализован generation шаг [ADR-0058](docs/decisions/ADR-0058-crushed-rib-generation-and-magic-json-v5.md): отдельный matching family permission сохраняется в generated candidates. [Contract probe](docs/examples/m8/crushed_rib_transport_contract_probe.py) проверяет actual3/4-actor generation и текущие native APIs; JSON5 остаётся следующим шагом. Статус — в [project status](docs/project-status.md).
+
+Реализован [ADR-0057](docs/decisions/ADR-0057-native-crushed-rib-continuation.md): native Crushed Rib с отдельным разрешением и подтверждением расхода из собственного журнала. [Actual274d10](docs/examples/m8/crushed_rib_native.py) проверяет Casting/Protection-first, обязательные последствия и настоящий spawn. [Приёмка](docs/audits/m8-native-crushed-rib-readiness.md) фиксирует installed/full проверки. ADR-0058 подключил matching permission к generation; JSON1–4 пока явно отвергают его. Следующий шаг — в [статусе](docs/project-status.md).
+
+Реализован [ADR-0056](docs/decisions/ADR-0056-source-bound-crushed-rib-owner-bridge.md): ручной typed Crushed Rib bridge для полного M8 owner, actual Protection/Casting и оставшегося Drained с подтверждением расхода. [Actual пример63d10](docs/examples/m8/crushed_rib_owner.py),62целевые проверки и отдельный installed audit прошли; [приёмка](docs/audits/m8-crushed-rib-owner-readiness.md) фиксирует окончательную регрессию. Без native57 opt-in runner сохраняет остановку на Wound10. Точный следующий шаг — в [статусе](docs/project-status.md).
 
 Симулятор боёв и инструмент подбора сложности столкновений для настольной RPG TOWR.
 

@@ -1,5 +1,13 @@
 # Реестр источников
 
+## Crushed Rib generation/transport: контракт ADR-0058
+
+2026-11-03: [ADR-0058](decisions/ADR-0058-crushed-rib-generation-and-magic-json-v5.md) передаёт существующий native57 permission без изменения механики; generation step1 реализован. Нового чтения книг/PDF/страниц, извлечений, версий/SHA и Rule IDs нет; прежние источники55/56/57 сохраняются. [Public probe](examples/m8/crushed_rib_transport_contract_probe.py) проверяет actual generation/native execution и manual wire5 oracle. JSON5 production schema/codec ещё впереди; oracle не является источником правила.
+
+## Native Crushed Rib: контракт ADR-0057
+
+2026-11-02: [реализация57](decisions/ADR-0057-native-crushed-rib-continuation.md) наследует сверку55/56: BOOK-PLAYER-GUIDE1.4 Rules108/Attack Tests118/Drained123, Casting156–157, Wounds Table190; BOOK-GM-GUIDE1.1 Champions92. При подготовке/реализации новые страницы/PDF не читались, SHA книг не пересчитывались; новых версий/Rule IDs/house rules нет. Permission/history/membership и закрытый journal gap — инженерная граница. [Actual274d10/приёмка](audits/m8-native-crushed-rib-readiness.md) подтверждает native исполнение, а [исторический59d10](examples/m8/crushed_rib_native_contract_probe.py) обновлён на None refusal; они не являются новыми нормативными источниками.
+
 ## M8 full-owner Crushed Rib: ADR-0056
 
 2026-11-02: [реализация56](decisions/ADR-0056-source-bound-crushed-rib-owner-bridge.md) использует нормативную сверку55 ниже. При подготовке повторно просмотрены локальные извлечения PG1.4 Wounds Table190, Conditions123 и Casting156–157; Rules108/118 и GM1.1 Champions92 унаследованы из сверки55. При реализации новые страницы/PDF не читались, SHA книг не пересчитывались; нового полного чтения, книг/версий/Rule IDs нет. [Actual63d10/installed audit](audits/m8-crushed-rib-owner-readiness.md) проверяет инженерную интеграцию, а исторический [probe25d10](examples/m8/crushed_rib_owner_contract_probe.py) — source/slot seams; они не являются новыми источниками механики.

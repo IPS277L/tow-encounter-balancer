@@ -105,6 +105,10 @@ class NpcMagicStationaryWoundPolicy(str, Enum):
     LEG_SPASM_STAND_AND_CONTINUE = 'leg_spasm_stand_and_continue'
 
 
+class NpcMagicCrushedRibPolicy(str, Enum):
+    NEXT_TEST_WITH_JOURNAL_WITNESSES = 'next_test_with_journal_witnesses'
+
+
 class NpcMagicRepeatedLegSpasmPolicy(str, Enum):
     STAND_ONCE_WITH_JOURNAL_WITNESSES = 'stand_once_with_journal_witnesses'
 
@@ -151,6 +155,7 @@ class NpcMagicScenario:
     miscast_continuation: NpcMagicMiscastContinuationPolicy | None = None
     stationary_wound_continuation: NpcMagicStationaryWoundPolicy | None = None
     repeated_leg_spasm_continuation: NpcMagicRepeatedLegSpasmPolicy | None = None
+    crushed_rib_continuation: NpcMagicCrushedRibPolicy | None = None
 
     def __post_init__(self) -> None:
         _identifier(self.id)
@@ -326,6 +331,9 @@ def _validate_magic_scenario_permissions(scenario: NpcMagicScenario) -> None:
     if stationary is not None and not isinstance(stationary, NpcMagicStationaryWoundPolicy):
         raise TypeError('native magic admission requires a typed stationary policy')
     repeated = scenario.repeated_leg_spasm_continuation
+    crushed = scenario.crushed_rib_continuation
+    if crushed is not None and not isinstance(crushed, NpcMagicCrushedRibPolicy):
+        raise TypeError('native magic admission requires a typed Crushed Rib policy')
     if repeated is not None:
         if not isinstance(repeated, NpcMagicRepeatedLegSpasmPolicy):
             raise TypeError('native magic admission requires a typed repeated Leg Spasm policy')

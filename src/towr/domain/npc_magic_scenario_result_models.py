@@ -18,6 +18,11 @@ from towr.domain.npc_magic_repeated_leg_spasm_policy import (
     advance_magic_repeated_leg_spasm_history, magic_repeated_leg_spasm_stand_family,
     magic_repeated_leg_spasm_stand_eligible, _validate_history,
 )
+from towr.domain.npc_magic_crushed_rib_policy import (
+    NpcMagicCrushedRibHistory, initial_magic_crushed_rib_history,
+    advance_magic_crushed_rib_history, magic_crushed_rib_context,
+    magic_crushed_rib_required, _validate_crushed_rib_history,
+)
 from towr.domain.npc_magic_stationary_wound_policy import (
     magic_leg_spasm_stand_family, magic_leg_spasm_stand_eligible, magic_stationary_wound_context,
     magic_stationary_wound_policy_enabled,
@@ -101,11 +106,13 @@ def diagnose_npc_magic_unsupported(
     scenario: NpcMagicScenario, state: NpcRosterCastingState, source_id: str,
     staged: tuple[CowardlyFlightMovementCompletion, ...] = (),
     *, repeated_history: NpcMagicRepeatedLegSpasmHistory | None = None,
+    crushed_rib_history: NpcMagicCrushedRibHistory | None = None,
 ) -> NpcMagicUnsupported | None:
     """Recognize a concrete first-boundary stop; never catches constructor errors."""
     if not isinstance(scenario, NpcMagicScenario) or not isinstance(state, NpcRosterCastingState):
         raise TypeError('diagnosis requires typed scenario and full current owner')
     _validate_history(scenario, state, repeated_history)
+    _validate_crushed_rib_history(scenario, state, crushed_rib_history)
     _identifier(source_id)
     staged = _ordered(staged, CowardlyFlightMovementCompletion, 'staged movements')
     phase = NpcMagicPhase.CONTINUATION
@@ -177,8 +184,10 @@ def diagnose_npc_magic_unsupported(
         if opted:
             conditions.add(Condition.PRONE)
         if ((not _injury_supported(state, actor_id, conditions)
-                or magic_stationary_wound_required(scenario, state, actor_id))
-                and magic_stationary_wound_context(scenario, state, actor_id) is None):
+                or magic_stationary_wound_required(scenario, state, actor_id)
+                or magic_crushed_rib_required(state, actor_id))
+                and magic_stationary_wound_context(scenario, state, actor_id) is None
+                and magic_crushed_rib_context(scenario, state, actor_id, crushed_rib_history) is None):
             return stop(reason.END_TURN, actors=(actor_id,))
         return None
     phase = NpcMagicPhase.ACTION
@@ -188,15 +197,17 @@ def diagnose_npc_magic_unsupported(
                   {Condition.STAGGERED, Condition.DRAINED} if actor_id == state.wizard.actor_id else {Condition.STAGGERED})
     if opted:
         conditions.add(Condition.PRONE)
-    if opted or stationary_opted:
+    if opted or stationary_opted or scenario.crushed_rib_continuation is not None:
         if (_bad_clock(state) or any(e.actor_id == actor_id
                 and e.deadline_round_number != state.round_state.round_number for e in state.wound_expiries)):
             return stop(reason.CHRONOLOGY)
     leg_stand = magic_leg_spasm_stand_family(scenario, state)
     repeat_stand = magic_repeated_leg_spasm_stand_family(scenario, state, repeated_history)
     if ((not _injury_supported(state, actor_id, conditions)
-            or magic_stationary_wound_required(scenario, state, actor_id)) and not leg_stand and not repeat_stand
-            and magic_stationary_wound_context(scenario, state, actor_id) is None):
+            or magic_stationary_wound_required(scenario, state, actor_id)
+            or magic_crushed_rib_required(state, actor_id)) and not leg_stand and not repeat_stand
+            and magic_stationary_wound_context(scenario, state, actor_id) is None
+            and magic_crushed_rib_context(scenario, state, actor_id, crushed_rib_history) is None):
         return stop(reason.ACTOR_INJURY, actors=(actor_id,))
     frame = scenario.frame_for(magic_scene_key(state))
     if frame is None:
@@ -234,8 +245,10 @@ def diagnose_npc_magic_unsupported(
                ({Condition.STAGGERED} if target == state.wizard.actor_id else {Condition.STAGGERED, Condition.BROKEN})
                | ({Condition.PRONE} if opted else set()),
                champion_attack=target == state.wizard.actor_id)
-               and not magic_stationary_wound_required(scenario, state, target))
-               or magic_stationary_wound_context(scenario, state, target) is not None else (target,))
+               and not magic_stationary_wound_required(scenario, state, target)
+               and not magic_crushed_rib_required(state, target))
+               or magic_stationary_wound_context(scenario, state, target) is not None
+               or magic_crushed_rib_context(scenario, state, target, crushed_rib_history) is not None else (target,))
     if bad:
         return stop(reason.TARGET_INJURY, actors=bad)
     if actor_id != state.wizard.actor_id and not any(d.actor_id == target for d in frame.attack_departures):
@@ -260,6 +273,7 @@ class NpcMagicScenarioResult:
             raise TypeError('unsupported diagnosis must be typed')
         current = self.source.initial_runtime_state
         repeated_history = initial_magic_repeated_leg_spasm_history(self.source)
+        crushed_rib_history = initial_magic_crushed_rib_history(self.source)
         seen: set[str] = set()
         previous = None
         for step in steps:
@@ -276,8 +290,10 @@ class NpcMagicScenarioResult:
             seen.update(identifiers)
             validate_magic_step_predecessor(previous, step)
             validate_magic_miscast_predecessor(self.source, previous, step)
-            validate_magic_step_policy(self.source, step, repeated_history=repeated_history)
+            validate_magic_step_policy(self.source, step, repeated_history=repeated_history,
+                                       crushed_rib_history=crushed_rib_history)
             repeated_history = advance_magic_repeated_leg_spasm_history(self.source, repeated_history, step)
+            crushed_rib_history = advance_magic_crushed_rib_history(self.source, crushed_rib_history, step)
             current = step.after
             previous = step
             if current.round_state.round_number > self.source.max_rounds:
@@ -293,7 +309,8 @@ class NpcMagicScenarioResult:
             last_id = steps[-1].id if steps else self.source.id
             staged = self.unsupported.staged_movements if self.unsupported is not None else ()
             expected = diagnose_npc_magic_unsupported(self.source, current, last_id, staged,
-                                                     repeated_history=repeated_history)
+                                                     repeated_history=repeated_history,
+                                                     crushed_rib_history=crushed_rib_history)
             if self.unsupported is None or expected is None or self.unsupported != expected:
                 raise ValueError('journal requires the exact currently unsupported phase/source/diagnosis')
 

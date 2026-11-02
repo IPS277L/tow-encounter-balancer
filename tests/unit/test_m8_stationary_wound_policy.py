@@ -59,10 +59,10 @@ class StationaryWoundPolicyTests(unittest.TestCase):
     def test_append_last_preserves_both_previous_positional_forms_and_explicit_none(self):
         source = scenario()
         names = tuple(f.name for f in fields(source))
-        self.assertEqual(names[-3:], ('miscast_continuation', 'stationary_wound_continuation',
-                                      'repeated_leg_spasm_continuation'))
+        self.assertEqual(names[-4:], ('miscast_continuation', 'stationary_wound_continuation',
+                                      'repeated_leg_spasm_continuation', 'crushed_rib_continuation'))
         self.assertIsNone(fields(source)[-1].default)
-        original_arguments = tuple(getattr(source, name) for name in names[:-3])
+        original_arguments = tuple(getattr(source, name) for name in names[:-4])
         self.assertEqual(NpcMagicScenario(*original_arguments), source)
         self.assertEqual(NpcMagicScenario(*original_arguments, None), source)
         self.assertEqual(NpcMagicScenario(*original_arguments, None, None), source)

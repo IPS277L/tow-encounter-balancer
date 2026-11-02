@@ -1,0 +1,6 @@
+CASTING-FIRST: fresh legacy stop7d10 -> actual56 failed Grim4d10 -> pool0->2/WAIT -> full-owner end; native57 None-policy refuses its step; Drained/history retained
+PROTECTION-FIRST: independent fresh7+7d10 prefixes; actual Grim7d10 versus zero-initial6d10 have same IDs/full final owner but different complete results/55 receipts
+MANUAL MEMBERSHIP ORACLE: standalone56 accepts compatible alternative witness; explicit recorded full-parent+receipt comparison accepts A and rejects B; no native57 validator invented
+LATER MANUAL56: actual E2 end/E3 start -> normal Protection6d10; first recorded witness, exact Drained injury and full histories retained
+CLOSED NATIVE GAP: existing Step stores manual56, but actual57 policy + continuous full Result REFUSE it under None; low-level new4/pending WOUND_EFFECT and both receipts retained
+59 scripted d10; legacy runner None still stops after first10/7d10; actual None-policy refusals and full manual56 owners; sources/global RNG unchanged; no57 API emulation or stripped owner

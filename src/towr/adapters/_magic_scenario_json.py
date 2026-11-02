@@ -320,6 +320,8 @@ def validate_scenario_wire_permissions(scenario: NpcMagicScenario, schema_versio
     """Reject lossy versions before projecting definitions or result catalogs."""
     _require_schema_version(schema_version)
     _validate_scenario_policy_types(scenario)
+    if scenario.crushed_rib_continuation is not None:
+        raise ValueError('Crushed Rib continuation cannot be represented losslessly by magic JSON v1/v2/v3/v4')
     if schema_version != '4' and scenario.repeated_leg_spasm_continuation is not None:
         raise ValueError('repeated Leg Spasm continuation cannot be represented losslessly by magic JSON v1/v2/v3')
     if schema_version not in ('3', '4') and scenario.stationary_wound_continuation is not None:

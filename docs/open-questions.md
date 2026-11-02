@@ -1,6 +1,6 @@
 # Открытые вопросы и действующие допущения
 
-Дата: 2026-11-02. Закрытые направления и история реализации перенесены в [архив](open-questions-history.md). Текущий этап и следующий шаг — в [статусе](project-status.md). Этот список не расширяет scope принятых ADR.
+Дата: 2026-11-03. Закрытые направления и история реализации перенесены в [архив](open-questions-history.md). Текущий этап и следующий шаг — в [статусе](project-status.md). Этот список не расширяет scope принятых ADR.
 
 ## Действующая граница симуляции
 
@@ -10,13 +10,15 @@ M2/M6/M7 завершены для ограниченных numeric Minion-сц�
 
 <a id="первая-метрика-m5"></a>
 
-## M8 — текущая граница и Crushed Rib contract56
+## M8 — текущая граница и Crushed Rib transport58
 
 Native53 и transport54 закрыты. Канонические first9/stand48/context49 и один repeated stand52 доступны при explicit matching permissions; Drained от6 после stand сохраняет expiry. Третья9, несовместимые6/Wind при repeated stand, ordinary movement/Recover/treatment и другие Wounds требуют отдельных consumers. JSON1/2 не принимают stationary, JSON1/2/3 — repeated, а generation/JSON4 требуют отдельного matching family assertion. Flag stripping для legacy view запрещён.
 
 [ADR-0055](decisions/ADR-0055-source-bound-crushed-rib-test.md) реализован; [actual33d10/installed audit](audits/m8-crushed-rib-test-readiness.md) проверен, full4110tests/33known errors/0failures завершён. Consumer ограничен K1 injury-bound ordinary/Casting Test при одной canonical resolved/untreated/unhealed rolled10; подготовка не расходует effect, completion снимает только NEXT_TEST, Drained сохраняется. Несколько pending10,9/6, treatment/healing и Fate/Lucky/Talent proofs пока исключены. Это ограничение реализации, не запрет книги; новых house rules/книжных неоднозначностей для выбранного среза не выявлено.
 
-[ADR-0056](decisions/ADR-0056-source-bound-crushed-rib-owner-bridge.md) реализован: full-owner pending/consumed context, first actual consuming result как witness, Protection handoff до Wound и Casting до pool/follow-ups. [Actual63d10/приёмка](audits/m8-crushed-rib-owner-readiness.md). Source compatibility не доказывает journal membership или произвольную достижимость; настоящий current owner предоставляет authoritative caller. Automatic dispatcher/journal/permission потребуют отдельного ADR-0057. Wizard action/end-turn gap для stripped10 без witness закрыт, включая удаление context после десериализации. Новые post-Test Wounds регистрируются полностью и затем ограничивают context. Automatic Wound10 пока сохраняет прежние stops;33прежние Python3.12 expectation errors остаются самостоятельной задачей. Новых вопросов к правилам для выбранного среза нет.
+[ADR-0056](decisions/ADR-0056-source-bound-crushed-rib-owner-bridge.md) реализован: full-owner pending/consumed context, first actual consuming result как witness, Protection handoff до Wound и Casting до pool/follow-ups. [Actual63d10/приёмка](audits/m8-crushed-rib-owner-readiness.md). Source compatibility не доказывает journal membership или произвольную достижимость; настоящий current owner предоставляет authoritative caller. Wizard action/end-turn gap для stripped10 без witness закрыт, включая удаление context после десериализации. Новые post-Test Wounds регистрируются полностью и затем ограничивают context.
+
+[ADR-0057](decisions/ADR-0057-native-crushed-rib-continuation.md) закрыт в ограниченной native границе; [приёмка](audits/m8-native-crushed-rib-readiness.md). Generation step1 [ADR-0058](decisions/ADR-0058-crushed-rib-generation-and-magic-json-v5.md) реализован: отдельный strict matching family assertion, все12valid/4invalid сочетания, проекция полного source, cache guards, arithmetic Request preflight. JSON1–4 пока отказывают nonNone57; JSON5 остаётся следующим этапом. [Probe](examples/m8/crushed_rib_transport_contract_probe.py) проверяет actual generation/native57 и отдельный manual JSON5 oracle без stripped legacy views. Новые injury сочетания/current-state-history transport/save-resume не открываются.33прежних Python3.12 expectation errors — отдельная задача. Новых вопросов к книге/house rules нет; schemas пока42/444.
 
 ## Значение ничьей для балансировки
 

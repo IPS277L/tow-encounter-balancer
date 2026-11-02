@@ -1,4 +1,5 @@
-"""ADR-0054 third family assertion, arithmetic admission and source preflight."""
+"""ADR-0054/0058 family assertions, arithmetic admission and source preflight."""
+from contextlib import ExitStack
 from copy import deepcopy
 from dataclasses import fields, replace
 from fractions import Fraction
@@ -19,7 +20,8 @@ from towr.application.magic_candidate_generation_models import (
 from towr.balance.magic_staged_evaluation_models import MagicBalanceStage as Stage
 from towr.balance.ranged_assessment_models import ObjectiveRateWindow as Window
 from towr.domain.npc_magic_scenario_models import (
-    NpcMagicScenario, NpcMagicRepeatedLegSpasmPolicy as Repeated, NpcMagicStationaryWoundPolicy as Stationary,
+    NpcMagicCrushedRibPolicy as CrushedRib, NpcMagicScenario,
+    NpcMagicRepeatedLegSpasmPolicy as Repeated, NpcMagicStationaryWoundPolicy as Stationary,
 )
 from towr.domain.turn_models import CombatSide, CombatRoundState
 from towr.simulation.npc_magic_models import NpcMagicSimulationRequest
@@ -27,14 +29,16 @@ from towr.simulation.npc_magic_models import NpcMagicSimulationRequest
 
 POLICY = Repeated.STAND_ONCE_WITH_JOURNAL_WITNESSES
 BASE = Stationary.LEG_SPASM_STAND_AND_CONTINUE
+CRUSHED_RIB = CrushedRib.NEXT_TEST_WITH_JOURNAL_WITNESSES
 
 
-def family(source=None, *, miscast=None, stationary=BASE, repeated=POLICY):
+def family(source=None, *, miscast=None, stationary=BASE, repeated=POLICY, crushed_rib=None):
     original = request() if source is None else source
     return replace(original, template_scenario=replace(original.template_scenario,
         miscast_continuation=miscast, stationary_wound_continuation=stationary,
-        repeated_leg_spasm_continuation=repeated), miscast_continuation=miscast,
-        stationary_wound_continuation=stationary, repeated_leg_spasm_continuation=repeated)
+        repeated_leg_spasm_continuation=repeated, crushed_rib_continuation=crushed_rib),
+        miscast_continuation=miscast, stationary_wound_continuation=stationary,
+        repeated_leg_spasm_continuation=repeated, crushed_rib_continuation=crushed_rib)
 
 
 class RepeatedLegSpasmGenerationTests(unittest.TestCase):
@@ -57,41 +61,46 @@ class RepeatedLegSpasmGenerationTests(unittest.TestCase):
                          perspective_side=opposite[template.perspective_side], scene_frames=frames), scene_frames=frames)
         baseline = generation.generate_magic_candidates(mirror)
         self.assertIs(mirror.template_scenario.perspective_side, CombatSide.OPPOSITION)
-        for m, s, r in product((False, True), repeat=3):
+        for m, s, r, c in product((False, True), repeat=4):
             if r and not s: continue
             source = family(mirror, miscast=continuation_policy() if m else None,
-                            stationary=BASE if s else None, repeated=POLICY if r else None)
+                            stationary=BASE if s else None, repeated=POLICY if r else None,
+                            crushed_rib=CRUSHED_RIB if c else None)
             generated = generation.generate_magic_candidates(source)
             self.assertEqual((source.candidate_count, source.planned_trials), (4, 240))
             for old, actual in zip(baseline.evaluation_request.candidates, generated.evaluation_request.candidates, strict=True):
                 self.assertEqual(actual, replace(old, scenario=replace(old.scenario,
                     miscast_continuation=source.miscast_continuation,
                     stationary_wound_continuation=source.stationary_wound_continuation,
-                    repeated_leg_spasm_continuation=source.repeated_leg_spasm_continuation)))
+                    repeated_leg_spasm_continuation=source.repeated_leg_spasm_continuation,
+                    crushed_rib_continuation=source.crushed_rib_continuation)))
 
-    def test_six_combinations_preserve_full_ordered_projection_and_seeds(self):
+    def test_twelve_combinations_preserve_full_ordered_projection_and_seeds(self):
         original = request()
         baseline = generation.generate_magic_candidates(original)
         before_rng = getstate()
         with patch('random.Random', side_effect=AssertionError('pure generation')):
-            for m, s, r in product((False, True), repeat=3):
+            for m, s, r, c in product((False, True), repeat=4):
                 if r and not s:
                     with self.assertRaises(ValueError):
                         family(original, miscast=continuation_policy() if m else None, stationary=None)
                     continue
                 source = family(original, miscast=continuation_policy() if m else None,
-                                stationary=BASE if s else None, repeated=POLICY if r else None)
+                                stationary=BASE if s else None, repeated=POLICY if r else None,
+                                crushed_rib=CRUSHED_RIB if c else None)
                 before = deepcopy(source)
                 generated = generation.generate_magic_candidates(source)
                 self.assertEqual((source.candidate_count, source.planned_trials), (4, 240))
                 self.assertIs(generated.source_request, source)
                 for old, actual in zip(baseline.evaluation_request.candidates, generated.evaluation_request.candidates, strict=True):
-                    with self.subTest(miscast=m, stationary=s, repeated=r, id=actual.candidate_id):
+                    with self.subTest(miscast=m, stationary=s, repeated=r, crushed_rib=c, id=actual.candidate_id):
                         self.assertEqual(actual, replace(old, scenario=replace(old.scenario,
                             miscast_continuation=source.miscast_continuation,
                             stationary_wound_continuation=source.stationary_wound_continuation,
-                            repeated_leg_spasm_continuation=source.repeated_leg_spasm_continuation)))
+                            repeated_leg_spasm_continuation=source.repeated_leg_spasm_continuation,
+                            crushed_rib_continuation=source.crushed_rib_continuation)))
                         self.assertIs(actual.scenario.repeated_leg_spasm_continuation, source.repeated_leg_spasm_continuation)
+                        self.assertIs(actual.scenario.crushed_rib_continuation, source.crushed_rib_continuation)
                         left = NpcMagicSimulationRequest(old.scenario, source.master_seed, 3)
                         right = NpcMagicSimulationRequest(actual.scenario, source.master_seed, 3)
                         self.assertEqual(tuple(left.seed_for(i) for i in range(3)), tuple(right.seed_for(i) for i in range(3)))
@@ -106,23 +115,25 @@ class RepeatedLegSpasmGenerationTests(unittest.TestCase):
                           template.scene_frames, 'mirror', 1, 42, (Stage(1, 1),), 1,
                           Window(Fraction(0), Fraction(1, 2), Fraction(1)))
             for miscast in (None, continuation_policy()):
-                source = family(old, miscast=miscast)
-                generated = generation.generate_magic_candidates(source)
-                projected = generated.evaluation_request.candidates[0].scenario
-                self.assertEqual(source.candidate_count, 1)
-                self.assertIs(projected.initial.wizard, template.initial.wizard)
-                self.assertIs(projected.repeated_leg_spasm_continuation, POLICY)
-                self.assertEqual(projected.perspective_side, perspective)
+                for crushed_rib in (None, CRUSHED_RIB):
+                    source = family(old, miscast=miscast, crushed_rib=crushed_rib)
+                    generated = generation.generate_magic_candidates(source)
+                    projected = generated.evaluation_request.candidates[0].scenario
+                    self.assertEqual(source.candidate_count, 1)
+                    self.assertIs(projected.initial.wizard, template.initial.wizard)
+                    self.assertIs(projected.repeated_leg_spasm_continuation, POLICY)
+                    self.assertIs(projected.crushed_rib_continuation, crushed_rib)
+                    self.assertEqual(projected.perspective_side, perspective)
 
     def test_new_field_is_last_and_all_old_positional_forms_remain_none(self):
         source = request()
         names = tuple(f.name for f in fields(source))
-        self.assertEqual(names[-3:], ('miscast_continuation', 'stationary_wound_continuation',
-                                      'repeated_leg_spasm_continuation'))
+        self.assertEqual(names[-4:], ('miscast_continuation', 'stationary_wound_continuation',
+                                      'repeated_leg_spasm_continuation', 'crushed_rib_continuation'))
         self.assertIsNone(fields(source)[-1].default)
-        positional = tuple(getattr(source, name) for name in names[:-3])
+        positional = tuple(getattr(source, name) for name in names[:-4])
         baseline = generation.generate_magic_candidates(source)
-        for extra in ((), (None,), (None, None), (None, None, None)):
+        for extra in ((), (None,), (None, None), (None, None, None), (None, None, None, None)):
             value = Request(*positional, *extra)
             self.assertEqual(value, source)
             self.assertEqual(generation.generate_magic_candidates(value), baseline)
@@ -139,6 +150,50 @@ class RepeatedLegSpasmGenerationTests(unittest.TestCase):
         data = {f.name: getattr(selected, f.name) for f in fields(selected) if f.name != 'repeated_leg_spasm_continuation'}
         with self.assertRaises(ValueError): Request(**data)
         with self.assertRaises(ValueError): replace(selected, stationary_wound_continuation=None)
+
+    def test_crushed_rib_family_matching_and_raw_types_precede_collection_materialization(self):
+        legacy = request()
+        opted = replace(legacy.template_scenario, crushed_rib_continuation=CRUSHED_RIB)
+        with ExitStack() as stack:
+            spies = [stack.enter_context(patch.object(generation, name,
+                side_effect=AssertionError('no enumeration or projection'))) for name in
+                ('_count_vectors', '_project_candidate', '_project_frames')]
+            for template, family_value in ((opted, None), (legacy.template_scenario, CRUSHED_RIB)):
+                with self.subTest(template=template.crushed_rib_continuation, family=family_value), self.assertRaises(ValueError):
+                    replace(legacy, template_scenario=template, crushed_rib_continuation=family_value,
+                        groups=Unreadable(legacy.groups), scene_frames=Unreadable(legacy.scene_frames),
+                        stages=Unreadable(legacy.stages))
+            for value in (CRUSHED_RIB.value, True, False, 1, 0, {}, BASE, POLICY):
+                with self.subTest(value=value), self.assertRaises(TypeError):
+                    replace(family(legacy), crushed_rib_continuation=value)
+                malformed = deepcopy(legacy.template_scenario)
+                object.__setattr__(malformed, 'crushed_rib_continuation', value)
+                with self.subTest(template_value=value), self.assertRaises(TypeError):
+                    replace(legacy, template_scenario=malformed)
+            for spy in spies:
+                spy.assert_not_called()
+
+    def test_crushed_rib_source_and_first_last_candidate_fail_before_enumeration(self):
+        source = family(crushed_rib=CRUSHED_RIB)
+        selected = generation.generate_magic_candidates(source)
+        bad_source = deepcopy(source)
+        object.__setattr__(bad_source, 'crushed_rib_continuation', None)
+        bad_source = pickle.loads(pickle.dumps(bad_source))
+        with patch.object(generation, '_count_vectors', side_effect=AssertionError('no enumeration')) as vectors:
+            with self.assertRaises(ValueError): generation.generate_magic_candidates(bad_source)
+            vectors.assert_not_called()
+        for index in (0, len(selected.evaluation_request.candidates) - 1):
+            malformed = deepcopy(selected)
+            candidate = malformed.evaluation_request.candidates[index]
+            object.__setattr__(candidate.scenario, 'crushed_rib_continuation', CRUSHED_RIB.value)
+            before = deepcopy(malformed)
+            with (self.subTest(index=index),
+                  patch.object(generation, '_count_vectors', side_effect=AssertionError('no enumeration')) as counts,
+                  patch.object(generation, '_project_candidate', side_effect=AssertionError('no projection')) as project):
+                with self.assertRaises(TypeError): Result(malformed.source_request, malformed.evaluation_request)
+                counts.assert_not_called()
+                project.assert_not_called()
+            self.assertEqual(malformed, before)
 
     def test_original_template_and_family_types_are_checked_before_equal_values(self):
         source = family(miscast=continuation_policy())
@@ -169,7 +224,7 @@ class RepeatedLegSpasmGenerationTests(unittest.TestCase):
 
     def test_large_count_request_is_arithmetic_with_new_permission(self):
         template = replace(large_reserve(40), stationary_wound_continuation=BASE,
-                           repeated_leg_spasm_continuation=POLICY)
+                           repeated_leg_spasm_continuation=POLICY, crushed_rib_continuation=CRUSHED_RIB)
         count = 2 ** 40 - 1
         groups = tuple(Group(f'g{i}', (f'enemy:{i}',), 0, 1) for i in range(40))
         with (patch.object(NpcMagicScenario, '__post_init__', side_effect=AssertionError('no subset admission')),
@@ -177,7 +232,7 @@ class RepeatedLegSpasmGenerationTests(unittest.TestCase):
               patch('random.Random', side_effect=AssertionError('no RNG'))):
             source = Request(template, groups, template.facts, template.scene_frames, 'huge', count, 42,
                              (Stage(1, 1),), count, Window(Fraction(0), Fraction(1, 2), Fraction(1)),
-                             None, BASE, POLICY)
+                             None, BASE, POLICY, CRUSHED_RIB)
             self.assertEqual((source.candidate_count, source.planned_trials), (count, count))
             with self.assertRaises(ValueError): replace(source, max_candidates=count - 1)
             with self.assertRaises(ValueError): replace(source, max_total_trials=count - 1)
