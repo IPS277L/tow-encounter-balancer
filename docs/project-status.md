@@ -4,27 +4,27 @@
 
 ## Текущий этап
 
-**ADR-0058, шаг1 реализован: Crushed Rib generation family. JSON5 остаётся следующим шагом.** [Контракт и очередь](decisions/ADR-0058-crushed-rib-generation-and-magic-json-v5.md), [актуальный roadmap](roadmap.md).
-
-Native57 закрыт: независимое разрешение, история первого consuming result из собственного prefix и mandatory pending/death priority. [Его приёмка](audits/m8-native-crushed-rib-readiness.md). MagicCandidateGenerationRequest теперь имеет append-last typed Crushed Rib family assertion; matching source проверяется до materialization/equality/enumeration, а projection сохраняет разрешение. Арифметический preflight остаётся без Scenario construction. GenerationResult и Balance command/report повторно проверяют original source/cache. Native механика не менялась; JSON1–4 losslessly отказывают выбранному разрешению.
+**ADR-0058 закрыт в согласованной границе.** Crushed Rib generation family и обе Magic JSON5 families реализованы. Simulation и balance CLI сохраняют полный typed source/result/error echo; balance отдельно проверяет matching Crushed Rib policy в reserve и generation до enumeration. [ADR](decisions/ADR-0058-crushed-rib-generation-and-magic-json-v5.md), [итоговый аудит](audits/m8-crushed-rib-transport-readiness.md), [public requests](examples/m8/json/README.md).
 
 ## Последняя проверка
 
-62целевых unit tests и12generation/wire/copy integration tests прошли. Включены12valid/4invalid, реальные generated3/4-actor сценарии, обе perspectives, sequential/process staged parity, JSON1–4 refusal и copied public bundle. Probe завершился успешно: exact stdout/empty stderr, SHA6source/copy bundle, original inputs/global RNG сохранены.647scripted d10 относятся к finite probe; seeded None balance отдельно, его draws не входят в647. Три application production files изменились; остальные475 из478 package files и старые101 public M8 examples совпадают с baseline57. Schema42 не менялась.
+Полная регрессия: **4223 tests, 33 errors, 0 failures, 0 skipped**. Ровно 33 прежних Python 3.12 expectation errors: 32 subcase errors при assignment в frozen/slotted `.state` и один M5 `dataclasses.replace(init=False simulation_requests)` expectation. Новых errors/failures нет; набор не объявляется полностью зелёным. Исправленный ADR-0054 transport probe с unknown v6 прошёл.
+
+Свежий offline wheel установлен в отдельный venv. Source/wheel/installed parity: **484 Python/Schema files**. Schema closure: **48 schemas / 30 Magic / 507 local refs**. Обе v5 CLI проверены sequential и process через source, `python -I -m towr` и installed console script: **12 точных сравнений**, полный request echo сохранён. `pip check` прошёл. Markdown link check: 189 files, 4615 local links, 0 missing.
+
+Проверенная команда полного набора:
 
 ```powershell
 $env:PYTHONPATH = 'src'
-.venv/Scripts/python.exe -m unittest tests.integration.test_m8_crushed_rib_transport_contract_probe -v
+.venv/Scripts/python.exe -m unittest discover -s tests -v
 ```
-
-Последняя полная runtime-проверка остаётся57:4201tests/1207,032с,33known errors/0failures/0skipped, все572integration прошли. Exact33ERROR headers совпали с56; весь набор не зелёный. [Исторический аудит57](audits/m8-native-crushed-rib-readiness.md) содержит installed478source/wheel/site paths,42schemas/444offline refs и12child commands. Для contract-only58 full/installed повторно не запускались;33старых Python3.12 expectation errors — отдельная задача.
 
 ## Ограничения
 
-Native57 допускает одну canonical resolved/untreated/unhealed rolled10, optional prior superficial1–3 и только Drained; следующие Protection/Casting сохраняют первый полный witness. Несколько10,9/6/Wind coexistence, treatment/Fate/Lucky/Talents и другие Wizard Tests исключены.12valid/4invalid permission сочетания сохраняются, repeated требует stationary, Crushed Rib независим. JSON5 будет передавать fresh source permission, без current state/history/save-resume. Новых книжных правил/house rules нет.
+Crushed Rib transport разрешает только `NEXT_TEST_WITH_JOURNAL_WITNESSES` и несёт только fresh source permission. Native ограничение прежнее: одна canonical resolved/untreated/unhealed rolled10, optional prior superficial1–3, только Drained. Coexistence с9/6/Wind, лечение/Fate/Lucky/Talents, current owner/journal/history, receipts и save/resume не открыты. Книги и gameplay scope ADR-0057 не менялись.
 
 ## Точный следующий шаг
 
-Начать шаг2 ADR-0058: simulation Magic JSON5 — собственные три schemas, mapper/type/version gates, command/error metadata, parser/encoder/service/CLI; simulation поддерживает1–5, balance остаётся1–4 на промежуточном этапе. Сохранить required nullable permissions, JSON1–4 lossless gates, default1, decoded request ID/error behavior и privacy. Затем выполнить шаг3 balance5 и единый installed/full audit на границе шага4; injury/phase scope57 не расширять.
+ADR-0058 завершён; новых открытых вопросов по этому срезу нет. Перед новой feature-вехой выбрать следующий пункт roadmap с учётом текущего приоритета и подтвердить правила-источники для него. Первые ориентиры — актуальные [open questions](open-questions.md) и [roadmap](roadmap.md).
 
-Общие документы синхронизированы. Проверено1846local Markdown paths в16изменённых документах, broken0; diff/whitespace чистые (Git сообщает только LF→CRLF рекомендации для test fixtures).45незакоммиченных файлов,18untracked; новые ADR-0057/0058, native proofs и generation probe ещё не закоммичены. Scope evidence и ограничения зафиксированы в ADR и probe. Commit/push, `.gitignore` и книги не менялись.
+Изменения остаются незакоммиченными. Commit/push выполняет пользователь; книги и `.gitignore` не менялись.

@@ -2,8 +2,8 @@
 
 Copy with crushed_rib_native.py, crushed_rib_owner.py,
 generation_contract_probe.py, stationary_wound_runner.py and magic_scenario.py.
-Manual projections/JSON5 inverse below are bounded fixture oracles, not a
-production generator, parser, CLI, schema or save/resume implementation.
+Manual projections/JSON5 inverse below remain bounded fixture oracles for
+balance5; Simulation5 uses the production parser/encoder and CLI.
 PG1.4 pp108,118,123,156-157,190; GM1.1 p92. No new gameplay.
 """
 from copy import deepcopy
@@ -276,10 +276,17 @@ def main():
             decoded = json.loads(json.dumps(document))  # stdlib specification only.
             restored, assertions, parameters = finite_inverse(decoded, baseline, original, miscast, balance=is_balance)
             assert restored == selected(base, values) and assertions == values and parameters is original
-            caught = rejected(lambda: parser(json.dumps(document)), error_type)
-            assert caught.code is RangedInputErrorCode.UNSUPPORTED_VERSION
-            assert caught.schema_version == '1' and caught.request_id == baseline['request_id']
-            assert caught.path == '/schema_version'
+            if is_balance:
+                command = parser(json.dumps(document))
+                assert command.schema_version == '5'
+                assert command.generation_request.crushed_rib_continuation is values[3]
+                assert command.generation_request.template_scenario.crushed_rib_continuation is values[3]
+            else:
+                command = parser(json.dumps(document))
+                assert command.schema_version == '5'
+                assert policies(command.request.scenario) == values, (policies(command.request.scenario), values)
+                assert simulation_wire.scenario_document(command.request.scenario, command.definition_order,
+                    schema_version='5') == document['scenario']
         chosen = proposed_document(baseline, (None, None, None, POLICY), balance=is_balance)
         node_path = ('reserve', 'scenario') if is_balance else ('scenario',)
         def alter(document, field, value):
@@ -306,7 +313,7 @@ def main():
                 mismatch['reserve']['scenario'][FIELDS[-1]] = reserve_value
                 mismatch['generation'][FIELDS[-1]] = family_value
                 rejected(lambda: finite_inverse(mismatch, baseline, original, miscast, balance=True), AssertionError)
-    print('MANUAL JSON5 SPEC: 24 full-fixture stdlib round-trips; 12 valid/4 invalid policy combinations; independent family matching, strict types/full source; current parsers reject unknown5')
+    print('FINITE JSON5 SPEC: 24 full-fixture stdlib round-trips; 12 valid/4 invalid policy combinations; 12 Simulation5 and 12 Balance5 production parses')
 
     projected_count = 0
     for opposite in (False, True):
@@ -476,7 +483,7 @@ def main():
     assert (base, base_command, genuine_family, balance_command, balance_result) == baseline_snapshot
     assert sources == sources_before and native_request == native_request_before and staged == staged_before
     assert getstate() == global_rng and {child.pid for child in active_children()} == children
-    print(f'{54 + direct_draws + 120 + stage_draws} scripted d10 plus genuine seeded None balance; full inputs/global RNG unchanged; generation58/native57/seq/spawn/stages are actual, JSON5 remains a specification')
+    print(f'{54 + direct_draws + 120 + stage_draws} scripted d10 plus genuine seeded None balance; full inputs/global RNG unchanged; generation58/native57/Simulation5 parser/encoder/CLI/Balance5 parser/seq/spawn/stages are actual')
 
 
 if __name__ == '__main__':

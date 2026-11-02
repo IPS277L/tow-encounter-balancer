@@ -16,7 +16,7 @@ class MagicSimulationCommand:
     def __post_init__(self) -> None:
         if not isinstance(self.schema_version, str):
             raise TypeError("magic schema version must be a string")
-        if self.schema_version not in ("1", "2", "3", "4"):
+        if self.schema_version not in ("1", "2", "3", "4", "5"):
             raise ValueError("unsupported magic schema version")
         if not isinstance(self.request_id, str):
             raise TypeError("command request ID must be a string")

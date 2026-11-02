@@ -1,6 +1,6 @@
 PERMISSIONS: six valid native combinations; two repeated-without-base combinations rejected; Miscast independent
 PUBLIC v4: twelve parser/request-echo roundtrips match independent full-fixture inverses; exact sources/IDs/order/seeds/parameters
-VERSION GUARD: unknown5 rejected with fallback1 and decoded request ID; no implicit downgrade
+VERSION GUARD: unknown6 rejected with fallback1 and decoded request ID; no implicit downgrade
 SOURCE GUARDS: independent oracle rejects foreign IDs/types; production rejects missing independent family opt-in and exact v4 mismatch path
 PRODUCTION GENERATION: thirty full-source subsets match manual projections; both perspectives/six policies; exact family permissions/C/budgets/seeds
 LEGACY BOUNDARIES: JSON1/2/3 reject isolated new field even null and refuse lossless encoding; matching generation permission is explicit

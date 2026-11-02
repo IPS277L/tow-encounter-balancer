@@ -219,13 +219,13 @@ def main():
                 else:
                     assert actual.request == restored
                     assert simulation_wire._request_document(actual) == proposed
-                caught = rejected(lambda: parser(json.dumps(dict(proposed, schema_version='5'))), error_type)
+                caught = rejected(lambda: parser(json.dumps(dict(proposed, schema_version='6'))), error_type)
                 assert caught.code is RangedInputErrorCode.UNSUPPORTED_VERSION and caught.schema_version == '1'
                 assert caught.request_id == baseline['request_id'] and caught.path == '/schema_version'
                 roundtrips += 1
         assert roundtrips == 12
         print('PUBLIC v4: twelve parser/request-echo roundtrips match independent full-fixture inverses; exact sources/IDs/order/seeds/parameters')
-        print('VERSION GUARD: unknown5 rejected with fallback1 and decoded request ID; no implicit downgrade')
+        print('VERSION GUARD: unknown6 rejected with fallback1 and decoded request ID; no implicit downgrade')
 
         # The known fixture is checked in full: missing/null is not inheritance;
         # unrelated IDs/order/facts and independent family substitutions fail.

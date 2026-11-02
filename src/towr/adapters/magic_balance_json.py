@@ -1,4 +1,4 @@
-"""Pure magic balance v1/v2/v3 admission/encoding, without simulation."""
+"""Pure magic balance v1–v5 admission/encoding, without simulation."""
 from dataclasses import asdict, replace
 from fractions import Fraction
 from functools import partial
@@ -11,6 +11,7 @@ from towr.adapters._magic_scenario_json import (
     facts_document, parse_facts, parse_scenario, parse_scene_frames, scenario_document, scene_frames_document,
     miscast_continuation_document, parse_miscast_continuation, parse_stationary_wound_continuation,
     parse_repeated_leg_spasm_continuation,
+    parse_crushed_rib_continuation,
     validate_scenario_wire_permissions,
 )
 from towr.adapters.magic_json_errors import MagicBalanceInputError
@@ -56,7 +57,7 @@ def encode_magic_balance_error(
 def parse_magic_balance_request(text: str | bytes) -> MagicBalanceCommand:
     """Read strict JSON, admit the full reserve, and preflight C/staged budget."""
     document = read_request(text, MagicBalanceInputError, validate_magic_balance_document,
-                            magic_versions=('1', '2', '3', '4'))
+                            magic_versions=('1', '2', '3', '4', '5'))
     try:
         return _parse_document(document)
     except MagicBalanceInputError as error:
@@ -72,7 +73,7 @@ def _parse_document(document: dict) -> MagicBalanceCommand:
     scenario, definition_order = parse_scenario(reserve['scenario'], reserve['round_budget'],
         path_prefix='/reserve/scenario', error_type=MagicBalanceInputError, schema_version=version)
     continuation = None
-    if version in ('2', '3', '4'):
+    if version in ('2', '3', '4', '5'):
         continuation = parse_miscast_continuation(generation['miscast_continuation'],
             path_prefix='/generation/miscast_continuation', error_type=MagicBalanceInputError)
         if continuation != scenario.miscast_continuation:
@@ -80,7 +81,7 @@ def _parse_document(document: dict) -> MagicBalanceCommand:
                 'family Miscast continuation must equal the full reserve policy',
                 path='/generation/miscast_continuation')
     stationary = None
-    if version in ('3', '4'):
+    if version in ('3', '4', '5'):
         stationary = parse_stationary_wound_continuation(generation['stationary_wound_continuation'],
             path_prefix='/generation/stationary_wound_continuation', error_type=MagicBalanceInputError)
         if stationary != scenario.stationary_wound_continuation:
@@ -88,7 +89,7 @@ def _parse_document(document: dict) -> MagicBalanceCommand:
                 'family stationary Wound continuation must equal the full reserve policy',
                 path='/generation/stationary_wound_continuation')
     repeated = None
-    if version == '4':
+    if version in ('4', '5'):
         repeated = parse_repeated_leg_spasm_continuation(generation['repeated_leg_spasm_continuation'],
             stationary=stationary, path_prefix='/generation/repeated_leg_spasm_continuation',
             error_type=MagicBalanceInputError)
@@ -96,6 +97,14 @@ def _parse_document(document: dict) -> MagicBalanceCommand:
             raise MagicBalanceInputError(Code.INVALID_INPUT,
                 'family repeated Leg Spasm policy must match the template policy',
                 path='/generation/repeated_leg_spasm_continuation')
+    crushed_rib = None
+    if version == '5':
+        crushed_rib = parse_crushed_rib_continuation(generation['crushed_rib_continuation'],
+            path_prefix='/generation/crushed_rib_continuation', error_type=MagicBalanceInputError)
+        if crushed_rib != scenario.crushed_rib_continuation:
+            raise MagicBalanceInputError(Code.INVALID_INPUT,
+                'family Crushed Rib policy must match the template policy',
+                path='/generation/crushed_rib_continuation')
     groups = tuple(build(f'/generation/groups/{i}', MagicCompositionGroup, **group)
                    for i, group in enumerate(generation['groups']))
     facts = build('/generation/facts', parse_facts, generation['facts'])
@@ -112,7 +121,8 @@ def _parse_document(document: dict) -> MagicBalanceCommand:
     request = build('', MagicCandidateGenerationRequest, scenario, groups, facts, frames,
         generation['candidate_id_prefix'], generation['max_candidates'], seed, stages,
         evaluation['max_total_trials'], window, miscast_continuation=continuation,
-        stationary_wound_continuation=stationary, repeated_leg_spasm_continuation=repeated)
+        stationary_wound_continuation=stationary, repeated_leg_spasm_continuation=repeated,
+        crushed_rib_continuation=crushed_rib)
     execution = document['execution']
     options = build('/execution', SimulationExecutionOptions, SimulationExecutionMode(execution['mode']),
                     execution.get('workers'), execution.get('batch_size'))
@@ -141,14 +151,17 @@ def _request_document(command: MagicBalanceCommand) -> dict:
             'max_total_trials': source.max_total_trials,
             'window': {name: _fraction_document(getattr(source.window, name)) for name in ('minimum', 'target', 'maximum')}},
         'execution': execution}
-    if command.schema_version in ('2', '3', '4'):
+    if command.schema_version in ('2', '3', '4', '5'):
         document['generation']['miscast_continuation'] = miscast_continuation_document(source.miscast_continuation)
-    if command.schema_version in ('3', '4'):
+    if command.schema_version in ('3', '4', '5'):
         policy = source.stationary_wound_continuation
         document['generation']['stationary_wound_continuation'] = None if policy is None else policy.value
-    if command.schema_version == '4':
+    if command.schema_version in ('4', '5'):
         policy = source.repeated_leg_spasm_continuation
         document['generation']['repeated_leg_spasm_continuation'] = None if policy is None else policy.value
+    if command.schema_version == '5':
+        policy = source.crushed_rib_continuation
+        document['generation']['crushed_rib_continuation'] = None if policy is None else policy.value
     return document
 
 

@@ -199,7 +199,7 @@ class M8MagicJsonV2Tests(unittest.TestCase):
             self.assertIsNone(output['request_id'])
 
     def test_decoded_version_boundary_and_request_id_trust(self):
-        for version in (None, False, 2, [], {}, '', '5'):
+        for version in (None, False, 2, [], {}, '', '6'):
             data = dict(document(), schema_version=version)
             with self.subTest(version=version):
                 error = self.assert_invalid(data, version='1', path='/schema_version',
@@ -229,7 +229,7 @@ class M8MagicJsonV2Tests(unittest.TestCase):
             validate(data, kind, schema_version='2')
             with self.assertRaises(ValidationError):
                 validate(data, kind)
-        for version in (None, False, 2, '', '5', [], {}):
+        for version in (None, False, 2, '', '6', [], {}):
             with self.subTest(version=version), self.assertRaises(ValueError):
                 validate({}, schema_version=version)
         with self.assertRaises(ValueError):
@@ -266,7 +266,7 @@ class M8MagicJsonV2Tests(unittest.TestCase):
         self.assertEqual(pickle.loads(pickle.dumps(command)), command)
         with self.assertRaises(FrozenInstanceError):
             command.schema_version = '1'
-        for value in (None, 1, 2, True, '', '5', [], {}):
+        for value in (None, 1, 2, True, '', '6', [], {}):
             with self.subTest(value=value), self.assertRaises((TypeError, ValueError)):
                 replace(command, schema_version=value)
 
@@ -280,11 +280,12 @@ class M8MagicJsonV2Tests(unittest.TestCase):
                 self.assertEqual(json.loads(encode_error(error))['schema_version'], version)
         self.assertEqual(MagicSimulationInputError(Code.INVALID_INPUT, 'bad').schema_version, '1')
         self.assertEqual(MagicSimulationExecutionError('request').schema_version, '1')
-        for value in (None, 2, True, '', '5', [], {}):
+        for value in (None, 2, True, '', [], {}):
             for constructor, args in ((MagicSimulationInputError, (Code.INVALID_INPUT, 'bad')),
                                       (MagicSimulationExecutionError, ('request',))):
                 with self.subTest(value=value, constructor=constructor), self.assertRaises((TypeError, ValueError)):
                     constructor(*args, schema_version=value)
+        self.assertEqual(MagicBalanceInputError(Code.INVALID_INPUT, 'bad', schema_version='5').schema_version, '5')
 
     def test_balance_error_cannot_silently_downgrade_shared_v2_metadata(self):
         legacy = MagicBalanceInputError(Code.INVALID_INPUT, 'bad')

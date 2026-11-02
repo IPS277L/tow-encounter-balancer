@@ -120,7 +120,7 @@ class M8MagicJsonV4Tests(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError, 'repeated Leg Spasm.*losslessly'):
                     encode(opted, make_result(opted) if balance else summary(opted))
 
-    def test_lexical_fallback_decoded_unknown_five_and_trusted_four(self):
+    def test_lexical_fallback_decoded_unknown_six_and_trusted_four(self):
         for balance, parse, _, encode_error, error_type, _ in FAMILIES:
             prefix = '{"schema_version":"4","request_id":"untrusted",'
             for raw in (prefix, prefix + '"x":NaN}', prefix + '"x":1.0}',
@@ -135,12 +135,13 @@ class M8MagicJsonV4Tests(unittest.TestCase):
             with self.assertRaises(error_type) as caught:
                 parse(json.dumps(data))
             self.assertEqual((caught.exception.schema_version, caught.exception.request_id), ('4', data['request_id']))
-            for version in ('5', None, False, 4):
+            next_version = '6'
+            for version in (next_version, None, False, 4):
                 wrong = dict(data, schema_version=version)
                 with self.assertRaises(error_type) as caught:
                     parse(json.dumps(wrong))
                 self.assertEqual((caught.exception.schema_version, caught.exception.request_id), ('1', data['request_id']))
-                if version == '5':
+                if version == next_version:
                     self.assertEqual((caught.exception.code, caught.exception.path), (Code.UNSUPPORTED_VERSION, '/schema_version'))
 
     def test_phase_errors_own_version_and_privacy(self):

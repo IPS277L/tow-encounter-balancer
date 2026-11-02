@@ -106,7 +106,7 @@ class M8MagicBalanceJsonV2IntegrationTests(unittest.TestCase):
                  (json.dumps(invalid).encode(), '2', 'invalid_input', invalid['request_id']),
                  (json.dumps(mismatch).encode(), '2', 'invalid_input', mismatch['request_id']),
                  (json.dumps(missing).encode(), '2', 'invalid_input', missing['request_id']),
-                 (json.dumps(dict(document(), schema_version='5')).encode(), '1', 'unsupported_version', document()['request_id'])]
+                 (json.dumps(dict(document(), schema_version='6')).encode(), '1', 'unsupported_version', document()['request_id'])]
         for raw, version, code, request_id in cases:
             with self.subTest(version=version, code=code, raw=raw[:45]):
                 completed = invoke('balance-magic', '-', data=raw)

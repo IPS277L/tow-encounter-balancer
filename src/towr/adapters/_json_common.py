@@ -50,7 +50,8 @@ def read_request(text: str | bytes, error_type: InputErrorType,
         raise TypeError("versioned reading is restricted to magic boundaries")
     if magic_versions is not None:
         if magic_v2 or type(magic_versions) is not tuple or magic_versions not in (
-                ("1", "2"), ("1", "2", "3"), ("1", "2", "3", "4")):
+                ("1", "2"), ("1", "2", "3"), ("1", "2", "3", "4"),
+                ("1", "2", "3", "4", "5")):
             raise TypeError("explicit magic versions require one supported family version tuple")
     supported = magic_versions if magic_versions is not None else (("1", "2") if magic_v2 else ("1",))
     if not isinstance(text, (str, bytes)):

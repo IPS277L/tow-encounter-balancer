@@ -1,4 +1,16 @@
-# Magic JSON: simulation/balance v4, v3, v2 и v1 fixtures
+# Magic JSON: simulation/balance v5, v4, v3, v2, v1 fixtures
+
+## V5 — Crushed Rib fresh-source permission
+
+[Simulation request](magic-simulation-v5.request.json) и [balance request](magic-balance-v5.request.json) добавляют required `crushed_rib_continuation`: `null` либо точную строку `next_test_with_journal_witnesses`. Simulation хранит его в `scenario`; balance требует независимые одинаковые значения в `reserve.scenario` и `generation`. Miscast2, stationary3 и repeated4 fields также остаются обязательными. Это только fresh source permission: бой, Wound history/journal и save/resume не передаются.
+
+```powershell
+$env:PYTHONPATH = 'src'
+.venv/Scripts/python.exe -m towr simulate-magic docs/examples/m8/json/magic-simulation-v5.request.json
+.venv/Scripts/python.exe -m towr balance-magic docs/examples/m8/json/magic-balance-v5.request.json
+```
+
+Обе families сохраняют v5 в полном request echo, result и input/phase errors; malformed lexical input и неизвестная v6 сохраняют fallback v1 по strict-reader контракту. Balance требует точного reserve/family match до генерации. JSON1–4 продолжают отказывать при наличии нового ключа даже со значением null. Проверки: [simulation unit/schema](../../../../tests/unit/test_m8_magic_json_v5.py), [balance unit/schema](../../../../tests/unit/test_m8_magic_balance_json_v5.py), [CLI integration](../../../../tests/integration/test_m8_magic_json_v5.py), [ADR-0058](../../../decisions/ADR-0058-crushed-rib-generation-and-magic-json-v5.md).
 
 ## V4 — independent repeated Leg Spasm permission
 

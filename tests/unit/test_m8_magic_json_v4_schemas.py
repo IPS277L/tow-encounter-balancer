@@ -66,8 +66,8 @@ class MagicJsonV4SchemaTests(unittest.TestCase):
         return Draft202012Validator(self.documents[f'urn:towr:magic-{family}:{kind}:{version}'], registry=self.registry)
 
     def test_six_new_schema_ids_and_transitive_offline_bundle_closure(self):
-        self.assertEqual(len(self.documents), 42)
-        self.assertEqual(sum(uri.startswith('urn:towr:magic-') for uri in self.documents), 24)
+        self.assertEqual(len(self.documents), 48)
+        self.assertEqual(sum(uri.startswith('urn:towr:magic-') for uri in self.documents), 30)
         for uri, document in self.documents.items():
             Draft202012Validator.check_schema(document)
             for ref in references(document):
@@ -203,7 +203,7 @@ class MagicJsonV4SchemaTests(unittest.TestCase):
                 for ref in references(resource.contents):
                     with self.subTest(family=family, kind=kind, uri=uri, ref=ref):
                         validator._registry.resolver(uri).lookup(ref)
-        self.assertEqual(production._validator.cache_info().maxsize, 24)
+        self.assertEqual(production._validator.cache_info().maxsize, 30)
 
 
 if __name__ == '__main__':

@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:towr:magic-balance:request:5",
+  "$comment": "ADR-0058: fresh reserve permission and independent matching generation assertion; dependencies use typed admission.",
+  "type": "object",
+  "properties": {
+    "schema_version": {"type": "string", "const": "5"},
+    "kind": {"$ref": "urn:towr:magic-balance:request:1#/properties/kind"},
+    "ruleset": {"$ref": "urn:towr:magic-balance:request:1#/properties/ruleset"},
+    "request_id": {"$ref": "urn:towr:magic-balance:request:1#/properties/request_id"},
+    "reserve": {
+      "type": "object",
+      "properties": {
+        "round_budget": {"$ref": "urn:towr:magic-balance:request:1#/properties/reserve/properties/round_budget"},
+        "scenario": {"$ref": "urn:towr:magic-simulation:request:5#/$defs/scenario"}
+      },
+      "required": ["round_budget", "scenario"],
+      "additionalProperties": false
+    },
+    "generation": {
+      "type": "object",
+      "properties": {
+        "groups": {"$ref": "urn:towr:magic-balance:request:1#/properties/generation/properties/groups"},
+        "facts": {"$ref": "urn:towr:magic-balance:request:1#/properties/generation/properties/facts"},
+        "candidate_id_prefix": {"$ref": "urn:towr:magic-balance:request:1#/properties/generation/properties/candidate_id_prefix"},
+        "max_candidates": {"$ref": "urn:towr:magic-balance:request:1#/properties/generation/properties/max_candidates"},
+        "scene_frames": {"$ref": "urn:towr:magic-balance:request:1#/properties/generation/properties/scene_frames"},
+        "miscast_continuation": {"$ref": "urn:towr:magic-simulation:request:2#/$defs/miscast_continuation"},
+        "stationary_wound_continuation": {"$ref": "urn:towr:magic-simulation:request:3#/$defs/stationary_wound_continuation"},
+        "repeated_leg_spasm_continuation": {"$ref": "urn:towr:magic-simulation:request:4#/$defs/repeated_leg_spasm_continuation"},
+        "crushed_rib_continuation": {"$ref": "urn:towr:magic-simulation:request:5#/$defs/crushed_rib_continuation"}
+      },
+      "required": ["groups", "facts", "candidate_id_prefix", "max_candidates", "scene_frames", "miscast_continuation", "stationary_wound_continuation", "repeated_leg_spasm_continuation", "crushed_rib_continuation"],
+      "additionalProperties": false
+    },
+    "evaluation": {"$ref": "urn:towr:magic-balance:request:1#/properties/evaluation"},
+    "execution": {"$ref": "urn:towr:magic-balance:request:1#/properties/execution"}
+  },
+  "required": ["schema_version", "kind", "ruleset", "request_id", "reserve", "generation", "evaluation", "execution"],
+  "additionalProperties": false
+}

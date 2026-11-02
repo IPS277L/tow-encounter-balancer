@@ -1,6 +1,6 @@
 # ADR-0058: Crushed Rib family assertion и Magic JSON/CLI v5
 
-Дата: 2026-11-03. Статус: **generation шаг1 реализован; simulation/balance JSON5 и installed/full аудит впереди**. Основа: [native57](ADR-0057-native-crushed-rib-continuation.md), [его приёмка](../audits/m8-native-crushed-rib-readiness.md), [generation/JSON4](ADR-0054-repeated-leg-spasm-generation-and-magic-json-v4.md).
+Дата: 2026-11-03. Статус: **все четыре шага завершены**. [Итоговый installed/full audit](../audits/m8-crushed-rib-transport-readiness.md). Основа: [native57](ADR-0057-native-crushed-rib-continuation.md), [его приёмка](../audits/m8-native-crushed-rib-readiness.md), [generation/JSON4](ADR-0054-repeated-leg-spasm-generation-and-magic-json-v4.md).
 
 ## Граница
 
@@ -39,9 +39,9 @@ GenerationResult проверяет permissions/facts/matching **всех** orig
 
 Все три прежних permissions также required: `miscast_continuation` формы2, `stationary_wound_continuation` формы3, `repeated_leg_spasm_continuation` формы4. Nullable не означает optional. Schema проверяет shape/types/enums; typed semantic admission проверяет dependency repeated→stationary и reserve/family matching до materialization/RNG. Изолированный новый family mismatch имеет path `/generation/crushed_rib_continuation`. При нескольких ошибках сохраняются прежние приоритеты; новая dependency для Crushed Rib не вводится.
 
-Добавить6 schemas `magic-{simulation,balance}-{request,result,error}-v5.schema.json`: **30magic/48package**, validator cache30. Каждый request5 имеет собственный закрытый список Scenario/generation properties с `additionalProperties:false`; расширять закрытый Scenario4 через `allOf` нельзя. Неизменённые bundled fragments1–4 переиспользуются локальными refs; balance5 ссылается на собственный Scenario5 simulation schema. Result5 сохраняет полное request5 echo и прежнюю форму статистики; error5 — прежнюю форму ошибок с version5. Все refs разрешаются offline из wheel.
+Каждая family5 имеет три собственные schemas. Request5 имеет собственный закрытый список Scenario properties с `additionalProperties:false`; расширять закрытый Scenario4 через `allOf` нельзя. Неизменённые fragments1–4 переиспользуются только локальными refs. Balance request5 ссылается на Scenario5 и требует независимые reserve/family fields. Result5 сохраняет полное request5 echo и прежнюю форму агрегатов; error5 — прежнюю форму ошибок с version5. Завершённый registry: **30magic/48package schemas, validator cache30, 507refs**, все refs разрешаются offline.
 
-При буквальном append-only построении ожидаются63новых refs и507всего (baseline42schemas/444refs); это проектный расчёт, **не результат проверки отсутствующих schemas5**. Фактические counts и offline resolution подтвердить после реализации.
+Проверена полная closure после Balance5: 48 schemas, 507 локальных refs. Целевые unit/schema tests валидируют весь package registry и независимость двух matching assertions.
 
 ## Lossless gates и полный источник
 
@@ -53,32 +53,32 @@ Request/result echo сохраняет все четыре permissions, поря
 
 ## Версии команд, ошибок и CLI
 
-Обе magic families явно поддерживают1–5 через family-specific `magic_versions`; совместимый `magic_v2=True` сохраняет только1/2. Шесть nonmagic routes остаются только1. Неизвестная следующая версия6 отвергается.
+Обе magic families явно поддерживают1–5 через family-specific `magic_versions`; совместимый `magic_v2=True` сохраняет только1/2. Шесть nonmagic routes остаются только1. Неизвестная version6 отвергается.
 
-`MagicSimulationCommand`, `MagicBalanceCommand`, их input subtypes и phase errors поддерживают5 при default1. Base `MagicInputError` может сохранить1/2. CLI help отражает5; mode/workers/batch_size, exit statuses, stdin/file/output paths и closed-pipe поведение не меняются.
+Обе command families и соответствующие input/generation/evaluation errors поддерживают5 при default1. Base `MagicInputError` может сохранить1/2. CLI help для `simulate-magic` и `balance-magic` отражает5; mode/workers/batch_size, exit statuses, stdin/file/output paths и closed-pipe поведение не меняются.
 
-- После полной strict decode известная5 сохраняется во всех success/shape/semantic error envelopes вместе с decoded nonblank string request_id.
+- После полной strict decode известная версия5 сохраняется в success/shape/semantic error envelopes обеих families вместе с decoded nonblank string request_id.
 - Lexical/UTF-8/duplicate-key/nonfinite/float/surrogate/trailing-data failures до полной decode дают fallback1/null request_id; metadata не берётся из частично прочитанного текста.
 - Unknown6 или missing/non-string version дают fallback1; полностью decoded nonblank request_id сохраняется. Для6 code/path — `unsupported_version`/`/schema_version`.
-- Runtime phase errors используют собственную command5, а не metadata чужой cause. Сохраняются generation/evaluation classification, exit codes, stage/candidate/count context и privacy; нет traceback/notes/private paths/partial reports.
+- Runtime phase errors используют собственную command5, а не metadata чужой cause; privacy и отсутствие traceback/notes/partial result сохраняются для обеих families.
 
 ## Конечный public contract proof
 
 [Probe](../examples/m8/crushed_rib_transport_contract_probe.py), [stdout](../examples/m8/crushed_rib_transport_contract_probe.output.txt), [copied test](../../tests/integration/test_m8_crushed_rib_transport_contract_probe.py) должны проверять контракт существующими public native57 APIs без зависимости от private book extracts или test helpers.
 
-До реализации JSON5 proposed wire используется как **ограниченный oracle полного fixture**, не production parser/encoder5. Canonical JSON сравнение различает bool/int; fresh inverse явно восстанавливает четыре typed permissions и проверяет matching/dependency. Genuine None1–4 документы создаются отдельно; opted-in source не понижается удалением flag. Current parser отвергает unknown5. Generation58 принимает matching typed field и строит кандидаты; старые JSON1–4 отказывают nonNone57. Эти границы отдельно показаны в probe.
+До реализации JSON5 proposed wire использовался как ограниченный oracle полного fixture, не production codec. Сейчас production parsers проверяют12 valid permission combinations каждой family; обе CLI исполняют public v5 requests. Balance parser проверяет независимое reserve/family matching до генерации. Generation58 строит реальные кандидаты; wire1–4 отказывают nonNone57.
 
 Manual subsets3/4actors и explicit-list staged seq/spawn проверяют сохранение полного native source, permissions, order, budgets/seeds/records/summary. Они **не называются generated58**. Отдельная current-generation proof строит3/4-actor subsets из matching Crushed Rib family. Actual57 Casting-first/Protection-first, следующий normal Test и новый mandatory Wound stop подтверждают неизменный gameplay. Generation unit cases покрывают обе CombatSide perspectives и положения Wizard при сохранённых objectives/обязательных actors. Exact scripted d10 — конечные paths, не Monte Carlo probabilities.
 
-После реализации oracle сверяется с настоящими parser5/encoder5/generator; production proof и installed audit выделяются отдельно. Исторический contract-only stdout не должен задним числом называться production proof.
+Шаги2–3 production parsers/encoders5, полные typed echoes и real CLI сверены целевыми unit/schema/integration checks. Обновлённый copied stdout включает actual Simulation5 и Balance5 parser paths; installed audit и полная регрессия завершают шаг4.
 
 Подготовительный finite proof выполнен:24manual JSON5 round-trips,48manual subsets (12valid×2CombatSide perspectives×2sizes) и отдельный full-five Wizard-opposite control. Actual native исполняет4selected manual subsets, не все48.647scripted d10 =54measured genuine None simulation +193direct native (152основные и25/16new4 stops) +120seq/spawn +280explicit-list stages. Genuine None balance отдельно выполняется с indexed seeded RNG; его draws в647не входят. Copied public bundle сверяет exact stdout, empty stderr, SHA6source/copied files и original inputs/global RNG. Отдельные generation58 tests проверяют matching/projection, first/last source refusals, actual3/4-actor candidates и balance reports.
 
 ## Реализация до проверяемой вехи
 
 1. **Выполнено:** generation field, strict4policy matching/dependency, arithmetic/full-source split, оригинальные source/cache guards и explicit projection. Unit cases покрывают12valid/4invalid, malformed first/last до enumeration, huge arithmetic и обе perspectives. Integration проверяет actual3/4-actor candidates, native57 runner и source-preserving spawned/staged reports с прежними seeds/budgets. Matching/mismatch и JSON1–4 refusals покрыты integration/public probe checks.
-2. **Следующий шаг:** Simulation5 —3schemas, shared typed/version gates, command/error metadata, parser/encoder/service/CLI. Промежуточно simulation1–5 и balance1–4 различаются явно:27magic/45package/cache27; balance5 ещё отказывает.
-3. Balance5:3schemas, полный registry30/48/cache30, independent reserve/family fields, source/report/cache guards, phase errors и CLI; полный echo и counters/denominator.
-4. Source/wheel/fresh installed/module/console/spawn audit, copied public bundles и полная регрессия на границе вехи. Old1–4 snapshots/null-key refusals,5matching/error paths/strict lexical fallback/unknown6, nonmagic routes и privacy проверяются отдельно. Известные33 Python3.12 expectation errors сверяются exact ERROR headers; новых errors/failures быть не должно.
+2. **Выполнено:** Simulation5 — schemas, strict typed/version gates, command/error metadata, parser/encoder/service/CLI и public request.
+3. **Выполнено:** Balance5 — schemas, independent reserve/family fields, source/report/cache guards, phase errors, CLI и full echo. Финальный registry30magic/48total/cache30/507refs; целевые sequential/process integration checks прошли.
+4. **Выполнено:** source/wheel/fresh installed/module/console/spawn audit, copied public bundles, offline schema refs и полная регрессия. 4223 tests: те же33 Python3.12 expectation errors baseline, 0 новых errors/failures/skipped; обе v5 families exact source/module/console sequential/process parity. [Итоговый отчёт](../audits/m8-crushed-rib-transport-readiness.md).
 
-Для шага1 и finite probe не требуется повтор full4201tests или installed audit57. Окончательный installed/full аудит остаётся за общей границей шага4. Точный результат generation шага и следующий этап фиксируются в [текущем статусе](../project-status.md).
+Текущие ограничения и следующий планируемый шаг после ADR-0058 собраны в [статусе проекта](../project-status.md); новых rulebook-вопросов этот transport-срез не добавил.

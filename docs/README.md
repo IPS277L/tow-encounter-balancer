@@ -10,7 +10,7 @@
 
 ## Архитектура и контракты
 
-[ADR-0058 generation step](decisions/ADR-0058-crushed-rib-generation-and-magic-json-v5.md) реализован: отдельное append-last matching family permission, source admission и projection. [Contract probe](examples/m8/crushed_rib_transport_contract_probe.py), [stdout](examples/m8/crushed_rib_transport_contract_probe.output.txt), [copied test](../tests/integration/test_m8_crushed_rib_transport_contract_probe.py) подтверждают actual3/4-actor generation, runner, stages/spawn и JSON1–4 refusal. JSON5 production codec/schema ещё не реализован.
+[ADR-0058](decisions/ADR-0058-crushed-rib-generation-and-magic-json-v5.md) и все четыре шага закрыты; [итоговый installed/full audit](audits/m8-crushed-rib-transport-readiness.md). [Contract probe](examples/m8/crushed_rib_transport_contract_probe.py), [stdout](examples/m8/crushed_rib_transport_contract_probe.output.txt), [copied test](../tests/integration/test_m8_crushed_rib_transport_contract_probe.py) подтверждают actual3/4-actor generation, full request echo, CLI и JSON1–4 refusal.
 
 [ADR-0057](decisions/ADR-0057-native-crushed-rib-continuation.md) реализован: независимый native opt-in, bounded history вне battle root и первый consuming witness из собственного prefix. [Actual274d10](examples/m8/crushed_rib_native.py), [copied test](../tests/integration/test_m8_crushed_rib_native_example.py), [приёмка](audits/m8-native-crushed-rib-readiness.md). Старый manual56 journal gap закрыт; [исторический59d10](examples/m8/crushed_rib_native_contract_probe.py) теперь проверяет None-policy refusal. Generation и JSON1–4 новый opt-in отвергают; итоговая регрессия фиксируется в аудите.
 
