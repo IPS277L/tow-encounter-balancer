@@ -5,12 +5,17 @@ or RNG. Returned states are projections, not separately supplied snapshots.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from enum import Enum
 
 from towr.domain.action_execution_models import CastingAttemptExecutionResult, CastingActionPostTestResult
 from towr.domain.condition_models import Condition, ConditionApplicationResult, EffectApplicationResult
-from towr.domain.cowardly_flight_casting_models import CowardlyFlightCastingRequest
+from towr.domain.cowardly_flight_casting_models import (
+    CowardlyFlightCastingRequest, strict_casting_round, validate_crushed_rib_casting_source,
+)
+from towr.domain.crushed_rib_test_models import (
+    CrushedRibCastingResult, _boolean, _integer, _magic, _ordered, _typed,
+)
 from towr.domain.injury_models import ProfileInjuryState
 from towr.domain.magic_models import (
     COWARDLY_FLIGHT_SPELL_DEFINITION as SPELL,
@@ -28,7 +33,7 @@ from towr.domain.resolution_models import (
 )
 from towr.domain.spatial_models import SpatialBattleState
 from towr.domain.test_models import InlineProfile, RollTrace, TestQuality, TestRequest, TestResult
-from towr.domain.turn_models import CombatRoundState
+from towr.domain.turn_models import CombatRoundState, ActionSlotGrant
 
 
 class CowardlyFlightCastingStatus(str, Enum):
@@ -62,6 +67,7 @@ class CowardlyFlightCastingResult:
     spell: SpellCastExecutionResult | None = None
     zone: CowardlyFlightZoneBatchResult | None = None
     willpower: CowardlyFlightWillpowerBatchResult | None = None
+    crushed_rib: CrushedRibCastingResult | None = field(default=None, kw_only=True)
 
     def __post_init__(self) -> None:
         for value, kind in ((self.source, CowardlyFlightCastingRequest),
@@ -70,6 +76,9 @@ class CowardlyFlightCastingResult:
                             (self.status, CowardlyFlightCastingStatus)):
             if not isinstance(value, kind):
                 raise TypeError(f"Casting result requires {kind.__name__}")
+        if self.source.crushed_rib_preparation is not None or self.crushed_rib is not None:
+            replace(self.source)
+            validate_crushed_rib_casting_phases(self)
         _validate_casting(self)
         _validate_post_test(self)
         if self.status in (CowardlyFlightCastingStatus.SPELL_RESOLVED,
@@ -138,14 +147,118 @@ def _normal_test(test: TestResult, identifier: str, profile: InlineProfile,
     ), "normal Test trace/profile")
 
 
+def _strict_normal_test(test: TestResult, identifier: str, profile: InlineProfile, rule_ids=()) -> None:
+    _typed(test, TestResult)
+    _typed(test.trace, RollTrace)
+    trace = test.trace
+    _typed(trace.quality, TestQuality)
+    _boolean(trace.minimum_die_rule_applied)
+    for name in ('base_dice', 'pool_cap', 'regular_dice_delta', 'cap_bypassing_dice', 'dice_before_minimum',
+                 'rolled_dice', 'threshold', 'rolled_successes', 'success_delta', 'successes'):
+        _integer(getattr(trace, name))
+    for values in (trace.initial_values, trace.final_values):
+        _ordered(values)
+        for value in values:
+            _integer(value)
+    _ordered(trace.rerolls)
+    _ordered(trace.applied_rule_ids)
+    _normal_test(test, identifier, profile, rule_ids)
+
+
+def validate_crushed_rib_casting_phases(result: CowardlyFlightCastingResult) -> None:
+    """Strict original phase witnesses for the explicit ADR-0056 owner branch.
+
+    The same checks cover its later normal Casting, whose lower source has no
+    new preparation. No owner import, mutation, execution or RNG is involved.
+    """
+    source = result.source
+    validate_crushed_rib_casting_source(source)
+    preparation = source.crushed_rib_preparation
+    if preparation is not None:
+        if not isinstance(result.crushed_rib, CrushedRibCastingResult):
+            raise TypeError('Crushed Rib Casting requires its complete typed receipt')
+        replace(result.crushed_rib)
+    post = result.post_test
+    for execution in (result.execution, post.execution):
+        _typed(execution, CastingAttemptExecutionResult)
+        strict_casting_round(execution.previous_state)
+        strict_casting_round(execution.state)
+        _integer(execution.slot.index)
+        _typed(execution.slot.grant, ActionSlotGrant)
+        replace(execution.slot.declaration)
+        replace(execution.slot.execution.declaration)
+        replace(execution.slot.execution)
+        replace(execution.slot)
+        _ordered(execution.applied_rule_ids)
+        replace(execution)
+        if preparation is not None:
+            CrushedRibCastingResult(preparation, execution.casting,
+                                   result.crushed_rib.consumed_effect, result.crushed_rib.state)
+        else:
+            _strict_normal_test(execution.casting.test, source.id + ':willpower',
+                                source.caster.casting_profile, ('RULE-MAGIC-003:rule-of-nine',))
+            _magic(execution.casting.state)
+            for value in (execution.casting.previous_casting_successes,
+                          execution.casting.latest_roll_successes, execution.casting.miscast_dice_added):
+                _integer(value)
+            _ordered(execution.casting.follow_ups)
+            _ordered(execution.casting.applied_rule_ids)
+            for follow in execution.casting.follow_ups:
+                replace(follow)
+    _magic(post.state)
+    _ordered(post.applied_rule_ids)
+    replace(post)
+    if post.miscast_pool is not None:
+        pool = post.miscast_pool
+        _typed(pool, MiscastPoolResolutionResult)
+        _typed(pool.outcome, MiscastPoolOutcome)
+        _integer(pool.previous_miscast_dice)
+        _integer(pool.dice_added)
+        _magic(pool.state)
+        _ordered(pool.applied_rule_ids)
+        if pool.roll_request is not None:
+            replace(pool.roll_request)
+    if post.decision is not None:
+        decision = post.decision
+        _typed(decision, CastingDecisionResult)
+        _typed(decision.choice, CastingChoice)
+        _integer(decision.previous_casting_successes)
+        if decision.base_potency is not None:
+            _integer(decision.base_potency)
+        _magic(decision.state)
+        _ordered(decision.follow_ups)
+        _ordered(decision.applied_rule_ids)
+        for follow in decision.follow_ups:
+            replace(follow)
+    if result.willpower is not None:
+        _ordered(result.willpower.targets)
+        for resolved in result.willpower.targets:
+            target = next(t for t in source.targets if t.actor_id == resolved.target_id)
+            _strict_normal_test(resolved.test, resolved.test.trace.request_id, target.willpower_profile)
+            _boolean(resolved.resisted)
+
+
 def _validate_casting(result: CowardlyFlightCastingResult) -> None:
     source, execution = result.source, result.execution
     casting = execution.casting
     _equal(execution.previous_state, source.round_state, "previous round")
     _equal((execution.request_id, execution.actor_id, execution.slot_index),
            (source.id, source.actor_id, source.slot_index), "action identity")
-    _normal_test(casting.test, source.id + ":willpower", source.caster.casting_profile,
-                 ("RULE-MAGIC-003:rule-of-nine",))
+    preparation, consumption = source.crushed_rib_preparation, result.crushed_rib
+    if preparation is None:
+        if consumption is not None:
+            raise ValueError('normal Casting cannot contain a Crushed Rib completion')
+        _normal_test(casting.test, source.id + ":willpower", source.caster.casting_profile,
+                     ("RULE-MAGIC-003:rule-of-nine",))
+    else:
+        if not isinstance(consumption, CrushedRibCastingResult):
+            raise TypeError('prepared Crushed Rib Casting requires its typed completion')
+        replace(consumption)
+        # Validate BOTH recorded Test objects before comparing them; they may be
+        # detached equal copies with different original primitive types.
+        expected = CrushedRibCastingResult(preparation, casting,
+                                          consumption.consumed_effect, consumption.state)
+        _equal(consumption, expected, 'Crushed Rib completion/full preparation')
     added = casting.test.trace.final_values.count(9)
     follow_ups = () if not added else (MiscastPoolIncreaseRequest(
         source.id + ":casting:rule-of-nine", source.actor_id, added,

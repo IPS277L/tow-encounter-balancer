@@ -1,10 +1,14 @@
 # TOWR Encounter Balancer
 
+Реализован [ADR-0056](docs/decisions/ADR-0056-source-bound-crushed-rib-owner-bridge.md): ручной typed Crushed Rib bridge для полного M8 owner, actual Protection/Casting и оставшегося Drained с подтверждением расхода. [Actual пример63d10](docs/examples/m8/crushed_rib_owner.py),62целевые проверки и отдельный installed audit прошли; [приёмка](docs/audits/m8-crushed-rib-owner-readiness.md) фиксирует окончательную регрессию. Automatic runner пока останавливается на Wound10. Точный следующий шаг — в [статусе](docs/project-status.md).
+
 Симулятор боёв и инструмент подбора сложности столкновений для настольной RPG TOWR.
 
 Готовы ограниченные неподвижные ranged, melee и mixed Minion-сценарии: одиночные бои, независимые sequential/process прогоны, агрегаты, поэтапный подбор и генерация составов из заданного резерва, JSON/CLI. Магия M8 поддерживает отдельный ограниченный бой с одним Champion-Wizard и Curse of Cowardly Flight, а также независимые sequential/process прогоны, aggregate-only summary и bounded оценку явного списка кандидатов. Полный каталог и универсальный бой ещё не реализованы.
 
 ## Навигация
+
+Реализован [ADR-0055](docs/decisions/ADR-0055-source-bound-crushed-rib-test.md): K1-переход для ближайшей Grim Test после Crushed Rib10, с сохранением Drained до лечения. [Actual-consumer пример](docs/examples/m8/crushed_rib_test.py), copied tests и [итоговый аудит](docs/audits/m8-crushed-rib-test-readiness.md) прошли: полный4110прогон сохранил только33прежние errors. Подключение полного M8-owner остаётся отдельной границей.
 
 Реализован [ADR-0054](docs/decisions/ADR-0054-repeated-leg-spasm-generation-and-magic-json-v4.md): matching family assertion в generation и Magic JSON/CLI v4. [Production proof](docs/examples/m8/repeated_leg_spasm_transport_contract_probe.py) проверяет полный source round-trip и native repeated stand; [публичные JSON4 примеры](docs/examples/m8/json/README.md). [Итоговый аудит](docs/audits/m8-repeated-leg-spasm-transport-readiness.md) закрыт: установленный пакет/CLI/spawn проверены; составной regression result и33прежние ошибки зафиксированы отдельно.
 

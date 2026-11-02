@@ -1,5 +1,15 @@
 """Domain definitions independent from battle execution and adapters."""
 
+from towr.domain.npc_crushed_rib_models import NpcCrushedRibContext, NpcCrushedRibConsumptionWitness
+from towr.domain.crushed_rib_test_models import (
+    CrushedRibTestPreparationRequest,
+    CrushedRibCastingPreparationRequest,
+    CrushedRibTestPreparationResult,
+    CrushedRibCastingPreparationResult,
+    CrushedRibTestResult,
+    CrushedRibCastingResult,
+)
+
 from towr.domain.hidden_lifecycle_aim_models import (
     HIDDEN_LIFECYCLE_AIM_LOSS_ATTACK_RULE_ID,
     HiddenLifecycleAimLossAttackExecutionRequest,
@@ -916,6 +926,14 @@ from towr.domain.turn_models import (
 )
 
 __all__ = [
+    "NpcCrushedRibContext",
+    "NpcCrushedRibConsumptionWitness",
+    "CrushedRibTestPreparationRequest",
+    "CrushedRibCastingPreparationRequest",
+    "CrushedRibTestPreparationResult",
+    "CrushedRibCastingPreparationResult",
+    "CrushedRibTestResult",
+    "CrushedRibCastingResult",
     "REGISTERED_HIDDEN_AIM_LOSS_ATTACK_RULE_ID",
     "RegisteredHiddenAimLossAttackExecutionRequest",
     "RegisteredHiddenAimLossAttackExecutionResult",

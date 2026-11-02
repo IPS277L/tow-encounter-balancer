@@ -26,6 +26,9 @@ class NpcRosterCastingCompletionRequest:
             raise TypeError("state must be an NpcRosterCastingState")
         if not isinstance(self.completion, CowardlyFlightCastingCompletionRequest):
             raise TypeError("completion must be a CowardlyFlightCastingCompletionRequest")
+        if self.completion.pending.crushed_rib is not None:
+            replace(self.state)
+            replace(self.completion)
         if self.state.pending_miscast_continuation is not None:
             raise ValueError('prepared Miscast blocks Curse completion')
         if self.state.pending_minion_attack is not None:
@@ -46,6 +49,9 @@ class NpcRosterCastingCompletionResult:
             raise TypeError("source must be an NpcRosterCastingCompletionRequest")
         if not isinstance(self.completion, CowardlyFlightCastingCompletionResult):
             raise TypeError("completion must be a CowardlyFlightCastingCompletionResult")
+        if self.completion.casting.crushed_rib is not None or self.source.completion.pending.crushed_rib is not None:
+            replace(self.source)
+            replace(self.completion)
         if self.completion.source != self.source.completion:
             raise ValueError("completion result differs from the complete bound request")
 

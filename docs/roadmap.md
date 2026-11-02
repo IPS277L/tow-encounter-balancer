@@ -280,4 +280,25 @@ Native policy/runner ADR-0050 реализованы ниже. Generation/wire p
 3. Installed source/wheel/installed474files,42schemas/444refs,52backend cases/486child commands, native330/generated1426 с realPID spawn, copied bundles и public2/3/4same-runtime bytes прошли.
 4. Итоговое покрытие4078tests составное:540integration успешны; после исправления одного старого positional metadata assertion повторены все3538unit —33known errors/0failures. Exact33ERROR headers совпали с baseline53. Полный4078прогон до этого fixture fix имел1failure; единый зелёный full run не заявляется. Production/integration после него не менялись.
 
-Точный следующий шаг — подготовить bounded контракт следующего consumer по inventory: адресно сверить Crushed Rib10 и existing source-bound next-Test/Protection/Casting lifecycle, определить once-only Grim consumption и finite proof будущего ADR-0055. До контракта/книжной сверки runtime и wire не расширять.33прежние Python3.12 expectations остаются отдельной задачей.
+Контракт55 подготовлен ниже. Transport54 не разрешает Wound10 автоматически;33прежние Python3.12 expectations остаются отдельной задачей.
+
+## ADR-0055 — K1 Crushed Rib next-Test
+
+**ADR-0055 закрыт в принятой K1 границе.** [Контракт](decisions/ADR-0055-source-bound-crushed-rib-test.md), [actual33d10](examples/m8/crushed_rib_test.py), [copied test](../tests/integration/test_k1_crushed_rib_example.py), [итоговый аудит](audits/m8-crushed-rib-test-readiness.md). Исторический [proof40d10](examples/m8/crushed_rib_test_contract_probe.py) сохранён отдельно.
+
+1. Выполнено:6frozen ordinary/Casting models, pure original injury/Test admission и preparation. Canonical effect order Drained→NEXT_TEST проверяется до equality/RNG; prep не расходует effect.
+2. Выполнено:один existing executor на ветку, strict full trace/parent/follow-ups, completion и exact-injury apply. Drained/Wound provenance сохраняются; failed/zero-success Tests расходуют effect, stale/repeated/foreign sources отвергаются.30unit и2copied targeted checks прошли.
+3. Выполнено:476package source/wheel/installed paths+SHA,42schemas/444refs,4child commands,actual33/historical40d10. Полный4110tests/949,557с завершён с33known errors/0failures/0skipped,542integration успешны. Exact33ERROR headers прежние; весь набор не объявляется зелёным. После full run package и93example hashes неизменны.
+
+Следующий full-owner контракт56 подготовлен ниже. Coexistence9/6/Wind, treatment/Fate/Lucky и несколько pending10 не добавляются автоматически.
+
+## ADR-0056 — M8 full-owner Crushed Rib bridge
+
+**ADR-0056 закрыт в принятой ручной full-owner границе.** [ADR](decisions/ADR-0056-source-bound-crushed-rib-owner-bridge.md), [actual63d10](examples/m8/crushed_rib_owner.py), [copied test](../tests/integration/test_m8_crushed_rib_owner_example.py), [приёмка](audits/m8-crushed-rib-owner-readiness.md). Исторический [probe25d10](examples/m8/crushed_rib_owner_contract_probe.py) сохранён отдельно.
+
+1. Выполнено: Context/witness и canonical original-source guards; optional typed contracts, закрытие Wizard admission gap для spent10 без witness. Detached context/child/receipt/enum/container aliases отклоняются до RNG/Result/apply.
+2. Выполнено: private kernel handoff после actual Protection Test и до новых последствий; один action receipt, полная регистрация Wounds/daily/roll/children, затем ограничение дальнейшего context. Original normal preparation сохраняется.
+3. Выполнено: actual Casting receipt/completion до pool/follow-ups, atomic full-owner projection и pending completion; normal consumed Casting/Protection/end-turn с remaining Drained.62targeted tests пройдены.
+4. Выполнено:477package source/wheel/site files,42schemas/444refs,8commands,actual63/historical25/K1actual33/K1historical40d10. Составное4158покрытие:551integration успешны; после фикса одного устаревшего message expectation повторены все3607unit —33known errors/0failures. Full4158доfixturefix имел1failure; единый full run без failures не заявляется. Exact33ERROR headers совпали с baseline55; manifests/97examples после suite прежние.
+
+После приёмки56 подготовить ADR-0057 native Crushed Rib dispatcher/journal/permission: context выводится из actual prefix, mandatory follow-ups и прежние stops сохраняются. Generation/JSON/wire5 не подключаются без собственного контракта.

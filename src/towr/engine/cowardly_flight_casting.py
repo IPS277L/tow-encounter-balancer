@@ -41,12 +41,17 @@ def execute_cowardly_flight_casting(
     """
     if not isinstance(request, CowardlyFlightCastingRequest):
         raise TypeError("request must be a CowardlyFlightCastingRequest")
+    if request.crushed_rib_preparation is not None:
+        replace(request)
     execution = execute_casting_attempt(CastingAttemptExecutionRequest(
         request.id, request.round_state, request.actor_id, request.slot_index,
-        CastingTestRequest(request.id + ":casting", request.actor_id, SPELL.lore_id,
-                           TestRequest(request.id + ":willpower", request.caster.casting_profile),
-                           request.magic_state),
+        (request.casting_test_request if request.crushed_rib_preparation is None
+         else request.crushed_rib_preparation.casting),
     ), rng)
+    consumption = None
+    if request.crushed_rib_preparation is not None:
+        from towr.rules.crushed_rib_test_resolution import complete_crushed_rib_casting
+        consumption = complete_crushed_rib_casting(request.crushed_rib_preparation, execution.casting)
     identifier = request.id + ":post-test"
     state = execution.casting.state
     triggered = False
@@ -69,9 +74,11 @@ def execute_cowardly_flight_casting(
     post = resolve_casting_action_post_test(CastingActionPostTestRequest(
         identifier, execution, request.caster.wizard_level, decision))
     if triggered:
-        return CowardlyFlightCastingResult(request, execution, post, CowardlyFlightCastingStatus.MISCAST_REQUIRED)
+        return CowardlyFlightCastingResult(request, execution, post, CowardlyFlightCastingStatus.MISCAST_REQUIRED,
+                                          crushed_rib=consumption)
     if post.decision.choice is CastingChoice.WAIT:
-        return CowardlyFlightCastingResult(request, execution, post, CowardlyFlightCastingStatus.WAITING)
+        return CowardlyFlightCastingResult(request, execution, post, CowardlyFlightCastingStatus.WAITING,
+                                          crushed_rib=consumption)
 
     cast = post.decision.follow_ups[0]
     preflight = resolve_spell_target_preflight(SpellTargetPreflightRequest(
@@ -91,17 +98,21 @@ def execute_cowardly_flight_casting(
     if zone.movement_follow_ups:
         return CowardlyFlightCastingResult(
             request, execution, post, CowardlyFlightCastingStatus.MOVEMENT_REQUIRED,
-            preflight, spell, zone)
+            preflight, spell, zone, crushed_rib=consumption)
     willpower = resolve_cowardly_flight_willpower_batch(CowardlyFlightWillpowerBatchRequest(
         request.id + ":willpower-batch", zone, request.spatial_state, ()), rng)
     return CowardlyFlightCastingResult(request, execution, post, CowardlyFlightCastingStatus.SPELL_RESOLVED,
-                                       preflight, spell, zone, willpower)
+                                       preflight, spell, zone, willpower, crushed_rib=consumption)
 
 
 def complete_cowardly_flight_casting(
     request: CowardlyFlightCastingCompletionRequest, rng: RandomSource,
 ) -> CowardlyFlightCastingCompletionResult:
     """Resolve only Willpower after all source-bound movements; no Casting retry."""
+    if not isinstance(request, CowardlyFlightCastingCompletionRequest):
+        raise TypeError('completion requires CowardlyFlightCastingCompletionRequest')
+    if request.pending.crushed_rib is not None:
+        replace(request)
     if not isinstance(request, CowardlyFlightCastingCompletionRequest):
         raise TypeError("request must be a CowardlyFlightCastingCompletionRequest")
     pending = request.pending

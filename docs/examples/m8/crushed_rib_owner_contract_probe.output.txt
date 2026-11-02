@@ -1,0 +1,6 @@
+ACTUAL OWNER: Wound10 in7d10; Wizard standard spell slot reserved; daily/roll histories and both children retained; actor-injury stop
+CASTING CANDIDATE: actual slot-bound Grim4d10; failed Test consumes in K1 before real pool0->2/WAIT; lower normal-result and full-owner guards still refuse
+PROTECTION OWNER: fresh Wound10 in7d10; actual E1 end/E2 start without Tests; current unspent Attack slot, full injury/daily/roll/children retained
+PROTECTION CANDIDATE: current E2 Shooting/selected Athletics; one K1 attack7d10; actual defender Test consumes; normal Champion admission refuses; no M8 action applied
+BOUNDARY GAP: kernel has no post-Test continuation input; no new Wound/daily receipt/action application fabricated; full-owner56 bridge remains unimplemented
+25 scripted d10; real current action sources and K1 receipts; no consumed injury enters M8; immutable sources/owners/global RNG; no future bridge fabricated

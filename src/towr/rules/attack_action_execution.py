@@ -10,6 +10,7 @@ from towr.domain.turn_models import (
     ActionExecutionReceipt,
     CombatActionKind,
 )
+from towr.domain.resolution_models import ResolutionResult
 from towr.rules.dice import RandomSource
 from towr.rules.kernel import ResolutionDecisionProvider, resolve_kernel_attack
 
@@ -24,6 +25,17 @@ def execute_attack_action(
     decisions: ResolutionDecisionProvider | None = None,
 ) -> AttackActionExecutionResult:
     """Execute one reserved Attack slot through the existing K1 kernel."""
+    _validate_attack_action_slot(request)
+    resolution = resolve_kernel_attack(
+        request.kernel_request,
+        rng,
+        decisions=decisions,
+    )
+    return _complete_attack_action(request, resolution)
+
+
+def _validate_attack_action_slot(request: AttackActionExecutionRequest) -> None:
+    """The same slot admission for ordinary and source-bound phased Attack."""
     turn = request.state.active_turn
     if turn is None:
         raise ValueError("an active combat turn is required")
@@ -41,14 +53,15 @@ def execute_attack_action(
     if slot.executed:
         raise ValueError("the Attack action slot has already been executed")
 
-    resolution = resolve_kernel_attack(
-        request.kernel_request,
-        rng,
-        decisions=decisions,
-    )
+
+def _complete_attack_action(
+    request: AttackActionExecutionRequest, resolution: ResolutionResult,
+) -> AttackActionExecutionResult:
+    """Publish one receipt after consequences, without re-executing the Test."""
     if resolution.request_id != request.kernel_request.id:
         raise ValueError("kernel result does not belong to the attack request")
-
+    turn = request.state.active_turn
+    slot = turn.action_slots[request.slot_index - 1]
     executed_slot = replace(
         slot,
         execution=ActionExecutionReceipt(

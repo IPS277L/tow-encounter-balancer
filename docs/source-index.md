@@ -1,5 +1,15 @@
 # Реестр источников
 
+## M8 full-owner Crushed Rib: ADR-0056
+
+2026-11-02: [реализация56](decisions/ADR-0056-source-bound-crushed-rib-owner-bridge.md) использует нормативную сверку55 ниже. При подготовке повторно просмотрены локальные извлечения PG1.4 Wounds Table190, Conditions123 и Casting156–157; Rules108/118 и GM1.1 Champions92 унаследованы из сверки55. При реализации новые страницы/PDF не читались, SHA книг не пересчитывались; нового полного чтения, книг/версий/Rule IDs нет. [Actual63d10/installed audit](audits/m8-crushed-rib-owner-readiness.md) проверяет инженерную интеграцию, а исторический [probe25d10](examples/m8/crushed_rib_owner_contract_probe.py) — source/slot seams; они не являются новыми источниками механики.
+
+## Crushed Rib next-Test: адресная сверка ADR-0055
+
+2026-11-02: прочитаны локальные извлечённые нормативные тексты BOOK-PLAYER-GUIDE1.4: гл.V Rolling Dice107 / Grim & Glorious108 / Attack Tests118 / Conditions, Drained123; гл.VIII Casting a Spell156 / Rule of Nine, Miscast Pool157; приложение Wounds Table190, строка10. BOOK-GM-GUIDE1.1: гл.VII Allies and Antagonists / Champions92. [ADR-0055](decisions/ADR-0055-source-bound-crushed-rib-test.md) отделяет ближайшую Grim Test от Drained UNTIL_TREATED и K1 от будущей full-owner интеграции M8; consumer реализован, [actual33d10/installed audit](audits/m8-crushed-rib-test-readiness.md) проверен. Новых страниц/полного чтения при реализации не добавлено.
+
+Использованы `references/private/*-guide-extracted/pages/`; оригинальные PDF в этом шаге не открывались и их SHA повторно не вычислялись. Версии/хэши ниже — ранее закреплённая выбранная пара книг. Новое полное чтение книг или новые house rules не заявляются. [Finite proof40d10](examples/m8/crushed_rib_test_contract_probe.py) проверяет существующие primitives, не будущий production consumer.
+
 ## Repeated permission transport: контракт ADR-0054
 
 2026-11-02: [ADR-0054](decisions/ADR-0054-repeated-leg-spasm-generation-and-magic-json-v4.md) реализован на закрытом native53. Это техническая передача разрешения через generation/JSON4, без чтения новых правил. Нормативная база: BOOK-PLAYER-GUIDE1.4, гл.V Free Actions116/Giving Ground119/Conditions122–123, приложение Wounds Table190; BOOK-GM-GUIDE1.1, гл.VII Champions92. Версии/хэши прежние, новых Rule IDs/house rules нет. [Production proof](examples/m8/repeated_leg_spasm_transport_contract_probe.py) использует actual parser/generator/result4; finite inverse остаётся независимым oracle.

@@ -1,5 +1,7 @@
 # M8: инвентаризация обязательных продолжений
 
+2026-11-02: после закрытого55 реализован [ADR-0056](../decisions/ADR-0056-source-bound-crushed-rib-owner-bridge.md) — ручной typed full-owner bridge, [actual63d10/приёмка](m8-crushed-rib-owner-readiness.md). Actual Protection/Casting, private kernel handoff после Test, pending follow-ups и remaining Drained с первым consuming witness проверены targeted/installed. [Probe25d10](../examples/m8/crushed_rib_owner_contract_probe.py) сохранён отдельно. Automatic runner/journal/policy ещё не изменены; следующий контракт57 должен связывать context с actual native prefix до любой generation/JSON family.
+
 Дата: 2026-11-02. Технически актуализирована после реализации ADR-0044–0054: native stationary/repeated policies, matching generation family и обе JSON3/4 families подключены;13continuation labels сверены с текущим enum, новый wire не добавляет gameplay consumers. Это карта ограничений для выбора следующего отдельного контракта, не объявление полного боя готовым. Новых Rule IDs/house rules или чтения книг при этой технической актуализации нет.
 
 ## Уже закрытые prerequisites
@@ -37,6 +39,8 @@ Missing facts, unsupported rules и исключения исполнения н
 
 ## Сравнение следующих кандидатов
 
+2026-11-02: подготовлен [ADR-0055](../decisions/ADR-0055-source-bound-crushed-rib-test.md) для K1 injury-bound Crushed Rib next-Test. Адресно прочитаны локальные извлечения PG1.4 Rules107–108/118/123, Casting156–157/Wounds190 и GM1.1 Champions92. [Proof40d10](../examples/m8/crushed_rib_test_contract_probe.py) сохранён, consumer55 реализован; [actual33d10/installed audit](m8-crushed-rib-test-readiness.md) проверен, full4110tests/33known errors/0failures завершён,55 закрыт. M8 сохраняет stop. Выбран prerequisite K1 preparation/completion/apply, поскольку полного lifecycle NEXT_TEST ещё нет. M8 full-owner binding и remaining-Drained admission остаются следующим отдельным контрактом.
+
 2026-11-02: [ADR-0054](../decisions/ADR-0054-repeated-leg-spasm-generation-and-magic-json-v4.md) реализует matching generation family и versioned JSON4 для существующего native53. [Production proof96d10](../examples/m8/repeated_leg_spasm_transport_contract_probe.py) проверен direct и copied unittest; [итоговый аудит](m8-repeated-leg-spasm-transport-readiness.md) закрыт:474files/42schemas/444refs,52backend cases/486commands;540integration +3538unit,33known errors без новых failures. Это доставка текущего scope, не выбор нового Wound/Miscast consumer и не новая книжная сверка.
 
 Native integration52 закрыта в [ADR-0053](../decisions/ADR-0053-native-repeated-leg-spasm-continuation.md): отдельная permission, bounded derived cursor/full membership и strict admission. [Итоговый audit](m8-native-repeated-leg-spasm-readiness.md): automatic330d10/installed/spawn,468package parity, full4044/33known/0failures без новых errors. Одна repeated9 поддержана только новым opt-in; третья9/несовместимые6/Wind scopes сохраняют stop. Wound10/Wind consumers не добавлены, generation/JSON4 подключены ADR-0054 с отдельным matching family assertion.
@@ -46,7 +50,7 @@ Native integration52 закрыта в [ADR-0053](../decisions/ADR-0053-native-r
 | Кандидат | Готово | Недостаёт / решение |
 | --- | --- | --- |
 | Wound9 Leg Spasm | Stand48/context49/policy50/transport51, low-level52 и native repeated policy53 с полными journal witnesses | Один repeat только по новому opt-in; consumed/third9/history6/Wind Prone при stand остаются неподдержаны. Generation/JSON4 реализованы в ADR-0054; legacy1/2/3 явно отвергают новое поле. |
-| Wound10 Crushed Rib | Drained/UNTIL_TREATED + декларация NEXT_TEST_IS_GRIM | Нужен source-bound first-Test consumption, включая Protection до Casting. Это не Prone-рана и не часть9. |
+| Wound10 Crushed Rib | K1 consumer55 и ручной full-owner bridge56 реализованы, actual63d10/installed проверены | Automatic dispatcher/journal/policy требуют отдельного57; automatic M8 пока сохраняет stop на10. |
 | Wound5 Battered Leg | Endurance follow-up; при провале Prone | Нет authored Endurance profile/full-owner follow-up consumer. Новый Test/source contract шире9. |
 | Wound13 Torn Leg /17 Shattered Knee | K1 Conditions/restrictions | Critical-on-stand или ongoing Critical/Burdened, затем Endurance/death. Нельзя обойти общей Prone whitelist. |
 | Wounds4/7/11 | K1 Endurance effects | Endurance profile, hand/item/teeth либо Blinded/Deafened и последующие consumers. |

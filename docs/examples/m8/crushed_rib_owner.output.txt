@@ -1,0 +1,5 @@
+CASTING: actual10/7d10 -> slot-bound failed Grim/4d10 -> consumed full owner BEFORE pool0->2/WAIT; end-turn keeps Drained and all Wound histories
+PROTECTION: actual10/7d10 -> current E2 Attack7d10 -> one consumed full-owner receipt; later E3 normal Protection6d10 keeps first witness, Drained and daily/roll histories
+POST-TEST new10: actual10/7d10 + Attack/Wound9d10; old effect consumed BEFORE new Wound; all consequences/receipts retained, further context refused
+POST-TEST superficial2: actual10/7d10 + Attack/Wound9d10; old effect consumed BEFORE new Wound; all consequences/receipts retained, further context refused
+63 scripted d10; actual public full-owner consumers; immutable sources/global RNG; automatic runner remains unsupported on Wound10

@@ -20,6 +20,7 @@ from towr.rules.npc_attack_preparation import prepare_npc_attack, prepare_npc_at
 
 if TYPE_CHECKING:
     from towr.domain.npc_stationary_wound_models import NpcStationaryWoundContext
+    from towr.domain.npc_crushed_rib_models import NpcCrushedRibContext
 
 
 def prepare_npc_roster_shooting(
@@ -29,6 +30,7 @@ def prepare_npc_roster_shooting(
     defender_is_aware: bool, selected_protection_skill: Skill | None,
     can_target_leave_zone: bool,
     stationary_wounds: NpcStationaryWoundContext | None = None,
+    crushed_rib_context: NpcCrushedRibContext | None = None,
 ) -> NpcRosterMinionAttackRequest | NpcRosterChampionAttackRequest:
     """Preserve authored departure and derive effective Give Ground eligibility.
 
@@ -37,6 +39,13 @@ def prepare_npc_roster_shooting(
     Giving Ground p119 / Wounds Table p190 (ADR-0049).
     """
     _validate_phase_source(state)
+    if crushed_rib_context is not None:
+        from towr.domain.npc_crushed_rib_models import NpcCrushedRibContext
+        if not isinstance(crushed_rib_context, NpcCrushedRibContext):
+            raise TypeError('Shooting requires a typed Crushed Rib context')
+        if stationary_wounds is not None:
+            raise ValueError('Crushed Rib and stationary contexts are mutually exclusive')
+        crushed_rib_context.validate_source(state, target_id)
     if stationary_wounds is not None:
         from towr.domain.npc_stationary_wound_models import NpcStationaryWoundContext
         if not isinstance(stationary_wounds, NpcStationaryWoundContext):
@@ -66,7 +75,20 @@ def prepare_npc_roster_shooting(
             target.state.injury, can_give_ground,
             target_id in state.spatial_state.gave_ground_entity_ids))
     if target_id == state.wizard.actor_id:
+        preparation, consumption = None, None
+        if crushed_rib_context is not None:
+            if crushed_rib_context.consumption is None:
+                from towr.domain.crushed_rib_test_models import CrushedRibTestPreparationRequest
+                from towr.rules.crushed_rib_test_resolution import prepare_crushed_rib_test
+                if protected.attack.defender_test is None:
+                    raise ValueError('pending Crushed Rib requires an actual opposed Protection Test')
+                preparation = prepare_crushed_rib_test(CrushedRibTestPreparationRequest(
+                    request_id + ':crushed-rib', target_id, target.state.injury, protected.attack.defender_test))
+            else:
+                consumption = crushed_rib_context.consumption.consumption
         return NpcRosterChampionAttackRequest(state, NpcChampionAttackRequest(
-            state.champion_attack, protected, execution, stationary_wounds=stationary_wounds))
+            state.champion_attack, protected, execution, stationary_wounds=stationary_wounds,
+            crushed_rib_preparation=preparation, crushed_rib_consumption=consumption),
+            crushed_rib_context=crushed_rib_context)
     return NpcRosterMinionAttackRequest(state, NpcRosterAttackExecutionRequest(
         state.minion_attack, protected, execution))

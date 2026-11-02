@@ -54,7 +54,7 @@ class CurrentRosterCastingTests(unittest.TestCase):
         attack = execute_npc_champion_attack(attack_request(), SequenceRandom((1, 2, 10, 10, 10, 10, 10)))
         state = change_injury(bound_request().state, 'wizard', attack.resolution.target_state)
         with patch('towr.rules.test_resolution.resolve_test', side_effect=AssertionError('no roll')):
-            with self.assertRaisesRegex(ValueError, 'Wound effects'):
+            with self.assertRaisesRegex(ValueError, 'Crushed Rib Wound10 requires a full owner context'):
                 prepare(state)
 
     def test_dead_or_broken_or_defenceless_caster_is_never_admitted(self):

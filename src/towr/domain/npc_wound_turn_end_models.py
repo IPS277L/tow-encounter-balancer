@@ -2,14 +2,18 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field, replace
+from typing import TYPE_CHECKING
 
 from towr.domain.condition_models import Condition
-from towr.domain.injury_models import WoundConditionEffect, WoundConditionSourceSnapshot, WoundEffectDuration
+from towr.domain.injury_models import WoundConditionEffect, WoundConditionSourceSnapshot, WoundEffectDuration, WoundEntryId
 from towr.domain.npc_roster_casting_models import NpcRosterCastingState
 from towr.domain.npc_roster_models import NpcRoster
 from towr.domain.npc_stationary_wound_models import NpcStationaryWoundContext
 from towr.domain.npc_wound_turn_models import NpcStomachBlowExpiry, NpcWoundTurnEndReceipt
 from towr.domain.turn_models import ActionSlotGrant, CombatRoundState, CombatTurnEndResult
+
+if TYPE_CHECKING:
+    from towr.domain.npc_crushed_rib_models import NpcCrushedRibContext
 
 
 @dataclass(frozen=True, slots=True)
@@ -19,10 +23,18 @@ class NpcWoundTurnEndRequest:
     actor_id: str
     condition_sources: tuple[WoundConditionSourceSnapshot, ...] = ()
     stationary_wounds: NpcStationaryWoundContext | None = field(default=None, kw_only=True)
+    crushed_rib_context: NpcCrushedRibContext | None = field(default=None, kw_only=True)
 
     def __post_init__(self) -> None:
         if not isinstance(self.state, NpcRosterCastingState):
             raise TypeError('turn end requires a full roster state')
+        if self.crushed_rib_context is not None:
+            from towr.domain.npc_crushed_rib_models import NpcCrushedRibContext
+            if not isinstance(self.crushed_rib_context, NpcCrushedRibContext):
+                raise TypeError('turn end requires a typed Crushed Rib context')
+            if self.stationary_wounds is not None:
+                raise ValueError('Crushed Rib and stationary contexts are mutually exclusive')
+            self.crushed_rib_context.validate_source(self.state, self.actor_id)
         if self.stationary_wounds is not None:
             if not isinstance(self.stationary_wounds, NpcStationaryWoundContext):
                 raise TypeError('stationary turn end requires a typed wound context')
@@ -65,7 +77,9 @@ class NpcWoundTurnEndRequest:
         if not injury.conditions.conditions <= supported:
             raise ValueError('unsupported end-turn Condition requires a separate consumer')
         if champion:
-            if self.stationary_wounds is None and (any(not w.effect_resolved for w in injury.wounds) or any(
+            if self.crushed_rib_context is None and any(w.entry_id == WoundEntryId.CRUSHED_RIB for w in injury.wounds):
+                raise ValueError('Crushed Rib turn end requires its full-owner context/witness')
+            if self.stationary_wounds is None and self.crushed_rib_context is None and (any(not w.effect_resolved for w in injury.wounds) or any(
                 not isinstance(e, WoundConditionEffect) or e.condition not in supported - {Condition.BROKEN}
                 or not injury.conditions.has(e.condition)
                 or e.duration not in (WoundEffectDuration.END_OF_NEXT_TURN, WoundEffectDuration.UNTIL_REMOVED,
@@ -111,6 +125,7 @@ class NpcWoundTurnEndResult:
         if not isinstance(self.source, NpcWoundTurnEndRequest) or not isinstance(self.turn_end, CombatTurnEndResult):
             raise TypeError('turn end result requires typed source and scheduler result')
         source, result = self.source, self.turn_end
+        replace(source)
         combat = source.state.round_state
         expected = replace(combat, active_turn=None,
                            completed_turn_entity_ids=(*combat.completed_turn_entity_ids, source.actor_id))

@@ -4,29 +4,30 @@
 
 ## Текущий этап
 
-**M8 / ADR-0054 закрыт: matching generation family и обе Magic JSON/CLI v4 families реализованы и проверены.** [Контракт](decisions/ADR-0054-repeated-leg-spasm-generation-and-magic-json-v4.md), [итоговый аудит](audits/m8-repeated-leg-spasm-transport-readiness.md), [примеры JSON4](examples/m8/json/README.md), [roadmap](roadmap.md).
+**ADR-0056 закрыт: ручной typed Crushed Rib bridge для полного M8 owner реализован и проверен.** [Контракт](decisions/ADR-0056-source-bound-crushed-rib-owner-bridge.md), [приёмка](audits/m8-crushed-rib-owner-readiness.md), [actual63d10](examples/m8/crushed_rib_owner.py), [roadmap](roadmap.md).
 
-Append-last repeated family assertion, strict3policy matching/dependency и all-candidate preflight сохраняют arithmetic Request/full factory source guards. Required nullable JSON4 fields, own command/error metadata, exact source/cache/echo проверены. JSON1/2/3 запрещают новый key даже null. Gameplay/domain/engine/rules/simulation bytes совпали с native53; новых house rules нет.
+Ручной typed M8 bridge связывает actual Protection/Casting с полным owner и первым consuming witness. Protection расходует NEXT_TEST до Stagger/Wound consequences; Casting — до pool/follow-ups. Drained сохраняется, последующие normal Tests используют первый witness без нового completion. Новые раны регистрируются полностью, затем ограничивают context. Wizard action/end-turn gap для stripped10 и missing-context Result/apply закрыт; original aliases отклоняются до RNG. Source compatibility не объявляется journal membership.
 
 ## Последняя проверка
 
-Итоговое покрытие4078tests: **540integration — все прошли; повторный3538unit —33прежние errors,0failures/0skipped**. Exact33ERROR headers совпали с baseline53. Полный4078прогон1010,552с нашёл один устаревший positional-field test; исправлено только его ожидание и повторён весь unit-набор106,399с. Это составной итог, не единый зелёный full run. Детали и логи — в аудите.
+**62 targeted tests OK/4,031с**, CPython3.12.4, outside-sandbox runner.39new unit,7actual integration,2copied56 и14old end-turn. Installed audit прошёл:477source/wheel/site package paths+SHA,2exports,42schemas/444refs,8child commands; actual owner63/historical25/K1actual33/K1historical40d10. Evidence `.cache/adr0056-installed-audit/checks/evidence.json`.
 
-Последняя команда проверки:
+**Составное4158покрытие:551integration OK; все3607unit повторены после исправления устаревшего message assertion —33known errors/0failures/0skipped,105,099с.** Full4158/1059,911с до этого fixture fix имел33known errors и1failure; единый full run без failures не заявляется. Production/integration/examples после него не менялись.
 
 ```powershell
 $env:PYTHONPATH = 'src'
-.venv/Scripts/python.exe -m unittest discover -s tests/unit -t tests -v
+.venv/Scripts/python.exe -m unittest discover -s tests -v
+.venv/Scripts/python.exe -m unittest discover -s tests/unit -v
 ```
 
-Installed audit:474package source/wheel/installed paths+SHA,42schemas/444localrefs/24magic,52backend cases/486child commands, real spawn, native330/generated1426d10, copied bundles и public2/3/4same-runtime bytes. После регрессии manifest и89example hashes неизменны. WheelSHA/evidence paths и команды воспроизведения сохранены в аудите.
+Exact sorted33ERROR headers full run совпали с baseline55; отдельный unit loader отличается только package prefix. Evidence `.cache/adr0056-regression-comparison.json`, logs `adr0056-full-regression.log`/`adr0056-final-unit-regression.log`.33старых Python3.12 expectation errors — отдельная задача; весь набор не объявляется зелёным. После suite477package hashes совпали с installed evidence, все97example files прежние. Проверены1786local Markdown paths/17документов, broken paths0 (без anchors), diff/whitespace чистые.
 
 ## Ограничения
 
-Native53 scope прежний: один repeated stand с полными journal witnesses, unsupported stops и denominator сохраняются. Третья9, несовместимые6/Wind при repeated stand, Wound10 и новые consumers не открыты.33прежние Python3.12 expectation errors K1/M5 — отдельная задача; полный набор не объявляется зелёным.
+Одна canonical resolved/untreated/unhealed rolled10, optional prior superficial1–3, только Drained. Несколько10,9/6/Wind, treatment/healing/Fate/Lucky/Talent proofs исключены. Authoritative caller предоставляет настоящий current owner; произвольная достижимость/глобальный журнал не доказываются. Automatic dispatcher/runner/policy/mass/generation/JSON1–4 и schemas не расширены; automatic Wound10 сохраняет прежние stops. Новых house rules нет.
 
 ## Точный следующий шаг
 
-Подготовить следующий bounded consumer contract по [inventory](audits/m8-continuation-inventory.md), начав с адресной сверки Crushed Rib (Wound10): PG1.4 Wounds Table190 и existing source-bound next-Test/Protection/Casting lifecycle. Определить границу однократного NEXT_TEST_IS_GRIM и finite proof для будущего ADR-0055 до реализации. Не считать Wound10 уже поддержанным и не угадывать книжные неоднозначности.
+Подготовить ADR-0057 для native Crushed Rib dispatcher/journal/permission: вывести pending/consumed context из собственного actual prefix, установить порядок Protection/Casting и mandatory follow-ups, сохранить прежние stops/RNG/denominator controls. Начать с diagnosis/step/source admission и конечного публичного proof. Generation/JSON/wire5 не подключать до отдельного контракта.
 
-103незакоммиченных файла, включая57предшествующих; commit/push не выполнялись.
+60незакоммиченных файлов, включая31предшествующий: реализация, deterministic tests, actual example, installed audit и общие документы. Commit/push, `.gitignore` и книги не менялись.

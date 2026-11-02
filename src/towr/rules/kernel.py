@@ -90,6 +90,21 @@ def resolve_kernel_attack(
     decisions: ResolutionDecisionProvider | None = None,
 ) -> ResolutionResult:
     attack = resolve_attack(request.attack, rng, decisions=decisions)
+    return _resolve_kernel_attack_after_test(request, attack, rng, decisions=decisions)
+
+
+def _resolve_kernel_attack_after_test(
+    request: KernelAttackRequest,
+    attack: AttackResult,
+    rng: RandomSource,
+    *,
+    decisions: ResolutionDecisionProvider | None = None,
+) -> ResolutionResult:
+    """Continue an already completed Attack; the bound caller owns its proof.
+
+    ADR-0056 uses this private seam only after validating the selected Protection
+    and consuming its pre-Test Crushed Rib. It never rolls either Test again.
+    """
     if attack.outcome is AttackOutcome.MISS:
         follow_ups = ()
         if attack.miss_consequence is MissConsequence.STAGGER_ATTACKER:

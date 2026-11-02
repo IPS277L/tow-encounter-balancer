@@ -1,0 +1,7 @@
+ACTUAL M8: first Wound10 in7d10; resolved Drained + NEXT_TEST_IS_GRIM; source/daily/child owners retained; actor-injury stop
+K1 DEFENCE-LABEL FIRST: Grim5d10 -> manual injury-only consumption oracle -> normal Casting3d10; Drained/Wound retained; not M8 Protection
+K1 CASTING FIRST: Grim4d10; initial9 locked, rerolled9 retained, final2nines produce actual pool+2; later normal Test3d10 via manual injury oracle
+FAILED CONTROLS: zero initial successes3d10, failed rerolls5d10, already-Grim4d10; one completed Test consumes in manual oracle regardless of success
+NO CONSUMPTION: preparation, another labelled actor Test1d10 and Wounds Table2d10 retain original restriction; K1 does not prove actor identity or chronology
+ALGEBRA ONLY: Grim/Glorious cancellation3d10 outside admitted injury slice; no Fate or Lucky proof invented
+40 scripted d10; M8 still rejects unchanged Wound10; manual injury views never enter owner; exact consumer/trace validation and full-owner bridge remain future work

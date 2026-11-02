@@ -10,6 +10,10 @@
 
 ## Архитектура и контракты
 
+[ADR-0056](decisions/ADR-0056-source-bound-crushed-rib-owner-bridge.md) закрыт для ручного M8 full-owner bridge после55. [Actual63d10](examples/m8/crushed_rib_owner.py), [copied test](../tests/integration/test_m8_crushed_rib_owner_example.py),62targeted checks и installed477files/8commands прошли; [приёмка](audits/m8-crushed-rib-owner-readiness.md) фиксирует составное4158покрытие и33прежние errors отдельно. [Probe25d10](examples/m8/crushed_rib_owner_contract_probe.py) сохранён как исторический contract proof. Automatic dispatcher/journal/policy и transport потребуют отдельной вехи.
+
+[ADR-0055](decisions/ADR-0055-source-bound-crushed-rib-test.md) реализован для K1 injury-bound Crushed Rib10: pure preparation, actual ordinary/Casting Test, strict completion и exact-injury apply. [Actual33d10](examples/m8/crushed_rib_test.py), copied tests и [installed audit](audits/m8-crushed-rib-test-readiness.md) прошли; полная регрессия4110tests/33known errors/0failures завершена. M8 full-owner admission остаётся отдельной границей.
+
 [ADR-0054](decisions/ADR-0054-repeated-leg-spasm-generation-and-magic-json-v4.md) реализован: matching generation assertion, обе Magic JSON/CLI v4 families, required nullable repeated permission и strict source/error metadata. [Production proof96d10](examples/m8/repeated_leg_spasm_transport_contract_probe.py), copied unittest и [итоговый installed/regression аудит](audits/m8-repeated-leg-spasm-transport-readiness.md) завершены. JSON1/2/3 сохраняют lossless отказ.
 
 [ADR-0053](decisions/ADR-0053-native-repeated-leg-spasm-continuation.md) реализован: отдельное nullable разрешение, bounded cursor вне battle root и exact full witness membership собственного prefix. [Automatic пример330d10](examples/m8/repeated_leg_spasm_runner.py), [native/installed audit](audits/m8-native-repeated-leg-spasm-readiness.md); [исходный proof86d10](examples/m8/repeated_leg_spasm_native_contract_probe.py) сохраняет old-policy controls. Generation и JSON4 подключены ADR-0054 с отдельным matching assertion; JSON1/2/3 новое nonNone явно отвергают.

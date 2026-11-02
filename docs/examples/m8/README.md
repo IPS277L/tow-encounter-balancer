@@ -1,5 +1,29 @@
 # Примеры магии M8
 
+## Actual full-owner Crushed Rib consumer, ADR-0056
+
+[Пример63d10](crushed_rib_owner.py), [stdout](crushed_rib_owner.output.txt), [copied test](../../../tests/integration/test_m8_crushed_rib_owner_example.py), [приёмка](../../audits/m8-crushed-rib-owner-readiness.md). Копировать с `stationary_wound_runner.py`, `generation_contract_probe.py`, `magic_scenario.py`. Installed/source/copied execution проверены отдельно от исторического proof ниже.
+
+Production Test/receipt расходует effect до pool или Wound consequences и атомарно меняет полный owner. Проверены failed Casting/WAIT/end-turn, Protection-first и следующая normal Protection с тем же первым witness, новые10/superficial2 со всеми daily/roll histories и последующим отказом context. Sources/global RNG неизменны; automatic runner по-прежнему останавливается на10. Ручного изменения injury для обхода guards нет.
+
+## Исторический full-owner Crushed Rib contract probe, ADR-0056
+
+[Probe25d10](crushed_rib_owner_contract_probe.py), [stdout](crushed_rib_owner_contract_probe.output.txt), [copied test](../../../tests/integration/test_m8_crushed_rib_owner_contract_probe.py), [контракт](../../decisions/ADR-0056-source-bound-crushed-rib-owner-bridge.md). Копировать с `stationary_wound_runner.py`, `generation_contract_probe.py` и `magic_scenario.py`.
+
+Два genuine authored сценария получают Wound10. Casting использует current Wizard slot, один actual Grim Test и action receipt, затем completion55 до pool0→2/WAIT. Protection source взят из настоящего current E2 Attack slot после зарегистрированных E1 end/E2 start без Tests; один K1 opposed Attack даёт55 receipt. Старые no-context guards честно отказывают; expected message уточнён под gap guard56, saved stdout прежний. Этот отдельный исторический probe не применяет consumed injury к M8 owner; actual bridge проверяется примером63d10 выше. Copied bundle4files проверяет exact stdout, SHA до/после и неизменность sources/global RNG.
+
+## Actual K1 Crushed Rib consumer, ADR-0055
+
+[Пример33d10](crushed_rib_test.py), [stdout](crushed_rib_test.output.txt), [copied test](../../../tests/integration/test_k1_crushed_rib_example.py), [installed audit](../../audits/m8-crushed-rib-test-readiness.md). Копировать с `stationary_wound_runner.py` и `magic_scenario.py`.
+
+Actual M8 first10/stop7d10 создаёт source injury для нового K1 consumer. Ordinary/Casting preparation сохраняет pending effect; completed Test расходует его через strict witness/exact apply, включая failed/zero-success/already-Grim. Проверены Drained bonus/Glorious suppression, penalty/minimum-die,9lock/progress/pool+2 и completion до Miscast follow-up. Drained и Wound сохраняются. Defence — только выбранная ordinary K1 Test, later Test только подготовлен; consumed injury не переносится в M8 owner. Исходники/global RNG и copied hashes неизменны. Historical40d10 ниже не подменяется новым примером.
+
+## Crushed Rib next-Test contract, ADR-0055
+
+[Probe](crushed_rib_test_contract_probe.py), [stdout](crushed_rib_test_contract_probe.output.txt), [контракт](../../decisions/ADR-0055-source-bound-crushed-rib-test.md), [copied test](../../../tests/integration/test_m8_crushed_rib_test_contract_probe.py). Копируемый bundle: probe, `stationary_wound_runner.py`, `magic_scenario.py`.
+
+40 scripted d10: actual first Wound10/ActorInjury stop7; отдельные K1 Defence-label Grim5→normal Casting3 и Casting-first Grim4→normal Test3; original9 lock + reroll-to9 дают actual pool+2. Zero-success3/failure5/already-Grim4, other-actor label1/Wounds Table2 и отдельная cancellation algebra3. Профиль3d/9 — authored технический counterexample для lock, не named book NPC. Ручная injury-only projection помечена oracle и не входит в M8 owner. Этот исторический probe не выполняет production consumption/trace validation и не доказывает actor chronology; actual consumer показан отдельно выше. Source/global RNG и copied/source hashes сохраняются.
+
 ## Repeated permission transport contract, ADR-0054
 
 [Probe](repeated_leg_spasm_transport_contract_probe.py), [stdout](repeated_leg_spasm_transport_contract_probe.output.txt), [контракт](../../decisions/ADR-0054-repeated-leg-spasm-generation-and-magic-json-v4.md), [copied test](../../../tests/integration/test_m8_repeated_leg_spasm_transport_contract_probe.py). Six-file bundle: probe, `generation_contract_probe.py`, `stationary_wound_runner.py`, `magic_scenario.py`, `json/magic-simulation-v3.request.json`, `json/magic-balance-v3.request.json`.

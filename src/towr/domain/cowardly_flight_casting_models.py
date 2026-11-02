@@ -6,17 +6,20 @@ These scope checks do not execute a Test, choose targets or advance a turn.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass, fields
+from dataclasses import dataclass, field, fields, replace
 from enum import Enum
 
 from towr.domain.condition_models import Condition
+from towr.domain.crushed_rib_test_models import (
+    CrushedRibCastingPreparationResult, _integer, _magic, _ordered, _test, _typed,
+)
 from towr.domain.injury_models import ProfileInjuryState
-from towr.domain.magic_models import WizardMagicState
+from towr.domain.magic_models import CastingTestRequest, WizardMagicState
 from towr.domain.spatial_models import SpatialBattleState
-from towr.domain.test_models import InlineProfile
+from towr.domain.test_models import InlineProfile, TestRequest
 from towr.domain.turn_models import (
     ActionSlotGrant, CombatActionDeclaration, CombatActionKind,
-    CombatRoundState, ImproviseKind,
+    CombatRoundState, CombatSide, ImproviseKind,
 )
 
 
@@ -127,6 +130,7 @@ class CowardlyFlightCastingRequest:
     targets: tuple[CowardlyFlightCastingTarget, ...]
     facts: CowardlyFlightCastingFacts
     policy: CowardlyFlightCastingPolicy
+    crushed_rib_preparation: CrushedRibCastingPreparationResult | None = field(default=None, kw_only=True)
 
     def __post_init__(self) -> None:
         _identifier(self.id, "Casting request id")
@@ -142,6 +146,10 @@ class CowardlyFlightCastingRequest:
         ):
             if not isinstance(value, expected):
                 raise TypeError(f"{name} must be a {expected.__name__}")
+        if self.crushed_rib_preparation is not None:
+            # Preserve original transported containers/facts before any existing
+            # source normalization or equal-valued comparison can hide damage.
+            validate_crushed_rib_casting_source(self)
         if not isinstance(self.slot_index, int) or isinstance(self.slot_index, bool):
             raise TypeError("slot_index must be an integer")
         if self.slot_index != 1:
@@ -191,6 +199,22 @@ class CowardlyFlightCastingRequest:
         if any(t.can_give_ground and t.actor_id in spatial.gave_ground_entity_ids for t in targets):
             raise ValueError("a target that already gave ground this round cannot Give Ground again")
         object.__setattr__(self, "targets", targets)
+        preparation = self.crushed_rib_preparation
+        if preparation is not None:
+            if not isinstance(preparation, CrushedRibCastingPreparationResult):
+                raise TypeError('Casting requires typed Crushed Rib preparation')
+            # Re-admit the original witness before equality (bool/int and enum
+            # aliases in frozen/unpickled nested objects must not be laundered).
+            replace(preparation)
+            original = preparation.source_request
+            if original.actor_id != self.actor_id or original.casting != self.casting_test_request:
+                raise ValueError('Crushed Rib preparation differs from the exact Casting action source')
+
+    @property
+    def casting_test_request(self) -> CastingTestRequest:
+        """Original unmodified Test owned by this action, before injury effects."""
+        return CastingTestRequest(self.id + ':casting', self.actor_id, BATTLE_MAGIC_LORE_ID,
+            TestRequest(self.id + ':willpower', self.caster.casting_profile), self.magic_state)
 
 
 def _identifier(value: str, name: str) -> None:
@@ -205,3 +229,66 @@ def _normal_profile(value: InlineProfile, name: str) -> None:
         raise TypeError(f"{name} must be an InlineProfile")
     if value.pool_cap is not None:
         raise ValueError(f"{name} does not support a custom pool cap")
+
+
+def strict_casting_round(combat: CombatRoundState) -> None:
+    """Original round/receipt primitives on the explicit Crushed Rib edge."""
+    _typed(combat, CombatRoundState)
+    _integer(combat.round_number)
+    for values in (combat.participants, combat.side_order, combat.completed_turn_entity_ids,
+                   combat.excluded_turn_entity_ids):
+        _ordered(values)
+    for side in combat.side_order:
+        _typed(side, CombatSide)
+    for participant in combat.participants:
+        replace(participant)
+    turn = combat.active_turn
+    if turn is not None:
+        _typed(turn.side, CombatSide)
+        _ordered(turn.action_slots)
+        for slot in turn.action_slots:
+            _integer(slot.index)
+            _typed(slot.grant, ActionSlotGrant)
+            replace(slot.declaration)
+            if slot.execution is not None:
+                replace(slot.execution.declaration)
+                replace(slot.execution)
+            replace(slot)
+        replace(turn)
+    replace(combat)
+
+
+def validate_crushed_rib_casting_source(source: CowardlyFlightCastingRequest) -> None:
+    """Readmit original explicit56 source facts before Test RNG; no mutation.
+
+    Also used by the upper consumed branch, whose lower request is normal and
+    therefore has no new preparation marker of its own.
+    """
+    _typed(source, CowardlyFlightCastingRequest)
+    replace(source.facts)
+    replace(source.caster)
+    _test(source.casting_test_request.test)
+    _magic(source.magic_state)
+    strict_casting_round(source.round_state)
+    _ordered(source.targets)
+    for target in source.targets:
+        replace(target)
+        _test(TestRequest('crushed-rib:target-profile', target.willpower_profile))
+        _integer(target.injury.wounds)
+        _integer(target.injury.wound_limit)
+        if type(target.injury.conditions.conditions) is not frozenset:
+            raise TypeError('Crushed Rib Casting target Conditions must be an original frozenset')
+        for condition in target.injury.conditions.conditions:
+            _typed(condition, Condition)
+        replace(target.injury)
+    spatial = source.spatial_state
+    _integer(spatial.round_number)
+    for values in (spatial.placements, spatial.gave_ground_entity_ids, spatial.free_move_used_entity_ids,
+                   spatial.difficult_terrain_tested_entity_ids, spatial.graph.zone_ids, spatial.graph.connections):
+        _ordered(values)
+    for placement in spatial.placements:
+        replace(placement)
+    for connection in spatial.graph.connections:
+        replace(connection)
+    replace(spatial.graph)
+    replace(spatial)

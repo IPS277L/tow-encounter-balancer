@@ -6,7 +6,7 @@ successful application; no second Casting action or automatic route choice.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 from towr.domain.cowardly_flight_casting_result_models import (
     CowardlyFlightCastingResult, CowardlyFlightCastingStatus,
@@ -25,6 +25,8 @@ class CowardlyFlightCastingCompletionRequest:
     def __post_init__(self) -> None:
         if not isinstance(self.pending, CowardlyFlightCastingResult):
             raise TypeError("Curse completion requires the full pending Casting result")
+        if self.pending.crushed_rib is not None or self.pending.source.crushed_rib_preparation is not None:
+            replace(self.pending)
         if self.pending.status is not CowardlyFlightCastingStatus.MOVEMENT_REQUIRED:
             raise ValueError("Curse completion requires pending movement")
         if not isinstance(self.movement_completions, (tuple, list)):
@@ -46,10 +48,13 @@ class CowardlyFlightCastingCompletionResult:
         if not isinstance(self.casting, CowardlyFlightCastingResult):
             raise TypeError("Curse completion result requires a typed Casting result")
         previous, current = self.source.pending, self.casting
+        if previous.crushed_rib is not None or current.crushed_rib is not None:
+            replace(self.source)
+            replace(current)
         if current.status is not CowardlyFlightCastingStatus.SPELL_RESOLVED:
             raise ValueError("completed Curse requires resolved Willpower")
         if any(getattr(previous, field) != getattr(current, field) for field in (
-            "source", "execution", "post_test", "preflight", "spell", "zone",
+            "source", "execution", "post_test", "preflight", "spell", "zone", "crushed_rib",
         )):
             raise ValueError("Curse completion cannot replace its original Casting phases")
         if (current.willpower.completed_movements != self.source.movement_completions

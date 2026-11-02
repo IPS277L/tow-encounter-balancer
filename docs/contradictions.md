@@ -1,5 +1,15 @@
 # Противоречия и неоднозначности
 
+## M8 Crushed Rib: технический admission gap, ADR-0056
+
+2026-11-02: старые Wizard Casting/end-turn guards принимали resolved10 с Drained и уже удалённым NEXT_TEST без подтверждения расхода. [Реализованный56](decisions/ADR-0056-source-bound-crushed-rib-owner-bridge.md) закрывает этот технический пробел full-owner witness; удаление context из готового Result/end-turn также отклоняется после десериализации. [Приёмка](audits/m8-crushed-rib-owner-readiness.md). Это не новая книжная неоднозначность или house rule. Последствия после Protection регистрируются полностью; новая Wound ограничивает последующий context, а не удаляется ради допуска.
+
+## Crushed Rib10: разграничение Test и action, ADR-0055
+
+2026-11-02: PG1.4 Wounds Table190, Grim & Glorious108, Attack Tests118, Drained123, Casting156–157 и GM1.1 Champions92 не дают нового противоречия: ближайшая Test может быть защитной до Casting, а её провал не отменяет расход одноразового effect. Drained UNTIL_TREATED не исчезает после Test. До55 K1 хранил effect без consumption; реализованный consumer закрывает этот технический пробел, сохраняя книгу.
+
+[Контракт55](decisions/ADR-0055-source-bound-crushed-rib-test.md) ограничивает первый consumer одной pending10 и injury-bound K1. Он не объявляет одинаковые actor/Test IDs доказательством полного M8 source или хронологии. Несколько pending10, лечение/заживление, Fate/Lucky и full-owner coexisting effects требуют отдельного расширения. Исторический [finite proof](examples/m8/crushed_rib_test_contract_probe.py) не выдаёт ручное удаление restriction за consumer. [Actual33d10](examples/m8/crushed_rib_test.py) использует реализованный preparation/completion/apply55; новая house rule не вводится.
+
 ## Передача repeated permission: ADR-0054
 
 2026-11-02: [ADR-0054](decisions/ADR-0054-repeated-leg-spasm-generation-and-magic-json-v4.md) реализует matching family assertion и required nullable field в JSON4. None не даёт разрешения и не наследует template opt-in. Это техническая source/compatibility граница native53, без новых книжных противоречий/house rules. Actual parser/generation/result сверяются с независимым inverse. Unknown5 fallback сохраняет полностью decoded request_id, lexical failures дают null ID. JSON1/2/3 сохраняют lossless refusal.

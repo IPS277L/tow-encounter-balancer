@@ -1,0 +1,6 @@
+ACTUAL SOURCE: M8 Wound10 in7d10; full owner/daily histories retained; automatic injury stop remains
+ORDINARY: prepare consumes nothing; actual Grim5d10; strict completion + exact-injury apply; later Test has no Wound Grim
+CASTING: actual Grim4d10; original9 locked + reroll-to9; progress1->3; consume before pool3->5/Miscast pending
+COMPLETED FAILURES: zero-success3d10, failed-rerolls5d10, already-Grim4d10 all consume exactly one effect
+DRAINED: bonus/ordinary Glorious suppressed, penalty retained; actual2dice Test3d10; minimum-die Grim2d10
+33 scripted d10; strict witness/stale/wrong-actor guards; source/global RNG unchanged; consumed K1 injury never enters M8 owner

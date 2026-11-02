@@ -1,5 +1,17 @@
 # Раны и состояния
 
+[ADR-0056](../decisions/ADR-0056-source-bound-crushed-rib-owner-bridge.md) реализует ручной typed M8 bridge: actual Protection completion до Stagger/Wound consequences, actual Casting completion до pool/follow-ups, полный pre/post-Test owner и первый consumed witness для remaining Drained. [Actual63d10/приёмка](../audits/m8-crushed-rib-owner-readiness.md). Новая рана после Test сохраняется и останавливает узкий последующий context; новая10 не расходуется предыдущей Protection. Strict source/Result/apply закрывают stripped10 и missing-context bypass. Automatic dispatcher/journal/policy ещё не подключены; K1 scope55 ниже сохранён.
+
+## Crushed Rib10: ближайшая Test и длительный Drained
+
+Статус: K1 ordinary/Casting next-Test consumer [ADR-0055](../decisions/ADR-0055-source-bound-crushed-rib-test.md) реализован; [actual пример](../examples/m8/crushed_rib_test.py) и [installed audit](../audits/m8-crushed-rib-test-readiness.md) проверены; full4110tests/33known errors/0failures завершён.
+
+Crushed Rib создаёт два независимых эффекта: ближайшая Test становится Grim; Drained от этой раны действует до treatment. Ближайшей может оказаться Protection до собственного Casting. Подготовка или объявление действия ещё не являются Test; Wounds Table dice и действия без Test не расходуют NEXT_TEST. Провал и нулевые первоначальные успехи не отменяют факт выполненной проверки. Несколько Grim не складываются; после расхода одноразового effect Drained и запись Wound сохраняются.
+
+Первый контракт55 ограничен одной canonical resolved/untreated/unhealed rolled10 и ordinary/Casting K1 Test. Несколько pending10, treatment/healing, Fate/Lucky/Talent proofs и coexistence9/6 не открываются автоматически. Полный M8-owner и журнал ещё не связываются новым consumer; [actual consumer33d10](../examples/m8/crushed_rib_test.py) использует preparation/completion/apply55, а исторический finite proof40d10 сохраняет свой помеченный ручной injury-only oracle. M8 сохраняет ACTOR_INJURY stop.
+
+Источники: BOOK-PLAYER-GUIDE1.4, гл.V Grim & Glorious108 / Attack Tests118 / Conditions, Drained123; гл.VIII Casting156–157; приложение Wounds Table190, строка10. BOOK-GM-GUIDE1.1, гл.VII Champions92. Связанные правила: RULE-HEALTH-005/008, RULE-TEST-004, RULE-MAGIC-004. Общая cancellation алгебра не означает поддержку Fate в первом consumer.
+
 ## Доставка native permission: контракт ADR-0054
 
 [ADR-0054](../decisions/ADR-0054-repeated-leg-spasm-generation-and-magic-json-v4.md) передаёт native53 permission через matching generation assertion и Magic JSON4. Новое nullable разрешение требует base stationary policy; Miscast независим. Правила/источники и scope stand52 прежние: третья9, несовместимые6/Wind при stand и другие consumers не добавлены. JSON1/2/3 новое поле запрещают даже null и отказывают при encoding native nonNone.

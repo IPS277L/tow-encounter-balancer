@@ -7,16 +7,17 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from towr.domain.npc_roster_miscast_models import NpcRosterMiscastPreparationResult, NpcRosterMiscastRollResult
     from towr.domain.npc_stationary_wound_models import NpcStationaryWoundContext
+    from towr.domain.npc_crushed_rib_models import NpcCrushedRibContext
 
 from towr.domain.action_execution_models import SkippedCastingTestAfterActionResult
 from towr.domain.condition_models import Condition
 from towr.domain.cowardly_flight_casting_models import (
-    CastingCasterDefinition, CowardlyFlightCastingRequest,
+    CastingCasterDefinition, CowardlyFlightCastingRequest, validate_crushed_rib_casting_source,
 )
 from towr.domain.cowardly_flight_casting_result_models import (
-    CowardlyFlightCastingResult, CowardlyFlightCastingStatus,
+    CowardlyFlightCastingResult, CowardlyFlightCastingStatus, validate_crushed_rib_casting_phases,
 )
-from towr.domain.injury_models import WoundConditionEffect, WoundEffectDuration
+from towr.domain.injury_models import WoundConditionEffect, WoundEffectDuration, WoundEntryId
 from towr.domain.magic_models import MiscastPoolOutcome, MiscastRollRequest, WizardMagicState
 from towr.domain.npc_champion_attack_models import NpcChampionAttackState
 from towr.domain.npc_roster_attack_models import NpcRosterAttackExecutionResult, NpcRosterAttackState
@@ -172,6 +173,7 @@ class NpcRosterCastingState:
             for target in pending.targets:
                 if self.roster.participant(target.actor_id).state.injury != target.injury:
                     raise ValueError("pending Miscast target snapshot differs from roster")
+            _validate_crushed_rib_pending(self, pending)
         movement = self.pending_movement
         if movement is not None:
             _typed(movement, CowardlyFlightCastingResult)
@@ -190,6 +192,7 @@ class NpcRosterCastingState:
             for target in movement.targets:
                 if self.roster.participant(target.actor_id).state.injury != target.injury:
                     raise ValueError("pending movement target snapshot differs from roster")
+            _validate_crushed_rib_pending(self, movement)
         interruption = self.pending_interruption
         if interruption is not None:
             _typed(interruption, SkippedCastingTestAfterActionResult)
@@ -283,11 +286,31 @@ class NpcRosterCastingRequest:
     state: NpcRosterCastingState
     casting: CowardlyFlightCastingRequest
     stationary_wounds: NpcStationaryWoundContext | None = field(default=None, kw_only=True)
+    crushed_rib_context: NpcCrushedRibContext | None = field(default=None, kw_only=True)
 
     def __post_init__(self) -> None:
         _typed(self.state, NpcRosterCastingState)
         _typed(self.casting, CowardlyFlightCastingRequest)
         state, casting = self.state, self.casting
+        context = self.crushed_rib_context
+        if context is not None:
+            from towr.domain.npc_crushed_rib_models import NpcCrushedRibContext
+            _typed(context, NpcCrushedRibContext)
+            if self.stationary_wounds is not None:
+                raise ValueError('Crushed Rib cannot coexist with stationary Wound context')
+            context.validate_source(state, casting.actor_id)
+            validate_crushed_rib_casting_source(casting)
+            replace(casting)
+            preparation = casting.crushed_rib_preparation
+            if context.consumption is None:
+                if preparation is None:
+                    raise ValueError('pending Crushed Rib requires the actual Casting preparation')
+                if preparation.source_request.state != state.roster.participant(casting.actor_id).state.injury:
+                    raise ValueError('Crushed Rib Casting preparation differs from the full owner injury')
+            elif preparation is not None:
+                raise ValueError('consumed Crushed Rib requires normal Casting without a fresh preparation')
+        elif casting.crushed_rib_preparation is not None:
+            raise ValueError('lower Crushed Rib preparation requires its full owner context')
         if self.stationary_wounds is not None:
             from towr.domain.npc_stationary_wound_models import NpcStationaryWoundContext
             _typed(self.stationary_wounds, NpcStationaryWoundContext)
@@ -306,10 +329,12 @@ class NpcRosterCastingRequest:
             raise ValueError("pending Champion attack blocks normal Casting")
         actor = state.roster.participant(state.wizard.actor_id)
         injury = actor.state.injury
+        if context is None and any(w.entry_id == WoundEntryId.CRUSHED_RIB for w in injury.wounds):
+            raise ValueError('Crushed Rib Wound10 requires a full owner context even after consumption')
         safe_wound_conditions = {Condition.STAGGERED, Condition.DRAINED}
         if injury.dead or not injury.conditions.conditions <= safe_wound_conditions | {Condition.PRONE}:
             raise ValueError("caster cannot use this normal Casting boundary in its current condition")
-        if self.stationary_wounds is None and (any(not w.effect_resolved for w in injury.wounds) or any(
+        if self.stationary_wounds is None and context is None and (any(not w.effect_resolved for w in injury.wounds) or any(
             not isinstance(e, WoundConditionEffect) or e.condition not in safe_wound_conditions
             or not injury.conditions.has(e.condition) for e in injury.active_wound_effects
         )):
@@ -351,6 +376,13 @@ class NpcRosterCastingResult:
     def __post_init__(self) -> None:
         _typed(self.source, NpcRosterCastingRequest)
         _typed(self.casting, CowardlyFlightCastingResult)
+        if (self.source.crushed_rib_context is not None or self.casting.crushed_rib is not None
+                or self.casting.source.crushed_rib_preparation is not None
+                or any(w.entry_id == WoundEntryId.CRUSHED_RIB for w in
+                       self.source.state.roster.participant(self.source.state.wizard.actor_id).state.injury.wounds)):
+            replace(self.source)
+            replace(self.casting)
+            validate_crushed_rib_casting_phases(self.casting)
         if self.casting.source != self.source.casting:
             raise ValueError("Casting result must match the complete bound request")
         if self.casting.willpower is not None and self.casting.willpower.completed_movements:
@@ -361,6 +393,8 @@ class NpcRosterCastingResult:
         """Derived atomic projection: no separately supplied post-state to forge."""
         previous, casting = self.source.state, self.casting
         injuries = {t.actor_id: t.injury for t in casting.targets}
+        if casting.crushed_rib is not None:
+            injuries[previous.wizard.actor_id] = casting.crushed_rib.state
         participants = tuple(
             replace(p, state=replace(p.state, injury=injuries[p.state.actor_id]))
             if p.state.actor_id in injuries else p
@@ -389,6 +423,18 @@ class NpcRosterCastingResult:
 def _typed(value: object, kind: type) -> None:
     if not isinstance(value, kind):
         raise TypeError(f"Casting roster requires {kind.__name__}")
+
+
+def _validate_crushed_rib_pending(state: NpcRosterCastingState, pending: CowardlyFlightCastingResult) -> None:
+    """A first consuming Casting retains its completed injury through pending."""
+    if pending.crushed_rib is None and pending.source.crushed_rib_preparation is None:
+        return
+    replace(pending)
+    injury = state.roster.participant(state.wizard.actor_id).state.injury
+    # Validate the original current injury before equality, including aliases.
+    replace(pending.crushed_rib, state=injury)
+    if injury != pending.crushed_rib.state:
+        raise ValueError('pending Casting differs from its consumed Crushed Rib injury')
 
 
 def _identifier(value: str) -> None:
