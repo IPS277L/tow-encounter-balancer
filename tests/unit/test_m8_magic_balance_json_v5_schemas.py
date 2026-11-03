@@ -24,8 +24,8 @@ class M8MagicBalanceJsonV5SchemaTests(unittest.TestCase):
             (uri, Resource.from_contents(schema)) for uri, schema in cls.documents.items())
 
     def test_final_registry_and_every_reference_are_bundled(self):
-        self.assertEqual(len(self.documents), 48)
-        self.assertEqual(sum(uri.startswith('urn:towr:magic-') for uri in self.documents), 30)
+        self.assertEqual(len(self.documents), 54)
+        self.assertEqual(sum(uri.startswith('urn:towr:magic-') for uri in self.documents), 36)
         for uri, schema in self.documents.items():
             Draft202012Validator.check_schema(schema)
             for ref in self._refs(schema):
@@ -37,7 +37,7 @@ class M8MagicBalanceJsonV5SchemaTests(unittest.TestCase):
                 for ref in self._refs(resource.contents):
                     with self.subTest(kind=kind, uri=uri, ref=ref):
                         validator._registry.resolver(uri).lookup(ref)
-        self.assertEqual(production._validator.cache_info().maxsize, 30)
+        self.assertEqual(production._validator.cache_info().maxsize, 36)
 
     def test_required_reserve_and_family_fields_remain_independent(self):
         for miscast in (False, True):

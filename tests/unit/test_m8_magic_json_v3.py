@@ -140,7 +140,7 @@ class M8MagicJsonV3Tests(unittest.TestCase):
             data = document()
             change(data)
             self.assertEqual(self.assert_invalid(data, path=path).request_id, data['request_id'])
-        for version in (None, False, 3, '', '6'):
+        for version in (None, False, 3, '', '7'):
             data = dict(document(), schema_version=version)
             error = self.assert_invalid(data, version='1', path='/schema_version',
                 code=Code.UNSUPPORTED_VERSION if isinstance(version, str) else Code.INVALID_INPUT)
@@ -169,7 +169,7 @@ class M8MagicJsonV3Tests(unittest.TestCase):
         with patch('towr.adapters.magic_balance_json.validate_magic_balance_document',
                    side_effect=AssertionError('unsupported version must precede schema lookup')):
             with self.assertRaises(MagicBalanceInputError) as caught:
-                parse_magic_balance_request(json.dumps({'schema_version': '6', 'request_id': 'balance6'}))
+                parse_magic_balance_request(json.dumps({'schema_version': '7', 'request_id': 'balance6'}))
         self.assertEqual((caught.exception.schema_version, caught.exception.request_id, caught.exception.code),
                          ('1', 'balance6', Code.UNSUPPORTED_VERSION))
 

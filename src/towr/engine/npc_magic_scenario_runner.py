@@ -39,6 +39,11 @@ from towr.domain.npc_magic_crushed_rib_policy import (
     initial_magic_crushed_rib_history, advance_magic_crushed_rib_history,
     magic_crushed_rib_context,
 )
+from towr.domain.npc_magic_battered_leg_policy import (
+    initial_magic_battered_leg_history, advance_magic_battered_leg_history,
+    magic_battered_leg_request, validate_magic_battered_leg_predecessor,
+)
+from towr.rules.npc_roster_battered_leg_resolution import execute_npc_roster_battered_leg
 from towr.domain.npc_magic_scenario_result_models import (
     NpcMagicScenarioResult, diagnose_npc_magic_unsupported, npc_magic_terminal_outcome,
 )
@@ -125,6 +130,7 @@ def run_npc_magic_scenario(scenario: NpcMagicScenario, rng: RandomSource) -> Npc
     current = scenario.initial_runtime_state
     repeated_history = initial_magic_repeated_leg_spasm_history(scenario)
     crushed_rib_history = initial_magic_crushed_rib_history(scenario)
+    battered_leg_history = initial_magic_battered_leg_history(scenario)
     steps: list[NpcMagicStep] = []
     decisions = _Decisions(scenario.repeated_stagger_choice)
 
@@ -132,17 +138,21 @@ def run_npc_magic_scenario(scenario: NpcMagicScenario, rng: RandomSource) -> Npc
         return f'{scenario.id}:{len(steps)}:{label}'
 
     def publish(result: NpcMagicStepResult, expected_source: object, *, origin_witness=None) -> None:
-        nonlocal current, repeated_history, crushed_rib_history
+        nonlocal current, repeated_history, crushed_rib_history, battered_leg_history
         step = NpcMagicStep(result, origin_witness=origin_witness)
         if result.source != expected_source or step.before != current:
             raise ValueError('executor returned a result for another full source')
         validate_magic_step_predecessor(steps[-1] if steps else None, step)
         validate_magic_miscast_predecessor(scenario, steps[-1] if steps else None, step)
+        validate_magic_battered_leg_predecessor(scenario, steps[-1] if steps else None, step)
         validate_magic_step_policy(scenario, step, repeated_history=repeated_history,
-                                   crushed_rib_history=crushed_rib_history)
+                                   crushed_rib_history=crushed_rib_history,
+                                   battered_leg_history=battered_leg_history)
         next_repeated = advance_magic_repeated_leg_spasm_history(scenario, repeated_history, step)
         next_crushed_rib = advance_magic_crushed_rib_history(scenario, crushed_rib_history, step)
+        next_battered_leg = advance_magic_battered_leg_history(scenario, battered_leg_history, step)
         repeated_history, crushed_rib_history = next_repeated, next_crushed_rib
+        battered_leg_history = next_battered_leg
         current = step.after
         steps.append(step)
 
@@ -153,7 +163,9 @@ def run_npc_magic_scenario(scenario: NpcMagicScenario, rng: RandomSource) -> Npc
             return NpcMagicScenarioResult(scenario, tuple(steps))
         last_id = steps[-1].id if steps else scenario.id
         stop = diagnose_npc_magic_unsupported(scenario, current, last_id, repeated_history=repeated_history,
-                                             crushed_rib_history=crushed_rib_history)
+                                             crushed_rib_history=crushed_rib_history,
+                                             battered_leg_history=battered_leg_history,
+                                             previous=steps[-1] if steps else None)
         if stop is not None:
             return NpcMagicScenarioResult(scenario, tuple(steps), stop)
         if scenario.miscast_continuation is not None:
@@ -173,6 +185,11 @@ def run_npc_magic_scenario(scenario: NpcMagicScenario, rng: RandomSource) -> Npc
                     continuation.choice, continuation.facts)
                 publish(prepare_npc_roster_miscast(source), source, origin_witness=steps[-1].result)
                 continue
+        battered_request = magic_battered_leg_request(scenario, current,
+            steps[-1] if steps else None, battered_leg_history)
+        if battered_request is not None:
+            publish(execute_npc_roster_battered_leg(battered_request, rng), battered_request)
+            continue
         if current.pending_movement is not None:
             pending = current.pending_movement
             movements = ()
@@ -180,7 +197,9 @@ def run_npc_magic_scenario(scenario: NpcMagicScenario, rng: RandomSource) -> Npc
             for follow_up in pending.zone.movement_follow_ups:
                 stop = diagnose_npc_magic_unsupported(scenario, current, last_id, movements,
                                                      repeated_history=repeated_history,
-                                                     crushed_rib_history=crushed_rib_history)
+                                                     crushed_rib_history=crushed_rib_history,
+                                                     battered_leg_history=battered_leg_history,
+                                                     previous=steps[-1] if steps else None)
                 if stop is not None:
                     return NpcMagicScenarioResult(scenario, tuple(steps), stop)
                 frame = scenario.frame_for(magic_movement_prefix(scenario, current, movements))

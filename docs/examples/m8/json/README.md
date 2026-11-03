@@ -1,4 +1,16 @@
-# Magic JSON: simulation/balance v5, v4, v3, v2, v1 fixtures
+# Magic JSON: simulation/balance v6, v5, v4, v3, v2, v1 fixtures
+
+## V6 — Battered Leg с authored Endurance profile
+
+[Simulation request](magic-simulation-v6.request.json) и [balance request](magic-balance-v6.request.json) содержат required nullable `battered_leg_continuation`: `null` либо `{"endurance_profile":{"dice":2,"threshold":5}}`. Оба objects закрыты, без custom cap; четыре прежних permissions также обязательны. Balance требует независимый matching reserve/family profile целиком. Это только fresh source, без current battle history/save-resume и без нового consumer снятия Prone5.
+
+```powershell
+$env:PYTHONPATH = 'src'
+.venv/Scripts/python.exe -m towr simulate-magic docs/examples/m8/json/magic-simulation-v6.request.json
+.venv/Scripts/python.exe -m towr balance-magic docs/examples/m8/json/magic-balance-v6.request.json
+```
+
+Explicit6 сохраняется в полном echo/result/errors даже при пятиnull; default1 прежний. Lexical failures даютfallback1/null, неизвестная7 остаётсяunsupported. JSON1–5 отвергают новый key дажеnull и nonNone приencode доprojection. [Контракт62](../../../decisions/ADR-0062-battered-leg-generation-and-magic-json-v6.md), [production proof](../battered_leg_transport_contract_probe.py), [приёмка](../../../audits/m8-battered-leg-transport-readiness.md).
 
 ## V5 — Crushed Rib fresh-source permission
 
@@ -10,7 +22,7 @@ $env:PYTHONPATH = 'src'
 .venv/Scripts/python.exe -m towr balance-magic docs/examples/m8/json/magic-balance-v5.request.json
 ```
 
-Обе families сохраняют v5 в полном request echo, result и input/phase errors; malformed lexical input и неизвестная v6 сохраняют fallback v1 по strict-reader контракту. Balance требует точного reserve/family match до генерации. JSON1–4 продолжают отказывать при наличии нового ключа даже со значением null. Проверки: [simulation unit/schema](../../../../tests/unit/test_m8_magic_json_v5.py), [balance unit/schema](../../../../tests/unit/test_m8_magic_balance_json_v5.py), [CLI integration](../../../../tests/integration/test_m8_magic_json_v5.py), [ADR-0058](../../../decisions/ADR-0058-crushed-rib-generation-and-magic-json-v5.md).
+Обе families сохраняют v5 в полном request echo, result и input/phase errors; malformed lexical input и неизвестная v7 сохраняют fallback v1 по strict-reader контракту. Balance требует точного reserve/family match до генерации. JSON1–4 продолжают отказывать при наличии нового ключа даже со значением null. Проверки: [simulation unit/schema](../../../../tests/unit/test_m8_magic_json_v5.py), [balance unit/schema](../../../../tests/unit/test_m8_magic_balance_json_v5.py), [CLI integration](../../../../tests/integration/test_m8_magic_json_v5.py), [ADR-0058](../../../decisions/ADR-0058-crushed-rib-generation-and-magic-json-v5.md).
 
 ## V4 — independent repeated Leg Spasm permission
 

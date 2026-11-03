@@ -1,6 +1,6 @@
-"""ADR-0061 contract preparation using actual ADR-0060 public consumers.
+"""ADR-0061 finite controls using actual ADR-0060/0061 public consumers.
 
-Copy with magic_scenario.py. No proposed native permission, history helper or
+Copy with magic_scenario.py. No native permission, history helper or
 dispatcher is emulated here. The manual oracle compares complete recorded
 results; it is not a general journal validator. Numeric profiles are authored.
 PG1.4 Characteristics/Skills pp68-70, Prone p123, Wounds Table p190; GM1.1 p92.
@@ -14,7 +14,10 @@ from towr.domain.condition_models import Condition
 from towr.domain.cowardly_flight_casting_models import CowardlyFlightCastingFacts
 from towr.domain.npc_magic_journal_policy import validate_magic_step_policy
 from towr.domain.npc_magic_scenario_models import (
-    NpcMagicMiscastContinuationPolicy, NpcMagicPronePolicy,
+    NpcMagicBatteredLegPolicy, NpcMagicMiscastContinuationPolicy, NpcMagicPronePolicy,
+)
+from towr.domain.npc_magic_battered_leg_policy import (
+    initial_magic_battered_leg_history, advance_magic_battered_leg_history,
 )
 from towr.domain.npc_magic_scenario_result_models import (
     NpcMagicScenarioResult, diagnose_npc_magic_unsupported,
@@ -66,17 +69,34 @@ def require_recorded_completion(recorded_attack, recorded_completion, candidate)
         raise ValueError('manual oracle: different full recorded Attack/completion')
 
 
-def post_success_new_condition(source, completed):
-    """Actual normal transitions expose the pending native diagnosis gap.
+def recorded_history(source, prefix, completed):
+    """Production helpers on this actual recorded prefix; no fake validator."""
+    scoped = replace(source, battered_leg_continuation=NpcMagicBatteredLegPolicy(ENDURANCE))
+    history = initial_magic_battered_leg_history(scoped)
+    for step in (*prefix.steps, NpcMagicStep(completed)):
+        history = advance_magic_battered_leg_history(scoped, history, step)
+    return scoped, history
+
+
+def post_success_new_condition(source, prefix, completed):
+    """Actual normal transitions verify the native diagnosis of scope60.
 
     No edited injury/combat snapshot, invented native61 helper or skipped turn.
     The last constructor refusal is the current manual60 execution boundary.
     """
+    scoped, history = recorded_history(source, prefix, completed)
+
+    def record(result):
+        nonlocal history
+        history = advance_magic_battered_leg_history(scoped, history, NpcMagicStep(result))
+
     identifier = source.id + ':manual61:later'
     ended = end_npc_wound_turn(NpcWoundTurnEndRequest(identifier + ':enemy:end', completed.state, 'enemy'))
+    record(ended)
     wizard = start_npc_roster_turn(NpcRosterTurnStartRequest(identifier + ':wizard:start',
         ended.state, 'wizard', CombatActionDeclaration(CombatActionKind.IMPROVISE,
             improvise_kind=ImproviseKind.SPELL, improvise_approach_id=source.spell.lore_id)))
+    record(wizard)
     casting = prepare_npc_roster_casting(request_id=identifier + ':cast', state=wizard.state,
         selected_zone_id='arena', targets=(NpcRosterCastingTargetContext('enemy',
             source.policy_for('enemy').willpower_profile, True),),
@@ -85,9 +105,12 @@ def post_success_new_condition(source, completed):
     cast_dice = ScriptedDice((10, 10, 10))
     cast = NpcRosterCastingResult(casting, execute_cowardly_flight_casting(casting.casting, cast_dice))
     assert cast_dice.calls == 3
+    record(cast)
     ended = end_npc_wound_turn(NpcWoundTurnEndRequest(identifier + ':wizard:end', cast.state, 'wizard'))
+    record(ended)
     ally = start_npc_roster_turn(NpcRosterTurnStartRequest(identifier + ':ally:start',
         ended.state, 'ally', CombatActionDeclaration(CombatActionKind.ATTACK)))
+    record(ally)
 
     def shot(state, actor, target, label):
         pair = next(p for p in source.initial_frame.pair_ranges
@@ -102,25 +125,31 @@ def post_success_new_condition(source, completed):
     ally_dice = ScriptedDice((10,) * 6)
     missed = execute_npc_roster_minion_attack(shot(ally.state, 'ally', 'enemy', ':ally:shot'), ally_dice)
     assert ally_dice.calls == 6
+    record(missed)
     ended = end_npc_wound_turn(NpcWoundTurnEndRequest(identifier + ':ally:end', missed.state, 'ally'))
+    record(ended)
     advanced = advance_npc_roster_round(NpcRosterRoundAdvanceRequest(identifier + ':round', ended.state))
+    record(advanced)
     enemy = start_npc_roster_turn(NpcRosterTurnStartRequest(identifier + ':enemy:start',
         advanced.state, 'enemy', CombatActionDeclaration(CombatActionKind.ATTACK)))
+    record(enemy)
     shooting = shot(enemy.state, 'enemy', 'wizard', ':enemy:shot')
     hit_dice = ScriptedDice((1, 10, 10, 10, 10, 10))
     hit = NpcRosterChampionAttackResult(shooting, execute_npc_champion_attack(shooting.attack, hit_dice))
     assert hit_dice.calls == 6
+    record(hit)
     updated = hit.state
     injury = updated.roster.participant('wizard').state.injury
     assert injury.conditions.has(Condition.STAGGERED)
     assert updated.champion_attack.pending is None
     assert updated.battered_leg_receipt == completed.state.battered_leg_receipt
-    # Current native diagnosis has no knowledge of the manual60 global exact-
-    # injury gate. ADR61 must turn this legal consequence into a bounded stop.
-    assert diagnose_npc_magic_unsupported(source, updated, identifier + ':enemy:shot') is None
+    stop = diagnose_npc_magic_unsupported(scoped, updated, identifier + ':enemy:shot',
+        battered_leg_history=history, previous=NpcMagicStep(hit))
+    assert stop.reason is NpcMagicUnsupportedReason.END_TURN
+    assert stop.actor_id == 'enemy' and stop.missing_actor_ids == ('wizard',)
     refused(lambda: end_npc_wound_turn(NpcWoundTurnEndRequest(identifier + ':blocked:end',
         updated, 'enemy')), ValueError, 'outside the completed Test scope')
-    print('POST-SUCCESS SCOPE GAP: actual WAIT/ally miss/next-round hit adds Wizard Staggered; storage retains receipt; diagnosis currently None but normal end60 refuses; native61 must diagnose before factory')
+    print('CLOSED SCOPE GAP: actual WAIT/ally miss/next-round hit adds Wizard Staggered; native61 diagnoses END_TURN before normal end60; full receipt retained')
     return cast_dice.calls + ally_dice.calls + hit_dice.calls
 
 
@@ -169,8 +198,9 @@ def main():
         assert after.champion_attack.consumed_wound_roll_ids == state.champion_attack.consumed_wound_roll_ids
         assert after.roster.participant('wizard').state.injury.conditions.has(Condition.PRONE) is (not succeeded)
         refused(lambda: apply_npc_roster_battered_leg(after, result), ValueError, 'already consumed')
-        # This is the real pre61 boundary, not a pretend native completion.
-        refused(lambda: NpcMagicStep(result), TypeError, 'supported full-owner')
+        step = NpcMagicStep(result)
+        assert step.actor_id == 'wizard' and step.before.round_state.active_turn.actor_id == 'enemy'
+        refused(lambda: validate_magic_step_policy(source, step), ValueError, 'permission')
         results.append(result)
     success, alternate_success, failure = results
     print('MANUAL60: success, alternate success and failure each use 2d10; exact follow-up closes once; no extra action; failure retains Wound-sourced Prone')
@@ -196,13 +226,15 @@ def main():
         after = result.state
         ended = end_npc_wound_turn(NpcWoundTurnEndRequest(source.id + ':manual61:enemy:end',
             after, 'enemy'))
-        # Standalone policy accepts this ordinary descendant under None. It
-        # does NOT supply a continuous ScenarioResult containing completion60.
-        validate_magic_step_policy(source, NpcMagicStep(ended))
+        refused(lambda: validate_magic_step_policy(source, NpcMagicStep(ended)), ValueError, 'permission')
+        scoped, history = recorded_history(source, prefix, result)
+        history = advance_magic_battered_leg_history(scoped, history, NpcMagicStep(ended))
         wizard = start_npc_roster_turn(NpcRosterTurnStartRequest(source.id + ':manual61:wizard:start',
             ended.state, 'wizard', CombatActionDeclaration(CombatActionKind.IMPROVISE,
                 improvise_kind=ImproviseKind.SPELL, improvise_approach_id=source.spell.lore_id)))
-        stop = diagnose_npc_magic_unsupported(source, wizard.state, wizard.source.id)
+        history = advance_magic_battered_leg_history(scoped, history, NpcMagicStep(wizard))
+        stop = diagnose_npc_magic_unsupported(scoped, wizard.state, wizard.source.id,
+            battered_leg_history=history, previous=NpcMagicStep(wizard))
         if result is success:
             assert stop is None
         else:
@@ -212,7 +244,7 @@ def main():
         # Omitting the unsupported completion Step cannot bridge the state gap.
         refused(lambda: NpcMagicScenarioResult(source, (*prefix.steps, NpcMagicStep(ended))),
                 ValueError, 'continuous full-owner')
-    print('JOURNAL BOUNDARY: completion60 excluded by closed Step union; normal descendant policy alone is insufficient; skipping completion fails continuous Result admission')
+    print('CLOSED JOURNAL BOUNDARY: Step admits completion60 with Wizard actor; native61 None refuses completion and descendants; skipping completion fails continuous Result admission')
     print('FAILURE TAIL: enemy end then Wizard start retains Prone/receipt and yields ACTOR_INJURY')
 
     opted = replace(source, miscast_continuation=NpcMagicMiscastContinuationPolicy(
@@ -231,17 +263,21 @@ def main():
     wizard = start_npc_roster_turn(NpcRosterTurnStartRequest(source.id + ':manual61:opted:start',
         ended.state, 'wizard', CombatActionDeclaration(CombatActionKind.IMPROVISE,
             improvise_kind=ImproviseKind.SPELL, improvise_approach_id=source.spell.lore_id)))
-    stop = diagnose_npc_magic_unsupported(opted, wizard.state, wizard.source.id)
+    scoped, history = recorded_history(opted, opted_prefix, failed)
+    history = advance_magic_battered_leg_history(scoped, history, NpcMagicStep(ended))
+    history = advance_magic_battered_leg_history(scoped, history, NpcMagicStep(wizard))
+    stop = diagnose_npc_magic_unsupported(scoped, wizard.state, wizard.source.id,
+        battered_leg_history=history, previous=NpcMagicStep(wizard))
     assert stop.reason is NpcMagicUnsupportedReason.ACTOR_INJURY and opted == opted_before
     print('INDEPENDENT MISCAST OPT-IN: same 7d10 Wound stop; manual failure 2d10 still yields sourced-Prone ACTOR_INJURY, without a stand')
 
     stripped = replace(state, champion_attack=replace(state.champion_attack, pending=None))
     refused(lambda: end_npc_wound_turn(NpcWoundTurnEndRequest(source.id + ':manual61:stripped:end',
         stripped, 'enemy')), ValueError, 'Battered Leg')
-    later_draws = post_success_new_condition(source, success)
+    later_draws = post_success_new_condition(source, prefix, success)
     assert state == state_before and source == original and getstate() == global_rng
     assert dice.calls + 3 * 2 + profile_dice.calls + opted_dice.calls + opted_test.calls + later_draws == 39
-    print('39 scripted d10; public native prefixes + manual60 only; pending stripping refused; sources/global RNG unchanged; native61 implementation remains separate')
+    print('39 scripted d10; actual native61 permission/history/diagnosis + manual60; pending stripping refused; sources/global RNG unchanged; automatic runner has a separate public example')
 
 
 if __name__ == '__main__':

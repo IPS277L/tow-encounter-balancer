@@ -1,0 +1,431 @@
+{
+  "schema_version": "6",
+  "kind": "npc_magic_simulation",
+  "request_id": "example:magic:simulation6",
+  "ruleset": "towr-pg1.4-gmg1.1",
+  "simulation": {
+    "master_seed": "42",
+    "trials": 4,
+    "round_budget": 1
+  },
+  "execution": {
+    "mode": "sequential"
+  },
+  "scenario": {
+    "scenario_id": "example:magic:battered:counts:1",
+    "definitions": [
+      {
+        "id": "authored:wizard",
+        "source_rule_id": "example:ADR-0037:authored",
+        "injury_policy": "champion",
+        "wound_limit": null,
+        "resilience": {
+          "toughness": 4,
+          "bonus": 0
+        },
+        "attacks": [],
+        "protection": [
+          {
+            "source_rule_id": "example:ADR-0037:authored",
+            "skill": "athletics",
+            "dice": 3,
+            "threshold": 3
+          }
+        ]
+      },
+      {
+        "id": "authored:archer",
+        "source_rule_id": "example:ADR-0037:authored",
+        "injury_policy": "minion",
+        "wound_limit": 1,
+        "resilience": {
+          "toughness": 3,
+          "bonus": 0
+        },
+        "attacks": [
+          {
+            "id": "shot",
+            "source_rule_id": "example:ADR-0037:authored",
+            "skill": "shooting",
+            "dice": 3,
+            "threshold": 3,
+            "damage": 3,
+            "range_min": "short",
+            "range_max": "long",
+            "hands": "2h"
+          }
+        ],
+        "protection": [
+          {
+            "source_rule_id": "example:ADR-0037:authored",
+            "skill": "athletics",
+            "dice": 3,
+            "threshold": 3
+          }
+        ]
+      }
+    ],
+    "actors": [
+      {
+        "id": "wizard",
+        "definition_id": "authored:wizard",
+        "side": "opposition"
+      },
+      {
+        "id": "ally",
+        "definition_id": "authored:archer",
+        "side": "opposition"
+      },
+      {
+        "id": "E1",
+        "definition_id": "authored:archer",
+        "side": "players_and_allies"
+      }
+    ],
+    "battlefield": {
+      "zone_ids": [
+        "arena",
+        "shelter",
+        "boundary"
+      ],
+      "connections": [
+        {
+          "first_zone_id": "arena",
+          "second_zone_id": "shelter"
+        },
+        {
+          "first_zone_id": "shelter",
+          "second_zone_id": "boundary"
+        }
+      ]
+    },
+    "placements": [
+      {
+        "entity_id": "wizard",
+        "side_id": "opposition",
+        "zone_id": "arena"
+      },
+      {
+        "entity_id": "E1",
+        "side_id": "players_and_allies",
+        "zone_id": "arena"
+      },
+      {
+        "entity_id": "ally",
+        "side_id": "opposition",
+        "zone_id": "arena"
+      }
+    ],
+    "side_order": [
+      "players_and_allies",
+      "opposition"
+    ],
+    "activation_order": [
+      "E1",
+      "wizard",
+      "ally"
+    ],
+    "perspective_side": "opposition",
+    "objective_target_ids": [
+      "E1"
+    ],
+    "facts": {
+      "authored_wizard_profile": true,
+      "targets_aware": true,
+      "clear_line_of_sight": true,
+      "all_combatants_included": true,
+      "unmounted_combatants_only": true,
+      "no_additional_rules": true,
+      "no_other_test_modifiers": true,
+      "no_cover_or_concealment": true,
+      "no_terrain_or_obstacles": true,
+      "no_external_scene_changes": true,
+      "no_external_condition_sources": true,
+      "ammunition_sufficient": true,
+      "requires_reload_action": false,
+      "knows_battle_magic": true,
+      "spell_memorised": true,
+      "no_bulky_items": true,
+      "no_casting_opposition": true,
+      "no_mixing_winds": true,
+      "no_potency_modifiers": true,
+      "no_effect_immunities": true
+    },
+    "wizard": {
+      "actor_id": "wizard",
+      "caster": {
+        "id": "authored:caster",
+        "source_rule_id": "example:ADR-0037:authored",
+        "wizard_level": 2,
+        "casting_profile": {
+          "dice": 3,
+          "threshold": 3
+        }
+      },
+      "day_id": "example:day"
+    },
+    "spell": {
+      "rule_id": "RULE-MAGIC-001:curse-of-cowardly-flight",
+      "lore_id": "lore:battle-magic",
+      "casting_value": 3,
+      "target_kind": "zone",
+      "range": "long",
+      "duration": "instant"
+    },
+    "actor_policies": [
+      {
+        "actor_id": "wizard",
+        "willpower": {
+          "dice": 3,
+          "threshold": 3
+        },
+        "speed": "normal",
+        "target_actor_ids": [],
+        "defeat_decisions": [],
+        "attack_id": null,
+        "casting_policy": "cast_when_ready",
+        "zone_priorities": [
+          "arena",
+          "shelter",
+          "boundary"
+        ]
+      },
+      {
+        "actor_id": "ally",
+        "willpower": {
+          "dice": 3,
+          "threshold": 3
+        },
+        "speed": "normal",
+        "target_actor_ids": [
+          "E1"
+        ],
+        "defeat_decisions": [
+          {
+            "attacker_id": "ally",
+            "target_id": "E1",
+            "disposition": "knocked_out",
+            "gm_approved": true
+          }
+        ],
+        "attack_id": "shot",
+        "casting_policy": null,
+        "zone_priorities": []
+      },
+      {
+        "actor_id": "E1",
+        "willpower": {
+          "dice": 3,
+          "threshold": 3
+        },
+        "speed": "normal",
+        "target_actor_ids": [
+          "wizard",
+          "ally"
+        ],
+        "defeat_decisions": [
+          {
+            "attacker_id": "E1",
+            "target_id": "ally",
+            "disposition": "knocked_out",
+            "gm_approved": true
+          }
+        ],
+        "attack_id": "shot",
+        "casting_policy": null,
+        "zone_priorities": []
+      }
+    ],
+    "scene_frames": [
+      {
+        "key": {
+          "placements": [
+            {
+              "entity_id": "wizard",
+              "side_id": "opposition",
+              "zone_id": "arena"
+            },
+            {
+              "entity_id": "E1",
+              "side_id": "players_and_allies",
+              "zone_id": "arena"
+            },
+            {
+              "entity_id": "ally",
+              "side_id": "opposition",
+              "zone_id": "arena"
+            }
+          ],
+          "live_actor_ids": [
+            "wizard",
+            "ally",
+            "E1"
+          ]
+        },
+        "pair_ranges": [
+          {
+            "first_actor_id": "wizard",
+            "second_actor_id": "E1",
+            "target_range": "short",
+            "first_range_approved_by_gm": false,
+            "second_range_approved_by_gm": false
+          },
+          {
+            "first_actor_id": "ally",
+            "second_actor_id": "E1",
+            "target_range": "short",
+            "first_range_approved_by_gm": false,
+            "second_range_approved_by_gm": false
+          }
+        ],
+        "zone_ranges": [
+          {
+            "zone_id": "arena",
+            "target_range": "short"
+          },
+          {
+            "zone_id": "shelter",
+            "target_range": "medium"
+          },
+          {
+            "zone_id": "boundary",
+            "target_range": "long"
+          }
+        ],
+        "give_ground_plans": [
+          {
+            "actor_id": "E1",
+            "can_leave_zone": true,
+            "destination_zone_id": "shelter",
+            "route": {
+              "path_entity_ids": [],
+              "crosses_obstacle": false,
+              "crosses_difficult_terrain": false
+            },
+            "impossible_confirmed": false
+          }
+        ],
+        "broken_plans": [],
+        "attack_departures": [
+          {
+            "actor_id": "wizard",
+            "can_leave_zone": false
+          },
+          {
+            "actor_id": "ally",
+            "can_leave_zone": false
+          },
+          {
+            "actor_id": "E1",
+            "can_leave_zone": false
+          }
+        ]
+      },
+      {
+        "key": {
+          "placements": [
+            {
+              "entity_id": "wizard",
+              "side_id": "opposition",
+              "zone_id": "arena"
+            },
+            {
+              "entity_id": "E1",
+              "side_id": "players_and_allies",
+              "zone_id": "shelter"
+            },
+            {
+              "entity_id": "ally",
+              "side_id": "opposition",
+              "zone_id": "arena"
+            }
+          ],
+          "live_actor_ids": [
+            "wizard",
+            "ally",
+            "E1"
+          ]
+        },
+        "pair_ranges": [
+          {
+            "first_actor_id": "wizard",
+            "second_actor_id": "E1",
+            "target_range": "medium",
+            "first_range_approved_by_gm": false,
+            "second_range_approved_by_gm": false
+          },
+          {
+            "first_actor_id": "ally",
+            "second_actor_id": "E1",
+            "target_range": "medium",
+            "first_range_approved_by_gm": false,
+            "second_range_approved_by_gm": false
+          }
+        ],
+        "zone_ranges": [
+          {
+            "zone_id": "arena",
+            "target_range": "short"
+          },
+          {
+            "zone_id": "shelter",
+            "target_range": "medium"
+          },
+          {
+            "zone_id": "boundary",
+            "target_range": "long"
+          }
+        ],
+        "give_ground_plans": [
+          {
+            "actor_id": "E1",
+            "can_leave_zone": true,
+            "destination_zone_id": "boundary",
+            "route": {
+              "path_entity_ids": [],
+              "crosses_obstacle": false,
+              "crosses_difficult_terrain": false
+            },
+            "impossible_confirmed": false
+          }
+        ],
+        "broken_plans": [
+          {
+            "actor_id": "E1",
+            "kind": "safe_recover",
+            "free_move_zone_ids": [],
+            "free_move_route": null,
+            "run_destination_zone_id": null,
+            "run_route": null,
+            "fastest_route_confirmed": true
+          }
+        ],
+        "attack_departures": [
+          {
+            "actor_id": "wizard",
+            "can_leave_zone": false
+          },
+          {
+            "actor_id": "ally",
+            "can_leave_zone": false
+          },
+          {
+            "actor_id": "E1",
+            "can_leave_zone": false
+          }
+        ]
+      }
+    ],
+    "repeated_stagger_choice": "suffer_wound",
+    "miscast_continuation": null,
+    "stationary_wound_continuation": null,
+    "repeated_leg_spasm_continuation": null,
+    "crushed_rib_continuation": null,
+    "battered_leg_continuation": {
+      "endurance_profile": {
+        "dice": 2,
+        "threshold": 5
+      }
+    }
+  }
+}

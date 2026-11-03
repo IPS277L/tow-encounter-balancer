@@ -1,6 +1,8 @@
 # TOWR Encounter Balancer
 
-[ADR-0061](docs/decisions/ADR-0061-native-battered-leg-continuation.md) подготовлен для native Battered Leg: профиль Endurance принадлежит Scenario, completion связывается с собственным журналом. [Исполняемый пример](docs/examples/m8/battered_leg_native_contract_probe.py) проверяет существующую границу; native реализация ещё впереди.
+[ADR-0062](docs/decisions/ADR-0062-battered-leg-generation-and-magic-json-v6.md) передаёт Battered Leg и полный authored Endurance profile через matching generation family и обе Magic JSON6 families. [Production proof](docs/examples/m8/battered_leg_transport_contract_probe.py) сверяет генератор/кодеки с независимым oracle; публичные [simulation](docs/examples/m8/json/magic-simulation-v6.request.json) и [balance](docs/examples/m8/json/magic-balance-v6.request.json) requests готовы. Текущая приёмка — в [статусе](docs/project-status.md).
+
+[ADR-0061](docs/decisions/ADR-0061-native-battered-leg-continuation.md) подключает Battered Leg к native runner: отдельное разрешение с authored Endurance profile и проверка completion по собственному журналу. [Автоматический пример](docs/examples/m8/battered_leg_native.py) проверяет success/failure, новые последствия и sequential/spawn. Текущая приёмка — в [статусе](docs/project-status.md).
 
 [ADR-0060](docs/decisions/ADR-0060-battered-leg-owner-bridge.md) добавляет ручной M8 Battered Leg переход: явный Endurance profile, exact pending Attack, сохранение обоих child owners и completion witness. Итоговая проверка — в [статусе](docs/project-status.md).
 

@@ -1,10 +1,16 @@
 # Примеры магии M8
 
-## Battered Leg: подготовка native контракта ADR-0061
+## Battered Leg generation/JSON6: production ADR-0062
 
-[Контракт](../../decisions/ADR-0061-native-battered-leg-continuation.md), [probe](battered_leg_native_contract_probe.py), [stdout](battered_leg_native_contract_probe.output.txt), [copied test](../../../tests/integration/test_m8_battered_leg_native_contract_probe.py). Копировать вместе с `magic_scenario.py`; запускать `python battered_leg_native_contract_probe.py` с установленным пакетом либо `PYTHONPATH=src` из корня проекта.
+[Контракт](../../decisions/ADR-0062-battered-leg-generation-and-magic-json-v6.md), [production proof239d10](battered_leg_transport_contract_probe.py), [stdout](battered_leg_transport_contract_probe.output.txt), [copied test](../../../tests/integration/test_m8_battered_leg_transport_contract_probe.py), [публичные JSON6 requests](json/README.md), [приёмка](../../audits/m8-battered-leg-transport-readiness.md). Копировать4Python files: proof, `battered_leg_native.py`, `generation_contract_probe.py`, `magic_scenario.py`.
 
-39 scripted d10 проверяют настоящий native first5 stop, manual60 success/failure, подмену profile/trace, once-only completion и closed journal union. Actual WAIT/ally miss/следующий hit показывают необходимость диагностики нового injury до factory60. Native61 helpers и permission здесь не эмулируются. Источники и global RNG сохраняются; снятие Prone5 не добавлено.
+Независимый manual oracle сравнивается с98production JSON6 parses/full echoes и97matching-family actual candidates при24valid/8invalid permissions;5genuine None controls сохранены. Actual native61 исполняет8success/failure paths, normal1d/5 success на5, полный5actor Wizard-opposite и sequential/real spawn с denominator2. Actual summary/result и seeded balance generation/stage/report echo восстанавливают точный command; seeded balance2trials отдельно от239scripted draws. Старые1–5 lossless gates проверены; full source/global RNG сохраняются, opted source не раздевается для legacy mapper.
+
+## Battered Leg: actual native ADR-0061
+
+[Контракт](../../decisions/ADR-0061-native-battered-leg-continuation.md), [actual runner228d10](battered_leg_native.py), [его stdout](battered_leg_native.output.txt), [finite39d10](battered_leg_native_contract_probe.py), [его stdout](battered_leg_native_contract_probe.output.txt), [copied tests](../../../tests/integration/test_m8_battered_leg_native_contract_probe.py), [приёмка](../../audits/m8-native-battered-leg-readiness.md). Каждый script копируется вместе с `magic_scenario.py`; запускать с установленным пакетом либо `PYTHONPATH=src` из корня проекта.
+
+Автоматический пример проверяет None, success/failure, завершённый Wizard turn, новые Staggered/Wounds/Miscast и одинаковые source/seeds/records sequential/real spawn с denominator2. Finite пример использует actual native61 helpers и manual60: подмена profile/trace, once-only completion, явные None refusals и закрытый scope stop после следующего hit. Ни один пример не эмулирует validators. Sources/global RNG сохраняются; снятие Prone5 и transport не добавлены.
 
 ## Crushed Rib generation/JSON5 contract probe, ADR-0058
 

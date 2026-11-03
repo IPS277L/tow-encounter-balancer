@@ -2,8 +2,8 @@ NATIVE CONTROL: first Wound5 -> exact WOUND_EFFECT stop after 7d10; active enemy
 MANUAL60: success, alternate success and failure each use 2d10; exact follow-up closes once; no extra action; failure retains Wound-sourced Prone
 MANUAL ORACLE: equal source/Test ID/successes/injury do not identify the full recorded Endurance trace; alternate actual completion refused
 PROFILE AUTHORITY: another authored profile can produce equal injury; manual oracle still refuses substitution; native profile must belong to Scenario
-JOURNAL BOUNDARY: completion60 excluded by closed Step union; normal descendant policy alone is insufficient; skipping completion fails continuous Result admission
+CLOSED JOURNAL BOUNDARY: Step admits completion60 with Wizard actor; native61 None refuses completion and descendants; skipping completion fails continuous Result admission
 FAILURE TAIL: enemy end then Wizard start retains Prone/receipt and yields ACTOR_INJURY
 INDEPENDENT MISCAST OPT-IN: same 7d10 Wound stop; manual failure 2d10 still yields sourced-Prone ACTOR_INJURY, without a stand
-POST-SUCCESS SCOPE GAP: actual WAIT/ally miss/next-round hit adds Wizard Staggered; storage retains receipt; diagnosis currently None but normal end60 refuses; native61 must diagnose before factory
-39 scripted d10; public native prefixes + manual60 only; pending stripping refused; sources/global RNG unchanged; native61 implementation remains separate
+CLOSED SCOPE GAP: actual WAIT/ally miss/next-round hit adds Wizard Staggered; native61 diagnoses END_TURN before normal end60; full receipt retained
+39 scripted d10; actual native61 permission/history/diagnosis + manual60; pending stripping refused; sources/global RNG unchanged; automatic runner has a separate public example

@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from towr.domain.npc_magic_repeated_leg_spasm_policy import NpcMagicRepeatedLegSpasmHistory
     from towr.domain.npc_magic_crushed_rib_policy import NpcMagicCrushedRibHistory
+    from towr.domain.npc_magic_battered_leg_policy import NpcMagicBatteredLegHistory
 
 from towr.domain.condition_models import Condition
 from towr.domain.movement_models import FreeMovementRequest
@@ -197,7 +198,10 @@ def validate_magic_step_policy(
     scenario: NpcMagicScenario, step: NpcMagicStep, *,
     repeated_history: 'NpcMagicRepeatedLegSpasmHistory | None' = None,
     crushed_rib_history: 'NpcMagicCrushedRibHistory | None' = None,
+    battered_leg_history: 'NpcMagicBatteredLegHistory | None' = None,
 ) -> None:
+    from towr.domain.npc_magic_battered_leg_policy import validate_magic_battered_leg_step
+    validate_magic_battered_leg_step(scenario, step, battered_leg_history)
     from towr.domain.npc_magic_crushed_rib_policy import validate_magic_crushed_rib_step
     validate_magic_crushed_rib_step(scenario, step, crushed_rib_history)
     from towr.domain.npc_magic_repeated_leg_spasm_policy import validate_magic_repeated_leg_spasm_step

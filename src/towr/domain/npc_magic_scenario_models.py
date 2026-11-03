@@ -114,6 +114,20 @@ class NpcMagicRepeatedLegSpasmPolicy(str, Enum):
 
 
 @dataclass(frozen=True, slots=True)
+class NpcMagicBatteredLegPolicy:
+    """Explicit native opt-in and authored Wizard Endurance profile (ADR-0061)."""
+
+    endurance_profile: InlineProfile
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.endurance_profile, InlineProfile):
+            raise TypeError('Battered Leg requires an authored Endurance InlineProfile')
+        replace(self.endurance_profile)
+        if self.endurance_profile.pool_cap is not None:
+            raise ValueError('Battered Leg native profile excludes custom pool caps')
+
+
+@dataclass(frozen=True, slots=True)
 class NpcMagicMiscastContinuationPolicy:
     """Explicit ADR-0046 opt-in; admission alone does not execute a Miscast.
 
@@ -156,6 +170,7 @@ class NpcMagicScenario:
     stationary_wound_continuation: NpcMagicStationaryWoundPolicy | None = None
     repeated_leg_spasm_continuation: NpcMagicRepeatedLegSpasmPolicy | None = None
     crushed_rib_continuation: NpcMagicCrushedRibPolicy | None = None
+    battered_leg_continuation: NpcMagicBatteredLegPolicy | None = None
 
     def __post_init__(self) -> None:
         _identifier(self.id)
@@ -332,6 +347,11 @@ def _validate_magic_scenario_permissions(scenario: NpcMagicScenario) -> None:
         raise TypeError('native magic admission requires a typed stationary policy')
     repeated = scenario.repeated_leg_spasm_continuation
     crushed = scenario.crushed_rib_continuation
+    battered = scenario.battered_leg_continuation
+    if battered is not None:
+        if not isinstance(battered, NpcMagicBatteredLegPolicy):
+            raise TypeError('native magic admission requires a typed Battered Leg policy')
+        replace(battered)
     if crushed is not None and not isinstance(crushed, NpcMagicCrushedRibPolicy):
         raise TypeError('native magic admission requires a typed Crushed Rib policy')
     if repeated is not None:

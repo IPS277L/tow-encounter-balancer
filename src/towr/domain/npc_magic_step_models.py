@@ -9,6 +9,7 @@ from towr.domain.npc_magic_scene_models import NpcMagicSceneKey, _identifier, _i
 from towr.domain.npc_roster_casting_completion_models import NpcRosterCastingCompletionResult
 from towr.domain.npc_roster_casting_models import NpcRosterCastingResult, NpcRosterCastingState
 from towr.domain.npc_roster_champion_attack_models import NpcRosterChampionAttackResult
+from towr.domain.npc_roster_battered_leg_models import NpcRosterBatteredLegResult
 from towr.domain.npc_roster_dead_champion_models import NpcRosterDeadChampionExclusionResult
 from towr.domain.npc_roster_leg_spasm_models import NpcRosterLegSpasmStandResult
 from towr.domain.npc_roster_repeated_leg_spasm_models import NpcRosterRepeatedLegSpasmStandResult
@@ -32,6 +33,7 @@ NpcMagicStepResult: TypeAlias = (
     | NpcRosterProneStandResult | NpcRosterProneTurnEndResult
     | NpcRosterLegSpasmStandResult
     | NpcRosterRepeatedLegSpasmStandResult
+    | NpcRosterBatteredLegResult
 )
 _RESULT_TYPES = (
     NpcRosterTurnStartResult, NpcRosterRoundAdvanceResult, NpcRosterCastingResult,
@@ -42,6 +44,7 @@ _RESULT_TYPES = (
     NpcRosterProneStandResult, NpcRosterProneTurnEndResult,
     NpcRosterLegSpasmStandResult,
     NpcRosterRepeatedLegSpasmStandResult,
+    NpcRosterBatteredLegResult,
 )
 
 
@@ -53,7 +56,7 @@ class NpcMagicStep:
     def __post_init__(self) -> None:
         if type(self.result) not in _RESULT_TYPES:
             raise TypeError('magic step requires a supported full-owner bound result')
-        if isinstance(self.result, NpcRosterRepeatedLegSpasmStandResult):
+        if isinstance(self.result, (NpcRosterRepeatedLegSpasmStandResult, NpcRosterBatteredLegResult)):
             from dataclasses import replace
             replace(self.result)
         witness = self.origin_witness
@@ -91,6 +94,8 @@ class NpcMagicStep:
 
     @property
     def actor_id(self) -> str | None:
+        if isinstance(self.result, NpcRosterBatteredLegResult):
+            return self.before.wizard.actor_id
         if isinstance(self.result, NpcRosterRoundAdvanceResult):
             return None
         if isinstance(self.result, NpcRosterTurnStartResult):

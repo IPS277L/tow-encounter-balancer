@@ -7,7 +7,7 @@ from jsonschema import Draft202012Validator
 from referencing import Registry, Resource
 
 
-_SUPPORTED_VERSIONS = {"simulation": ("1", "2", "3", "4", "5"), "balance": ("1", "2", "3", "4", "5")}
+_SUPPORTED_VERSIONS = {"simulation": ("1", "2", "3", "4", "5", "6"), "balance": ("1", "2", "3", "4", "5", "6")}
 
 
 def _require_schema_version(family: str, schema_version: str) -> None:
@@ -17,7 +17,7 @@ def _require_schema_version(family: str, schema_version: str) -> None:
         raise ValueError(f"unsupported magic {family} schema version")
 
 
-@lru_cache(maxsize=30)
+@lru_cache(maxsize=36)
 def _validator(kind: str, family: str = "simulation", schema_version: str = "1") -> Draft202012Validator:
     if kind not in ("request", "result", "error"):
         raise ValueError(f"unknown magic {family} schema kind")

@@ -43,22 +43,41 @@ def _owner(state):
         raise TypeError('round number must be a strict integer')
     if not all(isinstance(side, CombatSide) for side in state.round_state.side_order):
         raise TypeError('round sides must retain typed enums')
-    for participant in state.roster.participants:
-        _readmit(participant.definition)
-        _readmit(participant.state)
-        _readmit(participant)
-        if not isinstance(participant.state.side, CombatSide):
-            raise TypeError('actor side must retain its enum')
-        for flag in (participant.state.wields_weapon, participant.state.holds_shield):
-            if type(flag) is not bool:
-                raise TypeError('equipment flags must be strict booleans')
-        if isinstance(participant.state.injury, CharacterInjuryState):
-            _strict_injury_snapshot(participant.state.injury)
-        else:
-            _readmit(participant.state.injury)
-    _readmit(state.roster)
+    rosters = [state.roster]
+    for child in (state.champion_attack, state.minion_attack):
+        if child is not None:
+            _readmit(child)
+            rosters.append(child.roster)
+    # Read original detached projections before equality can hide 0 == False
+    # or a str enum alias in a child that happens to equal the root roster.
+    for roster in rosters:
+        if type(roster.participants) is not tuple:
+            raise TypeError('owner rosters must retain tuple snapshots')
+        for participant in roster.participants:
+            _readmit(participant.definition)
+            _readmit(participant.state)
+            _readmit(participant)
+            if not isinstance(participant.state.side, CombatSide):
+                raise TypeError('actor side must retain its enum')
+            for flag in (participant.state.wields_weapon, participant.state.holds_shield):
+                if type(flag) is not bool:
+                    raise TypeError('equipment flags must be strict booleans')
+            if isinstance(participant.state.injury, CharacterInjuryState):
+                _strict_injury_snapshot(participant.state.injury)
+            else:
+                _readmit(participant.state.injury)
+        _readmit(roster)
     if state.champion_attack is None:
         raise ValueError('Battered Leg requires its Champion child owner')
+    if type(state.champion_attack.daily_wounds.receipts) is not tuple:
+        raise TypeError('daily Wound receipts must retain tuple snapshots')
+    for receipt in state.champion_attack.daily_wounds.receipts:
+        wound = receipt.wound
+        _readmit(wound)
+        for flag in (wound.treated, wound.effect_resolved, wound.healed):
+            if type(flag) is not bool:
+                raise TypeError('daily Wound flags must retain strict booleans')
+        _readmit(receipt)
     _readmit(state.champion_attack.daily_wounds)
     _readmit(state.champion_attack)
     if state.minion_attack is not None:

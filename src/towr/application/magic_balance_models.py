@@ -21,7 +21,7 @@ class MagicBalanceCommand:
     def __post_init__(self) -> None:
         if not isinstance(self.schema_version, str):
             raise TypeError('magic schema version must be a string')
-        if self.schema_version not in ('1', '2', '3', '4', '5'):
+        if self.schema_version not in ('1', '2', '3', '4', '5', '6'):
             raise ValueError('unsupported magic schema version')
         if not isinstance(self.request_id, str):
             raise TypeError('magic balance request ID must be a string')
@@ -65,7 +65,7 @@ def _validate_scenario_source(scenario: NpcMagicScenario) -> None:
     _validate_generation_policy_types(scenario, scenario.miscast_continuation,
                                       scenario.stationary_wound_continuation,
                                       scenario.repeated_leg_spasm_continuation,
-                                      scenario.crushed_rib_continuation)
+                                      scenario.crushed_rib_continuation, scenario.battered_leg_continuation)
 
 
 def _validate_staged_request_source(source: MagicStagedEvaluationRequest) -> None:

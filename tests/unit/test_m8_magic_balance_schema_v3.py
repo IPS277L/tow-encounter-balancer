@@ -167,24 +167,24 @@ class MagicBalanceSchemaV3Tests(unittest.TestCase):
     def test_registry_contains_all_current_family_kind_versions_and_bundled_schemas(self):
         schemas._validator.cache_clear()
         for family in ('simulation', 'balance'):
-            for version in ('1', '2', '3', '4', '5'):
+            for version in ('1', '2', '3', '4', '5', '6'):
                 for kind in ('request', 'result', 'error'):
                     validator = schemas._validator(kind, family, version)
                     self.assertEqual(validator.schema['$id'], f'urn:towr:magic-{family}:{kind}:{version}')
-        self.assertEqual(schemas._validator.cache_info().currsize, 30)
-        self.assertEqual(schemas._validator.cache_info().maxsize, 30)
+        self.assertEqual(schemas._validator.cache_info().currsize, 36)
+        self.assertEqual(schemas._validator.cache_info().maxsize, 36)
         names = tuple(p.name for p in files('towr.adapters.schemas').iterdir() if p.name.endswith('.schema.json'))
-        self.assertEqual(len(names), 48)
-        self.assertEqual(sum(name.startswith('magic-') for name in names), 30)
+        self.assertEqual(len(names), 54)
+        self.assertEqual(sum(name.startswith('magic-') for name in names), 36)
 
     def test_unsupported_versions_reject_before_schema_files_are_loaded(self):
         schemas._validator.cache_clear()
         with patch.object(schemas, 'files', side_effect=AssertionError('unsupported version must not load files')) as lookup:
-            for version in (None, 3, True, '03', '6'):
+            for version in (None, 3, True, '03', '7'):
                 with self.subTest(version=version), self.assertRaises(ValueError):
                     schemas.validate_magic_balance_document({}, schema_version=version)
             with self.assertRaisesRegex(ValueError, 'unsupported magic balance schema version'):
-                schemas._validator('request', 'balance', '6')
+                schemas._validator('request', 'balance', '7')
             lookup.assert_not_called()
 
 

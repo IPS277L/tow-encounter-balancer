@@ -1,8 +1,8 @@
 # ADR-0061: native Battered Leg с профилем Scenario и подтверждением журнала
 
-Дата: 2026-11-03. Статус: **контракт подготовлен; native реализация ещё не начата**.
+Дата: 2026-11-03. Статус: **закрыт в принятой native границе; regression составной, installed audit завершён**. [Приёмка](../audits/m8-native-battered-leg-readiness.md).
 
-Основа — закрытые [K1 ADR-0059](ADR-0059-battered-leg-endurance-test.md) и [ручной bridge ADR-0060](ADR-0060-battered-leg-owner-bridge.md). Исполняемый [finite probe](../examples/m8/battered_leg_native_contract_probe.py) проверяет существующие API, а не подменяет будущие native helpers. [Сохранённый stdout](../examples/m8/battered_leg_native_contract_probe.output.txt), [copied test](../../tests/integration/test_m8_battered_leg_native_contract_probe.py).
+Основа — закрытые [K1 ADR-0059](ADR-0059-battered-leg-endurance-test.md) и [ручной bridge ADR-0060](ADR-0060-battered-leg-owner-bridge.md). [Автоматический пример228d10](../examples/m8/battered_leg_native.py) исполняет native runner и mass APIs. [Finite probe39d10](../examples/m8/battered_leg_native_contract_probe.py), [его stdout](../examples/m8/battered_leg_native_contract_probe.output.txt) и [copied tests](../../tests/integration/test_m8_battered_leg_native_contract_probe.py) проверяют actual helpers/None refusals, без их эмуляции.
 
 ## Источники и граница
 
@@ -14,7 +14,7 @@
 
 ## Отдельное разрешение и authored profile
 
-Предлагаемый frozen/slots `NpcMagicBatteredLegPolicy` содержит ровно одно поле:
+Frozen/slots `NpcMagicBatteredLegPolicy` содержит ровно одно поле:
 
 | Поле | Контракт |
 | --- | --- |
@@ -39,7 +39,7 @@ Request60 получает authored profile из Scenario; Test ID по-преж
 
 ## Собственный prefix и ограниченная история
 
-Предлагаемый frozen/slots `NpcMagicBatteredLegHistory` вне battle root:
+Frozen/slots `NpcMagicBatteredLegHistory` вне battle root:
 
 | Поле | Смысл |
 | --- | --- |
@@ -48,7 +48,7 @@ Request60 получает authored profile из Scenario; Test ID по-преж
 
 Root уже хранит bounded `battered_leg_receipt` из 60. Второй archive в root не нужен. History содержит конечное evidence, не копию всего журнала и не самостоятельный permission token. Initial helper начинает только с `scenario.initial_runtime_state`; None-policy требует history=None. При opt-in history обязательна, даже до первой раны.
 
-Предлагаемые pure helpers в отдельном domain module:
+Pure helpers в [отдельном domain module](../../src/towr/domain/npc_magic_battered_leg_policy.py):
 
 - `initial_magic_battered_leg_history(scenario) -> History | None`;
 - `advance_magic_battered_leg_history(scenario, history, step) -> History | None`;
@@ -64,7 +64,7 @@ Storage admission истории не требует, чтобы текущая 
 
 Runner `publish` и `NpcMagicScenarioResult` выводят историю из своего prefix одинаковыми pure helpers. Result не принимает caller cursor, не вызывает executor/RNG и не переигрывает действия. Совместимый внешний history сам по себе не доказывает membership в журнале.
 
-При None-policy запрещаются новый completion и receipt-bearing descendants, включая upper/lower source evidence. Pending первой Wound5 без completion остаётся допустимым stop. Сейчас полного unpermissioned journal bypass **нет**: closed Step union отвергает result60. Однако standalone policy уже принимает отдельный ordinary descendant ручного60; после расширения union нужен явный permission guard, а не предположение, что типовая граница всё ещё защищает журнал.
+При None-policy запрещаются новый completion и receipt-bearing descendants, включая upper/lower source evidence. Pending первой Wound5 без completion остаётся допустимым stop. До61 closed Step union отвергал result60, хотя standalone policy принимала отдельный ordinary descendant ручного60. Теперь union расширен, а явный permission guard запрещает unpermissioned completion и descendants. Bounded чтение prepared/rolled Miscast ancestry не позволяет скрыть receipt удалением upper marker; opt-in сравнивает каждый такой receipt с собственным prefix-derived completion.
 
 ## Eligibility, dispatcher и честные остановки
 
@@ -77,11 +77,11 @@ Pure eligibility явно отделяет неподдержанную shape о
 
 ### Новое последствие после completed Test
 
-Manual60 глобально требует `current Wizard injury == completion.endurance.wound_result.state` при normal Casting/Attack/scheduling/end. После success новая actual Attack может добавить Wizard Staggered или другую Wound. Это законное последствие сохраняется, но следующий normal transition уже находится вне scope60. Текущий native diagnosis ещё может вернуть None, после чего end factory отвергнет state. Probe воспроизводит это actual reducers, без правки snapshots.
+Manual60 глобально требует `current Wizard injury == completion.endurance.wound_result.state` при normal Casting/Attack/scheduling/end. После success новая actual Attack может добавить Wizard Staggered или другую Wound. Это законное последствие сохраняется, но следующий normal transition уже находится вне scope60. До61 diagnosis возвращал None, после чего end factory отвергал state. Native61 распознаёт mismatch и возвращает bounded stop; оба public примера проверяют actual reducers без правки snapshots.
 
 61 обязан проверять этот mismatch **после обязательных tails и до normal factory**. Сначала проверяются exact prefix-derived receipt и сохранность owner histories: удалённый/чужой witness является admission error, а не безопасным unsupported stop. Затем определяется выход законного нового injury consequence за scope. Для достигнутого native post-Attack состояния active slot уже executed: stop имеет `phase=END_TURN`, `reason=END_TURN`, active Minion как `actor_id`, Wizard в `missing_actor_ids`, last actual step ID как source. Не нужны новый reason или ложная CHRONOLOGY; текущие 13 reason labels сохраняются. Нельзя продолжить ветвь только потому, что активный Minion здоров.
 
-Pending новой неподдержанной раны сначала сохраняет WOUND_EFFECT stop. Completed lethal Attack сначала получает обязательный exclusion44, если он owed. Затем mismatch60 может дать END_TURN stop с сохранёнными death/Wound/receipt; 61 **не** ослабляет gate для dead Wizard и не обещает завершить его открытый Minion turn ради terminal outcome. Такое дальнейшее продолжение потребует отдельного consumer/изменения контракта60. Если при реализации обнаружится иной законный reachable phase mismatch, его точный диагноз нужно определить отдельно, не скрывать ошибкой конструктора.
+Pending новой неподдержанной раны сначала сохраняет WOUND_EFFECT stop. Existing completed lethal Attack получает обязательный exclusion44, если он owed;61 не меняет этот порядок и **не** ослабляет gate для dead Wizard. Actual death после единственной first5 в этой native границе не достигается: второй Wound использует2d10, максимум20, и уже останавливает scope до третьей раны. Продолжение после иных injury/death sources потребует отдельного consumer/изменения контракта60; actual death61 не заявляется проверенной ветвью. Если обнаружится иной законный reachable phase mismatch, его точный диагноз нужно определить отдельно, не скрывать ошибкой конструктора.
 
 Failure с current Prone, точно равным completion.state, не является mismatch; его последующая остановка определяется прежними action/target правилами.
 
@@ -93,28 +93,25 @@ Direct runner, trial, sequential/process simulation и explicit-candidate/staged
 
 Все magic JSON1–5 encoders/source gates должны рано и losslessly отвергать nonNone61; decoders сохраняют закрытый отказ новому полю даже null. None сохраняет прежний wire без нового поля. Новых schemas, registry versions, CLI options или save/resume здесь нет. Profile в свежем native Scenario не означает поддержку serialized current owner/history.
 
-## Исполняемая проверка подготовки
+## Исполняемая finite проверка
 
 Probe использует actual native first5 stop и existing manual60. Он исполняет **39 scripted d10**, проверяет:
 
 - exact legacy stop7d10, отдельного Wizard Test actor и source follow-up ID;
 - два success traces с одинаковыми ID/successes/injury, failure Prone и once-only apply;
 - другую authored profile с той же injury и manual oracle full-result refusal;
-- реальный closed-union refusal и непрерывность Result при попытке пропустить completion;
-- отдельный normal descendant policy admission, который не является валидным полным журналом;
+- новый Step с Wizard actor, actual None refusals completion/descendants и непрерывность Result при попытке пропустить completion;
 - failure tail при Miscast=None и при standalone-Prone opt-in;
-- actual WAIT → ally miss → round advance → новая Attack/Staggered и существующий diagnosis/factory gap;
+- actual WAIT → ally miss → round advance → новая Attack/Staggered и закрытый diagnosis/factory gap;
 - обе child projections, daily/roll/action histories, неизменность sources/global RNG и pending-stripping refusal.
 
-Manual oracle не реализует предлагаемые helpers и не подтверждает произвольную достижимость. Native поведение61 по этому probe не объявляется реализованным.
+Manual oracle сравнивает полный recorded result и не подтверждает произвольную достижимость. Production helpers61 используются отдельно; автоматическое исполнение runner проверяет public228d10 пример.
 
-## Следующая реализация и критерии приёмки
+## Реализация и критерии приёмки
 
-1. Policy/profile admission и exports; history, Step и pure journal/predecessor guards. Детерминированные тесты None/raw policies/facts/profile, foreign Attack/completion, stripped receipt, replay/collision и обеих actor identities.
-2. Diagnosis/runner integration через60. Проверить success/failure, completed Wizard turn, текущий scope mismatch после Staggered/Wound/death с mandatory tails, неизменный None prefix и coexistence разрешений без расширения injury scope.
-3. Native trial/sequential/real spawn и explicit/staged evaluation; early generation/JSON1–5 refusal, сохранность profile/source/seeds/denominator.
-4. Independent review, полный regression и offline source/wheel/installed audit на границе native61. После этого отдельный ADR для generation и versioned transport; Prone5 removal не добавлять незаметно.
+1. **Выполнено:** policy/profile admission и exports; history, Step и pure journal/predecessor guards.21unit проверяют None/raw policies/facts/profile, foreign Attack/completion, stripped receipt, replay, actual traces/actors, detached child rosters/daily Wounds и finite Miscast ancestry.
+2. **Выполнено:** diagnosis/runner integration через60. Success/failure, completed Wizard turn, scope mismatch после Staggered/Wound с mandatory tails и неизменный None prefix проверены actual native integrations. Death scope ограничен описанной выше достижимостью.
+3. **Выполнено:** native trial/sequential/real spawn и explicit/staged evaluation; early generation/JSON1–5 refusal, сохранность profile/source/seeds/denominator. Всего15integration/boundary tests OK.
+4. **Выполнено:** independent review, два copied public tests, свежий offline489file/source/wheel/installed audit,57installed checks и обе public examples прошли. Полный4292run дал2устаревших metadata assertion failures; после их исправления21affected checks OK и все4292IDs закрыты составно. Первоначальный full не объявляется зелёным, production после него не менялся. Следом — отдельный ADR для generation и versioned transport; Prone5 removal отдельно.
 
-Контрактная подготовка изменяет документацию, example и его integration test. Production domain/engine/adapters и schemas на этом шаге не меняются; native61 остаётся следующим исполняемым этапом.
-
-Проверка подготовки:77targeted tests OK (copied probe1 +76existing owner/Scenario/Result), source и copied installed `python -I` proof39d10,488production hashes source/wheel/installed совпали. Independent read-only review не выявил блокеров. Последний полный набор —4254tests OK после60; с новым probe full не запускался. Полный native61 audit остаётся критерием этапа4.
+Усилено original-data admission shared `_owner60`: читаются обе исходные child rosters и original daily receipt/Wound records до equality. Игровая механика60 прежняя; validators не делают RNG/replay. Schemas/registry остаются прежними, generation/wire новое разрешение не теряют молча. Итоговый regression/installed результат записывается в [приёмке](../audits/m8-native-battered-leg-readiness.md).

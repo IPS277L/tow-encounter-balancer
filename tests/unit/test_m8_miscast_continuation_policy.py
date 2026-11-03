@@ -70,9 +70,10 @@ class MiscastContinuationPolicyTests(unittest.TestCase):
     def test_old_positional_constructor_and_explicit_none_are_identical(self):
         source = scenario()
         names = [f.name for f in fields(source)]
-        self.assertEqual(names[-4:], ['miscast_continuation', 'stationary_wound_continuation',
-                                      'repeated_leg_spasm_continuation', 'crushed_rib_continuation'])
-        positional = tuple(getattr(source, name) for name in names[:-4])
+        self.assertEqual(names[-5:], ['miscast_continuation', 'stationary_wound_continuation',
+                                      'repeated_leg_spasm_continuation', 'crushed_rib_continuation',
+                                      'battered_leg_continuation'])
+        positional = tuple(getattr(source, name) for name in names[:-5])
         self.assertEqual(NpcMagicScenario(*positional), source)
         self.assertEqual(NpcMagicScenario(*positional, None), source)
         self.assertEqual(replace(source, miscast_continuation=None), source)

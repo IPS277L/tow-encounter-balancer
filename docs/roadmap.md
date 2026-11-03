@@ -331,9 +331,20 @@ K1 boundary закрыта: [ADR](decisions/ADR-0059-battered-leg-endurance-test
 
 ## ADR-0061 — native Battered Leg: профиль, журнал и dispatch
 
-[Контракт](decisions/ADR-0061-native-battered-leg-continuation.md) подготовлен; [probe39d10](examples/m8/battered_leg_native_contract_probe.py) исполняет существующие native prefix/manual60. Native61 ещё не реализован. Endurance profile будет частью отдельного Scenario permission; Test actor — Wizard при активном Minion turn. Новое последствие после completed Test должно сохраняться с receipt и получать bounded stop до normal factory60, после обязательных continuations.
+[Контракт](decisions/ADR-0061-native-battered-leg-continuation.md) реализован; [actual228d10](examples/m8/battered_leg_native.py) исполняет automatic runner и sequential/spawn, [finite39d10](examples/m8/battered_leg_native_contract_probe.py) проверяет actual None/history/scope controls. Endurance profile принадлежит отдельному Scenario permission; Test actor — Wizard при активном Minion turn. Новое последствие после completed Test сохраняется с receipt и получает bounded stop до normal factory60, после mandatory continuations. [Приёмка](audits/m8-native-battered-leg-readiness.md).
 
-1. **Следующий шаг:** policy/profile admission и exports, history вне root, один новый Step type, pure journal/predecessor guards и детерминированные проверки source/trace/receipt/None.
-2. Diagnosis/runner через executor60, exact None prefix и success/failure; post-completion Staggered/Wound/death сохраняются и честно ограничивают дальнейший scope.
-3. Native simulation/evaluation/real spawn; early lossless refusal nonNone61 в generation и magic JSON1–5.
-4. Independent review, полный regression и source/wheel/installed audit. Затем отдельный generation/transport ADR; Prone5 removal отдельно.
+1. **Выполнено:** policy/profile admission и exports, history вне root, один новый Step type, pure journal/predecessor guards;21unit tests, включая raw aliases, receipts, traces и finite Miscast ancestry.
+2. **Выполнено:** diagnosis/runner через executor60, exact None prefix и success/failure; post-completion Staggered/Wounds сохраняются и честно ограничивают scope. Death после solefirst5 до second-Wound stop недостижима и не объявляется actual tested branch.
+3. **Выполнено:** native simulation/evaluation/real spawn, source/seed/denominator parity; early lossless refusal nonNone61 в generation и magic JSON1–5;15integration/boundary tests.
+4. **Выполнено:** independent review и2copied tests; fresh offline489file parity/pip check/installed57checks, обеexamples и прежние module/console JSON5 CLI прошли. Full4292:4290passed/2old metadata failures, затем21affected checks OK; все4292IDs закрыты составно, original full не объявляется зелёным. Production hashes прежние. Следом — отдельный generation/transport ADR с matching family/profile; Prone5 removal отдельно.
+
+## ADR-0062 — Battered Leg generation и Magic JSON6
+
+[Контракт](decisions/ADR-0062-battered-leg-generation-and-magic-json-v6.md) реализован; [production239d10](examples/m8/battered_leg_transport_contract_probe.py) сверяет98actual JSON6 parses/full echoes,97matching candidates,5None controls и actual native61/seq/spawn с независимым oracle. Full Endurance profile передаётся через separate matching family и closed nullable JSON6 object; None/старые версии сохраняют смысл. [Приёмка](audits/m8-battered-leg-transport-readiness.md).
+
+1. **Выполнено:** append-last family policy, typed5policy/profile matching до collections/equality, explicit projection, source/cache guards и arithmetic/full-source split.9new unit/5actualintegration +47legacy gen checks прошли; old positional fields, huge counts, malformed first/last/cache и оба положения Wizard проверены.
+2. **Выполнено:** Simulation6 schemas/strict reader/metadata/mapper/service/CLI, full echo и oldwire gates;8unit +5integration.
+3. **Выполнено:** Balance6 schemas, independent reserve/family profile, exact mismatch path, source/report/cache echo и phase errors/CLI;6unit +4integration.54package/36magic schemas,573offline refs/cache36;42schema targeted checks прошли.
+4. **Выполнено:** independent review/copy proof и112legacy wire checks; offline wheel/pip check/495file parity, installed47new и финальные11CLI/help/legacy checks, public proof и8CLI commands прошли. Full4340:4339passed/1old probe ERROR, после sentinel6→7 test повторён успешно; все4340IDs закрыты составно. Поздние два help literals проверены отдельно и AST сравнением wheels; единый зелёный full финального tree не заявляется. Native61 scope и Prone5 removal не расширяются.
+
+Следующий шаг: адресно сверить Free Actions/Prone и подготовить отдельный full-owner контракт снятия sourced Prone5 после провала Endurance с сохранением Wound/completion/history и явным порядком применения. Реализация начинается после определения границы существующего exact-injury gate60.

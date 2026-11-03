@@ -128,10 +128,11 @@ class RepeatedLegSpasmGenerationTests(unittest.TestCase):
     def test_new_field_is_last_and_all_old_positional_forms_remain_none(self):
         source = request()
         names = tuple(f.name for f in fields(source))
-        self.assertEqual(names[-4:], ('miscast_continuation', 'stationary_wound_continuation',
-                                      'repeated_leg_spasm_continuation', 'crushed_rib_continuation'))
+        self.assertEqual(names[-5:], ('miscast_continuation', 'stationary_wound_continuation',
+                                      'repeated_leg_spasm_continuation', 'crushed_rib_continuation',
+                                      'battered_leg_continuation'))
         self.assertIsNone(fields(source)[-1].default)
-        positional = tuple(getattr(source, name) for name in names[:-4])
+        positional = tuple(getattr(source, name) for name in names[:-5])
         baseline = generation.generate_magic_candidates(source)
         for extra in ((), (None,), (None, None), (None, None, None), (None, None, None, None)):
             value = Request(*positional, *extra)

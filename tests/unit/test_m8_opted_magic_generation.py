@@ -39,10 +39,11 @@ class OptedMagicGenerationTests(unittest.TestCase):
     def test_append_last_default_none_preserves_old_positional_calls_and_output(self):
         source = request()
         names = tuple(field.name for field in fields(source))
-        self.assertEqual(names[-4:], ('miscast_continuation', 'stationary_wound_continuation',
-                                     'repeated_leg_spasm_continuation', 'crushed_rib_continuation'))
+        self.assertEqual(names[-5:], ('miscast_continuation', 'stationary_wound_continuation',
+                                      'repeated_leg_spasm_continuation', 'crushed_rib_continuation',
+                                      'battered_leg_continuation'))
         self.assertIsNone(fields(source)[-1].default)
-        arguments = tuple(getattr(source, name) for name in names[:-4])
+        arguments = tuple(getattr(source, name) for name in names[:-5])
         implicit = Request(*arguments)
         self.assertEqual(implicit, source)
         baseline = generation.generate_magic_candidates(implicit)

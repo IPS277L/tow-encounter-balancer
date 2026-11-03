@@ -1,8 +1,12 @@
 # Трассировка правил
 
-## Native Battered Leg: подготовка ADR-0061
+## Battered Leg generation/transport: реализация ADR-0062
 
-2026-11-03: ранее сверенные PG1.4 Characteristics/Skills68–70, Wounds/Conditions121/123 и Wounds Table190/5; GM1.1 Champions92 → [ADR-0061](decisions/ADR-0061-native-battered-leg-continuation.md) → [actual39d10 probe](examples/m8/battered_leg_native_contract_probe.py) → [copied integration test](../tests/integration/test_m8_battered_leg_native_contract_probe.py). Используются существующие consumers59/60; native61 ещё не реализован. Подтверждены independent profile/trace authority, exact pending stop и необходимость future diagnosis при новом injury после success. Нового книжного правила/house rule нет.
+2026-11-03: существующие consumer59/60/native61 и ранее сверенные PG1.4 Characteristics/Skills68–70, Wounds/Conditions121/123, Wounds Table190/5; GM1.1 Champions92 → [контракт62](decisions/ADR-0062-battered-leg-generation-and-magic-json-v6.md) → [generation source/projection](../src/towr/application/magic_candidate_generation_models.py), [shared mapper](../src/towr/adapters/_magic_scenario_json.py), [Simulation6](../src/towr/adapters/magic_simulation_json.py)/[Balance6](../src/towr/adapters/magic_balance_json.py) → [generation unit/integration](../tests/unit/test_m8_battered_leg_generation.py), [wire6 unit](../tests/unit/test_m8_magic_json_v6.py)/[balance6 unit](../tests/unit/test_m8_magic_balance_json_v6.py), [production239d10](examples/m8/battered_leg_transport_contract_probe.py), [приёмка](audits/m8-battered-leg-transport-readiness.md). Передаётся полный authored profile, механика/сфера native61 прежние; generator/codecs сверены с независимым manual oracle. Нового Rule ID/house rule или чтения книги нет.
+
+## Native Battered Leg: реализация ADR-0061
+
+2026-11-03: ранее сверенные PG1.4 Characteristics/Skills68–70, Wounds/Conditions121/123 и Wounds Table190/5; GM1.1 Champions92 → [ADR-0061](decisions/ADR-0061-native-battered-leg-continuation.md) → [policy/history](../src/towr/domain/npc_magic_battered_leg_policy.py), [runner](../src/towr/engine/npc_magic_scenario_runner.py), [Result/diagnosis](../src/towr/domain/npc_magic_scenario_result_models.py) → [21unit](../tests/unit/test_m8_battered_leg_native.py), [15native/boundary integration](../tests/integration/test_m8_battered_leg_native.py), [2copied tests](../tests/integration/test_m8_battered_leg_native_contract_probe.py), [actual228d10](examples/m8/battered_leg_native.py), [приёмка](audits/m8-native-battered-leg-readiness.md). Используются consumers59/60: отдельный profile opt-in, exact journal completion, неизменный None stop и честный scope stop при новом injury. Нового книжного правила/house rule нет.
 
 ## Crushed Rib generation/transport: контракт ADR-0058
 

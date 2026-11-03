@@ -135,7 +135,7 @@ class M8MagicJsonV4Tests(unittest.TestCase):
             with self.assertRaises(error_type) as caught:
                 parse(json.dumps(data))
             self.assertEqual((caught.exception.schema_version, caught.exception.request_id), ('4', data['request_id']))
-            next_version = '6'
+            next_version = '7'
             for version in (next_version, None, False, 4):
                 wrong = dict(data, schema_version=version)
                 with self.assertRaises(error_type) as caught:

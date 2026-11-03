@@ -23,6 +23,12 @@ from towr.domain.npc_magic_crushed_rib_policy import (
     advance_magic_crushed_rib_history, magic_crushed_rib_context,
     magic_crushed_rib_required, _validate_crushed_rib_history,
 )
+from towr.domain.npc_magic_battered_leg_policy import (
+    NpcMagicBatteredLegHistory, initial_magic_battered_leg_history,
+    advance_magic_battered_leg_history, magic_battered_leg_request,
+    magic_battered_leg_scope_mismatch, _validate_battered_leg_history,
+    validate_magic_battered_leg_predecessor,
+)
 from towr.domain.npc_magic_stationary_wound_policy import (
     magic_leg_spasm_stand_family, magic_leg_spasm_stand_eligible, magic_stationary_wound_context,
     magic_stationary_wound_policy_enabled,
@@ -107,12 +113,15 @@ def diagnose_npc_magic_unsupported(
     staged: tuple[CowardlyFlightMovementCompletion, ...] = (),
     *, repeated_history: NpcMagicRepeatedLegSpasmHistory | None = None,
     crushed_rib_history: NpcMagicCrushedRibHistory | None = None,
+    battered_leg_history: NpcMagicBatteredLegHistory | None = None,
+    previous: NpcMagicStep | None = None,
 ) -> NpcMagicUnsupported | None:
     """Recognize a concrete first-boundary stop; never catches constructor errors."""
     if not isinstance(scenario, NpcMagicScenario) or not isinstance(state, NpcRosterCastingState):
         raise TypeError('diagnosis requires typed scenario and full current owner')
     _validate_history(scenario, state, repeated_history)
     _validate_crushed_rib_history(scenario, state, crushed_rib_history)
+    _validate_battered_leg_history(scenario, state, battered_leg_history)
     _identifier(source_id)
     staged = _ordered(staged, CowardlyFlightMovementCompletion, 'staged movements')
     phase = NpcMagicPhase.CONTINUATION
@@ -147,6 +156,8 @@ def diagnose_npc_magic_unsupported(
         return stop(reason.MISCAST_PREPARATION, identifier=state.pending_interruption.action.id)
     if state.champion_attack is not None and state.champion_attack.pending is not None:
         attack = state.champion_attack.pending
+        if magic_battered_leg_request(scenario, state, previous, battered_leg_history) is not None:
+            return None
         return stop(reason.WOUND_EFFECT, actors=(attack.execution.target_id,), identifier=attack.execution.request_id)
     if state.pending_minion_attack is not None:
         attack = state.pending_minion_attack
@@ -168,6 +179,13 @@ def diagnose_npc_magic_unsupported(
         if plan.destination_zone_id is None or not plan.can_leave_zone:
             return stop(reason.MISSING_ROUTE, actors=(mover,), identifier=pending.source.id, prefix=staged)
         return None
+    if magic_battered_leg_scope_mismatch(scenario, state, battered_leg_history):
+        # Actual new injury is retained, but manual60's global execution gate
+        # excludes normal end/scheduling even when the active Minion is healthy.
+        if turn is None or not turn.action_slots[0].executed:
+            raise ValueError('Battered Leg scope mismatch is outside the admitted post-action phase')
+        phase = NpcMagicPhase.END_TURN
+        return stop(reason.END_TURN, actors=(state.wizard.actor_id,))
     if turn is None:
         phase = NpcMagicPhase.SCHEDULING
         live = set(magic_live_ids(state))
@@ -274,6 +292,7 @@ class NpcMagicScenarioResult:
         current = self.source.initial_runtime_state
         repeated_history = initial_magic_repeated_leg_spasm_history(self.source)
         crushed_rib_history = initial_magic_crushed_rib_history(self.source)
+        battered_leg_history = initial_magic_battered_leg_history(self.source)
         seen: set[str] = set()
         previous = None
         for step in steps:
@@ -290,16 +309,20 @@ class NpcMagicScenarioResult:
             seen.update(identifiers)
             validate_magic_step_predecessor(previous, step)
             validate_magic_miscast_predecessor(self.source, previous, step)
+            validate_magic_battered_leg_predecessor(self.source, previous, step)
             validate_magic_step_policy(self.source, step, repeated_history=repeated_history,
-                                       crushed_rib_history=crushed_rib_history)
+                                       crushed_rib_history=crushed_rib_history,
+                                       battered_leg_history=battered_leg_history)
             repeated_history = advance_magic_repeated_leg_spasm_history(self.source, repeated_history, step)
             crushed_rib_history = advance_magic_crushed_rib_history(self.source, crushed_rib_history, step)
+            battered_leg_history = advance_magic_battered_leg_history(self.source, battered_leg_history, step)
             current = step.after
             previous = step
             if current.round_state.round_number > self.source.max_rounds:
                 raise ValueError('journal exceeds the global round budget')
         validate_magic_step_predecessor(previous, None)
         validate_magic_miscast_predecessor(self.source, previous, None)
+        validate_magic_battered_leg_predecessor(self.source, previous, None)
         object.__setattr__(self, '_current', current)
         terminal = npc_magic_terminal_outcome(self.source, current)
         if terminal is not None:
@@ -310,7 +333,9 @@ class NpcMagicScenarioResult:
             staged = self.unsupported.staged_movements if self.unsupported is not None else ()
             expected = diagnose_npc_magic_unsupported(self.source, current, last_id, staged,
                                                      repeated_history=repeated_history,
-                                                     crushed_rib_history=crushed_rib_history)
+                                                     crushed_rib_history=crushed_rib_history,
+                                                     battered_leg_history=battered_leg_history,
+                                                     previous=previous)
             if self.unsupported is None or expected is None or self.unsupported != expected:
                 raise ValueError('journal requires the exact currently unsupported phase/source/diagnosis')
 

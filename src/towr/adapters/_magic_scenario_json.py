@@ -22,7 +22,7 @@ from towr.domain.npc_champion_attack_models import NpcChampionAttackState
 from towr.domain.npc_magic_scenario_models import (
     NpcMagicActorPolicy, NpcMagicCrushedRibPolicy, NpcMagicMiscastContinuationPolicy, NpcMagicPronePolicy,
     NpcMagicScenario, NpcMagicScenarioFacts, NpcMagicStationaryWoundPolicy,
-    NpcMagicRepeatedLegSpasmPolicy,
+    NpcMagicRepeatedLegSpasmPolicy, NpcMagicBatteredLegPolicy,
     validate_npc_magic_scenario_admission,
 )
 from towr.domain.npc_magic_scene_models import (
@@ -96,7 +96,7 @@ def parse_scenario(data: dict, round_budget: int, *, path_prefix: str = '/scenar
 
 
 def _require_schema_version(schema_version: str) -> None:
-    if type(schema_version) is not str or schema_version not in ('1', '2', '3', '4', '5'):
+    if type(schema_version) is not str or schema_version not in ('1', '2', '3', '4', '5', '6'):
         raise ValueError('unsupported magic scenario schema version')
 
 
@@ -166,29 +166,34 @@ def _parse_scenario(data, round_budget, path_prefix, error_type, schema_version)
         spell['rule_id'], spell['lore_id'], spell['casting_value'], SpellTargetKind(spell['target_kind']),
         SpellRange(spell['range']), SpellDuration(spell['duration']))
     continuation = None
-    if schema_version in ('2', '3', '4', '5'):
+    if schema_version in ('2', '3', '4', '5', '6'):
         continuation = parse_miscast_continuation(data['miscast_continuation'],
             path_prefix=f'{path_prefix}/miscast_continuation', error_type=error_type)
     stationary = None
-    if schema_version in ('3', '4', '5'):
+    if schema_version in ('3', '4', '5', '6'):
         stationary = parse_stationary_wound_continuation(data['stationary_wound_continuation'],
             path_prefix=f'{path_prefix}/stationary_wound_continuation', error_type=error_type)
     repeated = None
-    if schema_version in ('4', '5'):
+    if schema_version in ('4', '5', '6'):
         repeated = parse_repeated_leg_spasm_continuation(data['repeated_leg_spasm_continuation'],
             stationary=stationary, path_prefix=f'{path_prefix}/repeated_leg_spasm_continuation',
             error_type=error_type)
     crushed_rib = None
-    if schema_version == '5':
+    if schema_version in ('5', '6'):
         crushed_rib = parse_crushed_rib_continuation(data['crushed_rib_continuation'],
             path_prefix=f'{path_prefix}/crushed_rib_continuation', error_type=error_type)
+    battered_leg = None
+    if schema_version == '6':
+        battered_leg = parse_battered_leg_continuation(data['battered_leg_continuation'],
+            path_prefix=f'{path_prefix}/battered_leg_continuation', error_type=error_type)
     scenario = build(path_prefix, NpcMagicScenario, data['scenario_id'], initial,
         build(f'{path_prefix}/facts', parse_facts, data['facts']), tuple(data['activation_order']), tuple(policies),
         parse_scene_frames(data['scene_frames'], path_prefix=f'{path_prefix}/scene_frames', error_type=error_type),
         CombatSide(data['perspective_side']), NpcDefeatObjective(tuple(data['objective_target_ids'])),
         round_budget, StaggerChoice(data['repeated_stagger_choice']), spell_definition,
         miscast_continuation=continuation, stationary_wound_continuation=stationary,
-        repeated_leg_spasm_continuation=repeated, crushed_rib_continuation=crushed_rib)
+        repeated_leg_spasm_continuation=repeated, crushed_rib_continuation=crushed_rib,
+        battered_leg_continuation=battered_leg)
     return scenario, tuple(definitions)
 
 
@@ -241,6 +246,27 @@ def parse_crushed_rib_continuation(data: str | None, *, path_prefix: str,
     if type(data) is not str:
         raise error_type(Code.INVALID_INPUT, 'Crushed Rib policy requires a string or null', path=path_prefix)
     return build_value(error_type, path_prefix, NpcMagicCrushedRibPolicy, data)
+
+
+def parse_battered_leg_continuation(data: dict | None, *, path_prefix: str,
+        error_type: type[MagicInputError]) -> NpcMagicBatteredLegPolicy | None:
+    """Map an explicit authored profile; no Casting/Protection/default inference."""
+    if data is None:
+        return None
+    if type(data) is not dict:
+        raise error_type(Code.INVALID_INPUT, 'Battered Leg policy requires a profile object or null', path=path_prefix)
+    profile = build_value(error_type, path_prefix + '/endurance_profile', InlineProfile,
+                          **data['endurance_profile'])
+    return build_value(error_type, path_prefix, NpcMagicBatteredLegPolicy, profile)
+
+
+def battered_leg_continuation_document(policy: NpcMagicBatteredLegPolicy | None) -> dict | None:
+    if policy is None:
+        return None
+    if not isinstance(policy, NpcMagicBatteredLegPolicy):
+        raise TypeError('Battered Leg mapping requires a typed policy')
+    replace(policy)
+    return {'endurance_profile': _profile_document(policy.endurance_profile)}
 
 
 def _validate_scenario_policy_types(scenario: NpcMagicScenario) -> None:
@@ -324,17 +350,19 @@ def scenario_document(scenario: NpcMagicScenario, definition_order: tuple[str, .
             'zone_priorities': list(p.zone_priorities)} for p in scenario.actors],
         'scene_frames': scene_frames_document(scenario.scene_frames),
         'repeated_stagger_choice': scenario.repeated_stagger_choice.value}
-    if schema_version in ('2', '3', '4', '5'):
+    if schema_version in ('2', '3', '4', '5', '6'):
         document['miscast_continuation'] = miscast_continuation_document(scenario.miscast_continuation)
-    if schema_version in ('3', '4', '5'):
+    if schema_version in ('3', '4', '5', '6'):
         policy = scenario.stationary_wound_continuation
         document['stationary_wound_continuation'] = None if policy is None else policy.value
-    if schema_version in ('4', '5'):
+    if schema_version in ('4', '5', '6'):
         policy = scenario.repeated_leg_spasm_continuation
         document['repeated_leg_spasm_continuation'] = None if policy is None else policy.value
-    if schema_version == '5':
+    if schema_version in ('5', '6'):
         policy = scenario.crushed_rib_continuation
         document['crushed_rib_continuation'] = None if policy is None else policy.value
+    if schema_version == '6':
+        document['battered_leg_continuation'] = battered_leg_continuation_document(scenario.battered_leg_continuation)
     return document
 
 
@@ -342,11 +370,16 @@ def validate_scenario_wire_permissions(scenario: NpcMagicScenario, schema_versio
     """Reject lossy versions before projecting definitions or result catalogs."""
     _require_schema_version(schema_version)
     _validate_scenario_policy_types(scenario)
-    if schema_version != '5' and scenario.crushed_rib_continuation is not None:
+    # Only v6 can carry the complete authored Endurance profile.
+    from towr.domain.npc_magic_scenario_models import _validate_magic_scenario_permissions
+    _validate_magic_scenario_permissions(scenario)
+    if schema_version != '6' and scenario.battered_leg_continuation is not None:
+        raise ValueError('Battered Leg continuation cannot be represented losslessly by magic JSON v1/v2/v3/v4/v5')
+    if schema_version not in ('5', '6') and scenario.crushed_rib_continuation is not None:
         raise ValueError('Crushed Rib continuation cannot be represented losslessly by magic JSON v1/v2/v3/v4')
-    if schema_version not in ('4', '5') and scenario.repeated_leg_spasm_continuation is not None:
+    if schema_version not in ('4', '5', '6') and scenario.repeated_leg_spasm_continuation is not None:
         raise ValueError('repeated Leg Spasm continuation cannot be represented losslessly by magic JSON v1/v2/v3')
-    if schema_version not in ('3', '4', '5') and scenario.stationary_wound_continuation is not None:
+    if schema_version not in ('3', '4', '5', '6') and scenario.stationary_wound_continuation is not None:
         raise ValueError('stationary Wound continuation cannot be represented losslessly by magic JSON v1/v2')
     if schema_version == '1' and scenario.miscast_continuation is not None:
         raise ValueError('Miscast continuation opt-in cannot be represented losslessly by magic JSON v1')

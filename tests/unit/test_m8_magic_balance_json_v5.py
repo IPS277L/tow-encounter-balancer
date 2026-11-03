@@ -87,7 +87,7 @@ class M8MagicBalanceJsonV5Tests(unittest.TestCase):
                 bal.parse_magic_balance_request(json.dumps(raw))
             self.assertEqual(caught.exception.schema_version, '5')
         with self.assertRaises(MagicBalanceInputError) as caught:
-            bal.parse_magic_balance_request(json.dumps(dict(document(crushed=True), schema_version='6')))
+            bal.parse_magic_balance_request(json.dumps(dict(document(crushed=True), schema_version='7')))
         self.assertEqual((caught.exception.schema_version, caught.exception.request_id, caught.exception.code,
                           caught.exception.path), ('1', document()['request_id'], Code.UNSUPPORTED_VERSION,
                                                     '/schema_version'))

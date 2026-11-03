@@ -1,5 +1,13 @@
 # Реестр источников
 
+## Battered Leg generation/JSON6: ADR-0062
+
+2026-11-03: [реализация62](decisions/ADR-0062-battered-leg-generation-and-magic-json-v6.md) передаёт existing native61 permission с полным authored Endurance profile, не меняя Test/Prone механику. Наследуются PG1.4 Characteristics/Skills68–70, Wounds/Conditions121/123 и Wounds Table190/5, GM1.1 Champions92. Нового чтения PDF/извлечений, версии/hash, Rule ID или house rule нет. [Трассировка](rule-traceability.md) и [приёмка](audits/m8-battered-leg-transport-readiness.md) связывают source с generation/codec/tests.
+
+## Native Battered Leg: ADR-0061
+
+2026-11-03: [native реализация61](decisions/ADR-0061-native-battered-leg-continuation.md) наследует сверку59/60: BOOK-PLAYER-GUIDE1.4 Characteristics/Skills68–70, Wounds/Conditions121/123, Wounds Table190/5; BOOK-GM-GUIDE1.1 Champions92. Профиль остаётся authored, теперь в Scenario permission; механика Test/Prone прежняя. Нового чтения PDF/извлечений, версии/hash, Rule ID или house rule нет. Source-to-code/tests обновлены в [трассировке](rule-traceability.md), проверка — в [аудите](audits/m8-native-battered-leg-readiness.md).
+
 ## Battered Leg full-owner bridge: ADR-0060
 
 2026-11-03: наследуется адресная сверка59. Повторно прочитаны локальные extracted BOOK-PLAYER-GUIDE1.4 Wounds Table190/строка5 и Conditions/Prone123, BOOK-GM-GUIDE1.1 Allies and Antagonists/Champions92. Endurance profile/Characteristic основания68–70 сохранены из59. [ADR-0060](decisions/ADR-0060-battered-leg-owner-bridge.md) меняет инженерное связывание pending/owner, не книжную механику. Нового PDF/полного чтения/версии/hash/Rule ID/house rule нет.

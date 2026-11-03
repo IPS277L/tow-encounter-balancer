@@ -10,7 +10,9 @@
 
 ## Архитектура и контракты
 
-[ADR-0061](decisions/ADR-0061-native-battered-leg-continuation.md) — подготовленный контракт native Battered Leg: отдельное разрешение с authored Endurance profile, exact recorded completion и честный stop при новом последствии вне scope60. [Probe39d10](examples/m8/battered_leg_native_contract_probe.py) и [copied test](../tests/integration/test_m8_battered_leg_native_contract_probe.py) проверяют actual native prefix/manual60; реализация61 ещё не начата.
+[ADR-0062](decisions/ADR-0062-battered-leg-generation-and-magic-json-v6.md) реализует matching Battered Leg family/profile и обе JSON6 families. [Production239d10](examples/m8/battered_leg_transport_contract_probe.py) сверяет actual generator/codec/source echo с независимым oracle; [copied test](../tests/integration/test_m8_battered_leg_transport_contract_probe.py), [приёмка](audits/m8-battered-leg-transport-readiness.md). Native61 injury scope прежний; JSON1–5 не теряют новое разрешение молча.
+
+[ADR-0061](decisions/ADR-0061-native-battered-leg-continuation.md) реализует native Battered Leg: отдельное разрешение с authored Endurance profile, exact recorded completion и честный stop при новом последствии вне scope60. [Автоматический пример228d10](examples/m8/battered_leg_native.py), [finite probe39d10](examples/m8/battered_leg_native_contract_probe.py), [приёмка](audits/m8-native-battered-leg-readiness.md). Generation и JSON1–5 сохраняют lossless refusal нового разрешения.
 
 [ADR-0060](decisions/ADR-0060-battered-leg-owner-bridge.md) закрыт: ручной M8 Battered Leg bridge, bounded completion witness и сохранность action/daily/roll histories. [Приёмка](audits/m8-battered-leg-owner-readiness.md):4254tests OK, installed15new checks и488file parity. Автоматический runner остаётся отдельной вехой.
 

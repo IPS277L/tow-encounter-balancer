@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:towr:magic-balance:error:6",
+  "$comment": "ADR-0062: full authored Battered Leg profile, required nullable permission, fresh sources only; bundled fragments remain unchanged.",
+  "type": "object",
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "6"
+    },
+    "kind": {
+      "$ref": "urn:towr:magic-balance:error:1#/properties/kind"
+    },
+    "request_id": {
+      "$ref": "urn:towr:magic-balance:error:1#/properties/request_id"
+    },
+    "error": {
+      "$ref": "urn:towr:magic-balance:error:1#/properties/error"
+    }
+  },
+  "required": [
+    "schema_version",
+    "kind",
+    "request_id",
+    "error"
+  ],
+  "additionalProperties": false
+}

@@ -24,8 +24,8 @@ class M8MagicJsonV5SchemaTests(unittest.TestCase):
             (uri, Resource.from_contents(schema)) for uri, schema in cls.documents.items())
 
     def test_three_new_schemas_and_all_transitive_refs_are_bundled(self):
-        self.assertEqual(len(self.documents), 48)
-        self.assertEqual(sum(uri.startswith('urn:towr:magic-') for uri in self.documents), 30)
+        self.assertEqual(len(self.documents), 54)
+        self.assertEqual(sum(uri.startswith('urn:towr:magic-') for uri in self.documents), 36)
         for uri, schema in self.documents.items():
             Draft202012Validator.check_schema(schema)
             for ref in self._refs(schema):
@@ -66,7 +66,7 @@ class M8MagicJsonV5SchemaTests(unittest.TestCase):
             'magic-simulation-error-v5.schema.json').read_text(encoding='utf-8'))
         self.assertEqual(result['properties']['request']['$ref'], 'urn:towr:magic-simulation:request:5')
         self.assertEqual(example['properties']['schema_version']['const'], '5')
-        self.assertEqual(production._validator.cache_info().maxsize, 30)
+        self.assertEqual(production._validator.cache_info().maxsize, 36)
         for kind in ('request', 'result', 'error'):
             validator = production._validator(kind, 'simulation', '5')
             for uri, resource in validator._registry.items():

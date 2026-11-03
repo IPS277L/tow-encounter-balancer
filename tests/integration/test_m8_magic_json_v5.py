@@ -25,12 +25,11 @@ class M8MagicJsonV5IntegrationTests(unittest.TestCase):
         self.assertEqual(output['request']['scenario']['crushed_rib_continuation'],
                          'next_test_with_journal_witnesses')
 
-    def test_simulation_and_balance_help_reflect_v5(self):
+    def test_simulation_and_balance_help_reflect_supported_magic_versions(self):
         completed = invoke('-h')
         self.assertEqual(completed.returncode, 0, completed.stderr)
-        self.assertIn(b'v1/v2/v3/v4/v5 request', completed.stdout)
-        self.assertIn(b'v1/v2/v3/v4/v5 request', completed.stdout)
-        self.assertEqual(completed.stdout.count(b'v5'), 2)
+        normalized = b' '.join(completed.stdout.split())
+        self.assertEqual(normalized.count(b'v1/v2/v3/v4/v5/v6 request'), 2)
 
 
 if __name__ == '__main__':

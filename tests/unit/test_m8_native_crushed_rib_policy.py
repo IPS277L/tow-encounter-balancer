@@ -53,8 +53,8 @@ def casting_prefix():
 class NativeCrushedRibPolicyTests(unittest.TestCase):
     def test_append_last_and_twelve_independent_permission_combinations(self):
         source = admitted()
-        self.assertEqual(fields(NpcMagicScenario)[-1].name, 'crushed_rib_continuation')
-        old_values = tuple(getattr(source, f.name) for f in fields(source)[:-1])
+        self.assertEqual(fields(NpcMagicScenario)[-2].name, 'crushed_rib_continuation')
+        old_values = tuple(getattr(source, f.name) for f in fields(source)[:-2])
         self.assertEqual(NpcMagicScenario(*old_values), source)
         valid = invalid = 0
         for miscast, stationary, repeated, crushed in product((False, True), repeat=4):

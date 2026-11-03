@@ -4,32 +4,30 @@
 
 ## Текущий этап
 
-**Контракт ADR-0061 подготовлен; native реализация ещё не начата.** Он задаёт отдельное разрешение с authored Wizard Endurance profile, exact recorded completion и диагностику нового injury вне scope60. [Контракт](decisions/ADR-0061-native-battered-leg-continuation.md), [actual39d10 probe](examples/m8/battered_leg_native_contract_probe.py).
-
-Ручной full-owner bridge [ADR-0060](decisions/ADR-0060-battered-leg-owner-bridge.md) закрыт; его [приёмка](audits/m8-battered-leg-owner-readiness.md) остаётся базой. Production domain/engine/adapters и schemas на шаге подготовки61 не менялись.
+**ADR-0062 завершён.** Generation передаёт полный authored Endurance profile через matching family, обе JSON6 families сохраняют full source/echo/error identity. Native61 domain/engine и injury scope прежние. [Контракт](decisions/ADR-0062-battered-leg-generation-and-magic-json-v6.md), [приёмка](audits/m8-battered-leg-transport-readiness.md), [production239d10](examples/m8/battered_leg_transport_contract_probe.py).
 
 ## Последняя проверка
 
-Подготовка61: **77 tests, OK** — новый copied public probe и76 existing owner/Scenario/Result checks. Probe прошёл source и copied installed `python -I` execution;39scripted d10, sources/global RNG неизменны. Независимое read-only ревью проверило actor/source/history, scope mismatch и death boundary.
+Новые47targeted checks прошли; generation/schema/JSON legacy checks также успешны. Production proof:98actual JSON6 parses/full echoes,97matching candidates и239scripted d10/native real spawn сверены с независимым oracle; seeded balance2trials отдельно.
 
-Последний полный regression — после0060: **4254 tests, OK**, 0 errors/failures/skips, Windows x64/Python3.12.4,1791.097s. Лог `.adr60-full.log`. Полный набор с новым probe не запускался; повторный full/новый wheel audit предусмотрены при реализации native61.
+Full4340tests за1519.165s:4339passed/0failures/1ERROR в старом copied ADR54 probe, где6 считалась неизвестной версией. Sentinel исправлен на7; этот test повторён успешно за5.437s. Все4340test IDs закрыты **составно**; исходный full не зелёный. Затем изменены только две строки CLI help и соответствующий test: source1/1OK,1.162s; нового full финального tree не заявляется.
 
-Повторная сверка прежнего offline wheel60: **488 Python/JSON files** source/wheel/installed совпали по путям/SHA-256. Markdown file links:193files/4672links/0missing; `git diff --check` OK. Свежий wheel для документационного шага не собирался; последний pip check — OK из аудита60.
+Offline installed audit:47new copied checks OK/144.230s. Финальный wheel после help fix: **495 Python/JSON files** source/wheel/installed совпали, pip check OK;54schemas/36magic/573offline refs/cache36. Дополнительно11installed checks OK/49.657s:9CLI6 + help + исправленный ADR54 probe. AST сравнение подтвердило, что между wheels изменены только два help literals. Финальный installed public proof и8module/console×sequential/process JSON6 commands прошли без PYTHONPATH/src. Подробности и SHA — в приёмке62.
 
 Проверенные команды текущего шага:
 
 ```powershell
 $env:PYTHONPATH = 'src'
-.venv/Scripts/python.exe -m unittest tests.unit.test_m8_battered_leg_owner tests.integration.test_m8_battered_leg_owner tests.unit.test_m8_npc_magic_scenario tests.unit.test_m8_npc_magic_scenario_result tests.integration.test_m8_npc_magic_scenario_result -v
-.venv/Scripts/python.exe -m unittest tests.integration.test_m8_battered_leg_native_contract_probe -v
+.venv/Scripts/python.exe -m unittest tests.integration.test_m8_battered_leg_transport_contract_probe -v
+.venv/Scripts/python.exe -m unittest discover -s tests -v
 ```
 
 ## Ограничения
 
-Первая rolled5 от ordinary wounding enemy Attack, resolved/untreated/unhealed; normal Test без modifiers, explicit unmounted/no-external-Conditions facts. Сейчас Endurance profile предоставляет manual caller; native Step union всё ещё отвергает completion60. Failure сохраняет sourced Prone без removal consumer. После success новое actual Staggered/Wound сохраняется, но выходит за exact-injury scope60: существующий native diagnosis может вернуть None, затем normal factory отказывает.61 должен диагностировать эту ветвь до factory, сохранив mandatory tails/receipt. Native permission/runner/journal и generation/wire пока не реализованы.
+Первая rolled5 от ordinary wounding enemy Attack, resolved/untreated/unhealed; normal Test без modifiers, explicit unmounted/no-external-Conditions facts. None сохраняет pending stop. Failure сохраняет sourced Prone без removal consumer. Новые Staggered/Wounds после success ограничивают exact-injury scope60; actual death до этого stop недостижима. Generation требует matching family/profile, JSON1–5 новое поле не представляют. Treatment/healing/mixed injuries/save-resume не открыты.
 
 ## Точный следующий шаг
 
-Реализовать этап1 ADR-0061: append-last `battered_leg_continuation` с authored InlineProfile, shared admission, bounded history, completion60 в Step union и exact predecessor/journal/None guards. Затем самостоятельно пройти runner/diagnosis → native integrations/refusals → полный аудит по roadmap. Профиль не выводить из Casting; Test actor — Wizard при активном Minion turn. Prone5 removal и generation/wire — отдельные этапы.
+Адресно сверить Free Actions/Prone в книгах и подготовить отдельный full-owner контракт снятия sourced Prone5 после провала Endurance, с сохранением Wound/completion/history. Зафиксировать допустимый источник действия, порядок применения и границу существующего exact-injury gate60 до реализации. Это следующая веха; transport62 её не открывает.
 
 Изменения остаются незакоммиченными. Commit/push выполняет пользователь; книги и `.gitignore` не менялись.

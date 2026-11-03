@@ -11,10 +11,16 @@ import unittest
 
 class BatteredLegNativeContractProbeTests(unittest.TestCase):
     def test_copied_public_bundle_matches_saved_stdout_without_source_mutation(self):
+        self.run_bundle('battered_leg_native_contract_probe')
+
+    def test_copied_automatic_native_bundle_matches_saved_stdout_without_source_mutation(self):
+        self.run_bundle('battered_leg_native')
+
+    def run_bundle(self, name):
         root = Path(__file__).resolve().parents[2]
         examples = root / 'docs/examples/m8'
-        names = ('battered_leg_native_contract_probe.py', 'magic_scenario.py')
-        expected = examples / 'battered_leg_native_contract_probe.output.txt'
+        names = (name + '.py', 'magic_scenario.py')
+        expected = examples / (name + '.output.txt')
         hashed = (*names, expected.name)
         before = {name: hashlib.sha256((examples / name).read_bytes()).hexdigest() for name in hashed}
         cache = root / '.cache'

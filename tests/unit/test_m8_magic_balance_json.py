@@ -179,10 +179,10 @@ class M8MagicBalanceJsonTests(unittest.TestCase):
                 parse(raw)
 
     def test_versions_kind_ruleset_and_external_request_context(self):
-        for field, value in (('schema_version', '6'), ('schema_version', 1),
+        for field, value in (('schema_version', '7'), ('schema_version', 1),
                 ('kind', 'npc_magic_simulation'), ('kind', 'npc_mixed_balance'), ('ruleset', 'other')):
             data = dict(document(), **{field: value})
-            error = self.invalid(data, Code.UNSUPPORTED_VERSION if value == '6' else Code.INVALID_INPUT)
+            error = self.invalid(data, Code.UNSUPPORTED_VERSION if value == '7' else Code.INVALID_INPUT)
             self.assertEqual(error.path, '/' + field)
             self.assertEqual(error.request_id, data['request_id'])
         for value in ('', ' \t', None, 1):

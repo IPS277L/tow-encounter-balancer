@@ -1,0 +1,13 @@
+NONE: 7d10; unsupported_path; pending_wound_effect; full owners/receipts retained
+NONE WITH MISCAST: 7d10; unsupported_path; pending_wound_effect; full owners/receipts retained
+SUCCESS: 18d10; round_limit_reached; completed round; full owners/receipts retained
+FAILURE: 9d10; unsupported_path; unsupported_actor_injury; full owners/receipts retained
+FAILURE WITH MISCAST: 9d10; unsupported_path; unsupported_actor_injury; full owners/receipts retained
+LATER STAGGERED: 24d10; unsupported_path; unsupported_end_turn; full owners/receipts retained
+LATER SUPERFICIAL: 26d10; unsupported_path; unsupported_end_turn; full owners/receipts retained
+LATER PENDING WOUND4: 26d10; unsupported_path; pending_wound_effect; full owners/receipts retained
+COMPLETED WIZARD SUCCESS: 18d10; round_limit_reached; completed round; full owners/receipts retained
+COMPLETED WIZARD FAILURE: 18d10; round_limit_reached; completed round; full owners/receipts retained
+LATER MISCAST PENDING: 12d10; unsupported_path; miscast_preparation; full owners/receipts retained
+NATIVE sequential/real spawn: equal full source, seed records and summary; round limit + unsupported both in denominator2
+228 scripted d10; actual native runner/completion60 and mass APIs; immutable sources/global RNG; generation and JSON1-5 remain separate

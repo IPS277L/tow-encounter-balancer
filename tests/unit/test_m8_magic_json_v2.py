@@ -199,7 +199,7 @@ class M8MagicJsonV2Tests(unittest.TestCase):
             self.assertIsNone(output['request_id'])
 
     def test_decoded_version_boundary_and_request_id_trust(self):
-        for version in (None, False, 2, [], {}, '', '6'):
+        for version in (None, False, 2, [], {}, '', '7'):
             data = dict(document(), schema_version=version)
             with self.subTest(version=version):
                 error = self.assert_invalid(data, version='1', path='/schema_version',
@@ -229,7 +229,7 @@ class M8MagicJsonV2Tests(unittest.TestCase):
             validate(data, kind, schema_version='2')
             with self.assertRaises(ValidationError):
                 validate(data, kind)
-        for version in (None, False, 2, '', '6', [], {}):
+        for version in (None, False, 2, '', '7', [], {}):
             with self.subTest(version=version), self.assertRaises(ValueError):
                 validate({}, schema_version=version)
         with self.assertRaises(ValueError):
@@ -266,7 +266,7 @@ class M8MagicJsonV2Tests(unittest.TestCase):
         self.assertEqual(pickle.loads(pickle.dumps(command)), command)
         with self.assertRaises(FrozenInstanceError):
             command.schema_version = '1'
-        for value in (None, 1, 2, True, '', '6', [], {}):
+        for value in (None, 1, 2, True, '', '7', [], {}):
             with self.subTest(value=value), self.assertRaises((TypeError, ValueError)):
                 replace(command, schema_version=value)
 

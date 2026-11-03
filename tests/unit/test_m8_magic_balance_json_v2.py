@@ -179,7 +179,7 @@ class M8MagicBalanceJsonV2Tests(unittest.TestCase):
             self.assertEqual(output['schema_version'], '1')
 
     def test_decoded_version_and_request_id_trust_boundary(self):
-        for version in (None, False, 2, [], {}, '', '6'):
+        for version in (None, False, 2, [], {}, '', '7'):
             error = self.invalid(dict(document(), schema_version=version), version='1', path='/schema_version',
                 code=Code.UNSUPPORTED_VERSION if isinstance(version, str) else Code.INVALID_INPUT)
             self.assertEqual(error.request_id, document()['request_id'])
@@ -201,7 +201,7 @@ class M8MagicBalanceJsonV2Tests(unittest.TestCase):
             validate(data, kind, schema_version='2')
             with self.assertRaises(ValidationError):
                 validate(data, kind)
-        for version in (None, False, 2, '', '6', [], {}):
+        for version in (None, False, 2, '', '7', [], {}):
             with self.assertRaises(ValueError):
                 validate({}, schema_version=version)
         with self.assertRaises(ValueError):
@@ -244,7 +244,7 @@ class M8MagicBalanceJsonV2Tests(unittest.TestCase):
             for version in ('1', '2'):
                 error = constructor(*args, schema_version=version)
                 self.assertEqual(json.loads(encode_error(error))['schema_version'], version)
-        for version in (None, 1, 2, True, '', '6', [], {}):
+        for version in (None, 1, 2, True, '', '7', [], {}):
             with self.assertRaises((TypeError, ValueError)):
                 replace(command, schema_version=version)
             for constructor, args in constructors:

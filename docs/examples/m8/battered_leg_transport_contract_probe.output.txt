@@ -1,0 +1,7 @@
+PRODUCTION62: 24valid/8invalid permissions; 96 full-source JSON6 parses/echoes and 96 actual3/4-actor candidates match independent manual oracles across both sides; 4 genuine None controls retained
+WIZARD-OPPOSITE CONTROL: all five actors retained; actual None and matching-profile candidates plus 2 production JSON6 parses agree with full-source oracle; fixed Minions retained
+LOSSLESS GATES: missing family assertion refused before collections; all old encoders1-5 refuse selected profile; 10 genuine old decoders reject isolated new key even null
+PROFILE CONTRACT: production6 rejects raw/bool/float/cap and family dice/threshold mismatches; full-fixture oracle rejects source substitution; authored1d/5 and11d/5 retained
+ACTUAL NATIVE61: 8 success/failure paths on manual3/4-actor subsets, both sides, exact profile/receipt; normal1d/5 succeeds on5 without a prototype-only threshold rule
+PRODUCTION RESULTS6: full simulation request/summary echo and seeded balance generation/stage/report echo reconstruct exact commands; balance2trials retained separately from scripted draw count
+239 scripted d10; actual generation62/JSON6 plus native61 sequential/real spawn preserve source/seeds/denominator2 and global RNG; independent finite oracles remain separate

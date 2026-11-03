@@ -1,5 +1,13 @@
 # Противоречия и неоднозначности
 
+## Battered Leg delivery: ADR-0062
+
+2026-11-03: [generation/JSON6](decisions/ADR-0062-battered-leg-generation-and-magic-json-v6.md) сохраняют полный authored Endurance profile и native61 scope. Допустимые профили1d/5 и11d/5 передаются с прежней семантикой normal kernel. Это delivery уже сверенных правил59–61, нового книжного противоречия/house rule нет. Истории боя и снятие sourced Prone5 не добавлены в wire.
+
+## Native Battered Leg: профиль и scope, ADR-0061
+
+2026-11-03: [ADR-0061](decisions/ADR-0061-native-battered-leg-continuation.md) подключает прежний обязательный Endurance Test при отдельном authored profile opt-in. Нового противоречия/house rule нет: failure сохраняет sourced Prone; несовместимые новые последствия не удаляются ради продолжения. Native scope ограничен первой5 и точной injury60; последующая травма даёт честный stop после mandatory tails. Свойство достижимости: второй Wound после solefirst5 бросает2d10 (максимум20), поэтому actual native death до scope stop не заявляется проверенной.
+
 ## Battered Leg: обязательный Test и owner admission, ADR-0060
 
 2026-11-03: PG1.4 Wounds Table190/5 требует Endurance Test; GM1.1 Champions92 применяет таблицу к Champion. Неизменность injury на success не означает, что Test можно пропустить: новый completion witness отличает успешную проверку от удаления pending. Это техническое закрытие admission gap. Numeric Endurance profile задаёт caller, unmounted/no-external-Conditions facts ограничивают support; нового house rule или книжного противоречия нет. Failure Prone остаётся с источником, без неявного лечения или stand.

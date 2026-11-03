@@ -83,7 +83,7 @@ class M8MagicJsonV5Tests(unittest.TestCase):
         output = json.loads(sim.encode_magic_simulation_result(replace(legacy, schema_version='4'), summary(legacy)))
         self.assertNotIn(FIELD, output['request']['scenario'])
         with self.assertRaises(MagicSimulationInputError) as caught:
-            sim.parse_magic_simulation_request(json.dumps(dict(document(), schema_version='6')))
+            sim.parse_magic_simulation_request(json.dumps(dict(document(), schema_version='7')))
         self.assertEqual((caught.exception.code, caught.exception.path,
                           caught.exception.schema_version, caught.exception.request_id),
                          (Code.UNSUPPORTED_VERSION, '/schema_version', '1', document()['request_id']))
