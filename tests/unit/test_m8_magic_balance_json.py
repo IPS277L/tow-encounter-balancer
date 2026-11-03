@@ -5,7 +5,6 @@ from dataclasses import FrozenInstanceError, replace
 from fractions import Fraction
 from importlib.resources import files
 import json
-from pathlib import Path
 import pickle
 import random
 import unittest
@@ -15,6 +14,7 @@ from jsonschema import Draft202012Validator, ValidationError
 
 from tests.unit.test_m4_ranged_json import at, object_paths
 from tests.unit.test_m8_miscast_continuation_policy import continuation_policy
+from tests.support.magic_json_fixtures import load_magic_fixture
 from towr.adapters._magic_scenario_json import scenario_document
 from towr.adapters.magic_balance_json import parse_magic_balance_request as parse, encode_magic_balance_result as encode
 from towr.adapters.magic_json_errors import MagicBalanceInputError, MagicSimulationInputError
@@ -33,11 +33,8 @@ from towr.simulation.npc_magic_models import NpcMagicOutcomeCounts
 from towr.simulation.npc_magic_summary_models import NpcMagicSimulationSummary
 
 
-EXAMPLES = Path(__file__).resolve().parents[2] / 'docs/examples/m8/json'
-
-
 def document():
-    return json.loads((EXAMPLES / 'magic-balance.request.json').read_text(encoding='utf-8'))
+    return load_magic_fixture('balance')
 
 
 def make_result(command, counts=None):
@@ -431,7 +428,7 @@ class M8MagicBalanceJsonTests(unittest.TestCase):
         self.assertEqual(output['stage_reports'][0]['continuation_candidate_ids'], [])
 
     def test_saved_result_projects_exact_native_aggregates_without_sampling(self):
-        expected = json.loads((EXAMPLES / 'magic-balance.result.json').read_text(encoding='utf-8'))
+        expected = load_magic_fixture('balance', 'result')
         command = parse(json.dumps(expected['request'])); generated = generate_magic_candidates(command.generation_request)
         source, candidates, reports = generated.evaluation_request, generated.evaluation_request.candidates, []
         for index, raw in enumerate(expected['stage_reports']):

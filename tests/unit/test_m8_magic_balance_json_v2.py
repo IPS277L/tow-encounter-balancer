@@ -13,9 +13,9 @@ from jsonschema import Draft202012Validator, ValidationError
 
 from tests.unit.test_m4_ranged_json import at, object_paths
 from tests.unit.test_m8_magic_balance_json import (
-    document as legacy_document, generation_failure_document, make_result,
+    generation_failure_document, make_result,
 )
-from tests.unit.test_m8_magic_json_v2 import policy_document
+from tests.support.magic_json_fixtures import balance_document, miscast_policy_document as policy_document
 from tests.unit.test_m8_miscast_continuation_policy import continuation_policy
 from towr.adapters.magic_balance_json import (
     encode_magic_balance_error as encode_error,
@@ -34,11 +34,7 @@ from towr.application.ranged_simulation_models import SimulationExecutionMode as
 
 
 def document(*, opted=True, source=None):
-    data = deepcopy(legacy_document() if source is None else source)
-    data['schema_version'] = '6'
-    data['reserve']['scenario']['miscast_continuation'] = policy_document() if opted else None
-    data['generation']['miscast_continuation'] = policy_document() if opted else None
-    return data
+    return balance_document(miscast=opted, source=source)
 
 
 class M8MagicBalanceJsonV2Tests(unittest.TestCase):
@@ -172,7 +168,7 @@ class M8MagicBalanceJsonV2Tests(unittest.TestCase):
 
 
     def test_command_and_errors_append_version_keep_defaults_and_reject_other_types(self):
-        old = parse(json.dumps(legacy_document()))
+        old = parse(json.dumps(document(opted=False)))
         self.assertEqual(fields(MagicBalanceCommand)[-1].name, 'schema_version')
         self.assertEqual(MagicBalanceCommand(old.request_id, old.generation_request, old.execution, old.definition_order), old)
         command = parse(json.dumps(document()))

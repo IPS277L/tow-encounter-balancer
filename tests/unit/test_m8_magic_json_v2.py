@@ -11,9 +11,10 @@ from unittest.mock import patch
 from jsonschema import Draft202012Validator, ValidationError
 
 from tests.unit.test_m4_ranged_json import at, object_paths
-from tests.unit.test_m8_magic_json import document as legacy_document, summary
+from tests.unit.test_m8_magic_json import summary
 from tests.unit.test_m8_magic_simulation_service import result_for
 from tests.unit.test_m8_miscast_continuation_policy import continuation_policy
+from tests.support.magic_json_fixtures import miscast_policy_document, simulation_document
 from towr.adapters.magic_json_errors import MagicBalanceInputError, MagicSimulationInputError
 from towr.adapters.magic_balance_json import encode_magic_balance_error
 from towr.adapters.magic_json_schema import validate_magic_simulation_document as validate
@@ -30,24 +31,11 @@ from towr.application.ranged_simulation_models import SimulationExecutionMode as
 
 
 def policy_document():
-    return {
-        'choice': 'decline_cast_before_miscast',
-        'facts': {
-            'all_combatants_in_roster': True,
-            'no_external_short_range_creatures': True,
-            'unmounted_combatants_only': True,
-            'no_effect_immunities': True,
-            'no_cross_zone_close': True,
-        },
-        'prone_policy': 'self_stand_when_safe',
-    }
+    return miscast_policy_document()
 
 
 def document(*, opted=True):
-    data = legacy_document()
-    data['schema_version'] = '6'
-    data['scenario']['miscast_continuation'] = policy_document() if opted else None
-    return data
+    return simulation_document(miscast=opted)
 
 
 class M8MagicJsonV2Tests(unittest.TestCase):
@@ -193,7 +181,7 @@ class M8MagicJsonV2Tests(unittest.TestCase):
 
 
     def test_command_metadata_is_appended_typed_frozen_and_pickle_safe(self):
-        legacy = parse(json.dumps(legacy_document()))
+        legacy = parse(json.dumps(document(opted=False)))
         self.assertEqual(fields(MagicSimulationCommand)[-1].name, 'schema_version')
         self.assertEqual(MagicSimulationCommand(legacy.request_id, legacy.request,
             legacy.execution, legacy.definition_order), legacy)

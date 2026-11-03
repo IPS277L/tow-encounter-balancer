@@ -1,195 +1,44 @@
 # TOWR Encounter Balancer
 
-**Актуальный внешний формат Magic — только JSON6.** Обратная совместимость с форматами разработки удалена по [ADR-0063](docs/decisions/ADR-0063-single-current-magic-contract.md). Прежние ADR и аудиты ниже описывают историю; текущие запросы и команды — в [JSON-примерах](docs/examples/m8/json/README.md).
+Симулятор боёв и подбор сложности столкновений для TOWR. Нормативные источники: Player’s Guide1.4 и Gamemaster’s Guide1.1; упрощённый прототип не имеет приоритета над книгами.
 
-[ADR-0062](docs/decisions/ADR-0062-battered-leg-generation-and-magic-json-v6.md) передаёт Battered Leg и полный authored Endurance profile через matching generation family и обе Magic JSON6 families. [Production proof](docs/examples/m8/battered_leg_transport_contract_probe.py) сверяет генератор/кодеки с независимым oracle; публичные [simulation](docs/examples/m8/json/magic-simulation-v6.request.json) и [balance](docs/examples/m8/json/magic-balance-v6.request.json) requests готовы. Текущая приёмка — в [статусе](docs/project-status.md).
+Реализованы ограниченные ranged/melee/mixed Minion-сценарии и M8 с одним Champion-Wizard, Curse of Cowardly Flight и явно разрешёнными продолжениями. Есть независимые sequential/process прогоны, агрегаты и подбор составов. Универсальный бой и полный каталог правил ещё не готовы; точные ограничения и следующий шаг — в [статусе](docs/project-status.md).
 
-[ADR-0061](docs/decisions/ADR-0061-native-battered-leg-continuation.md) подключает Battered Leg к native runner: отдельное разрешение с authored Endurance profile и проверка completion по собственному журналу. [Автоматический пример](docs/examples/m8/battered_leg_native.py) проверяет success/failure, новые последствия и sequential/spawn. Текущая приёмка — в [статусе](docs/project-status.md).
+## Начало работы
 
-[ADR-0060](docs/decisions/ADR-0060-battered-leg-owner-bridge.md) добавляет ручной M8 Battered Leg переход: явный Endurance profile, exact pending Attack, сохранение обоих child owners и completion witness. Итоговая проверка — в [статусе](docs/project-status.md).
+Для новой сессии: [AGENTS.md](AGENTS.md), этот README, [статус](docs/project-status.md) и [индекс вопросов](docs/open-questions.md). Далее читать материалы своей задачи по [карте документации](docs/README.md). Хронология находится в [архиве](docs/archive/README.md).
 
-[ADR-0059](docs/decisions/ADR-0059-battered-leg-endurance-test.md) реализует K1 Endurance follow-up для первой Battered Leg: явный профиль, normal Test и unmounted actor; failure добавляет Prone. Границы и следующий M8 шаг — в [статусе](docs/project-status.md).
-
-Закрыт [ADR-0058](docs/decisions/ADR-0058-crushed-rib-generation-and-magic-json-v5.md): matching family permission сохраняется в generated candidates, а `simulate-magic` и `balance-magic` читают/пишут полное nullable Crushed Rib разрешение. [Contract probe](docs/examples/m8/crushed_rib_transport_contract_probe.py) проверяет generation и native APIs; публичные [simulation](docs/examples/m8/json/magic-simulation.request.json) и [balance](docs/examples/m8/json/magic-balance.request.json) requests проходят реальные CLI. [Итоговый wheel/installed/full audit](docs/audits/m8-crushed-rib-transport-readiness.md) закрыт; точка продолжения — в [project status](docs/project-status.md).
-
-Реализован [ADR-0057](docs/decisions/ADR-0057-native-crushed-rib-continuation.md): native Crushed Rib с отдельным разрешением и подтверждением расхода из собственного журнала. [Actual274d10](docs/examples/m8/crushed_rib_native.py) проверяет Casting/Protection-first, обязательные последствия и настоящий spawn. [Приёмка](docs/audits/m8-native-crushed-rib-readiness.md) фиксирует installed/full проверки. ADR-0058 подключил разрешение к generation и Magic JSON5; JSON1–4 сохраняют lossless refusal. Текущая стадия указана в [статусе](docs/project-status.md).
-
-Реализован [ADR-0056](docs/decisions/ADR-0056-source-bound-crushed-rib-owner-bridge.md): ручной typed Crushed Rib bridge для полного M8 owner, actual Protection/Casting и оставшегося Drained с подтверждением расхода. [Actual пример63d10](docs/examples/m8/crushed_rib_owner.py),62целевые проверки и отдельный installed audit прошли; [приёмка](docs/audits/m8-crushed-rib-owner-readiness.md) фиксирует окончательную регрессию. Без native57 opt-in runner сохраняет остановку на Wound10. Точный следующий шаг — в [статусе](docs/project-status.md).
-
-Симулятор боёв и инструмент подбора сложности столкновений для настольной RPG TOWR.
-
-Готовы ограниченные неподвижные ranged, melee и mixed Minion-сценарии: одиночные бои, независимые sequential/process прогоны, агрегаты, поэтапный подбор и генерация составов из заданного резерва, JSON/CLI. Магия M8 поддерживает отдельный ограниченный бой с одним Champion-Wizard и Curse of Cowardly Flight, а также независимые sequential/process прогоны, aggregate-only summary и bounded оценку явного списка кандидатов. Полный каталог и универсальный бой ещё не реализованы.
-
-## Навигация
-
-Реализован [ADR-0055](docs/decisions/ADR-0055-source-bound-crushed-rib-test.md): K1-переход для ближайшей Grim Test после Crushed Rib10, с сохранением Drained до лечения. [Actual-consumer пример](docs/examples/m8/crushed_rib_test.py), copied tests и [итоговый аудит](docs/audits/m8-crushed-rib-test-readiness.md) прошли: полный4110прогон сохранил только33прежние errors. Подключение полного M8-owner остаётся отдельной границей.
-
-Реализован [ADR-0054](docs/decisions/ADR-0054-repeated-leg-spasm-generation-and-magic-json-v4.md): matching family assertion в generation и Magic JSON/CLI v4. [Production proof](docs/examples/m8/repeated_leg_spasm_transport_contract_probe.py) проверяет полный source round-trip и native repeated stand; [публичные JSON4 примеры](docs/examples/m8/json/README.md). [Итоговый аудит](docs/audits/m8-repeated-leg-spasm-transport-readiness.md) закрыт: установленный пакет/CLI/spawn проверены; составной regression result и33прежние ошибки зафиксированы отдельно.
-
-[Native ADR-0053](docs/decisions/ADR-0053-native-repeated-leg-spasm-continuation.md) добавляет отдельное разрешение для однократного повторного Leg Spasm stand и проверку полных journal witnesses. [Automatic пример](docs/examples/m8/repeated_leg_spasm_runner.py) и [аудит](docs/audits/m8-native-repeated-leg-spasm-readiness.md) подтверждают native/spawn путь; generation подключён в ADR-0054; JSON1/2/3 новое nonNone по-прежнему явно отвергают.
-
-Закрыт [ADR-0051](docs/decisions/ADR-0051-stationary-wound-generation-and-magic-json-v3.md): native generation и обе JSON/CLI v3 families проверены [source/wheel/installed аудитом](docs/audits/m8-stationary-wound-transport-readiness.md). Independent stationary/Miscast policies и matching reserve/family assertions сохраняют полный source/echo. [Публичные JSON-примеры](docs/examples/m8/json/README.md) исполняются через `simulate-magic` и `balance-magic`; JSON1/2 явно отвергают stationary policy. [ADR-0052](docs/decisions/ADR-0052-source-bound-repeated-leg-spasm-stand.md) реализует отдельный low-level повторный Leg Spasm stand с полными witnesses, сохраняя terrain/history; [actual-bound пример и аудит](docs/audits/m8-repeated-leg-spasm-stand-readiness.md). Automatic runner/policy этим не расширены. Точное состояние — в документах ниже.
-
-- [Актуальный статус, ограничения, проверки и следующий шаг](docs/project-status.md).
-- [Открытые вопросы и действующие допущения](docs/open-questions.md).
-- [Документация и нормативные источники](docs/README.md), [иерархия источников](docs/source-policy.md), [трассировка правил](docs/rule-traceability.md).
-- [Архитектура](docs/architecture/overview.md), [roadmap](docs/roadmap.md).
-- Внешние границы: [ranged](docs/audits/m5-external-readiness.md), [melee](docs/audits/m6-external-readiness.md), [mixed](docs/audits/m7-external-readiness.md).
-- Магия: [single-run](docs/audits/m8-encounter-readiness.md), [simulation ADR-0038](docs/decisions/ADR-0038-independent-magic-simulations.md), [process ADR-0039](docs/decisions/ADR-0039-process-magic-simulations.md), [общий аудит массовой simulation](docs/audits/m8-mass-simulation-readiness.md), [примеры](docs/examples/m8/README.md).
-
-## Локальная проверка
-
-Требуется Python 3.12 или новее. Установить проект и зависимости JSON Schema в локальное окружение:
+Python3.12+; первая установка окружения:
 
 ```powershell
 py -3.12 -m venv .venv
 .venv/Scripts/python.exe -m pip install -e .
 ```
 
-Во время разработки запускать тесты изменённого поведения и ближайших зависимых компонентов. Пример адресной проверки:
+## Запуск
 
 ```powershell
-$env:PYTHONPATH = "src"
-.venv/Scripts/python.exe -m unittest tests.unit.test_k1_opposed_test -v
-```
-
-Полный набор запускается в контрольных точках проекта или при широком риске изменений:
-
-```powershell
-$env:PYTHONPATH = "src"
-.venv/Scripts/python.exe -m unittest discover -s tests -v
-```
-
-Сборка wheel и проверки установленного пакета выполняются при изменении механизмов поставки либо в соответствующей контрольной точке. Подробная [политика проверок](AGENTS.md#политика-проверок) обязательна и для новых сессий.
-
-## Запуск симуляции
-
-```powershell
-$env:PYTHONPATH = "src"
-.venv/Scripts/python.exe -m towr simulate docs/examples/m4/ranged-v1.request.json
-```
-
-После установки текущего проекта также доступна `.venv/Scripts/towr.exe simulate INPUT`. `INPUT` — путь к UTF-8 JSON или `-` для stdin. [Пример входа](docs/examples/m4/ranged-v1.request.json) содержит режим, seed, trials и все решения; CLI не переопределяет их. Для процессов задайте в JSON `"execution": {"mode": "process", "workers": 2, "batch_size": 1}`.
-
-Stdout содержит один UTF-8 JSON result или typed error; краткая диагностика идёт в stderr. Exit codes: 0 — полный результат (включая round_limit/unsupported_path), 2 — неверный JSON/admission или аргументы CLI, 3 — ошибка исполнения, 4 — I/O. При ошибке аргументов или чтения файла stdout пуст. [Подробный контракт и ограничения вывода](docs/decisions/ADR-0016-ranged-simulation-json-v1.md#cli-simulate).
-
-## Пример подбора составов
-
-[Исполняемый пример M5](docs/examples/m5/README.md) генерирует пять составов и оценивает их в два этапа. Из корня репозитория:
-
-```powershell
-$env:PYTHONPATH = "src"
-.venv/Scripts/python.exe docs/examples/m5/ranged_balance.py --mode sequential
-.venv/Scripts/python.exe docs/examples/m5/ranged_balance.py --mode process
-```
-
-Вход задан в Python: фиксированный резерв Minions, явные факты и решения ведущего, seed 42 и бюджет 136 прогонов. Тот же резерв доступен через [JSON/CLI balance](docs/examples/m5/json/README.md).
-
-## Подбор из JSON
-
-```powershell
-$env:PYTHONPATH = "src"
-.venv/Scripts/python.exe -m towr balance docs/examples/m5/json/balance-v1.request.json
-```
-
-После установки проекта: `.venv/Scripts/towr.exe balance INPUT`. INPUT — UTF-8 файл или `-` для stdin. Режим sequential/process, seed, окно и бюджеты задаются в JSON. Stdout содержит полный aggregate result либо error envelope; stderr — диагностику. Коды: 0 — полный результат (включая no_eligible_candidates/пустой выбор), 2 — input/usage, 3 — generation/execution, 4 — I/O. [Формат и ограничения](docs/decisions/ADR-0020-ranged-balance-json-v1.md).
-
-## Ближний бой через JSON/CLI
-
-```powershell
-$env:PYTHONPATH = "src"
-.venv/Scripts/python.exe -m towr simulate-melee docs/examples/m6/json/melee-simulation-v1.request.json
-```
-
-После установки текущего проекта: `towr simulate-melee INPUT`. INPUT — UTF-8 файл или `-` для stdin. [Пример](docs/examples/m6/json/README.md) явно задаёт numeric Minion profiles, Close/facts, решения GM, seed/trials/round budget и backend. Для процессов задайте `"execution": {"mode": "process", "workers": 2, "batch_size": 3}`. Stdout содержит полный JSON со сводкой без отдельных trial records; коды 0/2/3/4 означают result, input/usage, execution и I/O. [Контракт](docs/decisions/ADR-0027-melee-json-cli-v1.md). Ranged-команды `simulate` и `balance` сохраняют свои форматы; `balance-melee` доступна для Melee reserve/generation/evaluation JSON.
-
-## Подбор Melee-составов через JSON/CLI
-
-```powershell
-$env:PYTHONPATH = "src"
-.venv/Scripts/python.exe -m towr balance-melee docs/examples/m6/json/melee-balance-v1.request.json
-```
-
-После установки текущего проекта: `towr balance-melee INPUT`. INPUT — UTF-8 файл или `-` для stdin. [Пример](docs/examples/m6/json/README.md) задаёт резерв, группы численности, отдельные family facts/GM policies, stages/window, полный budget и backend. Вывод содержит каталог всех составов и полные aggregate reports этапов. Exit 0 включает пустой итоговый выбор и unsupported observations; 2 — input/usage, 3 — generation/execution, 4 — I/O. Ошибки содержат внешний request ID и известный candidate/counts либо stage context. [Контракт](docs/decisions/ADR-0027-melee-json-cli-v1.md).
-
-Следующее направление — **M7: смешанный дальний и ближний бой**. Подготовлены [контракт](docs/decisions/ADR-0028-mixed-minion-scenario.md) и [проверочный пример](docs/examples/m7/README.md); typed admission реализован и проверен 25 tests. Одиночный сценарий закрыт [аудитом](docs/audits/m7-readiness.md): 60 tests M7 и [самостоятельный пример](docs/examples/m7/mixed_scenario.py) проверены. [Контракт независимых mixed-прогонов и summary](docs/decisions/ADR-0029-independent-mixed-simulations.md) реализован: отдельная seed scheme, последовательные прогоны и aggregate summary; 25 новых tests проверяют четыре исхода и воспроизводимость. [Аудит последовательной simulation](docs/audits/m7-simulation-readiness.md) завершён; [production-пример](docs/examples/m7/mixed_simulation.py) и сохранённый вывод проверены. [Профилирование mixed-пакетов](docs/benchmarks/README.md#m7-исходное-профилирование-mixed-simulation) завершено; [кандидат оптимизации continuation](docs/benchmarks/m7-round-continuation-review.md) отклонён по измерениям, production восстановлен. [Контракт опционального mixed process runner](docs/decisions/ADR-0030-process-mixed-simulations.md) реализован: отдельный typed API с bounded spawn и 17 новыми tests. [Сравнение sequential/process](docs/benchmarks/README.md#mixed-sequential-и-spawn) завершено: records/summary равны, на 100 trials spawn медленнее; локальное преимущество двух workers на 1000 подтверждено для 3×2/2×2. [Общий аудит массовой mixed-симуляции](docs/audits/m7-mass-simulation-readiness.md) завершён: sequential/process, summary и измерения согласованы. [Контракт оценки mixed-кандидатов ADR-0031](docs/decisions/ADR-0031-mixed-candidate-assessment.md) и [конечный probe](docs/examples/m7/assessment_contract_probe.py) подготовлены; pure assessment одного кандидата реализован с 9 unit и 1 real-spawn integration test. [Модели списка](src/towr/balance/mixed_evaluation_models.py) с бюджетом, полным отчётом и ранжированием реализованы (11 tests). [Application evaluator](src/towr/application/mixed_evaluation_service.py) и ошибки реализованы (8 unit/3 integration tests). Оценка явного mixed-списка доступна через typed Python API; JSON/CLI ещё нет. [Аудит оценки mixed-списка](docs/audits/m7-evaluation-readiness.md) завершён; [самостоятельный пример](docs/examples/m7/mixed_evaluation.py) и сохранённый вывод проверены. [Контракт ADR-0032](docs/decisions/ADR-0032-staged-mixed-evaluation.md) и [конечный probe](docs/examples/m7/staged_contract_probe.py) подготовлены: полные повторные пакеты, верхний бюджет, отдельные continuation/final selection и exact report chain. [Pure helper](src/towr/balance/mixed_staged_evaluation.py) и [frozen staged models](src/towr/balance/mixed_staged_evaluation_models.py) реализованы: 19 deterministic tests. [Staged service/error](src/towr/application/mixed_staged_evaluation_service.py) реализованы: 9 unit/3 real-backend integration tests, полный source до продолжения и stage/candidate/cause context. [Аудит staged mixed evaluation](docs/audits/m7-staged-evaluation-readiness.md) завершён; [самостоятельный пример](docs/examples/m7/mixed_staged_evaluation.py) и вывод проверены. [Контракт ADR-0033](docs/decisions/ADR-0033-mixed-composition-generation.md) и [конечный probe](docs/examples/m7/generation_contract_probe.py) подготовлены: явный резерв, family facts/pairs/policies, полный бюджет и отказ при недопустимом поднаборе. [Group/request preflight](docs/decisions/ADR-0033-mixed-composition-generation.md#реализованный-первый-срез) реализован: 15 deterministic tests, C/полный бюджет без materialization. [Генератор/result/error](docs/decisions/ADR-0033-mixed-composition-generation.md#реализованный-второй-срез) реализованы: 17 новых tests, полные проекции, source guards и отказ без пропуска недопустимого состава. [Integration генератора](docs/decisions/ADR-0033-mixed-composition-generation.md#сквозная-integration) проверена: 6 новых tests, равные sequential/process reports, повтор/rename prefix, полный scripted budget и динамический локальный outnumbering. [Аудит генерации](docs/audits/m7-generation-readiness.md) завершён; [самостоятельный пример](docs/examples/m7/mixed_balance.py) и сохранённый вывод проверены. [Контракт Mixed JSON/CLI ADR-0034](docs/decisions/ADR-0034-mixed-json-cli-v1.md) и [конечные примеры](docs/examples/m7/json/README.md) подготовлены: отдельные simulate-mixed/balance-mixed, explicit pairs/facts/actor policies, aggregate outputs и phase-specific errors. Simulation Schema/command/pure parser/summary encoder реализованы: 29 unit и 2 real-backend integration tests. Simulation service/errors/error encoder и simulate-mixed реализованы (39 новых tests). Balance Schema/command/result/pure parser/result encoder реализованы (38 новых tests). Balance service/application errors/error encoder и balance-mixed реализованы (41 новый test). [Общий аудит mixed JSON/CLI](docs/audits/m7-external-readiness.md) завершён; ADR-0034 закрыт в текущей границе numeric Minions.
-
-
-## Смешанный бой из JSON
-
-```powershell
-$env:PYTHONPATH = "src"
-.venv/Scripts/python.exe -m towr simulate-mixed docs/examples/m7/json/mixed-simulation-v1.request.json
-.venv/Scripts/python.exe -m towr balance-mixed docs/examples/m7/json/mixed-balance-v1.request.json
-```
-
-После установки текущей версии доступна также `towr simulate-mixed INPUT`; `-` читает stdin. [Пример и ограничения](docs/examples/m7/json/README.md) задают неподвижный бой numeric Minions, явные Close/Medium пары, решения GM и seed/backend. Результат содержит сводку четырёх исходов. Подбор смешанных составов доступен через `towr balance-mixed INPUT`; результат содержит каталог составов, отчёты этапов и итоговый выбор.
-
-## Магия: независимые прогоны через Python API
-
-Для явного opt-in продолжения Miscast→Unnatural Wind и Prone доступен [двухфайловый пример](docs/examples/m8/opted_miscast.py) с соседним `magic_scenario.py`:
-
-```powershell
-$env:PYTHONPATH = "src"
-.venv/Scripts/python.exe docs/examples/m8/opted_miscast.py
-```
-
-Четыре scripted сценария проверяют конкретные пути, не вероятности исходов. Policy передаётся явно через Python API; [аудит runner и ограничения](docs/audits/m8-opt-in-miscast-readiness.md). По [ADR-0047](docs/decisions/ADR-0047-opt-in-generation-and-magic-json-v2.md) native generation принимает отдельную family policy, полностью равную template, и сохраняет её в каждом составе. [Аудит generation](docs/audits/m8-opt-in-generation-readiness.md) и [проверочный пример](docs/examples/m8/opt_in_transport_contract_probe.py). JSON/CLI v1 по-прежнему отвергает opt-in. Simulation v2 реализован: required `scenario.miscast_continuation` — `null` либо полная explicit policy; результат и ошибки после строгого разбора сохраняют v2. [Контракт/проверки](docs/audits/m8-simulation-v2-readiness.md). Balance v2 также реализован: required nullable policy задаётся отдельно в `reserve.scenario` и `generation`, значения должны полностью совпадать. [Аудит balance v2](docs/audits/m8-balance-v2-readiness.md). [Общий installed audit ADR-0047 завершён](docs/audits/m8-opt-in-transport-readiness.md): exact parity455files,12magic schemas, обе magic и шесть прежних CLI routes. Сохранённые v2 results доступны в примерах.
-
-```powershell
-$env:PYTHONPATH = "src"
+$env:PYTHONPATH = 'src'
 .venv/Scripts/python.exe -m towr simulate-magic docs/examples/m8/json/magic-simulation.request.json
 .venv/Scripts/python.exe -m towr balance-magic docs/examples/m8/json/magic-balance.request.json
 ```
 
-```sh
-PYTHONPATH=src python docs/examples/m8/magic_simulation.py
+После установки доступны `towr simulate-magic INPUT` и `towr balance-magic INPUT`; `-` читает stdin. Seed, trials, round budget и execution задаются во входе. Текущий Magic JSON — только6; прежние форматы разработки не поддерживаются. Остальные families используют собственный единственный формат1.
+
+| Сценарий | Примеры и команды |
+|---|---|
+| Ranged | [Simulation](docs/examples/m4/README.md), [balance](docs/examples/m5/README.md) |
+| Melee | [Simulation и balance](docs/examples/m6/README.md) |
+| Mixed | [Simulation и balance](docs/examples/m7/README.md) |
+| Magic | [Python API](docs/examples/m8/README.md), [JSON/CLI](docs/examples/m8/json/README.md) |
+
+## Проверка изменений
+
+Запускать тесты изменённого поведения и зависимых компонентов. Пример:
+
+```powershell
+$env:PYTHONPATH = 'src'
+.venv/Scripts/python.exe -m unittest tests.unit.test_k1_opposed_test -v
 ```
 
-[Пример](docs/examples/m8/magic_simulation.py) использует public simulation API и соседний [builder одиночного боя](docs/examples/m8/magic_scenario.py). Он проверяет четыре исхода, свежий RNG на trial, полный source и воспроизводимость. [Вывод](docs/examples/m8/magic_simulation.output.txt) — finite scripted evidence, не оценка сложности.
-
-ADR-0038 сохраняет текущий single-run scope и отдельный UNSUPPORTED_PATH. Метрика/подбор и JSON/CLI требуют последующих контрактов; неизвестные GM facts и обязательные неподдержанные эффекты не заменяются автоматическими решениями.
-
-
-Опциональный процессный API [ADR-0039](docs/decisions/ADR-0039-process-magic-simulations.md) доступен отдельно через `run_npc_magic_simulation_parallel(request, workers=..., batch_size=...)`. [Публичный пример](docs/examples/m8/magic_parallel.py) использует explicit spawn, сохраняет seeds/result/summary и общий исходный scenario. Для копирования нужны также соседние magic_simulation.py и magic_scenario.py.
-
-```sh
-PYTHONPATH=src python docs/examples/m8/magic_parallel.py
-```
-
-Workers/batch_size выбираются явно; автоматического выбора backend нет. [Сравнение производительности](docs/benchmarks/README.md#m8-sequential-и-spawn) включает startup/serialization/shutdown: на 100 trials процессы медленнее, на 1000 два workers локально быстрее в двух боевых inputs. Контроль с нулём действий быстрее последовательно; общего обещания ускорения нет.
-
-[Оценка magic-кандидатов ADR-0040](docs/decisions/ADR-0040-magic-candidate-assessment.md) закрыта [общим аудитом](docs/audits/m8-evaluation-readiness.md). Pure assessment и модели списка сохраняют полный source, точные Fraction rates, unsupported guard, полный бюджет и stable ranking. [Application evaluator](src/towr/application/magic_evaluation_service.py) исполняет явный список через sequential/process; ошибки сохраняют candidate ID/cause/notes. M8 JSON/CLI ещё нет; генерация реализована отдельным слоем ниже.
-
-[Самостоятельный пример](docs/examples/m8/magic_evaluation.py) сравнивает полные отчёты двух authored альтернатив при seed=42 и N=8 на кандидата. Для копирования нужны также соседние magic_simulation.py и magic_scenario.py. Вывод — наблюдение текущего runtime, не оценка истинной вероятности; отчёт печатается после двух успешных evaluations.
-
-```sh
-PYTHONPATH=src python docs/examples/m8/magic_evaluation.py
-```
-
-[Контракт staged evaluation ADR-0041](docs/decisions/ADR-0041-staged-magic-evaluation.md) и [synthetic probe](docs/examples/m8/staged_contract_probe.py) подготовлены: полные повторные пакеты, отдельные continuation/final selection, общий верхний бюджет и source/report chain. [Pure continuation helper](src/towr/balance/magic_staged_evaluation.py) и [frozen staged models](src/towr/balance/magic_staged_evaluation_models.py) реализованы: полный бюджет и exact report chain проверяются без execution. [Application staged service](src/towr/application/magic_staged_evaluation_service.py) исполняет достигнутые этапы через existing bounded evaluator, с full-source guards и stage/candidate error chain. [Общий аудит](docs/audits/m8-staged-evaluation-readiness.md) и [самостоятельный пример](docs/examples/m8/magic_staged_evaluation.py) закрывают staged evaluation. [Контракт ограниченной генерации ADR-0042](docs/decisions/ADR-0042-magic-composition-generation.md) и [finite probe](docs/examples/m8/generation_contract_probe.py) подготовлены; [frozen group/request](src/towr/application/magic_candidate_generation_models.py) проверяют полный preflight и бюджеты без materialization. [Генератор](src/towr/application/magic_candidate_generation.py), source-bound result и ошибки реализованы: каждый состав повторно допускается целиком, conflicting frames/invalid routes прерывают всё семейство. Сквозная integration проверена семью tests. [Самостоятельный пример](docs/examples/m8/magic_balance.py) и [общий аудит](docs/audits/m8-generation-readiness.md) закрывают генерацию в границе ADR-0042; Контракт M8 JSON/CLI зафиксирован в [ADR-0043](docs/decisions/ADR-0043-magic-json-cli-v1.md); simulation JSON/CLI реализован; balance JSON/service/CLI также реализован.
-
-[Конечные JSON-примеры M8](docs/examples/m8/json/README.md) и [mapping probe](docs/examples/m8/json_contract_probe.py) проверяют ручное отображение двух входов в public Python API, полный sequential/process результат и semantic failures. `simulate-magic` доступна; `balance-magic` также доступна. Simulation parser/service/summary/error encoder доступны через Python API; balance parser/result encoder также доступны через Python API; balance service/error encoder/CLI также реализованы. [Общий аудит ADR-0043](docs/audits/m8-external-readiness.md) завершён в bounded Wizard/Curse scope.
-
-## Магия через JSON/CLI
-
-[Контракт ADR-0045](docs/decisions/ADR-0045-source-bound-unnatural-wind.md) и [finite probe](docs/examples/m8/unnatural_wind_contract_probe.py) готовят следующий low-level Unnatural Wind consumer: explicit decline, один table roll и effect-before-cleanup. Реализованы explicit policy/facts, typed prepared/rolled pending, preparation и однократный table roll с exact-source apply/guards. Wind21–22 применяет Prone всем scoped live Short targets и только затем очищает Pool; [аудит low-level consumer](docs/audits/m8-unnatural-wind-readiness.md) и [самостоятельный пример](docs/examples/m8/unnatural_wind.py) описывают проверки и ограничения; автоматический Prone/runner policy остаётся отдельной границей.
-
-Следующий игровой consumer выбран по [инвентаризации остановок M8](docs/audits/m8-continuation-inventory.md): [ADR-0044](docs/decisions/ADR-0044-dead-champion-turn-exclusion.md) фиксирует исключение оставшегося хода погибшего Wizard после полностью завершённой lethal Attack. Контракт и finite probe готовы; типизированные модели и чистое применение исключения реализованы. Journal/runner интеграция реализована; [аудит consumer и propagation](docs/audits/m8-dead-champion-readiness.md) описывает узкую границу, проверки и [пример JSON/CLI](docs/examples/m8/json/dead-champion-v1.request.json).
-
-```sh
-PYTHONPATH=src python -m towr simulate-magic docs/examples/m8/json/magic-simulation.request.json
-```
-
-После установки: `towr simulate-magic INPUT`; `-` читает UTF-8 stdin. [Вход](docs/examples/m8/json/README.md) задаёт полный authored Wizard/Minion scenario, явные facts/frames/routes/GM decisions, seed/trials/round budget и execution options. Выход — native aggregate четырёх исходов/трёх totals без trial records. Process задаётся явно через `execution` с mode/process, workers и batch_size; auto backend отсутствует. Exit0 включает unsupported_path и round_limit_reached;2 — input/usage,3 — simulation_failed с external request ID,4 — I/O. `balance-magic` также доступна.
-
-## Подбор magic-составов из JSON
-
-```sh
-PYTHONPATH=src python -m towr balance-magic docs/examples/m8/json/magic-balance.request.json
-```
-
-После установки: `towr balance-magic INPUT`; `-` читает UTF-8 stdin. [Резерв/группы/family facts/frames/stages/window](docs/examples/m8/json/README.md) заданы явно; success содержит полный catalog и aggregate reports этапов. Execution выбирается во входе. Exit0 включает unsupported/no_eligible/empty selection;2 — input/usage,3 — generation_failed/evaluation_failed с known context,4 — I/O. Успешный preflight не гарантирует допустимость каждого subset: invalid projection прерывает всё семейство, не пропускается.
-
-
-[ADR-0046](docs/decisions/ADR-0046-opt-in-miscast-runner-and-prone.md): явная opt-in policy подключает preparation→roll→Wind21–22 и scoped Prone transitions к runner и закрытому журналу с полным origin witness. None сохраняет legacy; JSON v1 явно отвергает opt-in, native generation требует отдельную family policy по ADR-0047. Другие effects и unsafe Broken+Prone остаются unsupported. Propagation, публичный пример и installed audit runner завершены; [актуальный статус](docs/project-status.md).
+Полная регрессия и проверка установленного wheel нужны по основаниям из [политики проверок](AGENTS.md#политика-проверок). [Архитектура](docs/architecture/overview.md), [план](docs/roadmap.md) и [тестирование](docs/testing.md) описывают актуальную работу. Commit и push выполняет пользователь.

@@ -3,7 +3,6 @@ from copy import deepcopy
 from dataclasses import FrozenInstanceError, replace
 from importlib.resources import files
 import json
-from pathlib import Path
 import pickle
 import random
 import unittest
@@ -13,6 +12,7 @@ from jsonschema import Draft202012Validator, ValidationError
 
 from tests.unit.test_m4_ranged_json import at, object_paths
 from tests.unit.test_m8_miscast_continuation_policy import continuation_policy
+from tests.support.magic_json_fixtures import MAGIC_JSON_EXAMPLES as EXAMPLES, load_magic_fixture
 from towr.adapters.magic_json_errors import MagicSimulationInputError
 from towr.adapters.magic_json_schema import validate_magic_simulation_document as validate
 from towr.adapters.magic_simulation_json import (
@@ -31,11 +31,8 @@ from towr.simulation.npc_magic_models import NpcMagicOutcomeCounts
 from towr.simulation.npc_magic_summary_models import NpcMagicSimulationSummary
 
 
-EXAMPLES = Path(__file__).resolve().parents[2] / 'docs/examples/m8/json'
-
-
 def document():
-    return json.loads((EXAMPLES / 'magic-simulation.request.json').read_text(encoding='utf-8'))
+    return load_magic_fixture('simulation')
 
 
 def summary(command):
@@ -46,7 +43,7 @@ def summary(command):
 
 def balance_scenario_document():
     data = document()
-    balance = json.loads((EXAMPLES / 'magic-balance.request.json').read_text(encoding='utf-8'))
+    balance = load_magic_fixture('balance')
     data['scenario'] = balance['reserve']['scenario']
     data['simulation']['round_budget'] = balance['reserve']['round_budget']
     return data
@@ -90,7 +87,7 @@ class M8MagicJsonTests(unittest.TestCase):
 
     def test_every_result_and_error_object_is_closed_and_required(self):
         for kind in ('result', 'error'):
-            original = json.loads((EXAMPLES / f'magic-simulation.{kind}.json').read_text(encoding='utf-8'))
+            original = load_magic_fixture('simulation', kind)
             for path in object_paths(original):
                 for key in (None, *at(original, path)):
                     with self.subTest(kind=kind, path=path, key=key):
@@ -101,7 +98,7 @@ class M8MagicJsonTests(unittest.TestCase):
                             del at(changed, path)[key]
                         with self.assertRaises(ValidationError):
                             validate(changed, kind)
-        error = json.loads((EXAMPLES / 'magic-simulation.error.json').read_text(encoding='utf-8'))
+        error = load_magic_fixture('simulation', 'error')
         for path in ('/bad~2', '\n', '/bad~\n', 'no-slash'):
             with self.subTest(path=path), self.assertRaises(ValidationError):
                 validate(dict(error, error=dict(error['error'], path=path)), 'error')
@@ -519,7 +516,7 @@ class M8MagicJsonTests(unittest.TestCase):
 
     def test_saved_result_projection_matches_contract_fixture(self):
         command = parse(json.dumps(document()))
-        expected = json.loads((EXAMPLES / 'magic-simulation.result.json').read_text(encoding='utf-8'))
+        expected = load_magic_fixture('simulation', 'result')
         saved = expected['summary']
         observed = NpcMagicSimulationSummary(command.request, NpcMagicOutcomeCounts(**saved['outcome_counts']),
             saved['total_action_count'], saved['total_started_round_count'], saved['total_completed_round_count'])

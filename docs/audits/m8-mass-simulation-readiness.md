@@ -33,7 +33,7 @@
 | Та же книга, Wounds Table, стр. 190–191 | Wound roll/untreated dice, Stomach Blow → Drained до конца следующего turn, отдельные lethal rows и обязательные effects |
 | BOOK-GM-GUIDE 1.1, Allies and Antagonists / Minions, Champions, стр. 91–92 | Minion defeated от Wound с attacker/GM disposition; Champion использует Wounds Table, не Minion policy |
 
-Новых Rule IDs, house rules или противоречий нет. Старые Miscast ambiguities остаются открытыми; finite summary не доказывает полноту consumer catalogue. В [нормализованном Wounds-документе](../rules/wounds-and-conditions.md#rule-health-006--типы-npc) исправлена только устаревшая фраза об отсутствии GM Guide: дана ссылка на [NPC rules](../rules/npcs.md) и GM1.1 стр.91–92. [Architecture overview](../architecture/overview.md#контракт-последовательной-magic-simulation) синхронизирован с готовыми simulation/process API; runtime контракт не менялся.
+Новых Rule IDs, house rules или противоречий нет. Старые Miscast ambiguities остаются открытыми; finite summary не доказывает полноту consumer catalogue. В [нормализованном Wounds-документе](../rules/wounds-and-conditions.md#rule-health-006--типы-npc) исправлена только устаревшая фраза об отсутствии GM Guide: дана ссылка на [NPC rules](../rules/npcs.md) и GM1.1 стр.91–92. [Architecture overview](../architecture/overview-history.md#контракт-последовательной-magic-simulation) синхронизирован с готовыми simulation/process API; runtime контракт не менялся.
 
 ## Публичная установка
 
