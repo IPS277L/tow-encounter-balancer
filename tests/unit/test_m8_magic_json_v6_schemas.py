@@ -47,7 +47,7 @@ class MagicJsonV6SchemaTests(unittest.TestCase):
             (uri, Resource.from_contents(schema)) for uri, schema in cls.documents.items())
 
     def test_six_new_ids_and_every_reference_resolve_from_complete_local_bundle(self):
-        self.assertEqual(len(self.documents), 25)
+        self.assertEqual(len(self.documents), 32)
         self.assertEqual(sum(uri.startswith('urn:towr:magic-') for uri in self.documents), 6)
         for uri, schema in self.documents.items():
             Draft202012Validator.check_schema(schema)

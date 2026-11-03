@@ -1,5 +1,16 @@
 # Трассировка правил
 
+## M9: первый PLAYER melee owner, ADR-0065
+
+BOOK-PLAYER-GUIDE1.4, Skills68–69, Equipment92–93, Tests106–109, Fate111–112, Combat118–123, Wounds190–191; [контракт и граница](decisions/ADR-0065-first-pc-melee-encounter.md). Это подключение существующих Rule IDs, без house rules.
+
+| Правила | Реализация и детерминированные проверки |
+|---|---|
+| RULE-SKILL-001, RULE-EQUIPMENT-002/003 | [PC definition/полный input](../src/towr/domain/pc_melee_models.py), [bound Test/Attack/Recover source](../src/towr/domain/pc_melee_result_models.py); [admission tests](../tests/unit/test_m9_pc_melee_models.py), [execution guards](../tests/unit/test_m9_pc_melee_execution.py) |
+| RULE-COMBAT-001/002/004, RULE-HEALTH-002/003/004/005/008 | [Runner](../src/towr/engine/pc_melee_runner.py), [pure projection](../src/towr/domain/_pc_melee_projection.py): actual K1 Attack/PLAYER lifecycle, Endurance/drop/Prone/Recover, expiry и next-Test Grim. [Wounds1–10/mixed battle tests](../tests/integration/test_m9_pc_melee_battle.py) |
+| RULE-FATE-001/002/003, RULE-HEALTH-009 | Root сохраняет supplied Fate/daily history, source-bound decline и completion перед death. [Execution forgery tests](../tests/unit/test_m9_pc_melee_execution.py), [spent-Fate lethal и pending stop](../tests/integration/test_m9_pc_melee_battle.py) |
+| Инженерная граница, новых игровых Rule IDs нет | [Indexed trials](../src/towr/simulation/pc_melee_simulation.py), [balance](../src/towr/application/pc_melee_balance.py), [current JSON1](../src/towr/adapters/pc_melee_json.py); [четыре actual outcomes/real spawn](../tests/integration/test_m9_pc_melee_simulation.py), [CLI](../tests/integration/test_m9_pc_melee_cli.py) |
+
 Дополнение 2026-11-04: RULE-COMBAT-004 standard Recover и RULE-MAGIC-004 skipped Casting связаны с Battered Leg source через [Recover owner](../src/towr/domain/npc_roster_battered_leg_recover_models.py) и [executor](../src/towr/engine/npc_roster_battered_leg_recover.py). Pool сначала уменьшается, затем активный Casting получает skipped contribution; Wound/Endurance сохраняются. [Owner](../tests/unit/test_m8_battered_leg_recover.py), [native](../tests/integration/test_m8_battered_leg_recover.py), [wire](../tests/unit/test_m8_battered_leg_recover_json.py) checks. Источник PG1.4 118/156–157/1905, [решение](decisions/ADR-0064-battered-leg-prone-removal.md#дополнение-2026-11-04-standard-self-recover).
 
 ## Battered Leg free self-stand: ADR-0064

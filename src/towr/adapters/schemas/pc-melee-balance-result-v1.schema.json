@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:towr:pc-melee:balance:result:1",
+  "type": "object",
+  "properties": {
+    "schema_version": {
+      "const": "1"
+    },
+    "kind": {
+      "const": "pc_melee_balance_result"
+    },
+    "request": {
+      "$ref": "urn:towr:pc-melee:balance:request:1"
+    },
+    "seed_scheme": {
+      "const": "towr:pc-melee-trial:v1"
+    },
+    "runtime": {
+      "$ref": "urn:towr:pc-melee:common:1#/$defs/runtime"
+    },
+    "candidate_count": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "planned_trials": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "total_trials": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "candidates": {
+      "type": "array",
+      "items": {
+        "$ref": "urn:towr:pc-melee:common:1#/$defs/candidate"
+      },
+      "minItems": 1
+    },
+    "selected_candidate_ids": {
+      "type": "array",
+      "items": {
+        "$ref": "urn:towr:pc-melee:common:1#/$defs/identifier"
+      },
+      "minItems": 0,
+      "uniqueItems": true
+    }
+  },
+  "required": [
+    "schema_version",
+    "kind",
+    "request",
+    "seed_scheme",
+    "runtime",
+    "candidate_count",
+    "planned_trials",
+    "total_trials",
+    "candidates",
+    "selected_candidate_ids"
+  ],
+  "additionalProperties": false
+}

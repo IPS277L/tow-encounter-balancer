@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:towr:pc-melee:simulation:request:1",
+  "type": "object",
+  "properties": {
+    "schema_version": {
+      "const": "1"
+    },
+    "kind": {
+      "const": "pc_melee_simulation"
+    },
+    "request_id": {
+      "$ref": "urn:towr:pc-melee:common:1#/$defs/identifier"
+    },
+    "ruleset": {
+      "const": "towr-pg1.4-gmg1.1"
+    },
+    "simulation": {
+      "type": "object",
+      "properties": {
+        "master_seed": {
+          "$ref": "urn:towr:pc-melee:common:1#/$defs/seed"
+        },
+        "trials": {
+          "type": "integer",
+          "minimum": 1
+        }
+      },
+      "required": [
+        "master_seed",
+        "trials"
+      ],
+      "additionalProperties": false
+    },
+    "execution": {
+      "$ref": "urn:towr:pc-melee:common:1#/$defs/execution"
+    },
+    "scenario": {
+      "$ref": "urn:towr:pc-melee:common:1#/$defs/scenario"
+    }
+  },
+  "required": [
+    "schema_version",
+    "kind",
+    "request_id",
+    "ruleset",
+    "simulation",
+    "execution",
+    "scenario"
+  ],
+  "additionalProperties": false
+}

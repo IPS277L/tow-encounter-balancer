@@ -4,24 +4,24 @@
 
 ## Текущий этап
 
-**M8 завершена в согласованной ограниченной границе.** Один Champion-Wizard/Curse, явные scene facts, opt-in последствия, independent trials, подбор составов и текущий JSON6 прошли финальную приёмку. [Checklist M8](m8-completion.md) хранит scope и подробные результаты R1/R2. Полный каталог книжной магии и последствий не входит в эту отметку готовности.
+**M9 завершена в выбранной ограниченной границе.** Один немагический PC против Minions, Wounds1–10, полный supplied Fate с явной стратегией отказа, source-bound бой, independent trials, подбор численности и отдельный JSON1/CLI реализованы и проверены. [Контракт и итоговая приёмка ADR-0065](decisions/ADR-0065-first-pc-melee-encounter.md).
 
-Последняя игровая функция — free self-stand и standard self Recover после Battered Leg по [ADR-0064](decisions/ADR-0064-battered-leg-prone-removal.md). Эта сессия выполнила только приёмку; исходники, правила и тесты не менялись.
+[Публичные PC-примеры](examples/m9/README.md) выполнены настоящими командами и воспроизведены установленным пакетом. Основные команды: `simulate-pc-melee` и `balance-pc-melee`. M8 закрыта ранее; её результаты — в [checklist M8](m8-completion.md).
 
 ## Последняя проверка
 
-R1: при `PYTHONPATH=src` команда `.venv/Scripts/python.exe -m unittest discover -s tests -v` — **4312 tests, OK за 1597.756s**, единый полный прогон без failures/errors/skips. Windows, Python3.12.4, исходное чистое дерево `0c26270`.
+При `PYTHONPATH=src` команда `.venv/Scripts/python.exe -m unittest discover -s tests -v` — **4404 tests, OK за 1353.865s**, единый полный run без failures/errors/skips. Исходники и tests не менялись во время прогона. Лог `.cache/m9-final-source-regression.log`.
 
-R2: одна offline wheel-сборка и fresh install, `pip check`; все 470 `.py/.json` совпали source→wheel→installed, 25 schemas/329 refs разрешились offline. Установленные simulate-magic и balance-magic проверены module/console из внешнего cwd, включая один process case и current6 source/report/error. Приёмка R2 составная: исправлено неверное ожидание stderr в локальном аудиторе, затем проверены только три error cases; успешные CLI, сборка и полный набор не повторялись. Логи и hash wheel — в checklist.
+Одна offline wheel-сборка и fresh install: `pip check`, hashes всех 495 `.py/.json` source→wheel→installed, 32 schemas/414 offline refs и 8 installed CLI cases успешны. Module/console, один real process и три input errors выполнены из внешнего cwd без source/editable paths; ответы совпали с сохранёнными source-примерами. Лог `.cache/m9-final-delivery.log`; report/hash wheel и подробные адресные проверки — в ADR-0065. Полный набор и сборка на границе M9 выполнены по одному разу.
 
-После обновления документации проверены 4910 локальных ссылок в 208 Markdown-файлах, отсутствующих targets нет; `git diff --check` успешен.
+Документация: 4954 локальные ссылки в 210 Markdown-файлах проверены, отсутствующих targets нет. `git diff --check` и whitespace/newline checks новых текстовых файлов успешны. В дереве 54 незакоммиченных файла M9; commit/push не выполнялись.
 
 ## Ограничения
 
-Один authored Wizard/Curse и numeric Shooting Minions; явные scene/GM facts. Точные ограничения opt-in последствий перечислены в checklist и соответствующих ADR. Allied removal, arbitrary mixed injuries/treatment/save-resume не подключены. Новые неподдержанные последствия сохраняют явный stop, mandatory continuations имеют приоритет. UNSUPPORTED_PATH остаётся в знаменателе trials и запрещает итоговый выбор кандидата при подборе. Magic поддерживает только JSON6, другие families — свой единственный1.
+M9: один здоровый initial PC/Staff или Sword, обычные numeric Melee Minions, одна явная Close Zone, фиксированные policies и полный supplied Fate. Common Wounds1–10/repeated/mixed поддержаны;11–23дают actual pending lifecycle stop до completion/daily/effects; lethal24+ завершается после Near Miss decline. Полноценная партия, общий inventory, другие оружие/Talents/тактики, treatment/campaign/save-resume не подключены. UNSUPPORTED_PATH остаётся в знаменателе trials и исключает кандидата из selection. Magic сохраняет JSON6; PC и другие families — свой единственный1.
 
 ## Точный следующий шаг
 
-Выбрать следующую законченную продуктовую веху: сопоставить оставшиеся ограничения с целью симулятора/балансировщика и предложить приоритетный пользовательский сценарий с конечными критериями готовности. Очередь новых игровых функций после M8 пока не утверждена; автоматически добавлять очередной Wound/Miscast consumer или повторять R1/R2 не требуется.
+Выбрать следующую законченную продуктовую веху по оставшимся ограничениям M9: группа PC, более широкий NPC roster либо активные решения Fate/тактика. Сначала сопоставить пользу и конечные критерии, затем закрепить конкретную границу по книгам. Следующее направление ещё не выбрано; автоматически добавлять очередную Wound/сборку/полный прогон не требуется.
 
 Commit/push выполняет пользователь.

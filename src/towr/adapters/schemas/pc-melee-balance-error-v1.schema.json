@@ -1,0 +1,94 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:towr:pc-melee:balance:error:1",
+  "type": "object",
+  "properties": {
+    "schema_version": {
+      "const": "1"
+    },
+    "kind": {
+      "const": "pc_melee_balance_error"
+    },
+    "request_id": {
+      "anyOf": [
+        {
+          "$ref": "urn:towr:pc-melee:common:1#/$defs/identifier"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "error": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "enum": [
+            "invalid_json",
+            "unsupported_version",
+            "invalid_input",
+            "generation_failed",
+            "evaluation_failed"
+          ]
+        },
+        "path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "message": {
+          "type": "string"
+        },
+        "phase": {
+          "enum": [
+            "input",
+            "generation",
+            "evaluation"
+          ]
+        },
+        "candidate_id": {
+          "anyOf": [
+            {
+              "$ref": "urn:towr:pc-melee:common:1#/$defs/identifier"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "candidate_index": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "code",
+        "path",
+        "message",
+        "phase",
+        "candidate_id",
+        "candidate_index"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "required": [
+    "schema_version",
+    "kind",
+    "request_id",
+    "error"
+  ],
+  "additionalProperties": false
+}

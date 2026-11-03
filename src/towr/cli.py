@@ -51,6 +51,14 @@ from towr.adapters.magic_balance_json import (
 )
 from towr.application.magic_balance_errors import MagicBalanceGenerationError, MagicBalanceExecutionError
 from towr.application.magic_balance_service import execute_magic_balance
+from towr.adapters.pc_melee_json import (
+    parse_pc_melee_simulation_request, parse_pc_melee_balance_request,
+    encode_pc_melee_simulation_result, encode_pc_melee_balance_result,
+    encode_pc_melee_simulation_error, encode_pc_melee_balance_error,
+)
+from towr.adapters.pc_melee_json_errors import PcMeleeSimulationInputError, PcMeleeBalanceInputError
+from towr.application.pc_melee_commands import PcMeleeCommandExecutionError
+from towr.application.pc_melee_service import execute_pc_melee_simulation, execute_pc_melee_balance
 
 
 def _diagnose(message: str) -> bool:
@@ -93,6 +101,10 @@ def main(argv: list[str] | None = None) -> int:
     magic.add_argument("input", metavar="INPUT", help="UTF-8 JSON file, or - for stdin")
     magic_balance = commands.add_parser("balance-magic", help="generate and evaluate an authored magic JSON v6 request")
     magic_balance.add_argument("input", metavar="INPUT", help="UTF-8 JSON file, or - for stdin")
+    pc_melee = commands.add_parser("simulate-pc-melee", help="execute a PC versus Minions melee JSON v1 request")
+    pc_melee.add_argument("input", metavar="INPUT", help="UTF-8 JSON file, or - for stdin")
+    pc_balance = commands.add_parser("balance-pc-melee", help="select Minion counts against one PC using JSON v1")
+    pc_balance.add_argument("input", metavar="INPUT", help="UTF-8 JSON file, or - for stdin")
     args = parser.parse_args(argv)
 
     if args.command == "balance":
@@ -123,6 +135,14 @@ def main(argv: list[str] | None = None) -> int:
         parse, execute, encode = parse_magic_balance_request, execute_magic_balance, encode_magic_balance_result
         encode_error, input_error = encode_magic_balance_error, MagicBalanceInputError
         execution_errors = (MagicBalanceGenerationError, MagicBalanceExecutionError)
+    elif args.command == "simulate-pc-melee":
+        parse, execute, encode = parse_pc_melee_simulation_request, execute_pc_melee_simulation, encode_pc_melee_simulation_result
+        encode_error, input_error = encode_pc_melee_simulation_error, PcMeleeSimulationInputError
+        execution_errors = (PcMeleeCommandExecutionError,)
+    elif args.command == "balance-pc-melee":
+        parse, execute, encode = parse_pc_melee_balance_request, execute_pc_melee_balance, encode_pc_melee_balance_result
+        encode_error, input_error = encode_pc_melee_balance_error, PcMeleeBalanceInputError
+        execution_errors = (PcMeleeCommandExecutionError,)
     else:
         parse, execute, encode = parse_ranged_simulation_request, execute_ranged_simulation, encode_ranged_simulation_result
         encode_error, input_error = encode_ranged_simulation_error, RangedSimulationInputError
@@ -144,7 +164,9 @@ def main(argv: list[str] | None = None) -> int:
         status = 2
     except execution_errors as error:
         output = encode_error(error)
-        if isinstance(error, MagicSimulationExecutionError):
+        if isinstance(error, PcMeleeCommandExecutionError):
+            code = error.code
+        elif isinstance(error, MagicSimulationExecutionError):
             code = "simulation_failed"
         elif isinstance(error, MagicBalanceGenerationError):
             code = "generation_failed"

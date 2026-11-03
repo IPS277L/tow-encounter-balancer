@@ -1,0 +1,418 @@
+"""Pure projections of the explicit M9 journal variants; no RNG or execution."""
+from dataclasses import replace
+
+from towr.domain.pc_melee_result_models import (
+    PcAttackProof, PcAttackerStaggerProof, PcEnduranceProof, PcHandDropProof, PcMeleeState,
+    PcMinionDefeatProof, PcRecoverProof, PcTimedWound, PcTurnEndProof, PcWoundCompletionProof,
+    build_pc_melee_attack, build_pc_melee_recover, pc_after_test, pc_melee_action_id,
+    pc_melee_next_actor, pc_melee_selected_action, pc_melee_unsupported,
+    validate_pc_melee_combat_shape, validate_pc_melee_state_shape,
+    _decline, _enemy_update, _pc_test, _ready, _test_result,
+)
+from towr.domain.attack_models import AttackOutcome, DamageImpactSpec, ImpactOutcome, MissConsequence
+from towr.domain.injury_models import (
+    CharacterWoundRequest, CharacterWoundType, ProfileNpcType, ProfileStateChangeRequest,
+    WoundConditionEffect, WoundConsequence, WoundConsequenceRequest, WoundEffectDuration,
+    WoundEnduranceFailure, WoundEnduranceTestRequest, WoundEntryId,
+    WoundRestriction, WoundRestrictionEffect,
+)
+from towr.domain.condition_models import Condition, ConditionState, StaggerChoice, StaggerOutcome, StaggerResult
+from towr.domain.pc_melee_models import PcWeaponHand
+from towr.domain.resolution_models import AttackerStaggerRequest
+from towr.domain.test_models import Skill
+from towr.domain.turn_models import (
+    ActionSlotGrant, CombatActionDeclaration, CombatActionKind, CombatActionSlot,
+    CombatActionSlotResult, CombatRoundAdvanceResult, CombatRoundState, CombatSide,
+    CombatTurnParticipant, CombatTurnStartResult, CombatTurnState,
+)
+from towr.domain.wound_lifecycle_models import (
+    CharacterWoundLifecycleCompletionRequest, CharacterWoundLifecycleOutcome, CharacterWoundLifecycleRollRequest,
+)
+
+
+def _same(actual, expected, message):
+    if actual != expected:
+        raise ValueError(message)
+
+
+def _canonical_attack(request, attack):
+    if type(attack.request_id) is not str or not isinstance(attack.impact_spec,DamageImpactSpec):
+        raise TypeError('PC Attack requires its exact ID and ordinary Damage spec')
+    replace(attack.impact_spec)
+    replace(attack.impact_spec.damage)
+    replace(attack.impact_spec.resilience)
+    if (not isinstance(attack.outcome,AttackOutcome) or not isinstance(attack.miss_consequence,MissConsequence)
+            or attack.impact is not None and not isinstance(attack.impact,ImpactOutcome)
+            or type(attack.tie_break_applied) is not bool):
+        raise TypeError('PC Attack outcomes must use their canonical enum/bool types')
+    for value in (attack.success_margin,attack.damage,attack.effective_resilience):
+        if value is not None and type(value) is not int:
+            raise TypeError('PC Attack arithmetic must use exact integers')
+    _test_result(request.attacker_test, attack.attacker_test)
+    _test_result(request.defender_test, attack.defender_test)
+    a, d = attack.attacker_test.successes, attack.defender_test.successes
+    hit = a > 0 and a >= d
+    margin = a-d if hit else 0
+    damage = request.impact_spec.damage.base + margin if hit else None
+    resilience = request.impact_spec.resilience.total if hit else None
+    impact = (ImpactOutcome.WOUND if damage > resilience else ImpactOutcome.STAGGERED) if hit else None
+    miss = MissConsequence.NONE if hit or request.attacker_is_staggered else MissConsequence.STAGGER_ATTACKER
+    rules = ('RULE-COMBAT-006:attack-tie',) if hit and a == d else ()
+    expected = (request.id,AttackOutcome.HIT if hit else AttackOutcome.MISS,margin,request.impact_spec,
+        damage,resilience,impact,miss,hit and a == d,rules)
+    actual = (attack.request_id,attack.outcome,attack.success_margin,attack.impact_spec,
+        attack.damage,attack.effective_resilience,attack.impact,attack.miss_consequence,
+        attack.tie_break_applied,attack.applied_rule_ids)
+    _same(actual,expected,'PC Attack result is not canonical for its actual Tests/source')
+    for value in (a,d,margin):
+        if type(value) is not int:
+            raise TypeError('Attack arithmetic must use exact integers')
+
+
+def _ordinary_resolution(kernel, result):
+    if (result.replacement_impact is not None or result.monstrosity_impact is not None
+            or result.wound_effect is not None or result.character_wound_completion is not None
+            or result.applied_secondary_rule_ids != () or result.condition_applications != ()
+            or result.deferred_wound_conditions != () or result.deferred_wound_condition_immunities != ()):
+        raise ValueError('ordinary PC Attack cannot carry foreign effect/secondary/completion branches')
+    expected_stagger = None
+    if result.attack.outcome is AttackOutcome.HIT and result.attack.impact is ImpactOutcome.STAGGERED:
+        conditions = kernel.target_state.conditions
+        if conditions.has(Condition.STAGGERED):
+            choices = []
+            if kernel.can_target_leave_zone and not conditions.has(Condition.PRONE):
+                choices.append(StaggerChoice.GIVE_GROUND)
+            if not conditions.has(Condition.PRONE):
+                choices.append(StaggerChoice.FALL_PRONE)
+            choices.append(StaggerChoice.SUFFER_WOUND)
+            expected_stagger = StaggerResult(kernel.id+':stagger',conditions,StaggerOutcome.WOUND_REQUESTED,
+                tuple(choices),StaggerChoice.SUFFER_WOUND,True,False)
+        else:
+            expected_stagger = StaggerResult(kernel.id+':stagger',conditions.with_condition(Condition.STAGGERED),
+                StaggerOutcome.CONDITION_ADDED,(),None,False,False)
+    _same(result.stagger,expected_stagger,'ordinary PC Attack has a forged/missing Staggered decision')
+    if result.stagger is not None:
+        stagger = result.stagger
+        ConditionState(stagger.state.conditions)
+        if (not isinstance(stagger.outcome,StaggerOutcome)
+                or stagger.selected_choice is not None and not isinstance(stagger.selected_choice,StaggerChoice)
+                or any(not isinstance(choice,StaggerChoice) for choice in stagger.allowed_choices)
+                or type(stagger.wound_requested) is not bool or type(stagger.gave_ground) is not bool):
+            raise TypeError('Staggered proof requires canonical enum/bool fields')
+
+
+def _canonical_wound_effect(completion):
+    roll = completion.source_request.roll
+    raw = roll.wound_result
+    request = raw.effect_request
+    wound = raw.state.wounds[-1]
+    effects = list(raw.state.active_wound_effects)
+    conditions = raw.state.conditions
+    followups = ()
+    total = wound.table_total
+    if total in (4,5,7):
+        failure = {4:WoundEnduranceFailure.DROP_RANDOM_HAND_ITEM,5:WoundEnduranceFailure.FALL_PRONE,
+            7:WoundEnduranceFailure.BLINDED_UNTIL_END_OF_NEXT_TURN}[total]
+        followups = (WoundEnduranceTestRequest(request.id+':endurance',wound.sequence,wound.entry_id,failure,request.rule_id),)
+    elif total == 6:
+        effects.append(WoundConditionEffect(wound.sequence,Condition.DRAINED,WoundEffectDuration.END_OF_NEXT_TURN))
+        conditions = conditions.with_condition(Condition.DRAINED)
+    elif total == 8:
+        effects.append(WoundRestrictionEffect(wound.sequence,WoundRestriction.CANNOT_AIM,WoundEffectDuration.UNTIL_TREATED))
+        followups = (WoundConsequenceRequest(wound.sequence,WoundConsequence.DROP_RANDOM_HAND_ITEM,request.rule_id),)
+    elif total == 9:
+        effects.extend((WoundConditionEffect(wound.sequence,Condition.PRONE,WoundEffectDuration.UNTIL_REMOVED),
+            WoundRestrictionEffect(wound.sequence,WoundRestriction.MOVEMENT_IS_DIFFICULT_TERRAIN,WoundEffectDuration.UNTIL_TREATED)))
+        conditions = conditions.with_condition(Condition.PRONE)
+    elif total == 10:
+        effects.extend((WoundConditionEffect(wound.sequence,Condition.DRAINED,WoundEffectDuration.UNTIL_TREATED),
+            WoundRestrictionEffect(wound.sequence,WoundRestriction.NEXT_TEST_IS_GRIM,WoundEffectDuration.NEXT_TEST)))
+        conditions = conditions.with_condition(Condition.DRAINED)
+    elif not (1 <= total <= 3 or total >= 24):
+        raise ValueError('unsupported Wound cannot be completed by the bounded PC owner')
+    wounds = (*raw.state.wounds[:-1],replace(wound,effect_resolved=True))
+    expected = replace(raw.state,wounds=wounds,conditions=conditions,active_wound_effects=tuple(effects))
+    effect = completion.wound_effect
+    replace(effect.request)
+    for follow_up in effect.follow_ups:
+        replace(follow_up)
+    _same((effect.request,effect.state,effect.follow_ups),(request,expected,followups),
+        'PC Wound completion has forged immediate effects/follow-ups')
+
+
+def project_pc_step(state, proof):
+    if not isinstance(state,PcMeleeState):
+        raise TypeError('PC transition requires complete typed owner')
+    validate_pc_melee_state_shape(state)
+    if pc_melee_unsupported(state) is not None:
+        raise ValueError('unsupported PC consequence cannot be silently continued')
+    def finish(**updates):
+        return replace(state,history=(*state.history,proof),**updates)
+    combat, scenario = state.round_state, state.source
+    if isinstance(proof,CombatTurnStartResult):
+        validate_pc_melee_combat_shape(proof.state)
+        replace(proof.turn)
+        _same(proof.applied_rule_ids,('RULE-COMBAT-001:rounds-sides-turns',),'start-turn rule trace changed')
+        _ready(state)
+        if combat.active_turn is not None or combat.round_complete:
+            raise ValueError('PC turn cannot start twice or after the round')
+        actor = pc_melee_next_actor(state)
+        expected = replace(combat,active_turn=CombatTurnState(actor,combat.participant_for(actor).side))
+        _same((proof.request_id,proof.state,proof.turn),(pc_melee_action_id(state,actor)+':start',expected,expected.active_turn),
+            'PC start-turn proof has another source, actor or order')
+        return finish(round_state=expected)
+    if isinstance(proof,CombatActionSlotResult):
+        validate_pc_melee_combat_shape(proof.state)
+        replace(proof.slot)
+        _same(proof.applied_rule_ids,('RULE-COMBAT-002:action-budget',),'reservation rule trace changed')
+        _ready(state)
+        turn = combat.active_turn
+        if turn is None or turn.action_slots:
+            raise ValueError('PC standard action must be the sole unreserved slot')
+        declaration = CombatActionDeclaration(pc_melee_selected_action(state))
+        slot = CombatActionSlot(1,declaration,ActionSlotGrant.STANDARD)
+        expected = replace(combat,active_turn=replace(turn,action_slots=(slot,)))
+        _same((proof.request_id,proof.state,proof.slot),(pc_melee_action_id(state,turn.actor_id)+':reserve',expected,slot),
+            'PC reservation differs from the selected standard action')
+        return finish(round_state=expected)
+    if isinstance(proof,PcAttackProof):
+        _ready(state)
+        turn = combat.active_turn
+        if turn is None or len(turn.action_slots) != 1 or turn.action_slots[0].executed:
+            raise ValueError('PC Attack must consume its unused standard slot once')
+        if pc_melee_selected_action(state) is not CombatActionKind.ATTACK:
+            raise ValueError('PC Attack cannot replace the selected Recover')
+        expected, protection = build_pc_melee_attack(state)
+        _same(proof.request,expected,'PC Attack request differs from the current complete source')
+        replace(proof.protection)
+        _same(proof.protection.source_request,protection,'PC Protection changed profile or equipment eligibility')
+        _same(proof.protection.attack,expected.kernel_request.attack,'PC Protection Attack differs from execution')
+        execution = proof.execution
+        validate_pc_melee_combat_shape(execution.previous_state)
+        validate_pc_melee_combat_shape(execution.state)
+        replace(execution)
+        _same((execution.request_id,execution.previous_state,execution.actor_id,execution.target_id,execution.slot_index),
+            (expected.id,combat,expected.actor_id,expected.target_id,1),'PC Attack receipt is detached')
+        result = execution.resolution
+        _same(execution.applied_rule_ids,('RULE-COMBAT-004:attack-action-execution',),'Attack action rule trace changed')
+        _canonical_attack(expected.kernel_request.attack,result.attack)
+        _ordinary_resolution(expected.kernel_request,result)
+        if result.request_id != expected.kernel_request.id:
+            raise ValueError('PC Attack kernel result changed its source ID')
+        pc_test = (expected.kernel_request.attack.attacker_test if expected.actor_id == scenario.actor_id
+            else expected.kernel_request.attack.defender_test)
+        _decline(state,proof.fate_decline,pc_test.id,'test')
+        pc_injury = pc_after_test(state)
+        before = expected.kernel_request.target_state
+        pending_wound = None
+        if result.attack.outcome is AttackOutcome.MISS:
+            _same(result.target_state,before,'miss changed the target injury')
+            followups = ((AttackerStaggerRequest(expected.kernel_request.attack.id),)
+                if result.attack.miss_consequence is MissConsequence.STAGGER_ATTACKER else ())
+            if result.character_wound is not None or result.profile_wound is not None or result.pending_character_wound is not None:
+                raise ValueError('miss invented a Wound')
+        elif result.attack.impact is ImpactOutcome.STAGGERED and not before.conditions.has(Condition.STAGGERED):
+            target = replace(before,conditions=before.conditions.with_condition(Condition.STAGGERED))
+            _same(result.target_state,target,'first Staggered changed unrelated injury state')
+            followups = ()
+            if result.character_wound is not None or result.profile_wound is not None or result.pending_character_wound is not None:
+                raise ValueError('first Staggered invented a Wound')
+        elif expected.target_id == scenario.actor_id:
+            if result.profile_wound is not None:
+                raise ValueError('PLAYER Wound cannot carry a profile-NPC Wound branch')
+            pending_wound = result.pending_character_wound
+            if pending_wound is None:
+                raise ValueError('PLAYER Wound must preserve its pending Near Miss window')
+            replace(pending_wound)
+            wound_source = pending_wound.source_request
+            kernel = expected.kernel_request
+            actual_source = CharacterWoundLifecycleRollRequest(kernel.id+':wound-lifecycle',scenario.actor_id,
+                CharacterWoundRequest(kernel.id+':wound',before,CharacterWoundType.PLAYER,
+                    kernel.wound_dice_modifiers,kernel.wound_negation_options))
+            replace(wound_source)
+            replace(wound_source.wound)
+            _same(wound_source,actual_source,'PC Wound pool/options/IDs differ from the actual ordinary Attack')
+            _same((result.character_wound,result.target_state,result.wound_effect),
+                (pending_wound.wound_result,pending_wound.wound_result.state,None),'PC Wound effects preceded its Fate window')
+            followups = ()
+        else:
+            if result.character_wound is not None or result.pending_character_wound is not None:
+                raise ValueError('Minion Wound cannot carry a PLAYER lifecycle branch')
+            target = replace(before,wounds=1,defeated=True,conditions=before.conditions.without_condition(Condition.STAGGERED))
+            _same(result.target_state,target,'Minion Wound changed unrelated state')
+            change = ProfileStateChangeRequest(ProfileNpcType.MINION,before.wounds,1,True)
+            if result.profile_wound is None or result.profile_wound.state != target or result.profile_wound.state_change != change:
+                raise ValueError('Minion defeat lacks its exact profile Wound')
+            profile = result.profile_wound
+            _same((profile.request_id,profile.wounds_requested,profile.wounds_inflicted,profile.applied_rule_ids),
+                (expected.kernel_request.id+':wound',1,1,()),'Minion profile Wound has a foreign source or count')
+            if (type(profile.wounds_requested) is not int or type(profile.wounds_inflicted) is not int
+                    or type(profile.state_change.previous_wounds) is not int
+                    or type(profile.state_change.current_wounds) is not int
+                    or type(profile.state_change.defeated) is not bool
+                    or not isinstance(profile.state_change.npc_type,ProfileNpcType)):
+                raise TypeError('Minion profile Wound requires typed source/count fields')
+            if type(profile.request_id) is not str:
+                raise TypeError('Minion profile Wound ID must be a string')
+            followups = (change,)
+        _same(result.follow_ups,followups,'PC Attack altered mandatory follow-up order')
+        enemies = state.enemies
+        if expected.target_id == scenario.actor_id:
+            pc_injury = result.target_state
+        else:
+            enemies = _enemy_update(state,expected.target_id,result.target_state)
+        return finish(round_state=execution.state,pc_injury=pc_injury,enemies=enemies,
+            pending=result.follow_ups,pending_wound=pending_wound)
+    if isinstance(proof,PcWoundCompletionProof):
+        pending = state.pending_wound
+        if pending is None:
+            raise ValueError('no pending PLAYER Wound can be completed')
+        _decline(state,proof.fate_decline,pending.request_id,'wound')
+        completed_ids = tuple(p.completion.source_request.roll.request_id for p in state.history if isinstance(p,PcWoundCompletionProof))
+        expected = CharacterWoundLifecycleCompletionRequest(pending.request_id+':complete',pending,state.pc_injury,
+            state.daily_wounds,daily_registration_id=pending.request_id+':daily',consumed_roll_ids=completed_ids)
+        replace(proof.completion)
+        if proof.completion.daily_registration is not None:
+            replace(proof.completion.daily_registration.source_request)
+            replace(proof.completion.daily_registration)
+        _same(proof.completion.source_request,expected,'Near Miss completion differs from the current actual roll/history')
+        if proof.completion.outcome is not CharacterWoundLifecycleOutcome.ACCEPTED:
+            raise ValueError('selected Fate refusal cannot silently negate or burn a Wound')
+        _canonical_wound_effect(proof.completion)
+        injury = proof.completion.state
+        new_timed = tuple(PcTimedWound(e,proof.completion.request_id,
+            combat.round_number+int(scenario.actor_id in combat.completed_turn_entity_ids))
+            for e in injury.active_wound_effects if isinstance(e,WoundConditionEffect)
+            and e.duration is WoundEffectDuration.END_OF_NEXT_TURN and e not in state.pc_injury.active_wound_effects)
+        return finish(pc_injury=injury,daily_wounds=proof.completion.daily_wounds,pending_wound=None,
+            pending=(*proof.completion.wound_effect.follow_ups,*state.pending),timed_wounds=(*state.timed_wounds,*new_timed))
+    if isinstance(proof,PcEnduranceProof):
+        if state.pending_wound is not None or not state.pending or state.pending[0] != proof.request:
+            raise ValueError('Endurance is detached from the next mandatory Wound request')
+        if not isinstance(proof.request,WoundEnduranceTestRequest) or proof.request.entry_id not in (
+                WoundEntryId.NICKED_ARM,WoundEntryId.BATTERED_LEG,WoundEntryId.GASHED_BROW):
+            raise ValueError('unsupported PC Wound Endurance source')
+        expected_test = _pc_test(state,proof.request.test_id,Skill.ENDURANCE)
+        if type(proof.result.succeeded) is not bool:
+            raise TypeError('Endurance success must be a bool')
+        _same(proof.test_request,expected_test,'Endurance changed the actual Toughness/Skill/modifiers')
+        _test_result(expected_test,proof.test)
+        _decline(state,proof.fate_decline,expected_test.id,'test')
+        injury = pc_after_test(state)
+        more = ()
+        timed = state.timed_wounds
+        if not proof.test.succeeded:
+            if proof.request.failure is WoundEnduranceFailure.DROP_RANDOM_HAND_ITEM:
+                more = (WoundConsequenceRequest(proof.request.wound_sequence,WoundConsequence.DROP_RANDOM_HAND_ITEM,proof.request.rule_id),)
+            else:
+                condition = Condition.PRONE if proof.request.failure is WoundEnduranceFailure.FALL_PRONE else Condition.BLINDED
+                duration = WoundEffectDuration.UNTIL_REMOVED if condition is Condition.PRONE else WoundEffectDuration.END_OF_NEXT_TURN
+                effect = WoundConditionEffect(proof.request.wound_sequence,condition,duration)
+                effects = injury.active_wound_effects if effect in injury.active_wound_effects else (*injury.active_wound_effects,effect)
+                injury = replace(injury,active_wound_effects=effects,conditions=injury.conditions.with_condition(condition))
+                if duration is WoundEffectDuration.END_OF_NEXT_TURN and not any(t.effect == effect for t in timed):
+                    timed = (*timed,PcTimedWound(effect,proof.request.test_id,
+                        combat.round_number+int(scenario.actor_id in combat.completed_turn_entity_ids)))
+        _same((proof.result.request,proof.result.state,proof.result.succeeded,proof.result.follow_ups),
+            (proof.request,injury,proof.test.succeeded,more),'Endurance result has forged consequences')
+        return finish(pc_injury=injury,pending=(*more,*state.pending[1:]),timed_wounds=timed)
+    if isinstance(proof,PcHandDropProof):
+        if state.pending_wound is not None or not state.pending or state.pending[0] != proof.source:
+            raise ValueError('random hand is detached from the next Wound consequence')
+        if proof.source.consequence is not WoundConsequence.DROP_RANDOM_HAND_ITEM:
+            raise ValueError('unsupported random-hand consequence')
+        if type(proof.die) is not int or not 1 <= proof.die <= 10:
+            raise ValueError('random hand must preserve its actual d10')
+        hand = PcWeaponHand.LEFT if proof.die <= 5 else PcWeaponHand.RIGHT
+        if proof.hand is not hand:
+            raise ValueError('random hand did not follow the chosen GM protocol')
+        return finish(weapon_hand=None if state.weapon_hand is hand else state.weapon_hand,pending=state.pending[1:])
+    if isinstance(proof,PcAttackerStaggerProof):
+        if state.pending_wound is not None or not state.pending or state.pending[0] != proof.source:
+            raise ValueError('miss Staggered is detached from its pending Attack')
+        actor = combat.active_turn.actor_id
+        if actor == scenario.actor_id:
+            injury = replace(state.pc_injury,conditions=state.pc_injury.conditions.with_condition(Condition.STAGGERED))
+            return finish(pc_injury=injury,pending=state.pending[1:])
+        old = state.enemy(actor).state.injury
+        return finish(enemies=_enemy_update(state,actor,replace(old,conditions=old.conditions.with_condition(Condition.STAGGERED))),pending=state.pending[1:])
+    if isinstance(proof,PcMinionDefeatProof):
+        replace(proof.decision)
+        if state.pending_wound is not None or not state.pending or state.pending[0] != proof.source:
+            raise ValueError('defeat disposition is detached from its pending profile change')
+        attack = next(p for p in reversed(state.history) if isinstance(p,PcAttackProof))
+        target = attack.request.target_id
+        if target == scenario.actor_id or proof.source != attack.execution.resolution.profile_wound.state_change:
+            raise ValueError('defeat acknowledgement requires its actual Minion Attack')
+        _same(proof.decision,scenario.defeat_decision(target),'Minion disposition differs from caller/GM decision')
+        updated = combat
+        if target not in (*combat.completed_turn_entity_ids,*combat.excluded_turn_entity_ids):
+            updated = replace(combat,excluded_turn_entity_ids=(*combat.excluded_turn_entity_ids,target))
+        return finish(round_state=updated,pending=state.pending[1:])
+    if isinstance(proof,PcRecoverProof):
+        _ready(state)
+        if pc_melee_selected_action(state) is not CombatActionKind.RECOVER:
+            raise ValueError('Recover must be the selected PC action')
+        expected = build_pc_melee_recover(state)
+        replace(proof.result)
+        replace(proof.result.resolution)
+        for change in proof.result.resolution.condition_changes:
+            replace(change)
+            ConditionState(change.previous_conditions.conditions)
+            ConditionState(change.conditions.conditions)
+        replace(proof.result.resolution.previous_magic_state)
+        replace(proof.result.resolution.magic_state)
+        validate_pc_melee_combat_shape(proof.result.round_state)
+        _same(proof.result.source_request,expected,'Recover differs from full owner/weapon/Conditions')
+        conditions = state.pc_injury.conditions
+        for change in proof.result.resolution.condition_changes:
+            conditions = change.conditions
+        effects = tuple(e for e in state.pc_injury.active_wound_effects
+            if not isinstance(e,WoundConditionEffect) or e.condition is not Condition.PRONE
+                or e.duration is not WoundEffectDuration.UNTIL_REMOVED)
+        injury = replace(state.pc_injury,conditions=conditions,active_wound_effects=effects)
+        return finish(round_state=proof.result.round_state,pc_injury=injury,
+            weapon_hand=scenario.initial_weapon_hand if state.weapon_hand is None else state.weapon_hand)
+    if isinstance(proof,PcTurnEndProof):
+        validate_pc_melee_combat_shape(proof.result.state)
+        replace(proof.result.completed_turn)
+        if type(proof.result.round_complete) is not bool:
+            raise TypeError('PC end-turn round_complete must be a bool')
+        _same(proof.result.applied_rule_ids,('RULE-COMBAT-001:rounds-sides-turns',),'turn-end rule trace changed')
+        _ready(state)
+        turn = combat.active_turn
+        if turn is None or len(turn.action_slots) != 1 or not turn.action_slots[0].executed:
+            raise ValueError('PC turn end requires its completed standard action')
+        expected = replace(combat,active_turn=None,completed_turn_entity_ids=(*combat.completed_turn_entity_ids,turn.actor_id))
+        result = proof.result
+        _same((result.request_id,result.state,result.completed_turn,result.next_side,result.round_complete),
+            (pc_melee_action_id(state,turn.actor_id)+':end',expected,turn,expected.next_side,expected.round_complete),
+            'PC turn end skipped action, order or source')
+        if turn.actor_id != scenario.actor_id:
+            if proof.fate_decline is not None:
+                raise ValueError('Minion cannot own a PC Fate decline')
+            return finish(round_state=expected)
+        _decline(state,proof.fate_decline,result.request_id,'action')
+        expired = tuple(t.effect for t in state.timed_wounds if t.deadline_round == combat.round_number)
+        if any(t.deadline_round < combat.round_number for t in state.timed_wounds):
+            raise ValueError('PC expiry clock is stale')
+        effects = tuple(e for e in state.pc_injury.active_wound_effects if e not in expired)
+        conditions = state.pc_injury.conditions
+        for effect in expired:
+            if not any(isinstance(e,WoundConditionEffect) and e.condition is effect.condition for e in effects):
+                conditions = conditions.without_condition(effect.condition)
+        return finish(round_state=expected,pc_injury=replace(state.pc_injury,active_wound_effects=effects,conditions=conditions),
+            timed_wounds=tuple(t for t in state.timed_wounds if t.effect not in expired))
+    if isinstance(proof,CombatRoundAdvanceResult):
+        validate_pc_melee_combat_shape(proof.state)
+        _same(proof.applied_rule_ids,('RULE-COMBAT-001:rounds-sides-turns',),'round-advance rule trace changed')
+        _ready(state)
+        if not combat.round_complete or combat.round_number >= scenario.max_rounds:
+            raise ValueError('PC round cannot advance before completion or beyond its budget')
+        participants = (CombatTurnParticipant(scenario.actor_id,CombatSide.PLAYERS_AND_ALLIES),
+            *(CombatTurnParticipant(a,CombatSide.OPPOSITION) for a in scenario.enemy_activation_order if not state.enemy(a).state.injury.defeated))
+        expected = CombatRoundState(combat.round_number+1,participants)
+        _same((proof.request_id,proof.state),(f'{scenario.id}:r{combat.round_number}:advance',expected),
+            'PC round advance changed its live participants, order or clock')
+        return finish(round_state=expected)
+    raise TypeError('unsupported PC journal proof type')

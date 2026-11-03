@@ -1,5 +1,7 @@
 # Реестр источников
 
+2026-11-04: для [первого PC-сценария M9 / ADR-0065](decisions/ADR-0065-first-pc-melee-encounter.md) адресно прочитаны локальные извлечения BOOK-PLAYER-GUIDE1.4: Characteristics/Skills68–69, Equipment92–93, Tests106–109, Fate111–112, Attack/Recover118–119, Wounds/Conditions121–123, Wounds Table190–191. WS/Melee/Defence и Sword bonus не подменяются NPC InlineProfile; добровольная mandatory caller-selected стратегия отказа от Fate сохраняет ресурсы и закрывает Near Miss до daily registration/effects/terminal. Пользователь выбрал поддержку Wounds1–10; это граница исполнения, а не изменение таблицы. Новых версий/hash, полного повторного чтения PDF, Rule IDs или house rules нет.
+
 2026-11-04: для standard self Recover адресно сверены BOOK-PLAYER-GUIDE1.4 Recover118, Interrupted Casting156, Miscasts157; строка5 Wounds Table190 сохраняет уже прочитанное разрешение Recover. Используются существующие STANDARD Recover и skipped-Casting post-action consumers; [дополнение ADR-0064](decisions/ADR-0064-battered-leg-prone-removal.md#дополнение-2026-11-04-standard-self-recover). Версии/hash прежние, нового полного чтения PDF/Rule ID/house rule нет.
 
 ## Battered Leg Prone: адресная сверка free self-stand

@@ -8,20 +8,45 @@
 - K1: Test/Attack/Conditions/Wounds, магия и специализированные consumers; наличие consumer не означает интеграцию во все сценарии.
 - M2–M7: ограниченные Minion-сценарии, независимые прогоны, подбор составов и JSON/CLI.
 - M8: один Champion-Wizard/Curse, явные scene facts, opt-in continuations, native журнал, generation и текущий JSON6. Ограниченная веха завершена; [граница и приёмка](m8-completion.md).
+- M9: один книжный PC/Staff или Sword против Minions, Wounds1–10, явный Fate decline, source-bound бой, trials, подбор численности и current JSON1/CLI. [Граница и приёмка ADR-0065](decisions/ADR-0065-first-pc-melee-encounter.md).
 
 ## Последняя законченная функция
 
-[ADR-0064](decisions/ADR-0064-battered-leg-prone-removal.md), дополнение 2026-11-04: standard self Recover после Battered Leg. Явный `recover_self` резервирует RECOVER slot, снимает sourced Prone, уменьшает Pool и применяет skipped-Casting contribution при активном Casting. Wound/Endurance/history/free move сохраняются; enemy Close допускается. Native/full-source/JSON проверки выполнены адресно. Ранее подключённый free self-stand остаётся отдельным выбором.
+[Первый PC-сценарий M9](decisions/ADR-0065-first-pc-melee-encounter.md) завершён целиком: от данных PC и обычного боя до массовой оценки, bounded counts и двух публичных команд. Общий source regression и installed delivery прошли; [примеры](examples/m9/README.md) доступны пользователю.
 
 ## M8 завершена
 
 Ограниченная M8 прошла финальную регрессию и проверку установленного пакета. [Checklist](m8-completion.md) хранит точный scope и фактические результаты. Все Wounds/Miscasts и полный каталог spells не требуются для её закрытия: точные unsupported stops входят в исходный контракт.
 
-Нового обязательного consumer или повторной проверки для закрытия M8 нет. Следующий шаг — выбрать следующую продуктовую веху и её проверяемый срез из backlog ниже; её scope пока не задан.
+Нового обязательного consumer или повторной проверки для закрытия M8 нет. Следующим направлением пользователь выбрал PC-сценарий ниже.
+
+<a id="next-milestone-proposal"></a>
+
+## M9 — первый книжный PC-сценарий
+
+Направление выбрано пользователем 2026-11-04: **один немагический персонаж игрока против numeric Minions**, от заданного боя до массовой оценки и подбора численности. M9 по [ADR-0065](decisions/ADR-0065-first-pc-melee-encounter.md) завершена, включая full source и installed delivery. Это первый книжный PC-срез вместо P1 `wound_limit`; нижеследующие критерии сохраняют конечную границу M9.
+
+Основания в коде: [NpcDefinition](../src/towr/domain/npc_roster_models.py) допускает только Minion/Brute/Champion; [Melee scenario](../src/towr/domain/npc_melee_scenario_models.py) — только Minions. Существующие [TestProfile](../src/towr/domain/test_models.py), [PLAYER injury](../src/towr/domain/injury_models.py) и [Fate kernel](../src/towr/domain/fate_models.py) пригодны для повторного использования, но отдельной книжной PC orchestration ещё нет. Переименование Champion в PC или перенос `wound_limit` из P1 этот разрыв не закрывает.
+
+Граница: готовый PC с явными Characteristics/Skills, Resilience и Staff/Sword, без генерации персонажа; один обычный Melee-вариант, одна Zone, явные Close/awareness/порядок/выбор целей, конечный round budget, немагические Minions без дополнительных Abilities. Пользователь дополнительно выбрал поддержку Wounds1–10; случайный hand/drop, восстановление собственного оружия и Prone через Recover, temporary expiry и next-Test Grim входят в функцию. Treatment, campaign, mounts, общий inventory, все Talents и произвольные тактики сюда не включаются. Обязательная явно выбранная стратегия `DECLINE_OPTIONAL_FATE` сохраняет ресурс и source-bound окна PC.
+
+Выполненные конечные критерии:
+
+1. Самостоятельный PC definition/state, книжные профили и PLAYER injury policy; общий battle owner содержит PC и NPC, сохраняя источники и однократность переходов. Решение о владельце состояния оформлено одним ADR, без массового переименования NPC API.
+2. Один непрерывный бой исполняет обычные атаки обеих сторон, PC Wound lifecycle/обязательные решения и завершение ходов. Неподдержанный эффект сохраняет фактический prefix и явный stop; victory/defeat не подменяются лимитом ран P1.
+3. Детерминированные примеры показывают PC win, PC defeat, round limit, unsupported, а также фактическую PC Wound с сохранением её эффекта. Если эти исходы нельзя честно получить в выбранной границе, scope пересматривается до реализации цикла.
+4. Независимые trials с source/seed parity и агрегатами; unsupported остаётся в общем знаменателе и исключает кандидата из итогового подбора. Балансировщик меняет только численность заданного enemy Minion reserve.
+5. Один текущий JSON/CLI контракт, runnable пример и адресная проверка нужных слоёв. Наличие отдельных K1 reducers не считается исполнением всех PC правил; полный regression/installed audit назначаются на границе этой вехи по рискам.
+
+Контракт PC roster, решений/Fate, initial-state admission и поддержанных Wounds закреплён и реализован через нужные слои одной функцией. Обязательного остатка для закрытия M9 нет.
+
+Меньшая альтернатива — **объяснение unsupported в действующем Magic-балансировщике**. [Одиночный результат](../src/towr/domain/npc_magic_step_models.py) уже содержит typed reason/phase и недостающие scene facts; [trial record](../src/towr/simulation/npc_magic_models.py) и [summary](../src/towr/simulation/npc_magic_summary_models.py) теряют эту причину. Конечный срез альтернативы: current6 simulation/balance report показывает counts по причинам и воспроизводимый пример trial index/seed для каждой; сумма равна unsupported total, sequential/process диагностика совпадает, полный journal в balance не передаётся, правила/исходы/selection не меняются. Это улучшает нынешний инструмент, но не добавляет PC.
+
+Пользователь выбрал PC-сценарий; diagnostics остаётся самостоятельной возможностью дальнейшего backlog и не добавляется в M9 автоматически.
 
 ## После M8
 
-Более широкий spell/Wound/Miscast каталог, combinations, PC/inventory/spatial/campaign/save-resume и ally removal — отдельный backlog. Приоритеты следующих функций выбираются отдельно после закрытия M8; её финиш ими автоматически не расширяется.
+Более широкий spell/Wound/Miscast каталог, другие комбинации и PC-сценарии/группы, общий inventory/spatial/campaign/save-resume и ally removal — отдельный backlog после текущей M9. Приоритеты следующих функций выбираются отдельно; финиш M8/M9 ими автоматически не расширяется.
 
 ## Контрольные точки
 

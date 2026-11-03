@@ -2,7 +2,7 @@
 
 Симулятор боёв и подбор сложности столкновений для TOWR. Нормативные источники: Player’s Guide1.4 и Gamemaster’s Guide1.1; упрощённый прототип не имеет приоритета над книгами.
 
-Реализованы ограниченные ranged/melee/mixed Minion-сценарии и M8 с одним Champion-Wizard, Curse of Cowardly Flight и явно разрешёнными продолжениями. Есть независимые sequential/process прогоны, агрегаты и подбор составов. Универсальный бой и полный каталог правил ещё не готовы; точные ограничения и следующий шаг — в [статусе](docs/project-status.md).
+Реализованы ограниченные ranged/melee/mixed Minion-сценарии и M8 с одним Champion-Wizard, Curse of Cowardly Flight и явно разрешёнными продолжениями. M9 добавляет первый немагический PC-сценарий против Minions с Wounds1–10 и явными решениями Fate. Есть независимые sequential/process прогоны, агрегаты и подбор составов. Точные границы и текущая приёмка — в [статусе](docs/project-status.md).
 
 ## Начало работы
 
@@ -19,11 +19,11 @@ py -3.12 -m venv .venv
 
 ```powershell
 $env:PYTHONPATH = 'src'
-.venv/Scripts/python.exe -m towr simulate-magic docs/examples/m8/json/magic-simulation.request.json
-.venv/Scripts/python.exe -m towr balance-magic docs/examples/m8/json/magic-balance.request.json
+.venv/Scripts/python.exe -m towr simulate-pc-melee docs/examples/m9/pc-melee-simulation.request.json
+.venv/Scripts/python.exe -m towr balance-pc-melee docs/examples/m9/pc-melee-balance.request.json
 ```
 
-После установки доступны `towr simulate-magic INPUT` и `towr balance-magic INPUT`; `-` читает stdin. Seed, trials, round budget и execution задаются во входе. Текущий Magic JSON — только6; прежние форматы разработки не поддерживаются. Остальные families используют собственный единственный формат1.
+После установки доступны `towr simulate-pc-melee INPUT` и `towr balance-pc-melee INPUT`; `-` читает stdin. Seed, trials, round budget и execution задаются во входе. PC melee и другие немагические families используют собственный текущий JSON1; Magic — JSON6. Все семейства перечислены ниже.
 
 | Сценарий | Примеры и команды |
 |---|---|
@@ -31,6 +31,7 @@ $env:PYTHONPATH = 'src'
 | Melee | [Simulation и balance](docs/examples/m6/README.md) |
 | Mixed | [Simulation и balance](docs/examples/m7/README.md) |
 | Magic | [Python API](docs/examples/m8/README.md), [JSON/CLI](docs/examples/m8/json/README.md) |
+| PC против Minions | [Первый книжный Melee-сценарий и подбор численности](docs/examples/m9/README.md) |
 
 ## Проверка изменений
 

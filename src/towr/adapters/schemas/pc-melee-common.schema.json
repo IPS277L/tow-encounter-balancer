@@ -1,0 +1,899 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:towr:pc-melee:common:1",
+  "$defs": {
+    "identifier": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "\\S"
+    },
+    "seed": {
+      "type": "string",
+      "pattern": "^(0|[1-9][0-9]{0,19})$"
+    },
+    "rational": {
+      "$comment": "Input fractions must be reduced, including 0/1; semantic admission checks coprimality.",
+      "type": "object",
+      "properties": {
+        "numerator": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "denominator": {
+          "type": "integer",
+          "minimum": 1
+        }
+      },
+      "required": [
+        "numerator",
+        "denominator"
+      ],
+      "additionalProperties": false
+    },
+    "window": {
+      "type": "object",
+      "properties": {
+        "minimum": {
+          "$ref": "urn:towr:pc-melee:common:1#/$defs/rational"
+        },
+        "target": {
+          "$ref": "urn:towr:pc-melee:common:1#/$defs/rational"
+        },
+        "maximum": {
+          "$ref": "urn:towr:pc-melee:common:1#/$defs/rational"
+        }
+      },
+      "required": [
+        "minimum",
+        "target",
+        "maximum"
+      ],
+      "additionalProperties": false
+    },
+    "execution": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "mode": {
+              "const": "sequential"
+            }
+          },
+          "required": [
+            "mode"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "mode": {
+              "const": "process"
+            },
+            "workers": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 61
+            },
+            "batch_size": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          "required": [
+            "mode",
+            "workers",
+            "batch_size"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "inline_profile": {
+      "type": "object",
+      "properties": {
+        "dice": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "threshold": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 10
+        },
+        "pool_cap": {
+          "type": "null"
+        }
+      },
+      "required": [
+        "dice",
+        "threshold",
+        "pool_cap"
+      ],
+      "additionalProperties": false
+    },
+    "resilience": {
+      "type": "object",
+      "properties": {
+        "toughness": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "bonus": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "toughness",
+        "bonus"
+      ],
+      "additionalProperties": false
+    },
+    "attack": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "urn:towr:pc-melee:common:1#/$defs/identifier"
+        },
+        "source_rule_id": {
+          "$ref": "urn:towr:pc-melee:common:1#/$defs/identifier"
+        },
+        "test_profile": {
+          "$ref": "urn:towr:pc-melee:common:1#/$defs/inline_profile"
+        },
+        "damage": {
+          "type": "object",
+          "properties": {
+            "base": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "success_multiplier": {
+              "const": 1
+            }
+          },
+          "required": [
+            "base",
+            "success_multiplier"
+          ],
+          "additionalProperties": false
+        },
+        "hands": {
+          "enum": [
+            "1h",
+            "2h"
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "source_rule_id",
+        "test_profile",
+        "damage",
+        "hands"
+      ],
+      "additionalProperties": false
+    },
+    "protection": {
+      "type": "object",
+      "properties": {
+        "source_rule_id": {
+          "$ref": "urn:towr:pc-melee:common:1#/$defs/identifier"
+        },
+        "test_profile": {
+          "$ref": "urn:towr:pc-melee:common:1#/$defs/inline_profile"
+        }
+      },
+      "required": [
+        "source_rule_id",
+        "test_profile"
+      ],
+      "additionalProperties": false
+    },
+    "enemy": {
+      "type": "object",
+      "properties": {
+        "actor_id": {
+          "$ref": "urn:towr:pc-melee:common:1#/$defs/identifier"
+        },
+        "definition": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "$ref": "urn:towr:pc-melee:common:1#/$defs/identifier"
+            },
+            "source_rule_id": {
+              "$ref": "urn:towr:pc-melee:common:1#/$defs/identifier"
+            },
+            "resilience": {
+              "$ref": "urn:towr:pc-melee:common:1#/$defs/resilience"
+            },
+            "attack": {
+              "$ref": "urn:towr:pc-melee:common:1#/$defs/attack"
+            },
+            "protection": {
+              "$ref": "urn:towr:pc-melee:common:1#/$defs/protection"
+            }
+          },
+          "required": [
+            "id",
+            "source_rule_id",
+            "resilience",
+            "attack",
+            "protection"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "actor_id",
+        "definition"
+      ],
+      "additionalProperties": false
+    },
+    "pc": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "urn:towr:pc-melee:common:1#/$defs/identifier"
+        },
+        "weapon_skill": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "strength": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "toughness": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "agility": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "melee": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 10
+        },
+        "defence": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 10
+        },
+        "athletics": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 10
+        },
+        "endurance": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 10
+        },
+        "weapon": {
+          "enum": [
+            "staff",
+            "sword"
+          ]
+        },
+        "armour_bonus": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "id",
+        "weapon_skill",
+        "strength",
+        "toughness",
+        "agility",
+        "melee",
+        "defence",
+        "athletics",
+        "endurance",
+        "weapon",
+        "armour_bonus"
+      ],
+      "additionalProperties": false
+    },
+    "facts": {
+      "type": "object",
+      "properties": {
+        "zone_id": {
+          "$ref": "urn:towr:pc-melee:common:1#/$defs/identifier"
+        },
+        "all_opponents_close": {
+          "const": true
+        },
+        "targets_aware": {
+          "const": true
+        },
+        "all_combatants_included": {
+          "const": true
+        },
+        "unmounted": {
+          "const": true
+        },
+        "no_external_effects": {
+          "const": true
+        },
+        "no_terrain_modifiers": {
+          "const": true
+        },
+        "no_additional_abilities": {
+          "const": true
+        },
+        "no_ambush": {
+          "const": true
+        },
+        "outnumbering_bonus_approved": {
+          "type": "boolean"
+        },
+        "can_leave_zone": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "zone_id",
+        "all_opponents_close",
+        "targets_aware",
+        "all_combatants_included",
+        "unmounted",
+        "no_external_effects",
+        "no_terrain_modifiers",
+        "no_additional_abilities",
+        "no_ambush",
+        "outnumbering_bonus_approved",
+        "can_leave_zone"
+      ],
+      "additionalProperties": false
+    },
+    "fate_spend": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "urn:towr:pc-melee:common:1#/$defs/identifier"
+        },
+        "session_id": {
+          "$ref": "urn:towr:pc-melee:common:1#/$defs/identifier"
+        },
+        "actor_id": {
+          "$ref": "urn:towr:pc-melee:common:1#/$defs/identifier"
+        },
+        "kind": {
+          "enum": [
+            "glorious_test",
+            "second_action",
+            "tactical_retreat"
+          ]
+        },
+        "subject_id": {
+          "$ref": "urn:towr:pc-melee:common:1#/$defs/identifier"
+        },
+        "rule_id": {
+          "$ref": "urn:towr:pc-melee:common:1#/$defs/identifier"
+        },
+        "funding": {
+          "enum": [
+            "session_pool",
+            "lucky_free"
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "session_id",
+        "actor_id",
+        "kind",
+        "subject_id",
+        "rule_id",
+        "funding"
+      ],
+      "additionalProperties": false
+    },
+    "fate_refresh": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "urn:towr:pc-melee:common:1#/$defs/identifier"
+        },
+        "session_id": {
+          "$ref": "urn:towr:pc-melee:common:1#/$defs/identifier"
+        },
+        "actor_id": {
+          "$ref": "urn:towr:pc-melee:common:1#/$defs/identifier"
+        },
+        "mid_session_break_id": {
+          "$ref": "urn:towr:pc-melee:common:1#/$defs/identifier"
+        },
+        "gm_approval_id": {
+          "$ref": "urn:towr:pc-melee:common:1#/$defs/identifier"
+        },
+        "previous_spend_limit": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "restored_spends": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "new_spend_limit": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "rule_id": {
+          "const": "RULE-FATE-001:refresh"
+        }
+      },
+      "required": [
+        "id",
+        "session_id",
+        "actor_id",
+        "mid_session_break_id",
+        "gm_approval_id",
+        "previous_spend_limit",
+        "restored_spends",
+        "new_spend_limit",
+        "rule_id"
+      ],
+      "additionalProperties": false
+    },
+    "fate_burn": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "urn:towr:pc-melee:common:1#/$defs/identifier"
+        },
+        "session_id": {
+          "$ref": "urn:towr:pc-melee:common:1#/$defs/identifier"
+        },
+        "actor_id": {
+          "$ref": "urn:towr:pc-melee:common:1#/$defs/identifier"
+        },
+        "kind": {
+          "enum": [
+            "unmitigated_success",
+            "near_miss",
+            "last_stand"
+          ]
+        },
+        "subject_id": {
+          "$ref": "urn:towr:pc-melee:common:1#/$defs/identifier"
+        },
+        "previous_rating": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "new_rating": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "previous_spend_limit": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "new_spend_limit": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "current_session_allowance_reduced": {
+          "type": "boolean"
+        },
+        "rule_id": {
+          "const": "RULE-FATE-003:burn"
+        }
+      },
+      "required": [
+        "id",
+        "session_id",
+        "actor_id",
+        "kind",
+        "subject_id",
+        "previous_rating",
+        "new_rating",
+        "previous_spend_limit",
+        "new_spend_limit",
+        "current_session_allowance_reduced",
+        "rule_id"
+      ],
+      "additionalProperties": false
+    },
+    "fate": {
+      "type": "object",
+      "properties": {
+        "session_id": {
+          "$ref": "urn:towr:pc-melee:common:1#/$defs/identifier"
+        },
+        "actor_id": {
+          "$ref": "urn:towr:pc-melee:common:1#/$defs/identifier"
+        },
+        "rating": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "session_spend_limit": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "spends": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:towr:pc-melee:common:1#/$defs/fate_spend"
+          },
+          "minItems": 0
+        },
+        "has_lucky": {
+          "const": false
+        },
+        "refreshes": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:towr:pc-melee:common:1#/$defs/fate_refresh"
+          },
+          "minItems": 0
+        },
+        "burns": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:towr:pc-melee:common:1#/$defs/fate_burn"
+          },
+          "minItems": 0
+        },
+        "resource_event_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:towr:pc-melee:common:1#/$defs/identifier"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        },
+        "rule_id": {
+          "const": "RULE-FATE-001:session-resource"
+        }
+      },
+      "required": [
+        "session_id",
+        "actor_id",
+        "rating",
+        "session_spend_limit",
+        "spends",
+        "has_lucky",
+        "refreshes",
+        "burns",
+        "resource_event_ids",
+        "rule_id"
+      ],
+      "additionalProperties": false
+    },
+    "defeat": {
+      "type": "object",
+      "properties": {
+        "attacker_id": {
+          "$ref": "urn:towr:pc-melee:common:1#/$defs/identifier"
+        },
+        "target_id": {
+          "$ref": "urn:towr:pc-melee:common:1#/$defs/identifier"
+        },
+        "disposition": {
+          "enum": [
+            "killed",
+            "knocked_out",
+            "disarmed_and_surrendered"
+          ]
+        },
+        "gm_approved": {
+          "const": true
+        }
+      },
+      "required": [
+        "attacker_id",
+        "target_id",
+        "disposition",
+        "gm_approved"
+      ],
+      "additionalProperties": false
+    },
+    "scenario": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "urn:towr:pc-melee:common:1#/$defs/identifier"
+        },
+        "actor_id": {
+          "$ref": "urn:towr:pc-melee:common:1#/$defs/identifier"
+        },
+        "pc": {
+          "$ref": "urn:towr:pc-melee:common:1#/$defs/pc"
+        },
+        "fate": {
+          "$ref": "urn:towr:pc-melee:common:1#/$defs/fate"
+        },
+        "day_id": {
+          "$ref": "urn:towr:pc-melee:common:1#/$defs/identifier"
+        },
+        "enemies": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:towr:pc-melee:common:1#/$defs/enemy"
+          },
+          "minItems": 1
+        },
+        "facts": {
+          "$ref": "urn:towr:pc-melee:common:1#/$defs/facts"
+        },
+        "policy": {
+          "const": "attack_or_recover_self"
+        },
+        "fate_policy": {
+          "const": "decline_optional_fate"
+        },
+        "random_hand_policy": {
+          "const": "d10_low_left_high_right"
+        },
+        "initial_weapon_hand": {
+          "enum": [
+            "left",
+            "right"
+          ]
+        },
+        "enemy_activation_order": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:towr:pc-melee:common:1#/$defs/identifier"
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "target_priority": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:towr:pc-melee:common:1#/$defs/identifier"
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "defeat_decisions": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:towr:pc-melee:common:1#/$defs/defeat"
+          },
+          "minItems": 1
+        },
+        "max_rounds": {
+          "type": "integer",
+          "minimum": 1
+        }
+      },
+      "required": [
+        "id",
+        "actor_id",
+        "pc",
+        "fate",
+        "day_id",
+        "enemies",
+        "facts",
+        "policy",
+        "fate_policy",
+        "random_hand_policy",
+        "initial_weapon_hand",
+        "enemy_activation_order",
+        "target_priority",
+        "defeat_decisions",
+        "max_rounds"
+      ],
+      "additionalProperties": false
+    },
+    "group": {
+      "type": "object",
+      "properties": {
+        "group_id": {
+          "$ref": "urn:towr:pc-melee:common:1#/$defs/identifier"
+        },
+        "actor_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:towr:pc-melee:common:1#/$defs/identifier"
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "minimum_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "maximum_count": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "group_id",
+        "actor_ids",
+        "minimum_count",
+        "maximum_count"
+      ],
+      "additionalProperties": false
+    },
+    "runtime": {
+      "type": "object",
+      "properties": {
+        "package_version": {
+          "$ref": "urn:towr:pc-melee:common:1#/$defs/identifier"
+        },
+        "python_implementation": {
+          "$ref": "urn:towr:pc-melee:common:1#/$defs/identifier"
+        },
+        "python_version": {
+          "$ref": "urn:towr:pc-melee:common:1#/$defs/identifier"
+        },
+        "rng": {
+          "const": "random.Random"
+        }
+      },
+      "required": [
+        "package_version",
+        "python_implementation",
+        "python_version",
+        "rng"
+      ],
+      "additionalProperties": false
+    },
+    "counts": {
+      "type": "object",
+      "properties": {
+        "objective_achieved": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "pc_defeated": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "round_limit": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "unsupported_path": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "objective_achieved",
+        "pc_defeated",
+        "round_limit",
+        "unsupported_path"
+      ],
+      "additionalProperties": false
+    },
+    "summary": {
+      "type": "object",
+      "properties": {
+        "trials": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "outcome_counts": {
+          "$ref": "urn:towr:pc-melee:common:1#/$defs/counts"
+        },
+        "total_action_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "total_started_round_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "total_completed_round_count": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "trials",
+        "outcome_counts",
+        "total_action_count",
+        "total_started_round_count",
+        "total_completed_round_count"
+      ],
+      "additionalProperties": false
+    },
+    "assessment": {
+      "type": "object",
+      "properties": {
+        "status": {
+          "enum": [
+            "eligible",
+            "unsupported_observations"
+          ]
+        },
+        "window": {
+          "$ref": "urn:towr:pc-melee:common:1#/$defs/window"
+        },
+        "objective_achieved_rate": {
+          "$ref": "urn:towr:pc-melee:common:1#/$defs/rational"
+        },
+        "pc_defeated_rate": {
+          "$ref": "urn:towr:pc-melee:common:1#/$defs/rational"
+        },
+        "round_limit_rate": {
+          "$ref": "urn:towr:pc-melee:common:1#/$defs/rational"
+        },
+        "unsupported_path_rate": {
+          "$ref": "urn:towr:pc-melee:common:1#/$defs/rational"
+        },
+        "window_match": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "status",
+        "window",
+        "objective_achieved_rate",
+        "pc_defeated_rate",
+        "round_limit_rate",
+        "unsupported_path_rate",
+        "window_match"
+      ],
+      "additionalProperties": false
+    },
+    "candidate": {
+      "type": "object",
+      "properties": {
+        "candidate_id": {
+          "$ref": "urn:towr:pc-melee:common:1#/$defs/identifier"
+        },
+        "counts": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "minItems": 1
+        },
+        "request": {
+          "type": "object",
+          "properties": {
+            "master_seed": {
+              "$ref": "urn:towr:pc-melee:common:1#/$defs/seed"
+            },
+            "trials": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "scenario": {
+              "$ref": "urn:towr:pc-melee:common:1#/$defs/scenario"
+            }
+          },
+          "required": [
+            "master_seed",
+            "trials",
+            "scenario"
+          ],
+          "additionalProperties": false
+        },
+        "summary": {
+          "$ref": "urn:towr:pc-melee:common:1#/$defs/summary"
+        },
+        "assessment": {
+          "$ref": "urn:towr:pc-melee:common:1#/$defs/assessment"
+        }
+      },
+      "required": [
+        "candidate_id",
+        "counts",
+        "request",
+        "summary",
+        "assessment"
+      ],
+      "additionalProperties": false
+    }
+  }
+}

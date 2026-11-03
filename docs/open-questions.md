@@ -4,7 +4,7 @@
 
 ## Действующая граница симуляции
 
-Ограниченная M8 завершена, [граница и результаты приёмки](m8-completion.md). Следующий шаг находится в [статусе](project-status.md), текущие контракты — в [архитектуре](architecture/overview.md). Free self-stand и standard self Recover после Battered Leg реализованы при явном выборе policy; ally removal и mixed injuries/treatment/save-resume не открыты. Characteristic enum пока не покрывает все книжные Characteristics. Подробная прежняя инвентаризация M8 в деталях не расширяет scope и не возвращает удалённые wire formats.
+Ограниченные [M8](m8-completion.md) и [первый PC-сценарий M9](decisions/ADR-0065-first-pc-melee-encounter.md) завершены. Следующий шаг находится в [статусе](project-status.md), текущие контракты — в [архитектуре](architecture/overview.md). M9 поддерживает Wounds1–10 и явный optional Fate decline с сохранением resource/history;11–23сохраняют pending lifecycle stop. Группы PC, активные решения Fate, остальные последствия, общий campaign/inventory и оптимальная AI-policy остаются дальнейшими темами. Characteristic enum пока не покрывает все книжные Characteristics; M9 использует собственные числовые WS/Skills с TestProfile. Историческая инвентаризация M8 не расширяет текущую очередь и не возвращает удалённые wire formats.
 
 <a id="первая-метрика-m5"></a>
 
