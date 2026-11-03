@@ -1,6 +1,6 @@
 # Конечный checklist M8
 
-Дата: 2026-11-04. Статус: функциональная граница определена и реализована; финальная контрольная точка ещё не выполнена.
+Дата: 2026-11-04. Статус: **M8 завершена в описанной ниже ограниченной границе**; финальная регрессия и проверка установленного пакета выполнены.
 
 ## Что закрываем
 
@@ -12,7 +12,7 @@ M8 — **ограниченная магия в боевой симуляции*
 
 ## Реализованные критерии
 
-«Есть» означает наличие реализации и адресных проверок; это не объявление текущего полного набора зелёным. Финальный запуск указан отдельно ниже.
+Критерии подтверждены реализацией, адресными проверками и финальной приёмкой ниже. Это не означает поддержку всех правил книги.
 
 | Критерий | Наличие и проверяемое поведение |
 |---|---|
@@ -33,16 +33,20 @@ M8 — **ограниченная магия в боевой симуляции*
 2. **Последствия и допустимый stop:** [missing intermediate frame/pending](../tests/integration/test_m8_npc_magic_scenario_result.py), [Battered Recover и последующий Casting→Miscast](../tests/integration/test_m8_battered_leg_recover.py), [unsupported запрещает selection](../tests/integration/test_m8_magic_staged_evaluation.py). Не требуется исполнять неподдержанный дальнейший Miscast, если stop точен и Pool/receipt сохранены.
 3. **Публичный текущий контракт:** [simulation6](../tests/integration/test_m8_magic_json_v6.py), [balance6](../tests/integration/test_m8_magic_balance_json_v6.py): source/permissions echo, aggregates/полный staged report, module/console×sequential/process на репрезентативных inputs.
 
-2026-11-04: read-only сверка обнаружила одно устаревшее ожидание simulation CLI test: Battered object сравнивался без обязательного `prone_policy:null`. Исправлено; ровно этот existing matrix test прошёл, 1test OK/10.324s, log `.cache/m8-closure-cli-simulation.log`. Остальные ссылки — существующее evidence, не новые прогоны этой проверки. Полная регрессия далее включает контрольные наборы; отдельную дублирующую матрицу перед ней запускать не требуется без нового риска.
+Предварительная сверка 2026-11-04 обнаружила устаревшее ожидание simulation CLI test: Battered object сравнивался без обязательного `prone_policy:null`. Исправление проверено адресно, затем эта же матрица и все три контрольных набора прошли в единой финальной регрессии.
 
-## Осталось две контрольные работы
+## Финальная приёмка
 
-- [ ] **R1. Завершающая регрессия текущего дерева.** Один полный source run после серии64/Recover. Разобрать реальные ошибки; повторять исправленные/зависимые проверки по [политике](../AGENTS.md#политика-проверок). Закрыть все test IDs актуального набора, отдельно учитывая environment errors. Единый либо составной результат назвать точно; известные errors нельзя замолчать или объявить зелёными.
-- [ ] **R2. Одна проверка доставки после R1.** На неизменившемся после R1 дереве исходников один раз собрать и установить offline wheel, проверить включение текущих schemas/modules, offline refs и зависимости. Из внешнего cwd выполнить representative simulate-magic и balance-magic установленными module/console entry points; один process case достаточен для доставки. Проверить current6 echo/summary/report/error, отсутствие зависимости от source tree и согласованность пользовательских команд. Старые wire versions и полную повторную installed-копию всех unit tests не включать.
+- [x] **R1. Завершающая регрессия.** Один полный source run после серии64/Recover: **4312 tests, OK за 1597.756s**, без failures/errors/skips. Windows, Python3.12.4; исходное чистое дерево `0c26270`. Команда при `PYTHONPATH=src`: `.venv/Scripts/python.exe -m unittest discover -s tests -v`. Семь выбранных контрольных методов, включая четыре исхода, real spawn, missing frame, unsupported selection, обе CLI6 матрицы и Casting→Miscast после Recover, найдены успешными внутри этого единого прогона. Исправлений исходников не понадобилось.
+- [x] **R2. Проверка доставки.** Одна сборка из свежей копии `src`, `pyproject.toml`, `README.md`, `LICENSE`; offline build и установка настоящих cached wheels в новый venv, `pip check` успешен. SHA256 всех 470 `.py/.json` совпали между source, wheel и installed. Доступны 25 schemas/329 offline refs, включая 7 Magic/162 refs и новые Prone/Recover modules. Импорты идут из нового venv, запуск — из внешнего временного каталога без `PYTHONPATH`/`PYTHONHOME`, не editable.
 
-После R1/R2 записать фактические результаты и отметить **M8 завершена в этой ограниченной границе**. Новая игровая механика не является обязательным остатком. Исправление дефекта, нарушающего уже заявленную границу, входит в приёмку; новая способность/табличная строка не добавляется в неё автоматически.
+Installed CLI: использованы копии [simulation6 request](examples/m8/json/magic-simulation-v6.request.json) и [balance6 request](examples/m8/json/magic-balance-v6.request.json) с `prone_policy="recover_self"` в scenario и обеих matching balance projections. Sequential module/console запуски для simulate-magic и balance-magic сохранили полный current6 input, summary/полный staged report и побайтово равные результаты. Один console process simulation сохранил тот же summary при явном process echo. Три error cases проверили threshold11, несовпадающий generation profile и lexical float: exit2, current6, корректный trusted/null request ID и path.
 
-Оценка остатка: две проверочные работы, обычно один контрольный заход при отсутствии существенных ошибок. Последний известный общий run занял около25минут; это ориентир стоимости одного запуска на этой машине, не обещание времени завершения. Объём исправлений до R1 заранее неизвестен. Процент готовности всей книги по этому checklist не вычисляется.
+R2 закрыт **составно**: первоначальный локальный проверочный скрипт ошибочно требовал пустой stderr для input errors. CLI штатно выдаёт одну строку диагностики; после исправления ожидания выполнены только три error cases. Пять успешных CLI запусков, сборка, установка и полная регрессия не повторялись; приложение и wheel не менялись. Это ошибка аудитора, не дефект поставки и не единый зелёный первый запуск R2.
+
+Локальные evidence: `.cache/m8-final-source-regression.log`, `.cache/m8-final-delivery.log`, `.cache/m8-final-delivery-errors.log`, `.cache/m8-final-delivery-5f96786512/report.json`. Wheel: `towr_encounter_balancer-0.1.0-py3-none-any.whl`, SHA256 `6a90f5d048819c4f21d1352f1615122d95212de65d535da11286120a71e0dc17`. Повторяемая основа доставки: `pip wheel --no-index --find-links WHEELHOUSE --no-deps PACKAGE_COPY`, fresh `venv`, `pip install --no-index --find-links WHEELHOUSE WHEEL`, `pip check`, затем четыре module/console команды и один process case с public requests выше. Локальные аудиторы в `.cache` — вспомогательные артефакты, не часть публичного API.
+
+Обязательного остатка для ограниченной M8 нет. Новая способность или табличная строка рассматривается как следующая функция; закрытие M8 не означает готовность всей книги или отсутствие unsupported при любых будущих бросках.
 
 ## После M8
 

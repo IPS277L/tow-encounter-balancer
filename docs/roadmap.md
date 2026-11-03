@@ -7,22 +7,17 @@
 - R1: разбор выбранных книг PG1.4/GM1.1, нормализованные правила и трассировка.
 - K1: Test/Attack/Conditions/Wounds, магия и специализированные consumers; наличие consumer не означает интеграцию во все сценарии.
 - M2–M7: ограниченные Minion-сценарии, независимые прогоны, подбор составов и JSON/CLI.
-- M8: один Champion-Wizard/Curse, явные scene facts, opt-in continuations, native журнал, generation и текущий JSON6. Battered Leg Endurance подключён; его failure оставляет sourced Prone.
+- M8: один Champion-Wizard/Curse, явные scene facts, opt-in continuations, native журнал, generation и текущий JSON6. Ограниченная веха завершена; [граница и приёмка](m8-completion.md).
 
 ## Последняя законченная функция
 
 [ADR-0064](decisions/ADR-0064-battered-leg-prone-removal.md), дополнение 2026-11-04: standard self Recover после Battered Leg. Явный `recover_self` резервирует RECOVER slot, снимает sourced Prone, уменьшает Pool и применяет skipped-Casting contribution при активном Casting. Wound/Endurance/history/free move сохраняются; enemy Close допускается. Native/full-source/JSON проверки выполнены адресно. Ранее подключённый free self-stand остаётся отдельным выбором.
 
-## Закрытие M8: конечная граница
+## M8 завершена
 
-Функциональная ограниченная M8 уже реализована. [Конечный checklist](m8-completion.md) фиксирует scope и три контрольных набора. Все Wounds/Miscasts и полный каталог spells не требуются для её закрытия: точные unsupported stops входят в исходный контракт.
+Ограниченная M8 прошла финальную регрессию и проверку установленного пакета. [Checklist](m8-completion.md) хранит точный scope и фактические результаты. Все Wounds/Miscasts и полный каталог spells не требуются для её закрытия: точные unsupported stops входят в исходный контракт.
 
-Осталось **две контрольные работы**:
-
-1. R1 — один завершающий полный source regression; исправить нарушения уже заявленной границы и честно закрыть актуальные test IDs.
-2. R2 — после стабилизации source одна offline wheel/installed delivery проверка current JSON6 и representative CLI/process.
-
-Read-only сверка завершена; одно устаревшее ожидание CLI6 исправлено и адресно проверено. Следующее действие — R1, без предварительного добавления очередного игрового consumer. Подробный статус R1/R2 хранится только в checklist.
+Нового обязательного consumer или повторной проверки для закрытия M8 нет. Следующий шаг — выбрать следующую продуктовую веху и её проверяемый срез из backlog ниже; её scope пока не задан.
 
 ## После M8
 

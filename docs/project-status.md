@@ -4,17 +4,17 @@
 
 ## Текущий этап
 
-**M8 — завершающая приёмка ограниченной магической симуляции.** Функциональная граница реализована; конечный scope, свидетельства и две оставшиеся контрольные работы закреплены в [checklist M8](m8-completion.md). Веха ещё не объявлена завершённой. Полный каталог книжной магии и последствий не входит в её условия закрытия.
+**M8 завершена в согласованной ограниченной границе.** Один Champion-Wizard/Curse, явные scene facts, opt-in последствия, independent trials, подбор составов и текущий JSON6 прошли финальную приёмку. [Checklist M8](m8-completion.md) хранит scope и подробные результаты R1/R2. Полный каталог книжной магии и последствий не входит в эту отметку готовности.
 
-Последняя реализованная функция — [standard self Recover после Battered Leg](decisions/ADR-0064-battered-leg-prone-removal.md#дополнение-2026-11-04-standard-self-recover): явный `recover_self` расходует один action slot и снимает sourced Prone, сохраняя Wound, completed Endurance, free move и histories. Enemy Close допустим. Уменьшение Pool и последующий skipped-Casting contribution применяются последовательно. Free self-stand остаётся отдельным выбором без автоматического Recover fallback.
+Последняя игровая функция — free self-stand и standard self Recover после Battered Leg по [ADR-0064](decisions/ADR-0064-battered-leg-prone-removal.md). Эта сессия выполнила только приёмку; исходники, правила и тесты не менялись.
 
 ## Последняя проверка
 
-2026-11-04: исходный M8 scope сопоставлен с реализацией и прежними ADR. Исправлено устаревшее ожидание Battered object в существующей simulation CLI6 матрице: добавлено обязательное `prone_policy:null`.
+R1: при `PYTHONPATH=src` команда `.venv/Scripts/python.exe -m unittest discover -s tests -v` — **4312 tests, OK за 1597.756s**, единый полный прогон без failures/errors/skips. Windows, Python3.12.4, исходное чистое дерево `0c26270`.
 
-При `PYTHONPATH=src`: `.venv/Scripts/python.exe -m unittest tests.integration.test_m8_magic_json_v6.M8MagicJsonV6IntegrationTests.test_module_console_and_both_backends_echo_full_v6_source_with_equal_aggregates -v` — 1 test OK/10.324s, module/console×sequential/process; лог `.cache/m8-closure-cli-simulation.log`. Подробные успешные адресные проверки Recover сохранены в [ADR-0064](decisions/ADR-0064-battered-leg-prone-removal.md#дополнение-2026-11-04-standard-self-recover).
+R2: одна offline wheel-сборка и fresh install, `pip check`; все 470 `.py/.json` совпали source→wheel→installed, 25 schemas/329 refs разрешились offline. Установленные simulate-magic и balance-magic проверены module/console из внешнего cwd, включая один process case и current6 source/report/error. Приёмка R2 составная: исправлено неверное ожидание stderr в локальном аудиторе, затем проверены только три error cases; успешные CLI, сборка и полный набор не повторялись. Логи и hash wheel — в checklist.
 
-Проверены 4909 локальных ссылок в 208 Markdown-файлах, отсутствующих targets нет; пять контрольных test methods найдены статически. `git diff --check` успешен. Текущий полный набор и установленный пакет после серии64/Recover ещё не проверены; единый зелёный full не заявляется. Их проверка — R1/R2 ниже.
+После обновления документации проверены 4910 локальных ссылок в 208 Markdown-файлах, отсутствующих targets нет; `git diff --check` успешен.
 
 ## Ограничения
 
@@ -22,6 +22,6 @@
 
 ## Точный следующий шаг
 
-Выполнить R1 из [конечного checklist M8](m8-completion.md): один завершающий полный source regression и адресное закрытие найденных нарушений текущего контракта. Затем R2 — одна установленная delivery проверка стабилизированного current6 пакета/CLI. Для ограниченной M8 обязательных новых игровых consumers не осталось; весь каталог книги — дальнейший backlog.
+Выбрать следующую законченную продуктовую веху: сопоставить оставшиеся ограничения с целью симулятора/балансировщика и предложить приоритетный пользовательский сценарий с конечными критериями готовности. Очередь новых игровых функций после M8 пока не утверждена; автоматически добавлять очередной Wound/Miscast consumer или повторять R1/R2 не требуется.
 
-Следующая installed-проверка — R2 финальной контрольной точки M8 после R1. Commit/push выполняет пользователь.
+Commit/push выполняет пользователь.

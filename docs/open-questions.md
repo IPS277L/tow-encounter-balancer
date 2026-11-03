@@ -4,7 +4,7 @@
 
 ## Действующая граница симуляции
 
-Текущий scope и следующий шаг находятся в [статусе](project-status.md), текущие контракты — в [архитектуре](architecture/overview.md). Free self-stand и standard self Recover после Battered Leg реализованы при явном выборе policy; ally removal и mixed injuries/treatment/save-resume не открыты. Characteristic enum пока не покрывает все книжные Characteristics. Подробная прежняя инвентаризация M8 в деталях не расширяет scope и не возвращает удалённые wire formats.
+Ограниченная M8 завершена, [граница и результаты приёмки](m8-completion.md). Следующий шаг находится в [статусе](project-status.md), текущие контракты — в [архитектуре](architecture/overview.md). Free self-stand и standard self Recover после Battered Leg реализованы при явном выборе policy; ally removal и mixed injuries/treatment/save-resume не открыты. Characteristic enum пока не покрывает все книжные Characteristics. Подробная прежняя инвентаризация M8 в деталях не расширяет scope и не возвращает удалённые wire formats.
 
 <a id="первая-метрика-m5"></a>
 
