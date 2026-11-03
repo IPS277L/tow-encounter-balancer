@@ -1,3 +1,7 @@
+Актуальная граница закрытия M8 закреплена в [конечном checklist](../m8-completion.md). Исторические кандидаты ниже — backlog расширений; они не требуют реализации перед финальной приёмкой ограниченного M8. Battered Leg Endurance/free stand/Recover и Crushed Rib native/transport уже закрыты; старые ссылки на неподключённые57/61 не являются текущим статусом.
+
+Текущая отметка 2026-11-04: [Battered Leg64](../decisions/ADR-0064-battered-leg-prone-removal.md) поддерживает Endurance и явно выбранные free self-stand/standard self Recover. Magic использует единственный JSON6. Историческая хронология ниже не задаёт текущую очередь; оставшиеся consumers рассматриваются после приёмки M8 как самостоятельные расширения по actual stop/source.
+
 # M8: инвентаризация обязательных продолжений
 
 2026-11-03: [delivery ADR-0062](../decisions/ADR-0062-battered-leg-generation-and-magic-json-v6.md) реализован: профиль Endurance передаётся целиком через independent matching family и JSON6, native61 injury scope/stop прежние. [Production239d10](../examples/m8/battered_leg_transport_contract_probe.py) сверяет98actual JSON6 parses/full echoes,97matching candidates и5None controls с независимыми oracles; native/realspawn и full-five Wizard-opposite сохранены. [Приёмка](m8-battered-leg-transport-readiness.md). JSON1–5 не представляют новое разрешение; Prone5 removal остаётся отдельным consumer.

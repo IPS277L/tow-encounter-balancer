@@ -42,8 +42,12 @@ from towr.domain.npc_magic_crushed_rib_policy import (
 from towr.domain.npc_magic_battered_leg_policy import (
     initial_magic_battered_leg_history, advance_magic_battered_leg_history,
     magic_battered_leg_request, validate_magic_battered_leg_predecessor,
+    magic_battered_leg_prone_stand_request,
+    magic_battered_leg_recover_selected, magic_battered_leg_recover_request,
 )
 from towr.rules.npc_roster_battered_leg_resolution import execute_npc_roster_battered_leg
+from towr.rules.npc_roster_battered_leg_prone_resolution import stand_npc_roster_battered_leg_prone
+from towr.engine.npc_roster_battered_leg_recover import execute_npc_roster_battered_leg_recover
 from towr.domain.npc_magic_scenario_result_models import (
     NpcMagicScenarioResult, diagnose_npc_magic_unsupported, npc_magic_terminal_outcome,
 )
@@ -231,7 +235,9 @@ def run_npc_magic_scenario(scenario: NpcMagicScenario, rng: RandomSource) -> Npc
                 continue
             actor_id = magic_next_actor(scenario, current)
             injury = current.roster.participant(actor_id).state.injury
-            if injury.conditions.has(Condition.BROKEN):
+            if magic_battered_leg_recover_selected(scenario, current, actor_id, battered_leg_history):
+                declaration = CombatActionDeclaration(CombatActionKind.RECOVER)
+            elif injury.conditions.has(Condition.BROKEN):
                 frame = scenario.frame_for(magic_scene_key(current))
                 plan = next((p for p in frame.broken_plans if p.actor_id == actor_id), None) if frame else None
                 declaration = (CombatActionDeclaration(CombatActionKind.MANOEUVRE, manoeuvre=ManoeuvreKind.RUN)
@@ -256,7 +262,17 @@ def run_npc_magic_scenario(scenario: NpcMagicScenario, rng: RandomSource) -> Npc
                 crushed_rib_context=magic_crushed_rib_context(scenario, current, actor_id, crushed_rib_history))
             publish(end_npc_wound_turn(source), source)
             continue
+        battered_recover = magic_battered_leg_recover_request(
+            scenario, current, battered_leg_history, identifier('battered-leg-recover'))
+        if battered_recover is not None:
+            publish(execute_npc_roster_battered_leg_recover(battered_recover, rng), battered_recover)
+            continue
         frame = scenario.frame_for(magic_scene_key(current))
+        battered_stand = magic_battered_leg_prone_stand_request(
+            scenario, current, frame, battered_leg_history, identifier('battered-leg-stand'))
+        if battered_stand is not None:
+            publish(stand_npc_roster_battered_leg_prone(battered_stand), battered_stand)
+            continue
         repeated_request = magic_repeated_leg_spasm_stand_request(
             scenario, current, frame, repeated_history, identifier('repeated-leg-spasm-stand'))
         if repeated_request is not None:

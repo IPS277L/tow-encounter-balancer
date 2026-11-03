@@ -53,7 +53,7 @@ class M8MagicJsonV6IntegrationTests(unittest.TestCase):
                     validate_magic_simulation_document(output, 'result', schema_version='6')
                     self.assertEqual(output['request'], request)
                     self.assertEqual(output['request']['scenario']['battered_leg_continuation'],
-                                     {'endurance_profile': {'dice': 2, 'threshold': 5}})
+                                     {'endurance_profile': {'dice': 2, 'threshold': 5}, 'prone_policy': None})
         self.assertEqual(command, original)
 
     def test_both_perspectives_preserve_the_authored_profile_and_objective(self):

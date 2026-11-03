@@ -116,7 +116,8 @@ def policy_document(values):
         'facts': asdict(miscast.facts), 'prone_policy': miscast.prone_policy.value},
         *(None if value is None else value.value for value in (stationary, repeated, crushed)),
         None if battered is None else {'endurance_profile': {
-            'dice': battered.endurance_profile.dice, 'threshold': battered.endurance_profile.threshold}})
+            'dice': battered.endurance_profile.dice, 'threshold': battered.endurance_profile.threshold},
+            'prone_policy': None if battered.prone_policy is None else battered.prone_policy.value})
 
 
 def proposed_document(baseline, values, balance):
@@ -145,11 +146,14 @@ def finite_inverse(document, baseline, original, balance):
                 values.append(VALUES[index])
         value = raw[4]
         if value is not None:
-            assert type(value) is dict and set(value) == {'endurance_profile'}
+            assert type(value) is dict and set(value) == {'endurance_profile', 'prone_policy'}
             profile = value['endurance_profile']
             assert type(profile) is dict and set(profile) == {'dice', 'threshold'}
             assert type(profile['dice']) is int and type(profile['threshold']) is int
-            value = Battered(InlineProfile(profile['dice'], profile['threshold']))
+            prone = value['prone_policy']
+            assert prone is None or type(prone) is str and prone == 'self_stand_when_safe'
+            value = Battered(InlineProfile(profile['dice'], profile['threshold']),
+                None if prone is None else NpcMagicPronePolicy.SELF_STAND_WHEN_SAFE)
         return (*values, value)
     values = read(document['reserve']['scenario'] if balance else document['scenario'])
     if balance:
@@ -270,7 +274,7 @@ def main():
                     {'dice': 0, 'threshold': 5}, {'dice': 2, 'threshold': 0},
                     {'dice': 2, 'threshold': 11}, {'dice': 2, 'threshold': 5, 'pool_cap': 4}):
         bad = deepcopy(proposed)
-        bad['scenario']['battered_leg_continuation'] = {'endurance_profile': profile}
+        bad['scenario']['battered_leg_continuation'] = {'endurance_profile': profile, 'prone_policy': None}
         refused(lambda: finite_inverse(bad, baseline, base, False), (AssertionError, TypeError, ValueError))
         refused(lambda: simulation_wire.parse_magic_simulation_request(json.dumps(bad)), MagicSimulationInputError)
     wrong = deepcopy(proposed)

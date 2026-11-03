@@ -507,6 +507,12 @@ from towr.domain.battered_leg_models import (
 from towr.domain.npc_roster_battered_leg_models import (
     NpcBatteredLegCompletionWitness, NpcRosterBatteredLegRequest, NpcRosterBatteredLegResult,
 )
+from towr.domain.npc_roster_battered_leg_prone_models import (
+    NpcRosterBatteredLegProneStandRequest, NpcRosterBatteredLegProneStandResult,
+)
+from towr.domain.npc_roster_battered_leg_recover_models import (
+    NpcRosterBatteredLegRecoverRequest, NpcRosterBatteredLegRecoverResult,
+)
 from towr.domain.npc_magic_scenario_models import NpcMagicBatteredLegPolicy
 from towr.domain.npc_magic_battered_leg_policy import NpcMagicBatteredLegHistory
 from towr.domain.injury_models import (
@@ -1121,6 +1127,10 @@ __all__ = [
     "NpcBatteredLegCompletionWitness",
     "NpcRosterBatteredLegRequest",
     "NpcRosterBatteredLegResult",
+    "NpcRosterBatteredLegProneStandRequest",
+    "NpcRosterBatteredLegProneStandResult",
+    "NpcRosterBatteredLegRecoverRequest",
+    "NpcRosterBatteredLegRecoverResult",
     "NpcMagicBatteredLegPolicy",
     "NpcMagicBatteredLegHistory",
     "CharacterWoundLifecycleCompletionRequest",

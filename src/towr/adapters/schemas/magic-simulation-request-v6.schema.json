@@ -136,10 +136,18 @@
           "properties": {
             "endurance_profile": {
               "$ref": "urn:towr:magic:common#/$defs/magic_simulation_request_profile"
+            },
+            "prone_policy": {
+              "enum": [
+                null,
+                "self_stand_when_safe",
+                "recover_self"
+              ]
             }
           },
           "required": [
-            "endurance_profile"
+            "endurance_profile",
+            "prone_policy"
           ],
           "additionalProperties": false
         }

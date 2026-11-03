@@ -240,7 +240,10 @@ def validate_magic_step_policy(
         if actor_id != magic_next_actor(scenario, state):
             raise ValueError('journal activation differs from scenario order')
         injury = state.roster.participant(actor_id).state.injury
-        if injury.conditions.has(Condition.BROKEN):
+        from towr.domain.npc_magic_battered_leg_policy import magic_battered_leg_recover_selected
+        if magic_battered_leg_recover_selected(scenario, state, actor_id, battered_leg_history):
+            declarations = (CombatActionDeclaration(CombatActionKind.RECOVER),)
+        elif injury.conditions.has(Condition.BROKEN):
             frame = scenario.frame_for(magic_scene_key(state))
             plan = next((p for p in frame.broken_plans if p.actor_id == actor_id), None) if frame else None
             declarations = (CombatActionDeclaration(CombatActionKind.RECOVER),

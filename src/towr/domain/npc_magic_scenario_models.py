@@ -99,6 +99,7 @@ class NpcMagicActorPolicy:
 
 class NpcMagicPronePolicy(str, Enum):
     SELF_STAND_WHEN_SAFE = 'self_stand_when_safe'
+    RECOVER_SELF = 'recover_self'
 
 
 class NpcMagicStationaryWoundPolicy(str, Enum):
@@ -118,6 +119,7 @@ class NpcMagicBatteredLegPolicy:
     """Explicit native opt-in and authored Wizard Endurance profile (ADR-0061)."""
 
     endurance_profile: InlineProfile
+    prone_policy: NpcMagicPronePolicy | None = None
 
     def __post_init__(self) -> None:
         if not isinstance(self.endurance_profile, InlineProfile):
@@ -125,6 +127,8 @@ class NpcMagicBatteredLegPolicy:
         replace(self.endurance_profile)
         if self.endurance_profile.pool_cap is not None:
             raise ValueError('Battered Leg native profile excludes custom pool caps')
+        if self.prone_policy is not None and not isinstance(self.prone_policy, NpcMagicPronePolicy):
+            raise TypeError('Battered Leg Prone policy must retain its typed enum or None')
 
 
 @dataclass(frozen=True, slots=True)

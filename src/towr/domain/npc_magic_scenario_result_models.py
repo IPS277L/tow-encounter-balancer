@@ -28,6 +28,8 @@ from towr.domain.npc_magic_battered_leg_policy import (
     advance_magic_battered_leg_history, magic_battered_leg_request,
     magic_battered_leg_scope_mismatch, _validate_battered_leg_history,
     validate_magic_battered_leg_predecessor,
+    magic_battered_leg_prone_stand_family, magic_battered_leg_prone_stand_eligible,
+    magic_battered_leg_recover_selected,
 )
 from towr.domain.npc_magic_stationary_wound_policy import (
     magic_leg_spasm_stand_family, magic_leg_spasm_stand_eligible, magic_stationary_wound_context,
@@ -221,15 +223,24 @@ def diagnose_npc_magic_unsupported(
             return stop(reason.CHRONOLOGY)
     leg_stand = magic_leg_spasm_stand_family(scenario, state)
     repeat_stand = magic_repeated_leg_spasm_stand_family(scenario, state, repeated_history)
+    battered_stand = magic_battered_leg_prone_stand_family(scenario, state, battered_leg_history)
+    battered_recover = magic_battered_leg_recover_selected(scenario, state, actor_id, battered_leg_history)
     if ((not _injury_supported(state, actor_id, conditions)
             or magic_stationary_wound_required(scenario, state, actor_id)
             or magic_crushed_rib_required(state, actor_id)) and not leg_stand and not repeat_stand
+            and not battered_stand and not battered_recover
             and magic_stationary_wound_context(scenario, state, actor_id) is None
             and magic_crushed_rib_context(scenario, state, actor_id, crushed_rib_history) is None):
         return stop(reason.ACTOR_INJURY, actors=(actor_id,))
+    if battered_recover:
+        return None  # Self Recover needs no attack target/range/route scene facts.
     frame = scenario.frame_for(magic_scene_key(state))
     if frame is None:
         return stop(reason.MISSING_SCENE, key=magic_scene_key(state))
+    if battered_stand:
+        if magic_battered_leg_prone_stand_eligible(scenario, state, frame, battered_leg_history):
+            return None
+        return stop(reason.ACTOR_INJURY, actors=(actor_id,))
     if repeat_stand:
         if magic_repeated_leg_spasm_stand_eligible(scenario, state, frame, repeated_history):
             return None

@@ -21,7 +21,7 @@ def document(profile=None):
     data = json.loads((Path(__file__).resolve().parents[2] /
         'docs/examples/m8/json/magic-simulation-v6.request.json').read_text(encoding='utf-8'))
     data['schema_version'] = '6'
-    data['scenario'][FIELD] = None if profile is None else {'endurance_profile': profile}
+    data['scenario'][FIELD] = None if profile is None else {'endurance_profile': profile, 'prone_policy': None}
     return data
 
 
@@ -83,18 +83,18 @@ class MagicJsonV6SchemaTests(unittest.TestCase):
         self.assertIs(schema['additionalProperties'], False)
 
     def test_policy_and_nested_profile_are_closed_and_strictly_bounded(self):
-        invalid_values = (False, True, 0, 1, [], '', {}, {'endurance_profile': None},
-            {'endurance_profile': {'dice': 2}}, {'endurance_profile': {'threshold': 5}},
-            {'endurance_profile': {'dice': 0, 'threshold': 5}},
-            {'endurance_profile': {'dice': -1, 'threshold': 5}},
-            {'endurance_profile': {'dice': True, 'threshold': 5}},
-            {'endurance_profile': {'dice': 2.5, 'threshold': 5}},
-            {'endurance_profile': {'dice': '2', 'threshold': 5}},
-            {'endurance_profile': {'dice': 2, 'threshold': False}},
-            {'endurance_profile': {'dice': 2, 'threshold': 0}},
-            {'endurance_profile': {'dice': 2, 'threshold': 11}},
-            {'endurance_profile': {'dice': 2, 'threshold': 5, 'pool_cap': 4}},
-            {'endurance_profile': {'dice': 2, 'threshold': 5}, 'actor_id': 'wizard'})
+        invalid_values = (False, True, 0, 1, [], '', {}, {'endurance_profile': None, 'prone_policy': None},
+            {'endurance_profile': {'dice': 2}, 'prone_policy': None}, {'endurance_profile': {'threshold': 5}, 'prone_policy': None},
+            {'endurance_profile': {'dice': 0, 'threshold': 5}, 'prone_policy': None},
+            {'endurance_profile': {'dice': -1, 'threshold': 5}, 'prone_policy': None},
+            {'endurance_profile': {'dice': True, 'threshold': 5}, 'prone_policy': None},
+            {'endurance_profile': {'dice': 2.5, 'threshold': 5}, 'prone_policy': None},
+            {'endurance_profile': {'dice': '2', 'threshold': 5}, 'prone_policy': None},
+            {'endurance_profile': {'dice': 2, 'threshold': False}, 'prone_policy': None},
+            {'endurance_profile': {'dice': 2, 'threshold': 0}, 'prone_policy': None},
+            {'endurance_profile': {'dice': 2, 'threshold': 11}, 'prone_policy': None},
+            {'endurance_profile': {'dice': 2, 'threshold': 5, 'pool_cap': 4}, 'prone_policy': None},
+            {'endurance_profile': {'dice': 2, 'threshold': 5}, 'actor_id': 'wizard', 'prone_policy': None})
         for value in invalid_values:
             invalid = document()
             invalid['scenario'][FIELD] = value

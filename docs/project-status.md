@@ -1,25 +1,27 @@
 # Текущий статус проекта
 
-Дата обновления: 2026-11-03.
+Дата обновления: 2026-11-04.
 
 ## Текущий этап
 
-Организация работы упрощена: короткие точки входа, история отдельно, ADR только для существенных решений, законченные функциональные вехи, адресные проверки и небольшие общие test builders. Постоянные инструкции — в [AGENTS.md](../AGENTS.md); навигация — в [индексе документации](README.md). Шесть обзорных документов сокращены с 405919 до 18677 символов; исходные тексты сохранены в [архиве](archive/README.md).
+**M8 — завершающая приёмка ограниченной магической симуляции.** Функциональная граница реализована; конечный scope, свидетельства и две оставшиеся контрольные работы закреплены в [checklist M8](m8-completion.md). Веха ещё не объявлена завершённой. Полный каталог книжной магии и последствий не входит в её условия закрытия.
 
-Последняя функциональная веха — [ADR-0063](decisions/ADR-0063-single-current-magic-contract.md): единственный Magic JSON6. Код симулятора, игровые правила, API, зависимости и сборка при текущем упрощении не менялись.
+Последняя реализованная функция — [standard self Recover после Battered Leg](decisions/ADR-0064-battered-leg-prone-removal.md#дополнение-2026-11-04-standard-self-recover): явный `recover_self` расходует один action slot и снимает sourced Prone, сохраняя Wound, completed Endurance, free move и histories. Enemy Close допустим. Уменьшение Pool и последующий skipped-Casting contribution применяются последовательно. Free self-stand остаётся отдельным выбором без автоматического Recover fallback.
 
 ## Последняя проверка
 
-Четыре JSON unit-модуля переведены на [общие fixtures](../tests/support/magic_json_fixtures.py). 81 test ID закрыт составно: 79 прошли сразу, два оставшихся обращения к прежнему helper исправлены; ровно два повтора OK за 0.532s. Это не единый зелёный прогон81. Проверены независимость mutable fixtures, равные но разные policy objects, сохранность source/неизвестных полей без исправления версии. Import-only discovery собрал4266tests без loader errors; это не их исполнение.
+2026-11-04: исходный M8 scope сопоставлен с реализацией и прежними ADR. Исправлено устаревшее ожидание Battered object в существующей simulation CLI6 матрице: добавлено обязательное `prone_policy:null`.
 
-Команда исходного набора: `.venv/Scripts/python.exe -m unittest tests.unit.test_m8_magic_json tests.unit.test_m8_magic_balance_json tests.unit.test_m8_magic_json_v2 tests.unit.test_m8_magic_balance_json_v2 -v`, при `PYTHONPATH=src`. Успешные проверки без нового влияющего изменения не повторять. Проверены 4859 локальных ссылок в 206 Markdown-файлах и `git diff --check`; отсутствующих targets нет. Full regression и wheel не запускались. Результаты прошлой wire-приёмки сохранены в ADR-0063.
+При `PYTHONPATH=src`: `.venv/Scripts/python.exe -m unittest tests.integration.test_m8_magic_json_v6.M8MagicJsonV6IntegrationTests.test_module_console_and_both_backends_echo_full_v6_source_with_equal_aggregates -v` — 1 test OK/10.324s, module/console×sequential/process; лог `.cache/m8-closure-cli-simulation.log`. Подробные успешные адресные проверки Recover сохранены в [ADR-0064](decisions/ADR-0064-battered-leg-prone-removal.md#дополнение-2026-11-04-standard-self-recover).
+
+Проверены 4909 локальных ссылок в 208 Markdown-файлах, отсутствующих targets нет; пять контрольных test methods найдены статически. `git diff --check` успешен. Текущий полный набор и установленный пакет после серии64/Recover ещё не проверены; единый зелёный full не заявляется. Их проверка — R1/R2 ниже.
 
 ## Ограничения
 
-M8 ограничен Wizard/Curse и явными opt-in continuations. Battered Leg: первая ordinary Attack Wound5, resolved/untreated/unhealed, normal Endurance Test и explicit unmounted/no-external-Conditions facts. Failure сохраняет sourced Prone без removal consumer. Новые последствия после success ограничены exact-injury gate60; arbitrary mixed injuries/treatment/save-resume не открыты. UNSUPPORTED_PATH остаётся в знаменателе trials. Прежние Magic1–5 не поддерживаются; другие families имеют собственный единственный формат1.
+Один authored Wizard/Curse и numeric Shooting Minions; явные scene/GM facts. Точные ограничения opt-in последствий перечислены в checklist и соответствующих ADR. Allied removal, arbitrary mixed injuries/treatment/save-resume не подключены. Новые неподдержанные последствия сохраняют явный stop, mandatory continuations имеют приоритет. UNSUPPORTED_PATH остаётся в знаменателе trials и запрещает итоговый выбор кандидата при подборе. Magic поддерживает только JSON6, другие families — свой единственный1.
 
 ## Точный следующий шаг
 
-Следующая законченная функция — снятие sourced Prone после Battered Leg в поддерживаемом M8. Сначала адресно сверить Free Actions/Prone/Wound5 в книгах, определить полный owner transition и сохранение Wound/completion/history при gate60; затем реализовать нужные слои и адресные проверки одной вехой. Новый ADR нужен только при новом архитектурном решении. Эта задача по организации работы не начинала реализацию Prone.
+Выполнить R1 из [конечного checklist M8](m8-completion.md): один завершающий полный source regression и адресное закрытие найденных нарушений текущего контракта. Затем R2 — одна установленная delivery проверка стабилизированного current6 пакета/CLI. Для ограниченной M8 обязательных новых игровых consumers не осталось; весь каталог книги — дальнейший backlog.
 
-Следующая installed-проверка доставки — перед внешним выпуском либо при изменении соответствующего механизма/риске. Commit/push выполняет пользователь.
+Следующая installed-проверка — R2 финальной контрольной точки M8 после R1. Commit/push выполняет пользователь.

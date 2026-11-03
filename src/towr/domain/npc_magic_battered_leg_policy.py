@@ -12,7 +12,8 @@ from typing import TYPE_CHECKING
 from towr.domain.attack_models import AttackOutcome, ImpactOutcome
 from towr.domain.injury_models import CharacterInjuryState, WoundEntryId, WoundRecord
 from towr.domain.npc_magic_scenario_models import (
-    NpcMagicScenario, _validate_magic_scenario_permissions, validate_npc_magic_scenario_admission,
+    NpcMagicScenario, NpcMagicPronePolicy,
+    _validate_magic_scenario_permissions, validate_npc_magic_scenario_admission,
 )
 from towr.domain.npc_roster_battered_leg_models import (
     NpcBatteredLegCompletionWitness, NpcRosterBatteredLegRequest, NpcRosterBatteredLegResult,
@@ -20,17 +21,23 @@ from towr.domain.npc_roster_battered_leg_models import (
 )
 from towr.domain.npc_roster_casting_models import NpcRosterCastingState
 from towr.domain.npc_roster_champion_attack_models import NpcRosterChampionAttackResult
+from towr.domain.npc_roster_battered_leg_prone_models import (
+    NpcRosterBatteredLegProneStandRequest, NpcRosterBatteredLegProneStandResult,
+)
+from towr.domain.npc_roster_battered_leg_recover_models import (
+    NpcRosterBatteredLegRecoverRequest, NpcRosterBatteredLegRecoverResult,
+)
 from towr.domain.npc_roster_miscast_models import NpcRosterMiscastPreparationResult, NpcRosterMiscastRollResult
 
 if TYPE_CHECKING:
     from towr.domain.npc_magic_step_models import NpcMagicStep
 
 
-def _receipt(completion):
+def _receipt(completion, prone_stand=None, prone_recover=None):
     if completion is None:
         return None
     return NpcBatteredLegCompletionWitness(completion.source.attack, completion.endurance,
-        completion.source.no_external_condition_sources)
+        completion.source.no_external_condition_sources, prone_stand, prone_recover)
 
 
 def _owners(state):
@@ -60,6 +67,8 @@ def _validate_receipts(state, expected):
 class NpcMagicBatteredLegHistory:
     state: NpcRosterCastingState
     completion: NpcRosterBatteredLegResult | None = None
+    prone_stand: NpcRosterBatteredLegProneStandResult | None = None
+    prone_recover: NpcRosterBatteredLegRecoverResult | None = None
 
     def __post_init__(self) -> None:
         _owner(self.state)  # Storage also admits new pending/unsupported injury.
@@ -67,7 +76,21 @@ class NpcMagicBatteredLegHistory:
             if not isinstance(self.completion, NpcRosterBatteredLegResult):
                 raise TypeError('Battered Leg history requires its full completion')
             _readmit(self.completion)
-        _validate_receipts(self.state, _receipt(self.completion))
+        if self.prone_stand is not None:
+            if not isinstance(self.prone_stand, NpcRosterBatteredLegProneStandResult):
+                raise TypeError('Battered Leg history requires its typed full Prone stand')
+            _readmit(self.prone_stand)
+            if (self.completion is None or self.prone_stand.source.state.battered_leg_receipt
+                    != _receipt(self.completion)):
+                raise ValueError('Battered Leg stand must retain its exact first Endurance completion')
+        if self.prone_recover is not None:
+            if not isinstance(self.prone_recover, NpcRosterBatteredLegRecoverResult):
+                raise TypeError('Battered Leg history requires its typed full Recover result')
+            _readmit(self.prone_recover)
+            if (self.completion is None or self.prone_stand is not None
+                    or self.prone_recover.source.state.battered_leg_receipt != _receipt(self.completion)):
+                raise ValueError('Battered Leg Recover must retain its exact unconsumed Endurance completion')
+        _validate_receipts(self.state, _receipt(self.completion, self.prone_stand, self.prone_recover))
 
 
 def _validate_battered_leg_history(scenario, state, history):
@@ -87,6 +110,12 @@ def _validate_battered_leg_history(scenario, state, history):
     if (history.completion is not None and history.completion.source.endurance_profile
             != scenario.battered_leg_continuation.endurance_profile):
         raise ValueError('Battered Leg completion differs from the Scenario Endurance profile')
+    if (history.prone_stand is not None and scenario.battered_leg_continuation.prone_policy
+            is not NpcMagicPronePolicy.SELF_STAND_WHEN_SAFE):
+        raise ValueError('Battered Leg stand requires its independently selected Prone policy')
+    if (history.prone_recover is not None and scenario.battered_leg_continuation.prone_policy
+            is not NpcMagicPronePolicy.RECOVER_SELF):
+        raise ValueError('Battered Leg Recover requires its independently selected action policy')
 
 
 def initial_magic_battered_leg_history(scenario: NpcMagicScenario) -> NpcMagicBatteredLegHistory | None:
@@ -172,7 +201,8 @@ def validate_magic_battered_leg_step(scenario: NpcMagicScenario, step: NpcMagicS
     _validate_battered_leg_history(scenario, step.before, history)
     result = step.result
     if scenario.battered_leg_continuation is None:
-        if (isinstance(result, NpcRosterBatteredLegResult)
+        if (isinstance(result, (NpcRosterBatteredLegResult, NpcRosterBatteredLegProneStandResult,
+                               NpcRosterBatteredLegRecoverResult))
                 or any(owner.battered_leg_receipt is not None for owner in _owners(step.after))
                 or step.origin_witness is not None and (
                     any(owner.battered_leg_receipt is not None for owner in _owners(step.origin_witness.source.state))
@@ -182,7 +212,7 @@ def validate_magic_battered_leg_step(scenario: NpcMagicScenario, step: NpcMagicS
     _readmit(step)
     _readmit(result.source)
     _readmit(result)
-    completion = history.completion
+    completion, prone_stand, prone_recover = history.completion, history.prone_stand, history.prone_recover
     if isinstance(result, NpcRosterBatteredLegResult):
         if completion is not None:
             raise ValueError('Battered Leg journal cannot complete a second Endurance Test')
@@ -191,11 +221,31 @@ def validate_magic_battered_leg_step(scenario: NpcMagicScenario, step: NpcMagicS
                 or result.source.no_external_condition_sources is not scenario.facts.no_external_condition_sources):
             raise ValueError('Battered Leg completion differs from the Scenario profile/facts')
         completion = result
-    NpcMagicBatteredLegHistory(step.after, completion)
+    turn = step.before.round_state.active_turn
+    recover_selected = magic_battered_leg_recover_selected(
+        scenario, step.before, step.before.wizard.actor_id, history)
+    if isinstance(result, NpcRosterBatteredLegRecoverResult):
+        if not recover_selected or turn is None:
+            raise ValueError('Battered Leg Recover differs from its selected action/source policy')
+        prone_recover = result
+    elif recover_selected and turn is not None:
+        raise ValueError('selected Battered Leg Recover is required for the current action')
+    if isinstance(result, NpcRosterBatteredLegProneStandResult):
+        from towr.domain.npc_magic_journal_policy import magic_scene_key
+        frame = scenario.frame_for(magic_scene_key(step.before))
+        if not magic_battered_leg_prone_stand_eligible(scenario, step.before, frame, history):
+            raise ValueError('Battered Leg stand differs from the recorded source/scene/resource policy')
+        prone_stand = result
+    elif magic_battered_leg_prone_stand_family(scenario, step.before, history):
+        from towr.domain.npc_magic_journal_policy import magic_scene_key
+        frame = scenario.frame_for(magic_scene_key(step.before))
+        if magic_battered_leg_prone_stand_eligible(scenario, step.before, frame, history):
+            raise ValueError('selected Battered Leg self-stand is required before the next action')
+    NpcMagicBatteredLegHistory(step.after, completion, prone_stand, prone_recover)
     if step.origin_witness is not None:
         # The full origin is recorded earlier. Neither detached root may swap
         # the first Test witness while keeping equal injury/IDs.
-        expected = _receipt(history.completion)
+        expected = _receipt(history.completion, history.prone_stand, history.prone_recover)
         for owner in (step.origin_witness.source.state, step.origin_witness.state):
             _validate_receipts(owner, expected)
 
@@ -207,7 +257,9 @@ def advance_magic_battered_leg_history(scenario: NpcMagicScenario,
     if scenario.battered_leg_continuation is None:
         return None
     completion = step.result if isinstance(step.result, NpcRosterBatteredLegResult) else history.completion
-    return NpcMagicBatteredLegHistory(step.after, completion)
+    stand = step.result if isinstance(step.result, NpcRosterBatteredLegProneStandResult) else history.prone_stand
+    recover = step.result if isinstance(step.result, NpcRosterBatteredLegRecoverResult) else history.prone_recover
+    return NpcMagicBatteredLegHistory(step.after, completion, stand, recover)
 
 
 def magic_battered_leg_scope_mismatch(scenario: NpcMagicScenario, state: NpcRosterCastingState,
@@ -216,4 +268,69 @@ def magic_battered_leg_scope_mismatch(scenario: NpcMagicScenario, state: NpcRost
     _validate_battered_leg_history(scenario, state, history)
     return (history is not None and history.completion is not None
             and state.roster.participant(state.wizard.actor_id).state.injury
-            != history.completion.endurance.wound_result.state)
+            != state.battered_leg_receipt.completed_injury)
+
+
+def magic_battered_leg_prone_stand_family(scenario, state, history) -> bool:
+    """A sourced failed Test, selected self-stand, and the Wizard's own action phase."""
+    _validate_battered_leg_history(scenario, state, history)
+    policy = scenario.battered_leg_continuation
+    turn = state.round_state.active_turn
+    return (policy is not None and policy.prone_policy is NpcMagicPronePolicy.SELF_STAND_WHEN_SAFE
+            and history.completion is not None and history.prone_stand is None and history.prone_recover is None
+            and not history.completion.endurance.test_result.succeeded
+            and turn is not None and turn.actor_id == state.wizard.actor_id
+            and not turn.action_slots[0].executed
+            and state.roster.participant(state.wizard.actor_id).state.injury
+            == history.completion.endurance.wound_result.state)
+
+
+def magic_battered_leg_prone_stand_eligible(scenario, state, frame, history) -> bool:
+    if not magic_battered_leg_prone_stand_family(scenario, state, history) or frame is None:
+        return False
+    from towr.domain.npc_magic_journal_policy import magic_scene_key
+    from towr.domain.npc_magic_scene_models import NpcMagicSceneFrame
+    from towr.domain.ranged_weapon_profiles import RangedWeaponRange
+    if not isinstance(frame, NpcMagicSceneFrame):
+        raise TypeError('Battered Leg stand requires its typed current scene frame')
+    _readmit(frame)
+    if frame != scenario.frame_for(magic_scene_key(state)):
+        raise ValueError('Battered Leg stand frame differs from the supplied current scene')
+    actor = state.roster.participant(state.wizard.actor_id)
+    if actor.state.actor_id in state.spatial_state.free_move_used_entity_ids:
+        return False
+    for pair in frame.pair_ranges:
+        if pair.target_range is not RangedWeaponRange.CLOSE:
+            continue
+        ids = (pair.first_actor_id, pair.second_actor_id)
+        if actor.state.actor_id in ids:
+            other = ids[1] if ids[0] == actor.state.actor_id else ids[0]
+            if state.roster.participant(other).state.side is not actor.state.side:
+                return False
+    return True
+
+
+def magic_battered_leg_prone_stand_request(scenario, state, frame, history, identifier):
+    if not magic_battered_leg_prone_stand_eligible(scenario, state, frame, history):
+        return None
+    return NpcRosterBatteredLegProneStandRequest(identifier, state, state.wizard.actor_id, False)
+
+
+def magic_battered_leg_recover_selected(scenario, state, actor_id, history) -> bool:
+    """Choose the declared action before reserving a turn, or while it is unexecuted."""
+    _validate_battered_leg_history(scenario, state, history)
+    policy = scenario.battered_leg_continuation
+    turn = state.round_state.active_turn
+    return (policy is not None and policy.prone_policy is NpcMagicPronePolicy.RECOVER_SELF
+            and actor_id == state.wizard.actor_id
+            and history.completion is not None and history.prone_stand is None and history.prone_recover is None
+            and not history.completion.endurance.test_result.succeeded
+            and (turn is None or turn.actor_id == actor_id and not turn.action_slots[0].executed)
+            and state.roster.participant(actor_id).state.injury == history.completion.endurance.wound_result.state)
+
+
+def magic_battered_leg_recover_request(scenario, state, history, identifier):
+    if state.round_state.active_turn is None or not magic_battered_leg_recover_selected(
+            scenario, state, state.wizard.actor_id, history):
+        return None
+    return NpcRosterBatteredLegRecoverRequest(identifier, state, state.wizard.actor_id)

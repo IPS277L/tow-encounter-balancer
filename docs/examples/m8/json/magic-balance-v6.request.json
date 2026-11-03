@@ -647,7 +647,8 @@
         "endurance_profile": {
           "dice": 2,
           "threshold": 5
-        }
+        },
+        "prone_policy": null
       }
     }
   },
@@ -1020,7 +1021,8 @@
       "endurance_profile": {
         "dice": 2,
         "threshold": 5
-      }
+      },
+      "prone_policy": null
     }
   },
   "evaluation": {

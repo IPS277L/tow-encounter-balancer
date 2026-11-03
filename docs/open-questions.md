@@ -1,10 +1,10 @@
 # Открытые вопросы и действующие допущения
 
-Дата: 2026-11-03. Это короткий индекс незакрытых тем; читать подробности только по затронутой механике. Полные формулировки, ссылки на книги и текущие ограничения сохранены в [деталях](open-questions-details.md); закрытые темы — в [истории](open-questions-history.md).
+Дата: 2026-11-04. Это короткий индекс незакрытых тем; читать подробности только по затронутой механике. Полные формулировки, ссылки на книги и текущие ограничения сохранены в [деталях](open-questions-details.md); закрытые темы — в [истории](open-questions-history.md).
 
 ## Действующая граница симуляции
 
-Текущий scope и следующий шаг находятся в [статусе](project-status.md), текущие контракты — в [архитектуре](architecture/overview.md). Battered Leg Prone removal ещё не реализован; mixed injuries/treatment/save-resume не открыты. Characteristic enum пока не покрывает все книжные Characteristics. Подробная прежняя инвентаризация M8 в деталях не расширяет scope и не возвращает удалённые wire formats.
+Текущий scope и следующий шаг находятся в [статусе](project-status.md), текущие контракты — в [архитектуре](architecture/overview.md). Free self-stand и standard self Recover после Battered Leg реализованы при явном выборе policy; ally removal и mixed injuries/treatment/save-resume не открыты. Characteristic enum пока не покрывает все книжные Characteristics. Подробная прежняя инвентаризация M8 в деталях не расширяет scope и не возвращает удалённые wire formats.
 
 <a id="первая-метрика-m5"></a>
 

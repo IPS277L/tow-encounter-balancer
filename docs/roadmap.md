@@ -9,17 +9,24 @@
 - M2–M7: ограниченные Minion-сценарии, независимые прогоны, подбор составов и JSON/CLI.
 - M8: один Champion-Wizard/Curse, явные scene facts, opt-in continuations, native журнал, generation и текущий JSON6. Battered Leg Endurance подключён; его failure оставляет sourced Prone.
 
-## Следующая законченная функция
+## Последняя законченная функция
 
-**Снятие sourced Prone после Battered Leg в поддерживаемом M8 сценарии.** Сначала сверить Free Actions/Prone и источник Wound5 в книгах, затем определить переход полного owner с сохранением Wound/completion/history и границу exact-injury gate60.
+[ADR-0064](decisions/ADR-0064-battered-leg-prone-removal.md), дополнение 2026-11-04: standard self Recover после Battered Leg. Явный `recover_self` резервирует RECOVER slot, снимает sourced Prone, уменьшает Pool и применяет skipped-Casting contribution при активном Casting. Wound/Endurance/history/free move сохраняются; enemy Close допускается. Native/full-source/JSON проверки выполнены адресно. Ранее подключённый free self-stand остаётся отдельным выбором.
 
-Работу вести одной вехой: условия допуска и тестовые случаи → минимальные модели/исполнение → подключение к существующему runner и источникам → адресная проверка. Создать один ADR, только если переход требует нового архитектурного решения. Не разделять каждый слой на отдельную документальную веху и не добавлять новый wire version без необходимости.
+## Закрытие M8: конечная граница
 
-При существенной книжной неоднозначности или необходимости сменить согласованный scope остановиться для решения пользователя; не вводить house rule. Эта очередь не означает, что пользователь уже поручил реализацию во время задачи по организации работы.
+Функциональная ограниченная M8 уже реализована. [Конечный checklist](m8-completion.md) фиксирует scope и три контрольных набора. Все Wounds/Miscasts и полный каталог spells не требуются для её закрытия: точные unsupported stops входят в исходный контракт.
 
-## Дальнейший backlog
+Осталось **две контрольные работы**:
 
-После следующей функции выбрать продолжение по [инвентаризации M8](audits/m8-continuation-inventory.md) и [открытым вопросам](open-questions.md): оставшиеся mandatory effects/Conditions и injury combinations, затем более широкий spell/spatial/inventory/campaign scope. Порядок этих возможностей пока не утверждён.
+1. R1 — один завершающий полный source regression; исправить нарушения уже заявленной границы и честно закрыть актуальные test IDs.
+2. R2 — после стабилизации source одна offline wheel/installed delivery проверка current JSON6 и representative CLI/process.
+
+Read-only сверка завершена; одно устаревшее ожидание CLI6 исправлено и адресно проверено. Следующее действие — R1, без предварительного добавления очередного игрового consumer. Подробный статус R1/R2 хранится только в checklist.
+
+## После M8
+
+Более широкий spell/Wound/Miscast каталог, combinations, PC/inventory/spatial/campaign/save-resume и ally removal — отдельный backlog. Приоритеты следующих функций выбираются отдельно после закрытия M8; её финиш ими автоматически не расширяется.
 
 ## Контрольные точки
 

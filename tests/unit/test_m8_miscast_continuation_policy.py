@@ -36,7 +36,8 @@ class MiscastContinuationPolicyTests(unittest.TestCase):
             for bad in (None, True, {}, 'decline_cast_before_miscast', 'self_stand_when_safe'):
                 with self.subTest(name=name, bad=bad), self.assertRaises(TypeError):
                     replace(policy, **{name: bad})
-        self.assertEqual(tuple(NpcMagicPronePolicy), (NpcMagicPronePolicy.SELF_STAND_WHEN_SAFE,))
+        self.assertEqual(tuple(NpcMagicPronePolicy),
+                         (NpcMagicPronePolicy.SELF_STAND_WHEN_SAFE, NpcMagicPronePolicy.RECOVER_SELF))
         with self.assertRaises(TypeError):
             replace(policy, facts=scenario().facts)
 

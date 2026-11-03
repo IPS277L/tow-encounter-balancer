@@ -1,5 +1,12 @@
-"""Manual full-owner Battered Leg continuation; no runner policy (ADR-0060)."""
+"""Full-owner Battered Leg completion and bounded later Prone removal evidence."""
+from __future__ import annotations
+
 from dataclasses import dataclass, replace
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from towr.domain.npc_roster_battered_leg_prone_models import NpcRosterBatteredLegProneStandResult
+    from towr.domain.npc_roster_battered_leg_recover_models import NpcRosterBatteredLegRecoverResult
 
 from towr.domain.attack_models import AttackOutcome, ImpactOutcome
 from towr.domain.battered_leg_models import (
@@ -168,6 +175,8 @@ class NpcBatteredLegCompletionWitness:
     attack: NpcRosterChampionAttackResult
     endurance: BatteredLegEnduranceTestResult
     no_external_condition_sources: bool
+    prone_stand: NpcRosterBatteredLegProneStandResult | None = None
+    prone_recover: NpcRosterBatteredLegRecoverResult | None = None
 
     def __post_init__(self):
         _true(self.no_external_condition_sources, 'no_external_condition_sources')
@@ -181,10 +190,35 @@ class NpcBatteredLegCompletionWitness:
         expected = _k1(self.attack, supplied.endurance_test.profile, supplied.id, supplied.unmounted)
         if supplied != expected:
             raise ValueError('Battered Leg receipt differs from its full Attack source')
+        if self.prone_stand is not None and self.prone_recover is not None:
+            raise ValueError('Battered Leg Prone can be removed only once, by stand or Recover')
+        if self.prone_stand is not None:
+            from towr.domain.npc_roster_battered_leg_prone_models import NpcRosterBatteredLegProneStandResult
+            if not isinstance(self.prone_stand, NpcRosterBatteredLegProneStandResult):
+                raise TypeError('Battered Leg receipt requires its typed full self-stand result')
+            _readmit(self.prone_stand)
+            if self.prone_stand.source.state.battered_leg_receipt != replace(self, prone_stand=None, prone_recover=None):
+                raise ValueError('Battered Leg self-stand belongs to another Endurance completion')
+        if self.prone_recover is not None:
+            from towr.domain.npc_roster_battered_leg_recover_models import NpcRosterBatteredLegRecoverResult
+            if not isinstance(self.prone_recover, NpcRosterBatteredLegRecoverResult):
+                raise TypeError('Battered Leg receipt requires its typed full Recover result')
+            _readmit(self.prone_recover)
+            if self.prone_recover.source.state.battered_leg_receipt != replace(self, prone_stand=None, prone_recover=None):
+                raise ValueError('Battered Leg Recover belongs to another Endurance completion')
+
+    @property
+    def completed_injury(self):
+        if self.prone_recover is not None:
+            return self.prone_recover.completed_injury
+        return (self.endurance.wound_result.state if self.prone_stand is None
+                else self.prone_stand.completed_injury)
 
     def validate_storage(self, state):
         """Retain historical evidence without claiming arbitrary reachability."""
-        after = self.attack.state
+        after = self.attack.state if self.prone_stand is None else self.prone_stand.source.state
+        if self.prone_recover is not None:
+            after = self.prone_recover.source.state
         actor_id = after.wizard.actor_id
         old = after.roster.participant(actor_id)
         current = state.roster.participant(actor_id)
@@ -213,6 +247,10 @@ class NpcBatteredLegCompletionWitness:
         )
         if any(current[:len(old)] != old for old, current in pairs):
             raise ValueError('Battered Leg receipt lost its ordered source histories')
+        if self.prone_recover is not None:
+            required = (*after.consumed_execution_ids, self.prone_recover.source.id)
+            if state.consumed_execution_ids[:len(required)] != required:
+                raise ValueError('Battered Leg receipt lost its consumed Recover action')
         if after.minion_attack is not None:
             if state.minion_attack is None:
                 raise ValueError('Battered Leg receipt lost its Minion child owner')
@@ -233,6 +271,24 @@ class NpcBatteredLegCompletionWitness:
                          'difficult_terrain_tested_entity_ids'):
                 if not set(getattr(after.spatial_state, name)) <= set(getattr(state.spatial_state, name)):
                     raise ValueError('Battered Leg receipt cannot reset same-round spatial usage')
+            if (self.prone_stand is not None
+                    and actor_id not in state.spatial_state.free_move_used_entity_ids):
+                raise ValueError('Battered Leg receipt cannot reset its same-round self-stand free move')
+            if self.prone_recover is not None:
+                turn = state.round_state.active_turn
+                if turn is not None and turn.actor_id == actor_id:
+                    recorded = tuple(s.execution for s in turn.action_slots
+                                     if s.execution is not None and s.execution.id == self.prone_recover.source.id)
+                    if len(recorded) != 1:
+                        raise ValueError('Battered Leg receipt lost its same-turn Recover action proof')
+                    action = recorded[0]
+                    if type(action.round_number) is not int or type(action.slot_index) is not int:
+                        raise TypeError('Recover action proof must retain strict integer indices')
+                    _readmit(action)
+                    if action != self.prone_recover.recover.slot.execution:
+                        raise ValueError('Battered Leg receipt has another Recover action proof')
+                elif actor_id not in state.round_state.completed_turn_entity_ids:
+                    raise ValueError('Battered Leg receipt cannot forget its completed Recover turn')
 
 
 def require_battered_leg_completion(state):
@@ -246,7 +302,7 @@ def require_battered_leg_completion(state):
         raise ValueError('Battered Leg requires its completed Endurance witness')
     _readmit(receipt)
     receipt.validate_storage(state)
-    if injury != receipt.endurance.wound_result.state:
+    if injury != receipt.completed_injury:
         raise ValueError('Battered Leg current injury is outside the completed Test scope')
 
 

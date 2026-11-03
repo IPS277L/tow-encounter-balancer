@@ -247,7 +247,10 @@ def parse_battered_leg_continuation(data: dict | None, *, path_prefix: str,
         raise error_type(Code.INVALID_INPUT, 'Battered Leg policy requires a profile object or null', path=path_prefix)
     profile = build_value(error_type, path_prefix + '/endurance_profile', InlineProfile,
                           **data['endurance_profile'])
-    return build_value(error_type, path_prefix, NpcMagicBatteredLegPolicy, profile)
+    prone = data['prone_policy']
+    policy = None if prone is None else build_value(
+        error_type, path_prefix + '/prone_policy', NpcMagicPronePolicy, prone)
+    return build_value(error_type, path_prefix, NpcMagicBatteredLegPolicy, profile, policy)
 
 
 def battered_leg_continuation_document(policy: NpcMagicBatteredLegPolicy | None) -> dict | None:
@@ -256,7 +259,8 @@ def battered_leg_continuation_document(policy: NpcMagicBatteredLegPolicy | None)
     if not isinstance(policy, NpcMagicBatteredLegPolicy):
         raise TypeError('Battered Leg mapping requires a typed policy')
     replace(policy)
-    return {'endurance_profile': _profile_document(policy.endurance_profile)}
+    return {'endurance_profile': _profile_document(policy.endurance_profile),
+            'prone_policy': None if policy.prone_policy is None else policy.prone_policy.value}
 
 
 def _validate_scenario_policy_types(scenario: NpcMagicScenario) -> None:

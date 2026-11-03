@@ -28,7 +28,7 @@ def document(*, miscast=False, stationary=False, repeated=False, crushed=False, 
     data['schema_version'] = '6'
     data['scenario']['crushed_rib_continuation'] = (
         NpcMagicCrushedRibPolicy.NEXT_TEST_WITH_JOURNAL_WITNESSES.value if crushed else None)
-    data['scenario'][FIELD] = {'endurance_profile': {'dice': dice, 'threshold': threshold}} if battered else None
+    data['scenario'][FIELD] = {'endurance_profile': {'dice': dice, 'threshold': threshold}, 'prone_policy': None} if battered else None
     return data
 
 
@@ -89,12 +89,12 @@ class M8MagicJsonV6Tests(unittest.TestCase):
         self.assertIsNone(none.request.scenario.battered_leg_continuation)
 
     def test_missing_nested_fields_caps_bool_and_closed_objects_keep_v6_identity(self):
-        invalid = (True, 0, '2d/5', {}, {'endurance_profile': {}},
-            {'endurance_profile': {'dice': True, 'threshold': 5}},
-            {'endurance_profile': {'dice': 0, 'threshold': 5}},
-            {'endurance_profile': {'dice': 2, 'threshold': 11}},
-            {'endurance_profile': {'dice': 2, 'threshold': 5, 'pool_cap': 4}},
-            {'endurance_profile': {'dice': 2, 'threshold': 5}, 'actor_id': 'wizard'})
+        invalid = (True, 0, '2d/5', {}, {'endurance_profile': {}, 'prone_policy': None},
+            {'endurance_profile': {'dice': True, 'threshold': 5}, 'prone_policy': None},
+            {'endurance_profile': {'dice': 0, 'threshold': 5}, 'prone_policy': None},
+            {'endurance_profile': {'dice': 2, 'threshold': 11}, 'prone_policy': None},
+            {'endurance_profile': {'dice': 2, 'threshold': 5, 'pool_cap': 4}, 'prone_policy': None},
+            {'endurance_profile': {'dice': 2, 'threshold': 5}, 'actor_id': 'wizard', 'prone_policy': None})
         for value in invalid:
             raw = document()
             raw['scenario'][FIELD] = value

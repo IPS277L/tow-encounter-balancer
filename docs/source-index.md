@@ -1,5 +1,11 @@
 # Реестр источников
 
+2026-11-04: для standard self Recover адресно сверены BOOK-PLAYER-GUIDE1.4 Recover118, Interrupted Casting156, Miscasts157; строка5 Wounds Table190 сохраняет уже прочитанное разрешение Recover. Используются существующие STANDARD Recover и skipped-Casting post-action consumers; [дополнение ADR-0064](decisions/ADR-0064-battered-leg-prone-removal.md#дополнение-2026-11-04-standard-self-recover). Версии/hash прежние, нового полного чтения PDF/Rule ID/house rule нет.
+
+## Battered Leg Prone: адресная сверка free self-stand
+
+2026-11-03: прочитаны локальные извлечения BOOK-PLAYER-GUIDE1.4, гл.V Free Actions116, Recover118, Conditions122, Prone123; Appendix / Wounds Table190/5. Строка5 прямо разрешает free move/Recover; free self-stand требует собственного хода, unused free move и no enemy Close. [ADR-0064](decisions/ADR-0064-battered-leg-prone-removal.md) подключает только free self-stand с сохранением Wound/Endurance/history. Источники, версии и hash прежние; PDF заново не открывался, полного нового чтения нет, Rule IDs/house rule не добавлялись.
+
 ## Battered Leg generation/JSON6: ADR-0062
 
 2026-11-03: [реализация62](decisions/ADR-0062-battered-leg-generation-and-magic-json-v6.md) передаёт existing native61 permission с полным authored Endurance profile, не меняя Test/Prone механику. Наследуются PG1.4 Characteristics/Skills68–70, Wounds/Conditions121/123 и Wounds Table190/5, GM1.1 Champions92. Нового чтения PDF/извлечений, версии/hash, Rule ID или house rule нет. [Трассировка](rule-traceability.md) и [приёмка](audits/m8-battered-leg-transport-readiness.md) связывают source с generation/codec/tests.

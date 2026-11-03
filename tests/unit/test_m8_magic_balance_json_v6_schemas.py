@@ -16,7 +16,7 @@ def document(profile=None):
     data = json.loads((Path(__file__).resolve().parents[2] /
         'docs/examples/m8/json/magic-balance-v6.request.json').read_text(encoding='utf-8'))
     data['schema_version'] = '6'
-    value = None if profile is None else {'endurance_profile': profile}
+    value = None if profile is None else {'endurance_profile': profile, 'prone_policy': None}
     data['reserve']['scenario'][FIELD] = deepcopy(value)
     data['generation'][FIELD] = deepcopy(value)
     return data
@@ -24,8 +24,8 @@ def document(profile=None):
 
 class MagicBalanceJsonV6SchemaTests(unittest.TestCase):
     def test_both_assertions_are_required_but_matching_remains_typed_semantics(self):
-        for reserve, family in product((None, {'endurance_profile': {'dice': 2, 'threshold': 5}},
-                                       {'endurance_profile': {'dice': 2, 'threshold': 4}}), repeat=2):
+        for reserve, family in product((None, {'endurance_profile': {'dice': 2, 'threshold': 5}, 'prone_policy': None},
+                                       {'endurance_profile': {'dice': 2, 'threshold': 4}, 'prone_policy': None}), repeat=2):
             raw = document()
             raw['reserve']['scenario'][FIELD], raw['generation'][FIELD] = reserve, family
             production.validate_magic_balance_document(raw, schema_version='6')
@@ -38,12 +38,12 @@ class MagicBalanceJsonV6SchemaTests(unittest.TestCase):
                     production.validate_magic_balance_document(raw, schema_version='6')
 
     def test_each_nullable_profile_object_is_closed_and_rejects_invalid_shapes(self):
-        invalid_values = (True, False, '2d/5', {}, {'endurance_profile': {}},
-            {'endurance_profile': {'dice': 2, 'threshold': 0}},
-            {'endurance_profile': {'dice': 2, 'threshold': 11}},
-            {'endurance_profile': {'dice': False, 'threshold': 5}},
-            {'endurance_profile': {'dice': 2, 'threshold': 5, 'pool_cap': 4}},
-            {'endurance_profile': {'dice': 2, 'threshold': 5}, 'facts': {}})
+        invalid_values = (True, False, '2d/5', {}, {'endurance_profile': {}, 'prone_policy': None},
+            {'endurance_profile': {'dice': 2, 'threshold': 0}, 'prone_policy': None},
+            {'endurance_profile': {'dice': 2, 'threshold': 11}, 'prone_policy': None},
+            {'endurance_profile': {'dice': False, 'threshold': 5}, 'prone_policy': None},
+            {'endurance_profile': {'dice': 2, 'threshold': 5, 'pool_cap': 4}, 'prone_policy': None},
+            {'endurance_profile': {'dice': 2, 'threshold': 5}, 'facts': {}, 'prone_policy': None})
         for location in ('reserve', 'generation'):
             for value in invalid_values:
                 raw = document()

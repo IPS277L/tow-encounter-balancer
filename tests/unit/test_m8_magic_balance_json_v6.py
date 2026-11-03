@@ -24,7 +24,7 @@ def document(*, miscast=False, stationary=False, repeated=False, crushed=False, 
              dice=2, threshold=5):
     data = v5_document(miscast=miscast, stationary=stationary, repeated=repeated, crushed=crushed)
     data['schema_version'] = '6'
-    profile = {'endurance_profile': {'dice': dice, 'threshold': threshold}} if battered else None
+    profile = {'endurance_profile': {'dice': dice, 'threshold': threshold}, 'prone_policy': None} if battered else None
     data['reserve']['scenario'][FIELD] = deepcopy(profile)
     data['generation'][FIELD] = deepcopy(profile)
     return data
@@ -76,10 +76,10 @@ class M8MagicBalanceJsonV6Tests(unittest.TestCase):
         self.assertEqual((valid, invalid), (24, 8))
 
     def test_same_dice_different_threshold_and_other_matching_errors_have_own_path(self):
-        for reserve_value, family_value in ((None, {'endurance_profile': {'dice': 2, 'threshold': 5}}),
-                ({'endurance_profile': {'dice': 2, 'threshold': 5}}, None),
-                ({'endurance_profile': {'dice': 2, 'threshold': 5}}, {'endurance_profile': {'dice': 2, 'threshold': 4}}),
-                ({'endurance_profile': {'dice': 2, 'threshold': 5}}, {'endurance_profile': {'dice': 3, 'threshold': 5}})):
+        for reserve_value, family_value in ((None, {'endurance_profile': {'dice': 2, 'threshold': 5}, 'prone_policy': None}),
+                ({'endurance_profile': {'dice': 2, 'threshold': 5}, 'prone_policy': None}, None),
+                ({'endurance_profile': {'dice': 2, 'threshold': 5}, 'prone_policy': None}, {'endurance_profile': {'dice': 2, 'threshold': 4}, 'prone_policy': None}),
+                ({'endurance_profile': {'dice': 2, 'threshold': 5}, 'prone_policy': None}, {'endurance_profile': {'dice': 3, 'threshold': 5}, 'prone_policy': None})):
             raw = document()
             raw['reserve']['scenario'][FIELD] = reserve_value
             raw['generation'][FIELD] = family_value
@@ -92,9 +92,9 @@ class M8MagicBalanceJsonV6Tests(unittest.TestCase):
 
     def test_required_nullable_profile_objects_are_closed_on_both_sides(self):
         for location in ('reserve', 'generation'):
-            for invalid in (True, 1, {}, {'endurance_profile': {'dice': 2, 'threshold': False}},
-                    {'endurance_profile': {'dice': 2, 'threshold': 5, 'pool_cap': 4}},
-                    {'endurance_profile': {'dice': 2, 'threshold': 5}, 'facts': {}}):
+            for invalid in (True, 1, {}, {'endurance_profile': {'dice': 2, 'threshold': False}, 'prone_policy': None},
+                    {'endurance_profile': {'dice': 2, 'threshold': 5, 'pool_cap': 4}, 'prone_policy': None},
+                    {'endurance_profile': {'dice': 2, 'threshold': 5}, 'facts': {}, 'prone_policy': None}):
                 raw = document()
                 node = raw['reserve']['scenario'] if location == 'reserve' else raw['generation']
                 node[FIELD] = invalid
