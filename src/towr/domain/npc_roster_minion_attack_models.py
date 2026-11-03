@@ -7,7 +7,7 @@ from dataclasses import dataclass, replace
 
 from towr.domain.condition_models import Condition
 from towr.domain.npc_roster_attack_models import NpcRosterAttackExecutionRequest, NpcRosterAttackExecutionResult
-from towr.domain.npc_roster_casting_models import NpcRosterCastingState
+from towr.domain.npc_roster_casting_models import NpcRosterCastingState, _validate_battered_leg_execution_source
 from towr.domain.npc_prone_shooting import _validate_prone_shooting
 from towr.domain.turn_models import ActionSlotGrant, CombatActionDeclaration, CombatActionKind
 
@@ -27,6 +27,7 @@ class NpcRosterMinionAttackRequest:
                 or state.pending_movement is not None or state.pending_interruption is not None
                 or state.champion_attack is not None and state.champion_attack.pending is not None):
             raise ValueError('mandatory pending continuation blocks Minion attack')
+        _validate_battered_leg_execution_source(state)
         if state.minion_attack is None or self.attack.state != state.minion_attack:
             raise ValueError('Minion attack must match the complete bound owner')
         execution = self.attack.execution
@@ -68,10 +69,12 @@ class NpcRosterMinionAttackResult:
             raise TypeError('Minion handoff result requires typed source and M2 result')
         if self.attack.source_request != self.source.attack:
             raise ValueError('Minion attack result differs from the complete bound source')
+        _validate_battered_leg_execution_source(self.source.state)
 
     @property
     def state(self) -> NpcRosterCastingState:
         old, updated, combat = self.source.state, self.attack.state, self.attack.execution.state
+        _validate_battered_leg_execution_source(old)
         champion = old.champion_attack
         if champion is not None:
             champion = replace(champion, roster=updated.roster, round_state=combat)

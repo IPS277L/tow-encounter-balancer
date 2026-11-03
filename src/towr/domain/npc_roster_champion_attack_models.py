@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 from towr.domain.condition_models import Condition
 
 from towr.domain.npc_champion_attack_models import NpcChampionAttackRequest, NpcChampionAttackResult
-from towr.domain.npc_roster_casting_models import NpcRosterCastingState
+from towr.domain.npc_roster_casting_models import NpcRosterCastingState, _validate_battered_leg_execution_source
 from towr.domain.npc_wound_turn_models import NpcStomachBlowExpiry
 from towr.domain.injury_models import WoundEntryId
 
@@ -36,6 +36,7 @@ class NpcRosterChampionAttackRequest:
             raise ValueError('pending interruption Miscast blocks Champion attack dispatch')
         if self.state.pending_movement is not None:
             raise ValueError('pending movement blocks Champion attack dispatch')
+        _validate_battered_leg_execution_source(self.state)
         if self.state.champion_attack is None or self.state.champion_attack != self.attack.state:
             raise ValueError('Champion attack must match the current bound owner')
         if self.attack.execution.id in self.state.consumed_execution_ids:
@@ -95,6 +96,7 @@ class NpcRosterChampionAttackResult:
             raise TypeError('handoff requires typed source and Champion attack result')
         if self.attack.source != self.source.attack:
             raise ValueError('Champion attack result differs from the bound source')
+        _validate_battered_leg_execution_source(self.source.state)
         if (self.source.crushed_rib_context is not None
                 or self.source.attack.crushed_rib_preparation is not None
                 or self.source.attack.crushed_rib_consumption is not None
@@ -105,6 +107,7 @@ class NpcRosterChampionAttackResult:
     @property
     def state(self) -> NpcRosterCastingState:
         previous, updated = self.source.state, self.attack.state
+        _validate_battered_leg_execution_source(previous)
         expiries = previous.wound_expiries
         completion = self.attack.completion
         if (completion is not None and completion.wound_effect is not None

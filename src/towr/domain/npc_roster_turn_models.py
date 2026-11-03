@@ -6,7 +6,7 @@ Wounds & Conditions pp121-123; Wounds Table / Stomach Blow p190.
 from dataclasses import dataclass, replace
 
 from towr.domain.injury_models import WoundEffectDuration
-from towr.domain.npc_roster_casting_models import NpcRosterCastingState
+from towr.domain.npc_roster_casting_models import NpcRosterCastingState, _validate_battered_leg_execution_source
 from towr.domain.spatial_models import SpatialBattleState
 from towr.domain.turn_models import (
     ACTION_BUDGET_RULE_ID, ActionSlotGrant, CombatActionDeclaration, CombatActionKind,
@@ -39,6 +39,7 @@ def _validate_phase_source(state: NpcRosterCastingState) -> None:
             or state.pending_movement is not None or state.pending_interruption is not None
             or state.champion_attack is not None and state.champion_attack.pending is not None):
         raise ValueError('mandatory pending continuation blocks scheduling')
+    _validate_battered_leg_execution_source(state)
     if not all(isinstance(s, CombatSide) for s in state.round_state.side_order):
         raise TypeError('side order must contain CombatSide values')
     inactive = set(_inactive_ids(state))
@@ -58,6 +59,7 @@ def _validate_phase_source(state: NpcRosterCastingState) -> None:
 
 
 def _project_round(state: NpcRosterCastingState, combat: CombatRoundState, spatial: SpatialBattleState) -> NpcRosterCastingState:
+    _validate_battered_leg_execution_source(state)
     champion = state.champion_attack
     if champion is not None:
         champion = replace(champion, round_state=combat)

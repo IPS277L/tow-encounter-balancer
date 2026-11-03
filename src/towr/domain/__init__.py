@@ -504,6 +504,9 @@ from towr.domain.battered_leg_models import (
     BatteredLegEnduranceTestRequest,
     BatteredLegEnduranceTestResult,
 )
+from towr.domain.npc_roster_battered_leg_models import (
+    NpcBatteredLegCompletionWitness, NpcRosterBatteredLegRequest, NpcRosterBatteredLegResult,
+)
 from towr.domain.injury_models import (
     CharacterInjuryState,
     DecisionOwner,
@@ -1113,6 +1116,9 @@ __all__ = [
     "CharacterInjuryState",
     "BatteredLegEnduranceTestRequest",
     "BatteredLegEnduranceTestResult",
+    "NpcBatteredLegCompletionWitness",
+    "NpcRosterBatteredLegRequest",
+    "NpcRosterBatteredLegResult",
     "CharacterWoundLifecycleCompletionRequest",
     "CharacterWoundLifecycleCompletionResult",
     "CharacterWoundLifecycleOutcome",

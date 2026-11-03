@@ -1,5 +1,9 @@
 # Противоречия и неоднозначности
 
+## Battered Leg: обязательный Test и owner admission, ADR-0060
+
+2026-11-03: PG1.4 Wounds Table190/5 требует Endurance Test; GM1.1 Champions92 применяет таблицу к Champion. Неизменность injury на success не означает, что Test можно пропустить: новый completion witness отличает успешную проверку от удаления pending. Это техническое закрытие admission gap. Numeric Endurance profile задаёт caller, unmounted/no-external-Conditions facts ограничивают support; нового house rule или книжного противоречия нет. Failure Prone остаётся с источником, без неявного лечения или stand.
+
 ## Wound5 Battered Leg: source review ADR-0059
 
 2026-11-03: PG1.4 Wounds Table, строка5, стр. 190 требует Endurance Test и при failure назначает Prone; Endurance описан на стр. 70, обычная Characteristic pair — Toughness на стр. 67–72, общая Condition Prone — стр. 123. Тексты согласуются: специальная строка задаёт источник Test и последствие, общая Condition продолжает задавать её стандартные последствия/снятие. Числовой профиль конкретного персонажа в строке не определён и не выводится приложением. Отдельный combat action cost для этого немедленного Test не указан; K1 ADR-0059 не меняет action state. Нового противоречия/house rule нет.

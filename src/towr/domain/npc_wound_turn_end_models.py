@@ -57,6 +57,8 @@ class NpcWoundTurnEndRequest:
                 or state.pending_interruption is not None
                 or state.champion_attack is not None and state.champion_attack.pending is not None):
             raise ValueError('mandatory pending continuation blocks turn end')
+        from towr.domain.npc_roster_casting_models import _validate_battered_leg_execution_source
+        _validate_battered_leg_execution_source(state)
         if any(r.id == self.id or (r.actor_id, r.round_number) == (
                 self.actor_id, state.round_state.round_number) for r in state.wound_turn_end_receipts):
             raise ValueError('turn end was already consumed')
@@ -150,6 +152,8 @@ def _project_wound_turn_end(
     *, preserve_expiry_sources: bool = False,
 ) -> NpcRosterCastingState:
     """Project an already validated end transition; never schedule or strip Prone."""
+    from towr.domain.npc_roster_casting_models import _validate_battered_leg_execution_source
+    _validate_battered_leg_execution_source(old)
     roster = old.roster
     if expiries:
         actor = roster.participant(actor_id)

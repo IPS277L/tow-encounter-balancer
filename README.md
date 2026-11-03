@@ -1,5 +1,9 @@
 # TOWR Encounter Balancer
 
+[ADR-0061](docs/decisions/ADR-0061-native-battered-leg-continuation.md) подготовлен для native Battered Leg: профиль Endurance принадлежит Scenario, completion связывается с собственным журналом. [Исполняемый пример](docs/examples/m8/battered_leg_native_contract_probe.py) проверяет существующую границу; native реализация ещё впереди.
+
+[ADR-0060](docs/decisions/ADR-0060-battered-leg-owner-bridge.md) добавляет ручной M8 Battered Leg переход: явный Endurance profile, exact pending Attack, сохранение обоих child owners и completion witness. Итоговая проверка — в [статусе](docs/project-status.md).
+
 [ADR-0059](docs/decisions/ADR-0059-battered-leg-endurance-test.md) реализует K1 Endurance follow-up для первой Battered Leg: явный профиль, normal Test и unmounted actor; failure добавляет Prone. Границы и следующий M8 шаг — в [статусе](docs/project-status.md).
 
 Закрыт [ADR-0058](docs/decisions/ADR-0058-crushed-rib-generation-and-magic-json-v5.md): matching family permission сохраняется в generated candidates, а `simulate-magic` и `balance-magic` читают/пишут полное nullable Crushed Rib разрешение. [Contract probe](docs/examples/m8/crushed_rib_transport_contract_probe.py) проверяет generation и native APIs; публичные [simulation](docs/examples/m8/json/magic-simulation-v5.request.json) и [balance](docs/examples/m8/json/magic-balance-v5.request.json) requests проходят реальные CLI. [Итоговый wheel/installed/full audit](docs/audits/m8-crushed-rib-transport-readiness.md) закрыт; точка продолжения — в [project status](docs/project-status.md).

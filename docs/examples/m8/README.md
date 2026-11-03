@@ -1,5 +1,11 @@
 # Примеры магии M8
 
+## Battered Leg: подготовка native контракта ADR-0061
+
+[Контракт](../../decisions/ADR-0061-native-battered-leg-continuation.md), [probe](battered_leg_native_contract_probe.py), [stdout](battered_leg_native_contract_probe.output.txt), [copied test](../../../tests/integration/test_m8_battered_leg_native_contract_probe.py). Копировать вместе с `magic_scenario.py`; запускать `python battered_leg_native_contract_probe.py` с установленным пакетом либо `PYTHONPATH=src` из корня проекта.
+
+39 scripted d10 проверяют настоящий native first5 stop, manual60 success/failure, подмену profile/trace, once-only completion и closed journal union. Actual WAIT/ally miss/следующий hit показывают необходимость диагностики нового injury до factory60. Native61 helpers и permission здесь не эмулируются. Источники и global RNG сохраняются; снятие Prone5 не добавлено.
+
 ## Crushed Rib generation/JSON5 contract probe, ADR-0058
 
 [Probe](crushed_rib_transport_contract_probe.py), [stdout](crushed_rib_transport_contract_probe.output.txt), [copied test](../../../tests/integration/test_m8_crushed_rib_transport_contract_probe.py), [контракт](../../decisions/ADR-0058-crushed-rib-generation-and-magic-json-v5.md). Копировать6Python-файлов: probe, `crushed_rib_native.py`, `crushed_rib_owner.py`, `generation_contract_probe.py`, `stationary_wound_runner.py`, `magic_scenario.py`; нужен установленный пакет либо source PYTHONPATH.

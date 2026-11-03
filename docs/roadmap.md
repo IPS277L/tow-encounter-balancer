@@ -324,3 +324,16 @@ Native policy/runner ADR-0050 реализованы ниже. Generation/wire p
 ## ADR-0059 — Battered Leg Endurance K1 consumer
 
 K1 boundary закрыта: [ADR](decisions/ADR-0059-battered-leg-endurance-test.md), [domain request/result](../src/towr/domain/battered_leg_models.py), [executor](../src/towr/rules/battered_leg_resolution.py), [приёмка](audits/k1-battered-leg-readiness.md). Одна isolated resolved/untreated/unhealed rolled5, explicit unmounted actor, полный effect witness и authored normal Endurance Test без modifiers. Success сохраняет injury, failure добавляет sourced Prone. Source/installed26targeted и full4239tests OK,486package files совпали. Следом — ручной M8 full-owner bridge, затем native runner/journal и generation/JSON; combinations требуют отдельных consumers.
+
+## ADR-0060 — manual M8 Battered Leg owner bridge
+
+[Контракт](decisions/ADR-0060-battered-leg-owner-bridge.md) закрыт: exact current pending Attack/Wound5 → authored Endurance profile → один59 executor → atomic injury/pending/receipt projection. Append-last nullable root witness сохраняет full source и history prefixes; execution gates запрещают missing receipt после pending stripping.129targeted, installed15new иfull4254tests OK;488package files совпали. [Приёмка](audits/m8-battered-leg-owner-readiness.md). Следующий native контракт подготовлен в61; transport остаётся после native integration.
+
+## ADR-0061 — native Battered Leg: профиль, журнал и dispatch
+
+[Контракт](decisions/ADR-0061-native-battered-leg-continuation.md) подготовлен; [probe39d10](examples/m8/battered_leg_native_contract_probe.py) исполняет существующие native prefix/manual60. Native61 ещё не реализован. Endurance profile будет частью отдельного Scenario permission; Test actor — Wizard при активном Minion turn. Новое последствие после completed Test должно сохраняться с receipt и получать bounded stop до normal factory60, после обязательных continuations.
+
+1. **Следующий шаг:** policy/profile admission и exports, history вне root, один новый Step type, pure journal/predecessor guards и детерминированные проверки source/trace/receipt/None.
+2. Diagnosis/runner через executor60, exact None prefix и success/failure; post-completion Staggered/Wound/death сохраняются и честно ограничивают дальнейший scope.
+3. Native simulation/evaluation/real spawn; early lossless refusal nonNone61 в generation и magic JSON1–5.
+4. Independent review, полный regression и source/wheel/installed audit. Затем отдельный generation/transport ADR; Prone5 removal отдельно.

@@ -1,5 +1,9 @@
 # Реестр источников
 
+## Battered Leg full-owner bridge: ADR-0060
+
+2026-11-03: наследуется адресная сверка59. Повторно прочитаны локальные extracted BOOK-PLAYER-GUIDE1.4 Wounds Table190/строка5 и Conditions/Prone123, BOOK-GM-GUIDE1.1 Allies and Antagonists/Champions92. Endurance profile/Characteristic основания68–70 сохранены из59. [ADR-0060](decisions/ADR-0060-battered-leg-owner-bridge.md) меняет инженерное связывание pending/owner, не книжную механику. Нового PDF/полного чтения/версии/hash/Rule ID/house rule нет.
+
 ## Wound5 Battered Leg: адресная сверка ADR-0059
 
 2026-11-03: непосредственно прочитаны локальные извлечения BOOK-PLAYER-GUIDE1.4, Abilities / Characteristics & Skills, стр. 68–70 (Endurance обычно Toughness; GM может назначить другую Characteristic до броска); Rules / Wounds & Conditions, стр. 121; Conditions / Prone, стр. 123; Appendix / Wounds Table, строка5, стр. 190. Исходная выбранная книга/версия/hash остаются прежними; PDF заново не открывался, SHA не пересчитывался. Новый Rule ID/house rule не вводился. [ADR-0059](decisions/ADR-0059-battered-leg-endurance-test.md) связывает только K1 Test source и эффект, не определяя M8 actor profile.

@@ -5,6 +5,7 @@ from dataclasses import dataclass, field, replace
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
+    from towr.domain.npc_roster_battered_leg_models import NpcBatteredLegCompletionWitness
     from towr.domain.npc_roster_miscast_models import NpcRosterMiscastPreparationResult, NpcRosterMiscastRollResult
     from towr.domain.npc_stationary_wound_models import NpcStationaryWoundContext
     from towr.domain.npc_crushed_rib_models import NpcCrushedRibContext
@@ -79,6 +80,7 @@ class NpcRosterCastingState:
     minion_attack: NpcRosterAttackState | None = None
     pending_minion_attack: NpcRosterAttackExecutionResult | None = None
     pending_miscast_continuation: NpcRosterMiscastPreparationResult | NpcRosterMiscastRollResult | None = None
+    battered_leg_receipt: NpcBatteredLegCompletionWitness | None = None
 
     def __post_init__(self) -> None:
         for value, kind in (
@@ -257,6 +259,12 @@ class NpcRosterCastingState:
             from towr.domain.npc_roster_miscast_models import validate_npc_miscast_continuation_context
             validate_npc_miscast_continuation_context(self)
 
+        if self.battered_leg_receipt is not None:
+            from towr.domain.npc_roster_battered_leg_models import NpcBatteredLegCompletionWitness
+            _typed(self.battered_leg_receipt, NpcBatteredLegCompletionWitness)
+            replace(self.battered_leg_receipt)
+            self.battered_leg_receipt.validate_storage(self)
+
     @property
     def casting_round_state(self) -> CombatRoundState:
         """Live projection only; keep the full roster/round for the caller."""
@@ -327,6 +335,7 @@ class NpcRosterCastingRequest:
             raise ValueError("pending Miscast blocks normal Casting")
         if state.champion_attack is not None and state.champion_attack.pending is not None:
             raise ValueError("pending Champion attack blocks normal Casting")
+        _validate_battered_leg_execution_source(state)
         actor = state.roster.participant(state.wizard.actor_id)
         injury = actor.state.injury
         if context is None and any(w.entry_id == WoundEntryId.CRUSHED_RIB for w in injury.wounds):
@@ -376,6 +385,7 @@ class NpcRosterCastingResult:
     def __post_init__(self) -> None:
         _typed(self.source, NpcRosterCastingRequest)
         _typed(self.casting, CowardlyFlightCastingResult)
+        _validate_battered_leg_execution_source(self.source.state)
         if (self.source.crushed_rib_context is not None or self.casting.crushed_rib is not None
                 or self.casting.source.crushed_rib_preparation is not None
                 or any(w.entry_id == WoundEntryId.CRUSHED_RIB for w in
@@ -392,6 +402,7 @@ class NpcRosterCastingResult:
     def state(self) -> NpcRosterCastingState:
         """Derived atomic projection: no separately supplied post-state to forge."""
         previous, casting = self.source.state, self.casting
+        _validate_battered_leg_execution_source(previous)
         injuries = {t.actor_id: t.injury for t in casting.targets}
         if casting.crushed_rib is not None:
             injuries[previous.wizard.actor_id] = casting.crushed_rib.state
@@ -418,6 +429,13 @@ class NpcRosterCastingResult:
             pending_movement=(casting if casting.status is CowardlyFlightCastingStatus.MOVEMENT_REQUIRED
                               else None),
         )
+
+
+def _validate_battered_leg_execution_source(state: NpcRosterCastingState) -> None:
+    injury = state.roster.participant(state.wizard.actor_id).state.injury
+    if any(w.entry_id == WoundEntryId.BATTERED_LEG for w in injury.wounds):
+        from towr.domain.npc_roster_battered_leg_models import require_battered_leg_completion
+        require_battered_leg_completion(state)
 
 
 def _typed(value: object, kind: type) -> None:
