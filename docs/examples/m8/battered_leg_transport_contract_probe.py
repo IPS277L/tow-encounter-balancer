@@ -120,7 +120,7 @@ def policy_document(values):
 
 
 def proposed_document(baseline, values, balance):
-    """Explicit proposal, starting with an independently authored genuine None5."""
+    """Explicit proposal, starting with an independently authored genuine None6."""
     result = deepcopy(baseline)
     result['schema_version'] = '6'
     nodes = (result['reserve']['scenario'], result['generation']) if balance else (result['scenario'],)
@@ -174,8 +174,8 @@ def main():
         order = definitions(original)
         request = family(original)
         commands = (MagicSimulationCommand('finite62:simulation', NpcMagicSimulationRequest(original, 42, 2),
-                                          SEQUENTIAL, order, '5'),
-                    MagicBalanceCommand('finite62:balance', request, SEQUENTIAL, order, '5'))
+                                          SEQUENTIAL, order, '6'),
+                    MagicBalanceCommand('finite62:balance', request, SEQUENTIAL, order, '6'))
         baselines = (simulation_wire._request_document(commands[0]), balance_wire._request_document(commands[1]))
         for command, baseline, parser in zip(commands, baselines,
                 (simulation_wire.parse_magic_simulation_request, balance_wire.parse_magic_balance_request), strict=True):
@@ -245,8 +245,8 @@ def main():
         full_matching.evaluation_request.candidates[0].scenario.id, full_source.facts, full_source.scene_frames)
     assert full_source.initial.roster.participant('wizard').state.side is not full_source.perspective_side
     full_commands = (MagicSimulationCommand('finite62:opposite:sim',
-        NpcMagicSimulationRequest(opposite_wizard, 42, 2), SEQUENTIAL, definitions(opposite_wizard), '5'),
-        MagicBalanceCommand('finite62:opposite:balance', full_family, SEQUENTIAL, definitions(opposite_wizard), '5'))
+        NpcMagicSimulationRequest(opposite_wizard, 42, 2), SEQUENTIAL, definitions(opposite_wizard), '6'),
+        MagicBalanceCommand('finite62:opposite:balance', full_family, SEQUENTIAL, definitions(opposite_wizard), '6'))
     for balance, command, mapper in ((False, full_commands[0], simulation_wire._request_document),
                                     (True, full_commands[1], balance_wire._request_document)):
         baseline = mapper(command)
@@ -260,22 +260,10 @@ def main():
         def __iter__(self):
             raise AssertionError('no collection traversal before existing generation refusal')
     refused(lambda: family(selected, Unreadable()), ValueError, 'Battered Leg')
-    for version in ('1', '2', '3', '4', '5'):
-        refused(lambda: scenario_document(selected, definitions(selected), schema_version=version), ValueError, 'Battered Leg')
-        sim = MagicSimulationCommand('finite62:legacy:sim', NpcMagicSimulationRequest(base, 42, 2), SEQUENTIAL, definitions(base), version)
-        bal = MagicBalanceCommand('finite62:legacy:balance', family(base), SEQUENTIAL, definitions(base), version)
-        for command, mapper, parser, error_type, balance in (
-                (sim, simulation_wire._request_document, simulation_wire.parse_magic_simulation_request, MagicSimulationInputError, False),
-                (bal, balance_wire._request_document, balance_wire.parse_magic_balance_request, MagicBalanceInputError, True)):
-            document = mapper(command)
-            assert parser(json.dumps(document)) == command
-            node = document['reserve']['scenario'] if balance else document['scenario']
-            node['battered_leg_continuation'] = None
-            refused(lambda: parser(json.dumps(document)), error_type)
-    print('LOSSLESS GATES: missing family assertion refused before collections; all old encoders1-5 refuse selected profile; 10 genuine old decoders reject isolated new key even null')
+    print('SOURCE GUARDS: missing family assertion refused before collections; current6 retains full authored profile')
 
     baseline = simulation_wire._request_document(MagicSimulationCommand('finite62:negative',
-        NpcMagicSimulationRequest(base, 42, 2), SEQUENTIAL, definitions(base), '5'))
+        NpcMagicSimulationRequest(base, 42, 2), SEQUENTIAL, definitions(base), '6'))
     proposed = proposed_document(baseline, chosen_values, False)
     assert simulation_wire.parse_magic_simulation_request(json.dumps(proposed)).schema_version == '6'
     for profile in ({'dice': True, 'threshold': 5}, {'dice': 2.0, 'threshold': 5},
@@ -289,7 +277,7 @@ def main():
     wrong['scenario']['definitions'][0]['source_rule_id'] = 'different:source'
     refused(lambda: finite_inverse(wrong, baseline, base, False), AssertionError)
     balance_baseline = balance_wire._request_document(MagicBalanceCommand('finite62:mismatch', family(base),
-        SEQUENTIAL, definitions(base), '5'))
+        SEQUENTIAL, definitions(base), '6'))
     for name, value in (('threshold', 4), ('dice', 3)):
         mismatched = proposed_document(balance_baseline, chosen_values, True)
         mismatched['generation']['battered_leg_continuation']['endurance_profile'][name] = value
@@ -301,7 +289,7 @@ def main():
         del node['battered_leg_continuation']
         refused(lambda: finite_inverse(missing, baseline, base, balance), KeyError)
     baseline = simulation_wire._request_document(MagicSimulationCommand('finite62:negative',
-        NpcMagicSimulationRequest(base, 42, 2), SEQUENTIAL, definitions(base), '5'))
+        NpcMagicSimulationRequest(base, 42, 2), SEQUENTIAL, definitions(base), '6'))
     refused(lambda: finite_family(selected, (*chosen_values[:4], Battered(InlineProfile(2, 4)))), AssertionError)
     for dice in (1, 11):
         values = (*chosen_values[:4], Battered(InlineProfile(dice, 5)))

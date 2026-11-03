@@ -70,19 +70,19 @@ def main():
         (MagicBalanceStage(1, 1),), 4, window)
     balance = MagicBalanceCommand('probe:balance', generation, options, definitions(reserve))
     before = deepcopy((simulation, balance, policy))
-    # These are genuinely legacy inputs, before any opted source exists.
+    # These are genuinely None-policy inputs, before any opted source exists.
     legacy_summary = summarize_npc_magic_simulation(run_npc_magic_simulation(simulation.request))
     sim_echo = json.loads(encode_magic_simulation_result(simulation, legacy_summary))['request']
     legacy_balance = execute_magic_balance(balance)
     bal_echo = json.loads(encode_magic_balance_result(balance, legacy_balance))['request']
     assert parse_magic_simulation_request(json.dumps(sim_echo)) == simulation
     assert parse_magic_balance_request(json.dumps(bal_echo)) == balance
-    print('Public v1 request echoes: genuine legacy simulation 1 trial; legacy balance 4 trials; exact sources')
+    print('Public current6 request echoes: genuine None-policy simulation 1 trial; None-policy balance 4 trials; exact sources')
 
     restored_opted = None
     for value in (None, policy):
         sim_doc, bal_doc = deepcopy(sim_echo), deepcopy(bal_echo)
-        sim_doc['schema_version'] = bal_doc['schema_version'] = '2'
+        sim_doc['schema_version'] = bal_doc['schema_version'] = '6'
         sim_doc['scenario']['miscast_continuation'] = policy_document(value)
         bal_doc['reserve']['scenario']['miscast_continuation'] = policy_document(value)
         bal_doc['generation']['miscast_continuation'] = policy_document(value)
@@ -94,23 +94,20 @@ def main():
         reserve_policy = bal_command.generation_request.template_scenario.miscast_continuation
         family_policy = bal_command.generation_request.miscast_continuation
         assert sim_command.request.scenario.miscast_continuation == reserve_policy == family_policy == value
-        assert bal_command == replace(balance, schema_version='2', generation_request=replace(generation,
+        assert bal_command == replace(balance, schema_version='6', generation_request=replace(generation,
             template_scenario=replace(reserve, miscast_continuation=value), miscast_continuation=value))
         bal_result = execute_magic_balance(bal_command)
         bal_output = json.loads(encode_magic_balance_result(bal_command, bal_result))
-        assert bal_output['schema_version'] == '2' and bal_output['request'] == bal_doc
+        assert bal_output['schema_version'] == '6' and bal_output['request'] == bal_doc
         assert parse_magic_balance_request(json.dumps(bal_output['request'])) == bal_command
         for candidate in bal_result.generation_result.evaluation_request.candidates:
             assert candidate.scenario.miscast_continuation == value
-        if value is not None:
-            rejected('v1 balance encoder cannot discard opted source',
-                     lambda: encode_magic_balance_result(replace(bal_command, schema_version='1'), bal_result))
         restored = sim_command.request
-        assert sim_command == replace(simulation, schema_version='2',
+        assert sim_command == replace(simulation, schema_version='6',
             request=replace(simulation.request, scenario=replace(legacy, miscast_continuation=value)))
         sim_summary = summarize_npc_magic_simulation(run_npc_magic_simulation(restored))
         sim_result = json.loads(encode_magic_simulation_result(sim_command, sim_summary))
-        assert sim_result['schema_version'] == '2' and sim_result['request'] == sim_doc
+        assert sim_result['schema_version'] == '6' and sim_result['request'] == sim_doc
         assert parse_magic_simulation_request(json.dumps(sim_result['request'])) == sim_command
         restored_reserve = bal_command.generation_request.template_scenario
         assert restored == replace(simulation.request, scenario=replace(legacy, miscast_continuation=value))
@@ -118,14 +115,9 @@ def main():
         assert bal_command.generation_request.facts == generation.facts
         assert bal_command.generation_request.scene_frames == generation.scene_frames
         assert (sim_doc, bal_doc) == documents_before
-        for document, parser, error in ((sim_doc, parse_magic_simulation_request, MagicSimulationInputError),
-                                       (bal_doc, parse_magic_balance_request, MagicBalanceInputError)):
-            v1_extra = deepcopy(document)
-            v1_extra['schema_version'] = '1'
-            rejected('v1 has no policy field, even null', lambda: parser(json.dumps(v1_extra)), error)
         if value is not None:
             restored_opted = restored
-        print(f'Public simulation and balance v2 round-trip: {"null" if value is None else "explicit policy"}; '
+        print(f'Public simulation and balance current6 round-trip: {"null" if value is None else "explicit policy"}; '
               'complete source/orders/seed/budgets preserved')
 
     assert restored_opted is not None
@@ -178,11 +170,9 @@ def main():
     opted_result = run_npc_magic_simulation(restored_opted,
         rng_factory=lambda seed: ScriptedDice((9, 9, 9, 7, 7, 7) + (10,) * 10))
     opted_summary = summarize_npc_magic_simulation(opted_result)
-    opted_v2 = replace(opted_command, schema_version='2')
-    opted_echo = json.loads(encode_magic_simulation_result(opted_v2, opted_summary))['request']
-    assert parse_magic_simulation_request(json.dumps(opted_echo)) == opted_v2
-    rejected('v1 encoder cannot discard opted source',
-             lambda: encode_magic_simulation_result(opted_command, opted_summary))
+    opted_command_current = replace(opted_command, schema_version='6')
+    opted_echo = json.loads(encode_magic_simulation_result(opted_command_current, opted_summary))['request']
+    assert parse_magic_simulation_request(json.dumps(opted_echo)) == opted_command_current
     rejected('same-ID None summary substitution',
              lambda: assess_magic_candidate(restored_opted, legacy_summary, window))
     rejected('same-ID opted summary relabelled legacy',
@@ -196,9 +186,9 @@ def main():
     assert (trial.executed_action_count, trial.started_round_count, trial.completed_round_count) == (
         trace.executed_actions, trace.started_rounds, trace.completed_rounds)
     print('Restored opted source: actual Wind trace 16 d10 + matching independent trial 16 d10; no probabilities')
-    print('V1/no-family-opt-in guards and same-ID full-source substitution guards remain effective')
+    print('Independent family opt-in guards and same-ID full-source substitution guards remain effective')
     assert (simulation, balance, policy) == before and getstate() == rng_before
-    print('Inputs/global RNG unchanged; public native generation and both magic v2 families verified')
+    print('Inputs/global RNG unchanged; public native generation and both current6 magic families verified')
 
 
 if __name__ == '__main__':

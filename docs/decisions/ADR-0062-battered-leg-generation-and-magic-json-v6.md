@@ -1,5 +1,7 @@
 # ADR-0062: Battered Leg family permission и Magic JSON/CLI v6
 
+Требования поддержки прежних wire formats и накопления версий заменены [ADR-0063](ADR-0063-single-current-magic-contract.md): Magic поддерживает только текущий JSON6. Ниже сохранены исторические решения и фактические результаты приёмки; игровые границы этим не меняются.
+
 Дата: 2026-11-03. Статус: **завершён в принятой generation/JSON6 границе**. [Приёмка](../audits/m8-battered-leg-transport-readiness.md).
 
 Основа — закрытый [native61](ADR-0061-native-battered-leg-continuation.md), [его приёмка](../audits/m8-native-battered-leg-readiness.md) и прежний [generation/JSON5 контракт58](ADR-0058-crushed-rib-generation-and-magic-json-v5.md). [Finite probe](../examples/m8/battered_leg_transport_contract_probe.py), [stdout](../examples/m8/battered_leg_transport_contract_probe.output.txt), [copied test](../../tests/integration/test_m8_battered_leg_transport_contract_probe.py).

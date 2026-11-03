@@ -1,4 +1,4 @@
-"""Pure magic balance v1–v6 admission/encoding, without simulation."""
+"""Pure current magic balance admission/encoding, without simulation."""
 from dataclasses import asdict, replace
 from fractions import Fraction
 from functools import partial
@@ -58,7 +58,7 @@ def encode_magic_balance_error(
 def parse_magic_balance_request(text: str | bytes) -> MagicBalanceCommand:
     """Read strict JSON, admit the full reserve, and preflight C/staged budget."""
     document = read_request(text, MagicBalanceInputError, validate_magic_balance_document,
-                            magic_versions=('1', '2', '3', '4', '5', '6'))
+                            magic=True)
     try:
         return _parse_document(document)
     except MagicBalanceInputError as error:
@@ -73,47 +73,37 @@ def _parse_document(document: dict) -> MagicBalanceCommand:
     version = document['schema_version']
     scenario, definition_order = parse_scenario(reserve['scenario'], reserve['round_budget'],
         path_prefix='/reserve/scenario', error_type=MagicBalanceInputError, schema_version=version)
-    continuation = None
-    if version in ('2', '3', '4', '5', '6'):
-        continuation = parse_miscast_continuation(generation['miscast_continuation'],
-            path_prefix='/generation/miscast_continuation', error_type=MagicBalanceInputError)
-        if continuation != scenario.miscast_continuation:
-            raise MagicBalanceInputError(Code.INVALID_INPUT,
-                'family Miscast continuation must equal the full reserve policy',
-                path='/generation/miscast_continuation')
-    stationary = None
-    if version in ('3', '4', '5', '6'):
-        stationary = parse_stationary_wound_continuation(generation['stationary_wound_continuation'],
-            path_prefix='/generation/stationary_wound_continuation', error_type=MagicBalanceInputError)
-        if stationary != scenario.stationary_wound_continuation:
-            raise MagicBalanceInputError(Code.INVALID_INPUT,
-                'family stationary Wound continuation must equal the full reserve policy',
-                path='/generation/stationary_wound_continuation')
-    repeated = None
-    if version in ('4', '5', '6'):
-        repeated = parse_repeated_leg_spasm_continuation(generation['repeated_leg_spasm_continuation'],
-            stationary=stationary, path_prefix='/generation/repeated_leg_spasm_continuation',
-            error_type=MagicBalanceInputError)
-        if repeated != scenario.repeated_leg_spasm_continuation:
-            raise MagicBalanceInputError(Code.INVALID_INPUT,
-                'family repeated Leg Spasm policy must match the template policy',
-                path='/generation/repeated_leg_spasm_continuation')
-    crushed_rib = None
-    if version in ('5', '6'):
-        crushed_rib = parse_crushed_rib_continuation(generation['crushed_rib_continuation'],
-            path_prefix='/generation/crushed_rib_continuation', error_type=MagicBalanceInputError)
-        if crushed_rib != scenario.crushed_rib_continuation:
-            raise MagicBalanceInputError(Code.INVALID_INPUT,
-                'family Crushed Rib policy must match the template policy',
-                path='/generation/crushed_rib_continuation')
-    battered_leg = None
-    if version == '6':
-        battered_leg = parse_battered_leg_continuation(generation['battered_leg_continuation'],
-            path_prefix='/generation/battered_leg_continuation', error_type=MagicBalanceInputError)
-        if battered_leg != scenario.battered_leg_continuation:
-            raise MagicBalanceInputError(Code.INVALID_INPUT,
-                'family Battered Leg policy/profile must match the full reserve policy',
-                path='/generation/battered_leg_continuation')
+    continuation = parse_miscast_continuation(generation['miscast_continuation'],
+        path_prefix='/generation/miscast_continuation', error_type=MagicBalanceInputError)
+    if continuation != scenario.miscast_continuation:
+        raise MagicBalanceInputError(Code.INVALID_INPUT,
+            'family Miscast continuation must equal the full reserve policy',
+            path='/generation/miscast_continuation')
+    stationary = parse_stationary_wound_continuation(generation['stationary_wound_continuation'],
+        path_prefix='/generation/stationary_wound_continuation', error_type=MagicBalanceInputError)
+    if stationary != scenario.stationary_wound_continuation:
+        raise MagicBalanceInputError(Code.INVALID_INPUT,
+            'family stationary Wound continuation must equal the full reserve policy',
+            path='/generation/stationary_wound_continuation')
+    repeated = parse_repeated_leg_spasm_continuation(generation['repeated_leg_spasm_continuation'],
+        stationary=stationary, path_prefix='/generation/repeated_leg_spasm_continuation',
+        error_type=MagicBalanceInputError)
+    if repeated != scenario.repeated_leg_spasm_continuation:
+        raise MagicBalanceInputError(Code.INVALID_INPUT,
+            'family repeated Leg Spasm policy must match the template policy',
+            path='/generation/repeated_leg_spasm_continuation')
+    crushed_rib = parse_crushed_rib_continuation(generation['crushed_rib_continuation'],
+        path_prefix='/generation/crushed_rib_continuation', error_type=MagicBalanceInputError)
+    if crushed_rib != scenario.crushed_rib_continuation:
+        raise MagicBalanceInputError(Code.INVALID_INPUT,
+            'family Crushed Rib policy must match the template policy',
+            path='/generation/crushed_rib_continuation')
+    battered_leg = parse_battered_leg_continuation(generation['battered_leg_continuation'],
+        path_prefix='/generation/battered_leg_continuation', error_type=MagicBalanceInputError)
+    if battered_leg != scenario.battered_leg_continuation:
+        raise MagicBalanceInputError(Code.INVALID_INPUT,
+            'family Battered Leg policy/profile must match the full reserve policy',
+            path='/generation/battered_leg_continuation')
     groups = tuple(build(f'/generation/groups/{i}', MagicCompositionGroup, **group)
                    for i, group in enumerate(generation['groups']))
     facts = build('/generation/facts', parse_facts, generation['facts'])
@@ -160,19 +150,14 @@ def _request_document(command: MagicBalanceCommand) -> dict:
             'max_total_trials': source.max_total_trials,
             'window': {name: _fraction_document(getattr(source.window, name)) for name in ('minimum', 'target', 'maximum')}},
         'execution': execution}
-    if command.schema_version in ('2', '3', '4', '5', '6'):
-        document['generation']['miscast_continuation'] = miscast_continuation_document(source.miscast_continuation)
-    if command.schema_version in ('3', '4', '5', '6'):
-        policy = source.stationary_wound_continuation
-        document['generation']['stationary_wound_continuation'] = None if policy is None else policy.value
-    if command.schema_version in ('4', '5', '6'):
-        policy = source.repeated_leg_spasm_continuation
-        document['generation']['repeated_leg_spasm_continuation'] = None if policy is None else policy.value
-    if command.schema_version in ('5', '6'):
-        policy = source.crushed_rib_continuation
-        document['generation']['crushed_rib_continuation'] = None if policy is None else policy.value
-    if command.schema_version == '6':
-        document['generation']['battered_leg_continuation'] = battered_leg_continuation_document(source.battered_leg_continuation)
+    document['generation']['miscast_continuation'] = miscast_continuation_document(source.miscast_continuation)
+    policy = source.stationary_wound_continuation
+    document['generation']['stationary_wound_continuation'] = None if policy is None else policy.value
+    policy = source.repeated_leg_spasm_continuation
+    document['generation']['repeated_leg_spasm_continuation'] = None if policy is None else policy.value
+    policy = source.crushed_rib_continuation
+    document['generation']['crushed_rib_continuation'] = None if policy is None else policy.value
+    document['generation']['battered_leg_continuation'] = battered_leg_continuation_document(source.battered_leg_continuation)
     return document
 
 

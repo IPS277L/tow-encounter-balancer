@@ -1,5 +1,7 @@
 # ADR-0047: opt-in generation и Magic JSON/CLI v2
 
+Требования поддержки прежних wire formats и накопления версий заменены [ADR-0063](ADR-0063-single-current-magic-contract.md): Magic поддерживает только текущий JSON6. Ниже сохранены исторические решения и фактические результаты приёмки; игровые границы этим не меняются.
+
 Дата: 2026-10-31. Статус: **завершён в согласованной границе, включая source/wheel/installed audit**. [Аудит этапа1](../audits/m8-opt-in-generation-readiness.md), [этапа2](../audits/m8-simulation-v2-readiness.md), [этапа3](../audits/m8-balance-v2-readiness.md), [итоговый аудит этапа4](../audits/m8-opt-in-transport-readiness.md). Основа — закрытые [generation ADR-0042](ADR-0042-magic-composition-generation.md), [wire v1 ADR-0043](ADR-0043-magic-json-cli-v1.md) и [opt-in runner ADR-0046](ADR-0046-opt-in-miscast-runner-and-prone.md). Native guard требует explicit matching family policy; v1 refusal сохраняется. Известные33 errors тестовых ожиданий учитываются отдельно; зелёный полный unittest не заявляется.
 
 ## Граница решения

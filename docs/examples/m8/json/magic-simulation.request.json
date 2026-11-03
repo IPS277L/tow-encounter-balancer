@@ -1,7 +1,7 @@
 {
-  "schema_version": "2",
+  "schema_version": "6",
   "kind": "npc_magic_simulation",
-  "request_id": "wire:magic:simulation:v2",
+  "request_id": "wire:magic:simulation",
   "ruleset": "towr-pg1.4-gmg1.1",
   "simulation": {
     "master_seed": "42",
@@ -579,16 +579,10 @@
         "zone_priorities": []
       }
     ],
-    "miscast_continuation": {
-      "choice": "decline_cast_before_miscast",
-      "facts": {
-        "all_combatants_in_roster": true,
-        "no_external_short_range_creatures": true,
-        "unmounted_combatants_only": true,
-        "no_effect_immunities": true,
-        "no_cross_zone_close": true
-      },
-      "prone_policy": "self_stand_when_safe"
-    }
+    "miscast_continuation": null,
+    "stationary_wound_continuation": null,
+    "repeated_leg_spasm_continuation": null,
+    "crushed_rib_continuation": null,
+    "battered_leg_continuation": null
   }
 }

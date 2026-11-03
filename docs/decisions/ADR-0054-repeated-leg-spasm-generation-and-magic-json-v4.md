@@ -1,5 +1,7 @@
 # ADR-0054: repeated Leg Spasm family assertion и Magic JSON/CLI v4
 
+Требования поддержки прежних wire formats и накопления версий заменены [ADR-0063](ADR-0063-single-current-magic-contract.md): Magic поддерживает только текущий JSON6. Ниже сохранены исторические решения и фактические результаты приёмки; игровые границы этим не меняются.
+
 Дата: 2026-11-02. Статус: **реализован и закрыт [итоговым аудитом](../audits/m8-repeated-leg-spasm-transport-readiness.md)**. Основа: [закрытый native53](ADR-0053-native-repeated-leg-spasm-continuation.md), [его аудит](../audits/m8-native-repeated-leg-spasm-readiness.md), [generation/wire3 ADR-0051](ADR-0051-stationary-wound-generation-and-magic-json-v3.md).
 
 ## Граница

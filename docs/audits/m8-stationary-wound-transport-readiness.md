@@ -50,7 +50,7 @@ Windows11 x64 / CPython3.12.4. Финальный wheel: `towr_encounter_balance
 
 ## Transport evidence
 
-[Расширенный helper](../../tools/audit_m8_transport_install.py) сохраняет прежние CLI flags и требует isolated installed Python. Плановая конечная матрица:28backend cases — обе families ×(v1, v2-null, v2-opted, четыре independent v3 combinations) ×sequential/process. Каждый input исполняется source module/installed module/installed console, stdin и copied UTF-8 file из отдельного cwd; точный текущий stdout должен совпасть. Также native phase-error encoders, actual balance3 generation failure/context, trusted/lexical errors и copied public examples.
+[Расширенный helper](../../tools/archive/README.md) сохраняет прежние CLI flags и требует isolated installed Python. Плановая конечная матрица:28backend cases — обе families ×(v1, v2-null, v2-opted, четыре independent v3 combinations) ×sequential/process. Каждый input исполняется source module/installed module/installed console, stdin и copied UTF-8 file из отдельного cwd; точный текущий stdout должен совпасть. Также native phase-error encoders, actual balance3 generation failure/context, trusted/lexical errors и copied public examples.
 
 Genuine public v1/v2 requests проверяются отдельно от synthetic v3 null-parity variants; saved result request/version связывается с правильным fixture ID. Saved artifact bytes сравниваются при одинаковом runtime; при другом runtime отдельно фиксируются hashes/metadata, это не объявляется exact stdout parity с другой Python. Repository example hashes до/после должны остаться прежними. V3 public request/result обоих families проверяются actual CLI и schema/source bindings.
 

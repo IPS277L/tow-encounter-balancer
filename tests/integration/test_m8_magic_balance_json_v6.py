@@ -1,4 +1,4 @@
-"""Actual Balance6 generation/stages, both entry points and real spawn."""
+"""Current Magic JSON contract: deterministic admission and source guards."""
 from copy import deepcopy
 import json
 from unittest.mock import patch
@@ -64,7 +64,7 @@ class M8MagicBalanceJsonV6IntegrationTests(unittest.TestCase):
     def test_generation_and_late_evaluation_failures_retain_v6_phase_context_privately(self):
         command = bal.parse_magic_balance_request(json.dumps(small_document()))
         for error in (RuntimeError('private general generation'), MagicCandidateGenerationError('finite-candidate', (2,))):
-            with patch.object(service, 'generate_magic_candidates', side_effect=error), \
+            with patch.object(service, 'generate_magic_candidates', side_effect=error),\
                     patch.object(service, 'evaluate_magic_candidates_staged') as evaluator:
                 with self.assertRaises(MagicBalanceGenerationError) as caught:
                     service.execute_magic_balance(command)
@@ -98,7 +98,7 @@ class M8MagicBalanceJsonV6IntegrationTests(unittest.TestCase):
         forged = deepcopy(command)
         object.__setattr__(forged.generation_request.battered_leg_continuation.endurance_profile, 'dice', True)
         self.assertEqual(forged, command)
-        with patch.object(service, 'generate_magic_candidates') as generator, \
+        with patch.object(service, 'generate_magic_candidates') as generator,\
                 patch.object(service, 'evaluate_magic_candidates_staged') as evaluator:
             with self.assertRaises(MagicBalanceGenerationError) as caught:
                 service.execute_magic_balance(forged)

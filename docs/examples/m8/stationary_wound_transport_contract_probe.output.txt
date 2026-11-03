@@ -1,8 +1,7 @@
-Simulation v3: 8 public roundtrips; balance v3: 8 public roundtrips; four policy combinations; both perspectives
+Simulation current6: 8 public roundtrips; balance current6: 8 public roundtrips; four policy combinations; both perspectives
 Native generation: 20 full-source subsets match manual projections; both perspectives x four policies; IDs/orders/frames/seeds exact
-Production family preflight checks independent equality/types before projection; both v3 codecs require nullable policies
-Production: simulation/balance v3 accepted; omitted stationary family and JSON v1/v2 extra fields rejected
+Production family preflight checks independent equality/types before projection; both current6 codecs require nullable policies
+Production: simulation/balance current6 accepted; omitted stationary family rejected
 Public native staged service: four generated subset candidates -> one stage -> four complete source-bound rows; denominator 4
 Native scripted controls: 8 trials / 138 d10; opted round-limit + unsupported, None two unsupported; denominator 2 per source
-Production v1/v2 encoders reject full opted sources; no stripped opted source or downgraded document used
-Inputs/global RNG unchanged; native generation and simulation/balance v3 implemented; full sources retained
+Inputs/global RNG unchanged; native generation and simulation/balance current6 implemented; full sources retained

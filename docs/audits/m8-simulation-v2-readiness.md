@@ -30,7 +30,7 @@
 - [6 новых integration tests](../../tests/integration/test_m8_magic_json_v2.py): реальные full native sequential/process records при null/opted; legacy parity; CLI Unicode/stdin и оба backend; публичный request file против native; input/error table; safe process-pool failure; все семь прежних routes отвергают2. Global RNG/inputs/active children сохраняются.
 - Existing unsupported-version tests simulation заменены с2 на3, поскольку2 теперь поддержан. V1 negative/shape/source tests сохранены, не ослаблены.
 - [Public proof](../examples/m8/opt_in_transport_contract_probe.py) больше не имитирует simulation v2: настоящий parser/runner/encoder для null/opted, full echo и scripted Wind-summary round-trip. Только balance portion остаётся finite manual mapping. [Copied-bundle test](../../tests/integration/test_m8_opt_in_transport_contract_probe.py) проверяет [точный stdout](../examples/m8/opt_in_transport_contract_probe.output.txt).
-- [Публичный JSON-вход](../examples/m8/json/magic-simulation-v2.request.json), [инструкция](../examples/m8/json/README.md): explicit policy, стандартный seed42/trials4/round budget4. Future scene coverage неполная; это finite observation, не вероятность/пресет сложности.
+- [Публичный JSON-вход](../examples/m8/json/magic-simulation.request.json), [инструкция](../examples/m8/json/README.md): explicit policy, стандартный seed42/trials4/round budget4. Future scene coverage неполная; это finite observation, не вероятность/пресет сложности.
 
 Focused evidence, Windows x64 / CPython3.12.4:
 

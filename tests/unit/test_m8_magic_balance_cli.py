@@ -1,4 +1,4 @@
-"""Magic balance CLI phase boundaries over the existing byte I/O contract."""
+"""Current Magic JSON contract: deterministic admission and source guards."""
 from contextlib import ExitStack
 import io
 import json
@@ -164,7 +164,7 @@ class MagicBalanceErrorEncoderTests(unittest.TestCase):
                 encoded = encode_magic_balance_error(error)
                 actual = json.loads(encoded)
                 validate_magic_balance_document(actual,'error')
-                self.assertEqual(actual, dict(schema_version='1',kind='magic_balance_error',request_id='outer',error=expected))
+                self.assertEqual(actual, dict(schema_version='6',kind='magic_balance_error',request_id='outer',error=expected))
                 self.assertTrue(encoded.endswith('\n'))
                 self.assertNotIn('private', encoded)
 

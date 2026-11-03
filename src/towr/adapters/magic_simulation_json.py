@@ -1,4 +1,4 @@
-"""Pure magic simulation v1–v5 parser and source-bound aggregate encoders."""
+"""Current magic simulation parser and source-bound aggregate encoders."""
 from dataclasses import asdict, replace
 import json
 import platform
@@ -38,7 +38,7 @@ def encode_magic_simulation_error(
 def parse_magic_simulation_request(text: str | bytes) -> MagicSimulationCommand:
     """Read strict UTF-8 JSON and admit the full fresh authored scenario."""
     document = read_request(text, MagicSimulationInputError, validate_magic_simulation_document,
-                            magic_versions=('1', '2', '3', '4', '5', '6'))
+                            magic=True)
     version = document['schema_version']
     try:
         options = document['simulation']

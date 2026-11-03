@@ -1,4 +1,4 @@
-"""Public magic wire -> existing simulator -> native aggregate, without services."""
+"""Current Magic JSON contract: deterministic admission and source guards."""
 import json
 from multiprocessing import active_children
 import random

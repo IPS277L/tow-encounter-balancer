@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "urn:towr:magic-simulation:result:6",
-  "$comment": "ADR-0062: full authored Battered Leg profile, required nullable permission, fresh sources only; bundled fragments remain unchanged.",
+  "$comment": "Current development contract; shared fragments are bundled in magic-common.schema.json.",
   "type": "object",
   "properties": {
     "schema_version": {
@@ -9,19 +9,19 @@
       "const": "6"
     },
     "kind": {
-      "$ref": "urn:towr:magic-simulation:result:1#/properties/kind"
+      "$ref": "urn:towr:magic:common#/$defs/magic_simulation_result_kind"
     },
     "request": {
       "$ref": "urn:towr:magic-simulation:request:6"
     },
     "seed_scheme": {
-      "$ref": "urn:towr:magic-simulation:result:1#/properties/seed_scheme"
+      "$ref": "urn:towr:magic:common#/$defs/magic_simulation_result_seed_scheme"
     },
     "runtime": {
-      "$ref": "urn:towr:magic-simulation:result:1#/properties/runtime"
+      "$ref": "urn:towr:magic:common#/$defs/magic_simulation_result_runtime"
     },
     "summary": {
-      "$ref": "urn:towr:magic-simulation:result:1#/properties/summary"
+      "$ref": "urn:towr:magic:common#/$defs/magic_simulation_result_summary"
     }
   },
   "required": [

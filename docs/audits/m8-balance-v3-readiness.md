@@ -12,7 +12,7 @@
 
 | Граница | Реализация / evidence |
 | --- | --- |
-| Schemas | Новые [request](../../src/towr/adapters/schemas/magic-balance-request-v3.schema.json)/[result](../../src/towr/adapters/schemas/magic-balance-result-v3.schema.json)/[error](../../src/towr/adapters/schemas/magic-balance-error-v3.schema.json) с собственными IDs, closed reserve/generation и exact request3 echo. Scenario/stationary refs — bundled simulation3, Miscast — simulation2, остальное — неизменные1/2 fragments |
+| Schemas | Новые [request](../../src/towr/adapters/schemas/magic-balance-request-v6.schema.json)/[result](../../src/towr/adapters/schemas/magic-balance-result-v6.schema.json)/[error](../../src/towr/adapters/schemas/magic-balance-error-v6.schema.json) с собственными IDs, closed reserve/generation и exact request3 echo. Scenario/stationary refs — bundled simulation3, Miscast — simulation2, остальное — неизменные1/2 fragments |
 | Registry | [Обе magic families](../../src/towr/adapters/magic_json_schema.py) допускают1/2/3, cache18;18magic/36total schemas. Default1, unknown4 отвергается до загрузки файлов, transitive refs разрешаются без network retrieval |
 | Strict reader/errors | [Adapter](../../src/towr/adapters/magic_balance_json.py) использует explicit magic tuple1/2/3. Balance command/input/generation/evaluation errors допускают3; default/positional compatibility прежние. Шесть nonmagic routes по-прежнему1 |
 | Input | Shared mapper устанавливает обе typed policies до fresh scenario admission; family fields читаются отдельно и сверяются до groups/frame/budget/generation. В1/2 stationary key запрещён даже null |
@@ -26,7 +26,7 @@ Read-only ревью выявило конкретный обход в `report.s
 
 ## Детерминированная evidence
 
-- [9 schema tests](../../tests/unit/test_m8_magic_balance_schema_v3.py): four policy combinations, required nullable/strict type/unknown/closed objects, own3 request echo и phase error contexts, default1/old1/2 refusal, все transitive local refs реального registry,18/36 counts и unknown4 до loader.
+- [9 schema tests](../../tests/unit/test_m8_magic_balance_json_v6_schemas.py): four policy combinations, required nullable/strict type/unknown/closed objects, own3 request echo и phase error contexts, default1/old1/2 refusal, все transitive local refs реального registry,18/36 counts и unknown4 до loader.
 - [13 wire/service unit tests](../../tests/unit/test_m8_magic_balance_json_v3.py): полный reserve/family/source round-trip без RNG, both-direction mismatch до generation, old1/2 lossless guards, strict lexical trust table, own version/phase privacy, same-ID source substitution, detached summary facts1=True/raw enum laundering и отдельный compare=False cache regression.
 - [8 integration tests](../../tests/integration/test_m8_magic_balance_json_v3.py): genuine variable3/4actor subsets с actual parsed9→stand→Casting/end→6expiry48/66d10, four policy combinations native/staged sequential/spawn и CLI, unsupported denominator и полные reruns/seed prefix. Actual late projection failure на втором counts(1,1) сохраняет candidate/counts после успешного первого subset; actual stage1 evaluation failure после двух first-stage candidates сохраняет stage/candidate и исключает partial/private output. Также Unicode/trusted errors/nonmagic isolation и публичный fixture.
 
@@ -34,7 +34,7 @@ Read-only ревью выявило конкретный обход в `report.s
 
 ## Публичные данные
 
-[Request](../examples/m8/json/magic-balance-v3.request.json) — явный резерв, independent reserve/family permissions, seed42, C4/stages2/4 и upper budget16. [Stored result](../examples/m8/json/magic-balance-v3.result.json) получен CLI на CPython3.12.4: полный request3, catalog и reports, actual12/planned16. Это finite observation, не difficulty preset или Monte Carlo oracle для другого runtime. Test сравнивает текущий CLI с текущим native API; saved evidence проверяет schema/exact request/catalog/budget/denominator/runtime.
+[Request](../examples/m8/json/magic-balance.request.json) — явный резерв, independent reserve/family permissions, seed42, C4/stages2/4 и upper budget16. [Stored result](../examples/m8/json/magic-balance.result.json) получен CLI на CPython3.12.4: полный request3, catalog и reports, actual12/planned16. Это finite observation, не difficulty preset или Monte Carlo oracle для другого runtime. Test сравнивает текущий CLI с текущим native API; saved evidence проверяет schema/exact request/catalog/budget/denominator/runtime.
 
 ```powershell
 $env:PYTHONPATH = 'src'

@@ -1,4 +1,4 @@
-"""Magic service/CLI through UTF-8 subprocesses and real spawn, without presets."""
+"""Current Magic JSON contract: deterministic admission and source guards."""
 import json
 import os
 from pathlib import Path
@@ -91,13 +91,13 @@ with patch.object(simulation, 'run_npc_magic_trial', side_effect=trial) as calle
                     self.assertEqual(completed.returncode, 2, completed.stderr)
                     actual = json.loads(completed.stdout)
                     self.assertEqual(actual["kind"], expected_kind)
-                    self.assertEqual(actual["error"]["code"], "invalid_input")
+                    self.assertEqual(actual["error"]["code"], "unsupported_version")
                     self.assertNotIn("summary", actual)
 
     def test_relative_file_from_unrelated_cwd_matches_application_result(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "request.json"
-            path.write_bytes((EXAMPLES / "magic-simulation-v1.request.json").read_bytes())
+            path.write_bytes((EXAMPLES / "magic-simulation.request.json").read_bytes())
             completed = invoke("simulate-magic", path.name, cwd=directory)
         self.assertEqual(completed.returncode, 0, completed.stderr)
         self.assertEqual(completed.stderr, b"")
@@ -105,7 +105,7 @@ with patch.object(simulation, 'run_npc_magic_trial', side_effect=trial) as calle
         actual = json.loads(completed.stdout.decode("utf-8"))
         from towr.adapters.magic_simulation_json import parse_magic_simulation_request, encode_magic_simulation_result
         from towr.application.magic_simulation_service import execute_magic_simulation
-        command = parse_magic_simulation_request((EXAMPLES / "magic-simulation-v1.request.json").read_bytes())
+        command = parse_magic_simulation_request((EXAMPLES / "magic-simulation.request.json").read_bytes())
         expected = json.loads(encode_magic_simulation_result(command, execute_magic_simulation(command)))
         self.assertEqual(actual, expected)
         self.assertNotIn("trials", actual)

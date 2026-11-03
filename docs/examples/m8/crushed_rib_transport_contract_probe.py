@@ -2,8 +2,8 @@
 
 Copy with crushed_rib_native.py, crushed_rib_owner.py,
 generation_contract_probe.py, stationary_wound_runner.py and magic_scenario.py.
-Manual projections/JSON5 inverse below remain bounded fixture oracles for
-balance5; Simulation5 uses the production parser/encoder and CLI.
+Manual projections/current6 JSON inverse below remain bounded fixture oracles for
+balance; Simulation uses the production parser/encoder and CLI.
 PG1.4 pp108,118,123,156-157,190; GM1.1 p92. No new gameplay.
 """
 from copy import deepcopy
@@ -110,7 +110,7 @@ def policy_wire(values):
 def proposed_document(baseline, values, *, balance):
     """Build a candidate v5 specification from an independently authored None v4."""
     document = deepcopy(baseline)
-    document['schema_version'] = '5'
+    document['schema_version'] = '6'
     nodes = (document['reserve']['scenario'], document['generation']) if balance else (document['scenario'],)
     for node in nodes:
         node.update(zip(FIELDS, policy_wire(values), strict=True))
@@ -235,7 +235,7 @@ def main():
     # encoders provide genuine v4 request documents; no opted source is lowered.
     base = reserve()
     base_request = NpcMagicSimulationRequest(base, 42, 1)
-    base_command = MagicSimulationCommand('finite58:simulation', base_request, SEQUENTIAL, definitions(base), '4')
+    base_command = MagicSimulationCommand('finite58:simulation', base_request, SEQUENTIAL, definitions(base), '6')
     baseline_dice = []
     def baseline_factory(seed):
         dice = ScriptedDice((10,) * 54)
@@ -245,20 +245,11 @@ def main():
     assert len(baseline_dice) == 1 and baseline_dice[0].calls == len(baseline_dice[0].values) == 54
     base_summary = summarize_npc_magic_simulation(base_mass)
     genuine_family = family(base)
-    balance_command = MagicBalanceCommand('finite58:balance', genuine_family, SEQUENTIAL, definitions(base), '4')
+    balance_command = MagicBalanceCommand('finite58:balance', genuine_family, SEQUENTIAL, definitions(base), '6')
     balance_result = execute_magic_balance(balance_command)
     baseline_sim = json.loads(simulation_wire.encode_magic_simulation_result(base_command, base_summary))['request']
     baseline_balance = json.loads(balance_wire.encode_magic_balance_result(balance_command, balance_result))['request']
     baseline_snapshot = deepcopy((base, base_command, genuine_family, balance_command, balance_result))
-    golden = []
-    for version in ('1', '2', '3', '4'):
-        sim_command, bal_command = replace(base_command, schema_version=version), replace(balance_command, schema_version=version)
-        sim_bytes = simulation_wire.encode_magic_simulation_result(sim_command, base_summary)
-        bal_bytes = balance_wire.encode_magic_balance_result(bal_command, balance_result)
-        assert simulation_wire.parse_magic_simulation_request(json.dumps(json.loads(sim_bytes)['request'])) == sim_command
-        assert balance_wire.parse_magic_balance_request(json.dumps(json.loads(bal_bytes)['request'])) == bal_command
-        golden.append((sim_command, bal_command, sim_bytes, bal_bytes))
-
     miscast = authored_input(stationary=False, miscast=True).miscast_continuation
     combinations = tuple(product((None, miscast), (None, Stationary.LEG_SPASM_STAND_AND_CONTINUE),
         (None, Repeated.STAND_ONCE_WITH_JOURNAL_WITNESSES), (None, POLICY)))
@@ -278,15 +269,15 @@ def main():
             assert restored == selected(base, values) and assertions == values and parameters is original
             if is_balance:
                 command = parser(json.dumps(document))
-                assert command.schema_version == '5'
+                assert command.schema_version == '6'
                 assert command.generation_request.crushed_rib_continuation is values[3]
                 assert command.generation_request.template_scenario.crushed_rib_continuation is values[3]
             else:
                 command = parser(json.dumps(document))
-                assert command.schema_version == '5'
+                assert command.schema_version == '6'
                 assert policies(command.request.scenario) == values, (policies(command.request.scenario), values)
                 assert simulation_wire.scenario_document(command.request.scenario, command.definition_order,
-                    schema_version='5') == document['scenario']
+                    schema_version='6') == document['scenario']
         chosen = proposed_document(baseline, (None, None, None, POLICY), balance=is_balance)
         node_path = ('reserve', 'scenario') if is_balance else ('scenario',)
         def alter(document, field, value):
@@ -454,36 +445,13 @@ def main():
         detached = replace(old, candidates=tuple(wrong_candidates))
         error = rejected(lambda: replace(actual_generated, evaluation_request=detached))
         assert 'candidate' in str(error).lower()
-    for version, (sim_command, bal_command, sim_bytes, bal_bytes) in zip(('1', '2', '3', '4'), golden, strict=True):
-        command = MagicSimulationCommand('finite58:opted', native_request, SEQUENTIAL, definitions(native_request.scenario), version)
-        # Missing definitions would fail if projection ran before the permission.
-        object.__setattr__(command, 'definition_order', ('absent-definition',))
-        assert 'losslessly' in str(rejected(lambda: simulation_wire.encode_magic_simulation_result(command, native_summary)))
-        forged_command = deepcopy(bal_command)
-        object.__setattr__(forged_command, 'generation_request', forged)
-        rejected(lambda: balance_wire.encode_magic_balance_result(forged_command, balance_result))
-        for balance, encoded, parser, error_type in (
-            (False, sim_bytes, simulation_wire.parse_magic_simulation_request, MagicSimulationInputError),
-            (True, bal_bytes, balance_wire.parse_magic_balance_request, MagicBalanceInputError),
-        ):
-            original = json.loads(encoded)['request']
-            for at_family in ((False, True) if balance else (False,)):
-                unknown = deepcopy(original)
-                node = unknown['generation'] if at_family else (unknown['reserve']['scenario'] if balance else unknown['scenario'])
-                node[FIELDS[-1]] = None
-                caught = rejected(lambda: parser(json.dumps(unknown)), error_type)
-                assert caught.schema_version == version and caught.request_id == original['request_id']
-            lexical = rejected(lambda: parser('{"schema_version":"5","request_id":"a","request_id":"b"}'), error_type)
-            assert lexical.schema_version == '1' and lexical.request_id is None
-        assert simulation_wire.encode_magic_simulation_result(sim_command, base_summary) == sim_bytes
-        assert balance_wire.encode_magic_balance_result(bal_command, balance_result) == bal_bytes
     print('ACTUAL GENERATION58: matching Crushed Rib family generates ordered 3/4-actor subsets with permission preserved; mismatch and malformed first/last candidates reject before enumeration; original sources unchanged')
-    print('CURRENT PRODUCTION WIRE GATES: JSON1-4 reject Crushed Rib encoding and unknown null field in both families; same-runtime genuine None bytes unchanged; selected source is never stripped')
+    print('CURRENT PRODUCTION WIRE: complete Crushed Rib policy retained in both families; selected source is never stripped')
 
     assert (base, base_command, genuine_family, balance_command, balance_result) == baseline_snapshot
     assert sources == sources_before and native_request == native_request_before and staged == staged_before
     assert getstate() == global_rng and {child.pid for child in active_children()} == children
-    print(f'{54 + direct_draws + 120 + stage_draws} scripted d10 plus genuine seeded None balance; full inputs/global RNG unchanged; generation58/native57/Simulation5 parser/encoder/CLI/Balance5 parser/seq/spawn/stages are actual')
+    print(f'{54 + direct_draws + 120 + stage_draws} scripted d10 plus genuine seeded None balance; full inputs/global RNG unchanged; generation58/native57/Simulation6 parser/encoder/CLI/Balance6 parser/seq/spawn/stages are actual')
 
 
 if __name__ == '__main__':

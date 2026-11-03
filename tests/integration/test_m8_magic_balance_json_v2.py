@@ -1,4 +1,4 @@
-"""Real balance v2 generation/stages/backends and existing CLI route."""
+"""Current Magic JSON contract: deterministic admission and source guards."""
 from copy import deepcopy
 import json
 from multiprocessing import active_children
@@ -37,7 +37,7 @@ class M8MagicBalanceJsonV2IntegrationTests(unittest.TestCase):
                         for row in report.candidates:
                             self.assertEqual(row.assessment.summary.source_request.scenario, catalog[row.candidate_id].scenario)
                     output = json.loads(encode(command, result))
-                    validate(output, 'result', schema_version='2')
+                    validate(output, 'result', schema_version='6')
                     self.assertEqual(output['request'], dict(data, execution=execution))
                     self.assertEqual(parse(json.dumps(output['request'])), command)
                     self.assertEqual(output['total_trials'], result.evaluation_result.total_trials)
@@ -54,41 +54,7 @@ class M8MagicBalanceJsonV2IntegrationTests(unittest.TestCase):
         self.assertEqual(random.getstate(), state)
         self.assertEqual({c.pid for c in active_children()}, children)
 
-    def test_cli_null_and_opted_unicode_sequential_and_process_match_native(self):
-        for opted in (False, True):
-            data = document(opted=opted)
-            data['request_id'] = 'подбор-雪'
-            data['reserve']['scenario']['wizard']['day_id'] = 'день-雪'
-            command = parse(json.dumps(data))
-            expected = json.loads(encode(command, execute_magic_balance(command)))
-            for execution in ({'mode': 'sequential'}, {'mode': 'process', 'workers': 2, 'batch_size': 1}):
-                with self.subTest(opted=opted, execution=execution):
-                    data['execution'] = execution
-                    completed = invoke('balance-magic', '-', data=json.dumps(data, ensure_ascii=False).encode('utf-8'))
-                    self.assertEqual(completed.returncode, 0, completed.stderr)
-                    self.assertEqual(completed.stderr, b'')
-                    self.assertTrue(completed.stdout.endswith(b'\n'))
-                    self.assertIn('подбор-雪'.encode('utf-8'), completed.stdout)
-                    output = json.loads(completed.stdout)
-                    validate(output, 'result', schema_version='2')
-                    self.assertEqual(output['schema_version'], '2')
-                    self.assertEqual(output['request'], data)
-                    expected['request']['execution'] = execution
-                    self.assertEqual(output, expected)
-                    self.assertNotIn('records', output)
 
-    def test_public_v2_request_file_is_real_native_roundtrip(self):
-        path = ROOT / 'docs/examples/m8/json/magic-balance-v2.request.json'
-        command = parse(path.read_bytes())
-        expected = json.loads(encode(command, execute_magic_balance(command)))
-        completed = invoke('balance-magic', str(path))
-        self.assertEqual(completed.returncode, 0, completed.stderr)
-        self.assertEqual(completed.stderr, b'')
-        output = json.loads(completed.stdout)
-        validate(output, 'result', schema_version='2')
-        self.assertEqual(output, expected)
-        self.assertEqual(output['request'], json.loads(path.read_bytes()))
-        self.assertEqual(parse(json.dumps(output['request'])), command)
 
     def test_cli_errors_use_fallback_only_before_complete_strict_decode(self):
         invalid = document()
@@ -97,16 +63,16 @@ class M8MagicBalanceJsonV2IntegrationTests(unittest.TestCase):
         mismatch['generation']['miscast_continuation'] = None
         missing = document()
         del missing['reserve']['scenario']['miscast_continuation']
-        prefix = b'{"schema_version":"2","request_id":"seen",'
-        cases = [(prefix + b'"x":1.0}', '1', 'invalid_input', None),
-                 (prefix + b'"x":1e0}', '1', 'invalid_input', None),
-                 (prefix + b'"x":NaN}', '1', 'invalid_json', None),
-                 (prefix + b'"x":"\\ud800"}', '1', 'invalid_json', None),
-                 (prefix + b'"x":0,"x":1}', '1', 'invalid_json', None),
-                 (json.dumps(invalid).encode(), '2', 'invalid_input', invalid['request_id']),
-                 (json.dumps(mismatch).encode(), '2', 'invalid_input', mismatch['request_id']),
-                 (json.dumps(missing).encode(), '2', 'invalid_input', missing['request_id']),
-                 (json.dumps(dict(document(), schema_version='7')).encode(), '1', 'unsupported_version', document()['request_id'])]
+        prefix = b'{"schema_version":"6","request_id":"seen",'
+        cases = [(prefix + b'"x":1.0}', '6', 'invalid_input', None),
+                 (prefix + b'"x":1e0}', '6', 'invalid_input', None),
+                 (prefix + b'"x":NaN}', '6', 'invalid_json', None),
+                 (prefix + b'"x":"\\ud800"}', '6', 'invalid_json', None),
+                 (prefix + b'"x":0,"x":1}', '6', 'invalid_json', None),
+                 (json.dumps(invalid).encode(), '6', 'invalid_input', invalid['request_id']),
+                 (json.dumps(mismatch).encode(), '6', 'invalid_input', mismatch['request_id']),
+                 (json.dumps(missing).encode(), '6', 'invalid_input', missing['request_id']),
+                 (json.dumps(dict(document(), schema_version='7')).encode(), '6', 'unsupported_version', document()['request_id'])]
         for raw, version, code, request_id in cases:
             with self.subTest(version=version, code=code, raw=raw[:45]):
                 completed = invoke('balance-magic', '-', data=raw)
@@ -127,8 +93,8 @@ class M8MagicBalanceJsonV2IntegrationTests(unittest.TestCase):
         completed = invoke('balance-magic', '-', data=json.dumps(data).encode())
         self.assertEqual(completed.returncode, 3, completed.stderr)
         output = json.loads(completed.stdout)
-        validate(output, 'error', schema_version='2')
-        self.assertEqual(output['schema_version'], '2')
+        validate(output, 'error', schema_version='6')
+        self.assertEqual(output['schema_version'], '6')
         self.assertEqual(output['request_id'], data['request_id'])
         self.assertEqual(output['error']['code'], 'generation_failed')
         self.assertEqual(output['error']['path'], '/generation')
@@ -153,8 +119,8 @@ class M8MagicBalanceJsonV2IntegrationTests(unittest.TestCase):
             stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=ROOT, env=environment(), timeout=45)
         self.assertEqual(completed.returncode, 3, completed.stderr)
         output = json.loads(completed.stdout)
-        validate(output, 'error', schema_version='2')
-        self.assertEqual(output['schema_version'], '2')
+        validate(output, 'error', schema_version='6')
+        self.assertEqual(output['schema_version'], '6')
         self.assertEqual(output['request_id'], data['request_id'])
         self.assertEqual(output['error']['code'], 'evaluation_failed')
         self.assertEqual(output['error']['path'], '/evaluation')

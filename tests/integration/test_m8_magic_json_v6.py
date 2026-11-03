@@ -1,4 +1,4 @@
-"""Actual Simulation6 service, module/console CLI and Windows spawn."""
+"""Current Magic JSON contract: deterministic admission and source guards."""
 from copy import deepcopy
 from dataclasses import replace
 import json
@@ -77,7 +77,7 @@ class M8MagicJsonV6IntegrationTests(unittest.TestCase):
         forged = deepcopy(command)
         object.__setattr__(forged.request.scenario.battered_leg_continuation.endurance_profile, 'dice', True)
         self.assertEqual(forged, command)
-        with patch('towr.application.magic_simulation_service.run_npc_magic_simulation') as sequential, \
+        with patch('towr.application.magic_simulation_service.run_npc_magic_simulation') as sequential,\
                 patch('towr.application.magic_simulation_service.run_npc_magic_simulation_parallel') as parallel:
             with self.assertRaises(MagicSimulationExecutionError) as caught:
                 execute_magic_simulation(forged)
@@ -100,7 +100,7 @@ class M8MagicJsonV6IntegrationTests(unittest.TestCase):
             capture_output=True, cwd=ROOT, env=environment(), timeout=30)
         self.assertEqual(lexical.returncode, 2)
         output = json.loads(lexical.stdout)
-        self.assertEqual((output['schema_version'], output['request_id']), ('1', None))
+        self.assertEqual((output['schema_version'], output['request_id']), ('6', None))
 
     def test_actual_cli_runtime_failure_uses_v6_and_hides_private_cause(self):
         script = """

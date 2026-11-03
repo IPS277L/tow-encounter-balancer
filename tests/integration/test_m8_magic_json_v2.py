@@ -1,4 +1,4 @@
-"""Actual v2 magic simulation backends and CLI; other routes remain v1."""
+"""Current Magic JSON contract: deterministic admission and source guards."""
 from copy import deepcopy
 import json
 from multiprocessing import active_children
@@ -37,7 +37,7 @@ class M8MagicJsonV2IntegrationTests(unittest.TestCase):
                     self.assertEqual(record.source_scenario, command.request.scenario)
                 expected = summarize_npc_magic_simulation(sequential)
                 output = json.loads(encode(command, expected))
-                validate(output, 'result', schema_version='2')
+                validate(output, 'result', schema_version='6')
                 self.assertEqual(output['request'], data)
                 self.assertEqual(parse(json.dumps(output['request'])), command)
                 self.assertEqual(sum(output['summary']['outcome_counts'].values()), command.request.trials)
@@ -48,59 +48,23 @@ class M8MagicJsonV2IntegrationTests(unittest.TestCase):
         self.assertEqual(random.getstate(), state)
         self.assertEqual({c.pid for c in active_children()}, children)
 
-    def test_existing_cli_v2_unicode_null_and_opted_sequential_and_process(self):
-        for opted in (False, True):
-            data = document(opted=opted)
-            data['request_id'] = 'магия-雪'
-            data['scenario']['wizard']['day_id'] = 'день-雪'
-            command = parse(json.dumps(data))
-            expected = json.loads(encode(command, execute_magic_simulation(command)))
-            for mode in ('sequential', 'process'):
-                with self.subTest(opted=opted, mode=mode):
-                    data['execution'] = ({'mode': 'process', 'workers': 2, 'batch_size': 1}
-                                         if mode == 'process' else {'mode': 'sequential'})
-                    completed = invoke('simulate-magic', '-',
-                        data=json.dumps(data, ensure_ascii=False).encode('utf-8'))
-                    self.assertEqual(completed.returncode, 0, completed.stderr)
-                    self.assertEqual(completed.stderr, b'')
-                    self.assertTrue(completed.stdout.endswith(b'\n'))
-                    self.assertIn('магия-雪'.encode('utf-8'), completed.stdout)
-                    output = json.loads(completed.stdout)
-                    validate(output, 'result', schema_version='2')
-                    self.assertEqual(output['schema_version'], '2')
-                    self.assertEqual(output['request'], data)
-                    self.assertEqual(output['summary'], expected['summary'])
-                    self.assertNotIn('trials', output)
-                    self.assertNotIn('records', output)
 
-    def test_public_v2_request_file_matches_native_and_echoes_exact_source(self):
-        path = ROOT / 'docs/examples/m8/json/magic-simulation-v2.request.json'
-        command = parse(path.read_bytes())
-        expected = json.loads(encode(command, execute_magic_simulation(command)))
-        completed = invoke('simulate-magic', str(path))
-        self.assertEqual(completed.returncode, 0, completed.stderr)
-        self.assertEqual(completed.stderr, b'')
-        output = json.loads(completed.stdout)
-        validate(output, 'result', schema_version='2')
-        self.assertEqual(output, expected)
-        self.assertEqual(output['request'], json.loads(path.read_bytes()))
-        self.assertEqual(parse(json.dumps(output['request'])), command)
 
     def test_cli_input_errors_follow_complete_decode_version_table(self):
         invalid = document()
         invalid['scenario']['miscast_continuation']['facts']['no_cross_zone_close'] = False
         missing = document()
         del missing['scenario']['miscast_continuation']
-        prefix = b'{"schema_version":"2","request_id":"seen",'
+        prefix = b'{"schema_version":"6","request_id":"seen",'
         cases = [
-            (prefix + b'"x":1.0}', '1', 'invalid_input', None),
-            (prefix + b'"x":1e0}', '1', 'invalid_input', None),
-            (prefix + b'"x":NaN}', '1', 'invalid_json', None),
-            (prefix + b'"x":"\\ud800"}', '1', 'invalid_json', None),
-            (prefix + b'"x":0,"x":1}', '1', 'invalid_json', None),
-            (json.dumps(invalid).encode(), '2', 'invalid_input', invalid['request_id']),
-            (json.dumps(missing).encode(), '2', 'invalid_input', missing['request_id']),
-            (json.dumps(dict(document(), schema_version='7')).encode(), '1', 'unsupported_version', document()['request_id']),
+            (prefix + b'"x":1.0}', '6', 'invalid_input', None),
+            (prefix + b'"x":1e0}', '6', 'invalid_input', None),
+            (prefix + b'"x":NaN}', '6', 'invalid_json', None),
+            (prefix + b'"x":"\\ud800"}', '6', 'invalid_json', None),
+            (prefix + b'"x":0,"x":1}', '6', 'invalid_json', None),
+            (json.dumps(invalid).encode(), '6', 'invalid_input', invalid['request_id']),
+            (json.dumps(missing).encode(), '6', 'invalid_input', missing['request_id']),
+            (json.dumps(dict(document(), schema_version='7')).encode(), '6', 'unsupported_version', document()['request_id']),
         ]
         for raw, version, code, request_id in cases:
             with self.subTest(version=version, code=code, raw=raw[:45]):
@@ -129,34 +93,11 @@ class M8MagicJsonV2IntegrationTests(unittest.TestCase):
             stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=ROOT, env=environment(), timeout=45)
         self.assertEqual(completed.returncode, 3, completed.stderr)
         output = json.loads(completed.stdout)
-        validate(output, 'error', schema_version='2')
-        self.assertEqual(output['schema_version'], '2')
+        validate(output, 'error', schema_version='6')
+        self.assertEqual(output['schema_version'], '6')
         self.assertEqual(output['request_id'], data['request_id'])
         self.assertEqual(output['error']['code'], 'simulation_failed')
         self.assertIsNone(output['error']['path'])
         self.assertNotIn('summary', output)
         self.assertNotIn(b'private', completed.stdout + completed.stderr)
         self.assertNotIn(b'Traceback', completed.stderr)
-
-    def test_six_nonmagic_routes_do_not_accept_v2(self):
-        cases = (
-            ('simulate', 'simulation_error', 'm4/ranged-v1.request.json'),
-            ('balance', 'balance_error', 'm5/json/balance-v1.request.json'),
-            ('simulate-melee', 'melee_simulation_error', 'm6/json/melee-simulation-v1.request.json'),
-            ('balance-melee', 'melee_balance_error', 'm6/json/melee-balance-v1.request.json'),
-            ('simulate-mixed', 'mixed_simulation_error', 'm7/json/mixed-simulation-v1.request.json'),
-            ('balance-mixed', 'mixed_balance_error', 'm7/json/mixed-balance-v1.request.json'),
-        )
-        for route, kind, relative in cases:
-            with self.subTest(route=route):
-                data = json.loads((ROOT / 'docs/examples' / relative).read_text(encoding='utf-8'))
-                data['schema_version'] = '2'
-                completed = invoke(route, '-', data=json.dumps(data).encode())
-                self.assertEqual(completed.returncode, 2, completed.stderr)
-                output = json.loads(completed.stdout)
-                self.assertEqual(output['schema_version'], '1')
-                self.assertEqual(output['kind'], kind)
-                self.assertEqual(output['request_id'], data['request_id'])
-                self.assertEqual(output['error']['code'], 'unsupported_version')
-                self.assertEqual(output['error']['path'], '/schema_version')
-                self.assertNotIn('summary', output)

@@ -1,4 +1,4 @@
-"""Pure magic balance wire admission and source-bound aggregate projection."""
+"""Current Magic JSON contract: deterministic admission and source guards."""
 from contextlib import ExitStack
 from copy import deepcopy
 from dataclasses import FrozenInstanceError, replace
@@ -37,7 +37,7 @@ EXAMPLES = Path(__file__).resolve().parents[2] / 'docs/examples/m8/json'
 
 
 def document():
-    return json.loads((EXAMPLES / 'magic-balance-v1.request.json').read_text(encoding='utf-8'))
+    return json.loads((EXAMPLES / 'magic-balance.request.json').read_text(encoding='utf-8'))
 
 
 def make_result(command, counts=None):
@@ -88,40 +88,7 @@ def generation_failure_document():
 
 
 class M8MagicBalanceJsonTests(unittest.TestCase):
-    def test_v1_reserve_keeps_none_and_cannot_drop_native_opt_in(self):
-        data = document()
-        command = parse(json.dumps(data))
-        source = command.generation_request
-        self.assertIsNone(source.template_scenario.miscast_continuation)
-        opted = replace(source.template_scenario, miscast_continuation=continuation_policy())
-        with self.assertRaisesRegex(ValueError, 'generation.*Miscast continuation'):
-            replace(source, template_scenario=opted)
-        # Shared simulation/balance projection also rejects before mapping fields.
-        with self.assertRaisesRegex(ValueError, 'Miscast continuation.*losslessly'):
-            scenario_document(opted, command.definition_order)
-        for value in (None, {}, {'choice': 'decline_cast_before_miscast'}):
-            with self.subTest(value=value):
-                data['reserve']['scenario']['miscast_continuation'] = value
-                self.invalid(data)
 
-    def test_v1_cannot_encode_an_admitted_opted_family_or_accept_family_policy_field(self):
-        command = parse(json.dumps(document()))
-        policy = continuation_policy()
-        family = replace(command.generation_request,
-            template_scenario=replace(command.generation_request.template_scenario,
-                                      miscast_continuation=policy),
-            miscast_continuation=policy)
-        opted = replace(command, generation_request=family)
-        result = make_result(opted)  # Synthetic source-bound aggregates, no RNG.
-        self.assertTrue(all(candidate.scenario.miscast_continuation == policy
-            for candidate in result.generation_result.evaluation_request.candidates))
-        with self.assertRaisesRegex(ValueError, 'Miscast continuation.*losslessly'):
-            encode(opted, result)
-        for value in (None, {}, {'choice': 'decline_cast_before_miscast'}):
-            with self.subTest(value=value):
-                data = document()
-                data['generation']['miscast_continuation'] = value
-                self.invalid(data)
 
     def invalid(self, data, code=Code.INVALID_INPUT):
         with self.assertRaises(MagicBalanceInputError) as caught:
@@ -141,15 +108,6 @@ class M8MagicBalanceJsonTests(unittest.TestCase):
         self.assertEqual(command, before)
         return command, output
 
-    def test_packaged_schemas_and_three_contract_fixtures(self):
-        for kind in ('request', 'result', 'error'):
-            schema = json.loads(files('towr.adapters.schemas').joinpath(
-                f'magic-balance-{kind}-v1.schema.json').read_text(encoding='utf-8'))
-            Draft202012Validator.check_schema(schema)
-            self.assertEqual(schema['$id'], f'urn:towr:magic-balance:{kind}:1')
-            validate(json.loads((EXAMPLES / f'magic-balance-v1.{kind}.json').read_text(encoding='utf-8')), kind)
-        with self.assertRaises(ValueError):
-            validate({}, 'unknown')
 
     def test_request_objects_require_all_fields_and_reject_unknown_fields(self):
         original = document()
@@ -473,7 +431,7 @@ class M8MagicBalanceJsonTests(unittest.TestCase):
         self.assertEqual(output['stage_reports'][0]['continuation_candidate_ids'], [])
 
     def test_saved_result_projects_exact_native_aggregates_without_sampling(self):
-        expected = json.loads((EXAMPLES / 'magic-balance-v1.result.json').read_text(encoding='utf-8'))
+        expected = json.loads((EXAMPLES / 'magic-balance.result.json').read_text(encoding='utf-8'))
         command = parse(json.dumps(expected['request'])); generated = generate_magic_candidates(command.generation_request)
         source, candidates, reports = generated.evaluation_request, generated.evaluation_request.candidates, []
         for index, raw in enumerate(expected['stage_reports']):
@@ -506,7 +464,7 @@ class M8MagicBalanceJsonTests(unittest.TestCase):
 
     def test_error_schema_contexts_are_phase_specific_without_partial_reports(self):
         for code in ('invalid_json', 'unsupported_version', 'invalid_input', 'generation_failed', 'evaluation_failed'):
-            original = {'schema_version': '1', 'kind': 'magic_balance_error', 'request_id': 'external',
+            original = {'schema_version': '6', 'kind': 'magic_balance_error', 'request_id': 'external',
                 'error': {'code': code, 'path': None, 'message': 'failed', 'candidate_id': None, 'counts': None, 'stage_index': None}}
             if code == 'generation_failed': original['error'].update(path='/generation', candidate_id='candidate', counts=[1, 0])
             if code == 'evaluation_failed': original['error'].update(path='/evaluation', candidate_id='candidate', stage_index=1)

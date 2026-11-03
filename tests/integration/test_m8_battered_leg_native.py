@@ -3,7 +3,6 @@ from copy import deepcopy
 from dataclasses import replace
 from fractions import Fraction
 from functools import partial
-import json
 from multiprocessing import active_children
 import os
 from random import getstate
@@ -13,18 +12,6 @@ from unittest.mock import Mock, patch
 from tests.unit.test_m8_npc_magic_scenario import OPPOSITION
 from tests.unit.test_m8_npc_magic_scenario_runner import Dice, admitted
 from tests.unit.test_m8_stationary_wound_generation import family, Unreadable
-from tests.unit.test_m8_magic_json import document as simulation_v1
-from tests.unit.test_m8_magic_json_v2 import document as simulation_v2
-from tests.unit.test_m8_magic_json_v3 import document as simulation_v3
-from tests.unit.test_m8_magic_json_v4 import document as version4
-from tests.unit.test_m8_magic_json_v5 import document as simulation_v5
-from tests.unit.test_m8_magic_balance_json import document as balance_v1
-from tests.unit.test_m8_magic_balance_json_v2 import document as balance_v2
-from tests.unit.test_m8_magic_balance_json_v3 import document as balance_v3
-from tests.unit.test_m8_magic_balance_json_v5 import document as balance_v5
-from towr.adapters import magic_balance_json as balance_json, magic_simulation_json as simulation_json
-from towr.adapters._magic_scenario_json import scenario_document
-from towr.adapters.magic_json_errors import MagicBalanceInputError, MagicSimulationInputError
 from towr.application import magic_candidate_generation as generation, magic_evaluation_service as evaluation
 from towr.application.magic_staged_evaluation_service import evaluate_magic_candidates_staged
 from towr.application.ranged_simulation_models import SimulationExecutionMode as Mode, SimulationExecutionOptions as Options
@@ -304,30 +291,7 @@ class BatteredLegNativeTransportRefusalTests(unittest.TestCase):
             vectors.assert_not_called()
             project.assert_not_called()
 
-    def test_all_five_wire_versions_refuse_permission_before_missing_definition_projection(self):
-        source = native()
-        before = deepcopy(source)
-        for version in ('1', '2', '3', '4', '5'):
-            with self.subTest(version=version), self.assertRaisesRegex(ValueError, 'Battered Leg'):
-                scenario_document(source, ('missing:definition',), schema_version=version)
-        self.assertEqual(source, before)
 
-    def test_closed_decoders_refuse_new_field_even_null_in_all_existing_versions(self):
-        simulations = (simulation_v1(), simulation_v2(opted=False),
-            simulation_v3(stationary=False, miscast=False), version4(stationary=False, repeated=False),
-            simulation_v5(opted=False))
-        balances = (balance_v1(), balance_v2(opted=False), balance_v3(stationary=False, miscast=False),
-            version4(balance=True, stationary=False, repeated=False), balance_v5())
-        for documents, balanced, parser, error in (
-            (simulations, False, simulation_json.parse_magic_simulation_request, MagicSimulationInputError),
-            (balances, True, balance_json.parse_magic_balance_request, MagicBalanceInputError),
-        ):
-            for original in documents:
-                data = deepcopy(original)
-                scenario = data['reserve']['scenario'] if balanced else data['scenario']
-                scenario['battered_leg_continuation'] = None
-                with self.subTest(version=data['schema_version'], balance=balanced), self.assertRaises(error):
-                    parser(json.dumps(data))
 
 
 if __name__ == '__main__':

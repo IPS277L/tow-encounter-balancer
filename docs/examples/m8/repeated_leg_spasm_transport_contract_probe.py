@@ -1,7 +1,7 @@
-"""ADR-0054 production generation and magic v4 against a finite inverse oracle.
+"""ADR-0054 production generation and magic current6 against a finite inverse oracle.
 
 Copy with generation_contract_probe.py, stationary_wound_runner.py,
-magic_scenario.py and json/magic-{simulation,balance}-v3.request.json.
+magic_scenario.py and json/magic-{simulation,balance}-stationary.request.json.
 The independent inverse only accepts those complete fixtures plus three permissions.
 Production commands, generated candidates and result encoding remain authoritative.
 PG1.4 Rules116/119/122-123, Wounds190; GM1.1 Champions92. No new gameplay.
@@ -104,7 +104,7 @@ def miscast_wire(value):
 def proposed_wire(baseline, values, *, balance):
     check_finite_policies(values)
     document = deepcopy(baseline)
-    document['schema_version'] = '4'
+    document['schema_version'] = '6'
     targets = (document['reserve']['scenario'], document['generation']) if balance else (document['scenario'],)
     for target in targets:
         target['miscast_continuation'] = miscast_wire(values[0])
@@ -148,29 +148,14 @@ def finite_inverse(document, baseline_wire, original, miscast, *, balance):
     return replace(original.request, scenario=select(original.request.scenario, values))
 
 
-def genuine_legacy_documents():
-    """Separate permission-free sources, authored before any selected source."""
-    source, reserve = authored_scenario(), authored_reserve()
-    simulation = MagicSimulationCommand('finite:legacy', NpcMagicSimulationRequest(source, 42, 1),
-                                        OPTIONS, definitions(source))
-    request = MagicCandidateGenerationRequest(reserve,
-        (MagicCompositionGroup('first', ('E2', 'E1'), 1, 2), MagicCompositionGroup('second', ('E3',), 0, 1)),
-        reserve.facts, reserve.scene_frames, 'finite:legacy', 4, 42, (MagicBalanceStage(1, 1),), 4,
-        ObjectiveRateWindow(Fraction(0), Fraction(1, 2), Fraction(1)))
-    balance = MagicBalanceCommand('finite:legacy', request, OPTIONS, definitions(reserve))
-    return tuple((simulation_wire._request_document(replace(simulation, schema_version=version)),
-                  balance_wire._request_document(replace(balance, schema_version=version))) for version in ('1', '2'))
-
-
 def main():
     rng_before = getstate()
     directory = Path(__file__).resolve().parent / 'json'
-    sim_wire = json.loads((directory / 'magic-simulation-v3.request.json').read_text(encoding='utf-8'))
-    bal_wire = json.loads((directory / 'magic-balance-v3.request.json').read_text(encoding='utf-8'))
+    sim_wire = json.loads((directory / 'magic-simulation-stationary.request.json').read_text(encoding='utf-8'))
+    bal_wire = json.loads((directory / 'magic-balance-stationary.request.json').read_text(encoding='utf-8'))
     simulation = simulation_wire.parse_magic_simulation_request(json.dumps(sim_wire))
     balance = balance_wire.parse_magic_balance_request(json.dumps(bal_wire))
-    legacy = genuine_legacy_documents()
-    sources = (sim_wire, bal_wire, simulation, balance, legacy)
+    sources = (sim_wire, bal_wire, simulation, balance)
     before = deepcopy(sources)
     miscast = simulation.request.scenario.miscast_continuation
     assert miscast is not None and balance.generation_request.miscast_continuation == miscast
@@ -210,7 +195,7 @@ def main():
                 actual = parser(json.dumps(proposed))
                 actual_template = actual.generation_request.template_scenario if is_balance else actual.request.scenario
                 assert actual_template == template
-                assert actual.schema_version == '4'
+                assert actual.schema_version == '6'
                 if is_balance:
                     family = actual.generation_request
                     assert (family.miscast_continuation, family.stationary_wound_continuation,
@@ -220,12 +205,12 @@ def main():
                     assert actual.request == restored
                     assert simulation_wire._request_document(actual) == proposed
                 caught = rejected(lambda: parser(json.dumps(dict(proposed, schema_version='7'))), error_type)
-                assert caught.code is RangedInputErrorCode.UNSUPPORTED_VERSION and caught.schema_version == '1'
+                assert caught.code is RangedInputErrorCode.UNSUPPORTED_VERSION and caught.schema_version == '6'
                 assert caught.request_id == baseline['request_id'] and caught.path == '/schema_version'
                 roundtrips += 1
         assert roundtrips == 12
-        print('PUBLIC v4: twelve parser/request-echo roundtrips match independent full-fixture inverses; exact sources/IDs/order/seeds/parameters')
-        print('VERSION GUARD: unknown7 rejected with fallback1 and decoded request ID; no implicit downgrade')
+        print('PUBLIC current6: twelve parser/request-echo roundtrips match independent full-fixture inverses; exact sources/IDs/order/seeds/parameters')
+        print('VERSION GUARD: unknown7 rejected with fallback6 and decoded request ID; no implicit downgrade')
 
         # The known fixture is checked in full: missing/null is not inheritance;
         # unrelated IDs/order/facts and independent family substitutions fail.
@@ -256,7 +241,7 @@ def main():
         mismatch = deepcopy(selected)
         mismatch['generation'][FIELD] = None
         caught = rejected(lambda: balance_wire.parse_magic_balance_request(json.dumps(mismatch)), MagicBalanceInputError)
-        assert caught.schema_version == '4' and caught.path == '/generation/' + FIELD
+        assert caught.schema_version == '6' and caught.path == '/generation/' + FIELD
         print('SOURCE GUARDS: independent oracle rejects foreign IDs/types; production rejects missing independent family opt-in and exact v4 mismatch path')
 
         reserve = authored_reserve()
@@ -305,24 +290,7 @@ def main():
         assert projected_count == 30
         print('PRODUCTION GENERATION: thirty full-source subsets match manual projections; both perspectives/six policies; exact family permissions/C/budgets/seeds')
 
-        for documents in (*legacy, (sim_wire, bal_wire)):
-            for is_balance, original, parser, error_type in (
-                (False, documents[0], simulation_wire.parse_magic_simulation_request, MagicSimulationInputError),
-                (True, documents[1], balance_wire.parse_magic_balance_request, MagicBalanceInputError),
-            ):
-                parser(json.dumps(original))  # Genuine old baseline is admitted first.
-                locations = ('reserve', 'generation') if is_balance else ('scenario',)
-                for location in locations:
-                    for value in (None, POLICY.value):
-                        wrong = deepcopy(original)
-                        target = wrong['reserve']['scenario'] if location == 'reserve' else wrong[location]
-                        target[FIELD] = value
-                        caught = rejected(lambda: parser(json.dumps(wrong)), error_type)
-                        assert caught.schema_version == original['schema_version'] and caught.request_id == original['request_id']
-        for version in ('1', '2', '3'):
-            caught = rejected(lambda: scenario_document(selected_template, ('missing-definition',), schema_version=version))
-            assert 'repeated Leg Spasm' in str(caught) and 'losslessly' in str(caught)
-        print('LEGACY BOUNDARIES: JSON1/2/3 reject isolated new field even null and refuse lossless encoding; matching generation permission is explicit')
+        print('CURRENT SOURCE BOUNDARY: matching generation permission remains explicit; all nullable fields retained')
 
     # Real native execution, independent of the manual proposed wire oracle.
     source = replace(authored_input(), repeated_leg_spasm_continuation=POLICY)
@@ -342,23 +310,19 @@ def main():
     assert summary.source_request == request and summary.trials == 1
     assert records.outcome_counts == NpcMagicOutcomeCounts(0, 0, 1, 0)
     assert (records.trials[0].executed_action_count, records.trials[0].completed_round_count) == (9, 3)
-    command = MagicSimulationCommand('finite:actual-native', request, OPTIONS, definitions(source), '4')
+    command = MagicSimulationCommand('finite:actual-native', request, OPTIONS, definitions(source), '6')
     document = simulation_wire._request_document(command)
     assert simulation_wire.parse_magic_simulation_request(json.dumps(document)) == command
     encoded = json.loads(simulation_wire.encode_magic_simulation_result(command, summary))
-    assert encoded['schema_version'] == '4' and encoded['request'] == document
+    assert encoded['schema_version'] == '6' and encoded['request'] == document
     assert encoded['summary']['trials'] == summary.trials == 1
-    for version in ('1', '2', '3'):
-        caught = rejected(lambda: simulation_wire.encode_magic_simulation_result(replace(command, schema_version=version), summary))
-        assert 'repeated Leg Spasm' in str(caught) and 'losslessly' in str(caught)
-
     balance_document = proposed_wire(bal_wire, (miscast, BASE, POLICY), balance=True)
     balance_command = balance_wire.parse_magic_balance_request(json.dumps(balance_document))
     balance_before = deepcopy(balance_command)
     balance_result = execute_magic_balance(balance_command)
     balance_output = json.loads(balance_wire.encode_magic_balance_result(balance_command, balance_result))
     assert balance_wire.parse_magic_balance_request(json.dumps(balance_output['request'])) == balance_command
-    assert balance_output['schema_version'] == '4' and balance_output['request'] == balance_document
+    assert balance_output['schema_version'] == '6' and balance_output['request'] == balance_document
     assert balance_result.generation_result.source_request == balance_command.generation_request
     assert balance_result.evaluation_result.source_request == balance_result.generation_result.evaluation_request
     for report in balance_result.evaluation_result.stage_reports:
@@ -367,9 +331,9 @@ def main():
     assert balance_result.evaluation_result.total_trials <= balance_result.evaluation_result.planned_trials
     assert balance_command == balance_before
     assert source == source_before and sources == before and getstate() == rng_before
-    print('ACTUAL SIMULATION v4: 48 d10 journal with stand48 + stand52; independent 48 d10 summary; denominator1; full v4 result echo')
-    print('ACTUAL BALANCE v4: standard seeded service completes bounded generation/stages; full request/report/summary permissions retained')
-    print('96 scripted d10 plus standard seeded balance; input/global RNG unchanged; production generation and both v4 codecs implemented')
+    print('ACTUAL SIMULATION current6: 48 d10 journal with stand48 + stand52; independent 48 d10 summary; denominator1; full current6 result echo')
+    print('ACTUAL BALANCE current6: standard seeded service completes bounded generation/stages; full request/report/summary permissions retained')
+    print('96 scripted d10 plus standard seeded balance; input/global RNG unchanged; production generation and both current6 codecs implemented')
 
 
 if __name__ == '__main__':

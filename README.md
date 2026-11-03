@@ -1,5 +1,7 @@
 # TOWR Encounter Balancer
 
+**Актуальный внешний формат Magic — только JSON6.** Обратная совместимость с форматами разработки удалена по [ADR-0063](docs/decisions/ADR-0063-single-current-magic-contract.md). Прежние ADR и аудиты ниже описывают историю; текущие запросы и команды — в [JSON-примерах](docs/examples/m8/json/README.md).
+
 [ADR-0062](docs/decisions/ADR-0062-battered-leg-generation-and-magic-json-v6.md) передаёт Battered Leg и полный authored Endurance profile через matching generation family и обе Magic JSON6 families. [Production proof](docs/examples/m8/battered_leg_transport_contract_probe.py) сверяет генератор/кодеки с независимым oracle; публичные [simulation](docs/examples/m8/json/magic-simulation-v6.request.json) и [balance](docs/examples/m8/json/magic-balance-v6.request.json) requests готовы. Текущая приёмка — в [статусе](docs/project-status.md).
 
 [ADR-0061](docs/decisions/ADR-0061-native-battered-leg-continuation.md) подключает Battered Leg к native runner: отдельное разрешение с authored Endurance profile и проверка completion по собственному журналу. [Автоматический пример](docs/examples/m8/battered_leg_native.py) проверяет success/failure, новые последствия и sequential/spawn. Текущая приёмка — в [статусе](docs/project-status.md).
@@ -8,7 +10,7 @@
 
 [ADR-0059](docs/decisions/ADR-0059-battered-leg-endurance-test.md) реализует K1 Endurance follow-up для первой Battered Leg: явный профиль, normal Test и unmounted actor; failure добавляет Prone. Границы и следующий M8 шаг — в [статусе](docs/project-status.md).
 
-Закрыт [ADR-0058](docs/decisions/ADR-0058-crushed-rib-generation-and-magic-json-v5.md): matching family permission сохраняется в generated candidates, а `simulate-magic` и `balance-magic` читают/пишут полное nullable Crushed Rib разрешение. [Contract probe](docs/examples/m8/crushed_rib_transport_contract_probe.py) проверяет generation и native APIs; публичные [simulation](docs/examples/m8/json/magic-simulation-v5.request.json) и [balance](docs/examples/m8/json/magic-balance-v5.request.json) requests проходят реальные CLI. [Итоговый wheel/installed/full audit](docs/audits/m8-crushed-rib-transport-readiness.md) закрыт; точка продолжения — в [project status](docs/project-status.md).
+Закрыт [ADR-0058](docs/decisions/ADR-0058-crushed-rib-generation-and-magic-json-v5.md): matching family permission сохраняется в generated candidates, а `simulate-magic` и `balance-magic` читают/пишут полное nullable Crushed Rib разрешение. [Contract probe](docs/examples/m8/crushed_rib_transport_contract_probe.py) проверяет generation и native APIs; публичные [simulation](docs/examples/m8/json/magic-simulation.request.json) и [balance](docs/examples/m8/json/magic-balance.request.json) requests проходят реальные CLI. [Итоговый wheel/installed/full audit](docs/audits/m8-crushed-rib-transport-readiness.md) закрыт; точка продолжения — в [project status](docs/project-status.md).
 
 Реализован [ADR-0057](docs/decisions/ADR-0057-native-crushed-rib-continuation.md): native Crushed Rib с отдельным разрешением и подтверждением расхода из собственного журнала. [Actual274d10](docs/examples/m8/crushed_rib_native.py) проверяет Casting/Protection-first, обязательные последствия и настоящий spawn. [Приёмка](docs/audits/m8-native-crushed-rib-readiness.md) фиксирует installed/full проверки. ADR-0058 подключил разрешение к generation и Magic JSON5; JSON1–4 сохраняют lossless refusal. Текущая стадия указана в [статусе](docs/project-status.md).
 
@@ -42,9 +44,23 @@
 ```powershell
 py -3.12 -m venv .venv
 .venv/Scripts/python.exe -m pip install -e .
+```
+
+Во время разработки запускать тесты изменённого поведения и ближайших зависимых компонентов. Пример адресной проверки:
+
+```powershell
+$env:PYTHONPATH = "src"
+.venv/Scripts/python.exe -m unittest tests.unit.test_k1_opposed_test -v
+```
+
+Полный набор запускается в контрольных точках проекта или при широком риске изменений:
+
+```powershell
 $env:PYTHONPATH = "src"
 .venv/Scripts/python.exe -m unittest discover -s tests -v
 ```
+
+Сборка wheel и проверки установленного пакета выполняются при изменении механизмов поставки либо в соответствующей контрольной точке. Подробная [политика проверок](AGENTS.md#политика-проверок) обязательна и для новых сессий.
 
 ## Запуск симуляции
 
@@ -122,8 +138,8 @@ $env:PYTHONPATH = "src"
 
 ```powershell
 $env:PYTHONPATH = "src"
-.venv/Scripts/python.exe -m towr simulate-magic docs/examples/m8/json/magic-simulation-v2.request.json
-.venv/Scripts/python.exe -m towr balance-magic docs/examples/m8/json/magic-balance-v2.request.json
+.venv/Scripts/python.exe -m towr simulate-magic docs/examples/m8/json/magic-simulation.request.json
+.venv/Scripts/python.exe -m towr balance-magic docs/examples/m8/json/magic-balance.request.json
 ```
 
 ```sh
@@ -162,7 +178,7 @@ PYTHONPATH=src python docs/examples/m8/magic_evaluation.py
 Следующий игровой consumer выбран по [инвентаризации остановок M8](docs/audits/m8-continuation-inventory.md): [ADR-0044](docs/decisions/ADR-0044-dead-champion-turn-exclusion.md) фиксирует исключение оставшегося хода погибшего Wizard после полностью завершённой lethal Attack. Контракт и finite probe готовы; типизированные модели и чистое применение исключения реализованы. Journal/runner интеграция реализована; [аудит consumer и propagation](docs/audits/m8-dead-champion-readiness.md) описывает узкую границу, проверки и [пример JSON/CLI](docs/examples/m8/json/dead-champion-v1.request.json).
 
 ```sh
-PYTHONPATH=src python -m towr simulate-magic docs/examples/m8/json/magic-simulation-v1.request.json
+PYTHONPATH=src python -m towr simulate-magic docs/examples/m8/json/magic-simulation.request.json
 ```
 
 После установки: `towr simulate-magic INPUT`; `-` читает UTF-8 stdin. [Вход](docs/examples/m8/json/README.md) задаёт полный authored Wizard/Minion scenario, явные facts/frames/routes/GM decisions, seed/trials/round budget и execution options. Выход — native aggregate четырёх исходов/трёх totals без trial records. Process задаётся явно через `execution` с mode/process, workers и batch_size; auto backend отсутствует. Exit0 включает unsupported_path и round_limit_reached;2 — input/usage,3 — simulation_failed с external request ID,4 — I/O. `balance-magic` также доступна.
@@ -170,7 +186,7 @@ PYTHONPATH=src python -m towr simulate-magic docs/examples/m8/json/magic-simulat
 ## Подбор magic-составов из JSON
 
 ```sh
-PYTHONPATH=src python -m towr balance-magic docs/examples/m8/json/magic-balance-v1.request.json
+PYTHONPATH=src python -m towr balance-magic docs/examples/m8/json/magic-balance.request.json
 ```
 
 После установки: `towr balance-magic INPUT`; `-` читает UTF-8 stdin. [Резерв/группы/family facts/frames/stages/window](docs/examples/m8/json/README.md) заданы явно; success содержит полный catalog и aggregate reports этапов. Execution выбирается во входе. Exit0 включает unsupported/no_eligible/empty selection;2 — input/usage,3 — generation_failed/evaluation_failed с known context,4 — I/O. Успешный preflight не гарантирует допустимость каждого subset: invalid projection прерывает всё семейство, не пропускается.

@@ -3,10 +3,10 @@ from towr.adapters.ranged_json_errors import RangedInputErrorCode
 
 
 class MagicInputError(ValueError):
-    _schema_versions = ("1", "2")
+    _schema_versions = ("6",)
 
     def __init__(self, code: RangedInputErrorCode, message: str, *, path: str | None = None,
-                 request_id: str | None = None, schema_version: str = "1") -> None:
+                 request_id: str | None = None, schema_version: str = "6") -> None:
         if not isinstance(schema_version, str):
             raise TypeError("magic schema version must be a string")
         if schema_version not in self._schema_versions:
@@ -19,8 +19,8 @@ class MagicInputError(ValueError):
 
 
 class MagicSimulationInputError(MagicInputError):
-    _schema_versions = ("1", "2", "3", "4", "5", "6")
+    pass
 
 
 class MagicBalanceInputError(MagicInputError):
-    _schema_versions = ("1", "2", "3", "4", "5", "6")
+    pass

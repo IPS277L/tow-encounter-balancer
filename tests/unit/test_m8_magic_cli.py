@@ -1,4 +1,4 @@
-"""Magic CLI boundaries share byte I/O while keeping their own error family."""
+"""Current Magic JSON contract: deterministic admission and source guards."""
 import io
 import json
 import unittest
@@ -11,7 +11,7 @@ from towr.application.magic_simulation_errors import MagicSimulationExecutionErr
 
 class M8MagicCliTests(unittest.TestCase):
     def setUp(self):
-        self.stdin = io.TextIOWrapper(io.BytesIO((EXAMPLES / "magic-simulation-v1.request.json").read_bytes()))
+        self.stdin = io.TextIOWrapper(io.BytesIO((EXAMPLES / "magic-simulation.request.json").read_bytes()))
         self.stdout = io.TextIOWrapper(io.BytesIO(), encoding="ascii")
         self.stderr = io.TextIOWrapper(io.BytesIO(), encoding="ascii")
         for name in ("stdin", "stdout", "stderr"):
@@ -185,7 +185,7 @@ class MagicSimulationErrorEncoderTests(unittest.TestCase):
         encoded = encode_magic_simulation_error(error)
         result = json.loads(encoded)
         validate_magic_simulation_document(result, 'error')
-        self.assertEqual(result, {'schema_version': '1', 'kind': 'magic_simulation_error',
+        self.assertEqual(result, {'schema_version': '6', 'kind': 'magic_simulation_error',
             'request_id': 'external request', 'error': {'code': 'simulation_failed', 'path': None,
             'message': 'Magic simulation execution failed'}})
         self.assertNotIn('private', encoded)

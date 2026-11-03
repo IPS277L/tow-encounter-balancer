@@ -1,4 +1,4 @@
-"""Pure ADR-0043 magic wire admission and aggregate projection."""
+"""Current Magic JSON contract: deterministic admission and source guards."""
 from copy import deepcopy
 from dataclasses import FrozenInstanceError, replace
 from importlib.resources import files
@@ -35,7 +35,7 @@ EXAMPLES = Path(__file__).resolve().parents[2] / 'docs/examples/m8/json'
 
 
 def document():
-    return json.loads((EXAMPLES / 'magic-simulation-v1.request.json').read_text(encoding='utf-8'))
+    return json.loads((EXAMPLES / 'magic-simulation.request.json').read_text(encoding='utf-8'))
 
 
 def summary(command):
@@ -46,29 +46,13 @@ def summary(command):
 
 def balance_scenario_document():
     data = document()
-    balance = json.loads((EXAMPLES / 'magic-balance-v1.request.json').read_text(encoding='utf-8'))
+    balance = json.loads((EXAMPLES / 'magic-balance.request.json').read_text(encoding='utf-8'))
     data['scenario'] = balance['reserve']['scenario']
     data['simulation']['round_budget'] = balance['reserve']['round_budget']
     return data
 
 
 class M8MagicJsonTests(unittest.TestCase):
-    def test_v1_keeps_none_and_rejects_explicit_opt_in_without_projection(self):
-        data = document()
-        legacy = parse(json.dumps(data))
-        self.assertIsNone(legacy.request.scenario.miscast_continuation)
-        scenario = replace(legacy.request.scenario, miscast_continuation=continuation_policy())
-        command = replace(legacy, request=replace(legacy.request, scenario=scenario))
-        before = deepcopy(command)
-        with (patch('towr.adapters.magic_simulation_json.parse_magic_simulation_request',
-                    side_effect=AssertionError('must reject before round-trip')),
-              self.assertRaisesRegex(ValueError, 'Miscast continuation.*losslessly')):
-            encode(command, summary(command))
-        self.assertEqual(command, before)
-        for value in (None, {}, {'choice': 'decline_cast_before_miscast'}):
-            with self.subTest(value=value):
-                data['scenario']['miscast_continuation'] = value
-                self.assert_invalid(data)
 
     def assert_invalid(self, data, code=Code.INVALID_INPUT):
         with self.assertRaises(MagicSimulationInputError) as caught:
@@ -91,16 +75,6 @@ class M8MagicJsonTests(unittest.TestCase):
         self.assertEqual(command, before)
         return command
 
-    def test_packaged_schemas_and_contract_fixtures(self):
-        for kind in ('request', 'result', 'error'):
-            schema = json.loads(files('towr.adapters.schemas').joinpath(
-                f'magic-simulation-{kind}-v1.schema.json').read_text(encoding='utf-8'))
-            Draft202012Validator.check_schema(schema)
-            self.assertEqual(schema['$id'], f'urn:towr:magic-simulation:{kind}:1')
-            fixture = json.loads((EXAMPLES / f'magic-simulation-v1.{kind}.json').read_text(encoding='utf-8'))
-            validate(fixture, kind)
-        with self.assertRaises(ValueError):
-            validate({}, 'balance')
 
     def test_every_input_object_rejects_missing_and_unknown_fields(self):
         source = document()
@@ -116,7 +90,7 @@ class M8MagicJsonTests(unittest.TestCase):
 
     def test_every_result_and_error_object_is_closed_and_required(self):
         for kind in ('result', 'error'):
-            original = json.loads((EXAMPLES / f'magic-simulation-v1.{kind}.json').read_text(encoding='utf-8'))
+            original = json.loads((EXAMPLES / f'magic-simulation.{kind}.json').read_text(encoding='utf-8'))
             for path in object_paths(original):
                 for key in (None, *at(original, path)):
                     with self.subTest(kind=kind, path=path, key=key):
@@ -127,7 +101,7 @@ class M8MagicJsonTests(unittest.TestCase):
                             del at(changed, path)[key]
                         with self.assertRaises(ValidationError):
                             validate(changed, kind)
-        error = json.loads((EXAMPLES / 'magic-simulation-v1.error.json').read_text(encoding='utf-8'))
+        error = json.loads((EXAMPLES / 'magic-simulation.error.json').read_text(encoding='utf-8'))
         for path in ('/bad~2', '\n', '/bad~\n', 'no-slash'):
             with self.subTest(path=path), self.assertRaises(ValidationError):
                 validate(dict(error, error=dict(error['error'], path=path)), 'error')
@@ -545,7 +519,7 @@ class M8MagicJsonTests(unittest.TestCase):
 
     def test_saved_result_projection_matches_contract_fixture(self):
         command = parse(json.dumps(document()))
-        expected = json.loads((EXAMPLES / 'magic-simulation-v1.result.json').read_text(encoding='utf-8'))
+        expected = json.loads((EXAMPLES / 'magic-simulation.result.json').read_text(encoding='utf-8'))
         saved = expected['summary']
         observed = NpcMagicSimulationSummary(command.request, NpcMagicOutcomeCounts(**saved['outcome_counts']),
             saved['total_action_count'], saved['total_started_round_count'], saved['total_completed_round_count'])

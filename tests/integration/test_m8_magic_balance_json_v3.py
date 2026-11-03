@@ -1,4 +1,4 @@
-"""Actual balance3 variable reserves, Wound continuations, staged spawn and CLI."""
+"""Current Magic JSON contract: deterministic admission and source guards."""
 from copy import deepcopy
 from dataclasses import replace
 from fractions import Fraction
@@ -40,7 +40,7 @@ from towr.simulation.npc_magic_models import NpcMagicOutcomeCounts
 def native_command(*, stationary=True, miscast=False, source=None):
     source = native.family(stationary=stationary, miscast=miscast) if source is None else source
     definitions = tuple(dict.fromkeys(p.definition.id for p in source.template_scenario.initial.roster.participants))
-    return MagicBalanceCommand('balance3:variable', source, Options(Mode.SEQUENTIAL), definitions, '3')
+    return MagicBalanceCommand('balance3:variable', source, Options(Mode.SEQUENTIAL), definitions, '6')
 
 
 def parsed_command(*, stationary=True, miscast=False):
@@ -94,34 +94,6 @@ class M8MagicBalanceJsonV3IntegrationTests(unittest.TestCase):
             self.assertEqual(sum(len(r.expired_sources) for r in trace.current.wound_turn_end_receipts), 1)
         self.assertEqual(command, before)
 
-    def test_default_seeded_native_and_cli_reports_match_for_four_policies_and_both_backends(self):
-        for stationary in (False, True):
-            for miscast in (False, True):
-                base = parsed_command(stationary=stationary, miscast=miscast)
-                base = replace(base, request_id='подбор-рана-雪')
-                before = deepcopy(base)
-                results = []
-                for options in (Options(Mode.SEQUENTIAL), Options(Mode.PROCESS, 1, 2)):
-                    command = replace(base, execution=options)
-                    result = execute_magic_balance(command)
-                    self.assert_sources(result, command)
-                    expected = json.loads(encode(command, result))
-                    validate(expected, 'result', schema_version='3')
-                    wire = _request_document(command)
-                    completed = invoke('balance-magic', '-', data=json.dumps(wire, ensure_ascii=False).encode('utf-8'))
-                    self.assertEqual(completed.returncode, 0, completed.stderr)
-                    self.assertEqual(completed.stderr, b'')
-                    self.assertIn('подбор-рана-雪'.encode(), completed.stdout)
-                    actual = json.loads(completed.stdout)
-                    self.assertEqual(actual, expected)
-                    self.assertEqual(actual['request'], wire)
-                    self.assertEqual(parse(json.dumps(actual['request'])), command)
-                    self.assertEqual([c['counts'] for c in actual['candidates']], [[1], [2]])
-                    self.assertEqual(actual['total_trials'], result.evaluation_result.total_trials)
-                    self.assertLessEqual(actual['total_trials'], actual['planned_trials'])
-                    results.append(result)
-                self.assertEqual(results[0], results[1])
-                self.assertEqual(base, before)
 
     def test_parsed_scripted_stages_keep_unsupported_denominator_and_full_repeat_prefix(self):
         sequential_runner = evaluation.run_npc_magic_simulation
@@ -142,7 +114,7 @@ class M8MagicBalanceJsonV3IntegrationTests(unittest.TestCase):
                 captures.append(result)
                 return result
 
-            with patch.object(evaluation, 'run_npc_magic_simulation', side_effect=sequential), \
+            with patch.object(evaluation, 'run_npc_magic_simulation', side_effect=sequential),\
                     patch.object(evaluation, 'run_npc_magic_simulation_parallel', side_effect=lambda source, **kw:
                         process_runner(source, rng_factory=factory(source, True), **kw)):
                 seq = execute_magic_balance(command)
@@ -186,7 +158,7 @@ class M8MagicBalanceJsonV3IntegrationTests(unittest.TestCase):
         wire = _request_document(original)
         command = parse(json.dumps(wire))
         self.assertEqual(command, original)
-        with patch.object(generation, '_project_candidate', wraps=generation._project_candidate) as projection, \
+        with patch.object(generation, '_project_candidate', wraps=generation._project_candidate) as projection,\
                 patch('towr.application.magic_balance_service.evaluate_magic_candidates_staged') as evaluate:
             with self.assertRaises(MagicBalanceGenerationError) as caught:
                 execute_magic_balance(command)
@@ -196,8 +168,8 @@ class M8MagicBalanceJsonV3IntegrationTests(unittest.TestCase):
         completed = invoke('balance-magic', '-', data=json.dumps(wire).encode())
         self.assertEqual(completed.returncode, 3, completed.stderr)
         output = json.loads(completed.stdout)
-        validate(output, 'error', schema_version='3')
-        self.assertEqual((output['schema_version'], output['request_id']), ('3', command.request_id))
+        validate(output, 'error', schema_version='6')
+        self.assertEqual((output['schema_version'], output['request_id']), ('6', command.request_id))
         self.assertEqual(output['error']['counts'], [1, 1])
         self.assertEqual(output['error']['candidate_id'], caught.exception.candidate_id)
         self.assertEqual(output['error']['code'], 'generation_failed')
@@ -234,8 +206,8 @@ raise SystemExit(status)
             stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=ROOT, env=environment(), timeout=45)
         self.assertEqual(completed.returncode, 3, completed.stderr)
         output = json.loads(completed.stdout)
-        validate(output, 'error', schema_version='3')
-        self.assertEqual((output['schema_version'], output['request_id']), ('3', command.request_id))
+        validate(output, 'error', schema_version='6')
+        self.assertEqual((output['schema_version'], output['request_id']), ('6', command.request_id))
         self.assertEqual(output['error']['code'], 'evaluation_failed')
         self.assertEqual(output['error']['stage_index'], 1)
         self.assertEqual(output['error']['candidate_id'], command.generation_request.candidate_id_prefix + ':counts:1')
@@ -249,11 +221,11 @@ raise SystemExit(status)
         mismatch['generation']['stationary_wound_continuation'] = None
         missing = document()
         del missing['generation']['stationary_wound_continuation']
-        cases = ((b'{"schema_version":"3","request_id":"seen","x":1e0}', '1', None, 'invalid_input'),
-            (b'{"schema_version":"3","request_id":"seen","x":1,"x":2}', '1', None, 'invalid_json'),
-            (json.dumps(mismatch).encode(), '3', mismatch['request_id'], 'invalid_input'),
-            (json.dumps(missing).encode(), '3', missing['request_id'], 'invalid_input'),
-            (json.dumps(dict(document(), schema_version='7')).encode(), '1', document()['request_id'], 'unsupported_version'))
+        cases = ((b'{"schema_version":"6","request_id":"seen","x":1e0}', '6', None, 'invalid_input'),
+            (b'{"schema_version":"6","request_id":"seen","x":1,"x":2}', '6', None, 'invalid_json'),
+            (json.dumps(mismatch).encode(), '6', mismatch['request_id'], 'invalid_input'),
+            (json.dumps(missing).encode(), '6', missing['request_id'], 'invalid_input'),
+            (json.dumps(dict(document(), schema_version='7')).encode(), '6', document()['request_id'], 'unsupported_version'))
         for raw, version, request_id, code in cases:
             completed = invoke('balance-magic', '-', data=raw)
             self.assertEqual(completed.returncode, 2, completed.stderr)
@@ -264,58 +236,7 @@ raise SystemExit(status)
             self.assertTrue(all(output['error'][key] is None for key in ('candidate_id', 'counts', 'stage_index')))
             self.assertNotIn('stage_reports', output)
 
-    def test_six_old_routes_reject_v3_while_simulation_v3_remains_admitted(self):
-        cases = (('simulate', 'm4/ranged-v1.request.json'), ('balance', 'm5/json/balance-v1.request.json'),
-            ('simulate-melee', 'm6/json/melee-simulation-v1.request.json'), ('balance-melee', 'm6/json/melee-balance-v1.request.json'),
-            ('simulate-mixed', 'm7/json/mixed-simulation-v1.request.json'), ('balance-mixed', 'm7/json/mixed-balance-v1.request.json'))
-        for route, relative in cases:
-            wire = json.loads((ROOT / 'docs/examples' / relative).read_bytes())
-            wire['schema_version'] = '3'
-            completed = invoke(route, '-', data=json.dumps(wire).encode())
-            self.assertEqual(completed.returncode, 2, completed.stderr)
-            output = json.loads(completed.stdout)
-            self.assertEqual((output['schema_version'], output['error']['code']), ('1', 'unsupported_version'))
-            self.assertEqual(output['error']['path'], '/schema_version')
-        simulation = simulation_document()
-        simulation['simulation']['trials'] = 1
-        completed = invoke('simulate-magic', '-', data=json.dumps(simulation).encode())
-        self.assertEqual(completed.returncode, 0, completed.stderr)
-        self.assertEqual(json.loads(completed.stdout)['schema_version'], '3')
 
-    def test_public_v3_file_matches_native_and_saved_evidence_preserves_full_request(self):
-        path = ROOT / 'docs/examples/m8/json/magic-balance-v3.request.json'
-        data = json.loads(path.read_bytes())
-        command = parse(path.read_bytes())
-        before = deepcopy(command)
-        self.assertEqual(command.schema_version, '3')
-        self.assertIsNotNone(command.generation_request.stationary_wound_continuation)
-        self.assertIsNotNone(command.generation_request.miscast_continuation)
-        expected = json.loads(encode(command, execute_magic_balance(command)))
-        completed = invoke('balance-magic', str(path))
-        self.assertEqual(completed.returncode, 0, completed.stderr)
-        self.assertEqual(completed.stderr, b'')
-        actual = json.loads(completed.stdout)
-        validate(actual, 'result', schema_version='3')
-        self.assertEqual(actual, expected)
-        self.assertEqual(actual['request'], data)
-        self.assertEqual(parse(json.dumps(actual['request'])), command)
-        self.assertEqual(command, before)
-        # Historical aggregate values belong to their declared runtime; avoid
-        # treating saved Monte Carlo observations as a cross-version oracle.
-        saved = json.loads(path.with_name('magic-balance-v3.result.json').read_bytes())
-        validate(saved, 'result', schema_version='3')
-        self.assertEqual(saved['request'], data)
-        self.assertEqual(parse(json.dumps(saved['request'])), command)
-        self.assertEqual(saved['candidate_count'], command.generation_request.candidate_count)
-        self.assertEqual(saved['planned_trials'], command.generation_request.planned_trials)
-        self.assertLessEqual(saved['total_trials'], saved['planned_trials'])
-        for report in saved['stage_reports']:
-            self.assertEqual(report['total_trials'], sum(c['summary']['trials'] for c in report['candidates']))
-            for candidate in report['candidates']:
-                self.assertEqual(sum(candidate['summary']['outcome_counts'].values()), candidate['summary']['trials'])
-        for value in saved['runtime'].values():
-            self.assertIsInstance(value, str)
-            self.assertTrue(value)
 
 
 if __name__ == '__main__':

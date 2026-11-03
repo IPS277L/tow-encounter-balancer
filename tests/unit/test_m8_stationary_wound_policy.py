@@ -1,23 +1,15 @@
-"""ADR-0050 native policy is independent, typed and rejected by older transports."""
+"""Native stationary policy remains independent, typed and source-preserving."""
 from contextlib import ExitStack
 from copy import deepcopy
 from dataclasses import FrozenInstanceError, fields, replace
-import json
 import pickle
 from random import getstate
 import unittest
 from unittest.mock import patch
 
 from tests.unit.test_m8_magic_candidate_generation_models import request as generation_request
-from tests.unit.test_m8_magic_json import document as v1_document, summary
-from tests.unit.test_m8_magic_json_v2 import document as v2_document
 from tests.unit.test_m8_miscast_continuation_policy import continuation_policy
 from tests.unit.test_m8_npc_magic_scenario import scenario
-from towr.adapters._magic_scenario_json import scenario_document
-from towr.adapters.magic_json_errors import MagicSimulationInputError
-from towr.adapters.magic_simulation_json import (
-    _request_document, encode_magic_simulation_result, parse_magic_simulation_request,
-)
 from towr.application import magic_candidate_generation as generation
 from towr.domain.npc_magic_scenario_models import NpcMagicScenario, NpcMagicStationaryWoundPolicy as Policy
 from towr.domain.npc_magic_step_models import NpcMagicScenarioOutcome
@@ -110,38 +102,8 @@ class StationaryWoundPolicyTests(unittest.TestCase):
         self.assertTrue(all(candidate.scenario.stationary_wound_continuation is None
                             for candidate in result.evaluation_request.candidates))
 
-    def test_direct_scenario_mapper_rejects_both_versions_before_definition_mapping(self):
-        for miscast in (None, continuation_policy()):
-            source = replace(scenario(), miscast_continuation=miscast,
-                             stationary_wound_continuation=POLICY)
-            before = deepcopy(source)
-            for version in ('1', '2'):
-                with self.subTest(version=version, miscast=miscast is not None), self.assertRaisesRegex(
-                        ValueError, 'stationary Wound.*losslessly'):
-                    # Invalid definition order would fail if projection were attempted.
-                    scenario_document(source, ('missing',), schema_version=version)
-            self.assertEqual(source, before)
 
-    def test_request_and_result_encoder_reject_native_policy_without_downgrade(self):
-        for document in (v1_document(), v2_document(opted=False), v2_document(opted=True)):
-            command = parse_magic_simulation_request(json.dumps(document))
-            source = replace(command.request.scenario, stationary_wound_continuation=POLICY)
-            command = replace(command, request=replace(command.request, scenario=source))
-            before = deepcopy(command)
-            with self.subTest(version=command.schema_version, miscast=source.miscast_continuation is not None):
-                with self.assertRaisesRegex(ValueError, 'stationary Wound.*losslessly'):
-                    _request_document(command)
-                with self.assertRaisesRegex(ValueError, 'stationary Wound.*losslessly'):
-                    encode_magic_simulation_result(command, summary(command))
-            self.assertEqual(command, before)
 
-    def test_existing_wire_versions_reject_new_key_even_when_null(self):
-        for document in (v1_document(), v2_document(opted=False)):
-            for value in (None, POLICY.value):
-                data = deepcopy(document)
-                data['scenario']['stationary_wound_continuation'] = value
-                with self.subTest(version=data['schema_version'], value=value), self.assertRaises(MagicSimulationInputError):
-                    parse_magic_simulation_request(json.dumps(data))
 
     def test_native_worker_rejects_same_id_source_policy_substitution(self):
         source = replace(scenario(), stationary_wound_continuation=POLICY)

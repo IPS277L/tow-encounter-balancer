@@ -1,5 +1,7 @@
 # ADR-0051: stationary-wound family policy и Magic JSON/CLI v3
 
+Требования поддержки прежних wire formats и накопления версий заменены [ADR-0063](ADR-0063-single-current-magic-contract.md): Magic поддерживает только текущий JSON6. Ниже сохранены исторические решения и фактические результаты приёмки; игровые границы этим не меняются.
+
 Дата: 2026-11-01. Статус: **пункты1–4 выполнены, ADR закрыт в принятой границе**. [Итоговый source/wheel/installed audit](../audits/m8-stationary-wound-transport-readiness.md). Основа — [native policy ADR-0050](ADR-0050-native-stationary-wound-policy.md), [generation/v2 ADR-0047](ADR-0047-opt-in-generation-and-magic-json-v2.md) и [native audit](../audits/m8-native-stationary-wound-readiness.md). [Generation audit](../audits/m8-stationary-wound-generation-readiness.md), [simulation3 audit](../audits/m8-simulation-v3-readiness.md), [balance3 audit](../audits/m8-balance-v3-readiness.md), [public probe](../examples/m8/stationary_wound_transport_contract_probe.py)/[stdout](../examples/m8/stationary_wound_transport_contract_probe.output.txt). [Исходная контрактная проверка](../audits/m8-stationary-wound-transport-contract.md) остаётся исторической evidence.
 
 ## Граница

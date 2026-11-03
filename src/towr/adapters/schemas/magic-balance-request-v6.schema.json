@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "urn:towr:magic-balance:request:6",
-  "$comment": "ADR-0062: full authored Battered Leg profile, required nullable permission, fresh sources only; bundled fragments remain unchanged.",
+  "$comment": "Current development contract; shared fragments are bundled in magic-common.schema.json.",
   "type": "object",
   "properties": {
     "schema_version": {
@@ -9,19 +9,19 @@
       "const": "6"
     },
     "kind": {
-      "$ref": "urn:towr:magic-balance:request:1#/properties/kind"
+      "$ref": "urn:towr:magic:common#/$defs/magic_balance_request_kind"
     },
     "ruleset": {
-      "$ref": "urn:towr:magic-balance:request:1#/properties/ruleset"
+      "$ref": "urn:towr:magic:common#/$defs/magic_balance_request_ruleset"
     },
     "request_id": {
-      "$ref": "urn:towr:magic-balance:request:1#/properties/request_id"
+      "$ref": "urn:towr:magic:common#/$defs/magic_balance_request_request_id"
     },
     "reserve": {
       "type": "object",
       "properties": {
         "round_budget": {
-          "$ref": "urn:towr:magic-balance:request:1#/properties/reserve/properties/round_budget"
+          "$ref": "urn:towr:magic:common#/$defs/magic_balance_request_reserve_round_budget"
         },
         "scenario": {
           "$ref": "urn:towr:magic-simulation:request:6#/$defs/scenario"
@@ -37,31 +37,31 @@
       "type": "object",
       "properties": {
         "groups": {
-          "$ref": "urn:towr:magic-balance:request:1#/properties/generation/properties/groups"
+          "$ref": "urn:towr:magic:common#/$defs/magic_balance_request_generation_groups"
         },
         "facts": {
-          "$ref": "urn:towr:magic-balance:request:1#/properties/generation/properties/facts"
+          "$ref": "urn:towr:magic:common#/$defs/magic_balance_request_generation_facts"
         },
         "candidate_id_prefix": {
-          "$ref": "urn:towr:magic-balance:request:1#/properties/generation/properties/candidate_id_prefix"
+          "$ref": "urn:towr:magic:common#/$defs/magic_balance_request_generation_candidate_id_prefix"
         },
         "max_candidates": {
-          "$ref": "urn:towr:magic-balance:request:1#/properties/generation/properties/max_candidates"
+          "$ref": "urn:towr:magic:common#/$defs/magic_balance_request_generation_max_candidates"
         },
         "scene_frames": {
-          "$ref": "urn:towr:magic-balance:request:1#/properties/generation/properties/scene_frames"
+          "$ref": "urn:towr:magic:common#/$defs/magic_balance_request_generation_scene_frames"
         },
         "miscast_continuation": {
-          "$ref": "urn:towr:magic-simulation:request:2#/$defs/miscast_continuation"
+          "$ref": "urn:towr:magic:common#/$defs/magic_simulation_request_miscast_continuation"
         },
         "stationary_wound_continuation": {
-          "$ref": "urn:towr:magic-simulation:request:3#/$defs/stationary_wound_continuation"
+          "$ref": "urn:towr:magic:common#/$defs/magic_simulation_request_stationary_wound_continuation"
         },
         "repeated_leg_spasm_continuation": {
-          "$ref": "urn:towr:magic-simulation:request:4#/$defs/repeated_leg_spasm_continuation"
+          "$ref": "urn:towr:magic:common#/$defs/magic_simulation_request_repeated_leg_spasm_continuation"
         },
         "crushed_rib_continuation": {
-          "$ref": "urn:towr:magic-simulation:request:5#/$defs/crushed_rib_continuation"
+          "$ref": "urn:towr:magic:common#/$defs/magic_simulation_request_crushed_rib_continuation"
         },
         "battered_leg_continuation": {
           "$ref": "urn:towr:magic-simulation:request:6#/$defs/battered_leg_continuation"
@@ -82,10 +82,10 @@
       "additionalProperties": false
     },
     "evaluation": {
-      "$ref": "urn:towr:magic-balance:request:1#/properties/evaluation"
+      "$ref": "urn:towr:magic:common#/$defs/magic_balance_request_evaluation"
     },
     "execution": {
-      "$ref": "urn:towr:magic-balance:request:1#/properties/execution"
+      "$ref": "urn:towr:magic:common#/$defs/magic_balance_request_execution"
     }
   },
   "required": [

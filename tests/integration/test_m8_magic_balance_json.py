@@ -1,4 +1,4 @@
-"""Magic balance wire -> existing generator/stages -> aggregate wire, no new service."""
+"""Current Magic JSON contract: deterministic admission and source guards."""
 from copy import deepcopy
 import json
 from multiprocessing import active_children

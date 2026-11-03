@@ -247,14 +247,11 @@ class StationaryWoundGenerationIntegrationTests(unittest.TestCase):
         source = family(miscast=True)
         before = deepcopy(source)
         definitions = tuple(dict.fromkeys(p.definition.id for p in source.template_scenario.initial.roster.participants))
-        results = []
-        for version in ('1', '2'):
-            command = MagicBalanceCommand('native:stationary', source, Options(Mode.SEQUENTIAL), definitions, version)
-            result = execute_magic_balance(command)
-            self.assertIs(result.generation_result.source_request, source)
-            self.assert_sources(result.evaluation_result, result.generation_result)
-            results.append(result)
-        self.assertEqual(results[0], results[1])
+        command = MagicBalanceCommand('native:stationary', source, Options(Mode.SEQUENTIAL), definitions)
+        self.assertEqual(command.schema_version, '6')
+        result = execute_magic_balance(command)
+        self.assertIs(result.generation_result.source_request, source)
+        self.assert_sources(result.evaluation_result, result.generation_result)
         foreign = generate_magic_candidates(family(stationary=False, miscast=True))
         self.assertEqual(foreign.source_request.template_scenario.id, source.template_scenario.id)
         with patch('towr.application.magic_balance_service.generate_magic_candidates', return_value=foreign), \
@@ -262,7 +259,7 @@ class StationaryWoundGenerationIntegrationTests(unittest.TestCase):
             with self.assertRaises(MagicBalanceGenerationError) as caught:
                 execute_magic_balance(command)
         self.assertIsInstance(caught.exception.__cause__, ValueError)
-        self.assertEqual(caught.exception.schema_version, '2')
+        self.assertEqual(caught.exception.schema_version, '6')
         evaluator.assert_not_called()
         self.assertEqual(source, before)
 

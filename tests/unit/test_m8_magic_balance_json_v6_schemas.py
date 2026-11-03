@@ -7,13 +7,14 @@ import unittest
 
 from jsonschema import ValidationError
 
-from tests.unit.test_m8_magic_balance_json_v5 import document as version5
+from pathlib import Path
 from tests.unit.test_m8_magic_json_v6_schemas import FIELD, PERMISSIONS, references
 from towr.adapters import magic_json_schema as production
 
 
 def document(profile=None):
-    data = version5()
+    data = json.loads((Path(__file__).resolve().parents[2] /
+        'docs/examples/m8/json/magic-balance-v6.request.json').read_text(encoding='utf-8'))
     data['schema_version'] = '6'
     value = None if profile is None else {'endurance_profile': profile}
     data['reserve']['scenario'][FIELD] = deepcopy(value)
@@ -65,24 +66,35 @@ class MagicBalanceJsonV6SchemaTests(unittest.TestCase):
         self.assertEqual(request['properties']['reserve']['properties']['scenario']['$ref'],
                          'urn:towr:magic-simulation:request:6#/$defs/scenario')
         self.assertEqual(result['properties']['request']['$ref'], 'urn:towr:magic-balance:request:6')
-        self.assertEqual(production._validator.cache_info().maxsize, 36)
+        self.assertEqual(production._validator.cache_info().maxsize, 6)
 
-    def test_old_versions_refuse_both_new_fields_even_when_null(self):
-        for version in range(1, 6):
-            old = version5()
-            old['schema_version'] = str(version)
-            for location in ('reserve', 'generation'):
-                node = old['reserve']['scenario'] if location == 'reserve' else old['generation']
-                for introduced, name in enumerate(PERMISSIONS[:-1], start=2):
-                    if introduced > version:
-                        del node[name]
-            production.validate_magic_balance_document(old, schema_version=str(version))
-            for location in ('reserve', 'generation'):
-                invalid = deepcopy(old)
-                node = invalid['reserve']['scenario'] if location == 'reserve' else invalid['generation']
-                node[FIELD] = None
-                with self.subTest(version=version, location=location), self.assertRaises(ValidationError):
-                    production.validate_magic_balance_document(invalid, schema_version=str(version))
+    def test_phase_errors_keep_closed_context_and_current_metadata(self):
+        for code, path, candidate, counts, stage in (
+            ('invalid_input', '/generation', None, None, None),
+            ('generation_failed', '/generation', 'family:1', [1, 0], None),
+            ('evaluation_failed', '/evaluation', 'family:1', None, 1),
+        ):
+            raw = dict(schema_version='6', kind='magic_balance_error', request_id='input',
+                       error=dict(code=code, path=path, message='invalid',
+                                  candidate_id=candidate, counts=counts, stage_index=stage))
+            production.validate_magic_balance_document(raw, 'error')
+            for changes in ({'schema_version': '5'}, {'kind': 'magic_simulation_error'}, {'unknown': None}):
+                with self.subTest(code=code, changes=changes), self.assertRaises(ValidationError):
+                    production.validate_magic_balance_document(dict(raw, **changes), 'error')
+            invalid = deepcopy(raw)
+            invalid['error']['counts'] = [1] if counts is None else None
+            if code == 'generation_failed':
+                invalid['error']['stage_index'] = 1
+            with self.subTest(code=code, wrong_phase=True), self.assertRaises(ValidationError):
+                production.validate_magic_balance_document(invalid, 'error')
+
+    def test_reserve_generation_and_root_are_closed(self):
+        for location in ('root', 'reserve', 'scenario', 'generation'):
+            raw = document()
+            node = raw if location == 'root' else raw['reserve']['scenario'] if location == 'scenario' else raw[location]
+            node['unknown'] = None
+            with self.subTest(location=location), self.assertRaises(ValidationError):
+                production.validate_magic_balance_document(raw)
 
 
 if __name__ == '__main__':

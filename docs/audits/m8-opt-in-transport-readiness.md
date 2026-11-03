@@ -16,7 +16,7 @@
 | CLI | Полные stdout bytes source/module/console совпадают. Две magic routes: v1/v2-null/v2-opted × sequential/process. Шесть прежних routes: public sequential success и explicit v2 rejection. STDIN/module и UTF-8 файл/console, один result/error без лишнего stdout. |
 | Public examples | Сохранённые v2 результаты получены реальным CLI. Четырёхфайловый transport probe и двухфайловый opted runner пример выполняются из копии под installed `python -I`; stdout сравнивается с сохранённым. |
 
-**Installed audit завершён exit0: 95 child commands, 12 magic backend cases, 2 copied examples.** [Simulation result](../examples/m8/json/magic-simulation-v2.result.json) и [balance result](../examples/m8/json/magic-balance-v2.result.json) сохранены из реального sequential CLI, полные результаты равны source и installed module/console. Это наблюдения фиксированных входов/seed/runtime, не вероятности или presets; `runtime` сообщает CPython3.12.4.
+**Installed audit завершён exit0: 95 child commands, 12 magic backend cases, 2 copied examples.** [Simulation result](../examples/m8/json/magic-simulation.result.json) и [balance result](../examples/m8/json/magic-balance.result.json) сохранены из реального sequential CLI, полные результаты равны source и installed module/console. Это наблюдения фиксированных входов/seed/runtime, не вероятности или presets; `runtime` сообщает CPython3.12.4.
 
 Independent read-only review контракта/реализации и двух audit helpers блокеров не выявил. Устаревшие указания про manual legacy view в ADR явно переведены в историческое описание первоначального proof.
 
@@ -24,7 +24,7 @@ Independent read-only review контракта/реализации и двух
 
 [Windows preparation helper](../../tools/prepare_m8_transport_audit.ps1) создаёт новую копию `src`, `pyproject.toml`, README и LICENSE, строит wheel и создаёт отдельный venv. Рабочие `.venv` и source/build не переустанавливаются. Build isolation может получать setuptools; **offline относится к установке project wheel** с `--no-index --no-deps`. Runtime dependencies скопированы из рабочего venv вместе с metadata, а не независимо установлены из сети. `pip check` прошёл.
 
-[Audit helper](../../tools/audit_m8_transport_install.py) запускается installed Python с `-I`, проверяет путь импорта внутри isolated site, точные наборы путей/SHA256 package `.py/.json` и отсутствие PDF/reference sources в wheel. Это не равенство wheel metadata, launcher binaries или файлов зависимостей. В конце исходники повторно сравниваются с начальным snapshot.
+[Audit helper](../../tools/archive/README.md) запускается installed Python с `-I`, проверяет путь импорта внутри isolated site, точные наборы путей/SHA256 package `.py/.json` и отсутствие PDF/reference sources в wheel. Это не равенство wheel metadata, launcher binaries или файлов зависимостей. В конце исходники повторно сравниваются с начальным snapshot.
 
 Для повторного запуска нужен **новый, несуществующий** audit directory. Пример из корня репозитория на Windows:
 

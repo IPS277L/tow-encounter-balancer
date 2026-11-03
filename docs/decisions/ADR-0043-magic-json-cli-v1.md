@@ -1,5 +1,7 @@
 # ADR-0043: Magic JSON v1 и отдельные CLI-команды
 
+Требования поддержки прежних wire formats и накопления версий заменены [ADR-0063](ADR-0063-single-current-magic-contract.md): Magic поддерживает только текущий JSON6. Ниже сохранены исторические решения и фактические результаты приёмки; игровые границы этим не меняются.
+
 Статус: принят и закрыт [общим аудитом](../audits/m8-external-readiness.md), 2026-10-28. **Пять срезов simulation/balance JSON/CLI завершены в текущем bounded magic scope.** Основа — [ADR-0037](ADR-0037-magic-scenario-runner.md), [simulation/process ADR-0038/0039](ADR-0039-process-magic-simulations.md), [assessment/stages ADR-0040/0041](ADR-0041-staged-magic-evaluation.md), [генерация ADR-0042](ADR-0042-magic-composition-generation.md) и [её аудит](../audits/m8-generation-readiness.md). Технический образец — [Mixed wire ADR-0034](ADR-0034-mixed-json-cli-v1.md), не перенос mixed классов/полей в магию.
 
 ## Решение и совместимость

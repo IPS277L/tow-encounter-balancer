@@ -1,8 +1,8 @@
 {
-  "schema_version": "1",
+  "schema_version": "6",
   "kind": "npc_magic_simulation_result",
   "request": {
-    "schema_version": "1",
+    "schema_version": "6",
     "kind": "npc_magic_simulation",
     "request_id": "wire:magic:simulation",
     "ruleset": "towr-pg1.4-gmg1.1",
@@ -581,7 +581,12 @@
           "casting_policy": null,
           "zone_priorities": []
         }
-      ]
+      ],
+      "miscast_continuation": null,
+      "stationary_wound_continuation": null,
+      "repeated_leg_spasm_continuation": null,
+      "crushed_rib_continuation": null,
+      "battered_leg_continuation": null
     }
   },
   "seed_scheme": "towr:npc-magic-trial:v1",

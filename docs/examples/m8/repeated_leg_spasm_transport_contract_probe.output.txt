@@ -1,9 +1,9 @@
 PERMISSIONS: six valid native combinations; two repeated-without-base combinations rejected; Miscast independent
-PUBLIC v4: twelve parser/request-echo roundtrips match independent full-fixture inverses; exact sources/IDs/order/seeds/parameters
-VERSION GUARD: unknown7 rejected with fallback1 and decoded request ID; no implicit downgrade
+PUBLIC current6: twelve parser/request-echo roundtrips match independent full-fixture inverses; exact sources/IDs/order/seeds/parameters
+VERSION GUARD: unknown7 rejected with fallback6 and decoded request ID; no implicit downgrade
 SOURCE GUARDS: independent oracle rejects foreign IDs/types; production rejects missing independent family opt-in and exact v4 mismatch path
 PRODUCTION GENERATION: thirty full-source subsets match manual projections; both perspectives/six policies; exact family permissions/C/budgets/seeds
-LEGACY BOUNDARIES: JSON1/2/3 reject isolated new field even null and refuse lossless encoding; matching generation permission is explicit
-ACTUAL SIMULATION v4: 48 d10 journal with stand48 + stand52; independent 48 d10 summary; denominator1; full v4 result echo
-ACTUAL BALANCE v4: standard seeded service completes bounded generation/stages; full request/report/summary permissions retained
-96 scripted d10 plus standard seeded balance; input/global RNG unchanged; production generation and both v4 codecs implemented
+CURRENT SOURCE BOUNDARY: matching generation permission remains explicit; all nullable fields retained
+ACTUAL SIMULATION current6: 48 d10 journal with stand48 + stand52; independent 48 d10 summary; denominator1; full current6 result echo
+ACTUAL BALANCE current6: standard seeded service completes bounded generation/stages; full request/report/summary permissions retained
+96 scripted d10 plus standard seeded balance; input/global RNG unchanged; production generation and both current6 codecs implemented

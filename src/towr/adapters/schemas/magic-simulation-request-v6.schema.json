@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "urn:towr:magic-simulation:request:6",
-  "$comment": "ADR-0062: full authored Battered Leg profile, required nullable permission, fresh sources only; bundled fragments remain unchanged.",
+  "$comment": "Current development contract; shared fragments are bundled in magic-common.schema.json.",
   "type": "object",
   "properties": {
     "schema_version": {
@@ -9,22 +9,22 @@
       "const": "6"
     },
     "kind": {
-      "$ref": "urn:towr:magic-simulation:request:1#/properties/kind"
+      "$ref": "urn:towr:magic:common#/$defs/magic_simulation_request_kind"
     },
     "request_id": {
-      "$ref": "urn:towr:magic-simulation:request:1#/properties/request_id"
+      "$ref": "urn:towr:magic:common#/$defs/magic_simulation_request_request_id"
     },
     "ruleset": {
-      "$ref": "urn:towr:magic-simulation:request:1#/properties/ruleset"
+      "$ref": "urn:towr:magic:common#/$defs/magic_simulation_request_ruleset"
     },
     "simulation": {
-      "$ref": "urn:towr:magic-simulation:request:1#/properties/simulation"
+      "$ref": "urn:towr:magic:common#/$defs/magic_simulation_request_simulation"
     },
     "execution": {
-      "$ref": "urn:towr:magic-simulation:request:1#/properties/execution"
+      "$ref": "urn:towr:magic:common#/$defs/magic_simulation_request_execution"
     },
     "scenario": {
-      "$ref": "#/$defs/scenario"
+      "$ref": "urn:towr:magic-simulation:request:6#/$defs/scenario"
     }
   },
   "required": [
@@ -42,64 +42,64 @@
       "type": "object",
       "properties": {
         "scenario_id": {
-          "$ref": "urn:towr:magic-simulation:request:1#/$defs/scenario/properties/scenario_id"
+          "$ref": "urn:towr:magic:common#/$defs/magic_simulation_request_scenario_scenario_id"
         },
         "definitions": {
-          "$ref": "urn:towr:magic-simulation:request:1#/$defs/scenario/properties/definitions"
+          "$ref": "urn:towr:magic:common#/$defs/magic_simulation_request_scenario_definitions"
         },
         "actors": {
-          "$ref": "urn:towr:magic-simulation:request:1#/$defs/scenario/properties/actors"
+          "$ref": "urn:towr:magic:common#/$defs/magic_simulation_request_scenario_actors"
         },
         "battlefield": {
-          "$ref": "urn:towr:magic-simulation:request:1#/$defs/scenario/properties/battlefield"
+          "$ref": "urn:towr:magic:common#/$defs/magic_simulation_request_scenario_battlefield"
         },
         "placements": {
-          "$ref": "urn:towr:magic-simulation:request:1#/$defs/scenario/properties/placements"
+          "$ref": "urn:towr:magic:common#/$defs/magic_simulation_request_scenario_placements"
         },
         "side_order": {
-          "$ref": "urn:towr:magic-simulation:request:1#/$defs/scenario/properties/side_order"
+          "$ref": "urn:towr:magic:common#/$defs/magic_simulation_request_scenario_side_order"
         },
         "activation_order": {
-          "$ref": "urn:towr:magic-simulation:request:1#/$defs/scenario/properties/activation_order"
+          "$ref": "urn:towr:magic:common#/$defs/magic_simulation_request_scenario_activation_order"
         },
         "perspective_side": {
-          "$ref": "urn:towr:magic-simulation:request:1#/$defs/scenario/properties/perspective_side"
+          "$ref": "urn:towr:magic:common#/$defs/magic_simulation_request_scenario_perspective_side"
         },
         "objective_target_ids": {
-          "$ref": "urn:towr:magic-simulation:request:1#/$defs/scenario/properties/objective_target_ids"
+          "$ref": "urn:towr:magic:common#/$defs/magic_simulation_request_scenario_objective_target_ids"
         },
         "facts": {
-          "$ref": "urn:towr:magic-simulation:request:1#/$defs/scenario/properties/facts"
+          "$ref": "urn:towr:magic:common#/$defs/magic_simulation_request_scenario_facts"
         },
         "wizard": {
-          "$ref": "urn:towr:magic-simulation:request:1#/$defs/scenario/properties/wizard"
+          "$ref": "urn:towr:magic:common#/$defs/magic_simulation_request_scenario_wizard"
         },
         "spell": {
-          "$ref": "urn:towr:magic-simulation:request:1#/$defs/scenario/properties/spell"
+          "$ref": "urn:towr:magic:common#/$defs/magic_simulation_request_scenario_spell"
         },
         "actor_policies": {
-          "$ref": "urn:towr:magic-simulation:request:1#/$defs/scenario/properties/actor_policies"
+          "$ref": "urn:towr:magic:common#/$defs/magic_simulation_request_scenario_actor_policies"
         },
         "scene_frames": {
-          "$ref": "urn:towr:magic-simulation:request:1#/$defs/scenario/properties/scene_frames"
+          "$ref": "urn:towr:magic:common#/$defs/magic_simulation_request_scenario_scene_frames"
         },
         "repeated_stagger_choice": {
-          "$ref": "urn:towr:magic-simulation:request:1#/$defs/scenario/properties/repeated_stagger_choice"
+          "$ref": "urn:towr:magic:common#/$defs/magic_simulation_request_scenario_repeated_stagger_choice"
         },
         "miscast_continuation": {
-          "$ref": "urn:towr:magic-simulation:request:2#/$defs/miscast_continuation"
+          "$ref": "urn:towr:magic:common#/$defs/magic_simulation_request_miscast_continuation"
         },
         "stationary_wound_continuation": {
-          "$ref": "urn:towr:magic-simulation:request:3#/$defs/stationary_wound_continuation"
+          "$ref": "urn:towr:magic:common#/$defs/magic_simulation_request_stationary_wound_continuation"
         },
         "repeated_leg_spasm_continuation": {
-          "$ref": "urn:towr:magic-simulation:request:4#/$defs/repeated_leg_spasm_continuation"
+          "$ref": "urn:towr:magic:common#/$defs/magic_simulation_request_repeated_leg_spasm_continuation"
         },
         "crushed_rib_continuation": {
-          "$ref": "urn:towr:magic-simulation:request:5#/$defs/crushed_rib_continuation"
+          "$ref": "urn:towr:magic:common#/$defs/magic_simulation_request_crushed_rib_continuation"
         },
         "battered_leg_continuation": {
-          "$ref": "#/$defs/battered_leg_continuation"
+          "$ref": "urn:towr:magic-simulation:request:6#/$defs/battered_leg_continuation"
         }
       },
       "required": [
@@ -135,7 +135,7 @@
           "type": "object",
           "properties": {
             "endurance_profile": {
-              "$ref": "urn:towr:magic-simulation:request:1#/$defs/profile"
+              "$ref": "urn:towr:magic:common#/$defs/magic_simulation_request_profile"
             }
           },
           "required": [

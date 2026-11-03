@@ -9,7 +9,9 @@
 - consumption chain сохраняет прежние IDs и дополняется только при Aim; replay отклоняется до RNG, подмена execution/source/trace/chain запрещена; `1H` Max Long нельзя обойти Aim и GM approval;
 Правила проверяются детерминированно через заданные последовательности d10. Monte Carlo-тесты не должны зависеть от точного процента побед.
 
-Основная команда:
+Объём проверок выбирается по [политике в AGENTS.md](../AGENTS.md#политика-проверок): адресные тесты по умолчанию, full/installed audit по явным основаниям. Magic проверяется только в текущем JSON6; старые compatibility matrices удалены по [ADR-0063](decisions/ADR-0063-single-current-magic-contract.md).
+
+Команда полной регрессии для контрольной точки:
 
 ```powershell
 $env:PYTHONPATH = "src"

@@ -1,4 +1,4 @@
-"""ADR-0054 production v4/generation proof runs from a copied six-file bundle."""
+"""ADR-0054 production current6/generation proof runs from a copied six-file bundle."""
 import hashlib
 import os
 from pathlib import Path
@@ -15,7 +15,7 @@ class RepeatedLegSpasmTransportContractProbeTests(unittest.TestCase):
         examples = root / 'docs/examples/m8'
         names = ('repeated_leg_spasm_transport_contract_probe.py', 'generation_contract_probe.py',
                  'stationary_wound_runner.py', 'magic_scenario.py',
-                 'json/magic-simulation-v3.request.json', 'json/magic-balance-v3.request.json')
+                 'json/magic-simulation-stationary.request.json', 'json/magic-balance-stationary.request.json')
         before = {name: hashlib.sha256((examples / name).read_bytes()).hexdigest() for name in names}
         cache = root / '.cache'
         cache.mkdir(exist_ok=True)

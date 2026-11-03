@@ -1,4 +1,4 @@
-"""V4 real command execution, late failure privacy and full source transport."""
+"""Current Magic JSON contract: deterministic admission and source guards."""
 from dataclasses import replace
 import json
 from pathlib import Path
@@ -20,33 +20,13 @@ from towr.domain.npc_magic_scenario_models import NpcMagicStationaryWoundPolicy,
 
 
 class M8MagicJsonV4IntegrationTests(unittest.TestCase):
-    def test_public_requests_match_native_cli_and_saved_request_on_this_runtime(self):
-        for family, route, parse, encode, execute, validate in (
-                ('simulation', 'simulate-magic', sim.parse_magic_simulation_request, sim.encode_magic_simulation_result,
-                 execute_magic_simulation, validate_magic_simulation_document),
-                ('balance', 'balance-magic', bal.parse_magic_balance_request, bal.encode_magic_balance_result,
-                 execute_magic_balance, validate_magic_balance_document)):
-            path = ROOT / f'docs/examples/m8/json/magic-{family}-v4.request.json'
-            command = parse(path.read_bytes())
-            expected = encode(command, execute(command))
-            completed = invoke(route, str(path))
-            self.assertEqual(completed.returncode, 0, completed.stderr)
-            self.assertEqual(completed.stderr, b'')
-            self.assertEqual(completed.stdout.decode('utf-8'), expected)
-            actual = json.loads(completed.stdout)
-            validate(actual, 'result', schema_version='4')
-            saved = json.loads(path.with_name(f'magic-{family}-v4.result.json').read_bytes())
-            validate(saved, 'result', schema_version='4')
-            self.assertEqual(saved['request'], actual['request'])
-            if saved['runtime'] == actual['runtime']:
-                self.assertEqual(saved, actual)
 
     def test_cli_runtime_failure_uses_own_four_and_hides_foreign_cause(self):
         script = '''
 from unittest.mock import patch
 from towr.cli import main
 from towr.application.magic_simulation_errors import MagicSimulationExecutionError
-cause = MagicSimulationExecutionError('foreign-private-id', schema_version='2')
+cause = MagicSimulationExecutionError('foreign-private-id', schema_version='6')
 cause.add_note('private-worker-note')
 with patch('towr.simulation.npc_magic_parallel.ProcessPoolExecutor', side_effect=cause):
     raise SystemExit(main(['simulate-magic', '-']))
@@ -57,9 +37,9 @@ with patch('towr.simulation.npc_magic_parallel.ProcessPoolExecutor', side_effect
             stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=ROOT, env=environment(), timeout=45)
         self.assertEqual(completed.returncode, 3, completed.stderr)
         output = json.loads(completed.stdout)
-        validate_magic_simulation_document(output, 'error', schema_version='4')
+        validate_magic_simulation_document(output, 'error', schema_version='6')
         self.assertEqual((output['schema_version'], output['request_id'], output['error']['code']),
-                         ('4', data['request_id'], 'simulation_failed'))
+                         ('6', data['request_id'], 'simulation_failed'))
         self.assertNotIn(b'private', completed.stdout + completed.stderr)
 
     def test_actual_late_generation_failure_has_no_partial_catalog_and_keeps_counts(self):
@@ -73,13 +53,13 @@ with patch('towr.simulation.npc_magic_parallel.ProcessPoolExecutor', side_effect
             stationary_wound_continuation=stationary, repeated_leg_spasm_continuation=repeated)
         order = tuple(dict.fromkeys(p.definition.id for p in source.template_scenario.initial.roster.participants))
         command = MagicBalanceCommand('late-v4', source,
-            SimulationExecutionOptions(SimulationExecutionMode.SEQUENTIAL), order, '4')
+            SimulationExecutionOptions(SimulationExecutionMode.SEQUENTIAL), order, '6')
         completed = invoke('balance-magic', '-', data=json.dumps(bal._request_document(command)).encode())
         self.assertEqual(completed.returncode, 3, completed.stderr)
         output = json.loads(completed.stdout)
-        validate_magic_balance_document(output, 'error', schema_version='4')
+        validate_magic_balance_document(output, 'error', schema_version='6')
         self.assertEqual((output['schema_version'], output['request_id'], output['error']['code']),
-                         ('4', 'late-v4', 'generation_failed'))
+                         ('6', 'late-v4', 'generation_failed'))
         self.assertEqual(output['error']['counts'], [1, 1])
         self.assertIsNone(output['error']['stage_index'])
         self.assertNotIn('candidates', output)
@@ -113,9 +93,9 @@ raise SystemExit(status)
             stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=ROOT, env=environment(), timeout=45)
         self.assertEqual(completed.returncode, 3, completed.stderr)
         output = json.loads(completed.stdout)
-        validate_magic_balance_document(output, 'error', schema_version='4')
+        validate_magic_balance_document(output, 'error', schema_version='6')
         self.assertEqual((output['schema_version'], output['request_id'], output['error']['code']),
-                         ('4', data['request_id'], 'evaluation_failed'))
+                         ('6', data['request_id'], 'evaluation_failed'))
         self.assertEqual(output['error']['stage_index'], 1)
         self.assertIsNotNone(output['error']['candidate_id'])
         self.assertNotIn('stage_reports', output)

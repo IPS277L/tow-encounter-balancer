@@ -4,5 +4,5 @@ ACTUAL NATIVE57: four manual subsets use32/44d10 each; first10 -> actual Grim Ca
 ACTUAL SEQ/SPAWN: 60d10 each; exact compact records/summary/full source and indexed seeds; one limit +one unsupported remain in denominator2
 ACTUAL EXPLICIT-LIST STAGES: seq/spawn full reports equal; planned=actual4 each, stage1 rerun with shared seed prefix; 280d10; candidate inputs are manual, not generated58
 ACTUAL GENERATION58: matching Crushed Rib family generates ordered 3/4-actor subsets with permission preserved; mismatch and malformed first/last candidates reject before enumeration; original sources unchanged
-CURRENT PRODUCTION WIRE GATES: JSON1-4 reject Crushed Rib encoding and unknown null field in both families; same-runtime genuine None bytes unchanged; selected source is never stripped
-647 scripted d10 plus genuine seeded None balance; full inputs/global RNG unchanged; generation58/native57/Simulation5 parser/encoder/CLI/Balance5 parser/seq/spawn/stages are actual
+CURRENT PRODUCTION WIRE: complete Crushed Rib policy retained in both families; selected source is never stripped
+647 scripted d10 plus genuine seeded None balance; full inputs/global RNG unchanged; generation58/native57/Simulation6 parser/encoder/CLI/Balance6 parser/seq/spawn/stages are actual

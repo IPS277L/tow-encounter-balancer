@@ -1,4 +1,4 @@
-"""Magic balance subprocess boundary, real spawn and late failure semantics."""
+"""Current Magic JSON contract: deterministic admission and source guards."""
 import json
 from pathlib import Path
 import subprocess
@@ -37,7 +37,7 @@ class M8MagicBalanceCliIntegrationTests(unittest.TestCase):
             ('balance-melee','melee_balance_error','m6/json/melee-balance-v1.request.json'),
             ('simulate-mixed','mixed_simulation_error','m7/json/mixed-simulation-v1.request.json'),
             ('balance-mixed','mixed_balance_error','m7/json/mixed-balance-v1.request.json'),
-            ('simulate-magic','magic_simulation_error','m8/json/magic-simulation-v1.request.json'))
+            ('simulate-magic','magic_simulation_error','m8/json/magic-simulation.request.json'))
         for command,kind,path in cases:
             with self.subTest(command=command):
                 rejected=invoke(command,'-',data=json.dumps(document()).encode())
@@ -47,7 +47,8 @@ class M8MagicBalanceCliIntegrationTests(unittest.TestCase):
                 self.assertEqual(rejected.returncode,2,rejected.stderr)
                 actual=json.loads(rejected.stdout)
                 self.assertEqual(actual['kind'],'magic_balance_error')
-                self.assertEqual(actual['error']['code'],'invalid_input')
+                self.assertEqual(actual['error']['code'],
+                    'invalid_input' if command == 'simulate-magic' else 'unsupported_version')
 
     def test_materialization_failure_after_successful_preflight_has_generation_context(self):
         from tests.unit.test_m8_magic_balance_json import generation_failure_document

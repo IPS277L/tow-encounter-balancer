@@ -1,0 +1,1826 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:towr:magic:common",
+  "$comment": "Shared definitions for the sole current Magic JSON contract; no legacy request/result/error roots.",
+  "$defs": {
+    "magic_balance_error_error": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "enum": [
+            "invalid_json",
+            "unsupported_version",
+            "invalid_input",
+            "generation_failed",
+            "evaluation_failed"
+          ]
+        },
+        "path": {
+          "$ref": "urn:towr:magic:common#/$defs/magic_simulation_error_error_path"
+        },
+        "message": {
+          "$ref": "urn:towr:magic:common#/$defs/magic_simulation_request_id"
+        },
+        "candidate_id": {
+          "anyOf": [
+            {
+              "$ref": "urn:towr:magic:common#/$defs/magic_simulation_request_id"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "counts": {
+          "anyOf": [
+            {
+              "type": "array",
+              "items": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "minItems": 1
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "stage_index": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "code",
+        "path",
+        "message",
+        "candidate_id",
+        "counts",
+        "stage_index"
+      ],
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "code": {
+                "enum": [
+                  "invalid_json",
+                  "unsupported_version",
+                  "invalid_input"
+                ]
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "candidate_id": {
+                "type": "null"
+              },
+              "counts": {
+                "type": "null"
+              },
+              "stage_index": {
+                "type": "null"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "code": {
+                "const": "generation_failed"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "path": {
+                "type": "string",
+                "const": "/generation"
+              },
+              "stage_index": {
+                "type": "null"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "code": {
+                "const": "evaluation_failed"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "path": {
+                "type": "string",
+                "const": "/evaluation"
+              },
+              "counts": {
+                "type": "null"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "magic_balance_error_kind": {
+      "type": "string",
+      "const": "magic_balance_error"
+    },
+    "magic_balance_error_request_id": {
+      "anyOf": [
+        {
+          "$ref": "urn:towr:magic:common#/$defs/magic_simulation_request_id"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "magic_balance_request_evaluation": {
+      "type": "object",
+      "properties": {
+        "master_seed": {
+          "$ref": "urn:towr:magic:common#/$defs/ranged_simulation_request_simulation_master_seed"
+        },
+        "stages": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "trials_per_candidate": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 18446744073709551615
+              },
+              "keep": {
+                "type": "integer",
+                "minimum": 1
+              }
+            },
+            "required": [
+              "trials_per_candidate",
+              "keep"
+            ],
+            "additionalProperties": false
+          },
+          "minItems": 1
+        },
+        "max_total_trials": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "window": {
+          "type": "object",
+          "properties": {
+            "minimum": {
+              "$ref": "urn:towr:magic:common#/$defs/magic_balance_request_fraction"
+            },
+            "target": {
+              "$ref": "urn:towr:magic:common#/$defs/magic_balance_request_fraction"
+            },
+            "maximum": {
+              "$ref": "urn:towr:magic:common#/$defs/magic_balance_request_fraction"
+            }
+          },
+          "required": [
+            "minimum",
+            "target",
+            "maximum"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "master_seed",
+        "stages",
+        "max_total_trials",
+        "window"
+      ],
+      "additionalProperties": false
+    },
+    "magic_balance_request_execution": {
+      "$ref": "urn:towr:magic:common#/$defs/ranged_simulation_request_execution"
+    },
+    "magic_balance_request_fraction": {
+      "type": "object",
+      "properties": {
+        "numerator": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "denominator": {
+          "type": "integer",
+          "minimum": 1
+        }
+      },
+      "required": [
+        "numerator",
+        "denominator"
+      ],
+      "additionalProperties": false
+    },
+    "magic_balance_request_generation_candidate_id_prefix": {
+      "$ref": "urn:towr:magic:common#/$defs/magic_simulation_request_id"
+    },
+    "magic_balance_request_generation_facts": {
+      "$ref": "urn:towr:magic:common#/$defs/magic_simulation_request_facts"
+    },
+    "magic_balance_request_generation_groups": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "group_id": {
+            "$ref": "urn:towr:magic:common#/$defs/magic_simulation_request_id"
+          },
+          "actor_ids": {
+            "type": "array",
+            "items": {
+              "$ref": "urn:towr:magic:common#/$defs/magic_simulation_request_id"
+            },
+            "minItems": 1,
+            "uniqueItems": true
+          },
+          "minimum_count": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "maximum_count": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "group_id",
+          "actor_ids",
+          "minimum_count",
+          "maximum_count"
+        ],
+        "additionalProperties": false
+      },
+      "minItems": 1
+    },
+    "magic_balance_request_generation_max_candidates": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "magic_balance_request_generation_scene_frames": {
+      "type": "array",
+      "items": {
+        "$ref": "urn:towr:magic:common#/$defs/magic_simulation_request_scene_frame"
+      },
+      "minItems": 1
+    },
+    "magic_balance_request_kind": {
+      "type": "string",
+      "const": "npc_magic_balance"
+    },
+    "magic_balance_request_request_id": {
+      "$ref": "urn:towr:magic:common#/$defs/magic_simulation_request_id"
+    },
+    "magic_balance_request_reserve_round_budget": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "magic_balance_request_ruleset": {
+      "type": "string",
+      "const": "towr-pg1.4-gmg1.1"
+    },
+    "magic_balance_result_candidate_count": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "magic_balance_result_candidates": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "candidate_id": {
+            "$ref": "urn:towr:magic:common#/$defs/magic_simulation_request_id"
+          },
+          "counts": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "minItems": 1
+          }
+        },
+        "required": [
+          "candidate_id",
+          "counts"
+        ],
+        "additionalProperties": false
+      },
+      "minItems": 1
+    },
+    "magic_balance_result_kind": {
+      "type": "string",
+      "const": "npc_magic_balance_result"
+    },
+    "magic_balance_result_planned_trials": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "magic_balance_result_runtime": {
+      "$ref": "urn:towr:magic:common#/$defs/magic_simulation_result_runtime"
+    },
+    "magic_balance_result_seed_scheme": {
+      "$ref": "urn:towr:magic:common#/$defs/magic_simulation_result_seed_scheme"
+    },
+    "magic_balance_result_selected_candidate_ids": {
+      "type": "array",
+      "items": {
+        "$ref": "urn:towr:magic:common#/$defs/magic_simulation_request_id"
+      },
+      "minItems": 0,
+      "uniqueItems": true
+    },
+    "magic_balance_result_stage_reports": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "stage_index": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "trials_per_candidate": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 18446744073709551615
+          },
+          "keep": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "total_trials": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "candidates": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "candidate_id": {
+                  "$ref": "urn:towr:magic:common#/$defs/magic_simulation_request_id"
+                },
+                "summary": {
+                  "$ref": "urn:towr:magic:common#/$defs/magic_simulation_result_summary"
+                },
+                "rates": {
+                  "type": "object",
+                  "properties": {
+                    "objective_achieved": {
+                      "$ref": "urn:towr:magic:common#/$defs/magic_balance_request_fraction"
+                    },
+                    "perspective_defeated": {
+                      "$ref": "urn:towr:magic:common#/$defs/magic_balance_request_fraction"
+                    },
+                    "round_limit_reached": {
+                      "$ref": "urn:towr:magic:common#/$defs/magic_balance_request_fraction"
+                    },
+                    "unsupported_path": {
+                      "$ref": "urn:towr:magic:common#/$defs/magic_balance_request_fraction"
+                    }
+                  },
+                  "required": [
+                    "objective_achieved",
+                    "perspective_defeated",
+                    "round_limit_reached",
+                    "unsupported_path"
+                  ],
+                  "additionalProperties": false
+                },
+                "status": {
+                  "enum": [
+                    "eligible",
+                    "unsupported_observations"
+                  ]
+                },
+                "window_match": {
+                  "type": [
+                    "boolean",
+                    "null"
+                  ]
+                }
+              },
+              "required": [
+                "candidate_id",
+                "summary",
+                "rates",
+                "status",
+                "window_match"
+              ],
+              "additionalProperties": false,
+              "allOf": [
+                {
+                  "if": {
+                    "properties": {
+                      "status": {
+                        "const": "eligible"
+                      }
+                    }
+                  },
+                  "then": {
+                    "properties": {
+                      "window_match": {
+                        "type": "boolean"
+                      }
+                    }
+                  },
+                  "else": {
+                    "properties": {
+                      "window_match": {
+                        "type": "null"
+                      }
+                    }
+                  }
+                }
+              ]
+            },
+            "minItems": 1
+          },
+          "selected_candidate_ids": {
+            "type": "array",
+            "items": {
+              "$ref": "urn:towr:magic:common#/$defs/magic_simulation_request_id"
+            },
+            "minItems": 0,
+            "uniqueItems": true
+          },
+          "continuation_candidate_ids": {
+            "type": "array",
+            "items": {
+              "$ref": "urn:towr:magic:common#/$defs/magic_simulation_request_id"
+            },
+            "minItems": 0,
+            "uniqueItems": true
+          }
+        },
+        "required": [
+          "stage_index",
+          "trials_per_candidate",
+          "keep",
+          "total_trials",
+          "candidates",
+          "selected_candidate_ids",
+          "continuation_candidate_ids"
+        ],
+        "additionalProperties": false
+      },
+      "minItems": 1
+    },
+    "magic_balance_result_status": {
+      "enum": [
+        "completed",
+        "no_eligible_candidates"
+      ]
+    },
+    "magic_balance_result_total_trials": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "magic_simulation_error_error": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "enum": [
+            "invalid_json",
+            "unsupported_version",
+            "invalid_input",
+            "simulation_failed"
+          ]
+        },
+        "path": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^(?:/(?:[^~/]|~[01])*)*$(?![\\s\\S])"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "message": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        }
+      },
+      "required": [
+        "code",
+        "path",
+        "message"
+      ],
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "code": {
+                "type": "string",
+                "const": "simulation_failed"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "path": {
+                "type": "null"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "magic_simulation_error_error_path": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^(?:/(?:[^~/]|~[01])*)*$(?![\\s\\S])"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "magic_simulation_error_kind": {
+      "type": "string",
+      "const": "magic_simulation_error"
+    },
+    "magic_simulation_error_request_id": {
+      "anyOf": [
+        {
+          "$ref": "urn:towr:magic:common#/$defs/magic_simulation_request_id"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "magic_simulation_request_actor": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "urn:towr:magic:common#/$defs/magic_simulation_request_id"
+        },
+        "definition_id": {
+          "$ref": "urn:towr:magic:common#/$defs/magic_simulation_request_id"
+        },
+        "side": {
+          "$ref": "urn:towr:magic:common#/$defs/magic_simulation_request_side"
+        }
+      },
+      "required": [
+        "id",
+        "definition_id",
+        "side"
+      ],
+      "additionalProperties": false
+    },
+    "magic_simulation_request_attack": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "urn:towr:magic:common#/$defs/magic_simulation_request_id"
+        },
+        "source_rule_id": {
+          "$ref": "urn:towr:magic:common#/$defs/magic_simulation_request_id"
+        },
+        "skill": {
+          "type": "string",
+          "const": "shooting"
+        },
+        "dice": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "threshold": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 10
+        },
+        "damage": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "range_min": {
+          "enum": [
+            "short",
+            "medium",
+            "long"
+          ]
+        },
+        "range_max": {
+          "enum": [
+            "short",
+            "medium",
+            "long"
+          ]
+        },
+        "hands": {
+          "enum": [
+            "1h",
+            "2h"
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "source_rule_id",
+        "skill",
+        "dice",
+        "threshold",
+        "damage",
+        "range_min",
+        "range_max",
+        "hands"
+      ],
+      "additionalProperties": false
+    },
+    "magic_simulation_request_attack_departure": {
+      "type": "object",
+      "properties": {
+        "actor_id": {
+          "$ref": "urn:towr:magic:common#/$defs/magic_simulation_request_id"
+        },
+        "can_leave_zone": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "actor_id",
+        "can_leave_zone"
+      ],
+      "additionalProperties": false
+    },
+    "magic_simulation_request_battlefield": {
+      "type": "object",
+      "properties": {
+        "zone_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:towr:magic:common#/$defs/magic_simulation_request_id"
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "connections": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:towr:magic:common#/$defs/magic_simulation_request_connection"
+          },
+          "minItems": 0
+        }
+      },
+      "required": [
+        "zone_ids",
+        "connections"
+      ],
+      "additionalProperties": false
+    },
+    "magic_simulation_request_broken_plan": {
+      "type": "object",
+      "properties": {
+        "actor_id": {
+          "$ref": "urn:towr:magic:common#/$defs/magic_simulation_request_id"
+        },
+        "kind": {
+          "enum": [
+            "safe_recover",
+            "free_move_recover",
+            "free_move_run"
+          ]
+        },
+        "free_move_zone_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:towr:magic:common#/$defs/magic_simulation_request_id"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        },
+        "free_move_route": {
+          "anyOf": [
+            {
+              "$ref": "urn:towr:magic:common#/$defs/magic_simulation_request_route"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "run_destination_zone_id": {
+          "anyOf": [
+            {
+              "$ref": "urn:towr:magic:common#/$defs/magic_simulation_request_id"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "run_route": {
+          "anyOf": [
+            {
+              "$ref": "urn:towr:magic:common#/$defs/magic_simulation_request_route"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "fastest_route_confirmed": {
+          "type": "boolean",
+          "const": true
+        }
+      },
+      "required": [
+        "actor_id",
+        "kind",
+        "free_move_zone_ids",
+        "free_move_route",
+        "run_destination_zone_id",
+        "run_route",
+        "fastest_route_confirmed"
+      ],
+      "additionalProperties": false
+    },
+    "magic_simulation_request_connection": {
+      "type": "object",
+      "properties": {
+        "first_zone_id": {
+          "$ref": "urn:towr:magic:common#/$defs/magic_simulation_request_id"
+        },
+        "second_zone_id": {
+          "$ref": "urn:towr:magic:common#/$defs/magic_simulation_request_id"
+        }
+      },
+      "required": [
+        "first_zone_id",
+        "second_zone_id"
+      ],
+      "additionalProperties": false
+    },
+    "magic_simulation_request_crushed_rib_continuation": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "string",
+          "const": "next_test_with_journal_witnesses"
+        }
+      ]
+    },
+    "magic_simulation_request_defeat_decision": {
+      "type": "object",
+      "properties": {
+        "attacker_id": {
+          "$ref": "urn:towr:magic:common#/$defs/magic_simulation_request_id"
+        },
+        "target_id": {
+          "$ref": "urn:towr:magic:common#/$defs/magic_simulation_request_id"
+        },
+        "disposition": {
+          "enum": [
+            "killed",
+            "knocked_out",
+            "disarmed_and_surrendered"
+          ]
+        },
+        "gm_approved": {
+          "type": "boolean",
+          "const": true
+        }
+      },
+      "required": [
+        "attacker_id",
+        "target_id",
+        "disposition",
+        "gm_approved"
+      ],
+      "additionalProperties": false
+    },
+    "magic_simulation_request_definition": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "urn:towr:magic:common#/$defs/magic_simulation_request_id"
+        },
+        "source_rule_id": {
+          "$ref": "urn:towr:magic:common#/$defs/magic_simulation_request_id"
+        },
+        "injury_policy": {
+          "enum": [
+            "champion",
+            "minion"
+          ]
+        },
+        "wound_limit": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 1
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "resilience": {
+          "$ref": "urn:towr:magic:common#/$defs/magic_simulation_request_resilience"
+        },
+        "attacks": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:towr:magic:common#/$defs/magic_simulation_request_attack"
+          },
+          "minItems": 0,
+          "maxItems": 1
+        },
+        "protection": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:towr:magic:common#/$defs/magic_simulation_request_protection"
+          },
+          "minItems": 1,
+          "maxItems": 1
+        }
+      },
+      "required": [
+        "id",
+        "source_rule_id",
+        "injury_policy",
+        "wound_limit",
+        "resilience",
+        "attacks",
+        "protection"
+      ],
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "injury_policy": {
+                "type": "string",
+                "const": "champion"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "wound_limit": {
+                "type": "null"
+              },
+              "attacks": {
+                "maxItems": 0
+              },
+              "resilience": {
+                "properties": {
+                  "bonus": {
+                    "type": "integer",
+                    "const": 0
+                  }
+                }
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "wound_limit": {
+                "type": "integer",
+                "const": 1
+              },
+              "attacks": {
+                "minItems": 1
+              }
+            }
+          }
+        }
+      ]
+    },
+    "magic_simulation_request_execution": {
+      "$ref": "urn:towr:magic:common#/$defs/ranged_simulation_request_execution"
+    },
+    "magic_simulation_request_facts": {
+      "type": "object",
+      "properties": {
+        "authored_wizard_profile": {
+          "type": "boolean",
+          "const": true
+        },
+        "targets_aware": {
+          "type": "boolean",
+          "const": true
+        },
+        "clear_line_of_sight": {
+          "type": "boolean",
+          "const": true
+        },
+        "all_combatants_included": {
+          "type": "boolean",
+          "const": true
+        },
+        "unmounted_combatants_only": {
+          "type": "boolean",
+          "const": true
+        },
+        "no_additional_rules": {
+          "type": "boolean",
+          "const": true
+        },
+        "no_other_test_modifiers": {
+          "type": "boolean",
+          "const": true
+        },
+        "no_cover_or_concealment": {
+          "type": "boolean",
+          "const": true
+        },
+        "no_terrain_or_obstacles": {
+          "type": "boolean",
+          "const": true
+        },
+        "no_external_scene_changes": {
+          "type": "boolean",
+          "const": true
+        },
+        "no_external_condition_sources": {
+          "type": "boolean",
+          "const": true
+        },
+        "ammunition_sufficient": {
+          "type": "boolean",
+          "const": true
+        },
+        "requires_reload_action": {
+          "type": "boolean",
+          "const": false
+        },
+        "knows_battle_magic": {
+          "type": "boolean",
+          "const": true
+        },
+        "spell_memorised": {
+          "type": "boolean",
+          "const": true
+        },
+        "no_bulky_items": {
+          "type": "boolean",
+          "const": true
+        },
+        "no_casting_opposition": {
+          "type": "boolean",
+          "const": true
+        },
+        "no_mixing_winds": {
+          "type": "boolean",
+          "const": true
+        },
+        "no_potency_modifiers": {
+          "type": "boolean",
+          "const": true
+        },
+        "no_effect_immunities": {
+          "type": "boolean",
+          "const": true
+        }
+      },
+      "required": [
+        "authored_wizard_profile",
+        "targets_aware",
+        "clear_line_of_sight",
+        "all_combatants_included",
+        "unmounted_combatants_only",
+        "no_additional_rules",
+        "no_other_test_modifiers",
+        "no_cover_or_concealment",
+        "no_terrain_or_obstacles",
+        "no_external_scene_changes",
+        "no_external_condition_sources",
+        "ammunition_sufficient",
+        "requires_reload_action",
+        "knows_battle_magic",
+        "spell_memorised",
+        "no_bulky_items",
+        "no_casting_opposition",
+        "no_mixing_winds",
+        "no_potency_modifiers",
+        "no_effect_immunities"
+      ],
+      "additionalProperties": false
+    },
+    "magic_simulation_request_give_ground_plan": {
+      "type": "object",
+      "properties": {
+        "actor_id": {
+          "$ref": "urn:towr:magic:common#/$defs/magic_simulation_request_id"
+        },
+        "can_leave_zone": {
+          "type": "boolean"
+        },
+        "destination_zone_id": {
+          "anyOf": [
+            {
+              "$ref": "urn:towr:magic:common#/$defs/magic_simulation_request_id"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "route": {
+          "anyOf": [
+            {
+              "$ref": "urn:towr:magic:common#/$defs/magic_simulation_request_route"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "impossible_confirmed": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "actor_id",
+        "can_leave_zone",
+        "destination_zone_id",
+        "route",
+        "impossible_confirmed"
+      ],
+      "additionalProperties": false
+    },
+    "magic_simulation_request_id": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "\\S"
+    },
+    "magic_simulation_request_kind": {
+      "type": "string",
+      "const": "npc_magic_simulation"
+    },
+    "magic_simulation_request_miscast_continuation": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "properties": {
+        "choice": {
+          "type": "string",
+          "const": "decline_cast_before_miscast"
+        },
+        "facts": {
+          "type": "object",
+          "properties": {
+            "all_combatants_in_roster": {
+              "type": "boolean",
+              "const": true
+            },
+            "no_external_short_range_creatures": {
+              "type": "boolean",
+              "const": true
+            },
+            "unmounted_combatants_only": {
+              "type": "boolean",
+              "const": true
+            },
+            "no_effect_immunities": {
+              "type": "boolean",
+              "const": true
+            },
+            "no_cross_zone_close": {
+              "type": "boolean",
+              "const": true
+            }
+          },
+          "required": [
+            "all_combatants_in_roster",
+            "no_external_short_range_creatures",
+            "unmounted_combatants_only",
+            "no_effect_immunities",
+            "no_cross_zone_close"
+          ],
+          "additionalProperties": false
+        },
+        "prone_policy": {
+          "type": "string",
+          "const": "self_stand_when_safe"
+        }
+      },
+      "required": [
+        "choice",
+        "facts",
+        "prone_policy"
+      ],
+      "additionalProperties": false
+    },
+    "magic_simulation_request_pair_range": {
+      "type": "object",
+      "properties": {
+        "first_actor_id": {
+          "$ref": "urn:towr:magic:common#/$defs/magic_simulation_request_id"
+        },
+        "second_actor_id": {
+          "$ref": "urn:towr:magic:common#/$defs/magic_simulation_request_id"
+        },
+        "target_range": {
+          "enum": [
+            "close",
+            "short",
+            "medium",
+            "long",
+            "extreme"
+          ]
+        },
+        "first_range_approved_by_gm": {
+          "type": "boolean"
+        },
+        "second_range_approved_by_gm": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "first_actor_id",
+        "second_actor_id",
+        "target_range",
+        "first_range_approved_by_gm",
+        "second_range_approved_by_gm"
+      ],
+      "additionalProperties": false
+    },
+    "magic_simulation_request_placement": {
+      "type": "object",
+      "properties": {
+        "entity_id": {
+          "$ref": "urn:towr:magic:common#/$defs/magic_simulation_request_id"
+        },
+        "side_id": {
+          "$ref": "urn:towr:magic:common#/$defs/magic_simulation_request_side"
+        },
+        "zone_id": {
+          "$ref": "urn:towr:magic:common#/$defs/magic_simulation_request_id"
+        }
+      },
+      "required": [
+        "entity_id",
+        "side_id",
+        "zone_id"
+      ],
+      "additionalProperties": false
+    },
+    "magic_simulation_request_policy": {
+      "type": "object",
+      "properties": {
+        "actor_id": {
+          "$ref": "urn:towr:magic:common#/$defs/magic_simulation_request_id"
+        },
+        "willpower": {
+          "$ref": "urn:towr:magic:common#/$defs/magic_simulation_request_profile"
+        },
+        "speed": {
+          "enum": [
+            "slow",
+            "normal",
+            "fast"
+          ]
+        },
+        "target_actor_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:towr:magic:common#/$defs/magic_simulation_request_id"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        },
+        "defeat_decisions": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:towr:magic:common#/$defs/magic_simulation_request_defeat_decision"
+          },
+          "minItems": 0
+        },
+        "attack_id": {
+          "anyOf": [
+            {
+              "$ref": "urn:towr:magic:common#/$defs/magic_simulation_request_id"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "casting_policy": {
+          "anyOf": [
+            {
+              "type": "string",
+              "const": "cast_when_ready"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "zone_priorities": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:towr:magic:common#/$defs/magic_simulation_request_id"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        }
+      },
+      "required": [
+        "actor_id",
+        "willpower",
+        "speed",
+        "target_actor_ids",
+        "defeat_decisions",
+        "attack_id",
+        "casting_policy",
+        "zone_priorities"
+      ],
+      "additionalProperties": false
+    },
+    "magic_simulation_request_profile": {
+      "type": "object",
+      "properties": {
+        "dice": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "threshold": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 10
+        }
+      },
+      "required": [
+        "dice",
+        "threshold"
+      ],
+      "additionalProperties": false
+    },
+    "magic_simulation_request_protection": {
+      "type": "object",
+      "properties": {
+        "source_rule_id": {
+          "$ref": "urn:towr:magic:common#/$defs/magic_simulation_request_id"
+        },
+        "skill": {
+          "type": "string",
+          "const": "athletics"
+        },
+        "dice": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "threshold": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 10
+        }
+      },
+      "required": [
+        "source_rule_id",
+        "skill",
+        "dice",
+        "threshold"
+      ],
+      "additionalProperties": false
+    },
+    "magic_simulation_request_repeated_leg_spasm_continuation": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "string",
+          "const": "stand_once_with_journal_witnesses"
+        }
+      ]
+    },
+    "magic_simulation_request_request_id": {
+      "$ref": "urn:towr:magic:common#/$defs/magic_simulation_request_id"
+    },
+    "magic_simulation_request_resilience": {
+      "type": "object",
+      "properties": {
+        "toughness": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "bonus": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "toughness",
+        "bonus"
+      ],
+      "additionalProperties": false
+    },
+    "magic_simulation_request_route": {
+      "type": "object",
+      "properties": {
+        "path_entity_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:towr:magic:common#/$defs/magic_simulation_request_id"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        },
+        "crosses_obstacle": {
+          "type": "boolean"
+        },
+        "crosses_difficult_terrain": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "path_entity_ids",
+        "crosses_obstacle",
+        "crosses_difficult_terrain"
+      ],
+      "additionalProperties": false
+    },
+    "magic_simulation_request_ruleset": {
+      "type": "string",
+      "const": "towr-pg1.4-gmg1.1"
+    },
+    "magic_simulation_request_scenario_activation_order": {
+      "type": "array",
+      "items": {
+        "$ref": "urn:towr:magic:common#/$defs/magic_simulation_request_id"
+      },
+      "minItems": 3,
+      "uniqueItems": true
+    },
+    "magic_simulation_request_scenario_actor_policies": {
+      "type": "array",
+      "items": {
+        "$ref": "urn:towr:magic:common#/$defs/magic_simulation_request_policy"
+      },
+      "minItems": 3
+    },
+    "magic_simulation_request_scenario_actors": {
+      "type": "array",
+      "items": {
+        "$ref": "urn:towr:magic:common#/$defs/magic_simulation_request_actor"
+      },
+      "minItems": 3
+    },
+    "magic_simulation_request_scenario_battlefield": {
+      "$ref": "urn:towr:magic:common#/$defs/magic_simulation_request_battlefield"
+    },
+    "magic_simulation_request_scenario_definitions": {
+      "type": "array",
+      "items": {
+        "$ref": "urn:towr:magic:common#/$defs/magic_simulation_request_definition"
+      },
+      "minItems": 2
+    },
+    "magic_simulation_request_scenario_facts": {
+      "$ref": "urn:towr:magic:common#/$defs/magic_simulation_request_facts"
+    },
+    "magic_simulation_request_scenario_objective_target_ids": {
+      "type": "array",
+      "items": {
+        "$ref": "urn:towr:magic:common#/$defs/magic_simulation_request_id"
+      },
+      "minItems": 1,
+      "uniqueItems": true
+    },
+    "magic_simulation_request_scenario_perspective_side": {
+      "$ref": "urn:towr:magic:common#/$defs/magic_simulation_request_side"
+    },
+    "magic_simulation_request_scenario_placements": {
+      "type": "array",
+      "items": {
+        "$ref": "urn:towr:magic:common#/$defs/magic_simulation_request_placement"
+      },
+      "minItems": 3
+    },
+    "magic_simulation_request_scenario_repeated_stagger_choice": {
+      "type": "string",
+      "const": "suffer_wound"
+    },
+    "magic_simulation_request_scenario_scenario_id": {
+      "$ref": "urn:towr:magic:common#/$defs/magic_simulation_request_id"
+    },
+    "magic_simulation_request_scenario_scene_frames": {
+      "type": "array",
+      "items": {
+        "$ref": "urn:towr:magic:common#/$defs/magic_simulation_request_scene_frame"
+      },
+      "minItems": 1
+    },
+    "magic_simulation_request_scenario_side_order": {
+      "const": [
+        "players_and_allies",
+        "opposition"
+      ]
+    },
+    "magic_simulation_request_scenario_spell": {
+      "$ref": "urn:towr:magic:common#/$defs/magic_simulation_request_spell"
+    },
+    "magic_simulation_request_scenario_wizard": {
+      "$ref": "urn:towr:magic:common#/$defs/magic_simulation_request_wizard"
+    },
+    "magic_simulation_request_scene_frame": {
+      "type": "object",
+      "properties": {
+        "key": {
+          "$ref": "urn:towr:magic:common#/$defs/magic_simulation_request_scene_key"
+        },
+        "pair_ranges": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:towr:magic:common#/$defs/magic_simulation_request_pair_range"
+          },
+          "minItems": 0
+        },
+        "zone_ranges": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:towr:magic:common#/$defs/magic_simulation_request_zone_range"
+          },
+          "minItems": 1
+        },
+        "give_ground_plans": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:towr:magic:common#/$defs/magic_simulation_request_give_ground_plan"
+          },
+          "minItems": 0
+        },
+        "broken_plans": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:towr:magic:common#/$defs/magic_simulation_request_broken_plan"
+          },
+          "minItems": 0
+        },
+        "attack_departures": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:towr:magic:common#/$defs/magic_simulation_request_attack_departure"
+          },
+          "minItems": 0
+        }
+      },
+      "required": [
+        "key",
+        "pair_ranges",
+        "zone_ranges",
+        "give_ground_plans",
+        "broken_plans",
+        "attack_departures"
+      ],
+      "additionalProperties": false
+    },
+    "magic_simulation_request_scene_key": {
+      "type": "object",
+      "properties": {
+        "placements": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:towr:magic:common#/$defs/magic_simulation_request_placement"
+          },
+          "minItems": 1
+        },
+        "live_actor_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:towr:magic:common#/$defs/magic_simulation_request_id"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        }
+      },
+      "required": [
+        "placements",
+        "live_actor_ids"
+      ],
+      "additionalProperties": false
+    },
+    "magic_simulation_request_side": {
+      "enum": [
+        "players_and_allies",
+        "opposition"
+      ]
+    },
+    "magic_simulation_request_simulation": {
+      "$ref": "urn:towr:magic:common#/$defs/ranged_simulation_request_simulation"
+    },
+    "magic_simulation_request_spell": {
+      "type": "object",
+      "properties": {
+        "rule_id": {
+          "type": "string",
+          "const": "RULE-MAGIC-001:curse-of-cowardly-flight"
+        },
+        "lore_id": {
+          "type": "string",
+          "const": "lore:battle-magic"
+        },
+        "casting_value": {
+          "type": "integer",
+          "const": 3
+        },
+        "target_kind": {
+          "type": "string",
+          "const": "zone"
+        },
+        "range": {
+          "type": "string",
+          "const": "long"
+        },
+        "duration": {
+          "type": "string",
+          "const": "instant"
+        }
+      },
+      "required": [
+        "rule_id",
+        "lore_id",
+        "casting_value",
+        "target_kind",
+        "range",
+        "duration"
+      ],
+      "additionalProperties": false
+    },
+    "magic_simulation_request_stationary_wound_continuation": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "string",
+          "const": "leg_spasm_stand_and_continue"
+        }
+      ]
+    },
+    "magic_simulation_request_wizard": {
+      "type": "object",
+      "properties": {
+        "actor_id": {
+          "$ref": "urn:towr:magic:common#/$defs/magic_simulation_request_id"
+        },
+        "caster": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "$ref": "urn:towr:magic:common#/$defs/magic_simulation_request_id"
+            },
+            "source_rule_id": {
+              "$ref": "urn:towr:magic:common#/$defs/magic_simulation_request_id"
+            },
+            "wizard_level": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 4
+            },
+            "casting_profile": {
+              "$ref": "urn:towr:magic:common#/$defs/magic_simulation_request_profile"
+            }
+          },
+          "required": [
+            "id",
+            "source_rule_id",
+            "wizard_level",
+            "casting_profile"
+          ],
+          "additionalProperties": false
+        },
+        "day_id": {
+          "$ref": "urn:towr:magic:common#/$defs/magic_simulation_request_id"
+        }
+      },
+      "required": [
+        "actor_id",
+        "caster",
+        "day_id"
+      ],
+      "additionalProperties": false
+    },
+    "magic_simulation_request_zone_range": {
+      "type": "object",
+      "properties": {
+        "zone_id": {
+          "$ref": "urn:towr:magic:common#/$defs/magic_simulation_request_id"
+        },
+        "target_range": {
+          "enum": [
+            "short",
+            "medium",
+            "long",
+            "extreme"
+          ]
+        }
+      },
+      "required": [
+        "zone_id",
+        "target_range"
+      ],
+      "additionalProperties": false
+    },
+    "magic_simulation_result_kind": {
+      "type": "string",
+      "const": "npc_magic_simulation_result"
+    },
+    "magic_simulation_result_runtime": {
+      "type": "object",
+      "properties": {
+        "package_version": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "python_implementation": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "python_version": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "rng": {
+          "type": "string",
+          "const": "random.Random"
+        }
+      },
+      "required": [
+        "package_version",
+        "python_implementation",
+        "python_version",
+        "rng"
+      ],
+      "additionalProperties": false
+    },
+    "magic_simulation_result_seed_scheme": {
+      "type": "string",
+      "const": "towr:npc-magic-trial:v1"
+    },
+    "magic_simulation_result_summary": {
+      "type": "object",
+      "properties": {
+        "trials": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 18446744073709551615
+        },
+        "outcome_counts": {
+          "type": "object",
+          "properties": {
+            "objective_achieved": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "perspective_defeated": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "round_limit_reached": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "unsupported_path": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          "required": [
+            "objective_achieved",
+            "perspective_defeated",
+            "round_limit_reached",
+            "unsupported_path"
+          ],
+          "additionalProperties": false
+        },
+        "total_action_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "total_started_round_count": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "total_completed_round_count": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "trials",
+        "outcome_counts",
+        "total_action_count",
+        "total_started_round_count",
+        "total_completed_round_count"
+      ],
+      "additionalProperties": false
+    },
+    "ranged_simulation_request_execution": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "mode": {
+              "type": "string",
+              "const": "sequential"
+            }
+          },
+          "required": [
+            "mode"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "mode": {
+              "type": "string",
+              "const": "process"
+            },
+            "workers": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 61
+            },
+            "batch_size": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          "required": [
+            "mode",
+            "workers",
+            "batch_size"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "ranged_simulation_request_simulation": {
+      "type": "object",
+      "properties": {
+        "master_seed": {
+          "type": "string",
+          "pattern": "^(0|[1-9][0-9]*)$",
+          "not": {
+            "pattern": "[^0-9]"
+          },
+          "maxLength": 20
+        },
+        "trials": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 18446744073709551615
+        },
+        "round_budget": {
+          "type": "integer",
+          "minimum": 1
+        }
+      },
+      "required": [
+        "master_seed",
+        "trials",
+        "round_budget"
+      ],
+      "additionalProperties": false
+    },
+    "ranged_simulation_request_simulation_master_seed": {
+      "type": "string",
+      "pattern": "^(0|[1-9][0-9]*)$",
+      "not": {
+        "pattern": "[^0-9]"
+      },
+      "maxLength": 20
+    }
+  }
+}

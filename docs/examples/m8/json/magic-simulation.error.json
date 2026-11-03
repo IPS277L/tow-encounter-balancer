@@ -1,5 +1,5 @@
 {
-  "schema_version": "1",
+  "schema_version": "6",
   "kind": "magic_simulation_error",
   "request_id": "wire:magic:simulation",
   "error": {

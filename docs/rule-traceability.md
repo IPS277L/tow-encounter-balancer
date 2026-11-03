@@ -28,7 +28,7 @@ RULE-HEALTH-005/008, RULE-TEST-004 и RULE-MAGIC-004: адресная свер�
 
 ## M8 — generation/wire4 contract ADR-0054
 
-[ADR-0054](decisions/ADR-0054-repeated-leg-spasm-generation-and-magic-json-v4.md) реализован без изменений RULE-COMBAT-014/HEALTH-005/008 и источников PG1.4 Rules116/119/122–123/Wounds190, GM1.1 Champions92. [Generation tests](../tests/unit/test_m8_repeated_leg_spasm_generation.py), [actual generated/spawn integration](../tests/integration/test_m8_repeated_leg_spasm_generation.py), [wire4 tests](../tests/unit/test_m8_magic_json_v4.py), [CLI failures](../tests/integration/test_m8_magic_json_v4.py), [schema closure](../tests/unit/test_m8_magic_json_v4_schemas.py) проверяют matching всех3 policies, arithmetic/full-source границы и error trust. [Production proof](examples/m8/repeated_leg_spasm_transport_contract_probe.py) сверяет12roundtrips,30projections и96actual d10; copied test прошёл. Нового чтения правил нет.
+[ADR-0054](decisions/ADR-0054-repeated-leg-spasm-generation-and-magic-json-v4.md) реализован без изменений RULE-COMBAT-014/HEALTH-005/008 и источников PG1.4 Rules116/119/122–123/Wounds190, GM1.1 Champions92. [Generation tests](../tests/unit/test_m8_repeated_leg_spasm_generation.py), [actual generated/spawn integration](../tests/integration/test_m8_repeated_leg_spasm_generation.py), [wire4 tests](../tests/unit/test_m8_magic_json_v4.py), [CLI failures](../tests/integration/test_m8_magic_json_v4.py), [schema closure](../tests/unit/test_m8_magic_json_v6_schemas.py) проверяют matching всех3 policies, arithmetic/full-source границы и error trust. [Production proof](examples/m8/repeated_leg_spasm_transport_contract_probe.py) сверяет12roundtrips,30projections и96actual d10; copied test прошёл. Нового чтения правил нет.
 
 ## M8 — native repeated stand ADR-0053
 
@@ -44,11 +44,11 @@ RULE-HEALTH-005/008 и RULE-COMBAT-014: BOOK-PLAYER-GUIDE1.4, гл.V Free Action
 
 ## M8 — balance JSON/CLI v3, ADR-0051 пункт3
 
-2026-11-01: [balance3 schema/codec/service/CLI](audits/m8-balance-v3-readiness.md) реализованы;30newtests проверяют независимые reserve/family assertions, полную source chain/typed facts/derived cache и actual generated3/4actor9/6seqspawn. [Public input](examples/m8/json/magic-balance-v3.request.json)/[result](examples/m8/json/magic-balance-v3.result.json), [probe](examples/m8/stationary_wound_transport_contract_probe.py) с16actual v3 round-trips. Это propagation готового consumer, новых PG1.4/GM1.1 Rule IDs/house rules или чтения книг нет; общий installed audit ещё предстоит.
+2026-11-01: [balance3 schema/codec/service/CLI](audits/m8-balance-v3-readiness.md) реализованы;30newtests проверяют независимые reserve/family assertions, полную source chain/typed facts/derived cache и actual generated3/4actor9/6seqspawn. [Public input](examples/m8/json/magic-balance.request.json)/[result](examples/m8/json/magic-balance.result.json), [probe](examples/m8/stationary_wound_transport_contract_probe.py) с16actual v3 round-trips. Это propagation готового consumer, новых PG1.4/GM1.1 Rule IDs/house rules или чтения книг нет; общий installed audit ещё предстоит.
 
 ## M8 — simulation JSON/CLI v3, ADR-0051 пункт2
 
-2026-11-01: [simulation3 codec/schema/service/CLI](audits/m8-simulation-v3-readiness.md) реализованы;30newtests проверяют независимые policies/full source/strict trust table и actual parsed9→stand→6expiry в seq/spawn. [Public input](examples/m8/json/magic-simulation-v3.request.json)/[result](examples/m8/json/magic-simulation-v3.result.json), [probe](examples/m8/stationary_wound_transport_contract_probe.py). Это wire propagation существующей границы ADR-0050; PG1.4/GM1.1, Rule IDs и house rules не меняются, нового чтения книг нет. Balance3 ещё unsupported; JSON1/2 lossless отказ stationary policy сохраняется.
+2026-11-01: [simulation3 codec/schema/service/CLI](audits/m8-simulation-v3-readiness.md) реализованы;30newtests проверяют независимые policies/full source/strict trust table и actual parsed9→stand→6expiry в seq/spawn. [Public input](examples/m8/json/magic-simulation.request.json)/[result](examples/m8/json/magic-simulation.result.json), [probe](examples/m8/stationary_wound_transport_contract_probe.py). Это wire propagation существующей границы ADR-0050; PG1.4/GM1.1, Rule IDs и house rules не меняются, нового чтения книг нет. Balance3 ещё unsupported; JSON1/2 lossless отказ stationary policy сохраняется.
 
 ## M8 — generation stationary policy, ADR-0051 пункт1
 

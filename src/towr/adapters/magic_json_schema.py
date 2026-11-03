@@ -1,4 +1,4 @@
-"""Magic wire shapes with bundled references only (ADR-0043/0047/0051/0058)."""
+"""The sole current Magic JSON contract, with bundled references only."""
 from functools import lru_cache
 from importlib.resources import files
 import json
@@ -7,7 +7,7 @@ from jsonschema import Draft202012Validator
 from referencing import Registry, Resource
 
 
-_SUPPORTED_VERSIONS = {"simulation": ("1", "2", "3", "4", "5", "6"), "balance": ("1", "2", "3", "4", "5", "6")}
+_SUPPORTED_VERSIONS = {"simulation": ("6",), "balance": ("6",)}
 
 
 def _require_schema_version(family: str, schema_version: str) -> None:
@@ -17,18 +17,16 @@ def _require_schema_version(family: str, schema_version: str) -> None:
         raise ValueError(f"unsupported magic {family} schema version")
 
 
-@lru_cache(maxsize=36)
-def _validator(kind: str, family: str = "simulation", schema_version: str = "1") -> Draft202012Validator:
+@lru_cache(maxsize=6)
+def _validator(kind: str, family: str = "simulation", schema_version: str = "6") -> Draft202012Validator:
     if kind not in ("request", "result", "error"):
         raise ValueError(f"unknown magic {family} schema kind")
     if family not in ("simulation", "balance"):
         raise ValueError("unknown magic schema family")
     _require_schema_version(family, schema_version)
-    groups = ("simulation",) if family == "simulation" else ("simulation", "balance")
-    versions = _SUPPORTED_VERSIONS[family][:_SUPPORTED_VERSIONS[family].index(schema_version) + 1]
-    names = [f"magic-{group}-{name}-v{version}.schema.json"
-             for group in groups for version in versions for name in ("request", "result", "error")]
-    names.append("ranged-simulation-request-v1.schema.json")
+    names = [f"magic-{group}-{name}-v6.schema.json"
+             for group in ("simulation", "balance") for name in ("request", "result", "error")]
+    names.append("magic-common.schema.json")
     documents = {
         name: json.loads(files("towr.adapters.schemas").joinpath(name).read_text(encoding="utf-8"))
         for name in names
@@ -43,7 +41,7 @@ def _validator(kind: str, family: str = "simulation", schema_version: str = "1")
 
 
 def validate_magic_simulation_document(document: object, kind: str = "request", *,
-                                       schema_version: str = "1") -> None:
+                                       schema_version: str = "6") -> None:
     """Validate structure; strict token spelling and typed admission are separate.
 
     Raises jsonschema.ValidationError. No remote retrieval or simulation occurs.
@@ -53,7 +51,7 @@ def validate_magic_simulation_document(document: object, kind: str = "request", 
 
 
 def validate_magic_balance_document(document: object, kind: str = "request", *,
-                                    schema_version: str = "1") -> None:
+                                    schema_version: str = "6") -> None:
     """Validate balance shape; typed models enforce source, stages and budgets."""
     _require_schema_version("balance", schema_version)
     _validator(kind, "balance", schema_version).validate(document)

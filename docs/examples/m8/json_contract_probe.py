@@ -107,6 +107,8 @@ def scenario_document(s):
             'target_kind': s.spell.target_kind.value, 'range': s.spell.range.value, 'duration': s.spell.duration.value},
         'scene_frames': [frame_document(f) for f in s.scene_frames],
         'repeated_stagger_choice': s.repeated_stagger_choice.value,
+        **dict.fromkeys(('miscast_continuation', 'stationary_wound_continuation',
+                         'repeated_leg_spasm_continuation', 'crushed_rib_continuation', 'battered_leg_continuation')),
         'actor_policies': [{'actor_id': p.actor_id, 'willpower': profile_document(p.willpower_profile),
             'speed': p.speed.value, 'target_actor_ids': list(p.target_actor_ids),
             'defeat_decisions': [dict(asdict(d), disposition=d.disposition.value) for d in p.defeat_decisions],
@@ -183,18 +185,20 @@ def map_execution(d):
 
 
 def simulation_document(request, request_id):
-    return {'schema_version': '1', 'kind': 'npc_magic_simulation', 'request_id': request_id, 'ruleset': RULESET,
+    return {'schema_version': '6', 'kind': 'npc_magic_simulation', 'request_id': request_id, 'ruleset': RULESET,
         'simulation': {'master_seed': str(request.master_seed), 'trials': request.trials,
             'round_budget': request.scenario.max_rounds}, 'execution': {'mode': 'sequential'},
         'scenario': scenario_document(request.scenario)}
 
 
 def balance_document(source, request_id='wire:magic:balance'):
-    return {'schema_version': '1', 'kind': 'npc_magic_balance', 'request_id': request_id, 'ruleset': RULESET,
+    return {'schema_version': '6', 'kind': 'npc_magic_balance', 'request_id': request_id, 'ruleset': RULESET,
         'reserve': {'round_budget': source.template_scenario.max_rounds, 'scenario': scenario_document(source.template_scenario)},
         'generation': {'groups': [dict(asdict(g), actor_ids=list(g.actor_ids)) for g in source.groups],
             'facts': asdict(source.facts), 'scene_frames': [frame_document(f) for f in source.scene_frames],
-            'candidate_id_prefix': source.candidate_id_prefix, 'max_candidates': source.max_candidates},
+            'candidate_id_prefix': source.candidate_id_prefix, 'max_candidates': source.max_candidates,
+            **dict.fromkeys(('miscast_continuation', 'stationary_wound_continuation',
+                             'repeated_leg_spasm_continuation', 'crushed_rib_continuation', 'battered_leg_continuation'))},
         'evaluation': {'master_seed': str(source.master_seed), 'stages': [asdict(s) for s in source.stages],
             'max_total_trials': source.max_total_trials, 'window': {k: fraction_document(getattr(source.window, k))
                 for k in ('minimum', 'target', 'maximum')}}, 'execution': {'mode': 'sequential'}}
@@ -242,8 +246,8 @@ def generation_failure_document(bal):
 def main():
     if sys.argv[1:] not in ([], ['--write-results']):
         raise SystemExit('usage: json_contract_probe.py [--write-results]')
-    sim = json.loads((DIRECTORY / 'magic-simulation-v1.request.json').read_text(encoding='utf-8'))
-    bal = json.loads((DIRECTORY / 'magic-balance-v1.request.json').read_text(encoding='utf-8'))
+    sim = json.loads((DIRECTORY / 'magic-simulation.request.json').read_text(encoding='utf-8'))
+    bal = json.loads((DIRECTORY / 'magic-balance.request.json').read_text(encoding='utf-8'))
     before, rng_before, children_before = deepcopy((sim, bal)), getstate(), {c.pid for c in active_children()}
     scenario = map_scenario(sim['scenario'], sim['simulation']['round_budget'])
     assert scenario == authored_simulation_scenario() and scenario_document(scenario) == sim['scenario']
@@ -302,7 +306,7 @@ def main():
     assert staged.total_trials <= source.planned_trials == 16
     runtime = {'package_version': __version__, 'python_implementation': platform.python_implementation(),
         'python_version': platform.python_version(), 'rng': 'random.Random'}
-    simulation_output = {'schema_version': '1', 'kind': 'npc_magic_simulation_result', 'request': sim,
+    simulation_output = {'schema_version': '6', 'kind': 'npc_magic_simulation_result', 'request': sim,
         'seed_scheme': SEED_SCHEME, 'runtime': runtime, 'summary': summary_document(summary)}
     vectors = list(product(*(range(g.minimum_count, g.maximum_count + 1) for g in source.groups)))
     reports = []
@@ -317,7 +321,7 @@ def main():
             'keep': source.stages[index].keep, 'total_trials': report.total_trials, 'candidates': rows,
             'selected_candidate_ids': list(report.selected_candidate_ids), 'continuation_candidate_ids':
             list(magic_continuation_candidate_ids(report)) if index < len(source.stages)-1 else []})
-    balance_output = {'schema_version': '1', 'kind': 'npc_magic_balance_result', 'request': bal,
+    balance_output = {'schema_version': '6', 'kind': 'npc_magic_balance_result', 'request': bal,
         'seed_scheme': SEED_SCHEME, 'runtime': runtime, 'candidate_count': source.candidate_count,
         'planned_trials': source.planned_trials, 'total_trials': staged.total_trials,
         'candidates': [{'candidate_id': c.candidate_id, 'counts': list(v)} for c, v in
@@ -326,7 +330,7 @@ def main():
     for name, output in (('magic-simulation', simulation_output), ('magic-balance', balance_output)):
         encoded = json.dumps(output, ensure_ascii=False, allow_nan=False, indent=2) + '\n'
         assert json.loads(encoded) == output
-        if sys.argv[1:]: (DIRECTORY / (name + '-v1.result.json')).write_text(encoded, encoding='utf-8')
+        if sys.argv[1:]: (DIRECTORY / (name + '.result.json')).write_text(encoded, encoding='utf-8')
     print(f'exact fixture mapping; simulation {summary.trials} trials, balance planned/actual={source.planned_trials}/{staged.total_trials}')
     print(f'full sequential/process results equal; {len(negatives)} semantic rejections + generation failure; sources/global RNG/children unchanged')
     print('contract probe only: no Magic production Schema/parser/encoder/CLI or lexical validation')

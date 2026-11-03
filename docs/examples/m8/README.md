@@ -1,5 +1,7 @@
 # Примеры магии M8
 
+Все исполняемые Magic JSON-примеры используют единственный текущий формат6 по [ADR-0063](../../decisions/ADR-0063-single-current-magic-contract.md). Имена исторических proofs отражают этап разработки, а не поддержку прежних wire versions. [Текущие JSON-запросы](json/README.md).
+
 ## Battered Leg generation/JSON6: production ADR-0062
 
 [Контракт](../../decisions/ADR-0062-battered-leg-generation-and-magic-json-v6.md), [production proof239d10](battered_leg_transport_contract_probe.py), [stdout](battered_leg_transport_contract_probe.output.txt), [copied test](../../../tests/integration/test_m8_battered_leg_transport_contract_probe.py), [публичные JSON6 requests](json/README.md), [приёмка](../../audits/m8-battered-leg-transport-readiness.md). Копировать4Python files: proof, `battered_leg_native.py`, `generation_contract_probe.py`, `magic_scenario.py`.
@@ -16,7 +18,7 @@
 
 [Probe](crushed_rib_transport_contract_probe.py), [stdout](crushed_rib_transport_contract_probe.output.txt), [copied test](../../../tests/integration/test_m8_crushed_rib_transport_contract_probe.py), [контракт](../../decisions/ADR-0058-crushed-rib-generation-and-magic-json-v5.md). Копировать6Python-файлов: probe, `crushed_rib_native.py`, `crushed_rib_owner.py`, `generation_contract_probe.py`, `stationary_wound_runner.py`, `magic_scenario.py`; нужен установленный пакет либо source PYTHONPATH.
 
-24full-fixture stdlib JSON5 round-trips и48manual3/4actor subsets остаются конечным oracle для12valid/4invalid permissions, обеих CombatSide perspectives, full-five Wizard-opposite control и полного source. Actual generator58 строит выбранные3/4-actor subsets; production simulation и balance parsers/encoders5 сохраняют весь request/result echo, обе CLI команды исполняют публичные [simulation](json/magic-simulation-v5.request.json) и [balance](json/magic-balance-v5.request.json) requests. JSON1–4 lossless gates сохранены. Отдельные native57 Casting/Protection-first/later normal Test/new4 stop и seq/spawn/stages остаются проверены существующими APIs. Injury/phase scope и RNG/denominator57 неизменны.
+24full-fixture stdlib JSON5 round-trips и48manual3/4actor subsets остаются конечным oracle для12valid/4invalid permissions, обеих CombatSide perspectives, full-five Wizard-opposite control и полного source. Actual generator58 строит выбранные3/4-actor subsets; production simulation и balance parsers/encoders5 сохраняют весь request/result echo, обе CLI команды исполняют публичные [simulation](json/magic-simulation.request.json) и [balance](json/magic-balance.request.json) requests. JSON1–4 lossless gates сохранены. Отдельные native57 Casting/Protection-first/later normal Test/new4 stop и seq/spawn/stages остаются проверены существующими APIs. Injury/phase scope и RNG/denominator57 неизменны.
 
 647scripted d10 =54genuine None +193direct native +120seq/spawn +280staged; seeded None balance выполняется отдельно. Native actual охватывает4manual subsets; actual generator строит два composition candidates3/4actors. Generation и обе JSON5 families production-ready; copied test проверяет bundle, полный source/global RNG и oldwire gates.
 
@@ -141,9 +143,9 @@ $env:PYTHONPATH = "src"
 
 ## Контракт opt-in generation / JSON v2 — ADR-0047
 
-ADR-0047 закрыт [итоговым аудитом](../../audits/m8-opt-in-transport-readiness.md). [Simulation v2 result](json/magic-simulation-v2.result.json) и [balance v2 result](json/magic-balance-v2.result.json) сохранены из реального CLI на CPython3.12.4; это finite observations заданных inputs, не вероятности сложности. Оба примера/probe также проверены из скопированного bundle установленным пакетом.
+ADR-0047 закрыт [итоговым аудитом](../../audits/m8-opt-in-transport-readiness.md). [Simulation v2 result](json/magic-simulation.result.json) и [balance v2 result](json/magic-balance.result.json) сохранены из реального CLI на CPython3.12.4; это finite observations заданных inputs, не вероятности сложности. Оба примера/probe также проверены из скопированного bundle установленным пакетом.
 
-[Public generation / finite transport probe](opt_in_transport_contract_probe.py) / [сохранённый вывод](opt_in_transport_contract_probe.output.txt), [контракт](../../decisions/ADR-0047-opt-in-generation-and-magic-json-v2.md), [проверка](../../../tests/integration/test_m8_opt_in_transport_contract_probe.py), [аудит generation](../../audits/m8-opt-in-generation-readiness.md). Native opted generation и обе v2 families вызываются через настоящий API, без temporary legacy views. [Balance v2 вход](json/magic-balance-v2.request.json), [аудит](../../audits/m8-balance-v2-readiness.md). [Пример simulation v2](json/magic-simulation-v2.request.json) доступен прежней CLI-командой; [аудит](../../audits/m8-simulation-v2-readiness.md).
+[Public generation / finite transport probe](opt_in_transport_contract_probe.py) / [сохранённый вывод](opt_in_transport_contract_probe.output.txt), [контракт](../../decisions/ADR-0047-opt-in-generation-and-magic-json-v2.md), [проверка](../../../tests/integration/test_m8_opt_in_transport_contract_probe.py), [аудит generation](../../audits/m8-opt-in-generation-readiness.md). Native opted generation и обе v2 families вызываются через настоящий API, без temporary legacy views. [Balance v2 вход](json/magic-balance.request.json), [аудит](../../audits/m8-balance-v2-readiness.md). [Пример simulation v2](json/magic-simulation.request.json) доступен прежней CLI-командой; [аудит](../../audits/m8-simulation-v2-readiness.md).
 
 ```powershell
 $env:PYTHONPATH = "src"

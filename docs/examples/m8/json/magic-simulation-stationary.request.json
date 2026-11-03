@@ -1,5 +1,5 @@
 {
-  "schema_version": "3",
+  "schema_version": "6",
   "kind": "npc_magic_simulation",
   "request_id": "magic-simulation-v3",
   "ruleset": "towr-pg1.4-gmg1.1",
@@ -590,6 +590,9 @@
       },
       "prone_policy": "self_stand_when_safe"
     },
-    "stationary_wound_continuation": "leg_spasm_stand_and_continue"
+    "stationary_wound_continuation": "leg_spasm_stand_and_continue",
+    "repeated_leg_spasm_continuation": null,
+    "crushed_rib_continuation": null,
+    "battered_leg_continuation": null
   }
 }

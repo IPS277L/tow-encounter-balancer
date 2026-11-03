@@ -1,4 +1,4 @@
-"""Simulation6 preserves the authored Endurance profile and source identity."""
+"""Current Magic JSON contract: deterministic admission and source guards."""
 from copy import deepcopy
 from dataclasses import replace
 from itertools import product
@@ -33,6 +33,24 @@ def document(*, miscast=False, stationary=False, repeated=False, crushed=False, 
 
 
 class M8MagicJsonV6Tests(unittest.TestCase):
+    def test_only_current_version_is_admitted_and_old_versions_use_current_error_shape(self):
+        original = sim.parse_magic_simulation_request(json.dumps(document()))
+        for version in ('1', '2', '3', '4', '5', '7'):
+            with self.subTest(version=version):
+                raw = dict(document(), schema_version=version)
+                with self.assertRaises(MagicSimulationInputError) as caught:
+                    sim.parse_magic_simulation_request(json.dumps(raw))
+                error = caught.exception
+                self.assertEqual((error.code, error.path, error.request_id, error.schema_version),
+                    (Code.UNSUPPORTED_VERSION, '/schema_version', raw['request_id'], '6'))
+                output = json.loads(sim.encode_magic_simulation_error(error))
+                validate_magic_simulation_document(output, 'error')
+                self.assertEqual(output['schema_version'], '6')
+                with self.assertRaises(ValueError):
+                    replace(original, schema_version=version)
+                with self.assertRaises(ValueError):
+                    MagicSimulationInputError(Code.INVALID_INPUT, 'bad', schema_version=version)
+
     def test_all_24_valid_permissions_echo_complete_source_and_8_dependencies_fail(self):
         rng = getstate()
         valid = invalid = 0
@@ -97,21 +115,13 @@ class M8MagicJsonV6Tests(unittest.TestCase):
                           prefix + '"request_id":"duplicate"}', prefix + '"n":"\\ud800"}'):
             with self.subTest(malformed=malformed), self.assertRaises(MagicSimulationInputError) as caught:
                 sim.parse_magic_simulation_request(malformed)
-            self.assertEqual((caught.exception.schema_version, caught.exception.request_id), ('1', None))
+            self.assertEqual((caught.exception.schema_version, caught.exception.request_id), ('6', None))
         raw = dict(document(), schema_version='7')
         with self.assertRaises(MagicSimulationInputError) as caught:
             sim.parse_magic_simulation_request(json.dumps(raw))
         self.assertEqual((caught.exception.code, caught.exception.path, caught.exception.schema_version,
-                          caught.exception.request_id), (Code.UNSUPPORTED_VERSION, '/schema_version', '1', raw['request_id']))
+                          caught.exception.request_id), (Code.UNSUPPORTED_VERSION, '/schema_version', '6', raw['request_id']))
 
-    def test_old_versions_refuse_profile_while_none_does_not_add_field(self):
-        command = sim.parse_magic_simulation_request(json.dumps(document()))
-        for version in ('1', '2', '3', '4', '5'):
-            with self.subTest(version=version), self.assertRaisesRegex(ValueError, 'Battered Leg.*losslessly'):
-                sim.encode_magic_simulation_result(replace(command, schema_version=version), summary(command))
-        legacy = sim.parse_magic_simulation_request(json.dumps(document(battered=False)))
-        output = json.loads(sim.encode_magic_simulation_result(replace(legacy, schema_version='5'), summary(legacy)))
-        self.assertNotIn(FIELD, output['request']['scenario'])
 
     def test_encoder_reads_original_equal_value_profile_alias_before_projection(self):
         command = sim.parse_magic_simulation_request(json.dumps(document(dice=1)))

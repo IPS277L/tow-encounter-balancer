@@ -1,5 +1,5 @@
 {
-  "schema_version": "1",
+  "schema_version": "6",
   "kind": "npc_magic_simulation",
   "request_id": "wire:death-exclusion",
   "ruleset": "towr-pg1.4-gmg1.1",
@@ -601,6 +601,11 @@
         ]
       }
     ],
-    "repeated_stagger_choice": "suffer_wound"
+    "repeated_stagger_choice": "suffer_wound",
+    "miscast_continuation": null,
+    "stationary_wound_continuation": null,
+    "repeated_leg_spasm_continuation": null,
+    "crushed_rib_continuation": null,
+    "battered_leg_continuation": null
   }
 }

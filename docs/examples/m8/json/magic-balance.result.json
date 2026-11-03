@@ -1,8 +1,8 @@
 {
-  "schema_version": "1",
+  "schema_version": "6",
   "kind": "npc_magic_balance_result",
   "request": {
-    "schema_version": "1",
+    "schema_version": "6",
     "kind": "npc_magic_balance",
     "request_id": "wire:magic:balance",
     "ruleset": "towr-pg1.4-gmg1.1",
@@ -473,7 +473,12 @@
             "casting_policy": null,
             "zone_priorities": []
           }
-        ]
+        ],
+        "miscast_continuation": null,
+        "stationary_wound_continuation": null,
+        "repeated_leg_spasm_continuation": null,
+        "crushed_rib_continuation": null,
+        "battered_leg_continuation": null
       }
     },
     "generation": {
@@ -675,7 +680,12 @@
         }
       ],
       "candidate_id_prefix": "magic",
-      "max_candidates": 4
+      "max_candidates": 4,
+      "miscast_continuation": null,
+      "stationary_wound_continuation": null,
+      "repeated_leg_spasm_continuation": null,
+      "crushed_rib_continuation": null,
+      "battered_leg_continuation": null
     },
     "evaluation": {
       "master_seed": "42",

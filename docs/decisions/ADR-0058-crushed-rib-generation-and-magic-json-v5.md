@@ -1,5 +1,7 @@
 # ADR-0058: Crushed Rib family assertion и Magic JSON/CLI v5
 
+Требования поддержки прежних wire formats и накопления версий заменены [ADR-0063](ADR-0063-single-current-magic-contract.md): Magic поддерживает только текущий JSON6. Ниже сохранены исторические решения и фактические результаты приёмки; игровые границы этим не меняются.
+
 Дата: 2026-11-03. Статус: **все четыре шага завершены**. [Итоговый installed/full audit](../audits/m8-crushed-rib-transport-readiness.md). Основа: [native57](ADR-0057-native-crushed-rib-continuation.md), [его приёмка](../audits/m8-native-crushed-rib-readiness.md), [generation/JSON4](ADR-0054-repeated-leg-spasm-generation-and-magic-json-v4.md).
 
 ## Граница

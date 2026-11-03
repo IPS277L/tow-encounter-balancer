@@ -18,7 +18,8 @@ class MagicJsonContractProbeTests(unittest.TestCase):
                          'magic_simulation.py', 'magic_scenario.py'):
                 shutil.copyfile(source / name, target / name)
             (target / 'json').mkdir()
-            fixtures = sorted((source / 'json').glob('magic-*-v1.*.json'))
+            fixtures = [source / 'json' / f'magic-{family}.{kind}.json'
+                        for family in ('simulation', 'balance') for kind in ('request', 'result', 'error')]
             self.assertEqual(len(fixtures), 6)
             for fixture in fixtures:
                 shutil.copyfile(fixture, target / 'json' / fixture.name)

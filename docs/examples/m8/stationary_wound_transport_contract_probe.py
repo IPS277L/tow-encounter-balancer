@@ -1,7 +1,7 @@
-"""ADR-0051 native family and both public magic v3 wire boundaries.
+"""ADR-0051 native family and both public current6 magic wire boundaries.
 
 Copy with generation_contract_probe.py, magic_scenario.py, opted_miscast.py
-and stationary_wound_runner.py. Genuine legacy v2 echoes are prepared before
+and stationary_wound_runner.py. Genuine None-policy current6 echoes are prepared before
 opted sources. No opted source is stripped to cross an old transport boundary.
 Finite mappings assert the entire baseline document, including ordered arrays;
 they do not implement general JSON validation. No probability claims.
@@ -80,7 +80,7 @@ def read_finite_policies(document):
 
 def proposed_wire(baseline, miscast, stationary, *, balance):
     result = deepcopy(baseline)
-    result['schema_version'] = '3'
+    result['schema_version'] = '6'
     scenario = result['reserve']['scenario'] if balance else result['scenario']
     scenario['miscast_continuation'] = policy_wire(miscast)
     scenario[FIELD] = None if stationary is None else stationary.value
@@ -126,30 +126,27 @@ def legacy_fixture(opposite):
     generation = MagicCandidateGenerationRequest(source, groups, source.facts, source.scene_frames,
         'finite:opposite' if opposite else 'finite:friendly', 4, 42, (MagicBalanceStage(1, 1),), 4, WINDOW)
     simulation = MagicSimulationCommand('finite:simulation', NpcMagicSimulationRequest(source, 42, 1),
-                                        OPTIONS, definitions(source), '2')
-    balance = MagicBalanceCommand('finite:balance', generation, OPTIONS, definitions(source), '2')
+                                        OPTIONS, definitions(source), '6')
+    balance = MagicBalanceCommand('finite:balance', generation, OPTIONS, definitions(source), '6')
     summary = summarize_npc_magic_simulation(run_npc_magic_simulation(simulation.request))
     balance_result = execute_magic_balance(balance)
     sim_wire = json.loads(encode_magic_simulation_result(simulation, summary))['request']
     bal_wire = json.loads(encode_magic_balance_result(balance, balance_result))['request']
-    sim_v1 = json.loads(encode_magic_simulation_result(replace(simulation, schema_version='1'), summary))['request']
-    bal_v1 = json.loads(encode_magic_balance_result(replace(balance, schema_version='1'), balance_result))['request']
     assert parse_magic_simulation_request(json.dumps(sim_wire)) == simulation
     assert parse_magic_balance_request(json.dumps(bal_wire)) == balance
-    assert parse_magic_simulation_request(json.dumps(sim_v1)) == replace(simulation, schema_version='1')
-    assert parse_magic_balance_request(json.dumps(bal_v1)) == replace(balance, schema_version='1')
-    return simulation, balance, sim_wire, bal_wire, sim_v1, bal_v1
+    return simulation, balance, sim_wire, bal_wire
+
 
 
 def main():
     rng_before = getstate()
-    # Construct genuine complete v2 fixtures before any opted source exists.
+    # Construct genuine complete current6 fixtures before any opted source exists.
     fixtures = tuple(legacy_fixture(opposite) for opposite in (False, True))
     before = deepcopy(fixtures)
     miscast_policy = opted_scenario().miscast_continuation
     projection_count = wire_count = 0
     staged_candidates = []
-    for opposite, (simulation, balance, sim_base, bal_base, sim_v1, bal_v1) in zip((False, True), fixtures, strict=True):
+    for opposite, (simulation, balance, sim_base, bal_base) in zip((False, True), fixtures, strict=True):
         original = balance.generation_request
         baseline_candidates = generate_magic_candidates(original).evaluation_request.candidates
         vectors = ((1,),) if opposite else VECTORS
@@ -174,9 +171,9 @@ def main():
                     rejected(lambda: replace(original, template_scenario=template, miscast_continuation=miscast))
                 generated = generate_magic_candidates(family)
                 assert generated.source_request is family
-                for is_balance, base, v1_base, command, parser, error in (
-                    (False, sim_base, sim_v1, simulation, parse_magic_simulation_request, MagicSimulationInputError),
-                    (True, bal_base, bal_v1, balance, parse_magic_balance_request, MagicBalanceInputError)):
+                for is_balance, base, command, parser, error in (
+                    (False, sim_base, simulation, parse_magic_simulation_request, MagicSimulationInputError),
+                    (True, bal_base, balance, parse_magic_balance_request, MagicBalanceInputError)):
                     document = proposed_wire(base, miscast, stationary, balance=is_balance)
                     untouched = deepcopy(document)
                     transported = json.loads(json.dumps(document))
@@ -188,29 +185,15 @@ def main():
                     assert transported == untouched == document
                     actual = parser(json.dumps(document))
                     if is_balance:
-                        assert actual == replace(command, schema_version='3', generation_request=restored)
+                        assert actual == replace(command, schema_version='6', generation_request=restored)
                         completed = execute_magic_balance(actual)
                         assert completed.generation_result.source_request == restored
                         assert completed.evaluation_result.source_request == completed.generation_result.evaluation_request
                         output = json.loads(encode_magic_balance_result(actual, completed))
                     else:
-                        assert actual == replace(command, schema_version='3', request=restored)
+                        assert actual == replace(command, schema_version='6', request=restored)
                         output = json.loads(encode_magic_simulation_result(actual, execute_magic_simulation(actual)))
-                    assert output['schema_version'] == '3' and output['request'] == document
-                    old_version = deepcopy(document)
-                    old_version['schema_version'] = '2'
-                    rejected(lambda: parser(json.dumps(old_version)), error)
-                    # Isolate the new forbidden field: genuine v1 contains no
-                    # Miscast field whose presence could mask this rejection.
-                    old_v1 = deepcopy(v1_base)
-                    v1_node = old_v1['reserve']['scenario'] if is_balance else old_v1['scenario']
-                    assert 'miscast_continuation' not in v1_node and FIELD not in v1_node
-                    v1_node[FIELD] = None if stationary is None else stationary.value
-                    rejected(lambda: parser(json.dumps(old_v1)), error)
-                    if is_balance:
-                        family_v1 = deepcopy(v1_base)
-                        family_v1['generation'][FIELD] = None if stationary is None else stationary.value
-                        rejected(lambda: parser(json.dumps(family_v1)), error)
+                    assert output['schema_version'] == '6' and output['request'] == document
                     missing = deepcopy(document)
                     node = missing['reserve']['scenario'] if is_balance else missing['scenario']
                     del node[FIELD]
@@ -238,10 +221,10 @@ def main():
                     if not opposite and counts == (1, 0):
                         staged_candidates.append(replace(actual, candidate_id=f'policy:{len(staged_candidates)}'))
     assert projection_count == 20 and wire_count == 16
-    print('Simulation v3: 8 public roundtrips; balance v3: 8 public roundtrips; four policy combinations; both perspectives')
+    print('Simulation current6: 8 public roundtrips; balance current6: 8 public roundtrips; four policy combinations; both perspectives')
     print('Native generation: 20 full-source subsets match manual projections; both perspectives x four policies; IDs/orders/frames/seeds exact')
-    print('Production family preflight checks independent equality/types before projection; both v3 codecs require nullable policies')
-    print('Production: simulation/balance v3 accepted; omitted stationary family and JSON v1/v2 extra fields rejected')
+    print('Production family preflight checks independent equality/types before projection; both current6 codecs require nullable policies')
+    print('Production: simulation/balance current6 accepted; omitted stationary family rejected')
 
     staged = MagicStagedEvaluationRequest(tuple(staged_candidates), 42, (MagicBalanceStage(1, 4),), 4, WINDOW)
     staged_before = deepcopy(staged)
@@ -286,16 +269,11 @@ def main():
             assert summary.trials == 2 and assessment.window_match is None
             assert summary.outcome_counts == NpcMagicOutcomeCounts(0, 0, int(stationary), 2 - int(stationary))
             assert assessment.unsupported_path_rate == (Fraction(1, 2) if stationary else Fraction(1))
-            if stationary:
-                for version in ('1', '2'):
-                    command = MagicSimulationCommand('finite:lossless', request, OPTIONS, definitions(source), version)
-                    rejected(lambda: encode_magic_simulation_result(command, summary))
             draws += sum(d.calls for d in dice)
     assert draws == 138
     print('Native scripted controls: 8 trials / 138 d10; opted round-limit + unsupported, None two unsupported; denominator 2 per source')
-    print('Production v1/v2 encoders reject full opted sources; no stripped opted source or downgraded document used')
     assert fixtures == before and getstate() == rng_before
-    print('Inputs/global RNG unchanged; native generation and simulation/balance v3 implemented; full sources retained')
+    print('Inputs/global RNG unchanged; native generation and simulation/balance current6 implemented; full sources retained')
 
 
 if __name__ == '__main__':

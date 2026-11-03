@@ -7,17 +7,11 @@ from random import getstate
 import unittest
 from unittest.mock import patch
 
-from tests.unit.test_m8_magic_json import document as simulation_v1, summary
-from tests.unit.test_m8_magic_json_v2 import document as simulation_v2
-from tests.unit.test_m8_magic_json_v3 import document as simulation_v3
-from tests.unit.test_m8_magic_balance_json import document as balance_v1, make_result
-from tests.unit.test_m8_magic_balance_json_v2 import document as balance_v2
-from tests.unit.test_m8_magic_balance_json_v3 import document as balance_v3
-from tests.unit.test_m8_magic_json_v4 import document as version4
+from tests.unit.test_m8_magic_json import document as simulation_document, summary
+from tests.unit.test_m8_magic_balance_json import document as balance_document, make_result
 from tests.unit.test_m8_stationary_wound_generation import family, Unreadable
 from towr.adapters import magic_balance_json as balance, magic_simulation_json as simulation
 from towr.adapters._magic_scenario_json import scenario_document
-from towr.adapters.magic_json_errors import MagicBalanceInputError, MagicSimulationInputError
 from towr.application import magic_candidate_generation as generation
 from towr.application.magic_candidate_generation_models import MagicCandidateGenerationResult
 from towr.domain.npc_magic_scenario_models import NpcMagicCrushedRibPolicy as Policy
@@ -31,11 +25,6 @@ def opted(scenario):
     return replace(scenario, crushed_rib_continuation=POLICY)
 
 
-def documents(*, balance_family=False):
-    return ((balance_v1(), balance_v2(opted=False), balance_v3(stationary=False, miscast=False),
-             version4(balance=True, stationary=False, repeated=False)) if balance_family else
-            (simulation_v1(), simulation_v2(opted=False), simulation_v3(stationary=False, miscast=False),
-             version4(stationary=False, repeated=False)))
 
 
 class CrushedRibGenerationFamilyTests(unittest.TestCase):
@@ -100,83 +89,38 @@ class CrushedRibGenerationFamilyTests(unittest.TestCase):
             with patch.object(generation, '_count_vectors', side_effect=AssertionError('no vectors')):
                 with self.subTest(value=value), self.assertRaises(TypeError):
                     generation.generate_magic_candidates(wrong)
-            for version in ('1', '2', '3', '4'):
-                with self.subTest(value=value, version=version), self.assertRaises(TypeError):
-                    scenario_document(scenario, ('missing:definition',), schema_version=version)
+            with self.subTest(value=value, boundary='current mapper'), self.assertRaises(TypeError):
+                scenario_document(scenario, ('missing:definition',), schema_version='6')
 
-    def test_all_wire_versions_refuse_before_definition_projection(self):
-        scenario = opted(family(stationary=None).template_scenario)
-        before = pickle.dumps(scenario)
-        for version in ('1', '2', '3', '4'):
-            with self.subTest(version=version), self.assertRaisesRegex(ValueError, 'Crushed Rib.*losslessly'):
-                scenario_document(scenario, ('missing:definition',), schema_version=version)
-        self.assertEqual(pickle.dumps(scenario), before)
 
-    def test_matching_generation_family_still_refuses_lossy_balance_json_v1_to_v4(self):
-        for data in documents(balance_family=True):
-            base = balance.parse_magic_balance_request(json.dumps(data))
-            source = base.generation_request
-            matching = replace(source, template_scenario=opted(source.template_scenario),
-                               crushed_rib_continuation=POLICY)
-            command = replace(base, generation_request=matching)
-            result = make_result(command)
-            with self.subTest(version=base.schema_version), self.assertRaisesRegex(ValueError, 'Crushed Rib.*losslessly'):
-                balance._request_document(command)
-            with self.assertRaisesRegex(ValueError, 'Crushed Rib.*losslessly'):
-                balance.encode_magic_balance_result(command, result)
 
-    def test_simulation_request_result_and_same_value_raw_summary_cannot_drop_permission(self):
-        for data in documents():
-            base = simulation.parse_magic_simulation_request(json.dumps(data))
-            command = replace(base, request=replace(base.request, scenario=opted(base.request.scenario)))
-            result = summary(command)
-            with patch.object(simulation, 'parse_magic_simulation_request', side_effect=AssertionError('no reconstruction')):
-                for operation in (lambda: simulation._request_document(command),
-                                  lambda: simulation.encode_magic_simulation_result(command, result)):
-                    with self.subTest(version=base.schema_version), self.assertRaisesRegex(ValueError, 'Crushed Rib.*losslessly'):
-                        operation()
-            bad = deepcopy(result)
-            object.__setattr__(bad.source_request.scenario, FIELD, POLICY.value)
-            self.assertEqual(bad.source_request, command.request)
+
+
+
+    def test_same_value_raw_summary_permission_cannot_hide_in_equality(self):
+        base = simulation.parse_magic_simulation_request(json.dumps(simulation_document()))
+        command = replace(base, request=replace(base.request, scenario=opted(base.request.scenario)))
+        bad = deepcopy(summary(command))
+        object.__setattr__(bad.source_request.scenario, FIELD, POLICY.value)
+        self.assertEqual(bad.source_request, command.request)
+        with patch.object(simulation, 'parse_magic_simulation_request',
+                          side_effect=AssertionError('no reconstruction before original admission')):
             with self.assertRaises(TypeError):
                 simulation.encode_magic_simulation_result(command, bad)
 
-    def test_transported_balance_command_and_result_refuse_before_enumeration_or_pool(self):
-        for data in documents(balance_family=True):
-            command = balance.parse_magic_balance_request(json.dumps(data))
-            result = make_result(command)
-            bad = deepcopy(command)
-            object.__setattr__(bad.generation_request, 'template_scenario', opted(bad.generation_request.template_scenario))
-            with patch.object(generation, '_count_vectors', side_effect=AssertionError('no vectors')) as vectors, \
-                    patch.object(generation, '_project_candidate', side_effect=AssertionError('no projection')) as project, \
-                    patch('towr.simulation.npc_magic_parallel.ProcessPoolExecutor', side_effect=AssertionError('no pool')) as pool:
-                with self.subTest(version=command.schema_version), self.assertRaisesRegex(ValueError, 'Crushed Rib.*losslessly'):
-                    balance._request_document(bad)
-                with self.assertRaisesRegex(ValueError, 'Crushed Rib.*explicit family'):
-                    balance.encode_magic_balance_result(bad, result)
-                vectors.assert_not_called()
-                project.assert_not_called()
-                pool.assert_not_called()
-
-    def test_closed_decoders_reject_new_field_even_null_and_none_wire_remains_identical(self):
-        for balance_family in (False, True):
-            wire = balance if balance_family else simulation
-            parse = wire.parse_magic_balance_request if balance_family else wire.parse_magic_simulation_request
-            encode = wire.encode_magic_balance_result if balance_family else wire.encode_magic_simulation_result
-            error = MagicBalanceInputError if balance_family else MagicSimulationInputError
-            for data in documents(balance_family=balance_family):
-                command = parse(json.dumps(data))
-                result = make_result(command) if balance_family else summary(command)
-                before = encode(command, result)
-                self.assertNotIn('"' + FIELD + '"', before)
-                self.assertEqual(json.loads(before)['request'], data)
-                self.assertEqual(encode(pickle.loads(pickle.dumps(command)), result), before)
-                for value in (None, POLICY.value):
-                    wrong = deepcopy(data)
-                    location = wrong['reserve']['scenario'] if balance_family else wrong['scenario']
-                    location[FIELD] = value
-                    with self.subTest(balance=balance_family, version=command.schema_version, value=value), self.assertRaises(error):
-                        parse(json.dumps(wrong))
+    def test_transported_balance_source_refused_before_enumeration_or_pool(self):
+        command = balance.parse_magic_balance_request(json.dumps(balance_document()))
+        result = make_result(command)
+        bad = deepcopy(command)
+        object.__setattr__(bad.generation_request, 'template_scenario', opted(bad.generation_request.template_scenario))
+        with patch.object(generation, '_count_vectors', side_effect=AssertionError('no vectors')) as vectors, \
+                patch.object(generation, '_project_candidate', side_effect=AssertionError('no projection')) as project, \
+                patch('towr.simulation.npc_magic_parallel.ProcessPoolExecutor', side_effect=AssertionError('no pool')) as pool:
+            with self.assertRaisesRegex(ValueError, 'Crushed Rib.*explicit family'):
+                balance.encode_magic_balance_result(bad, result)
+            vectors.assert_not_called()
+            project.assert_not_called()
+            pool.assert_not_called()
 
 
 if __name__ == '__main__':

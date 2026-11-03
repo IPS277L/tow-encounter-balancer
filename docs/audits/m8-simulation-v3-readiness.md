@@ -10,7 +10,7 @@
 
 | Граница | Код / проверенное поведение |
 | --- | --- |
-| Schemas/registry | Три [request](../../src/towr/adapters/schemas/magic-simulation-request-v3.schema.json)/[result](../../src/towr/adapters/schemas/magic-simulation-result-v3.schema.json)/[error](../../src/towr/adapters/schemas/magic-simulation-error-v3.schema.json) с собственными IDs. Closed scenario имеет собственный properties/required, nullable enum задан oneOf. Только bundled v1/v2 fragments, без сетевого resolver |
+| Schemas/registry | Три [request](../../src/towr/adapters/schemas/magic-simulation-request-v6.schema.json)/[result](../../src/towr/adapters/schemas/magic-simulation-result-v6.schema.json)/[error](../../src/towr/adapters/schemas/magic-simulation-error-v6.schema.json) с собственными IDs. Closed scenario имеет собственный properties/required, nullable enum задан oneOf. Только bundled v1/v2 fragments, без сетевого resolver |
 | Family version selection | [Registry](../../src/towr/adapters/magic_json_schema.py) допускает simulation1/2/3 и balance1/2, cache15; packaged33schemas/15magic. Default validator1. Balance3 отвергается до files/Schema load |
 | Strict decoder | [_json_common](../../src/towr/adapters/_json_common.py) получает explicit magic-only family tuple. Прежний magic_v2=True остаётся1/2 для balance; шесть nonmagic routes — только1. Версия/ID доверены лишь после полного strict lexical decode |
 | Command/errors | Append-last command metadata остаётся с default1, simulation closed set расширен до1/2/3. Simulation input error subclass и execution error допускают3; base/balance input и balance phase errors пока1/2 |
@@ -25,7 +25,7 @@ Read-only ревью обнаружило отдельный source gap: во fr
 
 ## Детерминированная evidence
 
-- [8 schema tests](../../tests/unit/test_m8_magic_simulation_schema_v3.py): null/four combinations, strict required/type/closed shape, version3 echo/error, old default1/v2 refusal, новые local refs,15magic/33total, balance3 отказ до loader.
+- [8 schema tests](../../tests/unit/test_m8_magic_json_v6_schemas.py): null/four combinations, strict required/type/closed shape, version3 echo/error, old default1/v2 refusal, новые local refs,15magic/33total, balance3 отказ до loader.
 - [13 wire/service unit tests](../../tests/unit/test_m8_magic_json_v3.py): полный source/order/seed round-trip без RNG, обе required nullable policies, точный stationary pointer, strict lexical trust/fallback table, version/error/phase contexts, enum и int1 facts laundering, same-ID source substitution, собственная версия service и неизменяемость источников.
 - [9 integration tests](../../tests/integration/test_m8_magic_json_v3.py): actual parsed9→stand→Casting/end→incoming6→expiry48d10 и None7/Wound10 controls, four policy combinations/default native sequential/spawn records/source, denominator2 и unsupported rates без probability presets. Real CLI8combination/backend runs, Unicode/stdin, null/file/external cwd, trusted/lexical/runtime/private-output/closed-pipe/usage и balance/шесть nonmagic routes isolation.
 
@@ -33,7 +33,7 @@ Read-only ревью обнаружило отдельный source gap: во fr
 
 ## Публичные данные
 
-[Request](../examples/m8/json/magic-simulation-v3.request.json) явно задаёт обе policies, seed42/N4/round budget4 и sequential execution. [Stored result](../examples/m8/json/magic-simulation-v3.result.json) получен текущим CLI/CPython3.12.4, содержит точный полный echo и общий denominator. Это finite authored observation, не вероятность/preset и не oracle Monte Carlo для другого Python. Test сравнивает текущий CLI с текущим direct API, а saved result — со schema/exact request/metadata/trials.
+[Request](../examples/m8/json/magic-simulation.request.json) явно задаёт обе policies, seed42/N4/round budget4 и sequential execution. [Stored result](../examples/m8/json/magic-simulation.result.json) получен текущим CLI/CPython3.12.4, содержит точный полный echo и общий denominator. Это finite authored observation, не вероятность/preset и не oracle Monte Carlo для другого Python. Test сравнивает текущий CLI с текущим direct API, а saved result — со schema/exact request/metadata/trials.
 
 ```powershell
 $env:PYTHONPATH = 'src'

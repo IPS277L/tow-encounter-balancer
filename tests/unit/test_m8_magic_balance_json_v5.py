@@ -1,4 +1,4 @@
-"""ADR-0058 balance5 carries matching reserve and generated Crushed Rib permissions."""
+"""Current Magic JSON contract: deterministic admission and source guards."""
 from copy import deepcopy
 from dataclasses import replace
 import json
@@ -23,7 +23,7 @@ FIELD = 'crushed_rib_continuation'
 
 def document(*, miscast=False, stationary=False, repeated=False, crushed=False):
     data = v4_document(balance=True, stationary=stationary, miscast=miscast, repeated=repeated)
-    data['schema_version'] = '5'
+    data['schema_version'] = '6'
     value = CrushedRib.NEXT_TEST_WITH_JOURNAL_WITNESSES.value if crushed else None
     data['reserve']['scenario'][FIELD] = value
     data['generation'][FIELD] = value
@@ -48,7 +48,7 @@ class M8MagicBalanceJsonV5Tests(unittest.TestCase):
                           CrushedRib.NEXT_TEST_WITH_JOURNAL_WITNESSES if crushed else None)
             result = make_result(command)
             output = json.loads(bal.encode_magic_balance_result(command, result))
-            validate_magic_balance_document(output, 'result', schema_version='5')
+            validate_magic_balance_document(output, 'result', schema_version='6')
             self.assertEqual(output['request'], raw)
             self.assertEqual(bal.parse_magic_balance_request(json.dumps(output['request'])), command)
             self.assertEqual(pickle.loads(pickle.dumps(command)), command)
@@ -60,15 +60,15 @@ class M8MagicBalanceJsonV5Tests(unittest.TestCase):
             raw = document(crushed=True)
             raw['reserve']['scenario'][FIELD] = reserve_value
             raw['generation'][FIELD] = family_value
-            with self.subTest(reserve=reserve_value, family=family_value), \
+            with self.subTest(reserve=reserve_value, family=family_value),\
                     self.assertRaises(MagicBalanceInputError) as caught:
                 bal.parse_magic_balance_request(json.dumps(raw))
             self.assertEqual((caught.exception.schema_version, caught.exception.request_id,
                               caught.exception.path, caught.exception.code),
-                             ('5', raw['request_id'], '/generation/' + FIELD, Code.INVALID_INPUT))
+                             ('6', raw['request_id'], '/generation/' + FIELD, Code.INVALID_INPUT))
             output = json.loads(bal.encode_magic_balance_error(caught.exception))
-            validate_magic_balance_document(output, 'error', schema_version='5')
-            self.assertEqual((output['schema_version'], output['request_id']), ('5', raw['request_id']))
+            validate_magic_balance_document(output, 'error', schema_version='6')
+            self.assertEqual((output['schema_version'], output['request_id']), ('6', raw['request_id']))
 
     def test_required_exact_types_and_version_fallbacks(self):
         for location in ('reserve', 'generation'):
@@ -79,40 +79,24 @@ class M8MagicBalanceJsonV5Tests(unittest.TestCase):
                 with self.subTest(location=location, value=value), self.assertRaises(MagicBalanceInputError) as caught:
                     bal.parse_magic_balance_request(json.dumps(raw))
                 self.assertEqual((caught.exception.schema_version, caught.exception.request_id),
-                                 ('5', raw['request_id']))
+                                 ('6', raw['request_id']))
             raw = document(crushed=True)
             node = raw['reserve']['scenario'] if location == 'reserve' else raw['generation']
             del node[FIELD]
             with self.assertRaises(MagicBalanceInputError) as caught:
                 bal.parse_magic_balance_request(json.dumps(raw))
-            self.assertEqual(caught.exception.schema_version, '5')
+            self.assertEqual(caught.exception.schema_version, '6')
         with self.assertRaises(MagicBalanceInputError) as caught:
             bal.parse_magic_balance_request(json.dumps(dict(document(crushed=True), schema_version='7')))
         self.assertEqual((caught.exception.schema_version, caught.exception.request_id, caught.exception.code,
-                          caught.exception.path), ('1', document()['request_id'], Code.UNSUPPORTED_VERSION,
+                          caught.exception.path), ('6', document()['request_id'], Code.UNSUPPORTED_VERSION,
                                                     '/schema_version'))
-        for malformed in ('{"schema_version":"5","request_id":"x","request_id":"y"}',
-                          '{"schema_version":"5","request_id":"x","n":NaN}'):
+        for malformed in ('{"schema_version":"6","request_id":"x","request_id":"y"}',
+                          '{"schema_version":"6","request_id":"x","n":NaN}'):
             with self.assertRaises(MagicBalanceInputError) as caught:
                 bal.parse_magic_balance_request(malformed)
-            self.assertEqual((caught.exception.schema_version, caught.exception.request_id), ('1', None))
+            self.assertEqual((caught.exception.schema_version, caught.exception.request_id), ('6', None))
 
-    def test_balance5_errors_and_old_wire_gates_are_explicit(self):
-        for error in (MagicBalanceInputError(Code.INVALID_INPUT, 'bad', schema_version='5'),
-                      MagicBalanceGenerationError('request', schema_version='5'),
-                      MagicBalanceExecutionError('request', schema_version='5')):
-            encoded = bal.encode_magic_balance_error(error)
-            validate_magic_balance_document(json.loads(encoded), 'error', schema_version='5')
-            self.assertEqual(json.loads(encoded)['schema_version'], '5')
-        selected = bal.parse_magic_balance_request(json.dumps(document(crushed=True)))
-        result = make_result(selected)
-        for version in ('1', '2', '3', '4'):
-            command = replace(selected, schema_version=version)
-            with self.subTest(version=version), self.assertRaisesRegex(ValueError,
-                    'Crushed Rib continuation.*losslessly'):
-                bal.encode_magic_balance_result(command, result)
-        legacy = bal.parse_magic_balance_request(json.dumps(document(crushed=False)))
-        self.assertIsNone(legacy.generation_request.crushed_rib_continuation)
 
 
 if __name__ == '__main__':

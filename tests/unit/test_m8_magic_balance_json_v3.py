@@ -1,4 +1,4 @@
-"""Balance3 permissions, exact family provenance and trusted phase failures."""
+"""Current Magic JSON contract: deterministic admission and source guards."""
 from contextlib import ExitStack
 from copy import deepcopy
 from dataclasses import replace
@@ -34,14 +34,14 @@ POLICY = Policy.LEG_SPASM_STAND_AND_CONTINUE
 
 def document(*, stationary=True, miscast=False, source=None):
     data = v2_document(opted=miscast, source=source)
-    data['schema_version'] = '3'
+    data['schema_version'] = '6'
     data['reserve']['scenario'][FIELD] = POLICY.value if stationary else None
     data['generation'][FIELD] = POLICY.value if stationary else None
     return data
 
 
 class M8MagicBalanceJsonV3Tests(unittest.TestCase):
-    def invalid(self, data, *, version='3', path=None, code=Code.INVALID_INPUT):
+    def invalid(self, data, *, version='6', path=None, code=Code.INVALID_INPUT):
         with self.assertRaises(MagicBalanceInputError) as caught:
             parse(json.dumps(data))
         error = caught.exception
@@ -82,7 +82,7 @@ class M8MagicBalanceJsonV3Tests(unittest.TestCase):
                         self.assertIs(simulation.scenario.stationary_wound_continuation, request.stationary_wound_continuation)
                         self.assertEqual(simulation.scenario.miscast_continuation, request.miscast_continuation)
                 output = json.loads(encode(command, result))
-                validate(output, 'result', schema_version='3')
+                validate(output, 'result', schema_version='6')
                 self.assertEqual(output['request'], data)
                 self.assertEqual(parse(json.dumps(output['request'])), command)
                 self.assertEqual([c['counts'] for c in output['candidates']], [[1, 0], [1, 1], [2, 0], [2, 1]])
@@ -114,27 +114,17 @@ class M8MagicBalanceJsonV3Tests(unittest.TestCase):
                     data['generation'][field] = ((None if stationary else POLICY.value) if field == FIELD
                         else (None if miscast else policy_document()))
                     with patch('towr.adapters.magic_balance_json.MagicCandidateGenerationRequest',
-                               side_effect=AssertionError('family preflight ran before mismatch')), \
+                               side_effect=AssertionError('family preflight ran before mismatch')),\
                             patch('towr.application.magic_candidate_generation._count_vectors',
                                   side_effect=AssertionError('enumerated')):
                         error = self.invalid(data, path='/generation/' + field)
                     self.assertEqual(error.request_id, data['request_id'])
 
-    def test_v1_v2_reject_each_stationary_field_even_null_and_never_encode_opted_family(self):
-        for version, base in (('1', legacy_document()), ('2', v2_document(opted=False))):
-            for parent in (('reserve', 'scenario'), ('generation',)):
-                for value in (None, POLICY.value):
-                    data = deepcopy(base)
-                    at(data, parent)[FIELD] = value
-                    self.invalid(data, version=version, path='/' + '/'.join(parent))
-            command = replace(parse(json.dumps(document())), schema_version=version)
-            with self.assertRaises(ValueError):
-                encode(command, make_result(command))
 
     def test_lexical_decode_failure_never_trusts_v3_metadata(self):
-        prefix = '{"schema_version":"3","request_id":"seen",'
+        prefix = '{"schema_version":"6","request_id":"seen",'
         cases = ((b'\xff' + prefix.encode(), Code.INVALID_JSON), (prefix, Code.INVALID_JSON),
-            (prefix + '"schema_version":"3"}', Code.INVALID_JSON),
+            (prefix + '"schema_version":"6"}', Code.INVALID_JSON),
             (prefix + '"nested":{"a":1,"a":2}}', Code.INVALID_JSON),
             (prefix + '"x":"\\ud800"}', Code.INVALID_JSON),
             (prefix + '"x":NaN}', Code.INVALID_JSON),
@@ -145,8 +135,8 @@ class M8MagicBalanceJsonV3Tests(unittest.TestCase):
             with self.subTest(raw=raw), self.assertRaises(MagicBalanceInputError) as caught:
                 parse(raw)
             self.assertEqual((caught.exception.schema_version, caught.exception.request_id, caught.exception.code),
-                             ('1', None, code))
-            validate(json.loads(encode_error(caught.exception)), 'error', schema_version='1')
+                             ('6', None, code))
+            validate(json.loads(encode_error(caught.exception)), 'error', schema_version='6')
 
     def test_decoded_v3_semantics_and_unknown_version_keep_exact_metadata(self):
         for path, mutate in (
@@ -158,8 +148,8 @@ class M8MagicBalanceJsonV3Tests(unittest.TestCase):
             self.assertEqual(self.invalid(data, path=path).request_id, data['request_id'])
         missing = document()
         del missing['schema_version']
-        self.assertEqual(self.invalid(missing, version='1').request_id, missing['request_id'])
-        self.invalid(dict(document(), schema_version='7'), version='1', path='/schema_version', code=Code.UNSUPPORTED_VERSION)
+        self.assertEqual(self.invalid(missing, version='6').request_id, missing['request_id'])
+        self.invalid(dict(document(), schema_version='7'), version='6', path='/schema_version', code=Code.UNSUPPORTED_VERSION)
         self.assertIsNone(self.invalid(dict(document(), request_id=' '), path='/request_id').request_id)
 
     def test_encode_rejects_same_id_policy_substitution_at_generation_and_report_boundaries(self):
@@ -171,17 +161,17 @@ class M8MagicBalanceJsonV3Tests(unittest.TestCase):
                 encode(command, wrong)
             with self.assertRaises(ValueError):
                 replace(result, evaluation_result=wrong.evaluation_result)
-            with patch.object(service, 'generate_magic_candidates', return_value=wrong.generation_result), \
+            with patch.object(service, 'generate_magic_candidates', return_value=wrong.generation_result),\
                     patch.object(service, 'evaluate_magic_candidates_staged') as evaluate:
                 with self.assertRaises(MagicBalanceGenerationError) as caught:
                     service.execute_magic_balance(command)
-                self.assertEqual(caught.exception.schema_version, '3')
+                self.assertEqual(caught.exception.schema_version, '6')
                 evaluate.assert_not_called()
-            with patch.object(service, 'generate_magic_candidates', return_value=result.generation_result), \
+            with patch.object(service, 'generate_magic_candidates', return_value=result.generation_result),\
                     patch.object(service, 'evaluate_magic_candidates_staged', return_value=wrong.evaluation_result):
                 with self.assertRaises(MagicBalanceExecutionError) as caught:
                     service.execute_magic_balance(command)
-                self.assertEqual(caught.exception.schema_version, '3')
+                self.assertEqual(caught.exception.schema_version, '6')
 
     def test_encoder_rejects_equal_integer_facts_and_string_enum_in_transported_chain(self):
         command = parse(json.dumps(document(miscast=True)))
@@ -223,14 +213,14 @@ class M8MagicBalanceJsonV3Tests(unittest.TestCase):
                 self.assertIs(assessment.source_request.scenario.facts.no_external_condition_sources, True)
             else:
                 bad_evaluation = original.evaluation_result
-            with patch('random.Random', side_effect=AssertionError('preflight must not draw RNG')), \
+            with patch('random.Random', side_effect=AssertionError('preflight must not draw RNG')),\
                     patch.object(service, 'generate_magic_candidates', return_value=
-                        bad_result.generation_result if phase == 'generation' else original.generation_result) as generate, \
+                        bad_result.generation_result if phase == 'generation' else original.generation_result) as generate,\
                     patch.object(service, 'evaluate_magic_candidates_staged', return_value=bad_evaluation) as evaluate:
                 expected = MagicBalanceExecutionError if phase == 'evaluation' else MagicBalanceGenerationError
                 with self.assertRaises(expected) as caught:
                     service.execute_magic_balance(bad_command if phase == 'command' else command)
-                self.assertEqual((caught.exception.schema_version, caught.exception.request_id), ('3', command.request_id))
+                self.assertEqual((caught.exception.schema_version, caught.exception.request_id), ('6', command.request_id))
                 self.assertIsInstance(caught.exception.__cause__, TypeError)
                 if phase == 'command':
                     generate.assert_not_called()
@@ -254,11 +244,11 @@ class M8MagicBalanceJsonV3Tests(unittest.TestCase):
         with patch('random.Random', side_effect=AssertionError('validation cannot sample')):
             with self.assertRaises(ValueError):
                 encode(command, wrong)
-            with patch.object(service, 'generate_magic_candidates', return_value=original.generation_result), \
+            with patch.object(service, 'generate_magic_candidates', return_value=original.generation_result),\
                     patch.object(service, 'evaluate_magic_candidates_staged', return_value=wrong.evaluation_result):
                 with self.assertRaises(MagicBalanceExecutionError) as caught:
                     service.execute_magic_balance(command)
-            self.assertEqual((caught.exception.schema_version, caught.exception.request_id), ('3', command.request_id))
+            self.assertEqual((caught.exception.schema_version, caught.exception.request_id), ('6', command.request_id))
             self.assertIsInstance(caught.exception.__cause__, ValueError)
         self.assertEqual((command, original, wrong), before)
         self.assertIs(report.source_request.simulation_requests, corrupted)
@@ -270,21 +260,21 @@ class M8MagicBalanceJsonV3Tests(unittest.TestCase):
         result = make_result(command)
         cases = ((MagicCandidateGenerationError('candidate', (1, 0)), 'generation'),
             (MagicStagedEvaluationError(1, 'candidate'), 'evaluation'),
-            (MagicBalanceExecutionError('private-foreign', schema_version='2'), 'generation'),
-            (MagicBalanceGenerationError('private-foreign', schema_version='1'), 'evaluation'))
+            (MagicBalanceExecutionError('private-foreign', schema_version='6'), 'generation'),
+            (MagicBalanceGenerationError('private-foreign', schema_version='6'), 'evaluation'))
         for cause, phase in cases:
             cause.add_note('private-note')
             with patch.object(service, 'generate_magic_candidates', return_value=result.generation_result,
-                    side_effect=cause if phase == 'generation' else None), \
+                    side_effect=cause if phase == 'generation' else None),\
                     patch.object(service, 'evaluate_magic_candidates_staged', side_effect=cause):
                 expected = MagicBalanceGenerationError if phase == 'generation' else MagicBalanceExecutionError
                 with self.assertRaises(expected) as caught:
                     service.execute_magic_balance(command)
             error = caught.exception
             self.assertIs(error.__cause__, cause)
-            self.assertEqual((error.schema_version, error.request_id), ('3', command.request_id))
+            self.assertEqual((error.schema_version, error.request_id), ('6', command.request_id))
             output = json.loads(encode_error(error))
-            validate(output, 'error', schema_version='3')
+            validate(output, 'error', schema_version='6')
             known = isinstance(cause, (MagicCandidateGenerationError, MagicStagedEvaluationError))
             self.assertEqual(output['error']['candidate_id'], 'candidate' if known else None)
             self.assertEqual(output['error']['counts'], [1, 0] if isinstance(cause, MagicCandidateGenerationError) else None)
@@ -307,28 +297,11 @@ class M8MagicBalanceJsonV3Tests(unittest.TestCase):
                 self.assertEqual(parse(json.dumps(output['request'])), command)
         self.assertEqual(random.getstate(), rng_before)
         command, result = pairs[0]
-        for foreign in (replace(command, schema_version='2'),
-                        replace(command, definition_order=tuple(reversed(command.definition_order)))):
-            with patch('towr.adapters.magic_balance_json.parse_magic_balance_request', return_value=foreign), \
+        for foreign in (replace(command, definition_order=tuple(reversed(command.definition_order))),):
+            with patch('towr.adapters.magic_balance_json.parse_magic_balance_request', return_value=foreign),\
                     self.assertRaises(ValueError):
                 encode(command, result)
 
-    def test_null_result_remains_v3_and_result_error_shapes_are_version_bound(self):
-        command = parse(json.dumps(document(stationary=False, miscast=False)))
-        output = json.loads(encode(command, make_result(command)))
-        self.assertEqual(output['schema_version'], '3')
-        self.assertIsNone(output['request']['generation'][FIELD])
-        for changed in (dict(output, schema_version='2'), dict(output, request=v2_document(opted=False)),
-                        dict(output, extra=True)):
-            with self.assertRaises(ValidationError):
-                validate(changed, 'result', schema_version='3')
-        for error in (MagicBalanceInputError(Code.INVALID_INPUT, 'bad', schema_version='3'),
-                      MagicBalanceGenerationError('request', schema_version='3'),
-                      MagicBalanceExecutionError('request', schema_version='3')):
-            error_doc = json.loads(encode_error(error))
-            validate(error_doc, 'error', schema_version='3')
-            with self.assertRaises(ValidationError):
-                validate(dict(error_doc, schema_version='2'), 'error', schema_version='3')
 
 
 if __name__ == '__main__':

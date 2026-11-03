@@ -4,30 +4,26 @@
 
 ## Текущий этап
 
-**ADR-0062 завершён.** Generation передаёт полный authored Endurance profile через matching family, обе JSON6 families сохраняют full source/echo/error identity. Native61 domain/engine и injury scope прежние. [Контракт](decisions/ADR-0062-battered-leg-generation-and-magic-json-v6.md), [приёмка](audits/m8-battered-leg-transport-readiness.md), [production239d10](examples/m8/battered_leg_transport_contract_probe.py).
+**ADR-0063 завершён: поддерживается только текущий Magic JSON6.** [Контракт и результаты проверки](decisions/ADR-0063-single-current-magic-contract.md). Удалены поддержка форматов1–5, 30 старых схем, 20 version fixtures и два исторических инструмента матричной приёмки. Остаются шесть актуальных схем и common definitions; все пять nullable permissions обязательны, full profile/source/cache/report guards сохраняются. Domain/engine, игровые правила и package discovery не менялись.
+
+[Политика работы](../AGENTS.md#контракты-во-время-разработки): обратная совместимость разработки не требуется; текущий формат обновляется вместе с кодом/примерами/тестами. Full/wheel не запускаются для каждого ADR. Предыдущая функциональность Battered Leg закрыта в62; историческая приёмка — [здесь](audits/m8-battered-leg-transport-readiness.md).
 
 ## Последняя проверка
 
-Новые47targeted checks прошли; generation/schema/JSON legacy checks также успешны. Production proof:98actual JSON6 parses/full echoes,97matching candidates и239scripted d10/native real spawn сверены с независимым oracle; seeded balance2trials отдельно.
+- Schemas:13tests OK/3.730s; все шесть shapes6 совпали с прежними после раскрытия refs. Package offline closure:25schemas/329refs; Magic7schemas/162refs, validator cache6.
+- Magic JSON/CLI: 215 IDs закрыты составно. Unit:158 IDs (156run:152OK/4fixture errors, затем6targetedOK:4retry+2новых version guards). Integration:57 IDs (55OK/2IDs со старым cross-family error expectation; после исправления2targetedOK/34.045s). Исходные прогоны не объявляются зелёными.
+- Затронутые policy/native source guards:24logical checks закрыты составно после исправления одного prerequisite fixture. Nonmagic JSON:172tests OK/17.101s.
+- Все шесть изменённых public probes прошли, включая realspawn и прежние finite gameplay/manual source oracles. Два изменённых copied loaders:2tests OK/10.923s. Все12publicJSON валидны, все7requests допускаются production parsers.
+- Import-only discovery:4266tests собраны без loader errors; это не их исполнение. Независимое AST review parser/mapper подтвердило сохранение поведения6.
 
-Full4340tests за1519.165s:4339passed/0failures/1ERROR в старом copied ADR54 probe, где6 считалась неизвестной версией. Sentinel исправлен на7; этот test повторён успешно за5.437s. Все4340test IDs закрыты **составно**; исходный full не зелёный. Затем изменены только две строки CLI help и соответствующий test: source1/1OK,1.162s; нового full финального tree не заявляется.
-
-Offline installed audit:47new copied checks OK/144.230s. Финальный wheel после help fix: **495 Python/JSON files** source/wheel/installed совпали, pip check OK;54schemas/36magic/573offline refs/cache36. Дополнительно11installed checks OK/49.657s:9CLI6 + help + исправленный ADR54 probe. AST сравнение подтвердило, что между wheels изменены только два help literals. Финальный installed public proof и8module/console×sequential/process JSON6 commands прошли без PYTHONPATH/src. Подробности и SHA — в приёмке62.
-
-Проверенные команды текущего шага:
-
-```powershell
-$env:PYTHONPATH = 'src'
-.venv/Scripts/python.exe -m unittest tests.integration.test_m8_battered_leg_transport_contract_probe -v
-.venv/Scripts/python.exe -m unittest discover -s tests -v
-```
+Полная игровая регрессия и wheel не выполнялись: изменена ограниченная внешняя подсистема, правила упаковки и entry points прежние. Следующая установленная проверка доставки — перед внешним выпуском либо раньше при изменении соответствующего механизма/обнаружении риска. Адресные результаты не объявляются full regression.
 
 ## Ограничения
 
-Первая rolled5 от ordinary wounding enemy Attack, resolved/untreated/unhealed; normal Test без modifiers, explicit unmounted/no-external-Conditions facts. None сохраняет pending stop. Failure сохраняет sourced Prone без removal consumer. Новые Staggered/Wounds после success ограничивают exact-injury scope60; actual death до этого stop недостижима. Generation требует matching family/profile, JSON1–5 новое поле не представляют. Treatment/healing/mixed injuries/save-resume не открыты.
+Первая Battered Leg5 от ordinary wounding enemy Attack, resolved/untreated/unhealed; normal Endurance Test, explicit unmounted/no-external-Conditions facts. None сохраняет pending stop. Failure сохраняет sourced Prone без removal consumer. Новые Staggered/Wounds после success ограничивают exact-injury scope60; actual death до этого stop недостижима. Treatment/healing/mixed injuries/save-resume не открыты. Retired Magic1–5 inputs отклоняются; остальные families имеют собственный единственный формат1.
 
 ## Точный следующий шаг
 
-Адресно сверить Free Actions/Prone в книгах и подготовить отдельный full-owner контракт снятия sourced Prone5 после провала Endurance, с сохранением Wound/completion/history. Зафиксировать допустимый источник действия, порядок применения и границу существующего exact-injury gate60 до реализации. Это следующая веха; transport62 её не открывает.
+Адресно сверить Free Actions/Prone в книгах и подготовить отдельный full-owner контракт снятия sourced Prone5 после провала Endurance, сохраняя Wound/completion/history. Определить источник действия, порядок применения и границу exact-injury gate60 до реализации. Команды воспроизведения текущих JSON/CLI checks приведены в ADR-0063; заново запускать их без влияющего изменения не требуется.
 
-Изменения остаются незакоммиченными. Commit/push выполняет пользователь; книги и `.gitignore` не менялись.
+Commit/push выполняет пользователь; книги и `.gitignore` не менялись.

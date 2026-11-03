@@ -18,7 +18,7 @@ Public options/window classes и их import/pickle paths прежние. Applic
 
 ## Полевая матрица fresh scenario
 
-Префикс `S` означает `/scenario` для simulation и `/reserve/scenario` для balance. [Simulation request Schema](../../src/towr/adapters/schemas/magic-simulation-request-v1.schema.json) описывает общую форму; mapper вызывает существующие public constructors. Все поля обязательны, nested objects закрыты, nullable values и пустые arrays явные. Каждый array order сохраняется независимо; ID не trim/coerce.
+Префикс `S` означает `/scenario` для simulation и `/reserve/scenario` для balance. [Simulation request Schema](../../src/towr/adapters/schemas/magic-simulation-request-v6.schema.json) описывает общую форму; mapper вызывает существующие public constructors. Все поля обязательны, nested objects закрыты, nullable values и пустые arrays явные. Каждый array order сохраняется независимо; ID не trim/coerce.
 
 | Поля | Guard / отображение | Исполняемая проверка |
 | --- | --- | --- |

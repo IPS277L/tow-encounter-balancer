@@ -11,12 +11,12 @@ class MagicSimulationCommand:
     request: NpcMagicSimulationRequest
     execution: SimulationExecutionOptions
     definition_order: tuple[str, ...]
-    schema_version: str = "1"
+    schema_version: str = "6"
 
     def __post_init__(self) -> None:
         if not isinstance(self.schema_version, str):
             raise TypeError("magic schema version must be a string")
-        if self.schema_version not in ("1", "2", "3", "4", "5", "6"):
+        if self.schema_version != "6":
             raise ValueError("unsupported magic schema version")
         if not isinstance(self.request_id, str):
             raise TypeError("command request ID must be a string")

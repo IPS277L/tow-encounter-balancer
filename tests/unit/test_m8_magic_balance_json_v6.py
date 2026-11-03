@@ -1,4 +1,4 @@
-"""Balance6 binds independent family and reserve Endurance profiles."""
+"""Current Magic JSON contract: deterministic admission and source guards."""
 from copy import deepcopy
 from dataclasses import replace
 from itertools import product
@@ -31,6 +31,24 @@ def document(*, miscast=False, stationary=False, repeated=False, crushed=False, 
 
 
 class M8MagicBalanceJsonV6Tests(unittest.TestCase):
+    def test_only_current_version_is_admitted_and_old_versions_use_current_error_shape(self):
+        original = bal.parse_magic_balance_request(json.dumps(document()))
+        for version in ('1', '2', '3', '4', '5', '7'):
+            with self.subTest(version=version):
+                raw = dict(document(), schema_version=version)
+                with self.assertRaises(MagicBalanceInputError) as caught:
+                    bal.parse_magic_balance_request(json.dumps(raw))
+                error = caught.exception
+                self.assertEqual((error.code, error.path, error.request_id, error.schema_version),
+                    (Code.UNSUPPORTED_VERSION, '/schema_version', raw['request_id'], '6'))
+                output = json.loads(bal.encode_magic_balance_error(error))
+                validate_magic_balance_document(output, 'error')
+                self.assertEqual(output['schema_version'], '6')
+                with self.assertRaises(ValueError):
+                    replace(original, schema_version=version)
+                with self.assertRaises(ValueError):
+                    MagicBalanceInputError(Code.INVALID_INPUT, 'bad', schema_version=version)
+
     def test_all_24_valid_matching_profiles_roundtrip_full_generation_and_echo(self):
         valid = invalid = 0
         for flags in product((False, True), repeat=5):
@@ -93,17 +111,6 @@ class M8MagicBalanceJsonV6Tests(unittest.TestCase):
             command = bal.parse_magic_balance_request(json.dumps(raw))
             self.assertEqual(command.generation_request.battered_leg_continuation.endurance_profile, InlineProfile(dice, 5))
 
-    def test_none_preserves_metadata_six_and_old_versions_reject_selected_profile(self):
-        selected = bal.parse_magic_balance_request(json.dumps(document()))
-        result = make_result(selected)
-        for version in ('1', '2', '3', '4', '5'):
-            with self.subTest(version=version), self.assertRaisesRegex(ValueError, 'Battered Leg.*losslessly'):
-                bal.encode_magic_balance_result(replace(selected, schema_version=version), result)
-        raw = document(battered=False)
-        command = bal.parse_magic_balance_request(json.dumps(raw))
-        encoded = json.loads(bal.encode_magic_balance_result(command, make_result(command)))
-        self.assertEqual(encoded['schema_version'], '6')
-        self.assertEqual(encoded['request'], raw)
 
     def test_original_profile_and_late_derived_cache_cannot_be_normalized_away(self):
         selected = bal.parse_magic_balance_request(json.dumps(document(dice=1)))
@@ -126,12 +133,12 @@ class M8MagicBalanceJsonV6Tests(unittest.TestCase):
                           '{"schema_version":"6","request_id":"x","request_id":"y"}'):
             with self.assertRaises(MagicBalanceInputError) as caught:
                 bal.parse_magic_balance_request(malformed)
-            self.assertEqual((caught.exception.schema_version, caught.exception.request_id), ('1', None))
+            self.assertEqual((caught.exception.schema_version, caught.exception.request_id), ('6', None))
         raw = dict(document(), schema_version='7')
         with self.assertRaises(MagicBalanceInputError) as caught:
             bal.parse_magic_balance_request(json.dumps(raw))
         self.assertEqual((caught.exception.schema_version, caught.exception.request_id, caught.exception.code),
-                         ('1', raw['request_id'], Code.UNSUPPORTED_VERSION))
+                         ('6', raw['request_id'], Code.UNSUPPORTED_VERSION))
         for error in (MagicBalanceGenerationError('request-six', schema_version='6'),
                       MagicBalanceExecutionError('request-six', schema_version='6')):
             error.__cause__ = RuntimeError('private cause')

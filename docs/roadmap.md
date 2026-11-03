@@ -314,7 +314,7 @@ Native policy/runner ADR-0050 реализованы ниже. Generation/wire p
 
 ## ADR-0058 — Crushed Rib generation и Magic JSON5
 
-**ADR-0058 завершён всеми четырьмя шагами.** [Контракт](decisions/ADR-0058-crushed-rib-generation-and-magic-json-v5.md), [итоговый installed/full audit](audits/m8-crushed-rib-transport-readiness.md), [finite generation/native/transport probe](examples/m8/crushed_rib_transport_contract_probe.py), [Simulation v5](examples/m8/json/magic-simulation-v5.request.json), [Balance v5](examples/m8/json/magic-balance-v5.request.json). Обе production CLI сохраняют полный permission echo; Balance проверяет independent matching reserve/family assertion. Native57 injury/phase scope не расширяется; wire1–4 сохраняет lossless refusal.
+**ADR-0058 завершён всеми четырьмя шагами.** [Контракт](decisions/ADR-0058-crushed-rib-generation-and-magic-json-v5.md), [итоговый installed/full audit](audits/m8-crushed-rib-transport-readiness.md), [finite generation/native/transport probe](examples/m8/crushed_rib_transport_contract_probe.py), [Simulation v5](examples/m8/json/magic-simulation.request.json), [Balance v5](examples/m8/json/magic-balance.request.json). Обе production CLI сохраняют полный permission echo; Balance проверяет independent matching reserve/family assertion. Native57 injury/phase scope не расширяется; wire1–4 сохраняет lossless refusal.
 
 1. **Выполнено:** append-last family field, strict4policy matching, permissions/facts arithmetic preflight и отдельный full-source/subset admission, original cache guards и explicit projection.12valid/4invalid, huge arithmetic, first/last malformed sources, generated3/4actor projections, обе perspectives, runner57, sequential/spawn/staged source/seed/budget parity проверяются целевыми unit/integration и public copied probe.
 2. **Выполнено:** Simulation5 — три собственных закрытых schemas, typed mapper/type/version gates, command/error metadata, parser/encoder/service/CLI и public request.
@@ -348,3 +348,7 @@ K1 boundary закрыта: [ADR](decisions/ADR-0059-battered-leg-endurance-test
 4. **Выполнено:** independent review/copy proof и112legacy wire checks; offline wheel/pip check/495file parity, installed47new и финальные11CLI/help/legacy checks, public proof и8CLI commands прошли. Full4340:4339passed/1old probe ERROR, после sentinel6→7 test повторён успешно; все4340IDs закрыты составно. Поздние два help literals проверены отдельно и AST сравнением wheels; единый зелёный full финального tree не заявляется. Native61 scope и Prone5 removal не расширяются.
 
 Следующий шаг: адресно сверить Free Actions/Prone и подготовить отдельный full-owner контракт снятия sourced Prone5 после провала Endurance с сохранением Wound/completion/history и явным порядком применения. Реализация начинается после определения границы существующего exact-injury gate60.
+
+## ADR-0063 — один текущий Magic JSON-контракт
+
+**Завершён.** По решению пользователя удалена исполняемая совместимость с Magic JSON1–5. [Контракт и проверка](decisions/ADR-0063-single-current-magic-contract.md) оставляют только6, общие schema definitions и актуальные source/guard/gameplay проверки. Старые ADR/audits сохраняют историю. Затронутая внешняя подсистема проверена адресно и составно, без full/wheel audit. Следующий игровой шаг прежний: книжная сверка и отдельный full-owner контракт sourced Prone5 removal.
