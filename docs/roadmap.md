@@ -320,3 +320,7 @@ Native policy/runner ADR-0050 реализованы ниже. Generation/wire p
 2. **Выполнено:** Simulation5 — три собственных закрытых schemas, typed mapper/type/version gates, command/error metadata, parser/encoder/service/CLI и public request.
 3. **Выполнено:** Balance5 — три schemas, reserve/family matching, full source/report/cache guards и echo; registry30magic/48total/cache30/507refs. Обе CLI исполняются в sequential/process режимах.
 4. **Выполнено:** copied production proof, source/wheel/fresh installed/module/console/spawn/offline-schema audit и полная регрессия. 4223 tests завершились с теми же33 Python3.12 expectation errors baseline и без новых failures; подробности — в итоговом audit. Wire не передаёт state/history/save-resume.
+
+## ADR-0059 — Battered Leg Endurance K1 consumer
+
+K1 boundary закрыта: [ADR](decisions/ADR-0059-battered-leg-endurance-test.md), [domain request/result](../src/towr/domain/battered_leg_models.py), [executor](../src/towr/rules/battered_leg_resolution.py), [приёмка](audits/k1-battered-leg-readiness.md). Одна isolated resolved/untreated/unhealed rolled5, explicit unmounted actor, полный effect witness и authored normal Endurance Test без modifiers. Success сохраняет injury, failure добавляет sourced Prone. Source/installed26targeted и full4239tests OK,486package files совпали. Следом — ручной M8 full-owner bridge, затем native runner/journal и generation/JSON; combinations требуют отдельных consumers.

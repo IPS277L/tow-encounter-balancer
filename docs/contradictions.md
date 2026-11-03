@@ -1,5 +1,9 @@
 # Противоречия и неоднозначности
 
+## Wound5 Battered Leg: source review ADR-0059
+
+2026-11-03: PG1.4 Wounds Table, строка5, стр. 190 требует Endurance Test и при failure назначает Prone; Endurance описан на стр. 70, обычная Characteristic pair — Toughness на стр. 67–72, общая Condition Prone — стр. 123. Тексты согласуются: специальная строка задаёт источник Test и последствие, общая Condition продолжает задавать её стандартные последствия/снятие. Числовой профиль конкретного персонажа в строке не определён и не выводится приложением. Отдельный combat action cost для этого немедленного Test не указан; K1 ADR-0059 не меняет action state. Нового противоречия/house rule нет.
+
 ## Crushed Rib generation/transport: контракт ADR-0058
 
 2026-11-03: [ADR-0058](decisions/ADR-0058-crushed-rib-generation-and-magic-json-v5.md) задаёт matching family для generation57 и будущую JSON5 передачу. Generation теперь сохраняет explicit policy; JSON1–4 продолжают lossless refusal. [Probe](examples/m8/crushed_rib_transport_contract_probe.py) отделяет production generation from manual JSON5 oracle. Это transport boundary, не противоречие книге; новых книжных неоднозначностей/house rules нет, injury/phase scope57 не расширяется.

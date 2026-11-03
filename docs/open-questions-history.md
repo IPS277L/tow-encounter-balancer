@@ -195,6 +195,8 @@ M8 Give Ground, 2026-10-02: standalone двухфазный контракт р�
 
 ## Проверки dataclasses на Python 3.12
 
+Пункт закрыт 2026-11-03: исправлены только ожидания исключений в двух frozen/slotted assignment tests (32 subcases принимают `FrozenInstanceError` или `TypeError`, текущий Python 3.12.4 даёт `TypeError`) и `dataclasses.replace` для `init=False` (один случай: `ValueError`). Три затронутых модуля прошли 29/29 tests; полный проектный suite затем прошёл **4223/4223** в обычной Windows-среде. Sandbox ACL errors относились к ограниченным диагностическим запускам. Историческая evidence ниже сохраняется.
+
 2026-10-25, macOS arm64 / Python 3.12.15: на текущем коммите `837592f` полный набор выполнил 2789 tests с 33 errors. Все 123 M8 tests проходят. Ошибки относятся к существующим ожиданиям исключений в трёх tests:
 
 - `tests/unit/test_k1_registered_aim_loss_prepared_attack.py` и `tests/unit/test_k1_registered_aim_loss_ranged_attack.py`: присваивание frozen/slotted property `.state` ожидает `FrozenInstanceError`, но Python 3.12 выдаёт `TypeError` — по 16 subtests;

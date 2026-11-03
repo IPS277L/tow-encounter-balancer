@@ -85,6 +85,12 @@ Resilience обычно равен Toughness с добавлением защи�
 
 Источник: страницы 112, 121, 159, 190–191.
 
+### Wound5 Battered Leg: Endurance follow-up
+
+Player’s Guide 1.4, Abilities / Characteristics & Skills, страницы 67–72; Rules / Wounds & Conditions, страница 121; Appendix / Wounds Table, строка5, страница 190; Conditions / Prone, страница 123. Battered Leg создаёт Endurance Test после результата таблицы; failure добавляет Prone, success предотвращает его. Стандартный профиль использует Toughness/Endurance; если GM заранее назначил иную Characteristic, она передаётся явно вместе с authored Test profile. Prone снимается по стандартным правилам Condition; таблица не задаёт отдельного срока или action cost для Test.
+
+K1 consumer: `domain/battered_leg_models.py`, `rules/battered_leg_resolution.py`; [ADR-0059](../decisions/ADR-0059-battered-leg-endurance-test.md), [tests](../../tests/unit/test_k1_battered_leg_resolution.py). Первая граница — одна resolved/untreated/unhealed rolled5 без Conditions/active effects, explicit unmounted actor и normal Test без modifiers. Consumer сверяет полный WoundEffect witness, follow-up и trace относительно authored profile, затем применяет только sourced Prone при failure. Это ограничение реализации; сочетания Conditions, mounts, M8 full-owner/journal, generation и JSON остаются отдельными срезами.
+
 ## RULE-HEALTH-006 — типы NPC
 
 - Minion побеждён после одного Wound.

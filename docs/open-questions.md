@@ -18,7 +18,11 @@ Native53 и transport54 закрыты. Канонические first9/stand48/
 
 [ADR-0056](decisions/ADR-0056-source-bound-crushed-rib-owner-bridge.md) реализован: full-owner pending/consumed context, first actual consuming result как witness, Protection handoff до Wound и Casting до pool/follow-ups. [Actual63d10/приёмка](audits/m8-crushed-rib-owner-readiness.md). Source compatibility не доказывает journal membership или произвольную достижимость; настоящий current owner предоставляет authoritative caller. Wizard action/end-turn gap для stripped10 без witness закрыт, включая удаление context после десериализации. Новые post-Test Wounds регистрируются полностью и затем ограничивают context.
 
-[ADR-0057](decisions/ADR-0057-native-crushed-rib-continuation.md) закрыт в ограниченной native границе; [приёмка](audits/m8-native-crushed-rib-readiness.md). ADR-0058 полностью закрыт: generation, обе Magic JSON5 families и [installed/full boundary audit](audits/m8-crushed-rib-transport-readiness.md). JSON1–4 сохраняют refusal Crushed Rib даже null; Balance5 требует matching reserve/family assertion. Новые injury сочетания/current-state-history transport/save-resume не открываются. 33 Python3.12 expectation errors остаются тем же baseline; новых rulebook/house-rule вопросов для текущего среза нет.
+[ADR-0057](decisions/ADR-0057-native-crushed-rib-continuation.md) закрыт в ограниченной native границе; [приёмка](audits/m8-native-crushed-rib-readiness.md). ADR-0058 полностью закрыт: generation, обе Magic JSON5 families и [installed/full boundary audit](audits/m8-crushed-rib-transport-readiness.md). JSON1–4 сохраняют refusal Crushed Rib даже null; Balance5 требует matching reserve/family assertion. Новые injury сочетания/current-state-history transport/save-resume не открываются. Python 3.12 expectation fixes проверены полным прогоном 4223/4223.
+
+K1 Wound5 consumer [ADR-0059](decisions/ADR-0059-battered-leg-endurance-test.md) связывает одну canonical rolled5 с полным effect witness и явным normal Endurance Test. Первая граница исключает Conditions/active effects, modifiers, treatment/healing и mounted actors; combinations требуют отдельных preparations/consumptions. До scenario consumer actor/profile authority и chronology остаются у caller; M8 authored Endurance profile, full-owner/journal и wire ещё не определены.
+
+Существующий `Characteristic` enum покрывает шесть характеристик; Weapon Skill и Ballistic Skill пока представлены только числовыми профилями, без собственных enum values. Поэтому ADR-0059 поддерживает Toughness и явные альтернативы только из текущего enum; полная coverage книжных Characteristics остаётся отдельной задачей.
 
 ## Значение ничьей для балансировки
 
@@ -93,12 +97,3 @@ Player’s Guide 1.4 на странице 122 отдельно перечисл
 ## Границы orchestration histories
 
 Актуальные Aim, hidden lifecycle и replay guards описаны в [архитектуре ядра](architecture/resolution-kernel.md) и профильных tests. Автоматическое forgetting укрытий, перенос history между боями и полная общая battle chronology не определены. Это пробелы интеграции, а не разрешение сбрасывать IDs/state. Подробная история закрытых boundaries сохранена в [архиве](open-questions-history.md#временная-граница-истории-укрытий).
-
-## Проверки dataclasses на Python 3.12
-
-На macOS arm64 / Python 3.12.15 зафиксированы 33 существующие ошибки assertions; они также воспроизведены на Windows x64 / Python 3.12.4. Последний полный прогон указан в [статусе](project-status.md#последняя-проверка). Исторически ошибки воспроизведены на прежних чистых коммитах:
-
-- `test_k1_registered_aim_loss_prepared_attack.py` и `test_k1_registered_aim_loss_ranged_attack.py`: 32 subtests ожидают FrozenInstanceError при записи frozen/slotted property `.state`, Python 3.12 выдаёт TypeError.
-- `test_m5_ranged_evaluation.py`: один test ожидает TypeError при dataclasses.replace поля init=False, фактически получается ValueError.
-
-Корректировка этих ожиданий для поддерживаемых Python — отдельная задача. Игровые правила и production ради assertions не меняются; полный suite с такими errors не считается зелёным. Новые ошибки должны рассматриваться отдельно. Историческая evidence — в [архиве](open-questions-history.md#проверки-dataclasses-на-python-312).

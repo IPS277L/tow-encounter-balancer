@@ -1,5 +1,9 @@
 # Реестр источников
 
+## Wound5 Battered Leg: адресная сверка ADR-0059
+
+2026-11-03: непосредственно прочитаны локальные извлечения BOOK-PLAYER-GUIDE1.4, Abilities / Characteristics & Skills, стр. 68–70 (Endurance обычно Toughness; GM может назначить другую Characteristic до броска); Rules / Wounds & Conditions, стр. 121; Conditions / Prone, стр. 123; Appendix / Wounds Table, строка5, стр. 190. Исходная выбранная книга/версия/hash остаются прежними; PDF заново не открывался, SHA не пересчитывался. Новый Rule ID/house rule не вводился. [ADR-0059](decisions/ADR-0059-battered-leg-endurance-test.md) связывает только K1 Test source и эффект, не определяя M8 actor profile.
+
 ## Crushed Rib generation/transport: контракт ADR-0058
 
 2026-11-03: [ADR-0058](decisions/ADR-0058-crushed-rib-generation-and-magic-json-v5.md) передаёт существующий native57 permission без изменения механики; generation step1 реализован. Нового чтения книг/PDF/страниц, извлечений, версий/SHA и Rule IDs нет; прежние источники55/56/57 сохраняются. [Public probe](examples/m8/crushed_rib_transport_contract_probe.py) проверяет actual generation/native execution и manual wire5 oracle. JSON5 production schema/codec ещё впереди; oracle не является источником правила.

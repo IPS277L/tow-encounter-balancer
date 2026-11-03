@@ -500,6 +500,10 @@ from towr.domain.surgery_models import (
     SurgeryFailureRiskRequest,
 )
 from towr.domain.encounters import EncounterDefinition
+from towr.domain.battered_leg_models import (
+    BatteredLegEnduranceTestRequest,
+    BatteredLegEnduranceTestResult,
+)
 from towr.domain.injury_models import (
     CharacterInjuryState,
     DecisionOwner,
@@ -1107,6 +1111,8 @@ __all__ = [
     "CombatTurnStartResult",
     "CombatTurnState",
     "CharacterInjuryState",
+    "BatteredLegEnduranceTestRequest",
+    "BatteredLegEnduranceTestResult",
     "CharacterWoundLifecycleCompletionRequest",
     "CharacterWoundLifecycleCompletionResult",
     "CharacterWoundLifecycleOutcome",

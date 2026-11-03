@@ -4,13 +4,15 @@
 
 ## Текущий этап
 
-**ADR-0058 закрыт в согласованной границе.** Crushed Rib generation family и обе Magic JSON5 families реализованы. Simulation и balance CLI сохраняют полный typed source/result/error echo; balance отдельно проверяет matching Crushed Rib policy в reserve и generation до enumeration. [ADR](decisions/ADR-0058-crushed-rib-generation-and-magic-json-v5.md), [итоговый аудит](audits/m8-crushed-rib-transport-readiness.md), [public requests](examples/m8/json/README.md).
+**ADR-0059 закрыт в K1 границе.** Одна canonical rolled5 связывается с полным WoundEffect witness и caller-authored normal Endurance Test. Failure добавляет sourced Prone; success сохраняет injury. [Контракт](decisions/ADR-0059-battered-leg-endurance-test.md), [приёмка](audits/k1-battered-leg-readiness.md), [трассировка](rule-traceability.md).
 
 ## Последняя проверка
 
-Полная регрессия: **4223 tests, 33 errors, 0 failures, 0 skipped**. Ровно 33 прежних Python 3.12 expectation errors: 32 subcase errors при assignment в frozen/slotted `.state` и один M5 `dataclasses.replace(init=False simulation_requests)` expectation. Новых errors/failures нет; набор не объявляется полностью зелёным. Исправленный ADR-0054 transport probe с unknown v6 прошёл.
+Полная регрессия после ADR-0059: **4239 tests, OK**, 0 errors/failures/skips, Windows x64 / Python 3.12.4, **1120.898 s**. Целевые source-проверки: **26 tests, OK**. Ревью закрыло Conditions admission, stale healed Wound, mounted context и Test trace substitution.
 
-Свежий offline wheel установлен в отдельный venv. Source/wheel/installed parity: **484 Python/Schema files**. Schema closure: **48 schemas / 30 Magic / 507 local refs**. Обе v5 CLI проверены sequential и process через source, `python -I -m towr` и installed console script: **12 точных сравнений**, полный request echo сохранён. `pip check` прошёл. Markdown link check: 189 files, 4615 local links, 0 missing.
+Свежий offline wheel ADR-0059: **486 Python/JSON files** source/wheel/installed совпали по путям/SHA-256, `pip check` OK, public exports доступны из site-packages. Copied targeted bundle через installed `python -I`: **26 tests, OK**. Schemas не менялись. [Аудит ADR-0059](audits/k1-battered-leg-readiness.md).
+
+После full run package hashes прежние; пути Markdown-ссылок: 190 files / 4633 links / 0 missing. `git diff --check` OK.
 
 Проверенная команда полного набора:
 
@@ -21,10 +23,10 @@ $env:PYTHONPATH = 'src'
 
 ## Ограничения
 
-Crushed Rib transport разрешает только `NEXT_TEST_WITH_JOURNAL_WITNESSES` и несёт только fresh source permission. Native ограничение прежнее: одна canonical resolved/untreated/unhealed rolled10, optional prior superficial1–3, только Drained. Coexistence с9/6/Wind, лечение/Fate/Lucky/Talents, current owner/journal/history, receipts и save/resume не открыты. Книги и gameplay scope ADR-0057 не менялись.
+ADR-0059 допускает только первую resolved/untreated/unhealed rolled5, без Conditions/active effects; explicit `unmounted=True`; Test без modifiers/reroll locks. Caller отвечает за actor/profile authority и chronology. M8 full-owner/journal, replay application, другие сочетания, mounts и transport требуют следующих контрактов.
 
 ## Точный следующий шаг
 
-ADR-0058 завершён; новых открытых вопросов по этому срезу нет. Перед новой feature-вехой выбрать следующий пункт roadmap с учётом текущего приоритета и подтвердить правила-источники для него. Первые ориентиры — актуальные [open questions](open-questions.md) и [roadmap](roadmap.md).
+Подготовить отдельный ADR для ручного M8 full-owner перехода Battered Leg: authored Wizard Endurance profile, exact current owner/pending Wound5, одно выполнение Test и применение injury delta с сохранением истории. После этого — native runner/journal, затем generation/wire. Numeric profile не выводится автоматически. [Основание и текущая граница](decisions/ADR-0059-battered-leg-endurance-test.md).
 
 Изменения остаются незакоммиченными. Commit/push выполняет пользователь; книги и `.gitignore` не менялись.

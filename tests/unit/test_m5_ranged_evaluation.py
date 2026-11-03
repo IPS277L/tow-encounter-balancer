@@ -41,7 +41,7 @@ class M5RangedEvaluationModelTests(unittest.TestCase):
         self.assertEqual({item.seed_for(2) for item in actual.simulation_requests}, {source.simulation_requests[0].seed_for(2)})
         with self.assertRaises(FrozenInstanceError):
             actual.top_k = 1
-        with self.assertRaises(TypeError):
+        with self.assertRaises(ValueError):
             replace(actual, simulation_requests=())
         changed = replace(actual, master_seed=43)
         self.assertTrue(all(item.master_seed == 43 for item in changed.simulation_requests))

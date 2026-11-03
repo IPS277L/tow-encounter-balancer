@@ -90,7 +90,7 @@ class K1RegisteredAimLossRangedAttackTests(unittest.TestCase):
                     source.rule_id, *result.registration.applied_rule_ids))))
                 self.assertEqual(rng.randint(1, 10), 7)
                 self.assertEqual(source, before)
-                with self.assertRaises(FrozenInstanceError):
+                with self.assertRaises((FrozenInstanceError, TypeError)):
                     result.state = source.state
 
     def test_optional_repeater_bonus_retains_its_profile_and_reload_trigger(self):

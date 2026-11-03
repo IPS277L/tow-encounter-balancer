@@ -82,7 +82,7 @@ class K1RegisteredAimLossPreparedAttackTests(unittest.TestCase):
                 self.assertTrue(set(source.prepared_attack.preparation.applied_rule_ids) <= set(result.applied_rule_ids))
                 self.assertEqual(rng.randint(1, 10), 7)
                 self.assertEqual(source, before)
-                with self.assertRaises(FrozenInstanceError):
+                with self.assertRaises((FrozenInstanceError, TypeError)):
                     result.state = source.state
 
     def test_profile_modifier_survives_once(self):

@@ -1,5 +1,7 @@
 # TOWR Encounter Balancer
 
+[ADR-0059](docs/decisions/ADR-0059-battered-leg-endurance-test.md) реализует K1 Endurance follow-up для первой Battered Leg: явный профиль, normal Test и unmounted actor; failure добавляет Prone. Границы и следующий M8 шаг — в [статусе](docs/project-status.md).
+
 Закрыт [ADR-0058](docs/decisions/ADR-0058-crushed-rib-generation-and-magic-json-v5.md): matching family permission сохраняется в generated candidates, а `simulate-magic` и `balance-magic` читают/пишут полное nullable Crushed Rib разрешение. [Contract probe](docs/examples/m8/crushed_rib_transport_contract_probe.py) проверяет generation и native APIs; публичные [simulation](docs/examples/m8/json/magic-simulation-v5.request.json) и [balance](docs/examples/m8/json/magic-balance-v5.request.json) requests проходят реальные CLI. [Итоговый wheel/installed/full audit](docs/audits/m8-crushed-rib-transport-readiness.md) закрыт; точка продолжения — в [project status](docs/project-status.md).
 
 Реализован [ADR-0057](docs/decisions/ADR-0057-native-crushed-rib-continuation.md): native Crushed Rib с отдельным разрешением и подтверждением расхода из собственного журнала. [Actual274d10](docs/examples/m8/crushed_rib_native.py) проверяет Casting/Protection-first, обязательные последствия и настоящий spawn. [Приёмка](docs/audits/m8-native-crushed-rib-readiness.md) фиксирует installed/full проверки. ADR-0058 подключил разрешение к generation и Magic JSON5; JSON1–4 сохраняют lossless refusal. Текущая стадия указана в [статусе](docs/project-status.md).
