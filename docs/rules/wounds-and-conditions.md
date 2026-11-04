@@ -1,5 +1,7 @@
 # Раны и состояния
 
+M12 подключает все PC Wounds11–23 к ограниченному melee owner с выбранным продолжением боя, bound body/hand consequences, Critical end phase и живыми Defenceless turns. [Контракт ADR-0068](../decisions/ADR-0068-pc-heavy-wound-continuation.md), [текущий пример](../examples/m12/README.md). Лечение/campaign не добавлены; старые M8 записи ниже сохраняют свои исторические границы.
+
 2026-11-03: [generation шаг ADR-0058](../decisions/ADR-0058-crushed-rib-generation-and-magic-json-v5.md) сохраняет отдельное Crushed Rib разрешение во всех подходящих generated subsets. Книжная механика, native57 injury/phase scope и обязательные последствия неизменны. [Finite proof](../examples/m8/crushed_rib_transport_contract_probe.py) исполняет настоящий generator и native runner; wire5 остаётся manual oracle до codec/schema реализации.
 
 [ADR-0057](../decisions/ADR-0057-native-crushed-rib-continuation.md) реализует native включение56: независимый opt-in, actual next Protection/Casting из собственного prefix, первый полный consuming witness и обязательные pending до следующего context. [Actual274d10/приёмка](../audits/m8-native-crushed-rib-readiness.md). Нового правила/расширения injury scope нет. [Исторический59d10](../examples/m8/crushed_rib_native_contract_probe.py) отделяет standalone compatibility от membership и теперь проверяет отказ для закрытого permission gap. None/native generation/JSON границы сохраняются.
@@ -57,6 +59,8 @@ Resilience обычно равен Toughness с добавлением защи�
 - `Damage > Resilience` наносит Wound.
 - `Damage <= Resilience` накладывает Staggered.
 
+Для успешной Damage Attack по Defenceless применяется Wound вместо обычного результата сравнения. Подтверждённая physical Attack, которая дала бы Staggered, также наносит Wound при активном permanent restriction22/Ruptured Organs. Исходные Damage/Resilience и Attack Test не подменяются; актуальные K1 consumers связывают исключение с target source. Источник: Conditions/Defenceless123 и Wounds Table191/22; M12 не исполняет post-healing optional Endurance ветвь22, поскольку лечение вне scope.
+
 Источник: страница 119.
 
 ## RULE-HEALTH-003 — повторный Staggered
@@ -74,6 +78,8 @@ Resilience обычно равен Toughness с добавлением защи�
 ## RULE-HEALTH-004 — взаимодействие Wound и Staggered
 
 Получение Wound немедленно удаляет Staggered. Если Wound позднее отменён через Near Miss, ранее имевшийся Staggered сохраняется.
+
+Исключение источника: Wounds15/19 задают ongoing Staggered until healed. По PG122 такую Condition нельзя снять до устранения причины; специализированный срок сохраняется при новой Wound и ordinary Recover. Это сохранение существующей Condition, не повторное получение Staggered. `wound_adrenaline_conditions` используется и исполнением, и canonical roll/fixed validators. Аналогично W17 Prone until treated не снимается обычным Recover; независимые источники не стираются.
 
 Источник: страницы 112 и 121.
 

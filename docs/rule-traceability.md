@@ -1,5 +1,14 @@
 # Трассировка правил
 
+## M12: PC Wounds11–23, Critical/Defenceless
+
+BOOK-PLAYER-GUIDE1.4, Rules / Combat Actions116, Recover/Attack118, Conditions122–123, Wounds Table190–191. Пользователь выбрал весь диапазон11–23 и продолжение боя. [ADR-0068](decisions/ADR-0068-pc-heavy-wound-continuation.md) подключает существующие RULE-HEALTH-002/004/005/008 и RULE-FATE-001/002/003; новых Rule IDs/house rules нет.
+
+- [Kernel](../src/towr/rules/kernel.py) и pure helper в [resolution models](../src/towr/domain/resolution_models.py): actual Damage Attack по Defenceless либо confirmed physical Staggered при restriction22 вызывает реальную Wound без изменения Attack trace/Damage/Resilience.
+- [Adrenaline helper/canonical validators](../src/towr/domain/injury_models.py), [injury execution](../src/towr/rules/injury_resolution.py): ongoing Staggered15/19 сохраняется; Near Miss возвращает прежний source. [K1 heavy tests](../tests/unit/test_k1_heavy_wound_rules.py) также проверяют новый pure [Critical consumer](../src/towr/rules/critical_injury_resolution.py)/[request/result](../src/towr/domain/critical_injury_models.py).
+- [Body facts](../src/towr/domain/pc_heavy_wound_models.py), [consequences](../src/towr/domain/_pc_heavy_wound_projection.py), [end phase](../src/towr/domain/pc_heavy_turn_projection.py), [owner](../src/towr/domain/pc_melee_result_models.py) и [runner](../src/towr/engine/pc_melee_runner.py) сохраняют по PC/Wound источники, руки/потери/clutch, mandatory Tests, ongoing Conditions, настоящий actionless turn, Endurance до expiry и отсутствие новой Wound/daily при смерти от Critical. [Heavy source tests](../tests/unit/test_m12_pc_heavy_wounds.py) охватывают строки/повторы и полный prefix/replay; невозможная повторная анатомия остаётся actual pending stop.
+- [Actual trials/balance/process](../tests/integration/test_m12_pc_heavy_wounds.py) исполняют low-Damage forced Wound и смерть на пустом Critical turn, сохраняя общий denominator/loss metrics. [Wire](../tests/unit/test_m9_pc_melee_json.py)/[schema](../tests/unit/test_m9_pc_melee_json_schemas.py)/[CLI](../tests/integration/test_m9_pc_melee_cli.py) требуют current1 `random_side_policy`/`heavy_wound_policy`, старый hand-only shape отклоняется. [Текущие примеры](examples/m12/README.md).
+
 ## M11: static-profile Brutes в PC melee
 
 BOOK-GM-GUIDE1.1, Allies and Antagonists / Minions91, Brutes92; BOOK-PLAYER-GUIDE1.4, Wounds Table/NPC summary190–191. [ADR-0067](decisions/ADR-0067-pc-melee-profile-brutes.md) подключает RULE-NPC-002/003 и существующие RULE-COMBAT-001/004/007 к mixed reserve без новых Rule IDs/house rules.

@@ -4,7 +4,11 @@
 
 ## Действующая граница симуляции
 
-Ограниченные [M8](m8-completion.md), [первый PC-сценарий M9](decisions/ADR-0065-first-pc-melee-encounter.md), [группа PC M10](decisions/ADR-0066-pc-party-melee-encounter.md) и [Minion/Brute roster M11](decisions/ADR-0067-pc-melee-profile-brutes.md) завершены. Следующий шаг — в [статусе](project-status.md), текущие контракты — в [архитектуре](architecture/overview.md). Numeric static Brutes используют собственный профильный предел ран; on-Wound behaviours/abilities пока не подключены. PC Wounds1–10/Fate decline сохраняют индивидуальные histories;11–23дают actor-bound pending stop. Гибель одного PC допускает продолжение другими; observed losses не предсказывают судьбу survivors после stop/limit. Heavy Wound continuations, active Fate, Champions/Monstrosities, ally Recover, campaign/inventory и оптимальная AI-policy остаются дальнейшими темами. Characteristic enum ещё не полный; PC family использует числовые WS/Skills с TestProfile. Историческая инвентаризация M8 не расширяет очередь и не возвращает старые wire formats.
+Ограниченные M8–M12 завершены: [актуальная PC heavy-wound граница ADR-0068](decisions/ADR-0068-pc-heavy-wound-continuation.md), [статус](project-status.md), [архитектура](architecture/overview.md). Numeric static Minions/Brutes и PC Wounds1–23/lethal24+ исполняются с индивидуальными Fate/body/daily histories и mandatory Critical/Defenceless end phase. Гибель одного PC допускает продолжение другими; observed losses не предсказывают судьбу survivors после stop/limit. GM-замена физически невозможной повторной анатомии не задана, сохраняется actual pending stop. Active Fate, post-healing Endurance22, лечение, Champions/Monstrosities, ally Recover/Help, campaign/inventory и оптимальная AI-policy остаются дальнейшими темами. Characteristic enum ещё не полный; PC family использует числовые WS/Skills с TestProfile. История M8 не расширяет очередь и не возвращает старые wire formats.
+
+## Выбранная стратегия M12
+
+Пользователь выбрал все тяжёлые раны11–23 и продолжение Attack/Recover с книжными осложнениями, здоровой рукой при возможности и clutch свободной. [ADR-0068](decisions/ADR-0068-pc-heavy-wound-continuation.md) — явная policy, не house rule. Для физически невозможной повторной анатомической потери без существующей цели сохраняется actual pending stop; произвольная GM замена результата не выбрана.
 
 <a id="первая-метрика-m5"></a>
 

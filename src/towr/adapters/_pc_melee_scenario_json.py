@@ -19,7 +19,7 @@ from towr.domain.npc_roster_models import (
 )
 from towr.domain.pc_melee_models import (
     PcFatePolicy, PcMeleeDefinition, PcMeleeFacts, PcMeleeParticipant, PcMeleePolicy, PcMeleeScenario,
-    PcMeleeWeapon, PcRandomHandPolicy, PcWeaponHand, validate_pc_melee_scenario_admission,
+    PcMeleeWeapon, PcRandomSidePolicy, PcHeavyWoundPolicy, PcWeaponHand, validate_pc_melee_scenario_admission,
 )
 from towr.domain.ranged_weapon_profiles import RangedWeaponHands, RangedWeaponRange
 from towr.domain.resolution_models import TargetInjuryPolicy
@@ -71,7 +71,8 @@ def _parse_participant(data, *, path_prefix, error_type):
     fate = build(path_prefix + "/fate", FateSessionState, **fate_raw)
     return build(path_prefix, PcMeleeParticipant, data["actor_id"], pc, fate,
         PcMeleePolicy(data["policy"]), PcFatePolicy(data["fate_policy"]),
-        PcRandomHandPolicy(data["random_hand_policy"]), PcWeaponHand(data["initial_weapon_hand"]),
+        PcRandomSidePolicy(data["random_side_policy"]), PcHeavyWoundPolicy(data["heavy_wound_policy"]),
+        PcWeaponHand(data["initial_weapon_hand"]),
         tuple(data["target_priority"]),
         tuple(build(f"{path_prefix}/defeat_decisions/{index}", MinionDefeatDecision,
             **dict(record, disposition=NpcDefeatDisposition(record["disposition"])))

@@ -1,6 +1,6 @@
 # M10: группа PC против Minions
 
-Два немагических PC с самостоятельными профилями, Fate и оружием в одной Close Zone против authored numeric Minions. [Граница ADR-0066](../../decisions/ADR-0066-pc-party-melee-encounter.md) сохраняет Wounds1–10, lethal24+ после явного отказа Near Miss, self Recover и точный unsupported при11–23. Отдельный погибший PC не завершает бой живого товарища.
+Два немагических PC с самостоятельными профилями, Fate и оружием в одной Close Zone против authored numeric Minions. Историческая [граница ADR-0066](../../decisions/ADR-0066-pc-party-melee-encounter.md) расширена [M12](../m12/README.md): исполняются и тяжёлые раны11–23. Отдельный погибший PC не завершает бой живого товарища.
 
 Из корня репозитория:
 
@@ -22,6 +22,6 @@ $env:PYTHONPATH = 'src'
 
 Сохранённые [simulation result](pc-melee-simulation.result.json) и [balance result](pc-melee-balance.result.json) получены реальными командами на указанном в них runtime. Наблюдения конкретного seed/trials не закрепляют игровые вероятности. Любое unsupported исключает кандидата из selection; отчёт сохраняет все оценённые составы.
 
-В сохранённом simulation наблюдаются14побед и2unsupported из16, подтверждённых смертей0. Balance даёт16побед из16для каждого из трёх составов; при равной дистанции от target выбираются counts1, затем2 по порядку кандидатов. Это конкретные наблюдения, а не подтверждение нулевого риска потерь или оптимальности стратегии.
+Актуальные числа находятся в сохранённых result files. После M12 прежние heavy-gate остановки продолжаются по выбранной стратегии; исторические результаты M10 остаются в ADR-0066.
 
-Политики `attack_or_recover_self`, `decline_optional_fate`, `d10_low_left_high_right` задаются для каждого PC явно. Общие ограничения и строгий JSON/error контракт описаны в [одиночном примере](../m9/README.md). Помощь товарищам, активное Fate, лечение, другие NPC types, остальные оружие/Talents, campaign и save/resume не входят в M10.
+Политики `attack_or_recover_self`, `decline_optional_fate`, `d10_low_left_high_right` и `continue_fighting` задаются для каждого PC явно. Новые поля `random_side_policy`/`heavy_wound_policy` заменяют старый hand-only shape. Общие ограничения и строгий JSON/error контракт — в [одиночном примере](../m9/README.md); body/end-turn поведение — в M12. Помощь, активное Fate, лечение, общий campaign/inventory остаются вне среза.

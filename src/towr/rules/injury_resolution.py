@@ -18,6 +18,7 @@ from towr.domain.injury_models import (
     WoundRecord,
     WoundRecordOrigin,
     WoundTableRoll,
+    wound_adrenaline_conditions,
 )
 from towr.rules.dice import RandomSource
 from towr.rules.wound_table import lookup_wound
@@ -90,7 +91,7 @@ def resolve_character_wound(
         table_total=total,
         roll_values=values,
     )
-    conditions = request.state.conditions.without_condition(Condition.STAGGERED)
+    conditions = wound_adrenaline_conditions(request.state)
     state = CharacterInjuryState(
         wounds=(*request.state.wounds, wound),
         conditions=conditions,
@@ -135,9 +136,7 @@ def resolve_fixed_character_wound(
     )
     state = CharacterInjuryState(
         wounds=(*request.state.wounds, wound),
-        conditions=request.state.conditions.without_condition(
-            Condition.STAGGERED
-        ),
+        conditions=wound_adrenaline_conditions(request.state),
         active_wound_effects=request.state.active_wound_effects,
         dead=entry.lethal,
     )

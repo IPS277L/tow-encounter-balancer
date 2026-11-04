@@ -57,3 +57,15 @@ def party_casualty_script():
         + [10,10,10,1,1,1]
         + [1,1,1,10,10]
         + [10,10,10,1,1,1] * 3)
+
+
+def unavailable_arm_source():
+    return make_pc_melee_scenario(enemy_count=4,max_rounds=1)
+
+
+def unavailable_arm_script():
+    return ([10,10,10,1,1]
+        + [1,1,1,10,10,10,1]
+        + [1,1,1,10,10,10,10,10,1]
+        + [1,1,1,7,7,6]
+        + [1,1,1,5,5,5,5])

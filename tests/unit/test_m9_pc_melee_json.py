@@ -96,6 +96,46 @@ def balance_result(command):
 
 
 class PcMeleeJsonTests(unittest.TestCase):
+    def test_heavy_wound_and_side_policies_are_required_current_fields_with_exact_echo(self):
+        for balance in (False,True):
+            raw=document(balance=balance,party_size=2,mixed=True)
+            parse=wire.parse_pc_melee_balance_request if balance else wire.parse_pc_melee_simulation_request
+            encode=wire.encode_pc_melee_balance_result if balance else wire.encode_pc_melee_simulation_result
+            command=parse(json.dumps(raw))
+            source=command.request.template if balance else command.request.scenario
+            self.assertTrue(all(member.heavy_wound_policy.value=='continue_fighting' for member in source.party))
+            self.assertTrue(all(member.random_side_policy.value=='d10_low_left_high_right' for member in source.party))
+            result=balance_result(command) if balance else aggregate(command.request)
+            with patch('random.Random',side_effect=AssertionError('encoding never creates RNG')):
+                encoded=json.loads(encode(command,result))
+            self.assertEqual(encoded['request'],raw)
+
+    def test_missing_invalid_legacy_and_equal_untyped_heavy_policies_are_refused(self):
+        for field in ('random_side_policy','heavy_wound_policy'):
+            raw=document(party_size=2)
+            del raw['scenario']['party'][1][field]
+            with self.subTest(missing=field),self.assertRaises(PcMeleeSimulationInputError):
+                wire.parse_pc_melee_simulation_request(json.dumps(raw))
+            for value in (True,None,'invented'):
+                raw=document(party_size=2)
+                raw['scenario']['party'][1][field]=value
+                with self.subTest(field=field,value=value),self.assertRaises(PcMeleeSimulationInputError) as caught:
+                    wire.parse_pc_melee_simulation_request(json.dumps(raw))
+                self.assertEqual(caught.exception.path,f'/scenario/party/1/{field}')
+        raw=document(party_size=2)
+        second=raw['scenario']['party'][1]
+        second['random_hand_policy']=second.pop('random_side_policy')
+        with self.assertRaises(PcMeleeSimulationInputError):
+            wire.parse_pc_melee_simulation_request(json.dumps(raw))
+        command=wire.parse_pc_melee_simulation_request(json.dumps(document(party_size=2)))
+        for field in ('random_side_policy','heavy_wound_policy'):
+            forged=deepcopy(command)
+            member=forged.request.scenario.party[1]
+            object.__setattr__(member,field,getattr(member,field).value)
+            self.assertEqual(forged,command)
+            with self.subTest(forged=field),self.assertRaises(TypeError):
+                wire.encode_pc_melee_simulation_result(forged,aggregate(command.request))
+
     def test_mixed_npc_types_and_limits_survive_exact_sources_candidates_and_result_echo(self):
         raw=document(balance=True,party_size=2,mixed=True)
         before=deepcopy(raw)

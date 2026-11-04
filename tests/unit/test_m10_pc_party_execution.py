@@ -111,21 +111,24 @@ class PcPartyExecutionTests(unittest.TestCase):
             if isinstance(s.proof, PcRecoverProof)], [])
 
     def test_unsupported_second_pc_keeps_actor_pending_source_and_first_pc_confirmed_death(self):
-        source = make_pc_melee_party_scenario(pc_count=2, enemy_count=5, max_rounds=1)
+        source = make_pc_melee_party_scenario(pc_count=2, enemy_count=7, max_rounds=1)
         result = run_script(source, [10,10,10,1,1] * 2
             + [1,1,1,10,10,10,1]
             + [1,1,1,10,10,10,1,1]
             + [1,1,1,10,10,10,10,10,10]
             + [1,1,1,10,10,10,1]
-            + [1,1,1,10,10,10,10,10])
+            + [1,1,1,10,10,10,10,10,1]
+            + [1,1,1,7,7,6]
+            + [1,1,1,5,5,5,5])
         self.assertIs(result.outcome, PcMeleeOutcome.UNSUPPORTED_PATH)
         self.assertEqual(result.unsupported.actor_id, 'pc2')
         self.assertEqual(result.unsupported.table_total, 20)
         self.assertEqual(result.state.pending_actor_id, 'pc2')
-        self.assertEqual(result.state.pending_wound.source_request.target_id, 'pc2')
+        self.assertIsNone(result.state.pending_wound)
+        self.assertEqual(result.state.pending[0].wound_sequence,4)
         self.assertEqual(result.defeated_pc_ids, ('pc1',))
-        self.assertEqual(result.state.participant('pc2').daily_wounds.wound_count, 1)
-        self.assertFalse(result.state.participant('pc2').injury.wounds[-1].effect_resolved)
+        self.assertEqual(result.state.participant('pc2').daily_wounds.wound_count, 4)
+        self.assertTrue(result.state.participant('pc2').injury.wounds[-1].effect_resolved)
         with self.assertRaises(ValueError):
             replace(result, unsupported=replace(result.unsupported, actor_id='pc1'))
 

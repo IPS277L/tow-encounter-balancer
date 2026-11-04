@@ -14,8 +14,10 @@ from towr.domain.injury_models import (
     CharacterInjuryState, CharacterWoundType, ProfileInjuryState, ProfileNpcType,
     ProfileStateChangeRequest, WoundConditionEffect, WoundConsequence, WoundConsequenceRequest,
     WoundEffectDuration, WoundEnduranceFailure, WoundEnduranceTestRequest, WoundEnduranceTestResult,
-    WoundRestriction, WoundRestrictionEffect,
+    WoundRestriction, WoundRestrictionEffect, WoundChoiceRequest, WoundChoiceResult, WoundChoice, WoundEntryId,
 )
+from towr.domain.pc_heavy_wound_models import (PcBodyFact, PcBodyFactKind, available_sides, usable_hands, injured_hands, preferred_weapon_hand, usable_weapon_hand, has_ongoing_condition, critical_for_hand)
+from towr.domain.critical_injury_models import CriticalInjuryTestResult
 from towr.domain.magic_models import WizardMagicState
 from towr.domain.minion_defeat_models import MinionDefeatDecision
 from towr.domain.npc_roster_models import NpcParticipantSnapshot
@@ -52,7 +54,7 @@ class PcMeleeOutcome(str, Enum):
     UNSUPPORTED_PATH = "unsupported_path"
 
 
-PcMeleePending = WoundEnduranceTestRequest | WoundConsequenceRequest | AttackerStaggerRequest | ProfileStateChangeRequest
+PcMeleePending = WoundEnduranceTestRequest | WoundConsequenceRequest | WoundChoiceRequest | AttackerStaggerRequest | ProfileStateChangeRequest
 
 
 @dataclass(frozen=True, slots=True)
@@ -66,13 +68,13 @@ class PcMeleeUnsupported:
     def __post_init__(self):
         if type(self.actor_id) is not str or not self.actor_id.strip():
             raise ValueError('unsupported PC result requires its owner')
-        if type(self.reason) is not str or self.reason != 'unsupported_wound_effect' or type(self.source_id) is not str or not self.source_id:
+        if type(self.reason) is not str or self.reason != 'unavailable_anatomical_target' or type(self.source_id) is not str or not self.source_id:
             raise ValueError('unsupported PC result requires an exact Wound source')
         for value in (self.wound_sequence, self.table_total):
             if type(value) is not int or value < 1:
                 raise ValueError('unsupported Wound values must be positive integers')
         if not 11 <= self.table_total <= 23:
-            raise ValueError('only Wounds11-23 are unsupported by this PC slice')
+            raise ValueError('anatomical stop requires a heavy Wound source')
 
 
 @dataclass(frozen=True, slots=True)
@@ -114,6 +116,7 @@ class PcMeleeParticipantState:
     fate: FateSessionState
     daily_wounds: DailyWoundState
     timed_wounds: tuple[PcTimedWound, ...] = ()
+    body_facts: tuple[PcBodyFact, ...] = ()
 
     def __post_init__(self):
         if type(self.actor_id) is not str or not self.actor_id.strip():
@@ -133,6 +136,21 @@ class PcMeleeParticipantState:
             raise ValueError('PC expiry must refer to a current actual effect')
         if len({e.effect for e in self.timed_wounds}) != len(self.timed_wounds):
             raise ValueError('PC expiry sources must not repeat')
+        if type(self.body_facts) is not tuple:
+            raise TypeError('body facts require a canonical ordered tuple')
+        for fact in self.body_facts:
+            if type(fact) is not PcBodyFact:
+                raise TypeError('body facts must be typed')
+            replace(fact)
+            if fact.wound_sequence > len(self.injury.wounds):
+                raise ValueError('body fact lacks its actual Wound')
+            rows = {PcBodyFactKind.INJURED_HAND:(12,),PcBodyFactKind.UNUSABLE_ARM:(16,),
+                PcBodyFactKind.LOST_ARM:(20,),PcBodyFactKind.LOST_LEG:(21,),PcBodyFactKind.LOST_EYE:(19,),
+                PcBodyFactKind.LOST_FINGER:(12,),PcBodyFactKind.LOST_TEETH:(11,),PcBodyFactKind.CLUTCH_STOMACH:(18,)}
+            if self.injury.wounds[fact.wound_sequence-1].table_total not in rows[fact.kind]:
+                raise ValueError('body fact differs from its actual Wounds Table source')
+        if len(set(self.body_facts)) != len(self.body_facts):
+            raise ValueError('body fact cannot be applied twice')
 
 
 @dataclass(frozen=True, slots=True)
@@ -216,7 +234,7 @@ class PcAttackProof:
     request: AttackActionExecutionRequest
     protection: ProtectionPreparationResult
     execution: AttackActionExecutionResult
-    fate_decline: PcFateDecline
+    fate_decline: PcFateDecline | None
 
 
 @dataclass(frozen=True, slots=True)
@@ -242,6 +260,38 @@ class PcHandDropProof:
 
 
 @dataclass(frozen=True, slots=True)
+class PcBodyConsequenceProof:
+    source: WoundConsequenceRequest
+    die: int | None
+    side: PcWeaponHand | None
+    count: int = 1
+
+
+@dataclass(frozen=True, slots=True)
+class PcWoundChoiceProof:
+    result: WoundChoiceResult
+
+
+@dataclass(frozen=True, slots=True)
+class PcHandSwapProof:
+    previous_hand: PcWeaponHand
+    hand: PcWeaponHand
+
+
+@dataclass(frozen=True, slots=True)
+class PcCriticalProof:
+    test_request: TestRequest
+    result: CriticalInjuryTestResult
+    fate_decline: PcFateDecline
+
+
+@dataclass(frozen=True, slots=True)
+class PcIncapacitatedTurnEndProof:
+    result: CombatTurnEndResult
+    critical: PcCriticalProof | None
+
+
+@dataclass(frozen=True, slots=True)
 class PcAttackerStaggerProof:
     source: AttackerStaggerRequest
 
@@ -261,12 +311,14 @@ class PcRecoverProof:
 class PcTurnEndProof:
     result: CombatTurnEndResult
     fate_decline: PcFateDecline | None
+    critical: PcCriticalProof | None = None
 
 
 PcMeleeProof = (
     CombatTurnStartResult | CombatActionSlotResult | PcAttackProof | PcWoundCompletionProof
     | PcEnduranceProof | PcHandDropProof | PcAttackerStaggerProof | PcProfileWoundProof
-    | PcRecoverProof | PcTurnEndProof | CombatRoundAdvanceResult
+    | PcRecoverProof | PcTurnEndProof | PcIncapacitatedTurnEndProof | PcBodyConsequenceProof
+    | PcWoundChoiceProof | PcHandSwapProof | CombatRoundAdvanceResult
 )
 
 
@@ -317,6 +369,11 @@ class PcMeleeScenarioResult:
         actual_stop = pc_melee_unsupported(current)
         if self.unsupported != actual_stop:
             raise ValueError('PC unsupported result must preserve its actual pending source')
+        active = current.round_state.active_turn
+        if (actual_stop is None and active is not None and active.actor_id in self.source.pc_activation_order
+                and current.participant(active.actor_id).injury.conditions.has(Condition.CRITICALLY_INJURED)
+                and active.action_slots and active.action_slots[0].executed):
+            raise ValueError('terminal result skipped the active PC mandatory Critical end phase')
         expected = (PcMeleeOutcome.UNSUPPORTED_PATH if actual_stop else
             PcMeleeOutcome.PARTY_DEFEATED if not current.live_party else
             PcMeleeOutcome.OBJECTIVE_ACHIEVED if not current.live_enemies else
@@ -350,15 +407,24 @@ class PcMeleeScenarioResult:
 
 
 def pc_melee_unsupported(state: PcMeleeState) -> PcMeleeUnsupported | None:
-    if state.pending_wound is not None:
-        wound = state.pending_wound.wound_result.state.wounds[-1]
-        return (PcMeleeUnsupported(state.pending_actor_id, state.pending_wound.request_id,
-            'unsupported_wound_effect', wound.sequence, wound.table_total) if 11 <= wound.table_total <= 23 else None)
-    for member in state.party:
-        unsupported = next((w for w in member.injury.wounds if 11 <= w.table_total <= 23), None)
-        if unsupported is not None:
-            raise ValueError('unsupported PC injury must preserve its unresolved lifecycle')
-    return None
+    if not state.pending or state.pending_wound is not None:
+        return None
+    pending = state.pending[0]
+    if not isinstance(pending,WoundConsequenceRequest):
+        return None
+    member = state.participant(state.pending_actor_id)
+    kinds = {WoundConsequence.RANDOMISE_SEVERED_ARM:(PcBodyFactKind.LOST_ARM,),
+        WoundConsequence.RANDOMISE_SEVERED_LEG:(PcBodyFactKind.LOST_LEG,),
+        WoundConsequence.LOSE_RANDOM_EYE:(PcBodyFactKind.LOST_EYE,),
+        WoundConsequence.RANDOMISE_INJURED_ARM:(PcBodyFactKind.LOST_ARM,)}
+    if pending.consequence is WoundConsequence.DROP_RANDOM_HAND_ITEM and member.injury.wounds[pending.wound_sequence-1].table_total == 12:
+        kinds[pending.consequence] = (PcBodyFactKind.LOST_ARM,)
+    if pending.consequence not in kinds or available_sides(member,kinds[pending.consequence]):
+        return None
+    wound = member.injury.wounds[pending.wound_sequence-1]
+    return PcMeleeUnsupported(member.actor_id,
+        f'{pending.rule_id}:{member.actor_id}:w{pending.wound_sequence}:{pending.consequence.value}',
+        'unavailable_anatomical_target',pending.wound_sequence,wound.table_total)
 
 
 def pc_melee_action_id(state: PcMeleeState, actor_id: str) -> str:
@@ -369,7 +435,8 @@ def pc_melee_selected_action(state: PcMeleeState) -> CombatActionKind:
     actor_id = state.round_state.active_turn.actor_id
     if actor_id in state.source.pc_activation_order:
         member = state.participant(actor_id)
-        if member.weapon_hand is None or member.injury.conditions.has(Condition.PRONE):
+        if usable_weapon_hand(member) is None or (member.injury.conditions.has(Condition.PRONE)
+                and not has_ongoing_condition(member.injury,Condition.PRONE)):
             return CombatActionKind.RECOVER
     return CombatActionKind.ATTACK
 
@@ -403,8 +470,8 @@ def _pc_test(state: PcMeleeState, actor_id: str, test_id: str, skill: Skill,
     return TestRequest(test_id, profile, modifiers, tuple(qualities))
 
 
-def pc_after_test(state: PcMeleeState, actor_id: str) -> CharacterInjuryState:
-    injury = state.participant(actor_id).injury
+def pc_after_test(state: PcMeleeState, actor_id: str, injury=None) -> CharacterInjuryState:
+    injury = state.participant(actor_id).injury if injury is None else injury
     return replace(injury, active_wound_effects=tuple(e for e in injury.active_wound_effects
         if not isinstance(e, WoundRestrictionEffect) or e.restriction is not WoundRestriction.NEXT_TEST_IS_GRIM))
 
@@ -443,21 +510,24 @@ def build_pc_melee_attack(state: PcMeleeState) -> tuple[AttackActionExecutionReq
         if enemy.state.injury.conditions.has(Condition.DRAINED):
             modifiers = [m for m in modifiers if m.amount <= 0]
         attacker = TestRequest(action_id + ':attack', profile.test_profile, tuple(modifiers))
-        skill = Skill.DEFENCE if member.weapon_hand is not None else Skill.ATHLETICS
+        skill = Skill.DEFENCE if usable_weapon_hand(member) is not None else Skill.ATHLETICS
         defender = _pc_test(state, target, action_id + ':protection', skill)
         damage, resilience = profile.damage, state.source.participant(target).pc.resilience
         attacker_conditions = enemy.state.injury.conditions
-        target_injury = pc_after_test(state, target)
-        target_armed = member.weapon_hand is not None
+        target_injury = member.injury if member.injury.conditions.has(Condition.DEFENCELESS) else pc_after_test(state, target,critical_for_hand(member,
+            usable_weapon_hand(member) if skill is Skill.DEFENCE else None))
+        target_armed = usable_weapon_hand(member) is not None
     attack = AttackRequest(action_id + ':attack-request', attacker, None, DamageImpactSpec(damage,resilience),
         True, attacker_conditions.has(Condition.STAGGERED))
+    defenceless = target_injury.conditions.has(Condition.DEFENCELESS)
     protection = ProtectionPreparationRequest(action_id + ':prepare-protection', target, attack, Skill.MELEE,
-        True, False, target_armed, False, skill, (ProtectionTestOption(target,skill,defender),))
+        True, defenceless, target_armed, False, None if defenceless else skill,
+        () if defenceless else (ProtectionTestOption(target,skill,defender),))
     from towr.domain.protection_models import _expected_protection
     prepared_attack = _expected_protection(protection)[0]
     kernel = KernelAttackRequest(action_id + ':kernel',target,prepared_attack,
         target_snapshot.definition.injury_policy if pc_attacks else TargetInjuryPolicy.PLAYER, target_injury,
-        state.source.facts.can_leave_zone,False)
+        state.source.facts.can_leave_zone,False,physical_attack=True)
     return AttackActionExecutionRequest(action_id + ':execute',state.round_state,actor,target,1,kernel), protection
 
 
@@ -467,10 +537,13 @@ def build_pc_melee_recover(state: PcMeleeState) -> RecoverActionExecutionRequest
     action_id = pc_melee_action_id(state, actor)
     target = RecoverConditionTarget(actor,member.injury.conditions,None)
     choice = RecoverStandardChoice(WizardMagicState(),
-        staggered_target=target if member.injury.conditions.has(Condition.STAGGERED) else None,
-        prone_target=target if member.injury.conditions.has(Condition.PRONE) else None,
+        staggered_target=target if member.injury.conditions.has(Condition.STAGGERED)
+            and not has_ongoing_condition(member.injury,Condition.STAGGERED) else None,
+        prone_target=target if member.injury.conditions.has(Condition.PRONE)
+            and not has_ongoing_condition(member.injury,Condition.PRONE) else None,
         object_interaction=(RecoverObjectInteractionFollowUp(action_id + ':pickup',actor,
-            actor + ':weapon',True) if member.weapon_hand is None else None))
+            actor + ':weapon',True) if member.weapon_hand is None
+            and preferred_weapon_hand(member,state.source.participant(actor).initial_weapon_hand) is not None else None))
     return RecoverActionExecutionRequest(action_id + ':execute',state.round_state,actor,member.injury.conditions,
         bool(state.live_enemies),1,RecoverMode.STANDARD,choice)
 
@@ -562,7 +635,7 @@ def validate_pc_melee_combat_shape(combat: CombatRoundState) -> None:
                 replace(slot.execution)
 
 
-def validate_pc_melee_source_types(recorded: PcMeleeState, canonical: PcMeleeState) -> None:
+def validate_pc_melee_source_types(recorded: object, canonical: object) -> None:
     """Equal source snapshots must retain canonical nested value types.
 
     The canonical prefix has already checked the rules. This data walk catches
@@ -642,7 +715,7 @@ def validate_pc_melee_state_shape(state: PcMeleeState) -> None:
         if any(type(value) is not int for value in table.values):
             raise TypeError('pending Wound d10 values must be exact integers')
     for pending in state.pending:
-        if isinstance(pending,(WoundEnduranceTestRequest,WoundConsequenceRequest)):
+        if isinstance(pending,(WoundEnduranceTestRequest,WoundConsequenceRequest,WoundChoiceRequest)):
             replace(pending)
         elif isinstance(pending,AttackerStaggerRequest):
             if type(pending.attack_id) is not str or type(pending.rule_id) is not str:

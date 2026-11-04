@@ -11,10 +11,11 @@
 - M9: один книжный PC/Staff или Sword против Minions, Wounds1–10, явный Fate decline, source-bound бой, trials, подбор численности и current JSON1/CLI. [Граница и приёмка ADR-0065](decisions/ADR-0065-first-pc-melee-encounter.md).
 - M10: группа PC в общем owner/clock, отдельные ресурсы/раны, продолжение после частичных потерь, trials/статистика и fixed-party count search в той же PC JSON1 family. [Граница и приёмка ADR-0066](decisions/ADR-0066-pc-party-melee-encounter.md).
 - M11: static numeric Brutes и mixed Minion/Brute reserve, source-bound profile Wounds до/на лимите, trials/подбор и явные policy/limit в текущем PC JSON1. [Граница и приёмка ADR-0067](decisions/ADR-0067-pc-melee-profile-brutes.md).
+- M12: все PC Wounds11–23, body/hand consequences, Critical/Defenceless turns, source-aware ongoing Conditions и forced Wounds через тот же owner/trials/JSON1. [Граница и составная приёмка ADR-0068](decisions/ADR-0068-pc-heavy-wound-continuation.md).
 
 ## Последняя законченная функция
 
-[PC против Minions/Brutes M11](decisions/ADR-0067-pc-melee-profile-brutes.md) завершена целиком: профильные раны без Wounds Table NPC, nonterminal continuation, defeat и mixed count search через текущий JSON1. [Примеры](examples/m11/README.md) исполнены реальными командами;181адресная проверка пройдена одним run. Full/wheel M11 не требовались.
+[Тяжёлые PC-раны M12](decisions/ADR-0068-pc-heavy-wound-continuation.md) завершены целиком через правила/owner/trials/подбор и текущий JSON1. [Примеры](examples/m12/README.md) выполнены реальными командами. Одна full4471OK и59затронутых checks после локальной PC source-binding коррекции закрывают финальную приёмку составно; повторного full/wheel не было.
 
 ## M8 завершена
 
@@ -58,9 +59,15 @@
 
 Завершена по [ADR-0067](decisions/ADR-0067-pc-melee-profile-brutes.md). Явные `injury_policy`/`wound_limit` каждого NPC, nonterminal Wounds без table/lifecycle PC, сохранение живого Brute в очереди и последующий defeat с GM disposition. Существующий общий бой/подбор/JSON1 принимает смешанный reserve; состав party и поддержка её ран/Fate прежние. Профили с on-Wound behaviour, Abilities и другие типы NPC не входят. Конечная функция включает typed source guards, trials/process, count search, строгий wire и runnable mixed examples. Обязательного остатка в этой границе нет.
 
-## После M11
+## M12 — все тяжёлые PC-раны
 
-Более широкий NPC/spell/Wound/Miscast каталог, другие комбинации и тактики, общий inventory/spatial/campaign/save-resume и ally removal — отдельный backlog после M10. Приоритеты следующих функций выбираются отдельно; финиш M8/M9/M10 ими автоматически не расширяется.
+Пользователь выбрал все11–23 и продолжение Attack/Recover с книжными осложнениями по [ADR-0068](decisions/ADR-0068-pc-heavy-wound-continuation.md). Функция завершена: actual mandatory follow-ups, Critical end-turn Tests/Defenceless incapacity turns, forced Wounds, source-aware ongoing Conditions и bounded hand/body facts. Единичные строки больше не останавливают бой; физически невозможная повторная анатомия сохраняет точный pending GM-stop. Текущая PC JSON1 требует `random_side_policy` и `heavy_wound_policy`, без прежнего hand-only shape. Общий риск K1 проверен checkpoint regression; обязательного остатка M12 нет.
+
+## После M12
+
+Более широкий NPC/spell/Miscast каталог, дополнительные тактики/Fate, лечение, общий inventory/spatial/campaign/save-resume и ally removal — отдельный backlog после M12. Решение GM для невозможной повторной анатомии и post-healing ветвей не подставляется. Следующие функции выбираются отдельно; уже закрытые границы ими автоматически не расширяются.
+
+Рекомендуемое следующее предложение — первая активная PC Fate policy для Near Miss в том же melee-сценарии. Сначала выбрать критерии траты/предел ресурса и конечную границу; M13 пока не согласована. Остальные Fate/AI решения не включать автоматически.
 
 ## Контрольные точки
 

@@ -38,7 +38,8 @@
           },
           "policy": "attack_or_recover_self",
           "fate_policy": "decline_optional_fate",
-          "random_hand_policy": "d10_low_left_high_right",
+          "random_side_policy": "d10_low_left_high_right",
+          "heavy_wound_policy": "continue_fighting",
           "initial_weapon_hand": "left",
           "target_priority": [
             "minion1",
@@ -176,14 +177,14 @@
   "summary": {
     "trials": 8,
     "outcome_counts": {
-      "objective_achieved": 7,
+      "objective_achieved": 8,
       "party_defeated": 0,
       "round_limit": 0,
-      "unsupported_path": 1
+      "unsupported_path": 0
     },
-    "total_action_count": 40,
-    "total_started_round_count": 21,
-    "total_completed_round_count": 13,
+    "total_action_count": 43,
+    "total_started_round_count": 23,
+    "total_completed_round_count": 16,
     "any_pc_defeated_count": 0,
     "pc_defeat_counts": [
       {

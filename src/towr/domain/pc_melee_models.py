@@ -32,8 +32,12 @@ class PcFatePolicy(str, Enum):
     DECLINE_OPTIONAL_FATE = "decline_optional_fate"
 
 
-class PcRandomHandPolicy(str, Enum):
+class PcRandomSidePolicy(str, Enum):
     D10_LOW_LEFT_HIGH_RIGHT = "d10_low_left_high_right"
+
+
+class PcHeavyWoundPolicy(str, Enum):
+    CONTINUE_FIGHTING = "continue_fighting"
 
 
 class PcWeaponHand(str, Enum):
@@ -123,7 +127,8 @@ class PcMeleeParticipant:
     fate: FateSessionState
     policy: PcMeleePolicy
     fate_policy: PcFatePolicy
-    random_hand_policy: PcRandomHandPolicy
+    random_side_policy: PcRandomSidePolicy
+    heavy_wound_policy: PcHeavyWoundPolicy
     initial_weapon_hand: PcWeaponHand
     target_priority: tuple[str, ...]
     defeat_decisions: tuple[MinionDefeatDecision, ...]
@@ -134,7 +139,7 @@ class PcMeleeParticipant:
         replace(self.pc)
         _readmit_fate(self.fate, self.actor_id)
         for name, cls in (("policy", PcMeleePolicy), ("fate_policy", PcFatePolicy),
-                          ("random_hand_policy", PcRandomHandPolicy), ("initial_weapon_hand", PcWeaponHand)):
+                          ("random_side_policy", PcRandomSidePolicy), ("heavy_wound_policy", PcHeavyWoundPolicy), ("initial_weapon_hand", PcWeaponHand)):
             _typed(getattr(self, name), cls, name)
         targets = _ordered(self.target_priority, "PC target priority")
         for target in targets:

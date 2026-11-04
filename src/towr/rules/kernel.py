@@ -45,6 +45,7 @@ from towr.domain.resolution_models import (
     ResolutionResult,
     StaggerImpactRequest,
     TargetInjuryPolicy,
+    condition_forces_wound,
 )
 from towr.domain.wound_lifecycle_models import (
     CharacterWoundLifecycleCompletionResult,
@@ -143,7 +144,15 @@ def _resolve_kernel_attack_after_test(
         assert isinstance(attack.impact_spec, DamageImpactSpec)
         assert attack.damage is not None
         assert attack.effective_resilience is not None
-        if effective_request.target_policy is TargetInjuryPolicy.MONSTROSITY:
+        if condition_forces_wound(effective_request, attack):
+            result = _resolve_wound(
+                effective_request,
+                attack,
+                effective_request.target_state,
+                rng,
+                decisions,
+            )
+        elif effective_request.target_policy is TargetInjuryPolicy.MONSTROSITY:
             result = _resolve_monstrosity(
                 effective_request,
                 attack,

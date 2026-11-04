@@ -35,6 +35,19 @@ def samples():
 
 
 class PcMeleeJsonSchemaTests(unittest.TestCase):
+    def test_current_heavy_policies_are_required_closed_and_not_legacy_aliases(self):
+        for field in ('random_side_policy','heavy_wound_policy'):
+            for value in (None,True,'invented'):
+                raw=document(party_size=2)
+                raw['scenario']['party'][1][field]=value
+                with self.subTest(field=field,value=value),self.assertRaises(ValidationError):
+                    schema.validate_pc_melee_simulation_document(raw)
+        raw=document(party_size=2)
+        second=raw['scenario']['party'][1]
+        second['random_hand_policy']=second.pop('random_side_policy')
+        with self.assertRaises(ValidationError):
+            schema.validate_pc_melee_simulation_document(raw)
+
     def test_profile_npc_kind_and_limit_are_complete_closed_and_type_specific(self):
         raw=document(party_size=2,mixed=True)
         schema.validate_pc_melee_simulation_document(raw)

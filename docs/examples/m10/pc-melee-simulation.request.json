@@ -126,7 +126,6 @@
         },
         "policy": "attack_or_recover_self",
         "fate_policy": "decline_optional_fate",
-        "random_hand_policy": "d10_low_left_high_right",
         "initial_weapon_hand": "left",
         "target_priority": [
           "minion1",
@@ -145,7 +144,9 @@
             "disposition": "knocked_out",
             "gm_approved": true
           }
-        ]
+        ],
+        "random_side_policy": "d10_low_left_high_right",
+        "heavy_wound_policy": "continue_fighting"
       },
       {
         "actor_id": "pc:companion",
@@ -176,7 +177,6 @@
         },
         "policy": "attack_or_recover_self",
         "fate_policy": "decline_optional_fate",
-        "random_hand_policy": "d10_low_left_high_right",
         "initial_weapon_hand": "right",
         "target_priority": [
           "minion2",
@@ -195,7 +195,9 @@
             "disposition": "knocked_out",
             "gm_approved": true
           }
-        ]
+        ],
+        "random_side_policy": "d10_low_left_high_right",
+        "heavy_wound_policy": "continue_fighting"
       }
     ],
     "pc_activation_order": [

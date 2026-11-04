@@ -11,7 +11,7 @@ from towr.domain.condition_models import Condition, ConditionState
 from towr.domain.fate_models import FATE_GLORIOUS_RULE_ID, FateBurnKind, FateBurnRecord, FateSessionState, FateSpendKind, FateSpendRecord
 from towr.domain.injury_models import ProfileInjuryState
 from towr.domain.minion_defeat_models import MinionDefeatDecision, NpcDefeatDisposition
-from towr.domain.pc_melee_models import PcFatePolicy, PcMeleeDefinition, PcMeleeFacts, PcMeleePolicy, PcMeleeParticipant, PcMeleeScenario, PcMeleeWeapon, PcRandomHandPolicy, PcWeaponHand, validate_pc_melee_scenario_admission
+from towr.domain.pc_melee_models import PcFatePolicy, PcMeleeDefinition, PcMeleeFacts, PcMeleePolicy, PcMeleeParticipant, PcMeleeScenario, PcMeleeWeapon, PcRandomSidePolicy, PcWeaponHand, validate_pc_melee_scenario_admission
 from towr.domain.ranged_weapon_profiles import RangedWeaponRange
 from towr.domain.test_models import InlineProfile, Skill, TestProfile
 from towr.domain.turn_models import CombatSide
@@ -59,7 +59,7 @@ class PcMeleeModelTests(unittest.TestCase):
         for weapon in ('staff', Foreign.STAFF, None, PcWeaponHand.LEFT):
             with self.subTest(weapon=weapon), self.assertRaises(TypeError):
                 replace(source.party[0].pc, weapon=weapon)
-        for name, valid in (('policy', PcMeleePolicy.ATTACK_OR_RECOVER_SELF), ('fate_policy', PcFatePolicy.DECLINE_OPTIONAL_FATE), ('random_hand_policy', PcRandomHandPolicy.D10_LOW_LEFT_HIGH_RIGHT), ('initial_weapon_hand', PcWeaponHand.LEFT)):
+        for name, valid in (('policy', PcMeleePolicy.ATTACK_OR_RECOVER_SELF), ('fate_policy', PcFatePolicy.DECLINE_OPTIONAL_FATE), ('random_side_policy', PcRandomSidePolicy.D10_LOW_LEFT_HIGH_RIGHT), ('initial_weapon_hand', PcWeaponHand.LEFT)):
             for value in (valid.value, None, Foreign.DECLINE):
                 with self.subTest(field=name, value=value), self.assertRaises(TypeError):
                     replace(source.party[0], **{name: value})

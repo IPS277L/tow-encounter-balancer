@@ -142,16 +142,19 @@ class PcMeleeBattleTests(unittest.TestCase):
         self.assertEqual(last.state.party[0].daily_wounds.wound_count,len(last.state.party[0].injury.wounds))
         self.assertFalse(last.state.party[0].fate.burns)
 
-    def test_heavy_unsupported_wound_keeps_its_unresolved_lifecycle_and_daily_prefix(self):
-        source = make_pc_melee_scenario(enemy_count=3,max_rounds=6)
-        result = run_pc_melee_scenario(source,Random(4))
+    def test_unavailable_anatomical_target_keeps_its_completed_wounds_and_pending_consequence(self):
+        from tests.support.pc_melee_scripted import unavailable_arm_source, unavailable_arm_script
+        rng = ScriptedD10(unavailable_arm_script())
+        result = run_pc_melee_scenario(unavailable_arm_source(),rng)
+        rng.assert_exhausted()
         self.assertIs(result.outcome,PcMeleeOutcome.UNSUPPORTED_PATH)
-        pending = result.state.pending_wound
-        self.assertIsNotNone(pending)
-        self.assertEqual(result.unsupported.source_id,pending.request_id)
-        self.assertTrue(11 <= result.unsupported.table_total <= 23)
-        self.assertFalse(result.state.party[0].injury.wounds[-1].effect_resolved)
-        self.assertEqual(result.state.party[0].daily_wounds.wound_count,len(result.state.party[0].injury.wounds)-1)
+        self.assertIsNone(result.state.pending_wound)
+        self.assertEqual(result.unsupported.reason,'unavailable_anatomical_target')
+        self.assertEqual(result.unsupported.wound_sequence,4)
+        self.assertEqual(result.unsupported.table_total,20)
+        self.assertEqual(result.state.pending[0].wound_sequence,4)
+        self.assertTrue(all(wound.effect_resolved for wound in result.state.party[0].injury.wounds))
+        self.assertEqual(result.state.party[0].daily_wounds.wound_count,4)
         with self.assertRaises(ValueError):
             replace(result,outcome=PcMeleeOutcome.PARTY_DEFEATED)
 

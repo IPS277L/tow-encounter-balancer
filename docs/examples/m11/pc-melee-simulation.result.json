@@ -38,7 +38,8 @@
           },
           "policy": "attack_or_recover_self",
           "fate_policy": "decline_optional_fate",
-          "random_hand_policy": "d10_low_left_high_right",
+          "random_side_policy": "d10_low_left_high_right",
+          "heavy_wound_policy": "continue_fighting",
           "initial_weapon_hand": "left",
           "target_priority": [
             "brute1",
@@ -95,7 +96,8 @@
           },
           "policy": "attack_or_recover_self",
           "fate_policy": "decline_optional_fate",
-          "random_hand_policy": "d10_low_left_high_right",
+          "random_side_policy": "d10_low_left_high_right",
+          "heavy_wound_policy": "continue_fighting",
           "initial_weapon_hand": "right",
           "target_priority": [
             "brute1",
@@ -278,23 +280,23 @@
   "summary": {
     "trials": 12,
     "outcome_counts": {
-      "objective_achieved": 0,
-      "party_defeated": 0,
-      "round_limit": 0,
-      "unsupported_path": 12
+      "objective_achieved": 4,
+      "party_defeated": 6,
+      "round_limit": 2,
+      "unsupported_path": 0
     },
-    "total_action_count": 121,
-    "total_started_round_count": 26,
-    "total_completed_round_count": 14,
-    "any_pc_defeated_count": 1,
+    "total_action_count": 272,
+    "total_started_round_count": 65,
+    "total_completed_round_count": 55,
+    "any_pc_defeated_count": 9,
     "pc_defeat_counts": [
       {
         "actor_id": "pc",
-        "count": 0
+        "count": 6
       },
       {
         "actor_id": "pc:companion",
-        "count": 1
+        "count": 9
       }
     ]
   }

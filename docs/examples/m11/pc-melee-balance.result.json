@@ -38,7 +38,8 @@
           },
           "policy": "attack_or_recover_self",
           "fate_policy": "decline_optional_fate",
-          "random_hand_policy": "d10_low_left_high_right",
+          "random_side_policy": "d10_low_left_high_right",
+          "heavy_wound_policy": "continue_fighting",
           "initial_weapon_hand": "left",
           "target_priority": [
             "brute1",
@@ -95,7 +96,8 @@
           },
           "policy": "attack_or_recover_self",
           "fate_policy": "decline_optional_fate",
-          "random_hand_policy": "d10_low_left_high_right",
+          "random_side_policy": "d10_low_left_high_right",
+          "heavy_wound_policy": "continue_fighting",
           "initial_weapon_hand": "right",
           "target_priority": [
             "brute1",
@@ -371,7 +373,8 @@
               },
               "policy": "attack_or_recover_self",
               "fate_policy": "decline_optional_fate",
-              "random_hand_policy": "d10_low_left_high_right",
+              "random_side_policy": "d10_low_left_high_right",
+              "heavy_wound_policy": "continue_fighting",
               "initial_weapon_hand": "left",
               "target_priority": [
                 "brute1"
@@ -414,7 +417,8 @@
               },
               "policy": "attack_or_recover_self",
               "fate_policy": "decline_optional_fate",
-              "random_hand_policy": "d10_low_left_high_right",
+              "random_side_policy": "d10_low_left_high_right",
+              "heavy_wound_policy": "continue_fighting",
               "initial_weapon_hand": "right",
               "target_priority": [
                 "brute1"
@@ -593,7 +597,8 @@
               },
               "policy": "attack_or_recover_self",
               "fate_policy": "decline_optional_fate",
-              "random_hand_policy": "d10_low_left_high_right",
+              "random_side_policy": "d10_low_left_high_right",
+              "heavy_wound_policy": "continue_fighting",
               "initial_weapon_hand": "left",
               "target_priority": [
                 "brute1",
@@ -643,7 +648,8 @@
               },
               "policy": "attack_or_recover_self",
               "fate_policy": "decline_optional_fate",
-              "random_hand_policy": "d10_low_left_high_right",
+              "random_side_policy": "d10_low_left_high_right",
+              "heavy_wound_policy": "continue_fighting",
               "initial_weapon_hand": "right",
               "target_priority": [
                 "brute1",
@@ -769,14 +775,14 @@
       "summary": {
         "trials": 8,
         "outcome_counts": {
-          "objective_achieved": 6,
+          "objective_achieved": 8,
           "party_defeated": 0,
           "round_limit": 0,
-          "unsupported_path": 2
+          "unsupported_path": 0
         },
-        "total_action_count": 105,
-        "total_started_round_count": 31,
-        "total_completed_round_count": 23,
+        "total_action_count": 117,
+        "total_started_round_count": 35,
+        "total_completed_round_count": 28,
         "any_pc_defeated_count": 0,
         "pc_defeat_counts": [
           {
@@ -790,7 +796,7 @@
         ]
       },
       "assessment": {
-        "status": "unsupported_observations",
+        "status": "eligible",
         "window": {
           "minimum": {
             "numerator": 0,
@@ -806,8 +812,8 @@
           }
         },
         "objective_achieved_rate": {
-          "numerator": 3,
-          "denominator": 4
+          "numerator": 1,
+          "denominator": 1
         },
         "party_defeated_rate": {
           "numerator": 0,
@@ -818,10 +824,10 @@
           "denominator": 1
         },
         "unsupported_path_rate": {
-          "numerator": 1,
-          "denominator": 4
+          "numerator": 0,
+          "denominator": 1
         },
-        "window_match": null
+        "window_match": true
       }
     },
     {
@@ -865,7 +871,8 @@
               },
               "policy": "attack_or_recover_self",
               "fate_policy": "decline_optional_fate",
-              "random_hand_policy": "d10_low_left_high_right",
+              "random_side_policy": "d10_low_left_high_right",
+              "heavy_wound_policy": "continue_fighting",
               "initial_weapon_hand": "left",
               "target_priority": [
                 "brute1",
@@ -922,7 +929,8 @@
               },
               "policy": "attack_or_recover_self",
               "fate_policy": "decline_optional_fate",
-              "random_hand_policy": "d10_low_left_high_right",
+              "random_side_policy": "d10_low_left_high_right",
+              "heavy_wound_policy": "continue_fighting",
               "initial_weapon_hand": "right",
               "target_priority": [
                 "brute1",
@@ -1091,15 +1099,15 @@
       "summary": {
         "trials": 8,
         "outcome_counts": {
-          "objective_achieved": 2,
+          "objective_achieved": 6,
           "party_defeated": 0,
-          "round_limit": 0,
-          "unsupported_path": 6
+          "round_limit": 2,
+          "unsupported_path": 0
         },
-        "total_action_count": 104,
-        "total_started_round_count": 25,
-        "total_completed_round_count": 17,
-        "any_pc_defeated_count": 0,
+        "total_action_count": 162,
+        "total_started_round_count": 41,
+        "total_completed_round_count": 35,
+        "any_pc_defeated_count": 1,
         "pc_defeat_counts": [
           {
             "actor_id": "pc",
@@ -1107,12 +1115,12 @@
           },
           {
             "actor_id": "pc:companion",
-            "count": 0
+            "count": 1
           }
         ]
       },
       "assessment": {
-        "status": "unsupported_observations",
+        "status": "eligible",
         "window": {
           "minimum": {
             "numerator": 0,
@@ -1128,7 +1136,7 @@
           }
         },
         "objective_achieved_rate": {
-          "numerator": 1,
+          "numerator": 3,
           "denominator": 4
         },
         "party_defeated_rate": {
@@ -1136,18 +1144,19 @@
           "denominator": 1
         },
         "round_limit_rate": {
+          "numerator": 1,
+          "denominator": 4
+        },
+        "unsupported_path_rate": {
           "numerator": 0,
           "denominator": 1
         },
-        "unsupported_path_rate": {
-          "numerator": 3,
-          "denominator": 4
-        },
-        "window_match": null
+        "window_match": true
       }
     }
   ],
   "selected_candidate_ids": [
+    "m11:mixed:balance:counts:2,1",
     "m11:mixed:balance:counts:0,1"
   ]
 }

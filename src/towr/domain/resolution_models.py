@@ -7,9 +7,12 @@ from typing import TYPE_CHECKING, Any
 from towr.domain.attack_models import (
     AttackRequest,
     AttackResult,
+    AttackOutcome,
     ConditionAfterGiveGroundSpec,
     ConditionOnGiveGroundOrWoundSpec,
     HazardImpactSpec,
+    DamageImpactSpec,
+    ImpactOutcome,
 )
 from towr.domain.condition_models import (
     Condition,
@@ -35,6 +38,8 @@ from towr.domain.injury_models import (
     WoundEffectResult,
     WoundEnduranceTestRequest,
     WoundNegationOption,
+    WoundRestriction,
+    WoundRestrictionEffect,
 )
 from towr.domain.magic_models import (
     SpellCastExecutionResult,
@@ -1568,8 +1573,11 @@ class KernelAttackRequest:
     target_effect_immunities: tuple[EffectImmunity, ...] = field(
         default_factory=tuple
     )
+    physical_attack: bool = False
 
     def __post_init__(self) -> None:
+        if type(self.physical_attack) is not bool:
+            raise TypeError("physical_attack must be a bool")
         if not isinstance(self.id, str):
             raise TypeError("kernel attack request id must be a string")
         if not self.id.strip():
@@ -1703,6 +1711,33 @@ class ResolutionResult:
     character_wound_completion: (
         CharacterWoundLifecycleCompletionResult | None
     ) = None
+
+
+def condition_forces_wound(
+    request: KernelAttackRequest,
+    attack: AttackResult,
+) -> bool:
+    """Derive a forced Wound from this successful damage attack's real source.
+
+    Damage/Resilience and the original Attack trace remain unchanged. Other
+    impact families retain their own semantics; physical damage is confirmed
+    explicitly by orchestration rather than inferred from a damage profile.
+    """
+    if not isinstance(request, KernelAttackRequest) or not isinstance(attack, AttackResult):
+        raise TypeError("condition impact requires a kernel request and Attack result")
+    if type(request.physical_attack) is not bool:
+        raise TypeError("physical_attack must retain its bool type")
+    if attack.request_id != request.attack.id:
+        raise ValueError("condition impact belongs to another Attack")
+    if attack.outcome is not AttackOutcome.HIT or not isinstance(attack.impact_spec, DamageImpactSpec):
+        return False
+    if request.target_state.conditions.has(Condition.DEFENCELESS):
+        return True
+    return (request.physical_attack and attack.impact is ImpactOutcome.STAGGERED
+        and isinstance(request.target_state, CharacterInjuryState)
+        and any(isinstance(effect, WoundRestrictionEffect)
+            and effect.restriction is WoundRestriction.PHYSICAL_STAGGER_BECOMES_WOUND
+            for effect in request.target_state.active_wound_effects))
 
 
 def _validate_bool(value: bool, name: str) -> None:

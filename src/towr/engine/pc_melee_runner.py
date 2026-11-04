@@ -1,23 +1,30 @@
 """One bounded, continuous PLAYER/Minion melee through K1 (ADR-0065)."""
 from __future__ import annotations
 
+from dataclasses import replace
+
 from towr.domain.pc_melee_models import PcWeaponHand
 from towr.domain.pc_melee_result_models import (
     PcAttackProof, PcAttackerStaggerProof, PcEnduranceProof, PcFateDecline,
     PcHandDropProof, PcMeleeOutcome, PcMeleeScenarioResult, PcMeleeState, PcMeleeStep,
     PcProfileWoundProof, PcRecoverProof, PcTurnEndProof, PcWoundCompletionProof,
+    PcBodyConsequenceProof, PcWoundChoiceProof, PcHandSwapProof, PcCriticalProof, PcIncapacitatedTurnEndProof,
     build_pc_melee_attack, build_pc_melee_recover, initial_pc_melee_state, pc_after_test,
     pc_melee_action_id, pc_melee_next_actor, pc_melee_selected_action, pc_melee_unsupported,
     project_pc_melee_step, pc_melee_round_participants, validate_pc_melee_state_shape,
     validate_pc_melee_source_types, _pc_test,
 )
-from towr.domain.condition_models import StaggerChoice
-from towr.domain.injury_models import WoundConsequenceRequest, WoundEnduranceTestRequest, ProfileStateChangeRequest
+from towr.domain.condition_models import StaggerChoice, Condition
+from towr.domain.pc_heavy_wound_models import preferred_weapon_hand
+from towr.domain._pc_heavy_wound_projection import consequence_sides, clutch_candidates
+from towr.domain.critical_injury_models import CriticalInjuryTestRequest
+from towr.rules.critical_injury_resolution import resolve_critical_injury_test
+from towr.domain.injury_models import WoundConsequenceRequest, WoundEnduranceTestRequest, ProfileStateChangeRequest, WoundChoiceRequest, WoundChoice, WoundConsequence
 from towr.domain.resolution_models import AttackerStaggerRequest
 from towr.domain.test_models import Skill
 from towr.domain.turn_models import (
     ActionSlotGrant, CombatActionDeclaration, CombatActionKind, CombatActionSlotRequest,
-    CombatRoundAdvanceRequest, CombatTurnEndRequest, CombatTurnParticipant, CombatTurnStartRequest, CombatSide,
+    CombatRoundAdvanceRequest, CombatTurnEndRequest, CombatTurnEndResult, CombatTurnParticipant, CombatTurnStartRequest, CombatSide,
 )
 from towr.domain.wound_lifecycle_models import CharacterWoundLifecycleCompletionRequest
 from towr.rules.attack_action_execution import _complete_attack_action, _validate_attack_action_slot
@@ -28,7 +35,7 @@ from towr.rules.protection_preparation import prepare_protection
 from towr.rules.recover_resolution import execute_recover_action
 from towr.rules.test_resolution import KeepAllFailures, resolve_test
 from towr.rules.turn_resolution import start_combat_turn, reserve_combat_action_slot, end_combat_turn, advance_combat_round
-from towr.rules.wound_effect_resolution import resolve_wound_endurance_test
+from towr.rules.wound_effect_resolution import resolve_wound_endurance_test, resolve_wound_choice
 from towr.rules.wound_lifecycle_resolution import complete_character_wound_lifecycle
 
 
@@ -85,6 +92,29 @@ def run_pc_melee_scenario(scenario, rng: RandomSource) -> PcMeleeScenarioResult:
         steps.append(step)
         state = step.state
 
+    def finish_turn():
+        combat = state.round_state
+        actor = combat.active_turn.actor_id
+        action_id = pc_melee_action_id(state,actor)
+        is_pc = actor in scenario.pc_activation_order
+        critical = None
+        if is_pc and state.participant(actor).injury.conditions.has(Condition.CRITICALLY_INJURED):
+            test_request = _pc_test(state,actor,action_id+':critical:endurance',Skill.ENDURANCE)
+            decline = _decline(state,actor,test_request.id,'test')
+            test = resolve_test(test_request,rng,decisions=decisions)
+            request = CriticalInjuryTestRequest(action_id+':critical',actor,pc_after_test(state,actor),test_request.id)
+            critical = PcCriticalProof(test_request,resolve_critical_injury_test(request,test),decline)
+        if not combat.active_turn.action_slots:
+            clock = replace(combat,active_turn=None,
+                completed_turn_entity_ids=(*combat.completed_turn_entity_ids,actor))
+            result = CombatTurnEndResult(action_id+':end',clock,combat.active_turn,clock.next_side,clock.round_complete,
+                ('RULE-COMBAT-001:rounds-sides-turns','RULE-HEALTH-008:defenceless-turn'))
+            consume(PcIncapacitatedTurnEndProof(result,critical))
+        else:
+            decline = _decline(state,actor,action_id+':end','action') if is_pc else None
+            result = end_combat_turn(CombatTurnEndRequest(action_id+':end',combat,actor))
+            consume(PcTurnEndProof(result,decline,critical))
+
     while True:
         unsupported = pc_melee_unsupported(state)
         if unsupported is not None:
@@ -113,10 +143,26 @@ def run_pc_melee_scenario(scenario, rng: RandomSource) -> PcMeleeScenarioResult:
                 test = resolve_test(test_request,rng,decisions=decisions)
                 result = resolve_wound_endurance_test(pending,pc_after_test(state,pc_actor),test)
                 consume(PcEnduranceProof(pending,test_request,test,result,decline))
+            elif isinstance(pending,WoundChoiceRequest):
+                choice = WoundChoice.DROP_AND_CLUTCH_STOMACH if clutch_candidates(state.participant(pc_actor)) else WoundChoice.BECOME_DEFENCELESS
+                consume(PcWoundChoiceProof(resolve_wound_choice(pending,state.participant(pc_actor).injury,choice)))
             elif isinstance(pending,WoundConsequenceRequest):
-                die = rng.randint(1,10)
-                hand = PcWeaponHand.LEFT if die <= 5 else PcWeaponHand.RIGHT
-                consume(PcHandDropProof(pending,die,hand))
+                member = state.participant(pc_actor)
+                if pending.consequence is WoundConsequence.LOSE_D10_TEETH:
+                    die = rng.randint(1,10)
+                    consume(PcBodyConsequenceProof(pending,die,None,die))
+                elif pending.consequence is WoundConsequence.DROP_ONE_HAND_ITEM_AND_CLUTCH_STOMACH:
+                    candidates = clutch_candidates(member)
+                    hand = next((side for side in candidates if side is not member.weapon_hand),candidates[0])
+                    consume(PcBodyConsequenceProof(pending,None,hand))
+                else:
+                    sides = consequence_sides(member,pending)
+                    die = rng.randint(1,10) if len(sides) == 2 else None
+                    hand = (PcWeaponHand.LEFT if die <= 5 else PcWeaponHand.RIGHT) if die is not None else (sides[0] if sides else None)
+                    if pending.consequence is WoundConsequence.DROP_RANDOM_HAND_ITEM and die is not None:
+                        consume(PcHandDropProof(pending,die,hand))
+                    else:
+                        consume(PcBodyConsequenceProof(pending,die,hand))
             elif isinstance(pending,AttackerStaggerRequest):
                 consume(PcAttackerStaggerProof(pending))
             elif isinstance(pending,ProfileStateChangeRequest):
@@ -130,6 +176,11 @@ def run_pc_melee_scenario(scenario, rng: RandomSource) -> PcMeleeScenarioResult:
         if not state.live_party:
             return PcMeleeScenarioResult(scenario,tuple(steps),PcMeleeOutcome.PARTY_DEFEATED)
         if not state.live_enemies:
+            turn = state.round_state.active_turn
+            if (turn is not None and turn.actor_id in scenario.pc_activation_order
+                    and state.participant(turn.actor_id).injury.conditions.has(Condition.CRITICALLY_INJURED)):
+                finish_turn()
+                continue
             return PcMeleeScenarioResult(scenario,tuple(steps),PcMeleeOutcome.OBJECTIVE_ACHIEVED)
         combat = state.round_state
         if combat.active_turn is None:
@@ -147,6 +198,15 @@ def run_pc_melee_scenario(scenario, rng: RandomSource) -> PcMeleeScenarioResult:
         actor = combat.active_turn.actor_id
         action_id = pc_melee_action_id(state,actor)
         if not combat.active_turn.action_slots:
+            if actor in scenario.pc_activation_order:
+                member = state.participant(actor)
+                if member.injury.conditions.has(Condition.DEFENCELESS):
+                    finish_turn()
+                    continue
+                hand = preferred_weapon_hand(member,scenario.participant(actor).initial_weapon_hand)
+                if member.weapon_hand is not None and hand is not None and hand is not member.weapon_hand:
+                    consume(PcHandSwapProof(member.weapon_hand,hand))
+                    continue
             consume(reserve_combat_action_slot(CombatActionSlotRequest(action_id+':reserve',combat,actor,
                 CombatActionDeclaration(pc_melee_selected_action(state)),ActionSlotGrant.STANDARD)))
             continue
@@ -161,7 +221,7 @@ def run_pc_melee_scenario(scenario, rng: RandomSource) -> PcMeleeScenarioResult:
                 pc_actor = actor if actor in scenario.pc_activation_order else request.target_id
                 pc_test = (request.kernel_request.attack.attacker_test if actor == pc_actor
                     else request.kernel_request.attack.defender_test)
-                decline = _decline(state,pc_actor,pc_test.id,'test')
+                decline = _decline(state,pc_actor,pc_test.id,'test') if pc_test is not None else None
                 # Test first, then consume the PC's next-Test restriction before
                 # the kernel can produce a new Wound or mandatory Endurance.
                 attack = resolve_attack(request.kernel_request.attack,rng,decisions=decisions)
@@ -169,6 +229,4 @@ def run_pc_melee_scenario(scenario, rng: RandomSource) -> PcMeleeScenarioResult:
                 execution = _complete_attack_action(request,resolution)
                 consume(PcAttackProof(request,protection,execution,decline))
             continue
-        decline = _decline(state,actor,action_id+':end','action') if actor in scenario.pc_activation_order else None
-        result = end_combat_turn(CombatTurnEndRequest(action_id+':end',combat,actor))
-        consume(PcTurnEndProof(result,decline))
+        finish_turn()

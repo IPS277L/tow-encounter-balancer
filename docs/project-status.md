@@ -4,30 +4,30 @@
 
 ## Текущий этап
 
-**M11 завершена: группа PC против Minions и обычных числовых Brutes.** Supplied NPC wound limit, nonterminal Wound acknowledgement, defeat только на фактическом пределе, mixed count search и явные policy/limit в текущем JSON1 реализованы через существующие слои. [Контракт и приёмка ADR-0067](decisions/ADR-0067-pc-melee-profile-brutes.md). M10 завершена ранее: [приёмка ADR-0066](decisions/ADR-0066-pc-party-melee-encounter.md).
+**M12 завершена в выбранной границе.** Все PC Wounds11–23 продолжаются в нынешнем melee-бою с Minions/Brutes: body/hand/loss/clutch consequences, Critical end phase, actionless Defenceless turns и source-aware ongoing Conditions. Пользователь выбрал продолжение Attack/Recover с книжными осложнениями. [Контракт и составная приёмка ADR-0068](decisions/ADR-0068-pc-heavy-wound-continuation.md).
 
-[Смешанный roster M11](examples/m11/README.md), [Minion-группа M10](examples/m10/README.md) и [одиночный M9](examples/m9/README.md) выполнены настоящими CLI-командами. Команды прежние: `simulate-pc-melee`, `balance-pc-melee`; current1 требует `party` и явные NPC `injury_policy`/`wound_limit`, без старых shapes/compatibility. Magic сохраняет6.
+[Текущие примеры M12](examples/m12/README.md) запускаются прежними `simulate-pc-melee` / `balance-pc-melee`. Единственная PC JSON1 требует `random_side_policy` и `heavy_wound_policy: continue_fighting`; старое hand-only поле удалено. Magic остаётся6. Все8current M9–M12 requests/results обновлены.
 
 ## Последняя проверка
 
-M11: **181 tests OK/51.332s**, один адресный run всей PC family M9–M11 и ближайших K1 injury/kernel/Attack, shared schemas/CLI. Реальные mixed sequential/process trials, full source/counters, count search и representative module/console подтверждены. Windows process/temp cases сразу выполнены вне sandbox из-за известного WinError5. Набор и результаты — в ADR-0067; log `.cache/m11-subsystem.log`. Это адресный набор, не полный regression проекта.
+**Приёмка составная:** одна полная `.venv/Scripts/python.exe -m unittest discover -s tests -v` при `PYTHONPATH=src` — **4471 tests OK/1581.418s**, без failures/errors/skips; затем локальная PC source-binding коррекция и **59 затронутых checks OK/6.649s**, включая2новыхIDs/6native subcases и representative heavy process. Это не единый full run всех финальных файлов. Logs: `.cache/m12-full-regression.log`, `.cache/m12-final-pc-recheck.log`.
 
-Все6 public M9/M10/M11 requests исполнены реальными командами; request echo сверены, результаты сохранены.7PCschemas/90offline refs и shared bundle проверены. Full/wheel M11 не запускались: K1 reducers и доставка не менялись; последние полные/installed проверки M9 не выдаются за новую приёмку.
+1019source/tests `.py/.json` не менялись во время full run. После него изменены только3PC projection/helper files и1unit-regression file для Critical sources при incidental HandSwap/clutch/regrip. Общий K1 остался тем же; проверены manifests `.cache/m12-source-manifest.json` / `.cache/m12-final-source-manifest.json`. Успешный full и дорогая CLI-матрица не повторялись; wheel/install без изменения поставки не запускались.
 
-Документация:13изменённых Markdown-файлов/887локальных targets и все6current request/result пар проверены; UTF-8/newline/whitespace и `git diff --check` успешны. CLI help отражает mixed Minion/Brute roster.
+До checkpoint149PC tests OK/41.748s,72engine OK/4.597s,53common K1 OK/0.009s,28wire/schema OK/2.103s. Все8requests выполнены настоящими CLI с lossless echo; M12 simulation/balance после последней коррекции повторно совпали с сохранёнными ответами. Подробные команды/состав, source guards и закрытые review gaps находятся в ADR-0068.
 
-Фактические наблюдения: слабая M11 party —12unsupported из12, в одном prefix подтверждена casualty; сильная party/Brute-only —8objective из8, с1Minion —6objective/2unsupported, с2Minions —2objective/6unsupported. Только Brute-only выбран, denominator не фильтруется. Это не фиксированные вероятности; тяжёлые PC-раны остаются главным ограничением оценки трудных боёв.
+Документация:15изменённых Markdown-файлов/1045локальных targets и все8current request/result пар проверены. UTF-8/newline/whitespace и `git diff --check` успешны; CLI help и current schema paths согласованы.
 
-M10 закоммичена пользователем (`44ef3ab`); перед M11 рабочее дерево было чистым. Commit/push агент не выполняет.
-
-Изменения M11 остаются незакоммиченными.
+В M12 simulation прежние12generic heavy stops заменились4objective/6party_defeated/2round_limit, unsupported0;9trials с подтверждёнными потерями. Balance:0,1 и1,1 —8objective из8,2,1 —6objective/2round_limit; выбран2,1 затем0,1. Это наблюдения конкретных seeds/trials/policies, не фиксированные вероятности.
 
 ## Ограничения
 
-Непустая здоровая initial party со Staff/Sword против обычных numeric Melee Minions/Brutes, одна явная Close Zone, фиксированные порядки/target priorities и policies, независимый полный Fate каждого PC. Brutes только static profile без on-Wound behaviours/abilities. PC Wounds1–10/repeated/mixed поддержаны;11–23дают actor-bound pending lifecycle stop до completion/daily/effects; lethal24+ завершается после Near Miss decline. Active Fate, помощь/ally Recover, Champions/Monstrosities, общий inventory, другие оружие/Talents/тактики, treatment/campaign/save-resume не подключены. Потери при limit/unsupported — только подтверждённые до остановки. Unsupported остаётся в знаменателе и исключает кандидата из selection.
+Здоровая initial party со Staff/Sword, обычные numeric Melee Minions/Brutes без on-Wound abilities, одна Close Zone и фиксированные порядки/priorities. Полный supplied Fate сохраняется с явным optional decline. Поддержаны Wounds1–23 и lethal24+ lifecycle; Defenceless жив, не действует/не Oppose и не входит в outnumbering, но получает обязательные end-turn Tests. Потери при limit/unsupported — только подтверждённые до остановки.
+
+Физически невозможная повторная анатомическая потеря без существующей цели сохраняет actual pending `unavailable_anatomical_target`: GM замена не выбрана. Unsupported остаётся в denominator и запрещает selection. Лечение, post-healing Endurance22, active Fate, ally Recover/Help, Champions/Monstrosities, общее inventory/campaign/save-resume и остальные тактики не добавлены.
 
 ## Точный следующий шаг
 
-Согласованная M11 закрыта, обязательного остатка нет. Приоритет следующей функции — продолжение тяжёлых PC-ран, ограничивающих оценку сложных боёв; прежде реализации определить конечный диапазон и решения для Critically Injured/Defenceless, использования повреждённой руки и обязательных поз. Конкретная M12 ещё не согласована; не подставлять house rules или автоматически добавлять весь каталог. Full/wheel ради перехода сессии не нужны.
+Обязательного остатка M12 нет. Рекомендуемое следующее направление — первая активная Fate policy для PC Near Miss. Сначала выбрать условия burn/предел ресурса и конечную границу по существующему K1; M13 ещё не согласована. Не включать автоматически все Fate/AI решения, лечение или общий campaign.
 
-Commit/push выполняет пользователь.
+Перед M12 рабочее дерево было чистым, M11 закоммичена пользователем. Изменения M12 остаются незакоммиченными; commit/push выполняет пользователь.

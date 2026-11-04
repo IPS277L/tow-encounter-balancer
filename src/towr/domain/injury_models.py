@@ -313,6 +313,25 @@ class CharacterInjuryState:
         return sum(not wound.healed for wound in self.wounds)
 
 
+def wound_adrenaline_conditions(state: CharacterInjuryState) -> ConditionState:
+    """Remove ordinary Staggered while retaining its ongoing Wound source.
+
+    PG190's adrenaline does not end the explicit until-healed Staggered of
+    Wounds15/19 (PG122 ongoing causes). Keeping a set member is not another
+    application of Staggered and therefore cannot itself cause a second Wound.
+    """
+    if not isinstance(state, CharacterInjuryState):
+        raise TypeError("Wound adrenaline requires character injury state")
+    ongoing = any(isinstance(effect, WoundConditionEffect)
+        and effect.condition is Condition.STAGGERED
+        and effect.duration in (WoundEffectDuration.UNTIL_TREATED,
+            WoundEffectDuration.UNTIL_HEALED, WoundEffectDuration.PERMANENT,
+            WoundEffectDuration.END_OF_NEXT_TURN)
+        for effect in state.active_wound_effects)
+    return (state.conditions.with_condition(Condition.STAGGERED) if ongoing
+        else state.conditions.without_condition(Condition.STAGGERED))
+
+
 @dataclass(frozen=True, slots=True)
 class CharacterWoundRequest:
     id: str
@@ -558,9 +577,7 @@ def validate_character_wound_result_provenance(
     )
     expected_state = CharacterInjuryState(
         wounds=(*request.state.wounds, wound),
-        conditions=request.state.conditions.without_condition(
-            Condition.STAGGERED
-        ),
+        conditions=wound_adrenaline_conditions(request.state),
         active_wound_effects=request.state.active_wound_effects,
         dead=entry.lethal,
     )
@@ -617,9 +634,7 @@ def validate_fixed_character_wound_result_provenance(
     )
     expected_state = CharacterInjuryState(
         wounds=(*request.state.wounds, wound),
-        conditions=request.state.conditions.without_condition(
-            Condition.STAGGERED
-        ),
+        conditions=wound_adrenaline_conditions(request.state),
         active_wound_effects=request.state.active_wound_effects,
         dead=result.entry.lethal,
     )

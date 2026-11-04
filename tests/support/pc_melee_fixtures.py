@@ -9,7 +9,7 @@ from towr.domain.npc_roster_models import (
 )
 from towr.domain.pc_melee_models import (
     PcFatePolicy, PcMeleeDefinition, PcMeleeFacts, PcMeleePolicy, PcMeleeScenario,
-    PcMeleeWeapon, PcRandomHandPolicy, PcWeaponHand, PcMeleeParticipant,
+    PcHeavyWoundPolicy, PcMeleeWeapon, PcRandomSidePolicy, PcWeaponHand, PcMeleeParticipant,
 )
 from towr.domain.ranged_weapon_profiles import RangedWeaponHands, RangedWeaponRange
 from towr.domain.resolution_models import TargetInjuryPolicy
@@ -40,7 +40,7 @@ def make_pc_melee_scenario(*, weapon: PcMeleeWeapon = PcMeleeWeapon.STAFF,
     ids = tuple(enemy.state.actor_id for enemy in enemies)
     member = PcMeleeParticipant("pc", pc, FateSessionState("session", "pc", 3, 3),
         PcMeleePolicy.ATTACK_OR_RECOVER_SELF, PcFatePolicy.DECLINE_OPTIONAL_FATE,
-        PcRandomHandPolicy.D10_LOW_LEFT_HIGH_RIGHT, PcWeaponHand.LEFT, ids,
+        PcRandomSidePolicy.D10_LOW_LEFT_HIGH_RIGHT, PcHeavyWoundPolicy.CONTINUE_FIGHTING, PcWeaponHand.LEFT, ids,
         tuple(MinionDefeatDecision("pc", target, NpcDefeatDisposition.KNOCKED_OUT, True) for target in ids))
     return PcMeleeScenario("pc-melee", (member,), "day", tuple(enemies),
         PcMeleeFacts("arena", True, True, True, True, True, True, True, True, True, False),

@@ -104,6 +104,13 @@ class PcMeleeCliIntegrationTests(unittest.TestCase):
         error=json.loads(completed.stdout)
         self.assertEqual(error['request_id'],raw['request_id'])
         self.assertEqual(error['error']['path'],'/scenario/enemies/1/definition/wound_limit')
+        raw=deepcopy(self.simulation)
+        raw['scenario']['party'][1]['heavy_wound_policy']='avoid_complications'
+        completed=invoke('simulate-pc-melee',raw)
+        self.assertEqual(completed.returncode,2)
+        error=json.loads(completed.stdout)
+        self.assertEqual(error['request_id'],raw['request_id'])
+        self.assertEqual(error['error']['path'],'/scenario/party/1/heavy_wound_policy')
 
     def test_runtime_worker_cause_is_private_and_family_phase_remains_precise(self):
         scripts={

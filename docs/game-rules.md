@@ -1,5 +1,7 @@
 # Правила боя TOWR
 
+M12 подключает PC Wounds11–23 к тому же melee owner: выбранный continue-fighting, actual body/hand/loss/clutch consequences, обязательный Critical end phase и живой Defenceless без actions/Opposition. Generic heavy stop снят; физически невозможная повторная анатомическая потеря требует GM. [Контракт](decisions/ADR-0068-pc-heavy-wound-continuation.md), [текущий вход](examples/m12/README.md). Общие Damage→Wound/adrenaline corrections и независимые sources не возвращают прототипный PC wound_limit; записи ниже исторические.
+
 2026-11-04, M10: тот же книжный PC melee owner расширен до непустой группы с индивидуальными состояниями/Fate и общим clock. После смерти одного PC бой продолжается выжившими; текущий вход использует uniform party. [Граница/приёмка](decisions/ADR-0066-pc-party-melee-encounter.md), [публичный пример](examples/m10/README.md). Остальные записи ниже сохраняют исторические границы.
 
 2026-11-04, M9: [первый книжный PC melee сценарий](decisions/ADR-0065-first-pc-melee-encounter.md) использует Characteristics/Skills, PLAYER Wounds и полный supplied Fate. Обязательная выбранная стратегия decline optional Fate сохраняет ресурсы и явное Near Miss окно до daily/effects/death. Поддержаны Wounds1–10 и их mixed/repeated последствия;11–23дают honest pending stop,24+death проходит completion. Staff/Sword и bounded hand/drop/Recover не являются общей inventory моделью. [Публичный вход](examples/m9/README.md). Книжные правила не заменяются прототипным wound_limit; прежние записи ниже относятся к своим историческим границам M8/P1.
