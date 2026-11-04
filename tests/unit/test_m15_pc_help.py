@@ -8,7 +8,7 @@ from tests.support.pc_melee_fixtures import make_pc_melee_party_scenario, with_p
 from tests.support.pc_melee_scripted import ScriptedD10
 from towr.domain.condition_models import Condition, ConditionState
 from towr.domain.pc_help_models import build_pc_help_action, pc_help_beneficiary, pc_attack_help_applications
-from towr.domain.pc_melee_models import PcMeleePolicy, PcHelpPolicy, PcFatePolicy, PcGloriousPolicy
+from towr.domain.pc_melee_models import PcMeleePolicy, PcHelpPolicy, PcHelpTarget, PcFatePolicy, PcGloriousPolicy
 from towr.domain.pc_melee_result_models import (
     PcAttackProof,PcHelpProof,PcRecoverProof,PcMeleeOutcome,PcMeleeStep,PcTurnEndProof,
     initial_pc_melee_state,pc_melee_selected_action,pc_melee_action_id,build_pc_melee_attack,
@@ -24,7 +24,7 @@ def help_source(*, pc_count=2,enemy_count=1,max_rounds=1,helpers=('pc1',)):
     beneficiary = source.party[-1].actor_id
     return replace(source,party=tuple(replace(member,
         policy=PcMeleePolicy.HELP_ALLY_OR_ATTACK_OR_RECOVER_SELF,
-        help_policy=PcHelpPolicy(beneficiary)) if member.actor_id in helpers else member
+        help_policy=PcHelpPolicy(beneficiary,PcHelpTarget.MELEE_ATTACK,None)) if member.actor_id in helpers else member
         for member in source.party))
 
 

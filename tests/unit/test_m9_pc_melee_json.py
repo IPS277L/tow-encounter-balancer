@@ -98,13 +98,75 @@ def balance_result(command):
     return PcMeleeBalanceResult(command.request,candidates,select_pc_melee_candidate_ids(candidates,command.request.top_k))
 
 
+def melee_help(beneficiary):
+    return {'beneficiary_id':beneficiary,'target':'melee_attack','protection_skill':None}
+
+
 class PcMeleeJsonTests(unittest.TestCase):
+    def test_protection_help_full_source_echo_allows_earlier_beneficiary_and_both_skills(self):
+        for balance in (False,True):
+            for skill in ('defence','athletics'):
+                with self.subTest(balance=balance,skill=skill):
+                    raw=document(balance=balance,party_size=2)
+                    key='template' if balance else 'scenario'
+                    helper=raw[key]['party'][0]
+                    helper.update(policy='help_ally_or_attack_or_recover_self',help_policy={
+                        'beneficiary_id':'pc2','target':'first_incoming_protection','protection_skill':skill})
+                    self.assertEqual(raw[key]['pc_activation_order'],['pc2','pc'])
+                    raw[key]['enemy_target_priority']=['pc2','pc']
+                    parse=wire.parse_pc_melee_balance_request if balance else wire.parse_pc_melee_simulation_request
+                    command=parse(json.dumps(raw))
+                    source=command.request.template if balance else command.request.scenario
+                    self.assertEqual(source.party[0].help_policy.target.value,'first_incoming_protection')
+                    self.assertEqual(source.party[0].help_policy.protection_skill.value,skill)
+                    self.assertEqual(scenario_document(source),raw[key])
+                    encoded=json.loads(wire.encode_pc_melee_balance_result(command,balance_result(command))
+                        if balance else wire.encode_pc_melee_simulation_result(command,aggregate(command.request)))
+                    self.assertEqual(encoded['request'],raw)
+                    if balance:
+                        for candidate in encoded['candidates']:
+                            self.assertEqual(candidate['request']['scenario']['party'][0]['help_policy'],
+                                helper['help_policy'])
+                            self.assertEqual(candidate['summary']['total_help_action_count'],0)
+
+    def test_help_target_and_skill_are_explicit_correlated_and_not_coerced(self):
+        base={'beneficiary_id':'pc','target':'first_incoming_protection','protection_skill':'defence'}
+        invalid=[]
+        for name in ('beneficiary_id','target','protection_skill'):
+            criteria=deepcopy(base)
+            del criteria[name]
+            invalid.append(criteria)
+        for name,value in (('target',True),('target',None),('target','protection'),
+                ('protection_skill',True),('protection_skill',1),('protection_skill',None),
+                ('protection_skill','melee'),('protection_skill','Defence'),('beneficiary_id',True)):
+            invalid.append(dict(base,**{name:value}))
+        invalid.extend((dict(base,target='melee_attack'),dict(base,incoming_attacker_id='minion1')))
+        for criteria in invalid:
+            raw=document(party_size=2)
+            raw['scenario']['party'][1].update(policy='help_ally_or_attack_or_recover_self',help_policy=criteria)
+            with self.subTest(criteria=criteria),self.assertRaises(PcMeleeSimulationInputError):
+                wire.parse_pc_melee_simulation_request(json.dumps(raw))
+
+    def test_protection_help_still_requires_a_distinct_ordinary_party_beneficiary(self):
+        for beneficiary in ('pc2','foreign','minion1'):
+            raw=document(party_size=2)
+            raw['scenario']['party'][1].update(policy='help_ally_or_attack_or_recover_self',help_policy={
+                'beneficiary_id':beneficiary,'target':'first_incoming_protection','protection_skill':'athletics'})
+            with self.subTest(beneficiary=beneficiary),self.assertRaises(PcMeleeSimulationInputError):
+                wire.parse_pc_melee_simulation_request(json.dumps(raw))
+        raw=document(party_size=2)
+        for member,beneficiary in zip(raw['scenario']['party'],('pc2','pc')):
+            member.update(policy='help_ally_or_attack_or_recover_self',help_policy={
+                'beneficiary_id':beneficiary,'target':'first_incoming_protection','protection_skill':'defence'})
+        with self.assertRaises(PcMeleeSimulationInputError):
+            wire.parse_pc_melee_simulation_request(json.dumps(raw))
+
     def test_help_policy_and_action_counts_survive_complete_simulation_and_candidate_echo(self):
         for balance in (False,True):
             raw=document(balance=balance,party_size=2)
             key='template' if balance else 'scenario'
             helper=raw[key]['party'][1]
-            helper.update(policy='help_ally_or_attack_or_recover_self',help_policy={'beneficiary_id':'pc'})
+            helper.update(policy='help_ally_or_attack_or_recover_self',help_policy=melee_help('pc'))
             parse=wire.parse_pc_melee_balance_request if balance else wire.parse_pc_melee_simulation_request
             command=parse(json.dumps(raw))
             source=command.request.template if balance else command.request.scenario
@@ -126,7 +188,7 @@ class PcMeleeJsonTests(unittest.TestCase):
             self.assertEqual(encoded['request'],raw)
 
     def test_help_policy_is_required_correlated_and_rejects_unknown_or_malformed_fields(self):
-        for policy,criteria in (('attack_or_recover_self',{'beneficiary_id':'pc'}),
+        for policy,criteria in (('attack_or_recover_self',melee_help('pc')),
                 ('help_ally_or_attack_or_recover_self',None),('invented',None),
                 ('help_ally_or_attack_or_recover_self',{}),
                 ('help_ally_or_attack_or_recover_self',{'beneficiary_id':True}),
@@ -145,25 +207,25 @@ class PcMeleeJsonTests(unittest.TestCase):
         for beneficiary in ('pc2','foreign','minion1'):
             raw=document(party_size=2)
             raw['scenario']['party'][1].update(policy='help_ally_or_attack_or_recover_self',
-                help_policy={'beneficiary_id':beneficiary})
+                help_policy=melee_help(beneficiary))
             with self.subTest(beneficiary=beneficiary),self.assertRaises(PcMeleeSimulationInputError):
                 wire.parse_pc_melee_simulation_request(json.dumps(raw))
         raw=document(party_size=2)
         raw['scenario']['party'][1].update(policy='help_ally_or_attack_or_recover_self',
-            help_policy={'beneficiary_id':'pc'})
+            help_policy=melee_help('pc'))
         raw['scenario']['pc_activation_order']=['pc','pc2']
         with self.assertRaises(PcMeleeSimulationInputError):
             wire.parse_pc_melee_simulation_request(json.dumps(raw))
         raw=document(party_size=2)
         for member,beneficiary in zip(raw['scenario']['party'],('pc2','pc')):
-            member.update(policy='help_ally_or_attack_or_recover_self',help_policy={'beneficiary_id':beneficiary})
+            member.update(policy='help_ally_or_attack_or_recover_self',help_policy=melee_help(beneficiary))
         with self.assertRaises(PcMeleeSimulationInputError):
             wire.parse_pc_melee_simulation_request(json.dumps(raw))
 
     def test_two_helpers_can_name_the_same_later_ordinary_beneficiary(self):
         raw=document(party_size=3)
         for member in raw['scenario']['party'][1:]:
-            member.update(policy='help_ally_or_attack_or_recover_self',help_policy={'beneficiary_id':'pc'})
+            member.update(policy='help_ally_or_attack_or_recover_self',help_policy=melee_help('pc'))
         command=wire.parse_pc_melee_simulation_request(json.dumps(raw))
         self.assertEqual(tuple(member.help_policy.beneficiary_id
             for member in command.request.scenario.party[1:]),('pc','pc'))

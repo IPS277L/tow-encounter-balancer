@@ -221,7 +221,7 @@ def run_pc_melee_scenario(scenario, rng: RandomSource) -> PcMeleeScenarioResult:
                 consume(PcRecoverProof(execute_recover_action(request,rng,decisions=decisions)))
             elif pc_melee_selected_action(state) is CombatActionKind.HELP:
                 request = build_pc_help_action(state)
-                test,decline,glorious,effective = _resolve_pc_test(state,actor,Skill.MELEE,
+                test,decline,glorious,effective = _resolve_pc_test(state,actor,request.help_skill,
                     request.help_test,rng,decisions)
                 execution = _complete_help_action(replace(request,help_test=effective),test)
                 consume(PcHelpProof(request,execution,decline,glorious))

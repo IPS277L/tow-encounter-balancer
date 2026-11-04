@@ -29,12 +29,27 @@ class PcMeleePolicy(str, Enum):
     HELP_ALLY_OR_ATTACK_OR_RECOVER_SELF = "help_ally_or_attack_or_recover_self"
 
 
+class PcHelpTarget(str, Enum):
+    MELEE_ATTACK = "melee_attack"
+    FIRST_INCOMING_PROTECTION = "first_incoming_protection"
+
+
 @dataclass(frozen=True, slots=True)
 class PcHelpPolicy:
     beneficiary_id: str
+    target: PcHelpTarget
+    protection_skill: Skill | None
 
     def __post_init__(self) -> None:
         _identifier(self.beneficiary_id,"Help beneficiary")
+        _typed(self.target,PcHelpTarget,"Help target")
+        if self.target is PcHelpTarget.MELEE_ATTACK:
+            if self.protection_skill is not None:
+                raise ValueError("Melee Attack Help cannot carry a Protection skill")
+        else:
+            _typed(self.protection_skill,Skill,"Help Protection skill")
+            if self.protection_skill not in (Skill.DEFENCE,Skill.ATHLETICS):
+                raise ValueError("Protection Help requires Defence or Athletics")
 
 
 class PcFatePolicy(str, Enum):
@@ -288,7 +303,8 @@ class PcMeleeScenario:
                 beneficiary = next(other for other in party if other.actor_id == beneficiary_id)
                 if beneficiary.policy is not PcMeleePolicy.ATTACK_OR_RECOVER_SELF:
                     raise ValueError("the first Help slice cannot target another helper")
-                if self.pc_activation_order.index(member.actor_id) >= self.pc_activation_order.index(beneficiary_id):
+                if (member.help_policy.target is PcHelpTarget.MELEE_ATTACK
+                        and self.pc_activation_order.index(member.actor_id) >= self.pc_activation_order.index(beneficiary_id)):
                     raise ValueError("Help beneficiary must activate later in this round")
         object.__setattr__(self, "party", party)
         object.__setattr__(self, "enemies", enemies)

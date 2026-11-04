@@ -2,6 +2,8 @@
 
 Дата: 2026-11-04. Статус: **M15 реализована и адресно проверена в указанной границе**.
 
+M16/[ADR-0072](ADR-0072-pc-protection-help-policy.md) требует явные target/protection_skill у Help configuration и добавляет Protection Help. Ниже сохранено решение M15 на момент приёмки; его Melee поведение продолжается с target=melee_attack/skill=null.
+
 ## Решение и конечная граница
 
 После M14 пользователь поручил продолжить рекомендованный Help между PC. Первый срез — физическая помощь оружием с Melee Test для одной намеченной Melee Attack союзника в текущем раунде. Это законченная функция через общий PC бой, Fate/раны, trials, aggregate-only count search и текущий JSON1, без общего AI.

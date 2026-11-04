@@ -18,7 +18,7 @@ from towr.domain.npc_roster_models import (
     NpcDefinition, NpcParticipantSnapshot, NpcParticipantState, NpcProtectionProfile,
 )
 from towr.domain.pc_melee_models import (
-    PcFatePolicy, PcNearMissPolicy, PcGloriousPolicy, PcHelpPolicy, PcMeleeDefinition, PcMeleeFacts, PcMeleeParticipant, PcMeleePolicy, PcMeleeScenario,
+    PcFatePolicy, PcNearMissPolicy, PcGloriousPolicy, PcHelpPolicy, PcHelpTarget, PcMeleeDefinition, PcMeleeFacts, PcMeleeParticipant, PcMeleePolicy, PcMeleeScenario,
     PcMeleeWeapon, PcRandomSidePolicy, PcHeavyWoundPolicy, PcWeaponHand, validate_pc_melee_scenario_admission,
 )
 from towr.domain.ranged_weapon_profiles import RangedWeaponHands, RangedWeaponRange
@@ -76,7 +76,10 @@ def _parse_participant(data, *, path_prefix, error_type):
             **dict(data["glorious_policy"],skills=tuple(Skill(value)
                 for value in data["glorious_policy"]["skills"]))))
     help_policy = (None if data["help_policy"] is None else
-        build(path_prefix + "/help_policy", PcHelpPolicy, **data["help_policy"]))
+        build(path_prefix + "/help_policy", PcHelpPolicy,
+            **dict(data["help_policy"],target=PcHelpTarget(data["help_policy"]["target"]),
+                protection_skill=(None if data["help_policy"]["protection_skill"] is None else
+                    Skill(data["help_policy"]["protection_skill"])))))
     return build(path_prefix, PcMeleeParticipant, data["actor_id"], pc, fate,
         PcMeleePolicy(data["policy"]), PcFatePolicy(data["fate_policy"]),
         PcRandomSidePolicy(data["random_side_policy"]), PcHeavyWoundPolicy(data["heavy_wound_policy"]),

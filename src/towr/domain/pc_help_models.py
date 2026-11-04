@@ -1,4 +1,4 @@
-"""Bounded weapon-assisted Help for an ally's named upcoming melee Attack."""
+"""Bounded weapon-assisted Help for a named allied Attack or Protection Test."""
 from dataclasses import replace
 
 from towr.domain.condition_models import Condition
@@ -7,6 +7,7 @@ from towr.domain.help_models import (
     HelpBonusApplicationResult, _expected_help_application,
 )
 from towr.domain.pc_heavy_wound_models import usable_weapon_hand
+from towr.domain.pc_melee_models import PcHelpTarget
 from towr.domain.test_models import Skill
 
 
@@ -26,11 +27,30 @@ def pc_help_beneficiary(state):
         return None
     ally = state.participant(strategy.beneficiary_id)
     if (ally.injury.dead or ally.injury.conditions.has(Condition.DEFENCELESS)
-            or ally.injury.conditions.has(Condition.DRAINED) or _pc_recover_needed(ally)
-            or strategy.beneficiary_id in (*state.round_state.completed_turn_entity_ids,
-                *state.round_state.excluded_turn_entity_ids)):
+            or ally.injury.conditions.has(Condition.DRAINED)):
         return None
+    if strategy.target is PcHelpTarget.MELEE_ATTACK:
+        if (_pc_recover_needed(ally) or strategy.beneficiary_id in (
+                *state.round_state.completed_turn_entity_ids,*state.round_state.excluded_turn_entity_ids)):
+            return None
+    else:
+        skill = Skill.DEFENCE if usable_weapon_hand(ally) is not None else Skill.ATHLETICS
+        if skill is not strategy.protection_skill or pc_help_incoming_actor(state) is None:
+            return None
     return strategy.beneficiary_id
+
+
+def pc_help_incoming_actor(state):
+    """Select the first current live NPC, without anticipating future PC outcomes."""
+    actor = state.round_state.active_turn.actor_id
+    strategy = state.source.participant(actor).help_policy
+    target = next((pc for pc in state.source.enemy_target_priority
+        if not state.participant(pc).injury.dead),None)
+    if target != strategy.beneficiary_id:
+        return None
+    unavailable = (*state.round_state.completed_turn_entity_ids,*state.round_state.excluded_turn_entity_ids)
+    return next((enemy for enemy in state.source.enemy_activation_order
+        if not state.enemy(enemy).state.injury.defeated and enemy not in unavailable),None)
 
 
 def build_pc_help_action(state):
@@ -39,26 +59,33 @@ def build_pc_help_action(state):
     if beneficiary is None:
         raise ValueError('the explicit Help strategy cannot select an eligible ally')
     actor = state.round_state.active_turn.actor_id
+    strategy = state.source.participant(actor).help_policy
     action_id = pc_melee_action_id(state,actor)
+    skill = Skill.MELEE if strategy.target is PcHelpTarget.MELEE_ATTACK else strategy.protection_skill
+    intended = (pc_melee_action_id(state,beneficiary)+':attack' if skill is Skill.MELEE else
+        pc_melee_action_id(state,pc_help_incoming_actor(state))+':protection')
     return HelpActionExecutionRequest(action_id+':help:execute',state.round_state,actor,
         state.participant(actor).injury.conditions,beneficiary,
-        pc_melee_action_id(state,beneficiary)+':attack',1,
-        _pc_test(state,actor,action_id+':help:test',Skill.MELEE),Skill.MELEE,Skill.MELEE)
+        intended,1,_pc_test(state,actor,action_id+':help:test',skill),skill,skill)
 
 
 def build_pc_attack_help(state, test):
+    return build_pc_test_help(state,state.round_state.active_turn.actor_id,Skill.MELEE,test)
+
+
+def build_pc_test_help(state, actor, skill, test):
     """Retain every exact intended-Test application, including zero/capped dice."""
     from towr.domain.pc_melee_result_models import PcHelpProof
-    actor = state.round_state.active_turn.actor_id
     applications = []
     for proof in state.history:
         if not isinstance(proof,PcHelpProof):
             continue
         execution = proof.execution
-        if execution.bonus.beneficiary_id != actor or execution.bonus.beneficiary_test_id != test.id:
+        if (execution.bonus.beneficiary_id != actor or execution.bonus.beneficiary_test_id != test.id
+                or execution.bonus.beneficiary_skill is not skill):
             continue
         request = HelpBonusApplicationRequest(test.id+':apply:'+execution.request_id,
-            execution,actor,Skill.MELEE,test)
+            execution,actor,skill,test)
         updated,modifier = _expected_help_application(request)
         application = HelpBonusApplicationResult(request.id,request.rule_id,request,updated,
             modifier,(request.rule_id,execution.rule_id))
@@ -72,9 +99,16 @@ def build_pc_attack_help(state, test):
 
 def pc_attack_help_applications(state, attack):
     """Recover the exact receipt chain for a prepared PC Attack, before Fate."""
-    if state.round_state.active_turn.actor_id not in state.source.pc_activation_order:
-        return ()
-    base = replace(attack.attacker_test,dice_modifiers=tuple(modifier
-        for modifier in attack.attacker_test.dice_modifiers
+    actor = state.round_state.active_turn.actor_id
+    if actor in state.source.pc_activation_order:
+        skill,test = Skill.MELEE,attack.attacker_test
+    else:
+        if attack.defender_test is None:
+            return ()
+        actor = next(pc for pc in state.source.enemy_target_priority if not state.participant(pc).injury.dead)
+        skill = Skill.DEFENCE if usable_weapon_hand(state.participant(actor)) is not None else Skill.ATHLETICS
+        test = attack.defender_test
+    base = replace(test,dice_modifiers=tuple(modifier
+        for modifier in test.dice_modifiers
         if modifier.rule_id != HELP_BONUS_RULE_ID))
-    return build_pc_attack_help(state,base)[1]
+    return build_pc_test_help(state,actor,skill,base)[1]

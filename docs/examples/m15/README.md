@@ -8,7 +8,11 @@
 {
   "actor_id": "pc",
   "policy": "help_ally_or_attack_or_recover_self",
-  "help_policy": {"beneficiary_id": "pc:companion"}
+  "help_policy": {
+    "beneficiary_id": "pc:companion",
+    "target": "melee_attack",
+    "protection_skill": null
+  }
 }
 ```
 
@@ -30,4 +34,4 @@ $env:PYTHONPATH = 'src'
 
 `help_action_counts` содержит всех PC в исходном порядке; `help_action_trial_count` — число боёв хотя бы с одним Help; `total_help_action_count` — суммарные действия помощи. Сюда входят неудачные и неиспользованные Help. Эти числа не равны бонусным кубам: бонус может быть нулевым, ограниченным cap или остаться неприменённым. Подбор фиксирует роли/политики, ранжирует по прежней objective rate и сохраняет отдельную стоимость Fate.
 
-Остальные примеры M9–M14 обновлены с `help_policy: null` и нулевыми Help counters, сохраняя свои результаты. Версия family остаётся1; пропущенное поле не поддерживается. Help для Protection, другие Skills/GM approval, Help chains и оптимальная тактика остаются за границей M15.
+Остальные примеры M9–M14 используют `help_policy: null` и нулевые Help counters, сохраняя свои результаты. Версия family остаётся1; пропущенное поле не поддерживается. Текущий [M16 контракт](../m16/README.md) требует также явные target/protection_skill и поддерживает отдельный Protection Help; здесь они равны melee_attack/null и результаты сохранены. Другие Skills/GM approval, Help chains и оптимальная тактика остаются будущими темами.

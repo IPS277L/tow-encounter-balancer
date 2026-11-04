@@ -342,7 +342,7 @@ def project_pc_step(state, proof):
             raise ValueError('Help must consume its selected unused standard slot once')
         expected = build_pc_help_action(state)
         _same(proof.request,expected,'Help changed its current actor/ally/Test/action source')
-        effective,fate = validate_pc_test_fate(state,pc_actor,Skill.MELEE,
+        effective,fate = validate_pc_test_fate(state,pc_actor,expected.help_skill,
             expected.help_test,proof.execution.help_test_result,proof.fate_decline,proof.glorious)
         canonical = _expected_help_execution(replace(expected,help_test=effective),proof.execution.help_test_result)
         _same(proof.execution,canonical,'Help execution changed its exact bonus/receipt/clock/Test source')

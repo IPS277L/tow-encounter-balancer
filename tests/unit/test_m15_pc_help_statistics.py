@@ -5,7 +5,7 @@ from enum import Enum
 import unittest
 
 from tests.support.pc_melee_fixtures import make_pc_melee_party_scenario
-from towr.domain.pc_melee_models import PcHelpPolicy,PcMeleePolicy
+from towr.domain.pc_melee_models import PcHelpPolicy,PcHelpTarget,PcMeleePolicy
 from towr.domain.pc_melee_result_models import PcMeleeOutcome as Outcome
 from towr.simulation.pc_melee_models import (
     PcMeleeSimulationRequest,PcMeleeSimulationResult,PcMeleeTrialRecord,PcMeleeOutcomeCounts,
@@ -18,7 +18,7 @@ from towr.simulation.pc_melee_summary_models import PcMeleeDefeatCount
 def source():
     original = make_pc_melee_party_scenario(pc_count=3,enemy_count=2,max_rounds=1)
     party = tuple(replace(member,policy=PcMeleePolicy.HELP_ALLY_OR_ATTACK_OR_RECOVER_SELF,
-        help_policy=PcHelpPolicy('pc3')) if member.actor_id!='pc3' else member
+        help_policy=PcHelpPolicy('pc3',PcHelpTarget.MELEE_ATTACK,None)) if member.actor_id!='pc3' else member
         for member in original.party)
     return replace(original,party=party)
 
@@ -82,14 +82,14 @@ class PcHelpStatisticsTests(unittest.TestCase):
         member = original.party[0]
         for beneficiary in ('pc1','unknown','pc2'):
             with self.subTest(beneficiary=beneficiary),self.assertRaises(ValueError):
-                changed = replace(member,help_policy=PcHelpPolicy(beneficiary))
+                changed = replace(member,help_policy=PcHelpPolicy(beneficiary,PcHelpTarget.MELEE_ATTACK,None))
                 replace(original,party=(changed,*original.party[1:]))
         with self.assertRaises(ValueError):
             replace(original,pc_activation_order=('pc3','pc1','pc2'))
         with self.assertRaises((TypeError,ValueError)):
             replace(member,help_policy=None)
         with self.assertRaises(ValueError):
-            replace(original.party[2],help_policy=PcHelpPolicy('pc1'))
+            replace(original.party[2],help_policy=PcHelpPolicy('pc1',PcHelpTarget.MELEE_ATTACK,None))
 
     def test_no_help_trials_cannot_lend_their_mandatory_rounds_to_help_counters(self):
         summary = summarize_pc_melee_simulation(observed_batch())

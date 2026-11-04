@@ -1239,12 +1239,30 @@
       "properties": {
         "beneficiary_id": {
           "$ref": "urn:towr:pc-melee:common:1#/$defs/identifier"
+        },
+        "target": {
+          "enum": ["melee_attack", "first_incoming_protection"]
+        },
+        "protection_skill": {
+          "enum": [null, "defence", "athletics"]
         }
       },
       "required": [
-        "beneficiary_id"
+        "beneficiary_id",
+        "target",
+        "protection_skill"
       ],
-      "additionalProperties": false
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {"target": {"const": "melee_attack"}},
+            "required": ["target"]
+          },
+          "then": {"properties": {"protection_skill": {"type": "null"}}},
+          "else": {"properties": {"protection_skill": {"enum": ["defence", "athletics"]}}}
+        }
+      ]
     },
     "help_action_count": {
       "type": "object",

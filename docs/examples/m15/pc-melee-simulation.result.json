@@ -81,7 +81,9 @@
             "minimum_remaining_spends": 1
           },
           "help_policy": {
-            "beneficiary_id": "pc:companion"
+            "beneficiary_id": "pc:companion",
+            "target": "melee_attack",
+            "protection_skill": null
           }
         },
         {

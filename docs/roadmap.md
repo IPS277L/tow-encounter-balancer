@@ -15,10 +15,11 @@
 - M13: явная Near Miss policy с порогом таблицы и резервом Fate; фактический burn в бою, независимые trials, расход ресурса в aggregate-only balance и текущем JSON1. [Контракт ADR-0069](decisions/ADR-0069-pc-near-miss-policy.md).
 - M14: Glorious после actual initial roll для всех PC Test windows, отдельный session-spend резерв, совместимость с Near Miss в `configured`, новые costs в trials/balance и текущей JSON1. [Контракт ADR-0070](decisions/ADR-0070-pc-glorious-test-policy.md).
 - M15: физический Melee Help для текущей атаки более позднего обычного PC, настоящие action/Test/Fate/heavy последствия, exact intended-Test applications и отдельные counts в trials/balance/JSON1. [Контракт ADR-0071](decisions/ADR-0071-pc-melee-help-policy.md).
+- M16: Defence/Athletics Help для конкретного incoming Protection Test, явный target/skill, сохранение unused snapshot при смене Skill/NPC/no-Test и прежние trials/подбор/JSON1. [Контракт ADR-0072](decisions/ADR-0072-pc-protection-help-policy.md).
 
 ## Последняя законченная функция
 
-[Melee Help M15](decisions/ADR-0071-pc-melee-help-policy.md) реализован через owner/trials/подбор и текущий JSON1, вместе с Fate/ранами. [Примеры](examples/m15/README.md) выполнены настоящим CLI; Help actions и Fate costs видны отдельно. Адресная приёмка — в статусе и ADR-0071; full/wheel не повторяются автоматически.
+[Protection Help M16](decisions/ADR-0072-pc-protection-help-policy.md) реализован через owner/trials/подбор и текущий JSON1, вместе с Melee Help/Fate/ранами. [Примеры](examples/m16/README.md) выполнены настоящим CLI; source задаёт цель/Skill, costs видны отдельно. Адресная приёмка — в статусе и ADR-0072; full/wheel не повторяются автоматически.
 
 ## M8 завершена
 
@@ -78,11 +79,15 @@
 
 Завершённый срез по [ADR-0071](decisions/ADR-0071-pc-melee-help-policy.md): роль помощника задаёт одного более позднего обычного PC; physical Melee Help предназначен для его конкретной Attack текущего раунда. Настоящий action/Test/Glorious, next-Test/hand/heavy/end-phase последствия, zero/multiple/capped applications, typed source/replay guards и unused бонус при ранней победе. Нет mutable банка и переназначения Test. Trials/process/count search и текущий JSON1 отражают actual Help отдельно от Fate; старые12JSON-пар мигрированы без смены gameplay. Clock PC-side→NPC-side сохраняется. Обязательного остатка M15 нет.
 
-## После M15
+## M16 — Help защите союзника
 
-Более широкий NPC/spell/Miscast каталог, дополнительные тактики/Fate/Help, лечение, общий inventory/spatial/campaign/save-resume и ally removal — отдельный backlog после M15. Решение GM для невозможной повторной анатомии и post-healing ветвей не подставляется. Следующие функции выбираются отдельно; уже закрытые границы ими автоматически не расширяются.
+Завершённый срез по [ADR-0072](decisions/ADR-0072-pc-protection-help-policy.md): явные target и Defence/Athletics, первый текущий live NPC при совпадении ожидаемой цели, exact beneficiary/Test/Skill applications в original Protection options до собственного Glorious. Гибель NPC, смена оружия/Skill и Defenceless не переназначают snapshot. Protection beneficiary может уже завершить ход. Новых counters/owner bank/version нет; generation сохраняет authored configuration при удалении NPC. Старые14JSON-пар мигрированы/проверены без смены gameplay. Обязательного остатка M16 нет.
 
-Рекомендуемое следующее направление — Help для Protection союзного PC. Перед реализацией адресно закрепить relevant Skill, intended incoming Test, порядок и условия выбора; защита не подменяется автоматическим optimal AI или переназначением уже выданной помощи. M16 ещё не согласована, прочие тактики не включать автоматически.
+## После M16
+
+Более широкий NPC/spell/Miscast каталог, дополнительные тактики/Fate/Help, лечение, общий inventory/spatial/campaign/save-resume и ally removal — отдельный backlog после M16. Решение GM для невозможной повторной анатомии и post-healing ветвей не подставляется. Следующие функции выбираются отдельно; уже закрытые границы ими автоматически не расширяются.
+
+Рекомендуемое следующее направление — стандартный Recover для союзного PC в Close Range. Перед реализацией закрепить явную тактику выбора целей/Conditions и source-aware ограничения ongoing Wounds; это не лечение ран или optimal AI. M17 ещё не согласована, прочие действия не включать автоматически.
 
 ## Контрольные точки
 

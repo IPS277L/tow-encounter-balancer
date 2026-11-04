@@ -1,5 +1,7 @@
 # Реестр источников
 
+2026-11-04: для [M16/ADR-0072](decisions/ADR-0072-pc-protection-help-policy.md) сверены локальные extracted BOOK-PLAYER-GUIDE1.4: гл.V Helping108 / Combat Help117 / Attack Tests118 / Deafened-Drained123; в Wounds Table190 адресно проверены14/15 для нативного Critical→Defenceless сценария. Пример перехвата удара подтверждает Help защите, same-Skill Defence/Athletics сохраняет обычную eligibility. First-live-NPC/current-target выбор — явная тактика симуляции, не новая норма книги. Новых источников/версий или полного повторного чтения нет.
+
 2026-11-04: для [M15/ADR-0071](decisions/ADR-0071-pc-melee-help-policy.md) адресно перечитаны локальные extracted BOOK-PLAYER-GUIDE1.4, гл.V Rules / Helping With a Test108, Combat Actions / Help117, Deafened/Drained123. Проверены собственный relevant Skill Test, +1d за success, физическая помощь без зависимости от слуха и Conditions. Граница same-Skill/current-round intended Attack — выбор симуляции, не новое книжное ограничение. Новых версий/источников и полного перечитывания книг нет.
 
 2026-11-04: для [M14/ADR-0070](decisions/ADR-0070-pc-glorious-test-policy.md) адресно перечитаны локальные extracted BOOK-PLAYER-GUIDE1.4, гл.V Rules / Grim & Glorious Tests108 и Spending Fate / Glorious Test111. Проверены окно после initial roll/до rerolls, отмена Grim/Glorious и запрет повторного переброса куба. Новых книг/версий и полного повторного чтения нет.

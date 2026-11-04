@@ -549,6 +549,9 @@ def build_pc_melee_attack(state: PcMeleeState) -> tuple[AttackActionExecutionReq
         attacker = TestRequest(action_id + ':attack', profile.test_profile, tuple(modifiers))
         skill = Skill.DEFENCE if usable_weapon_hand(member) is not None else Skill.ATHLETICS
         defender = _pc_test(state, target, action_id + ':protection', skill)
+        if not member.injury.conditions.has(Condition.DEFENCELESS):
+            from towr.domain.pc_help_models import build_pc_test_help
+            defender,_ = build_pc_test_help(state,target,skill,defender)
         damage, resilience = profile.damage, state.source.participant(target).pc.resilience
         attacker_conditions = enemy.state.injury.conditions
         target_injury = member.injury if member.injury.conditions.has(Condition.DEFENCELESS) else pc_after_test(state, target,critical_for_hand(member,

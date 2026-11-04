@@ -8,7 +8,7 @@ from unittest.mock import patch
 from jsonschema import Draft202012Validator, ValidationError
 from referencing import Registry, Resource
 
-from tests.unit.test_m9_pc_melee_json import aggregate, balance_result, document
+from tests.unit.test_m9_pc_melee_json import aggregate, balance_result, document, melee_help
 from towr.adapters import pc_melee_json as wire
 from towr.adapters.pc_melee_json_errors import PcMeleeBalanceInputError, PcMeleeSimulationInputError
 from towr.adapters import pc_melee_json_schema as schema
@@ -35,12 +35,35 @@ def samples():
 
 
 class PcMeleeJsonSchemaTests(unittest.TestCase):
+    def test_help_target_skill_shapes_are_required_closed_and_correlated(self):
+        raw=document(party_size=2)
+        helper=raw['scenario']['party'][1]
+        helper['policy']='help_ally_or_attack_or_recover_self'
+        for target,skill in (('melee_attack',None),('first_incoming_protection','defence'),
+                ('first_incoming_protection','athletics')):
+            helper['help_policy']={'beneficiary_id':'pc','target':target,'protection_skill':skill}
+            schema.validate_pc_melee_simulation_document(raw)
+        for target,skill in (('melee_attack','defence'),('first_incoming_protection',None),
+                ('first_incoming_protection','melee'),('first_incoming_protection',False),
+                ('protection','defence'),(True,'athletics')):
+            helper['help_policy']={'beneficiary_id':'pc','target':target,'protection_skill':skill}
+            with self.subTest(target=target,skill=skill),self.assertRaises(ValidationError):
+                schema.validate_pc_melee_simulation_document(raw)
+        for field in ('beneficiary_id','target','protection_skill'):
+            helper['help_policy']=melee_help('pc')
+            del helper['help_policy'][field]
+            with self.subTest(missing=field),self.assertRaises(ValidationError):
+                schema.validate_pc_melee_simulation_document(raw)
+        helper['help_policy']=dict(melee_help('pc'),incoming_attacker_id='minion1')
+        with self.assertRaises(ValidationError):
+            schema.validate_pc_melee_simulation_document(raw)
+
     def test_help_strategy_and_summary_metrics_are_current_required_closed_shapes(self):
         raw=document(party_size=2)
         helper=raw['scenario']['party'][1]
-        helper.update(policy='help_ally_or_attack_or_recover_self',help_policy={'beneficiary_id':'pc'})
+        helper.update(policy='help_ally_or_attack_or_recover_self',help_policy=melee_help('pc'))
         schema.validate_pc_melee_simulation_document(raw)
-        for policy,criteria in (('attack_or_recover_self',{'beneficiary_id':'pc'}),
+        for policy,criteria in (('attack_or_recover_self',melee_help('pc')),
                 ('help_ally_or_attack_or_recover_self',None),
                 ('help_ally_or_attack_or_recover_self',{}),
                 ('help_ally_or_attack_or_recover_self',{'beneficiary_id':False}),
