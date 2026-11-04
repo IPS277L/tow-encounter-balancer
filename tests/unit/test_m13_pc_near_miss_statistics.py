@@ -8,7 +8,7 @@ from tests.support.pc_near_miss_scenarios import active_near_miss_source
 from towr.domain.pc_melee_result_models import PcMeleeOutcome as Outcome
 from towr.simulation.pc_melee_models import (
     PcMeleeSimulationRequest, PcMeleeSimulationResult, PcMeleeTrialRecord,
-    PcNearMissBurnCount, PcGloriousSpendCount,
+    PcNearMissBurnCount, PcGloriousSpendCount, PcHelpActionCount,
 )
 from towr.simulation.pc_melee_summary import summarize_pc_melee_simulation
 
@@ -24,7 +24,8 @@ def observed_batch():
         ('pc1','pc2') if outcome is Outcome.PARTY_DEFEATED else (),
         tuple(PcNearMissBurnCount(member.actor_id,count)
             for member,count in zip(source.scenario.party,counts,strict=True)),
-        tuple(PcGloriousSpendCount(member.actor_id,0) for member in source.scenario.party))
+        tuple(PcGloriousSpendCount(member.actor_id,0) for member in source.scenario.party),
+        tuple(PcHelpActionCount(member.actor_id,0) for member in source.scenario.party))
         for index,(outcome,counts) in enumerate(rows))
     return PcMeleeSimulationResult(source,records)
 

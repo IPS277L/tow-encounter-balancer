@@ -75,6 +75,45 @@ def validate_glorious_counts(counts, scenario, *, trials: int, spend_trials: int
             raise ValueError('Glorious count exceeds the selected session resource budget')
 
 
+@dataclass(frozen=True, slots=True)
+class PcHelpActionCount:
+    actor_id: str
+    count: int
+
+    def __post_init__(self) -> None:
+        if type(self.actor_id) is not str or not self.actor_id.strip():
+            raise TypeError('Help count requires a nonempty actor ID')
+        if type(self.count) is not int:
+            raise TypeError('Help count must be an integer')
+        if self.count < 0:
+            raise ValueError('Help count must be nonnegative')
+
+
+def validate_help_counts(counts,scenario,*,trials:int,help_trials:int|None,
+                         actions:int,started_rounds:int) -> None:
+    from towr.domain.pc_melee_models import PcMeleePolicy
+    if type(counts) is not tuple:
+        raise TypeError('Help counts require a source-ordered tuple')
+    for item in counts:
+        if type(item) is not PcHelpActionCount:
+            raise TypeError('Help counts require typed observations')
+        replace(item)
+    if tuple(item.actor_id for item in counts) != tuple(member.actor_id for member in scenario.party):
+        raise ValueError('Help counts must cover the full source-ordered party')
+    total = sum(item.count for item in counts)
+    if help_trials is None:
+        help_trials = int(total>0)
+    if type(help_trials) is not int:
+        raise TypeError('Help trial count must be an integer')
+    if not 0 <= help_trials <= trials or not help_trials <= total <= actions or (total>0)!=(help_trials>0):
+        raise ValueError('Help counts contradict trials/actions')
+    for member,item in zip(scenario.party,counts,strict=True):
+        budget = min(started_rounds-(trials-help_trials),help_trials*scenario.max_rounds) if (
+            member.policy is PcMeleePolicy.HELP_ALLY_OR_ATTACK_OR_RECOVER_SELF) else 0
+        if item.count>budget:
+            raise ValueError('Help count exceeds the selected role/turn budget')
+
+
 def validate_near_miss_counts(counts, scenario, *, trials: int,
                               burn_trials: int | None, actions: int) -> None:
     if type(counts) is not tuple:
@@ -147,6 +186,7 @@ class PcMeleeTrialRecord:
     defeated_pc_ids: tuple[str, ...]
     near_miss_burn_counts: tuple[PcNearMissBurnCount, ...]
     glorious_spend_counts: tuple[PcGloriousSpendCount, ...]
+    help_action_counts: tuple[PcHelpActionCount, ...]
 
     def __post_init__(self) -> None:
         validate_pc_melee_scenario_admission(self.source_scenario)
@@ -188,6 +228,8 @@ class PcMeleeTrialRecord:
             actions=self.executed_actions)
         validate_glorious_counts(self.glorious_spend_counts,self.source_scenario,
             trials=1,spend_trials=None)
+        validate_help_counts(self.help_action_counts,self.source_scenario,trials=1,help_trials=None,
+            actions=self.executed_actions,started_rounds=self.started_rounds)
 
 
 @dataclass(frozen=True, slots=True)

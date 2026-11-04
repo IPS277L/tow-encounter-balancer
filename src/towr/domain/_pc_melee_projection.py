@@ -4,7 +4,7 @@ from dataclasses import replace
 from towr.domain.pc_melee_result_models import (
     PcAttackProof, PcAttackerStaggerProof, PcEnduranceProof, PcHandDropProof, PcMeleeState,
     PcProfileWoundProof, PcRecoverProof, PcTimedWound, PcTurnEndProof, PcWoundCompletionProof,
-    PcBodyConsequenceProof, PcWoundChoiceProof, PcHandSwapProof, PcCriticalProof, PcIncapacitatedTurnEndProof,
+    PcBodyConsequenceProof, PcWoundChoiceProof, PcHandSwapProof, PcCriticalProof, PcIncapacitatedTurnEndProof, PcHelpProof,
     build_pc_melee_attack, build_pc_melee_recover, build_pc_wound_completion, pc_after_test, pc_melee_action_id,
     pc_melee_next_actor, pc_melee_selected_action, pc_melee_unsupported,
     validate_pc_melee_combat_shape, validate_pc_melee_state_shape, validate_pc_melee_source_types,
@@ -22,6 +22,7 @@ from towr.domain.fate_models import _expected_fate_burn, FATE_SESSION_RULE_ID, F
 from towr.domain.fate_near_miss_models import FateNearMissApplicationRequest, _near_miss_applied_rule_ids
 from towr.domain.pc_melee_models import PcWeaponHand
 from towr.domain.pc_fate_test_models import validate_pc_test_fate
+from towr.domain.pc_help_models import build_pc_help_action, pc_attack_help_applications
 from towr.domain.minion_defeat_models import MinionDefeatDecision
 from towr.domain.resolution_models import AttackerStaggerRequest, condition_forces_wound
 from towr.domain.pc_heavy_wound_models import (PcBodyFact, PcBodyFactKind, usable_hands, usable_weapon_hand, preferred_weapon_hand, has_ongoing_condition, critical_for_action, critical_for_hand, critical_for_incidental_hand_use)
@@ -224,6 +225,8 @@ def project_pc_step(state, proof):
         if pc_melee_selected_action(state) is not CombatActionKind.ATTACK:
             raise ValueError('PC Attack cannot replace the selected Recover')
         expected, protection = build_pc_melee_attack(state)
+        _same(proof.help_applications,pc_attack_help_applications(state,expected.kernel_request.attack),
+            'Attack Help applications changed their exact intended-Test source/prefix')
         _same(proof.request,expected,'PC Attack request differs from the current complete source')
         replace(proof.protection)
         _same(proof.protection.source_request,protection,'PC Protection changed profile or equipment eligibility')
@@ -330,6 +333,23 @@ def project_pc_step(state, proof):
             enemies = _enemy_update(state,expected.target_id,result.target_state)
         return finish(round_state=execution.state,party=_party_update(state,pc_actor,injury=pc_injury,fate=pc_fate),enemies=enemies,
             pending=result.follow_ups,pending_wound=pending_wound)
+    if isinstance(proof,PcHelpProof):
+        from towr.domain.help_models import _expected_help_execution
+        _ready(state)
+        turn = combat.active_turn
+        if (turn is None or len(turn.action_slots) != 1 or turn.action_slots[0].executed
+                or pc_melee_selected_action(state) is not CombatActionKind.HELP):
+            raise ValueError('Help must consume its selected unused standard slot once')
+        expected = build_pc_help_action(state)
+        _same(proof.request,expected,'Help changed its current actor/ally/Test/action source')
+        effective,fate = validate_pc_test_fate(state,pc_actor,Skill.MELEE,
+            expected.help_test,proof.execution.help_test_result,proof.fate_decline,proof.glorious)
+        canonical = _expected_help_execution(replace(expected,help_test=effective),proof.execution.help_test_result)
+        _same(proof.execution,canonical,'Help execution changed its exact bonus/receipt/clock/Test source')
+        injury = pc_after_test(state,pc_actor,critical_for_action(member,CombatActionKind.HELP,
+            used_hand=usable_weapon_hand(member)))
+        return finish(round_state=canonical.round_state,
+            party=_party_update(state,pc_actor,injury=injury,fate=fate))
     if isinstance(proof,PcWoundCompletionProof):
         pending = state.pending_wound
         if pending is None:

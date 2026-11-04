@@ -23,7 +23,7 @@ from towr.domain.fate_models import (
     FATE_GLORIOUS_RULE_ID, FateBurnKind, FateBurnRecord, FateRefreshRecord,
     FateSessionState, FateSpendKind, FateSpendRecord,
 )
-from towr.simulation.pc_melee_models import PcMeleeOutcomeCounts, PcNearMissBurnCount, PcGloriousSpendCount
+from towr.simulation.pc_melee_models import PcMeleeOutcomeCounts, PcNearMissBurnCount, PcGloriousSpendCount, PcHelpActionCount
 from towr.simulation.pc_melee_summary_models import PcMeleeDefeatCount, PcMeleeSimulationSummary
 
 
@@ -83,7 +83,8 @@ def aggregate(request, *, unsupported=False):
     return PcMeleeSimulationSummary(request,counts,0 if unsupported else trials,trials,0,0,
         tuple(PcMeleeDefeatCount(member.actor_id,0) for member in request.scenario.party),0,
         tuple(PcNearMissBurnCount(member.actor_id,0) for member in request.scenario.party),0,
-        tuple(PcGloriousSpendCount(member.actor_id,0) for member in request.scenario.party))
+        tuple(PcGloriousSpendCount(member.actor_id,0) for member in request.scenario.party),0,
+        tuple(PcHelpActionCount(member.actor_id,0) for member in request.scenario.party))
 
 
 def balance_result(command):
@@ -98,6 +99,76 @@ def balance_result(command):
 
 
 class PcMeleeJsonTests(unittest.TestCase):
+    def test_help_policy_and_action_counts_survive_complete_simulation_and_candidate_echo(self):
+        for balance in (False,True):
+            raw=document(balance=balance,party_size=2)
+            key='template' if balance else 'scenario'
+            helper=raw[key]['party'][1]
+            helper.update(policy='help_ally_or_attack_or_recover_self',help_policy={'beneficiary_id':'pc'})
+            parse=wire.parse_pc_melee_balance_request if balance else wire.parse_pc_melee_simulation_request
+            command=parse(json.dumps(raw))
+            source=command.request.template if balance else command.request.scenario
+            self.assertEqual(source.party[1].help_policy.beneficiary_id,'pc')
+            if balance:
+                encoded=json.loads(wire.encode_pc_melee_balance_result(command,balance_result(command)))
+                self.assertTrue(all(candidate['request']['scenario']['party'][1]['help_policy']==
+                    helper['help_policy'] for candidate in encoded['candidates']))
+                self.assertTrue(all(candidate['summary']['total_help_action_count']==0
+                    for candidate in encoded['candidates']))
+            else:
+                summary=replace(aggregate(command.request),help_action_trial_count=2,
+                    help_action_counts=(PcHelpActionCount('pc',0),PcHelpActionCount('pc2',2)))
+                encoded=json.loads(wire.encode_pc_melee_simulation_result(command,summary))
+                self.assertEqual(encoded['summary']['help_action_trial_count'],2)
+                self.assertEqual(encoded['summary']['total_help_action_count'],2)
+                self.assertEqual(encoded['summary']['help_action_counts'],[
+                    {'actor_id':'pc','count':0},{'actor_id':'pc2','count':2}])
+            self.assertEqual(encoded['request'],raw)
+
+    def test_help_policy_is_required_correlated_and_rejects_unknown_or_malformed_fields(self):
+        for policy,criteria in (('attack_or_recover_self',{'beneficiary_id':'pc'}),
+                ('help_ally_or_attack_or_recover_self',None),('invented',None),
+                ('help_ally_or_attack_or_recover_self',{}),
+                ('help_ally_or_attack_or_recover_self',{'beneficiary_id':True}),
+                ('help_ally_or_attack_or_recover_self',{'beneficiary_id':''}),
+                ('help_ally_or_attack_or_recover_self',{'beneficiary_id':'pc','extra':1})):
+            raw=document(party_size=2)
+            raw['scenario']['party'][1].update(policy=policy,help_policy=criteria)
+            with self.subTest(policy=policy,criteria=criteria),self.assertRaises(PcMeleeSimulationInputError):
+                wire.parse_pc_melee_simulation_request(json.dumps(raw))
+        raw=document(party_size=2)
+        del raw['scenario']['party'][1]['help_policy']
+        with self.assertRaises(PcMeleeSimulationInputError):
+            wire.parse_pc_melee_simulation_request(json.dumps(raw))
+
+    def test_help_beneficiary_requires_another_later_ordinary_pc_without_cycles(self):
+        for beneficiary in ('pc2','foreign','minion1'):
+            raw=document(party_size=2)
+            raw['scenario']['party'][1].update(policy='help_ally_or_attack_or_recover_self',
+                help_policy={'beneficiary_id':beneficiary})
+            with self.subTest(beneficiary=beneficiary),self.assertRaises(PcMeleeSimulationInputError):
+                wire.parse_pc_melee_simulation_request(json.dumps(raw))
+        raw=document(party_size=2)
+        raw['scenario']['party'][1].update(policy='help_ally_or_attack_or_recover_self',
+            help_policy={'beneficiary_id':'pc'})
+        raw['scenario']['pc_activation_order']=['pc','pc2']
+        with self.assertRaises(PcMeleeSimulationInputError):
+            wire.parse_pc_melee_simulation_request(json.dumps(raw))
+        raw=document(party_size=2)
+        for member,beneficiary in zip(raw['scenario']['party'],('pc2','pc')):
+            member.update(policy='help_ally_or_attack_or_recover_self',help_policy={'beneficiary_id':beneficiary})
+        with self.assertRaises(PcMeleeSimulationInputError):
+            wire.parse_pc_melee_simulation_request(json.dumps(raw))
+
+    def test_two_helpers_can_name_the_same_later_ordinary_beneficiary(self):
+        raw=document(party_size=3)
+        for member in raw['scenario']['party'][1:]:
+            member.update(policy='help_ally_or_attack_or_recover_self',help_policy={'beneficiary_id':'pc'})
+        command=wire.parse_pc_melee_simulation_request(json.dumps(raw))
+        self.assertEqual(tuple(member.help_policy.beneficiary_id
+            for member in command.request.scenario.party[1:]),('pc','pc'))
+        self.assertEqual(scenario_document(command.request.scenario),raw['scenario'])
+
     def test_glorious_policy_combines_with_near_miss_and_echoes_separate_resource_metrics(self):
         for balance in (False,True):
             raw=document(balance=balance,party_size=2)
@@ -416,7 +487,8 @@ class PcMeleeJsonTests(unittest.TestCase):
         summary=PcMeleeSimulationSummary(command.request,PcMeleeOutcomeCounts(3,1,0,0),4,4,0,
             2,(PcMeleeDefeatCount('pc',1),PcMeleeDefeatCount('pc2',2)),0,
             (PcNearMissBurnCount('pc',0),PcNearMissBurnCount('pc2',0)),0,
-            (PcGloriousSpendCount('pc',0),PcGloriousSpendCount('pc2',0)))
+            (PcGloriousSpendCount('pc',0),PcGloriousSpendCount('pc2',0)),0,
+            (PcHelpActionCount('pc',0),PcHelpActionCount('pc2',0)))
         value=json.loads(wire.encode_pc_melee_simulation_result(command,summary))
         self.assertEqual(value['summary']['outcome_counts']['party_defeated'],1)
         self.assertEqual(value['summary']['any_pc_defeated_count'],2)

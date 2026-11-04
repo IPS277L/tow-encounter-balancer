@@ -24,6 +24,8 @@ M10 соединяет это правило с общим PC/Minion owner: не
 
 ## RULE-COMBAT-004 — действия
 
+В [M15/ADR-0071](../decisions/ADR-0071-pc-melee-help-policy.md) PC melee исполняет настоящий Melee Help для конкретной атаки более позднего обычного союзника в этом раунде. Каждый success даёт обычный bonus die, под pool cap; неудача также тратит действие. Full Help/Test/Fate/application receipts сохраняются в owner history, бонус используется только названным Test. Self Recover имеет приоритет, недоступная помощь возвращает прежнюю Attack/Recover; это явная стратегия, а не новые запреты книги. Поддержаны own/beneficiary Glorious, Deafened/Drained и weapon-hand/тяжёлые последствия. Другие Help Skills/Protection/цепочки помощников не входят. [Исполняемый пример](../examples/m15/README.md).
+
 Базовый список включает Aim, Attack, Help, Improvise, Manoeuvre и Recover. Charge является вариантом Manoeuvre и включает перемещение с последующей атакой.
 
 Источник: страницы 116–118.

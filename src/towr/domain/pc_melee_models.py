@@ -26,6 +26,15 @@ class PcMeleeWeapon(str, Enum):
 
 class PcMeleePolicy(str, Enum):
     ATTACK_OR_RECOVER_SELF = "attack_or_recover_self"
+    HELP_ALLY_OR_ATTACK_OR_RECOVER_SELF = "help_ally_or_attack_or_recover_self"
+
+
+@dataclass(frozen=True, slots=True)
+class PcHelpPolicy:
+    beneficiary_id: str
+
+    def __post_init__(self) -> None:
+        _identifier(self.beneficiary_id,"Help beneficiary")
 
 
 class PcFatePolicy(str, Enum):
@@ -164,6 +173,7 @@ class PcMeleeParticipant:
     defeat_decisions: tuple[MinionDefeatDecision, ...]
     near_miss_policy: PcNearMissPolicy | None
     glorious_policy: PcGloriousPolicy | None
+    help_policy: PcHelpPolicy | None
 
     def __post_init__(self) -> None:
         _identifier(self.actor_id, "PC actor")
@@ -182,6 +192,13 @@ class PcMeleeParticipant:
         configured = self.near_miss_policy is not None or self.glorious_policy is not None
         if configured != (self.fate_policy is PcFatePolicy.CONFIGURED):
             raise ValueError("configured Fate needs explicit criteria; decline requires null policies")
+        if self.policy is PcMeleePolicy.HELP_ALLY_OR_ATTACK_OR_RECOVER_SELF:
+            _typed(self.help_policy,PcHelpPolicy,"Help strategy")
+            replace(self.help_policy)
+            if self.help_policy.beneficiary_id == self.actor_id:
+                raise ValueError("Help requires another PC")
+        elif self.help_policy is not None:
+            raise ValueError("ordinary Attack/Recover cannot carry a Help strategy")
         targets = _ordered(self.target_priority, "PC target priority")
         for target in targets:
             _identifier(target, "PC target")
@@ -264,6 +281,15 @@ class PcMeleeScenario:
         for member in party:
             if set(member.target_priority) != set(enemy_ids):
                 raise ValueError("each PC target priority must include every Minion exactly once")
+            if member.help_policy is not None:
+                beneficiary_id = member.help_policy.beneficiary_id
+                if beneficiary_id not in pc_ids:
+                    raise ValueError("Help beneficiary must be in the PC party")
+                beneficiary = next(other for other in party if other.actor_id == beneficiary_id)
+                if beneficiary.policy is not PcMeleePolicy.ATTACK_OR_RECOVER_SELF:
+                    raise ValueError("the first Help slice cannot target another helper")
+                if self.pc_activation_order.index(member.actor_id) >= self.pc_activation_order.index(beneficiary_id):
+                    raise ValueError("Help beneficiary must activate later in this round")
         object.__setattr__(self, "party", party)
         object.__setattr__(self, "enemies", enemies)
 

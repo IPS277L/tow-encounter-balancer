@@ -141,7 +141,10 @@ def _summary(summary: PcMeleeSimulationSummary) -> dict:
         "total_near_miss_burn_count": summary.total_near_miss_burn_count,
         "glorious_spend_trial_count": summary.glorious_spend_trial_count,
         "glorious_spend_counts": [asdict(count) for count in summary.glorious_spend_counts],
-        "total_glorious_spend_count": summary.total_glorious_spend_count}
+        "total_glorious_spend_count": summary.total_glorious_spend_count,
+        "help_action_trial_count": summary.help_action_trial_count,
+        "help_action_counts": [asdict(count) for count in summary.help_action_counts],
+        "total_help_action_count": summary.total_help_action_count}
 
 
 def encode_pc_melee_simulation_result(command: PcMeleeSimulationCommand,

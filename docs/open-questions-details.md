@@ -42,6 +42,8 @@ K1 Wound5 consumer [ADR-0059](decisions/ADR-0059-battered-leg-endurance-test.md)
 
 M13/M14 закрывают частные выборы для нынешнего PC melee: [явные Near Miss и Glorious policies](decisions/ADR-0070-pc-glorious-test-policy.md) либо отказ. Порог таблицы/остаток rating независимы от выбранных навыков/порога initial successes/резерва обычных трат. Параметры задаёт caller; optimal AI и остальные Fate options из этого решения не следуют.
 
+M15 допускает явную роль [Melee helper для намеченной атаки позднего обычного союзника](decisions/ADR-0071-pc-melee-help-policy.md), с прежним Recover/Attack fallback. Это не общий оптимальный AI, Help Protection/другими Skills или цепочки помощников. Бонус связан с точным intended Test, а не автоматически со следующим любым Test.
+
 Книга оставляет участникам решения: исход повторного Staggered, расход Fate, некоторые Talents, выбор Wound/Reaction у Monstrosity, добровольную Regeneration, ответ цели на Foul Stench и замену неподходящего результата Wounds Table для не-физического Hazard. Kernel сохранит владельца и варианты каждого решения. Перед массовой симуляцией нужно определить набор AI-policy: например, минимизация ожидаемого вреда, удержание позиции или профиль поведения NPC. Без отдельной Hazard-policy безопасный технический default — не заменять выпавшую строку таблицы.
 
 Техническая граница первого среза согласована в `ADR-0002` и `architecture/resolution-kernel.md`; пользовательского решения для начала K1 не требуется.

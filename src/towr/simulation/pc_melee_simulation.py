@@ -4,11 +4,12 @@ from dataclasses import replace
 from random import Random
 
 from towr.domain.pc_melee_models import validate_pc_melee_scenario_admission
-from towr.domain.pc_melee_result_models import PcMeleeScenarioResult
+from towr.domain.pc_melee_result_models import PcMeleeScenarioResult, PcHelpProof
 from towr.engine.pc_melee_runner import run_pc_melee_scenario
 from towr.rules.dice import RandomSource
 from towr.simulation.pc_melee_models import (
     PcMeleeSimulationRequest, PcMeleeSimulationResult, PcMeleeTrialRecord, PcNearMissBurnCount, PcGloriousSpendCount,
+    PcHelpActionCount,
 )
 
 
@@ -36,7 +37,10 @@ def run_pc_melee_trial(request: PcMeleeSimulationRequest, trial_index: int, *,
             for member in request.scenario.party),
         tuple(PcGloriousSpendCount(member.actor_id,
             len(result.state.participant(member.actor_id).fate.spends)-len(member.fate.spends))
-            for member in request.scenario.party))
+            for member in request.scenario.party),
+        tuple(PcHelpActionCount(member.actor_id,
+            sum(isinstance(step.proof,PcHelpProof) and step.proof.request.actor_id==member.actor_id
+                for step in result.steps)) for member in request.scenario.party))
 
 
 def run_pc_melee_simulation(request: PcMeleeSimulationRequest, *,

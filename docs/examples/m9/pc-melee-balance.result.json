@@ -67,7 +67,8 @@
             }
           ],
           "near_miss_policy": null,
-          "glorious_policy": null
+          "glorious_policy": null,
+          "help_policy": null
         }
       ],
       "day_id": "day",
@@ -322,7 +323,8 @@
                 }
               ],
               "near_miss_policy": null,
-              "glorious_policy": null
+              "glorious_policy": null,
+              "help_policy": null
             }
           ],
           "day_id": "day",
@@ -421,7 +423,15 @@
             "count": 0
           }
         ],
-        "total_glorious_spend_count": 0
+        "total_glorious_spend_count": 0,
+        "help_action_trial_count": 0,
+        "help_action_counts": [
+          {
+            "actor_id": "pc",
+            "count": 0
+          }
+        ],
+        "total_help_action_count": 0
       },
       "assessment": {
         "status": "eligible",
@@ -520,7 +530,8 @@
                 }
               ],
               "near_miss_policy": null,
-              "glorious_policy": null
+              "glorious_policy": null,
+              "help_policy": null
             }
           ],
           "day_id": "day",
@@ -655,7 +666,15 @@
             "count": 0
           }
         ],
-        "total_glorious_spend_count": 0
+        "total_glorious_spend_count": 0,
+        "help_action_trial_count": 0,
+        "help_action_counts": [
+          {
+            "actor_id": "pc",
+            "count": 0
+          }
+        ],
+        "total_help_action_count": 0
       },
       "assessment": {
         "status": "eligible",
@@ -761,7 +780,8 @@
                 }
               ],
               "near_miss_policy": null,
-              "glorious_policy": null
+              "glorious_policy": null,
+              "help_policy": null
             }
           ],
           "day_id": "day",
@@ -932,7 +952,15 @@
             "count": 0
           }
         ],
-        "total_glorious_spend_count": 0
+        "total_glorious_spend_count": 0,
+        "help_action_trial_count": 0,
+        "help_action_counts": [
+          {
+            "actor_id": "pc",
+            "count": 0
+          }
+        ],
+        "total_help_action_count": 0
       },
       "assessment": {
         "status": "eligible",

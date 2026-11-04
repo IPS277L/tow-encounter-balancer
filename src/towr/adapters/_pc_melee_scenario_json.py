@@ -18,7 +18,7 @@ from towr.domain.npc_roster_models import (
     NpcDefinition, NpcParticipantSnapshot, NpcParticipantState, NpcProtectionProfile,
 )
 from towr.domain.pc_melee_models import (
-    PcFatePolicy, PcNearMissPolicy, PcGloriousPolicy, PcMeleeDefinition, PcMeleeFacts, PcMeleeParticipant, PcMeleePolicy, PcMeleeScenario,
+    PcFatePolicy, PcNearMissPolicy, PcGloriousPolicy, PcHelpPolicy, PcMeleeDefinition, PcMeleeFacts, PcMeleeParticipant, PcMeleePolicy, PcMeleeScenario,
     PcMeleeWeapon, PcRandomSidePolicy, PcHeavyWoundPolicy, PcWeaponHand, validate_pc_melee_scenario_admission,
 )
 from towr.domain.ranged_weapon_profiles import RangedWeaponHands, RangedWeaponRange
@@ -75,6 +75,8 @@ def _parse_participant(data, *, path_prefix, error_type):
         build(path_prefix + "/glorious_policy", PcGloriousPolicy,
             **dict(data["glorious_policy"],skills=tuple(Skill(value)
                 for value in data["glorious_policy"]["skills"]))))
+    help_policy = (None if data["help_policy"] is None else
+        build(path_prefix + "/help_policy", PcHelpPolicy, **data["help_policy"]))
     return build(path_prefix, PcMeleeParticipant, data["actor_id"], pc, fate,
         PcMeleePolicy(data["policy"]), PcFatePolicy(data["fate_policy"]),
         PcRandomSidePolicy(data["random_side_policy"]), PcHeavyWoundPolicy(data["heavy_wound_policy"]),
@@ -83,7 +85,7 @@ def _parse_participant(data, *, path_prefix, error_type):
         tuple(build(f"{path_prefix}/defeat_decisions/{index}", MinionDefeatDecision,
             **dict(record, disposition=NpcDefeatDisposition(record["disposition"])))
             for index, record in enumerate(data["defeat_decisions"])),
-        near_miss_policy=near_miss,glorious_policy=glorious)
+        near_miss_policy=near_miss,glorious_policy=glorious,help_policy=help_policy)
 
 
 def _parse_scenario(data, *, path_prefix, error_type):

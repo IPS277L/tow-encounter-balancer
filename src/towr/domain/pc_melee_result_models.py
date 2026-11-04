@@ -10,6 +10,7 @@ from towr.domain.condition_models import Condition, ConditionState
 from towr.domain.crushed_rib_test_models import CRUSHED_RIB_TEST_RULE_ID
 from towr.domain.fate_models import FateSessionState, FateNearMissBurnRequest, FateGloriousSpendResult, FATE_NEAR_MISS_RULE_ID
 from towr.domain.infection_models import DailyWoundState
+from towr.domain.help_models import HelpActionExecutionRequest, HelpActionExecutionResult, HelpBonusApplicationResult
 from towr.domain.injury_models import (
     CharacterInjuryState, CharacterWoundType, ProfileInjuryState, ProfileNpcType,
     ProfileStateChangeRequest, WoundConditionEffect, WoundConsequence, WoundConsequenceRequest,
@@ -178,7 +179,7 @@ class PcMeleeState:
             replace(member)
             expected_fate = source.fate
             for proof in self.history:
-                glorious = (proof.glorious if isinstance(proof,(PcAttackProof,PcEnduranceProof)) else
+                glorious = (proof.glorious if isinstance(proof,(PcAttackProof,PcEnduranceProof,PcHelpProof)) else
                     proof.critical.glorious if isinstance(proof,(PcTurnEndProof,PcIncapacitatedTurnEndProof))
                     and proof.critical is not None else None)
                 if glorious is not None and glorious.previous_state.actor_id == member.actor_id:
@@ -249,6 +250,15 @@ class PcAttackProof:
     request: AttackActionExecutionRequest
     protection: ProtectionPreparationResult
     execution: AttackActionExecutionResult
+    fate_decline: PcFateDecline | None
+    glorious: FateGloriousSpendResult | None = None
+    help_applications: tuple[HelpBonusApplicationResult, ...] = ()
+
+
+@dataclass(frozen=True, slots=True)
+class PcHelpProof:
+    request: HelpActionExecutionRequest
+    execution: HelpActionExecutionResult
     fate_decline: PcFateDecline | None
     glorious: FateGloriousSpendResult | None = None
 
@@ -336,7 +346,7 @@ PcMeleeProof = (
     CombatTurnStartResult | CombatActionSlotResult | PcAttackProof | PcWoundCompletionProof
     | PcEnduranceProof | PcHandDropProof | PcAttackerStaggerProof | PcProfileWoundProof
     | PcRecoverProof | PcTurnEndProof | PcIncapacitatedTurnEndProof | PcBodyConsequenceProof
-    | PcWoundChoiceProof | PcHandSwapProof | CombatRoundAdvanceResult
+    | PcWoundChoiceProof | PcHandSwapProof | PcHelpProof | CombatRoundAdvanceResult
 )
 
 
@@ -413,7 +423,7 @@ class PcMeleeScenarioResult:
 
     @property
     def executed_actions(self) -> int:
-        return sum(isinstance(step.proof, (PcAttackProof, PcRecoverProof)) for step in self.steps)
+        return sum(isinstance(step.proof, (PcAttackProof, PcRecoverProof, PcHelpProof)) for step in self.steps)
 
     @property
     def started_rounds(self) -> int:
@@ -453,10 +463,17 @@ def pc_melee_selected_action(state: PcMeleeState) -> CombatActionKind:
     actor_id = state.round_state.active_turn.actor_id
     if actor_id in state.source.pc_activation_order:
         member = state.participant(actor_id)
-        if usable_weapon_hand(member) is None or (member.injury.conditions.has(Condition.PRONE)
-                and not has_ongoing_condition(member.injury,Condition.PRONE)):
+        if _pc_recover_needed(member):
             return CombatActionKind.RECOVER
+        from towr.domain.pc_help_models import pc_help_beneficiary
+        if pc_help_beneficiary(state) is not None:
+            return CombatActionKind.HELP
     return CombatActionKind.ATTACK
+
+
+def _pc_recover_needed(member):
+    return usable_weapon_hand(member) is None or (member.injury.conditions.has(Condition.PRONE)
+        and not has_ongoing_condition(member.injury,Condition.PRONE))
 
 
 def pc_melee_next_actor(state: PcMeleeState) -> str:
@@ -512,6 +529,8 @@ def build_pc_melee_attack(state: PcMeleeState) -> tuple[AttackActionExecutionReq
         if target_snapshot.state.injury.conditions.has(Condition.PRONE):
             modifiers.append(DiceModifier('RULE-COMBAT-007:higher-ground', 1))
         attacker = _pc_test(state, actor, action_id + ':attack', Skill.MELEE, tuple(modifiers))
+        from towr.domain.pc_help_models import build_pc_attack_help
+        attacker,_ = build_pc_attack_help(state,attacker)
         protection_profile = target_snapshot.definition.protection[0]
         defender = TestRequest(action_id + ':protection', protection_profile.test_profile)
         skill = Skill.DEFENCE

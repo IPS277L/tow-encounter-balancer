@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass, replace
 
-from towr.domain.condition_models import ConditionState
-from towr.domain.test_models import DiceModifier, Skill, TestRequest, TestResult
+from towr.domain.condition_models import Condition, ConditionState
+from towr.domain.test_models import DiceModifier, RollTrace, Skill, TestRequest, TestResult
 from towr.domain.turn_models import (
     ActionExecutionReceipt,
     CombatActionKind,
@@ -283,6 +283,112 @@ class HelpBonusApplicationResult:
         if {self.rule_id, source.help.rule_id} - set(rule_ids):
             raise ValueError("Help application trace is incomplete")
         object.__setattr__(self, "applied_rule_ids", rule_ids)
+
+
+def _validate_help_action(request: HelpActionExecutionRequest) -> None:
+    if not isinstance(request, HelpActionExecutionRequest):
+        raise TypeError("Help execution requires a HelpActionExecutionRequest")
+    replace(request)
+    if request.rule_id != HELP_ACTION_RULE_ID:
+        raise ValueError("Help request uses an unknown source rule")
+    turn = request.round_state.active_turn
+    assert turn is not None
+    if request.slot_index > len(turn.action_slots):
+        raise ValueError("the requested action slot has not been reserved")
+    if any(
+        not slot.executed
+        for slot in turn.action_slots[: request.slot_index - 1]
+    ):
+        raise ValueError("earlier action slots must be executed first")
+    slot = turn.action_slots[request.slot_index - 1]
+    if slot.declaration.kind is not CombatActionKind.HELP:
+        raise ValueError("only a Help action slot can use this executor")
+    if slot.executed:
+        raise ValueError("the Help action slot has already been executed")
+    if request.actor_conditions.has(Condition.DEAFENED):
+        raise ValueError("Deafened characters cannot use Help")
+    if request.actor_conditions.has(Condition.DEFENCELESS):
+        raise ValueError("Defenceless characters cannot take actions")
+
+
+def _expected_help_execution(
+    request: HelpActionExecutionRequest,
+    help_test_result: TestResult,
+) -> HelpActionExecutionResult:
+    """Complete Help from its actual Test without rolling any dice again.
+
+    The caller retains the full original/effective Test and optional Fate proof.
+    This boundary binds the completed result to its reserved Help action.
+    """
+    _validate_help_action(request)
+    if not isinstance(help_test_result, TestResult) or not isinstance(
+        help_test_result.trace, RollTrace
+    ):
+        raise TypeError("Help completion requires a completed TestResult")
+    if (type(help_test_result.trace.request_id) is not str
+            or help_test_result.trace.request_id != request.help_test.id):
+        raise ValueError("completed Test belongs to another Help request")
+    if type(help_test_result.successes) is not int:
+        raise TypeError("completed Help successes must be an integer")
+    if help_test_result.successes < 0:
+        raise ValueError("completed Help successes must be nonnegative")
+    turn = request.round_state.active_turn
+    assert turn is not None
+    slot = turn.action_slots[request.slot_index - 1]
+    bonus = HelpBonusSnapshot(
+        id=f"{request.id}:bonus",
+        source_request_id=request.id,
+        source_test_id=request.help_test.id,
+        helper_id=request.actor_id,
+        beneficiary_id=request.beneficiary_id,
+        beneficiary_test_id=request.beneficiary_test_id,
+        help_skill=request.help_skill,
+        beneficiary_skill=request.beneficiary_skill,
+        bonus_dice=help_test_result.successes,
+        different_skill_approved_by_gm=(
+            request.different_skill_approved_by_gm
+        ),
+    )
+    executed_slot = replace(
+        slot,
+        execution=ActionExecutionReceipt(
+            id=request.id,
+            executor_rule_id=request.rule_id,
+            source_request_id=request.id,
+            result_request_id=help_test_result.trace.request_id,
+            actor_id=request.actor_id,
+            round_number=request.round_state.round_number,
+            slot_index=slot.index,
+            declaration=slot.declaration,
+        ),
+    )
+    updated_slots = tuple(
+        executed_slot if item.index == request.slot_index else item
+        for item in turn.action_slots
+    )
+    updated_round_state = replace(
+        request.round_state,
+        active_turn=replace(turn, action_slots=updated_slots),
+    )
+    return HelpActionExecutionResult(
+        request_id=request.id,
+        rule_id=request.rule_id,
+        source_request=request,
+        help_test_result=help_test_result,
+        bonus=bonus,
+        previous_round_state=request.round_state,
+        round_state=updated_round_state,
+        slot=executed_slot,
+        applied_rule_ids=tuple(
+            dict.fromkeys(
+                (
+                    request.rule_id,
+                    HELP_BONUS_RULE_ID,
+                    *help_test_result.trace.applied_rule_ids,
+                )
+            )
+        ),
+    )
 
 
 def _expected_help_application(

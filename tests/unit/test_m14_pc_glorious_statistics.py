@@ -9,7 +9,7 @@ from towr.domain.pc_melee_result_models import PcMeleeOutcome as Outcome
 from towr.domain.test_models import Skill
 from towr.simulation.pc_melee_models import (
     PcMeleeSimulationRequest,PcMeleeSimulationResult,PcMeleeTrialRecord,
-    PcNearMissBurnCount,PcGloriousSpendCount,
+    PcNearMissBurnCount,PcGloriousSpendCount,PcHelpActionCount,
 )
 from towr.simulation.pc_melee_summary import summarize_pc_melee_simulation
 
@@ -22,7 +22,8 @@ def observed_batch():
         int(outcome is Outcome.ROUND_LIMIT),('pc1','pc2') if outcome is Outcome.PARTY_DEFEATED else (),
         tuple(PcNearMissBurnCount(member.actor_id,0) for member in request.scenario.party),
         tuple(PcGloriousSpendCount(member.actor_id,count)
-            for member,count in zip(request.scenario.party,counts,strict=True)))
+            for member,count in zip(request.scenario.party,counts,strict=True)),
+        tuple(PcHelpActionCount(member.actor_id,0) for member in request.scenario.party))
         for index,(outcome,counts) in enumerate(rows))
     return PcMeleeSimulationResult(request,records)
 

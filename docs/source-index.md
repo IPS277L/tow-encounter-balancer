@@ -1,5 +1,7 @@
 # Реестр источников
 
+2026-11-04: для [M15/ADR-0071](decisions/ADR-0071-pc-melee-help-policy.md) адресно перечитаны локальные extracted BOOK-PLAYER-GUIDE1.4, гл.V Rules / Helping With a Test108, Combat Actions / Help117, Deafened/Drained123. Проверены собственный relevant Skill Test, +1d за success, физическая помощь без зависимости от слуха и Conditions. Граница same-Skill/current-round intended Attack — выбор симуляции, не новое книжное ограничение. Новых версий/источников и полного перечитывания книг нет.
+
 2026-11-04: для [M14/ADR-0070](decisions/ADR-0070-pc-glorious-test-policy.md) адресно перечитаны локальные extracted BOOK-PLAYER-GUIDE1.4, гл.V Rules / Grim & Glorious Tests108 и Spending Fate / Glorious Test111. Проверены окно после initial roll/до rerolls, отмена Grim/Glorious и запрет повторного переброса куба. Новых книг/версий и полного повторного чтения нет.
 
 2026-11-04: для [M13/ADR-0069](decisions/ADR-0069-pc-near-miss-policy.md) адресно перечитаны локальные extracted BOOK-PLAYER-GUIDE1.4, гл.V Rules / Burning Fate111 и Near Miss112. Проверены burn при исчерпанной session allowance, окно после таблицы, отмена раны/будущего Pool и сохранение прежнего Staggered. Нового источника, версии или полного перечитывания книг нет.

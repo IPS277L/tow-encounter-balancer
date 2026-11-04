@@ -35,6 +35,37 @@ def samples():
 
 
 class PcMeleeJsonSchemaTests(unittest.TestCase):
+    def test_help_strategy_and_summary_metrics_are_current_required_closed_shapes(self):
+        raw=document(party_size=2)
+        helper=raw['scenario']['party'][1]
+        helper.update(policy='help_ally_or_attack_or_recover_self',help_policy={'beneficiary_id':'pc'})
+        schema.validate_pc_melee_simulation_document(raw)
+        for policy,criteria in (('attack_or_recover_self',{'beneficiary_id':'pc'}),
+                ('help_ally_or_attack_or_recover_self',None),
+                ('help_ally_or_attack_or_recover_self',{}),
+                ('help_ally_or_attack_or_recover_self',{'beneficiary_id':False}),
+                ('help_ally_or_attack_or_recover_self',{'beneficiary_id':'pc','extra':1})):
+            changed=deepcopy(raw)
+            changed['scenario']['party'][1].update(policy=policy,help_policy=criteria)
+            with self.subTest(policy=policy,criteria=criteria),self.assertRaises(ValidationError):
+                schema.validate_pc_melee_simulation_document(changed)
+        changed=deepcopy(raw)
+        del changed['scenario']['party'][1]['help_policy']
+        with self.assertRaises(ValidationError):
+            schema.validate_pc_melee_simulation_document(changed)
+        command=wire.parse_pc_melee_simulation_request(json.dumps(raw))
+        result=json.loads(wire.encode_pc_melee_simulation_result(command,aggregate(command.request)))
+        schema.validate_pc_melee_simulation_document(result,'result')
+        for field in ('help_action_counts','help_action_trial_count','total_help_action_count'):
+            changed=deepcopy(result)
+            del changed['summary'][field]
+            with self.subTest(missing=field),self.assertRaises(ValidationError):
+                schema.validate_pc_melee_simulation_document(changed,'result')
+        changed=deepcopy(result)
+        changed['summary']['help_action_counts'][0]['count']=True
+        with self.assertRaises(ValidationError):
+            schema.validate_pc_melee_simulation_document(changed,'result')
+
     def test_glorious_strategy_is_explicit_composable_closed_and_strictly_typed(self):
         raw=document()
         member=raw['scenario']['party'][0]

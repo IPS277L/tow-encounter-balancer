@@ -8,7 +8,7 @@ from towr.domain.pc_melee_result_models import (
     PcAttackProof, PcAttackerStaggerProof, PcEnduranceProof, PcFateDecline,
     PcHandDropProof, PcMeleeOutcome, PcMeleeScenarioResult, PcMeleeState, PcMeleeStep,
     PcProfileWoundProof, PcRecoverProof, PcTurnEndProof, PcWoundCompletionProof,
-    PcBodyConsequenceProof, PcWoundChoiceProof, PcHandSwapProof, PcCriticalProof, PcIncapacitatedTurnEndProof,
+    PcBodyConsequenceProof, PcWoundChoiceProof, PcHandSwapProof, PcCriticalProof, PcIncapacitatedTurnEndProof, PcHelpProof,
     build_pc_melee_attack, build_pc_melee_recover, build_pc_wound_completion, initial_pc_melee_state, pc_after_test,
     pc_melee_action_id, pc_melee_next_actor, pc_melee_selected_action, pc_melee_unsupported,
     project_pc_melee_step, pc_melee_round_participants, validate_pc_melee_state_shape,
@@ -17,6 +17,8 @@ from towr.domain.pc_melee_result_models import (
 from towr.domain.condition_models import StaggerChoice, Condition
 from towr.domain.pc_heavy_wound_models import preferred_weapon_hand
 from towr.domain.pc_fate_test_models import build_pc_glorious_spend
+from towr.domain.pc_help_models import build_pc_help_action, pc_attack_help_applications
+from towr.rules.help_resolution import _complete_help_action
 from towr.domain._pc_heavy_wound_projection import consequence_sides, clutch_candidates
 from towr.domain.critical_injury_models import CriticalInjuryTestRequest
 from towr.rules.critical_injury_resolution import resolve_critical_injury_test
@@ -217,6 +219,12 @@ def run_pc_melee_scenario(scenario, rng: RandomSource) -> PcMeleeScenarioResult:
             if pc_melee_selected_action(state) is CombatActionKind.RECOVER:
                 request = build_pc_melee_recover(state)
                 consume(PcRecoverProof(execute_recover_action(request,rng,decisions=decisions)))
+            elif pc_melee_selected_action(state) is CombatActionKind.HELP:
+                request = build_pc_help_action(state)
+                test,decline,glorious,effective = _resolve_pc_test(state,actor,Skill.MELEE,
+                    request.help_test,rng,decisions)
+                execution = _complete_help_action(replace(request,help_test=effective),test)
+                consume(PcHelpProof(request,execution,decline,glorious))
             else:
                 request, protection_request = build_pc_melee_attack(state)
                 protection = prepare_protection(protection_request)
@@ -245,6 +253,7 @@ def run_pc_melee_scenario(scenario, rng: RandomSource) -> PcMeleeScenarioResult:
                 effective_kernel = replace(request.kernel_request,attack=attack_request)
                 resolution = _resolve_kernel_attack_after_test(effective_kernel,attack,rng,decisions=decisions)
                 execution = _complete_attack_action(replace(request,kernel_request=effective_kernel),resolution)
-                consume(PcAttackProof(request,protection,execution,decline,glorious))
+                consume(PcAttackProof(request,protection,execution,decline,glorious,
+                    pc_attack_help_applications(state,request.kernel_request.attack)))
             continue
         finish_turn()

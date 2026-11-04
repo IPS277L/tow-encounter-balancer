@@ -191,7 +191,8 @@
         "random_side_policy": "d10_low_left_high_right",
         "heavy_wound_policy": "continue_fighting",
         "near_miss_policy": null,
-        "glorious_policy": null
+        "glorious_policy": null,
+        "help_policy": null
       },
       {
         "actor_id": "pc:companion",
@@ -251,7 +252,8 @@
         "random_side_policy": "d10_low_left_high_right",
         "heavy_wound_policy": "continue_fighting",
         "near_miss_policy": null,
-        "glorious_policy": null
+        "glorious_policy": null,
+        "help_policy": null
       }
     ],
     "pc_activation_order": [

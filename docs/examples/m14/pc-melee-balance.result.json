@@ -79,7 +79,8 @@
             ],
             "maximum_initial_successes": 1,
             "minimum_remaining_spends": 1
-          }
+          },
+          "help_policy": null
         },
         {
           "actor_id": "pc:companion",
@@ -151,7 +152,8 @@
             ],
             "maximum_initial_successes": 1,
             "minimum_remaining_spends": 1
-          }
+          },
+          "help_policy": null
         }
       ],
       "day_id": "day",
@@ -428,7 +430,8 @@
                 ],
                 "maximum_initial_successes": 1,
                 "minimum_remaining_spends": 1
-              }
+              },
+              "help_policy": null
             },
             {
               "actor_id": "pc:companion",
@@ -486,7 +489,8 @@
                 ],
                 "maximum_initial_successes": 1,
                 "minimum_remaining_spends": 1
-              }
+              },
+              "help_policy": null
             }
           ],
           "day_id": "day",
@@ -599,7 +603,19 @@
             "count": 8
           }
         ],
-        "total_glorious_spend_count": 17
+        "total_glorious_spend_count": 17,
+        "help_action_trial_count": 0,
+        "help_action_counts": [
+          {
+            "actor_id": "pc",
+            "count": 0
+          },
+          {
+            "actor_id": "pc:companion",
+            "count": 0
+          }
+        ],
+        "total_help_action_count": 0
       },
       "assessment": {
         "status": "eligible",
@@ -711,7 +727,8 @@
                 ],
                 "maximum_initial_successes": 1,
                 "minimum_remaining_spends": 1
-              }
+              },
+              "help_policy": null
             },
             {
               "actor_id": "pc:companion",
@@ -776,7 +793,8 @@
                 ],
                 "maximum_initial_successes": 1,
                 "minimum_remaining_spends": 1
-              }
+              },
+              "help_policy": null
             }
           ],
           "day_id": "day",
@@ -925,7 +943,19 @@
             "count": 8
           }
         ],
-        "total_glorious_spend_count": 22
+        "total_glorious_spend_count": 22,
+        "help_action_trial_count": 0,
+        "help_action_counts": [
+          {
+            "actor_id": "pc",
+            "count": 0
+          },
+          {
+            "actor_id": "pc:companion",
+            "count": 0
+          }
+        ],
+        "total_help_action_count": 0
       },
       "assessment": {
         "status": "eligible",
@@ -1044,7 +1074,8 @@
                 ],
                 "maximum_initial_successes": 1,
                 "minimum_remaining_spends": 1
-              }
+              },
+              "help_policy": null
             },
             {
               "actor_id": "pc:companion",
@@ -1116,7 +1147,8 @@
                 ],
                 "maximum_initial_successes": 1,
                 "minimum_remaining_spends": 1
-              }
+              },
+              "help_policy": null
             }
           ],
           "day_id": "day",
@@ -1301,7 +1333,19 @@
             "count": 8
           }
         ],
-        "total_glorious_spend_count": 22
+        "total_glorious_spend_count": 22,
+        "help_action_trial_count": 0,
+        "help_action_counts": [
+          {
+            "actor_id": "pc",
+            "count": 0
+          },
+          {
+            "actor_id": "pc:companion",
+            "count": 0
+          }
+        ],
+        "total_help_action_count": 0
       },
       "assessment": {
         "status": "eligible",

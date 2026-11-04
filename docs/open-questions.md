@@ -4,7 +4,7 @@
 
 ## Действующая граница симуляции
 
-Ограниченные M8–M14 завершены: [Glorious/Near Miss ADR-0070](decisions/ADR-0070-pc-glorious-test-policy.md), [тяжёлые раны ADR-0068](decisions/ADR-0068-pc-heavy-wound-continuation.md), [статус](project-status.md), [архитектура](architecture/overview.md). Numeric static Minions/Brutes и PC Wounds1–23/lethal24+ исполняются с индивидуальными Fate/body/daily histories и mandatory Critical/Defenceless end phase. Гибель одного PC допускает продолжение другими; observed losses не предсказывают судьбу survivors после stop/limit. GM-замена физически невозможной повторной анатомии не задана, сохраняется actual pending stop. Остальные активные Fate options, post-healing Endurance22, лечение, Champions/Monstrosities, ally Recover/Help, campaign/inventory и оптимальная AI-policy остаются дальнейшими темами. Characteristic enum ещё не полный; PC family использует числовые WS/Skills с TestProfile. История M8 не расширяет очередь и не возвращает старые wire formats.
+Ограниченные M8–M15 завершены: [Help ADR-0071](decisions/ADR-0071-pc-melee-help-policy.md), [Glorious/Near Miss ADR-0070](decisions/ADR-0070-pc-glorious-test-policy.md), [тяжёлые раны ADR-0068](decisions/ADR-0068-pc-heavy-wound-continuation.md), [статус](project-status.md), [архитектура](architecture/overview.md). Numeric Minions/Brutes и PC Wounds1–23/lethal24+ исполняются с индивидуальными Fate/body/daily histories и mandatory Critical/Defenceless end phase. Гибель одного PC допускает продолжение другими; observed losses не предсказывают судьбу survivors после stop/limit. GM-замена невозможной повторной анатомии не задана, сохраняется actual pending stop. Остальные Fate options, post-healing Endurance22, лечение, Champions/Monstrosities, ally Recover, другие Help Skills/Protection/chains, campaign/inventory и optimal AI остаются будущими темами. История закрытых вех не расширяет текущую очередь и не возвращает старые wire formats.
 
 ## Выбранная стратегия M12
 
@@ -21,6 +21,8 @@
 Не выбран общий AI-подход для Fate, Talents, Reactions и прочих решений участника. Kernel сохраняет явного владельца решения; не подставлять новый default. [Подробности](open-questions-details.md#политики-выбора-для-симуляции).
 
 В M14 доступны раздельные caller-owned Near Miss threshold/rating reserve и Glorious selected skills/initial-success threshold/session reserve; обе можно сочетать через `configured` либо выбрать полный отказ. [Контракт](decisions/ADR-0070-pc-glorious-test-policy.md). Числа публичного примера — параметры конкретной стратегии, не общий default и не найденный оптимум. Остальные optional Fate decisions отклоняются.
+
+M15 добавляет caller-owned роль Melee helper для конкретной атаки более позднего обычного PC в этом раунде, с self Recover/Attack fallback. [Граница](decisions/ADR-0071-pc-melee-help-policy.md). Получение бонуса само по себе не доказывает преимущество этой тактики; оптимальный выбор Help/Attack не задан. Clock сохраняет всю PC-side перед NPC-side.
 
 ## Масштаб Unmitigated Success и Last Stand
 
