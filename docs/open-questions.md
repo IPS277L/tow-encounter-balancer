@@ -1,10 +1,10 @@
 # Открытые вопросы и действующие допущения
 
-Дата: 2026-11-04. Это короткий индекс незакрытых тем; читать подробности только по затронутой механике. Полные формулировки, ссылки на книги и текущие ограничения сохранены в [деталях](open-questions-details.md); закрытые темы — в [истории](open-questions-history.md).
+Дата: 2026-11-05. Это короткий индекс незакрытых тем; читать подробности только по затронутой механике. Полные формулировки, ссылки на книги и текущие ограничения сохранены в [деталях](open-questions-details.md); закрытые темы — в [истории](open-questions-history.md).
 
 ## Действующая граница симуляции
 
-Ограниченные M8–M24 завершены: [статус и текущие ограничения](project-status.md), [Broken exit M24](decisions/ADR-0079-pc-broken-npc-adjacent-exit.md), [архитектура](architecture/overview.md). Поддержанные PC weapons/Fate/Help/Recover и книжные combat loadouts не разрешают автоматически другие действия/Abilities. История закрытых вех не расширяет очередь и не возвращает старые wire formats.
+Ограниченные M8–M25 завершены: [статус и текущие ограничения](project-status.md), [Broken exit M24](decisions/ADR-0079-pc-broken-npc-adjacent-exit.md), [архитектура](architecture/overview.md). Поддержанные PC weapons/Fate/Help/Recover и книжные combat loadouts не разрешают автоматически другие действия/Abilities. История закрытых вех не расширяет очередь и не возвращает старые wire formats.
 
 Wounds1–23/lethal24+, source-aware Conditions и mandatory Critical/Defenceless end phases сохраняются. Невозможная повторная анатомия, недоступный2H хват без продолжения и собственный Broken turn Official без exit policy имеют точные stop boundaries. Незавершённые route/recovery/GM решения нельзя подставлять ради продолжения; observed losses относятся только к исполненному prefix.
 

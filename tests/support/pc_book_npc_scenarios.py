@@ -5,9 +5,10 @@ from tests.support.pc_melee_fixtures import make_pc_melee_party_scenario
 from towr.domain.pc_npc_catalog import PcBookNpcProfile,create_pc_book_npc
 
 
-def book_pc_scenario(*,footpads=2,townsfolk=1,brigands=0,officials=0,pc_count=2,max_rounds=3):
-    source=make_pc_melee_party_scenario(pc_count=pc_count,enemy_count=officials+brigands+footpads+townsfolk,max_rounds=max_rounds)
-    entries=tuple((PcBookNpcProfile.EMPIRE_OFFICIAL_DAGGER,f'official{i+1}') for i in range(officials))+tuple(
+def book_pc_scenario(*,footpads=2,townsfolk=1,brigands=0,officials=0,troopers=0,pc_count=2,max_rounds=3):
+    source=make_pc_melee_party_scenario(pc_count=pc_count,enemy_count=officials+brigands+footpads+townsfolk+troopers,max_rounds=max_rounds)
+    entries=tuple((PcBookNpcProfile.EMPIRE_STATE_TROOPER_HALBERD,f'trooper{i+1}') for i in range(troopers))+tuple(
+        (PcBookNpcProfile.EMPIRE_OFFICIAL_DAGGER,f'official{i+1}') for i in range(officials))+tuple(
         (PcBookNpcProfile.BRIGAND_AXE,f'brigand{i+1}') for i in range(brigands))+tuple(
         (PcBookNpcProfile.FOOTPAD,f'footpad{i+1}') for i in range(footpads))+tuple(
         (PcBookNpcProfile.EMPIRE_TOWNSFOLK,f'townsfolk{i+1}') for i in range(townsfolk))

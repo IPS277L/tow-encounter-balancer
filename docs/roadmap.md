@@ -122,9 +122,13 @@
 
 Завершённый срез по [ADR-0079](decisions/ADR-0079-pc-broken-npc-adjacent-exit.md): явный clear/fastest adjacent safe exit, actual own-turn FreeMovement, withdrawal без fake TurnEnd/action/defeat. W1/Broken сохраняются; вышедший NPC исключён из целей/численности/Help/следующих ходов. Пользователь выбрал objective «все побеждены или ушли», уход учитывается отдельными source-ordered trial/summary counts и success-with-exit count. Current JSON1 требует nullable policy и метрики, старые30пар мигрированы с null/нулями без изменения прежних значений. Преследование/Recover/возврат не включены.
 
-## После M24
+## M25 — Empire State Trooper / Halberd и Defence
 
-Следующий scope выбрать отдельно. Два естественных направления: ещё один exact книжный NPC/loadout с полным исполнением применимых Abilities либо расширение пространственной сцены/дальнейшего поведения Broken. Перед Recover Official при W1 нужно разрешить вопрос ongoing cause; не подставлять снятие Broken. Общая навигация/AI и весь бестиарий автоматически не включаются.
+Завершённый срез по [правилу](rules/npc-profile-catalog.md#state-trooper-m25): пятый exact combat loadout, Minion/T3/Res4 armoured, Halberd Close3d/3Damage5/2H и фиксированная Defence3d/4. Числовая Athletics3d/3 и остальные weapons явно unselected, полный Supporting Action trigger сохранён как inactive в неподвижной Close-сцене. Factory → native → trials/count search → current JSON1/CLI проходит существующими слоями без нового kernel/owner/формата. Старые четыре definitions/snapshots и32примера неизменны; [новые примеры](examples/m25/README.md).
+
+## После M25
+
+Следующий scope выбрать отдельно. Рекомендация — следующий книжный противник после полной проверки его применимых Abilities; можно перейти к существам/монстрам. Два направления: ещё один exact книжный NPC/loadout с полным исполнением применимых Abilities либо расширение пространственной сцены/дальнейшего поведения Broken. Перед Recover Official при W1 нужно разрешить вопрос ongoing cause; не подставлять снятие Broken. Общая навигация/AI и весь бестиарий автоматически не включаются.
 
 Более широкий NPC/spell/Miscast каталог, дополнительные тактики/Fate/Help/Recover, лечение ран, общий inventory/spatial/campaign/save-resume — отдельный backlog. Greatsword и более свободная смена оружия остаются открытыми темами; GM решение невозможной повторной анатомии не подставляется.
 

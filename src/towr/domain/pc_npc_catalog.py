@@ -19,6 +19,7 @@ class PcBookNpcProfile(str, Enum):
     EMPIRE_TOWNSFOLK = 'empire_townsfolk'
     BRIGAND_AXE = 'brigand_axe'
     EMPIRE_OFFICIAL_DAGGER = 'empire_official_dagger'
+    EMPIRE_STATE_TROOPER_HALBERD = 'empire_state_trooper_halberd'
 
 
 # Immutable identity strings only; canonical definition graphs are always freshly built.
@@ -36,6 +37,11 @@ _CATALOG_IDENTITIES = (
         ('BOOK-GM-GUIDE:1.1:p98:empire_official_dagger',
          'BOOK-GM-GUIDE:1.1:p98:empire_official_dagger:dagger',
          'BOOK-GM-GUIDE:1.1:p98:empire_official_dagger:athletics')),
+    (PcBookNpcProfile.EMPIRE_STATE_TROOPER_HALBERD,'pc-book-npc:empire_state_trooper_halberd',
+        ('BOOK-GM-GUIDE:1.1:p100:empire_state_trooper_halberd',
+         'BOOK-GM-GUIDE:1.1:p100:empire_state_trooper_halberd:halberd',
+         'BOOK-GM-GUIDE:1.1:p100:empire_state_trooper_halberd:defence',
+         'BOOK-GM-GUIDE:1.1:p100:empire_state_trooper_halberd:athletics')),
 )
 
 
@@ -66,6 +72,7 @@ class PcBookNpcEntry:
     active_abilities: tuple[PcBookNpcAbility, ...]
     unselected_attack_names: tuple[str, ...]
     wound_bands: tuple[PcBookNpcWoundBand, ...]
+    unselected_protection: tuple[NpcProtectionProfile, ...]
 
 
 def _definition(profile_id: PcBookNpcProfile) -> NpcDefinition:
@@ -78,15 +85,20 @@ def _definition(profile_id: PcBookNpcProfile) -> NpcDefinition:
         page,dice,threshold,damage,attack_name,armour,protection_threshold = 96,2,2,2,'dagger',0,2
     elif profile_id is PcBookNpcProfile.BRIGAND_AXE:
         page,dice,threshold,damage,attack_name,armour,protection_threshold = 97,3,3,3,'axe',1,2
-    else:
+    elif profile_id is PcBookNpcProfile.EMPIRE_OFFICIAL_DAGGER:
         page,dice,threshold,damage,attack_name,armour,protection_threshold = 98,2,3,2,'dagger',0,3
         injury_policy,wound_limit = TargetInjuryPolicy.BRUTE,2
+    else:
+        page,dice,threshold,damage,attack_name,armour,protection_threshold = 100,3,3,5,'halberd',1,4
     source = f'BOOK-GM-GUIDE:1.1:p{page}:{profile_id.value}'
     attack = NpcAttackProfile(attack_name,source+':'+attack_name,Skill.MELEE,
         InlineProfile(dice,threshold),DamageProfile(damage),RangedWeaponRange.CLOSE,
-        RangedWeaponRange.CLOSE,RangedWeaponHands.ONE_HANDED)
+        RangedWeaponRange.CLOSE,(RangedWeaponHands.TWO_HANDED
+            if profile_id is PcBookNpcProfile.EMPIRE_STATE_TROOPER_HALBERD else RangedWeaponHands.ONE_HANDED))
     protection_dice = 3 if profile_id is PcBookNpcProfile.EMPIRE_OFFICIAL_DAGGER else dice
-    protection = NpcProtectionProfile(source+':athletics',Skill.ATHLETICS,
+    protection_skill = (Skill.DEFENCE if profile_id is PcBookNpcProfile.EMPIRE_STATE_TROOPER_HALBERD
+        else Skill.ATHLETICS)
+    protection = NpcProtectionProfile(source+':'+protection_skill.value,protection_skill,
         InlineProfile(protection_dice,protection_threshold))
     return NpcDefinition('pc-book-npc:'+profile_id.value,source,injury_policy,wound_limit,
         ResilienceProfile(3,armour),(attack,),(protection,))
@@ -105,17 +117,26 @@ def get_pc_book_npc_entry(profile_id: PcBookNpcProfile) -> PcBookNpcEntry:
         ability = PcBookNpcAbility('Craven Opportunist',
             'Melee attacks against an enemy the Brigand actually outnumbers','+2d instead of +1d')
         return PcBookNpcEntry(profile_id,'BOOK-GM-GUIDE','1.1','Allies and Antagonists',
-            97,'Brigand (Axe)',definition,(),(ability,),('Warbow',),())
-    else:
+            97,'Brigand (Axe)',definition,(),(ability,),('Warbow',),(),())
+    elif profile_id is PcBookNpcProfile.EMPIRE_OFFICIAL_DAGGER:
         ability = PcBookNpcAbility('Heard It All Before',
             'Persuade or Distract attempts against the Official unless they include a bribe',
             'Grim Persuade or Distract Test')
         bands = (PcBookNpcWoundBand(0,'No effect'),PcBookNpcWoundBand(1,'Broken'),
             PcBookNpcWoundBand(2,'Defeated'))
         return PcBookNpcEntry(profile_id,'BOOK-GM-GUIDE','1.1','Allies and Antagonists',
-            98,'Empire Official (Dagger)',definition,(ability,),(),('Pistol',),bands)
+            98,'Empire Official (Dagger)',definition,(ability,),(),('Pistol',),bands,())
+    else:
+        ability = PcBookNpcAbility('Supporting Action',
+            'An enemy moves into Close Range; an allied State Trooper or Free Company Militia '
+            'in an adjacent Zone is not in Close Range of an enemy',
+            'One eligible ally may immediately Charge or make a ranged attack')
+        return PcBookNpcEntry(profile_id,'BOOK-GM-GUIDE','1.1','Allies and Antagonists',
+            100,'Empire State Trooper (Halberd, Defence)',definition,(ability,),(),
+            ('Spear','Crossbow','Handgun'),(),(NpcProtectionProfile(
+                definition.source_rule_id+':athletics',Skill.ATHLETICS,InlineProfile(3,3)),))
     return PcBookNpcEntry(profile_id,'BOOK-GM-GUIDE','1.1','Allies and Antagonists',
-        page,name,definition,(ability,),(),(),())
+        page,name,definition,(ability,),(),(),(),())
 
 
 def create_pc_book_npc(profile_id: PcBookNpcProfile, actor_id: str) -> NpcParticipantSnapshot:

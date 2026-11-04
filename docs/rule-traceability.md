@@ -1,5 +1,9 @@
 # Трассировка правил
 
+## M25: Empire State Trooper / Halberd и Defence
+
+RULE-PROFILE-TALABEC-009 — BOOK-GM-GUIDE1.1, Understanding NPC Profiles93 / Empire State Trooper100. [Правило](rules/npc-profile-catalog.md#state-trooper-m25) связывает [exact catalog/factory](../src/towr/domain/pc_npc_catalog.py), [catalog/native/guards tests](../tests/unit/test_m25_pc_state_trooper.py), [current JSON/trials/count search](../tests/integration/test_m25_pc_state_trooper.py) и [CLI-примеры](examples/m25/README.md). Исполняется фиксированный Halberd/Defence loadout с printed3d/3Damage5/2H, Defence3d/4 и armour1; Athletics3d/3 сохранена отдельно как unselected metadata. Supporting Action неактивен только в нынешней уже Close-сцене без перемещения врагов. Проверены armed2H Defence, отсутствие автоматического PC Halberd trait, прежний PC Axe armour bonus и полное canonical source admission. Kernel/clock/current JSON1/метрики не менялись; новых Rule IDs/house rules нет.
+
 ## M24: свободный выход Broken Official
 
 RULE-PROFILE-TALABEC-007 / RULE-COMBAT-011/012/014 + Broken — PG1.4, The Battlefield114–115 / Free Actions116–117 / Conditions122; GM1.1 Official98. [Правило](rules/npc-profile-catalog.md#official-exit-m24), [ADR-0079](decisions/ADR-0079-pc-broken-npc-adjacent-exit.md), [typed movement proof](../src/towr/domain/pc_npc_exit_models.py), [projection](../src/towr/domain/_pc_melee_projection.py), [runner](../src/towr/engine/pc_melee_runner.py). [Native tests](../tests/unit/test_m24_pc_npc_exit.py), [statistics](../tests/unit/test_m24_pc_npc_exit_statistics.py), [JSON integration](../tests/integration/test_m24_pc_npc_exit_json.py) и [CLI-примеры](examples/m24/README.md) проверяют actual own-turn exit, сохранение W1/Broken, исключение из arena и отдельные агрегаты. Objective «все побеждены или ушли» — согласованное условие сценария; null policy сохраняет M23 stop. Новых игровых Rule IDs/house rules нет.

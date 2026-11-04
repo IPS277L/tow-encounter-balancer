@@ -70,6 +70,20 @@ BOOK-PLAYER-GUIDE1.4, Rules / The Battlefield114–115 / Free Actions116–117 /
 
 Пользователь выбрал objective «все NPC побеждены или ушли». Это цель сценария; уход учитывается отдельными счётчиками trials/summary и не считается defeat. Преследование, возврат и Recover за пределами arena не моделируются. Снятие Broken при сохраняющейся Wound остаётся открытым вопросом. Current JSON1 требует явную nullable policy и exit metrics; прежние примеры мигрированы с null/нулями без изменения старых результатов. [Исполняемый пример](../examples/m24/README.md).
 
+<a id="state-trooper-m25"></a>
+
+## RULE-PROFILE-TALABEC-009 — Empire State Trooper / Halberd и Defence (M25)
+
+Статус: `verified` в текущей PC family. BOOK-GM-GUIDE1.1, Allies and Antagonists / Empire State Trooper100 и Understanding NPC Profiles93. Это девятая запись Talabec001..011; [factory/JSON/CLI-пример](../examples/m25/README.md).
+
+`EMPIRE_STATE_TROOPER_HALBERD` фиксирует Halberd-only loadout и Defence Protection: Minion1, Toughness3/Resilience4 armoured → ResilienceProfile(3,1), Normal Speed, Halberd Close3d/3 Damage5,2H и Defence3d/4. Напечатанная Athletics3d/3 сохранена как числовой unselected Protection в metadata; Spear/Crossbow/Handgun явно unselected. Это выбранный боевой подпрофиль, не автоматический выбор лучшей Protection в каждом Test и не полная карточка со всеми weapons. Вооружённая2H Defence допустима; shields нет. GM93 позволяет выбирать снаряжение до боя и не переносит PC Traits оружия на NPC автоматически: Halberd сохраняет Damage5 без PC-бонуса против брони.
+
+**Supporting Action:** когда враг входит в Close Range State Trooper, один союзный State Trooper либо Free Company Militia (GM112) из соседней Zone, который сам не находится в Close Range врага, может немедленно Charge либо сделать ranged attack. В текущей aware Close arena все PC уже находятся в Close и не перемещаются, внешних участников нет; обязательное PC Giving Ground не подставляется вместо выбранного SUFFER_WOUND. Способность inactive с сохранённым полным trigger/effect. Уход союзного Official не является входом врага. Расширение scene/движения требует исполнения способности, а не игнорирования metadata.
+
+Canonical admission связывает весь фиксированный профиль с root/attack/Protection identities, включая сохранённый unselected Athletics source. Подмена Damage, рук, брони или Defence→Athletics под тем же identity отклоняется, даже после переименования root с сохранением книжных nested sources; cached bool/enum aliases не становятся observation. Прежние четыре definitions/snapshots не меняются. У PcBookNpcEntry добавлен descriptive unselected_protection tuple; у прежних записей он пуст.
+
+Реализация следует существующему каталогу и выбранной NPC Protection, без нового owner/kernel/AI. Current JSON1/схемы/метрики прежние, старые32request/result pairs не мигрируются. [Catalog/native/guards tests](../../tests/unit/test_m25_pc_state_trooper.py), [JSON/trials/count search](../../tests/integration/test_m25_pc_state_trooper.py).
+
 ## RULE-PROFILE-PEOPLES-001..008 — Ogres, Halflings, Dwarfs, Elves и Bretonnia
 
 | Страница | Profile | Type | Нормативные profile/attack effects |
