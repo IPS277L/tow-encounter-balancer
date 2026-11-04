@@ -65,7 +65,8 @@
               "disposition": "knocked_out",
               "gm_approved": true
             }
-          ]
+          ],
+          "near_miss_policy": null
         },
         {
           "actor_id": "pc:companion",
@@ -123,7 +124,8 @@
               "disposition": "knocked_out",
               "gm_approved": true
             }
-          ]
+          ],
+          "near_miss_policy": null
         }
       ],
       "day_id": "day",
@@ -297,6 +299,18 @@
       {
         "actor_id": "pc:companion",
         "count": 9
+      }
+    ],
+    "near_miss_burn_trial_count": 0,
+    "total_near_miss_burn_count": 0,
+    "near_miss_burn_counts": [
+      {
+        "actor_id": "pc",
+        "count": 0
+      },
+      {
+        "actor_id": "pc:companion",
+        "count": 0
       }
     ]
   }

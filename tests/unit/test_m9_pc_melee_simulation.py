@@ -7,7 +7,7 @@ from tests.support.pc_melee_fixtures import make_pc_melee_scenario
 from towr.domain.pc_melee_result_models import PcMeleeOutcome as Outcome
 from towr.simulation.pc_melee_models import (
     PcMeleeOutcomeCounts, PcMeleeSimulationRequest, PcMeleeSimulationResult,
-    PcMeleeTrialRecord, pc_melee_trial_seed,
+    PcMeleeTrialRecord, PcNearMissBurnCount, pc_melee_trial_seed,
 )
 from towr.simulation.pc_melee_summary import summarize_pc_melee_simulation
 from towr.simulation.pc_melee_summary_models import PcMeleeDefeatCount, PcMeleeSimulationSummary
@@ -18,7 +18,8 @@ def record(request, index, outcome=Outcome.ROUND_LIMIT):
         2 if outcome is Outcome.ROUND_LIMIT else 1, 1,
         1 if outcome is Outcome.ROUND_LIMIT else 0,
         tuple(member.actor_id for member in request.scenario.party)
-        if outcome is Outcome.PARTY_DEFEATED else ())
+        if outcome is Outcome.PARTY_DEFEATED else (),
+        tuple(PcNearMissBurnCount(member.actor_id,0) for member in request.scenario.party))
 
 
 class PcMeleeSimulationModelTests(unittest.TestCase):
@@ -91,7 +92,7 @@ class PcMeleeSimulationModelTests(unittest.TestCase):
 
     def test_summary_arithmetic_refuses_filtered_trials_and_false_round_limit(self):
         summary=PcMeleeSimulationSummary(self.request,PcMeleeOutcomeCounts(1,1,1,1),5,4,1,
-            1,(PcMeleeDefeatCount('pc',1),))
+            1,(PcMeleeDefeatCount('pc',1),),0,(PcNearMissBurnCount('pc',0),))
         for changes in ({'outcome_counts':PcMeleeOutcomeCounts(1,1,1,0)},
                         {'total_started_round_count':3},{'total_completed_round_count':0},
                         {'total_completed_round_count':5},{'total_action_count':9}):

@@ -1,7 +1,10 @@
 """Aggregate-only PC encounter data for the balance boundary."""
 from dataclasses import dataclass, replace
 
-from towr.simulation.pc_melee_models import PcMeleeOutcomeCounts, PcMeleeSimulationRequest
+from towr.simulation.pc_melee_models import (
+    PcMeleeOutcomeCounts, PcMeleeSimulationRequest, PcNearMissBurnCount,
+    validate_near_miss_counts,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -29,6 +32,8 @@ class PcMeleeSimulationSummary:
     total_completed_round_count: int
     any_pc_defeated_count: int
     pc_defeat_counts: tuple[PcMeleeDefeatCount, ...]
+    near_miss_burn_trial_count: int
+    near_miss_burn_counts: tuple[PcNearMissBurnCount, ...]
 
     def __post_init__(self) -> None:
         if not isinstance(self.source_request, PcMeleeSimulationRequest):
@@ -79,6 +84,15 @@ class PcMeleeSimulationSummary:
             raise ValueError('any-death count contradicts individual observations')
         if deaths > self.total_action_count:
             raise ValueError('individual deaths contradict action/terminal bounds')
+        if type(self.near_miss_burn_trial_count) is not int:
+            raise TypeError('Near Miss trial count must be an integer')
+        validate_near_miss_counts(self.near_miss_burn_counts, self.source_request.scenario,
+            trials=self.trials, burn_trials=self.near_miss_burn_trial_count,
+            actions=self.total_action_count)
+
+    @property
+    def total_near_miss_burn_count(self) -> int:
+        return sum(item.count for item in self.near_miss_burn_counts)
 
     @property
     def trials(self) -> int:

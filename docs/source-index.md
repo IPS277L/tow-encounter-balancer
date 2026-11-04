@@ -1,5 +1,7 @@
 # Реестр источников
 
+2026-11-04: для [M13/ADR-0069](decisions/ADR-0069-pc-near-miss-policy.md) адресно перечитаны локальные extracted BOOK-PLAYER-GUIDE1.4, гл.V Rules / Burning Fate111 и Near Miss112. Проверены burn при исчерпанной session allowance, окно после таблицы, отмена раны/будущего Pool и сохранение прежнего Staggered. Нового источника, версии или полного перечитывания книг нет.
+
 2026-11-04: для [M12/ADR-0068](decisions/ADR-0068-pc-heavy-wound-continuation.md) адресно прочитаны extracted BOOK-PLAYER-GUIDE1.4, Rules / Combat Actions116, Recover/Attack Tests118, Conditions122–123, Wounds Table190–191. Проверены incidental swap, end-turn Critically Injured, живой Defenceless/обязательные Tests/automatic Wound, ongoing источники15/17/19 и последствия11–23. Пользователь выбрал все11–23 и continue-fighting policy; source-aware consumers реализуются в общей K1/PC цепи. Повторного полного чтения PDF, новой версии/hash, Rule ID/house rule нет.
 
 2026-11-04: для M11 непосредственно прочитаны локальные extracted BOOK-GM-GUIDE1.1, Allies and Antagonists / Minions91, Brutes92; BOOK-PLAYER-GUIDE1.4, Wounds Table190–191, включая NPC summary. Brutes используют профильный предел и не бросают table; возможные on-Wound изменения относятся к профилю, а дополнительные Wounds dice становятся additional Wounds. [ADR-0067](decisions/ADR-0067-pc-melee-profile-brutes.md) подключает только static numeric ordinary Melee без таких модификаторов/abilities, сохраняя PC lifecycle. Полного повторного чтения книг, новой версии/hash, Rule ID/house rule нет.

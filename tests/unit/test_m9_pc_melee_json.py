@@ -23,7 +23,7 @@ from towr.domain.fate_models import (
     FATE_GLORIOUS_RULE_ID, FateBurnKind, FateBurnRecord, FateRefreshRecord,
     FateSessionState, FateSpendKind, FateSpendRecord,
 )
-from towr.simulation.pc_melee_models import PcMeleeOutcomeCounts
+from towr.simulation.pc_melee_models import PcMeleeOutcomeCounts, PcNearMissBurnCount
 from towr.simulation.pc_melee_summary_models import PcMeleeDefeatCount, PcMeleeSimulationSummary
 
 
@@ -81,7 +81,8 @@ def aggregate(request, *, unsupported=False):
     trials=request.trials
     counts=PcMeleeOutcomeCounts(0 if unsupported else trials,0,0,trials if unsupported else 0)
     return PcMeleeSimulationSummary(request,counts,0 if unsupported else trials,trials,0,0,
-        tuple(PcMeleeDefeatCount(member.actor_id,0) for member in request.scenario.party))
+        tuple(PcMeleeDefeatCount(member.actor_id,0) for member in request.scenario.party),0,
+        tuple(PcNearMissBurnCount(member.actor_id,0) for member in request.scenario.party))
 
 
 def balance_result(command):
@@ -96,6 +97,74 @@ def balance_result(command):
 
 
 class PcMeleeJsonTests(unittest.TestCase):
+    def test_near_miss_strategy_and_resource_metrics_survive_simulation_and_candidate_echo(self):
+        for balance in (False,True):
+            raw=document(balance=balance,party_size=2)
+            source_key='template' if balance else 'scenario'
+            first=raw[source_key]['party'][0]
+            first.update(fate_policy='near_miss_at_threshold',near_miss_policy={
+                'minimum_table_total':16,'minimum_rating_to_keep':1})
+            parse=wire.parse_pc_melee_balance_request if balance else wire.parse_pc_melee_simulation_request
+            command=parse(json.dumps(raw))
+            if balance:
+                result=balance_result(command)
+                encoded=json.loads(wire.encode_pc_melee_balance_result(command,result))
+                sources=[item['request']['scenario'] for item in encoded['candidates']]
+                summaries=[item['summary'] for item in encoded['candidates']]
+            else:
+                summary=replace(aggregate(command.request),near_miss_burn_trial_count=2,
+                    near_miss_burn_counts=(PcNearMissBurnCount('pc',2),PcNearMissBurnCount('pc2',0)))
+                encoded=json.loads(wire.encode_pc_melee_simulation_result(command,summary))
+                sources=[encoded['request']['scenario']]
+                summaries=[encoded['summary']]
+                self.assertEqual(encoded['summary']['total_near_miss_burn_count'],2)
+                self.assertEqual(encoded['summary']['near_miss_burn_trial_count'],2)
+            self.assertEqual(encoded['request'],raw)
+            for source in sources:
+                self.assertEqual(source['party'][0]['near_miss_policy'],first['near_miss_policy'])
+                self.assertEqual(source['party'][0]['fate_policy'],'near_miss_at_threshold')
+                self.assertIsNone(source['party'][1]['near_miss_policy'])
+            for summary in summaries:
+                self.assertEqual(summary['near_miss_burn_counts'][1],{'actor_id':'pc2','count':0})
+                self.assertEqual(summary['total_near_miss_burn_count'],
+                    sum(item['count'] for item in summary['near_miss_burn_counts']))
+
+    def test_near_miss_policy_is_required_correlated_and_has_no_implicit_criteria(self):
+        for value in (None,{},True,{'minimum_table_total':16},
+                {'minimum_table_total':16,'minimum_rating_to_keep':0,'spend_fate':True}):
+            raw=document()
+            raw['scenario']['party'][0].update(fate_policy='near_miss_at_threshold',near_miss_policy=value)
+            with self.subTest(value=value),self.assertRaises(PcMeleeSimulationInputError):
+                wire.parse_pc_melee_simulation_request(json.dumps(raw))
+        raw=document()
+        del raw['scenario']['party'][0]['near_miss_policy']
+        with self.assertRaises(PcMeleeSimulationInputError):
+            wire.parse_pc_melee_simulation_request(json.dumps(raw))
+        raw=document()
+        raw['scenario']['party'][0]['near_miss_policy']={
+            'minimum_table_total':16,'minimum_rating_to_keep':0}
+        with self.assertRaises(PcMeleeSimulationInputError):
+            wire.parse_pc_melee_simulation_request(json.dumps(raw))
+
+    def test_near_miss_criteria_reject_bool_string_negative_and_noninteger_tokens(self):
+        for field,values in (('minimum_table_total',(True,'16',0,-1,16.0)),
+                             ('minimum_rating_to_keep',(False,'0',-1,0.0))):
+            for value in values:
+                raw=document()
+                policy={'minimum_table_total':16,'minimum_rating_to_keep':0,field:value}
+                raw['scenario']['party'][0].update(fate_policy='near_miss_at_threshold',near_miss_policy=policy)
+                with self.subTest(field=field,value=value),self.assertRaises(PcMeleeSimulationInputError):
+                    wire.parse_pc_melee_simulation_request(json.dumps(raw))
+
+    def test_near_miss_unreachable_threshold_and_large_reserve_are_explicit_valid_strategies(self):
+        raw=document()
+        raw['scenario']['party'][0].update(fate_policy='near_miss_at_threshold',near_miss_policy={
+            'minimum_table_total':100,'minimum_rating_to_keep':100})
+        command=wire.parse_pc_melee_simulation_request(json.dumps(raw))
+        encoded=json.loads(wire.encode_pc_melee_simulation_result(command,aggregate(command.request)))
+        self.assertEqual(encoded['request'],raw)
+        self.assertEqual(encoded['summary']['total_near_miss_burn_count'],0)
+
     def test_heavy_wound_and_side_policies_are_required_current_fields_with_exact_echo(self):
         for balance in (False,True):
             raw=document(balance=balance,party_size=2,mixed=True)
@@ -275,7 +344,8 @@ class PcMeleeJsonTests(unittest.TestCase):
     def test_summary_preserves_confirmed_party_and_individual_loss_counts(self):
         command=wire.parse_pc_melee_simulation_request(json.dumps(document(party_size=2)))
         summary=PcMeleeSimulationSummary(command.request,PcMeleeOutcomeCounts(3,1,0,0),4,4,0,
-            2,(PcMeleeDefeatCount('pc',1),PcMeleeDefeatCount('pc2',2)))
+            2,(PcMeleeDefeatCount('pc',1),PcMeleeDefeatCount('pc2',2)),0,
+            (PcNearMissBurnCount('pc',0),PcNearMissBurnCount('pc2',0)))
         value=json.loads(wire.encode_pc_melee_simulation_result(command,summary))
         self.assertEqual(value['summary']['outcome_counts']['party_defeated'],1)
         self.assertEqual(value['summary']['any_pc_defeated_count'],2)

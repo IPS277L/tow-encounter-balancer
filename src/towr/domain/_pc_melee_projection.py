@@ -5,7 +5,7 @@ from towr.domain.pc_melee_result_models import (
     PcAttackProof, PcAttackerStaggerProof, PcEnduranceProof, PcHandDropProof, PcMeleeState,
     PcProfileWoundProof, PcRecoverProof, PcTimedWound, PcTurnEndProof, PcWoundCompletionProof,
     PcBodyConsequenceProof, PcWoundChoiceProof, PcHandSwapProof, PcCriticalProof, PcIncapacitatedTurnEndProof,
-    build_pc_melee_attack, build_pc_melee_recover, pc_after_test, pc_melee_action_id,
+    build_pc_melee_attack, build_pc_melee_recover, build_pc_wound_completion, pc_after_test, pc_melee_action_id,
     pc_melee_next_actor, pc_melee_selected_action, pc_melee_unsupported,
     validate_pc_melee_combat_shape, validate_pc_melee_state_shape, validate_pc_melee_source_types,
     _decline, _enemy_update, _party_update, _pc_test, _ready, _test_result, pc_melee_round_participants,
@@ -18,6 +18,8 @@ from towr.domain.injury_models import (
     WoundRestriction, WoundRestrictionEffect,
 )
 from towr.domain.condition_models import Condition, ConditionState, StaggerChoice, StaggerOutcome, StaggerResult
+from towr.domain.fate_models import _expected_fate_burn, FATE_SESSION_RULE_ID, FATE_BURN_RULE_ID
+from towr.domain.fate_near_miss_models import FateNearMissApplicationRequest, _near_miss_applied_rule_ids
 from towr.domain.pc_melee_models import PcWeaponHand
 from towr.domain.minion_defeat_models import MinionDefeatDecision
 from towr.domain.resolution_models import AttackerStaggerRequest, condition_forces_wound
@@ -31,7 +33,7 @@ from towr.domain.turn_models import (
     CombatTurnParticipant, CombatTurnStartResult, CombatTurnState,
 )
 from towr.domain.wound_lifecycle_models import (
-    CharacterWoundLifecycleCompletionRequest, CharacterWoundLifecycleOutcome, CharacterWoundLifecycleRollRequest,
+    CharacterWoundLifecycleOutcome, CharacterWoundLifecycleRollRequest, _state_after_near_miss, _completion_rule_ids,
 )
 
 
@@ -322,15 +324,63 @@ def project_pc_step(state, proof):
         pending = state.pending_wound
         if pending is None:
             raise ValueError('no pending PLAYER Wound can be completed')
-        _decline(state,proof.fate_decline,pc_actor,pending.request_id,'wound')
-        completed_ids = tuple(p.completion.source_request.roll.request_id for p in state.history if isinstance(p,PcWoundCompletionProof))
-        expected = CharacterWoundLifecycleCompletionRequest(pending.request_id+':complete',pending,member.injury,
-            member.daily_wounds,daily_registration_id=pending.request_id+':daily',consumed_roll_ids=completed_ids)
+        expected = build_pc_wound_completion(state)
+        if expected.near_miss is None:
+            _decline(state,proof.fate_decline,pc_actor,pending.request_id,'wound')
+        elif proof.fate_decline is not None:
+            raise ValueError('a selected Near Miss burn cannot also decline Fate')
         replace(proof.completion)
         if proof.completion.daily_registration is not None:
             replace(proof.completion.daily_registration.source_request)
             replace(proof.completion.daily_registration)
         _same(proof.completion.source_request,expected,'Near Miss completion differs from the current actual roll/history')
+        if expected.near_miss is not None:
+            if proof.completion.outcome is not CharacterWoundLifecycleOutcome.NEAR_MISS:
+                raise ValueError('the selected strategy must negate this Wound with Near Miss')
+            burn = proof.completion.fate_burn
+            replace(burn)
+            _same(burn.source_request,expected.near_miss,'Near Miss burn replaced its current Fate source')
+            _same((burn.burn,burn.proof,burn.state,burn.effect_request),_expected_fate_burn(expected.near_miss),
+                'Near Miss burn changed its canonical resource transition')
+            _same((burn.request_id,burn.rule_id,burn.previous_state,burn.applied_rule_ids),
+                (expected.near_miss.id,expected.near_miss.rule_id,expected.near_miss.state,
+                    (FATE_SESSION_RULE_ID,FATE_BURN_RULE_ID,expected.near_miss.rule_id)),
+                'Near Miss burn changed canonical provenance header types')
+            application = proof.completion.near_miss_application
+            replace(application.source_request)
+            replace(application)
+            application_source = FateNearMissApplicationRequest(expected.id+':near-miss-application',
+                burn.state.session_id,pc_actor,burn,pending.source_request.wound,pending.wound_result,
+                expected.consumed_near_miss_effect_ids)
+            _same(application.source_request,application_source,'Near Miss application replaced its exact source')
+            _same((application.request_id,application.rule_id,application.session_id,
+                application.target_id,application.applied_rule_ids),
+                (application_source.id,application_source.rule_id,application_source.session_id,
+                application_source.target_id,_near_miss_applied_rule_ids(application_source)),
+                'Near Miss application changed canonical provenance header types')
+            _same((application.fate_state,application.previous_state,application.state,
+                application.cancelled_wound,application.discarded_effect_request,
+                application.previous_consumed_effect_ids,application.consumed_effect_ids,
+                proof.completion.state,proof.completion.daily_wounds),
+                (burn.state,pending.wound_result.state,pending.source_request.wound.state,
+                pending.wound_result.state.wounds[-1],pending.wound_result.effect_request,
+                expected.consumed_near_miss_effect_ids,(*expected.consumed_near_miss_effect_ids,burn.effect_request.id),
+                _state_after_near_miss(expected),member.daily_wounds),
+                'Near Miss application changed canonical cancelled Wound or retained state types')
+            completed = proof.completion
+            _same((completed.request_id,completed.rule_id,completed.outcome,completed.wound_result,
+                completed.previous_state,completed.previous_daily_wounds,
+                completed.previous_consumed_roll_ids,completed.consumed_roll_ids,
+                completed.previous_consumed_near_miss_effect_ids,completed.consumed_near_miss_effect_ids,
+                completed.applied_rule_ids,completed.daily_registration,completed.wound_effect),
+                (expected.id,expected.rule_id,CharacterWoundLifecycleOutcome.NEAR_MISS,pending.wound_result,
+                expected.current_state,expected.daily_wounds,expected.consumed_roll_ids,
+                (*expected.consumed_roll_ids,pending.request_id),expected.consumed_near_miss_effect_ids,
+                (*expected.consumed_near_miss_effect_ids,burn.effect_request.id),
+                _completion_rule_ids(expected,burn,application,None,None),None,None),
+                'Near Miss completion changed canonical provenance header/history types')
+            return finish(party=_party_update(state,pc_actor,injury=proof.completion.state,
+                fate=proof.completion.fate_burn.state),pending_wound=None)
         if proof.completion.outcome is not CharacterWoundLifecycleOutcome.ACCEPTED:
             raise ValueError('selected Fate refusal cannot silently negate or burn a Wound')
         _canonical_wound_effect(proof.completion)

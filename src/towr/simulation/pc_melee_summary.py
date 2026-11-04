@@ -1,6 +1,6 @@
 from dataclasses import replace
 
-from towr.simulation.pc_melee_models import PcMeleeSimulationResult
+from towr.simulation.pc_melee_models import PcMeleeSimulationResult, PcNearMissBurnCount
 from towr.simulation.pc_melee_summary_models import PcMeleeDefeatCount, PcMeleeSimulationSummary
 
 
@@ -13,4 +13,8 @@ def summarize_pc_melee_simulation(result: PcMeleeSimulationResult) -> PcMeleeSim
         sum(bool(record.defeated_pc_ids) for record in result.records),
         tuple(PcMeleeDefeatCount(member.actor_id,
             sum(member.actor_id in record.defeated_pc_ids for record in result.records))
-            for member in result.source_request.scenario.party))
+            for member in result.source_request.scenario.party),
+        sum(any(item.count for item in record.near_miss_burn_counts) for record in result.records),
+        tuple(PcNearMissBurnCount(member.actor_id,
+            sum(record.near_miss_burn_counts[index].count for record in result.records))
+            for index, member in enumerate(result.source_request.scenario.party)))

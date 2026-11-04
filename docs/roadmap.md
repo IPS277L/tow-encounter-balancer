@@ -12,10 +12,11 @@
 - M10: группа PC в общем owner/clock, отдельные ресурсы/раны, продолжение после частичных потерь, trials/статистика и fixed-party count search в той же PC JSON1 family. [Граница и приёмка ADR-0066](decisions/ADR-0066-pc-party-melee-encounter.md).
 - M11: static numeric Brutes и mixed Minion/Brute reserve, source-bound profile Wounds до/на лимите, trials/подбор и явные policy/limit в текущем PC JSON1. [Граница и приёмка ADR-0067](decisions/ADR-0067-pc-melee-profile-brutes.md).
 - M12: все PC Wounds11–23, body/hand consequences, Critical/Defenceless turns, source-aware ongoing Conditions и forced Wounds через тот же owner/trials/JSON1. [Граница и составная приёмка ADR-0068](decisions/ADR-0068-pc-heavy-wound-continuation.md).
+- M13: явная Near Miss policy с порогом таблицы и резервом Fate; фактический burn в бою, независимые trials, расход ресурса в aggregate-only balance и текущем JSON1. [Контракт ADR-0069](decisions/ADR-0069-pc-near-miss-policy.md).
 
 ## Последняя законченная функция
 
-[Тяжёлые PC-раны M12](decisions/ADR-0068-pc-heavy-wound-continuation.md) завершены целиком через правила/owner/trials/подбор и текущий JSON1. [Примеры](examples/m12/README.md) выполнены реальными командами. Одна full4471OK и59затронутых checks после локальной PC source-binding коррекции закрывают финальную приёмку составно; повторного full/wheel не было.
+[Активный Near Miss M13](decisions/ADR-0069-pc-near-miss-policy.md) реализован через owner/trials/подбор и текущий JSON1. [Примеры](examples/m13/README.md) выполнены реальными командами; ресурс каждого PC расходуется отдельно. Фактическая адресная приёмка — в статусе и ADR-0069; прежние full/wheel не повторяются автоматически.
 
 ## M8 завершена
 
@@ -63,11 +64,15 @@
 
 Пользователь выбрал все11–23 и продолжение Attack/Recover с книжными осложнениями по [ADR-0068](decisions/ADR-0068-pc-heavy-wound-continuation.md). Функция завершена: actual mandatory follow-ups, Critical end-turn Tests/Defenceless incapacity turns, forced Wounds, source-aware ongoing Conditions и bounded hand/body facts. Единичные строки больше не останавливают бой; физически невозможная повторная анатомия сохраняет точный pending GM-stop. Текущая PC JSON1 требует `random_side_policy` и `heavy_wound_policy`, без прежнего hand-only shape. Общий риск K1 проверен checkpoint regression; обязательного остатка M12 нет.
 
-## После M12
+## M13 — активный Near Miss
 
-Более широкий NPC/spell/Miscast каталог, дополнительные тактики/Fate, лечение, общий inventory/spatial/campaign/save-resume и ally removal — отдельный backlog после M12. Решение GM для невозможной повторной анатомии и post-healing ветвей не подставляется. Следующие функции выбираются отдельно; уже закрытые границы ими автоматически не расширяются.
+Завершённый срез по [ADR-0069](decisions/ADR-0069-pc-near-miss-policy.md): caller задаёт включительный порог таблицы и минимальный остаток rating. Фактический K1 burn/application разрешается до регистрации/эффектов раны и terminal defeat; supplies сохраняются, owner доказывает каждый расход. Последовательные и процессные trials/aggregate-only count search отражают новые burns отдельно от supplied истории. Текущий PC JSON1 и прежние примеры обновлены вместе. Общий AI, другие Fate options и изменение функции ранжирования сюда не входят.
 
-Рекомендуемое следующее предложение — первая активная PC Fate policy для Near Miss в том же melee-сценарии. Сначала выбрать критерии траты/предел ресурса и конечную границу; M13 пока не согласована. Остальные Fate/AI решения не включать автоматически.
+## После M13
+
+Более широкий NPC/spell/Miscast каталог, дополнительные тактики/Fate, лечение, общий inventory/spatial/campaign/save-resume и ally removal — отдельный backlog после M13. Решение GM для невозможной повторной анатомии и post-healing ветвей не подставляется. Следующие функции выбираются отдельно; уже закрытые границы ими автоматически не расширяются.
+
+Рекомендуемое следующее направление — явная PC policy для обычного расходования Fate на Glorious Test в том же бою. Перед реализацией закрепить критерии выбора Tests и резерв обычных трат, сохраняя отдельный rating/burn Near Miss. M14 ещё не согласована; Second Action, Retreat и остальные Fate/AI решения не включать автоматически.
 
 ## Контрольные точки
 

@@ -10,6 +10,53 @@ from towr.domain.pc_melee_result_models import PcMeleeOutcome
 SEED_SCHEME = 'towr:pc-melee-trial:v1'
 
 
+@dataclass(frozen=True, slots=True)
+class PcNearMissBurnCount:
+    """New Near Miss burns during this battle, excluding supplied history."""
+
+    actor_id: str
+    count: int
+
+    def __post_init__(self) -> None:
+        if type(self.actor_id) is not str or not self.actor_id.strip():
+            raise TypeError('Near Miss count requires a nonempty actor ID')
+        if type(self.count) is not int:
+            raise TypeError('Near Miss count must be an integer')
+        if self.count < 0:
+            raise ValueError('Near Miss count must be nonnegative')
+
+
+def near_miss_burn_budget(member) -> int:
+    from towr.domain.pc_melee_models import PcFatePolicy
+    if member.fate_policy is PcFatePolicy.DECLINE_OPTIONAL_FATE:
+        return 0
+    return max(0, member.fate.rating - member.near_miss_policy.minimum_rating_to_keep)
+
+
+def validate_near_miss_counts(counts, scenario, *, trials: int,
+                              burn_trials: int | None, actions: int) -> None:
+    if type(counts) is not tuple:
+        raise TypeError('Near Miss counts require a source-ordered tuple')
+    for item in counts:
+        if type(item) is not PcNearMissBurnCount:
+            raise TypeError('Near Miss counts require typed observations')
+        replace(item)
+    if tuple(item.actor_id for item in counts) != tuple(m.actor_id for m in scenario.party):
+        raise ValueError('Near Miss counts must cover the full source-ordered party')
+    total = sum(item.count for item in counts)
+    if burn_trials is None:
+        burn_trials = int(total > 0)
+    if type(burn_trials) is not int:
+        raise TypeError('Near Miss trial count must be an integer')
+    if not 0 <= burn_trials <= trials:
+        raise ValueError('Near Miss trial count exceeds the batch')
+    if not burn_trials <= total <= actions or (total > 0) != (burn_trials > 0):
+        raise ValueError('Near Miss counts contradict trials/actions')
+    for member, item in zip(scenario.party, counts, strict=True):
+        if item.count > burn_trials * near_miss_burn_budget(member):
+            raise ValueError('Near Miss count exceeds the selected resource budget')
+
+
 def _uint64(value: int, name: str) -> None:
     if type(value) is not int:
         raise TypeError(f'{name} must be an integer')
@@ -56,6 +103,7 @@ class PcMeleeTrialRecord:
     started_rounds: int
     completed_rounds: int
     defeated_pc_ids: tuple[str, ...]
+    near_miss_burn_counts: tuple[PcNearMissBurnCount, ...]
 
     def __post_init__(self) -> None:
         validate_pc_melee_scenario_admission(self.source_scenario)
@@ -92,6 +140,9 @@ class PcMeleeTrialRecord:
             raise ValueError('all PC deaths must agree with the party-defeated outcome')
         if len(self.defeated_pc_ids) > self.executed_actions:
             raise ValueError('confirmed deaths cannot exceed executed ordinary attacks')
+        validate_near_miss_counts(self.near_miss_burn_counts, self.source_scenario,
+            trials=1, burn_trials=None,
+            actions=self.executed_actions)
 
 
 @dataclass(frozen=True, slots=True)

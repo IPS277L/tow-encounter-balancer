@@ -30,6 +30,17 @@ class PcMeleePolicy(str, Enum):
 
 class PcFatePolicy(str, Enum):
     DECLINE_OPTIONAL_FATE = "decline_optional_fate"
+    NEAR_MISS_AT_THRESHOLD = "near_miss_at_threshold"
+
+
+@dataclass(frozen=True, slots=True)
+class PcNearMissPolicy:
+    minimum_table_total: int
+    minimum_rating_to_keep: int
+
+    def __post_init__(self) -> None:
+        _integer(self.minimum_table_total, "Near Miss table threshold", minimum=1)
+        _integer(self.minimum_rating_to_keep, "Near Miss Fate reserve", minimum=0)
 
 
 class PcRandomSidePolicy(str, Enum):
@@ -132,6 +143,7 @@ class PcMeleeParticipant:
     initial_weapon_hand: PcWeaponHand
     target_priority: tuple[str, ...]
     defeat_decisions: tuple[MinionDefeatDecision, ...]
+    near_miss_policy: PcNearMissPolicy | None
 
     def __post_init__(self) -> None:
         _identifier(self.actor_id, "PC actor")
@@ -141,6 +153,11 @@ class PcMeleeParticipant:
         for name, cls in (("policy", PcMeleePolicy), ("fate_policy", PcFatePolicy),
                           ("random_side_policy", PcRandomSidePolicy), ("heavy_wound_policy", PcHeavyWoundPolicy), ("initial_weapon_hand", PcWeaponHand)):
             _typed(getattr(self, name), cls, name)
+        if self.fate_policy is PcFatePolicy.NEAR_MISS_AT_THRESHOLD:
+            _typed(self.near_miss_policy, PcNearMissPolicy, "Near Miss strategy")
+            replace(self.near_miss_policy)
+        elif self.near_miss_policy is not None:
+            raise ValueError("the decline strategy cannot carry Near Miss criteria")
         targets = _ordered(self.target_priority, "PC target priority")
         for target in targets:
             _identifier(target, "PC target")

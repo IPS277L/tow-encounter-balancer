@@ -65,7 +65,8 @@
               "disposition": "knocked_out",
               "gm_approved": true
             }
-          ]
+          ],
+          "near_miss_policy": null
         }
       ],
       "day_id": "day",
@@ -318,7 +319,8 @@
                   "disposition": "knocked_out",
                   "gm_approved": true
                 }
-              ]
+              ],
+              "near_miss_policy": null
             }
           ],
           "day_id": "day",
@@ -397,6 +399,14 @@
         "total_completed_round_count": 2,
         "any_pc_defeated_count": 0,
         "pc_defeat_counts": [
+          {
+            "actor_id": "pc",
+            "count": 0
+          }
+        ],
+        "near_miss_burn_trial_count": 0,
+        "total_near_miss_burn_count": 0,
+        "near_miss_burn_counts": [
           {
             "actor_id": "pc",
             "count": 0
@@ -498,7 +508,8 @@
                   "disposition": "knocked_out",
                   "gm_approved": true
                 }
-              ]
+              ],
+              "near_miss_policy": null
             }
           ],
           "day_id": "day",
@@ -617,6 +628,14 @@
             "actor_id": "pc",
             "count": 0
           }
+        ],
+        "near_miss_burn_trial_count": 0,
+        "total_near_miss_burn_count": 0,
+        "near_miss_burn_counts": [
+          {
+            "actor_id": "pc",
+            "count": 0
+          }
         ]
       },
       "assessment": {
@@ -721,7 +740,8 @@
                   "disposition": "knocked_out",
                   "gm_approved": true
                 }
-              ]
+              ],
+              "near_miss_policy": null
             }
           ],
           "day_id": "day",
@@ -872,6 +892,14 @@
         "total_completed_round_count": 22,
         "any_pc_defeated_count": 0,
         "pc_defeat_counts": [
+          {
+            "actor_id": "pc",
+            "count": 0
+          }
+        ],
+        "near_miss_burn_trial_count": 0,
+        "total_near_miss_burn_count": 0,
+        "near_miss_burn_counts": [
           {
             "actor_id": "pc",
             "count": 0

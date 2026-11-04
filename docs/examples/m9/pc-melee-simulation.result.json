@@ -58,7 +58,8 @@
               "disposition": "knocked_out",
               "gm_approved": true
             }
-          ]
+          ],
+          "near_miss_policy": null
         }
       ],
       "day_id": "day",
@@ -187,6 +188,14 @@
     "total_completed_round_count": 16,
     "any_pc_defeated_count": 0,
     "pc_defeat_counts": [
+      {
+        "actor_id": "pc",
+        "count": 0
+      }
+    ],
+    "near_miss_burn_trial_count": 0,
+    "total_near_miss_burn_count": 0,
+    "near_miss_burn_counts": [
       {
         "actor_id": "pc",
         "count": 0

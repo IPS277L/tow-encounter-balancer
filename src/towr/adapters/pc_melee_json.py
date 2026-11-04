@@ -135,7 +135,10 @@ def _summary(summary: PcMeleeSimulationSummary) -> dict:
         "total_started_round_count": summary.total_started_round_count,
         "total_completed_round_count": summary.total_completed_round_count,
         "any_pc_defeated_count": summary.any_pc_defeated_count,
-        "pc_defeat_counts": [asdict(count) for count in summary.pc_defeat_counts]}
+        "pc_defeat_counts": [asdict(count) for count in summary.pc_defeat_counts],
+        "near_miss_burn_trial_count": summary.near_miss_burn_trial_count,
+        "near_miss_burn_counts": [asdict(count) for count in summary.near_miss_burn_counts],
+        "total_near_miss_burn_count": summary.total_near_miss_burn_count}
 
 
 def encode_pc_melee_simulation_result(command: PcMeleeSimulationCommand,

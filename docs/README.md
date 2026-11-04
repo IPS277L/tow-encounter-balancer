@@ -5,7 +5,7 @@
 | Задача | Что читать и обновлять |
 |---|---|
 | Проверить границу M8 | [Scope и результаты финальной приёмки](m8-completion.md) |
-| Запустить бой группы PC против Minions/Brutes | [M12 JSON/CLI и тяжёлые раны](examples/m12/README.md), [контракт](decisions/ADR-0068-pc-heavy-wound-continuation.md); [состав NPC](examples/m11/README.md), [Minion-группа](examples/m10/README.md), [одиночный пример](examples/m9/README.md) |
+| Запустить бой группы PC против Minions/Brutes | [M13 JSON/CLI и Near Miss](examples/m13/README.md), [Fate-контракт](decisions/ADR-0069-pc-near-miss-policy.md); [тяжёлые раны M12](examples/m12/README.md), [состав NPC](examples/m11/README.md), [Minion-группа](examples/m10/README.md), [одиночный пример](examples/m9/README.md) |
 | Продолжить реализацию | [Статус и точный следующий шаг](project-status.md), [roadmap](roadmap.md) |
 | Изменить правило | [Иерархия источников](source-policy.md), соответствующий раздел [нормализованных правил](rules/), при необходимости книга по [индексу источников](source-index.md) |
 | Проверить неоднозначность | [Индекс вопросов](open-questions.md) → соответствующие [подробности](open-questions-details.md); [противоречия](contradictions.md) |

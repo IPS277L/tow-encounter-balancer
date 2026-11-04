@@ -9,7 +9,7 @@ from towr.domain.pc_melee_result_models import (
     PcHandDropProof, PcMeleeOutcome, PcMeleeScenarioResult, PcMeleeState, PcMeleeStep,
     PcProfileWoundProof, PcRecoverProof, PcTurnEndProof, PcWoundCompletionProof,
     PcBodyConsequenceProof, PcWoundChoiceProof, PcHandSwapProof, PcCriticalProof, PcIncapacitatedTurnEndProof,
-    build_pc_melee_attack, build_pc_melee_recover, initial_pc_melee_state, pc_after_test,
+    build_pc_melee_attack, build_pc_melee_recover, build_pc_wound_completion, initial_pc_melee_state, pc_after_test,
     pc_melee_action_id, pc_melee_next_actor, pc_melee_selected_action, pc_melee_unsupported,
     project_pc_melee_step, pc_melee_round_participants, validate_pc_melee_state_shape,
     validate_pc_melee_source_types, _pc_test,
@@ -26,7 +26,6 @@ from towr.domain.turn_models import (
     ActionSlotGrant, CombatActionDeclaration, CombatActionKind, CombatActionSlotRequest,
     CombatRoundAdvanceRequest, CombatTurnEndRequest, CombatTurnEndResult, CombatTurnParticipant, CombatTurnStartRequest, CombatSide,
 )
-from towr.domain.wound_lifecycle_models import CharacterWoundLifecycleCompletionRequest
 from towr.rules.attack_action_execution import _complete_attack_action, _validate_attack_action_slot
 from towr.rules.attack_resolution import resolve_attack
 from towr.rules.dice import RandomSource
@@ -123,14 +122,9 @@ def run_pc_melee_scenario(scenario, rng: RandomSource) -> PcMeleeScenarioResult:
         # while the actual Near Miss lifecycle window remains unresolved.
         if state.pending_wound is not None:
             pending = state.pending_wound
-            consumed = tuple(p.completion.source_request.roll.request_id for p in state.history
-                if isinstance(p,PcWoundCompletionProof))
             pc_actor = state.pending_actor_id
-            member = state.participant(pc_actor)
-            request = CharacterWoundLifecycleCompletionRequest(pending.request_id+':complete',pending,
-                member.injury,member.daily_wounds,daily_registration_id=pending.request_id+':daily',
-                near_miss=None,consumed_roll_ids=consumed)
-            decline = _decline(state,pc_actor,pending.request_id,'wound')
+            request = build_pc_wound_completion(state)
+            decline = _decline(state,pc_actor,pending.request_id,'wound') if request.near_miss is None else None
             completion = complete_character_wound_lifecycle(request)
             consume(PcWoundCompletionProof(completion,decline))
             continue

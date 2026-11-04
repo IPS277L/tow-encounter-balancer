@@ -8,7 +8,7 @@ from towr.domain.action_execution_models import AttackActionExecutionRequest, At
 from towr.domain.attack_models import AttackRequest, AttackOutcome, DamageImpactSpec, DamageProfile, ImpactOutcome, MissConsequence
 from towr.domain.condition_models import Condition, ConditionState
 from towr.domain.crushed_rib_test_models import CRUSHED_RIB_TEST_RULE_ID
-from towr.domain.fate_models import FateSessionState
+from towr.domain.fate_models import FateSessionState, FateNearMissBurnRequest, FATE_NEAR_MISS_RULE_ID
 from towr.domain.infection_models import DailyWoundState
 from towr.domain.injury_models import (
     CharacterInjuryState, CharacterWoundType, ProfileInjuryState, ProfileNpcType,
@@ -31,7 +31,7 @@ from towr.domain.recover_models import (
     RecoverActionExecutionRequest, RecoverActionExecutionResult, RecoverConditionTarget,
     RecoverMode, RecoverObjectInteractionFollowUp, RecoverStandardChoice,
 )
-from towr.domain.resolution_models import AttackerStaggerRequest, KernelAttackRequest, TargetInjuryPolicy
+from towr.domain.resolution_models import AttackerStaggerRequest, KernelAttackRequest, TargetInjuryPolicy, ConsumeWoundNegationRequest
 from towr.domain.test_models import (
     DiceModifier, QualityModifier, RerollTrace, RollTrace, Skill, TestQuality, TestRequest, TestResult,
     _expected_initial_roll_parameters,
@@ -102,8 +102,8 @@ class PcFateDecline:
     def __post_init__(self):
         if type(self.window) is not str or self.window not in ('test', 'wound', 'action'):
             raise ValueError('unknown PC Fate decision window')
-        if self.policy is not PcFatePolicy.DECLINE_OPTIONAL_FATE:
-            raise ValueError('PC Fate decision requires the selected decline strategy')
+        if type(self.policy) is not PcFatePolicy:
+            raise TypeError('PC Fate decision requires its typed strategy')
         if any(type(v) is not str or not v for v in (self.actor_id, self.source_id)):
             raise ValueError('PC Fate decline requires actor and source')
 
@@ -176,7 +176,15 @@ class PcMeleeState:
             raise ValueError('PC owner must preserve its complete ordered party')
         for member, source in zip(self.party, self.source.party):
             replace(member)
-            if member.fate != source.fate or member.daily_wounds.day_id != self.source.day_id:
+            expected_fate = source.fate
+            for proof in self.history:
+                if isinstance(proof, PcWoundCompletionProof) and proof.completion.fate_burn is not None:
+                    burn = proof.completion.fate_burn
+                    if burn.previous_state.actor_id == member.actor_id:
+                        if burn.previous_state != expected_fate:
+                            raise ValueError('PC Fate burns must extend the actual resource history')
+                        expected_fate = burn.state
+            if member.fate != expected_fate or member.daily_wounds.day_id != self.source.day_id:
                 raise ValueError('PC owner cannot replace Fate or daily source')
         if (not all(isinstance(e, NpcParticipantSnapshot) for e in self.enemies)
                 or tuple(e.state.actor_id for e in self.enemies) != tuple(e.state.actor_id for e in self.source.enemies)
@@ -240,7 +248,7 @@ class PcAttackProof:
 @dataclass(frozen=True, slots=True)
 class PcWoundCompletionProof:
     completion: CharacterWoundLifecycleCompletionResult
-    fate_decline: PcFateDecline
+    fate_decline: PcFateDecline | None
 
 
 @dataclass(frozen=True, slots=True)
@@ -546,6 +554,36 @@ def build_pc_melee_recover(state: PcMeleeState) -> RecoverActionExecutionRequest
             and preferred_weapon_hand(member,state.source.participant(actor).initial_weapon_hand) is not None else None))
     return RecoverActionExecutionRequest(action_id + ':execute',state.round_state,actor,member.injury.conditions,
         bool(state.live_enemies),1,RecoverMode.STANDARD,choice)
+
+
+def build_pc_wound_completion(state: PcMeleeState) -> CharacterWoundLifecycleCompletionRequest:
+    """Bind the explicit strategy to this actual rolled Wound and resource prefix."""
+    pending = state.pending_wound
+    if pending is None:
+        raise ValueError('no actual PC Wound awaits its Fate decision')
+    member = state.participant(state.pending_actor_id)
+    participant = state.source.participant(member.actor_id)
+    completions = tuple(p.completion for p in state.history if isinstance(p, PcWoundCompletionProof))
+    consumed = tuple(c.source_request.roll.request_id for c in completions)
+    effects = completions[-1].consumed_near_miss_effect_ids if completions else ()
+    near_miss = None
+    strategy = participant.near_miss_policy
+    if (participant.fate_policy is PcFatePolicy.NEAR_MISS_AT_THRESHOLD
+            and pending.near_miss_eligible
+            and pending.wound_result.table_roll.total >= strategy.minimum_table_total
+            and member.fate.rating > strategy.minimum_rating_to_keep):
+        base_id = pending.request_id+':near-miss-burn'
+        used_ids = {*member.fate.resource_event_ids, *(spend.id for spend in member.fate.spends)}
+        burn_id, suffix = base_id, 0
+        while burn_id in used_ids:
+            suffix += 1
+            burn_id = f'{base_id}:{suffix}'
+        near_miss = FateNearMissBurnRequest(burn_id, member.fate,
+            ConsumeWoundNegationRequest(pending.source_request.wound.id, FATE_NEAR_MISS_RULE_ID))
+    return CharacterWoundLifecycleCompletionRequest(pending.request_id+':complete', pending,
+        member.injury, member.daily_wounds,
+        daily_registration_id=pending.request_id+':daily' if near_miss is None else None,
+        near_miss=near_miss, consumed_roll_ids=consumed, consumed_near_miss_effect_ids=effects)
 
 
 def _decline(state: PcMeleeState, actual: PcFateDecline, actor_id: str, source_id: str, window: str):

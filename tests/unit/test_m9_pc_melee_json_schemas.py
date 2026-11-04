@@ -35,6 +35,29 @@ def samples():
 
 
 class PcMeleeJsonSchemaTests(unittest.TestCase):
+    def test_near_miss_strategy_is_closed_required_and_correlated_with_fate_policy(self):
+        raw=document(party_size=2)
+        member=raw['scenario']['party'][1]
+        member.update(fate_policy='near_miss_at_threshold',near_miss_policy={
+            'minimum_table_total':16,'minimum_rating_to_keep':0})
+        schema.validate_pc_melee_simulation_document(raw)
+        for field in ('minimum_table_total','minimum_rating_to_keep'):
+            changed=deepcopy(raw)
+            del changed['scenario']['party'][1]['near_miss_policy'][field]
+            with self.subTest(missing=field),self.assertRaises(ValidationError):
+                schema.validate_pc_melee_simulation_document(changed)
+        for policy,criteria in (('decline_optional_fate',member['near_miss_policy']),
+                ('near_miss_at_threshold',None),('invented',None)):
+            changed=deepcopy(raw)
+            changed['scenario']['party'][1].update(fate_policy=policy,near_miss_policy=criteria)
+            with self.subTest(policy=policy,criteria=criteria),self.assertRaises(ValidationError):
+                schema.validate_pc_melee_simulation_document(changed)
+        for field in ('minimum_table_total','minimum_rating_to_keep'):
+            changed=deepcopy(raw)
+            changed['scenario']['party'][1]['near_miss_policy'][field]=True
+            with self.subTest(boolean=field),self.assertRaises(ValidationError):
+                schema.validate_pc_melee_simulation_document(changed)
+
     def test_current_heavy_policies_are_required_closed_and_not_legacy_aliases(self):
         for field in ('random_side_policy','heavy_wound_policy'):
             for value in (None,True,'invented'):
@@ -123,6 +146,7 @@ class PcMeleeJsonSchemaTests(unittest.TestCase):
                 validator(changed,kind)
         balance=samples()[3][2]
         for path in (('candidates',0,'summary'),('candidates',0,'summary','pc_defeat_counts',0),
+                     ('candidates',0,'summary','near_miss_burn_counts',0),
                      ('candidates',0,'assessment'),('request','evaluation')):
             changed=deepcopy(balance)
             target=changed
@@ -145,7 +169,8 @@ class PcMeleeJsonSchemaTests(unittest.TestCase):
             schema.validate_pc_melee_simulation_document(changed)
         command=wire.parse_pc_melee_simulation_request(json.dumps(raw))
         result=json.loads(wire.encode_pc_melee_simulation_result(command,aggregate(command.request)))
-        for field in ('any_pc_defeated_count','pc_defeat_counts'):
+        for field in ('any_pc_defeated_count','pc_defeat_counts','near_miss_burn_trial_count',
+                      'near_miss_burn_counts','total_near_miss_burn_count'):
             changed=deepcopy(result)
             del changed['summary'][field]
             with self.subTest(field=field),self.assertRaises(ValidationError):

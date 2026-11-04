@@ -1,5 +1,7 @@
 # Fate
 
+В PC melee активный Near Miss подключён через [M13/ADR-0069](../decisions/ADR-0069-pc-near-miss-policy.md): caller явно задаёт включительный порог Wounds Table и минимальный остаток rating. Это выбор поведения, не дополнительное книжное ограничение Near Miss. Начальный Fate сохраняется как source, текущий изменяется только actual lifecycle burn proofs; остальные optional Fate decisions отклоняются. [Пример JSON/CLI](../examples/m13/README.md).
+
 Источник: `BOOK-PLAYER-GUIDE`, версия 1.4, Lucky на странице 78, глава Rules — Fate на страницах 111–112 и Retreat на странице 120. Статус области: `partially implemented`; есть обе части Lucky, session state, GM-approved mid-session refresh, трата на Glorious до либо после initial roll, атомарные траты на Second Action и Tactical Retreat, permanent burn lifecycle и application consumers для всех трёх видов burn. Автоматический выбор масштаба повествовательных исходов намеренно остаётся внешней policy-границей.
 
 ## RULE-FATE-001 — session resource

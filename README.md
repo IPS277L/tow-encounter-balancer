@@ -2,7 +2,7 @@
 
 Симулятор боёв и подбор сложности столкновений для TOWR. Нормативные источники: Player’s Guide1.4 и Gamemaster’s Guide1.1; упрощённый прототип не имеет приоритета над книгами.
 
-Реализованы ограниченные ranged/melee/mixed Minion-сценарии и M8 с одним Champion-Wizard, Curse of Cowardly Flight и явно разрешёнными продолжениями. PC melee поддерживает немагическую группу против Minions и обычных числовых Brutes, включая тяжёлые PC Wounds11–23, Critical/Defenceless turns, отдельные Fate и статистику потерь. Есть независимые sequential/process прогоны, агрегаты и подбор составов. Точные границы и текущая приёмка — в [статусе](docs/project-status.md).
+Реализованы ограниченные ranged/melee/mixed Minion-сценарии и M8 с одним Champion-Wizard, Curse of Cowardly Flight и явно разрешёнными продолжениями. PC melee поддерживает немагическую группу против Minions и обычных числовых Brutes, включая тяжёлые PC Wounds11–23, Critical/Defenceless turns, отдельные Fate, явную Near Miss policy и статистику потерь/расхода ресурса. Есть независимые sequential/process прогоны, агрегаты и подбор составов. Точные границы и текущая приёмка — в [статусе](docs/project-status.md).
 
 ## Начало работы
 
@@ -19,8 +19,8 @@ py -3.12 -m venv .venv
 
 ```powershell
 $env:PYTHONPATH = 'src'
-.venv/Scripts/python.exe -m towr simulate-pc-melee docs/examples/m12/pc-melee-simulation.request.json
-.venv/Scripts/python.exe -m towr balance-pc-melee docs/examples/m12/pc-melee-balance.request.json
+.venv/Scripts/python.exe -m towr simulate-pc-melee docs/examples/m13/pc-melee-simulation.request.json
+.venv/Scripts/python.exe -m towr balance-pc-melee docs/examples/m13/pc-melee-balance.request.json
 ```
 
 После установки доступны `towr simulate-pc-melee INPUT` и `towr balance-pc-melee INPUT`; `-` читает stdin. Seed, trials, round budget и execution задаются во входе. PC melee и другие немагические families используют собственный текущий JSON1; Magic — JSON6. Все семейства перечислены ниже.

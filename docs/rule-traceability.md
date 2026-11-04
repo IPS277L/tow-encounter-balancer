@@ -1,5 +1,9 @@
 # Трассировка правил
 
+## M13: активная PC Near Miss policy
+
+RULE-FATE-001 и RULE-FATE-003:burn/near-miss — BOOK-PLAYER-GUIDE1.4, гл.V Rules / Burning Fate111, Near Miss112. [ADR-0069](decisions/ADR-0069-pc-near-miss-policy.md) связывает существующий K1 lifecycle с явной threshold/reserve policy в [PC models](../src/towr/domain/pc_melee_models.py), [owner/builder](../src/towr/domain/pc_melee_result_models.py), [projection](../src/towr/domain/_pc_melee_projection.py) и [runner](../src/towr/engine/pc_melee_runner.py). Native правила/guards проверяют [unit](../tests/unit/test_m13_pc_near_miss.py), compact counts — [statistics](../tests/unit/test_m13_pc_near_miss_statistics.py), trial/process/balance — [integration](../tests/integration/test_m13_pc_near_miss.py); текущие JSON/schema tests и [CLI примеры](examples/m13/README.md) закрывают публичный путь. Новых Rule IDs/house rules нет.
+
 ## M12: PC Wounds11–23, Critical/Defenceless
 
 BOOK-PLAYER-GUIDE1.4, Rules / Combat Actions116, Recover/Attack118, Conditions122–123, Wounds Table190–191. Пользователь выбрал весь диапазон11–23 и продолжение боя. [ADR-0068](decisions/ADR-0068-pc-heavy-wound-continuation.md) подключает существующие RULE-HEALTH-002/004/005/008 и RULE-FATE-001/002/003; новых Rule IDs/house rules нет.

@@ -7,7 +7,9 @@ from towr.domain.pc_melee_models import validate_pc_melee_scenario_admission
 from towr.domain.pc_melee_result_models import PcMeleeScenarioResult
 from towr.engine.pc_melee_runner import run_pc_melee_scenario
 from towr.rules.dice import RandomSource
-from towr.simulation.pc_melee_models import PcMeleeSimulationRequest, PcMeleeSimulationResult, PcMeleeTrialRecord
+from towr.simulation.pc_melee_models import (
+    PcMeleeSimulationRequest, PcMeleeSimulationResult, PcMeleeTrialRecord, PcNearMissBurnCount,
+)
 
 
 def run_pc_melee_trial(request: PcMeleeSimulationRequest, trial_index: int, *,
@@ -21,11 +23,17 @@ def run_pc_melee_trial(request: PcMeleeSimulationRequest, trial_index: int, *,
     result = run_pc_melee_scenario(request.scenario, rng_factory(seed))
     if not isinstance(result, PcMeleeScenarioResult):
         raise TypeError('PC encounter runner must return a typed result')
+    # Admit the actual journal before turning mutable cached state into counters.
+    # Projection verifies proofs without executing tests or consuming RNG again.
+    replace(result)
     validate_pc_melee_scenario_admission(result.source)
     if result.source != request.scenario:
         raise ValueError('PC encounter result belongs to another source')
     return PcMeleeTrialRecord(request.scenario, trial_index, seed, result.outcome,
-        result.executed_actions, result.started_rounds, result.completed_rounds, result.defeated_pc_ids)
+        result.executed_actions, result.started_rounds, result.completed_rounds, result.defeated_pc_ids,
+        tuple(PcNearMissBurnCount(member.actor_id,
+            len(result.state.participant(member.actor_id).fate.burns)-len(member.fate.burns))
+            for member in request.scenario.party))
 
 
 def run_pc_melee_simulation(request: PcMeleeSimulationRequest, *,
