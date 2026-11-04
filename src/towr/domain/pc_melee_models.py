@@ -22,6 +22,10 @@ from towr.domain.turn_models import CombatSide
 class PcMeleeWeapon(str, Enum):
     STAFF = "staff"
     SWORD = "sword"
+    DAGGER = "dagger"
+    AXE = "axe"
+    WARHAMMER = "warhammer"
+    MORNING_STAR = "morning_star"
 
 
 class PcMeleePolicy(str, Enum):

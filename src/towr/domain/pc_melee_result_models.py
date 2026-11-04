@@ -5,8 +5,10 @@ from dataclasses import dataclass, field, fields, is_dataclass, replace
 from enum import Enum
 
 from towr.domain.action_execution_models import AttackActionExecutionRequest, AttackActionExecutionResult
-from towr.domain.attack_models import AttackRequest, AttackOutcome, DamageImpactSpec, DamageProfile, ImpactOutcome, MissConsequence
+from towr.domain.attack_models import AttackRequest, AttackOutcome, DamageImpactSpec, ImpactOutcome, MissConsequence
 from towr.domain.condition_models import Condition, ConditionState
+from towr.domain.pc_weapon_models import (pc_weapon_damage, pc_weapon_test_modifiers,
+    pc_weapon_attack_modifiers, pc_weapon_damage_modifiers)
 from towr.domain.crushed_rib_test_models import CRUSHED_RIB_TEST_RULE_ID
 from towr.domain.fate_models import FateSessionState, FateNearMissBurnRequest, FateGloriousSpendResult, FATE_NEAR_MISS_RULE_ID
 from towr.domain.infection_models import DailyWoundState
@@ -23,7 +25,7 @@ from towr.domain.magic_models import WizardMagicState
 from towr.domain.minion_defeat_models import MinionDefeatDecision
 from towr.domain.npc_roster_models import NpcParticipantSnapshot
 from towr.domain.pc_melee_models import (
-    PcFatePolicy, PcMeleeScenario, PcMeleeWeapon, PcWeaponHand, validate_pc_melee_scenario_admission,
+    PcFatePolicy, PcMeleeScenario, PcWeaponHand, validate_pc_melee_scenario_admission,
 )
 from towr.domain.protection_models import (
     ProtectionPreparationRequest, ProtectionPreparationResult, ProtectionTestOption,
@@ -495,10 +497,9 @@ def _pc_test(state: PcMeleeState, actor_id: str, test_id: str, skill: Skill,
     profile = {Skill.MELEE: pc.melee_profile, Skill.DEFENCE: pc.defence_profile,
         Skill.ATHLETICS: pc.athletics_profile, Skill.ENDURANCE: pc.endurance_profile}[skill]
     drained = member.injury.conditions.has(Condition.DRAINED)
-    modifiers = tuple(m for m in dice_modifiers if m.amount <= 0) if drained else dice_modifiers
-    if (skill is Skill.DEFENCE and pc.weapon is PcMeleeWeapon.SWORD
-            and not member.injury.conditions.has(Condition.STAGGERED) and not drained):
-        modifiers = (*modifiers, DiceModifier('RULE-EQUIPMENT-003:sword-defence', 1))
+    modifiers = (*dice_modifiers, *pc_weapon_test_modifiers(pc.weapon, skill, member.injury.conditions))
+    if drained:
+        modifiers = tuple(m for m in modifiers if m.amount <= 0)
     qualities = []
     if skill is not Skill.ENDURANCE and member.injury.conditions.has(Condition.BLINDED):
         qualities.append(QualityModifier('RULE-HEALTH-008:blinded', TestQuality.GRIM))
@@ -523,6 +524,7 @@ def build_pc_melee_attack(state: PcMeleeState) -> tuple[AttackActionExecutionReq
     pc_count = sum(not m.injury.conditions.has(Condition.DEFENCELESS) for m in state.live_party)
     enemy_count = sum(not e.state.injury.conditions.has(Condition.DEFENCELESS) for e in state.live_enemies)
     modifiers = []
+    damage_modifiers = ()
     if state.source.facts.outnumbering_bonus_approved and (pc_count > enemy_count if pc_attacks else enemy_count > pc_count):
         modifiers.append(DiceModifier('RULE-COMBAT-007:outnumbering', 1))
     if pc_attacks:
@@ -531,13 +533,15 @@ def build_pc_melee_attack(state: PcMeleeState) -> tuple[AttackActionExecutionReq
         target_snapshot = state.enemy(target)
         if target_snapshot.state.injury.conditions.has(Condition.PRONE):
             modifiers.append(DiceModifier('RULE-COMBAT-007:higher-ground', 1))
+        modifiers.extend(pc_weapon_attack_modifiers(pc.weapon, target_snapshot.state.injury.conditions))
         attacker = _pc_test(state, actor, action_id + ':attack', Skill.MELEE, tuple(modifiers))
         from towr.domain.pc_help_models import build_pc_attack_help
         attacker,_ = build_pc_attack_help(state,attacker)
         protection_profile = target_snapshot.definition.protection[0]
         defender = TestRequest(action_id + ':protection', protection_profile.test_profile)
         skill = Skill.DEFENCE
-        damage, resilience = DamageProfile(pc.strength), target_snapshot.state.current_resilience
+        damage, resilience = pc_weapon_damage(pc.weapon, pc.strength), target_snapshot.state.current_resilience
+        damage_modifiers = pc_weapon_damage_modifiers(pc.weapon, resilience)
         attacker_conditions = member.injury.conditions
         target_injury = target_snapshot.state.injury
         target_armed = True
@@ -560,7 +564,8 @@ def build_pc_melee_attack(state: PcMeleeState) -> tuple[AttackActionExecutionReq
         target_injury = member.injury if member.injury.conditions.has(Condition.DEFENCELESS) else pc_after_test(state, target,critical_for_hand(member,
             usable_weapon_hand(member) if skill is Skill.DEFENCE else None))
         target_armed = usable_weapon_hand(member) is not None
-    attack = AttackRequest(action_id + ':attack-request', attacker, None, DamageImpactSpec(damage,resilience),
+    attack = AttackRequest(action_id + ':attack-request', attacker, None,
+        DamageImpactSpec(damage,resilience,damage_modifiers=damage_modifiers),
         True, attacker_conditions.has(Condition.STAGGERED))
     defenceless = target_injury.conditions.has(Condition.DEFENCELESS)
     protection = ProtectionPreparationRequest(action_id + ':prepare-protection', target, attack, Skill.MELEE,

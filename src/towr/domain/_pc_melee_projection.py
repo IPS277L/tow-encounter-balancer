@@ -67,12 +67,15 @@ def _canonical_attack(request, attack):
     a, d = attack.attacker_test.successes, (attack.defender_test.successes if attack.defender_test is not None else 0)
     hit = a > 0 and a >= d
     margin = a-d if hit else 0
-    damage = request.impact_spec.damage.base + margin if hit else None
+    damage = (request.impact_spec.damage.base + margin * request.impact_spec.damage.success_multiplier
+        + sum(m.amount for m in request.impact_spec.damage_modifiers)) if hit else None
     resilience = request.impact_spec.resilience.total if hit else None
     impact = (ImpactOutcome.WOUND if damage > resilience else ImpactOutcome.STAGGERED) if hit else None
     miss = MissConsequence.NONE if hit or request.attacker_is_staggered else MissConsequence.STAGGER_ATTACKER
     tie = hit and request.defender_test is not None and a == d
-    rules = ('RULE-COMBAT-006:attack-tie',) if tie else ()
+    rules = tuple(m.rule_id for m in request.impact_spec.damage_modifiers) if hit else ()
+    if tie:
+        rules = (*rules, 'RULE-COMBAT-006:attack-tie')
     expected = (request.id,AttackOutcome.HIT if hit else AttackOutcome.MISS,margin,request.impact_spec,
         damage,resilience,impact,miss,tie,rules)
     actual = (attack.request_id,attack.outcome,attack.success_margin,attack.impact_spec,

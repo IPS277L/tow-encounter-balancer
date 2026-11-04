@@ -54,6 +54,24 @@ Damage `S` использует Strength; `S±N` модифицирует её. 
 
 `Greatsword` намеренно записан как `+1 to Defence`, без `d`, как в актуальном источнике. Тип модификатора требует отдельной сверки с контекстом/версткой перед кодированием.
 
+### Исполняемая PC-граница M18
+
+Статус этого среза: `verified`. BOOK-PLAYER-GUIDE1.4, гл.IV Equipment92–93; взаимодействия — гл.V Helping108, Attack118–119 и Drained123. Текущий PC JSON1 принимает ровно `staff`, `sword`, `dagger`, `axe`, `warhammer`, `morning_star`, одно одноручное оружие на PC. [Примеры JSON/CLI](../examples/m18/README.md).
+
+- Dagger использует Damage S−1, включая базовый Damage0 при S1; нижний предел1 не добавляется.
+- Axe использует Damage S и отдельный `DamageModifier` +1 против бронированной цели. Броня и Resilience сохраняются; это не ignores armour. Trace: `RULE-EQUIPMENT-003:axe-armour`.
+- Warhammer использует Damage S и +1d в настоящем Attack по Staggered enemy (`RULE-EQUIPMENT-003:warhammer-staggered-target`). Его собственный Help Test не имеет enemy target, поэтому такой бонус не получает.
+- Morning Star использует Damage S+1 и −1d к собственным Melee Tests при Staggered, включая физический Melee Help (`RULE-EQUIPMENT-003:morning-star-staggered`).
+- Прежний Sword +1d Defence без Staggered применяется и к соответствующему Defence Help. Staff сохраняет Damage S.
+
+Drained удаляет положительные dice modifiers до cap, сохраняя отрицательные; Axe Damage modifier не является dice bonus. Действуют прежние предел2×Characteristic, forced minimum die/threshold1 и actual initial-roll окно Glorious. Подготовка привязана к актуальным Conditions/цели и полному source; hit/miss/tie проходят прежнюю каноническую проверку Damage/trace без нового RNG.
+
+В этом native-сценарии без shields/дополнительных Abilities положительный `ResilienceProfile.bonus` означает броню. Это ограничение входа: PG119 допускает также другие источники Resilience, поэтому проверку `bonus > 0` нельзя переносить на произвольное снаряжение как доказательство wearing armour. Для такого расширения потребуется различать источники бонуса.
+
+Все шесть видов используют прежние hand/drop/swap/pickup и Wounds1–23 последствия, Help/Fate/ally Recover и fixed-party count search. Stealth conceal Dagger и terrain trait Staff не исполняются в этой сцене без Stealth/terrain; это не полный каталог Traits. Две руки, dual wield, другие ranges, mounted/Charge и общий inventory сюда не входят. Поля party, метрики и wire version остаются прежними; старые JSON-примеры не мигрируются.
+
+Реализация: [явная подготовка](../../src/towr/domain/pc_weapon_models.py), [PC owner](../../src/towr/domain/pc_melee_result_models.py), [каноническая проекция](../../src/towr/domain/_pc_melee_projection.py). Проверки: [детерминированная механика](../../tests/unit/test_m18_pc_weapons.py), [допуск и генерация](../../tests/unit/test_m18_pc_weapon_admission.py), [сквозной путь](../../tests/integration/test_m18_pc_weapons.py).
+
 ## RULE-EQUIPMENT-004 — ranged weapon profiles и reload
 
 `1H` ranged имеет Max Range Long, `2H` — разумный предел GM. Вне Optimum Range применяется `-1d`. При любом враге Close ranged weapon запрещён, кроме weapon с Close в Optimum. Только если сама выбранная цель находится в Close, она может Oppose через Melee, а miss накладывает на атакующего Staggered как в Melee. Два shooting weapons не объединяются в одну attack.

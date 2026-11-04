@@ -35,6 +35,40 @@ def samples():
 
 
 class PcMeleeJsonSchemaTests(unittest.TestCase):
+    def test_weapon_enum_is_exact_and_applies_to_request_and_all_result_sources(self):
+        weapons=['staff','sword','dagger','axe','warhammer','morning_star']
+        common=json.loads(files('towr.adapters.schemas').joinpath('pc-melee-common.schema.json')
+            .read_text(encoding='utf-8'))
+        self.assertEqual(common['$defs']['pc']['properties']['weapon'],{'enum':weapons})
+        for balance in (False,True):
+            raw=document(balance=balance,party_size=len(weapons))
+            key='template' if balance else 'scenario'
+            for member,weapon in zip(raw[key]['party'],weapons):
+                member['pc']['weapon']=weapon
+            validate=schema.validate_pc_melee_balance_document if balance else schema.validate_pc_melee_simulation_document
+            validate(raw)
+            parse=wire.parse_pc_melee_balance_request if balance else wire.parse_pc_melee_simulation_request
+            command=parse(json.dumps(raw))
+            result=json.loads(wire.encode_pc_melee_balance_result(command,balance_result(command)) if balance
+                else wire.encode_pc_melee_simulation_result(command,aggregate(command.request)))
+            validate(result,'result')
+            result_sources=[result['request'][key]]
+            if balance:
+                result_sources.extend(candidate['request']['scenario'] for candidate in result['candidates'])
+            for source in result_sources:
+                self.assertEqual([member['pc']['weapon'] for member in source['party']],weapons)
+                for weapon in ('unknown_weapon','AXE','Morning Star','morning-star','',False,1,None,[],{}):
+                    saved=source['party'][0]['pc']['weapon']
+                    source['party'][0]['pc']['weapon']=weapon
+                    with self.subTest(balance=balance,weapon=weapon),self.assertRaises(ValidationError):
+                        validate(result,'result')
+                    source['party'][0]['pc']['weapon']=saved
+            for weapon in ('unknown_weapon','AXE','Morning Star','morning-star','',False,1,None,[],{}):
+                changed=deepcopy(raw)
+                changed[key]['party'][0]['pc']['weapon']=weapon
+                with self.subTest(balance=balance,request_weapon=weapon),self.assertRaises(ValidationError):
+                    validate(changed)
+
     def test_ally_recover_strategy_and_counters_are_current_required_closed_shapes(self):
         raw=document(party_size=2)
         member=raw['scenario']['party'][0]

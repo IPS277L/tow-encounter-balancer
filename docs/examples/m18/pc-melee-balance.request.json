@@ -1,0 +1,441 @@
+{
+  "schema_version": "1",
+  "kind": "pc_melee_balance",
+  "request_id": "m18-varied-weapons-balance",
+  "ruleset": "towr-pg1.4-gmg1.1",
+  "template": {
+    "id": "m18-varied-weapons-template",
+    "party": [
+      {
+        "actor_id": "pc1",
+        "pc": {
+          "id": "pc-profile1",
+          "weapon_skill": 3,
+          "strength": 3,
+          "toughness": 3,
+          "agility": 3,
+          "melee": 5,
+          "defence": 5,
+          "athletics": 4,
+          "endurance": 4,
+          "weapon": "axe",
+          "armour_bonus": 0
+        },
+        "fate": {
+          "session_id": "session",
+          "actor_id": "pc1",
+          "rating": 3,
+          "session_spend_limit": 3,
+          "spends": [],
+          "has_lucky": false,
+          "refreshes": [],
+          "burns": [],
+          "resource_event_ids": [],
+          "rule_id": "RULE-FATE-001:session-resource"
+        },
+        "policy": "attack_or_recover_self",
+        "fate_policy": "configured",
+        "random_side_policy": "d10_low_left_high_right",
+        "heavy_wound_policy": "continue_fighting",
+        "initial_weapon_hand": "left",
+        "target_priority": [
+          "brute1",
+          "minion1"
+        ],
+        "defeat_decisions": [
+          {
+            "attacker_id": "pc1",
+            "target_id": "brute1",
+            "disposition": "knocked_out",
+            "gm_approved": true
+          },
+          {
+            "attacker_id": "pc1",
+            "target_id": "minion1",
+            "disposition": "knocked_out",
+            "gm_approved": true
+          }
+        ],
+        "near_miss_policy": {
+          "minimum_table_total": 14,
+          "minimum_rating_to_keep": 1
+        },
+        "glorious_policy": {
+          "skills": [
+            "melee",
+            "defence",
+            "athletics",
+            "endurance"
+          ],
+          "maximum_initial_successes": 1,
+          "minimum_remaining_spends": 1
+        },
+        "help_policy": null,
+        "ally_recover_policy": null
+      },
+      {
+        "actor_id": "pc2",
+        "pc": {
+          "id": "pc-profile2",
+          "weapon_skill": 3,
+          "strength": 3,
+          "toughness": 3,
+          "agility": 3,
+          "melee": 5,
+          "defence": 5,
+          "athletics": 4,
+          "endurance": 4,
+          "weapon": "warhammer",
+          "armour_bonus": 0
+        },
+        "fate": {
+          "session_id": "session",
+          "actor_id": "pc2",
+          "rating": 3,
+          "session_spend_limit": 3,
+          "spends": [],
+          "has_lucky": false,
+          "refreshes": [],
+          "burns": [],
+          "resource_event_ids": [],
+          "rule_id": "RULE-FATE-001:session-resource"
+        },
+        "policy": "attack_or_recover_self",
+        "fate_policy": "configured",
+        "random_side_policy": "d10_low_left_high_right",
+        "heavy_wound_policy": "continue_fighting",
+        "initial_weapon_hand": "left",
+        "target_priority": [
+          "brute1",
+          "minion1"
+        ],
+        "defeat_decisions": [
+          {
+            "attacker_id": "pc2",
+            "target_id": "brute1",
+            "disposition": "knocked_out",
+            "gm_approved": true
+          },
+          {
+            "attacker_id": "pc2",
+            "target_id": "minion1",
+            "disposition": "knocked_out",
+            "gm_approved": true
+          }
+        ],
+        "near_miss_policy": {
+          "minimum_table_total": 14,
+          "minimum_rating_to_keep": 1
+        },
+        "glorious_policy": {
+          "skills": [
+            "melee",
+            "defence",
+            "athletics",
+            "endurance"
+          ],
+          "maximum_initial_successes": 1,
+          "minimum_remaining_spends": 1
+        },
+        "help_policy": null,
+        "ally_recover_policy": null
+      },
+      {
+        "actor_id": "pc3",
+        "pc": {
+          "id": "pc-profile3",
+          "weapon_skill": 3,
+          "strength": 3,
+          "toughness": 3,
+          "agility": 3,
+          "melee": 5,
+          "defence": 5,
+          "athletics": 4,
+          "endurance": 4,
+          "weapon": "morning_star",
+          "armour_bonus": 0
+        },
+        "fate": {
+          "session_id": "session",
+          "actor_id": "pc3",
+          "rating": 3,
+          "session_spend_limit": 3,
+          "spends": [],
+          "has_lucky": false,
+          "refreshes": [],
+          "burns": [],
+          "resource_event_ids": [],
+          "rule_id": "RULE-FATE-001:session-resource"
+        },
+        "policy": "attack_or_recover_self",
+        "fate_policy": "configured",
+        "random_side_policy": "d10_low_left_high_right",
+        "heavy_wound_policy": "continue_fighting",
+        "initial_weapon_hand": "left",
+        "target_priority": [
+          "brute1",
+          "minion1"
+        ],
+        "defeat_decisions": [
+          {
+            "attacker_id": "pc3",
+            "target_id": "brute1",
+            "disposition": "knocked_out",
+            "gm_approved": true
+          },
+          {
+            "attacker_id": "pc3",
+            "target_id": "minion1",
+            "disposition": "knocked_out",
+            "gm_approved": true
+          }
+        ],
+        "near_miss_policy": {
+          "minimum_table_total": 14,
+          "minimum_rating_to_keep": 1
+        },
+        "glorious_policy": {
+          "skills": [
+            "melee",
+            "defence",
+            "athletics",
+            "endurance"
+          ],
+          "maximum_initial_successes": 1,
+          "minimum_remaining_spends": 1
+        },
+        "help_policy": null,
+        "ally_recover_policy": null
+      },
+      {
+        "actor_id": "pc4",
+        "pc": {
+          "id": "pc-profile4",
+          "weapon_skill": 3,
+          "strength": 3,
+          "toughness": 3,
+          "agility": 3,
+          "melee": 5,
+          "defence": 5,
+          "athletics": 4,
+          "endurance": 4,
+          "weapon": "dagger",
+          "armour_bonus": 0
+        },
+        "fate": {
+          "session_id": "session",
+          "actor_id": "pc4",
+          "rating": 3,
+          "session_spend_limit": 3,
+          "spends": [],
+          "has_lucky": false,
+          "refreshes": [],
+          "burns": [],
+          "resource_event_ids": [],
+          "rule_id": "RULE-FATE-001:session-resource"
+        },
+        "policy": "recover_ally_or_attack_or_recover_self",
+        "fate_policy": "configured",
+        "random_side_policy": "d10_low_left_high_right",
+        "heavy_wound_policy": "continue_fighting",
+        "initial_weapon_hand": "left",
+        "target_priority": [
+          "brute1",
+          "minion1"
+        ],
+        "defeat_decisions": [
+          {
+            "attacker_id": "pc4",
+            "target_id": "brute1",
+            "disposition": "knocked_out",
+            "gm_approved": true
+          },
+          {
+            "attacker_id": "pc4",
+            "target_id": "minion1",
+            "disposition": "knocked_out",
+            "gm_approved": true
+          }
+        ],
+        "near_miss_policy": {
+          "minimum_table_total": 14,
+          "minimum_rating_to_keep": 1
+        },
+        "glorious_policy": {
+          "skills": [
+            "melee",
+            "defence",
+            "athletics",
+            "endurance"
+          ],
+          "maximum_initial_successes": 1,
+          "minimum_remaining_spends": 1
+        },
+        "help_policy": null,
+        "ally_recover_policy": {
+          "beneficiary_id": "pc3"
+        }
+      }
+    ],
+    "day_id": "day",
+    "enemies": [
+      {
+        "actor_id": "minion1",
+        "definition": {
+          "id": "minion-profile",
+          "source_rule_id": "authored:minion",
+          "injury_policy": "minion",
+          "wound_limit": 1,
+          "resilience": {
+            "toughness": 3,
+            "bonus": 1
+          },
+          "attack": {
+            "id": "club",
+            "source_rule_id": "authored:minion:club",
+            "test_profile": {
+              "dice": 2,
+              "threshold": 5,
+              "pool_cap": null
+            },
+            "damage": {
+              "base": 3,
+              "success_multiplier": 1
+            },
+            "hands": "1h"
+          },
+          "protection": {
+            "source_rule_id": "authored:minion:defence",
+            "test_profile": {
+              "dice": 2,
+              "threshold": 5,
+              "pool_cap": null
+            }
+          }
+        }
+      },
+      {
+        "actor_id": "brute1",
+        "definition": {
+          "id": "brute-profile:3",
+          "source_rule_id": "authored:static-brute",
+          "injury_policy": "brute",
+          "wound_limit": 3,
+          "resilience": {
+            "toughness": 4,
+            "bonus": 2
+          },
+          "attack": {
+            "id": "club",
+            "source_rule_id": "authored:minion:club",
+            "test_profile": {
+              "dice": 3,
+              "threshold": 5,
+              "pool_cap": null
+            },
+            "damage": {
+              "base": 4,
+              "success_multiplier": 1
+            },
+            "hands": "1h"
+          },
+          "protection": {
+            "source_rule_id": "authored:minion:defence",
+            "test_profile": {
+              "dice": 3,
+              "threshold": 5,
+              "pool_cap": null
+            }
+          }
+        }
+      }
+    ],
+    "facts": {
+      "zone_id": "arena",
+      "all_opponents_close": true,
+      "targets_aware": true,
+      "all_combatants_included": true,
+      "unmounted": true,
+      "no_external_effects": true,
+      "no_terrain_modifiers": true,
+      "no_additional_abilities": true,
+      "no_ambush": true,
+      "outnumbering_bonus_approved": true,
+      "can_leave_zone": false
+    },
+    "pc_activation_order": [
+      "pc1",
+      "pc2",
+      "pc3",
+      "pc4"
+    ],
+    "enemy_activation_order": [
+      "minion1",
+      "brute1"
+    ],
+    "enemy_target_priority": [
+      "pc3",
+      "pc1",
+      "pc2",
+      "pc4"
+    ],
+    "max_rounds": 5
+  },
+  "generation": {
+    "groups": [
+      {
+        "group_id": "minions",
+        "actor_ids": [
+          "minion1"
+        ],
+        "minimum_count": 0,
+        "maximum_count": 1
+      },
+      {
+        "group_id": "brutes",
+        "actor_ids": [
+          "brute1"
+        ],
+        "minimum_count": 1,
+        "maximum_count": 1
+      }
+    ],
+    "facts": {
+      "zone_id": "arena",
+      "all_opponents_close": true,
+      "targets_aware": true,
+      "all_combatants_included": true,
+      "unmounted": true,
+      "no_external_effects": true,
+      "no_terrain_modifiers": true,
+      "no_additional_abilities": true,
+      "no_ambush": true,
+      "outnumbering_bonus_approved": true,
+      "can_leave_zone": false
+    },
+    "max_candidates": 2
+  },
+  "evaluation": {
+    "master_seed": "42",
+    "trials_per_candidate": 4,
+    "max_total_trials": 8,
+    "top_k": 2,
+    "window": {
+      "minimum": {
+        "numerator": 0,
+        "denominator": 1
+      },
+      "target": {
+        "numerator": 1,
+        "denominator": 2
+      },
+      "maximum": {
+        "numerator": 1,
+        "denominator": 1
+      }
+    }
+  },
+  "execution": {
+    "mode": "sequential"
+  }
+}

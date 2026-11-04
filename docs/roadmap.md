@@ -17,10 +17,11 @@
 - M15: физический Melee Help для текущей атаки более позднего обычного PC, настоящие action/Test/Fate/heavy последствия, exact intended-Test applications и отдельные counts в trials/balance/JSON1. [Контракт ADR-0071](decisions/ADR-0071-pc-melee-help-policy.md).
 - M16: Defence/Athletics Help для конкретного incoming Protection Test, явный target/skill, сохранение unused snapshot при смене Skill/NPC/no-Test и прежние trials/подбор/JSON1. [Контракт ADR-0072](decisions/ADR-0072-pc-protection-help-policy.md).
 - M17: standard Recover выбранному союзнику, per-entity Conditions/источники/W13 consequences, mixed self/ally benefits, own pickup, реальные action counts и текущий JSON1. [Контракт ADR-0073](decisions/ADR-0073-pc-ally-standard-recover.md).
+- M18: Dagger/Axe/Warhammer/Morning Star вместе со Staff/Sword, явные Damage/Traits, прежние hand/Help/Fate/Recover и fixed-party поиск через текущий JSON1. [Граница](rules/equipment.md#исполняемая-pc-граница-m18), [примеры](examples/m18/README.md).
 
 ## Последняя законченная функция
 
-[Ally Recover M17](decisions/ADR-0073-pc-ally-standard-recover.md) реализован через owner/trials/подбор и текущий JSON1, вместе с Help/Fate/ранами. [Примеры](examples/m17/README.md) выполнены настоящим CLI; actual allied changes считаются отдельно от self-only Recover/Help/Fate. Адресная приёмка общего Recover и затронутых M8 callers — в статусе и ADR-0073; full/wheel не повторяются автоматически.
+[Одноручное оружие M18](rules/equipment.md#исполняемая-pc-граница-m18) реализовано через owner/trials/process/подбор и текущий JSON1. [CLI-примеры](examples/m18/README.md) сохраняют полный source всех четырёх новых видов оружия без миграции прежних примеров. Проверены targeted/actor traits, Damage0, armour bonus, cap/Drained/Glorious и hand/drop/Recover. Адресная приёмка — в статусе.
 
 ## M8 завершена
 
@@ -88,11 +89,15 @@
 
 Завершённый срез по [ADR-0073](decisions/ADR-0073-pc-ally-standard-recover.md): fixed beneficiary любого порядка/роли, self-required priority, иначе ally-first по Staggered/Prone benefit, mixed recipients и own pickup. Оngoing причины не удаляются, Critical13 получает фактически поднятый PC; receiving aid не становится действием14/15. Full canonical proof и общий pure completion сохраняют источник/slot/clock; actual allied action counts проходят indexed trials/process/aggregate-only search и JSON1. Opening-round/joint support budgets и exact outer result type проверены. Старые16JSON-пар мигрированы с null/нулями без смены gameplay. Обязательного остатка M17 нет.
 
-## После M17
+## M18 — первый дополнительный набор PC-оружия
 
-Более широкий NPC/spell/Miscast каталог, дополнительные тактики/Fate/Help/Recover, лечение ран, общий inventory/spatial/campaign/save-resume — отдельный backlog после M17. Решение GM для невозможной повторной анатомии и post-healing ветвей не подставляется. Следующие функции выбираются отдельно; уже закрытые границы ими автоматически не расширяются.
+Завершённый конечный срез: Dagger, Axe, Warhammer, Morning Star — все1H/Close, вместе с прежними Staff/Sword. Книжные свойства используют текущие Test/Damage modifiers, full canonical source и прежние Help/Fate/Recover/Wounds. Допуск/enum схемы расширены в том же JSON1; метрики не меняются. Отдельный ADR для повторного применения этих механизмов не требуется. Обязательного остатка M18 нет.
 
-Рекомендуемое следующее направление — расширение PC вооружения за пределы Staff/Sword. Перед реализацией выбрать первый книжный набор и необходимые свойства, сохраняя полный source и существующие Help/Fate/Recover взаимодействия. M18 ещё не согласована; остальной каталог не включать автоматически.
+## После M18
+
+Более широкий NPC/spell/Miscast каталог, дополнительные тактики/Fate/Help/Recover, лечение ран, общий inventory/spatial/campaign/save-resume — отдельный backlog после M18. Решение GM для невозможной повторной анатомии и post-healing ветвей не подставляется. Следующие функции выбираются отдельно; уже закрытые границы ими автоматически не расширяются.
+
+Следующее предложение — двуручное Close-оружие PC. Сначала определить конечный набор, хват и последствия ран рук/потери оружия/Recover; затем провести его через owner, trials, подбор и JSON. Тип бонуса Greatsword требует отдельной сверки источника. M19 ещё не согласована; dual wield, иные дальности и остальной каталог не включать автоматически.
 
 ## Контрольные точки
 

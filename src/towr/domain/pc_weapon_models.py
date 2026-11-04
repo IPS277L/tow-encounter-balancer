@@ -1,0 +1,40 @@
+"""Explicit preparation for the admitted one-handed Close PC weapons (PG 92–93)."""
+from towr.domain.attack_models import DamageModifier, DamageProfile, ResilienceProfile
+from towr.domain.condition_models import Condition, ConditionState
+from towr.domain.pc_melee_models import PcMeleeWeapon
+from towr.domain.test_models import DiceModifier, Skill
+
+
+AXE_ARMOUR_RULE_ID = 'RULE-EQUIPMENT-003:axe-armour'
+WARHAMMER_STAGGERED_RULE_ID = 'RULE-EQUIPMENT-003:warhammer-staggered-target'
+MORNING_STAR_STAGGERED_RULE_ID = 'RULE-EQUIPMENT-003:morning-star-staggered'
+
+
+def pc_weapon_damage(weapon: PcMeleeWeapon, strength: int) -> DamageProfile:
+    offset = -1 if weapon is PcMeleeWeapon.DAGGER else 1 if weapon is PcMeleeWeapon.MORNING_STAR else 0
+    return DamageProfile(strength + offset)
+
+
+def pc_weapon_test_modifiers(weapon: PcMeleeWeapon, skill: Skill,
+        conditions: ConditionState) -> tuple[DiceModifier, ...]:
+    """Actor traits apply to the actual Test, including an unopposed Help Test."""
+    if skill is Skill.MELEE and weapon is PcMeleeWeapon.MORNING_STAR and conditions.has(Condition.STAGGERED):
+        return (DiceModifier(MORNING_STAR_STAGGERED_RULE_ID, -1),)
+    if skill is Skill.DEFENCE and weapon is PcMeleeWeapon.SWORD and not conditions.has(Condition.STAGGERED):
+        return (DiceModifier('RULE-EQUIPMENT-003:sword-defence', 1),)
+    return ()
+
+
+def pc_weapon_attack_modifiers(weapon: PcMeleeWeapon,
+        target_conditions: ConditionState) -> tuple[DiceModifier, ...]:
+    """This target trait belongs only to Attack; Help has no enemy target."""
+    if weapon is PcMeleeWeapon.WARHAMMER and target_conditions.has(Condition.STAGGERED):
+        return (DiceModifier(WARHAMMER_STAGGERED_RULE_ID, 1),)
+    return ()
+
+
+def pc_weapon_damage_modifiers(weapon: PcMeleeWeapon,
+        target_resilience: ResilienceProfile) -> tuple[DamageModifier, ...]:
+    if weapon is PcMeleeWeapon.AXE and target_resilience.is_armoured:
+        return (DamageModifier(AXE_ARMOUR_RULE_ID, 1),)
+    return ()

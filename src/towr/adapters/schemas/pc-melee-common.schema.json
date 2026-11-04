@@ -307,7 +307,11 @@
         "weapon": {
           "enum": [
             "staff",
-            "sword"
+            "sword",
+            "dagger",
+            "axe",
+            "warhammer",
+            "morning_star"
           ]
         },
         "armour_bonus": {

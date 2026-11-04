@@ -1,6 +1,7 @@
 """Pure PC JSON1 source mapping, aggregate encoding and boundary errors."""
 from copy import deepcopy
 from dataclasses import replace
+from enum import Enum
 import json
 import unittest
 from unittest.mock import patch
@@ -23,6 +24,7 @@ from towr.domain.fate_models import (
     FATE_GLORIOUS_RULE_ID, FateBurnKind, FateBurnRecord, FateRefreshRecord,
     FateSessionState, FateSpendKind, FateSpendRecord,
 )
+from towr.domain.pc_melee_models import PcMeleeWeapon
 from towr.simulation.pc_melee_models import PcMeleeOutcomeCounts, PcNearMissBurnCount, PcGloriousSpendCount, PcHelpActionCount, PcAllyRecoverActionCount
 from towr.simulation.pc_melee_summary_models import PcMeleeDefeatCount, PcMeleeSimulationSummary
 
@@ -104,6 +106,71 @@ def melee_help(beneficiary):
 
 
 class PcMeleeJsonTests(unittest.TestCase):
+    def test_six_weapons_roundtrip_and_full_sources_preserve_mixed_party(self):
+        weapons=('staff','sword','dagger','axe','warhammer','morning_star')
+        self.assertEqual(tuple(weapon.value for weapon in PcMeleeWeapon),weapons)
+        for balance in (False,True):
+            with self.subTest(balance=balance):
+                raw=document(balance=balance,party_size=len(weapons),mixed=True)
+                key='template' if balance else 'scenario'
+                for member,weapon in zip(raw[key]['party'],weapons):
+                    member['pc']['weapon']=weapon
+                parse=wire.parse_pc_melee_balance_request if balance else wire.parse_pc_melee_simulation_request
+                command=parse(json.dumps(raw))
+                source=command.request.template if balance else command.request.scenario
+                self.assertEqual(tuple(member.pc.weapon for member in source.party),tuple(PcMeleeWeapon))
+                self.assertEqual(scenario_document(source),raw[key])
+                if balance:
+                    report=balance_result(command)
+                    encoded=json.loads(wire.encode_pc_melee_balance_result(command,report))
+                    for candidate,typed in zip(encoded['candidates'],report.candidates):
+                        self.assertEqual(candidate['request']['scenario'],scenario_document(typed.source_request.scenario))
+                        self.assertEqual([member['pc'] for member in candidate['request']['scenario']['party']],
+                            [member['pc'] for member in raw[key]['party']])
+                else:
+                    encoded=json.loads(wire.encode_pc_melee_simulation_result(command,aggregate(command.request)))
+                self.assertEqual(encoded['request'],raw)
+
+    def test_weapon_input_rejects_unknown_case_aliases_and_nonstrings(self):
+        for balance in (False,True):
+            for weapon in ('unknown_weapon','DAGGER','Morning Star','morning-star','',True,1,None,[],{}):
+                with self.subTest(balance=balance,weapon=weapon):
+                    raw=document(balance=balance)
+                    key='template' if balance else 'scenario'
+                    raw[key]['party'][0]['pc']['weapon']=weapon
+                    parse=wire.parse_pc_melee_balance_request if balance else wire.parse_pc_melee_simulation_request
+                    error=PcMeleeBalanceInputError if balance else PcMeleeSimulationInputError
+                    with self.assertRaises(error) as caught:
+                        parse(json.dumps(raw))
+                    self.assertEqual(caught.exception.code,Code.INVALID_INPUT)
+                    self.assertEqual(caught.exception.request_id,raw['request_id'])
+
+    def test_encoders_readmit_weapon_type_in_cached_command_and_candidate_sources(self):
+        class ForeignWeapon(str,Enum):
+            DAGGER='dagger'
+
+        for balance in (False,True):
+            raw=document(balance=balance)
+            key='template' if balance else 'scenario'
+            raw[key]['party'][0]['pc']['weapon']='dagger'
+            parse=wire.parse_pc_melee_balance_request if balance else wire.parse_pc_melee_simulation_request
+            command=parse(json.dumps(raw))
+            report=balance_result(command) if balance else aggregate(command.request)
+            forged=deepcopy(command)
+            source=forged.request.template if balance else forged.request.scenario
+            object.__setattr__(source.party[0].pc,'weapon',ForeignWeapon.DAGGER)
+            self.assertEqual(forged,command)
+            encode=wire.encode_pc_melee_balance_result if balance else wire.encode_pc_melee_simulation_result
+            with self.subTest(balance=balance),self.assertRaises(TypeError):
+                encode(forged,report)
+            if balance:
+                forged_report=deepcopy(report)
+                object.__setattr__(forged_report.candidates[0].source_request.scenario.party[0].pc,
+                    'weapon',ForeignWeapon.DAGGER)
+                self.assertEqual(forged_report,report)
+                with self.assertRaises(TypeError):
+                    encode(command,forged_report)
+
     def test_ally_recover_config_and_counts_echo_through_simulation_and_candidate_sources(self):
         for balance in (False,True):
             raw=document(balance=balance,party_size=2)
