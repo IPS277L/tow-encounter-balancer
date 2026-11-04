@@ -23,7 +23,7 @@ from towr.domain.fate_models import (
     FATE_GLORIOUS_RULE_ID, FateBurnKind, FateBurnRecord, FateRefreshRecord,
     FateSessionState, FateSpendKind, FateSpendRecord,
 )
-from towr.simulation.pc_melee_models import PcMeleeOutcomeCounts, PcNearMissBurnCount
+from towr.simulation.pc_melee_models import PcMeleeOutcomeCounts, PcNearMissBurnCount, PcGloriousSpendCount
 from towr.simulation.pc_melee_summary_models import PcMeleeDefeatCount, PcMeleeSimulationSummary
 
 
@@ -82,7 +82,8 @@ def aggregate(request, *, unsupported=False):
     counts=PcMeleeOutcomeCounts(0 if unsupported else trials,0,0,trials if unsupported else 0)
     return PcMeleeSimulationSummary(request,counts,0 if unsupported else trials,trials,0,0,
         tuple(PcMeleeDefeatCount(member.actor_id,0) for member in request.scenario.party),0,
-        tuple(PcNearMissBurnCount(member.actor_id,0) for member in request.scenario.party))
+        tuple(PcNearMissBurnCount(member.actor_id,0) for member in request.scenario.party),0,
+        tuple(PcGloriousSpendCount(member.actor_id,0) for member in request.scenario.party))
 
 
 def balance_result(command):
@@ -97,12 +98,81 @@ def balance_result(command):
 
 
 class PcMeleeJsonTests(unittest.TestCase):
+    def test_glorious_policy_combines_with_near_miss_and_echoes_separate_resource_metrics(self):
+        for balance in (False,True):
+            raw=document(balance=balance,party_size=2)
+            source_key='template' if balance else 'scenario'
+            member=raw[source_key]['party'][0]
+            member.update(fate_policy='configured',glorious_policy={
+                'skills':['endurance','melee'],'maximum_initial_successes':1,
+                'minimum_remaining_spends':1},near_miss_policy={
+                'minimum_table_total':14,'minimum_rating_to_keep':1})
+            parse=wire.parse_pc_melee_balance_request if balance else wire.parse_pc_melee_simulation_request
+            command=parse(json.dumps(raw))
+            source=command.request.template if balance else command.request.scenario
+            self.assertEqual(tuple(skill.value for skill in source.party[0].glorious_policy.skills),
+                ('endurance','melee'))
+            if balance:
+                encoded=json.loads(wire.encode_pc_melee_balance_result(command,balance_result(command)))
+                summaries=[candidate['summary'] for candidate in encoded['candidates']]
+            else:
+                summary=replace(aggregate(command.request),glorious_spend_trial_count=2,
+                    glorious_spend_counts=(PcGloriousSpendCount('pc',2),PcGloriousSpendCount('pc2',0)))
+                encoded=json.loads(wire.encode_pc_melee_simulation_result(command,summary))
+                summaries=[encoded['summary']]
+                self.assertEqual(encoded['summary']['total_glorious_spend_count'],2)
+                self.assertEqual(encoded['summary']['glorious_spend_trial_count'],2)
+            self.assertEqual(encoded['request'],raw)
+            for summary in summaries:
+                self.assertEqual(summary['glorious_spend_counts'][1],{'actor_id':'pc2','count':0})
+                self.assertEqual(summary['total_glorious_spend_count'],
+                    sum(item['count'] for item in summary['glorious_spend_counts']))
+                self.assertEqual(summary['total_near_miss_burn_count'],0)
+
+    def test_glorious_config_is_required_and_combines_without_legacy_policy_aliases(self):
+        valid={'skills':['melee'],'maximum_initial_successes':0,'minimum_remaining_spends':0}
+        raw=document()
+        raw['scenario']['party'][0].update(fate_policy='configured',glorious_policy=valid)
+        command=wire.parse_pc_melee_simulation_request(json.dumps(raw))
+        self.assertIsNone(command.request.scenario.party[0].near_miss_policy)
+        for value in (None,True,{},dict(valid,extra=True)):
+            changed=deepcopy(raw)
+            changed['scenario']['party'][0]['glorious_policy']=value
+            with self.subTest(value=value),self.assertRaises(PcMeleeSimulationInputError):
+                wire.parse_pc_melee_simulation_request(json.dumps(changed))
+        for field in valid:
+            changed=deepcopy(raw)
+            del changed['scenario']['party'][0]['glorious_policy'][field]
+            with self.subTest(missing=field),self.assertRaises(PcMeleeSimulationInputError):
+                wire.parse_pc_melee_simulation_request(json.dumps(changed))
+        changed=deepcopy(raw)
+        del changed['scenario']['party'][0]['glorious_policy']
+        with self.assertRaises(PcMeleeSimulationInputError):
+            wire.parse_pc_melee_simulation_request(json.dumps(changed))
+        for policy in ('decline_optional_fate','near_miss_at_threshold'):
+            changed=deepcopy(raw)
+            changed['scenario']['party'][0]['fate_policy']=policy
+            with self.subTest(policy=policy),self.assertRaises(PcMeleeSimulationInputError):
+                wire.parse_pc_melee_simulation_request(json.dumps(changed))
+
+    def test_glorious_criteria_refuse_bad_skills_and_numeric_coercion(self):
+        valid={'skills':['melee'],'maximum_initial_successes':0,'minimum_remaining_spends':0}
+        for field,values in (('skills',([],['melee','melee'],['shooting'],['MELEE'],[True],'melee')),
+                ('maximum_initial_successes',(True,-1,'0',0.0)),
+                ('minimum_remaining_spends',(False,-1,'0',0.0))):
+            for value in values:
+                raw=document()
+                raw['scenario']['party'][0].update(fate_policy='configured',
+                    glorious_policy=dict(valid,**{field:value}))
+                with self.subTest(field=field,value=value),self.assertRaises(PcMeleeSimulationInputError):
+                    wire.parse_pc_melee_simulation_request(json.dumps(raw))
+
     def test_near_miss_strategy_and_resource_metrics_survive_simulation_and_candidate_echo(self):
         for balance in (False,True):
             raw=document(balance=balance,party_size=2)
             source_key='template' if balance else 'scenario'
             first=raw[source_key]['party'][0]
-            first.update(fate_policy='near_miss_at_threshold',near_miss_policy={
+            first.update(fate_policy='configured',near_miss_policy={
                 'minimum_table_total':16,'minimum_rating_to_keep':1})
             parse=wire.parse_pc_melee_balance_request if balance else wire.parse_pc_melee_simulation_request
             command=parse(json.dumps(raw))
@@ -122,7 +192,7 @@ class PcMeleeJsonTests(unittest.TestCase):
             self.assertEqual(encoded['request'],raw)
             for source in sources:
                 self.assertEqual(source['party'][0]['near_miss_policy'],first['near_miss_policy'])
-                self.assertEqual(source['party'][0]['fate_policy'],'near_miss_at_threshold')
+                self.assertEqual(source['party'][0]['fate_policy'],'configured')
                 self.assertIsNone(source['party'][1]['near_miss_policy'])
             for summary in summaries:
                 self.assertEqual(summary['near_miss_burn_counts'][1],{'actor_id':'pc2','count':0})
@@ -133,7 +203,7 @@ class PcMeleeJsonTests(unittest.TestCase):
         for value in (None,{},True,{'minimum_table_total':16},
                 {'minimum_table_total':16,'minimum_rating_to_keep':0,'spend_fate':True}):
             raw=document()
-            raw['scenario']['party'][0].update(fate_policy='near_miss_at_threshold',near_miss_policy=value)
+            raw['scenario']['party'][0].update(fate_policy='configured',near_miss_policy=value)
             with self.subTest(value=value),self.assertRaises(PcMeleeSimulationInputError):
                 wire.parse_pc_melee_simulation_request(json.dumps(raw))
         raw=document()
@@ -152,13 +222,13 @@ class PcMeleeJsonTests(unittest.TestCase):
             for value in values:
                 raw=document()
                 policy={'minimum_table_total':16,'minimum_rating_to_keep':0,field:value}
-                raw['scenario']['party'][0].update(fate_policy='near_miss_at_threshold',near_miss_policy=policy)
+                raw['scenario']['party'][0].update(fate_policy='configured',near_miss_policy=policy)
                 with self.subTest(field=field,value=value),self.assertRaises(PcMeleeSimulationInputError):
                     wire.parse_pc_melee_simulation_request(json.dumps(raw))
 
     def test_near_miss_unreachable_threshold_and_large_reserve_are_explicit_valid_strategies(self):
         raw=document()
-        raw['scenario']['party'][0].update(fate_policy='near_miss_at_threshold',near_miss_policy={
+        raw['scenario']['party'][0].update(fate_policy='configured',near_miss_policy={
             'minimum_table_total':100,'minimum_rating_to_keep':100})
         command=wire.parse_pc_melee_simulation_request(json.dumps(raw))
         encoded=json.loads(wire.encode_pc_melee_simulation_result(command,aggregate(command.request)))
@@ -345,7 +415,8 @@ class PcMeleeJsonTests(unittest.TestCase):
         command=wire.parse_pc_melee_simulation_request(json.dumps(document(party_size=2)))
         summary=PcMeleeSimulationSummary(command.request,PcMeleeOutcomeCounts(3,1,0,0),4,4,0,
             2,(PcMeleeDefeatCount('pc',1),PcMeleeDefeatCount('pc2',2)),0,
-            (PcNearMissBurnCount('pc',0),PcNearMissBurnCount('pc2',0)))
+            (PcNearMissBurnCount('pc',0),PcNearMissBurnCount('pc2',0)),0,
+            (PcGloriousSpendCount('pc',0),PcGloriousSpendCount('pc2',0)))
         value=json.loads(wire.encode_pc_melee_simulation_result(command,summary))
         self.assertEqual(value['summary']['outcome_counts']['party_defeated'],1)
         self.assertEqual(value['summary']['any_pc_defeated_count'],2)

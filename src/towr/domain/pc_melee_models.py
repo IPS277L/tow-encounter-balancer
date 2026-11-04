@@ -30,7 +30,7 @@ class PcMeleePolicy(str, Enum):
 
 class PcFatePolicy(str, Enum):
     DECLINE_OPTIONAL_FATE = "decline_optional_fate"
-    NEAR_MISS_AT_THRESHOLD = "near_miss_at_threshold"
+    CONFIGURED = "configured"
 
 
 @dataclass(frozen=True, slots=True)
@@ -41,6 +41,25 @@ class PcNearMissPolicy:
     def __post_init__(self) -> None:
         _integer(self.minimum_table_total, "Near Miss table threshold", minimum=1)
         _integer(self.minimum_rating_to_keep, "Near Miss Fate reserve", minimum=0)
+
+
+@dataclass(frozen=True, slots=True)
+class PcGloriousPolicy:
+    skills: tuple[Skill, ...]
+    maximum_initial_successes: int
+    minimum_remaining_spends: int
+
+    def __post_init__(self) -> None:
+        skills = _ordered(self.skills, "Glorious skills")
+        if not skills or len(set(skills)) != len(skills):
+            raise ValueError("Glorious skills must be nonempty and unique")
+        for skill in skills:
+            _typed(skill, Skill, "Glorious skill")
+            if skill not in (Skill.MELEE, Skill.DEFENCE, Skill.ATHLETICS, Skill.ENDURANCE):
+                raise ValueError("Glorious skill is outside the PC melee boundary")
+        _integer(self.maximum_initial_successes, "Glorious success threshold", minimum=0)
+        _integer(self.minimum_remaining_spends, "Glorious session reserve", minimum=0)
+        object.__setattr__(self,"skills",skills)
 
 
 class PcRandomSidePolicy(str, Enum):
@@ -144,6 +163,7 @@ class PcMeleeParticipant:
     target_priority: tuple[str, ...]
     defeat_decisions: tuple[MinionDefeatDecision, ...]
     near_miss_policy: PcNearMissPolicy | None
+    glorious_policy: PcGloriousPolicy | None
 
     def __post_init__(self) -> None:
         _identifier(self.actor_id, "PC actor")
@@ -153,11 +173,15 @@ class PcMeleeParticipant:
         for name, cls in (("policy", PcMeleePolicy), ("fate_policy", PcFatePolicy),
                           ("random_side_policy", PcRandomSidePolicy), ("heavy_wound_policy", PcHeavyWoundPolicy), ("initial_weapon_hand", PcWeaponHand)):
             _typed(getattr(self, name), cls, name)
-        if self.fate_policy is PcFatePolicy.NEAR_MISS_AT_THRESHOLD:
-            _typed(self.near_miss_policy, PcNearMissPolicy, "Near Miss strategy")
-            replace(self.near_miss_policy)
-        elif self.near_miss_policy is not None:
-            raise ValueError("the decline strategy cannot carry Near Miss criteria")
+        for value, cls in ((self.near_miss_policy,PcNearMissPolicy),(self.glorious_policy,PcGloriousPolicy)):
+            if value is not None:
+                _typed(value,cls,"Fate strategy")
+                replace(value)
+        if self.glorious_policy is not None:
+            _canonical_tuple(self.glorious_policy.skills,"Glorious skills")
+        configured = self.near_miss_policy is not None or self.glorious_policy is not None
+        if configured != (self.fate_policy is PcFatePolicy.CONFIGURED):
+            raise ValueError("configured Fate needs explicit criteria; decline requires null policies")
         targets = _ordered(self.target_priority, "PC target priority")
         for target in targets:
             _identifier(target, "PC target")

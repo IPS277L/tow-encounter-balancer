@@ -3,7 +3,7 @@ from dataclasses import dataclass, replace
 
 from towr.simulation.pc_melee_models import (
     PcMeleeOutcomeCounts, PcMeleeSimulationRequest, PcNearMissBurnCount,
-    validate_near_miss_counts,
+    validate_near_miss_counts, PcGloriousSpendCount, validate_glorious_counts,
 )
 
 
@@ -34,6 +34,8 @@ class PcMeleeSimulationSummary:
     pc_defeat_counts: tuple[PcMeleeDefeatCount, ...]
     near_miss_burn_trial_count: int
     near_miss_burn_counts: tuple[PcNearMissBurnCount, ...]
+    glorious_spend_trial_count: int
+    glorious_spend_counts: tuple[PcGloriousSpendCount, ...]
 
     def __post_init__(self) -> None:
         if not isinstance(self.source_request, PcMeleeSimulationRequest):
@@ -89,6 +91,14 @@ class PcMeleeSimulationSummary:
         validate_near_miss_counts(self.near_miss_burn_counts, self.source_request.scenario,
             trials=self.trials, burn_trials=self.near_miss_burn_trial_count,
             actions=self.total_action_count)
+        if type(self.glorious_spend_trial_count) is not int:
+            raise TypeError('Glorious trial count must be an integer')
+        validate_glorious_counts(self.glorious_spend_counts,self.source_request.scenario,
+            trials=self.trials,spend_trials=self.glorious_spend_trial_count)
+
+    @property
+    def total_glorious_spend_count(self) -> int:
+        return sum(item.count for item in self.glorious_spend_counts)
 
     @property
     def total_near_miss_burn_count(self) -> int:

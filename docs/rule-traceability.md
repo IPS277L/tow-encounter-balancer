@@ -1,5 +1,9 @@
 # Трассировка правил
 
+## M14: PC Glorious Test
+
+RULE-FATE-001/002:glorious-test и Grim/Glorious Test modifiers — BOOK-PLAYER-GUIDE1.4, гл.V Rules / Tests108 и Spending Fate111. [ADR-0070](decisions/ADR-0070-pc-glorious-test-policy.md) связывает существующие K1 initial-roll/spend/completion с [PC выбором/проверкой](../src/towr/domain/pc_fate_test_models.py), [runner](../src/towr/engine/pc_melee_runner.py), [owner](../src/towr/domain/pc_melee_result_models.py) и [Critical end phase](../src/towr/domain/pc_heavy_turn_projection.py). [Native tests](../tests/unit/test_m14_pc_glorious.py) проверяют все PC Test windows, ресурсы, тайминг и provenance; [statistics](../tests/unit/test_m14_pc_glorious_statistics.py) и [integration](../tests/integration/test_m14_pc_glorious.py) — отдельные costs/trials/process/search. [Attack completion tests](../tests/unit/test_k1_attack_completion.py) сохраняют арифметику общего resolver без нового RNG. [Текущие CLI примеры](examples/m14/README.md). Новых нормативных Rule IDs/house rules нет.
+
 ## M13: активная PC Near Miss policy
 
 RULE-FATE-001 и RULE-FATE-003:burn/near-miss — BOOK-PLAYER-GUIDE1.4, гл.V Rules / Burning Fate111, Near Miss112. [ADR-0069](decisions/ADR-0069-pc-near-miss-policy.md) связывает существующий K1 lifecycle с явной threshold/reserve policy в [PC models](../src/towr/domain/pc_melee_models.py), [owner/builder](../src/towr/domain/pc_melee_result_models.py), [projection](../src/towr/domain/_pc_melee_projection.py) и [runner](../src/towr/engine/pc_melee_runner.py). Native правила/guards проверяют [unit](../tests/unit/test_m13_pc_near_miss.py), compact counts — [statistics](../tests/unit/test_m13_pc_near_miss_statistics.py), trial/process/balance — [integration](../tests/integration/test_m13_pc_near_miss.py); текущие JSON/schema tests и [CLI примеры](examples/m13/README.md) закрывают публичный путь. Новых Rule IDs/house rules нет.

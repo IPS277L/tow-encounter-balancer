@@ -825,6 +825,21 @@
           "items": {
             "$ref": "urn:towr:pc-melee:common:1#/$defs/near_miss_burn_count"
           }
+        },
+        "glorious_spend_trial_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "total_glorious_spend_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "glorious_spend_counts": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "urn:towr:pc-melee:common:1#/$defs/glorious_spend_count"
+          }
         }
       },
       "required": [
@@ -837,7 +852,10 @@
         "pc_defeat_counts",
         "near_miss_burn_trial_count",
         "near_miss_burn_counts",
-        "total_near_miss_burn_count"
+        "total_near_miss_burn_count",
+        "glorious_spend_trial_count",
+        "glorious_spend_counts",
+        "total_glorious_spend_count"
       ],
       "additionalProperties": false
     },
@@ -952,7 +970,7 @@
         "fate_policy": {
           "enum": [
             "decline_optional_fate",
-            "near_miss_at_threshold"
+            "configured"
           ]
         },
         "random_side_policy": {
@@ -991,6 +1009,16 @@
               "$ref": "urn:towr:pc-melee:common:1#/$defs/near_miss_policy"
             }
           ]
+        },
+        "glorious_policy": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "urn:towr:pc-melee:common:1#/$defs/glorious_policy"
+            }
+          ]
         }
       },
       "required": [
@@ -1004,7 +1032,8 @@
         "initial_weapon_hand",
         "target_priority",
         "defeat_decisions",
-        "near_miss_policy"
+        "near_miss_policy",
+        "glorious_policy"
       ],
       "additionalProperties": false,
       "oneOf": [
@@ -1015,18 +1044,34 @@
             },
             "near_miss_policy": {
               "type": "null"
+            },
+            "glorious_policy": {
+              "type": "null"
             }
           }
         },
         {
           "properties": {
             "fate_policy": {
-              "const": "near_miss_at_threshold"
-            },
-            "near_miss_policy": {
-              "$ref": "urn:towr:pc-melee:common:1#/$defs/near_miss_policy"
+              "const": "configured"
             }
-          }
+          },
+          "anyOf": [
+            {
+              "properties": {
+                "near_miss_policy": {
+                  "type": "object"
+                }
+              }
+            },
+            {
+              "properties": {
+                "glorious_policy": {
+                  "type": "object"
+                }
+              }
+            }
+          ]
         }
       ]
     },
@@ -1066,6 +1111,55 @@
       "additionalProperties": false
     },
     "near_miss_burn_count": {
+      "type": "object",
+      "properties": {
+        "actor_id": {
+          "$ref": "urn:towr:pc-melee:common:1#/$defs/identifier"
+        },
+        "count": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "actor_id",
+        "count"
+      ],
+      "additionalProperties": false
+    },
+    "glorious_policy": {
+      "type": "object",
+      "properties": {
+        "skills": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "melee",
+              "defence",
+              "athletics",
+              "endurance"
+            ]
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "maximum_initial_successes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "minimum_remaining_spends": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "skills",
+        "maximum_initial_successes",
+        "minimum_remaining_spends"
+      ],
+      "additionalProperties": false
+    },
+    "glorious_spend_count": {
       "type": "object",
       "properties": {
         "actor_id": {

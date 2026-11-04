@@ -161,7 +161,7 @@
           "rule_id": "RULE-FATE-001:session-resource"
         },
         "policy": "attack_or_recover_self",
-        "fate_policy": "near_miss_at_threshold",
+        "fate_policy": "configured",
         "initial_weapon_hand": "left",
         "target_priority": [
           "brute1",
@@ -193,7 +193,8 @@
         "near_miss_policy": {
           "minimum_table_total": 14,
           "minimum_rating_to_keep": 1
-        }
+        },
+        "glorious_policy": null
       },
       {
         "actor_id": "pc:companion",
@@ -223,7 +224,7 @@
           "rule_id": "RULE-FATE-001:session-resource"
         },
         "policy": "attack_or_recover_self",
-        "fate_policy": "near_miss_at_threshold",
+        "fate_policy": "configured",
         "initial_weapon_hand": "right",
         "target_priority": [
           "brute1",
@@ -255,7 +256,8 @@
         "near_miss_policy": {
           "minimum_table_total": 14,
           "minimum_rating_to_keep": 1
-        }
+        },
+        "glorious_policy": null
       }
     ],
     "pc_activation_order": [

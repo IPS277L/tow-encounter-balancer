@@ -8,7 +8,7 @@ from towr.domain.pc_melee_result_models import PcMeleeScenarioResult
 from towr.engine.pc_melee_runner import run_pc_melee_scenario
 from towr.rules.dice import RandomSource
 from towr.simulation.pc_melee_models import (
-    PcMeleeSimulationRequest, PcMeleeSimulationResult, PcMeleeTrialRecord, PcNearMissBurnCount,
+    PcMeleeSimulationRequest, PcMeleeSimulationResult, PcMeleeTrialRecord, PcNearMissBurnCount, PcGloriousSpendCount,
 )
 
 
@@ -33,6 +33,9 @@ def run_pc_melee_trial(request: PcMeleeSimulationRequest, trial_index: int, *,
         result.executed_actions, result.started_rounds, result.completed_rounds, result.defeated_pc_ids,
         tuple(PcNearMissBurnCount(member.actor_id,
             len(result.state.participant(member.actor_id).fate.burns)-len(member.fate.burns))
+            for member in request.scenario.party),
+        tuple(PcGloriousSpendCount(member.actor_id,
+            len(result.state.participant(member.actor_id).fate.spends)-len(member.fate.spends))
             for member in request.scenario.party))
 
 

@@ -16,6 +16,7 @@ from towr.domain.pc_melee_result_models import (
 )
 from towr.domain.condition_models import StaggerChoice, Condition
 from towr.domain.pc_heavy_wound_models import preferred_weapon_hand
+from towr.domain.pc_fate_test_models import build_pc_glorious_spend
 from towr.domain._pc_heavy_wound_projection import consequence_sides, clutch_candidates
 from towr.domain.critical_injury_models import CriticalInjuryTestRequest
 from towr.rules.critical_injury_resolution import resolve_critical_injury_test
@@ -27,12 +28,13 @@ from towr.domain.turn_models import (
     CombatRoundAdvanceRequest, CombatTurnEndRequest, CombatTurnEndResult, CombatTurnParticipant, CombatTurnStartRequest, CombatSide,
 )
 from towr.rules.attack_action_execution import _complete_attack_action, _validate_attack_action_slot
-from towr.rules.attack_resolution import resolve_attack
+from towr.rules.attack_resolution import _resolve_attack_after_tests
 from towr.rules.dice import RandomSource
 from towr.rules.kernel import _resolve_kernel_attack_after_test
 from towr.rules.protection_preparation import prepare_protection
 from towr.rules.recover_resolution import execute_recover_action
-from towr.rules.test_resolution import KeepAllFailures, resolve_test
+from towr.rules.test_resolution import KeepAllFailures, RerollAllFailures, resolve_test, roll_test_initial, complete_test
+from towr.rules.fate_resolution import spend_fate_for_glorious
 from towr.rules.turn_resolution import start_combat_turn, reserve_combat_action_slot, end_combat_turn, advance_combat_round
 from towr.rules.wound_effect_resolution import resolve_wound_endurance_test, resolve_wound_choice
 from towr.rules.wound_lifecycle_resolution import complete_character_wound_lifecycle
@@ -55,6 +57,15 @@ class _Decisions(KeepAllFailures):
 
 def _decline(state, actor_id, source_id, window):
     return PcFateDecline(actor_id,source_id,window,state.source.participant(actor_id).fate_policy)
+
+
+def _resolve_pc_test(state, actor_id, skill, request, rng, decisions):
+    initial = roll_test_initial(request,rng)
+    selected = build_pc_glorious_spend(state,actor_id,skill,initial)
+    if selected is None:
+        return complete_test(initial,rng,decisions=decisions),_decline(state,actor_id,request.id,'test'),None,request
+    spend = spend_fate_for_glorious(selected)
+    return complete_test(initial,rng,request=spend.test,decisions=RerollAllFailures()),None,spend,spend.test
 
 
 def apply_pc_melee_step(current: PcMeleeState, step: PcMeleeStep) -> PcMeleeState:
@@ -99,10 +110,9 @@ def run_pc_melee_scenario(scenario, rng: RandomSource) -> PcMeleeScenarioResult:
         critical = None
         if is_pc and state.participant(actor).injury.conditions.has(Condition.CRITICALLY_INJURED):
             test_request = _pc_test(state,actor,action_id+':critical:endurance',Skill.ENDURANCE)
-            decline = _decline(state,actor,test_request.id,'test')
-            test = resolve_test(test_request,rng,decisions=decisions)
+            test,decline,glorious,_ = _resolve_pc_test(state,actor,Skill.ENDURANCE,test_request,rng,decisions)
             request = CriticalInjuryTestRequest(action_id+':critical',actor,pc_after_test(state,actor),test_request.id)
-            critical = PcCriticalProof(test_request,resolve_critical_injury_test(request,test),decline)
+            critical = PcCriticalProof(test_request,resolve_critical_injury_test(request,test),decline,glorious)
         if not combat.active_turn.action_slots:
             clock = replace(combat,active_turn=None,
                 completed_turn_entity_ids=(*combat.completed_turn_entity_ids,actor))
@@ -133,10 +143,9 @@ def run_pc_melee_scenario(scenario, rng: RandomSource) -> PcMeleeScenarioResult:
             pc_actor = state.pending_actor_id
             if isinstance(pending,WoundEnduranceTestRequest):
                 test_request = _pc_test(state,pc_actor,pending.test_id,Skill.ENDURANCE)
-                decline = _decline(state,pc_actor,test_request.id,'test')
-                test = resolve_test(test_request,rng,decisions=decisions)
+                test,decline,glorious,_ = _resolve_pc_test(state,pc_actor,Skill.ENDURANCE,test_request,rng,decisions)
                 result = resolve_wound_endurance_test(pending,pc_after_test(state,pc_actor),test)
-                consume(PcEnduranceProof(pending,test_request,test,result,decline))
+                consume(PcEnduranceProof(pending,test_request,test,result,decline,glorious))
             elif isinstance(pending,WoundChoiceRequest):
                 choice = WoundChoice.DROP_AND_CLUTCH_STOMACH if clutch_candidates(state.participant(pc_actor)) else WoundChoice.BECOME_DEFENCELESS
                 consume(PcWoundChoiceProof(resolve_wound_choice(pending,state.participant(pc_actor).injury,choice)))
@@ -215,12 +224,27 @@ def run_pc_melee_scenario(scenario, rng: RandomSource) -> PcMeleeScenarioResult:
                 pc_actor = actor if actor in scenario.pc_activation_order else request.target_id
                 pc_test = (request.kernel_request.attack.attacker_test if actor == pc_actor
                     else request.kernel_request.attack.defender_test)
-                decline = _decline(state,pc_actor,pc_test.id,'test') if pc_test is not None else None
-                # Test first, then consume the PC's next-Test restriction before
-                # the kernel can produce a new Wound or mandatory Endurance.
-                attack = resolve_attack(request.kernel_request.attack,rng,decisions=decisions)
-                resolution = _resolve_kernel_attack_after_test(request.kernel_request,attack,rng,decisions=decisions)
-                execution = _complete_attack_action(request,resolution)
-                consume(PcAttackProof(request,protection,execution,decline))
+                decline,glorious = None,None
+                attack_request = request.kernel_request.attack
+                if actor == pc_actor:
+                    attacker,decline,glorious,effective = _resolve_pc_test(state,pc_actor,Skill.MELEE,
+                        pc_test,rng,decisions)
+                    defender = resolve_test(attack_request.defender_test,rng,decisions=decisions)
+                    attack_request = replace(attack_request,attacker_test=effective)
+                else:
+                    attacker = resolve_test(attack_request.attacker_test,rng,decisions=decisions)
+                    if pc_test is None:
+                        defender = None
+                    else:
+                        skill = protection.source_request.selected_skill
+                        defender,decline,glorious,effective = _resolve_pc_test(state,pc_actor,skill,
+                            pc_test,rng,decisions)
+                        attack_request = replace(attack_request,defender_test=effective)
+                # Initial pools are rolled once, and PC Fate precedes its rerolls.
+                attack = _resolve_attack_after_tests(attack_request,attacker,defender)
+                effective_kernel = replace(request.kernel_request,attack=attack_request)
+                resolution = _resolve_kernel_attack_after_test(effective_kernel,attack,rng,decisions=decisions)
+                execution = _complete_attack_action(replace(request,kernel_request=effective_kernel),resolution)
+                consume(PcAttackProof(request,protection,execution,decline,glorious))
             continue
         finish_turn()

@@ -11,7 +11,7 @@ def active_near_miss_source(*, minimum_table_total=1, minimum_rating_to_keep=1):
     source = make_pc_melee_mixed_scenario(pc_count=2, minion_count=1,
         brute_count=1, brute_wound_limit=2, max_rounds=3)
     party = tuple(replace(member,
-        fate_policy=PcFatePolicy.NEAR_MISS_AT_THRESHOLD,
+        fate_policy=PcFatePolicy.CONFIGURED,
         near_miss_policy=PcNearMissPolicy(minimum_table_total,minimum_rating_to_keep))
         for member in source.party)
     enemies = []

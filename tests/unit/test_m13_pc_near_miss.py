@@ -27,7 +27,7 @@ from towr.rules.wound_lifecycle_resolution import complete_character_wound_lifec
 
 def active(source, threshold=1, reserve=0):
     return replace(source,party=tuple(replace(member,
-        fate_policy=PcFatePolicy.NEAR_MISS_AT_THRESHOLD,
+        fate_policy=PcFatePolicy.CONFIGURED,
         near_miss_policy=PcNearMissPolicy(threshold,reserve)) for member in source.party))
 
 
@@ -59,8 +59,8 @@ class PcNearMissTests(unittest.TestCase):
                 PcNearMissPolicy(threshold,reserve)
         with self.assertRaises(ValueError):
             replace(member,near_miss_policy=PcNearMissPolicy(1,0))
-        with self.assertRaises(TypeError):
-            replace(member,fate_policy=PcFatePolicy.NEAR_MISS_AT_THRESHOLD)
+        with self.assertRaises((TypeError,ValueError)):
+            replace(member,fate_policy=PcFatePolicy.CONFIGURED)
 
     def test_inclusive_threshold_negates_wound_and_preserves_staggered_without_follow_up_rng(self):
         source = active(make_pc_melee_scenario(max_rounds=1),8)
@@ -85,7 +85,7 @@ class PcNearMissTests(unittest.TestCase):
         member = result.state.party[0]
         self.assertEqual(member.fate,source.party[0].fate)
         self.assertEqual(member.injury.wounds[0].table_total,8)
-        self.assertIs(completions(result)[0].proof.fate_decline.policy,PcFatePolicy.NEAR_MISS_AT_THRESHOLD)
+        self.assertIs(completions(result)[0].proof.fate_decline.policy,PcFatePolicy.CONFIGURED)
 
     def test_reserve_and_zero_rating_accept_wound(self):
         for rating,reserve in ((3,3),(3,4),(0,0)):
@@ -187,7 +187,7 @@ class PcNearMissTests(unittest.TestCase):
         request = build_pc_wound_completion(step.source)
         declined = replace(request,near_miss=None,daily_registration_id=request.id+':forged-daily')
         forged = PcWoundCompletionProof(complete_character_wound_lifecycle(declined),
-            PcFateDecline('pc',request.roll.request_id,'wound',PcFatePolicy.NEAR_MISS_AT_THRESHOLD))
+            PcFateDecline('pc',request.roll.request_id,'wound',PcFatePolicy.CONFIGURED))
         with self.assertRaises(ValueError):
             PcMeleeStep(step.source,forged)
         with self.assertRaises(ValueError):

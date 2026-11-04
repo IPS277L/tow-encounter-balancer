@@ -35,10 +35,37 @@ def samples():
 
 
 class PcMeleeJsonSchemaTests(unittest.TestCase):
+    def test_glorious_strategy_is_explicit_composable_closed_and_strictly_typed(self):
+        raw=document()
+        member=raw['scenario']['party'][0]
+        member.update(fate_policy='configured',glorious_policy={
+            'skills':['melee','defence','athletics','endurance'],
+            'maximum_initial_successes':1,'minimum_remaining_spends':0})
+        schema.validate_pc_melee_simulation_document(raw)
+        for field,value in (('skills',[]),('skills',['melee','melee']),('skills',['brawn']),
+                ('maximum_initial_successes',True),('minimum_remaining_spends',False),
+                ('maximum_initial_successes',-1),('minimum_remaining_spends',-1)):
+            changed=deepcopy(raw)
+            changed['scenario']['party'][0]['glorious_policy'][field]=value
+            with self.subTest(field=field,value=value),self.assertRaises(ValidationError):
+                schema.validate_pc_melee_simulation_document(changed)
+        for field in ('skills','maximum_initial_successes','minimum_remaining_spends'):
+            changed=deepcopy(raw)
+            del changed['scenario']['party'][0]['glorious_policy'][field]
+            with self.subTest(missing=field),self.assertRaises(ValidationError):
+                schema.validate_pc_melee_simulation_document(changed)
+        member['near_miss_policy']={'minimum_table_total':14,'minimum_rating_to_keep':1}
+        schema.validate_pc_melee_simulation_document(raw)
+        for field in ('glorious_policy','near_miss_policy'):
+            changed=deepcopy(raw)
+            del changed['scenario']['party'][0][field]
+            with self.subTest(missing=field),self.assertRaises(ValidationError):
+                schema.validate_pc_melee_simulation_document(changed)
+
     def test_near_miss_strategy_is_closed_required_and_correlated_with_fate_policy(self):
         raw=document(party_size=2)
         member=raw['scenario']['party'][1]
-        member.update(fate_policy='near_miss_at_threshold',near_miss_policy={
+        member.update(fate_policy='configured',near_miss_policy={
             'minimum_table_total':16,'minimum_rating_to_keep':0})
         schema.validate_pc_melee_simulation_document(raw)
         for field in ('minimum_table_total','minimum_rating_to_keep'):
@@ -47,7 +74,7 @@ class PcMeleeJsonSchemaTests(unittest.TestCase):
             with self.subTest(missing=field),self.assertRaises(ValidationError):
                 schema.validate_pc_melee_simulation_document(changed)
         for policy,criteria in (('decline_optional_fate',member['near_miss_policy']),
-                ('near_miss_at_threshold',None),('invented',None)):
+                ('configured',None),('invented',None)):
             changed=deepcopy(raw)
             changed['scenario']['party'][1].update(fate_policy=policy,near_miss_policy=criteria)
             with self.subTest(policy=policy,criteria=criteria),self.assertRaises(ValidationError):
@@ -147,6 +174,7 @@ class PcMeleeJsonSchemaTests(unittest.TestCase):
         balance=samples()[3][2]
         for path in (('candidates',0,'summary'),('candidates',0,'summary','pc_defeat_counts',0),
                      ('candidates',0,'summary','near_miss_burn_counts',0),
+                     ('candidates',0,'summary','glorious_spend_counts',0),
                      ('candidates',0,'assessment'),('request','evaluation')):
             changed=deepcopy(balance)
             target=changed
@@ -170,7 +198,8 @@ class PcMeleeJsonSchemaTests(unittest.TestCase):
         command=wire.parse_pc_melee_simulation_request(json.dumps(raw))
         result=json.loads(wire.encode_pc_melee_simulation_result(command,aggregate(command.request)))
         for field in ('any_pc_defeated_count','pc_defeat_counts','near_miss_burn_trial_count',
-                      'near_miss_burn_counts','total_near_miss_burn_count'):
+                      'near_miss_burn_counts','total_near_miss_burn_count',
+                      'glorious_spend_trial_count','glorious_spend_counts','total_glorious_spend_count'):
             changed=deepcopy(result)
             del changed['summary'][field]
             with self.subTest(field=field),self.assertRaises(ValidationError):

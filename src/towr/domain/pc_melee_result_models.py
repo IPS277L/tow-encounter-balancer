@@ -8,7 +8,7 @@ from towr.domain.action_execution_models import AttackActionExecutionRequest, At
 from towr.domain.attack_models import AttackRequest, AttackOutcome, DamageImpactSpec, DamageProfile, ImpactOutcome, MissConsequence
 from towr.domain.condition_models import Condition, ConditionState
 from towr.domain.crushed_rib_test_models import CRUSHED_RIB_TEST_RULE_ID
-from towr.domain.fate_models import FateSessionState, FateNearMissBurnRequest, FATE_NEAR_MISS_RULE_ID
+from towr.domain.fate_models import FateSessionState, FateNearMissBurnRequest, FateGloriousSpendResult, FATE_NEAR_MISS_RULE_ID
 from towr.domain.infection_models import DailyWoundState
 from towr.domain.injury_models import (
     CharacterInjuryState, CharacterWoundType, ProfileInjuryState, ProfileNpcType,
@@ -178,6 +178,13 @@ class PcMeleeState:
             replace(member)
             expected_fate = source.fate
             for proof in self.history:
+                glorious = (proof.glorious if isinstance(proof,(PcAttackProof,PcEnduranceProof)) else
+                    proof.critical.glorious if isinstance(proof,(PcTurnEndProof,PcIncapacitatedTurnEndProof))
+                    and proof.critical is not None else None)
+                if glorious is not None and glorious.previous_state.actor_id == member.actor_id:
+                    if glorious.previous_state != expected_fate:
+                        raise ValueError('PC Fate spends must extend the actual resource history')
+                    expected_fate = glorious.state
                 if isinstance(proof, PcWoundCompletionProof) and proof.completion.fate_burn is not None:
                     burn = proof.completion.fate_burn
                     if burn.previous_state.actor_id == member.actor_id:
@@ -243,6 +250,7 @@ class PcAttackProof:
     protection: ProtectionPreparationResult
     execution: AttackActionExecutionResult
     fate_decline: PcFateDecline | None
+    glorious: FateGloriousSpendResult | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -257,7 +265,8 @@ class PcEnduranceProof:
     test_request: TestRequest
     test: TestResult
     result: WoundEnduranceTestResult
-    fate_decline: PcFateDecline
+    fate_decline: PcFateDecline | None
+    glorious: FateGloriousSpendResult | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -290,7 +299,8 @@ class PcHandSwapProof:
 class PcCriticalProof:
     test_request: TestRequest
     result: CriticalInjuryTestResult
-    fate_decline: PcFateDecline
+    fate_decline: PcFateDecline | None
+    glorious: FateGloriousSpendResult | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -568,7 +578,7 @@ def build_pc_wound_completion(state: PcMeleeState) -> CharacterWoundLifecycleCom
     effects = completions[-1].consumed_near_miss_effect_ids if completions else ()
     near_miss = None
     strategy = participant.near_miss_policy
-    if (participant.fate_policy is PcFatePolicy.NEAR_MISS_AT_THRESHOLD
+    if (participant.fate_policy is PcFatePolicy.CONFIGURED and strategy is not None
             and pending.near_miss_eligible
             and pending.wound_result.table_roll.total >= strategy.minimum_table_total
             and member.fate.rating > strategy.minimum_rating_to_keep):
@@ -612,18 +622,23 @@ def _test_result(request: TestRequest, actual: TestResult):
             raise TypeError('PC Test trace counters must be exact integers')
     if type(trace.minimum_die_rule_applied) is not bool or not isinstance(trace.quality,TestQuality):
         raise TypeError('PC Test trace requires a bool minimum flag and typed quality')
-    if not isinstance(trace.rerolls,tuple) or not isinstance(trace.applied_rule_ids,tuple):
+    if type(trace.rerolls) is not tuple or type(trace.applied_rule_ids) is not tuple:
         raise TypeError('PC Test trace collections must be canonical tuples')
     if any(type(v) is not str or not v for v in trace.applied_rule_ids):
         raise TypeError('PC Test rule IDs must be strings')
-    if any(not isinstance(r,RerollTrace) for r in trace.rerolls):
+    if any(type(r) is not RerollTrace for r in trace.rerolls):
         raise TypeError('PC reroll traces must be typed')
     parameters = _expected_initial_roll_parameters(request)
     for values in (trace.initial_values,trace.final_values):
-        if not isinstance(values,tuple) or len(values) != parameters[5] or any(type(v) is not int or not 1 <= v <= 10 for v in values):
+        if type(values) is not tuple:
+            raise TypeError('PC Test dice require canonical tuples')
+        if len(values) != parameters[5] or any(type(v) is not int or not 1 <= v <= 10 for v in values):
             raise ValueError('PC Test has malformed d10 values')
-    quality = TestQuality.GRIM if request.quality_modifiers else TestQuality.NORMAL
-    indices = tuple(i for i,v in enumerate(trace.initial_values) if v <= parameters[6]) if quality is TestQuality.GRIM else ()
+    grim = any(m.quality is TestQuality.GRIM for m in request.quality_modifiers)
+    glorious = any(m.quality is TestQuality.GLORIOUS for m in request.quality_modifiers)
+    quality = TestQuality.NORMAL if grim == glorious else TestQuality.GRIM if grim else TestQuality.GLORIOUS
+    indices = tuple(i for i,v in enumerate(trace.initial_values) if
+        (v <= parameters[6] if quality is TestQuality.GRIM else v > parameters[6])) if quality is not TestQuality.NORMAL else ()
     if tuple(r.index for r in trace.rerolls) != indices:
         raise ValueError('PC Test has a missing or extra Grim reroll')
     final = list(trace.initial_values)

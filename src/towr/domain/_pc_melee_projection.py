@@ -21,6 +21,7 @@ from towr.domain.condition_models import Condition, ConditionState, StaggerChoic
 from towr.domain.fate_models import _expected_fate_burn, FATE_SESSION_RULE_ID, FATE_BURN_RULE_ID
 from towr.domain.fate_near_miss_models import FateNearMissApplicationRequest, _near_miss_applied_rule_ids
 from towr.domain.pc_melee_models import PcWeaponHand
+from towr.domain.pc_fate_test_models import validate_pc_test_fate
 from towr.domain.minion_defeat_models import MinionDefeatDecision
 from towr.domain.resolution_models import AttackerStaggerRequest, condition_forces_wound
 from towr.domain.pc_heavy_wound_models import (PcBodyFact, PcBodyFactKind, usable_hands, usable_weapon_hand, preferred_weapon_hand, has_ongoing_condition, critical_for_action, critical_for_hand, critical_for_incidental_hand_use)
@@ -235,18 +236,27 @@ def project_pc_step(state, proof):
             (expected.id,combat,expected.actor_id,expected.target_id,1),'PC Attack receipt is detached')
         result = execution.resolution
         _same(execution.applied_rule_ids,('RULE-COMBAT-004:attack-action-execution',),'Attack action rule trace changed')
-        _canonical_attack(expected.kernel_request.attack,result.attack)
-        _ordinary_resolution(expected.kernel_request,result)
-        if result.request_id != expected.kernel_request.id:
-            raise ValueError('PC Attack kernel result changed its source ID')
         pc_test = (expected.kernel_request.attack.attacker_test if expected.actor_id == pc_actor
             else expected.kernel_request.attack.defender_test)
         if pc_test is None:
-            if proof.fate_decline is not None:
+            if proof.fate_decline is not None or proof.glorious is not None:
                 raise ValueError('Defenceless Protection cannot invent a Test/Fate window')
+            pc_fate = member.fate
+            effective_attack = expected.kernel_request.attack
+        else:
+            actual_test = result.attack.attacker_test if expected.actor_id == pc_actor else result.attack.defender_test
+            skill = Skill.MELEE if expected.actor_id == pc_actor else proof.protection.source_request.selected_skill
+            effective_test,pc_fate = validate_pc_test_fate(state,pc_actor,skill,
+                pc_test,actual_test,proof.fate_decline,proof.glorious)
+            effective_attack = replace(expected.kernel_request.attack,
+                **({'attacker_test':effective_test} if expected.actor_id == pc_actor else {'defender_test':effective_test}))
+        _canonical_attack(effective_attack,result.attack)
+        _ordinary_resolution(expected.kernel_request,result)
+        if result.request_id != expected.kernel_request.id:
+            raise ValueError('PC Attack kernel result changed its source ID')
+        if pc_test is None:
             pc_injury = member.injury
         else:
-            _decline(state,proof.fate_decline,pc_actor,pc_test.id,'test')
             caused = (critical_for_action(member,CombatActionKind.ATTACK,used_hand=usable_weapon_hand(member))
                 if expected.actor_id == pc_actor else critical_for_hand(member,
                     usable_weapon_hand(member) if proof.protection.source_request.selected_skill is Skill.DEFENCE else None))
@@ -318,7 +328,7 @@ def project_pc_step(state, proof):
             pc_injury = result.target_state
         else:
             enemies = _enemy_update(state,expected.target_id,result.target_state)
-        return finish(round_state=execution.state,party=_party_update(state,pc_actor,injury=pc_injury),enemies=enemies,
+        return finish(round_state=execution.state,party=_party_update(state,pc_actor,injury=pc_injury,fate=pc_fate),enemies=enemies,
             pending=result.follow_ups,pending_wound=pending_wound)
     if isinstance(proof,PcWoundCompletionProof):
         pending = state.pending_wound
@@ -405,8 +415,8 @@ def project_pc_step(state, proof):
         if type(proof.result.succeeded) is not bool:
             raise TypeError('Endurance success must be a bool')
         _same(proof.test_request,expected_test,'Endurance changed the actual Toughness/Skill/modifiers')
-        _test_result(expected_test,proof.test)
-        _decline(state,proof.fate_decline,pc_actor,expected_test.id,'test')
+        _,pc_fate = validate_pc_test_fate(state,pc_actor,Skill.ENDURANCE,expected_test,
+            proof.test,proof.fate_decline,proof.glorious)
         injury = pc_after_test(state,pc_actor)
         more = ()
         timed = member.timed_wounds
@@ -429,7 +439,7 @@ def project_pc_step(state, proof):
                         combat.round_number+int(pc_actor in combat.completed_turn_entity_ids)))
         _same((proof.result.request,proof.result.state,proof.result.succeeded,proof.result.follow_ups),
             (proof.request,injury,proof.test.succeeded,more),'Endurance result has forged consequences')
-        return finish(party=_party_update(state,pc_actor,injury=injury,timed_wounds=timed),pending=(*more,*state.pending[1:]))
+        return finish(party=_party_update(state,pc_actor,injury=injury,timed_wounds=timed,fate=pc_fate),pending=(*more,*state.pending[1:]))
     if isinstance(proof,PcHandDropProof):
         if state.pending_wound is not None or not state.pending or state.pending[0] != proof.source:
             raise ValueError('random hand is detached from the next Wound consequence')

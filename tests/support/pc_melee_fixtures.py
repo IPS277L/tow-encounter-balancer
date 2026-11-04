@@ -42,7 +42,7 @@ def make_pc_melee_scenario(*, weapon: PcMeleeWeapon = PcMeleeWeapon.STAFF,
         PcMeleePolicy.ATTACK_OR_RECOVER_SELF, PcFatePolicy.DECLINE_OPTIONAL_FATE,
         PcRandomSidePolicy.D10_LOW_LEFT_HIGH_RIGHT, PcHeavyWoundPolicy.CONTINUE_FIGHTING, PcWeaponHand.LEFT, ids,
         tuple(MinionDefeatDecision("pc", target, NpcDefeatDisposition.KNOCKED_OUT, True) for target in ids),
-        near_miss_policy=None)
+        near_miss_policy=None,glorious_policy=None)
     return PcMeleeScenario("pc-melee", (member,), "day", tuple(enemies),
         PcMeleeFacts("arena", True, True, True, True, True, True, True, True, True, False),
         ("pc",), ids, ("pc",), max_rounds)

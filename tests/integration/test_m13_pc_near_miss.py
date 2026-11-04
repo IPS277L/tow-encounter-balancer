@@ -72,7 +72,7 @@ class PcNearMissIntegrationTests(unittest.TestCase):
             FateSessionState('session','pc',4,4),
             ConsumeWoundNegationRequest('previous-battle-wound',FATE_NEAR_MISS_RULE_ID))).state
         source = replace(source,party=(replace(source.party[0],fate=old,
-            fate_policy=PcFatePolicy.NEAR_MISS_AT_THRESHOLD,
+            fate_policy=PcFatePolicy.CONFIGURED,
             near_miss_policy=PcNearMissPolicy(1,1)),))
         rng = ScriptedD10(first_wound_script(1))
         record = run_pc_melee_trial(PcMeleeSimulationRequest(source,42,1),0,

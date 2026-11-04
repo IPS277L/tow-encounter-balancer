@@ -13,10 +13,11 @@
 - M11: static numeric Brutes и mixed Minion/Brute reserve, source-bound profile Wounds до/на лимите, trials/подбор и явные policy/limit в текущем PC JSON1. [Граница и приёмка ADR-0067](decisions/ADR-0067-pc-melee-profile-brutes.md).
 - M12: все PC Wounds11–23, body/hand consequences, Critical/Defenceless turns, source-aware ongoing Conditions и forced Wounds через тот же owner/trials/JSON1. [Граница и составная приёмка ADR-0068](decisions/ADR-0068-pc-heavy-wound-continuation.md).
 - M13: явная Near Miss policy с порогом таблицы и резервом Fate; фактический burn в бою, независимые trials, расход ресурса в aggregate-only balance и текущем JSON1. [Контракт ADR-0069](decisions/ADR-0069-pc-near-miss-policy.md).
+- M14: Glorious после actual initial roll для всех PC Test windows, отдельный session-spend резерв, совместимость с Near Miss в `configured`, новые costs в trials/balance и текущей JSON1. [Контракт ADR-0070](decisions/ADR-0070-pc-glorious-test-policy.md).
 
 ## Последняя законченная функция
 
-[Активный Near Miss M13](decisions/ADR-0069-pc-near-miss-policy.md) реализован через owner/trials/подбор и текущий JSON1. [Примеры](examples/m13/README.md) выполнены реальными командами; ресурс каждого PC расходуется отдельно. Фактическая адресная приёмка — в статусе и ADR-0069; прежние full/wheel не повторяются автоматически.
+[Glorious Test M14](decisions/ADR-0070-pc-glorious-test-policy.md) реализован через owner/trials/подбор и текущий JSON1, совместно с Near Miss. [Примеры](examples/m14/README.md) выполнены реальными командами; оба типа расхода каждого PC видны отдельно. Фактическая составная адресная приёмка — в статусе и ADR-0070; прежние full/wheel не повторяются автоматически.
 
 ## M8 завершена
 
@@ -68,11 +69,15 @@
 
 Завершённый срез по [ADR-0069](decisions/ADR-0069-pc-near-miss-policy.md): caller задаёт включительный порог таблицы и минимальный остаток rating. Фактический K1 burn/application разрешается до регистрации/эффектов раны и terminal defeat; supplies сохраняются, owner доказывает каждый расход. Последовательные и процессные trials/aggregate-only count search отражают новые burns отдельно от supplied истории. Текущий PC JSON1 и прежние примеры обновлены вместе. Общий AI, другие Fate options и изменение функции ранжирования сюда не входят.
 
-## После M13
+## M14 — обычные траты Fate на Glorious
 
-Более широкий NPC/spell/Miscast каталог, дополнительные тактики/Fate, лечение, общий inventory/spatial/campaign/save-resume и ally removal — отдельный backlog после M13. Решение GM для невозможной повторной анатомии и post-healing ветвей не подставляется. Следующие функции выбираются отдельно; уже закрытые границы ими автоматически не расширяются.
+Завершённый срез по [ADR-0070](decisions/ADR-0070-pc-glorious-test-policy.md): явные выбранные навыки, порог собственных initial successes и session-spend резерв; все текущие PC Test windows, включая Wound/Critical Endurance. Исходные кубы не бросаются заново, выбор не смотрит на opposing outcome, Grim отменяется до rerolls. Owner хранит полный spend→burn prefix; текущий JSON1 требует обе nullable policies с общим mode `configured`. Costs отдельно проходят независимые trials/process/aggregate-only search и CLI. Другие Fate options/optimal AI не включены.
 
-Рекомендуемое следующее направление — явная PC policy для обычного расходования Fate на Glorious Test в том же бою. Перед реализацией закрепить критерии выбора Tests и резерв обычных трат, сохраняя отдельный rating/burn Near Miss. M14 ещё не согласована; Second Action, Retreat и остальные Fate/AI решения не включать автоматически.
+## После M14
+
+Более широкий NPC/spell/Miscast каталог, дополнительные тактики/Fate, лечение, общий inventory/spatial/campaign/save-resume и ally removal — отдельный backlog после M14. Решение GM для невозможной повторной анатомии и post-healing ветвей не подставляется. Следующие функции выбираются отдельно; уже закрытые границы ими автоматически не расширяются.
+
+Рекомендуемое следующее направление — Help между PC в том же бою, с явной ролью помогающего и условиями выбора вместо автоматического оптимального AI. Перед реализацией закрепить конечную тактику и взаимодействие со следующими Tests/Fate. M15 ещё не согласована; остальные тактики и Fate options не включать автоматически.
 
 ## Контрольные точки
 

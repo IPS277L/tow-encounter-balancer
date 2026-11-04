@@ -9,13 +9,11 @@ from towr.domain.attack_models import (
     MissConsequence,
 )
 from towr.domain.test_models import (
-    OpposedOutcome,
-    OpposedSide,
-    OpposedTestRequest,
-    TieBreak,
+    RollTrace,
+    TestRequest,
+    TestResult,
 )
 from towr.rules.dice import RandomSource
-from towr.rules.opposed_test import resolve_opposed_test
 from towr.rules.test_resolution import TestDecisionProvider, resolve_test
 
 
@@ -28,30 +26,41 @@ def resolve_attack(
     *,
     decisions: TestDecisionProvider | None = None,
 ) -> AttackResult:
+    attacker_test = resolve_test(request.attacker_test, rng, decisions=decisions)
+    defender_test = (
+        resolve_test(request.defender_test, rng, decisions=decisions)
+        if request.defender_test is not None else None
+    )
+    return _resolve_attack_after_tests(request, attacker_test, defender_test)
+
+
+def _resolve_attack_after_tests(
+    request: AttackRequest,
+    attacker_test: TestResult,
+    defender_test: TestResult | None,
+) -> AttackResult:
+    """Complete an attack without rerolling already completed Tests.
+
+    The caller retains the full prepared Test/source proofs. This boundary binds
+    their results to the selected attack and performs no further RNG work.
+    """
+    if not isinstance(request, AttackRequest):
+        raise TypeError("attack completion requires an AttackRequest")
+    _validate_completed_test(request.attacker_test, attacker_test)
     if request.defender_test is None:
-        attacker_test = resolve_test(request.attacker_test, rng, decisions=decisions)
-        defender_test = None
-        hit = attacker_test.successes > 0
-        success_margin = attacker_test.successes if hit else 0
-        tie_break_applied = False
+        if defender_test is not None:
+            raise ValueError("an unopposed attack cannot carry a defender Test")
+        defender_successes = 0
     else:
-        opposed = resolve_opposed_test(
-            OpposedTestRequest(
-                id=f"{request.id}:opposed",
-                initiator=request.attacker_test,
-                opponent=request.defender_test,
-                tie_break=TieBreak(ATTACK_TIE_RULE_ID, OpposedSide.INITIATOR),
-            ),
-            rng,
-            decisions=decisions,
-        )
-        attacker_test = opposed.initiator
-        defender_test = opposed.opponent
-        hit = opposed.outcome is OpposedOutcome.INITIATOR_WINS
-        tie_break_applied = opposed.tie_break_applied
-        success_margin = (
-            attacker_test.successes - defender_test.successes if hit else 0
-        )
+        _validate_completed_test(request.defender_test, defender_test)
+        assert defender_test is not None
+        defender_successes = defender_test.successes
+    hit = attacker_test.successes > 0 and attacker_test.successes >= defender_successes
+    success_margin = attacker_test.successes - defender_successes if hit else 0
+    tie_break_applied = (
+        hit and defender_test is not None
+        and attacker_test.successes == defender_successes
+    )
 
     if not hit:
         miss_consequence, miss_rule_ids = _resolve_miss_consequence(request)
@@ -140,6 +149,17 @@ def resolve_attack(
         tie_break_applied=tie_break_applied,
         applied_rule_ids=applied_rule_ids,
     )
+
+
+def _validate_completed_test(request: TestRequest, result: TestResult | None) -> None:
+    if not isinstance(result, TestResult) or not isinstance(result.trace, RollTrace):
+        raise TypeError("attack completion requires a completed TestResult")
+    if type(result.trace.request_id) is not str or result.trace.request_id != request.id:
+        raise ValueError("completed Test belongs to another attack request")
+    if type(result.successes) is not int:
+        raise TypeError("completed Test successes must be an integer")
+    if result.successes < 0:
+        raise ValueError("completed Test successes must be nonnegative")
 
 
 def _resolve_miss_consequence(

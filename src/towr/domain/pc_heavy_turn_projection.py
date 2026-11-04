@@ -5,6 +5,7 @@ from towr.domain.condition_models import Condition
 from towr.domain.critical_injury_models import CriticalInjuryTestRequest, CriticalInjuryTestResult
 from towr.domain.injury_models import WoundConditionEffect
 from towr.domain.test_models import Skill
+from towr.domain.pc_fate_test_models import validate_pc_test_fate
 from towr.domain.pc_melee_result_models import (
     PcCriticalProof, PcIncapacitatedTurnEndProof, PcTurnEndProof, _decline, _pc_test,
     _test_result, _party_update, pc_after_test, pc_melee_action_id,
@@ -49,6 +50,7 @@ def project_heavy_turn_end(state,proof,finish):
     if not incapable:
         _decline(state,proof.fate_decline,turn.actor_id,proof.result.request_id,'action')
     injury = member.injury
+    fate = member.fate
     if injury.conditions.has(Condition.CRITICALLY_INJURED):
         critical = proof.critical
         if type(critical) is not PcCriticalProof or type(critical.result) is not CriticalInjuryTestResult:
@@ -57,8 +59,8 @@ def project_heavy_turn_end(state,proof,finish):
         if critical.test_request != test_request:
             raise ValueError('critical Endurance differs from the current PC profile/quality')
         validate_pc_melee_source_types(critical.test_request,test_request)
-        _test_result(test_request,critical.result.test)
-        _decline(state,critical.fate_decline,turn.actor_id,test_request.id,'test')
+        _,fate = validate_pc_test_fate(state,turn.actor_id,Skill.ENDURANCE,test_request,
+            critical.result.test,critical.fate_decline,critical.glorious)
         source = CriticalInjuryTestRequest(action_id+':critical',turn.actor_id,
             pc_after_test(state,turn.actor_id),test_request.id)
         replace(critical.result)
@@ -77,5 +79,5 @@ def project_heavy_turn_end(state,proof,finish):
         if not any(isinstance(other,WoundConditionEffect) and other.condition is effect.condition for other in effects):
             conditions = conditions.without_condition(effect.condition)
     injury = replace(injury,active_wound_effects=effects,conditions=conditions)
-    return finish(round_state=expected_clock,party=_party_update(state,turn.actor_id,injury=injury,
+    return finish(round_state=expected_clock,party=_party_update(state,turn.actor_id,injury=injury,fate=fate,
         timed_wounds=tuple(t for t in member.timed_wounds if t.effect not in expired)))

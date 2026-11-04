@@ -27,10 +27,52 @@ class PcNearMissBurnCount:
 
 
 def near_miss_burn_budget(member) -> int:
-    from towr.domain.pc_melee_models import PcFatePolicy
-    if member.fate_policy is PcFatePolicy.DECLINE_OPTIONAL_FATE:
+    if member.near_miss_policy is None:
         return 0
     return max(0, member.fate.rating - member.near_miss_policy.minimum_rating_to_keep)
+
+
+@dataclass(frozen=True, slots=True)
+class PcGloriousSpendCount:
+    """New Glorious session spends during this battle, excluding supplied history."""
+
+    actor_id: str
+    count: int
+
+    def __post_init__(self) -> None:
+        if type(self.actor_id) is not str or not self.actor_id.strip():
+            raise TypeError('Glorious count requires a nonempty actor ID')
+        if type(self.count) is not int:
+            raise TypeError('Glorious count must be an integer')
+        if self.count < 0:
+            raise ValueError('Glorious count must be nonnegative')
+
+
+def glorious_spend_budget(member) -> int:
+    if member.glorious_policy is None:
+        return 0
+    return max(0,member.fate.remaining_spends-member.glorious_policy.minimum_remaining_spends)
+
+
+def validate_glorious_counts(counts, scenario, *, trials: int, spend_trials: int | None) -> None:
+    if type(counts) is not tuple:
+        raise TypeError('Glorious counts require a source-ordered tuple')
+    for item in counts:
+        if type(item) is not PcGloriousSpendCount:
+            raise TypeError('Glorious counts require typed observations')
+        replace(item)
+    if tuple(item.actor_id for item in counts) != tuple(m.actor_id for m in scenario.party):
+        raise ValueError('Glorious counts must cover the full source-ordered party')
+    total = sum(item.count for item in counts)
+    if spend_trials is None:
+        spend_trials = int(total > 0)
+    if type(spend_trials) is not int:
+        raise TypeError('Glorious trial count must be an integer')
+    if not 0 <= spend_trials <= trials or spend_trials > total or (total > 0) != (spend_trials > 0):
+        raise ValueError('Glorious counts contradict the batch denominator')
+    for member,item in zip(scenario.party,counts,strict=True):
+        if item.count > spend_trials*glorious_spend_budget(member):
+            raise ValueError('Glorious count exceeds the selected session resource budget')
 
 
 def validate_near_miss_counts(counts, scenario, *, trials: int,
@@ -104,6 +146,7 @@ class PcMeleeTrialRecord:
     completed_rounds: int
     defeated_pc_ids: tuple[str, ...]
     near_miss_burn_counts: tuple[PcNearMissBurnCount, ...]
+    glorious_spend_counts: tuple[PcGloriousSpendCount, ...]
 
     def __post_init__(self) -> None:
         validate_pc_melee_scenario_admission(self.source_scenario)
@@ -143,6 +186,8 @@ class PcMeleeTrialRecord:
         validate_near_miss_counts(self.near_miss_burn_counts, self.source_scenario,
             trials=1, burn_trials=None,
             actions=self.executed_actions)
+        validate_glorious_counts(self.glorious_spend_counts,self.source_scenario,
+            trials=1,spend_trials=None)
 
 
 @dataclass(frozen=True, slots=True)

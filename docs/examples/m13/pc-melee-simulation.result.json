@@ -37,7 +37,7 @@
             "rule_id": "RULE-FATE-001:session-resource"
           },
           "policy": "attack_or_recover_self",
-          "fate_policy": "near_miss_at_threshold",
+          "fate_policy": "configured",
           "random_side_policy": "d10_low_left_high_right",
           "heavy_wound_policy": "continue_fighting",
           "initial_weapon_hand": "left",
@@ -69,7 +69,8 @@
           "near_miss_policy": {
             "minimum_table_total": 14,
             "minimum_rating_to_keep": 1
-          }
+          },
+          "glorious_policy": null
         },
         {
           "actor_id": "pc:companion",
@@ -99,7 +100,7 @@
             "rule_id": "RULE-FATE-001:session-resource"
           },
           "policy": "attack_or_recover_self",
-          "fate_policy": "near_miss_at_threshold",
+          "fate_policy": "configured",
           "random_side_policy": "d10_low_left_high_right",
           "heavy_wound_policy": "continue_fighting",
           "initial_weapon_hand": "right",
@@ -131,7 +132,8 @@
           "near_miss_policy": {
             "minimum_table_total": 14,
             "minimum_rating_to_keep": 1
-          }
+          },
+          "glorious_policy": null
         }
       ],
       "day_id": "day",
@@ -318,6 +320,18 @@
         "count": 10
       }
     ],
-    "total_near_miss_burn_count": 15
+    "total_near_miss_burn_count": 15,
+    "glorious_spend_trial_count": 0,
+    "glorious_spend_counts": [
+      {
+        "actor_id": "pc",
+        "count": 0
+      },
+      {
+        "actor_id": "pc:companion",
+        "count": 0
+      }
+    ],
+    "total_glorious_spend_count": 0
   }
 }
