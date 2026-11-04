@@ -1,4 +1,5 @@
 """Help consumes ordinary action budget, independently of Fate costs."""
+from tests.support.pc_melee_fixtures import zero_npc_exit_counts
 from copy import deepcopy
 from dataclasses import replace
 from enum import Enum
@@ -33,7 +34,7 @@ def observed_batch():
         tuple(PcGloriousSpendCount(member.actor_id,0) for member in request.scenario.party),
         tuple(PcHelpActionCount(member.actor_id,count)
             for member,count in zip(request.scenario.party,counts,strict=True)),
-        tuple(PcAllyRecoverActionCount(member.actor_id,0) for member in request.scenario.party))
+        tuple(PcAllyRecoverActionCount(member.actor_id,0) for member in request.scenario.party), zero_npc_exit_counts(request.scenario))
         for index,(outcome,counts) in enumerate(rows))
     return PcMeleeSimulationResult(request,records)
 

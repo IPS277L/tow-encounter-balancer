@@ -9,7 +9,7 @@ from towr.engine.pc_melee_runner import run_pc_melee_scenario
 from towr.rules.dice import RandomSource
 from towr.simulation.pc_melee_models import (
     PcMeleeSimulationRequest, PcMeleeSimulationResult, PcMeleeTrialRecord, PcNearMissBurnCount, PcGloriousSpendCount,
-    PcHelpActionCount, PcAllyRecoverActionCount,
+    PcHelpActionCount, PcAllyRecoverActionCount, PcNpcExitCount,
 )
 
 
@@ -46,7 +46,9 @@ def run_pc_melee_trial(request: PcMeleeSimulationRequest, trial_index: int, *,
                 and step.proof.result.source_request.actor_id==member.actor_id
                 and any(change.entity_id!=member.actor_id
                     for change in step.proof.result.resolution.condition_changes)
-                for step in result.steps)) for member in request.scenario.party))
+                for step in result.steps)) for member in request.scenario.party),
+        tuple(PcNpcExitCount(enemy.state.actor_id,int(enemy.state.actor_id in result.exited_npc_ids))
+            for enemy in request.scenario.enemies))
 
 
 def run_pc_melee_simulation(request: PcMeleeSimulationRequest, *,

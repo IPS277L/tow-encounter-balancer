@@ -31,6 +31,7 @@ from towr.domain.critical_injury_models import CriticalInjuryTestRequest
 from towr.domain.test_models import Skill
 from towr.domain.pc_backup_weapon_models import pc_backup_draw_hand, pc_preferred_weapon_hand
 from towr.domain.pc_npc_wound_models import official_profile_wound_state
+from towr.domain.pc_npc_exit_models import PcNpcExitProof,expected_pc_npc_exit
 from towr.domain.turn_models import (
     ActionSlotGrant, CombatActionDeclaration, CombatActionKind, CombatActionSlot,
     CombatActionSlotResult, CombatRoundAdvanceResult, CombatRoundState, CombatSide,
@@ -190,6 +191,10 @@ def project_pc_step(state, proof):
     draw_hand = pc_backup_draw_hand(state,pc_actor) if pc_actor is not None else None
     if draw_hand is not None and not isinstance(proof,PcBackupWeaponDrawProof):
         raise ValueError('own standard turn cannot skip its required incidental backup draw')
+    exit_actor = combat.active_turn.actor_id if combat.active_turn is not None else None
+    exit_proof = expected_pc_npc_exit(state,exit_actor) if exit_actor is not None else None
+    if exit_proof is not None and type(proof) is not PcNpcExitProof:
+        raise ValueError('Broken NPC cannot skip its supported incidental exit')
 
     def finish(**updates):
         pending = updates.get('pending', state.pending)
@@ -199,6 +204,15 @@ def project_pc_step(state, proof):
         elif 'pending_actor_id' not in updates:
             updates['pending_actor_id'] = pc_actor
         return replace(state,history=(*state.history,proof),**updates)
+    if type(proof) is PcNpcExitProof:
+        _ready(state)
+        replace(proof)
+        _same(proof,exit_proof,'NPC exit changed its actual own-turn movement source or result')
+        if exit_proof is None:
+            raise ValueError('no supported NPC exit exists at this source')
+        clock = replace(combat,active_turn=None,
+            excluded_turn_entity_ids=(*combat.excluded_turn_entity_ids,exit_actor))
+        return finish(round_state=clock)
     if isinstance(proof,CombatTurnStartResult):
         validate_pc_melee_combat_shape(proof.state)
         replace(proof.turn)

@@ -219,7 +219,8 @@
     "enemy_target_priority": [
       "pc:companion",
       "pc"
-    ]
+    ],
+    "npc_broken_exit_policy": null
   },
   "simulation": {
     "master_seed": "42",

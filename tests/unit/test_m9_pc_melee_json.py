@@ -1,4 +1,5 @@
 """Pure PC JSON1 source mapping, aggregate encoding and boundary errors."""
+from tests.support.pc_melee_fixtures import zero_npc_exit_counts
 from copy import deepcopy
 from dataclasses import replace
 from enum import Enum
@@ -87,7 +88,7 @@ def aggregate(request, *, unsupported=False):
         tuple(PcNearMissBurnCount(member.actor_id,0) for member in request.scenario.party),0,
         tuple(PcGloriousSpendCount(member.actor_id,0) for member in request.scenario.party),0,
         tuple(PcHelpActionCount(member.actor_id,0) for member in request.scenario.party),0,
-        tuple(PcAllyRecoverActionCount(member.actor_id,0) for member in request.scenario.party))
+        tuple(PcAllyRecoverActionCount(member.actor_id,0) for member in request.scenario.party), 0, zero_npc_exit_counts(request.scenario), 0)
 
 
 def balance_result(command):
@@ -688,7 +689,7 @@ class PcMeleeJsonTests(unittest.TestCase):
             (PcNearMissBurnCount('pc',0),PcNearMissBurnCount('pc2',0)),0,
             (PcGloriousSpendCount('pc',0),PcGloriousSpendCount('pc2',0)),0,
             (PcHelpActionCount('pc',0),PcHelpActionCount('pc2',0)),0,
-            (PcAllyRecoverActionCount('pc',0),PcAllyRecoverActionCount('pc2',0)))
+            (PcAllyRecoverActionCount('pc',0),PcAllyRecoverActionCount('pc2',0)), 0, zero_npc_exit_counts(command.request.scenario), 0)
         value=json.loads(wire.encode_pc_melee_simulation_result(command,summary))
         self.assertEqual(value['summary']['outcome_counts']['party_defeated'],1)
         self.assertEqual(value['summary']['any_pc_defeated_count'],2)

@@ -5,6 +5,7 @@ from towr.simulation.pc_melee_models import (
     PcMeleeOutcomeCounts, PcMeleeSimulationRequest, PcNearMissBurnCount,
     validate_near_miss_counts, PcGloriousSpendCount, validate_glorious_counts,
     PcHelpActionCount, validate_help_counts, PcAllyRecoverActionCount, validate_ally_recover_counts,
+    PcNpcExitCount, validate_npc_exit_counts,
 )
 
 
@@ -41,6 +42,9 @@ class PcMeleeSimulationSummary:
     help_action_counts: tuple[PcHelpActionCount, ...]
     ally_recover_action_trial_count: int
     ally_recover_action_counts: tuple[PcAllyRecoverActionCount, ...]
+    npc_exit_trial_count: int
+    npc_exit_counts: tuple[PcNpcExitCount, ...]
+    objective_with_npc_exit_count: int
 
     def __post_init__(self) -> None:
         if not isinstance(self.source_request, PcMeleeSimulationRequest):
@@ -112,6 +116,19 @@ class PcMeleeSimulationSummary:
             actions=self.total_action_count,started_rounds=self.total_started_round_count)
         if sum(item.count for item in (*self.help_action_counts,*self.ally_recover_action_counts))>self.total_action_count:
             raise ValueError('Help and ally Recover cannot consume the same action')
+        validate_npc_exit_counts(self.npc_exit_counts,self.source_request.scenario,
+            trials=self.trials,exit_trials=self.npc_exit_trial_count)
+        if self.total_npc_exit_count>self.total_action_count:
+            raise ValueError('NPC exits cannot exceed their actual first-Wound Attacks')
+        if type(self.objective_with_npc_exit_count) is not int:
+            raise TypeError('objective with NPC exit count must be an integer')
+        if not max(0,counts.objective_achieved+self.npc_exit_trial_count-self.trials)<=self.objective_with_npc_exit_count<=min(
+                counts.objective_achieved,self.npc_exit_trial_count):
+            raise ValueError('joint objective/exit count contradicts the marginal trial counts')
+
+    @property
+    def total_npc_exit_count(self) -> int:
+        return sum(item.count for item in self.npc_exit_counts)
 
     @property
     def total_ally_recover_action_count(self) -> int:

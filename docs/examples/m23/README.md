@@ -17,7 +17,7 @@ GM1.1 стр.98: Brute2, Toughness3/Resilience3, Dagger Close2d/3 Damage2,1H; At
 
 Native `PcNpcBrokenTurnUnsupported` содержит actor, реальную причинившую рану Attack execution ID и exact Brute0→1 change. Он не использует фиктивный PC table_total. Вторая рана до окна даёт обычный defeat; stop не считается ни flee, ни defeat. Снятие Broken/Willpower recovery и дальнейшее перемещение не выбраны.
 
-Текущие JSON1/команды/метрики прежние. Полные definition/limit/Skill уже выражают Brute, нового поля или миграции28старых пар нет. При Unsupported статистика отражает исполненный prefix; trials остаются в знаменателе, соответствующий candidate не выбирается.
+В M23 полные definition/limit/Skill уже выражали Brute без новых полей. Актуальный JSON1 мигрирован в M24: здесь exit policy=null, exit metrics=0, прежние наблюдения сохранены; [новая возможность](../m24/README.md). При Unsupported статистика отражает исполненный prefix; trials остаются в знаменателе, соответствующий candidate не выбирается.
 
 ```powershell
 $env:PYTHONPATH = 'src'

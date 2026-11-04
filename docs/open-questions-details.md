@@ -124,10 +124,6 @@ BOOK-PLAYER-GUIDE1.4, гл.IV Equipment93: в таблице буквально 
 
 BOOK-GM-GUIDE1.1, Empire Official98: первая profile Wound даёт Broken, вторая defeat. BOOK-PLAYER-GUIDE1.4, Broken122: собственный ход должен быть потрачен на быстрый выход в Zone без врага, при необходимости Manoeuvre; там допускается попытка Recover. [M23/ADR-0078](decisions/ADR-0078-pc-official-first-wound-broken-boundary.md) по выбору пользователя применяет Broken и завершает observed prefix перед фактическим собственным ходом Official.
 
-Для продолжения отдельно определить:
+M24 по [ADR-0079](decisions/ADR-0079-pc-broken-npc-adjacent-exit.md) закрывает один clear/fastest adjacent safe exit. Caller явно подтверждает путь; все PC остаются в arena. По выбору пользователя objective выполнен, когда все NPC defeated или exited; actual уход хранится отдельно от defeat. Без этой policy сохраняется M23 stop. После выхода NPC не возвращается, не преследуется и не пытается Recover.
 
-- Истинный маршрут, безопасную Zone, возможные препятствия/Manoeuvres и подтверждение наиболее быстрого допустимого ухода. Один can_leave_zone не задаёт эти facts.
-- Считается ли уход выполнением caller objective, отдельным исходом или продолжением боя за пределами прежней Zone; не приравнивать к defeat автоматически.
-- Может ли Official с сохраняющейся profile Wound снять Broken через Willpower/Leadership. Таблица задаёт однократное последствие W1; PG122 отдельно запрещает удаление Conditions от ongoing cause. Выбранная остановка не требует решать длительность/повторное применение, house rule не выбран.
-
-До решения не выполнять phantom movement, новый Recover Test или автоматическое присуждение победы/поражения.
+Открыты общий путь с препятствиями/несколькими Zone/Run/Manoeuvre, дальнейшее поведение и снятие Broken при сохраняющейся profile Wound. Таблица задаёт однократное последствие W1; PG122 отдельно запрещает удаление Conditions от ongoing cause. Перед будущим Recover нужно решить, относится ли это ограничение к сохраняющейся Wound Official; house rule не выбран. Этот вопрос не мешает M24, поскольку выбранный actor сохраняет Broken и покидает encounter.

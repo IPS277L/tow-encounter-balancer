@@ -297,6 +297,21 @@ class PcMeleeParticipant:
 
 
 @dataclass(frozen=True, slots=True)
+class PcAdjacentNpcExitPolicy:
+    """One declared clear adjacent exit from the fixed arena; no pursuit/return."""
+    destination_zone_id: str
+    path_clear_confirmed: bool
+    fastest_route_confirmed: bool
+
+    def __post_init__(self) -> None:
+        _identifier(self.destination_zone_id,"NPC exit destination Zone")
+        for value in (self.path_clear_confirmed,self.fastest_route_confirmed):
+            _typed(value,bool,"NPC exit route confirmation")
+            if not value:
+                raise ValueError("NPC exit requires its clear, fastest adjacent route")
+
+
+@dataclass(frozen=True, slots=True)
 class PcMeleeScenario:
     id: str
     party: tuple[PcMeleeParticipant, ...]
@@ -307,12 +322,20 @@ class PcMeleeScenario:
     enemy_activation_order: tuple[str, ...]
     enemy_target_priority: tuple[str, ...]
     max_rounds: int
+    npc_broken_exit_policy: PcAdjacentNpcExitPolicy | None
 
     def __post_init__(self) -> None:
         for name in ("id", "day_id"):
             _identifier(getattr(self, name), name)
         _typed(self.facts, PcMeleeFacts, "PC melee facts")
         replace(self.facts)
+        if self.npc_broken_exit_policy is not None:
+            _typed(self.npc_broken_exit_policy,PcAdjacentNpcExitPolicy,"NPC Broken exit policy")
+            replace(self.npc_broken_exit_policy)
+            if self.npc_broken_exit_policy.destination_zone_id == self.facts.zone_id:
+                raise ValueError("NPC exit must lead to a different adjacent Zone")
+            if not self.facts.can_leave_zone:
+                raise ValueError("NPC exit requires permission to leave the arena Zone")
         _integer(self.max_rounds, "max rounds", minimum=1)
         party = _ordered(self.party, "party")
         enemies = _ordered(self.enemies, "enemies")

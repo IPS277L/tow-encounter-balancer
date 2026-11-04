@@ -1,4 +1,5 @@
 """Small independent authored PC melee fixtures, without rule execution."""
+
 from towr.domain.attack_models import DamageProfile, ResilienceProfile
 from towr.domain.fate_models import FateSessionState
 from towr.domain.injury_models import ProfileInjuryState
@@ -47,7 +48,7 @@ def make_pc_melee_scenario(*, weapon: PcMeleeWeapon = PcMeleeWeapon.STAFF,
         near_miss_policy=None,glorious_policy=None,help_policy=None,ally_recover_policy=None,backup_weapon_policy=None)
     return PcMeleeScenario("pc-melee", (member,), "day", tuple(enemies),
         PcMeleeFacts("arena", True, True, True, True, True, True, True, True, True, False),
-        ("pc",), ids, ("pc",), max_rounds)
+        ("pc",), ids, ("pc",), max_rounds,npc_broken_exit_policy=None)
 
 
 def make_pc_melee_party_scenario(*, pc_count: int = 2, enemy_count: int = 2,
@@ -105,3 +106,10 @@ def make_pc_melee_mixed_scenario(*, pc_count: int = 2, minion_count: int = 1,
     for actor in ids[minion_count:]:
         source = with_pc_melee_brute(source,actor,wound_limit=brute_wound_limit)
     return source
+
+
+def zero_npc_exit_counts(scenario: PcMeleeScenario):
+    """Fresh observations for authored batches without NPC departures."""
+    from towr.simulation.pc_melee_models import PcNpcExitCount
+
+    return tuple(PcNpcExitCount(enemy.state.actor_id, 0) for enemy in scenario.enemies)

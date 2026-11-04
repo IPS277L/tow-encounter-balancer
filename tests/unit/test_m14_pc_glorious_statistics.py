@@ -1,4 +1,5 @@
 """Ordinary session spends have distinct budgets from permanent Fate burns."""
+from tests.support.pc_melee_fixtures import zero_npc_exit_counts
 from copy import deepcopy
 from dataclasses import replace
 import unittest
@@ -24,7 +25,7 @@ def observed_batch():
         tuple(PcGloriousSpendCount(member.actor_id,count)
             for member,count in zip(request.scenario.party,counts,strict=True)),
         tuple(PcHelpActionCount(member.actor_id,0) for member in request.scenario.party),
-        tuple(PcAllyRecoverActionCount(member.actor_id,0) for member in request.scenario.party))
+        tuple(PcAllyRecoverActionCount(member.actor_id,0) for member in request.scenario.party), zero_npc_exit_counts(request.scenario))
         for index,(outcome,counts) in enumerate(rows))
     return PcMeleeSimulationResult(request,records)
 

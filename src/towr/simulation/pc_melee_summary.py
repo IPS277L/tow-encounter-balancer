@@ -1,6 +1,7 @@
 from dataclasses import replace
 
-from towr.simulation.pc_melee_models import PcMeleeSimulationResult, PcNearMissBurnCount, PcGloriousSpendCount, PcHelpActionCount, PcAllyRecoverActionCount
+from towr.simulation.pc_melee_models import PcMeleeSimulationResult, PcNearMissBurnCount, PcGloriousSpendCount, PcHelpActionCount, PcAllyRecoverActionCount, PcNpcExitCount
+from towr.domain.pc_melee_result_models import PcMeleeOutcome
 from towr.simulation.pc_melee_summary_models import PcMeleeDefeatCount, PcMeleeSimulationSummary
 
 
@@ -29,4 +30,10 @@ def summarize_pc_melee_simulation(result: PcMeleeSimulationResult) -> PcMeleeSim
         sum(any(item.count for item in record.ally_recover_action_counts) for record in result.records),
         tuple(PcAllyRecoverActionCount(member.actor_id,
             sum(record.ally_recover_action_counts[index].count for record in result.records))
-            for index,member in enumerate(result.source_request.scenario.party)))
+            for index,member in enumerate(result.source_request.scenario.party)),
+        sum(any(item.count for item in record.npc_exit_counts) for record in result.records),
+        tuple(PcNpcExitCount(enemy.state.actor_id,
+            sum(record.npc_exit_counts[index].count for record in result.records))
+            for index,enemy in enumerate(result.source_request.scenario.enemies)),
+        sum(record.outcome is PcMeleeOutcome.OBJECTIVE_ACHIEVED and any(item.count for item in record.npc_exit_counts)
+            for record in result.records))

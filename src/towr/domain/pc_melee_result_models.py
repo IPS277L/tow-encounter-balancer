@@ -11,6 +11,7 @@ from towr.domain.pc_weapon_models import (pc_weapon_damage, pc_weapon_test_modif
     pc_weapon_attack_modifiers, pc_weapon_damage_modifiers)
 from towr.domain.pc_npc_ability_models import pc_npc_outnumbering_modifier
 from towr.domain.pc_npc_wound_models import PcNpcBrokenTurnUnsupported, pc_npc_broken_turn_unsupported
+from towr.domain.pc_npc_exit_models import PcNpcExitProof
 from towr.domain.pc_backup_weapon_models import (pc_active_weapon, pc_preferred_weapon_hand,
     pc_active_weapon_item_id)
 from towr.domain.crushed_rib_test_models import CRUSHED_RIB_TEST_RULE_ID
@@ -184,6 +185,13 @@ class PcMeleeState:
             if not isinstance(getattr(self, name), (tuple, list)):
                 raise TypeError('PC owner collections must be ordered')
             object.__setattr__(self, name, tuple(getattr(self, name)))
+        exits = tuple(proof for proof in self.history if type(proof) is PcNpcExitProof)
+        actors = tuple(proof.request.actor_id for proof in exits)
+        if (len(set(actors))!=len(actors) or any(actor not in self.source.enemy_activation_order for actor in actors)
+                or exits and self.source.npc_broken_exit_policy is None):
+            raise ValueError('NPC exits must preserve their one actual source-bound movement each')
+        for proof in exits:
+            replace(proof)
         if (not all(isinstance(m, PcMeleeParticipantState) for m in self.party)
                 or tuple(m.actor_id for m in self.party) != tuple(m.actor_id for m in self.source.party)):
             raise ValueError('PC owner must preserve its complete ordered party')
@@ -245,14 +253,23 @@ class PcMeleeState:
 
     @property
     def live_enemies(self) -> tuple[NpcParticipantSnapshot, ...]:
-        return tuple(e for e in self.enemies if not e.state.injury.defeated)
+        exited = self.exited_npc_ids
+        return tuple(e for e in self.enemies if not e.state.injury.defeated and e.state.actor_id not in exited)
+
+    @property
+    def exited_npc_ids(self) -> tuple[str, ...]:
+        if self.source.npc_broken_exit_policy is None:
+            return ()
+        observed = {proof.request.actor_id for proof in self.history if type(proof) is PcNpcExitProof}
+        return tuple(enemy.state.actor_id for enemy in self.source.enemies if enemy.state.actor_id in observed)
 
 
 def pc_melee_round_participants(state: PcMeleeState) -> tuple[CombatTurnParticipant, ...]:
     return (*(CombatTurnParticipant(actor, CombatSide.PLAYERS_AND_ALLIES)
               for actor in state.source.pc_activation_order if not state.participant(actor).injury.dead),
             *(CombatTurnParticipant(actor, CombatSide.OPPOSITION)
-              for actor in state.source.enemy_activation_order if not state.enemy(actor).state.injury.defeated))
+              for actor in state.source.enemy_activation_order
+              if not state.enemy(actor).state.injury.defeated and actor not in state.exited_npc_ids))
 
 
 def initial_pc_melee_state(source: PcMeleeScenario) -> PcMeleeState:
@@ -380,7 +397,7 @@ PcMeleeProof = (
     CombatTurnStartResult | CombatActionSlotResult | PcAttackProof | PcWoundCompletionProof
     | PcEnduranceProof | PcHandDropProof | PcAttackerStaggerProof | PcProfileWoundProof
     | PcRecoverProof | PcTurnEndProof | PcIncapacitatedTurnEndProof | PcBodyConsequenceProof
-    | PcWoundChoiceProof | PcHandSwapProof | PcBackupWeaponDrawProof | PcHelpProof | CombatRoundAdvanceResult
+    | PcWoundChoiceProof | PcHandSwapProof | PcBackupWeaponDrawProof | PcHelpProof | PcNpcExitProof | CombatRoundAdvanceResult
 )
 
 
@@ -454,6 +471,10 @@ class PcMeleeScenarioResult:
         pending_actor = self.state.pending_actor_id if self.state.pending_wound is not None else None
         return tuple(member.actor_id for member in self.state.party
             if member.injury.dead and member.actor_id != pending_actor)
+
+    @property
+    def exited_npc_ids(self) -> tuple[str, ...]:
+        return self.state.exited_npc_ids
 
     @property
     def executed_actions(self) -> int:
@@ -540,7 +561,7 @@ def pc_melee_next_actor(state: PcMeleeState) -> str:
         return next(actor for actor in state.source.pc_activation_order
             if not state.participant(actor).injury.dead and actor not in unavailable)
     return next(actor for actor in state.source.enemy_activation_order
-        if not state.enemy(actor).state.injury.defeated and actor not in unavailable)
+        if not state.enemy(actor).state.injury.defeated and actor not in state.exited_npc_ids and actor not in unavailable)
 
 
 def _pc_test(state: PcMeleeState, actor_id: str, test_id: str, skill: Skill,
@@ -571,7 +592,8 @@ def pc_after_test(state: PcMeleeState, actor_id: str, injury=None) -> CharacterI
 def build_pc_melee_attack(state: PcMeleeState) -> tuple[AttackActionExecutionRequest, ProtectionPreparationRequest]:
     actor = state.round_state.active_turn.actor_id
     pc_attacks = actor in state.source.pc_activation_order
-    target = (next(a for a in state.source.participant(actor).target_priority if not state.enemy(a).state.injury.defeated)
+    target = (next(a for a in state.source.participant(actor).target_priority
+        if not state.enemy(a).state.injury.defeated and a not in state.exited_npc_ids)
         if pc_attacks else next(a for a in state.source.enemy_target_priority if not state.participant(a).injury.dead))
     action_id = pc_melee_action_id(state, actor)
     pc_count = sum(not m.injury.conditions.has(Condition.DEFENCELESS) for m in state.live_party)

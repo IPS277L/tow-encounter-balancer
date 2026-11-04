@@ -4,13 +4,13 @@
 
 ## Действующая граница симуляции
 
-Ограниченные M8–M23 завершены: [статус и текущие ограничения](project-status.md), [Official/Broken M23](decisions/ADR-0078-pc-official-first-wound-broken-boundary.md), [архитектура](architecture/overview.md). Поддержанные PC weapons/Fate/Help/Recover и книжные combat loadouts не разрешают автоматически другие действия/Abilities. История закрытых вех не расширяет очередь и не возвращает старые wire formats.
+Ограниченные M8–M24 завершены: [статус и текущие ограничения](project-status.md), [Broken exit M24](decisions/ADR-0079-pc-broken-npc-adjacent-exit.md), [архитектура](architecture/overview.md). Поддержанные PC weapons/Fate/Help/Recover и книжные combat loadouts не разрешают автоматически другие действия/Abilities. История закрытых вех не расширяет очередь и не возвращает старые wire formats.
 
-Wounds1–23/lethal24+, source-aware Conditions и mandatory Critical/Defenceless end phases сохраняются. Невозможная повторная анатомия, недоступный2H хват без продолжения и собственный Broken turn Official имеют точные stop boundaries. Незавершённые route/recovery/GM решения нельзя подставлять ради продолжения; observed losses относятся только к исполненному prefix.
+Wounds1–23/lethal24+, source-aware Conditions и mandatory Critical/Defenceless end phases сохраняются. Невозможная повторная анатомия, недоступный2H хват без продолжения и собственный Broken turn Official без exit policy имеют точные stop boundaries. Незавершённые route/recovery/GM решения нельзя подставлять ради продолжения; observed losses относятся только к исполненному prefix.
 
 ## Продолжение Broken NPC
 
-M23 по выбору пользователя останавливается перед собственным ходом Broken Official, сохраняя Wound и очередь предыдущих ходов. Для дальнейшего исполнения не выбраны safe route/fastest-path facts, значение ухода для objective и возможность снять Broken при сохраняющейся profile Wound. [Подробности](open-questions-details.md#продолжение-broken-npc).
+M24 задаёт конечный clear/fastest adjacent exit без преследования/Recover; пользователь выбрал успех, когда все NPC побеждены или ушли, с отдельным учётом ухода. При null policy остаётся stop M23. Открыты общий маршрут с препятствиями/Run/Manoeuvre, дальнейшее поведение и возможность снять Broken при сохраняющейся profile Wound. [Подробности](open-questions-details.md#продолжение-broken-npc).
 
 ## Бонус Greatsword
 

@@ -92,5 +92,8 @@ def pc_npc_broken_turn_unsupported(state: PcMeleeState) -> PcNpcBrokenTurnUnsupp
             cause = (attack.request.id,proof.source)
     if cause is None:
         raise ValueError('Broken-turn stop lacks its actual first-Wound Attack and acknowledgement')
+    from towr.domain.pc_npc_exit_models import pc_npc_exit_supported
+    if pc_npc_exit_supported(state,actor):
+        return None
     attack_id,change = cause
     return PcNpcBrokenTurnUnsupported(actor,_broken_source(actor,attack_id),attack_id,change)

@@ -297,7 +297,8 @@
         "pc:companion",
         "pc"
       ],
-      "max_rounds": 6
+      "max_rounds": 6,
+      "npc_broken_exit_policy": null
     },
     "generation": {
       "groups": [
@@ -567,7 +568,8 @@
             "pc:companion",
             "pc"
           ],
-          "max_rounds": 6
+          "max_rounds": 6,
+          "npc_broken_exit_policy": null
         }
       },
       "summary": {
@@ -639,7 +641,16 @@
             "count": 0
           }
         ],
-        "total_ally_recover_action_count": 0
+        "total_ally_recover_action_count": 0,
+        "npc_exit_trial_count": 0,
+        "npc_exit_counts": [
+          {
+            "actor_id": "brute1",
+            "count": 0
+          }
+        ],
+        "objective_with_npc_exit_count": 0,
+        "total_npc_exit_count": 0
       },
       "assessment": {
         "status": "eligible",
@@ -925,7 +936,8 @@
             "pc:companion",
             "pc"
           ],
-          "max_rounds": 6
+          "max_rounds": 6,
+          "npc_broken_exit_policy": null
         }
       },
       "summary": {
@@ -997,7 +1009,20 @@
             "count": 0
           }
         ],
-        "total_ally_recover_action_count": 0
+        "total_ally_recover_action_count": 0,
+        "npc_exit_trial_count": 0,
+        "npc_exit_counts": [
+          {
+            "actor_id": "minion1",
+            "count": 0
+          },
+          {
+            "actor_id": "brute1",
+            "count": 0
+          }
+        ],
+        "objective_with_npc_exit_count": 0,
+        "total_npc_exit_count": 0
       },
       "assessment": {
         "status": "eligible",
@@ -1334,7 +1359,8 @@
             "pc:companion",
             "pc"
           ],
-          "max_rounds": 6
+          "max_rounds": 6,
+          "npc_broken_exit_policy": null
         }
       },
       "summary": {
@@ -1406,7 +1432,24 @@
             "count": 0
           }
         ],
-        "total_ally_recover_action_count": 0
+        "total_ally_recover_action_count": 0,
+        "npc_exit_trial_count": 0,
+        "npc_exit_counts": [
+          {
+            "actor_id": "minion1",
+            "count": 0
+          },
+          {
+            "actor_id": "minion2",
+            "count": 0
+          },
+          {
+            "actor_id": "brute1",
+            "count": 0
+          }
+        ],
+        "objective_with_npc_exit_count": 0,
+        "total_npc_exit_count": 0
       },
       "assessment": {
         "status": "eligible",

@@ -211,7 +211,8 @@
       "enemy_target_priority": [
         "pc"
       ],
-      "max_rounds": 4
+      "max_rounds": 4,
+      "npc_broken_exit_policy": null
     },
     "simulation": {
       "master_seed": "42",
@@ -277,6 +278,23 @@
         "count": 0
       }
     ],
-    "total_ally_recover_action_count": 0
+    "total_ally_recover_action_count": 0,
+    "npc_exit_trial_count": 0,
+    "npc_exit_counts": [
+      {
+        "actor_id": "minion1",
+        "count": 0
+      },
+      {
+        "actor_id": "minion2",
+        "count": 0
+      },
+      {
+        "actor_id": "minion3",
+        "count": 0
+      }
+    ],
+    "objective_with_npc_exit_count": 0,
+    "total_npc_exit_count": 0
   }
 }

@@ -11,6 +11,49 @@ SEED_SCHEME = 'towr:pc-melee-trial:v1'
 
 
 @dataclass(frozen=True, slots=True)
+class PcNpcExitCount:
+    """Actual exits observed for one source NPC, distinct from lethal defeat."""
+
+    actor_id: str
+    count: int
+
+    def __post_init__(self) -> None:
+        if type(self.actor_id) is not str or not self.actor_id.strip():
+            raise TypeError('NPC exit count requires a nonempty actor ID')
+        if type(self.count) is not int:
+            raise TypeError('NPC exit count must be an integer')
+        if self.count < 0:
+            raise ValueError('NPC exit count must be nonnegative')
+
+
+def validate_npc_exit_counts(counts,scenario,*,trials:int,exit_trials:int|None) -> None:
+    if type(counts) is not tuple:
+        raise TypeError('NPC exit counts require a source-ordered tuple')
+    for item in counts:
+        if type(item) is not PcNpcExitCount:
+            raise TypeError('NPC exit counts require typed observations')
+        replace(item)
+    if tuple(item.actor_id for item in counts) != tuple(enemy.state.actor_id for enemy in scenario.enemies):
+        raise ValueError('NPC exit counts must cover every source NPC in order')
+    total=sum(item.count for item in counts)
+    if exit_trials is None:
+        exit_trials=int(total>0)
+    if type(exit_trials) is not int:
+        raise TypeError('NPC exit trial count must be an integer')
+    if not 0<=exit_trials<=trials:
+        raise ValueError('NPC exit trial count contradicts the batch denominator')
+    eligible=0
+    for enemy,item in zip(scenario.enemies,counts,strict=True):
+        allowed=(scenario.npc_broken_exit_policy is not None
+            and enemy.definition.id=='pc-book-npc:empire_official_dagger')
+        eligible+=int(allowed)
+        if item.count>exit_trials or (item.count and not allowed):
+            raise ValueError('NPC exit count contradicts the selected source/batch')
+    if not exit_trials<=total<=eligible*exit_trials:
+        raise ValueError('NPC exit totals contradict the number of trials with an exit')
+
+
+@dataclass(frozen=True, slots=True)
 class PcNearMissBurnCount:
     """New Near Miss burns during this battle, excluding supplied history."""
 
@@ -234,6 +277,7 @@ class PcMeleeTrialRecord:
     glorious_spend_counts: tuple[PcGloriousSpendCount, ...]
     help_action_counts: tuple[PcHelpActionCount, ...]
     ally_recover_action_counts: tuple[PcAllyRecoverActionCount, ...]
+    npc_exit_counts: tuple[PcNpcExitCount, ...]
 
     def __post_init__(self) -> None:
         validate_pc_melee_scenario_admission(self.source_scenario)
@@ -281,6 +325,9 @@ class PcMeleeTrialRecord:
             recover_trials=None,actions=self.executed_actions,started_rounds=self.started_rounds)
         if sum(item.count for item in (*self.help_action_counts,*self.ally_recover_action_counts))>self.executed_actions:
             raise ValueError('Help and ally Recover cannot consume the same action')
+        validate_npc_exit_counts(self.npc_exit_counts,self.source_scenario,trials=1,exit_trials=None)
+        if sum(item.count for item in self.npc_exit_counts)>self.executed_actions:
+            raise ValueError('each NPC exit requires its own actual first-Wound Attack')
 
 
 @dataclass(frozen=True, slots=True)

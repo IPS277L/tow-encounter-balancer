@@ -50,7 +50,8 @@ def pc_help_incoming_actor(state):
         return None
     unavailable = (*state.round_state.completed_turn_entity_ids,*state.round_state.excluded_turn_entity_ids)
     return next((enemy for enemy in state.source.enemy_activation_order
-        if not state.enemy(enemy).state.injury.defeated and enemy not in unavailable),None)
+        if not state.enemy(enemy).state.injury.defeated and enemy not in state.exited_npc_ids
+        and enemy not in unavailable),None)
 
 
 def build_pc_help_action(state):

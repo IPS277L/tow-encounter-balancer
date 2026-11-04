@@ -56,9 +56,19 @@ Broken требует тратить **свой ход** на движение �
 
 `PcNpcBrokenTurnUnsupported` сохраняет actor, exact PC Attack execution ID, Brute0→1 change и источник `RULE-PROFILE-TALABEC-007:first-wound-broken:{actor}:{attack_id}`. Причина `npc_broken_turn` не использует фиктивные PC table_total. Очередь уже завершена, ход Official не начат; дальнейшие steps запрещены. Подмена receipt/actor или одинаковых изменений разных Officials не проходит full replay.
 
-Бегство, safe route, Willpower/Leadership Recover и продолжение NPC после ухода не реализованы. Возможность снять Broken при сохраняющейся profile Wound не выбрана; M23 не требует решения этой будущей ветви. Current JSON1/метрики прежние, старые28пар не мигрируются; unsupported trials остаются в знаменателе и исключают кандидата из выбора.
+Без exit policy сохраняется граница M23: собственное бегство не исполняется, unsupported trials остаются в знаменателе и исключают кандидата из выбора. Поддержанное продолжение M24 описано ниже; Willpower/Leadership Recover и поведение после ухода не включены.
 
 Реализация: [catalog/wound bands](../../src/towr/domain/pc_npc_catalog.py), [effect/stop cause](../../src/towr/domain/pc_npc_wound_models.py), [profile ACK projection](../../src/towr/domain/_pc_melee_projection.py). Проверки: [данные](../../tests/unit/test_m23_pc_official_catalog.py), [native order/source/guards](../../tests/unit/test_m23_pc_official_wounds.py), [actual process/JSON/подбор](../../tests/integration/test_m23_pc_official.py).
+
+<a id="official-exit-m24"></a>
+
+### Продолжение M24: свободный выход Broken NPC
+
+BOOK-PLAYER-GUIDE1.4, Rules / The Battlefield114–115 / Free Actions116–117 / Broken122: свободное движение с Normal Speed позволяет перейти в соседнюю Zone. Broken требует наиболее быстрого допустимого пути в Zone без врагов; Run/Manoeuvre нужны, когда одного свободного движения недостаточно. Окружение и препятствия нельзя игнорировать.
+
+[ADR-0079](../decisions/ADR-0079-pc-broken-npc-adjacent-exit.md) допускает один явно подтверждённый clear/fastest adjacent exit. Source содержит nullable npc_broken_exit_policy и can_leave_zone=true; все PC остаются в arena, закрытая сцена не содержит скрытых внешних врагов. Actual own-turn FreeMovement receipt переносит Official, сохраняя W1/Broken/not defeated. Выход не расходует standard action или RNG. Вышедший actor исключается из дальнейших целей, ходов, outnumbering и новых Help choices; прежний адресованный ему Help не переносится.
+
+Пользователь выбрал objective «все NPC побеждены или ушли». Это цель сценария; уход учитывается отдельными счётчиками trials/summary и не считается defeat. Преследование, возврат и Recover за пределами arena не моделируются. Снятие Broken при сохраняющейся Wound остаётся открытым вопросом. Current JSON1 требует явную nullable policy и exit metrics; прежние примеры мигрированы с null/нулями без изменения старых результатов. [Исполняемый пример](../examples/m24/README.md).
 
 ## RULE-PROFILE-PEOPLES-001..008 — Ogres, Halflings, Dwarfs, Elves и Bretonnia
 

@@ -205,7 +205,8 @@
     ],
     "enemy_target_priority": [
       "pc"
-    ]
+    ],
+    "npc_broken_exit_policy": null
   },
   "generation": {
     "groups": [

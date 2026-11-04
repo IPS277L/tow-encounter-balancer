@@ -19,7 +19,7 @@ from towr.domain.npc_roster_models import (
 )
 from towr.domain.pc_melee_models import (
     PcFatePolicy, PcNearMissPolicy, PcGloriousPolicy, PcHelpPolicy, PcHelpTarget, PcAllyRecoverPolicy, PcMeleeDefinition, PcMeleeFacts, PcMeleeParticipant, PcMeleePolicy, PcMeleeScenario,
-    PcMeleeWeapon, PcRandomSidePolicy, PcHeavyWoundPolicy, PcWeaponHand, PcTwoHandedGrip, PcBackupWeaponPolicy, validate_pc_melee_scenario_admission,
+    PcMeleeWeapon, PcRandomSidePolicy, PcHeavyWoundPolicy, PcWeaponHand, PcTwoHandedGrip, PcBackupWeaponPolicy, PcAdjacentNpcExitPolicy, validate_pc_melee_scenario_admission,
 )
 from towr.domain.ranged_weapon_profiles import RangedWeaponHands, RangedWeaponRange
 from towr.domain.resolution_models import TargetInjuryPolicy
@@ -126,7 +126,9 @@ def _parse_scenario(data, *, path_prefix, error_type):
     return build(path_prefix, PcMeleeScenario, data["id"], party,
         data["day_id"], tuple(enemies), build(path_prefix + "/facts", PcMeleeFacts, **data["facts"]),
         tuple(data["pc_activation_order"]), tuple(data["enemy_activation_order"]),
-        tuple(data["enemy_target_priority"]), data["max_rounds"])
+        tuple(data["enemy_target_priority"]), data["max_rounds"],
+        None if data['npc_broken_exit_policy'] is None else build(path_prefix+'/npc_broken_exit_policy',
+            PcAdjacentNpcExitPolicy,**data['npc_broken_exit_policy']))
 
 
 def scenario_document(scenario: PcMeleeScenario) -> dict:
@@ -150,4 +152,5 @@ def scenario_document(scenario: PcMeleeScenario) -> dict:
         "pc_activation_order": list(scenario.pc_activation_order),
         "enemy_activation_order": list(scenario.enemy_activation_order),
         "enemy_target_priority": list(scenario.enemy_target_priority),
-        "max_rounds": scenario.max_rounds}
+        "max_rounds": scenario.max_rounds,
+        "npc_broken_exit_policy": None if scenario.npc_broken_exit_policy is None else asdict(scenario.npc_broken_exit_policy)}

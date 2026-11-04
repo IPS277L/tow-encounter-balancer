@@ -645,6 +645,28 @@
       ],
       "additionalProperties": false
     },
+    "npc_broken_exit_policy": {
+      "type": "object",
+      "properties": {
+        "destination_zone_id": {
+          "$ref": "urn:towr:pc-melee:common:1#/$defs/identifier"
+        },
+        "path_clear_confirmed": {
+          "type": "boolean",
+          "const": true
+        },
+        "fastest_route_confirmed": {
+          "type": "boolean",
+          "const": true
+        }
+      },
+      "required": [
+        "destination_zone_id",
+        "path_clear_confirmed",
+        "fastest_route_confirmed"
+      ],
+      "additionalProperties": false
+    },
     "scenario": {
       "type": "object",
       "properties": {
@@ -698,6 +720,12 @@
         "max_rounds": {
           "type": "integer",
           "minimum": 1
+        },
+        "npc_broken_exit_policy": {
+          "anyOf": [
+            {"type": "null"},
+            {"$ref": "urn:towr:pc-melee:common:1#/$defs/npc_broken_exit_policy"}
+          ]
         }
       },
       "required": [
@@ -709,9 +737,28 @@
         "pc_activation_order",
         "enemy_activation_order",
         "enemy_target_priority",
-        "max_rounds"
+        "max_rounds",
+        "npc_broken_exit_policy"
       ],
-      "additionalProperties": false
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "npc_broken_exit_policy": {"type": "object"}
+            }
+          },
+          "then": {
+            "properties": {
+              "facts": {
+                "properties": {
+                  "can_leave_zone": {"const": true}
+                }
+              }
+            }
+          }
+        }
+      ]
     },
     "group": {
       "type": "object",
@@ -794,6 +841,15 @@
         "round_limit",
         "unsupported_path"
       ],
+      "additionalProperties": false
+    },
+    "npc_exit_count": {
+      "type": "object",
+      "properties": {
+        "actor_id": {"$ref": "urn:towr:pc-melee:common:1#/$defs/identifier"},
+        "count": {"type": "integer", "minimum": 0}
+      },
+      "required": ["actor_id", "count"],
       "additionalProperties": false
     },
     "summary": {
@@ -888,6 +944,23 @@
         "total_ally_recover_action_count": {
           "type": "integer",
           "minimum": 0
+        },
+        "npc_exit_trial_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "npc_exit_counts": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"$ref": "urn:towr:pc-melee:common:1#/$defs/npc_exit_count"}
+        },
+        "objective_with_npc_exit_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "total_npc_exit_count": {
+          "type": "integer",
+          "minimum": 0
         }
       },
       "required": [
@@ -909,7 +982,11 @@
         "total_help_action_count",
         "ally_recover_action_trial_count",
         "ally_recover_action_counts",
-        "total_ally_recover_action_count"
+        "total_ally_recover_action_count",
+        "npc_exit_trial_count",
+        "npc_exit_counts",
+        "objective_with_npc_exit_count",
+        "total_npc_exit_count"
       ],
       "additionalProperties": false
     },

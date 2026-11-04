@@ -34,7 +34,7 @@ class PcMeleeModelTests(unittest.TestCase):
     def test_all_source_fields_and_policies_are_required(self):
         for cls in (PcMeleeDefinition, PcMeleeFacts, PcMeleeParticipant, PcMeleeScenario):
             self.assertTrue(all((field.default is MISSING and field.default_factory is MISSING for field in fields(cls))))
-        self.assertEqual(tuple((field.name for field in fields(PcMeleeScenario))), ('id', 'party', 'day_id', 'enemies', 'facts', 'pc_activation_order', 'enemy_activation_order', 'enemy_target_priority', 'max_rounds'))
+        self.assertEqual(tuple((field.name for field in fields(PcMeleeScenario))), ('id', 'party', 'day_id', 'enemies', 'facts', 'pc_activation_order', 'enemy_activation_order', 'enemy_target_priority', 'max_rounds','npc_broken_exit_policy'))
 
     def test_numeric_pc_guards_use_positive_characteristics_and_skill_thresholds(self):
         pc = make_pc_melee_scenario().party[0].pc

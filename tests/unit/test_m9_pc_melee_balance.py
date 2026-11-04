@@ -1,4 +1,5 @@
 """Deterministic aggregate/source/budget checks; no battle probability oracles."""
+from tests.support.pc_melee_fixtures import zero_npc_exit_counts
 from copy import deepcopy
 from dataclasses import FrozenInstanceError, replace
 from fractions import Fraction
@@ -44,7 +45,7 @@ def aggregate(source, *, wins=0, defeats=0, unsupported=0):
         0, tuple(PcNearMissBurnCount(member.actor_id,0) for member in source.scenario.party),
         0, tuple(PcGloriousSpendCount(member.actor_id,0) for member in source.scenario.party),
         0, tuple(PcHelpActionCount(member.actor_id,0) for member in source.scenario.party),
-        0, tuple(PcAllyRecoverActionCount(member.actor_id,0) for member in source.scenario.party))
+        0, tuple(PcAllyRecoverActionCount(member.actor_id,0) for member in source.scenario.party), 0, zero_npc_exit_counts(source.scenario), 0)
 
 
 class PcMeleeBalanceUnitTests(unittest.TestCase):

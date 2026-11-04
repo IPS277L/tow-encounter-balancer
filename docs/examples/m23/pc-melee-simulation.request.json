@@ -219,7 +219,8 @@
       "pc1",
       "pc2"
     ],
-    "max_rounds": 5
+    "max_rounds": 5,
+    "npc_broken_exit_policy": null
   },
   "simulation": {
     "master_seed": "42",

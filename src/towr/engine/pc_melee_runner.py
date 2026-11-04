@@ -16,6 +16,8 @@ from towr.domain.pc_melee_result_models import (
 )
 from towr.domain.condition_models import StaggerChoice, Condition
 from towr.domain.pc_backup_weapon_models import pc_backup_draw_hand, pc_preferred_weapon_hand
+from towr.domain.pc_npc_exit_models import PcNpcExitProof,build_pc_npc_exit
+from towr.rules.free_movement_resolution import resolve_free_movement
 from towr.domain.pc_fate_test_models import build_pc_glorious_spend
 from towr.domain.pc_help_models import build_pc_help_action, pc_attack_help_applications
 from towr.rules.help_resolution import _complete_help_action
@@ -203,6 +205,10 @@ def run_pc_melee_scenario(scenario, rng: RandomSource) -> PcMeleeScenarioResult:
         actor = combat.active_turn.actor_id
         action_id = pc_melee_action_id(state,actor)
         if not combat.active_turn.action_slots:
+            exit_request = build_pc_npc_exit(state,actor)
+            if exit_request is not None:
+                consume(PcNpcExitProof(exit_request,resolve_free_movement(exit_request)))
+                continue
             if actor in scenario.pc_activation_order:
                 member = state.participant(actor)
                 if member.injury.conditions.has(Condition.DEFENCELESS):

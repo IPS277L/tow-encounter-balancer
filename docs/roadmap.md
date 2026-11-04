@@ -118,11 +118,15 @@
 
 Завершённый срез по [ADR-0078](decisions/ADR-0078-pc-official-first-wound-broken-boundary.md): точный Brute2/Dagger/Athletics с unselected Pistol, Wound bands0/1/2 и Broken на living0→1 ACK. Пользователь выбрал остановку перед actual own Broken turn; другиеPC/Defence и обязательные end phases продолжаются до этого окна. W2 до окна — обычный defeat, неподдержанное бегство не подставляется. Source-bound NPC cause не использует PC Wounds Table; JSON1/метрики прежние.
 
-## После M23
+## M24 — выход Broken NPC из arena
 
-Более широкий NPC/spell/Miscast каталог, дополнительные тактики/Fate/Help/Recover, лечение ран, общий inventory/spatial/campaign/save-resume — отдельный backlog после M23. Решение GM для невозможной повторной анатомии и post-healing ветвей не подставляется. Следующие функции выбираются отдельно; уже закрытые границы ими автоматически не расширяются.
+Завершённый срез по [ADR-0079](decisions/ADR-0079-pc-broken-npc-adjacent-exit.md): явный clear/fastest adjacent safe exit, actual own-turn FreeMovement, withdrawal без fake TurnEnd/action/defeat. W1/Broken сохраняются; вышедший NPC исключён из целей/численности/Help/следующих ходов. Пользователь выбрал objective «все побеждены или ушли», уход учитывается отдельными source-ordered trial/summary counts и success-with-exit count. Current JSON1 требует nullable policy и метрики, старые30пар мигрированы с null/нулями без изменения прежних значений. Преследование/Recover/возврат не включены.
 
-Следующее предложение — первый книжный Brute с изменением состояния после раны. Сначала сверить полную карточку/Abilities и выбрать конечный loadout/продолжение в текущей сцене; при необходимой GM/AI policy запросить её явно. M23 ещё не согласована; другие профили, новые действия/ranges/spatial и весь бестиарий не включать автоматически. Greatsword и более свободная смена оружия остаются отдельными темами.
+## После M24
+
+Следующий scope выбрать отдельно. Два естественных направления: ещё один exact книжный NPC/loadout с полным исполнением применимых Abilities либо расширение пространственной сцены/дальнейшего поведения Broken. Перед Recover Official при W1 нужно разрешить вопрос ongoing cause; не подставлять снятие Broken. Общая навигация/AI и весь бестиарий автоматически не включаются.
+
+Более широкий NPC/spell/Miscast каталог, дополнительные тактики/Fate/Help/Recover, лечение ран, общий inventory/spatial/campaign/save-resume — отдельный backlog. Greatsword и более свободная смена оружия остаются открытыми темами; GM решение невозможной повторной анатомии не подставляется.
 
 ## Контрольные точки
 

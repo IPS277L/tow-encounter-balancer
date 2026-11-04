@@ -1,4 +1,5 @@
 """Party losses are observations over all trials, including stopped trials."""
+from tests.support.pc_melee_fixtures import zero_npc_exit_counts
 from copy import deepcopy
 from dataclasses import replace
 from fractions import Fraction
@@ -30,7 +31,7 @@ def observed_batch():
         tuple(PcNearMissBurnCount(member.actor_id,0) for member in source.scenario.party),
         tuple(PcGloriousSpendCount(member.actor_id,0) for member in source.scenario.party),
         tuple(PcHelpActionCount(member.actor_id,0) for member in source.scenario.party),
-        tuple(PcAllyRecoverActionCount(member.actor_id,0) for member in source.scenario.party))
+        tuple(PcAllyRecoverActionCount(member.actor_id,0) for member in source.scenario.party), zero_npc_exit_counts(source.scenario))
         for index,(outcome,deaths) in enumerate(observations)))
 
 

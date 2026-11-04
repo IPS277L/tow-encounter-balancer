@@ -1,4 +1,5 @@
 """Actual allied condition changes share the ordinary action/round budget."""
+from tests.support.pc_melee_fixtures import zero_npc_exit_counts
 from copy import deepcopy
 from dataclasses import replace
 from enum import Enum
@@ -34,7 +35,7 @@ def observed_batch():
         tuple(PcGloriousSpendCount(m.actor_id,0) for m in request.scenario.party),
         tuple(PcHelpActionCount(m.actor_id,0) for m in request.scenario.party),
         tuple(PcAllyRecoverActionCount(m.actor_id,count)
-            for m,count in zip(request.scenario.party,counts,strict=True)))
+            for m,count in zip(request.scenario.party,counts,strict=True)), zero_npc_exit_counts(request.scenario))
         for index,(outcome,counts) in enumerate(rows))
     return PcMeleeSimulationResult(request,records)
 

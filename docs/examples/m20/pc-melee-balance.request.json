@@ -208,7 +208,8 @@
     "enemy_target_priority": [
       "pc"
     ],
-    "max_rounds": 4
+    "max_rounds": 4,
+    "npc_broken_exit_policy": null
   },
   "generation": {
     "groups": [
