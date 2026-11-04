@@ -1,5 +1,7 @@
 # Реестр источников
 
+2026-11-04: для [M17/ADR-0073](decisions/ADR-0073-pc-ally-standard-recover.md) адресно сверены локальные extracted BOOK-PLAYER-GUIDE1.4: гл.V Recover118, ongoing Conditions122, Wounds13–15 Table190 и17/19 Table191. Standard benefits независимо выбирают self/ally в Close Range; ongoing источник блокирует снятие; Prone13 переносит Critical на фактически поднятого PC. Выбор self-required/ally-first — явная стратегия, не новая норма. Новых книг/версий и полного перечитывания нет.
+
 2026-11-04: для [M16/ADR-0072](decisions/ADR-0072-pc-protection-help-policy.md) сверены локальные extracted BOOK-PLAYER-GUIDE1.4: гл.V Helping108 / Combat Help117 / Attack Tests118 / Deafened-Drained123; в Wounds Table190 адресно проверены14/15 для нативного Critical→Defenceless сценария. Пример перехвата удара подтверждает Help защите, same-Skill Defence/Athletics сохраняет обычную eligibility. First-live-NPC/current-target выбор — явная тактика симуляции, не новая норма книги. Новых источников/версий или полного повторного чтения нет.
 
 2026-11-04: для [M15/ADR-0071](decisions/ADR-0071-pc-melee-help-policy.md) адресно перечитаны локальные extracted BOOK-PLAYER-GUIDE1.4, гл.V Rules / Helping With a Test108, Combat Actions / Help117, Deafened/Drained123. Проверены собственный relevant Skill Test, +1d за success, физическая помощь без зависимости от слуха и Conditions. Граница same-Skill/current-round intended Attack — выбор симуляции, не новое книжное ограничение. Новых версий/источников и полного перечитывания книг нет.

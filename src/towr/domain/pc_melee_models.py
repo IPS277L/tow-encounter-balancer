@@ -27,6 +27,15 @@ class PcMeleeWeapon(str, Enum):
 class PcMeleePolicy(str, Enum):
     ATTACK_OR_RECOVER_SELF = "attack_or_recover_self"
     HELP_ALLY_OR_ATTACK_OR_RECOVER_SELF = "help_ally_or_attack_or_recover_self"
+    RECOVER_ALLY_OR_ATTACK_OR_RECOVER_SELF = "recover_ally_or_attack_or_recover_self"
+
+
+@dataclass(frozen=True, slots=True)
+class PcAllyRecoverPolicy:
+    beneficiary_id: str
+
+    def __post_init__(self) -> None:
+        _identifier(self.beneficiary_id,"ally Recover beneficiary")
 
 
 class PcHelpTarget(str, Enum):
@@ -189,6 +198,7 @@ class PcMeleeParticipant:
     near_miss_policy: PcNearMissPolicy | None
     glorious_policy: PcGloriousPolicy | None
     help_policy: PcHelpPolicy | None
+    ally_recover_policy: PcAllyRecoverPolicy | None
 
     def __post_init__(self) -> None:
         _identifier(self.actor_id, "PC actor")
@@ -214,6 +224,13 @@ class PcMeleeParticipant:
                 raise ValueError("Help requires another PC")
         elif self.help_policy is not None:
             raise ValueError("ordinary Attack/Recover cannot carry a Help strategy")
+        if self.policy is PcMeleePolicy.RECOVER_ALLY_OR_ATTACK_OR_RECOVER_SELF:
+            _typed(self.ally_recover_policy,PcAllyRecoverPolicy,"ally Recover strategy")
+            replace(self.ally_recover_policy)
+            if self.ally_recover_policy.beneficiary_id == self.actor_id:
+                raise ValueError("ally Recover requires another PC")
+        elif self.ally_recover_policy is not None:
+            raise ValueError("this action strategy cannot carry ally Recover criteria")
         targets = _ordered(self.target_priority, "PC target priority")
         for target in targets:
             _identifier(target, "PC target")
@@ -296,6 +313,8 @@ class PcMeleeScenario:
         for member in party:
             if set(member.target_priority) != set(enemy_ids):
                 raise ValueError("each PC target priority must include every Minion exactly once")
+            if member.ally_recover_policy is not None and member.ally_recover_policy.beneficiary_id not in pc_ids:
+                raise ValueError("ally Recover beneficiary must be in the PC party")
             if member.help_policy is not None:
                 beneficiary_id = member.help_policy.beneficiary_id
                 if beneficiary_id not in pc_ids:

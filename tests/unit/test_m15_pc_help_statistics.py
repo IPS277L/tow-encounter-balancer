@@ -9,7 +9,7 @@ from towr.domain.pc_melee_models import PcHelpPolicy,PcHelpTarget,PcMeleePolicy
 from towr.domain.pc_melee_result_models import PcMeleeOutcome as Outcome
 from towr.simulation.pc_melee_models import (
     PcMeleeSimulationRequest,PcMeleeSimulationResult,PcMeleeTrialRecord,PcMeleeOutcomeCounts,
-    PcNearMissBurnCount,PcGloriousSpendCount,PcHelpActionCount,
+    PcNearMissBurnCount,PcGloriousSpendCount,PcHelpActionCount,PcAllyRecoverActionCount,
 )
 from towr.simulation.pc_melee_summary import summarize_pc_melee_simulation
 from towr.simulation.pc_melee_summary_models import PcMeleeDefeatCount
@@ -32,7 +32,8 @@ def observed_batch():
         tuple(PcNearMissBurnCount(member.actor_id,0) for member in request.scenario.party),
         tuple(PcGloriousSpendCount(member.actor_id,0) for member in request.scenario.party),
         tuple(PcHelpActionCount(member.actor_id,count)
-            for member,count in zip(request.scenario.party,counts,strict=True)))
+            for member,count in zip(request.scenario.party,counts,strict=True)),
+        tuple(PcAllyRecoverActionCount(member.actor_id,0) for member in request.scenario.party))
         for index,(outcome,counts) in enumerate(rows))
     return PcMeleeSimulationResult(request,records)
 

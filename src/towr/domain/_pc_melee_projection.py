@@ -543,28 +543,11 @@ def project_pc_step(state, proof):
         if pc_melee_selected_action(state) is not CombatActionKind.RECOVER:
             raise ValueError('Recover must be the selected PC action')
         expected = build_pc_melee_recover(state)
-        replace(proof.result)
-        replace(proof.result.resolution)
-        for change in proof.result.resolution.condition_changes:
-            replace(change)
-            ConditionState(change.previous_conditions.conditions)
-            ConditionState(change.conditions.conditions)
-        replace(proof.result.resolution.previous_magic_state)
-        replace(proof.result.resolution.magic_state)
-        validate_pc_melee_combat_shape(proof.result.round_state)
-        _same(proof.result.source_request,expected,'Recover differs from full owner/weapon/Conditions')
-        conditions = member.injury.conditions
-        for change in proof.result.resolution.condition_changes:
-            conditions = change.conditions
-        effects = tuple(e for e in member.injury.active_wound_effects
-            if expected.choice.prone_target is None or not isinstance(e,WoundConditionEffect) or e.condition is not Condition.PRONE
-                or e.duration is not WoundEffectDuration.UNTIL_REMOVED)
-        injury = replace(member.injury,conditions=conditions,active_wound_effects=effects)
-        hand = preferred_weapon_hand(member,participant.initial_weapon_hand) if expected.choice.object_interaction is not None else member.weapon_hand
-        injury = critical_for_action(replace(member,injury=injury),CombatActionKind.RECOVER,
-            removes_prone=expected.choice.prone_target is not None,
-            used_hand=hand if expected.choice.object_interaction is not None else None)
-        return finish(round_state=proof.result.round_state,party=_party_update(state,pc_actor,injury=injury,weapon_hand=hand))
+        from towr.domain.pc_ally_recover_models import expected_pc_standard_recover,pc_after_standard_recover
+        canonical = expected_pc_standard_recover(expected)
+        _same(proof.result,canonical,'Recover differs from its full current choices/recipients/slot/clock')
+        return finish(round_state=canonical.round_state,
+            party=pc_after_standard_recover(state,expected,canonical))
     if isinstance(proof,(PcTurnEndProof,PcIncapacitatedTurnEndProof)):
         from towr.domain.pc_heavy_turn_projection import project_heavy_turn_end
         return project_heavy_turn_end(state,proof,finish)

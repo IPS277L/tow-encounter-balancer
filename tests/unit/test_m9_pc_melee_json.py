@@ -23,7 +23,7 @@ from towr.domain.fate_models import (
     FATE_GLORIOUS_RULE_ID, FateBurnKind, FateBurnRecord, FateRefreshRecord,
     FateSessionState, FateSpendKind, FateSpendRecord,
 )
-from towr.simulation.pc_melee_models import PcMeleeOutcomeCounts, PcNearMissBurnCount, PcGloriousSpendCount, PcHelpActionCount
+from towr.simulation.pc_melee_models import PcMeleeOutcomeCounts, PcNearMissBurnCount, PcGloriousSpendCount, PcHelpActionCount, PcAllyRecoverActionCount
 from towr.simulation.pc_melee_summary_models import PcMeleeDefeatCount, PcMeleeSimulationSummary
 
 
@@ -84,7 +84,8 @@ def aggregate(request, *, unsupported=False):
         tuple(PcMeleeDefeatCount(member.actor_id,0) for member in request.scenario.party),0,
         tuple(PcNearMissBurnCount(member.actor_id,0) for member in request.scenario.party),0,
         tuple(PcGloriousSpendCount(member.actor_id,0) for member in request.scenario.party),0,
-        tuple(PcHelpActionCount(member.actor_id,0) for member in request.scenario.party))
+        tuple(PcHelpActionCount(member.actor_id,0) for member in request.scenario.party),0,
+        tuple(PcAllyRecoverActionCount(member.actor_id,0) for member in request.scenario.party))
 
 
 def balance_result(command):
@@ -103,6 +104,74 @@ def melee_help(beneficiary):
 
 
 class PcMeleeJsonTests(unittest.TestCase):
+    def test_ally_recover_config_and_counts_echo_through_simulation_and_candidate_sources(self):
+        for balance in (False,True):
+            raw=document(balance=balance,party_size=2)
+            key='template' if balance else 'scenario'
+            member=raw[key]['party'][0]
+            member.update(policy='recover_ally_or_attack_or_recover_self',
+                ally_recover_policy={'beneficiary_id':'pc2'})
+            parse=wire.parse_pc_melee_balance_request if balance else wire.parse_pc_melee_simulation_request
+            command=parse(json.dumps(raw))
+            source=command.request.template if balance else command.request.scenario
+            self.assertEqual(source.party[0].ally_recover_policy.beneficiary_id,'pc2')
+            self.assertEqual(scenario_document(source),raw[key])
+            if balance:
+                encoded=json.loads(wire.encode_pc_melee_balance_result(command,balance_result(command)))
+                for candidate in encoded['candidates']:
+                    self.assertEqual(candidate['request']['scenario']['party'][0]['ally_recover_policy'],
+                        member['ally_recover_policy'])
+                    self.assertEqual(candidate['summary']['total_ally_recover_action_count'],0)
+            else:
+                summary=replace(aggregate(command.request),ally_recover_action_trial_count=2,
+                    ally_recover_action_counts=(PcAllyRecoverActionCount('pc',2),PcAllyRecoverActionCount('pc2',0)))
+                encoded=json.loads(wire.encode_pc_melee_simulation_result(command,summary))
+                self.assertEqual(encoded['summary']['ally_recover_action_trial_count'],2)
+                self.assertEqual(encoded['summary']['total_ally_recover_action_count'],2)
+                self.assertEqual(encoded['summary']['ally_recover_action_counts'],
+                    [{'actor_id':'pc','count':2},{'actor_id':'pc2','count':0}])
+            self.assertEqual(encoded['request'],raw)
+
+    def test_ally_recover_policy_is_required_role_correlated_and_semantically_admitted(self):
+        for policy,criteria in (('attack_or_recover_self',{'beneficiary_id':'pc2'}),
+                ('recover_ally_or_attack_or_recover_self',None),
+                ('recover_ally_or_attack_or_recover_self',{}),
+                ('recover_ally_or_attack_or_recover_self',{'beneficiary_id':True}),
+                ('recover_ally_or_attack_or_recover_self',{'beneficiary_id':''}),
+                ('recover_ally_or_attack_or_recover_self',{'beneficiary_id':'pc'}),
+                ('recover_ally_or_attack_or_recover_self',{'beneficiary_id':'unknown'}),
+                ('recover_ally_or_attack_or_recover_self',{'beneficiary_id':'pc2','extra':True})):
+            raw=document(party_size=2)
+            raw['scenario']['party'][0].update(policy=policy,ally_recover_policy=criteria)
+            with self.subTest(policy=policy,criteria=criteria),self.assertRaises(PcMeleeSimulationInputError):
+                wire.parse_pc_melee_simulation_request(json.dumps(raw))
+        raw=document(party_size=2)
+        del raw['scenario']['party'][0]['ally_recover_policy']
+        with self.assertRaises(PcMeleeSimulationInputError):
+            wire.parse_pc_melee_simulation_request(json.dumps(raw))
+        raw=document(party_size=2)
+        raw['scenario']['party'][0].update(policy='recover_ally_or_attack_or_recover_self',
+            ally_recover_policy={'beneficiary_id':'pc2'},help_policy=melee_help('pc2'))
+        with self.assertRaises(PcMeleeSimulationInputError):
+            wire.parse_pc_melee_simulation_request(json.dumps(raw))
+
+    def test_ally_recover_allows_any_order_bidirectional_roles_and_a_helper_beneficiary(self):
+        for order in (['pc','pc2'],['pc2','pc']):
+            raw=document(party_size=2)
+            raw['scenario']['pc_activation_order']=order
+            for member,beneficiary in zip(raw['scenario']['party'],('pc2','pc')):
+                member.update(policy='recover_ally_or_attack_or_recover_self',
+                    ally_recover_policy={'beneficiary_id':beneficiary})
+            command=wire.parse_pc_melee_simulation_request(json.dumps(raw))
+            self.assertEqual(scenario_document(command.request.scenario),raw['scenario'])
+        raw=document(party_size=3)
+        raw['scenario']['party'][0].update(policy='recover_ally_or_attack_or_recover_self',
+            ally_recover_policy={'beneficiary_id':'pc3'})
+        raw['scenario']['party'][2].update(policy='help_ally_or_attack_or_recover_self',
+            help_policy=melee_help('pc2'))
+        command=wire.parse_pc_melee_simulation_request(json.dumps(raw))
+        self.assertEqual(scenario_document(command.request.scenario),raw['scenario'])
+
     def test_protection_help_full_source_echo_allows_earlier_beneficiary_and_both_skills(self):
         for balance in (False,True):
             for skill in ('defence','athletics'):
@@ -550,7 +619,8 @@ class PcMeleeJsonTests(unittest.TestCase):
             2,(PcMeleeDefeatCount('pc',1),PcMeleeDefeatCount('pc2',2)),0,
             (PcNearMissBurnCount('pc',0),PcNearMissBurnCount('pc2',0)),0,
             (PcGloriousSpendCount('pc',0),PcGloriousSpendCount('pc2',0)),0,
-            (PcHelpActionCount('pc',0),PcHelpActionCount('pc2',0)))
+            (PcHelpActionCount('pc',0),PcHelpActionCount('pc2',0)),0,
+            (PcAllyRecoverActionCount('pc',0),PcAllyRecoverActionCount('pc2',0)))
         value=json.loads(wire.encode_pc_melee_simulation_result(command,summary))
         self.assertEqual(value['summary']['outcome_counts']['party_defeated'],1)
         self.assertEqual(value['summary']['any_pc_defeated_count'],2)

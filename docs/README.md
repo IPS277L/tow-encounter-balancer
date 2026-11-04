@@ -5,7 +5,7 @@
 | Задача | Что читать и обновлять |
 |---|---|
 | Проверить границу M8 | [Scope и результаты финальной приёмки](m8-completion.md) |
-| Запустить бой группы PC против Minions/Brutes | [M16 JSON/CLI и Protection Help](examples/m16/README.md), [контракт](decisions/ADR-0072-pc-protection-help-policy.md); [Melee Help M15](examples/m15/README.md), [Glorious/Near Miss M14](examples/m14/README.md), [тяжёлые раны M12](examples/m12/README.md), [состав NPC](examples/m11/README.md), [Minion-группа](examples/m10/README.md), [одиночный пример](examples/m9/README.md) |
+| Запустить бой группы PC против Minions/Brutes | [M17 JSON/CLI и ally Recover](examples/m17/README.md), [контракт](decisions/ADR-0073-pc-ally-standard-recover.md); [Protection Help M16](examples/m16/README.md), [Melee Help M15](examples/m15/README.md), [Glorious/Near Miss M14](examples/m14/README.md), [тяжёлые раны M12](examples/m12/README.md), [состав NPC](examples/m11/README.md), [Minion-группа](examples/m10/README.md), [одиночный пример](examples/m9/README.md) |
 | Продолжить реализацию | [Статус и точный следующий шаг](project-status.md), [roadmap](roadmap.md) |
 | Изменить правило | [Иерархия источников](source-policy.md), соответствующий раздел [нормализованных правил](rules/), при необходимости книга по [индексу источников](source-index.md) |
 | Проверить неоднозначность | [Индекс вопросов](open-questions.md) → соответствующие [подробности](open-questions-details.md); [противоречия](contradictions.md) |

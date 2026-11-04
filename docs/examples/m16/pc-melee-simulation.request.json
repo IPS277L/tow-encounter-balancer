@@ -208,7 +208,8 @@
           "beneficiary_id": "pc:companion",
           "target": "first_incoming_protection",
           "protection_skill": "defence"
-        }
+        },
+        "ally_recover_policy": null
       },
       {
         "actor_id": "pc:companion",
@@ -281,7 +282,8 @@
           "maximum_initial_successes": 1,
           "minimum_remaining_spends": 1
         },
-        "help_policy": null
+        "help_policy": null,
+        "ally_recover_policy": null
       }
     ],
     "pc_activation_order": [

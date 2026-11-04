@@ -149,7 +149,8 @@
         "heavy_wound_policy": "continue_fighting",
         "near_miss_policy": null,
         "glorious_policy": null,
-        "help_policy": null
+        "help_policy": null,
+        "ally_recover_policy": null
       },
       {
         "actor_id": "pc:companion",
@@ -203,7 +204,8 @@
         "heavy_wound_policy": "continue_fighting",
         "near_miss_policy": null,
         "glorious_policy": null,
-        "help_policy": null
+        "help_policy": null,
+        "ally_recover_policy": null
       }
     ],
     "pc_activation_order": [

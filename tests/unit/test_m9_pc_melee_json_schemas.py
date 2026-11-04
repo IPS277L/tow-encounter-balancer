@@ -35,6 +35,40 @@ def samples():
 
 
 class PcMeleeJsonSchemaTests(unittest.TestCase):
+    def test_ally_recover_strategy_and_counters_are_current_required_closed_shapes(self):
+        raw=document(party_size=2)
+        member=raw['scenario']['party'][0]
+        member.update(policy='recover_ally_or_attack_or_recover_self',
+            ally_recover_policy={'beneficiary_id':'pc2'})
+        schema.validate_pc_melee_simulation_document(raw)
+        for policy,criteria in (('attack_or_recover_self',{'beneficiary_id':'pc2'}),
+                ('help_ally_or_attack_or_recover_self',{'beneficiary_id':'pc2'}),
+                ('recover_ally_or_attack_or_recover_self',None),
+                ('recover_ally_or_attack_or_recover_self',{}),
+                ('recover_ally_or_attack_or_recover_self',{'beneficiary_id':False}),
+                ('recover_ally_or_attack_or_recover_self',{'beneficiary_id':'pc2','extra':0})):
+            changed=deepcopy(raw)
+            changed['scenario']['party'][0].update(policy=policy,ally_recover_policy=criteria)
+            with self.subTest(policy=policy,criteria=criteria),self.assertRaises(ValidationError):
+                schema.validate_pc_melee_simulation_document(changed)
+        changed=deepcopy(raw)
+        del changed['scenario']['party'][0]['ally_recover_policy']
+        with self.assertRaises(ValidationError):
+            schema.validate_pc_melee_simulation_document(changed)
+        command=wire.parse_pc_melee_simulation_request(json.dumps(raw))
+        result=json.loads(wire.encode_pc_melee_simulation_result(command,aggregate(command.request)))
+        schema.validate_pc_melee_simulation_document(result,'result')
+        for field in ('ally_recover_action_trial_count','ally_recover_action_counts','total_ally_recover_action_count'):
+            changed=deepcopy(result)
+            del changed['summary'][field]
+            with self.subTest(missing=field),self.assertRaises(ValidationError):
+                schema.validate_pc_melee_simulation_document(changed,'result')
+        for value in (True,-1,1.5,None):
+            changed=deepcopy(result)
+            changed['summary']['ally_recover_action_counts'][0]['count']=value
+            with self.subTest(count=value),self.assertRaises(ValidationError):
+                schema.validate_pc_melee_simulation_document(changed,'result')
+
     def test_help_target_skill_shapes_are_required_closed_and_correlated(self):
         raw=document(party_size=2)
         helper=raw['scenario']['party'][1]

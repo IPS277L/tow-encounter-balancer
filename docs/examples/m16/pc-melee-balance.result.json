@@ -84,7 +84,8 @@
             "beneficiary_id": "pc:companion",
             "target": "first_incoming_protection",
             "protection_skill": "defence"
-          }
+          },
+          "ally_recover_policy": null
         },
         {
           "actor_id": "pc:companion",
@@ -157,7 +158,8 @@
             "maximum_initial_successes": 1,
             "minimum_remaining_spends": 1
           },
-          "help_policy": null
+          "help_policy": null,
+          "ally_recover_policy": null
         }
       ],
       "day_id": "day",
@@ -439,7 +441,8 @@
                 "beneficiary_id": "pc:companion",
                 "target": "first_incoming_protection",
                 "protection_skill": "defence"
-              }
+              },
+              "ally_recover_policy": null
             },
             {
               "actor_id": "pc:companion",
@@ -498,7 +501,8 @@
                 "maximum_initial_successes": 1,
                 "minimum_remaining_spends": 1
               },
-              "help_policy": null
+              "help_policy": null,
+              "ally_recover_policy": null
             }
           ],
           "day_id": "day",
@@ -623,7 +627,19 @@
             "count": 0
           }
         ],
-        "total_help_action_count": 37
+        "total_help_action_count": 37,
+        "ally_recover_action_trial_count": 0,
+        "ally_recover_action_counts": [
+          {
+            "actor_id": "pc",
+            "count": 0
+          },
+          {
+            "actor_id": "pc:companion",
+            "count": 0
+          }
+        ],
+        "total_ally_recover_action_count": 0
       },
       "assessment": {
         "status": "eligible",
@@ -740,7 +756,8 @@
                 "beneficiary_id": "pc:companion",
                 "target": "first_incoming_protection",
                 "protection_skill": "defence"
-              }
+              },
+              "ally_recover_policy": null
             },
             {
               "actor_id": "pc:companion",
@@ -806,7 +823,8 @@
                 "maximum_initial_successes": 1,
                 "minimum_remaining_spends": 1
               },
-              "help_policy": null
+              "help_policy": null,
+              "ally_recover_policy": null
             }
           ],
           "day_id": "day",
@@ -967,7 +985,19 @@
             "count": 0
           }
         ],
-        "total_help_action_count": 38
+        "total_help_action_count": 38,
+        "ally_recover_action_trial_count": 0,
+        "ally_recover_action_counts": [
+          {
+            "actor_id": "pc",
+            "count": 0
+          },
+          {
+            "actor_id": "pc:companion",
+            "count": 0
+          }
+        ],
+        "total_ally_recover_action_count": 0
       },
       "assessment": {
         "status": "eligible",
@@ -1091,7 +1121,8 @@
                 "beneficiary_id": "pc:companion",
                 "target": "first_incoming_protection",
                 "protection_skill": "defence"
-              }
+              },
+              "ally_recover_policy": null
             },
             {
               "actor_id": "pc:companion",
@@ -1164,7 +1195,8 @@
                 "maximum_initial_successes": 1,
                 "minimum_remaining_spends": 1
               },
-              "help_policy": null
+              "help_policy": null,
+              "ally_recover_policy": null
             }
           ],
           "day_id": "day",
@@ -1361,7 +1393,19 @@
             "count": 0
           }
         ],
-        "total_help_action_count": 27
+        "total_help_action_count": 27,
+        "ally_recover_action_trial_count": 0,
+        "ally_recover_action_counts": [
+          {
+            "actor_id": "pc",
+            "count": 0
+          },
+          {
+            "actor_id": "pc:companion",
+            "count": 0
+          }
+        ],
+        "total_ally_recover_action_count": 0
       },
       "assessment": {
         "status": "eligible",

@@ -14,7 +14,7 @@ from towr.application.pc_melee_balance_models import (
 )
 from towr.balance.pc_melee_assessment import PcMeleeAssessmentStatus, PcMeleeCandidateAssessment
 from towr.balance.ranged_assessment_models import ObjectiveRateWindow
-from towr.simulation.pc_melee_models import PcMeleeOutcomeCounts, PcMeleeSimulationRequest, PcNearMissBurnCount, PcGloriousSpendCount, PcHelpActionCount
+from towr.simulation.pc_melee_models import PcMeleeOutcomeCounts, PcMeleeSimulationRequest, PcNearMissBurnCount, PcGloriousSpendCount, PcHelpActionCount, PcAllyRecoverActionCount
 from towr.simulation.pc_melee_summary_models import PcMeleeDefeatCount, PcMeleeSimulationSummary
 
 
@@ -43,7 +43,8 @@ def aggregate(source, *, wins=0, defeats=0, unsupported=0):
         tuple(PcMeleeDefeatCount(member.actor_id,defeats) for member in source.scenario.party),
         0, tuple(PcNearMissBurnCount(member.actor_id,0) for member in source.scenario.party),
         0, tuple(PcGloriousSpendCount(member.actor_id,0) for member in source.scenario.party),
-        0, tuple(PcHelpActionCount(member.actor_id,0) for member in source.scenario.party))
+        0, tuple(PcHelpActionCount(member.actor_id,0) for member in source.scenario.party),
+        0, tuple(PcAllyRecoverActionCount(member.actor_id,0) for member in source.scenario.party))
 
 
 class PcMeleeBalanceUnitTests(unittest.TestCase):

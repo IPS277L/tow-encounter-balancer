@@ -195,7 +195,8 @@
           "minimum_rating_to_keep": 1
         },
         "glorious_policy": null,
-        "help_policy": null
+        "help_policy": null,
+        "ally_recover_policy": null
       },
       {
         "actor_id": "pc:companion",
@@ -259,7 +260,8 @@
           "minimum_rating_to_keep": 1
         },
         "glorious_policy": null,
-        "help_policy": null
+        "help_policy": null,
+        "ally_recover_policy": null
       }
     ],
     "pc_activation_order": [

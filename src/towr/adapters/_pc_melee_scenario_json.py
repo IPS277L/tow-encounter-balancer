@@ -18,7 +18,7 @@ from towr.domain.npc_roster_models import (
     NpcDefinition, NpcParticipantSnapshot, NpcParticipantState, NpcProtectionProfile,
 )
 from towr.domain.pc_melee_models import (
-    PcFatePolicy, PcNearMissPolicy, PcGloriousPolicy, PcHelpPolicy, PcHelpTarget, PcMeleeDefinition, PcMeleeFacts, PcMeleeParticipant, PcMeleePolicy, PcMeleeScenario,
+    PcFatePolicy, PcNearMissPolicy, PcGloriousPolicy, PcHelpPolicy, PcHelpTarget, PcAllyRecoverPolicy, PcMeleeDefinition, PcMeleeFacts, PcMeleeParticipant, PcMeleePolicy, PcMeleeScenario,
     PcMeleeWeapon, PcRandomSidePolicy, PcHeavyWoundPolicy, PcWeaponHand, validate_pc_melee_scenario_admission,
 )
 from towr.domain.ranged_weapon_profiles import RangedWeaponHands, RangedWeaponRange
@@ -80,6 +80,8 @@ def _parse_participant(data, *, path_prefix, error_type):
             **dict(data["help_policy"],target=PcHelpTarget(data["help_policy"]["target"]),
                 protection_skill=(None if data["help_policy"]["protection_skill"] is None else
                     Skill(data["help_policy"]["protection_skill"])))))
+    ally_recover_policy = (None if data["ally_recover_policy"] is None else
+        build(path_prefix + "/ally_recover_policy",PcAllyRecoverPolicy,**data["ally_recover_policy"]))
     return build(path_prefix, PcMeleeParticipant, data["actor_id"], pc, fate,
         PcMeleePolicy(data["policy"]), PcFatePolicy(data["fate_policy"]),
         PcRandomSidePolicy(data["random_side_policy"]), PcHeavyWoundPolicy(data["heavy_wound_policy"]),
@@ -88,7 +90,8 @@ def _parse_participant(data, *, path_prefix, error_type):
         tuple(build(f"{path_prefix}/defeat_decisions/{index}", MinionDefeatDecision,
             **dict(record, disposition=NpcDefeatDisposition(record["disposition"])))
             for index, record in enumerate(data["defeat_decisions"])),
-        near_miss_policy=near_miss,glorious_policy=glorious,help_policy=help_policy)
+        near_miss_policy=near_miss,glorious_policy=glorious,help_policy=help_policy,
+        ally_recover_policy=ally_recover_policy)
 
 
 def _parse_scenario(data, *, path_prefix, error_type):

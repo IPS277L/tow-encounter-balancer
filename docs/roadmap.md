@@ -16,10 +16,11 @@
 - M14: Glorious после actual initial roll для всех PC Test windows, отдельный session-spend резерв, совместимость с Near Miss в `configured`, новые costs в trials/balance и текущей JSON1. [Контракт ADR-0070](decisions/ADR-0070-pc-glorious-test-policy.md).
 - M15: физический Melee Help для текущей атаки более позднего обычного PC, настоящие action/Test/Fate/heavy последствия, exact intended-Test applications и отдельные counts в trials/balance/JSON1. [Контракт ADR-0071](decisions/ADR-0071-pc-melee-help-policy.md).
 - M16: Defence/Athletics Help для конкретного incoming Protection Test, явный target/skill, сохранение unused snapshot при смене Skill/NPC/no-Test и прежние trials/подбор/JSON1. [Контракт ADR-0072](decisions/ADR-0072-pc-protection-help-policy.md).
+- M17: standard Recover выбранному союзнику, per-entity Conditions/источники/W13 consequences, mixed self/ally benefits, own pickup, реальные action counts и текущий JSON1. [Контракт ADR-0073](decisions/ADR-0073-pc-ally-standard-recover.md).
 
 ## Последняя законченная функция
 
-[Protection Help M16](decisions/ADR-0072-pc-protection-help-policy.md) реализован через owner/trials/подбор и текущий JSON1, вместе с Melee Help/Fate/ранами. [Примеры](examples/m16/README.md) выполнены настоящим CLI; source задаёт цель/Skill, costs видны отдельно. Адресная приёмка — в статусе и ADR-0072; full/wheel не повторяются автоматически.
+[Ally Recover M17](decisions/ADR-0073-pc-ally-standard-recover.md) реализован через owner/trials/подбор и текущий JSON1, вместе с Help/Fate/ранами. [Примеры](examples/m17/README.md) выполнены настоящим CLI; actual allied changes считаются отдельно от self-only Recover/Help/Fate. Адресная приёмка общего Recover и затронутых M8 callers — в статусе и ADR-0073; full/wheel не повторяются автоматически.
 
 ## M8 завершена
 
@@ -83,11 +84,15 @@
 
 Завершённый срез по [ADR-0072](decisions/ADR-0072-pc-protection-help-policy.md): явные target и Defence/Athletics, первый текущий live NPC при совпадении ожидаемой цели, exact beneficiary/Test/Skill applications в original Protection options до собственного Glorious. Гибель NPC, смена оружия/Skill и Defenceless не переназначают snapshot. Protection beneficiary может уже завершить ход. Новых counters/owner bank/version нет; generation сохраняет authored configuration при удалении NPC. Старые14JSON-пар мигрированы/проверены без смены gameplay. Обязательного остатка M16 нет.
 
-## После M16
+## M17 — стандартный Recover союзнику
 
-Более широкий NPC/spell/Miscast каталог, дополнительные тактики/Fate/Help, лечение, общий inventory/spatial/campaign/save-resume и ally removal — отдельный backlog после M16. Решение GM для невозможной повторной анатомии и post-healing ветвей не подставляется. Следующие функции выбираются отдельно; уже закрытые границы ими автоматически не расширяются.
+Завершённый срез по [ADR-0073](decisions/ADR-0073-pc-ally-standard-recover.md): fixed beneficiary любого порядка/роли, self-required priority, иначе ally-first по Staggered/Prone benefit, mixed recipients и own pickup. Оngoing причины не удаляются, Critical13 получает фактически поднятый PC; receiving aid не становится действием14/15. Full canonical proof и общий pure completion сохраняют источник/slot/clock; actual allied action counts проходят indexed trials/process/aggregate-only search и JSON1. Opening-round/joint support budgets и exact outer result type проверены. Старые16JSON-пар мигрированы с null/нулями без смены gameplay. Обязательного остатка M17 нет.
 
-Рекомендуемое следующее направление — стандартный Recover для союзного PC в Close Range. Перед реализацией закрепить явную тактику выбора целей/Conditions и source-aware ограничения ongoing Wounds; это не лечение ран или optimal AI. M17 ещё не согласована, прочие действия не включать автоматически.
+## После M17
+
+Более широкий NPC/spell/Miscast каталог, дополнительные тактики/Fate/Help/Recover, лечение ран, общий inventory/spatial/campaign/save-resume — отдельный backlog после M17. Решение GM для невозможной повторной анатомии и post-healing ветвей не подставляется. Следующие функции выбираются отдельно; уже закрытые границы ими автоматически не расширяются.
+
+Рекомендуемое следующее направление — расширение PC вооружения за пределы Staff/Sword. Перед реализацией выбрать первый книжный набор и необходимые свойства, сохраняя полный source и существующие Help/Fate/Recover взаимодействия. M18 ещё не согласована; остальной каталог не включать автоматически.
 
 ## Контрольные точки
 

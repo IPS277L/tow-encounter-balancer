@@ -4,7 +4,7 @@ from dataclasses import dataclass, replace
 from towr.simulation.pc_melee_models import (
     PcMeleeOutcomeCounts, PcMeleeSimulationRequest, PcNearMissBurnCount,
     validate_near_miss_counts, PcGloriousSpendCount, validate_glorious_counts,
-    PcHelpActionCount, validate_help_counts,
+    PcHelpActionCount, validate_help_counts, PcAllyRecoverActionCount, validate_ally_recover_counts,
 )
 
 
@@ -39,6 +39,8 @@ class PcMeleeSimulationSummary:
     glorious_spend_counts: tuple[PcGloriousSpendCount, ...]
     help_action_trial_count: int
     help_action_counts: tuple[PcHelpActionCount, ...]
+    ally_recover_action_trial_count: int
+    ally_recover_action_counts: tuple[PcAllyRecoverActionCount, ...]
 
     def __post_init__(self) -> None:
         if not isinstance(self.source_request, PcMeleeSimulationRequest):
@@ -103,6 +105,17 @@ class PcMeleeSimulationSummary:
         validate_help_counts(self.help_action_counts,self.source_request.scenario,trials=self.trials,
             help_trials=self.help_action_trial_count,actions=self.total_action_count,
             started_rounds=self.total_started_round_count)
+        if type(self.ally_recover_action_trial_count) is not int:
+            raise TypeError('ally Recover trial count must be an integer')
+        validate_ally_recover_counts(self.ally_recover_action_counts,self.source_request.scenario,
+            trials=self.trials,recover_trials=self.ally_recover_action_trial_count,
+            actions=self.total_action_count,started_rounds=self.total_started_round_count)
+        if sum(item.count for item in (*self.help_action_counts,*self.ally_recover_action_counts))>self.total_action_count:
+            raise ValueError('Help and ally Recover cannot consume the same action')
+
+    @property
+    def total_ally_recover_action_count(self) -> int:
+        return sum(item.count for item in self.ally_recover_action_counts)
 
     @property
     def total_help_action_count(self) -> int:

@@ -11,7 +11,7 @@ from towr.balance.pc_melee_assessment import PcMeleeCandidateAssessment
 from towr.balance.ranged_assessment_models import ObjectiveRateWindow
 from towr.domain.pc_melee_result_models import PcMeleeOutcome as Outcome
 from towr.simulation.pc_melee_models import (
-    PcMeleeSimulationRequest, PcMeleeSimulationResult, PcMeleeTrialRecord, PcNearMissBurnCount, PcGloriousSpendCount, PcHelpActionCount,
+    PcMeleeSimulationRequest, PcMeleeSimulationResult, PcMeleeTrialRecord, PcNearMissBurnCount, PcGloriousSpendCount, PcHelpActionCount, PcAllyRecoverActionCount,
 )
 from towr.simulation.pc_melee_summary import summarize_pc_melee_simulation
 from towr.simulation.pc_melee_summary_models import PcMeleeDefeatCount
@@ -29,7 +29,8 @@ def observed_batch():
         source.seed_for(index),outcome,4,1,int(outcome is Outcome.ROUND_LIMIT),deaths,
         tuple(PcNearMissBurnCount(member.actor_id,0) for member in source.scenario.party),
         tuple(PcGloriousSpendCount(member.actor_id,0) for member in source.scenario.party),
-        tuple(PcHelpActionCount(member.actor_id,0) for member in source.scenario.party))
+        tuple(PcHelpActionCount(member.actor_id,0) for member in source.scenario.party),
+        tuple(PcAllyRecoverActionCount(member.actor_id,0) for member in source.scenario.party))
         for index,(outcome,deaths) in enumerate(observations)))
 
 

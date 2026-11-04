@@ -46,6 +46,8 @@ M15 допускает явную роль [Melee helper для намеченн
 
 M16 добавляет [Defence/Athletics Help для первого ожидаемого incoming Protection Test](decisions/ADR-0072-pc-protection-help-policy.md), сохраняет exact intended actor/Test/Skill и не переносит бонус после смены ситуации. Другие relevant Skills/GM approval, chains и optimal AI по-прежнему не определены для native PC family.
 
+M17 подключает [standard Recover для выбранного союзника](decisions/ADR-0073-pc-ally-standard-recover.md), с self-required/ally-first choices и source-aware Condition/W13 последствиями. Receiving aid не становится действием получателя. Alternative лечение/Condition Tests и общий optimal выбор цели не входят в текущую PC policy.
+
 Книга оставляет участникам решения: исход повторного Staggered, расход Fate, некоторые Talents, выбор Wound/Reaction у Monstrosity, добровольную Regeneration, ответ цели на Foul Stench и замену неподходящего результата Wounds Table для не-физического Hazard. Kernel сохранит владельца и варианты каждого решения. Перед массовой симуляцией нужно определить набор AI-policy: например, минимизация ожидаемого вреда, удержание позиции или профиль поведения NPC. Без отдельной Hazard-policy безопасный технический default — не заменять выпавшую строку таблицы.
 
 Техническая граница первого среза согласована в `ADR-0002` и `architecture/resolution-kernel.md`; пользовательского решения для начала K1 не требуется.

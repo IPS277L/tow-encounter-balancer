@@ -945,6 +945,77 @@ class EndBattleWoundTreatmentResult:
         object.__setattr__(self, "applied_rule_ids", rule_ids)
 
 
+def _validate_recover_action(request: RecoverActionExecutionRequest) -> None:
+    """Validate the existing action/condition gate before any Test or RNG."""
+    if not isinstance(request, RecoverActionExecutionRequest):
+        raise TypeError("Recover execution requires a Recover action request")
+    replace(request)
+    if request.rule_id != RECOVER_ACTION_RULE_ID:
+        raise ValueError("Recover request uses an unknown source rule")
+    turn = request.round_state.active_turn
+    assert turn is not None
+    if request.slot_index > len(turn.action_slots):
+        raise ValueError("the requested action slot has not been reserved")
+    if any(not slot.executed for slot in turn.action_slots[:request.slot_index - 1]):
+        raise ValueError("earlier action slots must be executed first")
+    slot = turn.action_slots[request.slot_index - 1]
+    if slot.declaration.kind is not CombatActionKind.RECOVER:
+        raise ValueError("only a Recover action slot can use this executor")
+    if slot.executed:
+        raise ValueError("the Recover action slot has already been executed")
+    if request.actor_conditions.has(Condition.DEFENCELESS):
+        raise ValueError("Defenceless characters cannot take actions")
+    if request.actor_conditions.has(Condition.BROKEN) and request.actor_has_enemy_in_zone:
+        raise ValueError("Broken characters can Recover only in a safe Zone")
+
+
+def _expected_recover_execution(
+    request: RecoverActionExecutionRequest,
+    resolution: RecoverResolution,
+) -> RecoverActionExecutionResult:
+    """Complete a resolved Recover without executing its choice or rolling again."""
+    _validate_recover_action(request)
+    if not isinstance(resolution, (RecoverStandardResult, RecoverTreatWoundResult,
+                                   RecoverConditionRemovalResult)):
+        raise TypeError("Recover completion requires its typed resolution")
+    replace(resolution)
+    turn = request.round_state.active_turn
+    assert turn is not None
+    slot = turn.action_slots[request.slot_index - 1]
+    executed_slot = replace(slot, execution=ActionExecutionReceipt(
+        id=request.id,
+        executor_rule_id=request.rule_id,
+        source_request_id=request.id,
+        result_request_id=_resolution_result_id(request, resolution),
+        actor_id=request.actor_id,
+        round_number=request.round_state.round_number,
+        slot_index=slot.index,
+        declaration=slot.declaration,
+    ))
+    updated_slots = tuple(executed_slot if item.index == request.slot_index else item
+                          for item in turn.action_slots)
+    updated_round_state = replace(request.round_state,
+        active_turn=replace(turn, action_slots=updated_slots))
+    values = [request.rule_id]
+    if isinstance(resolution, RecoverTreatWoundResult):
+        values.append(resolution.source.rule_id)
+        if resolution.test_result is not None:
+            values.extend(resolution.test_result.trace.applied_rule_ids)
+    elif isinstance(resolution, RecoverConditionRemovalResult):
+        values.append(resolution.source.rule_id)
+        values.extend(resolution.test_result.trace.applied_rule_ids)
+    return RecoverActionExecutionResult(
+        request_id=request.id,
+        rule_id=request.rule_id,
+        source_request=request,
+        resolution=resolution,
+        previous_round_state=request.round_state,
+        round_state=updated_round_state,
+        slot=executed_slot,
+        applied_rule_ids=tuple(dict.fromkeys(values)),
+    )
+
+
 def _resolution_result_id(
     request: RecoverActionExecutionRequest,
     resolution: RecoverResolution,

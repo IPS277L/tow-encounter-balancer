@@ -4,12 +4,12 @@ from dataclasses import replace
 from random import Random
 
 from towr.domain.pc_melee_models import validate_pc_melee_scenario_admission
-from towr.domain.pc_melee_result_models import PcMeleeScenarioResult, PcHelpProof
+from towr.domain.pc_melee_result_models import PcMeleeScenarioResult, PcHelpProof, PcRecoverProof
 from towr.engine.pc_melee_runner import run_pc_melee_scenario
 from towr.rules.dice import RandomSource
 from towr.simulation.pc_melee_models import (
     PcMeleeSimulationRequest, PcMeleeSimulationResult, PcMeleeTrialRecord, PcNearMissBurnCount, PcGloriousSpendCount,
-    PcHelpActionCount,
+    PcHelpActionCount, PcAllyRecoverActionCount,
 )
 
 
@@ -22,7 +22,7 @@ def run_pc_melee_trial(request: PcMeleeSimulationRequest, trial_index: int, *,
         raise TypeError('rng_factory must be callable')
     seed = request.seed_for(trial_index)
     result = run_pc_melee_scenario(request.scenario, rng_factory(seed))
-    if not isinstance(result, PcMeleeScenarioResult):
+    if type(result) is not PcMeleeScenarioResult:
         raise TypeError('PC encounter runner must return a typed result')
     # Admit the actual journal before turning mutable cached state into counters.
     # Projection verifies proofs without executing tests or consuming RNG again.
@@ -40,6 +40,12 @@ def run_pc_melee_trial(request: PcMeleeSimulationRequest, trial_index: int, *,
             for member in request.scenario.party),
         tuple(PcHelpActionCount(member.actor_id,
             sum(isinstance(step.proof,PcHelpProof) and step.proof.request.actor_id==member.actor_id
+                for step in result.steps)) for member in request.scenario.party),
+        tuple(PcAllyRecoverActionCount(member.actor_id,
+            sum(isinstance(step.proof,PcRecoverProof)
+                and step.proof.result.source_request.actor_id==member.actor_id
+                and any(change.entity_id!=member.actor_id
+                    for change in step.proof.result.resolution.condition_changes)
                 for step in result.steps)) for member in request.scenario.party))
 
 

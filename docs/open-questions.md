@@ -4,7 +4,7 @@
 
 ## Действующая граница симуляции
 
-Ограниченные M8–M16 завершены: [Protection Help ADR-0072](decisions/ADR-0072-pc-protection-help-policy.md), [Melee Help ADR-0071](decisions/ADR-0071-pc-melee-help-policy.md), [Fate ADR-0070](decisions/ADR-0070-pc-glorious-test-policy.md), [статус](project-status.md), [архитектура](architecture/overview.md). Numeric Minions/Brutes и PC Wounds1–23/lethal24+ исполняются с индивидуальными ресурсами/ранами и mandatory Critical/Defenceless end phase. Гибель одного PC допускает продолжение другими; observed losses не предсказывают судьбу survivors после stop/limit. Невозможная повторная анатомия сохраняет actual GM-stop. Остальные Fate options, post-healing Endurance22, лечение, Champions/Monstrosities, ally Recover, другие Help Skills/GM approval/chains, campaign/inventory и optimal AI остаются будущими темами. История закрытых вех не расширяет очередь и не возвращает старые wire formats.
+Ограниченные M8–M17 завершены: [ally Recover ADR-0073](decisions/ADR-0073-pc-ally-standard-recover.md), [Help ADR-0072](decisions/ADR-0072-pc-protection-help-policy.md), [Fate ADR-0070](decisions/ADR-0070-pc-glorious-test-policy.md), [статус](project-status.md), [архитектура](architecture/overview.md). Numeric Minions/Brutes и PC Wounds1–23/lethal24+ исполняются с индивидуальными ресурсами/ранами и mandatory Critical/Defenceless end phase. Гибель одного PC допускает продолжение другими; observed losses не предсказывают судьбу survivors после stop/limit. Невозможная повторная анатомия сохраняет actual GM-stop. Остальные Fate options, post-healing Endurance22, лечение ран/alternative Recover, Champions/Monstrosities, другие Help Skills/GM approval/chains, campaign/inventory и optimal AI остаются будущими темами native PC family. История закрытых вех не расширяет очередь и не возвращает старые wire formats.
 
 ## Выбранная стратегия M12
 
@@ -25,6 +25,8 @@
 M15 добавляет caller-owned роль Melee helper для конкретной атаки более позднего обычного PC в этом раунде, с self Recover/Attack fallback. [Граница](decisions/ADR-0071-pc-melee-help-policy.md). Получение бонуса само по себе не доказывает преимущество этой тактики; оптимальный выбор Help/Attack не задан. Clock сохраняет всю PC-side перед NPC-side.
 
 M16 расширяет тот же Help на [конкретный incoming Protection Test](decisions/ADR-0072-pc-protection-help-policy.md) первого ожидаемого live NPC, с явным Defence/Athletics. Protection beneficiary может уже завершить ход; прежние snapshots не переназначаются при смене цели/Skill или гибели NPC. Общий выбор самых выгодных действий/врагов не определён.
+
+M17 добавляет [явный standard Recover союзнику](decisions/ADR-0073-pc-ally-standard-recover.md): self-required приоритет, иначе ally-first по каждому benefit. Оngoing причины сохраняются, Prone13 вызывает Critical у фактического получателя. Получение помощи не является его действием14/15. Это не лечение ран и не оптимальный выбор по всем целям.
 
 ## Масштаб Unmitigated Success и Last Stand
 

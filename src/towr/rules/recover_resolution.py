@@ -2,10 +2,8 @@ from __future__ import annotations
 
 from dataclasses import replace
 
-from towr.domain.condition_models import Condition
 from towr.domain.recover_models import (
     END_BATTLE_WOUND_TREATMENT_RULE_ID,
-    RECOVER_ACTION_RULE_ID,
     RECOVER_TREAT_WOUND_APPLICATION_RULE_ID,
     RECOVER_TREAT_WOUND_RULE_ID,
     EndBattleWoundTreatmentRequest,
@@ -25,9 +23,9 @@ from towr.domain.recover_models import (
     _expected_end_battle_treatment_transition,
     _expected_wound_treatment_transition,
     _expected_standard_changes,
-    _resolution_result_id,
+    _validate_recover_action,
+    _expected_recover_execution,
 )
-from towr.domain.turn_models import ActionExecutionReceipt, CombatActionKind
 from towr.rules.dice import RandomSource
 from towr.rules.test_resolution import TestDecisionProvider, resolve_test
 
@@ -39,63 +37,9 @@ def execute_recover_action(
     decisions: TestDecisionProvider | None = None,
 ) -> RecoverActionExecutionResult:
     """Execute one standard or alternative Recover action."""
-    if request.rule_id != RECOVER_ACTION_RULE_ID:
-        raise ValueError("Recover request uses an unknown source rule")
-    turn = request.round_state.active_turn
-    assert turn is not None
-    if request.slot_index > len(turn.action_slots):
-        raise ValueError("the requested action slot has not been reserved")
-    if any(
-        not slot.executed
-        for slot in turn.action_slots[: request.slot_index - 1]
-    ):
-        raise ValueError("earlier action slots must be executed first")
-    slot = turn.action_slots[request.slot_index - 1]
-    if slot.declaration.kind is not CombatActionKind.RECOVER:
-        raise ValueError("only a Recover action slot can use this executor")
-    if slot.executed:
-        raise ValueError("the Recover action slot has already been executed")
-    if request.actor_conditions.has(Condition.DEFENCELESS):
-        raise ValueError("Defenceless characters cannot take actions")
-    if (
-        request.actor_conditions.has(Condition.BROKEN)
-        and request.actor_has_enemy_in_zone
-    ):
-        raise ValueError("Broken characters can Recover only in a safe Zone")
-
+    _validate_recover_action(request)
     resolution = _resolve_choice(request, rng, decisions=decisions)
-    result_id = _resolution_result_id(request, resolution)
-    executed_slot = replace(
-        slot,
-        execution=ActionExecutionReceipt(
-            id=request.id,
-            executor_rule_id=request.rule_id,
-            source_request_id=request.id,
-            result_request_id=result_id,
-            actor_id=request.actor_id,
-            round_number=request.round_state.round_number,
-            slot_index=slot.index,
-            declaration=slot.declaration,
-        ),
-    )
-    updated_slots = tuple(
-        executed_slot if item.index == request.slot_index else item
-        for item in turn.action_slots
-    )
-    updated_round_state = replace(
-        request.round_state,
-        active_turn=replace(turn, action_slots=updated_slots),
-    )
-    return RecoverActionExecutionResult(
-        request_id=request.id,
-        rule_id=request.rule_id,
-        source_request=request,
-        resolution=resolution,
-        previous_round_state=request.round_state,
-        round_state=updated_round_state,
-        slot=executed_slot,
-        applied_rule_ids=_applied_rule_ids(request, resolution),
-    )
+    return _expected_recover_execution(request, resolution)
 
 
 def apply_recover_wound_treatment(
@@ -266,15 +210,3 @@ def _resolve_condition_removal(
         ),
         removed=removed,
     )
-
-
-def _applied_rule_ids(request, resolution) -> tuple[str, ...]:
-    values = [request.rule_id]
-    if isinstance(resolution, RecoverTreatWoundResult):
-        values.append(resolution.source.rule_id)
-        if resolution.test_result is not None:
-            values.extend(resolution.test_result.trace.applied_rule_ids)
-    elif isinstance(resolution, RecoverConditionRemovalResult):
-        values.append(resolution.source.rule_id)
-        values.extend(resolution.test_result.trace.applied_rule_ids)
-    return tuple(dict.fromkeys(values))

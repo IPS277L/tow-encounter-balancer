@@ -204,7 +204,8 @@
           "maximum_initial_successes": 1,
           "minimum_remaining_spends": 1
         },
-        "help_policy": null
+        "help_policy": null,
+        "ally_recover_policy": null
       },
       {
         "actor_id": "pc:companion",
@@ -277,7 +278,8 @@
           "maximum_initial_successes": 1,
           "minimum_remaining_spends": 1
         },
-        "help_policy": null
+        "help_policy": null,
+        "ally_recover_policy": null
       }
     ],
     "pc_activation_order": [

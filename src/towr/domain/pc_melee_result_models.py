@@ -465,6 +465,9 @@ def pc_melee_selected_action(state: PcMeleeState) -> CombatActionKind:
         member = state.participant(actor_id)
         if _pc_recover_needed(member):
             return CombatActionKind.RECOVER
+        from towr.domain.pc_ally_recover_models import pc_ally_recover_beneficiary
+        if pc_ally_recover_beneficiary(state) is not None:
+            return CombatActionKind.RECOVER
         from towr.domain.pc_help_models import pc_help_beneficiary
         if pc_help_beneficiary(state) is not None:
             return CombatActionKind.HELP
@@ -575,12 +578,11 @@ def build_pc_melee_recover(state: PcMeleeState) -> RecoverActionExecutionRequest
     actor = state.round_state.active_turn.actor_id
     member = state.participant(actor)
     action_id = pc_melee_action_id(state, actor)
-    target = RecoverConditionTarget(actor,member.injury.conditions,None)
+    from towr.domain.pc_ally_recover_models import pc_recover_targets
+    staggered_target,prone_target = pc_recover_targets(state)
     choice = RecoverStandardChoice(WizardMagicState(),
-        staggered_target=target if member.injury.conditions.has(Condition.STAGGERED)
-            and not has_ongoing_condition(member.injury,Condition.STAGGERED) else None,
-        prone_target=target if member.injury.conditions.has(Condition.PRONE)
-            and not has_ongoing_condition(member.injury,Condition.PRONE) else None,
+        staggered_target=staggered_target,
+        prone_target=prone_target,
         object_interaction=(RecoverObjectInteractionFollowUp(action_id + ':pickup',actor,
             actor + ':weapon',True) if member.weapon_hand is None
             and preferred_weapon_hand(member,state.source.participant(actor).initial_weapon_hand) is not None else None))

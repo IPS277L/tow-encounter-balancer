@@ -114,6 +114,52 @@ def validate_help_counts(counts,scenario,*,trials:int,help_trials:int|None,
             raise ValueError('Help count exceeds the selected role/turn budget')
 
 
+@dataclass(frozen=True, slots=True)
+class PcAllyRecoverActionCount:
+    actor_id: str
+    count: int
+
+    def __post_init__(self) -> None:
+        if type(self.actor_id) is not str or not self.actor_id.strip():
+            raise TypeError('ally Recover count requires a nonempty actor ID')
+        if type(self.count) is not int:
+            raise TypeError('ally Recover count must be an integer')
+        if self.count < 0:
+            raise ValueError('ally Recover count must be nonnegative')
+
+
+def validate_ally_recover_counts(counts,scenario,*,trials:int,recover_trials:int|None,
+                                 actions:int,started_rounds:int) -> None:
+    from towr.domain.pc_melee_models import PcMeleePolicy
+    if type(counts) is not tuple:
+        raise TypeError('ally Recover counts require a source-ordered tuple')
+    for item in counts:
+        if type(item) is not PcAllyRecoverActionCount:
+            raise TypeError('ally Recover counts require typed observations')
+        replace(item)
+    if tuple(item.actor_id for item in counts)!=tuple(member.actor_id for member in scenario.party):
+        raise ValueError('ally Recover counts must cover the full source-ordered party')
+    total=sum(item.count for item in counts)
+    if recover_trials is None:
+        recover_trials=int(total>0)
+    if type(recover_trials) is not int:
+        raise TypeError('ally Recover trial count must be an integer')
+    if not 0<=recover_trials<=trials or not recover_trials<=total<=actions or (total>0)!=(recover_trials>0):
+        raise ValueError('ally Recover counts contradict trials/actions')
+    for member,item in zip(scenario.party,counts,strict=True):
+        budget=0
+        if member.policy is PcMeleePolicy.RECOVER_ALLY_OR_ATTACK_OR_RECOVER_SELF:
+            # Fresh PCs start healthy; before the ally's first turn no removable
+            # condition can exist (all PC turns precede the NPC side).
+            before_ally=scenario.pc_activation_order.index(member.actor_id)<scenario.pc_activation_order.index(
+                member.ally_recover_policy.beneficiary_id)
+            unavailable_rounds=trials if before_ally else trials-recover_trials
+            budget=min(started_rounds-unavailable_rounds,
+                recover_trials*(scenario.max_rounds-int(before_ally)))
+        if item.count>budget:
+            raise ValueError('ally Recover count exceeds the selected role/turn budget')
+
+
 def validate_near_miss_counts(counts, scenario, *, trials: int,
                               burn_trials: int | None, actions: int) -> None:
     if type(counts) is not tuple:
@@ -187,6 +233,7 @@ class PcMeleeTrialRecord:
     near_miss_burn_counts: tuple[PcNearMissBurnCount, ...]
     glorious_spend_counts: tuple[PcGloriousSpendCount, ...]
     help_action_counts: tuple[PcHelpActionCount, ...]
+    ally_recover_action_counts: tuple[PcAllyRecoverActionCount, ...]
 
     def __post_init__(self) -> None:
         validate_pc_melee_scenario_admission(self.source_scenario)
@@ -230,6 +277,10 @@ class PcMeleeTrialRecord:
             trials=1,spend_trials=None)
         validate_help_counts(self.help_action_counts,self.source_scenario,trials=1,help_trials=None,
             actions=self.executed_actions,started_rounds=self.started_rounds)
+        validate_ally_recover_counts(self.ally_recover_action_counts,self.source_scenario,trials=1,
+            recover_trials=None,actions=self.executed_actions,started_rounds=self.started_rounds)
+        if sum(item.count for item in (*self.help_action_counts,*self.ally_recover_action_counts))>self.executed_actions:
+            raise ValueError('Help and ally Recover cannot consume the same action')
 
 
 @dataclass(frozen=True, slots=True)
