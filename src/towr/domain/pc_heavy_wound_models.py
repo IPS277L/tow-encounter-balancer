@@ -4,7 +4,7 @@ from enum import Enum
 
 from towr.domain.condition_models import Condition
 from towr.domain.injury_models import WoundConditionEffect, WoundEffectDuration, WoundRestriction, WoundRestrictionEffect
-from towr.domain.pc_melee_models import PcWeaponHand
+from towr.domain.pc_melee_models import PcWeaponHand, PcTwoHandedGrip
 
 
 class PcBodyFactKind(str, Enum):
@@ -64,6 +64,8 @@ def injured_hands(member):
 
 def preferred_weapon_hand(member, initial_hand):
     usable = usable_hands(member)
+    if initial_hand is PcTwoHandedGrip.BOTH:
+        return initial_hand if len(usable) == 2 else None
     if member.weapon_hand in usable and member.weapon_hand not in injured_hands(member):
         return member.weapon_hand
     preferred = (initial_hand,*(side for side in PcWeaponHand if side is not initial_hand))
@@ -72,6 +74,8 @@ def preferred_weapon_hand(member, initial_hand):
 
 
 def usable_weapon_hand(member):
+    if member.weapon_hand is PcTwoHandedGrip.BOTH:
+        return member.weapon_hand if len(usable_hands(member)) == 2 else None
     return member.weapon_hand if member.weapon_hand in usable_hands(member) else None
 
 
@@ -89,7 +93,8 @@ def critical_for_hand(member, hand):
     if hand is None:
         return member.injury
     sequences = tuple(fact.wound_sequence for fact in member.body_facts
-        if fact.kind is PcBodyFactKind.INJURED_HAND and fact.side is hand
+        if fact.kind is PcBodyFactKind.INJURED_HAND
+        and (hand is PcTwoHandedGrip.BOTH or fact.side is hand)
         and fact.wound_sequence in restriction_sources(member.injury,WoundRestriction.USING_INJURED_HAND_CAUSES_CRITICAL))
     return add_critical(member.injury,sequences)
 

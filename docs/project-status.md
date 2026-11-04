@@ -4,39 +4,34 @@
 
 ## Текущий этап
 
-**M18 завершена в выбранной границе.** Dagger, Axe, Warhammer и Morning Star дополняют прежние Staff/Sword в PC melee. [Правила и контракт](rules/equipment.md#исполняемая-pc-граница-m18), [запускаемые примеры](examples/m18/README.md).
+**M19 завершена в выбранной границе.** Семь двуручных Close weapons — Pickaxe, Flail, Billhook, Halberd, Glaive, Greataxe, Greathammer — работают вместе с шестью прежними одноручными. [Контракт ADR-0074](decisions/ADR-0074-pc-two-handed-close-weapons.md), [правила](rules/equipment.md#исполняемая-pc-граница-m19), [JSON/CLI-примеры](examples/m19/README.md).
 
-Damage и Traits привязаны к актуальному actor/target: Dagger S−1 допускает базовый0; Axe получает +1 Damage против брони, сохраняя Resilience; Warhammer +1d Attack против Staggered; Morning Star S+1/−1d к собственным Melee при Staggered, включая Help. Sword сохраняет Defence bonus. Drained/cap/minimum die, Glorious initial roll и canonical Damage/trace сохраняются. Источник брони по numeric bonus трактуется только внутри нынешней сцены без shields/Abilities.
+BOTH grip отделён от анатомических LEFT/RIGHT. В текущем JSON1 `initial_weapon_hand` обязан быть `both` для2H и `left`/`right` для1H. Source/state/schema/codec проверяют эту связь. Actual Attack/Defence и нынешний weapon-assisted Help требуют обе пригодные руки; травмированная рука12 вызывает Critical при использовании, в том числе при Recover с восстановлением хвата. Drop4/8/12 роняет весь предмет независимо выбранной руки; Recover возвращает BOTH, сохраняя остальные self/ally benefits.
 
-Все шесть видов используют существующий hand/drop/swap/pickup, Wounds1–23/lethal24+, Help/Fate/ally Recover. Trials/process/count search фиксируют полную party и оружие, меняя только NPC counts. Текущий PC JSON1 расширяет только enum `party[].pc.weapon`; новых полей, метрик, версии, compatibility ветвей или миграции старых примеров нет. Использован существующий механизм подготовки, отдельное архитектурное решение не вводилось.
+Пользователь выбрал сохранять полный результат раны и завершать trial как UNSUPPORTED_PATH при недоступном2H хвате. После фактических16/18/20, Near Miss window и всей immediate queue canonical owner возвращает `two_handed_grip_unavailable` с actor/Wound/source. При18 явный drop/clutch выполнен;16/20 не подставляют решение о дальнейшем удержании предмета одной рукой. Raw roll и отменённая Near Miss рана не вызывают stop. Последующие journal steps запрещены. Это не автоматическое поражение или ROUND_LIMIT.
+
+Trials/process/search сохраняют полную party/оружие/хват/Fate/support policies и прежние метрики. Unsupported остаётся в знаменателе, кандидаты с actual unsupported не выбираются. JSON1 расширяет enum/grip без новых полей/версии, compatibility ветвей и миграции старых примеров.
 
 ## Последняя проверка
 
-При `PYTHONPATH=src` `.venv/Scripts/python.exe .cache/m18_check_subsystem.py` — **496 tests OK/71.000s**,50модулей PC M9–M18 и связанных K1 Attack/Protection/Help/Recover/Turn/Test/Fate/Wounds;0failures/errors/skips. Log `.cache/m18-pc-subsystem.log`. Код и тесты заморожены до запуска; после него менялась документация. Это единый зелёный адресный прогон, не полный regression проекта. M8 Recover callers повторно не запускались: общий Recover в M18 не менялся.
+При `PYTHONPATH=src` `.venv/Scripts/python.exe .cache/m19_check_subsystem.py` — **528 tests OK/86.109s**,54модуля PC M9–M19 и связанных K1 Attack/Protection/Help/Recover/Turn/Test/Fate/Wounds;0failures/errors/skips. Log `.cache/m19-pc-subsystem.log`. Код/тесты заморожены до запуска, после него менялась документация. Это единый зелёный адресный прогон, не полный regression проекта.
 
-В составе14новых детерминированных weapon tests,3admission/generation,3integration и54current codec/schema tests. Проверены hit/miss/tie и подделка Damage/trace/source, базовый Damage0, actual Staggered и физический Help, Drained/cap/forced minimum die, Glorious, тяжёлая рана руки/смена руки/drop/pickup. Pure preparation cases явно отделены от native encounter traces. Реальный Windows process совпал с sequential; поиск сохраняет оружие/Fate/support policy и aggregate-only границу.
+В составе9новых pure traits tests,13native grip/Wounds/Fate tests,6codec/schema и4integration. Детерминированно проверены семь Damage profiles, actual Flail/Greathammer/Glaive modifiers, armour boundary, drop обеих сторон/RecoverBOTH, Critical12 в Recover/Defence/Help, Glorious, полные stops16/18/20 и их отмена Near Miss, forged stop/single grip/replay/пропуск шага. Реальный Windows spawn совпал с sequential. Actual unsupported observations/candidate exclusion проверены отдельно от fake summaries; source/typed cached proof guards сохранены.
 
-Локальные `.cache` scripts/logs не являются частью репозитория. Адресная команда для новой копии:
+Локальные `.cache` scripts/logs не являются частью репозитория. В [ADR-0074](decisions/ADR-0074-pc-two-handed-close-weapons.md#проверка) есть адресная unittest-команда для новой копии. Общий Recover/K1 не менялся, M8 callers не запускались повторно; сборка/dependencies/resources/entry points не менялись. Full regression/wheel не запускались.
 
-```powershell
-$env:PYTHONPATH = 'src'
-.venv/Scripts/python.exe -m unittest tests.unit.test_m18_pc_weapons tests.unit.test_m18_pc_weapon_admission tests.integration.test_m18_pc_weapons tests.unit.test_m9_pc_melee_json tests.unit.test_m9_pc_melee_json_schemas -q
-```
+Оба M19 requests выполнены настоящим CLI на финальном коде, с exact full request echo. Simulation показывает смешанную2H party; balance — отдельно слабого Pickaxe PC и actual unsupported при части составов. Наблюдения — в README/JSON примеров, не оценки истинной вероятности/оптимума. Все20прежних M9–M18 request/result pairs и29candidate scenarios прошли schema/source roundtrip; их JSON неизменен относительно HEAD.
 
-Первые integration попытки выявили ошибку имени поля в новом тесте и известный sandbox WinError5 для Windows spawn. Поле исправлено до checkpoint; настоящий process выполнен с разрешённым доступом, без skip/fallback. Структура исходников/зависимости/сборка/resources/entry points не менялись; full regression/wheel не запускались.
-
-Оба M18 requests исполнены настоящим CLI на финальном коде, с exact full request echo. Все18прежних пар M9–M17 и27stored candidate scenarios прошли schema/source roundtrip; их JSON остался неизменным относительно HEAD. Новые результаты/наблюдения — в README/JSON M18; малая выборка не объявляется оценкой вероятности или оптимумом.
-
-`.cache/m18_verify_docs.py` проверил10изменённых Markdown/978локальных targets, все20current request/result pairs M9–M18 и UTF-8/newline/whitespace изменённых файлов. `git diff --check` успешен.
+`.cache/m19_verify_docs.py` проверил12изменённых Markdown/1041локальный target, все22current request/result pairs M9–M19 и UTF-8/newline/whitespace изменённых файлов. `git diff --check` успешен.
 
 ## Ограничения
 
-Здоровая initial party с одним из шести одноручных Close weapons на PC, numeric Melee Minions/Brutes без on-Wound abilities, одна Close Zone и fixed orders/priorities. Две руки/dual wield, mounted/Charge, другие ranges, Stealth conceal/Staff terrain и общий inventory не подключены. Numeric armour bonus не определяет wearing armour для произвольных shields/Abilities вне заявленного scope.
+Здоровая initial party с одним из13Close weapons на PC, numeric Melee Minions/Brutes без on-Wound abilities, одна Close Zone и fixed orders/priorities. Greatsword не подключён: тип буквального `+1 to Defence` требует уточнения. Запасное оружие/переключение, dual wield, другие ranges/Charge/mounts и общий inventory не входят в M19. Pickaxe harvesting и Billhook mounted trait вне текущей сцены; numeric armour bonus трактуется только без shields/Abilities.
 
-Сохраняются source-aware ongoing Conditions и mandatory Critical/Defenceless end phase; невозможная повторная анатомия даёт actual pending GM-stop. Ally Recover снимает лишь разрешённые Staggered/Prone, не лечит раны/Defenceless/Critical. Остальные Help/Fate/Lucky/optimal AI, лечение, campaign и полный NPC catalog остаются за границей. При limit/unsupported costs/потери описывают лишь observed prefix.
+Wounds1–23/lethal24+, source-aware ongoing Conditions, mandatory Critical/Defenceless end phase и прежние1H hand swaps сохраняются. Для2H недоступный хват16/18/20 — выбранная остановка; невозможная повторная анатомия сохраняет прежний pending GM-stop. Ally Recover снимает допустимые Staggered/Prone и не лечит раны/Defenceless/Critical. Другие Help/Fate/Lucky, лечение/campaign, полный NPC catalog и optimal AI остаются за границей. Costs/losses при stop/limit относятся только к исполненному prefix.
 
 ## Следующий шаг
 
-Предложение — двуручное Close-оружие PC. Сначала определить конечный набор, хват и последствия ран рук/потери оружия/Recover; для Greatsword отдельно сверить тип Defence bonus. M19 ещё не согласована; остальной каталог не включать автоматически. [Очередь](roadmap.md), [индекс вопросов](open-questions.md).
+Предложение — запасное одноручное оружие и явное переключение после утраты2H возможности. Сначала определить carry limit, способ смены/подбора и приоритет относительно Recover/Help/обязательных последствий; это пока не согласованная M20. Greatsword можно уточнять отдельно. [Очередь](roadmap.md), [индекс вопросов](open-questions.md).
 
-Перед M18 рабочее дерево было чистым; пользователь сохранил M17 в Git. Изменения M18 незакоммичены; commit/push выполняет пользователь.
+Перед M19 рабочее дерево было чистым; пользователь сохранил M18 в Git. Изменения M19 незакоммичены; commit/push выполняет пользователь.

@@ -56,7 +56,7 @@ Damage `S` использует Strength; `S±N` модифицирует её. 
 
 ### Исполняемая PC-граница M18
 
-Статус этого среза: `verified`. BOOK-PLAYER-GUIDE1.4, гл.IV Equipment92–93; взаимодействия — гл.V Helping108, Attack118–119 и Drained123. Текущий PC JSON1 принимает ровно `staff`, `sword`, `dagger`, `axe`, `warhammer`, `morning_star`, одно одноручное оружие на PC. [Примеры JSON/CLI](../examples/m18/README.md).
+Статус этого среза: `verified`. BOOK-PLAYER-GUIDE1.4, гл.IV Equipment92–93; взаимодействия — гл.V Helping108, Attack118–119 и Drained123. M18 ввела набор `staff`, `sword`, `dagger`, `axe`, `warhammer`, `morning_star`, одно одноручное оружие на PC. M19 расширяет текущий каталог ниже. [Примеры JSON/CLI](../examples/m18/README.md).
 
 - Dagger использует Damage S−1, включая базовый Damage0 при S1; нижний предел1 не добавляется.
 - Axe использует Damage S и отдельный `DamageModifier` +1 против бронированной цели. Броня и Resilience сохраняются; это не ignores armour. Trace: `RULE-EQUIPMENT-003:axe-armour`.
@@ -71,6 +71,30 @@ Drained удаляет положительные dice modifiers до cap, со�
 Все шесть видов используют прежние hand/drop/swap/pickup и Wounds1–23 последствия, Help/Fate/ally Recover и fixed-party count search. Stealth conceal Dagger и terrain trait Staff не исполняются в этой сцене без Stealth/terrain; это не полный каталог Traits. Две руки, dual wield, другие ranges, mounted/Charge и общий inventory сюда не входят. Поля party, метрики и wire version остаются прежними; старые JSON-примеры не мигрируются.
 
 Реализация: [явная подготовка](../../src/towr/domain/pc_weapon_models.py), [PC owner](../../src/towr/domain/pc_melee_result_models.py), [каноническая проекция](../../src/towr/domain/_pc_melee_projection.py). Проверки: [детерминированная механика](../../tests/unit/test_m18_pc_weapons.py), [допуск и генерация](../../tests/unit/test_m18_pc_weapon_admission.py), [сквозной путь](../../tests/integration/test_m18_pc_weapons.py).
+
+### Исполняемая PC-граница M19
+
+Статус: `verified`. Книжные профили PG1.4, гл.IV Equipment92–93; хват и последствия — гл.V Recover118 и Wounds Table190–191. [ADR-0074](../decisions/ADR-0074-pc-two-handed-close-weapons.md), [JSON/CLI](../examples/m19/README.md).
+
+| Новый weapon | Damage | Исполняемый Trait |
+|---|---|---|
+| `pickaxe` | S+1 | Harvesting Toil вне combat-сцены |
+| `flail` | S+3 | −2d Melee при Staggered |
+| `billhook` | S+2 | Mounted target bonus неактивен при нынешних пеших NPC |
+| `halberd` | S+2 | +1 Damage против брони |
+| `glaive` | S+2 | +1d Defence, если не Staggered |
+| `greataxe` | S+3 | −1d Melee; +1 Damage против брони |
+| `greathammer` | S+3 | −1d Melee; +1d Attack против Staggered enemy |
+
+Actor Melee modifiers применяются и к собственному физическому Help Test; Glaive действует в Defence Help. Targeted Greathammer bonus требует actual enemy target и отсутствует у собственного Help Test. Положительный и отрицательный modifiers сохраняют отдельные Rule IDs, чтобы Drained убирал только бонус. Armour bonus не игнорирует Resilience и ограничен сценой без shields/Abilities, как в M18. Прежние cap/minimum die/Glorious сохраняются.
+
+Текущий JSON1 принимает эти семь2H и шесть1H из M18, один предмет на PC. Поле `initial_weapon_hand` равно `both` только для2H; для1H — `left`/`right`. Тип `PcTwoHandedGrip.BOTH` отделён от анатомического `PcWeaponHand`; source, state, schema и codec проверяют связь с оружием. Боевая готовность2H требует обе пригодные руки, включая нынешний weapon-assisted Help. Любая травмированная рука12 вызывает Critical при использовании обеих рук, в том числе Recover с восстановлением хвата; просто переложить предмет в здоровую недостаточно.
+
+Drop4/8/12 роняет весь предмет при выборе любой руки. Recover подбирает его с восстановлением2H хвата, сохраняя независимые self/ally benefits. Drop/clutch18 также роняет весь предмет. После полной lifecycle/immediate queue раны16/18/20, делающие2H хват невозможным, дают точный `two_handed_grip_unavailable` и UNSUPPORTED_PATH по выбранной пользователем границе. Wound, daily record, body facts и расход Fate сохраняются; продолжение/лишние Tests не выдумываются. Near Miss, отменивший рану, не создаёт stop.
+
+При16/20 последний BOTH marker не становится утверждением о дальнейшем удержании/переноске предмета одной рукой; это уже граница исполнения. В отличие от явного drop18, падение всего предмета20 не подставляется. Это не правило обязательного проигрыша. Unsupported trials остаются в знаменателе; кандидаты с ними не выбираются. Запасное оружие, Brawn fallback, dual wield, другие ranges/Charge/mounts и Greatsword пока вне scope.
+
+Реализация: [профили/модификаторы](../../src/towr/domain/pc_weapon_models.py), [хват и Critical](../../src/towr/domain/pc_heavy_wound_models.py), [drop/body projection](../../src/towr/domain/_pc_heavy_wound_projection.py), [owner/stop](../../src/towr/domain/pc_melee_result_models.py). Проверки: [pure traits](../../tests/unit/test_m19_pc_weapon_traits.py), [native бой/руки/Fate/stop](../../tests/unit/test_m19_pc_two_handed.py), [codec/schema](../../tests/unit/test_m19_pc_weapon_json.py), [process/подбор](../../tests/integration/test_m19_pc_two_handed.py).
 
 ## RULE-EQUIPMENT-004 — ranged weapon profiles и reload
 

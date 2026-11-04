@@ -115,3 +115,7 @@ Player’s Guide 1.4 на странице 122 отдельно перечисл
 ## Границы orchestration histories
 
 Актуальные Aim, hidden lifecycle и replay guards описаны в [архитектуре ядра](architecture/resolution-kernel.md) и профильных tests. Автоматическое forgetting укрытий, перенос history между боями и полная общая battle chronology не определены. Это пробелы интеграции, а не разрешение сбрасывать IDs/state. Подробная история закрытых boundaries сохранена в [архиве](open-questions-history.md#временная-граница-истории-укрытий).
+
+## Бонус Greatsword
+
+BOOK-PLAYER-GUIDE1.4, гл.IV Equipment93: в таблице буквально `+1 to Defence` при отсутствии Staggered; у Sword/Glaive явно стоит `+1d`. Без уточнения нельзя автоматически выбрать dice modifier либо изменение Skill threshold. Greatsword не входит в [M19](decisions/ADR-0074-pc-two-handed-close-weapons.md). Для следующего расширения сверить верстку/контекст и доступное официальное уточнение; при отсутствии нормативного решения запросить явный house rule пользователя.

@@ -1,10 +1,10 @@
 """Fresh 1H mixed party and authored armoured numeric foes, not bestiary stats."""
 from dataclasses import replace
 
-from tests.support.pc_melee_fixtures import make_pc_melee_mixed_scenario
+from tests.support.pc_melee_fixtures import make_pc_melee_mixed_scenario,make_pc_melee_scenario
 from towr.domain.attack_models import DamageProfile,ResilienceProfile
 from towr.domain.pc_melee_models import (
-    PcAllyRecoverPolicy,PcFatePolicy,PcGloriousPolicy,PcMeleePolicy,PcMeleeWeapon,PcNearMissPolicy,
+    PcAllyRecoverPolicy,PcFatePolicy,PcGloriousPolicy,PcMeleePolicy,PcMeleeWeapon,PcNearMissPolicy,PcTwoHandedGrip,
 )
 from towr.domain.test_models import InlineProfile,Skill
 
@@ -33,3 +33,27 @@ def varied_weapon_source(*,max_rounds=3):
         enemies.append(replace(enemy,definition=definition,state=replace(enemy.state,current_resilience=resilience)))
     return replace(source,party=tuple(party),enemies=tuple(enemies),
         enemy_target_priority=('pc3','pc1','pc2','pc4'))
+
+
+def two_handed_weapon_source(*,max_rounds=3):
+    source=varied_weapon_source(max_rounds=max_rounds)
+    weapons=(PcMeleeWeapon.GREATAXE,PcMeleeWeapon.GREATHAMMER,PcMeleeWeapon.FLAIL,PcMeleeWeapon.GLAIVE)
+    return replace(source,party=tuple(replace(member,pc=replace(member.pc,weapon=weapon),
+        initial_weapon_hand=PcTwoHandedGrip.BOTH)
+        for member,weapon in zip(source.party,weapons,strict=True)))
+
+
+def two_handed_stop_source():
+    """Weak PC versus authored strong Minions; no probabilistic expectations."""
+    source=make_pc_melee_scenario(weapon=PcMeleeWeapon.PICKAXE,enemy_count=3,max_rounds=4)
+    member=source.party[0]
+    member=replace(member,pc=replace(member.pc,weapon_skill=1,strength=1,toughness=2,
+        agility=1,melee=1,defence=1,athletics=1,endurance=1))
+    enemies=[]
+    for enemy in source.enemies:
+        resilience=ResilienceProfile(8,2)
+        definition=replace(enemy.definition,resilience=resilience,
+            attacks=(replace(enemy.definition.attacks[0],test_profile=InlineProfile(4,10),damage=DamageProfile(8)),),
+            protection=(replace(enemy.definition.protection[0],test_profile=InlineProfile(4,10)),))
+        enemies.append(replace(enemy,definition=definition,state=replace(enemy.state,current_resilience=resilience)))
+    return replace(source,party=(member,),enemies=tuple(enemies))

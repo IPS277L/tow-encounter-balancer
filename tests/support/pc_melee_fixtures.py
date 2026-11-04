@@ -9,12 +9,13 @@ from towr.domain.npc_roster_models import (
 )
 from towr.domain.pc_melee_models import (
     PcFatePolicy, PcMeleeDefinition, PcMeleeFacts, PcMeleePolicy, PcMeleeScenario,
-    PcHeavyWoundPolicy, PcMeleeWeapon, PcRandomSidePolicy, PcWeaponHand, PcMeleeParticipant,
+    PcHeavyWoundPolicy, PcMeleeWeapon, PcRandomSidePolicy, PcWeaponHand, PcTwoHandedGrip, PcMeleeParticipant,
 )
 from towr.domain.ranged_weapon_profiles import RangedWeaponHands, RangedWeaponRange
 from towr.domain.resolution_models import TargetInjuryPolicy
 from towr.domain.test_models import InlineProfile, Skill
 from towr.domain.turn_models import CombatSide
+from towr.domain.pc_weapon_models import pc_weapon_requires_two_hands
 
 
 def make_pc_melee_scenario(*, weapon: PcMeleeWeapon = PcMeleeWeapon.STAFF,
@@ -40,7 +41,8 @@ def make_pc_melee_scenario(*, weapon: PcMeleeWeapon = PcMeleeWeapon.STAFF,
     ids = tuple(enemy.state.actor_id for enemy in enemies)
     member = PcMeleeParticipant("pc", pc, FateSessionState("session", "pc", 3, 3),
         PcMeleePolicy.ATTACK_OR_RECOVER_SELF, PcFatePolicy.DECLINE_OPTIONAL_FATE,
-        PcRandomSidePolicy.D10_LOW_LEFT_HIGH_RIGHT, PcHeavyWoundPolicy.CONTINUE_FIGHTING, PcWeaponHand.LEFT, ids,
+        PcRandomSidePolicy.D10_LOW_LEFT_HIGH_RIGHT, PcHeavyWoundPolicy.CONTINUE_FIGHTING,
+        PcTwoHandedGrip.BOTH if pc_weapon_requires_two_hands(weapon) else PcWeaponHand.LEFT, ids,
         tuple(MinionDefeatDecision("pc", target, NpcDefeatDisposition.KNOCKED_OUT, True) for target in ids),
         near_miss_policy=None,glorious_policy=None,help_policy=None,ally_recover_policy=None)
     return PcMeleeScenario("pc-melee", (member,), "day", tuple(enemies),

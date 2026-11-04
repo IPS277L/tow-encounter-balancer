@@ -18,10 +18,11 @@
 - M16: Defence/Athletics Help для конкретного incoming Protection Test, явный target/skill, сохранение unused snapshot при смене Skill/NPC/no-Test и прежние trials/подбор/JSON1. [Контракт ADR-0072](decisions/ADR-0072-pc-protection-help-policy.md).
 - M17: standard Recover выбранному союзнику, per-entity Conditions/источники/W13 consequences, mixed self/ally benefits, own pickup, реальные action counts и текущий JSON1. [Контракт ADR-0073](decisions/ADR-0073-pc-ally-standard-recover.md).
 - M18: Dagger/Axe/Warhammer/Morning Star вместе со Staff/Sword, явные Damage/Traits, прежние hand/Help/Fate/Recover и fixed-party поиск через текущий JSON1. [Граница](rules/equipment.md#исполняемая-pc-граница-m18), [примеры](examples/m18/README.md).
+- M19: семь двуручных Close weapons, typed BOTH grip, обе руки в drop/Recover/Critical12 и actual unsupported после завершённых ран16/18/20; прежние trials/process/поиск/JSON1. [ADR-0074](decisions/ADR-0074-pc-two-handed-close-weapons.md), [примеры](examples/m19/README.md).
 
 ## Последняя законченная функция
 
-[Одноручное оружие M18](rules/equipment.md#исполняемая-pc-граница-m18) реализовано через owner/trials/process/подбор и текущий JSON1. [CLI-примеры](examples/m18/README.md) сохраняют полный source всех четырёх новых видов оружия без миграции прежних примеров. Проверены targeted/actor traits, Damage0, armour bonus, cap/Drained/Glorious и hand/drop/Recover. Адресная приёмка — в статусе.
+[Двуручное Close-оружие M19](decisions/ADR-0074-pc-two-handed-close-weapons.md) реализовано через owner/trials/process/подбор и текущий JSON1. [CLI-примеры](examples/m19/README.md) показывают смешанное вооружение и исключение кандидатов с actual unsupported. Приёмка — в статусе; обязательного остатка M19 нет.
 
 ## M8 завершена
 
@@ -93,11 +94,15 @@
 
 Завершённый конечный срез: Dagger, Axe, Warhammer, Morning Star — все1H/Close, вместе с прежними Staff/Sword. Книжные свойства используют текущие Test/Damage modifiers, full canonical source и прежние Help/Fate/Recover/Wounds. Допуск/enum схемы расширены в том же JSON1; метрики не меняются. Отдельный ADR для повторного применения этих механизмов не требуется. Обязательного остатка M18 нет.
 
-## После M18
+## M19 — двуручное Close-оружие
 
-Более широкий NPC/spell/Miscast каталог, дополнительные тактики/Fate/Help/Recover, лечение ран, общий inventory/spatial/campaign/save-resume — отдельный backlog после M18. Решение GM для невозможной повторной анатомии и post-healing ветвей не подставляется. Следующие функции выбираются отдельно; уже закрытые границы ими автоматически не расширяются.
+Завершённый конечный срез по [ADR-0074](decisions/ADR-0074-pc-two-handed-close-weapons.md): Pickaxe/Flail/Billhook/Halberd/Glaive/Greataxe/Greathammer, обе руки в Attack/Defence/weapon-assisted Help, whole-item drop и Recover/Critical12. Пользователь выбрал сохранять полную рану16/18/20 и останавливать trial при недоступном2H хвате. Перед stop выполнены Near Miss и все immediate consequences, далее journal не продолжается. Enum/grip correlation обновлены в том же JSON1; старые пары не мигрируются.
 
-Следующее предложение — двуручное Close-оружие PC. Сначала определить конечный набор, хват и последствия ран рук/потери оружия/Recover; затем провести его через owner, trials, подбор и JSON. Тип бонуса Greatsword требует отдельной сверки источника. M19 ещё не согласована; dual wield, иные дальности и остальной каталог не включать автоматически.
+## После M19
+
+Более широкий NPC/spell/Miscast каталог, дополнительные тактики/Fate/Help/Recover, лечение ран, общий inventory/spatial/campaign/save-resume — отдельный backlog после M19. Решение GM для невозможной повторной анатомии и post-healing ветвей не подставляется. Следующие функции выбираются отдельно; уже закрытые границы ими автоматически не расширяются.
+
+Следующее предложение — запасное одноручное оружие и явное переключение после утраты2H возможности. Сначала определить carry limit, способ смены/подбора и приоритет относительно Recover/Help/обязательных последствий; это отдельный конечный контракт, пока не M20 implementation. Greatsword требует уточнения бонуса отдельно. Dual wield, иные дальности и полный inventory не включать автоматически.
 
 ## Контрольные точки
 

@@ -36,7 +36,7 @@ def samples():
 
 class PcMeleeJsonSchemaTests(unittest.TestCase):
     def test_weapon_enum_is_exact_and_applies_to_request_and_all_result_sources(self):
-        weapons=['staff','sword','dagger','axe','warhammer','morning_star']
+        weapons=['staff','sword','dagger','axe','warhammer','morning_star','pickaxe','flail','billhook','halberd','glaive','greataxe','greathammer']
         common=json.loads(files('towr.adapters.schemas').joinpath('pc-melee-common.schema.json')
             .read_text(encoding='utf-8'))
         self.assertEqual(common['$defs']['pc']['properties']['weapon'],{'enum':weapons})
@@ -45,6 +45,7 @@ class PcMeleeJsonSchemaTests(unittest.TestCase):
             key='template' if balance else 'scenario'
             for member,weapon in zip(raw[key]['party'],weapons):
                 member['pc']['weapon']=weapon
+                member['initial_weapon_hand']='both' if weapon in ('pickaxe','flail','billhook','halberd','glaive','greataxe','greathammer') else 'left'
             validate=schema.validate_pc_melee_balance_document if balance else schema.validate_pc_melee_simulation_document
             validate(raw)
             parse=wire.parse_pc_melee_balance_request if balance else wire.parse_pc_melee_simulation_request

@@ -11,7 +11,7 @@ from towr.domain.pc_heavy_wound_models import (
     PcBodyFact, PcBodyFactKind as Body, available_sides, usable_hands, preferred_weapon_hand,
     critical_for_incidental_hand_use,
 )
-from towr.domain.pc_melee_models import PcWeaponHand
+from towr.domain.pc_melee_models import PcWeaponHand, PcTwoHandedGrip
 
 
 def heavy_wound_effect(raw, request):
@@ -121,7 +121,7 @@ def reconcile_clutch(member):
         else:
             facts.append(replace(old,side=replacement))
             member = replace(member,injury=critical_for_incidental_hand_use(member,replacement))
-            if member.weapon_hand is replacement:
+            if member.weapon_hand is replacement or member.weapon_hand is PcTwoHandedGrip.BOTH:
                 member = replace(member,weapon_hand=None)
     return replace(member,body_facts=tuple(facts))
 
@@ -141,14 +141,14 @@ def body_consequence(member, proof):
         if side is None or proof.side is not side or proof.die is not None or proof.count != 1:
             raise ValueError('clutch must select an available hand under the chosen fighting policy')
         fact = PcBodyFact(Body.CLUTCH_STOMACH,request.wound_sequence,side)
-        member = replace(member,weapon_hand=None if member.weapon_hand is side else member.weapon_hand,
+        member = replace(member,weapon_hand=None if member.weapon_hand is side or member.weapon_hand is PcTwoHandedGrip.BOTH else member.weapon_hand,
             injury=critical_for_incidental_hand_use(member,side))
     else:
         side = _side(request,member,proof.die,proof.side)
         if proof.count != 1:
             raise ValueError('a sided consequence concerns exactly one body part')
         if kind is WoundConsequence.DROP_RANDOM_HAND_ITEM:
-            member = replace(member,weapon_hand=None if member.weapon_hand is side else member.weapon_hand)
+            member = replace(member,weapon_hand=None if member.weapon_hand is side or member.weapon_hand is PcTwoHandedGrip.BOTH else member.weapon_hand)
             if member.injury.wounds[request.wound_sequence-1].table_total != 12:
                 return member
             if side is None:

@@ -11,17 +11,20 @@ from towr.application.pc_melee_balance_models import (
     PcMeleeBalanceRequest,PcMeleeCompositionGroup,project_pc_melee_candidate,
 )
 from towr.balance.ranged_assessment_models import ObjectiveRateWindow
-from towr.domain.pc_melee_models import PcMeleeWeapon
+from towr.domain.pc_melee_models import PcMeleeWeapon, PcWeaponHand, PcTwoHandedGrip
 from towr.simulation.pc_melee_models import PcMeleeSimulationRequest
 
 
 class PcWeaponAdmissionTests(unittest.TestCase):
-    def test_all_six_typed_weapons_share_existing_single_weapon_input(self):
+    def test_current_typed_weapons_share_single_weapon_input_with_correlated_grip(self):
         source=make_pc_melee_scenario()
         self.assertEqual({weapon.value for weapon in PcMeleeWeapon},
-            {'staff','sword','dagger','axe','warhammer','morning_star'})
+            {'staff','sword','dagger','axe','warhammer','morning_star',
+             'pickaxe','flail','billhook','halberd','glaive','greataxe','greathammer'})
         for weapon in PcMeleeWeapon:
-            member=replace(source.party[0],pc=replace(source.party[0].pc,weapon=weapon))
+            two_handed=weapon.value in ('pickaxe','flail','billhook','halberd','glaive','greataxe','greathammer')
+            member=replace(source.party[0],pc=replace(source.party[0].pc,weapon=weapon),
+                initial_weapon_hand=PcTwoHandedGrip.BOTH if two_handed else PcWeaponHand.LEFT)
             request=PcMeleeSimulationRequest(replace(source,party=(member,)),42,1)
             self.assertIs(request.scenario.party[0].pc.weapon,weapon)
 

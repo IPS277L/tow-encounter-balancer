@@ -19,7 +19,7 @@ from towr.domain.npc_roster_models import (
 )
 from towr.domain.pc_melee_models import (
     PcFatePolicy, PcNearMissPolicy, PcGloriousPolicy, PcHelpPolicy, PcHelpTarget, PcAllyRecoverPolicy, PcMeleeDefinition, PcMeleeFacts, PcMeleeParticipant, PcMeleePolicy, PcMeleeScenario,
-    PcMeleeWeapon, PcRandomSidePolicy, PcHeavyWoundPolicy, PcWeaponHand, validate_pc_melee_scenario_admission,
+    PcMeleeWeapon, PcRandomSidePolicy, PcHeavyWoundPolicy, PcWeaponHand, PcTwoHandedGrip, validate_pc_melee_scenario_admission,
 )
 from towr.domain.ranged_weapon_profiles import RangedWeaponHands, RangedWeaponRange
 from towr.domain.resolution_models import TargetInjuryPolicy
@@ -85,7 +85,8 @@ def _parse_participant(data, *, path_prefix, error_type):
     return build(path_prefix, PcMeleeParticipant, data["actor_id"], pc, fate,
         PcMeleePolicy(data["policy"]), PcFatePolicy(data["fate_policy"]),
         PcRandomSidePolicy(data["random_side_policy"]), PcHeavyWoundPolicy(data["heavy_wound_policy"]),
-        PcWeaponHand(data["initial_weapon_hand"]),
+        (PcTwoHandedGrip.BOTH if data["initial_weapon_hand"] == "both"
+            else PcWeaponHand(data["initial_weapon_hand"])),
         tuple(data["target_priority"]),
         tuple(build(f"{path_prefix}/defeat_decisions/{index}", MinionDefeatDecision,
             **dict(record, disposition=NpcDefeatDisposition(record["disposition"])))

@@ -106,8 +106,8 @@ def melee_help(beneficiary):
 
 
 class PcMeleeJsonTests(unittest.TestCase):
-    def test_six_weapons_roundtrip_and_full_sources_preserve_mixed_party(self):
-        weapons=('staff','sword','dagger','axe','warhammer','morning_star')
+    def test_current_weapons_roundtrip_and_full_sources_preserve_mixed_party(self):
+        weapons=('staff','sword','dagger','axe','warhammer','morning_star','pickaxe','flail','billhook','halberd','glaive','greataxe','greathammer')
         self.assertEqual(tuple(weapon.value for weapon in PcMeleeWeapon),weapons)
         for balance in (False,True):
             with self.subTest(balance=balance):
@@ -115,6 +115,7 @@ class PcMeleeJsonTests(unittest.TestCase):
                 key='template' if balance else 'scenario'
                 for member,weapon in zip(raw[key]['party'],weapons):
                     member['pc']['weapon']=weapon
+                    member['initial_weapon_hand']='both' if weapon in ('pickaxe','flail','billhook','halberd','glaive','greataxe','greathammer') else 'left'
                 parse=wire.parse_pc_melee_balance_request if balance else wire.parse_pc_melee_simulation_request
                 command=parse(json.dumps(raw))
                 source=command.request.template if balance else command.request.scenario

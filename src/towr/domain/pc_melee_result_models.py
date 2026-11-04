@@ -25,7 +25,7 @@ from towr.domain.magic_models import WizardMagicState
 from towr.domain.minion_defeat_models import MinionDefeatDecision
 from towr.domain.npc_roster_models import NpcParticipantSnapshot
 from towr.domain.pc_melee_models import (
-    PcFatePolicy, PcMeleeScenario, PcWeaponHand, validate_pc_melee_scenario_admission,
+    PcFatePolicy, PcMeleeScenario, PcWeaponHand, PcTwoHandedGrip, validate_pc_melee_scenario_admission,
 )
 from towr.domain.protection_models import (
     ProtectionPreparationRequest, ProtectionPreparationResult, ProtectionTestOption,
@@ -71,13 +71,16 @@ class PcMeleeUnsupported:
     def __post_init__(self):
         if type(self.actor_id) is not str or not self.actor_id.strip():
             raise ValueError('unsupported PC result requires its owner')
-        if type(self.reason) is not str or self.reason != 'unavailable_anatomical_target' or type(self.source_id) is not str or not self.source_id:
+        if (type(self.reason) is not str or self.reason not in ('unavailable_anatomical_target','two_handed_grip_unavailable')
+                or type(self.source_id) is not str or not self.source_id):
             raise ValueError('unsupported PC result requires an exact Wound source')
         for value in (self.wound_sequence, self.table_total):
             if type(value) is not int or value < 1:
                 raise ValueError('unsupported Wound values must be positive integers')
         if not 11 <= self.table_total <= 23:
             raise ValueError('anatomical stop requires a heavy Wound source')
+        if self.reason == 'two_handed_grip_unavailable' and self.table_total not in (16,18,20):
+            raise ValueError('two-handed grip stop requires its actual arm/clutch Wound')
 
 
 @dataclass(frozen=True, slots=True)
@@ -115,7 +118,7 @@ class PcFateDecline:
 class PcMeleeParticipantState:
     actor_id: str
     injury: CharacterInjuryState
-    weapon_hand: PcWeaponHand | None
+    weapon_hand: PcWeaponHand | PcTwoHandedGrip | None
     fate: FateSessionState
     daily_wounds: DailyWoundState
     timed_wounds: tuple[PcTimedWound, ...] = ()
@@ -130,7 +133,7 @@ class PcMeleeParticipantState:
             raise TypeError('PC state requires typed daily Wound history')
         if self.fate.actor_id != self.actor_id or self.daily_wounds.target_id != self.actor_id:
             raise ValueError('PC Fate/daily histories belong to another actor')
-        if self.weapon_hand is not None and not isinstance(self.weapon_hand, PcWeaponHand):
+        if self.weapon_hand is not None and type(self.weapon_hand) not in (PcWeaponHand,PcTwoHandedGrip):
             raise TypeError('held PC weapon requires its typed hand')
         if not isinstance(self.timed_wounds, (tuple, list)):
             raise TypeError('PC expiry sources must be ordered')
@@ -179,6 +182,8 @@ class PcMeleeState:
             raise ValueError('PC owner must preserve its complete ordered party')
         for member, source in zip(self.party, self.source.party):
             replace(member)
+            if member.weapon_hand is not None and type(member.weapon_hand) is not type(source.initial_weapon_hand):
+                raise ValueError('held weapon grip must preserve its one/two-handed source')
             expected_fate = source.fate
             for proof in self.history:
                 glorious = (proof.glorious if isinstance(proof,(PcAttackProof,PcEnduranceProof,PcHelpProof)) else
@@ -303,8 +308,8 @@ class PcWoundChoiceProof:
 
 @dataclass(frozen=True, slots=True)
 class PcHandSwapProof:
-    previous_hand: PcWeaponHand
-    hand: PcWeaponHand
+    previous_hand: PcWeaponHand | PcTwoHandedGrip
+    hand: PcWeaponHand | PcTwoHandedGrip
 
 
 @dataclass(frozen=True, slots=True)
@@ -437,6 +442,19 @@ class PcMeleeScenarioResult:
 
 
 def pc_melee_unsupported(state: PcMeleeState) -> PcMeleeUnsupported | None:
+    # Finish the entire actual Wound lifecycle and immediate consequence queue
+    # before reporting the caller-selected boundary; never infer this from a roll.
+    if not state.pending and state.pending_wound is None:
+        from towr.domain.pc_weapon_models import pc_weapon_requires_two_hands
+        for member, source in zip(state.party,state.source.party):
+            if member.injury.dead or not pc_weapon_requires_two_hands(source.pc.weapon) or len(usable_hands(member)) == 2:
+                continue
+            fact = next(f for f in member.body_facts if f.kind in (
+                PcBodyFactKind.UNUSABLE_ARM,PcBodyFactKind.LOST_ARM,PcBodyFactKind.CLUTCH_STOMACH))
+            wound = member.injury.wounds[fact.wound_sequence-1]
+            return PcMeleeUnsupported(member.actor_id,
+                f'RULE-EQUIPMENT-002:{member.actor_id}:w{wound.sequence}:two-handed-grip',
+                'two_handed_grip_unavailable',wound.sequence,wound.table_total)
     if not state.pending or state.pending_wound is not None:
         return None
     pending = state.pending[0]

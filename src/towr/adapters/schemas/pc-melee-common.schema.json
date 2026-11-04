@@ -311,7 +311,14 @@
             "dagger",
             "axe",
             "warhammer",
-            "morning_star"
+            "morning_star",
+            "pickaxe",
+            "flail",
+            "billhook",
+            "halberd",
+            "glaive",
+            "greataxe",
+            "greathammer"
           ]
         },
         "armour_bonus": {
@@ -1026,7 +1033,8 @@
         "initial_weapon_hand": {
           "enum": [
             "left",
-            "right"
+            "right",
+            "both"
           ]
         },
         "target_priority": {
@@ -1141,6 +1149,44 @@
         }
       ],
       "allOf": [
+        {
+          "if": {
+            "properties": {
+              "pc": {
+                "properties": {
+                  "weapon": {
+                    "enum": [
+                      "pickaxe",
+                      "flail",
+                      "billhook",
+                      "halberd",
+                      "glaive",
+                      "greataxe",
+                      "greathammer"
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "initial_weapon_hand": {
+                "const": "both"
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "initial_weapon_hand": {
+                "enum": [
+                  "left",
+                  "right"
+                ]
+              }
+            }
+          }
+        },
         {
           "oneOf": [
             {

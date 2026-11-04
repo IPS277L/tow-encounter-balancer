@@ -26,6 +26,13 @@ class PcMeleeWeapon(str, Enum):
     AXE = "axe"
     WARHAMMER = "warhammer"
     MORNING_STAR = "morning_star"
+    PICKAXE = "pickaxe"
+    FLAIL = "flail"
+    BILLHOOK = "billhook"
+    HALBERD = "halberd"
+    GLAIVE = "glaive"
+    GREATAXE = "greataxe"
+    GREATHAMMER = "greathammer"
 
 
 class PcMeleePolicy(str, Enum):
@@ -112,6 +119,10 @@ class PcWeaponHand(str, Enum):
     RIGHT = "right"
 
 
+class PcTwoHandedGrip(str, Enum):
+    BOTH = "both"
+
+
 @dataclass(frozen=True, slots=True)
 class PcMeleeDefinition:
     id: str
@@ -196,7 +207,7 @@ class PcMeleeParticipant:
     fate_policy: PcFatePolicy
     random_side_policy: PcRandomSidePolicy
     heavy_wound_policy: PcHeavyWoundPolicy
-    initial_weapon_hand: PcWeaponHand
+    initial_weapon_hand: PcWeaponHand | PcTwoHandedGrip
     target_priority: tuple[str, ...]
     defeat_decisions: tuple[MinionDefeatDecision, ...]
     near_miss_policy: PcNearMissPolicy | None
@@ -210,8 +221,11 @@ class PcMeleeParticipant:
         replace(self.pc)
         _readmit_fate(self.fate, self.actor_id)
         for name, cls in (("policy", PcMeleePolicy), ("fate_policy", PcFatePolicy),
-                          ("random_side_policy", PcRandomSidePolicy), ("heavy_wound_policy", PcHeavyWoundPolicy), ("initial_weapon_hand", PcWeaponHand)):
+                          ("random_side_policy", PcRandomSidePolicy), ("heavy_wound_policy", PcHeavyWoundPolicy)):
             _typed(getattr(self, name), cls, name)
+        from towr.domain.pc_weapon_models import pc_weapon_requires_two_hands
+        grip_type = PcTwoHandedGrip if pc_weapon_requires_two_hands(self.pc.weapon) else PcWeaponHand
+        _typed(self.initial_weapon_hand,grip_type,"initial weapon grip")
         for value, cls in ((self.near_miss_policy,PcNearMissPolicy),(self.glorious_policy,PcGloriousPolicy)):
             if value is not None:
                 _typed(value,cls,"Fate strategy")
