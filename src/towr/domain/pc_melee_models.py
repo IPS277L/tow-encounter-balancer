@@ -197,7 +197,7 @@ class PcMeleeScenario:
             pc_definitions[member.pc.id] = member.pc
         definitions = {}
         for enemy in enemies:
-            _readmit_minion(enemy)
+            _readmit_profile_enemy(enemy)
             definition = enemy.definition
             if definition.id in definitions and definitions[definition.id] != definition:
                 raise ValueError("conflicting Minion definitions with the same ID")
@@ -260,7 +260,7 @@ def _readmit_fate(fate: FateSessionState, actor_id: str) -> None:
         raise ValueError("Lucky is outside the first PC melee scenario")
 
 
-def _readmit_minion(enemy: NpcParticipantSnapshot) -> None:
+def _readmit_profile_enemy(enemy: NpcParticipantSnapshot) -> None:
     _typed(enemy, NpcParticipantSnapshot, "Minion snapshot")
     definition, state = enemy.definition, enemy.state
     _typed(definition, NpcDefinition, "Minion definition")
@@ -272,8 +272,9 @@ def _readmit_minion(enemy: NpcParticipantSnapshot) -> None:
         _identifier(value, name)
     _typed(definition.injury_policy, TargetInjuryPolicy, "Minion injury policy")
     _typed(state.side, CombatSide, "Minion side")
-    if definition.injury_policy is not TargetInjuryPolicy.MINION or state.side is not CombatSide.OPPOSITION:
-        raise ValueError("PC melee enemies must be opposition Minions")
+    if definition.injury_policy not in (TargetInjuryPolicy.MINION, TargetInjuryPolicy.BRUTE) or state.side is not CombatSide.OPPOSITION:
+        raise ValueError("PC melee enemies must be opposition Minions or Brutes")
+    _integer(definition.wound_limit, "NPC profile wound limit", minimum=1)
     _readmit_resilience(definition.resilience)
     _readmit_resilience(state.current_resilience)
     attacks = _canonical_tuple(definition.attacks, "Minion attacks")
@@ -312,6 +313,11 @@ def _readmit_minion(enemy: NpcParticipantSnapshot) -> None:
     _typed(injury.conditions.conditions, frozenset, "Minion Condition set")
     replace(injury.conditions)
     replace(injury)
+    _integer(injury.wounds, "NPC Wounds", minimum=0)
+    _integer(injury.wound_limit, "NPC state wound limit", minimum=1)
+    _typed(injury.defeated, bool, "NPC defeated flag")
+    _typed(state.wields_weapon, bool, "NPC weapon eligibility")
+    _typed(state.holds_shield, bool, "NPC shield eligibility")
     _canonical_tuple(state.available_attack_ids, "Minion available attacks")
     for attack_id in state.available_attack_ids:
         _identifier(attack_id, "available Minion attack ID")

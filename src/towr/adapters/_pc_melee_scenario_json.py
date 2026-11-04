@@ -94,11 +94,12 @@ def _parse_scenario(data, *, path_prefix, error_type):
             RangedWeaponRange.CLOSE, RangedWeaponRange.CLOSE, RangedWeaponHands(attack_raw["hands"]))
         resilience = build(path + "/definition/resilience", ResilienceProfile, **definition_raw["resilience"])
         definition = build(path + "/definition", NpcDefinition,
-            definition_raw["id"], definition_raw["source_rule_id"], TargetInjuryPolicy.MINION, 1,
+            definition_raw["id"], definition_raw["source_rule_id"],
+            TargetInjuryPolicy(definition_raw["injury_policy"]), definition_raw["wound_limit"],
             resilience, (attack,), (NpcProtectionProfile(protection_raw["source_rule_id"],
                 Skill.DEFENCE, InlineProfile(**protection_raw["test_profile"])),))
         state = build(path, NpcParticipantState, enemy["actor_id"], definition.id,
-            CombatSide.OPPOSITION, ProfileInjuryState(0, 1), (attack.id,), resilience, True, False)
+            CombatSide.OPPOSITION, ProfileInjuryState(0, definition.wound_limit), (attack.id,), resilience, True, False)
         enemies.append(NpcParticipantSnapshot(definition, state))
     return build(path_prefix, PcMeleeScenario, data["id"], party,
         data["day_id"], tuple(enemies), build(path_prefix + "/facts", PcMeleeFacts, **data["facts"]),
@@ -114,6 +115,7 @@ def scenario_document(scenario: PcMeleeScenario) -> dict:
         attack, protection = definition.attacks[0], definition.protection[0]
         enemies.append({"actor_id": enemy.state.actor_id, "definition": {
             "id": definition.id, "source_rule_id": definition.source_rule_id,
+            "injury_policy": definition.injury_policy.value, "wound_limit": definition.wound_limit,
             "resilience": asdict(definition.resilience),
             "attack": {"id": attack.id, "source_rule_id": attack.source_rule_id,
                 "test_profile": asdict(attack.test_profile), "damage": asdict(attack.damage),

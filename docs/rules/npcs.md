@@ -14,6 +14,8 @@ Minion побеждён сразу после получения одного Wo
 
 Brute выдерживает профильное количество Wounds и может менять свойства при их накоплении. Он не бросает по Wounds Table. Если эффект добавил бы дополнительный куб к броску Wounds Table, Brute вместо этого получает дополнительный Wound.
 
+M11 подключает static numeric Brutes к общему PC melee бою: заданный `wound_limit`, nonterminal Wound без исключения, обязательное source-bound подтверждение каждого profile change и defeat disposition только при достижении лимита. Профили с on-Wound behaviour/дополнительными Abilities пока не допускаются. Это интеграция существующего правила GM1.1, Allies and Antagonists92, без изменения Wounds Table PC; [контракт](../decisions/ADR-0067-pc-melee-profile-brutes.md).
+
 ## RULE-NPC-004 — Champion
 
 Champion получает Wounds по модели персонажа игрока и бросает по Wounds Table.

@@ -101,9 +101,9 @@ def main(argv: list[str] | None = None) -> int:
     magic.add_argument("input", metavar="INPUT", help="UTF-8 JSON file, or - for stdin")
     magic_balance = commands.add_parser("balance-magic", help="generate and evaluate an authored magic JSON v6 request")
     magic_balance.add_argument("input", metavar="INPUT", help="UTF-8 JSON file, or - for stdin")
-    pc_melee = commands.add_parser("simulate-pc-melee", help="execute a PC versus Minions melee JSON v1 request")
+    pc_melee = commands.add_parser("simulate-pc-melee", help="execute a PC party versus Minions/Brutes melee JSON v1 request")
     pc_melee.add_argument("input", metavar="INPUT", help="UTF-8 JSON file, or - for stdin")
-    pc_balance = commands.add_parser("balance-pc-melee", help="select Minion counts against one PC using JSON v1")
+    pc_balance = commands.add_parser("balance-pc-melee", help="select Minion/Brute counts against a fixed PC party using JSON v1")
     pc_balance.add_argument("input", metavar="INPUT", help="UTF-8 JSON file, or - for stdin")
     args = parser.parse_args(argv)
 

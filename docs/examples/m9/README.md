@@ -11,6 +11,8 @@
 
 Console entry point: `towr simulate-pc-melee INPUT` и `towr balance-pc-melee INPUT`; `-` читает UTF-8 stdin. Текущая family — только JSON1; Magic сохраняет собственный JSON6. Семь [PC-схем](../../../src/towr/adapters/schemas/) разрешают ссылки offline.
 
+После [M11](../m11/README.md) каждый NPC definition явно хранит `injury_policy` и `wound_limit`; здесь это `minion`/1. Старый shape без этих полей не принимается. Правила одиночного Minion-примера прежние.
+
 ## Что задано во входах
 
 [Simulation request](pc-melee-simulation.request.json) задаёт PC с WS3, Strength3, Toughness3, Agility3, Melee5, Defence5, Athletics4, Endurance4, Sword и armour bonus0. Melee/Defence используют реальный `TestProfile(WS,Skill)`, cap2×WS; Sword даёт +1d Defence, пока PC не Staggered, а Drained подавляет этот бонус. Два Minions атакуют по указанному порядку; PC выбирает первую живую цель из priority. Seed42,8 trials, максимум4раунда.

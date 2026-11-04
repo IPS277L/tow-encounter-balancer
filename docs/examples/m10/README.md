@@ -12,6 +12,8 @@ $env:PYTHONPATH = 'src'
 
 Те же команды доступны через `towr` после установки. Это обновлённый единственный PC JSON1: uniform `party` обязателен даже для одного PC; прежний одиночный формат не поддерживается. Magic JSON6 не меняется.
 
+После [M11](../m11/README.md) каждый NPC definition обязательно содержит `injury_policy` и `wound_limit`. Здесь все противники — `minion` с лимитом1; прежний shape без этих полей отклоняется, игровых изменений этого примера нет.
+
 В [simulation request](pc-melee-simulation.request.json) первый PC использует Sword, второй — Staff в правой руке, Toughness4/Endurance5 и независимый Fate2. У второго PC обратный порядок целей. Сначала полные ходы PC в `pc_activation_order`, затем Minions в `enemy_activation_order`; общий `enemy_target_priority` заставляет Minions сначала атаковать товарища, затем первого PC, пропуская погибшего. Seed42,16 независимых trials, до6раундов. Все Close/awareness/scene facts заданы явно; outnumbering пересчитывается для обеих сторон.
 
 [Balance request](pc-melee-balance.request.json) фиксирует более устойчивую группу и перебирает1–3 supplied Minions. По16 trials на состав, общий бюджет48. Состав PC, их ресурсы, policies и обе PC-side очереди сохраняются; enemy priority/defeat decisions каждого PC фильтруются по выбранному subset. Главная метрика — победа группы; подтверждённые потери показываются отдельно, без скрытого дополнительного критерия selection.

@@ -4,26 +4,30 @@
 
 ## Текущий этап
 
-**M10 завершена в выбранной границе: общий бой группы PC против Minions.** Uniform party, индивидуальные injury/Fate/daily/weapon/expiry, общий clock/journal, retarget после смерти, продолжение выжившими, independent trials и статистика подтверждённых потерь работают через подбор и действующий PC JSON1/CLI. [Контракт и приёмка ADR-0066](decisions/ADR-0066-pc-party-melee-encounter.md).
+**M11 завершена: группа PC против Minions и обычных числовых Brutes.** Supplied NPC wound limit, nonterminal Wound acknowledgement, defeat только на фактическом пределе, mixed count search и явные policy/limit в текущем JSON1 реализованы через существующие слои. [Контракт и приёмка ADR-0067](decisions/ADR-0067-pc-melee-profile-brutes.md). M10 завершена ранее: [приёмка ADR-0066](decisions/ADR-0066-pc-party-melee-encounter.md).
 
-[Группа M10](examples/m10/README.md) и обновлённый [одиночный пример M9](examples/m9/README.md) выполнены настоящими CLI-командами. Команды прежние: `simulate-pc-melee`, `balance-pc-melee`; обязательный `party` заменяет старый single shape, current version остаётся1 без compatibility. M8 закрыта ранее; её результаты — в [checklist M8](m8-completion.md).
+[Смешанный roster M11](examples/m11/README.md), [Minion-группа M10](examples/m10/README.md) и [одиночный M9](examples/m9/README.md) выполнены настоящими CLI-командами. Команды прежние: `simulate-pc-melee`, `balance-pc-melee`; current1 требует `party` и явные NPC `injury_policy`/`wound_limit`, без старых shapes/compatibility. Magic сохраняет6.
 
 ## Последняя проверка
 
-M10: **190 уникальных адресных IDs закрыты составно**, не единый full run. Основной набор188:182 passed,6 cases заблокированы sandbox Windows process/temp permissions; только они повторены вне sandbox —6OK. После усиления source/history guards36затронутых checks OK, включая2новых, затем один зависимый real party spawn OK. Команды/состав и времена — в ADR-0066; logs `.cache/m10-subsystem.log`, `.cache/m10-process-recheck.log`, `.cache/m10-source-binding-recheck.log`, `.cache/m10-final-party-spawn.log`.
+M11: **181 tests OK/51.332s**, один адресный run всей PC family M9–M11 и ближайших K1 injury/kernel/Attack, shared schemas/CLI. Реальные mixed sequential/process trials, full source/counters, count search и representative module/console подтверждены. Windows process/temp cases сразу выполнены вне sandbox из-за известного WinError5. Набор и результаты — в ADR-0067; log `.cache/m11-subsystem.log`. Это адресный набор, не полный regression проекта.
 
-Все4 public M9/M10 requests исполнены реальными командами, request echo проверен;7 PC schemas/90 offline refs, shared bundle и help проверены. Full/wheel M10 не запускались: общие правила K1 и доставка не менялись. Последние полные4404 tests/installed495files относятся к M9 и описаны в ADR-0065; они не выдаются за проверку новых изменений.
+Все6 public M9/M10/M11 requests исполнены реальными командами; request echo сверены, результаты сохранены.7PCschemas/90offline refs и shared bundle проверены. Full/wheel M11 не запускались: K1 reducers и доставка не менялись; последние полные/installed проверки M9 не выдаются за новую приёмку.
 
-Документация:14изменённых Markdown-файлов,961локальная ссылка и все4current request/result пары проверены. `git diff --check`, UTF-8/newline/trailing-whitespace проверки изменённых текстовых файлов успешны. Из logs подтверждены190уникальных IDs с успешным результатом; незакрытых failures нет.
+Документация:13изменённых Markdown-файлов/887локальных targets и все6current request/result пар проверены; UTF-8/newline/whitespace и `git diff --check` успешны. CLI help отражает mixed Minion/Brute roster.
 
-Перед M10 рабочее дерево было чистым; изменения M10 остаются незакоммиченными. Commit/push агент не выполняет.
+Фактические наблюдения: слабая M11 party —12unsupported из12, в одном prefix подтверждена casualty; сильная party/Brute-only —8objective из8, с1Minion —6objective/2unsupported, с2Minions —2objective/6unsupported. Только Brute-only выбран, denominator не фильтруется. Это не фиксированные вероятности; тяжёлые PC-раны остаются главным ограничением оценки трудных боёв.
+
+M10 закоммичена пользователем (`44ef3ab`); перед M11 рабочее дерево было чистым. Commit/push агент не выполняет.
+
+Изменения M11 остаются незакоммиченными.
 
 ## Ограничения
 
-Непустая здоровая initial party со Staff/Sword против обычных numeric Melee Minions, одна явная Close Zone, фиксированные порядки/target priorities и policies, независимый полный supplied Fate каждого PC. Common Wounds1–10/repeated/mixed поддержаны;11–23дают actor-bound pending lifecycle stop до completion/daily/effects; lethal24+ завершается после Near Miss decline. Active Fate, помощь/ally Recover, Brutes/Champions, общий inventory, другие оружие/Talents/тактики, treatment/campaign/save-resume не подключены. Потери при limit/unsupported — только подтверждённые до остановки. UNSUPPORTED_PATH остаётся в знаменателе trials и исключает кандидата из selection. Magic сохраняет JSON6; PC и другие families — свой единственный1.
+Непустая здоровая initial party со Staff/Sword против обычных numeric Melee Minions/Brutes, одна явная Close Zone, фиксированные порядки/target priorities и policies, независимый полный Fate каждого PC. Brutes только static profile без on-Wound behaviours/abilities. PC Wounds1–10/repeated/mixed поддержаны;11–23дают actor-bound pending lifecycle stop до completion/daily/effects; lethal24+ завершается после Near Miss decline. Active Fate, помощь/ally Recover, Champions/Monstrosities, общий inventory, другие оружие/Talents/тактики, treatment/campaign/save-resume не подключены. Потери при limit/unsupported — только подтверждённые до остановки. Unsupported остаётся в знаменателе и исключает кандидата из selection.
 
 ## Точный следующий шаг
 
-Согласованная M10 закрыта, обязательного остатка нет. Следующее продуктовое направление — более широкий NPC roster (первый Brute) либо уменьшение unsupported после Wounds11–23; конкретная следующая граница ещё не выбрана. Перед расширением сопоставить реальные остановки party-прогонов и полезность для оценки боя группы с монстрами, затем закрепить одну конечную функцию. Повторный full/wheel ради перехода сессии не нужен.
+Согласованная M11 закрыта, обязательного остатка нет. Приоритет следующей функции — продолжение тяжёлых PC-ран, ограничивающих оценку сложных боёв; прежде реализации определить конечный диапазон и решения для Critically Injured/Defenceless, использования повреждённой руки и обязательных поз. Конкретная M12 ещё не согласована; не подставлять house rules или автоматически добавлять весь каталог. Full/wheel ради перехода сессии не нужны.
 
 Commit/push выполняет пользователь.

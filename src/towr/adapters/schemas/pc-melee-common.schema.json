@@ -206,6 +206,16 @@
             "source_rule_id": {
               "$ref": "urn:towr:pc-melee:common:1#/$defs/identifier"
             },
+            "injury_policy": {
+              "enum": [
+                "minion",
+                "brute"
+              ]
+            },
+            "wound_limit": {
+              "type": "integer",
+              "minimum": 1
+            },
             "resilience": {
               "$ref": "urn:towr:pc-melee:common:1#/$defs/resilience"
             },
@@ -219,11 +229,31 @@
           "required": [
             "id",
             "source_rule_id",
+            "injury_policy",
+            "wound_limit",
             "resilience",
             "attack",
             "protection"
           ],
-          "additionalProperties": false
+          "additionalProperties": false,
+          "allOf": [
+            {
+              "if": {
+                "properties": {
+                  "injury_policy": {
+                    "const": "minion"
+                  }
+                }
+              },
+              "then": {
+                "properties": {
+                  "wound_limit": {
+                    "const": 1
+                  }
+                }
+              }
+            }
+          ]
         }
       },
       "required": [

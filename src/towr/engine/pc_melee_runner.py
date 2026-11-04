@@ -5,7 +5,7 @@ from towr.domain.pc_melee_models import PcWeaponHand
 from towr.domain.pc_melee_result_models import (
     PcAttackProof, PcAttackerStaggerProof, PcEnduranceProof, PcFateDecline,
     PcHandDropProof, PcMeleeOutcome, PcMeleeScenarioResult, PcMeleeState, PcMeleeStep,
-    PcMinionDefeatProof, PcRecoverProof, PcTurnEndProof, PcWoundCompletionProof,
+    PcProfileWoundProof, PcRecoverProof, PcTurnEndProof, PcWoundCompletionProof,
     build_pc_melee_attack, build_pc_melee_recover, initial_pc_melee_state, pc_after_test,
     pc_melee_action_id, pc_melee_next_actor, pc_melee_selected_action, pc_melee_unsupported,
     project_pc_melee_step, pc_melee_round_participants, validate_pc_melee_state_shape,
@@ -121,7 +121,9 @@ def run_pc_melee_scenario(scenario, rng: RandomSource) -> PcMeleeScenarioResult:
                 consume(PcAttackerStaggerProof(pending))
             elif isinstance(pending,ProfileStateChangeRequest):
                 attack = next(p for p in reversed(state.history) if isinstance(p,PcAttackProof))
-                consume(PcMinionDefeatProof(pending,scenario.participant(attack.request.actor_id).defeat_decision(attack.request.target_id)))
+                decision = (scenario.participant(attack.request.actor_id).defeat_decision(attack.request.target_id)
+                    if pending.defeated else None)
+                consume(PcProfileWoundProof(pending,decision))
             else:
                 raise ValueError('unexpected mandatory PC continuation')
             continue

@@ -3,7 +3,7 @@ from dataclasses import replace
 
 from towr.domain.pc_melee_result_models import (
     PcAttackProof, PcAttackerStaggerProof, PcEnduranceProof, PcHandDropProof, PcMeleeState,
-    PcMinionDefeatProof, PcRecoverProof, PcTimedWound, PcTurnEndProof, PcWoundCompletionProof,
+    PcProfileWoundProof, PcRecoverProof, PcTimedWound, PcTurnEndProof, PcWoundCompletionProof,
     build_pc_melee_attack, build_pc_melee_recover, pc_after_test, pc_melee_action_id,
     pc_melee_next_actor, pc_melee_selected_action, pc_melee_unsupported,
     validate_pc_melee_combat_shape, validate_pc_melee_state_shape,
@@ -11,13 +11,14 @@ from towr.domain.pc_melee_result_models import (
 )
 from towr.domain.attack_models import AttackOutcome, DamageImpactSpec, ImpactOutcome, MissConsequence
 from towr.domain.injury_models import (
-    CharacterWoundRequest, CharacterWoundType, ProfileNpcType, ProfileStateChangeRequest,
+    CharacterWoundRequest, CharacterWoundType, ProfileNpcType, ProfileStateChangeRequest, ProfileWoundResult,
     WoundConditionEffect, WoundConsequence, WoundConsequenceRequest, WoundEffectDuration,
     WoundEnduranceFailure, WoundEnduranceTestRequest, WoundEntryId,
     WoundRestriction, WoundRestrictionEffect,
 )
 from towr.domain.condition_models import Condition, ConditionState, StaggerChoice, StaggerOutcome, StaggerResult
 from towr.domain.pc_melee_models import PcWeaponHand
+from towr.domain.minion_defeat_models import MinionDefeatDecision
 from towr.domain.resolution_models import AttackerStaggerRequest
 from towr.domain.test_models import Skill
 from towr.domain.turn_models import (
@@ -257,23 +258,32 @@ def project_pc_step(state, proof):
             followups = ()
         else:
             if result.character_wound is not None or result.pending_character_wound is not None:
-                raise ValueError('Minion Wound cannot carry a PLAYER lifecycle branch')
-            target = replace(before,wounds=1,defeated=True,conditions=before.conditions.without_condition(Condition.STAGGERED))
-            _same(result.target_state,target,'Minion Wound changed unrelated state')
-            change = ProfileStateChangeRequest(ProfileNpcType.MINION,before.wounds,1,True)
-            if result.profile_wound is None or result.profile_wound.state != target or result.profile_wound.state_change != change:
-                raise ValueError('Minion defeat lacks its exact profile Wound')
+                raise ValueError('NPC profile Wound cannot carry a PLAYER lifecycle branch')
+            wounds = min(before.wounds+1,before.wound_limit)
+            defeated = wounds == before.wound_limit
+            target = replace(before,wounds=wounds,defeated=defeated,
+                conditions=before.conditions.without_condition(Condition.STAGGERED))
+            _same(result.target_state,target,'NPC profile Wound changed unrelated state')
+            npc_type = ProfileNpcType(state.enemy(expected.target_id).definition.injury_policy.value)
+            change = ProfileStateChangeRequest(npc_type,before.wounds,wounds,defeated)
+            if type(result.profile_wound) is not ProfileWoundResult:
+                raise TypeError('NPC profile Wound requires its typed K1 result')
+            if result.profile_wound.state != target or result.profile_wound.state_change != change:
+                raise ValueError('NPC Wound lacks its exact profile change')
             profile = result.profile_wound
+            replace(profile.state)
+            replace(result.target_state)
+            ConditionState(profile.state.conditions.conditions)
             _same((profile.request_id,profile.wounds_requested,profile.wounds_inflicted,profile.applied_rule_ids),
-                (expected.kernel_request.id+':wound',1,1,()),'Minion profile Wound has a foreign source or count')
+                (expected.kernel_request.id+':wound',1,1,()),'NPC profile Wound has a foreign source or count')
             if (type(profile.wounds_requested) is not int or type(profile.wounds_inflicted) is not int
                     or type(profile.state_change.previous_wounds) is not int
                     or type(profile.state_change.current_wounds) is not int
                     or type(profile.state_change.defeated) is not bool
                     or not isinstance(profile.state_change.npc_type,ProfileNpcType)):
-                raise TypeError('Minion profile Wound requires typed source/count fields')
+                raise TypeError('NPC profile Wound requires typed source/count fields')
             if type(profile.request_id) is not str:
-                raise TypeError('Minion profile Wound ID must be a string')
+                raise TypeError('NPC profile Wound ID must be a string')
             followups = (change,)
         _same(result.follow_ups,followups,'PC Attack altered mandatory follow-up order')
         enemies = state.enemies
@@ -361,15 +371,27 @@ def project_pc_step(state, proof):
             return finish(party=_party_update(state,pc_actor,injury=injury),pending=state.pending[1:])
         old = state.enemy(actor).state.injury
         return finish(enemies=_enemy_update(state,actor,replace(old,conditions=old.conditions.with_condition(Condition.STAGGERED))),pending=state.pending[1:])
-    if isinstance(proof,PcMinionDefeatProof):
-        replace(proof.decision)
+    if isinstance(proof,PcProfileWoundProof):
+        if (type(proof.source) is not ProfileStateChangeRequest
+                or not isinstance(proof.source.npc_type,ProfileNpcType)
+                or type(proof.source.previous_wounds) is not int
+                or type(proof.source.current_wounds) is not int
+                or type(proof.source.defeated) is not bool):
+            raise TypeError('profile Wound acknowledgement requires canonical change fields')
         if state.pending_wound is not None or not state.pending or state.pending[0] != proof.source:
             raise ValueError('defeat disposition is detached from its pending profile change')
         attack = next(p for p in reversed(state.history) if isinstance(p,PcAttackProof))
         target = attack.request.target_id
         if target == pc_actor or proof.source != attack.execution.resolution.profile_wound.state_change:
-            raise ValueError('defeat acknowledgement requires its actual Minion Attack')
-        _same(proof.decision,participant.defeat_decision(target),'Minion disposition differs from caller/GM decision')
+            raise ValueError('profile Wound acknowledgement requires its actual NPC Attack')
+        if not proof.source.defeated:
+            if proof.decision is not None:
+                raise ValueError('a living NPC cannot receive a defeat disposition')
+            return finish(pending=state.pending[1:])
+        if not isinstance(proof.decision,MinionDefeatDecision):
+            raise TypeError('defeated NPC requires the typed caller/GM decision')
+        replace(proof.decision)
+        _same(proof.decision,participant.defeat_decision(target),'NPC disposition differs from caller/GM decision')
         updated = combat
         if target not in (*combat.completed_turn_entity_ids,*combat.excluded_turn_entity_ids):
             updated = replace(combat,excluded_turn_entity_ids=(*combat.excluded_turn_entity_ids,target))

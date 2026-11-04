@@ -1,5 +1,11 @@
 # Трассировка правил
 
+## M11: static-profile Brutes в PC melee
+
+BOOK-GM-GUIDE1.1, Allies and Antagonists / Minions91, Brutes92; BOOK-PLAYER-GUIDE1.4, Wounds Table/NPC summary190–191. [ADR-0067](decisions/ADR-0067-pc-melee-profile-brutes.md) подключает RULE-NPC-002/003 и существующие RULE-COMBAT-001/004/007 к mixed reserve без новых Rule IDs/house rules.
+
+[Admission](../src/towr/domain/pc_melee_models.py), [owner/source builders](../src/towr/domain/pc_melee_result_models.py), [projection](../src/towr/domain/_pc_melee_projection.py) и [runner](../src/towr/engine/pc_melee_runner.py) сохраняют policy/limit и actual K1 profile result; каждый nonterminal/terminal change подтверждается до обычного действия. [7 deterministic cases](../tests/unit/test_m11_pc_melee_brutes.py) проверяют surviving Brute Attack, final exclusion, повторный Staggered, отличие PC lifecycle, replay и wrong-type/profile forgeries. [3 integration cases](../tests/integration/test_m11_pc_melee_brutes.py) связывают это с indexed trials/real spawn, fixed-party prefixes и aggregate-only balance. [Codec](../src/towr/adapters/_pc_melee_scenario_json.py), [wire tests](../tests/unit/test_m9_pc_melee_json.py)/[schemas](../tests/unit/test_m9_pc_melee_json_schemas.py)/[CLI](../tests/integration/test_m9_pc_melee_cli.py) сохраняют полный current JSON1; старый shape без policy/limit отклоняется. Нет on-Wound behaviours, NPC Wounds Table или нового PC wound_limit.
+
 ## M10: группа PC, ADR-0066
 
 BOOK-PLAYER-GUIDE1.4, Rules / Combat112, Recover/Attack118–119, Conditions122–123; Wounds190–191 наследуют M9. [Контракт](decisions/ADR-0066-pc-party-melee-encounter.md) подключает существующие RULE-COMBAT-001/002/004/007 и RULE-HEALTH-005/008/009, RULE-FATE-001/002/003 к uniform party, без новых игровых правил/house rules.

@@ -5,7 +5,7 @@
 | Задача | Что читать и обновлять |
 |---|---|
 | Проверить границу M8 | [Scope и результаты финальной приёмки](m8-completion.md) |
-| Запустить бой группы PC против Minions | [M10 JSON/CLI и потери](examples/m10/README.md), [контракт](decisions/ADR-0066-pc-party-melee-encounter.md); [одиночный пример](examples/m9/README.md) |
+| Запустить бой группы PC против Minions/Brutes | [M11 JSON/CLI](examples/m11/README.md), [контракт](decisions/ADR-0067-pc-melee-profile-brutes.md); [Minion-группа](examples/m10/README.md), [одиночный пример](examples/m9/README.md) |
 | Продолжить реализацию | [Статус и точный следующий шаг](project-status.md), [roadmap](roadmap.md) |
 | Изменить правило | [Иерархия источников](source-policy.md), соответствующий раздел [нормализованных правил](rules/), при необходимости книга по [индексу источников](source-index.md) |
 | Проверить неоднозначность | [Индекс вопросов](open-questions.md) → соответствующие [подробности](open-questions-details.md); [противоречия](contradictions.md) |

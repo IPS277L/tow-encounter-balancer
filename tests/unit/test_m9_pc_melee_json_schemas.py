@@ -35,6 +35,31 @@ def samples():
 
 
 class PcMeleeJsonSchemaTests(unittest.TestCase):
+    def test_profile_npc_kind_and_limit_are_complete_closed_and_type_specific(self):
+        raw=document(party_size=2,mixed=True)
+        schema.validate_pc_melee_simulation_document(raw)
+        definition=raw['scenario']['enemies'][1]['definition']
+        for field in definition:
+            changed=deepcopy(raw)
+            del changed['scenario']['enemies'][1]['definition'][field]
+            with self.subTest(missing=field),self.assertRaises(ValidationError):
+                schema.validate_pc_melee_simulation_document(changed)
+        for field,value in (('injury_policy','champion'),('injury_policy','monstrosity'),
+                            ('wound_limit',True),('wound_limit',None),('wound_limit',0),
+                            ('wound_effect',None)):
+            changed=deepcopy(raw)
+            changed['scenario']['enemies'][1]['definition'][field]=value
+            with self.subTest(field=field,value=value),self.assertRaises(ValidationError):
+                schema.validate_pc_melee_simulation_document(changed)
+        changed=deepcopy(raw)
+        changed['scenario']['enemies'][0]['definition']['wound_limit']=2
+        with self.assertRaises(ValidationError):
+            schema.validate_pc_melee_simulation_document(changed)
+        for limit in (1,2,50):
+            changed=deepcopy(raw)
+            changed['scenario']['enemies'][1]['definition']['wound_limit']=limit
+            schema.validate_pc_melee_simulation_document(changed)
+
     def test_all_seven_current_documents_and_their_refs_resolve_offline(self):
         names=['pc-melee-common.schema.json', *[
             f'pc-melee-{family}-{kind}-v1.schema.json'

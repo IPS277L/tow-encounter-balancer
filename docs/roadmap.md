@@ -10,10 +10,11 @@
 - M8: один Champion-Wizard/Curse, явные scene facts, opt-in continuations, native журнал, generation и текущий JSON6. Ограниченная веха завершена; [граница и приёмка](m8-completion.md).
 - M9: один книжный PC/Staff или Sword против Minions, Wounds1–10, явный Fate decline, source-bound бой, trials, подбор численности и current JSON1/CLI. [Граница и приёмка ADR-0065](decisions/ADR-0065-first-pc-melee-encounter.md).
 - M10: группа PC в общем owner/clock, отдельные ресурсы/раны, продолжение после частичных потерь, trials/статистика и fixed-party count search в той же PC JSON1 family. [Граница и приёмка ADR-0066](decisions/ADR-0066-pc-party-melee-encounter.md).
+- M11: static numeric Brutes и mixed Minion/Brute reserve, source-bound profile Wounds до/на лимите, trials/подбор и явные policy/limit в текущем PC JSON1. [Граница и приёмка ADR-0067](decisions/ADR-0067-pc-melee-profile-brutes.md).
 
 ## Последняя законченная функция
 
-[Группа PC M10](decisions/ADR-0066-pc-party-melee-encounter.md) завершена целиком: общий бой и индивидуальные состояния, независимые trials/подтверждённые потери, bounded Minion counts и обновлённые текущие JSON1/CLI. [Примеры](examples/m10/README.md) исполнены реальными командами; адресная проверка всей PC подсистемы и зависимых общих границ закрыта составно. Full/wheel M10 не требовались.
+[PC против Minions/Brutes M11](decisions/ADR-0067-pc-melee-profile-brutes.md) завершена целиком: профильные раны без Wounds Table NPC, nonterminal continuation, defeat и mixed count search через текущий JSON1. [Примеры](examples/m11/README.md) исполнены реальными командами;181адресная проверка пройдена одним run. Full/wheel M11 не требовались.
 
 ## M8 завершена
 
@@ -53,7 +54,11 @@
 
 Конечные критерии — source-bound party battle, независимые прогоны/потери, aggregate-only подбор, строгий wire и работающие примеры. Оружие, Wounds1–10, self Recover и Fate decline остаются в границе M9; новые тактики, ally Recover, активное Fate и прочие Wounds не добавляются автоматически.
 
-## После M10
+## M11 — Minions и static-profile Brutes против группы PC
+
+Завершена по [ADR-0067](decisions/ADR-0067-pc-melee-profile-brutes.md). Явные `injury_policy`/`wound_limit` каждого NPC, nonterminal Wounds без table/lifecycle PC, сохранение живого Brute в очереди и последующий defeat с GM disposition. Существующий общий бой/подбор/JSON1 принимает смешанный reserve; состав party и поддержка её ран/Fate прежние. Профили с on-Wound behaviour, Abilities и другие типы NPC не входят. Конечная функция включает typed source guards, trials/process, count search, строгий wire и runnable mixed examples. Обязательного остатка в этой границе нет.
+
+## После M11
 
 Более широкий NPC/spell/Wound/Miscast каталог, другие комбинации и тактики, общий inventory/spatial/campaign/save-resume и ally removal — отдельный backlog после M10. Приоритеты следующих функций выбираются отдельно; финиш M8/M9/M10 ими автоматически не расширяется.
 

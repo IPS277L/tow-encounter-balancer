@@ -33,8 +33,8 @@ def invoke(command,raw,*,console=False,cwd=None):
 class PcMeleeCliIntegrationTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.simulation=document(party_size=2)
-        cls.balance=document(balance=True,party_size=2)
+        cls.simulation=document(party_size=2,mixed=True)
+        cls.balance=document(balance=True,party_size=2,mixed=True)
         cls.sim_command=wire.parse_pc_melee_simulation_request(json.dumps(cls.simulation))
         cls.bal_command=wire.parse_pc_melee_balance_request(json.dumps(cls.balance))
         cls.summary=service.execute_pc_melee_simulation(cls.sim_command)
@@ -59,6 +59,9 @@ class PcMeleeCliIntegrationTests(unittest.TestCase):
                         validator(output,'result')
                         self.assertEqual(output['request'],raw)
                         self.assertEqual(output['request'].get('scenario',output['request'].get('template'))['party'][0]['fate']['rating'],3)
+                        enemies=output['request'].get('scenario',output['request'].get('template'))['enemies']
+                        self.assertEqual(enemies[1]['definition']['injury_policy'],'brute')
+                        self.assertEqual(enemies[1]['definition']['wound_limit'],3)
 
     def test_console_process_preserves_actual_simulation_summary_and_explicit_execution(self):
         raw=deepcopy(self.simulation)
@@ -94,6 +97,13 @@ class PcMeleeCliIntegrationTests(unittest.TestCase):
         error=json.loads(completed.stdout)
         self.assertEqual(error['request_id'],raw['request_id'])
         self.assertEqual(error['error']['path'],'/scenario/party/1/pc/weapon_skill')
+        raw=deepcopy(self.simulation)
+        raw['scenario']['enemies'][1]['definition']['wound_limit']=True
+        completed=invoke('simulate-pc-melee',raw)
+        self.assertEqual(completed.returncode,2)
+        error=json.loads(completed.stdout)
+        self.assertEqual(error['request_id'],raw['request_id'])
+        self.assertEqual(error['error']['path'],'/scenario/enemies/1/definition/wound_limit')
 
     def test_runtime_worker_cause_is_private_and_family_phase_remains_precise(self):
         scripts={

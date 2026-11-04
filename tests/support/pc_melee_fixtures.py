@@ -70,3 +70,35 @@ def replace_pc_melee_member(source: PcMeleeScenario, actor_id: str, **changes) -
     from dataclasses import replace
     source.participant(actor_id)
     return replace(source, party=tuple(replace(m, **changes) if m.actor_id == actor_id else m for m in source.party))
+
+
+def with_pc_melee_brute(source: PcMeleeScenario, actor_id: str, *, wound_limit: int = 3) -> PcMeleeScenario:
+    """Author one static numeric Brute; retain its actor ID and all chosen orders."""
+    from dataclasses import replace
+    original = source.enemy(actor_id)
+    definition = replace(original.definition,id=f"brute-profile:{wound_limit}",
+        source_rule_id="authored:static-brute",injury_policy=TargetInjuryPolicy.BRUTE,wound_limit=wound_limit)
+    state = replace(original.state,definition_id=definition.id,injury=ProfileInjuryState(0,wound_limit))
+    enemy = NpcParticipantSnapshot(definition,state)
+    return replace(source,enemies=tuple(enemy if item.state.actor_id == actor_id else item for item in source.enemies))
+
+
+def make_pc_melee_mixed_scenario(*, pc_count: int = 2, minion_count: int = 1,
+        brute_count: int = 1, brute_wound_limit: int = 3, max_rounds: int = 3) -> PcMeleeScenario:
+    """Explicit mixed reserve with independent healthy profile states."""
+    from dataclasses import replace
+    for name,value in (("minion_count",minion_count),("brute_count",brute_count)):
+        if type(value) is not int or value < 0:
+            raise ValueError(f"{name} must be a nonnegative integer")
+    source = make_pc_melee_party_scenario(pc_count=pc_count,enemy_count=minion_count+brute_count,max_rounds=max_rounds)
+    old_ids = tuple(enemy.state.actor_id for enemy in source.enemies)
+    ids = tuple(f"minion{i+1}" for i in range(minion_count))+tuple(f"brute{i+1}" for i in range(brute_count))
+    mapping = dict(zip(old_ids,ids))
+    enemies = tuple(replace(enemy,state=replace(enemy.state,actor_id=mapping[enemy.state.actor_id])) for enemy in source.enemies)
+    party = tuple(replace(member,target_priority=tuple(mapping[target] for target in member.target_priority),
+        defeat_decisions=tuple(replace(decision,target_id=mapping[decision.target_id]) for decision in member.defeat_decisions))
+        for member in source.party)
+    source = replace(source,enemies=enemies,party=party,enemy_activation_order=ids)
+    for actor in ids[minion_count:]:
+        source = with_pc_melee_brute(source,actor,wound_limit=brute_wound_limit)
+    return source

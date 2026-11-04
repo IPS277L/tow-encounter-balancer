@@ -131,6 +131,8 @@
           "definition": {
             "id": "minion-profile",
             "source_rule_id": "authored:minion",
+            "injury_policy": "minion",
+            "wound_limit": 1,
             "resilience": {
               "toughness": 3,
               "bonus": 0
@@ -164,6 +166,8 @@
           "definition": {
             "id": "minion-profile",
             "source_rule_id": "authored:minion",
+            "injury_policy": "minion",
+            "wound_limit": 1,
             "resilience": {
               "toughness": 3,
               "bonus": 0
@@ -197,6 +201,8 @@
           "definition": {
             "id": "minion-profile",
             "source_rule_id": "authored:minion",
+            "injury_policy": "minion",
+            "wound_limit": 1,
             "resilience": {
               "toughness": 3,
               "bonus": 0
@@ -422,6 +428,8 @@
               "definition": {
                 "id": "minion-profile",
                 "source_rule_id": "authored:minion",
+                "injury_policy": "minion",
+                "wound_limit": 1,
                 "resilience": {
                   "toughness": 3,
                   "bonus": 0
@@ -655,6 +663,8 @@
               "definition": {
                 "id": "minion-profile",
                 "source_rule_id": "authored:minion",
+                "injury_policy": "minion",
+                "wound_limit": 1,
                 "resilience": {
                   "toughness": 3,
                   "bonus": 0
@@ -688,6 +698,8 @@
               "definition": {
                 "id": "minion-profile",
                 "source_rule_id": "authored:minion",
+                "injury_policy": "minion",
+                "wound_limit": 1,
                 "resilience": {
                   "toughness": 3,
                   "bonus": 0
@@ -936,6 +948,8 @@
               "definition": {
                 "id": "minion-profile",
                 "source_rule_id": "authored:minion",
+                "injury_policy": "minion",
+                "wound_limit": 1,
                 "resilience": {
                   "toughness": 3,
                   "bonus": 0
@@ -969,6 +983,8 @@
               "definition": {
                 "id": "minion-profile",
                 "source_rule_id": "authored:minion",
+                "injury_policy": "minion",
+                "wound_limit": 1,
                 "resilience": {
                   "toughness": 3,
                   "bonus": 0
@@ -1002,6 +1018,8 @@
               "definition": {
                 "id": "minion-profile",
                 "source_rule_id": "authored:minion",
+                "injury_policy": "minion",
+                "wound_limit": 1,
                 "resilience": {
                   "toughness": 3,
                   "bonus": 0

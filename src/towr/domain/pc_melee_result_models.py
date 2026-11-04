@@ -247,9 +247,9 @@ class PcAttackerStaggerProof:
 
 
 @dataclass(frozen=True, slots=True)
-class PcMinionDefeatProof:
+class PcProfileWoundProof:
     source: ProfileStateChangeRequest
-    decision: MinionDefeatDecision
+    decision: MinionDefeatDecision | None
 
 
 @dataclass(frozen=True, slots=True)
@@ -265,7 +265,7 @@ class PcTurnEndProof:
 
 PcMeleeProof = (
     CombatTurnStartResult | CombatActionSlotResult | PcAttackProof | PcWoundCompletionProof
-    | PcEnduranceProof | PcHandDropProof | PcAttackerStaggerProof | PcMinionDefeatProof
+    | PcEnduranceProof | PcHandDropProof | PcAttackerStaggerProof | PcProfileWoundProof
     | PcRecoverProof | PcTurnEndProof | CombatRoundAdvanceResult
 )
 
@@ -456,7 +456,7 @@ def build_pc_melee_attack(state: PcMeleeState) -> tuple[AttackActionExecutionReq
     from towr.domain.protection_models import _expected_protection
     prepared_attack = _expected_protection(protection)[0]
     kernel = KernelAttackRequest(action_id + ':kernel',target,prepared_attack,
-        TargetInjuryPolicy.MINION if pc_attacks else TargetInjuryPolicy.PLAYER, target_injury,
+        target_snapshot.definition.injury_policy if pc_attacks else TargetInjuryPolicy.PLAYER, target_injury,
         state.source.facts.can_leave_zone,False)
     return AttackActionExecutionRequest(action_id + ':execute',state.round_state,actor,target,1,kernel), protection
 

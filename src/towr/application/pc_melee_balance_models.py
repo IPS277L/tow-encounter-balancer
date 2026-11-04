@@ -94,11 +94,11 @@ class PcMeleeBalanceRequest:
         actors = tuple(actor for group in groups for actor in group.actor_ids)
         reserve = {enemy.state.actor_id: enemy for enemy in self.template.enemies}
         if len(set(actors)) != len(actors) or set(actors) != set(reserve):
-            raise ValueError('groups must exactly partition all enemy Minions')
+            raise ValueError('groups must exactly partition all enemy profile NPCs')
         for group in groups:
             definition = reserve[group.actor_ids[0]].definition
             if any(reserve[actor].definition != definition for actor in group.actor_ids):
-                raise ValueError('one composition group requires equal complete Minion definitions')
+                raise ValueError('one composition group requires equal complete profile NPC definitions')
         object.__setattr__(self, 'groups', groups)
         if self.candidate_count == 0:
             raise ValueError('all-zero counts cannot form a PC encounter')
@@ -145,7 +145,7 @@ def project_pc_melee_candidate(request: PcMeleeBalanceRequest, counts: tuple[int
         if not group.minimum_count <= count <= group.maximum_count:
             raise ValueError('candidate count is outside its group bounds')
     if not any(counts):
-        raise ValueError('a candidate must retain an enemy Minion')
+        raise ValueError('a candidate must retain an enemy profile NPC')
     keep = {actor for group, count in zip(request.groups, counts) for actor in group.actor_ids[:count]}
     template = request.template
     scenario = replace(template, id=pc_melee_candidate_id(request, counts), facts=request.facts,

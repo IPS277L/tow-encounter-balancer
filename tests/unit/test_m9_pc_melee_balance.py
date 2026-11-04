@@ -116,7 +116,7 @@ class PcMeleeBalanceUnitTests(unittest.TestCase):
         changed = replace(last, definition=changed_definition,
             state=replace(last.state, definition_id=changed_definition.id))
         different = replace(source.template, enemies=(source.template.enemies[0], changed))
-        with self.assertRaisesRegex(ValueError, 'complete Minion definitions'):
+        with self.assertRaisesRegex(ValueError, 'complete profile NPC definitions'):
             replace(source, template=different)
 
     def test_request_and_transported_equal_aliases_are_readmitted(self):

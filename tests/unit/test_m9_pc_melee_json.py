@@ -27,8 +27,8 @@ from towr.simulation.pc_melee_models import PcMeleeOutcomeCounts
 from towr.simulation.pc_melee_summary_models import PcMeleeDefeatCount, PcMeleeSimulationSummary
 
 
-def document(*, balance=False, party_size=1):
-    scenario = scenario_document(make_pc_melee_scenario(enemy_count=2 if balance else 1, max_rounds=2))
+def document(*, balance=False, party_size=1, mixed=False):
+    scenario = scenario_document(make_pc_melee_scenario(enemy_count=2 if balance or mixed else 1, max_rounds=2))
     for index in range(1, party_size):
         member=deepcopy(scenario['party'][0])
         actor=f'pc{index+1}'
@@ -42,6 +42,20 @@ def document(*, balance=False, party_size=1):
         scenario['party'].append(member)
         scenario['pc_activation_order'].insert(0,actor)
         scenario['enemy_target_priority'].append(actor)
+    if mixed:
+        enemy=scenario['enemies'][1]
+        old_actor=enemy['actor_id']
+        enemy['actor_id']='brute1'
+        enemy['definition'].update(id='brute-profile',source_rule_id='authored:brute',
+            injury_policy='brute',wound_limit=3)
+        enemy['definition']['attack']['source_rule_id']='authored:brute:club'
+        enemy['definition']['protection']['source_rule_id']='authored:brute:defence'
+        scenario['enemy_activation_order']=[enemy['actor_id'] for enemy in scenario['enemies']]
+        for member in scenario['party']:
+            member['target_priority']=['brute1' if actor==old_actor else actor for actor in member['target_priority']]
+            for decision in member['defeat_decisions']:
+                if decision['target_id']==old_actor:
+                    decision['target_id']='brute1'
     result = {'schema_version':'1', 'kind':'pc_melee_balance' if balance else 'pc_melee_simulation',
         'request_id':'request:pc', 'ruleset':'towr-pg1.4-gmg1.1', 'execution':{'mode':'sequential'}}
     if balance:
@@ -55,6 +69,11 @@ def document(*, balance=False, party_size=1):
                           'maximum':{'numerator':1,'denominator':1}}, 'top_k':1})
     else:
         result.update(scenario=scenario, simulation={'master_seed':'42','trials':4})
+    if balance and mixed:
+        result['generation']['groups']=[
+            {'group_id':'guards','actor_ids':['minion1'],'minimum_count':0,'maximum_count':1},
+            {'group_id':'brutes','actor_ids':['brute1'],'minimum_count':1,'maximum_count':1},
+        ]
     return result
 
 
@@ -77,6 +96,48 @@ def balance_result(command):
 
 
 class PcMeleeJsonTests(unittest.TestCase):
+    def test_mixed_npc_types_and_limits_survive_exact_sources_candidates_and_result_echo(self):
+        raw=document(balance=True,party_size=2,mixed=True)
+        before=deepcopy(raw)
+        with patch('random.Random',side_effect=AssertionError('codec creates no RNG')):
+            command=wire.parse_pc_melee_balance_request(json.dumps(raw))
+            encoded=json.loads(wire.encode_pc_melee_balance_result(command,balance_result(command)))
+        self.assertEqual(raw,before)
+        self.assertEqual(encoded['request'],raw)
+        self.assertEqual(tuple((enemy.definition.injury_policy.value,enemy.definition.wound_limit,
+            enemy.state.injury.wound_limit) for enemy in command.request.template.enemies),
+            (('minion',1,1),('brute',3,3)))
+        for candidate in encoded['candidates']:
+            enemies=candidate['request']['scenario']['enemies']
+            brute=next(enemy for enemy in enemies if enemy['actor_id']=='brute1')
+            self.assertEqual(brute,raw['template']['enemies'][1])
+            decisions=candidate['request']['scenario']['party'][1]['defeat_decisions']
+            self.assertTrue(all(item['attacker_id']=='pc2' and item['gm_approved'] for item in decisions))
+            projected=parse_scenario(candidate['request']['scenario'],path_prefix='/candidate',
+                error_type=PcMeleeBalanceInputError)
+            self.assertEqual(projected.enemies[-1].definition.injury_policy.value,'brute')
+        validate_pc_melee_balance_document(encoded,'result')
+
+    def test_npc_policy_and_profile_limit_are_required_typed_and_source_bound(self):
+        for missing in ('injury_policy','wound_limit'):
+            raw=document(mixed=True)
+            del raw['scenario']['enemies'][1]['definition'][missing]
+            with self.subTest(missing=missing),self.assertRaises(PcMeleeSimulationInputError):
+                wire.parse_pc_melee_simulation_request(json.dumps(raw))
+        for field,value in (('injury_policy','champion'),('injury_policy','monstrosity'),
+                            ('injury_policy',True),('wound_limit',True),('wound_limit',None),
+                            ('wound_limit',0),('wound_limit',-1)):
+            raw=document(mixed=True)
+            raw['scenario']['enemies'][1]['definition'][field]=value
+            with self.subTest(field=field,value=value),self.assertRaises(PcMeleeSimulationInputError) as caught:
+                wire.parse_pc_melee_simulation_request(json.dumps(raw))
+            self.assertEqual(caught.exception.path,'/scenario/enemies/1/definition/'+field)
+        raw=document()
+        raw['scenario']['enemies'][0]['definition']['wound_limit']=2
+        with self.assertRaises(PcMeleeSimulationInputError) as caught:
+            wire.parse_pc_melee_simulation_request(json.dumps(raw))
+        self.assertEqual(caught.exception.path,'/scenario/enemies/0/definition/wound_limit')
+
     def test_simulation_result_echoes_every_source_field_without_rng_or_trial_replay(self):
         raw=document(party_size=2)
         raw['request_id']='запрос:ёлка'

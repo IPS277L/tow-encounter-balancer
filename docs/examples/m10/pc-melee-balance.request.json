@@ -37,7 +37,9 @@
               "threshold": 4,
               "pool_cap": null
             }
-          }
+          },
+          "injury_policy": "minion",
+          "wound_limit": 1
         }
       },
       {
@@ -70,7 +72,9 @@
               "threshold": 4,
               "pool_cap": null
             }
-          }
+          },
+          "injury_policy": "minion",
+          "wound_limit": 1
         }
       },
       {
@@ -103,7 +107,9 @@
               "threshold": 4,
               "pool_cap": null
             }
-          }
+          },
+          "injury_policy": "minion",
+          "wound_limit": 1
         }
       }
     ],
