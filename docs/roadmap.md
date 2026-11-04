@@ -21,10 +21,11 @@
 - M19: семь двуручных Close weapons, typed BOTH grip, обе руки в drop/Recover/Critical12 и actual unsupported после завершённых ран16/18/20; прежние trials/process/поиск/JSON1. [ADR-0074](decisions/ADR-0074-pc-two-handed-close-weapons.md), [примеры](examples/m19/README.md).
 - M20: явный1H backup к2H primary, own-turn incidental draw, active Damage/Traits/Help/Recover, carry/source/replay guards и прежние trials/process/search/JSON1. [ADR-0075](decisions/ADR-0075-pc-backup-weapon-policy.md), [примеры](examples/m20/README.md).
 - M21: точные Footpad/Townsfolk боевые подпрофили GM1.1, независимые factories/metadata, защищённое book provenance и явный NPC Athletics/Defence через native/trials/process/подбор/JSON1. [ADR-0076](decisions/ADR-0076-first-pc-book-npc-catalog.md), [примеры](examples/m21/README.md).
+- M22: Brigand Axe и применимый Craven Opportunist +2d вместо +1d, active/unselected metadata, actual superiority/GM/Drained и прежние native/trials/process/поиск/JSON1. [ADR-0077](decisions/ADR-0077-pc-brigand-craven-opportunist.md), [примеры](examples/m22/README.md).
 
 ## Последняя законченная функция
 
-[Книжные NPC M21](decisions/ADR-0076-first-pc-book-npc-catalog.md) реализованы через тот же native owner/trials/process/подбор и текущий JSON1. [CLI-примеры](examples/m21/README.md) используют точные Footpad/Townsfolk, сохраняя Protection Skill и полный source. Неактивные способности сохранены с условием/эффектом, применимые не отбрасываются. Приёмка — в статусе; обязательного остатка M21 нет.
+[Brigand Axe / Craven M22](decisions/ADR-0077-pc-brigand-craven-opportunist.md) реализован через текущий PC owner, trials/process/подбор и JSON1. [CLI-примеры](examples/m22/README.md) показывают полный loadout/source и actual outcomes; старые26пар не изменены. Приёмка — в статусе; обязательного остатка M22 нет.
 
 ## M8 завершена
 
@@ -108,11 +109,15 @@
 
 Завершённый срез по [ADR-0076](decisions/ADR-0076-first-pc-book-npc-catalog.md): Footpad GM97 и Empire Townsfolk GM96, напечатанные боевые значения, exact identities/fresh factories и metadata Lurker/Streetwise вне текущей сцены. NPC Protection теперь явно Athletics/Defence; текущий JSON1 требует Skill. Старые24пары мигрированы с Defence без смены gameplay; версия/метрики не менялись.
 
-## После M21
+## M22 — Brigand Axe / Craven Opportunist
 
-Более широкий NPC/spell/Miscast каталог, дополнительные тактики/Fate/Help/Recover, лечение ран, общий inventory/spatial/campaign/save-resume — отдельный backlog после M21. Решение GM для невозможной повторной анатомии и post-healing ветвей не подставляется. Следующие функции выбираются отдельно; уже закрытые границы ими автоматически не расширяются.
+Завершённый срез по [ADR-0077](decisions/ADR-0077-pc-brigand-craven-opportunist.md): выбранный Axe loadout с сохранённым unselected Warbow, exact printed профиль, +2d вместо +1d только при actual superiority и GM approval. Считаются все пригодные союзники, потери меняют бонус сразу. Старые NPC/PC сохраняют обычные правила, Drained filter прежний. Current JSON1/метрики не изменены; metadata Python API явно разделяет active/inactive Abilities.
 
-Следующее предложение — первый профиль с применимой боевой Ability: Brigand с Craven Opportunist (+2d вместо +1d при outnumbering), GM97. Сначала зафиксировать явный Melee-loadout Axe и границу применения, не удаляя Warbow из полной карточки без объявленного выбора снаряжения. M22 ещё не согласована; новые ranged/spatial пути, Champions и весь бестиарий не включать автоматически. Greatsword и более свободная смена оружия остаются отдельными темами.
+## После M22
+
+Более широкий NPC/spell/Miscast каталог, дополнительные тактики/Fate/Help/Recover, лечение ран, общий inventory/spatial/campaign/save-resume — отдельный backlog после M22. Решение GM для невозможной повторной анатомии и post-healing ветвей не подставляется. Следующие функции выбираются отдельно; уже закрытые границы ими автоматически не расширяются.
+
+Следующее предложение — первый книжный Brute с изменением состояния после раны. Сначала сверить полную карточку/Abilities и выбрать конечный loadout/продолжение в текущей сцене; при необходимой GM/AI policy запросить её явно. M23 ещё не согласована; другие профили, новые действия/ranges/spatial и весь бестиарий не включать автоматически. Greatsword и более свободная смена оружия остаются отдельными темами.
 
 ## Контрольные точки
 

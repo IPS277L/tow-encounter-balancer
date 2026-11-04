@@ -140,6 +140,8 @@ Damage = base weapon Damage + attacker_successes - defender_successes
 
 K1 принимает готовые modifiers; автоматический пересчёт обычного численного преимущества реализован в ограниченном M6 provider. [ADR-0021](../decisions/ADR-0021-melee-minion-scenario.md) определяет его для следующего ограниченного Melee-сценария: текущий roster/Zone перед каждой Attack, явное решение GM, без Brigand/особых бонусов. Статус этого provider — implemented/verified в tests M6; [probe](../examples/m6/README.md) проверяет только композицию существующих APIs.
 
+В PC family [M22 / Craven Opportunist](npc-profile-catalog.md#brigand-craven-m22) применяет +2d вместо обычного +1d только canonical Brigand Axe, после актуального подсчёта и GM approval. Это отдельное расширение PC preparation; M6 и общий K1 не получают способность автоматически.
+
 ## Реализация Attack/Impact в K1
 
 - контракты: `src/towr/domain/attack_models.py`;

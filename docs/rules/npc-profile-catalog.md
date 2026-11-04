@@ -20,6 +20,22 @@
 
 Поля faction goals, gossip, names и adventure hooks на страницах 94–102 являются `LORE/GUIDANCE`. Таблица `A Noble Vendetta` страницы 95 — опциональная d10 campaign consequence, а не автоматически срабатывающая Ability этих profiles.
 
+<a id="brigand-craven-m22"></a>
+
+## RULE-PROFILE-TALABEC-004 — Brigand / Craven Opportunist (M22)
+
+Статус среза: `verified` в PC family. BOOK-GM-GUIDE1.1, Allies and Antagonists / Brigands & Footpads97; выбор carried weapons — Understanding NPC Profiles93. Четвёртая запись таблицы Talabec выше — Brigand, пятая — Footpad. [ADR-0077](../decisions/ADR-0077-pc-brigand-craven-opportunist.md), [factory/JSON/CLI](../examples/m22/README.md).
+
+`PcBookNpcProfile.BRIGAND_AXE` — явный Axe-only loadout: Minion1Wound, Toughness3/Resilience4 armoured, Axe Close3d/3 Damage3,1H и Athletics3d/2. `ResilienceProfile(3,1)` сохраняет броню. Warbow из полной карточки указан как unselected, а не скрыт под названием полного Brigand profile. NPC Axe не получает PC `+1 Damage` против брони без указанного Trait.
+
+Craven Opportunist при Melee атаке с численным превосходством даёт **+2d вместо +1d**. Считаются все пригодные союзники в Zone, включая самого атакующего, а не только Brigands. Defeated/Defenceless/noncombatants исключаются, Staggered и закончившие ход продолжают считаться. Состав проверяется заново перед каждой Attack. GM withholding через outnumbering approval убирает весь modifier, включая эту замену.
+
+Единственный modifier имеет Rule ID `RULE-PROFILE-TALABEC-004:craven-opportunist`; обычный +1d с ним не складывается. Остальные NPC и PC сохраняют обычный бонус. Higher-ground modifier отдельный. Drained удаляет положительный +2d в существующей preparation цепи; нынешний fresh physical Minion native path не вызывает Drained у Brigand до defeat, поэтому эта граница проверяется pure.
+
+Каталог хранит active Ability name/scope/effect и unselected weapon metadata; текст metadata не исполняется как программа. Runtime helper выбирает правило только после canonical definition validation. Fact `no_additional_abilities` исключает неподдержанные применимые effects, сохраняя реализованный Craven. Current JSON1 уже выражает full definition/source/gear: новых полей/version/метрик и миграции старых пар нет.
+
+Реализация: [catalog/loadout](../../src/towr/domain/pc_npc_catalog.py), [явный modifier helper](../../src/towr/domain/pc_npc_ability_models.py), [actual count preparation](../../src/towr/domain/pc_melee_result_models.py). Проверки: [данные/metadata](../../tests/unit/test_m22_pc_brigand_catalog.py), [native/pure/forgery](../../tests/unit/test_m22_pc_craven_opportunist.py), [process/full-source JSON/подбор](../../tests/integration/test_m22_pc_brigand.py).
+
 ## RULE-PROFILE-PEOPLES-001..008 — Ogres, Halflings, Dwarfs, Elves и Bretonnia
 
 | Страница | Profile | Type | Нормативные profile/attack effects |

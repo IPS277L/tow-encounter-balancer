@@ -72,7 +72,7 @@ Special Ability может передаваться rider только тогд�
 
 Оба — Minions, defeat после первой Wound. Напечатанные Protection profiles сохраняются буквально: Townsfolk Athletics2d/2 не пересчитывается из Agility3. Traits PC Dagger не добавляются NPC по одному названию оружия.
 
-Lurker Footpad делает Awareness для обнаружения скрывающегося Footpad Grim вне боя. Streetwise Townsfolk даёт +1d Awareness против попытки pickpocket. Имена, условия и величины effects сохраняются в metadata каталога. В нынешней сцене уже идёт бой, targets aware, ambush и pickpocket отсутствуют; эти эффекты не применимы. Fact `no_additional_abilities` фиксирует отсутствие дополнительных применимых effects, а не стирает способности NPC. Сцену, в которой они нужны, нельзя выдавать за этот срез.
+Lurker Footpad делает Awareness для обнаружения скрывающегося Footpad Grim вне боя. Streetwise Townsfolk даёт +1d Awareness против попытки pickpocket. Имена, условия и величины effects сохраняются в metadata каталога. В нынешней сцене уже идёт бой, targets aware, ambush и pickpocket отсутствуют; эти эффекты не применимы. Fact `no_additional_abilities` фиксирует отсутствие неподдержанных применимых effects, а не стирает способности NPC. Сцену, в которой они нужны, нельзя выдавать за этот срез.
 
 Это полный боевой подпрофиль для ограниченной сцены, не полная NPC-карточка. Неиспользуемые Characteristics/Skills/Trappings и лор не подменяются новыми механиками. `get_pc_book_npc_entry` хранит source/version/chapter/page; `create_pc_book_npc` каждый раз создаёт независимого здорового вооружённого opposition actor. Каталог не исполняет бой и не выбирает тактику.
 
@@ -81,6 +81,10 @@ Lurker Footpad делает Awareness для обнаружения скрыва
 Текущий PC JSON1 требует `definition.protection.skill: athletics|defence`. Skill не выводится из source ID и не подставляется parser-ом. Все24старые пары M9–M20 дополнены `defence`, без изменения прежних игровых значений; wire version/метрики не меняются. Trials/count search сохраняют полный definition, Skill и party/Fate/policies, меняя только actor subsets/counts.
 
 Реализация: [каталог](../../src/towr/domain/pc_npc_catalog.py), [admission](../../src/towr/domain/pc_melee_models.py), [actual Protection](../../src/towr/domain/pc_melee_result_models.py), [codec](../../src/towr/adapters/_pc_melee_scenario_json.py). Проверки: [данные/factories/provenance](../../tests/unit/test_m21_pc_npc_catalog.py), [native бой](../../tests/unit/test_m21_pc_book_encounters.py), [JSON/schema](../../tests/unit/test_m21_pc_npc_protection_json.py), [process/подбор](../../tests/integration/test_m21_pc_book_npcs.py).
+
+## Расширение PC-каталога M22
+
+[Brigand Axe / RULE-PROFILE-TALABEC-004](npc-profile-catalog.md#brigand-craven-m22) добавляет первый применимый боевой эффект: Craven Opportunist заменяет обычный outnumbering modifier. Это явный выбранный loadout, metadata хранит активную способность и невыбранный Warbow. Все три registered combat profiles сохраняют independent factory/provenance guards; неподдержанные Abilities не допускаются по одному совпадению numeric значений. [ADR-0077](../decisions/ADR-0077-pc-brigand-craven-opportunist.md).
 
 ## RULE-NPC-011 — area и multi-target эффекты
 

@@ -9,6 +9,7 @@ from towr.domain.attack_models import AttackRequest, AttackOutcome, DamageImpact
 from towr.domain.condition_models import Condition, ConditionState
 from towr.domain.pc_weapon_models import (pc_weapon_damage, pc_weapon_test_modifiers,
     pc_weapon_attack_modifiers, pc_weapon_damage_modifiers)
+from towr.domain.pc_npc_ability_models import pc_npc_outnumbering_modifier
 from towr.domain.pc_backup_weapon_models import (pc_active_weapon, pc_preferred_weapon_hand,
     pc_active_weapon_item_id)
 from towr.domain.crushed_rib_test_models import CRUSHED_RIB_TEST_RULE_ID
@@ -573,7 +574,8 @@ def build_pc_melee_attack(state: PcMeleeState) -> tuple[AttackActionExecutionReq
     modifiers = []
     damage_modifiers = ()
     if state.source.facts.outnumbering_bonus_approved and (pc_count > enemy_count if pc_attacks else enemy_count > pc_count):
-        modifiers.append(DiceModifier('RULE-COMBAT-007:outnumbering', 1))
+        modifiers.append(DiceModifier('RULE-COMBAT-007:outnumbering',1) if pc_attacks else
+            pc_npc_outnumbering_modifier(state.enemy(actor).definition))
     if pc_attacks:
         pc = state.source.participant(actor).pc
         weapon = pc_active_weapon(state,actor)
