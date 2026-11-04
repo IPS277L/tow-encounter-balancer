@@ -9,6 +9,8 @@ from towr.domain.attack_models import AttackRequest, AttackOutcome, DamageImpact
 from towr.domain.condition_models import Condition, ConditionState
 from towr.domain.pc_weapon_models import (pc_weapon_damage, pc_weapon_test_modifiers,
     pc_weapon_attack_modifiers, pc_weapon_damage_modifiers)
+from towr.domain.pc_backup_weapon_models import (pc_active_weapon, pc_preferred_weapon_hand,
+    pc_active_weapon_item_id)
 from towr.domain.crushed_rib_test_models import CRUSHED_RIB_TEST_RULE_ID
 from towr.domain.fate_models import FateSessionState, FateNearMissBurnRequest, FateGloriousSpendResult, FATE_NEAR_MISS_RULE_ID
 from towr.domain.infection_models import DailyWoundState
@@ -19,7 +21,7 @@ from towr.domain.injury_models import (
     WoundEffectDuration, WoundEnduranceFailure, WoundEnduranceTestRequest, WoundEnduranceTestResult,
     WoundRestriction, WoundRestrictionEffect, WoundChoiceRequest, WoundChoiceResult, WoundChoice, WoundEntryId,
 )
-from towr.domain.pc_heavy_wound_models import (PcBodyFact, PcBodyFactKind, available_sides, usable_hands, injured_hands, preferred_weapon_hand, usable_weapon_hand, has_ongoing_condition, critical_for_hand)
+from towr.domain.pc_heavy_wound_models import (PcBodyFact, PcBodyFactKind, available_sides, usable_hands, injured_hands, usable_weapon_hand, has_ongoing_condition, critical_for_hand)
 from towr.domain.critical_injury_models import CriticalInjuryTestResult
 from towr.domain.magic_models import WizardMagicState
 from towr.domain.minion_defeat_models import MinionDefeatDecision
@@ -123,6 +125,7 @@ class PcMeleeParticipantState:
     daily_wounds: DailyWoundState
     timed_wounds: tuple[PcTimedWound, ...] = ()
     body_facts: tuple[PcBodyFact, ...] = ()
+    using_backup_weapon: bool = False
 
     def __post_init__(self):
         if type(self.actor_id) is not str or not self.actor_id.strip():
@@ -135,6 +138,8 @@ class PcMeleeParticipantState:
             raise ValueError('PC Fate/daily histories belong to another actor')
         if self.weapon_hand is not None and type(self.weapon_hand) not in (PcWeaponHand,PcTwoHandedGrip):
             raise TypeError('held PC weapon requires its typed hand')
+        if type(self.using_backup_weapon) is not bool:
+            raise TypeError('backup weapon activation must be an exact bool')
         if not isinstance(self.timed_wounds, (tuple, list)):
             raise TypeError('PC expiry sources must be ordered')
         object.__setattr__(self, 'timed_wounds', tuple(self.timed_wounds))
@@ -182,7 +187,12 @@ class PcMeleeState:
             raise ValueError('PC owner must preserve its complete ordered party')
         for member, source in zip(self.party, self.source.party):
             replace(member)
-            if member.weapon_hand is not None and type(member.weapon_hand) is not type(source.initial_weapon_hand):
+            draws = tuple(p for p in self.history if isinstance(p,PcBackupWeaponDrawProof) and p.actor_id==member.actor_id)
+            if (len(draws)>1 or member.using_backup_weapon != bool(draws)
+                    or member.using_backup_weapon and source.backup_weapon_policy is None):
+                raise ValueError('backup activation must preserve its single actual draw receipt')
+            grip_type = PcWeaponHand if member.using_backup_weapon else type(source.initial_weapon_hand)
+            if member.weapon_hand is not None and type(member.weapon_hand) is not grip_type:
                 raise ValueError('held weapon grip must preserve its one/two-handed source')
             expected_fate = source.fate
             for proof in self.history:
@@ -313,6 +323,21 @@ class PcHandSwapProof:
 
 
 @dataclass(frozen=True, slots=True)
+class PcBackupWeaponDrawProof:
+    actor_id: str
+    previous_hand: PcTwoHandedGrip | None
+    hand: PcWeaponHand
+
+    def __post_init__(self):
+        if type(self.actor_id) is not str or not self.actor_id.strip():
+            raise TypeError('backup draw requires its actual actor ID')
+        if self.previous_hand is not None and type(self.previous_hand) is not PcTwoHandedGrip:
+            raise TypeError('backup draw must abandon its actual primary grip')
+        if type(self.hand) is not PcWeaponHand:
+            raise TypeError('backup draw requires one actual typed hand')
+
+
+@dataclass(frozen=True, slots=True)
 class PcCriticalProof:
     test_request: TestRequest
     result: CriticalInjuryTestResult
@@ -353,7 +378,7 @@ PcMeleeProof = (
     CombatTurnStartResult | CombatActionSlotResult | PcAttackProof | PcWoundCompletionProof
     | PcEnduranceProof | PcHandDropProof | PcAttackerStaggerProof | PcProfileWoundProof
     | PcRecoverProof | PcTurnEndProof | PcIncapacitatedTurnEndProof | PcBodyConsequenceProof
-    | PcWoundChoiceProof | PcHandSwapProof | PcHelpProof | CombatRoundAdvanceResult
+    | PcWoundChoiceProof | PcHandSwapProof | PcBackupWeaponDrawProof | PcHelpProof | CombatRoundAdvanceResult
 )
 
 
@@ -447,10 +472,14 @@ def pc_melee_unsupported(state: PcMeleeState) -> PcMeleeUnsupported | None:
     if not state.pending and state.pending_wound is None:
         from towr.domain.pc_weapon_models import pc_weapon_requires_two_hands
         for member, source in zip(state.party,state.source.party):
-            if member.injury.dead or not pc_weapon_requires_two_hands(source.pc.weapon) or len(usable_hands(member)) == 2:
+            if (member.injury.dead or member.using_backup_weapon
+                    or not pc_weapon_requires_two_hands(source.pc.weapon) or len(usable_hands(member)) == 2):
                 continue
-            fact = next(f for f in member.body_facts if f.kind in (
+            if source.backup_weapon_policy is not None and len(usable_hands(member)) == 1:
+                continue
+            facts = tuple(f for f in member.body_facts if f.kind in (
                 PcBodyFactKind.UNUSABLE_ARM,PcBodyFactKind.LOST_ARM,PcBodyFactKind.CLUTCH_STOMACH))
+            fact = max(facts,key=lambda f:f.wound_sequence) if source.backup_weapon_policy is not None else facts[0]
             wound = member.injury.wounds[fact.wound_sequence-1]
             return PcMeleeUnsupported(member.actor_id,
                 f'RULE-EQUIPMENT-002:{member.actor_id}:w{wound.sequence}:two-handed-grip',
@@ -515,7 +544,7 @@ def _pc_test(state: PcMeleeState, actor_id: str, test_id: str, skill: Skill,
     profile = {Skill.MELEE: pc.melee_profile, Skill.DEFENCE: pc.defence_profile,
         Skill.ATHLETICS: pc.athletics_profile, Skill.ENDURANCE: pc.endurance_profile}[skill]
     drained = member.injury.conditions.has(Condition.DRAINED)
-    modifiers = (*dice_modifiers, *pc_weapon_test_modifiers(pc.weapon, skill, member.injury.conditions))
+    modifiers = (*dice_modifiers, *pc_weapon_test_modifiers(pc_active_weapon(state,actor_id), skill, member.injury.conditions))
     if drained:
         modifiers = tuple(m for m in modifiers if m.amount <= 0)
     qualities = []
@@ -547,19 +576,20 @@ def build_pc_melee_attack(state: PcMeleeState) -> tuple[AttackActionExecutionReq
         modifiers.append(DiceModifier('RULE-COMBAT-007:outnumbering', 1))
     if pc_attacks:
         pc = state.source.participant(actor).pc
+        weapon = pc_active_weapon(state,actor)
         member = state.participant(actor)
         target_snapshot = state.enemy(target)
         if target_snapshot.state.injury.conditions.has(Condition.PRONE):
             modifiers.append(DiceModifier('RULE-COMBAT-007:higher-ground', 1))
-        modifiers.extend(pc_weapon_attack_modifiers(pc.weapon, target_snapshot.state.injury.conditions))
+        modifiers.extend(pc_weapon_attack_modifiers(weapon, target_snapshot.state.injury.conditions))
         attacker = _pc_test(state, actor, action_id + ':attack', Skill.MELEE, tuple(modifiers))
         from towr.domain.pc_help_models import build_pc_attack_help
         attacker,_ = build_pc_attack_help(state,attacker)
         protection_profile = target_snapshot.definition.protection[0]
         defender = TestRequest(action_id + ':protection', protection_profile.test_profile)
         skill = Skill.DEFENCE
-        damage, resilience = pc_weapon_damage(pc.weapon, pc.strength), target_snapshot.state.current_resilience
-        damage_modifiers = pc_weapon_damage_modifiers(pc.weapon, resilience)
+        damage, resilience = pc_weapon_damage(weapon, pc.strength), target_snapshot.state.current_resilience
+        damage_modifiers = pc_weapon_damage_modifiers(weapon, resilience)
         attacker_conditions = member.injury.conditions
         target_injury = target_snapshot.state.injury
         target_armed = True
@@ -607,8 +637,8 @@ def build_pc_melee_recover(state: PcMeleeState) -> RecoverActionExecutionRequest
         staggered_target=staggered_target,
         prone_target=prone_target,
         object_interaction=(RecoverObjectInteractionFollowUp(action_id + ':pickup',actor,
-            actor + ':weapon',True) if member.weapon_hand is None
-            and preferred_weapon_hand(member,state.source.participant(actor).initial_weapon_hand) is not None else None))
+            pc_active_weapon_item_id(state,actor),True) if member.weapon_hand is None
+            and pc_preferred_weapon_hand(state,actor) is not None else None))
     return RecoverActionExecutionRequest(action_id + ':execute',state.round_state,actor,member.injury.conditions,
         bool(state.live_enemies),1,RecoverMode.STANDARD,choice)
 

@@ -66,7 +66,8 @@
         "near_miss_policy": null,
         "glorious_policy": null,
         "help_policy": null,
-        "ally_recover_policy": null
+        "ally_recover_policy": null,
+        "backup_weapon_policy": null
       }
     ],
     "day_id": "day",

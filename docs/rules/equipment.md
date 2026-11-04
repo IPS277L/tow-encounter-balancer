@@ -96,6 +96,18 @@ Drop4/8/12 роняет весь предмет при выборе любой �
 
 Реализация: [профили/модификаторы](../../src/towr/domain/pc_weapon_models.py), [хват и Critical](../../src/towr/domain/pc_heavy_wound_models.py), [drop/body projection](../../src/towr/domain/_pc_heavy_wound_projection.py), [owner/stop](../../src/towr/domain/pc_melee_result_models.py). Проверки: [pure traits](../../tests/unit/test_m19_pc_weapon_traits.py), [native бой/руки/Fate/stop](../../tests/unit/test_m19_pc_two_handed.py), [codec/schema](../../tests/unit/test_m19_pc_weapon_json.py), [process/подбор](../../tests/integration/test_m19_pc_two_handed.py).
 
+### Исполняемая PC-граница M20
+
+Статус: `verified`. BOOK-PLAYER-GUIDE1.4, гл.IV Equipment92–93, гл.V Actions116/Recover118 и Wounds190–191. [ADR-0075](../decisions/ADR-0075-pc-backup-weapon-policy.md), [JSON/CLI](../examples/m20/README.md).
+
+Nullable `backup_weapon_policy` явно задаёт один из шести1H Close profiles и preferred_hand LEFT/RIGHT; требуется2H primary и Strength≥2 для двух carried weapons. Основное оружие/Characteristics/Skills остаются в immutable definition; состояние хранит только подтверждённое переключение. Null сохраняет M19-stop. Это fixed strategy, не произвольный inventory/dual wield.
+
+Когда actual рана16/18/20 лишает2H хвата, configured backup с одной пригодной рукой позволяет дождаться собственного хода. До draw входящий удар отражается Athletics, старый Defence Help не переназначается. В свой unreserved turn живой не-Defenceless PC оставляет primary и выхватывает backup отдельным incidental proof; здоровая рука предпочтительнее травмированной12. Clutch18 сохраняется; Defenceless20 не может draw и продолжает обязательные end phases. Free draw вызывает Critical14/15 и последствия реально использованной руки12, не расходуя standard slot/Test и не создавая action count.
+
+После единственного draw active Damage/Traits/Help/Protection используют backup; вернуть primary нельзя. При drop Recover подбирает только backup с отдельным instance ID. Если до draw не осталось пригодных рук, actual unsupported связан с последней закрывшей руку раной по sequence, а не порядку body facts после clutch reconciliation. После draw прежний primary2H не создаёт ложный stop: работает существующая1H стратегия. Near Miss применяется раньше и не создаёт ложный draw.
+
+Текущий PC JSON1 требует `party[].backup_weapon_policy`: null либо `{weapon, preferred_hand}`. Все22прежние пары M9–M19 дополнены null с сохранением прежних gameplay/counters; omitted-field compatibility нет. Метрики и wire version не меняются, fixed-party search сохраняет оба предмета/настройку. Реализация: [typed source](../../src/towr/domain/pc_melee_models.py), [active-weapon helpers](../../src/towr/domain/pc_backup_weapon_models.py), [proof/owner](../../src/towr/domain/pc_melee_result_models.py), [canonical projection](../../src/towr/domain/_pc_melee_projection.py). Проверки: [native](../../tests/unit/test_m20_pc_backup_weapon.py), [admission/carry](../../tests/unit/test_m20_pc_backup_weapon_admission.py), [codec/schema](../../tests/unit/test_m20_pc_backup_weapon_json.py), [process/подбор](../../tests/integration/test_m20_pc_backup_weapon.py).
+
 ## RULE-EQUIPMENT-004 — ranged weapon profiles и reload
 
 `1H` ranged имеет Max Range Long, `2H` — разумный предел GM. Вне Optimum Range применяется `-1d`. При любом враге Close ranged weapon запрещён, кроме weapon с Close в Optimum. Только если сама выбранная цель находится в Close, она может Oppose через Melee, а miss накладывает на атакующего Staggered как в Melee. Два shooting weapons не объединяются в одну attack.

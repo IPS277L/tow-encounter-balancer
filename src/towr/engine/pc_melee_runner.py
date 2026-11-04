@@ -8,14 +8,14 @@ from towr.domain.pc_melee_result_models import (
     PcAttackProof, PcAttackerStaggerProof, PcEnduranceProof, PcFateDecline,
     PcHandDropProof, PcMeleeOutcome, PcMeleeScenarioResult, PcMeleeState, PcMeleeStep,
     PcProfileWoundProof, PcRecoverProof, PcTurnEndProof, PcWoundCompletionProof,
-    PcBodyConsequenceProof, PcWoundChoiceProof, PcHandSwapProof, PcCriticalProof, PcIncapacitatedTurnEndProof, PcHelpProof,
+    PcBodyConsequenceProof, PcWoundChoiceProof, PcHandSwapProof, PcBackupWeaponDrawProof, PcCriticalProof, PcIncapacitatedTurnEndProof, PcHelpProof,
     build_pc_melee_attack, build_pc_melee_recover, build_pc_wound_completion, initial_pc_melee_state, pc_after_test,
     pc_melee_action_id, pc_melee_next_actor, pc_melee_selected_action, pc_melee_unsupported,
     project_pc_melee_step, pc_melee_round_participants, validate_pc_melee_state_shape,
     validate_pc_melee_source_types, _pc_test,
 )
 from towr.domain.condition_models import StaggerChoice, Condition
-from towr.domain.pc_heavy_wound_models import preferred_weapon_hand
+from towr.domain.pc_backup_weapon_models import pc_backup_draw_hand, pc_preferred_weapon_hand
 from towr.domain.pc_fate_test_models import build_pc_glorious_spend
 from towr.domain.pc_help_models import build_pc_help_action, pc_attack_help_applications
 from towr.rules.help_resolution import _complete_help_action
@@ -208,7 +208,11 @@ def run_pc_melee_scenario(scenario, rng: RandomSource) -> PcMeleeScenarioResult:
                 if member.injury.conditions.has(Condition.DEFENCELESS):
                     finish_turn()
                     continue
-                hand = preferred_weapon_hand(member,scenario.participant(actor).initial_weapon_hand)
+                draw_hand = pc_backup_draw_hand(state,actor)
+                if draw_hand is not None:
+                    consume(PcBackupWeaponDrawProof(actor,member.weapon_hand,draw_hand))
+                    continue
+                hand = pc_preferred_weapon_hand(state,actor)
                 if member.weapon_hand is not None and hand is not None and hand is not member.weapon_hand:
                     consume(PcHandSwapProof(member.weapon_hand,hand))
                     continue

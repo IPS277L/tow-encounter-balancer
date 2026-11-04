@@ -999,6 +999,32 @@
       ],
       "additionalProperties": false
     },
+    "backup_weapon_policy": {
+      "type": "object",
+      "properties": {
+        "weapon": {
+          "enum": [
+            "staff",
+            "sword",
+            "dagger",
+            "axe",
+            "warhammer",
+            "morning_star"
+          ]
+        },
+        "preferred_hand": {
+          "enum": [
+            "left",
+            "right"
+          ]
+        }
+      },
+      "required": [
+        "weapon",
+        "preferred_hand"
+      ],
+      "additionalProperties": false
+    },
     "participant": {
       "type": "object",
       "properties": {
@@ -1091,6 +1117,16 @@
               "$ref": "urn:towr:pc-melee:common:1#/$defs/ally_recover_policy"
             }
           ]
+        },
+        "backup_weapon_policy": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "urn:towr:pc-melee:common:1#/$defs/backup_weapon_policy"
+            }
+          ]
         }
       },
       "required": [
@@ -1107,7 +1143,8 @@
         "near_miss_policy",
         "glorious_policy",
         "help_policy",
-        "ally_recover_policy"
+        "ally_recover_policy",
+        "backup_weapon_policy"
       ],
       "additionalProperties": false,
       "oneOf": [
@@ -1149,6 +1186,29 @@
         }
       ],
       "allOf": [
+        {
+          "if": {
+            "properties": {
+              "backup_weapon_policy": {
+                "type": "object"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "initial_weapon_hand": {
+                "const": "both"
+              },
+              "pc": {
+                "properties": {
+                  "strength": {
+                    "minimum": 2
+                  }
+                }
+              }
+            }
+          }
+        },
         {
           "if": {
             "properties": {

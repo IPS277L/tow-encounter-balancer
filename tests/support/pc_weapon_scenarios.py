@@ -5,6 +5,7 @@ from tests.support.pc_melee_fixtures import make_pc_melee_mixed_scenario,make_pc
 from towr.domain.attack_models import DamageProfile,ResilienceProfile
 from towr.domain.pc_melee_models import (
     PcAllyRecoverPolicy,PcFatePolicy,PcGloriousPolicy,PcMeleePolicy,PcMeleeWeapon,PcNearMissPolicy,PcTwoHandedGrip,
+    PcBackupWeaponPolicy,PcWeaponHand,
 )
 from towr.domain.test_models import InlineProfile,Skill
 
@@ -57,3 +58,20 @@ def two_handed_stop_source():
             protection=(replace(enemy.definition.protection[0],test_profile=InlineProfile(4,10)),))
         enemies.append(replace(enemy,definition=definition,state=replace(enemy.state,current_resilience=resilience)))
     return replace(source,party=(member,),enemies=tuple(enemies))
+
+
+def backup_weapon_source(*,max_rounds=3):
+    source=two_handed_weapon_source(max_rounds=max_rounds)
+    backups=(PcMeleeWeapon.SWORD,PcMeleeWeapon.AXE,PcMeleeWeapon.DAGGER,PcMeleeWeapon.WARHAMMER)
+    return replace(source,party=tuple(replace(member,
+        backup_weapon_policy=PcBackupWeaponPolicy(weapon,PcWeaponHand.RIGHT))
+        for member,weapon in zip(source.party,backups,strict=True)))
+
+
+def wounded_backup_weapon_source():
+    """Fresh two-item source; incoming wounds are resolved by the real encounter."""
+    source=two_handed_stop_source()
+    member=source.party[0]
+    member=replace(member,pc=replace(member.pc,strength=2),
+        backup_weapon_policy=PcBackupWeaponPolicy(PcMeleeWeapon.SWORD,PcWeaponHand.RIGHT))
+    return replace(source,party=(member,))

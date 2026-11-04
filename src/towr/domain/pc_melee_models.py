@@ -124,6 +124,19 @@ class PcTwoHandedGrip(str, Enum):
 
 
 @dataclass(frozen=True, slots=True)
+class PcBackupWeaponPolicy:
+    weapon: PcMeleeWeapon
+    preferred_hand: PcWeaponHand
+
+    def __post_init__(self) -> None:
+        _typed(self.weapon,PcMeleeWeapon,"backup weapon")
+        _typed(self.preferred_hand,PcWeaponHand,"backup preferred hand")
+        from towr.domain.pc_weapon_models import pc_weapon_requires_two_hands
+        if pc_weapon_requires_two_hands(self.weapon):
+            raise ValueError("backup weapon must be one-handed")
+
+
+@dataclass(frozen=True, slots=True)
 class PcMeleeDefinition:
     id: str
     weapon_skill: int
@@ -214,6 +227,7 @@ class PcMeleeParticipant:
     glorious_policy: PcGloriousPolicy | None
     help_policy: PcHelpPolicy | None
     ally_recover_policy: PcAllyRecoverPolicy | None
+    backup_weapon_policy: PcBackupWeaponPolicy | None
 
     def __post_init__(self) -> None:
         _identifier(self.actor_id, "PC actor")
@@ -226,6 +240,11 @@ class PcMeleeParticipant:
         from towr.domain.pc_weapon_models import pc_weapon_requires_two_hands
         grip_type = PcTwoHandedGrip if pc_weapon_requires_two_hands(self.pc.weapon) else PcWeaponHand
         _typed(self.initial_weapon_hand,grip_type,"initial weapon grip")
+        if self.backup_weapon_policy is not None:
+            _typed(self.backup_weapon_policy,PcBackupWeaponPolicy,"backup weapon policy")
+            replace(self.backup_weapon_policy)
+            if grip_type is not PcTwoHandedGrip or self.pc.strength < 2:
+                raise ValueError("backup requires a two-handed primary and Strength to carry two weapons")
         for value, cls in ((self.near_miss_policy,PcNearMissPolicy),(self.glorious_policy,PcGloriousPolicy)):
             if value is not None:
                 _typed(value,cls,"Fate strategy")

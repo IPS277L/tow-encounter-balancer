@@ -4,34 +4,43 @@
 
 ## Текущий этап
 
-**M19 завершена в выбранной границе.** Семь двуручных Close weapons — Pickaxe, Flail, Billhook, Halberd, Glaive, Greataxe, Greathammer — работают вместе с шестью прежними одноручными. [Контракт ADR-0074](decisions/ADR-0074-pc-two-handed-close-weapons.md), [правила](rules/equipment.md#исполняемая-pc-граница-m19), [JSON/CLI-примеры](examples/m19/README.md).
+**M20 завершена в выбранной границе.** Двуручный PC может иметь явное запасное1H Close-оружие и перейти на него после утраты2H возможности. [Контракт ADR-0075](decisions/ADR-0075-pc-backup-weapon-policy.md), [правила](rules/equipment.md#исполняемая-pc-граница-m20), [JSON/CLI-примеры](examples/m20/README.md).
 
-BOTH grip отделён от анатомических LEFT/RIGHT. В текущем JSON1 `initial_weapon_hand` обязан быть `both` для2H и `left`/`right` для1H. Source/state/schema/codec проверяют эту связь. Actual Attack/Defence и нынешний weapon-assisted Help требуют обе пригодные руки; травмированная рука12 вызывает Critical при использовании, в том числе при Recover с восстановлением хвата. Drop4/8/12 роняет весь предмет независимо выбранной руки; Recover возвращает BOTH, сохраняя остальные self/ally benefits.
+Обязательное nullable `backup_weapon_policy` задаёт weapon/preferred_hand. Non-null требует2H primary и Strength≥2 для двух carried weapons; null сохраняет M19. Actual incidental draw происходит в свой unreserved turn, после immediate Wound/Fate consequences, при одной пригодной руке и отсутствии Defenceless. До draw Protection использует Athletics, старый Defence Help не переназначается. Clutch18 сохраняется; Defenceless20 продолжает обязательные end phases без draw.
 
-Пользователь выбрал сохранять полный результат раны и завершать trial как UNSUPPORTED_PATH при недоступном2H хвате. После фактических16/18/20, Near Miss window и всей immediate queue canonical owner возвращает `two_handed_grip_unavailable` с actor/Wound/source. При18 явный drop/clutch выполнен;16/20 не подставляют решение о дальнейшем удержании предмета одной рукой. Raw roll и отменённая Near Miss рана не вызывают stop. Последующие journal steps запрещены. Это не автоматическое поражение или ROUND_LIMIT.
+Draw подтверждён отдельным source-bound proof и единственным using_backup_weapon receipt. Он не делает Test, не меняет clock/standard slots/action count, но вызывает Critical14/15 и последствия использованной руки12. Затем active weapon/grip/item ID определяют Damage/Traits/Help/Protection и pickup именно backup; возврата primary нет. При0hands до draw actual stop связан с последней вызвавшей это раной по sequence, независимо порядка переставленных body facts. После draw действует прежняя1H граница, исходный primary2H не вызывает ложный stop.
 
-Trials/process/search сохраняют полную party/оружие/хват/Fate/support policies и прежние метрики. Unsupported остаётся в знаменателе, кандидаты с actual unsupported не выбираются. JSON1 расширяет enum/grip без новых полей/версии, compatibility ветвей и миграции старых примеров.
+Текущий PC JSON1 требует поле policy у каждого участника: null либо закрытый объект. Пропуск отклоняется; Python source также требует явное значение. Все22прежние request/result pairs M9–M19 мигрированы null-policy во всех root/candidate sources, без изменения старых gameplay/counters. Версия и метрики не менялись; count search фиксирует оба оружия, preference, Fate и роли.
 
 ## Последняя проверка
 
-При `PYTHONPATH=src` `.venv/Scripts/python.exe .cache/m19_check_subsystem.py` — **528 tests OK/86.109s**,54модуля PC M9–M19 и связанных K1 Attack/Protection/Help/Recover/Turn/Test/Fate/Wounds;0failures/errors/skips. Log `.cache/m19-pc-subsystem.log`. Код/тесты заморожены до запуска, после него менялась документация. Это единый зелёный адресный прогон, не полный regression проекта.
+Широкий адресный прогон при `PYTHONPATH=src`: `.venv/Scripts/python.exe .cache/m20_check_subsystem.py` —58модулей PC M9–M20 и связанных K1 путей,555tests/87.281s,554успешных и1failure,0errors/skips. Log `.cache/m20-pc-subsystem.log`. Failure — прежний invariant обязательных Python source fields: у нового поля был defaultNone. Default убран, общий fresh builder теперь явно передаётNone; игровые значения/переходы не изменились.
 
-В составе9новых pure traits tests,13native grip/Wounds/Fate tests,6codec/schema и4integration. Детерминированно проверены семь Damage profiles, actual Flail/Greathammer/Glaive modifiers, armour boundary, drop обеих сторон/RecoverBOTH, Critical12 в Recover/Defence/Help, Glorious, полные stops16/18/20 и их отмена Near Miss, forged stop/single grip/replay/пропуск шага. Реальный Windows spawn совпал с sequential. Actual unsupported observations/candidate exclusion проверены отдельно от fake summaries; source/typed cached proof guards сохранены.
+После исправления повторены упавший модуль и ближайшие зависимые M20/codec/process checks: **99 tests OK/10.643s**,7модулей,0failures/errors/skips. Команда:
 
-Локальные `.cache` scripts/logs не являются частью репозитория. В [ADR-0074](decisions/ADR-0074-pc-two-handed-close-weapons.md#проверка) есть адресная unittest-команда для новой копии. Общий Recover/K1 не менялся, M8 callers не запускались повторно; сборка/dependencies/resources/entry points не менялись. Full regression/wheel не запускались.
+```powershell
+$env:PYTHONPATH = 'src'
+.venv/Scripts/python.exe -m unittest tests.unit.test_m9_pc_melee_models tests.unit.test_m9_pc_melee_json tests.unit.test_m9_pc_melee_json_schemas tests.unit.test_m20_pc_backup_weapon tests.unit.test_m20_pc_backup_weapon_admission tests.unit.test_m20_pc_backup_weapon_json tests.integration.test_m20_pc_backup_weapon -q
+```
 
-Оба M19 requests выполнены настоящим CLI на финальном коде, с exact full request echo. Simulation показывает смешанную2H party; balance — отдельно слабого Pickaxe PC и actual unsupported при части составов. Наблюдения — в README/JSON примеров, не оценки истинной вероятности/оптимума. Все20прежних M9–M18 request/result pairs и29candidate scenarios прошли schema/source roundtrip; их JSON неизменен относительно HEAD.
+Это составная приёмка с исправленным отказом, не единый зелёный прогон555 и не полный regression проекта. Успешные дорогие проверки не повторялись. После99tests код/тесты не менялись. Локальные `.cache` scripts/logs не являются частью репозитория.
 
-`.cache/m19_verify_docs.py` проверил12изменённых Markdown/1041локальный target, все22current request/result pairs M9–M19 и UTF-8/newline/whitespace изменённых файлов. `git diff --check` успешен.
+Добавлены12native tests,4admission/carry,7codec/schema и4integration. Проверены actual draw16/18, Defenceless20 без draw, обе роли предметов в drop/Recover, Critical12/14/15, active Damage всех6backups/Defence/Help, Near Miss, replay/forged/skip guards и real process parity. Review выявил и закрыт регрессией случай clutch relocation: facts(4,3) не могут привязать новый0hands stop к старойране3. Source выбирается по actual Wound sequence.
+
+Оба M20 requests выполнены настоящим CLI с exact full request echo; наблюдения находятся в примерах. После устранения constructor default повторены schema/source проверки:22старые пары/32candidate scenarios roundtrip, все прежние значения совпадают с HEAD после удаления нового null-поля. Public requests уже содержат явное поле; этот fix не меняет их игровые входы. Малые результаты не объявляются оценками вероятности/пользой backup или оптимумом.
+
+Shared K1/Recover не менялись, M8 callers повторно не запускались; сборка/dependencies/resources/entry points не менялись. Full regression/wheel не запускались.
+
+`.cache/m20_verify_docs.py` проверил11изменённых Markdown/1044локальных targets, все24current request/result pairs M9–M20 и UTF-8/newline/whitespace изменённых файлов. `git diff --check` успешен.
 
 ## Ограничения
 
-Здоровая initial party с одним из13Close weapons на PC, numeric Melee Minions/Brutes без on-Wound abilities, одна Close Zone и fixed orders/priorities. Greatsword не подключён: тип буквального `+1 to Defence` требует уточнения. Запасное оружие/переключение, dual wield, другие ranges/Charge/mounts и общий inventory не входят в M19. Pickaxe harvesting и Billhook mounted trait вне текущей сцены; numeric armour bonus трактуется только без shields/Abilities.
+Здоровая initial party,13Close primary weapons, optional один1H backup только для2H primary, numeric Melee Minions/Brutes без on-Wound abilities, одна Close Zone и fixed orders/priorities. Переключение только при actual недоступном2H хвате, не по произвольной выгоде, ране12 или простому drop. Нет off-turn draw, возврата primary, backup2H, dual wield, общего inventory/Brawn/других ranges/Charge/mounts. Greatsword требует уточнения бонуса.
 
-Wounds1–23/lethal24+, source-aware ongoing Conditions, mandatory Critical/Defenceless end phase и прежние1H hand swaps сохраняются. Для2H недоступный хват16/18/20 — выбранная остановка; невозможная повторная анатомия сохраняет прежний pending GM-stop. Ally Recover снимает допустимые Staggered/Prone и не лечит раны/Defenceless/Critical. Другие Help/Fate/Lucky, лечение/campaign, полный NPC catalog и optimal AI остаются за границей. Costs/losses при stop/limit относятся только к исполненному prefix.
+Сохраняются Wounds1–23/lethal24+, source-aware ongoing Conditions, mandatory Critical/Defenceless end phases и невозможная повторная анатомия как pending GM-stop. Null policy оставляет M19-stop16/18/20; configured backup не гарантирует дальнейшую возможность действовать или выживание. Ally Recover не лечит раны/Defenceless/Critical. Другие Help/Fate/Lucky, лечение/campaign, полный NPC catalog и optimal AI остаются за границей. Costs/losses при stop/limit относятся только к исполненному prefix.
 
 ## Следующий шаг
 
-Предложение — запасное одноручное оружие и явное переключение после утраты2H возможности. Сначала определить carry limit, способ смены/подбора и приоритет относительно Recover/Help/обязательных последствий; это пока не согласованная M20. Greatsword можно уточнять отдельно. [Очередь](roadmap.md), [индекс вопросов](open-questions.md).
+Предложение — первый ограниченный каталог книжных NPC-профилей для PC balance. Сначала выбрать Minion/Brute, чьи механики полностью укладываются в текущий срез, с книгой/страницей/полным source; дополнительные Abilities не отбрасывать ради допуска. Если они нужны, отдельно определить конечный scope. M21 ещё не согласована. [Очередь](roadmap.md), [индекс вопросов](open-questions.md).
 
-Перед M19 рабочее дерево было чистым; пользователь сохранил M18 в Git. Изменения M19 незакоммичены; commit/push выполняет пользователь.
+Перед M20 рабочее дерево было чистым; пользователь сохранил M19 в Git. Изменения M20 незакоммичены; commit/push выполняет пользователь.

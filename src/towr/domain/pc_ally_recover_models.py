@@ -4,7 +4,7 @@ from dataclasses import replace
 from towr.domain.condition_models import Condition
 from towr.domain.injury_models import WoundConditionEffect, WoundEffectDuration, WoundRestriction
 from towr.domain.pc_heavy_wound_models import (
-    add_critical, critical_for_action, has_ongoing_condition, preferred_weapon_hand,
+    add_critical, critical_for_action, has_ongoing_condition,
     restriction_sources,
 )
 from towr.domain.recover_models import (
@@ -79,7 +79,8 @@ def pc_after_standard_recover(state, request, result):
                 WoundRestriction.REMOVING_PRONE_CAUSES_CRITICAL))
         updated[member.actor_id] = injury
     member = state.participant(actor)
-    hand = (preferred_weapon_hand(member,state.source.participant(actor).initial_weapon_hand)
+    from towr.domain.pc_backup_weapon_models import pc_preferred_weapon_hand
+    hand = (pc_preferred_weapon_hand(state,actor)
         if request.choice.object_interaction is not None else member.weapon_hand)
     injury = updated.get(actor,member.injury)
     updated[actor] = critical_for_action(replace(member,injury=injury),CombatActionKind.RECOVER,

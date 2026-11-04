@@ -4,7 +4,7 @@ from dataclasses import replace
 from towr.domain.pc_melee_result_models import (
     PcAttackProof, PcAttackerStaggerProof, PcEnduranceProof, PcHandDropProof, PcMeleeState,
     PcProfileWoundProof, PcRecoverProof, PcTimedWound, PcTurnEndProof, PcWoundCompletionProof,
-    PcBodyConsequenceProof, PcWoundChoiceProof, PcHandSwapProof, PcCriticalProof, PcIncapacitatedTurnEndProof, PcHelpProof,
+    PcBodyConsequenceProof, PcWoundChoiceProof, PcHandSwapProof, PcBackupWeaponDrawProof, PcCriticalProof, PcIncapacitatedTurnEndProof, PcHelpProof,
     build_pc_melee_attack, build_pc_melee_recover, build_pc_wound_completion, pc_after_test, pc_melee_action_id,
     pc_melee_next_actor, pc_melee_selected_action, pc_melee_unsupported,
     validate_pc_melee_combat_shape, validate_pc_melee_state_shape, validate_pc_melee_source_types,
@@ -25,10 +25,11 @@ from towr.domain.pc_fate_test_models import validate_pc_test_fate
 from towr.domain.pc_help_models import build_pc_help_action, pc_attack_help_applications
 from towr.domain.minion_defeat_models import MinionDefeatDecision
 from towr.domain.resolution_models import AttackerStaggerRequest, condition_forces_wound
-from towr.domain.pc_heavy_wound_models import (PcBodyFact, PcBodyFactKind, usable_hands, usable_weapon_hand, preferred_weapon_hand, has_ongoing_condition, critical_for_action, critical_for_hand, critical_for_incidental_hand_use)
+from towr.domain.pc_heavy_wound_models import (PcBodyFact, PcBodyFactKind, usable_hands, usable_weapon_hand, has_ongoing_condition, critical_for_action, critical_for_hand, critical_for_incidental_hand_use)
 from towr.domain._pc_heavy_wound_projection import heavy_wound_effect, body_consequence, consequence_sides, clutch_candidates
 from towr.domain.critical_injury_models import CriticalInjuryTestRequest
 from towr.domain.test_models import Skill
+from towr.domain.pc_backup_weapon_models import pc_backup_draw_hand, pc_preferred_weapon_hand
 from towr.domain.turn_models import (
     ActionSlotGrant, CombatActionDeclaration, CombatActionKind, CombatActionSlot,
     CombatActionSlotResult, CombatRoundAdvanceResult, CombatRoundState, CombatSide,
@@ -185,6 +186,9 @@ def project_pc_step(state, proof):
             pc_actor = next(a for a in scenario.enemy_target_priority if not state.participant(a).injury.dead)
     member = state.participant(pc_actor) if pc_actor is not None else None
     participant = scenario.participant(pc_actor) if pc_actor is not None else None
+    draw_hand = pc_backup_draw_hand(state,pc_actor) if pc_actor is not None else None
+    if draw_hand is not None and not isinstance(proof,PcBackupWeaponDrawProof):
+        raise ValueError('own standard turn cannot skip its required incidental backup draw')
 
     def finish(**updates):
         pending = updates.get('pending', state.pending)
@@ -494,13 +498,21 @@ def project_pc_step(state, proof):
                 active_wound_effects=(*injury.active_wound_effects,effect) if effect not in injury.active_wound_effects else injury.active_wound_effects)
         _same(proof.result,WoundChoiceResult(request,injury,expected_choice,more),'clutch choice changed its source, selected policy or consequence')
         return finish(party=_party_update(state,pc_actor,injury=injury),pending=(*more,*state.pending[1:]))
+    if isinstance(proof,PcBackupWeaponDrawProof):
+        _ready(state)
+        replace(proof)
+        if (draw_hand is None or proof.actor_id != pc_actor or proof.hand is not draw_hand
+                or proof.previous_hand is not member.weapon_hand):
+            raise ValueError('backup draw changed its actual own turn, policy, hand or primary source')
+        return finish(party=_party_update(state,pc_actor,weapon_hand=draw_hand,using_backup_weapon=True,
+            injury=critical_for_incidental_hand_use(member,draw_hand)))
     if isinstance(proof,PcHandSwapProof):
         _ready(state)
         if combat.active_turn is None or combat.active_turn.actor_id != pc_actor or combat.active_turn.action_slots:
             raise ValueError('incidental weapon swap requires its own unreserved turn')
         if member.injury.conditions.has(Condition.DEFENCELESS):
             raise ValueError('Defenceless actor cannot perform an incidental weapon swap')
-        hand = preferred_weapon_hand(member,participant.initial_weapon_hand)
+        hand = pc_preferred_weapon_hand(state,pc_actor)
         if member.weapon_hand is None or hand is None or hand is member.weapon_hand:
             raise ValueError('no supported beneficial held-weapon swap exists')
         if proof.previous_hand is not member.weapon_hand or proof.hand is not hand:

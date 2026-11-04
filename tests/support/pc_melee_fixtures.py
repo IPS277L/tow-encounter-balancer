@@ -44,7 +44,7 @@ def make_pc_melee_scenario(*, weapon: PcMeleeWeapon = PcMeleeWeapon.STAFF,
         PcRandomSidePolicy.D10_LOW_LEFT_HIGH_RIGHT, PcHeavyWoundPolicy.CONTINUE_FIGHTING,
         PcTwoHandedGrip.BOTH if pc_weapon_requires_two_hands(weapon) else PcWeaponHand.LEFT, ids,
         tuple(MinionDefeatDecision("pc", target, NpcDefeatDisposition.KNOCKED_OUT, True) for target in ids),
-        near_miss_policy=None,glorious_policy=None,help_policy=None,ally_recover_policy=None)
+        near_miss_policy=None,glorious_policy=None,help_policy=None,ally_recover_policy=None,backup_weapon_policy=None)
     return PcMeleeScenario("pc-melee", (member,), "day", tuple(enemies),
         PcMeleeFacts("arena", True, True, True, True, True, True, True, True, True, False),
         ("pc",), ids, ("pc",), max_rounds)

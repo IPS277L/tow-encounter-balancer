@@ -74,7 +74,8 @@
             "minimum_remaining_spends": 1
           },
           "help_policy": null,
-          "ally_recover_policy": null
+          "ally_recover_policy": null,
+          "backup_weapon_policy": null
         },
         {
           "actor_id": "pc2",
@@ -141,7 +142,8 @@
             "minimum_remaining_spends": 1
           },
           "help_policy": null,
-          "ally_recover_policy": null
+          "ally_recover_policy": null,
+          "backup_weapon_policy": null
         },
         {
           "actor_id": "pc3",
@@ -208,7 +210,8 @@
             "minimum_remaining_spends": 1
           },
           "help_policy": null,
-          "ally_recover_policy": null
+          "ally_recover_policy": null,
+          "backup_weapon_policy": null
         },
         {
           "actor_id": "pc4",
@@ -277,7 +280,8 @@
           "help_policy": null,
           "ally_recover_policy": {
             "beneficiary_id": "pc3"
-          }
+          },
+          "backup_weapon_policy": null
         }
       ],
       "day_id": "day",
@@ -523,7 +527,8 @@
                 "minimum_remaining_spends": 1
               },
               "help_policy": null,
-              "ally_recover_policy": null
+              "ally_recover_policy": null,
+              "backup_weapon_policy": null
             },
             {
               "actor_id": "pc2",
@@ -583,7 +588,8 @@
                 "minimum_remaining_spends": 1
               },
               "help_policy": null,
-              "ally_recover_policy": null
+              "ally_recover_policy": null,
+              "backup_weapon_policy": null
             },
             {
               "actor_id": "pc3",
@@ -643,7 +649,8 @@
                 "minimum_remaining_spends": 1
               },
               "help_policy": null,
-              "ally_recover_policy": null
+              "ally_recover_policy": null,
+              "backup_weapon_policy": null
             },
             {
               "actor_id": "pc4",
@@ -705,7 +712,8 @@
               "help_policy": null,
               "ally_recover_policy": {
                 "beneficiary_id": "pc3"
-              }
+              },
+              "backup_weapon_policy": null
             }
           ],
           "day_id": "day",
@@ -1000,7 +1008,8 @@
                 "minimum_remaining_spends": 1
               },
               "help_policy": null,
-              "ally_recover_policy": null
+              "ally_recover_policy": null,
+              "backup_weapon_policy": null
             },
             {
               "actor_id": "pc2",
@@ -1067,7 +1076,8 @@
                 "minimum_remaining_spends": 1
               },
               "help_policy": null,
-              "ally_recover_policy": null
+              "ally_recover_policy": null,
+              "backup_weapon_policy": null
             },
             {
               "actor_id": "pc3",
@@ -1134,7 +1144,8 @@
                 "minimum_remaining_spends": 1
               },
               "help_policy": null,
-              "ally_recover_policy": null
+              "ally_recover_policy": null,
+              "backup_weapon_policy": null
             },
             {
               "actor_id": "pc4",
@@ -1203,7 +1214,8 @@
               "help_policy": null,
               "ally_recover_policy": {
                 "beneficiary_id": "pc3"
-              }
+              },
+              "backup_weapon_policy": null
             }
           ],
           "day_id": "day",

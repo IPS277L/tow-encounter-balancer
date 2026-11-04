@@ -19,10 +19,11 @@
 - M17: standard Recover выбранному союзнику, per-entity Conditions/источники/W13 consequences, mixed self/ally benefits, own pickup, реальные action counts и текущий JSON1. [Контракт ADR-0073](decisions/ADR-0073-pc-ally-standard-recover.md).
 - M18: Dagger/Axe/Warhammer/Morning Star вместе со Staff/Sword, явные Damage/Traits, прежние hand/Help/Fate/Recover и fixed-party поиск через текущий JSON1. [Граница](rules/equipment.md#исполняемая-pc-граница-m18), [примеры](examples/m18/README.md).
 - M19: семь двуручных Close weapons, typed BOTH grip, обе руки в drop/Recover/Critical12 и actual unsupported после завершённых ран16/18/20; прежние trials/process/поиск/JSON1. [ADR-0074](decisions/ADR-0074-pc-two-handed-close-weapons.md), [примеры](examples/m19/README.md).
+- M20: явный1H backup к2H primary, own-turn incidental draw, active Damage/Traits/Help/Recover, carry/source/replay guards и прежние trials/process/search/JSON1. [ADR-0075](decisions/ADR-0075-pc-backup-weapon-policy.md), [примеры](examples/m20/README.md).
 
 ## Последняя законченная функция
 
-[Двуручное Close-оружие M19](decisions/ADR-0074-pc-two-handed-close-weapons.md) реализовано через owner/trials/process/подбор и текущий JSON1. [CLI-примеры](examples/m19/README.md) показывают смешанное вооружение и исключение кандидатов с actual unsupported. Приёмка — в статусе; обязательного остатка M19 нет.
+[Запасное оружие M20](decisions/ADR-0075-pc-backup-weapon-policy.md) реализовано через owner/trials/process/подбор и текущий JSON1. [CLI-примеры](examples/m20/README.md) показывают явный backup source и фактическое продолжение/ограничения; старые22пары мигрированы null-policy без изменения gameplay. Приёмка — в статусе; обязательного остатка M20 нет.
 
 ## M8 завершена
 
@@ -98,11 +99,15 @@
 
 Завершённый конечный срез по [ADR-0074](decisions/ADR-0074-pc-two-handed-close-weapons.md): Pickaxe/Flail/Billhook/Halberd/Glaive/Greataxe/Greathammer, обе руки в Attack/Defence/weapon-assisted Help, whole-item drop и Recover/Critical12. Пользователь выбрал сохранять полную рану16/18/20 и останавливать trial при недоступном2H хвате. Перед stop выполнены Near Miss и все immediate consequences, далее journal не продолжается. Enum/grip correlation обновлены в том же JSON1; старые пары не мигрируются.
 
-## После M19
+## M20 — запасное одноручное оружие
 
-Более широкий NPC/spell/Miscast каталог, дополнительные тактики/Fate/Help/Recover, лечение ран, общий inventory/spatial/campaign/save-resume — отдельный backlog после M19. Решение GM для невозможной повторной анатомии и post-healing ветвей не подставляется. Следующие функции выбираются отдельно; уже закрытые границы ими автоматически не расширяются.
+Завершённый срез по [ADR-0075](decisions/ADR-0075-pc-backup-weapon-policy.md): nullable1H backup с предпочтением руки только при2H primary/Strength≥2. Draw выполняется в свой ход после фактической утраты2H возможности, без ранней защиты или обхода Defenceless. Отдельный proof сохраняет Critical12/14/15; затем действуют Traits/Help/Recover активного backup. Вернуть primary нельзя. Если до draw не осталось рук, stop сохраняет фактический источник; после draw действует прежняя1H граница. Метрики/version неизменны, поле policy обязательно nullable в JSON1.
 
-Следующее предложение — запасное одноручное оружие и явное переключение после утраты2H возможности. Сначала определить carry limit, способ смены/подбора и приоритет относительно Recover/Help/обязательных последствий; это отдельный конечный контракт, пока не M20 implementation. Greatsword требует уточнения бонуса отдельно. Dual wield, иные дальности и полный inventory не включать автоматически.
+## После M20
+
+Более широкий NPC/spell/Miscast каталог, дополнительные тактики/Fate/Help/Recover, лечение ран, общий inventory/spatial/campaign/save-resume — отдельный backlog после M20. Решение GM для невозможной повторной анатомии и post-healing ветвей не подставляется. Следующие функции выбираются отдельно; уже закрытые границы ими автоматически не расширяются.
+
+Следующее предложение — первый ограниченный каталог книжных NPC-профилей для PC balance. Сначала выбрать ordinary Melee Minion/Brute, чьи механики полностью укладываются в текущий срез, и сохранить книгу/страницу/полный source. Дополнительные Abilities нельзя отбрасывать ради допуска: при необходимости отдельно определить их реализацию и конечный scope. M21 ещё не согласована; Champions, spatial/ranged NPC и весь бестиарий не включать автоматически. Greatsword и более свободная смена оружия остаются отдельными темами.
 
 ## Контрольные точки
 

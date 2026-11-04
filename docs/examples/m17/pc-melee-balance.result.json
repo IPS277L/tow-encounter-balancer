@@ -83,7 +83,8 @@
           "help_policy": null,
           "ally_recover_policy": {
             "beneficiary_id": "pc:companion"
-          }
+          },
+          "backup_weapon_policy": null
         },
         {
           "actor_id": "pc:companion",
@@ -157,7 +158,8 @@
             "minimum_remaining_spends": 1
           },
           "help_policy": null,
-          "ally_recover_policy": null
+          "ally_recover_policy": null,
+          "backup_weapon_policy": null
         }
       ],
       "day_id": "day",
@@ -438,7 +440,8 @@
               "help_policy": null,
               "ally_recover_policy": {
                 "beneficiary_id": "pc:companion"
-              }
+              },
+              "backup_weapon_policy": null
             },
             {
               "actor_id": "pc:companion",
@@ -498,7 +501,8 @@
                 "minimum_remaining_spends": 1
               },
               "help_policy": null,
-              "ally_recover_policy": null
+              "ally_recover_policy": null,
+              "backup_weapon_policy": null
             }
           ],
           "day_id": "day",
@@ -751,7 +755,8 @@
               "help_policy": null,
               "ally_recover_policy": {
                 "beneficiary_id": "pc:companion"
-              }
+              },
+              "backup_weapon_policy": null
             },
             {
               "actor_id": "pc:companion",
@@ -818,7 +823,8 @@
                 "minimum_remaining_spends": 1
               },
               "help_policy": null,
-              "ally_recover_policy": null
+              "ally_recover_policy": null,
+              "backup_weapon_policy": null
             }
           ],
           "day_id": "day",
@@ -1114,7 +1120,8 @@
               "help_policy": null,
               "ally_recover_policy": {
                 "beneficiary_id": "pc:companion"
-              }
+              },
+              "backup_weapon_policy": null
             },
             {
               "actor_id": "pc:companion",
@@ -1188,7 +1195,8 @@
                 "minimum_remaining_spends": 1
               },
               "help_policy": null,
-              "ally_recover_policy": null
+              "ally_recover_policy": null,
+              "backup_weapon_policy": null
             }
           ],
           "day_id": "day",
