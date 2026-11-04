@@ -1,5 +1,13 @@
 # Трассировка правил
 
+## M10: группа PC, ADR-0066
+
+BOOK-PLAYER-GUIDE1.4, Rules / Combat112, Recover/Attack118–119, Conditions122–123; Wounds190–191 наследуют M9. [Контракт](decisions/ADR-0066-pc-party-melee-encounter.md) подключает существующие RULE-COMBAT-001/002/004/007 и RULE-HEALTH-005/008/009, RULE-FATE-001/002/003 к uniform party, без новых игровых правил/house rules.
+
+[Input](../src/towr/domain/pc_melee_models.py), [общий owner](../src/towr/domain/pc_melee_result_models.py), [projection](../src/towr/domain/_pc_melee_projection.py) и [runner](../src/towr/engine/pc_melee_runner.py) связывают полные ходы, обе стороны outnumbering, отдельные Wounds/Fate/expiry и completed death → retarget → следующий ход выжившего. [13 party guards](../tests/unit/test_m10_pc_party_execution.py) проверяют реальный полный prefix и изоляцию участников, включая один pending Wound после гибели другого PC.
+
+[Статистика потерь](../src/towr/simulation/pc_melee_summary_models.py), [fixed-party generation](../src/towr/application/pc_melee_balance_models.py), [4 arithmetic/source tests](../tests/unit/test_m10_pc_party_statistics.py), [3 actual trials/balance/spawn tests](../tests/integration/test_m10_pc_party_simulation.py) и обновлённые [wire](../tests/unit/test_m9_pc_melee_json.py)/[CLI](../tests/integration/test_m9_pc_melee_cli.py) сохраняют полный источник и denominator. Подтверждённые потери не трактуются как судьба survivors после stop/limit; это инженерные метрики, не новые правила поражения PC.
+
 ## M9: первый PLAYER melee owner, ADR-0065
 
 BOOK-PLAYER-GUIDE1.4, Skills68–69, Equipment92–93, Tests106–109, Fate111–112, Combat118–123, Wounds190–191; [контракт и граница](decisions/ADR-0065-first-pc-melee-encounter.md). Это подключение существующих Rule IDs, без house rules.

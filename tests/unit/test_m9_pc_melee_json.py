@@ -24,11 +24,24 @@ from towr.domain.fate_models import (
     FateSessionState, FateSpendKind, FateSpendRecord,
 )
 from towr.simulation.pc_melee_models import PcMeleeOutcomeCounts
-from towr.simulation.pc_melee_summary_models import PcMeleeSimulationSummary
+from towr.simulation.pc_melee_summary_models import PcMeleeDefeatCount, PcMeleeSimulationSummary
 
 
-def document(*, balance=False):
+def document(*, balance=False, party_size=1):
     scenario = scenario_document(make_pc_melee_scenario(enemy_count=2 if balance else 1, max_rounds=2))
+    for index in range(1, party_size):
+        member=deepcopy(scenario['party'][0])
+        actor=f'pc{index+1}'
+        member['actor_id']=actor
+        member['pc']['id']=f'pc-profile{index+1}'
+        member['pc']['weapon']='sword'
+        member['fate']['actor_id']=actor
+        member['fate']['rating']=member['fate']['session_spend_limit']=index
+        for decision in member['defeat_decisions']:
+            decision['attacker_id']=actor
+        scenario['party'].append(member)
+        scenario['pc_activation_order'].insert(0,actor)
+        scenario['enemy_target_priority'].append(actor)
     result = {'schema_version':'1', 'kind':'pc_melee_balance' if balance else 'pc_melee_simulation',
         'request_id':'request:pc', 'ruleset':'towr-pg1.4-gmg1.1', 'execution':{'mode':'sequential'}}
     if balance:
@@ -48,7 +61,8 @@ def document(*, balance=False):
 def aggregate(request, *, unsupported=False):
     trials=request.trials
     counts=PcMeleeOutcomeCounts(0 if unsupported else trials,0,0,trials if unsupported else 0)
-    return PcMeleeSimulationSummary(request,counts,0 if unsupported else trials,trials,0)
+    return PcMeleeSimulationSummary(request,counts,0 if unsupported else trials,trials,0,0,
+        tuple(PcMeleeDefeatCount(member.actor_id,0) for member in request.scenario.party))
 
 
 def balance_result(command):
@@ -64,7 +78,7 @@ def balance_result(command):
 
 class PcMeleeJsonTests(unittest.TestCase):
     def test_simulation_result_echoes_every_source_field_without_rng_or_trial_replay(self):
-        raw=document()
+        raw=document(party_size=2)
         raw['request_id']='запрос:ёлка'
         raw['scenario']['facts']['zone_id']='арена'
         before=deepcopy(raw)
@@ -77,14 +91,18 @@ class PcMeleeJsonTests(unittest.TestCase):
         self.assertEqual(value['request'],raw)
         self.assertEqual(value['summary']['trials'],4)
         self.assertEqual(value['summary']['outcome_counts'],{
-            'objective_achieved':4,'pc_defeated':0,'round_limit':0,'unsupported_path':0})
+            'objective_achieved':4,'party_defeated':0,'round_limit':0,'unsupported_path':0})
+        self.assertEqual(value['summary']['any_pc_defeated_count'],0)
+        self.assertEqual(value['summary']['pc_defeat_counts'],[
+            {'actor_id':'pc','count':0},{'actor_id':'pc2','count':0}])
+        self.assertEqual(value['request']['scenario']['pc_activation_order'],['pc2','pc'])
         self.assertNotIn('trials',value)
         self.assertNotIn('journal',encoded)
         self.assertEqual(wire.parse_pc_melee_simulation_request(json.dumps(value['request'])),command)
         validate_pc_melee_simulation_document(value,'result')
 
     def test_balance_echoes_full_grid_exact_candidate_sources_rates_and_selection(self):
-        raw=document(balance=True)
+        raw=document(balance=True,party_size=2)
         with patch('random.Random',side_effect=AssertionError('encoder must not replay trials')):
             command=wire.parse_pc_melee_balance_request(json.dumps(raw))
             result=balance_result(command)
@@ -92,8 +110,10 @@ class PcMeleeJsonTests(unittest.TestCase):
         value=json.loads(encoded)
         self.assertEqual(value['request'],raw)
         self.assertEqual((value['candidate_count'],value['planned_trials'],value['total_trials']),(2,8,8))
-        self.assertEqual(value['candidates'][0]['request']['scenario']['target_priority'],['minion2'])
-        self.assertEqual(value['candidates'][1]['request']['scenario']['target_priority'],['minion1','minion2'])
+        self.assertEqual(value['candidates'][0]['request']['scenario']['party'][0]['target_priority'],['minion2'])
+        self.assertEqual(value['candidates'][1]['request']['scenario']['party'][0]['target_priority'],['minion1','minion2'])
+        self.assertEqual(value['candidates'][0]['request']['scenario']['party'][1]['target_priority'],['minion2'])
+        self.assertEqual(value['candidates'][0]['request']['scenario']['enemy_target_priority'],['pc','pc2'])
         assessment=value['candidates'][1]['assessment']
         self.assertEqual((assessment['status'],assessment['window_match']),('unsupported_observations',None))
         self.assertEqual(assessment['unsupported_path_rate'],{'numerator':1,'denominator':1})
@@ -111,13 +131,13 @@ class PcMeleeJsonTests(unittest.TestCase):
             resilience=replace(scenario.enemies[0].definition.resilience,bonus=2))
         enemies=tuple(replace(enemy,definition=definition,
             state=replace(enemy.state,current_resilience=definition.resilience)) for enemy in scenario.enemies)
-        scenario=replace(scenario,fate=fate,enemies=enemies)
+        scenario=replace(scenario,party=(replace(scenario.party[0],fate=fate),),enemies=enemies)
         raw=scenario_document(scenario)
         decoded=parse_scenario(raw,path_prefix='/scenario',error_type=PcMeleeSimulationInputError)
         self.assertEqual(decoded,scenario)
-        self.assertEqual(raw['fate']['resource_event_ids'],['refresh','burn'])
-        self.assertEqual(raw['fate']['rating'],2)
-        self.assertEqual(raw['fate']['spends'][0]['kind'],'glorious_test')
+        self.assertEqual(raw['party'][0]['fate']['resource_event_ids'],['refresh','burn'])
+        self.assertEqual(raw['party'][0]['fate']['rating'],2)
+        self.assertEqual(raw['party'][0]['fate']['spends'][0]['kind'],'glorious_test')
         self.assertIsNone(raw['enemies'][0]['definition']['attack']['test_profile']['pool_cap'])
         self.assertEqual(raw['enemies'][0]['definition']['resilience']['bonus'],2)
         self.assertEqual(raw['enemies'][0]['definition']['attack']['damage']['success_multiplier'],1)
@@ -134,6 +154,52 @@ class PcMeleeJsonTests(unittest.TestCase):
         with self.assertRaises(PcMeleeSimulationInputError) as caught:
             wire.parse_pc_melee_simulation_request(json.dumps(raw))
         self.assertEqual((caught.exception.request_id,caught.exception.path),('request:pc','/simulation/master_seed'))
+
+    def test_party_roundtrip_keeps_individual_profiles_fate_hands_and_priorities(self):
+        raw=document(balance=True,party_size=2)
+        first,second=raw['template']['party']
+        second['initial_weapon_hand']='right'
+        second['target_priority'].reverse()
+        second['defeat_decisions'].reverse()
+        second['pc']['armour_bonus']=2
+        command=wire.parse_pc_melee_balance_request(json.dumps(raw))
+        one,two=command.request.template.party
+        self.assertEqual((one.fate.actor_id,one.fate.rating,two.fate.actor_id,two.fate.rating),('pc',3,'pc2',1))
+        self.assertEqual((one.pc.weapon.value,two.pc.weapon.value),('staff','sword'))
+        self.assertEqual(two.initial_weapon_hand.value,'right')
+        encoded=json.loads(wire.encode_pc_melee_balance_result(command,balance_result(command)))
+        self.assertEqual(encoded['request'],raw)
+        self.assertEqual(encoded['candidates'][1]['request']['scenario']['party'][1]['target_priority'],['minion2','minion1'])
+
+    def test_summary_preserves_confirmed_party_and_individual_loss_counts(self):
+        command=wire.parse_pc_melee_simulation_request(json.dumps(document(party_size=2)))
+        summary=PcMeleeSimulationSummary(command.request,PcMeleeOutcomeCounts(3,1,0,0),4,4,0,
+            2,(PcMeleeDefeatCount('pc',1),PcMeleeDefeatCount('pc2',2)))
+        value=json.loads(wire.encode_pc_melee_simulation_result(command,summary))
+        self.assertEqual(value['summary']['outcome_counts']['party_defeated'],1)
+        self.assertEqual(value['summary']['any_pc_defeated_count'],2)
+        self.assertEqual(value['summary']['pc_defeat_counts'],[
+            {'actor_id':'pc','count':1},{'actor_id':'pc2','count':2}])
+
+    def test_legacy_single_shape_and_invalid_party_partitions_are_refused(self):
+        raw=document()
+        member=raw['scenario'].pop('party')[0]
+        raw['scenario'].update(member)
+        del raw['scenario']['pc_activation_order']
+        del raw['scenario']['enemy_target_priority']
+        with self.assertRaises(PcMeleeSimulationInputError):
+            wire.parse_pc_melee_simulation_request(json.dumps(raw))
+        for change in (
+            lambda scene:scene.update(party=[]),
+            lambda scene:scene.update(pc_activation_order=['pc','pc']),
+            lambda scene:scene.update(enemy_target_priority=['pc2']),
+            lambda scene:scene['party'][1]['fate'].update(actor_id='pc'),
+            lambda scene:scene['party'][1]['defeat_decisions'][0].update(attacker_id='pc'),
+        ):
+            raw=document(party_size=2)
+            change(raw['scenario'])
+            with self.subTest(change=change),self.assertRaises(PcMeleeSimulationInputError):
+                wire.parse_pc_melee_simulation_request(json.dumps(raw))
 
     def test_only_canonical_seed_and_reduced_window_spellings_are_admitted(self):
         for value in ('00','042','+42',' 42','42 '):
@@ -181,8 +247,8 @@ class PcMeleeJsonTests(unittest.TestCase):
 
     def test_nested_unknown_fields_pool_caps_and_derived_state_overrides_are_refused(self):
         for path,value in (
-            (('scenario','mystery'),True), (('scenario','pc','wound_limit'),1),
-            (('scenario','fate','invented'),True), (('scenario','facts','extra'),True),
+            (('scenario','mystery'),True), (('scenario','party',0,'pc','wound_limit'),1),
+            (('scenario','party',0,'fate','invented'),True), (('scenario','facts','extra'),True),
             (('scenario','enemies',0,'state'),{}),
             (('scenario','enemies',0,'definition','attack','ignores_armour'),False),
             (('scenario','enemies',0,'definition','attack','test_profile','pool_cap'),4),
@@ -198,10 +264,10 @@ class PcMeleeJsonTests(unittest.TestCase):
 
     def test_bool_and_semantic_inconsistencies_are_refused_before_execution(self):
         for mutate in (
-            lambda raw:raw['scenario']['pc'].update(weapon_skill=True),
+            lambda raw:raw['scenario']['party'][0]['pc'].update(weapon_skill=True),
             lambda raw:raw['simulation'].update(trials=True),
-            lambda raw:raw['scenario']['fate'].update(actor_id='foreign'),
-            lambda raw:raw['scenario'].update(target_priority=['foreign']),
+            lambda raw:raw['scenario']['party'][0]['fate'].update(actor_id='foreign'),
+            lambda raw:raw['scenario']['party'][0].update(target_priority=['foreign']),
             lambda raw:raw['scenario']['enemies'][0]['definition']['attack']['damage'].update(base=True),
             lambda raw:raw['scenario'].update(max_rounds=False),
         ):
@@ -216,12 +282,12 @@ class PcMeleeJsonTests(unittest.TestCase):
         self.assertEqual((caught.exception.path,caught.exception.request_id),('/generation/facts','request:pc'))
 
     def test_encoder_refuses_foreign_summary_corrupt_full_source_and_partial_reports(self):
-        command=wire.parse_pc_melee_simulation_request(json.dumps(document()))
+        command=wire.parse_pc_melee_simulation_request(json.dumps(document(party_size=2)))
         foreign=replace(command.request,scenario=replace(command.request.scenario,day_id='other'))
         with self.assertRaises(ValueError):
             wire.encode_pc_melee_simulation_result(command,aggregate(foreign))
         forged=deepcopy(command)
-        object.__setattr__(forged.request.scenario.pc,'armour_bonus',False)
+        object.__setattr__(forged.request.scenario.party[1].pc,'armour_bonus',False)
         self.assertEqual(forged,command)
         with self.assertRaises(TypeError):
             wire.encode_pc_melee_simulation_result(forged,aggregate(command.request))

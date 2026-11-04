@@ -25,7 +25,7 @@ def run_pc_melee_trial(request: PcMeleeSimulationRequest, trial_index: int, *,
     if result.source != request.scenario:
         raise ValueError('PC encounter result belongs to another source')
     return PcMeleeTrialRecord(request.scenario, trial_index, seed, result.outcome,
-        result.executed_actions, result.started_rounds, result.completed_rounds)
+        result.executed_actions, result.started_rounds, result.completed_rounds, result.defeated_pc_ids)
 
 
 def run_pc_melee_simulation(request: PcMeleeSimulationRequest, *,

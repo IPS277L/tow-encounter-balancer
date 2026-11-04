@@ -18,7 +18,7 @@ from towr.domain.npc_roster_models import (
     NpcDefinition, NpcParticipantSnapshot, NpcParticipantState, NpcProtectionProfile,
 )
 from towr.domain.pc_melee_models import (
-    PcFatePolicy, PcMeleeDefinition, PcMeleeFacts, PcMeleePolicy, PcMeleeScenario,
+    PcFatePolicy, PcMeleeDefinition, PcMeleeFacts, PcMeleeParticipant, PcMeleePolicy, PcMeleeScenario,
     PcMeleeWeapon, PcRandomHandPolicy, PcWeaponHand, validate_pc_melee_scenario_admission,
 )
 from towr.domain.ranged_weapon_profiles import RangedWeaponHands, RangedWeaponRange
@@ -54,7 +54,7 @@ def parse_scenario(data: dict, *, path_prefix: str, error_type: type[PcMeleeInpu
         raise error_type(Code.INVALID_INPUT, str(error), path=path_prefix) from error
 
 
-def _parse_scenario(data, *, path_prefix, error_type):
+def _parse_participant(data, *, path_prefix, error_type):
     build = partial(build_value, error_type)
     pc_raw = dict(data["pc"])
     pc_raw["weapon"] = PcMeleeWeapon(pc_raw["weapon"])
@@ -69,6 +69,19 @@ def _parse_scenario(data, *, path_prefix, error_type):
         **dict(record, kind=FateBurnKind(record["kind"]))) for index, record in enumerate(fate_raw["burns"]))
     fate_raw["resource_event_ids"] = tuple(fate_raw["resource_event_ids"])
     fate = build(path_prefix + "/fate", FateSessionState, **fate_raw)
+    return build(path_prefix, PcMeleeParticipant, data["actor_id"], pc, fate,
+        PcMeleePolicy(data["policy"]), PcFatePolicy(data["fate_policy"]),
+        PcRandomHandPolicy(data["random_hand_policy"]), PcWeaponHand(data["initial_weapon_hand"]),
+        tuple(data["target_priority"]),
+        tuple(build(f"{path_prefix}/defeat_decisions/{index}", MinionDefeatDecision,
+            **dict(record, disposition=NpcDefeatDisposition(record["disposition"])))
+            for index, record in enumerate(data["defeat_decisions"])))
+
+
+def _parse_scenario(data, *, path_prefix, error_type):
+    build = partial(build_value, error_type)
+    party = tuple(_parse_participant(member, path_prefix=f"{path_prefix}/party/{index}", error_type=error_type)
+                  for index, member in enumerate(data["party"]))
     enemies = []
     for index, enemy in enumerate(data["enemies"]):
         path = f"{path_prefix}/enemies/{index}"
@@ -87,14 +100,10 @@ def _parse_scenario(data, *, path_prefix, error_type):
         state = build(path, NpcParticipantState, enemy["actor_id"], definition.id,
             CombatSide.OPPOSITION, ProfileInjuryState(0, 1), (attack.id,), resilience, True, False)
         enemies.append(NpcParticipantSnapshot(definition, state))
-    return build(path_prefix, PcMeleeScenario, data["id"], data["actor_id"], pc, fate,
+    return build(path_prefix, PcMeleeScenario, data["id"], party,
         data["day_id"], tuple(enemies), build(path_prefix + "/facts", PcMeleeFacts, **data["facts"]),
-        PcMeleePolicy(data["policy"]), PcFatePolicy(data["fate_policy"]),
-        PcRandomHandPolicy(data["random_hand_policy"]), PcWeaponHand(data["initial_weapon_hand"]),
-        tuple(data["enemy_activation_order"]), tuple(data["target_priority"]),
-        tuple(build(f"{path_prefix}/defeat_decisions/{index}", MinionDefeatDecision,
-            **dict(record, disposition=NpcDefeatDisposition(record["disposition"])))
-            for index, record in enumerate(data["defeat_decisions"])), data["max_rounds"])
+        tuple(data["pc_activation_order"]), tuple(data["enemy_activation_order"]),
+        tuple(data["enemy_target_priority"]), data["max_rounds"])
 
 
 def scenario_document(scenario: PcMeleeScenario) -> dict:
@@ -111,12 +120,10 @@ def scenario_document(scenario: PcMeleeScenario) -> dict:
                 "hands": attack.hands.value},
             "protection": {"source_rule_id": protection.source_rule_id,
                 "test_profile": asdict(protection.test_profile)}}})
-    return {"id": scenario.id, "actor_id": scenario.actor_id, "pc": _plain(asdict(scenario.pc)),
-        "fate": _plain(asdict(scenario.fate)), "day_id": scenario.day_id, "enemies": enemies,
-        "facts": facts_document(scenario.facts), "policy": scenario.policy.value,
-        "fate_policy": scenario.fate_policy.value, "random_hand_policy": scenario.random_hand_policy.value,
-        "initial_weapon_hand": scenario.initial_weapon_hand.value,
+    return {"id": scenario.id, "party": _plain([asdict(member) for member in scenario.party]),
+        "day_id": scenario.day_id, "enemies": enemies,
+        "facts": facts_document(scenario.facts),
+        "pc_activation_order": list(scenario.pc_activation_order),
         "enemy_activation_order": list(scenario.enemy_activation_order),
-        "target_priority": list(scenario.target_priority),
-        "defeat_decisions": _plain([asdict(decision) for decision in scenario.defeat_decisions]),
+        "enemy_target_priority": list(scenario.enemy_target_priority),
         "max_rounds": scenario.max_rounds}

@@ -84,7 +84,8 @@ class PcMeleeJsonSchemaTests(unittest.TestCase):
             with self.subTest(kind=kind),self.assertRaises(ValidationError):
                 validator(changed,kind)
         balance=samples()[3][2]
-        for path in (('candidates',0,'summary'),('candidates',0,'assessment'),('request','evaluation')):
+        for path in (('candidates',0,'summary'),('candidates',0,'summary','pc_defeat_counts',0),
+                     ('candidates',0,'assessment'),('request','evaluation')):
             changed=deepcopy(balance)
             target=changed
             for name in path:
@@ -92,6 +93,25 @@ class PcMeleeJsonSchemaTests(unittest.TestCase):
             target['extra']=True
             with self.subTest(path=path),self.assertRaises(ValidationError):
                 schema.validate_pc_melee_balance_document(changed,'result')
+
+    def test_party_members_and_loss_counts_require_complete_closed_shapes(self):
+        raw=document(party_size=2)
+        for field in raw['scenario']['party'][1]:
+            changed=deepcopy(raw)
+            del changed['scenario']['party'][1][field]
+            with self.subTest(field=field),self.assertRaises(ValidationError):
+                schema.validate_pc_melee_simulation_document(changed)
+        changed=deepcopy(raw)
+        changed['scenario']['party'][1]['invented_state']={}
+        with self.assertRaises(ValidationError):
+            schema.validate_pc_melee_simulation_document(changed)
+        command=wire.parse_pc_melee_simulation_request(json.dumps(raw))
+        result=json.loads(wire.encode_pc_melee_simulation_result(command,aggregate(command.request)))
+        for field in ('any_pc_defeated_count','pc_defeat_counts'):
+            changed=deepcopy(result)
+            del changed['summary'][field]
+            with self.subTest(field=field),self.assertRaises(ValidationError):
+                schema.validate_pc_melee_simulation_document(changed,'result')
 
     def test_execution_modes_refuse_bool_or_missing_or_irrelevant_process_options(self):
         for execution in ({'mode':'sequential','workers':None}, {'mode':'process'},
@@ -107,12 +127,12 @@ class PcMeleeJsonSchemaTests(unittest.TestCase):
         schema.validate_pc_melee_simulation_document(raw)
 
     def test_fate_and_enemy_derived_scope_cannot_be_overridden_in_wire(self):
-        for update in (lambda raw:raw['scenario']['fate'].update(has_lucky=True),
-                       lambda raw:raw['scenario']['fate'].update(spends=[{}]),
+        for update in (lambda raw:raw['scenario']['party'][0]['fate'].update(has_lucky=True),
+                       lambda raw:raw['scenario']['party'][0]['fate'].update(spends=[{}]),
                        lambda raw:raw['scenario']['enemies'][0]['definition']['attack']['test_profile'].update(pool_cap=4),
                        lambda raw:raw['scenario']['enemies'][0]['definition']['attack']['damage'].update(success_multiplier=2),
-                       lambda raw:raw['scenario']['defeat_decisions'][0].update(gm_approved=False),
-                       lambda raw:raw['scenario']['pc'].update(armour_bonus=False)):
+                       lambda raw:raw['scenario']['party'][0]['defeat_decisions'][0].update(gm_approved=False),
+                       lambda raw:raw['scenario']['party'][0]['pc'].update(armour_bonus=False)):
             raw=document()
             update(raw)
             with self.subTest(update=update),self.assertRaises(ValidationError):

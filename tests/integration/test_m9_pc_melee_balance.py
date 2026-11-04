@@ -44,8 +44,8 @@ class PcMeleeBalanceIntegrationTests(unittest.TestCase):
             self.assertIs(candidate.source_request, executed)
             self.assertIs(candidate.summary, summary)
             self.assertIsInstance(candidate.summary, PcMeleeSimulationSummary)
-            self.assertEqual(candidate.source_request.scenario.pc, request.template.pc)
-            self.assertEqual(candidate.source_request.scenario.fate, request.template.fate)
+            self.assertEqual(candidate.source_request.scenario.party[0].pc, request.template.party[0].pc)
+            self.assertEqual(candidate.source_request.scenario.party[0].fate, request.template.party[0].fate)
             self.assertFalse(hasattr(candidate.summary, 'records'))
             self.assertFalse(hasattr(candidate.summary, 'steps'))
             self.assertFalse(hasattr(candidate.summary, 'state'))
@@ -60,8 +60,8 @@ class PcMeleeBalanceIntegrationTests(unittest.TestCase):
             lambda candidate: summarize_pc_melee_simulation(run_pc_melee_simulation_parallel(
                 candidate, workers=1, batch_size=2)))
         self.assertEqual(process, sequential)
-        self.assertEqual(request.template.fate.rating, 3)
-        self.assertEqual(request.template.fate.spends, ())
+        self.assertEqual(request.template.party[0].fate.rating, 3)
+        self.assertEqual(request.template.party[0].fate.spends, ())
 
     def test_failure_after_a_real_completed_candidate_returns_only_contextual_error(self):
         request = source(trials=1)

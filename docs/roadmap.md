@@ -9,10 +9,11 @@
 - M2–M7: ограниченные Minion-сценарии, независимые прогоны, подбор составов и JSON/CLI.
 - M8: один Champion-Wizard/Curse, явные scene facts, opt-in continuations, native журнал, generation и текущий JSON6. Ограниченная веха завершена; [граница и приёмка](m8-completion.md).
 - M9: один книжный PC/Staff или Sword против Minions, Wounds1–10, явный Fate decline, source-bound бой, trials, подбор численности и current JSON1/CLI. [Граница и приёмка ADR-0065](decisions/ADR-0065-first-pc-melee-encounter.md).
+- M10: группа PC в общем owner/clock, отдельные ресурсы/раны, продолжение после частичных потерь, trials/статистика и fixed-party count search в той же PC JSON1 family. [Граница и приёмка ADR-0066](decisions/ADR-0066-pc-party-melee-encounter.md).
 
 ## Последняя законченная функция
 
-[Первый PC-сценарий M9](decisions/ADR-0065-first-pc-melee-encounter.md) завершён целиком: от данных PC и обычного боя до массовой оценки, bounded counts и двух публичных команд. Общий source regression и installed delivery прошли; [примеры](examples/m9/README.md) доступны пользователю.
+[Группа PC M10](decisions/ADR-0066-pc-party-melee-encounter.md) завершена целиком: общий бой и индивидуальные состояния, независимые trials/подтверждённые потери, bounded Minion counts и обновлённые текущие JSON1/CLI. [Примеры](examples/m10/README.md) исполнены реальными командами; адресная проверка всей PC подсистемы и зависимых общих границ закрыта составно. Full/wheel M10 не требовались.
 
 ## M8 завершена
 
@@ -26,7 +27,7 @@
 
 Направление выбрано пользователем 2026-11-04: **один немагический персонаж игрока против numeric Minions**, от заданного боя до массовой оценки и подбора численности. M9 по [ADR-0065](decisions/ADR-0065-first-pc-melee-encounter.md) завершена, включая full source и installed delivery. Это первый книжный PC-срез вместо P1 `wound_limit`; нижеследующие критерии сохраняют конечную границу M9.
 
-Основания в коде: [NpcDefinition](../src/towr/domain/npc_roster_models.py) допускает только Minion/Brute/Champion; [Melee scenario](../src/towr/domain/npc_melee_scenario_models.py) — только Minions. Существующие [TestProfile](../src/towr/domain/test_models.py), [PLAYER injury](../src/towr/domain/injury_models.py) и [Fate kernel](../src/towr/domain/fate_models.py) пригодны для повторного использования, но отдельной книжной PC orchestration ещё нет. Переименование Champion в PC или перенос `wound_limit` из P1 этот разрыв не закрывает.
+Основания в коде: [NpcDefinition](../src/towr/domain/npc_roster_models.py) допускает только Minion/Brute/Champion; [Melee scenario](../src/towr/domain/npc_melee_scenario_models.py) — только Minions. M9 добавила отдельную книжную PC orchestration с [TestProfile](../src/towr/domain/test_models.py), [PLAYER injury](../src/towr/domain/injury_models.py) и [Fate kernel](../src/towr/domain/fate_models.py). PC не подменяется Champion или `wound_limit` из P1.
 
 Граница: готовый PC с явными Characteristics/Skills, Resilience и Staff/Sword, без генерации персонажа; один обычный Melee-вариант, одна Zone, явные Close/awareness/порядок/выбор целей, конечный round budget, немагические Minions без дополнительных Abilities. Пользователь дополнительно выбрал поддержку Wounds1–10; случайный hand/drop, восстановление собственного оружия и Prone через Recover, temporary expiry и next-Test Grim входят в функцию. Treatment, campaign, mounts, общий inventory, все Talents и произвольные тактики сюда не включаются. Обязательная явно выбранная стратегия `DECLINE_OPTIONAL_FATE` сохраняет ресурс и source-bound окна PC.
 
@@ -44,9 +45,17 @@
 
 Пользователь выбрал PC-сценарий; diagnostics остаётся самостоятельной возможностью дальнейшего backlog и не добавляется в M9 автоматически.
 
-## После M8
+## M10 — бой группы PC против Minions
 
-Более широкий spell/Wound/Miscast каталог, другие комбинации и PC-сценарии/группы, общий inventory/spatial/campaign/save-resume и ally removal — отдельный backlog после текущей M9. Приоритеты следующих функций выбираются отдельно; финиш M8/M9 ими автоматически не расширяется.
+Пользователь поручил продолжить рекомендованное направление после M9. [ADR-0066](decisions/ADR-0066-pc-party-melee-encounter.md) закрепляет конечную границу: uniform roster PC, общий бой/clock, индивидуальные Fate/раны/оружие/expiry, явные порядки и приоритеты целей, dynamic outnumbering обеих сторон. Смерть отдельного PC не завершает бой оставшейся группы. Trials сохраняют подтверждённые потери по персонажам; подбор фиксирует всю party и меняет только Minion counts. Текущие PC JSON1/CLI обновляются без поддержки прежней одиночной формы.
+
+Веха завершена и проверена; обязательного остатка в этой границе нет. Фактические результаты и локальные logs находятся в ADR-0066.
+
+Конечные критерии — source-bound party battle, независимые прогоны/потери, aggregate-only подбор, строгий wire и работающие примеры. Оружие, Wounds1–10, self Recover и Fate decline остаются в границе M9; новые тактики, ally Recover, активное Fate и прочие Wounds не добавляются автоматически.
+
+## После M10
+
+Более широкий NPC/spell/Wound/Miscast каталог, другие комбинации и тактики, общий inventory/spatial/campaign/save-resume и ally removal — отдельный backlog после M10. Приоритеты следующих функций выбираются отдельно; финиш M8/M9/M10 ими автоматически не расширяется.
 
 ## Контрольные точки
 

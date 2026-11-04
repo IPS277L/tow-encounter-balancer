@@ -5,12 +5,30 @@ from towr.simulation.pc_melee_models import PcMeleeOutcomeCounts, PcMeleeSimulat
 
 
 @dataclass(frozen=True, slots=True)
+class PcMeleeDefeatCount:
+    """Completed lethal lifecycles observed for one source PC, before any stop."""
+
+    actor_id: str
+    count: int
+
+    def __post_init__(self) -> None:
+        if type(self.actor_id) is not str or not self.actor_id.strip():
+            raise TypeError('PC death count requires a nonempty actor ID')
+        if type(self.count) is not int:
+            raise TypeError('PC death count must be an integer')
+        if self.count < 0:
+            raise ValueError('PC death count must be nonnegative')
+
+
+@dataclass(frozen=True, slots=True)
 class PcMeleeSimulationSummary:
     source_request: PcMeleeSimulationRequest
     outcome_counts: PcMeleeOutcomeCounts
     total_action_count: int
     total_started_round_count: int
     total_completed_round_count: int
+    any_pc_defeated_count: int
+    pc_defeat_counts: tuple[PcMeleeDefeatCount, ...]
 
     def __post_init__(self) -> None:
         if not isinstance(self.source_request, PcMeleeSimulationRequest):
@@ -35,9 +53,32 @@ class PcMeleeSimulationSummary:
             raise ValueError('started rounds contradict outcomes/budget')
         if not limited*budget <= completed <= started or started-completed > self.trials-limited:
             raise ValueError('completed rounds contradict started rounds')
-        terminal = counts.objective_achieved+counts.pc_defeated
-        if not max(completed, terminal+limited*budget) <= self.total_action_count <= (1+len(self.source_request.scenario.enemies))*started:
+        terminal = counts.objective_achieved+counts.party_defeated
+        members = len(self.source_request.scenario.party)
+        if not max(completed, terminal+limited*budget) <= self.total_action_count <= (members+len(self.source_request.scenario.enemies))*started:
             raise ValueError('actions contradict outcomes/rounds/actor count')
+        if type(self.any_pc_defeated_count) is not int:
+            raise TypeError('trials with a confirmed PC death must be an integer')
+        any_death = self.any_pc_defeated_count
+        if not counts.party_defeated <= any_death <= self.trials:
+            raise ValueError('trials with PC deaths contradict party outcomes/denominator')
+        if type(self.pc_defeat_counts) is not tuple:
+            raise TypeError('per-PC death counts must be a canonical tuple')
+        for item in self.pc_defeat_counts:
+            if type(item) is not PcMeleeDefeatCount:
+                raise TypeError('per-PC death counts require typed observations')
+            replace(item)
+            if not counts.party_defeated <= item.count <= any_death:
+                raise ValueError('per-PC death counts contradict party/any-death counts')
+        if tuple(item.actor_id for item in self.pc_defeat_counts) != tuple(
+                member.actor_id for member in self.source_request.scenario.party):
+            raise ValueError('per-PC death counts must cover the full source-ordered party')
+        deaths = sum(item.count for item in self.pc_defeat_counts)
+        if not any_death+counts.party_defeated*(members-1) <= deaths <= (
+                any_death-counts.party_defeated)*(members-1)+counts.party_defeated*members:
+            raise ValueError('any-death count contradicts individual observations')
+        if deaths > self.total_action_count:
+            raise ValueError('individual deaths contradict action/terminal bounds')
 
     @property
     def trials(self) -> int:

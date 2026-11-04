@@ -33,8 +33,8 @@ def invoke(command,raw,*,console=False,cwd=None):
 class PcMeleeCliIntegrationTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.simulation=document()
-        cls.balance=document(balance=True)
+        cls.simulation=document(party_size=2)
+        cls.balance=document(balance=True,party_size=2)
         cls.sim_command=wire.parse_pc_melee_simulation_request(json.dumps(cls.simulation))
         cls.bal_command=wire.parse_pc_melee_balance_request(json.dumps(cls.balance))
         cls.summary=service.execute_pc_melee_simulation(cls.sim_command)
@@ -58,7 +58,7 @@ class PcMeleeCliIntegrationTests(unittest.TestCase):
                         output=json.loads(completed.stdout)
                         validator(output,'result')
                         self.assertEqual(output['request'],raw)
-                        self.assertEqual(output['request'].get('scenario',output['request'].get('template'))['fate']['rating'],3)
+                        self.assertEqual(output['request'].get('scenario',output['request'].get('template'))['party'][0]['fate']['rating'],3)
 
     def test_console_process_preserves_actual_simulation_summary_and_explicit_execution(self):
         raw=deepcopy(self.simulation)
@@ -87,6 +87,13 @@ class PcMeleeCliIntegrationTests(unittest.TestCase):
         completed=invoke('simulate-pc-melee',b'{"request_id":"untrusted","schema_version":"1","n":1.0}')
         self.assertEqual(completed.returncode,2)
         self.assertIsNone(json.loads(completed.stdout)['request_id'])
+        raw=deepcopy(self.simulation)
+        raw['scenario']['party'][1]['pc']['weapon_skill']=True
+        completed=invoke('simulate-pc-melee',raw)
+        self.assertEqual(completed.returncode,2)
+        error=json.loads(completed.stdout)
+        self.assertEqual(error['request_id'],raw['request_id'])
+        self.assertEqual(error['error']['path'],'/scenario/party/1/pc/weapon_skill')
 
     def test_runtime_worker_cause_is_private_and_family_phase_remains_precise(self):
         scripts={
@@ -122,7 +129,7 @@ class PcMeleeCliIntegrationTests(unittest.TestCase):
             sequential.assert_not_called()
             parallel.assert_called_once()
         forged=deepcopy(self.sim_command)
-        object.__setattr__(forged.request.scenario.pc,'armour_bonus',False)
+        object.__setattr__(forged.request.scenario.party[1].pc,'armour_bonus',False)
         self.assertEqual(forged,self.sim_command)
         with patch.object(service,'run_pc_melee_simulation') as sequential,\
                 patch.object(service,'run_pc_melee_simulation_parallel') as parallel:

@@ -15,7 +15,7 @@ from towr.application.pc_melee_balance_models import (
 from towr.balance.pc_melee_assessment import PcMeleeAssessmentStatus, PcMeleeCandidateAssessment
 from towr.balance.ranged_assessment_models import ObjectiveRateWindow
 from towr.simulation.pc_melee_models import PcMeleeOutcomeCounts, PcMeleeSimulationRequest
-from towr.simulation.pc_melee_summary_models import PcMeleeSimulationSummary
+from towr.simulation.pc_melee_summary_models import PcMeleeDefeatCount, PcMeleeSimulationSummary
 
 
 WINDOW = ObjectiveRateWindow(Fraction(1, 4), Fraction(1, 2), Fraction(3, 4))
@@ -39,15 +39,18 @@ def aggregate(source, *, wins=0, defeats=0, unsupported=0):
     started = source.trials*source.scenario.max_rounds
     completed = started-(source.trials-limited)
     return PcMeleeSimulationSummary(source, PcMeleeOutcomeCounts(wins, defeats, limited, unsupported),
-        started, started, completed)
+        started, started, completed, defeats,
+        tuple(PcMeleeDefeatCount(member.actor_id,defeats) for member in source.scenario.party))
 
 
 class PcMeleeBalanceUnitTests(unittest.TestCase):
     def test_source_is_fixed_and_all_orders_are_filtered_without_reordering(self):
         original = make_pc_melee_scenario(enemy_count=3)
         priority = ('minion3', 'minion2', 'minion1')
+        member = original.party[0]
         template = replace(original, enemy_activation_order=('minion2', 'minion3', 'minion1'),
-            target_priority=priority, defeat_decisions=tuple(original.defeat_decision(actor) for actor in priority))
+            party=(replace(member,target_priority=priority,
+                defeat_decisions=tuple(member.defeat_decision(actor) for actor in priority)),))
         source = request(template=template, trials=1, groups=(
             PcMeleeCompositionGroup('a', ('minion3', 'minion1'), 1, 2),
             PcMeleeCompositionGroup('b', ('minion2',), 0, 1)))
@@ -56,10 +59,10 @@ class PcMeleeBalanceUnitTests(unittest.TestCase):
         self.assertEqual(scenario.id, 'pc-melee:counts:1,1')
         self.assertEqual(tuple(enemy.state.actor_id for enemy in scenario.enemies), ('minion2', 'minion3'))
         self.assertEqual(scenario.enemy_activation_order, ('minion2', 'minion3'))
-        self.assertEqual(scenario.target_priority, ('minion3', 'minion2'))
-        self.assertEqual(tuple(item.target_id for item in scenario.defeat_decisions), scenario.target_priority)
-        self.assertIs(scenario.pc, template.pc)
-        self.assertIs(scenario.fate, template.fate)
+        self.assertEqual(scenario.party[0].target_priority, ('minion3', 'minion2'))
+        self.assertEqual(tuple(item.target_id for item in scenario.party[0].defeat_decisions), scenario.party[0].target_priority)
+        self.assertIs(scenario.party[0].pc, template.party[0].pc)
+        self.assertIs(scenario.party[0].fate, template.party[0].fate)
         self.assertEqual((projected.master_seed, projected.trials), (42, 1))
         self.assertIsNot(source.facts, template.facts)
         self.assertEqual(scenario.facts, source.facts)
@@ -259,7 +262,7 @@ class PcMeleeBalanceUnitTests(unittest.TestCase):
         source = PcMeleeSimulationRequest(make_pc_melee_scenario(), 1, 4)
         summary = aggregate(source, wins=2, defeats=1)
         assessment = PcMeleeCandidateAssessment(source, summary, WINDOW)
-        self.assertEqual(assessment.pc_defeated_rate, Fraction(1, 4))
+        self.assertEqual(assessment.party_defeated_rate, Fraction(1, 4))
         self.assertEqual(assessment.round_limit_rate, Fraction(1, 4))
         with self.assertRaises(ValueError):
             PcMeleeCandidateAssessment(replace(source, master_seed=2), summary, WINDOW)

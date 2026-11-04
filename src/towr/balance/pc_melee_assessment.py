@@ -39,8 +39,8 @@ class PcMeleeCandidateAssessment:
         return Fraction(self.summary.outcome_counts.objective_achieved, self.summary.trials)
 
     @property
-    def pc_defeated_rate(self) -> Fraction:
-        return Fraction(self.summary.outcome_counts.pc_defeated, self.summary.trials)
+    def party_defeated_rate(self) -> Fraction:
+        return Fraction(self.summary.outcome_counts.party_defeated, self.summary.trials)
 
     @property
     def round_limit_rate(self) -> Fraction:

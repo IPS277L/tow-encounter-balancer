@@ -3,7 +3,7 @@ from copy import deepcopy
 from dataclasses import replace
 import unittest
 
-from tests.support.pc_melee_fixtures import make_pc_melee_scenario
+from tests.support.pc_melee_fixtures import make_pc_melee_scenario, replace_pc_melee_member
 from tests.support.pc_melee_scripted import ScriptedD10, blind_expiry_script, first_wound_script, run_first_wound
 from towr.domain.condition_models import Condition
 from towr.domain.pc_melee_models import PcMeleeWeapon
@@ -47,7 +47,7 @@ class PcMeleeExecutionTests(unittest.TestCase):
         for steps in (result.steps[1:],result.steps[:2]+result.steps[3:],tuple(reversed(result.steps))):
             with self.assertRaises(ValueError):
                 replace(result,steps=steps)
-        stale = replace(step.source,weapon_hand=None)
+        stale = replace(step.source,party=(replace(step.source.party[0],weapon_hand=None),))
         with self.assertRaises(ValueError):
             apply_pc_melee_step(stale,step)
 
@@ -71,7 +71,7 @@ class PcMeleeExecutionTests(unittest.TestCase):
     def test_equal_raw_weapon_hand_and_separate_damage_spec_leaf_are_refused(self):
         result = win_result()
         forged = deepcopy(result)
-        object.__setattr__(forged.steps[-1].state,'weapon_hand','left')
+        object.__setattr__(forged.steps[-1].state.party[0],'weapon_hand','left')
         with self.assertRaises(TypeError):
             replace(forged)
         step = next(s for s in result.steps if isinstance(s.proof,PcAttackProof))
@@ -96,7 +96,7 @@ class PcMeleeExecutionTests(unittest.TestCase):
             with self.subTest(field=field), self.assertRaises(TypeError):
                 PcMeleeStep(step.source,proof)
         forged = deepcopy(result)
-        object.__setattr__(forged.steps[-1].state.pc_injury,'dead',0)
+        object.__setattr__(forged.steps[-1].state.party[0].injury,'dead',0)
         with self.assertRaises(TypeError):
             replace(forged)
 
@@ -137,7 +137,7 @@ class PcMeleeExecutionTests(unittest.TestCase):
         result = run_first_wound(1)
         step = next(s for s in result.steps if isinstance(s.proof,PcWoundCompletionProof))
         proof = deepcopy(step.proof)
-        old_daily = step.source.daily_wounds
+        old_daily = step.source.party[0].daily_wounds
         object.__setattr__(proof.completion.daily_registration,'state',old_daily)
         object.__setattr__(proof.completion,'daily_wounds',old_daily)
         # The outer K1 object alone accepts these equal nested fields.
@@ -148,12 +148,12 @@ class PcMeleeExecutionTests(unittest.TestCase):
     def test_nested_recover_cannot_remove_ongoing_crushed_rib_drained(self):
         result = mixed_prone_drained_recover()
         step = next(s for s in result.steps if isinstance(s.proof,PcRecoverProof))
-        self.assertTrue(step.source.pc_injury.conditions.has(Condition.PRONE))
-        self.assertTrue(step.source.pc_injury.conditions.has(Condition.DRAINED))
-        self.assertFalse(step.state.pc_injury.conditions.has(Condition.PRONE))
-        self.assertTrue(step.state.pc_injury.conditions.has(Condition.DRAINED))
+        self.assertTrue(step.source.party[0].injury.conditions.has(Condition.PRONE))
+        self.assertTrue(step.source.party[0].injury.conditions.has(Condition.DRAINED))
+        self.assertFalse(step.state.party[0].injury.conditions.has(Condition.PRONE))
+        self.assertTrue(step.state.party[0].injury.conditions.has(Condition.DRAINED))
         proof = deepcopy(step.proof)
-        before = step.source.pc_injury.conditions
+        before = step.source.party[0].injury.conditions
         removal = RecoverConditionChange('pc',before,
             before.without_condition(Condition.PRONE).without_condition(Condition.DRAINED),
             (Condition.PRONE,Condition.DRAINED))
@@ -168,13 +168,13 @@ class PcMeleeExecutionTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             PcMeleeStep(step.source,replace(step.proof,fate_decline=replace(step.proof.fate_decline,source_id='foreign')))
         forged = deepcopy(result)
-        object.__setattr__(forged.steps[-1].state.fate,'rating',True)
+        object.__setattr__(forged.steps[-1].state.party[0].fate,'rating',True)
         with self.assertRaises((TypeError,ValueError)):
             replace(forged)
 
     def test_natural_one_die_uses_its_skill_and_sword_bonus_obeys_pc_cap(self):
         source = make_pc_melee_scenario(weapon=PcMeleeWeapon.SWORD,max_rounds=1)
-        source = replace(source,pc=replace(source.pc,weapon_skill=1,strength=1,toughness=10))
+        source = replace_pc_melee_member(source,'pc',pc=replace(source.party[0].pc,weapon_skill=1,strength=1,toughness=10))
         rng = ScriptedD10([5,1,10, 1,1,5,5])
         result = run_pc_melee_scenario(source,rng)
         rng.assert_exhausted()

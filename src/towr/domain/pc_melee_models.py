@@ -117,57 +117,30 @@ class PcMeleeFacts:
 
 
 @dataclass(frozen=True, slots=True)
-class PcMeleeScenario:
-    id: str
+class PcMeleeParticipant:
     actor_id: str
     pc: PcMeleeDefinition
     fate: FateSessionState
-    day_id: str
-    enemies: tuple[NpcParticipantSnapshot, ...]
-    facts: PcMeleeFacts
     policy: PcMeleePolicy
     fate_policy: PcFatePolicy
     random_hand_policy: PcRandomHandPolicy
     initial_weapon_hand: PcWeaponHand
-    enemy_activation_order: tuple[str, ...]
     target_priority: tuple[str, ...]
     defeat_decisions: tuple[MinionDefeatDecision, ...]
-    max_rounds: int
 
     def __post_init__(self) -> None:
-        for name in ("id", "actor_id", "day_id"):
-            _identifier(getattr(self, name), name)
+        _identifier(self.actor_id, "PC actor")
         _typed(self.pc, PcMeleeDefinition, "PC definition")
         replace(self.pc)
-        _typed(self.facts, PcMeleeFacts, "PC melee facts")
-        replace(self.facts)
         _readmit_fate(self.fate, self.actor_id)
-        for name, cls in (
-            ("policy", PcMeleePolicy), ("fate_policy", PcFatePolicy),
-            ("random_hand_policy", PcRandomHandPolicy), ("initial_weapon_hand", PcWeaponHand),
-        ):
+        for name, cls in (("policy", PcMeleePolicy), ("fate_policy", PcFatePolicy),
+                          ("random_hand_policy", PcRandomHandPolicy), ("initial_weapon_hand", PcWeaponHand)):
             _typed(getattr(self, name), cls, name)
-        _integer(self.max_rounds, "max rounds", minimum=1)
-        enemies = _ordered(self.enemies, "enemies")
-        if not enemies:
-            raise ValueError("PC melee requires at least one Minion")
-        definitions = {}
-        for enemy in enemies:
-            _readmit_minion(enemy)
-            definition = enemy.definition
-            if definition.id in definitions and definitions[definition.id] != definition:
-                raise ValueError("conflicting Minion definitions with the same ID")
-            definitions[definition.id] = definition
-        ids = tuple(enemy.state.actor_id for enemy in enemies)
-        if len(set(ids)) != len(ids) or self.actor_id in ids:
-            raise ValueError("PC and Minion actor IDs must be distinct")
-        for name in ("enemy_activation_order", "target_priority"):
-            ordered = _ordered(getattr(self, name), name)
-            for actor_id in ordered:
-                _identifier(actor_id, name)
-            if len(set(ordered)) != len(ordered) or set(ordered) != set(ids):
-                raise ValueError(f"{name} must contain every Minion exactly once")
-            object.__setattr__(self, name, ordered)
+        targets = _ordered(self.target_priority, "PC target priority")
+        for target in targets:
+            _identifier(target, "PC target")
+        if not targets or len(set(targets)) != len(targets):
+            raise ValueError("PC target priority must be nonempty and unique")
         decisions = _ordered(self.defeat_decisions, "defeat decisions")
         for decision in decisions:
             _typed(decision, MinionDefeatDecision, "defeat decision")
@@ -177,18 +150,11 @@ class PcMeleeScenario:
             _typed(decision.gm_approved, bool, "defeat approval")
             replace(decision)
             if decision.attacker_id != self.actor_id or not decision.gm_approved:
-                raise ValueError("defeat decisions require this PC and explicit GM approval")
-        if tuple(item.target_id for item in decisions) != self.target_priority:
+                raise ValueError("defeat decisions require their PC and explicit GM approval")
+        if tuple(item.target_id for item in decisions) != targets:
             raise ValueError("defeat decisions must follow the full PC target priority")
-        object.__setattr__(self, "enemies", enemies)
+        object.__setattr__(self, "target_priority", targets)
         object.__setattr__(self, "defeat_decisions", decisions)
-
-    def enemy(self, actor_id: str) -> NpcParticipantSnapshot:
-        _identifier(actor_id, "enemy actor")
-        for enemy in self.enemies:
-            if enemy.state.actor_id == actor_id:
-                return enemy
-        raise ValueError("unknown PC melee enemy")
 
     def defeat_decision(self, target_id: str) -> MinionDefeatDecision:
         _identifier(target_id, "defeat target")
@@ -198,10 +164,82 @@ class PcMeleeScenario:
         raise ValueError("unknown PC melee defeat target")
 
 
+@dataclass(frozen=True, slots=True)
+class PcMeleeScenario:
+    id: str
+    party: tuple[PcMeleeParticipant, ...]
+    day_id: str
+    enemies: tuple[NpcParticipantSnapshot, ...]
+    facts: PcMeleeFacts
+    pc_activation_order: tuple[str, ...]
+    enemy_activation_order: tuple[str, ...]
+    enemy_target_priority: tuple[str, ...]
+    max_rounds: int
+
+    def __post_init__(self) -> None:
+        for name in ("id", "day_id"):
+            _identifier(getattr(self, name), name)
+        _typed(self.facts, PcMeleeFacts, "PC melee facts")
+        replace(self.facts)
+        _integer(self.max_rounds, "max rounds", minimum=1)
+        party = _ordered(self.party, "party")
+        enemies = _ordered(self.enemies, "enemies")
+        if not party or not enemies:
+            raise ValueError("PC melee requires a nonempty party and Minions")
+        pc_definitions = {}
+        for member in party:
+            _typed(member, PcMeleeParticipant, "PC participant")
+            _canonical_tuple(member.target_priority, "PC target priority")
+            _canonical_tuple(member.defeat_decisions, "PC defeat decisions")
+            replace(member)
+            if member.pc.id in pc_definitions and pc_definitions[member.pc.id] != member.pc:
+                raise ValueError("conflicting PC definitions with the same ID")
+            pc_definitions[member.pc.id] = member.pc
+        definitions = {}
+        for enemy in enemies:
+            _readmit_minion(enemy)
+            definition = enemy.definition
+            if definition.id in definitions and definitions[definition.id] != definition:
+                raise ValueError("conflicting Minion definitions with the same ID")
+            definitions[definition.id] = definition
+        pc_ids = tuple(member.actor_id for member in party)
+        enemy_ids = tuple(enemy.state.actor_id for enemy in enemies)
+        all_ids = (*pc_ids, *enemy_ids)
+        if len(set(all_ids)) != len(all_ids):
+            raise ValueError("PC and Minion actor IDs must be distinct")
+        for name, ids in (("pc_activation_order", pc_ids),
+                          ("enemy_activation_order", enemy_ids), ("enemy_target_priority", pc_ids)):
+            ordered = _ordered(getattr(self, name), name)
+            for actor_id in ordered:
+                _identifier(actor_id, name)
+            if len(set(ordered)) != len(ordered) or set(ordered) != set(ids):
+                raise ValueError(f"{name} must contain every member of its side exactly once")
+            object.__setattr__(self, name, ordered)
+        for member in party:
+            if set(member.target_priority) != set(enemy_ids):
+                raise ValueError("each PC target priority must include every Minion exactly once")
+        object.__setattr__(self, "party", party)
+        object.__setattr__(self, "enemies", enemies)
+
+    def participant(self, actor_id: str) -> PcMeleeParticipant:
+        _identifier(actor_id, "PC actor")
+        for member in self.party:
+            if member.actor_id == actor_id:
+                return member
+        raise ValueError("unknown PC melee participant")
+
+    def enemy(self, actor_id: str) -> NpcParticipantSnapshot:
+        _identifier(actor_id, "enemy actor")
+        for enemy in self.enemies:
+            if enemy.state.actor_id == actor_id:
+                return enemy
+        raise ValueError("unknown PC melee enemy")
+
+
 def validate_pc_melee_scenario_admission(scenario: PcMeleeScenario) -> None:
     """Re-admit canonical full input before execution, including nested values."""
     _typed(scenario, PcMeleeScenario, "PC melee scenario")
-    for name in ("enemies", "enemy_activation_order", "target_priority", "defeat_decisions"):
+    for name in ("party", "enemies", "pc_activation_order", "enemy_activation_order", "enemy_target_priority"):
         _canonical_tuple(getattr(scenario, name), name)
     replace(scenario)
 

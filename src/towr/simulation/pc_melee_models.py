@@ -55,6 +55,7 @@ class PcMeleeTrialRecord:
     executed_actions: int
     started_rounds: int
     completed_rounds: int
+    defeated_pc_ids: tuple[str, ...]
 
     def __post_init__(self) -> None:
         validate_pc_melee_scenario_admission(self.source_scenario)
@@ -75,19 +76,28 @@ class PcMeleeTrialRecord:
             raise ValueError('started rounds must fit the source budget')
         if not 0 <= self.completed_rounds <= self.started_rounds or self.started_rounds-self.completed_rounds > 1:
             raise ValueError('completed rounds contradict started rounds')
-        actors = 1 + len(self.source_scenario.enemies)
+        actors = len(self.source_scenario.party) + len(self.source_scenario.enemies)
         if not self.completed_rounds <= self.executed_actions <= actors*self.started_rounds:
             raise ValueError('actions contradict the round/actor budget')
         if self.outcome is PcMeleeOutcome.ROUND_LIMIT and self.completed_rounds != self.source_scenario.max_rounds:
             raise ValueError('round limit must complete the full source budget')
-        if self.outcome in (PcMeleeOutcome.OBJECTIVE_ACHIEVED, PcMeleeOutcome.PC_DEFEATED) and not self.executed_actions:
+        if self.outcome in (PcMeleeOutcome.OBJECTIVE_ACHIEVED, PcMeleeOutcome.PARTY_DEFEATED) and not self.executed_actions:
             raise ValueError('terminal defeat requires an executed action')
+        if type(self.defeated_pc_ids) is not tuple or any(type(actor) is not str for actor in self.defeated_pc_ids):
+            raise TypeError('confirmed PC deaths require an ordered tuple of actor IDs')
+        ids = tuple(member.actor_id for member in self.source_scenario.party)
+        if tuple(actor for actor in ids if actor in self.defeated_pc_ids) != self.defeated_pc_ids:
+            raise ValueError('confirmed PC deaths must be a unique source-ordered party subset')
+        if (self.defeated_pc_ids == ids) != (self.outcome is PcMeleeOutcome.PARTY_DEFEATED):
+            raise ValueError('all PC deaths must agree with the party-defeated outcome')
+        if len(self.defeated_pc_ids) > self.executed_actions:
+            raise ValueError('confirmed deaths cannot exceed executed ordinary attacks')
 
 
 @dataclass(frozen=True, slots=True)
 class PcMeleeOutcomeCounts:
     objective_achieved: int
-    pc_defeated: int
+    party_defeated: int
     round_limit: int
     unsupported_path: int
 
@@ -128,7 +138,7 @@ class PcMeleeSimulationResult:
     def outcome_counts(self) -> PcMeleeOutcomeCounts:
         counts = Counter(record.outcome for record in self.records)
         return PcMeleeOutcomeCounts(*(counts[outcome] for outcome in (
-            PcMeleeOutcome.OBJECTIVE_ACHIEVED, PcMeleeOutcome.PC_DEFEATED,
+            PcMeleeOutcome.OBJECTIVE_ACHIEVED, PcMeleeOutcome.PARTY_DEFEATED,
             PcMeleeOutcome.ROUND_LIMIT, PcMeleeOutcome.UNSUPPORTED_PATH)))
 
     @property

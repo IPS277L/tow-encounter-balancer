@@ -603,14 +603,12 @@
         "id": {
           "$ref": "urn:towr:pc-melee:common:1#/$defs/identifier"
         },
-        "actor_id": {
-          "$ref": "urn:towr:pc-melee:common:1#/$defs/identifier"
-        },
-        "pc": {
-          "$ref": "urn:towr:pc-melee:common:1#/$defs/pc"
-        },
-        "fate": {
-          "$ref": "urn:towr:pc-melee:common:1#/$defs/fate"
+        "party": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:towr:pc-melee:common:1#/$defs/participant"
+          },
+          "minItems": 1
         },
         "day_id": {
           "$ref": "urn:towr:pc-melee:common:1#/$defs/identifier"
@@ -625,20 +623,13 @@
         "facts": {
           "$ref": "urn:towr:pc-melee:common:1#/$defs/facts"
         },
-        "policy": {
-          "const": "attack_or_recover_self"
-        },
-        "fate_policy": {
-          "const": "decline_optional_fate"
-        },
-        "random_hand_policy": {
-          "const": "d10_low_left_high_right"
-        },
-        "initial_weapon_hand": {
-          "enum": [
-            "left",
-            "right"
-          ]
+        "pc_activation_order": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:towr:pc-melee:common:1#/$defs/identifier"
+          },
+          "minItems": 1,
+          "uniqueItems": true
         },
         "enemy_activation_order": {
           "type": "array",
@@ -648,20 +639,13 @@
           "minItems": 1,
           "uniqueItems": true
         },
-        "target_priority": {
+        "enemy_target_priority": {
           "type": "array",
           "items": {
             "$ref": "urn:towr:pc-melee:common:1#/$defs/identifier"
           },
           "minItems": 1,
           "uniqueItems": true
-        },
-        "defeat_decisions": {
-          "type": "array",
-          "items": {
-            "$ref": "urn:towr:pc-melee:common:1#/$defs/defeat"
-          },
-          "minItems": 1
         },
         "max_rounds": {
           "type": "integer",
@@ -670,19 +654,13 @@
       },
       "required": [
         "id",
-        "actor_id",
-        "pc",
-        "fate",
+        "party",
         "day_id",
         "enemies",
         "facts",
-        "policy",
-        "fate_policy",
-        "random_hand_policy",
-        "initial_weapon_hand",
+        "pc_activation_order",
         "enemy_activation_order",
-        "target_priority",
-        "defeat_decisions",
+        "enemy_target_priority",
         "max_rounds"
       ],
       "additionalProperties": false
@@ -749,7 +727,7 @@
           "type": "integer",
           "minimum": 0
         },
-        "pc_defeated": {
+        "party_defeated": {
           "type": "integer",
           "minimum": 0
         },
@@ -764,7 +742,7 @@
       },
       "required": [
         "objective_achieved",
-        "pc_defeated",
+        "party_defeated",
         "round_limit",
         "unsupported_path"
       ],
@@ -791,6 +769,17 @@
         "total_completed_round_count": {
           "type": "integer",
           "minimum": 0
+        },
+        "any_pc_defeated_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "pc_defeat_counts": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:towr:pc-melee:common:1#/$defs/pc_defeat_count"
+          },
+          "minItems": 1
         }
       },
       "required": [
@@ -798,7 +787,9 @@
         "outcome_counts",
         "total_action_count",
         "total_started_round_count",
-        "total_completed_round_count"
+        "total_completed_round_count",
+        "any_pc_defeated_count",
+        "pc_defeat_counts"
       ],
       "additionalProperties": false
     },
@@ -817,7 +808,7 @@
         "objective_achieved_rate": {
           "$ref": "urn:towr:pc-melee:common:1#/$defs/rational"
         },
-        "pc_defeated_rate": {
+        "party_defeated_rate": {
           "$ref": "urn:towr:pc-melee:common:1#/$defs/rational"
         },
         "round_limit_rate": {
@@ -837,7 +828,7 @@
         "status",
         "window",
         "objective_achieved_rate",
-        "pc_defeated_rate",
+        "party_defeated_rate",
         "round_limit_rate",
         "unsupported_path_rate",
         "window_match"
@@ -892,6 +883,79 @@
         "request",
         "summary",
         "assessment"
+      ],
+      "additionalProperties": false
+    },
+    "participant": {
+      "type": "object",
+      "properties": {
+        "actor_id": {
+          "$ref": "urn:towr:pc-melee:common:1#/$defs/identifier"
+        },
+        "pc": {
+          "$ref": "urn:towr:pc-melee:common:1#/$defs/pc"
+        },
+        "fate": {
+          "$ref": "urn:towr:pc-melee:common:1#/$defs/fate"
+        },
+        "policy": {
+          "const": "attack_or_recover_self"
+        },
+        "fate_policy": {
+          "const": "decline_optional_fate"
+        },
+        "random_hand_policy": {
+          "const": "d10_low_left_high_right"
+        },
+        "initial_weapon_hand": {
+          "enum": [
+            "left",
+            "right"
+          ]
+        },
+        "target_priority": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:towr:pc-melee:common:1#/$defs/identifier"
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "defeat_decisions": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:towr:pc-melee:common:1#/$defs/defeat"
+          },
+          "minItems": 1
+        }
+      },
+      "required": [
+        "actor_id",
+        "pc",
+        "fate",
+        "policy",
+        "fate_policy",
+        "random_hand_policy",
+        "initial_weapon_hand",
+        "target_priority",
+        "defeat_decisions"
+      ],
+      "additionalProperties": false
+    },
+    "pc_defeat_count": {
+      "type": "object",
+      "properties": {
+        "actor_id": {
+          "$ref": "urn:towr:pc-melee:common:1#/$defs/identifier"
+        },
+        "count": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "actor_id",
+        "count"
       ],
       "additionalProperties": false
     }

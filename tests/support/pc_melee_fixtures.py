@@ -9,7 +9,7 @@ from towr.domain.npc_roster_models import (
 )
 from towr.domain.pc_melee_models import (
     PcFatePolicy, PcMeleeDefinition, PcMeleeFacts, PcMeleePolicy, PcMeleeScenario,
-    PcMeleeWeapon, PcRandomHandPolicy, PcWeaponHand,
+    PcMeleeWeapon, PcRandomHandPolicy, PcWeaponHand, PcMeleeParticipant,
 )
 from towr.domain.ranged_weapon_profiles import RangedWeaponHands, RangedWeaponRange
 from towr.domain.resolution_models import TargetInjuryPolicy
@@ -38,10 +38,35 @@ def make_pc_melee_scenario(*, weapon: PcMeleeWeapon = PcMeleeWeapon.STAFF,
             ProfileInjuryState(0, 1), (attack.id,), definition.resilience, True, False)
         enemies.append(NpcParticipantSnapshot(definition, state))
     ids = tuple(enemy.state.actor_id for enemy in enemies)
-    return PcMeleeScenario("pc-melee", "pc", pc, FateSessionState("session", "pc", 3, 3),
-        "day", tuple(enemies), PcMeleeFacts("arena", True, True, True, True, True,
-            True, True, True, True, False), PcMeleePolicy.ATTACK_OR_RECOVER_SELF,
-        PcFatePolicy.DECLINE_OPTIONAL_FATE, PcRandomHandPolicy.D10_LOW_LEFT_HIGH_RIGHT,
-        PcWeaponHand.LEFT, ids, ids,
-        tuple(MinionDefeatDecision("pc", target, NpcDefeatDisposition.KNOCKED_OUT, True)
-            for target in ids), max_rounds)
+    member = PcMeleeParticipant("pc", pc, FateSessionState("session", "pc", 3, 3),
+        PcMeleePolicy.ATTACK_OR_RECOVER_SELF, PcFatePolicy.DECLINE_OPTIONAL_FATE,
+        PcRandomHandPolicy.D10_LOW_LEFT_HIGH_RIGHT, PcWeaponHand.LEFT, ids,
+        tuple(MinionDefeatDecision("pc", target, NpcDefeatDisposition.KNOCKED_OUT, True) for target in ids))
+    return PcMeleeScenario("pc-melee", (member,), "day", tuple(enemies),
+        PcMeleeFacts("arena", True, True, True, True, True, True, True, True, True, False),
+        ("pc",), ids, ("pc",), max_rounds)
+
+
+def make_pc_melee_party_scenario(*, pc_count: int = 2, enemy_count: int = 2,
+                                max_rounds: int = 3) -> PcMeleeScenario:
+    """Fresh independent PC bodies with authored identities and a shared scene."""
+    from dataclasses import replace
+    if type(pc_count) is not int or pc_count < 1:
+        raise ValueError("pc_count must be a positive integer")
+    source = make_pc_melee_scenario(enemy_count=enemy_count, max_rounds=max_rounds)
+    base = source.party[0]
+    party = []
+    for index in range(pc_count):
+        actor = f"pc{index + 1}"
+        party.append(replace(base, actor_id=actor, pc=replace(base.pc, id=f"pc-profile{index + 1}"),
+            fate=replace(base.fate, actor_id=actor),
+            defeat_decisions=tuple(replace(d, attacker_id=actor) for d in base.defeat_decisions)))
+    ids = tuple(m.actor_id for m in party)
+    return replace(source, party=tuple(party), pc_activation_order=ids, enemy_target_priority=ids)
+
+
+def replace_pc_melee_member(source: PcMeleeScenario, actor_id: str, **changes) -> PcMeleeScenario:
+    """Replace an explicit member while preserving the independent party source."""
+    from dataclasses import replace
+    source.participant(actor_id)
+    return replace(source, party=tuple(replace(m, **changes) if m.actor_id == actor_id else m for m in source.party))

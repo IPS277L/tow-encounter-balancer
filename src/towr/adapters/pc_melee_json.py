@@ -133,7 +133,9 @@ def _summary(summary: PcMeleeSimulationSummary) -> dict:
     return {"trials": summary.trials, "outcome_counts": asdict(summary.outcome_counts),
         "total_action_count": summary.total_action_count,
         "total_started_round_count": summary.total_started_round_count,
-        "total_completed_round_count": summary.total_completed_round_count}
+        "total_completed_round_count": summary.total_completed_round_count,
+        "any_pc_defeated_count": summary.any_pc_defeated_count,
+        "pc_defeat_counts": [asdict(count) for count in summary.pc_defeat_counts]}
 
 
 def encode_pc_melee_simulation_result(command: PcMeleeSimulationCommand,
@@ -173,7 +175,7 @@ def encode_pc_melee_balance_result(command: PcMeleeBalanceCommand, result: PcMel
             "summary": _summary(candidate.summary),
             "assessment": {"status": assessment.status.value, "window": _window(assessment.window),
                 **{name: _fraction(getattr(assessment, name)) for name in (
-                    "objective_achieved_rate", "pc_defeated_rate", "round_limit_rate", "unsupported_path_rate")},
+                    "objective_achieved_rate", "party_defeated_rate", "round_limit_rate", "unsupported_path_rate")},
                 "window_match": assessment.window_match}})
     document = {"schema_version": "1", "kind": "pc_melee_balance_result", "request": source,
         "seed_scheme": SEED_SCHEME, "runtime": _runtime(), "candidate_count": result.candidate_count,

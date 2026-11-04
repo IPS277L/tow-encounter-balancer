@@ -38,7 +38,7 @@ class PcMeleeSimulationIntegrationTests(unittest.TestCase):
     def test_four_actual_outcomes_share_full_source_fresh_rng_and_all_trial_denominator(self):
         result=self.sequential
         self.assertEqual(tuple(record.outcome for record in result.records),
-            (Outcome.OBJECTIVE_ACHIEVED,Outcome.ROUND_LIMIT,Outcome.UNSUPPORTED_PATH,Outcome.PC_DEFEATED))
+            (Outcome.OBJECTIVE_ACHIEVED,Outcome.ROUND_LIMIT,Outcome.UNSUPPORTED_PATH,Outcome.PARTY_DEFEATED))
         self.assertEqual(result.outcome_counts,PcMeleeOutcomeCounts(1,1,1,1))
         self.assertEqual((result.total_action_count,result.total_started_round_count,
             result.total_completed_round_count),(40,16,13))

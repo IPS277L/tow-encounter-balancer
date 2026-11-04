@@ -10,13 +10,15 @@ from towr.simulation.pc_melee_models import (
     PcMeleeTrialRecord, pc_melee_trial_seed,
 )
 from towr.simulation.pc_melee_summary import summarize_pc_melee_simulation
-from towr.simulation.pc_melee_summary_models import PcMeleeSimulationSummary
+from towr.simulation.pc_melee_summary_models import PcMeleeDefeatCount, PcMeleeSimulationSummary
 
 
 def record(request, index, outcome=Outcome.ROUND_LIMIT):
     return PcMeleeTrialRecord(request.scenario, index, request.seed_for(index), outcome,
         2 if outcome is Outcome.ROUND_LIMIT else 1, 1,
-        1 if outcome is Outcome.ROUND_LIMIT else 0)
+        1 if outcome is Outcome.ROUND_LIMIT else 0,
+        tuple(member.actor_id for member in request.scenario.party)
+        if outcome is Outcome.PARTY_DEFEATED else ())
 
 
 class PcMeleeSimulationModelTests(unittest.TestCase):
@@ -50,7 +52,7 @@ class PcMeleeSimulationModelTests(unittest.TestCase):
                 self.request.seed_for(value)
 
     def test_complete_four_outcomes_keep_unsupported_in_the_denominator(self):
-        outcomes=(Outcome.OBJECTIVE_ACHIEVED,Outcome.PC_DEFEATED,Outcome.ROUND_LIMIT,Outcome.UNSUPPORTED_PATH)
+        outcomes=(Outcome.OBJECTIVE_ACHIEVED,Outcome.PARTY_DEFEATED,Outcome.ROUND_LIMIT,Outcome.UNSUPPORTED_PATH)
         records=tuple(record(self.request,index,outcome) for index,outcome in enumerate(outcomes))
         result=PcMeleeSimulationResult(self.request,records[::-1])
         self.assertEqual(result.records,records)
@@ -83,12 +85,13 @@ class PcMeleeSimulationModelTests(unittest.TestCase):
             replace(original,outcome='round_limit')
         with self.assertRaises(TypeError):
             replace(original,executed_actions=True)
-        terminal=record(self.request,0,Outcome.PC_DEFEATED)
+        terminal=record(self.request,0,Outcome.PARTY_DEFEATED)
         with self.assertRaises(ValueError):
             replace(terminal,executed_actions=0)
 
     def test_summary_arithmetic_refuses_filtered_trials_and_false_round_limit(self):
-        summary=PcMeleeSimulationSummary(self.request,PcMeleeOutcomeCounts(1,1,1,1),5,4,1)
+        summary=PcMeleeSimulationSummary(self.request,PcMeleeOutcomeCounts(1,1,1,1),5,4,1,
+            1,(PcMeleeDefeatCount('pc',1),))
         for changes in ({'outcome_counts':PcMeleeOutcomeCounts(1,1,1,0)},
                         {'total_started_round_count':3},{'total_completed_round_count':0},
                         {'total_completed_round_count':5},{'total_action_count':9}):
@@ -99,7 +102,7 @@ class PcMeleeSimulationModelTests(unittest.TestCase):
 
     def test_deep_readmission_catches_equal_bool_source_and_record_corruption(self):
         forged=deepcopy(self.request)
-        object.__setattr__(forged.scenario.pc,'armour_bonus',False)
+        object.__setattr__(forged.scenario.party[0].pc,'armour_bonus',False)
         self.assertEqual(forged,self.request)
         with self.assertRaises(TypeError):
             replace(forged)

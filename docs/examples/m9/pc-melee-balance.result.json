@@ -8,32 +8,65 @@
     "ruleset": "towr-pg1.4-gmg1.1",
     "template": {
       "id": "pc-melee",
-      "actor_id": "pc",
-      "pc": {
-        "id": "pc-profile",
-        "weapon_skill": 4,
-        "strength": 4,
-        "toughness": 4,
-        "agility": 4,
-        "melee": 5,
-        "defence": 6,
-        "athletics": 4,
-        "endurance": 5,
-        "weapon": "sword",
-        "armour_bonus": 0
-      },
-      "fate": {
-        "session_id": "session",
-        "actor_id": "pc",
-        "rating": 3,
-        "session_spend_limit": 3,
-        "spends": [],
-        "has_lucky": false,
-        "refreshes": [],
-        "burns": [],
-        "resource_event_ids": [],
-        "rule_id": "RULE-FATE-001:session-resource"
-      },
+      "party": [
+        {
+          "actor_id": "pc",
+          "pc": {
+            "id": "pc-profile",
+            "weapon_skill": 4,
+            "strength": 4,
+            "toughness": 4,
+            "agility": 4,
+            "melee": 5,
+            "defence": 6,
+            "athletics": 4,
+            "endurance": 5,
+            "weapon": "sword",
+            "armour_bonus": 0
+          },
+          "fate": {
+            "session_id": "session",
+            "actor_id": "pc",
+            "rating": 3,
+            "session_spend_limit": 3,
+            "spends": [],
+            "has_lucky": false,
+            "refreshes": [],
+            "burns": [],
+            "resource_event_ids": [],
+            "rule_id": "RULE-FATE-001:session-resource"
+          },
+          "policy": "attack_or_recover_self",
+          "fate_policy": "decline_optional_fate",
+          "random_hand_policy": "d10_low_left_high_right",
+          "initial_weapon_hand": "left",
+          "target_priority": [
+            "minion1",
+            "minion2",
+            "minion3"
+          ],
+          "defeat_decisions": [
+            {
+              "attacker_id": "pc",
+              "target_id": "minion1",
+              "disposition": "knocked_out",
+              "gm_approved": true
+            },
+            {
+              "attacker_id": "pc",
+              "target_id": "minion2",
+              "disposition": "knocked_out",
+              "gm_approved": true
+            },
+            {
+              "attacker_id": "pc",
+              "target_id": "minion3",
+              "disposition": "knocked_out",
+              "gm_approved": true
+            }
+          ]
+        }
+      ],
       "day_id": "day",
       "enemies": [
         {
@@ -149,39 +182,16 @@
         "outnumbering_bonus_approved": true,
         "can_leave_zone": false
       },
-      "policy": "attack_or_recover_self",
-      "fate_policy": "decline_optional_fate",
-      "random_hand_policy": "d10_low_left_high_right",
-      "initial_weapon_hand": "left",
+      "pc_activation_order": [
+        "pc"
+      ],
       "enemy_activation_order": [
         "minion1",
         "minion2",
         "minion3"
       ],
-      "target_priority": [
-        "minion1",
-        "minion2",
-        "minion3"
-      ],
-      "defeat_decisions": [
-        {
-          "attacker_id": "pc",
-          "target_id": "minion1",
-          "disposition": "knocked_out",
-          "gm_approved": true
-        },
-        {
-          "attacker_id": "pc",
-          "target_id": "minion2",
-          "disposition": "knocked_out",
-          "gm_approved": true
-        },
-        {
-          "attacker_id": "pc",
-          "target_id": "minion3",
-          "disposition": "knocked_out",
-          "gm_approved": true
-        }
+      "enemy_target_priority": [
+        "pc"
       ],
       "max_rounds": 4
     },
@@ -258,32 +268,51 @@
         "trials": 8,
         "scenario": {
           "id": "pc-melee:counts:1",
-          "actor_id": "pc",
-          "pc": {
-            "id": "pc-profile",
-            "weapon_skill": 4,
-            "strength": 4,
-            "toughness": 4,
-            "agility": 4,
-            "melee": 5,
-            "defence": 6,
-            "athletics": 4,
-            "endurance": 5,
-            "weapon": "sword",
-            "armour_bonus": 0
-          },
-          "fate": {
-            "session_id": "session",
-            "actor_id": "pc",
-            "rating": 3,
-            "session_spend_limit": 3,
-            "spends": [],
-            "has_lucky": false,
-            "refreshes": [],
-            "burns": [],
-            "resource_event_ids": [],
-            "rule_id": "RULE-FATE-001:session-resource"
-          },
+          "party": [
+            {
+              "actor_id": "pc",
+              "pc": {
+                "id": "pc-profile",
+                "weapon_skill": 4,
+                "strength": 4,
+                "toughness": 4,
+                "agility": 4,
+                "melee": 5,
+                "defence": 6,
+                "athletics": 4,
+                "endurance": 5,
+                "weapon": "sword",
+                "armour_bonus": 0
+              },
+              "fate": {
+                "session_id": "session",
+                "actor_id": "pc",
+                "rating": 3,
+                "session_spend_limit": 3,
+                "spends": [],
+                "has_lucky": false,
+                "refreshes": [],
+                "burns": [],
+                "resource_event_ids": [],
+                "rule_id": "RULE-FATE-001:session-resource"
+              },
+              "policy": "attack_or_recover_self",
+              "fate_policy": "decline_optional_fate",
+              "random_hand_policy": "d10_low_left_high_right",
+              "initial_weapon_hand": "left",
+              "target_priority": [
+                "minion1"
+              ],
+              "defeat_decisions": [
+                {
+                  "attacker_id": "pc",
+                  "target_id": "minion1",
+                  "disposition": "knocked_out",
+                  "gm_approved": true
+                }
+              ]
+            }
+          ],
           "day_id": "day",
           "enemies": [
             {
@@ -333,23 +362,14 @@
             "outnumbering_bonus_approved": true,
             "can_leave_zone": false
           },
-          "policy": "attack_or_recover_self",
-          "fate_policy": "decline_optional_fate",
-          "random_hand_policy": "d10_low_left_high_right",
-          "initial_weapon_hand": "left",
+          "pc_activation_order": [
+            "pc"
+          ],
           "enemy_activation_order": [
             "minion1"
           ],
-          "target_priority": [
-            "minion1"
-          ],
-          "defeat_decisions": [
-            {
-              "attacker_id": "pc",
-              "target_id": "minion1",
-              "disposition": "knocked_out",
-              "gm_approved": true
-            }
+          "enemy_target_priority": [
+            "pc"
           ],
           "max_rounds": 4
         }
@@ -358,13 +378,20 @@
         "trials": 8,
         "outcome_counts": {
           "objective_achieved": 8,
-          "pc_defeated": 0,
+          "party_defeated": 0,
           "round_limit": 0,
           "unsupported_path": 0
         },
         "total_action_count": 12,
         "total_started_round_count": 10,
-        "total_completed_round_count": 2
+        "total_completed_round_count": 2,
+        "any_pc_defeated_count": 0,
+        "pc_defeat_counts": [
+          {
+            "actor_id": "pc",
+            "count": 0
+          }
+        ]
       },
       "assessment": {
         "status": "eligible",
@@ -386,7 +413,7 @@
           "numerator": 1,
           "denominator": 1
         },
-        "pc_defeated_rate": {
+        "party_defeated_rate": {
           "numerator": 0,
           "denominator": 1
         },
@@ -411,32 +438,58 @@
         "trials": 8,
         "scenario": {
           "id": "pc-melee:counts:2",
-          "actor_id": "pc",
-          "pc": {
-            "id": "pc-profile",
-            "weapon_skill": 4,
-            "strength": 4,
-            "toughness": 4,
-            "agility": 4,
-            "melee": 5,
-            "defence": 6,
-            "athletics": 4,
-            "endurance": 5,
-            "weapon": "sword",
-            "armour_bonus": 0
-          },
-          "fate": {
-            "session_id": "session",
-            "actor_id": "pc",
-            "rating": 3,
-            "session_spend_limit": 3,
-            "spends": [],
-            "has_lucky": false,
-            "refreshes": [],
-            "burns": [],
-            "resource_event_ids": [],
-            "rule_id": "RULE-FATE-001:session-resource"
-          },
+          "party": [
+            {
+              "actor_id": "pc",
+              "pc": {
+                "id": "pc-profile",
+                "weapon_skill": 4,
+                "strength": 4,
+                "toughness": 4,
+                "agility": 4,
+                "melee": 5,
+                "defence": 6,
+                "athletics": 4,
+                "endurance": 5,
+                "weapon": "sword",
+                "armour_bonus": 0
+              },
+              "fate": {
+                "session_id": "session",
+                "actor_id": "pc",
+                "rating": 3,
+                "session_spend_limit": 3,
+                "spends": [],
+                "has_lucky": false,
+                "refreshes": [],
+                "burns": [],
+                "resource_event_ids": [],
+                "rule_id": "RULE-FATE-001:session-resource"
+              },
+              "policy": "attack_or_recover_self",
+              "fate_policy": "decline_optional_fate",
+              "random_hand_policy": "d10_low_left_high_right",
+              "initial_weapon_hand": "left",
+              "target_priority": [
+                "minion1",
+                "minion2"
+              ],
+              "defeat_decisions": [
+                {
+                  "attacker_id": "pc",
+                  "target_id": "minion1",
+                  "disposition": "knocked_out",
+                  "gm_approved": true
+                },
+                {
+                  "attacker_id": "pc",
+                  "target_id": "minion2",
+                  "disposition": "knocked_out",
+                  "gm_approved": true
+                }
+              ]
+            }
+          ],
           "day_id": "day",
           "enemies": [
             {
@@ -519,31 +572,15 @@
             "outnumbering_bonus_approved": true,
             "can_leave_zone": false
           },
-          "policy": "attack_or_recover_self",
-          "fate_policy": "decline_optional_fate",
-          "random_hand_policy": "d10_low_left_high_right",
-          "initial_weapon_hand": "left",
+          "pc_activation_order": [
+            "pc"
+          ],
           "enemy_activation_order": [
             "minion1",
             "minion2"
           ],
-          "target_priority": [
-            "minion1",
-            "minion2"
-          ],
-          "defeat_decisions": [
-            {
-              "attacker_id": "pc",
-              "target_id": "minion1",
-              "disposition": "knocked_out",
-              "gm_approved": true
-            },
-            {
-              "attacker_id": "pc",
-              "target_id": "minion2",
-              "disposition": "knocked_out",
-              "gm_approved": true
-            }
+          "enemy_target_priority": [
+            "pc"
           ],
           "max_rounds": 4
         }
@@ -552,13 +589,20 @@
         "trials": 8,
         "outcome_counts": {
           "objective_achieved": 8,
-          "pc_defeated": 0,
+          "party_defeated": 0,
           "round_limit": 0,
           "unsupported_path": 0
         },
         "total_action_count": 27,
         "total_started_round_count": 17,
-        "total_completed_round_count": 9
+        "total_completed_round_count": 9,
+        "any_pc_defeated_count": 0,
+        "pc_defeat_counts": [
+          {
+            "actor_id": "pc",
+            "count": 0
+          }
+        ]
       },
       "assessment": {
         "status": "eligible",
@@ -580,7 +624,7 @@
           "numerator": 1,
           "denominator": 1
         },
-        "pc_defeated_rate": {
+        "party_defeated_rate": {
           "numerator": 0,
           "denominator": 1
         },
@@ -605,32 +649,65 @@
         "trials": 8,
         "scenario": {
           "id": "pc-melee:counts:3",
-          "actor_id": "pc",
-          "pc": {
-            "id": "pc-profile",
-            "weapon_skill": 4,
-            "strength": 4,
-            "toughness": 4,
-            "agility": 4,
-            "melee": 5,
-            "defence": 6,
-            "athletics": 4,
-            "endurance": 5,
-            "weapon": "sword",
-            "armour_bonus": 0
-          },
-          "fate": {
-            "session_id": "session",
-            "actor_id": "pc",
-            "rating": 3,
-            "session_spend_limit": 3,
-            "spends": [],
-            "has_lucky": false,
-            "refreshes": [],
-            "burns": [],
-            "resource_event_ids": [],
-            "rule_id": "RULE-FATE-001:session-resource"
-          },
+          "party": [
+            {
+              "actor_id": "pc",
+              "pc": {
+                "id": "pc-profile",
+                "weapon_skill": 4,
+                "strength": 4,
+                "toughness": 4,
+                "agility": 4,
+                "melee": 5,
+                "defence": 6,
+                "athletics": 4,
+                "endurance": 5,
+                "weapon": "sword",
+                "armour_bonus": 0
+              },
+              "fate": {
+                "session_id": "session",
+                "actor_id": "pc",
+                "rating": 3,
+                "session_spend_limit": 3,
+                "spends": [],
+                "has_lucky": false,
+                "refreshes": [],
+                "burns": [],
+                "resource_event_ids": [],
+                "rule_id": "RULE-FATE-001:session-resource"
+              },
+              "policy": "attack_or_recover_self",
+              "fate_policy": "decline_optional_fate",
+              "random_hand_policy": "d10_low_left_high_right",
+              "initial_weapon_hand": "left",
+              "target_priority": [
+                "minion1",
+                "minion2",
+                "minion3"
+              ],
+              "defeat_decisions": [
+                {
+                  "attacker_id": "pc",
+                  "target_id": "minion1",
+                  "disposition": "knocked_out",
+                  "gm_approved": true
+                },
+                {
+                  "attacker_id": "pc",
+                  "target_id": "minion2",
+                  "disposition": "knocked_out",
+                  "gm_approved": true
+                },
+                {
+                  "attacker_id": "pc",
+                  "target_id": "minion3",
+                  "disposition": "knocked_out",
+                  "gm_approved": true
+                }
+              ]
+            }
+          ],
           "day_id": "day",
           "enemies": [
             {
@@ -746,39 +823,16 @@
             "outnumbering_bonus_approved": true,
             "can_leave_zone": false
           },
-          "policy": "attack_or_recover_self",
-          "fate_policy": "decline_optional_fate",
-          "random_hand_policy": "d10_low_left_high_right",
-          "initial_weapon_hand": "left",
+          "pc_activation_order": [
+            "pc"
+          ],
           "enemy_activation_order": [
             "minion1",
             "minion2",
             "minion3"
           ],
-          "target_priority": [
-            "minion1",
-            "minion2",
-            "minion3"
-          ],
-          "defeat_decisions": [
-            {
-              "attacker_id": "pc",
-              "target_id": "minion1",
-              "disposition": "knocked_out",
-              "gm_approved": true
-            },
-            {
-              "attacker_id": "pc",
-              "target_id": "minion2",
-              "disposition": "knocked_out",
-              "gm_approved": true
-            },
-            {
-              "attacker_id": "pc",
-              "target_id": "minion3",
-              "disposition": "knocked_out",
-              "gm_approved": true
-            }
+          "enemy_target_priority": [
+            "pc"
           ],
           "max_rounds": 4
         }
@@ -787,13 +841,20 @@
         "trials": 8,
         "outcome_counts": {
           "objective_achieved": 6,
-          "pc_defeated": 0,
+          "party_defeated": 0,
           "round_limit": 2,
           "unsupported_path": 0
         },
         "total_action_count": 64,
         "total_started_round_count": 28,
-        "total_completed_round_count": 22
+        "total_completed_round_count": 22,
+        "any_pc_defeated_count": 0,
+        "pc_defeat_counts": [
+          {
+            "actor_id": "pc",
+            "count": 0
+          }
+        ]
       },
       "assessment": {
         "status": "eligible",
@@ -815,7 +876,7 @@
           "numerator": 3,
           "denominator": 4
         },
-        "pc_defeated_rate": {
+        "party_defeated_rate": {
           "numerator": 0,
           "denominator": 1
         },

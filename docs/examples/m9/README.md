@@ -1,6 +1,6 @@
 # M9: один PC против Minions
 
-Книжный немагический персонаж с Staff/Sword против numeric Minions в одной Zone. [Контракт и граница](../../decisions/ADR-0065-first-pc-melee-encounter.md). Источники: Player’s Guide1.4 / Skills68–69, Equipment92–93, Fate111–112, Combat118–123, Wounds190–191. Профили противников здесь authored, а не переименованные записи бестиария.
+Книжный немагический персонаж с Staff/Sword против numeric Minions в одной Zone. [Игровая граница M9](../../decisions/ADR-0065-first-pc-melee-encounter.md) сохраняется; после [M10](../../decisions/ADR-0066-pc-party-melee-encounter.md) этот вход задаёт `party` из одного PC, с явными `pc_activation_order` и `enemy_target_priority`. Прежний одиночный JSON shape больше не принимается. Пример группы — [M10](../m10/README.md). Источники: Player’s Guide1.4 / Skills68–69, Equipment92–93, Fate111–112, Combat118–123, Wounds190–191. Профили противников здесь authored, а не переименованные записи бестиария.
 
 Из корня репозитория после установки:
 
@@ -28,7 +28,7 @@ Console entry point: `towr simulate-pc-melee INPUT` и `towr balance-pc-melee IN
 
 ## Результаты и ограничения
 
-Simulation возвращает полный request и aggregate summary. Outcome `objective_achieved` означает defeat всех целей; `pc_defeated` здесь означает завершённую lethal PLAYER Wound после Near Miss decline. `round_limit` и `unsupported_path` учитываются отдельно в общем числе trials. Counter actions включает Recover, а не только Attack.
+Simulation возвращает полный request и aggregate summary. Outcome `objective_achieved` означает defeat всех целей; `party_defeated` означает завершённую lethal PLAYER Wound единственного PC после Near Miss decline. `round_limit` и `unsupported_path` учитываются отдельно в общем числе trials. Counter actions включает Recover, а не только Attack. `any_pc_defeated_count` и source-ordered `pc_defeat_counts` показывают подтверждённые смерти до фактической остановки.
 
 Balance возвращает полный исходный request, каждый реально оценённый candidate source/counts/summary, точные rational rates, assessment и выбранные IDs. Любое observed unsupported делает кандидата `unsupported_observations`, `window_match:null` и исключает его из selection. Оценка относится к указанным policies и конечному числу прогонов; они не изображают оптимальную игру персонажа.
 

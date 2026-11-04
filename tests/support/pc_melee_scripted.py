@@ -39,3 +39,21 @@ def run_first_wound(total, *, endurance_success=False, hand=1):
 
 def blind_expiry_script():
     return first_wound_script(7) + [1,1,10,10,10,1,1, 10,10,1,1,1]
+
+
+def party_casualty_source():
+    from tests.support.pc_melee_fixtures import make_pc_melee_party_scenario
+    return make_pc_melee_party_scenario(pc_count=2, enemy_count=4, max_rounds=2)
+
+
+def party_casualty_script():
+    # Both PCs miss. Three Minions Wound pc1 (totals1,2,30), then the
+    # fourth retargets pc2 and misses. pc2 kills a Minion next round;
+    # the remaining three miss. All literal rolls, no computed expectations.
+    return ([10,10,10,1,1] * 2
+        + [1,1,1,10,10,10,1]
+        + [1,1,1,10,10,10,1,1]
+        + [1,1,1,10,10,10,10,10,10]
+        + [10,10,10,1,1,1]
+        + [1,1,1,10,10]
+        + [10,10,10,1,1,1] * 3)

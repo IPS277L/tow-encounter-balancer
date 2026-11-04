@@ -8,7 +8,8 @@ from towr.domain.pc_melee_result_models import (
     PcMinionDefeatProof, PcRecoverProof, PcTurnEndProof, PcWoundCompletionProof,
     build_pc_melee_attack, build_pc_melee_recover, initial_pc_melee_state, pc_after_test,
     pc_melee_action_id, pc_melee_next_actor, pc_melee_selected_action, pc_melee_unsupported,
-    project_pc_melee_step, _pc_test,
+    project_pc_melee_step, pc_melee_round_participants, validate_pc_melee_state_shape,
+    validate_pc_melee_source_types, _pc_test,
 )
 from towr.domain.condition_models import StaggerChoice
 from towr.domain.injury_models import WoundConsequenceRequest, WoundEnduranceTestRequest, ProfileStateChangeRequest
@@ -46,14 +47,17 @@ class _Decisions(KeepAllFailures):
         raise ValueError('Monstrosities are outside this PC scenario')
 
 
-def _decline(state, source_id, window):
-    return PcFateDecline(state.source.actor_id,source_id,window,state.source.fate_policy)
+def _decline(state, actor_id, source_id, window):
+    return PcFateDecline(actor_id,source_id,window,state.source.participant(actor_id).fate_policy)
 
 
 def apply_pc_melee_step(current: PcMeleeState, step: PcMeleeStep) -> PcMeleeState:
     """Apply only a fully source-bound, canonical journal step, once."""
     if not isinstance(current,PcMeleeState) or not isinstance(step,PcMeleeStep):
         raise TypeError('PC application requires typed current owner and step')
+    validate_pc_melee_state_shape(current)
+    validate_pc_melee_state_shape(step.source)
+    validate_pc_melee_state_shape(step.state)
     # Reconstruct the actual prefix. Equal injury/clock snapshots alone do not
     # establish membership in this encounter's history.
     expected = initial_pc_melee_state(current.source)
@@ -61,9 +65,11 @@ def apply_pc_melee_step(current: PcMeleeState, step: PcMeleeStep) -> PcMeleeStat
         expected = project_pc_melee_step(expected,proof)
     if current != expected or step.source != current:
         raise ValueError('PC step is replayed, detached or belongs to a stale owner')
+    validate_pc_melee_source_types(step.source,expected)
     projected = project_pc_melee_step(current,step.proof)
     if step.state != projected:
         raise ValueError('PC step state has been forged')
+    validate_pc_melee_source_types(step.state,projected)
     return projected
 
 
@@ -89,20 +95,23 @@ def run_pc_melee_scenario(scenario, rng: RandomSource) -> PcMeleeScenarioResult:
             pending = state.pending_wound
             consumed = tuple(p.completion.source_request.roll.request_id for p in state.history
                 if isinstance(p,PcWoundCompletionProof))
+            pc_actor = state.pending_actor_id
+            member = state.participant(pc_actor)
             request = CharacterWoundLifecycleCompletionRequest(pending.request_id+':complete',pending,
-                state.pc_injury,state.daily_wounds,daily_registration_id=pending.request_id+':daily',
+                member.injury,member.daily_wounds,daily_registration_id=pending.request_id+':daily',
                 near_miss=None,consumed_roll_ids=consumed)
-            decline = _decline(state,pending.request_id,'wound')
+            decline = _decline(state,pc_actor,pending.request_id,'wound')
             completion = complete_character_wound_lifecycle(request)
             consume(PcWoundCompletionProof(completion,decline))
             continue
         if state.pending:
             pending = state.pending[0]
+            pc_actor = state.pending_actor_id
             if isinstance(pending,WoundEnduranceTestRequest):
-                test_request = _pc_test(state,pending.test_id,Skill.ENDURANCE)
-                decline = _decline(state,test_request.id,'test')
+                test_request = _pc_test(state,pc_actor,pending.test_id,Skill.ENDURANCE)
+                decline = _decline(state,pc_actor,test_request.id,'test')
                 test = resolve_test(test_request,rng,decisions=decisions)
-                result = resolve_wound_endurance_test(pending,pc_after_test(state),test)
+                result = resolve_wound_endurance_test(pending,pc_after_test(state,pc_actor),test)
                 consume(PcEnduranceProof(pending,test_request,test,result,decline))
             elif isinstance(pending,WoundConsequenceRequest):
                 die = rng.randint(1,10)
@@ -112,12 +121,12 @@ def run_pc_melee_scenario(scenario, rng: RandomSource) -> PcMeleeScenarioResult:
                 consume(PcAttackerStaggerProof(pending))
             elif isinstance(pending,ProfileStateChangeRequest):
                 attack = next(p for p in reversed(state.history) if isinstance(p,PcAttackProof))
-                consume(PcMinionDefeatProof(pending,scenario.defeat_decision(attack.request.target_id)))
+                consume(PcMinionDefeatProof(pending,scenario.participant(attack.request.actor_id).defeat_decision(attack.request.target_id)))
             else:
                 raise ValueError('unexpected mandatory PC continuation')
             continue
-        if state.pc_injury.dead:
-            return PcMeleeScenarioResult(scenario,tuple(steps),PcMeleeOutcome.PC_DEFEATED)
+        if not state.live_party:
+            return PcMeleeScenarioResult(scenario,tuple(steps),PcMeleeOutcome.PARTY_DEFEATED)
         if not state.live_enemies:
             return PcMeleeScenarioResult(scenario,tuple(steps),PcMeleeOutcome.OBJECTIVE_ACHIEVED)
         combat = state.round_state
@@ -125,9 +134,7 @@ def run_pc_melee_scenario(scenario, rng: RandomSource) -> PcMeleeScenarioResult:
             if combat.round_complete:
                 if combat.round_number == scenario.max_rounds:
                     return PcMeleeScenarioResult(scenario,tuple(steps),PcMeleeOutcome.ROUND_LIMIT)
-                participants = (CombatTurnParticipant(scenario.actor_id,CombatSide.PLAYERS_AND_ALLIES),
-                    *(CombatTurnParticipant(actor,CombatSide.OPPOSITION) for actor in scenario.enemy_activation_order
-                        if not state.enemy(actor).state.injury.defeated))
+                participants = pc_melee_round_participants(state)
                 result = advance_combat_round(CombatRoundAdvanceRequest(
                     f'{scenario.id}:r{combat.round_number}:advance',combat,participants))
                 consume(result)
@@ -149,9 +156,10 @@ def run_pc_melee_scenario(scenario, rng: RandomSource) -> PcMeleeScenarioResult:
                 request, protection_request = build_pc_melee_attack(state)
                 protection = prepare_protection(protection_request)
                 _validate_attack_action_slot(request)
-                pc_test = (request.kernel_request.attack.attacker_test if actor == scenario.actor_id
+                pc_actor = actor if actor in scenario.pc_activation_order else request.target_id
+                pc_test = (request.kernel_request.attack.attacker_test if actor == pc_actor
                     else request.kernel_request.attack.defender_test)
-                decline = _decline(state,pc_test.id,'test')
+                decline = _decline(state,pc_actor,pc_test.id,'test')
                 # Test first, then consume the PC's next-Test restriction before
                 # the kernel can produce a new Wound or mandatory Endurance.
                 attack = resolve_attack(request.kernel_request.attack,rng,decisions=decisions)
@@ -159,6 +167,6 @@ def run_pc_melee_scenario(scenario, rng: RandomSource) -> PcMeleeScenarioResult:
                 execution = _complete_attack_action(request,resolution)
                 consume(PcAttackProof(request,protection,execution,decline))
             continue
-        decline = _decline(state,action_id+':end','action') if actor == scenario.actor_id else None
+        decline = _decline(state,actor,action_id+':end','action') if actor in scenario.pc_activation_order else None
         result = end_combat_turn(CombatTurnEndRequest(action_id+':end',combat,actor))
         consume(PcTurnEndProof(result,decline))
