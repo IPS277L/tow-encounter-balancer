@@ -181,12 +181,19 @@
         "source_rule_id": {
           "$ref": "urn:towr:pc-melee:common:1#/$defs/identifier"
         },
+        "skill": {
+          "enum": [
+            "defence",
+            "athletics"
+          ]
+        },
         "test_profile": {
           "$ref": "urn:towr:pc-melee:common:1#/$defs/inline_profile"
         }
       },
       "required": [
         "source_rule_id",
+        "skill",
         "test_profile"
       ],
       "additionalProperties": false

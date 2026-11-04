@@ -195,7 +195,8 @@
                 "dice": 2,
                 "threshold": 4,
                 "pool_cap": null
-              }
+              },
+              "skill": "defence"
             }
           }
         },
@@ -230,7 +231,8 @@
                 "dice": 2,
                 "threshold": 4,
                 "pool_cap": null
-              }
+              },
+              "skill": "defence"
             }
           }
         },
@@ -265,7 +267,8 @@
                 "dice": 3,
                 "threshold": 5,
                 "pool_cap": null
-              }
+              },
+              "skill": "defence"
             }
           }
         }
@@ -538,7 +541,8 @@
                     "dice": 3,
                     "threshold": 5,
                     "pool_cap": null
-                  }
+                  },
+                  "skill": "defence"
                 }
               }
             }
@@ -860,7 +864,8 @@
                     "dice": 2,
                     "threshold": 4,
                     "pool_cap": null
-                  }
+                  },
+                  "skill": "defence"
                 }
               }
             },
@@ -895,7 +900,8 @@
                     "dice": 3,
                     "threshold": 5,
                     "pool_cap": null
-                  }
+                  },
+                  "skill": "defence"
                 }
               }
             }
@@ -1232,7 +1238,8 @@
                     "dice": 2,
                     "threshold": 4,
                     "pool_cap": null
-                  }
+                  },
+                  "skill": "defence"
                 }
               }
             },
@@ -1267,7 +1274,8 @@
                     "dice": 2,
                     "threshold": 4,
                     "pool_cap": null
-                  }
+                  },
+                  "skill": "defence"
                 }
               }
             },
@@ -1302,7 +1310,8 @@
                     "dice": 3,
                     "threshold": 5,
                     "pool_cap": null
-                  }
+                  },
+                  "skill": "defence"
                 }
               }
             }

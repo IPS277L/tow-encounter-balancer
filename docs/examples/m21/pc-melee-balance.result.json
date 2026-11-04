@@ -1,0 +1,1689 @@
+{
+  "schema_version": "1",
+  "kind": "pc_melee_balance_result",
+  "request": {
+    "schema_version": "1",
+    "kind": "pc_melee_balance",
+    "request_id": "m21-book-npcs-balance",
+    "ruleset": "towr-pg1.4-gmg1.1",
+    "template": {
+      "id": "m21-book-npcs-template",
+      "party": [
+        {
+          "actor_id": "pc1",
+          "pc": {
+            "id": "pc-profile1",
+            "weapon_skill": 3,
+            "strength": 3,
+            "toughness": 3,
+            "agility": 3,
+            "melee": 5,
+            "defence": 5,
+            "athletics": 4,
+            "endurance": 4,
+            "weapon": "staff",
+            "armour_bonus": 0
+          },
+          "fate": {
+            "session_id": "session",
+            "actor_id": "pc1",
+            "rating": 3,
+            "session_spend_limit": 3,
+            "spends": [],
+            "has_lucky": false,
+            "refreshes": [],
+            "burns": [],
+            "resource_event_ids": [],
+            "rule_id": "RULE-FATE-001:session-resource"
+          },
+          "policy": "attack_or_recover_self",
+          "fate_policy": "decline_optional_fate",
+          "random_side_policy": "d10_low_left_high_right",
+          "heavy_wound_policy": "continue_fighting",
+          "initial_weapon_hand": "left",
+          "target_priority": [
+            "footpad1",
+            "footpad2",
+            "townsfolk1"
+          ],
+          "defeat_decisions": [
+            {
+              "attacker_id": "pc1",
+              "target_id": "footpad1",
+              "disposition": "knocked_out",
+              "gm_approved": true
+            },
+            {
+              "attacker_id": "pc1",
+              "target_id": "footpad2",
+              "disposition": "knocked_out",
+              "gm_approved": true
+            },
+            {
+              "attacker_id": "pc1",
+              "target_id": "townsfolk1",
+              "disposition": "knocked_out",
+              "gm_approved": true
+            }
+          ],
+          "near_miss_policy": null,
+          "glorious_policy": null,
+          "help_policy": null,
+          "ally_recover_policy": null,
+          "backup_weapon_policy": null
+        },
+        {
+          "actor_id": "pc2",
+          "pc": {
+            "id": "pc-profile2",
+            "weapon_skill": 3,
+            "strength": 3,
+            "toughness": 3,
+            "agility": 3,
+            "melee": 5,
+            "defence": 5,
+            "athletics": 4,
+            "endurance": 4,
+            "weapon": "staff",
+            "armour_bonus": 0
+          },
+          "fate": {
+            "session_id": "session",
+            "actor_id": "pc2",
+            "rating": 3,
+            "session_spend_limit": 3,
+            "spends": [],
+            "has_lucky": false,
+            "refreshes": [],
+            "burns": [],
+            "resource_event_ids": [],
+            "rule_id": "RULE-FATE-001:session-resource"
+          },
+          "policy": "attack_or_recover_self",
+          "fate_policy": "decline_optional_fate",
+          "random_side_policy": "d10_low_left_high_right",
+          "heavy_wound_policy": "continue_fighting",
+          "initial_weapon_hand": "left",
+          "target_priority": [
+            "footpad1",
+            "footpad2",
+            "townsfolk1"
+          ],
+          "defeat_decisions": [
+            {
+              "attacker_id": "pc2",
+              "target_id": "footpad1",
+              "disposition": "knocked_out",
+              "gm_approved": true
+            },
+            {
+              "attacker_id": "pc2",
+              "target_id": "footpad2",
+              "disposition": "knocked_out",
+              "gm_approved": true
+            },
+            {
+              "attacker_id": "pc2",
+              "target_id": "townsfolk1",
+              "disposition": "knocked_out",
+              "gm_approved": true
+            }
+          ],
+          "near_miss_policy": null,
+          "glorious_policy": null,
+          "help_policy": null,
+          "ally_recover_policy": null,
+          "backup_weapon_policy": null
+        }
+      ],
+      "day_id": "day",
+      "enemies": [
+        {
+          "actor_id": "footpad1",
+          "definition": {
+            "id": "pc-book-npc:footpad",
+            "source_rule_id": "BOOK-GM-GUIDE:1.1:p97:footpad",
+            "injury_policy": "minion",
+            "wound_limit": 1,
+            "resilience": {
+              "toughness": 3,
+              "bonus": 0
+            },
+            "attack": {
+              "id": "dagger",
+              "source_rule_id": "BOOK-GM-GUIDE:1.1:p97:footpad:dagger",
+              "test_profile": {
+                "dice": 3,
+                "threshold": 3,
+                "pool_cap": null
+              },
+              "damage": {
+                "base": 2,
+                "success_multiplier": 1
+              },
+              "hands": "1h"
+            },
+            "protection": {
+              "source_rule_id": "BOOK-GM-GUIDE:1.1:p97:footpad:athletics",
+              "skill": "athletics",
+              "test_profile": {
+                "dice": 3,
+                "threshold": 3,
+                "pool_cap": null
+              }
+            }
+          }
+        },
+        {
+          "actor_id": "footpad2",
+          "definition": {
+            "id": "pc-book-npc:footpad",
+            "source_rule_id": "BOOK-GM-GUIDE:1.1:p97:footpad",
+            "injury_policy": "minion",
+            "wound_limit": 1,
+            "resilience": {
+              "toughness": 3,
+              "bonus": 0
+            },
+            "attack": {
+              "id": "dagger",
+              "source_rule_id": "BOOK-GM-GUIDE:1.1:p97:footpad:dagger",
+              "test_profile": {
+                "dice": 3,
+                "threshold": 3,
+                "pool_cap": null
+              },
+              "damage": {
+                "base": 2,
+                "success_multiplier": 1
+              },
+              "hands": "1h"
+            },
+            "protection": {
+              "source_rule_id": "BOOK-GM-GUIDE:1.1:p97:footpad:athletics",
+              "skill": "athletics",
+              "test_profile": {
+                "dice": 3,
+                "threshold": 3,
+                "pool_cap": null
+              }
+            }
+          }
+        },
+        {
+          "actor_id": "townsfolk1",
+          "definition": {
+            "id": "pc-book-npc:empire_townsfolk",
+            "source_rule_id": "BOOK-GM-GUIDE:1.1:p96:empire_townsfolk",
+            "injury_policy": "minion",
+            "wound_limit": 1,
+            "resilience": {
+              "toughness": 3,
+              "bonus": 0
+            },
+            "attack": {
+              "id": "dagger",
+              "source_rule_id": "BOOK-GM-GUIDE:1.1:p96:empire_townsfolk:dagger",
+              "test_profile": {
+                "dice": 2,
+                "threshold": 2,
+                "pool_cap": null
+              },
+              "damage": {
+                "base": 2,
+                "success_multiplier": 1
+              },
+              "hands": "1h"
+            },
+            "protection": {
+              "source_rule_id": "BOOK-GM-GUIDE:1.1:p96:empire_townsfolk:athletics",
+              "skill": "athletics",
+              "test_profile": {
+                "dice": 2,
+                "threshold": 2,
+                "pool_cap": null
+              }
+            }
+          }
+        }
+      ],
+      "facts": {
+        "zone_id": "arena",
+        "all_opponents_close": true,
+        "targets_aware": true,
+        "all_combatants_included": true,
+        "unmounted": true,
+        "no_external_effects": true,
+        "no_terrain_modifiers": true,
+        "no_additional_abilities": true,
+        "no_ambush": true,
+        "outnumbering_bonus_approved": true,
+        "can_leave_zone": false
+      },
+      "pc_activation_order": [
+        "pc1",
+        "pc2"
+      ],
+      "enemy_activation_order": [
+        "footpad1",
+        "footpad2",
+        "townsfolk1"
+      ],
+      "enemy_target_priority": [
+        "pc1",
+        "pc2"
+      ],
+      "max_rounds": 5
+    },
+    "generation": {
+      "groups": [
+        {
+          "group_id": "footpads",
+          "actor_ids": [
+            "footpad1",
+            "footpad2"
+          ],
+          "minimum_count": 1,
+          "maximum_count": 2
+        },
+        {
+          "group_id": "townsfolk",
+          "actor_ids": [
+            "townsfolk1"
+          ],
+          "minimum_count": 0,
+          "maximum_count": 1
+        }
+      ],
+      "facts": {
+        "zone_id": "arena",
+        "all_opponents_close": true,
+        "targets_aware": true,
+        "all_combatants_included": true,
+        "unmounted": true,
+        "no_external_effects": true,
+        "no_terrain_modifiers": true,
+        "no_additional_abilities": true,
+        "no_ambush": true,
+        "outnumbering_bonus_approved": true,
+        "can_leave_zone": false
+      },
+      "max_candidates": 4
+    },
+    "evaluation": {
+      "master_seed": "42",
+      "trials_per_candidate": 3,
+      "max_total_trials": 12,
+      "window": {
+        "minimum": {
+          "numerator": 0,
+          "denominator": 1
+        },
+        "target": {
+          "numerator": 1,
+          "denominator": 2
+        },
+        "maximum": {
+          "numerator": 1,
+          "denominator": 1
+        }
+      },
+      "top_k": 2
+    },
+    "execution": {
+      "mode": "sequential"
+    }
+  },
+  "seed_scheme": "towr:pc-melee-trial:v1",
+  "runtime": {
+    "package_version": "0.1.0",
+    "python_implementation": "CPython",
+    "python_version": "3.12.4",
+    "rng": "random.Random"
+  },
+  "candidate_count": 4,
+  "planned_trials": 12,
+  "total_trials": 12,
+  "candidates": [
+    {
+      "candidate_id": "m21-book-npcs-template:counts:1,0",
+      "counts": [
+        1,
+        0
+      ],
+      "request": {
+        "master_seed": "42",
+        "trials": 3,
+        "scenario": {
+          "id": "m21-book-npcs-template:counts:1,0",
+          "party": [
+            {
+              "actor_id": "pc1",
+              "pc": {
+                "id": "pc-profile1",
+                "weapon_skill": 3,
+                "strength": 3,
+                "toughness": 3,
+                "agility": 3,
+                "melee": 5,
+                "defence": 5,
+                "athletics": 4,
+                "endurance": 4,
+                "weapon": "staff",
+                "armour_bonus": 0
+              },
+              "fate": {
+                "session_id": "session",
+                "actor_id": "pc1",
+                "rating": 3,
+                "session_spend_limit": 3,
+                "spends": [],
+                "has_lucky": false,
+                "refreshes": [],
+                "burns": [],
+                "resource_event_ids": [],
+                "rule_id": "RULE-FATE-001:session-resource"
+              },
+              "policy": "attack_or_recover_self",
+              "fate_policy": "decline_optional_fate",
+              "random_side_policy": "d10_low_left_high_right",
+              "heavy_wound_policy": "continue_fighting",
+              "initial_weapon_hand": "left",
+              "target_priority": [
+                "footpad1"
+              ],
+              "defeat_decisions": [
+                {
+                  "attacker_id": "pc1",
+                  "target_id": "footpad1",
+                  "disposition": "knocked_out",
+                  "gm_approved": true
+                }
+              ],
+              "near_miss_policy": null,
+              "glorious_policy": null,
+              "help_policy": null,
+              "ally_recover_policy": null,
+              "backup_weapon_policy": null
+            },
+            {
+              "actor_id": "pc2",
+              "pc": {
+                "id": "pc-profile2",
+                "weapon_skill": 3,
+                "strength": 3,
+                "toughness": 3,
+                "agility": 3,
+                "melee": 5,
+                "defence": 5,
+                "athletics": 4,
+                "endurance": 4,
+                "weapon": "staff",
+                "armour_bonus": 0
+              },
+              "fate": {
+                "session_id": "session",
+                "actor_id": "pc2",
+                "rating": 3,
+                "session_spend_limit": 3,
+                "spends": [],
+                "has_lucky": false,
+                "refreshes": [],
+                "burns": [],
+                "resource_event_ids": [],
+                "rule_id": "RULE-FATE-001:session-resource"
+              },
+              "policy": "attack_or_recover_self",
+              "fate_policy": "decline_optional_fate",
+              "random_side_policy": "d10_low_left_high_right",
+              "heavy_wound_policy": "continue_fighting",
+              "initial_weapon_hand": "left",
+              "target_priority": [
+                "footpad1"
+              ],
+              "defeat_decisions": [
+                {
+                  "attacker_id": "pc2",
+                  "target_id": "footpad1",
+                  "disposition": "knocked_out",
+                  "gm_approved": true
+                }
+              ],
+              "near_miss_policy": null,
+              "glorious_policy": null,
+              "help_policy": null,
+              "ally_recover_policy": null,
+              "backup_weapon_policy": null
+            }
+          ],
+          "day_id": "day",
+          "enemies": [
+            {
+              "actor_id": "footpad1",
+              "definition": {
+                "id": "pc-book-npc:footpad",
+                "source_rule_id": "BOOK-GM-GUIDE:1.1:p97:footpad",
+                "injury_policy": "minion",
+                "wound_limit": 1,
+                "resilience": {
+                  "toughness": 3,
+                  "bonus": 0
+                },
+                "attack": {
+                  "id": "dagger",
+                  "source_rule_id": "BOOK-GM-GUIDE:1.1:p97:footpad:dagger",
+                  "test_profile": {
+                    "dice": 3,
+                    "threshold": 3,
+                    "pool_cap": null
+                  },
+                  "damage": {
+                    "base": 2,
+                    "success_multiplier": 1
+                  },
+                  "hands": "1h"
+                },
+                "protection": {
+                  "source_rule_id": "BOOK-GM-GUIDE:1.1:p97:footpad:athletics",
+                  "skill": "athletics",
+                  "test_profile": {
+                    "dice": 3,
+                    "threshold": 3,
+                    "pool_cap": null
+                  }
+                }
+              }
+            }
+          ],
+          "facts": {
+            "zone_id": "arena",
+            "all_opponents_close": true,
+            "targets_aware": true,
+            "all_combatants_included": true,
+            "unmounted": true,
+            "no_external_effects": true,
+            "no_terrain_modifiers": true,
+            "no_additional_abilities": true,
+            "no_ambush": true,
+            "outnumbering_bonus_approved": true,
+            "can_leave_zone": false
+          },
+          "pc_activation_order": [
+            "pc1",
+            "pc2"
+          ],
+          "enemy_activation_order": [
+            "footpad1"
+          ],
+          "enemy_target_priority": [
+            "pc1",
+            "pc2"
+          ],
+          "max_rounds": 5
+        }
+      },
+      "summary": {
+        "trials": 3,
+        "outcome_counts": {
+          "objective_achieved": 3,
+          "party_defeated": 0,
+          "round_limit": 0,
+          "unsupported_path": 0
+        },
+        "total_action_count": 4,
+        "total_started_round_count": 3,
+        "total_completed_round_count": 0,
+        "any_pc_defeated_count": 0,
+        "pc_defeat_counts": [
+          {
+            "actor_id": "pc1",
+            "count": 0
+          },
+          {
+            "actor_id": "pc2",
+            "count": 0
+          }
+        ],
+        "near_miss_burn_trial_count": 0,
+        "near_miss_burn_counts": [
+          {
+            "actor_id": "pc1",
+            "count": 0
+          },
+          {
+            "actor_id": "pc2",
+            "count": 0
+          }
+        ],
+        "total_near_miss_burn_count": 0,
+        "glorious_spend_trial_count": 0,
+        "glorious_spend_counts": [
+          {
+            "actor_id": "pc1",
+            "count": 0
+          },
+          {
+            "actor_id": "pc2",
+            "count": 0
+          }
+        ],
+        "total_glorious_spend_count": 0,
+        "help_action_trial_count": 0,
+        "help_action_counts": [
+          {
+            "actor_id": "pc1",
+            "count": 0
+          },
+          {
+            "actor_id": "pc2",
+            "count": 0
+          }
+        ],
+        "total_help_action_count": 0,
+        "ally_recover_action_trial_count": 0,
+        "ally_recover_action_counts": [
+          {
+            "actor_id": "pc1",
+            "count": 0
+          },
+          {
+            "actor_id": "pc2",
+            "count": 0
+          }
+        ],
+        "total_ally_recover_action_count": 0
+      },
+      "assessment": {
+        "status": "eligible",
+        "window": {
+          "minimum": {
+            "numerator": 0,
+            "denominator": 1
+          },
+          "target": {
+            "numerator": 1,
+            "denominator": 2
+          },
+          "maximum": {
+            "numerator": 1,
+            "denominator": 1
+          }
+        },
+        "objective_achieved_rate": {
+          "numerator": 1,
+          "denominator": 1
+        },
+        "party_defeated_rate": {
+          "numerator": 0,
+          "denominator": 1
+        },
+        "round_limit_rate": {
+          "numerator": 0,
+          "denominator": 1
+        },
+        "unsupported_path_rate": {
+          "numerator": 0,
+          "denominator": 1
+        },
+        "window_match": true
+      }
+    },
+    {
+      "candidate_id": "m21-book-npcs-template:counts:1,1",
+      "counts": [
+        1,
+        1
+      ],
+      "request": {
+        "master_seed": "42",
+        "trials": 3,
+        "scenario": {
+          "id": "m21-book-npcs-template:counts:1,1",
+          "party": [
+            {
+              "actor_id": "pc1",
+              "pc": {
+                "id": "pc-profile1",
+                "weapon_skill": 3,
+                "strength": 3,
+                "toughness": 3,
+                "agility": 3,
+                "melee": 5,
+                "defence": 5,
+                "athletics": 4,
+                "endurance": 4,
+                "weapon": "staff",
+                "armour_bonus": 0
+              },
+              "fate": {
+                "session_id": "session",
+                "actor_id": "pc1",
+                "rating": 3,
+                "session_spend_limit": 3,
+                "spends": [],
+                "has_lucky": false,
+                "refreshes": [],
+                "burns": [],
+                "resource_event_ids": [],
+                "rule_id": "RULE-FATE-001:session-resource"
+              },
+              "policy": "attack_or_recover_self",
+              "fate_policy": "decline_optional_fate",
+              "random_side_policy": "d10_low_left_high_right",
+              "heavy_wound_policy": "continue_fighting",
+              "initial_weapon_hand": "left",
+              "target_priority": [
+                "footpad1",
+                "townsfolk1"
+              ],
+              "defeat_decisions": [
+                {
+                  "attacker_id": "pc1",
+                  "target_id": "footpad1",
+                  "disposition": "knocked_out",
+                  "gm_approved": true
+                },
+                {
+                  "attacker_id": "pc1",
+                  "target_id": "townsfolk1",
+                  "disposition": "knocked_out",
+                  "gm_approved": true
+                }
+              ],
+              "near_miss_policy": null,
+              "glorious_policy": null,
+              "help_policy": null,
+              "ally_recover_policy": null,
+              "backup_weapon_policy": null
+            },
+            {
+              "actor_id": "pc2",
+              "pc": {
+                "id": "pc-profile2",
+                "weapon_skill": 3,
+                "strength": 3,
+                "toughness": 3,
+                "agility": 3,
+                "melee": 5,
+                "defence": 5,
+                "athletics": 4,
+                "endurance": 4,
+                "weapon": "staff",
+                "armour_bonus": 0
+              },
+              "fate": {
+                "session_id": "session",
+                "actor_id": "pc2",
+                "rating": 3,
+                "session_spend_limit": 3,
+                "spends": [],
+                "has_lucky": false,
+                "refreshes": [],
+                "burns": [],
+                "resource_event_ids": [],
+                "rule_id": "RULE-FATE-001:session-resource"
+              },
+              "policy": "attack_or_recover_self",
+              "fate_policy": "decline_optional_fate",
+              "random_side_policy": "d10_low_left_high_right",
+              "heavy_wound_policy": "continue_fighting",
+              "initial_weapon_hand": "left",
+              "target_priority": [
+                "footpad1",
+                "townsfolk1"
+              ],
+              "defeat_decisions": [
+                {
+                  "attacker_id": "pc2",
+                  "target_id": "footpad1",
+                  "disposition": "knocked_out",
+                  "gm_approved": true
+                },
+                {
+                  "attacker_id": "pc2",
+                  "target_id": "townsfolk1",
+                  "disposition": "knocked_out",
+                  "gm_approved": true
+                }
+              ],
+              "near_miss_policy": null,
+              "glorious_policy": null,
+              "help_policy": null,
+              "ally_recover_policy": null,
+              "backup_weapon_policy": null
+            }
+          ],
+          "day_id": "day",
+          "enemies": [
+            {
+              "actor_id": "footpad1",
+              "definition": {
+                "id": "pc-book-npc:footpad",
+                "source_rule_id": "BOOK-GM-GUIDE:1.1:p97:footpad",
+                "injury_policy": "minion",
+                "wound_limit": 1,
+                "resilience": {
+                  "toughness": 3,
+                  "bonus": 0
+                },
+                "attack": {
+                  "id": "dagger",
+                  "source_rule_id": "BOOK-GM-GUIDE:1.1:p97:footpad:dagger",
+                  "test_profile": {
+                    "dice": 3,
+                    "threshold": 3,
+                    "pool_cap": null
+                  },
+                  "damage": {
+                    "base": 2,
+                    "success_multiplier": 1
+                  },
+                  "hands": "1h"
+                },
+                "protection": {
+                  "source_rule_id": "BOOK-GM-GUIDE:1.1:p97:footpad:athletics",
+                  "skill": "athletics",
+                  "test_profile": {
+                    "dice": 3,
+                    "threshold": 3,
+                    "pool_cap": null
+                  }
+                }
+              }
+            },
+            {
+              "actor_id": "townsfolk1",
+              "definition": {
+                "id": "pc-book-npc:empire_townsfolk",
+                "source_rule_id": "BOOK-GM-GUIDE:1.1:p96:empire_townsfolk",
+                "injury_policy": "minion",
+                "wound_limit": 1,
+                "resilience": {
+                  "toughness": 3,
+                  "bonus": 0
+                },
+                "attack": {
+                  "id": "dagger",
+                  "source_rule_id": "BOOK-GM-GUIDE:1.1:p96:empire_townsfolk:dagger",
+                  "test_profile": {
+                    "dice": 2,
+                    "threshold": 2,
+                    "pool_cap": null
+                  },
+                  "damage": {
+                    "base": 2,
+                    "success_multiplier": 1
+                  },
+                  "hands": "1h"
+                },
+                "protection": {
+                  "source_rule_id": "BOOK-GM-GUIDE:1.1:p96:empire_townsfolk:athletics",
+                  "skill": "athletics",
+                  "test_profile": {
+                    "dice": 2,
+                    "threshold": 2,
+                    "pool_cap": null
+                  }
+                }
+              }
+            }
+          ],
+          "facts": {
+            "zone_id": "arena",
+            "all_opponents_close": true,
+            "targets_aware": true,
+            "all_combatants_included": true,
+            "unmounted": true,
+            "no_external_effects": true,
+            "no_terrain_modifiers": true,
+            "no_additional_abilities": true,
+            "no_ambush": true,
+            "outnumbering_bonus_approved": true,
+            "can_leave_zone": false
+          },
+          "pc_activation_order": [
+            "pc1",
+            "pc2"
+          ],
+          "enemy_activation_order": [
+            "footpad1",
+            "townsfolk1"
+          ],
+          "enemy_target_priority": [
+            "pc1",
+            "pc2"
+          ],
+          "max_rounds": 5
+        }
+      },
+      "summary": {
+        "trials": 3,
+        "outcome_counts": {
+          "objective_achieved": 3,
+          "party_defeated": 0,
+          "round_limit": 0,
+          "unsupported_path": 0
+        },
+        "total_action_count": 8,
+        "total_started_round_count": 4,
+        "total_completed_round_count": 1,
+        "any_pc_defeated_count": 0,
+        "pc_defeat_counts": [
+          {
+            "actor_id": "pc1",
+            "count": 0
+          },
+          {
+            "actor_id": "pc2",
+            "count": 0
+          }
+        ],
+        "near_miss_burn_trial_count": 0,
+        "near_miss_burn_counts": [
+          {
+            "actor_id": "pc1",
+            "count": 0
+          },
+          {
+            "actor_id": "pc2",
+            "count": 0
+          }
+        ],
+        "total_near_miss_burn_count": 0,
+        "glorious_spend_trial_count": 0,
+        "glorious_spend_counts": [
+          {
+            "actor_id": "pc1",
+            "count": 0
+          },
+          {
+            "actor_id": "pc2",
+            "count": 0
+          }
+        ],
+        "total_glorious_spend_count": 0,
+        "help_action_trial_count": 0,
+        "help_action_counts": [
+          {
+            "actor_id": "pc1",
+            "count": 0
+          },
+          {
+            "actor_id": "pc2",
+            "count": 0
+          }
+        ],
+        "total_help_action_count": 0,
+        "ally_recover_action_trial_count": 0,
+        "ally_recover_action_counts": [
+          {
+            "actor_id": "pc1",
+            "count": 0
+          },
+          {
+            "actor_id": "pc2",
+            "count": 0
+          }
+        ],
+        "total_ally_recover_action_count": 0
+      },
+      "assessment": {
+        "status": "eligible",
+        "window": {
+          "minimum": {
+            "numerator": 0,
+            "denominator": 1
+          },
+          "target": {
+            "numerator": 1,
+            "denominator": 2
+          },
+          "maximum": {
+            "numerator": 1,
+            "denominator": 1
+          }
+        },
+        "objective_achieved_rate": {
+          "numerator": 1,
+          "denominator": 1
+        },
+        "party_defeated_rate": {
+          "numerator": 0,
+          "denominator": 1
+        },
+        "round_limit_rate": {
+          "numerator": 0,
+          "denominator": 1
+        },
+        "unsupported_path_rate": {
+          "numerator": 0,
+          "denominator": 1
+        },
+        "window_match": true
+      }
+    },
+    {
+      "candidate_id": "m21-book-npcs-template:counts:2,0",
+      "counts": [
+        2,
+        0
+      ],
+      "request": {
+        "master_seed": "42",
+        "trials": 3,
+        "scenario": {
+          "id": "m21-book-npcs-template:counts:2,0",
+          "party": [
+            {
+              "actor_id": "pc1",
+              "pc": {
+                "id": "pc-profile1",
+                "weapon_skill": 3,
+                "strength": 3,
+                "toughness": 3,
+                "agility": 3,
+                "melee": 5,
+                "defence": 5,
+                "athletics": 4,
+                "endurance": 4,
+                "weapon": "staff",
+                "armour_bonus": 0
+              },
+              "fate": {
+                "session_id": "session",
+                "actor_id": "pc1",
+                "rating": 3,
+                "session_spend_limit": 3,
+                "spends": [],
+                "has_lucky": false,
+                "refreshes": [],
+                "burns": [],
+                "resource_event_ids": [],
+                "rule_id": "RULE-FATE-001:session-resource"
+              },
+              "policy": "attack_or_recover_self",
+              "fate_policy": "decline_optional_fate",
+              "random_side_policy": "d10_low_left_high_right",
+              "heavy_wound_policy": "continue_fighting",
+              "initial_weapon_hand": "left",
+              "target_priority": [
+                "footpad1",
+                "footpad2"
+              ],
+              "defeat_decisions": [
+                {
+                  "attacker_id": "pc1",
+                  "target_id": "footpad1",
+                  "disposition": "knocked_out",
+                  "gm_approved": true
+                },
+                {
+                  "attacker_id": "pc1",
+                  "target_id": "footpad2",
+                  "disposition": "knocked_out",
+                  "gm_approved": true
+                }
+              ],
+              "near_miss_policy": null,
+              "glorious_policy": null,
+              "help_policy": null,
+              "ally_recover_policy": null,
+              "backup_weapon_policy": null
+            },
+            {
+              "actor_id": "pc2",
+              "pc": {
+                "id": "pc-profile2",
+                "weapon_skill": 3,
+                "strength": 3,
+                "toughness": 3,
+                "agility": 3,
+                "melee": 5,
+                "defence": 5,
+                "athletics": 4,
+                "endurance": 4,
+                "weapon": "staff",
+                "armour_bonus": 0
+              },
+              "fate": {
+                "session_id": "session",
+                "actor_id": "pc2",
+                "rating": 3,
+                "session_spend_limit": 3,
+                "spends": [],
+                "has_lucky": false,
+                "refreshes": [],
+                "burns": [],
+                "resource_event_ids": [],
+                "rule_id": "RULE-FATE-001:session-resource"
+              },
+              "policy": "attack_or_recover_self",
+              "fate_policy": "decline_optional_fate",
+              "random_side_policy": "d10_low_left_high_right",
+              "heavy_wound_policy": "continue_fighting",
+              "initial_weapon_hand": "left",
+              "target_priority": [
+                "footpad1",
+                "footpad2"
+              ],
+              "defeat_decisions": [
+                {
+                  "attacker_id": "pc2",
+                  "target_id": "footpad1",
+                  "disposition": "knocked_out",
+                  "gm_approved": true
+                },
+                {
+                  "attacker_id": "pc2",
+                  "target_id": "footpad2",
+                  "disposition": "knocked_out",
+                  "gm_approved": true
+                }
+              ],
+              "near_miss_policy": null,
+              "glorious_policy": null,
+              "help_policy": null,
+              "ally_recover_policy": null,
+              "backup_weapon_policy": null
+            }
+          ],
+          "day_id": "day",
+          "enemies": [
+            {
+              "actor_id": "footpad1",
+              "definition": {
+                "id": "pc-book-npc:footpad",
+                "source_rule_id": "BOOK-GM-GUIDE:1.1:p97:footpad",
+                "injury_policy": "minion",
+                "wound_limit": 1,
+                "resilience": {
+                  "toughness": 3,
+                  "bonus": 0
+                },
+                "attack": {
+                  "id": "dagger",
+                  "source_rule_id": "BOOK-GM-GUIDE:1.1:p97:footpad:dagger",
+                  "test_profile": {
+                    "dice": 3,
+                    "threshold": 3,
+                    "pool_cap": null
+                  },
+                  "damage": {
+                    "base": 2,
+                    "success_multiplier": 1
+                  },
+                  "hands": "1h"
+                },
+                "protection": {
+                  "source_rule_id": "BOOK-GM-GUIDE:1.1:p97:footpad:athletics",
+                  "skill": "athletics",
+                  "test_profile": {
+                    "dice": 3,
+                    "threshold": 3,
+                    "pool_cap": null
+                  }
+                }
+              }
+            },
+            {
+              "actor_id": "footpad2",
+              "definition": {
+                "id": "pc-book-npc:footpad",
+                "source_rule_id": "BOOK-GM-GUIDE:1.1:p97:footpad",
+                "injury_policy": "minion",
+                "wound_limit": 1,
+                "resilience": {
+                  "toughness": 3,
+                  "bonus": 0
+                },
+                "attack": {
+                  "id": "dagger",
+                  "source_rule_id": "BOOK-GM-GUIDE:1.1:p97:footpad:dagger",
+                  "test_profile": {
+                    "dice": 3,
+                    "threshold": 3,
+                    "pool_cap": null
+                  },
+                  "damage": {
+                    "base": 2,
+                    "success_multiplier": 1
+                  },
+                  "hands": "1h"
+                },
+                "protection": {
+                  "source_rule_id": "BOOK-GM-GUIDE:1.1:p97:footpad:athletics",
+                  "skill": "athletics",
+                  "test_profile": {
+                    "dice": 3,
+                    "threshold": 3,
+                    "pool_cap": null
+                  }
+                }
+              }
+            }
+          ],
+          "facts": {
+            "zone_id": "arena",
+            "all_opponents_close": true,
+            "targets_aware": true,
+            "all_combatants_included": true,
+            "unmounted": true,
+            "no_external_effects": true,
+            "no_terrain_modifiers": true,
+            "no_additional_abilities": true,
+            "no_ambush": true,
+            "outnumbering_bonus_approved": true,
+            "can_leave_zone": false
+          },
+          "pc_activation_order": [
+            "pc1",
+            "pc2"
+          ],
+          "enemy_activation_order": [
+            "footpad1",
+            "footpad2"
+          ],
+          "enemy_target_priority": [
+            "pc1",
+            "pc2"
+          ],
+          "max_rounds": 5
+        }
+      },
+      "summary": {
+        "trials": 3,
+        "outcome_counts": {
+          "objective_achieved": 3,
+          "party_defeated": 0,
+          "round_limit": 0,
+          "unsupported_path": 0
+        },
+        "total_action_count": 8,
+        "total_started_round_count": 4,
+        "total_completed_round_count": 1,
+        "any_pc_defeated_count": 0,
+        "pc_defeat_counts": [
+          {
+            "actor_id": "pc1",
+            "count": 0
+          },
+          {
+            "actor_id": "pc2",
+            "count": 0
+          }
+        ],
+        "near_miss_burn_trial_count": 0,
+        "near_miss_burn_counts": [
+          {
+            "actor_id": "pc1",
+            "count": 0
+          },
+          {
+            "actor_id": "pc2",
+            "count": 0
+          }
+        ],
+        "total_near_miss_burn_count": 0,
+        "glorious_spend_trial_count": 0,
+        "glorious_spend_counts": [
+          {
+            "actor_id": "pc1",
+            "count": 0
+          },
+          {
+            "actor_id": "pc2",
+            "count": 0
+          }
+        ],
+        "total_glorious_spend_count": 0,
+        "help_action_trial_count": 0,
+        "help_action_counts": [
+          {
+            "actor_id": "pc1",
+            "count": 0
+          },
+          {
+            "actor_id": "pc2",
+            "count": 0
+          }
+        ],
+        "total_help_action_count": 0,
+        "ally_recover_action_trial_count": 0,
+        "ally_recover_action_counts": [
+          {
+            "actor_id": "pc1",
+            "count": 0
+          },
+          {
+            "actor_id": "pc2",
+            "count": 0
+          }
+        ],
+        "total_ally_recover_action_count": 0
+      },
+      "assessment": {
+        "status": "eligible",
+        "window": {
+          "minimum": {
+            "numerator": 0,
+            "denominator": 1
+          },
+          "target": {
+            "numerator": 1,
+            "denominator": 2
+          },
+          "maximum": {
+            "numerator": 1,
+            "denominator": 1
+          }
+        },
+        "objective_achieved_rate": {
+          "numerator": 1,
+          "denominator": 1
+        },
+        "party_defeated_rate": {
+          "numerator": 0,
+          "denominator": 1
+        },
+        "round_limit_rate": {
+          "numerator": 0,
+          "denominator": 1
+        },
+        "unsupported_path_rate": {
+          "numerator": 0,
+          "denominator": 1
+        },
+        "window_match": true
+      }
+    },
+    {
+      "candidate_id": "m21-book-npcs-template:counts:2,1",
+      "counts": [
+        2,
+        1
+      ],
+      "request": {
+        "master_seed": "42",
+        "trials": 3,
+        "scenario": {
+          "id": "m21-book-npcs-template:counts:2,1",
+          "party": [
+            {
+              "actor_id": "pc1",
+              "pc": {
+                "id": "pc-profile1",
+                "weapon_skill": 3,
+                "strength": 3,
+                "toughness": 3,
+                "agility": 3,
+                "melee": 5,
+                "defence": 5,
+                "athletics": 4,
+                "endurance": 4,
+                "weapon": "staff",
+                "armour_bonus": 0
+              },
+              "fate": {
+                "session_id": "session",
+                "actor_id": "pc1",
+                "rating": 3,
+                "session_spend_limit": 3,
+                "spends": [],
+                "has_lucky": false,
+                "refreshes": [],
+                "burns": [],
+                "resource_event_ids": [],
+                "rule_id": "RULE-FATE-001:session-resource"
+              },
+              "policy": "attack_or_recover_self",
+              "fate_policy": "decline_optional_fate",
+              "random_side_policy": "d10_low_left_high_right",
+              "heavy_wound_policy": "continue_fighting",
+              "initial_weapon_hand": "left",
+              "target_priority": [
+                "footpad1",
+                "footpad2",
+                "townsfolk1"
+              ],
+              "defeat_decisions": [
+                {
+                  "attacker_id": "pc1",
+                  "target_id": "footpad1",
+                  "disposition": "knocked_out",
+                  "gm_approved": true
+                },
+                {
+                  "attacker_id": "pc1",
+                  "target_id": "footpad2",
+                  "disposition": "knocked_out",
+                  "gm_approved": true
+                },
+                {
+                  "attacker_id": "pc1",
+                  "target_id": "townsfolk1",
+                  "disposition": "knocked_out",
+                  "gm_approved": true
+                }
+              ],
+              "near_miss_policy": null,
+              "glorious_policy": null,
+              "help_policy": null,
+              "ally_recover_policy": null,
+              "backup_weapon_policy": null
+            },
+            {
+              "actor_id": "pc2",
+              "pc": {
+                "id": "pc-profile2",
+                "weapon_skill": 3,
+                "strength": 3,
+                "toughness": 3,
+                "agility": 3,
+                "melee": 5,
+                "defence": 5,
+                "athletics": 4,
+                "endurance": 4,
+                "weapon": "staff",
+                "armour_bonus": 0
+              },
+              "fate": {
+                "session_id": "session",
+                "actor_id": "pc2",
+                "rating": 3,
+                "session_spend_limit": 3,
+                "spends": [],
+                "has_lucky": false,
+                "refreshes": [],
+                "burns": [],
+                "resource_event_ids": [],
+                "rule_id": "RULE-FATE-001:session-resource"
+              },
+              "policy": "attack_or_recover_self",
+              "fate_policy": "decline_optional_fate",
+              "random_side_policy": "d10_low_left_high_right",
+              "heavy_wound_policy": "continue_fighting",
+              "initial_weapon_hand": "left",
+              "target_priority": [
+                "footpad1",
+                "footpad2",
+                "townsfolk1"
+              ],
+              "defeat_decisions": [
+                {
+                  "attacker_id": "pc2",
+                  "target_id": "footpad1",
+                  "disposition": "knocked_out",
+                  "gm_approved": true
+                },
+                {
+                  "attacker_id": "pc2",
+                  "target_id": "footpad2",
+                  "disposition": "knocked_out",
+                  "gm_approved": true
+                },
+                {
+                  "attacker_id": "pc2",
+                  "target_id": "townsfolk1",
+                  "disposition": "knocked_out",
+                  "gm_approved": true
+                }
+              ],
+              "near_miss_policy": null,
+              "glorious_policy": null,
+              "help_policy": null,
+              "ally_recover_policy": null,
+              "backup_weapon_policy": null
+            }
+          ],
+          "day_id": "day",
+          "enemies": [
+            {
+              "actor_id": "footpad1",
+              "definition": {
+                "id": "pc-book-npc:footpad",
+                "source_rule_id": "BOOK-GM-GUIDE:1.1:p97:footpad",
+                "injury_policy": "minion",
+                "wound_limit": 1,
+                "resilience": {
+                  "toughness": 3,
+                  "bonus": 0
+                },
+                "attack": {
+                  "id": "dagger",
+                  "source_rule_id": "BOOK-GM-GUIDE:1.1:p97:footpad:dagger",
+                  "test_profile": {
+                    "dice": 3,
+                    "threshold": 3,
+                    "pool_cap": null
+                  },
+                  "damage": {
+                    "base": 2,
+                    "success_multiplier": 1
+                  },
+                  "hands": "1h"
+                },
+                "protection": {
+                  "source_rule_id": "BOOK-GM-GUIDE:1.1:p97:footpad:athletics",
+                  "skill": "athletics",
+                  "test_profile": {
+                    "dice": 3,
+                    "threshold": 3,
+                    "pool_cap": null
+                  }
+                }
+              }
+            },
+            {
+              "actor_id": "footpad2",
+              "definition": {
+                "id": "pc-book-npc:footpad",
+                "source_rule_id": "BOOK-GM-GUIDE:1.1:p97:footpad",
+                "injury_policy": "minion",
+                "wound_limit": 1,
+                "resilience": {
+                  "toughness": 3,
+                  "bonus": 0
+                },
+                "attack": {
+                  "id": "dagger",
+                  "source_rule_id": "BOOK-GM-GUIDE:1.1:p97:footpad:dagger",
+                  "test_profile": {
+                    "dice": 3,
+                    "threshold": 3,
+                    "pool_cap": null
+                  },
+                  "damage": {
+                    "base": 2,
+                    "success_multiplier": 1
+                  },
+                  "hands": "1h"
+                },
+                "protection": {
+                  "source_rule_id": "BOOK-GM-GUIDE:1.1:p97:footpad:athletics",
+                  "skill": "athletics",
+                  "test_profile": {
+                    "dice": 3,
+                    "threshold": 3,
+                    "pool_cap": null
+                  }
+                }
+              }
+            },
+            {
+              "actor_id": "townsfolk1",
+              "definition": {
+                "id": "pc-book-npc:empire_townsfolk",
+                "source_rule_id": "BOOK-GM-GUIDE:1.1:p96:empire_townsfolk",
+                "injury_policy": "minion",
+                "wound_limit": 1,
+                "resilience": {
+                  "toughness": 3,
+                  "bonus": 0
+                },
+                "attack": {
+                  "id": "dagger",
+                  "source_rule_id": "BOOK-GM-GUIDE:1.1:p96:empire_townsfolk:dagger",
+                  "test_profile": {
+                    "dice": 2,
+                    "threshold": 2,
+                    "pool_cap": null
+                  },
+                  "damage": {
+                    "base": 2,
+                    "success_multiplier": 1
+                  },
+                  "hands": "1h"
+                },
+                "protection": {
+                  "source_rule_id": "BOOK-GM-GUIDE:1.1:p96:empire_townsfolk:athletics",
+                  "skill": "athletics",
+                  "test_profile": {
+                    "dice": 2,
+                    "threshold": 2,
+                    "pool_cap": null
+                  }
+                }
+              }
+            }
+          ],
+          "facts": {
+            "zone_id": "arena",
+            "all_opponents_close": true,
+            "targets_aware": true,
+            "all_combatants_included": true,
+            "unmounted": true,
+            "no_external_effects": true,
+            "no_terrain_modifiers": true,
+            "no_additional_abilities": true,
+            "no_ambush": true,
+            "outnumbering_bonus_approved": true,
+            "can_leave_zone": false
+          },
+          "pc_activation_order": [
+            "pc1",
+            "pc2"
+          ],
+          "enemy_activation_order": [
+            "footpad1",
+            "footpad2",
+            "townsfolk1"
+          ],
+          "enemy_target_priority": [
+            "pc1",
+            "pc2"
+          ],
+          "max_rounds": 5
+        }
+      },
+      "summary": {
+        "trials": 3,
+        "outcome_counts": {
+          "objective_achieved": 3,
+          "party_defeated": 0,
+          "round_limit": 0,
+          "unsupported_path": 0
+        },
+        "total_action_count": 16,
+        "total_started_round_count": 6,
+        "total_completed_round_count": 3,
+        "any_pc_defeated_count": 0,
+        "pc_defeat_counts": [
+          {
+            "actor_id": "pc1",
+            "count": 0
+          },
+          {
+            "actor_id": "pc2",
+            "count": 0
+          }
+        ],
+        "near_miss_burn_trial_count": 0,
+        "near_miss_burn_counts": [
+          {
+            "actor_id": "pc1",
+            "count": 0
+          },
+          {
+            "actor_id": "pc2",
+            "count": 0
+          }
+        ],
+        "total_near_miss_burn_count": 0,
+        "glorious_spend_trial_count": 0,
+        "glorious_spend_counts": [
+          {
+            "actor_id": "pc1",
+            "count": 0
+          },
+          {
+            "actor_id": "pc2",
+            "count": 0
+          }
+        ],
+        "total_glorious_spend_count": 0,
+        "help_action_trial_count": 0,
+        "help_action_counts": [
+          {
+            "actor_id": "pc1",
+            "count": 0
+          },
+          {
+            "actor_id": "pc2",
+            "count": 0
+          }
+        ],
+        "total_help_action_count": 0,
+        "ally_recover_action_trial_count": 0,
+        "ally_recover_action_counts": [
+          {
+            "actor_id": "pc1",
+            "count": 0
+          },
+          {
+            "actor_id": "pc2",
+            "count": 0
+          }
+        ],
+        "total_ally_recover_action_count": 0
+      },
+      "assessment": {
+        "status": "eligible",
+        "window": {
+          "minimum": {
+            "numerator": 0,
+            "denominator": 1
+          },
+          "target": {
+            "numerator": 1,
+            "denominator": 2
+          },
+          "maximum": {
+            "numerator": 1,
+            "denominator": 1
+          }
+        },
+        "objective_achieved_rate": {
+          "numerator": 1,
+          "denominator": 1
+        },
+        "party_defeated_rate": {
+          "numerator": 0,
+          "denominator": 1
+        },
+        "round_limit_rate": {
+          "numerator": 0,
+          "denominator": 1
+        },
+        "unsupported_path_rate": {
+          "numerator": 0,
+          "denominator": 1
+        },
+        "window_match": true
+      }
+    }
+  ],
+  "selected_candidate_ids": [
+    "m21-book-npcs-template:counts:1,0",
+    "m21-book-npcs-template:counts:1,1"
+  ]
+}

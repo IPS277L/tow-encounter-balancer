@@ -119,7 +119,7 @@ def _parse_scenario(data, *, path_prefix, error_type):
             definition_raw["id"], definition_raw["source_rule_id"],
             TargetInjuryPolicy(definition_raw["injury_policy"]), definition_raw["wound_limit"],
             resilience, (attack,), (NpcProtectionProfile(protection_raw["source_rule_id"],
-                Skill.DEFENCE, InlineProfile(**protection_raw["test_profile"])),))
+                Skill(protection_raw["skill"]), InlineProfile(**protection_raw["test_profile"])),))
         state = build(path, NpcParticipantState, enemy["actor_id"], definition.id,
             CombatSide.OPPOSITION, ProfileInjuryState(0, definition.wound_limit), (attack.id,), resilience, True, False)
         enemies.append(NpcParticipantSnapshot(definition, state))
@@ -143,7 +143,7 @@ def scenario_document(scenario: PcMeleeScenario) -> dict:
                 "test_profile": asdict(attack.test_profile), "damage": asdict(attack.damage),
                 "hands": attack.hands.value},
             "protection": {"source_rule_id": protection.source_rule_id,
-                "test_profile": asdict(protection.test_profile)}}})
+                "skill": protection.skill.value,"test_profile": asdict(protection.test_profile)}}})
     return {"id": scenario.id, "party": _plain([asdict(member) for member in scenario.party]),
         "day_id": scenario.day_id, "enemies": enemies,
         "facts": facts_document(scenario.facts),

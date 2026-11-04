@@ -4,43 +4,36 @@
 
 ## Текущий этап
 
-**M20 завершена в выбранной границе.** Двуручный PC может иметь явное запасное1H Close-оружие и перейти на него после утраты2H возможности. [Контракт ADR-0075](decisions/ADR-0075-pc-backup-weapon-policy.md), [правила](rules/equipment.md#исполняемая-pc-граница-m20), [JSON/CLI-примеры](examples/m20/README.md).
+**M21 завершена в выбранной границе.** Первые точные книжные боевые NPC-подпрофили — Footpad и Empire Townsfolk — подключены к PC native/trials/process/подбору и текущему JSON1. [Контракт ADR-0076](decisions/ADR-0076-first-pc-book-npc-catalog.md), [правила](rules/npcs.md#исполняемый-каталог-pc-m21), [factory/JSON/CLI-примеры](examples/m21/README.md).
 
-Обязательное nullable `backup_weapon_policy` задаёт weapon/preferred_hand. Non-null требует2H primary и Strength≥2 для двух carried weapons; null сохраняет M19. Actual incidental draw происходит в свой unreserved turn, после immediate Wound/Fate consequences, при одной пригодной руке и отсутствии Defenceless. До draw Protection использует Athletics, старый Defence Help не переназначается. Clutch18 сохраняется; Defenceless20 продолжает обязательные end phases без draw.
+Footpad GM1.1 стр.97: Dagger Close3d/3 Damage2,1H; Protection Athletics3d/3. Townsfolk стр.96: Dagger Close2d/2 Damage2,1H; напечатанная Athletics2d/2. Оба Minion, Toughness3/Resilience3 без брони, defeat после первой Wound. Protection не пересчитывается из Agility, PC weapon Traits не добавляются по названию NPC-оружия.
 
-Draw подтверждён отдельным source-bound proof и единственным using_backup_weapon receipt. Он не делает Test, не меняет clock/standard slots/action count, но вызывает Critical14/15 и последствия использованной руки12. Затем active weapon/grip/item ID определяют Damage/Traits/Help/Protection и pickup именно backup; возврата primary нет. При0hands до draw actual stop связан с последней вызвавшей это раной по sequence, независимо порядка переставленных body facts. После draw действует прежняя1H граница, исходный primary2H не вызывает ложный stop.
+Typed каталог хранит книгу/версию/главу/страницу и inactive Ability name/scope/effect. Lurker Footpad — Grim spotting Awareness вне боя; Streetwise Townsfolk — +1d Awareness против pickpocket. В нынешнем aware/noambush бою этих ситуаций нет. Fact no_additional_abilities означает отсутствие дополнительных применимых effects, а не удаление способностей. Это боевые подпрофили для данной сцены, не полные NPC-карточки/весь бестиарий.
 
-Текущий PC JSON1 требует поле policy у каждого участника: null либо закрытый объект. Пропуск отклоняется; Python source также требует явное значение. Все22прежние request/result pairs M9–M19 мигрированы null-policy во всех root/candidate sources, без изменения старых gameplay/counters. Версия и метрики не менялись; count search фиксирует оба оружия, preference, Fate и роли.
+Factory каждый раз создаёт независимый здоровый armed opposition snapshot. Reserved definition IDs и известные root/attack/protection book source IDs принимаются лишь с exact canonical definition и nested types; переименование только root IDs не обходит защиту. Canonical baseline строится отдельно, не делит изменяемый через bypass граф с input. Обычные authored numeric profiles сохраняются и проходят cheap early return без создания canonical graphs.
+
+NPC Protection теперь допускает Athletics/Defence и передаёт actual Skill общему preparation. Текущий PC JSON1 требует `definition.protection.skill`; parser не подставляет Defence, encoder не теряет Skill. Все24прежние пары M9–M20 дополнены явным defence без изменения остальных игровых значений/counters. Версия/метрики прежние, нового сокращённого wire input или скрытого resolve по имени оружия нет.
 
 ## Последняя проверка
 
-Широкий адресный прогон при `PYTHONPATH=src`: `.venv/Scripts/python.exe .cache/m20_check_subsystem.py` —58модулей PC M9–M20 и связанных K1 путей,555tests/87.281s,554успешных и1failure,0errors/skips. Log `.cache/m20-pc-subsystem.log`. Failure — прежний invariant обязательных Python source fields: у нового поля был defaultNone. Default убран, общий fresh builder теперь явно передаётNone; игровые значения/переходы не изменились.
+При `PYTHONPATH=src` `.venv/Scripts/python.exe .cache/m21_check_subsystem.py` — **228 tests OK/54.937s**,23модуля,0failures/errors/skips. Log `.cache/m21-pc-npc-subsystem.log`. Включены все M21, ближайшие PC source/execution/party/Minion-Brute trials/balance/CLI, representative weapon/backup paths и K1 Protection/Attack execution. Код/тесты заморожены до запуска, после него менялась документация. Это единый зелёный адресный прогон, не полный PC M9–M21 и не полный regression проекта.
 
-После исправления повторены упавший модуль и ближайшие зависимые M20/codec/process checks: **99 tests OK/10.643s**,7модулей,0failures/errors/skips. Команда:
+Добавлены9catalog/factory/provenance tests,4literal native,6codec/schema и3integration. Проверены exact printed3d/3 vs2d/2, NPC Damage2, actual Athletics в preparation, scene gating, known-ID spoof rejection до RNG, cached enum aliases, независимые canonical graphs, real Windows process parity, fixed definitions/Skill в mixed count search и aggregate-only граница. Review обнаружил и до checkpoint закрыл обход provenance с переименованными root IDs, но сохранёнными nested book sources; effect magnitudes также сохранены в metadata.
 
-```powershell
-$env:PYTHONPATH = 'src'
-.venv/Scripts/python.exe -m unittest tests.unit.test_m9_pc_melee_models tests.unit.test_m9_pc_melee_json tests.unit.test_m9_pc_melee_json_schemas tests.unit.test_m20_pc_backup_weapon tests.unit.test_m20_pc_backup_weapon_admission tests.unit.test_m20_pc_backup_weapon_json tests.integration.test_m20_pc_backup_weapon -q
-```
+Локальные `.cache` scripts/logs не являются частью репозитория. В [ADR-0076](decisions/ADR-0076-first-pc-book-npc-catalog.md#проверка) есть адресная unittest-команда для новой копии. Успешные не затронутые тяжёлые подсистемы M12–M20, M8 callers и shared kernel не прогонялись заново полностью. Сборка/dependencies/resource discovery/entry points не менялись; full regression/wheel не запускались.
 
-Это составная приёмка с исправленным отказом, не единый зелёный прогон555 и не полный regression проекта. Успешные дорогие проверки не повторялись. После99tests код/тесты не менялись. Локальные `.cache` scripts/logs не являются частью репозитория.
+Оба M21 requests выполнены настоящим CLI на финальном коде с exact full request echo. Малые наблюдения находятся в README/JSON примеров и не объявляются вероятностями/оптимумом. `.cache/m21_verify_migration.py` подтвердил24прежние request/result pairs и35candidate sources roundtrip; после удаления нового explicit Defence поля все прежние значения совпадают с HEAD. Пересчёта старых Monte Carlo результатов не было и он не нужен для этой механической миграции.
 
-Добавлены12native tests,4admission/carry,7codec/schema и4integration. Проверены actual draw16/18, Defenceless20 без draw, обе роли предметов в drop/Recover, Critical12/14/15, active Damage всех6backups/Defence/Help, Near Miss, replay/forged/skip guards и real process parity. Review выявил и закрыт регрессией случай clutch relocation: facts(4,3) не могут привязать новый0hands stop к старойране3. Source выбирается по actual Wound sequence.
-
-Оба M20 requests выполнены настоящим CLI с exact full request echo; наблюдения находятся в примерах. После устранения constructor default повторены schema/source проверки:22старые пары/32candidate scenarios roundtrip, все прежние значения совпадают с HEAD после удаления нового null-поля. Public requests уже содержат явное поле; этот fix не меняет их игровые входы. Малые результаты не объявляются оценками вероятности/пользой backup или оптимумом.
-
-Shared K1/Recover не менялись, M8 callers повторно не запускались; сборка/dependencies/resources/entry points не менялись. Full regression/wheel не запускались.
-
-`.cache/m20_verify_docs.py` проверил11изменённых Markdown/1044локальных targets, все24current request/result pairs M9–M20 и UTF-8/newline/whitespace изменённых файлов. `git diff --check` успешен.
+`.cache/m21_verify_docs.py` проверил11изменённых Markdown/1064локальных targets, все26current request/result pairs M9–M21 и UTF-8/newline/whitespace изменённых файлов. `git diff --check` успешен.
 
 ## Ограничения
 
-Здоровая initial party,13Close primary weapons, optional один1H backup только для2H primary, numeric Melee Minions/Brutes без on-Wound abilities, одна Close Zone и fixed orders/priorities. Переключение только при actual недоступном2H хвате, не по произвольной выгоде, ране12 или простому drop. Нет off-turn draw, возврата primary, backup2H, dual wield, общего inventory/Brawn/других ranges/Charge/mounts. Greatsword требует уточнения бонуса.
+Два registered book combat profiles, здоровая initial party,13Close primary weapons и optional1H backup, numeric Minions/Brutes без неподдержанных применимых effects, одна Close Zone/fixed orders/priorities. Существующие авторские numeric NPC не становятся проверенными книжными профилями по произвольной подписи. Применимые Abilities Brigand/Peasant/Watch и другие NPC, ambush/pickpocket, новые loadouts/ranges/spatial/Champions не включены автоматически.
 
-Сохраняются Wounds1–23/lethal24+, source-aware ongoing Conditions, mandatory Critical/Defenceless end phases и невозможная повторная анатомия как pending GM-stop. Null policy оставляет M19-stop16/18/20; configured backup не гарантирует дальнейшую возможность действовать или выживание. Ally Recover не лечит раны/Defenceless/Critical. Другие Help/Fate/Lucky, лечение/campaign, полный NPC catalog и optimal AI остаются за границей. Costs/losses при stop/limit относятся только к исполненному prefix.
+Сохраняются Wounds1–23/lethal24+, source-aware ongoing Conditions, обязательные Critical/Defenceless end phases, actual anatomical GM-stop и fixed backup policy. Greatsword требует уточнения бонуса. Dual wield, произвольная смена, Brawn, лечение/campaign, весь каталог spells/NPC и optimal AI остаются за границей. Costs/losses при stop/limit отражают только исполненный prefix.
 
 ## Следующий шаг
 
-Предложение — первый ограниченный каталог книжных NPC-профилей для PC balance. Сначала выбрать Minion/Brute, чьи механики полностью укладываются в текущий срез, с книгой/страницей/полным source; дополнительные Abilities не отбрасывать ради допуска. Если они нужны, отдельно определить конечный scope. M21 ещё не согласована. [Очередь](roadmap.md), [индекс вопросов](open-questions.md).
+Предложение — первый книжный NPC с применимой боевой Ability: Brigand / Craven Opportunist (+2d вместо +1d при outnumbering), GM97. Сначала зафиксировать явный Melee-loadout Axe и границу применения, сохранив факт выбора из полной карточки с Warbow. M22 ещё не согласована; новые ranged/spatial пути и весь бестиарий не включать автоматически. [Очередь](roadmap.md), [индекс вопросов](open-questions.md).
 
-Перед M20 рабочее дерево было чистым; пользователь сохранил M19 в Git. Изменения M20 незакоммичены; commit/push выполняет пользователь.
+Перед M21 рабочее дерево было чистым; пользователь сохранил M20 в Git. Изменения M21 незакоммичены; commit/push выполняет пользователь.

@@ -103,7 +103,8 @@
               "dice": 4,
               "threshold": 10,
               "pool_cap": null
-            }
+            },
+            "skill": "defence"
           }
         }
       },
@@ -138,7 +139,8 @@
               "dice": 4,
               "threshold": 10,
               "pool_cap": null
-            }
+            },
+            "skill": "defence"
           }
         }
       },
@@ -173,7 +175,8 @@
               "dice": 4,
               "threshold": 10,
               "pool_cap": null
-            }
+            },
+            "skill": "defence"
           }
         }
       }

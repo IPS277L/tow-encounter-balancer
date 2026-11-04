@@ -766,7 +766,7 @@ class PcMeleeJsonTests(unittest.TestCase):
             (('scenario','enemies',0,'state'),{}),
             (('scenario','enemies',0,'definition','attack','ignores_armour'),False),
             (('scenario','enemies',0,'definition','attack','test_profile','pool_cap'),4),
-            (('scenario','enemies',0,'definition','protection','skill'),'defence'),
+            (('scenario','enemies',0,'definition','protection','selected_skill'),'defence'),
         ):
             raw=document()
             target=raw

@@ -36,7 +36,8 @@
               "dice": 2,
               "threshold": 4,
               "pool_cap": null
-            }
+            },
+            "skill": "defence"
           },
           "injury_policy": "minion",
           "wound_limit": 1
@@ -71,7 +72,8 @@
               "dice": 2,
               "threshold": 4,
               "pool_cap": null
-            }
+            },
+            "skill": "defence"
           },
           "injury_policy": "minion",
           "wound_limit": 1
@@ -106,7 +108,8 @@
               "dice": 2,
               "threshold": 4,
               "pool_cap": null
-            }
+            },
+            "skill": "defence"
           },
           "injury_policy": "minion",
           "wound_limit": 1

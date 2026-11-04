@@ -424,7 +424,7 @@ def _readmit_profile_enemy(enemy: NpcParticipantSnapshot) -> None:
     attacks = _canonical_tuple(definition.attacks, "Minion attacks")
     protection = _canonical_tuple(definition.protection, "Minion protection")
     if len(attacks) != 1 or len(protection) != 1:
-        raise ValueError("Minion requires one Melee attack and one Defence profile")
+        raise ValueError("Minion requires one Melee attack and one Protection profile")
     attack, defence = attacks[0], protection[0]
     _typed(attack, NpcAttackProfile, "Minion attack")
     _typed(defence, NpcProtectionProfile, "Minion Defence")
@@ -449,7 +449,7 @@ def _readmit_profile_enemy(enemy: NpcParticipantSnapshot) -> None:
             or attack.range_min is not RangedWeaponRange.CLOSE
             or attack.range_max is not RangedWeaponRange.CLOSE
             or attack.damage.success_multiplier != 1 or attack.ignores_armour
-            or attack.secondary_effects or defence.skill is not Skill.DEFENCE):
+            or attack.secondary_effects or defence.skill not in (Skill.DEFENCE,Skill.ATHLETICS)):
         raise ValueError("unsupported Minion attack or Protection profile")
     injury = state.injury
     _typed(injury, ProfileInjuryState, "Minion injury")
@@ -473,6 +473,8 @@ def _readmit_profile_enemy(enemy: NpcParticipantSnapshot) -> None:
             or state.current_resilience != definition.resilience
             or state.available_attack_ids != (attack.id,)):
         raise ValueError("PC melee requires fresh armed healthy Minions without shields")
+    from towr.domain.pc_npc_catalog import validate_pc_book_npc_definition
+    validate_pc_book_npc_definition(definition)
 
 
 def _readmit_inline(profile: InlineProfile) -> None:

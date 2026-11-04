@@ -181,11 +181,11 @@ class PcMeleeModelTests(unittest.TestCase):
             with self.subTest(state=changed), self.assertRaises(ValueError):
                 enemy_changed(source, state=changed)
 
-    def test_minion_numeric_profiles_require_one_ordinary_close_melee_and_defence(self):
+    def test_minion_numeric_profiles_require_one_ordinary_close_melee_and_supported_protection(self):
         source = make_pc_melee_scenario()
         definition = source.enemies[0].definition
         attack = definition.attacks[0]
-        variants = (replace(definition, attacks=()), replace(definition, protection=()), replace(definition, attacks=(replace(attack, ignores_armour=True),)), replace(definition, attacks=(replace(attack, skill=Skill.SHOOTING),)), replace(definition, attacks=(replace(attack, range_max=RangedWeaponRange.SHORT),)), replace(definition, attacks=(replace(attack, damage=DamageProfile(3, 2)),)), replace(definition, attacks=(replace(attack, test_profile=InlineProfile(2, 4, 4)),)), replace(definition, protection=(replace(definition.protection[0], skill=Skill.ATHLETICS),)))
+        variants = (replace(definition, attacks=()), replace(definition, protection=()), replace(definition, attacks=(replace(attack, ignores_armour=True),)), replace(definition, attacks=(replace(attack, skill=Skill.SHOOTING),)), replace(definition, attacks=(replace(attack, range_max=RangedWeaponRange.SHORT),)), replace(definition, attacks=(replace(attack, damage=DamageProfile(3, 2)),)), replace(definition, attacks=(replace(attack, test_profile=InlineProfile(2, 4, 4)),)), replace(definition, protection=(replace(definition.protection[0], skill=Skill.MELEE),)))
         for changed in variants:
             with self.subTest(definition=changed), self.assertRaises(ValueError):
                 enemy_changed(source, definition=changed)

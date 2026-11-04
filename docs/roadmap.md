@@ -20,10 +20,11 @@
 - M18: Dagger/Axe/Warhammer/Morning Star вместе со Staff/Sword, явные Damage/Traits, прежние hand/Help/Fate/Recover и fixed-party поиск через текущий JSON1. [Граница](rules/equipment.md#исполняемая-pc-граница-m18), [примеры](examples/m18/README.md).
 - M19: семь двуручных Close weapons, typed BOTH grip, обе руки в drop/Recover/Critical12 и actual unsupported после завершённых ран16/18/20; прежние trials/process/поиск/JSON1. [ADR-0074](decisions/ADR-0074-pc-two-handed-close-weapons.md), [примеры](examples/m19/README.md).
 - M20: явный1H backup к2H primary, own-turn incidental draw, active Damage/Traits/Help/Recover, carry/source/replay guards и прежние trials/process/search/JSON1. [ADR-0075](decisions/ADR-0075-pc-backup-weapon-policy.md), [примеры](examples/m20/README.md).
+- M21: точные Footpad/Townsfolk боевые подпрофили GM1.1, независимые factories/metadata, защищённое book provenance и явный NPC Athletics/Defence через native/trials/process/подбор/JSON1. [ADR-0076](decisions/ADR-0076-first-pc-book-npc-catalog.md), [примеры](examples/m21/README.md).
 
 ## Последняя законченная функция
 
-[Запасное оружие M20](decisions/ADR-0075-pc-backup-weapon-policy.md) реализовано через owner/trials/process/подбор и текущий JSON1. [CLI-примеры](examples/m20/README.md) показывают явный backup source и фактическое продолжение/ограничения; старые22пары мигрированы null-policy без изменения gameplay. Приёмка — в статусе; обязательного остатка M20 нет.
+[Книжные NPC M21](decisions/ADR-0076-first-pc-book-npc-catalog.md) реализованы через тот же native owner/trials/process/подбор и текущий JSON1. [CLI-примеры](examples/m21/README.md) используют точные Footpad/Townsfolk, сохраняя Protection Skill и полный source. Неактивные способности сохранены с условием/эффектом, применимые не отбрасываются. Приёмка — в статусе; обязательного остатка M21 нет.
 
 ## M8 завершена
 
@@ -103,11 +104,15 @@
 
 Завершённый срез по [ADR-0075](decisions/ADR-0075-pc-backup-weapon-policy.md): nullable1H backup с предпочтением руки только при2H primary/Strength≥2. Draw выполняется в свой ход после фактической утраты2H возможности, без ранней защиты или обхода Defenceless. Отдельный proof сохраняет Critical12/14/15; затем действуют Traits/Help/Recover активного backup. Вернуть primary нельзя. Если до draw не осталось рук, stop сохраняет фактический источник; после draw действует прежняя1H граница. Метрики/version неизменны, поле policy обязательно nullable в JSON1.
 
-## После M20
+## M21 — первые книжные NPC в PC balance
 
-Более широкий NPC/spell/Miscast каталог, дополнительные тактики/Fate/Help/Recover, лечение ран, общий inventory/spatial/campaign/save-resume — отдельный backlog после M20. Решение GM для невозможной повторной анатомии и post-healing ветвей не подставляется. Следующие функции выбираются отдельно; уже закрытые границы ими автоматически не расширяются.
+Завершённый срез по [ADR-0076](decisions/ADR-0076-first-pc-book-npc-catalog.md): Footpad GM97 и Empire Townsfolk GM96, напечатанные боевые значения, exact identities/fresh factories и metadata Lurker/Streetwise вне текущей сцены. NPC Protection теперь явно Athletics/Defence; текущий JSON1 требует Skill. Старые24пары мигрированы с Defence без смены gameplay; версия/метрики не менялись.
 
-Следующее предложение — первый ограниченный каталог книжных NPC-профилей для PC balance. Сначала выбрать ordinary Melee Minion/Brute, чьи механики полностью укладываются в текущий срез, и сохранить книгу/страницу/полный source. Дополнительные Abilities нельзя отбрасывать ради допуска: при необходимости отдельно определить их реализацию и конечный scope. M21 ещё не согласована; Champions, spatial/ranged NPC и весь бестиарий не включать автоматически. Greatsword и более свободная смена оружия остаются отдельными темами.
+## После M21
+
+Более широкий NPC/spell/Miscast каталог, дополнительные тактики/Fate/Help/Recover, лечение ран, общий inventory/spatial/campaign/save-resume — отдельный backlog после M21. Решение GM для невозможной повторной анатомии и post-healing ветвей не подставляется. Следующие функции выбираются отдельно; уже закрытые границы ими автоматически не расширяются.
+
+Следующее предложение — первый профиль с применимой боевой Ability: Brigand с Craven Opportunist (+2d вместо +1d при outnumbering), GM97. Сначала зафиксировать явный Melee-loadout Axe и границу применения, не удаляя Warbow из полной карточки без объявленного выбора снаряжения. M22 ещё не согласована; новые ranged/spatial пути, Champions и весь бестиарий не включать автоматически. Greatsword и более свободная смена оружия остаются отдельными темами.
 
 ## Контрольные точки
 
