@@ -22,10 +22,11 @@
 - M20: явный1H backup к2H primary, own-turn incidental draw, active Damage/Traits/Help/Recover, carry/source/replay guards и прежние trials/process/search/JSON1. [ADR-0075](decisions/ADR-0075-pc-backup-weapon-policy.md), [примеры](examples/m20/README.md).
 - M21: точные Footpad/Townsfolk боевые подпрофили GM1.1, независимые factories/metadata, защищённое book provenance и явный NPC Athletics/Defence через native/trials/process/подбор/JSON1. [ADR-0076](decisions/ADR-0076-first-pc-book-npc-catalog.md), [примеры](examples/m21/README.md).
 - M22: Brigand Axe и применимый Craven Opportunist +2d вместо +1d, active/unselected metadata, actual superiority/GM/Drained и прежние native/trials/process/поиск/JSON1. [ADR-0077](decisions/ADR-0077-pc-brigand-craven-opportunist.md), [примеры](examples/m22/README.md).
+- M23: Official Dagger Brute2, Broken на full first-Wound ACK, другие атаки/вторая рана до собственного хода и source-bound NPC stop перед неисполняемым бегством. [ADR-0078](decisions/ADR-0078-pc-official-first-wound-broken-boundary.md), [примеры](examples/m23/README.md).
 
 ## Последняя законченная функция
 
-[Brigand Axe / Craven M22](decisions/ADR-0077-pc-brigand-craven-opportunist.md) реализован через текущий PC owner, trials/process/подбор и JSON1. [CLI-примеры](examples/m22/README.md) показывают полный loadout/source и actual outcomes; старые26пар не изменены. Приёмка — в статусе; обязательного остатка M22 нет.
+[Official / первая рана M23](decisions/ADR-0078-pc-official-first-wound-broken-boundary.md) реализован через native/trials/process/подбор/JSON1 в выбранной пользователем stop-границе. [CLI-примеры](examples/m23/README.md) различают actual W2 defeat и предстоящее неисполняемое Broken movement; старые28пар не изменены. Приёмка — в статусе; обязательного остатка M23 нет.
 
 ## M8 завершена
 
@@ -113,9 +114,13 @@
 
 Завершённый срез по [ADR-0077](decisions/ADR-0077-pc-brigand-craven-opportunist.md): выбранный Axe loadout с сохранённым unselected Warbow, exact printed профиль, +2d вместо +1d только при actual superiority и GM approval. Считаются все пригодные союзники, потери меняют бонус сразу. Старые NPC/PC сохраняют обычные правила, Drained filter прежний. Current JSON1/метрики не изменены; metadata Python API явно разделяет active/inactive Abilities.
 
-## После M22
+## M23 — первый книжный Brute / Official Dagger
 
-Более широкий NPC/spell/Miscast каталог, дополнительные тактики/Fate/Help/Recover, лечение ран, общий inventory/spatial/campaign/save-resume — отдельный backlog после M22. Решение GM для невозможной повторной анатомии и post-healing ветвей не подставляется. Следующие функции выбираются отдельно; уже закрытые границы ими автоматически не расширяются.
+Завершённый срез по [ADR-0078](decisions/ADR-0078-pc-official-first-wound-broken-boundary.md): точный Brute2/Dagger/Athletics с unselected Pistol, Wound bands0/1/2 и Broken на living0→1 ACK. Пользователь выбрал остановку перед actual own Broken turn; другиеPC/Defence и обязательные end phases продолжаются до этого окна. W2 до окна — обычный defeat, неподдержанное бегство не подставляется. Source-bound NPC cause не использует PC Wounds Table; JSON1/метрики прежние.
+
+## После M23
+
+Более широкий NPC/spell/Miscast каталог, дополнительные тактики/Fate/Help/Recover, лечение ран, общий inventory/spatial/campaign/save-resume — отдельный backlog после M23. Решение GM для невозможной повторной анатомии и post-healing ветвей не подставляется. Следующие функции выбираются отдельно; уже закрытые границы ими автоматически не расширяются.
 
 Следующее предложение — первый книжный Brute с изменением состояния после раны. Сначала сверить полную карточку/Abilities и выбрать конечный loadout/продолжение в текущей сцене; при необходимой GM/AI policy запросить её явно. M23 ещё не согласована; другие профили, новые действия/ranges/spatial и весь бестиарий не включать автоматически. Greatsword и более свободная смена оружия остаются отдельными темами.
 

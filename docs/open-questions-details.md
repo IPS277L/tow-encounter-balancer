@@ -119,3 +119,15 @@ Player’s Guide 1.4 на странице 122 отдельно перечисл
 ## Бонус Greatsword
 
 BOOK-PLAYER-GUIDE1.4, гл.IV Equipment93: в таблице буквально `+1 to Defence` при отсутствии Staggered; у Sword/Glaive явно стоит `+1d`. Без уточнения нельзя автоматически выбрать dice modifier либо изменение Skill threshold. Greatsword не входит в [M19](decisions/ADR-0074-pc-two-handed-close-weapons.md). Для следующего расширения сверить верстку/контекст и доступное официальное уточнение; при отсутствии нормативного решения запросить явный house rule пользователя.
+
+## Продолжение Broken NPC
+
+BOOK-GM-GUIDE1.1, Empire Official98: первая profile Wound даёт Broken, вторая defeat. BOOK-PLAYER-GUIDE1.4, Broken122: собственный ход должен быть потрачен на быстрый выход в Zone без врага, при необходимости Manoeuvre; там допускается попытка Recover. [M23/ADR-0078](decisions/ADR-0078-pc-official-first-wound-broken-boundary.md) по выбору пользователя применяет Broken и завершает observed prefix перед фактическим собственным ходом Official.
+
+Для продолжения отдельно определить:
+
+- Истинный маршрут, безопасную Zone, возможные препятствия/Manoeuvres и подтверждение наиболее быстрого допустимого ухода. Один can_leave_zone не задаёт эти facts.
+- Считается ли уход выполнением caller objective, отдельным исходом или продолжением боя за пределами прежней Zone; не приравнивать к defeat автоматически.
+- Может ли Official с сохраняющейся profile Wound снять Broken через Willpower/Leadership. Таблица задаёт однократное последствие W1; PG122 отдельно запрещает удаление Conditions от ongoing cause. Выбранная остановка не требует решать длительность/повторное применение, house rule не выбран.
+
+До решения не выполнять phantom movement, новый Recover Test или автоматическое присуждение победы/поражения.

@@ -10,6 +10,7 @@ from towr.domain.condition_models import Condition, ConditionState
 from towr.domain.pc_weapon_models import (pc_weapon_damage, pc_weapon_test_modifiers,
     pc_weapon_attack_modifiers, pc_weapon_damage_modifiers)
 from towr.domain.pc_npc_ability_models import pc_npc_outnumbering_modifier
+from towr.domain.pc_npc_wound_models import PcNpcBrokenTurnUnsupported, pc_npc_broken_turn_unsupported
 from towr.domain.pc_backup_weapon_models import (pc_active_weapon, pc_preferred_weapon_hand,
     pc_active_weapon_item_id)
 from towr.domain.crushed_rib_test_models import CRUSHED_RIB_TEST_RULE_ID
@@ -400,14 +401,14 @@ class PcMeleeScenarioResult:
     source: PcMeleeScenario
     steps: tuple[PcMeleeStep, ...]
     outcome: PcMeleeOutcome
-    unsupported: PcMeleeUnsupported | None = None
+    unsupported: PcMeleeUnsupported | PcNpcBrokenTurnUnsupported | None = None
 
     def __post_init__(self):
         validate_pc_melee_scenario_admission(self.source)
         if not isinstance(self.outcome, PcMeleeOutcome) or not isinstance(self.steps, (tuple, list)):
             raise TypeError('PC result needs typed outcome and ordered steps')
         if self.unsupported is not None:
-            if not isinstance(self.unsupported,PcMeleeUnsupported):
+            if not isinstance(self.unsupported,(PcMeleeUnsupported,PcNpcBrokenTurnUnsupported)):
                 raise TypeError('PC unsupported result must be typed')
             replace(self.unsupported)
         steps = tuple(self.steps)
@@ -467,7 +468,7 @@ class PcMeleeScenarioResult:
         return self.started_rounds - 1 + int(self.state.round_state.round_complete)
 
 
-def pc_melee_unsupported(state: PcMeleeState) -> PcMeleeUnsupported | None:
+def _pc_wound_unsupported(state: PcMeleeState) -> PcMeleeUnsupported | None:
     # Finish the entire actual Wound lifecycle and immediate consequence queue
     # before reporting the caller-selected boundary; never infer this from a roll.
     if not state.pending and state.pending_wound is None:
@@ -503,6 +504,10 @@ def pc_melee_unsupported(state: PcMeleeState) -> PcMeleeUnsupported | None:
     return PcMeleeUnsupported(member.actor_id,
         f'{pending.rule_id}:{member.actor_id}:w{pending.wound_sequence}:{pending.consequence.value}',
         'unavailable_anatomical_target',pending.wound_sequence,wound.table_total)
+
+
+def pc_melee_unsupported(state: PcMeleeState) -> PcMeleeUnsupported | PcNpcBrokenTurnUnsupported | None:
+    return _pc_wound_unsupported(state) or pc_npc_broken_turn_unsupported(state)
 
 
 def pc_melee_action_id(state: PcMeleeState, actor_id: str) -> str:

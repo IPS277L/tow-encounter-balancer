@@ -36,6 +36,30 @@ Craven Opportunist при Melee атаке с численным превосх�
 
 Реализация: [catalog/loadout](../../src/towr/domain/pc_npc_catalog.py), [явный modifier helper](../../src/towr/domain/pc_npc_ability_models.py), [actual count preparation](../../src/towr/domain/pc_melee_result_models.py). Проверки: [данные/metadata](../../tests/unit/test_m22_pc_brigand_catalog.py), [native/pure/forgery](../../tests/unit/test_m22_pc_craven_opportunist.py), [process/full-source JSON/подбор](../../tests/integration/test_m22_pc_brigand.py).
 
+<a id="official-broken-m23"></a>
+
+## RULE-PROFILE-TALABEC-007 — Empire Official / первая рана (M23)
+
+Статус среза: `verified` в PC family. BOOK-GM-GUIDE1.1, Allies and Antagonists / Empire Official98, Brutes92 / NPC Profiles93; BOOK-PLAYER-GUIDE1.4, Conditions / Broken122. Official — седьмая запись группы Talabec001..011. [ADR-0078](../decisions/ADR-0078-pc-official-first-wound-broken-boundary.md), [factory/JSON/CLI](../examples/m23/README.md).
+
+`EMPIRE_OFFICIAL_DAGGER` — явный Dagger-only loadout: Brute2, Toughness3/Resilience3, Dagger Close2d/3 Damage2,1H; Athletics3d/3. Pistol сохранён как unselected. Heard It All Before делает Persuade/Distract Grim, если попытка не включает bribe; нынешняя family таких действий не исполняет, поэтому способность сохранена в inactive metadata.
+
+| Profile Wounds | Последствие |
+|---|---|
+| 0 | Нет дополнительного эффекта |
+| 1 | Suffer Broken |
+| 2 | Defeated |
+
+Brute не бросает PC Wounds Table. Broken применяется один раз при фактическом living0→1 profile ACK, после raw Attack; обычные authored static Brutes не получают этот эффект. На W2 действует прежний defeat/GM disposition. Metadata wound_bands описательна, runtime helper явный для данного профиля.
+
+Broken требует тратить **свой ход** на движение в безопасную Zone, при необходимости Manoeuvre. Он не запрещает Athletics Protection и не накладывает Grim на обычную защиту. Пользователь выбрал M23: завершить все последствия/предыдущие end phases, позволить другим участникам продолжить, затем остановиться перед TurnStart живого Broken Official, когда именно он следующий actor. W2 до окна даёт нормальный defeat; party death и final budget сохраняют свой обычный приоритет.
+
+`PcNpcBrokenTurnUnsupported` сохраняет actor, exact PC Attack execution ID, Brute0→1 change и источник `RULE-PROFILE-TALABEC-007:first-wound-broken:{actor}:{attack_id}`. Причина `npc_broken_turn` не использует фиктивные PC table_total. Очередь уже завершена, ход Official не начат; дальнейшие steps запрещены. Подмена receipt/actor или одинаковых изменений разных Officials не проходит full replay.
+
+Бегство, safe route, Willpower/Leadership Recover и продолжение NPC после ухода не реализованы. Возможность снять Broken при сохраняющейся profile Wound не выбрана; M23 не требует решения этой будущей ветви. Current JSON1/метрики прежние, старые28пар не мигрируются; unsupported trials остаются в знаменателе и исключают кандидата из выбора.
+
+Реализация: [catalog/wound bands](../../src/towr/domain/pc_npc_catalog.py), [effect/stop cause](../../src/towr/domain/pc_npc_wound_models.py), [profile ACK projection](../../src/towr/domain/_pc_melee_projection.py). Проверки: [данные](../../tests/unit/test_m23_pc_official_catalog.py), [native order/source/guards](../../tests/unit/test_m23_pc_official_wounds.py), [actual process/JSON/подбор](../../tests/integration/test_m23_pc_official.py).
+
 ## RULE-PROFILE-PEOPLES-001..008 — Ogres, Halflings, Dwarfs, Elves и Bretonnia
 
 | Страница | Profile | Type | Нормативные profile/attack effects |

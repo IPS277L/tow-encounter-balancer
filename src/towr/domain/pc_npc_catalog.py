@@ -18,6 +18,7 @@ class PcBookNpcProfile(str, Enum):
     FOOTPAD = 'footpad'
     EMPIRE_TOWNSFOLK = 'empire_townsfolk'
     BRIGAND_AXE = 'brigand_axe'
+    EMPIRE_OFFICIAL_DAGGER = 'empire_official_dagger'
 
 
 # Immutable identity strings only; canonical definition graphs are always freshly built.
@@ -31,6 +32,10 @@ _CATALOG_IDENTITIES = (
     (PcBookNpcProfile.BRIGAND_AXE,'pc-book-npc:brigand_axe',
         ('BOOK-GM-GUIDE:1.1:p97:brigand_axe','BOOK-GM-GUIDE:1.1:p97:brigand_axe:axe',
          'BOOK-GM-GUIDE:1.1:p97:brigand_axe:athletics')),
+    (PcBookNpcProfile.EMPIRE_OFFICIAL_DAGGER,'pc-book-npc:empire_official_dagger',
+        ('BOOK-GM-GUIDE:1.1:p98:empire_official_dagger',
+         'BOOK-GM-GUIDE:1.1:p98:empire_official_dagger:dagger',
+         'BOOK-GM-GUIDE:1.1:p98:empire_official_dagger:athletics')),
 )
 
 
@@ -38,6 +43,13 @@ _CATALOG_IDENTITIES = (
 class PcBookNpcAbility:
     name: str
     scope: str
+    effect: str
+
+
+@dataclass(frozen=True, slots=True)
+class PcBookNpcWoundBand:
+    """Descriptive card metadata; battle effects use explicit rule implementations."""
+    wounds: int
     effect: str
 
 
@@ -53,23 +65,30 @@ class PcBookNpcEntry:
     inactive_abilities: tuple[PcBookNpcAbility, ...]
     active_abilities: tuple[PcBookNpcAbility, ...]
     unselected_attack_names: tuple[str, ...]
+    wound_bands: tuple[PcBookNpcWoundBand, ...]
 
 
 def _definition(profile_id: PcBookNpcProfile) -> NpcDefinition:
     if type(profile_id) is not PcBookNpcProfile:
         raise TypeError('book NPC profile must be its exact PcBookNpcProfile enum')
+    injury_policy,wound_limit = TargetInjuryPolicy.MINION,1
     if profile_id is PcBookNpcProfile.FOOTPAD:
         page,dice,threshold,damage,attack_name,armour,protection_threshold = 97,3,3,2,'dagger',0,3
     elif profile_id is PcBookNpcProfile.EMPIRE_TOWNSFOLK:
         page,dice,threshold,damage,attack_name,armour,protection_threshold = 96,2,2,2,'dagger',0,2
-    else:
+    elif profile_id is PcBookNpcProfile.BRIGAND_AXE:
         page,dice,threshold,damage,attack_name,armour,protection_threshold = 97,3,3,3,'axe',1,2
+    else:
+        page,dice,threshold,damage,attack_name,armour,protection_threshold = 98,2,3,2,'dagger',0,3
+        injury_policy,wound_limit = TargetInjuryPolicy.BRUTE,2
     source = f'BOOK-GM-GUIDE:1.1:p{page}:{profile_id.value}'
     attack = NpcAttackProfile(attack_name,source+':'+attack_name,Skill.MELEE,
         InlineProfile(dice,threshold),DamageProfile(damage),RangedWeaponRange.CLOSE,
         RangedWeaponRange.CLOSE,RangedWeaponHands.ONE_HANDED)
-    protection = NpcProtectionProfile(source+':athletics',Skill.ATHLETICS,InlineProfile(dice,protection_threshold))
-    return NpcDefinition('pc-book-npc:'+profile_id.value,source,TargetInjuryPolicy.MINION,1,
+    protection_dice = 3 if profile_id is PcBookNpcProfile.EMPIRE_OFFICIAL_DAGGER else dice
+    protection = NpcProtectionProfile(source+':athletics',Skill.ATHLETICS,
+        InlineProfile(protection_dice,protection_threshold))
+    return NpcDefinition('pc-book-npc:'+profile_id.value,source,injury_policy,wound_limit,
         ResilienceProfile(3,armour),(attack,),(protection,))
 
 
@@ -82,20 +101,29 @@ def get_pc_book_npc_entry(profile_id: PcBookNpcProfile) -> PcBookNpcEntry:
     elif profile_id is PcBookNpcProfile.EMPIRE_TOWNSFOLK:
         page,name = 96,'Empire Townsfolk'
         ability = PcBookNpcAbility('Streetwise','Awareness opposing pickpocket attempts','+1d Awareness')
-    else:
+    elif profile_id is PcBookNpcProfile.BRIGAND_AXE:
         ability = PcBookNpcAbility('Craven Opportunist',
             'Melee attacks against an enemy the Brigand actually outnumbers','+2d instead of +1d')
         return PcBookNpcEntry(profile_id,'BOOK-GM-GUIDE','1.1','Allies and Antagonists',
-            97,'Brigand (Axe)',definition,(),(ability,),('Warbow',))
+            97,'Brigand (Axe)',definition,(),(ability,),('Warbow',),())
+    else:
+        ability = PcBookNpcAbility('Heard It All Before',
+            'Persuade or Distract attempts against the Official unless they include a bribe',
+            'Grim Persuade or Distract Test')
+        bands = (PcBookNpcWoundBand(0,'No effect'),PcBookNpcWoundBand(1,'Broken'),
+            PcBookNpcWoundBand(2,'Defeated'))
+        return PcBookNpcEntry(profile_id,'BOOK-GM-GUIDE','1.1','Allies and Antagonists',
+            98,'Empire Official (Dagger)',definition,(ability,),(),('Pistol',),bands)
     return PcBookNpcEntry(profile_id,'BOOK-GM-GUIDE','1.1','Allies and Antagonists',
-        page,name,definition,(ability,),(),())
+        page,name,definition,(ability,),(),(),())
 
 
 def create_pc_book_npc(profile_id: PcBookNpcProfile, actor_id: str) -> NpcParticipantSnapshot:
     if type(actor_id) is not str:
         raise TypeError('book NPC actor ID must be an exact string')
     definition = _definition(profile_id)
-    state = NpcParticipantState(actor_id,definition.id,CombatSide.OPPOSITION,ProfileInjuryState(0,1),
+    state = NpcParticipantState(actor_id,definition.id,CombatSide.OPPOSITION,
+        ProfileInjuryState(0,definition.wound_limit),
         tuple(attack.id for attack in definition.attacks),
         ResilienceProfile(definition.resilience.toughness,definition.resilience.bonus),True,False)
     return NpcParticipantSnapshot(definition,state)

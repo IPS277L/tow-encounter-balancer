@@ -30,6 +30,7 @@ from towr.domain._pc_heavy_wound_projection import heavy_wound_effect, body_cons
 from towr.domain.critical_injury_models import CriticalInjuryTestRequest
 from towr.domain.test_models import Skill
 from towr.domain.pc_backup_weapon_models import pc_backup_draw_hand, pc_preferred_weapon_hand
+from towr.domain.pc_npc_wound_models import official_profile_wound_state
 from towr.domain.turn_models import (
     ActionSlotGrant, CombatActionDeclaration, CombatActionKind, CombatActionSlot,
     CombatActionSlotResult, CombatRoundAdvanceResult, CombatRoundState, CombatSide,
@@ -544,7 +545,9 @@ def project_pc_step(state, proof):
         if not proof.source.defeated:
             if proof.decision is not None:
                 raise ValueError('a living NPC cannot receive a defeat disposition')
-            return finish(pending=state.pending[1:])
+            enemy = state.enemy(target)
+            injury = official_profile_wound_state(enemy.definition,enemy.state.injury,proof.source)
+            return finish(enemies=_enemy_update(state,target,injury),pending=state.pending[1:])
         if not isinstance(proof.decision,MinionDefeatDecision):
             raise TypeError('defeated NPC requires the typed caller/GM decision')
         replace(proof.decision)

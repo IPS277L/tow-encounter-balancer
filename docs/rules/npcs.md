@@ -86,6 +86,10 @@ Lurker Footpad делает Awareness для обнаружения скрыва
 
 [Brigand Axe / RULE-PROFILE-TALABEC-004](npc-profile-catalog.md#brigand-craven-m22) добавляет первый применимый боевой эффект: Craven Opportunist заменяет обычный outnumbering modifier. Это явный выбранный loadout, metadata хранит активную способность и невыбранный Warbow. Все три registered combat profiles сохраняют independent factory/provenance guards; неподдержанные Abilities не допускаются по одному совпадению numeric значений. [ADR-0077](../decisions/ADR-0077-pc-brigand-craven-opportunist.md).
 
+## Расширение PC-каталога M23
+
+[Empire Official Dagger / RULE-PROFILE-TALABEC-007](npc-profile-catalog.md#official-broken-m23) добавляет книжный Brute2 и Broken на первой ране. Metadata wound_bands сохраняет таблицу; effect применяется на exact profile ACK. До собственного хода Official возможны другие атаки/вторая рана; необходимость неисполняемого бегства даёт source-bound NPC unsupported перед TurnStart. Это отдельный native cause, без PC Wounds Table данных. [ADR-0078](../decisions/ADR-0078-pc-official-first-wound-broken-boundary.md).
+
 ## RULE-NPC-011 — area и multi-target эффекты
 
 Универсального AoE-правила нет. Число атак, цели и вторичные эффекты определяются конкретным профилем атаки, оружия, Special Ability или Monstrosity. Старый прототипный алгоритм AoE отменён пользователем.

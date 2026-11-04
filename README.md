@@ -2,7 +2,7 @@
 
 Симулятор боёв и подбор сложности столкновений для TOWR. Нормативные источники: Player’s Guide1.4 и Gamemaster’s Guide1.1; упрощённый прототип не имеет приоритета над книгами.
 
-Реализованы ограниченные ranged/melee/mixed Minion-сценарии и M8 с одним Champion-Wizard, Curse of Cowardly Flight и явно разрешёнными продолжениями. PC melee поддерживает немагическую группу против Minions и обычных числовых Brutes, включая тяжёлые PC Wounds11–23, Critical/Defenceless turns, Help атаке/защите и Recover союзнику, явные Glorious/Near Miss policies и статистику действий/потерь/расхода ресурса. Оружие PC: шесть одноручных и семь двуручных Close-профилей; явная backup policy позволяет перейти на запасное1H в свой ход, иначе недоступный2H хват даёт unsupported. Для PC доступны книжные Footpad/Townsfolk и Brigand Axe с Craven Opportunist, точными профилями и явным Athletics/Defence Protection. Есть независимые sequential/process прогоны, агрегаты и подбор составов. Точные границы и текущая приёмка — в [статусе](docs/project-status.md).
+Реализованы ограниченные ranged/melee/mixed Minion-сценарии и M8 с одним Champion-Wizard, Curse of Cowardly Flight и явно разрешёнными продолжениями. PC melee поддерживает немагическую группу против Minions и обычных числовых Brutes, включая тяжёлые PC Wounds11–23, Critical/Defenceless turns, Help атаке/защите и Recover союзнику, явные Glorious/Near Miss policies и статистику действий/потерь/расхода ресурса. Оружие PC: шесть одноручных и семь двуручных Close-профилей; явная backup policy позволяет перейти на запасное1H в свой ход, иначе недоступный2H хват даёт unsupported. Для PC доступны книжные Footpad/Townsfolk, Brigand Axe/Craven и Official Dagger с Broken на первой ране и явной остановкой перед его бегством. Есть независимые sequential/process прогоны, агрегаты и подбор составов. Точные границы и текущая приёмка — в [статусе](docs/project-status.md).
 
 ## Начало работы
 
@@ -19,8 +19,8 @@ py -3.12 -m venv .venv
 
 ```powershell
 $env:PYTHONPATH = 'src'
-.venv/Scripts/python.exe -m towr simulate-pc-melee docs/examples/m22/pc-melee-simulation.request.json
-.venv/Scripts/python.exe -m towr balance-pc-melee docs/examples/m22/pc-melee-balance.request.json
+.venv/Scripts/python.exe -m towr simulate-pc-melee docs/examples/m23/pc-melee-simulation.request.json
+.venv/Scripts/python.exe -m towr balance-pc-melee docs/examples/m23/pc-melee-balance.request.json
 ```
 
 После установки доступны `towr simulate-pc-melee INPUT` и `towr balance-pc-melee INPUT`; `-` читает stdin. Seed, trials, round budget и execution задаются во входе. PC melee и другие немагические families используют собственный текущий JSON1; Magic — JSON6. Все семейства перечислены ниже.
@@ -31,7 +31,7 @@ $env:PYTHONPATH = 'src'
 | Melee | [Simulation и balance](docs/examples/m6/README.md) |
 | Mixed | [Simulation и balance](docs/examples/m7/README.md) |
 | Magic | [Python API](docs/examples/m8/README.md), [JSON/CLI](docs/examples/m8/json/README.md) |
-| Группа PC против Minions/Brutes | [Brigand/Craven, simulation и подбор](docs/examples/m22/README.md); [Footpad/Townsfolk](docs/examples/m21/README.md), [запасное оружие](docs/examples/m20/README.md), [двуручное оружие](docs/examples/m19/README.md), [одноручное оружие](docs/examples/m18/README.md), [Ally Recover](docs/examples/m17/README.md), [Protection Help](docs/examples/m16/README.md), [Melee Help](docs/examples/m15/README.md), [Glorious/Near Miss](docs/examples/m14/README.md), [тяжёлые раны](docs/examples/m12/README.md), [состав NPC](docs/examples/m11/README.md), [Minion-группа](docs/examples/m10/README.md), [одиночный пример](docs/examples/m9/README.md) |
+| Группа PC против Minions/Brutes | [Official/Broken, simulation и подбор](docs/examples/m23/README.md); [Brigand/Craven](docs/examples/m22/README.md), [Footpad/Townsfolk](docs/examples/m21/README.md), [запасное оружие](docs/examples/m20/README.md), [двуручное оружие](docs/examples/m19/README.md), [одноручное оружие](docs/examples/m18/README.md), [Ally Recover](docs/examples/m17/README.md), [Protection Help](docs/examples/m16/README.md), [Melee Help](docs/examples/m15/README.md), [Glorious/Near Miss](docs/examples/m14/README.md), [тяжёлые раны](docs/examples/m12/README.md), [состав NPC](docs/examples/m11/README.md), [Minion-группа](docs/examples/m10/README.md), [одиночный пример](docs/examples/m9/README.md) |
 
 ## Проверка изменений
 
