@@ -110,6 +110,8 @@ def scenario_document(scenario: NpcMixedScenario, definition_order: tuple[str, .
     for identifier in definition_order:
         definition = definitions[identifier]
         attack, protection = definition.attacks[0], definition.protection[0]
+        if type(attack.hands) is not Hands:
+            raise TypeError("bounded Mixed JSON requires an explicit weapon grip")
         profiles.append({"id": identifier, "source_rule_id": definition.source_rule_id,
             "resilience": asdict(definition.resilience),
             "attack": {"id": attack.id, "source_rule_id": attack.source_rule_id,

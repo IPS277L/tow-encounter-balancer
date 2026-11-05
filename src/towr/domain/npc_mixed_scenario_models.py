@@ -155,6 +155,8 @@ class NpcMixedScenario:
             if len(definition.attacks) != 1:
                 raise ValueError("scenario requires exactly one numeric Attack profile")
             attack = definition.attacks[0]
+            if type(attack.hands) is not RangedWeaponHands:
+                raise TypeError('bounded mixed scenario requires typed weapon hands')
             if (attack.damage.success_multiplier != 1 or attack.ignores_armour or attack.secondary_effects
                     or attack.test_profile.pool_cap is not None):
                 raise ValueError("unsupported mixed Attack profile or effects")

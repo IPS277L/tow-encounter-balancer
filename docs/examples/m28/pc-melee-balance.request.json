@@ -1,0 +1,397 @@
+{
+  "schema_version": "1",
+  "kind": "pc_melee_balance",
+  "request_id": "m28-beast-orc-balance",
+  "ruleset": "towr-pg1.4-gmg1.1",
+  "execution": {
+    "mode": "sequential"
+  },
+  "template": {
+    "id": "m28-beast-orc-template",
+    "party": [
+      {
+        "actor_id": "pc1",
+        "pc": {
+          "id": "pc-profile1",
+          "weapon_skill": 3,
+          "strength": 3,
+          "toughness": 3,
+          "agility": 3,
+          "melee": 5,
+          "defence": 5,
+          "athletics": 4,
+          "endurance": 4,
+          "weapon": "staff",
+          "armour_bonus": 0
+        },
+        "fate": {
+          "session_id": "session",
+          "actor_id": "pc1",
+          "rating": 3,
+          "session_spend_limit": 3,
+          "spends": [],
+          "has_lucky": false,
+          "refreshes": [],
+          "burns": [],
+          "resource_event_ids": [],
+          "rule_id": "RULE-FATE-001:session-resource"
+        },
+        "policy": "attack_or_recover_self",
+        "fate_policy": "decline_optional_fate",
+        "random_side_policy": "d10_low_left_high_right",
+        "heavy_wound_policy": "continue_fighting",
+        "initial_weapon_hand": "left",
+        "target_priority": [
+          "gor1",
+          "gor2",
+          "warhound1",
+          "orc1"
+        ],
+        "defeat_decisions": [
+          {
+            "attacker_id": "pc1",
+            "target_id": "gor1",
+            "disposition": "knocked_out",
+            "gm_approved": true
+          },
+          {
+            "attacker_id": "pc1",
+            "target_id": "gor2",
+            "disposition": "knocked_out",
+            "gm_approved": true
+          },
+          {
+            "attacker_id": "pc1",
+            "target_id": "warhound1",
+            "disposition": "knocked_out",
+            "gm_approved": true
+          },
+          {
+            "attacker_id": "pc1",
+            "target_id": "orc1",
+            "disposition": "knocked_out",
+            "gm_approved": true
+          }
+        ],
+        "near_miss_policy": null,
+        "glorious_policy": null,
+        "help_policy": null,
+        "ally_recover_policy": null,
+        "backup_weapon_policy": null
+      },
+      {
+        "actor_id": "pc2",
+        "pc": {
+          "id": "pc-profile2",
+          "weapon_skill": 3,
+          "strength": 3,
+          "toughness": 3,
+          "agility": 3,
+          "melee": 5,
+          "defence": 5,
+          "athletics": 4,
+          "endurance": 4,
+          "weapon": "staff",
+          "armour_bonus": 0
+        },
+        "fate": {
+          "session_id": "session",
+          "actor_id": "pc2",
+          "rating": 3,
+          "session_spend_limit": 3,
+          "spends": [],
+          "has_lucky": false,
+          "refreshes": [],
+          "burns": [],
+          "resource_event_ids": [],
+          "rule_id": "RULE-FATE-001:session-resource"
+        },
+        "policy": "attack_or_recover_self",
+        "fate_policy": "decline_optional_fate",
+        "random_side_policy": "d10_low_left_high_right",
+        "heavy_wound_policy": "continue_fighting",
+        "initial_weapon_hand": "left",
+        "target_priority": [
+          "gor1",
+          "gor2",
+          "warhound1",
+          "orc1"
+        ],
+        "defeat_decisions": [
+          {
+            "attacker_id": "pc2",
+            "target_id": "gor1",
+            "disposition": "knocked_out",
+            "gm_approved": true
+          },
+          {
+            "attacker_id": "pc2",
+            "target_id": "gor2",
+            "disposition": "knocked_out",
+            "gm_approved": true
+          },
+          {
+            "attacker_id": "pc2",
+            "target_id": "warhound1",
+            "disposition": "knocked_out",
+            "gm_approved": true
+          },
+          {
+            "attacker_id": "pc2",
+            "target_id": "orc1",
+            "disposition": "knocked_out",
+            "gm_approved": true
+          }
+        ],
+        "near_miss_policy": null,
+        "glorious_policy": null,
+        "help_policy": null,
+        "ally_recover_policy": null,
+        "backup_weapon_policy": null
+      }
+    ],
+    "day_id": "day",
+    "enemies": [
+      {
+        "actor_id": "gor1",
+        "definition": {
+          "id": "pc-book-npc:gor_dual_axes",
+          "source_rule_id": "BOOK-GM-GUIDE:1.1:p143:gor_dual_axes",
+          "injury_policy": "minion",
+          "wound_limit": 1,
+          "resilience": {
+            "toughness": 4,
+            "bonus": 0
+          },
+          "attack": {
+            "id": "crude_axes",
+            "source_rule_id": "BOOK-GM-GUIDE:1.1:p143:gor_dual_axes:crude_axes",
+            "test_profile": {
+              "dice": 4,
+              "threshold": 3,
+              "pool_cap": null
+            },
+            "damage": {
+              "base": 3,
+              "success_multiplier": 1
+            },
+            "hands": "1h",
+            "secondary_effects": []
+          },
+          "protection": {
+            "source_rule_id": "BOOK-GM-GUIDE:1.1:p143:gor_dual_axes:athletics",
+            "skill": "athletics",
+            "test_profile": {
+              "dice": 4,
+              "threshold": 3,
+              "pool_cap": null
+            }
+          }
+        }
+      },
+      {
+        "actor_id": "gor2",
+        "definition": {
+          "id": "pc-book-npc:gor_dual_axes",
+          "source_rule_id": "BOOK-GM-GUIDE:1.1:p143:gor_dual_axes",
+          "injury_policy": "minion",
+          "wound_limit": 1,
+          "resilience": {
+            "toughness": 4,
+            "bonus": 0
+          },
+          "attack": {
+            "id": "crude_axes",
+            "source_rule_id": "BOOK-GM-GUIDE:1.1:p143:gor_dual_axes:crude_axes",
+            "test_profile": {
+              "dice": 4,
+              "threshold": 3,
+              "pool_cap": null
+            },
+            "damage": {
+              "base": 3,
+              "success_multiplier": 1
+            },
+            "hands": "1h",
+            "secondary_effects": []
+          },
+          "protection": {
+            "source_rule_id": "BOOK-GM-GUIDE:1.1:p143:gor_dual_axes:athletics",
+            "skill": "athletics",
+            "test_profile": {
+              "dice": 4,
+              "threshold": 3,
+              "pool_cap": null
+            }
+          }
+        }
+      },
+      {
+        "actor_id": "warhound1",
+        "definition": {
+          "id": "pc-book-npc:chaos_warhound",
+          "source_rule_id": "BOOK-GM-GUIDE:1.1:p145:chaos_warhound",
+          "injury_policy": "minion",
+          "wound_limit": 1,
+          "resilience": {
+            "toughness": 3,
+            "bonus": 0
+          },
+          "attack": {
+            "id": "pinning_claws",
+            "source_rule_id": "BOOK-GM-GUIDE:1.1:p145:chaos_warhound:pinning_claws",
+            "test_profile": {
+              "dice": 3,
+              "threshold": 3,
+              "pool_cap": null
+            },
+            "damage": {
+              "base": 3,
+              "success_multiplier": 1
+            },
+            "hands": null,
+            "secondary_effects": []
+          },
+          "protection": {
+            "source_rule_id": "BOOK-GM-GUIDE:1.1:p145:chaos_warhound:athletics",
+            "skill": "athletics",
+            "test_profile": {
+              "dice": 4,
+              "threshold": 3,
+              "pool_cap": null
+            }
+          }
+        }
+      },
+      {
+        "actor_id": "orc1",
+        "definition": {
+          "id": "pc-book-npc:orc_boy_choppas",
+          "source_rule_id": "BOOK-GM-GUIDE:1.1:p158:orc_boy_choppas",
+          "injury_policy": "minion",
+          "wound_limit": 1,
+          "resilience": {
+            "toughness": 4,
+            "bonus": 1
+          },
+          "attack": {
+            "id": "choppas",
+            "source_rule_id": "BOOK-GM-GUIDE:1.1:p158:orc_boy_choppas:choppas",
+            "test_profile": {
+              "dice": 3,
+              "threshold": 4,
+              "pool_cap": null
+            },
+            "damage": {
+              "base": 4,
+              "success_multiplier": 1
+            },
+            "hands": "2h",
+            "secondary_effects": []
+          },
+          "protection": {
+            "source_rule_id": "BOOK-GM-GUIDE:1.1:p158:orc_boy_choppas:defence",
+            "skill": "defence",
+            "test_profile": {
+              "dice": 3,
+              "threshold": 4,
+              "pool_cap": null
+            }
+          }
+        }
+      }
+    ],
+    "facts": {
+      "zone_id": "arena",
+      "all_opponents_close": true,
+      "targets_aware": true,
+      "all_combatants_included": true,
+      "unmounted": true,
+      "no_external_effects": true,
+      "no_terrain_modifiers": true,
+      "no_additional_abilities": true,
+      "no_ambush": true,
+      "outnumbering_bonus_approved": true,
+      "can_leave_zone": false
+    },
+    "pc_activation_order": [
+      "pc1",
+      "pc2"
+    ],
+    "enemy_activation_order": [
+      "gor1",
+      "gor2",
+      "warhound1",
+      "orc1"
+    ],
+    "enemy_target_priority": [
+      "pc1",
+      "pc2"
+    ],
+    "max_rounds": 5,
+    "npc_broken_exit_policy": null
+  },
+  "generation": {
+    "groups": [
+      {
+        "group_id": "gors",
+        "actor_ids": [
+          "gor1",
+          "gor2"
+        ],
+        "minimum_count": 1,
+        "maximum_count": 2
+      },
+      {
+        "group_id": "warhounds",
+        "actor_ids": [
+          "warhound1"
+        ],
+        "minimum_count": 0,
+        "maximum_count": 1
+      },
+      {
+        "group_id": "orcs",
+        "actor_ids": [
+          "orc1"
+        ],
+        "minimum_count": 0,
+        "maximum_count": 1
+      }
+    ],
+    "facts": {
+      "zone_id": "arena",
+      "all_opponents_close": true,
+      "targets_aware": true,
+      "all_combatants_included": true,
+      "unmounted": true,
+      "no_external_effects": true,
+      "no_terrain_modifiers": true,
+      "no_additional_abilities": true,
+      "no_ambush": true,
+      "outnumbering_bonus_approved": true,
+      "can_leave_zone": false
+    },
+    "max_candidates": 8
+  },
+  "evaluation": {
+    "master_seed": "44",
+    "trials_per_candidate": 3,
+    "max_total_trials": 24,
+    "window": {
+      "minimum": {
+        "numerator": 0,
+        "denominator": 1
+      },
+      "target": {
+        "numerator": 1,
+        "denominator": 2
+      },
+      "maximum": {
+        "numerator": 1,
+        "denominator": 1
+      }
+    },
+    "top_k": 2
+  }
+}

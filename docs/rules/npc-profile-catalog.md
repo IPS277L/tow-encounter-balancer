@@ -99,6 +99,54 @@ Canonical admission связывает весь фиксированный пр�
 
 `Paragons` Questing Knight — value-level immunity к двум Conditions независимо от психологической классификации источника. Она отличается от source-level psychological immunity undead и требует отдельного typed condition-immunity contract.
 
+<a id="catalog-chunk-m26"></a>
+
+## M26 — Artisan, Bretonnian Squire и Elf Merchant
+
+Статус чанка: `verified` в текущей PC family. RULE-PROFILE-TALABEC-002 и RULE-PROFILE-PEOPLES-005/008; BOOK-GM-GUIDE1.1, Allies and Antagonists96/107/109 и Understanding NPC Profiles93. [Общий factory/JSON/CLI-пример](../examples/m26/README.md). Это три fixed Close loadouts, не полные карточки со всеми действиями/оружием.
+
+| Profile ID | Книга/страница | Выбранная атака | Protection | Injury/Resilience |
+|---|---|---|---|---|
+| ARTISAN | GM96 | Make-Shift Weapons Close2d/2 Damage2,1H | Athletics3d/2 | Minion1, Toughness3/Resilience3 |
+| BRETONNIAN_SQUIRE_SWORD | GM109 | Sword Close3d/3 Damage3,1H | Athletics3d/4 | Minion1, Toughness3/Resilience3 |
+| ELF_MERCHANT_JEWELLED_BLADE | GM107 | Jewelled Blade Close4d/3 Damage3,1H | Athletics4d/3 | Brute2, Toughness3/Resilience4 armoured |
+
+Armour Merchant представлен ResilienceProfile(3,1). У всех Normal Speed; Protection берётся из напечатанного профиля, не из атаки/Agility по догадке. Longbow Squire явно unselected; PC Sword Traits к NPC не добавляются. Все root/nested book identities резервируют полный fixed loadout, сохраняя exact types и независимые свежие graphs.
+
+Professional Pride Artisan: дополнительная Coin при покупке trapping прямо у Artisan-изготовителя даёт +1d следующему Test с этим trapping. Способность inactive только в сцене без такой покупки/отложенного бонуса; no_external_effects исключает и полученный **до боя** неиспользованный бонус. Noble Service Squire даёт +2d Help Tests обслуживаемому Knight; нынешняя NPC-стратегия Help не выполняет. Hard Bargain Merchant даёт -1d Tests торговли с ним; торговли в сцене нет. Полные условия/эффекты сохранены в inactive metadata, не удалены из карточек.
+
+### Первая рана Merchant
+
+GM107 задаёт bands0No effect /1Suffer Staggered /2Defeated. PG1.4 Conditions/Staggered123 и Wounds190: получение раны снимает прежний обычный Staggered. Raw profile Wound сначала увеличивает счётчик и очищает старый Staggered, затем обязательный Profile Wound ACK при actual living0→1 накладывает **один новый** Staggered профиля. Уже Staggered Merchant не получает от этого ACK немедленную вторую рану. Другие Conditions сохраняются; W1 не перечитывается на каждом snapshot и не применяется заново на W2.
+
+Три отдельных слабых попадания при прежней fixed SUFFER_WOUND policy дают: первый Staggered; второй repeated-Staggered→W1, removal старого→один новый Staggered; третий repeated-Staggered→W2defeat. Прямой damaging Wound0→1 тоже накладывает один новый Staggered. Следующий собственный ход Merchant — обычная атака, без Broken stop; промах не складывает Staggered. Будущее удаление profile Staggered через NPC Recover при сохраняющемся W1 не выбрано, текущая стратегия его не делает.
+
+[Explicit helper](../../src/towr/domain/pc_npc_wound_models.py) применяется только на existing [profile ACK projection](../../src/towr/domain/_pc_melee_projection.py); общей injury rule, owner, proof shape и DSL не добавлено. Прежние пять definitions/snapshots/metadata и34request/result pairs сохранены. Current JSON1/схемы/метрики прежние, миграции нет. [Catalog/native tests](../../tests/unit/test_m26_pc_catalog_chunk.py), [Wound/sequence/replay tests](../../tests/unit/test_m26_pc_merchant_wounds.py), [общий JSON/trials/count search/process](../../tests/integration/test_m26_pc_catalog_chunk.py).
+
+<a id="brute-chunk-m30"></a>
+
+## M30 — Empire Knight, Knight of the White Wolf и Big ’Un
+
+Статус: `verified` в PC family. Источники: BOOK-GM-GUIDE1.1, Allies and Antagonists / Profiles92–93 / Empire Knight101 / Knight of the White Wolf116 / Orc Boy158 / Big ’Uns159; BOOK-PLAYER-GUIDE1.4, Equipment / Melee Weapons93–94. Rule IDs: RULE-PROFILE-TALABEC-010, RULE-PROFILE-IMPERIAL-003, RULE-PROFILE-GREENSKIN-005. [Общие factory/JSON/CLI-примеры](../examples/m30/README.md).
+
+| Profile ID | Выбранная атака | Выбранная Protection | Injury/Resilience |
+|---|---|---|---|
+| EMPIRE_KNIGHT_LANCE | unmounted Lance Close4d/4 Damage4,1H | Defence4d/4 | Brute2,T3/Res5 armoured,noShield |
+| KNIGHT_WHITE_WOLF_HAMMER | unmounted Wolf Hammer Close4d/4 Damage5,2H | Defence4d/3 | Brute2,T3/Res5 armoured |
+| BIG_UN_CHOPPAS | Couple of Choppas Close3d/4 Damage5,2H | Defence3d/4 | Brute2,T4/Res5 armoured,noShield |
+
+Все Normal Speed. GM93 требует вычесть shield+1 из printed Resilience Empire Knight6 и Orc/Big ’Un6, когда shield не выбран. Armour сохраняется отдельно от Toughness. Noble Steed даёт дополнительный mounted+1, который эти пешие loadouts не получают. Printed Protection не пересчитывается по характеристикам; Athletics2d/3 обоих рыцарей и3d/3 Big ’Un сохранена как unselected.
+
+PG93 определяет Lance как Close/1H с +1d Melee/+1 Damage при mounted Charge и запретом dual wield. Запрета обычной пешей атаки нет; данный fixed loadout использует только одну Lance. Big ’Un наследует Orc Boy158, меняя Strength3→4, тип на Brute и Wound bands; printed Choppas Damage4 становится5, WS3/Melee4 прежние. Дополнительный bonus за dual wield не добавляется. Jagged Spear/Warbow не выбраны.
+
+У всех трёх bands0No effect /1Drained /2Defeated. Existing mandatory Profile Wound ACK применяет Drained только при actual living Brute0→1; raw Damage/Attack предшествует ему. Повторное наложение Staggered, которое действительно создало первую рану, проходит тем же ACK. Другие Conditions сохраняются; получение W2 не перечитывает band1. Drained самого NPC не становится on-hit эффектом для PC и не требует нового secondary_effects descriptor. Ordinary own turn продолжается, положительные bonus dice подавляются, base dice/Damage остаются прежними.
+
+Полные inactive triggers: Empire Knight — Noble Steed при mounted+1Res/Fast/Prone от successful Charge против non-Monstrosity до Give Ground; Lance bonus только mounted Charge; For the Order делает Charge Attack Tests Glorious, если Knight не Staggered. Knight of the White Wolf — тот же Noble Steed; Wolf Hammer bonus+1d/+1Damage при любом Charge; Furious Charge после successful Charge позволяет вторым action атаковать **другого** enemy Close Range. Big ’Un наследует Power of the Waaagh!: Help союзной Melee attack без Test даёт1free success; Choppas Charge даёт+1Damage. Эти triggers отсутствуют в выбранной неподвижной unmounted Attack-сцене, а не отключаются при применимости.
+
+Исполнение: [canonical catalog](../../src/towr/domain/pc_npc_catalog.py), [конечный список W1Drained profiles](../../src/towr/domain/pc_npc_wound_models.py), [actual ACK/replay](../../src/towr/domain/_pc_melee_projection.py). White Wolf из M29 сохраняет прежний эффект через тот же helper. Никакого нового owner/DSL/ADR/wire version. Будущее снятие profile Condition через NPC Recover при сохраняющейся ране не определено; текущая NPC-стратегия Recover не делает.
+
+Проверки: [данные/metadata/identities](../../tests/unit/test_m30_pc_brute_catalog.py), [native Wounds/bonus filter/defeat/replay](../../tests/unit/test_m30_pc_brute_wounds.py), [JSON1/full source/trials/8составов](../../tests/integration/test_m30_pc_brute_chunk.py). Старый M27 metadata test ограничен собственными Wolf/Boar, вместо требования отсутствия variants у любых будущих записей каталога.
+
 ## RULE-PROFILE-IMPERIAL-001..008 — Osterlund и Reikland
 
 | Страница | Profile | Type | Нормативные profile/attack effects |
@@ -144,6 +192,53 @@ Profile spell list определяет grimoire/memorised ownership, но са�
 
 Не-targetable pet относится к обычным enemy attacks; Zone/Hazard и иные эффекты без выбора отдельной цели требуют явного правила применения. Книга не говорит, что pet полностью отсутствует на battlefield.
 
+<a id="natural-creatures-m27"></a>
+
+## M27 — естественные атаки Horse, Giant Wolf и Giant Boar
+
+Статус: `verified` в PC family. RULE-PROFILE-CREATURE-004/005/008; GM1.1, Profiles93 / Horse135 / Giant Wolf136 / Giant Boar137. [ADR-0080](../decisions/ADR-0080-natural-melee-attacks-and-creature-chunk.md), [factory/JSON/CLI-примеры](../examples/m27/README.md).
+
+| Profile ID | Естественная атака | Protection | Resilience |
+|---|---|---|---|
+| HORSE | Hooves Close3d/3 Damage3 | Athletics4d/4 | Toughness3/Resilience3 |
+| GIANT_WOLF | Clamping Jaws Close3d/3 Damage3, цель не может Give Ground | Athletics4d/4 | Toughness3/Resilience3 |
+| GIANT_BOAR | Goring Tusks Close3d/4 Damage3 | Athletics3d/3 | Toughness3/Resilience5 armoured |
+
+Все — Fast Minions, самостоятельные unmounted бойцы в уже Close-сцене. Natural profile явно задаёт hands=None; fresh state wields_weapon=false/noShield. Это напечатанная Melee-атака, не выведенный Unarmed/Brawn Test. PG68/118 разрешает вооружённому PC Defence против incoming natural Melee; при атаке по существу actual Protection request видит отсутствие оружия и выбранную Athletics. Естественная атака не становится inventory weapon или предметом для drop/pickup.
+
+У Wolf запрет Give Ground действует без всадника. Явный helper устанавливает actual KernelAttackRequest.can_target_leave_zone=false для жертвы его атаки, даже если facts.can_leave_zone=true. Source facts не переписываются; атакованный Wolf сам не получает запрет. Canonical projection отвергает proof с подставленной доступностью Give Ground. Это исполняемый trait, а не inactive metadata из-за fixed SUFFER_WOUND стратегии.
+
+Horse Noble Steed и Goblin/Orc rider benefits сохранены inactive только для unmounted сцены; movement/Charge/riders не исполняются. Собственный Goring Tusks Charge-бонус Boar (+1d Melee/+1Damage) сохранён отдельно от Orc Boar Boyz rider ability. Базовый Horse не получает optional Bretonnian Warhorse/Elven Steed/Skeletal Steed варианты: они явно перечислены в descriptive unselected_variant_names; у прежних восьми entries tuple пуст.
+
+PG1.4 Clothing & Armour97 прямо определяет armoured как любое повышение Resilience над Toughness, включая свойства помимо надетой брони. Поэтому natural armour Boar представлена ResilienceProfile(3,2) и получает обычный PC Axe/Halberd/Greataxe +1Damage. По GM93 игнорирующая броню атака использует Toughness3 вместо Resilience5. House rule не вводится.
+
+Current PC JSON1 требует прежнее обязательное attack.hands, теперь с допустимым null для natural Melee; отсутствие поля не равно null. Natural input требует Athletics и согласованного false weapon flag в native state. Старые1h/2h definitions и36прежних request/result pairs не мигрируются. Другие bounded Melee/Mixed/Magic/Ranged families сохраняют enum-only source/wire границы, включая cached None rejection до `.value`.
+
+[Shared model/admission tests](../../tests/unit/test_m27_natural_attack_models.py), [три карточки/native/Wolf/armour tests](../../tests/unit/test_m27_pc_creatures.py), [общий JSON/trials/8составов/process](../../tests/integration/test_m27_natural_creature_chunk.py). Источники полностью связаны с canonical root/attack/Protection identities; примеси чужого оружия/Skill/брони не принимаются как книжный профиль.
+
+<a id="on-hit-drained-m29"></a>
+
+## M29 — on-hit Drained и White Wolf
+
+Статус: `verified` в PC family. RULE-PROFILE-CREATURE-006/007; GM1.1 White Wolf136 / Giant Spider137 / Profiles93, PG1.4 Near Miss112 / Recover118 / Conditions122–123. [ADR-0081](../decisions/ADR-0081-pc-on-hit-drained-and-independent-condition-sources.md), [factory/JSON/CLI-примеры](../examples/m29/README.md).
+
+| Profile ID | Атака / Protection | Injury |
+|---|---|---|
+| GIANT_SPIDER | Poisonous Fangs Close3d/3 Damage3,natural,on-hit Drained / Athletics4d/3 | Fast Minion,T3Res3 |
+| WHITE_WOLF_CLAMPING_JAWS | Clamping Jaws Close3d/4 Damage5,natural,запрет Give Ground / Athletics4d/4 | Fast Brute2,T5Res5, W1Drained/W2defeat |
+
+Spider Drained возникает при **попадании**, даже если Damage не дал Wound. Miss его не применяет. Сначала завершаются actual Attack/Protection и обычный Damage branch; новый Drained не меняет уже брошенные кубы/Fate. Последующие Wound Endurance и действия PC видят состояние. Near Miss отменяет рану, а не попадание, поэтому Drained остаётся.
+
+Каждая подтверждённая application сохраняется отдельным typed hit_condition_source с actual Attack/attacker/target/application/rule, включая hit по уже Drained цели с was_already_present=true. Condition flag один, штраф не складывается и фиктивная Wound/sequence/deadline не создаётся. W6 expiry и Near Miss не удаляют независимую hit-причину; malformed state/source не чинятся до observation, full replay подтверждает once-only причинность. Для старых сцен без on-hit effects сохраняется быстрый empty-bank путь.
+
+Пользователь выбрал нынешние Attack/standard Recover без нового Endurance решения. PG118/123 разрешает Endurance как **альтернативный** Recover вместо стандартных преимуществ; обычный Recover сам Drained не снимает. Из названия Poisonous не выведены disease, длительность или невозможность восстановления. Post-battle лечение/automatic Recover не исполняются.
+
+White Wolf получает Drained на actual living0→1 profile ACK; его обычный own turn продолжается, bonus dice подавляются, W2 даёт defeat без повторного применения W1. Clamping Jaws запрещают actual target Give Ground, но атакованный Wolf сохраняет обычную доступность ухода. Rending Claws unselected; Pin and Tear требует Charge, Fearsome — Give Ground от его атаки, невозможного при выбранных Clamping Jaws. Spider Scitter-Scatter/rider эффекты inactive в неподвижной unmounted сцене. Напечатанный rider label Goblin Wolf Rider сохранён с фактическим scope Giant Spider.
+
+Current PC JSON1 требует attack.secondary_effects:0–1descriptor exactkind=condition_on_hit,condition=drained,classification=unclassified,rule_id. Поддержан только этот effect; generic DSL/новый physical enum не вводятся. Все прежние40request/result pairs мигрированы явными[] в input/echo/candidate sources; старые значения/наблюдения сохраняются, version/метрики не меняются. Runtime hit bank не попадает в balance journals: перед агрегацией полностью проверяется native result.
+
+[Cause/app projection](../../src/towr/domain/pc_hit_condition_models.py), [PC state/retention](../../src/towr/domain/pc_melee_result_models.py), [canonical attack/lifecycle](../../src/towr/domain/_pc_melee_projection.py), [PC codec](../../src/towr/adapters/_pc_melee_scenario_json.py). [Native/Fate/expiry/source tests](../../tests/unit/test_m29_pc_hit_conditions.py), [card/White Wolf tests](../../tests/unit/test_m29_pc_drained_catalog.py), [JSON/trials/4состава/process](../../tests/integration/test_m29_pc_drained_chunk.py). Другие bounded families не расширены.
+
 ## RULE-PROFILE-BEASTMEN-001..010 — Slaughtered Stag Warherd
 
 | Страница | Profile | Type | Нормативные profile/attack effects |
@@ -160,6 +255,30 @@ Profile spell list определяет grimoire/memorised ownership, но са�
 | 153 | Ghorgon | Monstrosity (6 Wounds) | при 1–5 Wounds получает Monstrous Regeneration; Terrifying даёт Broken после Give Ground/Wound; failed opposition Swallow Whole помещает цель внутрь: start-turn Endurance Hazard (4), выход только после нанесения Ghorgon Wound, внутренние attacks Grim/unopposed/ignore armour |
 
 `A Season for Slaughter` страницы 141 — d10 campaign generator. `Charging Bull`, `The Quickening Storm`, `Drunken Rampage`, `Brayhorn` и `Swallow Whole` имеют разные множества целей и timing; они не являются вариантами одного общего AoE resolver.
+
+<a id="beast-orc-chunk-m28"></a>
+
+## M28 — Gor, Chaos Warhound и Orc Boy
+
+Статус: `verified` в PC family. RULE-PROFILE-BEASTMEN-002/004 и RULE-PROFILE-GREENSKIN-004; GM1.1, Understanding NPC Profiles93 / Gor143 / Chaos Warhound145 / Orc Boy158. [Общий factory/JSON/CLI-пример](../examples/m28/README.md).
+
+| Profile ID | Fixed атака | Protection | Shield-free Resilience |
+|---|---|---|---|
+| GOR_DUAL_AXES | Crude Axes Close4d/3, printed Damage3,1H на каждый топор; отдельный +1Damage за dual | Athletics4d/3 | Toughness4/Resilience4, shield не несётся |
+| CHAOS_WARHOUND | Pinning Claws Close3d/3 Damage3,natural; цель не может Give Ground | Athletics4d/3 | Toughness3/Resilience3 |
+| ORC_BOY_CHOPPAS | Couple of Choppas Close3d/4 Damage4,2H | Defence3d/4 | Toughness4/Resilience5 armoured, shield не несётся |
+
+GM93 предписывает уменьшить напечатанную Resilience на1, если NPC не несёт указанный shield. Gor5→4, Orc6→5; Protection dice/threshold при этом не меняются. Эти значения явно сохранены в canonical definition/fresh snapshot, скрытого вычитания в бою нет. По PG97 Gor при Resilience=Toughness не armoured; у Orc остаётся light armour1. Orc может применять выбранную Defence к Melee с оружием без щита; его Athletics3d/3 сохранена unselected вместе с Jagged Spear/Warbow.
+
+Gor заранее выбран с двумя Crude Axes, занимающими обе руки, без shield. Напечатанный1H относится к каждому топору; Orc сохраняет собственную напечатанную combined2H нотацию. Общий NPC inventory/переключение хвата не добавляются. В данном Minion-срезе не моделируются NPC hand injuries/drop/pickup: fixed loadout сохраняется до defeat.
+
+**Primal Rage:** +1d к Melee атаке, пока сам Gor Staggered; фактическая Wound не требуется (Minion был бы defeated). Модификатор добавляется один раз вместе с обычными outnumbering/higher-ground modifiers до существующего Drained filter/cap. Он не меняет Athletics Protection и не становится бонусом другого NPC. **Dual axes:** отдельный DamageModifier+1 по GM143, printed base остаётся3. Это не два бонуса за два топора и не PC Axe armour trait. Drained подавляет bonus dice, но не этот bonus Damage.
+
+Chaos Warhound сохраняет printed Attack3d/3, хотя WS4; Protection4d/3 не подменяет атаку. Его natural Pinning Claws запрещают actual target Give Ground независимо от facts.can_leave_zone; при атаке по Warhound чужой запрет не накладывается. Giant Wolf сохраняет прежний такой же запрет.
+
+Child of the Forest Gor/Warhound сохранён inactive только в неподвижной сцене без woodland terrain. Orc Choppas +1Damage на Charge — inactive, поскольку Charge не выполняется. Power of the Waaagh! при Help союзной Melee attack даёт **один free success без Test**, не bonus die; нынешняя NPC-стратегия Help не делает. Все условия/эффекты сохранены в metadata. Orc использует printed Damage4 без добавочного PC dual/Charge/weapon trait.
+
+[Явные helpers](../../src/towr/domain/pc_npc_ability_models.py) и [подготовка actual NPC Attack](../../src/towr/domain/pc_melee_result_models.py) используют существующие typed DiceModifier/DamageModifier/kernel, без DSL/нового owner/формата. Current JSON1/схемы/метрики прежние; canonical root/nested identities связывают fixed mode и выбранные значения. [Catalog/native tests](../../tests/unit/test_m28_pc_beast_orc_catalog.py), [modifiers/replay tests](../../tests/unit/test_m28_pc_beast_orc_modifiers.py), [общая integration/process/8составов](../../tests/integration/test_m28_pc_beast_orc_chunk.py). Прежние11профилей и38пар примеров сохраняются.
 
 ## RULE-PROFILE-GREENSKIN-001..011 — Red Eyez Tribe
 

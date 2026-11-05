@@ -6,7 +6,8 @@ from functools import partial
 from towr.adapters._json_common import build_value
 from towr.adapters.pc_melee_json_errors import PcMeleeInputError
 from towr.adapters.ranged_json_errors import RangedInputErrorCode as Code
-from towr.domain.attack_models import DamageProfile, ResilienceProfile
+from towr.domain.attack_models import ConditionOnHitSpec, DamageProfile, ResilienceProfile
+from towr.domain.condition_models import Condition, EffectClassification
 from towr.domain.fate_models import (
     FateBurnKind, FateBurnRecord, FateRefreshRecord, FateSessionState,
     FateSpendFunding, FateSpendKind, FateSpendRecord,
@@ -100,6 +101,16 @@ def _parse_participant(data, *, path_prefix, error_type):
         ally_recover_policy=ally_recover_policy,backup_weapon_policy=backup_weapon_policy)
 
 
+def _parse_on_hit_effect(data, *, path_prefix, error_type):
+    if type(data['kind']) is not str or data['kind']!='condition_on_hit':
+        raise error_type(Code.INVALID_INPUT,'unsupported PC Melee attack effect kind',path=path_prefix+'/kind')
+    raw=dict(data)
+    del raw['kind']
+    raw['condition']=Condition(raw['condition'])
+    raw['classification']=EffectClassification(raw['classification'])
+    return build_value(error_type,path_prefix,ConditionOnHitSpec,**raw)
+
+
 def _parse_scenario(data, *, path_prefix, error_type):
     build = partial(build_value, error_type)
     party = tuple(_parse_participant(member, path_prefix=f"{path_prefix}/party/{index}", error_type=error_type)
@@ -113,7 +124,11 @@ def _parse_scenario(data, *, path_prefix, error_type):
         attack = build(path + "/definition/attack", NpcAttackProfile,
             attack_raw["id"], attack_raw["source_rule_id"], Skill.MELEE,
             InlineProfile(**attack_raw["test_profile"]), DamageProfile(**attack_raw["damage"]),
-            RangedWeaponRange.CLOSE, RangedWeaponRange.CLOSE, RangedWeaponHands(attack_raw["hands"]))
+            RangedWeaponRange.CLOSE, RangedWeaponRange.CLOSE,
+            None if attack_raw["hands"] is None else RangedWeaponHands(attack_raw["hands"]),
+            secondary_effects=tuple(_parse_on_hit_effect(effect,
+                path_prefix=f'{path}/definition/attack/secondary_effects/{index}',error_type=error_type)
+                for index,effect in enumerate(attack_raw['secondary_effects'])))
         resilience = build(path + "/definition/resilience", ResilienceProfile, **definition_raw["resilience"])
         definition = build(path + "/definition", NpcDefinition,
             definition_raw["id"], definition_raw["source_rule_id"],
@@ -121,7 +136,8 @@ def _parse_scenario(data, *, path_prefix, error_type):
             resilience, (attack,), (NpcProtectionProfile(protection_raw["source_rule_id"],
                 Skill(protection_raw["skill"]), InlineProfile(**protection_raw["test_profile"])),))
         state = build(path, NpcParticipantState, enemy["actor_id"], definition.id,
-            CombatSide.OPPOSITION, ProfileInjuryState(0, definition.wound_limit), (attack.id,), resilience, True, False)
+            CombatSide.OPPOSITION, ProfileInjuryState(0, definition.wound_limit), (attack.id,),
+            resilience, attack.hands is not None, False)
         enemies.append(NpcParticipantSnapshot(definition, state))
     return build(path_prefix, PcMeleeScenario, data["id"], party,
         data["day_id"], tuple(enemies), build(path_prefix + "/facts", PcMeleeFacts, **data["facts"]),
@@ -143,7 +159,10 @@ def scenario_document(scenario: PcMeleeScenario) -> dict:
             "resilience": asdict(definition.resilience),
             "attack": {"id": attack.id, "source_rule_id": attack.source_rule_id,
                 "test_profile": asdict(attack.test_profile), "damage": asdict(attack.damage),
-                "hands": attack.hands.value},
+                "hands": None if attack.hands is None else attack.hands.value,
+                "secondary_effects": [{'kind':'condition_on_hit','condition':effect.condition.value,
+                    'rule_id':effect.rule_id,'classification':effect.classification.value}
+                    for effect in attack.secondary_effects]},
             "protection": {"source_rule_id": protection.source_rule_id,
                 "skill": protection.skill.value,"test_profile": asdict(protection.test_profile)}}})
     return {"id": scenario.id, "party": _plain([asdict(member) for member in scenario.party]),

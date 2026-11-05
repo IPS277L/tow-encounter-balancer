@@ -7,7 +7,7 @@ from towr.domain.minion_defeat_models import MinionDefeatDecision
 from towr.domain.npc_objective_models import NpcDefeatObjective
 from towr.domain.npc_roster_attack_models import NpcRosterAttackState
 from towr.domain.npc_rounds_models import NpcRoundsRequest
-from towr.domain.ranged_weapon_profiles import RangedWeaponRange
+from towr.domain.ranged_weapon_profiles import RangedWeaponRange,RangedWeaponHands
 from towr.domain.resolution_models import TargetInjuryPolicy
 from towr.domain.test_models import Skill
 from towr.domain.turn_models import CombatRoundState, CombatSide
@@ -143,6 +143,8 @@ class NpcMeleeScenario:
             if len(definition.attacks) != 1:
                 raise ValueError("scenario requires exactly one numeric Close Melee profile")
             attack = definition.attacks[0]
+            if type(attack.hands) is not RangedWeaponHands:
+                raise TypeError('bounded Melee scenario requires typed weapon hands')
             if (attack.skill is not Skill.MELEE
                     or attack.range_min is not RangedWeaponRange.CLOSE
                     or attack.range_max is not RangedWeaponRange.CLOSE

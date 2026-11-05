@@ -1,0 +1,3449 @@
+{
+  "schema_version": "1",
+  "kind": "pc_melee_balance_result",
+  "request": {
+    "schema_version": "1",
+    "kind": "pc_melee_balance",
+    "request_id": "m26-catalog-chunk-balance",
+    "ruleset": "towr-pg1.4-gmg1.1",
+    "template": {
+      "id": "m26-catalog-chunk-template",
+      "party": [
+        {
+          "actor_id": "pc1",
+          "pc": {
+            "id": "pc-profile1",
+            "weapon_skill": 3,
+            "strength": 3,
+            "toughness": 3,
+            "agility": 3,
+            "melee": 5,
+            "defence": 5,
+            "athletics": 4,
+            "endurance": 4,
+            "weapon": "staff",
+            "armour_bonus": 0
+          },
+          "fate": {
+            "session_id": "session",
+            "actor_id": "pc1",
+            "rating": 3,
+            "session_spend_limit": 3,
+            "spends": [],
+            "has_lucky": false,
+            "refreshes": [],
+            "burns": [],
+            "resource_event_ids": [],
+            "rule_id": "RULE-FATE-001:session-resource"
+          },
+          "policy": "attack_or_recover_self",
+          "fate_policy": "decline_optional_fate",
+          "random_side_policy": "d10_low_left_high_right",
+          "heavy_wound_policy": "continue_fighting",
+          "initial_weapon_hand": "left",
+          "target_priority": [
+            "merchant1",
+            "merchant2",
+            "artisan1",
+            "squire1"
+          ],
+          "defeat_decisions": [
+            {
+              "attacker_id": "pc1",
+              "target_id": "merchant1",
+              "disposition": "knocked_out",
+              "gm_approved": true
+            },
+            {
+              "attacker_id": "pc1",
+              "target_id": "merchant2",
+              "disposition": "knocked_out",
+              "gm_approved": true
+            },
+            {
+              "attacker_id": "pc1",
+              "target_id": "artisan1",
+              "disposition": "knocked_out",
+              "gm_approved": true
+            },
+            {
+              "attacker_id": "pc1",
+              "target_id": "squire1",
+              "disposition": "knocked_out",
+              "gm_approved": true
+            }
+          ],
+          "near_miss_policy": null,
+          "glorious_policy": null,
+          "help_policy": null,
+          "ally_recover_policy": null,
+          "backup_weapon_policy": null
+        },
+        {
+          "actor_id": "pc2",
+          "pc": {
+            "id": "pc-profile2",
+            "weapon_skill": 3,
+            "strength": 3,
+            "toughness": 3,
+            "agility": 3,
+            "melee": 5,
+            "defence": 5,
+            "athletics": 4,
+            "endurance": 4,
+            "weapon": "staff",
+            "armour_bonus": 0
+          },
+          "fate": {
+            "session_id": "session",
+            "actor_id": "pc2",
+            "rating": 3,
+            "session_spend_limit": 3,
+            "spends": [],
+            "has_lucky": false,
+            "refreshes": [],
+            "burns": [],
+            "resource_event_ids": [],
+            "rule_id": "RULE-FATE-001:session-resource"
+          },
+          "policy": "attack_or_recover_self",
+          "fate_policy": "decline_optional_fate",
+          "random_side_policy": "d10_low_left_high_right",
+          "heavy_wound_policy": "continue_fighting",
+          "initial_weapon_hand": "left",
+          "target_priority": [
+            "merchant1",
+            "merchant2",
+            "artisan1",
+            "squire1"
+          ],
+          "defeat_decisions": [
+            {
+              "attacker_id": "pc2",
+              "target_id": "merchant1",
+              "disposition": "knocked_out",
+              "gm_approved": true
+            },
+            {
+              "attacker_id": "pc2",
+              "target_id": "merchant2",
+              "disposition": "knocked_out",
+              "gm_approved": true
+            },
+            {
+              "attacker_id": "pc2",
+              "target_id": "artisan1",
+              "disposition": "knocked_out",
+              "gm_approved": true
+            },
+            {
+              "attacker_id": "pc2",
+              "target_id": "squire1",
+              "disposition": "knocked_out",
+              "gm_approved": true
+            }
+          ],
+          "near_miss_policy": null,
+          "glorious_policy": null,
+          "help_policy": null,
+          "ally_recover_policy": null,
+          "backup_weapon_policy": null
+        }
+      ],
+      "day_id": "day",
+      "enemies": [
+        {
+          "actor_id": "merchant1",
+          "definition": {
+            "id": "pc-book-npc:elf_merchant_jewelled_blade",
+            "source_rule_id": "BOOK-GM-GUIDE:1.1:p107:elf_merchant_jewelled_blade",
+            "injury_policy": "brute",
+            "wound_limit": 2,
+            "resilience": {
+              "toughness": 3,
+              "bonus": 1
+            },
+            "attack": {
+              "id": "jewelled_blade",
+              "source_rule_id": "BOOK-GM-GUIDE:1.1:p107:elf_merchant_jewelled_blade:jewelled_blade",
+              "test_profile": {
+                "dice": 4,
+                "threshold": 3,
+                "pool_cap": null
+              },
+              "damage": {
+                "base": 3,
+                "success_multiplier": 1
+              },
+              "hands": "1h",
+              "secondary_effects": []
+            },
+            "protection": {
+              "source_rule_id": "BOOK-GM-GUIDE:1.1:p107:elf_merchant_jewelled_blade:athletics",
+              "skill": "athletics",
+              "test_profile": {
+                "dice": 4,
+                "threshold": 3,
+                "pool_cap": null
+              }
+            }
+          }
+        },
+        {
+          "actor_id": "merchant2",
+          "definition": {
+            "id": "pc-book-npc:elf_merchant_jewelled_blade",
+            "source_rule_id": "BOOK-GM-GUIDE:1.1:p107:elf_merchant_jewelled_blade",
+            "injury_policy": "brute",
+            "wound_limit": 2,
+            "resilience": {
+              "toughness": 3,
+              "bonus": 1
+            },
+            "attack": {
+              "id": "jewelled_blade",
+              "source_rule_id": "BOOK-GM-GUIDE:1.1:p107:elf_merchant_jewelled_blade:jewelled_blade",
+              "test_profile": {
+                "dice": 4,
+                "threshold": 3,
+                "pool_cap": null
+              },
+              "damage": {
+                "base": 3,
+                "success_multiplier": 1
+              },
+              "hands": "1h",
+              "secondary_effects": []
+            },
+            "protection": {
+              "source_rule_id": "BOOK-GM-GUIDE:1.1:p107:elf_merchant_jewelled_blade:athletics",
+              "skill": "athletics",
+              "test_profile": {
+                "dice": 4,
+                "threshold": 3,
+                "pool_cap": null
+              }
+            }
+          }
+        },
+        {
+          "actor_id": "artisan1",
+          "definition": {
+            "id": "pc-book-npc:artisan",
+            "source_rule_id": "BOOK-GM-GUIDE:1.1:p96:artisan",
+            "injury_policy": "minion",
+            "wound_limit": 1,
+            "resilience": {
+              "toughness": 3,
+              "bonus": 0
+            },
+            "attack": {
+              "id": "make_shift_weapons",
+              "source_rule_id": "BOOK-GM-GUIDE:1.1:p96:artisan:make_shift_weapons",
+              "test_profile": {
+                "dice": 2,
+                "threshold": 2,
+                "pool_cap": null
+              },
+              "damage": {
+                "base": 2,
+                "success_multiplier": 1
+              },
+              "hands": "1h",
+              "secondary_effects": []
+            },
+            "protection": {
+              "source_rule_id": "BOOK-GM-GUIDE:1.1:p96:artisan:athletics",
+              "skill": "athletics",
+              "test_profile": {
+                "dice": 3,
+                "threshold": 2,
+                "pool_cap": null
+              }
+            }
+          }
+        },
+        {
+          "actor_id": "squire1",
+          "definition": {
+            "id": "pc-book-npc:bretonnian_squire_sword",
+            "source_rule_id": "BOOK-GM-GUIDE:1.1:p109:bretonnian_squire_sword",
+            "injury_policy": "minion",
+            "wound_limit": 1,
+            "resilience": {
+              "toughness": 3,
+              "bonus": 0
+            },
+            "attack": {
+              "id": "sword",
+              "source_rule_id": "BOOK-GM-GUIDE:1.1:p109:bretonnian_squire_sword:sword",
+              "test_profile": {
+                "dice": 3,
+                "threshold": 3,
+                "pool_cap": null
+              },
+              "damage": {
+                "base": 3,
+                "success_multiplier": 1
+              },
+              "hands": "1h",
+              "secondary_effects": []
+            },
+            "protection": {
+              "source_rule_id": "BOOK-GM-GUIDE:1.1:p109:bretonnian_squire_sword:athletics",
+              "skill": "athletics",
+              "test_profile": {
+                "dice": 3,
+                "threshold": 4,
+                "pool_cap": null
+              }
+            }
+          }
+        }
+      ],
+      "facts": {
+        "zone_id": "arena",
+        "all_opponents_close": true,
+        "targets_aware": true,
+        "all_combatants_included": true,
+        "unmounted": true,
+        "no_external_effects": true,
+        "no_terrain_modifiers": true,
+        "no_additional_abilities": true,
+        "no_ambush": true,
+        "outnumbering_bonus_approved": true,
+        "can_leave_zone": false
+      },
+      "pc_activation_order": [
+        "pc1",
+        "pc2"
+      ],
+      "enemy_activation_order": [
+        "merchant1",
+        "merchant2",
+        "artisan1",
+        "squire1"
+      ],
+      "enemy_target_priority": [
+        "pc1",
+        "pc2"
+      ],
+      "max_rounds": 5,
+      "npc_broken_exit_policy": null
+    },
+    "generation": {
+      "groups": [
+        {
+          "group_id": "merchants",
+          "actor_ids": [
+            "merchant1",
+            "merchant2"
+          ],
+          "minimum_count": 1,
+          "maximum_count": 2
+        },
+        {
+          "group_id": "artisans",
+          "actor_ids": [
+            "artisan1"
+          ],
+          "minimum_count": 0,
+          "maximum_count": 1
+        },
+        {
+          "group_id": "squires",
+          "actor_ids": [
+            "squire1"
+          ],
+          "minimum_count": 0,
+          "maximum_count": 1
+        }
+      ],
+      "facts": {
+        "zone_id": "arena",
+        "all_opponents_close": true,
+        "targets_aware": true,
+        "all_combatants_included": true,
+        "unmounted": true,
+        "no_external_effects": true,
+        "no_terrain_modifiers": true,
+        "no_additional_abilities": true,
+        "no_ambush": true,
+        "outnumbering_bonus_approved": true,
+        "can_leave_zone": false
+      },
+      "max_candidates": 8
+    },
+    "evaluation": {
+      "master_seed": "42",
+      "trials_per_candidate": 3,
+      "max_total_trials": 24,
+      "window": {
+        "minimum": {
+          "numerator": 0,
+          "denominator": 1
+        },
+        "target": {
+          "numerator": 1,
+          "denominator": 2
+        },
+        "maximum": {
+          "numerator": 1,
+          "denominator": 1
+        }
+      },
+      "top_k": 2
+    },
+    "execution": {
+      "mode": "sequential"
+    }
+  },
+  "seed_scheme": "towr:pc-melee-trial:v1",
+  "runtime": {
+    "package_version": "0.1.0",
+    "python_implementation": "CPython",
+    "python_version": "3.12.4",
+    "rng": "random.Random"
+  },
+  "candidate_count": 8,
+  "planned_trials": 24,
+  "total_trials": 24,
+  "candidates": [
+    {
+      "candidate_id": "m26-catalog-chunk-template:counts:1,0,0",
+      "counts": [
+        1,
+        0,
+        0
+      ],
+      "request": {
+        "master_seed": "42",
+        "trials": 3,
+        "scenario": {
+          "id": "m26-catalog-chunk-template:counts:1,0,0",
+          "party": [
+            {
+              "actor_id": "pc1",
+              "pc": {
+                "id": "pc-profile1",
+                "weapon_skill": 3,
+                "strength": 3,
+                "toughness": 3,
+                "agility": 3,
+                "melee": 5,
+                "defence": 5,
+                "athletics": 4,
+                "endurance": 4,
+                "weapon": "staff",
+                "armour_bonus": 0
+              },
+              "fate": {
+                "session_id": "session",
+                "actor_id": "pc1",
+                "rating": 3,
+                "session_spend_limit": 3,
+                "spends": [],
+                "has_lucky": false,
+                "refreshes": [],
+                "burns": [],
+                "resource_event_ids": [],
+                "rule_id": "RULE-FATE-001:session-resource"
+              },
+              "policy": "attack_or_recover_self",
+              "fate_policy": "decline_optional_fate",
+              "random_side_policy": "d10_low_left_high_right",
+              "heavy_wound_policy": "continue_fighting",
+              "initial_weapon_hand": "left",
+              "target_priority": [
+                "merchant1"
+              ],
+              "defeat_decisions": [
+                {
+                  "attacker_id": "pc1",
+                  "target_id": "merchant1",
+                  "disposition": "knocked_out",
+                  "gm_approved": true
+                }
+              ],
+              "near_miss_policy": null,
+              "glorious_policy": null,
+              "help_policy": null,
+              "ally_recover_policy": null,
+              "backup_weapon_policy": null
+            },
+            {
+              "actor_id": "pc2",
+              "pc": {
+                "id": "pc-profile2",
+                "weapon_skill": 3,
+                "strength": 3,
+                "toughness": 3,
+                "agility": 3,
+                "melee": 5,
+                "defence": 5,
+                "athletics": 4,
+                "endurance": 4,
+                "weapon": "staff",
+                "armour_bonus": 0
+              },
+              "fate": {
+                "session_id": "session",
+                "actor_id": "pc2",
+                "rating": 3,
+                "session_spend_limit": 3,
+                "spends": [],
+                "has_lucky": false,
+                "refreshes": [],
+                "burns": [],
+                "resource_event_ids": [],
+                "rule_id": "RULE-FATE-001:session-resource"
+              },
+              "policy": "attack_or_recover_self",
+              "fate_policy": "decline_optional_fate",
+              "random_side_policy": "d10_low_left_high_right",
+              "heavy_wound_policy": "continue_fighting",
+              "initial_weapon_hand": "left",
+              "target_priority": [
+                "merchant1"
+              ],
+              "defeat_decisions": [
+                {
+                  "attacker_id": "pc2",
+                  "target_id": "merchant1",
+                  "disposition": "knocked_out",
+                  "gm_approved": true
+                }
+              ],
+              "near_miss_policy": null,
+              "glorious_policy": null,
+              "help_policy": null,
+              "ally_recover_policy": null,
+              "backup_weapon_policy": null
+            }
+          ],
+          "day_id": "day",
+          "enemies": [
+            {
+              "actor_id": "merchant1",
+              "definition": {
+                "id": "pc-book-npc:elf_merchant_jewelled_blade",
+                "source_rule_id": "BOOK-GM-GUIDE:1.1:p107:elf_merchant_jewelled_blade",
+                "injury_policy": "brute",
+                "wound_limit": 2,
+                "resilience": {
+                  "toughness": 3,
+                  "bonus": 1
+                },
+                "attack": {
+                  "id": "jewelled_blade",
+                  "source_rule_id": "BOOK-GM-GUIDE:1.1:p107:elf_merchant_jewelled_blade:jewelled_blade",
+                  "test_profile": {
+                    "dice": 4,
+                    "threshold": 3,
+                    "pool_cap": null
+                  },
+                  "damage": {
+                    "base": 3,
+                    "success_multiplier": 1
+                  },
+                  "hands": "1h",
+                  "secondary_effects": []
+                },
+                "protection": {
+                  "source_rule_id": "BOOK-GM-GUIDE:1.1:p107:elf_merchant_jewelled_blade:athletics",
+                  "skill": "athletics",
+                  "test_profile": {
+                    "dice": 4,
+                    "threshold": 3,
+                    "pool_cap": null
+                  }
+                }
+              }
+            }
+          ],
+          "facts": {
+            "zone_id": "arena",
+            "all_opponents_close": true,
+            "targets_aware": true,
+            "all_combatants_included": true,
+            "unmounted": true,
+            "no_external_effects": true,
+            "no_terrain_modifiers": true,
+            "no_additional_abilities": true,
+            "no_ambush": true,
+            "outnumbering_bonus_approved": true,
+            "can_leave_zone": false
+          },
+          "pc_activation_order": [
+            "pc1",
+            "pc2"
+          ],
+          "enemy_activation_order": [
+            "merchant1"
+          ],
+          "enemy_target_priority": [
+            "pc1",
+            "pc2"
+          ],
+          "max_rounds": 5,
+          "npc_broken_exit_policy": null
+        }
+      },
+      "summary": {
+        "trials": 3,
+        "outcome_counts": {
+          "objective_achieved": 3,
+          "party_defeated": 0,
+          "round_limit": 0,
+          "unsupported_path": 0
+        },
+        "total_action_count": 13,
+        "total_started_round_count": 6,
+        "total_completed_round_count": 3,
+        "any_pc_defeated_count": 0,
+        "pc_defeat_counts": [
+          {
+            "actor_id": "pc1",
+            "count": 0
+          },
+          {
+            "actor_id": "pc2",
+            "count": 0
+          }
+        ],
+        "near_miss_burn_trial_count": 0,
+        "near_miss_burn_counts": [
+          {
+            "actor_id": "pc1",
+            "count": 0
+          },
+          {
+            "actor_id": "pc2",
+            "count": 0
+          }
+        ],
+        "total_near_miss_burn_count": 0,
+        "glorious_spend_trial_count": 0,
+        "glorious_spend_counts": [
+          {
+            "actor_id": "pc1",
+            "count": 0
+          },
+          {
+            "actor_id": "pc2",
+            "count": 0
+          }
+        ],
+        "total_glorious_spend_count": 0,
+        "help_action_trial_count": 0,
+        "help_action_counts": [
+          {
+            "actor_id": "pc1",
+            "count": 0
+          },
+          {
+            "actor_id": "pc2",
+            "count": 0
+          }
+        ],
+        "total_help_action_count": 0,
+        "ally_recover_action_trial_count": 0,
+        "ally_recover_action_counts": [
+          {
+            "actor_id": "pc1",
+            "count": 0
+          },
+          {
+            "actor_id": "pc2",
+            "count": 0
+          }
+        ],
+        "total_ally_recover_action_count": 0,
+        "npc_exit_trial_count": 0,
+        "npc_exit_counts": [
+          {
+            "actor_id": "merchant1",
+            "count": 0
+          }
+        ],
+        "objective_with_npc_exit_count": 0,
+        "total_npc_exit_count": 0
+      },
+      "assessment": {
+        "status": "eligible",
+        "window": {
+          "minimum": {
+            "numerator": 0,
+            "denominator": 1
+          },
+          "target": {
+            "numerator": 1,
+            "denominator": 2
+          },
+          "maximum": {
+            "numerator": 1,
+            "denominator": 1
+          }
+        },
+        "objective_achieved_rate": {
+          "numerator": 1,
+          "denominator": 1
+        },
+        "party_defeated_rate": {
+          "numerator": 0,
+          "denominator": 1
+        },
+        "round_limit_rate": {
+          "numerator": 0,
+          "denominator": 1
+        },
+        "unsupported_path_rate": {
+          "numerator": 0,
+          "denominator": 1
+        },
+        "window_match": true
+      }
+    },
+    {
+      "candidate_id": "m26-catalog-chunk-template:counts:1,0,1",
+      "counts": [
+        1,
+        0,
+        1
+      ],
+      "request": {
+        "master_seed": "42",
+        "trials": 3,
+        "scenario": {
+          "id": "m26-catalog-chunk-template:counts:1,0,1",
+          "party": [
+            {
+              "actor_id": "pc1",
+              "pc": {
+                "id": "pc-profile1",
+                "weapon_skill": 3,
+                "strength": 3,
+                "toughness": 3,
+                "agility": 3,
+                "melee": 5,
+                "defence": 5,
+                "athletics": 4,
+                "endurance": 4,
+                "weapon": "staff",
+                "armour_bonus": 0
+              },
+              "fate": {
+                "session_id": "session",
+                "actor_id": "pc1",
+                "rating": 3,
+                "session_spend_limit": 3,
+                "spends": [],
+                "has_lucky": false,
+                "refreshes": [],
+                "burns": [],
+                "resource_event_ids": [],
+                "rule_id": "RULE-FATE-001:session-resource"
+              },
+              "policy": "attack_or_recover_self",
+              "fate_policy": "decline_optional_fate",
+              "random_side_policy": "d10_low_left_high_right",
+              "heavy_wound_policy": "continue_fighting",
+              "initial_weapon_hand": "left",
+              "target_priority": [
+                "merchant1",
+                "squire1"
+              ],
+              "defeat_decisions": [
+                {
+                  "attacker_id": "pc1",
+                  "target_id": "merchant1",
+                  "disposition": "knocked_out",
+                  "gm_approved": true
+                },
+                {
+                  "attacker_id": "pc1",
+                  "target_id": "squire1",
+                  "disposition": "knocked_out",
+                  "gm_approved": true
+                }
+              ],
+              "near_miss_policy": null,
+              "glorious_policy": null,
+              "help_policy": null,
+              "ally_recover_policy": null,
+              "backup_weapon_policy": null
+            },
+            {
+              "actor_id": "pc2",
+              "pc": {
+                "id": "pc-profile2",
+                "weapon_skill": 3,
+                "strength": 3,
+                "toughness": 3,
+                "agility": 3,
+                "melee": 5,
+                "defence": 5,
+                "athletics": 4,
+                "endurance": 4,
+                "weapon": "staff",
+                "armour_bonus": 0
+              },
+              "fate": {
+                "session_id": "session",
+                "actor_id": "pc2",
+                "rating": 3,
+                "session_spend_limit": 3,
+                "spends": [],
+                "has_lucky": false,
+                "refreshes": [],
+                "burns": [],
+                "resource_event_ids": [],
+                "rule_id": "RULE-FATE-001:session-resource"
+              },
+              "policy": "attack_or_recover_self",
+              "fate_policy": "decline_optional_fate",
+              "random_side_policy": "d10_low_left_high_right",
+              "heavy_wound_policy": "continue_fighting",
+              "initial_weapon_hand": "left",
+              "target_priority": [
+                "merchant1",
+                "squire1"
+              ],
+              "defeat_decisions": [
+                {
+                  "attacker_id": "pc2",
+                  "target_id": "merchant1",
+                  "disposition": "knocked_out",
+                  "gm_approved": true
+                },
+                {
+                  "attacker_id": "pc2",
+                  "target_id": "squire1",
+                  "disposition": "knocked_out",
+                  "gm_approved": true
+                }
+              ],
+              "near_miss_policy": null,
+              "glorious_policy": null,
+              "help_policy": null,
+              "ally_recover_policy": null,
+              "backup_weapon_policy": null
+            }
+          ],
+          "day_id": "day",
+          "enemies": [
+            {
+              "actor_id": "merchant1",
+              "definition": {
+                "id": "pc-book-npc:elf_merchant_jewelled_blade",
+                "source_rule_id": "BOOK-GM-GUIDE:1.1:p107:elf_merchant_jewelled_blade",
+                "injury_policy": "brute",
+                "wound_limit": 2,
+                "resilience": {
+                  "toughness": 3,
+                  "bonus": 1
+                },
+                "attack": {
+                  "id": "jewelled_blade",
+                  "source_rule_id": "BOOK-GM-GUIDE:1.1:p107:elf_merchant_jewelled_blade:jewelled_blade",
+                  "test_profile": {
+                    "dice": 4,
+                    "threshold": 3,
+                    "pool_cap": null
+                  },
+                  "damage": {
+                    "base": 3,
+                    "success_multiplier": 1
+                  },
+                  "hands": "1h",
+                  "secondary_effects": []
+                },
+                "protection": {
+                  "source_rule_id": "BOOK-GM-GUIDE:1.1:p107:elf_merchant_jewelled_blade:athletics",
+                  "skill": "athletics",
+                  "test_profile": {
+                    "dice": 4,
+                    "threshold": 3,
+                    "pool_cap": null
+                  }
+                }
+              }
+            },
+            {
+              "actor_id": "squire1",
+              "definition": {
+                "id": "pc-book-npc:bretonnian_squire_sword",
+                "source_rule_id": "BOOK-GM-GUIDE:1.1:p109:bretonnian_squire_sword",
+                "injury_policy": "minion",
+                "wound_limit": 1,
+                "resilience": {
+                  "toughness": 3,
+                  "bonus": 0
+                },
+                "attack": {
+                  "id": "sword",
+                  "source_rule_id": "BOOK-GM-GUIDE:1.1:p109:bretonnian_squire_sword:sword",
+                  "test_profile": {
+                    "dice": 3,
+                    "threshold": 3,
+                    "pool_cap": null
+                  },
+                  "damage": {
+                    "base": 3,
+                    "success_multiplier": 1
+                  },
+                  "hands": "1h",
+                  "secondary_effects": []
+                },
+                "protection": {
+                  "source_rule_id": "BOOK-GM-GUIDE:1.1:p109:bretonnian_squire_sword:athletics",
+                  "skill": "athletics",
+                  "test_profile": {
+                    "dice": 3,
+                    "threshold": 4,
+                    "pool_cap": null
+                  }
+                }
+              }
+            }
+          ],
+          "facts": {
+            "zone_id": "arena",
+            "all_opponents_close": true,
+            "targets_aware": true,
+            "all_combatants_included": true,
+            "unmounted": true,
+            "no_external_effects": true,
+            "no_terrain_modifiers": true,
+            "no_additional_abilities": true,
+            "no_ambush": true,
+            "outnumbering_bonus_approved": true,
+            "can_leave_zone": false
+          },
+          "pc_activation_order": [
+            "pc1",
+            "pc2"
+          ],
+          "enemy_activation_order": [
+            "merchant1",
+            "squire1"
+          ],
+          "enemy_target_priority": [
+            "pc1",
+            "pc2"
+          ],
+          "max_rounds": 5,
+          "npc_broken_exit_policy": null
+        }
+      },
+      "summary": {
+        "trials": 3,
+        "outcome_counts": {
+          "objective_achieved": 3,
+          "party_defeated": 0,
+          "round_limit": 0,
+          "unsupported_path": 0
+        },
+        "total_action_count": 29,
+        "total_started_round_count": 10,
+        "total_completed_round_count": 7,
+        "any_pc_defeated_count": 0,
+        "pc_defeat_counts": [
+          {
+            "actor_id": "pc1",
+            "count": 0
+          },
+          {
+            "actor_id": "pc2",
+            "count": 0
+          }
+        ],
+        "near_miss_burn_trial_count": 0,
+        "near_miss_burn_counts": [
+          {
+            "actor_id": "pc1",
+            "count": 0
+          },
+          {
+            "actor_id": "pc2",
+            "count": 0
+          }
+        ],
+        "total_near_miss_burn_count": 0,
+        "glorious_spend_trial_count": 0,
+        "glorious_spend_counts": [
+          {
+            "actor_id": "pc1",
+            "count": 0
+          },
+          {
+            "actor_id": "pc2",
+            "count": 0
+          }
+        ],
+        "total_glorious_spend_count": 0,
+        "help_action_trial_count": 0,
+        "help_action_counts": [
+          {
+            "actor_id": "pc1",
+            "count": 0
+          },
+          {
+            "actor_id": "pc2",
+            "count": 0
+          }
+        ],
+        "total_help_action_count": 0,
+        "ally_recover_action_trial_count": 0,
+        "ally_recover_action_counts": [
+          {
+            "actor_id": "pc1",
+            "count": 0
+          },
+          {
+            "actor_id": "pc2",
+            "count": 0
+          }
+        ],
+        "total_ally_recover_action_count": 0,
+        "npc_exit_trial_count": 0,
+        "npc_exit_counts": [
+          {
+            "actor_id": "merchant1",
+            "count": 0
+          },
+          {
+            "actor_id": "squire1",
+            "count": 0
+          }
+        ],
+        "objective_with_npc_exit_count": 0,
+        "total_npc_exit_count": 0
+      },
+      "assessment": {
+        "status": "eligible",
+        "window": {
+          "minimum": {
+            "numerator": 0,
+            "denominator": 1
+          },
+          "target": {
+            "numerator": 1,
+            "denominator": 2
+          },
+          "maximum": {
+            "numerator": 1,
+            "denominator": 1
+          }
+        },
+        "objective_achieved_rate": {
+          "numerator": 1,
+          "denominator": 1
+        },
+        "party_defeated_rate": {
+          "numerator": 0,
+          "denominator": 1
+        },
+        "round_limit_rate": {
+          "numerator": 0,
+          "denominator": 1
+        },
+        "unsupported_path_rate": {
+          "numerator": 0,
+          "denominator": 1
+        },
+        "window_match": true
+      }
+    },
+    {
+      "candidate_id": "m26-catalog-chunk-template:counts:1,1,0",
+      "counts": [
+        1,
+        1,
+        0
+      ],
+      "request": {
+        "master_seed": "42",
+        "trials": 3,
+        "scenario": {
+          "id": "m26-catalog-chunk-template:counts:1,1,0",
+          "party": [
+            {
+              "actor_id": "pc1",
+              "pc": {
+                "id": "pc-profile1",
+                "weapon_skill": 3,
+                "strength": 3,
+                "toughness": 3,
+                "agility": 3,
+                "melee": 5,
+                "defence": 5,
+                "athletics": 4,
+                "endurance": 4,
+                "weapon": "staff",
+                "armour_bonus": 0
+              },
+              "fate": {
+                "session_id": "session",
+                "actor_id": "pc1",
+                "rating": 3,
+                "session_spend_limit": 3,
+                "spends": [],
+                "has_lucky": false,
+                "refreshes": [],
+                "burns": [],
+                "resource_event_ids": [],
+                "rule_id": "RULE-FATE-001:session-resource"
+              },
+              "policy": "attack_or_recover_self",
+              "fate_policy": "decline_optional_fate",
+              "random_side_policy": "d10_low_left_high_right",
+              "heavy_wound_policy": "continue_fighting",
+              "initial_weapon_hand": "left",
+              "target_priority": [
+                "merchant1",
+                "artisan1"
+              ],
+              "defeat_decisions": [
+                {
+                  "attacker_id": "pc1",
+                  "target_id": "merchant1",
+                  "disposition": "knocked_out",
+                  "gm_approved": true
+                },
+                {
+                  "attacker_id": "pc1",
+                  "target_id": "artisan1",
+                  "disposition": "knocked_out",
+                  "gm_approved": true
+                }
+              ],
+              "near_miss_policy": null,
+              "glorious_policy": null,
+              "help_policy": null,
+              "ally_recover_policy": null,
+              "backup_weapon_policy": null
+            },
+            {
+              "actor_id": "pc2",
+              "pc": {
+                "id": "pc-profile2",
+                "weapon_skill": 3,
+                "strength": 3,
+                "toughness": 3,
+                "agility": 3,
+                "melee": 5,
+                "defence": 5,
+                "athletics": 4,
+                "endurance": 4,
+                "weapon": "staff",
+                "armour_bonus": 0
+              },
+              "fate": {
+                "session_id": "session",
+                "actor_id": "pc2",
+                "rating": 3,
+                "session_spend_limit": 3,
+                "spends": [],
+                "has_lucky": false,
+                "refreshes": [],
+                "burns": [],
+                "resource_event_ids": [],
+                "rule_id": "RULE-FATE-001:session-resource"
+              },
+              "policy": "attack_or_recover_self",
+              "fate_policy": "decline_optional_fate",
+              "random_side_policy": "d10_low_left_high_right",
+              "heavy_wound_policy": "continue_fighting",
+              "initial_weapon_hand": "left",
+              "target_priority": [
+                "merchant1",
+                "artisan1"
+              ],
+              "defeat_decisions": [
+                {
+                  "attacker_id": "pc2",
+                  "target_id": "merchant1",
+                  "disposition": "knocked_out",
+                  "gm_approved": true
+                },
+                {
+                  "attacker_id": "pc2",
+                  "target_id": "artisan1",
+                  "disposition": "knocked_out",
+                  "gm_approved": true
+                }
+              ],
+              "near_miss_policy": null,
+              "glorious_policy": null,
+              "help_policy": null,
+              "ally_recover_policy": null,
+              "backup_weapon_policy": null
+            }
+          ],
+          "day_id": "day",
+          "enemies": [
+            {
+              "actor_id": "merchant1",
+              "definition": {
+                "id": "pc-book-npc:elf_merchant_jewelled_blade",
+                "source_rule_id": "BOOK-GM-GUIDE:1.1:p107:elf_merchant_jewelled_blade",
+                "injury_policy": "brute",
+                "wound_limit": 2,
+                "resilience": {
+                  "toughness": 3,
+                  "bonus": 1
+                },
+                "attack": {
+                  "id": "jewelled_blade",
+                  "source_rule_id": "BOOK-GM-GUIDE:1.1:p107:elf_merchant_jewelled_blade:jewelled_blade",
+                  "test_profile": {
+                    "dice": 4,
+                    "threshold": 3,
+                    "pool_cap": null
+                  },
+                  "damage": {
+                    "base": 3,
+                    "success_multiplier": 1
+                  },
+                  "hands": "1h",
+                  "secondary_effects": []
+                },
+                "protection": {
+                  "source_rule_id": "BOOK-GM-GUIDE:1.1:p107:elf_merchant_jewelled_blade:athletics",
+                  "skill": "athletics",
+                  "test_profile": {
+                    "dice": 4,
+                    "threshold": 3,
+                    "pool_cap": null
+                  }
+                }
+              }
+            },
+            {
+              "actor_id": "artisan1",
+              "definition": {
+                "id": "pc-book-npc:artisan",
+                "source_rule_id": "BOOK-GM-GUIDE:1.1:p96:artisan",
+                "injury_policy": "minion",
+                "wound_limit": 1,
+                "resilience": {
+                  "toughness": 3,
+                  "bonus": 0
+                },
+                "attack": {
+                  "id": "make_shift_weapons",
+                  "source_rule_id": "BOOK-GM-GUIDE:1.1:p96:artisan:make_shift_weapons",
+                  "test_profile": {
+                    "dice": 2,
+                    "threshold": 2,
+                    "pool_cap": null
+                  },
+                  "damage": {
+                    "base": 2,
+                    "success_multiplier": 1
+                  },
+                  "hands": "1h",
+                  "secondary_effects": []
+                },
+                "protection": {
+                  "source_rule_id": "BOOK-GM-GUIDE:1.1:p96:artisan:athletics",
+                  "skill": "athletics",
+                  "test_profile": {
+                    "dice": 3,
+                    "threshold": 2,
+                    "pool_cap": null
+                  }
+                }
+              }
+            }
+          ],
+          "facts": {
+            "zone_id": "arena",
+            "all_opponents_close": true,
+            "targets_aware": true,
+            "all_combatants_included": true,
+            "unmounted": true,
+            "no_external_effects": true,
+            "no_terrain_modifiers": true,
+            "no_additional_abilities": true,
+            "no_ambush": true,
+            "outnumbering_bonus_approved": true,
+            "can_leave_zone": false
+          },
+          "pc_activation_order": [
+            "pc1",
+            "pc2"
+          ],
+          "enemy_activation_order": [
+            "merchant1",
+            "artisan1"
+          ],
+          "enemy_target_priority": [
+            "pc1",
+            "pc2"
+          ],
+          "max_rounds": 5,
+          "npc_broken_exit_policy": null
+        }
+      },
+      "summary": {
+        "trials": 3,
+        "outcome_counts": {
+          "objective_achieved": 3,
+          "party_defeated": 0,
+          "round_limit": 0,
+          "unsupported_path": 0
+        },
+        "total_action_count": 26,
+        "total_started_round_count": 9,
+        "total_completed_round_count": 6,
+        "any_pc_defeated_count": 0,
+        "pc_defeat_counts": [
+          {
+            "actor_id": "pc1",
+            "count": 0
+          },
+          {
+            "actor_id": "pc2",
+            "count": 0
+          }
+        ],
+        "near_miss_burn_trial_count": 0,
+        "near_miss_burn_counts": [
+          {
+            "actor_id": "pc1",
+            "count": 0
+          },
+          {
+            "actor_id": "pc2",
+            "count": 0
+          }
+        ],
+        "total_near_miss_burn_count": 0,
+        "glorious_spend_trial_count": 0,
+        "glorious_spend_counts": [
+          {
+            "actor_id": "pc1",
+            "count": 0
+          },
+          {
+            "actor_id": "pc2",
+            "count": 0
+          }
+        ],
+        "total_glorious_spend_count": 0,
+        "help_action_trial_count": 0,
+        "help_action_counts": [
+          {
+            "actor_id": "pc1",
+            "count": 0
+          },
+          {
+            "actor_id": "pc2",
+            "count": 0
+          }
+        ],
+        "total_help_action_count": 0,
+        "ally_recover_action_trial_count": 0,
+        "ally_recover_action_counts": [
+          {
+            "actor_id": "pc1",
+            "count": 0
+          },
+          {
+            "actor_id": "pc2",
+            "count": 0
+          }
+        ],
+        "total_ally_recover_action_count": 0,
+        "npc_exit_trial_count": 0,
+        "npc_exit_counts": [
+          {
+            "actor_id": "merchant1",
+            "count": 0
+          },
+          {
+            "actor_id": "artisan1",
+            "count": 0
+          }
+        ],
+        "objective_with_npc_exit_count": 0,
+        "total_npc_exit_count": 0
+      },
+      "assessment": {
+        "status": "eligible",
+        "window": {
+          "minimum": {
+            "numerator": 0,
+            "denominator": 1
+          },
+          "target": {
+            "numerator": 1,
+            "denominator": 2
+          },
+          "maximum": {
+            "numerator": 1,
+            "denominator": 1
+          }
+        },
+        "objective_achieved_rate": {
+          "numerator": 1,
+          "denominator": 1
+        },
+        "party_defeated_rate": {
+          "numerator": 0,
+          "denominator": 1
+        },
+        "round_limit_rate": {
+          "numerator": 0,
+          "denominator": 1
+        },
+        "unsupported_path_rate": {
+          "numerator": 0,
+          "denominator": 1
+        },
+        "window_match": true
+      }
+    },
+    {
+      "candidate_id": "m26-catalog-chunk-template:counts:1,1,1",
+      "counts": [
+        1,
+        1,
+        1
+      ],
+      "request": {
+        "master_seed": "42",
+        "trials": 3,
+        "scenario": {
+          "id": "m26-catalog-chunk-template:counts:1,1,1",
+          "party": [
+            {
+              "actor_id": "pc1",
+              "pc": {
+                "id": "pc-profile1",
+                "weapon_skill": 3,
+                "strength": 3,
+                "toughness": 3,
+                "agility": 3,
+                "melee": 5,
+                "defence": 5,
+                "athletics": 4,
+                "endurance": 4,
+                "weapon": "staff",
+                "armour_bonus": 0
+              },
+              "fate": {
+                "session_id": "session",
+                "actor_id": "pc1",
+                "rating": 3,
+                "session_spend_limit": 3,
+                "spends": [],
+                "has_lucky": false,
+                "refreshes": [],
+                "burns": [],
+                "resource_event_ids": [],
+                "rule_id": "RULE-FATE-001:session-resource"
+              },
+              "policy": "attack_or_recover_self",
+              "fate_policy": "decline_optional_fate",
+              "random_side_policy": "d10_low_left_high_right",
+              "heavy_wound_policy": "continue_fighting",
+              "initial_weapon_hand": "left",
+              "target_priority": [
+                "merchant1",
+                "artisan1",
+                "squire1"
+              ],
+              "defeat_decisions": [
+                {
+                  "attacker_id": "pc1",
+                  "target_id": "merchant1",
+                  "disposition": "knocked_out",
+                  "gm_approved": true
+                },
+                {
+                  "attacker_id": "pc1",
+                  "target_id": "artisan1",
+                  "disposition": "knocked_out",
+                  "gm_approved": true
+                },
+                {
+                  "attacker_id": "pc1",
+                  "target_id": "squire1",
+                  "disposition": "knocked_out",
+                  "gm_approved": true
+                }
+              ],
+              "near_miss_policy": null,
+              "glorious_policy": null,
+              "help_policy": null,
+              "ally_recover_policy": null,
+              "backup_weapon_policy": null
+            },
+            {
+              "actor_id": "pc2",
+              "pc": {
+                "id": "pc-profile2",
+                "weapon_skill": 3,
+                "strength": 3,
+                "toughness": 3,
+                "agility": 3,
+                "melee": 5,
+                "defence": 5,
+                "athletics": 4,
+                "endurance": 4,
+                "weapon": "staff",
+                "armour_bonus": 0
+              },
+              "fate": {
+                "session_id": "session",
+                "actor_id": "pc2",
+                "rating": 3,
+                "session_spend_limit": 3,
+                "spends": [],
+                "has_lucky": false,
+                "refreshes": [],
+                "burns": [],
+                "resource_event_ids": [],
+                "rule_id": "RULE-FATE-001:session-resource"
+              },
+              "policy": "attack_or_recover_self",
+              "fate_policy": "decline_optional_fate",
+              "random_side_policy": "d10_low_left_high_right",
+              "heavy_wound_policy": "continue_fighting",
+              "initial_weapon_hand": "left",
+              "target_priority": [
+                "merchant1",
+                "artisan1",
+                "squire1"
+              ],
+              "defeat_decisions": [
+                {
+                  "attacker_id": "pc2",
+                  "target_id": "merchant1",
+                  "disposition": "knocked_out",
+                  "gm_approved": true
+                },
+                {
+                  "attacker_id": "pc2",
+                  "target_id": "artisan1",
+                  "disposition": "knocked_out",
+                  "gm_approved": true
+                },
+                {
+                  "attacker_id": "pc2",
+                  "target_id": "squire1",
+                  "disposition": "knocked_out",
+                  "gm_approved": true
+                }
+              ],
+              "near_miss_policy": null,
+              "glorious_policy": null,
+              "help_policy": null,
+              "ally_recover_policy": null,
+              "backup_weapon_policy": null
+            }
+          ],
+          "day_id": "day",
+          "enemies": [
+            {
+              "actor_id": "merchant1",
+              "definition": {
+                "id": "pc-book-npc:elf_merchant_jewelled_blade",
+                "source_rule_id": "BOOK-GM-GUIDE:1.1:p107:elf_merchant_jewelled_blade",
+                "injury_policy": "brute",
+                "wound_limit": 2,
+                "resilience": {
+                  "toughness": 3,
+                  "bonus": 1
+                },
+                "attack": {
+                  "id": "jewelled_blade",
+                  "source_rule_id": "BOOK-GM-GUIDE:1.1:p107:elf_merchant_jewelled_blade:jewelled_blade",
+                  "test_profile": {
+                    "dice": 4,
+                    "threshold": 3,
+                    "pool_cap": null
+                  },
+                  "damage": {
+                    "base": 3,
+                    "success_multiplier": 1
+                  },
+                  "hands": "1h",
+                  "secondary_effects": []
+                },
+                "protection": {
+                  "source_rule_id": "BOOK-GM-GUIDE:1.1:p107:elf_merchant_jewelled_blade:athletics",
+                  "skill": "athletics",
+                  "test_profile": {
+                    "dice": 4,
+                    "threshold": 3,
+                    "pool_cap": null
+                  }
+                }
+              }
+            },
+            {
+              "actor_id": "artisan1",
+              "definition": {
+                "id": "pc-book-npc:artisan",
+                "source_rule_id": "BOOK-GM-GUIDE:1.1:p96:artisan",
+                "injury_policy": "minion",
+                "wound_limit": 1,
+                "resilience": {
+                  "toughness": 3,
+                  "bonus": 0
+                },
+                "attack": {
+                  "id": "make_shift_weapons",
+                  "source_rule_id": "BOOK-GM-GUIDE:1.1:p96:artisan:make_shift_weapons",
+                  "test_profile": {
+                    "dice": 2,
+                    "threshold": 2,
+                    "pool_cap": null
+                  },
+                  "damage": {
+                    "base": 2,
+                    "success_multiplier": 1
+                  },
+                  "hands": "1h",
+                  "secondary_effects": []
+                },
+                "protection": {
+                  "source_rule_id": "BOOK-GM-GUIDE:1.1:p96:artisan:athletics",
+                  "skill": "athletics",
+                  "test_profile": {
+                    "dice": 3,
+                    "threshold": 2,
+                    "pool_cap": null
+                  }
+                }
+              }
+            },
+            {
+              "actor_id": "squire1",
+              "definition": {
+                "id": "pc-book-npc:bretonnian_squire_sword",
+                "source_rule_id": "BOOK-GM-GUIDE:1.1:p109:bretonnian_squire_sword",
+                "injury_policy": "minion",
+                "wound_limit": 1,
+                "resilience": {
+                  "toughness": 3,
+                  "bonus": 0
+                },
+                "attack": {
+                  "id": "sword",
+                  "source_rule_id": "BOOK-GM-GUIDE:1.1:p109:bretonnian_squire_sword:sword",
+                  "test_profile": {
+                    "dice": 3,
+                    "threshold": 3,
+                    "pool_cap": null
+                  },
+                  "damage": {
+                    "base": 3,
+                    "success_multiplier": 1
+                  },
+                  "hands": "1h",
+                  "secondary_effects": []
+                },
+                "protection": {
+                  "source_rule_id": "BOOK-GM-GUIDE:1.1:p109:bretonnian_squire_sword:athletics",
+                  "skill": "athletics",
+                  "test_profile": {
+                    "dice": 3,
+                    "threshold": 4,
+                    "pool_cap": null
+                  }
+                }
+              }
+            }
+          ],
+          "facts": {
+            "zone_id": "arena",
+            "all_opponents_close": true,
+            "targets_aware": true,
+            "all_combatants_included": true,
+            "unmounted": true,
+            "no_external_effects": true,
+            "no_terrain_modifiers": true,
+            "no_additional_abilities": true,
+            "no_ambush": true,
+            "outnumbering_bonus_approved": true,
+            "can_leave_zone": false
+          },
+          "pc_activation_order": [
+            "pc1",
+            "pc2"
+          ],
+          "enemy_activation_order": [
+            "merchant1",
+            "artisan1",
+            "squire1"
+          ],
+          "enemy_target_priority": [
+            "pc1",
+            "pc2"
+          ],
+          "max_rounds": 5,
+          "npc_broken_exit_policy": null
+        }
+      },
+      "summary": {
+        "trials": 3,
+        "outcome_counts": {
+          "objective_achieved": 3,
+          "party_defeated": 0,
+          "round_limit": 0,
+          "unsupported_path": 0
+        },
+        "total_action_count": 37,
+        "total_started_round_count": 11,
+        "total_completed_round_count": 8,
+        "any_pc_defeated_count": 0,
+        "pc_defeat_counts": [
+          {
+            "actor_id": "pc1",
+            "count": 0
+          },
+          {
+            "actor_id": "pc2",
+            "count": 0
+          }
+        ],
+        "near_miss_burn_trial_count": 0,
+        "near_miss_burn_counts": [
+          {
+            "actor_id": "pc1",
+            "count": 0
+          },
+          {
+            "actor_id": "pc2",
+            "count": 0
+          }
+        ],
+        "total_near_miss_burn_count": 0,
+        "glorious_spend_trial_count": 0,
+        "glorious_spend_counts": [
+          {
+            "actor_id": "pc1",
+            "count": 0
+          },
+          {
+            "actor_id": "pc2",
+            "count": 0
+          }
+        ],
+        "total_glorious_spend_count": 0,
+        "help_action_trial_count": 0,
+        "help_action_counts": [
+          {
+            "actor_id": "pc1",
+            "count": 0
+          },
+          {
+            "actor_id": "pc2",
+            "count": 0
+          }
+        ],
+        "total_help_action_count": 0,
+        "ally_recover_action_trial_count": 0,
+        "ally_recover_action_counts": [
+          {
+            "actor_id": "pc1",
+            "count": 0
+          },
+          {
+            "actor_id": "pc2",
+            "count": 0
+          }
+        ],
+        "total_ally_recover_action_count": 0,
+        "npc_exit_trial_count": 0,
+        "npc_exit_counts": [
+          {
+            "actor_id": "merchant1",
+            "count": 0
+          },
+          {
+            "actor_id": "artisan1",
+            "count": 0
+          },
+          {
+            "actor_id": "squire1",
+            "count": 0
+          }
+        ],
+        "objective_with_npc_exit_count": 0,
+        "total_npc_exit_count": 0
+      },
+      "assessment": {
+        "status": "eligible",
+        "window": {
+          "minimum": {
+            "numerator": 0,
+            "denominator": 1
+          },
+          "target": {
+            "numerator": 1,
+            "denominator": 2
+          },
+          "maximum": {
+            "numerator": 1,
+            "denominator": 1
+          }
+        },
+        "objective_achieved_rate": {
+          "numerator": 1,
+          "denominator": 1
+        },
+        "party_defeated_rate": {
+          "numerator": 0,
+          "denominator": 1
+        },
+        "round_limit_rate": {
+          "numerator": 0,
+          "denominator": 1
+        },
+        "unsupported_path_rate": {
+          "numerator": 0,
+          "denominator": 1
+        },
+        "window_match": true
+      }
+    },
+    {
+      "candidate_id": "m26-catalog-chunk-template:counts:2,0,0",
+      "counts": [
+        2,
+        0,
+        0
+      ],
+      "request": {
+        "master_seed": "42",
+        "trials": 3,
+        "scenario": {
+          "id": "m26-catalog-chunk-template:counts:2,0,0",
+          "party": [
+            {
+              "actor_id": "pc1",
+              "pc": {
+                "id": "pc-profile1",
+                "weapon_skill": 3,
+                "strength": 3,
+                "toughness": 3,
+                "agility": 3,
+                "melee": 5,
+                "defence": 5,
+                "athletics": 4,
+                "endurance": 4,
+                "weapon": "staff",
+                "armour_bonus": 0
+              },
+              "fate": {
+                "session_id": "session",
+                "actor_id": "pc1",
+                "rating": 3,
+                "session_spend_limit": 3,
+                "spends": [],
+                "has_lucky": false,
+                "refreshes": [],
+                "burns": [],
+                "resource_event_ids": [],
+                "rule_id": "RULE-FATE-001:session-resource"
+              },
+              "policy": "attack_or_recover_self",
+              "fate_policy": "decline_optional_fate",
+              "random_side_policy": "d10_low_left_high_right",
+              "heavy_wound_policy": "continue_fighting",
+              "initial_weapon_hand": "left",
+              "target_priority": [
+                "merchant1",
+                "merchant2"
+              ],
+              "defeat_decisions": [
+                {
+                  "attacker_id": "pc1",
+                  "target_id": "merchant1",
+                  "disposition": "knocked_out",
+                  "gm_approved": true
+                },
+                {
+                  "attacker_id": "pc1",
+                  "target_id": "merchant2",
+                  "disposition": "knocked_out",
+                  "gm_approved": true
+                }
+              ],
+              "near_miss_policy": null,
+              "glorious_policy": null,
+              "help_policy": null,
+              "ally_recover_policy": null,
+              "backup_weapon_policy": null
+            },
+            {
+              "actor_id": "pc2",
+              "pc": {
+                "id": "pc-profile2",
+                "weapon_skill": 3,
+                "strength": 3,
+                "toughness": 3,
+                "agility": 3,
+                "melee": 5,
+                "defence": 5,
+                "athletics": 4,
+                "endurance": 4,
+                "weapon": "staff",
+                "armour_bonus": 0
+              },
+              "fate": {
+                "session_id": "session",
+                "actor_id": "pc2",
+                "rating": 3,
+                "session_spend_limit": 3,
+                "spends": [],
+                "has_lucky": false,
+                "refreshes": [],
+                "burns": [],
+                "resource_event_ids": [],
+                "rule_id": "RULE-FATE-001:session-resource"
+              },
+              "policy": "attack_or_recover_self",
+              "fate_policy": "decline_optional_fate",
+              "random_side_policy": "d10_low_left_high_right",
+              "heavy_wound_policy": "continue_fighting",
+              "initial_weapon_hand": "left",
+              "target_priority": [
+                "merchant1",
+                "merchant2"
+              ],
+              "defeat_decisions": [
+                {
+                  "attacker_id": "pc2",
+                  "target_id": "merchant1",
+                  "disposition": "knocked_out",
+                  "gm_approved": true
+                },
+                {
+                  "attacker_id": "pc2",
+                  "target_id": "merchant2",
+                  "disposition": "knocked_out",
+                  "gm_approved": true
+                }
+              ],
+              "near_miss_policy": null,
+              "glorious_policy": null,
+              "help_policy": null,
+              "ally_recover_policy": null,
+              "backup_weapon_policy": null
+            }
+          ],
+          "day_id": "day",
+          "enemies": [
+            {
+              "actor_id": "merchant1",
+              "definition": {
+                "id": "pc-book-npc:elf_merchant_jewelled_blade",
+                "source_rule_id": "BOOK-GM-GUIDE:1.1:p107:elf_merchant_jewelled_blade",
+                "injury_policy": "brute",
+                "wound_limit": 2,
+                "resilience": {
+                  "toughness": 3,
+                  "bonus": 1
+                },
+                "attack": {
+                  "id": "jewelled_blade",
+                  "source_rule_id": "BOOK-GM-GUIDE:1.1:p107:elf_merchant_jewelled_blade:jewelled_blade",
+                  "test_profile": {
+                    "dice": 4,
+                    "threshold": 3,
+                    "pool_cap": null
+                  },
+                  "damage": {
+                    "base": 3,
+                    "success_multiplier": 1
+                  },
+                  "hands": "1h",
+                  "secondary_effects": []
+                },
+                "protection": {
+                  "source_rule_id": "BOOK-GM-GUIDE:1.1:p107:elf_merchant_jewelled_blade:athletics",
+                  "skill": "athletics",
+                  "test_profile": {
+                    "dice": 4,
+                    "threshold": 3,
+                    "pool_cap": null
+                  }
+                }
+              }
+            },
+            {
+              "actor_id": "merchant2",
+              "definition": {
+                "id": "pc-book-npc:elf_merchant_jewelled_blade",
+                "source_rule_id": "BOOK-GM-GUIDE:1.1:p107:elf_merchant_jewelled_blade",
+                "injury_policy": "brute",
+                "wound_limit": 2,
+                "resilience": {
+                  "toughness": 3,
+                  "bonus": 1
+                },
+                "attack": {
+                  "id": "jewelled_blade",
+                  "source_rule_id": "BOOK-GM-GUIDE:1.1:p107:elf_merchant_jewelled_blade:jewelled_blade",
+                  "test_profile": {
+                    "dice": 4,
+                    "threshold": 3,
+                    "pool_cap": null
+                  },
+                  "damage": {
+                    "base": 3,
+                    "success_multiplier": 1
+                  },
+                  "hands": "1h",
+                  "secondary_effects": []
+                },
+                "protection": {
+                  "source_rule_id": "BOOK-GM-GUIDE:1.1:p107:elf_merchant_jewelled_blade:athletics",
+                  "skill": "athletics",
+                  "test_profile": {
+                    "dice": 4,
+                    "threshold": 3,
+                    "pool_cap": null
+                  }
+                }
+              }
+            }
+          ],
+          "facts": {
+            "zone_id": "arena",
+            "all_opponents_close": true,
+            "targets_aware": true,
+            "all_combatants_included": true,
+            "unmounted": true,
+            "no_external_effects": true,
+            "no_terrain_modifiers": true,
+            "no_additional_abilities": true,
+            "no_ambush": true,
+            "outnumbering_bonus_approved": true,
+            "can_leave_zone": false
+          },
+          "pc_activation_order": [
+            "pc1",
+            "pc2"
+          ],
+          "enemy_activation_order": [
+            "merchant1",
+            "merchant2"
+          ],
+          "enemy_target_priority": [
+            "pc1",
+            "pc2"
+          ],
+          "max_rounds": 5,
+          "npc_broken_exit_policy": null
+        }
+      },
+      "summary": {
+        "trials": 3,
+        "outcome_counts": {
+          "objective_achieved": 2,
+          "party_defeated": 0,
+          "round_limit": 1,
+          "unsupported_path": 0
+        },
+        "total_action_count": 44,
+        "total_started_round_count": 15,
+        "total_completed_round_count": 13,
+        "any_pc_defeated_count": 2,
+        "pc_defeat_counts": [
+          {
+            "actor_id": "pc1",
+            "count": 2
+          },
+          {
+            "actor_id": "pc2",
+            "count": 0
+          }
+        ],
+        "near_miss_burn_trial_count": 0,
+        "near_miss_burn_counts": [
+          {
+            "actor_id": "pc1",
+            "count": 0
+          },
+          {
+            "actor_id": "pc2",
+            "count": 0
+          }
+        ],
+        "total_near_miss_burn_count": 0,
+        "glorious_spend_trial_count": 0,
+        "glorious_spend_counts": [
+          {
+            "actor_id": "pc1",
+            "count": 0
+          },
+          {
+            "actor_id": "pc2",
+            "count": 0
+          }
+        ],
+        "total_glorious_spend_count": 0,
+        "help_action_trial_count": 0,
+        "help_action_counts": [
+          {
+            "actor_id": "pc1",
+            "count": 0
+          },
+          {
+            "actor_id": "pc2",
+            "count": 0
+          }
+        ],
+        "total_help_action_count": 0,
+        "ally_recover_action_trial_count": 0,
+        "ally_recover_action_counts": [
+          {
+            "actor_id": "pc1",
+            "count": 0
+          },
+          {
+            "actor_id": "pc2",
+            "count": 0
+          }
+        ],
+        "total_ally_recover_action_count": 0,
+        "npc_exit_trial_count": 0,
+        "npc_exit_counts": [
+          {
+            "actor_id": "merchant1",
+            "count": 0
+          },
+          {
+            "actor_id": "merchant2",
+            "count": 0
+          }
+        ],
+        "objective_with_npc_exit_count": 0,
+        "total_npc_exit_count": 0
+      },
+      "assessment": {
+        "status": "eligible",
+        "window": {
+          "minimum": {
+            "numerator": 0,
+            "denominator": 1
+          },
+          "target": {
+            "numerator": 1,
+            "denominator": 2
+          },
+          "maximum": {
+            "numerator": 1,
+            "denominator": 1
+          }
+        },
+        "objective_achieved_rate": {
+          "numerator": 2,
+          "denominator": 3
+        },
+        "party_defeated_rate": {
+          "numerator": 0,
+          "denominator": 1
+        },
+        "round_limit_rate": {
+          "numerator": 1,
+          "denominator": 3
+        },
+        "unsupported_path_rate": {
+          "numerator": 0,
+          "denominator": 1
+        },
+        "window_match": true
+      }
+    },
+    {
+      "candidate_id": "m26-catalog-chunk-template:counts:2,0,1",
+      "counts": [
+        2,
+        0,
+        1
+      ],
+      "request": {
+        "master_seed": "42",
+        "trials": 3,
+        "scenario": {
+          "id": "m26-catalog-chunk-template:counts:2,0,1",
+          "party": [
+            {
+              "actor_id": "pc1",
+              "pc": {
+                "id": "pc-profile1",
+                "weapon_skill": 3,
+                "strength": 3,
+                "toughness": 3,
+                "agility": 3,
+                "melee": 5,
+                "defence": 5,
+                "athletics": 4,
+                "endurance": 4,
+                "weapon": "staff",
+                "armour_bonus": 0
+              },
+              "fate": {
+                "session_id": "session",
+                "actor_id": "pc1",
+                "rating": 3,
+                "session_spend_limit": 3,
+                "spends": [],
+                "has_lucky": false,
+                "refreshes": [],
+                "burns": [],
+                "resource_event_ids": [],
+                "rule_id": "RULE-FATE-001:session-resource"
+              },
+              "policy": "attack_or_recover_self",
+              "fate_policy": "decline_optional_fate",
+              "random_side_policy": "d10_low_left_high_right",
+              "heavy_wound_policy": "continue_fighting",
+              "initial_weapon_hand": "left",
+              "target_priority": [
+                "merchant1",
+                "merchant2",
+                "squire1"
+              ],
+              "defeat_decisions": [
+                {
+                  "attacker_id": "pc1",
+                  "target_id": "merchant1",
+                  "disposition": "knocked_out",
+                  "gm_approved": true
+                },
+                {
+                  "attacker_id": "pc1",
+                  "target_id": "merchant2",
+                  "disposition": "knocked_out",
+                  "gm_approved": true
+                },
+                {
+                  "attacker_id": "pc1",
+                  "target_id": "squire1",
+                  "disposition": "knocked_out",
+                  "gm_approved": true
+                }
+              ],
+              "near_miss_policy": null,
+              "glorious_policy": null,
+              "help_policy": null,
+              "ally_recover_policy": null,
+              "backup_weapon_policy": null
+            },
+            {
+              "actor_id": "pc2",
+              "pc": {
+                "id": "pc-profile2",
+                "weapon_skill": 3,
+                "strength": 3,
+                "toughness": 3,
+                "agility": 3,
+                "melee": 5,
+                "defence": 5,
+                "athletics": 4,
+                "endurance": 4,
+                "weapon": "staff",
+                "armour_bonus": 0
+              },
+              "fate": {
+                "session_id": "session",
+                "actor_id": "pc2",
+                "rating": 3,
+                "session_spend_limit": 3,
+                "spends": [],
+                "has_lucky": false,
+                "refreshes": [],
+                "burns": [],
+                "resource_event_ids": [],
+                "rule_id": "RULE-FATE-001:session-resource"
+              },
+              "policy": "attack_or_recover_self",
+              "fate_policy": "decline_optional_fate",
+              "random_side_policy": "d10_low_left_high_right",
+              "heavy_wound_policy": "continue_fighting",
+              "initial_weapon_hand": "left",
+              "target_priority": [
+                "merchant1",
+                "merchant2",
+                "squire1"
+              ],
+              "defeat_decisions": [
+                {
+                  "attacker_id": "pc2",
+                  "target_id": "merchant1",
+                  "disposition": "knocked_out",
+                  "gm_approved": true
+                },
+                {
+                  "attacker_id": "pc2",
+                  "target_id": "merchant2",
+                  "disposition": "knocked_out",
+                  "gm_approved": true
+                },
+                {
+                  "attacker_id": "pc2",
+                  "target_id": "squire1",
+                  "disposition": "knocked_out",
+                  "gm_approved": true
+                }
+              ],
+              "near_miss_policy": null,
+              "glorious_policy": null,
+              "help_policy": null,
+              "ally_recover_policy": null,
+              "backup_weapon_policy": null
+            }
+          ],
+          "day_id": "day",
+          "enemies": [
+            {
+              "actor_id": "merchant1",
+              "definition": {
+                "id": "pc-book-npc:elf_merchant_jewelled_blade",
+                "source_rule_id": "BOOK-GM-GUIDE:1.1:p107:elf_merchant_jewelled_blade",
+                "injury_policy": "brute",
+                "wound_limit": 2,
+                "resilience": {
+                  "toughness": 3,
+                  "bonus": 1
+                },
+                "attack": {
+                  "id": "jewelled_blade",
+                  "source_rule_id": "BOOK-GM-GUIDE:1.1:p107:elf_merchant_jewelled_blade:jewelled_blade",
+                  "test_profile": {
+                    "dice": 4,
+                    "threshold": 3,
+                    "pool_cap": null
+                  },
+                  "damage": {
+                    "base": 3,
+                    "success_multiplier": 1
+                  },
+                  "hands": "1h",
+                  "secondary_effects": []
+                },
+                "protection": {
+                  "source_rule_id": "BOOK-GM-GUIDE:1.1:p107:elf_merchant_jewelled_blade:athletics",
+                  "skill": "athletics",
+                  "test_profile": {
+                    "dice": 4,
+                    "threshold": 3,
+                    "pool_cap": null
+                  }
+                }
+              }
+            },
+            {
+              "actor_id": "merchant2",
+              "definition": {
+                "id": "pc-book-npc:elf_merchant_jewelled_blade",
+                "source_rule_id": "BOOK-GM-GUIDE:1.1:p107:elf_merchant_jewelled_blade",
+                "injury_policy": "brute",
+                "wound_limit": 2,
+                "resilience": {
+                  "toughness": 3,
+                  "bonus": 1
+                },
+                "attack": {
+                  "id": "jewelled_blade",
+                  "source_rule_id": "BOOK-GM-GUIDE:1.1:p107:elf_merchant_jewelled_blade:jewelled_blade",
+                  "test_profile": {
+                    "dice": 4,
+                    "threshold": 3,
+                    "pool_cap": null
+                  },
+                  "damage": {
+                    "base": 3,
+                    "success_multiplier": 1
+                  },
+                  "hands": "1h",
+                  "secondary_effects": []
+                },
+                "protection": {
+                  "source_rule_id": "BOOK-GM-GUIDE:1.1:p107:elf_merchant_jewelled_blade:athletics",
+                  "skill": "athletics",
+                  "test_profile": {
+                    "dice": 4,
+                    "threshold": 3,
+                    "pool_cap": null
+                  }
+                }
+              }
+            },
+            {
+              "actor_id": "squire1",
+              "definition": {
+                "id": "pc-book-npc:bretonnian_squire_sword",
+                "source_rule_id": "BOOK-GM-GUIDE:1.1:p109:bretonnian_squire_sword",
+                "injury_policy": "minion",
+                "wound_limit": 1,
+                "resilience": {
+                  "toughness": 3,
+                  "bonus": 0
+                },
+                "attack": {
+                  "id": "sword",
+                  "source_rule_id": "BOOK-GM-GUIDE:1.1:p109:bretonnian_squire_sword:sword",
+                  "test_profile": {
+                    "dice": 3,
+                    "threshold": 3,
+                    "pool_cap": null
+                  },
+                  "damage": {
+                    "base": 3,
+                    "success_multiplier": 1
+                  },
+                  "hands": "1h",
+                  "secondary_effects": []
+                },
+                "protection": {
+                  "source_rule_id": "BOOK-GM-GUIDE:1.1:p109:bretonnian_squire_sword:athletics",
+                  "skill": "athletics",
+                  "test_profile": {
+                    "dice": 3,
+                    "threshold": 4,
+                    "pool_cap": null
+                  }
+                }
+              }
+            }
+          ],
+          "facts": {
+            "zone_id": "arena",
+            "all_opponents_close": true,
+            "targets_aware": true,
+            "all_combatants_included": true,
+            "unmounted": true,
+            "no_external_effects": true,
+            "no_terrain_modifiers": true,
+            "no_additional_abilities": true,
+            "no_ambush": true,
+            "outnumbering_bonus_approved": true,
+            "can_leave_zone": false
+          },
+          "pc_activation_order": [
+            "pc1",
+            "pc2"
+          ],
+          "enemy_activation_order": [
+            "merchant1",
+            "merchant2",
+            "squire1"
+          ],
+          "enemy_target_priority": [
+            "pc1",
+            "pc2"
+          ],
+          "max_rounds": 5,
+          "npc_broken_exit_policy": null
+        }
+      },
+      "summary": {
+        "trials": 3,
+        "outcome_counts": {
+          "objective_achieved": 2,
+          "party_defeated": 0,
+          "round_limit": 1,
+          "unsupported_path": 0
+        },
+        "total_action_count": 43,
+        "total_started_round_count": 13,
+        "total_completed_round_count": 11,
+        "any_pc_defeated_count": 2,
+        "pc_defeat_counts": [
+          {
+            "actor_id": "pc1",
+            "count": 2
+          },
+          {
+            "actor_id": "pc2",
+            "count": 0
+          }
+        ],
+        "near_miss_burn_trial_count": 0,
+        "near_miss_burn_counts": [
+          {
+            "actor_id": "pc1",
+            "count": 0
+          },
+          {
+            "actor_id": "pc2",
+            "count": 0
+          }
+        ],
+        "total_near_miss_burn_count": 0,
+        "glorious_spend_trial_count": 0,
+        "glorious_spend_counts": [
+          {
+            "actor_id": "pc1",
+            "count": 0
+          },
+          {
+            "actor_id": "pc2",
+            "count": 0
+          }
+        ],
+        "total_glorious_spend_count": 0,
+        "help_action_trial_count": 0,
+        "help_action_counts": [
+          {
+            "actor_id": "pc1",
+            "count": 0
+          },
+          {
+            "actor_id": "pc2",
+            "count": 0
+          }
+        ],
+        "total_help_action_count": 0,
+        "ally_recover_action_trial_count": 0,
+        "ally_recover_action_counts": [
+          {
+            "actor_id": "pc1",
+            "count": 0
+          },
+          {
+            "actor_id": "pc2",
+            "count": 0
+          }
+        ],
+        "total_ally_recover_action_count": 0,
+        "npc_exit_trial_count": 0,
+        "npc_exit_counts": [
+          {
+            "actor_id": "merchant1",
+            "count": 0
+          },
+          {
+            "actor_id": "merchant2",
+            "count": 0
+          },
+          {
+            "actor_id": "squire1",
+            "count": 0
+          }
+        ],
+        "objective_with_npc_exit_count": 0,
+        "total_npc_exit_count": 0
+      },
+      "assessment": {
+        "status": "eligible",
+        "window": {
+          "minimum": {
+            "numerator": 0,
+            "denominator": 1
+          },
+          "target": {
+            "numerator": 1,
+            "denominator": 2
+          },
+          "maximum": {
+            "numerator": 1,
+            "denominator": 1
+          }
+        },
+        "objective_achieved_rate": {
+          "numerator": 2,
+          "denominator": 3
+        },
+        "party_defeated_rate": {
+          "numerator": 0,
+          "denominator": 1
+        },
+        "round_limit_rate": {
+          "numerator": 1,
+          "denominator": 3
+        },
+        "unsupported_path_rate": {
+          "numerator": 0,
+          "denominator": 1
+        },
+        "window_match": true
+      }
+    },
+    {
+      "candidate_id": "m26-catalog-chunk-template:counts:2,1,0",
+      "counts": [
+        2,
+        1,
+        0
+      ],
+      "request": {
+        "master_seed": "42",
+        "trials": 3,
+        "scenario": {
+          "id": "m26-catalog-chunk-template:counts:2,1,0",
+          "party": [
+            {
+              "actor_id": "pc1",
+              "pc": {
+                "id": "pc-profile1",
+                "weapon_skill": 3,
+                "strength": 3,
+                "toughness": 3,
+                "agility": 3,
+                "melee": 5,
+                "defence": 5,
+                "athletics": 4,
+                "endurance": 4,
+                "weapon": "staff",
+                "armour_bonus": 0
+              },
+              "fate": {
+                "session_id": "session",
+                "actor_id": "pc1",
+                "rating": 3,
+                "session_spend_limit": 3,
+                "spends": [],
+                "has_lucky": false,
+                "refreshes": [],
+                "burns": [],
+                "resource_event_ids": [],
+                "rule_id": "RULE-FATE-001:session-resource"
+              },
+              "policy": "attack_or_recover_self",
+              "fate_policy": "decline_optional_fate",
+              "random_side_policy": "d10_low_left_high_right",
+              "heavy_wound_policy": "continue_fighting",
+              "initial_weapon_hand": "left",
+              "target_priority": [
+                "merchant1",
+                "merchant2",
+                "artisan1"
+              ],
+              "defeat_decisions": [
+                {
+                  "attacker_id": "pc1",
+                  "target_id": "merchant1",
+                  "disposition": "knocked_out",
+                  "gm_approved": true
+                },
+                {
+                  "attacker_id": "pc1",
+                  "target_id": "merchant2",
+                  "disposition": "knocked_out",
+                  "gm_approved": true
+                },
+                {
+                  "attacker_id": "pc1",
+                  "target_id": "artisan1",
+                  "disposition": "knocked_out",
+                  "gm_approved": true
+                }
+              ],
+              "near_miss_policy": null,
+              "glorious_policy": null,
+              "help_policy": null,
+              "ally_recover_policy": null,
+              "backup_weapon_policy": null
+            },
+            {
+              "actor_id": "pc2",
+              "pc": {
+                "id": "pc-profile2",
+                "weapon_skill": 3,
+                "strength": 3,
+                "toughness": 3,
+                "agility": 3,
+                "melee": 5,
+                "defence": 5,
+                "athletics": 4,
+                "endurance": 4,
+                "weapon": "staff",
+                "armour_bonus": 0
+              },
+              "fate": {
+                "session_id": "session",
+                "actor_id": "pc2",
+                "rating": 3,
+                "session_spend_limit": 3,
+                "spends": [],
+                "has_lucky": false,
+                "refreshes": [],
+                "burns": [],
+                "resource_event_ids": [],
+                "rule_id": "RULE-FATE-001:session-resource"
+              },
+              "policy": "attack_or_recover_self",
+              "fate_policy": "decline_optional_fate",
+              "random_side_policy": "d10_low_left_high_right",
+              "heavy_wound_policy": "continue_fighting",
+              "initial_weapon_hand": "left",
+              "target_priority": [
+                "merchant1",
+                "merchant2",
+                "artisan1"
+              ],
+              "defeat_decisions": [
+                {
+                  "attacker_id": "pc2",
+                  "target_id": "merchant1",
+                  "disposition": "knocked_out",
+                  "gm_approved": true
+                },
+                {
+                  "attacker_id": "pc2",
+                  "target_id": "merchant2",
+                  "disposition": "knocked_out",
+                  "gm_approved": true
+                },
+                {
+                  "attacker_id": "pc2",
+                  "target_id": "artisan1",
+                  "disposition": "knocked_out",
+                  "gm_approved": true
+                }
+              ],
+              "near_miss_policy": null,
+              "glorious_policy": null,
+              "help_policy": null,
+              "ally_recover_policy": null,
+              "backup_weapon_policy": null
+            }
+          ],
+          "day_id": "day",
+          "enemies": [
+            {
+              "actor_id": "merchant1",
+              "definition": {
+                "id": "pc-book-npc:elf_merchant_jewelled_blade",
+                "source_rule_id": "BOOK-GM-GUIDE:1.1:p107:elf_merchant_jewelled_blade",
+                "injury_policy": "brute",
+                "wound_limit": 2,
+                "resilience": {
+                  "toughness": 3,
+                  "bonus": 1
+                },
+                "attack": {
+                  "id": "jewelled_blade",
+                  "source_rule_id": "BOOK-GM-GUIDE:1.1:p107:elf_merchant_jewelled_blade:jewelled_blade",
+                  "test_profile": {
+                    "dice": 4,
+                    "threshold": 3,
+                    "pool_cap": null
+                  },
+                  "damage": {
+                    "base": 3,
+                    "success_multiplier": 1
+                  },
+                  "hands": "1h",
+                  "secondary_effects": []
+                },
+                "protection": {
+                  "source_rule_id": "BOOK-GM-GUIDE:1.1:p107:elf_merchant_jewelled_blade:athletics",
+                  "skill": "athletics",
+                  "test_profile": {
+                    "dice": 4,
+                    "threshold": 3,
+                    "pool_cap": null
+                  }
+                }
+              }
+            },
+            {
+              "actor_id": "merchant2",
+              "definition": {
+                "id": "pc-book-npc:elf_merchant_jewelled_blade",
+                "source_rule_id": "BOOK-GM-GUIDE:1.1:p107:elf_merchant_jewelled_blade",
+                "injury_policy": "brute",
+                "wound_limit": 2,
+                "resilience": {
+                  "toughness": 3,
+                  "bonus": 1
+                },
+                "attack": {
+                  "id": "jewelled_blade",
+                  "source_rule_id": "BOOK-GM-GUIDE:1.1:p107:elf_merchant_jewelled_blade:jewelled_blade",
+                  "test_profile": {
+                    "dice": 4,
+                    "threshold": 3,
+                    "pool_cap": null
+                  },
+                  "damage": {
+                    "base": 3,
+                    "success_multiplier": 1
+                  },
+                  "hands": "1h",
+                  "secondary_effects": []
+                },
+                "protection": {
+                  "source_rule_id": "BOOK-GM-GUIDE:1.1:p107:elf_merchant_jewelled_blade:athletics",
+                  "skill": "athletics",
+                  "test_profile": {
+                    "dice": 4,
+                    "threshold": 3,
+                    "pool_cap": null
+                  }
+                }
+              }
+            },
+            {
+              "actor_id": "artisan1",
+              "definition": {
+                "id": "pc-book-npc:artisan",
+                "source_rule_id": "BOOK-GM-GUIDE:1.1:p96:artisan",
+                "injury_policy": "minion",
+                "wound_limit": 1,
+                "resilience": {
+                  "toughness": 3,
+                  "bonus": 0
+                },
+                "attack": {
+                  "id": "make_shift_weapons",
+                  "source_rule_id": "BOOK-GM-GUIDE:1.1:p96:artisan:make_shift_weapons",
+                  "test_profile": {
+                    "dice": 2,
+                    "threshold": 2,
+                    "pool_cap": null
+                  },
+                  "damage": {
+                    "base": 2,
+                    "success_multiplier": 1
+                  },
+                  "hands": "1h",
+                  "secondary_effects": []
+                },
+                "protection": {
+                  "source_rule_id": "BOOK-GM-GUIDE:1.1:p96:artisan:athletics",
+                  "skill": "athletics",
+                  "test_profile": {
+                    "dice": 3,
+                    "threshold": 2,
+                    "pool_cap": null
+                  }
+                }
+              }
+            }
+          ],
+          "facts": {
+            "zone_id": "arena",
+            "all_opponents_close": true,
+            "targets_aware": true,
+            "all_combatants_included": true,
+            "unmounted": true,
+            "no_external_effects": true,
+            "no_terrain_modifiers": true,
+            "no_additional_abilities": true,
+            "no_ambush": true,
+            "outnumbering_bonus_approved": true,
+            "can_leave_zone": false
+          },
+          "pc_activation_order": [
+            "pc1",
+            "pc2"
+          ],
+          "enemy_activation_order": [
+            "merchant1",
+            "merchant2",
+            "artisan1"
+          ],
+          "enemy_target_priority": [
+            "pc1",
+            "pc2"
+          ],
+          "max_rounds": 5,
+          "npc_broken_exit_policy": null
+        }
+      },
+      "summary": {
+        "trials": 3,
+        "outcome_counts": {
+          "objective_achieved": 2,
+          "party_defeated": 0,
+          "round_limit": 1,
+          "unsupported_path": 0
+        },
+        "total_action_count": 50,
+        "total_started_round_count": 14,
+        "total_completed_round_count": 12,
+        "any_pc_defeated_count": 1,
+        "pc_defeat_counts": [
+          {
+            "actor_id": "pc1",
+            "count": 1
+          },
+          {
+            "actor_id": "pc2",
+            "count": 0
+          }
+        ],
+        "near_miss_burn_trial_count": 0,
+        "near_miss_burn_counts": [
+          {
+            "actor_id": "pc1",
+            "count": 0
+          },
+          {
+            "actor_id": "pc2",
+            "count": 0
+          }
+        ],
+        "total_near_miss_burn_count": 0,
+        "glorious_spend_trial_count": 0,
+        "glorious_spend_counts": [
+          {
+            "actor_id": "pc1",
+            "count": 0
+          },
+          {
+            "actor_id": "pc2",
+            "count": 0
+          }
+        ],
+        "total_glorious_spend_count": 0,
+        "help_action_trial_count": 0,
+        "help_action_counts": [
+          {
+            "actor_id": "pc1",
+            "count": 0
+          },
+          {
+            "actor_id": "pc2",
+            "count": 0
+          }
+        ],
+        "total_help_action_count": 0,
+        "ally_recover_action_trial_count": 0,
+        "ally_recover_action_counts": [
+          {
+            "actor_id": "pc1",
+            "count": 0
+          },
+          {
+            "actor_id": "pc2",
+            "count": 0
+          }
+        ],
+        "total_ally_recover_action_count": 0,
+        "npc_exit_trial_count": 0,
+        "npc_exit_counts": [
+          {
+            "actor_id": "merchant1",
+            "count": 0
+          },
+          {
+            "actor_id": "merchant2",
+            "count": 0
+          },
+          {
+            "actor_id": "artisan1",
+            "count": 0
+          }
+        ],
+        "objective_with_npc_exit_count": 0,
+        "total_npc_exit_count": 0
+      },
+      "assessment": {
+        "status": "eligible",
+        "window": {
+          "minimum": {
+            "numerator": 0,
+            "denominator": 1
+          },
+          "target": {
+            "numerator": 1,
+            "denominator": 2
+          },
+          "maximum": {
+            "numerator": 1,
+            "denominator": 1
+          }
+        },
+        "objective_achieved_rate": {
+          "numerator": 2,
+          "denominator": 3
+        },
+        "party_defeated_rate": {
+          "numerator": 0,
+          "denominator": 1
+        },
+        "round_limit_rate": {
+          "numerator": 1,
+          "denominator": 3
+        },
+        "unsupported_path_rate": {
+          "numerator": 0,
+          "denominator": 1
+        },
+        "window_match": true
+      }
+    },
+    {
+      "candidate_id": "m26-catalog-chunk-template:counts:2,1,1",
+      "counts": [
+        2,
+        1,
+        1
+      ],
+      "request": {
+        "master_seed": "42",
+        "trials": 3,
+        "scenario": {
+          "id": "m26-catalog-chunk-template:counts:2,1,1",
+          "party": [
+            {
+              "actor_id": "pc1",
+              "pc": {
+                "id": "pc-profile1",
+                "weapon_skill": 3,
+                "strength": 3,
+                "toughness": 3,
+                "agility": 3,
+                "melee": 5,
+                "defence": 5,
+                "athletics": 4,
+                "endurance": 4,
+                "weapon": "staff",
+                "armour_bonus": 0
+              },
+              "fate": {
+                "session_id": "session",
+                "actor_id": "pc1",
+                "rating": 3,
+                "session_spend_limit": 3,
+                "spends": [],
+                "has_lucky": false,
+                "refreshes": [],
+                "burns": [],
+                "resource_event_ids": [],
+                "rule_id": "RULE-FATE-001:session-resource"
+              },
+              "policy": "attack_or_recover_self",
+              "fate_policy": "decline_optional_fate",
+              "random_side_policy": "d10_low_left_high_right",
+              "heavy_wound_policy": "continue_fighting",
+              "initial_weapon_hand": "left",
+              "target_priority": [
+                "merchant1",
+                "merchant2",
+                "artisan1",
+                "squire1"
+              ],
+              "defeat_decisions": [
+                {
+                  "attacker_id": "pc1",
+                  "target_id": "merchant1",
+                  "disposition": "knocked_out",
+                  "gm_approved": true
+                },
+                {
+                  "attacker_id": "pc1",
+                  "target_id": "merchant2",
+                  "disposition": "knocked_out",
+                  "gm_approved": true
+                },
+                {
+                  "attacker_id": "pc1",
+                  "target_id": "artisan1",
+                  "disposition": "knocked_out",
+                  "gm_approved": true
+                },
+                {
+                  "attacker_id": "pc1",
+                  "target_id": "squire1",
+                  "disposition": "knocked_out",
+                  "gm_approved": true
+                }
+              ],
+              "near_miss_policy": null,
+              "glorious_policy": null,
+              "help_policy": null,
+              "ally_recover_policy": null,
+              "backup_weapon_policy": null
+            },
+            {
+              "actor_id": "pc2",
+              "pc": {
+                "id": "pc-profile2",
+                "weapon_skill": 3,
+                "strength": 3,
+                "toughness": 3,
+                "agility": 3,
+                "melee": 5,
+                "defence": 5,
+                "athletics": 4,
+                "endurance": 4,
+                "weapon": "staff",
+                "armour_bonus": 0
+              },
+              "fate": {
+                "session_id": "session",
+                "actor_id": "pc2",
+                "rating": 3,
+                "session_spend_limit": 3,
+                "spends": [],
+                "has_lucky": false,
+                "refreshes": [],
+                "burns": [],
+                "resource_event_ids": [],
+                "rule_id": "RULE-FATE-001:session-resource"
+              },
+              "policy": "attack_or_recover_self",
+              "fate_policy": "decline_optional_fate",
+              "random_side_policy": "d10_low_left_high_right",
+              "heavy_wound_policy": "continue_fighting",
+              "initial_weapon_hand": "left",
+              "target_priority": [
+                "merchant1",
+                "merchant2",
+                "artisan1",
+                "squire1"
+              ],
+              "defeat_decisions": [
+                {
+                  "attacker_id": "pc2",
+                  "target_id": "merchant1",
+                  "disposition": "knocked_out",
+                  "gm_approved": true
+                },
+                {
+                  "attacker_id": "pc2",
+                  "target_id": "merchant2",
+                  "disposition": "knocked_out",
+                  "gm_approved": true
+                },
+                {
+                  "attacker_id": "pc2",
+                  "target_id": "artisan1",
+                  "disposition": "knocked_out",
+                  "gm_approved": true
+                },
+                {
+                  "attacker_id": "pc2",
+                  "target_id": "squire1",
+                  "disposition": "knocked_out",
+                  "gm_approved": true
+                }
+              ],
+              "near_miss_policy": null,
+              "glorious_policy": null,
+              "help_policy": null,
+              "ally_recover_policy": null,
+              "backup_weapon_policy": null
+            }
+          ],
+          "day_id": "day",
+          "enemies": [
+            {
+              "actor_id": "merchant1",
+              "definition": {
+                "id": "pc-book-npc:elf_merchant_jewelled_blade",
+                "source_rule_id": "BOOK-GM-GUIDE:1.1:p107:elf_merchant_jewelled_blade",
+                "injury_policy": "brute",
+                "wound_limit": 2,
+                "resilience": {
+                  "toughness": 3,
+                  "bonus": 1
+                },
+                "attack": {
+                  "id": "jewelled_blade",
+                  "source_rule_id": "BOOK-GM-GUIDE:1.1:p107:elf_merchant_jewelled_blade:jewelled_blade",
+                  "test_profile": {
+                    "dice": 4,
+                    "threshold": 3,
+                    "pool_cap": null
+                  },
+                  "damage": {
+                    "base": 3,
+                    "success_multiplier": 1
+                  },
+                  "hands": "1h",
+                  "secondary_effects": []
+                },
+                "protection": {
+                  "source_rule_id": "BOOK-GM-GUIDE:1.1:p107:elf_merchant_jewelled_blade:athletics",
+                  "skill": "athletics",
+                  "test_profile": {
+                    "dice": 4,
+                    "threshold": 3,
+                    "pool_cap": null
+                  }
+                }
+              }
+            },
+            {
+              "actor_id": "merchant2",
+              "definition": {
+                "id": "pc-book-npc:elf_merchant_jewelled_blade",
+                "source_rule_id": "BOOK-GM-GUIDE:1.1:p107:elf_merchant_jewelled_blade",
+                "injury_policy": "brute",
+                "wound_limit": 2,
+                "resilience": {
+                  "toughness": 3,
+                  "bonus": 1
+                },
+                "attack": {
+                  "id": "jewelled_blade",
+                  "source_rule_id": "BOOK-GM-GUIDE:1.1:p107:elf_merchant_jewelled_blade:jewelled_blade",
+                  "test_profile": {
+                    "dice": 4,
+                    "threshold": 3,
+                    "pool_cap": null
+                  },
+                  "damage": {
+                    "base": 3,
+                    "success_multiplier": 1
+                  },
+                  "hands": "1h",
+                  "secondary_effects": []
+                },
+                "protection": {
+                  "source_rule_id": "BOOK-GM-GUIDE:1.1:p107:elf_merchant_jewelled_blade:athletics",
+                  "skill": "athletics",
+                  "test_profile": {
+                    "dice": 4,
+                    "threshold": 3,
+                    "pool_cap": null
+                  }
+                }
+              }
+            },
+            {
+              "actor_id": "artisan1",
+              "definition": {
+                "id": "pc-book-npc:artisan",
+                "source_rule_id": "BOOK-GM-GUIDE:1.1:p96:artisan",
+                "injury_policy": "minion",
+                "wound_limit": 1,
+                "resilience": {
+                  "toughness": 3,
+                  "bonus": 0
+                },
+                "attack": {
+                  "id": "make_shift_weapons",
+                  "source_rule_id": "BOOK-GM-GUIDE:1.1:p96:artisan:make_shift_weapons",
+                  "test_profile": {
+                    "dice": 2,
+                    "threshold": 2,
+                    "pool_cap": null
+                  },
+                  "damage": {
+                    "base": 2,
+                    "success_multiplier": 1
+                  },
+                  "hands": "1h",
+                  "secondary_effects": []
+                },
+                "protection": {
+                  "source_rule_id": "BOOK-GM-GUIDE:1.1:p96:artisan:athletics",
+                  "skill": "athletics",
+                  "test_profile": {
+                    "dice": 3,
+                    "threshold": 2,
+                    "pool_cap": null
+                  }
+                }
+              }
+            },
+            {
+              "actor_id": "squire1",
+              "definition": {
+                "id": "pc-book-npc:bretonnian_squire_sword",
+                "source_rule_id": "BOOK-GM-GUIDE:1.1:p109:bretonnian_squire_sword",
+                "injury_policy": "minion",
+                "wound_limit": 1,
+                "resilience": {
+                  "toughness": 3,
+                  "bonus": 0
+                },
+                "attack": {
+                  "id": "sword",
+                  "source_rule_id": "BOOK-GM-GUIDE:1.1:p109:bretonnian_squire_sword:sword",
+                  "test_profile": {
+                    "dice": 3,
+                    "threshold": 3,
+                    "pool_cap": null
+                  },
+                  "damage": {
+                    "base": 3,
+                    "success_multiplier": 1
+                  },
+                  "hands": "1h",
+                  "secondary_effects": []
+                },
+                "protection": {
+                  "source_rule_id": "BOOK-GM-GUIDE:1.1:p109:bretonnian_squire_sword:athletics",
+                  "skill": "athletics",
+                  "test_profile": {
+                    "dice": 3,
+                    "threshold": 4,
+                    "pool_cap": null
+                  }
+                }
+              }
+            }
+          ],
+          "facts": {
+            "zone_id": "arena",
+            "all_opponents_close": true,
+            "targets_aware": true,
+            "all_combatants_included": true,
+            "unmounted": true,
+            "no_external_effects": true,
+            "no_terrain_modifiers": true,
+            "no_additional_abilities": true,
+            "no_ambush": true,
+            "outnumbering_bonus_approved": true,
+            "can_leave_zone": false
+          },
+          "pc_activation_order": [
+            "pc1",
+            "pc2"
+          ],
+          "enemy_activation_order": [
+            "merchant1",
+            "merchant2",
+            "artisan1",
+            "squire1"
+          ],
+          "enemy_target_priority": [
+            "pc1",
+            "pc2"
+          ],
+          "max_rounds": 5,
+          "npc_broken_exit_policy": null
+        }
+      },
+      "summary": {
+        "trials": 3,
+        "outcome_counts": {
+          "objective_achieved": 1,
+          "party_defeated": 0,
+          "round_limit": 2,
+          "unsupported_path": 0
+        },
+        "total_action_count": 68,
+        "total_started_round_count": 15,
+        "total_completed_round_count": 14,
+        "any_pc_defeated_count": 2,
+        "pc_defeat_counts": [
+          {
+            "actor_id": "pc1",
+            "count": 2
+          },
+          {
+            "actor_id": "pc2",
+            "count": 0
+          }
+        ],
+        "near_miss_burn_trial_count": 0,
+        "near_miss_burn_counts": [
+          {
+            "actor_id": "pc1",
+            "count": 0
+          },
+          {
+            "actor_id": "pc2",
+            "count": 0
+          }
+        ],
+        "total_near_miss_burn_count": 0,
+        "glorious_spend_trial_count": 0,
+        "glorious_spend_counts": [
+          {
+            "actor_id": "pc1",
+            "count": 0
+          },
+          {
+            "actor_id": "pc2",
+            "count": 0
+          }
+        ],
+        "total_glorious_spend_count": 0,
+        "help_action_trial_count": 0,
+        "help_action_counts": [
+          {
+            "actor_id": "pc1",
+            "count": 0
+          },
+          {
+            "actor_id": "pc2",
+            "count": 0
+          }
+        ],
+        "total_help_action_count": 0,
+        "ally_recover_action_trial_count": 0,
+        "ally_recover_action_counts": [
+          {
+            "actor_id": "pc1",
+            "count": 0
+          },
+          {
+            "actor_id": "pc2",
+            "count": 0
+          }
+        ],
+        "total_ally_recover_action_count": 0,
+        "npc_exit_trial_count": 0,
+        "npc_exit_counts": [
+          {
+            "actor_id": "merchant1",
+            "count": 0
+          },
+          {
+            "actor_id": "merchant2",
+            "count": 0
+          },
+          {
+            "actor_id": "artisan1",
+            "count": 0
+          },
+          {
+            "actor_id": "squire1",
+            "count": 0
+          }
+        ],
+        "objective_with_npc_exit_count": 0,
+        "total_npc_exit_count": 0
+      },
+      "assessment": {
+        "status": "eligible",
+        "window": {
+          "minimum": {
+            "numerator": 0,
+            "denominator": 1
+          },
+          "target": {
+            "numerator": 1,
+            "denominator": 2
+          },
+          "maximum": {
+            "numerator": 1,
+            "denominator": 1
+          }
+        },
+        "objective_achieved_rate": {
+          "numerator": 1,
+          "denominator": 3
+        },
+        "party_defeated_rate": {
+          "numerator": 0,
+          "denominator": 1
+        },
+        "round_limit_rate": {
+          "numerator": 2,
+          "denominator": 3
+        },
+        "unsupported_path_rate": {
+          "numerator": 0,
+          "denominator": 1
+        },
+        "window_match": true
+      }
+    }
+  ],
+  "selected_candidate_ids": [
+    "m26-catalog-chunk-template:counts:2,0,0",
+    "m26-catalog-chunk-template:counts:2,0,1"
+  ]
+}

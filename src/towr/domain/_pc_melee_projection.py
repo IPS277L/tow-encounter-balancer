@@ -30,7 +30,9 @@ from towr.domain._pc_heavy_wound_projection import heavy_wound_effect, body_cons
 from towr.domain.critical_injury_models import CriticalInjuryTestRequest
 from towr.domain.test_models import Skill
 from towr.domain.pc_backup_weapon_models import pc_backup_draw_hand, pc_preferred_weapon_hand
-from towr.domain.pc_npc_wound_models import official_profile_wound_state
+from towr.domain.pc_npc_wound_models import (official_profile_wound_state,elf_merchant_profile_wound_state,
+    pc_npc_drained_profile_wound_state)
+from towr.domain.pc_hit_condition_models import expected_pc_hit_target,hit_condition_sources_from_attack
 from towr.domain.pc_npc_exit_models import PcNpcExitProof,expected_pc_npc_exit
 from towr.domain.turn_models import (
     ActionSlotGrant, CombatActionDeclaration, CombatActionKind, CombatActionSlot,
@@ -93,7 +95,6 @@ def _canonical_attack(request, attack):
 def _ordinary_resolution(kernel, result):
     if (result.replacement_impact is not None or result.monstrosity_impact is not None
             or result.wound_effect is not None or result.character_wound_completion is not None
-            or result.applied_secondary_rule_ids != () or result.condition_applications != ()
             or result.deferred_wound_conditions != () or result.deferred_wound_condition_immunities != ()):
         raise ValueError('ordinary PC Attack cannot carry foreign effect/secondary/completion branches')
     expected_stagger = None
@@ -127,8 +128,9 @@ def _canonical_wound_effect(completion):
     raw = roll.wound_result
     request = raw.effect_request
     wound = raw.state.wounds[-1]
-    effects = list(raw.state.active_wound_effects)
-    conditions = raw.state.conditions
+    current = completion.source_request.current_state
+    effects = list(current.active_wound_effects)
+    conditions = current.conditions
     followups = ()
     total = wound.table_total
     if total in (4,5,7):
@@ -150,7 +152,7 @@ def _canonical_wound_effect(completion):
             WoundRestrictionEffect(wound.sequence,WoundRestriction.NEXT_TEST_IS_GRIM,WoundEffectDuration.NEXT_TEST)))
         conditions = conditions.with_condition(Condition.DRAINED)
     elif 11 <= total <= 23:
-        expected,followups = heavy_wound_effect(raw,request)
+        expected,followups = heavy_wound_effect(replace(raw,state=current),request)
         effect = completion.wound_effect
         replace(effect.request)
         for follow_up in effect.follow_ups:
@@ -159,7 +161,7 @@ def _canonical_wound_effect(completion):
             'heavy PC Wound completion changed its exact effects/follow-ups')
         return
     wounds = (*raw.state.wounds[:-1],replace(wound,effect_resolved=True))
-    expected = replace(raw.state,wounds=wounds,conditions=conditions,active_wound_effects=tuple(effects))
+    expected = replace(current,wounds=wounds,conditions=conditions,active_wound_effects=tuple(effects))
     effect = completion.wound_effect
     replace(effect.request)
     for follow_up in effect.follow_ups:
@@ -289,6 +291,7 @@ def project_pc_step(state, proof):
         before = expected.kernel_request.target_state
         pending_wound = None
         if result.attack.outcome is AttackOutcome.MISS:
+            base_target = before
             _same(result.target_state,before,'miss changed the target injury')
             followups = ((AttackerStaggerRequest(expected.kernel_request.attack.id),)
                 if result.attack.miss_consequence is MissConsequence.STAGGER_ATTACKER else ())
@@ -296,7 +299,7 @@ def project_pc_step(state, proof):
                 raise ValueError('miss invented a Wound')
         elif result.attack.impact is ImpactOutcome.STAGGERED and not before.conditions.has(Condition.STAGGERED) and not condition_forces_wound(expected.kernel_request,result.attack):
             target = replace(before,conditions=before.conditions.with_condition(Condition.STAGGERED))
-            _same(result.target_state,target,'first Staggered changed unrelated injury state')
+            base_target = target
             followups = ()
             if result.character_wound is not None or result.profile_wound is not None or result.pending_character_wound is not None:
                 raise ValueError('first Staggered invented a Wound')
@@ -315,8 +318,9 @@ def project_pc_step(state, proof):
             replace(wound_source)
             replace(wound_source.wound)
             _same(wound_source,actual_source,'PC Wound pool/options/IDs differ from the actual ordinary Attack')
-            _same((result.character_wound,result.target_state,result.wound_effect),
-                (pending_wound.wound_result,pending_wound.wound_result.state,None),'PC Wound effects preceded its Fate window')
+            base_target = pending_wound.wound_result.state
+            _same((result.character_wound,result.wound_effect),
+                (pending_wound.wound_result,None),'PC Wound effects preceded its Fate window')
             followups = ()
         else:
             if result.character_wound is not None or result.pending_character_wound is not None:
@@ -325,6 +329,7 @@ def project_pc_step(state, proof):
             defeated = wounds == before.wound_limit
             target = replace(before,wounds=wounds,defeated=defeated,
                 conditions=before.conditions.without_condition(Condition.STAGGERED))
+            base_target = target
             _same(result.target_state,target,'NPC profile Wound changed unrelated state')
             npc_type = ProfileNpcType(state.enemy(expected.target_id).definition.injury_policy.value)
             change = ProfileStateChangeRequest(npc_type,before.wounds,wounds,defeated)
@@ -347,13 +352,19 @@ def project_pc_step(state, proof):
             if type(profile.request_id) is not str:
                 raise TypeError('NPC profile Wound ID must be a string')
             followups = (change,)
+        target,applications,secondary_rules = expected_pc_hit_target(expected.kernel_request,result.attack.outcome,base_target)
+        _same((result.target_state,result.condition_applications,result.applied_secondary_rule_ids),
+            (target,applications,secondary_rules),'PC Attack changed its canonical on-hit Condition application or target')
         _same(result.follow_ups,followups,'PC Attack altered mandatory follow-up order')
         enemies = state.enemies
         if expected.target_id == pc_actor:
             pc_injury = result.target_state
+            hit_sources = (*member.hit_condition_sources,*hit_condition_sources_from_attack(expected,result))
         else:
             enemies = _enemy_update(state,expected.target_id,result.target_state)
-        return finish(round_state=execution.state,party=_party_update(state,pc_actor,injury=pc_injury,fate=pc_fate),enemies=enemies,
+            hit_sources = member.hit_condition_sources
+        return finish(round_state=execution.state,party=_party_update(state,pc_actor,injury=pc_injury,fate=pc_fate,
+            hit_condition_sources=hit_sources),enemies=enemies,
             pending=result.follow_ups,pending_wound=pending_wound)
     if isinstance(proof,PcHelpProof):
         from towr.domain.help_models import _expected_help_execution
@@ -561,6 +572,8 @@ def project_pc_step(state, proof):
                 raise ValueError('a living NPC cannot receive a defeat disposition')
             enemy = state.enemy(target)
             injury = official_profile_wound_state(enemy.definition,enemy.state.injury,proof.source)
+            injury = elf_merchant_profile_wound_state(enemy.definition,injury,proof.source)
+            injury = pc_npc_drained_profile_wound_state(enemy.definition,injury,proof.source)
             return finish(enemies=_enemy_update(state,target,injury),pending=state.pending[1:])
         if not isinstance(proof.decision,MinionDefeatDecision):
             raise TypeError('defeated NPC requires the typed caller/GM decision')

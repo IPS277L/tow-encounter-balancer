@@ -17,6 +17,7 @@ from towr.domain.ranged_weapon_profiles import RangedWeaponHands, RangedWeaponRa
 from towr.domain.resolution_models import TargetInjuryPolicy
 from towr.domain.test_models import InlineProfile, Skill, TestProfile
 from towr.domain.turn_models import CombatSide
+from towr.domain.pc_hit_condition_models import validate_pc_hit_effects
 
 
 class PcMeleeWeapon(str, Enum):
@@ -464,15 +465,18 @@ def _readmit_profile_enemy(enemy: NpcParticipantSnapshot) -> None:
     _typed(attack.damage, DamageProfile, "Minion Damage")
     replace(attack.damage)
     _canonical_tuple(attack.secondary_effects, "Minion secondary effects")
+    validate_pc_hit_effects(attack.secondary_effects)
     replace(attack)
     replace(defence)
     _typed(attack.ignores_armour, bool, "Minion ignores armour")
-    _typed(attack.hands, RangedWeaponHands, "Minion weapon hands")
+    if attack.hands is not None:
+        _typed(attack.hands, RangedWeaponHands, "Minion weapon hands")
     if (attack.skill is not Skill.MELEE
             or attack.range_min is not RangedWeaponRange.CLOSE
             or attack.range_max is not RangedWeaponRange.CLOSE
             or attack.damage.success_multiplier != 1 or attack.ignores_armour
-            or attack.secondary_effects or defence.skill not in (Skill.DEFENCE,Skill.ATHLETICS)):
+            or defence.skill not in (Skill.DEFENCE,Skill.ATHLETICS)
+            or attack.hands is None and defence.skill is not Skill.ATHLETICS):
         raise ValueError("unsupported Minion attack or Protection profile")
     injury = state.injury
     _typed(injury, ProfileInjuryState, "Minion injury")
@@ -492,10 +496,10 @@ def _readmit_profile_enemy(enemy: NpcParticipantSnapshot) -> None:
     replace(definition)
     replace(enemy)
     if (injury.wounds or injury.defeated or injury.conditions.conditions
-            or not state.wields_weapon or state.holds_shield
+            or state.wields_weapon is not (attack.hands is not None) or state.holds_shield
             or state.current_resilience != definition.resilience
             or state.available_attack_ids != (attack.id,)):
-        raise ValueError("PC melee requires fresh armed healthy Minions without shields")
+        raise ValueError("PC melee requires fresh healthy NPCs with consistent armed/natural attacks and no shields")
     from towr.domain.pc_npc_catalog import validate_pc_book_npc_definition
     validate_pc_book_npc_definition(definition)
 

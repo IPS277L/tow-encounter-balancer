@@ -130,6 +130,17 @@
       ],
       "additionalProperties": false
     },
+    "on_hit_drained_effect": {
+      "type": "object",
+      "properties": {
+        "kind": {"const": "condition_on_hit"},
+        "condition": {"const": "drained"},
+        "rule_id": {"$ref": "urn:towr:pc-melee:common:1#/$defs/identifier"},
+        "classification": {"const": "unclassified"}
+      },
+      "required": ["kind", "condition", "rule_id", "classification"],
+      "additionalProperties": false
+    },
     "attack": {
       "type": "object",
       "properties": {
@@ -162,8 +173,14 @@
         "hands": {
           "enum": [
             "1h",
-            "2h"
+            "2h",
+            null
           ]
+        },
+        "secondary_effects": {
+          "type": "array",
+          "maxItems": 1,
+          "items": {"$ref": "urn:towr:pc-melee:common:1#/$defs/on_hit_drained_effect"}
         }
       },
       "required": [
@@ -171,7 +188,8 @@
         "source_rule_id",
         "test_profile",
         "damage",
-        "hands"
+        "hands",
+        "secondary_effects"
       ],
       "additionalProperties": false
     },
@@ -244,6 +262,26 @@
           ],
           "additionalProperties": false,
           "allOf": [
+            {
+              "if": {
+                "properties": {
+                  "attack": {
+                    "properties": {
+                      "hands": {"type": "null"}
+                    }
+                  }
+                }
+              },
+              "then": {
+                "properties": {
+                  "protection": {
+                    "properties": {
+                      "skill": {"const": "athletics"}
+                    }
+                  }
+                }
+              }
+            },
             {
               "if": {
                 "properties": {

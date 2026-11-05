@@ -239,6 +239,8 @@ class NpcMagicScenario:
                         or not actor.wields_weapon):
                     raise ValueError('scenario requires armed numeric Shooting Minions')
                 attack = definition.attacks[0]
+                if type(attack.hands) is not RangedWeaponHands:
+                    raise TypeError('bounded Magic scenario requires typed weapon hands')
                 ordinary_ranges = (RangedWeaponRange.SHORT, RangedWeaponRange.MEDIUM, RangedWeaponRange.LONG)
                 if (attack.skill is not Skill.SHOOTING or attack.range_min not in ordinary_ranges
                         or attack.range_max not in ordinary_ranges or attack.test_profile.pool_cap is not None

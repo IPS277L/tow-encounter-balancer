@@ -9,9 +9,12 @@ from towr.domain.attack_models import AttackRequest, AttackOutcome, DamageImpact
 from towr.domain.condition_models import Condition, ConditionState
 from towr.domain.pc_weapon_models import (pc_weapon_damage, pc_weapon_test_modifiers,
     pc_weapon_attack_modifiers, pc_weapon_damage_modifiers)
-from towr.domain.pc_npc_ability_models import pc_npc_outnumbering_modifier
+from towr.domain.pc_npc_ability_models import (pc_npc_outnumbering_modifier,pc_npc_allows_give_ground,
+    pc_npc_attack_modifiers,pc_npc_damage_modifiers)
 from towr.domain.pc_npc_wound_models import PcNpcBrokenTurnUnsupported, pc_npc_broken_turn_unsupported
 from towr.domain.pc_npc_exit_models import PcNpcExitProof
+from towr.domain.pc_hit_condition_models import (PcHitConditionSource,hit_condition_sources_from_attack,
+    retain_pc_hit_conditions)
 from towr.domain.pc_backup_weapon_models import (pc_active_weapon, pc_preferred_weapon_hand,
     pc_active_weapon_item_id)
 from towr.domain.crushed_rib_test_models import CRUSHED_RIB_TEST_RULE_ID
@@ -129,6 +132,7 @@ class PcMeleeParticipantState:
     timed_wounds: tuple[PcTimedWound, ...] = ()
     body_facts: tuple[PcBodyFact, ...] = ()
     using_backup_weapon: bool = False
+    hit_condition_sources: tuple[PcHitConditionSource,...] = ()
 
     def __post_init__(self):
         if type(self.actor_id) is not str or not self.actor_id.strip():
@@ -143,6 +147,19 @@ class PcMeleeParticipantState:
             raise TypeError('held PC weapon requires its typed hand')
         if type(self.using_backup_weapon) is not bool:
             raise TypeError('backup weapon activation must be an exact bool')
+        if type(self.hit_condition_sources) is not tuple:
+            raise TypeError('hit Condition sources must be a canonical tuple')
+        for source in self.hit_condition_sources:
+            if type(source) is not PcHitConditionSource:
+                raise TypeError('hit Condition bank requires exact typed sources')
+            replace(source)
+            if source.target_id!=self.actor_id:
+                raise ValueError('hit Condition source belongs to another target')
+        if (len({s.application_id for s in self.hit_condition_sources})!=len(self.hit_condition_sources)
+                or len({s.attack_id for s in self.hit_condition_sources})!=len(self.hit_condition_sources)):
+            raise ValueError('a successful hit may register its Condition source only once')
+        if self.hit_condition_sources and not self.injury.conditions.has(Condition.DRAINED):
+            raise ValueError('active hit Condition source cannot lose its Drained flag')
         if not isinstance(self.timed_wounds, (tuple, list)):
             raise TypeError('PC expiry sources must be ordered')
         object.__setattr__(self, 'timed_wounds', tuple(self.timed_wounds))
@@ -195,8 +212,18 @@ class PcMeleeState:
         if (not all(isinstance(m, PcMeleeParticipantState) for m in self.party)
                 or tuple(m.actor_id for m in self.party) != tuple(m.actor_id for m in self.source.party)):
             raise ValueError('PC owner must preserve its complete ordered party')
+        has_hit_effects = any(attack.secondary_effects for enemy in self.source.enemies
+            for attack in enemy.definition.attacks)
+        hit_causes = (tuple(cause for proof in self.history
+            if type(proof) is PcAttackProof and proof.request.target_id in self.source.pc_activation_order
+            for cause in hit_condition_sources_from_attack(proof.request,proof.execution.resolution))
+            if has_hit_effects else ())
         for member, source in zip(self.party, self.source.party):
             replace(member)
+            expected_hit_sources = tuple(cause for cause in hit_causes if cause.target_id==member.actor_id)
+            if member.hit_condition_sources!=expected_hit_sources:
+                raise ValueError('hit Condition bank must preserve its actual successful Attack history')
+            validate_pc_melee_source_types(member.hit_condition_sources,expected_hit_sources)
             draws = tuple(p for p in self.history if isinstance(p,PcBackupWeaponDrawProof) and p.actor_id==member.actor_id)
             if (len(draws)>1 or member.using_backup_weapon != bool(draws)
                     or member.using_backup_weapon and source.backup_weapon_policy is None):
@@ -621,13 +648,14 @@ def build_pc_melee_attack(state: PcMeleeState) -> tuple[AttackActionExecutionReq
         damage_modifiers = pc_weapon_damage_modifiers(weapon, resilience)
         attacker_conditions = member.injury.conditions
         target_injury = target_snapshot.state.injury
-        target_armed = True
+        target_armed = target_snapshot.state.wields_weapon
     else:
         enemy = state.enemy(actor)
         profile = enemy.definition.attacks[0]
         member = state.participant(target)
         if member.injury.conditions.has(Condition.PRONE):
             modifiers.append(DiceModifier('RULE-COMBAT-007:higher-ground', 1))
+        modifiers.extend(pc_npc_attack_modifiers(enemy.definition,enemy.state.injury.conditions))
         if enemy.state.injury.conditions.has(Condition.DRAINED):
             modifiers = [m for m in modifiers if m.amount <= 0]
         attacker = TestRequest(action_id + ':attack', profile.test_profile, tuple(modifiers))
@@ -637,13 +665,15 @@ def build_pc_melee_attack(state: PcMeleeState) -> tuple[AttackActionExecutionReq
             from towr.domain.pc_help_models import build_pc_test_help
             defender,_ = build_pc_test_help(state,target,skill,defender)
         damage, resilience = profile.damage, state.source.participant(target).pc.resilience
+        damage_modifiers = pc_npc_damage_modifiers(enemy.definition)
         attacker_conditions = enemy.state.injury.conditions
         target_injury = member.injury if member.injury.conditions.has(Condition.DEFENCELESS) else pc_after_test(state, target,critical_for_hand(member,
             usable_weapon_hand(member) if skill is Skill.DEFENCE else None))
         target_armed = usable_weapon_hand(member) is not None
     attack = AttackRequest(action_id + ':attack-request', attacker, None,
         DamageImpactSpec(damage,resilience,damage_modifiers=damage_modifiers),
-        True, attacker_conditions.has(Condition.STAGGERED))
+        True, attacker_conditions.has(Condition.STAGGERED),
+        secondary_effects=() if pc_attacks else profile.secondary_effects)
     defenceless = target_injury.conditions.has(Condition.DEFENCELESS)
     protection = ProtectionPreparationRequest(action_id + ':prepare-protection', target, attack, Skill.MELEE,
         True, defenceless, target_armed, False, None if defenceless else skill,
@@ -652,7 +682,8 @@ def build_pc_melee_attack(state: PcMeleeState) -> tuple[AttackActionExecutionReq
     prepared_attack = _expected_protection(protection)[0]
     kernel = KernelAttackRequest(action_id + ':kernel',target,prepared_attack,
         target_snapshot.definition.injury_policy if pc_attacks else TargetInjuryPolicy.PLAYER, target_injury,
-        state.source.facts.can_leave_zone,False,physical_attack=True)
+        state.source.facts.can_leave_zone and (pc_attacks or pc_npc_allows_give_ground(enemy.definition)),
+        False,physical_attack=True)
     return AttackActionExecutionRequest(action_id + ':execute',state.round_state,actor,target,1,kernel), protection
 
 
@@ -712,7 +743,10 @@ def _decline(state: PcMeleeState, actual: PcFateDecline, actor_id: str, source_i
 
 
 def _party_update(state: PcMeleeState, actor_id: str, **changes):
-    state.participant(actor_id)
+    member = state.participant(actor_id)
+    sources = changes.get('hit_condition_sources',member.hit_condition_sources)
+    if sources:
+        changes['injury'] = retain_pc_hit_conditions(changes.get('injury',member.injury),sources)
     return tuple(replace(m, **changes) if m.actor_id == actor_id else m for m in state.party)
 
 

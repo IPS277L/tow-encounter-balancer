@@ -67,9 +67,9 @@ class PcStateTrooperTests(unittest.TestCase):
         self.assertEqual(tuple(p.skill for p in entry.definition.protection),(Skill.DEFENCE,))
         with self.assertRaises(FrozenInstanceError):
             entry.unselected_protection=()
-        for old in PcBookNpcProfile:
-            if old is not TROOPER:
-                self.assertEqual(get_pc_book_npc_entry(old).unselected_protection,())
+        for old in (PcBookNpcProfile.FOOTPAD,PcBookNpcProfile.EMPIRE_TOWNSFOLK,
+                PcBookNpcProfile.BRIGAND_AXE,PcBookNpcProfile.EMPIRE_OFFICIAL_DAGGER):
+            self.assertEqual(get_pc_book_npc_entry(old).unselected_protection,())
 
     def test_fresh_snapshots_and_metadata_do_not_share_mutable_bypass_graphs(self):
         first=create_pc_book_npc(TROOPER,'trooper1')

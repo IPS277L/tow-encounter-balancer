@@ -4,39 +4,44 @@
 
 ## Текущий этап
 
-**M25 завершена: Empire State Trooper с Halberd и фиксированной Defence.** Пятый книжный combat loadout PC family: Minion1, Toughness3/Resilience4 armoured, Close3d/3 Damage5,2H и Defence3d/4. [Правило и контракт loadout](rules/npc-profile-catalog.md#state-trooper-m25), [factory/JSON/CLI-примеры](examples/m25/README.md).
+**M30 завершена: Empire Knight/Lance, Knight of the White Wolf/Wolf Hammer и Big ’Un/Choppas.** Это три совместимых пеших Brute2 loadouts с W1Drained/W2defeat; всего в PC каталоге19записей. [Правило и книжные источники](rules/npc-profile-catalog.md#brute-chunk-m30), [factory/JSON/CLI-примеры и фактические результаты](examples/m30/README.md).
 
-Напечатанная Athletics3d/3 сохранена числовым unselected Protection; Spear/Crossbow/Handgun явно не выбраны. Полный Supporting Action trigger сохранён в inactive metadata: нынешние PC уже находятся в Close и не перемещаются, внешних участников нет. Будущая движущаяся сцена потребует исполнения способности. NPC не получает PC Halberd armour bonus автоматически; обычный PC Axe bonus против его брони сохраняется.
+Все используют printed Defence, Normal Speed, armoured Resilience5. Щиты Empire Knight/Big ’Un не выбраны, их +1 вычтен; mounted бонусов нет. Big ’Un сохраняет WS3/Melee4 и получает только Strength-derived Damage4→5. Lance допускает обычную пешую Close-атаку. Полные mounted/Charge/Help triggers сохранены вне условий текущей сцены.
 
-Использованы существующие catalog/factory, armed2H Defence, native/trials/count search и current JSON1. Engine/clock/схемы/CLI/метрики не менялись; отдельный ADR для добавления по принятому образцу не нужен. У Python catalog entry добавлен descriptive unselected_protection tuple, у прежних четырёх записей пустой. Прежние definitions/snapshots и все32request/result pairs M9–M24 неизменны.
+W1Drained применяется на existing actual Profile Wound ACK, включая первую рану от repeated-Staggered. Отдельный конечный helper охватывает три новых профиля и прежний White Wolf; обычный собственный ход продолжается, положительные bonus dice подавляются только у фактически Drained NPC. W2 defeat/GM disposition и full replay сохранены. Нового owner/ADR/wire поля/version/метрик нет. Все84прежних JSON documents и16старых catalog entries/definitions/snapshots/metadata сохранены.
+
+M29 source-aware on-hit Drained Giant Spider сохраняется независимо от раны/Near Miss/W6expiry. Пользователь выбрал Attack/standard Recover; альтернативный Endurance Recover не добавлен. Current PC JSON1 требует secondary_effects[] либо единственный unclassified on-hit Drained descriptor; остальные families прежние. Стратегии Fate/Help/Recover/запасного оружия не менялись.
 
 ## Последняя проверка
 
-После независимой адресной сверки GM1.1 pp93/100 и PG1.4 pp68/118 source review не оставило замечаний; production заморожен. При PYTHONPATH=src **72tests OK/3.818s**, единый адресный unittest-прогон10модулей: новые unit/integration M25; M21 npc_catalog/npc_protection_json/book_encounters; M22 brigand_catalog/craven_opportunist; M23 official_catalog/official_wounds; M24 npc_exit. Проверены literal Protection3d/4, Damage5 без PC trait, PC Axe armour bonus, exact source/alias/replay admission, свежие независимые factory graphs, прежние Craven и Broken/exit paths, JSON/trials/aggregate-only search. Новых12tests.
+Составная адресная приёмка M30: **18 новых tests и122 ближайших зависимых tests**,140уникальных проверок. Это не единый full regression. Production после независимого source/code review заморожен.
 
-Адресная команда новой функции:
+При PYTHONPATH=src выполнены:
 
 ```powershell
-$env:PYTHONPATH = 'src'
-.venv/Scripts/python.exe -m unittest tests.unit.test_m25_pc_state_trooper tests.integration.test_m25_pc_state_trooper -v
+.venv/Scripts/python.exe -m unittest tests.unit.test_m30_pc_brute_catalog -v
+.venv/Scripts/python.exe -m unittest tests.unit.test_m30_pc_brute_wounds tests.integration.test_m30_pc_brute_chunk -v
+.venv/Scripts/python.exe -m unittest tests.unit.test_m9_pc_melee_execution tests.unit.test_m11_pc_melee_brutes tests.unit.test_m23_pc_official_wounds tests.unit.test_m26_pc_merchant_wounds tests.unit.test_m29_pc_hit_conditions tests.unit.test_m29_pc_drained_catalog tests.unit.test_m28_pc_beast_orc_catalog tests.unit.test_m28_pc_beast_orc_modifiers tests.unit.test_m27_pc_creatures tests.unit.test_m25_pc_state_trooper -q
+.venv/Scripts/python.exe -m unittest tests.unit.test_m27_pc_creatures -q
+.venv/Scripts/python.exe -m unittest tests.unit.test_m21_pc_npc_catalog tests.unit.test_m22_pc_brigand_catalog tests.unit.test_m23_pc_official_catalog tests.unit.test_m26_pc_catalog_chunk tests.unit.test_m27_natural_attack_models -q
 ```
 
-Оба M25 requests исполнены настоящим CLI: simulation6objective/0other outcomes, без PC deaths;24actions,11started/5completed rounds. Balance проверил4состава по3trials: все observed objective,actions7/12/16/26; top_k2 выбрал1Trooper/0Footpad и1Trooper/1Footpad. Optional/support/exit costs нулевые. Это малая воспроизводимая выборка, не истинная вероятность или оптимум.
+Новые8catalog OK/0.006s и10runtime+integration OK/7.600s. Первый зависимый прогон86tests/1.942s:85OK, один M27 test требовал отсутствия variants у всех будущих каталоговых записей. Проверка ограничена собственными Wolf/Boar; весь модуль8tests OK/0.164s. Дополнительные36catalog/admission tests OK/0.066s. Успешные дорогие проверки не повторялись.
 
-Проверка документов/schema/source echo охватывает34current request/result pairs M9–M25;64старыхJSON documents M9–M24 byte-unchanged against HEAD. Сравнение со старой фабрикой подтверждает неизменность всех четырёх definitions/snapshots и прежних metadata fields. Markdown/local links/UTF-8/whitespace и git diff --check проверены.
+Проверены direct/repeated-Staggered W1, exact ACK/once-only/replay, ordinary NPC turns с wounded/unwounded outnumbering comparison, W2 defeat, canonical source/type/cache guards, старые Official/Merchant/White Wolf/Spider и generation8составов. Старый M29 контрольный прогон604tests относился к завершённой M29; он не выдаётся за новый результат M30.
 
-Это адресная проверка новой функции, не full regression проекта. Full/wheel и повторная module/console×sequential/process матрица не запускались: механизм исполнения/сборки/ресурсов/dependencies/entry points не менялся. M24 уже проверила process передачу актуальных source/summary fields; M25 добавляет данные по существующему формату. .cache helpers локальны и не входят в репозиторий.
+Оба M30 requests исполнены настоящим CLI. Simulation seed42/6trials/budget5rounds:0objective/4party defeated/2limit/0unsupported,109actions; balance8составов по2trials —16наблюдений. Таблица результатов и параметры стратегии находятся в примере. Проверены44current PC request/result pairs M9–M30, полные source echo, локальные ссылки/UTF-8/whitespace; git diff --check чистый.84старых JSON побайтово совпадают с pre-M30 snapshot,16старых каталоговых записей — с прежней factory. Старые Monte Carlo не пересчитывались.
+
+Full проекта/wheel/новая process-матрица не запускались: механизм исполнения/поставки/контракт не менялись. Историческая M29 process-проверка сохраняет прежнее основание; она не считается вновь выполненной. Локальные .cache helpers/logs не входят в репозиторий.
 
 ## Ограничения
 
-Пять registered combat loadouts: State Trooper Halberd/Defence, Footpad, Townsfolk, Brigand Axe, Official Dagger. Нет переключения Trooper на Athletics или другие weapons, Supporting Action/Charge/ranged reactions не исполняются вне выбранной сцены. Armor и Protection не пересчитываются из generic PC weapon Traits.
+Aware fixed Close arena, healthy initial party, fixed activation/target priorities,13Close primary weapons/optional1H backup, Wounds1–23/lethal24+, PC Critical/Defenceless end phases сохраняются. Natural бойцы самостоятельные unmounted; Charge/terrain/riders не исполняются. Невозможная повторная анатомия/недоступный хват имеют прежние точные stops. Costs/losses при stop/limit относятся к исполненному combat prefix.
 
-Сохраняется M24: Broken Official с явной policy выполняет один clear/fastest adjacent safe exit, сохраняя W1/Broken/not defeated; objective — все NPC побеждены или ушли, уход считается отдельно. При null policy — stop перед Broken turn. Нет преследования, возврата, общего pathfinding или Recover после выхода; снятие Broken при сохраняющейся profile Wound остаётся открытым.
-
-Aware Close arena/fixed orders/priorities, здоровая initial party,13Close primary weapons/optional1H backup, Wounds1–23/lethal24+, source-aware Conditions и mandatory Critical/Defenceless end phases сохраняются. Невозможная повторная анатомия/недоступный хват сохраняют точные stops. Общие inventory/Brawn/лечение/campaign/optimal AI отсутствуют; Greatsword требует уточнения бонуса. Costs/losses при stop/limit относятся к исполненному prefix.
+On-hit поддержан только unclassified Drained без общей системы иммунитетов/DSL; hit sources не снимаются выбранной стандартной Recover стратегией. Будущая альтернативная recovery требует собственного удаления причин. То же открыто для NPC Recover при сохраняющейся profile Wound: Official Broken, Merchant Staggered, White Wolf и три Brutes M30 Drained. Текущие NPC Recover не делают. Погоня/возврат/spatial/общий AI/inventory/лечение/campaign/save-resume не добавлены; Greatsword требует уточнения бонуса.
 
 ## Следующий шаг
 
-Рекомендация — ещё один книжный противник, можно из раздела существ/монстров: адресно сверить полную карточку и все применимые Abilities, затем выбрать конечный loadout/continuation. M26 не выбрана; не расширять автоматически spatial/AI/весь бестиарий. Для продолжения Broken/Recover сначала разрешить отдельный ongoing-cause вопрос. [Очередь](roadmap.md), [индекс вопросов](open-questions.md).
+Адресная сверка Goblin Warrior/Nasty Skulker/Night Goblin как возможного следующего чанка: repeated-Staggered defeat, unopposed Damage, Weighted Net/Burdened. До реализации установить timing/removal и согласовать расширение supported descriptors, если оно понадобится. M31 пока не выбрана; альтернативный Endurance Recover без нового решения пользователя не включать. [Очередь](roadmap.md), [индекс вопросов](open-questions.md).
 
-Перед M25 рабочее дерево было чистым: пользователь сохранил M24. Изменения M25 незакоммичены; commit/push выполняет пользователь.
+До текущего шага оставались незакоммичены M26–M29 и политика чанков; они сохранены. Сейчас изменения включают завершённые M26–M30. Commit/push выполняет пользователь.

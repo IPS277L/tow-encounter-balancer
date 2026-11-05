@@ -1,4 +1,4 @@
-"""The Official's first Wound and the unresolved movement at its actual Broken turn."""
+"""Explicit book profile-Wound effects and the Official's actual Broken-turn boundary."""
 from __future__ import annotations
 
 from dataclasses import dataclass, replace
@@ -15,6 +15,13 @@ if TYPE_CHECKING:
 
 OFFICIAL_DEFINITION_ID = 'pc-book-npc:empire_official_dagger'
 OFFICIAL_BROKEN_RULE_ID = 'RULE-PROFILE-TALABEC-007:first-wound-broken'
+ELF_MERCHANT_DEFINITION_ID = 'pc-book-npc:elf_merchant_jewelled_blade'
+_FIRST_WOUND_DRAINED_DEFINITIONS = (
+    'pc-book-npc:white_wolf_clamping_jaws',
+    'pc-book-npc:empire_knight_lance',
+    'pc-book-npc:knight_white_wolf_hammer',
+    'pc-book-npc:big_un_choppas',
+)
 
 
 def _first_wound(change: ProfileStateChangeRequest) -> bool:
@@ -58,6 +65,32 @@ def official_profile_wound_state(definition: NpcDefinition, injury: ProfileInjur
     if injury.wounds!=1 or injury.defeated:
         raise ValueError('Official first-Wound effect requires its actual updated injury')
     return replace(injury,conditions=injury.conditions.with_condition(Condition.BROKEN))
+
+
+def elf_merchant_profile_wound_state(definition: NpcDefinition, injury: ProfileInjuryState,
+        change: ProfileStateChangeRequest) -> ProfileInjuryState:
+    """Apply the profile's new Staggered after the actual Wound removed the old condition."""
+    if definition.id!=ELF_MERCHANT_DEFINITION_ID:
+        return injury
+    validate_pc_book_npc_definition(definition)
+    if not _first_wound(change):
+        return injury
+    if injury.wounds!=1 or injury.defeated:
+        raise ValueError('Elf Merchant first-Wound effect requires its actual updated injury')
+    return replace(injury,conditions=injury.conditions.with_condition(Condition.STAGGERED))
+
+
+def pc_npc_drained_profile_wound_state(definition: NpcDefinition,injury: ProfileInjuryState,
+        change: ProfileStateChangeRequest) -> ProfileInjuryState:
+    """Apply these printed Brute bands only at the actual first-Wound acknowledgement."""
+    if definition.id not in _FIRST_WOUND_DRAINED_DEFINITIONS:
+        return injury
+    validate_pc_book_npc_definition(definition)
+    if not _first_wound(change):
+        return injury
+    if injury.wounds!=1 or injury.defeated:
+        raise ValueError('profile first-Wound Drained requires its actual updated injury')
+    return replace(injury,conditions=injury.conditions.with_condition(Condition.DRAINED))
 
 
 def pc_npc_broken_turn_unsupported(state: PcMeleeState) -> PcNpcBrokenTurnUnsupported | None:

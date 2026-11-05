@@ -26,7 +26,7 @@ class NpcAttackProfile:
     damage: DamageProfile
     range_min: RangedWeaponRange
     range_max: RangedWeaponRange
-    hands: RangedWeaponHands
+    hands: RangedWeaponHands | None
     ignores_armour: bool = False
     secondary_effects: tuple[SecondaryEffectSpec, ...] = ()
 
@@ -41,8 +41,7 @@ class NpcAttackProfile:
             raise TypeError("NPC attack requires an InlineProfile")
         if not isinstance(self.damage, DamageProfile):
             raise TypeError("NPC attack requires a numeric DamageProfile")
-        if not isinstance(self.hands, RangedWeaponHands):
-            raise TypeError("NPC attack hands must be explicit")
+        _validate_attack_hands(self.skill,self.hands)
         if not isinstance(self.ignores_armour, bool):
             raise TypeError("ignores_armour must be a boolean")
         if _rank(self.range_min) > _rank(self.range_max):
@@ -178,6 +177,7 @@ def _expected_npc_attack(request: NpcAttackPreparationRequest) -> tuple[NpcAttac
     if request.selected_attack_id not in request.snapshot.available_attack_ids:
         raise ValueError("selected NPC attack is unknown or unavailable")
     profile = next(p for p in request.snapshot.profiles if p.id == request.selected_attack_id)
+    _validate_attack_hands(profile.skill,profile.hands)
     target = request.target_range
     modifiers = request.dice_modifiers
     rules = (request.rule_id, NPC_ATTACK_SELECTION_RULE_ID, profile.source_rule_id,
@@ -211,6 +211,14 @@ def _expected_npc_attack(request: NpcAttackPreparationRequest) -> tuple[NpcAttac
     )
     return profile, attack, tuple(dict.fromkeys((*rules, *(m.rule_id for m in request.dice_modifiers),
                                              *(effect.rule_id for effect in profile.secondary_effects))))
+
+
+def _validate_attack_hands(skill: Skill, hands: RangedWeaponHands | None) -> None:
+    if hands is None:
+        if skill is not Skill.MELEE:
+            raise ValueError('only a natural Melee attack can have no weapon hands')
+    elif type(hands) is not RangedWeaponHands:
+        raise TypeError('NPC weapon attack hands must be their exact enum or natural Melee None')
 
 
 def _rank(value: RangedWeaponRange) -> int:

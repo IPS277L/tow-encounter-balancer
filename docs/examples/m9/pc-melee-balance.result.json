@@ -98,7 +98,8 @@
                 "base": 3,
                 "success_multiplier": 1
               },
-              "hands": "1h"
+              "hands": "1h",
+              "secondary_effects": []
             },
             "protection": {
               "source_rule_id": "authored:minion:defence",
@@ -134,7 +135,8 @@
                 "base": 3,
                 "success_multiplier": 1
               },
-              "hands": "1h"
+              "hands": "1h",
+              "secondary_effects": []
             },
             "protection": {
               "source_rule_id": "authored:minion:defence",
@@ -170,7 +172,8 @@
                 "base": 3,
                 "success_multiplier": 1
               },
-              "hands": "1h"
+              "hands": "1h",
+              "secondary_effects": []
             },
             "protection": {
               "source_rule_id": "authored:minion:defence",
@@ -360,7 +363,8 @@
                     "base": 3,
                     "success_multiplier": 1
                   },
-                  "hands": "1h"
+                  "hands": "1h",
+                  "secondary_effects": []
                 },
                 "protection": {
                   "source_rule_id": "authored:minion:defence",
@@ -588,7 +592,8 @@
                     "base": 3,
                     "success_multiplier": 1
                   },
-                  "hands": "1h"
+                  "hands": "1h",
+                  "secondary_effects": []
                 },
                 "protection": {
                   "source_rule_id": "authored:minion:defence",
@@ -624,7 +629,8 @@
                     "base": 3,
                     "success_multiplier": 1
                   },
-                  "hands": "1h"
+                  "hands": "1h",
+                  "secondary_effects": []
                 },
                 "protection": {
                   "source_rule_id": "authored:minion:defence",
@@ -864,7 +870,8 @@
                     "base": 3,
                     "success_multiplier": 1
                   },
-                  "hands": "1h"
+                  "hands": "1h",
+                  "secondary_effects": []
                 },
                 "protection": {
                   "source_rule_id": "authored:minion:defence",
@@ -900,7 +907,8 @@
                     "base": 3,
                     "success_multiplier": 1
                   },
-                  "hands": "1h"
+                  "hands": "1h",
+                  "secondary_effects": []
                 },
                 "protection": {
                   "source_rule_id": "authored:minion:defence",
@@ -936,7 +944,8 @@
                     "base": 3,
                     "success_multiplier": 1
                   },
-                  "hands": "1h"
+                  "hands": "1h",
+                  "secondary_effects": []
                 },
                 "protection": {
                   "source_rule_id": "authored:minion:defence",

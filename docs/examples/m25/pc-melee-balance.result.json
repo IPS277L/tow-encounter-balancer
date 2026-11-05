@@ -161,7 +161,8 @@
                 "base": 5,
                 "success_multiplier": 1
               },
-              "hands": "2h"
+              "hands": "2h",
+              "secondary_effects": []
             },
             "protection": {
               "source_rule_id": "BOOK-GM-GUIDE:1.1:p100:empire_state_trooper_halberd:defence",
@@ -197,7 +198,8 @@
                 "base": 5,
                 "success_multiplier": 1
               },
-              "hands": "2h"
+              "hands": "2h",
+              "secondary_effects": []
             },
             "protection": {
               "source_rule_id": "BOOK-GM-GUIDE:1.1:p100:empire_state_trooper_halberd:defence",
@@ -233,7 +235,8 @@
                 "base": 2,
                 "success_multiplier": 1
               },
-              "hands": "1h"
+              "hands": "1h",
+              "secondary_effects": []
             },
             "protection": {
               "source_rule_id": "BOOK-GM-GUIDE:1.1:p97:footpad:athletics",
@@ -482,7 +485,8 @@
                     "base": 5,
                     "success_multiplier": 1
                   },
-                  "hands": "2h"
+                  "hands": "2h",
+                  "secondary_effects": []
                 },
                 "protection": {
                   "source_rule_id": "BOOK-GM-GUIDE:1.1:p100:empire_state_trooper_halberd:defence",
@@ -789,7 +793,8 @@
                     "base": 5,
                     "success_multiplier": 1
                   },
-                  "hands": "2h"
+                  "hands": "2h",
+                  "secondary_effects": []
                 },
                 "protection": {
                   "source_rule_id": "BOOK-GM-GUIDE:1.1:p100:empire_state_trooper_halberd:defence",
@@ -825,7 +830,8 @@
                     "base": 2,
                     "success_multiplier": 1
                   },
-                  "hands": "1h"
+                  "hands": "1h",
+                  "secondary_effects": []
                 },
                 "protection": {
                   "source_rule_id": "BOOK-GM-GUIDE:1.1:p97:footpad:athletics",
@@ -1137,7 +1143,8 @@
                     "base": 5,
                     "success_multiplier": 1
                   },
-                  "hands": "2h"
+                  "hands": "2h",
+                  "secondary_effects": []
                 },
                 "protection": {
                   "source_rule_id": "BOOK-GM-GUIDE:1.1:p100:empire_state_trooper_halberd:defence",
@@ -1173,7 +1180,8 @@
                     "base": 5,
                     "success_multiplier": 1
                   },
-                  "hands": "2h"
+                  "hands": "2h",
+                  "secondary_effects": []
                 },
                 "protection": {
                   "source_rule_id": "BOOK-GM-GUIDE:1.1:p100:empire_state_trooper_halberd:defence",
@@ -1499,7 +1507,8 @@
                     "base": 5,
                     "success_multiplier": 1
                   },
-                  "hands": "2h"
+                  "hands": "2h",
+                  "secondary_effects": []
                 },
                 "protection": {
                   "source_rule_id": "BOOK-GM-GUIDE:1.1:p100:empire_state_trooper_halberd:defence",
@@ -1535,7 +1544,8 @@
                     "base": 5,
                     "success_multiplier": 1
                   },
-                  "hands": "2h"
+                  "hands": "2h",
+                  "secondary_effects": []
                 },
                 "protection": {
                   "source_rule_id": "BOOK-GM-GUIDE:1.1:p100:empire_state_trooper_halberd:defence",
@@ -1571,7 +1581,8 @@
                     "base": 2,
                     "success_multiplier": 1
                   },
-                  "hands": "1h"
+                  "hands": "1h",
+                  "secondary_effects": []
                 },
                 "protection": {
                   "source_rule_id": "BOOK-GM-GUIDE:1.1:p97:footpad:athletics",

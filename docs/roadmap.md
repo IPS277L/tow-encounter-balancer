@@ -126,9 +126,35 @@
 
 Завершённый срез по [правилу](rules/npc-profile-catalog.md#state-trooper-m25): пятый exact combat loadout, Minion/T3/Res4 armoured, Halberd Close3d/3Damage5/2H и фиксированная Defence3d/4. Числовая Athletics3d/3 и остальные weapons явно unselected, полный Supporting Action trigger сохранён как inactive в неподвижной Close-сцене. Factory → native → trials/count search → current JSON1/CLI проходит существующими слоями без нового kernel/owner/формата. Старые четыре definitions/snapshots и32примера неизменны; [новые примеры](examples/m25/README.md).
 
-## После M25
+## M26 — чанк Artisan, Bretonnian Squire и Elf Merchant
 
-Следующий scope выбрать отдельно. Рекомендация — следующий книжный противник после полной проверки его применимых Abilities; можно перейти к существам/монстрам. Два направления: ещё один exact книжный NPC/loadout с полным исполнением применимых Abilities либо расширение пространственной сцены/дальнейшего поведения Broken. Перед Recover Official при W1 нужно разрешить вопрос ongoing cause; не подставлять снятие Broken. Общая навигация/AI и весь бестиарий автоматически не включаются.
+Завершённый чанк по [правилу](rules/npc-profile-catalog.md#catalog-chunk-m26): три exact Close loadouts, printed Protection, full inactive Abilities и Merchant first-Wound Staggered на existing profile ACK. Старая Staggered снимается самой Wound до нового profile Staggered, немедленного W2 нет; следующий отдельный repeated-Staggered может дать W2. Обычный NPC turn продолжается. Общий путь factory/native/trials/8count-compositions/current JSON1/CLI проверен без нового owner/формата/метрик; [общие примеры](examples/m26/README.md). Прежние пять профилей и34пары сохранены.
+
+## M27 — natural Melee и чанк Horse/Giant Wolf/Giant Boar
+
+Завершённый срез по [ADR-0080](decisions/ADR-0080-natural-melee-attacks-and-creature-chunk.md), выбранный пользователем: явный required hands=null для natural Melee, unarmed fresh NPC/Athletics, actual PC equipment в Protection и исполняемый Wolf Give Ground ban. Три unmounted Fast Minions используют printed атаки/броню; riders/Charge/optional Horse variants не подставляются. PG97 подтверждает обычные PC armour bonuses по natural armour Boar. Current PC JSON1 допускает null без миграции прежних1h/2h inputs; другие bounded families сохраняют enum-only admission/codec. [Общие примеры](examples/m27/README.md).
+
+## M28 — Gor dual axes, Chaos Warhound и Orc Boy Choppas
+
+Завершённый совместимый чанк по [правилу](rules/npc-profile-catalog.md#beast-orc-chunk-m28): Gor fixed dual axes/noShield с +1d Melee при selfStaggered и одним отдельным dualDamage+1; Warhound printed3d/3 natural и actual GGban; Orc printed2H/Damage4/Defence3d4 без щита. GM93 shield−1 явно сохранён в definitions (GorT4/Res4,OrcT4/Res5). Terrain/Charge/Help abilities сохранены inactive в неподвижной fixed Attack сцене. Общие typed modifiers/kernel/current JSON1/trials/process/8составов используются без новой формы контракта, ADR или DSL. [Общие примеры](examples/m28/README.md); прежние11профилей/38пар сохранены.
+
+## M29 — on-hit Drained, Giant Spider и White Wolf
+
+Завершённый срез по [ADR-0081](decisions/ADR-0081-pc-on-hit-drained-and-independent-condition-sources.md), выбранный пользователем: независимые hit sources и два совместимых существа вместо искусственного заполнения квоты3–5. On-hit Drained сохраняется после Near Miss/W6expiry/standard Recover и не меняет прошлые Tests. Giant Spider передаёт typed descriptor в K1; White Wolf W1Drained/ClampingGGban использует existing profile ACK. PC сохраняют нынешнюю Attack/standard Recover стратегию; альтернативного Endurance решения нет. Current PC JSON1 требует явный secondary_effects[]/descriptor;80старыхJSON documents мигрированы без изменения прежних наблюдений. [Общие примеры](examples/m29/README.md).
+
+## M30 — три Brutes с W1 Drained
+
+Завершённый совместимый чанк по [правилу](rules/npc-profile-catalog.md#brute-chunk-m30): пешие Empire Knight/Lance и Knight of the White Wolf/Wolf Hammer, Big ’Un/Choppas. Existing W1Drained/W2defeat ACK распространяется конечным whitelist, ordinary turns/Drained bonus filter продолжаются. Printed Defence и Armour сохранены, щиты не выбраны, mounted/Charge/Help triggers отсутствуют в фиксированной сцене. Общие [factory/JSON1/CLI-примеры](examples/m30/README.md), trials и8составов проверены; новые wire поля/стратегии/ADR не понадобились.
+
+## После M30
+
+Каталог расширяется чанками, обычно по3–5совместимых противников/loadouts; крупная общая механика может оправдывать меньший чанк. Проверки и документация — общие, особенности каждой карточки сохраняются.
+
+Следующий шаг — адресно проверить Goblin Warrior/Nasty Skulker/Night Goblin как возможный чанк: repeated-Staggered defeat, дополнительные unopposed Damage и Weighted Net/Burdened. Сначала определить применимость в нынешней opposed Close-сцене и timing/снятие Burdened; изменение перечня supported descriptors согласовать до реализации. M31 пока не выбрана. Это рекомендация, а не автоматическое добавление новых Conditions/тактик.
+
+Альтернативный Endurance Recover остаётся отдельной будущей стратегией и не включается вопреки выбранному M29 поведению. Не расширять автоматически болезнь/лечение/Charge/riders/terrain/весь бестиарий.
+
+Spatial/AI, преследование и дальнейший NPC Recover — отдельные функции. До Recover Official/Merchant при сохраняющейся profile Wound разрешить ongoing-cause вопросы; не подставлять снятие их Conditions.
 
 Более широкий NPC/spell/Miscast каталог, дополнительные тактики/Fate/Help/Recover, лечение ран, общий inventory/spatial/campaign/save-resume — отдельный backlog. Greatsword и более свободная смена оружия остаются открытыми темами; GM решение невозможной повторной анатомии не подставляется.
 
