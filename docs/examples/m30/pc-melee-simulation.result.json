@@ -162,7 +162,8 @@
                 "success_multiplier": 1
               },
               "hands": "1h",
-              "secondary_effects": []
+              "secondary_effects": [],
+              "range_max": "close"
             },
             "protection": {
               "source_rule_id": "BOOK-GM-GUIDE:1.1:p101:empire_knight_lance:defence",
@@ -173,7 +174,8 @@
                 "pool_cap": null
               }
             }
-          }
+          },
+          "holds_shield": false
         },
         {
           "actor_id": "wolf_knight1",
@@ -199,7 +201,8 @@
                 "success_multiplier": 1
               },
               "hands": "2h",
-              "secondary_effects": []
+              "secondary_effects": [],
+              "range_max": "close"
             },
             "protection": {
               "source_rule_id": "BOOK-GM-GUIDE:1.1:p116:knight_white_wolf_hammer:defence",
@@ -210,7 +213,8 @@
                 "pool_cap": null
               }
             }
-          }
+          },
+          "holds_shield": false
         },
         {
           "actor_id": "big_un1",
@@ -236,7 +240,8 @@
                 "success_multiplier": 1
               },
               "hands": "2h",
-              "secondary_effects": []
+              "secondary_effects": [],
+              "range_max": "close"
             },
             "protection": {
               "source_rule_id": "BOOK-GM-GUIDE:1.1:p159:big_un_choppas:defence",
@@ -247,7 +252,8 @@
                 "pool_cap": null
               }
             }
-          }
+          },
+          "holds_shield": false
         }
       ],
       "facts": {
@@ -277,7 +283,12 @@
         "pc2"
       ],
       "max_rounds": 5,
-      "npc_broken_exit_policy": null
+      "npc_broken_exit_policy": null,
+      "npc_help_policies": [],
+      "npc_extra_attack_actor_ids": [],
+      "npc_grudge_policies": [],
+      "npc_blood_rage_actor_ids": [],
+      "npc_flagellant_policies": []
     },
     "simulation": {
       "master_seed": "42",
@@ -380,6 +391,54 @@
       }
     ],
     "objective_with_npc_exit_count": 0,
-    "total_npc_exit_count": 0
+    "total_npc_exit_count": 0,
+    "npc_help_action_trial_count": 0,
+    "npc_help_action_counts": [
+      {
+        "actor_id": "empire_knight1",
+        "count": 0
+      },
+      {
+        "actor_id": "wolf_knight1",
+        "count": 0
+      },
+      {
+        "actor_id": "big_un1",
+        "count": 0
+      }
+    ],
+    "total_npc_help_action_count": 0,
+    "npc_extra_attack_trial_count": 0,
+    "npc_extra_attack_counts": [
+      {
+        "actor_id": "empire_knight1",
+        "count": 0
+      },
+      {
+        "actor_id": "wolf_knight1",
+        "count": 0
+      },
+      {
+        "actor_id": "big_un1",
+        "count": 0
+      }
+    ],
+    "total_npc_extra_attack_count": 0,
+    "npc_recover_action_trial_count": 0,
+    "npc_recover_action_counts": [
+      {
+        "actor_id": "empire_knight1",
+        "count": 0
+      },
+      {
+        "actor_id": "wolf_knight1",
+        "count": 0
+      },
+      {
+        "actor_id": "big_un1",
+        "count": 0
+      }
+    ],
+    "total_npc_recover_action_count": 0
   }
 }

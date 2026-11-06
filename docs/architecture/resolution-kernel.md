@@ -2,6 +2,10 @@
 
 Этот документ уточняет `ADR-0002`. Kernel разрешает одну элементарную проверку или атаку по книжным правилам. Он не определяет порядок ходов, цели столкновения, тактику бойцов или Monte Carlo.
 
+## First-Staggered replacement M47
+
+`KernelAttackRequest`/`StaggerImpactRequest` могут явно получить `FirstStaggerWoundSpec` для living Brute W0 без Staggered. Тогда первый weak HIT сохраняет raw Attack/Damage/impact, но разрешает profile Wound вместо Condition с обычными additional_profile_wounds; Rule ID сохраняется в secondary trace и следует один настоящий ACK. MISS/direct Wound/Defenceless forced Wound эту замену не активируют. Spec не комбинируется с Minion defeat rule; публичный Kernel readmits его до RNG. Kernel не импортирует PC каталог: owner подтверждает canonical Flagellant и выбранную policy. Own miss и NPC healing/Recover chronology находятся над Kernel. [ADR-0092](../decisions/ADR-0092-pc-flagellant-feel-no-pain-and-recover.md).
+
 ## Контракт
 
 Вход состоит из:
@@ -20,6 +24,8 @@
 - `FollowUpRequest`, которые battle/application orchestration разрешит после завершения текущей операции.
 
 Kernel не читает JSON, не выбирает AI-цель и не вызывает себя рекурсивно для бесплатных атак.
+
+В M39 Bear получает вторую Attack через отдельный ability slot и обычный executor/kernel вызов. `EnduringStrengthGrant` в clock связывает первый receipt и другую цель; PC owner доказывает успешный полный первый Attack и завершение его mandatory work. Исполнитель проверяет target выданного slot, а journal сохраняет две Attack и один TurnEnd. Сам kernel по HIT не планирует второе действие. [Граница](../decisions/ADR-0087-pc-bear-second-attack-policy.md).
 
 ## Фазы проверки
 
@@ -116,6 +122,8 @@ Kernel исполняет непосредственный эффект прин
 Первые `SecondaryEffectSpec` задают две разные фазы. `ProneBeforeGiveGroundSpec` изменяет состояние основной цели до repeated-Staggered decision. `NearbyTargetsStaggerSpec` после завершения основной цели создаёт `NearbyTargetsStaggerRequest`; поиск существ и снимок их позиции остаются обязанностью будущего spatial orchestration. После выбора целей `NearbyTargetsStaggerResolutionRequest` проверяет их уникальность и отличие от основной, а executor обрабатывает входной порядок слева направо.
 
 Основная и вторичные цели используют один `StaggerImpactRequest → StaggerImpactResult`, поэтому repeated-Staggered, injury policy, Near Miss и Wound effects не дублируются между kernel и multi-target слоем. Тот же контракт принимает `ConditionAfterGiveGroundSpec`: при выбранном перемещении follow-ups строго упорядочены как Give Ground, затем Condition. `ConditionOnHitSpec` работает только с `DamageImpactSpec` и изменяет состояние после завершения основной injury-фазы, но до исполнения отложенных Give Ground/secondary-target запросов.
+
+По [ADR-0082](../decisions/ADR-0082-pc-goblin-melee-chunk.md) опциональный MinionStaggerDefeatSpec у KernelAttackRequest/StaggerImpactRequest задаёт явное профильное исключение: повторный Staggered уже Staggered live Minion создаёт MinionStaggerDefeatResult без Wound, обычного выбора и RNG. Причина связывает resolution ID/target/Rule ID; mandatory follow-up подтверждает этот исход во внешнем owner. ProfileInjuryState сохраняет обычный Wound-limit invariant без причины; explicit cause legal только для unwounded defeated Minion. Другие injury policies такую причину не принимают. Primary damaging Wound/first Staggered/miss не используют override; generic condition/hazard projections не теряют причину.
 
 `ConditionOnGiveGroundOrWoundSpec` получает уже подтверждённый исход общего Stagger/injury pipeline. Give Ground создаёт упорядоченную пару movement → Condition, а Condition после Wound применяется лишь при `wound_accepted` либо ненулевом числе профильных Wounds. Поэтому Near Miss не срабатывает как Wound. Каждый вторичный результат остаётся связан с `target_id`; применённые secondary rules записываются в trace.
 

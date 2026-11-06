@@ -106,7 +106,10 @@ def pc_attack_help_applications(state, attack):
     else:
         if attack.defender_test is None:
             return ()
-        actor = next(pc for pc in state.source.enemy_target_priority if not state.participant(pc).injury.dead)
+        slots = state.round_state.active_turn.action_slots
+        grant = slots[-1].enduring_strength if slots else None
+        actor = (grant.target_id if grant is not None
+            else next(pc for pc in state.source.enemy_target_priority if not state.participant(pc).injury.dead))
         skill = Skill.DEFENCE if usable_weapon_hand(state.participant(actor)) is not None else Skill.ATHLETICS
         test = attack.defender_test
     base = replace(test,dice_modifiers=tuple(modifier

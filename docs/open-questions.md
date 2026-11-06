@@ -1,16 +1,24 @@
 # Открытые вопросы и действующие допущения
 
-Дата: 2026-11-05. Это короткий индекс незакрытых тем; читать подробности только по затронутой механике. Полные формулировки, ссылки на книги и текущие ограничения сохранены в [деталях](open-questions-details.md); закрытые темы — в [истории](open-questions-history.md).
+Дата: 2026-11-06. Это короткий индекс незакрытых тем; читать подробности только по затронутой механике. Полные формулировки, ссылки на книги и текущие ограничения сохранены в [деталях](open-questions-details.md); закрытые темы — в [истории](open-questions-history.md).
 
 ## Действующая граница симуляции
 
-Ограниченные M8–M30 завершены: [статус и текущие ограничения](project-status.md), [Broken exit M24](decisions/ADR-0079-pc-broken-npc-adjacent-exit.md), [архитектура](architecture/overview.md). Поддержанные PC weapons/Fate/Help/Recover и книжные combat loadouts не разрешают автоматически другие действия/Abilities. История закрытых вех не расширяет очередь и не возвращает старые wire formats.
+Ограниченные M8–M47 завершены: [статус и текущие ограничения](project-status.md), [Broken exit M24](decisions/ADR-0079-pc-broken-npc-adjacent-exit.md), [архитектура](architecture/overview.md). Поддержанные PC weapons/Fate/Help/Recover и книжные combat loadouts не разрешают автоматически другие действия/Abilities. История закрытых вех не расширяет очередь и не возвращает старые wire formats.
 
 Wounds1–23/lethal24+, source-aware Conditions и mandatory Critical/Defenceless end phases сохраняются. Невозможная повторная анатомия, недоступный2H хват без продолжения и собственный Broken turn Official без exit policy имеют точные stop boundaries. Незавершённые route/recovery/GM решения нельзя подставлять ради продолжения; observed losses относятся только к исполненному prefix.
 
 ## Продолжение Broken NPC
 
-M24 задаёт конечный clear/fastest adjacent exit без преследования/Recover; пользователь выбрал успех, когда все NPC побеждены или ушли, с отдельным учётом ухода. При null policy остаётся stop M23. Открыты общий маршрут с препятствиями/Run/Manoeuvre, дальнейшее поведение и возможность снять Broken при сохраняющейся profile Wound. Аналогично, M26 не определяет будущий NPC Recover для снятия profile Staggered Merchant при сохраняющемся W1; то же ограничение будущей NPC recovery policy относится к White Wolf, Empire Knight, Knight of the White Wolf и Big ’Un с W1 Drained. [Подробности](open-questions-details.md#продолжение-broken-npc).
+M24 задаёт конечный clear/fastest adjacent exit без преследования/Recover; пользователь выбрал успех, когда все NPC побеждены или ушли, с отдельным учётом ухода. При null policy остаётся stop M23. Открыты общий маршрут с препятствиями/Run/Manoeuvre, дальнейшее поведение и возможность снять Broken при сохраняющейся profile Wound. Аналогично, M26 не определяет будущий NPC Recover для снятия profile Staggered Merchant при сохраняющемся W1; то же ограничение будущей NPC recovery policy относится к White Wolf и Empire Knight в обоих loadouts, Knight of the White Wolf, Big ’Un, Bear и Demigryph с профильным Drained. Centigor M40 продолжает Attack с W1Prone; его будущий NPC Recover при сохраняющейся profile Wound также не определён. [Подробности](open-questions-details.md#продолжение-broken-npc).
+
+## Weighted Net после M31
+
+Пользователь выбрал три melee-профиля; Net не входит в Night Goblin loadout. Для отдельной функции нужны primary Burdened вместо Damage, Throwing, конечный запас/расход/подбор или смена оружия и явный выбор альтернативного Brawn Recover. Перед реализацией отдельно сверить Net против Defenceless; нынешний K1 damage-only gate не является правилом книги. [Подробности](open-questions-details.md#weighted-net-после-m31), [граница M31](decisions/ADR-0082-pc-goblin-melee-chunk.md).
+
+## Shield и Resilience Dragon Ogre
+
+GM148 перечисляет shield в Typical Trappings, но не в Protection; для2H loadout пока не выбрана трактовка printed Res8 без shield или7 после вычитания. Профиль исключён из M45 до уточнения. [Подробности](open-questions-details.md#dragon-ogre-shield-resilience).
 
 ## Бонус Greatsword
 
@@ -27,6 +35,14 @@ PG1.4 Equipment93 содержит `+1 to Defence` без `d`. Тип модиф
 Настоящая ничья пока не определена. ROUND_LIMIT и UNSUPPORTED_PATH остаются отдельными исходами в общем знаменателе trials. [Подробности](open-questions-details.md#значение-ничьей-для-балансировки).
 
 ## Политики выбора для симуляции
+
+M47 реализует [выбранные Flagellant policies](decisions/ADR-0092-pc-flagellant-feel-no-pain-and-recover.md): Feel No Pain при0Wounds и standard self Recover при1 с лечением. Оба выбора явные/независимые, `[]` сохраняет Attack-only/отказ от conversion; NPC Recover costs отдельные. Это не общий NPC recovery AI или campaign healing.
+
+M46 реализует [выбранную Blood Rage policy](decisions/ADR-0091-pc-bestigor-blood-rage-and-wound-glorious.md): обязательный список Bestigors для добровольного Staggered перед Attack; `[]` отказывается только от acquisition, фактический Staggered сохраняет бонус. Следующая Attack после W1 Glorious однократно, выбран reroll всех доступных провалов; NPC не тратит PC Fate. Другие Blood Rage/регенерация этим не подключаются.
+
+M39 реализует [выбранную тактику Enduring Strength](decisions/ADR-0087-pc-bear-second-attack-policy.md): обязательный список включённых Bears, после успешной первой Attack и всех её последствий — первый другой живой PC по текущему приоритету; `[]` явно отказывается от способности. Дополнительные атаки имеют реальные slots/receipts и отдельные costs. Произвольные дополнительные действия других существ этим не разрешаются.
+
+M33 поддерживает [согласованные multiple NPC Help pairs](decisions/ADR-0083-pc-npc-automatic-help-policy.md); [M34](decisions/ADR-0084-pc-greenskin-automatic-help.md) расширяет их на Goblin/Night Goblin/Orc Boy/Big ’Un, [M35](rules/npc-profile-catalog.md#minion-chunk-m35) — на Sigmarite Cultist, [M36](rules/npc-profile-catalog.md#spear-chunk-m36) — на копейные Orc/Big ’Un loadouts. Пользователь выбрал Orc Help для Drained beneficiary, Attack fallback у dice helpers; free successes сохраняются, bonus dice запрещены. M37 не меняет стратегию: Fearsome/Charge/Charging Bull не исполняются fixed SUFFER_WOUND/Attack сценой. Конфигурация явная, NPC costs отдельные; общего оптимального AI нет.
 
 Не выбран общий AI-подход для Fate, Talents, Reactions и прочих решений участника. Kernel сохраняет явного владельца решения; не подставлять новый default. [Подробности](open-questions-details.md#политики-выбора-для-симуляции).
 
@@ -68,7 +84,11 @@ Executor принимает разные цели в явном порядке. 
 
 ## Источник Distracted
 
-ConditionState не хранит объект отвлечения. Нужна provenance-модель либо явная синхронизация со специализированными Ability states. [Подробности](open-questions-details.md#источник-distracted).
+M43 реализует выбранный пользователем [контракт Miner/grudge](decisions/ADR-0089-pc-miner-grudge-policy.md): обязательные явные пары Miner→PC, encounter application до первого хода и прежний target priority. `[]` явно означает отсутствие grudge; confirmed death снимает Distracted без переназначения отношения или повторного наложения в новом раунде.
+
+M42 реализует выбранную пользователем [трактовку A Brewguard W1](decisions/ADR-0088-pc-brewguard-distracted-focus.md): разовое наложение от ранившего PC с ним как focus, снятие при его подтверждённой смерти после Wound/Fate, сохранение при Defenceless. Оставшаяся W1 эффект повторно не накладывает. Вариант ongoing W1 причины не выбран.
+
+ConditionState не хранит объект отвлечения. M42/M43 используют owner-local typed source/focus bank без общей миграции всех consumers; общий provenance вопрос шире одной функции. [Подробности](open-questions-details.md#источник-distracted).
 
 ## Spell Recast без определённой недавней истории
 

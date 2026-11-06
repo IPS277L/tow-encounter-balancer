@@ -1,0 +1,410 @@
+{
+  "schema_version": "1",
+  "kind": "pc_melee_balance",
+  "request_id": "request:pc",
+  "ruleset": "towr-pg1.4-gmg1.1",
+  "execution": {
+    "mode": "sequential"
+  },
+  "template": {
+    "id": "m40-creatures",
+    "party": [
+      {
+        "actor_id": "pc1",
+        "pc": {
+          "id": "pc-profile1",
+          "weapon_skill": 3,
+          "strength": 3,
+          "toughness": 3,
+          "agility": 3,
+          "melee": 5,
+          "defence": 5,
+          "athletics": 4,
+          "endurance": 4,
+          "weapon": "axe",
+          "armour_bonus": 0
+        },
+        "fate": {
+          "session_id": "session",
+          "actor_id": "pc1",
+          "rating": 3,
+          "session_spend_limit": 3,
+          "spends": [],
+          "has_lucky": false,
+          "refreshes": [],
+          "burns": [],
+          "resource_event_ids": [],
+          "rule_id": "RULE-FATE-001:session-resource"
+        },
+        "policy": "attack_or_recover_self",
+        "fate_policy": "decline_optional_fate",
+        "random_side_policy": "d10_low_left_high_right",
+        "heavy_wound_policy": "continue_fighting",
+        "initial_weapon_hand": "left",
+        "target_priority": [
+          "demigryph1",
+          "demigryph2",
+          "centigor1",
+          "white_wolf_claws1"
+        ],
+        "defeat_decisions": [
+          {
+            "attacker_id": "pc1",
+            "target_id": "demigryph1",
+            "disposition": "knocked_out",
+            "gm_approved": true
+          },
+          {
+            "attacker_id": "pc1",
+            "target_id": "demigryph2",
+            "disposition": "knocked_out",
+            "gm_approved": true
+          },
+          {
+            "attacker_id": "pc1",
+            "target_id": "centigor1",
+            "disposition": "knocked_out",
+            "gm_approved": true
+          },
+          {
+            "attacker_id": "pc1",
+            "target_id": "white_wolf_claws1",
+            "disposition": "knocked_out",
+            "gm_approved": true
+          }
+        ],
+        "near_miss_policy": null,
+        "glorious_policy": null,
+        "help_policy": null,
+        "ally_recover_policy": null,
+        "backup_weapon_policy": null
+      },
+      {
+        "actor_id": "pc2",
+        "pc": {
+          "id": "pc-profile2",
+          "weapon_skill": 3,
+          "strength": 3,
+          "toughness": 3,
+          "agility": 3,
+          "melee": 5,
+          "defence": 5,
+          "athletics": 4,
+          "endurance": 4,
+          "weapon": "axe",
+          "armour_bonus": 0
+        },
+        "fate": {
+          "session_id": "session",
+          "actor_id": "pc2",
+          "rating": 3,
+          "session_spend_limit": 3,
+          "spends": [],
+          "has_lucky": false,
+          "refreshes": [],
+          "burns": [],
+          "resource_event_ids": [],
+          "rule_id": "RULE-FATE-001:session-resource"
+        },
+        "policy": "attack_or_recover_self",
+        "fate_policy": "decline_optional_fate",
+        "random_side_policy": "d10_low_left_high_right",
+        "heavy_wound_policy": "continue_fighting",
+        "initial_weapon_hand": "left",
+        "target_priority": [
+          "demigryph1",
+          "demigryph2",
+          "centigor1",
+          "white_wolf_claws1"
+        ],
+        "defeat_decisions": [
+          {
+            "attacker_id": "pc2",
+            "target_id": "demigryph1",
+            "disposition": "knocked_out",
+            "gm_approved": true
+          },
+          {
+            "attacker_id": "pc2",
+            "target_id": "demigryph2",
+            "disposition": "knocked_out",
+            "gm_approved": true
+          },
+          {
+            "attacker_id": "pc2",
+            "target_id": "centigor1",
+            "disposition": "knocked_out",
+            "gm_approved": true
+          },
+          {
+            "attacker_id": "pc2",
+            "target_id": "white_wolf_claws1",
+            "disposition": "knocked_out",
+            "gm_approved": true
+          }
+        ],
+        "near_miss_policy": null,
+        "glorious_policy": null,
+        "help_policy": null,
+        "ally_recover_policy": null,
+        "backup_weapon_policy": null
+      }
+    ],
+    "day_id": "day",
+    "enemies": [
+      {
+        "actor_id": "demigryph1",
+        "holds_shield": false,
+        "definition": {
+          "id": "pc-book-npc:demigryph",
+          "source_rule_id": "BOOK-GM-GUIDE:1.1:p175:demigryph",
+          "injury_policy": "brute",
+          "wound_limit": 3,
+          "resilience": {
+            "toughness": 4,
+            "bonus": 0
+          },
+          "attack": {
+            "id": "wicked_claws",
+            "source_rule_id": "BOOK-GM-GUIDE:1.1:p175:demigryph:wicked_claws",
+            "test_profile": {
+              "dice": 4,
+              "threshold": 4,
+              "pool_cap": null
+            },
+            "damage": {
+              "base": 5,
+              "success_multiplier": 1
+            },
+            "range_max": "close",
+            "hands": null,
+            "secondary_effects": []
+          },
+          "protection": {
+            "source_rule_id": "BOOK-GM-GUIDE:1.1:p175:demigryph:athletics",
+            "skill": "athletics",
+            "test_profile": {
+              "dice": 4,
+              "threshold": 3,
+              "pool_cap": null
+            }
+          }
+        }
+      },
+      {
+        "actor_id": "demigryph2",
+        "holds_shield": false,
+        "definition": {
+          "id": "pc-book-npc:demigryph",
+          "source_rule_id": "BOOK-GM-GUIDE:1.1:p175:demigryph",
+          "injury_policy": "brute",
+          "wound_limit": 3,
+          "resilience": {
+            "toughness": 4,
+            "bonus": 0
+          },
+          "attack": {
+            "id": "wicked_claws",
+            "source_rule_id": "BOOK-GM-GUIDE:1.1:p175:demigryph:wicked_claws",
+            "test_profile": {
+              "dice": 4,
+              "threshold": 4,
+              "pool_cap": null
+            },
+            "damage": {
+              "base": 5,
+              "success_multiplier": 1
+            },
+            "range_max": "close",
+            "hands": null,
+            "secondary_effects": []
+          },
+          "protection": {
+            "source_rule_id": "BOOK-GM-GUIDE:1.1:p175:demigryph:athletics",
+            "skill": "athletics",
+            "test_profile": {
+              "dice": 4,
+              "threshold": 3,
+              "pool_cap": null
+            }
+          }
+        }
+      },
+      {
+        "actor_id": "centigor1",
+        "holds_shield": true,
+        "definition": {
+          "id": "pc-book-npc:centigor_spear",
+          "source_rule_id": "BOOK-GM-GUIDE:1.1:p149:centigor_spear",
+          "injury_policy": "brute",
+          "wound_limit": 2,
+          "resilience": {
+            "toughness": 4,
+            "bonus": 1
+          },
+          "attack": {
+            "id": "jagged_spear",
+            "source_rule_id": "BOOK-GM-GUIDE:1.1:p149:centigor_spear:jagged_spear",
+            "test_profile": {
+              "dice": 4,
+              "threshold": 4,
+              "pool_cap": null
+            },
+            "damage": {
+              "base": 4,
+              "success_multiplier": 1
+            },
+            "range_max": "short",
+            "hands": "1h",
+            "secondary_effects": []
+          },
+          "protection": {
+            "source_rule_id": "BOOK-GM-GUIDE:1.1:p149:centigor_spear:athletics",
+            "skill": "athletics",
+            "test_profile": {
+              "dice": 4,
+              "threshold": 3,
+              "pool_cap": null
+            }
+          }
+        }
+      },
+      {
+        "actor_id": "white_wolf_claws1",
+        "holds_shield": false,
+        "definition": {
+          "id": "pc-book-npc:white_wolf_rending_claws",
+          "source_rule_id": "BOOK-GM-GUIDE:1.1:p136:white_wolf_rending_claws",
+          "injury_policy": "brute",
+          "wound_limit": 2,
+          "resilience": {
+            "toughness": 5,
+            "bonus": 0
+          },
+          "attack": {
+            "id": "rending_claws",
+            "source_rule_id": "BOOK-GM-GUIDE:1.1:p136:white_wolf_rending_claws:rending_claws",
+            "test_profile": {
+              "dice": 3,
+              "threshold": 4,
+              "pool_cap": null
+            },
+            "damage": {
+              "base": 6,
+              "success_multiplier": 1
+            },
+            "range_max": "close",
+            "hands": null,
+            "secondary_effects": []
+          },
+          "protection": {
+            "source_rule_id": "BOOK-GM-GUIDE:1.1:p136:white_wolf_rending_claws:athletics",
+            "skill": "athletics",
+            "test_profile": {
+              "dice": 4,
+              "threshold": 4,
+              "pool_cap": null
+            }
+          }
+        }
+      }
+    ],
+    "facts": {
+      "zone_id": "arena",
+      "all_opponents_close": true,
+      "targets_aware": true,
+      "all_combatants_included": true,
+      "unmounted": true,
+      "no_external_effects": true,
+      "no_terrain_modifiers": true,
+      "no_additional_abilities": true,
+      "no_ambush": true,
+      "outnumbering_bonus_approved": true,
+      "can_leave_zone": false
+    },
+    "pc_activation_order": [
+      "pc1",
+      "pc2"
+    ],
+    "enemy_activation_order": [
+      "demigryph1",
+      "demigryph2",
+      "centigor1",
+      "white_wolf_claws1"
+    ],
+    "enemy_target_priority": [
+      "pc1",
+      "pc2"
+    ],
+    "max_rounds": 5,
+    "npc_help_policies": [],
+    "npc_extra_attack_actor_ids": [],
+    "npc_broken_exit_policy": null,
+    "npc_grudge_policies": [],
+    "npc_blood_rage_actor_ids": [],
+    "npc_flagellant_policies": []
+  },
+  "generation": {
+    "groups": [
+      {
+        "group_id": "demigryphs",
+        "actor_ids": [
+          "demigryph1",
+          "demigryph2"
+        ],
+        "minimum_count": 1,
+        "maximum_count": 2
+      },
+      {
+        "group_id": "centigors",
+        "actor_ids": [
+          "centigor1"
+        ],
+        "minimum_count": 0,
+        "maximum_count": 1
+      },
+      {
+        "group_id": "white_wolf_claws",
+        "actor_ids": [
+          "white_wolf_claws1"
+        ],
+        "minimum_count": 0,
+        "maximum_count": 1
+      }
+    ],
+    "facts": {
+      "zone_id": "arena",
+      "all_opponents_close": true,
+      "targets_aware": true,
+      "all_combatants_included": true,
+      "unmounted": true,
+      "no_external_effects": true,
+      "no_terrain_modifiers": true,
+      "no_additional_abilities": true,
+      "no_ambush": true,
+      "outnumbering_bonus_approved": true,
+      "can_leave_zone": false
+    },
+    "max_candidates": 8
+  },
+  "evaluation": {
+    "master_seed": "42",
+    "trials_per_candidate": 2,
+    "max_total_trials": 16,
+    "window": {
+      "minimum": {
+        "numerator": 0,
+        "denominator": 1
+      },
+      "target": {
+        "numerator": 1,
+        "denominator": 2
+      },
+      "maximum": {
+        "numerator": 1,
+        "denominator": 1
+      }
+    },
+    "top_k": 2
+  }
+}

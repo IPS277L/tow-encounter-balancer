@@ -1,17 +1,41 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from enum import Enum
+from typing import TYPE_CHECKING
 
 from towr.domain.attack_models import AttackRequest
 from towr.domain.test_models import Skill, TestRequest
+
+if TYPE_CHECKING:
+    from towr.domain.npc_roster_models import NpcDefinition
 
 
 PROTECTION_PREPARATION_RULE_ID = "RULE-NPC-008:protection-preparation"
 PROTECTION_ELIGIBILITY_RULE_ID = "RULE-COMBAT-005:protection-eligibility"
 CLOSE_RANGED_MELEE_RULE_ID = "RULE-EQUIPMENT-004:close-ranged-melee-opposition"
 ATTACK_SKILLS = (Skill.MELEE, Skill.BRAWN, Skill.SHOOTING, Skill.THROWING)
-PROTECTION_SKILLS = (Skill.ATHLETICS, Skill.DEFENCE, Skill.MELEE)
+PROTECTION_SKILLS = (Skill.ATHLETICS, Skill.DEFENCE, Skill.MELEE, Skill.STEALTH)
+NOW_YOU_SEE_ME_RULE_ID = 'RULE-PROFILE-PEOPLES-002:now-you-see-me'
+
+
+@dataclass(frozen=True, slots=True)
+class HalflingStealthProtectionPermission:
+    """The complete book source granting one defender Stealth opposition."""
+
+    defender_id: str
+    definition: NpcDefinition
+
+    def __post_init__(self) -> None:
+        from towr.domain.npc_roster_models import NpcDefinition
+        from towr.domain.pc_npc_catalog import validate_pc_book_npc_definition
+        if type(self.defender_id) is not str or not self.defender_id.strip():
+            raise TypeError('Stealth permission requires an exact defender ID')
+        if type(self.definition) is not NpcDefinition:
+            raise TypeError('Stealth permission requires a complete NPC definition')
+        validate_pc_book_npc_definition(self.definition)
+        if self.definition.id != 'pc-book-npc:halfling_thief_dagger':
+            raise ValueError('Now You See Me requires the canonical Halfling Thief')
 
 
 class UnopposedReason(str, Enum):
@@ -32,7 +56,7 @@ class ProtectionTestOption:
         if not isinstance(self.skill, Skill):
             raise TypeError("protection skill must be a Skill")
         if self.skill not in PROTECTION_SKILLS:
-            raise ValueError("protection requires Athletics, Defence or Melee")
+            raise ValueError("unsupported Protection Skill")
         if not isinstance(self.test, TestRequest):
             raise TypeError("protection test must be a TestRequest")
 
@@ -50,6 +74,7 @@ class ProtectionPreparationRequest:
     selected_skill: Skill | None
     options: tuple[ProtectionTestOption, ...]
     rule_id: str = PROTECTION_PREPARATION_RULE_ID
+    halfling_stealth_permission: HalflingStealthProtectionPermission | None = field(default=None, kw_only=True)
 
     def __post_init__(self) -> None:
         _non_empty(self.id, "protection preparation id")
@@ -114,6 +139,13 @@ class ProtectionPreparationResult:
 def _expected_protection(request: ProtectionPreparationRequest) -> tuple[
     AttackRequest, tuple[Skill, ...], tuple[UnopposedReason, ...], tuple[str, ...],
 ]:
+    permission = request.halfling_stealth_permission
+    if permission is not None:
+        if type(permission) is not HalflingStealthProtectionPermission:
+            raise TypeError('Stealth permission must retain its exact source type')
+        replace(permission)
+        if permission.defender_id != request.defender_id:
+            raise ValueError('Stealth permission belongs to another defender')
     reasons = (
         *((UnopposedReason.UNAWARE,) if not request.defender_is_aware else ()),
         *((UnopposedReason.DEFENCELESS,) if request.defender_is_defenceless else ()),
@@ -132,6 +164,8 @@ def _expected_protection(request: ProtectionPreparationRequest) -> tuple[
         eligible.append(Skill.DEFENCE)
     if ranged and request.attack.is_close_range:
         eligible.append(Skill.MELEE)
+    if permission is not None:
+        eligible.append(Skill.STEALTH)
     if request.selected_skill not in eligible:
         raise ValueError("selected protection skill is not eligible in this context")
     option = next((item for item in request.options if item.skill is request.selected_skill), None)
@@ -139,6 +173,15 @@ def _expected_protection(request: ProtectionPreparationRequest) -> tuple[
         raise ValueError("selected protection skill requires a supplied Test")
     if request.selected_skill is Skill.MELEE:
         rules = (*rules, CLOSE_RANGED_MELEE_RULE_ID)
+    if request.selected_skill is Skill.STEALTH:
+        from towr.domain.test_models import InlineProfile
+        profile = option.test.profile
+        if type(profile) is not InlineProfile:
+            raise TypeError('Halfling Stealth requires its printed InlineProfile')
+        replace(profile)
+        if profile != permission.definition.protection[0].test_profile:
+            raise ValueError('Stealth Test changed its canonical numeric source')
+        rules = (*rules, NOW_YOU_SEE_ME_RULE_ID)
     return replace(request.attack, defender_test=option.test), tuple(eligible), (), rules
 
 

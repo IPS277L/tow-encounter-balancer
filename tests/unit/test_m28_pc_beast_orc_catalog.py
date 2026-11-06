@@ -79,9 +79,11 @@ class PcBeastOrcCatalogTests(unittest.TestCase):
         alternative,=orc.unselected_protection
         self.assertEqual((alternative.skill,alternative.test_profile),(Skill.ATHLETICS,InlineProfile(3,3)))
         self.assertEqual(tuple(a.name for a in orc.inactive_abilities),
-            ('Choppas on Charge','Power of the Waaagh!'))
-        self.assertIn('1 free success',orc.inactive_abilities[1].effect)
-        self.assertIn('Do not Test',orc.inactive_abilities[1].effect)
+            ('Choppas on Charge',))
+        help_ability,=orc.active_abilities
+        self.assertEqual(help_ability.name,'Power of the Waaagh!')
+        self.assertIn('1 free success',help_ability.effect)
+        self.assertIn('Do not Test',help_ability.effect)
 
     def test_known_identity_rejects_restored_shield_bonus_and_other_loadouts(self):
         for profile,keyword,actor,page,attack_id,dice,threshold,damage,hands,toughness,armour,pdice,pthreshold,skill in CASES:

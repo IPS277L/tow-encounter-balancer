@@ -52,6 +52,8 @@ def _validate_attack_action_slot(request: AttackActionExecutionRequest) -> None:
         raise ValueError("only an Attack action slot can use this executor")
     if slot.executed:
         raise ValueError("the Attack action slot has already been executed")
+    if slot.enduring_strength is not None and request.target_id != slot.enduring_strength.target_id:
+        raise ValueError("Enduring Strength Attack requires its granted different target")
 
 
 def _complete_attack_action(

@@ -10,9 +10,21 @@ from towr.domain.condition_models import Condition, ConditionState
 from towr.domain.pc_weapon_models import (pc_weapon_damage, pc_weapon_test_modifiers,
     pc_weapon_attack_modifiers, pc_weapon_damage_modifiers)
 from towr.domain.pc_npc_ability_models import (pc_npc_outnumbering_modifier,pc_npc_allows_give_ground,
-    pc_npc_attack_modifiers,pc_npc_damage_modifiers)
+    pc_npc_allows_enemy_higher_ground,
+    pc_npc_attack_modifiers,pc_npc_damage_modifiers,pc_npc_damage_profile,pc_npc_stagger_defeat_spec,
+    pc_npc_wound_dice_modifiers)
 from towr.domain.pc_npc_wound_models import PcNpcBrokenTurnUnsupported, pc_npc_broken_turn_unsupported
 from towr.domain.pc_npc_exit_models import PcNpcExitProof
+from towr.domain.pc_minion_defeat_models import validate_pc_minion_defeat_equipment
+from towr.domain.pc_npc_distraction_models import (PcNpcDistractionSource,PcNpcDistractionExpiredProof,
+    validate_pc_npc_distractions,expected_pc_npc_distraction_expiry,pc_npc_distraction_test_modifiers)
+from towr.domain.pc_npc_grudge_models import (PcNpcGrudgeDistractionSource,PcNpcGrudgeEncounterProof,
+    pc_npc_grudge_melee_modifiers,expected_pc_npc_grudge_encounter)
+from towr.domain.pc_bestigor_models import (PcNpcBloodRageProof, PcBestigorGloriousSource,
+    expected_pc_npc_blood_rage, pc_bestigor_attack_quality)
+from towr.domain.pc_flagellant_models import (PcNpcRecoverProof, PcFlagellantMissWoundProof,
+    validate_pc_flagellant_conditions, flagellant_conditions, pc_flagellant_recover_selected,
+    pc_flagellant_first_stagger_spec)
 from towr.domain.pc_hit_condition_models import (PcHitConditionSource,hit_condition_sources_from_attack,
     retain_pc_hit_conditions)
 from towr.domain.pc_backup_weapon_models import (pc_active_weapon, pc_preferred_weapon_hand,
@@ -21,11 +33,14 @@ from towr.domain.crushed_rib_test_models import CRUSHED_RIB_TEST_RULE_ID
 from towr.domain.fate_models import FateSessionState, FateNearMissBurnRequest, FateGloriousSpendResult, FATE_NEAR_MISS_RULE_ID
 from towr.domain.infection_models import DailyWoundState
 from towr.domain.help_models import HelpActionExecutionRequest, HelpActionExecutionResult, HelpBonusApplicationResult
+from towr.domain.automatic_help_models import (AutomaticHelpActionRequest,AutomaticHelpActionResult,
+    AutomaticHelpBonusApplicationResult)
 from towr.domain.injury_models import (
     CharacterInjuryState, CharacterWoundType, ProfileInjuryState, ProfileNpcType,
     ProfileStateChangeRequest, WoundConditionEffect, WoundConsequence, WoundConsequenceRequest,
     WoundEffectDuration, WoundEnduranceFailure, WoundEnduranceTestRequest, WoundEnduranceTestResult,
     WoundRestriction, WoundRestrictionEffect, WoundChoiceRequest, WoundChoiceResult, WoundChoice, WoundEntryId,
+    MinionStaggerDefeatCause,
 )
 from towr.domain.pc_heavy_wound_models import (PcBodyFact, PcBodyFactKind, available_sides, usable_hands, injured_hands, usable_weapon_hand, has_ongoing_condition, critical_for_hand)
 from towr.domain.critical_injury_models import CriticalInjuryTestResult
@@ -194,6 +209,7 @@ class PcMeleeState:
     pending_wound: CharacterWoundLifecycleRollResult | None = None
     pending_actor_id: str | None = None
     history: tuple[PcMeleeProof, ...] = field(default=(), repr=False)
+    npc_distractions: tuple[PcNpcDistractionSource | PcNpcGrudgeDistractionSource, ...] = ()
 
     def __post_init__(self):
         if not isinstance(self.source, PcMeleeScenario) or not isinstance(self.round_state, CombatRoundState):
@@ -252,8 +268,7 @@ class PcMeleeState:
                 or tuple(e.state.actor_id for e in self.enemies) != tuple(e.state.actor_id for e in self.source.enemies)
                 or any(e.definition != old.definition for e, old in zip(self.enemies, self.source.enemies))):
             raise ValueError('PC owner must preserve its exact ordered Minion definitions')
-        if any(replace(e.state,injury=old.state.injury) != old.state for e,old in zip(self.enemies,self.source.enemies)):
-            raise ValueError('PC owner cannot change Minion equipment or available attacks')
+        validate_pc_minion_defeat_equipment(self)
         if self.pending_wound is not None and not isinstance(self.pending_wound, CharacterWoundLifecycleRollResult):
             raise TypeError('pending PC Wound must retain its lifecycle roll')
         has_pending = bool(self.pending) or self.pending_wound is not None
@@ -264,6 +279,8 @@ class PcMeleeState:
                 raise ValueError('pending Wound belongs to another PC')
         elif self.pending_actor_id is not None:
             raise ValueError('a completed queue cannot retain a pending PC owner')
+        validate_pc_npc_distractions(self)
+        validate_pc_flagellant_conditions(self)
 
     def participant(self, actor_id: str) -> PcMeleeParticipantState:
         for member in self.party:
@@ -316,6 +333,14 @@ class PcAttackProof:
     fate_decline: PcFateDecline | None
     glorious: FateGloriousSpendResult | None = None
     help_applications: tuple[HelpBonusApplicationResult, ...] = ()
+    npc_help_applications: tuple[AutomaticHelpBonusApplicationResult, ...] = ()
+    npc_glorious_source: PcBestigorGloriousSource | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class PcNpcHelpProof:
+    request: AutomaticHelpActionRequest
+    execution: AutomaticHelpActionResult
 
 
 @dataclass(frozen=True, slots=True)
@@ -409,6 +434,11 @@ class PcProfileWoundProof:
 
 
 @dataclass(frozen=True, slots=True)
+class PcMinionStaggerDefeatProof:
+    source: MinionStaggerDefeatCause
+
+
+@dataclass(frozen=True, slots=True)
 class PcRecoverProof:
     result: RecoverActionExecutionResult
 
@@ -421,10 +451,13 @@ class PcTurnEndProof:
 
 
 PcMeleeProof = (
-    CombatTurnStartResult | CombatActionSlotResult | PcAttackProof | PcWoundCompletionProof
+    CombatTurnStartResult | CombatActionSlotResult | PcAttackProof | PcWoundCompletionProof | PcNpcBloodRageProof
+    | PcNpcRecoverProof | PcFlagellantMissWoundProof
     | PcEnduranceProof | PcHandDropProof | PcAttackerStaggerProof | PcProfileWoundProof
-    | PcRecoverProof | PcTurnEndProof | PcIncapacitatedTurnEndProof | PcBodyConsequenceProof
+    | PcRecoverProof | PcTurnEndProof | PcIncapacitatedTurnEndProof | PcBodyConsequenceProof | PcMinionStaggerDefeatProof | PcNpcHelpProof
     | PcWoundChoiceProof | PcHandSwapProof | PcBackupWeaponDrawProof | PcHelpProof | PcNpcExitProof | CombatRoundAdvanceResult
+    | PcNpcDistractionExpiredProof
+    | PcNpcGrudgeEncounterProof
 )
 
 
@@ -473,6 +506,12 @@ class PcMeleeScenarioResult:
         if not steps:
             raise ValueError('PC encounter cannot finish without an executed action')
         actual_stop = pc_melee_unsupported(current)
+        if expected_pc_npc_grudge_encounter(current) is not None:
+            raise ValueError('PC result skipped its initial grudge encounters')
+        if expected_pc_npc_blood_rage(current) is not None:
+            raise ValueError('PC result skipped its selected pre-Attack Blood Rage')
+        if actual_stop is None and expected_pc_npc_distraction_expiry(current) is not None:
+            raise ValueError('PC result skipped mandatory focus-death distraction expiry')
         if self.unsupported != actual_stop:
             raise ValueError('PC unsupported result must preserve its actual pending source')
         active = current.round_state.active_turn
@@ -505,7 +544,7 @@ class PcMeleeScenarioResult:
 
     @property
     def executed_actions(self) -> int:
-        return sum(isinstance(step.proof, (PcAttackProof, PcRecoverProof, PcHelpProof)) for step in self.steps)
+        return sum(isinstance(step.proof, (PcAttackProof, PcRecoverProof, PcHelpProof, PcNpcHelpProof, PcNpcRecoverProof)) for step in self.steps)
 
     @property
     def started_rounds(self) -> int:
@@ -574,6 +613,12 @@ def pc_melee_selected_action(state: PcMeleeState) -> CombatActionKind:
         from towr.domain.pc_help_models import pc_help_beneficiary
         if pc_help_beneficiary(state) is not None:
             return CombatActionKind.HELP
+    else:
+        if pc_flagellant_recover_selected(state, actor_id):
+            return CombatActionKind.RECOVER
+        from towr.domain.pc_npc_help_models import pc_npc_help_beneficiary
+        if pc_npc_help_beneficiary(state) is not None:
+            return CombatActionKind.HELP
     return CombatActionKind.ATTACK
 
 
@@ -617,16 +662,24 @@ def pc_after_test(state: PcMeleeState, actor_id: str, injury=None) -> CharacterI
 
 
 def build_pc_melee_attack(state: PcMeleeState) -> tuple[AttackActionExecutionRequest, ProtectionPreparationRequest]:
-    actor = state.round_state.active_turn.actor_id
+    if expected_pc_npc_blood_rage(state) is not None:
+        raise ValueError('Attack must follow its selected Blood Rage proof')
+    turn = state.round_state.active_turn
+    actor = turn.actor_id
+    # Preparation can precede reservation; actual execution still requires a slot.
+    slot_index = len(turn.action_slots) or 1
+    grant = turn.action_slots[-1].enduring_strength if turn.action_slots else None
     pc_attacks = actor in state.source.pc_activation_order
     target = (next(a for a in state.source.participant(actor).target_priority
         if not state.enemy(a).state.injury.defeated and a not in state.exited_npc_ids)
-        if pc_attacks else next(a for a in state.source.enemy_target_priority if not state.participant(a).injury.dead))
-    action_id = pc_melee_action_id(state, actor)
+        if pc_attacks else (grant.target_id if grant is not None
+            else next(a for a in state.source.enemy_target_priority if not state.participant(a).injury.dead)))
+    action_id = pc_melee_action_id(state, actor) + (':attack2' if slot_index == 2 else '')
     pc_count = sum(not m.injury.conditions.has(Condition.DEFENCELESS) for m in state.live_party)
     enemy_count = sum(not e.state.injury.conditions.has(Condition.DEFENCELESS) for e in state.live_enemies)
     modifiers = []
     damage_modifiers = ()
+    wound_dice_modifiers = ()
     if state.source.facts.outnumbering_bonus_approved and (pc_count > enemy_count if pc_attacks else enemy_count > pc_count):
         modifiers.append(DiceModifier('RULE-COMBAT-007:outnumbering',1) if pc_attacks else
             pc_npc_outnumbering_modifier(state.enemy(actor).definition))
@@ -635,14 +688,16 @@ def build_pc_melee_attack(state: PcMeleeState) -> tuple[AttackActionExecutionReq
         weapon = pc_active_weapon(state,actor)
         member = state.participant(actor)
         target_snapshot = state.enemy(target)
-        if target_snapshot.state.injury.conditions.has(Condition.PRONE):
+        if (target_snapshot.state.injury.conditions.has(Condition.PRONE)
+                and pc_npc_allows_enemy_higher_ground(target_snapshot.definition)):
             modifiers.append(DiceModifier('RULE-COMBAT-007:higher-ground', 1))
         modifiers.extend(pc_weapon_attack_modifiers(weapon, target_snapshot.state.injury.conditions))
         attacker = _pc_test(state, actor, action_id + ':attack', Skill.MELEE, tuple(modifiers))
         from towr.domain.pc_help_models import build_pc_attack_help
         attacker,_ = build_pc_attack_help(state,attacker)
         protection_profile = target_snapshot.definition.protection[0]
-        defender = TestRequest(action_id + ':protection', protection_profile.test_profile)
+        defender = TestRequest(action_id + ':protection', protection_profile.test_profile,
+            pc_npc_distraction_test_modifiers(state,target,actor))
         skill = protection_profile.skill
         damage, resilience = pc_weapon_damage(weapon, pc.strength), target_snapshot.state.current_resilience
         damage_modifiers = pc_weapon_damage_modifiers(weapon, resilience)
@@ -655,36 +710,52 @@ def build_pc_melee_attack(state: PcMeleeState) -> tuple[AttackActionExecutionReq
         member = state.participant(target)
         if member.injury.conditions.has(Condition.PRONE):
             modifiers.append(DiceModifier('RULE-COMBAT-007:higher-ground', 1))
-        modifiers.extend(pc_npc_attack_modifiers(enemy.definition,enemy.state.injury.conditions))
+        modifiers.extend(pc_npc_attack_modifiers(enemy.definition,enemy.state.injury.conditions,
+            target_conditions=member.injury.conditions,attacker_wounds=enemy.state.injury.wounds))
+        modifiers.extend(pc_npc_grudge_melee_modifiers(state,actor,target))
+        modifiers.extend(pc_npc_distraction_test_modifiers(state,actor,target))
         if enemy.state.injury.conditions.has(Condition.DRAINED):
             modifiers = [m for m in modifiers if m.amount <= 0]
-        attacker = TestRequest(action_id + ':attack', profile.test_profile, tuple(modifiers))
+        attacker = TestRequest(action_id + ':attack', profile.test_profile, tuple(modifiers),
+            pc_bestigor_attack_quality(state, actor))
+        from towr.domain.pc_npc_help_models import build_pc_npc_attack_help
+        attacker,_ = build_pc_npc_attack_help(state,actor,attacker)
         skill = Skill.DEFENCE if usable_weapon_hand(member) is not None else Skill.ATHLETICS
         defender = _pc_test(state, target, action_id + ':protection', skill)
         if not member.injury.conditions.has(Condition.DEFENCELESS):
             from towr.domain.pc_help_models import build_pc_test_help
             defender,_ = build_pc_test_help(state,target,skill,defender)
-        damage, resilience = profile.damage, state.source.participant(target).pc.resilience
+        resilience = state.source.participant(target).pc.resilience
         damage_modifiers = pc_npc_damage_modifiers(enemy.definition)
+        wound_dice_modifiers = pc_npc_wound_dice_modifiers(enemy.definition,member.injury)
         attacker_conditions = enemy.state.injury.conditions
         target_injury = member.injury if member.injury.conditions.has(Condition.DEFENCELESS) else pc_after_test(state, target,critical_for_hand(member,
             usable_weapon_hand(member) if skill is Skill.DEFENCE else None))
+        damage = pc_npc_damage_profile(enemy.definition,
+            unopposed=target_injury.conditions.has(Condition.DEFENCELESS))
         target_armed = usable_weapon_hand(member) is not None
     attack = AttackRequest(action_id + ':attack-request', attacker, None,
         DamageImpactSpec(damage,resilience,damage_modifiers=damage_modifiers),
         True, attacker_conditions.has(Condition.STAGGERED),
         secondary_effects=() if pc_attacks else profile.secondary_effects)
     defenceless = target_injury.conditions.has(Condition.DEFENCELESS)
+    from towr.domain.protection_models import HalflingStealthProtectionPermission
+    stealth_permission = (HalflingStealthProtectionPermission(target,target_snapshot.definition)
+        if pc_attacks and skill is Skill.STEALTH else None)
     protection = ProtectionPreparationRequest(action_id + ':prepare-protection', target, attack, Skill.MELEE,
-        True, defenceless, target_armed, False, None if defenceless else skill,
-        () if defenceless else (ProtectionTestOption(target,skill,defender),))
+        True, defenceless, target_armed, target_snapshot.state.holds_shield if pc_attacks else False,
+        None if defenceless else skill,
+        () if defenceless else (ProtectionTestOption(target,skill,defender),),
+        halfling_stealth_permission=stealth_permission)
     from towr.domain.protection_models import _expected_protection
     prepared_attack = _expected_protection(protection)[0]
     kernel = KernelAttackRequest(action_id + ':kernel',target,prepared_attack,
         target_snapshot.definition.injury_policy if pc_attacks else TargetInjuryPolicy.PLAYER, target_injury,
         state.source.facts.can_leave_zone and (pc_attacks or pc_npc_allows_give_ground(enemy.definition)),
-        False,physical_attack=True)
-    return AttackActionExecutionRequest(action_id + ':execute',state.round_state,actor,target,1,kernel), protection
+        False,physical_attack=True,wound_dice_modifiers=wound_dice_modifiers,minion_stagger_defeat=(
+            pc_npc_stagger_defeat_spec(target_snapshot.definition) if pc_attacks else None),
+        first_stagger_wound=(pc_flagellant_first_stagger_spec(state,target) if pc_attacks else None))
+    return AttackActionExecutionRequest(action_id + ':execute',state.round_state,actor,target,slot_index,kernel), protection
 
 
 def build_pc_melee_recover(state: PcMeleeState) -> RecoverActionExecutionRequest:
@@ -789,15 +860,17 @@ def _test_result(request: TestRequest, actual: TestResult):
             raise ValueError('PC Test reroll has a stale original or invalid replacement')
         final[reroll.index] = reroll.replacement
     successes = sum(v <= parameters[6] for v in final)
+    success_delta = sum(m.amount for m in request.success_modifiers)
     rules = tuple(m.rule_id for mods in (request.dice_modifiers,request.quality_modifiers,
         request.success_modifiers,request.reroll_locks) for m in mods)
     expected = RollTrace(request.id,*parameters[:6],parameters[6],parameters[7],quality,
-        trace.initial_values,trace.rerolls,tuple(final),successes,0,successes,rules)
+        trace.initial_values,trace.rerolls,tuple(final),successes,success_delta,max(0,successes+success_delta),rules)
     if trace != expected:
         raise ValueError('PC Test trace is not canonical for its bound request')
 
 
 def _enemy_update(state: PcMeleeState, actor_id: str, injury: ProfileInjuryState):
+    injury = replace(injury,conditions=flagellant_conditions(state.enemy(actor_id).definition,injury.conditions))
     return tuple(replace(e,state=replace(e.state,injury=injury)) if e.state.actor_id == actor_id else e for e in state.enemies)
 
 
@@ -918,5 +991,7 @@ def validate_pc_melee_state_shape(state: PcMeleeState) -> None:
                     or type(pending.previous_wounds) is not int or type(pending.current_wounds) is not int
                     or type(pending.defeated) is not bool):
                 raise TypeError('profile change requires typed integer/bool values')
+        elif type(pending) is MinionStaggerDefeatCause:
+            replace(pending)
         else:
             raise TypeError('unsupported pending PC continuation type')

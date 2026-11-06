@@ -26,6 +26,130 @@ class PcNpcExitCount:
             raise ValueError('NPC exit count must be nonnegative')
 
 
+@dataclass(frozen=True, slots=True)
+class PcNpcHelpActionCount:
+    """Executed Help actions for one source NPC, including explicit zero counts."""
+
+    actor_id: str
+    count: int
+
+    def __post_init__(self) -> None:
+        if type(self.actor_id) is not str or not self.actor_id.strip():
+            raise TypeError('NPC Help count requires a nonempty actor ID')
+        if type(self.count) is not int:
+            raise TypeError('NPC Help count must be an integer')
+        if self.count < 0:
+            raise ValueError('NPC Help count must be nonnegative')
+
+
+@dataclass(frozen=True, slots=True)
+class PcNpcRecoverActionCount:
+    """Executed Recover actions for one source NPC, including explicit zero counts."""
+
+    actor_id: str
+    count: int
+
+    def __post_init__(self) -> None:
+        if type(self.actor_id) is not str or not self.actor_id.strip():
+            raise TypeError('NPC Recover count requires a nonempty actor ID')
+        if type(self.count) is not int:
+            raise TypeError('NPC Recover count must be an integer')
+        if self.count < 0:
+            raise ValueError('NPC Recover count must be nonnegative')
+
+
+@dataclass(frozen=True, slots=True)
+class PcNpcExtraAttackCount:
+    """Executed second-slot Attacks for one source NPC."""
+
+    actor_id: str
+    count: int
+
+    def __post_init__(self) -> None:
+        if type(self.actor_id) is not str or not self.actor_id.strip():
+            raise TypeError('NPC extra Attack count requires a nonempty actor ID')
+        if type(self.count) is not int:
+            raise TypeError('NPC extra Attack count must be an integer')
+        if self.count < 0:
+            raise ValueError('NPC extra Attack count must be nonnegative')
+
+
+def validate_npc_extra_attack_counts(counts,scenario,*,trials:int,extra_trials:int|None,
+                                     actions:int,started_rounds:int) -> None:
+    if type(counts) is not tuple:
+        raise TypeError('NPC extra Attack counts require a source-ordered tuple')
+    for item in counts:
+        if type(item) is not PcNpcExtraAttackCount:
+            raise TypeError('NPC extra Attack counts require typed observations')
+        replace(item)
+    if tuple(item.actor_id for item in counts)!=tuple(enemy.state.actor_id for enemy in scenario.enemies):
+        raise ValueError('NPC extra Attack counts must cover every source NPC in order')
+    total=sum(item.count for item in counts)
+    if extra_trials is None:
+        extra_trials=int(total>0)
+    if type(extra_trials) is not int:
+        raise TypeError('NPC extra Attack trial count must be an integer')
+    if (not 0<=extra_trials<=trials or not extra_trials<=total or 2*total>actions
+            or (total>0)!=(extra_trials>0)):
+        raise ValueError('NPC extra Attack counts contradict trials/primary and extra actions')
+    budget=min(started_rounds-(trials-extra_trials),extra_trials*scenario.max_rounds)
+    for item in counts:
+        if (item.count and item.actor_id not in scenario.npc_extra_attack_actor_ids) or item.count>budget:
+            raise ValueError('NPC extra Attack count exceeds its selected actor/round budget')
+
+
+def validate_npc_help_counts(counts,scenario,*,trials:int,help_trials:int|None,
+                             actions:int,started_rounds:int) -> None:
+    if type(counts) is not tuple:
+        raise TypeError('NPC Help counts require a source-ordered tuple')
+    for item in counts:
+        if type(item) is not PcNpcHelpActionCount:
+            raise TypeError('NPC Help counts require typed observations')
+        replace(item)
+    if tuple(item.actor_id for item in counts)!=tuple(enemy.state.actor_id for enemy in scenario.enemies):
+        raise ValueError('NPC Help counts must cover every source NPC in order')
+    total=sum(item.count for item in counts)
+    if help_trials is None:
+        help_trials=int(total>0)
+    if type(help_trials) is not int:
+        raise TypeError('NPC Help trial count must be an integer')
+    if not 0<=help_trials<=trials or not help_trials<=total<=actions or (total>0)!=(help_trials>0):
+        raise ValueError('NPC Help counts contradict trials/actions')
+    helpers={policy.helper_id for policy in scenario.npc_help_policies}
+    # Every non-Help trial still starts at least one round. Each configured NPC
+    # can execute at most one ordinary action per started round in this family.
+    budget=min(started_rounds-(trials-help_trials),help_trials*scenario.max_rounds)
+    for item in counts:
+        if (item.count and item.actor_id not in helpers) or item.count>budget:
+            raise ValueError('NPC Help count exceeds its configured role/round budget')
+
+
+def validate_npc_recover_counts(counts,scenario,*,trials:int,recover_trials:int|None,
+                             actions:int,started_rounds:int) -> None:
+    if type(counts) is not tuple:
+        raise TypeError('NPC Recover counts require a source-ordered tuple')
+    for item in counts:
+        if type(item) is not PcNpcRecoverActionCount:
+            raise TypeError('NPC Recover counts require typed observations')
+        replace(item)
+    if tuple(item.actor_id for item in counts)!=tuple(enemy.state.actor_id for enemy in scenario.enemies):
+        raise ValueError('NPC Recover counts must cover every source NPC in order')
+    total=sum(item.count for item in counts)
+    if recover_trials is None:
+        recover_trials=int(total>0)
+    if type(recover_trials) is not int:
+        raise TypeError('NPC Recover trial count must be an integer')
+    if not 0<=recover_trials<=trials or not recover_trials<=total or 2*total>actions or (total>0)!=(recover_trials>0):
+        raise ValueError('NPC Recover counts contradict trials/actions')
+    actors={policy.actor_id for policy in scenario.npc_flagellant_policies if policy.recover_when_wounded}
+    # Every non-Recover trial still starts at least one round. Each configured NPC
+    # can execute at most one ordinary action per started round in this family.
+    budget=min(started_rounds-(trials-recover_trials),recover_trials*scenario.max_rounds)
+    for item in counts:
+        if (item.count and item.actor_id not in actors) or item.count>budget:
+            raise ValueError('NPC Recover count exceeds its configured role/round budget')
+
+
 def validate_npc_exit_counts(counts,scenario,*,trials:int,exit_trials:int|None) -> None:
     if type(counts) is not tuple:
         raise TypeError('NPC exit counts require a source-ordered tuple')
@@ -278,6 +402,9 @@ class PcMeleeTrialRecord:
     help_action_counts: tuple[PcHelpActionCount, ...]
     ally_recover_action_counts: tuple[PcAllyRecoverActionCount, ...]
     npc_exit_counts: tuple[PcNpcExitCount, ...]
+    npc_help_action_counts: tuple[PcNpcHelpActionCount, ...]
+    npc_extra_attack_counts: tuple[PcNpcExtraAttackCount, ...]
+    npc_recover_action_counts: tuple[PcNpcRecoverActionCount, ...]
 
     def __post_init__(self) -> None:
         validate_pc_melee_scenario_admission(self.source_scenario)
@@ -298,8 +425,11 @@ class PcMeleeTrialRecord:
             raise ValueError('started rounds must fit the source budget')
         if not 0 <= self.completed_rounds <= self.started_rounds or self.started_rounds-self.completed_rounds > 1:
             raise ValueError('completed rounds contradict started rounds')
+        validate_npc_extra_attack_counts(self.npc_extra_attack_counts,self.source_scenario,trials=1,
+            extra_trials=None,actions=self.executed_actions,started_rounds=self.started_rounds)
+        extras=sum(item.count for item in self.npc_extra_attack_counts)
         actors = len(self.source_scenario.party) + len(self.source_scenario.enemies)
-        if not self.completed_rounds <= self.executed_actions <= actors*self.started_rounds:
+        if not self.completed_rounds <= self.executed_actions <= actors*self.started_rounds+extras:
             raise ValueError('actions contradict the round/actor budget')
         if self.outcome is PcMeleeOutcome.ROUND_LIMIT and self.completed_rounds != self.source_scenario.max_rounds:
             raise ValueError('round limit must complete the full source budget')
@@ -323,8 +453,13 @@ class PcMeleeTrialRecord:
             actions=self.executed_actions,started_rounds=self.started_rounds)
         validate_ally_recover_counts(self.ally_recover_action_counts,self.source_scenario,trials=1,
             recover_trials=None,actions=self.executed_actions,started_rounds=self.started_rounds)
-        if sum(item.count for item in (*self.help_action_counts,*self.ally_recover_action_counts))>self.executed_actions:
-            raise ValueError('Help and ally Recover cannot consume the same action')
+        validate_npc_help_counts(self.npc_help_action_counts,self.source_scenario,trials=1,
+            help_trials=None,actions=self.executed_actions,started_rounds=self.started_rounds)
+        validate_npc_recover_counts(self.npc_recover_action_counts,self.source_scenario,trials=1,
+            recover_trials=None,actions=self.executed_actions,started_rounds=self.started_rounds)
+        if sum(item.count for item in (*self.help_action_counts,*self.ally_recover_action_counts,
+                *self.npc_help_action_counts,*self.npc_recover_action_counts))+2*extras>self.executed_actions:
+            raise ValueError('Help, ally Recover and primary/extra Attacks cannot consume the same action')
         validate_npc_exit_counts(self.npc_exit_counts,self.source_scenario,trials=1,exit_trials=None)
         if sum(item.count for item in self.npc_exit_counts)>self.executed_actions:
             raise ValueError('each NPC exit requires its own actual first-Wound Attack')

@@ -81,6 +81,7 @@ def resolve_condition_after_give_ground(
             wound_limit=state.wound_limit,
             conditions=application.state,
             defeated=state.defeated,
+            defeat_cause=state.defeat_cause,
         )
     return ConditionAfterGiveGroundResult(
         resolution_id=request.resolution_id,

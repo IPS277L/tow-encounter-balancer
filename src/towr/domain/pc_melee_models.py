@@ -1,5 +1,5 @@
 """Immutable authored input for the first PC melee encounter (ADR-0065)."""
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from enum import Enum
 
 from towr.domain.attack_models import DamageProfile, ResilienceProfile
@@ -14,6 +14,10 @@ from towr.domain.npc_roster_models import (
     NpcDefinition, NpcParticipantSnapshot, NpcParticipantState, NpcProtectionProfile,
 )
 from towr.domain.ranged_weapon_profiles import RangedWeaponHands, RangedWeaponRange
+from towr.domain.pc_npc_help_models import PcNpcHelpPolicy,validate_pc_npc_help_policies
+from towr.domain.pc_npc_grudge_policy_models import PcNpcGrudgePolicy,validate_pc_npc_grudge_policies
+from towr.domain.pc_npc_blood_rage_policy_models import validate_pc_npc_blood_rage_policy
+from towr.domain.pc_flagellant_policy_models import PcFlagellantPolicy,validate_pc_flagellant_policies
 from towr.domain.resolution_models import TargetInjuryPolicy
 from towr.domain.test_models import InlineProfile, Skill, TestProfile
 from towr.domain.turn_models import CombatSide
@@ -324,6 +328,11 @@ class PcMeleeScenario:
     enemy_target_priority: tuple[str, ...]
     max_rounds: int
     npc_broken_exit_policy: PcAdjacentNpcExitPolicy | None
+    npc_help_policies: tuple[PcNpcHelpPolicy, ...]
+    npc_extra_attack_actor_ids: tuple[str, ...] = field(kw_only=True)
+    npc_grudge_policies: tuple[PcNpcGrudgePolicy, ...] = field(kw_only=True)
+    npc_blood_rage_actor_ids: tuple[str, ...] = field(kw_only=True)
+    npc_flagellant_policies: tuple[PcFlagellantPolicy, ...] = field(kw_only=True)
 
     def __post_init__(self) -> None:
         for name in ("id", "day_id"):
@@ -388,6 +397,17 @@ class PcMeleeScenario:
                     raise ValueError("Help beneficiary must activate later in this round")
         object.__setattr__(self, "party", party)
         object.__setattr__(self, "enemies", enemies)
+        validate_pc_npc_help_policies(self)
+        validate_pc_npc_grudge_policies(self)
+        validate_pc_npc_blood_rage_policy(self)
+        validate_pc_flagellant_policies(self)
+        _canonical_tuple(self.npc_extra_attack_actor_ids,"NPC extra Attack actors")
+        for actor_id in self.npc_extra_attack_actor_ids:
+            _identifier(actor_id,"NPC extra Attack actor")
+            if actor_id not in enemy_ids or self.enemy(actor_id).definition.id!='pc-book-npc:bear_sweeping_claws':
+                raise ValueError('NPC extra Attack requires a canonical Bear Sweeping Claws opponent')
+        if len(set(self.npc_extra_attack_actor_ids))!=len(self.npc_extra_attack_actor_ids):
+            raise ValueError('NPC extra Attack actors must be unique')
 
     def participant(self, actor_id: str) -> PcMeleeParticipant:
         _identifier(actor_id, "PC actor")
@@ -460,8 +480,9 @@ def _readmit_profile_enemy(enemy: NpcParticipantSnapshot) -> None:
     _typed(defence.skill, Skill, "Minion Protection Skill")
     _typed(attack.range_min, RangedWeaponRange, "Minion minimum Range")
     _typed(attack.range_max, RangedWeaponRange, "Minion maximum Range")
-    _readmit_inline(attack.test_profile)
-    _readmit_inline(defence.test_profile)
+    _readmit_inline(attack.test_profile,expected_pool_cap=(8
+        if definition.id in ('pc-book-npc:minotaur_greataxe','pc-book-npc:bestigor_massive_axe') else None))
+    _readmit_inline(defence.test_profile,expected_pool_cap=None)
     _typed(attack.damage, DamageProfile, "Minion Damage")
     replace(attack.damage)
     _canonical_tuple(attack.secondary_effects, "Minion secondary effects")
@@ -473,9 +494,10 @@ def _readmit_profile_enemy(enemy: NpcParticipantSnapshot) -> None:
         _typed(attack.hands, RangedWeaponHands, "Minion weapon hands")
     if (attack.skill is not Skill.MELEE
             or attack.range_min is not RangedWeaponRange.CLOSE
-            or attack.range_max is not RangedWeaponRange.CLOSE
+            or attack.range_max not in (RangedWeaponRange.CLOSE,RangedWeaponRange.SHORT)
             or attack.damage.success_multiplier != 1 or attack.ignores_armour
-            or defence.skill not in (Skill.DEFENCE,Skill.ATHLETICS)
+            or defence.skill not in ((Skill.STEALTH,) if definition.id=='pc-book-npc:halfling_thief_dagger'
+                else (Skill.DEFENCE,Skill.ATHLETICS))
             or attack.hands is None and defence.skill is not Skill.ATHLETICS):
         raise ValueError("unsupported Minion attack or Protection profile")
     injury = state.injury
@@ -495,20 +517,29 @@ def _readmit_profile_enemy(enemy: NpcParticipantSnapshot) -> None:
     replace(state)
     replace(definition)
     replace(enemy)
-    if (injury.wounds or injury.defeated or injury.conditions.conditions
-            or state.wields_weapon is not (attack.hands is not None) or state.holds_shield
+    if (injury.wounds or injury.defeated or injury.defeat_cause is not None or injury.conditions.conditions
+            or state.wields_weapon is not (attack.hands is not None)
+            or state.holds_shield and attack.hands is not RangedWeaponHands.ONE_HANDED
             or state.current_resilience != definition.resilience
             or state.available_attack_ids != (attack.id,)):
-        raise ValueError("PC melee requires fresh healthy NPCs with consistent armed/natural attacks and no shields")
+        raise ValueError("PC melee requires fresh healthy NPCs and consistent armed/natural attacks and shield hands")
     from towr.domain.pc_npc_catalog import validate_pc_book_npc_definition
     validate_pc_book_npc_definition(definition)
+    if definition.id.startswith('pc-book-npc:'):
+        shield = definition.id in ('pc-book-npc:goblin_warrior_spear','pc-book-npc:night_goblin_spear',
+            'pc-book-npc:ungor_spear','pc-book-npc:orc_boy_spear_shield','pc-book-npc:big_un_spear_shield',
+            'pc-book-npc:centigor_spear','pc-book-npc:gor_axe_shield','pc-book-npc:empire_knight_lance_shield')
+        if state.holds_shield is not shield:
+            raise ValueError('book NPC shield state differs from its canonical combat loadout')
 
 
-def _readmit_inline(profile: InlineProfile) -> None:
+def _readmit_inline(profile: InlineProfile,*,expected_pool_cap: int | None) -> None:
     _typed(profile, InlineProfile, "Minion numeric profile")
     replace(profile)
     if profile.pool_cap is not None:
-        raise ValueError("Minion profile must be unmodified")
+        _typed(profile.pool_cap,int,"NPC pool cap")
+    if profile.pool_cap!=expected_pool_cap:
+        raise ValueError("NPC pool cap differs from its admitted canonical attack/Protection source")
 
 
 def _readmit_resilience(value: ResilienceProfile) -> None:

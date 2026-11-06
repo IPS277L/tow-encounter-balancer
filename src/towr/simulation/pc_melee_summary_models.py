@@ -5,7 +5,9 @@ from towr.simulation.pc_melee_models import (
     PcMeleeOutcomeCounts, PcMeleeSimulationRequest, PcNearMissBurnCount,
     validate_near_miss_counts, PcGloriousSpendCount, validate_glorious_counts,
     PcHelpActionCount, validate_help_counts, PcAllyRecoverActionCount, validate_ally_recover_counts,
-    PcNpcExitCount, validate_npc_exit_counts,
+    PcNpcExitCount, validate_npc_exit_counts, PcNpcHelpActionCount, validate_npc_help_counts,
+    PcNpcExtraAttackCount, validate_npc_extra_attack_counts,
+    PcNpcRecoverActionCount, validate_npc_recover_counts,
 )
 
 
@@ -45,6 +47,12 @@ class PcMeleeSimulationSummary:
     npc_exit_trial_count: int
     npc_exit_counts: tuple[PcNpcExitCount, ...]
     objective_with_npc_exit_count: int
+    npc_help_action_trial_count: int
+    npc_help_action_counts: tuple[PcNpcHelpActionCount, ...]
+    npc_extra_attack_trial_count: int
+    npc_extra_attack_counts: tuple[PcNpcExtraAttackCount, ...]
+    npc_recover_action_trial_count: int
+    npc_recover_action_counts: tuple[PcNpcRecoverActionCount, ...]
 
     def __post_init__(self) -> None:
         if not isinstance(self.source_request, PcMeleeSimulationRequest):
@@ -69,9 +77,15 @@ class PcMeleeSimulationSummary:
             raise ValueError('started rounds contradict outcomes/budget')
         if not limited*budget <= completed <= started or started-completed > self.trials-limited:
             raise ValueError('completed rounds contradict started rounds')
+        if type(self.npc_extra_attack_trial_count) is not int:
+            raise TypeError('NPC extra Attack trial count must be an integer')
+        validate_npc_extra_attack_counts(self.npc_extra_attack_counts,self.source_request.scenario,
+            trials=self.trials,extra_trials=self.npc_extra_attack_trial_count,
+            actions=self.total_action_count,started_rounds=started)
         terminal = counts.objective_achieved+counts.party_defeated
         members = len(self.source_request.scenario.party)
-        if not max(completed, terminal+limited*budget) <= self.total_action_count <= (members+len(self.source_request.scenario.enemies))*started:
+        if not max(completed, terminal+limited*budget) <= self.total_action_count <= (
+                members+len(self.source_request.scenario.enemies))*started+self.total_npc_extra_attack_count:
             raise ValueError('actions contradict outcomes/rounds/actor count')
         if type(self.any_pc_defeated_count) is not int:
             raise TypeError('trials with a confirmed PC death must be an integer')
@@ -114,8 +128,19 @@ class PcMeleeSimulationSummary:
         validate_ally_recover_counts(self.ally_recover_action_counts,self.source_request.scenario,
             trials=self.trials,recover_trials=self.ally_recover_action_trial_count,
             actions=self.total_action_count,started_rounds=self.total_started_round_count)
-        if sum(item.count for item in (*self.help_action_counts,*self.ally_recover_action_counts))>self.total_action_count:
-            raise ValueError('Help and ally Recover cannot consume the same action')
+        if type(self.npc_help_action_trial_count) is not int:
+            raise TypeError('NPC Help trial count must be an integer')
+        validate_npc_help_counts(self.npc_help_action_counts,self.source_request.scenario,trials=self.trials,
+            help_trials=self.npc_help_action_trial_count,actions=self.total_action_count,
+            started_rounds=self.total_started_round_count)
+        if type(self.npc_recover_action_trial_count) is not int:
+            raise TypeError('NPC Recover trial count must be an integer')
+        validate_npc_recover_counts(self.npc_recover_action_counts,self.source_request.scenario,
+            trials=self.trials,recover_trials=self.npc_recover_action_trial_count,
+            actions=self.total_action_count,started_rounds=self.total_started_round_count)
+        if sum(item.count for item in (*self.help_action_counts,*self.ally_recover_action_counts,
+                *self.npc_help_action_counts,*self.npc_recover_action_counts))+2*self.total_npc_extra_attack_count>self.total_action_count:
+            raise ValueError('Help, ally Recover and primary/extra Attacks cannot consume the same action')
         validate_npc_exit_counts(self.npc_exit_counts,self.source_request.scenario,
             trials=self.trials,exit_trials=self.npc_exit_trial_count)
         if self.total_npc_exit_count>self.total_action_count:
@@ -129,6 +154,20 @@ class PcMeleeSimulationSummary:
     @property
     def total_npc_exit_count(self) -> int:
         return sum(item.count for item in self.npc_exit_counts)
+
+
+    @property
+    def total_npc_help_action_count(self) -> int:
+        return sum(item.count for item in self.npc_help_action_counts)
+
+
+    @property
+    def total_npc_recover_action_count(self) -> int:
+        return sum(item.count for item in self.npc_recover_action_counts)
+
+    @property
+    def total_npc_extra_attack_count(self) -> int:
+        return sum(item.count for item in self.npc_extra_attack_counts)
 
     @property
     def total_ally_recover_action_count(self) -> int:

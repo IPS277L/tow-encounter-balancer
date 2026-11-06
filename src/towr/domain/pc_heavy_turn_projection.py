@@ -30,8 +30,8 @@ def project_heavy_turn_end(state,proof,finish):
             raise ValueError('only a truly actionless Defenceless PC has this end path')
         rules = ('RULE-COMBAT-001:rounds-sides-turns','RULE-HEALTH-008:defenceless-turn')
     else:
-        if len(turn.action_slots) != 1 or not turn.action_slots[0].executed:
-            raise ValueError('ordinary turn end requires its actual completed standard action')
+        if not turn.action_slots or any(not slot.executed for slot in turn.action_slots):
+            raise ValueError('ordinary turn end requires all its reserved actions to be executed')
         rules = ('RULE-COMBAT-001:rounds-sides-turns',)
     expected_clock = replace(combat,active_turn=None,completed_turn_entity_ids=(*combat.completed_turn_entity_ids,turn.actor_id))
     expected = (action_id+':end',expected_clock,turn,expected_clock.next_side,expected_clock.round_complete,rules)

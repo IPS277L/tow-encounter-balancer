@@ -1,47 +1,50 @@
 # Текущий статус проекта
 
-Дата обновления: 2026-11-05.
+Дата обновления: 2026-11-06.
 
 ## Текущий этап
 
-**M30 завершена: Empire Knight/Lance, Knight of the White Wolf/Wolf Hammer и Big ’Un/Choppas.** Это три совместимых пеших Brute2 loadouts с W1Drained/W2defeat; всего в PC каталоге19записей. [Правило и книжные источники](rules/npc-profile-catalog.md#brute-chunk-m30), [factory/JSON/CLI-примеры и фактические результаты](examples/m30/README.md).
+**M47 завершена: Flagellant/Flails и Hooks and Chains, Feel No Pain и собственный Recover.** Пользователь выбрал полный [ADR-0092](decisions/ADR-0092-pc-flagellant-feel-no-pain-and-recover.md). Каталог49→51. [Правило](rules/npc-profile-catalog.md#flagellant-feel-no-pain-m47), [factory/JSON/CLI-примеры](examples/m47/README.md).
 
-Все используют printed Defence, Normal Speed, armoured Resilience5. Щиты Empire Knight/Big ’Un не выбраны, их +1 вычтен; mounted бонусов нет. Big ’Un сохраняет WS3/Melee4 и получает только Strength-derived Damage4→5. Lance допускает обычную пешую Close-атаку. Полные mounted/Charge/Help triggers сохранены вне условий текущей сцены.
+Оба loadouts — Normal Brute2/T3Res3 без брони/щита, Athletics3d3/caps6. Flails Close3d4Damage6/2H получает−2d Melee при Staggered; Hooks and Chains Close3d4Damage3/1H — без штрафа. PC weapon Traits/повторные penalties не добавляются. Direct Broken immunity Unbreakable сохраняет остальные Conditions и не превращается в psychological immunity.
 
-W1Drained применяется на existing actual Profile Wound ACK, включая первую рану от repeated-Staggered. Отдельный конечный helper охватывает три новых профиля и прежний White Wolf; обычный собственный ход продолжается, положительные bonus dice подавляются только у фактически Drained NPC. W2 defeat/GM disposition и full replay сохранены. Нового owner/ADR/wire поля/version/метрик нет. Все84прежних JSON documents и16старых catalog entries/definitions/snapshots/metadata сохранены.
+Required `npc_flagellant_policies` содержит unique canonical opposition actor, exact feel_no_pain enum и recover_when_wounded bool, без default. `wound_at_zero` заменяет первое Staggered от incoming weak physical hit или своего miss одной Wound только при0; при1 добровольная замена не выбирается. Direct Wound не удваивается, repeated Staggered сохраняет прежнюю SUFFER_WOUND price/W2defeat. `[]` отказывается от обоих новых choices; Flails penalty/Unbreakable сохраняются. Подбор фильтрует записи исключённых NPC без переназначения.
 
-M29 source-aware on-hit Drained Giant Spider сохраняется независимо от раны/Near Miss/W6expiry. Пользователь выбрал Attack/standard Recover; альтернативный Endurance Recover не добавлен. Current PC JSON1 требует secondary_effects[] либо единственный unclassified on-hit Drained descriptor; остальные families прежние. Стратегии Fate/Help/Recover/запасного оружия не менялись.
+Incoming replacement задаёт explicit `FirstStaggerWoundSpec` до Test: raw HIT/Damage/impact прежние, результат содержит один настоящий profile-Wound/ACK и Rule ID. Own miss имеет отдельный typed actor/source/profile-Wound witness, связывает рану с настоящим miss самого actor. Полный результат readmits exact types при replay; найденный при review cached-alias пропуск исправлен и покрыт регрессией.
+
+Живой actor с1Wound и выбранным recovery тратит обычное действие на standard self Recover: реальные slot/receipt/TurnEnd, снятие своих Staggered/Prone и heal1→0, без RNG/PC Fate/второй Attack/revival. Каждое получение/лечение сохраняется в history, включая повторные циклы. Named helper атакует сам, когда его beneficiary будет Recover. Compact record/summary содержит отдельные NPC Recover counts/trial count/total; NPC Recover входит в total actions, PC costs отдельные.
+
+152старыхJSON documents M9–M46 мигрированы только required policy arrays/нулевыми NPC Recover полями, остальные значения и49прежнихentries/definitions/snapshots/metadata сохранены. Current PC JSON1 остаётся1. Обратные defaults/старые версии не добавляются.
 
 ## Последняя проверка
 
-Составная адресная приёмка M30: **18 новых tests и122 ближайших зависимых tests**,140уникальных проверок. Это не единый full regression. Production после независимого source/code review заморожен.
+Из-за новых Stagger/Wound, owner/Recover и record/summary seams выполнен расширенный адресный checkpoint109модулей/1044tests: **1038успехов и6environment errors Windows Pipe WinError5 в sandbox**,0gameplay/assertion failures,70.032s. Фактическая команда при `PYTHONPATH=src`: `.venv/Scripts/python.exe .cache/m47_checkpoint.py`. Выбраны PC unit M9–M47, K1 Test/Kernel/Stagger/secondary/Conditions/Recover, M6/M7 runners/M8Minion и ближайшие PC simulation/balance/exit/Help/extra/JSON integrations. Локальные selector/module list/log не входят в репозиторий.
 
-При PYTHONPATH=src выполнены:
+Только6упавших process cases затем повторены вне sandbox с новым M47 process parity: **7tests OK за17.364s**. Проверены party losses, exit, Help, balance spawn, uneven batches/worker exception и полные Flagellant policy/Recover counts records+summary. Команда: `Get-Content .cache/m47_process_retry_names.txt` в task-specific PowerShell array, затем `.venv/Scripts/python.exe -m unittest @m47RetryNames -v`. Windows Pipe граница прежняя; backend механизм не менялся. Это составная адресная проверка, не единый зелёный full run; успешные1038tests не повторялись.
+
+Все49новыхtests прошли:12K1,9catalog,19native,8JSON/statistics/search,1process. Независимое review после исправления exact miss-witness проверки новых дефектов не нашло. Переносимая адресная команда нового поведения:
 
 ```powershell
-.venv/Scripts/python.exe -m unittest tests.unit.test_m30_pc_brute_catalog -v
-.venv/Scripts/python.exe -m unittest tests.unit.test_m30_pc_brute_wounds tests.integration.test_m30_pc_brute_chunk -v
-.venv/Scripts/python.exe -m unittest tests.unit.test_m9_pc_melee_execution tests.unit.test_m11_pc_melee_brutes tests.unit.test_m23_pc_official_wounds tests.unit.test_m26_pc_merchant_wounds tests.unit.test_m29_pc_hit_conditions tests.unit.test_m29_pc_drained_catalog tests.unit.test_m28_pc_beast_orc_catalog tests.unit.test_m28_pc_beast_orc_modifiers tests.unit.test_m27_pc_creatures tests.unit.test_m25_pc_state_trooper -q
-.venv/Scripts/python.exe -m unittest tests.unit.test_m27_pc_creatures -q
-.venv/Scripts/python.exe -m unittest tests.unit.test_m21_pc_npc_catalog tests.unit.test_m22_pc_brigand_catalog tests.unit.test_m23_pc_official_catalog tests.unit.test_m26_pc_catalog_chunk tests.unit.test_m27_natural_attack_models -q
+$env:PYTHONPATH = 'src'
+.venv/Scripts/python.exe -m unittest tests.unit.test_k1_first_stagger_wound tests.unit.test_m47_pc_flagellant_catalog tests.unit.test_m47_pc_flagellant_execution tests.integration.test_m47_pc_flagellant_json tests.integration.test_m47_pc_flagellant_process -v
 ```
 
-Новые8catalog OK/0.006s и10runtime+integration OK/7.600s. Первый зависимый прогон86tests/1.942s:85OK, один M27 test требовал отсутствия variants у всех будущих каталоговых записей. Проверка ограничена собственными Wolf/Boar; весь модуль8tests OK/0.164s. Дополнительные36catalog/admission tests OK/0.066s. Успешные дорогие проверки не повторялись.
+Literal scripts проверяют incoming weak hit/own miss и правильного actor, accepted/declined/W1 choices, direct Wound без второй/repeated Wound/W2disposition, Flails−2/Drained, real Recover benefits/receipts/cycles/no RNG/no revive, Help fallback, Broken-only immunity, skip/replay/source/alias guards. Scripted compact observations доказывают точные Recover costs отдельно от PC benefits; schema/full echoes/4count compositions и invalid source/counter types проверены.
 
-Проверены direct/repeated-Staggered W1, exact ACK/once-only/replay, ordinary NPC turns с wounded/unwounded outnumbering comparison, W2 defeat, canonical source/type/cache guards, старые Official/Merchant/White Wolf/Spider и generation8составов. Старый M29 контрольный прогон604tests относился к завершённой M29; он не выдаётся за новый результат M30.
+Оба requests M47 исполнены настоящим sequential CLI. Simulation seed42/6trials/budget5rounds, один PC Staff против1Flails+1Hooks:0objective/2party defeated/4limit/0unsupported,83actions,28started/26completed rounds. PC погиб в2trials; во всех6trials был NPC Recover,26actions всего (Flails19/Hooks7). Balance1–2Flails+0–1Hooks,4состава по2trials:20/30/30/21actions и7/11/11/5NPC Recover, unsupported везде0. Полная таблица в примере; малые выборки не задают истинные вероятности/оптимум, ROUND_LIMIT остаётся отдельным исходом.
 
-Оба M30 requests исполнены настоящим CLI. Simulation seed42/6trials/budget5rounds:0objective/4party defeated/2limit/0unsupported,109actions; balance8составов по2trials —16наблюдений. Таблица результатов и параметры стратегии находятся в примере. Проверены44current PC request/result pairs M9–M30, полные source echo, локальные ссылки/UTF-8/whitespace; git diff --check чистый.84старых JSON побайтово совпадают с pre-M30 snapshot,16старых каталоговых записей — с прежней factory. Старые Monte Carlo не пересчитывались.
+Финальная проверка `.venv/Scripts/python.exe .cache/m47_verify.py` прошла:78current request/result pairs M9–M47/full source echoes, сохранение остальных значений152старыхJSON documents после удаления только policy/Recover fields и всех49прежнихcatalog entries/definitions/snapshots/metadata. Проверены40изменённыхMarkdown файлов/2069локальныхссылок, UTF-8/whitespace и `git -c core.safecrlf=false diff --check`. .cache helpers/logs локальные и не входят в репозиторий.
 
-Full проекта/wheel/новая process-матрица не запускались: механизм исполнения/поставки/контракт не менялись. Историческая M29 process-проверка сохраняет прежнее основание; она не считается вновь выполненной. Локальные .cache helpers/logs не входят в репозиторий.
+Полный regression проекта, wheel и полная backend/console матрица не запускались. Новый Kernel branch включается только explicit spec; обычные paths проверены K1 и соседними families. Доставка/backend механизм не менялись, новая схема остаётся в прежнем JSON discovery. Успешные игровые проверки после документальных правок не повторяются.
 
 ## Ограничения
 
-Aware fixed Close arena, healthy initial party, fixed activation/target priorities,13Close primary weapons/optional1H backup, Wounds1–23/lethal24+, PC Critical/Defenceless end phases сохраняются. Natural бойцы самостоятельные unmounted; Charge/terrain/riders не исполняются. Невозможная повторная анатомия/недоступный хват имеют прежние точные stops. Costs/losses при stop/limit относятся к исполненному combat prefix.
+M47 recovery только standard self Flagellant с1Wound; общего NPC Recover/лечения при profile Wound других существ нет. Feel No Pain policy покрывает incoming physical hit/own miss, не все будущие producers Staggered. Новый Broken producer/общая миграция Condition provenance не добавлены. Fixed Close/noMove/noExternal/all-included arena и прежние PC Wounds1–23/lethal24+/Critical/Defenceless/backup/Fate/Help/Recover/NPC exit сохраняются.
 
-On-hit поддержан только unclassified Drained без общей системы иммунитетов/DSL; hit sources не снимаются выбранной стандартной Recover стратегией. Будущая альтернативная recovery требует собственного удаления причин. То же открыто для NPC Recover при сохраняющейся profile Wound: Official Broken, Merchant Staggered, White Wolf и три Brutes M30 Drained. Текущие NPC Recover не делают. Погоня/возврат/spatial/общий AI/inventory/лечение/campaign/save-resume не добавлены; Greatsword требует уточнения бонуса.
+Skin Wolf/его end-turn Warped Form и регенерация ещё не подключены; Blood Rage policy M46 Bestigor-only. Miner/Brewguard Distracted, Bear extra Attack и Thief Stealth остаются своими source-bound случаями. Dragon Ogre не добавлен до уточнения [shield/Resilience7/8](open-questions-details.md#dragon-ogre-shield-resilience). Net/inventory/campaign/save-resume, Greatsword Defence bonus и невозможная повторная анатомия сохраняют отдельные вопросы/точные stops; costs/losses при stop/limit относятся к исполненному prefix.
 
 ## Следующий шаг
 
-Адресная сверка Goblin Warrior/Nasty Skulker/Night Goblin как возможного следующего чанка: repeated-Staggered defeat, unopposed Damage, Weighted Net/Burdened. До реализации установить timing/removal и согласовать расширение supported descriptors, если оно понадобится. M31 пока не выбрана; альтернативный Endurance Recover без нового решения пользователя не включать. [Очередь](roadmap.md), [индекс вопросов](open-questions.md).
+**Подготовить M48 — Skin Wolf / Claws and Fangs с Blood Rage и Warped Form (GM187).** Полная карточка ранее адресно прочитана. Описать явные choices перед Attack и в end phase, heal неогненной Wound при отсутствии Staggered и Staggered для допустимых Close creatures. Согласовать target snapshot/порядок/self inclusion, source Wound/heal history и обязательные PC/NPC последствия, включая Feel No Pain/повторный Staggered/Fate. В нынешнем physical melee source нет огневого урона; это premise bounded-среза, не универсальный default. Новый end-turn heal не подменять Flagellant Recover; расширение Bestigor-only Rage policy и новая тактика требуют конкретного ADR/согласования. M48/scope ещё не выбраны. [Очередь](roadmap.md), [вопросы](open-questions.md).
 
-До текущего шага оставались незакоммичены M26–M29 и политика чанков; они сохранены. Сейчас изменения включают завершённые M26–M30. Commit/push выполняет пользователь.
+Незакоммиченные изменения M31–M46 сохранены; текущая рабочая копия охватывает M31–M47. Commit/push выполняет пользователь.

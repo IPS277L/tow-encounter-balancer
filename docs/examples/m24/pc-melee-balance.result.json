@@ -162,7 +162,8 @@
                 "success_multiplier": 1
               },
               "hands": "1h",
-              "secondary_effects": []
+              "secondary_effects": [],
+              "range_max": "close"
             },
             "protection": {
               "source_rule_id": "BOOK-GM-GUIDE:1.1:p98:empire_official_dagger:athletics",
@@ -173,7 +174,8 @@
                 "pool_cap": null
               }
             }
-          }
+          },
+          "holds_shield": false
         },
         {
           "actor_id": "official2",
@@ -199,7 +201,8 @@
                 "success_multiplier": 1
               },
               "hands": "1h",
-              "secondary_effects": []
+              "secondary_effects": [],
+              "range_max": "close"
             },
             "protection": {
               "source_rule_id": "BOOK-GM-GUIDE:1.1:p98:empire_official_dagger:athletics",
@@ -210,7 +213,8 @@
                 "pool_cap": null
               }
             }
-          }
+          },
+          "holds_shield": false
         },
         {
           "actor_id": "footpad1",
@@ -236,7 +240,8 @@
                 "success_multiplier": 1
               },
               "hands": "1h",
-              "secondary_effects": []
+              "secondary_effects": [],
+              "range_max": "close"
             },
             "protection": {
               "source_rule_id": "BOOK-GM-GUIDE:1.1:p97:footpad:athletics",
@@ -247,7 +252,8 @@
                 "pool_cap": null
               }
             }
-          }
+          },
+          "holds_shield": false
         }
       ],
       "facts": {
@@ -281,7 +287,12 @@
         "destination_zone_id": "safe-exit",
         "path_clear_confirmed": true,
         "fastest_route_confirmed": true
-      }
+      },
+      "npc_help_policies": [],
+      "npc_extra_attack_actor_ids": [],
+      "npc_grudge_policies": [],
+      "npc_blood_rage_actor_ids": [],
+      "npc_flagellant_policies": []
     },
     "generation": {
       "groups": [
@@ -490,7 +501,8 @@
                     "success_multiplier": 1
                   },
                   "hands": "1h",
-                  "secondary_effects": []
+                  "secondary_effects": [],
+                  "range_max": "close"
                 },
                 "protection": {
                   "source_rule_id": "BOOK-GM-GUIDE:1.1:p98:empire_official_dagger:athletics",
@@ -501,7 +513,8 @@
                     "pool_cap": null
                   }
                 }
-              }
+              },
+              "holds_shield": false
             }
           ],
           "facts": {
@@ -533,7 +546,12 @@
             "destination_zone_id": "safe-exit",
             "path_clear_confirmed": true,
             "fastest_route_confirmed": true
-          }
+          },
+          "npc_help_policies": [],
+          "npc_extra_attack_actor_ids": [],
+          "npc_grudge_policies": [],
+          "npc_blood_rage_actor_ids": [],
+          "npc_flagellant_policies": []
         }
       },
       "summary": {
@@ -614,7 +632,31 @@
           }
         ],
         "objective_with_npc_exit_count": 2,
-        "total_npc_exit_count": 2
+        "total_npc_exit_count": 2,
+        "npc_help_action_trial_count": 0,
+        "npc_help_action_counts": [
+          {
+            "actor_id": "official1",
+            "count": 0
+          }
+        ],
+        "total_npc_help_action_count": 0,
+        "npc_extra_attack_trial_count": 0,
+        "npc_extra_attack_counts": [
+          {
+            "actor_id": "official1",
+            "count": 0
+          }
+        ],
+        "total_npc_extra_attack_count": 0,
+        "npc_recover_action_trial_count": 0,
+        "npc_recover_action_counts": [
+          {
+            "actor_id": "official1",
+            "count": 0
+          }
+        ],
+        "total_npc_recover_action_count": 0
       },
       "assessment": {
         "status": "eligible",
@@ -802,7 +844,8 @@
                     "success_multiplier": 1
                   },
                   "hands": "1h",
-                  "secondary_effects": []
+                  "secondary_effects": [],
+                  "range_max": "close"
                 },
                 "protection": {
                   "source_rule_id": "BOOK-GM-GUIDE:1.1:p98:empire_official_dagger:athletics",
@@ -813,7 +856,8 @@
                     "pool_cap": null
                   }
                 }
-              }
+              },
+              "holds_shield": false
             },
             {
               "actor_id": "footpad1",
@@ -839,7 +883,8 @@
                     "success_multiplier": 1
                   },
                   "hands": "1h",
-                  "secondary_effects": []
+                  "secondary_effects": [],
+                  "range_max": "close"
                 },
                 "protection": {
                   "source_rule_id": "BOOK-GM-GUIDE:1.1:p97:footpad:athletics",
@@ -850,7 +895,8 @@
                     "pool_cap": null
                   }
                 }
-              }
+              },
+              "holds_shield": false
             }
           ],
           "facts": {
@@ -883,7 +929,12 @@
             "destination_zone_id": "safe-exit",
             "path_clear_confirmed": true,
             "fastest_route_confirmed": true
-          }
+          },
+          "npc_help_policies": [],
+          "npc_extra_attack_actor_ids": [],
+          "npc_grudge_policies": [],
+          "npc_blood_rage_actor_ids": [],
+          "npc_flagellant_policies": []
         }
       },
       "summary": {
@@ -968,7 +1019,43 @@
           }
         ],
         "objective_with_npc_exit_count": 2,
-        "total_npc_exit_count": 2
+        "total_npc_exit_count": 2,
+        "npc_help_action_trial_count": 0,
+        "npc_help_action_counts": [
+          {
+            "actor_id": "official1",
+            "count": 0
+          },
+          {
+            "actor_id": "footpad1",
+            "count": 0
+          }
+        ],
+        "total_npc_help_action_count": 0,
+        "npc_extra_attack_trial_count": 0,
+        "npc_extra_attack_counts": [
+          {
+            "actor_id": "official1",
+            "count": 0
+          },
+          {
+            "actor_id": "footpad1",
+            "count": 0
+          }
+        ],
+        "total_npc_extra_attack_count": 0,
+        "npc_recover_action_trial_count": 0,
+        "npc_recover_action_counts": [
+          {
+            "actor_id": "official1",
+            "count": 0
+          },
+          {
+            "actor_id": "footpad1",
+            "count": 0
+          }
+        ],
+        "total_npc_recover_action_count": 0
       },
       "assessment": {
         "status": "eligible",
@@ -1156,7 +1243,8 @@
                     "success_multiplier": 1
                   },
                   "hands": "1h",
-                  "secondary_effects": []
+                  "secondary_effects": [],
+                  "range_max": "close"
                 },
                 "protection": {
                   "source_rule_id": "BOOK-GM-GUIDE:1.1:p98:empire_official_dagger:athletics",
@@ -1167,7 +1255,8 @@
                     "pool_cap": null
                   }
                 }
-              }
+              },
+              "holds_shield": false
             },
             {
               "actor_id": "official2",
@@ -1193,7 +1282,8 @@
                     "success_multiplier": 1
                   },
                   "hands": "1h",
-                  "secondary_effects": []
+                  "secondary_effects": [],
+                  "range_max": "close"
                 },
                 "protection": {
                   "source_rule_id": "BOOK-GM-GUIDE:1.1:p98:empire_official_dagger:athletics",
@@ -1204,7 +1294,8 @@
                     "pool_cap": null
                   }
                 }
-              }
+              },
+              "holds_shield": false
             }
           ],
           "facts": {
@@ -1237,7 +1328,12 @@
             "destination_zone_id": "safe-exit",
             "path_clear_confirmed": true,
             "fastest_route_confirmed": true
-          }
+          },
+          "npc_help_policies": [],
+          "npc_extra_attack_actor_ids": [],
+          "npc_grudge_policies": [],
+          "npc_blood_rage_actor_ids": [],
+          "npc_flagellant_policies": []
         }
       },
       "summary": {
@@ -1322,7 +1418,43 @@
           }
         ],
         "objective_with_npc_exit_count": 2,
-        "total_npc_exit_count": 2
+        "total_npc_exit_count": 2,
+        "npc_help_action_trial_count": 0,
+        "npc_help_action_counts": [
+          {
+            "actor_id": "official1",
+            "count": 0
+          },
+          {
+            "actor_id": "official2",
+            "count": 0
+          }
+        ],
+        "total_npc_help_action_count": 0,
+        "npc_extra_attack_trial_count": 0,
+        "npc_extra_attack_counts": [
+          {
+            "actor_id": "official1",
+            "count": 0
+          },
+          {
+            "actor_id": "official2",
+            "count": 0
+          }
+        ],
+        "total_npc_extra_attack_count": 0,
+        "npc_recover_action_trial_count": 0,
+        "npc_recover_action_counts": [
+          {
+            "actor_id": "official1",
+            "count": 0
+          },
+          {
+            "actor_id": "official2",
+            "count": 0
+          }
+        ],
+        "total_npc_recover_action_count": 0
       },
       "assessment": {
         "status": "eligible",
@@ -1524,7 +1656,8 @@
                     "success_multiplier": 1
                   },
                   "hands": "1h",
-                  "secondary_effects": []
+                  "secondary_effects": [],
+                  "range_max": "close"
                 },
                 "protection": {
                   "source_rule_id": "BOOK-GM-GUIDE:1.1:p98:empire_official_dagger:athletics",
@@ -1535,7 +1668,8 @@
                     "pool_cap": null
                   }
                 }
-              }
+              },
+              "holds_shield": false
             },
             {
               "actor_id": "official2",
@@ -1561,7 +1695,8 @@
                     "success_multiplier": 1
                   },
                   "hands": "1h",
-                  "secondary_effects": []
+                  "secondary_effects": [],
+                  "range_max": "close"
                 },
                 "protection": {
                   "source_rule_id": "BOOK-GM-GUIDE:1.1:p98:empire_official_dagger:athletics",
@@ -1572,7 +1707,8 @@
                     "pool_cap": null
                   }
                 }
-              }
+              },
+              "holds_shield": false
             },
             {
               "actor_id": "footpad1",
@@ -1598,7 +1734,8 @@
                     "success_multiplier": 1
                   },
                   "hands": "1h",
-                  "secondary_effects": []
+                  "secondary_effects": [],
+                  "range_max": "close"
                 },
                 "protection": {
                   "source_rule_id": "BOOK-GM-GUIDE:1.1:p97:footpad:athletics",
@@ -1609,7 +1746,8 @@
                     "pool_cap": null
                   }
                 }
-              }
+              },
+              "holds_shield": false
             }
           ],
           "facts": {
@@ -1643,7 +1781,12 @@
             "destination_zone_id": "safe-exit",
             "path_clear_confirmed": true,
             "fastest_route_confirmed": true
-          }
+          },
+          "npc_help_policies": [],
+          "npc_extra_attack_actor_ids": [],
+          "npc_grudge_policies": [],
+          "npc_blood_rage_actor_ids": [],
+          "npc_flagellant_policies": []
         }
       },
       "summary": {
@@ -1732,7 +1875,55 @@
           }
         ],
         "objective_with_npc_exit_count": 2,
-        "total_npc_exit_count": 4
+        "total_npc_exit_count": 4,
+        "npc_help_action_trial_count": 0,
+        "npc_help_action_counts": [
+          {
+            "actor_id": "official1",
+            "count": 0
+          },
+          {
+            "actor_id": "official2",
+            "count": 0
+          },
+          {
+            "actor_id": "footpad1",
+            "count": 0
+          }
+        ],
+        "total_npc_help_action_count": 0,
+        "npc_extra_attack_trial_count": 0,
+        "npc_extra_attack_counts": [
+          {
+            "actor_id": "official1",
+            "count": 0
+          },
+          {
+            "actor_id": "official2",
+            "count": 0
+          },
+          {
+            "actor_id": "footpad1",
+            "count": 0
+          }
+        ],
+        "total_npc_extra_attack_count": 0,
+        "npc_recover_action_trial_count": 0,
+        "npc_recover_action_counts": [
+          {
+            "actor_id": "official1",
+            "count": 0
+          },
+          {
+            "actor_id": "official2",
+            "count": 0
+          },
+          {
+            "actor_id": "footpad1",
+            "count": 0
+          }
+        ],
+        "total_npc_recover_action_count": 0
       },
       "assessment": {
         "status": "eligible",

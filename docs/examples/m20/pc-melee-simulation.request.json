@@ -99,7 +99,8 @@
               "success_multiplier": 1
             },
             "hands": "1h",
-            "secondary_effects": []
+            "secondary_effects": [],
+            "range_max": "close"
           },
           "protection": {
             "source_rule_id": "authored:minion:defence",
@@ -110,7 +111,8 @@
             },
             "skill": "defence"
           }
-        }
+        },
+        "holds_shield": false
       },
       {
         "actor_id": "minion2",
@@ -136,7 +138,8 @@
               "success_multiplier": 1
             },
             "hands": "1h",
-            "secondary_effects": []
+            "secondary_effects": [],
+            "range_max": "close"
           },
           "protection": {
             "source_rule_id": "authored:minion:defence",
@@ -147,7 +150,8 @@
             },
             "skill": "defence"
           }
-        }
+        },
+        "holds_shield": false
       },
       {
         "actor_id": "minion3",
@@ -173,7 +177,8 @@
               "success_multiplier": 1
             },
             "hands": "1h",
-            "secondary_effects": []
+            "secondary_effects": [],
+            "range_max": "close"
           },
           "protection": {
             "source_rule_id": "authored:minion:defence",
@@ -184,7 +189,8 @@
             },
             "skill": "defence"
           }
-        }
+        },
+        "holds_shield": false
       }
     ],
     "facts": {
@@ -212,7 +218,12 @@
       "pc"
     ],
     "max_rounds": 4,
-    "npc_broken_exit_policy": null
+    "npc_broken_exit_policy": null,
+    "npc_help_policies": [],
+    "npc_extra_attack_actor_ids": [],
+    "npc_grudge_policies": [],
+    "npc_blood_rage_actor_ids": [],
+    "npc_flagellant_policies": []
   },
   "simulation": {
     "master_seed": "42",

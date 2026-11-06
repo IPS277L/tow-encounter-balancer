@@ -29,7 +29,7 @@ class PcNpcProtectionJsonTests(unittest.TestCase):
         common=json.loads(files('towr.adapters.schemas').joinpath('pc-melee-common.schema.json')
             .read_text(encoding='utf-8'))
         self.assertEqual(common['$defs']['protection']['properties']['skill'],
-            {'enum':['defence','athletics']})
+            {'enum':['defence','athletics','stealth']})
         raw=document()
         self.assertEqual(raw['scenario']['enemies'][0]['definition']['protection']['skill'],'defence')
         command=wire.parse_pc_melee_simulation_request(json.dumps(raw))

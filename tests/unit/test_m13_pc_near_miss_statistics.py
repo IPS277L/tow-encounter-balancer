@@ -1,4 +1,7 @@
+from tests.support.pc_melee_fixtures import zero_npc_recover_counts
 """Resource observations remain bounded by each PC's explicit battle budget."""
+from tests.support.pc_melee_fixtures import zero_npc_extra_attack_counts
+from tests.support.pc_melee_fixtures import zero_npc_help_counts
 from tests.support.pc_melee_fixtures import zero_npc_exit_counts
 from copy import deepcopy
 from dataclasses import replace
@@ -27,7 +30,7 @@ def observed_batch():
             for member,count in zip(source.scenario.party,counts,strict=True)),
         tuple(PcGloriousSpendCount(member.actor_id,0) for member in source.scenario.party),
         tuple(PcHelpActionCount(member.actor_id,0) for member in source.scenario.party),
-        tuple(PcAllyRecoverActionCount(member.actor_id,0) for member in source.scenario.party), zero_npc_exit_counts(source.scenario))
+        tuple(PcAllyRecoverActionCount(member.actor_id,0) for member in source.scenario.party), zero_npc_exit_counts(source.scenario), npc_help_action_counts=zero_npc_help_counts(source.scenario), npc_extra_attack_counts=zero_npc_extra_attack_counts(source.scenario), npc_recover_action_counts=zero_npc_recover_counts(source.scenario))
         for index,(outcome,counts) in enumerate(rows))
     return PcMeleeSimulationResult(source,records)
 

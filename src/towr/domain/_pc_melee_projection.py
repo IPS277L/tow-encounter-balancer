@@ -3,8 +3,8 @@ from dataclasses import replace
 
 from towr.domain.pc_melee_result_models import (
     PcAttackProof, PcAttackerStaggerProof, PcEnduranceProof, PcHandDropProof, PcMeleeState,
-    PcProfileWoundProof, PcRecoverProof, PcTimedWound, PcTurnEndProof, PcWoundCompletionProof,
-    PcBodyConsequenceProof, PcWoundChoiceProof, PcHandSwapProof, PcBackupWeaponDrawProof, PcCriticalProof, PcIncapacitatedTurnEndProof, PcHelpProof,
+    PcProfileWoundProof, PcMinionStaggerDefeatProof, PcRecoverProof, PcTimedWound, PcTurnEndProof, PcWoundCompletionProof,
+    PcBodyConsequenceProof, PcWoundChoiceProof, PcHandSwapProof, PcBackupWeaponDrawProof, PcCriticalProof, PcIncapacitatedTurnEndProof, PcHelpProof, PcNpcHelpProof,
     build_pc_melee_attack, build_pc_melee_recover, build_pc_wound_completion, pc_after_test, pc_melee_action_id,
     pc_melee_next_actor, pc_melee_selected_action, pc_melee_unsupported,
     validate_pc_melee_combat_shape, validate_pc_melee_state_shape, validate_pc_melee_source_types,
@@ -16,6 +16,7 @@ from towr.domain.injury_models import (
     WoundConditionEffect, WoundConsequence, WoundConsequenceRequest, WoundEffectDuration,
     WoundEnduranceFailure, WoundEnduranceTestRequest, WoundEntryId,
     WoundRestriction, WoundRestrictionEffect,
+    MinionStaggerDefeatCause,MinionStaggerDefeatResult,
 )
 from towr.domain.condition_models import Condition, ConditionState, StaggerChoice, StaggerOutcome, StaggerResult
 from towr.domain.fate_models import _expected_fate_burn, FATE_SESSION_RULE_ID, FATE_BURN_RULE_ID
@@ -23,6 +24,17 @@ from towr.domain.fate_near_miss_models import FateNearMissApplicationRequest, _n
 from towr.domain.pc_melee_models import PcWeaponHand
 from towr.domain.pc_fate_test_models import validate_pc_test_fate
 from towr.domain.pc_help_models import build_pc_help_action, pc_attack_help_applications
+from towr.domain.pc_npc_help_models import build_pc_npc_help_action,pc_npc_attack_help_applications
+from towr.domain.pc_npc_extra_attack_models import build_pc_npc_extra_attack_slot
+from towr.domain.pc_npc_distraction_models import (PcNpcDistractionExpiredProof,
+    expected_pc_npc_distraction_expiry,distraction_from_profile_wound,ordered_npc_distractions)
+from towr.domain.pc_npc_grudge_models import (PcNpcGrudgeEncounterProof,
+    expected_pc_npc_grudge_encounter,grudge_distraction_from_encounter)
+from towr.domain.pc_bestigor_models import (PcNpcBloodRageProof,
+    expected_pc_npc_blood_rage, pc_bestigor_glorious_source)
+from towr.domain.pc_flagellant_models import (PcNpcRecoverProof, PcFlagellantMissWoundProof,
+    build_pc_npc_recover, flagellant_recovered_injury, build_pc_flagellant_miss_wound,
+    expected_flagellant_miss_wound)
 from towr.domain.minion_defeat_models import MinionDefeatDecision
 from towr.domain.resolution_models import AttackerStaggerRequest, condition_forces_wound
 from towr.domain.pc_heavy_wound_models import (PcBodyFact, PcBodyFactKind, usable_hands, usable_weapon_hand, has_ongoing_condition, critical_for_action, critical_for_hand, critical_for_incidental_hand_use)
@@ -31,7 +43,7 @@ from towr.domain.critical_injury_models import CriticalInjuryTestRequest
 from towr.domain.test_models import Skill
 from towr.domain.pc_backup_weapon_models import pc_backup_draw_hand, pc_preferred_weapon_hand
 from towr.domain.pc_npc_wound_models import (official_profile_wound_state,elf_merchant_profile_wound_state,
-    pc_npc_drained_profile_wound_state)
+    pc_npc_drained_profile_wound_state,pc_npc_prone_profile_wound_state)
 from towr.domain.pc_hit_condition_models import expected_pc_hit_target,hit_condition_sources_from_attack
 from towr.domain.pc_npc_exit_models import PcNpcExitProof,expected_pc_npc_exit
 from towr.domain.turn_models import (
@@ -98,9 +110,15 @@ def _ordinary_resolution(kernel, result):
             or result.deferred_wound_conditions != () or result.deferred_wound_condition_immunities != ()):
         raise ValueError('ordinary PC Attack cannot carry foreign effect/secondary/completion branches')
     expected_stagger = None
-    if result.attack.outcome is AttackOutcome.HIT and result.attack.impact is ImpactOutcome.STAGGERED and not condition_forces_wound(kernel,result.attack):
+    forced_minion = (kernel.minion_stagger_defeat is not None
+        and kernel.target_state.conditions.has(Condition.STAGGERED))
+    if (result.attack.outcome is AttackOutcome.HIT and result.attack.impact is ImpactOutcome.STAGGERED
+            and not forced_minion and not condition_forces_wound(kernel,result.attack)):
         conditions = kernel.target_state.conditions
-        if conditions.has(Condition.STAGGERED):
+        if kernel.first_stagger_wound is not None:
+            expected_stagger = StaggerResult(kernel.id+':stagger',conditions,StaggerOutcome.WOUND_REQUESTED,
+                (),None,True,False)
+        elif conditions.has(Condition.STAGGERED):
             choices = []
             if kernel.can_target_leave_zone and not conditions.has(Condition.PRONE):
                 choices.append(StaggerChoice.GIVE_GROUND)
@@ -177,15 +195,30 @@ def project_pc_step(state, proof):
     if pc_melee_unsupported(state) is not None:
         raise ValueError('unsupported PC consequence cannot be silently continued')
     combat, scenario = state.round_state, state.source
+    grudge_encounter=expected_pc_npc_grudge_encounter(state)
+    if grudge_encounter is not None and type(proof) is not PcNpcGrudgeEncounterProof:
+        raise ValueError('selected grudge encounters must precede combat turns')
+    distraction_expiry=expected_pc_npc_distraction_expiry(state)
+    if distraction_expiry is not None and type(proof) is not PcNpcDistractionExpiredProof:
+        raise ValueError('confirmed focus death must expire NPC Distracted before continuing')
+    blood_rage = expected_pc_npc_blood_rage(state)
+    if blood_rage is not None and type(proof) is not PcNpcBloodRageProof:
+        raise ValueError('selected Blood Rage must precede the reserved Attack')
     pc_actor = state.pending_actor_id
     if pc_actor is None and combat.active_turn is not None:
         actor = combat.active_turn.actor_id
         if actor in scenario.pc_activation_order:
             pc_actor = actor
-        elif combat.active_turn.action_slots and combat.active_turn.action_slots[0].executed:
+        elif (combat.active_turn.action_slots
+                and not combat.active_turn.action_slots[-1].executed
+                and combat.active_turn.action_slots[-1].enduring_strength is not None):
+            pc_actor = combat.active_turn.action_slots[-1].enduring_strength.target_id
+        elif (combat.active_turn.action_slots and combat.active_turn.action_slots[0].executed
+                and combat.active_turn.action_slots[0].declaration.kind is CombatActionKind.ATTACK):
             # A lethal result can remove this target from live priority before
             # the attacker's turn is closed; retain the actual action target.
-            pc_actor = next(p.request.target_id for p in reversed(state.history) if isinstance(p, PcAttackProof))
+            pc_actor = next(p.request.target_id for p in reversed(state.history)
+                if isinstance(p,PcAttackProof) and p.request.actor_id==actor)
         else:
             pc_actor = next(a for a in scenario.enemy_target_priority if not state.participant(a).injury.dead)
     member = state.participant(pc_actor) if pc_actor is not None else None
@@ -206,6 +239,34 @@ def project_pc_step(state, proof):
         elif 'pending_actor_id' not in updates:
             updates['pending_actor_id'] = pc_actor
         return replace(state,history=(*state.history,proof),**updates)
+    if type(proof) is PcNpcBloodRageProof:
+        replace(proof)
+        if blood_rage is None:
+            raise ValueError('no voluntary Blood Rage is available for this action')
+        _same(proof, blood_rage, 'Blood Rage changed its actor, action or selected policy')
+        enemy = state.enemy(proof.actor_id)
+        injury = replace(enemy.state.injury,
+            conditions=enemy.state.injury.conditions.with_condition(Condition.STAGGERED))
+        return finish(enemies=_enemy_update(state, proof.actor_id, injury))
+    if type(proof) is PcNpcGrudgeEncounterProof:
+        replace(proof)
+        _same(proof,grudge_encounter,'grudge encounter changed its complete source or source-roster order')
+        if grudge_encounter is None:
+            raise ValueError('no initial grudge encounter is available')
+        cause=grudge_distraction_from_encounter(scenario,proof)
+        enemy=state.enemy(cause.actor_id)
+        injury=replace(enemy.state.injury,conditions=enemy.state.injury.conditions.with_condition(Condition.DISTRACTED))
+        return finish(enemies=_enemy_update(state,cause.actor_id,injury),
+            npc_distractions=ordered_npc_distractions(scenario,(*state.npc_distractions,cause)))
+    if type(proof) is PcNpcDistractionExpiredProof:
+        replace(proof)
+        _same(proof,distraction_expiry,'NPC distraction expiry changed its actual cause or confirmed death')
+        if distraction_expiry is None:
+            raise ValueError('no completed focus death permits distraction expiry')
+        enemy=state.enemy(proof.source.actor_id)
+        injury=replace(enemy.state.injury,conditions=enemy.state.injury.conditions.without_condition(Condition.DISTRACTED))
+        return finish(enemies=_enemy_update(state,enemy.state.actor_id,injury),
+            npc_distractions=tuple(c for c in state.npc_distractions if c!=proof.source))
     if type(proof) is PcNpcExitProof:
         _ready(state)
         replace(proof)
@@ -230,10 +291,21 @@ def project_pc_step(state, proof):
     if isinstance(proof,CombatActionSlotResult):
         validate_pc_melee_combat_shape(proof.state)
         replace(proof.slot)
-        _same(proof.applied_rule_ids,('RULE-COMBAT-002:action-budget',),'reservation rule trace changed')
         _ready(state)
         turn = combat.active_turn
-        if turn is None or turn.action_slots:
+        if turn is not None and turn.action_slots:
+            request = build_pc_npc_extra_attack_slot(state)
+            if request is None:
+                raise ValueError('no second Attack is granted by this source/policy')
+            slot = CombatActionSlot(2,request.declaration,request.grant,request.grant_rule_id,
+                enduring_strength=request.enduring_strength)
+            expected = replace(combat,active_turn=replace(turn,action_slots=(*turn.action_slots,slot)))
+            _same((proof.request_id,proof.state,proof.slot,proof.applied_rule_ids),
+                (request.id,expected,slot,('RULE-COMBAT-002:action-budget',request.grant_rule_id)),
+                'Enduring Strength reservation changed its actual source or second target')
+            return finish(round_state=expected)
+        _same(proof.applied_rule_ids,('RULE-COMBAT-002:action-budget',),'reservation rule trace changed')
+        if turn is None:
             raise ValueError('PC standard action must be the sole unreserved slot')
         declaration = CombatActionDeclaration(pc_melee_selected_action(state))
         slot = CombatActionSlot(1,declaration,ActionSlotGrant.STANDARD)
@@ -244,13 +316,17 @@ def project_pc_step(state, proof):
     if isinstance(proof,PcAttackProof):
         _ready(state)
         turn = combat.active_turn
-        if turn is None or len(turn.action_slots) != 1 or turn.action_slots[0].executed:
-            raise ValueError('PC Attack must consume its unused standard slot once')
+        if turn is None or not turn.action_slots or turn.action_slots[-1].executed:
+            raise ValueError('PC Attack must consume its unused reserved slot once')
         if pc_melee_selected_action(state) is not CombatActionKind.ATTACK:
             raise ValueError('PC Attack cannot replace the selected Recover')
         expected, protection = build_pc_melee_attack(state)
+        _same(proof.npc_glorious_source, pc_bestigor_glorious_source(state, expected.actor_id),
+            'Bestigor Glorious changed its actual first-Wound source or next Attack')
         _same(proof.help_applications,pc_attack_help_applications(state,expected.kernel_request.attack),
             'Attack Help applications changed their exact intended-Test source/prefix')
+        _same(proof.npc_help_applications,pc_npc_attack_help_applications(state,expected.kernel_request.attack),
+            'NPC Help applications changed their exact intended-Test source/prefix')
         _same(proof.request,expected,'PC Attack request differs from the current complete source')
         replace(proof.protection)
         _same(proof.protection.source_request,protection,'PC Protection changed profile or equipment eligibility')
@@ -260,7 +336,7 @@ def project_pc_step(state, proof):
         validate_pc_melee_combat_shape(execution.state)
         replace(execution)
         _same((execution.request_id,execution.previous_state,execution.actor_id,execution.target_id,execution.slot_index),
-            (expected.id,combat,expected.actor_id,expected.target_id,1),'PC Attack receipt is detached')
+            (expected.id,combat,expected.actor_id,expected.target_id,expected.slot_index),'PC Attack receipt is detached')
         result = execution.resolution
         _same(execution.applied_rule_ids,('RULE-COMBAT-004:attack-action-execution',),'Attack action rule trace changed')
         pc_test = (expected.kernel_request.attack.attacker_test if expected.actor_id == pc_actor
@@ -290,6 +366,17 @@ def project_pc_step(state, proof):
             pc_injury = pc_after_test(state,pc_actor,caused)
         before = expected.kernel_request.target_state
         pending_wound = None
+        forced_defeat = None
+        spec = expected.kernel_request.minion_stagger_defeat
+        if (spec is not None and result.attack.outcome is AttackOutcome.HIT
+                and result.attack.impact is ImpactOutcome.STAGGERED
+                and before.conditions.has(Condition.STAGGERED)
+                and not condition_forces_wound(expected.kernel_request,result.attack)):
+            cause = MinionStaggerDefeatCause(expected.kernel_request.id+':minion-stagger-defeat',
+                expected.target_id,spec.rule_id)
+            forced_target = replace(before,defeated=True,defeat_cause=cause)
+            forced_defeat = MinionStaggerDefeatResult(cause.source_id,forced_target,cause,(spec.rule_id,))
+        _same(result.minion_stagger_defeat,forced_defeat,'Attack changed its actual non-Wound Minion defeat')
         if result.attack.outcome is AttackOutcome.MISS:
             base_target = before
             _same(result.target_state,before,'miss changed the target injury')
@@ -297,12 +384,20 @@ def project_pc_step(state, proof):
                 if result.attack.miss_consequence is MissConsequence.STAGGER_ATTACKER else ())
             if result.character_wound is not None or result.profile_wound is not None or result.pending_character_wound is not None:
                 raise ValueError('miss invented a Wound')
-        elif result.attack.impact is ImpactOutcome.STAGGERED and not before.conditions.has(Condition.STAGGERED) and not condition_forces_wound(expected.kernel_request,result.attack):
+        elif (result.attack.impact is ImpactOutcome.STAGGERED and not before.conditions.has(Condition.STAGGERED)
+                and expected.kernel_request.first_stagger_wound is None
+                and not condition_forces_wound(expected.kernel_request,result.attack)):
             target = replace(before,conditions=before.conditions.with_condition(Condition.STAGGERED))
             base_target = target
             followups = ()
             if result.character_wound is not None or result.profile_wound is not None or result.pending_character_wound is not None:
                 raise ValueError('first Staggered invented a Wound')
+        elif forced_defeat is not None:
+            if (result.character_wound is not None or result.profile_wound is not None
+                    or result.pending_character_wound is not None):
+                raise ValueError('Dirty Coward cannot invent a Wound')
+            base_target = forced_defeat.state
+            followups = (forced_defeat.cause,)
         elif expected.target_id == pc_actor:
             if result.profile_wound is not None:
                 raise ValueError('PLAYER Wound cannot carry a profile-NPC Wound branch')
@@ -353,6 +448,12 @@ def project_pc_step(state, proof):
                 raise TypeError('NPC profile Wound ID must be a string')
             followups = (change,)
         target,applications,secondary_rules = expected_pc_hit_target(expected.kernel_request,result.attack.outcome,base_target)
+        if forced_defeat is not None:
+            secondary_rules = (*forced_defeat.applied_rule_ids,*secondary_rules)
+        if (expected.kernel_request.first_stagger_wound is not None and result.attack.outcome is AttackOutcome.HIT
+                and result.attack.impact is ImpactOutcome.STAGGERED
+                and not condition_forces_wound(expected.kernel_request,result.attack)):
+            secondary_rules = (expected.kernel_request.first_stagger_wound.rule_id,*secondary_rules)
         _same((result.target_state,result.condition_applications,result.applied_secondary_rule_ids),
             (target,applications,secondary_rules),'PC Attack changed its canonical on-hit Condition application or target')
         _same(result.follow_ups,followups,'PC Attack altered mandatory follow-up order')
@@ -366,6 +467,18 @@ def project_pc_step(state, proof):
         return finish(round_state=execution.state,party=_party_update(state,pc_actor,injury=pc_injury,fate=pc_fate,
             hit_condition_sources=hit_sources),enemies=enemies,
             pending=result.follow_ups,pending_wound=pending_wound)
+    if isinstance(proof,PcNpcHelpProof):
+        from towr.domain.automatic_help_models import expected_automatic_help_action
+        _ready(state)
+        turn = combat.active_turn
+        if (turn is None or len(turn.action_slots)!=1 or turn.action_slots[0].executed
+                or pc_melee_selected_action(state) is not CombatActionKind.HELP):
+            raise ValueError('NPC Help must consume its selected unused standard slot once')
+        expected = build_pc_npc_help_action(state)
+        _same(proof.request,expected,'NPC Help changed its exact actor/recipient/Test/source')
+        canonical = expected_automatic_help_action(expected)
+        _same(proof.execution,canonical,'NPC Help changed its no-Test bonus/action receipt/clock')
+        return finish(round_state=canonical.round_state)
     if isinstance(proof,PcHelpProof):
         from towr.domain.help_models import _expected_help_execution
         _ready(state)
@@ -545,7 +658,20 @@ def project_pc_step(state, proof):
             raise ValueError('held-weapon swap changed its full current hand source')
         return finish(party=_party_update(state,pc_actor,weapon_hand=hand,
             injury=critical_for_incidental_hand_use(member,hand)))
+    if type(proof) is PcFlagellantMissWoundProof:
+        request = build_pc_flagellant_miss_wound(state)
+        if request is None:
+            raise ValueError('no pending miss permits Feel No Pain for this actor')
+        replace(proof)
+        actor = combat.active_turn.actor_id
+        _same((proof.actor_id,proof.source,proof.previous_injury),
+            (actor,state.pending[0],state.enemy(actor).state.injury),'miss Feel No Pain changed its actual actor/source')
+        _same(proof.wound,expected_flagellant_miss_wound(request),
+            'miss Feel No Pain detached from its complete profile Wound/ACK')
+        return finish(enemies=_enemy_update(state,actor,proof.wound.state),pending=state.pending[1:])
     if isinstance(proof,PcAttackerStaggerProof):
+        if build_pc_flagellant_miss_wound(state) is not None:
+            raise ValueError('selected Feel No Pain must replace this miss Staggered')
         if state.pending_wound is not None or not state.pending or state.pending[0] != proof.source:
             raise ValueError('miss Staggered is detached from its pending Attack')
         actor = combat.active_turn.actor_id
@@ -554,6 +680,25 @@ def project_pc_step(state, proof):
             return finish(party=_party_update(state,pc_actor,injury=injury),pending=state.pending[1:])
         old = state.enemy(actor).state.injury
         return finish(enemies=_enemy_update(state,actor,replace(old,conditions=old.conditions.with_condition(Condition.STAGGERED))),pending=state.pending[1:])
+    if isinstance(proof,PcMinionStaggerDefeatProof):
+        if type(proof.source) is not MinionStaggerDefeatCause:
+            raise TypeError('fleeing defeat requires its exact typed cause')
+        replace(proof.source)
+        if state.pending_wound is not None or not state.pending or state.pending[0] != proof.source:
+            raise ValueError('fleeing defeat is detached from its pending Attack')
+        attack = next(p for p in reversed(state.history) if type(p) is PcAttackProof)
+        defeat = attack.execution.resolution.minion_stagger_defeat
+        if (defeat is None or defeat.cause != proof.source or attack.request.target_id != proof.source.target_id
+                or state.enemy(proof.source.target_id).state.injury != defeat.state):
+            raise ValueError('fleeing defeat lacks its actual Attack/target/cause')
+        target = proof.source.target_id
+        enemy = state.enemy(target)
+        dropped = replace(enemy,state=replace(enemy.state,wields_weapon=False,available_attack_ids=()))
+        updated = combat
+        if target not in (*combat.completed_turn_entity_ids,*combat.excluded_turn_entity_ids):
+            updated = replace(combat,excluded_turn_entity_ids=(*combat.excluded_turn_entity_ids,target))
+        return finish(enemies=tuple(dropped if e.state.actor_id==target else e for e in state.enemies),
+            round_state=updated,pending=state.pending[1:])
     if isinstance(proof,PcProfileWoundProof):
         if (type(proof.source) is not ProfileStateChangeRequest
                 or not isinstance(proof.source.npc_type,ProfileNpcType)
@@ -574,7 +719,14 @@ def project_pc_step(state, proof):
             injury = official_profile_wound_state(enemy.definition,enemy.state.injury,proof.source)
             injury = elf_merchant_profile_wound_state(enemy.definition,injury,proof.source)
             injury = pc_npc_drained_profile_wound_state(enemy.definition,injury,proof.source)
-            return finish(enemies=_enemy_update(state,target,injury),pending=state.pending[1:])
+            injury = pc_npc_prone_profile_wound_state(enemy.definition,injury,proof.source)
+            cause=distraction_from_profile_wound(scenario,attack,proof.source)
+            distractions=state.npc_distractions
+            if cause is not None:
+                injury=replace(injury,conditions=injury.conditions.with_condition(Condition.DISTRACTED))
+                distractions=ordered_npc_distractions(scenario,(*distractions,cause))
+            return finish(enemies=_enemy_update(state,target,injury),pending=state.pending[1:],
+                npc_distractions=distractions)
         if not isinstance(proof.decision,MinionDefeatDecision):
             raise TypeError('defeated NPC requires the typed caller/GM decision')
         replace(proof.decision)
@@ -583,6 +735,18 @@ def project_pc_step(state, proof):
         if target not in (*combat.completed_turn_entity_ids,*combat.excluded_turn_entity_ids):
             updated = replace(combat,excluded_turn_entity_ids=(*combat.excluded_turn_entity_ids,target))
         return finish(round_state=updated,pending=state.pending[1:])
+    if type(proof) is PcNpcRecoverProof:
+        _ready(state)
+        if pc_melee_selected_action(state) is not CombatActionKind.RECOVER:
+            raise ValueError('NPC Recover must be selected by this source policy')
+        request = build_pc_npc_recover(state)
+        from towr.domain.pc_ally_recover_models import expected_pc_standard_recover
+        canonical = expected_pc_standard_recover(request)
+        actor = combat.active_turn.actor_id
+        before = state.enemy(actor).state.injury
+        expected = PcNpcRecoverProof(request,canonical,before,flagellant_recovered_injury(before))
+        _same(proof,expected,'NPC Recover changed its actor, receipt, heal or source')
+        return finish(round_state=canonical.round_state,enemies=_enemy_update(state,actor,expected.injury))
     if isinstance(proof,PcRecoverProof):
         _ready(state)
         if pc_melee_selected_action(state) is not CombatActionKind.RECOVER:
@@ -594,6 +758,8 @@ def project_pc_step(state, proof):
         return finish(round_state=canonical.round_state,
             party=pc_after_standard_recover(state,expected,canonical))
     if isinstance(proof,(PcTurnEndProof,PcIncapacitatedTurnEndProof)):
+        if build_pc_npc_extra_attack_slot(state) is not None:
+            raise ValueError('selected Bear policy must execute its available second Attack before TurnEnd')
         from towr.domain.pc_heavy_turn_projection import project_heavy_turn_end
         return project_heavy_turn_end(state,proof,finish)
     if isinstance(proof,CombatRoundAdvanceResult):

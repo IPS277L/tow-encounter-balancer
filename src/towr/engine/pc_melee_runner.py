@@ -7,8 +7,8 @@ from towr.domain.pc_melee_models import PcWeaponHand
 from towr.domain.pc_melee_result_models import (
     PcAttackProof, PcAttackerStaggerProof, PcEnduranceProof, PcFateDecline,
     PcHandDropProof, PcMeleeOutcome, PcMeleeScenarioResult, PcMeleeState, PcMeleeStep,
-    PcProfileWoundProof, PcRecoverProof, PcTurnEndProof, PcWoundCompletionProof,
-    PcBodyConsequenceProof, PcWoundChoiceProof, PcHandSwapProof, PcBackupWeaponDrawProof, PcCriticalProof, PcIncapacitatedTurnEndProof, PcHelpProof,
+    PcProfileWoundProof, PcMinionStaggerDefeatProof, PcRecoverProof, PcTurnEndProof, PcWoundCompletionProof,
+    PcBodyConsequenceProof, PcWoundChoiceProof, PcHandSwapProof, PcBackupWeaponDrawProof, PcCriticalProof, PcIncapacitatedTurnEndProof, PcHelpProof, PcNpcHelpProof,
     build_pc_melee_attack, build_pc_melee_recover, build_pc_wound_completion, initial_pc_melee_state, pc_after_test,
     pc_melee_action_id, pc_melee_next_actor, pc_melee_selected_action, pc_melee_unsupported,
     project_pc_melee_step, pc_melee_round_participants, validate_pc_melee_state_shape,
@@ -20,11 +20,14 @@ from towr.domain.pc_npc_exit_models import PcNpcExitProof,build_pc_npc_exit
 from towr.rules.free_movement_resolution import resolve_free_movement
 from towr.domain.pc_fate_test_models import build_pc_glorious_spend
 from towr.domain.pc_help_models import build_pc_help_action, pc_attack_help_applications
+from towr.domain.pc_npc_help_models import build_pc_npc_help_action,pc_npc_attack_help_applications
+from towr.rules.automatic_help_resolution import execute_automatic_help_action
 from towr.rules.help_resolution import _complete_help_action
 from towr.domain._pc_heavy_wound_projection import consequence_sides, clutch_candidates
 from towr.domain.critical_injury_models import CriticalInjuryTestRequest
 from towr.rules.critical_injury_resolution import resolve_critical_injury_test
 from towr.domain.injury_models import WoundConsequenceRequest, WoundEnduranceTestRequest, ProfileStateChangeRequest, WoundChoiceRequest, WoundChoice, WoundConsequence
+from towr.domain.injury_models import MinionStaggerDefeatCause
 from towr.domain.resolution_models import AttackerStaggerRequest
 from towr.domain.test_models import Skill
 from towr.domain.turn_models import (
@@ -42,6 +45,13 @@ from towr.rules.fate_resolution import spend_fate_for_glorious
 from towr.rules.turn_resolution import start_combat_turn, reserve_combat_action_slot, end_combat_turn, advance_combat_round
 from towr.rules.wound_effect_resolution import resolve_wound_endurance_test, resolve_wound_choice
 from towr.rules.wound_lifecycle_resolution import complete_character_wound_lifecycle
+from towr.domain.pc_npc_extra_attack_models import build_pc_npc_extra_attack_slot
+from towr.domain.pc_npc_distraction_models import expected_pc_npc_distraction_expiry
+from towr.domain.pc_npc_grudge_models import expected_pc_npc_grudge_encounter
+from towr.domain.pc_bestigor_models import expected_pc_npc_blood_rage, pc_bestigor_glorious_source
+from towr.domain.pc_flagellant_models import (PcNpcRecoverProof, PcFlagellantMissWoundProof,
+    build_pc_npc_recover, flagellant_recovered_injury, build_pc_flagellant_miss_wound)
+from towr.rules.injury_resolution import resolve_profile_wound
 
 
 class _Decisions(KeepAllFailures):
@@ -129,6 +139,10 @@ def run_pc_melee_scenario(scenario, rng: RandomSource) -> PcMeleeScenarioResult:
             consume(PcTurnEndProof(result,decline,critical))
 
     while True:
+        grudge_encounter=expected_pc_npc_grudge_encounter(state)
+        if grudge_encounter is not None:
+            consume(grudge_encounter)
+            continue
         unsupported = pc_melee_unsupported(state)
         if unsupported is not None:
             return PcMeleeScenarioResult(scenario,tuple(steps),PcMeleeOutcome.UNSUPPORTED_PATH,unsupported)
@@ -171,7 +185,14 @@ def run_pc_melee_scenario(scenario, rng: RandomSource) -> PcMeleeScenarioResult:
                     else:
                         consume(PcBodyConsequenceProof(pending,die,hand))
             elif isinstance(pending,AttackerStaggerRequest):
-                consume(PcAttackerStaggerProof(pending))
+                replacement = build_pc_flagellant_miss_wound(state)
+                if replacement is None:
+                    consume(PcAttackerStaggerProof(pending))
+                else:
+                    actor = state.round_state.active_turn.actor_id
+                    consume(PcFlagellantMissWoundProof(actor,pending,replacement.state,resolve_profile_wound(replacement)))
+            elif type(pending) is MinionStaggerDefeatCause:
+                consume(PcMinionStaggerDefeatProof(pending))
             elif isinstance(pending,ProfileStateChangeRequest):
                 attack = next(p for p in reversed(state.history) if isinstance(p,PcAttackProof))
                 decision = (scenario.participant(attack.request.actor_id).defeat_decision(attack.request.target_id)
@@ -179,6 +200,10 @@ def run_pc_melee_scenario(scenario, rng: RandomSource) -> PcMeleeScenarioResult:
                 consume(PcProfileWoundProof(pending,decision))
             else:
                 raise ValueError('unexpected mandatory PC continuation')
+            continue
+        distraction_expiry=expected_pc_npc_distraction_expiry(state)
+        if distraction_expiry is not None:
+            consume(distraction_expiry)
             continue
         if not state.live_party:
             return PcMeleeScenarioResult(scenario,tuple(steps),PcMeleeOutcome.PARTY_DEFEATED)
@@ -225,17 +250,31 @@ def run_pc_melee_scenario(scenario, rng: RandomSource) -> PcMeleeScenarioResult:
             consume(reserve_combat_action_slot(CombatActionSlotRequest(action_id+':reserve',combat,actor,
                 CombatActionDeclaration(pc_melee_selected_action(state)),ActionSlotGrant.STANDARD)))
             continue
-        if not combat.active_turn.action_slots[0].executed:
+        if not combat.active_turn.action_slots[-1].executed:
             if pc_melee_selected_action(state) is CombatActionKind.RECOVER:
-                request = build_pc_melee_recover(state)
-                consume(PcRecoverProof(execute_recover_action(request,rng,decisions=decisions)))
+                if actor in scenario.enemy_activation_order:
+                    request = build_pc_npc_recover(state)
+                    before = state.enemy(actor).state.injury
+                    consume(PcNpcRecoverProof(request,execute_recover_action(request,rng),before,
+                        flagellant_recovered_injury(before)))
+                else:
+                    request = build_pc_melee_recover(state)
+                    consume(PcRecoverProof(execute_recover_action(request,rng,decisions=decisions)))
             elif pc_melee_selected_action(state) is CombatActionKind.HELP:
-                request = build_pc_help_action(state)
-                test,decline,glorious,effective = _resolve_pc_test(state,actor,request.help_skill,
-                    request.help_test,rng,decisions)
-                execution = _complete_help_action(replace(request,help_test=effective),test)
-                consume(PcHelpProof(request,execution,decline,glorious))
+                if actor in scenario.enemy_activation_order:
+                    request = build_pc_npc_help_action(state)
+                    consume(PcNpcHelpProof(request,execute_automatic_help_action(request)))
+                else:
+                    request = build_pc_help_action(state)
+                    test,decline,glorious,effective = _resolve_pc_test(state,actor,request.help_skill,
+                        request.help_test,rng,decisions)
+                    execution = _complete_help_action(replace(request,help_test=effective),test)
+                    consume(PcHelpProof(request,execution,decline,glorious))
             else:
+                blood_rage = expected_pc_npc_blood_rage(state)
+                if blood_rage is not None:
+                    consume(blood_rage)
+                    continue
                 request, protection_request = build_pc_melee_attack(state)
                 protection = prepare_protection(protection_request)
                 _validate_attack_action_slot(request)
@@ -250,7 +289,9 @@ def run_pc_melee_scenario(scenario, rng: RandomSource) -> PcMeleeScenarioResult:
                     defender = resolve_test(attack_request.defender_test,rng,decisions=decisions)
                     attack_request = replace(attack_request,attacker_test=effective)
                 else:
-                    attacker = resolve_test(attack_request.attacker_test,rng,decisions=decisions)
+                    npc_glorious_source = pc_bestigor_glorious_source(state, actor)
+                    attacker = resolve_test(attack_request.attacker_test,rng,
+                        decisions=RerollAllFailures() if npc_glorious_source is not None else decisions)
                     if pc_test is None:
                         defender = None
                     else:
@@ -264,6 +305,12 @@ def run_pc_melee_scenario(scenario, rng: RandomSource) -> PcMeleeScenarioResult:
                 resolution = _resolve_kernel_attack_after_test(effective_kernel,attack,rng,decisions=decisions)
                 execution = _complete_attack_action(replace(request,kernel_request=effective_kernel),resolution)
                 consume(PcAttackProof(request,protection,execution,decline,glorious,
-                    pc_attack_help_applications(state,request.kernel_request.attack)))
+                    pc_attack_help_applications(state,request.kernel_request.attack),
+                    pc_npc_attack_help_applications(state,request.kernel_request.attack),
+                    npc_glorious_source=pc_bestigor_glorious_source(state, actor)))
+            continue
+        extra_slot = build_pc_npc_extra_attack_slot(state)
+        if extra_slot is not None:
+            consume(reserve_combat_action_slot(extra_slot))
             continue
         finish_turn()

@@ -1,4 +1,7 @@
+from tests.support.pc_melee_fixtures import zero_npc_recover_counts
 """Independent source/seed/accounting checks, without replaying combat logic."""
+from tests.support.pc_melee_fixtures import zero_npc_extra_attack_counts
+from tests.support.pc_melee_fixtures import zero_npc_help_counts
 from tests.support.pc_melee_fixtures import zero_npc_exit_counts
 from copy import deepcopy
 from dataclasses import replace
@@ -23,7 +26,7 @@ def record(request, index, outcome=Outcome.ROUND_LIMIT):
         tuple(PcNearMissBurnCount(member.actor_id,0) for member in request.scenario.party),
         tuple(PcGloriousSpendCount(member.actor_id,0) for member in request.scenario.party),
         tuple(PcHelpActionCount(member.actor_id,0) for member in request.scenario.party),
-        tuple(PcAllyRecoverActionCount(member.actor_id,0) for member in request.scenario.party), zero_npc_exit_counts(request.scenario))
+        tuple(PcAllyRecoverActionCount(member.actor_id,0) for member in request.scenario.party), zero_npc_exit_counts(request.scenario), npc_help_action_counts=zero_npc_help_counts(request.scenario), npc_extra_attack_counts=zero_npc_extra_attack_counts(request.scenario), npc_recover_action_counts=zero_npc_recover_counts(request.scenario))
 
 
 class PcMeleeSimulationModelTests(unittest.TestCase):
@@ -98,7 +101,7 @@ class PcMeleeSimulationModelTests(unittest.TestCase):
         summary=PcMeleeSimulationSummary(self.request,PcMeleeOutcomeCounts(1,1,1,1),5,4,1,
             1,(PcMeleeDefeatCount('pc',1),),0,(PcNearMissBurnCount('pc',0),),
             0,(PcGloriousSpendCount('pc',0),),0,(PcHelpActionCount('pc',0),),
-            0,(PcAllyRecoverActionCount('pc',0),), 0, zero_npc_exit_counts(self.request.scenario), 0)
+            0,(PcAllyRecoverActionCount('pc',0),), 0, zero_npc_exit_counts(self.request.scenario), 0, npc_help_action_trial_count=0, npc_help_action_counts=zero_npc_help_counts(self.request.scenario), npc_extra_attack_trial_count=0, npc_recover_action_trial_count=0, npc_extra_attack_counts=zero_npc_extra_attack_counts(self.request.scenario), npc_recover_action_counts=zero_npc_recover_counts(self.request.scenario))
         for changes in ({'outcome_counts':PcMeleeOutcomeCounts(1,1,1,0)},
                         {'total_started_round_count':3},{'total_completed_round_count':0},
                         {'total_completed_round_count':5},{'total_action_count':9}):

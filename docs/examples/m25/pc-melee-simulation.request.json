@@ -148,7 +148,8 @@
               "success_multiplier": 1
             },
             "hands": "2h",
-            "secondary_effects": []
+            "secondary_effects": [],
+            "range_max": "close"
           },
           "protection": {
             "source_rule_id": "BOOK-GM-GUIDE:1.1:p100:empire_state_trooper_halberd:defence",
@@ -159,7 +160,8 @@
               "pool_cap": null
             }
           }
-        }
+        },
+        "holds_shield": false
       },
       {
         "actor_id": "footpad1",
@@ -185,7 +187,8 @@
               "success_multiplier": 1
             },
             "hands": "1h",
-            "secondary_effects": []
+            "secondary_effects": [],
+            "range_max": "close"
           },
           "protection": {
             "source_rule_id": "BOOK-GM-GUIDE:1.1:p97:footpad:athletics",
@@ -196,7 +199,8 @@
               "pool_cap": null
             }
           }
-        }
+        },
+        "holds_shield": false
       }
     ],
     "facts": {
@@ -225,7 +229,12 @@
       "pc2"
     ],
     "max_rounds": 5,
-    "npc_broken_exit_policy": null
+    "npc_broken_exit_policy": null,
+    "npc_help_policies": [],
+    "npc_extra_attack_actor_ids": [],
+    "npc_grudge_policies": [],
+    "npc_blood_rage_actor_ids": [],
+    "npc_flagellant_policies": []
   },
   "simulation": {
     "master_seed": "42",

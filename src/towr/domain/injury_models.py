@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from enum import Enum
 
 from towr.domain.condition_models import Condition, ConditionState
@@ -652,12 +652,38 @@ def validate_fixed_character_wound_result_provenance(
         raise ValueError("fixed character Wound has stale provenance")
 
 
+def _minion_defeat_id(value: str, name: str) -> None:
+    if type(value) is not str or not value.strip():
+        raise TypeError(f"{name} must be an exact nonempty string")
+
+
+@dataclass(frozen=True, slots=True)
+class MinionStaggerDefeatSpec:
+    """A printed Minion rule replaces repeated Staggered with fleeing defeat."""
+    rule_id: str
+
+    def __post_init__(self) -> None:
+        _minion_defeat_id(self.rule_id, "Minion Staggered defeat rule")
+
+
+@dataclass(frozen=True, slots=True)
+class MinionStaggerDefeatCause:
+    source_id: str
+    target_id: str
+    rule_id: str
+
+    def __post_init__(self) -> None:
+        for name in ("source_id", "target_id", "rule_id"):
+            _minion_defeat_id(getattr(self, name), name)
+
+
 @dataclass(frozen=True, slots=True)
 class ProfileInjuryState:
     wounds: int
     wound_limit: int
     conditions: ConditionState = field(default_factory=ConditionState)
     defeated: bool = False
+    defeat_cause: MinionStaggerDefeatCause | None = None
 
     def __post_init__(self) -> None:
         _validate_non_negative_int(self.wounds, "wounds")
@@ -667,8 +693,40 @@ class ProfileInjuryState:
         if not isinstance(self.conditions, ConditionState):
             raise TypeError("conditions must be a ConditionState")
         _validate_bool(self.defeated, "defeated")
-        if self.defeated != (self.wounds >= self.wound_limit):
+        if self.defeat_cause is not None:
+            if type(self.defeat_cause) is not MinionStaggerDefeatCause:
+                raise TypeError("non-Wound Minion defeat requires its exact typed cause")
+            replace(self.defeat_cause)
+            if (type(self.wounds) is not int or self.wounds != 0
+                    or type(self.wound_limit) is not int or self.wound_limit != 1
+                    or type(self.defeated) is not bool or not self.defeated):
+                raise ValueError("Staggered fleeing defeat requires an unwounded defeated Minion")
+        elif self.defeated != (self.wounds >= self.wound_limit):
             raise ValueError("defeated must match whether wound_limit was reached")
+
+
+@dataclass(frozen=True, slots=True)
+class MinionStaggerDefeatResult:
+    request_id: str
+    state: ProfileInjuryState
+    cause: MinionStaggerDefeatCause
+    applied_rule_ids: tuple[str, ...]
+
+    def __post_init__(self) -> None:
+        _minion_defeat_id(self.request_id, "Minion Staggered defeat result")
+        if type(self.cause) is not MinionStaggerDefeatCause:
+            raise TypeError("Minion Staggered defeat result requires its exact cause")
+        replace(self.cause)
+        if type(self.state) is not ProfileInjuryState:
+            raise TypeError("Minion Staggered defeat result requires its exact profile state")
+        replace(self.state)
+        if (self.cause.source_id != self.request_id or self.state.defeat_cause != self.cause
+                or not self.state.conditions.has(Condition.STAGGERED)):
+            raise ValueError("Minion Staggered defeat result is detached from its actual cause/state")
+        if (type(self.applied_rule_ids) is not tuple or len(self.applied_rule_ids) != 1
+                or type(self.applied_rule_ids[0]) is not str
+                or self.applied_rule_ids != (self.cause.rule_id,)):
+            raise ValueError("Minion Staggered defeat must retain exactly its source Rule ID")
 
 
 @dataclass(frozen=True, slots=True)

@@ -2,6 +2,18 @@
 
 # Открытые вопросы
 
+## Закрыто M42: Brewguard Distracted — 2026-11-06
+
+Пользователь выбрал [ADR-0088 A](decisions/ADR-0088-pc-brewguard-distracted-focus.md): W1 разово накладывает Distracted на Brewguard с actual attacker как focus;−1d только против других PC. Confirmed focus death снимает эффект после Wound/Fate, Defenceless и Near Miss сохраняют; оставшаяся W1 не накладывает его повторно. Ongoing W1 альтернатива не выбрана. Реализованы typed source bank/expiry proof/actual Melee и Protection, без новых wire полей/метрик/действий. Общий вопрос provenance остальных Distracted sources остаётся открытым.
+
+## Закрыто M39: Bear / Enduring Strength — 2026-11-06
+
+Пользователь выбрал [ADR-0087](decisions/ADR-0087-pc-bear-second-attack-policy.md): обязательный список включённых Bears и существующий приоритет других живых PC после успешной первой Attack и всех её последствий. Без другой цели второй slot/действие/RNG отсутствуют; `[]` явно отказывается. Реальные extra actions проходят native/trials/search/current JSON1 с отдельными counts; прежние120JSON documents мигрированы без изменения наблюдений. Фиксированные вторичные адресаты не выбраны. Будущий NPC Recover при сохраняющемся профильном Drained остаётся открытым.
+
+## Закрыто M38: Minotaur Greataxe cap8 — 2026-11-06
+
+Пользователь выбрал [ADR-0086](decisions/ADR-0086-pc-minotaur-greataxe-pool-cap.md): explicit cap8 только canonical Greataxe attack; authored/прочие book/Protection profiles сохраняют null. Required поле уже было в JSON, codec и116прежнихJSON documents не мигрировались. [Реализованная граница](rules/npc-profile-catalog.md#greataxe-cap-m38), текущие результаты — в [статусе](project-status.md).
+
 ## Закрытые boundaries ADR-0044–0047 — перенесено 2026-11-01
 
 Исторический отчёт, ранее находившийся в актуальном списке. Следующая работа определяется только [статусом](project-status.md) и [открытыми вопросами](open-questions.md).

@@ -143,15 +143,17 @@ class BeastOrcModifierTests(unittest.TestCase):
 
     def test_helpers_require_canonical_gor_and_do_not_infer_traits_from_authored_weapon_names(self):
         gor = get_pc_book_npc_entry(PcBookNpcProfile.GOR_DUAL_AXES).definition
-        self.assertEqual(pc_npc_attack_modifiers(gor,ConditionState()),())
-        self.assertEqual(pc_npc_attack_modifiers(gor,ConditionState(frozenset({Condition.STAGGERED}))),
+        self.assertEqual(pc_npc_attack_modifiers(gor,ConditionState(),target_conditions=ConditionState(),attacker_wounds=0),())
+        self.assertEqual(pc_npc_attack_modifiers(gor,ConditionState(frozenset({Condition.STAGGERED})),
+            target_conditions=ConditionState(),attacker_wounds=0),
             (DiceModifier(GOR_PRIMAL_RAGE_RULE_ID,1),))
         with self.assertRaises(ValueError):
             pc_npc_damage_modifiers(replace(gor,source_rule_id='authored:fake-gor'))
         numeric = make_pc_melee_scenario().enemies[0].definition
         numeric = replace(numeric,attacks=(replace(numeric.attacks[0],id='crude_axes'),))
         self.assertEqual(pc_npc_damage_modifiers(numeric),())
-        self.assertEqual(pc_npc_attack_modifiers(numeric,ConditionState(frozenset({Condition.STAGGERED}))),())
+        self.assertEqual(pc_npc_attack_modifiers(numeric,ConditionState(frozenset({Condition.STAGGERED})),
+            target_conditions=ConditionState(),attacker_wounds=0),())
 
     def test_actual_modifier_receipts_reject_aliases_duplicates_or_replayed_source(self):
         result = gor_rage_result()

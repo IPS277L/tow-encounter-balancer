@@ -48,7 +48,8 @@ def make_pc_melee_scenario(*, weapon: PcMeleeWeapon = PcMeleeWeapon.STAFF,
         near_miss_policy=None,glorious_policy=None,help_policy=None,ally_recover_policy=None,backup_weapon_policy=None)
     return PcMeleeScenario("pc-melee", (member,), "day", tuple(enemies),
         PcMeleeFacts("arena", True, True, True, True, True, True, True, True, True, False),
-        ("pc",), ids, ("pc",), max_rounds,npc_broken_exit_policy=None)
+        ("pc",), ids, ("pc",), max_rounds,npc_broken_exit_policy=None,npc_help_policies=(),
+        npc_extra_attack_actor_ids=(),npc_grudge_policies=(),npc_blood_rage_actor_ids=(),npc_flagellant_policies=())
 
 
 def make_pc_melee_party_scenario(*, pc_count: int = 2, enemy_count: int = 2,
@@ -113,3 +114,24 @@ def zero_npc_exit_counts(scenario: PcMeleeScenario):
     from towr.simulation.pc_melee_models import PcNpcExitCount
 
     return tuple(PcNpcExitCount(enemy.state.actor_id, 0) for enemy in scenario.enemies)
+
+
+def zero_npc_help_counts(scenario: PcMeleeScenario):
+    """Fresh source-ordered observations for batches with no NPC Help actions."""
+    from towr.simulation.pc_melee_models import PcNpcHelpActionCount
+
+    return tuple(PcNpcHelpActionCount(enemy.state.actor_id, 0) for enemy in scenario.enemies)
+
+
+def zero_npc_extra_attack_counts(scenario: PcMeleeScenario):
+    """Fresh source-ordered observations for batches without NPC second Attacks."""
+    from towr.simulation.pc_melee_models import PcNpcExtraAttackCount
+
+    return tuple(PcNpcExtraAttackCount(enemy.state.actor_id, 0) for enemy in scenario.enemies)
+
+
+def zero_npc_recover_counts(scenario: PcMeleeScenario):
+    """Fresh source-ordered observations for batches without NPC Recover."""
+    from towr.simulation.pc_melee_models import PcNpcRecoverActionCount
+
+    return tuple(PcNpcRecoverActionCount(enemy.state.actor_id, 0) for enemy in scenario.enemies)

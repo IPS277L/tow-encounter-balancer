@@ -5,11 +5,13 @@ from typing import Protocol
 
 from towr.domain.attack_models import ConditionOnGiveGroundOrWoundSpec
 from towr.domain.condition_models import (
+    Condition,
     ConditionApplicationRequest,
     ConditionState,
     EffectImmunity,
     StaggerRequest,
     StaggerResult,
+    StaggerOutcome,
 )
 from towr.domain.injury_models import (
     CharacterInjuryState,
@@ -18,6 +20,8 @@ from towr.domain.injury_models import (
     ProfileInjuryState,
     ProfileNpcType,
     ProfileWoundRequest,
+    MinionStaggerDefeatCause,
+    MinionStaggerDefeatResult,
 )
 from towr.domain.resolution_models import (
     ConditionAfterGiveGroundRequest,
@@ -65,6 +69,24 @@ def resolve_stagger_impact(
     *,
     decisions: StaggerImpactDecisionProvider | None = None,
 ) -> StaggerImpactResult:
+    replace(request)
+    if request.first_stagger_wound is not None:
+        stagger = StaggerResult(request.id + ':stagger', request.target_state.conditions,
+            StaggerOutcome.WOUND_REQUESTED, (), None, True, False)
+        result = _resolve_stagger_wound(request, request.target_state, stagger, rng, decisions)
+        result = replace(result, applied_rule_ids=(
+            request.first_stagger_wound.rule_id, *result.applied_rule_ids))
+        return _apply_conditions_after_accepted_wound(result,
+            request.give_ground_or_wound_effects, request.target_effect_immunities)
+    if (request.minion_stagger_defeat is not None
+            and request.target_state.conditions.has(Condition.STAGGERED)
+            and not request.target_state.defeated):
+        cause = MinionStaggerDefeatCause(request.id + ':minion-stagger-defeat',
+            request.target_id, request.minion_stagger_defeat.rule_id)
+        state = replace(request.target_state, defeated=True, defeat_cause=cause)
+        defeat = MinionStaggerDefeatResult(cause.source_id,state,cause,(cause.rule_id,))
+        return StaggerImpactResult(request.id,state,None,None,None,None,(cause,),(cause.rule_id,),
+            minion_stagger_defeat=defeat)
     stagger = resolve_stagger(
         StaggerRequest(
             id=f"{request.id}:stagger",
@@ -231,6 +253,7 @@ def _with_conditions(
         wound_limit=state.wound_limit,
         conditions=conditions,
         defeated=state.defeated,
+        defeat_cause=state.defeat_cause,
     )
 
 

@@ -1,4 +1,7 @@
+from tests.support.pc_melee_fixtures import zero_npc_recover_counts
 """Source-ordered actual NPC exits remain separate from defeat and victory."""
+from tests.support.pc_melee_fixtures import zero_npc_extra_attack_counts
+from tests.support.pc_melee_fixtures import zero_npc_help_counts
 from copy import deepcopy
 from dataclasses import replace
 from enum import Enum
@@ -30,7 +33,7 @@ def record(request,index,outcome,exits):
         tuple(PcGloriousSpendCount(member.actor_id,0) for member in source.party),
         tuple(PcHelpActionCount(member.actor_id,0) for member in source.party),
         tuple(PcAllyRecoverActionCount(member.actor_id,0) for member in source.party),
-        tuple(PcNpcExitCount(enemy.state.actor_id,count) for enemy,count in zip(source.enemies,exits,strict=True)))
+        tuple(PcNpcExitCount(enemy.state.actor_id,count) for enemy,count in zip(source.enemies,exits,strict=True)), npc_help_action_counts=zero_npc_help_counts(source), npc_extra_attack_counts=zero_npc_extra_attack_counts(source), npc_recover_action_counts=zero_npc_recover_counts(source))
 
 
 def sample_result():

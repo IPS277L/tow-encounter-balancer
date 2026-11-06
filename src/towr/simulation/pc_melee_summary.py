@@ -1,6 +1,6 @@
 from dataclasses import replace
 
-from towr.simulation.pc_melee_models import PcMeleeSimulationResult, PcNearMissBurnCount, PcGloriousSpendCount, PcHelpActionCount, PcAllyRecoverActionCount, PcNpcExitCount
+from towr.simulation.pc_melee_models import PcMeleeSimulationResult, PcNearMissBurnCount, PcGloriousSpendCount, PcHelpActionCount, PcAllyRecoverActionCount, PcNpcExitCount, PcNpcHelpActionCount, PcNpcExtraAttackCount, PcNpcRecoverActionCount
 from towr.domain.pc_melee_result_models import PcMeleeOutcome
 from towr.simulation.pc_melee_summary_models import PcMeleeDefeatCount, PcMeleeSimulationSummary
 
@@ -36,4 +36,16 @@ def summarize_pc_melee_simulation(result: PcMeleeSimulationResult) -> PcMeleeSim
             sum(record.npc_exit_counts[index].count for record in result.records))
             for index,enemy in enumerate(result.source_request.scenario.enemies)),
         sum(record.outcome is PcMeleeOutcome.OBJECTIVE_ACHIEVED and any(item.count for item in record.npc_exit_counts)
-            for record in result.records))
+            for record in result.records),
+        sum(any(item.count for item in record.npc_help_action_counts) for record in result.records),
+        tuple(PcNpcHelpActionCount(enemy.state.actor_id,
+            sum(record.npc_help_action_counts[index].count for record in result.records))
+            for index,enemy in enumerate(result.source_request.scenario.enemies)),
+        sum(any(item.count for item in record.npc_extra_attack_counts) for record in result.records),
+        tuple(PcNpcExtraAttackCount(enemy.state.actor_id,
+            sum(record.npc_extra_attack_counts[index].count for record in result.records))
+            for index,enemy in enumerate(result.source_request.scenario.enemies)),
+        sum(any(item.count for item in record.npc_recover_action_counts) for record in result.records),
+        tuple(PcNpcRecoverActionCount(enemy.state.actor_id,
+            sum(record.npc_recover_action_counts[index].count for record in result.records))
+            for index,enemy in enumerate(result.source_request.scenario.enemies)))

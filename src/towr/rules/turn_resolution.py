@@ -65,6 +65,8 @@ def reserve_combat_action_slot(
     fate_proof: FateSecondActionProof | None = None,
 ) -> CombatActionSlotResult:
     """Validate and reserve an action slot without executing the action."""
+    if request.enduring_strength is not None:
+        replace(request)
     turn = request.state.active_turn
     if turn is None:
         raise ValueError("an active combat turn is required")
@@ -88,7 +90,7 @@ def reserve_combat_action_slot(
     if turn.action_slots:
         previous = turn.action_slots[0].declaration
         current = request.declaration
-        if previous.kind is current.kind:
+        if previous.kind is current.kind and request.enduring_strength is None:
             if current.kind is not CombatActionKind.IMPROVISE:
                 raise ValueError("a combat turn cannot repeat the same action")
             if not request.allows_second_improvise:
@@ -99,7 +101,8 @@ def reserve_combat_action_slot(
                 raise ValueError(
                     "repeated Improvise actions require different approaches"
                 )
-        if previous.produces_attack and current.produces_attack:
+        if (previous.produces_attack and current.produces_attack
+                and request.enduring_strength is None):
             raise ValueError("a combat turn cannot contain a second attack")
 
     slot = CombatActionSlot(
@@ -107,6 +110,7 @@ def reserve_combat_action_slot(
         declaration=request.declaration,
         grant=request.grant,
         grant_rule_id=request.grant_rule_id,
+        enduring_strength=request.enduring_strength,
     )
     updated_turn = replace(turn, action_slots=(*turn.action_slots, slot))
     updated_state = replace(request.state, active_turn=updated_turn)

@@ -8,6 +8,14 @@
 
 По решению пользователя [ADR-0063](decisions/ADR-0063-single-current-magic-contract.md) оставляет только Magic JSON6. Упоминания прежних wire versions ниже отражают историю игровых consumers, а не поддержку старых форматов. Backward compatibility и migration adapters не требуются; игровые ограничения и открытые вопросы остаются действующими.
 
+## Предел пула Minotaur Greataxe
+
+**Закрыто M38, 2026-11-06:** пользователь выбрал и реализован [ADR-0086](decisions/ADR-0086-pc-minotaur-greataxe-pool-cap.md). GM1.1 Minotaur147 имеет WS4/printed Greataxe3d5; PG1.4 Pools107 требует cap8, а не implicit6. Штраф оружия не применяется повторно.
+
+Required pool_cap уже был в JSON; ранее здесь ошибочно утверждалось обратное. Теперь schema enum:[null,8], domain допускает8 только attack canonical Greataxe. Остальные authored/book/Protection sources сохраняют null; numeric aliases/неверные source отвергаются до RNG. Codec/старые JSON не менялись.
+
+Произвольные authored caps не выбраны. [Нормализованное правило/проверки](rules/npc-profile-catalog.md#greataxe-cap-m38), [история](open-questions-history.md#закрыто-m38-minotaur-greataxe-cap8--2026-11-06). Эта запись сохранена для прежних ссылок; текущий next step определяется [статусом](project-status.md).
+
 ## Действующая граница симуляции
 
 M2/M6/M7 завершены для ограниченных numeric Minion-сценариев; их исходы, массовые прогоны и подбор не означают поддержку произвольного боя. Первый M8 допускает одного authored Champion-Wizard с Curse of Cowardly Flight и numeric Shooting Minions; неизвестные scene facts и обязательные неподдержанные продолжения дают отдельный UNSUPPORTED_PATH. Broken и другая Zone не считаются defeat. Никакая остановка не исключается из числа trials.
@@ -84,6 +92,8 @@ Player’s Guide 1.4 на странице 117 требует противопо
 
 Общее правило Distracted (Player’s Guide, страница 123) связывает Condition с конкретным объектом отвлечения и заменяет старое Distracted новым. Текущий `ConditionState` хранит только факт наличия Condition и не различает Stupidity, Foul Stench, заклинание или иной источник. `TrollStupidityState` отдельно и однозначно хранит собственный штраф и suppression, но перед полноценной симуляцией нужно решить, станет ли provenance/объект отвлечения частью общего Condition state либо останется в состояниях конкретных Abilities. До этого orchestration обязано явно сообщать Stupidity о внешнем снятии Distracted.
 
+M42 закрывает локальный случай Brewguard по [принятой трактовке A](decisions/ADR-0088-pc-brewguard-distracted-focus.md): actual first-Wound attacker становится focus; confirmed death после Wound/Fate снимает Condition, Defenceless — нет; W1 повторно его не накладывает. Owner-local typed bank и expiry proof связывают полный prefix, Melee/Protection используют actual focus. M43 расширяет тот же bank отдельной encounter причиной Miner по [явным grudge pairs](decisions/ADR-0089-pc-miner-grudge-policy.md), не подменяя её first-Wound source; relationship bonus независим от Condition. Общая миграция Troll/Foul Stench/spell/social Distracted, произвольные focus objects/replacement/visibility/Recover этим не решена.
+
 ## Spell Recast без определённой недавней истории
 
 Строка Miscast `23–24` (Player’s Guide 1.4, страница 159) требует случайно повторить недавно сотворённое заклинание, но не определяет временную границу `recently`, способ взвешивания повторных сотворений одного spell и исход, если маг ещё не сотворил ни одного подходящего заклинания. Текущий K1 требует от casting orchestration непустой стабильный `MiscastRecentSpellOption` snapshot с уникальными option IDs и случайно выбирает один option; пустой snapshot отклоняется без очистки Miscast Pool. Перед полным battle loop нужна GM/simulation policy для формирования snapshot и пустого случая.
@@ -132,4 +142,32 @@ M24 по [ADR-0079](decisions/ADR-0079-pc-broken-npc-adjacent-exit.md) закр�
 
 White Wolf M29 получает собственный Drained на W1 (GM136); NPC Recover отсутствует, и его допустимость при сохраняющейся profile Wound — будущий ongoing-cause вопрос PG122. Это не смешивается с отдельным PC Drained от Spider hit: пользователь явно сохранил текущий Attack/standard Recover, без нового альтернативного Endurance выбора. Книжное кратковременное восстановление PG123 не запрещено моделью болезни/длительности; такая модель не введена.
 
-Тот же открытый вопрос относится к Empire Knight, Knight of the White Wolf и Big ’Un из M30: W1 Drained применяется на actual first-Wound ACK, текущие NPC продолжают Attack, recovery policy при сохраняющейся ране не выбрана. Новых default решений нет.
+Тот же открытый вопрос относится к Empire Knight, Knight of the White Wolf и Big ’Un из M30, Bear с W1–2 Drained из M39, а также Demigryph и White Wolf Rending Claws из M40: W1 Drained применяется на actual first-Wound ACK, текущие NPC продолжают Attack, recovery policy при сохраняющейся ране не выбрана. Новых default решений нет.
+
+Centigor M40 получает Prone при подтверждении actual первой раны (GM149); текущая тактика остаётся Attack, без NPC Recover. Возможность снять Prone при сохраняющейся profile Wound и необходимость повторного применения при будущем recovery/лечении остаются отдельным ongoing-cause вопросом. Prone сам по себе не запрещает Attack; NPC не получает выдуманный штраф или автоматическую смену действия.
+
+## Weighted Net после M31
+
+GM1.1 Night Goblins157 добавляет Weighted Net2d/3,2H. PG1.4 Throwing Weapons96 задаёт Throwing и Burdened вместо Damage; это primary ConditionImpactSpec, не ConditionOnHitSpec поверх фиктивного Damage0. PG94 unlimited ammunition относится к ranged, PG96 разрешает вернуть throwing weapon при наличии возможности; для Net бесконечный запас не задан. Нужны конечный authored запас и фактический расход/pickup/смена оружия.
+
+PG123 снимает Burdened через Brawn Test либо уменьшение груза; PG118 relevant Test — альтернативный Recover вместо стандартных преимуществ. Текущая Attack/standard Recover стратегия автоматически такого решения не получает. Жизненный цикл причины должен отделять сеть от injury Burdened и не снимать чужие ongoing причины.
+
+До Net-среза отдельно сверить, как общее Defenceless PG123 successful attack→Wound сочетается с PG96 Burdened вместо Damage. Отсутствие поддержки в текущем condition_forces_wound для ConditionImpactSpec само по себе не разрешает трактовку книги; ни гарантированная безопасность Net, ни иной результат пока не заявлены. Это незавершённый анализ будущей функции, не подтверждённый house rule или найденное противоречие книг.
+
+Пользователь выбрал M31 melee Warrior/Skulker/Night Spear+shield без Net. [ADR-0082](decisions/ADR-0082-pc-goblin-melee-chunk.md) сохраняет согласованный scope; NPC Help для Horde добавлена в [M34](decisions/ADR-0084-pc-greenskin-automatic-help.md). Stealth и общая spatial/inventory стратегия отдельно не выбраны.
+
+### Адресная сверка Net после M32
+
+PG123 Burdened запрещает только Manoeuvre, а не Attack/Protection/standard Recover/free draw. В текущей неподвижной Close-сцене нет такого действия; от одного нового Condition не следует ухудшение Attack. Поэтому Net не была автоматически включена следующей реализацией; M32 использует совместимый каталоговый чанк из альтернативы roadmap.
+
+Возможная конечная future policy — одна Net, расходуемая при hit и miss, затем carried Spear. PG92 позволяет Strength3 нести одну2H Net и одну1H Spear; PG116 draw carried weapon — отдельный free action, допустимый в Close. Это не pickup выброшенной Net: для pickup в Close enemy нужен Recover. Не разрешать повторное использование без фактического recovery. PG68 требует shield для Defence против Throwing; нынешние PC без shield используют Athletics, даже если вооружены Sword/Staff. Melee outnumbering/higher-ground не переносятся на Throwing.
+
+Буквальное совместное чтение PG123 «любой successful attack → Wound» и PG96 Net «Burdened вместо Damage» поддерживает одну Wound по Defenceless без расчёта Damage: у Net нет прямого cannot Wound, как у Rock. Это вывод из двух правил, не отдельная фраза Net. До реализации нужно оформить precedence либо согласовать стратегию, которая использует Spear вместо Net против Defenceless, сохраняя неиспользованную Net. Такое переключение — caller-owned выбор оружия, не изменение книги; оно пока не выбрано.
+
+GM157 Night Goblin printed Res4 со shield по GM93 даёт Res3 без shield. Для2H Net нужен явный noShield loadout; нельзя поверх результата дописать inherited worn light armour+1. Typical Trappings не обязывают носить эту броню, но выбор noArmour/noShield должен быть назван прямо, либо первый authored Net/Spear profile должен оставаться authored, а не выдаваться за canonical Night Goblin. Ни этот loadout, ни стратегия/запас/Brawn removal сейчас не согласованы.
+
+<a id="dragon-ogre-shield-resilience"></a>
+
+## Dragon Ogre: shield и Resilience
+
+BOOK-GM-GUIDE1.1, гл.VII Dragon Ogre148 указывает Res8 armoured и Protection Athletics4d5 без shield annotation, но Typical Trappings содержит shield наряду с glaive/axes/light armour. Understanding NPC Profiles93 требует уменьшать Resilience на1, когда NPC не несёт обычно носимый shield, и говорит, что Protection указывает shield carried into battle. Для выбранной2H Hooks/Blades/Maces атаки нельзя одновременно держать щит. Пока неясно, означает ли список trappings включённый в printed8 боевой shield (тогда без него7), либо Protection без shield оставляет8. Для PC каталога Dragon Ogre не добавлен; произвольное значение/house rule не выбраны. Уточнить перед его реализацией. Не переносить эту неоднозначность на Gor/Orcs с явным shield annotation, где M45 применяет GM93 без спора.

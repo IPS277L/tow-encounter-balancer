@@ -1,10 +1,11 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from enum import Enum
 
 
 ACTION_BUDGET_RULE_ID = "RULE-COMBAT-002:action-budget"
+ENDURING_STRENGTH_RULE_ID = "RULE-PROFILE-CREATURE-010:enduring-strength"
 
 
 class CombatSide(str, Enum):
@@ -153,12 +154,43 @@ class CombatTurnParticipant:
 
 
 @dataclass(frozen=True, slots=True)
+class EnduringStrengthGrant:
+    """Clock projection; its successful source Attack is certified by the owner."""
+
+    actor_id: str
+    round_number: int
+    slot_request_id: str
+    first_execution: ActionExecutionReceipt
+    first_target_id: str
+    target_id: str
+
+    def __post_init__(self) -> None:
+        for value in (self.actor_id, self.slot_request_id, self.first_target_id, self.target_id):
+            _validate_non_empty_string(value, "Enduring Strength source/target ID")
+        if type(self.round_number) is not int or self.round_number < 1:
+            raise ValueError("Enduring Strength requires a positive integer round")
+        if type(self.first_execution) is not ActionExecutionReceipt:
+            raise TypeError("Enduring Strength requires the first execution receipt")
+        replace(self.first_execution)
+        replace(self.first_execution.declaration)
+        if (self.first_execution.actor_id != self.actor_id
+                or self.first_execution.round_number != self.round_number
+                or self.first_execution.slot_index != 1
+                or self.first_execution.executor_rule_id != 'RULE-COMBAT-004:attack-action-execution'
+                or self.first_execution.declaration.kind is not CombatActionKind.ATTACK):
+            raise ValueError("Enduring Strength requires this actor's first Attack")
+        if self.first_target_id == self.target_id:
+            raise ValueError("Enduring Strength requires a different target")
+
+
+@dataclass(frozen=True, slots=True)
 class CombatActionSlot:
     index: int
     declaration: CombatActionDeclaration
     grant: ActionSlotGrant
     grant_rule_id: str | None = None
     execution: ActionExecutionReceipt | None = None
+    enduring_strength: EnduringStrengthGrant | None = None
 
     def __post_init__(self) -> None:
         if not isinstance(self.index, int) or isinstance(self.index, bool):
@@ -175,6 +207,14 @@ class CombatActionSlot:
             _validate_non_empty_string(self.grant_rule_id, "grant_rule_id")
         elif self.grant_rule_id is not None:
             raise ValueError("only an Ability action grant may name a Rule ID")
+        if self.enduring_strength is not None:
+            if type(self.enduring_strength) is not EnduringStrengthGrant:
+                raise TypeError("Enduring Strength requires its typed grant")
+            replace(self.enduring_strength)
+            if (self.index != 2 or self.grant is not ActionSlotGrant.ABILITY
+                    or self.grant_rule_id != ENDURING_STRENGTH_RULE_ID
+                    or self.declaration.kind is not CombatActionKind.ATTACK):
+                raise ValueError("Enduring Strength only grants ability Attack slot2")
         if self.execution is not None and not isinstance(
             self.execution,
             ActionExecutionReceipt,
@@ -216,7 +256,16 @@ class CombatTurnState:
             raise ValueError("the first action must use the standard slot")
         if len(slots) == 2 and slots[1].grant is ActionSlotGrant.STANDARD:
             raise ValueError("the second action requires Fate or an Ability")
-        if len(slots) == 2 and (
+        repeated_attack = False
+        for slot in slots:
+            replace(slot)
+            if slot.enduring_strength is not None:
+                grant = slot.enduring_strength
+                if (slot.index != 2 or grant.actor_id != self.actor_id
+                        or slots[0].execution != grant.first_execution):
+                    raise ValueError("Enduring Strength belongs to another executed first Attack")
+                repeated_attack = True
+        if len(slots) == 2 and not repeated_attack and (
             slots[0].declaration.kind is slots[1].declaration.kind
         ):
             if slots[0].declaration.kind is not CombatActionKind.IMPROVISE:
@@ -228,7 +277,7 @@ class CombatTurnState:
                 raise ValueError(
                     "repeated Improvise actions require different approaches"
                 )
-        if sum(item.declaration.produces_attack for item in slots) > 1:
+        if not repeated_attack and sum(item.declaration.produces_attack for item in slots) > 1:
             raise ValueError("a turn cannot contain a second attack")
         execution_ids = tuple(
             item.execution.id
@@ -315,6 +364,10 @@ class CombatRoundState:
                 raise ValueError(
                     "action execution receipt belongs to another round"
                 )
+            if any(slot.enduring_strength is not None
+                    and slot.enduring_strength.round_number != self.round_number
+                    for slot in self.active_turn.action_slots):
+                raise ValueError("Enduring Strength grant belongs to another round")
 
         object.__setattr__(self, "participants", participants)
         object.__setattr__(self, "side_order", side_order)
@@ -367,6 +420,7 @@ class CombatActionSlotRequest:
     grant: ActionSlotGrant
     grant_rule_id: str | None = None
     allows_second_improvise: bool = False
+    enduring_strength: EnduringStrengthGrant | None = None
 
     def __post_init__(self) -> None:
         _validate_non_empty_string(self.id, "action slot request id")
@@ -385,6 +439,16 @@ class CombatActionSlotRequest:
             raise ValueError("only an Ability action grant may name a Rule ID")
         if not isinstance(self.allows_second_improvise, bool):
             raise TypeError("allows_second_improvise must be a boolean")
+        if self.enduring_strength is not None:
+            if type(self.enduring_strength) is not EnduringStrengthGrant:
+                raise TypeError("Enduring Strength requires its typed grant")
+            replace(self.enduring_strength)
+            if (self.enduring_strength.actor_id != self.actor_id
+                    or self.enduring_strength.round_number != self.state.round_number
+                    or self.enduring_strength.slot_request_id != self.id):
+                raise ValueError("Enduring Strength belongs to another reservation")
+            CombatActionSlot(2, self.declaration, self.grant, self.grant_rule_id,
+                enduring_strength=self.enduring_strength)
 
 
 @dataclass(frozen=True, slots=True)

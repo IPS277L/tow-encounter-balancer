@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from enum import Enum
 from typing import TYPE_CHECKING, Any
 
@@ -29,6 +29,9 @@ from towr.domain.injury_models import (
     CharacterInjuryState,
     CharacterWoundResult,
     MonstrosityImpactResult,
+    MinionStaggerDefeatCause,
+    MinionStaggerDefeatResult,
+    MinionStaggerDefeatSpec,
     ProfileInjuryState,
     ProfileStateChangeRequest,
     ProfileWoundResult,
@@ -1101,12 +1104,24 @@ FollowUpRequest = (
     | WoundConsequenceRequest
     | WoundChoiceRequest
     | ProfileStateChangeRequest
+    | MinionStaggerDefeatCause
     | ReactorZoneHazardRequest
     | SuppressRegenerationNextTurnRequest
 )
 
 
 TargetInjuryState = CharacterInjuryState | ProfileInjuryState
+
+
+@dataclass(frozen=True, slots=True)
+class FirstStaggerWoundSpec:
+    """An explicit ability choice replacing a healthy Brute's first Staggered."""
+
+    rule_id: str
+
+    def __post_init__(self) -> None:
+        if type(self.rule_id) is not str or not self.rule_id.strip():
+            raise TypeError("first-Staggered Wound requires an exact nonempty rule ID")
 
 
 @dataclass(frozen=True, slots=True)
@@ -1135,8 +1150,13 @@ class StaggerImpactRequest:
     target_effect_immunities: tuple[EffectImmunity, ...] = field(
         default_factory=tuple
     )
+    minion_stagger_defeat: MinionStaggerDefeatSpec | None = None
+    first_stagger_wound: FirstStaggerWoundSpec | None = field(default=None, kw_only=True)
 
     def __post_init__(self) -> None:
+        _validate_minion_stagger_defeat(self.minion_stagger_defeat, self.target_policy, self.target_state)
+        _validate_first_stagger_wound(self.first_stagger_wound, self.target_policy,
+            self.target_state, self.minion_stagger_defeat)
         _validate_non_empty_string(self.id, "Stagger impact request id")
         _validate_non_empty_string(self.target_id, "target_id")
         if not isinstance(self.target_policy, TargetInjuryPolicy):
@@ -1215,7 +1235,7 @@ class StaggerImpactRequest:
 class StaggerImpactResult:
     request_id: str
     state: TargetInjuryState
-    stagger: StaggerResult
+    stagger: StaggerResult | None
     character_wound: CharacterWoundResult | None
     wound_effect: WoundEffectResult | None
     profile_wound: ProfileWoundResult | None
@@ -1234,6 +1254,7 @@ class StaggerImpactResult:
     character_wound_completion: (
         CharacterWoundLifecycleCompletionResult | None
     ) = None
+    minion_stagger_defeat: MinionStaggerDefeatResult | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -1574,8 +1595,13 @@ class KernelAttackRequest:
         default_factory=tuple
     )
     physical_attack: bool = False
+    minion_stagger_defeat: MinionStaggerDefeatSpec | None = None
+    first_stagger_wound: FirstStaggerWoundSpec | None = field(default=None, kw_only=True)
 
     def __post_init__(self) -> None:
+        _validate_minion_stagger_defeat(self.minion_stagger_defeat, self.target_policy, self.target_state)
+        _validate_first_stagger_wound(self.first_stagger_wound, self.target_policy,
+            self.target_state, self.minion_stagger_defeat)
         if type(self.physical_attack) is not bool:
             raise TypeError("physical_attack must be a bool")
         if not isinstance(self.id, str):
@@ -1585,6 +1611,8 @@ class KernelAttackRequest:
         _validate_non_empty_string(self.target_id, "target_id")
         if not isinstance(self.attack, AttackRequest):
             raise TypeError("attack must be an AttackRequest")
+        if self.first_stagger_wound is not None and not isinstance(self.attack.impact_spec, DamageImpactSpec):
+            raise ValueError("first-Staggered Wound requires a damage Attack")
         if not isinstance(self.target_policy, TargetInjuryPolicy):
             raise TypeError("target_policy must be a TargetInjuryPolicy")
         _validate_bool(self.can_target_leave_zone, "can_target_leave_zone")
@@ -1711,6 +1739,47 @@ class ResolutionResult:
     character_wound_completion: (
         CharacterWoundLifecycleCompletionResult | None
     ) = None
+    minion_stagger_defeat: MinionStaggerDefeatResult | None = None
+
+
+def _validate_first_stagger_wound(spec, policy, state, minion_spec) -> None:
+    if spec is None:
+        return
+    if type(spec) is not FirstStaggerWoundSpec:
+        raise TypeError("first-Staggered Wound requires its exact typed spec")
+    replace(spec)
+    if minion_spec is not None:
+        raise ValueError("first-Staggered Wound cannot combine with Minion fleeing defeat")
+    if type(policy) is not TargetInjuryPolicy or policy is not TargetInjuryPolicy.BRUTE:
+        raise ValueError("first-Staggered Wound only supports Brutes")
+    if type(state) is not ProfileInjuryState:
+        raise TypeError("first-Staggered Wound requires an exact profile state")
+    replace(state)
+    if (type(state.wounds) is not int or state.wounds != 0
+            or type(state.defeated) is not bool or state.defeated
+            or state.conditions.has(Condition.STAGGERED)):
+        raise ValueError("first-Staggered Wound requires a living unstaggered Brute at zero Wounds")
+
+
+def _validate_minion_stagger_defeat(spec, policy, state) -> None:
+    if isinstance(state, ProfileInjuryState) and state.defeat_cause is not None:
+        replace(state)
+        if type(policy) is not TargetInjuryPolicy or policy is not TargetInjuryPolicy.MINION:
+            raise ValueError("a Minion fleeing-defeat cause cannot be used by another injury policy")
+    if spec is None:
+        return
+    if type(spec) is not MinionStaggerDefeatSpec:
+        raise TypeError("Minion Staggered defeat requires its exact typed spec")
+    replace(spec)
+    if type(policy) is not TargetInjuryPolicy or policy is not TargetInjuryPolicy.MINION:
+        raise ValueError("Staggered fleeing defeat is only supported for Minions")
+    if type(state) is not ProfileInjuryState:
+        raise TypeError("Staggered fleeing defeat requires an exact profile state")
+    replace(state)
+    if type(state.wound_limit) is not int or state.wound_limit != 1:
+        raise ValueError("Staggered fleeing defeat requires a one-Wound Minion")
+    if state.defeated:
+        raise ValueError("Staggered fleeing defeat cannot target an already defeated Minion")
 
 
 def condition_forces_wound(

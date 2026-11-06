@@ -34,7 +34,11 @@ class PcMeleeModelTests(unittest.TestCase):
     def test_all_source_fields_and_policies_are_required(self):
         for cls in (PcMeleeDefinition, PcMeleeFacts, PcMeleeParticipant, PcMeleeScenario):
             self.assertTrue(all((field.default is MISSING and field.default_factory is MISSING for field in fields(cls))))
-        self.assertEqual(tuple((field.name for field in fields(PcMeleeScenario))), ('id', 'party', 'day_id', 'enemies', 'facts', 'pc_activation_order', 'enemy_activation_order', 'enemy_target_priority', 'max_rounds','npc_broken_exit_policy'))
+        self.assertEqual(tuple((field.name for field in fields(PcMeleeScenario))), ('id', 'party', 'day_id', 'enemies', 'facts', 'pc_activation_order', 'enemy_activation_order', 'enemy_target_priority', 'max_rounds','npc_broken_exit_policy','npc_help_policies','npc_extra_attack_actor_ids','npc_grudge_policies','npc_blood_rage_actor_ids','npc_flagellant_policies'))
+        self.assertTrue(PcMeleeScenario.__dataclass_fields__['npc_extra_attack_actor_ids'].kw_only)
+        self.assertTrue(PcMeleeScenario.__dataclass_fields__['npc_grudge_policies'].kw_only)
+        self.assertTrue(PcMeleeScenario.__dataclass_fields__['npc_blood_rage_actor_ids'].kw_only)
+        self.assertTrue(PcMeleeScenario.__dataclass_fields__['npc_flagellant_policies'].kw_only)
 
     def test_numeric_pc_guards_use_positive_characteristics_and_skill_thresholds(self):
         pc = make_pc_melee_scenario().party[0].pc
@@ -173,19 +177,19 @@ class PcMeleeModelTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             replace(source, enemies=(source.enemies[0], conflicting))
 
-    def test_minions_start_healthy_armed_without_shields_and_on_opposition_side(self):
+    def test_minions_start_healthy_with_consistent_equipment_on_opposition_side(self):
         source = make_pc_melee_scenario()
         state = source.enemies[0].state
-        variants = (replace(state, injury=ProfileInjuryState(1, 1, defeated=True)), replace(state, injury=ProfileInjuryState(0, 1, conditions=ConditionState(frozenset({Condition.STAGGERED})))), replace(state, wields_weapon=False), replace(state, holds_shield=True), replace(state, side=CombatSide.PLAYERS_AND_ALLIES), replace(state, current_resilience=ResilienceProfile(9)), replace(state, available_attack_ids=()))
+        variants = (replace(state, injury=ProfileInjuryState(1, 1, defeated=True)), replace(state, injury=ProfileInjuryState(0, 1, conditions=ConditionState(frozenset({Condition.STAGGERED})))), replace(state, wields_weapon=False), replace(state, side=CombatSide.PLAYERS_AND_ALLIES), replace(state, current_resilience=ResilienceProfile(9)), replace(state, available_attack_ids=()))
         for changed in variants:
             with self.subTest(state=changed), self.assertRaises(ValueError):
                 enemy_changed(source, state=changed)
 
-    def test_minion_numeric_profiles_require_one_ordinary_close_melee_and_supported_protection(self):
+    def test_minion_numeric_profiles_require_one_supported_melee_and_protection(self):
         source = make_pc_melee_scenario()
         definition = source.enemies[0].definition
         attack = definition.attacks[0]
-        variants = (replace(definition, attacks=()), replace(definition, protection=()), replace(definition, attacks=(replace(attack, ignores_armour=True),)), replace(definition, attacks=(replace(attack, skill=Skill.SHOOTING),)), replace(definition, attacks=(replace(attack, range_max=RangedWeaponRange.SHORT),)), replace(definition, attacks=(replace(attack, damage=DamageProfile(3, 2)),)), replace(definition, attacks=(replace(attack, test_profile=InlineProfile(2, 4, 4)),)), replace(definition, protection=(replace(definition.protection[0], skill=Skill.MELEE),)))
+        variants = (replace(definition, attacks=()), replace(definition, protection=()), replace(definition, attacks=(replace(attack, ignores_armour=True),)), replace(definition, attacks=(replace(attack, skill=Skill.SHOOTING),)), replace(definition, attacks=(replace(attack, range_max=RangedWeaponRange.MEDIUM),)), replace(definition, attacks=(replace(attack, damage=DamageProfile(3, 2)),)), replace(definition, attacks=(replace(attack, test_profile=InlineProfile(2, 4, 4)),)), replace(definition, protection=(replace(definition.protection[0], skill=Skill.MELEE),)))
         for changed in variants:
             with self.subTest(definition=changed), self.assertRaises(ValueError):
                 enemy_changed(source, definition=changed)

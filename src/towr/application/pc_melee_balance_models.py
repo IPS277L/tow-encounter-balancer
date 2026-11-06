@@ -151,6 +151,12 @@ def project_pc_melee_candidate(request: PcMeleeBalanceRequest, counts: tuple[int
     scenario = replace(template, id=pc_melee_candidate_id(request, counts), facts=request.facts,
         enemies=tuple(enemy for enemy in template.enemies if enemy.state.actor_id in keep),
         enemy_activation_order=tuple(actor for actor in template.enemy_activation_order if actor in keep),
+        npc_help_policies=tuple(policy for policy in template.npc_help_policies
+            if policy.helper_id in keep and policy.beneficiary_id in keep),
+        npc_extra_attack_actor_ids=tuple(actor for actor in template.npc_extra_attack_actor_ids if actor in keep),
+        npc_grudge_policies=tuple(policy for policy in template.npc_grudge_policies if policy.actor_id in keep),
+        npc_blood_rage_actor_ids=tuple(actor for actor in template.npc_blood_rage_actor_ids if actor in keep),
+        npc_flagellant_policies=tuple(policy for policy in template.npc_flagellant_policies if policy.actor_id in keep),
         party=tuple(replace(member,
             target_priority=tuple(actor for actor in member.target_priority if actor in keep),
             defeat_decisions=tuple(decision for decision in member.defeat_decisions if decision.target_id in keep))

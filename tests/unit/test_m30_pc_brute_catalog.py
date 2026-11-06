@@ -67,7 +67,8 @@ class PcBruteCatalogTests(unittest.TestCase):
             with self.subTest(profile=profile):
                 entry=get_pc_book_npc_entry(profile)
                 self.assertEqual(entry.wound_bands,bands)
-                self.assertEqual(entry.active_abilities,())
+                self.assertEqual(tuple(a.name for a in entry.active_abilities),
+                    ('Power of the Waaagh!',) if profile is PcBookNpcProfile.BIG_UN_CHOPPAS else ())
                 self.assertIn('Defence',entry.name)
                 if profile is not PcBookNpcProfile.KNIGHT_WHITE_WOLF_HAMMER:
                     self.assertIn('no shield',entry.name)
@@ -106,8 +107,9 @@ class PcBruteCatalogTests(unittest.TestCase):
         entry=get_pc_book_npc_entry(PcBookNpcProfile.BIG_UN_CHOPPAS)
         self.assertEqual(entry.unselected_attack_names,('Jagged Spear','Warbow'))
         self.assertEqual(tuple(a.name for a in entry.inactive_abilities),
-            ('Choppas on Charge','Power of the Waaagh!'))
-        charge,help_ability=entry.inactive_abilities
+            ('Choppas on Charge',))
+        charge,=entry.inactive_abilities
+        help_ability,=entry.active_abilities
         self.assertEqual((charge.scope,charge.effect),('An attack as part of a Charge','+1 Damage'))
         self.assertIn('Helps an ally make a Melee attack',help_ability.scope)
         self.assertIn('Do not Test',help_ability.effect)

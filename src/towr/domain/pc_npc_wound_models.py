@@ -16,11 +16,18 @@ if TYPE_CHECKING:
 OFFICIAL_DEFINITION_ID = 'pc-book-npc:empire_official_dagger'
 OFFICIAL_BROKEN_RULE_ID = 'RULE-PROFILE-TALABEC-007:first-wound-broken'
 ELF_MERCHANT_DEFINITION_ID = 'pc-book-npc:elf_merchant_jewelled_blade'
+CENTIGOR_DEFINITION_ID = 'pc-book-npc:centigor_spear'
 _FIRST_WOUND_DRAINED_DEFINITIONS = (
     'pc-book-npc:white_wolf_clamping_jaws',
     'pc-book-npc:empire_knight_lance',
+    'pc-book-npc:empire_knight_lance_shield',
     'pc-book-npc:knight_white_wolf_hammer',
     'pc-book-npc:big_un_choppas',
+    'pc-book-npc:big_un_spear_shield',
+    'pc-book-npc:big_un_spear',
+    'pc-book-npc:bear_sweeping_claws',
+    'pc-book-npc:demigryph',
+    'pc-book-npc:white_wolf_rending_claws',
 )
 
 
@@ -91,6 +98,19 @@ def pc_npc_drained_profile_wound_state(definition: NpcDefinition,injury: Profile
     if injury.wounds!=1 or injury.defeated:
         raise ValueError('profile first-Wound Drained requires its actual updated injury')
     return replace(injury,conditions=injury.conditions.with_condition(Condition.DRAINED))
+
+
+def pc_npc_prone_profile_wound_state(definition: NpcDefinition,injury: ProfileInjuryState,
+        change: ProfileStateChangeRequest) -> ProfileInjuryState:
+    """Centigor falls Prone only while acknowledging its actual first Wound."""
+    if definition.id != CENTIGOR_DEFINITION_ID:
+        return injury
+    validate_pc_book_npc_definition(definition)
+    if not _first_wound(change):
+        return injury
+    if injury.wounds != 1 or injury.defeated:
+        raise ValueError('Centigor first-Wound Prone requires its actual updated injury')
+    return replace(injury,conditions=injury.conditions.with_condition(Condition.PRONE))
 
 
 def pc_npc_broken_turn_unsupported(state: PcMeleeState) -> PcNpcBrokenTurnUnsupported | None:

@@ -84,6 +84,9 @@ class AttackActionExecutionResult:
             raise TypeError("slot must be a CombatActionSlot")
         if not isinstance(self.resolution, ResolutionResult):
             raise TypeError("resolution must be a ResolutionResult")
+        if (self.slot.enduring_strength is not None
+                and self.target_id != self.slot.enduring_strength.target_id):
+            raise ValueError("Enduring Strength result requires its granted target")
         rule_ids = _validate_execution_transition(
             request_id=self.request_id,
             actor_id=self.actor_id,

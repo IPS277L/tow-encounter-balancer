@@ -102,7 +102,10 @@
           "maximum": 10
         },
         "pool_cap": {
-          "type": "null"
+          "enum": [
+            null,
+            8
+          ]
         }
       },
       "required": [
@@ -133,12 +136,25 @@
     "on_hit_drained_effect": {
       "type": "object",
       "properties": {
-        "kind": {"const": "condition_on_hit"},
-        "condition": {"const": "drained"},
-        "rule_id": {"$ref": "urn:towr:pc-melee:common:1#/$defs/identifier"},
-        "classification": {"const": "unclassified"}
+        "kind": {
+          "const": "condition_on_hit"
+        },
+        "condition": {
+          "const": "drained"
+        },
+        "rule_id": {
+          "$ref": "urn:towr:pc-melee:common:1#/$defs/identifier"
+        },
+        "classification": {
+          "const": "unclassified"
+        }
       },
-      "required": ["kind", "condition", "rule_id", "classification"],
+      "required": [
+        "kind",
+        "condition",
+        "rule_id",
+        "classification"
+      ],
       "additionalProperties": false
     },
     "attack": {
@@ -170,6 +186,12 @@
           ],
           "additionalProperties": false
         },
+        "range_max": {
+          "enum": [
+            "close",
+            "short"
+          ]
+        },
         "hands": {
           "enum": [
             "1h",
@@ -180,7 +202,9 @@
         "secondary_effects": {
           "type": "array",
           "maxItems": 1,
-          "items": {"$ref": "urn:towr:pc-melee:common:1#/$defs/on_hit_drained_effect"}
+          "items": {
+            "$ref": "urn:towr:pc-melee:common:1#/$defs/on_hit_drained_effect"
+          }
         }
       },
       "required": [
@@ -188,6 +212,7 @@
         "source_rule_id",
         "test_profile",
         "damage",
+        "range_max",
         "hands",
         "secondary_effects"
       ],
@@ -202,7 +227,8 @@
         "skill": {
           "enum": [
             "defence",
-            "athletics"
+            "athletics",
+            "stealth"
           ]
         },
         "test_profile": {
@@ -221,6 +247,9 @@
       "properties": {
         "actor_id": {
           "$ref": "urn:towr:pc-melee:common:1#/$defs/identifier"
+        },
+        "holds_shield": {
+          "type": "boolean"
         },
         "definition": {
           "type": "object",
@@ -267,7 +296,9 @@
                 "properties": {
                   "attack": {
                     "properties": {
-                      "hands": {"type": "null"}
+                      "hands": {
+                        "type": "null"
+                      }
                     }
                   }
                 }
@@ -276,7 +307,9 @@
                 "properties": {
                   "protection": {
                     "properties": {
-                      "skill": {"const": "athletics"}
+                      "skill": {
+                        "const": "athletics"
+                      }
                     }
                   }
                 }
@@ -297,12 +330,50 @@
                   }
                 }
               }
+            },
+            {
+              "if": {
+                "properties": {
+                  "protection": {
+                    "properties": {
+                      "skill": {
+                        "const": "stealth"
+                      }
+                    }
+                  }
+                }
+              },
+              "then": {
+                "properties": {
+                  "id": {
+                    "const": "pc-book-npc:halfling_thief_dagger"
+                  },
+                  "source_rule_id": {
+                    "const": "BOOK-GM-GUIDE:1.1:p103:halfling_thief_dagger"
+                  },
+                  "protection": {
+                    "properties": {
+                      "source_rule_id": {
+                        "const": "BOOK-GM-GUIDE:1.1:p103:halfling_thief_dagger:stealth"
+                      },
+                      "test_profile": {
+                        "const": {
+                          "dice": 3,
+                          "threshold": 5,
+                          "pool_cap": null
+                        }
+                      }
+                    }
+                  }
+                }
+              }
             }
           ]
         }
       },
       "required": [
         "actor_id",
+        "holds_shield",
         "definition"
       ],
       "additionalProperties": false
@@ -761,9 +832,48 @@
         },
         "npc_broken_exit_policy": {
           "anyOf": [
-            {"type": "null"},
-            {"$ref": "urn:towr:pc-melee:common:1#/$defs/npc_broken_exit_policy"}
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "urn:towr:pc-melee:common:1#/$defs/npc_broken_exit_policy"
+            }
           ]
+        },
+        "npc_help_policies": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:towr:pc-melee:common:1#/$defs/npc_help_policy"
+          },
+          "uniqueItems": true
+        },
+        "npc_extra_attack_actor_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:towr:pc-melee:common:1#/$defs/identifier"
+          },
+          "uniqueItems": true
+        },
+        "npc_grudge_policies": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:towr:pc-melee:common:1#/$defs/npc_grudge_policy"
+          },
+          "uniqueItems": true
+        },
+        "npc_blood_rage_actor_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:towr:pc-melee:common:1#/$defs/identifier"
+          },
+          "uniqueItems": true
+        },
+        "npc_flagellant_policies": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:towr:pc-melee:common:1#/$defs/npc_flagellant_policy"
+          },
+          "uniqueItems": true
         }
       },
       "required": [
@@ -776,21 +886,30 @@
         "enemy_activation_order",
         "enemy_target_priority",
         "max_rounds",
-        "npc_broken_exit_policy"
+        "npc_broken_exit_policy",
+        "npc_help_policies",
+        "npc_extra_attack_actor_ids",
+        "npc_grudge_policies",
+        "npc_blood_rage_actor_ids",
+        "npc_flagellant_policies"
       ],
       "additionalProperties": false,
       "allOf": [
         {
           "if": {
             "properties": {
-              "npc_broken_exit_policy": {"type": "object"}
+              "npc_broken_exit_policy": {
+                "type": "object"
+              }
             }
           },
           "then": {
             "properties": {
               "facts": {
                 "properties": {
-                  "can_leave_zone": {"const": true}
+                  "can_leave_zone": {
+                    "const": true
+                  }
                 }
               }
             }
@@ -884,10 +1003,18 @@
     "npc_exit_count": {
       "type": "object",
       "properties": {
-        "actor_id": {"$ref": "urn:towr:pc-melee:common:1#/$defs/identifier"},
-        "count": {"type": "integer", "minimum": 0}
+        "actor_id": {
+          "$ref": "urn:towr:pc-melee:common:1#/$defs/identifier"
+        },
+        "count": {
+          "type": "integer",
+          "minimum": 0
+        }
       },
-      "required": ["actor_id", "count"],
+      "required": [
+        "actor_id",
+        "count"
+      ],
       "additionalProperties": false
     },
     "summary": {
@@ -990,13 +1117,60 @@
         "npc_exit_counts": {
           "type": "array",
           "minItems": 1,
-          "items": {"$ref": "urn:towr:pc-melee:common:1#/$defs/npc_exit_count"}
+          "items": {
+            "$ref": "urn:towr:pc-melee:common:1#/$defs/npc_exit_count"
+          }
         },
         "objective_with_npc_exit_count": {
           "type": "integer",
           "minimum": 0
         },
         "total_npc_exit_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "npc_help_action_trial_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "npc_help_action_counts": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "urn:towr:pc-melee:common:1#/$defs/npc_help_action_count"
+          }
+        },
+        "total_npc_help_action_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "npc_extra_attack_trial_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "npc_extra_attack_counts": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "urn:towr:pc-melee:common:1#/$defs/npc_extra_attack_count"
+          }
+        },
+        "total_npc_extra_attack_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "npc_recover_action_trial_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "npc_recover_action_counts": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "urn:towr:pc-melee:common:1#/$defs/npc_recover_action_count"
+          }
+        },
+        "total_npc_recover_action_count": {
           "type": "integer",
           "minimum": 0
         }
@@ -1024,7 +1198,16 @@
         "npc_exit_trial_count",
         "npc_exit_counts",
         "objective_with_npc_exit_count",
-        "total_npc_exit_count"
+        "total_npc_exit_count",
+        "npc_help_action_trial_count",
+        "npc_help_action_counts",
+        "total_npc_help_action_count",
+        "npc_extra_attack_trial_count",
+        "npc_extra_attack_counts",
+        "total_npc_extra_attack_count",
+        "npc_recover_action_trial_count",
+        "npc_recover_action_counts",
+        "total_npc_recover_action_count"
       ],
       "additionalProperties": false
     },
@@ -1603,6 +1786,112 @@
       "additionalProperties": false
     },
     "ally_recover_action_count": {
+      "type": "object",
+      "properties": {
+        "actor_id": {
+          "$ref": "urn:towr:pc-melee:common:1#/$defs/identifier"
+        },
+        "count": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "actor_id",
+        "count"
+      ],
+      "additionalProperties": false
+    },
+    "npc_help_policy": {
+      "type": "object",
+      "properties": {
+        "helper_id": {
+          "$ref": "urn:towr:pc-melee:common:1#/$defs/identifier"
+        },
+        "beneficiary_id": {
+          "$ref": "urn:towr:pc-melee:common:1#/$defs/identifier"
+        }
+      },
+      "required": [
+        "helper_id",
+        "beneficiary_id"
+      ],
+      "additionalProperties": false
+    },
+    "npc_help_action_count": {
+      "type": "object",
+      "properties": {
+        "actor_id": {
+          "$ref": "urn:towr:pc-melee:common:1#/$defs/identifier"
+        },
+        "count": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "actor_id",
+        "count"
+      ],
+      "additionalProperties": false
+    },
+    "npc_extra_attack_count": {
+      "type": "object",
+      "properties": {
+        "actor_id": {
+          "$ref": "urn:towr:pc-melee:common:1#/$defs/identifier"
+        },
+        "count": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "actor_id",
+        "count"
+      ],
+      "additionalProperties": false
+    },
+    "npc_grudge_policy": {
+      "type": "object",
+      "properties": {
+        "actor_id": {
+          "$ref": "urn:towr:pc-melee:common:1#/$defs/identifier"
+        },
+        "focus_actor_id": {
+          "$ref": "urn:towr:pc-melee:common:1#/$defs/identifier"
+        }
+      },
+      "required": [
+        "actor_id",
+        "focus_actor_id"
+      ],
+      "additionalProperties": false
+    },
+    "npc_flagellant_policy": {
+      "type": "object",
+      "properties": {
+        "actor_id": {
+          "$ref": "urn:towr:pc-melee:common:1#/$defs/identifier"
+        },
+        "feel_no_pain": {
+          "enum": [
+            "decline",
+            "wound_at_zero"
+          ]
+        },
+        "recover_when_wounded": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "actor_id",
+        "feel_no_pain",
+        "recover_when_wounded"
+      ],
+      "additionalProperties": false
+    },
+    "npc_recover_action_count": {
       "type": "object",
       "properties": {
         "actor_id": {

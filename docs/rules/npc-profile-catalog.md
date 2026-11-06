@@ -147,6 +147,314 @@ PG93 определяет Lance как Close/1H с +1d Melee/+1 Damage при mo
 
 Проверки: [данные/metadata/identities](../../tests/unit/test_m30_pc_brute_catalog.py), [native Wounds/bonus filter/defeat/replay](../../tests/unit/test_m30_pc_brute_wounds.py), [JSON1/full source/trials/8составов](../../tests/integration/test_m30_pc_brute_chunk.py). Старый M27 metadata test ограничен собственными Wolf/Boar, вместо требования отсутствия variants у любых будущих записей каталога.
 
+<a id="empire-chunk-m32"></a>
+
+## M32 — Empire Peasant, Town Watch и Free Company Militia
+
+Статус: `verified` в PC family. RULE-PROFILE-TALABEC-001/006 и RULE-PROFILE-IMPERIAL-001; BOOK-GM-GUIDE1.1, Allies and Antagonists / Profiles93 / Empire Peasant96 / Town Watch97 / Free Company Militia113. Подтверждение Detachment: State Trooper100. BOOK-PLAYER-GUIDE1.4, Melee Weapons92 / Free Actions116 / Help/Recover117–118. [Общие factory/JSON/CLI-примеры](../examples/m32/README.md).
+
+| Profile ID | Выбранная атака | Выбранная Protection | Injury/Resilience |
+|---|---|---|---|
+| EMPIRE_PEASANT | Make-Shift Weapons Close2d/2 Damage2,1H | Athletics3d/2 | Normal Minion,T3/Res3 |
+| TOWN_WATCH_POLEARM | Polearm Close→maxShort3d/3 Damage5,2H | Athletics3d/3 | Normal Minion,T3/Res4 armoured |
+| FREE_COMPANY_MILITIA_BLADES | Improvised Blades Close3d/3 Damage3,1H | Athletics3d/3 | Normal Minion,T3/Res3 |
+
+Все unshielded. Town Watch не получает повторный PC weapon Damage modifier поверх printed5 и не подменяет Athletics на Defence из-за2H оружия. Peasant Protection3d/2 берётся из карточки, независимо от2d атаки. Short Polearm — максимальная дальность по GM93/PG92; сцена по-прежнему Close. Unselected Attacks: Peasant **Hunting Bow**, как в Attacks, несмотря на Warbow в Typical Trappings; Militia Assorted Projectiles. У Watch других printed attacks нет.
+
+**Torches and Pitchforks:** Peasant Helps союзной **Melee** attack без Test, target получает+1d Attack Test; может превышать обычный bonus cap. **Whistleblower:** Watch **может выбрать** сигнал как часть Recover; если подал, more Town Watch arrive next **turn**, Athletics Tests для Retreat от них Grim. Не менять turn на round и не выводить длительность Grim, отсутствующую в карточке.
+
+**Strength in Numbers:** Militia Help союзнику **within Medium Range** сделать **любую attack**, без Test, +1d с разрешением превысить cap. Это не минимум Medium и не только Melee. **Detachment:** enemy **moves into Close Range of a State Trooper**; nominated FCM **или State Trooper** в **adjacent Zone**, сам **не Close enemy**, немедленно Charge либо ranged attack. Начальная уже-Close расстановка не считается Move-входом.
+
+В примерах M32 npc_help_policies=[]: NPC выбирают Attack, не Help/Recover, движения нет. С M33 две Help Abilities Peasant/FCM поддержаны как active capability metadata при явной policy; Whistleblower/Detachment остаются inactive. Staggered Watch сам Recover не выбирает. Facts fresh/no_external_effects дополнительно исключают предбоевой неиспользованный Help bonus, **уже отправленный сигнал/ожидающее подкрепление**: отложенный trigger нельзя скрыть только отсутствием нового Recover. No_external_effects и all_combatants_included остаются явными caller facts.
+
+Применяется прежний NPC definition → native/trials/generation/current JSON1 путь без нового owner/ADR/полей/метрик. Старые22definitions/snapshots/metadata и92JSON documents сохраняются. [Catalog](../../src/towr/domain/pc_npc_catalog.py), [printed/native/source tests](../../tests/unit/test_m32_pc_empire_catalog.py), [JSON/trials/8составов](../../tests/integration/test_m32_pc_empire_chunk.py). Реализация NPC Help/reinforcements и выбор новой стратегии — отдельные функции.
+
+<a id="npc-help-m33"></a>
+
+## M33 — NPC Help Peasant и Free Company Militia
+
+Статус: `verified` в PC family. RULE-PROFILE-TALABEC-001 и RULE-PROFILE-IMPERIAL-001; BOOK-GM-GUIDE1.1 Peasant96/Militia113; BOOK-PLAYER-GUIDE1.4, Dice Pools107 / Helping With a Test108 / Help117 / Conditions122–123. [ADR-0083](../decisions/ADR-0083-pc-npc-automatic-help-policy.md), [публичные примеры](../examples/m33/README.md).
+
+Torches and Pitchforks/Strength in Numbers выполняют настоящее Help action **без Test**, давая отдельный+1d для указанного Attack Test. Peasant — только Melee; Militia — любой attack союзника within Medium Range. Family остаётся melee-only/одна Close-сцена. Каждый+1d имеет bypasses_pool_cap=True; обычные outnumbering/прочие bonuses остаются capped. Несколько helpers складываются, отдельного max helper count в книге нет. Присутствие helper по-прежнему учитывается для numerical superiority.
+
+Source содержит required npc_help_policies с явными парами helper_id/beneficiary_id; native tuple обязателен. Helper — canonical Peasant/Militia, beneficiary — другой более поздний ordinary attacker. Multiple helpers допустимы, duplicate helper/self/chains/unknown IDs/другая сторона отвергаются до RNG. Policy выбирает физическую Help при eligible recipient; при defeated/exited/законченном ходе/Broken/Defenceless/Drained делает ordinary Attack, если собственный ход её допускает. Drained fallback — согласованная тактика, не запрет книги помогать Drained.
+
+Staggered/Drained helper не блокируют no-Test Help; Deafened helper прямо не может Help. Deafened recipient не иммунен к физической поддержке. Drained recipient не получает никакие bonus dice, включая bypass; поздний filter сохраняется. Help не создаёт TestResult/Fate/miss Stagger, не снимает Condition и тратит свой standard slot с обычным TurnEnd.
+
+Typed no-Test action receipt адресует точный upcoming Test ID текущего раунда. Actual Attack хранит точные application receipts в порядке Help; каждый источник применяется один раз. Неиспользованный источник остаётся неиспользованным и не переадресуется на новый раунд/другую атаку. Это binding policy по образцу M15, не выдуманная общая длительность Help.
+
+Count projection сохраняет entry только при обоих retained IDs, не выбирает замену. Отдельные source-ordered NPC Help counts/trial count/total не смешиваются с PC Help и проверяются вместе с action/round budget. Current PC JSON1 требует explicit list и metrics;96старыхJSON documents мигрированы []/нулями, остальные значения сохранены. Catalog data прежние; у Peasant/FCM ровно две ранее dormant Help Abilities переведены в active capability metadata, Detachment/Whistleblower остаются inactive. При [] обычная Attack и fresh/no_external_effects граница M32 прежние.
+
+Исполнение: [no-Test models](../../src/towr/domain/automatic_help_models.py), [executor](../../src/towr/rules/automatic_help_resolution.py), [policy/preparation/applications](../../src/towr/domain/pc_npc_help_models.py), [PC journal](../../src/towr/domain/pc_melee_result_models.py), [projection](../../src/towr/domain/_pc_melee_projection.py), [generation](../../src/towr/application/pc_melee_balance_models.py). Проверки: [common Help](../../tests/unit/test_k1_automatic_help.py), [actual native/policy/forgery](../../tests/unit/test_m33_npc_help_execution.py), [statistics](../../tests/unit/test_m33_npc_help_statistics.py), [JSON/count search/process parity](../../tests/integration/test_m33_npc_help_json.py).
+
+<a id="greenskin-help-m34"></a>
+
+## M34 — Goblin Horde и Orc Power of the Waaagh!
+
+Статус: `verified` в PC family. RULE-PROFILE-GREENSKIN-001/003/004/005; BOOK-GM-GUIDE1.1, Allies and Antagonists / Goblin Warrior156 / Night Goblin157 / Orc Boy158 / Big ’Un159; BOOK-PLAYER-GUIDE1.4, Rules / Pools107 / Help108/117 / Opposed109 / Attack118–119 / Conditions123. [ADR-0084](../decisions/ADR-0084-pc-greenskin-automatic-help.md), [примеры](../examples/m34/README.md).
+
+Horde Warrior/Night Goblin даёт отдельный+1d сверх bonus cap для attack союзника без Help Test. Power of the Waaagh! Orc Boy/Big ’Un даёт один **free success** для Melee attack союзника без Help Test. Race получателя не ограничена; Nasty Skulker не наследует Horde. В пределах PC family все атаки Melee/Close. Помощь занимает реальный standard action с обычным TurnEnd, не требует собственного Test/RNG/Fate и не создаёт miss Stagger.
+
+`AutomaticHelpEffectKind` различает один uncapped die и один free success. Typed snapshot хранит вид эффекта, application — соответственно DiceModifier либо SuccessModifier; вид/Rule ID выводятся из полной canonical definition helper. Источники разных исполненных actions складываются, каждый один раз, в порядке receipts и только для назначенного Test. Обычный cap остальных dice modifiers сохраняется; free success не превращается в куб, не меняет cap и не перебрасывается Grim/Glorious. Native replay сверяет как rolled successes, так и success_delta/final successes с исходным Test.
+
+Ноль rolled successes плюс один free success дают один total success: при защите1 — hit с margin0 и base Damage; при защите2 — miss. Несколько Orc helpers дают несколько free successes; успешная attack против Defenceless по-прежнему вызывает одну forced Wound, а не рану за каждый успех.
+
+Drained helper может делать no-Test Help. Drained recipient не получает bonus dice, включая Horde bypass, но сохраняет free successes. **Пользователь выбрал:** Orc Boy/Big ’Un выполняют назначенную Help такому recipient; Peasant/Militia/Warrior/Night Goblin сохраняют Attack fallback. Поздний Drained filter удаляет положительные dice modifiers и сохраняет success modifiers. Остальные admission/fallback/exact-Test binding/count projection/metrics [M33](#npc-help-m33) прежние, без общего AI и переназначения пар.
+
+Current PC JSON1 не получает новых полей/версии/метрик. Required npc_help_policies и пустой opt-out сохраняются. Четыре Help Abilities переведены в active capability metadata; printed definitions/snapshots, shields/Short maximum, Dirty Coward, W1 Drained/W2 defeat и dormant Charge сохранены. [Common models](../../src/towr/domain/automatic_help_models.py), [PC policy/applications](../../src/towr/domain/pc_npc_help_models.py), [trace validation](../../src/towr/domain/pc_melee_result_models.py), [K1 tests](../../tests/unit/test_k1_automatic_help.py), [native mixed/Drained/replay tests](../../tests/unit/test_m34_greenskin_help_execution.py), [JSON/trials/search](../../tests/integration/test_m34_greenskin_help_json.py).
+
+<a id="minion-chunk-m35"></a>
+
+## M35 — Sigmarite Cultist, Elf Militia и Ungor
+
+Статус: `verified` в PC family. RULE-PROFILE-IMPERIAL-005 / RULE-PROFILE-PEOPLES-006 / RULE-PROFILE-BEASTMEN-001; BOOK-GM-GUIDE1.1, Allies and Antagonists / Sigmarite Cultist121 / Elf Militia107 / Ungor143 и Understanding NPC Profiles93. [Общие factory/JSON/CLI-примеры](../examples/m35/README.md). Три новых fixed melee loadouts расширяют каталог25→28 по существующим моделям, без новых wire fields/версии/метрик или отдельного ADR.
+
+| Profile ID | Атака | Protection | Injury/Resilience |
+|---|---|---|---|
+| SIGMARITE_CULTIST_WARHAMMER | Warhammer Close3d/3 Damage3,1H | Athletics3d/2 | Normal Minion1,T3/Res3,noShield |
+| ELF_MILITIA_SPEAR | Spear maximum Short4d/3 Damage4,2H | Athletics4d/3 | Normal Minion1,T3/Res4 armoured,noShield |
+| UNGOR_SPEAR | Crude Spear Close–Short3d/3 Damage3,1H | Athletics4d/2 | Normal Minion1,T3/Res4 armoured,shield |
+
+Short maximum сохраняет actual Close combat; дальний бой/перемещение не добавляются. Ungor shield уже включён в printed Res4: ResilienceProfile(3,1), без повторного+1 и без выдуманной body armour. Elf printed Damage4 не получает дополнительный PC2H бонус. Cultist Warhammer/Ungor Spear тоже не приобретают PC Traits по названию оружия. Longbow Elf и Shortbow Ungor явно unselected.
+
+**Torches and Pitchforks:** Cultist Helps союзной Melee attack без Test, давая отдельный+1d сверх bonus cap. Использует действующие named pairs, ordinary standard slot/TurnEnd, source-bound snapshot/application и позднего ordinary NPC attacker. Новый source Rule ID `RULE-PROFILE-IMPERIAL-005:torches-and-pitchforks` не подменяется Peasant ability. Multiple helpers/endpoint projection/Drained recipient Attack fallback/source-ordered NPC costs прежние; generic Help/AI не вводятся.
+
+**Primal Spite:** Ungor получает один обычный+1d на Attack Test против **фактической Staggered цели**. Собственный Staggered Ungor, Prone/Wounded цели или Staggered другого PC не являются trigger. Состояние выбранной цели передаётся в существующий явный modifier helper при подготовке каждой attack; Rule ID `RULE-PROFILE-BEASTMEN-001:primal-spite`. Бонус не bypass и не Damage modifier, проходит обычный cap и Drained filter. После реальной Wound, снимающей Staggered цели, следующая attack больше не получает бонус. Child of the Forest сохраняет полный woodland Difficult Terrain scope и inactive в неподвижной сцене без terrain.
+
+**Martial Prowess:** при Opposing Melee Elf получает+1d, если другой Elf Militia в **той же Zone не находится в Close Range врага**. В нынешней fixed arena все opposing pairs Close, все участники включены, движения/внешних sources нет. Help, Staggered или завершённый ход не разрывают Close; условие не достигается, способность сохранена полной в inactive metadata. Нельзя переносить карточку в spatial/back-rank сцену, продолжая игнорировать эту способность; source facts требуют текущую границу.
+
+Исполнение: [catalog](../../src/towr/domain/pc_npc_catalog.py), [target-bound modifiers](../../src/towr/domain/pc_npc_ability_models.py), [attack preparation](../../src/towr/domain/pc_melee_result_models.py), [Help registry](../../src/towr/domain/pc_npc_help_models.py), [source gear admission](../../src/towr/domain/pc_melee_models.py). Проверки: [printed/canonical catalog](../../tests/unit/test_m35_pc_minion_catalog.py), [native target/Drained/Help/replay](../../tests/unit/test_m35_pc_minion_execution.py), [current JSON/trials/8составов](../../tests/integration/test_m35_pc_minion_chunk.py). Прежние25entries/definitions/snapshots/metadata и104JSON documents M9–M34 сохраняются.
+
+<a id="spear-chunk-m36"></a>
+
+## M36 — Spear loadouts State Trooper, Orc Boy и Big ’Un
+
+Статус: `verified` в PC family. RULE-PROFILE-TALABEC-009 / RULE-PROFILE-GREENSKIN-004/005; BOOK-GM-GUIDE1.1, Allies and Antagonists / Profiles93 / State Trooper100 / Orc Boy158 / Big ’Un159. [Общие factory/JSON/CLI-примеры](../examples/m36/README.md). Три альтернативных melee loadouts расширяют каталог28→31; исходные Halberd/Choppas варианты остаются самостоятельными неизменёнными entries. Нового owner/формата/метрик/ADR не требуется.
+
+| Profile ID | Атака | Выбранная Protection | Injury/Resilience |
+|---|---|---|---|
+| EMPIRE_STATE_TROOPER_SPEAR | Spear maximum Short3d/3 Damage3,1H | Defence3d/4 | Normal Minion1,T3/Res4 armoured,noShield |
+| ORC_BOY_SPEAR_SHIELD | Jagged Spear maximum Short3d/4 Damage3,1H | Defence3d/4 | Normal Minion1,T4/Res6 armoured,shield |
+| BIG_UN_SPEAR_SHIELD | Jagged Spear maximum Short3d/4 Damage4,1H | Defence3d/4 | Normal Brute2,T4/Res6 armoured,shield |
+
+Все атаки исполняются в Close; Short — максимум по GM93, не минимальная дистанция. У всех трёх сохранена alternative Athletics3d/3, выбор до боя — Defence. State Trooper сохраняет printed light-armour total4, щит не указан и не добавлен. Shielded Orc/Big ’Un сохраняют printed Res6: ResilienceProfile(4,2), щит уже включён. Их старые Choppas2H варианты без щита имеют Res5. Damage6 от Staff поэтому даёт Staggered новому Orc вместо Wound старому; второй shield bonus не прибавляется.
+
+Big ’Un наследует профиль Orc Boy с Strength4: только Melee Damage3→4, без увеличения WS/Melee/Protection. Actual первая Wound из прямого Damage либо repeated Staggered вызывает Drained на living0→1 ACK; W2 даёт обычный defeat/disposition. Drained фильтрует положительные bonus dice текущего NPC, не других участников. Once-only ACK/cached-state/source guards сохранены.
+
+Оба копейных Orc loadouts наследуют **Power of the Waaagh!** и входят в действующий free-success Help registry. Настроенная Help расходует ordinary action без Test/RNG; один free success сохраняется при Drained получателе. Drained Big ’Un тоже может Help без собственного Test. Named pairs/точный будущий Test/endpoint projection/отдельные NPC costs и выбранная тактика [M34](#greenskin-help-m34) прежние.
+
+Supporting Action State Trooper сохраняет полный enemy Move→Close/eligible ally adjacent Zone trigger; fixed aware all-Close/noMove scene его не вызывает. Jagged Spear у Orc/Big ’Un печатает+1Damage **на Charge**, который не исполняется; способность сохранена inactive как Spear on Charge, не перенесена ошибочно под именем Choppas. NPC Spears не получают PC Foot Spear Traits автоматически. Halberd/Crossbow/Handgun Trooper, Choppas/Warbow Orc/Big ’Un и mounted Big ’Un вариант явно unselected.
+
+Current PC JSON1 без новых полей/версии/метрик. Canonical shield/source guards допускают две новые точные shielded identities, не произвольное изменение gear под прежним ID. [Catalog](../../src/towr/domain/pc_npc_catalog.py), [source admission](../../src/towr/domain/pc_melee_models.py), [Help registry](../../src/towr/domain/pc_npc_help_models.py), [W1 Drained registry](../../src/towr/domain/pc_npc_wound_models.py). Проверки: [printed/canonical catalog](../../tests/unit/test_m36_pc_spear_catalog.py), [native shield/Wounds/Help/receipt](../../tests/unit/test_m36_pc_spear_execution.py), [JSON/trials/8составов](../../tests/integration/test_m36_pc_spear_chunk.py). Прежние28entries/definitions/snapshots/metadata и108JSON documents M9–M35 сохраняются.
+
+<a id="devour-chunk-m37"></a>
+
+## M37 — Razorgor и два Minotaur Axe loadouts
+
+Статус: `verified` в PC family. RULE-PROFILE-CREATURE-009 / RULE-PROFILE-BEASTMEN-005; BOOK-GM-GUIDE1.1, Allies and Antagonists / Razorgor138 / Minotaur147; BOOK-PLAYER-GUIDE1.4, Dice Pools107 / Wounds121/190 / Conditions123. [ADR-0085](../decisions/ADR-0085-pc-devour-and-wound-rage.md), [общие примеры](../examples/m37/README.md). Три loadouts расширяют каталог31→34 через существующие Test/Kernel/Wound lifecycle модели.
+
+| Profile ID | Атака | Protection | Injury/Resilience |
+|---|---|---|---|
+| RAZORGOR | natural Razor Tusks Close3d/4 Damage5,hands=null | Athletics3d/3 | Fast Brute3,T5/Res6 armoured |
+| MINOTAUR_AXE | Axe Close4d/5 Damage5,1H | Athletics4d/4 | Normal Brute3,T5/Res6 armoured,noShield |
+| MINOTAUR_DUAL_AXES | те же printed Axe4d/5 Damage5,1H каждый, fixed два топора | Athletics4d/4 | Normal Brute3,T5/Res6 armoured,noShield |
+
+Dual loadout занимает обе руки и даёт один отдельный DamageModifier+1. Printed Damage5 сохраняется, PC Axe Traits/повторный dual bonus не добавляются. Axe pools имеют обычный cap8 отWS4. В M37 Greataxe3d/5 Damage8 не выбиралась: её WS4 cap8 нельзя подменять default cap6 от printed3d. Отдельный корректный Greataxe loadout добавлен в [M38](#greataxe-cap-m38).
+
+Оба существа при W0 не получают bonus, W1/W2 дают ordinary+1d Melee за каждую собственную Wound, W3 defeats. Бонус вычисляется перед каждой attack из actual actor injury, проходит cap и Drained filter. Сами профильные раны Drained не накладывают. Старое число ран/бонус другой особи не переносится в новую атаку.
+
+**Devour the Fallen:** actual target **перед Attack/Damage** Staggered, Prone либо имеет незажившую Wound → ровно один WoundDiceModifier+1. Несколько флагов/ран не увеличивают modifier. Здоровая цель не квалифицируется благодаря новой Wound от того же удара; pre-Attack Staggered сохраняет eligibility, даже когда новая рана снимает Condition. Wounded конкретизируется через unhealed injury; treatment не равен healing по PG121. В нынешних fresh/noTreatment/noHealing сценах все достижимые Wounds остаются unhealed; перед расширением восстановления перепроверить scope.
+
+Modifier связывается с точным KernelAttackRequest и проходит direct/repeated-Staggered/Defenceless/Near Miss source-путь. Table dice равны minimum1/base1+prior untreated+explicit modifiers; это не Skill Test, Drained/Grim/Glorious/Characteristic cap их не меняют. Extra die не даёт вторую Wound, не становится ongoing effect и не увеличивает будущие untreated dice после Near Miss. Другой actor/target/request не наследует receipt.
+
+Fearsome имеет полный Give Ground→Broken trigger, который fixed SUFFER_WOUND policy не выбирает. Razorgor Charge даёт+1d Melee/+1Damage, но Charge/движения нет. Minotaur Charging Bull — отдельный Brawn action, Opposed лучшим Defence/Endurance врага в Zone within Medium; success Staggers **всех существ кроме Minotaur**, failure Staggers самого Minotaur. Fixed Attack policy его не выбирает; это не бесплатное последствие обычной атаки. Полные scope/effects и unselected Greataxe сохранены в metadata.
+
+Current PC JSON1 без новых полей/версии/метрик. [Catalog](../../src/towr/domain/pc_npc_catalog.py), [typed modifier helpers](../../src/towr/domain/pc_npc_ability_models.py), [owner preparation](../../src/towr/domain/pc_melee_result_models.py). Проверки: [catalog/full source](../../tests/unit/test_m37_pc_devour_catalog.py), [native/pure rage/Devour/Fate/replay](../../tests/unit/test_m37_pc_devour_execution.py), [JSON/trials/8составов](../../tests/integration/test_m37_pc_devour_chunk.py). Прежние31entries/definitions/snapshots/metadata и112JSON documents M9–M36 сохраняются.
+
+<a id="flagellant-feel-no-pain-m47"></a>
+
+## M47 — два Flagellant loadouts, Feel No Pain и Recover
+
+RULE-PROFILE-IMPERIAL-006; BOOK-GM-GUIDE1.1, гл.VII Flagellant122 / Brutes92 / Profiles93; BOOK-PLAYER-GUIDE1.4, гл.V Recover118 / Attack-Staggered119. [Принятый контракт ADR-0092](../decisions/ADR-0092-pc-flagellant-feel-no-pain-and-recover.md), [factory/JSON/CLI](../examples/m47/README.md).
+
+Оба loadouts — Normal Brute2/T3Res3 без брони/щита, Athletics3d3, implicit caps6. `FLAGELLANT_FLAILS` имеет Close3d4Damage6/2H и−2d Melee при собственном Staggered; `FLAGELLANT_HOOKS_CHAINS` — Close3d4Damage3/1H без этого штрафа. Protection не штрафуется, Drained не убирает отрицательный modifier. Второе оружие unselected, PC weapon Traits/повторные penalties не добавляются.
+
+Required `npc_flagellant_policies` содержит unique actor/feel_no_pain enum/recover_when_wounded bool для canonical opposition Flagellants. `[]` отказывается от новых voluntary choices. Выбранный `wound_at_zero` заменяет первое Staggered от incoming weak physical hit либо собственного miss одной профильной Wound только при0Wounds; при1 замена добровольно не выбирается. Direct Wound не удваивается, repeated Staggered сохраняет обычную SUFFER_WOUND price/W2defeat. Это тактика в пределах добровольной Ability, не ограничение её текста только здоровыми NPC.
+
+Incoming replacement задаёт узкий `FirstStaggerWoundSpec` до Attack: сохраняются raw HIT/Damage/impact и один actual profile-Wound/ACK, без краткого наложения Staggered. Own miss имеет отдельный typed proof с настоящим pending AttackerStaggerRequest, actor и полным profile-Wound witness; он не использует target предыдущей PC Attack. Оба пути проверяют полный prefix/точные типы/однократность.
+
+При1Wound и recover_when_wounded actor выбирает настоящий standard self Recover вместо Attack. Generic Recover receipt снимает собственные Staggered/Prone, отдельное Feel No Pain правило лечит одну Wound1→0. Один обычный action, обычный TurnEnd, без RNG/PC Fate/второй Attack или revival. Циклы W0→W1→W0 сохраняют каждый настоящий источник. Helper использует прежний Attack fallback, если его named beneficiary будет Recover; чужая помощь не переносится на другую цель/Test.
+
+Unbreakable блокирует только значение Broken, независимо от psychological classification. Central owner update нормализует это значение для canonical Flagellants; injected Broken state отвергается. Остальные Conditions не получают общей immunity. Нового Broken producer/общей миграции Condition provenance не добавляется.
+
+Compact records/summary содержат source-ordered NPC Recover counts, число trials с Recover и total_npc_recover_action_count. Recover входит в total executed actions; PC self/ally costs отдельные, Feel No Pain follow-up не является действием. Current PC JSON1 остаётся1;152старыхJSON documents мигрированы policy arrays/нулевыми NPC Recover полями с сохранением остальных значений. Каталог49→51,49прежнихentries сохранены.
+
+Реализация: [policy](../../src/towr/domain/pc_flagellant_policy_models.py), [miss/recover/Unbreakable](../../src/towr/domain/pc_flagellant_models.py), [K1 spec](../../src/towr/domain/resolution_models.py), [Stagger resolver](../../src/towr/rules/stagger_impact_resolution.py), [owner projection](../../src/towr/domain/_pc_melee_projection.py), [compact observations](../../src/towr/simulation/pc_melee_models.py). Проверки: [K1](../../tests/unit/test_k1_first_stagger_wound.py), [catalog](../../tests/unit/test_m47_pc_flagellant_catalog.py), [native](../../tests/unit/test_m47_pc_flagellant_execution.py), [JSON/statistics/search](../../tests/integration/test_m47_pc_flagellant_json.py), [process](../../tests/integration/test_m47_pc_flagellant_process.py).
+
+<a id="bestigor-blood-rage-m46"></a>
+
+## M46 — Bestigor, Blood Rage и следующая Glorious Attack
+
+RULE-PROFILE-BEASTMEN-003; BOOK-GM-GUIDE1.1, гл.VII Allies and Antagonists / Bestigor144 / Profiles93; BOOK-PLAYER-GUIDE1.4, гл.V Dice Modifiers107 / Grim & Glorious108 / Attack-Staggered119. [Принятый контракт ADR-0091](../decisions/ADR-0091-pc-bestigor-blood-rage-and-wound-glorious.md), [factory/JSON/CLI](../examples/m46/README.md).
+
+`BESTIGOR_MASSIVE_AXE` — Normal Brute2/T4Res6 armoured/noShield, Massive Axe Close3d/4 Damage7/2H с explicit Attack cap8 от WS4; Defence4d/3 с ordinary cap8, alternate Athletics3d/3 unselected. NPC Axe не получает PC weapon Traits/повторный penalty. W0 запрещает выбирать Give Ground/fall Prone, не даёт общей immunity к forced Prone. Текущая fixed price strategy выбирает SUFFER_WOUND; woodland movement/Child of the Forest остаются вне сцены. W2defeat использует обычный ACK/disposition.
+
+Required `npc_blood_rage_actor_ids` в native/current PC JSON1 задаёт включённых canonical Bestigors. `[]` явно отказывается от добровольного получения Staggered. Включённый actor с reserved/unexecuted Attack без Staggered получает его через typed proof до Test/RNG. Уже Staggered не накладывается снова и не вызывает Wound. Наложение не расходует отдельный action/TurnEnd/RNG. **Любой фактически Staggered Bestigor** получает ordinary+1d Melee независимо от списка; Defence не получает бонус. Drained фильтрует bonus dice, Help остаётся отдельным источником.
+
+Actual living0→1 profile ACK создаёт право на ровно следующую Attack этого Bestigor, включая Wound от repeated Staggered. `PcBestigorGloriousSource` связывает actor, actual Wounding Attack и полный change. Право выводится из ACK/Attack history без нового mutable bank; W1 сама по себе не выдаёт его заново. Protection/Help/другие actors/смена раунда не расходуют право; фактическая следующая Attack расходует его при любом результате. W2 до хода не порождает фиктивного действия. Attack proof и quality trace сохраняют этот источник; replay проверяет полный prefix.
+
+Пользователь выбрал reroll всех доступных провалов этого Glorious NPC Attack один раз. Это стратегия симулятора в пределах разрешённого книгой выбора. Test resolver сохраняет Grim cancellation/ограничения rerolls, не тратит PC Fate и не меняет его counters. Native fixed Bestigor не получает внешних quality/lock sources; общие cancellation/lock правила проверены отдельно на Test resolver.
+
+Count search удаляет IDs исключённых Bestigors без переназначения. Required list exact/unique/opposition/canonical; прочие профили/aliases не допускаются. Explicit cap8 разрешён только новой Massive Axe и прежней Minotaur Greataxe; authored/Protection caps прежние. Новых wire версий/метрик нет.148прежнихJSON documents M9–M45 мигрированы только обязательным пустым массивом, остальные значения и48прежнихentries сохранены. Каталог48→49.
+
+Реализация: [policy/admission](../../src/towr/domain/pc_npc_blood_rage_policy_models.py), [proof/entitlement](../../src/towr/domain/pc_bestigor_models.py), [catalog](../../src/towr/domain/pc_npc_catalog.py), [owner](../../src/towr/domain/pc_melee_result_models.py), [projection](../../src/towr/domain/_pc_melee_projection.py), [runner](../../src/towr/engine/pc_melee_runner.py). Проверки: [catalog](../../tests/unit/test_m46_pc_bestigor_catalog.py), [native](../../tests/unit/test_m46_pc_bestigor_execution.py), [JSON/trials/search](../../tests/integration/test_m46_pc_bestigor_json.py), [process](../../tests/integration/test_m46_pc_bestigor_process.py).
+
+<a id="melee-loadout-chunk-m45"></a>
+
+## M45 — Sharpshooter/Axe и три варианта без щита
+
+Статус: `verified` в текущей PC family. RULE-PROFILE-IMPERIAL-002 / RULE-PROFILE-BEASTMEN-002 / RULE-PROFILE-GREENSKIN-004/005; BOOK-GM-GUIDE1.1, гл.VII Allies and Antagonists / Hochland Sharpshooter114 / Gor143 / Orc Boy158 / Big ’Un159 / Understanding NPC Profiles93. [Общий factory/JSON/CLI-пример](../examples/m45/README.md). Чанк использует существующие Rage/Power Help/first-Wound Drained, без нового контракта/стратегии/ADR.
+
+| Profile ID | Выбранная атака | Protection | Resilience / тип |
+|---|---|---|---|
+| HOCHLAND_SHARPSHOOTER_AXE | Axe Close3d/3 Damage3,1H | Athletics4d/4 | T4/Res5 armoured, Brute2 |
+| GOR_AXE | Один Crude Axe Close4d/3 Damage3,1H | Athletics4d/3 | T4/Res4 без брони, Minion1 |
+| ORC_BOY_SPEAR | Jagged Spear maxShort3d/4 Damage3,1H | Defence3d/4 | T4/Res5 armoured, Minion1 |
+| BIG_UN_SPEAR | Jagged Spear maxShort3d/4 Damage4,1H | Defence3d/4 | T4/Res5 armoured, Brute2 |
+
+Все четыре loadouts без щитов. Gor/Orcs уменьшают printed shield-inclusive Resilience на1 по GM93; подготовка защиты не вычитает её второй раз. Printed атаки/Protection не меняются из-за отказа от shield, новый Gor не получает dual Damage+1. NPC оружие не получает PC Traits. Alternate Orc Athletics3d3 и прочие unselected weapons сохранены.
+
+Single Gor получает прежний ordinary+1d Melee при собственном Staggered. Оба копейных Orc loadouts доступны в прежних явных Help pairs: Power of the Waaagh! даёт free success без Test, включая Drained beneficiary; общий Attack fallback при недоступном получателе прежний. Big ’Un получает Drained на actual W1 ACK, затем W2defeat; Drained убирает обычные bonus dice, не free success. Sharpshooter W1 Cancel Aim сохраняется в metadata: в свежем fixed Axe-only/Attack сценарии нет Aim, поэтому отменять нечего; W2defeat исполняется обычным profile ACK. Rapid Reload требует reload выбранного оружия, rifle unselected; Sniper’s Nest и Child of the Forest требуют отсутствующего woodland movement. Orc Charge damage не вызывается обычной Attack.
+
+Native/trials/count search/current JSON1 исполняют полный чанк. Новых wire полей/версии/метрик нет; существующие144JSON documents M9–M44 сохраняются без миграции. Каталог44→48; прежние44entries не меняются.
+
+Реализация: [catalog](../../src/towr/domain/pc_npc_catalog.py), [Rage](../../src/towr/domain/pc_npc_ability_models.py), [Help](../../src/towr/domain/pc_npc_help_models.py), [W1 Drained](../../src/towr/domain/pc_npc_wound_models.py). Проверки: [catalog/source](../../tests/unit/test_m45_pc_melee_loadout_catalog.py), [native interactions](../../tests/unit/test_m45_pc_melee_loadout_execution.py), [JSON/trials/16составов](../../tests/integration/test_m45_pc_melee_loadout_chunk.py).
+
+<a id="halfling-stealth-m44"></a>
+
+## M44 — Halfling Thief и Stealth Protection
+
+RULE-PROFILE-PEOPLES-002 / BOOK-GM-GUIDE1.1, гл.VII Allies and Antagonists / Halfling Thief103, Understanding NPC Profiles93; BOOK-PLAYER-GUIDE1.4, гл.V Attack Tests118. [Принятый контракт ADR-0090](../decisions/ADR-0090-pc-halfling-stealth-protection.md), [factory/JSON/CLI](../examples/m44/README.md).
+
+`HALFLING_THIEF_DAGGER` — Normal Minion1, T2/Res2 без брони/щита, Dagger Close2d/3 Damage1/1H, Protection Stealth3d/5. Обычные caps4/6, explicit pool_cap=null. Printed NPC numbers не получают PC Dagger Traits/повторные penalties. Throwing Knives Short4d/3 Damage2/1H сохранены unselected. Полный Thieving Blighter допускает исчезновение без cover и кражу не удерживаемого trapping/Asset/Coin в Close при Move Quietly через Dexterity против Awareness; fixed Attack/noMove сцена эти условия не вызывает.
+
+Now You See Me позволяет Stealth для Oppose атаки, о которой Thief знает. Generic Protection умеет представить Skill, но eligibility требует отдельный `HalflingStealthProtectionPermission` с defender ID и полным canonical definition. Подмена профиля/чисел/источника либо отсутствие разрешения отвергаются. Unaware и Defenceless остаются unopposed; оружие/щит не являются требованием самого Stealth. В applied trace появляется `RULE-PROFILE-PEOPLES-002:now-you-see-me` только при фактическом выборе Stealth. Это не общий Skill override.
+
+PC owner берёт printed Stealth для фактического Thief target, сохраняет разрешение в Protection proof и проверяет его при полном replay. Bonus cap/explicit Test modifiers, стандартные действия/цели/Conditions/подбор прежние. Current PC JSON1 допускает `protection.skill=stealth` только у canonical Thief; authored NPC и прежние loadouts сохраняют Athletics/Defence, PC/Help/Glorious выбора нового Skill не получают. Новых wire полей/версии/метрик нет. Каталог43→44;140прежнихJSON documents M9–M43 сохраняются без миграции.
+
+Реализация: [catalog](../../src/towr/domain/pc_npc_catalog.py), [permission/eligibility](../../src/towr/domain/protection_models.py), [PC admission](../../src/towr/domain/pc_melee_models.py), [actual owner](../../src/towr/domain/pc_melee_result_models.py), [schema](../../src/towr/adapters/schemas/pc-melee-common.schema.json). Проверки: [catalog](../../tests/unit/test_m44_pc_halfling_catalog.py), [Protection](../../tests/unit/test_m44_halfling_protection.py), [native/replay](../../tests/unit/test_m44_pc_halfling_execution.py), [JSON/trials/search](../../tests/integration/test_m44_pc_halfling_json.py).
+
+<a id="miner-grudge-m43"></a>
+
+## M43 — Dwarf Miner и явные grudge relationships
+
+Статус: `verified` в PC family. BOOK-GM-GUIDE1.1, гл.VII Dwarf Miner105; BOOK-PLAYER-GUIDE1.4, гл.V Distracted123. [ADR-0089](../decisions/ADR-0089-pc-miner-grudge-policy.md) принят пользователем; [общие примеры](../examples/m43/README.md).
+
+`DWARF_MINER_PICKAXE`: Normal Minion, T4/Res6 armoured/noShield, Mining Pickaxe Close4d/3 Damage4,2H; Defence4d/3, caps8/8 с pool_cap:null. Printed числа не получают PC Pickaxe Traits или повторный weapon penalty. Athletics1d3 и полный Blasting Charge Short–Medium3d3/Endurance Hazard3 для всех creatures target Zone, при miss — Miner Zone, сохраняются unselected.
+
+Grudges to Settle при встрече с grudge enemy накладывает на Miner Distracted и даёт ordinary+1d Melee против него. Обязательный `npc_grudge_policies` хранит explicit пары `actor_id` canonical Miner → `focus_actor_id` включённого PC. Один focus на Miner, несколько Miners могут иметь один focus. `[]` явно подтверждает отсутствие grudge в сцене, без догадки по race/name/priority. Неправильные типы/роли/дубликаты/чужие профили и cached aliases отвергаются до RNG. Count search удаляет пару при исключении Miner, без переназначения.
+
+Initial encounter proofs исполняются в source roster order до первого TurnStart/Test, по одному на выбранного Miner. Fresh input snapshots остаются без начальных Conditions; caller не подставляет флаг Distracted вместо подтверждения встречи. Encounter не расходует action/TurnStart/TurnEnd/RNG; его нельзя пропустить, отложить или повторить. Source bank различает encounter cause Miner и first-Wound cause Brewguard.
+
+Melee по focus: ordinary+1d, без Distracted penalty. По другому PC:−1d, без grudge бонуса. Protection против focus без штрафа и без Melee bonus; против другого−1d. Relationship и active Condition — разные факты. Target priority прежний, автоматического приоритета grudge enemy нет. Confirmed focus death после Wound/Fate снимает Distracted; Defenceless/Near Miss сохраняют, новых раундовых наложений/переназначения нет. Поддержан смешанный bank Brewguard+Miner.
+
+Down in the Dark запрещает **enemy higher-ground bonus против Miner**, сохраняя outnumbering/прочие modifiers и собственный higher-ground bonus Miner при атаке Prone PC. Underground Difficult Terrain clause не исполняется в noMove/noTerrain сцене. Grudge+1d проходит обычный cap/Drained filter; negative penalty и независимый Help сохраняют свои правила. Recover/refocus, внешняя замена, visibility/повторные встречи и несколько grudge enemies одного Miner отдельно не моделируются.
+
+[Policy](../../src/towr/domain/pc_npc_grudge_policy_models.py), [encounter/bonus](../../src/towr/domain/pc_npc_grudge_models.py), [bank/expiry](../../src/towr/domain/pc_npc_distraction_models.py), [higher-ground gate](../../src/towr/domain/pc_npc_ability_models.py). Проверки: [catalog](../../tests/unit/test_m43_pc_miner_catalog.py), [native](../../tests/unit/test_m43_pc_miner_grudge_execution.py), [JSON/trials/3состава](../../tests/integration/test_m43_pc_miner_grudge_json.py), [process parity](../../tests/integration/test_m43_pc_miner_process.py). Current PC JSON1 требует новое поле без defaults/compatibility;136старыхJSON documents получают `[]` при сохранении всех остальных значений. Каталог42→43, старые42entries не изменены.
+
+<a id="brewguard-distracted-m42"></a>
+
+## M42 — Dwarf Brewguard и source-aware Distracted
+
+Статус: `verified` в PC family. BOOK-GM-GUIDE1.1, гл.VII Dwarf Brewguard104 / Brutes92 / Profiles93; BOOK-PLAYER-GUIDE1.4 Conditions122 / Distracted123, с аналогией Distract129. [ADR-0088](../decisions/ADR-0088-pc-brewguard-distracted-focus.md) сохраняет неоднозначность текста и **принятую пользователем трактовку A**, [примеры](../examples/m42/README.md).
+
+`DWARF_BREWGUARD_WARHAMMER`: Normal Brute2, T4/Res5 armoured/noShield, Warhammer Close4d/3 Damage3,1H; Defence4d/3, caps8/8 без explicit override. W0 без эффекта, printed W1 «Attacker inflicts Distracted condition», W2defeat. NPC не получает PC Warhammer Traits. Bare Hands с primary Staggered и Athletics2d3 unselected. Cooler Heads Prevail — отдельный optional Leadership action, каждый success снимает Distracted у одного выбранного character в Medium; current Attack policy его не выбирает.
+
+**Принятое разрешение неоднозначности:** actual первая Wound0→1 разово накладывает Distracted на раненого Brewguard. Focus — фактический PC, нанёсший рану, не helper и не автоматически предпочитаемая цель. Это конкретизация пользователя, не дословно указанное в GM104 уточнение focus/lifetime. Наложение идёт на source-bound profile ACK, включая repeated-Staggered Wound, после удаления старого Staggered; завершённый Test не пересчитывается.
+
+Melee по focus и Protection против него не получают штрафа Distracted; против остальных PC применяется один ordinary−1d с обычными cap/minimum/Help правилами. NPC выбирает цели по прежнему caller priority. После подтверждённой смерти focus эффект снимается до следующего Test/действия/terminal result. Raw lethal roll до Near Miss/Fate completion не подтверждает смерть. Живой Defenceless, смена priority и завершение хода focus не снимают Condition. Убийство и Critical end-phase death поддержаны; W1 после снятия не накладывает старое отвлечение повторно.
+
+PC owner хранит небольшой typed source/focus bank, выведенный из полного actual Attack/profile-Wound prefix; generic ConditionState остаётся флагом. Источники независимы у нескольких Brewguards, упорядочены по source roster. Снятие имеет отдельный canonical expiry proof, привязанный к завершённому death source. Это обязательное следствие без action/RNG/TurnEnd. Пропуск, повтор, подмена actor/focus/первой раны/death source и равные cached aliases отвергаются.
+
+Произвольные новые источники Distracted, Willpower Recover, Cooler Heads, лечение/повторное наложение и потеря видимости не моделируются этой функцией. PG123 replacement сохраняется как требование будущих consumers, а не скрытое восстановление старого W1 focus. Общий Troll/Foul Stench/spell provenance остаётся шире этого owner-local решения.
+
+[Catalog](../../src/towr/domain/pc_npc_catalog.py), [distraction bank/expiry](../../src/towr/domain/pc_npc_distraction_models.py), [Test preparation](../../src/towr/domain/pc_melee_result_models.py), [ACK projection](../../src/towr/domain/_pc_melee_projection.py). Проверки: [catalog](../../tests/unit/test_m42_pc_brewguard_catalog.py), [native Melee/Protection/Fate/death/replay](../../tests/unit/test_m42_pc_brewguard_execution.py), [JSON/trials/3состава](../../tests/integration/test_m42_pc_brewguard_json.py). Wire fields/метрики/PC JSON1 прежние; каталог41→42, прежние41entries и132JSON documents сохраняются без миграции.
+
+<a id="shield-chunk-m41"></a>
+
+## M41 — Gor / single Axe+shield и Empire Knight / Lance+shield
+
+Статус: `verified` в PC family. BOOK-GM-GUIDE1.1, гл.VII Allies and Antagonists / Gor143 / Empire Knight101 / Understanding NPC Profiles93. [Примеры](../examples/m41/README.md). Это два отдельных canonical loadouts по существующему образцу, без нового ADR, публичных полей, версии или тактики.
+
+| Loadout | Attack | Protection | Injury/Resilience |
+|---|---|---|---|
+| GOR_AXE_SHIELD | single Crude Axe, Close4d/3 Damage3,1H | Athletics4d/3 | Normal Minion, T4/Res5 armoured с включённым щитом |
+| EMPIRE_KNIGHT_LANCE_SHIELD, пеший | Lance, Close4d/4 Damage4,1H | Defence4d/4 | Normal Brute2, T3/Res6 armoured с включённым щитом; W1Drained/W2defeat |
+
+GM93 уже включает shield в printed Resilience. Gor не получает второй shield bonus или Damage+1 двух топоров. Self-Staggered Primal Rage даёт один ordinary+1d Melee через существующий cap8/Drained filter; named Help остаётся отдельным бонусом. Старая dual Axe identity сохраняет Damage+1 и Res4 без щита. Child of the Forest требует woodland terrain, которого в сцене нет.
+
+Пеший Knight сохраняет printed Damage4/Defence4d4 и не получает Horse Resilience+1 или mounted Charge bonuses. W1Drained применяется на actual first-Wound ACK, после которого обычный Attack продолжается с удалением положительных Test bonuses. W2 defeats. Полные Noble Steed, mounted Lance Charge+1d/+1Damage и For the Order Charge/не-Staggered trigger сохранены inactive; Athletics2d3 — unselected Protection. Старый unshielded Lance loadout сохраняет Res5.
+
+[Catalog](../../src/towr/domain/pc_npc_catalog.py), [Primal Rage versus dual Damage](../../src/towr/domain/pc_npc_ability_models.py), [W1Drained](../../src/towr/domain/pc_npc_wound_models.py), [shield admission](../../src/towr/domain/pc_melee_models.py). Проверки: [catalog/full source](../../tests/unit/test_m41_pc_shield_catalog.py), [native Rage/Help/Resilience/Wounds](../../tests/unit/test_m41_pc_shield_execution.py), [JSON/trials/4состава](../../tests/integration/test_m41_pc_shield_chunk.py). Каталог39→41; все39прежнихentries и128JSON documents M9–M40 сохраняются без миграции.
+
+<a id="creature-chunk-m40"></a>
+
+## M40 — Demigryph, Centigor и White Wolf / Rending Claws
+
+Статус: `verified` в PC family. BOOK-GM-GUIDE1.1, гл.VII Allies and Antagonists / Demigryph175 / Centigor149 / White Wolf136; BOOK-PLAYER-GUIDE1.4, гл.V Attack Tests118–119 / Prone123. Чанк использует существующие natural/Short/shield/Brute/Condition пути без новых полей, версии или тактики. [Общие примеры](../examples/m40/README.md).
+
+| Canonical loadout | Attack | Protection | Injury/Resilience |
+|---|---|---|---|
+| DEMIGRYPH, unmounted | Wicked Claws natural Close4d/4 Damage5 | Athletics4d/3 | Fast Brute3, T4/Res4 без брони; W1–2Drained/W3defeat |
+| CENTIGOR_SPEAR | Jagged Spear1H, maximumShort4d/4 Damage4 | Athletics4d/3, shield | Fast Brute2, T4/Res5 armoured, щит включён; W1Prone/W2defeat |
+| WHITE_WOLF_RENDING_CLAWS | Rending Claws natural Close3d/4 Damage6 | Athletics4d/4 | Fast Brute2, T5/Res5 без брони; W1Drained/W2defeat |
+
+Printed характеристики/Skills сверены по полным карточкам; factory хранит выбранные боевые loadouts. Maximum dice равен обычному2×Characteristic: Attack8/8/6 и Protection8/8/8, explicit pool_cap остаётся null. Centigor не получает повторный shield bonus; выбранный Short — максимум Melee, допускающий текущий Close. Natural атаки не вооружают NPC. Отдельных дополнительных Test/Damage modifiers по названию оружия не добавляется.
+
+**W1 Prone Centigor:** применяется только при actual0→1 profile-Wound ACK после обычного удаления Staggered раной. Сохраняются остальные Conditions; нового Staggered или второй раны нет. NPC продолжает прежний Attack лёжа, без автоматического Recover. Следующий PC Melee получает существующий+1d higher ground; Prone исключает Give Ground и повторное падение из repeated-Staggered choices. W2 — обычный defeat. При replay/пропуске/подмене ACK owner отвергает переход. Future NPC Recover при сохраняющейся profile Wound не определён.
+
+Demigryph и White Wolf Claws получают Drained через существующий first-Wound ACK; у Demigryph Condition сохраняется при W2. Не смешивать этот путь с Centigor Prone или PC on-hit Drained от Spider. NPC Recover/лечение не вводятся.
+
+Полные условия Abilities сохранены в metadata. Demigryph Fearsome требует Give Ground; Demigryph Knights действует только на Human rider: +2Resilience/Fast/Fearsome, игнорирование Agility penalties heavy/full plate и возможность двух атак в **одном rider Attack action**, одна из которых Grim. У самостоятельного Demigryph нет rider и этой двойной атаки; Bear slot2 ему не выдаётся. Centigor Child of the Forest требует woodland terrain; Spear bonus требует Charge; Drunken Rampage до Charge attack накладывает Staggered на всех creatures в Close, у которых его ещё нет. В fixed noMove/noCharge сцене эти условия не возникают; Javelin unselected.
+
+White Wolf Pin and Tear требует successful Clamping Jaws как часть Charge и даёт second action по той же цели Rending Claws. У Claws-only/noCharge loadout Clamping Jaws unselected, способность не срабатывает; Fearsome также требует Give Ground, которого current PC policy не выбирает. **Clamping Jaws GG-ban не переносится на Rending Claws.** Прежний Clamping loadout не изменён. Все три новых loadouts отвергаются в Bear-only `npc_extra_attack_actor_ids`.
+
+[Catalog](../../src/towr/domain/pc_npc_catalog.py), [profile Wound effects](../../src/towr/domain/pc_npc_wound_models.py), [actual ACK owner](../../src/towr/domain/_pc_melee_projection.py), [shield admission](../../src/towr/domain/pc_melee_models.py). Проверки: [catalog/source/metadata](../../tests/unit/test_m40_pc_creature_catalog.py), [native Prone/Drained/higher ground/receipts](../../tests/unit/test_m40_pc_creature_execution.py), [JSON/trials/8составов](../../tests/integration/test_m40_pc_creature_chunk.py). Каталог36→39; прежние36entries и124JSON documents M9–M39 сохраняются без миграции.
+
+<a id="bear-second-attack-m39"></a>
+
+## M39 — Bear / Sweeping Claws и Enduring Strength
+
+RULE-PROFILE-CREATURE-010:enduring-strength; BOOK-GM-GUIDE1.1, гл.VII Allies and Antagonists / Bear138; BOOK-PLAYER-GUIDE1.4, гл.V Opposed Tests109 / Near Miss112 / Combat Actions116 / Attack Tests118–119 / Conditions123. [ADR-0087](../decisions/ADR-0087-pc-bear-second-attack-policy.md) фиксирует выбранную пользователем тактику. Статус реализации и фактическая приёмка — в [project-status](../project-status.md).
+
+`BEAR_SWEEPING_CLAWS`: natural Close4d/3 Damage5, hands=null, Athletics3d/3, Brute3/T5/Res6 armoured/noShield. Implicit caps8/6, без Greataxe-исключения. Первый профильный переход0→1 наносит Drained; при2Wounds он сохраняется,3Wounds defeats. Не выводить будущий NPC Recover из отсутствующего лечения. Полные характеристики/Skills сверены по карточке; factory хранит выбранный боевой loadout. Crushing Weight с Prone-before-Give-Ground и отдельным3d/cap8 не выбирается. Полный Fearsome trigger сохранён: Give Ground от Bear даёт Broken; PC fixed SUFFER_WOUND его не вызывает.
+
+Enduring Strength после успешной Attack позволяет вторым действием атаковать **другого** врага в Close. HIT достаточен без раны, включая положительную ничью или Damage≤Resilience;0/0 — провал. Near Miss отменяет рану, не успех атаки. Staggered/Drained не запрещают саму способность. Общий максимум двух действий сохраняется; второй HIT третьего действия не даёт.
+
+Сценарная тактика задаётся обязательным `npc_extra_attack_actor_ids`; `[]` явно отказывается от optional способности. Включать можно только opposition actors с полным canonical Bear/Sweeping Claws source. После всех обязательных последствий/Fate первой Attack выбирается первый другой живой PC по `enemy_target_priority`, исключая actual primary target даже после его смерти. Живой Defenceless подходит и не делает Protection Test. Если другой живой цели нет, второе действие/slot/RNG отсутствуют. Unsupported mandatory consequence останавливает бой до следующего действия.
+
+Вторая Attack исполняется в настоящем ability slot2 с source-bound grant/receipt и отдельными action/kernel/Test IDs. TurnEnd происходит после обеих атак; Help конкретного первого Test не переносится. Clock проверяет структуру grant и first receipt, PC owner — полный первый Attack/HIT, canonical источник, policy, порядок и фактическую новую цель. Reservation, готовое состояние и Attack result проходят одинаковую проверку; один Rule ID не открывает повторную Attack.
+
+Trial `npc_extra_attack_counts` и summary counts/trial count/total отражают только реально исполненные вторые Attack. Они входят в общий action count, grant/reservation — нет. Count search удаляет выбранные Bear IDs при исключении NPC, не переназначает их. Current PC JSON1 требует policy и метрики без defaults/compatibility; прежние120JSON documents мигрируются `[]`/нулями с сохранением остальных значений.
+
+[Clock grant](../../src/towr/domain/turn_models.py), [PC policy projection](../../src/towr/domain/pc_npc_extra_attack_models.py), [runner](../../src/towr/engine/pc_melee_runner.py), [catalog tests](../../tests/unit/test_m39_pc_bear_catalog.py), [clock tests](../../tests/unit/test_k1_enduring_strength.py), [native targets/Fate/Help/guards](../../tests/unit/test_m39_pc_bear_execution.py), [примеры CLI](../examples/m39/README.md).
+
+<a id="greataxe-cap-m38"></a>
+
+## M38 — Minotaur Greataxe с canonical cap8
+
+Статус: `verified` в PC family. RULE-PROFILE-BEASTMEN-005; BOOK-GM-GUIDE1.1, Allies and Antagonists / Minotaur147; BOOK-PLAYER-GUIDE1.4, Dice Pools107. [ADR-0086](../decisions/ADR-0086-pc-minotaur-greataxe-pool-cap.md), [примеры](../examples/m38/README.md). Это отдельная функция допуска cap и один loadout, не новый общий каталоговый чанк или произвольные authored caps.
+
+`MINOTAUR_GREATAXE`: Close3d/5 Damage8,2H; explicit InlineProfile(3,5,8), Athletics4d/4 с cap=null, Brute3/T5Res6 armoured/noShield. Printed3d уже учитывает особенность оружия: второй штраф не добавляется. Dual Damage+1 не применяется. W1/W2 ordinary+1/+2d Melee, W3defeat и Devour сохраняются из [M37](#devour-chunk-m37); Fearsome/Charging Bull полными metadata вне fixed Attack/SUFFER_WOUND scene.
+
+Пользователь выбрал explicit cap8 **только для attack этой canonical identity**. Остальные book/authored и все Protection profiles сохраняют null. Private admission проверяет expected cap отдельно для attack/Protection, затем полную canonical definition/source graph. Подмена ID/nested source/значений, cap=null под новым ID и равные float/string-enum/bool aliases отвергаются до RNG. None в прежних профилях означает старый implicit cap2×printed dice.
+
+Current PC JSON1 уже имеет required pool_cap; schema расширена до enum:[null,8], объекты остаются closed. Семантический запрет чужого cap8 выполняет domain, как canonical gear/Damage guards. JSON Schema считает8.0 численно равным8, но domain требует exact int и отклоняет такой source. Codec asdict/InlineProfile(**source) не менялся; пропущенное поле не получает новый default/repair. Новых полей/версии/метрик/миграции116прежнихJSON documents нет.
+
+Native проверки: W0/W1/W2 pools3/4/5 с maximum8, W3defeat; реальное сочетание W2/outnumber/higher ground и двух Help даёт7ordinary+2bypass=9dice (ошибочный cap6 дал бы8). Отдельный Test с большим обычным bonus capped8, затем+2bypass даёт10. Drained удаляет Test bonuses, но сохраняет Devour table die; base Damage8 без dual/PC Traits.
+
+[Catalog](../../src/towr/domain/pc_npc_catalog.py), [cap admission](../../src/towr/domain/pc_melee_models.py), [profile rules](../../src/towr/domain/pc_npc_ability_models.py), [schema](../../src/towr/adapters/schemas/pc-melee-common.schema.json). Проверки: [catalog/full source](../../tests/unit/test_m38_pc_greataxe_catalog.py), [actual native cap/Help/Wounds/source](../../tests/unit/test_m38_pc_greataxe_execution.py), [JSON/trials/4состава](../../tests/integration/test_m38_pc_greataxe_cap.py). Каталог34→35; старые34entries/definitions/snapshots/metadata и116JSON documents M9–M37 сохраняются.
+
 ## RULE-PROFILE-IMPERIAL-001..008 — Osterlund и Reikland
 
 | Страница | Profile | Type | Нормативные profile/attack effects |
@@ -276,7 +584,7 @@ Gor заранее выбран с двумя Crude Axes, занимающими
 
 Chaos Warhound сохраняет printed Attack3d/3, хотя WS4; Protection4d/3 не подменяет атаку. Его natural Pinning Claws запрещают actual target Give Ground независимо от facts.can_leave_zone; при атаке по Warhound чужой запрет не накладывается. Giant Wolf сохраняет прежний такой же запрет.
 
-Child of the Forest Gor/Warhound сохранён inactive только в неподвижной сцене без woodland terrain. Orc Choppas +1Damage на Charge — inactive, поскольку Charge не выполняется. Power of the Waaagh! при Help союзной Melee attack даёт **один free success без Test**, не bonus die; нынешняя NPC-стратегия Help не делает. Все условия/эффекты сохранены в metadata. Orc использует printed Damage4 без добавочного PC dual/Charge/weapon trait.
+Child of the Forest Gor/Warhound сохранён inactive только в неподвижной сцене без woodland terrain. Orc Choppas +1Damage на Charge — inactive, поскольку Charge не выполняется. Power of the Waaagh! при Help союзной Melee attack даёт **один free success без Test**, не bonus die; с [M34](#greenskin-help-m34) доступна при явной NPC Help policy. Все условия/эффекты сохранены в metadata. Orc использует printed Damage4 без добавочного PC dual/Charge/weapon trait.
 
 [Явные helpers](../../src/towr/domain/pc_npc_ability_models.py) и [подготовка actual NPC Attack](../../src/towr/domain/pc_melee_result_models.py) используют существующие typed DiceModifier/DamageModifier/kernel, без DSL/нового owner/формата. Current JSON1/схемы/метрики прежние; canonical root/nested identities связывают fixed mode и выбранные значения. [Catalog/native tests](../../tests/unit/test_m28_pc_beast_orc_catalog.py), [modifiers/replay tests](../../tests/unit/test_m28_pc_beast_orc_modifiers.py), [общая integration/process/8составов](../../tests/integration/test_m28_pc_beast_orc_chunk.py). Прежние11профилей и38пар примеров сохраняются.
 
@@ -297,6 +605,32 @@ Child of the Forest Gor/Warhound сохранён inactive только в не�
 | 164 | Goblin Boss | Champion | при outnumbering Melee становится Glorious вместо `+1d`; раз за battle в свой turn выбирает Zone Long Range, все Goblins там немедленно Give Ground от ближайшего enemy, затем в свои turns действуют свободно |
 
 `Ruin by Red Eyez` страницы 155 — d10 campaign generator. Mounted Goblin/Orc benefits находятся в `RULE-PROFILE-CREATURE-001..010` и не возникают у пеших profiles автоматически.
+
+<a id="goblin-chunk-m31"></a>
+
+## M31 — Goblin Warrior, Nasty Skulker и Night Goblin
+
+Статус: `verified` в PC family. RULE-PROFILE-GREENSKIN-001/002/003; BOOK-GM-GUIDE1.1, Allies and Antagonists / NPCs91 / Profiles93 / Goblin Warrior156 / Nasty Skulker и Night Goblins157. Дополнение: BOOK-PLAYER-GUIDE1.4, Equipment / Melee Weapons92 / Throwing96 / Armour97, Rules / Attack Tests/Recover118 / Staggered119 / Defenceless/Burdened123. [ADR-0082](../decisions/ADR-0082-pc-goblin-melee-chunk.md), [общие примеры](../examples/m31/README.md).
+
+| Profile ID | Выбранная атака | Protection | Resilience / shield |
+|---|---|---|---|
+| GOBLIN_WARRIOR_SPEAR | Jagged Spear Close→maxShort2d/3 Damage3,1H | Athletics3d/2 | T3/printed5 armoured,shield |
+| NASTY_SKULKER | Long knives Close4d/4 Damage3,1H | Defence4d/4 | T3/4 armoured,noShield |
+| NIGHT_GOBLIN_SPEAR | Jagged Spear Close→maxShort2d/3 Damage3,1H | Athletics3d/2 | T3/variant printed4 armoured,shield |
+
+Все Normal Minions. GM93/PG92 задают Melee range как максимум: Spear может атаковать Close без фальсификации printed Short. Night Goblin наследует Warrior с Initiative3 и явной заменой Resilience на4; shield сохраняется, поверх printed totals ничего не начисляется. Разницу между Toughness и итогом хранит ResilienceProfile.bonus; не пересчитывать variant total из Typical Trappings. Unselected: Shortbow обоих Warriors, Weighted Net Night Goblin, Athletics3d/3 Skulker. Сцена неподвижная, все участники уже Close.
+
+**Dirty Coward (Warrior/Night):** actual repeated Staggered автоматически defeats, Goblin бросает оружие и бежит. Рана не наносится, GM не выбирает killed/KO/surrender. Typed MinionStaggerDefeatSpec/Cause/Result отделяют эффект от Profile Wound и связывают kernel ID/target/Rule ID. ProfileInjuryState с None cause сохраняет прежний invariant; только явная причина допускает defeated Minion при0Wounds/limit1. Обычный Staggered choice/RNG не вызывается. Промах уже Staggered атакующего не вызывает повторное Condition. Прямой damaging Wound сохраняет normal disposition. Skulker Dirty Coward не наследует.
+
+Existing PC journal независимо восстанавливает canonical K1 результат; mandatory PcMinionStaggerDefeatProof один раз снимает оружие/available attacks, сохраняет shield и исключает NPC из ходов/численности/целей. Пока ACK не выполнен, injury уже defeated, но equipment ещё исходный. Source bank проверяет actual Attack/cause/drop и full replay; подмена ран/flags/IDs/повторное подтверждение запрещены. Такой NPC считается defeated для objective, без Broken/FreeMovement/смены Zone и без exit counter живого Official. Generic Condition/Hazard projections причину сохраняют.
+
+**Backstabba (Skulker):** настоящая unopposed Melee attack имеет2Damage за success, остальные1. Opposed0success не становится unopposed. Runtime DamageProfile сохраняет base3 и меняет multiplier только для фактической атаки; canonical source остаётся3/1. Defenceless PC не Oppose, поэтому trigger применим в нынешнем owner после тяжёлой раны. Forced Wound остаётся одной, не по ране за success.
+
+Horde позволяет Help attack без Test с+1d сверх обычного bonus cap; с [M34](#greenskin-help-m34) доступна при явной NPC Help policy. Skulking Menace позволяет Stealth исчезнуть без cover при5других Goblins в Zone; fixed NPC Attack strategy Stealth не делает. Полные условия сохранены в metadata, применимые Dirty Coward/Backstabba исполняются.
+
+Current PC JSON1 требует explicit enemy.holds_shield и attack.range_max:close|short. Схемы/codec/readmission проверяют exact bool/enum, canonical shield/range и запрет shield с2H/natural.88старыхJSON documents мигрированы false/close с сохранением прочих значений. Другие families и текущий descriptor on-hit Drained не расширены. Weighted Net/Brawn recovery/расход предметов/новый AI не входят в M31.
+
+Исполнение: [catalog](../../src/towr/domain/pc_npc_catalog.py), [K1 профильная причина](../../src/towr/domain/injury_models.py), [Staggered override](../../src/towr/rules/stagger_impact_resolution.py), [Kernel](../../src/towr/rules/kernel.py), [явные NPC helpers](../../src/towr/domain/pc_npc_ability_models.py), [PC cause/drop bank](../../src/towr/domain/pc_minion_defeat_models.py), [ACK/replay](../../src/towr/domain/_pc_melee_projection.py). Проверки: [K1](../../tests/unit/test_k1_minion_stagger_defeat.py), [catalog](../../tests/unit/test_m31_pc_goblin_catalog.py), [native/Defenceless/forgery](../../tests/unit/test_m31_pc_goblin_execution.py), [JSON/trials/8составов](../../tests/integration/test_m31_pc_goblin_chunk.py).
 
 ## RULE-PROFILE-UNDEAD-001..006 — Dominion of Dusk
 

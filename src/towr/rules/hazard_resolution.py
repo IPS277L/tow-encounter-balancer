@@ -313,4 +313,5 @@ def _with_condition_state(
         wound_limit=state.wound_limit,
         conditions=conditions,
         defeated=state.defeated,
+        defeat_cause=state.defeat_cause,
     )

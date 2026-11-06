@@ -90,6 +90,8 @@ def resolve_kernel_attack(
     *,
     decisions: ResolutionDecisionProvider | None = None,
 ) -> ResolutionResult:
+    if request.minion_stagger_defeat is not None or request.first_stagger_wound is not None:
+        replace(request)
     attack = resolve_attack(request.attack, rng, decisions=decisions)
     return _resolve_kernel_attack_after_test(request, attack, rng, decisions=decisions)
 
@@ -322,6 +324,8 @@ def _resolve_stagger_impact(
                 if isinstance(effect, ConditionOnGiveGroundOrWoundSpec)
             ),
             target_effect_immunities=request.target_effect_immunities,
+            minion_stagger_defeat=request.minion_stagger_defeat,
+            first_stagger_wound=request.first_stagger_wound,
         ),
         rng,
         decisions=decisions,
@@ -344,6 +348,7 @@ def _resolve_stagger_impact(
         deferred_wound_condition_immunities=(
             impact.deferred_wound_condition_immunities
         ),
+        minion_stagger_defeat=impact.minion_stagger_defeat,
     )
 
 
@@ -690,6 +695,7 @@ def _with_conditions(
         wound_limit=state.wound_limit,
         conditions=conditions,
         defeated=state.defeated,
+        defeat_cause=state.defeat_cause,
     )
 
 

@@ -310,7 +310,8 @@
                 "success_multiplier": 1
               },
               "hands": "1h",
-              "secondary_effects": []
+              "secondary_effects": [],
+              "range_max": "close"
             },
             "protection": {
               "source_rule_id": "authored:minion:defence",
@@ -321,7 +322,8 @@
               },
               "skill": "defence"
             }
-          }
+          },
+          "holds_shield": false
         },
         {
           "actor_id": "brute1",
@@ -347,7 +349,8 @@
                 "success_multiplier": 1
               },
               "hands": "1h",
-              "secondary_effects": []
+              "secondary_effects": [],
+              "range_max": "close"
             },
             "protection": {
               "source_rule_id": "authored:minion:defence",
@@ -358,7 +361,8 @@
               },
               "skill": "defence"
             }
-          }
+          },
+          "holds_shield": false
         }
       ],
       "facts": {
@@ -391,7 +395,12 @@
         "pc4"
       ],
       "max_rounds": 5,
-      "npc_broken_exit_policy": null
+      "npc_broken_exit_policy": null,
+      "npc_help_policies": [],
+      "npc_extra_attack_actor_ids": [],
+      "npc_grudge_policies": [],
+      "npc_blood_rage_actor_ids": [],
+      "npc_flagellant_policies": []
     },
     "generation": {
       "groups": [
@@ -747,7 +756,8 @@
                     "success_multiplier": 1
                   },
                   "hands": "1h",
-                  "secondary_effects": []
+                  "secondary_effects": [],
+                  "range_max": "close"
                 },
                 "protection": {
                   "source_rule_id": "authored:minion:defence",
@@ -758,7 +768,8 @@
                   },
                   "skill": "defence"
                 }
-              }
+              },
+              "holds_shield": false
             }
           ],
           "facts": {
@@ -790,7 +801,12 @@
             "pc4"
           ],
           "max_rounds": 5,
-          "npc_broken_exit_policy": null
+          "npc_broken_exit_policy": null,
+          "npc_help_policies": [],
+          "npc_extra_attack_actor_ids": [],
+          "npc_grudge_policies": [],
+          "npc_blood_rage_actor_ids": [],
+          "npc_flagellant_policies": []
         }
       },
       "summary": {
@@ -911,7 +927,31 @@
           }
         ],
         "objective_with_npc_exit_count": 0,
-        "total_npc_exit_count": 0
+        "total_npc_exit_count": 0,
+        "npc_help_action_trial_count": 0,
+        "npc_help_action_counts": [
+          {
+            "actor_id": "brute1",
+            "count": 0
+          }
+        ],
+        "total_npc_help_action_count": 0,
+        "npc_extra_attack_trial_count": 0,
+        "npc_extra_attack_counts": [
+          {
+            "actor_id": "brute1",
+            "count": 0
+          }
+        ],
+        "total_npc_extra_attack_count": 0,
+        "npc_recover_action_trial_count": 0,
+        "npc_recover_action_counts": [
+          {
+            "actor_id": "brute1",
+            "count": 0
+          }
+        ],
+        "total_npc_recover_action_count": 0
       },
       "assessment": {
         "status": "eligible",
@@ -1261,7 +1301,8 @@
                     "success_multiplier": 1
                   },
                   "hands": "1h",
-                  "secondary_effects": []
+                  "secondary_effects": [],
+                  "range_max": "close"
                 },
                 "protection": {
                   "source_rule_id": "authored:minion:defence",
@@ -1272,7 +1313,8 @@
                   },
                   "skill": "defence"
                 }
-              }
+              },
+              "holds_shield": false
             },
             {
               "actor_id": "brute1",
@@ -1298,7 +1340,8 @@
                     "success_multiplier": 1
                   },
                   "hands": "1h",
-                  "secondary_effects": []
+                  "secondary_effects": [],
+                  "range_max": "close"
                 },
                 "protection": {
                   "source_rule_id": "authored:minion:defence",
@@ -1309,7 +1352,8 @@
                   },
                   "skill": "defence"
                 }
-              }
+              },
+              "holds_shield": false
             }
           ],
           "facts": {
@@ -1342,7 +1386,12 @@
             "pc4"
           ],
           "max_rounds": 5,
-          "npc_broken_exit_policy": null
+          "npc_broken_exit_policy": null,
+          "npc_help_policies": [],
+          "npc_extra_attack_actor_ids": [],
+          "npc_grudge_policies": [],
+          "npc_blood_rage_actor_ids": [],
+          "npc_flagellant_policies": []
         }
       },
       "summary": {
@@ -1467,7 +1516,43 @@
           }
         ],
         "objective_with_npc_exit_count": 0,
-        "total_npc_exit_count": 0
+        "total_npc_exit_count": 0,
+        "npc_help_action_trial_count": 0,
+        "npc_help_action_counts": [
+          {
+            "actor_id": "minion1",
+            "count": 0
+          },
+          {
+            "actor_id": "brute1",
+            "count": 0
+          }
+        ],
+        "total_npc_help_action_count": 0,
+        "npc_extra_attack_trial_count": 0,
+        "npc_extra_attack_counts": [
+          {
+            "actor_id": "minion1",
+            "count": 0
+          },
+          {
+            "actor_id": "brute1",
+            "count": 0
+          }
+        ],
+        "total_npc_extra_attack_count": 0,
+        "npc_recover_action_trial_count": 0,
+        "npc_recover_action_counts": [
+          {
+            "actor_id": "minion1",
+            "count": 0
+          },
+          {
+            "actor_id": "brute1",
+            "count": 0
+          }
+        ],
+        "total_npc_recover_action_count": 0
       },
       "assessment": {
         "status": "eligible",

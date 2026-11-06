@@ -151,7 +151,16 @@ def _summary(summary: PcMeleeSimulationSummary) -> dict:
         "npc_exit_trial_count": summary.npc_exit_trial_count,
         "npc_exit_counts": [asdict(count) for count in summary.npc_exit_counts],
         "objective_with_npc_exit_count": summary.objective_with_npc_exit_count,
-        "total_npc_exit_count": summary.total_npc_exit_count}
+        "total_npc_exit_count": summary.total_npc_exit_count,
+        "npc_help_action_trial_count": summary.npc_help_action_trial_count,
+        "npc_help_action_counts": [asdict(count) for count in summary.npc_help_action_counts],
+        "total_npc_help_action_count": summary.total_npc_help_action_count,
+        "npc_extra_attack_trial_count": summary.npc_extra_attack_trial_count,
+        "npc_extra_attack_counts": [asdict(count) for count in summary.npc_extra_attack_counts],
+        "total_npc_extra_attack_count": summary.total_npc_extra_attack_count,
+        "npc_recover_action_trial_count": summary.npc_recover_action_trial_count,
+        "npc_recover_action_counts": [asdict(count) for count in summary.npc_recover_action_counts],
+        "total_npc_recover_action_count": summary.total_npc_recover_action_count}
 
 
 def encode_pc_melee_simulation_result(command: PcMeleeSimulationCommand,

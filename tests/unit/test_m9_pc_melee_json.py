@@ -1,4 +1,7 @@
+from tests.support.pc_melee_fixtures import zero_npc_recover_counts
 """Pure PC JSON1 source mapping, aggregate encoding and boundary errors."""
+from tests.support.pc_melee_fixtures import zero_npc_extra_attack_counts
+from tests.support.pc_melee_fixtures import zero_npc_help_counts
 from tests.support.pc_melee_fixtures import zero_npc_exit_counts
 from copy import deepcopy
 from dataclasses import replace
@@ -32,6 +35,9 @@ from towr.simulation.pc_melee_summary_models import PcMeleeDefeatCount, PcMeleeS
 
 def document(*, balance=False, party_size=1, mixed=False):
     scenario = scenario_document(make_pc_melee_scenario(enemy_count=2 if balance or mixed else 1, max_rounds=2))
+    scenario['npc_grudge_policies']=[]
+    scenario['npc_blood_rage_actor_ids']=[]
+    scenario['npc_flagellant_policies']=[]
     for index in range(1, party_size):
         member=deepcopy(scenario['party'][0])
         actor=f'pc{index+1}'
@@ -88,7 +94,7 @@ def aggregate(request, *, unsupported=False):
         tuple(PcNearMissBurnCount(member.actor_id,0) for member in request.scenario.party),0,
         tuple(PcGloriousSpendCount(member.actor_id,0) for member in request.scenario.party),0,
         tuple(PcHelpActionCount(member.actor_id,0) for member in request.scenario.party),0,
-        tuple(PcAllyRecoverActionCount(member.actor_id,0) for member in request.scenario.party), 0, zero_npc_exit_counts(request.scenario), 0)
+        tuple(PcAllyRecoverActionCount(member.actor_id,0) for member in request.scenario.party), 0, zero_npc_exit_counts(request.scenario), 0, npc_help_action_trial_count=0, npc_help_action_counts=zero_npc_help_counts(request.scenario), npc_extra_attack_trial_count=0, npc_recover_action_trial_count=0, npc_extra_attack_counts=zero_npc_extra_attack_counts(request.scenario), npc_recover_action_counts=zero_npc_recover_counts(request.scenario))
 
 
 def balance_result(command):
@@ -689,7 +695,7 @@ class PcMeleeJsonTests(unittest.TestCase):
             (PcNearMissBurnCount('pc',0),PcNearMissBurnCount('pc2',0)),0,
             (PcGloriousSpendCount('pc',0),PcGloriousSpendCount('pc2',0)),0,
             (PcHelpActionCount('pc',0),PcHelpActionCount('pc2',0)),0,
-            (PcAllyRecoverActionCount('pc',0),PcAllyRecoverActionCount('pc2',0)), 0, zero_npc_exit_counts(command.request.scenario), 0)
+            (PcAllyRecoverActionCount('pc',0),PcAllyRecoverActionCount('pc2',0)), 0, zero_npc_exit_counts(command.request.scenario), 0, npc_help_action_trial_count=0, npc_help_action_counts=zero_npc_help_counts(command.request.scenario), npc_extra_attack_trial_count=0, npc_recover_action_trial_count=0, npc_extra_attack_counts=zero_npc_extra_attack_counts(command.request.scenario), npc_recover_action_counts=zero_npc_recover_counts(command.request.scenario))
         value=json.loads(wire.encode_pc_melee_simulation_result(command,summary))
         self.assertEqual(value['summary']['outcome_counts']['party_defeated'],1)
         self.assertEqual(value['summary']['any_pc_defeated_count'],2)

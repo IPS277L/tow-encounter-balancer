@@ -18,6 +18,9 @@ from towr.domain.npc_attack_preparation_models import NpcAttackProfile
 from towr.domain.npc_roster_models import (
     NpcDefinition, NpcParticipantSnapshot, NpcParticipantState, NpcProtectionProfile,
 )
+from towr.domain.pc_npc_help_models import PcNpcHelpPolicy
+from towr.domain.pc_npc_grudge_policy_models import PcNpcGrudgePolicy
+from towr.domain.pc_flagellant_policy_models import PcFlagellantPolicy,PcFeelNoPainPolicy
 from towr.domain.pc_melee_models import (
     PcFatePolicy, PcNearMissPolicy, PcGloriousPolicy, PcHelpPolicy, PcHelpTarget, PcAllyRecoverPolicy, PcMeleeDefinition, PcMeleeFacts, PcMeleeParticipant, PcMeleePolicy, PcMeleeScenario,
     PcMeleeWeapon, PcRandomSidePolicy, PcHeavyWoundPolicy, PcWeaponHand, PcTwoHandedGrip, PcBackupWeaponPolicy, PcAdjacentNpcExitPolicy, validate_pc_melee_scenario_admission,
@@ -124,7 +127,7 @@ def _parse_scenario(data, *, path_prefix, error_type):
         attack = build(path + "/definition/attack", NpcAttackProfile,
             attack_raw["id"], attack_raw["source_rule_id"], Skill.MELEE,
             InlineProfile(**attack_raw["test_profile"]), DamageProfile(**attack_raw["damage"]),
-            RangedWeaponRange.CLOSE, RangedWeaponRange.CLOSE,
+            RangedWeaponRange.CLOSE, RangedWeaponRange(attack_raw["range_max"]),
             None if attack_raw["hands"] is None else RangedWeaponHands(attack_raw["hands"]),
             secondary_effects=tuple(_parse_on_hit_effect(effect,
                 path_prefix=f'{path}/definition/attack/secondary_effects/{index}',error_type=error_type)
@@ -137,14 +140,23 @@ def _parse_scenario(data, *, path_prefix, error_type):
                 Skill(protection_raw["skill"]), InlineProfile(**protection_raw["test_profile"])),))
         state = build(path, NpcParticipantState, enemy["actor_id"], definition.id,
             CombatSide.OPPOSITION, ProfileInjuryState(0, definition.wound_limit), (attack.id,),
-            resilience, attack.hands is not None, False)
+            resilience, attack.hands is not None, enemy["holds_shield"])
         enemies.append(NpcParticipantSnapshot(definition, state))
     return build(path_prefix, PcMeleeScenario, data["id"], party,
         data["day_id"], tuple(enemies), build(path_prefix + "/facts", PcMeleeFacts, **data["facts"]),
         tuple(data["pc_activation_order"]), tuple(data["enemy_activation_order"]),
         tuple(data["enemy_target_priority"]), data["max_rounds"],
         None if data['npc_broken_exit_policy'] is None else build(path_prefix+'/npc_broken_exit_policy',
-            PcAdjacentNpcExitPolicy,**data['npc_broken_exit_policy']))
+            PcAdjacentNpcExitPolicy,**data['npc_broken_exit_policy']),
+        tuple(build(f'{path_prefix}/npc_help_policies/{index}',PcNpcHelpPolicy,**policy)
+            for index,policy in enumerate(data['npc_help_policies'])),
+        npc_extra_attack_actor_ids=tuple(data['npc_extra_attack_actor_ids']),
+        npc_grudge_policies=tuple(build(f'{path_prefix}/npc_grudge_policies/{index}',PcNpcGrudgePolicy,**policy)
+            for index,policy in enumerate(data['npc_grudge_policies'])),
+        npc_blood_rage_actor_ids=tuple(data['npc_blood_rage_actor_ids']),
+        npc_flagellant_policies=tuple(build(f'{path_prefix}/npc_flagellant_policies/{index}',
+            PcFlagellantPolicy,policy['actor_id'],PcFeelNoPainPolicy(policy['feel_no_pain']),
+            policy['recover_when_wounded']) for index,policy in enumerate(data['npc_flagellant_policies'])))
 
 
 def scenario_document(scenario: PcMeleeScenario) -> dict:
@@ -153,12 +165,13 @@ def scenario_document(scenario: PcMeleeScenario) -> dict:
     for enemy in scenario.enemies:
         definition = enemy.definition
         attack, protection = definition.attacks[0], definition.protection[0]
-        enemies.append({"actor_id": enemy.state.actor_id, "definition": {
+        enemies.append({"actor_id": enemy.state.actor_id, "holds_shield": enemy.state.holds_shield, "definition": {
             "id": definition.id, "source_rule_id": definition.source_rule_id,
             "injury_policy": definition.injury_policy.value, "wound_limit": definition.wound_limit,
             "resilience": asdict(definition.resilience),
             "attack": {"id": attack.id, "source_rule_id": attack.source_rule_id,
                 "test_profile": asdict(attack.test_profile), "damage": asdict(attack.damage),
+                "range_max": attack.range_max.value,
                 "hands": None if attack.hands is None else attack.hands.value,
                 "secondary_effects": [{'kind':'condition_on_hit','condition':effect.condition.value,
                     'rule_id':effect.rule_id,'classification':effect.classification.value}
@@ -172,4 +185,9 @@ def scenario_document(scenario: PcMeleeScenario) -> dict:
         "enemy_activation_order": list(scenario.enemy_activation_order),
         "enemy_target_priority": list(scenario.enemy_target_priority),
         "max_rounds": scenario.max_rounds,
+        "npc_help_policies": [asdict(policy) for policy in scenario.npc_help_policies],
+        "npc_extra_attack_actor_ids": list(scenario.npc_extra_attack_actor_ids),
+        "npc_grudge_policies": [asdict(policy) for policy in scenario.npc_grudge_policies],
+        "npc_blood_rage_actor_ids": list(scenario.npc_blood_rage_actor_ids),
+        "npc_flagellant_policies": _plain([asdict(policy) for policy in scenario.npc_flagellant_policies]),
         "npc_broken_exit_policy": None if scenario.npc_broken_exit_policy is None else asdict(scenario.npc_broken_exit_policy)}
