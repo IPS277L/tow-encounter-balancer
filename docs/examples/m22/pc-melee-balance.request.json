@@ -339,7 +339,8 @@
     "npc_extra_attack_actor_ids": [],
     "npc_grudge_policies": [],
     "npc_blood_rage_actor_ids": [],
-    "npc_flagellant_policies": []
+    "npc_flagellant_policies": [],
+    "npc_warped_form_policies": []
   },
   "generation": {
     "groups": [

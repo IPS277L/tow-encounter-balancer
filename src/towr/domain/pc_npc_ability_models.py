@@ -57,6 +57,9 @@ def pc_npc_attack_modifiers(definition: NpcDefinition,conditions: ConditionState
     if definition.id == 'pc-book-npc:bestigor_massive_axe' and conditions.has(Condition.STAGGERED):
         from towr.domain.pc_npc_blood_rage_policy_models import BLOOD_RAGE_RULE_ID
         return (DiceModifier(BLOOD_RAGE_RULE_ID,1),)
+    if definition.id == 'pc-book-npc:skin_wolf' and conditions.has(Condition.STAGGERED):
+        from towr.domain.pc_npc_blood_rage_policy_models import SKIN_WOLF_BLOOD_RAGE_RULE_ID
+        return (DiceModifier(SKIN_WOLF_BLOOD_RAGE_RULE_ID,1),)
     if definition.id == 'pc-book-npc:flagellant_flails' and conditions.has(Condition.STAGGERED):
         from towr.domain.pc_flagellant_policy_models import FLAILS_STAGGERED_RULE_ID
         return (DiceModifier(FLAILS_STAGGERED_RULE_ID,-2),)
@@ -104,6 +107,6 @@ def pc_npc_damage_profile(definition: NpcDefinition,*,unopposed: bool) -> Damage
 
 def pc_npc_stagger_defeat_spec(definition: NpcDefinition) -> MinionStaggerDefeatSpec | None:
     validate_pc_book_npc_definition(definition)
-    if definition.id in ('pc-book-npc:goblin_warrior_spear','pc-book-npc:night_goblin_spear'):
+    if definition.id in ('pc-book-npc:goblin_warrior_spear','pc-book-npc:night_goblin_spear','pc-book-npc:night_goblin_net_spear'):
         return MinionStaggerDefeatSpec(GOBLIN_DIRTY_COWARD_RULE_ID)
     return None

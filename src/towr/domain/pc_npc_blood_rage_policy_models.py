@@ -1,8 +1,10 @@
-"""Caller-owned voluntary Blood Rage for the canonical Bestigor."""
+"""Caller-owned voluntary Blood Rage for the canonical Bestigor and Skin Wolf."""
 from towr.domain.pc_npc_catalog import validate_pc_book_npc_definition
 
 
 BESTIGOR_DEFINITION_ID = 'pc-book-npc:bestigor_massive_axe'
+SKIN_WOLF_DEFINITION_ID = 'pc-book-npc:skin_wolf'
+SKIN_WOLF_BLOOD_RAGE_RULE_ID = 'RULE-PROFILE-MONSTER-011:blood-rage'
 BLOOD_RAGE_RULE_ID = 'RULE-PROFILE-BEASTMEN-003:blood-rage'
 BESTIGOR_WOUND_GLORIOUS_RULE_ID = 'RULE-PROFILE-BEASTMEN-003:first-wound-next-attack-glorious'
 
@@ -18,7 +20,7 @@ def validate_pc_npc_blood_rage_policy(source) -> None:
             raise ValueError('Blood Rage actor must belong to the source opposition')
         definition = source.enemy(actor).definition
         validate_pc_book_npc_definition(definition)
-        if definition.id != BESTIGOR_DEFINITION_ID:
-            raise ValueError('Blood Rage requires the canonical Bestigor Massive Axe')
+        if definition.id not in (BESTIGOR_DEFINITION_ID,SKIN_WOLF_DEFINITION_ID):
+            raise ValueError('Blood Rage requires a canonical Bestigor or Skin Wolf')
     if len(set(actors)) != len(actors):
         raise ValueError('Blood Rage actor IDs must be unique')

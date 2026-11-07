@@ -291,7 +291,8 @@
       "bestigor2"
     ],
     "npc_broken_exit_policy": null,
-    "npc_flagellant_policies": []
+    "npc_flagellant_policies": [],
+    "npc_warped_form_policies": []
   },
   "generation": {
     "groups": [

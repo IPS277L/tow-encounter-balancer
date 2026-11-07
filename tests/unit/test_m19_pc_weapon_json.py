@@ -33,8 +33,8 @@ class PcTwoHandedWeaponJsonTests(unittest.TestCase):
         common=json.loads(files('towr.adapters.schemas').joinpath('pc-melee-common.schema.json')
             .read_text(encoding='utf-8'))
         self.assertEqual(common['$defs']['pc']['properties']['weapon'],
-            {'enum':list(ONE_HANDED+TWO_HANDED)})
-        self.assertEqual(tuple(weapon.value for weapon in PcMeleeWeapon),ONE_HANDED+TWO_HANDED)
+            {'enum':list(ONE_HANDED+TWO_HANDED+('pistol',))})
+        self.assertEqual(tuple(weapon.value for weapon in PcMeleeWeapon),ONE_HANDED+TWO_HANDED+('pistol',))
         for balance in (False,True):
             raw=armed_document(balance=balance)
             key='template' if balance else 'scenario'

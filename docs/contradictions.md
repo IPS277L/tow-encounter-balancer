@@ -1,5 +1,15 @@
 # Противоречия и неоднозначности
 
+## CODE-CONFLICT-005 — cap невыбранной Athletics Knights
+
+2026-11-07, выявлено при подготовке [M56 / ADR-0101](decisions/ADR-0101-pc-close-shooting-npc-protection-choice.md). GM1.1 VII101/116 задают обоим Knights Ag3 и printed Athletics2d/3; PG1.4 V107 ограничивает кубы удвоенной Characteristic, то есть6. Heavy armour PG97 объясняет уменьшение исходного пула до2; это вывод из совместного чтения, не отдельная фраза GM. Второй armour penalty применять нельзя.
+
+Прежняя `PcBookNpcEntry.unselected_protection` хранила InlineProfile(2,3,None), что давало cap4. До M56 в fixed canonical PC loadout исполнялась выбранная Defence, поэтому не заявляется изменение исходов M55 или готовых прежних JSON. Исправлено в M56: alternate metadata двух unshielded Knights — canonical source-bound2d/3/cap6, без расширения произвольных authored Protection caps. Source/profile и native actual Test проверки подтверждают cap6 без повторного armour penalty. Статус: **исправлено 2026-11-07**.
+
+## CODE-CONFLICT-004 — Protection против Brawn (исправлено 2026-11-07)
+
+PG1.4, гл.III Skills / Brawn69 явно задаёт Opposition Athletics либо Endurance. Прежние generic Protection gate и нормализованный текст ошибочно разрешали Defence с оружием/щитом и не разрешали Endurance. Исправлено в M51: Brawn получает Athletics/Endurance, остальные attack skills сохраняют свою matrix; явный Halfling Stealth exception не становится общей защитой. [Правило](rules/combat.md#подготовка-protection-для-одной-атаки), [код](../src/towr/domain/protection_models.py), [детерминированные проверки](../tests/unit/test_m51_crown_core.py). Это исправление расхождения кода/документации с книгой. Выбор Brawn для неоднозначной карточки Trample отдельно согласован в [ADR-0096](decisions/ADR-0096-pc-great-stag-crown-and-trample.md).
+
 ## Battered Leg delivery: ADR-0062
 
 2026-11-03: [generation/JSON6](decisions/ADR-0062-battered-leg-generation-and-magic-json-v6.md) сохраняют полный authored Endurance profile и native61 scope. Допустимые профили1d/5 и11d/5 передаются с прежней семантикой normal kernel. Это delivery уже сверенных правил59–61, нового книжного противоречия/house rule нет. Истории боя и снятие sourced Prone5 не добавлены в wire.

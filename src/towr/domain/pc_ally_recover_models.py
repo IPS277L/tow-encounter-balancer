@@ -80,12 +80,18 @@ def pc_after_standard_recover(state, request, result):
         updated[member.actor_id] = injury
     member = state.participant(actor)
     from towr.domain.pc_backup_weapon_models import pc_preferred_weapon_hand
-    hand = (pc_preferred_weapon_hand(state,actor)
-        if request.choice.object_interaction is not None else member.weapon_hand)
+    from towr.domain.pc_shield_models import pc_shield_recover_hand,PcShieldState,PcShieldLocation
+    interaction = request.choice.object_interaction
+    shield_pickup = interaction is not None and interaction.object_id==actor+':shield'
+    used_hand = (pc_shield_recover_hand(member) if shield_pickup else
+        pc_preferred_weapon_hand(state,actor) if interaction is not None else None)
+    hand = used_hand if interaction is not None and not shield_pickup else member.weapon_hand
+    shield = PcShieldState(PcShieldLocation.HELD,used_hand) if shield_pickup else member.shield
     injury = updated.get(actor,member.injury)
     updated[actor] = critical_for_action(replace(member,injury=injury),CombatActionKind.RECOVER,
         removes_prone=(request.choice.prone_target is not None
             and request.choice.prone_target.entity_id==actor),
-        used_hand=hand if request.choice.object_interaction is not None else None)
+        used_hand=used_hand)
     return tuple(replace(member,injury=updated.get(member.actor_id,member.injury),
-        weapon_hand=hand if member.actor_id==actor else member.weapon_hand) for member in state.party)
+        weapon_hand=hand if member.actor_id==actor else member.weapon_hand,
+        shield=shield if member.actor_id==actor else member.shield) for member in state.party)

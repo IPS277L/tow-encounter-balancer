@@ -34,7 +34,7 @@ def pc_npc_automatic_help_rule(definition) -> str | None:
     if definition.id=='pc-book-npc:empire_peasant':return PEASANT_HELP_RULE_ID
     if definition.id=='pc-book-npc:free_company_militia_blades':return MILITIA_HELP_RULE_ID
     if definition.id=='pc-book-npc:sigmarite_cultist_warhammer':return CULTIST_HELP_RULE_ID
-    if definition.id in ('pc-book-npc:goblin_warrior_spear','pc-book-npc:night_goblin_spear'):
+    if definition.id in ('pc-book-npc:goblin_warrior_spear','pc-book-npc:night_goblin_spear','pc-book-npc:night_goblin_net_spear'):
         return HORDE_HELP_RULE_ID
     if definition.id in ('pc-book-npc:orc_boy_choppas','pc-book-npc:big_un_choppas',
             'pc-book-npc:orc_boy_spear_shield','pc-book-npc:big_un_spear_shield',
@@ -98,6 +98,9 @@ def pc_npc_help_beneficiary(state) -> str | None:
             and pc_npc_automatic_help_effect(state.enemy(actor).definition)
                 is AutomaticHelpEffectKind.BONUS_DIE_BEYOND_CAP):
         return None
+    from towr.domain.pc_net_models import selected_pc_npc_net_attack
+    if selected_pc_npc_net_attack(state,policy.beneficiary_id)=='weighted_net':
+        return None
     return policy.beneficiary_id
 
 
@@ -142,6 +145,8 @@ def build_pc_npc_attack_help(state,actor,test):
 def pc_npc_attack_help_applications(state,attack):
     actor=state.round_state.active_turn.actor_id
     if actor not in state.source.enemy_activation_order or not state.source.npc_help_policies:return ()
+    from towr.domain.pc_net_models import is_net_impact
+    if is_net_impact(attack.impact_spec):return ()
     test=attack.attacker_test
     base=replace(test,dice_modifiers=tuple(m for m in test.dice_modifiers
         if m.rule_id not in _HELP_RULE_IDS),success_modifiers=tuple(m for m in test.success_modifiers

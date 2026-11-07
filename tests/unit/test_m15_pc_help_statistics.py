@@ -1,3 +1,4 @@
+from tests.support.pc_melee_fixtures import zero_npc_warped_form_counts
 from tests.support.pc_melee_fixtures import zero_npc_recover_counts
 """Help consumes ordinary action budget, independently of Fate costs."""
 from tests.support.pc_melee_fixtures import zero_npc_extra_attack_counts
@@ -37,7 +38,7 @@ def observed_batch():
         tuple(PcGloriousSpendCount(member.actor_id,0) for member in request.scenario.party),
         tuple(PcHelpActionCount(member.actor_id,count)
             for member,count in zip(request.scenario.party,counts,strict=True)),
-        tuple(PcAllyRecoverActionCount(member.actor_id,0) for member in request.scenario.party), zero_npc_exit_counts(request.scenario), npc_help_action_counts=zero_npc_help_counts(request.scenario), npc_extra_attack_counts=zero_npc_extra_attack_counts(request.scenario), npc_recover_action_counts=zero_npc_recover_counts(request.scenario))
+        tuple(PcAllyRecoverActionCount(member.actor_id,0) for member in request.scenario.party), zero_npc_exit_counts(request.scenario), npc_help_action_counts=zero_npc_help_counts(request.scenario), npc_extra_attack_counts=zero_npc_extra_attack_counts(request.scenario), npc_recover_action_counts=zero_npc_recover_counts(request.scenario), npc_warped_form_counts=zero_npc_warped_form_counts(request.scenario))
         for index,(outcome,counts) in enumerate(rows))
     return PcMeleeSimulationResult(request,records)
 

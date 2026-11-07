@@ -236,7 +236,8 @@
     "npc_broken_exit_policy": null,
     "npc_grudge_policies": [],
     "npc_blood_rage_actor_ids": [],
-    "npc_flagellant_policies": []
+    "npc_flagellant_policies": [],
+    "npc_warped_form_policies": []
   },
   "simulation": {
     "master_seed": "42",

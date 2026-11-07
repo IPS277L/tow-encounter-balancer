@@ -1,10 +1,12 @@
+from tests.support.pc_melee_fixtures import zero_npc_warped_form_counts
 from tests.support.pc_melee_fixtures import zero_npc_recover_counts
+from tests.support.pc_pistol_scenarios import pistol_profile
 """Pure PC JSON1 source mapping, aggregate encoding and boundary errors."""
 from tests.support.pc_melee_fixtures import zero_npc_extra_attack_counts
 from tests.support.pc_melee_fixtures import zero_npc_help_counts
 from tests.support.pc_melee_fixtures import zero_npc_exit_counts
 from copy import deepcopy
-from dataclasses import replace
+from dataclasses import asdict, replace
 from enum import Enum
 import json
 import unittest
@@ -38,6 +40,7 @@ def document(*, balance=False, party_size=1, mixed=False):
     scenario['npc_grudge_policies']=[]
     scenario['npc_blood_rage_actor_ids']=[]
     scenario['npc_flagellant_policies']=[]
+    scenario['npc_warped_form_policies']=[]
     for index in range(1, party_size):
         member=deepcopy(scenario['party'][0])
         actor=f'pc{index+1}'
@@ -94,7 +97,7 @@ def aggregate(request, *, unsupported=False):
         tuple(PcNearMissBurnCount(member.actor_id,0) for member in request.scenario.party),0,
         tuple(PcGloriousSpendCount(member.actor_id,0) for member in request.scenario.party),0,
         tuple(PcHelpActionCount(member.actor_id,0) for member in request.scenario.party),0,
-        tuple(PcAllyRecoverActionCount(member.actor_id,0) for member in request.scenario.party), 0, zero_npc_exit_counts(request.scenario), 0, npc_help_action_trial_count=0, npc_help_action_counts=zero_npc_help_counts(request.scenario), npc_extra_attack_trial_count=0, npc_recover_action_trial_count=0, npc_extra_attack_counts=zero_npc_extra_attack_counts(request.scenario), npc_recover_action_counts=zero_npc_recover_counts(request.scenario))
+        tuple(PcAllyRecoverActionCount(member.actor_id,0) for member in request.scenario.party), 0, zero_npc_exit_counts(request.scenario), 0, npc_help_action_trial_count=0, npc_help_action_counts=zero_npc_help_counts(request.scenario), npc_extra_attack_trial_count=0, npc_recover_action_trial_count=0, npc_warped_form_trial_count=0, npc_extra_attack_counts=zero_npc_extra_attack_counts(request.scenario), npc_recover_action_counts=zero_npc_recover_counts(request.scenario), npc_warped_form_counts=zero_npc_warped_form_counts(request.scenario))
 
 
 def balance_result(command):
@@ -114,7 +117,7 @@ def melee_help(beneficiary):
 
 class PcMeleeJsonTests(unittest.TestCase):
     def test_current_weapons_roundtrip_and_full_sources_preserve_mixed_party(self):
-        weapons=('staff','sword','dagger','axe','warhammer','morning_star','pickaxe','flail','billhook','halberd','glaive','greataxe','greathammer')
+        weapons=('staff','sword','dagger','axe','warhammer','morning_star','pickaxe','flail','billhook','halberd','glaive','greataxe','greathammer','pistol')
         self.assertEqual(tuple(weapon.value for weapon in PcMeleeWeapon),weapons)
         for balance in (False,True):
             with self.subTest(balance=balance):
@@ -123,6 +126,10 @@ class PcMeleeJsonTests(unittest.TestCase):
                 for member,weapon in zip(raw[key]['party'],weapons):
                     member['pc']['weapon']=weapon
                     member['initial_weapon_hand']='both' if weapon in ('pickaxe','flail','billhook','halberd','glaive','greataxe','greathammer') else 'left'
+                    if weapon=='pistol':
+                        member['pc']['pistol']=json.loads(json.dumps(asdict(pistol_profile())))
+                for enemy in raw[key]['enemies']:
+                    enemy['definition']['protection']['skill']='athletics'
                 parse=wire.parse_pc_melee_balance_request if balance else wire.parse_pc_melee_simulation_request
                 command=parse(json.dumps(raw))
                 source=command.request.template if balance else command.request.scenario
@@ -434,7 +441,7 @@ class PcMeleeJsonTests(unittest.TestCase):
 
     def test_glorious_criteria_refuse_bad_skills_and_numeric_coercion(self):
         valid={'skills':['melee'],'maximum_initial_successes':0,'minimum_remaining_spends':0}
-        for field,values in (('skills',([],['melee','melee'],['shooting'],['MELEE'],[True],'melee')),
+        for field,values in (('skills',([],['melee','melee'],['toil'],['MELEE'],[True],'melee')),
                 ('maximum_initial_successes',(True,-1,'0',0.0)),
                 ('minimum_remaining_spends',(False,-1,'0',0.0))):
             for value in values:
@@ -695,7 +702,7 @@ class PcMeleeJsonTests(unittest.TestCase):
             (PcNearMissBurnCount('pc',0),PcNearMissBurnCount('pc2',0)),0,
             (PcGloriousSpendCount('pc',0),PcGloriousSpendCount('pc2',0)),0,
             (PcHelpActionCount('pc',0),PcHelpActionCount('pc2',0)),0,
-            (PcAllyRecoverActionCount('pc',0),PcAllyRecoverActionCount('pc2',0)), 0, zero_npc_exit_counts(command.request.scenario), 0, npc_help_action_trial_count=0, npc_help_action_counts=zero_npc_help_counts(command.request.scenario), npc_extra_attack_trial_count=0, npc_recover_action_trial_count=0, npc_extra_attack_counts=zero_npc_extra_attack_counts(command.request.scenario), npc_recover_action_counts=zero_npc_recover_counts(command.request.scenario))
+            (PcAllyRecoverActionCount('pc',0),PcAllyRecoverActionCount('pc2',0)), 0, zero_npc_exit_counts(command.request.scenario), 0, npc_help_action_trial_count=0, npc_help_action_counts=zero_npc_help_counts(command.request.scenario), npc_extra_attack_trial_count=0, npc_recover_action_trial_count=0, npc_warped_form_trial_count=0, npc_extra_attack_counts=zero_npc_extra_attack_counts(command.request.scenario), npc_recover_action_counts=zero_npc_recover_counts(command.request.scenario), npc_warped_form_counts=zero_npc_warped_form_counts(command.request.scenario))
         value=json.loads(wire.encode_pc_melee_simulation_result(command,summary))
         self.assertEqual(value['summary']['outcome_counts']['party_defeated'],1)
         self.assertEqual(value['summary']['any_pc_defeated_count'],2)

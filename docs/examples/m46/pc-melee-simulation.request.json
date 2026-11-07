@@ -236,7 +236,8 @@
       "bestigor1"
     ],
     "npc_broken_exit_policy": null,
-    "npc_flagellant_policies": []
+    "npc_flagellant_policies": [],
+    "npc_warped_form_policies": []
   },
   "simulation": {
     "master_seed": "42",

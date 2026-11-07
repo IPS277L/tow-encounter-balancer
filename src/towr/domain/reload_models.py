@@ -8,6 +8,7 @@ from towr.domain.exacting_test_models import (
     ExactingTestContributionRequest,
     ExactingTestContributionResult,
     ExactingTestProgress,
+    _expected_contribution,
 )
 from towr.domain.ranged_weapon_profiles import (
     RANGED_WEAPON_RELOAD_RULE_ID,
@@ -15,7 +16,7 @@ from towr.domain.ranged_weapon_profiles import (
     RangedWeaponId,
     ranged_weapon_reload_profile,
 )
-from towr.domain.test_models import Skill, TestRequest
+from towr.domain.test_models import Skill, TestRequest, TestResult
 from towr.domain.turn_models import (
     ActionExecutionReceipt,
     CombatActionKind,
@@ -324,6 +325,93 @@ def _exacting_request(
         progress=request.weapon_state.exacting,
         contributor_id=request.actor_id,
         test=request.dexterity_test,
+    )
+
+
+def _complete_reload_action_after_test(
+    request: ReloadActionExecutionRequest,
+    test: TestResult,
+) -> ReloadActionExecutionResult:
+    """Complete an owner-validated Test/Fate prefix without rolling again.
+
+    This is private: the calling owner proves the complete Test against the
+    request and its Fate decisions before supplying it here.
+    """
+    if type(request) is not ReloadActionExecutionRequest:
+        raise TypeError("reload completion requires its exact action request")
+    if type(test) is not TestResult:
+        raise TypeError("reload completion requires its exact Test result")
+    replace(request)
+    replace(test)
+    source = _exacting_request(request)
+    contribution = _expected_contribution(source, test)
+    progress = ExactingTestProgress(
+        id=source.progress.id,
+        required_successes=source.progress.required_successes,
+        contributions=(*source.progress.contributions, contribution),
+        rule_id=source.progress.rule_id,
+    )
+    exacting = ExactingTestContributionResult(
+        request_id=source.id,
+        rule_id=source.rule_id,
+        source_request=source,
+        test_result=test,
+        contribution=contribution,
+        previous_progress=source.progress,
+        progress=progress,
+        applied_rule_ids=tuple(dict.fromkeys(
+            (source.rule_id, *test.trace.applied_rule_ids))),
+    )
+    return _complete_reload_action(request, exacting)
+
+
+def _complete_reload_action(
+    request: ReloadActionExecutionRequest,
+    exacting: ExactingTestContributionResult,
+) -> ReloadActionExecutionResult:
+    weapon_state = replace(
+        request.weapon_state,
+        exacting=exacting.progress,
+        loaded=exacting.progress.completed,
+    )
+
+    turn = request.round_state.active_turn
+    assert turn is not None
+    slot = turn.action_slots[request.slot_index - 1]
+    executed_slot = replace(
+        slot,
+        execution=ActionExecutionReceipt(
+            id=request.id,
+            executor_rule_id=request.rule_id,
+            source_request_id=request.id,
+            result_request_id=exacting.request_id,
+            actor_id=request.actor_id,
+            round_number=request.round_state.round_number,
+            slot_index=slot.index,
+            declaration=slot.declaration,
+        ),
+    )
+    updated_slots = tuple(
+        executed_slot if item.index == request.slot_index else item
+        for item in turn.action_slots
+    )
+    round_state = replace(
+        request.round_state,
+        active_turn=replace(turn, action_slots=updated_slots),
+    )
+    return ReloadActionExecutionResult(
+        request_id=request.id,
+        rule_id=request.rule_id,
+        source_request=request,
+        exacting=exacting,
+        previous_state=request.weapon_state,
+        state=weapon_state,
+        previous_round_state=request.round_state,
+        round_state=round_state,
+        slot=executed_slot,
+        applied_rule_ids=tuple(
+            dict.fromkeys((request.rule_id, *exacting.applied_rule_ids))
+        ),
     )
 
 

@@ -4,7 +4,7 @@ from dataclasses import dataclass, replace
 from towr.domain.condition_models import Condition
 from towr.domain.injury_models import ProfileNpcType, ProfileStateChangeRequest
 from towr.domain.pc_npc_blood_rage_policy_models import (
-    BESTIGOR_DEFINITION_ID, BESTIGOR_WOUND_GLORIOUS_RULE_ID,
+    BESTIGOR_DEFINITION_ID, SKIN_WOLF_DEFINITION_ID, BESTIGOR_WOUND_GLORIOUS_RULE_ID,
 )
 from towr.domain.pc_npc_catalog import validate_pc_book_npc_definition
 from towr.domain.test_models import QualityModifier, TestQuality
@@ -41,6 +41,23 @@ class PcBestigorGloriousSource:
             raise ValueError('Bestigor Glorious requires the living Brute0-to-1 change')
 
 
+@dataclass(frozen=True, slots=True)
+class PcBestigorWaveGloriousSource:
+    """One next-Attack entitlement from an actual non-Attack wave W1."""
+
+    actor_id: str
+    wave_id: str
+    profile_change: ProfileStateChangeRequest
+
+    def __post_init__(self):
+        if any(type(v) is not str or not v.strip() for v in (self.actor_id,self.wave_id)):
+            raise TypeError('Bestigor wave Glorious requires exact actor and wave IDs')
+        from towr.domain.pc_npc_wound_models import _first_wound
+        if not _first_wound(self.profile_change):
+            raise ValueError('Bestigor wave Glorious requires its living Brute0-to-1 change')
+        replace(self.profile_change)
+
+
 def expected_pc_npc_blood_rage(state):
     """Only a selected actor's reserved, unexecuted Attack may acquire Staggered."""
     from towr.domain.pc_melee_result_models import pc_melee_action_id
@@ -53,8 +70,8 @@ def expected_pc_npc_blood_rage(state):
         return None
     enemy = state.enemy(turn.actor_id)
     validate_pc_book_npc_definition(enemy.definition)
-    if enemy.definition.id != BESTIGOR_DEFINITION_ID:
-        raise ValueError('Blood Rage choice requires its canonical Bestigor')
+    if enemy.definition.id not in (BESTIGOR_DEFINITION_ID,SKIN_WOLF_DEFINITION_ID):
+        raise ValueError('Blood Rage choice requires its canonical Bestigor or Skin Wolf')
     if enemy.state.injury.defeated or enemy.state.injury.conditions.has(Condition.STAGGERED):
         return None
     return PcNpcBloodRageProof(turn.actor_id, pc_melee_action_id(state, turn.actor_id))
@@ -63,6 +80,7 @@ def expected_pc_npc_blood_rage(state):
 def pc_bestigor_glorious_source(state, actor_id):
     """Replay the ACK/Attack prefix; remaining W1 alone never grants a new charge."""
     from towr.domain.pc_melee_result_models import PcAttackProof, PcProfileWoundProof
+    from towr.domain.pc_warped_form_models import PcWarpedFormProfileProof
     if actor_id not in state.source.enemy_activation_order:
         return None
     enemy = state.enemy(actor_id)
@@ -73,7 +91,7 @@ def pc_bestigor_glorious_source(state, actor_id):
         return None
     last_attack = None
     entitlement = None
-    for proof in state.history:
+    for index,proof in enumerate(state.history):
         if type(proof) is PcAttackProof:
             last_attack = proof
             if proof.request.actor_id == actor_id:
@@ -85,6 +103,13 @@ def pc_bestigor_glorious_source(state, actor_id):
             if wound is None or proof.source != wound.state_change:
                 raise ValueError('Bestigor Glorious detached from its actual profile-Wound ACK')
             entitlement = PcBestigorGloriousSource(actor_id, last_attack.request.id, proof.source)
+        elif (type(proof) is PcWarpedFormProfileProof and proof.target_id==actor_id
+                and proof.source.previous_wounds==0 and proof.source.current_wounds==1):
+            from towr.domain.pc_npc_distraction_models import _wave_receipt
+            activation,_=_wave_receipt(state.history[:index],proof)
+            if proof.decision is not None:
+                raise ValueError('living Bestigor W1 cannot carry a defeat disposition')
+            entitlement=PcBestigorWaveGloriousSource(actor_id,activation.activation_id,proof.source)
     return entitlement
 
 

@@ -48,7 +48,7 @@ class K1ProtectionPreparationTests(unittest.TestCase):
                 ))
 
     def test_close_combat_defence_requires_weapon_or_shield_not_close_range(self):
-        for skill, close, weapon, shield in product((Skill.MELEE, Skill.BRAWN), (False, True), (False, True), (False, True)):
+        for skill, close, weapon, shield in product((Skill.MELEE,), (False, True), (False, True), (False, True)):
             with self.subTest(skill=skill, close=close, weapon=weapon, shield=shield):
                 args = dict(attack_skill=skill, attack=attack_request(close=close),
                             defender_wields_weapon=weapon, defender_holds_shield=shield,

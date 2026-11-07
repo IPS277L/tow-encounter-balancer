@@ -48,6 +48,13 @@ def _validate_attack_action_slot(request: AttackActionExecutionRequest) -> None:
         raise ValueError("earlier action slots must be executed first")
 
     slot = turn.action_slots[request.slot_index - 1]
+    if slot.crown_of_antlers is not None:
+        replace(turn)
+        replace(request.state)
+        if type(request.target_id) is not str:
+            raise TypeError('Crown Attack requires its exact target ID')
+        if request.target_id != slot.crown_of_antlers.target_id:
+            raise ValueError('Crown Attack requires its granted same target')
     if slot.declaration.kind is not CombatActionKind.ATTACK:
         raise ValueError("only an Attack action slot can use this executor")
     if slot.executed:

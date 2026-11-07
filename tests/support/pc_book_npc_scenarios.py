@@ -3,21 +3,24 @@ from dataclasses import replace
 
 from tests.support.pc_melee_fixtures import make_pc_melee_party_scenario
 from towr.domain.pc_npc_catalog import PcBookNpcProfile,create_pc_book_npc
+from towr.domain.pc_npc_net_policy_models import PcNpcNetMode,PcNpcNetPolicy
 
 
 def book_pc_scenario(*,footpads=2,townsfolk=1,brigands=0,officials=0,troopers=0,
                      artisans=0,squires=0,merchants=0,horses=0,wolves=0,boars=0,
                      gors=0,warhounds=0,orcs=0,spiders=0,white_wolves=0,
                      empire_knights=0,wolf_knights=0,big_uns=0,
-                     goblins=0,skulkers=0,night_goblins=0,
+                     goblins=0,skulkers=0,night_goblins=0,net_goblins=0,
                      peasants=0,watch=0,militia=0,cultists=0,elf_militia=0,ungors=0,
                      spear_troopers=0,spear_orcs=0,spear_big_uns=0,
                      razorgors=0,minotaurs=0,minotaur_dual_axes=0,
                      minotaur_greataxes=0,bears=0,demigryphs=0,centigors=0,white_wolf_claws=0,
-                     shield_gors=0,shield_knights=0,brewguards=0,miners=0,thieves=0,sharpshooters=0,single_gors=0,unshielded_orcs=0,unshielded_big_uns=0,bestigors=0,flagellant_flails=0,flagellant_hooks=0,pc_count=2,max_rounds=3):
+                     shield_gors=0,shield_knights=0,brewguards=0,miners=0,thieves=0,sharpshooters=0,single_gors=0,unshielded_orcs=0,unshielded_big_uns=0,bestigors=0,flagellant_flails=0,flagellant_hooks=0,skin_wolves=0,ogres=0,pegasi=0,crushing_bears=0,great_stags=0,pc_count=2,max_rounds=3):
     source=make_pc_melee_party_scenario(pc_count=pc_count,
-        enemy_count=officials+brigands+footpads+townsfolk+troopers+artisans+squires+merchants+horses+wolves+boars+gors+warhounds+orcs+spiders+white_wolves+empire_knights+wolf_knights+big_uns+goblins+skulkers+night_goblins+peasants+watch+militia+cultists+elf_militia+ungors+spear_troopers+spear_orcs+spear_big_uns+razorgors+minotaurs+minotaur_dual_axes+minotaur_greataxes+bears+demigryphs+centigors+white_wolf_claws+shield_gors+shield_knights+brewguards+miners+thieves+sharpshooters+single_gors+unshielded_orcs+unshielded_big_uns+bestigors+flagellant_flails+flagellant_hooks,max_rounds=max_rounds)
-    entries=tuple((PcBookNpcProfile.FLAGELLANT_FLAILS,f'flagellant_flails{i+1}') for i in range(flagellant_flails))+tuple(
+        enemy_count=officials+brigands+footpads+townsfolk+troopers+artisans+squires+merchants+horses+wolves+boars+gors+warhounds+orcs+spiders+white_wolves+empire_knights+wolf_knights+big_uns+goblins+skulkers+night_goblins+net_goblins+peasants+watch+militia+cultists+elf_militia+ungors+spear_troopers+spear_orcs+spear_big_uns+razorgors+minotaurs+minotaur_dual_axes+minotaur_greataxes+bears+demigryphs+centigors+white_wolf_claws+shield_gors+shield_knights+brewguards+miners+thieves+sharpshooters+single_gors+unshielded_orcs+unshielded_big_uns+bestigors+flagellant_flails+flagellant_hooks+skin_wolves+ogres+pegasi+crushing_bears+great_stags,max_rounds=max_rounds)
+    entries=tuple((PcBookNpcProfile.NIGHT_GOBLIN_NET_SPEAR,f'net_goblin{i+1}') for i in range(net_goblins))+tuple((PcBookNpcProfile.GREAT_STAG,f'great_stag{i+1}') for i in range(great_stags))+tuple((PcBookNpcProfile.BEAR_CRUSHING_WEIGHT,f'crushing_bear{i+1}') for i in range(crushing_bears))+tuple((PcBookNpcProfile.IMPERIAL_OGRE_GREATHAMMER,f'ogre{i+1}') for i in range(ogres))+tuple(
+        (PcBookNpcProfile.PEGASUS_GROUNDED,f'pegasus{i+1}') for i in range(pegasi))+tuple((PcBookNpcProfile.SKIN_WOLF,f'skin_wolf{i+1}') for i in range(skin_wolves))+tuple(
+        (PcBookNpcProfile.FLAGELLANT_FLAILS,f'flagellant_flails{i+1}') for i in range(flagellant_flails))+tuple(
         (PcBookNpcProfile.FLAGELLANT_HOOKS_CHAINS,f'flagellant_hooks{i+1}') for i in range(flagellant_hooks))+tuple(
         (PcBookNpcProfile.BESTIGOR_MASSIVE_AXE,f'bestigor{i+1}') for i in range(bestigors))+tuple(
         (PcBookNpcProfile.ORC_BOY_SPEAR,f'unshielded_orc{i+1}') for i in range(unshielded_orcs))+tuple(
@@ -73,4 +76,6 @@ def book_pc_scenario(*,footpads=2,townsfolk=1,brigands=0,officials=0,troopers=0,
     party=tuple(replace(member,target_priority=targets,
         defeat_decisions=tuple(replace(decision,target_id=target)
             for decision,target in zip(member.defeat_decisions,targets,strict=True))) for member in source.party)
-    return replace(source,party=party,enemies=enemies,enemy_activation_order=targets)
+    return replace(source,party=party,enemies=enemies,enemy_activation_order=targets,
+        npc_net_policies=tuple(PcNpcNetPolicy(actor,1,PcNpcNetMode.THROW_ONCE_THEN_SPEAR)
+            for profile,actor in entries if profile is PcBookNpcProfile.NIGHT_GOBLIN_NET_SPEAR))

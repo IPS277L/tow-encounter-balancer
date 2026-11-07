@@ -1,5 +1,27 @@
 # Бой и атаки
 
+## Выбор NPC Protection против Close Shooting (M56)
+
+<a id="pc-close-shooting-protection-m56"></a>
+
+`RULE-COMBAT-005`, `RULE-NPC-008:protection-preparation`, `RULE-EQUIPMENT-004:close-ranged-melee-opposition`. Источники: PG1.4 III68, IV94/97, V107/118/123; GM1.1 VII93/100/101/116. Статус implemented в нынешнем fixed Close PC owner. [Принятый контракт](../decisions/ADR-0101-pc-close-shooting-npc-protection-choice.md), [примеры](../examples/m56/README.md).
+
+Optional `npc_close_shooting_protection_policies` явно выбирает Melee либо Athletics для каждого указанного NPC. Поддержаны четыре полных existing canonical loadouts: State Trooper Halberd/Spear, unmounted no-shield Empire Knight/Lance и Knight of the White Wolf/Wolf Hammer. Отсутствие поля сохраняет прежнюю выбранную Protection; в Pistol-сценарии она должна быть законной против Shooting. Против входящей Melee-атаки всегда сохраняется прежняя Defence. Подмена Protection во всём immutable definition вместо выбора по incoming Skill недопустима.
+
+| Loadouts | Melee opposition | Athletics |
+|---|---|---|
+| State Trooper Halberd/Spear, GM100 | 3d/3, cap6 от WS3 | 3d/3, cap6 от Ag3 |
+| Empire Knight/Lance, GM101 | 4d/4, cap8 от WS4 | 2d/3, cap6 от Ag3 |
+| Knight of the White Wolf/Wolf Hammer, GM116 | 4d/4, cap8 от WS4 | 2d/3, cap6 от Ag3 |
+
+Melee numbers подтверждены WS/Skills, не выведены из произвольного Attack row. Для Knights printed Athletics2d/3 соответствует уменьшению Ag3 тяжёлой бронёй; это вывод из совместного чтения PG97 и карточек. Повторный–1d не применяется, maximum по PG107 остаётся6. Source policy не принимает произвольные dice/threshold/cap. Невыбранная Athletics metadata двух unshielded Knights исправлена с implicit4 на cap6; обычные выбранные Defence profiles не меняются.
+
+PG94 разрешает Melee opposition Close ranged Attack. Это защитный Test, без counterattack/Damage/собственного action slot. Tie и both-fail остаются обычными исходами Attack; победа NPC на opposition не становится попаданием по стрелку. Close miss даёт прежний Staggered стрелку только при его отсутствии. Unaware/Defenceless не Opposes, policy не возвращает защиту.
+
+Защитный Melee не получает Attack-only outnumbering/higher-ground/Charge, PC weapon Traits или чужой Help. NPC Prone даёт–1d самому Shooting; W1Knights/Drained и W2defeat сохраняются. Mounted/Steed/Charge/Supporting Action без своих условий не активируются. Source-aware Conditions и фактический Fate/PC Pistol Reload продолжаются прежними слоями.
+
+Если поле присутствует, список непустой и закрытый: один actor_id/skill на NPC, без duplicates/unknown/PC actors/null/aliases. Политика требует Pistol-PC в party и полного одного из четырёх canonical NPC. Full template проверяется до subset generation; excluded actor удаляет свою запись, без переназначения, пустой остаток означает отсутствие поля.188старыхJSON не мигрируются, текущий PC JSON1 и каталог57 сохраняются.
+
 Источник: `BOOK-PLAYER-GUIDE`, преимущественно страницы 111–120. Статус: правила атаки, базовый порядок раунда, бюджет действий, обе фазы Run и обе дальности Charge `implemented` в K1; эффекты большинства остальных действий и завершение боя ещё требуют нового battle loop.
 
 ## RULE-COMBAT-001 — раунды, стороны и ходы
@@ -709,11 +731,13 @@ Medium Brawn Charge через Difficult Terrain / LOST Aim подключён �
 
 ## Подготовка Protection для одной атаки
 
+M51 расширяет NPC Attack preparation узкой естественной Brawn Close-атакой: hands=null/no weapon, выбранный полный профиль и его Characteristic cap. В PC source это только canonical Trample Great Stag; остальные definitions не получают произвольный Brawn/multi-attack допуск. [Правило](npc-profile-catalog.md#great-stag-crown-trample-m51).
+
 ProtectionTestOption связывает defender_id, Skill и готовый TestRequest (TestProfile либо InlineProfile с уже заданными modifiers). ProtectionPreparationRequest содержит исходный AttackRequest, attack_skill, defender_id, явные bool defender_is_aware/defender_is_defenceless/defender_wields_weapon/defender_holds_shield, selected_skill и options. Дальность берётся из attack.is_close_range, не дублируется отдельным флагом.
 
 prepare_protection без RNG возвращает frozen/slotted ProtectionPreparationResult с точным source_request, подготовленной attack, eligible_skills, unopposed_reasons и applied_rule_ids. Проверяется только допустимость явно выбранной защиты; автоматически лучший профиль не выбирается. eligible_skills перечисляет разрешённые контекстом способы, даже если профиль одного из них не передан. Нужен Test только выбранного Skill; foreign defender, повтор skill/Test ID и совпадение защитного ID с атакующим запрещены.
 
-Athletics допускается против Melee/Brawn/Shooting/Throwing. Defence против Melee/Brawn требует оружия либо щита, независимо от Close-флага (Melee может достигать Short). Против Shooting/Throwing нужен именно щит, даже в Close. Ranged-атака в Close разрешает отдельный выбор Melee; PG 94 не добавляет к этому выбору требования щита. Throwing использует ranged правило по PG 68. Профильные weapon bonuses NPC не выводятся из имени оружия.
+Athletics допускается против Melee/Brawn/Shooting/Throwing. Против Brawn обычный выбор — Athletics либо Endurance (BOOK-PLAYER-GUIDE1.4, гл.III Skills / Brawn69); Defence не допускается даже с оружием/щитом. Endurance не становится защитой против Melee/Shooting/Throwing. Явные профильные исключения, например Halfling Stealth, сохраняют собственный source gate. Defence против Melee требует оружия либо щита, независимо от Close-флага (Melee может достигать Short). Против Shooting/Throwing нужен именно щит, даже в Close. Ranged-атака в Close разрешает отдельный выбор Melee; PG 94 не добавляет к этому выбору требования щита. Throwing использует ranged правило по PG 68. Профильные weapon bonuses NPC не выводятся из имени оружия.
 
 Неосведомлённая или Defenceless цель получает attack.defender_test=None и все применимые причины в стабильном порядке UNAWARE, DEFENCELESS. В этой ветви selected_skill обязан быть None; уже выбранная защита отвергается, а не молча исполняется/заменяется. В обычной ветви None запрещён: добровольная unopposed policy в этот API не введена. Это требования согласованности запроса, не новые игровые ограничения.
 

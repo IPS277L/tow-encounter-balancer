@@ -2,7 +2,7 @@
 from dataclasses import dataclass, fields, is_dataclass
 from enum import Enum
 
-from towr.domain.attack_models import ConditionOnHitSpec, DamageProfile, ResilienceProfile
+from towr.domain.attack_models import ConditionImpactSpec, ConditionOnHitSpec, DamageProfile, ResilienceProfile, ProneBeforeGiveGroundSpec
 from towr.domain.condition_models import Condition, EffectClassification
 from towr.domain.injury_models import ProfileInjuryState
 from towr.domain.npc_attack_preparation_models import NpcAttackProfile
@@ -38,6 +38,7 @@ class PcBookNpcProfile(str, Enum):
     GOBLIN_WARRIOR_SPEAR = 'goblin_warrior_spear'
     NASTY_SKULKER = 'nasty_skulker'
     NIGHT_GOBLIN_SPEAR = 'night_goblin_spear'
+    NIGHT_GOBLIN_NET_SPEAR = 'night_goblin_net_spear'
     EMPIRE_PEASANT = 'empire_peasant'
     TOWN_WATCH_POLEARM = 'town_watch_polearm'
     FREE_COMPANY_MILITIA_BLADES = 'free_company_militia_blades'
@@ -67,10 +68,41 @@ class PcBookNpcProfile(str, Enum):
     BESTIGOR_MASSIVE_AXE = 'bestigor_massive_axe'
     FLAGELLANT_FLAILS = 'flagellant_flails'
     FLAGELLANT_HOOKS_CHAINS = 'flagellant_hooks_chains'
+    SKIN_WOLF = 'skin_wolf'
+    IMPERIAL_OGRE_GREATHAMMER = 'imperial_ogre_greathammer'
+    PEGASUS_GROUNDED = 'pegasus_grounded'
+    BEAR_CRUSHING_WEIGHT = 'bear_crushing_weight'
+    GREAT_STAG = 'great_stag'
 
 
 # Immutable identity strings only; canonical definition graphs are always freshly built.
 _CATALOG_IDENTITIES = (
+    (PcBookNpcProfile.NIGHT_GOBLIN_NET_SPEAR,'pc-book-npc:night_goblin_net_spear',
+        ('BOOK-GM-GUIDE:1.1:p157:night_goblin_net_spear',
+         'BOOK-GM-GUIDE:1.1:p157:night_goblin_net_spear:jagged_spear',
+         'BOOK-GM-GUIDE:1.1:p157:night_goblin_net_spear:weighted_net',
+         'BOOK-GM-GUIDE:1.1:p157:night_goblin_net_spear:athletics')),
+    (PcBookNpcProfile.GREAT_STAG,'pc-book-npc:great_stag',
+        ('BOOK-GM-GUIDE:1.1:p176:great_stag',
+         'BOOK-GM-GUIDE:1.1:p176:great_stag:mighty_antlers',
+         'BOOK-GM-GUIDE:1.1:p176:great_stag:trample',
+         'BOOK-GM-GUIDE:1.1:p176:great_stag:athletics')),
+    (PcBookNpcProfile.BEAR_CRUSHING_WEIGHT,'pc-book-npc:bear_crushing_weight',
+        ('BOOK-GM-GUIDE:1.1:p138:bear_crushing_weight',
+         'BOOK-GM-GUIDE:1.1:p138:bear_crushing_weight:crushing_weight',
+         'BOOK-GM-GUIDE:1.1:p138:bear_crushing_weight:athletics')),
+    (PcBookNpcProfile.IMPERIAL_OGRE_GREATHAMMER,'pc-book-npc:imperial_ogre_greathammer',
+        ('BOOK-GM-GUIDE:1.1:p103:imperial_ogre_greathammer',
+         'BOOK-GM-GUIDE:1.1:p103:imperial_ogre_greathammer:greathammer',
+         'BOOK-GM-GUIDE:1.1:p103:imperial_ogre_greathammer:athletics')),
+    (PcBookNpcProfile.PEGASUS_GROUNDED,'pc-book-npc:pegasus_grounded',
+        ('BOOK-GM-GUIDE:1.1:p176:pegasus_grounded',
+         'BOOK-GM-GUIDE:1.1:p176:pegasus_grounded:hooves',
+         'BOOK-GM-GUIDE:1.1:p176:pegasus_grounded:athletics')),
+    (PcBookNpcProfile.SKIN_WOLF,'pc-book-npc:skin_wolf',
+        ('BOOK-GM-GUIDE:1.1:p187:skin_wolf',
+         'BOOK-GM-GUIDE:1.1:p187:skin_wolf:claws_and_fangs',
+         'BOOK-GM-GUIDE:1.1:p187:skin_wolf:athletics')),
     (PcBookNpcProfile.FLAGELLANT_FLAILS,'pc-book-npc:flagellant_flails',
         ('BOOK-GM-GUIDE:1.1:p122:flagellant_flails',
          'BOOK-GM-GUIDE:1.1:p122:flagellant_flails:flails',
@@ -295,6 +327,30 @@ class PcBookNpcEntry:
 def _definition(profile_id: PcBookNpcProfile) -> NpcDefinition:
     if type(profile_id) is not PcBookNpcProfile:
         raise TypeError('book NPC profile must be its exact PcBookNpcProfile enum')
+    if profile_id is PcBookNpcProfile.NIGHT_GOBLIN_NET_SPEAR:
+        source = 'BOOK-GM-GUIDE:1.1:p157:night_goblin_net_spear'
+        spear = NpcAttackProfile('jagged_spear',source+':jagged_spear',Skill.MELEE,
+            InlineProfile(2,3),DamageProfile(3),RangedWeaponRange.CLOSE,
+            RangedWeaponRange.SHORT,RangedWeaponHands.ONE_HANDED)
+        net = NpcAttackProfile('weighted_net',source+':weighted_net',Skill.THROWING,
+            InlineProfile(2,3,6),None,RangedWeaponRange.CLOSE,
+            RangedWeaponRange.SHORT,RangedWeaponHands.TWO_HANDED,
+            condition_impact=ConditionImpactSpec(Condition.BURDENED,
+                'RULE-EQUIPMENT-005:weighted-net-burdened',EffectClassification.UNCLASSIFIED))
+        protection = NpcProtectionProfile(source+':athletics',Skill.ATHLETICS,InlineProfile(3,2))
+        return NpcDefinition('pc-book-npc:night_goblin_net_spear',source,
+            TargetInjuryPolicy.MINION,1,ResilienceProfile(3,armoured=True),(spear,net),(protection,))
+    if profile_id is PcBookNpcProfile.GREAT_STAG:
+        source = 'BOOK-GM-GUIDE:1.1:p176:great_stag'
+        attacks = (
+            NpcAttackProfile('mighty_antlers',source+':mighty_antlers',Skill.MELEE,
+                InlineProfile(4,3),DamageProfile(6),RangedWeaponRange.CLOSE,RangedWeaponRange.CLOSE,None),
+            NpcAttackProfile('trample',source+':trample',Skill.BRAWN,
+                InlineProfile(5,3),DamageProfile(5),RangedWeaponRange.CLOSE,RangedWeaponRange.CLOSE,None),
+        )
+        protection = NpcProtectionProfile(source+':athletics',Skill.ATHLETICS,InlineProfile(5,4))
+        return NpcDefinition('pc-book-npc:great_stag',source,TargetInjuryPolicy.BRUTE,3,
+            ResilienceProfile(5),attacks,(protection,))
     injury_policy,wound_limit,toughness = TargetInjuryPolicy.MINION,1,3
     if profile_id is PcBookNpcProfile.FOOTPAD:
         page,dice,threshold,damage,attack_name,armour,protection_threshold = 97,3,3,2,'dagger',0,3
@@ -377,6 +433,9 @@ def _definition(profile_id: PcBookNpcProfile) -> NpcDefinition:
     elif profile_id is PcBookNpcProfile.MINOTAUR_GREATAXE:
         page,dice,threshold,damage,attack_name,armour,protection_threshold = 147,3,5,8,'greataxe',1,4
         injury_policy,wound_limit,toughness = TargetInjuryPolicy.BRUTE,3,5
+    elif profile_id is PcBookNpcProfile.BEAR_CRUSHING_WEIGHT:
+        page,dice,threshold,damage,attack_name,armour,protection_threshold = 138,3,3,7,'crushing_weight',1,3
+        injury_policy,wound_limit,toughness = TargetInjuryPolicy.BRUTE,3,5
     elif profile_id is PcBookNpcProfile.BEAR_SWEEPING_CLAWS:
         page,dice,threshold,damage,attack_name,armour,protection_threshold = 138,4,3,5,'sweeping_claws',1,3
         injury_policy,wound_limit,toughness = TargetInjuryPolicy.BRUTE,3,5
@@ -398,6 +457,15 @@ def _definition(profile_id: PcBookNpcProfile) -> NpcDefinition:
     elif profile_id is PcBookNpcProfile.DWARF_BREWGUARD_WARHAMMER:
         page,dice,threshold,damage,attack_name,armour,protection_threshold = 104,4,3,3,'warhammer',1,3
         injury_policy,wound_limit,toughness = TargetInjuryPolicy.BRUTE,2,4
+    elif profile_id is PcBookNpcProfile.IMPERIAL_OGRE_GREATHAMMER:
+        page,dice,threshold,damage,attack_name,armour,protection_threshold = 103,2,4,8,'greathammer',1,3
+        injury_policy,wound_limit,toughness = TargetInjuryPolicy.BRUTE,3,5
+    elif profile_id is PcBookNpcProfile.PEGASUS_GROUNDED:
+        page,dice,threshold,damage,attack_name,armour,protection_threshold = 176,3,3,3,'hooves',0,4
+        injury_policy,wound_limit = TargetInjuryPolicy.BRUTE,2
+    elif profile_id is PcBookNpcProfile.SKIN_WOLF:
+        page,dice,threshold,damage,attack_name,armour,protection_threshold = 187,5,3,5,'claws_and_fangs',1,3
+        injury_policy,wound_limit,toughness = TargetInjuryPolicy.BRUTE,3,4
     elif profile_id in (PcBookNpcProfile.FLAGELLANT_FLAILS,PcBookNpcProfile.FLAGELLANT_HOOKS_CHAINS):
         flails = profile_id is PcBookNpcProfile.FLAGELLANT_FLAILS
         page,dice,threshold,damage,attack_name,armour,protection_threshold = 122,3,4,(6 if flails else 3),('flails' if flails else 'hooks_and_chains'),0,3
@@ -430,13 +498,19 @@ def _definition(profile_id: PcBookNpcProfile) -> NpcDefinition:
     natural = profile_id in (PcBookNpcProfile.HORSE,PcBookNpcProfile.GIANT_WOLF,
         PcBookNpcProfile.GIANT_BOAR,PcBookNpcProfile.CHAOS_WARHOUND,
         PcBookNpcProfile.GIANT_SPIDER,PcBookNpcProfile.WHITE_WOLF_CLAMPING_JAWS,
-        PcBookNpcProfile.RAZORGOR,PcBookNpcProfile.BEAR_SWEEPING_CLAWS,
-        PcBookNpcProfile.DEMIGRYPH,PcBookNpcProfile.WHITE_WOLF_RENDING_CLAWS)
+        PcBookNpcProfile.RAZORGOR,PcBookNpcProfile.BEAR_SWEEPING_CLAWS,PcBookNpcProfile.BEAR_CRUSHING_WEIGHT,
+        PcBookNpcProfile.DEMIGRYPH,PcBookNpcProfile.WHITE_WOLF_RENDING_CLAWS,PcBookNpcProfile.SKIN_WOLF,
+        PcBookNpcProfile.PEGASUS_GROUNDED)
     secondary_effects = ((ConditionOnHitSpec(Condition.DRAINED,
         'RULE-PROFILE-CREATURE-007:poisonous-fangs-drained',EffectClassification.UNCLASSIFIED),)
-        if profile_id is PcBookNpcProfile.GIANT_SPIDER else ())
+        if profile_id is PcBookNpcProfile.GIANT_SPIDER else
+        (ProneBeforeGiveGroundSpec('RULE-PROFILE-CREATURE-010:crushing-weight-prone',True),)
+        if profile_id is PcBookNpcProfile.BEAR_CRUSHING_WEIGHT else ())
     attack_test_profile = (InlineProfile(dice,threshold,8)
-        if profile_id in (PcBookNpcProfile.MINOTAUR_GREATAXE,PcBookNpcProfile.BESTIGOR_MASSIVE_AXE) else InlineProfile(dice,threshold))
+        if profile_id in (PcBookNpcProfile.MINOTAUR_GREATAXE,PcBookNpcProfile.BESTIGOR_MASSIVE_AXE,
+            PcBookNpcProfile.BEAR_CRUSHING_WEIGHT)
+        else InlineProfile(dice,threshold,6) if profile_id is PcBookNpcProfile.IMPERIAL_OGRE_GREATHAMMER
+        else InlineProfile(dice,threshold))
     attack = NpcAttackProfile(attack_name,source+':'+attack_name,Skill.MELEE,
         attack_test_profile,DamageProfile(damage),RangedWeaponRange.CLOSE,
         (RangedWeaponRange.SHORT if profile_id in (PcBookNpcProfile.GOBLIN_WARRIOR_SPEAR,
@@ -450,16 +524,19 @@ def _definition(profile_id: PcBookNpcProfile) -> NpcDefinition:
                 PcBookNpcProfile.KNIGHT_WHITE_WOLF_HAMMER,PcBookNpcProfile.BIG_UN_CHOPPAS,
                 PcBookNpcProfile.TOWN_WATCH_POLEARM,PcBookNpcProfile.ELF_MILITIA_SPEAR,
                 PcBookNpcProfile.MINOTAUR_GREATAXE,PcBookNpcProfile.DWARF_MINER_PICKAXE,
-                PcBookNpcProfile.BESTIGOR_MASSIVE_AXE,PcBookNpcProfile.FLAGELLANT_FLAILS)
+                PcBookNpcProfile.BESTIGOR_MASSIVE_AXE,PcBookNpcProfile.FLAGELLANT_FLAILS,
+                PcBookNpcProfile.IMPERIAL_OGRE_GREATHAMMER)
             else RangedWeaponHands.ONE_HANDED),secondary_effects=secondary_effects)
     protection_dice = (3 if profile_id is PcBookNpcProfile.HALFLING_THIEF_DAGGER else 4 if profile_id in (PcBookNpcProfile.HORSE,PcBookNpcProfile.GIANT_WOLF,
         PcBookNpcProfile.CHAOS_WARHOUND,PcBookNpcProfile.GIANT_SPIDER,
         PcBookNpcProfile.WHITE_WOLF_CLAMPING_JAWS,PcBookNpcProfile.UNGOR_SPEAR,
         PcBookNpcProfile.MINOTAUR_GREATAXE,PcBookNpcProfile.WHITE_WOLF_RENDING_CLAWS,
-        PcBookNpcProfile.HOCHLAND_SHARPSHOOTER_AXE,PcBookNpcProfile.BESTIGOR_MASSIVE_AXE)
+        PcBookNpcProfile.HOCHLAND_SHARPSHOOTER_AXE,PcBookNpcProfile.BESTIGOR_MASSIVE_AXE,PcBookNpcProfile.SKIN_WOLF,
+        PcBookNpcProfile.PEGASUS_GROUNDED)
         else 3 if profile_id in (PcBookNpcProfile.EMPIRE_OFFICIAL_DAGGER,PcBookNpcProfile.ARTISAN,
             PcBookNpcProfile.GOBLIN_WARRIOR_SPEAR,PcBookNpcProfile.NIGHT_GOBLIN_SPEAR,
-            PcBookNpcProfile.EMPIRE_PEASANT,PcBookNpcProfile.BEAR_SWEEPING_CLAWS) else dice)
+            PcBookNpcProfile.EMPIRE_PEASANT,PcBookNpcProfile.BEAR_SWEEPING_CLAWS,
+            PcBookNpcProfile.IMPERIAL_OGRE_GREATHAMMER) else dice)
     protection_skill = (Skill.STEALTH if profile_id is PcBookNpcProfile.HALFLING_THIEF_DAGGER else Skill.DEFENCE if profile_id in (
         PcBookNpcProfile.EMPIRE_STATE_TROOPER_HALBERD,PcBookNpcProfile.ORC_BOY_CHOPPAS,
         PcBookNpcProfile.EMPIRE_KNIGHT_LANCE,PcBookNpcProfile.KNIGHT_WHITE_WOLF_HAMMER,
@@ -477,6 +554,26 @@ def _definition(profile_id: PcBookNpcProfile) -> NpcDefinition:
 
 def get_pc_book_npc_entry(profile_id: PcBookNpcProfile) -> PcBookNpcEntry:
     definition = _definition(profile_id)
+    if profile_id is PcBookNpcProfile.GREAT_STAG:
+        charge = PcBookNpcAbility('Mighty Antlers on Charge','A successful Mighty Antlers attack as part of a Charge',
+            'Inflict Prone before the target can Give Ground; ordinary Antlers attacks do not receive this effect')
+        fear = PcBookNpcAbility('Fearsome','An enemy Gives Ground from a Great Stag attack',
+            'That enemy suffers Broken')
+        destination = PcBookNpcAbility('Crown of Antlers (Give Ground)',
+            'A Great Stag attack makes an enemy Give Ground','The Great Stag chooses where that enemy moves')
+        rider = PcBookNpcAbility('Great Stag Knights','A Human or Elf mounted on a Great Stag',
+            '+2 Resilience; Fast Speed; Fearsome and Crown of Antlers; a successful Charge inflicts Prone before Give Ground')
+        crown = PcBookNpcAbility('Crown of Antlers (Trample)',
+            'The first Antlers Attack and its completed Wound/Endurance consequences newly make its target Prone',
+            'May take one second action to Trample that same living Prone target; '
+            'chosen ADR-0096 interpretation, no retargeting or third Attack')
+        trample = PcBookNpcAbility('Trample','The selected Trample Attack against a Prone enemy only',
+            'Printed5d/3 Damage5; chosen Brawn/Strength5 cap10; PC opposes with Endurance, or cannot oppose if Defenceless')
+        bands = (PcBookNpcWoundBand(0,'No effect'),PcBookNpcWoundBand(1,'No effect'),
+            PcBookNpcWoundBand(2,'Drained'),PcBookNpcWoundBand(3,'Defeated'))
+        return PcBookNpcEntry(profile_id,'BOOK-GM-GUIDE','1.1','Allies and Antagonists',
+            176,'Great Stag (Mighty Antlers and Trample)',definition,(charge,fear,destination,rider),
+            (crown,trample),(),bands,(),())
     if profile_id is PcBookNpcProfile.FOOTPAD:
         page,name = 97,'Footpad'
         ability = PcBookNpcAbility('Lurker','Awareness spotting a lurking Footpad outside battle',
@@ -610,7 +707,7 @@ def get_pc_book_npc_entry(profile_id: PcBookNpcProfile) -> PcBookNpcEntry:
             PcBookNpcWoundBand(2,'Defeated'))
         return PcBookNpcEntry(profile_id,'BOOK-GM-GUIDE','1.1','Allies and Antagonists',
             page,name,definition,inactive,(),(),bands,(NpcProtectionProfile(
-                definition.source_rule_id+':athletics',Skill.ATHLETICS,InlineProfile(2,3)),),variants)
+                definition.source_rule_id+':athletics',Skill.ATHLETICS,InlineProfile(2,3,6)),),variants)
     elif profile_id is PcBookNpcProfile.BIG_UN_CHOPPAS:
         charge = PcBookNpcAbility('Choppas on Charge','An attack as part of a Charge','+1 Damage')
         help_ability = PcBookNpcAbility('Power of the Waaagh!',
@@ -644,6 +741,39 @@ def get_pc_book_npc_entry(profile_id: PcBookNpcProfile) -> PcBookNpcEntry:
         return PcBookNpcEntry(profile_id,'BOOK-GM-GUIDE','1.1','Allies and Antagonists',
             113,'Free Company Militia (Improvised Blades)',definition,(detachment,),(numbers,),
             ('Assorted Projectiles',),(),(),())
+    elif profile_id is PcBookNpcProfile.IMPERIAL_OGRE_GREATHAMMER:
+        charge = PcBookNpcAbility('Ogre Charge',
+            'A successful Rough Shove attack as part of a separately selected Charge',
+            'May take a second action to Attack with another weapon')
+        fear = PcBookNpcAbility('Fearsome','An enemy Gives Ground from an Ogre Melee attack',
+            'That enemy suffers Broken; current strategy chooses SUFFER_WOUND instead')
+        throw = PcBookNpcAbility('Mighty Throw','A successful Rough Shove against an already Staggered enemy',
+            'Toss that enemy to a location within Long Range; inflict a Wound and Prone')
+        bands = (PcBookNpcWoundBand(0,'Fast Speed'),PcBookNpcWoundBand(1,'Speed reduced to Normal'),
+            PcBookNpcWoundBand(2,'Speed reduced to Normal'),PcBookNpcWoundBand(3,'Defeated'))
+        return PcBookNpcEntry(profile_id,'BOOK-GM-GUIDE','1.1','Allies and Antagonists',
+            103,'Imperial Ogre (Greathammer, Athletics)',definition,(charge,fear,throw),(),
+            ('Rough Shove','Ogre Pistol'),bands,(),())
+    elif profile_id is PcBookNpcProfile.PEGASUS_GROUNDED:
+        fly = PcBookNpcAbility('Fly','A separately selected movement through vertical Zones',
+            'Ignore ground-based obstacles below; cannot move or Give Ground into midair when '
+            'starting in Close Range of a ground-based enemy; this encounter starts grounded and has no movement')
+        rider = PcBookNpcAbility('Pegasus Knights','A Human or Elf mounted on a Pegasus',
+            '+1 Resilience; Fast Speed; Fly; any successful Charge attack inflicts Prone before Give Ground')
+        bands = (PcBookNpcWoundBand(0,'No effect'),
+            PcBookNpcWoundBand(1,'Cannot fly; must land on next turn (already grounded in this encounter)'),
+            PcBookNpcWoundBand(2,'Defeated'))
+        return PcBookNpcEntry(profile_id,'BOOK-GM-GUIDE','1.1','Allies and Antagonists',
+            176,'Pegasus (grounded, unmounted Hooves)',definition,(fly,rider),(),(),bands,(),())
+    elif profile_id is PcBookNpcProfile.SKIN_WOLF:
+        rage = PcBookNpcAbility('Blood Rage','When the Skin Wolf makes an attack',
+            'May choose to gain Staggered if not already Staggered; Staggered Skin Wolves gain +1d Melee')
+        warped = PcBookNpcAbility('Warped Form','At the end of its own turn, when Wounded and not Staggered',
+            'May gain Staggered to heal one non-fire Wound, then inflict Staggered on all other creatures in Close Range')
+        bands = (PcBookNpcWoundBand(0,'No effect'),PcBookNpcWoundBand(1,'Warped Form'),
+            PcBookNpcWoundBand(2,'Warped Form'),PcBookNpcWoundBand(3,'Defeated'))
+        return PcBookNpcEntry(profile_id,'BOOK-GM-GUIDE','1.1','Allies and Antagonists',
+            187,'Skin Wolf',definition,(),(rage,warped),(),bands,(),())
     elif profile_id in (PcBookNpcProfile.FLAGELLANT_FLAILS,PcBookNpcProfile.FLAGELLANT_HOOKS_CHAINS):
         flails = profile_id is PcBookNpcProfile.FLAGELLANT_FLAILS
         unbreakable = PcBookNpcAbility('Unbreakable','Any source that would inflict Broken',
@@ -750,6 +880,18 @@ def get_pc_book_npc_entry(profile_id: PcBookNpcProfile) -> PcBookNpcEntry:
             PcBookNpcWoundBand(2,'Defeated'))
         return PcBookNpcEntry(profile_id,'BOOK-GM-GUIDE','1.1','Allies and Antagonists',
             136,'White Wolf (Rending Claws)',definition,(charge,fear),(),('Clamping Jaws',),bands,(),())
+    elif profile_id is PcBookNpcProfile.BEAR_CRUSHING_WEIGHT:
+        enduring = PcBookNpcAbility('Enduring Strength',
+            'A successful Attack action, while a second action remains available this turn',
+            'May take a second action to Attack a different enemy in Close Range')
+        fear = PcBookNpcAbility('Fearsome','An enemy Gives Ground from a Bear attack',
+            'That enemy suffers Broken')
+        prone = PcBookNpcAbility('Crushing Weight','A successful hit with Crushing Weight',
+            'Inflict Prone before the target can Give Ground; the condition is removable by ordinary Recover')
+        bands = (PcBookNpcWoundBand(0,'No effect'),PcBookNpcWoundBand(1,'Drained'),
+            PcBookNpcWoundBand(2,'Drained'),PcBookNpcWoundBand(3,'Defeated'))
+        return PcBookNpcEntry(profile_id,'BOOK-GM-GUIDE','1.1','Allies and Antagonists',
+            138,'Bear (Crushing Weight)',definition,(fear,),(enduring,prone),('Sweeping Claws',),bands,(),())
     elif profile_id is PcBookNpcProfile.BEAR_SWEEPING_CLAWS:
         enduring = PcBookNpcAbility('Enduring Strength',
             'A successful Attack action, while a second action remains available this turn',
@@ -851,13 +993,16 @@ def get_pc_book_npc_entry(profile_id: PcBookNpcProfile) -> PcBookNpcEntry:
             '+1d on those Attack Tests')
         return PcBookNpcEntry(profile_id,'BOOK-GM-GUIDE','1.1','Allies and Antagonists',
             143,'Ungor (Crude Spear, shield)',definition,(forest,),(spite,),('Shortbow',),(),(),())
-    elif profile_id in (PcBookNpcProfile.GOBLIN_WARRIOR_SPEAR,PcBookNpcProfile.NIGHT_GOBLIN_SPEAR):
+    elif profile_id in (PcBookNpcProfile.GOBLIN_WARRIOR_SPEAR,PcBookNpcProfile.NIGHT_GOBLIN_SPEAR,
+            PcBookNpcProfile.NIGHT_GOBLIN_NET_SPEAR):
         horde = PcBookNpcAbility('Horde','A Goblin Helps an ally make an attack',
             'Do not Test; the ally gains +1d on the Attack Test, which may exceed the usual bonus dice cap')
         coward = PcBookNpcAbility('Dirty Coward','An already Staggered Goblin receives Staggered again',
             'Automatically defeated without a Wound; drops its weapon and flees combat as fast as possible')
         if profile_id is PcBookNpcProfile.GOBLIN_WARRIOR_SPEAR:
             page,name,unused = 156,'Goblin Warrior (Jagged Spear, shield)',('Shortbow',)
+        elif profile_id is PcBookNpcProfile.NIGHT_GOBLIN_NET_SPEAR:
+            page,name,unused = 157,'Night Goblin (Weighted Net and carried Jagged Spear)',('Shortbow',)
         else:
             page,name,unused = 157,'Night Goblin (Jagged Spear, shield)',('Weighted Net','Shortbow')
         return PcBookNpcEntry(profile_id,'BOOK-GM-GUIDE','1.1','Allies and Antagonists',
@@ -892,7 +1037,8 @@ def create_pc_book_npc(profile_id: PcBookNpcProfile, actor_id: str) -> NpcPartic
     state = NpcParticipantState(actor_id,definition.id,CombatSide.OPPOSITION,
         ProfileInjuryState(0,definition.wound_limit),
         tuple(attack.id for attack in definition.attacks),
-        ResilienceProfile(definition.resilience.toughness,definition.resilience.bonus),
+        ResilienceProfile(definition.resilience.toughness,definition.resilience.bonus,
+            armoured=definition.resilience.armoured),
         definition.attacks[0].hands is not None,profile_id in (
             PcBookNpcProfile.GOBLIN_WARRIOR_SPEAR,PcBookNpcProfile.NIGHT_GOBLIN_SPEAR,
             PcBookNpcProfile.UNGOR_SPEAR,PcBookNpcProfile.ORC_BOY_SPEAR_SHIELD,

@@ -1,12 +1,46 @@
 # Открытые вопросы и действующие допущения
 
-Дата: 2026-11-06. Это короткий индекс незакрытых тем; читать подробности только по затронутой механике. Полные формулировки, ссылки на книги и текущие ограничения сохранены в [деталях](open-questions-details.md); закрытые темы — в [истории](open-questions-history.md).
+Дата: 2026-11-07. Это короткий индекс незакрытых тем; читать подробности только по затронутой механике. Полные формулировки, ссылки на книги и текущие ограничения сохранены в [деталях](open-questions-details.md); закрытые темы — в [истории](open-questions-history.md).
 
 ## Действующая граница симуляции
 
-Ограниченные M8–M47 завершены: [статус и текущие ограничения](project-status.md), [Broken exit M24](decisions/ADR-0079-pc-broken-npc-adjacent-exit.md), [архитектура](architecture/overview.md). Поддержанные PC weapons/Fate/Help/Recover и книжные combat loadouts не разрешают автоматически другие действия/Abilities. История закрытых вех не расширяет очередь и не возвращает старые wire formats.
+Ограниченные M8–M56 завершены: [статус и текущие ограничения](project-status.md), [Broken exit M24](decisions/ADR-0079-pc-broken-npc-adjacent-exit.md), [архитектура](architecture/overview.md). Поддержанные PC weapons/Fate/Help/Recover и книжные combat loadouts не разрешают автоматически другие действия/Abilities. История закрытых вех не расширяет очередь и не возвращает старые wire formats.
 
 Wounds1–23/lethal24+, source-aware Conditions и mandatory Critical/Defenceless end phases сохраняются. Невозможная повторная анатомия, недоступный2H хват без продолжения и собственный Broken turn Official без exit policy имеют точные stop boundaries. Незавершённые route/recovery/GM решения нельзя подставлять ради продолжения; observed losses относятся только к исполненному prefix.
+
+## M56: NPC Protection против Close Shooting
+
+[ADR-0101](decisions/ADR-0101-pc-close-shooting-npc-protection-choice.md) принят и реализован: пользователь выбрал Melee+Athletics для State Trooper Halberd/Spear, unmounted no-shield Empire Knight/Lance и White Wolf/Wolf Hammer. Optional actor→Skill policy действует на Close Shooting, прежняя Defence от Melee сохраняется. Melee opposition не даёт counterattack/Attack bonuses. Knights Athletics2d/3/cap6 от Ag3 исправляет прежнюю невыбранную metadata с implicit4 ([CODE-CONFLICT-005](contradictions.md#code-conflict-005--cap-невыбранной-athletics-knights)). Другие NPC/Skills автоматически не разрешаются.188прежнихJSON и57выбранных definitions сохраняются.
+
+## M55: Pistol со щитом — выбор тактики
+
+[ADR-0100](decisions/ADR-0100-pc-pistol-shield-reload-priority.md) принят и реализован. Пользователь выбрал возврат щита отдельным Recover после завершения Reload. При пустом Pistol щит не подбирается, в том числе incidental interaction другого Recover; weapon pickup/снимаемый Prone сохраняют приоритет, release делается непосредственно перед доступным Reload. Existing weapon_first/restore_before_attack/two_available_hands выражают выбранную тактику без нового поля. Вариант leave_dropped не добавлен. Раны/недоступные руки/loaded shot сохраняют точные границы M53/M54.
+
+## M54: Pistol, Reload и руки
+
+[ADR-0099](decisions/ADR-0099-pc-pistol-and-exacting-reload.md) принят и реализован: loaded Pistol без shield/backup, Shooting наBS и Exacting Dexterity наInitiative,3successes Reload, явные Lore/Blackpowder Kit/supplies. Пользователь выбрал two_available_hands: это GM/scenario конкретизация, число рук Reload книга не задаёт. Loaded shot одной оставшейся рукой разрешён; stop возникает лишь при фактически нужном недоступном Reload на собственном незанятом ходу. NPC с неготовой lawful Protection против Shooting отвергаются до RNG. Pistol+Shield и release/Reload/pickup приоритеты добавлены в M55; weapon-hand-only не является допустимой альтернативой текущего source.
+
+## M53: щит PC и конфликт рук
+
+[ADR-0098](decisions/ADR-0098-pc-shield-and-hand-equipment.md) принят и реализован: полный weapon-first, отдельный standard Recover ради dropped shield при здоровой свободной руке, weapon pickup первым. Source только1H, no backup/2H shield.16/20 дают unavailable shield без выдуманного ground pickup; после12 shield травмированной рукой не поднимается. Generic passive injured-hand shielding, перенос2H shield и союзный pickup не определены этим срезом. Shield даёт+1Resilience и Defence против Throwing; Sword Trait требует действующего оружия, Brawn остаётся Endurance.
+
+## M51: Great Stag, Crown и Trample
+
+[ADR-0096](decisions/ADR-0096-pc-great-stag-crown-and-trample.md) принят и реализован. Пользователь выбрал Brawn/cap10 с PC Endurance, actual новый Prone от accepted Wound/failed Endurance первой Antlers Attack после Fate/mandatory consequences и Trample той же живой Prone цели без переназначения. Already-Prone grant не даёт. Эти три конкретизации действуют для данной карточки; general Brawn Protection исправлен по PG69. Charge/destination/riders и свободный ordinary Trample не подключены.
+
+## M50: Bear/Crushing Weight
+
+[ADR-0095](decisions/ADR-0095-pc-bear-crushing-weight-pre-stagger-prone.md) принят и реализован: полный Bear/Crushing Weight, early Prone/cap8 и прежний Enduring Strength. Обычный hit-Prone снимается self/ally Recover, не становится постоянным Drained-style cause и не меняет ongoing Wound-Prone. Новых полей верхнего уровня/метрик/версии нет;54прежнихпрофиля/164JSON сохранены.
+
+Great Stag M51 использует отдельный Crown grant; Bear сохраняет different-target Enduring Strength.
+
+## M49: Imperial Ogre и наземный Pegasus
+
+[ADR-0094](decisions/ADR-0094-pc-imperial-ogre-cap-and-grounded-pegasus.md) принят: Ogre/Greathammer с Attack cap6 только canonical source и Pegasus с явным наземным началом/неподвижной сценой. W1 Pegasus уже находится на земле; это не общий landing executor. В будущей spatial сцене нужен настоящий ground/air state. Authored caps, Rough Shove/Mighty Throw/Charge и другие loadouts автоматически не разрешаются.
+
+## Skin Wolf / Warped Form
+
+[ADR-0093](decisions/ADR-0093-pc-skin-wolf-warped-form-end-phase.md) принят: одна собственная цена Staggered, волна остальным; первая wave-Wound Brewguard задаёт focus=Skin Wolf. Снятие NPC focus требует подтверждённого killed, а не любого defeat. Explicit Close list содержит всех PCs, NPC↔NPC Close задаётся отдельно. Полный путь реализован в M48; огневые/неизвестные начальные раны остаются вне physical source, общий regeneration AI этим не определяется.
 
 ## Продолжение Broken NPC
 
@@ -14,7 +48,7 @@ M24 задаёт конечный clear/fastest adjacent exit без пресл�
 
 ## Weighted Net после M31
 
-Пользователь выбрал три melee-профиля; Net не входит в Night Goblin loadout. Для отдельной функции нужны primary Burdened вместо Damage, Throwing, конечный запас/расход/подбор или смена оружия и явный выбор альтернативного Brawn Recover. Перед реализацией отдельно сверить Net против Defenceless; нынешний K1 damage-only gate не является правилом книги. [Подробности](open-questions-details.md#weighted-net-после-m31), [граница M31](decisions/ADR-0082-pc-goblin-melee-chunk.md).
+[M52 / ADR-0097](decisions/ADR-0097-pc-weighted-net-and-carried-spear.md) принят и реализован: одна Net + carried Spear, noShield/printed armoured; PC сохраняет Attack/standard Recover. По Defenceless или уже Burdened выбирается Spear, неброшенная Net сохраняется. В неподвижной сцене Burdened не ухудшает Attack/Protection. Generic Net→Defenceless precedence PG96/123 и отдельный PC Brawn Recover пока не выбраны и в M52 не исполняются; при последующем расширении отдельно сохранить Net/Wound/inventory causes. [Подробности](open-questions-details.md#weighted-net-после-m31).
 
 ## Shield и Resilience Dragon Ogre
 
@@ -36,9 +70,9 @@ PG1.4 Equipment93 содержит `+1 to Defence` без `d`. Тип модиф
 
 ## Политики выбора для симуляции
 
-M47 реализует [выбранные Flagellant policies](decisions/ADR-0092-pc-flagellant-feel-no-pain-and-recover.md): Feel No Pain при0Wounds и standard self Recover при1 с лечением. Оба выбора явные/независимые, `[]` сохраняет Attack-only/отказ от conversion; NPC Recover costs отдельные. Это не общий NPC recovery AI или campaign healing.
+M47 реализует [выбранные Flagellant policies](decisions/ADR-0092-pc-flagellant-feel-no-pain-and-recover.md): Feel No Pain при0Wounds и standard self Recover при1 с лечением. Оба выбора явные/независимые, `[]` сохраняет Attack-only/отказ от conversion; NPC Recover costs отдельные. M48 также разрешает Feel No Pain от Warped Form wave. Это не общий NPC recovery AI или campaign healing.
 
-M46 реализует [выбранную Blood Rage policy](decisions/ADR-0091-pc-bestigor-blood-rage-and-wound-glorious.md): обязательный список Bestigors для добровольного Staggered перед Attack; `[]` отказывается только от acquisition, фактический Staggered сохраняет бонус. Следующая Attack после W1 Glorious однократно, выбран reroll всех доступных провалов; NPC не тратит PC Fate. Другие Blood Rage/регенерация этим не подключаются.
+M46 реализует [выбранную Blood Rage policy](decisions/ADR-0091-pc-bestigor-blood-rage-and-wound-glorious.md): обязательный список Bestigors для добровольного Staggered перед Attack; `[]` отказывается только от acquisition, фактический Staggered сохраняет бонус. Следующая Attack после W1 Glorious однократно, выбран reroll всех доступных провалов; NPC не тратит PC Fate. Другие Blood Rage/регенерация других существ этим не подключаются.
 
 M39 реализует [выбранную тактику Enduring Strength](decisions/ADR-0087-pc-bear-second-attack-policy.md): обязательный список включённых Bears, после успешной первой Attack и всех её последствий — первый другой живой PC по текущему приоритету; `[]` явно отказывается от способности. Дополнительные атаки имеют реальные slots/receipts и отдельные costs. Произвольные дополнительные действия других существ этим не разрешаются.
 

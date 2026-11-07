@@ -20,7 +20,10 @@ def build_pc_npc_extra_attack_slot(state) -> CombatActionSlotRequest | None:
         raise ValueError('Enduring Strength must wait for all first Attack consequences')
     enemy = state.enemy(turn.actor_id)
     validate_pc_book_npc_definition(enemy.definition)
-    if enemy.definition.id != 'pc-book-npc:bear_sweeping_claws':
+    if enemy.definition.id=='pc-book-npc:great_stag':
+        from towr.domain.pc_crown_models import build_pc_crown_slot
+        return build_pc_crown_slot(state)
+    if enemy.definition.id not in ('pc-book-npc:bear_sweeping_claws','pc-book-npc:bear_crushing_weight'):
         raise ValueError('Enduring Strength requires its canonical Bear source')
     first = next((proof for proof in reversed(state.history)
         if type(proof) is PcAttackProof

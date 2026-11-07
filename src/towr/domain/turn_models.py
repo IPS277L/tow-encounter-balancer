@@ -6,6 +6,7 @@ from enum import Enum
 
 ACTION_BUDGET_RULE_ID = "RULE-COMBAT-002:action-budget"
 ENDURING_STRENGTH_RULE_ID = "RULE-PROFILE-CREATURE-010:enduring-strength"
+CROWN_OF_ANTLERS_RULE_ID = "RULE-PROFILE-MONSTER-002:crown-of-antlers"
 
 
 class CombatSide(str, Enum):
@@ -183,6 +184,59 @@ class EnduringStrengthGrant:
             raise ValueError("Enduring Strength requires a different target")
 
 
+def _validate_crown_declaration(declaration: CombatActionDeclaration) -> None:
+    if type(declaration) is not CombatActionDeclaration:
+        raise TypeError('Crown requires its exact Attack declaration')
+    replace(declaration)
+    if (type(declaration.kind) is not CombatActionKind
+            or type(declaration.improvise_produces_attack) is not bool):
+        raise TypeError('Crown declaration requires exact enum/bool types')
+
+
+def _validate_crown_receipt(receipt: ActionExecutionReceipt) -> None:
+    if type(receipt) is not ActionExecutionReceipt:
+        raise TypeError('Crown of Antlers requires its exact first execution receipt')
+    replace(receipt)
+    for name in ('id','executor_rule_id','source_request_id','result_request_id','actor_id'):
+        value = getattr(receipt,name)
+        if type(value) is not str or not value.strip():
+            raise TypeError('Crown receipt IDs require exact nonempty strings')
+    if type(receipt.round_number) is not int or type(receipt.slot_index) is not int:
+        raise TypeError('Crown receipt round/slot require exact integers')
+    _validate_crown_declaration(receipt.declaration)
+
+
+@dataclass(frozen=True, slots=True)
+class CrownOfAntlersGrant:
+    """One same-target Trample; the owner certifies the actual new Prone cause."""
+
+    actor_id: str
+    round_number: int
+    slot_request_id: str
+    first_execution: ActionExecutionReceipt
+    first_target_id: str
+    target_id: str
+    attack_id: str
+
+    def __post_init__(self) -> None:
+        for value in (self.actor_id,self.slot_request_id,self.first_target_id,self.target_id,self.attack_id):
+            if type(value) is not str or not value.strip():
+                raise TypeError('Crown source/target IDs require exact nonempty strings')
+        if type(self.round_number) is not int:
+            raise TypeError('Crown round requires an exact integer')
+        if self.round_number < 1:
+            raise ValueError('Crown round must be positive')
+        _validate_crown_receipt(self.first_execution)
+        if (self.first_execution.actor_id != self.actor_id
+                or self.first_execution.round_number != self.round_number
+                or self.first_execution.slot_index != 1
+                or self.first_execution.executor_rule_id != 'RULE-COMBAT-004:attack-action-execution'
+                or self.first_execution.declaration.kind is not CombatActionKind.ATTACK):
+            raise ValueError('Crown requires this actor and round first Attack receipt')
+        if self.first_target_id != self.target_id or self.attack_id != 'trample':
+            raise ValueError('Crown permits only Trample against the first Attack target')
+
+
 @dataclass(frozen=True, slots=True)
 class CombatActionSlot:
     index: int
@@ -191,6 +245,7 @@ class CombatActionSlot:
     grant_rule_id: str | None = None
     execution: ActionExecutionReceipt | None = None
     enduring_strength: EnduringStrengthGrant | None = None
+    crown_of_antlers: CrownOfAntlersGrant | None = field(default=None, kw_only=True)
 
     def __post_init__(self) -> None:
         if not isinstance(self.index, int) or isinstance(self.index, bool):
@@ -207,6 +262,23 @@ class CombatActionSlot:
             _validate_non_empty_string(self.grant_rule_id, "grant_rule_id")
         elif self.grant_rule_id is not None:
             raise ValueError("only an Ability action grant may name a Rule ID")
+        if self.crown_of_antlers is not None:
+            if self.enduring_strength is not None:
+                raise ValueError('an action cannot combine Bear and Crown grants')
+            if type(self.crown_of_antlers) is not CrownOfAntlersGrant:
+                raise TypeError('Crown requires its exact typed grant')
+            replace(self.crown_of_antlers)
+            if (type(self.index) is not int or type(self.grant) is not ActionSlotGrant
+                    or type(self.grant_rule_id) is not str
+                    or type(self.declaration) is not CombatActionDeclaration):
+                raise TypeError('Crown slot requires exact typed source fields')
+            _validate_crown_declaration(self.declaration)
+            if (self.index != 2 or self.grant is not ActionSlotGrant.ABILITY
+                    or self.grant_rule_id != CROWN_OF_ANTLERS_RULE_ID
+                    or self.declaration.kind is not CombatActionKind.ATTACK):
+                raise ValueError('Crown only grants ability Attack slot2')
+        elif self.grant_rule_id == CROWN_OF_ANTLERS_RULE_ID:
+            raise ValueError('Crown Rule ID alone cannot grant an action')
         if self.enduring_strength is not None:
             if type(self.enduring_strength) is not EnduringStrengthGrant:
                 raise TypeError("Enduring Strength requires its typed grant")
@@ -221,6 +293,8 @@ class CombatActionSlot:
         ):
             raise TypeError("execution must be an ActionExecutionReceipt")
         if self.execution is not None:
+            if self.crown_of_antlers is not None:
+                _validate_crown_receipt(self.execution)
             if self.execution.slot_index != self.index:
                 raise ValueError("execution receipt belongs to another slot")
             if self.execution.declaration != self.declaration:
@@ -259,6 +333,16 @@ class CombatTurnState:
         repeated_attack = False
         for slot in slots:
             replace(slot)
+            if slot.crown_of_antlers is not None:
+                grant = slot.crown_of_antlers
+                if type(self.actor_id) is not str:
+                    raise TypeError('Crown turn requires its exact actor ID')
+                _validate_crown_receipt(slots[0].execution)
+                _validate_crown_declaration(slots[0].declaration)
+                if (slot.index != 2 or grant.actor_id != self.actor_id
+                        or slots[0].execution != grant.first_execution):
+                    raise ValueError('Crown belongs to another executed first Attack')
+                repeated_attack = True
             if slot.enduring_strength is not None:
                 grant = slot.enduring_strength
                 if (slot.index != 2 or grant.actor_id != self.actor_id
@@ -343,6 +427,8 @@ class CombatRoundState:
         if self.active_turn is not None:
             if not isinstance(self.active_turn, CombatTurnState):
                 raise TypeError("active_turn must be a CombatTurnState")
+            if any(slot.crown_of_antlers is not None for slot in self.active_turn.action_slots):
+                replace(self.active_turn)
             participant = _participant_for(
                 participants,
                 self.active_turn.actor_id,
@@ -368,6 +454,11 @@ class CombatRoundState:
                     and slot.enduring_strength.round_number != self.round_number
                     for slot in self.active_turn.action_slots):
                 raise ValueError("Enduring Strength grant belongs to another round")
+            if any(slot.crown_of_antlers is not None
+                    and (type(self.round_number) is not int
+                        or slot.crown_of_antlers.round_number != self.round_number)
+                    for slot in self.active_turn.action_slots):
+                raise ValueError('Crown grant belongs to another round')
 
         object.__setattr__(self, "participants", participants)
         object.__setattr__(self, "side_order", side_order)
@@ -421,6 +512,7 @@ class CombatActionSlotRequest:
     grant_rule_id: str | None = None
     allows_second_improvise: bool = False
     enduring_strength: EnduringStrengthGrant | None = None
+    crown_of_antlers: CrownOfAntlersGrant | None = field(default=None, kw_only=True)
 
     def __post_init__(self) -> None:
         _validate_non_empty_string(self.id, "action slot request id")
@@ -439,6 +531,27 @@ class CombatActionSlotRequest:
             raise ValueError("only an Ability action grant may name a Rule ID")
         if not isinstance(self.allows_second_improvise, bool):
             raise TypeError("allows_second_improvise must be a boolean")
+        if self.crown_of_antlers is not None:
+            if self.enduring_strength is not None:
+                raise ValueError('a reservation cannot combine Bear and Crown grants')
+            if type(self.crown_of_antlers) is not CrownOfAntlersGrant:
+                raise TypeError('Crown requires its exact typed grant')
+            grant = replace(self.crown_of_antlers)
+            if type(self.id) is not str or type(self.actor_id) is not str or type(self.state.round_number) is not int:
+                raise TypeError('Crown reservation requires exact source IDs/round')
+            if (grant.actor_id != self.actor_id or grant.round_number != self.state.round_number
+                    or grant.slot_request_id != self.id):
+                raise ValueError('Crown belongs to another reservation')
+            turn = self.state.active_turn
+            if (turn is None or turn.actor_id != self.actor_id or len(turn.action_slots) != 1
+                    or turn.action_slots[0].execution != grant.first_execution):
+                raise ValueError('Crown reservation requires its actual executed first Attack')
+            _validate_crown_receipt(turn.action_slots[0].execution)
+            _validate_crown_declaration(turn.action_slots[0].declaration)
+            CombatActionSlot(2,self.declaration,self.grant,self.grant_rule_id,
+                crown_of_antlers=grant)
+        elif self.grant_rule_id == CROWN_OF_ANTLERS_RULE_ID:
+            raise ValueError('Crown Rule ID alone cannot reserve an action')
         if self.enduring_strength is not None:
             if type(self.enduring_strength) is not EnduringStrengthGrant:
                 raise TypeError("Enduring Strength requires its typed grant")

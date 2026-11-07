@@ -26,7 +26,7 @@
 
 ## Последняя законченная функция
 
-[Official / первая рана M23](decisions/ADR-0078-pc-official-first-wound-broken-boundary.md) реализован через native/trials/process/подбор/JSON1 в выбранной пользователем stop-границе. [CLI-примеры](examples/m23/README.md) различают actual W2 defeat и предстоящее неисполняемое Broken movement; старые28пар не изменены. Приёмка — в статусе; обязательного остатка M23 нет.
+[M50 Bear/Crushing Weight](decisions/ADR-0095-pc-bear-crushing-weight-pre-stagger-prone.md) завершена: ранний Prone, обычный Recover, прежняя Enduring Strength для обоих loadouts и полный current JSON1/trials/search. [CLI-примеры](examples/m50/README.md); фактическая приёмка и следующий шаг — в [статусе](project-status.md).
 
 ## M8 завершена
 
@@ -214,20 +214,42 @@
 
 Завершён полный выбранный пользователем срез по [ADR-0092](decisions/ADR-0092-pc-flagellant-feel-no-pain-and-recover.md): оба loadouts, first-Staggered→Wound при0 по явной policy, отдельный own-miss witness, настоящий standard self Recover/heal1→0 и независимые NPC costs. Flails−2/Unbreakable, Help fallback, source/replay/циклы лечения замкнуты через K1/owner/trials/search/current JSON1/process/CLI. [Правило](rules/npc-profile-catalog.md#flagellant-feel-no-pain-m47), [примеры](examples/m47/README.md). Каталог49→51;152старыхJSON мигрированы только required policies/нулевыми Recover fields,49прежнихentries сохранены.
 
-## После M47
+## M48 — Skin Wolf и Warped Form end phase
 
-Следующий кандидат **M48 — Skin Wolf / Claws and Fangs с Blood Rage и Warped Form (GM187)**. Полная карточка ранее адресно прочитана. Подготовить явные choices добровольного Staggered перед Attack и end-turn heal неогненной Wound при отсутствии Staggered, с применением Staggered ко всем допустимым Close creatures. Сначала согласовать target snapshot/порядок/self inclusion, actual Wound/heal history и обязательные последствия для PC/NPC, включая Feel No Pain/повторный Staggered/Fate. Фиксированный physical melee источник не содержит огневого урона; это premise границы, не универсальный default. Bestigor-only Rage policy M46 не расширяется автоматически; новое end-turn действие не подменяется Flagellant Recover. M48/scope ещё не выбраны. Общие Troll Stupidity/Foul Stench/регенерация остаются отдельно.
+Завершён полный выбранный пользователем [ADR-0093](decisions/ADR-0093-pc-skin-wolf-warped-form-end-phase.md): Blood Rage, собственный Staggered/heal1, source-ordered Close wave с отдельными PC/NPC continuation owners и одним TurnEnd. Wave-W1/Brewguard NPC focus/confirmed killed expiry, Bestigor Glorious, Dirty Coward, Feel No Pain и последующий Recover имеют настоящие причины. Current PC JSON1 требует explicit Close policies и отдельные activation counters; activation не action/Recover. Каталог51→52,156старыхJSON мигрированы только новыми полями. [Правило](rules/npc-profile-catalog.md#skin-wolf-warped-form-m48), [примеры](examples/m48/README.md).
 
-Dragon Ogre отложен из-за [shield/Resilience](open-questions-details.md#dragon-ogre-shield-resilience), grounded Pegasus требует явного исходного положения и flight lifetime. Imperial Ogre/Greathammer требует корректного cap6 от WS3 при printed2d4; Rough Shove/Mighty Throw/Charge — отдельные эффекты. Не подставлять текущий implicit cap и не отключать применимое поведение ради добавления данных.
+## M49 — Imperial Ogre / Greathammer и наземный Pegasus
 
-Weighted Net остаётся отдельной функцией: primary Condition/Throwing, конечный запас, расход при hit/miss, carried Spear/free draw вместо бесплатного pickup, Burdened source lifetime и выбранный Brawn Recover при необходимости. Перед реализацией оформить Defenceless precedence либо выбранную тактику использования Spear; [сверка](open-questions-details.md#weighted-net-после-m31) сохранена. Burdened блокирует Manoeuvre, которого текущая неподвижная сцена не делает, без выдуманного штрафа Attack.
+Пользователь выбрал оба профиля по [ADR-0094](decisions/ADR-0094-pc-imperial-ogre-cap-and-grounded-pegasus.md). Ogre сохраняет printed2d4Damage8/2H с source-bound cap6 отWS3; Pegasus naturalHooves/Athletics начинает и остаётся на земле. W1/Speed/fly bands сохраняются в неподвижной сцене без выдуманных actions. Canonical guard/schema допускают6 только Ogre Attack; прежние8/null сохранены. Каталог52→54,52прежнихпрофиля/160JSON без изменений и миграции. [Правило](rules/npc-profile-catalog.md#ogre-grounded-pegasus-m49), [примеры](examples/m49/README.md).
 
-Каталог по-прежнему расширяется чанками, обычно по3–5совместимых loadouts, с общей сверкой/интеграцией/проверками; это ориентир, не квота. Endurance Recover M29 и другие новые стратегии не подставляются автоматически. Не расширять болезнь/лечение/Charge/riders/terrain/весь бестиарий без конечной функции.
+## M50 — Bear / Crushing Weight и ранний Prone
 
-Spatial/AI, преследование и дальнейший NPC Recover — отдельные функции. До Recover Official/Merchant при сохраняющейся profile Wound разрешить ongoing-cause вопросы; не подставлять снятие их Conditions.
+Выбранный пользователем полный [ADR-0095](decisions/ADR-0095-pc-bear-crushing-weight-pre-stagger-prone.md) реализован: natural3d3Damage7/cap8, typed K1 Prone-before-Stagger в PC owner/current JSON1, existing Enduring Strength для обоих Bear loadouts. Canonical effective Wound source сохраняет early Prone при Near Miss; ordinary self/ally Recover снимает его без возврата из Drained history bank. Новых полей верхнего уровня/метрик/версии нет. Каталог54→55,54прежнихпрофиля/164JSON сохранены без миграции. [Правило](rules/npc-profile-catalog.md#bear-crushing-weight-m50), [примеры](examples/m50/README.md).
 
-Более широкий NPC/spell/Miscast каталог, дополнительные тактики/Fate/Help/Recover, лечение ран, общий inventory/spatial/campaign/save-resume — отдельный backlog. Greatsword и более свободная смена оружия остаются открытыми темами; GM решение невозможной повторной анатомии не подставляется.
+## M51 — Great Stag, Crown и Trample
 
-## Контрольные точки
+Завершённый срез по [ADR-0096](decisions/ADR-0096-pc-great-stag-crown-and-trample.md): два полных natural profiles, Brawn/cap10/PC Endurance Trample, отдельный typed Crown grant только после actual нового Prone от последствий первой Antlers Attack. Та же живая Prone цель без retarget, полный Wound/Fate/Endurance prefix, один TurnEnd. Conditional trample_attack только canonical Great Stag,55прежнихпрофилей/168JSON сохранены, каталог56. [Правило](rules/npc-profile-catalog.md#great-stag-crown-trample-m51), [CLI-примеры](examples/m51/README.md).
 
-Для каждой функции — релевантные детерминированные и сквозные проверки. Полную регрессию назначать при объединении связанных функций, широком изменении общего ядра или выявленном риске. Проверку поставки установленного пакета выполнять перед внешним выпуском либо при изменении соответствующего механизма. Автоматической full/wheel приёмки на каждый ADR нет.
+## M52 — Weighted Net и carried Spear
+
+Завершённая выбранная функция по [ADR-0097](decisions/ADR-0097-pc-weighted-net-and-carried-spear.md): primary Throwing→Burdened, finite stock1, actual HIT/MISS расход, typed free draw/swap и дальнейшая Spear Attack. По Defenceless/уже Burdened — Spear с сохранением Net. PC сохраняет прежнюю тактику. NoShield Night Goblin сохраняет Res3 armoured через явный marker; closed conditional JSON1 сохраняет56прежнихprofiles/172JSON. Horde/Dirty Coward, полные echoes и subset filtering проверены. [Правило](rules/npc-profile-catalog.md#night-goblin-net-spear-m52), [примеры](examples/m52/README.md).
+
+## M53 — PC со щитом
+
+Завершённая функция по [ADR-0098](decisions/ADR-0098-pc-shield-and-hand-equipment.md):1H+shield, actual drop/body/held/unavailable hands, dynamic+1Resilience/Protection/Sword Trait, weapon-first release и отдельный Recover для dropped shield при свободной здоровой руке. Один object interaction, weapon pickup первым;16/20 не изобретают ground location,12 не возвращает shield в травмированную руку. Protection Help/Fate, canonical journal и current JSON1 сохраняют старые176JSON/NPC57. [Правило](rules/equipment.md#pc-shield-m53), [примеры](examples/m53/README.md).
+
+## M54 — PC Pistol и Exacting Reload
+
+Завершена выбранная пользователем функция по [ADR-0099](decisions/ADR-0099-pc-pistol-and-exacting-reload.md): initially loaded Pistol без shield/backup, явные BS/Shooting/I/Dexterity/Lore/kit/supplies, Shoot→Reload3→Shoot и принятая two_available_hands policy. Каждый Reload занимает Improvise/Skill action, HIT/MISS расходует настоящий weapon instance/cycle; раны/Fate/Recover не заряжают его автоматически. Loaded one-hand shot сохраняется до действительно недоступного Reload. Lawful NPC Protection проверяется до RNG, Melee Help даёт fallback, actual Protection Help сохраняется. Native/trials/count search/current JSON1/CLI и один actual process проверены;180прежнихJSON и каталог57 сохранены. [Правило](rules/equipment.md#pc-pistol-reload-m54), [примеры](examples/m54/README.md).
+
+## M55 — Pistol со щитом
+
+Завершена выбранная пользователем функция по [ADR-0100](decisions/ADR-0100-pc-pistol-shield-reload-priority.md): existing Pistol+Shield loadout, необходимый weapon/Prone Recover → release перед доступным Reload → Reload до готовности без shield pickup → отдельный shield Recover перед следующим Shoot. Incidental pickup также подавлен при empty Pistol; W12/14/15/16/18/20 сохраняют actual hand/Critical/loaded one-hand stop boundaries. Current JSON1 без новых полей/версии/counters,184прежнихJSON и каталог57 сохранены. [Правило](rules/equipment.md#pc-pistol-shield-m55), [примеры](examples/m55/README.md).
+
+## M56 — NPC Protection против Close Shooting
+
+Завершена выбранная пользователем функция по [ADR-0101](decisions/ADR-0101-pc-close-shooting-npc-protection-choice.md): optional actor→Melee/Athletics policy для State Trooper Halberd/Spear, unmounted no-shield Empire Knight/Lance и Knight of the White Wolf/Wolf Hammer. Melee3d3/4d4, printed Athletics3d3/2d3; Knights cap6 от Ag3 без второго armour penalty. Прежняя Defence против входящего Melee не меняется, counterattack/новый slot не появляется. Full template admission, subset filtering, native/trials/search/current JSON1/CLI и actual process проверены.188прежнихJSON и57выбранных definitions сохранены. [Правило](rules/combat.md#pc-close-shooting-protection-m56), [примеры](examples/m56/README.md).
+
+## После M56
+
+Следующий шаг — адресно сверить следующий совместимый чанк для той же Close Shooting policy: Orc Boy Choppas/Spear без щита и Big ’Un Choppas/Spear без щита. Проверить полные WS/Skills/Athletics/caps и формулировку Melee Help/Charge: бонусы Tests и Attack-only effects нельзя смешивать в opposition. После сверки определить, укладывается ли чанк в M56 policy без нового выбора; при существенной неоднозначности/расширении тактики согласовать конкретное решение. Пока public permission охватывает только четыре M56 loadouts. Не выбирать очередную цифру cap по уменьшенному printed pool и не наследовать PC weapon Traits. Новые поля, Aim/Rapid Reload/spatial бой не подразумеваются.

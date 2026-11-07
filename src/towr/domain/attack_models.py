@@ -40,10 +40,13 @@ class DamageProfile:
 class ResilienceProfile:
     toughness: int
     bonus: int = 0
+    armoured: bool | None = field(default=None, kw_only=True)
 
     def __post_init__(self) -> None:
         _validate_non_negative_int(self.toughness, "toughness")
         _validate_non_negative_int(self.bonus, "resilience bonus")
+        if self.armoured is not None and type(self.armoured) is not bool:
+            raise TypeError("armoured must be an exact boolean or None")
 
     @property
     def total(self) -> int:
@@ -51,7 +54,7 @@ class ResilienceProfile:
 
     @property
     def is_armoured(self) -> bool:
-        return self.bonus > 0
+        return self.armoured if self.armoured is not None else self.bonus > 0
 
 
 @dataclass(frozen=True, slots=True)

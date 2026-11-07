@@ -2,7 +2,7 @@
 from dataclasses import dataclass, field, replace
 from enum import Enum
 
-from towr.domain.attack_models import DamageProfile, ResilienceProfile
+from towr.domain.attack_models import ConditionImpactSpec, DamageProfile, ResilienceProfile, ProneBeforeGiveGroundSpec
 from towr.domain.condition_models import ConditionState
 from towr.domain.fate_models import (
     FateBurnRecord, FateRefreshRecord, FateSessionState, FateSpendRecord,
@@ -18,6 +18,11 @@ from towr.domain.pc_npc_help_models import PcNpcHelpPolicy,validate_pc_npc_help_
 from towr.domain.pc_npc_grudge_policy_models import PcNpcGrudgePolicy,validate_pc_npc_grudge_policies
 from towr.domain.pc_npc_blood_rage_policy_models import validate_pc_npc_blood_rage_policy
 from towr.domain.pc_flagellant_policy_models import PcFlagellantPolicy,validate_pc_flagellant_policies
+from towr.domain.pc_warped_form_policy_models import PcWarpedFormPolicy,validate_pc_warped_form_policies
+from towr.domain.pc_npc_net_policy_models import PcNpcNetPolicy,validate_pc_npc_net_policies,NET_DEFINITION_ID
+from towr.domain.pc_npc_close_shooting_models import (
+    PcNpcCloseShootingProtectionPolicy, pc_close_shooting_protection_profile,
+)
 from towr.domain.resolution_models import TargetInjuryPolicy
 from towr.domain.test_models import InlineProfile, Skill, TestProfile
 from towr.domain.turn_models import CombatSide
@@ -38,6 +43,7 @@ class PcMeleeWeapon(str, Enum):
     GLAIVE = "glaive"
     GREATAXE = "greataxe"
     GREATHAMMER = "greathammer"
+    PISTOL = "pistol"
 
 
 class PcMeleePolicy(str, Enum):
@@ -104,7 +110,8 @@ class PcGloriousPolicy:
             raise ValueError("Glorious skills must be nonempty and unique")
         for skill in skills:
             _typed(skill, Skill, "Glorious skill")
-            if skill not in (Skill.MELEE, Skill.DEFENCE, Skill.ATHLETICS, Skill.ENDURANCE):
+            if skill not in (Skill.MELEE, Skill.DEFENCE, Skill.ATHLETICS, Skill.ENDURANCE,
+                    Skill.SHOOTING, Skill.DEXTERITY):
                 raise ValueError("Glorious skill is outside the PC melee boundary")
         _integer(self.maximum_initial_successes, "Glorious success threshold", minimum=0)
         _integer(self.minimum_remaining_spends, "Glorious session reserve", minimum=0)
@@ -124,6 +131,26 @@ class PcWeaponHand(str, Enum):
     RIGHT = "right"
 
 
+class PcShieldHandConflictPolicy(str, Enum):
+    WEAPON_FIRST = "weapon_first"
+
+
+class PcShieldRecoveryPolicy(str, Enum):
+    RESTORE_BEFORE_ATTACK = "restore_before_attack"
+
+
+@dataclass(frozen=True, slots=True)
+class PcShieldLoadout:
+    initial_hand: PcWeaponHand
+    hand_conflict_policy: PcShieldHandConflictPolicy
+    recovery_policy: PcShieldRecoveryPolicy
+
+    def __post_init__(self) -> None:
+        _typed(self.initial_hand, PcWeaponHand, "shield initial hand")
+        _typed(self.hand_conflict_policy, PcShieldHandConflictPolicy, "shield hand conflict policy")
+        _typed(self.recovery_policy, PcShieldRecoveryPolicy, "shield recovery policy")
+
+
 class PcTwoHandedGrip(str, Enum):
     BOTH = "both"
 
@@ -137,8 +164,45 @@ class PcBackupWeaponPolicy:
         _typed(self.weapon,PcMeleeWeapon,"backup weapon")
         _typed(self.preferred_hand,PcWeaponHand,"backup preferred hand")
         from towr.domain.pc_weapon_models import pc_weapon_requires_two_hands
-        if pc_weapon_requires_two_hands(self.weapon):
-            raise ValueError("backup weapon must be one-handed")
+        if pc_weapon_requires_two_hands(self.weapon) or self.weapon is PcMeleeWeapon.PISTOL:
+            raise ValueError("backup weapon must be a supported one-handed melee weapon")
+
+
+class PcPistolReloadHandPolicy(str, Enum):
+    TWO_AVAILABLE_HANDS = "two_available_hands"
+
+
+@dataclass(frozen=True, slots=True)
+class PcPistolProfile:
+    ballistic_skill: int
+    shooting: int
+    initiative: int
+    dexterity: int
+    has_blackpowder_lore: bool
+    has_blackpowder_kit: bool
+    ammunition_supply_confirmed: bool
+    initially_loaded: bool
+    reload_hand_policy: PcPistolReloadHandPolicy
+
+    def __post_init__(self) -> None:
+        for name in ("ballistic_skill", "shooting", "initiative", "dexterity"):
+            _integer(getattr(self, name), name, minimum=1)
+        self.shooting_profile
+        self.dexterity_profile
+        for name in ("has_blackpowder_lore", "has_blackpowder_kit",
+                "ammunition_supply_confirmed", "initially_loaded"):
+            _typed(getattr(self, name), bool, name)
+            if not getattr(self, name):
+                raise ValueError(f"Pistol source requires {name}")
+        _typed(self.reload_hand_policy, PcPistolReloadHandPolicy, "Pistol reload hand policy")
+
+    @property
+    def shooting_profile(self) -> TestProfile:
+        return TestProfile(self.ballistic_skill, self.shooting)
+
+    @property
+    def dexterity_profile(self) -> TestProfile:
+        return TestProfile(self.initiative, self.dexterity)
 
 
 @dataclass(frozen=True, slots=True)
@@ -154,6 +218,7 @@ class PcMeleeDefinition:
     endurance: int
     weapon: PcMeleeWeapon
     armour_bonus: int
+    pistol: PcPistolProfile | None = field(default=None, kw_only=True)
 
     def __post_init__(self) -> None:
         _identifier(self.id, "PC definition")
@@ -166,6 +231,11 @@ class PcMeleeDefinition:
             TestProfile(characteristic, skill)
         _typed(self.weapon, PcMeleeWeapon, "PC weapon")
         _integer(self.armour_bonus, "PC armour bonus", minimum=0)
+        if self.weapon is PcMeleeWeapon.PISTOL:
+            _typed(self.pistol, PcPistolProfile, "PC Pistol profile")
+            replace(self.pistol)
+        elif self.pistol is not None:
+            raise ValueError("Pistol profile requires the Pistol primary weapon")
 
     @property
     def melee_profile(self) -> TestProfile:
@@ -233,6 +303,7 @@ class PcMeleeParticipant:
     help_policy: PcHelpPolicy | None
     ally_recover_policy: PcAllyRecoverPolicy | None
     backup_weapon_policy: PcBackupWeaponPolicy | None
+    shield: PcShieldLoadout | None = field(default=None, kw_only=True)
 
     def __post_init__(self) -> None:
         _identifier(self.actor_id, "PC actor")
@@ -242,9 +313,26 @@ class PcMeleeParticipant:
         for name, cls in (("policy", PcMeleePolicy), ("fate_policy", PcFatePolicy),
                           ("random_side_policy", PcRandomSidePolicy), ("heavy_wound_policy", PcHeavyWoundPolicy)):
             _typed(getattr(self, name), cls, name)
+        if self.pc.weapon is PcMeleeWeapon.PISTOL:
+            if self.policy is not PcMeleePolicy.ATTACK_OR_RECOVER_SELF:
+                raise ValueError("Pistol requires ordinary Attack/self Recover policy")
+            if any(value is not None for value in (self.backup_weapon_policy,
+                    self.help_policy, self.ally_recover_policy)):
+                raise ValueError("Pistol cannot carry backup, Help or ally Recover")
         from towr.domain.pc_weapon_models import pc_weapon_requires_two_hands
         grip_type = PcTwoHandedGrip if pc_weapon_requires_two_hands(self.pc.weapon) else PcWeaponHand
         _typed(self.initial_weapon_hand,grip_type,"initial weapon grip")
+        if self.shield is not None:
+            _typed(self.shield, PcShieldLoadout, "PC shield loadout")
+            replace(self.shield)
+            if self.pc.weapon not in (PcMeleeWeapon.DAGGER, PcMeleeWeapon.STAFF,
+                    PcMeleeWeapon.AXE, PcMeleeWeapon.SWORD, PcMeleeWeapon.WARHAMMER,
+                    PcMeleeWeapon.MORNING_STAR, PcMeleeWeapon.PISTOL):
+                raise ValueError("shield requires a supported one-handed primary weapon")
+            if self.shield.initial_hand is self.initial_weapon_hand:
+                raise ValueError("shield and weapon require opposite initial hands")
+            if self.backup_weapon_policy is not None:
+                raise ValueError("shield cannot carry a backup weapon policy")
         if self.backup_weapon_policy is not None:
             _typed(self.backup_weapon_policy,PcBackupWeaponPolicy,"backup weapon policy")
             replace(self.backup_weapon_policy)
@@ -333,6 +421,9 @@ class PcMeleeScenario:
     npc_grudge_policies: tuple[PcNpcGrudgePolicy, ...] = field(kw_only=True)
     npc_blood_rage_actor_ids: tuple[str, ...] = field(kw_only=True)
     npc_flagellant_policies: tuple[PcFlagellantPolicy, ...] = field(kw_only=True)
+    npc_warped_form_policies: tuple[PcWarpedFormPolicy, ...] = field(kw_only=True)
+    npc_net_policies: tuple[PcNpcNetPolicy, ...] = field(default=(),kw_only=True)
+    npc_close_shooting_protection_policies: tuple[PcNpcCloseShootingProtectionPolicy, ...] | None = field(default=None,kw_only=True)
 
     def __post_init__(self) -> None:
         for name in ("id", "day_id"):
@@ -367,6 +458,33 @@ class PcMeleeScenario:
             if definition.id in definitions and definitions[definition.id] != definition:
                 raise ValueError("conflicting Minion definitions with the same ID")
             definitions[definition.id] = definition
+        has_pistol = any(member.pc.weapon is PcMeleeWeapon.PISTOL for member in party)
+        close_shooting_profiles = {}
+        policies = self.npc_close_shooting_protection_policies
+        if policies is not None:
+            _canonical_tuple(policies, 'NPC Close Shooting protection policies')
+            if not policies:
+                raise ValueError('NPC Close Shooting protection policies must be nonempty when supplied')
+            if not has_pistol:
+                raise ValueError('NPC Close Shooting protection policies require a Pistol PC')
+            for policy in policies:
+                _typed(policy, PcNpcCloseShootingProtectionPolicy, 'NPC Close Shooting protection policy')
+                replace(policy)
+                if policy.actor_id in close_shooting_profiles:
+                    raise ValueError('NPC Close Shooting protection actors must be unique')
+                enemy = next((enemy for enemy in enemies if enemy.state.actor_id == policy.actor_id), None)
+                if enemy is None:
+                    raise ValueError('NPC Close Shooting protection actor must belong to the opposition')
+                close_shooting_profiles[policy.actor_id] = pc_close_shooting_protection_profile(
+                    enemy.definition, policy.skill)
+        if has_pistol:
+            for enemy in enemies:
+                if enemy.state.actor_id in close_shooting_profiles:
+                    continue
+                skill = enemy.definition.protection[0].skill
+                if skill is not Skill.ATHLETICS and not (
+                        skill is Skill.DEFENCE and enemy.state.holds_shield):
+                    raise ValueError("Pistol opponents require Athletics or actual shield Defence")
         pc_ids = tuple(member.actor_id for member in party)
         enemy_ids = tuple(enemy.state.actor_id for enemy in enemies)
         all_ids = (*pc_ids, *enemy_ids)
@@ -401,11 +519,14 @@ class PcMeleeScenario:
         validate_pc_npc_grudge_policies(self)
         validate_pc_npc_blood_rage_policy(self)
         validate_pc_flagellant_policies(self)
+        validate_pc_warped_form_policies(self.npc_warped_form_policies,party,enemies)
+        validate_pc_npc_net_policies(self.npc_net_policies,enemies)
         _canonical_tuple(self.npc_extra_attack_actor_ids,"NPC extra Attack actors")
         for actor_id in self.npc_extra_attack_actor_ids:
             _identifier(actor_id,"NPC extra Attack actor")
-            if actor_id not in enemy_ids or self.enemy(actor_id).definition.id!='pc-book-npc:bear_sweeping_claws':
-                raise ValueError('NPC extra Attack requires a canonical Bear Sweeping Claws opponent')
+            if actor_id not in enemy_ids or self.enemy(actor_id).definition.id not in (
+                    'pc-book-npc:bear_sweeping_claws','pc-book-npc:bear_crushing_weight','pc-book-npc:great_stag'):
+                raise ValueError('NPC extra Attack requires a canonical Bear or Great Stag opponent')
         if len(set(self.npc_extra_attack_actor_ids))!=len(self.npc_extra_attack_actor_ids):
             raise ValueError('NPC extra Attack actors must be unique')
 
@@ -467,8 +588,12 @@ def _readmit_profile_enemy(enemy: NpcParticipantSnapshot) -> None:
     _readmit_resilience(state.current_resilience)
     attacks = _canonical_tuple(definition.attacks, "Minion attacks")
     protection = _canonical_tuple(definition.protection, "Minion protection")
-    if len(attacks) != 1 or len(protection) != 1:
-        raise ValueError("Minion requires one Melee attack and one Protection profile")
+    great_stag = definition.id == 'pc-book-npc:great_stag'
+    net_goblin = definition.id == NET_DEFINITION_ID
+    if len(attacks) != (2 if great_stag or net_goblin else 1) or len(protection) != 1:
+        raise ValueError("NPC requires one primary Melee attack and one Protection; only canonical Stag/Net loadouts have a second profile")
+    if not net_goblin and (definition.resilience.armoured is not None or state.current_resilience.armoured is not None):
+        raise ValueError('explicit armoured metadata requires the canonical Net loadout')
     attack, defence = attacks[0], protection[0]
     _typed(attack, NpcAttackProfile, "Minion attack")
     _typed(defence, NpcProtectionProfile, "Minion Defence")
@@ -481,12 +606,17 @@ def _readmit_profile_enemy(enemy: NpcParticipantSnapshot) -> None:
     _typed(attack.range_min, RangedWeaponRange, "Minion minimum Range")
     _typed(attack.range_max, RangedWeaponRange, "Minion maximum Range")
     _readmit_inline(attack.test_profile,expected_pool_cap=(8
-        if definition.id in ('pc-book-npc:minotaur_greataxe','pc-book-npc:bestigor_massive_axe') else None))
+        if definition.id in ('pc-book-npc:minotaur_greataxe','pc-book-npc:bestigor_massive_axe',
+            'pc-book-npc:bear_crushing_weight')
+        else 6 if definition.id=='pc-book-npc:imperial_ogre_greathammer' else None))
     _readmit_inline(defence.test_profile,expected_pool_cap=None)
     _typed(attack.damage, DamageProfile, "Minion Damage")
     replace(attack.damage)
     _canonical_tuple(attack.secondary_effects, "Minion secondary effects")
     validate_pc_hit_effects(attack.secondary_effects)
+    if (any(type(effect) is ProneBeforeGiveGroundSpec for effect in attack.secondary_effects)
+            and definition.id!='pc-book-npc:bear_crushing_weight'):
+        raise ValueError('pre-Stagger Prone requires canonical Bear Crushing Weight')
     replace(attack)
     replace(defence)
     _typed(attack.ignores_armour, bool, "Minion ignores armour")
@@ -500,6 +630,31 @@ def _readmit_profile_enemy(enemy: NpcParticipantSnapshot) -> None:
                 else (Skill.DEFENCE,Skill.ATHLETICS))
             or attack.hands is None and defence.skill is not Skill.ATHLETICS):
         raise ValueError("unsupported Minion attack or Protection profile")
+    if great_stag:
+        trample = attacks[1]
+        _typed(trample,NpcAttackProfile,"Great Stag Trample profile")
+        _identifier(trample.id,"Trample attack ID")
+        _identifier(trample.source_rule_id,"Trample source Rule ID")
+        _typed(trample.skill,Skill,"Trample Skill")
+        _readmit_inline(trample.test_profile,expected_pool_cap=None)
+        _typed(trample.damage,DamageProfile,"Trample Damage")
+        replace(trample.damage)
+        _typed(trample.range_min,RangedWeaponRange,"Trample minimum range")
+        _typed(trample.range_max,RangedWeaponRange,"Trample maximum range")
+        _typed(trample.ignores_armour,bool,"Trample ignores armour")
+        _canonical_tuple(trample.secondary_effects,"Trample secondary effects")
+        if (trample.skill is not Skill.BRAWN or trample.range_min is not RangedWeaponRange.CLOSE
+                or trample.range_max is not RangedWeaponRange.CLOSE or trample.hands is not None
+                or trample.ignores_armour or trample.secondary_effects or trample.damage.success_multiplier!=1):
+            raise ValueError('Great Stag Trample requires its natural Brawn Close Damage profile')
+        replace(trample)
+    if net_goblin:
+        net = attacks[1]
+        _typed(net,NpcAttackProfile,'Weighted Net profile')
+        _readmit_inline(net.test_profile,expected_pool_cap=6)
+        _typed(net.condition_impact,ConditionImpactSpec,'Weighted Net primary Condition')
+        replace(net.condition_impact)
+        replace(net)
     injury = state.injury
     _typed(injury, ProfileInjuryState, "Minion injury")
     _typed(injury.conditions, ConditionState, "Minion Conditions")
@@ -521,7 +676,7 @@ def _readmit_profile_enemy(enemy: NpcParticipantSnapshot) -> None:
             or state.wields_weapon is not (attack.hands is not None)
             or state.holds_shield and attack.hands is not RangedWeaponHands.ONE_HANDED
             or state.current_resilience != definition.resilience
-            or state.available_attack_ids != (attack.id,)):
+            or state.available_attack_ids != tuple(profile.id for profile in attacks)):
         raise ValueError("PC melee requires fresh healthy NPCs and consistent armed/natural attacks and shield hands")
     from towr.domain.pc_npc_catalog import validate_pc_book_npc_definition
     validate_pc_book_npc_definition(definition)

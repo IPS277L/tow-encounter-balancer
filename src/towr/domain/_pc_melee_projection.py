@@ -1,16 +1,23 @@
 """Pure projections of the explicit M9 journal variants; no RNG or execution."""
 from dataclasses import replace
+from towr.domain.pc_melee_models import PcTwoHandedGrip
 
 from towr.domain.pc_melee_result_models import (
     PcAttackProof, PcAttackerStaggerProof, PcEnduranceProof, PcHandDropProof, PcMeleeState,
     PcProfileWoundProof, PcMinionStaggerDefeatProof, PcRecoverProof, PcTimedWound, PcTurnEndProof, PcWoundCompletionProof,
     PcBodyConsequenceProof, PcWoundChoiceProof, PcHandSwapProof, PcBackupWeaponDrawProof, PcCriticalProof, PcIncapacitatedTurnEndProof, PcHelpProof, PcNpcHelpProof,
     build_pc_melee_attack, build_pc_melee_recover, build_pc_wound_completion, pc_after_test, pc_melee_action_id,
-    pc_melee_next_actor, pc_melee_selected_action, pc_melee_unsupported,
+    pc_melee_next_actor, pc_melee_selected_action, pc_melee_unsupported,pc_melee_action_declaration,pc_attack_skill,
     validate_pc_melee_combat_shape, validate_pc_melee_state_shape, validate_pc_melee_source_types,
     _decline, _enemy_update, _party_update, _pc_test, _ready, _test_result, pc_melee_round_participants,
 )
 from towr.domain.attack_models import AttackOutcome, DamageImpactSpec, ImpactOutcome, MissConsequence
+from towr.domain.pc_pistol_models import (PcPistolReloadProof,build_pc_pistol_reload,complete_pc_pistol_shot)
+from towr.domain.reload_models import _complete_reload_action_after_test
+from towr.domain.pc_shield_models import (PcShieldReleaseProof, PcShieldState, PcShieldLocation,
+    expected_pc_shield_release, pc_defence_hand)
+from towr.domain.pc_net_models import (PcNpcNetDrawProof, expected_pc_npc_net_draw, is_net_impact,
+    expected_net_resolution, net_condition_sources_from_attack, spend_pc_npc_net)
 from towr.domain.injury_models import (
     CharacterWoundRequest, CharacterWoundType, ProfileNpcType, ProfileStateChangeRequest, ProfileWoundResult,
     WoundConditionEffect, WoundConsequence, WoundConsequenceRequest, WoundEffectDuration,
@@ -44,7 +51,8 @@ from towr.domain.test_models import Skill
 from towr.domain.pc_backup_weapon_models import pc_backup_draw_hand, pc_preferred_weapon_hand
 from towr.domain.pc_npc_wound_models import (official_profile_wound_state,elf_merchant_profile_wound_state,
     pc_npc_drained_profile_wound_state,pc_npc_prone_profile_wound_state)
-from towr.domain.pc_hit_condition_models import expected_pc_hit_target,hit_condition_sources_from_attack
+from towr.domain.pc_hit_condition_models import (expected_pc_hit_target,hit_condition_sources_from_attack,
+    pc_pre_stagger_target)
 from towr.domain.pc_npc_exit_models import PcNpcExitProof,expected_pc_npc_exit
 from towr.domain.turn_models import (
     ActionSlotGrant, CombatActionDeclaration, CombatActionKind, CombatActionSlot,
@@ -63,11 +71,12 @@ def _same(actual, expected, message):
 
 
 def _canonical_attack(request, attack):
-    if type(attack.request_id) is not str or not isinstance(attack.impact_spec,DamageImpactSpec):
+    if type(attack.request_id) is not str or not (isinstance(attack.impact_spec,DamageImpactSpec) or is_net_impact(attack.impact_spec)):
         raise TypeError('PC Attack requires its exact ID and ordinary Damage spec')
     replace(attack.impact_spec)
-    replace(attack.impact_spec.damage)
-    replace(attack.impact_spec.resilience)
+    if isinstance(attack.impact_spec,DamageImpactSpec):
+        replace(attack.impact_spec.damage)
+        replace(attack.impact_spec.resilience)
     if (not isinstance(attack.outcome,AttackOutcome) or not isinstance(attack.miss_consequence,MissConsequence)
             or attack.impact is not None and not isinstance(attack.impact,ImpactOutcome)
             or type(attack.tie_break_applied) is not bool):
@@ -84,13 +93,16 @@ def _canonical_attack(request, attack):
     a, d = attack.attacker_test.successes, (attack.defender_test.successes if attack.defender_test is not None else 0)
     hit = a > 0 and a >= d
     margin = a-d if hit else 0
+    numeric = isinstance(request.impact_spec,DamageImpactSpec)
     damage = (request.impact_spec.damage.base + margin * request.impact_spec.damage.success_multiplier
-        + sum(m.amount for m in request.impact_spec.damage_modifiers)) if hit else None
-    resilience = request.impact_spec.resilience.total if hit else None
-    impact = (ImpactOutcome.WOUND if damage > resilience else ImpactOutcome.STAGGERED) if hit else None
+        + sum(m.amount for m in request.impact_spec.damage_modifiers)) if hit and numeric else None
+    resilience = ((request.impact_spec.resilience.toughness if request.impact_spec.ignores_armour
+        else request.impact_spec.resilience.total)+sum(m.amount for m in request.impact_spec.resilience_modifiers)) if hit and numeric else None
+    impact = (ImpactOutcome.WOUND if damage > resilience else ImpactOutcome.STAGGERED) if hit and numeric else None
     miss = MissConsequence.NONE if hit or request.attacker_is_staggered else MissConsequence.STAGGER_ATTACKER
     tie = hit and request.defender_test is not None and a == d
-    rules = tuple(m.rule_id for m in request.impact_spec.damage_modifiers) if hit else ()
+    rules = ((tuple(m.rule_id for m in (*request.impact_spec.damage_modifiers,*request.impact_spec.resilience_modifiers)) if numeric
+        else (request.impact_spec.rule_id,)) if hit else ())
     if tie:
         rules = (*rules, 'RULE-COMBAT-006:attack-tie')
     expected = (request.id,AttackOutcome.HIT if hit else AttackOutcome.MISS,margin,request.impact_spec,
@@ -105,6 +117,11 @@ def _canonical_attack(request, attack):
 
 
 def _ordinary_resolution(kernel, result):
+    if is_net_impact(kernel.attack.impact_spec):
+        _same(result,expected_net_resolution(kernel,result.attack),'Net primary resolution changed its actual source')
+        return
+    effective_target,_ = pc_pre_stagger_target(kernel,result.attack.outcome)
+    kernel = replace(kernel,target_state=effective_target)
     if (result.replacement_impact is not None or result.monstrosity_impact is not None
             or result.wound_effect is not None or result.character_wound_completion is not None
             or result.deferred_wound_conditions != () or result.deferred_wound_condition_immunities != ()):
@@ -195,6 +212,12 @@ def project_pc_step(state, proof):
     if pc_melee_unsupported(state) is not None:
         raise ValueError('unsupported PC consequence cannot be silently continued')
     combat, scenario = state.round_state, state.source
+    shield_release = expected_pc_shield_release(state)
+    if shield_release is not None and type(proof) is not PcShieldReleaseProof:
+        raise ValueError('weapon-first shield release must precede ordinary continuation')
+    net_draw = expected_pc_npc_net_draw(state)
+    if net_draw is not None and type(proof) is not PcNpcNetDrawProof:
+        raise ValueError('selected Net equipment draw must precede continuation')
     grudge_encounter=expected_pc_npc_grudge_encounter(state)
     if grudge_encounter is not None and type(proof) is not PcNpcGrudgeEncounterProof:
         raise ValueError('selected grudge encounters must precede combat turns')
@@ -204,6 +227,15 @@ def project_pc_step(state, proof):
     blood_rage = expected_pc_npc_blood_rage(state)
     if blood_rage is not None and type(proof) is not PcNpcBloodRageProof:
         raise ValueError('selected Blood Rage must precede the reserved Attack')
+    from towr.domain._pc_warped_form_projection import WARPED_PROOFS, project_warped_form_step
+    from towr.domain.pc_warped_form_models import current_warped_form, expected_pc_warped_form_activation
+    if type(proof) in WARPED_PROOFS:
+        return project_warped_form_step(state, proof)
+    if type(proof) is not PcNpcDistractionExpiredProof and not state.pending and state.pending_wound is None and (current_warped_form(state) is not None
+            or expected_pc_warped_form_activation(state) is not None):
+        raise ValueError('own end phase cannot skip the selected Warped Form wave')
+    if state.pending_actor_id in scenario.enemy_activation_order:
+        raise ValueError('wave NPC pending work requires its target-scoped acknowledgement')
     pc_actor = state.pending_actor_id
     if pc_actor is None and combat.active_turn is not None:
         actor = combat.active_turn.actor_id
@@ -211,8 +243,10 @@ def project_pc_step(state, proof):
             pc_actor = actor
         elif (combat.active_turn.action_slots
                 and not combat.active_turn.action_slots[-1].executed
-                and combat.active_turn.action_slots[-1].enduring_strength is not None):
-            pc_actor = combat.active_turn.action_slots[-1].enduring_strength.target_id
+                and (combat.active_turn.action_slots[-1].enduring_strength is not None
+                    or combat.active_turn.action_slots[-1].crown_of_antlers is not None)):
+            pc_actor = (combat.active_turn.action_slots[-1].enduring_strength
+                or combat.active_turn.action_slots[-1].crown_of_antlers).target_id
         elif (combat.active_turn.action_slots and combat.active_turn.action_slots[0].executed
                 and combat.active_turn.action_slots[0].declaration.kind is CombatActionKind.ATTACK):
             # A lethal result can remove this target from live priority before
@@ -220,7 +254,7 @@ def project_pc_step(state, proof):
             pc_actor = next(p.request.target_id for p in reversed(state.history)
                 if isinstance(p,PcAttackProof) and p.request.actor_id==actor)
         else:
-            pc_actor = next(a for a in scenario.enemy_target_priority if not state.participant(a).injury.dead)
+            pc_actor = next((a for a in scenario.enemy_target_priority if not state.participant(a).injury.dead), None)
     member = state.participant(pc_actor) if pc_actor is not None else None
     participant = scenario.participant(pc_actor) if pc_actor is not None else None
     draw_hand = pc_backup_draw_hand(state,pc_actor) if pc_actor is not None else None
@@ -239,6 +273,27 @@ def project_pc_step(state, proof):
         elif 'pending_actor_id' not in updates:
             updates['pending_actor_id'] = pc_actor
         return replace(state,history=(*state.history,proof),**updates)
+    if type(proof) is PcShieldReleaseProof:
+        replace(proof)
+        if shield_release is None:
+            raise ValueError('no weapon-first shield release is due')
+        _same(proof,shield_release,'shield release changed actual actor/action/hand')
+        from towr.domain.pc_heavy_wound_models import add_critical,restriction_sources
+        # W14 applies to an incidental drop; W15 explicitly permits dropping
+        # held items, unlike the subsequent weapon swap or pickup.
+        injury = add_critical(member.injury,
+            restriction_sources(member.injury,WoundRestriction.NON_RECOVER_ACTION_CAUSES_CRITICAL))
+        injury = critical_for_hand(replace(member,injury=injury),proof.hand)
+        return finish(party=_party_update(state,proof.actor_id,injury=injury,
+            shield=PcShieldState(PcShieldLocation.DROPPED,None)))
+    if type(proof) is PcNpcNetDrawProof:
+        replace(proof)
+        if net_draw is None:
+            raise ValueError('no carried Net/Spear draw is due')
+        _same(proof,net_draw,'Net draw changed its actual actor/action/profile')
+        enemies = tuple(replace(e,state=replace(e.state,wields_weapon=True))
+            if e.state.actor_id==proof.actor_id else e for e in state.enemies)
+        return finish(enemies=enemies)
     if type(proof) is PcNpcBloodRageProof:
         replace(proof)
         if blood_rage is None:
@@ -298,16 +353,16 @@ def project_pc_step(state, proof):
             if request is None:
                 raise ValueError('no second Attack is granted by this source/policy')
             slot = CombatActionSlot(2,request.declaration,request.grant,request.grant_rule_id,
-                enduring_strength=request.enduring_strength)
+                enduring_strength=request.enduring_strength,crown_of_antlers=request.crown_of_antlers)
             expected = replace(combat,active_turn=replace(turn,action_slots=(*turn.action_slots,slot)))
             _same((proof.request_id,proof.state,proof.slot,proof.applied_rule_ids),
                 (request.id,expected,slot,('RULE-COMBAT-002:action-budget',request.grant_rule_id)),
-                'Enduring Strength reservation changed its actual source or second target')
+                'extra Attack reservation changed its actual typed source or target')
             return finish(round_state=expected)
         _same(proof.applied_rule_ids,('RULE-COMBAT-002:action-budget',),'reservation rule trace changed')
         if turn is None:
             raise ValueError('PC standard action must be the sole unreserved slot')
-        declaration = CombatActionDeclaration(pc_melee_selected_action(state))
+        declaration = pc_melee_action_declaration(state)
         slot = CombatActionSlot(1,declaration,ActionSlotGrant.STANDARD)
         expected = replace(combat,active_turn=replace(turn,action_slots=(slot,)))
         _same((proof.request_id,proof.state,proof.slot),(pc_melee_action_id(state,turn.actor_id)+':reserve',expected,slot),
@@ -348,11 +403,15 @@ def project_pc_step(state, proof):
             effective_attack = expected.kernel_request.attack
         else:
             actual_test = result.attack.attacker_test if expected.actor_id == pc_actor else result.attack.defender_test
-            skill = Skill.MELEE if expected.actor_id == pc_actor else proof.protection.source_request.selected_skill
+            skill = pc_attack_skill(state,pc_actor) if expected.actor_id == pc_actor else proof.protection.source_request.selected_skill
             effective_test,pc_fate = validate_pc_test_fate(state,pc_actor,skill,
                 pc_test,actual_test,proof.fate_decline,proof.glorious)
             effective_attack = replace(expected.kernel_request.attack,
                 **({'attacker_test':effective_test} if expected.actor_id == pc_actor else {'defender_test':effective_test}))
+        expected_shot = (complete_pc_pistol_shot(state,expected,
+            replace(expected,kernel_request=replace(expected.kernel_request,attack=effective_attack)),execution)
+            if expected.actor_id==pc_actor and member.pistol is not None else None)
+        _same(proof.pistol_shot,expected_shot,'Pistol shot changed its full preparation/instance/cycle/source')
         _canonical_attack(effective_attack,result.attack)
         _ordinary_resolution(expected.kernel_request,result)
         if result.request_id != expected.kernel_request.id:
@@ -362,9 +421,9 @@ def project_pc_step(state, proof):
         else:
             caused = (critical_for_action(member,CombatActionKind.ATTACK,used_hand=usable_weapon_hand(member))
                 if expected.actor_id == pc_actor else critical_for_hand(member,
-                    usable_weapon_hand(member) if proof.protection.source_request.selected_skill is Skill.DEFENCE else None))
+                    pc_defence_hand(member,proof.protection.source_request.attack_skill) if proof.protection.source_request.selected_skill is Skill.DEFENCE else None))
             pc_injury = pc_after_test(state,pc_actor,caused)
-        before = expected.kernel_request.target_state
+        before,_ = pc_pre_stagger_target(expected.kernel_request,result.attack.outcome)
         pending_wound = None
         forced_defeat = None
         spec = expected.kernel_request.minion_stagger_defeat
@@ -384,6 +443,9 @@ def project_pc_step(state, proof):
                 if result.attack.miss_consequence is MissConsequence.STAGGER_ATTACKER else ())
             if result.character_wound is not None or result.profile_wound is not None or result.pending_character_wound is not None:
                 raise ValueError('miss invented a Wound')
+        elif is_net_impact(expected.kernel_request.attack.impact_spec):
+            base_target = result.target_state
+            followups = ()
         elif (result.attack.impact is ImpactOutcome.STAGGERED and not before.conditions.has(Condition.STAGGERED)
                 and expected.kernel_request.first_stagger_wound is None
                 and not condition_forces_wound(expected.kernel_request,result.attack)):
@@ -448,6 +510,9 @@ def project_pc_step(state, proof):
                 raise TypeError('NPC profile Wound ID must be a string')
             followups = (change,)
         target,applications,secondary_rules = expected_pc_hit_target(expected.kernel_request,result.attack.outcome,base_target)
+        if is_net_impact(expected.kernel_request.attack.impact_spec):
+            canonical_net = expected_net_resolution(expected.kernel_request,result.attack)
+            target,applications,secondary_rules = canonical_net.target_state,canonical_net.condition_applications,()
         if forced_defeat is not None:
             secondary_rules = (*forced_defeat.applied_rule_ids,*secondary_rules)
         if (expected.kernel_request.first_stagger_wound is not None and result.attack.outcome is AttackOutcome.HIT
@@ -464,8 +529,11 @@ def project_pc_step(state, proof):
         else:
             enemies = _enemy_update(state,expected.target_id,result.target_state)
             hit_sources = member.hit_condition_sources
+        net_sources = (*member.net_condition_sources,*net_condition_sources_from_attack(expected,result))
+        enemies = spend_pc_npc_net(state,enemies,expected)
         return finish(round_state=execution.state,party=_party_update(state,pc_actor,injury=pc_injury,fate=pc_fate,
-            hit_condition_sources=hit_sources),enemies=enemies,
+            hit_condition_sources=hit_sources,net_condition_sources=net_sources,
+            pistol=expected_shot.execution.weapon_state if expected_shot is not None else member.pistol),enemies=enemies,
             pending=result.follow_ups,pending_wound=pending_wound)
     if isinstance(proof,PcNpcHelpProof):
         from towr.domain.automatic_help_models import expected_automatic_help_action
@@ -612,14 +680,14 @@ def project_pc_step(state, proof):
         if proof.source.consequence is not WoundConsequence.DROP_RANDOM_HAND_ITEM:
             raise ValueError('unsupported random-hand consequence')
         changed = body_consequence(member,PcBodyConsequenceProof(proof.source,proof.die,proof.hand))
-        return finish(party=_party_update(state,pc_actor,weapon_hand=changed.weapon_hand,body_facts=changed.body_facts),pending=state.pending[1:])
+        return finish(party=_party_update(state,pc_actor,weapon_hand=changed.weapon_hand,body_facts=changed.body_facts,shield=changed.shield),pending=state.pending[1:])
     if isinstance(proof,PcBodyConsequenceProof):
         if state.pending_wound is not None or not state.pending or state.pending[0] != proof.source:
             raise ValueError('anatomical consequence is detached from its actual mandatory source')
         replace(proof.source)
         changed = body_consequence(member,proof)
         return finish(party=_party_update(state,pc_actor,injury=changed.injury,weapon_hand=changed.weapon_hand,
-            body_facts=changed.body_facts),pending=state.pending[1:])
+            body_facts=changed.body_facts,shield=changed.shield),pending=state.pending[1:])
     if isinstance(proof,PcWoundChoiceProof):
         from towr.domain.injury_models import WoundChoice, WoundChoiceResult, WoundChoiceRequest
         request = state.pending[0] if state.pending else None
@@ -747,6 +815,21 @@ def project_pc_step(state, proof):
         expected = PcNpcRecoverProof(request,canonical,before,flagellant_recovered_injury(before))
         _same(proof,expected,'NPC Recover changed its actor, receipt, heal or source')
         return finish(round_state=canonical.round_state,enemies=_enemy_update(state,actor,expected.injury))
+    if type(proof) is PcPistolReloadProof:
+        _ready(state)
+        if pc_melee_selected_action(state) is not CombatActionKind.IMPROVISE:
+            raise ValueError('Reload cannot replace another selected action')
+        request = build_pc_pistol_reload(state)
+        _same(proof.request,request,'Reload changed its current weapon/slot/profile/source')
+        actual = proof.result.exacting.test_result
+        effective,fate = validate_pc_test_fate(state,pc_actor,Skill.DEXTERITY,
+            request.dexterity_test,actual,proof.fate_decline,proof.glorious)
+        canonical = _complete_reload_action_after_test(replace(request,dexterity_test=effective),actual)
+        _same(proof.result,canonical,'Reload changed its actual Test/progress/receipt')
+        injury = pc_after_test(state,pc_actor,critical_for_action(member,CombatActionKind.IMPROVISE,
+            used_hand=PcTwoHandedGrip.BOTH))
+        return finish(round_state=canonical.round_state,party=_party_update(state,pc_actor,
+            injury=injury,fate=fate,pistol=canonical.state))
     if isinstance(proof,PcRecoverProof):
         _ready(state)
         if pc_melee_selected_action(state) is not CombatActionKind.RECOVER:
@@ -759,7 +842,7 @@ def project_pc_step(state, proof):
             party=pc_after_standard_recover(state,expected,canonical))
     if isinstance(proof,(PcTurnEndProof,PcIncapacitatedTurnEndProof)):
         if build_pc_npc_extra_attack_slot(state) is not None:
-            raise ValueError('selected Bear policy must execute its available second Attack before TurnEnd')
+            raise ValueError('selected NPC policy must execute its available second Attack before TurnEnd')
         from towr.domain.pc_heavy_turn_projection import project_heavy_turn_end
         return project_heavy_turn_end(state,proof,finish)
     if isinstance(proof,CombatRoundAdvanceResult):

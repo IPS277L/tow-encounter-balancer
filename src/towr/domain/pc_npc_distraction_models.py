@@ -9,6 +9,7 @@ from towr.domain.test_models import DiceModifier
 from towr.domain.pc_npc_grudge_models import (PcNpcGrudgeDistractionSource,PcNpcGrudgeEncounterProof,
     grudge_distraction_from_encounter,expected_pc_npc_grudge_encounter)
 from towr.domain.pc_npc_grudge_policy_models import MINER_DEFINITION_ID
+from towr.domain.minion_defeat_models import MinionDefeatDecision, NpcDefeatDisposition
 
 
 BREWGUARD_DEFINITION_ID = 'pc-book-npc:dwarf_brewguard_warhammer'
@@ -34,12 +35,30 @@ class PcNpcDistractionSource:
 
 
 @dataclass(frozen=True,slots=True)
+class PcNpcWaveDistractionSource:
+    """Brewguard W1 caused by a real non-Attack Warped Form wave."""
+
+    actor_id: str
+    focus_actor_id: str
+    wave_id: str
+    profile_change: ProfileStateChangeRequest
+
+    def __post_init__(self):
+        if any(type(value) is not str or not value.strip() for value in
+                (self.actor_id,self.focus_actor_id,self.wave_id)):
+            raise TypeError('wave distraction requires exact nonempty source/focus IDs')
+        if self.actor_id==self.focus_actor_id or not _first_wound(self.profile_change):
+            raise ValueError('wave distraction requires another causer and exact first Brute Wound')
+        replace(self.profile_change)
+
+
+@dataclass(frozen=True,slots=True)
 class PcNpcDistractionExpiredProof:
-    source: PcNpcDistractionSource | PcNpcGrudgeDistractionSource
+    source: PcNpcDistractionSource | PcNpcGrudgeDistractionSource | PcNpcWaveDistractionSource
     death_source_id: str
 
     def __post_init__(self):
-        if type(self.source) not in (PcNpcDistractionSource,PcNpcGrudgeDistractionSource):
+        if type(self.source) not in (PcNpcDistractionSource,PcNpcGrudgeDistractionSource,PcNpcWaveDistractionSource):
             raise TypeError('distraction expiry requires its exact typed source')
         replace(self.source)
         if type(self.death_source_id) is not str or not self.death_source_id.strip():
@@ -60,10 +79,68 @@ def distraction_from_profile_wound(source,attack,change):
         attack.execution.request_id,change)
 
 
+def wave_distraction_from_profile_wound(source,activation,ack):
+    """Called only for the actual target-scoped wave profile acknowledgement."""
+    from towr.domain.pc_warped_form_models import PcWarpedFormActivationProof,PcWarpedFormProfileProof
+    if type(activation) is not PcWarpedFormActivationProof or type(ack) is not PcWarpedFormProfileProof:
+        raise TypeError('wave distraction requires exact activation and profile proofs')
+    replace(activation)
+    replace(ack)
+    enemy=source.enemy(ack.target_id)
+    if enemy.definition.id!=BREWGUARD_DEFINITION_ID or not _first_wound(ack.source):
+        return None
+    validate_pc_book_npc_definition(enemy.definition)
+    causer=source.enemy(activation.actor_id)
+    validate_pc_book_npc_definition(causer.definition)
+    if (causer.definition.id!='pc-book-npc:skin_wolf' or ack.activation_id!=activation.activation_id
+            or ack.target_id not in activation.target_ids or ack.decision is not None):
+        raise ValueError('Brewguard wave distraction changed its actual causer or first Wound')
+    return PcNpcWaveDistractionSource(ack.target_id,activation.actor_id,activation.activation_id,ack.source)
+
+
+def _wave_receipt(history,ack):
+    """Find the real activation/target receipt immediately preceding this ACK."""
+    from towr.domain.pc_warped_form_models import (
+        PcWarpedFormActivationProof,PcWarpedFormTargetProof,PcWarpedFormProfileProof,PcWarpedFormEndProof,
+    )
+    if type(ack) is not PcWarpedFormProfileProof:
+        raise TypeError('wave profile source requires its exact acknowledgement')
+    replace(ack)
+    activation=None
+    target=None
+    acknowledged=False
+    for proof in history:
+        if type(proof) is PcWarpedFormActivationProof:
+            activation=proof
+            target=None
+            acknowledged=False
+        elif type(proof) is PcWarpedFormTargetProof:
+            target=proof
+            acknowledged=False
+        elif type(proof) is PcWarpedFormProfileProof:
+            acknowledged=True
+        elif type(proof) is PcWarpedFormEndProof:
+            activation=None
+            target=None
+    if (activation is None or target is None or acknowledged
+            or ack.activation_id!=activation.activation_id or target.activation_id!=activation.activation_id
+            or target.request.target_id!=ack.target_id or ack.target_id not in activation.target_ids
+            or target.result.profile_wound is None or target.result.profile_wound.state_change!=ack.source):
+        raise ValueError('wave profile ACK lacks its actual activation/target/Wound receipt')
+    replace(activation)
+    replace(target)
+    return activation,target
+
+
 def ordered_npc_distractions(source,causes):
     actors={enemy.state.actor_id for enemy in source.enemies}
-    if any(cause.actor_id not in actors or cause.focus_actor_id not in source.pc_activation_order for cause in causes):
-        raise ValueError('NPC distraction source/focus must belong to the complete scenario')
+    for cause in causes:
+        if type(cause) not in (PcNpcDistractionSource,PcNpcGrudgeDistractionSource,PcNpcWaveDistractionSource):
+            raise TypeError('NPC distraction requires an exact typed cause')
+        replace(cause)
+        focus_ids=actors if type(cause) is PcNpcWaveDistractionSource else source.pc_activation_order
+        if cause.actor_id not in actors or cause.focus_actor_id not in focus_ids:
+            raise ValueError('NPC distraction source/focus must belong to the complete scenario')
     by_actor={cause.actor_id:cause for cause in causes}
     if len(by_actor)!=len(causes):
         raise ValueError('an NPC cannot own several simultaneous distraction sources')
@@ -73,9 +150,30 @@ def ordered_npc_distractions(source,causes):
 
 def _confirmed_death_source(history,actor):
     from towr.domain.pc_melee_result_models import (
-        PcWoundCompletionProof,PcTurnEndProof,PcIncapacitatedTurnEndProof,
+        PcWoundCompletionProof,PcTurnEndProof,PcIncapacitatedTurnEndProof,PcProfileWoundProof,PcAttackProof,
     )
-    for proof in reversed(history):
+    from towr.domain.pc_warped_form_models import PcWarpedFormProfileProof
+    for index in range(len(history)-1,-1,-1):
+        proof=history[index]
+        if type(proof) in (PcProfileWoundProof,PcWarpedFormProfileProof):
+            decision=proof.decision
+            if (type(decision) is not MinionDefeatDecision or decision.target_id!=actor
+                    or not proof.source.defeated or decision.disposition is not NpcDefeatDisposition.KILLED
+                    or type(decision.gm_approved) is not bool or not decision.gm_approved):
+                continue
+            replace(decision)
+            if type(proof) is PcWarpedFormProfileProof:
+                activation,target=_wave_receipt(history[:index],proof)
+                if decision.attacker_id!=activation.actor_id or proof.target_id!=actor:
+                    raise ValueError('NPC focus death has a detached wave disposition')
+                return activation.activation_id+':'+actor+':defeat'
+            attack=next((item for item in reversed(history[:index]) if type(item) is PcAttackProof),None)
+            if (attack is None or attack.request.actor_id!=decision.attacker_id
+                    or attack.request.target_id!=actor or attack.execution.resolution.profile_wound is None
+                    or attack.execution.resolution.profile_wound.state_change!=proof.source):
+                raise ValueError('NPC focus death has a detached Attack disposition')
+            return attack.execution.request_id+':defeat'
+
         if (type(proof) is PcWoundCompletionProof and proof.completion.state.dead
                 and proof.completion.source_request.roll.source_request.target_id==actor):
             return proof.completion.request_id
@@ -91,11 +189,19 @@ def expected_pc_npc_distraction_expiry(state):
     if state.pending or state.pending_wound is not None:
         return None
     for cause in state.npc_distractions:
-        if not state.participant(cause.focus_actor_id).injury.dead:
-            continue
-        source_id=_confirmed_death_source(state.history,cause.focus_actor_id)
-        if source_id is None:
-            raise ValueError('focus death must belong to this completed journal prefix')
+        if type(cause) is PcNpcWaveDistractionSource:
+            # Defeat alone does not establish death: surrendered/knocked out lives.
+            source_id=_confirmed_death_source(state.history,cause.focus_actor_id)
+            if source_id is None:
+                continue
+            if not state.enemy(cause.focus_actor_id).state.injury.defeated:
+                raise ValueError('NPC focus death proof disagrees with its actual injury')
+        else:
+            if not state.participant(cause.focus_actor_id).injury.dead:
+                continue
+            source_id=_confirmed_death_source(state.history,cause.focus_actor_id)
+            if source_id is None:
+                raise ValueError('focus death must belong to this completed journal prefix')
         return PcNpcDistractionExpiredProof(cause,source_id)
     return None
 
@@ -113,6 +219,7 @@ def pc_npc_distraction_test_modifiers(state,actor_id,target_id):
 
 def validate_pc_npc_distractions(state):
     from towr.domain.pc_melee_result_models import PcAttackProof,PcProfileWoundProof
+    from towr.domain.pc_warped_form_models import PcWarpedFormProfileProof
     if type(state.npc_distractions) is not tuple:
         raise TypeError('NPC distraction bank must be an exact tuple')
     supported=(BREWGUARD_DEFINITION_ID,MINER_DEFINITION_ID)
@@ -147,6 +254,11 @@ def validate_pc_npc_distractions(state):
             cause=distraction_from_profile_wound(state.source,attack,proof.source)
             if cause is not None:
                 expected.append(cause)
+        elif type(proof) is PcWarpedFormProfileProof:
+            activation,_=_wave_receipt(state.history[:index],proof)
+            cause=wave_distraction_from_profile_wound(state.source,activation,proof)
+            if cause is not None:
+                expected.append(cause)
         elif type(proof) is PcNpcDistractionExpiredProof:
             replace(proof)
             if (proof.source not in expected or proof.death_source_id!=
@@ -157,7 +269,7 @@ def validate_pc_npc_distractions(state):
     if state.npc_distractions!=expected:
         raise ValueError('NPC distraction bank changed its actual Wound/expiry history')
     for cause in state.npc_distractions:
-        if type(cause) not in (PcNpcDistractionSource,PcNpcGrudgeDistractionSource):
+        if type(cause) not in (PcNpcDistractionSource,PcNpcGrudgeDistractionSource,PcNpcWaveDistractionSource):
             raise TypeError('NPC distraction bank requires exact typed sources')
         replace(cause)
     from towr.domain.pc_melee_result_models import validate_pc_melee_source_types

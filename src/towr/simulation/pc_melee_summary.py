@@ -1,6 +1,6 @@
 from dataclasses import replace
 
-from towr.simulation.pc_melee_models import PcMeleeSimulationResult, PcNearMissBurnCount, PcGloriousSpendCount, PcHelpActionCount, PcAllyRecoverActionCount, PcNpcExitCount, PcNpcHelpActionCount, PcNpcExtraAttackCount, PcNpcRecoverActionCount
+from towr.simulation.pc_melee_models import PcMeleeSimulationResult, PcNearMissBurnCount, PcGloriousSpendCount, PcHelpActionCount, PcAllyRecoverActionCount, PcNpcExitCount, PcNpcHelpActionCount, PcNpcExtraAttackCount, PcNpcRecoverActionCount, PcNpcWarpedFormCount
 from towr.domain.pc_melee_result_models import PcMeleeOutcome
 from towr.simulation.pc_melee_summary_models import PcMeleeDefeatCount, PcMeleeSimulationSummary
 
@@ -48,4 +48,8 @@ def summarize_pc_melee_simulation(result: PcMeleeSimulationResult) -> PcMeleeSim
         sum(any(item.count for item in record.npc_recover_action_counts) for record in result.records),
         tuple(PcNpcRecoverActionCount(enemy.state.actor_id,
             sum(record.npc_recover_action_counts[index].count for record in result.records))
+            for index,enemy in enumerate(result.source_request.scenario.enemies)),
+        sum(any(item.count for item in record.npc_warped_form_counts) for record in result.records),
+        tuple(PcNpcWarpedFormCount(enemy.state.actor_id,
+            sum(record.npc_warped_form_counts[index].count for record in result.records))
             for index,enemy in enumerate(result.source_request.scenario.enemies)))

@@ -1,3 +1,4 @@
+from tests.support.pc_melee_fixtures import zero_npc_warped_form_counts
 from tests.support.pc_melee_fixtures import zero_npc_recover_counts
 """Deterministic aggregate/source/budget checks; no battle probability oracles."""
 from tests.support.pc_melee_fixtures import zero_npc_extra_attack_counts
@@ -48,7 +49,7 @@ def aggregate(source, *, wins=0, defeats=0, unsupported=0):
         0, tuple(PcNearMissBurnCount(member.actor_id,0) for member in source.scenario.party),
         0, tuple(PcGloriousSpendCount(member.actor_id,0) for member in source.scenario.party),
         0, tuple(PcHelpActionCount(member.actor_id,0) for member in source.scenario.party),
-        0, tuple(PcAllyRecoverActionCount(member.actor_id,0) for member in source.scenario.party), 0, zero_npc_exit_counts(source.scenario), 0, npc_help_action_trial_count=0, npc_help_action_counts=zero_npc_help_counts(source.scenario), npc_extra_attack_trial_count=0, npc_recover_action_trial_count=0, npc_extra_attack_counts=zero_npc_extra_attack_counts(source.scenario), npc_recover_action_counts=zero_npc_recover_counts(source.scenario))
+        0, tuple(PcAllyRecoverActionCount(member.actor_id,0) for member in source.scenario.party), 0, zero_npc_exit_counts(source.scenario), 0, npc_help_action_trial_count=0, npc_help_action_counts=zero_npc_help_counts(source.scenario), npc_extra_attack_trial_count=0, npc_recover_action_trial_count=0, npc_warped_form_trial_count=0, npc_extra_attack_counts=zero_npc_extra_attack_counts(source.scenario), npc_recover_action_counts=zero_npc_recover_counts(source.scenario), npc_warped_form_counts=zero_npc_warped_form_counts(source.scenario))
 
 
 class PcMeleeBalanceUnitTests(unittest.TestCase):

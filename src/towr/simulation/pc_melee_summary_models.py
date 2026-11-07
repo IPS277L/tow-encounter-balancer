@@ -8,6 +8,7 @@ from towr.simulation.pc_melee_models import (
     PcNpcExitCount, validate_npc_exit_counts, PcNpcHelpActionCount, validate_npc_help_counts,
     PcNpcExtraAttackCount, validate_npc_extra_attack_counts,
     PcNpcRecoverActionCount, validate_npc_recover_counts,
+    PcNpcWarpedFormCount, validate_npc_warped_form_counts, warped_form_target_budget,
 )
 
 
@@ -53,6 +54,8 @@ class PcMeleeSimulationSummary:
     npc_extra_attack_counts: tuple[PcNpcExtraAttackCount, ...]
     npc_recover_action_trial_count: int
     npc_recover_action_counts: tuple[PcNpcRecoverActionCount, ...]
+    npc_warped_form_trial_count: int
+    npc_warped_form_counts: tuple[PcNpcWarpedFormCount, ...]
 
     def __post_init__(self) -> None:
         if not isinstance(self.source_request, PcMeleeSimulationRequest):
@@ -107,13 +110,20 @@ class PcMeleeSimulationSummary:
         if not any_death+counts.party_defeated*(members-1) <= deaths <= (
                 any_death-counts.party_defeated)*(members-1)+counts.party_defeated*members:
             raise ValueError('any-death count contradicts individual observations')
-        if deaths > self.total_action_count:
+        validate_npc_warped_form_counts(self.npc_warped_form_counts,self.source_request.scenario,
+            trials=self.trials,activation_trials=self.npc_warped_form_trial_count,
+            actions=self.total_action_count,started_rounds=started)
+        pc_injury_budget=self.total_action_count+warped_form_target_budget(
+            self.source_request.scenario,self.npc_warped_form_counts,pc_targets=True)
+        npc_injury_budget=self.total_action_count+warped_form_target_budget(
+            self.source_request.scenario,self.npc_warped_form_counts,pc_targets=False)
+        if deaths > pc_injury_budget:
             raise ValueError('individual deaths contradict action/terminal bounds')
         if type(self.near_miss_burn_trial_count) is not int:
             raise TypeError('Near Miss trial count must be an integer')
         validate_near_miss_counts(self.near_miss_burn_counts, self.source_request.scenario,
             trials=self.trials, burn_trials=self.near_miss_burn_trial_count,
-            actions=self.total_action_count)
+            actions=pc_injury_budget)
         if type(self.glorious_spend_trial_count) is not int:
             raise TypeError('Glorious trial count must be an integer')
         validate_glorious_counts(self.glorious_spend_counts,self.source_request.scenario,
@@ -137,14 +147,15 @@ class PcMeleeSimulationSummary:
             raise TypeError('NPC Recover trial count must be an integer')
         validate_npc_recover_counts(self.npc_recover_action_counts,self.source_request.scenario,
             trials=self.trials,recover_trials=self.npc_recover_action_trial_count,
-            actions=self.total_action_count,started_rounds=self.total_started_round_count)
+            actions=self.total_action_count,started_rounds=self.total_started_round_count,
+            warped_form_counts=self.npc_warped_form_counts)
         if sum(item.count for item in (*self.help_action_counts,*self.ally_recover_action_counts,
                 *self.npc_help_action_counts,*self.npc_recover_action_counts))+2*self.total_npc_extra_attack_count>self.total_action_count:
             raise ValueError('Help, ally Recover and primary/extra Attacks cannot consume the same action')
         validate_npc_exit_counts(self.npc_exit_counts,self.source_request.scenario,
             trials=self.trials,exit_trials=self.npc_exit_trial_count)
-        if self.total_npc_exit_count>self.total_action_count:
-            raise ValueError('NPC exits cannot exceed their actual first-Wound Attacks')
+        if self.total_npc_exit_count>npc_injury_budget:
+            raise ValueError('NPC exits exceed actual source injury opportunities')
         if type(self.objective_with_npc_exit_count) is not int:
             raise TypeError('objective with NPC exit count must be an integer')
         if not max(0,counts.objective_achieved+self.npc_exit_trial_count-self.trials)<=self.objective_with_npc_exit_count<=min(
@@ -164,6 +175,10 @@ class PcMeleeSimulationSummary:
     @property
     def total_npc_recover_action_count(self) -> int:
         return sum(item.count for item in self.npc_recover_action_counts)
+
+    @property
+    def total_npc_warped_form_count(self) -> int:
+        return sum(item.count for item in self.npc_warped_form_counts)
 
     @property
     def total_npc_extra_attack_count(self) -> int:

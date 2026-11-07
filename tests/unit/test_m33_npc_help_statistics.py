@@ -1,3 +1,4 @@
+from tests.support.pc_melee_fixtures import zero_npc_warped_form_counts
 from tests.support.pc_melee_fixtures import zero_npc_recover_counts
 """Source-ordered NPC Help actions retain stopped prefixes and share action budgets."""
 from tests.support.pc_melee_fixtures import zero_npc_extra_attack_counts
@@ -34,7 +35,7 @@ def record(request,index,outcome,counts,*,actions=4,started=1,completed=0):
         tuple(PcAllyRecoverActionCount(m.actor_id,0) for m in scenario.party),
         zero_npc_exit_counts(scenario),
         tuple(PcNpcHelpActionCount(e.state.actor_id,count)
-            for e,count in zip(scenario.enemies,counts,strict=True)), npc_extra_attack_counts=zero_npc_extra_attack_counts(scenario), npc_recover_action_counts=zero_npc_recover_counts(scenario))
+            for e,count in zip(scenario.enemies,counts,strict=True)), npc_extra_attack_counts=zero_npc_extra_attack_counts(scenario), npc_recover_action_counts=zero_npc_recover_counts(scenario), npc_warped_form_counts=zero_npc_warped_form_counts(scenario))
 
 
 def observed_batch():

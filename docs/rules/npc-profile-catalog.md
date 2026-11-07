@@ -1,5 +1,43 @@
 # Каталог NPC profiles и Special Abilities
 
+M56 разрешает явную Close Shooting Melee/Athletics policy для четырёх существующих loadouts State Trooper Halberd/Spear, Empire Knight/Lance без щита и White Wolf/Wolf Hammer. Выбранные definitions/обычная Defence не переписаны, каталог57. Неисполнявшаяся ранее Athletics metadata двух unshielded Knights исправлена на2d/3/cap6 от Ag3. Условия, числа и приёмка имеют основное описание в [правиле боя](combat.md#pc-close-shooting-protection-m56) и [ADR-0101](../decisions/ADR-0101-pc-close-shooting-npc-protection-choice.md).
+
+## Night Goblin: Weighted Net и carried Spear (M52)
+
+<a id="night-goblin-net-spear-m52"></a>
+
+Источники: BOOK-GM-GUIDE1.1, гл.VII Profiles93 / Goblin Warrior156 / Night Goblins157; BOOK-PLAYER-GUIDE1.4, гл.III Skills68, гл.IV Equipment92/94/96/97, гл.V Actions116 / Recover118 / Conditions123. Выбранная граница — [ADR-0097](../decisions/ADR-0097-pc-weighted-net-and-carried-spear.md); статус implemented.
+
+Canonical `night_goblin_net_spear`: Normal Minion/T3/Res3 **armoured** без shield, Athletics3d2/cap6. GM157 printed Res4 armoured уменьшается на1 по GM93 при отказе от shield; light armour повторно не начисляется. Явный marker сохраняет armoured при нулевом числовом bonus: Axe/Halberd и похожие Traits применяются, ignores-armour по-прежнему использует Toughness. Это отдельный fixed loadout от прежнего Night Goblin/Spear+shield.
+
+Два профиля: Jagged Spear Melee2d3/Damage3/1H/maxShort/cap4 и Weighted Net Throwing2d3/2H/Close–Short/cap6 отBS3. У Net primary ConditionImpactSpec Burdened вместо Damage; нет фиктивного Damage0, дополнительного Staggered или автоматической Wound. Cap6 хранится явно отдельно от printed base2.
+
+В начале NPC держит одну Net и переносит Spear. Явная policy `throw_once_then_spear` выбирает Net только по первой живой цели текущего priority без Burdened/Defenceless; иначе выбирает Spear, сохраняя Net. После actual HIT или MISS Net израсходована; отдельный free draw достаёт переносимое копьё. После временного выбора Spear неброшенную Net можно снова достать для новой допустимой цели. `spear_only` явно отказывается от броска. Pickup/повторного запаса нет; новый раунд не возвращает сеть. Close MISS исполняет обычный own Staggered без повторного наложения уже Staggered.
+
+Burdened запрещает Manoeuvre, а не Attack/Protection/free draw/standard Recover. PC сохраняет прежнюю стратегию; Brawn освобождение не добавляется автоматически. Независимая Net-причина сохраняется через Wound/Fate/expiry/обычный Recover, не смешивается с injury Burdened и не создаёт механики стаков. Melee outnumbering/higher-ground не переносится на Throwing. PC без shield защищается Athletics; Sword/Staff не разрешает Defence против Net.
+
+Dirty Coward сохраняется. При выбранной паре Horde Help имеет приоритет и не расходует Net. Если получатель собирается бросить Net, helper выбирает Attack fallback вместо привязки Melee Help к Throwing. После выбора Spear работает обычный Help/Test binding. Help и Attack не объединяются в одно действие.
+
+Current PC JSON1 требует только у этого source conditional `definition.net_attack`, `definition.resilience.armoured:true` и enemy `net_policy:{initial_count:1,mode:...}`. Полные nested sources/stock/equipment readmit проверяются до RNG. Прежние56profiles и172JSON M9–M51 сохранены; каталог57, версия и агрегаты прежние. Подбор удаляет policy вместе с actor. [Factory/CLI-примеры](../examples/m52/README.md).
+
+Net по Defenceless остаётся вне выбранной тактики: исполняется Spear с обычным Wound/Fate. Общая precedence PG96/123, новый Brawn Recover, pickup/spatial/Charge не объявлены реализованными.
+
+## Great Stag: Crown of Antlers и Trample (M51)
+
+<a id="great-stag-crown-trample-m51"></a>
+
+Источник: `RULE-PROFILE-MONSTER-002`, BOOK-GM-GUIDE1.1, гл.VII Allies and Antagonists / Great Stag176, NPC Profiles93; BOOK-PLAYER-GUIDE1.4, гл.III Brawn69, гл.V Dice107 / Actions116 / Attack118 и Wounds Table190–191. Три конкретизации явно приняты в [ADR-0096](../decisions/ADR-0096-pc-great-stag-crown-and-trample.md).
+
+Canonical `great_stag` / `pc-book-npc:great_stag`: Fast Brute3, WS4/S5/T5/Ag5, Resilience5 без armour/shield/оружия. Две natural Close атаки с hands=null: `mighty_antlers` Melee4d/3 Damage6, cap8; `trample` Brawn5d/3 Damage5, cap10. У обеих pool_cap=null: cap следует из исходной Characteristic. Protection Athletics5d/4, cap10. W0–1 без Condition, W2Drained, W3defeat; actual1→2 ACK работает и для Warped Form.
+
+Первое действие всегда Mighty Antlers. Если после всех её Wound/Fate/body/Endurance/expiry последствий та же цель впервые стала Prone из-за принятой раны этой атаки, выбранный через `npc_extra_attack_actor_ids` Stag получает второе действие Trample. Подтверждается actual переход не-Prone→Prone; уже Prone, Near Miss, successful Endurance, MISS и чужие причины разрешения не дают. Trample направлен только в эту живую всё ещё Prone цель, включая Defenceless; при смерти/недоступности пропускается без переназначения. `[]` явно отказывается от Crown. Максимум два действия и один TurnEnd после обязательных последствий.
+
+Trample исполняет свой Brawn Test/Damage5, а PC Opposes фактическим Endurance; Defenceless не защищается. Fate/Glorious относится к этому Test, Help первой Melee/Protection не переносится. Typed Crown grant отличается от Bear different-target Enduring Strength и связывает slot1 receipt, actor/round, цель и выбранный профиль; owner доказывает причинность по журналу.
+
+Current PC JSON1 сохраняет primary `definition.attack` и требует закрытый `definition.trample_attack` только у полного canonical Great Stag. Secondary содержит явный skill=brawn и все остальные поля Attack; частичный профиль не восстанавливается из ID. Прочие NPC по-прежнему имеют одну Melee-атаку. Каталог55→56; прежние55entries и168JSON M9–M50 сохранены. Метрики/верхнеуровневые поля/версия прежние. [Factory/CLI-примеры](../examples/m51/README.md).
+
+Charge-Prone, destination Give Ground, Fearsome без Give Ground и Great Stag Knights/rider не исполняются в fixed Close/noMove/unmounted сцене. Не добавлять Charge descriptor к обычным Antlers; свободный выбор обычного Trample и общий spatial бой вне среза.
+
 Источник: `BOOK-GM-GUIDE`, версия 1.1, глава Allies and Antagonists, страницы 94–187. Статус области: `draft/partially implemented`. Этот документ индексирует профильные правила; точные Characteristics, Skills, Protection, Damage и Wound bands перед реализацией загружаются из указанной страницы в типизированный profile data layer.
 
 ## RULE-PROFILE-TALABEC-001..011 — Grand Duchy of Talabec
@@ -272,6 +310,57 @@ Fearsome имеет полный Give Ground→Broken trigger, который fi
 Current PC JSON1 без новых полей/версии/метрик. [Catalog](../../src/towr/domain/pc_npc_catalog.py), [typed modifier helpers](../../src/towr/domain/pc_npc_ability_models.py), [owner preparation](../../src/towr/domain/pc_melee_result_models.py). Проверки: [catalog/full source](../../tests/unit/test_m37_pc_devour_catalog.py), [native/pure rage/Devour/Fate/replay](../../tests/unit/test_m37_pc_devour_execution.py), [JSON/trials/8составов](../../tests/integration/test_m37_pc_devour_chunk.py). Прежние31entries/definitions/snapshots/metadata и112JSON documents M9–M36 сохраняются.
 
 <a id="flagellant-feel-no-pain-m47"></a>
+
+<a id="bear-crushing-weight-m50"></a>
+
+## M50 — Bear / Crushing Weight и ранний Prone
+
+Источник: BOOK-GM-GUIDE1.1, гл.VII Allies and Antagonists / Bear138; BOOK-PLAYER-GUIDE1.4, гл.V Dice Modifiers107 / Attack118 / Conditions122 / Prone123. [Принятый ADR-0095](../decisions/ADR-0095-pc-bear-crushing-weight-pre-stagger-prone.md).
+
+`BEAR_CRUSHING_WEIGHT`: Normal natural Brute3/T5Res6 armoured/noWeapon/noShield, Crushing Weight Close3d3Damage7/hands=null с explicit cap8 отWS4. Athletics3d3/null cap6. W1–2Drained, W3defeat; применяются настоящие profile ACK, в том числе от Warped Form. Дополнительные PC weapon penalties/Traits/Rage/Devour не добавляются. Sweeping Claws — unselected; прежний Sweeping Claws entry/metadata сохранён.
+
+HIT накладывает Prone до Staggered choice и Wound lifecycle, независимо от того, будет ли Wound. MISS не меняет target. Уже брошенные Attack/Protection Tests не получают задним числом higher-ground. При repeated Staggered цель уже Prone; source/current choice сохраняют только допустимые возможности, выбран SUFFER_WOUND. PLAYER Wound source содержит этот early Prone, поэтому Near Miss отменяет Wound, сохраняя Condition от попадания. Нет подмены раннего эффекта поздней `ConditionOnHitSpec` application.
+
+Prone не помещается в постоянный Spider Drained bank: ordinary self/ally Recover может снять его, а новая Attack снова наложить. Прежние ongoing Wound-Prone ограничения сохраняются. Post-Damage Drained descriptor/retention/expiry не меняются; новые histories не заставляют Prone появляться снова после Recover.
+
+Current PC JSON1 допускает второй closed descriptor `prone_before_give_ground` с required `rule_id=RULE-PROFILE-CREATURE-010:crushing-weight-prone` и `affects_monstrosities=true`. Mapping — готовый K1 `ProneBeforeGiveGroundSpec`. Native gate разрешает его только полному canonical Crushing Weight Bear; authored/прочие book источники не получают произвольный effect. cap8 также ограничен новой canonical Attack и прежними исключениями, остальные caps прежние.
+
+Existing `npc_extra_attack_actor_ids` допускает оба Bears. HIT и все Wound/Fate/body/expiry завершаются до optional slot2; цель — первый другой живой PC по текущему приоритету. Второй Crushing Weight использует тот же effect; третьего действия нет. `[]` отказывается только от optional второй Attack. Actual receipts/actions/extra counts и один TurnEnd сохраняются. Unsupported оставляет исполненный prefix, не считает неисполненный второй удар. Fearsome сохраняет Give Ground trigger, которого выбранная тактика не вызывает.
+
+Каталог54→55;54прежнихprofiles/metadata и164JSON M9–M49 сохранены без миграции. Новых полей верхнего уровня/метрик/версии нет. [Factory/JSON/CLI](../examples/m50/README.md), [early projection](../../src/towr/domain/pc_hit_condition_models.py), [owner](../../src/towr/domain/_pc_melee_projection.py), [catalog tests](../../tests/unit/test_m50_pc_crushing_weight_catalog.py), [native tests](../../tests/unit/test_m50_pc_crushing_weight_execution.py), [JSON/search](../../tests/integration/test_m50_pc_crushing_weight_json.py).
+
+<a id="ogre-grounded-pegasus-m49"></a>
+
+## M49 — Imperial Ogre / Greathammer и наземный Pegasus
+
+Источник: BOOK-GM-GUIDE1.1, гл.VII Allies and Antagonists / Imperial Ogre103 / Pegasus176 / NPC Profiles93; BOOK-PLAYER-GUIDE1.4, гл.V Rules / Dice Modifiers107 / Speed115. Пользователь выбрал оба профиля по [ADR-0094](../decisions/ADR-0094-pc-imperial-ogre-cap-and-grounded-pegasus.md).
+
+| Profile ID | Attack | Protection | Injury / Resilience |
+|---|---|---|---|
+| IMPERIAL_OGRE_GREATHAMMER | Close2d4Damage8/2H, explicit cap6 отWS3 | Athletics3d3, implicit cap6/null | Brute3/T5Res6 armoured/noShield |
+| PEGASUS_GROUNDED | natural Hooves Close3d3Damage3/hands=null, implicit cap6/null | Athletics4d4, implicit cap8/null | Brute2/T3Res3/noArmour/noShield |
+
+Printed Ogre2d не получает дополнительного PC Greathammer penalty или weapon Traits. Старые cap8 Minotaur/Bestigor сохраняются;6 допускается только Attack полного canonical Ogre definition. Authored/other book/Protection caps остаются null. Schema enum `[null,6,8]` не заменяет native source validation и не даёт caller arbitrary cap. Поле уже было required, версия/метрики/предыдущие JSON не меняются.
+
+Ogre при0Wounds Fast, при1–2Normal, при3defeated; Speed не влияет на очередность в неподвижной сцене. Rough Shove/Ogre Pistol unselected; Mighty Throw и Ogre Charge требуют Rough Shove, а Fearsome — Give Ground, которого нынешняя SUFFER_WOUND стратегия не выбирает. Полные условия сохранены; их effects не применяются к Greathammer автоматически. Ogre не наследует Minotaur Rage/Devour.
+
+`pegasus_grounded` — canonical loadout с **явным фактом начального положения**, не новая книжная разновидность. Pegasus начинает на земле и остаётся там в noMove/noExternal сцене. ПриW1 cannot fly/must land next turn уже выполнено наземным положением: нет выдуманного landing action/штрафа/unsupported; W2defeat. Fly и Pegasus Knights сохраняют полные triggers в metadata; всадника/Charge/полёта нет. Для будущей spatial сцены положение должно стать настоящим source/state, а не выводиться из имени этого ограниченного loadout.
+
+Оба профиля используют прежние direct/repeated Staggered/profile-Wound/GM ACK и могут быть явными same-side Close targets Warped Form. Каталог52→54; прежние52entries/metadata и160JSON сохраняются без миграции. [Каталог](../../src/towr/domain/pc_npc_catalog.py), [source admission](../../src/towr/domain/pc_melee_models.py), [native/cap tests](../../tests/unit/test_m49_pc_ogre_pegasus.py), [JSON/search tests](../../tests/integration/test_m49_pc_ogre_pegasus_json.py), [примеры](../examples/m49/README.md).
+
+<a id="skin-wolf-warped-form-m48"></a>
+
+## M48 — Skin Wolf / Blood Rage и Warped Form
+
+Источник: BOOK-GM-GUIDE1.1, гл.VII Allies and Antagonists, Skin Wolf187. Fast Brute3/T4Res5 armoured; Claws and Fangs Close5d3Damage5/natural и Athletics4d3 Protection, implicit caps10/8. W1–2 разрешают Warped Form, W3defeat. Каталог52; прежние51combat entries сохранены.
+
+`RULE-PROFILE-MONSTER-011:blood-rage`: явный Rage list разрешает добровольный Staggered перед Attack при отсутствии Condition; любой actual Staggered даёт+1d Melee независимо от списка. Bestigor W1Glorious не переносится Skin Wolf.
+
+`RULE-PROFILE-MONSTER-011:warped-form`: выбранная policy в конце собственного хода живого wounded unstaggered actor платит собственный Staggered, лечит1non-fireWound и затем накладывает Staggered остальным Close creatures. Heal сохраняет цену; нет action/Recover/Test/RNG лечения. В текущем fresh physical source нет огневых ран; неизвестные начальные/fire/magic producers не допускаются. Одна activation на end phase. Отдельный ordered snapshot исключает подтверждённых мёртвых/defeated/exited, сохраняет живых Defenceless PCs. Каждая цель завершает свои Wound/Fate/body/profile effects до следующей, после всей волны идёт обычный TurnEnd. Смерть последнего PC не обрывает начатую волну или собственную eligible end phase; unsupported сохраняет только исполненный prefix.
+
+Пользователь [уточнил](../decisions/ADR-0093-pc-skin-wolf-warped-form-end-phase.md) неоднозначные self/focus cases: caster не получает второе Staggered от волны; Brewguard W1 от волны имеет typed focus=Skin Wolf. NPC focus снимается только после actual GM `killed` ACK, а не knockout/surrender. PC focus Near Miss/death semantics прежние. Wave не Attack: нет fake Test/Damage/Devour; первое Staggered живого Defenceless PC остаётся Condition. Повторный Staggered использует SUFFER_WOUND. Поддержаны profile-W1 Conditions, Dirty Coward/drop, Bestigor next-Attack Glorious и selected Flagellant Feel No Pain; его последующий Recover остаётся отдельным собственным действием.
+
+Required `npc_warped_form_policies` задаёт всех source PCs и явные same-side NPC Close факты в полном порядке, NPC disposition rows и симметрию настроенных Wolves. `[]` отказывается от optional heal/wave. Target/causer IDs не заменяют actual receipts; replay проверяет полную историю. Compact activation counts отдельны от action costs. [Примеры](../examples/m48/README.md), [phase models](../../src/towr/domain/pc_warped_form_models.py), [проекция](../../src/towr/domain/_pc_warped_form_projection.py), [проверки исполнения](../../tests/unit/test_m48_pc_warped_form_execution.py).
 
 ## M47 — два Flagellant loadouts, Feel No Pain и Recover
 

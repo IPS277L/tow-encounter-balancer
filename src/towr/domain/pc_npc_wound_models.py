@@ -26,6 +26,7 @@ _FIRST_WOUND_DRAINED_DEFINITIONS = (
     'pc-book-npc:big_un_spear_shield',
     'pc-book-npc:big_un_spear',
     'pc-book-npc:bear_sweeping_claws',
+    'pc-book-npc:bear_crushing_weight',
     'pc-book-npc:demigryph',
     'pc-book-npc:white_wolf_rending_claws',
 )
@@ -61,6 +62,24 @@ class PcNpcBrokenTurnUnsupported:
             raise ValueError('Broken-turn source must bind its rule, actor and actual Attack execution')
 
 
+@dataclass(frozen=True, slots=True)
+class PcNpcBrokenWaveTurnUnsupported:
+    actor_id: str
+    source_id: str
+    wave_id: str
+    profile_change: ProfileStateChangeRequest
+    reason: str = 'npc_broken_turn'
+
+    def __post_init__(self):
+        if any(type(value) is not str or not value.strip()
+                for value in (self.actor_id, self.source_id, self.wave_id)):
+            raise TypeError('Broken wave stop requires its exact actor and wave source')
+        if type(self.reason) is not str or self.reason != 'npc_broken_turn':
+            raise ValueError('Broken wave stop requires its canonical reason')
+        if not _first_wound(self.profile_change) or self.source_id != _broken_source(self.actor_id, self.wave_id):
+            raise ValueError('Broken wave stop requires its actual first Wound source')
+
+
 def official_profile_wound_state(definition: NpcDefinition, injury: ProfileInjuryState,
         change: ProfileStateChangeRequest) -> ProfileInjuryState:
     """Called only while acknowledging the actual mandatory profile-Wound receipt."""
@@ -89,7 +108,18 @@ def elf_merchant_profile_wound_state(definition: NpcDefinition, injury: ProfileI
 
 def pc_npc_drained_profile_wound_state(definition: NpcDefinition,injury: ProfileInjuryState,
         change: ProfileStateChangeRequest) -> ProfileInjuryState:
-    """Apply these printed Brute bands only at the actual first-Wound acknowledgement."""
+    """Apply printed Brute Drained bands at their actual Wound acknowledgement."""
+    if definition.id=='pc-book-npc:great_stag':
+        validate_pc_book_npc_definition(definition)
+        if (type(change) is not ProfileStateChangeRequest or type(change.npc_type) is not ProfileNpcType
+                or change.npc_type is not ProfileNpcType.BRUTE or type(change.previous_wounds) is not int
+                or type(change.current_wounds) is not int or type(change.defeated) is not bool):
+            raise TypeError('Great Stag Drained requires its exact typed profile change')
+        if change.previous_wounds!=1 or change.current_wounds!=2 or change.defeated:
+            return injury
+        if injury.wounds!=2 or injury.defeated:
+            raise ValueError('Great Stag W2 Drained requires its actual updated injury')
+        return replace(injury,conditions=injury.conditions.with_condition(Condition.DRAINED))
     if definition.id not in _FIRST_WOUND_DRAINED_DEFINITIONS:
         return injury
     validate_pc_book_npc_definition(definition)
@@ -113,7 +143,7 @@ def pc_npc_prone_profile_wound_state(definition: NpcDefinition,injury: ProfileIn
     return replace(injury,conditions=injury.conditions.with_condition(Condition.PRONE))
 
 
-def pc_npc_broken_turn_unsupported(state: PcMeleeState) -> PcNpcBrokenTurnUnsupported | None:
+def pc_npc_broken_turn_unsupported(state: PcMeleeState) -> PcNpcBrokenTurnUnsupported | PcNpcBrokenWaveTurnUnsupported | None:
     """Keep the observed prefix; stop before a Broken Official's own unstarted turn."""
     combat = state.round_state
     if (state.pending or state.pending_wound is not None or combat.active_turn is not None
@@ -132,7 +162,14 @@ def pc_npc_broken_turn_unsupported(state: PcMeleeState) -> PcNpcBrokenTurnUnsupp
         raise ValueError('live Broken Official must preserve its actual first Wound')
     attack = None
     cause = None
+    from towr.domain.pc_warped_form_models import PcWarpedFormProfileProof
+    wave_cause = False
     for proof in state.history:
+        if type(proof) is PcWarpedFormProfileProof and proof.target_id==actor and _first_wound(proof.source):
+            if cause is not None:
+                raise ValueError('Official first-Wound Broken was acknowledged twice')
+            cause=(proof.activation_id,proof.source)
+            wave_cause = True
         if type(proof) is PcAttackProof:
             attack = proof
         elif (type(proof) is PcProfileWoundProof and attack is not None
@@ -149,4 +186,6 @@ def pc_npc_broken_turn_unsupported(state: PcMeleeState) -> PcNpcBrokenTurnUnsupp
     if pc_npc_exit_supported(state,actor):
         return None
     attack_id,change = cause
+    if wave_cause:
+        return PcNpcBrokenWaveTurnUnsupported(actor,_broken_source(actor,attack_id),attack_id,change)
     return PcNpcBrokenTurnUnsupported(actor,_broken_source(actor,attack_id),attack_id,change)

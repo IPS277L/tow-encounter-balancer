@@ -401,7 +401,8 @@
     "npc_grudge_policies": [],
     "npc_broken_exit_policy": null,
     "npc_blood_rage_actor_ids": [],
-    "npc_flagellant_policies": []
+    "npc_flagellant_policies": [],
+    "npc_warped_form_policies": []
   },
   "generation": {
     "groups": [

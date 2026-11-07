@@ -239,7 +239,8 @@
         "recover_when_wounded": true
       }
     ],
-    "npc_broken_exit_policy": null
+    "npc_broken_exit_policy": null,
+    "npc_warped_form_policies": []
   },
   "generation": {
     "groups": [

@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from towr.domain.attack_models import (
-    AttackRequest, DamageImpactSpec, DamageProfile, ResilienceProfile, SecondaryEffectSpec,
+    AttackRequest, ConditionImpactSpec, DamageImpactSpec, DamageProfile, ResilienceProfile, SecondaryEffectSpec,
 )
 from towr.domain.protection_models import ProtectionPreparationRequest, ProtectionPreparationResult
 from towr.domain.ranged_weapon_profiles import RangedWeaponHands, RangedWeaponRange
@@ -23,31 +23,41 @@ class NpcAttackProfile:
     source_rule_id: str
     skill: Skill
     test_profile: InlineProfile
-    damage: DamageProfile
+    damage: DamageProfile | None
     range_min: RangedWeaponRange
     range_max: RangedWeaponRange
     hands: RangedWeaponHands | None
     ignores_armour: bool = False
     secondary_effects: tuple[SecondaryEffectSpec, ...] = ()
+    condition_impact: ConditionImpactSpec | None = field(default=None, kw_only=True)
 
     def __post_init__(self) -> None:
         _non_empty(self.id, "NPC attack profile id")
         _non_empty(self.source_rule_id, "NPC attack source rule")
         if not isinstance(self.skill, Skill):
             raise TypeError("NPC attack skill must be a Skill")
-        if self.skill not in (Skill.MELEE, Skill.SHOOTING):
-            raise ValueError("NPC attack preparation currently supports Melee/Shooting")
+        if self.skill not in (Skill.MELEE, Skill.SHOOTING, Skill.THROWING, Skill.BRAWN):
+            raise ValueError("NPC attack preparation currently supports Melee/Shooting/Throwing/natural Brawn")
         if not isinstance(self.test_profile, InlineProfile):
             raise TypeError("NPC attack requires an InlineProfile")
-        if not isinstance(self.damage, DamageProfile):
-            raise TypeError("NPC attack requires a numeric DamageProfile")
+        if self.damage is not None and not isinstance(self.damage, DamageProfile):
+            raise TypeError("NPC attack damage must be a DamageProfile or None")
+        if self.condition_impact is not None and type(self.condition_impact) is not ConditionImpactSpec:
+            raise TypeError("NPC primary condition must be an exact ConditionImpactSpec or None")
+        if (self.damage is None) == (self.condition_impact is None):
+            raise ValueError("NPC attack requires exactly one numeric DamageProfile or primary ConditionImpactSpec")
         _validate_attack_hands(self.skill,self.hands)
         if not isinstance(self.ignores_armour, bool):
             raise TypeError("ignores_armour must be a boolean")
+        if self.condition_impact is not None and (self.ignores_armour or self.secondary_effects):
+            raise ValueError("primary Condition attacks cannot carry Damage traits or secondary effects")
         if _rank(self.range_min) > _rank(self.range_max):
             raise ValueError("NPC attack range must be ordered")
         if self.skill is Skill.MELEE and self.range_min is not RangedWeaponRange.CLOSE:
             raise ValueError("Melee profile gives maximum range, starting at Close")
+        if self.skill is Skill.BRAWN and (self.range_min is not RangedWeaponRange.CLOSE
+                or self.range_max is not RangedWeaponRange.CLOSE):
+            raise ValueError('natural Brawn requires Close Range only')
         effects = tuple(self.secondary_effects)
         if not all(isinstance(effect, SecondaryEffectSpec) for effect in effects):
             raise TypeError("NPC secondary effects must be typed effect specs")
@@ -184,11 +194,16 @@ def _expected_npc_attack(request: NpcAttackPreparationRequest) -> tuple[NpcAttac
              NPC_ATTACK_TRAITS_RULE_ID, NPC_ATTACK_RANGE_RULE_ID)
     if target is RangedWeaponRange.EXTREME:
         raise ValueError("NPC preparation currently excludes Extreme/Aim composition")
-    if profile.skill is Skill.MELEE:
+    if profile.skill in (Skill.MELEE, Skill.BRAWN):
         if _rank(target) > _rank(profile.range_max):
             raise ValueError("target exceeds NPC Melee maximum range")
         if request.range_approved_by_gm:
             raise ValueError("GM range approval cannot extend Melee range")
+    elif profile.skill is Skill.THROWING:
+        if not _rank(profile.range_min) <= _rank(target) <= _rank(profile.range_max):
+            raise ValueError("NPC Throwing requires target within Optimum range")
+        if request.range_approved_by_gm:
+            raise ValueError("GM range approval cannot extend Throwing range")
     else:
         if (target is RangedWeaponRange.CLOSE or request.has_enemy_in_close_range) and profile.range_min is not RangedWeaponRange.CLOSE:
             raise ValueError("NPC Shooting requires Close in Optimum when an enemy is Close")
@@ -205,18 +220,23 @@ def _expected_npc_attack(request: NpcAttackPreparationRequest) -> tuple[NpcAttac
             rules = (*rules, NPC_OUTSIDE_OPTIMUM_RULE_ID)
     attack = AttackRequest(
         request.attack_id, TestRequest(request.attacker_test_id, profile.test_profile, dice_modifiers=modifiers),
-        None, DamageImpactSpec(profile.damage, request.target_resilience, ignores_armour=profile.ignores_armour),
+        None, profile.condition_impact if profile.condition_impact is not None else
+        DamageImpactSpec(profile.damage, request.target_resilience, ignores_armour=profile.ignores_armour),
         target is RangedWeaponRange.CLOSE, request.attacker_is_staggered,
         secondary_effects=profile.secondary_effects,
     )
-    return profile, attack, tuple(dict.fromkeys((*rules, *(m.rule_id for m in request.dice_modifiers),
+    return profile, attack, tuple(dict.fromkeys((*rules,
+                                             *((profile.condition_impact.rule_id,) if profile.condition_impact is not None else ()),
+                                             *(m.rule_id for m in request.dice_modifiers),
                                              *(effect.rule_id for effect in profile.secondary_effects))))
 
 
 def _validate_attack_hands(skill: Skill, hands: RangedWeaponHands | None) -> None:
+    if skill is Skill.BRAWN and hands is not None:
+        raise ValueError('Brawn attack must be natural and cannot carry weapon hands')
     if hands is None:
-        if skill is not Skill.MELEE:
-            raise ValueError('only a natural Melee attack can have no weapon hands')
+        if skill not in (Skill.MELEE, Skill.BRAWN):
+            raise ValueError('only a natural Melee/Brawn attack can have no weapon hands')
     elif type(hands) is not RangedWeaponHands:
         raise TypeError('NPC weapon attack hands must be their exact enum or natural Melee None')
 

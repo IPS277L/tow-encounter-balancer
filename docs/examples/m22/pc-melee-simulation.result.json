@@ -342,7 +342,8 @@
       "npc_extra_attack_actor_ids": [],
       "npc_grudge_policies": [],
       "npc_blood_rage_actor_ids": [],
-      "npc_flagellant_policies": []
+      "npc_flagellant_policies": [],
+      "npc_warped_form_policies": []
     },
     "simulation": {
       "master_seed": "42",
@@ -509,6 +510,26 @@
         "count": 0
       }
     ],
-    "total_npc_recover_action_count": 0
+    "total_npc_recover_action_count": 0,
+    "npc_warped_form_counts": [
+      {
+        "actor_id": "brigand1",
+        "count": 0
+      },
+      {
+        "actor_id": "brigand2",
+        "count": 0
+      },
+      {
+        "actor_id": "brigand3",
+        "count": 0
+      },
+      {
+        "actor_id": "footpad1",
+        "count": 0
+      }
+    ],
+    "npc_warped_form_trial_count": 0,
+    "total_npc_warped_form_count": 0
   }
 }

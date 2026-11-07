@@ -133,19 +133,21 @@ class CatalogTests(unittest.TestCase):
     def test_nested_book_sources_remain_reserved_after_both_root_ids_are_renamed(self):
         for profile in PcBookNpcProfile:
             definition = get_pc_book_npc_entry(profile).definition
-            attack, = definition.attacks
             protection, = definition.protection
-            for claimed_part in ('attack','protection'):
-                with self.subTest(profile=profile,claimed_part=claimed_part):
+            # Every selected attack identity remains reserved, including Trample.
+            for claimed in (*range(len(definition.attacks)), 'protection'):
+                with self.subTest(profile=profile,claimed=claimed):
                     forged = replace(definition,id='authored:renamed',source_rule_id='authored:renamed-source',
-                        attacks=(replace(attack,damage=DamageProfile(9),
-                            source_rule_id=attack.source_rule_id if claimed_part=='attack' else 'authored:attack'),),
+                        attacks=tuple(replace(attack,damage=DamageProfile(9),condition_impact=None,
+                            source_rule_id=attack.source_rule_id if index==claimed else f'authored:attack{index}')
+                            for index,attack in enumerate(definition.attacks)),
                         protection=(replace(protection,source_rule_id=protection.source_rule_id
-                            if claimed_part=='protection' else 'authored:protection'),))
-                    with self.assertRaises(ValueError):
+                            if claimed=='protection' else 'authored:protection'),))
+                    with self.assertRaises((TypeError,ValueError)):
                         validate_pc_book_npc_definition(forged)
             custom = replace(definition,id='authored:custom',source_rule_id='authored:custom-source',
-                attacks=(replace(attack,damage=DamageProfile(9),source_rule_id='authored:attack'),),
+                attacks=tuple(replace(attack,damage=DamageProfile(9),condition_impact=None,source_rule_id=f'authored:attack{index}')
+                    for index,attack in enumerate(definition.attacks)),
                 protection=(replace(protection,source_rule_id='authored:protection'),))
             self.assertIsNone(validate_pc_book_npc_definition(custom))
 

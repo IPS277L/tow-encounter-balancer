@@ -20,8 +20,13 @@ class PcWeaponAdmissionTests(unittest.TestCase):
         source=make_pc_melee_scenario()
         self.assertEqual({weapon.value for weapon in PcMeleeWeapon},
             {'staff','sword','dagger','axe','warhammer','morning_star',
-             'pickaxe','flail','billhook','halberd','glaive','greataxe','greathammer'})
+             'pickaxe','flail','billhook','halberd','glaive','greataxe','greathammer','pistol'})
         for weapon in PcMeleeWeapon:
+            if weapon is PcMeleeWeapon.PISTOL:
+                from tests.support.pc_pistol_scenarios import make_pc_pistol_scenario
+                request=PcMeleeSimulationRequest(make_pc_pistol_scenario(),42,1)
+                self.assertIs(request.scenario.party[0].pc.weapon,weapon)
+                continue
             two_handed=weapon.value in ('pickaxe','flail','billhook','halberd','glaive','greataxe','greathammer')
             member=replace(source.party[0],pc=replace(source.party[0].pc,weapon=weapon),
                 initial_weapon_hand=PcTwoHandedGrip.BOTH if two_handed else PcWeaponHand.LEFT)

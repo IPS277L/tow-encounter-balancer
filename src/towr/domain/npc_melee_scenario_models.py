@@ -136,6 +136,8 @@ class NpcMeleeScenario:
 
         for participant in roster.participants:
             definition, state = participant.definition, participant.state
+            if definition.resilience.armoured is not None or state.current_resilience.armoured is not None:
+                raise ValueError("bounded Melee does not support explicit armoured metadata")
             if definition.injury_policy is not TargetInjuryPolicy.MINION:
                 raise ValueError("melee scenario supports Minions only")
             if state.injury.wounds or state.injury.defeated or state.injury.conditions.conditions:
@@ -148,6 +150,7 @@ class NpcMeleeScenario:
             if (attack.skill is not Skill.MELEE
                     or attack.range_min is not RangedWeaponRange.CLOSE
                     or attack.range_max is not RangedWeaponRange.CLOSE
+                    or attack.damage is None or attack.condition_impact is not None
                     or attack.damage.success_multiplier != 1
                     or attack.ignores_armour or attack.secondary_effects
                     or attack.test_profile.pool_cap is not None):

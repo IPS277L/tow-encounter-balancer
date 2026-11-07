@@ -9,7 +9,7 @@ from towr.engine.pc_melee_runner import run_pc_melee_scenario
 from towr.rules.dice import RandomSource
 from towr.simulation.pc_melee_models import (
     PcMeleeSimulationRequest, PcMeleeSimulationResult, PcMeleeTrialRecord, PcNearMissBurnCount, PcGloriousSpendCount,
-    PcHelpActionCount, PcAllyRecoverActionCount, PcNpcExitCount, PcNpcHelpActionCount, PcNpcExtraAttackCount, PcNpcRecoverActionCount,
+    PcHelpActionCount, PcAllyRecoverActionCount, PcNpcExitCount, PcNpcHelpActionCount, PcNpcExtraAttackCount, PcNpcRecoverActionCount, PcNpcWarpedFormCount,
 )
 
 
@@ -31,6 +31,7 @@ def run_pc_melee_trial(request: PcMeleeSimulationRequest, trial_index: int, *,
     if result.source != request.scenario:
         raise ValueError('PC encounter result belongs to another source')
     from towr.domain.pc_flagellant_models import PcNpcRecoverProof
+    from towr.domain.pc_warped_form_models import PcWarpedFormActivationProof
     return PcMeleeTrialRecord(request.scenario, trial_index, seed, result.outcome,
         result.executed_actions, result.started_rounds, result.completed_rounds, result.defeated_pc_ids,
         tuple(PcNearMissBurnCount(member.actor_id,
@@ -59,6 +60,9 @@ def run_pc_melee_trial(request: PcMeleeSimulationRequest, trial_index: int, *,
             for enemy in request.scenario.enemies),
         tuple(PcNpcRecoverActionCount(enemy.state.actor_id,
             sum(type(step.proof) is PcNpcRecoverProof and step.proof.actor_id==enemy.state.actor_id
+                for step in result.steps)) for enemy in request.scenario.enemies),
+        tuple(PcNpcWarpedFormCount(enemy.state.actor_id,
+            sum(type(step.proof) is PcWarpedFormActivationProof and step.proof.actor_id==enemy.state.actor_id
                 for step in result.steps)) for enemy in request.scenario.enemies))
 
 

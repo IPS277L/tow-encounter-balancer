@@ -1,0 +1,292 @@
+{
+  "schema_version": "1",
+  "kind": "pc_melee_simulation",
+  "request_id": "m52:net-spear:simulation",
+  "ruleset": "towr-pg1.4-gmg1.1",
+  "execution": {
+    "mode": "sequential"
+  },
+  "scenario": {
+    "id": "pc-melee",
+    "party": [
+      {
+        "actor_id": "pc1",
+        "pc": {
+          "id": "pc-profile1",
+          "weapon_skill": 3,
+          "strength": 1,
+          "toughness": 3,
+          "agility": 3,
+          "melee": 1,
+          "defence": 5,
+          "athletics": 4,
+          "endurance": 4,
+          "weapon": "staff",
+          "armour_bonus": 0
+        },
+        "fate": {
+          "session_id": "session",
+          "actor_id": "pc1",
+          "rating": 3,
+          "session_spend_limit": 3,
+          "spends": [],
+          "has_lucky": false,
+          "refreshes": [],
+          "burns": [],
+          "resource_event_ids": [],
+          "rule_id": "RULE-FATE-001:session-resource"
+        },
+        "policy": "attack_or_recover_self",
+        "fate_policy": "decline_optional_fate",
+        "random_side_policy": "d10_low_left_high_right",
+        "heavy_wound_policy": "continue_fighting",
+        "initial_weapon_hand": "left",
+        "target_priority": [
+          "net_goblin1",
+          "net_goblin2"
+        ],
+        "defeat_decisions": [
+          {
+            "attacker_id": "pc1",
+            "target_id": "net_goblin1",
+            "disposition": "knocked_out",
+            "gm_approved": true
+          },
+          {
+            "attacker_id": "pc1",
+            "target_id": "net_goblin2",
+            "disposition": "knocked_out",
+            "gm_approved": true
+          }
+        ],
+        "near_miss_policy": null,
+        "glorious_policy": null,
+        "help_policy": null,
+        "ally_recover_policy": null,
+        "backup_weapon_policy": null
+      },
+      {
+        "actor_id": "pc2",
+        "pc": {
+          "id": "pc-profile2",
+          "weapon_skill": 3,
+          "strength": 1,
+          "toughness": 3,
+          "agility": 3,
+          "melee": 1,
+          "defence": 5,
+          "athletics": 4,
+          "endurance": 4,
+          "weapon": "staff",
+          "armour_bonus": 0
+        },
+        "fate": {
+          "session_id": "session",
+          "actor_id": "pc2",
+          "rating": 3,
+          "session_spend_limit": 3,
+          "spends": [],
+          "has_lucky": false,
+          "refreshes": [],
+          "burns": [],
+          "resource_event_ids": [],
+          "rule_id": "RULE-FATE-001:session-resource"
+        },
+        "policy": "attack_or_recover_self",
+        "fate_policy": "decline_optional_fate",
+        "random_side_policy": "d10_low_left_high_right",
+        "heavy_wound_policy": "continue_fighting",
+        "initial_weapon_hand": "left",
+        "target_priority": [
+          "net_goblin1",
+          "net_goblin2"
+        ],
+        "defeat_decisions": [
+          {
+            "attacker_id": "pc2",
+            "target_id": "net_goblin1",
+            "disposition": "knocked_out",
+            "gm_approved": true
+          },
+          {
+            "attacker_id": "pc2",
+            "target_id": "net_goblin2",
+            "disposition": "knocked_out",
+            "gm_approved": true
+          }
+        ],
+        "near_miss_policy": null,
+        "glorious_policy": null,
+        "help_policy": null,
+        "ally_recover_policy": null,
+        "backup_weapon_policy": null
+      }
+    ],
+    "day_id": "day",
+    "enemies": [
+      {
+        "actor_id": "net_goblin1",
+        "holds_shield": false,
+        "definition": {
+          "id": "pc-book-npc:night_goblin_net_spear",
+          "source_rule_id": "BOOK-GM-GUIDE:1.1:p157:night_goblin_net_spear",
+          "injury_policy": "minion",
+          "wound_limit": 1,
+          "resilience": {
+            "toughness": 3,
+            "bonus": 0,
+            "armoured": true
+          },
+          "attack": {
+            "id": "jagged_spear",
+            "source_rule_id": "BOOK-GM-GUIDE:1.1:p157:night_goblin_net_spear:jagged_spear",
+            "test_profile": {
+              "dice": 2,
+              "threshold": 3,
+              "pool_cap": null
+            },
+            "damage": {
+              "base": 3,
+              "success_multiplier": 1
+            },
+            "range_max": "short",
+            "hands": "1h",
+            "secondary_effects": []
+          },
+          "protection": {
+            "source_rule_id": "BOOK-GM-GUIDE:1.1:p157:night_goblin_net_spear:athletics",
+            "skill": "athletics",
+            "test_profile": {
+              "dice": 3,
+              "threshold": 2,
+              "pool_cap": null
+            }
+          },
+          "net_attack": {
+            "id": "weighted_net",
+            "source_rule_id": "BOOK-GM-GUIDE:1.1:p157:night_goblin_net_spear:weighted_net",
+            "skill": "throwing",
+            "test_profile": {
+              "dice": 2,
+              "threshold": 3,
+              "pool_cap": 6
+            },
+            "range_min": "close",
+            "range_max": "short",
+            "hands": "2h",
+            "impact": {
+              "kind": "condition",
+              "condition": "burdened",
+              "rule_id": "RULE-EQUIPMENT-005:weighted-net-burdened",
+              "classification": "unclassified"
+            }
+          }
+        },
+        "net_policy": {
+          "initial_count": 1,
+          "mode": "throw_once_then_spear"
+        }
+      },
+      {
+        "actor_id": "net_goblin2",
+        "holds_shield": false,
+        "definition": {
+          "id": "pc-book-npc:night_goblin_net_spear",
+          "source_rule_id": "BOOK-GM-GUIDE:1.1:p157:night_goblin_net_spear",
+          "injury_policy": "minion",
+          "wound_limit": 1,
+          "resilience": {
+            "toughness": 3,
+            "bonus": 0,
+            "armoured": true
+          },
+          "attack": {
+            "id": "jagged_spear",
+            "source_rule_id": "BOOK-GM-GUIDE:1.1:p157:night_goblin_net_spear:jagged_spear",
+            "test_profile": {
+              "dice": 2,
+              "threshold": 3,
+              "pool_cap": null
+            },
+            "damage": {
+              "base": 3,
+              "success_multiplier": 1
+            },
+            "range_max": "short",
+            "hands": "1h",
+            "secondary_effects": []
+          },
+          "protection": {
+            "source_rule_id": "BOOK-GM-GUIDE:1.1:p157:night_goblin_net_spear:athletics",
+            "skill": "athletics",
+            "test_profile": {
+              "dice": 3,
+              "threshold": 2,
+              "pool_cap": null
+            }
+          },
+          "net_attack": {
+            "id": "weighted_net",
+            "source_rule_id": "BOOK-GM-GUIDE:1.1:p157:night_goblin_net_spear:weighted_net",
+            "skill": "throwing",
+            "test_profile": {
+              "dice": 2,
+              "threshold": 3,
+              "pool_cap": 6
+            },
+            "range_min": "close",
+            "range_max": "short",
+            "hands": "2h",
+            "impact": {
+              "kind": "condition",
+              "condition": "burdened",
+              "rule_id": "RULE-EQUIPMENT-005:weighted-net-burdened",
+              "classification": "unclassified"
+            }
+          }
+        },
+        "net_policy": {
+          "initial_count": 1,
+          "mode": "throw_once_then_spear"
+        }
+      }
+    ],
+    "facts": {
+      "zone_id": "arena",
+      "all_opponents_close": true,
+      "targets_aware": true,
+      "all_combatants_included": true,
+      "unmounted": true,
+      "no_external_effects": true,
+      "no_terrain_modifiers": true,
+      "no_additional_abilities": true,
+      "no_ambush": true,
+      "outnumbering_bonus_approved": true,
+      "can_leave_zone": false
+    },
+    "pc_activation_order": [
+      "pc1",
+      "pc2"
+    ],
+    "enemy_activation_order": [
+      "net_goblin1",
+      "net_goblin2"
+    ],
+    "enemy_target_priority": [
+      "pc1",
+      "pc2"
+    ],
+    "max_rounds": 4,
+    "npc_help_policies": [],
+    "npc_extra_attack_actor_ids": [],
+    "npc_grudge_policies": [],
+    "npc_blood_rage_actor_ids": [],
+    "npc_flagellant_policies": [],
+    "npc_warped_form_policies": [],
+    "npc_broken_exit_policy": null
+  },
+  "simulation": {
+    "master_seed": "42",
+    "trials": 6
+  }
+}

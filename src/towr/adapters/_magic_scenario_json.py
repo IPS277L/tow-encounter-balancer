@@ -358,6 +358,12 @@ def scenario_document(scenario: NpcMagicScenario, definition_order: tuple[str, .
 def validate_scenario_wire_permissions(scenario: NpcMagicScenario, schema_version: str) -> None:
     """Admit original permissions before projecting definitions or result catalogs."""
     _require_schema_version(schema_version)
+    for participant in scenario.initial.roster.participants:
+        if (participant.definition.resilience.armoured is not None
+                or participant.state.current_resilience.armoured is not None):
+            raise ValueError('bounded Magic JSON does not support explicit armoured metadata')
+        if any(a.damage is None or a.condition_impact is not None for a in participant.definition.attacks):
+            raise ValueError('bounded Magic JSON requires numeric Damage attacks')
     _validate_scenario_policy_types(scenario)
     from towr.domain.npc_magic_scenario_models import _validate_magic_scenario_permissions
     _validate_magic_scenario_permissions(scenario)

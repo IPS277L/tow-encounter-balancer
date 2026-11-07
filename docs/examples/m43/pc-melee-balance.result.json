@@ -297,7 +297,8 @@
       ],
       "npc_broken_exit_policy": null,
       "npc_blood_rage_actor_ids": [],
-      "npc_flagellant_policies": []
+      "npc_flagellant_policies": [],
+      "npc_warped_form_policies": []
     },
     "generation": {
       "groups": [
@@ -552,7 +553,8 @@
           "npc_grudge_policies": [],
           "npc_broken_exit_policy": null,
           "npc_blood_rage_actor_ids": [],
-          "npc_flagellant_policies": []
+          "npc_flagellant_policies": [],
+          "npc_warped_form_policies": []
         }
       },
       "summary": {
@@ -657,7 +659,15 @@
             "count": 0
           }
         ],
-        "total_npc_recover_action_count": 0
+        "total_npc_recover_action_count": 0,
+        "npc_warped_form_counts": [
+          {
+            "actor_id": "footpad1",
+            "count": 0
+          }
+        ],
+        "npc_warped_form_trial_count": 0,
+        "total_npc_warped_form_count": 0
       },
       "assessment": {
         "status": "eligible",
@@ -936,7 +946,8 @@
           ],
           "npc_broken_exit_policy": null,
           "npc_blood_rage_actor_ids": [],
-          "npc_flagellant_policies": []
+          "npc_flagellant_policies": [],
+          "npc_warped_form_policies": []
         }
       },
       "summary": {
@@ -1057,7 +1068,19 @@
             "count": 0
           }
         ],
-        "total_npc_recover_action_count": 0
+        "total_npc_recover_action_count": 0,
+        "npc_warped_form_counts": [
+          {
+            "actor_id": "miner1",
+            "count": 0
+          },
+          {
+            "actor_id": "footpad1",
+            "count": 0
+          }
+        ],
+        "npc_warped_form_trial_count": 0,
+        "total_npc_warped_form_count": 0
       },
       "assessment": {
         "status": "eligible",
@@ -1394,7 +1417,8 @@
           ],
           "npc_broken_exit_policy": null,
           "npc_blood_rage_actor_ids": [],
-          "npc_flagellant_policies": []
+          "npc_flagellant_policies": [],
+          "npc_warped_form_policies": []
         }
       },
       "summary": {
@@ -1531,7 +1555,23 @@
             "count": 0
           }
         ],
-        "total_npc_recover_action_count": 0
+        "total_npc_recover_action_count": 0,
+        "npc_warped_form_counts": [
+          {
+            "actor_id": "miner1",
+            "count": 0
+          },
+          {
+            "actor_id": "miner2",
+            "count": 0
+          },
+          {
+            "actor_id": "footpad1",
+            "count": 0
+          }
+        ],
+        "npc_warped_form_trial_count": 0,
+        "total_npc_warped_form_count": 0
       },
       "assessment": {
         "status": "eligible",

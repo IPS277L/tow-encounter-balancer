@@ -1,3 +1,4 @@
+from tests.support.pc_melee_fixtures import zero_npc_warped_form_counts
 """Second-slot NPC Attack observations extend action bounds only by actual counts."""
 from copy import deepcopy
 from dataclasses import replace
@@ -32,7 +33,7 @@ def record(request,index,outcome,extras,*,actions=6,started=1,completed=0):
         zero_npc_exit_counts(scenario),zero_npc_help_counts(scenario),
         tuple(PcNpcExtraAttackCount(enemy.state.actor_id,count)
             for enemy,count in zip(scenario.enemies,extras,strict=True)),
-        npc_recover_action_counts=zero_npc_recover_counts(scenario))
+        npc_recover_action_counts=zero_npc_recover_counts(scenario), npc_warped_form_counts=zero_npc_warped_form_counts(scenario))
 
 
 def observed_batch():

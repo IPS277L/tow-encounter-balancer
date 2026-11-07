@@ -222,6 +222,8 @@ class NpcMagicScenario:
             raise ValueError('Wizard requires an allied and an opposing Minion')
         for participant in roster.participants:
             definition, actor = participant.definition, participant.state
+            if definition.resilience.armoured is not None or actor.current_resilience.armoured is not None:
+                raise ValueError('bounded Magic does not support explicit armoured metadata')
             is_wizard = actor.actor_id == state.wizard.actor_id
             healthy = CharacterInjuryState() if is_wizard else ProfileInjuryState(0, 1)
             if actor.injury != healthy:
@@ -244,6 +246,7 @@ class NpcMagicScenario:
                 ordinary_ranges = (RangedWeaponRange.SHORT, RangedWeaponRange.MEDIUM, RangedWeaponRange.LONG)
                 if (attack.skill is not Skill.SHOOTING or attack.range_min not in ordinary_ranges
                         or attack.range_max not in ordinary_ranges or attack.test_profile.pool_cap is not None
+                        or attack.damage is None or attack.condition_impact is not None
                         or attack.ignores_armour or attack.secondary_effects or attack.damage.success_multiplier != 1
                         or actor.available_attack_ids != (attack.id,)):
                     raise ValueError('unsupported numeric Shooting profile, availability or effects')

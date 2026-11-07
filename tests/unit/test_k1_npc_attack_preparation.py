@@ -124,8 +124,8 @@ class K1NpcAttackPreparationTests(unittest.TestCase):
                     replace(result.source_request, range_approved_by_gm=False)
 
     def test_unsupported_skills_extreme_and_inapplicable_approval_are_explicit(self):
-        for skill in (Skill.BRAWN, Skill.THROWING, Skill.AWARENESS):
-            with self.assertRaisesRegex(ValueError, "Melee/Shooting"):
+        for skill in (Skill.BRAWN, Skill.AWARENESS):
+            with self.assertRaisesRegex(ValueError, "natural"):
                 replace(brigand().profiles[0], skill=skill)
         for approval in (False, True):
             with self.assertRaisesRegex(ValueError, "Extreme/Aim"):

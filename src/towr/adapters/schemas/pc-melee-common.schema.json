@@ -104,6 +104,7 @@
         "pool_cap": {
           "enum": [
             null,
+            6,
             8
           ]
         }
@@ -125,6 +126,9 @@
         "bonus": {
           "type": "integer",
           "minimum": 0
+        },
+        "armoured": {
+          "const": true
         }
       },
       "required": [
@@ -154,6 +158,26 @@
         "condition",
         "rule_id",
         "classification"
+      ],
+      "additionalProperties": false
+    },
+    "pre_stagger_prone_effect": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "prone_before_give_ground"
+        },
+        "rule_id": {
+          "const": "RULE-PROFILE-CREATURE-010:crushing-weight-prone"
+        },
+        "affects_monstrosities": {
+          "const": true
+        }
+      },
+      "required": [
+        "kind",
+        "rule_id",
+        "affects_monstrosities"
       ],
       "additionalProperties": false
     },
@@ -203,7 +227,14 @@
           "type": "array",
           "maxItems": 1,
           "items": {
-            "$ref": "urn:towr:pc-melee:common:1#/$defs/on_hit_drained_effect"
+            "oneOf": [
+              {
+                "$ref": "urn:towr:pc-melee:common:1#/$defs/on_hit_drained_effect"
+              },
+              {
+                "$ref": "urn:towr:pc-melee:common:1#/$defs/pre_stagger_prone_effect"
+              }
+            ]
           }
         }
       },
@@ -278,6 +309,12 @@
             },
             "protection": {
               "$ref": "urn:towr:pc-melee:common:1#/$defs/protection"
+            },
+            "trample_attack": {
+              "$ref": "urn:towr:pc-melee:common:1#/$defs/trample_attack"
+            },
+            "net_attack": {
+              "$ref": "urn:towr:pc-melee:common:1#/$defs/net_attack"
             }
           },
           "required": [
@@ -367,8 +404,75 @@
                   }
                 }
               }
+            },
+            {
+              "if": {
+                "properties": {
+                  "id": {
+                    "const": "pc-book-npc:great_stag"
+                  }
+                }
+              },
+              "then": {
+                "required": [
+                  "trample_attack"
+                ]
+              },
+              "else": {
+                "not": {
+                  "required": [
+                    "trample_attack"
+                  ]
+                }
+              }
+            },
+            {
+              "if": {
+                "properties": {
+                  "id": {
+                    "const": "pc-book-npc:night_goblin_net_spear"
+                  }
+                }
+              },
+              "then": {
+                "required": [
+                  "net_attack"
+                ],
+                "properties": {
+                  "resilience": {
+                    "required": [
+                      "armoured"
+                    ]
+                  }
+                }
+              },
+              "else": {
+                "allOf": [
+                  {
+                    "not": {
+                      "required": [
+                        "net_attack"
+                      ]
+                    }
+                  },
+                  {
+                    "properties": {
+                      "resilience": {
+                        "not": {
+                          "required": [
+                            "armoured"
+                          ]
+                        }
+                      }
+                    }
+                  }
+                ]
+              }
             }
           ]
+        },
+        "net_policy": {
+          "$ref": "urn:towr:pc-melee:common:1#/$defs/net_policy"
         }
       },
       "required": [
@@ -376,7 +480,34 @@
         "holds_shield",
         "definition"
       ],
-      "additionalProperties": false
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "definition": {
+                "properties": {
+                  "id": {
+                    "const": "pc-book-npc:night_goblin_net_spear"
+                  }
+                }
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "net_policy"
+            ]
+          },
+          "else": {
+            "not": {
+              "required": [
+                "net_policy"
+              ]
+            }
+          }
+        }
+      ]
     },
     "pc": {
       "type": "object",
@@ -434,12 +565,16 @@
             "halberd",
             "glaive",
             "greataxe",
-            "greathammer"
+            "greathammer",
+            "pistol"
           ]
         },
         "armour_bonus": {
           "type": "integer",
           "minimum": 0
+        },
+        "pistol": {
+          "$ref": "urn:towr:pc-melee:common:1#/$defs/pistol_profile"
         }
       },
       "required": [
@@ -455,6 +590,27 @@
         "weapon",
         "armour_bonus"
       ],
+      "additionalProperties": false,
+      "if": {"properties": {"weapon": {"const": "pistol"}}},
+      "then": {"required": ["pistol"]},
+      "else": {"not": {"required": ["pistol"]}}
+    },
+    "pistol_profile": {
+      "type": "object",
+      "properties": {
+        "ballistic_skill": {"type": "integer", "minimum": 1},
+        "shooting": {"type": "integer", "minimum": 1, "maximum": 10},
+        "initiative": {"type": "integer", "minimum": 1},
+        "dexterity": {"type": "integer", "minimum": 1, "maximum": 10},
+        "has_blackpowder_lore": {"type": "boolean", "const": true},
+        "has_blackpowder_kit": {"type": "boolean", "const": true},
+        "ammunition_supply_confirmed": {"type": "boolean", "const": true},
+        "initially_loaded": {"type": "boolean", "const": true},
+        "reload_hand_policy": {"const": "two_available_hands"}
+      },
+      "required": ["ballistic_skill", "shooting", "initiative", "dexterity",
+        "has_blackpowder_lore", "has_blackpowder_kit", "ammunition_supply_confirmed",
+        "initially_loaded", "reload_hand_policy"],
       "additionalProperties": false
     },
     "facts": {
@@ -776,6 +932,15 @@
       ],
       "additionalProperties": false
     },
+    "npc_close_shooting_protection_policy": {
+      "type": "object",
+      "properties": {
+        "actor_id": {"$ref": "urn:towr:pc-melee:common:1#/$defs/identifier"},
+        "skill": {"enum": ["melee", "athletics"]}
+      },
+      "required": ["actor_id", "skill"],
+      "additionalProperties": false
+    },
     "scenario": {
       "type": "object",
       "properties": {
@@ -874,6 +1039,20 @@
             "$ref": "urn:towr:pc-melee:common:1#/$defs/npc_flagellant_policy"
           },
           "uniqueItems": true
+        },
+        "npc_close_shooting_protection_policies": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "urn:towr:pc-melee:common:1#/$defs/npc_close_shooting_protection_policy"
+          }
+        },
+        "npc_warped_form_policies": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:towr:pc-melee:common:1#/$defs/npc_warped_form_policy"
+          }
         }
       },
       "required": [
@@ -891,7 +1070,8 @@
         "npc_extra_attack_actor_ids",
         "npc_grudge_policies",
         "npc_blood_rage_actor_ids",
-        "npc_flagellant_policies"
+        "npc_flagellant_policies",
+        "npc_warped_form_policies"
       ],
       "additionalProperties": false,
       "allOf": [
@@ -1173,6 +1353,21 @@
         "total_npc_recover_action_count": {
           "type": "integer",
           "minimum": 0
+        },
+        "npc_warped_form_trial_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "npc_warped_form_counts": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "urn:towr:pc-melee:common:1#/$defs/npc_warped_form_count"
+          }
+        },
+        "total_npc_warped_form_count": {
+          "type": "integer",
+          "minimum": 0
         }
       },
       "required": [
@@ -1207,7 +1402,10 @@
         "total_npc_extra_attack_count",
         "npc_recover_action_trial_count",
         "npc_recover_action_counts",
-        "total_npc_recover_action_count"
+        "total_npc_recover_action_count",
+        "npc_warped_form_trial_count",
+        "npc_warped_form_counts",
+        "total_npc_warped_form_count"
       ],
       "additionalProperties": false
     },
@@ -1330,6 +1528,22 @@
       ],
       "additionalProperties": false
     },
+    "shield_loadout": {
+      "type": "object",
+      "properties": {
+        "initial_hand": {
+          "enum": ["left", "right"]
+        },
+        "hand_conflict_policy": {
+          "const": "weapon_first"
+        },
+        "recovery_policy": {
+          "const": "restore_before_attack"
+        }
+      },
+      "required": ["initial_hand", "hand_conflict_policy", "recovery_policy"],
+      "additionalProperties": false
+    },
     "participant": {
       "type": "object",
       "properties": {
@@ -1432,6 +1646,9 @@
               "$ref": "urn:towr:pc-melee:common:1#/$defs/backup_weapon_policy"
             }
           ]
+        },
+        "shield": {
+          "$ref": "urn:towr:pc-melee:common:1#/$defs/shield_loadout"
         }
       },
       "required": [
@@ -1491,6 +1708,38 @@
         }
       ],
       "allOf": [
+        {
+          "if": {"properties": {"pc": {"properties": {"weapon": {"const": "pistol"}}}}},
+          "then": {
+            "properties": {
+              "policy": {"const": "attack_or_recover_self"},
+              "backup_weapon_policy": {"type": "null"},
+              "help_policy": {"type": "null"},
+              "ally_recover_policy": {"type": "null"}
+            }
+          }
+        },
+        {
+          "if": {"required": ["shield"]},
+          "then": {
+            "properties": {
+              "pc": {"properties": {"weapon": {
+                "enum": ["dagger", "staff", "axe", "sword", "warhammer", "morning_star", "pistol"]
+              }}},
+              "backup_weapon_policy": {"type": "null"}
+            },
+            "oneOf": [
+              {"properties": {
+                "initial_weapon_hand": {"const": "left"},
+                "shield": {"properties": {"initial_hand": {"const": "right"}}}
+              }},
+              {"properties": {
+                "initial_weapon_hand": {"const": "right"},
+                "shield": {"properties": {"initial_hand": {"const": "left"}}}
+              }}
+            ]
+          }
+        },
         {
           "if": {
             "properties": {
@@ -1659,7 +1908,9 @@
               "melee",
               "defence",
               "athletics",
-              "endurance"
+              "endurance",
+              "shooting",
+              "dexterity"
             ]
           },
           "minItems": 1,
@@ -1905,6 +2156,225 @@
       "required": [
         "actor_id",
         "count"
+      ],
+      "additionalProperties": false
+    },
+    "npc_warped_form_policy": {
+      "type": "object",
+      "properties": {
+        "actor_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "close_actor_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        },
+        "npc_defeat_decisions": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:towr:pc-melee:common:1#/$defs/defeat"
+          }
+        }
+      },
+      "required": [
+        "actor_id",
+        "close_actor_ids",
+        "npc_defeat_decisions"
+      ],
+      "additionalProperties": false
+    },
+    "npc_warped_form_count": {
+      "type": "object",
+      "properties": {
+        "actor_id": {
+          "$ref": "urn:towr:pc-melee:common:1#/$defs/identifier"
+        },
+        "count": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "actor_id",
+        "count"
+      ],
+      "additionalProperties": false
+    },
+    "trample_attack": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "const": "trample"
+        },
+        "source_rule_id": {
+          "$ref": "urn:towr:pc-melee:common:1#/$defs/identifier"
+        },
+        "test_profile": {
+          "$ref": "urn:towr:pc-melee:common:1#/$defs/inline_profile"
+        },
+        "damage": {
+          "type": "object",
+          "properties": {
+            "base": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "success_multiplier": {
+              "const": 1
+            }
+          },
+          "required": [
+            "base",
+            "success_multiplier"
+          ],
+          "additionalProperties": false
+        },
+        "range_max": {
+          "enum": [
+            "close",
+            "short"
+          ]
+        },
+        "hands": {
+          "enum": [
+            "1h",
+            "2h",
+            null
+          ]
+        },
+        "secondary_effects": {
+          "type": "array",
+          "maxItems": 1,
+          "items": {
+            "oneOf": [
+              {
+                "$ref": "urn:towr:pc-melee:common:1#/$defs/on_hit_drained_effect"
+              },
+              {
+                "$ref": "urn:towr:pc-melee:common:1#/$defs/pre_stagger_prone_effect"
+              }
+            ]
+          }
+        },
+        "skill": {
+          "const": "brawn"
+        }
+      },
+      "required": [
+        "id",
+        "source_rule_id",
+        "test_profile",
+        "damage",
+        "range_max",
+        "hands",
+        "secondary_effects",
+        "skill"
+      ],
+      "additionalProperties": false
+    },
+    "net_policy": {
+      "type": "object",
+      "properties": {
+        "initial_count": {
+          "type": "integer",
+          "const": 1
+        },
+        "mode": {
+          "enum": [
+            "throw_once_then_spear",
+            "spear_only"
+          ]
+        }
+      },
+      "required": [
+        "initial_count",
+        "mode"
+      ],
+      "additionalProperties": false
+    },
+    "net_attack": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "const": "weighted_net"
+        },
+        "source_rule_id": {
+          "const": "BOOK-GM-GUIDE:1.1:p157:night_goblin_net_spear:weighted_net"
+        },
+        "skill": {
+          "const": "throwing"
+        },
+        "test_profile": {
+          "type": "object",
+          "properties": {
+            "dice": {
+              "type": "integer",
+              "const": 2
+            },
+            "threshold": {
+              "type": "integer",
+              "const": 3
+            },
+            "pool_cap": {
+              "type": "integer",
+              "const": 6
+            }
+          },
+          "required": [
+            "dice",
+            "threshold",
+            "pool_cap"
+          ],
+          "additionalProperties": false
+        },
+        "range_min": {
+          "const": "close"
+        },
+        "range_max": {
+          "const": "short"
+        },
+        "hands": {
+          "const": "2h"
+        },
+        "impact": {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "condition"
+            },
+            "condition": {
+              "const": "burdened"
+            },
+            "rule_id": {
+              "const": "RULE-EQUIPMENT-005:weighted-net-burdened"
+            },
+            "classification": {
+              "const": "unclassified"
+            }
+          },
+          "required": [
+            "kind",
+            "condition",
+            "rule_id",
+            "classification"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "id",
+        "source_rule_id",
+        "skill",
+        "test_profile",
+        "range_min",
+        "range_max",
+        "hands",
+        "impact"
       ],
       "additionalProperties": false
     }

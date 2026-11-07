@@ -15,7 +15,7 @@ PROTECTION_PREPARATION_RULE_ID = "RULE-NPC-008:protection-preparation"
 PROTECTION_ELIGIBILITY_RULE_ID = "RULE-COMBAT-005:protection-eligibility"
 CLOSE_RANGED_MELEE_RULE_ID = "RULE-EQUIPMENT-004:close-ranged-melee-opposition"
 ATTACK_SKILLS = (Skill.MELEE, Skill.BRAWN, Skill.SHOOTING, Skill.THROWING)
-PROTECTION_SKILLS = (Skill.ATHLETICS, Skill.DEFENCE, Skill.MELEE, Skill.STEALTH)
+PROTECTION_SKILLS = (Skill.ATHLETICS, Skill.DEFENCE, Skill.MELEE, Skill.STEALTH, Skill.ENDURANCE)
 NOW_YOU_SEE_ME_RULE_ID = 'RULE-PROFILE-PEOPLES-002:now-you-see-me'
 
 
@@ -160,7 +160,9 @@ def _expected_protection(request: ProtectionPreparationRequest) -> tuple[
     # e.g. a spear can make a Melee attack at Short Range.
     ranged = request.attack_skill in (Skill.SHOOTING, Skill.THROWING)
     eligible = [Skill.ATHLETICS]
-    if request.defender_holds_shield or (not ranged and request.defender_wields_weapon):
+    if request.attack_skill is Skill.BRAWN:
+        eligible.append(Skill.ENDURANCE)
+    elif request.defender_holds_shield or (not ranged and request.defender_wields_weapon):
         eligible.append(Skill.DEFENCE)
     if ranged and request.attack.is_close_range:
         eligible.append(Skill.MELEE)

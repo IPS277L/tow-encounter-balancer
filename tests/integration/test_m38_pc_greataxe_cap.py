@@ -81,9 +81,9 @@ class PcGreataxeCapIntegrationTests(unittest.TestCase):
                 raw=greataxe_document(balance=balance)
                 raw[key]['enemies'][0]['definition']['attack']['test_profile']['pool_cap']=cap
                 with self.subTest(balance=balance,cap=cap):
-                    # JSON Schema numeric equality admits8.0 as8; exact source
-                    # admission must still reject a float and reject null here.
-                    if cap is None or type(cap) is float:
+                    # The shared schema admits6 for canonical Ogre and8.0 by numeric
+                    # equality; native source admission still rejects both here.
+                    if cap is None or cap == 6 or type(cap) is float:
                         validate(raw)
                     else:
                         with self.assertRaises(ValidationError):validate(raw)

@@ -49,7 +49,8 @@ def make_pc_melee_scenario(*, weapon: PcMeleeWeapon = PcMeleeWeapon.STAFF,
     return PcMeleeScenario("pc-melee", (member,), "day", tuple(enemies),
         PcMeleeFacts("arena", True, True, True, True, True, True, True, True, True, False),
         ("pc",), ids, ("pc",), max_rounds,npc_broken_exit_policy=None,npc_help_policies=(),
-        npc_extra_attack_actor_ids=(),npc_grudge_policies=(),npc_blood_rage_actor_ids=(),npc_flagellant_policies=())
+        npc_extra_attack_actor_ids=(),npc_grudge_policies=(),npc_blood_rage_actor_ids=(),npc_flagellant_policies=(),
+        npc_warped_form_policies=())
 
 
 def make_pc_melee_party_scenario(*, pc_count: int = 2, enemy_count: int = 2,
@@ -135,3 +136,10 @@ def zero_npc_recover_counts(scenario: PcMeleeScenario):
     from towr.simulation.pc_melee_models import PcNpcRecoverActionCount
 
     return tuple(PcNpcRecoverActionCount(enemy.state.actor_id, 0) for enemy in scenario.enemies)
+
+
+def zero_npc_warped_form_counts(scenario: PcMeleeScenario):
+    """Fresh source-ordered observations for batches without Warped Form."""
+    from towr.simulation.pc_melee_models import PcNpcWarpedFormCount
+
+    return tuple(PcNpcWarpedFormCount(enemy.state.actor_id, 0) for enemy in scenario.enemies)

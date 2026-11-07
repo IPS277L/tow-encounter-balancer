@@ -10,9 +10,25 @@ def validate_pc_minion_defeat_equipment(state) -> None:
     routed={}
     acknowledged=set()
     if any(enemy.definition.id in ('pc-book-npc:goblin_warrior_spear',
-            'pc-book-npc:night_goblin_spear') for enemy in state.source.enemies):
+            'pc-book-npc:night_goblin_spear','pc-book-npc:night_goblin_net_spear') for enemy in state.source.enemies):
         from towr.domain.pc_melee_result_models import PcAttackProof,PcMinionStaggerDefeatProof
+        from towr.domain.pc_warped_form_models import PcWarpedFormTargetProof,PcWarpedFormMinionDefeatProof
         for proof in state.history:
+            if type(proof) is PcWarpedFormTargetProof and proof.result.minion_stagger_defeat is not None:
+                defeat=proof.result.minion_stagger_defeat
+                target=proof.request.target_id
+                spec=pc_npc_stagger_defeat_spec(state.source.enemy(target).definition)
+                expected=MinionStaggerDefeatCause(proof.request.id+':minion-stagger-defeat',target,spec.rule_id)
+                if defeat.cause!=expected or target in routed or proof.request.minion_stagger_defeat!=spec:
+                    raise ValueError('fleeing defeat changed its actual wave target or rule')
+                routed[target]=defeat
+            elif type(proof) is PcWarpedFormMinionDefeatProof:
+                target=proof.target_id
+                if target in acknowledged or target not in routed:
+                    raise ValueError('wave fleeing drop lacks its actual defeat')
+                if routed[target].request_id!=proof.activation_id+':target:'+target+':minion-stagger-defeat':
+                    raise ValueError('wave fleeing drop changed its activation source')
+                acknowledged.add(target)
             if type(proof) is PcAttackProof and proof.execution.resolution.minion_stagger_defeat is not None:
                 defeat=proof.execution.resolution.minion_stagger_defeat
                 if type(defeat) is not MinionStaggerDefeatResult:
@@ -46,6 +62,9 @@ def validate_pc_minion_defeat_equipment(state) -> None:
         if defeat is not None and enemy.state.injury!=defeat.state:
             raise ValueError('fleeing NPC injury changed after its actual defeat')
         expected=old.state
+        if old.definition.id=='pc-book-npc:night_goblin_net_spear':
+            from towr.domain.pc_net_models import expected_pc_npc_net_equipment
+            expected=expected_pc_npc_net_equipment(state,target)
         if target in acknowledged:
             expected=replace(expected,wields_weapon=False,available_attack_ids=())
         if replace(enemy.state,injury=old.state.injury)!=expected:

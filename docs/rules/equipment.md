@@ -1,5 +1,55 @@
 # Equipment, Coin и Assets
 
+## PC Pistol со щитом (M55)
+
+<a id="pc-pistol-shield-m55"></a>
+
+`RULE-EQUIPMENT-004`/`RULE-EQUIPMENT-006` (BOOK-PLAYER-GUIDE1.4, IV94–95/97), Actions116/Recover118 и Wounds190–191. Статус implemented. [Принятый контракт](../decisions/ADR-0100-pc-pistol-shield-reload-priority.md), [JSON/CLI](../examples/m55/README.md). M55 расширяет первоначальную границу M54 на сочетание одного Pistol и одного shield, сохраняя two_available_hands и остальные ограничения стрелка.
+
+Используется существующий participant shield object, initially held в противоположной Pistol руке, weapon_first/restore_before_attack. Новых полей/версии/предметов по умолчанию нет. Щит даёт+1Resilience и разрешает Defence против Net лишь пока реально held и пригоден; Sword Trait у Pistol отсутствует. После drop используется Athletics против Net, по Brawn остаётся Endurance. Предыдущая атака не пересчитывается задним числом.
+
+Принятая тактика: необходимый weapon pickup/снимаемый Prone Recover → release щита непосредственно перед доступным Reload → Reload actions до готовности → отдельный standard Recover щита → следующий Shoot. Пока Pistol пуст, щит не подбирается даже дополнительным object interaction другого Recover. Это сохраняет вторую руку свободной и исключает Recover/release цикл. Если выпали оба предмета, первым возвращается weapon; если он пуст, до shield pickup сначала завершается Reload. Если он loaded, действует прежний порядок weapon Recover → shield Recover → Shoot.
+
+Release не занимает нового slot, но сохраняет Critical14/12; сам drop разрешён при15, последующие Reload/Recover/swap имеют свои последствия. Reload completion не поднимает щит и не стреляет; dropped shield остаётся отдельным предметом в owner, его наличие не блокирует Reload. W12 допускает использование руки для Reload с Critical, но shield pickup травмированной рукой по прежней тактике запрещён. Недоступный16/20 shield не превращается в ground object;18 сохраняет clutch/занятость рук. При невозможном Reload бесполезного release нет, loaded one-hand shot после необходимого weapon-first продолжения разрешён. Terminal objective не требует возврата щита или перезарядки.
+
+184прежнихJSON M9–M54 и каталог57 сохранены. Melee/shield и Pistol без щита сохраняют свои policies. Backup/второй firearm/новые Help роли/Aim/Rapid Reload/универсальный inventory не добавлены. Hand/source/replay guards и costs обычных действий остаются прежними.
+
+## PC Pistol и Exacting Reload (M54)
+
+<a id="pc-pistol-reload-m54"></a>
+
+`RULE-EQUIPMENT-004`/`RULE-EQUIPMENT-007`, BOOK-PLAYER-GUIDE1.4, гл.III Shooting68/Dexterity70/Lore82; IV Weapons94–95/Tools98–99; V Exacting110/Actions116–118/Failed Attacks119/Conditions123; Wounds190–191. Статус implemented в ограниченном Close-сценарии. [Принятый контракт](../decisions/ADR-0099-pc-pistol-and-exacting-reload.md), [source/CLI](../examples/m54/README.md).
+
+Один initially loaded Pistol:1H, Damage5, ignores armour; Close firing разрешён. Shooting использует Ballistic Skill, Reload — Dexterity на Initiative. Blackpowder Lore, полный Blackpowder Kit и достаточное снабжение боеприпасами подтверждаются в fresh source. Kit без снабжения не создаёт запас. Числа Skills передаются явно; WS/Agility их не заменяют. Pistol-PC без shield/backup и собственных Help/ally-Recover policies; mixed party с прежними melee/shield PCs допустима.
+
+После обычного необходимого self Recover PC стреляет заряженным оружием, иначе выполняет Reload. Одна Dexterity Test стоит обычное действие Improvise/Skill; требуется3накопленныхsuccesses. Неуспех сохраняет прошлый progress, overshoot завершает Reload, новый выстрел доступен лишь следующим действием. HIT и MISS расходуют один заряд и начинают новый цикл конкретного weapon instance. Drop/regrip/Recover и смена раунда не сбрасывают progress и не заряжают оружие. Rapid Reload/Aim/новый ranged Help не добавлены.
+
+**Принятая GM/scenario policy two_available_hands:** одна пригодная рука держит Pistol, вторая свободна для зарядки. Книга не определяет число рук Reload; эта конкретизация передаётся явно и не объявляется RAW. Рука12 допустима с Critical; недоступная16/20 и прижимающая живот18 не подходят. Loaded shot одной рукой остаётся возможен. Невозможный Reload останавливает trial как UNSUPPORTED_PATH лишь на собственном ещё не занятом ходу, когда после обязательных последствий и восстановления действительно требуется Reload, до Test/действия. Grip/pickup имеет собственную точную границу. Конечный objective не требует дозаряжания. Stop сохраняет wound/weapon/cycle source и исполненные costs/losses, а не превращает ограничение в поражение.
+
+Выстрел остаётся Shooting: нет Melee outnumber/higher-ground или Melee Help; по Prone–1d. Close miss даёт Staggered только при его отсутствии. Ignores-armour использует текущую Toughness цели. NPC сохраняет выбранную lawful Protection: Athletics либо Defence с настоящим shield; возможная книжная Melee opposition не выбирается автоматически. Full source/template с Defence без shield, Stealth или отсутствующим fallback отклоняется до RNG. Pistol в руке разрешает обычную Defence против Melee без Sword Trait; по Net у этого PC Athletics, по Brawn Endurance.
+
+Actual Shooting/Dexterity Test учитывает Drained/Blinded/W10 и настроенный Glorious ровно один раз; Protection Help привязывается к реальному входящему Test. Раны4/8/12 роняют фактический предмет; W12 при использовании раненой руки, W14/15 при Shoot/Reload вызывают существующий Critical/end phase. Near Miss отменяет соответствующие body facts раньше их применения. Лечение, свободная смена оружия и новые aggregate counters не добавлены.
+
+Closed optional `party[].pc.pistol` обязателен только для weapon=pistol, запрещён другим weapons; null/частичный объект не допускаются. Все bool preconditions в первом срезе true. Current PC JSON1 сохранён;180старыхJSON M9–M53 не мигрируются. Runtime journal связывает preparation, Test, weapon instance/cycle и action receipt; raw snapshots не являются save/resume API.
+
+## PC со щитом (M53)
+
+<a id="pc-shield-m53"></a>
+
+`RULE-EQUIPMENT-006`, BOOK-PLAYER-GUIDE1.4, гл.IV Armour97; Defence68, weapons92–93, Actions116/Recover118, Wounds190–191. Статус implemented. [Принятый контракт](../decisions/ADR-0098-pc-shield-and-hand-equipment.md), [factory/JSON/CLI](../examples/m53/README.md).
+
+В нынешнем fixed Close owner PC может начать с одним shield в руке, противоположной одноручному Dagger/Staff/Axe/Sword/Warhammer/Morning Star. Источник явно задаёт initial hand, weapon_first и restore_before_attack. Нет2H/backup shield/dual wield/bash. Authored armour_bonus обозначает прежнюю броню без щита; рабочий shield отдельно даёт+1Resilience и делает цель armoured. Ignores-armour использует Toughness. Damage первой атаки сохраняет её исходную Resilience; последующий drop меняет только следующие подготовки.
+
+Рабочий shield разрешает Defence против Throwing/Shooting, но сам не даёт куба. Действующий wielded Sword добавляет+1d Defence при not-Staggered и против Throwing тоже; dropped/unusable Sword его не даёт. PC с shield, но без оружия, сохраняет Defence без Sword Trait. По Melee выбирается Defence при рабочем weapon или shield, иначе Athletics; по Net — Defence только с shield, иначе Athletics; по Brawn/Trample — Endurance. Defenceless/Unaware не Opposes. Drained/Fate/Help используют фактический Skill/Test.
+
+Shield имеет held/dropped/unavailable состояние и настоящую руку.4failedEndurance/8/12 роняют предмет выбранной random hand; пустая рука не роняет weapon другой руки.16/20 делают shield соответствующей руки unavailable: защиты нет, ground drop/бесплатный pickup не выдумывается.18 drop/clutch и последующая relocation учитывают shield в занимаемой руке. Near Miss не создаёт отменённых body/drop consequences. На травмированную12руку shield не поднимается, поэтому passive-use Critical не назначается молча.
+
+Если здоровая shield-рука нужна weapon, на своём unreserved turn PC сначала подтверждённо оставляет shield, затем меняет руку или подбирает weapon. После чужой атаки внеочередной swap не разрешён. Free release — действие для14 Critical;15 явно позволяет сам drop, но дальнейший swap/Recover вызывает его Critical. Actual arm/clutch restrictions сохраняются.
+
+Dropped shield возвращается настоящим standard Recover в Close enemy, когда есть свободная здоровая рука. Это самостоятельная причина self Recover, без бесполезного цикла при недоступной руке. При выпадении обоих предметов первым возвращается weapon; один Recover имеет один object interaction. Прежние стандартные Condition benefits и self/ally recipients сохраняются; помощь союзника не подбирает предмет получателя автоматически. Независимые Net/Wound причины не исчезают. Unavailable shield не возвращается как dropped.
+
+Current PC JSON1 допускает optional closed participant shield object только при выбранном loadout; отсутствие прежнего поля не создаёт предмета и не меняет176JSON. Полный current prefix связывает drop/body/release/pickup/руку/снаряжение; stale/replay/typed alias и возврат защиты без actual receipt отвергаются при admission. Новых версий/агрегатных counters нет; Recover учитывается обычным действием, free drop/swap — без нового slot.
+
 Источник: `BOOK-PLAYER-GUIDE`, версия 1.4, глава Equipment, страницы 90–105. Статус области: `draft`; числовые профили проверены, существует только минимальный carried-inventory snapshot для Retreat, а полный inventory/economy/action model отсутствует. Боевые Traits реализованы лишь точечно.
 
 ## RULE-EQUIPMENT-001 — Coin и покупки
@@ -161,6 +211,8 @@ Non-Attack continuation теперь сохраняет подтверждённ
 Все blackpowder firearms требуют Blackpowder Lore.
 
 ## RULE-EQUIPMENT-005 — throwing weapon profiles
+
+M52 подключает [Weighted Net + carried Spear](npc-profile-catalog.md#night-goblin-net-spear-m52) к PC owner: Throwing и primary Burdened вместо numeric Damage, один фактически расходуемый предмет, free draw carried backup и source-bound Net cause. Сохраняются выбранные PC Attack/standard Recover и Spear против Defenceless; generic Net→Defenceless precedence не утверждается. PG1.4 IV96 / V116/118/123, GM1.1 VII93/156–157; [контракт](../decisions/ADR-0097-pc-weighted-net-and-carried-spear.md).
 
 Throwing используется в Charge вместо Melee и тогда считается в Optimum Range. При Strength 4+ верхняя граница Optimum увеличивается на одну range step. За пределами Optimum атаковать нельзя.
 

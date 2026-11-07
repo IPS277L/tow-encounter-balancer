@@ -92,6 +92,12 @@ def _parse_scenario(data, initial_id, round_budget, path_prefix, error_type):
 
 def scenario_document(scenario: NpcMeleeScenario, definition_order: tuple[str, ...]) -> dict:
     roster = scenario.initial.current.state.roster
+    for participant in roster.participants:
+        if (participant.definition.resilience.armoured is not None
+                or participant.state.current_resilience.armoured is not None):
+            raise ValueError("bounded Melee JSON does not support explicit armoured metadata")
+        if any(a.damage is None or a.condition_impact is not None for a in participant.definition.attacks):
+            raise ValueError("bounded Melee JSON requires numeric Damage attacks")
     definitions = {p.definition.id: p.definition for p in roster.participants}
     profiles = []
     for identifier in definition_order:
@@ -100,7 +106,7 @@ def scenario_document(scenario: NpcMeleeScenario, definition_order: tuple[str, .
         if type(attack.hands) is not Hands:
             raise TypeError("bounded Melee JSON requires an explicit weapon grip")
         profiles.append({"id": identifier, "source_rule_id": definition.source_rule_id,
-            "resilience": asdict(definition.resilience),
+            "resilience": {"toughness": definition.resilience.toughness, "bonus": definition.resilience.bonus},
             "attack": {"id": attack.id, "source_rule_id": attack.source_rule_id, "dice": attack.test_profile.dice,
                        "threshold": attack.test_profile.threshold, "damage": attack.damage.base, "hands": attack.hands.value},
             "protection": {"source_rule_id": protection.source_rule_id, "skill": protection.skill.value, "dice": protection.test_profile.dice,

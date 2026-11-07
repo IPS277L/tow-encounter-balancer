@@ -59,6 +59,55 @@ class PcNpcRecoverActionCount:
 
 
 @dataclass(frozen=True, slots=True)
+class PcNpcWarpedFormCount:
+    """Committed end-phase cost/heal activations, independent of actions."""
+
+    actor_id: str
+    count: int
+
+    def __post_init__(self) -> None:
+        if type(self.actor_id) is not str or not self.actor_id.strip():
+            raise TypeError('NPC Warped Form count requires a nonempty actor ID')
+        if type(self.count) is not int:
+            raise TypeError('NPC Warped Form count must be an integer')
+        if self.count < 0:
+            raise ValueError('NPC Warped Form count must be nonnegative')
+
+
+def validate_npc_warped_form_counts(counts,scenario,*,trials:int,activation_trials:int|None,
+                                   actions:int,started_rounds:int) -> None:
+    if type(counts) is not tuple:
+        raise TypeError('NPC Warped Form counts require a source-ordered tuple')
+    for item in counts:
+        if type(item) is not PcNpcWarpedFormCount:
+            raise TypeError('NPC Warped Form counts require typed observations')
+        replace(item)
+    if tuple(item.actor_id for item in counts)!=tuple(enemy.state.actor_id for enemy in scenario.enemies):
+        raise ValueError('NPC Warped Form counts must cover every source NPC in order')
+    total=sum(item.count for item in counts)
+    if activation_trials is None:
+        activation_trials=int(total>0)
+    if type(activation_trials) is not int:
+        raise TypeError('NPC Warped Form trial count must be an integer')
+    if (not 0<=activation_trials<=trials or not activation_trials<=total<=actions
+            or (total>0)!=(activation_trials>0)):
+        raise ValueError('NPC Warped Form counts contradict trials/own completed actions')
+    actors={policy.actor_id for policy in scenario.npc_warped_form_policies}
+    budget=min(started_rounds-(trials-activation_trials),activation_trials*scenario.max_rounds)
+    for item in counts:
+        if (item.count and item.actor_id not in actors) or item.count>budget:
+            raise ValueError('NPC Warped Form count exceeds its selected actor/end-phase budget')
+
+
+def warped_form_target_budget(scenario,counts,*,pc_targets:bool) -> int:
+    """Additional injury opportunities from actual source-bound wave activations."""
+    by_actor={item.actor_id:item.count for item in counts}
+    pc_ids=set(scenario.pc_activation_order)
+    return sum(by_actor[policy.actor_id]*sum((actor in pc_ids)==pc_targets
+        for actor in policy.close_actor_ids) for policy in scenario.npc_warped_form_policies)
+
+
+@dataclass(frozen=True, slots=True)
 class PcNpcExtraAttackCount:
     """Executed second-slot Attacks for one source NPC."""
 
@@ -125,7 +174,7 @@ def validate_npc_help_counts(counts,scenario,*,trials:int,help_trials:int|None,
 
 
 def validate_npc_recover_counts(counts,scenario,*,trials:int,recover_trials:int|None,
-                             actions:int,started_rounds:int) -> None:
+                             actions:int,started_rounds:int,warped_form_counts) -> None:
     if type(counts) is not tuple:
         raise TypeError('NPC Recover counts require a source-ordered tuple')
     for item in counts:
@@ -139,7 +188,9 @@ def validate_npc_recover_counts(counts,scenario,*,trials:int,recover_trials:int|
         recover_trials=int(total>0)
     if type(recover_trials) is not int:
         raise TypeError('NPC Recover trial count must be an integer')
-    if not 0<=recover_trials<=trials or not recover_trials<=total or 2*total>actions or (total>0)!=(recover_trials>0):
+    wave_wound_budget=warped_form_target_budget(scenario,warped_form_counts,pc_targets=False)
+    if (not 0<=recover_trials<=trials or not recover_trials<=total<=actions
+            or 2*total>actions+wave_wound_budget or (total>0)!=(recover_trials>0)):
         raise ValueError('NPC Recover counts contradict trials/actions')
     actors={policy.actor_id for policy in scenario.npc_flagellant_policies if policy.recover_when_wounded}
     # Every non-Recover trial still starts at least one round. Each configured NPC
@@ -405,6 +456,7 @@ class PcMeleeTrialRecord:
     npc_help_action_counts: tuple[PcNpcHelpActionCount, ...]
     npc_extra_attack_counts: tuple[PcNpcExtraAttackCount, ...]
     npc_recover_action_counts: tuple[PcNpcRecoverActionCount, ...]
+    npc_warped_form_counts: tuple[PcNpcWarpedFormCount, ...]
 
     def __post_init__(self) -> None:
         validate_pc_melee_scenario_admission(self.source_scenario)
@@ -442,11 +494,17 @@ class PcMeleeTrialRecord:
             raise ValueError('confirmed PC deaths must be a unique source-ordered party subset')
         if (self.defeated_pc_ids == ids) != (self.outcome is PcMeleeOutcome.PARTY_DEFEATED):
             raise ValueError('all PC deaths must agree with the party-defeated outcome')
-        if len(self.defeated_pc_ids) > self.executed_actions:
-            raise ValueError('confirmed deaths cannot exceed executed ordinary attacks')
+        validate_npc_warped_form_counts(self.npc_warped_form_counts,self.source_scenario,trials=1,
+            activation_trials=None,actions=self.executed_actions,started_rounds=self.started_rounds)
+        pc_injury_budget=self.executed_actions+warped_form_target_budget(
+            self.source_scenario,self.npc_warped_form_counts,pc_targets=True)
+        npc_injury_budget=self.executed_actions+warped_form_target_budget(
+            self.source_scenario,self.npc_warped_form_counts,pc_targets=False)
+        if len(self.defeated_pc_ids) > pc_injury_budget:
+            raise ValueError('confirmed deaths cannot exceed actual source injury opportunities')
         validate_near_miss_counts(self.near_miss_burn_counts, self.source_scenario,
             trials=1, burn_trials=None,
-            actions=self.executed_actions)
+            actions=pc_injury_budget)
         validate_glorious_counts(self.glorious_spend_counts,self.source_scenario,
             trials=1,spend_trials=None)
         validate_help_counts(self.help_action_counts,self.source_scenario,trials=1,help_trials=None,
@@ -456,13 +514,14 @@ class PcMeleeTrialRecord:
         validate_npc_help_counts(self.npc_help_action_counts,self.source_scenario,trials=1,
             help_trials=None,actions=self.executed_actions,started_rounds=self.started_rounds)
         validate_npc_recover_counts(self.npc_recover_action_counts,self.source_scenario,trials=1,
-            recover_trials=None,actions=self.executed_actions,started_rounds=self.started_rounds)
+            recover_trials=None,actions=self.executed_actions,started_rounds=self.started_rounds,
+            warped_form_counts=self.npc_warped_form_counts)
         if sum(item.count for item in (*self.help_action_counts,*self.ally_recover_action_counts,
                 *self.npc_help_action_counts,*self.npc_recover_action_counts))+2*extras>self.executed_actions:
             raise ValueError('Help, ally Recover and primary/extra Attacks cannot consume the same action')
         validate_npc_exit_counts(self.npc_exit_counts,self.source_scenario,trials=1,exit_trials=None)
-        if sum(item.count for item in self.npc_exit_counts)>self.executed_actions:
-            raise ValueError('each NPC exit requires its own actual first-Wound Attack')
+        if sum(item.count for item in self.npc_exit_counts)>npc_injury_budget:
+            raise ValueError('NPC exits exceed actual source injury opportunities')
 
 
 @dataclass(frozen=True, slots=True)

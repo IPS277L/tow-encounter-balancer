@@ -4,12 +4,16 @@ from __future__ import annotations
 from dataclasses import replace
 
 from towr.domain.pc_melee_models import PcWeaponHand
+from towr.domain.pc_net_models import expected_pc_npc_net_draw
+from towr.domain.pc_shield_models import expected_pc_shield_release
+from towr.domain.pc_pistol_models import PcPistolReloadProof,build_pc_pistol_reload,complete_pc_pistol_shot
+from towr.domain.reload_models import _complete_reload_action_after_test
 from towr.domain.pc_melee_result_models import (
     PcAttackProof, PcAttackerStaggerProof, PcEnduranceProof, PcFateDecline,
     PcHandDropProof, PcMeleeOutcome, PcMeleeScenarioResult, PcMeleeState, PcMeleeStep,
     PcProfileWoundProof, PcMinionStaggerDefeatProof, PcRecoverProof, PcTurnEndProof, PcWoundCompletionProof,
     PcBodyConsequenceProof, PcWoundChoiceProof, PcHandSwapProof, PcBackupWeaponDrawProof, PcCriticalProof, PcIncapacitatedTurnEndProof, PcHelpProof, PcNpcHelpProof,
-    build_pc_melee_attack, build_pc_melee_recover, build_pc_wound_completion, initial_pc_melee_state, pc_after_test,
+    build_pc_melee_attack, build_pc_melee_recover, build_pc_wound_completion, initial_pc_melee_state, pc_after_test,pc_melee_action_declaration,pc_attack_skill,
     pc_melee_action_id, pc_melee_next_actor, pc_melee_selected_action, pc_melee_unsupported,
     project_pc_melee_step, pc_melee_round_participants, validate_pc_melee_state_shape,
     validate_pc_melee_source_types, _pc_test,
@@ -51,6 +55,12 @@ from towr.domain.pc_npc_grudge_models import expected_pc_npc_grudge_encounter
 from towr.domain.pc_bestigor_models import expected_pc_npc_blood_rage, pc_bestigor_glorious_source
 from towr.domain.pc_flagellant_models import (PcNpcRecoverProof, PcFlagellantMissWoundProof,
     build_pc_npc_recover, flagellant_recovered_injury, build_pc_flagellant_miss_wound)
+from towr.domain.pc_warped_form_models import (
+    PcWarpedFormActivationProof, PcWarpedFormTargetProof, PcWarpedFormProfileProof,
+    PcWarpedFormMinionDefeatProof, PcWarpedFormEndProof, current_warped_form,
+    expected_pc_warped_form_activation, next_warped_form_target, WarpedFormDecisions,
+)
+from towr.rules.stagger_impact_resolution import resolve_stagger_impact
 from towr.rules.injury_resolution import resolve_profile_wound
 
 
@@ -117,6 +127,10 @@ def run_pc_melee_scenario(scenario, rng: RandomSource) -> PcMeleeScenarioResult:
         state = step.state
 
     def finish_turn():
+        activation = expected_pc_warped_form_activation(state)
+        if activation is not None:
+            consume(activation)
+            return
         combat = state.round_state
         actor = combat.active_turn.actor_id
         action_id = pc_melee_action_id(state,actor)
@@ -159,6 +173,18 @@ def run_pc_melee_scenario(scenario, rng: RandomSource) -> PcMeleeScenarioResult:
         if state.pending:
             pending = state.pending[0]
             pc_actor = state.pending_actor_id
+            wave = current_warped_form(state)
+            if wave is not None and pc_actor in scenario.enemy_activation_order:
+                if type(pending) is MinionStaggerDefeatCause:
+                    consume(PcWarpedFormMinionDefeatProof(wave.activation_id, pc_actor))
+                elif type(pending) is ProfileStateChangeRequest:
+                    policy = next(p for p in scenario.npc_warped_form_policies if p.actor_id == wave.actor_id)
+                    decision = (next(d for d in policy.npc_defeat_decisions if d.target_id == pc_actor)
+                        if pending.defeated else None)
+                    consume(PcWarpedFormProfileProof(wave.activation_id, pc_actor, pending, decision))
+                else:
+                    raise ValueError('unexpected wave NPC continuation')
+                continue
             if isinstance(pending,WoundEnduranceTestRequest):
                 test_request = _pc_test(state,pc_actor,pending.test_id,Skill.ENDURANCE)
                 test,decline,glorious,_ = _resolve_pc_test(state,pc_actor,Skill.ENDURANCE,test_request,rng,decisions)
@@ -205,6 +231,34 @@ def run_pc_melee_scenario(scenario, rng: RandomSource) -> PcMeleeScenarioResult:
         if distraction_expiry is not None:
             consume(distraction_expiry)
             continue
+        activation = expected_pc_warped_form_activation(state)
+        if activation is not None:
+            consume(activation)
+            continue
+        wave = current_warped_form(state)
+        if wave is not None:
+            target = next_warped_form_target(state)
+            if target is None:
+                consume(PcWarpedFormEndProof(wave.activation_id))
+            else:
+                consume(PcWarpedFormTargetProof(wave.activation_id, target,
+                    resolve_stagger_impact(target, rng, decisions=WarpedFormDecisions())))
+            continue
+        turn = state.round_state.active_turn
+        if (turn is not None and turn.actor_id in {p.actor_id for p in scenario.npc_warped_form_policies}
+                and turn.action_slots and all(s.executed for s in turn.action_slots)):
+            finish_turn()
+            continue
+        turn = state.round_state.active_turn
+        if (turn is not None and turn.actor_id in scenario.enemy_activation_order
+                and state.enemy(turn.actor_id).definition.id=='pc-book-npc:great_stag'
+                and turn.action_slots and all(slot.executed for slot in turn.action_slots)):
+            extra = build_pc_npc_extra_attack_slot(state)
+            if extra is not None:
+                consume(reserve_combat_action_slot(extra))
+            else:
+                finish_turn()
+            continue
         if not state.live_party:
             return PcMeleeScenarioResult(scenario,tuple(steps),PcMeleeOutcome.PARTY_DEFEATED)
         if not state.live_enemies:
@@ -239,6 +293,10 @@ def run_pc_melee_scenario(scenario, rng: RandomSource) -> PcMeleeScenarioResult:
                 if member.injury.conditions.has(Condition.DEFENCELESS):
                     finish_turn()
                     continue
+                shield_release = expected_pc_shield_release(state)
+                if shield_release is not None:
+                    consume(shield_release)
+                    continue
                 draw_hand = pc_backup_draw_hand(state,actor)
                 if draw_hand is not None:
                     consume(PcBackupWeaponDrawProof(actor,member.weapon_hand,draw_hand))
@@ -248,10 +306,16 @@ def run_pc_melee_scenario(scenario, rng: RandomSource) -> PcMeleeScenarioResult:
                     consume(PcHandSwapProof(member.weapon_hand,hand))
                     continue
             consume(reserve_combat_action_slot(CombatActionSlotRequest(action_id+':reserve',combat,actor,
-                CombatActionDeclaration(pc_melee_selected_action(state)),ActionSlotGrant.STANDARD)))
+                pc_melee_action_declaration(state),ActionSlotGrant.STANDARD)))
             continue
         if not combat.active_turn.action_slots[-1].executed:
-            if pc_melee_selected_action(state) is CombatActionKind.RECOVER:
+            if pc_melee_selected_action(state) is CombatActionKind.IMPROVISE:
+                request = build_pc_pistol_reload(state)
+                test,decline,glorious,effective = _resolve_pc_test(state,actor,Skill.DEXTERITY,
+                    request.dexterity_test,rng,decisions)
+                result = _complete_reload_action_after_test(replace(request,dexterity_test=effective),test)
+                consume(PcPistolReloadProof(request,result,decline,glorious))
+            elif pc_melee_selected_action(state) is CombatActionKind.RECOVER:
                 if actor in scenario.enemy_activation_order:
                     request = build_pc_npc_recover(state)
                     before = state.enemy(actor).state.injury
@@ -275,6 +339,10 @@ def run_pc_melee_scenario(scenario, rng: RandomSource) -> PcMeleeScenarioResult:
                 if blood_rage is not None:
                     consume(blood_rage)
                     continue
+                net_draw = expected_pc_npc_net_draw(state)
+                if net_draw is not None:
+                    consume(net_draw)
+                    continue
                 request, protection_request = build_pc_melee_attack(state)
                 protection = prepare_protection(protection_request)
                 _validate_attack_action_slot(request)
@@ -284,7 +352,7 @@ def run_pc_melee_scenario(scenario, rng: RandomSource) -> PcMeleeScenarioResult:
                 decline,glorious = None,None
                 attack_request = request.kernel_request.attack
                 if actor == pc_actor:
-                    attacker,decline,glorious,effective = _resolve_pc_test(state,pc_actor,Skill.MELEE,
+                    attacker,decline,glorious,effective = _resolve_pc_test(state,pc_actor,pc_attack_skill(state,pc_actor),
                         pc_test,rng,decisions)
                     defender = resolve_test(attack_request.defender_test,rng,decisions=decisions)
                     attack_request = replace(attack_request,attacker_test=effective)
@@ -304,10 +372,17 @@ def run_pc_melee_scenario(scenario, rng: RandomSource) -> PcMeleeScenarioResult:
                 effective_kernel = replace(request.kernel_request,attack=attack_request)
                 resolution = _resolve_kernel_attack_after_test(effective_kernel,attack,rng,decisions=decisions)
                 execution = _complete_attack_action(replace(request,kernel_request=effective_kernel),resolution)
+                pistol_shot = (complete_pc_pistol_shot(state,request,
+                    replace(request,kernel_request=effective_kernel),execution)
+                    if actor==pc_actor and state.participant(actor).pistol is not None else None)
                 consume(PcAttackProof(request,protection,execution,decline,glorious,
                     pc_attack_help_applications(state,request.kernel_request.attack),
                     pc_npc_attack_help_applications(state,request.kernel_request.attack),
-                    npc_glorious_source=pc_bestigor_glorious_source(state, actor)))
+                    npc_glorious_source=pc_bestigor_glorious_source(state, actor),pistol_shot=pistol_shot))
+            continue
+        net_draw = expected_pc_npc_net_draw(state)
+        if net_draw is not None:
+            consume(net_draw)
             continue
         extra_slot = build_pc_npc_extra_attack_slot(state)
         if extra_slot is not None:

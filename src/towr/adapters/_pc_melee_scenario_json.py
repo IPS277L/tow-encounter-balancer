@@ -6,7 +6,7 @@ from functools import partial
 from towr.adapters._json_common import build_value
 from towr.adapters.pc_melee_json_errors import PcMeleeInputError
 from towr.adapters.ranged_json_errors import RangedInputErrorCode as Code
-from towr.domain.attack_models import ConditionOnHitSpec, DamageProfile, ResilienceProfile
+from towr.domain.attack_models import ConditionImpactSpec, ConditionOnHitSpec, DamageProfile, ResilienceProfile, ProneBeforeGiveGroundSpec
 from towr.domain.condition_models import Condition, EffectClassification
 from towr.domain.fate_models import (
     FateBurnKind, FateBurnRecord, FateRefreshRecord, FateSessionState,
@@ -19,11 +19,16 @@ from towr.domain.npc_roster_models import (
     NpcDefinition, NpcParticipantSnapshot, NpcParticipantState, NpcProtectionProfile,
 )
 from towr.domain.pc_npc_help_models import PcNpcHelpPolicy
+from towr.domain.pc_npc_close_shooting_models import PcNpcCloseShootingProtectionPolicy
 from towr.domain.pc_npc_grudge_policy_models import PcNpcGrudgePolicy
 from towr.domain.pc_flagellant_policy_models import PcFlagellantPolicy,PcFeelNoPainPolicy
+from towr.domain.pc_warped_form_policy_models import PcWarpedFormPolicy
+from towr.domain.pc_npc_net_policy_models import PcNpcNetMode,PcNpcNetPolicy,NET_DEFINITION_ID
 from towr.domain.pc_melee_models import (
     PcFatePolicy, PcNearMissPolicy, PcGloriousPolicy, PcHelpPolicy, PcHelpTarget, PcAllyRecoverPolicy, PcMeleeDefinition, PcMeleeFacts, PcMeleeParticipant, PcMeleePolicy, PcMeleeScenario,
     PcMeleeWeapon, PcRandomSidePolicy, PcHeavyWoundPolicy, PcWeaponHand, PcTwoHandedGrip, PcBackupWeaponPolicy, PcAdjacentNpcExitPolicy, validate_pc_melee_scenario_admission,
+    PcShieldLoadout, PcShieldHandConflictPolicy, PcShieldRecoveryPolicy,
+    PcPistolProfile, PcPistolReloadHandPolicy,
 )
 from towr.domain.ranged_weapon_profiles import RangedWeaponHands, RangedWeaponRange
 from towr.domain.resolution_models import TargetInjuryPolicy
@@ -49,6 +54,25 @@ def facts_document(facts: PcMeleeFacts) -> dict:
     return asdict(facts)
 
 
+def _parse_close_shooting_policies(data, *, path_prefix, error_type):
+    name = 'npc_close_shooting_protection_policies'
+    if name not in data:
+        return None
+    path = path_prefix + '/' + name
+    raw = data[name]
+    if type(raw) is not list or not raw:
+        raise error_type(Code.INVALID_INPUT, 'Close Shooting policies require a nonempty list', path=path)
+    policies = []
+    for index, value in enumerate(raw):
+        item_path = path + '/' + str(index)
+        if (type(value) is not dict or set(value) != {'actor_id','skill'}
+                or type(value['skill']) is not str):
+            raise error_type(Code.INVALID_INPUT, 'Close Shooting policy requires actor_id and skill', path=item_path)
+        policies.append(build_value(error_type,item_path,PcNpcCloseShootingProtectionPolicy,
+            value['actor_id'],Skill(value['skill'])))
+    return tuple(policies)
+
+
 def parse_scenario(data: dict, *, path_prefix: str, error_type: type[PcMeleeInputError]) -> PcMeleeScenario:
     try:
         return _parse_scenario(data, path_prefix=path_prefix, error_type=error_type)
@@ -60,8 +84,26 @@ def parse_scenario(data: dict, *, path_prefix: str, error_type: type[PcMeleeInpu
 
 def _parse_participant(data, *, path_prefix, error_type):
     build = partial(build_value, error_type)
+    shield = None
+    if 'shield' in data:
+        raw = data['shield']
+        if type(raw) is not dict or set(raw) != {'initial_hand', 'hand_conflict_policy', 'recovery_policy'}:
+            raise error_type(Code.INVALID_INPUT, 'shield requires its complete closed loadout',
+                path=path_prefix + '/shield')
+        shield = build(path_prefix + '/shield', PcShieldLoadout,
+            PcWeaponHand(raw['initial_hand']), PcShieldHandConflictPolicy(raw['hand_conflict_policy']),
+            PcShieldRecoveryPolicy(raw['recovery_policy']))
     pc_raw = dict(data["pc"])
     pc_raw["weapon"] = PcMeleeWeapon(pc_raw["weapon"])
+    if 'pistol' in pc_raw:
+        raw = pc_raw['pistol']
+        if type(raw) is not dict or set(raw) != {'ballistic_skill', 'shooting', 'initiative',
+                'dexterity', 'has_blackpowder_lore', 'has_blackpowder_kit',
+                'ammunition_supply_confirmed', 'initially_loaded', 'reload_hand_policy'}:
+            raise error_type(Code.INVALID_INPUT, 'Pistol requires its complete closed profile',
+                path=path_prefix + '/pc/pistol')
+        pc_raw['pistol'] = build(path_prefix + '/pc/pistol', PcPistolProfile,
+            **dict(raw, reload_hand_policy=PcPistolReloadHandPolicy(raw['reload_hand_policy'])))
     pc = build(path_prefix + "/pc", PcMeleeDefinition, **pc_raw)
     fate_raw = dict(data["fate"])
     fate_raw["spends"] = tuple(build(f"{path_prefix}/fate/spends/{index}", FateSpendRecord,
@@ -101,17 +143,74 @@ def _parse_participant(data, *, path_prefix, error_type):
             **dict(record, disposition=NpcDefeatDisposition(record["disposition"])))
             for index, record in enumerate(data["defeat_decisions"])),
         near_miss_policy=near_miss,glorious_policy=glorious,help_policy=help_policy,
-        ally_recover_policy=ally_recover_policy,backup_weapon_policy=backup_weapon_policy)
+        ally_recover_policy=ally_recover_policy,backup_weapon_policy=backup_weapon_policy,shield=shield)
 
 
-def _parse_on_hit_effect(data, *, path_prefix, error_type):
-    if type(data['kind']) is not str or data['kind']!='condition_on_hit':
-        raise error_type(Code.INVALID_INPUT,'unsupported PC Melee attack effect kind',path=path_prefix+'/kind')
+def _parse_attack_effect(data, *, path_prefix, error_type):
+    kind=data['kind']
+    if type(kind) is not str:
+        raise error_type(Code.INVALID_INPUT,'PC Melee attack effect kind must be an exact string',path=path_prefix+'/kind')
     raw=dict(data)
     del raw['kind']
+    if kind=='prone_before_give_ground':
+        if set(raw)!={'rule_id','affects_monstrosities'}:
+            raise error_type(Code.INVALID_INPUT,'pre-Stagger Prone requires its closed complete source',path=path_prefix)
+        return build_value(error_type,path_prefix,ProneBeforeGiveGroundSpec,**raw)
+    if kind!='condition_on_hit':
+        raise error_type(Code.INVALID_INPUT,'unsupported PC Melee attack effect kind',path=path_prefix+'/kind')
     raw['condition']=Condition(raw['condition'])
     raw['classification']=EffectClassification(raw['classification'])
     return build_value(error_type,path_prefix,ConditionOnHitSpec,**raw)
+
+
+def _attack_effect_document(effect):
+    if type(effect) is ProneBeforeGiveGroundSpec:
+        return {'kind':'prone_before_give_ground','rule_id':effect.rule_id,
+            'affects_monstrosities':effect.affects_monstrosities}
+    if type(effect) is ConditionOnHitSpec:
+        return {'kind':'condition_on_hit','condition':effect.condition.value,
+            'rule_id':effect.rule_id,'classification':effect.classification.value}
+    raise TypeError('unsupported PC Melee attack effect type')
+
+
+def _parse_npc_attack(data, *, skill, path_prefix, error_type):
+    return build_value(error_type,path_prefix,NpcAttackProfile,
+        data['id'],data['source_rule_id'],skill,
+        InlineProfile(**data['test_profile']),DamageProfile(**data['damage']),
+        RangedWeaponRange.CLOSE,RangedWeaponRange(data['range_max']),
+        None if data['hands'] is None else RangedWeaponHands(data['hands']),
+        secondary_effects=tuple(_parse_attack_effect(effect,
+            path_prefix=f'{path_prefix}/secondary_effects/{index}',error_type=error_type)
+            for index,effect in enumerate(data['secondary_effects'])))
+
+
+def _npc_attack_document(attack):
+    return {'id':attack.id,'source_rule_id':attack.source_rule_id,
+        'test_profile':asdict(attack.test_profile),'damage':asdict(attack.damage),
+        'range_max':attack.range_max.value,'hands':None if attack.hands is None else attack.hands.value,
+        'secondary_effects':[_attack_effect_document(effect) for effect in attack.secondary_effects]}
+
+
+def _parse_net_attack(data, *, path_prefix, error_type):
+    if set(data)!={'id','source_rule_id','skill','test_profile','range_min','range_max','hands','impact'}:
+        raise error_type(Code.INVALID_INPUT,'Net requires its closed complete explicit profile',path=path_prefix)
+    impact = data['impact']
+    if set(impact)!={'kind','condition','rule_id','classification'} or impact['kind']!='condition':
+        raise error_type(Code.INVALID_INPUT,'Net requires its complete primary Condition impact',path=path_prefix+'/impact')
+    return build_value(error_type,path_prefix,NpcAttackProfile,
+        data['id'],data['source_rule_id'],Skill(data['skill']),InlineProfile(**data['test_profile']),
+        None,RangedWeaponRange(data['range_min']),RangedWeaponRange(data['range_max']),
+        RangedWeaponHands(data['hands']),condition_impact=ConditionImpactSpec(
+            Condition(impact['condition']),impact['rule_id'],EffectClassification(impact['classification'])))
+
+
+def _net_attack_document(attack):
+    impact = attack.condition_impact
+    return {'id':attack.id,'source_rule_id':attack.source_rule_id,'skill':attack.skill.value,
+        'test_profile':asdict(attack.test_profile),'range_min':attack.range_min.value,
+        'range_max':attack.range_max.value,'hands':attack.hands.value,
+        'impact':{'kind':'condition','condition':impact.condition.value,
+            'rule_id':impact.rule_id,'classification':impact.classification.value}}
 
 
 def _parse_scenario(data, *, path_prefix, error_type):
@@ -119,27 +218,49 @@ def _parse_scenario(data, *, path_prefix, error_type):
     party = tuple(_parse_participant(member, path_prefix=f"{path_prefix}/party/{index}", error_type=error_type)
                   for index, member in enumerate(data["party"]))
     enemies = []
+    net_policies = []
     for index, enemy in enumerate(data["enemies"]):
         path = f"{path_prefix}/enemies/{index}"
         definition_raw = enemy["definition"]
         attack_raw = definition_raw["attack"]
         protection_raw = definition_raw["protection"]
-        attack = build(path + "/definition/attack", NpcAttackProfile,
-            attack_raw["id"], attack_raw["source_rule_id"], Skill.MELEE,
-            InlineProfile(**attack_raw["test_profile"]), DamageProfile(**attack_raw["damage"]),
-            RangedWeaponRange.CLOSE, RangedWeaponRange(attack_raw["range_max"]),
-            None if attack_raw["hands"] is None else RangedWeaponHands(attack_raw["hands"]),
-            secondary_effects=tuple(_parse_on_hit_effect(effect,
-                path_prefix=f'{path}/definition/attack/secondary_effects/{index}',error_type=error_type)
-                for index,effect in enumerate(attack_raw['secondary_effects'])))
+        attack = _parse_npc_attack(attack_raw,skill=Skill.MELEE,
+            path_prefix=path+'/definition/attack',error_type=error_type)
+        has_trample = 'trample_attack' in definition_raw
+        if has_trample != (definition_raw['id']=='pc-book-npc:great_stag'):
+            raise error_type(Code.INVALID_INPUT,'trample_attack is required only for canonical Great Stag',
+                path=path+'/definition/trample_attack')
+        attacks = (attack,)
+        net_goblin = definition_raw['id']==NET_DEFINITION_ID
+        if ('net_attack' in definition_raw)!=net_goblin or ('net_policy' in enemy)!=net_goblin:
+            raise error_type(Code.INVALID_INPUT,'net_attack and net_policy are required only for canonical Net loadouts',path=path)
+        if ('armoured' in definition_raw['resilience'])!=net_goblin:
+            raise error_type(Code.INVALID_INPUT,'explicit armoured metadata is required only for canonical Net loadouts',
+                path=path+'/definition/resilience')
+        if net_goblin:
+            attacks = (*attacks,_parse_net_attack(definition_raw['net_attack'],
+                path_prefix=path+'/definition/net_attack',error_type=error_type))
+            raw_policy = enemy['net_policy']
+            if set(raw_policy)!={'initial_count','mode'}:
+                raise error_type(Code.INVALID_INPUT,'Net policy requires complete closed stock and mode',path=path+'/net_policy')
+            net_policies.append(build(path+'/net_policy',PcNpcNetPolicy,enemy['actor_id'],
+                raw_policy['initial_count'],PcNpcNetMode(raw_policy['mode'])))
+        if has_trample:
+            trample_raw = definition_raw['trample_attack']
+            if set(trample_raw)!={'id','source_rule_id','skill','test_profile','damage','range_max','hands','secondary_effects'}:
+                raise error_type(Code.INVALID_INPUT,'Trample requires its closed complete explicit profile',
+                    path=path+'/definition/trample_attack')
+            trample = _parse_npc_attack(trample_raw,skill=Skill(trample_raw['skill']),
+                path_prefix=path+'/definition/trample_attack',error_type=error_type)
+            attacks = (*attacks,trample)
         resilience = build(path + "/definition/resilience", ResilienceProfile, **definition_raw["resilience"])
         definition = build(path + "/definition", NpcDefinition,
             definition_raw["id"], definition_raw["source_rule_id"],
             TargetInjuryPolicy(definition_raw["injury_policy"]), definition_raw["wound_limit"],
-            resilience, (attack,), (NpcProtectionProfile(protection_raw["source_rule_id"],
+            resilience, attacks, (NpcProtectionProfile(protection_raw["source_rule_id"],
                 Skill(protection_raw["skill"]), InlineProfile(**protection_raw["test_profile"])),))
         state = build(path, NpcParticipantState, enemy["actor_id"], definition.id,
-            CombatSide.OPPOSITION, ProfileInjuryState(0, definition.wound_limit), (attack.id,),
+            CombatSide.OPPOSITION, ProfileInjuryState(0, definition.wound_limit), tuple(profile.id for profile in attacks),
             resilience, attack.hands is not None, enemy["holds_shield"])
         enemies.append(NpcParticipantSnapshot(definition, state))
     return build(path_prefix, PcMeleeScenario, data["id"], party,
@@ -151,16 +272,31 @@ def _parse_scenario(data, *, path_prefix, error_type):
         tuple(build(f'{path_prefix}/npc_help_policies/{index}',PcNpcHelpPolicy,**policy)
             for index,policy in enumerate(data['npc_help_policies'])),
         npc_extra_attack_actor_ids=tuple(data['npc_extra_attack_actor_ids']),
+        npc_close_shooting_protection_policies=_parse_close_shooting_policies(data,
+            path_prefix=path_prefix,error_type=error_type),
+        npc_net_policies=tuple(net_policies),
         npc_grudge_policies=tuple(build(f'{path_prefix}/npc_grudge_policies/{index}',PcNpcGrudgePolicy,**policy)
             for index,policy in enumerate(data['npc_grudge_policies'])),
         npc_blood_rage_actor_ids=tuple(data['npc_blood_rage_actor_ids']),
         npc_flagellant_policies=tuple(build(f'{path_prefix}/npc_flagellant_policies/{index}',
             PcFlagellantPolicy,policy['actor_id'],PcFeelNoPainPolicy(policy['feel_no_pain']),
-            policy['recover_when_wounded']) for index,policy in enumerate(data['npc_flagellant_policies'])))
+            policy['recover_when_wounded']) for index,policy in enumerate(data['npc_flagellant_policies'])),
+        npc_warped_form_policies=tuple(build(f'{path_prefix}/npc_warped_form_policies/{index}',
+            PcWarpedFormPolicy,policy['actor_id'],tuple(policy['close_actor_ids']),
+            tuple(build(f'{path_prefix}/npc_warped_form_policies/{index}/npc_defeat_decisions/{decision_index}',
+                MinionDefeatDecision,**dict(decision,disposition=NpcDefeatDisposition(decision['disposition'])))
+                for decision_index,decision in enumerate(policy['npc_defeat_decisions'])))
+            for index,policy in enumerate(data['npc_warped_form_policies'])))
 
 
 def scenario_document(scenario: PcMeleeScenario) -> dict:
     validate_pc_melee_scenario_admission(scenario)
+    party = _plain([asdict(member) for member in scenario.party])
+    for member in party:
+        if member['shield'] is None:
+            del member['shield']
+        if member['pc']['pistol'] is None:
+            del member['pc']['pistol']
     enemies = []
     for enemy in scenario.enemies:
         definition = enemy.definition
@@ -168,17 +304,19 @@ def scenario_document(scenario: PcMeleeScenario) -> dict:
         enemies.append({"actor_id": enemy.state.actor_id, "holds_shield": enemy.state.holds_shield, "definition": {
             "id": definition.id, "source_rule_id": definition.source_rule_id,
             "injury_policy": definition.injury_policy.value, "wound_limit": definition.wound_limit,
-            "resilience": asdict(definition.resilience),
-            "attack": {"id": attack.id, "source_rule_id": attack.source_rule_id,
-                "test_profile": asdict(attack.test_profile), "damage": asdict(attack.damage),
-                "range_max": attack.range_max.value,
-                "hands": None if attack.hands is None else attack.hands.value,
-                "secondary_effects": [{'kind':'condition_on_hit','condition':effect.condition.value,
-                    'rule_id':effect.rule_id,'classification':effect.classification.value}
-                    for effect in attack.secondary_effects]},
+            "resilience": {"toughness":definition.resilience.toughness,"bonus":definition.resilience.bonus},
+            "attack": _npc_attack_document(attack),
             "protection": {"source_rule_id": protection.source_rule_id,
                 "skill": protection.skill.value,"test_profile": asdict(protection.test_profile)}}})
-    return {"id": scenario.id, "party": _plain([asdict(member) for member in scenario.party]),
+        if definition.id==NET_DEFINITION_ID:
+            enemies[-1]['definition']['resilience']['armoured'] = definition.resilience.armoured
+            enemies[-1]['definition']['net_attack'] = _net_attack_document(definition.attacks[1])
+            policy = next(policy for policy in scenario.npc_net_policies if policy.actor_id==enemy.state.actor_id)
+            enemies[-1]['net_policy'] = {'initial_count':policy.initial_count,'mode':policy.mode.value}
+        elif len(definition.attacks)==2:
+            trample = definition.attacks[1]
+            enemies[-1]['definition']['trample_attack'] = dict(_npc_attack_document(trample),skill=trample.skill.value)
+    document = {"id": scenario.id, "party": party,
         "day_id": scenario.day_id, "enemies": enemies,
         "facts": facts_document(scenario.facts),
         "pc_activation_order": list(scenario.pc_activation_order),
@@ -190,4 +328,9 @@ def scenario_document(scenario: PcMeleeScenario) -> dict:
         "npc_grudge_policies": [asdict(policy) for policy in scenario.npc_grudge_policies],
         "npc_blood_rage_actor_ids": list(scenario.npc_blood_rage_actor_ids),
         "npc_flagellant_policies": _plain([asdict(policy) for policy in scenario.npc_flagellant_policies]),
+        "npc_warped_form_policies": _plain([asdict(policy) for policy in scenario.npc_warped_form_policies]),
         "npc_broken_exit_policy": None if scenario.npc_broken_exit_policy is None else asdict(scenario.npc_broken_exit_policy)}
+    if scenario.npc_close_shooting_protection_policies is not None:
+        document['npc_close_shooting_protection_policies'] = _plain([
+            asdict(policy) for policy in scenario.npc_close_shooting_protection_policies])
+    return document

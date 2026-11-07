@@ -160,7 +160,10 @@ def _summary(summary: PcMeleeSimulationSummary) -> dict:
         "total_npc_extra_attack_count": summary.total_npc_extra_attack_count,
         "npc_recover_action_trial_count": summary.npc_recover_action_trial_count,
         "npc_recover_action_counts": [asdict(count) for count in summary.npc_recover_action_counts],
-        "total_npc_recover_action_count": summary.total_npc_recover_action_count}
+        "total_npc_recover_action_count": summary.total_npc_recover_action_count,
+        "npc_warped_form_trial_count": summary.npc_warped_form_trial_count,
+        "npc_warped_form_counts": [asdict(count) for count in summary.npc_warped_form_counts],
+        "total_npc_warped_form_count": summary.total_npc_warped_form_count}
 
 
 def encode_pc_melee_simulation_result(command: PcMeleeSimulationCommand,

@@ -30,12 +30,17 @@ def pc_help_beneficiary(state):
             or ally.injury.conditions.has(Condition.DRAINED)):
         return None
     if strategy.target is PcHelpTarget.MELEE_ATTACK:
+        if state.source.participant(ally.actor_id).pc.pistol is not None:
+            return None
         if (_pc_recover_needed(ally) or strategy.beneficiary_id in (
                 *state.round_state.completed_turn_entity_ids,*state.round_state.excluded_turn_entity_ids)):
             return None
     else:
-        skill = Skill.DEFENCE if usable_weapon_hand(ally) is not None else Skill.ATHLETICS
-        if skill is not strategy.protection_skill or pc_help_incoming_actor(state) is None:
+        from towr.domain.pc_melee_result_models import pc_protection_skill,pc_selected_npc_attack_profile
+        incoming = pc_help_incoming_actor(state)
+        skill = (pc_protection_skill(ally,pc_selected_npc_attack_profile(state,incoming).skill)
+            if incoming is not None else None)
+        if skill is not strategy.protection_skill or incoming is None:
             return None
     return strategy.beneficiary_id
 
@@ -102,15 +107,20 @@ def pc_attack_help_applications(state, attack):
     """Recover the exact receipt chain for a prepared PC Attack, before Fate."""
     actor = state.round_state.active_turn.actor_id
     if actor in state.source.pc_activation_order:
+        from towr.domain.pc_melee_result_models import pc_attack_skill
+        if pc_attack_skill(state,actor) is Skill.SHOOTING:
+            return ()
         skill,test = Skill.MELEE,attack.attacker_test
     else:
         if attack.defender_test is None:
             return ()
         slots = state.round_state.active_turn.action_slots
-        grant = slots[-1].enduring_strength if slots else None
+        grant = (slots[-1].enduring_strength or slots[-1].crown_of_antlers) if slots else None
         actor = (grant.target_id if grant is not None
             else next(pc for pc in state.source.enemy_target_priority if not state.participant(pc).injury.dead))
-        skill = Skill.DEFENCE if usable_weapon_hand(state.participant(actor)) is not None else Skill.ATHLETICS
+        from towr.domain.pc_melee_result_models import pc_protection_skill,pc_selected_npc_attack_profile
+        skill = pc_protection_skill(state.participant(actor),
+            pc_selected_npc_attack_profile(state,state.round_state.active_turn.actor_id).skill)
         test = attack.defender_test
     base = replace(test,dice_modifiers=tuple(modifier
         for modifier in test.dice_modifiers

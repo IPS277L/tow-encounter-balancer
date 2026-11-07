@@ -31,14 +31,23 @@ class PcMeleeModelTests(unittest.TestCase):
         self.assertEqual(pc.strength, 4)
         self.assertIs(source.party[0].fate_policy, PcFatePolicy.DECLINE_OPTIONAL_FATE)
 
-    def test_all_source_fields_and_policies_are_required(self):
+    def test_required_source_and_optional_equipment_fields(self):
         for cls in (PcMeleeDefinition, PcMeleeFacts, PcMeleeParticipant, PcMeleeScenario):
-            self.assertTrue(all((field.default is MISSING and field.default_factory is MISSING for field in fields(cls))))
-        self.assertEqual(tuple((field.name for field in fields(PcMeleeScenario))), ('id', 'party', 'day_id', 'enemies', 'facts', 'pc_activation_order', 'enemy_activation_order', 'enemy_target_priority', 'max_rounds','npc_broken_exit_policy','npc_help_policies','npc_extra_attack_actor_ids','npc_grudge_policies','npc_blood_rage_actor_ids','npc_flagellant_policies'))
+            self.assertTrue(all((field.default is MISSING and field.default_factory is MISSING for field in fields(cls) if field.name not in ("npc_net_policies", "shield", "pistol", "npc_close_shooting_protection_policies"))))
+        self.assertEqual(tuple((field.name for field in fields(PcMeleeScenario))), ('id', 'party', 'day_id', 'enemies', 'facts', 'pc_activation_order', 'enemy_activation_order', 'enemy_target_priority', 'max_rounds','npc_broken_exit_policy','npc_help_policies','npc_extra_attack_actor_ids','npc_grudge_policies','npc_blood_rage_actor_ids','npc_flagellant_policies','npc_warped_form_policies','npc_net_policies','npc_close_shooting_protection_policies'))
+        self.assertIsNone(PcMeleeDefinition.__dataclass_fields__['pistol'].default)
+        self.assertTrue(PcMeleeDefinition.__dataclass_fields__['pistol'].kw_only)
+        self.assertIsNone(PcMeleeParticipant.__dataclass_fields__['shield'].default)
+        self.assertTrue(PcMeleeParticipant.__dataclass_fields__['shield'].kw_only)
+        self.assertEqual(PcMeleeScenario.__dataclass_fields__['npc_net_policies'].default, ())
+        self.assertTrue(PcMeleeScenario.__dataclass_fields__['npc_net_policies'].kw_only)
+        self.assertIsNone(PcMeleeScenario.__dataclass_fields__['npc_close_shooting_protection_policies'].default)
+        self.assertTrue(PcMeleeScenario.__dataclass_fields__['npc_close_shooting_protection_policies'].kw_only)
         self.assertTrue(PcMeleeScenario.__dataclass_fields__['npc_extra_attack_actor_ids'].kw_only)
         self.assertTrue(PcMeleeScenario.__dataclass_fields__['npc_grudge_policies'].kw_only)
         self.assertTrue(PcMeleeScenario.__dataclass_fields__['npc_blood_rage_actor_ids'].kw_only)
         self.assertTrue(PcMeleeScenario.__dataclass_fields__['npc_flagellant_policies'].kw_only)
+        self.assertTrue(PcMeleeScenario.__dataclass_fields__['npc_warped_form_policies'].kw_only)
 
     def test_numeric_pc_guards_use_positive_characteristics_and_skill_thresholds(self):
         pc = make_pc_melee_scenario().party[0].pc

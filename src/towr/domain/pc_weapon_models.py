@@ -23,6 +23,9 @@ def pc_weapon_requires_two_hands(weapon: PcMeleeWeapon) -> bool:
 
 
 def pc_weapon_damage(weapon: PcMeleeWeapon, strength: int) -> DamageProfile:
+    if weapon is PcMeleeWeapon.PISTOL:
+        from towr.domain.ranged_weapon_profiles import RangedWeaponId,ranged_weapon_combat_profile
+        return DamageProfile(ranged_weapon_combat_profile(RangedWeaponId.PISTOL).damage_value)
     if weapon is PcMeleeWeapon.DAGGER:
         offset = -1
     elif weapon in (PcMeleeWeapon.MORNING_STAR, PcMeleeWeapon.PICKAXE):

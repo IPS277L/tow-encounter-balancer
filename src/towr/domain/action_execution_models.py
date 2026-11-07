@@ -87,6 +87,18 @@ class AttackActionExecutionResult:
         if (self.slot.enduring_strength is not None
                 and self.target_id != self.slot.enduring_strength.target_id):
             raise ValueError("Enduring Strength result requires its granted target")
+        if self.slot.crown_of_antlers is not None:
+            replace(self.slot)
+            if self.previous_state.active_turn is not None:
+                replace(self.previous_state.active_turn)
+            if self.state.active_turn is not None:
+                replace(self.state.active_turn)
+            replace(self.previous_state)
+            replace(self.state)
+            if type(self.target_id) is not str:
+                raise TypeError('Crown result requires its exact target ID')
+            if self.target_id != self.slot.crown_of_antlers.target_id:
+                raise ValueError('Crown result requires its granted same target')
         rule_ids = _validate_execution_transition(
             request_id=self.request_id,
             actor_id=self.actor_id,

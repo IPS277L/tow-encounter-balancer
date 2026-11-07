@@ -44,7 +44,7 @@ class PcBruteCatalogTests(unittest.TestCase):
                     (source+':defence',Skill.DEFENCE,InlineProfile(pdice,pthreshold)))
                 alternative,=entry.unselected_protection
                 self.assertEqual((alternative.source_rule_id,alternative.skill,alternative.test_profile),
-                    (source+':athletics',Skill.ATHLETICS,InlineProfile(adice,3)))
+                    (source+':athletics',Skill.ATHLETICS,InlineProfile(adice,3,6 if profile in (PcBookNpcProfile.EMPIRE_KNIGHT_LANCE, PcBookNpcProfile.KNIGHT_WHITE_WOLF_HAMMER) else None)))
                 validate_pc_book_npc_definition(definition)
 
     def test_live_state_is_healthy_armed_and_has_no_shield_or_mount_bonus(self):
