@@ -4,6 +4,11 @@ import os
 from pathlib import Path
 import sys
 from typing import TextIO
+from towr.adapters.dynamic_encounter_json import (
+    DynamicEncounterInputError, DynamicEncounterExecutionError,
+    parse_dynamic_encounter_request, execute_dynamic_encounter,
+    encode_dynamic_encounter_result, encode_dynamic_encounter_error,
+)
 
 from towr.adapters.ranged_json_errors import RangedSimulationInputError
 from towr.adapters.ranged_simulation_json import (
@@ -105,9 +110,15 @@ def main(argv: list[str] | None = None) -> int:
     pc_melee.add_argument("input", metavar="INPUT", help="UTF-8 JSON file, or - for stdin")
     pc_balance = commands.add_parser("balance-pc-melee", help="select Minion/Brute counts against a fixed PC party using JSON v1")
     pc_balance.add_argument("input", metavar="INPUT", help="UTF-8 JSON file, or - for stdin")
+    dynamic = commands.add_parser("generate-encounter", help="generate new NPC configurations and search by Monte Carlo using JSON v1")
+    dynamic.add_argument("input", metavar="INPUT", help="UTF-8 JSON file, or - for stdin")
     args = parser.parse_args(argv)
 
-    if args.command == "balance":
+    if args.command == "generate-encounter":
+        parse, execute, encode = parse_dynamic_encounter_request, execute_dynamic_encounter, encode_dynamic_encounter_result
+        encode_error, input_error = encode_dynamic_encounter_error, DynamicEncounterInputError
+        execution_errors = (DynamicEncounterExecutionError,)
+    elif args.command == "balance":
         parse, execute, encode = parse_ranged_balance_request, execute_ranged_balance, encode_ranged_balance_result
         encode_error, input_error = encode_ranged_balance_error, RangedBalanceInputError
         execution_errors = (RangedBalanceGenerationError, RangedBalanceExecutionError)

@@ -2,19 +2,31 @@
 
 Генератор сам создаёт NPC, варьируя WS/Strength/Toughness/Agility, Melee/Athletics, Staff/Dagger и Light Armour. Число врагов может быть фиксированным: поиск всё равно меняет их параметры и экипировку. Готовый reserve и книжные NPC не нужны. [Контракт и ограничения](../../decisions/ADR-0113-dynamic-npc-generation-and-adaptive-search.md).
 
-Запуск из корня репозитория:
+Запуск JSON/CLI из корня репозитория:
 
 ```powershell
 $env:PYTHONPATH = 'src'
-.venv/Scripts/python.exe docs/examples/dynamic/search.py --candidates 12 --trials 16 --finalist-trials 64 --top 3 --min-npcs 2 --max-npcs 2 --target-win-rate 0.6 --target-rounds 3 > generated.json
+.venv/Scripts/python.exe -m towr generate-encounter docs/examples/dynamic/search.request.json > generated.json
 ```
 
-Пример повторно использует только партию PC, day и arena facts из M10. Все enemies прежнего файла отбрасываются. `--party-from` позволяет использовать свой существующий melee input; Python API принимает непосредственно tuple PC participants и факты, без scenario/reserve. Наибольшая стоимость команды —384trials; меньше, если поиск не набрал уникальных кандидатов или все наблюдения unsupported. Для короткой проверки использовать `--candidates 3 --trials 2 --finalist-trials 3 --top 2 --max-rounds 3` (12trials максимум).
+После установки доступна та же команда `towr generate-encounter INPUT`; `-` читает UTF-8 JSON из stdin. [Полный входной пример](search.request.json) содержит только party/facts/day, пространство компонентов, число NPC, цели и бюджет. Нет enemy reserve, target_priority или defeat_decisions в партии. Эти поля создаются при сборке найденных боёв; порядок партии определяет PC activation/NPC target priority, порядок NPC — PC target priority/NPC activation. `defeat_disposition` явно подтверждает общее GM-решение для созданных целей.
 
-`--allow-authored-drained` явно допускает дополнительный компонент Drained-on-hit. Это authoring permission для этого пространства, не выдача книжного таланта любому NPC; по умолчанию выключено. Действующий owner учитывает фактическое попадание и независимый источник Conditions.
+JSON family `dynamic_encounter_search`, version1: `search_space` задаёт массив разрешённых значений каждого параметра и массив альтернативных наборов abilities. `npc_count.minimum/maximum` ограничивают численность. `targets.win_rate` и `targets.started_rounds` — сокращённые дроби `{numerator, denominator}`; например3/5 и3/1. Только integer JSON tokens, seed — десятичная строка uint64. Бюджет обязан покрывать `max_candidates * exploration_trials + top_k * finalist_trials`. Первый CLI backend — `execution: {"mode":"sequential"}`. Все поля закрыты; неподдержанные компоненты/режимы и несогласованные значения отвергаются до симуляции.
 
-Выход содержит search space, фактическую стоимость, screening и отдельные validation observations. `selected` ссылается только на independently validated кандидатов без observed unsupported. Каждый кандидат содержит исходные NPC компоненты, win rate/Wilson95, mean started rounds/Hoeffding95, все outcome counts и `replay` — полноценный текущий PC simulation JSON1. Сохранённый replay можно передать `towr simulate-pc-melee`. Одинаковые вход/seed воспроизводят предложения и результаты; повторный запуск validation replay воспроизводит именно эту выборку.
+Пример ограничен3кандидатами ×2trials +2финалистами ×3trials =12trials максимум. Для полезной оценки увеличьте trials и budget: например12×16+3×64=384. Значения smoke-примера демонстрируют формат и воспроизводимость, но дают широкие интервалы.
 
-Это лучшие найденные приближения к целям при заданной тактике и бюджете. Длительность включает цензурированные round-limit/unsupported префиксы; проверки target tolerance и глобального оптимума нет. Малое число trials годится для smoke, но даёт широкие интервалы. Если наблюдался unsupported, такой screening кандидат не проходит в validation; unsupported validation сохраняется в отчёте, но не в selected. Пустой selected — допустимый честный результат.
+JSON-результат содержит `source_request` (полный точный вход), `explored`, отдельные `validations`, `selected` (ID только финалистов без observed unsupported), фактические `total_trials`, `proposal_attempts` и `proposal_limit_reached`. Каждый кандидат содержит NPC компоненты, win rate/Wilson95, mean started rounds/Hoeffding95, outcome counts и `replay` — полноценный текущий PC simulation JSON1. Чтобы повторить конкретный бой:
 
-Python API: `towr.application.dynamic_encounter.DynamicEncounterRequest`, `NpcSearchSpace`, `search_dynamic_encounter`. Допустимые значения каждого параметра задаются tuple; `abilities` содержит альтернативные наборы typed `GeneratedAbility`. Simulator можно передать явно для другого существующего backend; по умолчанию используется sequential aggregate. Нет нового wire format/установленной CLI-команды генератора. Текущий набор намеренно мал; расширять нужно компоненты генерации и их prerequisites, а не список именных statblocks.
+```powershell
+$r = Get-Content generated.json -Raw | ConvertFrom-Json
+$r.validations[0].replay | ConvertTo-Json -Depth 100 | Set-Content replay.json -Encoding utf8NoBOM
+.venv/Scripts/python.exe -m towr simulate-pc-melee replay.json
+```
+
+Команды записи рассчитаны на PowerShell7. Ошибки входа дают JSON `dynamic_encounter_search_error` и exit2; сбой исполнения — exit3 без частичного результата; ошибки I/O — exit4. Диагностика идёт в stderr. Схемы [request](../../../src/towr/adapters/schemas/dynamic-encounter-request-v1.schema.json), [result](../../../src/towr/adapters/schemas/dynamic-encounter-result-v1.schema.json), [error](../../../src/towr/adapters/schemas/dynamic-encounter-error-v1.schema.json) разрешаются offline.
+
+Authored Drained-on-hit допускается только явной альтернативой `search_space.abilities: [[], ["drained_on_hit"]]`; по умолчанию `[[]]`. Это разрешённый авторский компонент, не автоматическая выдача книжного таланта. Действующий owner учитывает фактическое попадание и независимый источник Conditions.
+
+Это лучшие найденные приближения к целям при заданной тактике и бюджете. Длительность включает цензурированные round-limit/unsupported префиксы; проверки target tolerance и глобального оптимума нет. Если наблюдался unsupported, такой screening кандидат не проходит в validation; unsupported validation сохраняется в отчёте, но не в selected. Пустой selected — допустимый честный результат.
+
+Python API: `towr.application.dynamic_encounter.DynamicEncounterRequest`, `NpcSearchSpace`, `search_dynamic_encounter`. Simulator можно передать явно; по умолчанию sequential aggregate. Предыдущий [Python-пример](search.py) также работает: он переиспользует партию из M10, отбрасывая прежних enemies. Новый JSON-вход полностью самостоятельный и такого scenario не требует. Расширять нужно составляемые компоненты и их prerequisites, а не список именных statblocks.

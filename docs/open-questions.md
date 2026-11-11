@@ -4,7 +4,7 @@
 
 ## Динамическая генерация — действующая граница
 
-Первый Python-срез создаёт authored Minions из ограниченного набора компонентов без NPC reserve и независимо проверяет финалистов. [ADR-0113](decisions/ADR-0113-dynamic-npc-generation-and-adaptive-search.md) фиксирует supported set, ранжирование и пределы статистических выводов. Authored Drained включается только явным разрешением search space, не заменяет talent prerequisites. Следующий продуктовый слой — JSON/CLI генератора; полный каталог не является prerequisite.
+Первый Python/JSON/CLI-срез создаёт authored Minions из ограниченного набора компонентов без NPC reserve и независимо проверяет финалистов. [ADR-0113](decisions/ADR-0113-dynamic-npc-generation-and-adaptive-search.md) фиксирует supported set, ранжирование и пределы статистических выводов. Authored Drained включается только явным разрешением search space, не заменяет talent prerequisites. JSON/CLI генератора реализован без enemy reserve; следующий приоритет — общие компоненты и prerequisites; полный каталог не является prerequisite.
 
 ## Действующая граница симуляции
 

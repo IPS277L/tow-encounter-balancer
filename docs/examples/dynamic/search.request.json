@@ -1,0 +1,168 @@
+{
+  "schema_version": "1",
+  "kind": "dynamic_encounter_search",
+  "request_id": "dynamic:example",
+  "ruleset": "towr-pg1.4-gmg1.1",
+  "party": [
+    {
+      "actor_id": "pc",
+      "pc": {
+        "id": "pc-profile",
+        "weapon_skill": 3,
+        "strength": 3,
+        "toughness": 3,
+        "agility": 3,
+        "melee": 5,
+        "defence": 5,
+        "athletics": 4,
+        "endurance": 4,
+        "weapon": "sword",
+        "armour_bonus": 0
+      },
+      "fate": {
+        "session_id": "session",
+        "actor_id": "pc",
+        "rating": 3,
+        "session_spend_limit": 3,
+        "spends": [],
+        "has_lucky": false,
+        "refreshes": [],
+        "burns": [],
+        "resource_event_ids": [],
+        "rule_id": "RULE-FATE-001:session-resource"
+      },
+      "policy": "attack_or_recover_self",
+      "fate_policy": "decline_optional_fate",
+      "initial_weapon_hand": "left",
+      "random_side_policy": "d10_low_left_high_right",
+      "heavy_wound_policy": "continue_fighting",
+      "near_miss_policy": null,
+      "glorious_policy": null,
+      "help_policy": null,
+      "ally_recover_policy": null,
+      "backup_weapon_policy": null
+    },
+    {
+      "actor_id": "pc:companion",
+      "pc": {
+        "id": "companion-profile",
+        "weapon_skill": 3,
+        "strength": 3,
+        "toughness": 4,
+        "agility": 3,
+        "melee": 5,
+        "defence": 5,
+        "athletics": 4,
+        "endurance": 5,
+        "weapon": "staff",
+        "armour_bonus": 0
+      },
+      "fate": {
+        "session_id": "session",
+        "actor_id": "pc:companion",
+        "rating": 2,
+        "session_spend_limit": 2,
+        "spends": [],
+        "has_lucky": false,
+        "refreshes": [],
+        "burns": [],
+        "resource_event_ids": [],
+        "rule_id": "RULE-FATE-001:session-resource"
+      },
+      "policy": "attack_or_recover_self",
+      "fate_policy": "decline_optional_fate",
+      "initial_weapon_hand": "right",
+      "random_side_policy": "d10_low_left_high_right",
+      "heavy_wound_policy": "continue_fighting",
+      "near_miss_policy": null,
+      "glorious_policy": null,
+      "help_policy": null,
+      "ally_recover_policy": null,
+      "backup_weapon_policy": null
+    }
+  ],
+  "facts": {
+    "zone_id": "arena",
+    "all_opponents_close": true,
+    "targets_aware": true,
+    "all_combatants_included": true,
+    "unmounted": true,
+    "no_external_effects": true,
+    "no_terrain_modifiers": true,
+    "no_additional_abilities": true,
+    "no_ambush": true,
+    "outnumbering_bonus_approved": true,
+    "can_leave_zone": false
+  },
+  "day_id": "day",
+  "search_space": {
+    "weapon_skill": [
+      2,
+      3,
+      4
+    ],
+    "strength": [
+      2,
+      3,
+      4
+    ],
+    "toughness": [
+      2,
+      3,
+      4
+    ],
+    "agility": [
+      2,
+      3,
+      4
+    ],
+    "melee": [
+      3,
+      4,
+      5
+    ],
+    "athletics": [
+      3,
+      4,
+      5
+    ],
+    "weapon": [
+      "staff",
+      "dagger"
+    ],
+    "light_armour": [
+      false,
+      true
+    ],
+    "abilities": [
+      []
+    ]
+  },
+  "npc_count": {
+    "minimum": 2,
+    "maximum": 2
+  },
+  "targets": {
+    "win_rate": {
+      "numerator": 3,
+      "denominator": 5
+    },
+    "started_rounds": {
+      "numerator": 3,
+      "denominator": 1
+    }
+  },
+  "search": {
+    "master_seed": "42",
+    "max_candidates": 3,
+    "exploration_trials": 2,
+    "finalist_trials": 3,
+    "top_k": 2,
+    "max_total_trials": 12
+  },
+  "max_rounds": 3,
+  "defeat_disposition": "killed",
+  "execution": {
+    "mode": "sequential"
+  }
+}

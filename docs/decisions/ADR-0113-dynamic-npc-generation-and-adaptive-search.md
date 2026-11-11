@@ -1,6 +1,6 @@
 # ADR-0113 — динамическая сборка NPC и адаптивный Monte Carlo поиск
 
-Статус: реализован первый ограниченный Python-путь, 2026-11-12. Основание — подтверждённая пользователем исходная цель генератора и указание продолжить реализацию. Прежние JSON-контракты не меняются.
+Статус: реализованы ограниченный Python-путь и JSON/CLI, 2026-11-12. Основание — подтверждённая пользователем исходная цель генератора и указание продолжить реализацию. Прежние JSON-контракты не меняются.
 
 ## Решение
 
@@ -18,10 +18,18 @@ Seed derivation использует SHA256 с отдельными stage namesp
 
 Использован существующий stationary all-Close PC melee simulator с Minions, обычной тактикой и журналом. PC act/target priority и NPC target priority задаются порядком входной партии/слотов; GM defeat disposition обязателен. Minion здоровье не является свободным числом. Раны PC/Fate/Recover сохраняют действующие правила и честные unsupported stops. Другие типы NPC, shield/ranged, реальные talent prerequisites, XP/cost модели и перенос всех ID-dispatched книжных Abilities в capabilities этим срезом не реализованы.
 
-Выбран additive Python API и executable example, чтобы проверить продуктовый путь без ещё одного большого wire family. JSON CLI генератора — следующий слой над проверенным контрактом. Existing JSON1 используется для replay конкретного найденного боя. Прежний count-grid API сохраняется как отдельная возможность, не используется новым поиском. Общий DSL, переписывание battle engine и полный каталог до первого генератора отклонены.
+Выбран additive Python API и executable example, чтобы проверить продуктовый путь без ещё одного большого wire family. JSON CLI генератора добавлен поверх этого же application поиска; семейство dynamic_encounter_search JSON1, команда generate-encounter. Existing JSON1 используется для replay конкретного найденного боя. Прежний count-grid API сохраняется как отдельная возможность, не используется новым поиском. Общий DSL, переписывание battle engine и полный каталог до первого генератора отклонены.
 
 Wilson95 описывает marginal uncertainty win probability фиксированного финалиста. Hoeffding95 для started rounds использует известный диапазон 1..max_rounds; это консервативная оценка, включающая round-limit/unsupported префиксы. Интервалы не являются simultaneous гарантией ранжирования и не доказывают глобальный оптимум. Target — критерий близости, а не гарантия найденного попадания в желаемую сложность. Метрика длительности и приоритет difficulty→duration явны.
 
 ## Адресная проверка
 
 `tests.integration.test_dynamic_encounter`: вывод производных параметров и нулевого Dagger Damage, независимость механики от ID, варианты при фиксированном числе, изменение числа, мутация, seed replay, отдельные validation seeds, бюджет, маленькое пространство, фактический Drained/source и отказ от чужого aggregate. Ближайшие зависимости: M9 simulation/balance integration и M29 hit conditions. Проверить executable example и JSON replay через текущий parser. Shared kernel/backend/package discovery не менялись; full regression/wheel для этой функции не требуются.
+
+## JSON/CLI граница
+
+Вход не содержит готовых enemies и enemy-specific полей партии. Shared PC/facts/Fate/политики сохраняются; adapter связывает target-neutral party с первым generated slot для имеющейся concrete participant модели, а builder затем создаёт полный состав. Новое пространство явно перечисляет допустимые значения, authored effects и общий defeat disposition. Цели передаются сокращёнными рациональными значениями, проверяются точно до преобразования в числовые targets существующего Python API. Seed — uint64 decimal string. Closed schemas используют local registry с текущими PC common/replay definitions. Первый wire backend sequential; package entry point/discovery не меняются.
+
+Result содержит полный source_request, screening/independent validation observations, selected IDs, фактические trials/proposals и full PC JSON1 replay. Application validator перед выдачей проверяет полные источники/компоненты/стадийные seeds, допустимость состава, выбор/порядок validation и бюджет без повторной симуляции. Source echo проверяется отдельно. Ошибки input/unsupported version дают exit2, execution — exit3 без partial result, I/O — прежний exit4. Прежние family contracts и mechanics неизменны.
+
+Адресная проверка JSON слоя: новый integration test_dynamic_encounter_json (closed/lexical/semantic admission, exact echo, malformed budget/components, forged report, file/stdin CLI, replay), прежний dynamic generator, общие CLI I/O/ошибки и representative PC CLI input errors. Новые схемы доставляются существующим *.json discovery: source/offline refs проверяются сейчас, wheel — по политике проекта при packaging checkpoint.

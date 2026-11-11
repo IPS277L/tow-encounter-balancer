@@ -8,7 +8,7 @@
 
 Генератор должен сам создавать противников из характеристик, навыков, реализованных талантов/способностей и снаряжения, симулировать составы методом Monte Carlo и возвращать несколько вариантов под заданную сложность и длительность. Пользователь задаёт партию и ограничения поиска, а не готовый NPC на каждую комбинацию параметров.
 
-Первый динамический Python-путь уже создаёт новые Minions из характеристик/навыков/Staff–Dagger/Light Armour и явно разрешённых on-hit компонентов, адаптивно ищет составы и отдельно проверяет финалистов Monte Carlo. [Запуск и текущие ограничения](docs/examples/dynamic/README.md). Книжные statblocks остаются пресетами и проверочными примерами. Полная генерация талантов и снаряжения ещё не реализована; следующий приоритет — пользовательский вход и расширение составляемых компонентов. [Следующая функция](docs/roadmap.md#после-m70), [статус](docs/project-status.md).
+Динамический Python/JSON/CLI-путь уже создаёт новые Minions из характеристик/навыков/Staff–Dagger/Light Armour и явно разрешённых on-hit компонентов, адаптивно ищет составы и отдельно проверяет финалистов Monte Carlo. [Запуск и текущие ограничения](docs/examples/dynamic/README.md). Книжные statblocks остаются пресетами и проверочными примерами. Полная генерация талантов и снаряжения ещё не реализована; следующий приоритет — расширение составляемых компонентов и их prerequisites. [Следующая функция](docs/roadmap.md#после-m70), [статус](docs/project-status.md).
 
 ## Начало работы
 
@@ -25,11 +25,12 @@ py -3.12 -m venv .venv
 
 ```powershell
 $env:PYTHONPATH = 'src'
+.venv/Scripts/python.exe -m towr generate-encounter docs/examples/dynamic/search.request.json
 .venv/Scripts/python.exe -m towr simulate-pc-melee docs/examples/m23/pc-melee-simulation.request.json
 .venv/Scripts/python.exe -m towr balance-pc-melee docs/examples/m23/pc-melee-balance.request.json
 ```
 
-После установки доступны `towr simulate-pc-melee INPUT` и `towr balance-pc-melee INPUT`; `-` читает stdin. Seed, trials, round budget и execution задаются во входе. PC melee и другие немагические families используют собственный текущий JSON1; Magic — JSON6. Все семейства перечислены ниже.
+После установки доступны `towr generate-encounter INPUT` (динамическая генерация), `towr simulate-pc-melee INPUT` и `towr balance-pc-melee INPUT`; `-` читает stdin. Seed, trials, round budget и execution задаются во входе. PC melee и другие немагические families используют собственный текущий JSON1; Magic — JSON6. Все семейства перечислены ниже.
 
 | Сценарий | Примеры и команды |
 |---|---|

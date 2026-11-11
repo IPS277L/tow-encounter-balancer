@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:towr:dynamic-encounter:result:1",
+  "type": "object",
+  "properties": {
+    "schema_version": {
+      "const": "1"
+    },
+    "kind": {
+      "const": "dynamic_encounter_search_result"
+    },
+    "request_id": {
+      "$ref": "urn:towr:pc-melee:common:1#/$defs/identifier"
+    },
+    "source_request": {
+      "$ref": "urn:towr:dynamic-encounter:request:1"
+    },
+    "explored": {
+      "type": "array",
+      "items": {
+        "$ref": "urn:towr:dynamic-encounter:common:1#/$defs/candidate"
+      }
+    },
+    "validations": {
+      "type": "array",
+      "items": {
+        "$ref": "urn:towr:dynamic-encounter:common:1#/$defs/candidate"
+      }
+    },
+    "selected": {
+      "type": "array",
+      "items": {
+        "$ref": "urn:towr:pc-melee:common:1#/$defs/identifier"
+      },
+      "uniqueItems": true
+    },
+    "total_trials": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "proposal_attempts": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "proposal_limit_reached": {
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "schema_version",
+    "kind",
+    "request_id",
+    "source_request",
+    "explored",
+    "validations",
+    "selected",
+    "total_trials",
+    "proposal_attempts",
+    "proposal_limit_reached"
+  ],
+  "additionalProperties": false
+}

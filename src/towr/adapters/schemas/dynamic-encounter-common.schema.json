@@ -1,0 +1,726 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:towr:dynamic-encounter:common:1",
+  "$defs": {
+    "party_member": {
+      "type": "object",
+      "properties": {
+        "close_shooting_protection_skill": {
+          "enum": [
+            "melee",
+            "athletics"
+          ]
+        },
+        "actor_id": {
+          "$ref": "urn:towr:pc-melee:common:1#/$defs/identifier"
+        },
+        "pc": {
+          "$ref": "urn:towr:pc-melee:common:1#/$defs/pc"
+        },
+        "fate": {
+          "$ref": "urn:towr:pc-melee:common:1#/$defs/fate"
+        },
+        "policy": {
+          "enum": [
+            "attack_or_recover_self",
+            "help_ally_or_attack_or_recover_self",
+            "recover_ally_or_attack_or_recover_self"
+          ]
+        },
+        "fate_policy": {
+          "enum": [
+            "decline_optional_fate",
+            "configured"
+          ]
+        },
+        "random_side_policy": {
+          "const": "d10_low_left_high_right"
+        },
+        "heavy_wound_policy": {
+          "const": "continue_fighting"
+        },
+        "initial_weapon_hand": {
+          "enum": [
+            "left",
+            "right",
+            "both"
+          ]
+        },
+        "near_miss_policy": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "urn:towr:pc-melee:common:1#/$defs/near_miss_policy"
+            }
+          ]
+        },
+        "glorious_policy": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "urn:towr:pc-melee:common:1#/$defs/glorious_policy"
+            }
+          ]
+        },
+        "help_policy": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "urn:towr:pc-melee:common:1#/$defs/help_policy"
+            }
+          ]
+        },
+        "ally_recover_policy": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "urn:towr:pc-melee:common:1#/$defs/ally_recover_policy"
+            }
+          ]
+        },
+        "backup_weapon_policy": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "urn:towr:pc-melee:common:1#/$defs/backup_weapon_policy"
+            }
+          ]
+        },
+        "shield": {
+          "$ref": "urn:towr:pc-melee:common:1#/$defs/shield_loadout"
+        },
+        "aim_second_action_policy": {
+          "$ref": "urn:towr:pc-melee:common:1#/$defs/aimSecondActionPolicy"
+        }
+      },
+      "required": [
+        "actor_id",
+        "pc",
+        "fate",
+        "policy",
+        "fate_policy",
+        "random_side_policy",
+        "heavy_wound_policy",
+        "initial_weapon_hand",
+        "near_miss_policy",
+        "glorious_policy",
+        "help_policy",
+        "ally_recover_policy",
+        "backup_weapon_policy"
+      ],
+      "additionalProperties": false,
+      "oneOf": [
+        {
+          "properties": {
+            "fate_policy": {
+              "const": "decline_optional_fate"
+            },
+            "near_miss_policy": {
+              "type": "null"
+            },
+            "glorious_policy": {
+              "type": "null"
+            }
+          },
+          "not": {
+            "required": [
+              "aim_second_action_policy"
+            ]
+          }
+        },
+        {
+          "properties": {
+            "fate_policy": {
+              "const": "configured"
+            }
+          },
+          "anyOf": [
+            {
+              "properties": {
+                "near_miss_policy": {
+                  "type": "object"
+                }
+              }
+            },
+            {
+              "properties": {
+                "glorious_policy": {
+                  "type": "object"
+                }
+              }
+            },
+            {
+              "required": [
+                "aim_second_action_policy"
+              ],
+              "properties": {
+                "aim_second_action_policy": {
+                  "type": "object"
+                }
+              }
+            }
+          ]
+        }
+      ],
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "pc": {
+                "properties": {
+                  "weapon": {
+                    "enum": [
+                      "pistol",
+                      "repeater_handbow",
+                      "repeater_pistol",
+                      "shortbow",
+                      "warbow",
+                      "longbow",
+                      "crossbow",
+                      "repeater_crossbow",
+                      "handgun",
+                      "repeater_handgun",
+                      "sling",
+                      "blunderbuss",
+                      "hochland_long_rifle"
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "policy": {
+                "const": "attack_or_recover_self"
+              },
+              "help_policy": {
+                "type": "null"
+              },
+              "ally_recover_policy": {
+                "type": "null"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "shield"
+            ]
+          },
+          "then": {
+            "properties": {
+              "pc": {
+                "properties": {
+                  "weapon": {
+                    "enum": [
+                      "dagger",
+                      "staff",
+                      "axe",
+                      "sword",
+                      "warhammer",
+                      "morning_star",
+                      "pistol",
+                      "repeater_handbow",
+                      "repeater_pistol",
+                      "sling"
+                    ]
+                  }
+                }
+              }
+            },
+            "if": {
+              "properties": {
+                "pc": {
+                  "properties": {
+                    "weapon": {
+                      "enum": [
+                        "pistol",
+                        "repeater_handbow",
+                        "repeater_pistol",
+                        "sling"
+                      ]
+                    }
+                  }
+                }
+              }
+            },
+            "then": {},
+            "else": {
+              "properties": {
+                "backup_weapon_policy": {
+                  "type": "null"
+                }
+              }
+            },
+            "oneOf": [
+              {
+                "properties": {
+                  "initial_weapon_hand": {
+                    "const": "left"
+                  },
+                  "shield": {
+                    "properties": {
+                      "initial_hand": {
+                        "const": "right"
+                      }
+                    }
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "initial_weapon_hand": {
+                    "const": "right"
+                  },
+                  "shield": {
+                    "properties": {
+                      "initial_hand": {
+                        "const": "left"
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "backup_weapon_policy": {
+                "type": "object"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "pc": {
+                "properties": {
+                  "weapon": {
+                    "enum": [
+                      "pickaxe",
+                      "flail",
+                      "billhook",
+                      "halberd",
+                      "glaive",
+                      "greataxe",
+                      "greathammer",
+                      "pistol",
+                      "repeater_handbow",
+                      "repeater_pistol",
+                      "shortbow",
+                      "warbow",
+                      "longbow",
+                      "crossbow",
+                      "repeater_crossbow",
+                      "handgun",
+                      "repeater_handgun",
+                      "sling",
+                      "blunderbuss",
+                      "hochland_long_rifle"
+                    ]
+                  },
+                  "strength": {
+                    "minimum": 2
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "pc": {
+                "properties": {
+                  "weapon": {
+                    "enum": [
+                      "pickaxe",
+                      "flail",
+                      "billhook",
+                      "halberd",
+                      "glaive",
+                      "greataxe",
+                      "greathammer",
+                      "shortbow",
+                      "warbow",
+                      "longbow",
+                      "crossbow",
+                      "repeater_crossbow",
+                      "handgun",
+                      "repeater_handgun",
+                      "blunderbuss",
+                      "hochland_long_rifle"
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "initial_weapon_hand": {
+                "const": "both"
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "initial_weapon_hand": {
+                "enum": [
+                  "left",
+                  "right"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "oneOf": [
+            {
+              "properties": {
+                "policy": {
+                  "const": "attack_or_recover_self"
+                },
+                "help_policy": {
+                  "type": "null"
+                },
+                "ally_recover_policy": {
+                  "type": "null"
+                }
+              }
+            },
+            {
+              "properties": {
+                "policy": {
+                  "const": "help_ally_or_attack_or_recover_self"
+                },
+                "help_policy": {
+                  "type": "object"
+                },
+                "ally_recover_policy": {
+                  "type": "null"
+                }
+              }
+            },
+            {
+              "properties": {
+                "policy": {
+                  "const": "recover_ally_or_attack_or_recover_self"
+                },
+                "help_policy": {
+                  "type": "null"
+                },
+                "ally_recover_policy": {
+                  "type": "object"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "if": {
+            "required": [
+              "aim_second_action_policy"
+            ]
+          },
+          "then": {
+            "properties": {
+              "pc": {
+                "properties": {
+                  "weapon": {
+                    "const": "hochland_long_rifle"
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "pc": {
+                "properties": {
+                  "weapon": {
+                    "const": "hochland_long_rifle"
+                  }
+                }
+              }
+            }
+          },
+          "then": {},
+          "else": {
+            "properties": {
+              "fate": {
+                "properties": {
+                  "has_lucky": {
+                    "const": false
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "search_space": {
+      "type": "object",
+      "properties": {
+        "weapon_skill": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "strength": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "toughness": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "agility": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "melee": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 2,
+            "maximum": 6
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "athletics": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 2,
+            "maximum": 6
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "weapon": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "staff",
+              "dagger"
+            ]
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "light_armour": {
+          "type": "array",
+          "items": {
+            "type": "boolean"
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "abilities": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "items": {
+              "enum": [
+                "drained_on_hit"
+              ]
+            },
+            "uniqueItems": true
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        }
+      },
+      "required": [
+        "weapon_skill",
+        "strength",
+        "toughness",
+        "agility",
+        "melee",
+        "athletics",
+        "weapon",
+        "light_armour",
+        "abilities"
+      ],
+      "additionalProperties": false
+    },
+    "candidate": {
+      "type": "object",
+      "properties": {
+        "npcs": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "weapon_skill": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "strength": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "toughness": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "agility": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "melee": {
+                "type": "integer",
+                "minimum": 2,
+                "maximum": 6
+              },
+              "athletics": {
+                "type": "integer",
+                "minimum": 2,
+                "maximum": 6
+              },
+              "weapon": {
+                "enum": [
+                  "staff",
+                  "dagger"
+                ]
+              },
+              "light_armour": {
+                "type": "boolean"
+              },
+              "abilities": {
+                "type": "array",
+                "items": {
+                  "enum": [
+                    "drained_on_hit"
+                  ]
+                },
+                "uniqueItems": true
+              }
+            },
+            "required": [
+              "weapon_skill",
+              "strength",
+              "toughness",
+              "agility",
+              "melee",
+              "athletics",
+              "weapon",
+              "light_armour",
+              "abilities"
+            ],
+            "additionalProperties": false
+          },
+          "minItems": 1
+        },
+        "win_rate": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "win_interval_95": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          },
+          "minItems": 2,
+          "maxItems": 2
+        },
+        "mean_started_rounds": {
+          "type": "number",
+          "minimum": 1
+        },
+        "rounds_interval_95": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          },
+          "minItems": 2,
+          "maxItems": 2
+        },
+        "outcomes": {
+          "type": "object",
+          "properties": {
+            "objective_achieved": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "party_defeated": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "round_limit": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "unsupported_path": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          "required": [
+            "objective_achieved",
+            "party_defeated",
+            "round_limit",
+            "unsupported_path"
+          ],
+          "additionalProperties": false
+        },
+        "trials": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "replay": {
+          "$ref": "urn:towr:pc-melee:simulation:request:1"
+        }
+      },
+      "required": [
+        "npcs",
+        "win_rate",
+        "win_interval_95",
+        "mean_started_rounds",
+        "rounds_interval_95",
+        "outcomes",
+        "trials",
+        "replay"
+      ],
+      "additionalProperties": false
+    }
+  }
+}

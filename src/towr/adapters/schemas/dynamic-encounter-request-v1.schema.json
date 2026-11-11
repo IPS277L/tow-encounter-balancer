@@ -1,0 +1,147 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:towr:dynamic-encounter:request:1",
+  "type": "object",
+  "properties": {
+    "schema_version": {
+      "const": "1"
+    },
+    "kind": {
+      "const": "dynamic_encounter_search"
+    },
+    "request_id": {
+      "$ref": "urn:towr:pc-melee:common:1#/$defs/identifier"
+    },
+    "ruleset": {
+      "const": "towr-pg1.4-gmg1.1"
+    },
+    "party": {
+      "type": "array",
+      "items": {
+        "$ref": "urn:towr:dynamic-encounter:common:1#/$defs/party_member"
+      },
+      "minItems": 1,
+      "uniqueItems": true
+    },
+    "facts": {
+      "$ref": "urn:towr:pc-melee:common:1#/$defs/facts"
+    },
+    "day_id": {
+      "$ref": "urn:towr:pc-melee:common:1#/$defs/identifier"
+    },
+    "search_space": {
+      "$ref": "urn:towr:dynamic-encounter:common:1#/$defs/search_space"
+    },
+    "npc_count": {
+      "type": "object",
+      "properties": {
+        "minimum": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "maximum": {
+          "type": "integer",
+          "minimum": 1
+        }
+      },
+      "required": [
+        "minimum",
+        "maximum"
+      ],
+      "additionalProperties": false
+    },
+    "targets": {
+      "type": "object",
+      "properties": {
+        "win_rate": {
+          "$ref": "urn:towr:pc-melee:common:1#/$defs/rational"
+        },
+        "started_rounds": {
+          "$ref": "urn:towr:pc-melee:common:1#/$defs/rational"
+        }
+      },
+      "required": [
+        "win_rate",
+        "started_rounds"
+      ],
+      "additionalProperties": false
+    },
+    "search": {
+      "type": "object",
+      "properties": {
+        "master_seed": {
+          "$ref": "urn:towr:pc-melee:common:1#/$defs/seed"
+        },
+        "max_candidates": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "exploration_trials": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "finalist_trials": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "top_k": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "max_total_trials": {
+          "type": "integer",
+          "minimum": 1
+        }
+      },
+      "required": [
+        "master_seed",
+        "max_candidates",
+        "exploration_trials",
+        "finalist_trials",
+        "top_k",
+        "max_total_trials"
+      ],
+      "additionalProperties": false
+    },
+    "max_rounds": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "defeat_disposition": {
+      "enum": [
+        "killed",
+        "knocked_out",
+        "disarmed_and_surrendered"
+      ]
+    },
+    "execution": {
+      "type": "object",
+      "properties": {
+        "mode": {
+          "const": "sequential"
+        }
+      },
+      "required": [
+        "mode"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "required": [
+    "schema_version",
+    "kind",
+    "request_id",
+    "ruleset",
+    "party",
+    "facts",
+    "day_id",
+    "search_space",
+    "npc_count",
+    "targets",
+    "search",
+    "max_rounds",
+    "defeat_disposition",
+    "execution"
+  ],
+  "additionalProperties": false
+}

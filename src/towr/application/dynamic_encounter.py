@@ -179,6 +179,62 @@ def _seed(master: int, stage: str, index: int) -> int:
     return int.from_bytes(sha256(f'towr:dynamic:v1:{master}:{stage}:{index}'.encode()).digest()[:8], 'big')
 
 
+def _score(request, candidate):
+    return (bool(candidate.summary.outcome_counts.unsupported_path),
+        abs(candidate.win_rate-request.target_win_rate),
+        abs(candidate.mean_started_rounds-request.target_rounds))
+
+
+def validate_dynamic_encounter_result(result: DynamicEncounterResult) -> None:
+    """Check the complete source, stage seeds, selection and accounting without trials."""
+    if type(result) is not DynamicEncounterResult or type(result.source) is not DynamicEncounterRequest:
+        raise TypeError('expected a typed dynamic result and source')
+    request = replace(result.source)
+    if type(result.explored) is not tuple or not 1 <= len(result.explored) <= request.max_candidates:
+        raise ValueError('explored candidates exceed the source bounds')
+    compositions = tuple(c.composition for c in result.explored)
+    if len(set(compositions)) != len(compositions):
+        raise ValueError('exploration contains duplicate compositions')
+
+    def check(candidate, stage, index, trials):
+        if type(candidate) is not GeneratedCandidate:
+            raise TypeError('observations must be typed generated candidates')
+        replace(candidate)
+        if not request.minimum_npcs <= len(candidate.composition) <= request.maximum_npcs:
+            raise ValueError('candidate count is outside the search space')
+        for npc in candidate.composition:
+            if any(getattr(npc, f.name) not in getattr(request.space, f.name) for f in fields(request.space)):
+                raise ValueError('candidate component is outside the search space')
+        expected = PcMeleeSimulationRequest(request.scenario(candidate.composition, f'dynamic:{stage}:{index}'),
+            _seed(request.master_seed, stage, index), trials)
+        if candidate.summary.source_request != expected:
+            raise ValueError('candidate source/seed/stage differs from generation source')
+
+    for i, candidate in enumerate(result.explored):
+        check(candidate, 'explore', i, request.exploration_trials)
+    eligible = [c for c in sorted(result.explored, key=lambda c: _score(request, c))
+        if not c.summary.outcome_counts.unsupported_path][:request.top_k]
+    if type(result.validations) is not tuple or len(result.validations) != len(eligible):
+        raise ValueError('validation must cover the selected exploration finalists')
+    indices = {c.composition: i for i, c in enumerate(eligible)}
+    if set(c.composition for c in result.validations) != set(indices):
+        raise ValueError('validation compositions differ from exploration finalists')
+    for candidate in result.validations:
+        check(candidate, 'validate', indices[candidate.composition], request.finalist_trials)
+    ranked = tuple(sorted(result.validations, key=lambda c: (_score(request, c), indices[c.composition])))
+    if result.validations != ranked:
+        raise ValueError('validation ranking is inconsistent')
+    expected_total = len(result.explored)*request.exploration_trials + len(result.validations)*request.finalist_trials
+    if type(result.total_trials) is not int or result.total_trials != expected_total or expected_total > request.max_total_trials:
+        raise ValueError('trial accounting differs from executed observations/budget')
+    limit = request.max_candidates*30
+    if type(result.proposal_attempts) is not int or not len(result.explored) <= result.proposal_attempts <= limit:
+        raise ValueError('proposal accounting is outside the budget')
+    expected_limit = result.proposal_attempts == limit and len(result.explored) < request.max_candidates
+    if type(result.proposal_limit_reached) is not bool or result.proposal_limit_reached != expected_limit:
+        raise ValueError('proposal limit flag is inconsistent')
+
+
 def search_dynamic_encounter(request: DynamicEncounterRequest, simulator=None) -> DynamicEncounterResult:
     """Explore random restarts and local mutations, then independently validate.
 
@@ -198,9 +254,7 @@ def search_dynamic_encounter(request: DynamicEncounterRequest, simulator=None) -
     explored, seen = [], set()
 
     def score(candidate):
-        return (bool(candidate.summary.outcome_counts.unsupported_path),
-            abs(candidate.win_rate-request.target_win_rate),
-            abs(candidate.mean_started_rounds-request.target_rounds))
+        return _score(request, candidate)
 
     def evaluate(composition, stage, index):
         scenario = request.scenario(composition, f'dynamic:{stage}:{index}')
