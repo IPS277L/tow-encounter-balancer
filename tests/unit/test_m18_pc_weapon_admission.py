@@ -20,11 +20,45 @@ class PcWeaponAdmissionTests(unittest.TestCase):
         source=make_pc_melee_scenario()
         self.assertEqual({weapon.value for weapon in PcMeleeWeapon},
             {'staff','sword','dagger','axe','warhammer','morning_star',
-             'pickaxe','flail','billhook','halberd','glaive','greataxe','greathammer','pistol'})
+             'pickaxe','flail','billhook','halberd','glaive','greataxe','greathammer','pistol','repeater_handbow','repeater_pistol','shortbow','warbow','longbow','crossbow','repeater_crossbow','handgun','repeater_handgun','sling','blunderbuss','hochland_long_rifle'})
         for weapon in PcMeleeWeapon:
-            if weapon is PcMeleeWeapon.PISTOL:
-                from tests.support.pc_pistol_scenarios import make_pc_pistol_scenario
-                request=PcMeleeSimulationRequest(make_pc_pistol_scenario(),42,1)
+            if weapon is PcMeleeWeapon.HOCHLAND_LONG_RIFLE:
+                from tests.support.pc_hochland_scenarios import make_pc_hochland_scenario
+                request=PcMeleeSimulationRequest(make_pc_hochland_scenario(),42,1)
+                self.assertIs(request.scenario.party[0].pc.weapon,weapon)
+                continue
+            if weapon is PcMeleeWeapon.BLUNDERBUSS:
+                from tests.support.pc_blunderbuss_scenarios import make_pc_blunderbuss_scenario
+                request=PcMeleeSimulationRequest(make_pc_blunderbuss_scenario(),42,1)
+                self.assertIs(request.scenario.party[0].pc.weapon,weapon)
+                continue
+            if weapon is PcMeleeWeapon.SLING:
+                from tests.support.pc_sling_scenarios import make_pc_sling_scenario
+                request=PcMeleeSimulationRequest(make_pc_sling_scenario(),42,1)
+                self.assertIs(request.scenario.party[0].pc.weapon,weapon)
+                continue
+            if weapon.value in ('handgun','repeater_handgun'):
+                from tests.support.pc_handgun_scenarios import make_pc_handgun_scenario
+                from towr.domain.pc_melee_models import PcRepeaterBonusPolicy
+                mode=PcRepeaterBonusPolicy.WHEN_AVAILABLE if weapon is PcMeleeWeapon.REPEATER_HANDGUN else None
+                request=PcMeleeSimulationRequest(make_pc_handgun_scenario(weapon=weapon,repeater_bonus_policy=mode),42,1)
+                self.assertIs(request.scenario.party[0].pc.weapon,weapon)
+                continue
+            if weapon.value in ('crossbow','repeater_crossbow'):
+                from tests.support.pc_crossbow_scenarios import make_pc_crossbow_scenario
+                from towr.domain.pc_melee_models import PcRepeaterBonusPolicy
+                mode=PcRepeaterBonusPolicy.WHEN_AVAILABLE if weapon is PcMeleeWeapon.REPEATER_CROSSBOW else None
+                request=PcMeleeSimulationRequest(make_pc_crossbow_scenario(weapon=weapon,repeater_bonus_policy=mode),42,1)
+                self.assertIs(request.scenario.party[0].pc.weapon,weapon)
+                continue
+            if weapon.value in ('shortbow','warbow','longbow'):
+                from tests.support.pc_bow_scenarios import make_pc_bow_scenario
+                request=PcMeleeSimulationRequest(make_pc_bow_scenario(weapon=weapon),42,1)
+                self.assertIs(request.scenario.party[0].pc.weapon,weapon)
+                continue
+            if weapon.value in ('pistol','repeater_handbow','repeater_pistol'):
+                from tests.support.pc_ranged_scenarios import make_pc_ranged_scenario
+                request=PcMeleeSimulationRequest(make_pc_ranged_scenario(weapon=weapon, **({'repeater_bonus_policy':None} if weapon is PcMeleeWeapon.PISTOL else {})),42,1)
                 self.assertIs(request.scenario.party[0].pc.weapon,weapon)
                 continue
             two_handed=weapon.value in ('pickaxe','flail','billhook','halberd','glaive','greataxe','greathammer')

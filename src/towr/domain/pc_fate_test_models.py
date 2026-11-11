@@ -22,8 +22,10 @@ def build_pc_glorious_spend(state, actor_id, skill, initial):
     locked = {m.value for m in initial.request.reroll_locks}
     useful = any(value not in locked and ((value <= initial.threshold) if grim else
         (value > initial.threshold)) for value in initial.initial_values)
+    cost = 0 if member.fate.lucky_free_spend_available else 1
     if (skill not in strategy.skills or successes > strategy.maximum_initial_successes
-            or member.fate.remaining_spends <= strategy.minimum_remaining_spends
+            or not member.fate.can_spend
+            or member.fate.remaining_spends-cost < strategy.minimum_remaining_spends
             or glorious or not useful):
         return None
     base_id = initial.request.id + ':glorious-spend'

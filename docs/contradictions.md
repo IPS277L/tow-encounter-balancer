@@ -1,5 +1,11 @@
 # Противоречия и неоднозначности
 
+## CODE-CONFLICT-006 — Athletics caps Miner и Bestigor (исправлено 2026-11-07)
+
+GM1.1 VII105 задаёт Miner Ag2/printed Athletics1d/3/heavy armour; VII144 задаёт Bestigor Ag4/printed Athletics3d/3/heavy armour. PG1.4 V107 ограничивает пул удвоенной исходной Characteristic: cap4 иcap8 соответственно. Уменьшенные printed pools соответствуют уже учтённому armour penalty PG97; это вывод из совместного чтения, повторный штраф не нужен.
+
+До M58 невыбранная metadata хранила InlineProfile(1,3) и InlineProfile(3,3), что давало ошибочные implicit cap2/cap6. Исправлены alternate profiles на(1,3,4)/(3,3,8). Выбранные57definitions/прежняя Defence и Attack profiles не менялись; они подтверждены before/after hashes. Нельзя представлять это изменением прошлых исходов или разрешением arbitrary numeric Protection cap. [Правило и проверки](rules/combat.md#pc-close-shooting-protection-m58).
+
 ## CODE-CONFLICT-005 — cap невыбранной Athletics Knights
 
 2026-11-07, выявлено при подготовке [M56 / ADR-0101](decisions/ADR-0101-pc-close-shooting-npc-protection-choice.md). GM1.1 VII101/116 задают обоим Knights Ag3 и printed Athletics2d/3; PG1.4 V107 ограничивает кубы удвоенной Characteristic, то есть6. Heavy armour PG97 объясняет уменьшение исходного пула до2; это вывод из совместного чтения, не отдельная фраза GM. Второй armour penalty применять нельзя.

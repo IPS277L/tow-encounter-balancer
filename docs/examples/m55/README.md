@@ -2,7 +2,7 @@
 
 PC начинает с заряженным Pistol в правой руке и щитом в левой. После выстрела при доступных руках он оставляет щит, перезаряжается до3накопленныхsuccesses, затем возвращает щит отдельным standard Recover перед следующим выстрелом. Завершение Reload не даёт бесплатный pickup или Shoot. [Принятый контракт](../../decisions/ADR-0100-pc-pistol-shield-reload-priority.md), [правило](../../rules/equipment.md#pc-pistol-shield-m55).
 
-Используется нынешний PC JSON1 без новых полей. Полный `pc.pistol` и остальные данные стрелка берутся из [M54](../m54/README.md). На уровне party participant добавляется существующий loadout:
+Используется нынешний PC JSON1 без новых полей. Полный `pc.ranged` и остальные данные стрелка берутся из [M54](../m54/README.md). На уровне party participant добавляется существующий loadout:
 
 ```json
 "initial_weapon_hand": "right",

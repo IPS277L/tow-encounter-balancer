@@ -4,7 +4,7 @@ from __future__ import annotations
 from dataclasses import dataclass,replace
 from typing import TYPE_CHECKING
 
-from towr.domain.attack_models import AttackOutcome,ConditionOnHitSpec,ProneBeforeGiveGroundSpec
+from towr.domain.attack_models import AttackOutcome,ConditionOnHitSpec,ProneBeforeGiveGroundSpec,NearbyTargetsStaggerSpec
 from towr.domain.condition_models import Condition,ConditionApplicationResult,ConditionState,EffectClassification
 from towr.domain.resolution_models import TargetInjuryPolicy
 
@@ -37,10 +37,19 @@ def validate_pc_hit_effects(effects: tuple[ConditionOnHitSpec | ProneBeforeGiveG
             raise ValueError('PC on-hit effect supports unclassified Drained only')
 
 
+def _primary_hit_effects(effects):
+    # Nearby has a separate ordered target owner; it never modifies primary again.
+    from towr.domain.ranged_weapon_attack_preparation_models import BLUNDERBUSS_NEARBY_STAGGER_RULE_ID
+    if (type(effects) is tuple and len(effects) == 1 and type(effects[0]) is NearbyTargetsStaggerSpec
+            and type(effects[0].rule_id) is str and effects[0].rule_id == BLUNDERBUSS_NEARBY_STAGGER_RULE_ID):
+        return ()
+    validate_pc_hit_effects(effects)
+    return effects
+
+
 def pc_pre_stagger_target(kernel: KernelAttackRequest,outcome: AttackOutcome):
     """Project early Prone before the Stagger/Wound branch, without a late receipt."""
-    effects = kernel.attack.secondary_effects
-    validate_pc_hit_effects(effects)
+    effects = _primary_hit_effects(kernel.attack.secondary_effects)
     before = kernel.target_state
     if outcome is not AttackOutcome.HIT or not effects or type(effects[0]) is not ProneBeforeGiveGroundSpec:
         return before,()
@@ -70,8 +79,7 @@ class PcHitConditionSource:
 
 def expected_pc_hit_target(kernel: KernelAttackRequest,outcome: AttackOutcome,base):
     """Project K1's single post-damage application without executing a rule or RNG."""
-    effects = kernel.attack.secondary_effects
-    validate_pc_hit_effects(effects)
+    effects = _primary_hit_effects(kernel.attack.secondary_effects)
     if outcome is not AttackOutcome.HIT or not effects:
         return base,(),()
     if kernel.target_policy is not TargetInjuryPolicy.PLAYER or kernel.target_effect_immunities:
@@ -92,8 +100,7 @@ def hit_condition_sources_from_attack(request: AttackActionExecutionRequest,resu
     from towr.domain.pc_net_models import is_net_impact
     if is_net_impact(request.kernel_request.attack.impact_spec):
         return ()  # Net has its own primary-impact cause bank.
-    effects = request.kernel_request.attack.secondary_effects
-    validate_pc_hit_effects(effects)
+    effects = _primary_hit_effects(request.kernel_request.attack.secondary_effects)
     if result.attack.outcome is not AttackOutcome.HIT or not effects:
         if result.condition_applications:
             raise ValueError('no successful source hit can invent a Condition application')

@@ -8,7 +8,7 @@ from tests.unit.test_m9_pc_melee_json import document
 from tests.unit.test_m54_pistol_execution import scene, shots, steps
 from towr.adapters._pc_melee_scenario_json import scenario_document
 from towr.adapters.pc_melee_json import parse_pc_melee_simulation_request
-from towr.domain.pc_pistol_models import PcPistolReloadProof
+from towr.domain.pc_ranged_models import PcRangedReloadProof
 from towr.engine.pc_melee_runner import run_pc_melee_scenario
 from towr.simulation.pc_melee_parallel import run_pc_melee_simulation_parallel
 from towr.simulation.pc_melee_simulation import run_pc_melee_simulation
@@ -34,9 +34,9 @@ class PcPistolProcessTests(unittest.TestCase):
         request = process_request()
         journals = tuple(run_pc_melee_scenario(request.scenario,
             Random(request.seed_for(index))) for index in range(request.trials))
-        self.assertTrue(all(steps(journal, PcPistolReloadProof) for journal in journals))
+        self.assertTrue(all(steps(journal, PcRangedReloadProof) for journal in journals))
         self.assertTrue(any(len(shots(journal)) >= 2 for journal in journals))
-        self.assertTrue(any(len(journal.state.participant('pc1').pistol.reload_cycle_ids) >= 2
+        self.assertTrue(any(len(journal.state.participant('pc1').ranged.reload_cycle_ids) >= 2
             for journal in journals))
         sequential = run_pc_melee_simulation(request)
         parallel = run_pc_melee_simulation_parallel(request, workers=2, batch_size=1)
@@ -45,8 +45,8 @@ class PcPistolProcessTests(unittest.TestCase):
             summarize_pc_melee_simulation(sequential))
         for record, journal in zip(parallel.records, journals, strict=True):
             self.assertEqual(record.source_scenario, request.scenario)
-            self.assertEqual(record.source_scenario.participant('pc1').pc.pistol,
-                request.scenario.participant('pc1').pc.pistol)
+            self.assertEqual(record.source_scenario.participant('pc1').pc.ranged,
+                request.scenario.participant('pc1').pc.ranged)
             self.assertEqual(record.executed_actions, journal.executed_actions)
             self.assertFalse(hasattr(record, 'steps'))
             self.assertFalse(hasattr(record, 'reload_count'))

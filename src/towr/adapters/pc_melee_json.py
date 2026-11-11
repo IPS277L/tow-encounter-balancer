@@ -130,7 +130,7 @@ def _runtime() -> dict:
 
 
 def _summary(summary: PcMeleeSimulationSummary) -> dict:
-    return {"trials": summary.trials, "outcome_counts": asdict(summary.outcome_counts),
+    document = {"trials": summary.trials, "outcome_counts": asdict(summary.outcome_counts),
         "total_action_count": summary.total_action_count,
         "total_started_round_count": summary.total_started_round_count,
         "total_completed_round_count": summary.total_completed_round_count,
@@ -164,6 +164,14 @@ def _summary(summary: PcMeleeSimulationSummary) -> dict:
         "npc_warped_form_trial_count": summary.npc_warped_form_trial_count,
         "npc_warped_form_counts": [asdict(count) for count in summary.npc_warped_form_counts],
         "total_npc_warped_form_count": summary.total_npc_warped_form_count}
+    if summary.aim is not None:
+        document['aim'] = {
+            'action_counts':[asdict(row) for row in summary.aim.action_counts],
+            'total_action_count':summary.aim.total_action_count,
+            'second_action_spend_counts':[asdict(row) for row in summary.aim.second_action_spend_counts],
+            'total_second_action_spend_count':summary.aim.total_second_action_spend_count,
+        }
+    return document
 
 
 def encode_pc_melee_simulation_result(command: PcMeleeSimulationCommand,

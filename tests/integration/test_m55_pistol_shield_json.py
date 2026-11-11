@@ -51,7 +51,7 @@ class PistolShieldJsonTests(unittest.TestCase):
             member = source.party[0]
             self.assertIs(member.pc.weapon, PcMeleeWeapon.PISTOL)
             self.assertIsNot(member.shield.initial_hand, member.initial_weapon_hand)
-            self.assertEqual(member.pc.pistol.reload_hand_policy.value, 'two_available_hands')
+            self.assertEqual(member.pc.ranged.reload_hand_policy.value, 'two_available_hands')
             self.assertEqual(member.shield.recovery_policy.value, 'restore_before_attack')
             self.assertEqual(member.shield.hand_conflict_policy.value, 'weapon_first')
 
@@ -63,7 +63,8 @@ class PistolShieldJsonTests(unittest.TestCase):
             {'initial_weapon_hand': member.shield.initial_hand},
             {'initial_weapon_hand': Alias.RIGHT},
             {'shield': {'initial_hand': 'left'}},
-            {'backup_weapon_policy': PcBackupWeaponPolicy(PcMeleeWeapon.DAGGER, PcWeaponHand.RIGHT)},
+            {'pc': replace(member.pc,strength=1),
+                'backup_weapon_policy': PcBackupWeaponPolicy(PcMeleeWeapon.DAGGER, PcWeaponHand.RIGHT)},
             {'policy': PcMeleePolicy.HELP_ALLY_OR_ATTACK_OR_RECOVER_SELF,
                 'help_policy': PcHelpPolicy('ally', PcHelpTarget.MELEE_ATTACK, None)},
             {'policy': PcMeleePolicy.RECOVER_ALLY_OR_ATTACK_OR_RECOVER_SELF,
@@ -73,7 +74,7 @@ class PistolShieldJsonTests(unittest.TestCase):
             with self.subTest(change=change), self.assertRaises((TypeError, ValueError)):
                 replace(member, **change)
         with self.assertRaises(TypeError):
-            replace(member, pc=replace(member.pc, pistol=None))
+            replace(member, pc=replace(member.pc, ranged=None))
 
     def test_full_requests_roundtrip_without_new_wire_fields_or_default_shield(self):
         for balance in (False, True):
@@ -88,19 +89,22 @@ class PistolShieldJsonTests(unittest.TestCase):
                 self.assertEqual(scenario_document(source), raw[key])
                 self.assertEqual('shield' in scenario_document(source)['party'][0], shield)
                 self.assertEqual(raw['schema_version'], '1')
-                self.assertEqual(source.party[0].pc.pistol, pistol_shield_source().party[0].pc.pistol)
+                self.assertEqual(source.party[0].pc.ranged, pistol_shield_source().party[0].pc.ranged)
 
     def test_closed_combined_source_rejects_invalid_hand_policy_and_profile_before_rng(self):
+        def overcarry_backup(member):
+            member['pc']['strength'] = 1
+            member['backup_weapon_policy'] = {'weapon': 'dagger', 'preferred_hand': 'right'}
         changes = (
             lambda member: member.update(initial_weapon_hand='left'),
             lambda member: member.update(shield=None),
             lambda member: member['shield'].pop('initial_hand'),
             lambda member: member['shield'].update(recovery_policy='leave_dropped'),
             lambda member: member['shield'].update(reload_priority=True),
-            lambda member: member['pc']['pistol'].update(reload_hand_policy='weapon_hand_only'),
-            lambda member: member['pc']['pistol'].pop('has_blackpowder_kit'),
-            lambda member: member['pc']['pistol'].update(initially_loaded=False),
-            lambda member: member.update(backup_weapon_policy={'weapon': 'dagger', 'preferred_hand': 'right'}),
+            lambda member: member['pc']['ranged'].update(reload_hand_policy='weapon_hand_only'),
+            lambda member: member['pc']['ranged'].pop('has_blackpowder_kit'),
+            lambda member: member['pc']['ranged'].update(initially_loaded=False),
+            overcarry_backup,
         )
         for balance in (False, True):
             key = 'template' if balance else 'scenario'
@@ -116,7 +120,7 @@ class PistolShieldJsonTests(unittest.TestCase):
 
     def test_codec_without_schema_keeps_complete_shield_and_pistol_admission(self):
         base = pistol_shield_document()['scenario']
-        for field, value in (('shield', None), ('shield', {}), ('pistol', None), ('pistol', {})):
+        for field, value in (('shield', None), ('shield', {}), ('ranged', None), ('ranged', {})):
             raw = deepcopy(base)
             if field == 'shield':
                 raw['party'][0][field] = value
@@ -133,7 +137,7 @@ class PistolShieldJsonTests(unittest.TestCase):
             if field == 'shield_hand':
                 object.__setattr__(member.shield, 'initial_hand', member.initial_weapon_hand)
             else:
-                object.__setattr__(member.pc.pistol, 'has_blackpowder_kit', False)
+                object.__setattr__(member.pc.ranged, 'has_blackpowder_kit', False)
             with patch('towr.simulation.pc_melee_simulation.Random') as rng:
                 with self.subTest(field=field), self.assertRaises((TypeError, ValueError)):
                     run_pc_melee_trial(forged, 0, rng_factory=rng)

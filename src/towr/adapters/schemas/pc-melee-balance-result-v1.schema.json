@@ -33,7 +33,73 @@
     "candidates": {
       "type": "array",
       "items": {
-        "$ref": "urn:towr:pc-melee:common:1#/$defs/candidate"
+        "allOf": [
+          {
+            "$ref": "urn:towr:pc-melee:common:1#/$defs/candidate"
+          },
+          {
+            "if": {
+              "properties": {
+                "request": {
+                  "properties": {
+                    "scenario": {
+                      "properties": {
+                        "party": {
+                          "contains": {
+                            "properties": {
+                              "pc": {
+                                "properties": {
+                                  "weapon": {
+                                    "const": "hochland_long_rifle"
+                                  }
+                                },
+                                "required": [
+                                  "weapon"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "pc"
+                            ]
+                          }
+                        }
+                      },
+                      "required": [
+                        "party"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "scenario"
+                  ]
+                }
+              },
+              "required": [
+                "request"
+              ]
+            },
+            "then": {
+              "properties": {
+                "summary": {
+                  "required": [
+                    "aim"
+                  ]
+                }
+              }
+            },
+            "else": {
+              "properties": {
+                "summary": {
+                  "not": {
+                    "required": [
+                      "aim"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        ]
       },
       "minItems": 1
     },
@@ -58,5 +124,81 @@
     "candidates",
     "selected_candidate_ids"
   ],
-  "additionalProperties": false
+  "additionalProperties": false,
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "request": {
+            "properties": {
+              "template": {
+                "properties": {
+                  "party": {
+                    "contains": {
+                      "properties": {
+                        "pc": {
+                          "properties": {
+                            "weapon": {
+                              "const": "hochland_long_rifle"
+                            }
+                          },
+                          "required": [
+                            "weapon"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "pc"
+                      ]
+                    }
+                  }
+                },
+                "required": [
+                  "party"
+                ]
+              }
+            },
+            "required": [
+              "template"
+            ]
+          }
+        },
+        "required": [
+          "request"
+        ]
+      },
+      "then": {
+        "properties": {
+          "candidates": {
+            "items": {
+              "properties": {
+                "summary": {
+                  "required": [
+                    "aim"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "candidates": {
+            "items": {
+              "properties": {
+                "summary": {
+                  "not": {
+                    "required": [
+                      "aim"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
 }

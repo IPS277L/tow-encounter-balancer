@@ -21,7 +21,7 @@ from towr.domain.pc_melee_result_models import (
     PcAttackProof, PcHandDropProof, PcHandSwapProof, PcHelpProof,
     PcMeleeOutcome, PcMeleeStep, PcRecoverProof,
 )
-from towr.domain.pc_pistol_models import PcPistolReloadProof
+from towr.domain.pc_ranged_models import PcRangedReloadProof
 from towr.domain.pc_shield_models import PcShieldLocation, PcShieldReleaseProof
 from towr.domain.test_models import Skill, TestQuality
 from towr.engine.pc_melee_runner import apply_pc_melee_step
@@ -74,17 +74,17 @@ class PcPistolShieldExecutionTests(unittest.TestCase):
             + [1, 1, 1] + NPC_MISS + NPC_MISS + SHOT_HIT + NPC_MISS)
         first, second = shots(result)
         release, = steps(result, PcShieldReleaseProof)
-        reload, = steps(result, PcPistolReloadProof)
+        reload, = steps(result, PcRangedReloadProof)
         recover, = steps(result, PcRecoverProof)
         self.assertEqual(tuple(step.source.round_state.round_number
             for step in (first, release, reload, recover, second)), (1, 2, 2, 3, 4))
         self.assertEqual(recover_object(recover), 'pc1:shield')
         self.assertIs(release.source.participant('pc1').shield.location, PcShieldLocation.HELD)
         self.assertIs(reload.source.participant('pc1').shield.location, PcShieldLocation.DROPPED)
-        self.assertTrue(reload.state.participant('pc1').pistol.loaded)
+        self.assertTrue(reload.state.participant('pc1').ranged.loaded)
         self.assertIs(reload.state.participant('pc1').shield.location, PcShieldLocation.DROPPED)
         self.assertIs(second.source.participant('pc1').shield.location, PcShieldLocation.HELD)
-        self.assertEqual(recover.source.participant('pc1').pistol, recover.state.participant('pc1').pistol)
+        self.assertEqual(recover.source.participant('pc1').ranged, recover.state.participant('pc1').ranged)
         self.assertEqual(result.executed_actions, 8)
         self.assertEqual(len(second.source.round_state.active_turn.action_slots), 1)
         self.assertEqual(tuple(raw(step).impact_spec.resilience.total for step in incoming(result)),
@@ -96,9 +96,9 @@ class PcPistolShieldExecutionTests(unittest.TestCase):
         result = execute(scene(rounds=5, initiative=4), SHOT_HIT + NPC_MISS
             + [1, 10, 10, 10] + NPC_MISS + [10]*4 + NPC_MISS
             + [1]*4 + NPC_MISS + NPC_MISS)
-        reloads = steps(result, PcPistolReloadProof)
+        reloads = steps(result, PcRangedReloadProof)
         recover, = steps(result, PcRecoverProof)
-        self.assertEqual(tuple(step.state.participant('pc1').pistol.exacting.accumulated_successes
+        self.assertEqual(tuple(step.state.participant('pc1').ranged.exacting.accumulated_successes
             for step in reloads), (1, 1, 5))
         self.assertTrue(all(step.state.participant('pc1').shield.location is PcShieldLocation.DROPPED
             for step in reloads))
@@ -120,20 +120,20 @@ class PcPistolShieldExecutionTests(unittest.TestCase):
             (None, None, 'pc1:shield'))
         self.assertTrue(second.source.participant('pc1').injury.conditions.has(Condition.PRONE))
         self.assertFalse(second.state.participant('pc1').injury.conditions.has(Condition.PRONE))
-        self.assertFalse(second.state.participant('pc1').pistol.loaded)
+        self.assertFalse(second.state.participant('pc1').ranged.loaded)
         self.assertIs(second.state.participant('pc1').shield.location, PcShieldLocation.DROPPED)
 
     def test_forced_drop_preserves_empty_gun_and_weapon_pickup_precedes_reload(self):
         result = execute(scene(rounds=4), SHOT_HIT + NPC_HIT + [8, 10]
             + NPC_MISS + [1, 1, 1] + NPC_MISS + NPC_MISS)
         pickup, shield = steps(result, PcRecoverProof)
-        reload, = steps(result, PcPistolReloadProof)
+        reload, = steps(result, PcRangedReloadProof)
         self.assertEqual((recover_object(pickup), recover_object(shield)), ('pc1:weapon', 'pc1:shield'))
         self.assertEqual(tuple(step.source.round_state.round_number for step in (pickup, reload, shield)),
             (2, 3, 4))
         self.assertIs(pickup.state.participant('pc1').shield.location, PcShieldLocation.HELD)
-        self.assertFalse(pickup.state.participant('pc1').pistol.loaded)
-        self.assertEqual(pickup.source.participant('pc1').pistol, pickup.state.participant('pc1').pistol)
+        self.assertFalse(pickup.state.participant('pc1').ranged.loaded)
+        self.assertEqual(pickup.source.participant('pc1').ranged, pickup.state.participant('pc1').ranged)
         self.assertEqual(len(steps(result, PcHandDropProof)), 1)
 
     def test_loaded_weapon_and_shield_drops_require_distinct_recovers_without_reload(self):
@@ -144,17 +144,17 @@ class PcPistolShieldExecutionTests(unittest.TestCase):
             + NPC_MISS*2 + NPC_MISS*2)
         recovers = steps(result, PcRecoverProof)
         self.assertEqual(tuple(recover_object(step) for step in recovers), ('pc1:weapon', 'pc1:shield'))
-        self.assertTrue(all(step.source.participant('pc1').pistol.loaded for step in recovers))
-        self.assertEqual(len(steps(result, PcPistolReloadProof)), 1)
+        self.assertTrue(all(step.source.participant('pc1').ranged.loaded for step in recovers))
+        self.assertEqual(len(steps(result, PcRangedReloadProof)), 1)
         self.assertEqual(len(steps(result, PcShieldReleaseProof)), 1)
 
     def test_wound_twelve_reload_uses_injured_hand_but_does_not_restore_shield_to_it(self):
         result = execute(scene(rounds=2, enemies=3), SHOT_HIT + heavy_hits(12)
             + [1, 1, 1] + [1, 1, 1] + NPC_MISS*3)
-        reload, = steps(result, PcPistolReloadProof)
+        reload, = steps(result, PcRangedReloadProof)
         self.assertEqual(critical_sources(reload.source), ())
         self.assertEqual(critical_sources(reload.state), (3,))
-        self.assertTrue(reload.state.participant('pc1').pistol.loaded)
+        self.assertTrue(reload.state.participant('pc1').ranged.loaded)
         self.assertIs(reload.state.participant('pc1').shield.location, PcShieldLocation.DROPPED)
         self.assertEqual(steps(result, PcRecoverProof), ())
         self.assertEqual(steps(result, PcShieldReleaseProof), ())
@@ -166,14 +166,14 @@ class PcPistolShieldExecutionTests(unittest.TestCase):
             + NPC_MISS*3 + [1, 1, 1] + [1, 1, 1] + NPC_MISS*3)
         release, = steps(result, PcShieldReleaseProof)
         recover, = steps(result, PcRecoverProof)
-        reload, = steps(result, PcPistolReloadProof)
+        reload, = steps(result, PcRangedReloadProof)
         self.assertEqual(recover_object(recover), 'pc1:weapon')
         self.assertEqual(tuple(step.source.round_state.round_number for step in (release, recover, reload)),
             (2, 2, 3))
         self.assertIs(recover.state.participant('pc1').weapon_hand, PcWeaponHand.LEFT)
         self.assertEqual(critical_sources(recover.state), ())
         self.assertEqual(critical_sources(reload.state), (3,))
-        self.assertTrue(reload.state.participant('pc1').pistol.loaded)
+        self.assertTrue(reload.state.participant('pc1').ranged.loaded)
         self.assertIs(reload.state.participant('pc1').shield.location, PcShieldLocation.DROPPED)
 
     def test_reload_release_preserves_distinct_wound_fourteen_and_fifteen_critical_triggers(self):
@@ -182,11 +182,11 @@ class PcPistolShieldExecutionTests(unittest.TestCase):
                 result = execute(scene(rounds=2, enemies=3), SHOT_HIT + heavy_hits(total)
                     + [1, 1, 1] + [1, 1, 1] + NPC_MISS*3)
                 release, = steps(result, PcShieldReleaseProof)
-                reload, = steps(result, PcPistolReloadProof)
+                reload, = steps(result, PcRangedReloadProof)
                 self.assertEqual(critical_sources(release.source), ())
                 self.assertEqual(critical_sources(release.state), (3,) if total == 14 else ())
                 self.assertEqual(critical_sources(reload.state), (3,))
-                self.assertTrue(reload.state.participant('pc1').pistol.loaded)
+                self.assertTrue(reload.state.participant('pc1').ranged.loaded)
                 self.assertEqual(len(steps(result, PcRecoverProof)), 0)
 
     def test_loaded_one_hand_shot_survives_heavy_wound_until_actual_reload_boundary(self):
@@ -197,15 +197,15 @@ class PcPistolShieldExecutionTests(unittest.TestCase):
                     + SHOT_HIT + [1, 1, 1] + NPC_MISS*3)
                 self.assertIs(result.outcome, PcMeleeOutcome.UNSUPPORTED_PATH)
                 self.assertEqual(len(shots(result)), 2)
-                self.assertEqual(len(steps(result, PcPistolReloadProof)), 1)
-                self.assertEqual(result.unsupported.reason, 'pistol_reload_hands_unavailable')
+                self.assertEqual(len(steps(result, PcRangedReloadProof)), 1)
+                self.assertEqual(result.unsupported.reason, 'ranged_reload_hands_unavailable')
                 self.assertEqual(result.unsupported.table_total, total)
                 self.assertEqual(result.state.round_state.round_number, 5)
                 self.assertEqual(result.state.round_state.active_turn.action_slots, ())
-                self.assertIn(result.state.participant('pc1').pistol.reload_cycle_id,
+                self.assertIn(result.state.participant('pc1').ranged.reload_cycle_id,
                     result.unsupported.source_id)
                 last_shot = shots(result)[1]
-                self.assertTrue(last_shot.source.participant('pc1').pistol.loaded)
+                self.assertTrue(last_shot.source.participant('pc1').ranged.loaded)
                 self.assertIs(last_shot.source.participant('pc1').shield.location, PcShieldLocation.DROPPED)
                 if total == 16:
                     self.assertEqual(len(steps(result, PcHandSwapProof)), 1)
@@ -224,30 +224,30 @@ class PcPistolShieldExecutionTests(unittest.TestCase):
     def test_reload_fate_consumes_only_actual_dexterity_test_and_keeps_shield_dropped(self):
         source = configured(scene(rounds=3), (Skill.DEXTERITY,))
         result = execute(source, SHOT_HIT + NPC_MISS + [10]*3 + [1]*3 + NPC_MISS + NPC_MISS)
-        reload, = steps(result, PcPistolReloadProof)
+        reload, = steps(result, PcRangedReloadProof)
         self.assertEqual(reload.proof.glorious.source_request.test, reload.proof.request.dexterity_test)
         self.assertIs(reload.proof.result.exacting.test_result.trace.quality, TestQuality.GLORIOUS)
         self.assertEqual(len(reload.state.participant('pc1').fate.spends), 1)
-        self.assertEqual(len(reload.state.participant('pc1').pistol.exacting.contributions), 1)
+        self.assertEqual(len(reload.state.participant('pc1').ranged.exacting.contributions), 1)
         self.assertIs(reload.state.participant('pc1').shield.location, PcShieldLocation.DROPPED)
 
     def test_wound_ten_grim_is_consumed_by_reload_not_free_shield_release(self):
         result = execute(scene(rounds=3), SHOT_HIT + NPC_HIT + [10]
             + [1, 10, 10, 10] + NPC_MISS + [1, 1, 1] + NPC_MISS)
         release, = steps(result, PcShieldReleaseProof)
-        first, second = steps(result, PcPistolReloadProof)
+        first, second = steps(result, PcRangedReloadProof)
         self.assertEqual(release.source.participant('pc1').injury, release.state.participant('pc1').injury)
         self.assertIs(first.proof.result.exacting.test_result.trace.quality, TestQuality.GRIM)
         self.assertIs(second.proof.result.exacting.test_result.trace.quality, TestQuality.NORMAL)
-        self.assertEqual(first.state.participant('pc1').pistol.exacting.accumulated_successes, 0)
-        self.assertTrue(second.state.participant('pc1').pistol.loaded)
+        self.assertEqual(first.state.participant('pc1').ranged.exacting.accumulated_successes, 0)
+        self.assertTrue(second.state.participant('pc1').ranged.loaded)
 
     def test_terminal_shot_does_not_release_reload_or_recover_shield(self):
         result = execute(scene(durable=False), SHOT_HIT)
         self.assertIs(result.outcome, PcMeleeOutcome.OBJECTIVE_ACHIEVED)
         self.assertEqual(result.executed_actions, 1)
         self.assertEqual(steps(result, PcShieldReleaseProof), ())
-        self.assertEqual(steps(result, PcPistolReloadProof), ())
+        self.assertEqual(steps(result, PcRangedReloadProof), ())
         self.assertEqual(steps(result, PcRecoverProof), ())
         self.assertIs(result.state.participant('pc1').shield.location, PcShieldLocation.HELD)
 
@@ -259,7 +259,7 @@ class PcPistolShieldExecutionTests(unittest.TestCase):
         member = result.state.participant('pc1')
         self.assertIs(member.shield.location, PcShieldLocation.HELD)
         self.assertIs(member.weapon_hand, PcWeaponHand.RIGHT)
-        self.assertFalse(member.pistol.loaded)
+        self.assertFalse(member.ranged.loaded)
         self.assertEqual(member.body_facts, ())
         self.assertEqual(steps(result, PcHandDropProof), ())
         self.assertEqual(steps(result, PcShieldReleaseProof), ())
@@ -284,7 +284,7 @@ class PcPistolShieldExecutionTests(unittest.TestCase):
     def test_protection_help_binds_pistol_owners_actual_shield_defence_against_net(self):
         source = book_scene(pc_count=2, net_goblins=1)
         helper = source.party[0]
-        helper = replace(helper, pc=replace(helper.pc, weapon=PcMeleeWeapon.SWORD, pistol=None),
+        helper = replace(helper, pc=replace(helper.pc, weapon=PcMeleeWeapon.SWORD, ranged=None),
             policy=PcMeleePolicy.HELP_ALLY_OR_ATTACK_OR_RECOVER_SELF,
             help_policy=PcHelpPolicy('pc2', PcHelpTarget.FIRST_INCOMING_PROTECTION, Skill.DEFENCE))
         source = replace(source, party=(helper, source.party[1]), enemy_target_priority=('pc2', 'pc1'))
@@ -312,7 +312,7 @@ class PcPistolShieldExecutionTests(unittest.TestCase):
         result = execute(scene(rounds=3), SHOT_HIT + NPC_MISS
             + [1, 1, 1] + NPC_MISS + NPC_MISS)
         release, = steps(result, PcShieldReleaseProof)
-        reload, = steps(result, PcPistolReloadProof)
+        reload, = steps(result, PcRangedReloadProof)
         recover, = steps(result, PcRecoverProof)
         for step in (release, reload, recover):
             self.assertEqual(apply_pc_melee_step(step.source, step), step.state)

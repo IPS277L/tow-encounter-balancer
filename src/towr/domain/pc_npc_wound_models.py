@@ -14,6 +14,7 @@ if TYPE_CHECKING:
 
 
 OFFICIAL_DEFINITION_ID = 'pc-book-npc:empire_official_dagger'
+OFFICIAL_DEFINITION_IDS = (OFFICIAL_DEFINITION_ID,'pc-book-npc:empire_official_pistol')
 OFFICIAL_BROKEN_RULE_ID = 'RULE-PROFILE-TALABEC-007:first-wound-broken'
 ELF_MERCHANT_DEFINITION_ID = 'pc-book-npc:elf_merchant_jewelled_blade'
 CENTIGOR_DEFINITION_ID = 'pc-book-npc:centigor_spear'
@@ -83,7 +84,7 @@ class PcNpcBrokenWaveTurnUnsupported:
 def official_profile_wound_state(definition: NpcDefinition, injury: ProfileInjuryState,
         change: ProfileStateChangeRequest) -> ProfileInjuryState:
     """Called only while acknowledging the actual mandatory profile-Wound receipt."""
-    if definition.id!=OFFICIAL_DEFINITION_ID:
+    if definition.id not in OFFICIAL_DEFINITION_IDS:
         return injury
     validate_pc_book_npc_definition(definition)
     if not _first_wound(change):
@@ -154,7 +155,7 @@ def pc_npc_broken_turn_unsupported(state: PcMeleeState) -> PcNpcBrokenTurnUnsupp
     if actor not in state.source.enemy_activation_order:
         return None
     enemy = state.enemy(actor)
-    if (enemy.definition.id!=OFFICIAL_DEFINITION_ID or enemy.state.injury.defeated
+    if (enemy.definition.id not in OFFICIAL_DEFINITION_IDS or enemy.state.injury.defeated
             or not enemy.state.injury.conditions.has(Condition.BROKEN)):
         return None
     validate_pc_book_npc_definition(enemy.definition)

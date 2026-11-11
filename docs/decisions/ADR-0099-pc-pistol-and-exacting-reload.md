@@ -2,6 +2,8 @@
 
 Дата: 2026-11-07. Статус: **принят пользователем и реализован в M54**. Выбраны Pistol без shield/backup и явная policy two_available_hands для Reload.
 
+Дополнение M60: [ADR-0102](ADR-0102-pc-pistol-melee-backup.md) разрешает carried1H backup у Pistol с optional shield при empty/недоступном Reload. Первоначальные ограничения ниже сохраняют историю этой вехи; актуальная общая граница — в [правиле M60](../rules/equipment.md#pc-pistol-backup-m60).
+
 ## Источники и установленные факты
 
 Адресно сверены BOOK-PLAYER-GUIDE1.4: гл.III Skills68–70, Rapid Reload79, Lores/Specialist Skills82; гл.IV Weapons92/94–95, Tools and Kits98–99; гл.V Exacting110, Actions116–118, Failed Attacks119 и Conditions123; Wounds Table190–191. Повторное чтение неизменённых частей дополнено независимой read-only сверкой. Лор о ношении нескольких пистолетов не создаёт второй предмет во входе. Новых книг/редакций/полного перечитывания нет.
@@ -92,6 +94,6 @@ Configured Glorious criteria расширяются на Shooting/Dexterity с �
 
 ## Реализация и проверка
 
-Пользователь подтвердил оба решения. [PcPistolProfile](../../src/towr/domain/pc_melee_models.py) и current JSON1 связывают полный источник; [pc_pistol_models](../../src/towr/domain/pc_pistol_models.py) хранит подготовку выстрела, экземпляр/цикл и Reload proof. [Owner](../../src/towr/domain/_pc_melee_projection.py) подтверждает актуальный prefix и фактический Skill/Fate. Чистое завершение Reload после уже разрешённого Test находится в domain/reload_models; engine и rules используют его без зависимости domain от rules и без повторного RNG.
+Пользователь подтвердил оба решения. [PcPistolProfile](../../src/towr/domain/pc_melee_models.py) и current JSON1 связывают полный источник; [pc_pistol_models](../../src/towr/domain/pc_ranged_models.py) хранит подготовку выстрела, экземпляр/цикл и Reload proof. [Owner](../../src/towr/domain/_pc_melee_projection.py) подтверждает актуальный prefix и фактический Skill/Fate. Чистое завершение Reload после уже разрешённого Test находится в domain/reload_models; engine и rules используют его без зависимости domain от rules и без повторного RNG.
 
 46 новых тестов прошли составными адресными прогонами:10core,8source,7JSON/services,20native execution и1actual process. Проверены общий K1 Reload/Exacting/ranged путь и209ближайших PC проверок.180прежнихJSON сохранены побайтно; NPC каталог остаётся57. Фактические команды и ограничения проверки — в [статусе](../project-status.md), исполняемые [CLI-примеры](../examples/m54/README.md). Full project regression и wheel не требовались по согласованной политике проверок.

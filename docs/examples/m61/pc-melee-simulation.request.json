@@ -1,0 +1,292 @@
+{
+  "schema_version": "1",
+  "kind": "pc_melee_simulation",
+  "request_id": "m61:npc-pistol-reload:simulation",
+  "ruleset": "towr-pg1.4-gmg1.1",
+  "execution": {
+    "mode": "sequential"
+  },
+  "scenario": {
+    "id": "pc-npc-pistol-reload",
+    "party": [
+      {
+        "actor_id": "pc1",
+        "pc": {
+          "id": "pc-profile1",
+          "weapon_skill": 3,
+          "strength": 3,
+          "toughness": 3,
+          "agility": 3,
+          "melee": 5,
+          "defence": 5,
+          "athletics": 4,
+          "endurance": 4,
+          "weapon": "pistol",
+          "armour_bonus": 1,
+          "ranged": {
+            "ballistic_skill": 3,
+            "shooting": 4,
+            "initiative": 3,
+            "dexterity": 4,
+            "has_blackpowder_lore": true,
+            "has_blackpowder_kit": true,
+            "ammunition_supply_confirmed": true,
+            "initially_loaded": true,
+            "reload_hand_policy": "two_available_hands"
+          }
+        },
+        "fate": {
+          "session_id": "session",
+          "actor_id": "pc1",
+          "rating": 3,
+          "session_spend_limit": 3,
+          "spends": [],
+          "has_lucky": false,
+          "refreshes": [],
+          "burns": [],
+          "resource_event_ids": [],
+          "rule_id": "RULE-FATE-001:session-resource"
+        },
+        "policy": "attack_or_recover_self",
+        "fate_policy": "decline_optional_fate",
+        "random_side_policy": "d10_low_left_high_right",
+        "heavy_wound_policy": "continue_fighting",
+        "initial_weapon_hand": "right",
+        "target_priority": [
+          "official1",
+          "ogre1"
+        ],
+        "defeat_decisions": [
+          {
+            "attacker_id": "pc1",
+            "target_id": "official1",
+            "disposition": "knocked_out",
+            "gm_approved": true
+          },
+          {
+            "attacker_id": "pc1",
+            "target_id": "ogre1",
+            "disposition": "knocked_out",
+            "gm_approved": true
+          }
+        ],
+        "near_miss_policy": null,
+        "glorious_policy": null,
+        "help_policy": null,
+        "ally_recover_policy": null,
+        "backup_weapon_policy": {
+          "weapon": "sword",
+          "preferred_hand": "left"
+        },
+        "shield": {
+          "initial_hand": "left",
+          "hand_conflict_policy": "weapon_first",
+          "recovery_policy": "restore_before_attack"
+        }
+      },
+      {
+        "actor_id": "pc2",
+        "pc": {
+          "id": "pc-profile2",
+          "weapon_skill": 3,
+          "strength": 3,
+          "toughness": 3,
+          "agility": 3,
+          "melee": 5,
+          "defence": 5,
+          "athletics": 4,
+          "endurance": 4,
+          "weapon": "staff",
+          "armour_bonus": 1
+        },
+        "fate": {
+          "session_id": "session",
+          "actor_id": "pc2",
+          "rating": 3,
+          "session_spend_limit": 3,
+          "spends": [],
+          "has_lucky": false,
+          "refreshes": [],
+          "burns": [],
+          "resource_event_ids": [],
+          "rule_id": "RULE-FATE-001:session-resource"
+        },
+        "policy": "attack_or_recover_self",
+        "fate_policy": "decline_optional_fate",
+        "random_side_policy": "d10_low_left_high_right",
+        "heavy_wound_policy": "continue_fighting",
+        "initial_weapon_hand": "right",
+        "target_priority": [
+          "official1",
+          "ogre1"
+        ],
+        "defeat_decisions": [
+          {
+            "attacker_id": "pc2",
+            "target_id": "official1",
+            "disposition": "knocked_out",
+            "gm_approved": true
+          },
+          {
+            "attacker_id": "pc2",
+            "target_id": "ogre1",
+            "disposition": "knocked_out",
+            "gm_approved": true
+          }
+        ],
+        "near_miss_policy": null,
+        "glorious_policy": null,
+        "help_policy": null,
+        "ally_recover_policy": null,
+        "backup_weapon_policy": null,
+        "shield": {
+          "initial_hand": "left",
+          "hand_conflict_policy": "weapon_first",
+          "recovery_policy": "restore_before_attack"
+        }
+      }
+    ],
+    "day_id": "day",
+    "enemies": [
+      {
+        "actor_id": "official1",
+        "holds_shield": false,
+        "definition": {
+          "id": "pc-book-npc:empire_official_pistol",
+          "source_rule_id": "BOOK-GM-GUIDE:1.1:p98:empire_official_pistol",
+          "injury_policy": "brute",
+          "wound_limit": 2,
+          "resilience": {
+            "toughness": 3,
+            "bonus": 0
+          },
+          "attack": {
+            "id": "pistol",
+            "source_rule_id": "BOOK-GM-GUIDE:1.1:p98:empire_official_pistol:pistol",
+            "test_profile": {
+              "dice": 2,
+              "threshold": 3,
+              "pool_cap": null
+            },
+            "damage": {
+              "base": 5,
+              "success_multiplier": 1
+            },
+            "range_max": "short",
+            "hands": "1h",
+            "secondary_effects": [],
+            "skill": "shooting",
+            "range_min": "close",
+            "ignores_armour": true
+          },
+          "protection": {
+            "source_rule_id": "BOOK-GM-GUIDE:1.1:p98:empire_official_pistol:athletics",
+            "skill": "athletics",
+            "test_profile": {
+              "dice": 3,
+              "threshold": 3,
+              "pool_cap": null
+            }
+          }
+        },
+        "pistol": {
+          "initially_loaded": true,
+          "has_blackpowder_lore": true,
+          "has_blackpowder_kit": true,
+          "ammunition_supply_confirmed": true,
+          "reload_hand_policy": "two_available_hands"
+        }
+      },
+      {
+        "actor_id": "ogre1",
+        "holds_shield": false,
+        "definition": {
+          "id": "pc-book-npc:imperial_ogre_pistol",
+          "source_rule_id": "BOOK-GM-GUIDE:1.1:p103:imperial_ogre_pistol",
+          "injury_policy": "brute",
+          "wound_limit": 3,
+          "resilience": {
+            "toughness": 5,
+            "bonus": 1
+          },
+          "attack": {
+            "id": "ogre_pistol",
+            "source_rule_id": "BOOK-GM-GUIDE:1.1:p103:imperial_ogre_pistol:ogre_pistol",
+            "test_profile": {
+              "dice": 3,
+              "threshold": 2,
+              "pool_cap": null
+            },
+            "damage": {
+              "base": 5,
+              "success_multiplier": 1
+            },
+            "range_max": "medium",
+            "hands": "1h",
+            "secondary_effects": [],
+            "skill": "shooting",
+            "range_min": "close",
+            "ignores_armour": true
+          },
+          "protection": {
+            "source_rule_id": "BOOK-GM-GUIDE:1.1:p103:imperial_ogre_pistol:athletics",
+            "skill": "athletics",
+            "test_profile": {
+              "dice": 3,
+              "threshold": 3,
+              "pool_cap": null
+            }
+          }
+        },
+        "pistol": {
+          "initially_loaded": true,
+          "has_blackpowder_lore": true,
+          "has_blackpowder_kit": true,
+          "ammunition_supply_confirmed": true,
+          "reload_hand_policy": "two_available_hands"
+        }
+      }
+    ],
+    "facts": {
+      "zone_id": "arena",
+      "all_opponents_close": true,
+      "targets_aware": true,
+      "all_combatants_included": true,
+      "unmounted": true,
+      "no_external_effects": true,
+      "no_terrain_modifiers": true,
+      "no_additional_abilities": true,
+      "no_ambush": true,
+      "outnumbering_bonus_approved": true,
+      "can_leave_zone": true
+    },
+    "pc_activation_order": [
+      "pc1",
+      "pc2"
+    ],
+    "enemy_activation_order": [
+      "official1",
+      "ogre1"
+    ],
+    "enemy_target_priority": [
+      "pc1",
+      "pc2"
+    ],
+    "max_rounds": 8,
+    "npc_help_policies": [],
+    "npc_extra_attack_actor_ids": [],
+    "npc_grudge_policies": [],
+    "npc_blood_rage_actor_ids": [],
+    "npc_flagellant_policies": [],
+    "npc_warped_form_policies": [],
+    "npc_broken_exit_policy": {
+      "destination_zone_id": "outside",
+      "path_clear_confirmed": true,
+      "fastest_route_confirmed": true
+    }
+  },
+  "simulation": {
+    "master_seed": "42",
+    "trials": 6
+  }
+}

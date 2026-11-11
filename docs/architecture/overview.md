@@ -1,5 +1,43 @@
 # Архитектура
 
+## PC Aim, Fate slot и conditional observations (M70)
+
+PcAimProof хранит настоящий Awareness action/receipt; PcAimSecondActionProof — canonical composite spend/slot2. One-use Aim bank восстанавливается из журнала собственных action receipts; PcAimConsumptionProof фиксирует APPLIED/LOST непосредственно после следующего собственного action до другого перехода. NPC Protection и end phase не потребляют Aim. Общий TurnEnd не может обойти выбранный доступный Second Action.
+
+PC ranged bridge использует effective prepared Aim attack, затем actual Conditions и Shooting Fate; profile/Aim modifiers не дублируются. PC Fate ledger распознаёт Second Action отдельно от Glorious/burn. Domain не зависит от simulation/CLI; новый counter group PcAimCounts находится на simulation boundary, compact records и summary содержат .aim только для Hoc-capable source. Wire summary.aim required iff такой source; остальные текущие сцены не получают фиктивный block/другую version. Generic process transport передаёт новые frozen records; backend не менялся. [ADR-0112](../decisions/ADR-0112-pc-hochland-aim-and-fate-second-action.md), [правило](../rules/equipment.md#pc-hochland-m70).
+
+## PC Blunderbuss и committed nearby continuation (M69)
+
+Optional source blunderbuss_nearby требуется iff присутствует Blunderbuss: initial NPC cluster/ordered membership, generation фильтрует список. PcAttackProof.nearby_snapshot удерживает typed full source/request при HIT до изменения primary; поздняя замена допустимого source-order не изменяет уже совершённое попадание.
+
+Kernel NearbyTargetsStaggerRequest остаётся обязательным после primary ACK. PcBlunderbussNearbyProof содержит ordered shared resolution и все source-bound Minion GM acknowledgements; atomic projection допустим именно для simple numeric Minions без реакций/Abilities. Journal bank сверяет actual injuries/approach/snapshot/однократное completion до другого действия или terminal outcome. Wave не является Attack/action, Warped Form cost/heal и NPC roster owner сюда не переносятся. Shared K1 и compact worker records прежние. [ADR-0111](../decisions/ADR-0111-pc-blunderbuss-cluster-and-nearby-stagger.md), [правило](../rules/equipment.md#pc-blunderbuss-m69).
+
+## Free-reload1H Sling и backup hand intent (M68)
+
+Free-reload source выделен отдельно от bows и hand count: bows3+Sling, PC ranged11,2Hgroup7 прежняя. Shared damage_kind выбирает actual Strength либо fixed Damage; actual optimum определяет Close permission. PcRangedCloseUnsupported охватывает1H/2H non-Close weapons, Pistol/1H Repeaters разрешены как прежде.
+
+Backup candidate hand — own-turn намерение до проверки held shield, actual draw — после освобождения руки. Shield release и unsupported используют то же намерение, поэтому healthy primary hand не обходит explicit backup preference, а щит не вызывает ошибочную остановку перед разрешённым draw. Существующие receipts/projection/replay/CI/Recover owners прежние; новая шина/DSL не вводится. [ADR-0110](../decisions/ADR-0110-pc-sling-free-reload-and-close-backup.md), [правило](../rules/equipment.md#pc-sling-m68).
+
+## Двуручные firearms и общий Close stop (M67)
+
+Handgun/Repeater Handgun подключены к прежнему PC ranged owner через shared profiles и явные firearm facts. Free bows, Exacting и optional Repeater остаются отдельными признаками; число рук не определяет Blackpowder prerequisite. PcRangedCloseUnsupported/ranged_close_enemy и source suffix :ranged:close заменяют старое bow-specific имя без aliases. Поля и приоритет остановки прежние; compact worker/JSON aggregates не содержат этот native stop. [ADR-0109](../decisions/ADR-0109-pc-handguns-opening-volley.md), [правило](../rules/equipment.md#pc-handguns-m67).
+
+## Двуручное Exacting ranged и armoured source (M66)
+
+PC_BOW_WEAPONS сохраняет3free-reload bows; PC_CROSSBOW_WEAPONS добавляет2Exacting profiles; PC_TWO_HANDED_RANGED_WEAPONS задаёт их общий grip/Close/backup путь. Firearm facts и Repeater choice проверяются отдельно, Crossbow не превращается в firearm/free reload. Бонус armoured Damage передаётся через actual active weapon и full Resilience. Unprepared request восстанавливается по profile-owned dice/Damage modifiers, K1 профиль доказывает их один раз, PC Conditions применяются до Fate. Полное conditioned canonical request сравнивается с base, doubled/forged Trait не принимается. При отсутствии таких модификаторов исходный request object сохраняется.
+
+PC JSON codec сохраняет optional authored resilience.armoured, включая False; canonical Net/остальные book ограничения прежние. Native models/state types и backend механизм не менялись. Retained loaded/empty state отдельно от active melee backup; NPC approach прежний, public fresh Reload cycle не заявляется. [ADR-0108](../decisions/ADR-0108-pc-crossbows-opening-volley-and-reload-state.md), [правило](../rules/equipment.md#pc-crossbows-m66).
+
+## Short opening и free-reload bows (M65)
+
+[pc_short_opening_models](../../src/towr/domain/pc_short_opening_models.py) хранит явный монотонный bank approached_npc_ids, восстановленный из typed approach proofs. Он задаёт Short/Close для PC/NPC пары внутри одной Zone и не расширяет ZoneGraph до координатного движка. Projection требует approach перед NPC reservation; runner исполняет его incidental, без action cost. Full round/opening/предыдущая proximity/живые actor IDs проверяются при каждом переходе; replay/cached type substitutions отвергаются.
+
+PC ranged owner теперь допускает shared FreeReloadWeaponState и ReloadableWeaponState, сохраняя один shot proof. При weapon range Traits перед K1 подготовкой восстанавливается unprepared request; pure weapon profile затем проходит actual PC Conditions до Fate. Это исключает Shortbow bonus при Drained без изменения shared K1 API. Active melee backup отделён от retained free-reload bow; blocked Close source имеет PcRangedCloseUnsupported без фиктивной Wound. [ADR-0107](../decisions/ADR-0107-pc-bows-short-opening-and-melee-backup.md), [правило](../rules/combat.md#pc-short-opening-m65).
+
+## PC ranged owner (M64)
+
+Один PcRangedProfile и [pc_ranged_models](../../src/towr/domain/pc_ranged_models.py) обслуживают Pistol и оба Repeaters через shared K1 profiles/preparation/reload. Source выбирает bonus policy, owner до initial roll фиксирует exact modifier/flag/cycle; journal связывает base/effective Fate Attack и typed ranged shot proof даже при неизменившемся loaded state. Actor-owned state проверяет source weapon ID. Active backup отдельно от retained ranged state. NPC pistol owner/codec остаются отдельными. PC wire key теперь ranged без compatibility alias, версия JSON1 прежняя. [ADR-0106](../decisions/ADR-0106-pc-repeaters-and-generic-ranged-profile.md), [правило и миграция](../rules/equipment.md#pc-repeaters-m64).
+
 Этот обзор описывает актуальные слои и инварианты. Подробная [хронология](overview-history.md) и [ADR](../decisions/) читаются только для соответствующего решения. Текущий функциональный scope и следующий шаг — в [статусе](../project-status.md).
 
 ## Направление зависимостей
@@ -31,6 +69,14 @@ M55 по [ADR-0100](../decisions/ADR-0100-pc-pistol-shield-reload-priority.md) �
 M56 по [ADR-0101](../decisions/ADR-0101-pc-close-shooting-npc-protection-choice.md) хранит optional actor→Skill policy в source сценария. Factory связывает полный canonical NPC с проверенным Melee/Athletics profile, owner выбирает его лишь против Shooting. Definition.protection сохраняет обычную Defence от Melee, общий K1Protection уже умеет Close ranged Melee opposition. Generation удаляет записи исключённых actor без переназначения и передаёт отсутствие вместо пустого списка; полный template проверяется раньше. Canonical replay связывает policy/actor/actual Test без нового proof variant или action.
 
 ## Карта кода
+
+M63 по [ADR-0105](../decisions/ADR-0105-pc-close-shooting-protection-choice.md) хранит optional PC Protection Skill в immutable participant source. Один pure selector используется preparation и Help eligibility/application; выбранный Skill определяет Fate, а общий pc_protection_hand связывает actual active grip с Critical и в подготовке, и в projection. Melee Protection Help выбирает intended ID по target, отдельно от Melee Attack Help. Runtime/proof types/K1 eligibility прежние; optional source field и enum расширены вместе с codec/schema/tests, партия сохраняет policy при count projection.
+
+M62 по [ADR-0104](../decisions/ADR-0104-pc-npc-shooting-help.md) сохраняет существующие automatic Help types, но source permission выводится из canonical Ability/Skill, а request/application связываются с actual выбранным Melee либо Shooting Test. Help selection читает настоящий Pistol loaded bank; empty означает собственный Attack helper, не помощь будущему Reload. Shot preparation получает уже применённые receipts, canonical projection подтверждает их прежним способом. PC Protection Help не предсказывает NPC Help; source IDs и Skill не подменяются ради переназначения unused bonus.
+
+M61 по [ADR-0103](../decisions/ADR-0103-pc-npc-pistol-and-exacting-reload.md) добавляет owner-local npc_pistols с actor/attack/weapon instance/cycle, не меняя generic NPC snapshot или PC inventory. Typed per-enemy facts привязаны к полным canonical Official/Ogre definitions; bank восстанавливается из actual shot/Reload history. PcAttackProof.npc_pistol_shot связывает preparation и effective Attack после PC Fate, PcNpcPistolReloadProof использует existing Exacting completion/обычный Skill slot без второго RNG. Engine/projection выбирают Shoot/Reload по одной bank; terminal/Broken exit/mandatory tails сохраняют приоритет. Aggregate exit guards допускают оба Official loadouts, generation фильтрует per-actor facts вместе с NPC. Shared ranged catalog содержит исходные13PG weapons и отдельный Ogre Pistol GM103.
+
+M60 по [ADR-0102](../decisions/ADR-0102-pc-pistol-melee-backup.md) отделяет owned Pistol state от active weapon после подтверждённого backup draw. `PcBackupWeaponDrawProof.previous_hand` принимает фактический1H/2H/None; owner связывает его с полным prefix. Skill/shot preparation/Reload/Help/shield helpers выбираются по active weapon, сохранённый empty Pistol не запускает Reload или stop. Held shield release предшествует draw при конфликте единственной руки: эти обязательные receipts не требуются одновременно. Source/схема расширяют existing policy без нового wire field; процессный путь получает тот же immutable source.
 
 | Слой | Ответственность |
 |---|---|

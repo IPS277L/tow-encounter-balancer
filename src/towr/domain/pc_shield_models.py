@@ -9,6 +9,7 @@ from towr.domain.attack_models import ResilienceProfile
 from towr.domain.condition_models import Condition
 from towr.domain.pc_heavy_wound_models import injured_hands, usable_hands, usable_weapon_hand
 from towr.domain.pc_melee_models import PcShieldLoadout, PcTwoHandedGrip, PcWeaponHand
+from towr.domain.reload_models import ReloadableWeaponState
 from towr.domain.test_models import Skill
 
 if TYPE_CHECKING:
@@ -70,7 +71,7 @@ def pc_shield_recover_hand(member: PcMeleeParticipantState) -> PcWeaponHand | No
         return None
     # Keep the second hand free through the whole Exacting reload cycle,
     # including an incidental object interaction in a necessary Recover.
-    if member.pistol is not None and not member.pistol.loaded:
+    if type(member.ranged) is ReloadableWeaponState and not member.using_backup_weapon and not member.ranged.loaded:
         return None
     if member.injury.dead or member.injury.conditions.has(Condition.DEFENCELESS):
         return None
@@ -90,10 +91,19 @@ def pc_shield_resilience(state: PcMeleeState, actor: str) -> ResilienceProfile:
 
 
 def pc_defence_hand(member: PcMeleeParticipantState, attack_skill: Skill) -> PcWeaponHand | PcTwoHandedGrip | None:
-    if attack_skill is Skill.THROWING:
+    if attack_skill in (Skill.SHOOTING,Skill.THROWING):
         return member.shield.hand if pc_has_working_shield(member) else None
     if attack_skill is Skill.MELEE:
         return usable_weapon_hand(member) or (member.shield.hand if pc_has_working_shield(member) else None)
+    return None
+
+
+def pc_protection_hand(member: PcMeleeParticipantState, attack_skill: Skill,
+        selected_skill: Skill) -> PcWeaponHand | PcTwoHandedGrip | None:
+    if selected_skill is Skill.MELEE:
+        return usable_weapon_hand(member)
+    if selected_skill is Skill.DEFENCE:
+        return pc_defence_hand(member,attack_skill)
     return None
 
 
@@ -108,10 +118,11 @@ def expected_pc_shield_release(state: PcMeleeState) -> PcShieldReleaseProof | No
     if (member.injury.dead or member.injury.conditions.has(Condition.DEFENCELESS)
             or not pc_has_working_shield(member)):
         return None
-    from towr.domain.pc_backup_weapon_models import pc_preferred_weapon_hand
+    from towr.domain.pc_backup_weapon_models import pc_preferred_weapon_hand, pc_backup_candidate_hand
     from towr.domain.pc_melee_result_models import pc_melee_action_id, _pc_recover_needed
-    needs_weapon_hand = pc_preferred_weapon_hand(state,actor) is member.shield.hand
-    needs_reload_hands = (member.pistol is not None and not member.pistol.loaded
+    needs_weapon_hand = (pc_preferred_weapon_hand(state,actor) is member.shield.hand
+        or pc_backup_candidate_hand(state,actor) is member.shield.hand)
+    needs_reload_hands = (type(member.ranged) is ReloadableWeaponState and not member.using_backup_weapon and not member.ranged.loaded
         and len(usable_hands(member)) == 2 and usable_weapon_hand(member) is not None
         and bool(state.live_enemies) and not _pc_recover_needed(member))
     if not needs_weapon_hand and not needs_reload_hands:

@@ -1,5 +1,134 @@
 # Equipment, Coin и Assets
 
+## PC Hochland, Aim и Fate Second Action (M70)
+
+<a id="pc-hochland-m70"></a>
+
+RULE-EQUIPMENT-004/007, Aim/Second Action: BOOK-PLAYER-GUIDE1.4 III70, IV95, V111/116; Lucky78, Shaking Grip190. [ADR-0112](../decisions/ADR-0112-pc-hochland-aim-and-fate-second-action.md), [CLI](../examples/m70/README.md).
+
+Hochland Long Rifle:2H, optimum Medium–Extreme, Damage6/ignores armour, mandatory Aim, Wounds Table+1d, Reload4 после HIT/MISS. В текущем Short opening действует−1d; любой Close enemy запрещает Shoot. Wounds Table bonus не становится Damage и не применяется к numeric Minion injury policy; соответствующий shared K1 PLAYER/Champion путь сохраняется. Source содержит10required ranged fields:9ordinary firearm facts плюс Awareness, связанную с Initiative. Repeater policy/shield запрещены, initial grip=BOTH.
+
+PC выполняет настоящий standard Aim/Awareness Test по первой живой цели.0success — выполненный Aim с нулевым бонусом. Optional Awareness Glorious в этом срезе отклоняется; Shooting Glorious прежний. Действующий CANNOT_AIM от Shaking Grip8 блокирует новый Aim до RNG, даже после обычного Recover. Hand/mandatory/Critical/Defenceless/terminal priorities сохраняются.
+
+При явной per-participant aim_second_action_policy={minimum_remaining_session_spends:N} и configured Fate после Aim оплачивается настоящий Second Action/slot2 для Shoot по той же цели. Резерв проверяется после фактической стоимости: Lucky free0 либо session1.0Aim не запрещает spend; нет скрытого success threshold. Shoot Glorious может тратиться только после оплаты Second Action по собственным критериям/остатку ресурса. Lucky разрешён только Hoc-source и сохраняет бесплатную первую трату также для другого выбранного Glorious, если Second Action не использован; остальные источники не получают новый Talent автоматически.
+
+Без policy/funding выше резерва PC завершает обычный Aim. После NPC approach на своём ходу выбирает прежний backup, а не free Shoot. Aim одноразовый: actual next own ranged Attack той же цели применяет его, другое собственное действие (Recover/melee/другой Aim) теряет его; incoming Protection/end phase не являются таким action. Actual action receipt и consumed follow-up записываются до следующего перехода/terminal. При доступном выбранном Second Action преждевременный TurnEnd отвергается, даже с корректным общим clock receipt. Critical end phase завершается после фактически выполненных действий.
+
+Aim bonus проходит обычный cap/Drained и восстанавливается в PC/K1 bridge ровно один раз. Ресурс, actor/session/round/slot/target и source/result сохраняются полностью, replay запрещён. После Shoot retained empty4 отделён от active Sword; полный fresh Shoot→Reload4→новый Aim→Shoot в этом Short-срезе не заявляется. Все13PG ranged profiles теперь допущены в ограниченном PC исполнении, без расширения NPC/дистанций.
+
+## PC Blunderbuss и nearby Staggered (M69)
+
+<a id="pc-blunderbuss-m69"></a>
+
+RULE-EQUIPMENT-004/007 и RULE-EFFECT-006, BOOK-PLAYER-GUIDE1.4 IV94–95, прежние Blackpowder/Exacting/Conditions. [ADR-0111](../decisions/ADR-0111-pc-blunderbuss-cluster-and-nearby-stagger.md), [CLI](../examples/m69/README.md).
+
+Blunderbuss —2H, optimum Short/maximum Medium, Damage4 с обычной бронёй, +2d Shooting на Short, каждый HIT/MISS открывает Reload3. Обычный cap действует, Drained запрещает положительные dice, но не расход заряда или Trait при HIT. Source —9required ranged fields как ordinary Handgun, true Blackpowder Lore/kit/ammunition/loaded, явные BS/Shooting/I/Dex и two_available_hands. Repeater policy запрещена, BOTH/no shield, прежний carried1H backup.
+
+При HIT другие существа в Close от основной цели получают Staggered, даже если основной цели не нанесена Wound. Primary не получает повторного secondary impact. MISS волны не создаёт. Сначала завершаются primary consequences/GM acknowledgement, затем ordered secondary impacts; поражение primary или последних NPC не позволяет потерять completion. Второй Staggered использует прежний SUFFER_WOUND, у текущих numeric Minions W1 подтверждается caller/GM disposition. Это не новые Attack/Protection Tests или actions.
+
+Текущая сцена подтверждает initial NPC cluster через scenario.blunderbuss_nearby: exact initial_npc_clustered_confirmed=true и target_priority всех NPC ровно один раз. Поле требуется iff есть Blunderbuss, без него отсутствует. Из одной Zone взаимный Close не выводится. На HIT PcAttackProof.nearby_snapshot фиксирует full cluster source и ordered request со всеми живыми secondary NPC, исключая primary и defeated. Политика/порядок/target states после HIT не подменяются; отдельный nearby receipt содержит все результаты и точные GM acknowledgements. Пропуск/replay/foreign source/добавление или перестановка целей отвергаются. Generation фильтрует порядок по текущему составу.
+
+При разрешённом выстреле все PC остаются на Short от NPC; любой живой подошедший NPC запрещает Shoot по PG94. Поэтому в этом срезе secondary — NPC исходной группы, а PC не входят в волну по actual scene premises. Это не общее исключение friendly fire; смешанные Close-группы не добавлены. После полной волны действует прежний NPC approach→own-turn backup, retained empty cycle3 сохраняется отдельно от melee. Source ограничен simple authored numeric Minions без Abilities; shared K1 resolver прежний.
+
+## PC Sling и Close restriction независимо от рук (M68)
+
+<a id="pc-sling-m68"></a>
+
+RULE-EQUIPMENT-004/007, BOOK-PLAYER-GUIDE1.4 IV92/94–95; прежние Shooting/Conditions/Fate/руки. [ADR-0110](../decisions/ADR-0110-pc-sling-free-reload-and-close-backup.md), [CLI](../examples/m68/README.md), [Short opening](combat.md#pc-short-opening-m65).
+
+Sling —1H, Damage=Strength, optimum только Medium, maximum Long, обычная броня. Reload бесплатен в составе Attack; нет Exacting cycle/loaded/Reload action. На исходном Short действует−1d с обычным minimum pool exact1. BS/Shooting задают Test, Strength — Damage; общие cap/Drained/Fate прежние. Нет Blackpowder prerequisite, Repeater bonus, Crossbow armour Trait или ignores armour.
+
+Sling source содержит ровно BS/Shooting/ammunition_supply_confirmed=true. I/Dexterity/initially_loaded/reload_hand_policy/Lore/kit/repeater_bonus_policy запрещены. Initial grip=left/right, optional shield на другой руке по M53. Backup — прежние6существующих1H melee/preferred hand/Strength≥2; без backup Strength1 допустим.
+
+По PG94 любой Close enemy запрещает ranged, если Close не входит в actual optimum, независимо от числа рук. В текущем Short opening NPC подходят, затем на собственном ходу PC достаёт объявленный melee backup. Наличие другой Short-цели запрет не снимает; при отсутствии Close enemy сама потеря второй руки не заставляет менять пригодный Sling. All-Close fresh source Sling запрещён, прежние Close-capable1H Pistol/Repeaters сохраняют разрешение.
+
+Для draw выбирается пригодная рука backup по его policy без сохранения руки primary как скрытого приоритета. Если preferred backup hand занята held shield, сначала проходит weapon-first shield release, затем draw; щит возвращается допустимым standard Recover в свободную здоровую руку по прежней restore_before_attack policy. Free reload не удерживает вторую руку для Exacting. Incidental hand use/ранения/mandatory/Critical/Defenceless/terminal priorities прежние. Free state/instance primary сохраняется отдельно от active melee. Без backup — actual PcRangedCloseUnsupported/ranged_close_enemy, без выдуманной Wound; уже необходимый Recover имеет прежний приоритет.
+
+M68 сохраняет текущую restricted Short-сцену: ranged party против simple authored numeric Melee Minions/Athletics в одной Zone. Medium opening, другие Zone, movement/kiting, NPC ожидание/новые policies, другие профили не добавляются.
+
+## PC Handgun и Repeater Handgun (M67)
+
+<a id="pc-handguns-m67"></a>
+
+RULE-EQUIPMENT-004/007, BOOK-PLAYER-GUIDE1.4 IV94–95/99, III82; V107/110/123. [ADR-0109](../decisions/ADR-0109-pc-handguns-opening-volley.md), [CLI](../examples/m67/README.md), [Short opening](combat.md#pc-short-opening-m65).
+
+Handgun:2H, optimum Medium–Long, Damage5/ignores armour, каждый HIT/MISS открывает Reload3. На исходном Short применяется −1d вне optimum с обычным minimum pool. Repeater Handgun:2H, optimum Short–Long, Damage5/ignores armour, optional +3d к одному Shooting Test открывает Reload5. Явный when_available выбирает бонус до initial roll/Fate, если PC не Drained; never/Drained оставляет ordinary loaded shot без нового cycle. Обычный cap не отменяет цену выбранного бонуса. Drained сохраняет отрицательный range modifier Handgun. Crossbow armour Damage Trait этим firearms не принадлежит.
+
+Оба используют текущий pc.ranged: явные BS/Shooting/I/Dex, true Blackpowder Lore/kit/ammunition/initially_loaded и two_available_hands. Handgun запрещает repeater_bonus_policy, Repeater требует when_available/never. Lore здесь prerequisite, автоматический бонус специалисту не добавляется. Initial grip=BOTH, shield запрещён. Две руки Reload — ранее принятая scenario policy.
+
+В нынешнем публичном срезе NPC подходят после залпа; при любом Close enemy на своём ходу PC переходит на declared1H backup. Retained loaded/empty3/5 primary сохраняется, active melee не наследует ignores armour/bonus. Без доступного backup действуют actual grip stop либо общий PcRangedCloseUnsupported/ranged_close_enemy без выдуманной Wound. Старые bow/Crossbow stops используют то же нейтральное имя. Ordinary Recover/mandatory/Defenceless/terminal priorities прежние. Полный повторный Shoot→Reload→Shoot в fresh encounter не заявляется; focused PC→K1 Reload проверяет реальный spent state отдельно.
+
+## PC Crossbow и Repeater Crossbow (M66)
+
+<a id="pc-crossbows-m66"></a>
+
+RULE-EQUIPMENT-004, BOOK-PLAYER-GUIDE1.4 IV94–95; прежние Shooting/Dexterity/Drained/Fate/руки. [ADR-0108](../decisions/ADR-0108-pc-crossbows-opening-volley-and-reload-state.md), [CLI](../examples/m66/README.md), [Short opening](combat.md#pc-short-opening-m65).
+
+| Weapon | Hands / optimum | Damage | Заряд |
+|---|---|---|---|
+| Crossbow | 2H / Short–Long | 4, +1 по armoured target | HIT/MISS открывает Reload2 |
+| Repeater Crossbow | 2H / Short–Medium | 4 | optional+1d → Reload3 |
+
+Repeater Crossbow не получает ordinary Crossbow armour Damage Trait и не игнорирует броню. Оба используют полную Resilience. Crossbow Trait смотрит на full is_armoured, не просто положительный bonus; явный armoured=false его запрещает. Drained запрещает bonus dice, но оставляет Damage Trait обычного Crossbow. Repeater when_available выбирает +1d до initial roll/Fate, never/Drained не открывают новый cycle; cap/instance/cycle/history правила M64 сохранены.
+
+Оба2H initially loaded, требуют явных BS/Shooting/I/Dexterity/ammunition/two_available_hands. Только Repeater требует repeater_bonus_policy, ordinary Crossbow его запрещает; обоим запрещены Blackpowder Lore/kit facts. Free-reload bows остаются отдельной группой3оружий. Shield запрещён, initial grip=BOTH; carried6supported1H backup требует Strength≥2.
+
+В текущем M65 Short opening достигается первый volley и melee continuation. NPC подходят на своём ходу, после чего Crossbow-PC выбирает backup при любом Close enemy, включая loaded Repeater never. Owned empty cycle2/3 либо loaded/no-cycle state сохраняется после draw; оно не вызывает Shoot/Reload у active Sword. При недоступном2H хвате применяется доступный1H backup, иначе точный own-turn stop. Recover/mandatory Wound/critical/Defenceless/terminal priorities прежние. В прежней all-Close сцене оба Crossbow запрещены.
+
+Сам Close Shoot guard не становится запретом законного Dexterity Reload. Shared K1 и PC builder связывают required successes2/3 с настоящим spent instance; focused проверка alternative Reload в подходящем собственном K1 контексте не является fresh public Shoot→Reload→Shoot trial. Новая NPC wait/approach policy не добавлена.
+
+Current PC JSON1/key ranged прежние. Optional authored NPC definition.resilience.armoured теперь принимает exact boolean: True/False сохраняются, отсутствие оставляет прежнее None/вывод из bonus. Fresh current_resilience должен полностью совпадать с definition, включая metadata. Canonical Net требует прежний true, другие canonical book profiles по-прежнему не принимают дополнительный wire flag. Это обеспечивает полноту Crossbow source при JSON roundtrip; числовые NPC и остальные families не получают новой Ability.
+
+## PC bows, Short opening и melee backup (M65)
+
+<a id="pc-bows-m65"></a>
+
+RULE-EQUIPMENT-004, BOOK-PLAYER-GUIDE1.4 III68, IV94–95; Conditions123 и прежние hand/Wound rules. [Принятый ADR-0107](../decisions/ADR-0107-pc-bows-short-opening-and-melee-backup.md), [бой с подходом NPC](combat.md#pc-short-opening-m65), [CLI-примеры](../examples/m65/README.md).
+
+| Weapon | Hands / optimum | Damage | Trait |
+|---|---|---|---|
+| Shortbow | 2H / Short–Medium | 3 | +1d Shooting по Short |
+| Warbow | 2H / Medium–Long | 3 | по Short −1d вне optimum |
+| Longbow | 2H / Medium–Long | 4 | по Short −1d вне optimum |
+
+Зарядка всех трёх бесплатна в составе выстрела; отдельного Reload action/progress/cycle нет. Ammunition supply подтверждается явно. Броня и shield входят в обычную Resilience; Strength не меняет fixed bow Damage. Shortbow +1d подчиняется cap/Drained, штраф Warbow/Longbow сохраняется. Ни один лук не стреляет при любом Close enemy, даже если выбранная цель ещё Short. Все три запрещены в прежнем all-Close source.
+
+В текущем PC JSON1 `pc.ranged` для bows содержит только ballistic_skill/shooting/ammunition_supply_confirmed=true. Initiative/Dexterity/initially_loaded/reload_hand_policy/repeater_bonus_policy/Blackpowder facts запрещены, а не подставляются null/false. Initial grip=BOTH, shield запрещён. Старые три1H ranged source shapes и NPC pistol не меняются. Native owned state — shared FreeReloadWeaponState; shot proof обязателен и при неизменившемся state.
+
+В выбранной M65 тактике на собственном незанятом ходу, после mandatory Wound continuations, bow-PC использует объявленный1H backup при любом Close enemy или невозможном2H хвате. Draw односторонний/incidental, Strength≥2, preferred hand и6старых1H weapons сохраняются. Drop старого grip и draw учитывают actual hand/critical consequences. Retained bow state не превращает backup Attack в Shooting/Reload. Без backup остановка typed unsupported происходит на реальной границе недоступного Shoot; если сначала выбран обычный Recover (например, после выпадения лука), он исполняется. Dead/Defenceless/terminal и обязательные последствия имеют прежний приоритет; wound/grip stop не создаёт фиктивных Close-причин.
+
+Pistol/Repeater1H могут участвовать в Short opening; Close для них разрешён и сам по себе не включает backup. Их прежние bonus/Reload/shield policies действуют. Старый2H-melee fallback не расширяется. Crossbow/Aim/kiting/автоматический возврат к луку не добавлены.
+
+## PC Repeaters и единый ranged source (M64)
+
+<a id="pc-repeaters-m64"></a>
+
+`RULE-EQUIPMENT-004`/`RULE-EQUIPMENT-007`, BOOK-PLAYER-GUIDE1.4 III68/70/82/88, IV94–95/98–99, V107/110/123. [Принятый контракт](../decisions/ADR-0106-pc-repeaters-and-generic-ranged-profile.md), [CLI-примеры](../examples/m64/README.md).
+
+В текущей Close-сцене PC доступны Repeater Handbow (1H, Damage4, обычная броня) и Repeater Pistol (1H, Damage5, ignores armour), optimum Close–Short. Явная policy `when_available` выбирает обычные +1d/+2d Shooting до initial roll/Fate, если PC не Drained; `never` их не выбирает. Бонус подчиняется обычному cap. Даже при насыщенном cap выбранный бонус требует Reload; скрытой оптимизации тактики нет.
+
+Выстрел с бонусом, HIT или MISS, открывает ровно один собственный Reload3 cycle. Без бонуса weapon остаётся loaded без нового cycle, но новый Test/action/preparation/receipt всё равно обязателен. Drained → обычный shot без modifier/flag/cycle. Уже начатый пустой cycle надо закончить и при Drained. Partial/failed/overshoot Reload, действие Dexterity и следующий отдельный Shoot переиспользуют K1 Exacting. Обычный Pistol по-прежнему требует Reload после каждого выстрела.
+
+Один актуальный PC JSON1: `party[].pc.ranged` вместо прежнего PC `pistol`, для трёх ranged weapons. Общие BS/Shooting/I/Dexterity, initially loaded, ammunition supply и `two_available_hands` задаются явно. Firearms требуют true Blackpowder Lore/kit; Handbow запрещает эти поля, Engineering Lore/Kit для обычного Reload не требуются. `repeater_bonus_policy` обязателен только для Repeaters. Non-ranged PC запрещает ranged object. Native API — PcRangedProfile/State.ranged/PcRangedShotProof/PcRangedReloadProof; старых aliases нет. NPC `enemies[].pistol` не меняется.
+
+Прежние shield/backup политики распространяются на оба Repeaters: shield release только перед необходимым доступным Reload, shield Recover после completion. Loaded one-hand shot не включает backup; empty и одна пригодная рука — односторонний draw существующего1H backup либо unsupported. Retained ranged state после draw не запускает Shoot/Reload. M63 Melee opposition не активирует бонус и не расходует заряд. Shooting/Reload учитывают прежние Critical/Wounds/Fate; Handbow сохраняет полную armour/shield Resilience, pistols используют Toughness. PC собственной Shooting Help роли нет.
+
+Смена PC key выполнена в36из220прежнихJSON точным semantic transform, остальные184 сохранены побайтно; числовые результаты/seed/NPC source не пересчитывались. Разделы M54/M55/M60 ниже сохраняют историю внедрения; текущие имена source/runtime определены здесь. Raw snapshots не save/resume API.
+
+## PC Pistol и carried melee backup (M60)
+
+<a id="pc-pistol-backup-m60"></a>
+
+`RULE-EQUIPMENT-002`/`RULE-EQUIPMENT-003`/`RULE-EQUIPMENT-004`, BOOK-PLAYER-GUIDE1.4 IV92–94; incidental actions116, Recover118 и Wounds190–191. Статус implemented. [Принятый контракт](../decisions/ADR-0102-pc-pistol-melee-backup.md), [current JSON1/CLI](../examples/m60/README.md). Это расширение M20/M54/M55; их первоначальные запреты Pistol backup ниже описывают прежние границы.
+
+Существующий `party[].backup_weapon_policy` допускает Pistol + один carried Dagger/Staff/Axe/Sword/Warhammer/Morning Star, с optional shield в противоположной начальной руке. В fresh source требуется Strength≥2 для двух weapons без initial Burdened. PG92 разрешает overcarry со штрафом; это граница входа, а не общий запрет книги. Начальный Pistol загружен, Lore/kit/supplies и ordinary Attack/self Recover роль сохраняются. NPC roster проверяется для initial Shooting до RNG; backup не разрешает незаконную начальную Protection.
+
+Пользователь выбрал переход **только при пустом Pistol и недоступном Reload из-за одной пригодной руки**. Loaded one-hand shot и необходимый ему Recover предшествуют fallback; две пригодные руки, частичный/неуспешный Reload и риск Critical не запускают draw. После mandatory последствий, на собственном unreserved turn сначала освобождается нужная held shield-рука, затем выполняется единственный incidental draw. Пустой dropped Pistol не подбирается; held оставляется с подтверждённым previous_hand. Здоровая рука приоритетнее травмированной12; clutch18 сохраняется. Ноль рук, Defenceless, terminal result или уже исполненный slot не дают ложного draw.
+
+Draw не занимает action/Test/RNG, но сохраняет Critical12/14/15. Далее обычный Recover/Attack использует actual backup instance и его Melee/WS/Strength/Damage/Traits; NPC получает обычную Protection вместо Close Shooting override. Thief Stealth остаётся применимым. Pistol instance/loaded/progress/cycle/history сохраняются отдельно; повторного Reload/Shoot/возврата к primary нет. Pickup после drop относится к backup, не к оставленному Pistol. Shield follows прежний weapon-first, без третьей руки или снятия независимых Conditions.
+
+Fate/W10/Glorious относятся к настоящему Test; W10 не тратится incidental draw. Другой PC может Help Melee только после фактического переключения получателя, без предсказания будущего draw; собственные Help/ally Recover роли Pistol-PC не расширяются. Канонический owner проверяет actor/предыдущий хват/новую руку/однократность и полный replay. Прежние2H→1H и null paths сохранены, новых полей/версии/метрик нет;204старыхJSON не мигрируются.
+
 ## PC Pistol со щитом (M55)
 
 <a id="pc-pistol-shield-m55"></a>
@@ -30,7 +159,7 @@ Release не занимает нового slot, но сохраняет Critica
 
 Actual Shooting/Dexterity Test учитывает Drained/Blinded/W10 и настроенный Glorious ровно один раз; Protection Help привязывается к реальному входящему Test. Раны4/8/12 роняют фактический предмет; W12 при использовании раненой руки, W14/15 при Shoot/Reload вызывают существующий Critical/end phase. Near Miss отменяет соответствующие body facts раньше их применения. Лечение, свободная смена оружия и новые aggregate counters не добавлены.
 
-Closed optional `party[].pc.pistol` обязателен только для weapon=pistol, запрещён другим weapons; null/частичный объект не допускаются. Все bool preconditions в первом срезе true. Current PC JSON1 сохранён;180старыхJSON M9–M53 не мигрируются. Runtime journal связывает preparation, Test, weapon instance/cycle и action receipt; raw snapshots не являются save/resume API.
+В исходном M54 использовался PC `pistol`; M64 заменил его текущим `party[].pc.ranged` для всех трёх ranged weapons (см. выше). Null/частичный объект не допускается; Pistol требует все подтверждения true. Wire version остаётся PC JSON1. Runtime journal связывает preparation, Test, weapon instance/cycle и action receipt; raw snapshots не являются save/resume API.
 
 ## PC со щитом (M53)
 

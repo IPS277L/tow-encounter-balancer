@@ -1,4 +1,4 @@
-"""Named physical NPC Help for a later Melee Test, without an automatic AI choice."""
+"""Named physical NPC Help bound to a later Melee or permitted Shooting Test."""
 from dataclasses import dataclass,replace
 
 from towr.domain.automatic_help_models import AutomaticHelpEffectKind
@@ -51,6 +51,12 @@ def pc_npc_automatic_help_effect(definition) -> AutomaticHelpEffectKind:
         else AutomaticHelpEffectKind.BONUS_DIE_BEYOND_CAP)
 
 
+def pc_npc_help_supports_skill(definition,skill: Skill) -> bool:
+    rule = pc_npc_automatic_help_rule(definition)
+    return rule is not None and (skill is Skill.MELEE
+        or skill is Skill.SHOOTING and rule in (MILITIA_HELP_RULE_ID,HORDE_HELP_RULE_ID))
+
+
 def validate_pc_npc_help_policies(source) -> None:
     if type(source.npc_help_policies) is not tuple:
         raise TypeError('NPC Help policies require a canonical tuple')
@@ -65,6 +71,9 @@ def validate_pc_npc_help_policies(source) -> None:
             raise ValueError('NPC Help must name two opposition actors in the source')
         if pc_npc_automatic_help_rule(source.enemy(policy.helper_id).definition) is None:
             raise ValueError('NPC Help requires an admitted canonical automatic Help ability')
+        if not pc_npc_help_supports_skill(source.enemy(policy.helper_id).definition,
+                source.enemy(policy.beneficiary_id).definition.attacks[0].skill):
+            raise ValueError('NPC Help ability does not support the beneficiary attack Skill')
         if source.enemy_activation_order.index(policy.helper_id)>=source.enemy_activation_order.index(policy.beneficiary_id):
             raise ValueError('NPC Help recipient must activate later in the same round')
         helpers.append(policy.helper_id)
@@ -101,37 +110,44 @@ def pc_npc_help_beneficiary(state) -> str | None:
     from towr.domain.pc_net_models import selected_pc_npc_net_attack
     if selected_pc_npc_net_attack(state,policy.beneficiary_id)=='weighted_net':
         return None
+    from towr.domain.pc_npc_pistol_models import pc_npc_pistol_weapon
+    weapon = pc_npc_pistol_weapon(state,policy.beneficiary_id)
+    if weapon is not None and not weapon.loaded:
+        return None  # The named actor will Reload, not make this round's Attack Test.
     return policy.beneficiary_id
 
 
 def build_pc_npc_help_action(state):
     from towr.domain.automatic_help_models import AutomaticHelpActionRequest
-    from towr.domain.pc_melee_result_models import pc_melee_action_id
+    from towr.domain.pc_melee_result_models import pc_melee_action_id, pc_selected_npc_attack_profile
     beneficiary=pc_npc_help_beneficiary(state)
     if beneficiary is None:
         raise ValueError('the named NPC Help policy has no eligible future attacker')
     actor=state.round_state.active_turn.actor_id
     return AutomaticHelpActionRequest(pc_melee_action_id(state,actor)+':npc-help:execute',state.round_state,
         actor,state.enemy(actor).state.injury.conditions,beneficiary,
-        pc_melee_action_id(state,beneficiary)+':attack',1,Skill.MELEE,
+        pc_melee_action_id(state,beneficiary)+':attack',1,pc_selected_npc_attack_profile(state,beneficiary).skill,
         pc_npc_automatic_help_rule(state.enemy(actor).definition),
         pc_npc_automatic_help_effect(state.enemy(actor).definition))
 
 
 def build_pc_npc_attack_help(state,actor,test):
     if not state.source.npc_help_policies:return test,()
-    from towr.domain.pc_melee_result_models import PcNpcHelpProof
+    from towr.domain.pc_melee_result_models import PcNpcHelpProof, pc_selected_npc_attack_profile
     from towr.domain.automatic_help_models import (AutomaticHelpBonusApplicationRequest,
         AutomaticHelpBonusApplicationResult,_expected_automatic_help_application)
+    skill = pc_selected_npc_attack_profile(state,actor).skill
+    if skill not in (Skill.MELEE,Skill.SHOOTING):
+        return test,()
     applications=[]
     for proof in state.history:
         if type(proof) is not PcNpcHelpProof:continue
         execution=proof.execution
         bonus=execution.bonus
         if (bonus.beneficiary_id!=actor or bonus.beneficiary_test_id!=test.id
-                or bonus.beneficiary_skill is not Skill.MELEE):continue
+                or bonus.beneficiary_skill is not skill):continue
         request=AutomaticHelpBonusApplicationRequest(test.id+':apply:'+execution.request_id,
-            execution,actor,Skill.MELEE,test)
+            execution,actor,skill,test)
         updated,modifier=_expected_automatic_help_application(request)
         application=AutomaticHelpBonusApplicationResult(request.id,request,updated,modifier,
             (execution.source_request.rule_id,bonus.rule_id))

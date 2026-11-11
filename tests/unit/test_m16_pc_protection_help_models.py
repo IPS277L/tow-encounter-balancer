@@ -20,14 +20,14 @@ class PcProtectionHelpModelTests(unittest.TestCase):
         for target in ('first_incoming_protection',True,None):
             with self.assertRaises(TypeError):
                 PcHelpPolicy('pc2',target,Skill.DEFENCE)
-        for skill in (None,'defence',True,Skill.MELEE,Skill.SHOOTING):
+        for skill in (None,'defence',True,Skill.SHOOTING,Skill.ENDURANCE):
             with self.assertRaises((TypeError,ValueError)):
                 PcHelpPolicy('pc2',PcHelpTarget.FIRST_INCOMING_PROTECTION,skill)
         with self.assertRaises(ValueError):
             PcHelpPolicy('pc2',PcHelpTarget.MELEE_ATTACK,Skill.DEFENCE)
         with self.assertRaises(TypeError):
             PcHelpPolicy('pc2')
-        for skill in (Skill.DEFENCE,Skill.ATHLETICS):
+        for skill in (Skill.DEFENCE,Skill.ATHLETICS,Skill.MELEE):
             self.assertIs(PcHelpPolicy('pc2',PcHelpTarget.FIRST_INCOMING_PROTECTION,skill).protection_skill,skill)
 
     def test_protection_beneficiary_can_act_before_helper_but_remains_an_ordinary_ally(self):

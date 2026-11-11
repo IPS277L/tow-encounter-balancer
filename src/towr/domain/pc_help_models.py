@@ -30,7 +30,8 @@ def pc_help_beneficiary(state):
             or ally.injury.conditions.has(Condition.DRAINED)):
         return None
     if strategy.target is PcHelpTarget.MELEE_ATTACK:
-        if state.source.participant(ally.actor_id).pc.pistol is not None:
+        from towr.domain.pc_melee_result_models import pc_attack_skill
+        if pc_attack_skill(state,ally.actor_id) is not Skill.MELEE:
             return None
         if (_pc_recover_needed(ally) or strategy.beneficiary_id in (
                 *state.round_state.completed_turn_entity_ids,*state.round_state.excluded_turn_entity_ids)):
@@ -38,7 +39,8 @@ def pc_help_beneficiary(state):
     else:
         from towr.domain.pc_melee_result_models import pc_protection_skill,pc_selected_npc_attack_profile
         incoming = pc_help_incoming_actor(state)
-        skill = (pc_protection_skill(ally,pc_selected_npc_attack_profile(state,incoming).skill)
+        skill = (pc_protection_skill(ally,pc_selected_npc_attack_profile(state,incoming).skill,
+            state.source.participant(ally.actor_id).close_shooting_protection_skill)
             if incoming is not None else None)
         if skill is not strategy.protection_skill or incoming is None:
             return None
@@ -68,7 +70,7 @@ def build_pc_help_action(state):
     strategy = state.source.participant(actor).help_policy
     action_id = pc_melee_action_id(state,actor)
     skill = Skill.MELEE if strategy.target is PcHelpTarget.MELEE_ATTACK else strategy.protection_skill
-    intended = (pc_melee_action_id(state,beneficiary)+':attack' if skill is Skill.MELEE else
+    intended = (pc_melee_action_id(state,beneficiary)+':attack' if strategy.target is PcHelpTarget.MELEE_ATTACK else
         pc_melee_action_id(state,pc_help_incoming_actor(state))+':protection')
     return HelpActionExecutionRequest(action_id+':help:execute',state.round_state,actor,
         state.participant(actor).injury.conditions,beneficiary,
@@ -120,7 +122,8 @@ def pc_attack_help_applications(state, attack):
             else next(pc for pc in state.source.enemy_target_priority if not state.participant(pc).injury.dead))
         from towr.domain.pc_melee_result_models import pc_protection_skill,pc_selected_npc_attack_profile
         skill = pc_protection_skill(state.participant(actor),
-            pc_selected_npc_attack_profile(state,state.round_state.active_turn.actor_id).skill)
+            pc_selected_npc_attack_profile(state,state.round_state.active_turn.actor_id).skill,
+            state.source.participant(actor).close_shooting_protection_skill)
         test = attack.defender_test
     base = replace(test,dice_modifiers=tuple(modifier
         for modifier in test.dice_modifiers

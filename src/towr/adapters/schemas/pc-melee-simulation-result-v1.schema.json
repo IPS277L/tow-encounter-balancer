@@ -30,5 +30,69 @@
     "runtime",
     "summary"
   ],
-  "additionalProperties": false
+  "additionalProperties": false,
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "request": {
+            "properties": {
+              "scenario": {
+                "properties": {
+                  "party": {
+                    "contains": {
+                      "properties": {
+                        "pc": {
+                          "properties": {
+                            "weapon": {
+                              "const": "hochland_long_rifle"
+                            }
+                          },
+                          "required": [
+                            "weapon"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "pc"
+                      ]
+                    }
+                  }
+                },
+                "required": [
+                  "party"
+                ]
+              }
+            },
+            "required": [
+              "scenario"
+            ]
+          }
+        },
+        "required": [
+          "request"
+        ]
+      },
+      "then": {
+        "properties": {
+          "summary": {
+            "required": [
+              "aim"
+            ]
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "summary": {
+            "not": {
+              "required": [
+                "aim"
+              ]
+            }
+          }
+        }
+      }
+    }
+  ]
 }

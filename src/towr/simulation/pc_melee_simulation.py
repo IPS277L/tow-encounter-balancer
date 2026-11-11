@@ -3,12 +3,14 @@ from collections.abc import Callable
 from dataclasses import replace
 from random import Random
 
+from towr.domain.fate_models import FateSpendKind
 from towr.domain.pc_melee_models import validate_pc_melee_scenario_admission
 from towr.domain.pc_melee_result_models import PcMeleeScenarioResult, PcHelpProof, PcRecoverProof, PcNpcHelpProof, PcAttackProof
 from towr.engine.pc_melee_runner import run_pc_melee_scenario
 from towr.rules.dice import RandomSource
 from towr.simulation.pc_melee_models import (
     PcMeleeSimulationRequest, PcMeleeSimulationResult, PcMeleeTrialRecord, PcNearMissBurnCount, PcGloriousSpendCount,
+    PcAimCount, PcAimCounts, pc_has_aim_capability,
     PcHelpActionCount, PcAllyRecoverActionCount, PcNpcExitCount, PcNpcHelpActionCount, PcNpcExtraAttackCount, PcNpcRecoverActionCount, PcNpcWarpedFormCount,
 )
 
@@ -32,13 +34,24 @@ def run_pc_melee_trial(request: PcMeleeSimulationRequest, trial_index: int, *,
         raise ValueError('PC encounter result belongs to another source')
     from towr.domain.pc_flagellant_models import PcNpcRecoverProof
     from towr.domain.pc_warped_form_models import PcWarpedFormActivationProof
+    aim = None
+    if pc_has_aim_capability(request.scenario):
+        from towr.domain.pc_aim_models import PcAimProof
+        aim = PcAimCounts(tuple(PcAimCount(member.actor_id,
+            sum(type(step.proof) is PcAimProof and step.proof.request.actor_id==member.actor_id
+                for step in result.steps)) for member in request.scenario.party),
+            tuple(PcAimCount(member.actor_id,
+                sum(spend.kind is FateSpendKind.SECOND_ACTION for spend in result.state.participant(member.actor_id).fate.spends)
+                -sum(spend.kind is FateSpendKind.SECOND_ACTION for spend in member.fate.spends))
+                for member in request.scenario.party))
     return PcMeleeTrialRecord(request.scenario, trial_index, seed, result.outcome,
         result.executed_actions, result.started_rounds, result.completed_rounds, result.defeated_pc_ids,
         tuple(PcNearMissBurnCount(member.actor_id,
             len(result.state.participant(member.actor_id).fate.burns)-len(member.fate.burns))
             for member in request.scenario.party),
         tuple(PcGloriousSpendCount(member.actor_id,
-            len(result.state.participant(member.actor_id).fate.spends)-len(member.fate.spends))
+            sum(spend.kind is FateSpendKind.GLORIOUS_TEST for spend in result.state.participant(member.actor_id).fate.spends)
+            -sum(spend.kind is FateSpendKind.GLORIOUS_TEST for spend in member.fate.spends))
             for member in request.scenario.party),
         tuple(PcHelpActionCount(member.actor_id,
             sum(isinstance(step.proof,PcHelpProof) and step.proof.request.actor_id==member.actor_id
@@ -63,7 +76,7 @@ def run_pc_melee_trial(request: PcMeleeSimulationRequest, trial_index: int, *,
                 for step in result.steps)) for enemy in request.scenario.enemies),
         tuple(PcNpcWarpedFormCount(enemy.state.actor_id,
             sum(type(step.proof) is PcWarpedFormActivationProof and step.proof.actor_id==enemy.state.actor_id
-                for step in result.steps)) for enemy in request.scenario.enemies))
+                for step in result.steps)) for enemy in request.scenario.enemies), aim=aim)
 
 
 def run_pc_melee_simulation(request: PcMeleeSimulationRequest, *,

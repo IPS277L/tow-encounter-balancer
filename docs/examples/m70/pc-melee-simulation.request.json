@@ -1,0 +1,476 @@
+{
+  "schema_version": "1",
+  "kind": "pc_melee_simulation",
+  "request_id": "m70:pc-hochland:simulation",
+  "ruleset": "towr-pg1.4-gmg1.1",
+  "execution": {
+    "mode": "sequential"
+  },
+  "scenario": {
+    "id": "pc-hochland-short-opening",
+    "party": [
+      {
+        "actor_id": "pc1",
+        "pc": {
+          "id": "pc-profile1",
+          "weapon_skill": 3,
+          "strength": 4,
+          "toughness": 5,
+          "agility": 3,
+          "melee": 5,
+          "defence": 5,
+          "athletics": 4,
+          "endurance": 4,
+          "weapon": "hochland_long_rifle",
+          "armour_bonus": 1,
+          "ranged": {
+            "ballistic_skill": 3,
+            "shooting": 4,
+            "initiative": 3,
+            "dexterity": 4,
+            "has_blackpowder_lore": true,
+            "has_blackpowder_kit": true,
+            "ammunition_supply_confirmed": true,
+            "initially_loaded": true,
+            "reload_hand_policy": "two_available_hands",
+            "awareness": 4
+          }
+        },
+        "fate": {
+          "session_id": "session",
+          "actor_id": "pc1",
+          "rating": 1,
+          "session_spend_limit": 1,
+          "spends": [],
+          "has_lucky": false,
+          "refreshes": [],
+          "burns": [],
+          "resource_event_ids": [],
+          "rule_id": "RULE-FATE-001:session-resource"
+        },
+        "policy": "attack_or_recover_self",
+        "fate_policy": "configured",
+        "random_side_policy": "d10_low_left_high_right",
+        "heavy_wound_policy": "continue_fighting",
+        "initial_weapon_hand": "both",
+        "target_priority": [
+          "minion1",
+          "minion2",
+          "minion3",
+          "minion4"
+        ],
+        "defeat_decisions": [
+          {
+            "attacker_id": "pc1",
+            "target_id": "minion1",
+            "disposition": "knocked_out",
+            "gm_approved": true
+          },
+          {
+            "attacker_id": "pc1",
+            "target_id": "minion2",
+            "disposition": "knocked_out",
+            "gm_approved": true
+          },
+          {
+            "attacker_id": "pc1",
+            "target_id": "minion3",
+            "disposition": "knocked_out",
+            "gm_approved": true
+          },
+          {
+            "attacker_id": "pc1",
+            "target_id": "minion4",
+            "disposition": "knocked_out",
+            "gm_approved": true
+          }
+        ],
+        "near_miss_policy": null,
+        "glorious_policy": null,
+        "help_policy": null,
+        "ally_recover_policy": null,
+        "backup_weapon_policy": {
+          "weapon": "sword",
+          "preferred_hand": "right"
+        },
+        "aim_second_action_policy": {
+          "minimum_remaining_session_spends": 0
+        }
+      },
+      {
+        "actor_id": "pc2",
+        "pc": {
+          "id": "pc-profile2",
+          "weapon_skill": 3,
+          "strength": 4,
+          "toughness": 5,
+          "agility": 3,
+          "melee": 5,
+          "defence": 5,
+          "athletics": 4,
+          "endurance": 4,
+          "weapon": "hochland_long_rifle",
+          "armour_bonus": 1,
+          "ranged": {
+            "ballistic_skill": 3,
+            "shooting": 4,
+            "initiative": 3,
+            "dexterity": 4,
+            "has_blackpowder_lore": true,
+            "has_blackpowder_kit": true,
+            "ammunition_supply_confirmed": true,
+            "initially_loaded": true,
+            "reload_hand_policy": "two_available_hands",
+            "awareness": 4
+          }
+        },
+        "fate": {
+          "session_id": "session",
+          "actor_id": "pc2",
+          "rating": 0,
+          "session_spend_limit": 0,
+          "spends": [],
+          "has_lucky": true,
+          "refreshes": [],
+          "burns": [],
+          "resource_event_ids": [],
+          "rule_id": "RULE-FATE-001:session-resource"
+        },
+        "policy": "attack_or_recover_self",
+        "fate_policy": "configured",
+        "random_side_policy": "d10_low_left_high_right",
+        "heavy_wound_policy": "continue_fighting",
+        "initial_weapon_hand": "both",
+        "target_priority": [
+          "minion1",
+          "minion2",
+          "minion3",
+          "minion4"
+        ],
+        "defeat_decisions": [
+          {
+            "attacker_id": "pc2",
+            "target_id": "minion1",
+            "disposition": "knocked_out",
+            "gm_approved": true
+          },
+          {
+            "attacker_id": "pc2",
+            "target_id": "minion2",
+            "disposition": "knocked_out",
+            "gm_approved": true
+          },
+          {
+            "attacker_id": "pc2",
+            "target_id": "minion3",
+            "disposition": "knocked_out",
+            "gm_approved": true
+          },
+          {
+            "attacker_id": "pc2",
+            "target_id": "minion4",
+            "disposition": "knocked_out",
+            "gm_approved": true
+          }
+        ],
+        "near_miss_policy": null,
+        "glorious_policy": null,
+        "help_policy": null,
+        "ally_recover_policy": null,
+        "backup_weapon_policy": {
+          "weapon": "sword",
+          "preferred_hand": "right"
+        },
+        "aim_second_action_policy": {
+          "minimum_remaining_session_spends": 0
+        }
+      },
+      {
+        "actor_id": "pc3",
+        "pc": {
+          "id": "pc-profile3",
+          "weapon_skill": 3,
+          "strength": 4,
+          "toughness": 5,
+          "agility": 3,
+          "melee": 5,
+          "defence": 5,
+          "athletics": 4,
+          "endurance": 4,
+          "weapon": "sling",
+          "armour_bonus": 1,
+          "ranged": {
+            "ballistic_skill": 3,
+            "shooting": 4,
+            "ammunition_supply_confirmed": true
+          }
+        },
+        "fate": {
+          "session_id": "session",
+          "actor_id": "pc3",
+          "rating": 1,
+          "session_spend_limit": 1,
+          "spends": [],
+          "has_lucky": false,
+          "refreshes": [],
+          "burns": [],
+          "resource_event_ids": [],
+          "rule_id": "RULE-FATE-001:session-resource"
+        },
+        "policy": "attack_or_recover_self",
+        "fate_policy": "decline_optional_fate",
+        "random_side_policy": "d10_low_left_high_right",
+        "heavy_wound_policy": "continue_fighting",
+        "initial_weapon_hand": "right",
+        "target_priority": [
+          "minion1",
+          "minion2",
+          "minion3",
+          "minion4"
+        ],
+        "defeat_decisions": [
+          {
+            "attacker_id": "pc3",
+            "target_id": "minion1",
+            "disposition": "knocked_out",
+            "gm_approved": true
+          },
+          {
+            "attacker_id": "pc3",
+            "target_id": "minion2",
+            "disposition": "knocked_out",
+            "gm_approved": true
+          },
+          {
+            "attacker_id": "pc3",
+            "target_id": "minion3",
+            "disposition": "knocked_out",
+            "gm_approved": true
+          },
+          {
+            "attacker_id": "pc3",
+            "target_id": "minion4",
+            "disposition": "knocked_out",
+            "gm_approved": true
+          }
+        ],
+        "near_miss_policy": null,
+        "glorious_policy": null,
+        "help_policy": null,
+        "ally_recover_policy": null,
+        "backup_weapon_policy": {
+          "weapon": "sword",
+          "preferred_hand": "right"
+        }
+      }
+    ],
+    "day_id": "day",
+    "enemies": [
+      {
+        "actor_id": "minion1",
+        "holds_shield": false,
+        "definition": {
+          "id": "minion-profile",
+          "source_rule_id": "authored:minion",
+          "injury_policy": "minion",
+          "wound_limit": 1,
+          "resilience": {
+            "toughness": 4,
+            "bonus": 1,
+            "armoured": true
+          },
+          "attack": {
+            "id": "club",
+            "source_rule_id": "authored:minion:club",
+            "test_profile": {
+              "dice": 2,
+              "threshold": 4,
+              "pool_cap": null
+            },
+            "damage": {
+              "base": 3,
+              "success_multiplier": 1
+            },
+            "range_max": "close",
+            "hands": "1h",
+            "secondary_effects": []
+          },
+          "protection": {
+            "source_rule_id": "authored:minion:defence",
+            "skill": "athletics",
+            "test_profile": {
+              "dice": 2,
+              "threshold": 4,
+              "pool_cap": null
+            }
+          }
+        }
+      },
+      {
+        "actor_id": "minion2",
+        "holds_shield": false,
+        "definition": {
+          "id": "minion-profile",
+          "source_rule_id": "authored:minion",
+          "injury_policy": "minion",
+          "wound_limit": 1,
+          "resilience": {
+            "toughness": 4,
+            "bonus": 1,
+            "armoured": true
+          },
+          "attack": {
+            "id": "club",
+            "source_rule_id": "authored:minion:club",
+            "test_profile": {
+              "dice": 2,
+              "threshold": 4,
+              "pool_cap": null
+            },
+            "damage": {
+              "base": 3,
+              "success_multiplier": 1
+            },
+            "range_max": "close",
+            "hands": "1h",
+            "secondary_effects": []
+          },
+          "protection": {
+            "source_rule_id": "authored:minion:defence",
+            "skill": "athletics",
+            "test_profile": {
+              "dice": 2,
+              "threshold": 4,
+              "pool_cap": null
+            }
+          }
+        }
+      },
+      {
+        "actor_id": "minion3",
+        "holds_shield": false,
+        "definition": {
+          "id": "minion-profile",
+          "source_rule_id": "authored:minion",
+          "injury_policy": "minion",
+          "wound_limit": 1,
+          "resilience": {
+            "toughness": 4,
+            "bonus": 1,
+            "armoured": true
+          },
+          "attack": {
+            "id": "club",
+            "source_rule_id": "authored:minion:club",
+            "test_profile": {
+              "dice": 2,
+              "threshold": 4,
+              "pool_cap": null
+            },
+            "damage": {
+              "base": 3,
+              "success_multiplier": 1
+            },
+            "range_max": "close",
+            "hands": "1h",
+            "secondary_effects": []
+          },
+          "protection": {
+            "source_rule_id": "authored:minion:defence",
+            "skill": "athletics",
+            "test_profile": {
+              "dice": 2,
+              "threshold": 4,
+              "pool_cap": null
+            }
+          }
+        }
+      },
+      {
+        "actor_id": "minion4",
+        "holds_shield": false,
+        "definition": {
+          "id": "minion-profile",
+          "source_rule_id": "authored:minion",
+          "injury_policy": "minion",
+          "wound_limit": 1,
+          "resilience": {
+            "toughness": 4,
+            "bonus": 1,
+            "armoured": true
+          },
+          "attack": {
+            "id": "club",
+            "source_rule_id": "authored:minion:club",
+            "test_profile": {
+              "dice": 2,
+              "threshold": 4,
+              "pool_cap": null
+            },
+            "damage": {
+              "base": 3,
+              "success_multiplier": 1
+            },
+            "range_max": "close",
+            "hands": "1h",
+            "secondary_effects": []
+          },
+          "protection": {
+            "source_rule_id": "authored:minion:defence",
+            "skill": "athletics",
+            "test_profile": {
+              "dice": 2,
+              "threshold": 4,
+              "pool_cap": null
+            }
+          }
+        }
+      }
+    ],
+    "facts": {
+      "zone_id": "arena",
+      "all_opponents_close": false,
+      "targets_aware": true,
+      "all_combatants_included": true,
+      "unmounted": true,
+      "no_external_effects": true,
+      "no_terrain_modifiers": true,
+      "no_additional_abilities": true,
+      "no_ambush": true,
+      "outnumbering_bonus_approved": false,
+      "can_leave_zone": false
+    },
+    "pc_activation_order": [
+      "pc1",
+      "pc2",
+      "pc3"
+    ],
+    "enemy_activation_order": [
+      "minion1",
+      "minion2",
+      "minion3",
+      "minion4"
+    ],
+    "enemy_target_priority": [
+      "pc1",
+      "pc2",
+      "pc3"
+    ],
+    "max_rounds": 6,
+    "npc_help_policies": [],
+    "npc_extra_attack_actor_ids": [],
+    "npc_grudge_policies": [],
+    "npc_blood_rage_actor_ids": [],
+    "npc_flagellant_policies": [],
+    "npc_warped_form_policies": [],
+    "npc_broken_exit_policy": null,
+    "short_range_opening": {
+      "party_clustered_confirmed": true,
+      "npc_approach_clear_confirmed": true
+    }
+  },
+  "simulation": {
+    "master_seed": "42",
+    "trials": 4
+  }
+}

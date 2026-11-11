@@ -42,11 +42,11 @@ class PcBestigorCatalogTests(unittest.TestCase):
         self.assertEqual((protection.source_rule_id,protection.skill,protection.test_profile),
             (SOURCE+':defence',Skill.DEFENCE,InlineProfile(4,3)))
         self.assertEqual((alternative.source_rule_id,alternative.skill,alternative.test_profile),
-            (SOURCE+':athletics',Skill.ATHLETICS,InlineProfile(3,3)))
+            (SOURCE+':athletics',Skill.ATHLETICS,InlineProfile(3,3,8)))
         self.assertEqual((entry.definition.attacks[0].test_profile.maximum_dice,
-            protection.test_profile.maximum_dice,alternative.test_profile.maximum_dice),(8,8,6))
+            protection.test_profile.maximum_dice,alternative.test_profile.maximum_dice),(8,8,8))
         self.assertIsNone(protection.test_profile.pool_cap)
-        self.assertIsNone(alternative.test_profile.pool_cap)
+        self.assertEqual(alternative.test_profile.pool_cap,8)
 
     def test_fresh_bestigor_has_no_shield_or_automatic_staggered(self):
         snapshot=create_pc_book_npc(PROFILE,'bestigor')
@@ -67,7 +67,7 @@ class PcBestigorCatalogTests(unittest.TestCase):
         self.assertEqual(rage.name,'Blood Rage')
         self.assertIn('makes an attack',rage.scope)
         self.assertIn('May choose to gain Staggered if not already Staggered',rage.effect)
-        self.assertIn('Staggered Bestigors gain +1d Melee',rage.effect)
+        self.assertIn('Staggered Bestigors gain +1d to Melee attacks',rage.effect)
         self.assertEqual(entry.unselected_attack_names,())
         self.assertEqual(entry.unselected_variant_names,())
 

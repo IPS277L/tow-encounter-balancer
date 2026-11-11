@@ -9,7 +9,7 @@ from tests.unit.test_m54_pistol_execution import incoming, shots, steps
 from tests.unit.test_m56_close_shooting_execution import close_shooting_scene
 from towr.adapters._pc_melee_scenario_json import scenario_document
 from towr.adapters.pc_melee_json import parse_pc_melee_simulation_request
-from towr.domain.pc_pistol_models import PcPistolReloadProof
+from towr.domain.pc_ranged_models import PcRangedReloadProof
 from towr.domain.protection_models import CLOSE_RANGED_MELEE_RULE_ID
 from towr.domain.test_models import Skill
 from towr.engine.pc_melee_runner import run_pc_melee_scenario
@@ -35,7 +35,7 @@ class CloseShootingProcessTests(unittest.TestCase):
         request = process_request()
         journals = tuple(run_pc_melee_scenario(request.scenario,
             Random(request.seed_for(index))) for index in range(request.trials))
-        self.assertTrue(all(steps(journal,PcPistolReloadProof) for journal in journals))
+        self.assertTrue(all(steps(journal,PcRangedReloadProof) for journal in journals))
         self.assertTrue(any(len(shots(journal))>=2 for journal in journals))
         for journal in journals:
             for shot in shots(journal):

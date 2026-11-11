@@ -23,7 +23,7 @@
           "endurance": 4,
           "weapon": "pistol",
           "armour_bonus": 0,
-          "pistol": {
+          "ranged": {
             "ballistic_skill": 3,
             "shooting": 4,
             "initiative": 3,

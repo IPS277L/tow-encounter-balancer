@@ -1,5 +1,46 @@
 # Каталог NPC profiles и Special Abilities
 
+## NPC Help к Shooting (M62)
+
+<a id="npc-shooting-help-m62"></a>
+
+Статус `implemented`: RULE-PROFILE-IMPERIAL-001:strength-in-numbers / RULE-PROFILE-GREENSKIN-001:horde, GM1.1 VII113/156–157 и PG1.4 V108/123. Melee-only границы — GM96/121/158 и Big ’Un159. [Принятый ADR-0104](../decisions/ADR-0104-pc-npc-shooting-help.md), [JSON/CLI](../examples/m62/README.md).
+
+Четыре canonical helper loadouts — Militia/Improvised Blades, Goblin Warrior/Spear, Night Goblin/Spear+Shield и Net+Spear — могут использовать existing npc_help_policies к Official/Pistol и Ogre/Pistol. Strength in Numbers и Horde относятся к любой attack; within Medium включает нынешний Close. Peasant/Cultist/Waaagh! Orc требуют Melee: их Shooting pairs отвергаются до RNG. Nasty Skulker не наследует Horde, generic authored helper не получает Ability по имени.
+
+Пользователь выбрал loaded → no-Test Help конкретному Shooting Test; empty/partial Reload → собственный Attack helper. Никакого Help Dexterity/ожидания/предсказания completion. Сохраняются более поздний получатель, несколько helpers, отсутствие chains/self/duplicate helper и фильтрация обеих сторон пары без retarget. Drained receiver вызывает прежний dice-helper Attack fallback; Drained helper без собственного Test может помочь. Net helper при Help не расходует stock, при Attack fallback действует по M52.
+
+Каждый Help занимает standard slot/TurnEnd и existing NPC Help count; даёт отдельный +1d bypass без RNG. Request/bonus/application связывают actual actor/Shooting/round/Test ID; source не задаёт Skill или величину бонуса. Разные receipts складываются, но один не применяется повторно и не переходит на Reload/следующий выстрел. Later Drained подавляет bonus dice, не отменяя уже исполненный Help. Terminal battle до выстрела сохраняет потраченный Help без application.
+
+Shooting build применяет receipts до броска, сохраняет npc_help_applications и полный shot preparation/effective PC Fate prefix. Loaded/cycle/Prone/armour-ignore/Wounds прежние. PC Protection Help остаётся адресованным первому текущему NPC без предсказания его будущего Help: unused receipt не переносится на другого стрелка. Общий K1 effect/application, JSON1 fields/schema/метрики/catalog59 не менялись;212прежнихJSON сохранены побайтно.
+
+## NPC Pistol и Reload (M61)
+
+<a id="npc-pistol-reload-m61"></a>
+
+Статус `implemented`: RULE-NPC-003/006/007/009/010 и RULE-EQUIPMENT-004. Источники — BOOK-GM-GUIDE1.1, VII Allies and Antagonists92–93, Empire Official98, Imperial Ogre103; BOOK-PLAYER-GUIDE1.4 III68/70, IV94–95, V107/110/123. [Принятый ADR-0103](../decisions/ADR-0103-pc-npc-pistol-and-exacting-reload.md), [JSON/CLI](../examples/m61/README.md).
+
+| Canonical loadout | Attack | Reload | Protection / Resilience | Раны |
+|---|---|---|---|---|
+| `empire_official_pistol` | Shooting2d/3, cap4, Damage5,1H, ignores armour, optimum Close–Short | Dexterity3d/3, cap6;3successes | Athletics3d/3, cap6; T3/Res3 | Brute2; W1Broken, W2defeat |
+| `imperial_ogre_pistol` | Shooting3d/2, cap6, Damage5,1H, ignores armour, optimum Close–Medium | Dexterity2d/2, cap4;3successes | Athletics3d/3, cap6; T5/Res6 armoured | Brute3; W1–2Normal Speed, W3defeat |
+
+Reload dice — printed Initiative, threshold — Default Skill по GM93. Attack pool_cap=null: implicit cap равен удвоенному printed BS, поскольку эти Shooting dice не уменьшены штрафом. Ogre Pistol имеет отдельный shared ranged/reload profile по GM103; Typical Trappings с handgun не подменяет строку Attacks и не сокращает optimum доShort.13PG ranged rows сохранены; вместе с GM записью каталог ranged profiles содержит14weapons.
+
+Пользователь выбрал fixed initially loaded Shoot→Exacting Reload3→Shoot, без shield/carried melee/смены оружия у этих NPC. Full source требует explicit Lore Blackpowder/kit/supplies и two_available_hands policy. Loaded и свободная вторая рука — начальные условия; две руки Reload — GM/scenario конкретизация, не цитата RAW. Один Reload Test занимает один Improvise/Skill action, failure сохраняет progress, completion не стреляет. HIT/MISS расходует заряд ровно один раз; actor/instance/cycle независимы от других NPC и PC Pistol. Нет автоматического Recover от Staggered или дозарядки при Wound/TurnEnd.
+
+Official сохраняет Heard It All Before (не триггерится без Persuade/Distract), W1Broken и полный M23/M24 own-turn stop/exit до Shoot/Reload. W2 до выхода — обычный defeat. Ogre сохраняет Speed bands и metadata Charge/Fearsome/Mighty Throw; в Pistol-only/noMove сцене нет Rough Shove/Charge/Melee Give Ground, способность не применяется к Shooting по сходству имени. Прежние Dagger/Greathammer definitions не переписаны.
+
+По умолчанию PC отвечает Defence с рабочим shield, иначе Athletics; [M63](combat.md#pc-close-shooting-protection-m63) добавляет явный выбор. Defenceless без opposition. Armour-ignore использует Toughness, не стирая shield/armour source. Shooting не получает outnumber/higher-ground; Prone target даёт−1d, Close MISS — Staggered только при отсутствии. Действуют actual Protection Help/Fate/Grim/Glorious/W10 и Critical/Near Miss/Wound/body tails. Получение NPC Help новыми стрелками в первоначальном M61 было запрещено; [M62](#npc-shooting-help-m62) разрешает Militia/Horde. Для остальных helpers сохраняется отказ на admission: прежние receipts предназначены Melee, нельзя выдать их за Shooting или Reload. Остальные mixed NPC Help policies сохраняются.
+
+Current PC JSON1 дополняет только новые canonical enemies: closed pistol facts object и explicit Shooting/range_min/ignores_armour в primary attack. Для других identities эти поля запрещены, generic authored Shooting не разрешён. Полный template проверяется до subset/RNG, generation сохраняет survivor facts и удаляет policies исключённых NPC без retarget. Отдельных новых метрик нет: Reload входит в total actions, не NPC Recover/Help. Owner/replay связывает полный source/request/slot/Test/receipt/cycle.208прежнихJSON сохранены побайтно, каталог NPC57→59.
+
+M59 подключает Halfling Thief/Dagger с исходной Stealth3d/5/cap6 к Pistol admission через прежний typed Now You See Me permission. Это последний отдельный Protection case выбранного каталога57:44готовых Athletics/Shield Defence,12policy sources и1canonical Stealth. Melee/Athletics policy не расширена до Stealth; generic NPC/автоматическая скрытность не разрешены. [Правило](combat.md#pc-close-shooting-protection-m59), [CLI](../examples/m59/README.md).
+
+M58 добавляет к Close Shooting policy Nasty Skulker/Long knives, Brewguard/Warhammer, Miner/Pickaxe и Bestigor/Massive Axe: всего12sources при прежнем каталоге57. Miner generic grudge усиливает defensive Melee; Bestigor Blood Rage/next-Glorious остаются Attack-only. Alternate Athletics Miner/Bestigor исправлены на cap4/cap8 по исходной Ag. Основное описание — [правило боя](combat.md#pc-close-shooting-protection-m58), [CLI](../examples/m58/README.md).
+
+M57 добавляет к существующей Close Shooting policy Orc Boy/Big ’Un Choppas/Spear без щитов: ещё4проверенных sources, всего8, при неизменном каталоге57. У всех Melee3d/4 и Athletics3d/3, cap6; Strength4 Big ’Un не увеличивает WS. Help/Charge сохраняют Attack-only scope. Основное описание — [правило боя](combat.md#pc-close-shooting-protection-m57), [CLI-примеры](../examples/m57/README.md).
+
 M56 разрешает явную Close Shooting Melee/Athletics policy для четырёх существующих loadouts State Trooper Halberd/Spear, Empire Knight/Lance без щита и White Wolf/Wolf Hammer. Выбранные definitions/обычная Defence не переписаны, каталог57. Неисполнявшаяся ранее Athletics metadata двух unshielded Knights исправлена на2d/3/cap6 от Ag3. Условия, числа и приёмка имеют основное описание в [правиле боя](combat.md#pc-close-shooting-protection-m56) и [ADR-0101](../decisions/ADR-0101-pc-close-shooting-npc-protection-choice.md).
 
 ## Night Goblin: Weighted Net и carried Spear (M52)
@@ -642,7 +683,7 @@ Current PC JSON1 требует attack.secondary_effects:0–1descriptor exactki
 |---:|---|---|---|
 | 143 | Ungor | Minion | woodland Difficult Terrain игнорируется; `+1d` attacks против Staggered |
 | 143 | Gor | Minion | woodland Difficult Terrain игнорируется; `+1d Melee`, пока Staggered; dual axes `+1 Damage` |
-| 144 | Bestigor | Brute (2 Wounds) | при 0 Wounds не может выбрать Give Ground/Prone, при 1 Wound следующая attack Glorious; woodland Difficult Terrain игнорируется; перед attack может добровольно получить Staggered, если его нет; Staggered даёт `+1d Melee` |
+| 144 | Bestigor | Brute (2 Wounds) | при 0 Wounds не может выбрать Give Ground/Prone, при 1 Wound следующая attack Glorious; woodland Difficult Terrain игнорируется; перед attack может добровольно получить Staggered, если его нет; Staggered даёт `+1d к Melee attacks` |
 | 145 | Chaos Warhound | Minion | Pinning Claws запрещают Give Ground; woodland Difficult Terrain игнорируется |
 | 147 | Minotaur | Brute (3 Wounds) | при 1–2 Wounds получает `+1d Melee` за Wound; attacks по Staggered/Prone/Wounded получают `+1d Wounds Table`; Give Ground от attack даёт Broken; action Brawn Opposed лучшим Defence/Endurance врага в выбранной Zone Medium Range: победа Staggered всем остальным, поражение Staggered самому Minotaur |
 | 148 | Dragon Ogre | Brute (4 Wounds) | при 2–3 Wounds теряет Raking Claws; Raking Claws атакуют каждого enemy в Close Range по одному; Give Ground даёт Broken; первый Charge battle разряжает молнию: после Charge attack все остальные в Zone получают Staggered, Dragon Ogre снимает свой; Wound от spell/magical attack перезаряжает следующий Charge |

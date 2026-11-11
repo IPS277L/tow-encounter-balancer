@@ -12,10 +12,20 @@ from towr.domain.pc_melee_result_models import (
     _decline, _enemy_update, _party_update, _pc_test, _ready, _test_result, pc_melee_round_participants,
 )
 from towr.domain.attack_models import AttackOutcome, DamageImpactSpec, ImpactOutcome, MissConsequence
-from towr.domain.pc_pistol_models import (PcPistolReloadProof,build_pc_pistol_reload,complete_pc_pistol_shot)
+from towr.domain.pc_ranged_models import (PcRangedReloadProof,build_pc_ranged_reload,complete_pc_ranged_shot)
+from towr.domain.pc_aim_models import (PcAimProof, PcAimSecondActionProof, PcAimConsumptionProof,
+    expected_pc_aim_consumption, project_pc_aim_step, build_pc_aim_second_action)
+from towr.domain.pc_blunderbuss_models import PcBlunderbussNearbyProof, project_pc_blunderbuss_nearby, pc_blunderbuss_snapshot
+from towr.domain.resolution_models import NearbyTargetsStaggerRequest
+from towr.domain.attack_models import NearbyTargetsStaggerSpec
+from towr.domain.pc_short_opening_models import PcNpcApproachProof, expected_pc_npc_approach
+from towr.domain.pc_npc_pistol_models import (
+    PcNpcPistolReloadProof, build_pc_npc_pistol_reload, complete_pc_npc_pistol_shot,
+    pc_npc_pistol_weapon, updated_pc_npc_pistols,
+)
 from towr.domain.reload_models import _complete_reload_action_after_test
 from towr.domain.pc_shield_models import (PcShieldReleaseProof, PcShieldState, PcShieldLocation,
-    expected_pc_shield_release, pc_defence_hand)
+    expected_pc_shield_release, pc_protection_hand)
 from towr.domain.pc_net_models import (PcNpcNetDrawProof, expected_pc_npc_net_draw, is_net_impact,
     expected_net_resolution, net_condition_sources_from_attack, spend_pc_npc_net)
 from towr.domain.injury_models import (
@@ -99,7 +109,7 @@ def _canonical_attack(request, attack):
     resilience = ((request.impact_spec.resilience.toughness if request.impact_spec.ignores_armour
         else request.impact_spec.resilience.total)+sum(m.amount for m in request.impact_spec.resilience_modifiers)) if hit and numeric else None
     impact = (ImpactOutcome.WOUND if damage > resilience else ImpactOutcome.STAGGERED) if hit and numeric else None
-    miss = MissConsequence.NONE if hit or request.attacker_is_staggered else MissConsequence.STAGGER_ATTACKER
+    miss = MissConsequence.NONE if hit or not request.is_close_range or request.attacker_is_staggered else MissConsequence.STAGGER_ATTACKER
     tie = hit and request.defender_test is not None and a == d
     rules = ((tuple(m.rule_id for m in (*request.impact_spec.damage_modifiers,*request.impact_spec.resilience_modifiers)) if numeric
         else (request.impact_spec.rule_id,)) if hit else ())
@@ -211,7 +221,22 @@ def project_pc_step(state, proof):
     validate_pc_melee_state_shape(state)
     if pc_melee_unsupported(state) is not None:
         raise ValueError('unsupported PC consequence cannot be silently continued')
+    if type(proof) is PcAimConsumptionProof:
+        return project_pc_aim_step(state,proof)
+    if expected_pc_aim_consumption(state) is not None:
+        raise ValueError('actual Aim consumption must precede another transition')
+    if type(proof) in (PcAimProof,PcAimSecondActionProof):
+        return project_pc_aim_step(state,proof)
+    if build_pc_aim_second_action(state) is not None:
+        raise ValueError('selected funded Aim Second Action must precede turn end or another transition')
+    if type(proof) is PcBlunderbussNearbyProof:
+        return project_pc_blunderbuss_nearby(state,proof)
+    if state.pending and type(state.pending[0]) is NearbyTargetsStaggerRequest:
+        raise ValueError('nearby effects and acknowledgements must complete before another transition')
     combat, scenario = state.round_state, state.source
+    approach = expected_pc_npc_approach(state)
+    if approach is not None and type(proof) is not PcNpcApproachProof:
+        raise ValueError('NPC free approach must precede its ordinary action')
     shield_release = expected_pc_shield_release(state)
     if shield_release is not None and type(proof) is not PcShieldReleaseProof:
         raise ValueError('weapon-first shield release must precede ordinary continuation')
@@ -273,6 +298,12 @@ def project_pc_step(state, proof):
         elif 'pending_actor_id' not in updates:
             updates['pending_actor_id'] = pc_actor
         return replace(state,history=(*state.history,proof),**updates)
+    if type(proof) is PcNpcApproachProof:
+        replace(proof)
+        if approach is None:
+            raise ValueError('no NPC approach is due')
+        _same(proof,approach,'approach changed its actual turn, opening or proximity source')
+        return finish(approached_npc_ids=(*state.approached_npc_ids,proof.actor_id))
     if type(proof) is PcShieldReleaseProof:
         replace(proof)
         if shield_release is None:
@@ -408,10 +439,15 @@ def project_pc_step(state, proof):
                 pc_test,actual_test,proof.fate_decline,proof.glorious)
             effective_attack = replace(expected.kernel_request.attack,
                 **({'attacker_test':effective_test} if expected.actor_id == pc_actor else {'defender_test':effective_test}))
-        expected_shot = (complete_pc_pistol_shot(state,expected,
+        expected_shot = (complete_pc_ranged_shot(state,expected,
             replace(expected,kernel_request=replace(expected.kernel_request,attack=effective_attack)),execution)
-            if expected.actor_id==pc_actor and member.pistol is not None else None)
-        _same(proof.pistol_shot,expected_shot,'Pistol shot changed its full preparation/instance/cycle/source')
+            if expected.actor_id==pc_actor and pc_attack_skill(state,pc_actor) is Skill.SHOOTING else None)
+        _same(proof.ranged_shot,expected_shot,'Ranged shot changed its full preparation/instance/cycle/source')
+        _same(proof.nearby_snapshot,pc_blunderbuss_snapshot(state,proof),'HIT changed its committed nearby snapshot/source')
+        expected_npc_shot = (complete_pc_npc_pistol_shot(state,expected,
+            replace(expected,kernel_request=replace(expected.kernel_request,attack=effective_attack)),execution)
+            if expected.actor_id!=pc_actor and pc_npc_pistol_weapon(state,expected.actor_id) is not None else None)
+        _same(proof.npc_pistol_shot,expected_npc_shot,'NPC shot changed its full preparation/actor/instance/cycle')
         _canonical_attack(effective_attack,result.attack)
         _ordinary_resolution(expected.kernel_request,result)
         if result.request_id != expected.kernel_request.id:
@@ -421,7 +457,8 @@ def project_pc_step(state, proof):
         else:
             caused = (critical_for_action(member,CombatActionKind.ATTACK,used_hand=usable_weapon_hand(member))
                 if expected.actor_id == pc_actor else critical_for_hand(member,
-                    pc_defence_hand(member,proof.protection.source_request.attack_skill) if proof.protection.source_request.selected_skill is Skill.DEFENCE else None))
+                    pc_protection_hand(member,proof.protection.source_request.attack_skill,
+                        proof.protection.source_request.selected_skill)))
             pc_injury = pc_after_test(state,pc_actor,caused)
         before,_ = pc_pre_stagger_target(expected.kernel_request,result.attack.outcome)
         pending_wound = None
@@ -519,6 +556,11 @@ def project_pc_step(state, proof):
                 and result.attack.impact is ImpactOutcome.STAGGERED
                 and not condition_forces_wound(expected.kernel_request,result.attack)):
             secondary_rules = (expected.kernel_request.first_stagger_wound.rule_id,*secondary_rules)
+        if result.attack.outcome is AttackOutcome.HIT:
+            for effect in expected.kernel_request.attack.secondary_effects:
+                if type(effect) is NearbyTargetsStaggerSpec:
+                    followups = (*followups,NearbyTargetsStaggerRequest(expected.kernel_request.id,effect.rule_id))
+                    secondary_rules = (*secondary_rules,effect.rule_id)
         _same((result.target_state,result.condition_applications,result.applied_secondary_rule_ids),
             (target,applications,secondary_rules),'PC Attack changed its canonical on-hit Condition application or target')
         _same(result.follow_ups,followups,'PC Attack altered mandatory follow-up order')
@@ -533,8 +575,10 @@ def project_pc_step(state, proof):
         enemies = spend_pc_npc_net(state,enemies,expected)
         return finish(round_state=execution.state,party=_party_update(state,pc_actor,injury=pc_injury,fate=pc_fate,
             hit_condition_sources=hit_sources,net_condition_sources=net_sources,
-            pistol=expected_shot.execution.weapon_state if expected_shot is not None else member.pistol),enemies=enemies,
-            pending=result.follow_ups,pending_wound=pending_wound)
+            ranged=expected_shot.execution.weapon_state if expected_shot is not None else member.ranged),enemies=enemies,
+            pending=result.follow_ups,pending_wound=pending_wound,
+            npc_pistols=(updated_pc_npc_pistols(state,expected.actor_id,expected_npc_shot.execution.weapon_state)
+                if expected_npc_shot is not None else state.npc_pistols))
     if isinstance(proof,PcNpcHelpProof):
         from towr.domain.automatic_help_models import expected_automatic_help_action
         _ready(state)
@@ -712,7 +756,8 @@ def project_pc_step(state, proof):
                 or proof.previous_hand is not member.weapon_hand):
             raise ValueError('backup draw changed its actual own turn, policy, hand or primary source')
         return finish(party=_party_update(state,pc_actor,weapon_hand=draw_hand,using_backup_weapon=True,
-            injury=critical_for_incidental_hand_use(member,draw_hand)))
+            injury=critical_for_incidental_hand_use(replace(member,
+                injury=critical_for_incidental_hand_use(member,member.weapon_hand)),draw_hand)))
     if isinstance(proof,PcHandSwapProof):
         _ready(state)
         if combat.active_turn is None or combat.active_turn.actor_id != pc_actor or combat.active_turn.action_slots:
@@ -815,11 +860,24 @@ def project_pc_step(state, proof):
         expected = PcNpcRecoverProof(request,canonical,before,flagellant_recovered_injury(before))
         _same(proof,expected,'NPC Recover changed its actor, receipt, heal or source')
         return finish(round_state=canonical.round_state,enemies=_enemy_update(state,actor,expected.injury))
-    if type(proof) is PcPistolReloadProof:
+    if type(proof) is PcNpcPistolReloadProof:
+        _ready(state)
+        actor = combat.active_turn.actor_id
+        if actor not in scenario.enemy_activation_order or pc_melee_selected_action(state) is not CombatActionKind.IMPROVISE:
+            raise ValueError('NPC Reload cannot replace another actor or selected action')
+        request = build_pc_npc_pistol_reload(state)
+        _same(proof.request,request,'NPC Reload changed its current actor/weapon/slot/Test')
+        actual = proof.result.exacting.test_result
+        _test_result(request.dexterity_test,actual)
+        canonical = _complete_reload_action_after_test(request,actual)
+        _same(proof.result,canonical,'NPC Reload changed its actual Test/progress/receipt')
+        return finish(round_state=canonical.round_state,
+            npc_pistols=updated_pc_npc_pistols(state,actor,canonical.state))
+    if type(proof) is PcRangedReloadProof:
         _ready(state)
         if pc_melee_selected_action(state) is not CombatActionKind.IMPROVISE:
             raise ValueError('Reload cannot replace another selected action')
-        request = build_pc_pistol_reload(state)
+        request = build_pc_ranged_reload(state)
         _same(proof.request,request,'Reload changed its current weapon/slot/profile/source')
         actual = proof.result.exacting.test_result
         effective,fate = validate_pc_test_fate(state,pc_actor,Skill.DEXTERITY,
@@ -829,7 +887,7 @@ def project_pc_step(state, proof):
         injury = pc_after_test(state,pc_actor,critical_for_action(member,CombatActionKind.IMPROVISE,
             used_hand=PcTwoHandedGrip.BOTH))
         return finish(round_state=canonical.round_state,party=_party_update(state,pc_actor,
-            injury=injury,fate=fate,pistol=canonical.state))
+            injury=injury,fate=fate,ranged=canonical.state))
     if isinstance(proof,PcRecoverProof):
         _ready(state)
         if pc_melee_selected_action(state) is not CombatActionKind.RECOVER:

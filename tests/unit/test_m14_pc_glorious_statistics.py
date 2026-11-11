@@ -90,7 +90,7 @@ class PcGloriousStatisticsTests(unittest.TestCase):
 
     def test_policy_criteria_are_explicit_and_cached_skill_types_are_readmitted(self):
         source = active_glorious_source()
-        for skills in ((),(Skill.MELEE,Skill.MELEE),('melee',),(Skill.SHOOTING,)):
+        for skills in ((),(Skill.MELEE,Skill.MELEE),('melee',),(Skill.AWARENESS,)):
             with self.assertRaises((TypeError,ValueError)):
                 PcGloriousPolicy(skills,0,0)
         for value in (True,None,1.0,'1',-1):

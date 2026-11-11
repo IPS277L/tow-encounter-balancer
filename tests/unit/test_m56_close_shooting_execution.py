@@ -16,7 +16,7 @@ from towr.domain.pc_melee_result_models import (
 )
 from towr.domain.pc_npc_catalog import PcBookNpcProfile
 from towr.domain.pc_npc_close_shooting_models import PcNpcCloseShootingProtectionPolicy
-from towr.domain.pc_pistol_models import PcPistolReloadProof
+from towr.domain.pc_ranged_models import PcRangedReloadProof
 from towr.domain.protection_models import CLOSE_RANGED_MELEE_RULE_ID
 from towr.domain.test_models import DiceModifier, Skill, TestQuality
 from towr.domain.turn_models import CombatTurnStartRequest
@@ -40,7 +40,7 @@ def close_shooting_scene(profile=PcBookNpcProfile.EMPIRE_KNIGHT_LANCE,
     source = book_pc_scenario(footpads=0, townsfolk=0, pc_count=pc_count,
         max_rounds=rounds, **{keyword: 1})
     party = tuple(member if member.actor_id in melee_actor_ids else replace(member,
-        pc=replace(member.pc, weapon=PcMeleeWeapon.PISTOL, pistol=pistol_profile()))
+        pc=replace(member.pc, weapon=PcMeleeWeapon.PISTOL, ranged=pistol_profile()))
         for member in source.party)
     return replace(source, party=party,
         facts=replace(source.facts, outnumbering_bonus_approved=False),
@@ -161,7 +161,7 @@ class CloseShootingExecutionTests(unittest.TestCase):
                     self.assertEqual(raw(second).defender_test.trace.rolled_dice, dice)
                     self.assertTrue(result.state.enemy(actor).state.injury.defeated)
                     self.assertIs(result.outcome,PcMeleeOutcome.OBJECTIVE_ACHIEVED)
-                    self.assertEqual(len(steps(result,PcPistolReloadProof)),1)
+                    self.assertEqual(len(steps(result,PcRangedReloadProof)),1)
                     self.assertEqual(result.executed_actions,5)
 
     def test_prone_preparation_penalizes_shooting_without_defensive_melee_bonus(self):
@@ -191,7 +191,7 @@ class CloseShootingExecutionTests(unittest.TestCase):
         self.assertIs(result.outcome,PcMeleeOutcome.OBJECTIVE_ACHIEVED)
         self.assertEqual(result.executed_actions,1)
         self.assertEqual(incoming(result),())
-        self.assertEqual(steps(result,PcPistolReloadProof),())
+        self.assertEqual(steps(result,PcRangedReloadProof),())
 
     def test_shooting_fate_keeps_actual_opposition_source_without_duplicate_defender_test(self):
         source = configured(close_shooting_scene(),(Skill.SHOOTING,))

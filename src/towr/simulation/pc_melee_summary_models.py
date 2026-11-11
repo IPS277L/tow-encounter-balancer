@@ -1,5 +1,5 @@
 """Aggregate-only PC encounter data for the balance boundary."""
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 
 from towr.simulation.pc_melee_models import (
     PcMeleeOutcomeCounts, PcMeleeSimulationRequest, PcNearMissBurnCount,
@@ -9,6 +9,7 @@ from towr.simulation.pc_melee_models import (
     PcNpcExtraAttackCount, validate_npc_extra_attack_counts,
     PcNpcRecoverActionCount, validate_npc_recover_counts,
     PcNpcWarpedFormCount, validate_npc_warped_form_counts, warped_form_target_budget,
+    PcAimCounts, validate_aim_counts,
 )
 
 
@@ -56,6 +57,7 @@ class PcMeleeSimulationSummary:
     npc_recover_action_counts: tuple[PcNpcRecoverActionCount, ...]
     npc_warped_form_trial_count: int
     npc_warped_form_counts: tuple[PcNpcWarpedFormCount, ...]
+    aim: PcAimCounts | None = field(default=None, kw_only=True)
 
     def __post_init__(self) -> None:
         if not isinstance(self.source_request, PcMeleeSimulationRequest):
@@ -85,10 +87,13 @@ class PcMeleeSimulationSummary:
         validate_npc_extra_attack_counts(self.npc_extra_attack_counts,self.source_request.scenario,
             trials=self.trials,extra_trials=self.npc_extra_attack_trial_count,
             actions=self.total_action_count,started_rounds=started)
+        validate_aim_counts(self.aim,self.source_request.scenario,trials=self.trials,
+            actions=self.total_action_count,started_rounds=started,glorious_counts=self.glorious_spend_counts)
+        seconds = self.aim.total_second_action_spend_count if self.aim is not None else 0
         terminal = counts.objective_achieved+counts.party_defeated
         members = len(self.source_request.scenario.party)
         if not max(completed, terminal+limited*budget) <= self.total_action_count <= (
-                members+len(self.source_request.scenario.enemies))*started+self.total_npc_extra_attack_count:
+                members+len(self.source_request.scenario.enemies))*started+self.total_npc_extra_attack_count+seconds:
             raise ValueError('actions contradict outcomes/rounds/actor count')
         if type(self.any_pc_defeated_count) is not int:
             raise TypeError('trials with a confirmed PC death must be an integer')
@@ -150,7 +155,7 @@ class PcMeleeSimulationSummary:
             actions=self.total_action_count,started_rounds=self.total_started_round_count,
             warped_form_counts=self.npc_warped_form_counts)
         if sum(item.count for item in (*self.help_action_counts,*self.ally_recover_action_counts,
-                *self.npc_help_action_counts,*self.npc_recover_action_counts))+2*self.total_npc_extra_attack_count>self.total_action_count:
+                *self.npc_help_action_counts,*self.npc_recover_action_counts))+2*self.total_npc_extra_attack_count+(self.aim.total_action_count if self.aim is not None else 0)>self.total_action_count:
             raise ValueError('Help, ally Recover and primary/extra Attacks cannot consume the same action')
         validate_npc_exit_counts(self.npc_exit_counts,self.source_request.scenario,
             trials=self.trials,exit_trials=self.npc_exit_trial_count)

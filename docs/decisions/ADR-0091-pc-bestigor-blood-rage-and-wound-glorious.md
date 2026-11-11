@@ -4,7 +4,7 @@
 
 ## Источники
 
-BOOK-GM-GUIDE1.1, гл.VII Allies and Antagonists / Bestigor144: Normal Brute2, WS4/T4/Res6 armoured, Massive Axe Close3d/4 Damage7/2H; Protection Defence4d/3 либо Athletics3d/3. Default3, Melee4, Willpower4. На W0 нельзя выбирать Give Ground или fall Prone; на W1 следующая attack Bestigor Glorious; W2defeat. Child of the Forest игнорирует woodland Difficult Terrain. Blood Rage позволяет при Attack добровольно получить Staggered, если его ещё нет; Staggered Bestigor получает+1d Melee.
+BOOK-GM-GUIDE1.1, гл.VII Allies and Antagonists / Bestigor144: Normal Brute2, WS4/T4/Res6 armoured, Massive Axe Close3d/4 Damage7/2H; Protection Defence4d/3 либо Athletics3d/3. Default3, Melee4, Willpower4. На W0 нельзя выбирать Give Ground или fall Prone; на W1 следующая attack Bestigor Glorious; W2defeat. Child of the Forest игнорирует woodland Difficult Terrain. Blood Rage позволяет при Attack добровольно получить Staggered, если его ещё нет; Staggered Bestigor получает+1d к Melee attacks.
 
 BOOK-PLAYER-GUIDE1.4, гл.V Rules / Dice Modifiers107: обычный cap — удвоенная Characteristic; для Massive Axe это8 от WS4, не6 от printed pool3. Grim & Glorious108: Glorious позволяет перебросить любые провалы один раз; Grim/Glorious отменяют друг друга, повторный reroll запрещён. Attack/Staggered119: повторный Staggered даёт выбор цены; промах Close не добавляет второй Staggered. Printed NPC pool/Damage используются напрямую без PC weapon Traits/повторного penalty по GM Profiles93.
 
@@ -18,7 +18,7 @@ Canonical `PcBookNpcProfile.BESTIGOR_MASSIVE_AXE = bestigor_massive_axe`, defini
 "npc_blood_rage_actor_ids": ["bestigor1"]
 ```
 
-Для указанных Bestigors перед каждой фактически предстоящей Attack: если Staggered отсутствует, получить его; если уже есть — не накладывать повторно. `[]` явно отказывается от добровольного получения Staggered. Книжный+1d Melee от **любого фактически имеющегося** Staggered работает независимо от включения в список. Этот ordinary bonus проходит cap/Drained, не применяется к Defence и не превращается в free success.
+Для указанных Bestigors перед каждой фактически предстоящей Attack: если Staggered отсутствует, получить его; если уже есть — не накладывать повторно. `[]` явно отказывается от добровольного получения Staggered. Книжный+1d к Melee attacks от **любого фактически имеющегося** Staggered работает независимо от включения в список. Этот ordinary bonus проходит cap/Drained, не применяется к защитному Melee/Defence и не превращается в free success.
 
 Сохраняются прежние NPC Attack/target priority, NPC Help и PC SUFFER_WOUND strategy. Count search удаляет ID исключённого Bestigor без переназначения. Новых action costs/summary metrics и смены wire version нет. Все148JSON documents M9–M45 обновляются required пустыми arrays в requests/full echoes с сохранением остальных значений;48прежнихcatalog entries не меняются.
 
@@ -56,3 +56,5 @@ W0 запрет **выбора** Give Ground/Prone не является общ�
 Реализация выводит Glorious entitlement из actual ACK/Attack history без нового mutable bank; typed `PcBestigorGloriousSource` сохраняется в Attack proof и сверяется полным replay. [Policy](../../src/towr/domain/pc_npc_blood_rage_policy_models.py), [proof/entitlement](../../src/towr/domain/pc_bestigor_models.py), [owner](../../src/towr/domain/pc_melee_result_models.py), [projection](../../src/towr/domain/_pc_melee_projection.py), [runner](../../src/towr/engine/pc_melee_runner.py). [Catalog](../../tests/unit/test_m46_pc_bestigor_catalog.py), [native](../../tests/unit/test_m46_pc_bestigor_execution.py), [JSON](../../tests/integration/test_m46_pc_bestigor_json.py), [process](../../tests/integration/test_m46_pc_bestigor_process.py), [CLI-примеры](../examples/m46/README.md). Фактические команды/результаты/следующий шаг — в [статусе](../project-status.md).
 
 Проверки M46: единый PC/Test checkpoint88модулей/815tests OK за48.184s; отдельно representative process parity1test OK за1.984s. Все30новыхtests прошли:8catalog,14native,7JSON/trials/search,1process. Это адресный checkpoint, не полный regression проекта. Независимое review конкретных дефектов не нашло.148прежнихJSON documents мигрированы только обязательным Rage key; подробные фактические CLI результаты и preservation checks — в статусе/примерах.
+
+Уточнение формулировки при M58: GM144 явно говорит Melee attacks; прежнее краткое «+1d Melee» не разрешало общий Test bonus. Исполнение M46 уже применяло Blood Rage только в Attack preparation. Новая защитная Melee из M58 бонус не получает и W1 next-Attack entitlement не расходует; voluntary trigger по-прежнему только собственная Attack.

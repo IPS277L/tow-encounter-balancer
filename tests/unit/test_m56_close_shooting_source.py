@@ -38,7 +38,7 @@ def book_source():
 def configured_source(skill=Skill.MELEE):
     source = book_source()
     party = tuple(replace(member,pc=replace(member.pc,weapon=PcMeleeWeapon.PISTOL,
-        pistol=pistol_profile())) for member in source.party)
+        ranged=pistol_profile())) for member in source.party)
     policies = tuple(Policy(actor,skill) for actor in source.enemy_activation_order)
     return replace(source,party=party,npc_close_shooting_protection_policies=policies)
 
@@ -136,7 +136,7 @@ class M56CloseShootingSourceTests(unittest.TestCase):
             validate_pc_melee_scenario_admission(configured)
             self.assertEqual(configured.enemies,source.enemies)
             self.assertEqual(len(configured.npc_close_shooting_protection_policies),4)
-        with self.assertRaisesRegex(ValueError,'Pistol opponents'):
+        with self.assertRaisesRegex(ValueError,'ranged opponents'):
             replace(configured_source(),npc_close_shooting_protection_policies=None)
 
     def test_policies_require_existing_opposition_actors_a_pistol_and_unique_actors(self):
@@ -146,7 +146,7 @@ class M56CloseShootingSourceTests(unittest.TestCase):
                 (replace(policy,actor_id='missing'),),({'actor_id':policy.actor_id,'skill':'melee'},)):
             with self.subTest(policies=policies),self.assertRaises((TypeError,ValueError)):
                 replace(source,npc_close_shooting_protection_policies=policies)
-        with self.assertRaisesRegex(ValueError,'require a Pistol'):
+        with self.assertRaisesRegex(ValueError,'require a ranged PC'):
             replace(book_source(),npc_close_shooting_protection_policies=(policy,))
 
     def test_policy_for_unsupported_or_forged_full_source_is_rejected_before_rng(self):

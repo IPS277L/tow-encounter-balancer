@@ -39,7 +39,7 @@ class PcMeleeJsonSchemaTests(unittest.TestCase):
         weapons=['staff','sword','dagger','axe','warhammer','morning_star','pickaxe','flail','billhook','halberd','glaive','greataxe','greathammer']
         common=json.loads(files('towr.adapters.schemas').joinpath('pc-melee-common.schema.json')
             .read_text(encoding='utf-8'))
-        self.assertEqual(common['$defs']['pc']['properties']['weapon'],{'enum':weapons})
+        self.assertEqual(common['$defs']['pc']['properties']['weapon'],{'enum':weapons+['pistol','repeater_handbow','repeater_pistol','shortbow','warbow','longbow','crossbow','repeater_crossbow','handgun','repeater_handgun','sling','blunderbuss','hochland_long_rifle']})
         for balance in (False,True):
             raw=document(balance=balance,party_size=len(weapons))
             key='template' if balance else 'scenario'
@@ -109,11 +109,11 @@ class PcMeleeJsonSchemaTests(unittest.TestCase):
         helper=raw['scenario']['party'][1]
         helper['policy']='help_ally_or_attack_or_recover_self'
         for target,skill in (('melee_attack',None),('first_incoming_protection','defence'),
-                ('first_incoming_protection','athletics')):
+                ('first_incoming_protection','athletics'),('first_incoming_protection','melee')):
             helper['help_policy']={'beneficiary_id':'pc','target':target,'protection_skill':skill}
             schema.validate_pc_melee_simulation_document(raw)
         for target,skill in (('melee_attack','defence'),('first_incoming_protection',None),
-                ('first_incoming_protection','melee'),('first_incoming_protection',False),
+                ('first_incoming_protection','shooting'),('first_incoming_protection',False),
                 ('protection','defence'),(True,'athletics')):
             helper['help_policy']={'beneficiary_id':'pc','target':target,'protection_skill':skill}
             with self.subTest(target=target,skill=skill),self.assertRaises(ValidationError):

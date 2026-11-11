@@ -2,6 +2,8 @@
 
 Дата: 2026-11-07. Статус: **принят пользователем; реализована тактика возврата щита после Reload**.
 
+Дополнение M60: [ADR-0102](ADR-0102-pc-pistol-melee-backup.md) разрешает carried1H backup у Pistol с optional shield при empty/недоступном Reload. Первоначальные ограничения ниже сохраняют историю этой вехи; актуальная общая граница — в [правиле M60](../rules/equipment.md#pc-pistol-backup-m60).
+
 ## Основание и источники
 
 M53 реализует held/dropped/unavailable shield, weapon-first и restore_before_attack. M54 реализует loaded Pistol, настоящий Exacting Reload и выбранную пользователем two_available_hands policy. До M55 их совместный loadout запрещался в typed source и schema; простого снятия запрета недостаточно: прежний self Recover восстанавливал бы щит перед каждой попыткой Reload.
@@ -67,4 +69,4 @@ M53 реализует held/dropped/unavailable shield, weapon-first и restore_
 
 ## Согласование и результат
 
-Пользователь выбрал отдельный возврат щита после завершения Reload. Two_available_hands из M54 сохранена. Source/schema допускают полный комбинированный loadout без новых полей. [Shield helpers](../../src/towr/domain/pc_shield_models.py) подавляют pickup при пустом Pistol и выбирают release непосредственно перед доступным Reload; [Reload](../../src/towr/domain/pc_pistol_models.py) проверяет фактически held shield, сохраняя dropped предмет в owner. Существующие proofs/receipts связывают расход заряда, руки, cycle и восстановление защиты; нового journal variant нет. [Фактическая проверка](../project-status.md), [CLI-примеры](../examples/m55/README.md), [очередь](../roadmap.md).
+Пользователь выбрал отдельный возврат щита после завершения Reload. Two_available_hands из M54 сохранена. Source/schema допускают полный комбинированный loadout без новых полей. [Shield helpers](../../src/towr/domain/pc_shield_models.py) подавляют pickup при пустом Pistol и выбирают release непосредственно перед доступным Reload; [Reload](../../src/towr/domain/pc_ranged_models.py) проверяет фактически held shield, сохраняя dropped предмет в owner. Существующие proofs/receipts связывают расход заряда, руки, cycle и восстановление защиты; нового journal variant нет. [Фактическая проверка](../project-status.md), [CLI-примеры](../examples/m55/README.md), [очередь](../roadmap.md).

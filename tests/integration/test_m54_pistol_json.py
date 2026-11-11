@@ -40,11 +40,11 @@ class PistolJsonTests(unittest.TestCase):
                 command = parse(json.dumps(raw))
                 source = command.request.template if balance else command.request.scenario
                 self.assertEqual(scenario_document(source), raw[key])
-                self.assertEqual('pistol' in raw[key]['party'][0]['pc'], pistol)
+                self.assertEqual('ranged' in raw[key]['party'][0]['pc'], pistol)
                 self.assertEqual(raw['schema_version'], '1')
                 if pistol:
                     self.assertEqual(raw[key]['party'][0]['pc']['weapon'], 'pistol')
-                    self.assertEqual(raw[key]['party'][0]['pc']['pistol'], {
+                    self.assertEqual(raw[key]['party'][0]['pc']['ranged'], {
                         'ballistic_skill': 3, 'shooting': 4, 'initiative': 3, 'dexterity': 4,
                         'has_blackpowder_lore': True, 'has_blackpowder_kit': True,
                         'ammunition_supply_confirmed': True, 'initially_loaded': True,
@@ -66,32 +66,32 @@ class PistolJsonTests(unittest.TestCase):
             error = PcMeleeBalanceInputError if balance else PcMeleeSimulationInputError
             base = pistol_document(balance=balance)
             malformed = []
-            for field in base[key]['party'][0]['pc']['pistol']:
+            for field in base[key]['party'][0]['pc']['ranged']:
                 raw = deepcopy(base)
-                del raw[key]['party'][0]['pc']['pistol'][field]
+                del raw[key]['party'][0]['pc']['ranged'][field]
                 malformed.append(raw)
             for field, value in changes:
                 raw = deepcopy(base)
                 if field is None:
-                    raw[key]['party'][0]['pc']['pistol'] = value
+                    raw[key]['party'][0]['pc']['ranged'] = value
                 else:
-                    raw[key]['party'][0]['pc']['pistol'][field] = value
+                    raw[key]['party'][0]['pc']['ranged'][field] = value
                 malformed.append(raw)
             with patch('towr.engine.pc_melee_runner.run_pc_melee_scenario') as runner:
                 for raw in malformed:
-                    with self.subTest(balance=balance, profile=raw[key]['party'][0]['pc']['pistol']), self.assertRaises(error):
+                    with self.subTest(balance=balance, profile=raw[key]['party'][0]['pc']['ranged']), self.assertRaises(error):
                         parse(json.dumps(raw))
                 runner.assert_not_called()
 
     def test_codec_alone_requires_complete_profile_and_actual_pistol_weapon(self):
         base = pistol_document()['scenario']
         malformed = []
-        for value in (None, {}, dict(base['party'][0]['pc']['pistol'], extra=True)):
+        for value in (None, {}, dict(base['party'][0]['pc']['ranged'], extra=True)):
             raw = deepcopy(base)
-            raw['party'][0]['pc']['pistol'] = value
+            raw['party'][0]['pc']['ranged'] = value
             malformed.append(raw)
         raw = deepcopy(base)
-        del raw['party'][0]['pc']['pistol']
+        del raw['party'][0]['pc']['ranged']
         malformed.append(raw)
         raw = deepcopy(base)
         raw['party'][0]['pc']['weapon'] = 'sword'
@@ -100,17 +100,20 @@ class PistolJsonTests(unittest.TestCase):
             with self.subTest(pc=raw['party'][0]['pc']), self.assertRaises(PcMeleeSimulationInputError):
                 parse_scenario(raw, path_prefix='/scenario', error_type=PcMeleeSimulationInputError)
 
-    def test_pistol_same_hand_shield_backup_help_ally_recover_and_old_pc_pistol_backup_rejected(self):
+    def test_pistol_same_hand_shield_overcarry_backup_help_and_old_pc_pistol_backup_rejected(self):
         def help_policy(member):
             member.update(policy='help_ally_or_attack_or_recover_self',
                 help_policy={'beneficiary_id': 'ally', 'target': 'melee_attack', 'protection_skill': None})
         def ally_policy(member):
             member.update(policy='recover_ally_or_attack_or_recover_self',
                 ally_recover_policy={'beneficiary_id': 'ally'})
+        def overcarry_backup(member):
+            member['pc']['strength'] = 1
+            member['backup_weapon_policy'] = {'weapon': 'sword', 'preferred_hand': 'right'}
         for mutate in (lambda m: m.update(initial_weapon_hand='both'),
                 lambda m: m.update(shield={'initial_hand': 'left', 'hand_conflict_policy': 'weapon_first',
                     'recovery_policy': 'restore_before_attack'}),
-                lambda m: m.update(backup_weapon_policy={'weapon': 'sword', 'preferred_hand': 'right'}),
+                overcarry_backup,
                 help_policy, ally_policy):
             raw = pistol_document()
             mutate(raw['scenario']['party'][0])

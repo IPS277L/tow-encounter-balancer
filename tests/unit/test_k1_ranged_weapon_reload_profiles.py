@@ -101,7 +101,9 @@ def attack_source_with_modifier(
 
 class K1RangedWeaponReloadProfileTests(unittest.TestCase):
     def test_catalog_covers_every_page_95_weapon_exactly(self) -> None:
-        self.assertEqual(len(RANGED_WEAPON_RELOAD_PROFILES), 13)
+        self.assertEqual(len(RANGED_WEAPON_RELOAD_PROFILES), 14)
+        self.assertEqual(len(EXPECTED_PROFILES),13)
+        self.assertEqual(set(EXPECTED_PROFILES),set(RangedWeaponId)-{RangedWeaponId.OGRE_PISTOL})
         self.assertEqual(
             {profile.weapon_id for profile in RANGED_WEAPON_RELOAD_PROFILES},
             set(RangedWeaponId),
@@ -147,7 +149,7 @@ class K1RangedWeaponReloadProfileTests(unittest.TestCase):
 
     def test_repeater_without_bonus_fires_without_opening_reload(self) -> None:
         weapon = create_initial_ranged_weapon_reload_state(
-            "weapon:repeater-pistol:1",
+            "weapon:repeater-ranged:1",
             RangedWeaponId.REPEATER_PISTOL,
         )
         assert isinstance(weapon, ReloadableWeaponState)
@@ -170,7 +172,7 @@ class K1RangedWeaponReloadProfileTests(unittest.TestCase):
 
     def test_repeater_bonus_is_exact_and_opens_book_reload_target(self) -> None:
         weapon = create_initial_ranged_weapon_reload_state(
-            "weapon:repeater-pistol:1",
+            "weapon:repeater-ranged:1",
             RangedWeaponId.REPEATER_PISTOL,
         )
         assert isinstance(weapon, ReloadableWeaponState)
@@ -184,7 +186,7 @@ class K1RangedWeaponReloadProfileTests(unittest.TestCase):
             weapon,
             request_id="repeater-shot:bonus",
             source=source,
-            next_cycle_id="weapon:repeater-pistol:1:reload:1",
+            next_cycle_id="weapon:repeater-ranged:1:reload:1",
             uses_optional_reload_bonus=True,
         )
 
@@ -231,7 +233,7 @@ class K1RangedWeaponReloadProfileTests(unittest.TestCase):
 
     def test_ordinary_reload_weapon_rejects_repeater_bonus(self) -> None:
         weapon = create_initial_ranged_weapon_reload_state(
-            "weapon:pistol:1",
+            "weapon:ranged:1",
             RangedWeaponId.PISTOL,
         )
         assert isinstance(weapon, ReloadableWeaponState)
@@ -241,7 +243,7 @@ class K1RangedWeaponReloadProfileTests(unittest.TestCase):
                 request_id="pistol-shot:invalid-bonus",
                 attack_id="execute:pistol-shot:invalid-bonus",
                 kernel_id="kernel:pistol-shot:invalid-bonus",
-                next_cycle_id="weapon:pistol:1:reload:1",
+                next_cycle_id="weapon:ranged:1:reload:1",
                 uses_optional_reload_bonus=True,
             )
 

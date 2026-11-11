@@ -8,7 +8,7 @@ from tests.support.pc_shield_scenarios import shield_loadout
 from tests.unit.test_m54_pistol_execution import shots, steps
 from towr.domain.pc_melee_models import PcWeaponHand
 from towr.domain.pc_melee_result_models import PcRecoverProof
-from towr.domain.pc_pistol_models import PcPistolReloadProof
+from towr.domain.pc_ranged_models import PcRangedReloadProof
 from towr.domain.pc_shield_models import PcShieldReleaseProof
 from towr.engine.pc_melee_runner import run_pc_melee_scenario
 from towr.simulation.pc_melee_parallel import run_pc_melee_simulation_parallel
@@ -29,7 +29,7 @@ class PcPistolShieldProcessTests(unittest.TestCase):
         request = process_request()
         journals = tuple(run_pc_melee_scenario(request.scenario,
             Random(request.seed_for(index))) for index in range(request.trials))
-        self.assertTrue(all(steps(journal, PcPistolReloadProof) for journal in journals))
+        self.assertTrue(all(steps(journal, PcRangedReloadProof) for journal in journals))
         self.assertTrue(all(steps(journal, PcShieldReleaseProof) for journal in journals))
         self.assertTrue(all(any(step.proof.result.source_request.choice.object_interaction is not None
             and step.proof.result.source_request.choice.object_interaction.object_id == 'pc1:shield'

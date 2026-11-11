@@ -24,7 +24,7 @@ def pc_close_shooting_protection_profile(
 ) -> NpcProtectionProfile:
     """Return the verified Skill profile without changing ordinary Protection.
 
-    PG94 permits Melee opposition; GM100/101/116 supply the full WS/Skill
+    PG94 permits Melee opposition; GM100/101/104/105/116/144/157/158/159 supply the full WS/Skill
     values below. They are not inferred from an arbitrary Attack profile.
     """
     from towr.domain.pc_npc_catalog import (
@@ -46,9 +46,25 @@ def pc_close_shooting_protection_profile(
             PcBookNpcProfile.EMPIRE_KNIGHT_LANCE, InlineProfile(4, 4)),
         'pc-book-npc:knight_white_wolf_hammer': (
             PcBookNpcProfile.KNIGHT_WHITE_WOLF_HAMMER, InlineProfile(4, 4)),
+        'pc-book-npc:orc_boy_choppas': (
+            PcBookNpcProfile.ORC_BOY_CHOPPAS, InlineProfile(3, 4)),
+        'pc-book-npc:orc_boy_spear': (
+            PcBookNpcProfile.ORC_BOY_SPEAR, InlineProfile(3, 4)),
+        'pc-book-npc:big_un_choppas': (
+            PcBookNpcProfile.BIG_UN_CHOPPAS, InlineProfile(3, 4)),
+        'pc-book-npc:big_un_spear': (
+            PcBookNpcProfile.BIG_UN_SPEAR, InlineProfile(3, 4)),
+        'pc-book-npc:nasty_skulker': (
+            PcBookNpcProfile.NASTY_SKULKER, InlineProfile(4, 4)),
+        'pc-book-npc:dwarf_brewguard_warhammer': (
+            PcBookNpcProfile.DWARF_BREWGUARD_WARHAMMER, InlineProfile(4, 3)),
+        'pc-book-npc:dwarf_miner_pickaxe': (
+            PcBookNpcProfile.DWARF_MINER_PICKAXE, InlineProfile(4, 3)),
+        'pc-book-npc:bestigor_massive_axe': (
+            PcBookNpcProfile.BESTIGOR_MASSIVE_AXE, InlineProfile(4, 4)),
     }
     if definition.id not in profiles:
-        raise ValueError('Close Shooting protection requires one of the four canonical M56 loadouts')
+        raise ValueError('Close Shooting protection requires an admitted canonical loadout')
     profile_id, melee = profiles[definition.id]
     if skill is Skill.MELEE:
         return NpcProtectionProfile(definition.source_rule_id+':close-shooting:melee',

@@ -128,7 +128,7 @@
           "minimum": 0
         },
         "armoured": {
-          "const": true
+          "type": "boolean"
         }
       },
       "required": [
@@ -305,7 +305,14 @@
               "$ref": "urn:towr:pc-melee:common:1#/$defs/resilience"
             },
             "attack": {
-              "$ref": "urn:towr:pc-melee:common:1#/$defs/attack"
+              "oneOf": [
+                {
+                  "$ref": "urn:towr:pc-melee:common:1#/$defs/attack"
+                },
+                {
+                  "$ref": "urn:towr:pc-melee:common:1#/$defs/npc_pistol_attack"
+                }
+              ]
             },
             "protection": {
               "$ref": "urn:towr:pc-melee:common:1#/$defs/protection"
@@ -442,7 +449,12 @@
                   "resilience": {
                     "required": [
                       "armoured"
-                    ]
+                    ],
+                    "properties": {
+                      "armoured": {
+                        "const": true
+                      }
+                    }
                   }
                 }
               },
@@ -456,23 +468,61 @@
                     }
                   },
                   {
-                    "properties": {
-                      "resilience": {
-                        "not": {
-                          "required": [
-                            "armoured"
-                          ]
+                    "if": {
+                      "properties": {
+                        "id": {
+                          "pattern": "^pc-book-npc:"
+                        }
+                      }
+                    },
+                    "then": {
+                      "properties": {
+                        "resilience": {
+                          "not": {
+                            "required": [
+                              "armoured"
+                            ]
+                          }
                         }
                       }
                     }
                   }
                 ]
               }
+            },
+            {
+              "if": {
+                "properties": {
+                  "id": {
+                    "enum": [
+                      "pc-book-npc:empire_official_pistol",
+                      "pc-book-npc:imperial_ogre_pistol"
+                    ]
+                  }
+                }
+              },
+              "then": {
+                "properties": {
+                  "attack": {
+                    "$ref": "urn:towr:pc-melee:common:1#/$defs/npc_pistol_attack"
+                  }
+                }
+              },
+              "else": {
+                "properties": {
+                  "attack": {
+                    "$ref": "urn:towr:pc-melee:common:1#/$defs/attack"
+                  }
+                }
+              }
             }
           ]
         },
         "net_policy": {
           "$ref": "urn:towr:pc-melee:common:1#/$defs/net_policy"
+        },
+        "pistol": {
+          "$ref": "urn:towr:pc-melee:common:1#/$defs/npc_pistol_source"
         }
       },
       "required": [
@@ -503,6 +553,39 @@
             "not": {
               "required": [
                 "net_policy"
+              ]
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "definition": {
+                "properties": {
+                  "id": {
+                    "enum": [
+                      "pc-book-npc:empire_official_pistol",
+                      "pc-book-npc:imperial_ogre_pistol"
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "pistol"
+            ],
+            "properties": {
+              "holds_shield": {
+                "const": false
+              }
+            }
+          },
+          "else": {
+            "not": {
+              "required": [
+                "pistol"
               ]
             }
           }
@@ -566,15 +649,27 @@
             "glaive",
             "greataxe",
             "greathammer",
-            "pistol"
+            "pistol",
+            "repeater_handbow",
+            "repeater_pistol",
+            "shortbow",
+            "warbow",
+            "longbow",
+            "crossbow",
+            "repeater_crossbow",
+            "handgun",
+            "repeater_handgun",
+            "sling",
+            "blunderbuss",
+            "hochland_long_rifle"
           ]
         },
         "armour_bonus": {
           "type": "integer",
           "minimum": 0
         },
-        "pistol": {
-          "$ref": "urn:towr:pc-melee:common:1#/$defs/pistol_profile"
+        "ranged": {
+          "$ref": "urn:towr:pc-melee:common:1#/$defs/ranged_profile"
         }
       },
       "required": [
@@ -591,26 +686,268 @@
         "armour_bonus"
       ],
       "additionalProperties": false,
-      "if": {"properties": {"weapon": {"const": "pistol"}}},
-      "then": {"required": ["pistol"]},
-      "else": {"not": {"required": ["pistol"]}}
+      "if": {
+        "properties": {
+          "weapon": {
+            "enum": [
+              "pistol",
+              "repeater_handbow",
+              "repeater_pistol",
+              "shortbow",
+              "warbow",
+              "longbow",
+              "crossbow",
+              "repeater_crossbow",
+              "handgun",
+              "repeater_handgun",
+              "sling",
+              "blunderbuss",
+              "hochland_long_rifle"
+            ]
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "ranged"
+        ]
+      },
+      "else": {
+        "not": {
+          "required": [
+            "ranged"
+          ]
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "weapon": {
+                "enum": [
+                  "pistol",
+                  "repeater_pistol",
+                  "handgun",
+                  "repeater_handgun",
+                  "blunderbuss",
+                  "hochland_long_rifle"
+                ]
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "ranged": {
+                "required": [
+                  "has_blackpowder_lore",
+                  "has_blackpowder_kit"
+                ]
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "ranged": {
+                "not": {
+                  "anyOf": [
+                    {
+                      "required": [
+                        "has_blackpowder_lore"
+                      ]
+                    },
+                    {
+                      "required": [
+                        "has_blackpowder_kit"
+                      ]
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "weapon": {
+                "enum": [
+                  "repeater_handbow",
+                  "repeater_pistol",
+                  "repeater_crossbow",
+                  "repeater_handgun"
+                ]
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "ranged": {
+                "required": [
+                  "repeater_bonus_policy"
+                ]
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "ranged": {
+                "not": {
+                  "anyOf": [
+                    {
+                      "required": [
+                        "repeater_bonus_policy"
+                      ]
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "weapon": {
+                "enum": [
+                  "shortbow",
+                  "warbow",
+                  "longbow",
+                  "sling"
+                ]
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "ranged": {
+                "not": {
+                  "anyOf": [
+                    {
+                      "required": [
+                        "initiative"
+                      ]
+                    },
+                    {
+                      "required": [
+                        "dexterity"
+                      ]
+                    },
+                    {
+                      "required": [
+                        "initially_loaded"
+                      ]
+                    },
+                    {
+                      "required": [
+                        "reload_hand_policy"
+                      ]
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "ranged": {
+                "required": [
+                  "initiative",
+                  "dexterity",
+                  "initially_loaded",
+                  "reload_hand_policy"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "weapon": {
+                "const": "hochland_long_rifle"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "ranged": {
+                "required": [
+                  "awareness"
+                ]
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "ranged": {
+                "not": {
+                  "required": [
+                    "awareness"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      ]
     },
-    "pistol_profile": {
+    "ranged_profile": {
       "type": "object",
       "properties": {
-        "ballistic_skill": {"type": "integer", "minimum": 1},
-        "shooting": {"type": "integer", "minimum": 1, "maximum": 10},
-        "initiative": {"type": "integer", "minimum": 1},
-        "dexterity": {"type": "integer", "minimum": 1, "maximum": 10},
-        "has_blackpowder_lore": {"type": "boolean", "const": true},
-        "has_blackpowder_kit": {"type": "boolean", "const": true},
-        "ammunition_supply_confirmed": {"type": "boolean", "const": true},
-        "initially_loaded": {"type": "boolean", "const": true},
-        "reload_hand_policy": {"const": "two_available_hands"}
+        "ballistic_skill": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "shooting": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 10
+        },
+        "initiative": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "dexterity": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 10
+        },
+        "has_blackpowder_lore": {
+          "type": "boolean",
+          "const": true
+        },
+        "has_blackpowder_kit": {
+          "type": "boolean",
+          "const": true
+        },
+        "ammunition_supply_confirmed": {
+          "type": "boolean",
+          "const": true
+        },
+        "initially_loaded": {
+          "type": "boolean",
+          "const": true
+        },
+        "reload_hand_policy": {
+          "const": "two_available_hands"
+        },
+        "repeater_bonus_policy": {
+          "enum": [
+            "when_available",
+            "never"
+          ]
+        },
+        "awareness": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 10
+        }
       },
-      "required": ["ballistic_skill", "shooting", "initiative", "dexterity",
-        "has_blackpowder_lore", "has_blackpowder_kit", "ammunition_supply_confirmed",
-        "initially_loaded", "reload_hand_policy"],
+      "required": [
+        "ballistic_skill",
+        "shooting",
+        "ammunition_supply_confirmed"
+      ],
       "additionalProperties": false
     },
     "facts": {
@@ -620,7 +957,7 @@
           "$ref": "urn:towr:pc-melee:common:1#/$defs/identifier"
         },
         "all_opponents_close": {
-          "const": true
+          "type": "boolean"
         },
         "targets_aware": {
           "const": true
@@ -840,7 +1177,7 @@
           "minItems": 0
         },
         "has_lucky": {
-          "const": false
+          "type": "boolean"
         },
         "refreshes": {
           "type": "array",
@@ -935,10 +1272,20 @@
     "npc_close_shooting_protection_policy": {
       "type": "object",
       "properties": {
-        "actor_id": {"$ref": "urn:towr:pc-melee:common:1#/$defs/identifier"},
-        "skill": {"enum": ["melee", "athletics"]}
+        "actor_id": {
+          "$ref": "urn:towr:pc-melee:common:1#/$defs/identifier"
+        },
+        "skill": {
+          "enum": [
+            "melee",
+            "athletics"
+          ]
+        }
       },
-      "required": ["actor_id", "skill"],
+      "required": [
+        "actor_id",
+        "skill"
+      ],
       "additionalProperties": false
     },
     "scenario": {
@@ -1053,6 +1400,12 @@
           "items": {
             "$ref": "urn:towr:pc-melee:common:1#/$defs/npc_warped_form_policy"
           }
+        },
+        "short_range_opening": {
+          "$ref": "urn:towr:pc-melee:common:1#/$defs/short_range_opening"
+        },
+        "blunderbuss_nearby": {
+          "$ref": "#/$defs/blunderbussNearby"
         }
       },
       "required": [
@@ -1092,6 +1445,183 @@
                   }
                 }
               }
+            }
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "short_range_opening"
+            ]
+          },
+          "then": {
+            "properties": {
+              "facts": {
+                "properties": {
+                  "all_opponents_close": {
+                    "const": false
+                  },
+                  "can_leave_zone": {
+                    "const": false
+                  }
+                }
+              },
+              "party": {
+                "items": {
+                  "properties": {
+                    "pc": {
+                      "properties": {
+                        "weapon": {
+                          "enum": [
+                            "pistol",
+                            "repeater_handbow",
+                            "repeater_pistol",
+                            "shortbow",
+                            "warbow",
+                            "longbow",
+                            "crossbow",
+                            "repeater_crossbow",
+                            "handgun",
+                            "repeater_handgun",
+                            "sling",
+                            "blunderbuss",
+                            "hochland_long_rifle"
+                          ]
+                        }
+                      }
+                    }
+                  }
+                }
+              },
+              "enemies": {
+                "items": {
+                  "properties": {
+                    "holds_shield": {
+                      "const": false
+                    },
+                    "definition": {
+                      "properties": {
+                        "id": {
+                          "not": {
+                            "pattern": "^pc-book-npc:"
+                          }
+                        },
+                        "injury_policy": {
+                          "const": "minion"
+                        },
+                        "wound_limit": {
+                          "const": 1
+                        },
+                        "attack": {
+                          "properties": {
+                            "range_max": {
+                              "const": "close"
+                            },
+                            "secondary_effects": {
+                              "maxItems": 0
+                            }
+                          }
+                        },
+                        "protection": {
+                          "properties": {
+                            "skill": {
+                              "const": "athletics"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              },
+              "npc_broken_exit_policy": {
+                "type": "null"
+              },
+              "npc_close_shooting_protection_policies": false,
+              "npc_help_policies": {
+                "maxItems": 0
+              },
+              "npc_extra_attack_actor_ids": {
+                "maxItems": 0
+              },
+              "npc_grudge_policies": {
+                "maxItems": 0
+              },
+              "npc_blood_rage_actor_ids": {
+                "maxItems": 0
+              },
+              "npc_flagellant_policies": {
+                "maxItems": 0
+              },
+              "npc_warped_form_policies": {
+                "maxItems": 0
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "facts": {
+                "properties": {
+                  "all_opponents_close": {
+                    "const": true
+                  }
+                }
+              },
+              "party": {
+                "items": {
+                  "properties": {
+                    "pc": {
+                      "properties": {
+                        "weapon": {
+                          "not": {
+                            "enum": [
+                              "shortbow",
+                              "warbow",
+                              "longbow",
+                              "crossbow",
+                              "repeater_crossbow",
+                              "handgun",
+                              "repeater_handgun",
+                              "sling",
+                              "blunderbuss",
+                              "hochland_long_rifle"
+                            ]
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "party": {
+                "contains": {
+                  "properties": {
+                    "pc": {
+                      "properties": {
+                        "weapon": {
+                          "const": "blunderbuss"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "blunderbuss_nearby"
+            ]
+          },
+          "else": {
+            "properties": {
+              "blunderbuss_nearby": false
             }
           }
         }
@@ -1368,6 +1898,9 @@
         "total_npc_warped_form_count": {
           "type": "integer",
           "minimum": 0
+        },
+        "aim": {
+          "$ref": "#/$defs/aimSummary"
         }
       },
       "required": [
@@ -1532,7 +2065,10 @@
       "type": "object",
       "properties": {
         "initial_hand": {
-          "enum": ["left", "right"]
+          "enum": [
+            "left",
+            "right"
+          ]
         },
         "hand_conflict_policy": {
           "const": "weapon_first"
@@ -1541,12 +2077,22 @@
           "const": "restore_before_attack"
         }
       },
-      "required": ["initial_hand", "hand_conflict_policy", "recovery_policy"],
+      "required": [
+        "initial_hand",
+        "hand_conflict_policy",
+        "recovery_policy"
+      ],
       "additionalProperties": false
     },
     "participant": {
       "type": "object",
       "properties": {
+        "close_shooting_protection_skill": {
+          "enum": [
+            "melee",
+            "athletics"
+          ]
+        },
         "actor_id": {
           "$ref": "urn:towr:pc-melee:common:1#/$defs/identifier"
         },
@@ -1649,6 +2195,9 @@
         },
         "shield": {
           "$ref": "urn:towr:pc-melee:common:1#/$defs/shield_loadout"
+        },
+        "aim_second_action_policy": {
+          "$ref": "#/$defs/aimSecondActionPolicy"
         }
       },
       "required": [
@@ -1681,6 +2230,11 @@
             "glorious_policy": {
               "type": "null"
             }
+          },
+          "not": {
+            "required": [
+              "aim_second_action_policy"
+            ]
           }
         },
         {
@@ -1703,40 +2257,141 @@
                   "type": "object"
                 }
               }
+            },
+            {
+              "required": [
+                "aim_second_action_policy"
+              ],
+              "properties": {
+                "aim_second_action_policy": {
+                  "type": "object"
+                }
+              }
             }
           ]
         }
       ],
       "allOf": [
         {
-          "if": {"properties": {"pc": {"properties": {"weapon": {"const": "pistol"}}}}},
+          "if": {
+            "properties": {
+              "pc": {
+                "properties": {
+                  "weapon": {
+                    "enum": [
+                      "pistol",
+                      "repeater_handbow",
+                      "repeater_pistol",
+                      "shortbow",
+                      "warbow",
+                      "longbow",
+                      "crossbow",
+                      "repeater_crossbow",
+                      "handgun",
+                      "repeater_handgun",
+                      "sling",
+                      "blunderbuss",
+                      "hochland_long_rifle"
+                    ]
+                  }
+                }
+              }
+            }
+          },
           "then": {
             "properties": {
-              "policy": {"const": "attack_or_recover_self"},
-              "backup_weapon_policy": {"type": "null"},
-              "help_policy": {"type": "null"},
-              "ally_recover_policy": {"type": "null"}
+              "policy": {
+                "const": "attack_or_recover_self"
+              },
+              "help_policy": {
+                "type": "null"
+              },
+              "ally_recover_policy": {
+                "type": "null"
+              }
             }
           }
         },
         {
-          "if": {"required": ["shield"]},
+          "if": {
+            "required": [
+              "shield"
+            ]
+          },
           "then": {
             "properties": {
-              "pc": {"properties": {"weapon": {
-                "enum": ["dagger", "staff", "axe", "sword", "warhammer", "morning_star", "pistol"]
-              }}},
-              "backup_weapon_policy": {"type": "null"}
+              "pc": {
+                "properties": {
+                  "weapon": {
+                    "enum": [
+                      "dagger",
+                      "staff",
+                      "axe",
+                      "sword",
+                      "warhammer",
+                      "morning_star",
+                      "pistol",
+                      "repeater_handbow",
+                      "repeater_pistol",
+                      "sling"
+                    ]
+                  }
+                }
+              }
+            },
+            "if": {
+              "properties": {
+                "pc": {
+                  "properties": {
+                    "weapon": {
+                      "enum": [
+                        "pistol",
+                        "repeater_handbow",
+                        "repeater_pistol",
+                        "sling"
+                      ]
+                    }
+                  }
+                }
+              }
+            },
+            "then": {},
+            "else": {
+              "properties": {
+                "backup_weapon_policy": {
+                  "type": "null"
+                }
+              }
             },
             "oneOf": [
-              {"properties": {
-                "initial_weapon_hand": {"const": "left"},
-                "shield": {"properties": {"initial_hand": {"const": "right"}}}
-              }},
-              {"properties": {
-                "initial_weapon_hand": {"const": "right"},
-                "shield": {"properties": {"initial_hand": {"const": "left"}}}
-              }}
+              {
+                "properties": {
+                  "initial_weapon_hand": {
+                    "const": "left"
+                  },
+                  "shield": {
+                    "properties": {
+                      "initial_hand": {
+                        "const": "right"
+                      }
+                    }
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "initial_weapon_hand": {
+                    "const": "right"
+                  },
+                  "shield": {
+                    "properties": {
+                      "initial_hand": {
+                        "const": "left"
+                      }
+                    }
+                  }
+                }
+              }
             ]
           }
         },
@@ -1750,11 +2405,32 @@
           },
           "then": {
             "properties": {
-              "initial_weapon_hand": {
-                "const": "both"
-              },
               "pc": {
                 "properties": {
+                  "weapon": {
+                    "enum": [
+                      "pickaxe",
+                      "flail",
+                      "billhook",
+                      "halberd",
+                      "glaive",
+                      "greataxe",
+                      "greathammer",
+                      "pistol",
+                      "repeater_handbow",
+                      "repeater_pistol",
+                      "shortbow",
+                      "warbow",
+                      "longbow",
+                      "crossbow",
+                      "repeater_crossbow",
+                      "handgun",
+                      "repeater_handgun",
+                      "sling",
+                      "blunderbuss",
+                      "hochland_long_rifle"
+                    ]
+                  },
                   "strength": {
                     "minimum": 2
                   }
@@ -1776,7 +2452,16 @@
                       "halberd",
                       "glaive",
                       "greataxe",
-                      "greathammer"
+                      "greathammer",
+                      "shortbow",
+                      "warbow",
+                      "longbow",
+                      "crossbow",
+                      "repeater_crossbow",
+                      "handgun",
+                      "repeater_handgun",
+                      "blunderbuss",
+                      "hochland_long_rifle"
                     ]
                   }
                 }
@@ -1843,6 +2528,49 @@
               }
             }
           ]
+        },
+        {
+          "if": {
+            "required": [
+              "aim_second_action_policy"
+            ]
+          },
+          "then": {
+            "properties": {
+              "pc": {
+                "properties": {
+                  "weapon": {
+                    "const": "hochland_long_rifle"
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "pc": {
+                "properties": {
+                  "weapon": {
+                    "const": "hochland_long_rifle"
+                  }
+                }
+              }
+            }
+          },
+          "then": {},
+          "else": {
+            "properties": {
+              "fate": {
+                "properties": {
+                  "has_lucky": {
+                    "const": false
+                  }
+                }
+              }
+            }
+          }
         }
       ]
     },
@@ -1965,7 +2693,8 @@
           "enum": [
             null,
             "defence",
-            "athletics"
+            "athletics",
+            "melee"
           ]
         }
       },
@@ -1999,7 +2728,8 @@
               "protection_skill": {
                 "enum": [
                   "defence",
-                  "athletics"
+                  "athletics",
+                  "melee"
                 ]
               }
             }
@@ -2375,6 +3105,203 @@
         "range_max",
         "hands",
         "impact"
+      ],
+      "additionalProperties": false
+    },
+    "npc_pistol_attack": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "urn:towr:pc-melee:common:1#/$defs/identifier"
+        },
+        "source_rule_id": {
+          "$ref": "urn:towr:pc-melee:common:1#/$defs/identifier"
+        },
+        "test_profile": {
+          "$ref": "urn:towr:pc-melee:common:1#/$defs/inline_profile"
+        },
+        "damage": {
+          "type": "object",
+          "properties": {
+            "base": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "success_multiplier": {
+              "const": 1
+            }
+          },
+          "required": [
+            "base",
+            "success_multiplier"
+          ],
+          "additionalProperties": false
+        },
+        "range_max": {
+          "enum": [
+            "short",
+            "medium"
+          ]
+        },
+        "hands": {
+          "const": "1h"
+        },
+        "secondary_effects": {
+          "type": "array",
+          "maxItems": 0
+        },
+        "skill": {
+          "const": "shooting"
+        },
+        "range_min": {
+          "const": "close"
+        },
+        "ignores_armour": {
+          "const": true
+        }
+      },
+      "required": [
+        "id",
+        "source_rule_id",
+        "test_profile",
+        "damage",
+        "range_max",
+        "hands",
+        "secondary_effects",
+        "skill",
+        "range_min",
+        "ignores_armour"
+      ],
+      "additionalProperties": false
+    },
+    "npc_pistol_source": {
+      "type": "object",
+      "properties": {
+        "initially_loaded": {
+          "const": true
+        },
+        "has_blackpowder_lore": {
+          "const": true
+        },
+        "has_blackpowder_kit": {
+          "const": true
+        },
+        "ammunition_supply_confirmed": {
+          "const": true
+        },
+        "reload_hand_policy": {
+          "const": "two_available_hands"
+        }
+      },
+      "required": [
+        "initially_loaded",
+        "has_blackpowder_lore",
+        "has_blackpowder_kit",
+        "ammunition_supply_confirmed",
+        "reload_hand_policy"
+      ],
+      "additionalProperties": false
+    },
+    "short_range_opening": {
+      "type": "object",
+      "properties": {
+        "party_clustered_confirmed": {
+          "type": "boolean",
+          "const": true
+        },
+        "npc_approach_clear_confirmed": {
+          "type": "boolean",
+          "const": true
+        }
+      },
+      "required": [
+        "party_clustered_confirmed",
+        "npc_approach_clear_confirmed"
+      ],
+      "additionalProperties": false
+    },
+    "blunderbussNearby": {
+      "type": "object",
+      "properties": {
+        "initial_npc_clustered_confirmed": {
+          "const": true
+        },
+        "target_priority": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        }
+      },
+      "required": [
+        "initial_npc_clustered_confirmed",
+        "target_priority"
+      ],
+      "additionalProperties": false
+    },
+    "aimSecondActionPolicy": {
+      "type": "object",
+      "properties": {
+        "minimum_remaining_session_spends": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "minimum_remaining_session_spends"
+      ],
+      "additionalProperties": false
+    },
+    "aimActionCount": {
+      "type": "object",
+      "properties": {
+        "actor_id": {
+          "$ref": "#/$defs/identifier"
+        },
+        "count": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "actor_id",
+        "count"
+      ],
+      "additionalProperties": false
+    },
+    "aimSummary": {
+      "type": "object",
+      "properties": {
+        "action_counts": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/aimActionCount"
+          }
+        },
+        "total_action_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "second_action_spend_counts": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/aimActionCount"
+          }
+        },
+        "total_second_action_spend_count": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "action_counts",
+        "total_action_count",
+        "second_action_spend_counts",
+        "total_second_action_spend_count"
       ],
       "additionalProperties": false
     }

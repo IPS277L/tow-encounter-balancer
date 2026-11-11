@@ -1,26 +1,83 @@
 # Бой и атаки
 
-## Выбор NPC Protection против Close Shooting (M56)
+## PC Short opening и свободный подход NPC (M65)
+
+<a id="pc-short-opening-m65"></a>
+
+RULE-COMBAT-011/012/014 и RULE-EQUIPMENT-004; BOOK-PLAYER-GUIDE1.4 IV94, V114–119. [ADR-0107](../decisions/ADR-0107-pc-bows-short-opening-and-melee-backup.md), [bow weapons](equipment.md#pc-bows-m65), [CLI](../examples/m65/README.md).
+
+Short — расстояние внутри одной Zone; соседняя Zone — Medium. Optional short_range_opening с exacttrue party_clustered_confirmed/npc_approach_clear_confirmed разрешает две исходные группы в одной Zone: PC неподвижны и Close друг к другу, каждый NPC первоначально Short от группы. Тогда facts.all_opponents_close=false/can_leave_zone=false обязательны. Без объекта прежний all-Close source обязателен. Это explicit расположение/clear route, а не транзитивность Close или автоматический выбор тактики.
+
+Живой простой Melee NPC на своём ещё не занятом ходу свободно подходит к группе перед Attack и становится Close ко всем живым PC. Это не Charge, не дополнительное действие и не перенос в соседнюю Zone; +1d Charge не даётся. Typed approach proof связывает actual round/actor/opening/предыдущую proximity/живую party и применяется один раз. Убитый до своего хода NPC не подходит. Source и proof не позволяют незаметно сблизиться, пропустить подход при резервировании Attack или повторить движение. Книжный free move между Zone в K1 остаётся отдельным: нулевой маршрут для подхода внутри Zone не подделывается.
+
+Distance owner определяет actual range выбранной цели и наличие любого Close enemy. Short MISS не накладывает Close Staggered; после сближения действуют обычные Close miss/Protection rules. Outnumbering считается по единственной Zone и не меняется от одного подхода; Shooting его не получает. Pure K1 ranged preparation доказывает профильные Traits; PC owner затем применяет actual Drained и только после этого открывает Fate window. Это сохраняется в полном shot proof без нового shared K1 flag или подмены initial Test.
+
+Первый Short-вариант: только ranged PC (три bows + прежние три1H) и simple authored numeric Minions/одна Close Melee Attack/ATH Protection, без shield/Abilities/NPC Help/Net/дополнительных атак/Shooting. Все59book NPC сохраняются в прежних Close-сценах. Выход/Give Ground в другую Zone здесь отключён явным can_leave_zone=false; прежние Prone/Wound alternatives остаются. Нет Aim/Charge/terrain/PC movement/других Zone/новых Help ролей. После первого залпа и подхода NPC бой продолжается с выбранным backup, а не становится сценой повторной безопасной стрельбы.
+
+## PC Protection choice против Close Shooting (M63)
+
+<a id="pc-close-shooting-protection-m63"></a>
+
+RULE-EQUIPMENT-004:close-ranged-melee-opposition / RULE-COMBAT-005:protection-eligibility, BOOK-PLAYER-GUIDE1.4 III68, IV93–94, V108/118/123 и Wounds190. Статус `implemented`. [Принятый ADR-0105](../decisions/ADR-0105-pc-close-shooting-protection-choice.md), [JSON/CLI](../examples/m63/README.md).
+
+Optional party[].close_shooting_protection_skill принимает melee либо athletics; отсутствие сохраняет default Defence с working shield/иначе Athletics. Null/прочие Skills отвергаются до RNG. Choice может быть unused в melee-only сцене; count projection сохраняет party policy, даже если все shooters исключены. Поле не действует на Throwing/Net/Brawn/incoming Melee, текущая сцена остаётся fixed Close.
+
+PG94 разрешает Melee opposition без дополнительного weapon gate; dedicated weapon требование к Melee Attack не является запретом такого Opposed Test. Explicit Melee использует WS/Melee независимо от наличия предмета; explicit Athletics — Agility/Athletics, даже с held shield. Unaware/Defenceless не создают opposition/Test/Fate/hand use. Public source остаётся aware, остальные ranges не добавлены.
+
+Принята fixed hand-use тактика: Melee использует actual usable held active weapon/grip, включая Pistol/BOTH; иначе защищается без рук. Shield не заменяет active weapon в этом способе. Defence против Shooting использует working shield; Athletics рук не использует. W12 Critical относится к настоящему grip, BOTH к обеим рукам; dropped/unusable оружие не поднимается автоматически. W14/15 не превращают opposition в дополнительный action. Existing2H stop/Defenceless/mandatory tails не обходятся.
+
+Общие Melee Traits held active weapon действуют: Greataxe/Greathammer−1d, Staggered Flail−2d/Morning Star−1d. Sword/Glaive Defence bonus и Attack-only Warhammer target bonus в Melee opposition не применяются. Нет counterattack/Damage/action/PC Pistol charge consumption/outnumber/higher-ground/Charge. Drained/Blinded/W10/Glorious/Near Miss и source-bound journal сохраняются; backup применяется только после actual draw.
+
+Protection Help допускает target=first_incoming_protection/protection_skill=melee. Helper делает обычный физический Melee Help Test со своим active weapon/Traits/Fate/hand costs; receipt относится к конкретному NPC Protection Test. Intended ID выводится из policy.target, не одного Skill.MELEE: помощь атаке и защите остаётся разной. First-current-NPC не предсказывает будущий NPC Help/Reload; неподходящие receipts не переназначаются. Роли Pistol-PC helper не расширяются, получение помощи разрешено.
+
+Source/codec/schema/selection/preparation/Help/Fate/hand/projection используют одну policy. Общий K1 уже поддерживал eligibility, новых runtime types/метрик/версии нет.216прежнихJSON и59NPC definitions сохранены.
+
+M61 добавляет incoming NPC Shooting с настоящим расходом заряда/Reload в нынешнем fixed Close PC owner. По умолчанию PC выбирает Defence с рабочим shield, иначе Athletics; [M63](#pc-close-shooting-protection-m63) добавляет явный выбор. Defenceless не Opposes. Прежний optional NPC Melee/Athletics список ниже относится к защите NPC от PC, не к новому выбору PC Skill. Точный source, тактика и границы — в [правиле NPC Pistol](npc-profile-catalog.md#npc-pistol-reload-m61).
+
+## Выбор NPC Protection против Close Shooting (M56–M59)
 
 <a id="pc-close-shooting-protection-m56"></a>
+<a id="pc-close-shooting-protection-m57"></a>
+<a id="pc-close-shooting-protection-m58"></a>
+<a id="pc-close-shooting-protection-m59"></a>
 
-`RULE-COMBAT-005`, `RULE-NPC-008:protection-preparation`, `RULE-EQUIPMENT-004:close-ranged-melee-opposition`. Источники: PG1.4 III68, IV94/97, V107/118/123; GM1.1 VII93/100/101/116. Статус implemented в нынешнем fixed Close PC owner. [Принятый контракт](../decisions/ADR-0101-pc-close-shooting-npc-protection-choice.md), [примеры](../examples/m56/README.md).
+`RULE-COMBAT-005`, `RULE-NPC-008:protection-preparation`, `RULE-EQUIPMENT-004:close-ranged-melee-opposition`. Источники: PG1.4 III68, IV94/97, V107/118/123; GM1.1 VII93/100/101/104/105/116/144/157/158–159. Статус implemented в нынешнем fixed Close PC owner. [Принятый контракт](../decisions/ADR-0101-pc-close-shooting-npc-protection-choice.md), [примеры](../examples/m56/README.md).
 
-Optional `npc_close_shooting_protection_policies` явно выбирает Melee либо Athletics для каждого указанного NPC. Поддержаны четыре полных existing canonical loadouts: State Trooper Halberd/Spear, unmounted no-shield Empire Knight/Lance и Knight of the White Wolf/Wolf Hammer. Отсутствие поля сохраняет прежнюю выбранную Protection; в Pistol-сценарии она должна быть законной против Shooting. Против входящей Melee-атаки всегда сохраняется прежняя Defence. Подмена Protection во всём immutable definition вместо выбора по incoming Skill недопустима.
+Optional `npc_close_shooting_protection_policies` явно выбирает Melee либо Athletics для каждого указанного NPC. Поддержаны12полных existing canonical loadouts: State Trooper Halberd/Spear, unmounted no-shield Empire Knight/Lance, Knight of the White Wolf/Wolf Hammer, Orc Boy Choppas/Spear и Big ’Un Choppas/Spear без щитов, Nasty Skulker/Long knives, Dwarf Brewguard/Warhammer, Dwarf Miner/Pickaxe и Bestigor/Massive Axe. Отсутствие поля сохраняет прежнюю выбранную Protection; в Pistol-сценарии она должна быть законной против Shooting. Против входящей Melee-атаки всегда сохраняется прежняя Defence. Подмена Protection во всём immutable definition вместо выбора по incoming Skill недопустима.
 
 | Loadouts | Melee opposition | Athletics |
 |---|---|---|
 | State Trooper Halberd/Spear, GM100 | 3d/3, cap6 от WS3 | 3d/3, cap6 от Ag3 |
 | Empire Knight/Lance, GM101 | 4d/4, cap8 от WS4 | 2d/3, cap6 от Ag3 |
 | Knight of the White Wolf/Wolf Hammer, GM116 | 4d/4, cap8 от WS4 | 2d/3, cap6 от Ag3 |
+| Orc Boy Choppas/Spear без щита, GM158 | 3d/4, cap6 от WS3 | 3d/3, cap6 от Ag3 |
+| Big ’Un Choppas/Spear без щита, GM158–159 | 3d/4, cap6 от WS3 | 3d/3, cap6 от Ag3 |
+| Nasty Skulker/Long knives, GM157 | 4d/4, cap8 от WS4 | 3d/3, cap6 от Ag3 |
+| Dwarf Brewguard/Warhammer, GM104 | 4d/3, cap8 от WS4 | 2d/3, cap4 от Ag2 |
+| Dwarf Miner/Pickaxe, GM105 | 4d/3, cap8 от WS4 | 1d/3, cap4 от Ag2 |
+| Bestigor/Massive Axe, GM144 | 4d/4, cap8 от WS4 | 3d/3, cap8 от Ag4 |
 
 Melee numbers подтверждены WS/Skills, не выведены из произвольного Attack row. Для Knights printed Athletics2d/3 соответствует уменьшению Ag3 тяжёлой бронёй; это вывод из совместного чтения PG97 и карточек. Повторный–1d не применяется, maximum по PG107 остаётся6. Source policy не принимает произвольные dice/threshold/cap. Невыбранная Athletics metadata двух unshielded Knights исправлена с implicit4 на cap6; обычные выбранные Defence profiles не меняются.
 
 PG94 разрешает Melee opposition Close ranged Attack. Это защитный Test, без counterattack/Damage/собственного action slot. Tie и both-fail остаются обычными исходами Attack; победа NPC на opposition не становится попаданием по стрелку. Close miss даёт прежний Staggered стрелку только при его отсутствии. Unaware/Defenceless не Opposes, policy не возвращает защиту.
 
-Защитный Melee не получает Attack-only outnumbering/higher-ground/Charge, PC weapon Traits или чужой Help. NPC Prone даёт–1d самому Shooting; W1Knights/Drained и W2defeat сохраняются. Mounted/Steed/Charge/Supporting Action без своих условий не активируются. Source-aware Conditions и фактический Fate/PC Pistol Reload продолжаются прежними слоями.
+Защитный Melee не получает Attack-only outnumbering/higher-ground/Charge, PC weapon Traits или чужой Help. NPC Prone даёт–1d самому Shooting; W1Knights/Big ’Un Drained и W2defeat сохраняются. Mounted/Steed/Charge/Supporting Action без своих условий не активируются. Source-aware Conditions и фактический Fate/PC Pistol Reload продолжаются прежними слоями.
 
-Если поле присутствует, список непустой и закрытый: один actor_id/skill на NPC, без duplicates/unknown/PC actors/null/aliases. Политика требует Pistol-PC в party и полного одного из четырёх canonical NPC. Full template проверяется до subset generation; excluded actor удаляет свою запись, без переназначения, пустой остаток означает отсутствие поля.188старыхJSON не мигрируются, текущий PC JSON1 и каталог57 сохраняются.
+Если поле присутствует, список непустой и закрытый: один actor_id/skill на NPC, без duplicates/unknown/PC actors/null/aliases. Политика требует Pistol-PC в party и полного одного из12canonical NPC. Full template проверяется до subset generation; excluded actor удаляет свою запись, без переназначения, пустой остаток означает отсутствие поля.196старыхJSON M9–M57 не мигрируются, текущий PC JSON1 и каталог57 сохраняются.
+
+M57 следует прежнему контракту и добавляет только четыре проверенных источника в factory. Big ’Un GM159 наследует WS3/Melee4/Ag3 от Orc Boy GM158; Strength4 даёт+1Damage, не Melee4dice/cap8. Athletics3d/3 уже напечатана и не требует armour correction. Power of the Waaagh! относится прямо к Melee attack/Attack Test: free success не переносится в защитный Melee и не расходуется там. Existing Help snapshot остаётся привязан к своей атаке. Choppas/Spear Charge Damage и PC weapon Traits не применяются к opposition. [Примеры чанка](../examples/m57/README.md).
+
+M58 добавляет четыре источника и generic Miner grudge к реальному выбранному защитному Melee. Против живого grudge focus даётся+1d Melee, против другого PC применяется обычный Distracted−1d ко всем Tests; Athletics grudge bonus не получает. Положительный бонус подчиняется cap/Drained. Relationship и текущий Distracted сохраняют отдельные источники; прежняя focus/death expiry логика не меняется. Brewguard W1 Distracted и его принятый focus/expiry действуют и на Melee/Athletics, Cooler Heads автоматически не применяется.
+
+Bestigor Blood Rage по точному GM144 усиливает **Melee attacks**, не любой Melee Test. В defensive opposition нет voluntary Rage/его+1d и нет следующего-Attack Glorious; W1 entitlement остаётся до реальной собственной Attack. Исходная защитная Melee Bestigor4d/4 не копирует printed Axe Attack3d/4. Skulker Backstabba относится только к собственной unopposed Attack и не создаёт защитный Damage/Stealth permission. Miner Down in the Dark не отменяет–1d Shooting против Prone цели.
+
+Athletics Miner1d/3/cap4 и Bestigor3d/3/cap8 используют исходную Ag2/Ag4; printed pools уменьшены heavy armour, повторного–1d нет. Их прежняя невыбранная metadata с implicit2/6 исправлена до первого исполнения этих вариантов. Не расширяются произвольные authored Protection caps. [Примеры M58](../examples/m58/README.md).
+
+M59 допускает исходную Stealth Protection canonical Halfling Thief/Dagger против Pistol. GM1.1 VII103 Now You See Me разрешает Stealth против атак, о которых цель знает, без ограничения Melee. Printed Stealth3d/5, cap6 от Ag3. Пистолетный preflight создаёт существующий `HalflingStealthProtectionPermission` с actual actor/full definition; K1 повторно проверяет источник, chosen profile и eligibility. Нельзя разрешить generic Stealth только по Skill/имени NPC. Прежняя основная Protection Thief уже Stealth, поэтому Melee/Athletics override или новый public field не нужны; policy выше по-прежнему ограничена12sources/двумя Skills.
+
+Unaware/Defenceless сохраняют unopposed precedence без Stealth Test/ability trace; fixed PC scene всё ещё начинается aware. Наличие оружия/щита не является условием Now You See Me, но loadout Dagger/Stealth остаётся полным canonical источником. Thief продолжает обычные Attack turns, без automatic Move Quietly/исчезновения/кражи/дополнительного RNG. Full-prefix replay связывает именно защищающегося actor, permission и фактический Test.
+
+По Protection теперь есть законный Pistol path для всех57selected combat loadouts:44уже готовых Athletics/Defence+shield,12через явную Melee/Athletics policy и1через отдельный typed Stealth permission. Это не обещание полного исполнения всех Abilities/cards или отсутствия Wound/Reload stops.200прежнихJSON M9–M58 не мигрируются. [Примеры M59](../examples/m59/README.md).
 
 Источник: `BOOK-PLAYER-GUIDE`, преимущественно страницы 111–120. Статус: правила атаки, базовый порядок раунда, бюджет действий, обе фазы Run и обе дальности Charge `implemented` в K1; эффекты большинства остальных действий и завершение боя ещё требуют нового battle loop.
 

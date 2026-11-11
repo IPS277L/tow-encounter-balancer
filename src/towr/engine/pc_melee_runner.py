@@ -6,7 +6,18 @@ from dataclasses import replace
 from towr.domain.pc_melee_models import PcWeaponHand
 from towr.domain.pc_net_models import expected_pc_npc_net_draw
 from towr.domain.pc_shield_models import expected_pc_shield_release
-from towr.domain.pc_pistol_models import PcPistolReloadProof,build_pc_pistol_reload,complete_pc_pistol_shot
+from towr.domain.pc_ranged_models import PcRangedReloadProof,build_pc_ranged_reload,complete_pc_ranged_shot
+from towr.domain.pc_aim_models import (PcAimProof,PcAimSecondActionProof,build_pc_aim,
+    expected_pc_aim_consumption,build_pc_aim_second_action)
+from towr.rules.aim_resolution import execute_aim_action
+from towr.rules.fate_resolution import spend_fate_for_second_action
+from towr.domain.pc_blunderbuss_models import PcBlunderbussNearbyProof, build_pc_blunderbuss_nearby, PcNearbyDecisions, pc_blunderbuss_snapshot
+from towr.domain.resolution_models import NearbyTargetsStaggerRequest
+from towr.rules.secondary_target_resolution import resolve_nearby_targets_stagger
+from towr.domain.pc_short_opening_models import expected_pc_npc_approach
+from towr.domain.pc_npc_pistol_models import (
+    PcNpcPistolReloadProof, build_pc_npc_pistol_reload, complete_pc_npc_pistol_shot, pc_npc_pistol_weapon,
+)
 from towr.domain.reload_models import _complete_reload_action_after_test
 from towr.domain.pc_melee_result_models import (
     PcAttackProof, PcAttackerStaggerProof, PcEnduranceProof, PcFateDecline,
@@ -153,6 +164,10 @@ def run_pc_melee_scenario(scenario, rng: RandomSource) -> PcMeleeScenarioResult:
             consume(PcTurnEndProof(result,decline,critical))
 
     while True:
+        consumption = expected_pc_aim_consumption(state)
+        if consumption is not None:
+            consume(consumption)
+            continue
         grudge_encounter=expected_pc_npc_grudge_encounter(state)
         if grudge_encounter is not None:
             consume(grudge_encounter)
@@ -185,7 +200,16 @@ def run_pc_melee_scenario(scenario, rng: RandomSource) -> PcMeleeScenarioResult:
                 else:
                     raise ValueError('unexpected wave NPC continuation')
                 continue
-            if isinstance(pending,WoundEnduranceTestRequest):
+            if type(pending) is NearbyTargetsStaggerRequest:
+                request = build_pc_blunderbuss_nearby(state)
+                result = resolve_nearby_targets_stagger(request,rng,decisions=PcNearbyDecisions())
+                attack = next(p for p in reversed(state.history) if type(p) is PcAttackProof
+                    and p.request.kernel_request.id == request.source.resolution_id)
+                participant = scenario.participant(attack.request.actor_id)
+                dispositions = tuple(participant.defeat_decision(target.target_id) for target in result.targets
+                    if target.impact.profile_wound is not None and target.impact.profile_wound.state_change.defeated)
+                consume(PcBlunderbussNearbyProof(request,result,dispositions))
+            elif isinstance(pending,WoundEnduranceTestRequest):
                 test_request = _pc_test(state,pc_actor,pending.test_id,Skill.ENDURANCE)
                 test,decline,glorious,_ = _resolve_pc_test(state,pc_actor,Skill.ENDURANCE,test_request,rng,decisions)
                 result = resolve_wound_endurance_test(pending,pc_after_test(state,pc_actor),test)
@@ -288,6 +312,10 @@ def run_pc_melee_scenario(scenario, rng: RandomSource) -> PcMeleeScenarioResult:
             if exit_request is not None:
                 consume(PcNpcExitProof(exit_request,resolve_free_movement(exit_request)))
                 continue
+            approach = expected_pc_npc_approach(state)
+            if approach is not None:
+                consume(approach)
+                continue
             if actor in scenario.pc_activation_order:
                 member = state.participant(actor)
                 if member.injury.conditions.has(Condition.DEFENCELESS):
@@ -309,12 +337,21 @@ def run_pc_melee_scenario(scenario, rng: RandomSource) -> PcMeleeScenarioResult:
                 pc_melee_action_declaration(state),ActionSlotGrant.STANDARD)))
             continue
         if not combat.active_turn.action_slots[-1].executed:
-            if pc_melee_selected_action(state) is CombatActionKind.IMPROVISE:
-                request = build_pc_pistol_reload(state)
-                test,decline,glorious,effective = _resolve_pc_test(state,actor,Skill.DEXTERITY,
-                    request.dexterity_test,rng,decisions)
-                result = _complete_reload_action_after_test(replace(request,dexterity_test=effective),test)
-                consume(PcPistolReloadProof(request,result,decline,glorious))
+            if pc_melee_selected_action(state) is CombatActionKind.AIM:
+                request = build_pc_aim(state)
+                consume(PcAimProof(request,execute_aim_action(request,rng,decisions=decisions),
+                    _decline(state,actor,request.awareness_test.id,'test')))
+            elif pc_melee_selected_action(state) is CombatActionKind.IMPROVISE:
+                if actor in scenario.enemy_activation_order:
+                    request = build_pc_npc_pistol_reload(state)
+                    test = resolve_test(request.dexterity_test,rng,decisions=decisions)
+                    consume(PcNpcPistolReloadProof(request,_complete_reload_action_after_test(request,test)))
+                else:
+                    request = build_pc_ranged_reload(state)
+                    test,decline,glorious,effective = _resolve_pc_test(state,actor,Skill.DEXTERITY,
+                        request.dexterity_test,rng,decisions)
+                    result = _complete_reload_action_after_test(replace(request,dexterity_test=effective),test)
+                    consume(PcRangedReloadProof(request,result,decline,glorious))
             elif pc_melee_selected_action(state) is CombatActionKind.RECOVER:
                 if actor in scenario.enemy_activation_order:
                     request = build_pc_npc_recover(state)
@@ -372,17 +409,26 @@ def run_pc_melee_scenario(scenario, rng: RandomSource) -> PcMeleeScenarioResult:
                 effective_kernel = replace(request.kernel_request,attack=attack_request)
                 resolution = _resolve_kernel_attack_after_test(effective_kernel,attack,rng,decisions=decisions)
                 execution = _complete_attack_action(replace(request,kernel_request=effective_kernel),resolution)
-                pistol_shot = (complete_pc_pistol_shot(state,request,
+                ranged_shot = (complete_pc_ranged_shot(state,request,
                     replace(request,kernel_request=effective_kernel),execution)
-                    if actor==pc_actor and state.participant(actor).pistol is not None else None)
-                consume(PcAttackProof(request,protection,execution,decline,glorious,
+                    if actor==pc_actor and pc_attack_skill(state,actor) is Skill.SHOOTING else None)
+                npc_pistol_shot = (complete_pc_npc_pistol_shot(state,request,
+                    replace(request,kernel_request=effective_kernel),execution)
+                    if actor!=pc_actor and pc_npc_pistol_weapon(state,actor) is not None else None)
+                proof = PcAttackProof(request,protection,execution,decline,glorious,
                     pc_attack_help_applications(state,request.kernel_request.attack),
                     pc_npc_attack_help_applications(state,request.kernel_request.attack),
-                    npc_glorious_source=pc_bestigor_glorious_source(state, actor),pistol_shot=pistol_shot))
+                    npc_glorious_source=pc_bestigor_glorious_source(state, actor),ranged_shot=ranged_shot,
+                    npc_pistol_shot=npc_pistol_shot)
+                consume(replace(proof,nearby_snapshot=pc_blunderbuss_snapshot(state,proof)))
             continue
         net_draw = expected_pc_npc_net_draw(state)
         if net_draw is not None:
             consume(net_draw)
+            continue
+        second_action = build_pc_aim_second_action(state)
+        if second_action is not None:
+            consume(PcAimSecondActionProof(spend_fate_for_second_action(second_action)))
             continue
         extra_slot = build_pc_npc_extra_attack_slot(state)
         if extra_slot is not None:

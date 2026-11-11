@@ -150,6 +150,9 @@ def project_pc_melee_candidate(request: PcMeleeBalanceRequest, counts: tuple[int
     template = request.template
     scenario = replace(template, id=pc_melee_candidate_id(request, counts), facts=request.facts,
         enemies=tuple(enemy for enemy in template.enemies if enemy.state.actor_id in keep),
+        blunderbuss_nearby=(replace(template.blunderbuss_nearby,
+            target_priority=tuple(actor for actor in template.blunderbuss_nearby.target_priority if actor in keep))
+            if template.blunderbuss_nearby is not None else None),
         enemy_activation_order=tuple(actor for actor in template.enemy_activation_order if actor in keep),
         npc_help_policies=tuple(policy for policy in template.npc_help_policies
             if policy.helper_id in keep and policy.beneficiary_id in keep),
@@ -158,6 +161,7 @@ def project_pc_melee_candidate(request: PcMeleeBalanceRequest, counts: tuple[int
         npc_blood_rage_actor_ids=tuple(actor for actor in template.npc_blood_rage_actor_ids if actor in keep),
         npc_flagellant_policies=tuple(policy for policy in template.npc_flagellant_policies if policy.actor_id in keep),
         npc_net_policies=tuple(policy for policy in template.npc_net_policies if policy.actor_id in keep),
+        npc_pistol_policies=tuple(policy for policy in template.npc_pistol_policies if policy.actor_id in keep),
         npc_close_shooting_protection_policies=(tuple(policy for policy in
             (template.npc_close_shooting_protection_policies or ()) if policy.actor_id in keep) or None),
         npc_warped_form_policies=tuple(replace(policy,

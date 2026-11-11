@@ -83,9 +83,9 @@ class PcMinerCatalogTests(unittest.TestCase):
         self.assertEqual(entry.unselected_variant_names,())
         alternate,=entry.unselected_protection
         self.assertEqual((alternate.source_rule_id,alternate.skill,alternate.test_profile),
-            (SOURCE+':athletics',Skill.ATHLETICS,InlineProfile(1,3)))
-        self.assertEqual(alternate.test_profile.maximum_dice,2)
-        with self.assertRaises(ValueError):
+            (SOURCE+':athletics',Skill.ATHLETICS,InlineProfile(1,3,4)))
+        self.assertEqual(alternate.test_profile.maximum_dice,4)
+        with self.assertRaises((TypeError,ValueError)):
             validate_pc_book_npc_definition(replace(entry.definition,protection=(alternate,)))
 
     def test_changed_stats_traits_or_partial_book_identity_cannot_claim_canonical_miner(self):

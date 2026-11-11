@@ -1,5 +1,15 @@
 # Fate
 
+## PC Second Action и Lucky funding (M70)
+
+<a id="pc-second-action-m70"></a>
+
+PG1.4 78/111, [ADR-0112](../decisions/ADR-0112-pc-hochland-aim-and-fate-second-action.md). Hochland-specific configured policy выбирает после реального Aim второе ATTACK действие, если canonical funding сохраняет указанный session reserve. Existing composite FateSecondActionSpend атомарно добавляет ledger record и slot2; bare FATE grant/вторая Attack/slot3 не допускаются. Это spend, не permanent burn.
+
+Hoc-source может явно иметь Lucky. Первая трата бесплатна при любом rating, включая0; если она не ушла на Second Action, доступный выбранный Glorious также использует Lucky. Funding cost0/1 и reserve проверяются одинаково в выборе и статистических бюджетах. Другие PC loadouts сохраняют прежний запрет Lucky в source; gambling actions в этом bounded encounter не моделируются.
+
+Aim — action, Second Action spend — ресурс/резервирование, Shoot — второй action. Glorious counters считают только GLORIOUS_TEST records, а не все Fate spends; conditional summary.aim отдельно показывает Aim и SECOND_ACTION events. Spend counts включают Lucky-free events и не равны числу оплаченных session points. Все policies расходуют один фактический ledger, joint resource bounds запрещают двойной расход; выбранное funded действие нельзя пропустить через TurnEnd.
+
 В [M14/ADR-0070](../decisions/ADR-0070-pc-glorious-test-policy.md) PC melee исполняет Glorious после фактического initial roll и до rerolls, отдельно от Near Miss. Caller задаёт навыки, включительный порог начальных успехов и резерв `remaining_spends`; стратегия перебрасывает все доступные initial failures обычного Test, а на Grim сохраняет успехи через отмену качества без переброса. Тратит только когда это может изменить Test. Это выбор поведения, не новые книжные ограничения; остальные optional Fate options отклоняются. Текущий JSON1 требует обе nullable configurations и `fate_policy: configured` при хотя бы одной активной. [Запускаемый пример](../examples/m14/README.md).
 
 В PC melee активный Near Miss подключён через [M13/ADR-0069](../decisions/ADR-0069-pc-near-miss-policy.md): caller явно задаёт включительный порог Wounds Table и минимальный остаток rating. Это выбор поведения, не дополнительное книжное ограничение Near Miss. Начальный Fate сохраняется как source, текущий меняется actual resource proofs; M14 позволяет сочетать burn с Glorious spend. [Near Miss-only пример](../examples/m13/README.md).

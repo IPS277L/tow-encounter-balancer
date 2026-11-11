@@ -117,8 +117,8 @@ def melee_help(beneficiary):
 
 class PcMeleeJsonTests(unittest.TestCase):
     def test_current_weapons_roundtrip_and_full_sources_preserve_mixed_party(self):
-        weapons=('staff','sword','dagger','axe','warhammer','morning_star','pickaxe','flail','billhook','halberd','glaive','greataxe','greathammer','pistol')
-        self.assertEqual(tuple(weapon.value for weapon in PcMeleeWeapon),weapons)
+        weapons=('staff','sword','dagger','axe','warhammer','morning_star','pickaxe','flail','billhook','halberd','glaive','greataxe','greathammer','pistol','repeater_handbow','repeater_pistol')
+        self.assertEqual(tuple(weapon.value for weapon in PcMeleeWeapon),weapons+('shortbow','warbow','longbow','crossbow','repeater_crossbow','handgun','repeater_handgun','sling','blunderbuss','hochland_long_rifle'))
         for balance in (False,True):
             with self.subTest(balance=balance):
                 raw=document(balance=balance,party_size=len(weapons),mixed=True)
@@ -126,14 +126,16 @@ class PcMeleeJsonTests(unittest.TestCase):
                 for member,weapon in zip(raw[key]['party'],weapons):
                     member['pc']['weapon']=weapon
                     member['initial_weapon_hand']='both' if weapon in ('pickaxe','flail','billhook','halberd','glaive','greataxe','greathammer') else 'left'
-                    if weapon=='pistol':
-                        member['pc']['pistol']=json.loads(json.dumps(asdict(pistol_profile())))
+                    if weapon in ('pistol','repeater_handbow','repeater_pistol'):
+                        from tests.support.pc_ranged_scenarios import ranged_profile
+                        profile = ranged_profile(weapon=PcMeleeWeapon(weapon), **({'repeater_bonus_policy':None} if weapon=='pistol' else {}))
+                        member['pc']['ranged']=json.loads(json.dumps({k:v for k,v in asdict(profile).items() if v is not None}))
                 for enemy in raw[key]['enemies']:
                     enemy['definition']['protection']['skill']='athletics'
                 parse=wire.parse_pc_melee_balance_request if balance else wire.parse_pc_melee_simulation_request
                 command=parse(json.dumps(raw))
                 source=command.request.template if balance else command.request.scenario
-                self.assertEqual(tuple(member.pc.weapon for member in source.party),tuple(PcMeleeWeapon))
+                self.assertEqual(tuple(member.pc.weapon for member in source.party),tuple(PcMeleeWeapon(w) for w in weapons))
                 self.assertEqual(scenario_document(source),raw[key])
                 if balance:
                     report=balance_result(command)
@@ -254,9 +256,9 @@ class PcMeleeJsonTests(unittest.TestCase):
         command=wire.parse_pc_melee_simulation_request(json.dumps(raw))
         self.assertEqual(scenario_document(command.request.scenario),raw['scenario'])
 
-    def test_protection_help_full_source_echo_allows_earlier_beneficiary_and_both_skills(self):
+    def test_protection_help_full_source_echo_allows_earlier_beneficiary_and_supported_skills(self):
         for balance in (False,True):
-            for skill in ('defence','athletics'):
+            for skill in ('defence','athletics','melee'):
                 with self.subTest(balance=balance,skill=skill):
                     raw=document(balance=balance,party_size=2)
                     key='template' if balance else 'scenario'
@@ -289,7 +291,7 @@ class PcMeleeJsonTests(unittest.TestCase):
             invalid.append(criteria)
         for name,value in (('target',True),('target',None),('target','protection'),
                 ('protection_skill',True),('protection_skill',1),('protection_skill',None),
-                ('protection_skill','melee'),('protection_skill','Defence'),('beneficiary_id',True)):
+                ('protection_skill','shooting'),('protection_skill','Defence'),('beneficiary_id',True)):
             invalid.append(dict(base,**{name:value}))
         invalid.extend((dict(base,target='melee_attack'),dict(base,incoming_attacker_id='minion1')))
         for criteria in invalid:

@@ -20,6 +20,7 @@ class PcBookNpcProfile(str, Enum):
     EMPIRE_TOWNSFOLK = 'empire_townsfolk'
     BRIGAND_AXE = 'brigand_axe'
     EMPIRE_OFFICIAL_DAGGER = 'empire_official_dagger'
+    EMPIRE_OFFICIAL_PISTOL = 'empire_official_pistol'
     EMPIRE_STATE_TROOPER_HALBERD = 'empire_state_trooper_halberd'
     ARTISAN = 'artisan'
     BRETONNIAN_SQUIRE_SWORD = 'bretonnian_squire_sword'
@@ -70,6 +71,7 @@ class PcBookNpcProfile(str, Enum):
     FLAGELLANT_HOOKS_CHAINS = 'flagellant_hooks_chains'
     SKIN_WOLF = 'skin_wolf'
     IMPERIAL_OGRE_GREATHAMMER = 'imperial_ogre_greathammer'
+    IMPERIAL_OGRE_PISTOL = 'imperial_ogre_pistol'
     PEGASUS_GROUNDED = 'pegasus_grounded'
     BEAR_CRUSHING_WEIGHT = 'bear_crushing_weight'
     GREAT_STAG = 'great_stag'
@@ -77,6 +79,14 @@ class PcBookNpcProfile(str, Enum):
 
 # Immutable identity strings only; canonical definition graphs are always freshly built.
 _CATALOG_IDENTITIES = (
+    (PcBookNpcProfile.EMPIRE_OFFICIAL_PISTOL,'pc-book-npc:empire_official_pistol',
+        ('BOOK-GM-GUIDE:1.1:p98:empire_official_pistol',
+         'BOOK-GM-GUIDE:1.1:p98:empire_official_pistol:pistol',
+         'BOOK-GM-GUIDE:1.1:p98:empire_official_pistol:athletics')),
+    (PcBookNpcProfile.IMPERIAL_OGRE_PISTOL,'pc-book-npc:imperial_ogre_pistol',
+        ('BOOK-GM-GUIDE:1.1:p103:imperial_ogre_pistol',
+         'BOOK-GM-GUIDE:1.1:p103:imperial_ogre_pistol:ogre_pistol',
+         'BOOK-GM-GUIDE:1.1:p103:imperial_ogre_pistol:athletics')),
     (PcBookNpcProfile.NIGHT_GOBLIN_NET_SPEAR,'pc-book-npc:night_goblin_net_spear',
         ('BOOK-GM-GUIDE:1.1:p157:night_goblin_net_spear',
          'BOOK-GM-GUIDE:1.1:p157:night_goblin_net_spear:jagged_spear',
@@ -327,6 +337,18 @@ class PcBookNpcEntry:
 def _definition(profile_id: PcBookNpcProfile) -> NpcDefinition:
     if type(profile_id) is not PcBookNpcProfile:
         raise TypeError('book NPC profile must be its exact PcBookNpcProfile enum')
+    if profile_id in (PcBookNpcProfile.EMPIRE_OFFICIAL_PISTOL,PcBookNpcProfile.IMPERIAL_OGRE_PISTOL):
+        official = profile_id is PcBookNpcProfile.EMPIRE_OFFICIAL_PISTOL
+        source = f'BOOK-GM-GUIDE:1.1:p{98 if official else 103}:{profile_id.value}'
+        name = 'pistol' if official else 'ogre_pistol'
+        attack = NpcAttackProfile(name,source+':'+name,Skill.SHOOTING,
+            InlineProfile(2,3) if official else InlineProfile(3,2),DamageProfile(5),
+            RangedWeaponRange.CLOSE,RangedWeaponRange.SHORT if official else RangedWeaponRange.MEDIUM,
+            RangedWeaponHands.ONE_HANDED,ignores_armour=True)
+        protection = NpcProtectionProfile(source+':athletics',Skill.ATHLETICS,InlineProfile(3,3))
+        return NpcDefinition('pc-book-npc:'+profile_id.value,source,TargetInjuryPolicy.BRUTE,
+            2 if official else 3,ResilienceProfile(3) if official else ResilienceProfile(5,1),
+            (attack,),(protection,))
     if profile_id is PcBookNpcProfile.NIGHT_GOBLIN_NET_SPEAR:
         source = 'BOOK-GM-GUIDE:1.1:p157:night_goblin_net_spear'
         spear = NpcAttackProfile('jagged_spear',source+':jagged_spear',Skill.MELEE,
@@ -586,14 +608,16 @@ def get_pc_book_npc_entry(profile_id: PcBookNpcProfile) -> PcBookNpcEntry:
             'Melee attacks against an enemy the Brigand actually outnumbers','+2d instead of +1d')
         return PcBookNpcEntry(profile_id,'BOOK-GM-GUIDE','1.1','Allies and Antagonists',
             97,'Brigand (Axe)',definition,(),(ability,),('Warbow',),(),(),())
-    elif profile_id is PcBookNpcProfile.EMPIRE_OFFICIAL_DAGGER:
+    elif profile_id in (PcBookNpcProfile.EMPIRE_OFFICIAL_DAGGER,PcBookNpcProfile.EMPIRE_OFFICIAL_PISTOL):
         ability = PcBookNpcAbility('Heard It All Before',
             'Persuade or Distract attempts against the Official unless they include a bribe',
             'Grim Persuade or Distract Test')
         bands = (PcBookNpcWoundBand(0,'No effect'),PcBookNpcWoundBand(1,'Broken'),
             PcBookNpcWoundBand(2,'Defeated'))
         return PcBookNpcEntry(profile_id,'BOOK-GM-GUIDE','1.1','Allies and Antagonists',
-            98,'Empire Official (Dagger)',definition,(ability,),(),('Pistol',),bands,(),())
+            98,('Empire Official (Pistol)' if profile_id is PcBookNpcProfile.EMPIRE_OFFICIAL_PISTOL
+                else 'Empire Official (Dagger)'),definition,(ability,),(),
+            ('Dagger',) if profile_id is PcBookNpcProfile.EMPIRE_OFFICIAL_PISTOL else ('Pistol',),bands,(),())
     elif profile_id is PcBookNpcProfile.EMPIRE_STATE_TROOPER_HALBERD:
         ability = PcBookNpcAbility('Supporting Action',
             'An enemy moves into Close Range; an allied State Trooper or Free Company Militia '
@@ -741,7 +765,7 @@ def get_pc_book_npc_entry(profile_id: PcBookNpcProfile) -> PcBookNpcEntry:
         return PcBookNpcEntry(profile_id,'BOOK-GM-GUIDE','1.1','Allies and Antagonists',
             113,'Free Company Militia (Improvised Blades)',definition,(detachment,),(numbers,),
             ('Assorted Projectiles',),(),(),())
-    elif profile_id is PcBookNpcProfile.IMPERIAL_OGRE_GREATHAMMER:
+    elif profile_id in (PcBookNpcProfile.IMPERIAL_OGRE_GREATHAMMER,PcBookNpcProfile.IMPERIAL_OGRE_PISTOL):
         charge = PcBookNpcAbility('Ogre Charge',
             'A successful Rough Shove attack as part of a separately selected Charge',
             'May take a second action to Attack with another weapon')
@@ -752,8 +776,10 @@ def get_pc_book_npc_entry(profile_id: PcBookNpcProfile) -> PcBookNpcEntry:
         bands = (PcBookNpcWoundBand(0,'Fast Speed'),PcBookNpcWoundBand(1,'Speed reduced to Normal'),
             PcBookNpcWoundBand(2,'Speed reduced to Normal'),PcBookNpcWoundBand(3,'Defeated'))
         return PcBookNpcEntry(profile_id,'BOOK-GM-GUIDE','1.1','Allies and Antagonists',
-            103,'Imperial Ogre (Greathammer, Athletics)',definition,(charge,fear,throw),(),
-            ('Rough Shove','Ogre Pistol'),bands,(),())
+            103,('Imperial Ogre (Ogre Pistol, Athletics)' if profile_id is PcBookNpcProfile.IMPERIAL_OGRE_PISTOL
+                else 'Imperial Ogre (Greathammer, Athletics)'),definition,(charge,fear,throw),(),
+            ('Greathammer','Rough Shove') if profile_id is PcBookNpcProfile.IMPERIAL_OGRE_PISTOL
+                else ('Rough Shove','Ogre Pistol'),bands,(),())
     elif profile_id is PcBookNpcProfile.PEGASUS_GROUNDED:
         fly = PcBookNpcAbility('Fly','A separately selected movement through vertical Zones',
             'Ignore ground-based obstacles below; cannot move or Give Ground into midair when '
@@ -792,12 +818,12 @@ def get_pc_book_npc_entry(profile_id: PcBookNpcProfile) -> PcBookNpcEntry:
         forest = PcBookNpcAbility('Child of the Forest','Movement through woodland Difficult Terrain',
             'Ignore the effects of woodland Difficult Terrain')
         rage = PcBookNpcAbility('Blood Rage','When the Bestigor makes an attack',
-            'May choose to gain Staggered if not already Staggered; Staggered Bestigors gain +1d Melee')
+            'May choose to gain Staggered if not already Staggered; Staggered Bestigors gain +1d to Melee attacks')
         bands = (PcBookNpcWoundBand(0,'Cannot choose to Give Ground or fall Prone'),
             PcBookNpcWoundBand(1,"Bestigor's next attack is Glorious"),PcBookNpcWoundBand(2,'Defeated'))
         return PcBookNpcEntry(profile_id,'BOOK-GM-GUIDE','1.1','Allies and Antagonists',
             144,'Bestigor (Massive Axe, Defence)',definition,(forest,),(rage,),(),bands,
-            (NpcProtectionProfile(definition.source_rule_id+':athletics',Skill.ATHLETICS,InlineProfile(3,3)),),())
+            (NpcProtectionProfile(definition.source_rule_id+':athletics',Skill.ATHLETICS,InlineProfile(3,3,8)),),())
     elif profile_id is PcBookNpcProfile.HOCHLAND_SHARPSHOOTER_AXE:
         reload = PcBookNpcAbility('Rapid Reload',
             'A successful Dexterity Test to reload a weapon, while not Staggered and without moving this turn',
@@ -837,7 +863,7 @@ def get_pc_book_npc_entry(profile_id: PcBookNpcProfile) -> PcBookNpcEntry:
         return PcBookNpcEntry(profile_id,'BOOK-GM-GUIDE','1.1','Allies and Antagonists',
             105,'Dwarf Miner (Mining Pickaxe, Defence)',definition,(terrain,blasting),
             (grudges,higher_ground),('Blasting Charge',),(),
-            (NpcProtectionProfile(definition.source_rule_id+':athletics',Skill.ATHLETICS,InlineProfile(1,3)),),())
+            (NpcProtectionProfile(definition.source_rule_id+':athletics',Skill.ATHLETICS,InlineProfile(1,3,4)),),())
     elif profile_id is PcBookNpcProfile.DWARF_BREWGUARD_WARHAMMER:
         cooler = PcBookNpcAbility('Cooler Heads Prevail','A separately chosen action: Leadership Test',
             'For every success, choose one character within Medium Range and remove its Distracted condition')

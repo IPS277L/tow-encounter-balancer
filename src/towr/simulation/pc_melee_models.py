@@ -1,6 +1,6 @@
 """Indexed, source-bound observations for the bounded PC encounter (ADR-0065)."""
 from collections import Counter
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from hashlib import sha256
 
 from towr.domain.pc_melee_models import PcMeleeScenario, validate_pc_melee_scenario_admission
@@ -8,6 +8,89 @@ from towr.domain.pc_melee_result_models import PcMeleeOutcome
 
 
 SEED_SCHEME = 'towr:pc-melee-trial:v1'
+
+
+def pc_has_aim_capability(scenario) -> bool:
+    return any(member.pc.weapon.value == 'hochland_long_rifle' for member in scenario.party)
+
+
+@dataclass(frozen=True, slots=True)
+class PcAimCount:
+    actor_id: str
+    count: int
+
+    def __post_init__(self):
+        if type(self.actor_id) is not str or not self.actor_id.strip():
+            raise TypeError('Aim observation requires an exact actor ID')
+        if type(self.count) is not int:
+            raise TypeError('Aim observation count requires an exact integer')
+        if self.count < 0:
+            raise ValueError('Aim observation count cannot be negative')
+
+
+@dataclass(frozen=True, slots=True)
+class PcAimCounts:
+    action_counts: tuple[PcAimCount, ...]
+    second_action_spend_counts: tuple[PcAimCount, ...]
+
+    def __post_init__(self):
+        for rows in (self.action_counts,self.second_action_spend_counts):
+            if type(rows) is not tuple or any(type(row) is not PcAimCount for row in rows):
+                raise TypeError('Aim observations require exact ordered typed rows')
+            for row in rows:
+                replace(row)
+        ids = tuple(row.actor_id for row in self.action_counts)
+        if len(set(ids)) != len(ids) or ids != tuple(row.actor_id for row in self.second_action_spend_counts):
+            raise ValueError('Aim and Second Action observations require the same distinct actor order')
+
+    @property
+    def total_action_count(self):
+        return sum(row.count for row in self.action_counts)
+
+    @property
+    def total_second_action_spend_count(self):
+        return sum(row.count for row in self.second_action_spend_counts)
+
+
+def validate_aim_counts(counts, scenario, *, trials, actions, started_rounds, glorious_counts):
+    if not pc_has_aim_capability(scenario):
+        if counts is not None:
+            raise ValueError('Aim observations require an Aim-capable source')
+        return
+    if type(counts) is not PcAimCounts:
+        raise TypeError('Aim-capable source requires typed Aim observations')
+    replace(counts)
+    if tuple(row.actor_id for row in counts.action_counts) != tuple(member.actor_id for member in scenario.party):
+        raise ValueError('Aim observations must cover every PC in source order')
+    if counts.total_action_count+counts.total_second_action_spend_count > actions:
+        raise ValueError('Aim and its funded Attack require separate executed actions')
+    if type(glorious_counts) is not tuple or any(type(row) is not PcGloriousSpendCount for row in glorious_counts):
+        raise TypeError('joint Fate observations require exact typed Glorious rows')
+    for row in glorious_counts:
+        replace(row)
+    if tuple(row.actor_id for row in glorious_counts) != tuple(member.actor_id for member in scenario.party):
+        raise ValueError('joint Fate observations require complete source-ordered Glorious rows')
+    glorious = {row.actor_id:row.count for row in glorious_counts}
+    for member,aim,second in zip(scenario.party,counts.action_counts,counts.second_action_spend_counts,strict=True):
+        if aim.count > min(started_rounds,trials*scenario.max_rounds):
+            raise ValueError('Aim count exceeds the one-Aim-per-own-turn budget')
+        if member.pc.weapon.value != 'hochland_long_rifle' and (aim.count or second.count):
+            raise ValueError('only the admitted Hochland actor can Aim or fund this Second Action')
+        if second.count > aim.count:
+            raise ValueError('Second Action count requires its actual preceding Aim')
+        policy = member.aim_second_action_policy
+        if policy is None:
+            if second.count:
+                raise ValueError('Second Action count requires its explicit policy')
+        else:
+            reserve = policy.minimum_remaining_session_spends
+            available = max(0,member.fate.remaining_spends-reserve)
+            available += int(member.fate.lucky_free_spend_available and member.fate.remaining_spends >= reserve)
+            if second.count > trials*available:
+                raise ValueError('Second Action count exceeds the selected reserve/funding budget')
+        resource = member.fate.remaining_spends+int(member.fate.lucky_free_spend_available)
+        if second.count+glorious.get(member.actor_id,0) > trials*resource:
+            raise ValueError('Glorious and Second Action cannot spend the same Fate resource')
 
 
 @dataclass(frozen=True, slots=True)
@@ -202,6 +285,7 @@ def validate_npc_recover_counts(counts,scenario,*,trials:int,recover_trials:int|
 
 
 def validate_npc_exit_counts(counts,scenario,*,trials:int,exit_trials:int|None) -> None:
+    from towr.domain.pc_npc_wound_models import OFFICIAL_DEFINITION_IDS
     if type(counts) is not tuple:
         raise TypeError('NPC exit counts require a source-ordered tuple')
     for item in counts:
@@ -220,7 +304,7 @@ def validate_npc_exit_counts(counts,scenario,*,trials:int,exit_trials:int|None) 
     eligible=0
     for enemy,item in zip(scenario.enemies,counts,strict=True):
         allowed=(scenario.npc_broken_exit_policy is not None
-            and enemy.definition.id=='pc-book-npc:empire_official_dagger')
+            and enemy.definition.id in OFFICIAL_DEFINITION_IDS)
         eligible+=int(allowed)
         if item.count>exit_trials or (item.count and not allowed):
             raise ValueError('NPC exit count contradicts the selected source/batch')
@@ -269,7 +353,9 @@ class PcGloriousSpendCount:
 def glorious_spend_budget(member) -> int:
     if member.glorious_policy is None:
         return 0
-    return max(0,member.fate.remaining_spends-member.glorious_policy.minimum_remaining_spends)
+    reserve = member.glorious_policy.minimum_remaining_spends
+    return (max(0,member.fate.remaining_spends-reserve)
+        + int(member.fate.lucky_free_spend_available and member.fate.remaining_spends >= reserve))
 
 
 def validate_glorious_counts(counts, scenario, *, trials: int, spend_trials: int | None) -> None:
@@ -457,6 +543,7 @@ class PcMeleeTrialRecord:
     npc_extra_attack_counts: tuple[PcNpcExtraAttackCount, ...]
     npc_recover_action_counts: tuple[PcNpcRecoverActionCount, ...]
     npc_warped_form_counts: tuple[PcNpcWarpedFormCount, ...]
+    aim: PcAimCounts | None = field(default=None, kw_only=True)
 
     def __post_init__(self) -> None:
         validate_pc_melee_scenario_admission(self.source_scenario)
@@ -479,9 +566,12 @@ class PcMeleeTrialRecord:
             raise ValueError('completed rounds contradict started rounds')
         validate_npc_extra_attack_counts(self.npc_extra_attack_counts,self.source_scenario,trials=1,
             extra_trials=None,actions=self.executed_actions,started_rounds=self.started_rounds)
+        validate_aim_counts(self.aim,self.source_scenario,trials=1,actions=self.executed_actions,
+            started_rounds=self.started_rounds,glorious_counts=self.glorious_spend_counts)
+        seconds = self.aim.total_second_action_spend_count if self.aim is not None else 0
         extras=sum(item.count for item in self.npc_extra_attack_counts)
         actors = len(self.source_scenario.party) + len(self.source_scenario.enemies)
-        if not self.completed_rounds <= self.executed_actions <= actors*self.started_rounds+extras:
+        if not self.completed_rounds <= self.executed_actions <= actors*self.started_rounds+extras+seconds:
             raise ValueError('actions contradict the round/actor budget')
         if self.outcome is PcMeleeOutcome.ROUND_LIMIT and self.completed_rounds != self.source_scenario.max_rounds:
             raise ValueError('round limit must complete the full source budget')
@@ -517,7 +607,7 @@ class PcMeleeTrialRecord:
             recover_trials=None,actions=self.executed_actions,started_rounds=self.started_rounds,
             warped_form_counts=self.npc_warped_form_counts)
         if sum(item.count for item in (*self.help_action_counts,*self.ally_recover_action_counts,
-                *self.npc_help_action_counts,*self.npc_recover_action_counts))+2*extras>self.executed_actions:
+                *self.npc_help_action_counts,*self.npc_recover_action_counts))+2*extras+(self.aim.total_action_count if self.aim is not None else 0)>self.executed_actions:
             raise ValueError('Help, ally Recover and primary/extra Attacks cannot consume the same action')
         validate_npc_exit_counts(self.npc_exit_counts,self.source_scenario,trials=1,exit_trials=None)
         if sum(item.count for item in self.npc_exit_counts)>npc_injury_budget:

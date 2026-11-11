@@ -1,12 +1,68 @@
 # Открытые вопросы и действующие допущения
 
-Дата: 2026-11-07. Это короткий индекс незакрытых тем; читать подробности только по затронутой механике. Полные формулировки, ссылки на книги и текущие ограничения сохранены в [деталях](open-questions-details.md); закрытые темы — в [истории](open-questions-history.md).
+Дата: 2026-11-12. Это короткий индекс незакрытых тем; читать подробности только по затронутой механике. Полные формулировки, ссылки на книги и текущие ограничения сохранены в [деталях](open-questions-details.md); закрытые темы — в [истории](open-questions-history.md).
 
 ## Действующая граница симуляции
 
-Ограниченные M8–M56 завершены: [статус и текущие ограничения](project-status.md), [Broken exit M24](decisions/ADR-0079-pc-broken-npc-adjacent-exit.md), [архитектура](architecture/overview.md). Поддержанные PC weapons/Fate/Help/Recover и книжные combat loadouts не разрешают автоматически другие действия/Abilities. История закрытых вех не расширяет очередь и не возвращает старые wire formats.
+Ограниченные M8–M70 завершены: [статус и текущие ограничения](project-status.md), [Broken exit M24](decisions/ADR-0079-pc-broken-npc-adjacent-exit.md), [архитектура](architecture/overview.md). Поддержанные PC weapons/Fate/Help/Recover и книжные combat loadouts не разрешают автоматически другие действия/Abilities. История закрытых вех не расширяет очередь и не возвращает старые wire formats.
 
 Wounds1–23/lethal24+, source-aware Conditions и mandatory Critical/Defenceless end phases сохраняются. Невозможная повторная анатомия, недоступный2H хват без продолжения и собственный Broken turn Official без exit policy имеют точные stop boundaries. Незавершённые route/recovery/GM решения нельзя подставлять ради продолжения; observed losses относятся только к исполненному prefix.
+
+## M70: Hochland/Aim/Fate Second Action — решение принято
+
+[ADR-0112](decisions/ADR-0112-pc-hochland-aim-and-fate-second-action.md) реализован: выбран actual Aim→явный Fate Second Action→Shoot в том же ходу. Awareness source/one-use loss/policy/reserve/Lucky/conditional counters согласованы; при отсутствии funding обычный Aim не даёт free shot до подхода NPC. Awareness Glorious в первом срезе отклоняется, остальные выбранные Glorious используют actual остаток ресурса/Lucky. CANNOT_AIM8/mandatory/hand/CI/endphase и прежний backup действуют. Setup prelude не выбран. Current JSON1/244старыхJSON/NPC59/shared14 сохраняются. [Статус](project-status.md).
+
+## M69: Blunderbuss/nearby Staggered — решение принято
+
+[ADR-0111](decisions/ADR-0111-pc-blunderbuss-cluster-and-nearby-stagger.md) реализован: выбрана одна initial NPC-группа, explicit fact/order и полный nearby Trait от HIT без требования primary Wound. Source/request snapshot закреплён в HIT; primary ACK→ordered impacts/GM ACK→continuation/terminal, без новых Attack/actions. PC вне волны по actual Short premises, не по отключению friendly fire. Раздельные окрестности/смешанные Close-группы не выбраны. Current JSON1/старые240JSON/NPC59/shared14 сохраняются. [Статус](project-status.md).
+
+## M68: Sling/free reload/Close→backup — решение принято
+
+[ADR-0110](decisions/ADR-0110-pc-sling-free-reload-and-close-backup.md) реализован: выбран Sling с optional shield и прежним melee backup. Strength Damage/free reload/Short−1d; запрет при любом Close enemy не зависит от рук. Weapon-first release предшествует draw при занятой preferred backup hand, затем прежний shield Recover. Один пригодный hand вне Close допускается, old1H firearms сохраняют Close/Reload. Current JSON1/236старыхJSON/NPC59/shared14 прежние; Medium opening/другие Zone/новые NPC policies не добавлены. [Статус](project-status.md).
+
+## M67: оба Handgun, volley→backup — решение принято
+
+[ADR-0109](decisions/ADR-0109-pc-handguns-opening-volley.md) реализован: оба2H firearms, явные Blackpowder facts, Handgun Short−1d/charge3 и Repeater optional+3d→charge5. Общий native PcRangedCloseUnsupported/ranged_close_enemy заменяет bow-specific имя без aliases. JSON1/агрегаты прежние, старые232JSON сохранены. Текущий первый volley→NPC approach→backup не означает полный fresh Reload cycle. Новых NPC policies, Aim, других Zone и оружий вне этого чанка нет. [Статус](project-status.md).
+
+## M66: оба Crossbow, volley→backup — решение принято
+
+[ADR-0108](decisions/ADR-0108-pc-crossbows-opening-volley-and-reload-state.md) реализован: пользователь выбрал Crossbow/Repeater Crossbow с прежним Short opening и подходом NPC. Armour Damage обычного Crossbow/Repeater modes/charges2vs3/no-cycle сохраняются; после Close active melee и retained primary state разделены. Optional authored armoured bool передаётся полно, canonical Net/book правила прежние. Для M66 решений пользователя больше не нужно. Это первый volley и melee continuation; fresh Shoot→Reload→Shoot для Crossbow не заявляется. Прежние228JSON/каталог59 сохранены. [Правило](rules/equipment.md#pc-crossbows-m66), [статус](project-status.md).
+
+## M65: Short opening, три bows и backup — решение принято
+
+[ADR-0107](decisions/ADR-0107-pc-bows-short-opening-and-melee-backup.md) реализован: пользователь выбрал Shortbow/Warbow/Longbow, Short внутри одной Zone, free NPC approach и one-way melee backup. Строгий source не разрешает bows в all-Close и не отключает PG94 restriction. Без backup — точный stop на реальном Shoot boundary; необходимый Recover/mandatory последствия сохраняют приоритет. Short-сцена ограничена simple authored numeric Minions; прежние Close loadouts/224JSON сохранены. Для закрытия M65 решений пользователя больше не нужно. [Правила](rules/equipment.md#pc-bows-m65), [статус](project-status.md).
+
+## M64: оба Repeaters и generic PC ranged — решение принято
+
+[ADR-0106](decisions/ADR-0106-pc-repeaters-and-generic-ranged-profile.md) реализован: пользователь выбрал Repeater Handbow/Repeater Pistol, when_available/never, общий PC ranged и прежние shield/backup. Handbow без firearm facts; bonus только до initial roll и без Drained, условный Reload3, normal shot без нового cycle. PC pistol key/API удалены, NPC pistol сохранён. Миграция36из220JSON точная, остальные184 побайтно прежние; каталог59. Для M64 открытых вопросов нет. Две пригодные руки для Reload — прежняя согласованная scenario policy, не новое RAW. [Правило](rules/equipment.md#pc-repeaters-m64), [статус](project-status.md).
+
+## M63: PC Protection Skill и Melee Help — решение принято
+
+[ADR-0105](decisions/ADR-0105-pc-close-shooting-protection-choice.md) реализован: пользователь выбрал optional Melee/Athletics и полный Melee Protection Help. Default без поля прежний; PG94 не требует weapon, fixed hand-use — actual usable active grip либо без рук. Protection Help адресуется по target, не смешивается с Melee Attack. Source/schema/owner/Traits/Fate/hand/replay/trials/search/CLI проверены;216прежнихJSON/59definitions сохранены. Вопросов для M63 нет. [Правило](rules/combat.md#pc-close-shooting-protection-m63), [статус](project-status.md).
+
+## M62: NPC Help к Shooting — решение принято
+
+[ADR-0104](decisions/ADR-0104-pc-npc-shooting-help.md) реализован: пользователь выбрал Militia и три Goblin/Night Goblin loadouts с Horde → оба NPC Pistol. Loaded → Help конкретному Shooting Test, empty/Reload → собственный Attack helper. Melee-only Abilities сохраняются, unused receipts не переназначаются, новых fields/schema/метрик нет. PC Protection Help не предсказывает NPC Help.212прежнихJSON/каталог59 сохранены, вопросов для M62 нет. [Правило](rules/npc-profile-catalog.md#npc-shooting-help-m62), [статус](project-status.md).
+
+## M61: NPC Pistol и Reload — решение принято
+
+[ADR-0103](decisions/ADR-0103-pc-npc-pistol-and-exacting-reload.md) реализован: пользователь выбрал оба Brute loadouts, initially loaded Shoot→Reload3→Shoot с explicit two-hand/Lore/kit/supplies facts. Official Broken/exit сохранены, Ogre Pistol имеет printed Close–Medium; без shield/carried melee/получения NPC Help. Новый closed per-enemy source действует только для canonical Official/Ogre, прежние208JSON сохранены. Вопросов для M61 нет. [Правило](rules/npc-profile-catalog.md#npc-pistol-reload-m61), [статус](project-status.md).
+
+## M60: Pistol → melee backup — решение принято
+
+[ADR-0102](decisions/ADR-0102-pc-pistol-melee-backup.md) реализован: пользователь выбрал fallback только при empty Pistol/одной пригодной руке, сохранив loaded shot и доступный Reload. Шесть1H backups/optional shield/Strength≥2, прежний existing policy без новых полей; собственный incidental draw после mandatory последствий, actual Melee и сохранённый Pistol state. Необходимые shield release/Recover и Critical сохраняются, пустой dropped gun не подбирается. Вопросов для закрытия M60 нет. [Правило](rules/equipment.md#pc-pistol-backup-m60), [статус](project-status.md).
+
+## M59: Thief Stealth против Pistol
+
+Закрыта последняя отдельная Protection eligibility case выбранного каталога57. Now You See Me GM103 разрешает aware Shooting; Pistol preflight теперь подтверждает существующий typed actor/full-definition permission. Printed Stealth3d5/cap6 сохраняется, Unaware/Defenceless не Opposes; исчезновение/кража автоматически не добавлены. Нет generic Stealth override и нового поля,12source Melee/Athletics policy прежняя. [Правило](rules/combat.md#pc-close-shooting-protection-m59), [статус](project-status.md).
+
+## M58: special NPC Close Shooting Protection
+
+Nasty Skulker, Brewguard/Warhammer, Miner/Pickaxe и Bestigor/Massive Axe подключены к прежней policy, всего12sources. Miner grudge — generic Melee bonus против focus, поэтому усиливает защитный Melee и подчиняется Drained; Distracted действует на Melee/Athletics против остальных. Brewguard focus/expiry сохраняется. GM144 Blood Rage прямо Attack-only, W1 Bestigor Glorious не расходуется opposition. Исправлены alternate Athletics caps Miner4/Bestigor8 ([CODE-CONFLICT-006](contradictions.md#code-conflict-006--athletics-caps-miner-и-bestigor-исправлено-2026-11-07)). Нового выбора тактики/поля нет. [Правило](rules/combat.md#pc-close-shooting-protection-m58), [статус](project-status.md).
+
+## M57: Greenskin Close Shooting Protection
+
+Orc Boy/Big ’Un Choppas/Spear без щитов добавлены по [образцу M56](decisions/ADR-0101-pc-close-shooting-npc-protection-choice.md): всего8разрешённых canonical sources, те же optional actor→Melee/Athletics policies. У всех WS3/Melee4/Ag3/Athletics3, оба cap6; Big ’Un Strength4 меняет Damage/injury type, не Melee cap. GM158 Help относится только к Attack Test; защитный Melee не получает/не расходует receipt. Новой существенной неоднозначности/тактики нет, отдельный ADR/поле не нужны. [Правило](rules/combat.md#pc-close-shooting-protection-m57), [фактический статус](project-status.md).
 
 ## M56: NPC Protection против Close Shooting
 

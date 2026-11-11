@@ -3,7 +3,7 @@ import unittest
 
 from towr.domain.attack_models import DamageModifier, DamageProfile, ResilienceProfile
 from towr.domain.condition_models import Condition, ConditionState
-from towr.domain.pc_melee_models import PcMeleeWeapon
+from towr.domain.pc_melee_models import PC_TWO_HANDED_RANGED_WEAPONS, PcMeleeWeapon
 from towr.domain.pc_weapon_models import (
     FLAIL_STAGGERED_RULE_ID, GREATAXE_MELEE_RULE_ID, GREATHAMMER_MELEE_RULE_ID,
     HALBERD_ARMOUR_RULE_ID, GREATAXE_ARMOUR_RULE_ID, GLAIVE_DEFENCE_RULE_ID,
@@ -24,7 +24,7 @@ class PcTwoHandedWeaponPreparationTests(unittest.TestCase):
     def test_exact_hand_requirements_leave_existing_weapons_one_handed(self):
         for weapon in PcMeleeWeapon:
             with self.subTest(weapon=weapon):
-                self.assertIs(pc_weapon_requires_two_hands(weapon),weapon in TWO_HANDED)
+                self.assertIs(pc_weapon_requires_two_hands(weapon),weapon in (*TWO_HANDED,*PC_TWO_HANDED_RANGED_WEAPONS))
 
     def test_all_seven_damage_profiles_at_low_and_ordinary_strength(self):
         offsets = ((PcMeleeWeapon.PICKAXE,1),(PcMeleeWeapon.FLAIL,3),

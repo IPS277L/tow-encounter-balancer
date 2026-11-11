@@ -11,12 +11,12 @@ from towr.domain.condition_models import Condition
 from towr.domain.injury_models import WoundEntryId, WoundRecord, WoundRecordOrigin
 from towr.domain.pc_heavy_wound_models import PcBodyFact, PcBodyFactKind
 from towr.domain.pc_melee_models import (
-    PcMeleeWeapon, PcPistolProfile, PcPistolReloadHandPolicy, PcWeaponHand,
+    PcMeleeWeapon, PcRangedProfile, PcRangedReloadHandPolicy, PcWeaponHand,
 )
 from towr.domain.pc_melee_result_models import initial_pc_melee_state
-from towr.domain.pc_pistol_models import (
-    build_pc_pistol_reload, complete_pc_pistol_shot, initial_pc_pistol,
-    pc_pistol_unsupported, pistol_reload_declaration, prepare_pc_pistol_shot,
+from towr.domain.pc_ranged_models import (
+    build_pc_ranged_reload, complete_pc_ranged_shot, initial_pc_ranged,
+    pc_ranged_unsupported, ranged_reload_declaration, prepare_pc_ranged_shot,
 )
 from towr.domain.reload_models import _complete_reload_action_after_test
 from towr.domain.resolution_models import AttackerStaggerRequest, KernelAttackRequest
@@ -36,9 +36,9 @@ def pistol_source():
     enemy = source.enemies[0]
     protection = replace(enemy.definition.protection[0], skill=Skill.ATHLETICS)
     enemy = replace(enemy, definition=replace(enemy.definition, protection=(protection,)))
-    profile = PcPistolProfile(2, 4, 3, 5, True, True, True, True,
-        PcPistolReloadHandPolicy.TWO_AVAILABLE_HANDS)
-    pc = replace(source.party[0].pc, weapon=PcMeleeWeapon.PISTOL, pistol=profile)
+    profile = PcRangedProfile(2, 4, 3, 5, True, True, True, True,
+        PcRangedReloadHandPolicy.TWO_AVAILABLE_HANDS)
+    pc = replace(source.party[0].pc, weapon=PcMeleeWeapon.PISTOL, ranged=profile)
     return replace(source, party=(replace(source.party[0], pc=pc),), enemies=(enemy,))
 
 
@@ -47,7 +47,7 @@ def pistol_state(*, empty=False):
     round_state = start_combat_turn(CombatTurnStartRequest('turn:pc', state.round_state, 'pc')).state
     state = replace(state, round_state=round_state)
     if empty:
-        state = replace(state, party=(replace(state.party[0], pistol=weapon_state(
+        state = replace(state, party=(replace(state.party[0], ranged=weapon_state(
             weapon_instance_id='pc:weapon', reload_cycle_id='pc:first:cycle')),))
     return state
 
@@ -86,24 +86,24 @@ def block_hand(state, side, *, total=16):
 class M54PistolCoreTests(unittest.TestCase):
     def test_initial_instances_are_loaded_and_actor_owned(self):
         source = pistol_source().party[0]
-        first = initial_pc_pistol(source)
-        second = initial_pc_pistol(replace(source, actor_id='other', fate=replace(source.fate, actor_id='other'),
+        first = initial_pc_ranged(source)
+        second = initial_pc_ranged(replace(source, actor_id='other', fate=replace(source.fate, actor_id='other'),
             defeat_decisions=tuple(replace(d, attacker_id='other') for d in source.defeat_decisions)))
         self.assertTrue(first.loaded)
         self.assertIsNone(first.exacting)
         self.assertEqual(first.weapon_instance_id, 'pc:weapon')
         self.assertEqual(second.weapon_instance_id, 'other:weapon')
-        self.assertIsNone(initial_pc_pistol(make_pc_melee_scenario().party[0]))
+        self.assertIsNone(initial_pc_ranged(make_pc_melee_scenario().party[0]))
 
     def test_preparation_is_close_pistol_without_aim_and_does_not_spend(self):
         state = reserve(pistol_state(), CombatActionDeclaration(CombatActionKind.ATTACK))
         request = shot_request(state)
-        prepared = prepare_pc_pistol_shot(state, request)
+        prepared = prepare_pc_ranged_shot(state, request)
         self.assertIs(prepared.source_request.attack, request)
         self.assertIsNone(prepared.aim_follow_up)
-        self.assertEqual(prepared.execution.next_reload_cycle_id, 'pc-melee:r1:pc:pistol:cycle')
+        self.assertEqual(prepared.execution.next_reload_cycle_id, 'pc-melee:r1:pc:ranged:cycle')
         self.assertEqual(prepared.execution.attack, request)
-        self.assertTrue(state.party[0].pistol.loaded)
+        self.assertTrue(state.party[0].ranged.loaded)
         self.assertIn('RULE-EQUIPMENT-004:ignores-armour', prepared.applied_rule_ids)
 
     def test_hit_and_miss_spend_only_actual_instance_without_second_execution(self):
@@ -111,7 +111,7 @@ class M54PistolCoreTests(unittest.TestCase):
             state = reserve(pistol_state(), CombatActionDeclaration(CombatActionKind.ATTACK))
             request = shot_request(state)
             execution = execute_attack_action(request, SequenceRandom(rolls))
-            proof = complete_pc_pistol_shot(state, request, request, execution)
+            proof = complete_pc_ranged_shot(state, request, request, execution)
             self.assertIs(proof.execution.attack, execution)
             self.assertIs(proof.execution.source_request.attack, request)
             self.assertFalse(proof.execution.weapon_state.loaded)
@@ -120,13 +120,13 @@ class M54PistolCoreTests(unittest.TestCase):
 
     def test_reload_uses_initiative_dexterity_and_own_slot(self):
         state = pistol_state(empty=True)
-        state = reserve(state, pistol_reload_declaration(state, 'pc'))
-        request = build_pc_pistol_reload(state)
+        state = reserve(state, ranged_reload_declaration(state, 'pc'))
+        request = build_pc_ranged_reload(state)
         self.assertEqual(request.dexterity_test.profile, TestProfile(3, 5))
         self.assertEqual(request.dexterity_test.id, 'pc-melee:r1:pc:reload:dexterity')
         self.assertEqual(request.id, 'pc-melee:r1:pc:reload:execute')
         self.assertEqual(request.slot_index, 1)
-        self.assertIs(request.weapon_state, state.party[0].pistol)
+        self.assertIs(request.weapon_state, state.party[0].ranged)
         result = execute_reload_action(request, SequenceRandom([1, 1, 1]))
         self.assertTrue(result.completed)
         self.assertTrue(result.slot.executed)
@@ -140,7 +140,7 @@ class M54PistolCoreTests(unittest.TestCase):
             attacker_test=replace(attack.attacker_test,
                 dice_modifiers=(DiceModifier('fixture:effective-test', -1),)))))
         execution = execute_attack_action(effective, SequenceRandom([10]))
-        proof = complete_pc_pistol_shot(state, base, effective, execution)
+        proof = complete_pc_ranged_shot(state, base, effective, execution)
         self.assertIs(proof.preparation.source_request.attack, base)
         self.assertIs(proof.execution.source_request.attack, effective)
         self.assertIs(proof.execution.attack, execution)
@@ -165,38 +165,38 @@ class M54PistolCoreTests(unittest.TestCase):
     def test_loaded_one_hand_shot_precedes_reload_hands_stop(self):
         for total in (16, 18, 20):
             state = block_hand(pistol_state(), PcWeaponHand.RIGHT, total=total)
-            self.assertIsNone(pc_pistol_unsupported(state))
+            self.assertIsNone(pc_ranged_unsupported(state))
             state = reserve(state, CombatActionDeclaration(CombatActionKind.ATTACK))
-            prepare_pc_pistol_shot(state, shot_request(state))
+            prepare_pc_ranged_shot(state, shot_request(state))
             empty = block_hand(pistol_state(empty=True), PcWeaponHand.RIGHT, total=total)
-            stop = pc_pistol_unsupported(empty)
-            self.assertEqual(stop.reason, 'pistol_reload_hands_unavailable')
+            stop = pc_ranged_unsupported(empty)
+            self.assertEqual(stop.reason, 'ranged_reload_hands_unavailable')
             self.assertEqual(stop.table_total, total)
             self.assertIn('pc:weapon:pc:first:cycle', stop.source_id)
             with self.assertRaises(ValueError):
-                build_pc_pistol_reload(reserve(empty, pistol_reload_declaration(empty, 'pc')))
+                build_pc_ranged_reload(reserve(empty, ranged_reload_declaration(empty, 'pc')))
 
     def test_stop_waits_for_recover_pending_and_own_unreserved_live_turn(self):
         state = block_hand(pistol_state(empty=True), PcWeaponHand.RIGHT)
         member = state.party[0]
         dropped = replace(state, party=(replace(member, weapon_hand=None),))
-        self.assertIsNone(pc_pistol_unsupported(dropped))
+        self.assertIsNone(pc_ranged_unsupported(dropped))
         prone = replace(state, party=(replace(member, injury=replace(member.injury,
             conditions=member.injury.conditions.with_condition(Condition.PRONE))),))
-        self.assertIsNone(pc_pistol_unsupported(prone))
-        self.assertIsNone(pc_pistol_unsupported(replace(state,
+        self.assertIsNone(pc_ranged_unsupported(prone))
+        self.assertIsNone(pc_ranged_unsupported(replace(state,
             pending=(AttackerStaggerRequest('previous-attack'),), pending_actor_id='pc')))
-        self.assertIsNone(pc_pistol_unsupported(reserve(state, pistol_reload_declaration(state, 'pc'))))
+        self.assertIsNone(pc_ranged_unsupported(reserve(state, ranged_reload_declaration(state, 'pc'))))
         defeated = replace(state.enemies[0], state=replace(state.enemies[0].state,
             injury=replace(state.enemies[0].state.injury, wounds=1, defeated=True)))
-        self.assertIsNone(pc_pistol_unsupported(replace(state, enemies=(defeated,))))
-        self.assertIsNone(pc_pistol_unsupported(replace(state, round_state=replace(state.round_state, active_turn=None))))
+        self.assertIsNone(pc_ranged_unsupported(replace(state, enemies=(defeated,))))
+        self.assertIsNone(pc_ranged_unsupported(replace(state, round_state=replace(state.round_state, active_turn=None))))
 
     def test_no_usable_hand_uses_latest_blocking_wound_and_grip_boundary(self):
         state = block_hand(pistol_state(), PcWeaponHand.RIGHT, total=16)
         state = block_hand(state, PcWeaponHand.LEFT, total=20)
-        stop = pc_pistol_unsupported(state)
-        self.assertEqual(stop.reason, 'pistol_grip_unavailable')
+        stop = pc_ranged_unsupported(state)
+        self.assertEqual(stop.reason, 'ranged_grip_unavailable')
         self.assertEqual((stop.wound_sequence, stop.table_total), (2, 20))
         self.assertIn('pc:weapon:initial-loaded', stop.source_id)
 

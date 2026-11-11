@@ -1,7 +1,7 @@
-"""Explicit preparation for the admitted Close PC weapons (PG 92–93)."""
+"""Explicit preparation for the admitted PC melee/ranged weapons (PG 92–95)."""
 from towr.domain.attack_models import DamageModifier, DamageProfile, ResilienceProfile
 from towr.domain.condition_models import Condition, ConditionState
-from towr.domain.pc_melee_models import PcMeleeWeapon
+from towr.domain.pc_melee_models import PC_TWO_HANDED_RANGED_WEAPONS, PC_RANGED_WEAPONS, PcMeleeWeapon
 from towr.domain.test_models import DiceModifier, Skill
 
 
@@ -18,14 +18,24 @@ GREATHAMMER_STAGGERED_RULE_ID = 'RULE-EQUIPMENT-003:greathammer-staggered-target
 
 
 def pc_weapon_requires_two_hands(weapon: PcMeleeWeapon) -> bool:
-    return weapon in (PcMeleeWeapon.PICKAXE, PcMeleeWeapon.FLAIL, PcMeleeWeapon.BILLHOOK,
+    return weapon in (*PC_TWO_HANDED_RANGED_WEAPONS, PcMeleeWeapon.PICKAXE, PcMeleeWeapon.FLAIL, PcMeleeWeapon.BILLHOOK,
         PcMeleeWeapon.HALBERD, PcMeleeWeapon.GLAIVE, PcMeleeWeapon.GREATAXE, PcMeleeWeapon.GREATHAMMER)
 
 
+def pc_weapon_allows_close_shooting(weapon: PcMeleeWeapon) -> bool:
+    """PG94 permission belongs to the optimum range, independently of hands."""
+    from towr.domain.ranged_weapon_profiles import RangedWeaponId, RangedWeaponRange, ranged_weapon_combat_profile
+    return (weapon in PC_RANGED_WEAPONS and
+        ranged_weapon_combat_profile(RangedWeaponId(weapon.value)).optimum_range_min is RangedWeaponRange.CLOSE)
+
+
 def pc_weapon_damage(weapon: PcMeleeWeapon, strength: int) -> DamageProfile:
-    if weapon is PcMeleeWeapon.PISTOL:
-        from towr.domain.ranged_weapon_profiles import RangedWeaponId,ranged_weapon_combat_profile
-        return DamageProfile(ranged_weapon_combat_profile(RangedWeaponId.PISTOL).damage_value)
+    if weapon in PC_RANGED_WEAPONS:
+        from towr.domain.ranged_weapon_profiles import RangedWeaponId, RangedWeaponDamageKind, ranged_weapon_combat_profile
+        profile = ranged_weapon_combat_profile(RangedWeaponId(weapon.value))
+        base = strength if profile.damage_kind is RangedWeaponDamageKind.STRENGTH else profile.damage_value
+        assert base is not None
+        return DamageProfile(base)
     if weapon is PcMeleeWeapon.DAGGER:
         offset = -1
     elif weapon in (PcMeleeWeapon.MORNING_STAR, PcMeleeWeapon.PICKAXE):
@@ -69,6 +79,11 @@ def pc_weapon_attack_modifiers(weapon: PcMeleeWeapon,
 
 def pc_weapon_damage_modifiers(weapon: PcMeleeWeapon,
         target_resilience: ResilienceProfile) -> tuple[DamageModifier, ...]:
+    if weapon is PcMeleeWeapon.CROSSBOW and target_resilience.is_armoured:
+        from towr.domain.ranged_weapon_profiles import RangedWeaponId, ranged_weapon_combat_profile
+        from towr.domain.ranged_weapon_attack_preparation_models import ARMOURED_TARGET_DAMAGE_BONUS_RULE_ID
+        return (DamageModifier(ARMOURED_TARGET_DAMAGE_BONUS_RULE_ID,
+            ranged_weapon_combat_profile(RangedWeaponId.CROSSBOW).armoured_target_damage_bonus),)
     if weapon is PcMeleeWeapon.AXE and target_resilience.is_armoured:
         return (DamageModifier(AXE_ARMOUR_RULE_ID, 1),)
     if weapon is PcMeleeWeapon.HALBERD and target_resilience.is_armoured:

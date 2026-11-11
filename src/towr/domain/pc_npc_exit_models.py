@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 
 from towr.domain.condition_models import Condition
 from towr.domain.movement_models import FreeMovementRequest,FreeMovementResult,MovementSpeed
-from towr.domain.pc_npc_wound_models import OFFICIAL_DEFINITION_ID
+from towr.domain.pc_npc_wound_models import OFFICIAL_DEFINITION_IDS
 from towr.domain.spatial_models import SpatialBattleState,SpatialEntityPlacement,ZoneGraph,ZoneConnection
 from towr.domain.turn_models import CombatSide
 
@@ -64,7 +64,7 @@ def pc_npc_exit_supported(state: PcMeleeState, actor_id: str) -> bool:
     elif combat.active_turn.actor_id!=actor_id or combat.active_turn.action_slots:
         return False
     enemy = state.enemy(actor_id)
-    return (enemy.definition.id==OFFICIAL_DEFINITION_ID and not enemy.state.injury.defeated
+    return (enemy.definition.id in OFFICIAL_DEFINITION_IDS and not enemy.state.injury.defeated
         and enemy.state.injury.wounds==1 and enemy.state.injury.conditions.has(Condition.BROKEN)
         and not enemy.state.injury.conditions.has(Condition.PRONE)
         and not enemy.state.injury.conditions.has(Condition.DEFENCELESS))

@@ -20,6 +20,7 @@ class RangedWeaponId(str, Enum):
     LONGBOW = "longbow"
     CROSSBOW = "crossbow"
     PISTOL = "pistol"
+    OGRE_PISTOL = "ogre_pistol"
     HANDGUN = "handgun"
     BLUNDERBUSS = "blunderbuss"
     HOCHLAND_LONG_RIFLE = "hochland_long_rifle"
@@ -276,6 +277,11 @@ RANGED_WEAPON_RELOAD_PROFILES: tuple[RangedWeaponReloadProfile, ...] = (
         3,
     ),
     RangedWeaponReloadProfile(
+        RangedWeaponId.OGRE_PISTOL,
+        RangedReloadTrigger.AFTER_EVERY_SHOT,
+        3,
+    ),
+    RangedWeaponReloadProfile(
         RangedWeaponId.HANDGUN,
         RangedReloadTrigger.AFTER_EVERY_SHOT,
         3,
@@ -379,6 +385,16 @@ RANGED_WEAPON_COMBAT_PROFILES: tuple[RangedWeaponCombatProfile, ...] = (
         weapon_id=RangedWeaponId.PISTOL,
         optimum_range_min=RangedWeaponRange.CLOSE,
         optimum_range_max=RangedWeaponRange.SHORT,
+        damage_kind=RangedWeaponDamageKind.FIXED,
+        damage_value=5,
+        hands=RangedWeaponHands.ONE_HANDED,
+        ignores_armour=True,
+        requires_blackpowder_lore=True,
+    ),
+    RangedWeaponCombatProfile(
+        weapon_id=RangedWeaponId.OGRE_PISTOL,
+        optimum_range_min=RangedWeaponRange.CLOSE,
+        optimum_range_max=RangedWeaponRange.MEDIUM,
         damage_kind=RangedWeaponDamageKind.FIXED,
         damage_value=5,
         hands=RangedWeaponHands.ONE_HANDED,

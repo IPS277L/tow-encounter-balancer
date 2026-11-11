@@ -1,6 +1,7 @@
 from dataclasses import replace
 
 from towr.simulation.pc_melee_models import PcMeleeSimulationResult, PcNearMissBurnCount, PcGloriousSpendCount, PcHelpActionCount, PcAllyRecoverActionCount, PcNpcExitCount, PcNpcHelpActionCount, PcNpcExtraAttackCount, PcNpcRecoverActionCount, PcNpcWarpedFormCount
+from towr.simulation.pc_melee_models import PcAimCount, PcAimCounts, pc_has_aim_capability
 from towr.domain.pc_melee_result_models import PcMeleeOutcome
 from towr.simulation.pc_melee_summary_models import PcMeleeDefeatCount, PcMeleeSimulationSummary
 
@@ -52,4 +53,11 @@ def summarize_pc_melee_simulation(result: PcMeleeSimulationResult) -> PcMeleeSim
         sum(any(item.count for item in record.npc_warped_form_counts) for record in result.records),
         tuple(PcNpcWarpedFormCount(enemy.state.actor_id,
             sum(record.npc_warped_form_counts[index].count for record in result.records))
-            for index,enemy in enumerate(result.source_request.scenario.enemies)))
+            for index,enemy in enumerate(result.source_request.scenario.enemies)),
+        aim=(PcAimCounts(tuple(PcAimCount(member.actor_id,
+            sum(record.aim.action_counts[index].count for record in result.records))
+            for index,member in enumerate(result.source_request.scenario.party)),
+            tuple(PcAimCount(member.actor_id,
+                sum(record.aim.second_action_spend_counts[index].count for record in result.records))
+                for index,member in enumerate(result.source_request.scenario.party)))
+            if pc_has_aim_capability(result.source_request.scenario) else None))
