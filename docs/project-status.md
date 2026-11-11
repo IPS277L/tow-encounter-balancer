@@ -1,12 +1,24 @@
 # Текущее состояние проекта
 
-Дата: 2026-11-12. **M70 завершена: PC Hochland/Aim/Fate Second Action и отдельные counters.** Нормативные книги — Player’s Guide1.4 и Gamemaster’s Guide1.1. [Правило](rules/equipment.md#pc-hochland-m70), [Fate](rules/fate.md#pc-second-action-m70), [ADR-0112](decisions/ADR-0112-pc-hochland-aim-and-fate-second-action.md), [CLI-примеры](examples/m70/README.md), [очередь](roadmap.md#после-m70), [вопросы](open-questions.md).
+Дата: 2026-11-12. **Первый динамический Python-путь генерации/поиска реализован; M70 сохранена.** Нормативные книги — Player’s Guide1.4 и Gamemaster’s Guide1.1. [Правило](rules/equipment.md#pc-hochland-m70), [Fate](rules/fate.md#pc-second-action-m70), [ADR-0112](decisions/ADR-0112-pc-hochland-aim-and-fate-second-action.md), [CLI-примеры](examples/m70/README.md), [очередь](roadmap.md#после-m70), [вопросы](open-questions.md).
 
 ## Приоритет после уточнения цели
 
 2026-11-12 пользователь подтвердил исходную цель: динамически генерировать NPC с характеристиками, навыками, талантами/способностями и снаряжением и подбирать состав через Monte Carlo. Развитие после M8 сместилось к вручную допущенным книжным профилям/сетапам; это не заменяет генератор. Предыдущий следующий шаг про пространственный encounter снят с ближайшего приоритета.
 
-Текущий PC search перебирает только количества supplied одинаковых definitions в группах. Числовые authored NPC возможны, но generator их параметры не создаёт, а abilities/admission часто привязаны к canonical IDs. Следующий результат — новые допустимые профили, отсутствующие во входном reserve/каталоге, и их сквозной поиск/оценка. Механики и строгая валидация сохраняются; IDs книжных NPC перестают быть способом выдачи abilities в новом пути. Код/публичные контракты этим уточнением не изменены.
+Текущий PC search перебирает только количества supplied одинаковых definitions в группах. Числовые authored NPC возможны, но generator их параметры не создаёт, а abilities/admission часто привязаны к canonical IDs. Следующий результат — новые допустимые профили, отсутствующие во входном reserve/каталоге, и их сквозной поиск/оценка. Механики и строгая валидация сохраняются; IDs книжных NPC перестают быть способом выдачи abilities в новом пути. Уточнение реализовано в отдельном Python API без смены прежних JSON-контрактов; [граница и решение](decisions/ADR-0113-dynamic-npc-generation-and-adaptive-search.md).
+
+## Динамический генератор — первый срез
+
+`GeneratedNpc` хранит WS/S/T/Agility, Melee/Athletics, Staff/Dagger, Light Armour и optional authored Drained-on-hit. Builder выводит attack/Protection/Damage/Resilience и независимый Minion state без ID dispatch. Application принимает партию/пространство параметров без готового NPC reserve; random restarts и мутации элиты создают новые составы, включая разные профили при фиксированном числе. Финалисты проходят независимую validation выборку; итог хранит полный source, компоненты, outcomes, интервалы, фактическую стоимость и proposal limit. [Пример](examples/dynamic/README.md), [ADR-0113](decisions/ADR-0113-dynamic-npc-generation-and-adaptive-search.md).
+
+Граница: stationary all-Close melee PCs против Minions, Athletics NPC Protection, без щита/других weapon Traits/книжных талантов. Authored Drained требует явного допуска, не является автоматически выданным талантом. Сохраняются Wounds/Fate/Recover и unsupported базового simulator. Duration = started rounds, включая censored prefix; ранжирование по близости к win target, затем duration. Это ограниченный поиск, не доказательство оптимума и не полный генератор книги. Старый каталог не переносился массово; kernel/backend не менялись.
+
+## Проверка динамического среза
+
+Адресный составной результат:47различных тестов прошли. Команды с `PYTHONPATH=src`: `python -m unittest tests.integration.test_dynamic_encounter tests.integration.test_m9_pc_melee_balance tests.integration.test_m9_pc_melee_simulation tests.unit.test_m29_pc_hit_conditions -q` —31тест,28pass/3process errors из-за sandbox WinError5; три упавших process-теста повторены вне sandbox —3pass. После добавления source/component проверки: `python -m unittest tests.integration.test_dynamic_encounter tests.unit.test_m9_pc_melee_balance -q` —26pass (10повторных+16дополнительных). Это адресные прогоны, не full regression.
+
+`docs/examples/dynamic/search.py --candidates 3 --trials 2 --finalist-trials 3 --top 2 --max-rounds 3 --allow-authored-drained`:3новых состава,2validation/selected,12trials. Все5replay документов прочитаны текущим JSON parser; один finalist повторно исполнен с совпавшей оценкой. Full/wheel не запускались: общий движок/сборка не менялись.
 
 ## Что работает сейчас
 
@@ -22,7 +34,7 @@ PcAimProof/PcAimSecondActionProof/PcAimConsumptionProof сохраняют actua
 
 Aim считается действием, ресурсный spend не третьим действием. Glorious counters теперь считают только GLORIOUS_TEST, Second Action отдельно. Typed compact records/summary содержат conditional .aim с rows всех PC и totals для Aim/SECOND_ACTION events только при Hoc-capable source. Counts включают Lucky-free events, не являются числом оплаченных session points. Current JSON1/остальные families прежние, compatibility aliases/новой wire version нет.
 
-## Последняя проверка
+## Предыдущая проверка M70
 
 На финальном коде51tests — OK8.973s: Fate Glorious/statistics, все новые native16/source6/JSON8. Проверены Aim0/nonzero/I vs BS/cap/Drained/Glorious, paid/Lucky/reserve/decline, action budget/proofs/replay/source/target, loss/Recover/backup, CANNOT_AIM8/CI/terminal, строгие counters/combined funding/условный report/echoes/search. Один actual process comparison (2workers/batch1/2trials) — OK2.204s, sequential и process records/aggregates совпали. Всего31новая проверка включая этот process.
 
@@ -51,8 +63,6 @@ Named NPC/Abilities/Brutes/Champions сохраняются в прежних al
 
 ## Следующий шаг
 
-Спроектировать и реализовать одну законченную функцию: fixed PC party + ограничения на число/характеристики/навыки/снаряжение/поддерживаемые abilities → валидная составляемая модель NPC → executable definition/state → Monte Carlo → поиск и несколько лучших полных составов. Первый полезный срез обязан менять параметры и компоненты при том же числе NPC, а не только выбирать численность книжных пресетов.
+Добавить пользовательский JSON/CLI вход динамического поиска поверх проверенного Python API: party без enemy reserve, явное пространство компонентов/ограничения, targets/budget, полные ranked results и replay. Затем расширять общие компоненты генерации и prerequisites (оружие/Traits, тип NPC, таланты), выбирая их по полезности пространства поиска. Не возвращаться к очереди именных statblocks и отдельных сетапов.
 
-Переиспользовать ядро правил/RNG/trials/process/агрегаты; вынести исполняемое поведение из canonical-ID dispatch в типизированные capabilities выбранного среза. Книжный каталог оставить проверяемыми пресетами. Поиск ограничен заданным бюджетом, предварительно исключает неподдерживаемые сочетания и повторно проверяет финалистов; «оптимальный» означает лучший найденный под заданными целями/ограничениями, не доказанный глобальный оптимум. Полного покрытия книги для старта не требуется. Подробности — [очередь](roadmap.md#после-m70).
-
-Реализация M70 сохранена в пользовательском Git. Текущее уточнение меняет только README.md, project-status.md и roadmap.md: цель/следующий шаг, без игровых изменений. Commit/push выполняет пользователь.
+Текущие новые файлы: domain generated_npc_models, application dynamic_encounter, integration test_dynamic_encounter, executable docs/examples/dynamic и ADR-0113. Обновлены README/status/roadmap/architecture/index вопросов. Commit/push выполняет пользователь.

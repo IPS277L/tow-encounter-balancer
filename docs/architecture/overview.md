@@ -1,5 +1,9 @@
 # Архитектура
 
+## Динамическая сборка и поиск
+
+Domain `generated_npc_models` хранит исходные характеристики/навыки/компоненты и выводит существующие NpcDefinition/fresh state. Выбранный effect исполняется прежним typed owner независимо от имени NPC. Application `dynamic_encounter` получает party и пространство допустимых значений без reserve, владеет proposals/mutations/budget/ranking/validation и принимает aggregate simulator. Random restarts и изменения элиты не требуют полного декартова product. Отдельные SHA256 stage seeds разделяют proposal/explore/validation RNG. Книжные определения остаются пресетами; новые code paths не используют их IDs для разрешения компонентов. [ADR-0113](../decisions/ADR-0113-dynamic-npc-generation-and-adaptive-search.md), [пользовательский пример](../examples/dynamic/README.md).
+
 ## PC Aim, Fate slot и conditional observations (M70)
 
 PcAimProof хранит настоящий Awareness action/receipt; PcAimSecondActionProof — canonical composite spend/slot2. One-use Aim bank восстанавливается из журнала собственных action receipts; PcAimConsumptionProof фиксирует APPLIED/LOST непосредственно после следующего собственного action до другого перехода. NPC Protection и end phase не потребляют Aim. Общий TurnEnd не может обойти выбранный доступный Second Action.

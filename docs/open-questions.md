@@ -2,6 +2,10 @@
 
 Дата: 2026-11-12. Это короткий индекс незакрытых тем; читать подробности только по затронутой механике. Полные формулировки, ссылки на книги и текущие ограничения сохранены в [деталях](open-questions-details.md); закрытые темы — в [истории](open-questions-history.md).
 
+## Динамическая генерация — действующая граница
+
+Первый Python-срез создаёт authored Minions из ограниченного набора компонентов без NPC reserve и независимо проверяет финалистов. [ADR-0113](decisions/ADR-0113-dynamic-npc-generation-and-adaptive-search.md) фиксирует supported set, ранжирование и пределы статистических выводов. Authored Drained включается только явным разрешением search space, не заменяет talent prerequisites. Следующий продуктовый слой — JSON/CLI генератора; полный каталог не является prerequisite.
+
 ## Действующая граница симуляции
 
 Ограниченные M8–M70 завершены: [статус и текущие ограничения](project-status.md), [Broken exit M24](decisions/ADR-0079-pc-broken-npc-adjacent-exit.md), [архитектура](architecture/overview.md). Поддержанные PC weapons/Fate/Help/Recover и книжные combat loadouts не разрешают автоматически другие действия/Abilities. История закрытых вех не расширяет очередь и не возвращает старые wire formats.
