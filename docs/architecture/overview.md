@@ -4,6 +4,10 @@
 
 Domain `generated_npc_models` хранит исходные характеристики/навыки/компоненты и выводит существующие NpcDefinition/fresh state. Выбранный effect исполняется прежним typed owner независимо от имени NPC. Application `dynamic_encounter` получает party и пространство допустимых значений без reserve, владеет proposals/mutations/budget/ranking/validation и принимает aggregate simulator. Random restarts и изменения элиты не требуют полного декартова product. Отдельные SHA256 stage seeds разделяют proposal/explore/validation RNG. JSON/CLI adapter принимает party без enemy reserve, отображает её на existing concrete participant и вызывает тот же application search. Application result validator проверяет источники/seeds/выбор финалистов/бюджет без новых trials; encoder проверяет source echo и offline result/replay schemas. Книжные определения остаются пресетами; новые code paths не используют их IDs для разрешения компонентов. [ADR-0113](../decisions/ADR-0113-dynamic-npc-generation-and-adaptive-search.md), [пользовательский пример](../examples/dynamic/README.md).
 
+## Локальный UI
+
+`adapters.local_ui` обслуживает одну self-contained страницу `_local_ui_page` через loopback ThreadingHTTPServer. GET `/api/request` отдаёт выбранный начальный файл, POST `/api/generate` использует существующие parse/execute/encode dynamic JSON функции. Nonblocking lock ограничивает генерацию одним заданием, остальные GET продолжают обслуживаться; браузер показывает busy/elapsed state. UI не содержит игровых алгоритмов и не меняет domain/application контракт. Страница — Python package code, без дополнительных dependencies/resource discovery. [Запуск](../examples/dynamic/README.md#локальный-ui).
+
 ## PC Aim, Fate slot и conditional observations (M70)
 
 PcAimProof хранит настоящий Awareness action/receipt; PcAimSecondActionProof — canonical composite spend/slot2. One-use Aim bank восстанавливается из журнала собственных action receipts; PcAimConsumptionProof фиксирует APPLIED/LOST непосредственно после следующего собственного action до другого перехода. NPC Protection и end phase не потребляют Aim. Общий TurnEnd не может обойти выбранный доступный Second Action.

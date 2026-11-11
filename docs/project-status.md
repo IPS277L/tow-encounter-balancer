@@ -1,6 +1,6 @@
 # Текущее состояние проекта
 
-Дата: 2026-11-12. **Динамический генератор доступен через Python и JSON/CLI; M70 сохранена.** Нормативные книги — Player’s Guide1.4 и Gamemaster’s Guide1.1. [Правило](rules/equipment.md#pc-hochland-m70), [Fate](rules/fate.md#pc-second-action-m70), [ADR-0112](decisions/ADR-0112-pc-hochland-aim-and-fate-second-action.md), [CLI генератора](examples/dynamic/README.md), [очередь](roadmap.md#после-m70), [вопросы](open-questions.md).
+Дата: 2026-11-12. **Динамический генератор доступен через локальный UI, Python и JSON/CLI; M70 сохранена.** Нормативные книги — Player’s Guide1.4 и Gamemaster’s Guide1.1. [Правило](rules/equipment.md#pc-hochland-m70), [Fate](rules/fate.md#pc-second-action-m70), [ADR-0112](decisions/ADR-0112-pc-hochland-aim-and-fate-second-action.md), [CLI генератора](examples/dynamic/README.md), [очередь](roadmap.md#после-m70), [вопросы](open-questions.md).
 
 ## Приоритет после уточнения цели
 
@@ -13,6 +13,14 @@
 `GeneratedNpc` хранит WS/S/T/Agility, Melee/Athletics, Staff/Dagger, Light Armour и optional authored Drained-on-hit. Builder выводит attack/Protection/Damage/Resilience и независимый Minion state без ID dispatch. Application принимает партию/пространство параметров без готового NPC reserve; random restarts и мутации элиты создают новые составы, включая разные профили при фиксированном числе. Финалисты проходят независимую validation выборку; итог хранит полный source, компоненты, outcomes, интервалы, фактическую стоимость и proposal limit. [Пример](examples/dynamic/README.md), [ADR-0113](decisions/ADR-0113-dynamic-npc-generation-and-adaptive-search.md).
 
 Граница: stationary all-Close melee PCs против Minions, Athletics NPC Protection, без щита/других weapon Traits/книжных талантов. Authored Drained требует явного допуска, не является автоматически выданным талантом. Сохраняются Wounds/Fate/Recover и unsupported базового simulator. Duration = started rounds, включая censored prefix; ранжирование по близости к win target, затем duration. Это ограниченный поиск, не доказательство оптимума и не полный генератор книги. Старый каталог не переносился массово; kernel/backend не менялись.
+
+## Минимальный UI — текущая проверка
+
+Поля визуально разделены на3адаптивные группы: «Состав противников» (2поля), «Цели боя» (3) и «Поиск и точность» (6). Скрипт синхронизации/исполнения сохранён без изменений. Добавлены короткие приглушённые подсказки под всеми11полями формы; `aria-describedby` связывает их с соответствующими inputs. Проверены3группы/11полей, структура HTML и ссылки подсказок; группировка визуально проверена в headless Edge. Игровое исполнение не менялось, игровые тесты ради оформления не запускались.
+
+По запросу пользователя реализован `towr ui`: форма основных параметров, связанный редактируемый JSON, загрузка/форматирование/скачивание запроса, настоящий запуск генератора и полный JSON результата/ошибок со скачиванием. Начальный файл выбирается через --request либо repo example, в браузере — file picker. Loopback-only стандартный ThreadingHTTPServer, один расчёт одновременно, busy/elapsed state; без новых dependencies/правил/wire version. [Запуск](examples/dynamic/README.md#локальный-ui).
+
+`PYTHONPATH=src; python -m unittest tests.integration.test_local_ui tests.unit.test_m4_cli -q` —13pass. Отдельно `python -m unittest tests.integration.test_local_ui_browser -q` —1pass в headless Edge вне sandbox (browser launcher требует доступ ОС). Браузерная проверка: JSON→form и form→JSON, дробные targets, бюджет, точность seed, actual generation/result и malformed JSON. Windows Edge launcher первоначально завершался до child process; тест исправлен ожиданием дерева через Start-Process -Wait. Desktop screenshot проверен визуально. Это14адресных тестов в двух прогонах; full/wheel не запускались: packaging/resources и engine неизменны.
 
 ## JSON/CLI динамического генератора
 
@@ -71,4 +79,4 @@ Named NPC/Abilities/Brutes/Champions сохраняются в прежних al
 
 Расширить общее пространство генерируемых NPC: добавить совместимые weapon Traits и их typed исполнение/проверки prerequisites, затем тип NPC и таланты по полезности поиска. Сохранить единый вход generate-encounter и прямой путь компоненты→бой→Monte Carlo→финалисты; не возвращаться к очереди именных statblocks и отдельных сетапов. Ближайший кандидат — общие Close weapon-компоненты (Axe/Sword/Warhammer/Morning Star) с корректными Traits, а не копии книжных NPC.
 
-Текущие изменения: adapter dynamic_encounter_json, application result validation, CLI dispatch,4schema resources, самостоятельный JSON example, integration tests и относящаяся документация/ADR-0113. Commit/push выполняет пользователь.
+Текущие изменения: local UI adapter/page, ui CLI dispatch, HTTP/browser integration tests и относящаяся документация/ADR-0113. Commit/push выполняет пользователь.

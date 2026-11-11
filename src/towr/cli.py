@@ -112,7 +112,20 @@ def main(argv: list[str] | None = None) -> int:
     pc_balance.add_argument("input", metavar="INPUT", help="UTF-8 JSON file, or - for stdin")
     dynamic = commands.add_parser("generate-encounter", help="generate new NPC configurations and search by Monte Carlo using JSON v1")
     dynamic.add_argument("input", metavar="INPUT", help="UTF-8 JSON file, or - for stdin")
+    ui = commands.add_parser("ui", help="serve a local browser UI for dynamic encounter generation")
+    ui.add_argument("--port", type=int, default=8765, help="loopback HTTP port (default: 8765)")
+    ui.add_argument("--request", help="initial UTF-8 request JSON file (default: repository example if available)")
     args = parser.parse_args(argv)
+
+    if args.command == "ui":
+        if not 0 <= args.port <= 65535:
+            parser.error("--port must be in 0..65535")
+        from towr.adapters.local_ui import serve_local_ui
+        try:
+            return serve_local_ui(port=args.port, request_path=args.request)
+        except (OSError, ValueError) as error:
+            _diagnose(f"UI startup error: {error}")
+            return 4
 
     if args.command == "generate-encounter":
         parse, execute, encode = parse_dynamic_encounter_request, execute_dynamic_encounter, encode_dynamic_encounter_result

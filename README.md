@@ -23,6 +23,14 @@ py -3.12 -m venv .venv
 
 ## Запуск
 
+Минимальный UI: запустите сервер и откройте `http://127.0.0.1:8765/` в браузере. Форма и редактируемый JSON связаны; есть загрузка/скачивание файлов и просмотр результата. [Подробности](docs/examples/dynamic/README.md#локальный-ui).
+
+```powershell
+$env:PYTHONPATH = 'src'
+.venv/Scripts/python.exe -m towr ui
+```
+
+
 ```powershell
 $env:PYTHONPATH = 'src'
 .venv/Scripts/python.exe -m towr generate-encounter docs/examples/dynamic/search.request.json
