@@ -4,6 +4,12 @@
 
 Реализованы ограниченные ranged/melee/mixed Minion-сценарии и M8 с одним Champion-Wizard, Curse of Cowardly Flight и явно разрешёнными продолжениями. PC melee поддерживает немагическую группу против Minions и обычных числовых Brutes, включая тяжёлые PC Wounds11–23, Critical/Defenceless turns, Help атаке/защите и Recover союзнику, явные Glorious/Near Miss policies и статистику действий/потерь/расхода ресурса. Оружие PC: шесть одноручных и семь двуручных Close-профилей, а также Pistol, два1H Repeaters, три лука, два арбалета, четыре2H firearms (включая Blunderbuss с nearby Staggered и Hochland с Aim/Fate Second Action) и Sling с общим `ranged` source и книжной зарядкой; явная backup policy позволяет перейти на запасное1H в свой ход, у Pistol/1H Repeaters переход выполняется при пустом оружии и недоступном Reload из-за одной пригодной руки; в Short opening оружие без Close optimum после подхода NPC переходит на melee backup; иначе недоступный2H хват даёт unsupported. Книжный PC каталог содержит59fixed combat loadouts, включая гоблинов с Dirty Coward/Backstabba, shield snapshots, Brutes с профильными Conditions и естественные атаки существ. Есть явный NPC Help Peasant/Militia/Cultist/Goblin/Night Goblin с бонусным кубом и Orc Boy/Big ’Un с free success без Test, отдельные NPC costs, независимые sequential/process прогоны, агрегаты и подбор составов. Точные границы и текущая приёмка — в [статусе](docs/project-status.md).
 
+## Цель продукта и текущий приоритет
+
+Генератор должен сам создавать противников из характеристик, навыков, реализованных талантов/способностей и снаряжения, симулировать составы методом Monte Carlo и возвращать несколько вариантов под заданную сложность и длительность. Пользователь задаёт партию и ограничения поиска, а не готовый NPC на каждую комбинацию параметров.
+
+Сейчас Monte Carlo и подбор численностей готового NPC reserve работают; генерации характеристик/навыков/компонентов ещё нет. Книжные statblocks — пресеты и проверочные примеры. Следующий приоритет — законченный путь динамической сборки и поиска, а не расширение каталога и отдельных сетапов. [Следующая функция](docs/roadmap.md#после-m70), [статус](docs/project-status.md).
+
 ## Начало работы
 
 Для новой сессии: [AGENTS.md](AGENTS.md), этот README, [статус](docs/project-status.md) и [индекс вопросов](docs/open-questions.md). Далее читать материалы своей задачи по [карте документации](docs/README.md). Хронология находится в [архиве](docs/archive/README.md).
