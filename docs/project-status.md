@@ -35,7 +35,7 @@ $env:PYTHONPATH='src'
 
 Actual CLI: simulation seed42/4trials/4Minions→4objective/48actions/10started/6completed rounds, без потерь PC;8Aim/8Second events с rows4/4/0. Count search3–4Minions/2состава×2trials→по2objective/14и20actions/4Aim/4Second events в каждом. Эти выборки демонстрируют интерфейс, не истинные вероятности или оптимальный состав; каждый trial начинает с исходного ресурса.
 
-Статическая/source/schema/pickle сверка выполняется после обновления документации. Full/wheel/backend matrix не повторяются без оснований: backend/package discovery/resources/dependencies/entry points прежние, для новых compact fields выполнен один representative actual process. Предыдущие checkpoints сохранены в относящихся ADR.
+Статическая/source/schema/pickle сверка:124current request/result pairs M9–M70 и268candidate echoes/offline schemas/full source — OK;244прежнихJSON побайтно прежние. NPC59/shared14 сохраняются.45Markdown/2620local targets/current anchors/99Python AST/UTF-8/whitespace — OK. New source/enum/armoured True-False/neutral stop pickle — OK; actual battle с6Aim/Fate/consumption proofs прошёл pickle roundtrip и projection replay. Локальный .cache/m70_verify.py воспроизводит сверку и не входит в репозиторий. Full/wheel/backend matrix не повторяются без оснований: backend/package discovery/resources/dependencies/entry points прежние, для новых compact fields выполнен один representative actual process. Предыдущие checkpoints сохранены в относящихся ADR.
 
 ## Ограничения
 
@@ -47,4 +47,4 @@ Named NPC/Abilities/Brutes/Champions сохраняются в прежних al
 
 Подготовить конкретную границу пространственного PC encounter: Medium/Long opening, реальные Zone/movement и выбранная тактика NPC. Учесть speed/Manoeuvre/Charge/Range; новая дистанция сама не гарантирует безопасный Aim→Shoot. Public scope ещё не выбран; не добавлять фиктивное ожидание NPC или setup prelude без решения пользователя. Альтернативные направления перечислены в roadmap.
 
-База — пользовательский commit0299d6b (M56 P1). Прежние незакоммиченные M57–M69 сохранены; M70 добавлена поверх них. Изменены source/codec/schema, Aim/Fate/action projection/runner, compact/statistics/report/result schemas и относящиеся tests; добавлены M70source/native/JSON/process tests/support и CLI-примеры, обновлена текущая документация. Commit/push выполняет пользователь.
+Реализация и документация M57–M70 сохранены пользователем в commitf24abbe (M70 P1), следующем после0299d6b. После него незакоммичен только этот project-status.md: добавлены окончательные результаты статической/source/pickle сверки и актуальная база. Commit/push выполняет пользователь.
