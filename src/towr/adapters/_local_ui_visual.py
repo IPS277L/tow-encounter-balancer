@@ -3,29 +3,47 @@
 VISUAL_STYLE = r'''
 .view-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
 .view-switch{display:flex;gap:4px}.view-switch button{height:32px;padding:0 10px;display:inline-flex;align-items:center;justify-content:center;font-size:13px}
-.view-switch button[aria-pressed="true"]{color:#235ba8;border-color:#235ba8;background:#edf4ff}
-.view-switch button[aria-pressed="true"]:hover:not(:disabled){background:#dfeafe;border-color:#1c4c8c}
-.view-switch button[aria-pressed="true"]:active:not(:disabled){background:#d0e1fb}
-.visual-view{min-height:560px}.visual-card{border:1px solid #dfe4eb;border-radius:6px;padding:14px;margin:12px 0;background:#fafbfc}
+.view-switch button[aria-pressed="true"]{color:var(--accent);border-color:var(--accent);background:var(--hover)}
+.view-switch button[aria-pressed="true"]:hover:not(:disabled){background:var(--active);border-color:var(--accent-strong)}
+.view-switch button[aria-pressed="true"]:active:not(:disabled){background:var(--selected-active)}
+.visual-view{display:flow-root;min-height:560px}.visual-view.hidden{display:none}.visual-card{border:1px solid var(--border);border-radius:6px;padding:14px;margin:12px 0;background:var(--surface-soft)}
 .visual-card h3{font-size:15px;margin:0 0 12px}.visual-card h4{font-size:14px;margin:12px 0 8px}
 .visual-fields{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
 .visual-fields.character-identity{grid-template-columns:minmax(0,2fr) minmax(90px,1fr);align-items:end}
 .visual-fields.character-stats{grid-template-columns:repeat(auto-fit,minmax(min(100%,136px),1fr));align-items:end}
+.visual-fields.character-stats.skill-stats{grid-template-columns:repeat(auto-fit,minmax(min(100%,220px),1fr))}
 .character-stats label{display:grid;grid-template-rows:auto 36px;align-content:start;font-size:12px;line-height:1.3}
 .visual-fields.character-stats input{width:100%;max-width:100%;height:36px;text-align:left}
+.character-stats input.stat-placeholder{color:var(--quiet);background:transparent;border-style:dashed;opacity:1;cursor:not-allowed}
 .visual-fields input,.visual-fields select{width:100%;min-width:0}
-select{font:inherit;padding:8px 36px 8px 10px;border:1px solid #bfc7d2;border-radius:4px;background-color:white;color:#20242c;appearance:none;-webkit-appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath d='m2 4 4 4 4-4' fill='none' stroke='%235d6977' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;background-size:12px 12px}
+select{font:inherit;padding:8px 36px 8px 10px;border:1px solid var(--input-border);border-radius:4px;background-color:var(--surface);color:var(--text);appearance:none;-webkit-appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath d='m2 4 4 4 4-4' fill='none' stroke='%235d6977' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;background-size:12px 12px}
 @media(forced-colors:active){select{appearance:auto;background-image:none;padding-right:8px}}
-.visual-card details{margin-top:12px}.visual-card summary{cursor:pointer;color:#46566c;font-size:13px}
-.visual-card details .visual-card{background:white}.toggle-field{flex-direction:row;align-items:center;gap:8px}
-.toggle-field input{width:auto}.visual-note{font-size:13px;color:#667085;line-height:1.5;margin:8px 0}
+.visual-card details{margin-top:12px}.visual-card summary{cursor:pointer;color:var(--label);font-size:13px}
+.visual-card details .visual-card{background:var(--surface)}.toggle-field{flex-direction:row;align-items:center;gap:8px}
+.toggle-field input{width:auto}.visual-note{font-size:13px;color:var(--hint);line-height:1.5;margin:8px 0}
 .automatic-npc-toggle{margin:14px 0}
-.stale-notice{padding:10px 12px;background:#fff8e8;border:1px solid #e9d6a7;border-radius:5px;color:#78531c;font-size:13px;margin:12px 0}
-.result-metrics{display:flex;flex-wrap:wrap;gap:10px 22px;margin:10px 0;font-size:13px}.result-metrics strong{display:block;font-size:19px;color:#20242c}
-.badge{display:inline-block;padding:3px 7px;border-radius:4px;background:#e6f2e9;color:#236137;font-size:12px}
-.npc-stats{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:13px;margin:8px 0}
-.npc-stats span{color:#5c6470}.npc-stats b{color:#20242c}.result-card .visual-card{background:white}
-.visual-empty{color:#667085;padding:16px 0}.visual-card button{font-size:13px}
+.stale-notice{padding:10px 12px;background:var(--warning-bg);border:1px solid var(--warning-border);border-radius:5px;color:var(--warning-text);font-size:13px;margin:12px 0}
+.result-metrics{display:flex;flex-wrap:wrap;gap:10px 22px;margin:10px 0;font-size:13px}.result-metrics strong{display:block;font-size:19px;color:var(--text)}
+.badge{display:inline-block;padding:3px 7px;border-radius:4px;background:var(--success-bg);color:var(--success-text);font-size:12px}
+.result-card{margin-top:18px}.result-card+.result-card{padding-top:18px;border-top:1px solid var(--border)}
+#result-visual>.result-card:first-child{margin-top:0}#result-card-heading{padding:10px 0}
+#request-visual>.visual-card:first-child,#result-visual>.result-card:first-child>.result-statistics{margin-top:0}
+#result-card-heading.heading-spacer{visibility:hidden}
+.result-heading{display:flex;align-items:center;justify-content:space-between;gap:12px}.result-heading h3{font-size:15px;margin:0}
+.result-statistics .badge{margin-bottom:4px}
+.npc-stat-table{width:100%;border-collapse:collapse;font-size:13px}
+.npc-stat-tables{display:grid;gap:16px;margin:12px 0}
+.npc-stat-table caption{text-align:left;font-size:14px;font-weight:600;margin-bottom:6px}
+.npc-stat-table th,.npc-stat-table td{padding:6px 0;border-bottom:1px solid var(--divider)}
+.npc-stat-table{table-layout:fixed}.npc-stat-table col.stat-value{width:32px}
+.npc-stat-table th{text-align:left;font-size:12px;font-weight:400;color:var(--label);overflow-wrap:anywhere}.npc-stat-table td{text-align:right;font-variant-numeric:tabular-nums}
+.npc-stat-table th:nth-child(3){padding-left:16px}.npc-stat-table td.unavailable{color:var(--quiet)}
+.npc-loadout{display:grid;grid-template-columns:auto minmax(0,1fr);gap:8px 14px;margin:14px 0 0;font-size:13px;line-height:1.5}
+.npc-loadout dt{color:var(--label)}.npc-loadout dd{margin:0;overflow-wrap:anywhere}
+.item-tags{display:flex;flex-wrap:wrap;gap:6px}.item-tag,.talent-tag{display:inline-flex;align-items:center;max-width:100%;min-height:26px;padding:3px 9px;border:1px solid var(--tag-border);border-radius:14px;background:var(--hover);color:var(--accent);font-size:12px;line-height:18px;cursor:help}
+.item-tag.empty{background:transparent;border-style:dashed;border-color:var(--border);color:var(--quiet)}
+@media(max-width:480px){.npc-loadout{grid-template-columns:1fr;gap:4px}.npc-loadout dd{margin-bottom:6px}}
+.visual-empty{color:var(--hint);padding:16px 0}.visual-card button{font-size:13px}
 @media(max-width:1100px){.visual-fields{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:480px){.visual-fields{grid-template-columns:1fr}}
 '''
@@ -37,11 +55,19 @@ const characteristicTerms={
  strength:{name:'Сила',original:'Strength',short:'S'},toughness:{name:'Стойкость',original:'Toughness',short:'T'},
  initiative:{name:'Инициатива',original:'Initiative',short:'I'},agility:{name:'Ловкость',original:'Agility',short:'Ag'},
  reason:{name:'Разум',original:'Reason',short:'Re'},fellowship:{name:'Обаяние',original:'Fellowship',short:'Fel'}};
-// Characteristic abbreviations follow PG14. Skill short labels are UI notation.
-const skillTerms={melee:{name:'Ближний бой',original:'Melee',short:'Mel'},defence:{name:'Защита',original:'Defence',short:'Def'},athletics:{name:'Атлетика',original:'Athletics',short:'Ath'},endurance:{name:'Выносливость',original:'Endurance',short:'End'}};
+// PG14/68: official Characteristic abbreviations; Skills use full originals.
+const skillTerms={
+ melee:{name:'Ближний бой',original:'Melee'},defence:{name:'Защита',original:'Defence'},
+ shooting:{name:'Стрельба',original:'Shooting'},throwing:{name:'Метание',original:'Throwing'},
+ brawn:{name:'Грубая сила',original:'Brawn'},toil:{name:'Тяжёлый труд',original:'Toil'},
+ survival:{name:'Выживание',original:'Survival'},endurance:{name:'Выносливость',original:'Endurance'},
+ awareness:{name:'Внимательность',original:'Awareness'},dexterity:{name:'Ловкость рук',original:'Dexterity'},
+ athletics:{name:'Атлетика',original:'Athletics'},stealth:{name:'Скрытность',original:'Stealth'},
+ willpower:{name:'Сила воли',original:'Willpower'},recall:{name:'Память',original:'Recall'},
+ leadership:{name:'Лидерство',original:'Leadership'},charm:{name:'Обаяние',original:'Charm'}};
 const termLabels=(terms,style)=>Object.fromEntries(Object.entries(terms).map(([key,term])=>[key,term.name+' ('+term[style]+')']));
 const characteristicNames=termLabels(characteristicTerms,'short'),characteristicFullNames=termLabels(characteristicTerms,'original');
-const statLabels={...characteristicNames,...termLabels(skillTerms,'short'),armour_bonus:'Бонус брони (Armour Bonus)'};
+const statLabels={...characteristicNames,...termLabels(skillTerms,'original'),armour_bonus:'Бонус брони (Armour Bonus)'};
 const statFullNames={...characteristicFullNames,...termLabels(skillTerms,'original')};
 const weaponNames={staff:'Посох (Staff)',sword:'Меч (Sword)',dagger:'Кинжал (Dagger)',axe:'Топор (Axe)',warhammer:'Боевой молот (Warhammer)',
  morning_star:'Моргенштерн (Morning Star)',pickaxe:'Клевец (Pickaxe)',flail:'Цеп (Flail)',billhook:'Гвизарма (Billhook)',halberd:'Алебарда (Halberd)',glaive:'Глефа (Glaive)',greataxe:'Двуручный топор (Greataxe)',greathammer:'Двуручный молот (Greathammer)'};
@@ -65,18 +91,24 @@ function inputField(parent,title,path,value,choices=null,onChange=null){
  input.dataset.path=path.join('/');input.addEventListener('change',()=>{try{if(onChange){onChange(input.value);return;}editRequest(path,input.type==='checkbox'?input.checked:typeof value==='number'?integer(input.value):input.value);}catch(error){visualEditError=error.message;message(error.message,'error');}});
  label.append(input);parent.append(label);return input;
 }
+function playerStatInput(parent,member,index,section,key){
+ const values=member[section]||{},terms=section==='characteristics'?characteristicTerms:skillTerms,supported=section==='characteristics'?['weapon_skill','strength','toughness','agility']:['melee','defence','endurance','athletics'];
+ if(Object.hasOwn(terms,key)&&!supported.includes(key)){
+  const label=node('label',statLabels[key]),input=node('input');input.type='text';input.value=values[key]??'—';input.disabled=true;input.className='stat-placeholder';input.dataset.stat=key;input.title=statFullNames[key]+' · Пока не подключено к симуляции';input.setAttribute('aria-label',input.title);label.append(input);parent.append(label);
+ }else inputField(parent,statLabels[key]||key,['party',index,section,key],values[key]);
+}
 function renderRequestVisual(data){
  visualEditError=null;
  if(requestView!=='visual')return;
+ hideTagTooltip();
  const root=byId('request-visual');root.replaceChildren();
  for(const [index,member] of (data.party||[]).entries()){
   const person=card('Игрок '+(index+1)+' · '+member.actor_id);person.classList.add('player-card');
   const identity=node('div',undefined,'visual-fields character-identity');inputField(identity,'Имя / ID',['party',index,'actor_id'],member.actor_id);
   inputField(identity,'Судьба (Fate)',['party',index,'resources','fate'],member.resources?.fate);person.append(identity);
   for(const [section,title] of [['characteristics','Характеристики (Characteristics)'],['skills','Навыки (Skills)']]){
-   person.append(node('h4',title));const grid=node('div',undefined,'visual-fields character-stats');
-   for(const [key,value] of Object.entries(member[section]||{}))inputField(grid,statLabels[key]||key,['party',index,section,key],value);
-   person.append(grid);
+   person.append(node('h4',title));const stats=node('div',undefined,'visual-fields character-stats'+(section==='skills'?' skill-stats':'')),terms=section==='characteristics'?characteristicTerms:skillTerms;
+   for(const key of [...Object.keys(terms),...Object.keys(member[section]||{}).filter(key=>!Object.hasOwn(terms,key))])playerStatInput(stats,member,index,section,key);person.append(stats);
   }
   renderInventory(person,member,index);
   renderTalentTags(person,member,index);
@@ -117,6 +149,7 @@ function renderRequestVisual(data){
 
 }
 function setRequestView(view){
+ hideTagTooltip();
  const previous=requestView;
  if(view==='visual'){try{syncForm();const data=read();requestView=view;renderRequestVisual(data);}catch(error){requestView=previous;message('Сначала исправьте JSON: '+error.message,'error');return;}}
  else{requestView=view;visualEditError=null;}
@@ -124,46 +157,65 @@ function setRequestView(view){
  for(const mode of ['visual','json'])byId('request-'+mode+'-tab').setAttribute('aria-pressed',String(mode===view));
  updateFileActions();
 }
-function setResultView(view){resultView=view;byId('result').classList.toggle('hidden',view!=='json');byId('result-visual').classList.toggle('hidden',view!=='visual');for(const mode of ['visual','json'])byId('result-'+mode+'-tab').setAttribute('aria-pressed',String(mode===view));updateFileActions();}
+function setResultView(view){hideTagTooltip();resultView=view;byId('result').classList.toggle('hidden',view!=='json');byId('result-visual').classList.toggle('hidden',view!=='visual');for(const mode of ['visual','json'])byId('result-'+mode+'-tab').setAttribute('aria-pressed',String(mode===view));updateFileActions();}
 function updateFileActions(){
+ updateResultHeadingVisibility();
  byId('format').classList.toggle('hidden',requestView!=='json');
+ byId('format-result').classList.toggle('hidden',resultView!=='json');byId('format-result').disabled=busy||!lastResult;
+ byId('load-result').disabled=busy;byId('result-file').disabled=busy;
  byId('download').disabled=busy||!lastResult;
 }
-function renderResultVisual(result){
- const root=byId('result-visual');root.replaceChildren();
+function updateResultHeadingVisibility(){
+ const slot=byId('result-card-heading'),invisible=resultView!=='visual';slot.classList.toggle('hidden',!slot.hasChildNodes());slot.classList.toggle('heading-spacer',invisible);slot.setAttribute('aria-hidden',String(invisible));slot.inert=invisible;
+}
+function syncResultCardHeading(){
+ const slot=byId('result-card-heading');slot.replaceChildren();const heading=byId('result-visual').querySelector(':scope>.result-card>.result-heading');if(heading)slot.append(heading);updateResultHeadingVisibility();
+}
+function resultIconButton(action,title,path){
+ const button=node('button',undefined,'icon-button');button.type='button';button.title=title;button.setAttribute('aria-label',title);button.dataset.action=action;
+ const svg=document.createElementNS('http://www.w3.org/2000/svg','svg'),shape=document.createElementNS('http://www.w3.org/2000/svg','path');svg.setAttribute('viewBox','0 0 24 24');svg.setAttribute('aria-hidden','true');svg.setAttribute('focusable','false');shape.setAttribute('d',path);svg.append(shape);button.append(svg);return button;
+}
+function npcStatTable(title,keys,npc){
+ const table=node('table',undefined,'npc-stat-table');table.append(node('caption',title));const columns=node('colgroup');for(let i=0;i<2;i++)columns.append(node('col'),node('col',undefined,'stat-value'));table.append(columns);const body=node('tbody');
+ for(let i=0;i<keys.length;i+=2){const row=node('tr');for(const key of keys.slice(i,i+2)){const label=node('th',statLabels[key]),value=node('td',npc[key]??'—');label.id=tableStatId();value.setAttribute('headers',label.id);label.title=statFullNames[key];value.dataset.stat=key;value.classList.toggle('unavailable',npc[key]==null);if(npc[key]==null)value.title='Значение пока не задано';row.append(label,value);}body.append(row);}table.append(body);return table;
+}
+let statCellSequence=0;
+function tableStatId(){return 'npc-stat-'+(++statCellSequence);}
+function resultItemTags(items,emptyHint){
+ const tags=node('div',undefined,'item-tags');for(const [label,hint] of items.length?items:[['—',emptyHint]]){const tag=node('span',label,'item-tag'+(items.length?'':' empty'));attachTagTooltip(tag,hint);tags.append(tag);}return tags;
+}
+function renderResultVisual(result,root=byId('result-visual')){
+ hideTagTooltip();
+ if(root===byId('result-visual')){byId('result-card-heading').replaceChildren();byId('result-card-heading').classList.add('hidden');}
+ root.replaceChildren();
  if(!result){root.append(node('p','Результат появится после расчёта.','visual-empty'));return;}
  if(result.error){root.append(node('p',[result.error.path,result.error.message].filter(Boolean).join(': '),'visual-note'));return;}
- root.append(node('p','Seed расчёта: '+result.source_request.search.master_seed,'visual-note'));
  const percent=n=>Number.isFinite(n)?(n*100).toFixed(1)+'%':'—';
  const selected=new Set(result.selected||[]);
  function candidateView(candidate,number){
-  const id=candidate.replay?.scenario?.id,box=card('Состав '+number);box.classList.add('result-card');box.dataset.candidateId=id;
-  if(selected.has(id))box.append(node('span','Рекомендован после проверки','badge'));
-  const metrics=node('div',undefined,'result-metrics');for(const [title,value] of [['Победы игроков',percent(candidate.win_rate)],['Средние раунды',Number(candidate.mean_started_rounds).toFixed(2)],['Симуляций',candidate.trials]]){const item=node('div',title);item.append(node('strong',value));metrics.append(item);}box.append(metrics);
-  if(candidate.win_interval_95)box.append(node('p','Интервал оценки побед (95%): '+candidate.win_interval_95.map(percent).join(' — '),'visual-note'));
+  const id=candidate.replay?.scenario?.id,box=node('section',undefined,'result-card');box.dataset.candidateId=id;
+  const heading=node('div',undefined,'result-heading'),actions=node('div',undefined,'file-actions');actions.setAttribute('role','group');actions.setAttribute('aria-label','Действия с составом '+number);heading.append(node('h3','Состав '+number),actions);box.append(heading);
+  const replay=resultIconButton('download-replay','Скачать бой','M12 4v12m-5-5 5 5 5-5M4 15v5h16v-5');replay.onclick=()=>download(pretty(candidate.replay),'encounter-replay.json');actions.append(replay);
+  const statistics=card('Статистика');statistics.classList.add('result-statistics');
+  if(selected.has(id))statistics.append(node('span','Рекомендован после проверки','badge'));
+  const metrics=node('div',undefined,'result-metrics');for(const [title,value] of [['Победы игроков',percent(candidate.win_rate)],['Средние раунды',Number(candidate.mean_started_rounds).toFixed(2)],['Симуляций',candidate.trials]]){const item=node('div',title);item.append(node('strong',value));metrics.append(item);}statistics.append(metrics);
+  if(candidate.win_interval_95)statistics.append(node('p','Интервал оценки побед (95%): '+candidate.win_interval_95.map(percent).join(' — '),'visual-note'));
+  const outcomes=candidate.outcomes||{};statistics.append(node('p','Победы: '+outcomes.objective_achieved+' · Поражения: '+outcomes.party_defeated+' · Лимит раундов: '+outcomes.round_limit+' · Неподдержанные ситуации: '+outcomes.unsupported_path,'visual-note'));box.append(statistics);
   for(const [index,npc] of (candidate.npcs||[]).entries()){
-   const creature=card('Противник '+(index+1)),stats=node('div',undefined,'npc-stats');
-   for(const key of ['weapon_skill','strength','toughness','agility','melee','athletics']){const item=node('span',statLabels[key]+': ');item.title=statFullNames[key]||statLabels[key];item.append(node('b',npc[key]));stats.append(item);}creature.append(stats);
-   creature.append(node('p',(weaponNames[npc.weapon]||npc.weapon)+' · '+(npc.light_armour?'Лёгкая броня (Light Armour)':'Без брони')+((npc.abilities||[]).length?' · '+npc.abilities.map(a=>a==='drained_on_hit'?'Истощение при попадании (Drained)':a).join(', '):''),'visual-note'));box.append(creature);
+   const creature=card('Противник '+(index+1));creature.classList.add('npc-card');const tables=node('div',undefined,'npc-stat-tables');tables.append(npcStatTable('Характеристики (Characteristics)',Object.keys(characteristicTerms),npc),npcStatTable('Навыки (Skills)',Object.keys(skillTerms),npc));creature.append(tables);
+   const loadout=node('dl',undefined,'npc-loadout'),weapon=weaponNames[npc.weapon]||npc.weapon;
+   const weaponHint=npc.weapon==='dagger'?'Одноручное, Close Range; Damage = Strength − 1. +1d к Stealth для сокрытия.':npc.weapon==='staff'?'Одноручное, Close Range; Damage = Strength. +1d к Athletics при пересечении Difficult Terrain.':weapon;
+   const groups=[['Оружие (Weapons)',[[weapon,weaponHint]],'Оружие не задано'],['Броня (Armour)',npc.light_armour?[[armourNames.light_armour,'Resilience = Toughness + 1.']]:[],'Броня не надета'],['Расходники (Consumables)',[],'Генератор пока не выдаёт расходники'],['Таланты (Talents)',[],'Генератор пока не выдаёт таланты']];
+   if((npc.abilities||[]).length)groups.push(['Способности (Abilities)',npc.abilities.map(a=>[a==='drained_on_hit'?'Истощение при попадании (Drained)':a,a==='drained_on_hit'?'При попадании цель получает Истощение (Drained). Отдельно разрешённая способность, не книжный талант.':a]),'Способности не заданы']);
+   for(const [title,items,emptyHint] of groups){const values=node('dd');values.append(resultItemTags(items,emptyHint));loadout.append(node('dt',title),values);}creature.append(loadout);box.append(creature);
   }
-  const outcomes=candidate.outcomes||{};box.append(node('p','Победы: '+outcomes.objective_achieved+' · Поражения: '+outcomes.party_defeated+' · Лимит раундов: '+outcomes.round_limit+' · Неподдержанные ситуации: '+outcomes.unsupported_path,'visual-note'));
-  const use=node('button','Взять за основу запроса');use.type='button';use.disabled=busy;use.title='Число NPC фиксируется; их значения становятся допустимыми для поиска. Возможны новые сочетания.';use.onclick=()=>useComposition(candidate);box.append(use);
-  const replay=node('button','Скачать бой');replay.type='button';replay.style.marginLeft='8px';replay.onclick=()=>download(pretty(candidate.replay),'encounter-replay.json');box.append(replay);return box;
+  return box;
  }
  const finals=result.validations||[];
- root.append(node('p','Проверенные финалисты · '+finals.length,'visual-note'));
  if(!finals.length)root.append(node('p','В этом запуске нет проверенных финалистов. См. исследованные составы ниже.','visual-note'));
  finals.forEach((candidate,index)=>root.append(candidateView(candidate,index+1)));
- const explored=node('details',undefined,'visual-card');explored.append(node('summary','Исследованные составы · '+(result.explored||[]).length));(result.explored||[]).forEach((candidate,index)=>explored.append(candidateView(candidate,index+1)));root.append(explored);
-}
-function useComposition(candidate){
- if(busy)return;
- try{const data=read(),npcs=candidate.npcs;if(!npcs?.length)throw Error('Состав не содержит NPC.');
-  data.npc_count={minimum:npcs.length,maximum:npcs.length};const next={...(data.search_space||{})};
-  for(const key of ['weapon_skill','strength','toughness','agility','melee','athletics','weapon','light_armour'])next[key]=[...new Set(npcs.map(n=>n[key]))];
-  next.abilities=[...new Map(npcs.map(n=>[JSON.stringify(n.abilities),n.abilities])).values()];data.search_space=next;
-  byId('request').value=pretty(data);setRequestView('visual');syncForm();message('Состав перенесён в запрос. Возможны новые сочетания его параметров. Для расчёта нажмите «Запустить генератор».');
- }catch(error){message(error.message,'error');}
+ const explored=node('details',undefined,'visual-card');explored.append(node('summary','Исследованные составы'));(result.explored||[]).forEach((candidate,index)=>explored.append(candidateView(candidate,index+1)));root.append(explored);
+ if(root===byId('result-visual'))syncResultCardHeading();
 }
 for(const mode of ['visual','json']){byId('request-'+mode+'-tab').onclick=()=>setRequestView(mode);byId('result-'+mode+'-tab').onclick=()=>setResultView(mode);}
 renderResultVisual(null);

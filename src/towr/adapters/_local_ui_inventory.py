@@ -5,28 +5,28 @@ INVENTORY_STYLE = r'''
 .inventory-row.consumable{grid-template-columns:minmax(0,1fr) var(--consumable-count-width,88px) 36px;margin:0}
 .inventory-row input,.inventory-row select{width:100%;min-width:0;height:var(--item-control-height)}
 .visual-view .action-add,.visual-card .action-remove{height:36px;display:inline-flex;align-items:center;justify-content:center;gap:8px;font-size:13px;border-radius:5px;flex-shrink:0}
-.visual-view .action-add{width:88px;height:36px;max-width:100%;padding:0 8px;background:white;color:#586575;border:1px solid #ccd4df}
-.visual-view .action-add:hover:not(:disabled){background:#edf5f0;color:#466652;border-color:#b5cbbd}
-.visual-view .action-add:active:not(:disabled){background:#e1ece5;color:#3d5948;border-color:#abc4b5}
-.visual-card .action-remove{width:36px;padding:0;background:white;color:#586575;border:1px solid #ccd4df}
-.visual-card .action-remove:hover:not(:disabled){background:#fbf0f0;color:#965959;border-color:#d8bcbc}
-.visual-card .action-remove:active:not(:disabled){background:#f0e2e2;color:#814f4f;border-color:#cfaeae}
+.visual-view .action-add{width:88px;height:36px;max-width:100%;padding:0 8px;background:var(--surface);color:var(--action-text);border:1px solid var(--button-border)}
+.visual-view .action-add:hover:not(:disabled){background:var(--add-hover);color:var(--add-text);border-color:var(--add-border)}
+.visual-view .action-add:active:not(:disabled){background:var(--add-active);color:var(--add-active-text);border-color:var(--add-active-border)}
+.visual-card .action-remove{width:36px;padding:0;background:var(--surface);color:var(--action-text);border:1px solid var(--button-border)}
+.visual-card .action-remove:hover:not(:disabled){background:var(--remove-hover);color:var(--remove-text);border-color:var(--remove-border)}
+.visual-card .action-remove:active:not(:disabled){background:var(--remove-active);color:var(--remove-active-text);border-color:var(--remove-active-border)}
 .action-remove svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;pointer-events:none;flex-shrink:0}
 .character-heading{display:flex;justify-content:space-between;align-items:center;gap:10px}
-.inventory-add{margin:4px 0 8px}.talent-tags{display:flex;flex-wrap:wrap;gap:8px;margin:14px 0 16px}.talent-tags:empty{display:none}
-.talent-tag{display:inline-flex;align-items:center;gap:5px;background:#edf4ff;border:1px solid #cbdcf4;border-radius:15px;padding:2px 3px 2px 10px;font-size:13px;max-width:100%;overflow-wrap:anywhere}
-.talent-tag.pending{background:#fff8e8;border-color:#e9d6a7}
+.inventory-add{margin:4px 0 8px}.talent-tags{display:flex;flex-wrap:wrap;gap:6px;margin:14px 0 16px}.talent-tags:empty{display:none}
+.talent-tag{gap:5px;padding:0 3px 0 9px;overflow-wrap:anywhere}
+.talent-tag.pending{background:var(--warning-bg);border-color:var(--warning-border)}
 .visual-card .talent-tag .action-remove{width:24px;height:24px;background:transparent;border-color:transparent;border-radius:12px}
 .talent-tag .action-remove svg{width:12px;height:12px}
 .talent-entry{display:flex;flex-wrap:wrap;gap:8px;align-items:start;margin-bottom:12px}.talent-picker{position:relative;min-width:120px;flex:1}.talent-picker input{width:100%;min-width:0;height:36px}
-.consumable-item{--consumable-count-width:88px;padding:12px 0;border-bottom:1px solid #e7ebf0}
+.consumable-item{--consumable-count-width:88px;padding:12px 0;border-bottom:1px solid var(--divider)}
 .consumable-details{display:grid;grid-template-columns:minmax(0,1fr) var(--consumable-count-width) 36px;gap:10px;align-items:end;margin-top:8px}
 .consumable-details label{min-width:0}.consumable-details select{width:100%;min-width:0;height:36px}
 .consumable-details .visual-note{grid-column:2/-1;font-size:12px;margin:0 0 8px}.consumable-item .consumable-summary{font-size:12px;margin:6px 0 0}
-.talent-suggestions{position:absolute;top:calc(100% + 5px);left:0;right:0;z-index:30;background:white;border:1px solid #bfc7d2;border-radius:5px;box-shadow:0 5px 14px #20242c20;max-height:180px;overflow:auto}
+.talent-suggestions{position:absolute;top:calc(100% + 5px);left:0;right:0;z-index:30;background:var(--surface);border:1px solid var(--input-border);border-radius:5px;box-shadow:0 5px 14px var(--shadow);max-height:180px;overflow:auto}
 .talent-suggestions.hidden{display:none}.talent-suggestions .talent-option{display:block;width:100%;text-align:left;border:0;border-radius:0;padding:10px 12px;font-size:14px;white-space:normal}
-.talent-suggestions .talent-option:hover:not(:disabled),.talent-option[aria-selected="true"]{background:#edf4ff}.talent-option small{display:block;margin-top:3px;font-size:12px;line-height:1.4}
-.inventory-warning{color:#78531c;background:#fff8e8;border-radius:4px;padding:8px 10px;font-size:13px;line-height:1.5}
+.talent-suggestions .talent-option:hover:not(:disabled),.talent-option[aria-selected="true"]{background:var(--hover)}.talent-option small{display:block;margin-top:3px;font-size:12px;line-height:1.4}
+.inventory-warning{color:var(--warning-text);background:var(--warning-bg);border-radius:4px;padding:8px 10px;font-size:13px;line-height:1.5}
 @media(max-width:480px){.inventory-row{grid-template-columns:minmax(0,1fr) var(--item-control-height)}.inventory-row>label:first-child{grid-column:1/-1}.consumable-item{--consumable-count-width:70px}.inventory-row.consumable>label:first-child{grid-column:auto}}
 '''
 
@@ -98,7 +98,7 @@ function renderTalentTags(parent,member,index){
  parent.append(node('h4','Таланты (Talents)'));const tags=node('div',undefined,'talent-tags');
  for(const [i,talent] of (member.talents||[]).entries()){
   const tag=node('span',talentLabel(talent),'talent-tag'+(talent==='lucky'?'':' pending'));
-  tag.title=talent==='lucky'?'Первая трата Судьбы (Fate) за сессию бесплатна':'Ещё не поддержан симуляцией';
+  attachTagTooltip(tag,talent==='lucky'?'Первая трата Судьбы (Fate) за сессию бесплатна':'Ещё не поддержан симуляцией');
   const remove=actionButton('remove','Удалить талант '+talentLabel(talent),true);remove.onclick=()=>editRequest(['party',index,'talents'],read().party[index].talents.filter((_,j)=>j!==i));tag.append(remove);tags.append(tag);
  }parent.append(tags);
  const entry=node('div',undefined,'talent-entry'),picker=node('div',undefined,'talent-picker'),input=node('input');input.type='text';input.placeholder='Выберите или введите талант…';input.setAttribute('aria-label','Добавить талант персонажу '+(index+1));input.dataset.role='talent-entry';input.dataset.member=String(index);input.autocomplete='off';

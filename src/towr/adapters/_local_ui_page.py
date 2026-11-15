@@ -2,22 +2,28 @@
 from towr.adapters._local_ui_visual import VISUAL_SCRIPT, VISUAL_STYLE
 from towr.adapters._local_ui_planning import PLANNING_SCRIPT
 from towr.adapters._local_ui_progress import PROGRESS_MARKUP, PROGRESS_SCRIPT, PROGRESS_STYLE
+from towr.adapters._local_ui_theme import THEME_INIT, THEME_SCRIPT, THEME_STYLE
+from towr.adapters._local_ui_tooltip import TOOLTIP_SCRIPT, TOOLTIP_STYLE
 
 def _file_actions(result=False):
     download_path = 'M12 4v12m-5-5 5 5 5-5M4 15v5h16v-5'
-    buttons = (('download', 'Скачать результат', download_path),) if result else (
+    buttons = (
+        ('format-result', 'Форматировать JSON результата', 'M8 3H6v6l-3 3 3 3v6h2m8-18h2v6l3 3-3 3v6h-2'),
+        ('load-result', 'Загрузить JSON результата', 'M12 16V4m-5 5 5-5 5 5M4 15v5h16v-5'),
+        ('download', 'Скачать результат', download_path),
+    ) if result else (
         ('format', 'Форматировать JSON запроса', 'M8 3H6v6l-3 3 3 3v6h2m8-18h2v6l3 3-3 3v6h-2'),
         ('load', 'Загрузить JSON запроса', 'M12 16V4m-5 5 5-5 5 5M4 15v5h16v-5'),
         ('save', 'Скачать запрос', download_path),
     )
     html = '<div class="file-actions" role="group" aria-label="Действия с файлом">'
     for identifier, title, path in buttons:
-        classes = 'icon-button' + (' hidden' if identifier == 'format' else '')
-        disabled = ' disabled' if result else ''
+        classes = 'icon-button' + (' hidden' if identifier in ('format', 'format-result') else '')
+        disabled = ' disabled' if identifier in ('download', 'format-result') else ''
         html += (f'<button id="{identifier}" class="{classes}" type="button" title="{title}" aria-label="{title}"{disabled}>'
             f'<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="{path}"/></svg></button>')
-    if not result:
-        html += '<input id="file" class="hidden" type="file" accept=".json,application/json" aria-label="Файл запроса">'
+    file_id, title = ('result-file', 'Файл результата') if result else ('file', 'Файл запроса')
+    html += f'<input id="{file_id}" class="hidden" type="file" accept=".json,application/json" aria-label="{title}">'
     return html + '</div>'
 
 
@@ -28,12 +34,12 @@ PAGE = r'''<!doctype html>
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>TOWR — генератор боёв</title>
 <style>
-*{box-sizing:border-box}html{overflow-y:scroll;scrollbar-gutter:stable}body{margin:0;background:#f4f5f7;color:#20242c;font:15px system-ui,sans-serif}
+*{box-sizing:border-box}html{overflow-y:scroll;scrollbar-gutter:stable}body{margin:0;background:var(--page-bg);color:var(--text);font:15px system-ui,sans-serif}
 main{max-width:1400px;margin:28px auto;padding:0 22px}h1{font-size:26px;margin:0 0 8px}h2{font-size:17px;margin:0}
-p{color:#5c6470;line-height:1.5}.panel{background:white;border:1px solid #d9dee5;border-radius:8px;padding:18px;margin:18px 0}
+p{color:var(--muted);line-height:1.5}.panel{background:var(--surface);border:1px solid var(--panel-border);border-radius:8px;padding:18px;margin:18px 0}
 .control-groups{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,2fr) minmax(0,1fr);gap:16px;margin-top:16px}
-.control-group{min-width:0;padding:14px 16px 16px;border:1px solid #dfe4eb;border-radius:6px;background:#fafbfc}
-.control-group legend{padding:0 6px;font-size:14px;font-weight:600;color:#404957}
+.control-group{min-width:0;padding:14px 16px 16px;border:1px solid var(--border);border-radius:6px;background:var(--surface-soft)}
+.control-group legend{padding:0 6px;font-size:14px;font-weight:600;color:var(--label)}
 .control-group.search{grid-column:1/-1}
 .control-group.search>.toggle-field{margin:0 0 14px}
 .control-group.reproducibility{align-self:stretch}
@@ -43,31 +49,32 @@ p{color:#5c6470;line-height:1.5}.panel{background:white;border:1px solid #d9dee5
 @media(min-width:1200px){.search .fields{grid-template-columns:repeat(4,minmax(0,1fr))}}
 .repro-row{display:flex;align-items:center;flex-wrap:wrap;gap:24px}.repro-row .field{flex:0 1 250px;min-width:0;max-width:100%}.repro-row p{flex:1 1 240px;margin:0}.composition .fields{grid-template-columns:repeat(2,minmax(0,1fr))}
 .settings-summary{font-size:17px;font-weight:600;cursor:pointer}.settings-summary small{font-size:12px;font-weight:400;margin-left:12px}
-.fields{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}label{display:flex;flex-direction:column;gap:5px;color:#404957;font-size:13px}
+.fields{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}label{display:flex;flex-direction:column;gap:5px;color:var(--label);font-size:13px}
 .field{display:flex;flex-direction:column;gap:5px}
-.field-hint{font-size:12px;line-height:1.4;color:#667085;font-weight:400}
-input,button,textarea{font:inherit}input{min-width:0;padding:8px;border:1px solid #bfc7d2;border-radius:4px}
-button{padding:8px 12px;border:1px solid #bfc7d2;border-radius:5px;background:white;cursor:pointer;color:#20242c}
-button:hover:not(:disabled){background:#edf4ff;border-color:#235ba8;color:#235ba8}
-button:active:not(:disabled){background:#dfeafe;border-color:#1c4c8c;color:#1c4c8c}
-button.primary{background:#235ba8;color:white;border-color:#235ba8}button:disabled{opacity:.5;cursor:default}
-button.primary:hover:not(:disabled){background:#1c4c8c;border-color:#1c4c8c;color:white}
-button.primary:active:not(:disabled){background:#173e73;border-color:#173e73;color:white}
+.field-hint{font-size:12px;line-height:1.4;color:var(--hint);font-weight:400}
+input,button,textarea{font:inherit}input{min-width:0;padding:8px;border:1px solid var(--input-border);border-radius:4px}
+button{padding:8px 12px;border:1px solid var(--input-border);border-radius:5px;background:var(--surface);cursor:pointer;color:var(--text)}
+button:hover:not(:disabled){background:var(--hover);border-color:var(--accent);color:var(--accent)}
+button:active:not(:disabled){background:var(--active);border-color:var(--accent-strong);color:var(--accent-strong)}
+button.primary{background:var(--solid-bg);color:var(--on-solid);border-color:var(--solid-bg)}button:disabled{opacity:.5;cursor:default}
+button.primary:hover:not(:disabled){background:var(--solid-hover);border-color:var(--solid-hover);color:var(--on-solid)}
+button.primary:active:not(:disabled){background:var(--solid-active);border-color:var(--solid-active);color:var(--on-solid)}
 .panel-controls,.file-actions{display:flex;align-items:center;gap:6px}.panel-controls{flex-wrap:wrap;gap:12px}
 .icon-button{width:32px;height:32px;padding:6px;display:inline-flex;align-items:center;justify-content:center}.icon-button.hidden{display:none}.icon-button svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;pointer-events:none}
-button.cancel-action{background:#a93535;color:white;border-color:#a93535}
-button.cancel-action:hover:not(:disabled){background:#8d2a2a;border-color:#8d2a2a;color:white}
-button.cancel-action:active:not(:disabled){background:#752323;border-color:#752323;color:white}
-.toolbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:12px 0}.columns{display:grid;grid-template-columns:1fr 1fr;gap:18px}
-.columns .panel{min-width:0;margin-top:0}textarea,pre{width:100%;height:560px;margin:0;padding:12px;border:1px solid #c9d0da;border-radius:4px;tab-size:2;background:#fafbfc;color:#20242c;font:13px/1.5 Consolas,monospace}
-textarea{resize:vertical}pre{overflow:auto;white-space:pre}#status{display:none;white-space:pre-wrap}#status.error{display:block;color:#b02222}
-small{color:#5c6470}.hidden{display:none}fieldset{border:0;padding:0;margin:0}a{color:#235ba8}
-:focus-visible{outline:2px solid #235ba8;outline-offset:2px}@media(max-width:1100px){.control-groups{grid-template-columns:1fr}.control-group.search{grid-column:auto}}
-@media(max-width:850px){.columns{grid-template-columns:1fr}.control-groups{grid-template-columns:1fr}.control-group.search{grid-column:auto}.fields,.search .fields{grid-template-columns:repeat(2,minmax(0,1fr))}textarea,pre{height:420px}}
+button.cancel-action{background:var(--cancel-bg);color:var(--on-solid);border-color:var(--cancel-bg)}
+button.cancel-action:hover:not(:disabled){background:var(--cancel-hover);border-color:var(--cancel-hover);color:var(--on-solid)}
+button.cancel-action:active:not(:disabled){background:var(--cancel-active);border-color:var(--cancel-active);color:var(--on-solid)}
+.toolbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:12px 0}.columns{display:grid;grid-template-columns:1fr 1fr;grid-template-rows:auto auto auto;gap:0 18px}
+.columns>.panel{display:grid;grid-template-rows:subgrid;grid-row:span 3;min-width:0;margin-top:0}.columns>.panel:first-child{grid-column:1}.columns>.panel:last-child{grid-column:2}
+.panel-intro{display:flow-root}.panel-body{min-width:0}textarea,pre{width:100%;height:560px;margin:0;padding:12px;border:1px solid var(--code-border);border-radius:4px;tab-size:2;background:var(--surface-soft);color:var(--text);font:13px/1.5 Consolas,monospace}
+textarea{resize:vertical}pre{overflow:auto;white-space:pre}#status{display:none;white-space:pre-wrap}#status.error{display:block;color:var(--error)}
+small{color:var(--muted)}.hidden{display:none}fieldset{border:0;padding:0;margin:0}a{color:var(--accent)}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}@media(max-width:1100px){.control-groups{grid-template-columns:1fr}.control-group.search{grid-column:auto}}
+@media(max-width:850px){.columns{grid-template-columns:1fr;grid-template-rows:none;gap:18px}.columns>.panel:first-child,.columns>.panel:last-child{display:block;grid-column:auto;grid-row:auto}.control-groups{grid-template-columns:1fr}.control-group.search{grid-column:auto}.fields,.search .fields{grid-template-columns:repeat(2,minmax(0,1fr))}textarea,pre{height:420px}}
 @media(max-width:480px){.fields,.composition .fields,.search .fields{grid-template-columns:1fr}}
 </style>
 <main>
-<h1>TOWR — генератор боёв</h1>
+<div class="page-heading"><h1>TOWR — генератор боёв</h1><button id="theme-toggle" class="icon-button" type="button" aria-label="Тёмная тема" aria-pressed="false" title="Включить тёмную тему"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M20 14a8 8 0 0 1-10-10A8 8 0 1 0 20 14"/></svg></button></div>
 <p>Настройте поиск и партию, затем запустите расчёт. Для запроса и результата доступны карточки и JSON.</p>
 <details class="panel" id="search-settings">
 <summary class="settings-summary" id="settings-title">Параметры поиска <small id="settings-preview"></small></summary>
@@ -111,13 +118,15 @@ small{color:#5c6470}.hidden{display:none}fieldset{border:0;padding:0;margin:0}a{
 __PROGRESS_MARKUP__
 <div class="columns">
 <section class="panel"><div class="view-heading"><h2>Запрос</h2><div class="panel-controls">__REQUEST_FILE_ACTIONS__<div class="view-switch" role="group" aria-label="Вид запроса"><button id="request-visual-tab" type="button" aria-pressed="true">Карточки</button><button id="request-json-tab" type="button" aria-pressed="false">JSON</button></div></div></div>
-<p><small>Правки карточек и JSON сохраняются при переключении. Расчёт запускается только кнопкой генератора.</small></p>
+<div class="panel-intro"><p><small>Правки карточек и JSON сохраняются при переключении. Расчёт запускается только кнопкой генератора.</small></p></div>
+<div class="panel-body">
 <fieldset id="visual-request-controls"><div id="request-visual" class="visual-view"></div></fieldset>
-<textarea id="request" class="hidden" spellcheck="false" aria-label="JSON запроса"></textarea></section>
-<section class="panel"><div class="view-heading"><h2>Результат</h2><div class="panel-controls">__RESULT_FILE_ACTIONS__<div class="view-switch" role="group" aria-label="Вид результата"><button id="result-visual-tab" type="button" aria-pressed="true">Карточки</button><button id="result-json-tab" type="button" aria-pressed="false">JSON</button></div></div></div><p><small id="summary"></small></p>
-<p id="result-stale" class="stale-notice hidden" role="status">Результат устарел: запрос изменён. Для пересчёта нажмите «Запустить генератор».</p>
+<textarea id="request" class="hidden" spellcheck="false" aria-label="JSON запроса"></textarea></div></section>
+<section class="panel"><div class="view-heading"><h2>Результат</h2><div class="panel-controls">__RESULT_FILE_ACTIONS__<div class="view-switch" role="group" aria-label="Вид результата"><button id="result-visual-tab" type="button" aria-pressed="true">Карточки</button><button id="result-json-tab" type="button" aria-pressed="false">JSON</button></div></div></div>
+<div class="panel-intro"><p id="result-stale" class="stale-notice hidden" role="status">Результат устарел: запрос изменён. Для пересчёта нажмите «Запустить генератор».</p><div id="result-card-heading" class="hidden"></div></div>
+<div class="panel-body">
 <div id="result-visual" class="visual-view"></div>
-<pre id="result" class="hidden" tabindex="0" aria-label="JSON результата">Результат появится после расчёта.</pre></section>
+<pre id="result" class="hidden" tabindex="0" aria-label="JSON результата">Результат появится после расчёта.</pre></div></section>
 </div>
 </main>
 <script>
@@ -126,7 +135,7 @@ const byId = id => document.getElementById(id);
 const paths = {minimum:['npc_count','minimum'],maximum:['npc_count','maximum'],
  maxRounds:['max_rounds'],seed:['search','master_seed'],candidates:['search','max_candidates'],
  exploration:['search','exploration_trials'],top:['search','top_k'],finalTrials:['search','finalist_trials']};
-let lastResult=null, busy=false, activeRunId=null, cancelling=false, fileLoadVersion=0;
+let lastResult=null, busy=false, activeRunId=null, cancelling=false, fileLoadVersion=0, resultFileLoadVersion=0;
 function message(text,kind=''){byId('status').textContent=kind==='error'?text:'';byId('status').className=kind==='error'?'error':'';}
 function pretty(value){return JSON.stringify(value,null,2)+'\n';}
 function read(){const value=JSON.parse(byId('request').value);if(!value || typeof value!=='object' || Array.isArray(value))throw Error('Запрос должен быть JSON-объектом.');return value;}
@@ -169,8 +178,9 @@ async function run(){
  if(busy)return;
  if(visualEditError){message('Исправьте поле: '+visualEditError,'error');return;}
  try{syncForm();}catch(error){message(error.message,'error');return;}
- fileLoadVersion++;activeRunId=crypto.randomUUID();cancelling=false;setBusy(true);lastResult=null;byId('download').disabled=true;byId('summary').textContent='';byId('result').textContent='Выполняется расчёт…';
+ fileLoadVersion++;resultFileLoadVersion++;activeRunId=crypto.randomUUID();cancelling=false;setBusy(true);lastResult=null;byId('download').disabled=true;byId('result').textContent='Выполняется расчёт…';
  byId('result-stale').classList.add('hidden');byId('result-visual').replaceChildren(document.createTextNode('Выполняется расчёт…'));
+ syncResultCardHeading();
  message('');
  const progressRun=activeRunId;let progressOutcome='failed',progressResult=null;startGenerationProgress(progressRun);
  try{
@@ -181,7 +191,6 @@ async function run(){
   if(!response.ok){throw Error([result.error?.path,result.error?.message||'Не удалось выполнить расчёт.'].filter(Boolean).join(': '));}
   lastResult=result;byId('download').disabled=false;markResultStale();
   progressOutcome='complete';progressResult=result;
-  byId('summary').textContent='Кандидатов: '+result.explored.length+' · Выбрано: '+result.selected.length+' · Симуляций: '+result.total_trials;
  }catch(error){message(error.message,'error');if(byId('result').textContent==='Выполняется расчёт…'){byId('result').textContent='Результат не получен.';byId('result-visual').replaceChildren(document.createTextNode('Результат не получен.'));}}
  finally{finishGenerationProgress(progressRun,progressOutcome,progressResult);activeRunId=null;cancelling=false;setBusy(false);if(lastResult)renderResultVisual(lastResult);}
 }
@@ -192,6 +201,20 @@ byId('request').addEventListener('blur',()=>{try{syncForm();}catch(error){markRe
 byId('save').onclick=()=>{try{syncForm();download(byId('request').value,'encounter-request.json');}catch(error){message(error.message,'error');}};
 byId('download').onclick=()=>{if(lastResult)download(pretty(lastResult),'encounter-result.json');};
 byId('load').onclick=()=>byId('file').click();
+byId('load-result').onclick=()=>byId('result-file').click();
+byId('format-result').onclick=()=>{if(busy||!lastResult)return;try{byId('result').textContent=pretty(JSON.parse(byId('result').textContent));message('');}catch(error){message(error.message,'error');}};
+byId('result-file').onchange=async event=>{
+ const file=event.target.files[0];if(!file||busy)return;const version=++resultFileLoadVersion;
+ try{
+  const raw=(await file.text()).replace(/^\uFEFF/,'');if(version!==resultFileLoadVersion||busy)return;const data=JSON.parse(raw);
+  if(!data||data.kind!=='dynamic_encounter_search_result'||data.schema_version!=='1'||data.source_request?.kind!=='dynamic_encounter_search'||!Array.isArray(data.explored)||!Array.isArray(data.validations)||!Array.isArray(data.selected)||!data.selected.every(id=>typeof id==='string')||!Number.isSafeInteger(data.total_trials)||data.total_trials<0)throw Error('Выберите JSON результата динамического генератора (формат 1).');
+  for(const candidate of [...data.explored,...data.validations]){
+   if(!candidate||!Array.isArray(candidate.npcs)||!candidate.npcs.every(npc=>npc&&typeof npc==='object'&&!Array.isArray(npc))||typeof candidate.replay?.scenario?.id!=='string'||!Number.isFinite(candidate.win_rate)||candidate.win_rate<0||candidate.win_rate>1||!Number.isFinite(candidate.mean_started_rounds)||!Number.isSafeInteger(candidate.trials)||candidate.trials<0||!candidate.outcomes||['objective_achieved','party_defeated','round_limit','unsupported_path'].some(key=>!Number.isSafeInteger(candidate.outcomes[key])||candidate.outcomes[key]<0))throw Error('Некорректные данные состава в JSON результата.');
+  }
+  const preview=document.createElement('div');renderResultVisual(data,preview);
+  lastResult=data;byId('result').textContent=raw;byId('result-visual').replaceChildren(...preview.childNodes);syncResultCardHeading();byId('generation-progress').classList.add('hidden');markResultStale();updateFileActions();message('');
+ }catch(error){message(error.message,'error');}finally{event.target.value='';}
+};
 byId('file').onchange=async event=>{const file=event.target.files[0];if(!file)return;const version=++fileLoadVersion;try{const raw=(await file.text()).replace(/^\uFEFF/,'');if(version!==fileLoadVersion||busy)return;const data=JSON.parse(raw);if(!data||typeof data!=='object'||Array.isArray(data))throw Error('Запрос должен быть JSON-объектом.');byId('auto-search').checked=false;byId('request').value=raw;syncForm();message('Загружен '+file.name+'.');}catch(error){message(error.message,'error');}finally{event.target.value='';}};
 async function cancelGeneration(){
  if(!busy||!activeRunId||cancelling)return;
@@ -211,4 +234,5 @@ fetch('/api/request').then(response=>{if(!response.ok)throw Error('Не удал
 
 PAGE = PAGE.replace('__REQUEST_FILE_ACTIONS__', _file_actions()).replace('__RESULT_FILE_ACTIONS__', _file_actions(True))
 PAGE = PAGE.replace('__PROGRESS_MARKUP__', PROGRESS_MARKUP)
-PAGE = PAGE.replace('</style>', VISUAL_STYLE + PROGRESS_STYLE + '\n</style>').replace('</script>', PLANNING_SCRIPT + '\n' + VISUAL_SCRIPT + '\n' + PROGRESS_SCRIPT + '\n</script>')
+PAGE = PAGE.replace('</style>', VISUAL_STYLE + PROGRESS_STYLE + TOOLTIP_STYLE + '\n</style>').replace('</script>', PLANNING_SCRIPT + '\n' + TOOLTIP_SCRIPT + '\n' + VISUAL_SCRIPT + '\n' + PROGRESS_SCRIPT + '\n' + THEME_SCRIPT + '\n</script>')
+PAGE = PAGE.replace('<style>', THEME_INIT + '\n<style>\n' + THEME_STYLE, 1)

@@ -1,9 +1,9 @@
 """Small live progress view; no battle log, source edits or simulation logic."""
 
 PROGRESS_STYLE = r'''
-.generation-progress{background:white;border:1px solid #d9dee5;border-radius:6px;padding:12px 16px;margin:0 0 16px}
-.generation-progress p{font-size:13px;margin:5px 0}.generation-progress progress{display:block;width:100%;height:9px;margin:10px 0;accent-color:#235ba8}
-.generation-progress .progress-phase{font-weight:600;color:#404957}.generation-progress .progress-last{color:#667085;font-size:12px}
+.generation-progress{background:var(--surface);border:1px solid var(--panel-border);border-radius:6px;padding:12px 16px;margin:0 0 16px}
+.generation-progress p{font-size:13px;margin:5px 0}.generation-progress progress{display:block;width:100%;height:9px;margin:10px 0;accent-color:var(--accent)}
+.generation-progress .progress-phase{font-weight:600;color:var(--label)}.generation-progress .progress-last{color:var(--hint);font-size:12px}
 '''
 
 PROGRESS_MARKUP = r'''
