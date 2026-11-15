@@ -27,13 +27,14 @@ PAGE = r'''<!doctype html>
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>TOWR — генератор боёв</title>
 <style>
-*{box-sizing:border-box}body{margin:0;background:#f4f5f7;color:#20242c;font:15px system-ui,sans-serif}
+*{box-sizing:border-box}html{overflow-y:scroll;scrollbar-gutter:stable}body{margin:0;background:#f4f5f7;color:#20242c;font:15px system-ui,sans-serif}
 main{max-width:1400px;margin:28px auto;padding:0 22px}h1{font-size:26px;margin:0 0 8px}h2{font-size:17px;margin:0}
 p{color:#5c6470;line-height:1.5}.panel{background:white;border:1px solid #d9dee5;border-radius:8px;padding:18px;margin:18px 0}
 .control-groups{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,2fr) minmax(0,1fr);gap:16px;margin-top:16px}
 .control-group{min-width:0;padding:14px 16px 16px;border:1px solid #dfe4eb;border-radius:6px;background:#fafbfc}
 .control-group legend{padding:0 6px;font-size:14px;font-weight:600;color:#404957}
 .control-group.search{grid-column:1/-1}
+.control-group.search>.toggle-field{margin:0 0 14px}
 .control-group.reproducibility{align-self:stretch}
 .control-group:not(.search) .field label{display:grid;grid-template-rows:minmax(1.4em,auto) auto;align-content:start;line-height:1.4}
 @media(min-width:1101px) and (max-width:1399px){.control-group:not(.search) .field label{grid-template-rows:minmax(2.8em,auto) auto}}
@@ -46,10 +47,16 @@ p{color:#5c6470;line-height:1.5}.panel{background:white;border:1px solid #d9dee5
 .field-hint{font-size:12px;line-height:1.4;color:#667085;font-weight:400}
 input,button,textarea{font:inherit}input{min-width:0;padding:8px;border:1px solid #bfc7d2;border-radius:4px}
 button{padding:8px 12px;border:1px solid #bfc7d2;border-radius:5px;background:white;cursor:pointer;color:#20242c}
+button:hover:not(:disabled){background:#edf4ff;border-color:#235ba8;color:#235ba8}
+button:active:not(:disabled){background:#dfeafe;border-color:#1c4c8c;color:#1c4c8c}
 button.primary{background:#235ba8;color:white;border-color:#235ba8}button:disabled{opacity:.5;cursor:default}
+button.primary:hover:not(:disabled){background:#1c4c8c;border-color:#1c4c8c;color:white}
+button.primary:active:not(:disabled){background:#173e73;border-color:#173e73;color:white}
 .panel-controls,.file-actions{display:flex;align-items:center;gap:6px}.panel-controls{flex-wrap:wrap;gap:12px}
 .icon-button{width:32px;height:32px;padding:6px;display:inline-flex;align-items:center;justify-content:center}.icon-button.hidden{display:none}.icon-button svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;pointer-events:none}
 button.cancel-action{background:#a93535;color:white;border-color:#a93535}
+button.cancel-action:hover:not(:disabled){background:#8d2a2a;border-color:#8d2a2a;color:white}
+button.cancel-action:active:not(:disabled){background:#752323;border-color:#752323;color:white}
 .toolbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:12px 0}.columns{display:grid;grid-template-columns:1fr 1fr;gap:18px}
 .columns .panel{min-width:0;margin-top:0}textarea,pre{width:100%;height:560px;margin:0;padding:12px;border:1px solid #c9d0da;border-radius:4px;tab-size:2;background:#fafbfc;color:#20242c;font:13px/1.5 Consolas,monospace}
 textarea{resize:vertical}pre{overflow:auto;white-space:pre}#status{min-height:24px;white-space:pre-wrap}#status.error{color:#b02222}#status.success{color:#1d683c}
@@ -72,8 +79,8 @@ small{color:#5c6470}.hidden{display:none}fieldset{border:0;padding:0;margin:0}a{
 </fieldset>
 <fieldset class="control-group goals"><legend>Цели боя</legend>
 <div class="fields">
-<div class="field"><label>Целевая длительность, раунды<input id="rounds" type="number" min="1" step="any" aria-describedby="rounds-hint"></label><small id="rounds-hint" class="field-hint">Желаемая средняя длительность боя.</small></div>
-<div class="field"><label>Предел раундов<input id="maxRounds" type="number" min="1" step="1" aria-describedby="maxRounds-hint"></label><small id="maxRounds-hint" class="field-hint">После этого раунда бой останавливается. Лимит не считается победой.</small></div>
+<div class="field"><label>Цель, раунды (Rounds)<input id="rounds" type="number" min="1" step="any" aria-describedby="rounds-hint"></label><small id="rounds-hint" class="field-hint">Желаемая средняя длительность боя.</small></div>
+<div class="field"><label>Лимит раундов (Rounds)<input id="maxRounds" type="number" min="1" step="1" aria-describedby="maxRounds-hint"></label><small id="maxRounds-hint" class="field-hint">После этого раунда бой останавливается. Лимит не считается победой.</small></div>
 <div class="field"><label>Победа игроков, %<input id="win" type="number" min="0" max="100" step="any" aria-describedby="win-hint"></label><small id="win-hint" class="field-hint">Желаемая доля побед партии. Ниже процент — сложнее бой.</small></div>
 </div>
 </fieldset>
@@ -153,7 +160,8 @@ function changed(id){
   byId('request').value=pretty(data);syncForm();message('Запрос изменён. Результат расчёта относится к предыдущему запуску.');
  }catch(error){message(error.message,'error');}
 }
-function download(text,name){const url=URL.createObjectURL(new Blob([text],{type:'application/json;charset=utf-8'}));const a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
+function downloadFileName(name){const dot=name.lastIndexOf('.'),stem=dot>0?name.slice(0,dot):name,extension=dot>0?name.slice(dot):'';return stem+'_'+new Date().toISOString().replace(/[:.]/g,'-')+'_'+crypto.randomUUID().slice(0,8)+extension;}
+function download(text,name){const url=URL.createObjectURL(new Blob([text],{type:'application/json;charset=utf-8'}));const a=document.createElement('a');a.href=url;a.download=downloadFileName(name);a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
 function setBusy(value){busy=value;byId('controls').disabled=value;byId('visual-request-controls').disabled=value;byId('request').readOnly=value;for(const id of ['run','load','save','format','file'])byId(id).disabled=value;byId('run').classList.toggle('hidden',value);byId('cancel').classList.toggle('hidden',!value);byId('cancel').disabled=!value||cancelling;byId('cancel').textContent=cancelling?'Отмена…':'Отменить генерацию';updatePlanControls();updateFileActions();}
 async function run(){
  if(busy)return;

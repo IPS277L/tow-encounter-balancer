@@ -1166,8 +1166,7 @@ def validate_pc_melee_state_shape(state: PcMeleeState) -> None:
     for member in state.party:
         replace(member)
         from towr.domain.pc_melee_models import _readmit_fate
-        _readmit_fate(member.fate, member.actor_id, allow_lucky=
-            state.source.participant(member.actor_id).pc.weapon is PcMeleeWeapon.HOCHLAND_LONG_RIFLE)
+        _readmit_fate(member.fate, member.actor_id)
         replace(member.injury)
         ConditionState(member.injury.conditions.conditions)
         if type(member.injury.dead) is not bool:

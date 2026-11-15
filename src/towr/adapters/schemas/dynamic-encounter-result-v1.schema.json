@@ -44,6 +44,9 @@
     },
     "proposal_limit_reached": {
       "type": "boolean"
+    },
+    "resolved_search_space": {
+      "$ref": "urn:towr:dynamic-encounter:common:1#/$defs/search_space"
     }
   },
   "required": [
@@ -56,7 +59,8 @@
     "selected",
     "total_trials",
     "proposal_attempts",
-    "proposal_limit_reached"
+    "proposal_limit_reached",
+    "resolved_search_space"
   ],
   "additionalProperties": false
 }

@@ -51,6 +51,24 @@ class NpcSearchSpace:
         return replace(npc, **{name: rng.choice(tuple(v for v in getattr(self, name) if v != getattr(npc, name)))})
 
 
+def automatic_npc_search_space(party: tuple[PcMeleeParticipant, ...]) -> NpcSearchSpace:
+    """A bounded search envelope around the party, not a book NPC stat limit.
+
+    The battle targets rank sampled compositions; they do not prescribe a
+    monotonic stat multiplier. No authored abilities are granted implicitly.
+    """
+    if not party:
+        raise ValueError('automatic NPC space needs a party')
+    choices = {}
+    for name in ('weapon_skill', 'strength', 'toughness', 'agility', 'melee', 'athletics'):
+        values = [getattr(p.pc, name) for p in party]
+        floor, ceiling = (2, 6) if name in ('melee', 'athletics') else (1, 10)
+        low = max(floor, min(ceiling, min(values) - 1))
+        high = max(low, min(ceiling, max(values) + 1))
+        choices[name] = tuple(range(low, high + 1))
+    return NpcSearchSpace(**choices)
+
+
 @dataclass(frozen=True, slots=True)
 class DynamicEncounterRequest:
     party: tuple[PcMeleeParticipant, ...]

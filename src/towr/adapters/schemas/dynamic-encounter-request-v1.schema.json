@@ -23,14 +23,15 @@
       "minItems": 1,
       "uniqueItems": true
     },
-    "facts": {
-      "$ref": "urn:towr:pc-melee:common:1#/$defs/facts"
-    },
-    "day_id": {
-      "$ref": "urn:towr:pc-melee:common:1#/$defs/identifier"
-    },
     "search_space": {
-      "$ref": "urn:towr:dynamic-encounter:common:1#/$defs/search_space"
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "$ref": "urn:towr:dynamic-encounter:common:1#/$defs/search_space"
+        }
+      ]
     },
     "npc_count": {
       "type": "object",
@@ -125,6 +126,9 @@
         "mode"
       ],
       "additionalProperties": false
+    },
+    "scene": {
+      "$ref": "urn:towr:dynamic-encounter:common:1#/$defs/scene"
     }
   },
   "required": [
@@ -133,15 +137,13 @@
     "request_id",
     "ruleset",
     "party",
-    "facts",
-    "day_id",
-    "search_space",
     "npc_count",
     "targets",
     "search",
     "max_rounds",
     "defeat_disposition",
-    "execution"
+    "execution",
+    "scene"
   ],
   "additionalProperties": false
 }

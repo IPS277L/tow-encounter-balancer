@@ -165,9 +165,9 @@ class PcMeleeModelTests(unittest.TestCase):
         historical = FateSessionState('session', 'pc', 2, 2, burns=(burn,), resource_event_ids=('earlier-burn',))
         self.assertIs(replace_pc_melee_member(source, 'pc', fate=historical).party[0].fate, historical)
 
-    def test_fate_actor_and_lucky_and_foreign_source_are_refused(self):
+    def test_fate_actor_and_foreign_source_are_refused(self):
         source = make_pc_melee_scenario()
-        for fate in (replace(source.party[0].fate, actor_id='foreign'), replace(source.party[0].fate, has_lucky=True)):
+        for fate in (replace(source.party[0].fate, actor_id='foreign'),):
             with self.assertRaises(ValueError):
                 replace_pc_melee_member(source, 'pc', fate=fate)
         for value in (None, {}, source.party[0].pc):

@@ -342,8 +342,7 @@ class PcMeleeJsonSchemaTests(unittest.TestCase):
         schema.validate_pc_melee_simulation_document(raw)
 
     def test_fate_and_enemy_derived_scope_cannot_be_overridden_in_wire(self):
-        for update in (lambda raw:raw['scenario']['party'][0]['fate'].update(has_lucky=True),
-                       lambda raw:raw['scenario']['party'][0]['fate'].update(spends=[{}]),
+        for update in (lambda raw:raw['scenario']['party'][0]['fate'].update(spends=[{}]),
                        lambda raw:raw['scenario']['enemies'][0]['definition']['attack']['test_profile'].update(pool_cap=4),
                        lambda raw:raw['scenario']['enemies'][0]['definition']['attack']['damage'].update(success_multiplier=2),
                        lambda raw:raw['scenario']['party'][0]['defeat_decisions'][0].update(gm_approved=False),

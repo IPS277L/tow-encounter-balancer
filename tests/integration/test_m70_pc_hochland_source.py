@@ -123,7 +123,7 @@ class PcHochlandSourceTests(unittest.TestCase):
         malformed['scenario']['party'][0]['fate_policy'] = 'configured'
         with self.assertRaises(PcMeleeSimulationInputError):wire.parse_pc_melee_simulation_request(json.dumps(malformed))
 
-    def test_lucky_is_an_explicit_hoc_only_fact_in_native_and_wire_sources(self):
+    def test_lucky_is_explicit_and_not_restricted_by_weapon_in_native_and_wire_sources(self):
         for enabled in (False,True):
             source = make_pc_hochland_scenario(fate_rating=0,has_lucky=enabled,reserve=0)
             self.assertIs(source.party[0].fate.has_lucky,enabled)
@@ -139,11 +139,11 @@ class PcHochlandSourceTests(unittest.TestCase):
                 actual = command.request.template if balance else command.request.scenario
                 self.assertEqual(scenario_document(actual),raw[key])
         old = make_pc_handgun_scenario()
-        with self.assertRaises(ValueError):replace(old.party[0],fate=replace(old.party[0].fate,has_lucky=True))
+        self.assertTrue(replace(old.party[0],fate=replace(old.party[0].fate,has_lucky=True)).fate.has_lucky)
         raw = request_document();raw['scenario'] = scenario_document(old)
         raw['scenario']['party'][0]['fate']['has_lucky'] = True
-        with self.assertRaises(ValidationError):validate_pc_melee_simulation_document(raw)
-        with self.assertRaises(PcMeleeSimulationInputError):wire.parse_pc_melee_simulation_request(json.dumps(raw))
+        validate_pc_melee_simulation_document(raw)
+        self.assertTrue(wire.parse_pc_melee_simulation_request(json.dumps(raw)).request.scenario.party[0].fate.has_lucky)
         for value in (None,1,'true'):
             raw = request_document();raw['scenario']['party'][0]['fate']['has_lucky'] = value
             with self.assertRaises(PcMeleeSimulationInputError):wire.parse_pc_melee_simulation_request(json.dumps(raw))

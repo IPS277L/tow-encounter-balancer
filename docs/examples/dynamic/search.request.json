@@ -6,95 +6,65 @@
   "party": [
     {
       "actor_id": "pc",
-      "pc": {
-        "id": "pc-profile",
+      "characteristics": {
         "weapon_skill": 3,
         "strength": 3,
         "toughness": 3,
-        "agility": 3,
+        "agility": 3
+      },
+      "skills": {
         "melee": 5,
         "defence": 5,
         "athletics": 4,
-        "endurance": 4,
-        "weapon": "sword",
-        "armour_bonus": 0
+        "endurance": 4
       },
-      "fate": {
-        "session_id": "session",
-        "actor_id": "pc",
-        "rating": 3,
-        "session_spend_limit": 3,
-        "spends": [],
-        "has_lucky": false,
-        "refreshes": [],
-        "burns": [],
-        "resource_event_ids": [],
-        "rule_id": "RULE-FATE-001:session-resource"
+      "equipment": {
+        "weapons": [
+          {
+            "id": "weapon:1",
+            "weapon": "sword",
+            "location": "left_hand"
+          }
+        ],
+        "armour": []
       },
-      "policy": "attack_or_recover_self",
-      "fate_policy": "decline_optional_fate",
-      "initial_weapon_hand": "left",
-      "random_side_policy": "d10_low_left_high_right",
-      "heavy_wound_policy": "continue_fighting",
-      "near_miss_policy": null,
-      "glorious_policy": null,
-      "help_policy": null,
-      "ally_recover_policy": null,
-      "backup_weapon_policy": null
+      "talents": [],
+      "resources": {
+        "fate": 3
+      },
+      "consumables": []
     },
     {
       "actor_id": "pc:companion",
-      "pc": {
-        "id": "companion-profile",
+      "characteristics": {
         "weapon_skill": 3,
         "strength": 3,
         "toughness": 4,
-        "agility": 3,
+        "agility": 3
+      },
+      "skills": {
         "melee": 5,
         "defence": 5,
         "athletics": 4,
-        "endurance": 5,
-        "weapon": "staff",
-        "armour_bonus": 0
+        "endurance": 5
       },
-      "fate": {
-        "session_id": "session",
-        "actor_id": "pc:companion",
-        "rating": 2,
-        "session_spend_limit": 2,
-        "spends": [],
-        "has_lucky": false,
-        "refreshes": [],
-        "burns": [],
-        "resource_event_ids": [],
-        "rule_id": "RULE-FATE-001:session-resource"
+      "equipment": {
+        "weapons": [
+          {
+            "id": "weapon:1",
+            "weapon": "staff",
+            "location": "right_hand"
+          }
+        ],
+        "armour": []
       },
-      "policy": "attack_or_recover_self",
-      "fate_policy": "decline_optional_fate",
-      "initial_weapon_hand": "right",
-      "random_side_policy": "d10_low_left_high_right",
-      "heavy_wound_policy": "continue_fighting",
-      "near_miss_policy": null,
-      "glorious_policy": null,
-      "help_policy": null,
-      "ally_recover_policy": null,
-      "backup_weapon_policy": null
+      "talents": [],
+      "resources": {
+        "fate": 2
+      },
+      "consumables": []
     }
   ],
-  "facts": {
-    "zone_id": "arena",
-    "all_opponents_close": true,
-    "targets_aware": true,
-    "all_combatants_included": true,
-    "unmounted": true,
-    "no_external_effects": true,
-    "no_terrain_modifiers": true,
-    "no_additional_abilities": true,
-    "no_ambush": true,
-    "outnumbering_bonus_approved": true,
-    "can_leave_zone": false
-  },
-  "day_id": "day",
   "search_space": {
     "weapon_skill": [
       2,
@@ -164,5 +134,11 @@
   "defeat_disposition": "killed",
   "execution": {
     "mode": "sequential"
+  },
+  "scene": {
+    "range": "close",
+    "ambush": "none",
+    "terrain": "open",
+    "session_start": "fresh"
   }
 }

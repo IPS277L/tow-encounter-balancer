@@ -1,5 +1,8 @@
 # Equipment, Coin и Assets
 
+Текущий inventory-вход dynamic generator: [ADR-0115](../decisions/ADR-0115-inventory-draft-and-talent-tags.md). Предметы имеют instance IDs и начальное положение, body/обычный helmet/shield разделены. PG92–93 dual wield/carry и97–98 armour не упрощаются удалением предметов: unsupported наборы отклоняются до MC. Обычный helmet описан как часть комплекта без дополнительного числового бонуса. Dual wield пока описывается в запросе, но не исполняется; прежний2H→1H backup подключён.
+
+
 ## PC Hochland, Aim и Fate Second Action (M70)
 
 <a id="pc-hochland-m70"></a>

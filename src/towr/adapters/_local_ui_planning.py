@@ -3,8 +3,24 @@
 PLANNING_SCRIPT = r'''
 let planningError=null;
 const precisionIds=['candidates','exploration','top','finalTrials'];
+function planningSearchSpace(data){
+ // Client estimate for planning/manual initialization. Execution derives its
+ // authoritative automatic envelope on the server from the admitted party.
+ if(data.search_space)return data.search_space;
+ const space={weapon:['staff','dagger'],light_armour:[false,true],abilities:[[]]};
+ for(const key of ['weapon_skill','strength','toughness','agility','melee','athletics']){
+  const skill=['melee','athletics'].includes(key),floor=skill?2:1,ceiling=skill?6:10;
+  const values=data.party.map(m=>Number((skill?m.skills:m.characteristics)?.[key]));
+  if(!values.length||values.some(v=>!Number.isSafeInteger(v)))throw Error('Проверьте характеристики и навыки партии.');
+  const low=Math.max(floor,Math.min(ceiling,Math.min(...values)-1));
+  const high=Math.max(low,Math.min(ceiling,Math.max(...values)+1));
+  space[key]=Array.from({length:high-low+1},(_,i)=>low+i);
+ }
+ return space;
+}
 function estimatedSearchTime(data){
  try{
+  const space=planningSearchSpace(data);
   const min=data.npc_count?.minimum,max=data.npc_count?.maximum,cap=data.max_rounds;
   const rounds=data.targets?.started_rounds?.numerator/data.targets?.started_rounds?.denominator;
   const total=data.search?.max_total_trials;
@@ -13,8 +29,8 @@ function estimatedSearchTime(data){
   const count=(min+max)/2;
   // Local 4-trial measurements: 1/5/10 ordinary Staff NPCs, two PCs.
   const perTrial=count<=5 ? .027+(count-1)*(1.081-.027)/4 : 1.081+(count-5)*(2.266-1.081)/5;
-  const dice=mean(data.search_space.weapon_skill)+mean(data.search_space.agility)+mean(data.party.map(m=>Number(m.pc.weapon_skill)+Number(m.pc.agility)));
-  const abilities=1+.15*Math.max(...data.search_space.abilities.map(group=>group.length));
+  const dice=mean(space.weapon_skill)+mean(space.agility)+mean(data.party.map(m=>Number(m.characteristics.weapon_skill)+Number(m.characteristics.agility)));
+  const abilities=1+.15*Math.max(...space.abilities.map(group=>group.length));
   const work=((count+data.party.length)/(count+2))*(rounds/5)*Math.pow(cap/15,.25)*Math.sqrt(dice/12)*abilities;
   const seconds=total*perTrial*work;
   if(!Number.isFinite(seconds)||seconds<=0)return null;
@@ -29,6 +45,7 @@ function formatSearchTime(estimate){
  return range((estimate.low/3600).toFixed(1),(estimate.high/3600).toFixed(1),'ч');
 }
 function automaticSearchPlan(data){
+ const space=planningSearchSpace(data);
  const positive=value=>{if(!Number.isSafeInteger(value)||value<1)throw Error('Для автоплана нужны положительные целые численность и предел раундов.');return value;};
  const min=positive(data.npc_count?.minimum),max=positive(data.npc_count?.maximum),cap=positive(data.max_rounds);
  const p=data.targets?.win_rate?.numerator/data.targets?.win_rate?.denominator;
@@ -36,14 +53,14 @@ function automaticSearchPlan(data){
  if(min>max||!Number.isFinite(p)||p<0||p>1||!Number.isFinite(rounds)||rounds<1||rounds>cap||!Array.isArray(data.party)||!data.party.length)throw Error('Проверьте состав и цели боя для автоплана.');
  let profiles=1,bits=0;
  for(const key of ['weapon_skill','strength','toughness','agility','melee','athletics','weapon','light_armour','abilities']){
-  const values=data.search_space?.[key];if(!Array.isArray(values)||!values.length)throw Error('Задайте допустимые значения: '+key);
+  const values=space[key];if(!Array.isArray(values)||!values.length)throw Error('Задайте допустимые значения: '+key);
   profiles=Math.min(1e12,profiles*values.length);bits+=Math.log2(values.length);
  }
  const mean=values=>values.reduce((sum,value)=>sum+Number(value),0)/values.length;
- const npcDice=mean(data.search_space.weapon_skill)+mean(data.search_space.agility);
- const partyDice=mean(data.party.map(m=>Number(m.pc?.weapon_skill)+Number(m.pc?.agility)));
+ const npcDice=mean(space.weapon_skill)+mean(space.agility);
+ const partyDice=mean(data.party.map(m=>Number(m.characteristics?.weapon_skill)+Number(m.characteristics?.agility)));
  if(!Number.isFinite(npcDice+partyDice)||npcDice+partyDice<=0)throw Error('Проверьте характеристики участников.');
- const abilityCost=1+.15*Math.max(...data.search_space.abilities.map(group=>Array.isArray(group)?group.length:0));
+ const abilityCost=1+.15*Math.max(...space.abilities.map(group=>Array.isArray(group)?group.length:0));
  const load=Math.max(.5,((data.party.length+(min+max)/2)/7.5)*(rounds/5)*Math.pow(cap/15,.25)*Math.sqrt((npcDice+partyDice)/12)*abilityCost);
  const capacity=Math.max(256,Math.min(1600,16*Math.floor(800/load/16)));
  const variance=4*p*(1-p),exploration=8+4*Math.round(variance);

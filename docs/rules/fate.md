@@ -6,7 +6,7 @@
 
 PG1.4 78/111, [ADR-0112](../decisions/ADR-0112-pc-hochland-aim-and-fate-second-action.md). Hochland-specific configured policy выбирает после реального Aim второе ATTACK действие, если canonical funding сохраняет указанный session reserve. Existing composite FateSecondActionSpend атомарно добавляет ledger record и slot2; bare FATE grant/вторая Attack/slot3 не допускаются. Это spend, не permanent burn.
 
-Hoc-source может явно иметь Lucky. Первая трата бесплатна при любом rating, включая0; если она не ушла на Second Action, доступный выбранный Glorious также использует Lucky. Funding cost0/1 и reserve проверяются одинаково в выборе и статистических бюджетах. Другие PC loadouts сохраняют прежний запрет Lucky в source; gambling actions в этом bounded encounter не моделируются.
+Hoc-source может явно иметь Lucky. Первая трата бесплатна при любом rating, включая0; если она не ушла на Second Action, доступный выбранный Glorious также использует Lucky. Funding cost0/1 и reserve проверяются одинаково в выборе и статистических бюджетах. Lucky теперь допускается и у остальных PC loadouts; историческое ограничение Hochland снято в [ADR-0114](../decisions/ADR-0114-character-facts-and-automatic-generator-input.md). Gambling actions в боевой сцене не моделируются.
 
 Aim — action, Second Action spend — ресурс/резервирование, Shoot — второй action. Glorious counters считают только GLORIOUS_TEST records, а не все Fate spends; conditional summary.aim отдельно показывает Aim и SECOND_ACTION events. Spend counts включают Lucky-free events и не равны числу оплаченных session points. Все policies расходуют один фактический ledger, joint resource bounds запрещают двойной расход; выбранное funded действие нельзя пропустить через TurnEnd.
 

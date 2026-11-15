@@ -2546,31 +2546,6 @@
               }
             }
           }
-        },
-        {
-          "if": {
-            "properties": {
-              "pc": {
-                "properties": {
-                  "weapon": {
-                    "const": "hochland_long_rifle"
-                  }
-                }
-              }
-            }
-          },
-          "then": {},
-          "else": {
-            "properties": {
-              "fate": {
-                "properties": {
-                  "has_lucky": {
-                    "const": false
-                  }
-                }
-              }
-            }
-          }
         }
       ]
     },

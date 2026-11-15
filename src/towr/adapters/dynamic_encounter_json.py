@@ -9,15 +9,21 @@ from jsonschema import Draft202012Validator
 from referencing import Registry, Resource
 
 from towr.adapters._json_common import build_value, parse_seed, read_request
-from towr.adapters._pc_melee_scenario_json import _parse_participant, parse_facts, scenario_document
+from towr.adapters._pc_melee_scenario_json import scenario_document
 from towr.adapters.ranged_json_errors import RangedInputError, RangedInputErrorCode as Code
 from towr.application.dynamic_encounter import (
     DynamicEncounterRequest, DynamicEncounterResult, NpcSearchSpace,
     search_dynamic_encounter, validate_dynamic_encounter_result,
-    DynamicEncounterCancelled,
+    DynamicEncounterCancelled, automatic_npc_search_space,
+)
+from towr.application.encounter_character import EncounterCharacter, EncounterTalent
+from towr.application.encounter_inventory import (
+    EncounterEquipment, WeaponItem, ArmourItem, ArmourItemKind, ItemLocation,
+    ConsumableItem, ConsumableKind,
 )
 from towr.domain.generated_npc_models import GeneratedAbility, GeneratedWeapon
 from towr.domain.minion_defeat_models import NpcDefeatDisposition
+from towr.domain.pc_melee_models import PcMeleeFacts, PcMeleeWeapon
 
 
 class DynamicEncounterInputError(RangedInputError):
@@ -69,21 +75,47 @@ def parse_dynamic_encounter_request(text: str | bytes) -> DynamicEncounterComman
     try:
         disposition = NpcDefeatDisposition(document['defeat_disposition'])
         party = []
-        # PcMeleeParticipant describes concrete targets; the new wire party does
-        # not. Bridge to the first generated slot, then scenario() binds all slots.
         for index, raw in enumerate(document['party']):
-            concrete = dict(raw, target_priority=['generated-npc:1'], defeat_decisions=[dict(
-                attacker_id=raw['actor_id'], target_id='generated-npc:1', disposition=disposition.value, gm_approved=True)])
-            party.append(_parse_participant(concrete, path_prefix=f'/party/{index}', error_type=DynamicEncounterInputError))
-        options = document['search_space']
-        space = build_value(DynamicEncounterInputError, '/search_space', NpcSearchSpace,
+            path = f'/party/{index}'
+            gear = raw['equipment']
+            equipment = build_value(DynamicEncounterInputError, path + '/equipment', EncounterEquipment,
+                weapons=tuple(build_value(DynamicEncounterInputError, f'{path}/equipment/weapons/{i}', WeaponItem,
+                    id=w['id'], weapon=PcMeleeWeapon(w['weapon']), location=ItemLocation(w['location']))
+                    for i, w in enumerate(gear['weapons'])),
+                armour=tuple(build_value(DynamicEncounterInputError, f'{path}/equipment/armour/{i}', ArmourItem,
+                    id=a['id'], kind=ArmourItemKind(a['kind']), location=ItemLocation(a['location']))
+                    for i, a in enumerate(gear['armour'])))
+            consumables = tuple(build_value(DynamicEncounterInputError, f'{path}/consumables/{i}', ConsumableItem,
+                id=c['id'], kind=ConsumableKind(c['kind']), quantity=c['quantity'], characteristic=c['characteristic'])
+                for i, c in enumerate(raw['consumables']))
+            ids = [item.id for item in (*equipment.weapons, *equipment.armour, *consumables)]
+            if len(set(ids)) != len(ids):
+                raise DynamicEncounterInputError(Code.INVALID_INPUT, 'Inventory instance IDs must be unique.', path=path)
+            if consumables:
+                raise DynamicEncounterInputError(Code.INVALID_INPUT,
+                    'Расходники сохранены в инвентаре, но их применение в симуляции ещё не реализовано.', path=path + '/consumables')
+            unsupported = [talent for talent in raw['talents'] if talent not in {t.value for t in EncounterTalent}]
+            if unsupported:
+                raise DynamicEncounterInputError(Code.INVALID_INPUT,
+                    'Таланты пока не поддержаны симуляцией: ' + ', '.join(unsupported), path=path + '/talents')
+            loadout = build_value(DynamicEncounterInputError, path + '/equipment', equipment.combat_loadout,
+                raw['characteristics']['strength'])
+            character = build_value(DynamicEncounterInputError, f'/party/{index}', EncounterCharacter,
+                actor_id=raw['actor_id'], **raw['characteristics'], **raw['skills'],
+                **loadout,
+                talents=tuple(EncounterTalent(t) for t in raw['talents']), fate=raw['resources']['fate'])
+            party.append(character.participant(document['request_id'] + ':session', disposition))
+        options = document.get('search_space')
+        space = automatic_npc_search_space(tuple(party)) if options is None else build_value(
+            DynamicEncounterInputError, '/search_space', NpcSearchSpace,
             **{name: (tuple(GeneratedWeapon(v) for v in values) if name == 'weapon' else
                 tuple(tuple(GeneratedAbility(a) for a in group) for group in values) if name == 'abilities' else tuple(values))
                 for name, values in options.items()})
         search = dict(document['search'])
         search['master_seed'] = parse_seed(search['master_seed'], DynamicEncounterInputError, '/search/master_seed')
         request = build_value(DynamicEncounterInputError, '/', DynamicEncounterRequest,
-            party=tuple(party), facts=parse_facts(document['facts']), day_id=document['day_id'], space=space,
+            party=tuple(party), facts=PcMeleeFacts('arena', True, True, True, True,
+                True, True, True, True, True, False), day_id=document['request_id'] + ':day', space=space,
             minimum_npcs=document['npc_count']['minimum'], maximum_npcs=document['npc_count']['maximum'],
             target_win_rate=_target(document['targets']['win_rate'], '/targets/win_rate'),
             target_rounds=_target(document['targets']['started_rounds'], '/targets/started_rounds',
@@ -125,7 +157,8 @@ def encode_dynamic_encounter_result(command, result):
         raise ValueError('wire source differs from executable request')
     validate_dynamic_encounter_result(result)
     document = dict(schema_version='1', kind='dynamic_encounter_search_result', request_id=command.request_id,
-        source_request=json.loads(command.source_json), explored=[candidate_document(c) for c in result.explored],
+        source_request=json.loads(command.source_json), resolved_search_space=asdict(command.request.space),
+        explored=[candidate_document(c) for c in result.explored],
         validations=[candidate_document(c) for c in result.validations],
         selected=[c.summary.source_request.scenario.id for c in result.finalists], total_trials=result.total_trials,
         proposal_attempts=result.proposal_attempts, proposal_limit_reached=result.proposal_limit_reached)

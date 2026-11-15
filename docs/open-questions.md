@@ -1,10 +1,14 @@
 # Открытые вопросы и действующие допущения
 
-Дата: 2026-11-12. Это короткий индекс незакрытых тем; читать подробности только по затронутой механике. Полные формулировки, ссылки на книги и текущие ограничения сохранены в [деталях](open-questions-details.md); закрытые темы — в [истории](open-questions-history.md).
+Дата: 2026-11-15. Это короткий индекс незакрытых тем; читать подробности только по затронутой механике. Полные формулировки, ссылки на книги и текущие ограничения сохранены в [деталях](open-questions-details.md); закрытые темы — в [истории](open-questions-history.md).
 
 ## Динамическая генерация — действующая граница
 
 Первый Python/JSON/CLI-срез создаёт authored Minions из ограниченного набора компонентов без NPC reserve и независимо проверяет финалистов. [ADR-0113](decisions/ADR-0113-dynamic-npc-generation-and-adaptive-search.md) фиксирует supported set, ранжирование и пределы статистических выводов. Authored Drained включается только явным разрешением search space, не заменяет talent prerequisites. JSON/CLI генератора реализован без enemy reserve; следующий приоритет — общие компоненты и prerequisites; полный каталог не является prerequisite.
+
+## Вход партии и решения симулятора
+
+[ADR-0114](decisions/ADR-0114-character-facts-and-automatic-generator-input.md): dynamic party задаёт факты/equipment/Lucky/Fate; internal policies/ledgers создаются application. Explicit fresh-session с полным ресурсом, healthy Close без засады/terrain. Автоматический NPC envelope — ограниченная эвристика вокруг партии, не полный поиск книги. State-based Attack/self Recover и ограниченные Glorious/Near Miss ещё не являются общим тактическим выбором. По [ADR-0115](decisions/ADR-0115-inventory-draft-and-talent-tags.md) UI сохраняет weapon/armour inventory, potions и произвольные talent tags как описание. Dual wield, Heavy Armour, применение зелий/других талантов, магия и середина сессии пока не подключены к исполнению: неподдержанный draft блокирует расчёт до MC, а не теряет эти факты. Следующий шаг — общий выбор действий и реальные resource/action consumers, не именные statblocks.
 
 ## Действующая граница симуляции
 

@@ -413,7 +413,7 @@ class PcMeleeParticipant:
         _identifier(self.actor_id, "PC actor")
         _typed(self.pc, PcMeleeDefinition, "PC definition")
         replace(self.pc)
-        _readmit_fate(self.fate, self.actor_id, allow_lucky=self.pc.weapon is PcMeleeWeapon.HOCHLAND_LONG_RIFLE)
+        _readmit_fate(self.fate, self.actor_id)
         if self.close_shooting_protection_skill is not None:
             _typed(self.close_shooting_protection_skill, Skill, "PC Close Shooting Protection skill")
             if self.close_shooting_protection_skill not in (Skill.MELEE, Skill.ATHLETICS):
@@ -754,8 +754,7 @@ def validate_pc_melee_scenario_admission(scenario: PcMeleeScenario) -> None:
     replace(scenario)
 
 
-def _readmit_fate(fate: FateSessionState, actor_id: str, *, allow_lucky: bool = False) -> None:
-    _typed(allow_lucky, bool, "Lucky admission")
+def _readmit_fate(fate: FateSessionState, actor_id: str) -> None:
     _typed(fate, FateSessionState, "PC Fate state")
     _typed(fate.has_lucky, bool, "Lucky fact")
     for name, cls in (("spends", FateSpendRecord), ("refreshes", FateRefreshRecord),
@@ -767,8 +766,6 @@ def _readmit_fate(fate: FateSessionState, actor_id: str, *, allow_lucky: bool = 
     replace(fate)
     if fate.actor_id != actor_id:
         raise ValueError("Fate belongs to another PC")
-    if fate.has_lucky and not allow_lucky:
-        raise ValueError("Lucky is admitted only for Hochland in the current PC scenario")
 
 
 def _readmit_profile_enemy(enemy: NpcParticipantSnapshot) -> None:
