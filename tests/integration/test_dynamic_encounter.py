@@ -2,9 +2,12 @@ from dataclasses import replace
 from pathlib import Path
 from random import Random
 import unittest
+from threading import Event
+from unittest.mock import patch
 
 from towr.adapters.pc_melee_json import parse_pc_melee_simulation_request
 from towr.application.dynamic_encounter import DynamicEncounterRequest, NpcSearchSpace, search_dynamic_encounter
+from towr.application.dynamic_encounter import DynamicEncounterCancelled
 from towr.domain.generated_npc_models import GeneratedAbility, GeneratedNpc, GeneratedWeapon
 from towr.domain.condition_models import Condition
 from towr.domain.minion_defeat_models import NpcDefeatDisposition
@@ -22,6 +25,24 @@ def request(**changes):
 
 
 class DynamicEncounterTests(unittest.TestCase):
+    def test_cancellation_before_execution_returns_no_partial_report(self):
+        with patch('towr.application.dynamic_encounter.Random.randint') as roll:
+            with self.assertRaises(DynamicEncounterCancelled):
+                search_dynamic_encounter(request(),cancel_requested=lambda:True)
+            roll.assert_not_called()
+
+    def test_cancellation_inside_dice_stops_without_more_rolls(self):
+        cancel=Event()
+        def first_roll(*args):cancel.set();return 1
+        with patch('towr.application.dynamic_encounter.Random.randint',side_effect=first_roll) as roll:
+            with self.assertRaises(DynamicEncounterCancelled):
+                search_dynamic_encounter(request(),cancel_requested=cancel.is_set)
+            self.assertEqual(roll.call_count,1)
+
+    def test_non_cancelled_callback_preserves_full_seeded_result(self):
+        source=request()
+        self.assertEqual(search_dynamic_encounter(source),search_dynamic_encounter(source,cancel_requested=lambda:False))
+
     def test_builder_derives_values_and_identity_does_not_select_effects(self):
         npc = GeneratedNpc(4, 1, 3, 2, 5, 4, GeneratedWeapon.DAGGER, True,
             (GeneratedAbility.DRAINED_ON_HIT,))

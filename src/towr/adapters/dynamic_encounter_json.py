@@ -14,6 +14,7 @@ from towr.adapters.ranged_json_errors import RangedInputError, RangedInputErrorC
 from towr.application.dynamic_encounter import (
     DynamicEncounterRequest, DynamicEncounterResult, NpcSearchSpace,
     search_dynamic_encounter, validate_dynamic_encounter_result,
+    DynamicEncounterCancelled,
 )
 from towr.domain.generated_npc_models import GeneratedAbility, GeneratedWeapon
 from towr.domain.minion_defeat_models import NpcDefeatDisposition
@@ -96,9 +97,11 @@ def parse_dynamic_encounter_request(text: str | bytes) -> DynamicEncounterComman
         raise DynamicEncounterInputError(Code.INVALID_INPUT, str(error), path='/', request_id=document['request_id']) from error
 
 
-def execute_dynamic_encounter(command: DynamicEncounterCommand) -> DynamicEncounterResult:
+def execute_dynamic_encounter(command: DynamicEncounterCommand, *, cancel_requested=None) -> DynamicEncounterResult:
     try:
-        return search_dynamic_encounter(command.request)
+        return search_dynamic_encounter(command.request, cancel_requested=cancel_requested)
+    except DynamicEncounterCancelled:
+        raise
     except Exception as error:
         raise DynamicEncounterExecutionError(command.request_id) from error
 

@@ -5,9 +5,10 @@ from threading import Event, Thread
 import unittest
 from unittest.mock import patch
 
-from towr.adapters.local_ui import LocalUiServer
-from towr.adapters.dynamic_encounter_json import DynamicEncounterExecutionError, validate_dynamic_encounter_document
+from towr.adapters.local_ui import LocalUiServer, serve_local_ui
+from towr.adapters.dynamic_encounter_json import DynamicEncounterExecutionError, validate_dynamic_encounter_document, parse_dynamic_encounter_request
 from towr import cli
+from towr.application.dynamic_encounter import DynamicEncounterCancelled
 
 
 class LocalUiTests(unittest.TestCase):
@@ -34,7 +35,12 @@ class LocalUiTests(unittest.TestCase):
             connection.close()
 
     def post(self, body, headers=None):
-        return self.request('POST', '/api/generate', body, headers or {'Content-Type': 'application/json'})
+        return self.request('POST', '/api/generate', body,
+            {'Content-Type': 'application/json','X-TOWR-Run-ID':'test-run', **(headers or {})})
+
+    def cancel(self, token):
+        return self.request('POST','/api/cancel',b'{}',
+            {'Content-Type':'application/json','X-TOWR-Run-ID':token})
 
     def test_page_and_initial_request_are_served_without_mutation(self):
         status, content_type, body = self.request('GET', '/')
@@ -74,7 +80,7 @@ class LocalUiTests(unittest.TestCase):
         entered, release = Event(), Event()
         responses = []
 
-        def blocked(command):
+        def blocked(command, **kwargs):
             entered.set()
             if not release.wait(15):
                 raise RuntimeError('test did not release execution')
@@ -95,10 +101,79 @@ class LocalUiTests(unittest.TestCase):
         validate_dynamic_encounter_document(json.loads(responses[0][2]), 'error')
         self.assertFalse(self.server.generation_lock.locked())
 
+    def test_real_cancel_interrupts_dice_and_releases_worker(self):
+        entered, release = Event(), Event()
+        responses = []
+
+        def first_roll(*args):
+            entered.set()
+            if not release.wait(10):
+                raise RuntimeError('test did not release dice')
+            return 1
+
+        with patch('towr.application.dynamic_encounter.Random.randint',side_effect=first_roll) as roll:
+            worker=Thread(target=lambda: responses.append(self.post(self.raw,{'X-TOWR-Run-ID':'cancel-real'})),daemon=True)
+            worker.start()
+            try:
+                self.assertTrue(entered.wait(10))
+                self.assertEqual(self.cancel('old-run')[0],409)
+                self.assertEqual(self.cancel('cancel-real')[0],202)
+            finally:
+                release.set();worker.join(10)
+            self.assertFalse(worker.is_alive())
+            self.assertEqual(roll.call_count,1)
+        self.assertEqual(responses[0][0],200)
+        self.assertEqual(json.loads(responses[0][2]),{'kind':'dynamic_encounter_cancelled'})
+        self.assertFalse(self.server.generation_lock.locked())
+        self.assertIsNone(self.server.active_generation)
+        # Same source can run again after cancellation; no flag leaks to it.
+        status,_,body=self.post(self.raw,{'X-TOWR-Run-ID':'after-cancel'})
+        self.assertEqual(status,200)
+        validate_dynamic_encounter_document(json.loads(body),'result')
+
+    def test_cancel_before_generation_arrives_skips_execution(self):
+        self.assertEqual(self.cancel('early-run')[0],202)
+        with patch('towr.adapters.local_ui.execute_dynamic_encounter') as execute:
+            status,_,body=self.post(self.raw,{'X-TOWR-Run-ID':'early-run'})
+            self.assertEqual(status,200)
+            self.assertEqual(json.loads(body)['kind'],'dynamic_encounter_cancelled')
+            execute.assert_not_called()
+
+    def test_stale_cancel_cannot_cancel_the_next_run(self):
+        entered,release=Event(),Event();responses=[]
+        def blocked(command, *, cancel_requested):
+            entered.set();release.wait(10)
+            self.assertFalse(cancel_requested())
+            raise DynamicEncounterExecutionError(command.request_id)
+        with patch('towr.adapters.local_ui.execute_dynamic_encounter',side_effect=blocked):
+            worker=Thread(target=lambda:responses.append(self.post(self.raw,{'X-TOWR-Run-ID':'next-run'})),daemon=True);worker.start()
+            try:
+                self.assertTrue(entered.wait(10))
+                self.assertEqual(self.cancel('previous-run')[0],409)
+            finally:
+                release.set();worker.join(10)
+        self.assertEqual(responses[0][0],500)
+
     def test_ui_cli_dispatches_without_requiring_generator_input(self):
         with patch('towr.adapters.local_ui.serve_local_ui', return_value=0) as serve:
             self.assertEqual(cli.main(['ui', '--port', '8877', '--request', 'my-request.json']), 0)
             serve.assert_called_once_with(port=8877, request_path='my-request.json')
+
+    def test_startup_uses_working_ui_defaults_and_preserves_explicit_file(self):
+        for path, count, maximum, rate, rounds, limit, budget in (
+                (None, 24, 10, .5, 5, 15, 800),
+                ('docs/examples/dynamic/search.request.json', 3, 2, .6, 3, 3, 12)):
+            with self.subTest(path=path), patch('towr.adapters.local_ui.LocalUiServer') as server:
+                server.return_value.__enter__.return_value.server_port=8765
+                with patch('builtins.print'):
+                    self.assertEqual(serve_local_ui(request_path=path),0)
+                source=parse_dynamic_encounter_request(server.call_args.args[1]).request
+                self.assertEqual(server.call_args.kwargs['manual'],path is not None)
+                self.assertEqual((source.max_candidates,source.maximum_npcs,source.target_win_rate,
+                    source.target_rounds,source.max_rounds,source.max_total_trials),
+                    (count,maximum,rate,rounds,limit,budget))
+                if path is None:
+                    self.assertEqual((source.minimum_npcs,source.exploration_trials,source.top_k,source.finalist_trials),(1,12,2,256))
 
 
 if __name__ == '__main__':
