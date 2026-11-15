@@ -45,6 +45,36 @@ class LocalUiTests(unittest.TestCase):
     def progress(self, token):
         return self.request('GET','/api/progress',headers={'X-TOWR-Run-ID':token})
 
+    def test_character_file_validation_is_stateless_and_does_not_generate(self):
+        player = json.loads(self.raw)['party'][0]
+        npc = dict(weapon_skill=3, strength=3, toughness=3, agility=3, melee=4,
+            athletics=3, weapon='staff', light_armour=False, abilities=[])
+        with patch('towr.adapters.local_ui.execute_dynamic_encounter') as execute:
+            for kind, document in [('player', player), ('npc', npc)]:
+                status, _, body = self.request('POST', '/api/character',
+                    json.dumps(dict(kind=kind, document=json.dumps(document))).encode(),
+                    {'Content-Type': 'application/json'})
+                self.assertEqual(status, 200)
+                self.assertEqual(json.loads(body), dict(kind=kind, character=document))
+            execute.assert_not_called()
+        self.assertIsNone(self.server.active_generation)
+        self.assertEqual(self.request('GET', '/api/request')[2], self.raw)
+
+    def test_character_file_boundary_rejects_wrong_origin_envelope_and_invalid_profile(self):
+        player = json.loads(self.raw)['party'][0]
+        raw = json.dumps(dict(kind='player', document=json.dumps(player))).encode()
+        self.assertEqual(self.request('POST', '/api/character', raw,
+            {'Content-Type': 'application/json', 'Origin': 'https://example.com'})[0], 403)
+        self.assertEqual(self.request('POST', '/api/character', raw,
+            {'Content-Type': 'text/plain'})[0], 415)
+        for payload in (b'[]', b'{}', b'{', b'{"kind":"npc","document":"{}"}',
+                b'{"kind":"unknown","document":"{}"}', b'{"kind":"player","document":{}}'):
+            with self.subTest(payload=payload):
+                status, _, body = self.request('POST', '/api/character', payload,
+                    {'Content-Type': 'application/json'})
+                self.assertEqual(status, 400)
+                self.assertIn('message', json.loads(body)['error'])
+
     def test_live_progress_reports_completed_trial_without_exposing_log(self):
         entered, release = Event(), Event()
         responses, observed = [], []

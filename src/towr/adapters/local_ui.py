@@ -6,6 +6,7 @@ from dataclasses import asdict, dataclass, field
 from threading import Event, Lock
 
 from towr.adapters._local_ui_page import PAGE
+from towr.adapters.character_files import parse_character_file
 from towr.adapters.dynamic_encounter_json import (
     DynamicEncounterInputError, DynamicEncounterExecutionError,
     parse_dynamic_encounter_request, execute_dynamic_encounter,
@@ -109,7 +110,7 @@ class LocalUiHandler(BaseHTTPRequestHandler):
         if not self._local_request():
             self._error(403, 'Local requests only')
             return
-        if self.path not in ('/api/generate', '/api/cancel'):
+        if self.path not in ('/api/generate', '/api/cancel', '/api/character'):
             self._error(404, 'Not found')
             return
         if self.headers.get_content_type() != 'application/json':
@@ -122,6 +123,29 @@ class LocalUiHandler(BaseHTTPRequestHandler):
             return
         if not 0 <= length <= 2*1024*1024:
             self._error(413, 'Request exceeds 2 MiB')
+            return
+        if self.path == '/api/character':
+            self.connection.settimeout(30)
+            try:
+                raw = self.rfile.read(length)
+                if len(raw) != length:
+                    self._error(400, 'Incomplete request')
+                    return
+                envelope = json.loads(raw)
+                if (not isinstance(envelope, dict) or set(envelope) != {'kind', 'document'}
+                        or envelope['kind'] not in ('player', 'npc')
+                        or not isinstance(envelope['document'], str)):
+                    self._error(400, 'Expected character kind and JSON document text')
+                    return
+                character = parse_character_file(envelope['document'], envelope['kind'])
+                self._respond(200, json.dumps({'kind': envelope['kind'], 'character': character},
+                    ensure_ascii=False, allow_nan=False))
+            except DynamicEncounterInputError as error:
+                self._error(400, f'{error.path or "/"}: {error}')
+            except (ValueError, UnicodeError, RecursionError):
+                self._error(400, 'Некорректный JSON персонажа.')
+            except (TimeoutError, ConnectionError):
+                self._error(408, 'Request interrupted')
             return
         token = self.headers.get('X-TOWR-Run-ID', '')
         if not token.strip() or len(token) > 128:

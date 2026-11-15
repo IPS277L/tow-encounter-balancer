@@ -112,12 +112,12 @@ function renderRequestVisual(data){
   }
   renderInventory(person,member,index);
   renderTalentTags(person,member,index);
-  const remove=actionButton('remove','Удалить игрока '+member.actor_id,true);remove.dataset.action='remove-player';remove.disabled=busy||(data.party||[]).length<=1;remove.onclick=()=>editRequest(['party'],read().party.filter((_,i)=>i!==index));person.querySelector('h3').classList.add('character-heading');person.querySelector('h3').append(remove);root.append(person);
+  const remove=actionButton('remove','Удалить игрока '+member.actor_id,true);remove.dataset.action='remove-player';remove.disabled=busy||(data.party||[]).length<=1;remove.onclick=()=>editRequest(['party'],read().party.filter((_,i)=>i!==index));const actions=playerFileControls(index);actions.append(remove);person.querySelector('h3').classList.add('character-heading');person.querySelector('h3').append(actions);root.append(person);
  }
  const add=actionButton('add','Добавить игрока');add.dataset.action='add-player';add.disabled=busy;add.onclick=()=>{
   const data=read(),members=data.party||[];let id='pc:'+(members.length+1),suffix=members.length+1;while(members.some(m=>m.actor_id===id))id='pc:'+(++suffix);
   const member=JSON.parse(JSON.stringify(members[0]||{characteristics:{weapon_skill:3,strength:3,toughness:3,agility:3},skills:{melee:4,defence:4,athletics:4,endurance:4},equipment:{weapons:[{id:'weapon:1',weapon:'staff',location:'right_hand'}],armour:[]},consumables:[],talents:[],resources:{fate:2}}));member.actor_id=id;editRequest(['party'],[...members,member]);
- };root.append(add);
+ };const playerActions=node('div',undefined,'player-actions');playerActions.append(add,addPlayerFileControls());root.append(playerActions);
  const scene=card('Сцена'),sceneGrid=node('div',undefined,'visual-fields');
  for(const [key,title,choices] of [['range','Начальная дистанция',{close:'Ближняя дистанция (Close Range)'}],['ambush','Засада (Ambush)',{none:'Нет — засады пока не поддержаны'}],['terrain','Местность (Terrain)',{open:'Открытая, без модификаторов'}]])inputField(sceneGrid,title,['scene',key],data.scene?.[key],choices);
  scene.append(sceneGrid);scene.append(node('p','Начало новой сессии: персонажи здоровы, Судьба (Fate) и талант Удачливый (Lucky) доступны полностью. Решения и расход ресурсов рассчитываются в каждом бою.','visual-note'));root.append(scene);
@@ -164,6 +164,7 @@ function updateFileActions(){
  byId('format-result').classList.toggle('hidden',resultView!=='json');byId('format-result').disabled=busy||!lastResult;
  byId('load-result').disabled=busy;byId('result-file').disabled=busy;
  byId('download').disabled=busy||!lastResult;
+ for(const control of document.querySelectorAll('[data-character-control]'))control.disabled=busy;
 }
 function updateResultHeadingVisibility(){
  const slot=byId('result-card-heading'),invisible=resultView!=='visual';slot.classList.toggle('hidden',!slot.hasChildNodes());slot.classList.toggle('heading-spacer',invisible);slot.setAttribute('aria-hidden',String(invisible));slot.inert=invisible;
@@ -193,16 +194,18 @@ function renderResultVisual(result,root=byId('result-visual')){
  const percent=n=>Number.isFinite(n)?(n*100).toFixed(1)+'%':'—';
  const selected=new Set(result.selected||[]);
  function candidateView(candidate,number){
-  const id=candidate.replay?.scenario?.id,box=node('section',undefined,'result-card');box.dataset.candidateId=id;
+  const id=candidate.replay?.scenario?.id,box=node('section',undefined,'result-card'),npcs=draftNpcs(candidate,result),dirty=npcs!==candidate.npcs;box.dataset.candidateId=id;
   const heading=node('div',undefined,'result-heading'),actions=node('div',undefined,'file-actions');actions.setAttribute('role','group');actions.setAttribute('aria-label','Действия с составом '+number);heading.append(node('h3','Состав '+number),actions);box.append(heading);
-  const replay=resultIconButton('download-replay','Скачать бой','M12 4v12m-5-5 5 5 5-5M4 15v5h16v-5');replay.onclick=()=>download(pretty(candidate.replay),'encounter-replay.json');actions.append(replay);
-  const statistics=card('Статистика');statistics.classList.add('result-statistics');
-  if(selected.has(id))statistics.append(node('span','Рекомендован после проверки','badge'));
+  if(dirty){const reset=resultIconButton('reset-npc-draft','Сбросить черновик состава','M3 11a9 9 0 1 1 2 7M3 4v7h7');reset.dataset.characterControl='';reset.disabled=busy;reset.onclick=()=>resetNpcDraft(candidate);actions.append(reset);}
+  const replay=resultIconButton('download-replay','Скачать бой','M12 4v12m-5-5 5 5 5-5M4 15v5h16v-5');replay.disabled=dirty;if(dirty)replay.title='Бой черновика пока не пересчитывается; сбросьте изменения для скачивания исходного боя.';replay.onclick=()=>{if(!dirty)download(pretty(candidate.replay),'encounter-replay.json');};actions.append(replay);
+  const statistics=card(dirty?'Статистика исходного состава':'Статистика');statistics.classList.add('result-statistics');
+  if(dirty)statistics.append(node('span','Черновик · оценки неактуальны','badge draft-badge'));
+  else if(selected.has(id))statistics.append(node('span','Рекомендован после проверки','badge'));
   const metrics=node('div',undefined,'result-metrics');for(const [title,value] of [['Победы игроков',percent(candidate.win_rate)],['Средние раунды',Number(candidate.mean_started_rounds).toFixed(2)],['Симуляций',candidate.trials]]){const item=node('div',title);item.append(node('strong',value));metrics.append(item);}statistics.append(metrics);
   if(candidate.win_interval_95)statistics.append(node('p','Интервал оценки побед (95%): '+candidate.win_interval_95.map(percent).join(' — '),'visual-note'));
   const outcomes=candidate.outcomes||{};statistics.append(node('p','Победы: '+outcomes.objective_achieved+' · Поражения: '+outcomes.party_defeated+' · Лимит раундов: '+outcomes.round_limit+' · Неподдержанные ситуации: '+outcomes.unsupported_path,'visual-note'));box.append(statistics);
-  for(const [index,npc] of (candidate.npcs||[]).entries()){
-   const creature=card('Противник '+(index+1));creature.classList.add('npc-card');const tables=node('div',undefined,'npc-stat-tables');tables.append(npcStatTable('Характеристики (Characteristics)',Object.keys(characteristicTerms),npc),npcStatTable('Навыки (Skills)',Object.keys(skillTerms),npc));creature.append(tables);
+  for(const [index,npc] of (npcs||[]).entries()){
+   const creature=card('Противник '+(index+1));creature.classList.add('npc-card');creature.querySelector('h3').classList.add('npc-heading');creature.querySelector('h3').append(npcFileControls(candidate,index,result));const tables=node('div',undefined,'npc-stat-tables');tables.append(npcStatTable('Характеристики (Characteristics)',Object.keys(characteristicTerms),npc),npcStatTable('Навыки (Skills)',Object.keys(skillTerms),npc));creature.append(tables);
    const loadout=node('dl',undefined,'npc-loadout'),weapon=weaponNames[npc.weapon]||npc.weapon;
    const weaponHint=npc.weapon==='dagger'?'Одноручное, Close Range; Damage = Strength − 1. +1d к Stealth для сокрытия.':npc.weapon==='staff'?'Одноручное, Close Range; Damage = Strength. +1d к Athletics при пересечении Difficult Terrain.':weapon;
    const groups=[['Оружие (Weapons)',[[weapon,weaponHint]],'Оружие не задано'],['Броня (Armour)',npc.light_armour?[[armourNames.light_armour,'Resilience = Toughness + 1.']]:[],'Броня не надета'],['Расходники (Consumables)',[],'Генератор пока не выдаёт расходники'],['Таланты (Talents)',[],'Генератор пока не выдаёт таланты']];

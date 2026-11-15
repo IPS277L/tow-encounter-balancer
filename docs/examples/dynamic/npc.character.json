@@ -1,0 +1,11 @@
+{
+  "weapon_skill": 3,
+  "strength": 3,
+  "toughness": 3,
+  "agility": 3,
+  "melee": 4,
+  "athletics": 3,
+  "weapon": "staff",
+  "light_armour": false,
+  "abilities": []
+}

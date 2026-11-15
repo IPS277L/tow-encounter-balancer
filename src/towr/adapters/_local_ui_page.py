@@ -4,6 +4,7 @@ from towr.adapters._local_ui_planning import PLANNING_SCRIPT
 from towr.adapters._local_ui_progress import PROGRESS_MARKUP, PROGRESS_SCRIPT, PROGRESS_STYLE
 from towr.adapters._local_ui_theme import THEME_INIT, THEME_SCRIPT, THEME_STYLE
 from towr.adapters._local_ui_tooltip import TOOLTIP_SCRIPT, TOOLTIP_STYLE
+from towr.adapters._local_ui_character_files import CHARACTER_FILES_SCRIPT, CHARACTER_FILES_STYLE
 
 def _file_actions(result=False):
     download_path = 'M12 4v12m-5-5 5 5 5-5M4 15v5h16v-5'
@@ -123,7 +124,7 @@ __PROGRESS_MARKUP__
 <fieldset id="visual-request-controls"><div id="request-visual" class="visual-view"></div></fieldset>
 <textarea id="request" class="hidden" spellcheck="false" aria-label="JSON запроса"></textarea></div></section>
 <section class="panel"><div class="view-heading"><h2>Результат</h2><div class="panel-controls">__RESULT_FILE_ACTIONS__<div class="view-switch" role="group" aria-label="Вид результата"><button id="result-visual-tab" type="button" aria-pressed="true">Карточки</button><button id="result-json-tab" type="button" aria-pressed="false">JSON</button></div></div></div>
-<div class="panel-intro"><p id="result-stale" class="stale-notice hidden" role="status">Результат устарел: запрос изменён. Для пересчёта нажмите «Запустить генератор».</p><div id="result-card-heading" class="hidden"></div></div>
+<div class="panel-intro"><p id="result-stale" class="stale-notice hidden" role="status">Результат устарел: запрос изменён. Для пересчёта нажмите «Запустить генератор».</p><p id="result-draft-notice" class="stale-notice hidden" role="status">В карточках открыт черновик состава. Статистика и JSON отчёта относятся к исходным противникам. Новый запуск генератора начнёт поиск заново, а не пересчёт этого черновика.</p><div id="result-card-heading" class="hidden"></div></div>
 <div class="panel-body">
 <div id="result-visual" class="visual-view"></div>
 <pre id="result" class="hidden" tabindex="0" aria-label="JSON результата">Результат появится после расчёта.</pre></div></section>
@@ -178,7 +179,7 @@ async function run(){
  if(busy)return;
  if(visualEditError){message('Исправьте поле: '+visualEditError,'error');return;}
  try{syncForm();}catch(error){message(error.message,'error');return;}
- fileLoadVersion++;resultFileLoadVersion++;activeRunId=crypto.randomUUID();cancelling=false;setBusy(true);lastResult=null;byId('download').disabled=true;byId('result').textContent='Выполняется расчёт…';
+ fileLoadVersion++;resultFileLoadVersion++;resetCharacterFiles();activeRunId=crypto.randomUUID();cancelling=false;setBusy(true);lastResult=null;byId('download').disabled=true;byId('result').textContent='Выполняется расчёт…';
  byId('result-stale').classList.add('hidden');byId('result-visual').replaceChildren(document.createTextNode('Выполняется расчёт…'));
  syncResultCardHeading();
  message('');
@@ -212,10 +213,10 @@ byId('result-file').onchange=async event=>{
    if(!candidate||!Array.isArray(candidate.npcs)||!candidate.npcs.every(npc=>npc&&typeof npc==='object'&&!Array.isArray(npc))||typeof candidate.replay?.scenario?.id!=='string'||!Number.isFinite(candidate.win_rate)||candidate.win_rate<0||candidate.win_rate>1||!Number.isFinite(candidate.mean_started_rounds)||!Number.isSafeInteger(candidate.trials)||candidate.trials<0||!candidate.outcomes||['objective_achieved','party_defeated','round_limit','unsupported_path'].some(key=>!Number.isSafeInteger(candidate.outcomes[key])||candidate.outcomes[key]<0))throw Error('Некорректные данные состава в JSON результата.');
   }
   const preview=document.createElement('div');renderResultVisual(data,preview);
-  lastResult=data;byId('result').textContent=raw;byId('result-visual').replaceChildren(...preview.childNodes);syncResultCardHeading();byId('generation-progress').classList.add('hidden');markResultStale();updateFileActions();message('');
+  resetCharacterFiles();lastResult=data;byId('result').textContent=raw;byId('result-visual').replaceChildren(...preview.childNodes);syncResultCardHeading();byId('generation-progress').classList.add('hidden');markResultStale();updateFileActions();message('');
  }catch(error){message(error.message,'error');}finally{event.target.value='';}
 };
-byId('file').onchange=async event=>{const file=event.target.files[0];if(!file)return;const version=++fileLoadVersion;try{const raw=(await file.text()).replace(/^\uFEFF/,'');if(version!==fileLoadVersion||busy)return;const data=JSON.parse(raw);if(!data||typeof data!=='object'||Array.isArray(data))throw Error('Запрос должен быть JSON-объектом.');byId('auto-search').checked=false;byId('request').value=raw;syncForm();message('Загружен '+file.name+'.');}catch(error){message(error.message,'error');}finally{event.target.value='';}};
+byId('file').onchange=async event=>{const file=event.target.files[0];if(!file)return;const version=++fileLoadVersion;try{const raw=(await file.text()).replace(/^\uFEFF/,'');if(version!==fileLoadVersion||busy)return;const data=JSON.parse(raw);if(!data||typeof data!=='object'||Array.isArray(data))throw Error('Запрос должен быть JSON-объектом.');invalidateCharacterImports();byId('auto-search').checked=false;byId('request').value=raw;syncForm();message('Загружен '+file.name+'.');}catch(error){message(error.message,'error');}finally{event.target.value='';}};
 async function cancelGeneration(){
  if(!busy||!activeRunId||cancelling)return;
  const runId=activeRunId;cancelling=true;byId('cancel').disabled=true;byId('cancel').textContent='Отмена…';message('Отмена генерации…');
@@ -234,5 +235,5 @@ fetch('/api/request').then(response=>{if(!response.ok)throw Error('Не удал
 
 PAGE = PAGE.replace('__REQUEST_FILE_ACTIONS__', _file_actions()).replace('__RESULT_FILE_ACTIONS__', _file_actions(True))
 PAGE = PAGE.replace('__PROGRESS_MARKUP__', PROGRESS_MARKUP)
-PAGE = PAGE.replace('</style>', VISUAL_STYLE + PROGRESS_STYLE + TOOLTIP_STYLE + '\n</style>').replace('</script>', PLANNING_SCRIPT + '\n' + TOOLTIP_SCRIPT + '\n' + VISUAL_SCRIPT + '\n' + PROGRESS_SCRIPT + '\n' + THEME_SCRIPT + '\n</script>')
+PAGE = PAGE.replace('</style>', VISUAL_STYLE + PROGRESS_STYLE + TOOLTIP_STYLE + CHARACTER_FILES_STYLE + '\n</style>').replace('</script>', PLANNING_SCRIPT + '\n' + TOOLTIP_SCRIPT + '\n' + CHARACTER_FILES_SCRIPT + '\n' + VISUAL_SCRIPT + '\n' + PROGRESS_SCRIPT + '\n' + THEME_SCRIPT + '\n</script>')
 PAGE = PAGE.replace('<style>', THEME_INIT + '\n<style>\n' + THEME_STYLE, 1)

@@ -1,0 +1,24 @@
+{
+  "actor_id": "pc:example",
+  "characteristics": {
+    "weapon_skill": 3,
+    "strength": 3,
+    "toughness": 3,
+    "agility": 3
+  },
+  "skills": {
+    "melee": 5,
+    "defence": 5,
+    "athletics": 4,
+    "endurance": 4
+  },
+  "equipment": {
+    "weapons": [
+      {"id": "weapon:1", "weapon": "sword", "location": "left_hand"}
+    ],
+    "armour": []
+  },
+  "consumables": [],
+  "talents": ["lucky"],
+  "resources": {"fate": 3}
+}
