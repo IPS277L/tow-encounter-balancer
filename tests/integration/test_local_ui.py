@@ -6,9 +6,9 @@ import unittest
 from unittest.mock import patch
 
 from towr.adapters.local_ui import LocalUiServer, serve_local_ui
-from towr.adapters.dynamic_encounter_json import DynamicEncounterExecutionError, validate_dynamic_encounter_document, parse_dynamic_encounter_request
+from towr.adapters.dynamic_encounter_json import DynamicEncounterExecutionError, validate_dynamic_encounter_document, parse_dynamic_encounter_request, execute_dynamic_encounter
 from towr import cli
-from towr.application.dynamic_encounter import DynamicEncounterCancelled
+from towr.application.dynamic_encounter import DynamicEncounterCancelled, DynamicEncounterProgress, DynamicProgressPhase
 
 
 class LocalUiTests(unittest.TestCase):
@@ -41,6 +41,85 @@ class LocalUiTests(unittest.TestCase):
     def cancel(self, token):
         return self.request('POST','/api/cancel',b'{}',
             {'Content-Type':'application/json','X-TOWR-Run-ID':token})
+
+    def progress(self, token):
+        return self.request('GET','/api/progress',headers={'X-TOWR-Run-ID':token})
+
+    def test_live_progress_reports_completed_trial_without_exposing_log(self):
+        entered, release = Event(), Event()
+        responses, observed = [], []
+
+        def tracked(command, *, cancel_requested, on_progress):
+            def forward(progress):
+                on_progress(progress)
+                if progress.phase is DynamicProgressPhase.SIMULATING and progress.completed_trials == 1 and not entered.is_set():
+                    observed.append(progress)
+                    entered.set()
+                    if not release.wait(15):
+                        raise RuntimeError('test did not release progress')
+            return execute_dynamic_encounter(command, cancel_requested=cancel_requested, on_progress=forward)
+
+        with patch('towr.adapters.local_ui.execute_dynamic_encounter',side_effect=tracked):
+            worker=Thread(target=lambda: responses.append(self.post(self.raw,{'X-TOWR-Run-ID':'progress-live'})),daemon=True)
+            worker.start()
+            try:
+                self.assertTrue(entered.wait(10))
+                status, _, body = self.progress('progress-live')
+                self.assertEqual(status, 200)
+                snapshot=json.loads(body)
+                self.assertEqual(snapshot['state'], 'running')
+                self.assertGreater(snapshot['sequence'], 0)
+                self.assertEqual(snapshot['current']['completed_trials'], 1)
+                self.assertEqual(snapshot['current']['total_completed_trials'], 1)
+                self.assertEqual(snapshot['current']['wins'], observed[0].wins)
+                self.assertEqual(snapshot['current']['win_rate'], observed[0].win_rate)
+                self.assertIsNone(snapshot['last_candidate'])
+                self.assertNotIn('source_request', snapshot)
+                self.assertLess(len(body), 2500)
+                self.assertEqual(self.progress('foreign-run')[0], 409)
+                self.assertEqual(self.request('GET','/api/progress')[0], 400)
+                self.assertEqual(self.request('GET','/api/progress',headers={'X-TOWR-Run-ID':'progress-live','Origin':'http://example.com'})[0], 403)
+            finally:
+                release.set()
+                worker.join(25)
+        self.assertFalse(worker.is_alive())
+        self.assertEqual(responses[0][0], 200, responses)
+        validate_dynamic_encounter_document(json.loads(responses[0][2]), 'result')
+        self.assertEqual(json.loads(self.progress('progress-live')[2])['state'], 'waiting')
+        self.assertIsNone(self.server.active_generation)
+
+    def test_progress_retains_last_assessment_and_respects_cancellation(self):
+        entered, release = Event(), Event()
+        responses=[]
+        completed=DynamicEncounterProgress(DynamicProgressPhase.CANDIDATE_COMPLETE,'explore',1,3,2,2,2,2,12,1,0)
+        next_candidate=DynamicEncounterProgress(DynamicProgressPhase.GENERATING,'explore',2,3,0,0,0,2,12,0,0)
+
+        def tracked(command, *, cancel_requested, on_progress):
+            on_progress(completed)
+            on_progress(next_candidate)
+            entered.set()
+            if not release.wait(10):
+                raise RuntimeError('test did not release progress')
+            if cancel_requested():
+                raise DynamicEncounterCancelled()
+            raise RuntimeError('test expected cancellation')
+
+        with patch('towr.adapters.local_ui.execute_dynamic_encounter',side_effect=tracked):
+            worker=Thread(target=lambda: responses.append(self.post(self.raw,{'X-TOWR-Run-ID':'progress-cancel'})),daemon=True)
+            worker.start()
+            try:
+                self.assertTrue(entered.wait(10))
+                snapshot=json.loads(self.progress('progress-cancel')[2])
+                self.assertEqual(snapshot['sequence'], 2)
+                self.assertEqual(snapshot['current']['candidate_number'], 2)
+                self.assertEqual(snapshot['last_candidate']['win_rate'], .5)
+                self.assertEqual(self.cancel('progress-cancel')[0], 202)
+                self.assertEqual(json.loads(self.progress('progress-cancel')[2])['state'], 'cancelling')
+            finally:
+                release.set()
+                worker.join(15)
+        self.assertEqual(json.loads(responses[0][2])['kind'], 'dynamic_encounter_cancelled')
+        self.assertIsNone(json.loads(self.progress('progress-cancel')[2])['current'])
 
     def test_page_and_initial_request_are_served_without_mutation(self):
         status, content_type, body = self.request('GET', '/')
@@ -141,7 +220,7 @@ class LocalUiTests(unittest.TestCase):
 
     def test_stale_cancel_cannot_cancel_the_next_run(self):
         entered,release=Event(),Event();responses=[]
-        def blocked(command, *, cancel_requested):
+        def blocked(command, *, cancel_requested, on_progress):
             entered.set();release.wait(10)
             self.assertFalse(cancel_requested())
             raise DynamicEncounterExecutionError(command.request_id)

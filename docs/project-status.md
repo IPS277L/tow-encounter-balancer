@@ -14,7 +14,22 @@
 
 Граница NPC: stationary all-Close melee PCs против Minions, Athletics NPC Protection, без NPC-щита/других NPC weapon Traits/книжных NPC-талантов. PC equipment/Lucky описаны ниже. Authored Drained требует явного допуска, не является автоматически выданным талантом. Сохраняются Wounds/Fate/Recover и unsupported базового simulator. Duration = started rounds, включая censored prefix; ранжирование по близости к win target, затем duration. Это ограниченный поиск, не доказательство оптимума и не полный генератор книги. Старый каталог не переносился массово; kernel/backend не менялись.
 
-## Текущий срез: инвентарь и теги талантов
+## Текущий срез: живой прогресс генерации
+
+Во время Run отдельный компактный блок показывает создание состава, preliminary simulation, завершённые trials/победы и независимую проверку финалистов. Current+last assessment без полного лога; обновление через GET /api/progress примерно раз в секунду. App frozen progress получает реальные completed trial callbacks; source/seed/results прежние, observer не расходует RNG. [ADR-0116](decisions/ADR-0116-dynamic-generation-live-progress.md), [пользовательское описание](examples/dynamic/README.md#прогресс-генерации).
+
+Отмена/завершение прекращают polling; token/sequence guards отсекают late responses. Сбой GET не прерывает generation POST. После success предварительная оценка заменяется actual selected validation из финального отчёта; если рекомендаций нет, процент не показывается. Cancel/error очищают per-candidate estimates. При конечном малом пространстве фактический объём может быть меньше budget: результат/счётчики не дорисовывают неисполненные trials. Новый public wire format/версии/dependencies не вводились.
+
+Убрана обычная строка статуса под кнопкой Run/Cancel и её секундный таймер; ход генерации остаётся в отдельном блоке. Ошибки ввода и запроса по-прежнему видны. После правки `tests.integration.test_local_ui_browser -q` —1OK,5.974s вне sandbox.
+
+Последняя проверка, `PYTHONPATH=src`, `.venv/Scripts/python.exe -m unittest`:
+
+- `tests.unit.test_dynamic_encounter_progress tests.integration.test_dynamic_encounter tests.integration.test_dynamic_encounter_json tests.integration.test_local_ui tests.unit.test_m9_pc_melee_simulation -q` —57OK,23.030s.
+- `tests.integration.test_local_ui_browser -q` —1OK,4.580s вне sandbox: реальные UI paths + контролируемые live snapshots, cancel/restart/late/error и final-assessment fallback.
+
+Итого58различных адресных тестов, включая8новых unit и2HTTP progress cases. Предварительный browser прогон прошёл; после read-only review исправлена stale partial assessment при завершении между polls, browser повторён выше. Это не full regression; wheel не собирался. Новые Python-модули поставляются прежним package discovery, entry points/ресурсный механизм не менялись.
+
+## Предыдущий срез: инвентарь и теги талантов
 
 Equipment теперь состоит из weapons/armour списков с отдельными instance IDs и начальным положением: руки, обе руки, надето или carried. Можно описать два одинаковых меча в руках и глефу за спиной; body armour, обычный шлем и щит задаются независимо. Consumables — отдельная группа с типом/количеством и Characteristic для Enhancement Potion. Таланты редактируются add/remove tags, Lucky остаётся исполнимым. Карточки/JSON/файловые действия сохраняют введённые данные. [Текущий контракт и границы](decisions/ADR-0115-inventory-draft-and-talent-tags.md), [пример входа](examples/dynamic/README.md#данные-персонажей).
 

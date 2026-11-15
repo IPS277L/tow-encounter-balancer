@@ -23,6 +23,7 @@ CHECK = r'''<script>
  try{
   while(!byId('request').value)await new Promise(resolve=>setTimeout(resolve,50));
   const original=read();check(original.kind==='dynamic_encounter_search','initial request');
+  check(getComputedStyle(byId('status')).display==='none' && !byId('status').textContent,'no routine status below launch button');
   const layout=()=>[document.documentElement.clientWidth,...[document.querySelector('main'),...document.querySelectorAll('.columns>.panel')].flatMap(element=>{const rect=element.getBoundingClientRect();return [rect.left,rect.width];})];
   const originalLayout=JSON.stringify(layout());byId('request-json-tab').click();byId('result-json-tab').click();check(JSON.stringify(layout())===originalLayout,'JSON view preserves main and panel horizontal positions');byId('request-visual-tab').click();byId('result-visual-tab').click();check(JSON.stringify(layout())===originalLayout,'card view preserves viewport gutter and panel widths');
   // Evaluate the actual hover declarations through an equivalent forced-state
@@ -184,6 +185,7 @@ CHECK = r'''<script>
   check(result.total_trials===3 && result.explored.length===2,'real generation');
   check(result.source_request.search.master_seed==='9007199254740993','full source echo');
   check(!byId('download').disabled && !byId('request').readOnly,'completed state');
+  check(byId('progress-phase').textContent.includes('Готово') && Number(byId('progress-bar').value)===result.total_trials && progressRunId===null,'completed generation closes polling and shows actual total');
   check(hoverChanges(byId('download')),'enabled download has hover feedback');
   const exportNames=[],anchorClick=HTMLAnchorElement.prototype.click,sourceBeforeExport=canonical(read());
   try{HTMLAnchorElement.prototype.click=function(){exportNames.push(this.download);};byId('save').click();byId('save').click();byId('download').click();[...document.querySelectorAll('#result-visual .result-card button')].find(button=>button.textContent==='Скачать бой').click();}finally{HTMLAnchorElement.prototype.click=anchorClick;}
@@ -205,23 +207,47 @@ CHECK = r'''<script>
   await run();check(generated===2 && byId('result-stale').classList.contains('hidden'),'explicit rerun clears stale notice');
   const repeated=canonical(JSON.parse(byId('result').textContent));await run();
   check(generated===3 && canonical(JSON.parse(byId('result').textContent))===repeated,'same seed and request reproduce result without reseeding');
-  const liveFetch=window.fetch;let completeGeneration,token;
+  const liveFetch=window.fetch;let completeGeneration,token,progressReply,failProgress=false;
   window.fetch=(url,options)=>{
    if(url==='/api/generate'){token=options.headers['X-TOWR-Run-ID'];return new Promise(resolve=>{completeGeneration=resolve;});}
    if(url==='/api/cancel'){check(options.headers['X-TOWR-Run-ID']===token,'cancel is bound to active run');return Promise.resolve(new Response('{"cancel_requested":true}',{status:202}));}
+   if(url==='/api/progress'){check(options.headers['X-TOWR-Run-ID']===token,'progress is bound to active run');return failProgress?Promise.reject(Error('temporary status outage')):Promise.resolve(new Response(JSON.stringify(progressReply),{status:200}));}
    return liveFetch(url,options);
   };
-  const cancelledRun=run();check(!byId('cancel').disabled && busy,'cancel enabled while running');await cancelGeneration();
+  const cancelledRun=run();check(!byId('cancel').disabled && busy && !byId('generation-progress').classList.contains('hidden'),'cancel and progress enabled while running');
+  const baseProgress={stage:'explore',candidate_number:1,candidate_count:2,npc_count:2,completed_trials:0,trial_count:0,total_completed_trials:0,trial_budget:3,wins:0,unsupported_trials:0};
+  const nextProgress=async()=>{clearTimeout(progressTimer);progressTimer=null;await pollGenerationProgress(token);};
+  progressReply={kind:'dynamic_encounter_progress',run_id:token,state:'running',sequence:1,current:{...baseProgress,phase:'generating'},last_candidate:null};await nextProgress();
+  check(byId('progress-phase').textContent.includes('Создаём состав 1 из 2'),'generation phase is shown');
+  progressReply={...progressReply,sequence:2,current:{...baseProgress,phase:'simulating',completed_trials:1,trial_count:1,total_completed_trials:1,wins:1}};await nextProgress();
+  check(byId('progress-observation').textContent.includes('1/1') && byId('progress-observation').textContent.includes('100,0%') && byId('progress-observation').textContent.includes('предварительно') && Number(byId('progress-bar').value)===1,'completed trials and provisional win percentage are displayed');
+  failProgress=true;await nextProgress();check(busy && Number(byId('progress-bar').value)===1,'missed progress request does not interrupt generation');failProgress=false;
+  const completedCandidate={...progressReply.current,phase:'candidate_complete'};
+  progressReply={...progressReply,sequence:3,current:{...baseProgress,phase:'generating',candidate_number:2,total_completed_trials:1},last_candidate:completedCandidate};await nextProgress();
+  check(!byId('progress-last').classList.contains('hidden') && byId('progress-last').textContent.includes('100,0%'),'previous assessment survives next composition generation');
+  progressReply={...progressReply,sequence:4,current:{...baseProgress,phase:'simulating',stage:'validate',candidate_number:1,candidate_count:1,trial_count:1,total_completed_trials:2}};await nextProgress();
+  check(byId('progress-phase').textContent.includes('Независимая проверка') && byId('progress-observation').textContent.includes('0/1'),'independent validation resets per-candidate observations');
+  const currentPhase=byId('progress-phase').textContent;renderGenerationProgress({...progressReply,sequence:2,current:{...baseProgress,phase:'generating'}});renderGenerationProgress({...progressReply,sequence:99,run_id:'stale-run'});check(byId('progress-phase').textContent===currentPhase,'stale sequence and foreign run cannot overwrite current progress');
+  await cancelGeneration();
   check(cancelling && byId('cancel').disabled,'waiting for server cancellation');
   completeGeneration(new Response('{"kind":"dynamic_encounter_cancelled"}',{status:200}));await cancelledRun;
   check(!busy && !byId('run').disabled && byId('cancel').disabled && byId('download').disabled && !byId('run').classList.contains('hidden') && byId('cancel').classList.contains('hidden'),'cancel unlocks UI and restores launch without partial result');
   check(byId('result').textContent.includes('отменена'),'cancellation shown in both views');
+  check(progressRunId===null && byId('progress-phase').textContent.includes('отменена'),'cancelled generation closes progress polling');renderGenerationProgress(progressReply);check(byId('progress-phase').textContent.includes('отменена'),'late progress cannot replace terminal cancellation');
+  check(byId('progress-observation').textContent==='' && byId('progress-last').classList.contains('hidden'),'cancel clears provisional per-candidate observations');
+  // Completion can arrive between polls: replace an old exploration prefix
+  // with the actual validation assessment rather than leaving stale odds.
+  busy=true;activeRunId='finish-between-polls';startGenerationProgress(activeRunId);renderGenerationProgress({...progressReply,run_id:activeRunId,sequence:1,current:{...baseProgress,phase:'simulating',completed_trials:1,trial_count:12,total_completed_trials:1,wins:1}});
+  finishGenerationProgress(activeRunId,'complete',result);busy=false;activeRunId=null;
+  check(!byId('progress-observation').textContent.includes('предварительно') && !byId('progress-observation').textContent.includes('1/12') && byId('progress-last').classList.contains('hidden') && Number(byId('progress-bar').max)===result.total_trials,'final result replaces stale partial observations and completes the bar');
+  busy=true;activeRunId='finish-without-recommendation';startGenerationProgress(activeRunId);finishGenerationProgress(activeRunId,'complete',{...result,selected:[],validations:[]});busy=false;activeRunId=null;
+  check(byId('progress-observation').textContent.includes('не найден'),'completion without eligible finalists does not invent a win estimate');
   window.fetch=liveFetch;await run();check(canonical(JSON.parse(byId('result').textContent))===repeated,'restart after cancel preserves seed and result');
   const savedRequest=byId('request').value,reportBeforeLoad=canonical(lastResult),runsBeforeLoad=generated;
   await byId('file').onchange({target:{files:[new File([savedRequest],'saved-request.json')],value:''}});
   check(canonical(read())===canonical(JSON.parse(savedRequest)) && canonical(lastResult)===reportBeforeLoad && generated===runsBeforeLoad,'request file import preserves report and does not generate');
   byId('request-json-tab').click();
-  byId('request').value='{';await run();check(byId('status').className==='error','invalid JSON');
+  byId('request').value='{';await run();check(byId('status').className==='error' && getComputedStyle(byId('status')).display!=='none' && byId('status').textContent,'invalid JSON error remains visible');
   byId('request-visual-tab').click();check(requestView==='json' && byId('request').value==='{','invalid JSON not overwritten by toggle');
   document.body.setAttribute('data-ui-check','passed');
  }catch(error){document.body.setAttribute('data-ui-check','failed');document.body.append(document.createTextNode('UI CHECK: '+error.stack));}

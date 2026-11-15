@@ -30,7 +30,6 @@ $env:PYTHONPATH = 'src'
 .venv/Scripts/python.exe -m towr ui
 ```
 
-
 ```powershell
 $env:PYTHONPATH = 'src'
 .venv/Scripts/python.exe -m towr generate-encounter docs/examples/dynamic/search.request.json

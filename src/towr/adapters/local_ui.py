@@ -2,7 +2,7 @@
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
 from pathlib import Path
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
 from threading import Event, Lock
 
 from towr.adapters._local_ui_page import PAGE
@@ -11,7 +11,7 @@ from towr.adapters.dynamic_encounter_json import (
     parse_dynamic_encounter_request, execute_dynamic_encounter,
     encode_dynamic_encounter_result, encode_dynamic_encounter_error,
 )
-from towr.application.dynamic_encounter import DynamicEncounterCancelled
+from towr.application.dynamic_encounter import DynamicEncounterCancelled, DynamicEncounterProgress, DynamicProgressPhase
 
 
 @dataclass
@@ -19,6 +19,13 @@ class _ActiveGeneration:
     token: str
     cancel: Event = field(default_factory=Event)
     finished: bool = False
+    progress: DynamicEncounterProgress | None = None
+    last_candidate: DynamicEncounterProgress | None = None
+    progress_sequence: int = 0
+
+
+def _progress_document(progress):
+    return None if progress is None else dict(asdict(progress), win_rate=progress.win_rate)
 
 
 class LocalUiServer(ThreadingHTTPServer):
@@ -74,6 +81,27 @@ class LocalUiHandler(BaseHTTPRequestHandler):
         elif self.path == '/api/request':
             self._respond(200, self.server.initial_request,
                 headers={'X-TOWR-UI-Mode': 'manual' if self.server.manual else 'auto'})
+        elif self.path == '/api/progress':
+            token = self.headers.get('X-TOWR-Run-ID', '')
+            if not token.strip() or len(token) > 128:
+                self._error(400, 'X-TOWR-Run-ID required')
+                return
+            with self.server.state_lock:
+                active = self.server.active_generation
+                if active is not None and active.token != token:
+                    document = None
+                elif active is None:
+                    document = dict(kind='dynamic_encounter_progress', run_id=token,
+                        state='waiting', sequence=0, current=None, last_candidate=None)
+                else:
+                    state = 'cancelling' if active.cancel.is_set() else 'finished' if active.finished else 'running'
+                    document = dict(kind='dynamic_encounter_progress', run_id=token, state=state,
+                        sequence=active.progress_sequence, current=_progress_document(active.progress),
+                        last_candidate=_progress_document(active.last_candidate))
+            if document is None:
+                self._error(409, 'Этот расчёт уже не активен.')
+            else:
+                self._respond(200, json.dumps(document, ensure_ascii=False, allow_nan=False))
         else:
             self._error(404, 'Not found')
 
@@ -143,7 +171,19 @@ class LocalUiHandler(BaseHTTPRequestHandler):
                 if active.cancel.is_set():
                     raise DynamicEncounterCancelled()
                 command = parse_dynamic_encounter_request(raw)
-                result = execute_dynamic_encounter(command, cancel_requested=active.cancel.is_set)
+
+                def publish_progress(progress):
+                    if type(progress) is not DynamicEncounterProgress:
+                        raise TypeError('expected typed generation progress')
+                    with self.server.state_lock:
+                        if self.server.active_generation is active and not active.finished:
+                            active.progress = progress
+                            active.progress_sequence += 1
+                            if progress.phase is DynamicProgressPhase.CANDIDATE_COMPLETE:
+                                active.last_candidate = progress
+
+                result = execute_dynamic_encounter(command, cancel_requested=active.cancel.is_set,
+                    on_progress=publish_progress)
                 output = encode_dynamic_encounter_result(command, result)
                 status = 200
             except DynamicEncounterCancelled:

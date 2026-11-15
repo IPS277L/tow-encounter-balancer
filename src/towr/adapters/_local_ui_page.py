@@ -1,6 +1,7 @@
 """Self-contained local page; shipped as ordinary Python package code."""
 from towr.adapters._local_ui_visual import VISUAL_SCRIPT, VISUAL_STYLE
 from towr.adapters._local_ui_planning import PLANNING_SCRIPT
+from towr.adapters._local_ui_progress import PROGRESS_MARKUP, PROGRESS_SCRIPT, PROGRESS_STYLE
 
 def _file_actions(result=False):
     download_path = 'M12 4v12m-5-5 5 5 5-5M4 15v5h16v-5'
@@ -59,7 +60,7 @@ button.cancel-action:hover:not(:disabled){background:#8d2a2a;border-color:#8d2a2
 button.cancel-action:active:not(:disabled){background:#752323;border-color:#752323;color:white}
 .toolbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:12px 0}.columns{display:grid;grid-template-columns:1fr 1fr;gap:18px}
 .columns .panel{min-width:0;margin-top:0}textarea,pre{width:100%;height:560px;margin:0;padding:12px;border:1px solid #c9d0da;border-radius:4px;tab-size:2;background:#fafbfc;color:#20242c;font:13px/1.5 Consolas,monospace}
-textarea{resize:vertical}pre{overflow:auto;white-space:pre}#status{min-height:24px;white-space:pre-wrap}#status.error{color:#b02222}#status.success{color:#1d683c}
+textarea{resize:vertical}pre{overflow:auto;white-space:pre}#status{display:none;white-space:pre-wrap}#status.error{display:block;color:#b02222}
 small{color:#5c6470}.hidden{display:none}fieldset{border:0;padding:0;margin:0}a{color:#235ba8}
 :focus-visible{outline:2px solid #235ba8;outline-offset:2px}@media(max-width:1100px){.control-groups{grid-template-columns:1fr}.control-group.search{grid-column:auto}}
 @media(max-width:850px){.columns{grid-template-columns:1fr}.control-groups{grid-template-columns:1fr}.control-group.search{grid-column:auto}.fields,.search .fields{grid-template-columns:repeat(2,minmax(0,1fr))}textarea,pre{height:420px}}
@@ -106,7 +107,8 @@ small{color:#5c6470}.hidden{display:none}fieldset{border:0;padding:0;margin:0}a{
 <button id="run" class="primary" type="button">Запустить генератор</button>
 <button id="cancel" class="cancel-action hidden" type="button" disabled>Отменить генерацию</button>
 </div>
-<p id="status" role="status" aria-live="polite">Загрузка…</p>
+<p id="status" role="alert" aria-live="polite"></p>
+__PROGRESS_MARKUP__
 <div class="columns">
 <section class="panel"><div class="view-heading"><h2>Запрос</h2><div class="panel-controls">__REQUEST_FILE_ACTIONS__<div class="view-switch" role="group" aria-label="Вид запроса"><button id="request-visual-tab" type="button" aria-pressed="true">Карточки</button><button id="request-json-tab" type="button" aria-pressed="false">JSON</button></div></div></div>
 <p><small>Правки карточек и JSON сохраняются при переключении. Расчёт запускается только кнопкой генератора.</small></p>
@@ -125,7 +127,7 @@ const paths = {minimum:['npc_count','minimum'],maximum:['npc_count','maximum'],
  maxRounds:['max_rounds'],seed:['search','master_seed'],candidates:['search','max_candidates'],
  exploration:['search','exploration_trials'],top:['search','top_k'],finalTrials:['search','finalist_trials']};
 let lastResult=null, busy=false, activeRunId=null, cancelling=false, fileLoadVersion=0;
-function message(text,kind=''){byId('status').textContent=text;byId('status').className=kind;}
+function message(text,kind=''){byId('status').textContent=kind==='error'?text:'';byId('status').className=kind==='error'?'error':'';}
 function pretty(value){return JSON.stringify(value,null,2)+'\n';}
 function read(){const value=JSON.parse(byId('request').value);if(!value || typeof value!=='object' || Array.isArray(value))throw Error('Запрос должен быть JSON-объектом.');return value;}
 function get(value,path){return path.reduce((v,k)=>v?.[k],value);}
@@ -169,18 +171,19 @@ async function run(){
  try{syncForm();}catch(error){message(error.message,'error');return;}
  fileLoadVersion++;activeRunId=crypto.randomUUID();cancelling=false;setBusy(true);lastResult=null;byId('download').disabled=true;byId('summary').textContent='';byId('result').textContent='Выполняется расчёт…';
  byId('result-stale').classList.add('hidden');byId('result-visual').replaceChildren(document.createTextNode('Выполняется расчёт…'));
- const started=Date.now();message('Выполняется расчёт…');const timer=setInterval(()=>message((cancelling?'Отмена генерации':'Выполняется расчёт')+' · '+Math.floor((Date.now()-started)/1000)+' с'),1000);
+ message('');
+ const progressRun=activeRunId;let progressOutcome='failed',progressResult=null;startGenerationProgress(progressRun);
  try{
   const response=await fetch('/api/generate',{method:'POST',headers:{'Content-Type':'application/json','X-TOWR-Run-ID':activeRunId},body:byId('request').value});
   const result=await response.json();
-  if(result.kind==='dynamic_encounter_cancelled'){byId('result').textContent='Генерация отменена.';byId('result-visual').replaceChildren(document.createTextNode('Генерация отменена.'));message('Генерация отменена. Можно изменить запрос и запустить новый расчёт.');return;}
+  if(result.kind==='dynamic_encounter_cancelled'){progressOutcome='cancelled';byId('result').textContent='Генерация отменена.';byId('result-visual').replaceChildren(document.createTextNode('Генерация отменена.'));message('Генерация отменена. Можно изменить запрос и запустить новый расчёт.');return;}
   byId('result').textContent=pretty(result);renderResultVisual(result);
   if(!response.ok){throw Error([result.error?.path,result.error?.message||'Не удалось выполнить расчёт.'].filter(Boolean).join(': '));}
   lastResult=result;byId('download').disabled=false;markResultStale();
+  progressOutcome='complete';progressResult=result;
   byId('summary').textContent='Кандидатов: '+result.explored.length+' · Выбрано: '+result.selected.length+' · Симуляций: '+result.total_trials;
-  message('Готово · '+((Date.now()-started)/1000).toFixed(1)+' с. Результат содержит полные составы и запросы для повторного запуска.','success');
  }catch(error){message(error.message,'error');if(byId('result').textContent==='Выполняется расчёт…'){byId('result').textContent='Результат не получен.';byId('result-visual').replaceChildren(document.createTextNode('Результат не получен.'));}}
- finally{clearInterval(timer);activeRunId=null;cancelling=false;setBusy(false);if(lastResult)renderResultVisual(lastResult);}
+ finally{finishGenerationProgress(progressRun,progressOutcome,progressResult);activeRunId=null;cancelling=false;setBusy(false);if(lastResult)renderResultVisual(lastResult);}
 }
 for(const id of [...Object.keys(paths),'win','rounds'])byId(id).addEventListener('change',()=>changed(id));
 byId('request').addEventListener('input',()=>{try{syncForm(false);message('JSON изменён. Нажмите «Запустить генератор» для нового расчёта.');}catch(error){markResultStale();message('JSON: '+error.message,'error');}});
@@ -193,6 +196,7 @@ byId('file').onchange=async event=>{const file=event.target.files[0];if(!file)re
 async function cancelGeneration(){
  if(!busy||!activeRunId||cancelling)return;
  const runId=activeRunId;cancelling=true;byId('cancel').disabled=true;byId('cancel').textContent='Отмена…';message('Отмена генерации…');
+ byId('progress-phase').textContent='Останавливаем генерацию…';
  try{const response=await fetch('/api/cancel',{method:'POST',headers:{'Content-Type':'application/json','X-TOWR-Run-ID':runId},body:'{}'});const result=await response.json();
   if(activeRunId!==runId)return;
   if(!response.ok)throw Error(result.error?.message||'Не удалось отменить генерацию.');
@@ -206,4 +210,5 @@ fetch('/api/request').then(response=>{if(!response.ok)throw Error('Не удал
 </html>'''
 
 PAGE = PAGE.replace('__REQUEST_FILE_ACTIONS__', _file_actions()).replace('__RESULT_FILE_ACTIONS__', _file_actions(True))
-PAGE = PAGE.replace('</style>', VISUAL_STYLE + '\n</style>').replace('</script>', PLANNING_SCRIPT + '\n' + VISUAL_SCRIPT + '\n</script>')
+PAGE = PAGE.replace('__PROGRESS_MARKUP__', PROGRESS_MARKUP)
+PAGE = PAGE.replace('</style>', VISUAL_STYLE + PROGRESS_STYLE + '\n</style>').replace('</script>', PLANNING_SCRIPT + '\n' + VISUAL_SCRIPT + '\n' + PROGRESS_SCRIPT + '\n</script>')

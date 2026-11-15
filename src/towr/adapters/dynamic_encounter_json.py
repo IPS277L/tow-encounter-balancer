@@ -129,9 +129,9 @@ def parse_dynamic_encounter_request(text: str | bytes) -> DynamicEncounterComman
         raise DynamicEncounterInputError(Code.INVALID_INPUT, str(error), path='/', request_id=document['request_id']) from error
 
 
-def execute_dynamic_encounter(command: DynamicEncounterCommand, *, cancel_requested=None) -> DynamicEncounterResult:
+def execute_dynamic_encounter(command: DynamicEncounterCommand, *, cancel_requested=None, on_progress=None) -> DynamicEncounterResult:
     try:
-        return search_dynamic_encounter(command.request, cancel_requested=cancel_requested)
+        return search_dynamic_encounter(command.request, cancel_requested=cancel_requested, on_progress=on_progress)
     except DynamicEncounterCancelled:
         raise
     except Exception as error:

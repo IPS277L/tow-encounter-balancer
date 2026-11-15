@@ -4,6 +4,7 @@ The simulator is injected. Neither NPC identity nor a supplied enemy reserve
 defines the search space. Existing JSON families are unchanged.
 """
 from dataclasses import dataclass, fields, replace
+from enum import Enum
 from hashlib import sha256
 from math import isfinite, log, sqrt
 from random import Random
@@ -257,7 +258,50 @@ class DynamicEncounterCancelled(Exception):
     """Explicit interruption; no partial encounter report is returned."""
 
 
-def search_dynamic_encounter(request: DynamicEncounterRequest, simulator=None, *, cancel_requested=None) -> DynamicEncounterResult:
+class DynamicProgressPhase(str, Enum):
+    GENERATING = 'generating'
+    SIMULATING = 'simulating'
+    CANDIDATE_COMPLETE = 'candidate_complete'
+    SELECTING = 'selecting'
+    COMPLETE = 'complete'
+
+
+@dataclass(frozen=True, slots=True)
+class DynamicEncounterProgress:
+    """Transient observations, not a partial result or a battle journal."""
+    phase: DynamicProgressPhase
+    stage: str | None
+    candidate_number: int
+    candidate_count: int
+    npc_count: int
+    completed_trials: int
+    trial_count: int
+    total_completed_trials: int
+    trial_budget: int
+    wins: int
+    unsupported_trials: int
+
+    def __post_init__(self):
+        if type(self.phase) is not DynamicProgressPhase or self.stage not in (None, 'explore', 'validate'):
+            raise ValueError('invalid progress phase/stage')
+        for field in fields(self):
+            if field.name in ('phase', 'stage'):
+                continue
+            if type(getattr(self, field.name)) is not int or getattr(self, field.name) < 0:
+                raise ValueError('progress counters must be nonnegative integers')
+        if (self.completed_trials > self.trial_count
+                or self.wins + self.unsupported_trials > self.completed_trials
+                or not self.completed_trials <= self.total_completed_trials <= self.trial_budget
+                or self.candidate_number > self.candidate_count):
+            raise ValueError('inconsistent progress counters')
+
+    @property
+    def win_rate(self):
+        return self.wins / self.completed_trials if self.completed_trials else None
+
+
+def search_dynamic_encounter(request: DynamicEncounterRequest, simulator=None, *,
+        cancel_requested=None, on_progress=None) -> DynamicEncounterResult:
     """Explore random restarts and local mutations, then independently validate.
 
     Ranking: no unsupported observations, distance to win target, distance to
@@ -268,23 +312,35 @@ def search_dynamic_encounter(request: DynamicEncounterRequest, simulator=None, *
     replace(request)
     if cancel_requested is not None and not callable(cancel_requested):
         raise TypeError('cancel_requested must be callable')
+    if on_progress is not None and not callable(on_progress):
+        raise TypeError('on_progress must be callable')
 
     def checkpoint():
         if cancel_requested is not None and cancel_requested():
             raise DynamicEncounterCancelled('dynamic encounter search cancelled')
 
+    completed_total = 0
+
+    def emit(phase, stage=None, number=0, count=0, npc_count=0, completed=0, trials=0, wins=0, unsupported=0):
+        checkpoint()
+        if on_progress is not None:
+            on_progress(DynamicEncounterProgress(phase, stage, number, count, npc_count,
+                completed, trials, completed_total + completed, request.max_total_trials, wins, unsupported))
+        checkpoint()
+
     checkpoint()
-    if simulator is None:
+    default_simulator = simulator is None
+    if default_simulator:
         from towr.simulation.pc_melee_simulation import run_pc_melee_simulation
         from towr.simulation.pc_melee_summary import summarize_pc_melee_simulation
+        from towr.domain.pc_melee_result_models import PcMeleeOutcome
         class InterruptibleRandom(Random):
             def randint(self, start, end):
                 checkpoint()
                 return super().randint(start, end)
 
         rng_factory = Random if cancel_requested is None else InterruptibleRandom
-        simulator = lambda source: summarize_pc_melee_simulation(run_pc_melee_simulation(source, rng_factory=rng_factory))
-    if not callable(simulator):
+    elif not callable(simulator):
         raise TypeError('simulator must be callable')
     rng = Random(_seed(request.master_seed, 'proposals', 0))
     explored, seen = [], set()
@@ -292,23 +348,48 @@ def search_dynamic_encounter(request: DynamicEncounterRequest, simulator=None, *
     def score(candidate):
         return _score(request, candidate)
 
-    def evaluate(composition, stage, index):
+    def evaluate(composition, stage, index, candidate_count):
+        nonlocal completed_total
         checkpoint()
         scenario = request.scenario(composition, f'dynamic:{stage}:{index}')
         trials = request.exploration_trials if stage == 'explore' else request.finalist_trials
         source = PcMeleeSimulationRequest(scenario, _seed(request.master_seed, stage, index), trials)
-        summary = simulator(source)
+        emit(DynamicProgressPhase.SIMULATING, stage, index+1, candidate_count, len(composition), trials=trials)
+        completed, wins, unsupported = 0, 0, 0
+
+        def observed(record):
+            nonlocal completed, wins, unsupported
+            completed += 1
+            wins += int(record.outcome is PcMeleeOutcome.OBJECTIVE_ACHIEVED)
+            unsupported += int(record.outcome is PcMeleeOutcome.UNSUPPORTED_PATH)
+            emit(DynamicProgressPhase.SIMULATING, stage, index+1, candidate_count,
+                len(composition), completed, trials, wins, unsupported)
+
+        if default_simulator:
+            summary = summarize_pc_melee_simulation(run_pc_melee_simulation(source,
+                rng_factory=rng_factory, on_trial_complete=observed if on_progress is not None else None))
+        else:
+            summary = simulator(source)
         checkpoint()
         if type(summary) is not PcMeleeSimulationSummary:
             raise TypeError('simulator must return a typed aggregate')
         replace(summary)
         if summary.source_request != source:
             raise ValueError('simulator returned another candidate/seed/trial source')
-        return GeneratedCandidate(composition, summary)
+        candidate = GeneratedCandidate(composition, summary)
+        emit(DynamicProgressPhase.CANDIDATE_COMPLETE, stage, index+1, candidate_count,
+            len(composition), trials, trials, summary.outcome_counts.objective_achieved,
+            summary.outcome_counts.unsupported_path)
+        completed_total += trials
+        return candidate
 
     attempts, limit = 0, request.max_candidates*30
+    announced_candidate = -1
     while len(explored) < request.max_candidates and attempts < limit:
         checkpoint()
+        if announced_candidate != len(explored):
+            announced_candidate = len(explored)
+            emit(DynamicProgressPhase.GENERATING, 'explore', len(explored)+1, request.max_candidates)
         attempts += 1
         if explored and rng.random() < .7:
             elite = sorted(explored, key=score)[:max(1, request.top_k)]
@@ -327,12 +408,16 @@ def search_dynamic_encounter(request: DynamicEncounterRequest, simulator=None, *
         if composition in seen:
             continue
         seen.add(composition)
-        explored.append(evaluate(composition, 'explore', len(explored)))
+        explored.append(evaluate(composition, 'explore', len(explored), request.max_candidates))
+    emit(DynamicProgressPhase.SELECTING)
     eligible = [c for c in sorted(explored, key=score) if not c.summary.outcome_counts.unsupported_path]
-    validated = [evaluate(c.composition, 'validate', i) for i, c in enumerate(eligible[:request.top_k])]
+    chosen = eligible[:request.top_k]
+    validated = [evaluate(c.composition, 'validate', i, len(chosen)) for i, c in enumerate(chosen)]
     # Failed validation remains visible in explored/validation observations, never a selected recommendation.
     finalists = tuple(sorted(validated, key=score))
     total = len(explored)*request.exploration_trials + len(validated)*request.finalist_trials
     checkpoint()
-    return DynamicEncounterResult(request, tuple(explored), finalists, total, attempts,
+    result = DynamicEncounterResult(request, tuple(explored), finalists, total, attempts,
         attempts == limit and len(explored) < request.max_candidates)
+    emit(DynamicProgressPhase.COMPLETE)
+    return result

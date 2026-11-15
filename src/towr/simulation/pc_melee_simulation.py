@@ -80,11 +80,19 @@ def run_pc_melee_trial(request: PcMeleeSimulationRequest, trial_index: int, *,
 
 
 def run_pc_melee_simulation(request: PcMeleeSimulationRequest, *,
-                            rng_factory: Callable[[int], RandomSource] = Random) -> PcMeleeSimulationResult:
+                            rng_factory: Callable[[int], RandomSource] = Random,
+                            on_trial_complete: Callable[[PcMeleeTrialRecord], None] | None = None) -> PcMeleeSimulationResult:
     if not isinstance(request, PcMeleeSimulationRequest):
         raise TypeError('simulation requires a PcMeleeSimulationRequest')
     replace(request)
     if not callable(rng_factory):
         raise TypeError('rng_factory must be callable')
-    return PcMeleeSimulationResult(request, tuple(
-        run_pc_melee_trial(request, index, rng_factory=rng_factory) for index in range(request.trials)))
+    if on_trial_complete is not None and not callable(on_trial_complete):
+        raise TypeError('on_trial_complete must be callable')
+    records = []
+    for index in range(request.trials):
+        record = run_pc_melee_trial(request, index, rng_factory=rng_factory)
+        records.append(record)
+        if on_trial_complete is not None:
+            on_trial_complete(record)
+    return PcMeleeSimulationResult(request, tuple(records))
