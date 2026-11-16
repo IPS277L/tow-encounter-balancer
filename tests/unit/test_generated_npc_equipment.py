@@ -263,7 +263,7 @@ class GeneratedNpcEquipmentTests(unittest.TestCase):
 
     def test_recover_advice_removes_the_warhammer_bonus_with_the_prospective_stagger(self):
         source = source_for(component(GeneratedWeapon.WARHAMMER))
-        source = replace(source,party=(replace(source.party[0],policy=PcMeleePolicy.AUTOMATIC_MELEE),))
+        source = replace(source,party=(replace(source.party[0],policy=PcMeleePolicy.AUTOMATIC_COMBAT),))
         state = party_conditions(tactical_snapshot(source),Condition.STAGGERED)
         choice = select_pc_tactic(state)
         self.assertIs(choice.action,CombatActionKind.RECOVER)

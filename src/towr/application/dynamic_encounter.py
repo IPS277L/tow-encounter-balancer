@@ -10,7 +10,7 @@ from math import isfinite, log, sqrt
 from random import Random
 
 from towr.domain.generated_npc_models import (GeneratedNpc,GeneratedWeapon,GeneratedAbility,
-    GeneratedTalent,generated_talent_requirements_met)
+    GeneratedTalent,generated_talent_requirements_met,GeneratedRangedFacts,GENERATED_RANGED_WEAPONS)
 from towr.domain.minion_defeat_models import MinionDefeatDecision, NpcDefeatDisposition
 from towr.domain.pc_melee_models import PcMeleeFacts, PcMeleeParticipant, PcMeleeScenario, PC_RANGED_WEAPONS
 from towr.simulation.pc_melee_models import PcMeleeSimulationRequest
@@ -32,65 +32,124 @@ class NpcSearchSpace:
     shield: tuple[bool, ...] = (False, True)
     abilities: tuple[tuple[GeneratedAbility, ...], ...] = ((),)
     allowed_talents: tuple[GeneratedTalent,...] = tuple(GeneratedTalent)
+    ballistic_skill: tuple[int, ...] = (2, 3, 4)
+    shooting: tuple[int, ...] = (3, 4, 5)
+    initiative: tuple[int, ...] = (2, 3, 4)
+    dexterity: tuple[int, ...] = (3, 4, 5)
 
     def __post_init__(self):
         if (type(self.allowed_talents) is not tuple
                 or any(type(t) is not GeneratedTalent for t in self.allowed_talents)
                 or len(set(self.allowed_talents)) != len(self.allowed_talents)):
             raise ValueError('allowed_talents requires unique supported Talents; empty disables generation')
-        baseline = {}
-        for field in self._component_fields():
-            choices = getattr(self, field.name)
+        for name in (*self._ordinary_names(), *self._ranged_names()):
+            choices = getattr(self,name)
             if type(choices) is not tuple or not choices or len(set(choices)) != len(choices):
-                raise ValueError(f'{field.name} requires nonempty distinct tuple choices')
-            baseline[field.name] = choices[0]
-        # Linear validation of every option, not enumeration of combinations.
-        for field in self._component_fields():
-            for value in getattr(self, field.name):
-                GeneratedNpc(**(baseline | {field.name: value}))
+                raise ValueError(f'{name} requires nonempty distinct tuple choices')
+            for value in choices:
+                if name in ('weapon_skill','strength','toughness','agility','ballistic_skill','initiative'):
+                    if type(value) is not int or value < 1:
+                        raise ValueError(f'{name} choices must be positive integers')
+                elif name in ('melee','athletics','defence','shooting','dexterity'):
+                    if type(value) is not int or not 2 <= value <= 6:
+                        raise ValueError(f'{name} choices must be integers in 2..6')
+                elif name == 'weapon' and type(value) is not GeneratedWeapon:
+                    raise ValueError('weapon choices must be supported typed weapons')
+                elif name in ('light_armour','shield') and type(value) is not bool:
+                    raise ValueError('equipment choices must be exact booleans')
+                elif name == 'abilities':
+                    if (type(value) is not tuple or any(type(a) is not GeneratedAbility for a in value)
+                            or len(set(value)) != len(value)):
+                        raise ValueError('ability groups must be unique supported typed tuples')
+        if any(weapon in GENERATED_RANGED_WEAPONS for weapon in self.weapon) and False not in self.shield:
+            raise ValueError('ranged weapon choices need an admissible no-Shield loadout')
+        if True in self.shield and all(weapon in GENERATED_RANGED_WEAPONS for weapon in self.weapon):
+            raise ValueError('Shield choice has no admissible melee weapon')
+
+    @staticmethod
+    def _ranged_names():
+        return ('ballistic_skill','shooting','initiative','dexterity')
+
+    @staticmethod
+    def _ordinary_names():
+        return ('weapon_skill','strength','toughness','agility','melee','athletics','defence',
+            'weapon','light_armour','shield','abilities')
+
+    def _build(self, facts, talents=(), ranged_values=None):
+        ranged=None
+        if facts['weapon'] in GENERATED_RANGED_WEAPONS:
+            values=ranged_values or {name:getattr(self,name)[0] for name in self._ranged_names()}
+            blackpowder=facts['weapon'] is not GeneratedWeapon.REPEATER_HANDBOW
+            ranged=GeneratedRangedFacts(**values,initially_loaded=True,ammunition_supply_confirmed=True,
+                has_blackpowder_lore=True if blackpowder else None,
+                has_blackpowder_kit=True if blackpowder else None)
+        return GeneratedNpc(**facts,talents=talents,ranged=ranged)
 
     def sample(self, rng: Random) -> GeneratedNpc:
-        facts = {f.name:rng.choice(getattr(self,f.name)) for f in self._component_fields()}
-        talents = tuple(t for t in self.allowed_talents if generated_talent_requirements_met(t,
+        # Select a legal equipment branch before its conditional source facts.
+        # No Shield is drawn then discarded, and melee sources draw no unused
+        # ranged characteristics or skills.
+        weapon=rng.choice(self.weapon)
+        facts={name:rng.choice(getattr(self,name)) for name in self._ordinary_names()
+            if name not in ('weapon','shield')}
+        facts['weapon']=weapon
+        facts['shield']=rng.choice(tuple(value for value in self.shield
+            if weapon not in GENERATED_RANGED_WEAPONS or value is False))
+        ranged_values=({name:rng.choice(getattr(self,name)) for name in self._ranged_names()}
+            if weapon in GENERATED_RANGED_WEAPONS else None)
+        talents=tuple(t for t in self.allowed_talents if generated_talent_requirements_met(t,
             weapon_skill=facts['weapon_skill'],strength=facts['strength']) and rng.randrange(2))
-        return GeneratedNpc(**facts,talents=talents)
+        return self._build(facts,talents,ranged_values)
 
     def mutate(self, npc: GeneratedNpc, rng: Random) -> GeneratedNpc:
         if type(npc) is not GeneratedNpc or not self.contains(npc):
             raise ValueError('mutation requires an admitted member of this component space')
         replace(npc)
-        variable = []
-        for field in self._component_fields():
-            values = []
-            for value in getattr(self,field.name):
-                if value == getattr(npc,field.name):
+        facts={name:getattr(npc,name) for name in self._ordinary_names()}
+        ranged_values=({name:getattr(npc.ranged,name) for name in self._ranged_names()}
+            if npc.ranged is not None else None)
+        variable=[]
+        for name in self._ordinary_names():
+            values=[]
+            for value in getattr(self,name):
+                if value == getattr(npc,name):
                     continue
                 try:
-                    replace(npc,**{field.name:value})
+                    candidate=self._build(facts | {name:value},npc.talents,ranged_values)
                 except ValueError:
-                    continue  # Reject a proposal violating a retained Talent, never repair its source.
-                values.append(value)
+                    continue
+                values.append(candidate)
             if values:
-                variable.append((field.name,tuple(values)))
-        talent_options = []
+                variable.append((name,tuple(values)))
+        if npc.ranged is not None:
+            for name in self._ranged_names():
+                values=tuple(replace(npc,ranged=replace(npc.ranged,**{name:value}))
+                    for value in getattr(self,name) if value != getattr(npc.ranged,name))
+                if values:
+                    variable.append((name,values))
+        talent_options=[]
         for talent in self.allowed_talents:
-            selected = tuple(t for t in self.allowed_talents
-                if (t in npc.talents) != (t is talent))
+            selected=tuple(t for t in self.allowed_talents if (t in npc.talents) != (t is talent))
             if all(generated_talent_requirements_met(t,weapon_skill=npc.weapon_skill,
                     strength=npc.strength) for t in selected):
-                talent_options.append(selected)
+                talent_options.append(replace(npc,talents=selected))
         if talent_options:
             variable.append(('talents',tuple(talent_options)))
         if not variable:
             return npc
-        name,values = rng.choice(variable)
-        return replace(npc,**{name:rng.choice(values)})
-
-    def _component_fields(self):
-        return tuple(f for f in fields(self) if f.name != 'allowed_talents')
+        _,values=rng.choice(variable)
+        return rng.choice(values)
 
     def contains(self,npc: GeneratedNpc) -> bool:
-        return (all(getattr(npc,f.name) in getattr(self,f.name) for f in self._component_fields())
+        if type(npc) is not GeneratedNpc:
+            return False
+        try:
+            replace(npc)
+        except (ValueError,TypeError):
+            return False
+        return (all(getattr(npc,name) in getattr(self,name) for name in self._ordinary_names())
+            and (npc.ranged is None or all(getattr(npc.ranged,name) in getattr(self,name)
+                for name in self._ranged_names()))
             and set(npc.talents) <= set(self.allowed_talents))
 
 
@@ -118,6 +177,18 @@ def automatic_npc_search_space(party: tuple[PcMeleeParticipant, ...]) -> NpcSear
             pivot = min(10,4+(member.wizard.reason*member.wizard.willpower+9)//10)
             toughness.update((max(1,pivot-1),pivot))
     choices['toughness'] = tuple(sorted(toughness))
+    # Melee-only parties have no BS/I/Shooting/Dexterity facts. Use the
+    # explicit starting envelope rather than pretending their WS/Ag are those
+    # characteristics. Where an admitted PC source supplies ranged facts,
+    # centre each corresponding range around those actual values.
+    for name in ('ballistic_skill','shooting','initiative','dexterity'):
+        values=[getattr(member.pc.ranged,name) for member in party
+            if member.pc.ranged is not None and getattr(member.pc.ranged,name) is not None]
+        if values:
+            floor,ceiling=(2,6) if name in ('shooting','dexterity') else (1,10)
+            low=max(floor,min(ceiling,min(values)-1))
+            high=max(low,min(ceiling,max(values)+1))
+            choices[name]=tuple(range(low,high+1))
     return NpcSearchSpace(**choices)
 
 
@@ -151,8 +222,9 @@ class DynamicEncounterRequest:
         replace(self.space)
         if not self.facts.all_opponents_close or self.facts.can_leave_zone:
             raise ValueError('initial dynamic slice requires the stationary all-Close arena')
-        if any(p.pc.weapon in PC_RANGED_WEAPONS for p in self.party):
-            raise ValueError('initial dynamic slice requires melee PCs')
+        if any(p.pc.weapon in PC_RANGED_WEAPONS and p.pc.weapon.value not in
+                ('pistol','repeater_pistol','repeater_handbow') for p in self.party):
+            raise ValueError('dynamic slice requires melee or supported Close ranged PCs')
         if type(self.day_id) is not str or not self.day_id.strip():
             raise ValueError('day ID is required')
         if type(self.defeat_disposition) is not NpcDefeatDisposition:
@@ -183,11 +255,14 @@ class DynamicEncounterRequest:
         party = tuple(replace(p, target_priority=actors,
             defeat_decisions=tuple(MinionDefeatDecision(p.actor_id, a, self.defeat_disposition, True) for a in actors))
             for p in self.party)
+        from towr.domain.pc_npc_ranged_source_models import pc_npc_ranged_policy_for_generated
         return PcMeleeScenario(candidate_id, party, self.day_id,
             tuple(n.participant(a) for n, a in zip(composition, actors)), self.facts,
             tuple(p.actor_id for p in party), actors, tuple(p.actor_id for p in party), self.max_rounds,
             None, (), npc_extra_attack_actor_ids=(), npc_grudge_policies=(), npc_blood_rage_actor_ids=(),
-            npc_flagellant_policies=(), npc_warped_form_policies=())
+            npc_flagellant_policies=(), npc_warped_form_policies=(),
+            npc_ranged_policies=tuple(pc_npc_ranged_policy_for_generated(npc,actor)
+                for npc,actor in zip(composition,actors) if npc.ranged is not None))
 
 
 @dataclass(frozen=True, slots=True)

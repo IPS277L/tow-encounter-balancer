@@ -36,4 +36,4 @@ Native trial0: round_limit/44actions. В раунде1 Goblin/Night/Net испо
 | 1 | 0 | 1 | 0 | 1 | 0 | 63 | 4 |
 | 1 | 1 | 0 | 0 | 2 | 0 | 78 | 6 |
 
-Малые выборки демонстрируют интерфейс и тактику, не истинную вероятность или лучший состав. Limit/unsupported остаются в знаменателе. PC Protection Help сохраняет прежнюю привязку к первому текущему NPC и не предсказывает его будущий Help: такой receipt может остаться unused, но не переходит на другого стрелка. PC Shooting Help, помощь Reload, новые NPC loadouts и wire version не добавлены.212прежнихJSON и59definitions сохранены.
+Малые выборки демонстрируют интерфейс и тактику, не истинную вероятность или лучший состав. Limit/unsupported остаются в знаменателе. После ADR-0124 PC Protection Help пропускает NPC с известным unloaded/Reload state, но не предсказывает будущий NPC Help: такой receipt может остаться unused, но не переходит на другого стрелка. PC Shooting Help, помощь Reload, новые NPC loadouts и wire version не добавлены.Canonical definitions сохранены; текущие файлы используют NPC ranged source и отдельные npc_ranged_counts по ADR-0124.

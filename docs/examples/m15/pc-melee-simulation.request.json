@@ -218,8 +218,8 @@
         },
         "help_policy": {
           "beneficiary_id": "pc:companion",
-          "target": "melee_attack",
-          "protection_skill": null
+          "target": "attack",
+          "skill": "melee"
         },
         "ally_recover_policy": null,
         "backup_weapon_policy": null

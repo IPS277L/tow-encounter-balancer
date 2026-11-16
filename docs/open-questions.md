@@ -4,7 +4,15 @@
 
 ## Динамическая генерация — действующая граница
 
-Первый Python/JSON/CLI-срез создаёт authored Minions из ограниченного набора компонентов без NPC reserve и независимо проверяет финалистов. [ADR-0113](decisions/ADR-0113-dynamic-npc-generation-and-adaptive-search.md) фиксирует supported set, ранжирование и пределы статистических выводов. Authored Drained включается только явным разрешением search space, не заменяет talent prerequisites. JSON/CLI генератора реализован без enemy reserve; следующий приоритет — общие компоненты и prerequisites; полный каталог не является prerequisite.
+Первый Python/JSON/CLI-срез создаёт authored Minions из ограниченного набора компонентов без NPC reserve и независимо проверяет финалистов. [ADR-0113](decisions/ADR-0113-dynamic-npc-generation-and-adaptive-search.md) фиксирует supported set, ранжирование и пределы статистических выводов. Authored Drained включается только явным разрешением search space, не заменяет talent prerequisites. JSON/CLI генератора реализован без enemy reserve. После ADR-0125 выполнены [замеры поиска](benchmarks/dynamic-search-2026-11-16.md); ближайший шаг — подтверждённая повторная работа тактики и последующая калибровка времени, см. [статус](project-status.md#следующий-шаг). Игровые решения пользователя для engineering-среза не нужны; полный каталог не является prerequisite.
+
+## Автоматическая стрельба PC — решение принято
+
+[ADR-0125](decisions/ADR-0125-pc-automatic-close-shooting-and-weapon-switching.md) принят в полном варианте: три Close-оружия PC, Меткость (Ballistic Skill; BS)/Инициатива (Initiative; I)/Стрельба (Shooting)/Ловкость рук (Dexterity), подготовка, автоматические действия, optional Щит (Shield) и одно запасное melee-оружие с обратимой сменой. Реальные положения предметов/руки/заряд/цикл сохраняются; Shooting Help учитывает цену бонуса Repeater отдельно от выстрела. Один voluntary swap за ход — ограничение тактики, прежние две руки Reload и Shield drop→Recover сохраняются. Новых решений пользователя не требуется; [исполнение и проверки](project-status.md), [вход](examples/dynamic/README.md#стрельба-персонажей).
+
+## Стрельба динамических NPC — решение принято
+
+[ADR-0124](decisions/ADR-0124-generated-npc-close-shooting-and-reload.md) принят в полном варианте и реализован: Pistol/Repeater Pistol/Repeater Handbow, mixed Minions, настоящий Reload, автоматические repeater mode и PC Protection. Две руки Reload — прежняя принятая интерпретация сцены; ranged NPC без Shield/backup/движения. Melee PC, PC potions/magic/talents и generated NPC components сохраняются. Protection Help пропускает известный unloaded NPC; новые числовые результаты M63 перепроверены сравнением со старым selector. Решений пользователя для этого среза больше не требуется; [актуальные проверки и следующий шаг](project-status.md).
 
 ## Вход партии и решения симулятора
 

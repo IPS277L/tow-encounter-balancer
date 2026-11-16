@@ -18,7 +18,7 @@ from towr.domain.pc_melee_result_models import (
     PcNpcRecoverProof, PcNpcHelpProof, PcTurnEndProof,
 )
 from towr.domain.pc_npc_exit_models import PcNpcExitProof
-from towr.domain.pc_npc_pistol_models import PcNpcPistolReloadProof, pc_npc_pistol_weapon
+from towr.domain.pc_npc_ranged_models import PcNpcRangedReloadProof, pc_npc_ranged_weapon
 from towr.domain.pc_ranged_models import PcRangedReloadProof
 from towr.domain.ranged_weapon_profiles import RangedWeaponId
 from towr.domain.test_models import Skill, TestQuality
@@ -49,7 +49,7 @@ def steps(result,kind):
 
 
 def shots(result):
-    return tuple(step for step in steps(result,PcAttackProof) if step.proof.npc_pistol_shot is not None)
+    return tuple(step for step in steps(result,PcAttackProof) if step.proof.npc_ranged_shot is not None)
 
 
 def raw(step):
@@ -62,14 +62,14 @@ class NpcPistolExecutionTests(unittest.TestCase):
         shot, = shots(result)
         self.assertIs(raw(shot).outcome,AttackOutcome.MISS)
         self.assertIs(raw(shot).miss_consequence,MissConsequence.STAGGER_ATTACKER)
-        before = pc_npc_pistol_weapon(shot.source,'minion1')
-        after = pc_npc_pistol_weapon(shot.state,'minion1')
+        before = pc_npc_ranged_weapon(shot.source,'minion1')
+        after = pc_npc_ranged_weapon(shot.state,'minion1')
         self.assertTrue(before.loaded)
         self.assertFalse(after.loaded)
         self.assertEqual(after.weapon_instance_id,'minion1:weapon')
         self.assertEqual(after.exacting.accumulated_successes,0)
         self.assertTrue(result.state.enemy('minion1').state.injury.conditions.has(Condition.STAGGERED))
-        self.assertIs(shot.proof.npc_pistol_shot.execution.source_request.attack_skill,Skill.SHOOTING)
+        self.assertIs(shot.proof.npc_ranged_shot.execution.source_request.attack_skill,Skill.SHOOTING)
         self.assertIs(shot.proof.protection.source_request.selected_skill,Skill.ATHLETICS)
         self.assertEqual(result.executed_actions,2)
 
@@ -77,7 +77,7 @@ class NpcPistolExecutionTests(unittest.TestCase):
         result = execute(scene(rounds=6),PC_MISS+OFFICIAL_MISS
             +PC_MISS+[10]*3+PC_MISS+[1,1,10]+PC_MISS+[10]*3
             +PC_MISS+[1,10,10]+PC_MISS+OFFICIAL_MISS)
-        reloads = steps(result,PcNpcPistolReloadProof)
+        reloads = steps(result,PcNpcRangedReloadProof)
         first,second = shots(result)
         self.assertEqual(tuple(step.proof.result.state.exacting.accumulated_successes for step in reloads),
             (0,2,2,3))
@@ -90,7 +90,7 @@ class NpcPistolExecutionTests(unittest.TestCase):
             self.assertTrue(step.proof.result.slot.executed)
             self.assertEqual(step.proof.result.exacting.test_result.trace.rolled_dice,3)
             self.assertEqual(step.proof.result.exacting.test_result.trace.threshold,3)
-        weapon = pc_npc_pistol_weapon(result.state,'minion1')
+        weapon = pc_npc_ranged_weapon(result.state,'minion1')
         self.assertEqual(len(weapon.reload_cycle_ids),2)
         self.assertNotEqual(*weapon.reload_cycle_ids)
         self.assertEqual(weapon.exacting.contributions,())
@@ -102,7 +102,7 @@ class NpcPistolExecutionTests(unittest.TestCase):
     def test_ogre_reload_overshoot_retains_four_real_successes_without_free_shot(self):
         result = execute(scene(profiles=(OGRE,),rounds=3),
             PC_MISS+OGRE_MISS+PC_MISS+[1,1]+PC_MISS+[1,1])
-        first,second = steps(result,PcNpcPistolReloadProof)
+        first,second = steps(result,PcNpcRangedReloadProof)
         self.assertEqual(first.proof.result.state.exacting.accumulated_successes,2)
         self.assertEqual(second.proof.result.state.exacting.accumulated_successes,4)
         self.assertTrue(second.proof.result.state.loaded)
@@ -119,7 +119,7 @@ class NpcPistolExecutionTests(unittest.TestCase):
             +[10]*3+[10]*3+OGRE_MISS)
         self.assertEqual(result.executed_actions,12)
         self.assertEqual(len(steps(result,PcRangedReloadProof)),2)
-        bank = result.state.npc_pistols
+        bank = result.state.npc_ranged_weapons
         self.assertEqual(tuple(entry.actor_id for entry in bank),('minion1','minion2'))
         self.assertEqual(tuple(entry.weapon_state.weapon_id for entry in bank),
             (RangedWeaponId.PISTOL,RangedWeaponId.OGRE_PISTOL))
@@ -128,7 +128,7 @@ class NpcPistolExecutionTests(unittest.TestCase):
         instances = {entry.weapon_state.weapon_instance_id for entry in bank}
         instances.add(result.state.participant('pc').ranged.weapon_instance_id)
         self.assertEqual(len(instances),3)
-        reloads = steps(result,PcNpcPistolReloadProof)
+        reloads = steps(result,PcNpcRangedReloadProof)
         self.assertEqual(tuple((s.proof.request.actor_id,s.proof.result.exacting.test_result.trace.rolled_dice)
             for s in reloads),(('minion1',3),('minion2',2),('minion2',2),('minion1',3)))
         ogre_complete = next(s for s in reloads if s.proof.request.actor_id=='minion2'
@@ -170,7 +170,7 @@ class NpcPistolExecutionTests(unittest.TestCase):
         self.assertEqual(near.state.participant('pc').injury.wounds,())
         self.assertEqual(near.state.participant('pc').fate.rating,2)
         self.assertEqual(steps(near,PcHandDropProof),())
-        self.assertFalse(pc_npc_pistol_weapon(near.state,'minion1').loaded)
+        self.assertFalse(pc_npc_ranged_weapon(near.state,'minion1').loaded)
 
     def test_prone_target_takes_shooting_penalty_without_outnumber_or_higher_ground_bonus(self):
         source = scene(profiles=(OGRE,OGRE))
@@ -201,17 +201,17 @@ class NpcPistolExecutionTests(unittest.TestCase):
         self.assertIs(stopped.outcome,PcMeleeOutcome.UNSUPPORTED_PATH)
         self.assertEqual(stopped.unsupported.reason,'npc_broken_turn')
         self.assertTrue(stopped.state.enemy('minion1').state.injury.conditions.has(Condition.BROKEN))
-        self.assertFalse(pc_npc_pistol_weapon(stopped.state,'minion1').loaded)
-        self.assertEqual(steps(stopped,PcNpcPistolReloadProof),())
+        self.assertFalse(pc_npc_ranged_weapon(stopped.state,'minion1').loaded)
+        self.assertEqual(steps(stopped,PcNpcRangedReloadProof),())
         source = replace(source,facts=replace(source.facts,can_leave_zone=True),
             npc_broken_exit_policy=PcAdjacentNpcExitPolicy('outside',True,True))
         exited = execute(source,values)
         self.assertIs(exited.outcome,PcMeleeOutcome.OBJECTIVE_ACHIEVED)
         self.assertEqual(exited.exited_npc_ids,('minion1',))
         self.assertEqual(len(steps(exited,PcNpcExitProof)),1)
-        self.assertEqual(steps(exited,PcNpcPistolReloadProof),())
+        self.assertEqual(steps(exited,PcNpcRangedReloadProof),())
         self.assertEqual(exited.executed_actions,3)
-        self.assertEqual(pc_npc_pistol_weapon(exited.state,'minion1').exacting.accumulated_successes,0)
+        self.assertEqual(pc_npc_ranged_weapon(exited.state,'minion1').exacting.accumulated_successes,0)
 
     def test_real_heavy_wounds_preserve_defenceless_protection_and_critical_end_phase(self):
         source = scene(profiles=(OFFICIAL,)*4)
@@ -228,7 +228,7 @@ class NpcPistolExecutionTests(unittest.TestCase):
         self.assertTrue(last.source.participant('pc').injury.conditions.has(Condition.DEFENCELESS))
         self.assertIsNone(raw(last).defender_test)
         self.assertIsNone(last.proof.fate_decline)
-        self.assertFalse(pc_npc_pistol_weapon(last.state,'minion4').loaded)
+        self.assertFalse(pc_npc_ranged_weapon(last.state,'minion4').loaded)
 
         source = scene(profiles=(OFFICIAL,)*3,rounds=2)
         member = source.party[0]
@@ -239,19 +239,19 @@ class NpcPistolExecutionTests(unittest.TestCase):
         critical, = tuple(step for step in steps(result,PcTurnEndProof) if step.proof.critical is not None)
         self.assertTrue(critical.source.participant('pc').injury.conditions.has(Condition.CRITICALLY_INJURED))
         self.assertTrue(critical.state.participant('pc').injury.conditions.has(Condition.DEFENCELESS))
-        self.assertEqual(len(steps(result,PcNpcPistolReloadProof)),3)
+        self.assertEqual(len(steps(result,PcNpcRangedReloadProof)),3)
         self.assertEqual(result.executed_actions,8)
 
     def test_shot_reload_and_weapon_bank_reject_replay_forgery_and_foreign_instances(self):
         result = execute(scene(rounds=2),PC_MISS+OFFICIAL_MISS+PC_MISS+[1]*3)
         shot, = shots(result)
-        reload, = steps(result,PcNpcPistolReloadProof)
+        reload, = steps(result,PcNpcRangedReloadProof)
         for step in (shot,reload):
             self.assertEqual(apply_pc_melee_step(step.source,step),step.state)
             with self.assertRaises((TypeError,ValueError)):
                 apply_pc_melee_step(step.state,step)
         with self.assertRaises((TypeError,ValueError)):
-            PcMeleeStep(shot.source,replace(shot.proof,npc_pistol_shot=None))
+            PcMeleeStep(shot.source,replace(shot.proof,npc_ranged_shot=None))
         class IdAlias(str):
             pass
         for value in ('other:weapon',IdAlias('minion1:weapon')):
@@ -260,15 +260,15 @@ class NpcPistolExecutionTests(unittest.TestCase):
             with self.subTest(value=value),self.assertRaises((TypeError,ValueError)):
                 PcMeleeStep(reload.source,forged)
         for value in (True,1):
-            bank = deepcopy(shot.state.npc_pistols)
+            bank = deepcopy(shot.state.npc_ranged_weapons)
             object.__setattr__(bank[0].weapon_state,'loaded',value)
             with self.subTest(value=value),self.assertRaises((TypeError,ValueError)):
-                replace(shot.state,npc_pistols=bank)
+                replace(shot.state,npc_ranged_weapons=bank)
         forged = deepcopy(shot.proof)
-        object.__setattr__(forged.npc_pistol_shot.execution.weapon_state,'reload_cycle_id','foreign-cycle')
+        object.__setattr__(forged.npc_ranged_shot.execution.weapon_state,'reload_cycle_id','foreign-cycle')
         with self.assertRaises((TypeError,ValueError)):
             PcMeleeStep(shot.source,forged)
-        self.assertTrue(pc_npc_pistol_weapon(shot.source,'minion1').loaded)
+        self.assertTrue(pc_npc_ranged_weapon(shot.source,'minion1').loaded)
 
 
 if __name__ == '__main__':

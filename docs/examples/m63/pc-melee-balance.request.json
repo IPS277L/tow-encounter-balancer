@@ -64,7 +64,7 @@
         "help_policy": {
           "beneficiary_id": "pc2",
           "target": "first_incoming_protection",
-          "protection_skill": "melee"
+          "skill": "melee"
         },
         "ally_recover_policy": null,
         "backup_weapon_policy": null,
@@ -181,7 +181,7 @@
             }
           }
         },
-        "pistol": {
+        "ranged": {
           "initially_loaded": true,
           "has_blackpowder_lore": true,
           "has_blackpowder_kit": true,
@@ -230,7 +230,7 @@
             }
           }
         },
-        "pistol": {
+        "ranged": {
           "initially_loaded": true,
           "has_blackpowder_lore": true,
           "has_blackpowder_kit": true,

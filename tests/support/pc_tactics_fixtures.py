@@ -12,7 +12,7 @@ from towr.rules.turn_resolution import start_combat_turn
 
 def automatic_source(*, pc_count=2, enemy_count=1, rounds=1):
     source = make_pc_melee_party_scenario(pc_count=pc_count, enemy_count=enemy_count, max_rounds=rounds)
-    return replace(source, party=tuple(replace(member, policy=PcMeleePolicy.AUTOMATIC_MELEE)
+    return replace(source, party=tuple(replace(member, policy=PcMeleePolicy.AUTOMATIC_COMBAT)
         for member in source.party))
 
 

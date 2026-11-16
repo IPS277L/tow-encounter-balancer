@@ -1,4 +1,8 @@
 """Aggregate-only PC encounter data for the balance boundary."""
+from towr.simulation.pc_ranged_statistics import PcRangedCount,validate_pc_ranged_counts
+
+from towr.simulation.pc_npc_ranged_statistics import PcNpcRangedCount,validate_npc_ranged_counts
+
 from dataclasses import dataclass, field, replace
 
 from towr.simulation.pc_melee_models import (
@@ -62,6 +66,8 @@ class PcMeleeSimulationSummary:
     aim: PcAimCounts | None = field(default=None, kw_only=True)
     potion_use_counts: tuple[PcPotionUseCount, ...] | None = field(default=None, kw_only=True)
     magic_counts: tuple[PcMagicCount, ...] | None = field(default=None, kw_only=True)
+    npc_ranged_counts: tuple[PcNpcRangedCount, ...] | None = field(default=None,kw_only=True)
+    pc_ranged_counts: tuple[PcRangedCount,...] | None = field(default=None,kw_only=True)
 
     def __post_init__(self) -> None:
         if not isinstance(self.source_request, PcMeleeSimulationRequest):
@@ -149,6 +155,10 @@ class PcMeleeSimulationSummary:
             actions=self.total_action_count,started_rounds=self.total_started_round_count)
         validate_potion_use_counts(self.potion_use_counts,self.source_request.scenario,trials=self.trials,
             actions=self.total_action_count,started_rounds=self.total_started_round_count)
+        validate_pc_ranged_counts(self.pc_ranged_counts,self.source_request.scenario,
+            actions=self.total_action_count,started_rounds=self.total_started_round_count,help_counts=self.help_action_counts)
+        validate_npc_ranged_counts(self.npc_ranged_counts,self.source_request.scenario,
+            actions=self.total_action_count,started_rounds=self.total_started_round_count)
         validate_magic_counts(self.magic_counts,self.source_request.scenario,trials=self.trials,
             actions=self.total_action_count,started_rounds=self.total_started_round_count,
             unsupported_trials=counts.unsupported_path)
@@ -167,7 +177,7 @@ class PcMeleeSimulationSummary:
             actions=self.total_action_count,started_rounds=self.total_started_round_count,
             warped_form_counts=self.npc_warped_form_counts)
         if sum(item.count for item in (*self.help_action_counts,*self.ally_recover_action_counts,
-                *self.npc_help_action_counts,*self.npc_recover_action_counts,*(self.potion_use_counts or ())))+2*self.total_npc_extra_attack_count+(self.aim.total_action_count if self.aim is not None else 0)+self.total_casting_action_count>self.total_action_count:
+                *self.npc_help_action_counts,*self.npc_recover_action_counts,*(self.potion_use_counts or ())))+2*self.total_npc_extra_attack_count+(self.aim.total_action_count if self.aim is not None else 0)+self.total_casting_action_count+sum(row.shots+row.reload_actions for row in self.npc_ranged_counts or ())+sum(row.shots+row.reload_actions for row in self.pc_ranged_counts or ())>self.total_action_count:
             raise ValueError('Help, ally Recover and primary/extra Attacks cannot consume the same action')
         validate_npc_exit_counts(self.npc_exit_counts,self.source_request.scenario,
             trials=self.trials,exit_trials=self.npc_exit_trial_count)

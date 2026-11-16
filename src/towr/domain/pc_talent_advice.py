@@ -73,7 +73,7 @@ def _fated_distribution(dice: int,threshold: int,grim: bool,maximum_initial: int
     return tuple(shifted)
 
 
-def pc_test_distribution(state,actor: str,skill: Skill,request: TestRequest):
+def pc_test_distribution(state,actor: str,skill: Skill,request: TestRequest,*,include_policy: bool=False):
     """Account for a legal selected future Fate window, never spend its budget.
 
     New combat-Talent actors use this comparison. Existing actors keep their
@@ -84,7 +84,7 @@ def pc_test_distribution(state,actor: str,skill: Skill,request: TestRequest):
     source=state.source.participant(actor)
     policy=source.glorious_policy
     member=state.participant(actor)
-    if (not source.combat_talents or source.fate_policy is not PcFatePolicy.CONFIGURED
+    if ((not source.combat_talents and not include_policy) or source.fate_policy is not PcFatePolicy.CONFIGURED
             or policy is None or skill not in policy.skills or request.reroll_locks
             or any(item.quality is TestQuality.GLORIOUS for item in request.quality_modifiers)):
         return _distribution(request)

@@ -103,7 +103,7 @@ class PistolJsonTests(unittest.TestCase):
     def test_pistol_same_hand_shield_overcarry_backup_help_and_old_pc_pistol_backup_rejected(self):
         def help_policy(member):
             member.update(policy='help_ally_or_attack_or_recover_self',
-                help_policy={'beneficiary_id': 'ally', 'target': 'melee_attack', 'protection_skill': None})
+                help_policy={'beneficiary_id': 'ally', 'target': 'attack', 'skill': 'melee'})
         def ally_policy(member):
             member.update(policy='recover_ally_or_attack_or_recover_self',
                 ally_recover_policy={'beneficiary_id': 'ally'})

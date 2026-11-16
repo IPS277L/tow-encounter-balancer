@@ -310,7 +310,7 @@
                   "$ref": "urn:towr:pc-melee:common:1#/$defs/attack"
                 },
                 {
-                  "$ref": "urn:towr:pc-melee:common:1#/$defs/npc_pistol_attack"
+                  "$ref": "urn:towr:pc-melee:common:1#/$defs/npc_ranged_attack"
                 }
               ]
             },
@@ -498,19 +498,41 @@
             },
             {
               "if": {
-                "properties": {
-                  "id": {
-                    "enum": [
-                      "pc-book-npc:empire_official_pistol",
-                      "pc-book-npc:imperial_ogre_pistol"
-                    ]
+                "anyOf": [
+                  {
+                    "properties": {
+                      "id": {
+                        "enum": [
+                          "pc-book-npc:empire_official_pistol",
+                          "pc-book-npc:imperial_ogre_pistol"
+                        ]
+                      }
+                    }
+                  },
+                  {
+                    "required": [
+                      "generated_components"
+                    ],
+                    "properties": {
+                      "generated_components": {
+                        "properties": {
+                          "weapon": {
+                            "enum": [
+                              "pistol",
+                              "repeater_pistol",
+                              "repeater_handbow"
+                            ]
+                          }
+                        }
+                      }
+                    }
                   }
-                }
+                ]
               },
               "then": {
                 "properties": {
                   "attack": {
-                    "$ref": "urn:towr:pc-melee:common:1#/$defs/npc_pistol_attack"
+                    "$ref": "urn:towr:pc-melee:common:1#/$defs/npc_ranged_attack"
                   }
                 }
               },
@@ -565,8 +587,8 @@
         "net_policy": {
           "$ref": "urn:towr:pc-melee:common:1#/$defs/net_policy"
         },
-        "pistol": {
-          "$ref": "urn:towr:pc-melee:common:1#/$defs/npc_pistol_source"
+        "ranged": {
+          "$ref": "urn:towr:pc-melee:common:1#/$defs/npc_ranged_source"
         }
       },
       "required": [
@@ -606,11 +628,15 @@
             "properties": {
               "definition": {
                 "properties": {
-                  "id": {
-                    "enum": [
-                      "pc-book-npc:empire_official_pistol",
-                      "pc-book-npc:imperial_ogre_pistol"
-                    ]
+                  "attack": {
+                    "required": [
+                      "skill"
+                    ],
+                    "properties": {
+                      "skill": {
+                        "const": "shooting"
+                      }
+                    }
                   }
                 }
               }
@@ -618,7 +644,7 @@
           },
           "then": {
             "required": [
-              "pistol"
+              "ranged"
             ],
             "properties": {
               "holds_shield": {
@@ -629,8 +655,56 @@
           "else": {
             "not": {
               "required": [
-                "pistol"
+                "ranged"
               ]
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "definition": {
+                "required": [
+                  "generated_components"
+                ],
+                "properties": {
+                  "generated_components": {
+                    "properties": {
+                      "weapon": {
+                        "const": "repeater_handbow"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "ranged": {
+                "properties": {
+                  "has_blackpowder_lore": {
+                    "type": "null"
+                  },
+                  "has_blackpowder_kit": {
+                    "type": "null"
+                  }
+                }
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "ranged": {
+                "properties": {
+                  "has_blackpowder_lore": {
+                    "const": true
+                  },
+                  "has_blackpowder_kit": {
+                    "const": true
+                  }
+                }
+              }
             }
           }
         }
@@ -978,7 +1052,8 @@
         "repeater_bonus_policy": {
           "enum": [
             "when_available",
-            "never"
+            "never",
+            "automatic"
           ]
         },
         "awareness": {
@@ -1989,6 +2064,20 @@
         },
         "aim": {
           "$ref": "#/$defs/aimSummary"
+        },
+        "npc_ranged_counts": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/npcRangedCount"
+          }
+        },
+        "pc_ranged_counts": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "urn:towr:pc-melee:common:1#/$defs/pcRangedCount"
+          }
         }
       },
       "required": [
@@ -2121,7 +2210,15 @@
         "summary",
         "assessment"
       ],
-      "additionalProperties": false
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "$ref": "#/$defs/npcRangedSummaryPresence"
+        },
+        {
+          "$ref": "#/$defs/pcRangedSummaryPresence"
+        }
+      ]
     },
     "backup_weapon_policy": {
       "type": "object",
@@ -2254,7 +2351,7 @@
             "attack_or_recover_self",
             "help_ally_or_attack_or_recover_self",
             "recover_ally_or_attack_or_recover_self",
-            "automatic_melee"
+            "automatic_combat"
           ]
         },
         "fate_policy": {
@@ -2392,6 +2489,14 @@
               "maxContains": 1
             }
           ]
+        },
+        "combat_equipment": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:towr:pc-melee:common:1#/$defs/combat_weapon_item"
+          },
+          "minItems": 1,
+          "maxItems": 2
         }
       },
       "required": [
@@ -2495,7 +2600,10 @@
           "then": {
             "properties": {
               "policy": {
-                "const": "attack_or_recover_self"
+                "enum": [
+                  "attack_or_recover_self",
+                  "automatic_combat"
+                ]
               },
               "help_policy": {
                 "type": "null"
@@ -2687,7 +2795,7 @@
                 "policy": {
                   "enum": [
                     "attack_or_recover_self",
-                    "automatic_melee"
+                    "automatic_combat"
                   ]
                 },
                 "help_policy": {
@@ -2832,7 +2940,96 @@
           "then": {
             "properties": {
               "policy": {
-                "const": "automatic_melee"
+                "const": "automatic_combat"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "policy": {
+                "const": "automatic_combat"
+              },
+              "pc": {
+                "properties": {
+                  "weapon": {
+                    "enum": [
+                      "pistol",
+                      "repeater_pistol",
+                      "repeater_handbow"
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "combat_equipment"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "policy": {
+                "const": "automatic_combat"
+              },
+              "pc": {
+                "properties": {
+                  "weapon": {
+                    "enum": [
+                      "repeater_pistol",
+                      "repeater_handbow"
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "pc": {
+                "properties": {
+                  "ranged": {
+                    "properties": {
+                      "repeater_bonus_policy": {
+                        "const": "automatic"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "pc": {
+                "required": [
+                  "ranged"
+                ],
+                "properties": {
+                  "ranged": {
+                    "required": [
+                      "repeater_bonus_policy"
+                    ],
+                    "properties": {
+                      "repeater_bonus_policy": {
+                        "const": "automatic"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "policy": {
+                "const": "automatic_combat"
               }
             }
           }
@@ -2951,57 +3148,53 @@
         },
         "target": {
           "enum": [
-            "melee_attack",
+            "attack",
             "first_incoming_protection"
           ]
         },
-        "protection_skill": {
+        "skill": {
           "enum": [
-            null,
+            "melee",
+            "shooting",
             "defence",
-            "athletics",
-            "melee"
+            "athletics"
           ]
         }
       },
       "required": [
         "beneficiary_id",
         "target",
-        "protection_skill"
+        "skill"
       ],
       "additionalProperties": false,
-      "allOf": [
-        {
-          "if": {
-            "properties": {
-              "target": {
-                "const": "melee_attack"
-              }
-            },
-            "required": [
-              "target"
-            ]
-          },
-          "then": {
-            "properties": {
-              "protection_skill": {
-                "type": "null"
-              }
-            }
-          },
-          "else": {
-            "properties": {
-              "protection_skill": {
-                "enum": [
-                  "defence",
-                  "athletics",
-                  "melee"
-                ]
-              }
-            }
+      "if": {
+        "properties": {
+          "target": {
+            "const": "attack"
           }
         }
-      ]
+      },
+      "then": {
+        "properties": {
+          "skill": {
+            "enum": [
+              "melee",
+              "shooting"
+            ]
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "skill": {
+            "enum": [
+              "defence",
+              "athletics",
+              "melee"
+            ]
+          }
+        }
+      }
     },
     "help_action_count": {
       "type": "object",
@@ -3374,7 +3567,7 @@
       ],
       "additionalProperties": false
     },
-    "npc_pistol_attack": {
+    "npc_ranged_attack": {
       "type": "object",
       "properties": {
         "id": {
@@ -3414,7 +3607,17 @@
         },
         "secondary_effects": {
           "type": "array",
-          "maxItems": 0
+          "maxItems": 1,
+          "items": {
+            "oneOf": [
+              {
+                "$ref": "urn:towr:pc-melee:common:1#/$defs/on_hit_drained_effect"
+              },
+              {
+                "$ref": "urn:towr:pc-melee:common:1#/$defs/pre_stagger_prone_effect"
+              }
+            ]
+          }
         },
         "skill": {
           "const": "shooting"
@@ -3423,7 +3626,7 @@
           "const": "close"
         },
         "ignores_armour": {
-          "const": true
+          "type": "boolean"
         }
       },
       "required": [
@@ -3440,17 +3643,23 @@
       ],
       "additionalProperties": false
     },
-    "npc_pistol_source": {
+    "npc_ranged_source": {
       "type": "object",
       "properties": {
         "initially_loaded": {
           "const": true
         },
         "has_blackpowder_lore": {
-          "const": true
+          "enum": [
+            true,
+            null
+          ]
         },
         "has_blackpowder_kit": {
-          "const": true
+          "enum": [
+            true,
+            null
+          ]
         },
         "ammunition_supply_confirmed": {
           "const": true
@@ -3832,7 +4041,10 @@
             "axe",
             "sword",
             "warhammer",
-            "morning_star"
+            "morning_star",
+            "pistol",
+            "repeater_pistol",
+            "repeater_handbow"
           ]
         },
         "light_armour": {
@@ -3861,6 +4073,16 @@
             "$ref": "urn:towr:pc-melee:common:1#/$defs/generated_talent"
           },
           "uniqueItems": true
+        },
+        "ranged": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/generated_ranged_facts"
+            }
+          ]
         }
       },
       "required": [
@@ -3920,6 +4142,89 @@
               }
             }
           }
+        },
+        {
+          "if": {
+            "properties": {
+              "weapon": {
+                "enum": [
+                  "pistol",
+                  "repeater_pistol",
+                  "repeater_handbow"
+                ]
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "ranged"
+            ],
+            "properties": {
+              "ranged": {
+                "$ref": "#/$defs/generated_ranged_facts"
+              },
+              "shield": {
+                "const": false
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "ranged": {
+                "type": "null"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "weapon": {
+                "enum": [
+                  "pistol",
+                  "repeater_pistol",
+                  "repeater_handbow"
+                ]
+              }
+            }
+          },
+          "then": {
+            "if": {
+              "properties": {
+                "weapon": {
+                  "const": "repeater_handbow"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "ranged": {
+                  "properties": {
+                    "has_blackpowder_lore": {
+                      "type": "null"
+                    },
+                    "has_blackpowder_kit": {
+                      "type": "null"
+                    }
+                  }
+                }
+              }
+            },
+            "else": {
+              "properties": {
+                "ranged": {
+                  "properties": {
+                    "has_blackpowder_lore": {
+                      "const": true
+                    },
+                    "has_blackpowder_kit": {
+                      "const": true
+                    }
+                  }
+                }
+              }
+            }
+          }
         }
       ]
     },
@@ -3951,6 +4256,332 @@
         "acquisition"
       ],
       "additionalProperties": false
+    },
+    "generated_ranged_facts": {
+      "type": "object",
+      "properties": {
+        "ballistic_skill": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "initiative": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "shooting": {
+          "type": "integer",
+          "minimum": 2,
+          "maximum": 6
+        },
+        "dexterity": {
+          "type": "integer",
+          "minimum": 2,
+          "maximum": 6
+        },
+        "initially_loaded": {
+          "const": true
+        },
+        "ammunition_supply_confirmed": {
+          "const": true
+        },
+        "has_blackpowder_lore": {
+          "enum": [
+            true,
+            null
+          ]
+        },
+        "has_blackpowder_kit": {
+          "enum": [
+            true,
+            null
+          ]
+        }
+      },
+      "required": [
+        "ballistic_skill",
+        "shooting",
+        "initiative",
+        "dexterity",
+        "initially_loaded",
+        "ammunition_supply_confirmed",
+        "has_blackpowder_lore",
+        "has_blackpowder_kit"
+      ],
+      "additionalProperties": false
+    },
+    "npcRangedCount": {
+      "type": "object",
+      "properties": {
+        "actor_id": {
+          "$ref": "#/$defs/identifier"
+        },
+        "shots": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "bonus_shots": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "reload_actions": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "actor_id",
+        "shots",
+        "bonus_shots",
+        "reload_actions"
+      ],
+      "additionalProperties": false
+    },
+    "npcRangedSummaryPresence": {
+      "if": {
+        "required": [
+          "request"
+        ],
+        "properties": {
+          "request": {
+            "required": [
+              "scenario"
+            ],
+            "properties": {
+              "scenario": {
+                "required": [
+                  "enemies"
+                ],
+                "properties": {
+                  "enemies": {
+                    "contains": {
+                      "required": [
+                        "ranged"
+                      ],
+                      "properties": {
+                        "ranged": {
+                          "type": "object"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "summary": {
+            "required": [
+              "npc_ranged_counts"
+            ]
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "summary": {
+            "not": {
+              "required": [
+                "npc_ranged_counts"
+              ]
+            }
+          }
+        }
+      }
+    },
+    "combat_weapon_item": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "urn:towr:pc-melee:common:1#/$defs/identifier"
+        },
+        "weapon": {
+          "enum": [
+            "staff",
+            "sword",
+            "dagger",
+            "axe",
+            "warhammer",
+            "morning_star",
+            "pickaxe",
+            "flail",
+            "billhook",
+            "halberd",
+            "glaive",
+            "greataxe",
+            "greathammer",
+            "pistol",
+            "repeater_handbow",
+            "repeater_pistol",
+            "shortbow",
+            "warbow",
+            "longbow",
+            "crossbow",
+            "repeater_crossbow",
+            "handgun",
+            "repeater_handgun",
+            "sling",
+            "blunderbuss",
+            "hochland_long_rifle"
+          ]
+        },
+        "location": {
+          "enum": [
+            "held",
+            "carried"
+          ]
+        },
+        "hand": {
+          "enum": [
+            null,
+            "left",
+            "right",
+            "both"
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "weapon",
+        "location",
+        "hand"
+      ],
+      "additionalProperties": false,
+      "if": {
+        "properties": {
+          "location": {
+            "const": "carried"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "hand": {
+            "type": "null"
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "hand": {
+            "enum": [
+              "left",
+              "right",
+              "both"
+            ]
+          }
+        }
+      }
+    },
+    "pcRangedCount": {
+      "type": "object",
+      "properties": {
+        "actor_id": {
+          "$ref": "urn:towr:pc-melee:common:1#/$defs/identifier"
+        },
+        "shots": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "bonus_shots": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "shooting_help_tests": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "bonus_help_tests": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "reload_actions": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "weapon_swaps": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "actor_id",
+        "shots",
+        "bonus_shots",
+        "shooting_help_tests",
+        "bonus_help_tests",
+        "reload_actions",
+        "weapon_swaps"
+      ],
+      "additionalProperties": false
+    },
+    "pcRangedSummaryPresence": {
+      "if": {
+        "required": [
+          "request"
+        ],
+        "properties": {
+          "request": {
+            "required": [
+              "scenario"
+            ],
+            "properties": {
+              "scenario": {
+                "required": [
+                  "party"
+                ],
+                "properties": {
+                  "party": {
+                    "contains": {
+                      "required": [
+                        "policy",
+                        "pc"
+                      ],
+                      "properties": {
+                        "policy": {
+                          "const": "automatic_combat"
+                        },
+                        "pc": {
+                          "required": [
+                            "ranged"
+                          ],
+                          "properties": {
+                            "ranged": {
+                              "type": "object"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "summary": {
+            "required": [
+              "pc_ranged_counts"
+            ]
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "summary": {
+            "not": {
+              "required": [
+                "pc_ranged_counts"
+              ]
+            }
+          }
+        }
+      }
     }
   }
 }

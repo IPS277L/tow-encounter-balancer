@@ -118,7 +118,27 @@
       false,
       true
     ],
-    "allowed_talents": []
+    "allowed_talents": [],
+    "ballistic_skill": [
+      2,
+      3,
+      4
+    ],
+    "initiative": [
+      2,
+      3,
+      4
+    ],
+    "shooting": [
+      3,
+      4,
+      5
+    ],
+    "dexterity": [
+      3,
+      4,
+      5
+    ]
   },
   "npc_count": {
     "minimum": 1,

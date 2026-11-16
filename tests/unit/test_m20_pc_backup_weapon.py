@@ -159,7 +159,7 @@ class PcBackupWeaponTests(unittest.TestCase):
             initial_weapon_hand=PcTwoHandedGrip.BOTH,
             backup_weapon_policy=PcBackupWeaponPolicy(PcMeleeWeapon.MORNING_STAR,PcWeaponHand.LEFT),
             policy=PcMeleePolicy.HELP_ALLY_OR_ATTACK_OR_RECOVER_SELF,
-            help_policy=PcHelpPolicy('pc2',PcHelpTarget.MELEE_ATTACK,None)),beneficiary))
+            help_policy=PcHelpPolicy('pc2',PcHelpTarget.ATTACK,Skill.MELEE)),beneficiary))
         result = execute(scene,[10]*3+[10]*3+[1]*2+heavy_prefix(16)[5:]
             +[1]*3+[1]*3+[1]*6+[10]*2+[10,10,1,1,1]*2)
         draw, = draws(result)

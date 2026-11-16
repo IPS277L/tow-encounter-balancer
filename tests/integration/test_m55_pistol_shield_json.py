@@ -21,6 +21,7 @@ from towr.domain.pc_melee_models import (
     PcAllyRecoverPolicy, PcBackupWeaponPolicy, PcHelpPolicy, PcHelpTarget,
     PcMeleePolicy, PcMeleeWeapon, PcWeaponHand, validate_pc_melee_scenario_admission,
 )
+from towr.domain.test_models import Skill
 from towr.simulation.pc_melee_models import PcMeleeSimulationRequest
 from towr.simulation.pc_melee_simulation import run_pc_melee_trial
 
@@ -66,7 +67,7 @@ class PistolShieldJsonTests(unittest.TestCase):
             {'pc': replace(member.pc,strength=1),
                 'backup_weapon_policy': PcBackupWeaponPolicy(PcMeleeWeapon.DAGGER, PcWeaponHand.RIGHT)},
             {'policy': PcMeleePolicy.HELP_ALLY_OR_ATTACK_OR_RECOVER_SELF,
-                'help_policy': PcHelpPolicy('ally', PcHelpTarget.MELEE_ATTACK, None)},
+                'help_policy': PcHelpPolicy('ally', PcHelpTarget.ATTACK, Skill.MELEE)},
             {'policy': PcMeleePolicy.RECOVER_ALLY_OR_ATTACK_OR_RECOVER_SELF,
                 'ally_recover_policy': PcAllyRecoverPolicy('ally')},
         )

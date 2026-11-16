@@ -24,11 +24,11 @@ class PcProtectionHelpModelTests(unittest.TestCase):
             with self.assertRaises((TypeError,ValueError)):
                 PcHelpPolicy('pc2',PcHelpTarget.FIRST_INCOMING_PROTECTION,skill)
         with self.assertRaises(ValueError):
-            PcHelpPolicy('pc2',PcHelpTarget.MELEE_ATTACK,Skill.DEFENCE)
+            PcHelpPolicy('pc2',PcHelpTarget.ATTACK,Skill.DEFENCE)
         with self.assertRaises(TypeError):
             PcHelpPolicy('pc2')
         for skill in (Skill.DEFENCE,Skill.ATHLETICS,Skill.MELEE):
-            self.assertIs(PcHelpPolicy('pc2',PcHelpTarget.FIRST_INCOMING_PROTECTION,skill).protection_skill,skill)
+            self.assertIs(PcHelpPolicy('pc2',PcHelpTarget.FIRST_INCOMING_PROTECTION,skill).skill,skill)
 
     def test_protection_beneficiary_can_act_before_helper_but_remains_an_ordinary_ally(self):
         source = active_protection_help_source()
@@ -40,11 +40,11 @@ class PcProtectionHelpModelTests(unittest.TestCase):
             replace(source,party=(member,source.party[1]))
         with self.assertRaises(ValueError):
             replace(changed,party=(replace(changed.party[0],help_policy=PcHelpPolicy('pc2',
-                PcHelpTarget.MELEE_ATTACK,None)),changed.party[1]))
+                PcHelpTarget.ATTACK,Skill.MELEE)),changed.party[1]))
 
     def test_cached_enum_aliases_are_refused_before_simulation_or_count_search(self):
         source = active_protection_help_source()
-        for field,text in (('target','first_incoming_protection'),('protection_skill','defence')):
+        for field,text in (('target','first_incoming_protection'),('skill','defence')):
             forged = deepcopy(source)
             alias = Enum('ForeignString',{'VALUE':text},type=str).VALUE
             object.__setattr__(forged.party[0].help_policy,field,alias)

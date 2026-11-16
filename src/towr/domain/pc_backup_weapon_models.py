@@ -26,6 +26,9 @@ def pc_preferred_weapon_hand(state: PcMeleeState, actor_id: str) -> PcWeaponHand
 
 
 def pc_active_weapon_item_id(state: PcMeleeState, actor_id: str) -> str:
+    inventory=state.participant(actor_id).weapon_inventory
+    if inventory is not None:
+        return inventory.active_item_id
     return actor_id + (':backup-weapon' if state.participant(actor_id).using_backup_weapon else ':weapon')
 
 
@@ -34,6 +37,10 @@ def pc_backup_candidate_hand(state: PcMeleeState, actor_id: str) -> PcWeaponHand
     turn = state.round_state.active_turn
     participant = state.source.participant(actor_id)
     member = state.participant(actor_id)
+    from towr.domain.pc_melee_models import PcMeleePolicy
+    if (participant.policy is PcMeleePolicy.AUTOMATIC_COMBAT and participant.pc.ranged is not None
+            and member.weapon_inventory is not None):
+        return None
     policy = participant.backup_weapon_policy
     if (policy is None or member.using_backup_weapon or member.injury.dead
             or member.injury.conditions.has(Condition.DEFENCELESS)

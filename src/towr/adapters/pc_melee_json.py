@@ -166,6 +166,10 @@ def _summary(summary: PcMeleeSimulationSummary) -> dict:
         "total_npc_warped_form_count": summary.total_npc_warped_form_count}
     if summary.potion_use_counts is not None:
         document['potion_use_counts'] = [asdict(row) for row in summary.potion_use_counts]
+    if summary.npc_ranged_counts is not None:
+        document['npc_ranged_counts'] = [asdict(row) for row in summary.npc_ranged_counts]
+    if summary.pc_ranged_counts is not None:
+        document['pc_ranged_counts'] = [asdict(row) for row in summary.pc_ranged_counts]
     if summary.magic_counts is not None:
         document['magic_counts'] = [asdict(row) for row in summary.magic_counts]
     if summary.aim is not None:

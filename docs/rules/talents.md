@@ -92,7 +92,7 @@ Wild Attack оплачивается настоящим Staggered до собс�
 
 Defensive Stance заменяет ещё не исполненное наложение Staggered промахнувшемуся атакующему снятием собственного. Нужны успешная фактическая Defence и действительно доступный новый Staggered противнику;0v0, Athletics, уже Staggered атакующий и собственный fresh state не дают обмена. Drained не отключает пассивную реакцию. Ongoing Staggered от раны15 сохраняется по PG122/190 до устранения причины; реакция не обходит последствия рук/ран и не создаёт новый Critical.
 
-Автоматическая тактика сравнивает конечные распределения обычного и Glorious Test, действующую Fate/Lucky policy и прирост входящего риска; при равенстве не платит цену. Это эвристика без вложенного Monte Carlo и без расхода ресурса в прогнозе. Граница — automatic all-Close melee PC против обычных Melee Minions, без нового ranged/Brute-пути. [ADR-0123](../decisions/ADR-0123-pc-combat-talents-and-committed-melee-intent.md).
+Автоматическая тактика сравнивает конечные распределения обычного и Glorious Test, действующую Fate/Lucky policy и прирост входящего риска; при равенстве не платит цену. Это эвристика без вложенного Monte Carlo и без расхода ресурса в прогнозе. После ADR-0124 граница включает mixed Melee/Shooting Minions при melee PC и all-Close. Wild Attack остаётся для собственных Attack/Melee Help; Defence против Shooting не запускает Defensive Stance. Новый PC ranged/Brute-путь не добавлен. [ADR-0123](../decisions/ADR-0123-pc-combat-talents-and-committed-melee-intent.md).
 
 ### Combat Surgeon: treatment-effect boundary
 

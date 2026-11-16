@@ -425,7 +425,7 @@
               }
             }
           },
-          "pistol": {
+          "ranged": {
             "initially_loaded": true,
             "has_blackpowder_lore": true,
             "has_blackpowder_kit": true,
@@ -474,7 +474,7 @@
               }
             }
           },
-          "pistol": {
+          "ranged": {
             "initially_loaded": true,
             "has_blackpowder_lore": true,
             "has_blackpowder_kit": true,
@@ -767,6 +767,20 @@
         "count": 0
       }
     ],
-    "total_npc_warped_form_count": 0
+    "total_npc_warped_form_count": 0,
+    "npc_ranged_counts": [
+      {
+        "actor_id": "official1",
+        "shots": 7,
+        "bonus_shots": 0,
+        "reload_actions": 27
+      },
+      {
+        "actor_id": "ogre1",
+        "shots": 10,
+        "bonus_shots": 0,
+        "reload_actions": 38
+      }
+    ]
   }
 }

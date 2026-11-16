@@ -19,7 +19,7 @@ from towr.domain.pc_melee_result_models import (
 from towr.domain.pc_net_models import PcNpcNetDrawProof, net_stock_and_held
 from towr.domain.pc_npc_catalog import PcBookNpcProfile as Npc, create_pc_book_npc
 from towr.domain.pc_npc_help_models import pc_npc_help_beneficiary
-from towr.domain.pc_npc_pistol_models import PcNpcPistolReloadProof, pc_npc_pistol_weapon
+from towr.domain.pc_npc_ranged_models import PcNpcRangedReloadProof, pc_npc_ranged_weapon
 from towr.domain.test_models import Skill, TestQuality
 from towr.engine.pc_melee_runner import apply_pc_melee_step, run_pc_melee_scenario
 
@@ -41,7 +41,7 @@ def steps(result,kind):
 
 
 def shots(result):
-    return tuple(step for step in steps(result,PcAttackProof) if step.proof.npc_pistol_shot is not None)
+    return tuple(step for step in steps(result,PcAttackProof) if step.proof.npc_ranged_shot is not None)
 
 
 def two_pcs(source):
@@ -72,7 +72,7 @@ class NpcShootingHelpTests(unittest.TestCase):
                     self.assertEqual((trace.base_dice,trace.cap_bypassing_dice,trace.rolled_dice),
                         (base,1,base+1))
                     self.assertEqual(shot.proof.help_applications,())
-                    self.assertFalse(pc_npc_pistol_weapon(result.state,'minion2').loaded)
+                    self.assertFalse(pc_npc_ranged_weapon(result.state,'minion2').loaded)
                     self.assertEqual(result.executed_actions,3)
                     self.assertFalse(hasattr(help.proof.execution,'help_test_result'))
 
@@ -100,7 +100,7 @@ class NpcShootingHelpTests(unittest.TestCase):
         self.assertEqual(tuple(step.source.round_state.round_number for step in helps),(1,4))
         fallback=tuple(step for step in steps(result,PcAttackProof) if step.proof.request.actor_id=='minion1')
         self.assertEqual(tuple(step.source.round_state.round_number for step in fallback),(2,3))
-        reloads=steps(result,PcNpcPistolReloadProof)
+        reloads=steps(result,PcNpcRangedReloadProof)
         self.assertEqual(tuple(step.proof.result.exacting.test_result.successes for step in reloads),(2,1))
         self.assertEqual(tuple(step.proof.result.state.loaded for step in reloads),(False,True))
         self.assertTrue(all(step.proof.request.dexterity_test.dice_modifiers==() for step in reloads))
@@ -117,7 +117,7 @@ class NpcShootingHelpTests(unittest.TestCase):
         self.assertIs(net.proof.protection.source_request.attack_skill,Skill.THROWING)
         self.assertEqual(net.proof.npc_help_applications,())
         self.assertTrue(all(step.source.round_state.round_number==2 for step in steps(result,PcNpcNetDrawProof)))
-        self.assertEqual(len(steps(result,PcNpcPistolReloadProof)),1)
+        self.assertEqual(len(steps(result,PcNpcRangedReloadProof)),1)
 
     def test_shooting_help_retains_actual_pc_glorious_shield_and_near_miss_prefix(self):
         source=scene(shooter=Npc.EMPIRE_OFFICIAL_PISTOL,max_rounds=1)
@@ -138,7 +138,7 @@ class NpcShootingHelpTests(unittest.TestCase):
         result=execute(near,PC_MISS+[1]*3+[10]*3+[8])
         self.assertEqual(result.state.participant('pc').injury.wounds,())
         self.assertEqual(result.state.participant('pc').fate.rating,2)
-        self.assertFalse(pc_npc_pistol_weapon(result.state,'minion2').loaded)
+        self.assertFalse(pc_npc_ranged_weapon(result.state,'minion2').loaded)
 
     def test_pc_protection_help_does_not_move_from_first_npc_to_a_later_shooter(self):
         source=two_pcs(scene(shooter=Npc.EMPIRE_OFFICIAL_PISTOL,max_rounds=1))
@@ -192,7 +192,7 @@ class NpcShootingHelpTests(unittest.TestCase):
         self.assertEqual(len(steps(result,PcNpcHelpProof)),2)
         self.assertEqual(len(shots(result)),1)
         self.assertEqual(result.executed_actions,11)
-        self.assertTrue(pc_npc_pistol_weapon(result.state,'minion3').loaded)
+        self.assertTrue(pc_npc_ranged_weapon(result.state,'minion3').loaded)
         self.assertTrue(result.state.participant('pc').injury.dead)
         self.assertIs(result.outcome,PcMeleeOutcome.PARTY_DEFEATED)
 

@@ -5,7 +5,7 @@ from tests.support.pc_melee_fixtures import make_pc_melee_scenario
 from towr.domain.pc_npc_catalog import PcBookNpcProfile, create_pc_book_npc
 from towr.domain.pc_npc_help_models import PcNpcHelpPolicy
 from towr.domain.pc_npc_net_policy_models import PcNpcNetMode, PcNpcNetPolicy
-from towr.domain.pc_npc_pistol_source_models import PcNpcPistolPolicy, PcNpcPistolReloadHandPolicy
+from towr.domain.pc_npc_ranged_source_models import PcNpcRangedPolicy, PcNpcRangedReloadHandPolicy
 
 
 def make_npc_shooting_help_scenario(*,
@@ -20,8 +20,8 @@ def make_npc_shooting_help_scenario(*,
         facts=replace(source.facts, outnumbering_bonus_approved=False),
         npc_help_policies=tuple(PcNpcHelpPolicy(actor, receiver)
             for actor in source.enemy_activation_order[:-1]),
-        npc_pistol_policies=(PcNpcPistolPolicy(receiver, True, True, True, True,
-            PcNpcPistolReloadHandPolicy.TWO_AVAILABLE_HANDS),),
+        npc_ranged_policies=(PcNpcRangedPolicy(receiver, True, True, True, True,
+            PcNpcRangedReloadHandPolicy.TWO_AVAILABLE_HANDS),),
         npc_net_policies=tuple(PcNpcNetPolicy(actor, 1, PcNpcNetMode.THROW_ONCE_THEN_SPEAR)
             for profile, actor in zip(profiles, source.enemy_activation_order, strict=True)
             if profile is PcBookNpcProfile.NIGHT_GOBLIN_NET_SPEAR))

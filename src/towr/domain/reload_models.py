@@ -328,6 +328,24 @@ def _exacting_request(
     )
 
 
+def begin_reload_cycle(weapon: ReloadableWeaponState,cycle_id: str) -> ReloadableWeaponState:
+    """Open one actual consumed-weapon cycle, independently of the Test action.
+
+    A Repeater bonus can be used by an Attack or a Shooting Help Test. Both
+    consume the same loaded instance and preserve its exact cycle history.
+    """
+    if type(weapon) is not ReloadableWeaponState:
+        raise TypeError('new reload cycle requires its exact reloadable weapon state')
+    replace(weapon)
+    if type(cycle_id) is not str or not cycle_id.strip():
+        raise TypeError('new reload cycle requires an exact nonempty identifier')
+    if not weapon.loaded or cycle_id in weapon.reload_cycle_ids:
+        raise ValueError('new reload cycle requires a loaded weapon and unused identifier')
+    return ReloadableWeaponState(weapon.weapon_instance_id,weapon.weapon_id,cycle_id,
+        weapon.required_successes,False,ExactingTestProgress(cycle_id+':exacting',weapon.required_successes),
+        (*weapon.reload_cycle_ids,cycle_id),weapon.rule_id)
+
+
 def _complete_reload_action_after_test(
     request: ReloadActionExecutionRequest,
     test: TestResult,

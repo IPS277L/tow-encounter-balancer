@@ -161,7 +161,7 @@ def project_pc_melee_candidate(request: PcMeleeBalanceRequest, counts: tuple[int
         npc_blood_rage_actor_ids=tuple(actor for actor in template.npc_blood_rage_actor_ids if actor in keep),
         npc_flagellant_policies=tuple(policy for policy in template.npc_flagellant_policies if policy.actor_id in keep),
         npc_net_policies=tuple(policy for policy in template.npc_net_policies if policy.actor_id in keep),
-        npc_pistol_policies=tuple(policy for policy in template.npc_pistol_policies if policy.actor_id in keep),
+        npc_ranged_policies=tuple(policy for policy in template.npc_ranged_policies if policy.actor_id in keep),
         npc_close_shooting_protection_policies=(tuple(policy for policy in
             (template.npc_close_shooting_protection_policies or ()) if policy.actor_id in keep) or None),
         npc_warped_form_policies=tuple(replace(policy,

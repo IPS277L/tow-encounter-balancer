@@ -189,7 +189,7 @@
               }
             }
           },
-          "pistol": {
+          "ranged": {
             "initially_loaded": true,
             "has_blackpowder_lore": true,
             "has_blackpowder_kit": true,
@@ -238,7 +238,7 @@
               }
             }
           },
-          "pistol": {
+          "ranged": {
             "initially_loaded": true,
             "has_blackpowder_lore": true,
             "has_blackpowder_kit": true,
@@ -532,7 +532,7 @@
                   }
                 }
               },
-              "pistol": {
+              "ranged": {
                 "initially_loaded": true,
                 "has_blackpowder_lore": true,
                 "has_blackpowder_kit": true,
@@ -689,7 +689,15 @@
             "count": 0
           }
         ],
-        "total_npc_warped_form_count": 0
+        "total_npc_warped_form_count": 0,
+        "npc_ranged_counts": [
+          {
+            "actor_id": "ogre1",
+            "shots": 2,
+            "bonus_shots": 0,
+            "reload_actions": 5
+          }
+        ]
       },
       "assessment": {
         "status": "eligible",
@@ -918,7 +926,7 @@
                   }
                 }
               },
-              "pistol": {
+              "ranged": {
                 "initially_loaded": true,
                 "has_blackpowder_lore": true,
                 "has_blackpowder_kit": true,
@@ -967,7 +975,7 @@
                   }
                 }
               },
-              "pistol": {
+              "ranged": {
                 "initially_loaded": true,
                 "has_blackpowder_lore": true,
                 "has_blackpowder_kit": true,
@@ -1145,7 +1153,21 @@
             "count": 0
           }
         ],
-        "total_npc_warped_form_count": 0
+        "total_npc_warped_form_count": 0,
+        "npc_ranged_counts": [
+          {
+            "actor_id": "official1",
+            "shots": 0,
+            "bonus_shots": 0,
+            "reload_actions": 0
+          },
+          {
+            "actor_id": "ogre1",
+            "shots": 4,
+            "bonus_shots": 0,
+            "reload_actions": 8
+          }
+        ]
       },
       "assessment": {
         "status": "eligible",

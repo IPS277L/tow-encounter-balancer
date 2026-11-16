@@ -24,7 +24,7 @@ def help_source(*, pc_count=2,enemy_count=1,max_rounds=1,helpers=('pc1',)):
     beneficiary = source.party[-1].actor_id
     return replace(source,party=tuple(replace(member,
         policy=PcMeleePolicy.HELP_ALLY_OR_ATTACK_OR_RECOVER_SELF,
-        help_policy=PcHelpPolicy(beneficiary,PcHelpTarget.MELEE_ATTACK,None)) if member.actor_id in helpers else member
+        help_policy=PcHelpPolicy(beneficiary,PcHelpTarget.ATTACK,Skill.MELEE)) if member.actor_id in helpers else member
         for member in source.party))
 
 

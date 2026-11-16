@@ -178,7 +178,7 @@ class PcWeaponTests(unittest.TestCase):
         member = source.party[0]
         source = replace(source,party=(replace(member,pc=replace(member.pc,weapon=PcMeleeWeapon.MORNING_STAR),
             policy=PcMeleePolicy.HELP_ALLY_OR_ATTACK_OR_RECOVER_SELF,
-            help_policy=PcHelpPolicy('pc2',PcHelpTarget.MELEE_ATTACK,None)),source.party[1]))
+            help_policy=PcHelpPolicy('pc2',PcHelpTarget.ATTACK,Skill.MELEE)),source.party[1]))
         state = pure_active(source)
         for conditions in ((Condition.STAGGERED,),(Condition.STAGGERED,Condition.DRAINED)):
             with self.subTest(conditions=conditions):
@@ -191,7 +191,7 @@ class PcWeaponTests(unittest.TestCase):
         helper, beneficiary = source.party
         source = replace(source,party=(replace(helper,pc=replace(helper.pc,weapon=PcMeleeWeapon.WARHAMMER),
             policy=PcMeleePolicy.HELP_ALLY_OR_ATTACK_OR_RECOVER_SELF,
-            help_policy=PcHelpPolicy('pc2',PcHelpTarget.MELEE_ATTACK,None),
+            help_policy=PcHelpPolicy('pc2',PcHelpTarget.ATTACK,Skill.MELEE),
             fate_policy=PcFatePolicy.CONFIGURED,glorious_policy=PcGloriousPolicy((Skill.MELEE,),0,0)),
             replace(beneficiary,pc=replace(beneficiary.pc,weapon=PcMeleeWeapon.DAGGER))))
         result = execute(source,[10]*3+[1]*3+[1]*6+[10,10])
@@ -214,7 +214,7 @@ class PcWeaponTests(unittest.TestCase):
         helper, beneficiary = source.party
         source = replace(source,party=(replace(helper,pc=replace(helper.pc,weapon=PcMeleeWeapon.MORNING_STAR),
             policy=PcMeleePolicy.HELP_ALLY_OR_ATTACK_OR_RECOVER_SELF,
-            help_policy=PcHelpPolicy('pc2',PcHelpTarget.MELEE_ATTACK,None)),beneficiary))
+            help_policy=PcHelpPolicy('pc2',PcHelpTarget.ATTACK,Skill.MELEE)),beneficiary))
         result = execute(source,[10]*3+[10]*4+[1,1]+[1,10]+[1,10,10]
             +[1]*2+[1]*6+[10,10])
         first, second = tuple(step for step in result.steps if isinstance(step.proof,PcHelpProof))

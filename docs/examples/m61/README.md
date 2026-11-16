@@ -12,7 +12,7 @@
 В current PC JSON1 новый primary `definition.attack` явно содержит `skill:"shooting"`, `range_min:"close"` и `ignores_armour:true`; `range_max` хранит напечатанный верхний optimum. Эти дополнительные поля допускаются только полному canonical Official/Pistol или Ogre/Pistol. Соответствующий `enemies[]` требует:
 
 ```json
-"pistol": {
+"ranged": {
   "initially_loaded": true,
   "has_blackpowder_lore": true,
   "has_blackpowder_kit": true,
@@ -35,4 +35,6 @@ Native trial0 подтверждает реальный цикл Ogre: три о
 
 [Balance request](pc-melee-balance.request.json) и [CLI result](pc-melee-balance.result.json): Ogre фиксирован, Official0–1,2состава по2trials. Оба состава дали2objective, суммарные actions25 без Official и39 с ним. Count projection сохраняет survivor Pistol facts и удаляет policy исключённого Official без переназначения; полный root/candidate source включён в результат.
 
-Это малые демонстрационные выборки, не оценка истинной вероятности/лучшего состава. В первом срезе NPC-стрелки не получают `npc_help_policies`: такой source отклоняется до RNG, а не исполняется с потерянным бонусом. Обычные mixed NPC Help остаются в прежней границе. Нет автоматической melee смены, Champion Wounds для Noble/Witch Hunter, движения/ranged distance AI или общего inventory.208прежнихJSON сохранены побайтно, каталог57→59.
+Это малые демонстрационные выборки, не оценка истинной вероятности/лучшего состава. В первом срезе NPC-стрелки не получают `npc_help_policies`: такой source отклоняется до RNG, а не исполняется с потерянным бонусом. Обычные mixed NPC Help остаются в прежней границе. Нет автоматической melee смены, Champion Wounds для Noble/Witch Hunter, движения/ranged distance AI или общего inventory.Историческая граница M61 и каталог сохранены; текущие файлы мигрированы по ADR-0124.
+
+Текущий контракт после [ADR-0124](../../decisions/ADR-0124-generated-npc-close-shooting-and-reload.md): NPC source использует `ranged`, общий owner исполняет также сгенерированных стрелков. `npc_ranged_counts` отдельно сохраняет actual shots/bonus shots/Reload actions. Эта страница остаётся примером canonical loadouts; для генерации произвольных NPC используйте [динамический вход](../dynamic/README.md#стрельба-динамических-npc).

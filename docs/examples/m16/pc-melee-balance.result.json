@@ -83,7 +83,7 @@
           "help_policy": {
             "beneficiary_id": "pc:companion",
             "target": "first_incoming_protection",
-            "protection_skill": "defence"
+            "skill": "defence"
           },
           "ally_recover_policy": null,
           "backup_weapon_policy": null
@@ -461,7 +461,7 @@
               "help_policy": {
                 "beneficiary_id": "pc:companion",
                 "target": "first_incoming_protection",
-                "protection_skill": "defence"
+                "skill": "defence"
               },
               "ally_recover_policy": null,
               "backup_weapon_policy": null
@@ -830,7 +830,7 @@
               "help_policy": {
                 "beneficiary_id": "pc:companion",
                 "target": "first_incoming_protection",
-                "protection_skill": "defence"
+                "skill": "defence"
               },
               "ally_recover_policy": null,
               "backup_weapon_policy": null
@@ -1273,7 +1273,7 @@
               "help_policy": {
                 "beneficiary_id": "pc:companion",
                 "target": "first_incoming_protection",
-                "protection_skill": "defence"
+                "skill": "defence"
               },
               "ally_recover_policy": null,
               "backup_weapon_policy": null

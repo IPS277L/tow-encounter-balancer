@@ -12,6 +12,24 @@ Domain `generated_npc_models` хранит исходные характерис
 
 Current native JSON1 хранит `generated_components` и условный `alternate_protection` рядом с прежней `protection`; roundtrip восстанавливает оба профиля. Dynamic components/search space и character files содержат Defence/Shield, UI лишь редактирует/показывает факты. `PcMeleeParticipant.armour_worn` — общий независимый факт, compiler выводит его из worn body/Helmet; Wizard больше не владеет дубликатом. `pc_shield_resilience` сохраняет zero-bonus worn armour без лишней Resilience и учитывает фактический runtime Shield. [ADR-0121](../decisions/ADR-0121-generated-npc-melee-equipment-and-protection.md), [публичный пример](../examples/dynamic/README.md#снаряжение-динамических-npc).
 
+## Общий Shooting-компонент generated NPC
+
+`GeneratedNpc.ranged` хранит `GeneratedRangedFacts` только для трёх разрешённых Close-оружий; melee source сохраняет None. Builder выводит Shooting/Damage/Protection из полных фактов. NpcSearchSpace использует условную генерацию и атомарные совместимые мутации weapon/component, без декартова reserve; Shield не удаляется ради исправления входа. Automatic envelope использует известные PC ranged facts либо явную ограниченную fallback область.
+
+`pc_npc_ranged_source_models` выводит полный профиль/scene policy по generated components; canonical Official/Ogre сохраняют прежнюю полную сверку. `pc_npc_ranged_models` владеет loaded/cycle/progress и actual shot/Reload proofs; старый NPC Pistol owner обобщён, второй pipeline не создан. Native `enemies[].ranged` и Python `npc_ranged_policies` заменили прежние имена без aliases. Source readmission/replay связывают выбранный режим с подготовленным Test до Fate и настоящим оружием.
+
+`pc_generated_ranged_advice` считает конечную loaded/Reload1–3 динамическую программу с горизонтом≤3 без RNG/ресурсов. Общий helper PC Close Protection обслуживает native и прогноз, включая actual Help/Fate. Melee/Shooting/modifiers/Reload учитываются PC planner раздельно. Simulation/summary `npc_ranged_counts` source-ordered, включая нули, и проверяются против turn/action budgets; effects не становятся дополнительными действиями. [ADR-0124](../decisions/ADR-0124-generated-npc-close-shooting-and-reload.md).
+
+## Автоматическая стрельба PC и предметный инвентарь
+
+`encounter_character` компилирует факты BS/I/Shooting/Dexterity, подготовки и конкретные предметы в `automatic_combat`, без пользовательского Shoot/Reload pattern. `PcWeaponInventoryState` хранит положения двух оружий независимо от retained ranged instance. `pc_weapon_inventory` допускает carried→held swap и actual dropped pickup через Recover; source IDs, руки и membership проверяются по полному исходному loadout. Legacy explicit policies остаются самостоятельными тактиками.
+
+`PcWeaponSwapProof` и automatic `PcShieldReleaseProof.intent` закрепляют действие/цель/предмет/режим до цены. Projection требует их актуальность и однократность; selector возвращает committed intent до исполнения основного действия. После раны, лечения или переключения заряд/цикл не создаётся заново. Общий `pc_is_casting_action` различает Casting и Reload у Wizard; ни одна ветвь не отключает зелья или магию из-за начального ranged loadout.
+
+`pc_ranged_advice` сравнивает конечные варианты Shoot/Reload/melee/смены/подбора/Shield с горизонтом≤3 и остатком Fate/Lucky в каждой ветви. `PcRangedHelpUseProof` связывает исходный и effective Help Test, режим и actual ranged state; общий `begin_reload_cycle` допускает только новый цикл заряженного экземпляра. Bonus Shooting Help открывает Reload без fake Attack; обычная Help сохраняет заряд. Native Help использует `target:attack` и явный `skill`, Protection остаётся отдельной привязкой к Test. Приложение не исполняет правила, domain не зависит от JSON или балансировщика.
+
+Наблюдаемые `pc_ranged_counts` содержат shots/bonus_shots/shooting_help_tests/bonus_help_tests/reload_actions/weapon_swaps для каждого automatic ranged PC в исходном порядке, включая нули. Help уже входит в общий бюджет действий; swap не является дополнительным действием. Frozen source/state передаётся прежним process backend; независимость trials проверяется реальным sequential/process сравнением. [ADR-0125](../decisions/ADR-0125-pc-automatic-close-shooting-and-weapon-switching.md).
+
 ## Таланты generated NPC
 
 `GeneratedTalent` и `GeneratedNpc.talents` — типизированные единичные приобретения, проверяемые вместе с исходными WS/S. `NpcSearchSpace.allowed_talents` отличается от набора готовых комбинаций: sampler выбирает поднабор после числовых параметров, mutation выбирает только допустимые варианты. Parser не исправляет source, result admission проверяет разрешённый пул и полный executable snapshot. Общий DSL не вводился.
@@ -34,7 +52,7 @@ Current native JSON1 хранит `generated_components` и условный `al
 
 ## Автоматическая melee-тактика PC
 
-Dynamic compiler назначает `automatic_melee`. Чистый `domain.pc_tactical_models` сравнивает Attack/standard Recover/Help по текущим фактам и точным распределениям ближайших Tests, без RNG и дополнительных симуляций. Конкретные действия по-прежнему строятся и проверяются native owners/projections; обычные ручные роли PC API сохраняются. Ограниченные probability caches не удерживают состояния/журналы. Причины выбора доступны в `PcMeleeScenarioResult.tactical_decisions`; trials сохраняют прежние агрегаты с общим turn budget для Help/ally Recover. NPC пока продолжают Attack, Fate использует прежние пороги; это ограниченная эвристика melee против Minions. [ADR-0118](../decisions/ADR-0118-automatic-pc-melee-tactics.md).
+Dynamic compiler назначает `automatic_combat`. Чистый `domain.pc_tactical_models` сравнивает Attack/standard Recover/Help по текущим фактам и точным распределениям ближайших Tests, без RNG и дополнительных симуляций. Конкретные действия по-прежнему строятся и проверяются native owners/projections; обычные ручные роли PC API сохраняются. Ограниченные probability caches не удерживают состояния/журналы. Причины выбора доступны в `PcMeleeScenarioResult.tactical_decisions`; trials сохраняют прежние агрегаты с общим turn budget для Help/ally Recover. Это исходная melee-эвристика против Minions; текущие Shoot/Reload и обратимые предметы добавлены общим выбором ADR-0125 выше, Fate сохраняет заданные compiler пороги. [ADR-0118](../decisions/ADR-0118-automatic-pc-melee-tactics.md).
 
 ## Магия PC в том же генераторе
 

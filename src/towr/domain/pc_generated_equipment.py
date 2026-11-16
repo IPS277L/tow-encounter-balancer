@@ -38,7 +38,8 @@ def generated_damage_modifiers(definition: NpcDefinition,
 
 
 def npc_protection_test(state: PcMeleeState, defender_id: str, attacker_id: str, test_id: str,
-        profile: NpcProtectionProfile | None = None) -> tuple[NpcProtectionProfile,TestRequest]:
+        profile: NpcProtectionProfile | None = None, *, attack_skill: Skill = Skill.MELEE
+        ) -> tuple[NpcProtectionProfile,TestRequest]:
     """Select from actual prepared Tests; evaluating alternatives spends no RNG.
 
     Source order resolves an exact tie (generated Defence before Athletics).
@@ -52,6 +53,12 @@ def npc_protection_test(state: PcMeleeState, defender_id: str, attacker_id: str,
     components = enemy.definition.generated_components
     profiles = ((profile,) if profile is not None else enemy.definition.protection
         if components is not None else enemy.definition.protection[:1])
+    if profile is None and components is not None and attack_skill is Skill.SHOOTING:
+        from towr.domain.test_models import InlineProfile
+        melee=NpcProtectionProfile('RULE-EQUIPMENT-004:generated-close-melee',Skill.MELEE,
+            InlineProfile(components.weapon_skill,components.melee))
+        profiles=((enemy.definition.protection[0],) if enemy.state.holds_shield else ())+(
+            melee,enemy.definition.protection[1])
     tests = []
     for option in profiles:
         modifiers = list(pc_npc_distraction_test_modifiers(state,defender_id,attacker_id))

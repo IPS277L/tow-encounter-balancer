@@ -1,5 +1,9 @@
 from dataclasses import replace
 
+from towr.simulation.pc_ranged_statistics import PcRangedCount,pc_ranged_count_actors
+
+from towr.simulation.pc_npc_ranged_statistics import PcNpcRangedCount
+
 from towr.simulation.pc_melee_models import PcMeleeSimulationResult, PcNearMissBurnCount, PcGloriousSpendCount, PcHelpActionCount, PcAllyRecoverActionCount, PcNpcExitCount, PcNpcHelpActionCount, PcNpcExtraAttackCount, PcNpcRecoverActionCount, PcNpcWarpedFormCount
 from towr.simulation.pc_melee_models import PcAimCount, PcAimCounts, pc_has_aim_capability, PcPotionUseCount, PcMagicCount
 from towr.domain.pc_melee_result_models import PcMeleeOutcome
@@ -70,4 +74,14 @@ def summarize_pc_melee_simulation(result: PcMeleeSimulationResult) -> PcMeleeSim
         magic_counts=(tuple(PcMagicCount(actor_id, **{name:
             sum(getattr(record.magic_counts[index],name) for record in result.records)
             for name in ('casting_actions','spell_casts','miscasts','unsupported_miscasts')})
-            for index,actor_id in enumerate(wizards)) if wizards else None))
+            for index,actor_id in enumerate(wizards)) if wizards else None),
+        pc_ranged_counts=(tuple(PcRangedCount(actor,**{name:
+            sum(getattr(record.pc_ranged_counts[index],name) for record in result.records)
+            for name in ('shots','bonus_shots','shooting_help_tests','bonus_help_tests','reload_actions','weapon_swaps')})
+            for index,actor in enumerate(pc_ranged_count_actors(result.source_request.scenario)))
+            if pc_ranged_count_actors(result.source_request.scenario) else None),
+        npc_ranged_counts=(tuple(PcNpcRangedCount(policy.actor_id,**{name:
+            sum(getattr(record.npc_ranged_counts[index],name) for record in result.records)
+            for name in ('shots','bonus_shots','reload_actions')})
+            for index,policy in enumerate(result.source_request.scenario.npc_ranged_policies))
+            if result.source_request.scenario.npc_ranged_policies else None))

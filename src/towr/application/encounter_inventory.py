@@ -10,6 +10,11 @@ from towr.application.encounter_character import EncounterArmour
 from towr.domain.pc_melee_models import PcMeleeWeapon, PcWeaponHand, PcBackupWeaponPolicy
 from towr.domain.pc_weapon_models import pc_weapon_requires_two_hands
 from towr.domain.potion_models import ConsumableKind, ConsumableItem
+from towr.domain.pc_combat_equipment_models import PcWeaponItem,PcItemLocation
+
+CLOSE_RANGED_WEAPONS=(PcMeleeWeapon.PISTOL,PcMeleeWeapon.REPEATER_PISTOL,PcMeleeWeapon.REPEATER_HANDBOW)
+MELEE_BACKUP_WEAPONS=(PcMeleeWeapon.STAFF,PcMeleeWeapon.SWORD,PcMeleeWeapon.DAGGER,
+    PcMeleeWeapon.AXE,PcMeleeWeapon.WARHAMMER,PcMeleeWeapon.MORNING_STAR)
 
 
 class ItemLocation(str, Enum):
@@ -105,10 +110,17 @@ class EncounterEquipment:
         if any(a.kind is ArmourItemKind.HEAVY for a in body):
             raise ValueError('Heavy Armour требует Agility/Burdened effects; симуляция пока не поддержана.')
         backup = tuple(w for w in self.weapons if w.location is ItemLocation.CARRIED)
-        if len(backup) > 1 or (backup and not two_hands):
+        if len(backup) > 1 or (backup and not two_hands and primary.weapon not in CLOSE_RANGED_WEAPONS):
             raise ValueError('Смена этого набора запасного оружия пока не поддержана симуляцией.')
+        if primary.weapon in CLOSE_RANGED_WEAPONS and backup and backup[0].weapon not in MELEE_BACKUP_WEAPONS:
+            raise ValueError('Запасное оружие стрелка должно быть одним из шести поддержанных melee-оружий.')
         backup_policy = None
         if backup:
             backup_policy = PcBackupWeaponPolicy(backup[0].weapon, hand)
+        from towr.domain.pc_melee_models import PcTwoHandedGrip
+        combat_equipment=(PcWeaponItem(primary.id,primary.weapon,PcItemLocation.HELD,
+            PcTwoHandedGrip.BOTH if two_hands else hand),
+            *(PcWeaponItem(item.id,item.weapon,PcItemLocation.CARRIED,None) for item in backup))
         return dict(weapon=primary.weapon, armour=EncounterArmour.LIGHT if body else EncounterArmour.NONE,
-            shield=bool(held_shields), weapon_hand=hand, backup_weapon_policy=backup_policy)
+            shield=bool(held_shields), weapon_hand=hand, backup_weapon_policy=backup_policy,
+            combat_equipment=combat_equipment)

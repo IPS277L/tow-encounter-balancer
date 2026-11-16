@@ -271,7 +271,7 @@ class PcMeleeJsonTests(unittest.TestCase):
                     command=parse(json.dumps(raw))
                     source=command.request.template if balance else command.request.scenario
                     self.assertEqual(source.party[0].help_policy.target.value,'first_incoming_protection')
-                    self.assertEqual(source.party[0].help_policy.protection_skill.value,skill)
+                    self.assertEqual(source.party[0].help_policy.skill.value,skill)
                     self.assertEqual(scenario_document(source),raw[key])
                     encoded=json.loads(wire.encode_pc_melee_balance_result(command,balance_result(command))
                         if balance else wire.encode_pc_melee_simulation_result(command,aggregate(command.request)))

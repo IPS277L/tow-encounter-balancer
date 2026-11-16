@@ -1,4 +1,18 @@
-# Профилирование M3 и M6
+# Измерения производительности
+
+## Динамический генератор
+
+[Baseline после ADR-0125](dynamic-search-2026-11-16.md) сравнивает три демонстрационные партии на двух seed: melee, стрелок с союзником и та же группа с магом. Это реальные последовательные поиски с независимой проверкой финалистов; малый план48боёв не подтверждает качество стандартного большого поиска. Сохранены исходные запросы, результаты всех кандидатов и seed прогонов, затраты кандидатов и ограниченные повторы actual unsupported для диагностики.
+
+```powershell
+$env:PYTHONPATH = 'src'
+.venv/Scripts/python.exe tools/benchmark_dynamic.py --output .cache/dynamic-baseline-2026-11-16.json
+.venv/Scripts/python.exe tools/profile_dynamic.py .cache/dynamic-baseline-2026-11-16.json --output .cache/dynamic-profile.txt
+```
+
+Первый harness фиксирует точные входы и source SHA-256, время поиска и сериализации отдельно. Диагностические unsupported replays не входят в время/число trials поиска. Второй выбирает медленный наблюдавшийся состав, выполняет первый его trial обычно и под cProfile, сравнивает полные native-журналы; profile time не заменяет обычное wall time. Сырые JSON/`.pstats` пишутся в локальную `.cache`, краткие результаты и ограничения сохранены в отчёте. Команды не меняют игру или seed пользователя и не являются публичным API приложения.
+
+## Историческое профилирование M3 и M6
 
 `tools/profile_m3.py` — developer harness последовательного M3; это не CLI приложения. В исходном baseline domain, engine и simulation не менялись; результат первого performance-среза приведён ниже. [Baseline 2026-09-28](m3-baseline-2026-09-28.md) сохранён вместе с командой, runtime, revision исходного `src`, seed scheme, агрегатами, digest всех trial records и cProfile.
 

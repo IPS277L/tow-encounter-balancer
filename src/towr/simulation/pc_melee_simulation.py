@@ -1,4 +1,11 @@
 """Independent PC encounters; retain observations, discard the battle journal."""
+from towr.simulation.pc_ranged_statistics import PcRangedCount,pc_ranged_count_actors
+from towr.domain.pc_weapon_inventory import PcWeaponSwapProof
+from towr.domain.pc_ranged_models import PcRangedReloadProof
+
+from towr.simulation.pc_npc_ranged_statistics import PcNpcRangedCount
+from towr.domain.pc_npc_ranged_models import PcNpcRangedReloadProof
+
 from collections.abc import Callable
 from dataclasses import replace
 from random import Random
@@ -99,7 +106,37 @@ def run_pc_melee_trial(request: PcMeleeSimulationRequest, trial_index: int, *,
         tuple(PcNpcWarpedFormCount(enemy.state.actor_id,
             sum(type(step.proof) is PcWarpedFormActivationProof and step.proof.actor_id==enemy.state.actor_id
                 for step in result.steps)) for enemy in request.scenario.enemies), aim=aim,potion_use_counts=potion_counts,
-        magic_counts=magic_counts)
+        magic_counts=magic_counts,
+        pc_ranged_counts=(tuple(PcRangedCount(actor,
+            sum(type(step.proof) is PcAttackProof and step.proof.request.actor_id==actor
+                and step.proof.ranged_shot is not None for step in result.steps),
+            sum(type(step.proof) is PcAttackProof and step.proof.request.actor_id==actor
+                and step.proof.ranged_shot is not None
+                and step.proof.ranged_shot.execution.source_request.uses_optional_reload_bonus
+                for step in result.steps),
+            sum(type(step.proof) is PcHelpProof and step.proof.request.actor_id==actor
+                and step.proof.ranged_use is not None for step in result.steps),
+            sum(type(step.proof) is PcHelpProof and step.proof.request.actor_id==actor
+                and step.proof.ranged_use is not None and step.proof.ranged_use.uses_optional_reload_bonus
+                for step in result.steps),
+            sum(type(step.proof) is PcRangedReloadProof and step.proof.request.actor_id==actor for step in result.steps),
+            sum(type(step.proof) is PcWeaponSwapProof and step.proof.actor_id==actor
+                or type(step.proof) is PcRecoverProof
+                and step.source.participant(actor).weapon_inventory is not None
+                and step.source.participant(actor).weapon_inventory.active_item_id
+                    !=step.state.participant(actor).weapon_inventory.active_item_id
+                for step in result.steps)) for actor in pc_ranged_count_actors(request.scenario))
+            if pc_ranged_count_actors(request.scenario) else None),
+        npc_ranged_counts=(tuple(PcNpcRangedCount(policy.actor_id,
+            sum(type(step.proof) is PcAttackProof and step.proof.request.actor_id==policy.actor_id
+                and step.proof.npc_ranged_shot is not None for step in result.steps),
+            sum(type(step.proof) is PcAttackProof and step.proof.request.actor_id==policy.actor_id
+                and step.proof.npc_ranged_shot is not None
+                and step.proof.npc_ranged_shot.execution.source_request.uses_optional_reload_bonus
+                for step in result.steps),
+            sum(type(step.proof) is PcNpcRangedReloadProof and step.proof.request.actor_id==policy.actor_id
+                for step in result.steps)) for policy in request.scenario.npc_ranged_policies)
+            if request.scenario.npc_ranged_policies else None))
 
 
 def run_pc_melee_simulation(request: PcMeleeSimulationRequest, *,

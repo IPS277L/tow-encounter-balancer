@@ -110,8 +110,8 @@ def pc_npc_help_beneficiary(state) -> str | None:
     from towr.domain.pc_net_models import selected_pc_npc_net_attack
     if selected_pc_npc_net_attack(state,policy.beneficiary_id)=='weighted_net':
         return None
-    from towr.domain.pc_npc_pistol_models import pc_npc_pistol_weapon
-    weapon = pc_npc_pistol_weapon(state,policy.beneficiary_id)
+    from towr.domain.pc_npc_ranged_models import pc_npc_ranged_weapon
+    weapon = pc_npc_ranged_weapon(state,policy.beneficiary_id)
     if weapon is not None and not weapon.loaded:
         return None  # The named actor will Reload, not make this round's Attack Test.
     return policy.beneficiary_id

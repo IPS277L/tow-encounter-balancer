@@ -10,5 +10,6 @@
   "abilities": [],
   "defence": 3,
   "shield": false,
-  "talents": []
+  "talents": [],
+  "ranged": null
 }

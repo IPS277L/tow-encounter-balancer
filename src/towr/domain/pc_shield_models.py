@@ -1,7 +1,7 @@
 """Actual one-handed shield equipment and the fixed M53 fighting policy."""
 from __future__ import annotations
 
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from enum import Enum
 from typing import TYPE_CHECKING
 
@@ -14,6 +14,7 @@ from towr.domain.test_models import Skill
 
 if TYPE_CHECKING:
     from towr.domain.pc_melee_result_models import PcMeleeParticipantState, PcMeleeState
+    from towr.domain.pc_tactical_models import PcTacticalChoice
 
 
 class PcShieldLocation(str, Enum):
@@ -42,12 +43,17 @@ class PcShieldReleaseProof:
     actor_id: str
     action_id: str
     hand: PcWeaponHand
+    intent: PcTacticalChoice | None = field(default=None, kw_only=True)
 
     def __post_init__(self):
         if any(type(value) is not str or not value.strip() for value in (self.actor_id,self.action_id)):
             raise TypeError('shield release requires exact nonempty source IDs')
         if type(self.hand) is not PcWeaponHand:
             raise TypeError('shield release requires its actual typed hand')
+        if self.intent is not None:
+            from towr.domain.pc_tactical_models import PcTacticalChoice
+            if type(self.intent) is not PcTacticalChoice or self.intent.actor_id != self.actor_id:
+                raise TypeError('shield release must retain its actual actor tactical intent')
 
 
 def initial_pc_shield(loadout: PcShieldLoadout | None) -> PcShieldState | None:
@@ -129,9 +135,8 @@ def expected_pc_shield_release(state: PcMeleeState) -> PcShieldReleaseProof | No
     if member.potions and selected_pc_potion(state) is not None:
         return None
     if state.source.participant(actor).wizard is not None:
-        from towr.domain.pc_melee_result_models import pc_melee_selected_action
-        from towr.domain.turn_models import CombatActionKind
-        if pc_melee_selected_action(state) is CombatActionKind.IMPROVISE:
+        from towr.domain.pc_melee_result_models import pc_is_casting_action
+        if pc_is_casting_action(state):
             return None
     from towr.domain.pc_backup_weapon_models import pc_preferred_weapon_hand, pc_backup_candidate_hand
     from towr.domain.pc_melee_result_models import pc_melee_action_id, _pc_recover_needed
@@ -140,6 +145,19 @@ def expected_pc_shield_release(state: PcMeleeState) -> PcShieldReleaseProof | No
     needs_reload_hands = (type(member.ranged) is ReloadableWeaponState and not member.using_backup_weapon and not member.ranged.loaded
         and len(usable_hands(member)) == 2 and usable_weapon_hand(member) is not None
         and bool(state.live_enemies) and not _pc_recover_needed(member))
+    from towr.domain.pc_melee_models import PcMeleePolicy
+    source = state.source.participant(actor)
+    intent = None
+    if source.policy is PcMeleePolicy.AUTOMATIC_COMBAT and source.pc.ranged is not None:
+        from towr.domain.pc_tactical_models import select_pc_tactic
+        from towr.domain.pc_weapon_inventory import pc_weapon_swap_hand
+        selected=select_pc_tactic(state,actor)
+        intent=selected
+        item_id=selected.pickup_item_id or selected.weapon_item_id
+        needs_weapon_hand=bool(item_id is not None and member.weapon_inventory is not None
+            and pc_weapon_swap_hand(state,actor,item_id) is member.shield.hand)
+        needs_reload_hands=selected.ranged_reload and len(usable_hands(member))==2
     if not needs_weapon_hand and not needs_reload_hands:
         return None
-    return PcShieldReleaseProof(actor,pc_melee_action_id(state,actor)+':shield:release',member.shield.hand)
+    return PcShieldReleaseProof(actor,pc_melee_action_id(state,actor)+':shield:release',member.shield.hand,
+        intent=intent)

@@ -47,7 +47,8 @@ class PcWildAttackProof:
                 raise ValueError('Wild Attack must commit one actual Attack/Melee Help choice')
             _identifier(self.intent.target_id)
             if (self.intent.action is CombatActionKind.HELP and (self.intent.help_policy is None
-                    or self.intent.help_policy.target is not PcHelpTarget.MELEE_ATTACK)):
+                    or self.intent.help_policy.target is not PcHelpTarget.ATTACK
+                    or self.intent.help_policy.skill is not Skill.MELEE)):
                 raise ValueError('Wild Help must commit its actual Melee beneficiary policy')
 
 
@@ -141,7 +142,7 @@ def expected_wild_attack(state: PcMeleeState) -> PcWildAttackProof | None:
     if turn.action_slots[-1].declaration.kind is not CombatActionKind.ATTACK or not state.live_party:
         return None
     enemy = state.enemy(turn.actor_id)
-    if (enemy.state.injury.defeated
+    if (enemy.state.injury.defeated or enemy.definition.attacks[0].skill is not Skill.MELEE
             or not wild_attack_available(enemy.definition,enemy.state.injury.conditions)):
         return None
     return PcWildAttackProof(turn.actor_id,pc_melee_action_id(state,turn.actor_id))

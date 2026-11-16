@@ -8,6 +8,7 @@ from towr.domain.action_execution_models import AttackActionExecutionRequest, At
 from towr.domain.attack_models import DamageImpactSpec
 from towr.domain.condition_models import Condition
 from towr.domain.fate_models import FateGloriousSpendResult
+from towr.domain.help_models import HelpActionExecutionRequest,HelpActionExecutionResult
 from towr.domain.pc_heavy_wound_models import PcBodyFactKind, usable_hands, usable_weapon_hand
 from towr.domain.pc_melee_models import PC_TWO_HANDED_RANGED_WEAPONS, PC_RANGED_WEAPONS, PcRepeaterBonusPolicy, PcWeaponHand, PcTwoHandedGrip
 from towr.domain.pc_short_opening_models import pc_enemy_range, pc_has_close_enemy, PcRangedCloseUnsupported
@@ -25,12 +26,13 @@ from towr.domain.ranged_weapon_attack_preparation_models import (
 )
 from towr.domain.ranged_weapon_profiles import (
     RangedWeaponId, RangedWeaponRange, RangedReloadTrigger, ranged_weapon_combat_profile,
+    REPEATER_SHOOTING_BONUS_RULE_ID,
 )
 from towr.domain.reload_models import (
     FreeReloadWeaponState, ReloadableWeaponState, ReloadActionExecutionRequest, ReloadActionExecutionResult,
-    create_initial_ranged_weapon_reload_state, reload_approach_id,
+    create_initial_ranged_weapon_reload_state, reload_approach_id,begin_reload_cycle,
 )
-from towr.domain.test_models import DiceModifier, Skill
+from towr.domain.test_models import DiceModifier, Skill,TestRequest
 from towr.domain.turn_models import CombatActionDeclaration, CombatActionKind, ImproviseKind
 
 if TYPE_CHECKING:
@@ -52,12 +54,104 @@ class PcRangedReloadProof:
     glorious: FateGloriousSpendResult | None = None
 
 
+@dataclass(frozen=True,slots=True)
+class PcRangedHelpUseProof:
+    actor_id: str
+    request_id: str
+    source_test: TestRequest
+    execution: HelpActionExecutionResult
+    previous_weapon_state: ReloadableWeaponState
+    weapon_state: ReloadableWeaponState
+    uses_optional_reload_bonus: bool
+    next_reload_cycle_id: str | None
+
+    def __post_init__(self):
+        if any(type(value) is not str or not value.strip() for value in (self.actor_id,self.request_id)):
+            raise TypeError('ranged Help use requires exact actor and request identifiers')
+        if type(self.source_test) is not TestRequest or type(self.execution) is not HelpActionExecutionResult:
+            raise TypeError('ranged Help use requires its exact prepared Test and actual execution')
+        if (type(self.previous_weapon_state) is not ReloadableWeaponState
+                or type(self.weapon_state) is not ReloadableWeaponState):
+            raise TypeError('ranged Help use requires its exact before/after weapon states')
+        for value in (self.source_test,self.execution,self.previous_weapon_state,self.weapon_state):
+            replace(value)
+        if self.previous_weapon_state.weapon_id not in (
+                RangedWeaponId.PISTOL,RangedWeaponId.REPEATER_PISTOL,RangedWeaponId.REPEATER_HANDBOW):
+            raise ValueError('ranged Help receipt requires a supported Close ranged weapon')
+        if type(self.uses_optional_reload_bonus) is not bool:
+            raise TypeError('ranged Help mode must be an exact bool')
+        if (self.execution.request_id!=self.request_id
+                or self.execution.source_request.actor_id!=self.actor_id
+                or self.execution.source_request.help_skill is not Skill.SHOOTING
+                or self.execution.source_request.help_test.id!=self.source_test.id
+                or not self.previous_weapon_state.loaded):
+            raise ValueError('ranged Help receipt changed its actor/Test/request/loaded source')
+        profile=ranged_weapon_combat_profile(self.previous_weapon_state.weapon_id)
+        modifiers=tuple(m for m in self.source_test.dice_modifiers
+            if m.rule_id==REPEATER_SHOOTING_BONUS_RULE_ID)
+        if self.uses_optional_reload_bonus:
+            if (profile.reload.trigger is not RangedReloadTrigger.AFTER_OPTIONAL_BONUS
+                    or modifiers!=(profile.reload.optional_bonus_modifier(),)):
+                raise ValueError('ranged Help bonus must match its exact Repeater profile')
+            expected=begin_reload_cycle(self.previous_weapon_state,self.next_reload_cycle_id)
+        else:
+            if self.next_reload_cycle_id is not None or modifiers:
+                raise ValueError('ordinary Shooting Help cannot claim bonus use or a reload cycle')
+            expected=self.previous_weapon_state
+        if self.weapon_state!=expected:
+            raise ValueError('ranged Help consumption differs from its actual selected Test mode')
+
+
+def complete_pc_ranged_help(state: PcMeleeState,base_request: HelpActionExecutionRequest,
+        effective_request: HelpActionExecutionRequest,execution: HelpActionExecutionResult) -> PcRangedHelpUseProof | None:
+    """Consume an actual Shooting Help Test without inventing an Attack.
+
+    The outer PC owner validates the Fate window and complete Help receipt;
+    this owner binds the prepared Test, selected mode and exact weapon cycle.
+    """
+    if type(base_request) is not HelpActionExecutionRequest:
+        raise TypeError('ranged Help use requires its exact action request')
+    if base_request.help_skill is not Skill.SHOOTING:
+        return None
+    if type(effective_request) is not HelpActionExecutionRequest or type(execution) is not HelpActionExecutionResult:
+        raise TypeError('ranged Help requires the exact effective action and execution')
+    from towr.domain.pc_melee_result_models import _pc_test,pc_melee_action_id,validate_pc_melee_source_types
+    actor=base_request.actor_id
+    weapon=_held_pc_ranged(state,actor,loaded=True)
+    if type(weapon) is not ReloadableWeaponState or weapon.weapon_id not in (
+            RangedWeaponId.PISTOL,RangedWeaponId.REPEATER_PISTOL,RangedWeaponId.REPEATER_HANDBOW):
+        raise ValueError('Shooting Help requires its held loaded supported Close ranged weapon')
+    if base_request.round_state!=state.round_state or base_request.id!=pc_melee_action_id(state,actor)+':help:execute':
+        raise ValueError('ranged Help changed its actual actor/slot/action source')
+    prepared=_pc_test(state,actor,pc_melee_action_id(state,actor)+':help:test',Skill.SHOOTING)
+    bonus=pc_repeater_bonus_selected(state,actor)
+    if bonus:
+        prepared=replace(prepared,dice_modifiers=(*prepared.dice_modifiers,
+            ranged_weapon_combat_profile(weapon.weapon_id).reload.optional_bonus_modifier()))
+    if base_request.help_test!=prepared:
+        raise ValueError('Shooting Help Test differs from its prepared source and Repeater mode')
+    validate_pc_melee_source_types(base_request.help_test,prepared)
+    if replace(effective_request,help_test=base_request.help_test)!=base_request:
+        raise ValueError('Fate cannot change the ranged Help action, target, Skill or slot')
+    if execution.source_request!=effective_request:
+        raise ValueError('ranged Help execution changed its exact effective request')
+    validate_pc_melee_source_types(execution.source_request,effective_request)
+    cycle=pc_melee_action_id(state,actor)+':ranged:help-cycle' if bonus else None
+    after=begin_reload_cycle(weapon,cycle) if bonus else weapon
+    return PcRangedHelpUseProof(actor,base_request.id,prepared,execution,weapon,after,bonus,cycle)
+
+
 def initial_pc_ranged(source: PcMeleeParticipant) -> FreeReloadWeaponState | ReloadableWeaponState | None:
     if source.pc.weapon not in PC_RANGED_WEAPONS:
         return None
-    result = create_initial_ranged_weapon_reload_state(source.actor_id+':weapon', RangedWeaponId(source.pc.weapon.value))
+    result = create_initial_ranged_weapon_reload_state(pc_ranged_instance_id(source), RangedWeaponId(source.pc.weapon.value))
     assert type(result) in (FreeReloadWeaponState, ReloadableWeaponState)
     return result
+
+
+def pc_ranged_instance_id(source):
+    return source.actor_id+(':weapon:'+source.combat_equipment[0].id
+        if source.combat_equipment is not None else ':weapon')
 
 
 def _held_pc_ranged(state: PcMeleeState, actor: str, *, loaded: bool) -> FreeReloadWeaponState | ReloadableWeaponState:
@@ -68,7 +162,7 @@ def _held_pc_ranged(state: PcMeleeState, actor: str, *, loaded: bool) -> FreeRel
             or member.using_backup_weapon
             or type(weapon) not in (FreeReloadWeaponState, ReloadableWeaponState)
             or weapon.weapon_id is not RangedWeaponId(source.pc.weapon.value)
-            or weapon.weapon_instance_id != actor+':weapon'
+            or weapon.weapon_instance_id != pc_ranged_instance_id(source)
             or (type(weapon) is ReloadableWeaponState and weapon.loaded is not loaded)
             or (type(weapon) is FreeReloadWeaponState and not loaded)
             or type(usable_weapon_hand(member)) not in (PcWeaponHand, PcTwoHandedGrip)
@@ -82,6 +176,9 @@ def pc_repeater_bonus_selected(state: PcMeleeState, actor: str) -> bool:
     """Fixed source choice before the initial roll; never reconsider after Fate."""
     member = state.participant(actor)
     source = state.source.participant(actor).pc
+    if source.ranged is not None and source.ranged.repeater_bonus_policy is PcRepeaterBonusPolicy.AUTOMATIC:
+        from towr.domain.pc_tactical_models import select_pc_tactic
+        return select_pc_tactic(state,actor).ranged_bonus and not member.injury.conditions.has(Condition.DRAINED)
     return (not member.using_backup_weapon and source.ranged is not None
         and source.ranged.repeater_bonus_policy is PcRepeaterBonusPolicy.WHEN_AVAILABLE
         and not member.injury.conditions.has(Condition.DRAINED))
@@ -219,7 +316,7 @@ def ranged_reload_declaration(state: PcMeleeState, actor: str) -> CombatActionDe
     assert type(weapon) is ReloadableWeaponState
     return CombatActionDeclaration(CombatActionKind.IMPROVISE,
         improvise_kind=ImproviseKind.SKILL,
-        improvise_approach_id=reload_approach_id(actor+':weapon'))
+        improvise_approach_id=reload_approach_id(weapon.weapon_instance_id))
 
 
 def build_pc_ranged_reload(state: PcMeleeState) -> ReloadActionExecutionRequest:
@@ -248,7 +345,7 @@ def build_pc_ranged_reload(state: PcMeleeState) -> ReloadActionExecutionRequest:
 
 def pc_ranged_unsupported(state: PcMeleeState) -> PcMeleeUnsupported | PcRangedCloseUnsupported | None:
     """Stop only at the actual next Shoot/Reload boundary after continuations."""
-    if (state.pending or state.pending_wound is not None
+    if (state.pending or state.pending_wound is not None or state.magic_pending is not None
             or not state.live_party or not state.live_enemies):
         return None
     turn = state.round_state.active_turn
@@ -258,11 +355,21 @@ def pc_ranged_unsupported(state: PcMeleeState) -> PcMeleeUnsupported | PcRangedC
     actor = turn.actor_id
     member = state.participant(actor)
     weapon = member.ranged
+    from towr.domain.pc_melee_models import PcMeleePolicy
+    source=state.source.participant(actor)
     if (state.source.participant(actor).pc.weapon not in PC_RANGED_WEAPONS
-            or member.using_backup_weapon
+            or member.using_backup_weapon and source.policy is not PcMeleePolicy.AUTOMATIC_COMBAT
             or weapon is None or member.injury.dead
             or member.injury.conditions.has(Condition.DEFENCELESS)):
         return None
+    if source.policy is PcMeleePolicy.AUTOMATIC_COMBAT:
+        from towr.domain.pc_tactical_models import select_pc_tactic
+        choice=select_pc_tactic(state,actor)
+        primary_id=source.combat_equipment[0].id if source.combat_equipment is not None else None
+        if ((choice.weapon_item_id is not None and choice.weapon_item_id!=primary_id)
+                or choice.potion is not None or choice.pickup_item_id is not None
+                or (choice.action is not CombatActionKind.ATTACK and not choice.ranged_reload)):
+            return None
     from towr.domain.pc_melee_result_models import PcMeleeUnsupported, _pc_recover_needed
     from towr.domain.pc_backup_weapon_models import pc_backup_candidate_hand
     if pc_backup_candidate_hand(state,actor) is not None:

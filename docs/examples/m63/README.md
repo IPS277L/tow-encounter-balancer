@@ -1,6 +1,6 @@
 # M63: PC Melee/Athletics против Close Shooting
 
-PC явно выбирает навык для защиты от близкого выстрела. Без настройки действует прежний порядок Defence с рабочим shield, иначе Athletics. [Правило](../../rules/combat.md#pc-close-shooting-protection-m63), [принятый контракт](../../decisions/ADR-0105-pc-close-shooting-protection-choice.md).
+В прежних явных policy PC выбирает навык для защиты от близкого выстрела. В automatic_combat после ADR-0124 законная защита выбирается автоматически. Без настройки действует прежний порядок Defence с рабочим shield, иначе Athletics. [Правило](../../rules/combat.md#pc-close-shooting-protection-m63), [принятый контракт](../../decisions/ADR-0105-pc-close-shooting-protection-choice.md).
 
 Optional поле participant текущего PC JSON1:
 
@@ -18,11 +18,11 @@ Protection Help теперь допускает:
 "help_policy": {
   "beneficiary_id": "pc2",
   "target": "first_incoming_protection",
-  "protection_skill": "melee"
+  "skill": "melee"
 }
 ```
 
-Это настоящий Melee Help Test и обычное действие. Receipt адресуется конкретному NPC Protection Test, отдельно от `target:"melee_attack"`. Неподходящий/неисполненный Test не переносит бонус. First-current-NPC тактика не предсказывает будущий Reload или NPC Help. Pistol-PC сам по-прежнему не выбирает роль helper, но может получать помощь в защите.
+Это настоящий Melee Help Test и обычное действие. Receipt адресуется конкретному NPC Protection Test, отдельно от `target:"attack"`. Неподходящий/неисполненный Test не переносит бонус. После ADR-0124 first-current-NPC тактика пропускает известный по текущему loaded state Reload. Будущие исходы и NPC Help она не предсказывает. В прежней explicit policy Pistol-PC не выбирает роль helper, но получает помощь в защите. Новый automatic mode допускает также [Помощь Стрельбе (Shooting Help)](../dynamic/README.md#стрельба-персонажей).
 
 ```powershell
 $env:PYTHONPATH = 'src'
@@ -30,10 +30,10 @@ $env:PYTHONPATH = 'src'
 .venv/Scripts/python.exe -m towr balance-pc-melee docs/examples/m63/pc-melee-balance.request.json
 ```
 
-[Simulation request](pc-melee-simulation.request.json) и [фактический CLI result](pc-melee-simulation.result.json): Sword+Shield PC1 помогает Staff+Shield PC2, который защищается Melee; PC1 для своей Shooting-защиты выбрал Athletics. Ogre действует первым среди NPC, Official имеет прежний explicit Broken exit. Seed42/6trials/8rounds:4objective/0party defeated/2limit/0unsupported,133actions,44started/40completed rounds, без потерь PC.44PC Help, Official выходит во всех6trials.
+[Simulation request](pc-melee-simulation.request.json) и [фактический CLI result](pc-melee-simulation.result.json): Sword+Shield PC1 помогает Staff+Shield PC2, который защищается Melee; PC1 для своей Shooting-защиты выбрал Athletics. Ogre действует первым среди NPC, Official имеет прежний explicit Broken exit. После исправления Help/Reload в ADR-0124 текущий CLI result для seed42/6trials/8rounds:6objective/0party defeated/0limit/0unsupported,82actions,28started/22completed rounds, без потерь PC.7PC Help, Official выходит в2trials.
 
-Native trial0: round_limit/24actions,8Help, одна actual application к Ogre Shooting в раунде1; PC2 бросает5Melee dice. Последующие Help могут остаться unused, пока первый NPC Reload: бонус не попадает в Dexterity и не переадресуется второму стрелку. Это расход тактики, не гарантированный бонус каждому входящему удару.
+Receipt по-прежнему адресуется конкретному Protection Test и не усиливает Dexterity Reload. Если NPC уже известен как unloaded, helper ищет первый действительно предстоящий Attack; если такого Test нет, действует его согласованный fallback. Поправка убрала заведомо неиспользуемую помощь в старом примере. Проверка со старым selector на том же seed воспроизводит прежние4objective/2limit/133actions/44Help, подтверждая причину изменения.
 
-[Balance request](pc-melee-balance.request.json) и [CLI result](pc-melee-balance.result.json): Ogre1/Official0–1,2состава по2trials. Без Official:2objective/34actions/12Help; с ним:1objective+1limit/45actions/15Help. PC choice/Protection Help остаются в полном root/candidate source. Удаление последнего shooter также сохраняет party preferences; их неиспользование допустимо.
+[Balance request](pc-melee-balance.request.json) и [CLI result](pc-melee-balance.result.json): Ogre1/Official0–1,2состава по2trials. После исправления: без Official2objective/23actions/2Help; с ним2objective/28actions/2Help. PC choice/Protection Help остаются в полном root/candidate source. Удаление последнего shooter также сохраняет party preferences; их неиспользование допустимо.
 
-Выборки демонстрационные и не оценивают истинную вероятность/оптимальный состав. Unaware/другие ranges/general inventory/автоматический best Skill не добавлены.216прежнихJSON и59NPC definitions сохранены, wire version/метрики прежние.
+Выборки демонстрационные и не оценивают истинную вероятность/оптимальный состав. Unaware/другие ranges/general inventory не добавлены. Native NPC source мигрирован на ranged; появились npc_ranged_counts. Это текущий JSON1 без compatibility-ветки, canonical NPC definitions сохранены.

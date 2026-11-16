@@ -80,7 +80,7 @@ def selected_pc_potion(state: PcMeleeState) -> PcPotionSelection | None:
     actor = state.round_state.active_turn.actor_id
     if actor not in state.source.pc_activation_order:
         return None
-    if state.source.participant(actor).policy is not PcMeleePolicy.AUTOMATIC_MELEE:
+    if state.source.participant(actor).policy is not PcMeleePolicy.AUTOMATIC_COMBAT:
         return None
     if not state.participant(actor).potions:
         return None

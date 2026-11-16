@@ -16,7 +16,8 @@ from towr.domain.injury_models import ProfileInjuryState
 from towr.domain.potion_models import ConsumableItem, ConsumableKind
 from towr.domain.pc_magic_source_models import PcWizardProfile, PcSpellId
 from towr.domain.pc_combat_talent_models import PcCombatTalent,TalentAcquisition
-from towr.domain.generated_npc_models import GeneratedNpc, GeneratedWeapon, GeneratedAbility, GeneratedTalent
+from towr.domain.pc_combat_equipment_models import PcWeaponItem,PcItemLocation
+from towr.domain.generated_npc_models import GeneratedNpc, GeneratedWeapon, GeneratedAbility, GeneratedTalent, GeneratedRangedFacts
 from towr.domain.minion_defeat_models import MinionDefeatDecision, NpcDefeatDisposition
 from towr.domain.npc_attack_preparation_models import NpcAttackProfile
 from towr.domain.npc_roster_models import (
@@ -28,8 +29,8 @@ from towr.domain.pc_npc_grudge_policy_models import PcNpcGrudgePolicy
 from towr.domain.pc_flagellant_policy_models import PcFlagellantPolicy,PcFeelNoPainPolicy
 from towr.domain.pc_warped_form_policy_models import PcWarpedFormPolicy
 from towr.domain.pc_npc_net_policy_models import PcNpcNetMode,PcNpcNetPolicy,NET_DEFINITION_ID
-from towr.domain.pc_npc_pistol_source_models import (
-    PC_NPC_PISTOL_DEFINITION_IDS, PcNpcPistolPolicy, PcNpcPistolReloadHandPolicy,
+from towr.domain.pc_npc_ranged_source_models import (
+    PC_NPC_RANGED_DEFINITION_IDS, PcNpcRangedPolicy, PcNpcRangedReloadHandPolicy,
 )
 from towr.domain.pc_melee_models import (
     PcFatePolicy, PcNearMissPolicy, PcGloriousPolicy, PcHelpPolicy, PcHelpTarget, PcAllyRecoverPolicy, PcMeleeDefinition, PcMeleeFacts, PcMeleeParticipant, PcMeleePolicy, PcMeleeScenario,
@@ -44,7 +45,7 @@ from towr.domain.test_models import InlineProfile, Skill
 from towr.domain.turn_models import CombatSide
 
 
-_NPC_PISTOL_FIELDS = ('initially_loaded', 'has_blackpowder_lore',
+_NPC_RANGED_FIELDS = ('initially_loaded', 'has_blackpowder_lore',
     'has_blackpowder_kit', 'ammunition_supply_confirmed', 'reload_hand_policy')
 
 
@@ -119,6 +120,15 @@ def _parse_blunderbuss_nearby(data, *, path_prefix, error_type):
         raise error_type(Code.INVALID_INPUT, 'Blunderbuss nearby requires its complete closed source', path=path)
     return build_value(error_type,path,PcBlunderbussNearby,
         raw['initial_npc_clustered_confirmed'],tuple(raw['target_priority']))
+
+
+def _parse_combat_equipment(raw,*,path,error_type):
+    if raw is None:
+        return None
+    return tuple(build_value(error_type,f'{path}/{index}',PcWeaponItem,
+        item['id'],PcMeleeWeapon(item['weapon']),PcItemLocation(item['location']),
+        None if item['hand'] is None else PcTwoHandedGrip.BOTH if item['hand']=='both'
+        else PcWeaponHand(item['hand'])) for index,item in enumerate(raw))
 
 
 def _parse_participant(data, *, path_prefix, error_type):
@@ -198,8 +208,7 @@ def _parse_participant(data, *, path_prefix, error_type):
     help_policy = (None if data["help_policy"] is None else
         build(path_prefix + "/help_policy", PcHelpPolicy,
             **dict(data["help_policy"],target=PcHelpTarget(data["help_policy"]["target"]),
-                protection_skill=(None if data["help_policy"]["protection_skill"] is None else
-                    Skill(data["help_policy"]["protection_skill"])))))
+                skill=Skill(data["help_policy"]["skill"]))))
     ally_recover_policy = (None if data["ally_recover_policy"] is None else
         build(path_prefix + "/ally_recover_policy",PcAllyRecoverPolicy,**data["ally_recover_policy"]))
     backup_weapon_policy = (None if data["backup_weapon_policy"] is None else
@@ -225,6 +234,8 @@ def _parse_participant(data, *, path_prefix, error_type):
         near_miss_policy=near_miss,glorious_policy=glorious,help_policy=help_policy,
         aim_second_action_policy=aim_second_action_policy,
         wizard=wizard, armour_worn=data.get('armour_worn'),
+        combat_equipment=_parse_combat_equipment(data.get('combat_equipment'),
+            path=path_prefix+'/combat_equipment',error_type=error_type),
         combat_talents=tuple(build(f'{path_prefix}/combat_talents/{index}',PcCombatTalent,
             GeneratedTalent(value['talent']),TalentAcquisition(value['acquisition']))
             for index,value in enumerate(data.get('combat_talents',[]))),
@@ -262,23 +273,23 @@ def _attack_effect_document(effect):
     raise TypeError('unsupported PC Melee attack effect type')
 
 
-def _parse_npc_attack(data, *, skill, path_prefix, error_type, pistol=False):
-    if pistol:
+def _parse_npc_attack(data, *, skill, path_prefix, error_type, shooting=False):
+    if shooting:
         required = {'id','source_rule_id','skill','test_profile','damage','range_min',
             'range_max','hands','secondary_effects','ignores_armour'}
         if (set(data) != required or type(data['skill']) is not str or data['skill'] != 'shooting'
                 or type(data['range_min']) is not str or data['range_min'] != 'close'
-                or data['ignores_armour'] is not True):
-            raise error_type(Code.INVALID_INPUT,'NPC Pistol requires its complete closed Shooting profile',path=path_prefix)
+                or type(data['ignores_armour']) is not bool):
+            raise error_type(Code.INVALID_INPUT,'NPC ranged source requires its complete closed Shooting profile',path=path_prefix)
     elif any(name in data for name in ('range_min', 'ignores_armour')) or (
             'skill' in data and skill is Skill.MELEE):
-        raise error_type(Code.INVALID_INPUT,'explicit Shooting fields belong only to canonical NPC Pistol',path=path_prefix)
+        raise error_type(Code.INVALID_INPUT,'explicit Shooting fields belong only to a complete NPC ranged source',path=path_prefix)
     return build_value(error_type,path_prefix,NpcAttackProfile,
         data['id'],data['source_rule_id'],skill,
         InlineProfile(**data['test_profile']),DamageProfile(**data['damage']),
         RangedWeaponRange.CLOSE,RangedWeaponRange(data['range_max']),
         None if data['hands'] is None else RangedWeaponHands(data['hands']),
-        ignores_armour=pistol,
+        ignores_armour=data['ignores_armour'] if shooting else False,
         secondary_effects=tuple(_parse_attack_effect(effect,
             path_prefix=f'{path_prefix}/secondary_effects/{index}',error_type=error_type)
             for index,effect in enumerate(data['secondary_effects'])))
@@ -323,25 +334,25 @@ def _parse_scenario(data, *, path_prefix, error_type):
                   for index, member in enumerate(data["party"]))
     enemies = []
     net_policies = []
-    pistol_policies = []
+    ranged_policies = []
     for index, enemy in enumerate(data["enemies"]):
         path = f"{path_prefix}/enemies/{index}"
         definition_raw = enemy["definition"]
         attack_raw = definition_raw["attack"]
         protection_raw = definition_raw["protection"]
-        pistol = definition_raw['id'] in PC_NPC_PISTOL_DEFINITION_IDS
-        if ('pistol' in enemy) != pistol:
-            raise error_type(Code.INVALID_INPUT,'pistol source is required only for canonical NPC Pistol',path=path+'/pistol')
-        if pistol:
-            raw = enemy['pistol']
-            if type(raw) is not dict or set(raw) != set(_NPC_PISTOL_FIELDS):
-                raise error_type(Code.INVALID_INPUT,'NPC Pistol requires its complete closed source facts',path=path+'/pistol')
-            pistol_policies.append(build(path+'/pistol',PcNpcPistolPolicy,
+        shooting = attack_raw.get('skill') == 'shooting'
+        if ('ranged' in enemy) != shooting:
+            raise error_type(Code.INVALID_INPUT,'ranged source is required exactly for NPC Shooting',path=path+'/ranged')
+        if shooting:
+            raw = enemy['ranged']
+            if type(raw) is not dict or set(raw) != set(_NPC_RANGED_FIELDS):
+                raise error_type(Code.INVALID_INPUT,'NPC ranged requires its complete closed source facts',path=path+'/ranged')
+            ranged_policies.append(build(path+'/ranged',PcNpcRangedPolicy,
                 enemy['actor_id'],raw['initially_loaded'],raw['has_blackpowder_lore'],
                 raw['has_blackpowder_kit'],raw['ammunition_supply_confirmed'],
-                PcNpcPistolReloadHandPolicy(raw['reload_hand_policy'])))
-        attack = _parse_npc_attack(attack_raw,skill=Skill.SHOOTING if pistol else Skill.MELEE,
-            path_prefix=path+'/definition/attack',error_type=error_type,pistol=pistol)
+                PcNpcRangedReloadHandPolicy(raw['reload_hand_policy'])))
+        attack = _parse_npc_attack(attack_raw,skill=Skill.SHOOTING if shooting else Skill.MELEE,
+            path_prefix=path+'/definition/attack',error_type=error_type,shooting=shooting)
         has_trample = 'trample_attack' in definition_raw
         if has_trample != (definition_raw['id']=='pc-book-npc:great_stag'):
             raise error_type(Code.INVALID_INPUT,'trample_attack is required only for canonical Great Stag',
@@ -382,6 +393,7 @@ def _parse_scenario(data, *, path_prefix, error_type):
             raw = definition_raw['generated_components']
             generated = build(path + '/definition/generated_components', GeneratedNpc,
                 **dict(raw, weapon=GeneratedWeapon(raw['weapon']),
+                    ranged=None if raw.get('ranged') is None else build(path + '/definition/generated_components/ranged', GeneratedRangedFacts, **raw['ranged']),
                     abilities=tuple(GeneratedAbility(value) for value in raw['abilities']),
                     talents=tuple(GeneratedTalent(value) for value in raw['talents'])))
             alternate = definition_raw['alternate_protection']
@@ -409,7 +421,7 @@ def _parse_scenario(data, *, path_prefix, error_type):
         npc_close_shooting_protection_policies=_parse_close_shooting_policies(data,
             path_prefix=path_prefix,error_type=error_type),
         npc_net_policies=tuple(net_policies),
-        npc_pistol_policies=tuple(pistol_policies),
+        npc_ranged_policies=tuple(ranged_policies),
         npc_grudge_policies=tuple(build(f'{path_prefix}/npc_grudge_policies/{index}',PcNpcGrudgePolicy,**policy)
             for index,policy in enumerate(data['npc_grudge_policies'])),
         npc_blood_rage_actor_ids=tuple(data['npc_blood_rage_actor_ids']),
@@ -428,6 +440,8 @@ def scenario_document(scenario: PcMeleeScenario) -> dict:
     validate_pc_melee_scenario_admission(scenario)
     party = _plain([asdict(member) for member in scenario.party])
     for member in party:
+        if member['combat_equipment'] is None:
+            del member['combat_equipment']
         if not member['combat_talents']:
             del member['combat_talents']
         if member['armour_worn'] is None:
@@ -471,9 +485,9 @@ def scenario_document(scenario: PcMeleeScenario) -> dict:
             enemies[-1]['definition']['net_attack'] = _net_attack_document(definition.attacks[1])
             policy = next(policy for policy in scenario.npc_net_policies if policy.actor_id==enemy.state.actor_id)
             enemies[-1]['net_policy'] = {'initial_count':policy.initial_count,'mode':policy.mode.value}
-        elif definition.id in PC_NPC_PISTOL_DEFINITION_IDS:
-            policy = next(policy for policy in scenario.npc_pistol_policies if policy.actor_id==enemy.state.actor_id)
-            enemies[-1]['pistol'] = _plain({name:getattr(policy,name) for name in _NPC_PISTOL_FIELDS})
+        elif attack.skill is Skill.SHOOTING:
+            policy = next(policy for policy in scenario.npc_ranged_policies if policy.actor_id==enemy.state.actor_id)
+            enemies[-1]['ranged'] = _plain({name:getattr(policy,name) for name in _NPC_RANGED_FIELDS})
         elif len(definition.attacks)==2:
             trample = definition.attacks[1]
             enemies[-1]['definition']['trample_attack'] = dict(_npc_attack_document(trample),skill=trample.skill.value)

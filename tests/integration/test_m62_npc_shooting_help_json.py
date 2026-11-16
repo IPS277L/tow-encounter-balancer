@@ -149,7 +149,7 @@ class NpcShootingHelpJsonTests(unittest.TestCase):
                 self.assertEqual(source.npc_help_policies, expected)
                 self.assertEqual(source.enemy_activation_order,
                     tuple(actor for actor in template.enemy_activation_order if actor in actors))
-                self.assertEqual(tuple(policy.actor_id for policy in source.npc_pistol_policies),
+                self.assertEqual(tuple(policy.actor_id for policy in source.npc_ranged_policies),
                     ('minion3',) if counts[2] else ())
                 self.assertEqual(scenario_document(template), raw['template'])
 

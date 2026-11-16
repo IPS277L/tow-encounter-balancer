@@ -10,6 +10,7 @@ from towr.domain.pc_potion_models import selected_pc_potion, build_pc_potion_rec
 from towr.domain.pc_melee_models import PcWeaponHand
 from towr.domain.pc_net_models import expected_pc_npc_net_draw
 from towr.domain.pc_shield_models import expected_pc_shield_release
+from towr.domain.pc_weapon_inventory import expected_pc_weapon_swap
 from towr.domain.pc_ranged_models import PcRangedReloadProof,build_pc_ranged_reload,complete_pc_ranged_shot
 from towr.domain.pc_aim_models import (PcAimProof,PcAimSecondActionProof,build_pc_aim,
     expected_pc_aim_consumption,build_pc_aim_second_action)
@@ -19,8 +20,8 @@ from towr.domain.pc_blunderbuss_models import PcBlunderbussNearbyProof, build_pc
 from towr.domain.resolution_models import NearbyTargetsStaggerRequest
 from towr.rules.secondary_target_resolution import resolve_nearby_targets_stagger
 from towr.domain.pc_short_opening_models import expected_pc_npc_approach
-from towr.domain.pc_npc_pistol_models import (
-    PcNpcPistolReloadProof, build_pc_npc_pistol_reload, complete_pc_npc_pistol_shot, pc_npc_pistol_weapon,
+from towr.domain.pc_npc_ranged_models import (
+    PcNpcRangedReloadProof, build_pc_npc_ranged_reload, complete_pc_npc_ranged_shot, pc_npc_ranged_weapon,
 )
 from towr.domain.reload_models import _complete_reload_action_after_test
 from towr.domain.pc_melee_result_models import (
@@ -29,7 +30,7 @@ from towr.domain.pc_melee_result_models import (
     PcProfileWoundProof, PcMinionStaggerDefeatProof, PcRecoverProof, PcTurnEndProof, PcWoundCompletionProof,
     PcBodyConsequenceProof, PcWoundChoiceProof, PcHandSwapProof, PcBackupWeaponDrawProof, PcCriticalProof, PcIncapacitatedTurnEndProof, PcHelpProof, PcNpcHelpProof,
     build_pc_melee_attack, build_pc_melee_recover, build_pc_wound_completion, initial_pc_melee_state, pc_after_test,pc_melee_action_declaration,pc_attack_skill,
-    pc_melee_action_id, pc_melee_next_actor, pc_melee_selected_action, pc_melee_unsupported,
+    pc_melee_action_id, pc_melee_next_actor, pc_melee_selected_action, pc_melee_unsupported,pc_is_casting_action,
     project_pc_melee_step, pc_melee_round_participants, validate_pc_melee_state_shape,
     validate_pc_melee_source_types, _pc_test,
 )
@@ -362,8 +363,11 @@ def run_pc_melee_scenario(scenario, rng: RandomSource) -> PcMeleeScenarioResult:
                 if shield_release is not None:
                     consume(shield_release)
                     continue
-                casting = (scenario.participant(actor).wizard is not None
-                    and pc_melee_selected_action(state) is CombatActionKind.IMPROVISE)
+                swap=expected_pc_weapon_swap(state)
+                if swap is not None:
+                    consume(swap)
+                    continue
+                casting = pc_is_casting_action(state)
                 draw_hand = pc_backup_draw_hand(state,actor) if selected_pc_potion(state) is None and not casting else None
                 if draw_hand is not None:
                     consume(PcBackupWeaponDrawProof(actor,member.weapon_hand,draw_hand))
@@ -380,8 +384,7 @@ def run_pc_melee_scenario(scenario, rng: RandomSource) -> PcMeleeScenarioResult:
             if wild is not None:
                 consume(wild)
                 continue
-            if (actor in scenario.pc_activation_order and scenario.participant(actor).wizard is not None
-                    and pc_melee_selected_action(state) is CombatActionKind.IMPROVISE):
+            if pc_is_casting_action(state):
                 request = build_pc_casting_request(state)
                 test,decline,glorious,_ = _resolve_pc_test(state,actor,Skill.WILLPOWER,
                     guarded_casting_test(request.casting_request),rng,decisions)
@@ -392,9 +395,9 @@ def run_pc_melee_scenario(scenario, rng: RandomSource) -> PcMeleeScenarioResult:
                     _decline(state,actor,request.awareness_test.id,'test')))
             elif pc_melee_selected_action(state) is CombatActionKind.IMPROVISE:
                 if actor in scenario.enemy_activation_order:
-                    request = build_pc_npc_pistol_reload(state)
+                    request = build_pc_npc_ranged_reload(state)
                     test = resolve_test(request.dexterity_test,rng,decisions=decisions)
-                    consume(PcNpcPistolReloadProof(request,_complete_reload_action_after_test(request,test)))
+                    consume(PcNpcRangedReloadProof(request,_complete_reload_action_after_test(request,test)))
                 else:
                     request = build_pc_ranged_reload(state)
                     test,decline,glorious,effective = _resolve_pc_test(state,actor,Skill.DEXTERITY,
@@ -422,7 +425,11 @@ def run_pc_melee_scenario(scenario, rng: RandomSource) -> PcMeleeScenarioResult:
                     test,decline,glorious,effective = _resolve_pc_test(state,actor,request.help_skill,
                         request.help_test,rng,decisions)
                     execution = _complete_help_action(replace(request,help_test=effective),test)
-                    consume(PcHelpProof(request,execution,decline,glorious))
+                    from towr.domain.pc_help_models import pc_help_beneficiary_weapon,pc_selected_help_policy
+                    from towr.domain.pc_ranged_models import complete_pc_ranged_help
+                    consume(PcHelpProof(request,execution,decline,glorious,
+                        beneficiary_weapon_item_id=pc_help_beneficiary_weapon(state,pc_selected_help_policy(state)),
+                        ranged_use=complete_pc_ranged_help(state,request,replace(request,help_test=effective),execution)))
             else:
                 blood_rage = expected_pc_npc_blood_rage(state)
                 if blood_rage is not None:
@@ -465,14 +472,14 @@ def run_pc_melee_scenario(scenario, rng: RandomSource) -> PcMeleeScenarioResult:
                 ranged_shot = (complete_pc_ranged_shot(state,request,
                     replace(request,kernel_request=effective_kernel),execution)
                     if actor==pc_actor and pc_attack_skill(state,actor) is Skill.SHOOTING else None)
-                npc_pistol_shot = (complete_pc_npc_pistol_shot(state,request,
+                npc_ranged_shot = (complete_pc_npc_ranged_shot(state,request,
                     replace(request,kernel_request=effective_kernel),execution)
-                    if actor!=pc_actor and pc_npc_pistol_weapon(state,actor) is not None else None)
+                    if actor!=pc_actor and pc_npc_ranged_weapon(state,actor) is not None else None)
                 proof = PcAttackProof(request,protection,execution,decline,glorious,
                     pc_attack_help_applications(state,request.kernel_request.attack),
                     pc_npc_attack_help_applications(state,request.kernel_request.attack),
                     npc_glorious_source=pc_bestigor_glorious_source(state, actor),ranged_shot=ranged_shot,
-                    npc_pistol_shot=npc_pistol_shot)
+                    npc_ranged_shot=npc_ranged_shot)
                 consume(replace(proof,nearby_snapshot=pc_blunderbuss_snapshot(state,proof)))
             continue
         net_draw = expected_pc_npc_net_draw(state)

@@ -18,8 +18,8 @@ from towr.application.pc_melee_balance_models import project_pc_melee_candidate
 from towr.application.pc_melee_service import execute_pc_melee_balance, execute_pc_melee_simulation
 from towr.domain.pc_melee_models import PcAdjacentNpcExitPolicy, PcMeleeWeapon
 from towr.domain.pc_npc_catalog import PcBookNpcProfile, create_pc_book_npc
-from towr.domain.pc_npc_pistol_source_models import (
-    PcNpcPistolPolicy, PcNpcPistolReloadHandPolicy,
+from towr.domain.pc_npc_ranged_source_models import (
+    PcNpcRangedPolicy, PcNpcRangedReloadHandPolicy,
 )
 
 
@@ -35,8 +35,8 @@ def firearm_source(*, rounds=8):
     return replace(source, party=(member,), enemies=enemies,
         facts=replace(source.facts, can_leave_zone=True),
         npc_broken_exit_policy=PcAdjacentNpcExitPolicy('outside', True, True),
-        npc_pistol_policies=tuple(PcNpcPistolPolicy(actor, True, True, True, True,
-            PcNpcPistolReloadHandPolicy.TWO_AVAILABLE_HANDS) for actor in source.enemy_activation_order))
+        npc_ranged_policies=tuple(PcNpcRangedPolicy(actor, True, True, True, True,
+            PcNpcRangedReloadHandPolicy.TWO_AVAILABLE_HANDS) for actor in source.enemy_activation_order))
 
 
 def request_document(*, balance=False):
@@ -68,20 +68,20 @@ class NpcPistolJsonTests(unittest.TestCase):
                 self.assertEqual((attack['skill'], attack['range_min'], attack['range_max']),
                     ('shooting', 'close', 'short' if index == 0 else 'medium'))
                 self.assertIs(attack['ignores_armour'], True)
-                self.assertEqual(set(enemy['pistol']), {'initially_loaded', 'has_blackpowder_lore',
+                self.assertEqual(set(enemy['ranged']), {'initially_loaded', 'has_blackpowder_lore',
                     'has_blackpowder_kit', 'ammunition_supply_confirmed', 'reload_hand_policy'})
 
     def test_partial_facts_numeric_forgeries_and_foreign_loadouts_fail_before_rng(self):
         mutations = (
-            lambda enemy: enemy.pop('pistol'),
-            lambda enemy: enemy.update(pistol={}),
-            lambda enemy: enemy['pistol'].pop('has_blackpowder_kit'),
-            lambda enemy: enemy['pistol'].update(initially_loaded=False),
-            lambda enemy: enemy['pistol'].update(has_blackpowder_lore=1),
-            lambda enemy: enemy['pistol'].update(has_blackpowder_kit=False),
-            lambda enemy: enemy['pistol'].update(ammunition_supply_confirmed=False),
-            lambda enemy: enemy['pistol'].update(reload_hand_policy='one_hand'),
-            lambda enemy: enemy['pistol'].update(dexterity=10),
+            lambda enemy: enemy.pop('ranged'),
+            lambda enemy: enemy.update(ranged={}),
+            lambda enemy: enemy['ranged'].pop('has_blackpowder_kit'),
+            lambda enemy: enemy['ranged'].update(initially_loaded=False),
+            lambda enemy: enemy['ranged'].update(has_blackpowder_lore=1),
+            lambda enemy: enemy['ranged'].update(has_blackpowder_kit=False),
+            lambda enemy: enemy['ranged'].update(ammunition_supply_confirmed=False),
+            lambda enemy: enemy['ranged'].update(reload_hand_policy='one_hand'),
+            lambda enemy: enemy['ranged'].update(dexterity=10),
             lambda enemy: enemy.update(holds_shield=True),
             lambda enemy: enemy['definition']['attack'].pop('skill'),
             lambda enemy: enemy['definition']['attack'].pop('range_min'),
@@ -109,8 +109,8 @@ class NpcPistolJsonTests(unittest.TestCase):
     def test_direct_codec_keeps_closed_sources_and_old_melee_fields(self):
         base = request_document()['scenario']
         for mutate in (
-                lambda enemy: enemy.update(pistol={}),
-                lambda enemy: enemy['pistol'].update(unknown=True),
+                lambda enemy: enemy.update(ranged={}),
+                lambda enemy: enemy['ranged'].update(unknown=True),
                 lambda enemy: enemy['definition']['attack'].update(extra=True),
                 lambda enemy: enemy['definition']['attack'].pop('range_min')):
             raw = deepcopy(base)
@@ -123,7 +123,7 @@ class NpcPistolJsonTests(unittest.TestCase):
             raw['enemies'][0]['definition']['attack'][field] = value
             with self.subTest(field=field), self.assertRaises(PcMeleeSimulationInputError):
                 parse_scenario(raw, path_prefix='/scenario', error_type=PcMeleeSimulationInputError)
-        old['enemies'][0]['pistol'] = deepcopy(base['enemies'][0]['pistol'])
+        old['enemies'][0]['ranged'] = deepcopy(base['enemies'][0]['ranged'])
         with self.assertRaises(PcMeleeSimulationInputError):
             parse_scenario(old, path_prefix='/scenario', error_type=PcMeleeSimulationInputError)
 
@@ -132,15 +132,15 @@ class NpcPistolJsonTests(unittest.TestCase):
         command = wire.parse_pc_melee_balance_request(json.dumps(raw))
         for counts, actors in (((0, 1), ('minion2',)), ((1, 1), ('minion1', 'minion2'))):
             candidate = project_pc_melee_candidate(command.request, counts).scenario
-            self.assertEqual(tuple(policy.actor_id for policy in candidate.npc_pistol_policies), actors)
+            self.assertEqual(tuple(policy.actor_id for policy in candidate.npc_ranged_policies), actors)
             echoed = scenario_document(candidate)
-            self.assertTrue(all('pistol' in enemy for enemy in echoed['enemies']))
+            self.assertTrue(all('ranged' in enemy for enemy in echoed['enemies']))
             for enemy in echoed['enemies']:
                 original = next(source for source in raw['template']['enemies']
                     if source['actor_id'] == enemy['actor_id'])
                 self.assertEqual(enemy, original)
         raw['generation']['groups'][0]['maximum_count'] = 0
-        raw['template']['enemies'][0]['pistol']['has_blackpowder_lore'] = False
+        raw['template']['enemies'][0]['ranged']['has_blackpowder_lore'] = False
         with patch('towr.simulation.pc_melee_simulation.Random') as rng:
             with self.assertRaises(PcMeleeBalanceInputError):
                 wire.parse_pc_melee_balance_request(json.dumps(raw))
@@ -158,7 +158,7 @@ class NpcPistolJsonTests(unittest.TestCase):
                 for row in encoded['candidates']:
                     expected = ('minion2',) if row['counts'][0] == 0 else ('minion1', 'minion2')
                     self.assertEqual(tuple(enemy['actor_id'] for enemy in row['request']['scenario']['enemies']), expected)
-                    self.assertTrue(all('pistol' in enemy for enemy in row['request']['scenario']['enemies']))
+                    self.assertTrue(all('ranged' in enemy for enemy in row['request']['scenario']['enemies']))
             else:
                 command = wire.parse_pc_melee_simulation_request(json.dumps(raw))
                 result = execute_pc_melee_simulation(command)
@@ -181,7 +181,7 @@ class NpcPistolJsonTests(unittest.TestCase):
                 with self.subTest(path=path, source=raw['id']):
                     source = parse_scenario(raw, path_prefix='/scenario', error_type=PcMeleeSimulationInputError)
                     self.assertEqual(scenario_document(source), raw)
-                    self.assertEqual(source.npc_pistol_policies, ())
+                    self.assertEqual(source.npc_ranged_policies, ())
 
 
 if __name__ == '__main__':

@@ -215,7 +215,7 @@ class PcPistolBackupExecutionTests(unittest.TestCase):
         helper = replace(helper, pc=replace(helper.pc, weapon=PcMeleeWeapon.SWORD, ranged=None),
             backup_weapon_policy=None,
             policy=PcMeleePolicy.HELP_ALLY_OR_ATTACK_OR_RECOVER_SELF,
-            help_policy=PcHelpPolicy('pc1', PcHelpTarget.MELEE_ATTACK, None))
+            help_policy=PcHelpPolicy('pc1', PcHelpTarget.ATTACK, Skill.MELEE))
         source = replace(source, party=(primary, helper), pc_activation_order=('pc2', 'pc1'))
         result = execute(source, MELEE_HIT + SHOT_HIT + heavy_hits(16, side=10)
             + MELEE_HIT + MELEE_HIT + [1]*3 + SWORD_DEFENCE_MISS*3

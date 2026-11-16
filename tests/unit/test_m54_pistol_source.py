@@ -78,7 +78,7 @@ class PistolSourceTests(unittest.TestCase):
                 'backup_weapon_policy': PcBackupWeaponPolicy(PcMeleeWeapon.SWORD, PcWeaponHand.RIGHT)},
             {'initial_weapon_hand': PcTwoHandedGrip.BOTH},
             {'policy': PcMeleePolicy.HELP_ALLY_OR_ATTACK_OR_RECOVER_SELF,
-                'help_policy': PcHelpPolicy('ally', PcHelpTarget.MELEE_ATTACK, None)},
+                'help_policy': PcHelpPolicy('ally', PcHelpTarget.ATTACK, Skill.MELEE)},
             {'policy': PcMeleePolicy.RECOVER_ALLY_OR_ATTACK_OR_RECOVER_SELF,
                 'ally_recover_policy': PcAllyRecoverPolicy('ally')})
         for change in changes:

@@ -74,7 +74,7 @@ class AutomaticMeleeTacticsTests(unittest.TestCase):
         choice = select_pc_tactic(tactical_snapshot(source))
         self.assertIs(choice.action, CombatActionKind.HELP)
         self.assertEqual(choice.target_id, 'pc2')
-        self.assertIs(choice.help_policy.target, PcHelpTarget.MELEE_ATTACK)
+        self.assertIs(choice.help_policy.target, PcHelpTarget.ATTACK)
         self.assertTrue(all(member.help_policy is None for member in source.party))
 
     def test_drained_beneficiary_and_deafened_helper_do_not_receive_fake_help(self):

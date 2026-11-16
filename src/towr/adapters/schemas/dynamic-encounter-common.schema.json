@@ -30,6 +30,14 @@
             "reason": {
               "type": "integer",
               "minimum": 1
+            },
+            "ballistic_skill": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "initiative": {
+              "type": "integer",
+              "minimum": 1
             }
           },
           "required": [
@@ -64,6 +72,16 @@
               "maximum": 10
             },
             "willpower": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 10
+            },
+            "shooting": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 10
+            },
+            "dexterity": {
               "type": "integer",
               "minimum": 1,
               "maximum": 10
@@ -147,6 +165,9 @@
             }
           },
           "additionalProperties": false
+        },
+        "ranged": {
+          "$ref": "#/$defs/player_ranged_preparation"
         }
       },
       "required": [
@@ -327,7 +348,10 @@
               "axe",
               "sword",
               "warhammer",
-              "morning_star"
+              "morning_star",
+              "pistol",
+              "repeater_pistol",
+              "repeater_handbow"
             ]
           },
           "minItems": 1,
@@ -379,6 +403,44 @@
             "$ref": "urn:towr:pc-melee:common:1#/$defs/generated_talent"
           },
           "uniqueItems": true
+        },
+        "ballistic_skill": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "initiative": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "shooting": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 2,
+            "maximum": 6
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "dexterity": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 2,
+            "maximum": 6
+          },
+          "minItems": 1,
+          "uniqueItems": true
         }
       },
       "required": [
@@ -393,7 +455,11 @@
         "abilities",
         "defence",
         "shield",
-        "allowed_talents"
+        "allowed_talents",
+        "ballistic_skill",
+        "initiative",
+        "shooting",
+        "dexterity"
       ],
       "additionalProperties": false
     },
@@ -479,6 +545,20 @@
           "minItems": 1,
           "items": {
             "$ref": "urn:towr:pc-melee:common:1#/$defs/magicCount"
+          }
+        },
+        "npc_ranged_counts": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "urn:towr:pc-melee:common:1#/$defs/npcRangedCount"
+          }
+        },
+        "pc_ranged_counts": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "urn:towr:pc-melee:common:1#/$defs/pcRangedCount"
           }
         }
       },
@@ -569,6 +649,111 @@
               ]
             }
           }
+        },
+        {
+          "if": {
+            "required": [
+              "replay"
+            ],
+            "properties": {
+              "replay": {
+                "required": [
+                  "scenario"
+                ],
+                "properties": {
+                  "scenario": {
+                    "required": [
+                      "enemies"
+                    ],
+                    "properties": {
+                      "enemies": {
+                        "contains": {
+                          "required": [
+                            "ranged"
+                          ],
+                          "properties": {
+                            "ranged": {
+                              "type": "object"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "npc_ranged_counts"
+            ]
+          },
+          "else": {
+            "not": {
+              "required": [
+                "npc_ranged_counts"
+              ]
+            }
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "replay"
+            ],
+            "properties": {
+              "replay": {
+                "required": [
+                  "scenario"
+                ],
+                "properties": {
+                  "scenario": {
+                    "required": [
+                      "party"
+                    ],
+                    "properties": {
+                      "party": {
+                        "contains": {
+                          "required": [
+                            "policy",
+                            "pc"
+                          ],
+                          "properties": {
+                            "policy": {
+                              "const": "automatic_combat"
+                            },
+                            "pc": {
+                              "required": [
+                                "ranged"
+                              ],
+                              "properties": {
+                                "ranged": {
+                                  "type": "object"
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "pc_ranged_counts"
+            ]
+          },
+          "else": {
+            "not": {
+              "required": [
+                "pc_ranged_counts"
+              ]
+            }
+          }
         }
       ]
     },
@@ -616,7 +801,10 @@
             "halberd",
             "glaive",
             "greataxe",
-            "greathammer"
+            "greathammer",
+            "pistol",
+            "repeater_pistol",
+            "repeater_handbow"
           ]
         },
         "location": {
@@ -809,6 +997,36 @@
         "lores",
         "memorised_spells",
         "arcane_paraphernalia"
+      ],
+      "additionalProperties": false
+    },
+    "player_ranged_preparation": {
+      "type": "object",
+      "properties": {
+        "initially_loaded": {
+          "type": "boolean"
+        },
+        "ammunition_supply_confirmed": {
+          "type": "boolean"
+        },
+        "has_blackpowder_lore": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "has_blackpowder_kit": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "initially_loaded",
+        "ammunition_supply_confirmed",
+        "has_blackpowder_lore",
+        "has_blackpowder_kit"
       ],
       "additionalProperties": false
     }

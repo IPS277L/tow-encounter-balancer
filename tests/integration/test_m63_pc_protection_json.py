@@ -23,7 +23,7 @@ from towr.domain.pc_melee_models import (
     PcMeleeWeapon, PcWeaponHand,
 )
 from towr.domain.pc_npc_catalog import PcBookNpcProfile, create_pc_book_npc
-from towr.domain.pc_npc_pistol_source_models import PcNpcPistolPolicy, PcNpcPistolReloadHandPolicy
+from towr.domain.pc_npc_ranged_source_models import PcNpcRangedPolicy, PcNpcRangedReloadHandPolicy
 from towr.domain.test_models import Skill
 from towr.simulation.pc_melee_models import PcMeleeSimulationRequest
 from towr.simulation.pc_melee_simulation import run_pc_melee_trial
@@ -62,8 +62,8 @@ def service_source(*, choice=Skill.MELEE):
         for member in (helper, receiver))
     return replace(source, party=party, enemies=enemies, enemy_target_priority=('pc2','pc1'),
         facts=replace(source.facts, outnumbering_bonus_approved=False),
-        npc_pistol_policies=(PcNpcPistolPolicy('minion1', True, True, True, True,
-            PcNpcPistolReloadHandPolicy.TWO_AVAILABLE_HANDS),))
+        npc_ranged_policies=(PcNpcRangedPolicy('minion1', True, True, True, True,
+            PcNpcRangedReloadHandPolicy.TWO_AVAILABLE_HANDS),))
 
 
 def request_document(*, balance=False):
@@ -108,12 +108,12 @@ class PcProtectionChoiceJsonTests(unittest.TestCase):
             with self.subTest(value=value), self.assertRaises((TypeError, ValueError)):
                 replace(member, close_shooting_protection_skill=value)
         policy = PcHelpPolicy('ally', PcHelpTarget.FIRST_INCOMING_PROTECTION, Skill.MELEE)
-        self.assertIs(policy.protection_skill, Skill.MELEE)
+        self.assertIs(policy.skill, Skill.MELEE)
         for value in (Alias.MELEE, 'melee', Skill.SHOOTING, None):
             with self.subTest(value=value), self.assertRaises((TypeError, ValueError)):
-                replace(policy, protection_skill=value)
-        with self.assertRaises(ValueError):
-            PcHelpPolicy('ally', PcHelpTarget.MELEE_ATTACK, Skill.MELEE)
+                replace(policy, skill=value)
+        with self.assertRaises(TypeError):
+            PcHelpPolicy('ally', PcHelpTarget.ATTACK, None)
 
     def test_optional_field_and_help_malformed_values_fail_before_rng(self):
         for balance in (False, True):
@@ -128,7 +128,7 @@ class PcProtectionChoiceJsonTests(unittest.TestCase):
                         parse(json.dumps(raw))
                 for value in ('shooting', None, True):
                     raw = request_document(balance=balance)
-                    raw[key]['party'][0]['help_policy']['protection_skill'] = value
+                    raw[key]['party'][0]['help_policy']['skill'] = value
                     with self.subTest(balance=balance, help_skill=value), self.assertRaises(error):
                         parse(json.dumps(raw))
                 raw = request_document(balance=balance)
@@ -147,7 +147,7 @@ class PcProtectionChoiceJsonTests(unittest.TestCase):
             MELEE = 'melee'
         request = PcMeleeSimulationRequest(service_source(), 42, 1)
         for field, value in ((FIELD, 'melee'), (FIELD, Alias.MELEE), (FIELD, Skill.DEFENCE),
-                ('protection_skill', Alias.MELEE)):
+                ('skill', Alias.MELEE)):
             forged = deepcopy(request)
             target = forged.scenario.party[1] if field == FIELD else forged.scenario.party[0].help_policy
             object.__setattr__(target, field, value)
@@ -163,9 +163,9 @@ class PcProtectionChoiceJsonTests(unittest.TestCase):
             with self.subTest(counts=counts):
                 candidate = project_pc_melee_candidate(command.request, counts).scenario
                 self.assertIs(candidate.party[1].close_shooting_protection_skill, Skill.MELEE)
-                self.assertIs(candidate.party[0].help_policy.protection_skill, Skill.MELEE)
+                self.assertIs(candidate.party[0].help_policy.skill, Skill.MELEE)
                 self.assertEqual(scenario_document(candidate)['party'][1][FIELD], 'melee')
-                self.assertEqual(len(candidate.npc_pistol_policies), counts[0])
+                self.assertEqual(len(candidate.npc_ranged_policies), counts[0])
 
     def test_actual_services_preserve_choices_help_costs_and_full_candidate_echoes(self):
         for balance in (False, True):

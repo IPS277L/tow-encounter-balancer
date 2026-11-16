@@ -22,7 +22,7 @@ def pc_recover_removable(member, condition):
 def pc_ally_recover_beneficiary(state):
     actor = state.round_state.active_turn.actor_id
     from towr.domain.pc_melee_models import PcMeleePolicy
-    if state.source.participant(actor).policy is PcMeleePolicy.AUTOMATIC_MELEE:
+    if state.source.participant(actor).policy is PcMeleePolicy.AUTOMATIC_COMBAT:
         from towr.domain.pc_tactical_models import select_pc_tactic
         choice = select_pc_tactic(state)
         return choice.target_id if choice.action is CombatActionKind.RECOVER and choice.target_id != actor else None
@@ -93,17 +93,25 @@ def pc_after_standard_recover(state, request, result):
         and interaction.id == pc_melee_action_id(state, actor)+':drink' else None)
     drinking = selection is not None and interaction.object_id == selection.item_id
     shield_pickup = not drinking and interaction is not None and interaction.object_id==actor+':shield'
+    picked=None
+    if not drinking and not shield_pickup and interaction is not None and member.weapon_inventory is not None:
+        from towr.domain.pc_weapon_inventory import pc_weapon_pickup_member
+        picked=pc_weapon_pickup_member(state,actor,interaction.object_id,
+            injury=updated.get(actor,member.injury))
+        if picked is None:
+            raise ValueError('weapon Recover must interact with its actually dropped item')
     from towr.domain.pc_potion_models import pc_potion_hand
     used_hand = (pc_potion_hand(member) if drinking else pc_shield_recover_hand(member) if shield_pickup else
-        pc_preferred_weapon_hand(state,actor) if interaction is not None else None)
+        picked.weapon_hand if picked is not None else pc_preferred_weapon_hand(state,actor) if interaction is not None else None)
     hand = used_hand if interaction is not None and not shield_pickup and not drinking else member.weapon_hand
     shield = PcShieldState(PcShieldLocation.HELD,used_hand) if shield_pickup else member.shield
-    injury = updated.get(actor,member.injury)
-    updated[actor] = critical_for_action(replace(member,injury=injury),CombatActionKind.RECOVER,
+    injury = picked.injury if picked is not None else updated.get(actor,member.injury)
+    updated[actor] = critical_for_action(replace(picked if picked is not None else member,injury=injury),CombatActionKind.RECOVER,
         removes_prone=(request.choice.prone_target is not None
             and request.choice.prone_target.entity_id==actor),
         used_hand=used_hand)
-    return tuple(replace(member,injury=updated.get(member.actor_id,member.injury),
+    return tuple(replace(picked if picked is not None and member.actor_id==actor else member,
+        injury=updated.get(member.actor_id,member.injury),
         weapon_hand=hand if member.actor_id==actor else member.weapon_hand,
         shield=shield if member.actor_id==actor else member.shield,
         magic=result.resolution.magic_state if member.actor_id==actor and member.magic is not None else member.magic)

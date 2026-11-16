@@ -38,7 +38,7 @@ def help_scene():
     source = make_pc_melee_party_scenario(max_rounds=1,enemy_count=1)
     enemy = create_pc_book_npc(OFFICIAL,'minion1')
     helper,receiver = source.party
-    return replace(source,enemies=(enemy,),npc_pistol_policies=(policy('minion1'),),
+    return replace(source,enemies=(enemy,),npc_ranged_policies=(policy('minion1'),),
         facts=replace(source.facts,outnumbering_bonus_approved=False),enemy_target_priority=('pc2','pc1'),
         party=(replace(helper,policy=PcMeleePolicy.HELP_ALLY_OR_ATTACK_OR_RECOVER_SELF,
             help_policy=PcHelpPolicy('pc2',PcHelpTarget.FIRST_INCOMING_PROTECTION,Skill.MELEE)),

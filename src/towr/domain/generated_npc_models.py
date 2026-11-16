@@ -11,7 +11,9 @@ from towr.domain.condition_models import Condition
 from towr.domain.injury_models import ProfileInjuryState
 from towr.domain.npc_attack_preparation_models import NpcAttackProfile
 from towr.domain.npc_roster_models import NpcDefinition, NpcParticipantSnapshot, NpcParticipantState, NpcProtectionProfile
-from towr.domain.ranged_weapon_profiles import RangedWeaponHands, RangedWeaponRange
+from towr.domain.ranged_weapon_profiles import (
+    RangedWeaponHands, RangedWeaponRange, RangedWeaponId, ranged_weapon_combat_profile,
+)
 from towr.domain.resolution_models import TargetInjuryPolicy
 from towr.domain.test_models import InlineProfile, Skill
 from towr.domain.turn_models import CombatSide
@@ -24,6 +26,41 @@ class GeneratedWeapon(str, Enum):
     SWORD = 'sword'
     WARHAMMER = 'warhammer'
     MORNING_STAR = 'morning_star'
+    PISTOL = 'pistol'
+    REPEATER_PISTOL = 'repeater_pistol'
+    REPEATER_HANDBOW = 'repeater_handbow'
+
+
+GENERATED_RANGED_WEAPONS = (
+    GeneratedWeapon.PISTOL, GeneratedWeapon.REPEATER_PISTOL, GeneratedWeapon.REPEATER_HANDBOW,
+)
+
+
+@dataclass(frozen=True, slots=True)
+class GeneratedRangedFacts:
+    ballistic_skill: int
+    shooting: int
+    initiative: int
+    dexterity: int
+    initially_loaded: bool
+    ammunition_supply_confirmed: bool
+    has_blackpowder_lore: bool | None
+    has_blackpowder_kit: bool | None
+
+    def __post_init__(self):
+        for name in ('ballistic_skill', 'initiative'):
+            if type(getattr(self,name)) is not int or getattr(self,name) < 1:
+                raise ValueError(f'{name} must be a positive integer')
+        for name in ('shooting', 'dexterity'):
+            if type(getattr(self,name)) is not int or not 2 <= getattr(self,name) <= 6:
+                raise ValueError(f'{name} must be an integer in 2..6')
+        for name in ('initially_loaded', 'ammunition_supply_confirmed'):
+            if type(getattr(self,name)) is not bool or not getattr(self,name):
+                raise ValueError(f'generated ranged source requires confirmed {name}')
+        for name in ('has_blackpowder_lore', 'has_blackpowder_kit'):
+            value=getattr(self,name)
+            if value is not None and type(value) is not bool:
+                raise TypeError(f'{name} must be an exact bool or None')
 
 
 class GeneratedAbility(str, Enum):
@@ -61,6 +98,7 @@ class GeneratedNpc:
     defence: int = field(kw_only=True)
     shield: bool = field(kw_only=True)
     talents: tuple[GeneratedTalent, ...] = field(default=(),kw_only=True)
+    ranged: GeneratedRangedFacts | None = field(default=None,kw_only=True)
 
     def __post_init__(self):
         for name in ('weapon_skill', 'strength', 'toughness', 'agility'):
@@ -75,6 +113,19 @@ class GeneratedNpc:
             raise TypeError('equipment requires supported typed weapon and explicit armour bool')
         if type(self.shield) is not bool:
             raise TypeError('Shield requires an exact equipment bool')
+        if self.weapon in GENERATED_RANGED_WEAPONS:
+            if type(self.ranged) is not GeneratedRangedFacts:
+                raise TypeError('ranged weapon requires its complete typed ranged facts')
+            replace(self.ranged)
+            if self.shield:
+                raise ValueError('generated ranged weapon requires the second hand free, without Shield')
+            blackpowder=self.weapon is not GeneratedWeapon.REPEATER_HANDBOW
+            if ((self.ranged.has_blackpowder_lore is not True or self.ranged.has_blackpowder_kit is not True)
+                    if blackpowder else (self.ranged.has_blackpowder_lore is not None
+                        or self.ranged.has_blackpowder_kit is not None)):
+                raise ValueError('firearm requires Lore/Kit; Handbow has no Blackpowder facts')
+        elif self.ranged is not None:
+            raise ValueError('melee generated source must not contain ranged facts')
         if (type(self.abilities) is not tuple or len(set(self.abilities)) != len(self.abilities)
                 or any(type(a) is not GeneratedAbility for a in self.abilities)):
             raise TypeError('abilities must be unique supported typed components')
@@ -105,12 +156,20 @@ def generated_npc_profiles(npc: GeneratedNpc) -> tuple[
     replace(npc)
     resilience = ResilienceProfile(npc.toughness, int(npc.light_armour)+int(npc.shield))
     offset = -1 if npc.weapon is GeneratedWeapon.DAGGER else int(npc.weapon is GeneratedWeapon.MORNING_STAR)
-    attack = NpcAttackProfile(
+    secondary=tuple(ConditionOnHitSpec(Condition.DRAINED, 'authored:drained-on-hit')
+        for ability in npc.abilities if ability is GeneratedAbility.DRAINED_ON_HIT)
+    if npc.ranged is not None:
+        weapon=ranged_weapon_combat_profile(RangedWeaponId(npc.weapon.value))
+        attack=NpcAttackProfile('primary','RULE-EQUIPMENT-004:'+npc.weapon.value,Skill.SHOOTING,
+            InlineProfile(npc.ranged.ballistic_skill,npc.ranged.shooting),DamageProfile(weapon.damage_value),
+            weapon.optimum_range_min,weapon.optimum_range_max,weapon.hands,
+            ignores_armour=weapon.ignores_armour,secondary_effects=secondary)
+    else:
+        attack = NpcAttackProfile(
             'primary', 'RULE-EQUIPMENT-003:' + npc.weapon.value, Skill.MELEE,
             InlineProfile(npc.weapon_skill, npc.melee), DamageProfile(npc.strength+offset),
             RangedWeaponRange.CLOSE, RangedWeaponRange.CLOSE, RangedWeaponHands.ONE_HANDED,
-            secondary_effects=tuple(ConditionOnHitSpec(Condition.DRAINED, 'authored:drained-on-hit')
-                for ability in npc.abilities if ability is GeneratedAbility.DRAINED_ON_HIT))
+            secondary_effects=secondary)
     protection = (
         NpcProtectionProfile('RULE-COMBAT-006:generated-defence', Skill.DEFENCE,
             InlineProfile(npc.weapon_skill,npc.defence)),

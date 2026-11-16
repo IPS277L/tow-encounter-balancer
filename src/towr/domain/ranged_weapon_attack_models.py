@@ -6,7 +6,6 @@ from towr.domain.action_execution_models import (
     AttackActionExecutionRequest,
     AttackActionExecutionResult,
 )
-from towr.domain.exacting_test_models import ExactingTestProgress
 from towr.domain.reload_models import (
     RELOAD_RULE_ID,
     FreeReloadWeaponState,
@@ -272,22 +271,8 @@ def _spent_weapon_state(
         return request.weapon_state
     cycle_id = request.next_reload_cycle_id
     assert cycle_id is not None
-    return ReloadableWeaponState(
-        weapon_instance_id=request.weapon_state.weapon_instance_id,
-        weapon_id=request.weapon_state.weapon_id,
-        reload_cycle_id=cycle_id,
-        required_successes=request.weapon_state.required_successes,
-        loaded=False,
-        exacting=ExactingTestProgress(
-            id=f"{cycle_id}:exacting",
-            required_successes=request.weapon_state.required_successes,
-        ),
-        reload_cycle_ids=(
-            *request.weapon_state.reload_cycle_ids,
-            cycle_id,
-        ),
-        rule_id=request.weapon_state.rule_id,
-    )
+    from towr.domain.reload_models import begin_reload_cycle
+    return begin_reload_cycle(request.weapon_state,cycle_id)
 
 
 def _validate_reload_trigger(

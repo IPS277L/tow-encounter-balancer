@@ -50,7 +50,7 @@ class DynamicEncounterJsonTests(unittest.TestCase):
         raw['party'][0]['talents'] = ['lucky']
         command = parse_dynamic_encounter_request(json.dumps(raw))
         compiled = command.request.party[0]
-        self.assertIs(compiled.policy, PcMeleePolicy.AUTOMATIC_MELEE)
+        self.assertIs(compiled.policy, PcMeleePolicy.AUTOMATIC_COMBAT)
         self.assertIsNone(compiled.help_policy)
         self.assertIsNone(compiled.ally_recover_policy)
         self.assertEqual(compiled.pc.armour_bonus, 1)

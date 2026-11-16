@@ -21,13 +21,13 @@ def pc_selected_help_policy(state):
     if actor not in state.source.pc_activation_order:
         return None
     source = state.source.participant(actor)
-    if source.policy is PcMeleePolicy.AUTOMATIC_MELEE:
+    if source.policy is PcMeleePolicy.AUTOMATIC_COMBAT:
         from towr.domain.pc_tactical_models import select_pc_tactic
         return select_pc_tactic(state).help_policy
     return source.help_policy
 
 
-def eligible_pc_help_beneficiary(state, strategy, actor=None):
+def eligible_pc_help_beneficiary(state, strategy, actor=None, *, planned_choice=None):
     from towr.domain.pc_melee_result_models import _pc_recover_needed
     actor = actor or state.round_state.active_turn.actor_id
     if actor not in state.source.pc_activation_order:
@@ -43,11 +43,33 @@ def eligible_pc_help_beneficiary(state, strategy, actor=None):
     if (ally.injury.dead or ally.injury.conditions.has(Condition.DEFENCELESS)
             or ally.injury.conditions.has(Condition.DRAINED)):
         return None
-    if strategy.target is PcHelpTarget.MELEE_ATTACK:
+    if strategy.target is PcHelpTarget.ATTACK:
         from towr.domain.pc_melee_result_models import pc_attack_skill
-        if pc_attack_skill(state,ally.actor_id) is not Skill.MELEE:
+        from towr.domain.turn_models import CombatActionKind
+        recipient=state.source.participant(ally.actor_id)
+        view=state
+        if recipient.policy is PcMeleePolicy.AUTOMATIC_COMBAT:
+            if state.source.pc_activation_order.index(actor)>=state.source.pc_activation_order.index(ally.actor_id):
+                return None
+            if planned_choice is None:
+                from towr.domain.pc_tactical_models import select_pc_tactic
+                planned_choice=select_pc_tactic(state,ally.actor_id)
+            if planned_choice.action is not CombatActionKind.ATTACK:
+                return None
+            if planned_choice.weapon_item_id is not None:
+                from towr.domain.pc_weapon_inventory import pc_weapon_inventory_view
+                view=pc_weapon_inventory_view(state,ally.actor_id,planned_choice.weapon_item_id)
+                if view is None:
+                    return None
+        if pc_attack_skill(view,ally.actor_id) is not strategy.skill:
             return None
-        if (_pc_recover_needed(ally) or strategy.beneficiary_id in (
+        if strategy.skill is Skill.SHOOTING:
+            from towr.domain.pc_melee_models import PC_RANGED_WEAPONS
+            from towr.domain.pc_backup_weapon_models import pc_active_weapon
+            if (pc_active_weapon(state,actor) not in PC_RANGED_WEAPONS
+                    or member.ranged is None or not member.ranged.loaded):
+                return None
+        if (_pc_recover_needed(view.participant(ally.actor_id)) or strategy.beneficiary_id in (
                 *state.round_state.completed_turn_entity_ids,*state.round_state.excluded_turn_entity_ids)):
             return None
     else:
@@ -56,7 +78,13 @@ def eligible_pc_help_beneficiary(state, strategy, actor=None):
         skill = (pc_protection_skill(ally,pc_selected_npc_attack_profile(state,incoming).skill,
             state.source.participant(ally.actor_id).close_shooting_protection_skill)
             if incoming is not None else None)
-        if skill is not strategy.protection_skill or incoming is None:
+        if (incoming is not None and pc_selected_npc_attack_profile(state,incoming).skill is Skill.SHOOTING
+                and state.source.participant(ally.actor_id).policy is PcMeleePolicy.AUTOMATIC_COMBAT):
+            from towr.domain.pc_generated_ranged_advice import pc_close_shooting_protection
+            from towr.domain.pc_melee_result_models import pc_melee_action_id
+            skill,_=pc_close_shooting_protection(state,ally.actor_id,incoming,
+                pc_melee_action_id(state,incoming)+':protection')
+        if skill is not strategy.skill or incoming is None:
             return None
     return strategy.beneficiary_id
 
@@ -71,9 +99,11 @@ def pc_help_incoming_actor(state, strategy=None):
     if target != strategy.beneficiary_id:
         return None
     unavailable = (*state.round_state.completed_turn_entity_ids,*state.round_state.excluded_turn_entity_ids)
+    from towr.domain.pc_npc_ranged_models import pc_npc_ranged_weapon
     return next((enemy for enemy in state.source.enemy_activation_order
         if not state.enemy(enemy).state.injury.defeated and enemy not in state.exited_npc_ids
-        and enemy not in unavailable),None)
+        and enemy not in unavailable and (pc_npc_ranged_weapon(state,enemy) is None
+            or pc_npc_ranged_weapon(state,enemy).loaded)),None)
 
 
 def build_pc_help_action(state):
@@ -87,16 +117,22 @@ def build_pc_help_action(state):
     actor = state.round_state.active_turn.actor_id
     strategy = pc_selected_help_policy(state)
     action_id = pc_melee_action_id(state,actor)
-    skill = Skill.MELEE if strategy.target is PcHelpTarget.MELEE_ATTACK else strategy.protection_skill
-    intended = (pc_melee_action_id(state,beneficiary)+':attack' if strategy.target is PcHelpTarget.MELEE_ATTACK else
+    skill = strategy.skill
+    intended = (pc_melee_action_id(state,beneficiary)+':attack' if strategy.target is PcHelpTarget.ATTACK else
         pc_melee_action_id(state,pc_help_incoming_actor(state))+':protection')
+    test=_pc_test(state,actor,action_id+':help:test',skill)
+    if skill is Skill.SHOOTING:
+        from towr.domain.pc_ranged_models import pc_repeater_attack_modifiers
+        test=replace(test,dice_modifiers=(*test.dice_modifiers,*pc_repeater_attack_modifiers(state,actor)))
     return HelpActionExecutionRequest(action_id+':help:execute',state.round_state,actor,
         state.participant(actor).injury.conditions,beneficiary,
-        intended,1,_pc_test(state,actor,action_id+':help:test',skill),skill,skill)
+        intended,1,test,skill,skill)
 
 
 def build_pc_attack_help(state, test):
-    return build_pc_test_help(state,state.round_state.active_turn.actor_id,Skill.MELEE,test)
+    from towr.domain.pc_melee_result_models import pc_attack_skill
+    actor=state.round_state.active_turn.actor_id
+    return build_pc_test_help(state,actor,pc_attack_skill(state,actor),test)
 
 
 def build_pc_test_help(state, actor, skill, test):
@@ -110,6 +146,10 @@ def build_pc_test_help(state, actor, skill, test):
         if (execution.bonus.beneficiary_id != actor or execution.bonus.beneficiary_test_id != test.id
                 or execution.bonus.beneficiary_skill is not skill):
             continue
+        if proof.beneficiary_weapon_item_id is not None:
+            from towr.domain.pc_backup_weapon_models import pc_active_weapon_item_id
+            if proof.beneficiary_weapon_item_id!=pc_active_weapon_item_id(state,actor):
+                continue
         request = HelpBonusApplicationRequest(test.id+':apply:'+execution.request_id,
             execution,actor,skill,test)
         updated,modifier = _expected_help_application(request)
@@ -128,9 +168,7 @@ def pc_attack_help_applications(state, attack):
     actor = state.round_state.active_turn.actor_id
     if actor in state.source.pc_activation_order:
         from towr.domain.pc_melee_result_models import pc_attack_skill
-        if pc_attack_skill(state,actor) is Skill.SHOOTING:
-            return ()
-        skill,test = Skill.MELEE,attack.attacker_test
+        skill,test = pc_attack_skill(state,actor),attack.attacker_test
     else:
         if attack.defender_test is None:
             return ()
@@ -143,7 +181,25 @@ def pc_attack_help_applications(state, attack):
             pc_selected_npc_attack_profile(state,state.round_state.active_turn.actor_id).skill,
             state.source.participant(actor).close_shooting_protection_skill)
         test = attack.defender_test
+        if (pc_selected_npc_attack_profile(state,state.round_state.active_turn.actor_id).skill is Skill.SHOOTING
+                and state.source.participant(actor).policy is PcMeleePolicy.AUTOMATIC_COMBAT):
+            from towr.domain.pc_generated_ranged_advice import pc_close_shooting_protection
+            skill,_=pc_close_shooting_protection(state,actor,state.round_state.active_turn.actor_id,test.id)
     base = replace(test,dice_modifiers=tuple(modifier
         for modifier in test.dice_modifiers
         if modifier.rule_id != HELP_BONUS_RULE_ID))
     return build_pc_test_help(state,actor,skill,base)[1]
+
+
+def pc_help_beneficiary_weapon(state,strategy):
+    """Bind automatic Help to the concrete item of its promised future Test."""
+    if strategy is None:
+        return None
+    target=strategy.beneficiary_id
+    inventory=state.participant(target).weapon_inventory
+    if inventory is None or strategy.skill is Skill.ATHLETICS:
+        return None
+    if strategy.target is PcHelpTarget.ATTACK and state.source.participant(target).policy is PcMeleePolicy.AUTOMATIC_COMBAT:
+        from towr.domain.pc_tactical_models import select_pc_tactic
+        return select_pc_tactic(state,target).weapon_item_id or inventory.active_item_id
+    return inventory.active_item_id

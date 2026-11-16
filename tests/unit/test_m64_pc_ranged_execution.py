@@ -18,7 +18,7 @@ from towr.domain.pc_melee_result_models import (
     PcMeleeStep, PcRecoverProof,
 )
 from towr.domain.pc_npc_catalog import PcBookNpcProfile, create_pc_book_npc
-from towr.domain.pc_npc_pistol_source_models import PcNpcPistolPolicy, PcNpcPistolReloadHandPolicy
+from towr.domain.pc_npc_ranged_source_models import PcNpcRangedPolicy, PcNpcRangedReloadHandPolicy
 from towr.domain.pc_ranged_models import PcRangedReloadProof
 from towr.domain.pc_shield_models import PcShieldLocation, PcShieldReleaseProof
 from towr.domain.ranged_weapon_profiles import REPEATER_SHOOTING_BONUS_RULE_ID, RangedWeaponId
@@ -285,9 +285,9 @@ class PcRangedExecutionTests(unittest.TestCase):
     def test_melee_opposition_does_not_activate_repeater_bonus_or_consume_owned_state(self):
         source = scene(weapon=PISTOL)
         enemy = create_pc_book_npc(PcBookNpcProfile.IMPERIAL_OGRE_PISTOL,'minion1')
-        npc_policy = PcNpcPistolPolicy('minion1',True,True,True,True,
-            PcNpcPistolReloadHandPolicy.TWO_AVAILABLE_HANDS)
-        source = replace(source,enemies=(enemy,),npc_pistol_policies=(npc_policy,),
+        npc_policy = PcNpcRangedPolicy('minion1',True,True,True,True,
+            PcNpcRangedReloadHandPolicy.TWO_AVAILABLE_HANDS)
+        source = replace(source,enemies=(enemy,),npc_ranged_policies=(npc_policy,),
             party=(replace(source.party[0],close_shooting_protection_skill=Skill.MELEE),))
         result = execute(source,[10]*5+[1]*3+[10]*3+[1]*3)
         incoming = next(s for s in steps(result,PcAttackProof) if s.proof.request.actor_id=='minion1')

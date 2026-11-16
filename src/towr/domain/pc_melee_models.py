@@ -1,6 +1,7 @@
 """Immutable authored input for the first PC melee encounter (ADR-0065)."""
 from dataclasses import dataclass, field, replace
 from enum import Enum
+from towr.domain.pc_combat_equipment_models import PcWeaponItem
 
 from towr.domain.attack_models import ConditionImpactSpec, DamageProfile, ResilienceProfile, ProneBeforeGiveGroundSpec
 from towr.domain.condition_models import ConditionState
@@ -25,8 +26,8 @@ from towr.domain.pc_npc_blood_rage_policy_models import validate_pc_npc_blood_ra
 from towr.domain.pc_flagellant_policy_models import PcFlagellantPolicy,validate_pc_flagellant_policies
 from towr.domain.pc_warped_form_policy_models import PcWarpedFormPolicy,validate_pc_warped_form_policies
 from towr.domain.pc_npc_net_policy_models import PcNpcNetPolicy,validate_pc_npc_net_policies,NET_DEFINITION_ID
-from towr.domain.pc_npc_pistol_source_models import (
-    PC_NPC_PISTOL_DEFINITION_IDS, PcNpcPistolPolicy, validate_pc_npc_pistol_policies,
+from towr.domain.pc_npc_ranged_source_models import (
+    PC_NPC_RANGED_DEFINITION_IDS, PcNpcRangedPolicy, validate_pc_npc_ranged_policies,
 )
 from towr.domain.pc_npc_close_shooting_models import (
     PcNpcCloseShootingProtectionPolicy, pc_close_shooting_protection_profile,
@@ -78,7 +79,7 @@ PC_RANGED_WEAPONS = (PcMeleeWeapon.PISTOL, PcMeleeWeapon.REPEATER_HANDBOW,
 
 class PcMeleePolicy(str, Enum):
     ATTACK_OR_RECOVER_SELF = "attack_or_recover_self"
-    AUTOMATIC_MELEE = "automatic_melee"
+    AUTOMATIC_COMBAT = "automatic_combat"
     HELP_ALLY_OR_ATTACK_OR_RECOVER_SELF = "help_ally_or_attack_or_recover_self"
     RECOVER_ALLY_OR_ATTACK_OR_RECOVER_SELF = "recover_ally_or_attack_or_recover_self"
 
@@ -92,7 +93,7 @@ class PcAllyRecoverPolicy:
 
 
 class PcHelpTarget(str, Enum):
-    MELEE_ATTACK = "melee_attack"
+    ATTACK = "attack"
     FIRST_INCOMING_PROTECTION = "first_incoming_protection"
 
 
@@ -100,17 +101,17 @@ class PcHelpTarget(str, Enum):
 class PcHelpPolicy:
     beneficiary_id: str
     target: PcHelpTarget
-    protection_skill: Skill | None
+    skill: Skill
 
     def __post_init__(self) -> None:
         _identifier(self.beneficiary_id,"Help beneficiary")
         _typed(self.target,PcHelpTarget,"Help target")
-        if self.target is PcHelpTarget.MELEE_ATTACK:
-            if self.protection_skill is not None:
-                raise ValueError("Melee Attack Help cannot carry a Protection skill")
+        _typed(self.skill,Skill,"Help Skill")
+        if self.target is PcHelpTarget.ATTACK:
+            if self.skill not in (Skill.MELEE,Skill.SHOOTING):
+                raise ValueError("Attack Help requires Melee or Shooting")
         else:
-            _typed(self.protection_skill,Skill,"Help Protection skill")
-            if self.protection_skill not in (Skill.DEFENCE,Skill.ATHLETICS,Skill.MELEE):
+            if self.skill not in (Skill.DEFENCE,Skill.ATHLETICS,Skill.MELEE):
                 raise ValueError("Protection Help requires Defence, Athletics or Melee")
 
 
@@ -206,6 +207,7 @@ class PcRangedReloadHandPolicy(str, Enum):
 class PcRepeaterBonusPolicy(str, Enum):
     WHEN_AVAILABLE = "when_available"
     NEVER = "never"
+    AUTOMATIC = "automatic"
 
 
 @dataclass(frozen=True, slots=True)
@@ -421,6 +423,7 @@ class PcMeleeParticipant:
     wizard: PcWizardProfile | None = field(default=None, kw_only=True)
     armour_worn: bool | None = field(default=None, kw_only=True)
     combat_talents: tuple[PcCombatTalent,...] = field(default=(),kw_only=True)
+    combat_equipment: tuple[PcWeaponItem,...] | None = field(default=None,kw_only=True)
 
     def __post_init__(self) -> None:
         _identifier(self.actor_id, "PC actor")
@@ -428,7 +431,7 @@ class PcMeleeParticipant:
         replace(self.pc)
         from towr.domain.pc_combat_talent_models import validate_pc_combat_talents
         validate_pc_combat_talents(self.combat_talents,self.pc)
-        if self.combat_talents and self.policy is not PcMeleePolicy.AUTOMATIC_MELEE:
+        if self.combat_talents and self.policy is not PcMeleePolicy.AUTOMATIC_COMBAT:
             raise ValueError('PC combat Talents currently require automatic melee tactics')
         if self.armour_worn is not None:
             _typed(self.armour_worn,bool,'worn armour fact')
@@ -438,7 +441,7 @@ class PcMeleeParticipant:
             if type(self.wizard) is not PcWizardProfile:
                 raise TypeError('PC wizard source requires its typed complete profile')
             replace(self.wizard)
-            if self.policy is not PcMeleePolicy.AUTOMATIC_MELEE:
+            if self.policy is not PcMeleePolicy.AUTOMATIC_COMBAT:
                 raise ValueError('PC magic currently requires automatic melee tactics')
         if type(self.consumables) is not tuple or any(type(item) is not ConsumableItem for item in self.consumables):
             raise TypeError('PC consumables require an ordered tuple of typed items')
@@ -449,7 +452,7 @@ class PcMeleeParticipant:
                 raise ValueError('this simulator supports Enhancement for WS/Strength/Toughness/Agility only')
         if len({item.id for item in self.consumables}) != len(self.consumables):
             raise ValueError('PC consumable instance IDs must be unique')
-        if self.consumables and self.policy is not PcMeleePolicy.AUTOMATIC_MELEE:
+        if self.consumables and self.policy is not PcMeleePolicy.AUTOMATIC_COMBAT:
             raise ValueError('potion use currently requires automatic melee tactics')
         _readmit_fate(self.fate, self.actor_id)
         if self.close_shooting_protection_skill is not None:
@@ -460,7 +463,7 @@ class PcMeleeParticipant:
                           ("random_side_policy", PcRandomSidePolicy), ("heavy_wound_policy", PcHeavyWoundPolicy)):
             _typed(getattr(self, name), cls, name)
         if self.pc.weapon in PC_RANGED_WEAPONS:
-            if self.policy is not PcMeleePolicy.ATTACK_OR_RECOVER_SELF:
+            if self.policy not in (PcMeleePolicy.ATTACK_OR_RECOVER_SELF,PcMeleePolicy.AUTOMATIC_COMBAT):
                 raise ValueError("ranged PC requires ordinary Attack/self Recover policy")
             if any(value is not None for value in (self.help_policy, self.ally_recover_policy)):
                 raise ValueError("ranged PC cannot carry Help or ally Recover")
@@ -533,6 +536,18 @@ class PcMeleeParticipant:
             raise ValueError("defeat decisions must follow the full PC target priority")
         object.__setattr__(self, "target_priority", targets)
         object.__setattr__(self, "defeat_decisions", decisions)
+        if self.combat_equipment is not None:
+            from towr.domain.pc_combat_equipment_models import validate_pc_combat_equipment
+            validate_pc_combat_equipment(self)
+        if self.pc.ranged is not None and self.pc.ranged.repeater_bonus_policy is PcRepeaterBonusPolicy.AUTOMATIC:
+            if self.policy is not PcMeleePolicy.AUTOMATIC_COMBAT:
+                raise ValueError('automatic Repeater mode requires automatic combat policy')
+        if self.policy is PcMeleePolicy.AUTOMATIC_COMBAT and self.pc.weapon in PC_RANGED_WEAPONS:
+            if self.combat_equipment is None:
+                raise ValueError('automatic ranged source requires the complete weapon inventory')
+            if (self.pc.weapon in (PcMeleeWeapon.REPEATER_HANDBOW,PcMeleeWeapon.REPEATER_PISTOL)
+                    and self.pc.ranged.repeater_bonus_policy is not PcRepeaterBonusPolicy.AUTOMATIC):
+                raise ValueError('automatic combat requires an automatic Repeater mode')
 
     def defeat_decision(self, target_id: str) -> MinionDefeatDecision:
         _identifier(target_id, "defeat target")
@@ -604,7 +619,7 @@ class PcMeleeScenario:
     npc_flagellant_policies: tuple[PcFlagellantPolicy, ...] = field(kw_only=True)
     npc_warped_form_policies: tuple[PcWarpedFormPolicy, ...] = field(kw_only=True)
     npc_net_policies: tuple[PcNpcNetPolicy, ...] = field(default=(),kw_only=True)
-    npc_pistol_policies: tuple[PcNpcPistolPolicy, ...] = field(default=(),kw_only=True)
+    npc_ranged_policies: tuple[PcNpcRangedPolicy, ...] = field(default=(),kw_only=True)
     npc_close_shooting_protection_policies: tuple[PcNpcCloseShootingProtectionPolicy, ...] | None = field(default=None,kw_only=True)
     short_range_opening: PcShortRangeOpening | None = field(default=None,kw_only=True)
     blunderbuss_nearby: PcBlunderbussNearby | None = field(default=None,kw_only=True)
@@ -663,6 +678,8 @@ class PcMeleeScenario:
                     enemy.definition, policy.skill)
         if has_ranged:
             for enemy in enemies:
+                if enemy.definition.generated_components is not None:
+                    continue
                 if enemy.state.actor_id in close_shooting_profiles:
                     continue
                 skill = enemy.definition.protection[0].skill
@@ -698,15 +715,15 @@ class PcMeleeScenario:
                 beneficiary = next(other for other in party if other.actor_id == beneficiary_id)
                 if beneficiary.policy is not PcMeleePolicy.ATTACK_OR_RECOVER_SELF:
                     raise ValueError("the first Help slice cannot target another helper")
-                if (member.help_policy.target is PcHelpTarget.MELEE_ATTACK
+                if (member.help_policy.target is PcHelpTarget.ATTACK
                         and self.pc_activation_order.index(member.actor_id) >= self.pc_activation_order.index(beneficiary_id)):
                     raise ValueError("Help beneficiary must activate later in this round")
         object.__setattr__(self, "party", party)
         object.__setattr__(self, "enemies", enemies)
-        from towr.domain.pc_tactical_models import validate_automatic_melee_scenario
-        validate_automatic_melee_scenario(self)
+        from towr.domain.pc_tactical_models import validate_automatic_combat_scenario
+        validate_automatic_combat_scenario(self)
         validate_pc_npc_help_policies(self)
-        validate_pc_npc_pistol_policies(self)
+        validate_pc_npc_ranged_policies(self)
         validate_pc_npc_grudge_policies(self)
         validate_pc_npc_blood_rage_policy(self)
         validate_pc_flagellant_policies(self)
@@ -766,7 +783,7 @@ def _validate_short_range_opening(scenario: PcMeleeScenario) -> None:
     if any((scenario.npc_help_policies, scenario.npc_extra_attack_actor_ids,
             scenario.npc_grudge_policies, scenario.npc_blood_rage_actor_ids,
             scenario.npc_flagellant_policies, scenario.npc_warped_form_policies,
-            scenario.npc_net_policies, scenario.npc_pistol_policies)):
+            scenario.npc_net_policies, scenario.npc_ranged_policies)):
         raise ValueError('Short opening cannot carry NPC ability policies')
     if any(member.pc.weapon not in PC_RANGED_WEAPONS for member in scenario.party):
         raise ValueError('Short opening requires a ranged primary for every PC')
@@ -829,8 +846,14 @@ def _readmit_profile_enemy(enemy: NpcParticipantSnapshot) -> None:
     protection = _canonical_tuple(definition.protection, "Minion protection")
     great_stag = definition.id == 'pc-book-npc:great_stag'
     net_goblin = definition.id == NET_DEFINITION_ID
-    npc_pistol = definition.id in PC_NPC_PISTOL_DEFINITION_IDS
     generated = definition.generated_components is not None
+    npc_ranged = (definition.id in PC_NPC_RANGED_DEFINITION_IDS
+        or (generated and definition.generated_components.ranged is not None))
+    expected_ignores_armour=npc_ranged
+    if generated and npc_ranged:
+        from towr.domain.ranged_weapon_profiles import RangedWeaponId,ranged_weapon_combat_profile
+        expected_ignores_armour=ranged_weapon_combat_profile(
+            RangedWeaponId(definition.generated_components.weapon.value)).ignores_armour
     if (len(attacks) != (2 if great_stag or net_goblin else 1)
             or len(protection) != (2 if generated else 1)):
         raise ValueError("NPC requires one primary attack and one Protection; complete generated components allow two Protections, canonical Stag/Net allow a second attack")
@@ -869,11 +892,11 @@ def _readmit_profile_enemy(enemy: NpcParticipantSnapshot) -> None:
     _typed(attack.ignores_armour, bool, "Minion ignores armour")
     if attack.hands is not None:
         _typed(attack.hands, RangedWeaponHands, "Minion weapon hands")
-    if (attack.skill is not (Skill.SHOOTING if npc_pistol else Skill.MELEE)
+    if (attack.skill is not (Skill.SHOOTING if npc_ranged else Skill.MELEE)
             or attack.range_min is not RangedWeaponRange.CLOSE
             or attack.range_max not in ((RangedWeaponRange.SHORT,RangedWeaponRange.MEDIUM)
-                if npc_pistol else (RangedWeaponRange.CLOSE,RangedWeaponRange.SHORT))
-            or attack.damage.success_multiplier != 1 or attack.ignores_armour is not npc_pistol
+                if npc_ranged else (RangedWeaponRange.CLOSE,RangedWeaponRange.SHORT))
+            or attack.damage.success_multiplier != 1 or attack.ignores_armour is not expected_ignores_armour
             or defence.skill not in ((Skill.STEALTH,) if definition.id=='pc-book-npc:halfling_thief_dagger'
                 else (Skill.DEFENCE,Skill.ATHLETICS))
             or attack.hands is None and defence.skill is not Skill.ATHLETICS):

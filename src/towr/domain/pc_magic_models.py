@@ -171,7 +171,7 @@ def consume_magic_modifiers(modifiers, proof):
     from towr.domain.recover_models import RecoverStandardResult
     used, removed, visited = set(), set(), set()
     paths = {'execution','resolution','result','casting','test','test_result','attack',
-        'attacker_test','defender_test','critical','completion','wound_effect'}
+        'attacker_test','defender_test','critical','completion','wound_effect','exacting'}
     def visit(value):
         if id(value) in visited:
             return
@@ -456,7 +456,8 @@ def project_pc_magic_step(state, proof):
         raise ValueError('magic cannot skip an actual pending Wound consequence')
     if type(proof) is PcCastingProof:
         _ready(state)
-        if pc_melee_selected_action(state) is not CombatActionKind.IMPROVISE:
+        from towr.domain.pc_melee_result_models import pc_is_casting_action
+        if not pc_is_casting_action(state):
             raise ValueError('Casting cannot replace the selected action')
         expected = build_pc_casting_request(state)
         same(proof.request,expected)

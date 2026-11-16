@@ -129,7 +129,7 @@ class WildTacticalChoiceTests(unittest.TestCase):
         self.assertEqual(source.party[0].pc.strength, 1)
         choice = select_pc_tactic(tactical_snapshot(source))
         self.assertIs(choice.action, CombatActionKind.HELP)
-        self.assertIs(choice.help_policy.target, PcHelpTarget.MELEE_ATTACK)
+        self.assertIs(choice.help_policy.target, PcHelpTarget.ATTACK)
         self.assertEqual(choice.target_id, 'pc2')
         self.assertTrue(choice.wild_attack)
 

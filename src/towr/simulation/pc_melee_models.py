@@ -1,4 +1,8 @@
 """Indexed, source-bound observations for the bounded PC encounter (ADR-0065)."""
+from towr.simulation.pc_ranged_statistics import PcRangedCount,validate_pc_ranged_counts
+
+from towr.simulation.pc_npc_ranged_statistics import PcNpcRangedCount,validate_npc_ranged_counts
+
 from collections import Counter
 from dataclasses import dataclass, field, replace
 from hashlib import sha256
@@ -414,7 +418,7 @@ def validate_help_counts(counts,scenario,*,trials:int,help_trials:int|None,
     for member,item in zip(scenario.party,counts,strict=True):
         budget = min(started_rounds-(trials-help_trials),help_trials*scenario.max_rounds) if (
             member.policy is PcMeleePolicy.HELP_ALLY_OR_ATTACK_OR_RECOVER_SELF
-            or (member.policy is PcMeleePolicy.AUTOMATIC_MELEE and len(scenario.party)>1)) else 0
+            or (member.policy is PcMeleePolicy.AUTOMATIC_COMBAT and len(scenario.party)>1)) else 0
         if item.count>budget:
             raise ValueError('Help count exceeds the selected role/turn budget')
 
@@ -461,7 +465,7 @@ def validate_ally_recover_counts(counts,scenario,*,trials:int,recover_trials:int
             unavailable_rounds=trials if before_ally else trials-recover_trials
             budget=min(started_rounds-unavailable_rounds,
                 recover_trials*(scenario.max_rounds-int(before_ally)))
-        elif member.policy is PcMeleePolicy.AUTOMATIC_MELEE and len(scenario.party)>1:
+        elif member.policy is PcMeleePolicy.AUTOMATIC_COMBAT and len(scenario.party)>1:
             # Any earlier PC may already have gained Staggered from its own miss.
             first = scenario.pc_activation_order.index(member.actor_id)==0
             unavailable_rounds=trials if first else trials-recover_trials
@@ -555,7 +559,7 @@ def validate_potion_use_counts(counts, scenario, *, trials: int, actions: int,
     for (member, item), row in zip(inventory, counts, strict=True):
         if row.count > item.quantity * trials:
             raise ValueError('potion use exceeds the actual source stock')
-        if row.count and member.policy is not PcMeleePolicy.AUTOMATIC_MELEE:
+        if row.count and member.policy is not PcMeleePolicy.AUTOMATIC_COMBAT:
             raise ValueError('potion use requires an automatic potion-capable policy')
         by_actor[member.actor_id] += row.count
         if item.kind is ConsumableKind.ENHANCEMENT:
@@ -575,7 +579,7 @@ def validate_automatic_action_budget(help_counts,recover_counts,scenario,*,start
         potions[row.actor_id] += row.count
     casting = {row.actor_id: row.casting_actions for row in magic_counts or ()}
     for member,helped,recovered in zip(scenario.party,help_counts,recover_counts,strict=True):
-        if (member.policy is PcMeleePolicy.AUTOMATIC_MELEE
+        if (member.policy is PcMeleePolicy.AUTOMATIC_COMBAT
                 and helped.count+recovered.count+potions[member.actor_id]+casting.get(member.actor_id,0)>started_rounds):
             raise ValueError('automatic Help, ally Recover, potions and Casting exceed the same actor turn budget')
 
@@ -662,6 +666,8 @@ class PcMeleeTrialRecord:
     aim: PcAimCounts | None = field(default=None, kw_only=True)
     potion_use_counts: tuple[PcPotionUseCount, ...] | None = field(default=None, kw_only=True)
     magic_counts: tuple[PcMagicCount, ...] | None = field(default=None, kw_only=True)
+    npc_ranged_counts: tuple[PcNpcRangedCount, ...] | None = field(default=None,kw_only=True)
+    pc_ranged_counts: tuple[PcRangedCount,...] | None = field(default=None,kw_only=True)
 
     def __post_init__(self) -> None:
         validate_pc_melee_scenario_admission(self.source_scenario)
@@ -721,6 +727,10 @@ class PcMeleeTrialRecord:
             recover_trials=None,actions=self.executed_actions,started_rounds=self.started_rounds)
         validate_potion_use_counts(self.potion_use_counts,self.source_scenario,trials=1,
             actions=self.executed_actions,started_rounds=self.started_rounds)
+        validate_pc_ranged_counts(self.pc_ranged_counts,self.source_scenario,
+            actions=self.executed_actions,started_rounds=self.started_rounds,help_counts=self.help_action_counts)
+        validate_npc_ranged_counts(self.npc_ranged_counts,self.source_scenario,
+            actions=self.executed_actions,started_rounds=self.started_rounds)
         validate_magic_counts(self.magic_counts,self.source_scenario,trials=1,
             actions=self.executed_actions,started_rounds=self.started_rounds,
             unsupported_trials=int(self.outcome is PcMeleeOutcome.UNSUPPORTED_PATH))
@@ -733,7 +743,7 @@ class PcMeleeTrialRecord:
             recover_trials=None,actions=self.executed_actions,started_rounds=self.started_rounds,
             warped_form_counts=self.npc_warped_form_counts)
         if sum(item.count for item in (*self.help_action_counts,*self.ally_recover_action_counts,
-                *self.npc_help_action_counts,*self.npc_recover_action_counts,*(self.potion_use_counts or ())))+2*extras+(self.aim.total_action_count if self.aim is not None else 0)+sum(row.casting_actions for row in self.magic_counts or ())>self.executed_actions:
+                *self.npc_help_action_counts,*self.npc_recover_action_counts,*(self.potion_use_counts or ())))+2*extras+(self.aim.total_action_count if self.aim is not None else 0)+sum(row.casting_actions for row in self.magic_counts or ())+sum(row.shots+row.reload_actions for row in self.npc_ranged_counts or ())+sum(row.shots+row.reload_actions for row in self.pc_ranged_counts or ())>self.executed_actions:
             raise ValueError('Help, ally Recover and primary/extra Attacks cannot consume the same action')
         validate_npc_exit_counts(self.npc_exit_counts,self.source_scenario,trials=1,exit_trials=None)
         if sum(item.count for item in self.npc_exit_counts)>npc_injury_budget:

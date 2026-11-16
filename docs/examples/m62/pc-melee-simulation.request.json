@@ -425,7 +425,7 @@
             }
           }
         },
-        "pistol": {
+        "ranged": {
           "initially_loaded": true,
           "has_blackpowder_lore": true,
           "has_blackpowder_kit": true,
@@ -474,7 +474,7 @@
             }
           }
         },
-        "pistol": {
+        "ranged": {
           "initially_loaded": true,
           "has_blackpowder_lore": true,
           "has_blackpowder_kit": true,

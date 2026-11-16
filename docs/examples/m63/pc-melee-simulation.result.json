@@ -64,7 +64,7 @@
           "help_policy": {
             "beneficiary_id": "pc2",
             "target": "first_incoming_protection",
-            "protection_skill": "melee"
+            "skill": "melee"
           },
           "ally_recover_policy": null,
           "backup_weapon_policy": null,
@@ -181,7 +181,7 @@
               }
             }
           },
-          "pistol": {
+          "ranged": {
             "initially_loaded": true,
             "has_blackpowder_lore": true,
             "has_blackpowder_kit": true,
@@ -230,7 +230,7 @@
               }
             }
           },
-          "pistol": {
+          "ranged": {
             "initially_loaded": true,
             "has_blackpowder_lore": true,
             "has_blackpowder_kit": true,
@@ -295,14 +295,14 @@
   "summary": {
     "trials": 6,
     "outcome_counts": {
-      "objective_achieved": 4,
+      "objective_achieved": 6,
       "party_defeated": 0,
-      "round_limit": 2,
+      "round_limit": 0,
       "unsupported_path": 0
     },
-    "total_action_count": 133,
-    "total_started_round_count": 44,
-    "total_completed_round_count": 40,
+    "total_action_count": 82,
+    "total_started_round_count": 28,
+    "total_completed_round_count": 22,
     "any_pc_defeated_count": 0,
     "pc_defeat_counts": [
       {
@@ -342,14 +342,14 @@
     "help_action_counts": [
       {
         "actor_id": "pc1",
-        "count": 44
+        "count": 7
       },
       {
         "actor_id": "pc2",
         "count": 0
       }
     ],
-    "total_help_action_count": 44,
+    "total_help_action_count": 7,
     "ally_recover_action_trial_count": 0,
     "ally_recover_action_counts": [
       {
@@ -362,19 +362,19 @@
       }
     ],
     "total_ally_recover_action_count": 0,
-    "npc_exit_trial_count": 6,
+    "npc_exit_trial_count": 2,
     "npc_exit_counts": [
       {
         "actor_id": "official1",
-        "count": 6
+        "count": 2
       },
       {
         "actor_id": "ogre1",
         "count": 0
       }
     ],
-    "objective_with_npc_exit_count": 4,
-    "total_npc_exit_count": 6,
+    "objective_with_npc_exit_count": 2,
+    "total_npc_exit_count": 2,
     "npc_help_action_trial_count": 0,
     "npc_help_action_counts": [
       {
@@ -422,6 +422,20 @@
         "count": 0
       }
     ],
-    "total_npc_warped_form_count": 0
+    "total_npc_warped_form_count": 0,
+    "npc_ranged_counts": [
+      {
+        "actor_id": "official1",
+        "shots": 5,
+        "bonus_shots": 0,
+        "reload_actions": 0
+      },
+      {
+        "actor_id": "ogre1",
+        "shots": 6,
+        "bonus_shots": 0,
+        "reload_actions": 16
+      }
+    ]
   }
 }

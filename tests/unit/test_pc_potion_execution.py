@@ -30,7 +30,7 @@ def healing_source(*, enemies=3):
         resilience = replace(enemy.definition.resilience, toughness=10)
         enemies.append(replace(enemy, definition=replace(enemy.definition, resilience=resilience),
             state=replace(enemy.state, current_resilience=resilience)))
-    return replace(source, party=(replace(source.party[0], policy=PcMeleePolicy.AUTOMATIC_MELEE,
+    return replace(source, party=(replace(source.party[0], policy=PcMeleePolicy.AUTOMATIC_COMBAT,
         consumables=(ConsumableItem('healing', ConsumableKind.HEALING, 1, None),)),), enemies=tuple(enemies))
 
 

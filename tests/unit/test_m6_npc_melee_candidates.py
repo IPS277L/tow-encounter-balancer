@@ -81,7 +81,7 @@ class M6NpcMeleeCandidateTests(unittest.TestCase):
         for can_leave in (True, False):
             source = replace(source, facts=replace(source.facts, can_leave_zone=can_leave))
             candidate, = melee_scenario_candidates(source, context(source), source.initial.spatial_state)
-            self.assertIs(candidate.protection_skill, Skill.DEFENCE)
+            self.assertIs(candidate.skill, Skill.DEFENCE)
             self.assertEqual(candidate.protection_options[0].test.profile, InlineProfile(4, 3))
             self.assertEqual(candidate.can_target_leave_zone, can_leave)
 

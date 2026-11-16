@@ -22,9 +22,9 @@ from towr.domain.pc_blunderbuss_models import PcBlunderbussNearbyProof, project_
 from towr.domain.resolution_models import NearbyTargetsStaggerRequest
 from towr.domain.attack_models import NearbyTargetsStaggerSpec
 from towr.domain.pc_short_opening_models import PcNpcApproachProof, expected_pc_npc_approach
-from towr.domain.pc_npc_pistol_models import (
-    PcNpcPistolReloadProof, build_pc_npc_pistol_reload, complete_pc_npc_pistol_shot,
-    pc_npc_pistol_weapon, updated_pc_npc_pistols,
+from towr.domain.pc_npc_ranged_models import (
+    PcNpcRangedReloadProof, build_pc_npc_ranged_reload, complete_pc_npc_ranged_shot,
+    pc_npc_ranged_weapon, updated_pc_npc_ranged_weapons,
 )
 from towr.domain.reload_models import _complete_reload_action_after_test
 from towr.domain.pc_shield_models import (PcShieldReleaseProof, PcShieldState, PcShieldLocation,
@@ -226,6 +226,10 @@ def project_pc_step(state, proof):
         expected_wild_attack,pending_wild_attack,expected_defensive_stance)
     wild = expected_wild_attack(state)
     stance = expected_defensive_stance(state)
+    from towr.domain.pc_weapon_inventory import PcWeaponSwapProof,expected_pc_weapon_swap,apply_pc_weapon_swap
+    swap=expected_pc_weapon_swap(state)
+    if swap is not None and type(proof) is not PcWeaponSwapProof:
+        raise ValueError('selected weapon swap must precede the committed action')
     if wild is not None and type(proof) is not PcWildAttackProof:
         raise ValueError('selected Wild Attack price must precede the Melee Test')
     paid=pending_wild_attack(state)
@@ -313,6 +317,10 @@ def project_pc_step(state, proof):
         raise ValueError('Broken NPC cannot skip its supported incidental exit')
 
     def finish(**updates):
+        if 'party' in updates:
+            from towr.domain.pc_weapon_inventory import sync_pc_weapon_inventory
+            updates['party']=tuple(sync_pc_weapon_inventory(state.participant(member.actor_id),member,
+                scenario.participant(member.actor_id)) for member in updates['party'])
         updates.setdefault('magic_modifiers',consume_magic_modifiers(state.magic_modifiers,proof))
         pending = updates.get('pending', state.pending)
         pending_wound = updates.get('pending_wound', state.pending_wound)
@@ -321,6 +329,13 @@ def project_pc_step(state, proof):
         elif 'pending_actor_id' not in updates:
             updates['pending_actor_id'] = pc_actor
         return replace(state,history=(*state.history,proof),**updates)
+    if type(proof) is PcWeaponSwapProof:
+        _ready(state)
+        if swap is None:
+            raise ValueError('no selected own-turn carried weapon swap is available')
+        _same(proof,swap,'weapon swap changed its exact source or committed intent')
+        updated=apply_pc_weapon_swap(state,proof)
+        return finish(party=tuple(updated if member.actor_id==proof.actor_id else member for member in state.party))
     if type(proof) is PcWildAttackProof:
         replace(proof)
         if wild is None:
@@ -493,10 +508,10 @@ def project_pc_step(state, proof):
             if expected.actor_id==pc_actor and pc_attack_skill(state,pc_actor) is Skill.SHOOTING else None)
         _same(proof.ranged_shot,expected_shot,'Ranged shot changed its full preparation/instance/cycle/source')
         _same(proof.nearby_snapshot,pc_blunderbuss_snapshot(state,proof),'HIT changed its committed nearby snapshot/source')
-        expected_npc_shot = (complete_pc_npc_pistol_shot(state,expected,
+        expected_npc_shot = (complete_pc_npc_ranged_shot(state,expected,
             replace(expected,kernel_request=replace(expected.kernel_request,attack=effective_attack)),execution)
-            if expected.actor_id!=pc_actor and pc_npc_pistol_weapon(state,expected.actor_id) is not None else None)
-        _same(proof.npc_pistol_shot,expected_npc_shot,'NPC shot changed its full preparation/actor/instance/cycle')
+            if expected.actor_id!=pc_actor and pc_npc_ranged_weapon(state,expected.actor_id) is not None else None)
+        _same(proof.npc_ranged_shot,expected_npc_shot,'NPC shot changed its full preparation/actor/instance/cycle')
         _canonical_attack(effective_attack,result.attack)
         _ordinary_resolution(expected.kernel_request,result)
         if result.request_id != expected.kernel_request.id:
@@ -626,8 +641,8 @@ def project_pc_step(state, proof):
             hit_condition_sources=hit_sources,net_condition_sources=net_sources,
             ranged=expected_shot.execution.weapon_state if expected_shot is not None else member.ranged),enemies=enemies,
             pending=result.follow_ups,pending_wound=pending_wound,
-            npc_pistols=(updated_pc_npc_pistols(state,expected.actor_id,expected_npc_shot.execution.weapon_state)
-                if expected_npc_shot is not None else state.npc_pistols))
+            npc_ranged_weapons=(updated_pc_npc_ranged_weapons(state,expected.actor_id,expected_npc_shot.execution.weapon_state)
+                if expected_npc_shot is not None else state.npc_ranged_weapons))
     if isinstance(proof,PcNpcHelpProof):
         from towr.domain.automatic_help_models import expected_automatic_help_action
         _ready(state)
@@ -653,10 +668,17 @@ def project_pc_step(state, proof):
             expected.help_test,proof.execution.help_test_result,proof.fate_decline,proof.glorious)
         canonical = _expected_help_execution(replace(expected,help_test=effective),proof.execution.help_test_result)
         _same(proof.execution,canonical,'Help execution changed its exact bonus/receipt/clock/Test source')
+        from towr.domain.pc_help_models import pc_help_beneficiary_weapon,pc_selected_help_policy
+        _same(proof.beneficiary_weapon_item_id,pc_help_beneficiary_weapon(state,pc_selected_help_policy(state)),
+            'Help changed the concrete item of its promised Test')
+        from towr.domain.pc_ranged_models import complete_pc_ranged_help
+        use=complete_pc_ranged_help(state,expected,replace(expected,help_test=effective),canonical)
+        _same(proof.ranged_use,use,'Shooting Help changed its actual weapon/Test/bonus/Reload cycle')
         injury = pc_after_test(state,pc_actor,critical_for_action(member,CombatActionKind.HELP,
             used_hand=usable_weapon_hand(member)))
         return finish(round_state=canonical.round_state,
-            party=_party_update(state,pc_actor,injury=injury,fate=fate))
+            party=_party_update(state,pc_actor,injury=injury,fate=fate,
+                ranged=member.ranged if use is None else use.weapon_state))
     if isinstance(proof,PcWoundCompletionProof):
         pending = state.pending_wound
         if pending is None:
@@ -911,19 +933,19 @@ def project_pc_step(state, proof):
         expected = PcNpcRecoverProof(request,canonical,before,flagellant_recovered_injury(before))
         _same(proof,expected,'NPC Recover changed its actor, receipt, heal or source')
         return finish(round_state=canonical.round_state,enemies=_enemy_update(state,actor,expected.injury))
-    if type(proof) is PcNpcPistolReloadProof:
+    if type(proof) is PcNpcRangedReloadProof:
         _ready(state)
         actor = combat.active_turn.actor_id
         if actor not in scenario.enemy_activation_order or pc_melee_selected_action(state) is not CombatActionKind.IMPROVISE:
             raise ValueError('NPC Reload cannot replace another actor or selected action')
-        request = build_pc_npc_pistol_reload(state)
+        request = build_pc_npc_ranged_reload(state)
         _same(proof.request,request,'NPC Reload changed its current actor/weapon/slot/Test')
         actual = proof.result.exacting.test_result
         _test_result(request.dexterity_test,actual)
         canonical = _complete_reload_action_after_test(request,actual)
         _same(proof.result,canonical,'NPC Reload changed its actual Test/progress/receipt')
         return finish(round_state=canonical.round_state,
-            npc_pistols=updated_pc_npc_pistols(state,actor,canonical.state))
+            npc_ranged_weapons=updated_pc_npc_ranged_weapons(state,actor,canonical.state))
     if type(proof) is PcRangedReloadProof:
         _ready(state)
         if pc_melee_selected_action(state) is not CombatActionKind.IMPROVISE:

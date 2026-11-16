@@ -209,7 +209,7 @@ class PcBrewguardExecutionTests(unittest.TestCase):
     def test_help_does_not_replace_the_pc_who_actually_inflicted_the_wound(self):
         source=scene()
         helper=replace(source.party[0],policy=PcMeleePolicy.HELP_ALLY_OR_ATTACK_OR_RECOVER_SELF,
-            help_policy=PcHelpPolicy('pc2',PcHelpTarget.MELEE_ATTACK,None))
+            help_policy=PcHelpPolicy('pc2',PcHelpTarget.ATTACK,Skill.MELEE))
         source=replace(source,party=(helper,source.party[1]))
         result=execute(source,[1]*3+[1]*6+[10]*4+[1]*3+[10]*3+[1])
         cause,=result.state.npc_distractions

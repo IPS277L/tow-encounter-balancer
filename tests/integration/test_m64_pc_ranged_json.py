@@ -23,7 +23,7 @@ from towr.domain.pc_melee_models import (
     PcWeaponHand,
 )
 from towr.domain.pc_npc_catalog import PcBookNpcProfile, create_pc_book_npc
-from towr.domain.pc_npc_pistol_source_models import PcNpcPistolPolicy, PcNpcPistolReloadHandPolicy
+from towr.domain.pc_npc_ranged_source_models import PcNpcRangedPolicy, PcNpcRangedReloadHandPolicy
 from towr.domain.pc_npc_close_shooting_models import PcNpcCloseShootingProtectionPolicy
 from towr.domain.test_models import Skill
 from towr.simulation.pc_melee_models import PcMeleeSimulationRequest
@@ -159,7 +159,7 @@ class PcRangedJsonTests(unittest.TestCase):
             for changes in ({'pc':replace(member.pc, strength=1)},
                     {'initial_weapon_hand':member.shield.initial_hand},
                     {'policy':PcMeleePolicy.HELP_ALLY_OR_ATTACK_OR_RECOVER_SELF,
-                        'help_policy':PcHelpPolicy('ally', PcHelpTarget.MELEE_ATTACK, None)}):
+                        'help_policy':PcHelpPolicy('ally', PcHelpTarget.ATTACK, Skill.MELEE)}):
                 with self.subTest(weapon=weapon, changes=changes), self.assertRaises(ValueError):
                     replace(member, **changes)
             with self.assertRaises(ValueError):
@@ -178,19 +178,19 @@ class PcRangedJsonTests(unittest.TestCase):
                     run_pc_melee_trial(forged, 0, rng_factory=rng)
                 rng.assert_not_called()
 
-    def test_npc_pistol_source_is_preserved_beside_the_new_pc_ranged_key(self):
+    def test_npc_ranged_source_is_preserved_beside_the_new_pc_ranged_key(self):
         scene = source()
         enemy = create_pc_book_npc(PcBookNpcProfile.IMPERIAL_OGRE_PISTOL, 'minion1')
-        scene = replace(scene, enemies=(enemy,), npc_pistol_policies=(PcNpcPistolPolicy('minion1',
-            True,True,True,True,PcNpcPistolReloadHandPolicy.TWO_AVAILABLE_HANDS),))
+        scene = replace(scene, enemies=(enemy,), npc_ranged_policies=(PcNpcRangedPolicy('minion1',
+            True,True,True,True,PcNpcRangedReloadHandPolicy.TWO_AVAILABLE_HANDS),))
         raw = document()
         raw['scenario'] = scenario_document(scene)
         command = wire.parse_pc_melee_simulation_request(json.dumps(raw))
         encoded = scenario_document(command.request.scenario)
         self.assertEqual(encoded, raw['scenario'])
         self.assertIn('ranged', encoded['party'][0]['pc'])
-        self.assertIn('pistol', encoded['enemies'][0])
-        self.assertNotIn('ranged', encoded['enemies'][0])
+        self.assertIn('ranged', encoded['enemies'][0])
+        self.assertNotIn('pistol', encoded['enemies'][0])
 
     def test_both_repeaters_keep_lawful_roster_stealth_and_explicit_protection_guards(self):
         for weapon in (PcMeleeWeapon.REPEATER_HANDBOW, PcMeleeWeapon.REPEATER_PISTOL):

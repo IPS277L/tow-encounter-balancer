@@ -7,6 +7,7 @@ import unittest
 from tests.support.pc_book_npc_scenarios import book_pc_scenario
 from tests.support.pc_melee_fixtures import zero_npc_exit_counts,zero_npc_help_counts,zero_npc_recover_counts
 from towr.domain.pc_melee_models import PcMeleePolicy,PcHelpPolicy,PcHelpTarget,PcAllyRecoverPolicy
+from towr.domain.test_models import Skill
 from towr.domain.pc_melee_result_models import PcMeleeOutcome as Outcome
 from towr.domain.pc_npc_help_models import PcNpcHelpPolicy
 from towr.simulation.pc_melee_models import (
@@ -108,7 +109,7 @@ class PcExtraAttackStatisticsTests(unittest.TestCase):
             enemy_activation_order=('peasant1','bear1','bear2'),
             npc_help_policies=(PcNpcHelpPolicy('peasant1','bear1'),),
             party=(replace(first,policy=PcMeleePolicy.HELP_ALLY_OR_ATTACK_OR_RECOVER_SELF,
-                help_policy=PcHelpPolicy('pc3',PcHelpTarget.MELEE_ATTACK,None)),
+                help_policy=PcHelpPolicy('pc3',PcHelpTarget.ATTACK,Skill.MELEE)),
                 replace(second,policy=PcMeleePolicy.RECOVER_ALLY_OR_ATTACK_OR_RECOVER_SELF,
                     ally_recover_policy=PcAllyRecoverPolicy('pc3')),third))
         request=PcMeleeSimulationRequest(scenario,42,1)

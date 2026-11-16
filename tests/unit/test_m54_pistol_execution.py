@@ -365,7 +365,7 @@ class PcPistolExecutionTests(unittest.TestCase):
         helper = source.party[0]
         helper = replace(helper, pc=replace(helper.pc, weapon=PcMeleeWeapon.STAFF, ranged=None),
             policy=PcMeleePolicy.HELP_ALLY_OR_ATTACK_OR_RECOVER_SELF,
-            help_policy=PcHelpPolicy('pc2', PcHelpTarget.MELEE_ATTACK, None))
+            help_policy=PcHelpPolicy('pc2', PcHelpTarget.ATTACK, Skill.MELEE))
         source = replace(source, party=(helper, source.party[1]))
         result = execute(source, SHOT_HIT + SHOT_HIT + NPC_MISS)
         self.assertEqual(steps(result, PcHelpProof), ())

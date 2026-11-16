@@ -23,7 +23,8 @@ from towr.application.encounter_inventory import (
 )
 from towr.domain.generated_npc_models import GeneratedAbility, GeneratedWeapon, GeneratedTalent
 from towr.domain.minion_defeat_models import NpcDefeatDisposition
-from towr.domain.pc_melee_models import PcMeleeFacts, PcMeleeWeapon
+from towr.domain.pc_melee_models import (PcMeleeFacts,PcMeleeWeapon,PcRangedProfile,
+    PcRangedReloadHandPolicy,PcRepeaterBonusPolicy)
 from towr.domain.pc_magic_source_models import PcWizardProfile, PcSpellId
 from towr.domain.pc_combat_talent_models import PcCombatTalent,TalentAcquisition
 
@@ -120,6 +121,32 @@ def parse_dynamic_encounter_request(text: str | bytes) -> DynamicEncounterComman
                 raw['characteristics']['strength'])
             wizard = None
             characteristics, skills = dict(raw['characteristics']), dict(raw['skills'])
+            ranged=None
+            if loadout['weapon'] in (PcMeleeWeapon.PISTOL,PcMeleeWeapon.REPEATER_PISTOL,
+                    PcMeleeWeapon.REPEATER_HANDBOW):
+                if 'ranged' not in raw:
+                    raise DynamicEncounterInputError(Code.INVALID_INPUT,
+                        'Для стрелкового оружия нужны факты подготовки (Ranged preparation).',path=path+'/ranged')
+                prep=raw['ranged']
+                required_stats={'ballistic_skill','initiative'}
+                required_skills={'shooting','dexterity'}
+                if not required_stats<=characteristics.keys() or not required_skills<=skills.keys():
+                    raise DynamicEncounterInputError(Code.INVALID_INPUT,
+                        'Для стрелка нужны BS/I/Shooting/Dexterity.',path=path)
+                ranged=build_value(DynamicEncounterInputError,path+'/ranged',PcRangedProfile,
+                    ballistic_skill=characteristics.pop('ballistic_skill'),initiative=characteristics.pop('initiative'),
+                    shooting=skills.pop('shooting'),dexterity=skills.pop('dexterity'),
+                    **prep,reload_hand_policy=PcRangedReloadHandPolicy.TWO_AVAILABLE_HANDS,
+                    repeater_bonus_policy=(PcRepeaterBonusPolicy.AUTOMATIC
+                        if loadout['weapon'] is not PcMeleeWeapon.PISTOL else None))
+            elif 'ranged' in raw:
+                raise DynamicEncounterInputError(Code.INVALID_INPUT,
+                    'Стрелковая подготовка относится к начальному стрелковому оружию.',path=path+'/ranged')
+            else:
+                # Inactive character facts remain in the editable source echo
+                # and individual character file; this loadout cannot use them.
+                for name in ('ballistic_skill','initiative'):characteristics.pop(name,None)
+                for name in ('shooting','dexterity'):skills.pop(name,None)
             if 'magic' in raw:
                 magic = raw['magic']
                 wizard = build_value(DynamicEncounterInputError, path + '/magic', PcWizardProfile,
@@ -131,6 +158,7 @@ def parse_dynamic_encounter_request(text: str | bytes) -> DynamicEncounterComman
                 **loadout,
                 talents=tuple(EncounterTalent(t) for t in raw['talents']), fate=raw['resources']['fate'],
                 combat_talents=pc_combat_talent_facts(raw,path_prefix=path),
+                ranged=ranged,
                 consumables=consumables, wizard=wizard,
                 armour_worn=any(item.location is ItemLocation.WORN
                     and item.kind in (ArmourItemKind.LIGHT, ArmourItemKind.HEAVY, ArmourItemKind.HELMET)
@@ -183,6 +211,10 @@ def candidate_document(candidate):
             simulation=dict(master_seed=str(source.master_seed), trials=source.trials), execution=dict(mode='sequential')))
     if candidate.summary.potion_use_counts is not None:
         document['potion_use_counts'] = [asdict(item) for item in candidate.summary.potion_use_counts]
+    if candidate.summary.npc_ranged_counts is not None:
+        document['npc_ranged_counts'] = [asdict(item) for item in candidate.summary.npc_ranged_counts]
+    if candidate.summary.pc_ranged_counts is not None:
+        document['pc_ranged_counts'] = [asdict(item) for item in candidate.summary.pc_ranged_counts]
     if candidate.summary.magic_counts is not None:
         document['magic_counts'] = [asdict(item) for item in candidate.summary.magic_counts]
     return document

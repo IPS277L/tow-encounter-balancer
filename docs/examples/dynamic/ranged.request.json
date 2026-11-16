@@ -1,0 +1,175 @@
+{
+  "schema_version": "1",
+  "kind": "dynamic_encounter_search",
+  "request_id": "dynamic:ranged-example",
+  "ruleset": "towr-pg1.4-gmg1.1",
+  "party": [
+    {
+      "actor_id": "pc",
+      "characteristics": {
+        "weapon_skill": 3,
+        "strength": 3,
+        "toughness": 3,
+        "agility": 3
+      },
+      "skills": {
+        "melee": 5,
+        "defence": 5,
+        "athletics": 4,
+        "endurance": 4
+      },
+      "equipment": {
+        "weapons": [
+          {
+            "id": "weapon:1",
+            "weapon": "sword",
+            "location": "left_hand"
+          }
+        ],
+        "armour": []
+      },
+      "talents": [],
+      "resources": {
+        "fate": 3
+      },
+      "consumables": []
+    },
+    {
+      "actor_id": "pc:companion",
+      "characteristics": {
+        "weapon_skill": 3,
+        "strength": 3,
+        "toughness": 4,
+        "agility": 3
+      },
+      "skills": {
+        "melee": 5,
+        "defence": 5,
+        "athletics": 4,
+        "endurance": 5
+      },
+      "equipment": {
+        "weapons": [
+          {
+            "id": "weapon:1",
+            "weapon": "staff",
+            "location": "right_hand"
+          }
+        ],
+        "armour": []
+      },
+      "talents": [],
+      "resources": {
+        "fate": 2
+      },
+      "consumables": []
+    }
+  ],
+  "search_space": {
+    "weapon_skill": [
+      2,
+      3,
+      4
+    ],
+    "strength": [
+      2,
+      3,
+      4
+    ],
+    "toughness": [
+      2,
+      3,
+      4
+    ],
+    "agility": [
+      2,
+      3,
+      4
+    ],
+    "melee": [
+      3,
+      4,
+      5
+    ],
+    "athletics": [
+      3,
+      4,
+      5
+    ],
+    "weapon": [
+      "sword",
+      "pistol",
+      "repeater_pistol",
+      "repeater_handbow"
+    ],
+    "light_armour": [
+      false,
+      true
+    ],
+    "abilities": [
+      []
+    ],
+    "defence": [
+      3,
+      4,
+      5
+    ],
+    "shield": [
+      false
+    ],
+    "allowed_talents": [],
+    "ballistic_skill": [
+      2,
+      3,
+      4
+    ],
+    "initiative": [
+      2,
+      3,
+      4
+    ],
+    "shooting": [
+      3,
+      4,
+      5
+    ],
+    "dexterity": [
+      3,
+      4,
+      5
+    ]
+  },
+  "npc_count": {
+    "minimum": 2,
+    "maximum": 2
+  },
+  "targets": {
+    "win_rate": {
+      "numerator": 3,
+      "denominator": 5
+    },
+    "started_rounds": {
+      "numerator": 3,
+      "denominator": 1
+    }
+  },
+  "search": {
+    "master_seed": "42",
+    "max_candidates": 1,
+    "exploration_trials": 2,
+    "finalist_trials": 2,
+    "top_k": 1,
+    "max_total_trials": 4
+  },
+  "max_rounds": 5,
+  "defeat_disposition": "killed",
+  "execution": {
+    "mode": "sequential"
+  },
+  "scene": {
+    "range": "close",
+    "ambush": "none",
+    "terrain": "open",
+    "session_start": "fresh"
+  }
+}

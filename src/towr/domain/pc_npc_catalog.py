@@ -1,6 +1,7 @@
 """Book-backed combat loadouts; this is not a catalogue of complete NPC cards."""
 from dataclasses import dataclass, fields, is_dataclass
 from enum import Enum
+from types import MappingProxyType
 
 from towr.domain.attack_models import ConditionImpactSpec, ConditionOnHitSpec, DamageProfile, ResilienceProfile, ProneBeforeGiveGroundSpec
 from towr.domain.condition_models import Condition, EffectClassification
@@ -301,6 +302,32 @@ _CATALOG_IDENTITIES = (
          'BOOK-GM-GUIDE:1.1:p157:night_goblin_spear:jagged_spear',
          'BOOK-GM-GUIDE:1.1:p157:night_goblin_spear:athletics')),
 )
+
+
+def _catalog_identity_indexes():
+    definitions, sources = {}, {}
+    for ordinal, (_, definition_id, book_sources) in enumerate(_CATALOG_IDENTITIES):
+        definitions.setdefault(definition_id,ordinal)
+        for source in book_sources:
+            sources.setdefault(source,ordinal)
+    return MappingProxyType(definitions),MappingProxyType(sources)
+
+
+_CATALOG_DEFINITION_INDEX,_CATALOG_SOURCE_INDEX = _catalog_identity_indexes()
+
+
+def _catalog_identity_ordinal(definition_id, sources):
+    # String subclasses may override equality/hash. Preserve the old matching
+    # semantics for those malformed/cached sources before canonical type guards;
+    # ordinary exact-string generated sources need only indexed lookups.
+    if type(definition_id) is not str or any(type(source) is not str for source in sources):
+        return next((ordinal for ordinal, (_, identity, book_sources) in enumerate(_CATALOG_IDENTITIES)
+            if definition_id==identity or any(source in book_sources for source in sources)),None)
+    missing = len(_CATALOG_IDENTITIES)
+    ordinal = _CATALOG_DEFINITION_INDEX.get(definition_id,missing)
+    for source in sources:
+        ordinal = min(ordinal,_CATALOG_SOURCE_INDEX.get(source,missing))
+    return None if ordinal==missing else ordinal
 
 
 @dataclass(frozen=True, slots=True)
@@ -1095,12 +1122,13 @@ def validate_pc_book_npc_definition(definition: NpcDefinition) -> None:
         raise TypeError('NPC definition identities must be strings')
     sources = (definition.source_rule_id,*(attack.source_rule_id for attack in definition.attacks),
         *(protection.source_rule_id for protection in definition.protection))
-    for profile_id,definition_id,book_sources in _CATALOG_IDENTITIES:
-        if definition.id==definition_id or any(source in book_sources for source in sources):
-            expected = _definition(profile_id)
-            _require_canonical_types(definition,expected)
-            if definition != expected:
-                raise ValueError('book NPC definition differs from its canonical printed combat profile')
-            return
+    ordinal = _catalog_identity_ordinal(definition.id,sources)
+    if ordinal is not None:
+        profile_id = _CATALOG_IDENTITIES[ordinal][0]
+        expected = _definition(profile_id)
+        _require_canonical_types(definition,expected)
+        if definition != expected:
+            raise ValueError('book NPC definition differs from its canonical printed combat profile')
+        return
     if definition.id.startswith('pc-book-npc:'):
         raise ValueError('unknown reserved book NPC definition ID')

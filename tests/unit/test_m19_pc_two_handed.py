@@ -158,7 +158,7 @@ class PcTwoHandedNativeTests(unittest.TestCase):
         source = replace(source,party=(replace(helper,pc=replace(helper.pc,weapon=PcMeleeWeapon.PICKAXE),
             initial_weapon_hand=PcTwoHandedGrip.BOTH,
             policy=PcMeleePolicy.HELP_ALLY_OR_ATTACK_OR_RECOVER_SELF,
-            help_policy=PcHelpPolicy('pc2',PcHelpTarget.MELEE_ATTACK,None)),beneficiary))
+            help_policy=PcHelpPolicy('pc2',PcHelpTarget.ATTACK,Skill.MELEE)),beneficiary))
         result = execute(source,[10]*3+[10]*3+[1]*2
             +[1,1,1,10,10,10,1]+[1,1,1,10,10,10,1,1]
             +[1,1,1,10,10,10,1,1,10,1,10,10,10]
