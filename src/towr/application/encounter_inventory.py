@@ -9,6 +9,7 @@ from enum import Enum
 from towr.application.encounter_character import EncounterArmour
 from towr.domain.pc_melee_models import PcMeleeWeapon, PcWeaponHand, PcBackupWeaponPolicy
 from towr.domain.pc_weapon_models import pc_weapon_requires_two_hands
+from towr.domain.potion_models import ConsumableKind, ConsumableItem
 
 
 class ItemLocation(str, Enum):
@@ -24,11 +25,6 @@ class ArmourItemKind(str, Enum):
     HEAVY = 'heavy_armour'
     HELMET = 'helmet'
     SHIELD = 'shield'
-
-
-class ConsumableKind(str, Enum):
-    HEALING = 'healing_potion'
-    ENHANCEMENT = 'enhancement_potion'
 
 
 def _id(value):
@@ -63,28 +59,6 @@ class ArmourItem:
         allowed = (ItemLocation.CARRIED, ItemLocation.LEFT, ItemLocation.RIGHT) if self.kind is ArmourItemKind.SHIELD else (ItemLocation.CARRIED, ItemLocation.WORN)
         if self.location not in allowed:
             raise ValueError('armour location is incompatible with this item')
-
-
-@dataclass(frozen=True, slots=True)
-class ConsumableItem:
-    id: str
-    kind: ConsumableKind
-    quantity: int
-    characteristic: str | None
-
-    def __post_init__(self):
-        _id(self.id)
-        if type(self.kind) is not ConsumableKind:
-            raise TypeError('consumable kind must be typed')
-        if type(self.quantity) is not int or self.quantity < 1:
-            raise ValueError('consumable quantity must be a positive integer')
-        characteristics = ('weapon_skill','ballistic_skill','strength','toughness',
-            'initiative','agility','reason','fellowship')
-        if self.kind is ConsumableKind.ENHANCEMENT:
-            if self.characteristic not in characteristics:
-                raise ValueError('Enhancement Potion must name its Characteristic')
-        elif self.characteristic is not None:
-            raise ValueError('Healing Potion cannot carry a Characteristic')
 
 
 @dataclass(frozen=True, slots=True)

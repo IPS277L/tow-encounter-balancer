@@ -10,7 +10,7 @@ from towr.engine.pc_melee_runner import run_pc_melee_scenario
 from towr.rules.dice import RandomSource
 from towr.simulation.pc_melee_models import (
     PcMeleeSimulationRequest, PcMeleeSimulationResult, PcMeleeTrialRecord, PcNearMissBurnCount, PcGloriousSpendCount,
-    PcAimCount, PcAimCounts, pc_has_aim_capability,
+    PcAimCount, PcAimCounts, pc_has_aim_capability, PcPotionUseCount,
     PcHelpActionCount, PcAllyRecoverActionCount, PcNpcExitCount, PcNpcHelpActionCount, PcNpcExtraAttackCount, PcNpcRecoverActionCount, PcNpcWarpedFormCount,
 )
 
@@ -44,6 +44,14 @@ def run_pc_melee_trial(request: PcMeleeSimulationRequest, trial_index: int, *,
                 sum(spend.kind is FateSpendKind.SECOND_ACTION for spend in result.state.participant(member.actor_id).fate.spends)
                 -sum(spend.kind is FateSpendKind.SECOND_ACTION for spend in member.fate.spends))
                 for member in request.scenario.party))
+    potion_counts = None
+    if any(member.consumables for member in request.scenario.party):
+        from towr.domain.pc_potion_models import PcPotionRecoverProof
+        potion_counts = tuple(PcPotionUseCount(member.actor_id, item.id,
+            sum(type(step.proof) is PcPotionRecoverProof
+                and step.proof.actor_id == member.actor_id and step.proof.item_id == item.id
+                for step in result.steps))
+            for member in request.scenario.party for item in member.consumables)
     return PcMeleeTrialRecord(request.scenario, trial_index, seed, result.outcome,
         result.executed_actions, result.started_rounds, result.completed_rounds, result.defeated_pc_ids,
         tuple(PcNearMissBurnCount(member.actor_id,
@@ -76,7 +84,7 @@ def run_pc_melee_trial(request: PcMeleeSimulationRequest, trial_index: int, *,
                 for step in result.steps)) for enemy in request.scenario.enemies),
         tuple(PcNpcWarpedFormCount(enemy.state.actor_id,
             sum(type(step.proof) is PcWarpedFormActivationProof and step.proof.actor_id==enemy.state.actor_id
-                for step in result.steps)) for enemy in request.scenario.enemies), aim=aim)
+                for step in result.steps)) for enemy in request.scenario.enemies), aim=aim,potion_use_counts=potion_counts)
 
 
 def run_pc_melee_simulation(request: PcMeleeSimulationRequest, *,

@@ -1,6 +1,11 @@
 """Source-bound journal for the bounded PC melee encounter (ADR-0065)."""
 from __future__ import annotations
 
+from towr.domain.potion_models import ConsumableItem, ConsumableKind
+from towr.domain.potion_recover_models import HealingPotionRecoverSource
+from towr.domain.pc_potion_models import (PcPotionRecoverProof, ENHANCEMENT_CHARACTERISTICS,
+    pc_effective_definition, selected_pc_potion)
+
 from dataclasses import dataclass, field, fields, is_dataclass, replace
 from enum import Enum
 
@@ -177,8 +182,19 @@ class PcMeleeParticipantState:
     net_condition_sources: tuple[PcNetConditionSource,...] = ()
     shield: PcShieldState | None = field(default=None,kw_only=True)
     ranged: FreeReloadWeaponState | ReloadableWeaponState | None = field(default=None,kw_only=True)
+    potions: tuple[ConsumableItem, ...] = field(default=(), kw_only=True)
+    enhancements: tuple[str, ...] = field(default=(), kw_only=True)
 
     def __post_init__(self):
+        if type(self.potions) is not tuple or any(type(item) is not ConsumableItem for item in self.potions):
+            raise TypeError('PC potion state requires typed supplies')
+        for item in self.potions:
+            replace(item)
+        if len({item.id for item in self.potions}) != len(self.potions):
+            raise ValueError('PC potion supplies must have unique instance IDs')
+        if (type(self.enhancements) is not tuple or len(set(self.enhancements)) != len(self.enhancements)
+                or any(name not in ENHANCEMENT_CHARACTERISTICS for name in self.enhancements)):
+            raise ValueError('PC enhancements require unique supported Characteristics')
         if type(self.actor_id) is not str or not self.actor_id.strip():
             raise TypeError('PC state requires its actor ID')
         if not isinstance(self.injury, CharacterInjuryState) or not isinstance(self.fate, FateSessionState):
@@ -403,7 +419,8 @@ def initial_pc_melee_state(source: PcMeleeScenario) -> PcMeleeState:
     participants = (*(CombatTurnParticipant(actor, CombatSide.PLAYERS_AND_ALLIES) for actor in source.pc_activation_order),
         *(CombatTurnParticipant(actor, CombatSide.OPPOSITION) for actor in source.enemy_activation_order))
     party = tuple(PcMeleeParticipantState(member.actor_id, CharacterInjuryState(), member.initial_weapon_hand,
-        member.fate, DailyWoundState(source.day_id, member.actor_id),shield=initial_pc_shield(member.shield),ranged=initial_pc_ranged(member)) for member in source.party)
+        member.fate, DailyWoundState(source.day_id, member.actor_id),shield=initial_pc_shield(member.shield),
+        ranged=initial_pc_ranged(member),potions=member.consumables) for member in source.party)
     return PcMeleeState(source, CombatRoundState(1, participants), party, source.enemies,
         npc_pistols=initial_pc_npc_pistols(source))
 
@@ -542,7 +559,7 @@ PcMeleeProof = (
     | PcWarpedFormActivationProof | PcWarpedFormTargetProof | PcWarpedFormProfileProof
     | PcWarpedFormMinionDefeatProof | PcWarpedFormEndProof
     | PcEnduranceProof | PcHandDropProof | PcAttackerStaggerProof | PcProfileWoundProof
-    | PcRecoverProof | PcTurnEndProof | PcIncapacitatedTurnEndProof | PcBodyConsequenceProof | PcMinionStaggerDefeatProof | PcNpcHelpProof
+    | PcRecoverProof | PcPotionRecoverProof | PcTurnEndProof | PcIncapacitatedTurnEndProof | PcBodyConsequenceProof | PcMinionStaggerDefeatProof | PcNpcHelpProof
     | PcWoundChoiceProof | PcHandSwapProof | PcBackupWeaponDrawProof | PcHelpProof | PcNpcExitProof | CombatRoundAdvanceResult
     | PcNpcDistractionExpiredProof
     | PcAimProof | PcAimSecondActionProof | PcAimConsumptionProof
@@ -647,7 +664,7 @@ class PcMeleeScenarioResult:
 
     @property
     def executed_actions(self) -> int:
-        return sum(isinstance(step.proof, (PcAimProof, PcAttackProof, PcRecoverProof, PcHelpProof, PcNpcHelpProof, PcNpcRecoverProof, PcRangedReloadProof, PcNpcPistolReloadProof)) for step in self.steps)
+        return sum(isinstance(step.proof, (PcAimProof, PcAttackProof, PcRecoverProof, PcPotionRecoverProof, PcHelpProof, PcNpcHelpProof, PcNpcRecoverProof, PcRangedReloadProof, PcNpcPistolReloadProof)) for step in self.steps)
 
     @property
     def started_rounds(self) -> int:
@@ -656,6 +673,18 @@ class PcMeleeScenarioResult:
     @property
     def completed_rounds(self) -> int:
         return self.started_rounds - 1 + int(self.state.round_state.round_complete)
+
+    @property
+    def tactical_decisions(self):
+        """Explain automatic choices from their exact pre-reservation snapshots."""
+        from towr.domain.pc_melee_models import PcMeleePolicy
+        from towr.domain.pc_tactical_models import select_pc_tactic
+        from towr.domain.turn_models import CombatActionSlotResult
+        return tuple(select_pc_tactic(step.source) for step in self.steps
+            if isinstance(step.proof, CombatActionSlotResult)
+            and step.source.round_state.active_turn.actor_id in self.source.pc_activation_order
+            and self.source.participant(step.source.round_state.active_turn.actor_id).policy
+                is PcMeleePolicy.AUTOMATIC_MELEE)
 
 
 def _pc_wound_unsupported(state: PcMeleeState) -> PcMeleeUnsupported | None:
@@ -671,6 +700,22 @@ def _pc_wound_unsupported(state: PcMeleeState) -> PcMeleeUnsupported | None:
                     or not pc_weapon_requires_two_hands(source.pc.weapon) or len(usable_hands(member)) == 2):
                 continue
             if source.backup_weapon_policy is not None and len(usable_hands(member)) == 1:
+                continue
+            turn = state.round_state.active_turn
+            if (turn is not None and turn.actor_id == member.actor_id
+                    and turn.action_slots and all(slot.executed for slot in turn.action_slots)
+                    and any(type(proof) is PcPotionRecoverProof and proof.actor_id == member.actor_id
+                        and proof.result.round_state.round_number == state.round_state.round_number
+                        for proof in reversed(state.history))):
+                # An actual potion action still owes its mandatory Critical
+                # end phase, even if it healed a different Wound and grip is
+                # still unavailable. Report that boundary after TurnEnd.
+                continue
+            # Keep the native prefix alive until its own healing Recover. The
+            # potion must be physically usable; absent stock/hands keeps the
+            # previous precise unsupported boundary.
+            from towr.domain.pc_potion_models import potion_options
+            if any(option.wound_sequence is not None for option in potion_options(member)):
                 continue
             facts = tuple(f for f in member.body_facts if f.kind in (
                 PcBodyFactKind.UNUSABLE_ARM,PcBodyFactKind.LOST_ARM,PcBodyFactKind.CLUTCH_STOMACH))
@@ -714,6 +759,10 @@ def pc_melee_selected_action(state: PcMeleeState) -> CombatActionKind:
         return turn.action_slots[-1].declaration.kind
     if actor_id in state.source.pc_activation_order:
         member = state.participant(actor_id)
+        from towr.domain.pc_melee_models import PcMeleePolicy
+        if state.source.participant(actor_id).policy is PcMeleePolicy.AUTOMATIC_MELEE:
+            from towr.domain.pc_tactical_models import select_pc_tactic
+            return select_pc_tactic(state).action
         if _pc_recover_needed(member):
             return CombatActionKind.RECOVER
         from towr.domain.pc_ally_recover_models import pc_ally_recover_beneficiary
@@ -769,7 +818,7 @@ def pc_melee_next_actor(state: PcMeleeState) -> str:
 def _pc_test(state: PcMeleeState, actor_id: str, test_id: str, skill: Skill,
              dice_modifiers: tuple[DiceModifier, ...] = ()) -> TestRequest:
     member = state.participant(actor_id)
-    pc = state.source.participant(actor_id).pc
+    pc = pc_effective_definition(state, actor_id)
     if skill in (Skill.SHOOTING,Skill.DEXTERITY,Skill.AWARENESS):
         if pc.ranged is None:
             raise ValueError('this PC has no authored Shooting/Dexterity profile')
@@ -840,6 +889,11 @@ def build_pc_melee_attack(state: PcMeleeState) -> tuple[AttackActionExecutionReq
         if not state.enemy(a).state.injury.defeated and a not in state.exited_npc_ids)
         if pc_attacks else (grant.target_id if grant is not None
             else next(a for a in state.source.enemy_target_priority if not state.participant(a).injury.dead)))
+    if pc_attacks:
+        from towr.domain.pc_melee_models import PcMeleePolicy
+        if state.source.participant(actor).policy is PcMeleePolicy.AUTOMATIC_MELEE:
+            from towr.domain.pc_tactical_models import select_pc_tactic
+            target = select_pc_tactic(state).target_id
     action_id = pc_melee_action_id(state, actor) + (':attack2' if slot_index == 2 else '')
     pc_count = sum(not m.injury.conditions.has(Condition.DEFENCELESS) for m in state.live_party)
     enemy_count = sum(not e.state.injury.conditions.has(Condition.DEFENCELESS) for e in state.live_enemies)
@@ -850,7 +904,7 @@ def build_pc_melee_attack(state: PcMeleeState) -> tuple[AttackActionExecutionReq
         modifiers.append(DiceModifier('RULE-COMBAT-007:outnumbering',1) if pc_attacks else
             pc_npc_outnumbering_modifier(state.enemy(actor).definition))
     if pc_attacks:
-        pc = state.source.participant(actor).pc
+        pc = pc_effective_definition(state, actor)
         weapon = pc_active_weapon(state,actor)
         member = state.participant(actor)
         target_snapshot = state.enemy(target)
@@ -990,8 +1044,16 @@ def build_pc_melee_recover(state: PcMeleeState) -> RecoverActionExecutionRequest
             and pc_preferred_weapon_hand(state,actor) is not None else
             RecoverObjectInteractionFollowUp(action_id+':pickup-shield',actor,actor+':shield',True)
             if pc_shield_recover_hand(member) is not None else None))
+    potion = selected_pc_potion(state)
+    healing = None
+    if potion is not None:
+        choice = replace(choice, object_interaction=RecoverObjectInteractionFollowUp(
+            action_id+':drink', actor, potion.item_id, True))
+        item = next(item for item in member.potions if item.id == potion.item_id)
+        if item.kind is ConsumableKind.HEALING:
+            healing = HealingPotionRecoverSource(actor, item, member.injury, potion.wound_sequence)
     return RecoverActionExecutionRequest(action_id + ':execute',state.round_state,actor,member.injury.conditions,
-        bool(state.live_enemies),1,RecoverMode.STANDARD,choice)
+        bool(state.live_enemies),1,RecoverMode.STANDARD,choice,healing_potion=healing)
 
 
 def build_pc_wound_completion(state: PcMeleeState) -> CharacterWoundLifecycleCompletionRequest:

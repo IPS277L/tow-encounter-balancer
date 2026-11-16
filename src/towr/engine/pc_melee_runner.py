@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from dataclasses import replace
+from towr.domain.pc_potion_models import selected_pc_potion, build_pc_potion_recover
 
 from towr.domain.pc_melee_models import PcWeaponHand
 from towr.domain.pc_net_models import expected_pc_npc_net_draw
@@ -318,18 +319,18 @@ def run_pc_melee_scenario(scenario, rng: RandomSource) -> PcMeleeScenarioResult:
                 continue
             if actor in scenario.pc_activation_order:
                 member = state.participant(actor)
-                if member.injury.conditions.has(Condition.DEFENCELESS):
+                if member.injury.conditions.has(Condition.DEFENCELESS) and selected_pc_potion(state) is None:
                     finish_turn()
                     continue
                 shield_release = expected_pc_shield_release(state)
                 if shield_release is not None:
                     consume(shield_release)
                     continue
-                draw_hand = pc_backup_draw_hand(state,actor)
+                draw_hand = pc_backup_draw_hand(state,actor) if selected_pc_potion(state) is None else None
                 if draw_hand is not None:
                     consume(PcBackupWeaponDrawProof(actor,member.weapon_hand,draw_hand))
                     continue
-                hand = pc_preferred_weapon_hand(state,actor)
+                hand = pc_preferred_weapon_hand(state,actor) if selected_pc_potion(state) is None else None
                 if member.weapon_hand is not None and hand is not None and hand is not member.weapon_hand:
                     consume(PcHandSwapProof(member.weapon_hand,hand))
                     continue
@@ -353,6 +354,9 @@ def run_pc_melee_scenario(scenario, rng: RandomSource) -> PcMeleeScenarioResult:
                     result = _complete_reload_action_after_test(replace(request,dexterity_test=effective),test)
                     consume(PcRangedReloadProof(request,result,decline,glorious))
             elif pc_melee_selected_action(state) is CombatActionKind.RECOVER:
+                if selected_pc_potion(state) is not None:
+                    consume(build_pc_potion_recover(state))
+                    continue
                 if actor in scenario.enemy_activation_order:
                     request = build_pc_npc_recover(state)
                     before = state.enemy(actor).state.injury

@@ -91,9 +91,11 @@ def parse_dynamic_encounter_request(text: str | bytes) -> DynamicEncounterComman
             ids = [item.id for item in (*equipment.weapons, *equipment.armour, *consumables)]
             if len(set(ids)) != len(ids):
                 raise DynamicEncounterInputError(Code.INVALID_INPUT, 'Inventory instance IDs must be unique.', path=path)
-            if consumables:
+            if any(item.kind is ConsumableKind.ENHANCEMENT and item.characteristic not in
+                    ('weapon_skill','strength','toughness','agility') for item in consumables):
                 raise DynamicEncounterInputError(Code.INVALID_INPUT,
-                    'Расходники сохранены в инвентаре, но их применение в симуляции ещё не реализовано.', path=path + '/consumables')
+                    'Усиление (Enhancement Potion) пока поддерживает WS, Strength, Toughness и Agility.',
+                    path=path + '/consumables')
             unsupported = [talent for talent in raw['talents'] if talent not in {t.value for t in EncounterTalent}]
             if unsupported:
                 raise DynamicEncounterInputError(Code.INVALID_INPUT,
@@ -103,7 +105,8 @@ def parse_dynamic_encounter_request(text: str | bytes) -> DynamicEncounterComman
             character = build_value(DynamicEncounterInputError, f'/party/{index}', EncounterCharacter,
                 actor_id=raw['actor_id'], **raw['characteristics'], **raw['skills'],
                 **loadout,
-                talents=tuple(EncounterTalent(t) for t in raw['talents']), fate=raw['resources']['fate'])
+                talents=tuple(EncounterTalent(t) for t in raw['talents']), fate=raw['resources']['fate'],
+                consumables=consumables)
             party.append(character.participant(document['request_id'] + ':session', disposition))
         options = document.get('search_space')
         space = automatic_npc_search_space(tuple(party)) if options is None else build_value(
@@ -140,13 +143,16 @@ def execute_dynamic_encounter(command: DynamicEncounterCommand, *, cancel_reques
 
 def candidate_document(candidate):
     source = candidate.summary.source_request
-    return dict(npcs=[asdict(n) for n in candidate.composition],
+    document = dict(npcs=[asdict(n) for n in candidate.composition],
         win_rate=candidate.win_rate, win_interval_95=candidate.win_interval_95,
         mean_started_rounds=candidate.mean_started_rounds, rounds_interval_95=candidate.rounds_interval_95,
         outcomes=asdict(candidate.summary.outcome_counts), trials=candidate.summary.trials,
         replay=dict(schema_version='1', kind='pc_melee_simulation', request_id=source.scenario.id,
             ruleset='towr-pg1.4-gmg1.1', scenario=scenario_document(source.scenario),
             simulation=dict(master_seed=str(source.master_seed), trials=source.trials), execution=dict(mode='sequential')))
+    if candidate.summary.potion_use_counts is not None:
+        document['potion_use_counts'] = [asdict(item) for item in candidate.summary.potion_use_counts]
+    return document
 
 
 def encode_dynamic_encounter_result(command, result):

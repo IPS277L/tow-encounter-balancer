@@ -1899,6 +1899,13 @@
           "type": "integer",
           "minimum": 0
         },
+        "potion_use_counts": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/potionUseCount"
+          }
+        },
         "aim": {
           "$ref": "#/$defs/aimSummary"
         }
@@ -2087,6 +2094,23 @@
     "participant": {
       "type": "object",
       "properties": {
+        "consumables": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {"type": "string", "minLength": 1},
+              "kind": {"enum": ["healing_potion", "enhancement_potion"]},
+              "quantity": {"type": "integer", "minimum": 1},
+              "characteristic": {"enum": [null, "weapon_skill", "strength", "toughness", "agility"]}
+            },
+            "required": ["id", "kind", "quantity", "characteristic"],
+            "additionalProperties": false,
+            "if": {"properties": {"kind": {"const": "healing_potion"}}},
+            "then": {"properties": {"characteristic": {"type": "null"}}},
+            "else": {"properties": {"characteristic": {"type": "string"}}}
+          }
+        },
         "close_shooting_protection_skill": {
           "enum": [
             "melee",
@@ -2106,7 +2130,8 @@
           "enum": [
             "attack_or_recover_self",
             "help_ally_or_attack_or_recover_self",
-            "recover_ally_or_attack_or_recover_self"
+            "recover_ally_or_attack_or_recover_self",
+            "automatic_melee"
           ]
         },
         "fate_policy": {
@@ -2491,7 +2516,10 @@
             {
               "properties": {
                 "policy": {
-                  "const": "attack_or_recover_self"
+                  "enum": [
+                    "attack_or_recover_self",
+                    "automatic_melee"
+                  ]
                 },
                 "help_policy": {
                   "type": "null"
@@ -3228,6 +3256,43 @@
         "minimum_remaining_session_spends"
       ],
       "additionalProperties": false
+    },
+    "potionUseCount": {
+      "type": "object",
+      "properties": {
+        "actor_id": {"$ref": "#/$defs/identifier"},
+        "item_id": {"$ref": "#/$defs/identifier"},
+        "count": {"type": "integer", "minimum": 0}
+      },
+      "required": ["actor_id", "item_id", "count"],
+      "additionalProperties": false
+    },
+    "potionSummaryPresence": {
+      "if": {
+        "properties": {
+          "request": {
+            "properties": {
+              "scenario": {
+                "properties": {
+                  "party": {
+                    "contains": {
+                      "properties": {
+                        "consumables": {"type": "array", "minItems": 1}
+                      },
+                      "required": ["consumables"]
+                    }
+                  }
+                },
+                "required": ["party"]
+              }
+            },
+            "required": ["scenario"]
+          }
+        },
+        "required": ["request"]
+      },
+      "then": {"properties": {"summary": {"required": ["potion_use_counts"]}}},
+      "else": {"properties": {"summary": {"not": {"required": ["potion_use_counts"]}}}}
     },
     "aimActionCount": {
       "type": "object",

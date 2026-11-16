@@ -21,6 +21,11 @@ def pc_recover_removable(member, condition):
 
 def pc_ally_recover_beneficiary(state):
     actor = state.round_state.active_turn.actor_id
+    from towr.domain.pc_melee_models import PcMeleePolicy
+    if state.source.participant(actor).policy is PcMeleePolicy.AUTOMATIC_MELEE:
+        from towr.domain.pc_tactical_models import select_pc_tactic
+        choice = select_pc_tactic(state)
+        return choice.target_id if choice.action is CombatActionKind.RECOVER and choice.target_id != actor else None
     strategy = state.source.participant(actor).ally_recover_policy
     if strategy is None:
         return None
@@ -82,10 +87,16 @@ def pc_after_standard_recover(state, request, result):
     from towr.domain.pc_backup_weapon_models import pc_preferred_weapon_hand
     from towr.domain.pc_shield_models import pc_shield_recover_hand,PcShieldState,PcShieldLocation
     interaction = request.choice.object_interaction
-    shield_pickup = interaction is not None and interaction.object_id==actor+':shield'
-    used_hand = (pc_shield_recover_hand(member) if shield_pickup else
+    from towr.domain.pc_potion_models import selected_pc_potion
+    from towr.domain.pc_melee_result_models import pc_melee_action_id
+    selection = (selected_pc_potion(state) if interaction is not None
+        and interaction.id == pc_melee_action_id(state, actor)+':drink' else None)
+    drinking = selection is not None and interaction.object_id == selection.item_id
+    shield_pickup = not drinking and interaction is not None and interaction.object_id==actor+':shield'
+    from towr.domain.pc_potion_models import pc_potion_hand
+    used_hand = (pc_potion_hand(member) if drinking else pc_shield_recover_hand(member) if shield_pickup else
         pc_preferred_weapon_hand(state,actor) if interaction is not None else None)
-    hand = used_hand if interaction is not None and not shield_pickup else member.weapon_hand
+    hand = used_hand if interaction is not None and not shield_pickup and not drinking else member.weapon_hand
     shield = PcShieldState(PcShieldLocation.HELD,used_hand) if shield_pickup else member.shield
     injury = updated.get(actor,member.injury)
     updated[actor] = critical_for_action(replace(member,injury=injury),CombatActionKind.RECOVER,

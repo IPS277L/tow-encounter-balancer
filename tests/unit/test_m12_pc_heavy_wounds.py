@@ -4,7 +4,7 @@ from dataclasses import replace
 import unittest
 
 from tests.support.pc_melee_fixtures import make_pc_melee_scenario
-from tests.support.pc_melee_scripted import ScriptedD10, unavailable_arm_source, unavailable_arm_script
+from tests.support.pc_melee_scripted import ScriptedD10, unavailable_arm_source, unavailable_arm_script, heavy_prefix
 from towr.domain.condition_models import Condition
 from towr.domain.injury_models import WoundConditionEffect, WoundEffectDuration, WoundConsequence
 from towr.domain.pc_heavy_wound_models import PcBodyFactKind
@@ -15,24 +15,6 @@ from towr.domain.pc_melee_result_models import (
 )
 from towr.domain.test_models import Skill
 from towr.engine.pc_melee_runner import run_pc_melee_scenario, apply_pc_melee_step
-
-
-def heavy_prefix(total, *, endurance_success=False, side=1):
-    # A miss, then three hits: superficial1, superficial2, actual heavy3d Wound.
-    values = [10,10,10,1,1] + [1,1,1,10,10,10,1] + [1,1,1,10,10,10,1,1]
-    wound = [1,1,total-2] if total <= 12 else [10,1,total-11] if total <= 21 else [10,10,total-20]
-    values += [1,1,1,10,10,10] + wound
-    if total == 12:
-        values.append(side)
-    if total in (11,12,19):
-        values += [1,10,10] if endurance_success else [10,10,10]
-        if not endurance_success and total == 11:
-            values.append(7)
-        if not endurance_success and total == 19:
-            values.append(side)
-    if total in (16,20,21):
-        values.append(side)
-    return values
 
 
 def execute(source, values):

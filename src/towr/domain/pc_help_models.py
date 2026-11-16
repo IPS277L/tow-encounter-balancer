@@ -7,17 +7,31 @@ from towr.domain.help_models import (
     HelpBonusApplicationResult, _expected_help_application,
 )
 from towr.domain.pc_heavy_wound_models import usable_weapon_hand
-from towr.domain.pc_melee_models import PcHelpTarget
+from towr.domain.pc_melee_models import PcHelpTarget, PcMeleePolicy
 from towr.domain.test_models import Skill
 
 
 def pc_help_beneficiary(state):
-    from towr.domain.pc_melee_result_models import _pc_recover_needed
+    strategy = pc_selected_help_policy(state)
+    return None if strategy is None else eligible_pc_help_beneficiary(state, strategy)
+
+
+def pc_selected_help_policy(state):
     actor = state.round_state.active_turn.actor_id
     if actor not in state.source.pc_activation_order:
         return None
-    participant = state.source.participant(actor)
-    strategy = participant.help_policy
+    source = state.source.participant(actor)
+    if source.policy is PcMeleePolicy.AUTOMATIC_MELEE:
+        from towr.domain.pc_tactical_models import select_pc_tactic
+        return select_pc_tactic(state).help_policy
+    return source.help_policy
+
+
+def eligible_pc_help_beneficiary(state, strategy, actor=None):
+    from towr.domain.pc_melee_result_models import _pc_recover_needed
+    actor = actor or state.round_state.active_turn.actor_id
+    if actor not in state.source.pc_activation_order:
+        return None
     if strategy is None:
         return None
     member = state.participant(actor)
@@ -38,7 +52,7 @@ def pc_help_beneficiary(state):
             return None
     else:
         from towr.domain.pc_melee_result_models import pc_protection_skill,pc_selected_npc_attack_profile
-        incoming = pc_help_incoming_actor(state)
+        incoming = pc_help_incoming_actor(state, strategy)
         skill = (pc_protection_skill(ally,pc_selected_npc_attack_profile(state,incoming).skill,
             state.source.participant(ally.actor_id).close_shooting_protection_skill)
             if incoming is not None else None)
@@ -47,10 +61,11 @@ def pc_help_beneficiary(state):
     return strategy.beneficiary_id
 
 
-def pc_help_incoming_actor(state):
+def pc_help_incoming_actor(state, strategy=None):
     """Select the first current live NPC, without anticipating future PC outcomes."""
-    actor = state.round_state.active_turn.actor_id
-    strategy = state.source.participant(actor).help_policy
+    strategy = strategy or pc_selected_help_policy(state)
+    if strategy is None:
+        return None
     target = next((pc for pc in state.source.enemy_target_priority
         if not state.participant(pc).injury.dead),None)
     if target != strategy.beneficiary_id:
@@ -67,7 +82,7 @@ def build_pc_help_action(state):
     if beneficiary is None:
         raise ValueError('the explicit Help strategy cannot select an eligible ally')
     actor = state.round_state.active_turn.actor_id
-    strategy = state.source.participant(actor).help_policy
+    strategy = pc_selected_help_policy(state)
     action_id = pc_melee_action_id(state,actor)
     skill = Skill.MELEE if strategy.target is PcHelpTarget.MELEE_ATTACK else strategy.protection_skill
     intended = (pc_melee_action_id(state,beneficiary)+':attack' if strategy.target is PcHelpTarget.MELEE_ATTACK else

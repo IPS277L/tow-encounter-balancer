@@ -88,6 +88,14 @@ Healing и Enhancement Potions можно создать через Craft Trappi
 
 Источник: страницы 88–90.
 
+## Зелья в динамическом melee-генераторе
+
+Healing Potion и Enhancement Potion исполняются в [ADR-0119](../decisions/ADR-0119-pc-potions-in-dynamic-encounters.md), а не только хранятся в инвентаре. Применение занимает object interaction обычного Recover: standard benefits сохраняются, одновременного подбора оружия/щита нет. Лечебное выбирает собственную рану1–23 текущего боя, помечает её treated/healed и снимает все соответствующие effects, включая восстановимую немедленным применением анатомию; чужие источники Conditions сохраняются. Recorded dropped items требуют будущего подбора. Defenceless может только выполнить свой разрешённый Healing Recover, без второго действия.
+
+Усиление поддерживает WS/Strength/Toughness/Agility и меняет соответствующие настоящие характеристики/caps/Damage/Resilience, сохраняя остальные правила. Предполагается короткий бой до заката; срок не превращён в произвольное число раундов. Другие Characteristics пока не исполняются и блокируют расчёт до MC. Начальное описание не меняется, каждый trial получает свой запас.
+
+Пользователь подтвердил GM/scenario-конкретизацию рук: достаточно одной пригодной руки, в том числе занятой оружием/щитом, без отдельного сброса. При доступной здоровой выбирается здоровая, использование Injured Hand12 вызывает прежний Critical. Это не напечатанное требование книги. Once-per-Characteristic — выбранная добровольная тактика расхода, не общее книжное правило stacking.
+
 ## Архитектурная граница
 
 Magic item должен быть типизированным Asset с собственным persistent state: charges, dawn/sunset refresh, once-per-battle use, immunity window, ownership и destruction. Его effect подключается к существующей фазе Test/attack/Wound/spell/movement, а не исполняется из строки описания. Предметы с `may` создают decision request владельцу; предметы с GM judgment получают готовый scenario input.

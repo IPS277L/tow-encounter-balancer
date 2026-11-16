@@ -4,6 +4,7 @@ from enum import Enum
 
 from towr.domain.attack_models import ConditionImpactSpec, DamageProfile, ResilienceProfile, ProneBeforeGiveGroundSpec
 from towr.domain.condition_models import ConditionState
+from towr.domain.potion_models import ConsumableItem, ConsumableKind
 from towr.domain.fate_models import (
     FateBurnRecord, FateRefreshRecord, FateSessionState, FateSpendRecord,
 )
@@ -75,6 +76,7 @@ PC_RANGED_WEAPONS = (PcMeleeWeapon.PISTOL, PcMeleeWeapon.REPEATER_HANDBOW,
 
 class PcMeleePolicy(str, Enum):
     ATTACK_OR_RECOVER_SELF = "attack_or_recover_self"
+    AUTOMATIC_MELEE = "automatic_melee"
     HELP_ALLY_OR_ATTACK_OR_RECOVER_SELF = "help_ally_or_attack_or_recover_self"
     RECOVER_ALLY_OR_ATTACK_OR_RECOVER_SELF = "recover_ally_or_attack_or_recover_self"
 
@@ -408,11 +410,23 @@ class PcMeleeParticipant:
     shield: PcShieldLoadout | None = field(default=None, kw_only=True)
     close_shooting_protection_skill: Skill | None = field(default=None, kw_only=True)
     aim_second_action_policy: PcAimSecondActionPolicy | None = field(default=None, kw_only=True)
+    consumables: tuple[ConsumableItem, ...] = field(default=(), kw_only=True)
 
     def __post_init__(self) -> None:
         _identifier(self.actor_id, "PC actor")
         _typed(self.pc, PcMeleeDefinition, "PC definition")
         replace(self.pc)
+        if type(self.consumables) is not tuple or any(type(item) is not ConsumableItem for item in self.consumables):
+            raise TypeError('PC consumables require an ordered tuple of typed items')
+        for item in self.consumables:
+            replace(item)
+            if (item.kind is ConsumableKind.ENHANCEMENT and item.characteristic not in
+                    ('weapon_skill', 'strength', 'toughness', 'agility')):
+                raise ValueError('this simulator supports Enhancement for WS/Strength/Toughness/Agility only')
+        if len({item.id for item in self.consumables}) != len(self.consumables):
+            raise ValueError('PC consumable instance IDs must be unique')
+        if self.consumables and self.policy is not PcMeleePolicy.AUTOMATIC_MELEE:
+            raise ValueError('potion use currently requires automatic melee tactics')
         _readmit_fate(self.fate, self.actor_id)
         if self.close_shooting_protection_skill is not None:
             _typed(self.close_shooting_protection_skill, Skill, "PC Close Shooting Protection skill")
@@ -665,6 +679,8 @@ class PcMeleeScenario:
                     raise ValueError("Help beneficiary must activate later in this round")
         object.__setattr__(self, "party", party)
         object.__setattr__(self, "enemies", enemies)
+        from towr.domain.pc_tactical_models import validate_automatic_melee_scenario
+        validate_automatic_melee_scenario(self)
         validate_pc_npc_help_policies(self)
         validate_pc_npc_pistol_policies(self)
         validate_pc_npc_grudge_policies(self)

@@ -1,7 +1,7 @@
 from dataclasses import replace
 
 from towr.simulation.pc_melee_models import PcMeleeSimulationResult, PcNearMissBurnCount, PcGloriousSpendCount, PcHelpActionCount, PcAllyRecoverActionCount, PcNpcExitCount, PcNpcHelpActionCount, PcNpcExtraAttackCount, PcNpcRecoverActionCount, PcNpcWarpedFormCount
-from towr.simulation.pc_melee_models import PcAimCount, PcAimCounts, pc_has_aim_capability
+from towr.simulation.pc_melee_models import PcAimCount, PcAimCounts, pc_has_aim_capability, PcPotionUseCount
 from towr.domain.pc_melee_result_models import PcMeleeOutcome
 from towr.simulation.pc_melee_summary_models import PcMeleeDefeatCount, PcMeleeSimulationSummary
 
@@ -10,6 +10,8 @@ def summarize_pc_melee_simulation(result: PcMeleeSimulationResult) -> PcMeleeSim
     if not isinstance(result, PcMeleeSimulationResult):
         raise TypeError('summarization requires a typed simulation result')
     replace(result)
+    inventory = tuple((member.actor_id, item.id)
+        for member in result.source_request.scenario.party for item in member.consumables)
     return PcMeleeSimulationSummary(result.source_request, result.outcome_counts,
         result.total_action_count, result.total_started_round_count, result.total_completed_round_count,
         sum(bool(record.defeated_pc_ids) for record in result.records),
@@ -60,4 +62,7 @@ def summarize_pc_melee_simulation(result: PcMeleeSimulationResult) -> PcMeleeSim
             tuple(PcAimCount(member.actor_id,
                 sum(record.aim.second_action_spend_counts[index].count for record in result.records))
                 for index,member in enumerate(result.source_request.scenario.party)))
-            if pc_has_aim_capability(result.source_request.scenario) else None))
+            if pc_has_aim_capability(result.source_request.scenario) else None),
+        potion_use_counts=(tuple(PcPotionUseCount(actor_id,item_id,
+            sum(record.potion_use_counts[index].count for record in result.records))
+            for index,(actor_id,item_id) in enumerate(inventory)) if inventory else None))

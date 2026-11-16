@@ -1,9 +1,11 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from enum import Enum
 
 from towr.domain.condition_models import Condition, ConditionState
+from towr.domain.potion_recover_models import HealingPotionRecoverSource
+from towr.domain.potion_models import HEALING_POTION_RULE_ID
 from towr.domain.injury_models import (
     ActiveWoundEffect,
     CharacterInjuryState,
@@ -226,6 +228,7 @@ class RecoverActionExecutionRequest:
     mode: RecoverMode
     choice: RecoverChoice
     rule_id: str = RECOVER_ACTION_RULE_ID
+    healing_potion: HealingPotionRecoverSource | None = field(default=None, kw_only=True)
 
     def __post_init__(self) -> None:
         _validate_non_empty_string(self.id, "Recover request id")
@@ -246,6 +249,18 @@ class RecoverActionExecutionRequest:
         if not isinstance(self.choice, expected_type):
             raise TypeError("Recover mode and choice do not match")
         _validate_non_empty_string(self.rule_id, "Recover rule_id")
+        if self.healing_potion is not None:
+            if type(self.healing_potion) is not HealingPotionRecoverSource:
+                raise TypeError('Recover requires its typed Healing Potion source')
+            replace(self.healing_potion)
+            if (self.mode is not RecoverMode.STANDARD
+                    or self.healing_potion.actor_id != self.actor_id
+                    or self.healing_potion.injury.conditions != self.actor_conditions):
+                raise ValueError('Healing Potion permission differs from this Recover actor/source')
+            interaction = self.choice.object_interaction
+            if (interaction is None or interaction.object_id != self.healing_potion.item.id
+                    or interaction.actor_id != self.actor_id):
+                raise ValueError('Healing Potion permission requires interaction with its actual potion')
 
         turn = self.round_state.active_turn
         if turn is None or turn.actor_id != self.actor_id:
@@ -963,8 +978,11 @@ def _validate_recover_action(request: RecoverActionExecutionRequest) -> None:
         raise ValueError("only a Recover action slot can use this executor")
     if slot.executed:
         raise ValueError("the Recover action slot has already been executed")
-    if request.actor_conditions.has(Condition.DEFENCELESS):
+    if request.actor_conditions.has(Condition.DEFENCELESS) and request.healing_potion is None:
         raise ValueError("Defenceless characters cannot take actions")
+    if request.actor_conditions.has(Condition.DEFENCELESS) and (
+            request.slot_index != 1 or len(turn.action_slots) != 1):
+        raise ValueError('Defenceless Healing Potion must be the only action of its turn')
     if request.actor_conditions.has(Condition.BROKEN) and request.actor_has_enemy_in_zone:
         raise ValueError("Broken characters can Recover only in a safe Zone")
 
@@ -997,6 +1015,8 @@ def _expected_recover_execution(
     updated_round_state = replace(request.round_state,
         active_turn=replace(turn, action_slots=updated_slots))
     values = [request.rule_id]
+    if request.healing_potion is not None:
+        values.append(HEALING_POTION_RULE_ID)
     if isinstance(resolution, RecoverTreatWoundResult):
         values.append(resolution.source.rule_id)
         if resolution.test_result is not None:

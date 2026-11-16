@@ -15,6 +15,7 @@ from towr.adapters.dynamic_encounter_json import (
     validate_dynamic_encounter_document,
 )
 from towr.adapters.pc_melee_json import parse_pc_melee_simulation_request
+from towr.domain.pc_melee_models import PcMeleePolicy
 from towr.application.dynamic_encounter import validate_dynamic_encounter_result
 from towr.simulation.pc_melee_simulation import run_pc_melee_simulation
 from towr.simulation.pc_melee_summary import summarize_pc_melee_simulation
@@ -49,6 +50,9 @@ class DynamicEncounterJsonTests(unittest.TestCase):
         raw['party'][0]['talents'] = ['lucky']
         command = parse_dynamic_encounter_request(json.dumps(raw))
         compiled = command.request.party[0]
+        self.assertIs(compiled.policy, PcMeleePolicy.AUTOMATIC_MELEE)
+        self.assertIsNone(compiled.help_policy)
+        self.assertIsNone(compiled.ally_recover_policy)
         self.assertEqual(compiled.pc.armour_bonus, 1)
         self.assertIsNotNone(compiled.shield)
         self.assertTrue(compiled.fate.has_lucky)
@@ -131,7 +135,7 @@ class DynamicEncounterJsonTests(unittest.TestCase):
             self.assertEqual(caught.exception.path, '/party/0/equipment')
             search.assert_not_called()
         for field, value in (('talents',['lucky','Mighty Blow']), ('consumables',[
-                dict(id='potion',kind='healing_potion',quantity=2,characteristic=None)])):
+                dict(id='potion',kind='enhancement_potion',quantity=2,characteristic='ballistic_skill')])):
             raw = deepcopy(self.document)
             raw['party'][0][field] = value
             validate_dynamic_encounter_document(raw)

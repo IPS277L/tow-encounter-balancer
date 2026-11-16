@@ -86,7 +86,8 @@ def pc_shield_recover_needed(member: PcMeleeParticipantState) -> bool:
 
 
 def pc_shield_resilience(state: PcMeleeState, actor: str) -> ResilienceProfile:
-    pc = state.source.participant(actor).pc
+    from towr.domain.pc_potion_models import pc_effective_definition
+    pc = pc_effective_definition(state, actor)
     return ResilienceProfile(pc.toughness,pc.armour_bonus+int(pc_has_working_shield(state.participant(actor))))
 
 
@@ -117,6 +118,9 @@ def expected_pc_shield_release(state: PcMeleeState) -> PcShieldReleaseProof | No
     member = state.participant(actor)
     if (member.injury.dead or member.injury.conditions.has(Condition.DEFENCELESS)
             or not pc_has_working_shield(member)):
+        return None
+    from towr.domain.pc_potion_models import selected_pc_potion
+    if member.potions and selected_pc_potion(state) is not None:
         return None
     from towr.domain.pc_backup_weapon_models import pc_preferred_weapon_hand, pc_backup_candidate_hand
     from towr.domain.pc_melee_result_models import pc_melee_action_id, _pc_recover_needed

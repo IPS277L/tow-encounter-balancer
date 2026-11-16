@@ -1,6 +1,6 @@
 # Открытые вопросы и действующие допущения
 
-Дата: 2026-11-15. Это короткий индекс незакрытых тем; читать подробности только по затронутой механике. Полные формулировки, ссылки на книги и текущие ограничения сохранены в [деталях](open-questions-details.md); закрытые темы — в [истории](open-questions-history.md).
+Дата: 2026-11-16. Это короткий индекс незакрытых тем; читать подробности только по затронутой механике. Полные формулировки, ссылки на книги и текущие ограничения сохранены в [деталях](open-questions-details.md); закрытые темы — в [истории](open-questions-history.md).
 
 ## Динамическая генерация — действующая граница
 
@@ -8,7 +8,9 @@
 
 ## Вход партии и решения симулятора
 
-[ADR-0114](decisions/ADR-0114-character-facts-and-automatic-generator-input.md): dynamic party задаёт факты/equipment/Lucky/Fate; internal policies/ledgers создаются application. Explicit fresh-session с полным ресурсом, healthy Close без засады/terrain. Автоматический NPC envelope — ограниченная эвристика вокруг партии, не полный поиск книги. State-based Attack/self Recover и ограниченные Glorious/Near Miss ещё не являются общим тактическим выбором. По [ADR-0115](decisions/ADR-0115-inventory-draft-and-talent-tags.md) UI сохраняет weapon/armour inventory, potions и произвольные talent tags как описание. Dual wield, Heavy Armour, применение зелий/других талантов, магия и середина сессии пока не подключены к исполнению: неподдержанный draft блокирует расчёт до MC, а не теряет эти факты. Следующий шаг — общий выбор действий и реальные resource/action consumers, не именные statblocks.
+[ADR-0119 о зельях](decisions/ADR-0119-pc-potions-in-dynamic-encounters.md) принят и реализован: оба вида, одна пригодная рука без отдельного сброса, приоритет здоровой руки/настоящий Critical12. Лечится собственная рана1–23 текущего боя; WS/S/T/Ag усиливаются до заката, выбранная тактика добровольно использует каждую Characteristic один раз. Кормление союзника, NPC-зелья, другое усиление, полное stacking rule и кампания/закат остаются вне среза. Вопросов для завершения этой функции нет.
+
+[ADR-0114](decisions/ADR-0114-character-facts-and-automatic-generator-input.md): dynamic party задаёт факты/equipment/Lucky/Fate; internal policies/ledgers создаются application. Explicit fresh-session с полным ресурсом, healthy Close без засады/terrain. Автоматический NPC envelope — ограниченная эвристика вокруг партии, не полный поиск книги. По [ADR-0118](decisions/ADR-0118-automatic-pc-melee-tactics.md) динамический melee-путь сам выбирает Attack/цель, standard Recover себе/союзнику и exact-Test Help по текущему состоянию. Это ограниченная эвристика против Minions; NPC пока Attack-only, Fate сохраняет прежние пороги, общего планирования всего боя нет. По [ADR-0115](decisions/ADR-0115-inventory-draft-and-talent-tags.md) UI сохраняет weapon/armour inventory, potions и произвольные talent tags как описание. Оба вида зелий подключены по ADR-0119. Dual wield, Heavy Armour, другие таланты, магия и середина сессии пока не подключены к исполнению: неподдержанный draft блокирует расчёт до MC, а не теряет эти факты. Следующий шаг — magic/общие NPC-компоненты; не именные statblocks.
 
 ## Действующая граница симуляции
 

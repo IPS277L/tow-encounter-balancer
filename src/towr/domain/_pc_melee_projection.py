@@ -1,5 +1,6 @@
 """Pure projections of the explicit M9 journal variants; no RNG or execution."""
 from dataclasses import replace
+from towr.domain.pc_potion_models import PcPotionRecoverProof, build_pc_potion_recover, selected_pc_potion
 from towr.domain.pc_melee_models import PcTwoHandedGrip
 
 from towr.domain.pc_melee_result_models import (
@@ -888,8 +889,18 @@ def project_pc_step(state, proof):
             used_hand=PcTwoHandedGrip.BOTH))
         return finish(round_state=canonical.round_state,party=_party_update(state,pc_actor,
             injury=injury,fate=fate,ranged=canonical.state))
+    if type(proof) is PcPotionRecoverProof:
+        _ready(state)
+        if pc_melee_selected_action(state) is not CombatActionKind.RECOVER:
+            raise ValueError('potion use cannot replace the selected action')
+        canonical = build_pc_potion_recover(state)
+        _same(proof,canonical,'potion Recover changed its supply, source, hand, heal, enhancement or slot')
+        return finish(round_state=canonical.result.round_state,
+            party=tuple(canonical.after if member.actor_id == canonical.actor_id else member for member in state.party))
     if isinstance(proof,PcRecoverProof):
         _ready(state)
+        if selected_pc_potion(state) is not None:
+            raise ValueError('potion Recover must retain its full use and supply proof')
         if pc_melee_selected_action(state) is not CombatActionKind.RECOVER:
             raise ValueError('Recover must be the selected PC action')
         expected = build_pc_melee_recover(state)

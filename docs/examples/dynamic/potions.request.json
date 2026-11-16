@@ -1,0 +1,113 @@
+{
+  "schema_version": "1",
+  "kind": "dynamic_encounter_search",
+  "request_id": "dynamic:potions-example",
+  "ruleset": "towr-pg1.4-gmg1.1",
+  "party": [
+    {
+      "actor_id": "pc",
+      "characteristics": {
+        "weapon_skill": 1,
+        "strength": 3,
+        "toughness": 3,
+        "agility": 3
+      },
+      "skills": {
+        "melee": 1,
+        "defence": 5,
+        "athletics": 4,
+        "endurance": 4
+      },
+      "equipment": {
+        "weapons": [
+          {
+            "id": "weapon:1",
+            "weapon": "sword",
+            "location": "left_hand"
+          }
+        ],
+        "armour": []
+      },
+      "talents": [],
+      "resources": {
+        "fate": 0
+      },
+      "consumables": [
+        {
+          "id": "healing",
+          "kind": "healing_potion",
+          "quantity": 2,
+          "characteristic": null
+        },
+        {
+          "id": "enhancement-ws",
+          "kind": "enhancement_potion",
+          "quantity": 2,
+          "characteristic": "weapon_skill"
+        }
+      ]
+    }
+  ],
+  "search_space": {
+    "weapon_skill": [
+      2
+    ],
+    "strength": [
+      3
+    ],
+    "toughness": [
+      4
+    ],
+    "agility": [
+      1
+    ],
+    "melee": [
+      2
+    ],
+    "athletics": [
+      2
+    ],
+    "weapon": [
+      "staff"
+    ],
+    "light_armour": [
+      false
+    ],
+    "abilities": [
+      []
+    ]
+  },
+  "npc_count": {
+    "minimum": 2,
+    "maximum": 2
+  },
+  "targets": {
+    "win_rate": {
+      "numerator": 3,
+      "denominator": 5
+    },
+    "started_rounds": {
+      "numerator": 2,
+      "denominator": 1
+    }
+  },
+  "search": {
+    "master_seed": "42",
+    "max_candidates": 1,
+    "exploration_trials": 2,
+    "finalist_trials": 2,
+    "top_k": 1,
+    "max_total_trials": 4
+  },
+  "max_rounds": 3,
+  "defeat_disposition": "killed",
+  "execution": {
+    "mode": "sequential"
+  },
+  "scene": {
+    "range": "close",
+    "ambush": "none",
+    "terrain": "open",
+    "session_start": "fresh"
+  }
+}

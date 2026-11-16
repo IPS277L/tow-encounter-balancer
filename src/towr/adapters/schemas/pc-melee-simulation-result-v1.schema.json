@@ -32,6 +32,7 @@
   ],
   "additionalProperties": false,
   "allOf": [
+    {"$ref": "urn:towr:pc-melee:common:1#/$defs/potionSummaryPresence"},
     {
       "if": {
         "properties": {

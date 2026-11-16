@@ -16,6 +16,7 @@ from towr.domain.pc_melee_models import (
 )
 from towr.domain.pc_weapon_models import pc_weapon_requires_two_hands
 from towr.domain.test_models import Skill
+from towr.domain.potion_models import ConsumableItem
 
 
 class EncounterArmour(str, Enum):
@@ -46,6 +47,7 @@ class EncounterCharacter:
     talents: tuple[EncounterTalent, ...]
     fate: int
     backup_weapon_policy: PcBackupWeaponPolicy | None = field(default=None, kw_only=True)
+    consumables: tuple[ConsumableItem, ...] = field(default=(), kw_only=True)
 
     def __post_init__(self):
         if type(self.actor_id) is not str or not self.actor_id.strip():
@@ -82,11 +84,11 @@ class EncounterCharacter:
         return PcMeleeParticipant(self.actor_id, pc,
             FateSessionState(session_id, self.actor_id, self.fate, self.fate,
                 has_lucky=EncounterTalent.LUCKY in self.talents),
-            PcMeleePolicy.ATTACK_OR_RECOVER_SELF, PcFatePolicy.CONFIGURED,
+            PcMeleePolicy.AUTOMATIC_MELEE, PcFatePolicy.CONFIGURED,
             PcRandomSidePolicy.D10_LOW_LEFT_HIGH_RIGHT, PcHeavyWoundPolicy.CONTINUE_FIGHTING,
             grip, ('generated-npc:1',),
             (MinionDefeatDecision(self.actor_id, 'generated-npc:1', disposition, True),),
             # Decide at the actual Wound/Test window using the current resource.
             PcNearMissPolicy(11, 0),
             PcGloriousPolicy((Skill.MELEE, Skill.DEFENCE, Skill.ATHLETICS, Skill.ENDURANCE), 0, 0),
-            None, None, self.backup_weapon_policy, shield=shield)
+            None, None, self.backup_weapon_policy, shield=shield, consumables=self.consumables)

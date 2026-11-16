@@ -363,6 +363,13 @@
         },
         "replay": {
           "$ref": "urn:towr:pc-melee:simulation:request:1"
+        },
+        "potion_use_counts": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "urn:towr:pc-melee:common:1#/$defs/potionUseCount"
+          }
         }
       },
       "required": [
@@ -375,7 +382,47 @@
         "trials",
         "replay"
       ],
-      "additionalProperties": false
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "replay": {
+                "properties": {
+                  "scenario": {
+                    "properties": {
+                      "party": {
+                        "contains": {
+                          "properties": {
+                            "consumables": {
+                              "minItems": 1
+                            }
+                          },
+                          "required": [
+                            "consumables"
+                          ]
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "potion_use_counts"
+            ]
+          },
+          "else": {
+            "not": {
+              "required": [
+                "potion_use_counts"
+              ]
+            }
+          }
+        }
+      ]
     },
     "scene": {
       "type": "object",

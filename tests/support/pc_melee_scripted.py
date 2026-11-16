@@ -28,6 +28,24 @@ def first_wound_script(total, *, endurance_success=False, hand=1):
     return values
 
 
+def heavy_prefix(total, *, endurance_success=False, side=1):
+    # A miss, then three hits: superficial1, superficial2, actual heavy3d Wound.
+    values = [10,10,10,1,1] + [1,1,1,10,10,10,1] + [1,1,1,10,10,10,1,1]
+    wound = [1,1,total-2] if total <= 12 else [10,1,total-11] if total <= 21 else [10,10,total-20]
+    values += [1,1,1,10,10,10] + wound
+    if total == 12:
+        values.append(side)
+    if total in (11,12,19):
+        values += [1,10,10] if endurance_success else [10,10,10]
+        if not endurance_success and total == 11:
+            values.append(7)
+        if not endurance_success and total == 19:
+            values.append(side)
+    if total in (16,20,21):
+        values.append(side)
+    return values
+
+
 def run_first_wound(total, *, endurance_success=False, hand=1):
     from towr.engine.pc_melee_runner import run_pc_melee_scenario
     source = make_pc_melee_scenario(max_rounds=1)

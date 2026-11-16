@@ -91,7 +91,7 @@ function renderInventory(parent,member,index){
  if(active.length!==1)warnings.push('Симуляция пока требует одно активное оружие; бой двумя оружиями ещё не реализован.');
  if(spares.length && !(spares.length===1 && active.length===1 && twoHandedInventoryWeapons.has(active[0].weapon) && !twoHandedInventoryWeapons.has(spares[0].weapon)))warnings.push('Смена этого набора запасного оружия пока не реализована.');
  if((gear.armour||[]).some(a=>a.kind==='heavy_armour'||a.location==='carried'))warnings.push('Тяжёлая или запасная броня/щит пока не подключены к симуляции.');
- if(member.consumables?.length)warnings.push('Применение расходников в симуляции ещё не реализовано.');
+ if((member.consumables||[]).some(item=>item.kind==='enhancement_potion'&&!['weapon_skill','strength','toughness','agility'].includes(item.characteristic)))warnings.push('Усиление (Enhancement Potion) пока поддерживает WS, Strength, Toughness и Agility.');
  if(warnings.length)parent.append(node('p',warnings.join(' ')+' Инвентарь можно редактировать и сохранять; неподдержанные возможности блокируют расчёт.','inventory-warning'));
 }
 function renderTalentTags(parent,member,index){

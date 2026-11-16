@@ -14,7 +14,38 @@
 
 Граница NPC: stationary all-Close melee PCs против Minions, Athletics NPC Protection, без NPC-щита/других NPC weapon Traits/книжных NPC-талантов. PC equipment/Lucky описаны ниже. Authored Drained требует явного допуска, не является автоматически выданным талантом. Сохраняются Wounds/Fate/Recover и unsupported базового simulator. Duration = started rounds, включая censored prefix; ранжирование по близости к win target, затем duration. Это ограниченный поиск, не доказательство оптимума и не полный генератор книги. Старый каталог не переносился массово; kernel/backend не менялись.
 
-## Текущий срез: отдельные файлы персонажей
+## Текущий срез: зелья в динамических боях
+
+Пользователь подтвердил оба вида и пригодную руку без отдельного сброса. Healing Potion исполняет standard Recover и лечит одну собственную рану1–23 текущего боя со связанными эффектами/анатомией; допускается при Defenceless. Независимые Conditions и другие раны сохраняются, dropped items не подбираются одновременно. Enhancement Potion изменяет настоящие WS/Strength/Toughness/Agility и соответствующие dice/cap/Damage/Resilience до заката, не подменяется универсальным бонусным кубом. Каждый trial получает независимый конечный запас. [Принятое решение ADR-0119](decisions/ADR-0119-pc-potions-in-dynamic-encounters.md), [правила](rules/magic-items.md#зелья-в-динамическом-melee-генераторе).
+
+Автоматический selector сравнивает применение с другими действиями, выбирает предмет/рану/здоровую руку; травмированная12вызывает настоящий Critical. Once-per-Characteristic — согласованная тактика экономии, не утверждение о stacking. Native proof связывает актуальный запас, руку, Recover slot и полные before/after; strict projection отвергает повторы/подмены. Завершается обязательная Critical end-phase даже при сохранении недоступного2H хвата после лечения другой раны. Исходные профили остаются неизменны.
+
+Текущие PC JSON1/Dynamic JSON1/replay дополнены запасом и source-ordered `potion_use_counts`, включая нули; без запаса поле отсутствует. Общие stock/turn/action budgets проверяются вместе с Help/ally Recover. UI использует прежний редактор, показывает средний расход в статистике состава и блокирует ещё неисполняемые четыре Characteristics до MC. Без NPC-зелий, кормления союзника, старых кампанийных ран или заката внутри боя; source поддерживает только автоматический melee-срез. [Пример](examples/dynamic/potions.request.json), [запуск](examples/dynamic/README.md#применение-зелий).
+
+Последние проверки (`PYTHONPATH=src`, `.venv/Scripts/python.exe -m unittest`), отдельными перекрывающимися наборами:
+
+- Общий Recover/healing, native11–23, щит/руки, Help/Recover и M8 callers —258OK,14.020s до финальных source/end-phase уточнений; dynamic application/JSON/HTTP/files/progress —60OK,25.701s. Это адресные подсистемные наборы, не полный regression.
+- После последних исправлений: `tests.unit.test_potion_models tests.unit.test_pc_potion_execution tests.unit.test_pc_potion_enhancement tests.unit.test_pc_potion_statistics tests.unit.test_pc_tactics tests.unit.test_k1_recover_resolution tests.unit.test_k1_recover_completion tests.unit.test_m53_shield_execution tests.unit.test_m53_shield_core tests.integration.test_dynamic_potions.DynamicPotionTests -q` —110OK,9.294s. Включены14native cases с loop11–23, источники Conditions, Critical/Defenceless, hand use, ID collisions и source forgery, все4enhancements и counts.
+- `tests.integration.test_dynamic_potions tests.integration.test_local_ui_browser -q` —5OK,8.143s вне sandbox: dynamic/replay/current wire, actual sequential/process cost parity и прежние browser-сценарии. Последующее end-phase уточнение2H отдельно покрыто новым literal native-тестом; этот браузерный прогон не выдаётся за повторную проверку после него.
+- Публичная команда `-m towr generate-encounter docs/examples/dynamic/potions.request.json` исполнила4trials; screening расходы Healing/Enhancement=2/2, validation=1/2 по двум боям каждого этапа. Это проверка запуска, не оценка точности баланса.
+
+Full regression/wheel не запускались: вместо full выбраны затронутые Recover/healing/PC и генератор; package discovery/зависимости/доставка прежние.
+
+## Предыдущий срез: автоматическая melee-тактика PC
+
+Динамический генератор сам выбирает Attack и цель, стандартный Recover себе/союзнику или Help конкретному будущему Test. Фиксированные получатели/роли во входе партии не нужны. Выбор использует текущие Conditions, caps, навыки, оружие и ожидаемую пользу ближайшего действия; стабильные tie-break сохраняют воспроизводимость. Нет RNG или дополнительных Monte Carlo-прогонов внутри выбора. Сохраняются native proofs, ongoing источники, actual Fate/Lucky и отдельные счётчики действий. Причина/оценка доступны в Python `PcMeleeScenarioResult.tactical_decisions`. [Граница и решение ADR-0118](decisions/ADR-0118-automatic-pc-melee-tactics.md).
+
+Первый автоматический режим — all-Close melee PCs против обычных Melee Minions. NPC пока атакуют по прежнему приоритету. Fate сохраняет Glorious при0начальных успехов/Near Miss≥11; оптимизация ресурса на весь бой, зелья и магия не добавлены. Это ограниченная эвристика, не оптимальный ИИ. Текущий PC JSON1/replay допускает `automatic_melee`, Dynamic JSON1/UI новых полей не требуют; явные прежние роли остаются отдельными поддержанными стратегиями.
+
+Последняя адресная проверка (`PYTHONPATH=src`, `.venv/Scripts/python.exe -m unittest`):
+
+- `tests.unit.test_pc_tactics tests.unit.test_encounter_character tests.unit.test_encounter_inventory tests.unit.test_m15_pc_help tests.unit.test_m16_pc_protection_help tests.unit.test_m17_pc_ally_recover tests.unit.test_m15_pc_help_statistics tests.unit.test_m17_pc_ally_recover_statistics tests.unit.test_m13_pc_near_miss tests.unit.test_m14_pc_glorious tests.unit.test_dynamic_encounter_progress tests.integration.test_dynamic_encounter tests.integration.test_dynamic_encounter_json tests.integration.test_local_ui -q` —158OK,29.204s. Включает14новых deterministic tactics checks, прежние Help/Recover/Fate, dynamic pipeline, JSON и HTTP.
+- `tests.integration.test_automatic_melee_tactics tests.integration.test_local_ui_browser -q` —2OK,7.799s вне sandbox: current replay/summary и sequential/process parity плюс существующие browser import/export/draft/generation paths.
+- Локальный микрозамер:100решений для2PC/3Minions —0.324s; два боя seed42/43, max2rounds, по20/25journal transitions —0.156s с прежней тактикой и0.215s с автоматической. Это малый замер накладных расходов, не прогноз полного поиска. Число trials не увеличивается; поведение может менять длительность реальных боёв.
+
+Итого160различных адресных тестов. Full regression/wheel не запускались: kernel правил, сборка и доставка не менялись.
+
+## Предыдущий срез: отдельные файлы персонажей
 
 В каждой PC/NPC-карточке есть иконки загрузки и скачивания одного профиля; рядом с добавлением игрока — импорт нового. Файлы используют существующие Dynamic JSON1 fragments (`party_member` и элемент `candidate.npcs`), без новой family/версии. Stateless `POST /api/character` проверяет строгий JSON и schema/inventory invariants; без компиляции loadout, RNG и запуска симулятора. Сохраняются rich player drafts: предметы/положение, расходники, таланты, Fate. Неверный вид/повреждённый файл/коллизия actor ID не изменяют данные. [ADR-0117](decisions/ADR-0117-granular-character-files-and-npc-drafts.md), [пользовательский сценарий и примеры](examples/dynamic/README.md#отдельные-файлы-игроков-и-противников).
 
@@ -210,6 +241,7 @@ Named NPC/Abilities/Brutes/Champions сохраняются в прежних al
 
 ## Следующий шаг
 
-Развить общий выбор действий по текущему состоянию, отделив его от ручных beneficiary/policy связей: сначала Attack/Recover/Help и расход доступного Fate, с проверяемыми ситуационными решениями и неизменной воспроизводимостью. Затем подключить реальные действия consumables и magic к тому же пути партии/генерации; только после исполнения добавлять соответствующие поля UI. Параллельное направление — расширение общих NPC equipment/talent-компонентов с prerequisites, без очереди именных statblocks. Не возвращаться к ручной настройке обязательных диапазонов NPC или ledgers.
+
+Следующий шаг — определить исполнимый вход PC magic для того же динамического пути: факты мага/навыки/Lore/способности/известные spells вместо ручных Casting policies, подключение существующих Casting/Winds/Miscast consumers к общему бою и автоматическому выбору действий. Сначала сверить prerequisites и выбрать небольшой совместимый набор эффектов, затем зафиксировать конкретную границу/неоднозначности до реализации. Общие NPC equipment/talent-компоненты сохраняются отдельным направлением; не возвращаться к очереди именных statblocks и не объявлять текущую эвристику полным ИИ.
 
 Commit/push выполняет пользователь.

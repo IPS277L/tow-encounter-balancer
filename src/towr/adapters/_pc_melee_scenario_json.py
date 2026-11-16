@@ -13,6 +13,7 @@ from towr.domain.fate_models import (
     FateSpendFunding, FateSpendKind, FateSpendRecord,
 )
 from towr.domain.injury_models import ProfileInjuryState
+from towr.domain.potion_models import ConsumableItem, ConsumableKind
 from towr.domain.minion_defeat_models import MinionDefeatDecision, NpcDefeatDisposition
 from towr.domain.npc_attack_preparation_models import NpcAttackProfile
 from towr.domain.npc_roster_models import (
@@ -211,6 +212,9 @@ def _parse_participant(data, *, path_prefix, error_type):
             for index, record in enumerate(data["defeat_decisions"])),
         near_miss_policy=near_miss,glorious_policy=glorious,help_policy=help_policy,
         aim_second_action_policy=aim_second_action_policy,
+        consumables=tuple(build(f'{path_prefix}/consumables/{index}', ConsumableItem,
+            **dict(item, kind=ConsumableKind(item['kind'])))
+            for index,item in enumerate(data.get('consumables', []))),
         ally_recover_policy=ally_recover_policy,backup_weapon_policy=backup_weapon_policy,shield=shield,
         close_shooting_protection_skill=close_shooting_protection_skill)
 
@@ -397,6 +401,8 @@ def scenario_document(scenario: PcMeleeScenario) -> dict:
     validate_pc_melee_scenario_admission(scenario)
     party = _plain([asdict(member) for member in scenario.party])
     for member in party:
+        if not member['consumables']:
+            del member['consumables']
         if member['aim_second_action_policy'] is None:
             del member['aim_second_action_policy']
         if member['close_shooting_protection_skill'] is None:
