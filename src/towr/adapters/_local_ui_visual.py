@@ -93,6 +93,7 @@ function inputField(parent,title,path,value,choices=null,onChange=null){
 }
 function playerStatInput(parent,member,index,section,key){
  const values=member[section]||{},terms=section==='characteristics'?characteristicTerms:skillTerms,supported=section==='characteristics'?['weapon_skill','strength','toughness','agility']:['melee','defence','endurance','athletics'];
+ if(member.magic && (member.talents||[]).includes('wizard'))supported.push(section==='characteristics'?'reason':'willpower');
  if(Object.hasOwn(terms,key)&&!supported.includes(key)){
   const label=node('label',statLabels[key]),input=node('input');input.type='text';input.value=values[key]??'—';input.disabled=true;input.className='stat-placeholder';input.dataset.stat=key;input.title=statFullNames[key]+' · Пока не подключено к симуляции';input.setAttribute('aria-label',input.title);label.append(input);parent.append(label);
  }else inputField(parent,statLabels[key]||key,['party',index,section,key],values[key]);
@@ -112,6 +113,7 @@ function renderRequestVisual(data){
   }
   renderInventory(person,member,index);
   renderTalentTags(person,member,index);
+  renderPlayerMagic(person,member,index);
   const remove=actionButton('remove','Удалить игрока '+member.actor_id,true);remove.dataset.action='remove-player';remove.disabled=busy||(data.party||[]).length<=1;remove.onclick=()=>editRequest(['party'],read().party.filter((_,i)=>i!==index));const actions=playerFileControls(index);actions.append(remove);person.querySelector('h3').classList.add('character-heading');person.querySelector('h3').append(actions);root.append(person);
  }
  const add=actionButton('add','Добавить игрока');add.dataset.action='add-player';add.disabled=busy;add.onclick=()=>{
@@ -204,6 +206,7 @@ function renderResultVisual(result,root=byId('result-visual')){
   const metrics=node('div',undefined,'result-metrics');for(const [title,value] of [['Победы игроков',percent(candidate.win_rate)],['Средние раунды',Number(candidate.mean_started_rounds).toFixed(2)],['Симуляций',candidate.trials]]){const item=node('div',title);item.append(node('strong',value));metrics.append(item);}statistics.append(metrics);
   if(candidate.win_interval_95)statistics.append(node('p','Интервал оценки побед (95%): '+candidate.win_interval_95.map(percent).join(' — '),'visual-note'));
   if(candidate.potion_use_counts)statistics.append(node('p','Использовано зелий (Potions), в среднем за бой: '+(candidate.potion_use_counts.reduce((sum,item)=>sum+item.count,0)/candidate.trials).toFixed(2),'visual-note'));
+  if(candidate.magic_counts){const mean=key=>(candidate.magic_counts.reduce((sum,item)=>sum+item[key],0)/candidate.trials).toFixed(2);statistics.append(node('p','Магия (Magic), в среднем за бой: сотворения (Casting) '+mean('casting_actions')+' · заклинания (Spells) '+mean('spell_casts')+' · ошибки (Miscasts) '+mean('miscasts')+' · неподдержанные Miscasts '+mean('unsupported_miscasts'),'visual-note'));}
   const outcomes=candidate.outcomes||{};statistics.append(node('p','Победы: '+outcomes.objective_achieved+' · Поражения: '+outcomes.party_defeated+' · Лимит раундов: '+outcomes.round_limit+' · Неподдержанные ситуации: '+outcomes.unsupported_path,'visual-note'));box.append(statistics);
   for(const [index,npc] of (npcs||[]).entries()){
    const creature=card('Противник '+(index+1));creature.classList.add('npc-card');creature.querySelector('h3').classList.add('npc-heading');creature.querySelector('h3').append(npcFileControls(candidate,index,result));const tables=node('div',undefined,'npc-stat-tables');tables.append(npcStatTable('Характеристики (Characteristics)',Object.keys(characteristicTerms),npc),npcStatTable('Навыки (Skills)',Object.keys(skillTerms),npc));creature.append(tables);

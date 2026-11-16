@@ -66,6 +66,12 @@ def pc_backup_draw_hand(state: PcMeleeState, actor_id: str) -> PcWeaponHand | No
     hand = pc_backup_candidate_hand(state,actor_id)
     if hand is None:
         return None
+    from towr.domain.pc_potion_models import selected_pc_potion
+    from towr.domain.pc_melee_result_models import pc_melee_selected_action
+    from towr.domain.turn_models import CombatActionKind
+    if selected_pc_potion(state) is not None or (state.source.participant(actor_id).wizard is not None
+            and pc_melee_selected_action(state) is CombatActionKind.IMPROVISE):
+        return None
     member = state.participant(actor_id)
     from towr.domain.pc_shield_models import PcShieldLocation
     if (member.shield is not None and member.shield.location is PcShieldLocation.HELD

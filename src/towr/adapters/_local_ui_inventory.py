@@ -27,6 +27,7 @@ INVENTORY_STYLE = r'''
 .talent-suggestions.hidden{display:none}.talent-suggestions .talent-option{display:block;width:100%;text-align:left;border:0;border-radius:0;padding:10px 12px;font-size:14px;white-space:normal}
 .talent-suggestions .talent-option:hover:not(:disabled),.talent-option[aria-selected="true"]{background:var(--hover)}.talent-option small{display:block;margin-top:3px;font-size:12px;line-height:1.4}
 .inventory-warning{color:var(--warning-text);background:var(--warning-bg);border-radius:4px;padding:8px 10px;font-size:13px;line-height:1.5}
+.magic-spells{display:flex;flex-wrap:wrap;gap:10px 20px;margin:10px 0}.magic-spells label{display:flex;align-items:center;gap:8px}.magic-spells input{width:auto}
 @media(max-width:480px){.inventory-row{grid-template-columns:minmax(0,1fr) var(--item-control-height)}.inventory-row>label:first-child{grid-column:1/-1}.consumable-item{--consumable-count-width:70px}.inventory-row.consumable>label:first-child{grid-column:auto}}
 '''
 
@@ -34,7 +35,7 @@ INVENTORY_SCRIPT = r'''
 const armourNames={light_armour:'Лёгкая броня (Light Armour)',heavy_armour:'Тяжёлая броня (Heavy Armour)',helmet:'Обычный шлем (Helmet)',shield:'Щит (Shield)'};
 const consumableNames={healing_potion:'Зелье лечения (Healing Potion)',enhancement_potion:'Зелье усиления (Enhancement Potion)'};
 const enhancementNames=characteristicNames;
-const talentNames={lucky:'Удачливый (Lucky)','mighty blow':'Могучий удар (Mighty Blow)'};
+const talentNames={lucky:'Удачливый (Lucky)',wizard:'Маг (Wizard)','mighty blow':'Могучий удар (Mighty Blow)'};
 const talentLabel=value=>talentNames[value.toLowerCase()]||value;
 const heldLocations={carried:'Убрано / за спиной',left_hand:'В левой руке',right_hand:'В правой руке',both_hands:'В обеих руках'};
 const twoHandedInventoryWeapons=new Set(['pickaxe','flail','billhook','halberd','glaive','greataxe','greathammer']);
@@ -97,9 +98,9 @@ function renderInventory(parent,member,index){
 function renderTalentTags(parent,member,index){
  parent.append(node('h4','Таланты (Talents)'));const tags=node('div',undefined,'talent-tags');
  for(const [i,talent] of (member.talents||[]).entries()){
-  const tag=node('span',talentLabel(talent),'talent-tag'+(talent==='lucky'?'':' pending'));
-  attachTagTooltip(tag,talent==='lucky'?'Первая трата Судьбы (Fate) за сессию бесплатна':'Ещё не поддержан симуляцией');
-  const remove=actionButton('remove','Удалить талант '+talentLabel(talent),true);remove.onclick=()=>editRequest(['party',index,'talents'],read().party[index].talents.filter((_,j)=>j!==i));tag.append(remove);tags.append(tag);
+  const supported=['lucky','wizard'].includes(talent),tag=node('span',talentLabel(talent),'talent-tag'+(supported?'':' pending'));
+  attachTagTooltip(tag,talent==='lucky'?'Первая трата Судьбы (Fate) за сессию бесплатна':talent==='wizard'?'Уровень мага (Wizard Level) и известные заклинания (Spells) задаются ниже':'Ещё не поддержан симуляцией');
+  const remove=actionButton('remove','Удалить талант '+talentLabel(talent),true);remove.onclick=()=>setPlayerTalents(index,read().party[index].talents.filter((_,j)=>j!==i));tag.append(remove);tags.append(tag);
  }parent.append(tags);
  const entry=node('div',undefined,'talent-entry'),picker=node('div',undefined,'talent-picker'),input=node('input');input.type='text';input.placeholder='Выберите или введите талант…';input.setAttribute('aria-label','Добавить талант персонажу '+(index+1));input.dataset.role='talent-entry';input.dataset.member=String(index);input.autocomplete='off';
  const options=node('div',undefined,'talent-suggestions hidden');options.id='talent-options-'+index;options.setAttribute('role','listbox');options.setAttribute('aria-label','Подсказки талантов');
@@ -107,14 +108,15 @@ function renderTalentTags(parent,member,index){
  let selectedIndex=-1;
  const close=()=>{options.classList.add('hidden');input.setAttribute('aria-expanded','false');input.removeAttribute('aria-activedescendant');selectedIndex=-1;};
  const commit=raw=>{
-  const value=raw.trim();if(!value)return;const talent=value.toLowerCase()==='lucky'?'lucky':value,values=read().party[index].talents||[];
+  const value=raw.trim();if(!value)return;const talent=['lucky','wizard'].includes(value.toLowerCase())?value.toLowerCase():value,values=read().party[index].talents||[];
   if(values.some(t=>t.toLowerCase()===talent.toLowerCase())){message('Этот талант уже добавлен.','error');close();return;}
-  close();editRequest(['party',index,'talents'],[...values,talent]);document.querySelector('[data-role="talent-entry"][data-member="'+index+'"]').focus();
+  close();setPlayerTalents(index,[...values,talent]);document.querySelector('[data-role="talent-entry"][data-member="'+index+'"]').focus();
  };
  const suggest=()=>{
   options.replaceChildren();selectedIndex=-1;input.removeAttribute('aria-activedescendant');
   const query=input.value.trim(),values=read().party[index].talents||[],duplicate=value=>values.some(t=>t.toLowerCase()===value.toLowerCase()),choices=[];
   if(!duplicate('lucky') && ['lucky','удача','удачливый','удачливый (lucky)'].some(name=>name.includes(query.toLowerCase())))choices.push({value:'lucky',label:talentLabel('lucky'),hint:'Первая трата Судьбы (Fate) за сессию бесплатна.'});
+  if(!duplicate('wizard') && ['wizard','маг','маг (wizard)'].some(name=>name.includes(query.toLowerCase())))choices.push({value:'wizard',label:talentLabel('wizard'),hint:'Сотворение (Casting) запомненных заклинаний (Memorised Spells) школы Elementalism.'});
   if(query && !duplicate(query) && !choices.length)choices.push({value:query,label:'Добавить «'+talentLabel(query)+'»',hint:'Эффект этого таланта пока не подключён к симуляции.'});
   if(!choices.length){close();return;}
   for(const [i,choice] of choices.entries()){
@@ -133,6 +135,33 @@ function renderTalentTags(parent,member,index){
   }
   if(event.key==='Enter'){event.preventDefault();const rows=options.querySelectorAll('[role="option"]'),selected=rows[selectedIndex]||(input.value.trim()?rows[0]:null);if(selected&&!options.classList.contains('hidden'))selected.click();else commit(input.value);}
  };picker.append(input,options);entry.append(picker);parent.append(entry);
- parent.append(node('p','В расчёт подключён талант Удачливый (Lucky). Другие таланты (Talents) можно сохранить тегами; до реализации их эффектов расчёт с ними будет недоступен.','visual-note'));
+ parent.append(node('p','В расчёт подключены Удачливый (Lucky) и Маг (Wizard). Другие таланты (Talents) можно сохранить тегами; до реализации их эффектов расчёт с ними будет недоступен.','visual-note'));
+}
+function setPlayerTalents(index,talents){
+ const member=read().party[index],previous=(member.talents||[]).includes('wizard');member.talents=talents;
+ if(talents.includes('wizard')){
+  if(!member.magic)member.magic={origin:'human',wizard_level:1,lores:['elementalism'],memorised_spells:['lightning_blast'],arcane_paraphernalia:true};
+  if(!Object.hasOwn(member.characteristics,'reason'))member.characteristics.reason=3;
+  if(!Object.hasOwn(member.skills,'willpower'))member.skills.willpower=3;
+ }else if(previous){delete member.magic;delete member.characteristics.reason;delete member.skills.willpower;}
+ editRequest(['party',index],member);
+}
+function renderPlayerMagic(parent,member,index){
+ if(!member.magic)return;
+ const magic=member.magic,path=['party',index,'magic'];parent.append(node('h4','Магия (Magic)'));
+ const fields=node('div',undefined,'visual-fields');
+ const level=inputField(fields,'Уровень мага (Wizard Level)',[...path,'wizard_level'],magic.wizard_level);level.min='1';level.max='4';
+ inputField(fields,'Происхождение (Origin)',[...path,'origin'],magic.origin,{human:'Человек (Human)',dwarf:'Гном (Dwarf)',halfling:'Полурослик (Halfling)',high_elf:'Высший эльф (High Elf)',wood_elf:'Лесной эльф (Wood Elf)',ogre:'Огр (Ogre)'});
+ inputField(fields,'Магические принадлежности (Arcane Paraphernalia)',[...path,'arcane_paraphernalia'],magic.arcane_paraphernalia);parent.append(fields);
+ parent.append(node('p','Школа магии (Magic Lore): Стихийная магия (Elementalism). Разум (Reason) и Сила воли (Willpower) редактируются в характеристиках и навыках выше.','visual-note'));
+ const spells=node('div',undefined,'magic-spells');spells.setAttribute('role','group');spells.setAttribute('aria-label','Запомненные заклинания (Memorised Spells)');
+ for(const [id,title] of Object.entries({lightning_blast:'Удар молнии (Lightning Blast)',fire_breath:'Огненное дыхание (Fire Breath)'})){
+  const label=node('label'),box=node('input');box.type='checkbox';box.checked=(magic.memorised_spells||[]).includes(id);box.dataset.spell=id;box.dataset.member=String(index);
+  box.onchange=()=>{const selected=read().party[index].magic.memorised_spells;editRequest([...path,'memorised_spells'],box.checked?[...selected,id]:selected.filter(value=>value!==id));};label.append(box,node('span',title));spells.append(label);
+ }parent.append(spells);
+ parent.append(node('p','Каждый бросок сотворения (Casting) занимает действие. Броня (Armour) и щит (Shield) делают проверку мрачной (Grim); принадлежности не добавляют отдельный бонусный куб.','visual-note'));
+ if(['dwarf','halfling'].includes(magic.origin))parent.append(node('p','Талант Маг (Wizard) недоступен этому происхождению (Origin).','inventory-warning'));
+ if(!magic.arcane_paraphernalia)parent.append(node('p','Для расчёта нужны магические принадлежности (Arcane Paraphernalia); импровизированный комплект пока не поддержан.','inventory-warning'));
+ if(!(magic.memorised_spells||[]).length)parent.append(node('p','Выберите хотя бы одно запомненное заклинание (Memorised Spell).','inventory-warning'));
 }
 '''

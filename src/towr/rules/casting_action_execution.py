@@ -48,6 +48,16 @@ def execute_casting_attempt(
     decisions: TestDecisionProvider | None = None,
 ) -> CastingAttemptExecutionResult:
     """Use one reserved spell Improvise slot for a single Casting Test."""
+    _validate_casting_attempt(request)
+    casting = resolve_casting_test(
+        request.casting_request,
+        rng,
+        decisions=decisions,
+    )
+    return _complete_casting_attempt_after_test(request, casting)
+
+
+def _validate_casting_attempt(request: CastingAttemptExecutionRequest):
     turn = request.state.active_turn
     if turn is None:
         raise ValueError("an active combat turn is required")
@@ -73,11 +83,14 @@ def execute_casting_attempt(
     if declaration.improvise_approach_id != request.casting_request.lore_id:
         raise ValueError("spell Improvise approach must match the Casting Lore")
 
-    casting = resolve_casting_test(
-        request.casting_request,
-        rng,
-        decisions=decisions,
-    )
+    return turn, slot
+
+
+def _complete_casting_attempt_after_test(
+    request: CastingAttemptExecutionRequest, casting: CastingTestResult,
+) -> CastingAttemptExecutionResult:
+    """Bind one already-resolved Casting Test to its actual action slot."""
+    turn, slot = _validate_casting_attempt(request)
     if casting.request_id != request.casting_request.id:
         raise ValueError("Casting Test result does not belong to the request")
 

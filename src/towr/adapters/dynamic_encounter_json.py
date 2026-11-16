@@ -1,5 +1,5 @@
 """Current dynamic generation JSON1, without a supplied enemy reserve."""
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, replace
 from fractions import Fraction
 from functools import lru_cache
 from importlib.resources import files
@@ -24,6 +24,7 @@ from towr.application.encounter_inventory import (
 from towr.domain.generated_npc_models import GeneratedAbility, GeneratedWeapon
 from towr.domain.minion_defeat_models import NpcDefeatDisposition
 from towr.domain.pc_melee_models import PcMeleeFacts, PcMeleeWeapon
+from towr.domain.pc_magic_source_models import PcWizardProfile, PcSpellId
 
 
 class DynamicEncounterInputError(RangedInputError):
@@ -102,11 +103,22 @@ def parse_dynamic_encounter_request(text: str | bytes) -> DynamicEncounterComman
                     'Таланты пока не поддержаны симуляцией: ' + ', '.join(unsupported), path=path + '/talents')
             loadout = build_value(DynamicEncounterInputError, path + '/equipment', equipment.combat_loadout,
                 raw['characteristics']['strength'])
+            wizard = None
+            characteristics, skills = dict(raw['characteristics']), dict(raw['skills'])
+            if 'magic' in raw:
+                magic = raw['magic']
+                wizard = build_value(DynamicEncounterInputError, path + '/magic', PcWizardProfile,
+                    **dict(magic, reason=characteristics.pop('reason'), willpower=skills.pop('willpower'),
+                        lores=tuple(magic['lores']), memorised_spells=tuple(PcSpellId(value)
+                            for value in magic['memorised_spells'])))
+                wizard = replace(wizard, armour_worn=any(item.location is ItemLocation.WORN
+                    and item.kind in (ArmourItemKind.LIGHT, ArmourItemKind.HEAVY, ArmourItemKind.HELMET)
+                    for item in equipment.armour))
             character = build_value(DynamicEncounterInputError, f'/party/{index}', EncounterCharacter,
-                actor_id=raw['actor_id'], **raw['characteristics'], **raw['skills'],
+                actor_id=raw['actor_id'], **characteristics, **skills,
                 **loadout,
                 talents=tuple(EncounterTalent(t) for t in raw['talents']), fate=raw['resources']['fate'],
-                consumables=consumables)
+                consumables=consumables, wizard=wizard)
             party.append(character.participant(document['request_id'] + ':session', disposition))
         options = document.get('search_space')
         space = automatic_npc_search_space(tuple(party)) if options is None else build_value(
@@ -118,7 +130,9 @@ def parse_dynamic_encounter_request(text: str | bytes) -> DynamicEncounterComman
         search['master_seed'] = parse_seed(search['master_seed'], DynamicEncounterInputError, '/search/master_seed')
         request = build_value(DynamicEncounterInputError, '/', DynamicEncounterRequest,
             party=tuple(party), facts=PcMeleeFacts('arena', True, True, True, True,
-                True, True, True, True, True, False), day_id=document['request_id'] + ':day', space=space,
+                True, True, True, True, True, False,
+                daylight_confirmed=True if any(member.wizard is not None for member in party) else None),
+            day_id=document['request_id'] + ':day', space=space,
             minimum_npcs=document['npc_count']['minimum'], maximum_npcs=document['npc_count']['maximum'],
             target_win_rate=_target(document['targets']['win_rate'], '/targets/win_rate'),
             target_rounds=_target(document['targets']['started_rounds'], '/targets/started_rounds',
@@ -152,6 +166,8 @@ def candidate_document(candidate):
             simulation=dict(master_seed=str(source.master_seed), trials=source.trials), execution=dict(mode='sequential')))
     if candidate.summary.potion_use_counts is not None:
         document['potion_use_counts'] = [asdict(item) for item in candidate.summary.potion_use_counts]
+    if candidate.summary.magic_counts is not None:
+        document['magic_counts'] = [asdict(item) for item in candidate.summary.magic_counts]
     return document
 
 

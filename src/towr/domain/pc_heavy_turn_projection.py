@@ -46,7 +46,10 @@ def project_heavy_turn_end(state,proof,finish):
         return finish(round_state=expected_clock)
     member = state.participant(turn.actor_id)
     if member.injury.dead:
-        raise ValueError('dead PC cannot initiate another end phase')
+        if (state.source.participant(turn.actor_id).wizard is None or proof.critical is not None
+                or getattr(proof,'fate_decline',None) is not None):
+            raise ValueError('dead PC cannot initiate another action or Test window')
+        return finish(round_state=expected_clock)
     if not incapable:
         _decline(state,proof.fate_decline,turn.actor_id,proof.result.request_id,'action')
     injury = member.injury
@@ -76,7 +79,9 @@ def project_heavy_turn_end(state,proof,finish):
     effects = tuple(effect for effect in injury.active_wound_effects if effect not in expired)
     conditions = injury.conditions
     for effect in expired:
-        if not any(isinstance(other,WoundConditionEffect) and other.condition is effect.condition for other in effects):
+        from towr.domain.pc_magic_models import external_magic_conditions
+        if (not any(isinstance(other,WoundConditionEffect) and other.condition is effect.condition for other in effects)
+                and effect.condition not in external_magic_conditions(state,turn.actor_id)):
             conditions = conditions.without_condition(effect.condition)
     injury = replace(injury,active_wound_effects=effects,conditions=conditions)
     return finish(round_state=expected_clock,party=_party_update(state,turn.actor_id,injury=injury,fate=fate,

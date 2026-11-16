@@ -26,6 +26,10 @@
             "agility": {
               "type": "integer",
               "minimum": 1
+            },
+            "reason": {
+              "type": "integer",
+              "minimum": 1
             }
           },
           "required": [
@@ -55,6 +59,11 @@
               "maximum": 10
             },
             "endurance": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 10
+            },
+            "willpower": {
               "type": "integer",
               "minimum": 1,
               "maximum": 10
@@ -117,6 +126,9 @@
           "items": {
             "$ref": "#/$defs/consumable_item"
           }
+        },
+        "magic": {
+          "$ref": "#/$defs/magic"
         }
       },
       "required": [
@@ -128,7 +140,60 @@
         "resources",
         "consumables"
       ],
-      "additionalProperties": false
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "required": [
+              "magic"
+            ]
+          },
+          "then": {
+            "properties": {
+              "characteristics": {
+                "required": [
+                  "reason"
+                ]
+              },
+              "skills": {
+                "required": [
+                  "willpower"
+                ]
+              },
+              "talents": {
+                "contains": {
+                  "const": "wizard"
+                }
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "characteristics": {
+                "not": {
+                  "required": [
+                    "reason"
+                  ]
+                }
+              },
+              "skills": {
+                "not": {
+                  "required": [
+                    "willpower"
+                  ]
+                }
+              },
+              "talents": {
+                "not": {
+                  "contains": {
+                    "const": "wizard"
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
     },
     "search_space": {
       "type": "object",
@@ -370,6 +435,13 @@
           "items": {
             "$ref": "urn:towr:pc-melee:common:1#/$defs/potionUseCount"
           }
+        },
+        "magic_counts": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "urn:towr:pc-melee:common:1#/$defs/magicCount"
+          }
         }
       },
       "required": [
@@ -418,6 +490,44 @@
             "not": {
               "required": [
                 "potion_use_counts"
+              ]
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "replay": {
+                "properties": {
+                  "scenario": {
+                    "properties": {
+                      "party": {
+                        "contains": {
+                          "properties": {
+                            "wizard": {
+                              "type": "object"
+                            }
+                          },
+                          "required": [
+                            "wizard"
+                          ]
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "magic_counts"
+            ]
+          },
+          "else": {
+            "not": {
+              "required": [
+                "magic_counts"
               ]
             }
           }
@@ -613,6 +723,56 @@
           }
         }
       ]
+    },
+    "magic": {
+      "type": "object",
+      "properties": {
+        "origin": {
+          "enum": [
+            "human",
+            "dwarf",
+            "halfling",
+            "high_elf",
+            "wood_elf",
+            "ogre"
+          ]
+        },
+        "wizard_level": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 4
+        },
+        "lores": {
+          "type": "array",
+          "items": {
+            "const": "elementalism"
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "memorised_spells": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "lightning_blast",
+              "fire_breath"
+            ]
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "arcane_paraphernalia": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "origin",
+        "wizard_level",
+        "lores",
+        "memorised_spells",
+        "arcane_paraphernalia"
+      ],
+      "additionalProperties": false
     }
   }
 }

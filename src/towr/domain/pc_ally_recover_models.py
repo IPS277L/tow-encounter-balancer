@@ -105,4 +105,6 @@ def pc_after_standard_recover(state, request, result):
         used_hand=used_hand)
     return tuple(replace(member,injury=updated.get(member.actor_id,member.injury),
         weapon_hand=hand if member.actor_id==actor else member.weapon_hand,
-        shield=shield if member.actor_id==actor else member.shield) for member in state.party)
+        shield=shield if member.actor_id==actor else member.shield,
+        magic=result.resolution.magic_state if member.actor_id==actor and member.magic is not None else member.magic)
+        for member in state.party)

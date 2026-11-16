@@ -105,6 +105,8 @@ def build_pc_potion_recover(state: PcMeleeState) -> PcPotionRecoverProof:
         if member.actor_id == actor)
     if item.kind is ConsumableKind.HEALING:
         other_sources = frozenset((Condition.DRAINED,) if after.hit_condition_sources else ())
+        from towr.domain.pc_magic_models import external_magic_conditions
+        other_sources |= external_magic_conditions(state,actor)
         if after.net_condition_sources:
             other_sources |= frozenset((Condition.BURDENED,))
         injury = heal_potion_wound(after.injury, selection.wound_sequence, other_sources)

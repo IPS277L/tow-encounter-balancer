@@ -45,8 +45,13 @@ def _distribution(request: TestRequest) -> SuccessDistribution:
     dice, threshold = parameters[5:7]
     grim = any(item.quality is TestQuality.GRIM for item in request.quality_modifiers)
     glorious = any(item.quality is TestQuality.GLORIOUS for item in request.quality_modifiers)
+    locked = {lock.value for lock in request.reroll_locks}
     numerator = (threshold**2 if grim and not glorious else
         100-(10-threshold)**2 if glorious and not grim else threshold*10)
+    if grim and not glorious:
+        numerator += sum(value <= threshold for value in locked)*(10-threshold)
+    elif glorious and not grim:
+        numerator -= sum(value > threshold for value in locked)*threshold
     raw = _binomial(dice, numerator)
     delta = sum(item.amount for item in request.success_modifiers)
     if not delta:
@@ -89,6 +94,10 @@ def validate_automatic_melee_scenario(scenario: PcMeleeScenario) -> None:
             or enemy.definition.protection[0].skill not in (Skill.ATHLETICS, Skill.DEFENCE, Skill.MELEE)
             for enemy in scenario.enemies):
         raise ValueError('automatic melee tactics currently require Melee Minions with ordinary Protection')
+    if any(member.wizard is not None for member in scenario.party):
+        if scenario.facts.daylight_confirmed is not True or scenario.facts.can_leave_zone or any(not enemy.definition.source_rule_id.startswith('authored:')
+                for enemy in scenario.enemies):
+            raise ValueError('PC magic requires the closed numeric/generated Minion scene')
 
 
 def select_pc_tactic(state: PcMeleeState, actor_id: str | None = None) -> PcTacticalChoice:
@@ -231,8 +240,16 @@ def select_pc_tactic(state: PcMeleeState, actor_id: str | None = None) -> PcTact
         if actor in plans:
             return plans[actor]
         member = state.participant(actor)
-        needs_recover = _pc_recover_needed(member)
-        if needs_recover:
+        from towr.domain.pc_heavy_wound_models import usable_weapon_hand
+        from towr.domain.pc_backup_weapon_models import pc_preferred_weapon_hand
+        from towr.domain.pc_magic_models import magic_hand
+        casting_with_unusable_weapon = (state.source.participant(actor).wizard is not None
+            and magic_hand(state,actor) is not None and usable_weapon_hand(member) is None
+            and pc_preferred_weapon_hand(state,actor) is None)
+        needs_recover = _pc_recover_needed(member) and not casting_with_unusable_weapon
+        if casting_with_unusable_weapon:
+            choice = PcTacticalChoice(actor,CombatActionKind.RECOVER,actor,None,0.0,'weapon_grip_unavailable')
+        elif needs_recover:
             choice = PcTacticalChoice(actor, CombatActionKind.RECOVER, actor, None, 1.0, 'restore_own_combat_readiness')
         else:
             score, target = best_attack(actor)
@@ -313,6 +330,27 @@ def select_pc_tactic(state: PcMeleeState, actor_id: str | None = None) -> PcTact
                     value = sum(probability*max(0.0, before-incoming_risk(ally_id, successes))
                         for successes, probability in enumerate(_distribution(test(actor, skill))))
                 consider(CombatActionKind.HELP, ally_id, value, 'improve_exact_upcoming_test', policy)
+        wizard = state.source.participant(actor).wizard
+        if wizard is not None:
+            from towr.domain.pc_magic_models import magic_hand,spell_choice
+            if magic_hand(state,actor) is not None:
+                request = _pc_test(state,actor,pc_melee_action_id(state,actor)+':willpower',Skill.WILLPOWER)
+                from towr.rules.miscast_pool_resolution import rule_of_nine_reroll_lock
+                request = replace(request,reroll_locks=(*request.reroll_locks,rule_of_nine_reroll_lock()))
+                distribution = _distribution(request)
+                accumulated = member.magic.casting_successes
+                value = 0.0
+                for successes, probability in enumerate(distribution):
+                    if accumulated+successes >= 2:
+                        value += probability*spell_choice(state,actor,successes)[2]
+                    elif state.round_state.round_number < state.source.max_rounds:
+                        value += probability*0.6*sum(chance*spell_choice(state,actor,final)[2]
+                            for final,chance in enumerate(distribution) if accumulated+successes+final>=2)
+                value *= 1-min(0.4,member.magic.miscast_dice/(wizard.wizard_level+1)*0.2)
+                consider(CombatActionKind.IMPROVISE, actor, value, 'cast_best_available_elemental_spell')
+            if member.magic.casting_lore_id is None and member.magic.miscast_dice:
+                consider(CombatActionKind.RECOVER,actor,
+                    0.2+0.25*member.magic.miscast_dice/wizard.wizard_level,'dispose_residual_magic')
         plans[actor] = choice
         return choice
 

@@ -33,6 +33,11 @@ def resolve_casting_test(
         ),
     )
     test = resolve_test(guarded_test, rng, decisions=decisions)
+    return _complete_casting_test(request, test)
+
+
+def _complete_casting_test(request: CastingTestRequest, test) -> CastingTestResult:
+    """Complete a guarded Casting Test after its actual Fate window, no RNG."""
     latest_successes = test.successes
     state = replace(
         request.state,

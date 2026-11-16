@@ -6,6 +6,7 @@ from towr.simulation.pc_melee_models import (
     validate_near_miss_counts, PcGloriousSpendCount, validate_glorious_counts,
     PcHelpActionCount, validate_help_counts, PcAllyRecoverActionCount, validate_ally_recover_counts,
     validate_automatic_action_budget, PcPotionUseCount, validate_potion_use_counts,
+    PcMagicCount, validate_magic_counts,
     PcNpcExitCount, validate_npc_exit_counts, PcNpcHelpActionCount, validate_npc_help_counts,
     PcNpcExtraAttackCount, validate_npc_extra_attack_counts,
     PcNpcRecoverActionCount, validate_npc_recover_counts,
@@ -60,6 +61,7 @@ class PcMeleeSimulationSummary:
     npc_warped_form_counts: tuple[PcNpcWarpedFormCount, ...]
     aim: PcAimCounts | None = field(default=None, kw_only=True)
     potion_use_counts: tuple[PcPotionUseCount, ...] | None = field(default=None, kw_only=True)
+    magic_counts: tuple[PcMagicCount, ...] | None = field(default=None, kw_only=True)
 
     def __post_init__(self) -> None:
         if not isinstance(self.source_request, PcMeleeSimulationRequest):
@@ -147,9 +149,12 @@ class PcMeleeSimulationSummary:
             actions=self.total_action_count,started_rounds=self.total_started_round_count)
         validate_potion_use_counts(self.potion_use_counts,self.source_request.scenario,trials=self.trials,
             actions=self.total_action_count,started_rounds=self.total_started_round_count)
+        validate_magic_counts(self.magic_counts,self.source_request.scenario,trials=self.trials,
+            actions=self.total_action_count,started_rounds=self.total_started_round_count,
+            unsupported_trials=counts.unsupported_path)
         validate_automatic_action_budget(self.help_action_counts,self.ally_recover_action_counts,
             self.source_request.scenario,started_rounds=self.total_started_round_count,
-            potion_counts=self.potion_use_counts)
+            potion_counts=self.potion_use_counts,magic_counts=self.magic_counts)
         if type(self.npc_help_action_trial_count) is not int:
             raise TypeError('NPC Help trial count must be an integer')
         validate_npc_help_counts(self.npc_help_action_counts,self.source_request.scenario,trials=self.trials,
@@ -162,7 +167,7 @@ class PcMeleeSimulationSummary:
             actions=self.total_action_count,started_rounds=self.total_started_round_count,
             warped_form_counts=self.npc_warped_form_counts)
         if sum(item.count for item in (*self.help_action_counts,*self.ally_recover_action_counts,
-                *self.npc_help_action_counts,*self.npc_recover_action_counts,*(self.potion_use_counts or ())))+2*self.total_npc_extra_attack_count+(self.aim.total_action_count if self.aim is not None else 0)>self.total_action_count:
+                *self.npc_help_action_counts,*self.npc_recover_action_counts,*(self.potion_use_counts or ())))+2*self.total_npc_extra_attack_count+(self.aim.total_action_count if self.aim is not None else 0)+self.total_casting_action_count>self.total_action_count:
             raise ValueError('Help, ally Recover and primary/extra Attacks cannot consume the same action')
         validate_npc_exit_counts(self.npc_exit_counts,self.source_request.scenario,
             trials=self.trials,exit_trials=self.npc_exit_trial_count)
@@ -173,6 +178,22 @@ class PcMeleeSimulationSummary:
         if not max(0,counts.objective_achieved+self.npc_exit_trial_count-self.trials)<=self.objective_with_npc_exit_count<=min(
                 counts.objective_achieved,self.npc_exit_trial_count):
             raise ValueError('joint objective/exit count contradicts the marginal trial counts')
+
+    @property
+    def total_casting_action_count(self) -> int:
+        return sum(row.casting_actions for row in self.magic_counts or ())
+
+    @property
+    def total_spell_cast_count(self) -> int:
+        return sum(row.spell_casts for row in self.magic_counts or ())
+
+    @property
+    def total_miscast_count(self) -> int:
+        return sum(row.miscasts for row in self.magic_counts or ())
+
+    @property
+    def total_unsupported_miscast_count(self) -> int:
+        return sum(row.unsupported_miscasts for row in self.magic_counts or ())
 
     @property
     def total_potion_use_count(self) -> int:

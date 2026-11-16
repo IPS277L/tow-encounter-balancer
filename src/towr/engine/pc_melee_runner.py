@@ -2,6 +2,9 @@
 from __future__ import annotations
 
 from dataclasses import replace
+from towr.domain.pc_magic_models import (complete_pc_casting,build_pc_casting_request,guarded_casting_test,
+    expected_magic_interruption,pc_magic_unsupported,PcMiscastRollProof,PcMagicCleanupProof,build_magic_effect)
+from towr.rules.miscast_resolution import resolve_miscast_roll
 from towr.domain.pc_potion_models import selected_pc_potion, build_pc_potion_recover
 
 from towr.domain.pc_melee_models import PcWeaponHand
@@ -148,7 +151,8 @@ def run_pc_melee_scenario(scenario, rng: RandomSource) -> PcMeleeScenarioResult:
         action_id = pc_melee_action_id(state,actor)
         is_pc = actor in scenario.pc_activation_order
         critical = None
-        if is_pc and state.participant(actor).injury.conditions.has(Condition.CRITICALLY_INJURED):
+        dead = is_pc and state.participant(actor).injury.dead
+        if is_pc and not dead and state.participant(actor).injury.conditions.has(Condition.CRITICALLY_INJURED):
             test_request = _pc_test(state,actor,action_id+':critical:endurance',Skill.ENDURANCE)
             test,decline,glorious,_ = _resolve_pc_test(state,actor,Skill.ENDURANCE,test_request,rng,decisions)
             request = CriticalInjuryTestRequest(action_id+':critical',actor,pc_after_test(state,actor),test_request.id)
@@ -160,11 +164,28 @@ def run_pc_melee_scenario(scenario, rng: RandomSource) -> PcMeleeScenarioResult:
                 ('RULE-COMBAT-001:rounds-sides-turns','RULE-HEALTH-008:defenceless-turn'))
             consume(PcIncapacitatedTurnEndProof(result,critical))
         else:
-            decline = _decline(state,actor,action_id+':end','action') if is_pc else None
+            decline = _decline(state,actor,action_id+':end','action') if is_pc and not dead else None
             result = end_combat_turn(CombatTurnEndRequest(action_id+':end',combat,actor))
             consume(PcTurnEndProof(result,decline,critical))
 
     while True:
+        magic_stop = pc_magic_unsupported(state)
+        if magic_stop is not None:
+            return PcMeleeScenarioResult(scenario,tuple(steps),PcMeleeOutcome.UNSUPPORTED_PATH,magic_stop)
+        interruption = expected_magic_interruption(state)
+        if interruption is not None:
+            consume(interruption)
+            continue
+        if state.magic_pending is not None and not state.pending and state.pending_wound is None:
+            phase = state.magic_pending
+            if phase.tasks:
+                consume(build_magic_effect(state,rng))
+            elif phase.miscast_request is not None:
+                consume(PcMiscastRollProof(phase.miscast_request,
+                    resolve_miscast_roll(phase.miscast_request,state.participant(phase.caster_id).magic,rng)))
+            else:
+                consume(PcMagicCleanupProof(phase.source_id))
+            continue
         consumption = expected_pc_aim_consumption(state)
         if consumption is not None:
             consume(consumption)
@@ -284,6 +305,12 @@ def run_pc_melee_scenario(scenario, rng: RandomSource) -> PcMeleeScenarioResult:
             else:
                 finish_turn()
             continue
+        turn = state.round_state.active_turn
+        if (turn is not None and turn.actor_id in scenario.pc_activation_order
+                and scenario.participant(turn.actor_id).wizard is not None
+                and state.participant(turn.actor_id).injury.dead):
+            finish_turn()
+            continue
         if not state.live_party:
             return PcMeleeScenarioResult(scenario,tuple(steps),PcMeleeOutcome.PARTY_DEFEATED)
         if not state.live_enemies:
@@ -326,11 +353,13 @@ def run_pc_melee_scenario(scenario, rng: RandomSource) -> PcMeleeScenarioResult:
                 if shield_release is not None:
                     consume(shield_release)
                     continue
-                draw_hand = pc_backup_draw_hand(state,actor) if selected_pc_potion(state) is None else None
+                casting = (scenario.participant(actor).wizard is not None
+                    and pc_melee_selected_action(state) is CombatActionKind.IMPROVISE)
+                draw_hand = pc_backup_draw_hand(state,actor) if selected_pc_potion(state) is None and not casting else None
                 if draw_hand is not None:
                     consume(PcBackupWeaponDrawProof(actor,member.weapon_hand,draw_hand))
                     continue
-                hand = pc_preferred_weapon_hand(state,actor) if selected_pc_potion(state) is None else None
+                hand = pc_preferred_weapon_hand(state,actor) if selected_pc_potion(state) is None and not casting else None
                 if member.weapon_hand is not None and hand is not None and hand is not member.weapon_hand:
                     consume(PcHandSwapProof(member.weapon_hand,hand))
                     continue
@@ -338,7 +367,13 @@ def run_pc_melee_scenario(scenario, rng: RandomSource) -> PcMeleeScenarioResult:
                 pc_melee_action_declaration(state),ActionSlotGrant.STANDARD)))
             continue
         if not combat.active_turn.action_slots[-1].executed:
-            if pc_melee_selected_action(state) is CombatActionKind.AIM:
+            if (actor in scenario.pc_activation_order and scenario.participant(actor).wizard is not None
+                    and pc_melee_selected_action(state) is CombatActionKind.IMPROVISE):
+                request = build_pc_casting_request(state)
+                test,decline,glorious,_ = _resolve_pc_test(state,actor,Skill.WILLPOWER,
+                    guarded_casting_test(request.casting_request),rng,decisions)
+                consume(complete_pc_casting(state,test,decline,glorious))
+            elif pc_melee_selected_action(state) is CombatActionKind.AIM:
                 request = build_pc_aim(state)
                 consume(PcAimProof(request,execute_aim_action(request,rng,decisions=decisions),
                     _decline(state,actor,request.awareness_test.id,'test')))

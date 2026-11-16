@@ -985,6 +985,9 @@
         },
         "can_leave_zone": {
           "type": "boolean"
+        },
+        "daylight_confirmed": {
+          "const": true
         }
       },
       "required": [
@@ -1624,6 +1627,33 @@
               "blunderbuss_nearby": false
             }
           }
+        },
+        {
+          "if": {
+            "properties": {
+              "party": {
+                "contains": {
+                  "properties": {
+                    "wizard": {
+                      "type": "object"
+                    }
+                  },
+                  "required": [
+                    "wizard"
+                  ]
+                }
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "facts": {
+                "required": [
+                  "daylight_confirmed"
+                ]
+              }
+            }
+          }
         }
       ]
     },
@@ -1905,6 +1935,11 @@
           "items": {
             "$ref": "#/$defs/potionUseCount"
           }
+        },
+        "magic_counts": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"$ref": "#/$defs/magicCount"}
         },
         "aim": {
           "$ref": "#/$defs/aimSummary"
@@ -2223,6 +2258,9 @@
         },
         "aim_second_action_policy": {
           "$ref": "#/$defs/aimSecondActionPolicy"
+        },
+        "wizard": {
+          "$ref": "#/$defs/wizard_profile"
         }
       },
       "required": [
@@ -2641,7 +2679,8 @@
               "athletics",
               "endurance",
               "shooting",
-              "dexterity"
+              "dexterity",
+              "willpower"
             ]
           },
           "minItems": 1,
@@ -3257,6 +3296,43 @@
       ],
       "additionalProperties": false
     },
+    "magicCount": {
+      "type": "object",
+      "properties": {
+        "actor_id": {"$ref": "#/$defs/identifier"},
+        "casting_actions": {"type": "integer", "minimum": 0},
+        "spell_casts": {"type": "integer", "minimum": 0},
+        "miscasts": {"type": "integer", "minimum": 0},
+        "unsupported_miscasts": {"type": "integer", "minimum": 0}
+      },
+      "required": ["actor_id", "casting_actions", "spell_casts", "miscasts", "unsupported_miscasts"],
+      "additionalProperties": false
+    },
+    "magicSummaryPresence": {
+      "if": {
+        "properties": {
+          "request": {
+            "properties": {
+              "scenario": {
+                "properties": {
+                  "party": {
+                    "contains": {
+                      "properties": {"wizard": {"type": "object"}},
+                      "required": ["wizard"]
+                    }
+                  }
+                },
+                "required": ["party"]
+              }
+            },
+            "required": ["scenario"]
+          }
+        },
+        "required": ["request"]
+      },
+      "then": {"properties": {"summary": {"required": ["magic_counts"]}}},
+      "else": {"properties": {"summary": {"not": {"required": ["magic_counts"]}}}}
+    },
     "potionUseCount": {
       "type": "object",
       "properties": {
@@ -3342,6 +3418,68 @@
         "total_action_count",
         "second_action_spend_counts",
         "total_second_action_spend_count"
+      ],
+      "additionalProperties": false
+    },
+    "wizard_profile": {
+      "type": "object",
+      "properties": {
+        "armour_worn": {"type": "boolean"},
+        "origin": {
+          "enum": [
+            "human",
+            "dwarf",
+            "halfling",
+            "high_elf",
+            "wood_elf",
+            "ogre"
+          ]
+        },
+        "wizard_level": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 4
+        },
+        "lores": {
+          "type": "array",
+          "items": {
+            "const": "elementalism"
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "memorised_spells": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "lightning_blast",
+              "fire_breath"
+            ]
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "arcane_paraphernalia": {
+          "const": true
+        },
+        "reason": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "willpower": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 10
+        }
+      },
+      "required": [
+        "origin",
+        "wizard_level",
+        "lores",
+        "memorised_spells",
+        "arcane_paraphernalia",
+        "reason",
+        "willpower"
       ],
       "additionalProperties": false
     }

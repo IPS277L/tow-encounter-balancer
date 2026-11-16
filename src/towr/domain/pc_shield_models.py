@@ -122,6 +122,11 @@ def expected_pc_shield_release(state: PcMeleeState) -> PcShieldReleaseProof | No
     from towr.domain.pc_potion_models import selected_pc_potion
     if member.potions and selected_pc_potion(state) is not None:
         return None
+    if state.source.participant(actor).wizard is not None:
+        from towr.domain.pc_melee_result_models import pc_melee_selected_action
+        from towr.domain.turn_models import CombatActionKind
+        if pc_melee_selected_action(state) is CombatActionKind.IMPROVISE:
+            return None
     from towr.domain.pc_backup_weapon_models import pc_preferred_weapon_hand, pc_backup_candidate_hand
     from towr.domain.pc_melee_result_models import pc_melee_action_id, _pc_recover_needed
     needs_weapon_hand = (pc_preferred_weapon_hand(state,actor) is member.shield.hand

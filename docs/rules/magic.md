@@ -1,6 +1,14 @@
 # Магия
 
-Основной источник: `BOOK-PLAYER-GUIDE`, страницы 78, 152–174. Статус: полный casting/action pipeline остаётся `draft`; первые детерминированные effect/preflight-фазы реализованы в K1.
+Основной источник: `BOOK-PLAYER-GUIDE`, страницы 78, 152–174. Статус: K1 реализует Casting/action/effect reducers; законченные исполнения ограничены выбранными M8 и PC Elementalism сценами. Это не полный симулятор всей магии книги.
+
+## Исполнимый PC-путь в динамических боях
+
+По [ADR-0120](../decisions/ADR-0120-pc-elemental-magic-in-dynamic-encounters.md) подключены Wizard1–4/Elementalism, запомненные Lightning Blast и Fire Breath (PG1.4 III81/87, VI135, VIII155–159/165). Casting использует настоящие действия, Exacting Willpower, Rule of Nine, Fate, last-roll Potency и Miscast preparation/roll/cleanup. Armour/Shield дают Grim, Arcane Paraphernalia не даёт отдельного бонусного куба. Одна пригодная рука без отдельного освобождения — подтверждённая пользователем scenario policy, не напечатанное требование книги.
+
+В all-Close дневной сцене против numeric/generated Minions исполняются строки Miscast1–4/7–16/19–22/25–32/35–36/39+; не влияющие на текущий бой проявления сохраняются как typed notes. Arcane Spill использует малое проявление Elementalism без дополнительного урона; Give Ground route отсутствует явно. Строки5–6/17–18/23–24/33–34/37–38 сохраняют фактические dice/entry и останавливаются перед неподдержанным продолжением. Общие spatial/GM эффекты не объявляются no-op. [Вход и ограничения](../examples/dynamic/README.md#магия-персонажей), [исполнение/projection](../../src/towr/domain/pc_magic_models.py), [детерминированные проверки](../../tests/unit/test_pc_magic_execution.py).
+
+Стандартный Recover сначала уменьшает настоящий Miscast Pool, затем при активном Casting применяется одно skipped contribution. Победный spell не отменяет обязательный Miscast. Магические причины Conditions независимы от ран и сохраняются при лечении/истечении чужой причины.
 
 ## RULE-MAGIC-006 — публичная магия и Magical Panic
 

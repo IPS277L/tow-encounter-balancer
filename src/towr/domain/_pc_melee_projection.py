@@ -1,5 +1,7 @@
 """Pure projections of the explicit M9 journal variants; no RNG or execution."""
 from dataclasses import replace
+from towr.domain.pc_magic_models import (MAGIC_PROOFS,project_pc_magic_step,consume_magic_modifiers,
+    expected_magic_interruption)
 from towr.domain.pc_potion_models import PcPotionRecoverProof, build_pc_potion_recover, selected_pc_potion
 from towr.domain.pc_melee_models import PcTwoHandedGrip
 
@@ -222,6 +224,11 @@ def project_pc_step(state, proof):
     validate_pc_melee_state_shape(state)
     if pc_melee_unsupported(state) is not None:
         raise ValueError('unsupported PC consequence cannot be silently continued')
+    if type(proof) in MAGIC_PROOFS:
+        return project_pc_magic_step(state,proof)
+    if not state.pending and state.pending_wound is None and (
+            state.magic_pending is not None or expected_magic_interruption(state) is not None):
+        raise ValueError('mandatory magic or skipped Casting must precede ordinary continuation')
     if type(proof) is PcAimConsumptionProof:
         return project_pc_aim_step(state,proof)
     if expected_pc_aim_consumption(state) is not None:
@@ -292,6 +299,7 @@ def project_pc_step(state, proof):
         raise ValueError('Broken NPC cannot skip its supported incidental exit')
 
     def finish(**updates):
+        updates.setdefault('magic_modifiers',consume_magic_modifiers(state.magic_modifiers,proof))
         pending = updates.get('pending', state.pending)
         pending_wound = updates.get('pending_wound', state.pending_wound)
         if not pending and pending_wound is None:
@@ -679,7 +687,9 @@ def project_pc_step(state, proof):
             for e in injury.active_wound_effects if isinstance(e,WoundConditionEffect)
             and e.duration is WoundEffectDuration.END_OF_NEXT_TURN and e not in member.injury.active_wound_effects)
         updated_combat = combat
-        if injury.dead and pc_actor not in (*combat.completed_turn_entity_ids,*combat.excluded_turn_entity_ids):
+        active_wizard = (combat.active_turn is not None and combat.active_turn.actor_id == pc_actor
+            and scenario.participant(pc_actor).wizard is not None)
+        if injury.dead and not active_wizard and pc_actor not in (*combat.completed_turn_entity_ids,*combat.excluded_turn_entity_ids):
             updated_combat = replace(combat,excluded_turn_entity_ids=(*combat.excluded_turn_entity_ids,pc_actor))
         return finish(round_state=updated_combat,
             party=_party_update(state,pc_actor,injury=injury,daily_wounds=proof.completion.daily_wounds,

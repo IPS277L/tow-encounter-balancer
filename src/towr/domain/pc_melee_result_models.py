@@ -5,6 +5,9 @@ from towr.domain.potion_models import ConsumableItem, ConsumableKind
 from towr.domain.potion_recover_models import HealingPotionRecoverSource
 from towr.domain.pc_potion_models import (PcPotionRecoverProof, ENHANCEMENT_CHARACTERISTICS,
     pc_effective_definition, selected_pc_potion)
+from towr.domain.pc_magic_models import (PcMagicPending,PcMagicModifier,PcMagicTask,
+    PcCastingProof,PcMagicInterruptionProof,PcMiscastRollProof,PcMagicEffectProof,PcMagicCleanupProof,
+    PcMagicUnsupported,pc_magic_unsupported,expected_magic_interruption,magic_test_modifiers)
 
 from dataclasses import dataclass, field, fields, is_dataclass, replace
 from enum import Enum
@@ -184,8 +187,13 @@ class PcMeleeParticipantState:
     ranged: FreeReloadWeaponState | ReloadableWeaponState | None = field(default=None,kw_only=True)
     potions: tuple[ConsumableItem, ...] = field(default=(), kw_only=True)
     enhancements: tuple[str, ...] = field(default=(), kw_only=True)
+    magic: WizardMagicState | None = field(default=None, kw_only=True)
 
     def __post_init__(self):
+        if self.magic is not None:
+            if type(self.magic) is not WizardMagicState:
+                raise TypeError('PC magic must retain its typed runtime')
+            replace(self.magic)
         if type(self.potions) is not tuple or any(type(item) is not ConsumableItem for item in self.potions):
             raise TypeError('PC potion state requires typed supplies')
         for item in self.potions:
@@ -276,6 +284,9 @@ class PcMeleeState:
     pending_wound: CharacterWoundLifecycleRollResult | None = None
     pending_actor_id: str | None = None
     history: tuple[PcMeleeProof, ...] = field(default=(), repr=False)
+    magic_pending: PcMagicPending | None = field(default=None,kw_only=True)
+    magic_modifiers: tuple[PcMagicModifier, ...] = field(default=(),kw_only=True)
+    magic_notes: tuple[PcMagicTask, ...] = field(default=(),kw_only=True)
     npc_distractions: tuple[PcNpcDistractionSource | PcNpcGrudgeDistractionSource | PcNpcWaveDistractionSource, ...] = ()
     npc_pistols: tuple[PcNpcPistolState, ...] = field(default=(),kw_only=True)
     approached_npc_ids: tuple[str, ...] = field(default=(),kw_only=True)
@@ -283,6 +294,17 @@ class PcMeleeState:
     def __post_init__(self):
         if not isinstance(self.source, PcMeleeScenario) or not isinstance(self.round_state, CombatRoundState):
             raise TypeError('PC owner requires source scenario and combat clock')
+        if self.magic_pending is not None:
+            if type(self.magic_pending) is not PcMagicPending:
+                raise TypeError('PC pending magic must be typed')
+            replace(self.magic_pending)
+            if self.source.participant(self.magic_pending.caster_id).wizard is None:
+                raise ValueError('pending magic must belong to an actual source Wizard')
+        for bank,cls in ((self.magic_modifiers,PcMagicModifier),(self.magic_notes,PcMagicTask)):
+            if type(bank) is not tuple or any(type(value) is not cls for value in bank):
+                raise TypeError('PC magic banks require exact ordered tuples')
+            for value in bank:
+                replace(value)
         for name in ('party', 'enemies', 'pending', 'history'):
             if not isinstance(getattr(self, name), (tuple, list)):
                 raise TypeError('PC owner collections must be ordered')
@@ -310,6 +332,8 @@ class PcMeleeState:
             replace(member)
             if (member.shield is None)!=(source.shield is None):
                 raise ValueError('PC shield runtime must preserve its source loadout membership')
+            if (member.magic is None)!=(source.wizard is None):
+                raise ValueError('PC magic runtime must retain its Wizard source membership')
             if (member.ranged is None)!=(source.pc.ranged is None):
                 raise ValueError('Ranged runtime must retain its source membership')
             if member.ranged is not None and member.ranged.weapon_id.value != source.pc.weapon.value:
@@ -331,7 +355,7 @@ class PcMeleeState:
                 raise ValueError('held weapon grip must preserve its one/two-handed source')
             expected_fate = source.fate
             for proof in self.history:
-                glorious = (proof.glorious if isinstance(proof,(PcAttackProof,PcEnduranceProof,PcHelpProof,PcRangedReloadProof)) else
+                glorious = (proof.glorious if isinstance(proof,(PcAttackProof,PcEnduranceProof,PcHelpProof,PcRangedReloadProof,PcCastingProof)) else
                     proof.critical.glorious if isinstance(proof,(PcTurnEndProof,PcIncapacitatedTurnEndProof))
                     and proof.critical is not None else None)
                 if glorious is not None and glorious.previous_state.actor_id == member.actor_id:
@@ -420,7 +444,8 @@ def initial_pc_melee_state(source: PcMeleeScenario) -> PcMeleeState:
         *(CombatTurnParticipant(actor, CombatSide.OPPOSITION) for actor in source.enemy_activation_order))
     party = tuple(PcMeleeParticipantState(member.actor_id, CharacterInjuryState(), member.initial_weapon_hand,
         member.fate, DailyWoundState(source.day_id, member.actor_id),shield=initial_pc_shield(member.shield),
-        ranged=initial_pc_ranged(member),potions=member.consumables) for member in source.party)
+        ranged=initial_pc_ranged(member),potions=member.consumables,
+        magic=WizardMagicState() if member.wizard is not None else None) for member in source.party)
     return PcMeleeState(source, CombatRoundState(1, participants), party, source.enemies,
         npc_pistols=initial_pc_npc_pistols(source))
 
@@ -559,7 +584,9 @@ PcMeleeProof = (
     | PcWarpedFormActivationProof | PcWarpedFormTargetProof | PcWarpedFormProfileProof
     | PcWarpedFormMinionDefeatProof | PcWarpedFormEndProof
     | PcEnduranceProof | PcHandDropProof | PcAttackerStaggerProof | PcProfileWoundProof
-    | PcRecoverProof | PcPotionRecoverProof | PcTurnEndProof | PcIncapacitatedTurnEndProof | PcBodyConsequenceProof | PcMinionStaggerDefeatProof | PcNpcHelpProof
+    | PcRecoverProof | PcPotionRecoverProof | PcCastingProof | PcMagicInterruptionProof | PcMiscastRollProof
+    | PcMagicEffectProof | PcMagicCleanupProof
+    | PcTurnEndProof | PcIncapacitatedTurnEndProof | PcBodyConsequenceProof | PcMinionStaggerDefeatProof | PcNpcHelpProof
     | PcWoundChoiceProof | PcHandSwapProof | PcBackupWeaponDrawProof | PcHelpProof | PcNpcExitProof | CombatRoundAdvanceResult
     | PcNpcDistractionExpiredProof
     | PcAimProof | PcAimSecondActionProof | PcAimConsumptionProof
@@ -591,7 +618,7 @@ class PcMeleeScenarioResult:
         if not isinstance(self.outcome, PcMeleeOutcome) or not isinstance(self.steps, (tuple, list)):
             raise TypeError('PC result needs typed outcome and ordered steps')
         if self.unsupported is not None:
-            if not isinstance(self.unsupported,(PcMeleeUnsupported,PcNpcBrokenTurnUnsupported,PcNpcBrokenWaveTurnUnsupported,PcRangedCloseUnsupported)):
+            if not isinstance(self.unsupported,(PcMeleeUnsupported,PcNpcBrokenTurnUnsupported,PcNpcBrokenWaveTurnUnsupported,PcRangedCloseUnsupported,PcMagicUnsupported)):
                 raise TypeError('PC unsupported result must be typed')
             replace(self.unsupported)
         steps = tuple(self.steps)
@@ -612,6 +639,8 @@ class PcMeleeScenarioResult:
         if not steps:
             raise ValueError('PC encounter cannot finish without an executed action')
         actual_stop = pc_melee_unsupported(current)
+        if actual_stop is None and (current.magic_pending is not None or expected_magic_interruption(current) is not None):
+            raise ValueError('terminal result skipped mandatory magic or Casting interruption')
         if actual_stop is None and (current_warped_form(current) is not None
                 or expected_pc_warped_form_activation(current) is not None):
             raise ValueError('terminal result skipped its Warped Form end phase')
@@ -664,7 +693,7 @@ class PcMeleeScenarioResult:
 
     @property
     def executed_actions(self) -> int:
-        return sum(isinstance(step.proof, (PcAimProof, PcAttackProof, PcRecoverProof, PcPotionRecoverProof, PcHelpProof, PcNpcHelpProof, PcNpcRecoverProof, PcRangedReloadProof, PcNpcPistolReloadProof)) for step in self.steps)
+        return sum(isinstance(step.proof, (PcAimProof, PcAttackProof, PcCastingProof, PcRecoverProof, PcPotionRecoverProof, PcHelpProof, PcNpcHelpProof, PcNpcRecoverProof, PcRangedReloadProof, PcNpcPistolReloadProof)) for step in self.steps)
 
     @property
     def started_rounds(self) -> int:
@@ -701,6 +730,10 @@ def _pc_wound_unsupported(state: PcMeleeState) -> PcMeleeUnsupported | None:
                 continue
             if source.backup_weapon_policy is not None and len(usable_hands(member)) == 1:
                 continue
+            if source.wizard is not None:
+                from towr.domain.pc_magic_models import magic_hand
+                if magic_hand(state,member.actor_id) is not None:
+                    continue  # A one-hand Casting action does not need its primary weapon grip.
             turn = state.round_state.active_turn
             if (turn is not None and turn.actor_id == member.actor_id
                     and turn.action_slots and all(slot.executed for slot in turn.action_slots)
@@ -745,7 +778,15 @@ def _pc_wound_unsupported(state: PcMeleeState) -> PcMeleeUnsupported | None:
 
 
 def pc_melee_unsupported(state: PcMeleeState) -> PcMeleeUnsupported | PcNpcBrokenTurnUnsupported | PcNpcBrokenWaveTurnUnsupported | PcRangedCloseUnsupported | None:
-    return _pc_wound_unsupported(state) or pc_npc_broken_turn_unsupported(state) or pc_ranged_unsupported(state)
+    magic_stop = pc_magic_unsupported(state)
+    wound_stop = _pc_wound_unsupported(state)
+    if magic_stop is not None:
+        return magic_stop
+    if wound_stop is not None and wound_stop.reason == 'unavailable_anatomical_target':
+        return wound_stop
+    if state.magic_pending is not None or expected_magic_interruption(state) is not None:
+        return None
+    return wound_stop or pc_npc_broken_turn_unsupported(state) or pc_ranged_unsupported(state)
 
 
 def pc_melee_action_id(state: PcMeleeState, actor_id: str) -> str:
@@ -791,6 +832,11 @@ def pc_melee_action_declaration(state):
     actor = state.round_state.active_turn.actor_id
     kind = pc_melee_selected_action(state)
     if kind is CombatActionKind.IMPROVISE:
+        if actor in state.source.pc_activation_order and state.source.participant(actor).wizard is not None:
+            from towr.domain.turn_models import ImproviseKind
+            from towr.domain.pc_magic_source_models import ELEMENTALISM_LORE_ID
+            return CombatActionDeclaration(kind,improvise_kind=ImproviseKind.SPELL,
+                improvise_approach_id=ELEMENTALISM_LORE_ID)
         return (ranged_reload_declaration(state,actor) if actor in state.source.pc_activation_order
             else npc_pistol_reload_declaration(state,actor))
     return CombatActionDeclaration(kind)
@@ -819,7 +865,12 @@ def _pc_test(state: PcMeleeState, actor_id: str, test_id: str, skill: Skill,
              dice_modifiers: tuple[DiceModifier, ...] = ()) -> TestRequest:
     member = state.participant(actor_id)
     pc = pc_effective_definition(state, actor_id)
-    if skill in (Skill.SHOOTING,Skill.DEXTERITY,Skill.AWARENESS):
+    if skill is Skill.WILLPOWER:
+        wizard = state.source.participant(actor_id).wizard
+        if wizard is None:
+            raise ValueError('Willpower Casting requires its explicit Wizard facts')
+        profile = wizard.willpower_profile
+    elif skill in (Skill.SHOOTING,Skill.DEXTERITY,Skill.AWARENESS):
         if pc.ranged is None:
             raise ValueError('this PC has no authored Shooting/Dexterity profile')
         profile = (pc.ranged.shooting_profile if skill is Skill.SHOOTING else
@@ -830,12 +881,17 @@ def _pc_test(state: PcMeleeState, actor_id: str, test_id: str, skill: Skill,
     drained = member.injury.conditions.has(Condition.DRAINED)
     weapon_modifiers = (pc_weapon_test_modifiers(pc_active_weapon(state,actor_id),skill,member.injury.conditions)
         if usable_weapon_hand(member) is not None else ())
-    modifiers = (*dice_modifiers,*weapon_modifiers)
+    magic_dice,magic_qualities = magic_test_modifiers(state,actor_id,skill)
+    modifiers = (*dice_modifiers,*weapon_modifiers,*magic_dice)
     if drained:
         modifiers = tuple(m for m in modifiers if m.amount <= 0)
-    qualities = []
-    if skill is not Skill.ENDURANCE and member.injury.conditions.has(Condition.BLINDED):
+    qualities = list(magic_qualities)
+    if skill not in (Skill.ENDURANCE,Skill.WILLPOWER) and member.injury.conditions.has(Condition.BLINDED):
         qualities.append(QualityModifier('RULE-HEALTH-008:blinded', TestQuality.GRIM))
+    if skill is Skill.WILLPOWER:
+        wizard = state.source.participant(actor_id).wizard
+        if wizard.armour_worn or pc.armour_bonus>0 or pc_has_working_shield(member):
+            qualities.append(QualityModifier('RULE-MAGIC-004:armoured-casting',TestQuality.GRIM))
     qualities.extend(QualityModifier(CRUSHED_RIB_TEST_RULE_ID, TestQuality.GRIM)
         for e in member.injury.active_wound_effects
         if isinstance(e, WoundRestrictionEffect) and e.restriction is WoundRestriction.NEXT_TEST_IS_GRIM)
@@ -940,7 +996,7 @@ def build_pc_melee_attack(state: PcMeleeState) -> tuple[AttackActionExecutionReq
         if target_snapshot.state.injury.conditions.has(Condition.DRAINED):
             protection_modifiers = [modifier for modifier in protection_modifiers if modifier.amount <= 0]
         defender = TestRequest(action_id + ':protection', protection_profile.test_profile,
-            tuple(protection_modifiers))
+            (*protection_modifiers,*magic_test_modifiers(state,target,skill)[0]))
         damage, resilience = pc_weapon_damage(weapon, pc.strength), target_snapshot.state.current_resilience
         damage_modifiers = pc_weapon_damage_modifiers(weapon, resilience)
         attacker_conditions = member.injury.conditions
@@ -968,7 +1024,8 @@ def build_pc_melee_attack(state: PcMeleeState) -> tuple[AttackActionExecutionReq
         modifiers.extend(pc_npc_distraction_test_modifiers(state,actor,target))
         if enemy.state.injury.conditions.has(Condition.DRAINED):
             modifiers = [m for m in modifiers if m.amount <= 0]
-        attacker = TestRequest(action_id + ':attack', profile.test_profile, tuple(modifiers),
+        attacker = TestRequest(action_id + ':attack', profile.test_profile,
+            (*modifiers,*magic_test_modifiers(state,actor,profile.skill)[0]),
             pc_bestigor_attack_quality(state, actor))
         from towr.domain.pc_npc_help_models import build_pc_npc_attack_help
         if profile.skill is not Skill.THROWING:
@@ -1036,7 +1093,7 @@ def build_pc_melee_recover(state: PcMeleeState) -> RecoverActionExecutionRequest
     action_id = pc_melee_action_id(state, actor)
     from towr.domain.pc_ally_recover_models import pc_recover_targets
     staggered_target,prone_target = pc_recover_targets(state)
-    choice = RecoverStandardChoice(WizardMagicState(),
+    choice = RecoverStandardChoice(member.magic if member.magic is not None else WizardMagicState(),
         staggered_target=staggered_target,
         prone_target=prone_target,
         object_interaction=(RecoverObjectInteractionFollowUp(action_id + ':pickup',actor,
@@ -1161,7 +1218,8 @@ def _enemy_update(state: PcMeleeState, actor_id: str, injury: ProfileInjuryState
 
 
 def _ready(state: PcMeleeState):
-    if (state.pending or state.pending_wound is not None or expected_pc_aim_consumption(state) is not None
+    if (state.pending or state.pending_wound is not None or state.magic_pending is not None
+            or expected_magic_interruption(state) is not None or expected_pc_aim_consumption(state) is not None
             or pc_melee_unsupported(state) is not None
             or current_warped_form(state) is not None or expected_pc_warped_form_activation(state) is not None):
         raise ValueError('mandatory PC continuation blocks the next ordinary phase')

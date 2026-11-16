@@ -1,0 +1,88 @@
+{
+  "schema_version": "1",
+  "kind": "dynamic_encounter_search",
+  "request_id": "dynamic:elemental-mage-example",
+  "ruleset": "towr-pg1.4-gmg1.1",
+  "party": [
+    {
+      "actor_id": "pc",
+      "characteristics": {
+        "weapon_skill": 1,
+        "strength": 3,
+        "toughness": 3,
+        "agility": 3,
+        "reason": 3
+      },
+      "skills": {
+        "melee": 1,
+        "defence": 5,
+        "athletics": 4,
+        "endurance": 4,
+        "willpower": 6
+      },
+      "equipment": {
+        "weapons": [
+          {
+            "id": "weapon:1",
+            "weapon": "sword",
+            "location": "left_hand"
+          }
+        ],
+        "armour": []
+      },
+      "talents": [
+        "wizard"
+      ],
+      "resources": {
+        "fate": 0
+      },
+      "consumables": [],
+      "magic": {
+        "origin": "human",
+        "wizard_level": 4,
+        "lores": [
+          "elementalism"
+        ],
+        "memorised_spells": [
+          "lightning_blast",
+          "fire_breath"
+        ],
+        "arcane_paraphernalia": true
+      }
+    }
+  ],
+  "search_space": null,
+  "npc_count": {
+    "minimum": 2,
+    "maximum": 3
+  },
+  "targets": {
+    "win_rate": {
+      "numerator": 3,
+      "denominator": 5
+    },
+    "started_rounds": {
+      "numerator": 3,
+      "denominator": 1
+    }
+  },
+  "search": {
+    "master_seed": "42",
+    "max_candidates": 2,
+    "exploration_trials": 1,
+    "finalist_trials": 2,
+    "top_k": 1,
+    "max_total_trials": 4
+  },
+  "max_rounds": 5,
+  "defeat_disposition": "killed",
+  "execution": {
+    "mode": "sequential"
+  },
+  "scene": {
+    "range": "close",
+    "ambush": "none",
+    "terrain": "open",
+    "session_start": "fresh"
+  }
+}

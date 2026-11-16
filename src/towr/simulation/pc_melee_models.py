@@ -472,6 +472,52 @@ def validate_ally_recover_counts(counts,scenario,*,trials:int,recover_trials:int
 
 
 @dataclass(frozen=True, slots=True)
+class PcMagicCount:
+    actor_id: str
+    casting_actions: int
+    spell_casts: int
+    miscasts: int
+    unsupported_miscasts: int
+
+    def __post_init__(self) -> None:
+        if type(self.actor_id) is not str or not self.actor_id.strip():
+            raise TypeError('magic observations require an exact actor ID')
+        for name in ('casting_actions', 'spell_casts', 'miscasts', 'unsupported_miscasts'):
+            value = getattr(self, name)
+            if type(value) is not int:
+                raise TypeError('magic observations require exact integer counts')
+            if value < 0:
+                raise ValueError('magic observation counts cannot be negative')
+        if self.spell_casts > self.casting_actions:
+            raise ValueError('spell casts require preceding Casting actions')
+        if self.unsupported_miscasts > self.miscasts:
+            raise ValueError('unsupported Miscasts require actual Miscast rolls')
+
+
+def validate_magic_counts(counts, scenario, *, trials: int, actions: int,
+                          started_rounds: int, unsupported_trials: int) -> None:
+    actors = tuple(member.actor_id for member in scenario.party if member.wizard is not None)
+    if not actors:
+        if counts is not None:
+            raise ValueError('magic observations require Wizard source facts')
+        return
+    if type(counts) is not tuple or any(type(row) is not PcMagicCount for row in counts):
+        raise TypeError('Wizard sources require exact ordered magic observations')
+    for row in counts:
+        replace(row)
+    if tuple(row.actor_id for row in counts) != actors:
+        raise ValueError('magic observations must cover every Wizard in source party order')
+    if sum(row.casting_actions for row in counts) > actions:
+        raise ValueError('Casting observations exceed the executed action budget')
+    if sum(row.unsupported_miscasts for row in counts) > unsupported_trials:
+        raise ValueError('unsupported Miscast observations exceed actual unsupported outcomes')
+    for row in counts:
+        budget = min(started_rounds, trials * scenario.max_rounds)
+        if row.casting_actions > budget or row.miscasts > budget:
+            raise ValueError('Casting or Miscast observations exceed the actor turn budget')
+
+
+@dataclass(frozen=True, slots=True)
 class PcPotionUseCount:
     actor_id: str
     item_id: str
@@ -521,16 +567,17 @@ def validate_potion_use_counts(counts, scenario, *, trials: int, actions: int,
 
 
 def validate_automatic_action_budget(help_counts,recover_counts,scenario,*,started_rounds,
-                                     potion_counts=None):
+                                     potion_counts=None, magic_counts=None):
     """An automatic PC cannot count two support actions in its one turn."""
     from towr.domain.pc_melee_models import PcMeleePolicy
     potions = Counter()
     for row in potion_counts or ():
         potions[row.actor_id] += row.count
+    casting = {row.actor_id: row.casting_actions for row in magic_counts or ()}
     for member,helped,recovered in zip(scenario.party,help_counts,recover_counts,strict=True):
         if (member.policy is PcMeleePolicy.AUTOMATIC_MELEE
-                and helped.count+recovered.count+potions[member.actor_id]>started_rounds):
-            raise ValueError('automatic Help, ally Recover and potions exceed the same actor turn budget')
+                and helped.count+recovered.count+potions[member.actor_id]+casting.get(member.actor_id,0)>started_rounds):
+            raise ValueError('automatic Help, ally Recover, potions and Casting exceed the same actor turn budget')
 
 
 def validate_near_miss_counts(counts, scenario, *, trials: int,
@@ -614,6 +661,7 @@ class PcMeleeTrialRecord:
     npc_warped_form_counts: tuple[PcNpcWarpedFormCount, ...]
     aim: PcAimCounts | None = field(default=None, kw_only=True)
     potion_use_counts: tuple[PcPotionUseCount, ...] | None = field(default=None, kw_only=True)
+    magic_counts: tuple[PcMagicCount, ...] | None = field(default=None, kw_only=True)
 
     def __post_init__(self) -> None:
         validate_pc_melee_scenario_admission(self.source_scenario)
@@ -673,15 +721,19 @@ class PcMeleeTrialRecord:
             recover_trials=None,actions=self.executed_actions,started_rounds=self.started_rounds)
         validate_potion_use_counts(self.potion_use_counts,self.source_scenario,trials=1,
             actions=self.executed_actions,started_rounds=self.started_rounds)
+        validate_magic_counts(self.magic_counts,self.source_scenario,trials=1,
+            actions=self.executed_actions,started_rounds=self.started_rounds,
+            unsupported_trials=int(self.outcome is PcMeleeOutcome.UNSUPPORTED_PATH))
         validate_automatic_action_budget(self.help_action_counts,self.ally_recover_action_counts,
-            self.source_scenario,started_rounds=self.started_rounds,potion_counts=self.potion_use_counts)
+            self.source_scenario,started_rounds=self.started_rounds,potion_counts=self.potion_use_counts,
+            magic_counts=self.magic_counts)
         validate_npc_help_counts(self.npc_help_action_counts,self.source_scenario,trials=1,
             help_trials=None,actions=self.executed_actions,started_rounds=self.started_rounds)
         validate_npc_recover_counts(self.npc_recover_action_counts,self.source_scenario,trials=1,
             recover_trials=None,actions=self.executed_actions,started_rounds=self.started_rounds,
             warped_form_counts=self.npc_warped_form_counts)
         if sum(item.count for item in (*self.help_action_counts,*self.ally_recover_action_counts,
-                *self.npc_help_action_counts,*self.npc_recover_action_counts,*(self.potion_use_counts or ())))+2*extras+(self.aim.total_action_count if self.aim is not None else 0)>self.executed_actions:
+                *self.npc_help_action_counts,*self.npc_recover_action_counts,*(self.potion_use_counts or ())))+2*extras+(self.aim.total_action_count if self.aim is not None else 0)+sum(row.casting_actions for row in self.magic_counts or ())>self.executed_actions:
             raise ValueError('Help, ally Recover and primary/extra Attacks cannot consume the same action')
         validate_npc_exit_counts(self.npc_exit_counts,self.source_scenario,trials=1,exit_trials=None)
         if sum(item.count for item in self.npc_exit_counts)>npc_injury_budget:

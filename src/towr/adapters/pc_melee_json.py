@@ -166,6 +166,8 @@ def _summary(summary: PcMeleeSimulationSummary) -> dict:
         "total_npc_warped_form_count": summary.total_npc_warped_form_count}
     if summary.potion_use_counts is not None:
         document['potion_use_counts'] = [asdict(row) for row in summary.potion_use_counts]
+    if summary.magic_counts is not None:
+        document['magic_counts'] = [asdict(row) for row in summary.magic_counts]
     if summary.aim is not None:
         document['aim'] = {
             'action_counts':[asdict(row) for row in summary.aim.action_counts],

@@ -67,6 +67,15 @@ def automatic_npc_search_space(party: tuple[PcMeleeParticipant, ...]) -> NpcSear
         low = max(floor, min(ceiling, min(values) - 1))
         high = max(low, min(ceiling, max(values) + 1))
         choices[name] = tuple(range(low, high + 1))
+    # Include useful resistance near a mage's ordinary Lightning potency;
+    # the physical-only envelope otherwise misses these candidate profiles.
+    from towr.domain.pc_magic_source_models import PcSpellId
+    toughness = set(choices['toughness'])
+    for member in party:
+        if member.wizard is not None and PcSpellId.LIGHTNING_BLAST in member.wizard.memorised_spells:
+            pivot = min(10,4+(member.wizard.reason*member.wizard.willpower+9)//10)
+            toughness.update((max(1,pivot-1),pivot))
+    choices['toughness'] = tuple(sorted(toughness))
     return NpcSearchSpace(**choices)
 
 

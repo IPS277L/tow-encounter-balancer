@@ -5,6 +5,7 @@ from enum import Enum
 from towr.domain.attack_models import ConditionImpactSpec, DamageProfile, ResilienceProfile, ProneBeforeGiveGroundSpec
 from towr.domain.condition_models import ConditionState
 from towr.domain.potion_models import ConsumableItem, ConsumableKind
+from towr.domain.pc_magic_source_models import PcWizardProfile
 from towr.domain.fate_models import (
     FateBurnRecord, FateRefreshRecord, FateSessionState, FateSpendRecord,
 )
@@ -140,7 +141,7 @@ class PcGloriousPolicy:
         for skill in skills:
             _typed(skill, Skill, "Glorious skill")
             if skill not in (Skill.MELEE, Skill.DEFENCE, Skill.ATHLETICS, Skill.ENDURANCE,
-                    Skill.SHOOTING, Skill.DEXTERITY):
+                    Skill.SHOOTING, Skill.DEXTERITY, Skill.WILLPOWER):
                 raise ValueError("Glorious skill is outside the PC melee boundary")
         _integer(self.maximum_initial_successes, "Glorious success threshold", minimum=0)
         _integer(self.minimum_remaining_spends, "Glorious session reserve", minimum=0)
@@ -375,9 +376,12 @@ class PcMeleeFacts:
     no_ambush: bool
     outnumbering_bonus_approved: bool
     can_leave_zone: bool
+    daylight_confirmed: bool | None = field(default=None,kw_only=True)
 
     def __post_init__(self) -> None:
         _identifier(self.zone_id, "PC melee Zone")
+        if self.daylight_confirmed is not None and (type(self.daylight_confirmed) is not bool or not self.daylight_confirmed):
+            raise ValueError('this optional environment premise requires confirmed daylight')
         for name in (
             "all_opponents_close", "targets_aware", "all_combatants_included",
             "unmounted", "no_external_effects", "no_terrain_modifiers",
@@ -411,11 +415,18 @@ class PcMeleeParticipant:
     close_shooting_protection_skill: Skill | None = field(default=None, kw_only=True)
     aim_second_action_policy: PcAimSecondActionPolicy | None = field(default=None, kw_only=True)
     consumables: tuple[ConsumableItem, ...] = field(default=(), kw_only=True)
+    wizard: PcWizardProfile | None = field(default=None, kw_only=True)
 
     def __post_init__(self) -> None:
         _identifier(self.actor_id, "PC actor")
         _typed(self.pc, PcMeleeDefinition, "PC definition")
         replace(self.pc)
+        if self.wizard is not None:
+            if type(self.wizard) is not PcWizardProfile:
+                raise TypeError('PC wizard source requires its typed complete profile')
+            replace(self.wizard)
+            if self.policy is not PcMeleePolicy.AUTOMATIC_MELEE:
+                raise ValueError('PC magic currently requires automatic melee tactics')
         if type(self.consumables) is not tuple or any(type(item) is not ConsumableItem for item in self.consumables):
             raise TypeError('PC consumables require an ordered tuple of typed items')
         for item in self.consumables:

@@ -10,7 +10,7 @@ from towr.engine.pc_melee_runner import run_pc_melee_scenario
 from towr.rules.dice import RandomSource
 from towr.simulation.pc_melee_models import (
     PcMeleeSimulationRequest, PcMeleeSimulationResult, PcMeleeTrialRecord, PcNearMissBurnCount, PcGloriousSpendCount,
-    PcAimCount, PcAimCounts, pc_has_aim_capability, PcPotionUseCount,
+    PcAimCount, PcAimCounts, pc_has_aim_capability, PcPotionUseCount, PcMagicCount,
     PcHelpActionCount, PcAllyRecoverActionCount, PcNpcExitCount, PcNpcHelpActionCount, PcNpcExtraAttackCount, PcNpcRecoverActionCount, PcNpcWarpedFormCount,
 )
 
@@ -52,6 +52,20 @@ def run_pc_melee_trial(request: PcMeleeSimulationRequest, trial_index: int, *,
                 and step.proof.actor_id == member.actor_id and step.proof.item_id == item.id
                 for step in result.steps))
             for member in request.scenario.party for item in member.consumables)
+    magic_counts = None
+    if any(member.wizard is not None for member in request.scenario.party):
+        from towr.domain.pc_magic_models import PcCastingProof, PcMiscastRollProof, PcMagicUnsupported
+        magic_counts = tuple(PcMagicCount(member.actor_id,
+            sum(type(step.proof) is PcCastingProof and step.proof.actor_id==member.actor_id
+                for step in result.steps),
+            sum(type(step.proof) is PcCastingProof and step.proof.actor_id==member.actor_id
+                and step.proof.spell_id is not None for step in result.steps),
+            sum(type(step.proof) is PcMiscastRollProof and step.proof.actor_id==member.actor_id
+                for step in result.steps),
+            int(type(result.unsupported) is PcMagicUnsupported
+                and result.unsupported.reason=='pc_magic_miscast_unresolved'
+                and result.unsupported.actor_id==member.actor_id))
+            for member in request.scenario.party if member.wizard is not None)
     return PcMeleeTrialRecord(request.scenario, trial_index, seed, result.outcome,
         result.executed_actions, result.started_rounds, result.completed_rounds, result.defeated_pc_ids,
         tuple(PcNearMissBurnCount(member.actor_id,
@@ -84,7 +98,8 @@ def run_pc_melee_trial(request: PcMeleeSimulationRequest, trial_index: int, *,
                 for step in result.steps)) for enemy in request.scenario.enemies),
         tuple(PcNpcWarpedFormCount(enemy.state.actor_id,
             sum(type(step.proof) is PcWarpedFormActivationProof and step.proof.actor_id==enemy.state.actor_id
-                for step in result.steps)) for enemy in request.scenario.enemies), aim=aim,potion_use_counts=potion_counts)
+                for step in result.steps)) for enemy in request.scenario.enemies), aim=aim,potion_use_counts=potion_counts,
+        magic_counts=magic_counts)
 
 
 def run_pc_melee_simulation(request: PcMeleeSimulationRequest, *,

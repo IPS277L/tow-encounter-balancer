@@ -17,6 +17,7 @@ from towr.domain.pc_melee_models import (
 from towr.domain.pc_weapon_models import pc_weapon_requires_two_hands
 from towr.domain.test_models import Skill
 from towr.domain.potion_models import ConsumableItem
+from towr.domain.pc_magic_source_models import PcWizardProfile
 
 
 class EncounterArmour(str, Enum):
@@ -26,6 +27,7 @@ class EncounterArmour(str, Enum):
 
 class EncounterTalent(str, Enum):
     LUCKY = 'lucky'
+    WIZARD = 'wizard'
 
 
 @dataclass(frozen=True, slots=True)
@@ -48,6 +50,7 @@ class EncounterCharacter:
     fate: int
     backup_weapon_policy: PcBackupWeaponPolicy | None = field(default=None, kw_only=True)
     consumables: tuple[ConsumableItem, ...] = field(default=(), kw_only=True)
+    wizard: PcWizardProfile | None = field(default=None, kw_only=True)
 
     def __post_init__(self):
         if type(self.actor_id) is not str or not self.actor_id.strip():
@@ -63,6 +66,8 @@ class EncounterCharacter:
             raise ValueError('talents must be a unique tuple of supported talents')
         if type(self.fate) is not int or self.fate < 0:
             raise ValueError('Fate rating must be a nonnegative integer')
+        if (EncounterTalent.WIZARD in self.talents) != (self.wizard is not None):
+            raise ValueError('Wizard talent requires explicit matching magic facts')
         # Reuse the executor admission, including two-hand/shield restrictions.
         self._participant('admission', NpcDefeatDisposition.KILLED)
 
@@ -90,5 +95,6 @@ class EncounterCharacter:
             (MinionDefeatDecision(self.actor_id, 'generated-npc:1', disposition, True),),
             # Decide at the actual Wound/Test window using the current resource.
             PcNearMissPolicy(11, 0),
-            PcGloriousPolicy((Skill.MELEE, Skill.DEFENCE, Skill.ATHLETICS, Skill.ENDURANCE), 0, 0),
-            None, None, self.backup_weapon_policy, shield=shield, consumables=self.consumables)
+            PcGloriousPolicy((Skill.MELEE, Skill.DEFENCE, Skill.ATHLETICS, Skill.ENDURANCE,
+                *((Skill.WILLPOWER,) if self.wizard is not None else ())), 0, 0),
+            None, None, self.backup_weapon_policy, shield=shield, consumables=self.consumables,wizard=self.wizard)

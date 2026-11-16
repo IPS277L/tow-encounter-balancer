@@ -16,6 +16,14 @@ function planningSearchSpace(data){
   const high=Math.max(low,Math.min(ceiling,Math.max(...values)+1));
   space[key]=Array.from({length:high-low+1},(_,i)=>low+i);
  }
+ for(const member of data.party){
+  if(member.magic?.memorised_spells?.includes('lightning_blast')){
+   const reason=Number(member.characteristics?.reason),willpower=Number(member.skills?.willpower);
+   if(!Number.isSafeInteger(reason)||reason<1||!Number.isSafeInteger(willpower)||willpower<1)throw Error('Проверьте Разум (Reason) и Силу воли (Willpower).');
+   const pivot=Math.min(10,4+Math.ceil(reason*willpower/10));
+   space.toughness=[...new Set([...space.toughness,Math.max(1,pivot-1),pivot])].sort((a,b)=>a-b);
+  }
+ }
  return space;
 }
 function estimatedSearchTime(data){

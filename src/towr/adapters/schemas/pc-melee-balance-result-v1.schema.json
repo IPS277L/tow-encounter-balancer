@@ -35,6 +35,7 @@
       "items": {
         "allOf": [
           {"$ref": "urn:towr:pc-melee:common:1#/$defs/potionSummaryPresence"},
+          {"$ref": "urn:towr:pc-melee:common:1#/$defs/magicSummaryPresence"},
           {
             "$ref": "urn:towr:pc-melee:common:1#/$defs/candidate"
           },
