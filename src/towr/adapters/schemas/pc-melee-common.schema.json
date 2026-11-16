@@ -2352,6 +2352,46 @@
         },
         "armour_worn": {
           "type": "boolean"
+        },
+        "combat_talents": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/pc_combat_talent"
+          },
+          "maxItems": 2,
+          "uniqueItems": true,
+          "allOf": [
+            {
+              "contains": {
+                "type": "object",
+                "properties": {
+                  "talent": {
+                    "const": "defensive_stance"
+                  }
+                },
+                "required": [
+                  "talent"
+                ]
+              },
+              "minContains": 0,
+              "maxContains": 1
+            },
+            {
+              "contains": {
+                "type": "object",
+                "properties": {
+                  "talent": {
+                    "const": "wild_attack"
+                  }
+                },
+                "required": [
+                  "talent"
+                ]
+              },
+              "minContains": 0,
+              "maxContains": 1
+            }
+          ]
         }
       },
       "required": [
@@ -2700,6 +2740,99 @@
                     "const": "hochland_long_rifle"
                   }
                 }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "combat_talents"
+            ],
+            "properties": {
+              "combat_talents": {
+                "contains": {
+                  "type": "object",
+                  "properties": {
+                    "talent": {
+                      "const": "defensive_stance"
+                    },
+                    "acquisition": {
+                      "const": "earned"
+                    }
+                  },
+                  "required": [
+                    "talent",
+                    "acquisition"
+                  ]
+                }
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "pc": {
+                "properties": {
+                  "weapon_skill": {
+                    "minimum": 3
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "combat_talents"
+            ],
+            "properties": {
+              "combat_talents": {
+                "contains": {
+                  "type": "object",
+                  "properties": {
+                    "talent": {
+                      "const": "wild_attack"
+                    },
+                    "acquisition": {
+                      "const": "earned"
+                    }
+                  },
+                  "required": [
+                    "talent",
+                    "acquisition"
+                  ]
+                }
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "pc": {
+                "properties": {
+                  "strength": {
+                    "minimum": 4
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "combat_talents"
+            ],
+            "properties": {
+              "combat_talents": {
+                "minItems": 1
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "policy": {
+                "const": "automatic_melee"
               }
             }
           }
@@ -3796,6 +3929,28 @@
         "defensive_stance",
         "wild_attack"
       ]
+    },
+    "pc_combat_talent": {
+      "type": "object",
+      "properties": {
+        "talent": {
+          "enum": [
+            "defensive_stance",
+            "wild_attack"
+          ]
+        },
+        "acquisition": {
+          "enum": [
+            "earned",
+            "creation_free"
+          ]
+        }
+      },
+      "required": [
+        "talent",
+        "acquisition"
+      ],
+      "additionalProperties": false
     }
   }
 }

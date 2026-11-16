@@ -15,6 +15,7 @@ INVENTORY_STYLE = r'''
 .character-heading{display:flex;justify-content:space-between;align-items:center;gap:10px}
 .inventory-add{margin:4px 0 8px}.talent-tags{display:flex;flex-wrap:wrap;gap:6px;margin:14px 0 16px}.talent-tags:empty{display:none}
 .talent-tag{gap:5px;padding:0 3px 0 9px;overflow-wrap:anywhere}
+.talent-provenance{margin:0 0 10px;line-height:1.5}
 .talent-tag.pending{background:var(--warning-bg);border-color:var(--warning-border)}
 .visual-card .talent-tag .action-remove{width:24px;height:24px;background:transparent;border-color:transparent;border-radius:12px}
 .talent-tag .action-remove svg{width:12px;height:12px}
@@ -35,7 +36,9 @@ INVENTORY_SCRIPT = r'''
 const armourNames={light_armour:'Лёгкая броня (Light Armour)',heavy_armour:'Тяжёлая броня (Heavy Armour)',helmet:'Обычный шлем (Helmet)',shield:'Щит (Shield)'};
 const consumableNames={healing_potion:'Зелье лечения (Healing Potion)',enhancement_potion:'Зелье усиления (Enhancement Potion)'};
 const enhancementNames=characteristicNames;
-const talentNames={lucky:'Удачливый (Lucky)',wizard:'Маг (Wizard)','mighty blow':'Могучий удар (Mighty Blow)'};
+const talentNames={lucky:'Удачливый (Lucky)',wizard:'Маг (Wizard)',defensive_stance:'Оборонительная стойка (Defensive Stance)',wild_attack:'Дикая атака (Wild Attack)','mighty blow':'Могучий удар (Mighty Blow)'};
+const pcCombatTalentIds=['defensive_stance','wild_attack'],supportedPlayerTalents=['lucky','wizard',...pcCombatTalentIds];
+const pcCombatTalentHints={defensive_stance:'Боевое мастерство (WS) 3+. Успешная Защита (Defence) может снять собственное Пошатывание (Staggered) вместо доступного нового Staggered атакующему. Постоянная причина состояния сохраняется.',wild_attack:'Сила (S) 4+. Автоматический выбор для атаки или Помощи (Help) в Ближнем бою (Melee): получить Пошатывание (Staggered) до проверки ради Блистательного (Glorious) Test. Не используется при Staggered или Истощении (Drained).'};
 const talentLabel=value=>talentNames[value.toLowerCase()]||value;
 const heldLocations={carried:'Убрано / за спиной',left_hand:'В левой руке',right_hand:'В правой руке',both_hands:'В обеих руках'};
 const twoHandedInventoryWeapons=new Set(['pickaxe','flail','billhook','halberd','glaive','greataxe','greathammer']);
@@ -98,8 +101,8 @@ function renderInventory(parent,member,index){
 function renderTalentTags(parent,member,index){
  parent.append(node('h4','Таланты (Talents)'));const tags=node('div',undefined,'talent-tags');
  for(const [i,talent] of (member.talents||[]).entries()){
-  const supported=['lucky','wizard'].includes(talent),tag=node('span',talentLabel(talent),'talent-tag'+(supported?'':' pending'));
-  attachTagTooltip(tag,talent==='lucky'?'Первая трата Судьбы (Fate) за сессию бесплатна':talent==='wizard'?'Уровень мага (Wizard Level) и известные заклинания (Spells) задаются ниже':'Ещё не поддержан симуляцией');
+  const supported=supportedPlayerTalents.includes(talent),tag=node('span',talentLabel(talent),'talent-tag'+(supported?'':' pending'));
+  attachTagTooltip(tag,talent==='lucky'?'Первая трата Судьбы (Fate) за сессию бесплатна':talent==='wizard'?'Уровень мага (Wizard Level) и известные заклинания (Spells) задаются ниже':pcCombatTalentHints[talent]||'Ещё не поддержан симуляцией');
   const remove=actionButton('remove','Удалить талант '+talentLabel(talent),true);remove.onclick=()=>setPlayerTalents(index,read().party[index].talents.filter((_,j)=>j!==i));tag.append(remove);tags.append(tag);
  }parent.append(tags);
  const entry=node('div',undefined,'talent-entry'),picker=node('div',undefined,'talent-picker'),input=node('input');input.type='text';input.placeholder='Выберите или введите талант…';input.setAttribute('aria-label','Добавить талант персонажу '+(index+1));input.dataset.role='talent-entry';input.dataset.member=String(index);input.autocomplete='off';
@@ -108,7 +111,7 @@ function renderTalentTags(parent,member,index){
  let selectedIndex=-1;
  const close=()=>{options.classList.add('hidden');input.setAttribute('aria-expanded','false');input.removeAttribute('aria-activedescendant');selectedIndex=-1;};
  const commit=raw=>{
-  const value=raw.trim();if(!value)return;const talent=['lucky','wizard'].includes(value.toLowerCase())?value.toLowerCase():value,values=read().party[index].talents||[];
+  const value=raw.trim();if(!value)return;const talent=supportedPlayerTalents.includes(value.toLowerCase())?value.toLowerCase():value,values=read().party[index].talents||[];
   if(values.some(t=>t.toLowerCase()===talent.toLowerCase())){message('Этот талант уже добавлен.','error');close();return;}
   close();setPlayerTalents(index,[...values,talent]);document.querySelector('[data-role="talent-entry"][data-member="'+index+'"]').focus();
  };
@@ -117,6 +120,7 @@ function renderTalentTags(parent,member,index){
   const query=input.value.trim(),values=read().party[index].talents||[],duplicate=value=>values.some(t=>t.toLowerCase()===value.toLowerCase()),choices=[];
   if(!duplicate('lucky') && ['lucky','удача','удачливый','удачливый (lucky)'].some(name=>name.includes(query.toLowerCase())))choices.push({value:'lucky',label:talentLabel('lucky'),hint:'Первая трата Судьбы (Fate) за сессию бесплатна.'});
   if(!duplicate('wizard') && ['wizard','маг','маг (wizard)'].some(name=>name.includes(query.toLowerCase())))choices.push({value:'wizard',label:talentLabel('wizard'),hint:'Сотворение (Casting) запомненных заклинаний (Memorised Spells) школы Elementalism.'});
+  for(const value of pcCombatTalentIds)if(!duplicate(value) && [value,talentLabel(value),value.replaceAll('_',' ')].some(name=>name.toLowerCase().includes(query.toLowerCase())))choices.push({value,label:talentLabel(value),hint:pcCombatTalentHints[value]});
   if(query && !duplicate(query) && !choices.length)choices.push({value:query,label:'Добавить «'+talentLabel(query)+'»',hint:'Эффект этого таланта пока не подключён к симуляции.'});
   if(!choices.length){close();return;}
   for(const [i,choice] of choices.entries()){
@@ -135,15 +139,28 @@ function renderTalentTags(parent,member,index){
   }
   if(event.key==='Enter'){event.preventDefault();const rows=options.querySelectorAll('[role="option"]'),selected=rows[selectedIndex]||(input.value.trim()?rows[0]:null);if(selected&&!options.classList.contains('hidden'))selected.click();else commit(input.value);}
  };picker.append(input,options);entry.append(picker);parent.append(entry);
- parent.append(node('p','В расчёт подключены Удачливый (Lucky) и Маг (Wizard). Другие таланты (Talents) можно сохранить тегами; до реализации их эффектов расчёт с ними будет недоступен.','visual-note'));
+ for(const talent of pcCombatTalentIds.filter(t=>(member.talents||[]).includes(t))){
+  const row=node('label',talentLabel(talent)+' — бесплатно при создании (Character Creation)','toggle-field talent-provenance'),checkbox=node('input');checkbox.type='checkbox';checkbox.checked=member.talent_acquisition?.[talent]==='creation_free';checkbox.dataset.path='party/'+index+'/talent_acquisition/'+talent;checkbox.setAttribute('aria-label','Бесплатно при создании: '+talentLabel(talent));row.title='Факт бесплатного получения при создании персонажа отменяет требования (Requirements) таланта; не является тактикой.';
+  checkbox.onchange=()=>setPlayerTalentAcquisition(index,talent,checkbox.checked);row.prepend(checkbox);parent.append(row);
+  const required=talent==='defensive_stance'?Number(member.characteristics?.weapon_skill)>=3:Number(member.characteristics?.strength)>=4;
+  if(!required && !checkbox.checked)parent.append(node('p',talentLabel(talent)+': не выполнены требования (Requirements). Если талант получен бесплатно при создании, укажите этот факт; он не включается автоматически.','inventory-warning'));
+ }
+ parent.append(node('p','Подключены Удачливый (Lucky), Маг (Wizard), Оборонительная стойка (Defensive Stance) и Дикая атака (Wild Attack). Другие таланты (Talents) сохраняются как теги; до реализации их эффектов расчёт с ними недоступен.','visual-note'));
 }
 function setPlayerTalents(index,talents){
- const member=read().party[index],previous=(member.talents||[]).includes('wizard');member.talents=talents;
+ const member=read().party[index],oldTalents=member.talents||[],previous=oldTalents.includes('wizard');member.talents=talents;
+ if(member.talent_acquisition && typeof member.talent_acquisition==='object' && !Array.isArray(member.talent_acquisition)){for(const talent of pcCombatTalentIds)if(oldTalents.includes(talent)&&!talents.includes(talent))delete member.talent_acquisition[talent];if(!Object.keys(member.talent_acquisition).length)delete member.talent_acquisition;}
  if(talents.includes('wizard')){
   if(!member.magic)member.magic={origin:'human',wizard_level:1,lores:['elementalism'],memorised_spells:['lightning_blast'],arcane_paraphernalia:true};
   if(!Object.hasOwn(member.characteristics,'reason'))member.characteristics.reason=3;
   if(!Object.hasOwn(member.skills,'willpower'))member.skills.willpower=3;
  }else if(previous){delete member.magic;delete member.characteristics.reason;delete member.skills.willpower;}
+ editRequest(['party',index],member);
+}
+function setPlayerTalentAcquisition(index,talent,free){
+ const member=read().party[index],facts=member.talent_acquisition && typeof member.talent_acquisition==='object' && !Array.isArray(member.talent_acquisition)?{...member.talent_acquisition}:{};
+ if(free)facts[talent]='creation_free';else delete facts[talent];
+ if(Object.keys(facts).length)member.talent_acquisition=facts;else delete member.talent_acquisition;
  editRequest(['party',index],member);
 }
 function renderPlayerMagic(parent,member,index){

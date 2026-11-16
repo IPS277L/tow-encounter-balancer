@@ -890,6 +890,8 @@ def _pc_test(state: PcMeleeState, actor_id: str, test_id: str, skill: Skill,
     if drained:
         modifiers = tuple(m for m in modifiers if m.amount <= 0)
     qualities = list(magic_qualities)
+    if skill is Skill.MELEE:
+        qualities.extend(generated_attack_quality(state,actor_id))
     if skill not in (Skill.ENDURANCE,Skill.WILLPOWER) and member.injury.conditions.has(Condition.BLINDED):
         qualities.append(QualityModifier('RULE-HEALTH-008:blinded', TestQuality.GRIM))
     if skill is Skill.WILLPOWER:

@@ -6,6 +6,7 @@ from towr.domain.attack_models import ConditionImpactSpec, DamageProfile, Resili
 from towr.domain.condition_models import ConditionState
 from towr.domain.potion_models import ConsumableItem, ConsumableKind
 from towr.domain.pc_magic_source_models import PcWizardProfile
+from towr.domain.pc_combat_talent_models import PcCombatTalent
 from towr.domain.fate_models import (
     FateBurnRecord, FateRefreshRecord, FateSessionState, FateSpendRecord,
 )
@@ -419,11 +420,16 @@ class PcMeleeParticipant:
     consumables: tuple[ConsumableItem, ...] = field(default=(), kw_only=True)
     wizard: PcWizardProfile | None = field(default=None, kw_only=True)
     armour_worn: bool | None = field(default=None, kw_only=True)
+    combat_talents: tuple[PcCombatTalent,...] = field(default=(),kw_only=True)
 
     def __post_init__(self) -> None:
         _identifier(self.actor_id, "PC actor")
         _typed(self.pc, PcMeleeDefinition, "PC definition")
         replace(self.pc)
+        from towr.domain.pc_combat_talent_models import validate_pc_combat_talents
+        validate_pc_combat_talents(self.combat_talents,self.pc)
+        if self.combat_talents and self.policy is not PcMeleePolicy.AUTOMATIC_MELEE:
+            raise ValueError('PC combat Talents currently require automatic melee tactics')
         if self.armour_worn is not None:
             _typed(self.armour_worn,bool,'worn armour fact')
             if self.pc.armour_bonus > 0 and not self.armour_worn:

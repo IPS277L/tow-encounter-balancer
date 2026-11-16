@@ -78,6 +78,9 @@ def pc_help_incoming_actor(state, strategy=None):
 
 def build_pc_help_action(state):
     from towr.domain.pc_melee_result_models import pc_melee_action_id, _pc_test
+    from towr.domain.pc_generated_talents import expected_wild_attack
+    if expected_wild_attack(state) is not None:
+        raise ValueError('selected Wild Attack must pay Staggered before its Melee Help Test')
     beneficiary = pc_help_beneficiary(state)
     if beneficiary is None:
         raise ValueError('the explicit Help strategy cannot select an eligible ally')

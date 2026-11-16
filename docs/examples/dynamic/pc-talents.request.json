@@ -1,0 +1,163 @@
+{
+  "schema_version": "1",
+  "kind": "dynamic_encounter_search",
+  "request_id": "dynamic:pc-combat-talents-example",
+  "ruleset": "towr-pg1.4-gmg1.1",
+  "party": [
+    {
+      "actor_id": "pc",
+      "characteristics": {
+        "weapon_skill": 3,
+        "strength": 4,
+        "toughness": 3,
+        "agility": 3
+      },
+      "skills": {
+        "melee": 5,
+        "defence": 5,
+        "athletics": 4,
+        "endurance": 4
+      },
+      "equipment": {
+        "weapons": [
+          {
+            "id": "weapon:1",
+            "weapon": "sword",
+            "location": "left_hand"
+          }
+        ],
+        "armour": []
+      },
+      "talents": [
+        "defensive_stance",
+        "wild_attack"
+      ],
+      "resources": {
+        "fate": 3
+      },
+      "consumables": []
+    },
+    {
+      "actor_id": "pc:companion",
+      "characteristics": {
+        "weapon_skill": 3,
+        "strength": 3,
+        "toughness": 4,
+        "agility": 3
+      },
+      "skills": {
+        "melee": 5,
+        "defence": 5,
+        "athletics": 4,
+        "endurance": 5
+      },
+      "equipment": {
+        "weapons": [
+          {
+            "id": "weapon:1",
+            "weapon": "staff",
+            "location": "right_hand"
+          }
+        ],
+        "armour": []
+      },
+      "talents": [
+        "wild_attack"
+      ],
+      "resources": {
+        "fate": 2
+      },
+      "consumables": [],
+      "talent_acquisition": {
+        "wild_attack": "creation_free"
+      }
+    }
+  ],
+  "search_space": {
+    "weapon_skill": [
+      3,
+      4,
+      5
+    ],
+    "strength": [
+      4,
+      5
+    ],
+    "toughness": [
+      2,
+      3,
+      4
+    ],
+    "agility": [
+      2,
+      3,
+      4
+    ],
+    "melee": [
+      3,
+      4,
+      5
+    ],
+    "athletics": [
+      3,
+      4,
+      5
+    ],
+    "weapon": [
+      "axe",
+      "sword",
+      "warhammer",
+      "morning_star"
+    ],
+    "light_armour": [
+      false,
+      true
+    ],
+    "abilities": [
+      []
+    ],
+    "defence": [
+      3,
+      4,
+      5
+    ],
+    "shield": [
+      false,
+      true
+    ],
+    "allowed_talents": []
+  },
+  "npc_count": {
+    "minimum": 1,
+    "maximum": 3
+  },
+  "targets": {
+    "win_rate": {
+      "numerator": 3,
+      "denominator": 5
+    },
+    "started_rounds": {
+      "numerator": 3,
+      "denominator": 1
+    }
+  },
+  "search": {
+    "master_seed": "42",
+    "max_candidates": 2,
+    "exploration_trials": 1,
+    "finalist_trials": 2,
+    "top_k": 1,
+    "max_total_trials": 4
+  },
+  "max_rounds": 3,
+  "defeat_disposition": "killed",
+  "execution": {
+    "mode": "sequential"
+  },
+  "scene": {
+    "range": "close",
+    "ambush": "none",
+    "terrain": "open",
+    "session_start": "fresh"
+  }
+}

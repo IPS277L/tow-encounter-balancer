@@ -6,7 +6,7 @@ Fate rolls and other hidden outcomes are never inspected.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from functools import lru_cache
 from math import comb
 from typing import TYPE_CHECKING
@@ -32,6 +32,7 @@ class PcTacticalChoice:
     utility: float
     reason: str
     potion: PcPotionSelection | None = None
+    wild_attack: bool = field(default=False,kw_only=True)
 
 
 @lru_cache(maxsize=4096)
@@ -129,17 +130,24 @@ def select_pc_tactic(state: PcMeleeState, actor_id: str | None = None) -> PcTact
     from towr.domain.potion_models import ConsumableKind
 
     actor_id = actor_id or state.round_state.active_turn.actor_id
+    from towr.domain.pc_generated_talents import pending_wild_attack
+    committed = pending_wild_attack(state)
+    if committed is not None and committed.actor_id == actor_id and committed.intent is not None:
+        return committed.intent
+    from towr.domain.pc_talent_advice import (pc_has_combat_talent,pc_wild_eligible,
+        pc_wild_test_variant,pc_test_distribution)
     unavailable = (*state.round_state.completed_turn_entity_ids, *state.round_state.excluded_turn_entity_ids)
     enemies = tuple(enemy for enemy in state.source.enemy_activation_order
         if not state.enemy(enemy).state.injury.defeated and enemy not in state.exited_npc_ids)
     plans: dict[str, PcTacticalChoice] = {}
-    attacks: dict[tuple[str, int, str | None], tuple[float, str | None]] = {}
+    attacks: dict[tuple[str, int, str | None, bool], tuple[float, str | None]] = {}
 
     def test(actor: str, skill: Skill) -> TestRequest:
         return _pc_test(state, actor, pc_melee_action_id(state, actor)+':attack', skill)
 
-    def best_attack(actor: str, extra: int = 0, enhancement: str | None = None) -> tuple[float, str | None]:
-        key = (actor, extra, enhancement)
+    def best_attack(actor: str, extra: int = 0, enhancement: str | None = None,
+                    wild: bool = False) -> tuple[float, str | None]:
+        key = (actor, extra, enhancement, wild)
         if key in attacks:
             return attacks[key]
         pc, member = pc_effective_definition(state, actor), state.participant(actor)
@@ -165,6 +173,8 @@ def select_pc_tactic(state: PcMeleeState, actor_id: str | None = None) -> PcTact
             if enhancement is not None:
                 request = replace(request, profile=pc.melee_profile)
             request, _ = build_pc_test_help(state, actor, Skill.MELEE, request)
+            if wild:
+                request = pc_wild_test_variant(request,weapon,member.injury.conditions)
             from towr.domain.pc_generated_equipment import npc_protection_test
             profile,protection = npc_protection_test(state,enemy_id,actor,'tactics:protection')
             damage = pc_weapon_damage(weapon, pc.strength)
@@ -174,9 +184,9 @@ def select_pc_tactic(state: PcMeleeState, actor_id: str | None = None) -> PcTact
             from towr.domain.generated_npc_models import GeneratedTalent
             stance = (not defenceless and profile.skill is Skill.DEFENCE
                 and enemy.state.injury.conditions.has(Condition.STAGGERED)
-                and not member.injury.conditions.has(Condition.STAGGERED)
+                and not wild and not member.injury.conditions.has(Condition.STAGGERED)
                 and has_generated_talent(enemy.definition,GeneratedTalent.DEFENSIVE_STANCE))
-            value = _impact_value(_distribution(request), (1.0,) if defenceless else _distribution(protection),
+            value = _impact_value(pc_test_distribution(state,actor,Skill.MELEE,request), (1.0,) if defenceless else _distribution(protection),
                 base, enemy.state.current_resilience.total, damage.success_multiplier,
                 enemy.state.injury.conditions.has(Condition.STAGGERED), defenceless,stance)
             if best[1] is None or value > best[0]+1e-12:
@@ -186,7 +196,7 @@ def select_pc_tactic(state: PcMeleeState, actor_id: str | None = None) -> PcTact
 
     def incoming_risk(target: str, protection_bonus: int = 0,
                       prone_removed: bool = False, stagger_removed: bool = False,
-                      enhancement: str | None = None) -> float:
+                      enhancement: str | None = None, stagger_added: bool = False) -> float:
         # NPC target order is a source fact. Future deaths/target changes are not
         # anticipated. Prospective Protection Help applies to ONE exact Test.
         first = next((actor for actor in state.source.enemy_target_priority
@@ -195,6 +205,8 @@ def select_pc_tactic(state: PcMeleeState, actor_id: str | None = None) -> PcTact
             return 0.0
         member = state.participant(target)
         target_conditions = member.injury.conditions
+        if stagger_added:
+            target_conditions = target_conditions.with_condition(Condition.STAGGERED)
         if stagger_removed:
             target_conditions = target_conditions.without_condition(Condition.STAGGERED)
         if prone_removed:
@@ -239,10 +251,10 @@ def select_pc_tactic(state: PcMeleeState, actor_id: str | None = None) -> PcTact
                     Skill.ATHLETICS: pc.athletics_profile, Skill.ENDURANCE: pc.endurance_profile}[skill]
                 defender = replace(defender, profile=profile)
             defender, _ = build_pc_test_help(state, target, skill, defender)
-            if stagger_removed:
+            if stagger_removed or stagger_added:
                 weapon = pc_active_weapon(state, target)
                 old = pc_weapon_test_modifiers(weapon, skill, member.injury.conditions)
-                new = pc_weapon_test_modifiers(weapon, skill, member.injury.conditions.without_condition(Condition.STAGGERED))
+                new = pc_weapon_test_modifiers(weapon, skill, target_conditions)
                 if member.injury.conditions.has(Condition.DRAINED):
                     new = tuple(modifier for modifier in new if modifier.amount <= 0)
                 defender = replace(defender, dice_modifiers=tuple(modifier for modifier in defender.dice_modifiers
@@ -253,9 +265,15 @@ def select_pc_tactic(state: PcMeleeState, actor_id: str | None = None) -> PcTact
             base = damage.base+sum(modifier.amount for modifier in
                 (pc_npc_damage_modifiers(enemy.definition)
                 + generated_damage_modifiers(enemy.definition,pc_shield_resilience(state,target))))
-            value += _impact_value(_distribution(attacker), _distribution(defender), base,
+            from towr.domain.generated_npc_models import GeneratedTalent
+            from towr.domain.pc_heavy_wound_models import has_ongoing_condition
+            stance = (skill is Skill.DEFENCE and target_conditions.has(Condition.STAGGERED)
+                and not has_ongoing_condition(member.injury,Condition.STAGGERED)
+                and not attack_conditions.has(Condition.STAGGERED)
+                and pc_has_combat_talent(state,target,GeneratedTalent.DEFENSIVE_STANCE))
+            value += _impact_value(_distribution(attacker), pc_test_distribution(state,target,skill,defender), base,
                 pc_shield_resilience(state, target).total+int(enhancement == 'toughness'), damage.success_multiplier,
-                member.injury.conditions.has(Condition.STAGGERED) and not stagger_removed)
+                target_conditions.has(Condition.STAGGERED), defensive_stance=stance)
         return value
 
     def plan(actor: str) -> PcTacticalChoice:
@@ -305,10 +323,18 @@ def select_pc_tactic(state: PcMeleeState, actor_id: str | None = None) -> PcTact
             return choice
 
         def consider(action: CombatActionKind, target: str | None, utility: float,
-                     reason: str, help_policy: PcHelpPolicy | None = None) -> None:
+                     reason: str, help_policy: PcHelpPolicy | None = None, wild: bool = False) -> None:
             nonlocal choice
-            if utility > choice.utility+1e-12:
-                choice = PcTacticalChoice(actor, action, target, help_policy, utility, reason)
+            if (utility > choice.utility+1e-12 or
+                    (abs(utility-choice.utility) <= 1e-12 and choice.wild_attack and not wild)):
+                choice = PcTacticalChoice(actor, action, target, help_policy, utility, reason,wild_attack=wild)
+
+        wild_eligible = pc_wild_eligible(state,actor)
+        wild_risk = (max(0.0,incoming_risk(actor,stagger_added=True)-incoming_risk(actor))
+            if wild_eligible else 0.0)
+        if wild_eligible:
+            score,target = best_attack(actor,wild=True)
+            consider(CombatActionKind.ATTACK,target,score-wild_risk,'wild_attack_after_risk',wild=True)
 
         for ally in state.party:
             if ally.injury.dead or ally.injury.conditions.has(Condition.DEFENCELESS):
@@ -344,13 +370,21 @@ def select_pc_tactic(state: PcMeleeState, actor_id: str | None = None) -> PcTact
                         continue
                     if source.policy is PcMeleePolicy.AUTOMATIC_MELEE and plan(ally_id).action is not CombatActionKind.ATTACK:
                         continue
-                    before = best_attack(ally_id)[0]
-                    value = sum(probability*max(0.0, best_attack(ally_id, successes)[0]-before)
-                        for successes, probability in enumerate(_distribution(test(actor, skill))))
+                    ally_wild = source.policy is PcMeleePolicy.AUTOMATIC_MELEE and plan(ally_id).wild_attack
+                    before = best_attack(ally_id,wild=ally_wild)[0]
+                    help_test = test(actor,skill)
+                    value = sum(probability*max(0.0, best_attack(ally_id, successes,wild=ally_wild)[0]-before)
+                        for successes, probability in enumerate(pc_test_distribution(state,actor,skill,help_test)))
+                    if wild_eligible:
+                        prepared = pc_wild_test_variant(help_test,pc_active_weapon(state,actor),member.injury.conditions)
+                        wild_value = sum(probability*max(0.0,best_attack(ally_id,successes,wild=ally_wild)[0]-before)
+                            for successes,probability in enumerate(pc_test_distribution(state,actor,skill,prepared)))
+                        consider(CombatActionKind.HELP,ally_id,wild_value-wild_risk,
+                            'wild_melee_help_after_risk',policy,wild=True)
                 else:
                     before = incoming_risk(ally_id)
                     value = sum(probability*max(0.0, before-incoming_risk(ally_id, successes))
-                        for successes, probability in enumerate(_distribution(test(actor, skill))))
+                        for successes, probability in enumerate(pc_test_distribution(state,actor,skill,test(actor,skill))))
                 consider(CombatActionKind.HELP, ally_id, value, 'improve_exact_upcoming_test', policy)
         wizard = state.source.participant(actor).wizard
         if wizard is not None:

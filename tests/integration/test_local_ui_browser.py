@@ -22,6 +22,7 @@ CHECK = r'''<script>
  if(window.parent!==window)return;
  function check(value,message){if(!value)throw Error(message);}
  try{
+  document.body.setAttribute('data-ui-check','running');
   while(!byId('request').value)await new Promise(resolve=>setTimeout(resolve,50));
   const original=read();check(original.kind==='dynamic_encounter_search','initial request');
   const beforeWizard=canonical(read());
@@ -33,6 +34,13 @@ CHECK = r'''<script>
   let kit=document.querySelector('[data-path="party/0/magic/arcane_paraphernalia"]');kit.checked=false;kit.dispatchEvent(new Event('change'));check(!read().party[0].magic.arcane_paraphernalia && byId('request-visual').textContent.includes('импровизированный комплект пока не поддержан'),'missing magical kit remains an explicit unsupported draft');
   const wizardDraft=canonical(read());byId('request-json-tab').click();byId('request-visual-tab').click();check(canonical(read())===wizardDraft,'wizard facts survive JSON and card switching');
   document.querySelector('[aria-label="Удалить талант Маг (Wizard)"]').click();check(canonical(read())===beforeWizard && !document.querySelector('[data-path="party/0/characteristics/reason"]') && !document.querySelector('[data-path="party/0/skills/willpower"]'),'removing Wizard restores nonmagical input without hidden magic fields');
+  const beforeCombatTalents=canonical(read());
+  const addCombatTag=value=>{const entry=document.querySelector('[data-role="talent-entry"][data-member="0"]');entry.value=value;entry.dispatchEvent(new Event('input'));document.querySelector('#talent-options-0 [role="option"]').click();};
+  addCombatTag('wild_attack');check(read().party[0].talents.includes('wild_attack') && !read().party[0].talent_acquisition && byId('request-visual').textContent.includes('не выполнены требования'),'earned Wild Attack preserves missing Strength requirement without an automatic waiver');
+  let freeCombat=document.querySelector('[data-path="party/0/talent_acquisition/wild_attack"]');check(freeCombat && !freeCombat.checked,'selected combat talent exposes explicit acquisition fact');freeCombat.checked=true;freeCombat.dispatchEvent(new Event('change'));
+  addCombatTag('defensive_stance');check(read().party[0].talent_acquisition.wild_attack==='creation_free' && !document.querySelector('[data-path="party/0/talent_acquisition/defensive_stance"]').checked,'Defensive Stance defaults to earned independently');
+  const combatDraft=canonical(read());byId('request-json-tab').click();byId('request-visual-tab').click();check(canonical(read())===combatDraft && document.querySelector('[data-path="party/0/talent_acquisition/wild_attack"]').checked,'combat tags and acquisition survive switching');
+  document.querySelector('[aria-label="Удалить талант Дикая атака (Wild Attack)"]').click();check(!read().party[0].talent_acquisition && read().party[0].talents.includes('defensive_stance'),'removing combat tag cleans matching acquisition only');document.querySelector('[aria-label="Удалить талант Оборонительная стойка (Defensive Stance)"]').click();check(canonical(read())===beforeCombatTalents,'combat talent removal restores source without hidden facts');
   check(document.documentElement.dataset.theme===(matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light'),'initial theme follows system preference');setTheme('light');
   check(byId('theme-toggle').closest('.page-heading') && byId('theme-toggle').getBoundingClientRect().left>document.querySelector('h1').getBoundingClientRect().right,'theme switch at the upper right');
   check(getComputedStyle(byId('status')).display==='none' && !byId('status').textContent,'no routine status below launch button');
@@ -328,8 +336,8 @@ CHECK = r'''<script>
    await profileInput(npcKey).parentElement.querySelector('[data-action="save-npc"]').onclick();check(canonical(JSON.parse(profileExports.at(-1).text))===canonical(changedNpc),'NPC download uses edited draft profile');setResultView('json');check(byId('result').textContent===profileReportText && !byId('result-draft-notice').classList.contains('hidden'),'JSON remains original with a visible draft explanation');setResultView('visual');
    await loadProfile(npcKey,JSON.stringify(originalNpc));check(npcDrafts.size===0 && byId('result-draft-notice').classList.contains('hidden') && !byId('result-card-heading').querySelector('[data-action="download-replay"]').disabled,'restoring original NPC clears stale draft and re-enables replay');
    await loadProfile(npcKey,JSON.stringify(changedNpc));byId('result-card-heading').querySelector('[data-action="reset-npc-draft"]').click();check(npcDrafts.size===0 && canonical(lastResult)===profileReport,'reset composition discards only its draft');
-   const rich=JSON.parse(JSON.stringify(profileSource.party[0]));rich.actor_id='pc:imported';rich.equipment.weapons.push({id:'spare:granular',weapon:'glaive',location:'carried'});rich.equipment.armour.push({id:'heavy:granular',kind:'heavy_armour',location:'carried'});rich.consumables=[{id:'potion:granular',kind:'enhancement_potion',quantity:3,characteristic:'ballistic_skill'}];rich.talents=['lucky','Future talent'];
-   await loadProfile('player:0','\uFEFF'+JSON.stringify(rich));check(canonical(read().party[0])===canonical(rich) && canonical(read().party.slice(1))===canonical(profileSource.party.slice(1)) && !byId('result-stale').classList.contains('hidden'),'player import preserves full unsupported inventory and marks report stale');
+   const rich=JSON.parse(JSON.stringify(profileSource.party[0]));rich.actor_id='pc:imported';rich.equipment.weapons.push({id:'spare:granular',weapon:'glaive',location:'carried'});rich.equipment.armour.push({id:'heavy:granular',kind:'heavy_armour',location:'carried'});rich.consumables=[{id:'potion:granular',kind:'enhancement_potion',quantity:3,characteristic:'ballistic_skill'}];rich.talents=['lucky','wild_attack','Future talent'];rich.talent_acquisition={wild_attack:'creation_free'};
+   await loadProfile('player:0','\uFEFF'+JSON.stringify(rich));check(canonical(read().party[0])===canonical(rich) && canonical(read().party.slice(1))===canonical(profileSource.party.slice(1)) && !byId('result-stale').classList.contains('hidden'),'player import preserves full unsupported inventory and marks report stale');check(document.querySelector('[data-path="party/0/talent_acquisition/wild_attack"]').checked,'granular import restores explicit Character Creation fact');
    await profileInput('player:0').parentElement.querySelector('[data-action="save-player"]').onclick();check(canonical(JSON.parse(profileExports.at(-1).text))===canonical(rich),'rich player file roundtrip retains gear consumables talents and Fate');
    for(const text of [JSON.stringify(originalNpc),'{',JSON.stringify({...rich,actor_id:profileSource.party[1].actor_id})]){await loadProfile('player:0',text);check(byId('status').className==='error' && canonical(read().party[0])===canonical(rich),'wrong invalid or duplicate-ID player files leave source intact');}
    await profileInput('player:0').onchange({target:{files:[{size:2*1024*1024+1,text:()=>{throw Error('oversize file must not be read');}}],value:''}});check(byId('status').textContent.includes('2 МиБ') && canonical(read().party[0])===canonical(rich),'oversized character file is rejected before reading');
@@ -342,7 +350,7 @@ CHECK = r'''<script>
   byId('request').value='{';await run();check(byId('status').className==='error' && getComputedStyle(byId('status')).display!=='none' && byId('status').textContent,'invalid JSON error remains visible');
   byId('request-visual-tab').click();check(requestView==='json' && byId('request').value==='{','invalid JSON not overwritten by toggle');
   document.body.setAttribute('data-ui-check','passed');
- }catch(error){document.body.setAttribute('data-ui-check','failed');document.body.append(document.createTextNode('UI CHECK: '+error.stack));}
+ }catch(error){document.body.setAttribute('data-ui-check','failed');document.body.setAttribute('data-ui-error',error.stack);document.body.append(document.createTextNode('UI CHECK: '+error.stack));}
 })();
 </script>'''
 
@@ -378,7 +386,10 @@ class LocalUiBrowserTests(unittest.TestCase):
                             result = subprocess.run([BROWSER, *arguments], capture_output=True, timeout=45)
                             dom = result.stdout.decode('utf-8', errors='replace')
                         self.assertEqual(result.returncode, 0, result.stderr[-2000:])
-                        self.assertTrue('data-ui-check="passed"' in dom, dom[-2200:])
+                        error_at = dom.find('data-ui-error=')
+                        self.assertTrue('data-ui-check="passed"' in dom,
+                            dom[error_at:error_at+2200] if error_at >= 0
+                            else dom[dom.find('<body'):dom.find('<body')+1200])
                 finally:
                     server.shutdown()
                     thread.join(5)

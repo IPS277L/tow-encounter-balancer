@@ -26,7 +26,7 @@ Talent выбирается при создании персонажа либо 
 | 74 | Cleaving Blow | 4 / S 5+ | Wound two-handed weapon накладывает Staggered на остальных врагов Close | нет |
 | 74 | Combat Surgeon | 3 / Anatomy Lore | Recall временно подавляет ongoing Wound effect; battle surgery — Exacting Dexterity 8, Test за action | обе rules-boundaries, suppression aggregate/view и battle-proof healing consumer реализованы |
 | 74 | Deep Formation | 2 / — | Spear/Short weapon даёт `+1d` союзнику в Zone против Charge Melee | нет |
-| 74 | Defensive Stance | 2 / WS 3+ | После успешной Defence opposition можно не Stagger атакующего и снять свой Staggered | реализовано для generated NPC с выбранным обменом фактически доступного нового Staggered; PC не подключены |
+| 74 | Defensive Stance | 2 / WS 3+ | После успешной Defence opposition можно не Stagger атакующего и снять свой Staggered | generated NPC и automatic melee PC: обмен фактически доступного нового Staggered; ongoing Staggered не снимается |
 | 74 | Dispeller | 3 / Wizard | Раз/round Willpower против Casting; превышение даёт врагу Miscast die; Exacting dispel ongoing spell; все такие 9 создают Miscast dice | частично: есть общие opposed/Miscast primitives, Talent lifecycle нет |
 | 75 | Exceptional Hearing | 2 / I 4+ | Расширенные слуховые Awareness; Blinded не штрафует Melee/opposition, если не Deafened | нет |
 | 75 | Faith | 4 / Empire Human | Последовательные покупки дают Favour, Prayers, Miracle и новые Miracle uses | нет |
@@ -71,7 +71,7 @@ Talent выбирается при создании персонажа либо 
 | 81 | Valour of Ages | 3 / High Elf | Союзник во вражеской Zone предотвращает Broken от Give Ground и разрешает Recover там | нет |
 | 81 | Vanguard | 3 / Ag 4+ | Move Quietly/Carefully в Manoeuvre также перемещает в соседнюю Zone | нет |
 | 81 | Vouch For Them | 3 / Silver/Gold, Fel 4+ | NPC применяет ожидания вашего Status к представленному союзнику; disgrace отражается на вас | нет |
-| 81 | Wild Attack | 3 / S 4+ | Если не Staggered, делает следующую Melee Glorious ценой Staggered до броска | реализовано для generated NPC: source-bound цена до Test, one-use Glorious/reroll; PC не подключены |
+| 81 | Wild Attack | 3 / S 4+ | Если не Staggered, делает следующую Melee Glorious ценой Staggered до броска | generated NPC и automatic melee PC Attack/Melee Help: source-bound цена, committed intent и one-use Glorious; PC сравнивает пользу/риск/Fate |
 | 81 | Wizard | 4 / не Dwarf/Halfling, Magic Lore | Разрешает improvised/memorised/formalised spells; до четырёх покупок задают Wizard Level | частично: magic state/pipeline есть, Talent ownership нет |
 
 ### Три таланта generated NPC
@@ -83,6 +83,16 @@ Talent выбирается при создании персонажа либо 
 Wild Attack использует настоящее состояние до следующей Melee: получение Staggered меняет применимые Sword/Morning Star modifiers. Drained запрещает обычный Glorious, поэтому выбранная тактика не платит цену при Drained; уже Staggered источник недопустим по тексту. Ни price, ни Defensive Stance не дают нового действия или Fate spend. Пассивные Magic Resistance и снятие состояния через Defensive Stance при Drained сохраняются: PG123 запрещает bonus dice/обычный Glorious, не все Talents.
 
 [Требования/поднаборы](../../tests/unit/test_generated_npc_talent_generation.py), [реакции/source/replay](../../tests/unit/test_generated_npc_reactions.py), [Potency/оба spells](../../tests/unit/test_generated_npc_magic_resistance.py), [native owner](../../src/towr/domain/pc_generated_talents.py), [вход/запуск](../examples/dynamic/README.md#таланты-динамических-npc).
+
+### Боевые таланты PC в динамическом генераторе
+
+Оборонительная стойка (Defensive Stance), PG74, и Дикая атака (Wild Attack), PG81, используют общий с generated NPC lifecycle. Вход хранит единичный Talent и приобретение: обычное `earned` проверяет базовые WS≥3/S≥4; `creation_free` явно подтверждает бесплатное Character Creation и снимает Requirements по PG73. Временное зелье не исправляет исходный Requirement. Для NPC этот waiver не добавлен.
+
+Wild Attack оплачивается настоящим Staggered до собственного следующего Melee Test: Attack либо Melee Help. Действие, цель и получатель помощи фиксируются до цены; изменившиеся Conditions применяются к Sword/Morning Star и остальным modifiers. Glorious перебрасывает доступные провалы; Grim отменяет его, Fate поверх таланта не расходуется. Цена не создаёт дополнительного action/Test/использования руки. Drained и уже Staggered запрещают эту добровольную активацию.
+
+Defensive Stance заменяет ещё не исполненное наложение Staggered промахнувшемуся атакующему снятием собственного. Нужны успешная фактическая Defence и действительно доступный новый Staggered противнику;0v0, Athletics, уже Staggered атакующий и собственный fresh state не дают обмена. Drained не отключает пассивную реакцию. Ongoing Staggered от раны15 сохраняется по PG122/190 до устранения причины; реакция не обходит последствия рук/ран и не создаёт новый Critical.
+
+Автоматическая тактика сравнивает конечные распределения обычного и Glorious Test, действующую Fate/Lucky policy и прирост входящего риска; при равенстве не платит цену. Это эвристика без вложенного Monte Carlo и без расхода ресурса в прогнозе. Граница — automatic all-Close melee PC против обычных Melee Minions, без нового ranged/Brute-пути. [ADR-0123](../decisions/ADR-0123-pc-combat-talents-and-committed-melee-intent.md).
 
 ### Combat Surgeon: treatment-effect boundary
 

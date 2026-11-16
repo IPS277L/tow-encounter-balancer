@@ -25,6 +25,7 @@ from towr.domain.generated_npc_models import GeneratedAbility, GeneratedWeapon, 
 from towr.domain.minion_defeat_models import NpcDefeatDisposition
 from towr.domain.pc_melee_models import PcMeleeFacts, PcMeleeWeapon
 from towr.domain.pc_magic_source_models import PcWizardProfile, PcSpellId
+from towr.domain.pc_combat_talent_models import PcCombatTalent,TalentAcquisition
 
 
 class DynamicEncounterInputError(RangedInputError):
@@ -71,6 +72,20 @@ def _target(data, path, *, minimum=0, maximum=1):
     return float(value)
 
 
+def pc_combat_talent_facts(raw, *, path_prefix='', error_type=DynamicEncounterInputError):
+    """Validate acquisition facts even for an inventory draft; compile checks stats."""
+    supported={'defensive_stance','wild_attack'}
+    acquisition=raw.get('talent_acquisition',{})
+    if (type(acquisition) is not dict or any(key not in supported or key not in raw['talents']
+            or type(value) is not str or value not in ('earned','creation_free')
+            for key,value in acquisition.items())):
+        raise error_type(Code.INVALID_INPUT,'Talent acquisition must name a selected supported combat Talent.',
+            path=path_prefix+'/talent_acquisition')
+    return tuple(build_value(error_type,path_prefix+'/talent_acquisition/'+talent,PcCombatTalent,
+        GeneratedTalent(talent),TalentAcquisition(acquisition.get(talent,'earned')))
+        for talent in raw['talents'] if talent in supported)
+
+
 def parse_dynamic_encounter_request(text: str | bytes) -> DynamicEncounterCommand:
     document = read_request(text, DynamicEncounterInputError, validate_dynamic_encounter_document)
     try:
@@ -115,6 +130,7 @@ def parse_dynamic_encounter_request(text: str | bytes) -> DynamicEncounterComman
                 actor_id=raw['actor_id'], **characteristics, **skills,
                 **loadout,
                 talents=tuple(EncounterTalent(t) for t in raw['talents']), fate=raw['resources']['fate'],
+                combat_talents=pc_combat_talent_facts(raw,path_prefix=path),
                 consumables=consumables, wizard=wizard,
                 armour_worn=any(item.location is ItemLocation.WORN
                     and item.kind in (ArmourItemKind.LIGHT, ArmourItemKind.HEAVY, ArmourItemKind.HELMET)

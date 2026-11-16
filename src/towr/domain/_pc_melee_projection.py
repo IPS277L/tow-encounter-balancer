@@ -228,8 +228,12 @@ def project_pc_step(state, proof):
     stance = expected_defensive_stance(state)
     if wild is not None and type(proof) is not PcWildAttackProof:
         raise ValueError('selected Wild Attack price must precede the Melee Test')
-    if pending_wild_attack(state) is not None and type(proof) is not PcAttackProof:
-        raise ValueError('paid Wild Attack must be consumed by its actual next Melee Test')
+    paid=pending_wild_attack(state)
+    if paid is not None:
+        expected_type=(PcHelpProof if paid.intent is not None
+            and paid.intent.action is CombatActionKind.HELP else PcAttackProof)
+        if type(proof) is not expected_type:
+            raise ValueError('paid Wild Attack must be consumed by its actual next Melee Test')
     if stance is not None and type(proof) is not PcDefensiveStanceProof:
         raise ValueError('selected Defensive Stance must replace this pending miss Staggered')
     if pc_melee_unsupported(state) is not None:
@@ -322,8 +326,12 @@ def project_pc_step(state, proof):
         if wild is None:
             raise ValueError('no Wild Attack price is available for this source/turn')
         _same(proof,wild,'Wild Attack changed its actual source actor or action')
-        enemy = state.enemy(proof.actor_id)
-        injury = replace(enemy.state.injury,
+        if proof.actor_id in scenario.pc_activation_order:
+            old=state.participant(proof.actor_id).injury
+            injury=replace(old,conditions=old.conditions.with_condition(Condition.STAGGERED))
+            return finish(party=_party_update(state,proof.actor_id,injury=injury))
+        enemy=state.enemy(proof.actor_id)
+        injury=replace(enemy.state.injury,
             conditions=enemy.state.injury.conditions.with_condition(Condition.STAGGERED))
         return finish(enemies=_enemy_update(state,proof.actor_id,injury))
     if type(proof) is PcDefensiveStanceProof:
@@ -331,8 +339,12 @@ def project_pc_step(state, proof):
         if stance is None:
             raise ValueError('no actual new miss Staggered can be traded by Defensive Stance')
         _same(proof,stance,'Defensive Stance changed its source Attack/actors/pending effect')
-        enemy = state.enemy(proof.actor_id)
-        injury = replace(enemy.state.injury,
+        if proof.actor_id in scenario.pc_activation_order:
+            old=state.participant(proof.actor_id).injury
+            injury=replace(old,conditions=old.conditions.without_condition(Condition.STAGGERED))
+            return finish(party=_party_update(state,proof.actor_id,injury=injury),pending=state.pending[1:])
+        enemy=state.enemy(proof.actor_id)
+        injury=replace(enemy.state.injury,
             conditions=enemy.state.injury.conditions.without_condition(Condition.STAGGERED))
         return finish(enemies=_enemy_update(state,proof.actor_id,injury),pending=state.pending[1:])
     if type(proof) is PcNpcApproachProof:

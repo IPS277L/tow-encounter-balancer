@@ -8,6 +8,8 @@
 
 ## Вход партии и решения симулятора
 
+[ADR-0123 о боевых PC-талантах](decisions/ADR-0123-pc-combat-talents-and-committed-melee-intent.md) принят в полном варианте: Defensive Stance/Wild Attack для Attack/Melee Help, автоматическое сравнение с учётом Fate, сохранение намерения после цены и optional provenance для бесплатного Character Creation. Трактовка Defensive Stance из ADR-0122 сохраняется: только фактически доступный новый Staggered атакующему. Ongoing Staggered от Wound15 не снимается по PG122. Решений пользователя для этого среза больше не требуется; [исполнение и проверки](project-status.md).
+
 [ADR-0122 о талантах generated NPC](decisions/ADR-0122-generated-npc-combat-talents.md) принят и реализован: Magic Resistance, Defensive Stance, Wild Attack; генерация допустимых поднаборов с Requirements. Пользователь выбрал обмен Defensive Stance только при действительно доступном новом Staggered атакующему;0v0/уже Staggered атакующий обмена не дают. Drained запрещает bonus dice/обычный Glorious, но не отключает пассивные Magic Resistance/Defensive Stance. Это текущие Minions, не новые PC-таланты и не общий каталог. Вопросов для завершения чанка нет; Character Creation waiver/XP history не входят в генерацию.
 
 [ADR-0121 о снаряжении generated NPC](decisions/ADR-0121-generated-npc-melee-equipment-and-protection.md) принят и реализован полностью: Axe/Sword/Warhammer/Morning Star, Shield, отдельный Defence и автоматический выбор Defence/Athletics по текущим modifiers/cap. Traits исполняются по полным компонентам, не canonical ID; generic armour_worn сохраняет Helmet без лишней Resilience. Вопросов для завершения чанка нет. Heavy Armour, dual wield, другие NPC-таланты/магия/расходники остаются вне этой границы.

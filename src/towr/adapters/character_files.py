@@ -2,7 +2,7 @@
 from functools import lru_cache
 
 from towr.adapters._json_common import read_request
-from towr.adapters.dynamic_encounter_json import DynamicEncounterInputError, _validator
+from towr.adapters.dynamic_encounter_json import DynamicEncounterInputError, _validator,pc_combat_talent_facts
 from towr.adapters.ranged_json_errors import RangedInputErrorCode as Code
 
 
@@ -35,4 +35,5 @@ def parse_character_file(text: str | bytes, kind: str) -> dict:
         if len(talents) != len(set(talents)):
             raise DynamicEncounterInputError(Code.INVALID_INPUT,
                 'Таланты не должны повторяться.', path='/talents')
+        pc_combat_talent_facts(document)
     return document

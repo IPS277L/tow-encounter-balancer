@@ -15,6 +15,7 @@ from towr.domain.fate_models import (
 from towr.domain.injury_models import ProfileInjuryState
 from towr.domain.potion_models import ConsumableItem, ConsumableKind
 from towr.domain.pc_magic_source_models import PcWizardProfile, PcSpellId
+from towr.domain.pc_combat_talent_models import PcCombatTalent,TalentAcquisition
 from towr.domain.generated_npc_models import GeneratedNpc, GeneratedWeapon, GeneratedAbility, GeneratedTalent
 from towr.domain.minion_defeat_models import MinionDefeatDecision, NpcDefeatDisposition
 from towr.domain.npc_attack_preparation_models import NpcAttackProfile
@@ -224,6 +225,9 @@ def _parse_participant(data, *, path_prefix, error_type):
         near_miss_policy=near_miss,glorious_policy=glorious,help_policy=help_policy,
         aim_second_action_policy=aim_second_action_policy,
         wizard=wizard, armour_worn=data.get('armour_worn'),
+        combat_talents=tuple(build(f'{path_prefix}/combat_talents/{index}',PcCombatTalent,
+            GeneratedTalent(value['talent']),TalentAcquisition(value['acquisition']))
+            for index,value in enumerate(data.get('combat_talents',[]))),
         consumables=tuple(build(f'{path_prefix}/consumables/{index}', ConsumableItem,
             **dict(item, kind=ConsumableKind(item['kind'])))
             for index,item in enumerate(data.get('consumables', []))),
@@ -424,6 +428,8 @@ def scenario_document(scenario: PcMeleeScenario) -> dict:
     validate_pc_melee_scenario_admission(scenario)
     party = _plain([asdict(member) for member in scenario.party])
     for member in party:
+        if not member['combat_talents']:
+            del member['combat_talents']
         if member['armour_worn'] is None:
             del member['armour_worn']
         if member['wizard'] is None:

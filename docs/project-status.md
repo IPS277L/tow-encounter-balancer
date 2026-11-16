@@ -14,7 +14,27 @@
 
 Граница NPC: stationary all-Close melee PCs против Minions, автоматическая Defence/Athletics Protection, одно 1H weapon с настоящими Traits и optional Shield/Light Armour; без NPC Shooting и талантов вне принятого набора. PC equipment/Lucky/potions и первый магический путь описаны ниже. Authored Drained требует явного допуска, не является автоматически выданным талантом. Сохраняются Wounds/Fate/Recover и unsupported базового simulator. Duration = started rounds, включая censored prefix; ранжирование по близости к win target, затем duration. Это ограниченный поиск, не доказательство оптимума и не полный генератор книги. Старый каталог не переносился массово; kernel/backend не менялись.
 
-## Текущий срез: книжные таланты динамических NPC
+## Текущий срез: боевые таланты персонажей игроков
+
+[ADR-0123](decisions/ADR-0123-pc-combat-talents-and-committed-melee-intent.md) принят в полном варианте и реализован: Оборонительная стойка (Defensive Stance) и Дикая атака (Wild Attack) в automatic all-Close melee против Minions. PC сравнивает обычную Attack/Melee Help с Wild, учитывая настоящие Fate/Lucky policy, свойства оружия и прирост входящего риска. Прогноз использует конечные распределения, без RNG и вложенного Monte Carlo; при равенстве не платит цену. Выбранное действие/цель/Help фиксируются до получения Staggered и не заменяются после него.
+
+Цена Wild Attack и реакция Defensive Stance используют общий с NPC source-bound lifecycle. Следующий обещанный Melee получает однократный Glorious с перебросом провалов, Grim отменяет его, лишняя Fate не тратится. Реакция заменяет только доступное новое Staggered атакующему после actual successful Defence. Drained не отключает пассивную стойку; ongoing Staggered от Wound15 сохраняется до устранения причины. Цена и реакция не добавляют action/Test/hand use/Critical; actual Attack/Help сохраняют последствия ран и рук.
+
+Current Dynamic/PC JSON1, replay и отдельные player files сохраняют полный Talent source. Необязательный `party[].talent_acquisition` разрешает явное `creation_free` по PG73, обходя исходные WS3/S4 Requirements; отсутствие записи означает `earned`. UI показывает доступные теги и отдельную отметку бесплатного Character Creation, не удаляет Talent и не исправляет Requirement автоматически. Полный source/readmission/однократность проверяются. NPC pool/Requirements прежние. [Пример и запуск](examples/dynamic/README.md#боевые-таланты-игроков).
+
+Адресные проверки (`PYTHONPATH=src`, `.venv/Scripts/python.exe -m unittest`), отдельные прогоны:
+
+- `tests.unit.test_pc_combat_talent_advice tests.unit.test_pc_tactics tests.unit.test_generated_npc_equipment tests.unit.test_generated_npc_reactions tests.unit.test_generated_npc_magic_resistance tests.unit.test_m9_pc_melee_models tests.integration.test_pc_combat_talents_json.PcCombatTalentJsonTests -q` —91OK,2.524s.
+- Fate/Glorious/Near Miss, Attack/Protection Help/ally Recover, heavy Wounds/shield, PC magic/potions, character/inventory и simulation/schema:208OK,26.619s. Полный перечень модулей соответствует затронутым владельцам; это адресный подсистемный набор, не full regression.
+- Финальный native/advisor/shared NPC reactions/PC JSON: `tests.unit.test_pc_combat_talent_execution tests.unit.test_pc_combat_talent_advice tests.unit.test_generated_npc_reactions tests.integration.test_pc_combat_talents_json.PcCombatTalentJsonTests -q` —52OK,2.087s. Включены actual Attack/Help/Defence, полное воспроизведение, поддельные/повторные proofs, Lucky и Grim; W12/14/15 проверки локальных подготовленных состояний явно отделены от полных боёв. Найденная ошибка default KeepAllFailures для Talent Glorious исправлена в runner; validator не ослаблен. Одна дополнительная проверка сначала ошибочно ожидала Wild при эквивалентной Fate-пользе; изменена тестовая цель так, чтобы качество влияло на шанс раны, обычный tie-break сохранён.
+- Process/browser/HTTP/JSON/magic/potion/files:31из32прошли; Edge завершил dump до маркера завершения browser CHECK, без error marker. Повтор браузера прошёл:1OK,8.711s. Два предшествовавших browser запуска не выданы за зелёный общий прогон; диагностика CHECK теперь сообщает actual error/начальную стадию. Итоговый `tests.integration.test_pc_combat_talents_json tests.integration.test_local_ui_browser tests.integration.test_local_ui -q` —22OK,19.627s: полный текущий контракт, real2worker parity, Edge tags/provenance/granular files/прежние пути, HTTP. Это последний зелёный адресный транспортный прогон.
+- CLI `-m towr generate-encounter docs/examples/dynamic/pc-talents.request.json` —4trials,1selected,3.767s, source сохранил earned и creation_free. Это smoke-пример, не статистическая оценка баланса.
+
+Full regression/wheel не запускались: проверены изменённые владельцы и ближайшие зависимости, сборка/dependencies/discovery прежние. Граница остаётся melee Minions/Close/no movement; PC Magic Resistance, NPC spellcasting/ranged, полный каталог и глобально оптимальная тактика не заявляются.
+
+<a id="текущий-срез-книжные-таланты-динамических-npc"></a>
+
+## Предыдущий срез: книжные таланты динамических NPC
 
 [ADR-0122](decisions/ADR-0122-generated-npc-combat-talents.md) принят и реализован полностью: Magic Resistance, Defensive Stance (WS≥3), Wild Attack (S≥4). Генератор сам выбирает допустимые поднаборы из allowed_talents, без заранее перечисленного powerset. Мутация не сохраняет нарушенный Requirement и не исправляет входные данные; дубликаты/неизвестные таланты/неверные типы отвергаются. Character Creation waiver/XP history не моделируются; authored Drained не стал книжным талантом.
 
@@ -301,8 +321,8 @@ Named NPC/Abilities/Brutes/Champions сохраняются в прежних al
 
 ## Следующий шаг
 
-Подготовить подключение Defensive Stance/Wild Attack к фактам партии PC с общими Requirements/effect consumers и автоматическими решениями. Сначала сверить hand/Critical/Fate взаимодействия и предложить конкретный публичный контракт, затем выполнить принятый срез. Не дублировать отдельную механику по actor kind и не расширять каталог именных NPC вместо генератора.
+Следующая функция для подготовки — общий компонент стрельбы (Shooting) динамических NPC: характеристики/навыки/оружие и автоматическая тактика вместо добавления именных профилей. Сначала сверить книжные дальности, защиту и Reload с существующим Close-срезом, определить минимальную исполнимую сцену и предложить публичную границу. Не выдавать ready-made Pistol NPC или одноразовый залп за полную динамическую поддержку. Контракт этой функции ещё не согласован; реализованный ADR-0123 не оставляет открытых решений.
 
-Magic Resistance у PC и NPC spellcasting требуют полезного общего caster/target пути; текущий чанк их не добавил. Для партий с магами по-прежнему сохранять долю/причины unsupported; GM/spatial Miscasts не стали no-op. ADR-0122 завершён, дополнительных решений для него нет.
+Magic Resistance у PC и NPC spellcasting требуют полезного общего caster/target пути; текущий чанк их не добавил. Для партий с магами по-прежнему сохранять долю/причины unsupported; GM/spatial Miscasts не стали no-op. ADR-0123 завершён, дополнительных решений для него нет.
 
 Commit/push выполняет пользователь.

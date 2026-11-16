@@ -129,6 +129,24 @@
         },
         "magic": {
           "$ref": "#/$defs/magic"
+        },
+        "talent_acquisition": {
+          "type": "object",
+          "properties": {
+            "defensive_stance": {
+              "enum": [
+                "earned",
+                "creation_free"
+              ]
+            },
+            "wild_attack": {
+              "enum": [
+                "earned",
+                "creation_free"
+              ]
+            }
+          },
+          "additionalProperties": false
         }
       },
       "required": [
@@ -188,6 +206,52 @@
                   "contains": {
                     "const": "wizard"
                   }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "talent_acquisition"
+            ],
+            "properties": {
+              "talent_acquisition": {
+                "required": [
+                  "defensive_stance"
+                ]
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "talents": {
+                "contains": {
+                  "const": "defensive_stance"
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "talent_acquisition"
+            ],
+            "properties": {
+              "talent_acquisition": {
+                "required": [
+                  "wild_attack"
+                ]
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "talents": {
+                "contains": {
+                  "const": "wild_attack"
                 }
               }
             }

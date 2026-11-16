@@ -20,6 +20,12 @@ Current native JSON1 хранит `generated_components` и условный `al
 
 `pc_magic_models` добавляет Magic Resistance в реальные IdentifiedSpellTarget через общий Potency reducer и использует ту же эффективную Potency в выборе заклинания/целей. Fire Breath target cap остаётся caster-scoped, Damage/no-effect — target-scoped. Passive resistance не зависит от Drained и не распространяется на Miscast. Current JSON1/character files/replay сохраняют выбранные talents и allowed pool, UI показывает факты без tactical editor. [ADR-0122](../decisions/ADR-0122-generated-npc-combat-talents.md), [пример](../examples/dynamic/talents.request.json).
 
+## Боевые таланты PC и намерение до цены
+
+`PcCombatTalent` хранит единичный Talent и `TalentAcquisition`; требования проверяются при admission, `creation_free` снимает их только по явному факту. `PcMeleeParticipant.combat_talents` отделён от runtime Conditions. Dynamic compiler, native JSON1, replay и character files сохраняют полный источник; формат NPC не меняется.
+
+Общий `pc_generated_talents` обслуживает цену Wild Attack и реакцию Defensive Stance обеих сторон. PC price proof сохраняет `PcTacticalChoice` до Staggered; selector возвращает этот intent до actual Attack/Help, projection проверяет следующий обещанный Test и однократное потребление. Руки/раны/Help/Fate остаются у прежних владельцев. Ongoing Staggered PC не снимается реакцией. `pc_talent_advice` вычисляет конечные распределения с действующей Fate/Lucky policy без RNG/расхода; общий planner сравнивает обычные/Wild варианты и входящий риск. При равенстве выбирает вариант без цены. [ADR-0123](../decisions/ADR-0123-pc-combat-talents-and-committed-melee-intent.md).
+
 ## Вход персонажей генератора
 
 `application.encounter_character` компилирует факты характеристик/навыков/equipment/Lucky/Fate в существующий participant; ledger и controller policies не являются пользовательским входом dynamic family. Domain по-прежнему не зависит от GUI/JSON/application. Fresh-session scene задаёт полный начальный ресурс, trials имеют независимые состояния. Application строит automatic NPC envelope по партии, optional explicit space ограничивает его вручную. JSON output сохраняет resolved_search_space и полные executable replays; UI planning оценивает envelope, но не допускает игровые компоненты. Первый автоматический melee-controller описан ниже; это ограниченная эвристика, не общее планирование всего боя. [ADR-0114](../decisions/ADR-0114-character-facts-and-automatic-generator-input.md).

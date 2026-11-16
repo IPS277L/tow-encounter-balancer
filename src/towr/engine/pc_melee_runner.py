@@ -101,6 +101,9 @@ def _decline(state, actor_id, source_id, window):
 
 
 def _resolve_pc_test(state, actor_id, skill, request, rng, decisions):
+    wild = pending_wild_attack(state)
+    if skill is Skill.MELEE and wild is not None and wild.actor_id == actor_id:
+        decisions = RerollAllFailures()
     initial = roll_test_initial(request,rng)
     selected = build_pc_glorious_spend(state,actor_id,skill,initial)
     if selected is None:
@@ -373,6 +376,10 @@ def run_pc_melee_scenario(scenario, rng: RandomSource) -> PcMeleeScenarioResult:
                 pc_melee_action_declaration(state),ActionSlotGrant.STANDARD)))
             continue
         if not combat.active_turn.action_slots[-1].executed:
+            wild=expected_wild_attack(state)
+            if wild is not None:
+                consume(wild)
+                continue
             if (actor in scenario.pc_activation_order and scenario.participant(actor).wizard is not None
                     and pc_melee_selected_action(state) is CombatActionKind.IMPROVISE):
                 request = build_pc_casting_request(state)
@@ -420,10 +427,6 @@ def run_pc_melee_scenario(scenario, rng: RandomSource) -> PcMeleeScenarioResult:
                 blood_rage = expected_pc_npc_blood_rage(state)
                 if blood_rage is not None:
                     consume(blood_rage)
-                    continue
-                wild = expected_wild_attack(state)
-                if wild is not None:
-                    consume(wild)
                     continue
                 net_draw = expected_pc_npc_net_draw(state)
                 if net_draw is not None:
