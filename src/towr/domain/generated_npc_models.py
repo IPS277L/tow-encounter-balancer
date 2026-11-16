@@ -30,6 +30,23 @@ class GeneratedAbility(str, Enum):
     DRAINED_ON_HIT = 'drained_on_hit'
 
 
+class GeneratedTalent(str, Enum):
+    MAGIC_RESISTANCE = 'magic_resistance'
+    DEFENSIVE_STANCE = 'defensive_stance'
+    WILD_ATTACK = 'wild_attack'
+
+
+def generated_talent_requirements_met(talent: GeneratedTalent, *, weapon_skill: int,
+        strength: int) -> bool:
+    if type(talent) is not GeneratedTalent:
+        raise TypeError('generated Talent requires its typed supported identifier')
+    if talent is GeneratedTalent.DEFENSIVE_STANCE:
+        return weapon_skill >= 3
+    if talent is GeneratedTalent.WILD_ATTACK:
+        return strength >= 4
+    return True
+
+
 @dataclass(frozen=True, slots=True)
 class GeneratedNpc:
     weapon_skill: int
@@ -43,6 +60,7 @@ class GeneratedNpc:
     abilities: tuple[GeneratedAbility, ...] = ()
     defence: int = field(kw_only=True)
     shield: bool = field(kw_only=True)
+    talents: tuple[GeneratedTalent, ...] = field(default=(),kw_only=True)
 
     def __post_init__(self):
         for name in ('weapon_skill', 'strength', 'toughness', 'agility'):
@@ -60,6 +78,13 @@ class GeneratedNpc:
         if (type(self.abilities) is not tuple or len(set(self.abilities)) != len(self.abilities)
                 or any(type(a) is not GeneratedAbility for a in self.abilities)):
             raise TypeError('abilities must be unique supported typed components')
+        if (type(self.talents) is not tuple
+                or any(type(talent) is not GeneratedTalent for talent in self.talents)
+                or len(set(self.talents)) != len(self.talents)):
+            raise TypeError('Talents require unique supported typed single acquisitions')
+        if any(not generated_talent_requirements_met(talent,weapon_skill=self.weapon_skill,
+                strength=self.strength) for talent in self.talents):
+            raise ValueError('generated Talent Requirements are not met')
 
     def participant(self, actor_id: str) -> NpcParticipantSnapshot:
         """Build fresh state; identity never selects a mechanic."""

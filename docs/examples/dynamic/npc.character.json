@@ -9,5 +9,6 @@
   "light_armour": false,
   "abilities": [],
   "defence": 3,
-  "shield": false
+  "shield": false,
+  "talents": []
 }

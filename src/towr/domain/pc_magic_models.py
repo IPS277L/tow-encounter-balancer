@@ -8,7 +8,7 @@ from towr.domain.condition_models import Condition
 from towr.domain.magic_models import (WizardMagicState, CastingTestRequest, CastingTestResult,
     CastingChoice, CastingDecisionRequest, CastingSpellSelection, MiscastPreparationRequest,
     MiscastRollRequest, MiscastRollResult, SpellCastRequest, IdentifiedSpellTarget,
-    SpellTargetPreflightRequest, SpellCastExecutionResult)
+    SpellTargetPreflightRequest, SpellCastExecutionResult,SpellPotencyModifier,SpellPotencyRequest)
 from towr.domain.action_execution_models import (CastingAttemptExecutionRequest, CastingAttemptExecutionResult,
     CastingActionPostTestRequest, CastingActionPostTestResult, CastingActionMiscastPreparationRequest,
     CastingActionMiscastPreparationResult, SkippedCastingTestAfterActionRequest,SkippedCastingTestAfterActionResult)
@@ -27,6 +27,7 @@ from towr.domain.turn_models import CombatActionKind
 if TYPE_CHECKING:
     from towr.domain.pc_melee_result_models import PcMeleeState, PcFateDecline
     from towr.domain.fate_models import FateGloriousSpendResult
+    from towr.domain.npc_roster_models import NpcParticipantSnapshot
 
 
 @dataclass(frozen=True, slots=True)
@@ -217,11 +218,20 @@ def spell_choice(state, actor, potency):
         if not state.enemy(target).state.injury.defeated and target not in state.exited_npc_ids]
     best = (None, (), 0.0)
     for spell in state.source.participant(actor).wizard.memorised_spells:
+        definition = pc_spell_definition(spell)
         values = []
         for enemy in live:
+            modifiers = generated_spell_potency_modifiers(enemy)
+            effective_potency = potency
+            if modifiers:
+                from towr.rules.spell_potency_resolution import resolve_spell_potency
+                effective_potency = resolve_spell_potency(SpellPotencyRequest(
+                    'pc-magic:advice:'+enemy.state.actor_id,definition.rule_id,
+                    enemy.state.actor_id,potency,modifiers)).effective_potency
             resilience = enemy.state.current_resilience
-            value = 1.0 if (pc_spell_damage(spell,potency,resilience.is_armoured) > resilience.total
-                or enemy.state.injury.conditions.has(Condition.STAGGERED)) else 0.5
+            value = (0.0 if effective_potency == 0 else
+                1.0 if (pc_spell_damage(spell,effective_potency,resilience.is_armoured) > resilience.total
+                    or enemy.state.injury.conditions.has(Condition.STAGGERED)) else 0.5)
             values.append((enemy.state.actor_id,value))
         values.sort(key=lambda item:-item[1])
         selected = values[:potency if spell is PcSpellId.FIRE_BREATH else 1]
@@ -229,6 +239,20 @@ def spell_choice(state, actor, potency):
         if utility > best[2]+1e-12:
             best = spell, tuple(target for target,_ in selected), utility
     return best
+
+
+def generated_spell_potency_modifiers(enemy: NpcParticipantSnapshot) -> tuple[SpellPotencyModifier,...]:
+    """A passive acquired Talent affects cast spells, including when Drained.
+
+    This contributes to each actual target's K1 Potency request. It is not a
+    blanket immunity to magic or a modifier for raw Miscast consequences.
+    """
+    from towr.domain.generated_npc_models import GeneratedTalent
+    from towr.rules.stone_troll import magic_resistance_spell_potency_modifier
+    components = enemy.definition.generated_components
+    if components is not None and GeneratedTalent.MAGIC_RESISTANCE in components.talents:
+        return (magic_resistance_spell_potency_modifier(),)
+    return ()
 
 
 def complete_pc_casting(state, test, decline, glorious):
@@ -262,7 +286,8 @@ def complete_pc_casting(state, test, decline, glorious):
     resolved = None
     if source is not None:
         definition = pc_spell_definition(spell)
-        affected = tuple(IdentifiedSpellTarget(target) for target in targets)
+        affected = tuple(IdentifiedSpellTarget(target,
+            generated_spell_potency_modifiers(state.enemy(target))) for target in targets)
         subject = state.source.facts.zone_id if spell is PcSpellId.FIRE_BREATH else targets[0]
         preflight = resolve_spell_target_preflight(SpellTargetPreflightRequest(request.id+':preflight',source,
             definition,subject,definition.target_kind,True,affected))

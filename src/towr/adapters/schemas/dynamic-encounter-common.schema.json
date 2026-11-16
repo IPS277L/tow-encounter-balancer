@@ -308,6 +308,13 @@
           },
           "minItems": 1,
           "uniqueItems": true
+        },
+        "allowed_talents": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:towr:pc-melee:common:1#/$defs/generated_talent"
+          },
+          "uniqueItems": true
         }
       },
       "required": [
@@ -321,7 +328,8 @@
         "light_armour",
         "abilities",
         "defence",
-        "shield"
+        "shield",
+        "allowed_talents"
       ],
       "additionalProperties": false
     },

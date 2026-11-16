@@ -8,6 +8,8 @@ from towr.domain.pc_potion_models import (PcPotionRecoverProof, ENHANCEMENT_CHAR
 from towr.domain.pc_magic_models import (PcMagicPending,PcMagicModifier,PcMagicTask,
     PcCastingProof,PcMagicInterruptionProof,PcMiscastRollProof,PcMagicEffectProof,PcMagicCleanupProof,
     PcMagicUnsupported,pc_magic_unsupported,expected_magic_interruption,magic_test_modifiers)
+from towr.domain.pc_generated_talents import (PcWildAttackProof,PcDefensiveStanceProof,
+    expected_wild_attack,pending_wild_attack,generated_attack_quality)
 
 from dataclasses import dataclass, field, fields, is_dataclass, replace
 from enum import Enum
@@ -580,7 +582,7 @@ class PcTurnEndProof:
 
 PcMeleeProof = (
     CombatTurnStartResult | CombatActionSlotResult | PcAttackProof | PcWoundCompletionProof | PcNpcBloodRageProof
-    | PcNpcRecoverProof | PcFlagellantMissWoundProof
+    | PcNpcRecoverProof | PcFlagellantMissWoundProof | PcWildAttackProof | PcDefensiveStanceProof
     | PcWarpedFormActivationProof | PcWarpedFormTargetProof | PcWarpedFormProfileProof
     | PcWarpedFormMinionDefeatProof | PcWarpedFormEndProof
     | PcEnduranceProof | PcHandDropProof | PcAttackerStaggerProof | PcProfileWoundProof
@@ -655,6 +657,8 @@ class PcMeleeScenarioResult:
             raise ValueError('PC result skipped its initial grudge encounters')
         if expected_pc_npc_blood_rage(current) is not None:
             raise ValueError('PC result skipped its selected pre-Attack Blood Rage')
+        if expected_wild_attack(current) is not None or pending_wild_attack(current) is not None:
+            raise ValueError('terminal result skipped the selected Wild Attack price or next Melee Test')
         if actual_stop is None and expected_pc_npc_distraction_expiry(current) is not None:
             raise ValueError('PC result skipped mandatory focus-death distraction expiry')
         if self.unsupported != actual_stop:
@@ -930,6 +934,8 @@ def build_pc_melee_attack(state: PcMeleeState) -> tuple[AttackActionExecutionReq
         raise ValueError('Warped Form end phase must finish before another Attack preparation')
     if expected_pc_npc_blood_rage(state) is not None:
         raise ValueError('Attack must follow its selected Blood Rage proof')
+    if expected_wild_attack(state) is not None:
+        raise ValueError('selected Wild Attack must pay Staggered before its Melee Test')
     if expected_pc_npc_net_draw(state) is not None:
         raise ValueError('Attack must follow its actual carried weapon draw')
     if expected_pc_shield_release(state) is not None:
@@ -1025,7 +1031,7 @@ def build_pc_melee_attack(state: PcMeleeState) -> tuple[AttackActionExecutionReq
             modifiers = [m for m in modifiers if m.amount <= 0]
         attacker = TestRequest(action_id + ':attack', profile.test_profile,
             (*modifiers,*magic_test_modifiers(state,actor,profile.skill)[0]),
-            pc_bestigor_attack_quality(state, actor))
+            (*pc_bestigor_attack_quality(state, actor),*generated_attack_quality(state,actor)))
         from towr.domain.pc_npc_help_models import build_pc_npc_attack_help
         if profile.skill is not Skill.THROWING:
             attacker,_ = build_pc_npc_attack_help(state,actor,attacker)

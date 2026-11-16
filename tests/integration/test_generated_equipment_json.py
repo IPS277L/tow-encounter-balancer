@@ -29,7 +29,7 @@ def equipment_request():
         top_k=1,max_total_trials=2)
     document['search_space']=dict(weapon_skill=[2],strength=[3],toughness=[3],agility=[3],
         melee=[4],defence=[6],athletics=[2],weapon=['sword'],light_armour=[False],
-        shield=[True],abilities=[[]])
+        shield=[True],abilities=[[]],allowed_talents=[])
     return document
 
 

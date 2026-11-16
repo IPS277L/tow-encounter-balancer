@@ -21,7 +21,7 @@ from towr.application.encounter_inventory import (
     EncounterEquipment, WeaponItem, ArmourItem, ArmourItemKind, ItemLocation,
     ConsumableItem, ConsumableKind,
 )
-from towr.domain.generated_npc_models import GeneratedAbility, GeneratedWeapon
+from towr.domain.generated_npc_models import GeneratedAbility, GeneratedWeapon, GeneratedTalent
 from towr.domain.minion_defeat_models import NpcDefeatDisposition
 from towr.domain.pc_melee_models import PcMeleeFacts, PcMeleeWeapon
 from towr.domain.pc_magic_source_models import PcWizardProfile, PcSpellId
@@ -124,7 +124,8 @@ def parse_dynamic_encounter_request(text: str | bytes) -> DynamicEncounterComman
         space = automatic_npc_search_space(tuple(party)) if options is None else build_value(
             DynamicEncounterInputError, '/search_space', NpcSearchSpace,
             **{name: (tuple(GeneratedWeapon(v) for v in values) if name == 'weapon' else
-                tuple(tuple(GeneratedAbility(a) for a in group) for group in values) if name == 'abilities' else tuple(values))
+                tuple(tuple(GeneratedAbility(a) for a in group) for group in values) if name == 'abilities' else
+                tuple(GeneratedTalent(v) for v in values) if name == 'allowed_talents' else tuple(values))
                 for name, values in options.items()})
         search = dict(document['search'])
         search['master_seed'] = parse_seed(search['master_seed'], DynamicEncounterInputError, '/search/master_seed')

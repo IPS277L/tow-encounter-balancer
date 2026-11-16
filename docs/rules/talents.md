@@ -26,7 +26,7 @@ Talent выбирается при создании персонажа либо 
 | 74 | Cleaving Blow | 4 / S 5+ | Wound two-handed weapon накладывает Staggered на остальных врагов Close | нет |
 | 74 | Combat Surgeon | 3 / Anatomy Lore | Recall временно подавляет ongoing Wound effect; battle surgery — Exacting Dexterity 8, Test за action | обе rules-boundaries, suppression aggregate/view и battle-proof healing consumer реализованы |
 | 74 | Deep Formation | 2 / — | Spear/Short weapon даёт `+1d` союзнику в Zone против Charge Melee | нет |
-| 74 | Defensive Stance | 2 / WS 3+ | После успешной Defence opposition можно не Stagger атакующего и снять свой Staggered | нет |
+| 74 | Defensive Stance | 2 / WS 3+ | После успешной Defence opposition можно не Stagger атакующего и снять свой Staggered | реализовано для generated NPC с выбранным обменом фактически доступного нового Staggered; PC не подключены |
 | 74 | Dispeller | 3 / Wizard | Раз/round Willpower против Casting; превышение даёт врагу Miscast die; Exacting dispel ongoing spell; все такие 9 создают Miscast dice | частично: есть общие opposed/Miscast primitives, Talent lifecycle нет |
 | 75 | Exceptional Hearing | 2 / I 4+ | Расширенные слуховые Awareness; Blinded не штрафует Melee/opposition, если не Deafened | нет |
 | 75 | Faith | 4 / Empire Human | Последовательные покупки дают Favour, Prayers, Miracle и новые Miracle uses | нет |
@@ -47,7 +47,7 @@ Talent выбирается при создании персонажа либо 
 | 78 | Lightning Reflexes | 3 / I 5+ | Если не Defenceless, всегда Athletics opposition; первый ход раньше врагов даже в ambush | нет |
 | 78 | Longbeard | 3 / Dwarf, только creation | `+1d` к снятию conditions; задаёт social expectations среди Dwarfs | нет |
 | 78 | Lucky | 4 / — | Первый Fate/session бесплатен даже при Fate 0; gambling Tests Glorious | реализовано: free-first funding для трёх общих spends и proof-bound gambling Test preparation; Drained удаляет Talent Glorious |
-| 78 | Magic Resistance | 3 / — | Затрагивающий spell получает Potency `-1`; при 0 нет эффекта | реализован target-scoped Potency primitive |
+| 78 | Magic Resistance | 3 / — | Затрагивающий spell получает Potency `-1`; при 0 нет эффекта | target-scoped primitive и generated NPC против двух PC Elementalism spells реализованы; не сопротивление Miscast |
 | 79 | Mighty Blow | 3 / S 4+ | Игнорирует dice penalties самого two-handed weapon на Melee | нет |
 | 79 | Night Dweller | 2 / — | Видит Long в темноте; `+1d` против не видящей цели и Broken при Wound/Give Ground | нет |
 | 79 | Polymath | 2 / Re 4+ | Несколько Lore bonus dice можно все обменять на Glorious | нет |
@@ -71,8 +71,18 @@ Talent выбирается при создании персонажа либо 
 | 81 | Valour of Ages | 3 / High Elf | Союзник во вражеской Zone предотвращает Broken от Give Ground и разрешает Recover там | нет |
 | 81 | Vanguard | 3 / Ag 4+ | Move Quietly/Carefully в Manoeuvre также перемещает в соседнюю Zone | нет |
 | 81 | Vouch For Them | 3 / Silver/Gold, Fel 4+ | NPC применяет ожидания вашего Status к представленному союзнику; disgrace отражается на вас | нет |
-| 81 | Wild Attack | 3 / S 4+ | Если не Staggered, делает следующую Melee Glorious ценой Staggered до броска | нет |
+| 81 | Wild Attack | 3 / S 4+ | Если не Staggered, делает следующую Melee Glorious ценой Staggered до броска | реализовано для generated NPC: source-bound цена до Test, one-use Glorious/reroll; PC не подключены |
 | 81 | Wizard | 4 / не Dwarf/Halfling, Magic Lore | Разрешает improvised/memorised/formalised spells; до четырёх покупок задают Wizard Level | частично: magic state/pipeline есть, Talent ownership нет |
+
+### Три таланта generated NPC
+
+[ADR-0122](../decisions/ADR-0122-generated-npc-combat-talents.md) реализует Magic Resistance/Defensive Stance/Wild Attack как проверенные компоненты current Minions, с Requirements WS3+/S4+ и единственным приобретением. Генератор выбирает допустимый поднабор из разрешённого пула; Character Creation waiver и XP progression не моделируются. Это ограничение пространства генерации, не отмена исключения RULE-TALENT-001.
+
+По выбранной пользователем трактовке PG74/119 Defensive Stance заменяет только фактически доступное новое наложение Staggered атакующему. Требуются собственный Staggered и Defence с большим числом успехов против Melee;0v0/Athletics/уже Staggered атакующий обмена не дают. Снятие происходит через обязательную реакцию до обычного miss-Staggered consumer, а не поверх уже изменённого состояния.
+
+Wild Attack использует настоящее состояние до следующей Melee: получение Staggered меняет применимые Sword/Morning Star modifiers. Drained запрещает обычный Glorious, поэтому выбранная тактика не платит цену при Drained; уже Staggered источник недопустим по тексту. Ни price, ни Defensive Stance не дают нового действия или Fate spend. Пассивные Magic Resistance и снятие состояния через Defensive Stance при Drained сохраняются: PG123 запрещает bonus dice/обычный Glorious, не все Talents.
+
+[Требования/поднаборы](../../tests/unit/test_generated_npc_talent_generation.py), [реакции/source/replay](../../tests/unit/test_generated_npc_reactions.py), [Potency/оба spells](../../tests/unit/test_generated_npc_magic_resistance.py), [native owner](../../src/towr/domain/pc_generated_talents.py), [вход/запуск](../examples/dynamic/README.md#таланты-динамических-npc).
 
 ### Combat Surgeon: treatment-effect boundary
 

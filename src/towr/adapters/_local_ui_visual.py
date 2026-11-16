@@ -69,6 +69,8 @@ const termLabels=(terms,style)=>Object.fromEntries(Object.entries(terms).map(([k
 const characteristicNames=termLabels(characteristicTerms,'short'),characteristicFullNames=termLabels(characteristicTerms,'original');
 const statLabels={...characteristicNames,...termLabels(skillTerms,'original'),armour_bonus:'Бонус брони (Armour Bonus)'};
 const statFullNames={...characteristicFullNames,...termLabels(skillTerms,'original')};
+const generatedTalentNames={magic_resistance:'Сопротивление магии (Magic Resistance)',defensive_stance:'Оборонительная стойка (Defensive Stance)',wild_attack:'Дикая атака (Wild Attack)'};
+const generatedTalentHints={magic_resistance:'Сила (Potency) затрагивающего заклинания уменьшается на 1; при 0 эффекта нет. Требований нет.',defensive_stance:'Боевое мастерство (WS) 3+. При успешной Защите (Defence) NPC снимает собственный Staggered, отказавшись от доступного нового Staggered атакующему.',wild_attack:'Сила (S) 4+. Перед атакой NPC получает Staggered и делает следующий Ближний бой (Melee) Glorious. Не применяется при Staggered или Drained.'};
 const weaponNames={staff:'Посох (Staff)',sword:'Меч (Sword)',dagger:'Кинжал (Dagger)',axe:'Топор (Axe)',warhammer:'Боевой молот (Warhammer)',
  morning_star:'Моргенштерн (Morning Star)',pickaxe:'Клевец (Pickaxe)',flail:'Цеп (Flail)',billhook:'Гвизарма (Billhook)',halberd:'Алебарда (Halberd)',glaive:'Глефа (Glaive)',greataxe:'Двуручный топор (Greataxe)',greathammer:'Двуручный молот (Greathammer)'};
 function node(tag,text,classes){const element=document.createElement(tag);if(text!==undefined)element.textContent=String(text);if(classes)element.className=classes;return element;}
@@ -147,7 +149,13 @@ function renderRequestVisual(data){
  const abilityOptions=[['Без способностей',[[]]],['Без способностей или Истощение (Drained) при попадании',[[],['drained_on_hit']]],['Только Истощение (Drained) при попадании',[['drained_on_hit']]]];
  const current=JSON.stringify(data.search_space?.abilities);for(const [name,value] of abilityOptions){const option=node('option',name);option.value=JSON.stringify(value);select.append(option);}
  if(!abilityOptions.some(([,value])=>JSON.stringify(value)===current)){const option=node('option','Пользовательский набор · см. JSON');option.value=current||'[]';select.append(option);}select.value=current;
- select.onchange=()=>editRequest(['search_space','abilities'],JSON.parse(select.value));ability.append(select);choices.append(ability);space.append(choices);advanced.append(space);root.append(advanced);
+ select.onchange=()=>editRequest(['search_space','abilities'],JSON.parse(select.value));ability.append(select);choices.append(ability);
+ const talents=node('div');talents.append(node('h4','Разрешённые таланты (Talents)'));
+ for(const [value,name] of Object.entries(generatedTalentNames)){
+  const label=node('label',name,'toggle-field'),input=node('input');input.type='checkbox';input.checked=(data.search_space?.allowed_talents||[]).includes(value);input.dataset.path='search_space/allowed_talents/'+value;label.title=generatedTalentHints[value];
+  input.onchange=()=>{const values=read().search_space.allowed_talents;editRequest(['search_space','allowed_talents'],input.checked?[...values,value]:values.filter(t=>t!==value));};label.prepend(input);talents.append(label);
+ }
+ talents.append(node('p','Генератор выбирает допустимые сочетания с учётом требований. Снимите все флажки для составов без талантов.','visual-note'));choices.append(talents);space.append(choices);advanced.append(space);root.append(advanced);
 
 }
 function setRequestView(view){
@@ -213,7 +221,7 @@ function renderResultVisual(result,root=byId('result-visual')){
    const loadout=node('dl',undefined,'npc-loadout'),weapon=weaponNames[npc.weapon]||npc.weapon;
    const weaponHint={dagger:'Одноручное, Close Range; Damage = Strength − 1. +1d к Stealth для сокрытия.',staff:'Одноручное, Close Range; Damage = Strength. +1d к Athletics при пересечении Difficult Terrain.',axe:'Одноручное, Close Range; Damage = Strength. +1 Damage против бронированной (armoured) цели.',sword:'Одноручное, Close Range; Damage = Strength. +1d к Защите (Defence), пока владелец не Ошеломлён (Staggered).',warhammer:'Одноручное, Close Range; Damage = Strength. +1d к Ближнему бою (Melee) против Ошеломлённой (Staggered) цели.',morning_star:'Одноручное, Close Range; Damage = Strength + 1. −1d к Ближнему бою (Melee), пока владелец Ошеломлён (Staggered); нельзя применять dual wield.'}[npc.weapon]||weapon;
    const armourTags=[];if(npc.light_armour)armourTags.push([armourNames.light_armour,'+1 Resilience поверх Toughness.']);if(npc.shield)armourTags.push([armourNames.shield,'Щит (Shield) занимает вторую руку; +1 Resilience отдельно от брони. Разрешает Defence против Shooting.']);
-   const groups=[['Оружие (Weapons)',[[weapon,weaponHint]],'Оружие не задано'],['Броня (Armour)',armourTags,'Броня не надета'],['Расходники (Consumables)',[],'Генератор пока не выдаёт расходники'],['Таланты (Talents)',[],'Генератор пока не выдаёт таланты']];
+   const groups=[['Оружие (Weapons)',[[weapon,weaponHint]],'Оружие не задано'],['Броня (Armour)',armourTags,'Броня не надета'],['Расходники (Consumables)',[],'Генератор пока не выдаёт расходники'],['Таланты (Talents)',(npc.talents||[]).map(t=>[generatedTalentNames[t]||t,generatedTalentHints[t]||t]),'Таланты не выбраны']];
    if((npc.abilities||[]).length)groups.push(['Способности (Abilities)',npc.abilities.map(a=>[a==='drained_on_hit'?'Истощение при попадании (Drained)':a,a==='drained_on_hit'?'При попадании цель получает Истощение (Drained). Отдельно разрешённая способность, не книжный талант.':a]),'Способности не заданы']);
    for(const [title,items,emptyHint] of groups){const values=node('dd');values.append(resultItemTags(items,emptyHint));loadout.append(node('dt',title),values);}creature.append(loadout);box.append(creature);
   }

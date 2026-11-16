@@ -3721,6 +3721,13 @@
         },
         "shield": {
           "type": "boolean"
+        },
+        "talents": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:towr:pc-melee:common:1#/$defs/generated_talent"
+          },
+          "uniqueItems": true
         }
       },
       "required": [
@@ -3734,9 +3741,61 @@
         "light_armour",
         "abilities",
         "defence",
-        "shield"
+        "shield",
+        "talents"
       ],
-      "additionalProperties": false
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "talents": {
+                "contains": {
+                  "const": "defensive_stance"
+                }
+              }
+            },
+            "required": [
+              "talents"
+            ]
+          },
+          "then": {
+            "properties": {
+              "weapon_skill": {
+                "minimum": 3
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "talents": {
+                "contains": {
+                  "const": "wild_attack"
+                }
+              }
+            },
+            "required": [
+              "talents"
+            ]
+          },
+          "then": {
+            "properties": {
+              "strength": {
+                "minimum": 4
+              }
+            }
+          }
+        }
+      ]
+    },
+    "generated_talent": {
+      "enum": [
+        "magic_resistance",
+        "defensive_stance",
+        "wild_attack"
+      ]
     }
   }
 }

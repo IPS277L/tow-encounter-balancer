@@ -10,6 +10,8 @@
 
 Стандартный Recover сначала уменьшает настоящий Miscast Pool, затем при активном Casting применяется одно skipped contribution. Победный spell не отменяет обязательный Miscast. Магические причины Conditions независимы от ран и сохраняются при лечении/истечении чужой причины.
 
+По [ADR-0122](../decisions/ADR-0122-generated-npc-combat-talents.md) generated NPC могут иметь Magic Resistance. Общий target-scoped Potency modifier действует и при Drained. Lightning Blast Damage выводится из уменьшенной Potency, Fire Breath сохраняет исходный предел числа целей и фиксированный Damage при положительной target Potency; при нуле эффект цели отсутствует. Actual pre-Miscast spell использует тот же путь, а сам Miscast не является cast spell. [Native/выбор spell](../../src/towr/domain/pc_magic_models.py), [проверки](../../tests/unit/test_generated_npc_magic_resistance.py).
+
 ## RULE-MAGIC-006 — публичная магия и Magical Panic
 
 Публичное применение магии привлекает внимание и, как правило, пугает обычных свидетелей. Если GM нужна быстрая преувеличенная реакция толпы, он может бросить `d10`:

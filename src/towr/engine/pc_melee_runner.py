@@ -68,6 +68,8 @@ from towr.domain.pc_npc_extra_attack_models import build_pc_npc_extra_attack_slo
 from towr.domain.pc_npc_distraction_models import expected_pc_npc_distraction_expiry
 from towr.domain.pc_npc_grudge_models import expected_pc_npc_grudge_encounter
 from towr.domain.pc_bestigor_models import expected_pc_npc_blood_rage, pc_bestigor_glorious_source
+from towr.domain.pc_generated_talents import (expected_wild_attack,pending_wild_attack,
+    expected_defensive_stance)
 from towr.domain.pc_flagellant_models import (PcNpcRecoverProof, PcFlagellantMissWoundProof,
     build_pc_npc_recover, flagellant_recovered_injury, build_pc_flagellant_miss_wound)
 from towr.domain.pc_warped_form_models import (
@@ -257,6 +259,10 @@ def run_pc_melee_scenario(scenario, rng: RandomSource) -> PcMeleeScenarioResult:
                     else:
                         consume(PcBodyConsequenceProof(pending,die,hand))
             elif isinstance(pending,AttackerStaggerRequest):
+                stance = expected_defensive_stance(state)
+                if stance is not None:
+                    consume(stance)
+                    continue
                 replacement = build_pc_flagellant_miss_wound(state)
                 if replacement is None:
                     consume(PcAttackerStaggerProof(pending))
@@ -415,6 +421,10 @@ def run_pc_melee_scenario(scenario, rng: RandomSource) -> PcMeleeScenarioResult:
                 if blood_rage is not None:
                     consume(blood_rage)
                     continue
+                wild = expected_wild_attack(state)
+                if wild is not None:
+                    consume(wild)
+                    continue
                 net_draw = expected_pc_npc_net_draw(state)
                 if net_draw is not None:
                     consume(net_draw)
@@ -435,7 +445,8 @@ def run_pc_melee_scenario(scenario, rng: RandomSource) -> PcMeleeScenarioResult:
                 else:
                     npc_glorious_source = pc_bestigor_glorious_source(state, actor)
                     attacker = resolve_test(attack_request.attacker_test,rng,
-                        decisions=RerollAllFailures() if npc_glorious_source is not None else decisions)
+                        decisions=RerollAllFailures() if (npc_glorious_source is not None
+                            or pending_wild_attack(state) is not None) else decisions)
                     if pc_test is None:
                         defender = None
                     else:

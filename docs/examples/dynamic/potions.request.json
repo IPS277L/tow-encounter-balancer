@@ -81,7 +81,8 @@
     ],
     "shield": [
       false
-    ]
+    ],
+    "allowed_talents": []
   },
   "npc_count": {
     "minimum": 2,

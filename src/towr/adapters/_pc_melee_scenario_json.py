@@ -15,7 +15,7 @@ from towr.domain.fate_models import (
 from towr.domain.injury_models import ProfileInjuryState
 from towr.domain.potion_models import ConsumableItem, ConsumableKind
 from towr.domain.pc_magic_source_models import PcWizardProfile, PcSpellId
-from towr.domain.generated_npc_models import GeneratedNpc, GeneratedWeapon, GeneratedAbility
+from towr.domain.generated_npc_models import GeneratedNpc, GeneratedWeapon, GeneratedAbility, GeneratedTalent
 from towr.domain.minion_defeat_models import MinionDefeatDecision, NpcDefeatDisposition
 from towr.domain.npc_attack_preparation_models import NpcAttackProfile
 from towr.domain.npc_roster_models import (
@@ -378,7 +378,8 @@ def _parse_scenario(data, *, path_prefix, error_type):
             raw = definition_raw['generated_components']
             generated = build(path + '/definition/generated_components', GeneratedNpc,
                 **dict(raw, weapon=GeneratedWeapon(raw['weapon']),
-                    abilities=tuple(GeneratedAbility(value) for value in raw['abilities'])))
+                    abilities=tuple(GeneratedAbility(value) for value in raw['abilities']),
+                    talents=tuple(GeneratedTalent(value) for value in raw['talents'])))
             alternate = definition_raw['alternate_protection']
             protection_profiles += (NpcProtectionProfile(alternate['source_rule_id'],
                 Skill(alternate['skill']), InlineProfile(**alternate['test_profile'])),)

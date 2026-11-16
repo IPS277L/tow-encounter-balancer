@@ -117,7 +117,8 @@
     "shield": [
       false,
       true
-    ]
+    ],
+    "allowed_talents": []
   },
   "npc_count": {
     "minimum": 1,

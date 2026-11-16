@@ -9,7 +9,8 @@ from hashlib import sha256
 from math import isfinite, log, sqrt
 from random import Random
 
-from towr.domain.generated_npc_models import GeneratedNpc, GeneratedWeapon, GeneratedAbility
+from towr.domain.generated_npc_models import (GeneratedNpc,GeneratedWeapon,GeneratedAbility,
+    GeneratedTalent,generated_talent_requirements_met)
 from towr.domain.minion_defeat_models import MinionDefeatDecision, NpcDefeatDisposition
 from towr.domain.pc_melee_models import PcMeleeFacts, PcMeleeParticipant, PcMeleeScenario, PC_RANGED_WEAPONS
 from towr.simulation.pc_melee_models import PcMeleeSimulationRequest
@@ -30,28 +31,67 @@ class NpcSearchSpace:
     light_armour: tuple[bool, ...] = (False, True)
     shield: tuple[bool, ...] = (False, True)
     abilities: tuple[tuple[GeneratedAbility, ...], ...] = ((),)
+    allowed_talents: tuple[GeneratedTalent,...] = tuple(GeneratedTalent)
 
     def __post_init__(self):
+        if (type(self.allowed_talents) is not tuple
+                or any(type(t) is not GeneratedTalent for t in self.allowed_talents)
+                or len(set(self.allowed_talents)) != len(self.allowed_talents)):
+            raise ValueError('allowed_talents requires unique supported Talents; empty disables generation')
         baseline = {}
-        for field in fields(self):
+        for field in self._component_fields():
             choices = getattr(self, field.name)
             if type(choices) is not tuple or not choices or len(set(choices)) != len(choices):
                 raise ValueError(f'{field.name} requires nonempty distinct tuple choices')
             baseline[field.name] = choices[0]
         # Linear validation of every option, not enumeration of combinations.
-        for field in fields(self):
+        for field in self._component_fields():
             for value in getattr(self, field.name):
                 GeneratedNpc(**(baseline | {field.name: value}))
 
     def sample(self, rng: Random) -> GeneratedNpc:
-        return GeneratedNpc(**{f.name: rng.choice(getattr(self, f.name)) for f in fields(self)})
+        facts = {f.name:rng.choice(getattr(self,f.name)) for f in self._component_fields()}
+        talents = tuple(t for t in self.allowed_talents if generated_talent_requirements_met(t,
+            weapon_skill=facts['weapon_skill'],strength=facts['strength']) and rng.randrange(2))
+        return GeneratedNpc(**facts,talents=talents)
 
     def mutate(self, npc: GeneratedNpc, rng: Random) -> GeneratedNpc:
-        variable = [f.name for f in fields(self) if len(getattr(self, f.name)) > 1]
+        if type(npc) is not GeneratedNpc or not self.contains(npc):
+            raise ValueError('mutation requires an admitted member of this component space')
+        replace(npc)
+        variable = []
+        for field in self._component_fields():
+            values = []
+            for value in getattr(self,field.name):
+                if value == getattr(npc,field.name):
+                    continue
+                try:
+                    replace(npc,**{field.name:value})
+                except ValueError:
+                    continue  # Reject a proposal violating a retained Talent, never repair its source.
+                values.append(value)
+            if values:
+                variable.append((field.name,tuple(values)))
+        talent_options = []
+        for talent in self.allowed_talents:
+            selected = tuple(t for t in self.allowed_talents
+                if (t in npc.talents) != (t is talent))
+            if all(generated_talent_requirements_met(t,weapon_skill=npc.weapon_skill,
+                    strength=npc.strength) for t in selected):
+                talent_options.append(selected)
+        if talent_options:
+            variable.append(('talents',tuple(talent_options)))
         if not variable:
             return npc
-        name = rng.choice(variable)
-        return replace(npc, **{name: rng.choice(tuple(v for v in getattr(self, name) if v != getattr(npc, name)))})
+        name,values = rng.choice(variable)
+        return replace(npc,**{name:rng.choice(values)})
+
+    def _component_fields(self):
+        return tuple(f for f in fields(self) if f.name != 'allowed_talents')
+
+    def contains(self,npc: GeneratedNpc) -> bool:
+        return (all(getattr(npc,f.name) in getattr(self,f.name) for f in self._component_fields())
+            and set(npc.talents) <= set(self.allowed_talents))
 
 
 def automatic_npc_search_space(party: tuple[PcMeleeParticipant, ...]) -> NpcSearchSpace:
@@ -233,7 +273,7 @@ def validate_dynamic_encounter_result(result: DynamicEncounterResult) -> None:
         if not request.minimum_npcs <= len(candidate.composition) <= request.maximum_npcs:
             raise ValueError('candidate count is outside the search space')
         for npc in candidate.composition:
-            if any(getattr(npc, f.name) not in getattr(request.space, f.name) for f in fields(request.space)):
+            if not request.space.contains(npc):
                 raise ValueError('candidate component is outside the search space')
         expected = PcMeleeSimulationRequest(request.scenario(candidate.composition, f'dynamic:{stage}:{index}'),
             _seed(request.master_seed, stage, index), trials)

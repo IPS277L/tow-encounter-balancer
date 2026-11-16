@@ -7,7 +7,7 @@ function planningSearchSpace(data){
  // Client estimate for planning/manual initialization. Execution derives its
  // authoritative automatic envelope on the server from the admitted party.
  if(data.search_space)return data.search_space;
- const space={weapon:['staff','dagger','axe','sword','warhammer','morning_star'],light_armour:[false,true],shield:[false,true],abilities:[[]]};
+ const space={weapon:['staff','dagger','axe','sword','warhammer','morning_star'],light_armour:[false,true],shield:[false,true],abilities:[[]],allowed_talents:['magic_resistance','defensive_stance','wild_attack']};
  for(const key of ['weapon_skill','strength','toughness','agility','melee','defence','athletics']){
   const skill=['melee','defence','athletics'].includes(key),floor=skill?2:1,ceiling=skill?6:10;
   const values=data.party.map(m=>Number((skill?m.skills:m.characteristics)?.[key]));
@@ -64,6 +64,9 @@ function automaticSearchPlan(data){
   const values=space[key];if(!Array.isArray(values)||!values.length)throw Error('Задайте допустимые значения: '+key);
   profiles=Math.min(1e12,profiles*values.length);bits+=Math.log2(values.length);
  }
+ if(!Array.isArray(space.allowed_talents)||new Set(space.allowed_talents).size!==space.allowed_talents.length||space.allowed_talents.some(t=>!['magic_resistance','defensive_stance','wild_attack'].includes(t)))throw Error('Проверьте разрешённые таланты (Talents) NPC.');
+ // Upper bound only: Requirements filter the sampled subsets on the server.
+ profiles=Math.min(1e12,profiles*Math.pow(2,space.allowed_talents.length));bits+=space.allowed_talents.length;
  const mean=values=>values.reduce((sum,value)=>sum+Number(value),0)/values.length;
  const npcDice=mean(space.weapon_skill)+mean(space.agility);
  const partyDice=mean(data.party.map(m=>Number(m.characteristics?.weapon_skill)+Number(m.characteristics?.agility)));

@@ -65,9 +65,12 @@ def _distribution(request: TestRequest) -> SuccessDistribution:
 @lru_cache(maxsize=8192)
 def _impact_value(attack: SuccessDistribution, protection: SuccessDistribution,
                   damage: int, resilience: int, multiplier: int,
-                  staggered: bool, defenceless: bool = False) -> float:
+                  staggered: bool, defenceless: bool = False, defensive_stance: bool = False) -> float:
     """Expected immediate Minion progress, or Wound pressure for defence advice."""
     total = 0.0
+    if defensive_stance:
+        total -= .5*sum(probability*sum(protection[successes+1:])
+            for successes,probability in enumerate(attack))
     for successes, probability in enumerate(attack):
         if not successes:
             continue
@@ -167,9 +170,15 @@ def select_pc_tactic(state: PcMeleeState, actor_id: str | None = None) -> PcTact
             damage = pc_weapon_damage(weapon, pc.strength)
             base = damage.base + sum(item.amount for item in pc_weapon_damage_modifiers(weapon, enemy.state.current_resilience))
             defenceless = enemy.state.injury.conditions.has(Condition.DEFENCELESS)
+            from towr.domain.pc_generated_talents import has_generated_talent
+            from towr.domain.generated_npc_models import GeneratedTalent
+            stance = (not defenceless and profile.skill is Skill.DEFENCE
+                and enemy.state.injury.conditions.has(Condition.STAGGERED)
+                and not member.injury.conditions.has(Condition.STAGGERED)
+                and has_generated_talent(enemy.definition,GeneratedTalent.DEFENSIVE_STANCE))
             value = _impact_value(_distribution(request), (1.0,) if defenceless else _distribution(protection),
                 base, enemy.state.current_resilience.total, damage.success_multiplier,
-                enemy.state.injury.conditions.has(Condition.STAGGERED), defenceless)
+                enemy.state.injury.conditions.has(Condition.STAGGERED), defenceless,stance)
             if best[1] is None or value > best[0]+1e-12:
                 best = (value, enemy_id)
         attacks[key] = best
@@ -195,16 +204,21 @@ def select_pc_tactic(state: PcMeleeState, actor_id: str | None = None) -> PcTact
         for enemy_id in incoming:
             enemy = state.enemy(enemy_id)
             attack = enemy.definition.attacks[0]
+            from towr.domain.pc_generated_talents import wild_attack_available,WILD_ATTACK_RULE_ID
+            from towr.domain.test_models import QualityModifier
+            wild = wild_attack_available(enemy.definition,enemy.state.injury.conditions)
+            attack_conditions = (enemy.state.injury.conditions.with_condition(Condition.STAGGERED)
+                if wild else enemy.state.injury.conditions)
             modifiers = []
             if target_conditions.has(Condition.PRONE):
                 modifiers.append(DiceModifier('RULE-COMBAT-007:higher-ground', 1))
             if (state.source.facts.outnumbering_bonus_approved
                     and len(state.live_enemies) > len(state.live_party)):
                 modifiers.append(pc_npc_outnumbering_modifier(enemy.definition))
-            modifiers.extend(pc_npc_attack_modifiers(enemy.definition, enemy.state.injury.conditions,
+            modifiers.extend(pc_npc_attack_modifiers(enemy.definition, attack_conditions,
                 target_conditions=target_conditions, attacker_wounds=enemy.state.injury.wounds))
             from towr.domain.pc_generated_equipment import generated_attack_modifiers,generated_damage_modifiers
-            modifiers.extend(generated_attack_modifiers(enemy.definition,enemy.state.injury.conditions,
+            modifiers.extend(generated_attack_modifiers(enemy.definition,attack_conditions,
                 target_conditions))
             modifiers.extend(pc_npc_grudge_melee_modifiers(state, enemy_id, target))
             modifiers.extend(pc_npc_distraction_test_modifiers(state, enemy_id, target))
@@ -212,7 +226,8 @@ def select_pc_tactic(state: PcMeleeState, actor_id: str | None = None) -> PcTact
                 modifiers = [modifier for modifier in modifiers if modifier.amount <= 0]
             from towr.domain.pc_magic_models import magic_test_modifiers
             attacker = TestRequest('tactics:incoming', attack.test_profile,
-                (*modifiers,*magic_test_modifiers(state,enemy_id,Skill.MELEE)[0]))
+                (*modifiers,*magic_test_modifiers(state,enemy_id,Skill.MELEE)[0]),
+                (QualityModifier(WILD_ATTACK_RULE_ID,TestQuality.GLORIOUS),) if wild else ())
             skill = pc_protection_skill(member, Skill.MELEE)
             bonus = protection_bonus if enemy_id == incoming[0] else 0
             defender = _pc_test(state, target, pc_melee_action_id(state, enemy_id)+':protection', skill,

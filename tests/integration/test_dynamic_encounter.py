@@ -20,7 +20,7 @@ from towr.simulation.pc_melee_summary import summarize_pc_melee_simulation
 def request(**changes):
     source = parse_pc_melee_simulation_request(Path('docs/examples/m10/pc-melee-simulation.request.json').read_bytes()).request.scenario
     return replace(DynamicEncounterRequest(source.party, source.facts, source.day_id,
-        NpcSearchSpace(), 1, 1, .6, 2., 42, 4, 1, 2, 2, 8, 3,
+        NpcSearchSpace(allowed_talents=()), 1, 1, .6, 2., 42, 4, 1, 2, 2, 8, 3,
         NpcDefeatDisposition.KILLED), **changes)
 
 
@@ -89,7 +89,7 @@ class DynamicEncounterTests(unittest.TestCase):
     def test_single_configuration_stops_without_filling_duplicates(self):
         space = NpcSearchSpace(weapon_skill=(2,),strength=(2,),toughness=(2,),agility=(2,),
             melee=(4,),athletics=(4,),defence=(4,),weapon=(GeneratedWeapon.STAFF,),
-            light_armour=(False,),shield=(False,),abilities=((),))
+            light_armour=(False,),shield=(False,),abilities=((),),allowed_talents=())
         result = search_dynamic_encounter(request(space=space))
         self.assertEqual(len(result.explored), 1)
         self.assertTrue(result.proposal_limit_reached)
