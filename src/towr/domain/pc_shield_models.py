@@ -88,7 +88,13 @@ def pc_shield_recover_needed(member: PcMeleeParticipantState) -> bool:
 def pc_shield_resilience(state: PcMeleeState, actor: str) -> ResilienceProfile:
     from towr.domain.pc_potion_models import pc_effective_definition
     pc = pc_effective_definition(state, actor)
-    return ResilienceProfile(pc.toughness,pc.armour_bonus+int(pc_has_working_shield(state.participant(actor))))
+    source = state.source.participant(actor)
+    shield = pc_has_working_shield(state.participant(actor))
+    bonus = pc.armour_bonus+int(shield)
+    # Positive Resilience bonuses already imply armour. Preserve a zero-bonus
+    # worn item (e.g. Helmet) without adding imaginary Resilience.
+    return ResilienceProfile(pc.toughness,bonus,
+        armoured=True if source.armour_worn is True and bonus == 0 else None)
 
 
 def pc_defence_hand(member: PcMeleeParticipantState, attack_skill: Skill) -> PcWeaponHand | PcTwoHandedGrip | None:

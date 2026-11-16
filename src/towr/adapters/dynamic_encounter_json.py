@@ -1,5 +1,5 @@
 """Current dynamic generation JSON1, without a supplied enemy reserve."""
-from dataclasses import asdict, dataclass, replace
+from dataclasses import asdict, dataclass
 from fractions import Fraction
 from functools import lru_cache
 from importlib.resources import files
@@ -111,14 +111,14 @@ def parse_dynamic_encounter_request(text: str | bytes) -> DynamicEncounterComman
                     **dict(magic, reason=characteristics.pop('reason'), willpower=skills.pop('willpower'),
                         lores=tuple(magic['lores']), memorised_spells=tuple(PcSpellId(value)
                             for value in magic['memorised_spells'])))
-                wizard = replace(wizard, armour_worn=any(item.location is ItemLocation.WORN
-                    and item.kind in (ArmourItemKind.LIGHT, ArmourItemKind.HEAVY, ArmourItemKind.HELMET)
-                    for item in equipment.armour))
             character = build_value(DynamicEncounterInputError, f'/party/{index}', EncounterCharacter,
                 actor_id=raw['actor_id'], **characteristics, **skills,
                 **loadout,
                 talents=tuple(EncounterTalent(t) for t in raw['talents']), fate=raw['resources']['fate'],
-                consumables=consumables, wizard=wizard)
+                consumables=consumables, wizard=wizard,
+                armour_worn=any(item.location is ItemLocation.WORN
+                    and item.kind in (ArmourItemKind.LIGHT, ArmourItemKind.HEAVY, ArmourItemKind.HELMET)
+                    for item in equipment.armour))
             party.append(character.participant(document['request_id'] + ':session', disposition))
         options = document.get('search_space')
         space = automatic_npc_search_space(tuple(party)) if options is None else build_value(

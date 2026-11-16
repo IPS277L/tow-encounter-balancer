@@ -7,5 +7,7 @@
   "athletics": 3,
   "weapon": "staff",
   "light_armour": false,
-  "abilities": []
+  "abilities": [],
+  "defence": 3,
+  "shield": false
 }

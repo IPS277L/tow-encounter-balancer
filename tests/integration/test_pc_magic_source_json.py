@@ -87,7 +87,7 @@ class PcMagicSourceJsonTests(unittest.TestCase):
         document = wizard_request()
         document['party'][0]['equipment']['armour'] = [dict(id='helmet',kind='helmet',location='worn')]
         member = parse_dynamic_encounter_request(json.dumps(document)).request.party[0]
-        self.assertTrue(member.wizard.armour_worn)
+        self.assertTrue(member.armour_worn)
         self.assertEqual(member.pc.armour_bonus,0)
 
     def test_current_native_replay_preserves_full_wizard_profile(self):
@@ -129,7 +129,7 @@ class DynamicMagicObservationSchemaTests(unittest.TestCase):
             source = replace(source,party=(replace(source.party[0],wizard=profile),),
                 facts=replace(source.facts,daylight_confirmed=True))
         return dict(npcs=[dict(weapon_skill=3,strength=3,toughness=3,agility=3,
-                melee=3,athletics=3,weapon='staff',light_armour=False,abilities=[])],
+                melee=3,defence=3,shield=False,athletics=3,weapon='staff',light_armour=False,abilities=[])],
             win_rate=0.5,win_interval_95=[0.1,0.9],mean_started_rounds=1,
             rounds_interval_95=[1,1],outcomes=dict(objective_achieved=1,party_defeated=1,round_limit=0,unsupported_path=0),
             trials=2,replay=dict(schema_version='1',kind='pc_melee_simulation',request_id='observations',

@@ -259,7 +259,11 @@
           "items": {
             "enum": [
               "staff",
-              "dagger"
+              "dagger",
+              "axe",
+              "sword",
+              "warhammer",
+              "morning_star"
             ]
           },
           "minItems": 1,
@@ -286,6 +290,24 @@
           },
           "minItems": 1,
           "uniqueItems": true
+        },
+        "defence": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 2,
+            "maximum": 6
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "shield": {
+          "type": "array",
+          "items": {
+            "type": "boolean"
+          },
+          "minItems": 1,
+          "uniqueItems": true
         }
       },
       "required": [
@@ -297,7 +319,9 @@
         "athletics",
         "weapon",
         "light_armour",
-        "abilities"
+        "abilities",
+        "defence",
+        "shield"
       ],
       "additionalProperties": false
     },
@@ -307,65 +331,7 @@
         "npcs": {
           "type": "array",
           "items": {
-            "type": "object",
-            "properties": {
-              "weapon_skill": {
-                "type": "integer",
-                "minimum": 1
-              },
-              "strength": {
-                "type": "integer",
-                "minimum": 1
-              },
-              "toughness": {
-                "type": "integer",
-                "minimum": 1
-              },
-              "agility": {
-                "type": "integer",
-                "minimum": 1
-              },
-              "melee": {
-                "type": "integer",
-                "minimum": 2,
-                "maximum": 6
-              },
-              "athletics": {
-                "type": "integer",
-                "minimum": 2,
-                "maximum": 6
-              },
-              "weapon": {
-                "enum": [
-                  "staff",
-                  "dagger"
-                ]
-              },
-              "light_armour": {
-                "type": "boolean"
-              },
-              "abilities": {
-                "type": "array",
-                "items": {
-                  "enum": [
-                    "drained_on_hit"
-                  ]
-                },
-                "uniqueItems": true
-              }
-            },
-            "required": [
-              "weapon_skill",
-              "strength",
-              "toughness",
-              "agility",
-              "melee",
-              "athletics",
-              "weapon",
-              "light_armour",
-              "abilities"
-            ],
-            "additionalProperties": false
+            "$ref": "urn:towr:pc-melee:common:1#/$defs/generated_components"
           },
           "minItems": 1
         },

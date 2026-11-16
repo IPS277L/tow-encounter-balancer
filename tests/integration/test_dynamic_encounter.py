@@ -45,7 +45,7 @@ class DynamicEncounterTests(unittest.TestCase):
 
     def test_builder_derives_values_and_identity_does_not_select_effects(self):
         npc = GeneratedNpc(4, 1, 3, 2, 5, 4, GeneratedWeapon.DAGGER, True,
-            (GeneratedAbility.DRAINED_ON_HIT,))
+            (GeneratedAbility.DRAINED_ON_HIT,),defence=4,shield=False)
         a, b = npc.participant('a'), npc.participant('b')
         self.assertEqual(a.definition.attacks, b.definition.attacks)
         attack = a.definition.attacks[0]
@@ -53,7 +53,8 @@ class DynamicEncounterTests(unittest.TestCase):
             attack.test_profile.maximum_dice, attack.damage.base), (4, 5, 8, 0))
         self.assertEqual(a.definition.resilience.total, 4)
         self.assertEqual(len(attack.secondary_effects), 1)
-        self.assertEqual(a.definition.protection[0].test_profile.maximum_dice, 4)
+        self.assertEqual(a.definition.protection[0].test_profile.maximum_dice, 8)
+        self.assertEqual(a.definition.protection[1].test_profile.maximum_dice, 4)
 
     def test_unsupported_components_rejected(self):
         for change in ({'weapon': ('axe',)}, {'melee': (True,)}, {'strength': (0,)},
@@ -86,7 +87,9 @@ class DynamicEncounterTests(unittest.TestCase):
         self.assertFalse(explored_seeds & {c.summary.source_request.master_seed for c in first.validations})
 
     def test_single_configuration_stops_without_filling_duplicates(self):
-        space = NpcSearchSpace((2,), (2,), (2,), (2,), (4,), (4,), (GeneratedWeapon.STAFF,), (False,), ((),))
+        space = NpcSearchSpace(weapon_skill=(2,),strength=(2,),toughness=(2,),agility=(2,),
+            melee=(4,),athletics=(4,),defence=(4,),weapon=(GeneratedWeapon.STAFF,),
+            light_armour=(False,),shield=(False,),abilities=((),))
         result = search_dynamic_encounter(request(space=space))
         self.assertEqual(len(result.explored), 1)
         self.assertTrue(result.proposal_limit_reached)
@@ -113,7 +116,7 @@ class DynamicEncounterTests(unittest.TestCase):
             defence=2, weapon=PcMeleeWeapon.STAFF), near_miss_policy=None, glorious_policy=None)
         source = replace(source, party=(pc,), max_rounds=1, target_rounds=1)
         npc = GeneratedNpc(10, 1, 20, 1, 6, 2, GeneratedWeapon.STAFF, False,
-            (GeneratedAbility.DRAINED_ON_HIT,))
+            (GeneratedAbility.DRAINED_ON_HIT,),defence=2,shield=False)
         battle = run_pc_melee_scenario(source.scenario((npc,), 'actual-effect'), Random(42))
         state = battle.state.participant(pc.actor_id)
         self.assertTrue(state.injury.conditions.has(Condition.DRAINED))

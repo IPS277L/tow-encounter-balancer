@@ -1,5 +1,17 @@
 # Equipment, Coin и Assets
 
+## Снаряжение generated NPC
+
+RULE-EQUIPMENT-003/006 (Player’s Guide1.4 IV93/97), RULE-COMBAT-006 и Skill Table107 подключены по [ADR-0121](../decisions/ADR-0121-generated-npc-melee-equipment-and-protection.md). Генератор создаёт одно из шести 1H-оружий Staff/Dagger/Axe/Sword/Warhammer/Morning Star, optional Shield и Light Armour; выводит Damage и Resilience из характеристик и предметов. Shield добавляет+1 отдельно от Light Armour и является armoured. Собственные Traits действуют по состоянию, независимо от имени/ID NPC: Axe+1Damage против armoured; Sword+1dDefence при not-Staggered; Warhammer+1dMelee против Staggered; Morning Star S+1 и−1dMelee при собственном Staggered. Drained удаляет положительные dice bonuses, но не Damage bonus.
+
+Сохраняются оба профиля WS/Defence и Ag/Athletics. Автоматический выбор по наибольшему ожидаемому числу успехов после modifiers/cap — согласованная тактика, а не предписание книги; при равенстве Defence. При Defenceless не выполняется выдуманная Protection Test. Shield permission против Shooting не означает, что generated NPC уже стреляют. Heavy Armour/dual wield в срез не включены.
+
+Armoured определяется по фактическим предметам: worn Helmet с нулевым отдельным бонусом сохраняется в общем PC source, а рабочий Shield — в runtime. Числовой бонус Helmet не придумывается. [Builder/полный source](../../src/towr/domain/generated_npc_models.py), [modifiers/выбор защиты](../../src/towr/domain/pc_generated_equipment.py), [literal/native/magic tests](../../tests/unit/test_generated_npc_equipment.py), [вход](../examples/dynamic/README.md#снаряжение-динамических-npc).
+
+## Инвентарь партии
+
+
+
 Текущий inventory-вход dynamic generator: [ADR-0115](../decisions/ADR-0115-inventory-draft-and-talent-tags.md). Предметы имеют instance IDs и начальное положение, body/обычный helmet/shield разделены. PG92–93 dual wield/carry и97–98 armour не упрощаются удалением предметов: unsupported наборы отклоняются до MC. Обычный helmet описан как часть комплекта без дополнительного числового бонуса. Dual wield пока описывается в запросе, но не исполняется; прежний2H→1H backup подключён.
 
 

@@ -322,6 +322,12 @@
             },
             "net_attack": {
               "$ref": "urn:towr:pc-melee:common:1#/$defs/net_attack"
+            },
+            "generated_components": {
+              "$ref": "#/$defs/generated_components"
+            },
+            "alternate_protection": {
+              "$ref": "#/$defs/protection"
             }
           },
           "required": [
@@ -513,6 +519,44 @@
                   "attack": {
                     "$ref": "urn:towr:pc-melee:common:1#/$defs/attack"
                   }
+                }
+              }
+            },
+            {
+              "if": {
+                "required": [
+                  "generated_components"
+                ]
+              },
+              "then": {
+                "required": [
+                  "alternate_protection"
+                ],
+                "properties": {
+                  "injury_policy": {
+                    "const": "minion"
+                  },
+                  "protection": {
+                    "properties": {
+                      "skill": {
+                        "const": "defence"
+                      }
+                    }
+                  },
+                  "alternate_protection": {
+                    "properties": {
+                      "skill": {
+                        "const": "athletics"
+                      }
+                    }
+                  }
+                }
+              },
+              "else": {
+                "not": {
+                  "required": [
+                    "alternate_protection"
+                  ]
                 }
               }
             }
@@ -1939,7 +1983,9 @@
         "magic_counts": {
           "type": "array",
           "minItems": 1,
-          "items": {"$ref": "#/$defs/magicCount"}
+          "items": {
+            "$ref": "#/$defs/magicCount"
+          }
         },
         "aim": {
           "$ref": "#/$defs/aimSummary"
@@ -2134,16 +2180,58 @@
           "items": {
             "type": "object",
             "properties": {
-              "id": {"type": "string", "minLength": 1},
-              "kind": {"enum": ["healing_potion", "enhancement_potion"]},
-              "quantity": {"type": "integer", "minimum": 1},
-              "characteristic": {"enum": [null, "weapon_skill", "strength", "toughness", "agility"]}
+              "id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "kind": {
+                "enum": [
+                  "healing_potion",
+                  "enhancement_potion"
+                ]
+              },
+              "quantity": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "characteristic": {
+                "enum": [
+                  null,
+                  "weapon_skill",
+                  "strength",
+                  "toughness",
+                  "agility"
+                ]
+              }
             },
-            "required": ["id", "kind", "quantity", "characteristic"],
+            "required": [
+              "id",
+              "kind",
+              "quantity",
+              "characteristic"
+            ],
             "additionalProperties": false,
-            "if": {"properties": {"kind": {"const": "healing_potion"}}},
-            "then": {"properties": {"characteristic": {"type": "null"}}},
-            "else": {"properties": {"characteristic": {"type": "string"}}}
+            "if": {
+              "properties": {
+                "kind": {
+                  "const": "healing_potion"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "characteristic": {
+                  "type": "null"
+                }
+              }
+            },
+            "else": {
+              "properties": {
+                "characteristic": {
+                  "type": "string"
+                }
+              }
+            }
           }
         },
         "close_shooting_protection_skill": {
@@ -2261,6 +2349,9 @@
         },
         "wizard": {
           "$ref": "#/$defs/wizard_profile"
+        },
+        "armour_worn": {
+          "type": "boolean"
         }
       },
       "required": [
@@ -3299,13 +3390,33 @@
     "magicCount": {
       "type": "object",
       "properties": {
-        "actor_id": {"$ref": "#/$defs/identifier"},
-        "casting_actions": {"type": "integer", "minimum": 0},
-        "spell_casts": {"type": "integer", "minimum": 0},
-        "miscasts": {"type": "integer", "minimum": 0},
-        "unsupported_miscasts": {"type": "integer", "minimum": 0}
+        "actor_id": {
+          "$ref": "#/$defs/identifier"
+        },
+        "casting_actions": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "spell_casts": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "miscasts": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "unsupported_miscasts": {
+          "type": "integer",
+          "minimum": 0
+        }
       },
-      "required": ["actor_id", "casting_actions", "spell_casts", "miscasts", "unsupported_miscasts"],
+      "required": [
+        "actor_id",
+        "casting_actions",
+        "spell_casts",
+        "miscasts",
+        "unsupported_miscasts"
+      ],
       "additionalProperties": false
     },
     "magicSummaryPresence": {
@@ -3317,30 +3428,71 @@
                 "properties": {
                   "party": {
                     "contains": {
-                      "properties": {"wizard": {"type": "object"}},
-                      "required": ["wizard"]
+                      "properties": {
+                        "wizard": {
+                          "type": "object"
+                        }
+                      },
+                      "required": [
+                        "wizard"
+                      ]
                     }
                   }
                 },
-                "required": ["party"]
+                "required": [
+                  "party"
+                ]
               }
             },
-            "required": ["scenario"]
+            "required": [
+              "scenario"
+            ]
           }
         },
-        "required": ["request"]
+        "required": [
+          "request"
+        ]
       },
-      "then": {"properties": {"summary": {"required": ["magic_counts"]}}},
-      "else": {"properties": {"summary": {"not": {"required": ["magic_counts"]}}}}
+      "then": {
+        "properties": {
+          "summary": {
+            "required": [
+              "magic_counts"
+            ]
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "summary": {
+            "not": {
+              "required": [
+                "magic_counts"
+              ]
+            }
+          }
+        }
+      }
     },
     "potionUseCount": {
       "type": "object",
       "properties": {
-        "actor_id": {"$ref": "#/$defs/identifier"},
-        "item_id": {"$ref": "#/$defs/identifier"},
-        "count": {"type": "integer", "minimum": 0}
+        "actor_id": {
+          "$ref": "#/$defs/identifier"
+        },
+        "item_id": {
+          "$ref": "#/$defs/identifier"
+        },
+        "count": {
+          "type": "integer",
+          "minimum": 0
+        }
       },
-      "required": ["actor_id", "item_id", "count"],
+      "required": [
+        "actor_id",
+        "item_id",
+        "count"
+      ],
       "additionalProperties": false
     },
     "potionSummaryPresence": {
@@ -3353,22 +3505,51 @@
                   "party": {
                     "contains": {
                       "properties": {
-                        "consumables": {"type": "array", "minItems": 1}
+                        "consumables": {
+                          "type": "array",
+                          "minItems": 1
+                        }
                       },
-                      "required": ["consumables"]
+                      "required": [
+                        "consumables"
+                      ]
                     }
                   }
                 },
-                "required": ["party"]
+                "required": [
+                  "party"
+                ]
               }
             },
-            "required": ["scenario"]
+            "required": [
+              "scenario"
+            ]
           }
         },
-        "required": ["request"]
+        "required": [
+          "request"
+        ]
       },
-      "then": {"properties": {"summary": {"required": ["potion_use_counts"]}}},
-      "else": {"properties": {"summary": {"not": {"required": ["potion_use_counts"]}}}}
+      "then": {
+        "properties": {
+          "summary": {
+            "required": [
+              "potion_use_counts"
+            ]
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "summary": {
+            "not": {
+              "required": [
+                "potion_use_counts"
+              ]
+            }
+          }
+        }
+      }
     },
     "aimActionCount": {
       "type": "object",
@@ -3424,7 +3605,6 @@
     "wizard_profile": {
       "type": "object",
       "properties": {
-        "armour_worn": {"type": "boolean"},
         "origin": {
           "enum": [
             "human",
@@ -3480,6 +3660,81 @@
         "arcane_paraphernalia",
         "reason",
         "willpower"
+      ],
+      "additionalProperties": false
+    },
+    "generated_components": {
+      "type": "object",
+      "properties": {
+        "weapon_skill": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "strength": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "toughness": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "agility": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "melee": {
+          "type": "integer",
+          "minimum": 2,
+          "maximum": 6
+        },
+        "athletics": {
+          "type": "integer",
+          "minimum": 2,
+          "maximum": 6
+        },
+        "weapon": {
+          "enum": [
+            "staff",
+            "dagger",
+            "axe",
+            "sword",
+            "warhammer",
+            "morning_star"
+          ]
+        },
+        "light_armour": {
+          "type": "boolean"
+        },
+        "abilities": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "drained_on_hit"
+            ]
+          },
+          "uniqueItems": true
+        },
+        "defence": {
+          "type": "integer",
+          "minimum": 2,
+          "maximum": 6
+        },
+        "shield": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "weapon_skill",
+        "strength",
+        "toughness",
+        "agility",
+        "melee",
+        "athletics",
+        "weapon",
+        "light_armour",
+        "abilities",
+        "defence",
+        "shield"
       ],
       "additionalProperties": false
     }

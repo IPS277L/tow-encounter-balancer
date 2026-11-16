@@ -1,6 +1,10 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from towr.domain.generated_npc_models import GeneratedNpc
 
 from towr.domain.attack_models import ResilienceProfile
 from towr.domain.injury_models import CharacterInjuryState, ProfileInjuryState
@@ -38,6 +42,7 @@ class NpcDefinition:
     resilience: ResilienceProfile
     attacks: tuple[NpcAttackProfile, ...]
     protection: tuple[NpcProtectionProfile, ...]
+    generated_components: GeneratedNpc | None = field(default=None, kw_only=True)
 
     def __post_init__(self) -> None:
         _identifier(self.id, "NPC definition id")
@@ -72,6 +77,9 @@ class NpcDefinition:
             raise ValueError("NPC Protection skills must be unique")
         object.__setattr__(self, "attacks", attacks)
         object.__setattr__(self, "protection", protection)
+        # Import locally: generated builders depend on the ordinary roster types.
+        from towr.domain.generated_npc_models import validate_generated_definition
+        validate_generated_definition(self)
 
 
 @dataclass(frozen=True, slots=True)

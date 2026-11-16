@@ -15,6 +15,7 @@ from towr.domain.fate_models import (
 from towr.domain.injury_models import ProfileInjuryState
 from towr.domain.potion_models import ConsumableItem, ConsumableKind
 from towr.domain.pc_magic_source_models import PcWizardProfile, PcSpellId
+from towr.domain.generated_npc_models import GeneratedNpc, GeneratedWeapon, GeneratedAbility
 from towr.domain.minion_defeat_models import MinionDefeatDecision, NpcDefeatDisposition
 from towr.domain.npc_attack_preparation_models import NpcAttackProfile
 from towr.domain.npc_roster_models import (
@@ -222,7 +223,7 @@ def _parse_participant(data, *, path_prefix, error_type):
             for index, record in enumerate(data["defeat_decisions"])),
         near_miss_policy=near_miss,glorious_policy=glorious,help_policy=help_policy,
         aim_second_action_policy=aim_second_action_policy,
-        wizard=wizard,
+        wizard=wizard, armour_worn=data.get('armour_worn'),
         consumables=tuple(build(f'{path_prefix}/consumables/{index}', ConsumableItem,
             **dict(item, kind=ConsumableKind(item['kind'])))
             for index,item in enumerate(data.get('consumables', []))),
@@ -370,11 +371,21 @@ def _parse_scenario(data, *, path_prefix, error_type):
                 path_prefix=path+'/definition/trample_attack',error_type=error_type)
             attacks = (*attacks,trample)
         resilience = build(path + "/definition/resilience", ResilienceProfile, **definition_raw["resilience"])
+        generated = None
+        protection_profiles = (NpcProtectionProfile(protection_raw["source_rule_id"],
+            Skill(protection_raw["skill"]), InlineProfile(**protection_raw["test_profile"])),)
+        if 'generated_components' in definition_raw:
+            raw = definition_raw['generated_components']
+            generated = build(path + '/definition/generated_components', GeneratedNpc,
+                **dict(raw, weapon=GeneratedWeapon(raw['weapon']),
+                    abilities=tuple(GeneratedAbility(value) for value in raw['abilities'])))
+            alternate = definition_raw['alternate_protection']
+            protection_profiles += (NpcProtectionProfile(alternate['source_rule_id'],
+                Skill(alternate['skill']), InlineProfile(**alternate['test_profile'])),)
         definition = build(path + "/definition", NpcDefinition,
             definition_raw["id"], definition_raw["source_rule_id"],
             TargetInjuryPolicy(definition_raw["injury_policy"]), definition_raw["wound_limit"],
-            resilience, attacks, (NpcProtectionProfile(protection_raw["source_rule_id"],
-                Skill(protection_raw["skill"]), InlineProfile(**protection_raw["test_profile"])),))
+            resilience, attacks, protection_profiles, generated_components=generated)
         state = build(path, NpcParticipantState, enemy["actor_id"], definition.id,
             CombatSide.OPPOSITION, ProfileInjuryState(0, definition.wound_limit), tuple(profile.id for profile in attacks),
             resilience, attack.hands is not None, enemy["holds_shield"])
@@ -412,6 +423,8 @@ def scenario_document(scenario: PcMeleeScenario) -> dict:
     validate_pc_melee_scenario_admission(scenario)
     party = _plain([asdict(member) for member in scenario.party])
     for member in party:
+        if member['armour_worn'] is None:
+            del member['armour_worn']
         if member['wizard'] is None:
             del member['wizard']
         if not member['consumables']:
@@ -441,6 +454,12 @@ def scenario_document(scenario: PcMeleeScenario) -> dict:
                 "skill": protection.skill.value,"test_profile": asdict(protection.test_profile)}}})
         if definition.resilience.armoured is not None:
             enemies[-1]['definition']['resilience']['armoured'] = definition.resilience.armoured
+        if definition.generated_components is not None:
+            enemies[-1]['definition']['generated_components'] = _plain(asdict(definition.generated_components))
+            alternate = definition.protection[1]
+            enemies[-1]['definition']['alternate_protection'] = {
+                'source_rule_id':alternate.source_rule_id,'skill':alternate.skill.value,
+                'test_profile':asdict(alternate.test_profile)}
         if definition.id==NET_DEFINITION_ID:
             enemies[-1]['definition']['net_attack'] = _net_attack_document(definition.attacks[1])
             policy = next(policy for policy in scenario.npc_net_policies if policy.actor_id==enemy.state.actor_id)

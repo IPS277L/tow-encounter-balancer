@@ -48,7 +48,7 @@ class LocalUiTests(unittest.TestCase):
     def test_character_file_validation_is_stateless_and_does_not_generate(self):
         player = json.loads(self.raw)['party'][0]
         npc = dict(weapon_skill=3, strength=3, toughness=3, agility=3, melee=4,
-            athletics=3, weapon='staff', light_armour=False, abilities=[])
+            athletics=3, defence=4, shield=False, weapon='staff', light_armour=False, abilities=[])
         with patch('towr.adapters.local_ui.execute_dynamic_encounter') as execute:
             for kind, document in [('player', player), ('npc', npc)]:
                 status, _, body = self.request('POST', '/api/character',

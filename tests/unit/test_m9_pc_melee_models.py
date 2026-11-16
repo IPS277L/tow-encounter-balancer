@@ -33,7 +33,7 @@ class PcMeleeModelTests(unittest.TestCase):
 
     def test_required_source_and_optional_equipment_fields(self):
         for cls in (PcMeleeDefinition, PcMeleeFacts, PcMeleeParticipant, PcMeleeScenario):
-            self.assertTrue(all((field.default is MISSING and field.default_factory is MISSING for field in fields(cls) if field.name not in ("npc_net_policies", "npc_pistol_policies", "shield", "ranged", "npc_close_shooting_protection_policies", "close_shooting_protection_skill", "short_range_opening", "blunderbuss_nearby", "aim_second_action_policy"))))
+            self.assertTrue(all((field.default is MISSING and field.default_factory is MISSING for field in fields(cls) if field.name not in ("npc_net_policies", "npc_pistol_policies", "shield", "ranged", "npc_close_shooting_protection_policies", "close_shooting_protection_skill", "short_range_opening", "blunderbuss_nearby", "aim_second_action_policy", "consumables", "wizard", "armour_worn", "daylight_confirmed"))))
         self.assertEqual(tuple((field.name for field in fields(PcMeleeScenario))), ('id', 'party', 'day_id', 'enemies', 'facts', 'pc_activation_order', 'enemy_activation_order', 'enemy_target_priority', 'max_rounds','npc_broken_exit_policy','npc_help_policies','npc_extra_attack_actor_ids','npc_grudge_policies','npc_blood_rage_actor_ids','npc_flagellant_policies','npc_warped_form_policies','npc_net_policies','npc_pistol_policies','npc_close_shooting_protection_policies','short_range_opening', 'blunderbuss_nearby'))
         self.assertIsNone(PcMeleeDefinition.__dataclass_fields__['ranged'].default)
         self.assertTrue(PcMeleeDefinition.__dataclass_fields__['ranged'].kw_only)
@@ -80,13 +80,20 @@ class PcMeleeModelTests(unittest.TestCase):
 
     def test_facts_are_explicit_and_unsupported_assertions_are_rejected(self):
         facts = make_pc_melee_scenario().facts
-        for name in (field.name for field in fields(facts) if field.name != 'zone_id'):
+        for name in (field.name for field in fields(facts) if field.name not in ('zone_id','daylight_confirmed')):
             for invalid in (1, 0, None, 'true'):
                 with self.subTest(field=name, value=invalid), self.assertRaises(TypeError):
                     replace(facts, **{name: invalid})
             if name not in ('outnumbering_bonus_approved', 'can_leave_zone'):
                 with self.subTest(field=name), self.assertRaises(ValueError):
                     replace(make_pc_melee_scenario(),facts=replace(facts, **{name: False}))
+        self.assertIsNone(replace(facts,daylight_confirmed=None).daylight_confirmed)
+        self.assertIs(replace(facts,daylight_confirmed=True).daylight_confirmed,True)
+        with self.assertRaises(ValueError):
+            replace(facts,daylight_confirmed=False)
+        for invalid in (1,0,'true'):
+            with self.subTest(daylight=invalid), self.assertRaises(TypeError):
+                replace(facts,daylight_confirmed=invalid)
         for approved in (False, True):
             for can_leave in (False, True):
                 replace(facts, outnumbering_bonus_approved=approved, can_leave_zone=can_leave)

@@ -88,7 +88,7 @@ class PcMagicInteractionTests(unittest.TestCase):
             if equipment == 'shield':
                 member = replace(member,shield=shield_loadout(PcWeaponHand.RIGHT))
             elif equipment == 'helmet':
-                member = replace(member,wizard=replace(member.wizard,armour_worn=True))
+                member = replace(member,armour_worn=True)
             source = replace(source,party=(member,))
             with self.subTest(equipment=equipment):
                 result = run_literal(source,[1,9]+[10]*4)

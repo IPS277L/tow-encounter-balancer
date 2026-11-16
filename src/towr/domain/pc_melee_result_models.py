@@ -890,7 +890,7 @@ def _pc_test(state: PcMeleeState, actor_id: str, test_id: str, skill: Skill,
         qualities.append(QualityModifier('RULE-HEALTH-008:blinded', TestQuality.GRIM))
     if skill is Skill.WILLPOWER:
         wizard = state.source.participant(actor_id).wizard
-        if wizard.armour_worn or pc.armour_bonus>0 or pc_has_working_shield(member):
+        if state.source.participant(actor_id).armour_worn is True or pc.armour_bonus>0 or pc_has_working_shield(member):
             qualities.append(QualityModifier('RULE-MAGIC-004:armoured-casting',TestQuality.GRIM))
     qualities.extend(QualityModifier(CRUSHED_RIB_TEST_RULE_ID, TestQuality.GRIM)
         for e in member.injury.active_wound_effects
@@ -981,7 +981,7 @@ def build_pc_melee_attack(state: PcMeleeState) -> tuple[AttackActionExecutionReq
         from towr.domain.pc_help_models import build_pc_attack_help
         if not shooting:
             attacker,_ = build_pc_attack_help(state,attacker)
-        protection_profile = target_snapshot.definition.protection[0]
+        protection_profile = None
         if shooting and pc_enemy_range(state,actor,target).value == 'close':
             policy = next((policy for policy in
                 (state.source.npc_close_shooting_protection_policies or ())
@@ -989,14 +989,10 @@ def build_pc_melee_attack(state: PcMeleeState) -> tuple[AttackActionExecutionReq
             if policy is not None:
                 from towr.domain.pc_npc_close_shooting_models import pc_close_shooting_protection_profile
                 protection_profile = pc_close_shooting_protection_profile(target_snapshot.definition,policy.skill)
+        from towr.domain.pc_generated_equipment import npc_protection_test
+        protection_profile,defender = npc_protection_test(state,target,actor,
+            action_id+':protection',protection_profile)
         skill = protection_profile.skill
-        protection_modifiers = list(pc_npc_distraction_test_modifiers(state,target,actor))
-        if skill is Skill.MELEE:
-            protection_modifiers.extend(pc_npc_grudge_melee_modifiers(state,target,actor))
-        if target_snapshot.state.injury.conditions.has(Condition.DRAINED):
-            protection_modifiers = [modifier for modifier in protection_modifiers if modifier.amount <= 0]
-        defender = TestRequest(action_id + ':protection', protection_profile.test_profile,
-            (*protection_modifiers,*magic_test_modifiers(state,target,skill)[0]))
         damage, resilience = pc_weapon_damage(weapon, pc.strength), target_snapshot.state.current_resilience
         damage_modifiers = pc_weapon_damage_modifiers(weapon, resilience)
         attacker_conditions = member.injury.conditions
@@ -1019,6 +1015,9 @@ def build_pc_melee_attack(state: PcMeleeState) -> tuple[AttackActionExecutionReq
                 modifiers.append(DiceModifier('RULE-COMBAT-007:higher-ground', 1))
         modifiers.extend(pc_npc_attack_modifiers(enemy.definition,enemy.state.injury.conditions,
             target_conditions=member.injury.conditions,attacker_wounds=enemy.state.injury.wounds))
+        from towr.domain.pc_generated_equipment import generated_attack_modifiers,generated_damage_modifiers
+        modifiers.extend(generated_attack_modifiers(enemy.definition,enemy.state.injury.conditions,
+            member.injury.conditions))
         if profile.skill is Skill.MELEE:
             modifiers.extend(pc_npc_grudge_melee_modifiers(state,actor,target))
         modifiers.extend(pc_npc_distraction_test_modifiers(state,actor,target))
@@ -1037,7 +1036,8 @@ def build_pc_melee_attack(state: PcMeleeState) -> tuple[AttackActionExecutionReq
             from towr.domain.pc_help_models import build_pc_test_help
             defender,_ = build_pc_test_help(state,target,skill,defender)
         resilience = pc_shield_resilience(state,target)
-        damage_modifiers = pc_npc_damage_modifiers(enemy.definition)
+        damage_modifiers = (pc_npc_damage_modifiers(enemy.definition)
+            + generated_damage_modifiers(enemy.definition,resilience))
         wound_dice_modifiers = pc_npc_wound_dice_modifiers(enemy.definition,member.injury)
         attacker_conditions = enemy.state.injury.conditions
         target_injury = member.injury if member.injury.conditions.has(Condition.DEFENCELESS) else pc_after_test(state, target,critical_for_hand(member,

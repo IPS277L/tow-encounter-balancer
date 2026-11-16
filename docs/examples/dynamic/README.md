@@ -1,6 +1,6 @@
 # Динамический генератор: первый сквозной срез
 
-Генератор сам создаёт NPC, варьируя WS/Strength/Toughness/Agility, Melee/Athletics, Staff/Dagger и Light Armour. Число врагов может быть фиксированным: поиск всё равно меняет их параметры и экипировку. Готовый reserve и книжные NPC не нужны. [Контракт и ограничения](../../decisions/ADR-0113-dynamic-npc-generation-and-adaptive-search.md).
+Генератор сам создаёт NPC, варьируя WS/Strength/Toughness/Agility, Melee/Defence/Athletics, шесть одноручных оружий, Light Armour и Shield. Число врагов может быть фиксированным: поиск всё равно меняет их параметры и экипировку. Готовый reserve и книжные NPC не нужны. [Контракт и ограничения](../../decisions/ADR-0113-dynamic-npc-generation-and-adaptive-search.md).
 
 ## Локальный UI
 
@@ -77,6 +77,23 @@ NPC генератора пока атакуют в Melee: демонстрир�
 Сцена явно начинает новую сессию: Fate доступен полностью, персонажи здоровы. В melee против Minions PC автоматически выбирают Attack/цель, standard Recover себе/союзнику или Help конкретному Test по текущему состоянию; задавать получателей вручную не нужно. Это ограниченная оценка ближайшего действия без дополнительных Monte Carlo-прогонов, а не оптимальный ИИ. NPC сохраняют прежнюю Attack-тактику. Fate: Glorious при0начальных успехов и полезном перебросе, Near Miss при результате раны≥11; ресурсы списываются фактически. Оба вида зелий подключены по [ADR-0119](../../decisions/ADR-0119-pc-potions-in-dynamic-encounters.md); первая магия подключена по [ADR-0120](../../decisions/ADR-0120-pc-elemental-magic-in-dynamic-encounters.md). [Границы автоматической тактики](../../decisions/ADR-0118-automatic-pc-melee-tactics.md).
 
 Имена скачиваемых JSON запроса, результата и повтора боя получают UTC дату/время с миллисекундами и короткий уникальный суффикс, например `encounter-request_2026-11-15T20-15-30-123Z_a1b2c3d4.json`. Повторные скачивания не используют одно и то же имя. Это имя файла, оно не меняет seed или данные расчёта.
+
+## Снаряжение динамических NPC
+
+Автоматические диапазоны включают Staff, Dagger, Axe, Sword, Warhammer, Morning Star, Light Armour и Shield. Генератор сам выбирает компоненты и их комбинации; ручной `search_space` может ограничить их. Каждое оружие одноручное, Shield занимает другую руку. Два оружия одновременно и Heavy Armour пока не выдаются. Навык Defence варьируется отдельно от Melee/Athletics; Damage и Resilience вычисляются, а не задаются готовым statblock.
+
+Свойства исполняются в реальном бою: Axe получает+1Damage против armoured цели, Sword даёт+1d Defence при отсутствии Staggered, Warhammer получает+1d Melee против Staggered цели, Morning Star наносит S+1Damage и получает−1d Melee при собственном Staggered. Drained удаляет положительные кубы, но не Damage bonus Axe. Shield добавляет+1Resilience отдельно от Light Armour. Печатные conceal/terrain свойства Dagger/Staff не дают бонуса к обычной боевой проверке.
+
+Перед каждым противопоставлением NPC автоматически выбирает Defence (WS) либо Athletics (Ag) по ожидаемым успехам после реальных modifiers и cap; при равенстве — Defence. Поэтому выбор может меняться после Staggered/Drained, а не закрепляется случайным полем во входе. Это ограниченная тактика, не гарантия оптимума по всем исходам. Generated NPC пока не стреляют.
+
+В JSON компонента NPC и ручном `search_space` обязательны `defence` и `shield`; текущие примеры мигрированы без compatibility-веток. При `search_space:null` всё выводится автоматически. В native replay сохраняются полный `generated_components`, основная `protection` и `alternate_protection`; без компонентов лишний профиль не допускается. Отдельный NPC-файл включает Defence/Shield, карточки показывают навык, предметы и их свойства в tooltip.
+
+```powershell
+$env:PYTHONPATH = 'src'
+.venv/Scripts/python.exe -m towr generate-encounter docs/examples/dynamic/equipment.request.json
+```
+
+[Пример](equipment.request.json) выполняет4Monte Carlo-боя и допускает четыре новых оружия со Shield либо без него. Малый запуск проверяет путь, а не репрезентативность баланса; он не обязан выбрать все разрешённые предметы. Для реального поиска используйте автоматический план UI или свою точность. [Контракт](../../decisions/ADR-0121-generated-npc-melee-equipment-and-protection.md).
 
 ## Применение зелий
 

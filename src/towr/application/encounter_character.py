@@ -51,6 +51,7 @@ class EncounterCharacter:
     backup_weapon_policy: PcBackupWeaponPolicy | None = field(default=None, kw_only=True)
     consumables: tuple[ConsumableItem, ...] = field(default=(), kw_only=True)
     wizard: PcWizardProfile | None = field(default=None, kw_only=True)
+    armour_worn: bool | None = field(default=None, kw_only=True)
 
     def __post_init__(self):
         if type(self.actor_id) is not str or not self.actor_id.strip():
@@ -97,4 +98,5 @@ class EncounterCharacter:
             PcNearMissPolicy(11, 0),
             PcGloriousPolicy((Skill.MELEE, Skill.DEFENCE, Skill.ATHLETICS, Skill.ENDURANCE,
                 *((Skill.WILLPOWER,) if self.wizard is not None else ())), 0, 0),
-            None, None, self.backup_weapon_policy, shield=shield, consumables=self.consumables,wizard=self.wizard)
+            None, None, self.backup_weapon_policy, shield=shield, consumables=self.consumables,
+            wizard=self.wizard,armour_worn=self.armour_worn)

@@ -59,12 +59,16 @@ class PcMagicSourceTests(unittest.TestCase):
                 wizard(arcane_paraphernalia=value)
 
     def test_worn_armour_fact_includes_helmet_without_inventing_a_resilience_bonus(self):
-        self.assertFalse(wizard().armour_worn)
-        self.assertTrue(wizard(armour_worn=True).armour_worn)
-        self.assertEqual(wizard(armour_worn=True).willpower_profile, wizard().willpower_profile)
-        for value in (0, 1, 'yes', None):
+        from tests.support.pc_tactics_fixtures import automatic_source
+        member = replace(automatic_source().party[0],wizard=wizard())
+        armoured = replace(member,armour_worn=True)
+        self.assertIsNone(member.armour_worn)
+        self.assertIs(armoured.armour_worn,True)
+        self.assertEqual(member.wizard,armoured.wizard)
+        self.assertEqual(member.pc.armour_bonus,armoured.pc.armour_bonus)
+        for value in (0, 1, 'yes'):
             with self.subTest(value=value), self.assertRaises(TypeError):
-                wizard(armour_worn=value)
+                replace(member,armour_worn=value)
 
     def test_lore_and_memorisation_must_be_unique_typed_ordered_sources(self):
         for lores in ((), [], ['elementalism'], ('unknown',), ('elementalism', 'elementalism')):

@@ -20,8 +20,9 @@ from towr.simulation.pc_melee_summary import summarize_pc_melee_simulation
 
 def tiny_request():
     source = make_pc_melee_scenario(max_rounds=1)
-    space = NpcSearchSpace((2,), (1,), (1,), (1,), (2,), (2,),
-        (GeneratedWeapon.STAFF,), (False,), ((),))
+    space = NpcSearchSpace(weapon_skill=(2,),strength=(1,),toughness=(1,),agility=(1,),
+        melee=(2,),athletics=(2,),defence=(2,),weapon=(GeneratedWeapon.STAFF,),
+        light_armour=(False,),shield=(False,),abilities=((),))
     return DynamicEncounterRequest(source.party, source.facts, source.day_id, space,
         1, 1, .5, 1., 42, 3, 2, 3, 2, 12, 1, NpcDefeatDisposition.KILLED)
 

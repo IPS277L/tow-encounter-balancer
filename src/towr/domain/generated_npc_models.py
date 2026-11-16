@@ -3,7 +3,7 @@
 This is an explicit supported component set, not a rule language. Drained is
 an authored encounter permission, not an automatically acquired book talent.
 """
-from dataclasses import dataclass
+from dataclasses import dataclass, field, replace
 from enum import Enum
 
 from towr.domain.attack_models import ConditionOnHitSpec, DamageProfile, ResilienceProfile
@@ -20,6 +20,10 @@ from towr.domain.turn_models import CombatSide
 class GeneratedWeapon(str, Enum):
     STAFF = 'staff'
     DAGGER = 'dagger'
+    AXE = 'axe'
+    SWORD = 'sword'
+    WARHAMMER = 'warhammer'
+    MORNING_STAR = 'morning_star'
 
 
 class GeneratedAbility(str, Enum):
@@ -37,18 +41,22 @@ class GeneratedNpc:
     weapon: GeneratedWeapon
     light_armour: bool
     abilities: tuple[GeneratedAbility, ...] = ()
+    defence: int = field(kw_only=True)
+    shield: bool = field(kw_only=True)
 
     def __post_init__(self):
         for name in ('weapon_skill', 'strength', 'toughness', 'agility'):
             value = getattr(self, name)
             if type(value) is not int or value < 1:
                 raise ValueError(f'{name} must be a positive integer')
-        for name in ('melee', 'athletics'):
+        for name in ('melee', 'defence', 'athletics'):
             value = getattr(self, name)
             if type(value) is not int or not 2 <= value <= 6:
                 raise ValueError(f'{name} must be an integer in 2..6')
         if type(self.weapon) is not GeneratedWeapon or type(self.light_armour) is not bool:
             raise TypeError('equipment requires supported typed weapon and explicit armour bool')
+        if type(self.shield) is not bool:
+            raise TypeError('Shield requires an exact equipment bool')
         if (type(self.abilities) is not tuple or len(set(self.abilities)) != len(self.abilities)
                 or any(type(a) is not GeneratedAbility for a in self.abilities)):
             raise TypeError('abilities must be unique supported typed components')
@@ -56,17 +64,47 @@ class GeneratedNpc:
     def participant(self, actor_id: str) -> NpcParticipantSnapshot:
         """Build fresh state; identity never selects a mechanic."""
         definition_id = 'generated:' + actor_id
-        resilience = ResilienceProfile(self.toughness, int(self.light_armour))
-        attack = NpcAttackProfile(
-            'primary', 'RULE-EQUIPMENT-003:' + self.weapon.value, Skill.MELEE,
-            InlineProfile(self.weapon_skill, self.melee),
-            DamageProfile(self.strength - int(self.weapon is GeneratedWeapon.DAGGER)),
+        resilience, attack, protection = generated_npc_profiles(self)
+        definition = NpcDefinition(definition_id, 'authored:generated-minion', TargetInjuryPolicy.MINION,
+            1, resilience, (attack,), protection, generated_components=self)
+        state = NpcParticipantState(actor_id, definition_id, CombatSide.OPPOSITION,
+            ProfileInjuryState(0, 1), (attack.id,), resilience, True, self.shield)
+        return NpcParticipantSnapshot(definition, state)
+
+
+def generated_npc_profiles(npc: GeneratedNpc) -> tuple[
+        ResilienceProfile,NpcAttackProfile,tuple[NpcProtectionProfile,...]]:
+    """Derive the complete admitted combat source from facts, without identity."""
+    if type(npc) is not GeneratedNpc:
+        raise TypeError('generated components require the complete typed facts')
+    replace(npc)
+    resilience = ResilienceProfile(npc.toughness, int(npc.light_armour)+int(npc.shield))
+    offset = -1 if npc.weapon is GeneratedWeapon.DAGGER else int(npc.weapon is GeneratedWeapon.MORNING_STAR)
+    attack = NpcAttackProfile(
+            'primary', 'RULE-EQUIPMENT-003:' + npc.weapon.value, Skill.MELEE,
+            InlineProfile(npc.weapon_skill, npc.melee), DamageProfile(npc.strength+offset),
             RangedWeaponRange.CLOSE, RangedWeaponRange.CLOSE, RangedWeaponHands.ONE_HANDED,
             secondary_effects=tuple(ConditionOnHitSpec(Condition.DRAINED, 'authored:drained-on-hit')
-                for ability in self.abilities if ability is GeneratedAbility.DRAINED_ON_HIT))
-        definition = NpcDefinition(definition_id, 'authored:generated-minion', TargetInjuryPolicy.MINION,
-            1, resilience, (attack,), (NpcProtectionProfile('RULE-COMBAT-006:protection',
-                Skill.ATHLETICS, InlineProfile(self.agility, self.athletics)),))
-        state = NpcParticipantState(actor_id, definition_id, CombatSide.OPPOSITION,
-            ProfileInjuryState(0, 1), (attack.id,), resilience, True, False)
-        return NpcParticipantSnapshot(definition, state)
+                for ability in npc.abilities if ability is GeneratedAbility.DRAINED_ON_HIT))
+    protection = (
+        NpcProtectionProfile('RULE-COMBAT-006:generated-defence', Skill.DEFENCE,
+            InlineProfile(npc.weapon_skill,npc.defence)),
+        NpcProtectionProfile('RULE-COMBAT-006:generated-athletics', Skill.ATHLETICS,
+            InlineProfile(npc.agility,npc.athletics)))
+    return resilience, attack, protection
+
+
+def validate_generated_definition(definition: NpcDefinition) -> None:
+    """A label alone cannot grant components; rederive every numeric/profile fact."""
+    npc = definition.generated_components
+    if npc is None:
+        if definition.source_rule_id == 'authored:generated-minion':
+            raise ValueError('generated NPC source must retain its complete components')
+        return
+    resilience,attack,protection = generated_npc_profiles(npc)
+    if (definition.source_rule_id != 'authored:generated-minion'
+            or definition.injury_policy is not TargetInjuryPolicy.MINION
+            or type(definition.wound_limit) is not int or definition.wound_limit != 1
+            or definition.resilience != resilience or definition.attacks != (attack,)
+            or definition.protection != protection):
+        raise ValueError('NPC combat source differs from its complete generated components')

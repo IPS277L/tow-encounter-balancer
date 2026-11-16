@@ -5,7 +5,7 @@ an already trained Wizard; they do not simulate character creation or downtime.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from enum import Enum
 
 from towr.domain.magic_models import (
@@ -43,7 +43,6 @@ class PcWizardProfile:
     lores: tuple[str, ...]
     memorised_spells: tuple[PcSpellId, ...]
     arcane_paraphernalia: bool
-    armour_worn: bool = field(default=False, kw_only=True)
 
     def __post_init__(self) -> None:
         origins = ('human', 'dwarf', 'halfling', 'high_elf', 'wood_elf', 'ogre')
@@ -70,8 +69,6 @@ class PcWizardProfile:
             raise TypeError('Arcane Paraphernalia requires an explicit bool fact')
         if not self.arcane_paraphernalia:
             raise ValueError('this slice requires Arcane Paraphernalia; makeshift tools are outside its scope')
-        if type(self.armour_worn) is not bool:
-            raise TypeError('worn armour must be an exact bool fact')
         self.willpower_profile
 
     @property

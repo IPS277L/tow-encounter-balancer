@@ -25,8 +25,10 @@ class NpcSearchSpace:
     agility: tuple[int, ...] = (2, 3, 4)
     melee: tuple[int, ...] = (3, 4, 5)
     athletics: tuple[int, ...] = (3, 4, 5)
-    weapon: tuple[GeneratedWeapon, ...] = (GeneratedWeapon.STAFF, GeneratedWeapon.DAGGER)
+    defence: tuple[int, ...] = (3, 4, 5)
+    weapon: tuple[GeneratedWeapon, ...] = tuple(GeneratedWeapon)
     light_armour: tuple[bool, ...] = (False, True)
+    shield: tuple[bool, ...] = (False, True)
     abilities: tuple[tuple[GeneratedAbility, ...], ...] = ((),)
 
     def __post_init__(self):
@@ -61,9 +63,9 @@ def automatic_npc_search_space(party: tuple[PcMeleeParticipant, ...]) -> NpcSear
     if not party:
         raise ValueError('automatic NPC space needs a party')
     choices = {}
-    for name in ('weapon_skill', 'strength', 'toughness', 'agility', 'melee', 'athletics'):
+    for name in ('weapon_skill', 'strength', 'toughness', 'agility', 'melee', 'defence', 'athletics'):
         values = [getattr(p.pc, name) for p in party]
-        floor, ceiling = (2, 6) if name in ('melee', 'athletics') else (1, 10)
+        floor, ceiling = (2, 6) if name in ('melee', 'defence', 'athletics') else (1, 10)
         low = max(floor, min(ceiling, min(values) - 1))
         high = max(low, min(ceiling, max(values) + 1))
         choices[name] = tuple(range(low, high + 1))

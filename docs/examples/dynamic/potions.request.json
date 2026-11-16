@@ -75,6 +75,12 @@
     ],
     "abilities": [
       []
+    ],
+    "defence": [
+      2
+    ],
+    "shield": [
+      false
     ]
   },
   "npc_count": {

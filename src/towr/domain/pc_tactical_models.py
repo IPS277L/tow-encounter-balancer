@@ -90,7 +90,7 @@ def validate_automatic_melee_scenario(scenario: PcMeleeScenario) -> None:
     if any(enemy.definition.injury_policy is not TargetInjuryPolicy.MINION
             or len(enemy.definition.attacks) != 1
             or enemy.definition.attacks[0].skill is not Skill.MELEE
-            or len(enemy.definition.protection) != 1
+            or len(enemy.definition.protection) != (2 if enemy.definition.generated_components is not None else 1)
             or enemy.definition.protection[0].skill not in (Skill.ATHLETICS, Skill.DEFENCE, Skill.MELEE)
             for enemy in scenario.enemies):
         raise ValueError('automatic melee tactics currently require Melee Minions with ordinary Protection')
@@ -162,13 +162,8 @@ def select_pc_tactic(state: PcMeleeState, actor_id: str | None = None) -> PcTact
             if enhancement is not None:
                 request = replace(request, profile=pc.melee_profile)
             request, _ = build_pc_test_help(state, actor, Skill.MELEE, request)
-            profile = enemy.definition.protection[0]
-            protection_modifiers = pc_npc_distraction_test_modifiers(state, enemy_id, actor)
-            if profile.skill is Skill.MELEE:
-                protection_modifiers += pc_npc_grudge_melee_modifiers(state, enemy_id, actor)
-            if enemy.state.injury.conditions.has(Condition.DRAINED):
-                protection_modifiers = tuple(item for item in protection_modifiers if item.amount <= 0)
-            protection = TestRequest('tactics:protection', profile.test_profile, protection_modifiers)
+            from towr.domain.pc_generated_equipment import npc_protection_test
+            profile,protection = npc_protection_test(state,enemy_id,actor,'tactics:protection')
             damage = pc_weapon_damage(weapon, pc.strength)
             base = damage.base + sum(item.amount for item in pc_weapon_damage_modifiers(weapon, enemy.state.current_resilience))
             defenceless = enemy.state.injury.conditions.has(Condition.DEFENCELESS)
@@ -190,24 +185,34 @@ def select_pc_tactic(state: PcMeleeState, actor_id: str | None = None) -> PcTact
         if target != first:
             return 0.0
         member = state.participant(target)
+        target_conditions = member.injury.conditions
+        if stagger_removed:
+            target_conditions = target_conditions.without_condition(Condition.STAGGERED)
+        if prone_removed:
+            target_conditions = target_conditions.without_condition(Condition.PRONE)
         value = 0.0
         incoming = tuple(enemy for enemy in enemies if enemy not in unavailable)
         for enemy_id in incoming:
             enemy = state.enemy(enemy_id)
             attack = enemy.definition.attacks[0]
             modifiers = []
-            if member.injury.conditions.has(Condition.PRONE) and not prone_removed:
+            if target_conditions.has(Condition.PRONE):
                 modifiers.append(DiceModifier('RULE-COMBAT-007:higher-ground', 1))
             if (state.source.facts.outnumbering_bonus_approved
                     and len(state.live_enemies) > len(state.live_party)):
                 modifiers.append(pc_npc_outnumbering_modifier(enemy.definition))
             modifiers.extend(pc_npc_attack_modifiers(enemy.definition, enemy.state.injury.conditions,
-                target_conditions=member.injury.conditions, attacker_wounds=enemy.state.injury.wounds))
+                target_conditions=target_conditions, attacker_wounds=enemy.state.injury.wounds))
+            from towr.domain.pc_generated_equipment import generated_attack_modifiers,generated_damage_modifiers
+            modifiers.extend(generated_attack_modifiers(enemy.definition,enemy.state.injury.conditions,
+                target_conditions))
             modifiers.extend(pc_npc_grudge_melee_modifiers(state, enemy_id, target))
             modifiers.extend(pc_npc_distraction_test_modifiers(state, enemy_id, target))
             if enemy.state.injury.conditions.has(Condition.DRAINED):
                 modifiers = [modifier for modifier in modifiers if modifier.amount <= 0]
-            attacker = TestRequest('tactics:incoming', attack.test_profile, tuple(modifiers))
+            from towr.domain.pc_magic_models import magic_test_modifiers
+            attacker = TestRequest('tactics:incoming', attack.test_profile,
+                (*modifiers,*magic_test_modifiers(state,enemy_id,Skill.MELEE)[0]))
             skill = pc_protection_skill(member, Skill.MELEE)
             bonus = protection_bonus if enemy_id == incoming[0] else 0
             defender = _pc_test(state, target, pc_melee_action_id(state, enemy_id)+':protection', skill,
@@ -230,7 +235,9 @@ def select_pc_tactic(state: PcMeleeState, actor_id: str | None = None) -> PcTact
             damage = pc_npc_damage_profile(enemy.definition, unopposed=False)
             if damage is None:
                 continue
-            base = damage.base+sum(modifier.amount for modifier in pc_npc_damage_modifiers(enemy.definition))
+            base = damage.base+sum(modifier.amount for modifier in
+                (pc_npc_damage_modifiers(enemy.definition)
+                + generated_damage_modifiers(enemy.definition,pc_shield_resilience(state,target))))
             value += _impact_value(_distribution(attacker), _distribution(defender), base,
                 pc_shield_resilience(state, target).total+int(enhancement == 'toughness'), damage.success_multiplier,
                 member.injury.conditions.has(Condition.STAGGERED) and not stagger_removed)

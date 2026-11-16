@@ -7,9 +7,9 @@ function planningSearchSpace(data){
  // Client estimate for planning/manual initialization. Execution derives its
  // authoritative automatic envelope on the server from the admitted party.
  if(data.search_space)return data.search_space;
- const space={weapon:['staff','dagger'],light_armour:[false,true],abilities:[[]]};
- for(const key of ['weapon_skill','strength','toughness','agility','melee','athletics']){
-  const skill=['melee','athletics'].includes(key),floor=skill?2:1,ceiling=skill?6:10;
+ const space={weapon:['staff','dagger','axe','sword','warhammer','morning_star'],light_armour:[false,true],shield:[false,true],abilities:[[]]};
+ for(const key of ['weapon_skill','strength','toughness','agility','melee','defence','athletics']){
+  const skill=['melee','defence','athletics'].includes(key),floor=skill?2:1,ceiling=skill?6:10;
   const values=data.party.map(m=>Number((skill?m.skills:m.characteristics)?.[key]));
   if(!values.length||values.some(v=>!Number.isSafeInteger(v)))throw Error('Проверьте характеристики и навыки партии.');
   const low=Math.max(floor,Math.min(ceiling,Math.min(...values)-1));
@@ -60,7 +60,7 @@ function automaticSearchPlan(data){
  const rounds=data.targets?.started_rounds?.numerator/data.targets?.started_rounds?.denominator;
  if(min>max||!Number.isFinite(p)||p<0||p>1||!Number.isFinite(rounds)||rounds<1||rounds>cap||!Array.isArray(data.party)||!data.party.length)throw Error('Проверьте состав и цели боя для автоплана.');
  let profiles=1,bits=0;
- for(const key of ['weapon_skill','strength','toughness','agility','melee','athletics','weapon','light_armour','abilities']){
+ for(const key of ['weapon_skill','strength','toughness','agility','melee','defence','athletics','weapon','light_armour','shield','abilities']){
   const values=space[key];if(!Array.isArray(values)||!values.length)throw Error('Задайте допустимые значения: '+key);
   profiles=Math.min(1e12,profiles*values.length);bits+=Math.log2(values.length);
  }

@@ -194,7 +194,7 @@ class DynamicEncounterJsonTests(unittest.TestCase):
 
     def test_closed_shapes_and_supported_components(self):
         cases = [dict(enemies=[]), dict(party=[dict(self.document['party'][0], target_priority=['npc'])]),
-            dict(search_space=dict(self.document['search_space'], weapon=['axe'])),
+            dict(search_space=dict(self.document['search_space'], weapon=['greatsword'])),
             dict(search_space=dict(self.document['search_space'], abilities=[['blood_rage']])),
             dict(search_space=dict(self.document['search_space'], melee=[True])),
             dict(execution=dict(mode='process'))]

@@ -380,8 +380,10 @@ class PcMeleeFacts:
 
     def __post_init__(self) -> None:
         _identifier(self.zone_id, "PC melee Zone")
-        if self.daylight_confirmed is not None and (type(self.daylight_confirmed) is not bool or not self.daylight_confirmed):
-            raise ValueError('this optional environment premise requires confirmed daylight')
+        if self.daylight_confirmed is not None:
+            _typed(self.daylight_confirmed,bool,'confirmed daylight premise')
+            if not self.daylight_confirmed:
+                raise ValueError('this optional environment premise requires confirmed daylight')
         for name in (
             "all_opponents_close", "targets_aware", "all_combatants_included",
             "unmounted", "no_external_effects", "no_terrain_modifiers",
@@ -416,11 +418,16 @@ class PcMeleeParticipant:
     aim_second_action_policy: PcAimSecondActionPolicy | None = field(default=None, kw_only=True)
     consumables: tuple[ConsumableItem, ...] = field(default=(), kw_only=True)
     wizard: PcWizardProfile | None = field(default=None, kw_only=True)
+    armour_worn: bool | None = field(default=None, kw_only=True)
 
     def __post_init__(self) -> None:
         _identifier(self.actor_id, "PC actor")
         _typed(self.pc, PcMeleeDefinition, "PC definition")
         replace(self.pc)
+        if self.armour_worn is not None:
+            _typed(self.armour_worn,bool,'worn armour fact')
+            if self.pc.armour_bonus > 0 and not self.armour_worn:
+                raise ValueError('positive body armour cannot deny worn armour')
         if self.wizard is not None:
             if type(self.wizard) is not PcWizardProfile:
                 raise TypeError('PC wizard source requires its typed complete profile')
@@ -817,8 +824,10 @@ def _readmit_profile_enemy(enemy: NpcParticipantSnapshot) -> None:
     great_stag = definition.id == 'pc-book-npc:great_stag'
     net_goblin = definition.id == NET_DEFINITION_ID
     npc_pistol = definition.id in PC_NPC_PISTOL_DEFINITION_IDS
-    if len(attacks) != (2 if great_stag or net_goblin else 1) or len(protection) != 1:
-        raise ValueError("NPC requires one primary Melee attack and one Protection; only canonical Stag/Net loadouts have a second profile")
+    generated = definition.generated_components is not None
+    if (len(attacks) != (2 if great_stag or net_goblin else 1)
+            or len(protection) != (2 if generated else 1)):
+        raise ValueError("NPC requires one primary attack and one Protection; complete generated components allow two Protections, canonical Stag/Net allow a second attack")
     if (definition.id.startswith('pc-book-npc:') and not net_goblin
             and (definition.resilience.armoured is not None or state.current_resilience.armoured is not None)):
         raise ValueError('explicit armoured metadata on a canonical NPC requires the Net loadout')
@@ -838,6 +847,10 @@ def _readmit_profile_enemy(enemy: NpcParticipantSnapshot) -> None:
             'pc-book-npc:bear_crushing_weight')
         else 6 if definition.id=='pc-book-npc:imperial_ogre_greathammer' else None))
     _readmit_inline(defence.test_profile,expected_pool_cap=None)
+    if generated:
+        _typed(protection[1],NpcProtectionProfile,'generated alternate Protection')
+        _readmit_inline(protection[1].test_profile,expected_pool_cap=None)
+        replace(protection[1])
     _typed(attack.damage, DamageProfile, "Minion Damage")
     replace(attack.damage)
     _canonical_tuple(attack.secondary_effects, "Minion secondary effects")
@@ -907,6 +920,8 @@ def _readmit_profile_enemy(enemy: NpcParticipantSnapshot) -> None:
             or state.current_resilience != definition.resilience
             or state.available_attack_ids != tuple(profile.id for profile in attacks)):
         raise ValueError("PC melee requires fresh healthy NPCs and consistent armed/natural attacks and shield hands")
+    if generated and state.holds_shield is not definition.generated_components.shield:
+        raise ValueError('NPC Shield state must match its generated equipment source')
     from towr.domain.pc_npc_catalog import validate_pc_book_npc_definition
     validate_pc_book_npc_definition(definition)
     if definition.id.startswith('pc-book-npc:'):

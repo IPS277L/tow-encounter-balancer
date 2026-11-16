@@ -129,16 +129,16 @@ function renderRequestVisual(data){
  if(!data.search_space){advanced.append(node('p','Генератор сам задаёт диапазоны характеристик и навыков вокруг партии. Составы проверяются по вашим целям боя.','visual-note'));root.append(advanced);return;}
  const space=card('Возможные параметры противников');space.append(node('p','Разрешённые значения через запятую. Генератор выбирает из них новые сочетания.','visual-note'));
  const grid=node('div',undefined,'visual-fields');
- for(const key of ['weapon_skill','strength','toughness','agility','melee','athletics'])if(Array.isArray(data.search_space?.[key])){
+ for(const key of ['weapon_skill','strength','toughness','agility','melee','defence','athletics'])if(Array.isArray(data.search_space?.[key])){
   const label=node('label',statLabels[key]),input=node('input');label.title=statFullNames[key]||statLabels[key];input.title=label.title;input.type='text';input.value=data.search_space[key].join(', ');input.dataset.path='search_space/'+key;
   input.addEventListener('change',()=>{try{const values=input.value.trim().split(/[,;\s]+/).map(integer);if(new Set(values).size!==values.length)throw Error('Значения не должны повторяться.');editRequest(['search_space',key],values);}catch(error){visualEditError=error.message;message(error.message,'error');}});label.append(input);grid.append(label);
  }
  space.append(grid);
  const choices=node('div',undefined,'visual-fields');
- for(const [key,options] of [['weapon',{staff:weaponNames.staff,dagger:weaponNames.dagger}],['light_armour',{'false':'Без брони','true':'Лёгкая броня (Light Armour)'}]]){
-  const group=node('div');group.append(node('h4',key==='weapon'?'Оружие (Weapons)':'Броня (Armour)'));
+ for(const [key,options] of [['weapon',Object.fromEntries(['staff','dagger','axe','sword','warhammer','morning_star'].map(key=>[key,weaponNames[key]]))],['light_armour',{'false':'Без брони','true':'Лёгкая броня (Light Armour)'}],['shield',{'false':'Без щита','true':'Щит (Shield)'}]]){
+  const group=node('div');group.append(node('h4',key==='weapon'?'Оружие (Weapons)':key==='shield'?'Щит (Shield)':'Броня (Armour)'));
   for(const [raw,name] of Object.entries(options)){
-   const value=key==='light_armour'?raw==='true':raw,label=node('label',name,'toggle-field'),input=node('input');input.type='checkbox';input.checked=(data.search_space?.[key]||[]).includes(value);input.dataset.path='search_space/'+key+'/'+raw;
+   const value=key==='light_armour'||key==='shield'?raw==='true':raw,label=node('label',name,'toggle-field'),input=node('input');input.type='checkbox';input.checked=(data.search_space?.[key]||[]).includes(value);input.dataset.path='search_space/'+key+'/'+raw;
    input.addEventListener('change',()=>{const values=[...(read().search_space?.[key]||[])];editRequest(['search_space',key],input.checked?[...values,value]:values.filter(v=>v!==value));});label.prepend(input);group.append(label);
   }choices.append(group);
  }
@@ -211,8 +211,9 @@ function renderResultVisual(result,root=byId('result-visual')){
   for(const [index,npc] of (npcs||[]).entries()){
    const creature=card('Противник '+(index+1));creature.classList.add('npc-card');creature.querySelector('h3').classList.add('npc-heading');creature.querySelector('h3').append(npcFileControls(candidate,index,result));const tables=node('div',undefined,'npc-stat-tables');tables.append(npcStatTable('Характеристики (Characteristics)',Object.keys(characteristicTerms),npc),npcStatTable('Навыки (Skills)',Object.keys(skillTerms),npc));creature.append(tables);
    const loadout=node('dl',undefined,'npc-loadout'),weapon=weaponNames[npc.weapon]||npc.weapon;
-   const weaponHint=npc.weapon==='dagger'?'Одноручное, Close Range; Damage = Strength − 1. +1d к Stealth для сокрытия.':npc.weapon==='staff'?'Одноручное, Close Range; Damage = Strength. +1d к Athletics при пересечении Difficult Terrain.':weapon;
-   const groups=[['Оружие (Weapons)',[[weapon,weaponHint]],'Оружие не задано'],['Броня (Armour)',npc.light_armour?[[armourNames.light_armour,'Resilience = Toughness + 1.']]:[],'Броня не надета'],['Расходники (Consumables)',[],'Генератор пока не выдаёт расходники'],['Таланты (Talents)',[],'Генератор пока не выдаёт таланты']];
+   const weaponHint={dagger:'Одноручное, Close Range; Damage = Strength − 1. +1d к Stealth для сокрытия.',staff:'Одноручное, Close Range; Damage = Strength. +1d к Athletics при пересечении Difficult Terrain.',axe:'Одноручное, Close Range; Damage = Strength. +1 Damage против бронированной (armoured) цели.',sword:'Одноручное, Close Range; Damage = Strength. +1d к Защите (Defence), пока владелец не Ошеломлён (Staggered).',warhammer:'Одноручное, Close Range; Damage = Strength. +1d к Ближнему бою (Melee) против Ошеломлённой (Staggered) цели.',morning_star:'Одноручное, Close Range; Damage = Strength + 1. −1d к Ближнему бою (Melee), пока владелец Ошеломлён (Staggered); нельзя применять dual wield.'}[npc.weapon]||weapon;
+   const armourTags=[];if(npc.light_armour)armourTags.push([armourNames.light_armour,'+1 Resilience поверх Toughness.']);if(npc.shield)armourTags.push([armourNames.shield,'Щит (Shield) занимает вторую руку; +1 Resilience отдельно от брони. Разрешает Defence против Shooting.']);
+   const groups=[['Оружие (Weapons)',[[weapon,weaponHint]],'Оружие не задано'],['Броня (Armour)',armourTags,'Броня не надета'],['Расходники (Consumables)',[],'Генератор пока не выдаёт расходники'],['Таланты (Talents)',[],'Генератор пока не выдаёт таланты']];
    if((npc.abilities||[]).length)groups.push(['Способности (Abilities)',npc.abilities.map(a=>[a==='drained_on_hit'?'Истощение при попадании (Drained)':a,a==='drained_on_hit'?'При попадании цель получает Истощение (Drained). Отдельно разрешённая способность, не книжный талант.':a]),'Способности не заданы']);
    for(const [title,items,emptyHint] of groups){const values=node('dd');values.append(resultItemTags(items,emptyHint));loadout.append(node('dt',title),values);}creature.append(loadout);box.append(creature);
   }
