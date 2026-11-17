@@ -116,16 +116,25 @@
       ]
     },
     "execution": {
-      "type": "object",
-      "properties": {
-        "mode": {
-          "const": "sequential"
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "mode": {"const": "sequential"}
+          },
+          "required": ["mode"],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "mode": {"const": "process"},
+            "workers": {"type": "integer", "minimum": 1, "maximum": 61}
+          },
+          "required": ["mode", "workers"],
+          "additionalProperties": false
         }
-      },
-      "required": [
-        "mode"
-      ],
-      "additionalProperties": false
+      ]
     },
     "scene": {
       "$ref": "urn:towr:dynamic-encounter:common:1#/$defs/scene"

@@ -7,7 +7,7 @@ from unittest.mock import patch
 
 from towr.adapters.pc_melee_json import parse_pc_melee_simulation_request
 from towr.application.dynamic_encounter import DynamicEncounterRequest, NpcSearchSpace, search_dynamic_encounter
-from towr.application.dynamic_encounter import DynamicEncounterCancelled
+from towr.application.dynamic_encounter import DynamicEncounterCancelled, validate_dynamic_encounter_result
 from towr.domain.generated_npc_models import GeneratedAbility, GeneratedNpc, GeneratedWeapon
 from towr.domain.condition_models import Condition
 from towr.domain.minion_defeat_models import NpcDefeatDisposition
@@ -134,6 +134,19 @@ class DynamicEncounterTests(unittest.TestCase):
             max_candidates=5, max_total_trials=9))
         self.assertTrue(all(1 <= len(c.composition) <= 3 for c in result.explored))
         self.assertGreater(len({len(c.composition) for c in result.explored}), 1)
+
+    def test_directed_resize_preserves_other_profiles_and_advances_plateau(self):
+        source=request(minimum_npcs=1,maximum_npcs=10,max_candidates=6,
+            max_total_trials=10,max_rounds=1,target_rounds=1)
+        with patch('towr.application.dynamic_encounter.Random.random',return_value=.5):
+            result=search_dynamic_encounter(source)
+        first,second=result.explored[:2]
+        self.assertEqual([len(first.composition),len(second.composition)],[6,5])
+        self.assertTrue(any(first.composition[:i]+first.composition[i+1:]==second.composition
+            for i in range(len(first.composition))))
+        self.assertEqual(len(result.explored[3].composition),4)
+        self.assertEqual(result.total_trials,10)
+        validate_dynamic_encounter_result(result)
 
 
 if __name__ == '__main__':

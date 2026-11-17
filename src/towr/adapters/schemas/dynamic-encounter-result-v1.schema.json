@@ -47,6 +47,29 @@
     },
     "resolved_search_space": {
       "$ref": "urn:towr:dynamic-encounter:common:1#/$defs/search_space"
+    },
+    "target_criteria": {
+      "type": "object",
+      "properties": {
+        "basis": {
+          "const": "point_estimates"
+        },
+        "win_rate_tolerance": {
+          "const": 0.1
+        },
+        "started_rounds_tolerance": {
+          "const": 1
+        }
+      },
+      "required": [
+        "basis",
+        "win_rate_tolerance",
+        "started_rounds_tolerance"
+      ],
+      "additionalProperties": false
+    },
+    "target_match_found": {
+      "type": "boolean"
     }
   },
   "required": [
@@ -60,7 +83,9 @@
     "total_trials",
     "proposal_attempts",
     "proposal_limit_reached",
-    "resolved_search_space"
+    "resolved_search_space",
+    "target_criteria",
+    "target_match_found"
   ],
   "additionalProperties": false
 }

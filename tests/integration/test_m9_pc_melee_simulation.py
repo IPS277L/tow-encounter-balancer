@@ -84,14 +84,14 @@ class PcMeleeSimulationIntegrationTests(unittest.TestCase):
     def test_worker_exception_propagates_with_index_context_without_partial_result(self):
         with self.assertRaisesRegex(RuntimeError,'private M9 worker') as caught:
             run_pc_melee_simulation_parallel(self.request,workers=1,batch_size=2,rng_factory=failing_rng)
-        self.assertTrue(any('M9 trial index=' in note for note in caught.exception.__notes__))
+        self.assertTrue(any('PC trial index=' in note for note in caught.exception.__notes__))
         self.assertEqual(self.scenario,self.original)
 
     def test_corrupted_equal_source_and_unpicklable_factory_fail_before_pool(self):
         forged=deepcopy(self.request)
         object.__setattr__(forged.scenario.facts,'no_ambush',1)
         self.assertEqual(forged,self.request)
-        with patch('towr.simulation.pc_melee_parallel.ProcessPoolExecutor') as pool:
+        with patch('towr.simulation.pc_melee_process.ProcessPoolExecutor') as pool:
             with self.assertRaises(TypeError):
                 run_pc_melee_simulation_parallel(forged,workers=1,rng_factory=completed_outcomes_rng)
             with self.assertRaises((AttributeError,TypeError)):

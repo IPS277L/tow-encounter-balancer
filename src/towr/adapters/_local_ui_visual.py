@@ -25,6 +25,8 @@ select{font:inherit;padding:8px 36px 8px 10px;border:1px solid var(--input-borde
 .stale-notice{padding:10px 12px;background:var(--warning-bg);border:1px solid var(--warning-border);border-radius:5px;color:var(--warning-text);font-size:13px;margin:12px 0}
 .result-metrics{display:flex;flex-wrap:wrap;gap:10px 22px;margin:10px 0;font-size:13px}.result-metrics strong{display:block;font-size:19px;color:var(--text)}
 .badge{display:inline-block;padding:3px 7px;border-radius:4px;background:var(--success-bg);color:var(--success-text);font-size:12px}
+.badge.outside-badge{background:var(--warning-bg);color:var(--warning-text)}
+.badge.unsupported-badge{background:var(--warning-bg);color:var(--error)}
 .result-card{margin-top:18px}.result-card+.result-card{padding-top:18px;border-top:1px solid var(--border)}
 #result-visual>.result-card:first-child{margin-top:0}#result-card-heading{padding:10px 0}
 #request-visual>.visual-card:first-child,#result-visual>.result-card:first-child>.result-statistics{margin-top:0}
@@ -202,24 +204,61 @@ function tableStatId(){return 'npc-stat-'+(++statCellSequence);}
 function resultItemTags(items,emptyHint){
  const tags=node('div',undefined,'item-tags');for(const [label,hint] of items.length?items:[['—',emptyHint]]){const tag=node('span',label,'item-tag'+(items.length?'':' empty'));attachTagTooltip(tag,hint);tags.append(tag);}return tags;
 }
+function validateTargetMetadata(result){
+ const fail=()=>{throw Error('JSON результата должен содержать согласованную оценку совместных целей текущего формата.');};
+ const exactKeys=(value,keys)=>value&&typeof value==='object'&&!Array.isArray(value)&&Object.keys(value).sort().join(',')===keys.slice().sort().join(',');
+ const criteria=result.target_criteria;
+ if(!exactKeys(criteria,['basis','win_rate_tolerance','started_rounds_tolerance'])||criteria.basis!=='point_estimates'||criteria.win_rate_tolerance!==.1||criteria.started_rounds_tolerance!==1||typeof result.target_match_found!=='boolean')fail();
+ const fraction=value=>value&&typeof value.numerator==='number'&&Number.isFinite(value.numerator)&&typeof value.denominator==='number'&&Number.isFinite(value.denominator)&&value.denominator>0?value.numerator/value.denominator:NaN;
+ const targets=result.source_request?.targets,winTarget=fraction(targets?.win_rate),roundTarget=fraction(targets?.started_rounds);
+ if(!Number.isFinite(winTarget)||winTarget<0||winTarget>1||!Number.isFinite(roundTarget)||roundTarget<1||!Number.isSafeInteger(result.source_request.max_rounds)||result.source_request.max_rounds<1||roundTarget>result.source_request.max_rounds||!Array.isArray(result.explored)||!Array.isArray(result.validations)||!Array.isArray(result.selected))fail();
+ const same=(left,right)=>Math.abs(left-right)<=1e-10*Math.max(1,Math.abs(left),Math.abs(right));
+ const normalized=value=>Math.abs(value-1)<=1e-12?1:Math.round(value*1e12)/1e12;
+ for(const candidate of [...result.explored,...result.validations]){
+  const assessment=candidate?.target_assessment;
+  if(!exactKeys(assessment,['status','win_rate_in_range','started_rounds_in_range','win_rate_deviation','started_rounds_deviation','normalized_max_deviation','normalized_total_deviation'])||typeof assessment.win_rate_in_range!=='boolean'||typeof assessment.started_rounds_in_range!=='boolean'||!Number.isFinite(candidate.win_rate)||candidate.win_rate<0||candidate.win_rate>1||!Number.isFinite(candidate.mean_started_rounds)||candidate.mean_started_rounds<1||candidate.mean_started_rounds>result.source_request.max_rounds||!Number.isSafeInteger(candidate.trials)||candidate.trials<1||!candidate.outcomes||['objective_achieved','party_defeated','round_limit','unsupported_path'].some(key=>!Number.isSafeInteger(candidate.outcomes[key])||candidate.outcomes[key]<0)||!same(candidate.win_rate,candidate.outcomes.objective_achieved/candidate.trials)||['objective_achieved','party_defeated','round_limit','unsupported_path'].reduce((sum,key)=>sum+candidate.outcomes[key],0)!==candidate.trials)fail();
+  for(const key of ['win_rate_deviation','started_rounds_deviation','normalized_max_deviation','normalized_total_deviation'])if(typeof assessment[key]!=='number'||!Number.isFinite(assessment[key])||assessment[key]<0)fail();
+  const winDeviation=Math.abs(candidate.win_rate-winTarget),roundDeviation=Math.abs(candidate.mean_started_rounds-roundTarget);
+  const winNormalized=normalized(winDeviation/criteria.win_rate_tolerance),roundNormalized=normalized(roundDeviation/criteria.started_rounds_tolerance);
+  const winInRange=winNormalized<=1,roundInRange=roundNormalized<=1,status=candidate.outcomes.unsupported_path?'unsupported':winInRange&&roundInRange?'within_targets':'outside_targets';
+  if(assessment.status!==status||assessment.win_rate_in_range!==winInRange||assessment.started_rounds_in_range!==roundInRange||!same(assessment.win_rate_deviation,winDeviation)||!same(assessment.started_rounds_deviation,roundDeviation)||!same(assessment.normalized_max_deviation,Math.max(winNormalized,roundNormalized))||!same(assessment.normalized_total_deviation,winNormalized+roundNormalized))fail();
+ }
+ const supported=result.validations.filter(candidate=>candidate.target_assessment.status!=='unsupported').map(candidate=>candidate.replay?.scenario?.id);
+ if(result.target_match_found!==result.validations.some(candidate=>candidate.target_assessment.status==='within_targets')||supported.some(id=>typeof id!=='string')||JSON.stringify(result.selected)!==JSON.stringify(supported))fail();
+ const score=candidate=>[Number(candidate.target_assessment.status==='unsupported'),candidate.target_assessment.normalized_max_deviation,candidate.target_assessment.normalized_total_deviation];
+ for(let index=1;index<result.validations.length;index++){
+  const previous=score(result.validations[index-1]),next=score(result.validations[index]);
+  for(let axis=0;axis<previous.length;axis++){if(previous[axis]<next[axis])break;if(previous[axis]>next[axis])fail();}
+ }
+}
+function targetAssessmentBadge(candidate,validated){
+ const status=candidate.target_assessment.status;
+ const label=status==='unsupported'?'Неподдержанные исходы':status==='within_targets'?(validated?'Обе цели в допуске · по выборке':'Предварительно обе цели в допуске'):(validated?'Лучший найденный · вне допусков':'Предварительно вне допусков');
+ const badge=node('span',label,'badge'+(status==='outside_targets'?' outside-badge':status==='unsupported'?' unsupported-badge':''));badge.dataset.targetStatus=status;
+ attachTagTooltip(badge,'Совместные допуски: победы ±10 п.п. и средняя длительность ±1 раунд. Сравниваются точечные оценки выборки; это не подтверждение попадания всего доверительного интервала в допуски.');
+ return badge;
+}
 function renderResultVisual(result,root=byId('result-visual')){
  hideTagTooltip();
  if(root===byId('result-visual')){byId('result-card-heading').replaceChildren();byId('result-card-heading').classList.add('hidden');}
  root.replaceChildren();
  if(!result){root.append(node('p','Результат появится после расчёта.','visual-empty'));return;}
  if(result.error){root.append(node('p',[result.error.path,result.error.message].filter(Boolean).join(': '),'visual-note'));return;}
+ validateTargetMetadata(result);
  const percent=n=>Number.isFinite(n)?(n*100).toFixed(1)+'%':'—';
- const selected=new Set(result.selected||[]);
- function candidateView(candidate,number){
+ function candidateView(candidate,number,validated=false){
   const id=candidate.replay?.scenario?.id,box=node('section',undefined,'result-card'),npcs=draftNpcs(candidate,result),dirty=npcs!==candidate.npcs;box.dataset.candidateId=id;
   const heading=node('div',undefined,'result-heading'),actions=node('div',undefined,'file-actions');actions.setAttribute('role','group');actions.setAttribute('aria-label','Действия с составом '+number);heading.append(node('h3','Состав '+number),actions);box.append(heading);
   if(dirty){const reset=resultIconButton('reset-npc-draft','Сбросить черновик состава','M3 11a9 9 0 1 1 2 7M3 4v7h7');reset.dataset.characterControl='';reset.disabled=busy;reset.onclick=()=>resetNpcDraft(candidate);actions.append(reset);}
   const replay=resultIconButton('download-replay','Скачать бой','M12 4v12m-5-5 5 5 5-5M4 15v5h16v-5');replay.disabled=dirty;if(dirty)replay.title='Бой черновика пока не пересчитывается; сбросьте изменения для скачивания исходного боя.';replay.onclick=()=>{if(!dirty)download(pretty(candidate.replay),'encounter-replay.json');};actions.append(replay);
   const statistics=card(dirty?'Статистика исходного состава':'Статистика');statistics.classList.add('result-statistics');
   if(dirty)statistics.append(node('span','Черновик · оценки неактуальны','badge draft-badge'));
-  else if(selected.has(id))statistics.append(node('span','Рекомендован после проверки','badge'));
+  else statistics.append(targetAssessmentBadge(candidate,validated));
   const metrics=node('div',undefined,'result-metrics');for(const [title,value] of [['Победы игроков',percent(candidate.win_rate)],['Средние раунды',Number(candidate.mean_started_rounds).toFixed(2)],['Симуляций',candidate.trials]]){const item=node('div',title);item.append(node('strong',value));metrics.append(item);}statistics.append(metrics);
   if(candidate.win_interval_95)statistics.append(node('p','Интервал оценки побед (95%): '+candidate.win_interval_95.map(percent).join(' — '),'visual-note'));
+  const assessment=candidate.target_assessment;
+  const targetNote=node('p',(dirty?'Исходные оценки':assessment.status==='unsupported'?'Оценки с неподдержанными исходами':'По оценкам выборки')+': победы '+(assessment.win_rate_in_range?'в допуске':'вне допуска')+' ±10 п.п. · раунды '+(assessment.started_rounds_in_range?'в допуске':'вне допуска')+' ±1.','visual-note target-assessment-note');
+  targetNote.dataset.targetBasis=result.target_criteria.basis;statistics.append(targetNote);
   if(candidate.potion_use_counts)statistics.append(node('p','Использовано зелий (Potions), в среднем за бой: '+(candidate.potion_use_counts.reduce((sum,item)=>sum+item.count,0)/candidate.trials).toFixed(2),'visual-note'));
   if(candidate.magic_counts){const mean=key=>(candidate.magic_counts.reduce((sum,item)=>sum+item[key],0)/candidate.trials).toFixed(2);statistics.append(node('p','Магия (Magic), в среднем за бой: сотворения (Casting) '+mean('casting_actions')+' · заклинания (Spells) '+mean('spell_casts')+' · ошибки (Miscasts) '+mean('miscasts')+' · неподдержанные Miscasts '+mean('unsupported_miscasts'),'visual-note'));}
   if(candidate.pc_ranged_counts){const mean=key=>(candidate.pc_ranged_counts.reduce((sum,item)=>sum+item[key],0)/candidate.trials).toFixed(2);statistics.append(node('p','Игроки: выстрелы (Shots) '+mean('shots')+' · Помощь стрелку (Shooting Help) '+mean('shooting_help_tests')+' · Перезарядка (Reload) '+mean('reload_actions')+' · Смена оружия (Weapon Swap) '+mean('weapon_swaps')+' — в среднем за бой','visual-note'));}
@@ -238,7 +277,7 @@ function renderResultVisual(result,root=byId('result-visual')){
  }
  const finals=result.validations||[];
  if(!finals.length)root.append(node('p','В этом запуске нет проверенных финалистов. См. исследованные составы ниже.','visual-note'));
- finals.forEach((candidate,index)=>root.append(candidateView(candidate,index+1)));
+ finals.forEach((candidate,index)=>root.append(candidateView(candidate,index+1,true)));
  const explored=node('details',undefined,'visual-card');explored.append(node('summary','Исследованные составы'));(result.explored||[]).forEach((candidate,index)=>explored.append(candidateView(candidate,index+1)));root.append(explored);
  if(root===byId('result-visual'))syncResultCardHeading();
 }

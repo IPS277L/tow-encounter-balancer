@@ -23,6 +23,30 @@ if TYPE_CHECKING:
 SuccessDistribution = tuple[float, ...]
 
 
+class _IncomingRiskMemo:
+    """Reuse exact forecast evaluations during one selector invocation only.
+
+    Forecast identity retains every state fact without hashing a whole journal.
+    Strong references prevent Python from reusing a discarded forecast's ID.
+    Distinct prepared states are intentionally not merged by selected fields.
+    """
+
+    def __init__(self, calculate):
+        self._calculate = calculate
+        self._forecasts = {}
+        self._values = {}
+
+    def __call__(self, forecast, target, protection_bonus=0, prone_removed=False,
+                 stagger_removed=False, enhancement=None, stagger_added=False):
+        key = (id(forecast), target, protection_bonus, prone_removed,
+               stagger_removed, enhancement, stagger_added)
+        if key not in self._values:
+            self._forecasts[id(forecast)] = forecast
+            self._values[key] = self._calculate(forecast, target, protection_bonus,
+                prone_removed, stagger_removed, enhancement, stagger_added)
+        return self._values[key]
+
+
 @dataclass(frozen=True, slots=True)
 class PcTacticalChoice:
     actor_id: str
@@ -153,7 +177,7 @@ def select_pc_tactic(state: PcMeleeState, actor_id: str | None = None) -> PcTact
     enemies = tuple(enemy for enemy in state.source.enemy_activation_order
         if not state.enemy(enemy).state.injury.defeated and enemy not in state.exited_npc_ids)
     plans: dict[str, PcTacticalChoice] = {}
-    attacks: dict[tuple[str, int, str | None, bool], tuple[float, str | None]] = {}
+    attacks: dict[tuple[str, int, str | None, bool, str | None, bool], tuple[float, str | None]] = {}
     help_continuations={}
 
     def test(actor: str, skill: Skill) -> TestRequest:
@@ -163,14 +187,21 @@ def select_pc_tactic(state: PcMeleeState, actor_id: str | None = None) -> PcTact
                     wild: bool = False, weapon_item_id=None, ranged_bonus=False) -> tuple[float, str | None]:
         from towr.domain.pc_ranged_advice import pc_attack_value
         from towr.domain.pc_weapon_inventory import pc_weapon_inventory_view
+        inventory=state.participant(actor).weapon_inventory
+        item_key=(inventory.active_item_id if weapon_item_id is None and inventory is not None
+            else weapon_item_id)
+        key = (actor, extra, enhancement, wild, item_key, ranged_bonus)
+        if key in attacks:
+            return attacks[key]
         view=state
         if weapon_item_id is not None:
             view=pc_weapon_inventory_view(state,actor,weapon_item_id)
-            if view is None:return 0.0,None
+            if view is None:
+                attacks[key]=(0.0,None)
+                return attacks[key]
         if state.source.participant(actor).pc.ranged is not None:
-            return pc_attack_value(view,actor,extra=extra,enhancement=enhancement,wild=wild,bonus=ranged_bonus)
-        key = (actor, extra, enhancement, wild)
-        if key in attacks:
+            attacks[key]=pc_attack_value(view,actor,extra=extra,enhancement=enhancement,
+                wild=wild,bonus=ranged_bonus)
             return attacks[key]
         pc, member = pc_effective_definition(state, actor), state.participant(actor)
         if enhancement is not None:
@@ -216,10 +247,9 @@ def select_pc_tactic(state: PcMeleeState, actor_id: str | None = None) -> PcTact
         attacks[key] = best
         return best
 
-    def incoming_risk(target: str, protection_bonus: int = 0,
-                      prone_removed: bool = False, stagger_removed: bool = False,
-                      enhancement: str | None = None, stagger_added: bool = False, view=None) -> float:
-        forecast=state if view is None else view
+    def calculate_incoming_risk(forecast, target: str, protection_bonus: int,
+                      prone_removed: bool, stagger_removed: bool,
+                      enhancement: str | None, stagger_added: bool) -> float:
         # NPC target order is a source fact. Future deaths/target changes are not
         # anticipated. Prospective Protection Help applies to ONE exact Test.
         first = next((actor for actor in forecast.source.enemy_target_priority
@@ -339,11 +369,19 @@ def select_pc_tactic(state: PcMeleeState, actor_id: str | None = None) -> PcTact
                 target_conditions.has(Condition.STAGGERED), defensive_stance=stance)
         return value
 
+    risk_memo = _IncomingRiskMemo(calculate_incoming_risk)
+
+    def incoming_risk(target: str, protection_bonus: int = 0,
+                      prone_removed: bool = False, stagger_removed: bool = False,
+                      enhancement: str | None = None, stagger_added: bool = False, view=None) -> float:
+        return risk_memo(state if view is None else view,target,protection_bonus,
+            prone_removed,stagger_removed,enhancement,stagger_added)
+
     def plan(actor: str) -> PcTacticalChoice:
         if actor in plans:
             return plans[actor]
         member = state.participant(actor)
-        from towr.domain.pc_heavy_wound_models import usable_weapon_hand
+        from towr.domain.pc_heavy_wound_models import usable_weapon_hand,usable_hands
         from towr.domain.pc_backup_weapon_models import pc_preferred_weapon_hand
         from towr.domain.pc_magic_models import magic_hand
         casting_with_unusable_weapon = (state.source.participant(actor).wizard is not None
@@ -362,12 +400,17 @@ def select_pc_tactic(state: PcMeleeState, actor_id: str | None = None) -> PcTact
         if ranged_actor:
             # Weapon/reload candidates below carry their true finite action cost;
             # a naked immediate Shoot value must not bypass that comparison.
-            # Retain a real unavailable action boundary if nothing useful can
-            # replace it. An empty Recover would hide missing hands forever.
+            # Retain unavailable action boundaries unless the agreed no-hand
+            # Recover fallback below keeps the rest of the battle running.
             unloaded=not member.ranged.loaded
             choice=PcTacticalChoice(actor,CombatActionKind.IMPROVISE if unloaded else CombatActionKind.ATTACK,
                 actor if unloaded else next(iter(enemies),None),None,-1.0,'unavailable_prepared_weapon_action',
                 weapon_item_id=state.source.participant(actor).combat_equipment[0].id,ranged_reload=unloaded)
+            if not usable_hands(member):
+                # A real standard action keeps allies and mandatory end-phase
+                # effects running; it never restores an unavailable weapon hand.
+                choice=PcTacticalChoice(actor,CombatActionKind.RECOVER,actor,None,0.0,
+                    'recover_without_usable_hands')
 
         for option in potion_options(member):
             item = next(item for item in member.potions if item.id == option.item_id)

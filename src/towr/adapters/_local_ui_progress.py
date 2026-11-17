@@ -60,13 +60,13 @@ function startGenerationProgress(runId){
 function finishGenerationProgress(runId,outcome,result=null){
  if(progressRunId!==runId)return;
  progressRunId=null;if(progressTimer!==null)clearTimeout(progressTimer);progressTimer=null;if(progressAbort)progressAbort.abort();progressAbort=null;
- byId('progress-phase').textContent=outcome==='complete'?'Готово. Проверено финалистов: '+result.validations.length:outcome==='cancelled'?'Генерация отменена':'Расчёт остановлен из-за ошибки';
+ byId('progress-phase').textContent=outcome==='complete'?(result.target_match_found?'Готово. Обе цели в допуске по оценкам выборки.':'Готово. Состав в совместных допусках не найден.'):outcome==='cancelled'?'Генерация отменена':'Расчёт остановлен из-за ошибки';
  byId('progress-last').textContent='';byId('progress-last').classList.add('hidden');byId('progress-observation').textContent='';
  if(outcome==='complete'){
   byId('progress-bar').max=Math.max(1,result.total_trials);byId('progress-bar').value=result.total_trials;
   byId('progress-count').textContent='Завершено '+result.total_trials+' симуляций · план был до '+result.source_request.search.max_total_trials;
   const selected=result.validations.find(candidate=>candidate.replay?.scenario?.id===result.selected[0]);
-  byId('progress-observation').textContent=selected?'Рекомендованный состав · '+progressAssessment({completed_trials:selected.trials,wins:selected.outcomes.objective_achieved,unsupported_trials:0})+' · независимая проверка':'Подходящий состав не найден. Подробности — в результате.';
+  byId('progress-observation').textContent=selected?(selected.target_assessment.status==='within_targets'?'Состав в допусках':'Лучший найденный · вне допусков')+' · '+progressAssessment({completed_trials:selected.trials,wins:selected.outcomes.objective_achieved,unsupported_trials:0})+' · средние раунды: '+Number(selected.mean_started_rounds).toFixed(2)+' · независимая проверка':'Нет проверенного состава с полностью поддержанными исходами. Подробности — в результате.';
  }else if(!byId('progress-bar').hasAttribute('value')){byId('progress-bar').value=0;byId('progress-count').textContent='Завершённые симуляции не получены';}
  else byId('progress-count').textContent='Последнее обновление: '+byId('progress-bar').value+' завершённых симуляций';
 }

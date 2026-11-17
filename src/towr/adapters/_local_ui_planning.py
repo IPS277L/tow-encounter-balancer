@@ -34,23 +34,57 @@ function planningSearchSpace(data){
  }
  return space;
 }
+// One explicit workload model serves both planning and the displayed estimate.
+// Coefficients are local benchmark guidance, not a machine-speed guarantee.
+const searchCostModel=Object.freeze({actorRoundSeconds:.018,actorExponent:1.5,
+ npcRangedWeight:.30,pcRangedWeight:1.2,pcMagicWeight:.15,equipmentWeight:.10,
+ npcTalentWeight:.025,pcTalentWeight:.05,abilityWeight:.10,capExponent:.25,
+ lowFactor:.40,highFactor:2.0,targetSeconds:750,minTrials:16,maxTrials:4096,
+ processStartupSeconds:3,processThroughput:Object.freeze([1,1.25,1.9,2.5])});
+function simulationCostEstimate(data){
+ const space=planningSearchSpace(data);
+ const min=data.npc_count?.minimum,max=data.npc_count?.maximum,cap=data.max_rounds;
+ const rounds=data.targets?.started_rounds?.numerator/data.targets?.started_rounds?.denominator;
+ if(!Number.isSafeInteger(min)||min<1||!Number.isSafeInteger(max)||max<min||!Number.isSafeInteger(cap)||cap<1||!Number.isFinite(rounds)||rounds<1||rounds>cap||!Array.isArray(data.party)||!data.party.length)return null;
+ const mean=values=>{if(!Array.isArray(values)||!values.length||values.some(value=>!Number.isFinite(value)||value<=0))throw Error('Проверьте характеристики участников.');return values.reduce((sum,value)=>sum+value,0)/values.length;};
+ const count=(min+max)/2,actors=count+data.party.length;
+ if(!Array.isArray(space.weapon)||!space.weapon.length||!Array.isArray(space.abilities)||!space.abilities.length||space.abilities.some(group=>!Array.isArray(group)))return null;
+ const rangedWeapons=new Set(['pistol','repeater_pistol','repeater_handbow']);
+ const npcRanged=space.weapon.filter(weapon=>rangedWeapons.has(weapon)).length/space.weapon.length;
+ const partyDice=mean(data.party.map(member=>Math.max(Number(member.characteristics?.weapon_skill)+Number(member.characteristics?.agility),
+  playerInitialRangedWeapon(member)?Number(member.characteristics?.ballistic_skill)+Number(member.characteristics?.initiative):0,
+  member.magic?.memorised_spells?.length?Number(member.characteristics?.reason)+Number(member.characteristics?.agility):0)));
+ const npcMeleeDice=mean(space.weapon_skill)+mean(space.agility);
+ const npcDice=(1-npcRanged)*npcMeleeDice+(npcRanged?npcRanged*(mean(space.ballistic_skill)+mean(space.initiative)):0);
+ const pcRanged=data.party.filter(member=>playerInitialRangedWeapon(member)).length/data.party.length;
+ const pcMagic=data.party.reduce((total,member)=>total+(member.magic?.memorised_spells?.length||0),0)/data.party.length;
+ const equipment=data.party.reduce((total,member)=>total+Number(Boolean(playerInitialRangedWeapon(member))&&(member.equipment?.weapons?.length||0)>1)+Number((member.equipment?.armour||[]).some(item=>item.kind==='shield'&&['left_hand','right_hand'].includes(item.location))),0)/data.party.length;
+ const pcTalents=data.party.reduce((total,member)=>total+(member.talents||[]).filter(talent=>['defensive_stance','wild_attack'].includes(talent)).length,0)/data.party.length;
+ const npcTalents=Array.isArray(space.allowed_talents)?space.allowed_talents.length:0;
+ const abilities=Math.max(...space.abilities.map(group=>group.length));
+ const m=searchCostModel;
+ const seconds=m.actorRoundSeconds*Math.pow(actors,m.actorExponent)*rounds*Math.pow(cap/15,m.capExponent)*Math.sqrt((npcDice+partyDice)/12)
+  *(1+m.npcRangedWeight*npcRanged)*(1+m.pcRangedWeight*pcRanged)*(1+m.pcMagicWeight*pcMagic)
+  *(1+m.equipmentWeight*equipment)*(1+m.npcTalentWeight*npcTalents+m.pcTalentWeight*pcTalents+m.abilityWeight*abilities);
+ if(!Number.isFinite(seconds)||seconds<=0)return null;
+ return {seconds,low:seconds*m.lowFactor,high:seconds*m.highFactor};
+}
+function executionCostEstimate(data){
+ const cost=simulationCostEstimate(data),execution=data.execution;
+ if(!cost||!execution||typeof execution!=='object'||Array.isArray(execution))return null;
+ const keys=Object.keys(execution);
+ if(execution.mode==='sequential'&&keys.length===1)return {...cost,startupSeconds:0};
+ if(execution.mode!=='process'||keys.length!==2||!Object.hasOwn(execution,'workers')||!Number.isSafeInteger(execution.workers)||execution.workers<1||execution.workers>61)return null;
+ // Conservative credits below measured throughput for 2/3/4 workers. Higher
+ // counts receive no unmeasured scaling credit; one pool starts per search.
+ const throughput=searchCostModel.processThroughput[Math.min(4,execution.workers)-1];
+ return {seconds:cost.seconds/throughput,low:cost.low/throughput,high:cost.high/throughput,startupSeconds:searchCostModel.processStartupSeconds};
+}
 function estimatedSearchTime(data){
  try{
-  const space=planningSearchSpace(data);
-  const min=data.npc_count?.minimum,max=data.npc_count?.maximum,cap=data.max_rounds;
-  const rounds=data.targets?.started_rounds?.numerator/data.targets?.started_rounds?.denominator;
-  const total=data.search?.max_total_trials;
-  if(!Number.isSafeInteger(min)||min<1||!Number.isSafeInteger(max)||max<min||!Number.isSafeInteger(cap)||cap<1||!Number.isFinite(rounds)||rounds<1||rounds>cap||!Number.isSafeInteger(total)||total<1||!data.party?.length)return null;
-  const mean=values=>values.reduce((sum,value)=>sum+Number(value),0)/values.length;
-  const count=(min+max)/2;
-  // Local 4-trial measurements: 1/5/10 ordinary Staff NPCs, two PCs.
-  const perTrial=count<=5 ? .027+(count-1)*(1.081-.027)/4 : 1.081+(count-5)*(2.266-1.081)/5;
-  const dice=mean(space.weapon_skill)+mean(space.agility)+mean(data.party.map(m=>Number(m.characteristics.weapon_skill)+Number(m.characteristics.agility)));
-  const abilities=1+.15*Math.max(...space.abilities.map(group=>group.length));
-  const work=((count+data.party.length)/(count+2))*(rounds/5)*Math.pow(cap/15,.25)*Math.sqrt(dice/12)*abilities;
-  const seconds=total*perTrial*work;
-  if(!Number.isFinite(seconds)||seconds<=0)return null;
-  return {low:Math.max(1,Math.ceil(seconds*.6)),high:Math.max(1,Math.ceil(seconds*1.6))};
+  const total=data.search?.max_total_trials,cost=executionCostEstimate(data);
+  if(!cost||!Number.isSafeInteger(total)||total<1)return null;
+  return {low:Math.max(1,Math.ceil(cost.startupSeconds+total*cost.low)),high:Math.max(1,Math.ceil(cost.startupSeconds+total*cost.high))};
  }catch(_){return null;}
 }
 function formatSearchTime(estimate){
@@ -78,16 +112,18 @@ function automaticSearchPlan(data){
  if(!Array.isArray(space.allowed_talents)||new Set(space.allowed_talents).size!==space.allowed_talents.length||space.allowed_talents.some(t=>!['magic_resistance','defensive_stance','wild_attack'].includes(t)))throw Error('Проверьте разрешённые таланты (Talents) NPC.');
  // Upper bound only: Requirements filter the sampled subsets on the server.
  profiles=Math.min(1e12,profiles*Math.pow(2,space.allowed_talents.length));bits+=space.allowed_talents.length;
- const mean=values=>values.reduce((sum,value)=>sum+Number(value),0)/values.length;
- const npcDice=mean(space.weapon_skill)+mean(space.agility);
- const partyDice=mean(data.party.map(m=>Number(m.characteristics?.weapon_skill)+Number(m.characteristics?.agility)));
- if(!Number.isFinite(npcDice+partyDice)||npcDice+partyDice<=0)throw Error('Проверьте характеристики участников.');
- const abilityCost=1+.15*Math.max(...space.abilities.map(group=>Array.isArray(group)?group.length:0));
- const load=Math.max(.5,((data.party.length+(min+max)/2)/7.5)*(rounds/5)*Math.pow(cap/15,.25)*Math.sqrt((npcDice+partyDice)/12)*abilityCost);
- const capacity=Math.max(256,Math.min(1600,16*Math.floor(800/load/16)));
- const variance=4*p*(1-p),exploration=8+4*Math.round(variance);
+ const cost=executionCostEstimate(data);
+ if(!cost)throw Error('Проверьте состав, цели боя и режим исполнения для оценки стоимости.');
+ const capacity=Math.max(searchCostModel.minTrials,Math.min(searchCostModel.maxTrials,Math.floor((searchCostModel.targetSeconds-cost.startupSeconds)/cost.seconds)));
+ const variance=4*p*(1-p),preferredExploration=8+4*Math.round(variance);
  const desired=Math.min(64,4*Math.ceil((8+bits+2*Math.log2(max-min+1)+Math.log2(max))/4));
- const affordable=Math.max(1,4*Math.floor(capacity*.4/exploration/4));
+ // More uncertainty reserves more independent validation, while 50–60% of
+ // ordinary capacity stays available to propose different compositions.
+ const explorationShare=.6-.1*variance;
+ // Retain useful breadth when expensive encounters cannot afford eight
+ // candidates at the preferred precision. Never reduce screening below 8.
+ const exploration=preferredExploration>8&&capacity*explorationShare<Math.min(8,desired)*preferredExploration?8:preferredExploration;
+ const affordable=Math.max(1,Math.floor(capacity*explorationShare/exploration));
  let candidates=Math.min(desired,affordable),available=0;
  // Saturating space bound: at most 64 iterations, even for a huge count range.
  for(let count=min;count<=max&&available<candidates;count++)available+=Math.min(candidates,Math.pow(profiles,count));

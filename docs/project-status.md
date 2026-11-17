@@ -1,6 +1,6 @@
 # Текущее состояние проекта
 
-Дата: 2026-11-16. **Динамический генератор доступен через локальный UI, Python и JSON/CLI; M70 сохранена.** Нормативные книги — Player’s Guide1.4 и Gamemaster’s Guide1.1. [Правило](rules/equipment.md#pc-hochland-m70), [Fate](rules/fate.md#pc-second-action-m70), [ADR-0112](decisions/ADR-0112-pc-hochland-aim-and-fate-second-action.md), [CLI генератора](examples/dynamic/README.md), [очередь](roadmap.md#после-m70), [вопросы](open-questions.md).
+Дата: 2026-11-18. **Ограниченный контроль совместных целей завершён: совпадений обеих оценок не найдено; далее — один полный текущий UI-автоплан.** Нормативные книги — Player’s Guide1.4 и Gamemaster’s Guide1.1. [CLI генератора](examples/dynamic/README.md), [результаты joint-контроля](benchmarks/joint-target-control-2026-11-18.md), [действующий поиск](decisions/ADR-0128-directed-count-proposals.md), [очередь](roadmap.md#после-m70), [вопросы](open-questions.md).
 
 ## Приоритет после уточнения цели
 
@@ -12,9 +12,169 @@
 
 `GeneratedNpc` хранит WS/S/T/Agility, Melee/Defence/Athletics, шесть melee и три ranged1H weapons, Light Armour/Shield для melee, три книжных Talent и optional authored Drained-on-hit. Conditional ranged facts содержат BS/Shooting/I/Dexterity и необходимые scene confirmations. Builder выводит attack/Protection/Damage/Resilience и независимый Minion state без ID dispatch. Application принимает партию/пространство параметров без готового NPC reserve; random restarts и мутации элиты создают новые составы, включая разные профили при фиксированном числе. Финалисты проходят независимую validation выборку; итог хранит полный source, компоненты, outcomes, интервалы, фактическую стоимость и proposal limit. [Пример](examples/dynamic/README.md), [ADR-0113](decisions/ADR-0113-dynamic-npc-generation-and-adaptive-search.md).
 
-Граница NPC: stationary all-Close melee/ranged/magic PCs против Minions, автоматическая Defence/Athletics Protection, одно1H weapon с настоящими Traits и optional Shield/Light Armour у melee; generated Shooting без Shield и с полным Reload подключена. NPC spellcasting и таланты вне принятого набора не добавлены. PC equipment/Lucky/potions и первый магический путь описаны ниже. Authored Drained требует явного допуска, не является автоматически выданным талантом. Сохраняются Wounds/Fate/Recover и unsupported базового simulator. Duration = started rounds, включая censored prefix; ранжирование по близости к win target, затем duration. Это ограниченный поиск, не доказательство оптимума и не полный генератор книги. Старый каталог не переносился массово; kernel/backend не менялись.
+Граница NPC: stationary all-Close melee/ranged/magic PCs против Minions, автоматическая Defence/Athletics Protection, одно1H weapon с настоящими Traits и optional Shield/Light Armour у melee; generated Shooting без Shield и с полным Reload подключена. NPC spellcasting и таланты вне принятого набора не добавлены. PC equipment/Lucky/potions и первый магический путь описаны ниже. Authored Drained требует явного допуска, не является автоматически выданным талантом. Сохраняются Wounds/Fate/Recover и unsupported базового simulator. Duration = started rounds, включая censored prefix; ранжирование по худшему нормированному отклонению от двух целей, затем сумме отклонений (ADR-0137). Это ограниченный поиск, не доказательство оптимума и не полный генератор книги. Старый каталог не переносился массово; kernel/backend не менялись.
 
-## Текущий этап: замеры динамического поиска
+## Текущий этап: ограниченный контроль joint-objective завершён
+
+[Протокол и все результаты](benchmarks/joint-target-control-2026-11-18.md): три fullauto партии, count1–10, master505, process4последовательно. Завершены336MC trials за231.113s search+encoding, ноль ошибок исполнения/unsupported/diagnostic replays; один отдельный ROUND_LIMIT в mixed exploration. Среди18screening и6validation составов совместных point-matches нет. Это не доказательство недостижимости целей и не установление причины; retention при нуле screening matches не определён. Production source не менялся.
+
+16адресных harness tests:4.498s; последующая сверка3точных inputs/24native sources/схем/accounting/ранжирования/hash пройдена без новых боёв. Независимое read-only ревью подтвердило выводы. Сессия34923завершилась с exit0; активного поиска нет, серию не перезапускать. Точные входы/manifest/measurements/log/verification — `.cache/joint-control-2026-11-18/`; переносимые результаты и восстановление входов из examples — в отчёте. Там же явно разделены LF manifest hashes и CRLF file hashes.505уже использован как current-joint development control, не fresh holdout. Full/wheel не повторялись.
+
+## Предыдущий этап: совместные цели реализованы
+
+Пользователь выбрал одновременное попадание в допуски±10процентных пунктов по доле побед и±1по среднему числу начатых раундов (Rounds). [ADR-0137](decisions/ADR-0137-joint-encounter-targets.md) реализован: общий minimax/sum score для elite/screening/validation/validator; result.target_match_found относится только к supported validation, outside best available сохраняется с честным статусом. Это point estimates, не95%сертификат/полная terminal duration. RNG/budget/симулятор/unsupported admission прежние.
+
+Текущий result JSON1 обязательно содержит target_criteria/target_assessment/target_match_found; вход прежний. Schema/semantic validation пересчитывают metadata по reported aggregates и проверяют ranking/selected. UI показывает внутри/вне допусков/unsupported и поясняет оба допуска; stale/draft не переоценивают отчёт. Старые result files без metadata требуется пересчитать из source_request. [Пользовательские границы](examples/dynamic/README.md#совместные-цели-и-статус-результата).
+
+Проверены core45OK, JSON/CLI/harness34OK, representative real process1OK; после guard-правки metadata test1OK. HTTP15OK; первыйbrowserосталсяrunningнаasyncimport, изолированныйповтор1OK/12.224s. Это составные адресные результаты, неfull run; точные команды/времена/ограничения — в ADR, logs `.cache/joint-targets-2026-11-18/`. Независимое read-only ревью пройдено. Full/wheel/большая MC-серия не запускались.
+
+## Предыдущий этап: независимая финальная точность проверена
+
+[Протокол и результаты](benchmarks/confirmation-planning-2026-11-18.md): реализованы fixed-n KL bounds, расчёт необходимой выборки/резерва, frozen m/n/alpha до final outcomes и явный budget-limited результат.31адресный тест прошёл за0.604s;72legacy-CS32строки совпали с предыдущей панелью. На12288искусственных поисках за10.050s подтверждена достижимая точность, но агрессивный final reserve ухудшает screening при малом бюджете.106win-band certificates не стали основанием внедрения. Все12сравнений, unknown и ограничения — в отчёте.
+
+Код добавлен только в developer tools, game source прежний `1beb53fc42061ebe2ea88db2f6351096acfde6a5167dbccfc7dff9368064bdae`. Проверены12288уникальных комбинаций, resource caps, frozen plans и final denominators; независимое read-only ревью пройдено. Artifacts/snapshots/log/verification — `.cache/confirmation-planning-2026-11-18/`. Full/wheel/игровые MCне запускались; проверенный резерв/index не являются production defaults.
+
+После этого этапа пользователь выбрал совместные допуски, реализованные выше по ADR-0137. Research precision epsilon=.10иalpha=.05не перенесены в UI/JSON: допустимое отклонение цели, точность её оценки и формальный сертификат остаются разными понятиями.
+
+## Предыдущий этап: математический стенд готов
+
+[Протокол и результаты](benchmarks/search-allocation-2026-11-18.md):9216искусственных поисков за11.830s,64seed replicates на ячейку, known truth позволяет отдельно измерять coverage и selection regret. Сравнены ширина pool6/12/24, budgets112/256/512 и uniform/последовательный confidence-racing. Общего преимущества index нет, в игру он не переносится. Узкая цель при112/pool24посещена45/64раз, выбрана12/64: покрытие без точности не решает подбор. Fixed confirmation32ни разу не дала выбранный anytime win-band certificate; ограничения и все9сводных сравнений — в отчёте.
+
+Добавлены developer tools и18детерминированных проверок, последняя команда `PYTHONPATH='src;.' .venv/Scripts/python.exe -m unittest tests.unit.test_search_allocation -q`:18OK/0.410s. Проверены9216уникальных комбинаций, paired coverage/resource accounting; независимое read-only ревью пройдено. Полные fixtures/config/rows/log/verification/frozen copies — `.cache/search-allocation-2026-11-18/`; переносимые выводы — в отчёте. Source игры до/после `1beb53fc42061ebe2ea88db2f6351096acfde6a5167dbccfc7dff9368064bdae`, production не менялся. Full/wheel/игровые MCне запускались.
+
+## Предыдущий этап: calibration проверен и отклонён
+
+[ADR-0136](decisions/ADR-0136-observation-guided-composition-calibration.md) завершён: все672боя, обязательные края диапазона и30actual calibration probes. Оба stuck202вышли из100%, mean absolute win error25.521→20.833п.п., но две строки нарушили per-cell gate, в magic42появился1unsupported. Близкий к цели17/32финалист исключён по actual unknown; допустимая рекомендация4/32сохранена. Полная таблица, интервалы, стоимость13.32мин и ограничения — в ADR.505/fullUI202не запускались, коэффициенты/gates после данных не менялись.
+
+После завершения серии solver/harness/tests восстановлены из точных собственных snapshots, source снова `1beb53fc42061ebe2ea88db2f6351096acfde6a5167dbccfc7dff9368064bdae`. Два experimental test modules удалены из runtime, copies/results/verification сохранены в `.cache/adr136/`. Sampler/API ADR-0135и прежние dirty изменения сохранены. Последняя проверка после возврата:59OK/14.761s, sampler/proposal/count/progress/native integration/harness; команда и `restored-validation.log` — в ADR/cache. Full/wheel/успешные JSON/process checks без нового риска не повторялись.
+
+## Предыдущий этап: sampler завершён, feedback отклонён
+
+[ADR-0135](decisions/ADR-0135-controlled-numeric-composition-sampling.md): resample_numeric меняет допустимые числовые значения всего состава, сохраняя снаряжение (Equipment)/таланты (Talents)/прочие source facts. Bias[-1,1] задаёт bounded rank weights, не рейтинг книжной силы.45проверок/actual neutral JSON parity пройдены; модель source `1beb53fc42061ebe2ea88db2f6351096acfde6a5167dbccfc7dff9368064bdae`, original snapshot `.cache/adr135/dynamic_encounter.original.py` (sourcee7b988…).
+
+Native gate завершён:192боя,0unknown/round-limit, в2из3пар значительное по заданному engineering-порогу снижение доли побед и рост подтверждённых поражений. Melee18→0побед, magic32→5; mixed4→0не достиг порога. Все source/gear/seed/accounting проверены,4.84мин. Это контроль механизма, не гарантия качества поиска; sampler baseline сохраняется как Python-функция. Полные источники/records/верификация — `.cache/adr135/native/`.
+
+Feedback-кандидат проверен на всех шести112-trial запросах: два улучшения, mean absolute win error25.521→23.958п.п., но оба stuck202остались100%, в mixed-magic42появился1unsupported. Два заранее заданных gates не пройдены;505/fullUI202не запускались. Таблица, интервалы, стоимость и причина остановки — в [ADR-0135](decisions/ADR-0135-controlled-numeric-composition-sampling.md#все-шесть-поисков-feedback-отклонён). Это завершённый отрицательный результат автоматической интеграции, не улучшение UI.
+
+Feedback-код/tools/tests восстановлены точно к sampler baseline, source `1beb53fc42061ebe2ea88db2f6351096acfde6a5167dbccfc7dff9368064bdae`; новый sampler/9tests остаются. После возврата59-test составной запуск:45core +10harness прошли,4harness ошибки Windows TEMP в sandbox; повтор всего14-test harness вне sandbox14OK/4.601s. Это не единый зелёный59-test run. До измерений48behavioral и36JSON/harness/real-process checks пройдены. Логи `.cache/adr135/restored-validation.log`, `restored-benchmark-validation.log`; full/wheel не повторялись. [Использование Python API](examples/dynamic/README.md#управляемая-выборка-числовых-параметров).
+
+## Предыдущий этап: наблюдаемость добавлена, расписание проверено
+
+[ADR-0134](decisions/ADR-0134-proposal-schedule-and-observability.md): private proposal helper сохраняет прежние операции/RNG, developer harness считает requested/applied/fallback/duplicates без изменения public JSON. Instrumented baseline со старым selector проверен: actual JSON parity и68recorded observations без новых боёв; source `e7b98831ffef2c1174f89b39c6be22ae65efa01806da5ffc467b73c817375467`. Эта диагностическая часть остаётся независимо от решения о новом расписании.
+
+Цикл4count/3component/3restart прошёл дешёвый gate (40проверок, включая800условных планов, затем34JSON/harness/real-process проверки), но не улучшил боевой подбор в672trials. Applied component9→13, однако три поддержанные первые рекомендации стали дальше от цели, две остались100%, а mixed-magic42не дал рекомендации из-за двухunknown. Macro error полной серии не определяется; отсутствующая рекомендация не выбрасывается из серии. Все пары/операции/остановки и ограничения — в ADR-0134;505/full candidate не запускались.
+
+Application/proposal tests/integration tests возвращены побайтно к проверенному instrumented baseline; его source `e7b98831ffef2c1174f89b39c6be22ae65efa01806da5ffc467b73c817375467`. Прежний random selector ADR-0128 активен, новый цикл снят; metadata helper и developer telemetry остаются без изменения public JSON/UI. После возврата36OK/10.461s (`.cache/adr134/restored-validation.log`), schema/source/accounting/telemetry шести результатов проверены. Full/wheel не повторялись. Результаты/snapshots/raw logs — `.cache/adr134/`, для точного повтора переносить отдельно. Включая появившийся `daemon_rift`, Miscasts сохраняют прежние unsupported границы, а не подменяются поражением.
+
+## Предыдущий этап: направленная мутация проверена без выигрыша
+
+Завершён [ADR-0133](decisions/ADR-0133-directed-numeric-component-mutation.md):672trials, все шесть первых рекомендаций совпали с reference полными candidate records. Macro win error остался25.521п.п., застрявшие202строки остались100%; gate не пройден,505/full candidate не запускались. Совпали11из12финалистов и34из36screening compositions; один второй финалист изменил параметры/раунды, поэтому весь результат не объявляется неизменным. Все интервалы, пары и ограничения — в ADR.
+
+Дешёвый повтор решений короткойC6серии по48сохранённым observations без новых боёв выявил малую экспозицию оператора:9component-вызовов, лишь2изменили выбор значения относительно прежнего; в melee202component-ветка не исполнялась. Отдельный повтор20observations старого полногоC18UI202плана дал6component-вызовов, без нового MC/candidate full run. Это измерение покрытия, не доказательство бесполезности направления или дефекта расписания. Следующий шаг касается распределения операторов до очередной дорогой серии, а не нового коэффициента под известный seed.
+
+Application/integration tests восстановлены побайтно, source снова `e470ada2e692b2f7758943c22fa521cf9aaf60bd39101822f574aa4e6ff95016`; предыдущий dirty tree сохранён. Последняя проверка после возврата:28OK/10.158s (`.cache/adr133/restored-validation.log`). До серии38OK +20JSON/real-processOK, full C1/nonnumeric parity и schema/source/accounting шести result пройдены. Full/wheel не повторялись. Raw measurements/snapshots/decision replay — `.cache/adr133/`; для точного повтора переносить отдельно. Candidate helper/API/unit tests не оставлены в runtime.
+
+## Предыдущий этап: масштаб компонентной мутации проверен и отклонён
+
+Выполнен [ADR-0132](decisions/ADR-0132-two-member-component-mutation.md):672trials на шести прежних112-trial inputs. Изменялась только component-ветка — два разных NPC вместо одного. Macro win error25.521→34.896п.п.; mixed202иmixed-magic42значительно ухудшились, обе застрявшие202строки остались100%. Один локальный mixed42результат стал ближе обеим целям, но общие gates не пройдены. Все пары, стоимость,1известный unsupported и ограничения — в ADR.505/full UI candidate не запускались.
+
+Исходный application/integration tests восстановлены побайтно с сохранением прежнего dirty tree; экспериментальный helper/unit module не оставлены в runtime. Source hash снова `e470ada2e692b2f7758943c22fa521cf9aaf60bd39101822f574aa4e6ff95016`. Последняя проверка после возврата:28OK/9.896s — directed count/progress/dynamic integration (`.cache/adr132/restored-validation.log`). До серии проверены новое поведение/JSON/real process и полное singleton/C1 равенство; шесть result schema/source/accounting прошли. Full/wheel не повторялись. Raw results/snapshots/comparison — `.cache/adr132/`, для точного повтора на другом компьютере переносить отдельно.
+
+## Предыдущий этап: фиксированные составы проверены на свежей выборке
+
+Выполнен заранее заданный контроль404: два неизменных состава по10NPC из mixed-magic42,64боя каждый, process4. Получены36/64и57/64подтверждённых побед игроков; разрыв сохранился за пределами старой32-trial validation. Имеются1и2неподдержанных исхода магических ошибок (Miscasts), сохранённых отдельно. Данные подтверждают различие целых композиций, но не выделяют причинный вклад одной характеристики/предмета/таланта. Ни один состав с unknown не объявлен готовой рекомендацией. [Интервалы, парные исходы, stops и методика](benchmarks/dynamic-plateau-escape-2026-11-17.md#результат-контроля404).
+
+128trials с encoding заняли4.60мин; диагностические replay учитывались отдельно. Последняя проверка: два текущих native result прошли schema/source echo, неизменность игровых входов, индексы/seed и accounting. Source hash сохранился; production и игровые правила в этом контроле не менялись. Raw inputs/results/records и verifier — `.cache/adr131/fixed-404/` и `.cache/adr131/validate_fixed404.py`; для точного повтора на другом компьютере локальную `.cache` переносить отдельно. Полный regression/wheel ради измерений не запускались.
+
+## Предыдущий этап: ускоренный count-step отклонён
+
+Однофакторный эксперимент по [ADR-0131](decisions/ADR-0131-adaptive-count-step-on-extreme-plateaus.md) завершён:672candidate trials на прежних шести112-trial inputs. Melee202улучшился100→75%, mixed-magic202остался100%, а mixed-magic42ухудшился71.875→93.75%. Нарушены два заранее заданных gates; небольшое снижение macro error не стало основанием внедрения. Unsupported0, proposal cap0; duration/стоимость и все пары — в [отчёте](benchmarks/dynamic-plateau-escape-2026-11-17.md). Candidate303/full UI202не запускались после отрицательного gate; дополнительный112-trial303reference сохранён.
+
+Прежний application code восстановлен побайтно из точного snapshot со всеми ранее авторизованными изменениями. Ускоренный helper и его tests не оставлены в рабочем исполнении; эксперимент сохранён в `.cache/adr131/*.candidate.py`. Восстановлен source SHA-256`e470ada2e692b2f7758943c22fa521cf9aaf60bd39101822f574aa4e6ff95016`. После возврата `tests.unit.test_directed_count_proposals tests.unit.test_dynamic_encounter_progress tests.integration.test_dynamic_encounter tests.integration.test_dynamic_encounter_json -q`:46OK/31.702s (`.cache/adr131/restored-validation.log`). Полный regression/wheel не повторялись.
+
+Offline проверка двух разных10NPCв регрессировавшем42подтвердила совпадение player/scene/validation seed, но разные компоненты. Средние WS2.7→1.8/Toughness4.3→3.3, Light Armour7→4; Shields2→5/Magic Resistance4→5. Candidate сохраняет6изначальных NPC; не является равномерно слабее по всем параметрам. Это факты состава, не изолированный эффект одной характеристики. Полные native sources допущены и использованы в контроле404выше.
+
+## Предыдущий этап: устойчивость поиска проверена
+
+Завершена заранее заданная серия melee/mixed/mixed-magic × seed42/202:672trials, одинаковый6×8 +2×32план. Ни один из12validation-финалистов не попал одновременно в описательные win±10п.п./duration±1от целей50%/5раундов. Unsupported0, round-limit9; два лёгких seed202поиска не вышли из100%побед игроков. Это ограниченный план; restricted melee имеет explicit Staff/Dagger space, mixed/magic — auto envelope. [Методика, вся таблица и ограничения](benchmarks/dynamic-stability-2026-11-17.md).
+
+Для отделения короткого бюджета от рабочего UI выполнен один дополнительный полный mixed-magic202план, полученный текущим JS в Edge:18×12 +2×110 =436trials. Он тоже не нашёл нужную сложность: рекомендация6NPC,110/110побед игроков/3.564раунда. Во всём поиске434победы,0поражений/round-limit,2известных GM/spatial Miscasts. Максимальный посещённый count8при разрешённых10; обе unknown-остановки не подменены поражением. Search+encoding8.77мин. Это конкретный неудачный вход действующего автоплана, не оценка частоты неудач всего UI и не доказательство недостижимости цели.
+
+Production, score и RNG не менялись; C/E/V заданы до каждого эксперимента. Все7result documents прошли текущую JSON schema/source echo/accounting, source/harness hashes совпали. Game/full regression/wheel ради измерений не запускались. Общий report — основное место чисел/команд; raw inputs/results/logs в `.cache/dynamic-stability-2026-11-17/`, `.cache/dynamic-stability-2026-11-17.json`, `.cache/dynamic-stability-full-202/` и `.cache/dynamic-stability-full-202.json`. Не повторять завершённую серию без влияющих изменений; references пригодны для следующего равнобюджетного эксперимента при неизменном kernel.
+
+## Предыдущий этап: Recover без пригодных рук завершён
+
+Пользователь выбрал [ADR-0130](decisions/ADR-0130-automatic-pc-recover-with-no-usable-hands.md): automatic ranged PC при нуле пригодных рук получает настоящий standard Recover как fallback, сохраняя полезные законные варианты. Прижимание живота, раны, предметы, loaded/cycle и проверки Critically Injured не отменяются; союзники/NPC продолжают ходы. Одна пригодная рука и ручные policies сохраняют прежние backup/Reload границы. JSON/UI-поля и новые игровые правила не добавлены.
+
+Оба исходных trials explore:16/8 и validate:1/100 теперь завершились PARTY_DEFEATED, без unsupported; раненый PC выполнил один no-hand Recover в каждом. Исходные63/108шагов до прежней остановки сохранены по значениям, физический инвентарь/раны/Fate не изменились от Recover. Полный поиск/его win rates не пересчитывались, Fascinating Rift остаётся известной GM/spatial границей. Новые literal native тесты отдельно подтверждают solo round limit при успешном Critical Test, настоящую смерть при провале, продолжение союзников, неизменность физических предметов и ручной stop.
+
+Последняя адресная проверка:78OK/33.843s — новые native/real-process сценарии, ranged selector, inventory/pickup, tactics/reuse, ranged Wizard и dynamic JSON/генерация. Команда и лог в ADR-0130 (`.cache/adr130-addressed-validation.log`). Real spawn сначала заблокирован sandbox WinError5, проверка выполнена вне sandbox. Полный regression/wheel/436-trial поиск не повторялись: один fallback без изменения формата/сборки.
+
+## Предыдущий этап: диагностика остановок хвата завершена
+
+Повторены исходные explore:16/trial8 и validate:1/trial100 из436-trial плана. Оба имеют unusable right arm16 + clutch left hand18, usable_hands=(), dropped loaded Repeater Pistol и carried Sword. Доступного хвата для backup нет. Фактический выбранный fallback пытается Attack; прежняя формулировка «при Reload» уточнена: :reload: находится в ID оружейного состояния, не выбранного действия. PG1.4 Appendix190–191 подтверждает body consequences. Production не изменён.
+
+Адресные prepared регрессии для16→18/18→16 и положительного one-hand backup добавлены; `PYTHONPATH=src`, `.venv/Scripts/python.exe -m unittest tests.unit.test_pc_ranged_advice -q`:21OK/0.116s. Оба исходных native replay завершились прежними stops,9.331s вместе. Full regression/wheel/436-trial поиск не повторялись. [Диагностика](benchmarks/dynamic-process-execution-2026-11-17.md#результат).
+
+После диагностики пользователь согласовал standard Recover по ADR-0130; реализация описана выше. GM/spatial Fascinating Rift в этот выбор не входит.
+
+## Предыдущий этап: process-исполнение динамического поиска
+
+Пользователь согласовал автоматический режим до четырёх процессов по [ADR-0129](decisions/ADR-0129-dynamic-process-execution.md). Текущий dynamic JSON1 допускает sequential либо process/workers; typed execution отделён от игровых фактов. Один pool обслуживает поиск целиком, кандидаты адаптируются последовательно, trials текущего кандидата исполняются параллельно. Прогресс учитывает проверенные завершённые records; кооперативная отмена закрывает workers до финального ответа/освобождения UI job. Custom simulator и execution одновременно не допускаются.
+
+Новый UI-запрос выбирает min(4,max(1,CPU−1)), с sequential для одного/двух CPU. Explicit файлы сохраняют свой режим. Общая модель автоплана/ETA использует измеренный throughput и startup; seed не меняется автоматически. [Публичный контракт](examples/dynamic/README.md#параллельное-исполнение), [методика и результаты](benchmarks/dynamic-process-execution-2026-11-17.md).
+
+Два полных прежних плана завершены:194/174trials, ускорение2.71/2.75×. Все поля отчётов совпали после нормализации только source_request.execution. Сквозная адресная проверка:55OK/61.004s, включая реальный browser/HTTP cancel→новый Run, текущий JSON/CLI, heavy Wounds, Shield/Pistol, ranged/magic/potions через общий runner. Scheduler/source/API/harness и реальные spawn/cancel проверены отдельно; команды и результаты — в отчёте. Финальная проверка encode execution guards/реального process JSON/CLI:9OK/6.541s; после этого исправлений backend не было. Полный regression/wheel не запускались.
+
+Полный новый process-автоплан436trials завершён за14.94мин с encoding. Финалисты проверены по110trials вместо47; единственный допустимый состав дал68.18%побед/5.900раунда. Второй, более близкий по point estimate, исключён из-за двух unsupported. Всего3остановки: два ranged_grip_unavailable после тяжёлых ран и Fascinating Rift total38. Они подтверждены replay; не скрыты и не заменены no-op. **На этом seed близость к цели50%стала хуже прежнего174-trial плана.** Ускорение и большая выборка подтверждены, улучшение качества подбора — нет. Точные источники/индексы, интервалы и команды — в [отчёте](benchmarks/dynamic-process-execution-2026-11-17.md#результат).
+
+## Предыдущий этап: полные последовательные планы проверены
+
+Выполнены два точных плана, сформированных текущим JavaScript UI:194и174trials, всего368. Для смешанной партии из2PC получены57.14%побед/6.694раунда за11.79мин; с добавленным магом (Wizard) —53.19%/5.787раунда за16.05мин. Цели50%/5раундов; обе точечные оценки побед близки к цели, длительность выше. Обе серии в широком ETA UI, магическая немного вышла за ориентир15мин. [Методика, все финалисты и ограничения](benchmarks/dynamic-full-auto-plan-2026-11-17.md).
+
+В обеих сериях независимая validation изменила порядок двух финалистов.47/49проверок на состав ещё дают широкие интервалы около цели; точность±5п.п. и устойчивость между seed не подтверждены. Unsupported0, один round-limit в screening первой партии, у финалистов лимитов нет. Production-алгоритм, planner и RNG во время серии не менялись.
+
+Developer harness теперь принимает точные JSON-экспорты `--requests` без overrides, предварительно допускает всю серию и сохраняет portable replay следующего trial при ошибке исполнения симуляции. Семь адресных тестов прошли3.607s вне sandbox после Windows tempfile WinError5. Текущая загрузка также отвергает повторяющиеся JSON-ключи до `json.loads`; измеренные канонические Edge-входы не затронуты. Полные прогоны не повторялись ради документации; full regression/wheel не запускались, так как production-код не менялся.
+
+Эти замеры стали основанием для согласованного process backend по [ADR-0129](decisions/ADR-0129-dynamic-process-execution.md); результаты этого раздела относятся к прежнему sequential исполнению.
+
+<a id="текущий-этап-направленная-численность-и-recover-завершены"></a>
+
+## Предыдущий этап: направленная численность и Recover
+
+Реализован [ADR-0128](decisions/ADR-0128-directed-count-proposals.md): часть адаптивных предложений добавляет/удаляет одного NPC по оценке побед уже сыгранного состава, сохраняя остальные компоненты/порядок. Продвижение на одинаковой оценке предотвращает застревание на одном родителе. Случайные перезапуски сохраняют весь диапазон; итоговый win→rounds score, independent validation, budget/guards и JSON1 прежние. Fixed count/C1 сохраняют старый путь; для переменного количества результаты с прежним seed могут измениться после обновления.
+
+В256завершённых сравнительных trials проверены три партии/42и отдельная reference/current пара202. Предварительно заданные критерии выполнены: две оценки42сохранены, mixed42стал ближе к50%; дополнительная пара202тоже улучшила близость. Время выросло, длительность чаще стала дальше от цели. Полный штатный автоплан8–12screening пока не замерен; универсальный выигрыш не доказан. [Полные источники, таблицы и ограничения](benchmarks/dynamic-planning-2026-11-17.md#направленные-пробы-численности).
+
+Исправлен реальный сбой стандартного Восстановления (Recover): builder больше не добавляет невозможный incidental pickup выпавшего оружия при занятой щитом (Shield) пригодной руке. Обычные преимущества Recover остаются доступными; явно выбранный недоступный pickup и поддельный proof по-прежнему отвергаются. Сохранённый ранее падавший trial после исправления завершился.
+
+Последняя адресная проверка (`PYTHONPATH=src`, `.venv/Scripts/python.exe -m unittest`):118OK/51.063s — search/progress/accounting, текущие JSON/CLI/HTTP UI, ranged/magic/potions и Shield/Pistol Reload. Отдельная ближайшая Recover/inventory группа:36OK/12.387s. Четыре fixed-count/C1 reference/current проверки на42/202дали равные полные типизированные результаты поиска. Точные команды — в отчёте; лог `.cache/adr128-addressed-validation.log`. Full regression/wheel не запускались: проверены затронутые взаимодействия, упаковка не менялась.
+
+<a id="текущий-этап-проверка-охвата-численности-завершена"></a>
+
+## Предыдущий этап: проверка равномерного охвата численности
+
+Выполнен равнобюджетный эксперимент по [ADR-0127](decisions/ADR-0127-initial-npc-count-coverage.md). Подтверждено, что короткие поиски могут концентрироваться на одной численности, хотя значения большинства числовых параметров уже посещаются. Проверены равномерные начальные пробы минимум/максимум/внутренние точки:208новых trials на трёх партиях и двух seed. Охват вырос, но на всех трёх64-trial сравнениях финалист оказался дальше от цели50%, а время увеличилось; второй seed с16trials близость к цели не улучшил. [Таблица и ограничения](benchmarks/dynamic-planning-2026-11-17.md#начальный-охват-численности).
+
+**Экспериментальная стратегия отклонена и удалена из production.** Рабочий application search и его RNG/JSON/бюджет остались прежними; сохранён предыдущий пакет ускорения/автоплана. Snapshot/patch эксперимента и raw results лежат в локальной `.cache`; переносимое решение и числовые результаты — в ADR/отчёте. Это завершённая проверка гипотезы, а не внедрённое улучшение подбора.
+
+Финальная адресная проверка оставленного алгоритма (`PYTHONPATH=src`, `.venv/Scripts/python.exe -m unittest`):62OK/40.854s — dynamic search/progress/budget, текущий JSON/CLI, HTTP UI и generator interactions с ranged/magic/potions. Точные модули/команда — в отчёте; лог `.cache/adr127-current-validation.log`. Полный regression/wheel не запускались: экспериментальный runtime полностью снят, упаковка и прежние механики не менялись.
+
+<a id="текущий-этап-ускорение-и-автоматический-план-завершены"></a>
+
+## Предыдущий этап: ускорение и автоматический план завершены
+
+Выполнен согласованный пакет по [ADR-0126](decisions/ADR-0126-cost-aware-search-planning-and-decision-reuse.md): локальное переиспользование оценок атак/входящего риска внутри одного решения, сравнение распределения бюджета, общий расчёт автоплана/ETA и сквозная проверка. Полные журналы совпали на пяти типах партий и двух seed; медиана контрольного боя сократилась с2.821до2.026s (примерно28%). Это локальный замер, не гарантированное ускорение каждого поиска. [Методика и результаты](benchmarks/dynamic-planning-2026-11-17.md).
+
+UI рассчитывает объём из стоимости состава и ориентира750s:8–12предварительных боёв на кандидата, до двух независимо проверяемых финалистов, общий предел16–4096trials. Ручные настройки и seed сохранены; оценки времени приблизительны. Проведены400поисковых trials: более широкий поиск приблизил результат к цели в двух из трёх сравнений, в третьем сохранил его. Полные рассчитанные автопланы этой серией не замерялись; попадание в50%не гарантируется. Исправлено редактирование незавершённого стрелкового персонажа: карточки/JSON/форматирование доступны до заполнения обязательных фактов, запуск требует готового источника.
+
+Адресная проверка (`PYTHONPATH=src`, `.venv/Scripts/python.exe -m unittest`): исходный dependency/UI набор161тест/44.015s —160прошли, UI выявил описанную регрессию. После исправления `tests.unit.test_dynamic_planning tests.integration.test_local_ui_browser` —2OK/10.306s; после дополнительного сценария черновика/JSON финальный `tests.integration.test_local_ui_browser` —1OK/9.233s. Наборы включают генератор, текущие JSON, actual process parity и ближайшие Help/ranged/magic/potions/talents. Неразрешённых ошибок этого адресного набора нет; это составной результат, не единый full run. Подробные команды и артефакты — в отчёте. Full regression/wheel не запускались: проверены затронутые взаимодействия, доставка пакета не менялась.
+
+Эта проверка послужила основанием для эксперимента ADR-0127 выше. Точная следующая гипотеза — в конце статуса.
+
+<a id="текущий-этап-замеры-динамического-поиска"></a>
+
+## Предыдущий этап: замеры динамического поиска
 
 После ADR-0125 выполнены6реальных последовательных поисков на трёх демонстрационных партиях/двух seed, всего288боёв. Базовый маленький план48боёв занимал32–192s; цель50%не достигнута, первые validation-финалисты дали93.75–100%побед. Это не проверка стандартного большого автоплана или реальной партии пользователя. Observed unsupported0/288 не доказывает полного покрытия магии. [Входы, методика, таблица и ограничения](benchmarks/dynamic-search-2026-11-16.md).
 
@@ -24,7 +184,7 @@
 
 Последние проверки (`PYTHONPATH=src`, `.venv/Scripts/python.exe -m unittest`): `tests.unit.test_pc_catalog_identity_index tests.unit.test_m21_pc_npc_catalog tests.unit.test_generated_npc_equipment -q` —31OK/0.380s; `tests.unit.test_dynamic_benchmark tests.unit.test_generated_npc_ranged_execution tests.unit.test_pc_ranged_magic -q` —15OK/7.901s. Повторный cProfile/native parity и три прогретых wall-повтора прошли; полный288-бойный baseline после индекса не повторялся. Full regression/wheel не запускались: источник изменения — lookup и developer tools, упаковка/контракт прежние.
 
-Главный следующий участок — повторные вычисления тактики/входящего риска. Текущая оценка времени UI основана на старом Staff baseline и не подтверждает бюджет10–15минут для новых возможностей; калибровать после устранения подтверждённой повторной работы. Точный следующий шаг — в конце статуса.
+Эти замеры послужили основанием для завершённого пакета ADR-0126 выше; прежняя оценка UI по Staff заменена общей моделью стоимости.
 
 <a id="текущий-срез-автоматическая-стрельба-pc"></a>
 
@@ -386,7 +546,9 @@ Named NPC/Abilities/Brutes/Champions сохраняются в прежних al
 
 ## Следующий шаг
 
-Замеры после ADR-0125 и индекс каталога завершены. Следующий шаг — локально переиспользовать одинаковые оценки входящего риска внутри одного `select_pc_tactic`, сохранив отдельные forecast snapshots/модификаторы/оружие/руки/Fate и обязательные source/replay/price guards. Не вводить глобальный cache по неполному состоянию или новое правило. Сравнивать полные native-журналы на тех же seed и profile/wall контрольного input из benchmark; расширить parity на mixed/ranged/magic и раны/помощь. После измеримого сокращения работы — калибровка ETA и сравнение ширины поиска/точности на одном бюджете. Новые именные statblocks в ближайшую очередь не возвращаются.
+Выполнить один полный **текущий UI-автоплан на mixed-magic505** после смены objective. До первого боя извлечь фактические C/E/V из общего planner, заморозить точный input/максимальный расход; исполнить один раз без изменений score/proposals/kernel и без diagnostic replays. Проверить partitions, полные screening→validation пары, выбранные оценки/интервалы, стоимость, actual unsupported/ROUND_LIMIT. Этот поиск ещё не запускался и не входил в завершённую336-trial серию. Исторический fullUI202относится к win-first score.
+
+Это проверка обычного пользовательского режима на development-case, не новый независимый seed-контроль и не изоляция эффекта одного C/E/V. При том же source/stage/index возможны повторные trial prefixes; не складывать два плана в увеличенную независимую выборку. После измерения определить следующий шаг поиска по полному режиму. Новый precision/reserve из toy-панели не переносить автоматически: допуск цели не является требованием статистической certification. Игровые правила/неподдержанные GM/spatial Miscasts сохраняются.
 
 Magic Resistance у PC и NPC spellcasting требуют полезного общего caster/target пути; текущий чанк их не добавил. Для партий с магами по-прежнему сохранять долю/причины unsupported; GM/spatial Miscasts не стали no-op. ADR-0124 завершён, дополнительных решений для него нет.
 

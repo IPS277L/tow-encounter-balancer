@@ -1,11 +1,11 @@
 """Current dynamic generation JSON1, without a supplied enemy reserve."""
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, replace
 from fractions import Fraction
 from functools import lru_cache
 from importlib.resources import files
 import json
 
-from jsonschema import Draft202012Validator
+from jsonschema import Draft202012Validator, ValidationError
 from referencing import Registry, Resource
 
 from towr.adapters._json_common import build_value, parse_seed, read_request
@@ -15,8 +15,10 @@ from towr.application.dynamic_encounter import (
     DynamicEncounterRequest, DynamicEncounterResult, NpcSearchSpace,
     search_dynamic_encounter, validate_dynamic_encounter_result,
     DynamicEncounterCancelled, automatic_npc_search_space,
+    assess_dynamic_targets,assess_dynamic_candidate,WIN_RATE_TOLERANCE,STARTED_ROUNDS_TOLERANCE,
 )
 from towr.application.encounter_character import EncounterCharacter, EncounterTalent
+from towr.application.ranged_simulation_models import SimulationExecutionMode, SimulationExecutionOptions
 from towr.application.encounter_inventory import (
     EncounterEquipment, WeaponItem, ArmourItem, ArmourItemKind, ItemLocation,
     ConsumableItem, ConsumableKind,
@@ -55,12 +57,52 @@ def _validator(kind):
 
 def validate_dynamic_encounter_document(document, kind='request'):
     _validator(kind).validate(document)
+    if kind == 'result':
+        _validate_target_metadata(document)
+
+
+def _validate_target_metadata(document):
+    targets = document['source_request']['targets']
+    try:
+        win_target = float(Fraction(targets['win_rate']['numerator'],targets['win_rate']['denominator']))
+        round_target = float(Fraction(targets['started_rounds']['numerator'],targets['started_rounds']['denominator']))
+    except (ValueError,TypeError,OverflowError,ZeroDivisionError) as error:
+        raise ValidationError('invalid target source') from error
+    maximum = document['source_request']['max_rounds']
+    if not 0 <= win_target <= 1 or not 1 <= round_target <= maximum:
+        raise ValidationError('joint targets are outside the source encounter bounds')
+    scores = []
+    for stage in ('explored','validations'):
+        for candidate in document[stage]:
+            try:
+                expected = assess_dynamic_targets(win_target,round_target,candidate['win_rate'],
+                    candidate['mean_started_rounds'],candidate['outcomes']['unsupported_path'])
+            except (ValueError,TypeError,OverflowError) as error:
+                raise ValidationError('invalid joint target aggregate') from error
+            if (candidate['win_rate'] != candidate['outcomes']['objective_achieved']/candidate['trials']
+                    or sum(candidate['outcomes'].values()) != candidate['trials']
+                    or candidate['mean_started_rounds'] > maximum):
+                raise ValidationError('target assessment contradicts candidate accounting/budget')
+            if candidate['target_assessment'] != asdict(expected):
+                raise ValidationError('joint target metadata differs from the reported aggregate')
+            if stage == 'validations':
+                scores.append((expected.status == 'unsupported',expected.normalized_max_deviation,
+                    expected.normalized_total_deviation))
+    if scores != sorted(scores):
+        raise ValidationError('validation joint target ranking is inconsistent')
+    supported = [c for c in document['validations'] if c['target_assessment']['status'] != 'unsupported']
+    if document['selected'] != [c['replay']['scenario']['id'] for c in supported]:
+        raise ValidationError('selected candidates differ from supported validations')
+    expected_match = any(c['target_assessment']['status'] == 'within_targets' for c in supported)
+    if document['target_match_found'] != expected_match:
+        raise ValidationError('target match flag differs from supported validation estimates')
 
 
 @dataclass(frozen=True, slots=True)
 class DynamicEncounterCommand:
     request_id: str
     request: DynamicEncounterRequest
+    execution: SimulationExecutionOptions
     source_json: str
 
 
@@ -90,6 +132,11 @@ def pc_combat_talent_facts(raw, *, path_prefix='', error_type=DynamicEncounterIn
 def parse_dynamic_encounter_request(text: str | bytes) -> DynamicEncounterCommand:
     document = read_request(text, DynamicEncounterInputError, validate_dynamic_encounter_document)
     try:
+        execution_data = document['execution']
+        execution = build_value(DynamicEncounterInputError, '/execution', SimulationExecutionOptions,
+            mode=SimulationExecutionMode(execution_data['mode']),
+            workers=execution_data.get('workers'),
+            batch_size=1 if execution_data['mode'] == 'process' else None)
         disposition = NpcDefeatDisposition(document['defeat_disposition'])
         party = []
         for index, raw in enumerate(document['party']):
@@ -183,7 +230,8 @@ def parse_dynamic_encounter_request(text: str | bytes) -> DynamicEncounterComman
             target_rounds=_target(document['targets']['started_rounds'], '/targets/started_rounds',
                 minimum=1, maximum=document['max_rounds']),
             max_rounds=document['max_rounds'], defeat_disposition=disposition, **search)
-        return DynamicEncounterCommand(document['request_id'], request, json.dumps(document, ensure_ascii=False, allow_nan=False))
+        return DynamicEncounterCommand(document['request_id'], request, execution,
+            json.dumps(document, ensure_ascii=False, allow_nan=False))
     except DynamicEncounterInputError as error:
         error.request_id = document['request_id']
         raise
@@ -193,19 +241,21 @@ def parse_dynamic_encounter_request(text: str | bytes) -> DynamicEncounterComman
 
 def execute_dynamic_encounter(command: DynamicEncounterCommand, *, cancel_requested=None, on_progress=None) -> DynamicEncounterResult:
     try:
-        return search_dynamic_encounter(command.request, cancel_requested=cancel_requested, on_progress=on_progress)
+        return search_dynamic_encounter(command.request, execution=command.execution,
+            cancel_requested=cancel_requested, on_progress=on_progress)
     except DynamicEncounterCancelled:
         raise
     except Exception as error:
         raise DynamicEncounterExecutionError(command.request_id) from error
 
 
-def candidate_document(candidate):
+def candidate_document(request,candidate):
     source = candidate.summary.source_request
     document = dict(npcs=[asdict(n) for n in candidate.composition],
         win_rate=candidate.win_rate, win_interval_95=candidate.win_interval_95,
         mean_started_rounds=candidate.mean_started_rounds, rounds_interval_95=candidate.rounds_interval_95,
         outcomes=asdict(candidate.summary.outcome_counts), trials=candidate.summary.trials,
+        target_assessment=asdict(assess_dynamic_candidate(request,candidate)),
         replay=dict(schema_version='1', kind='pc_melee_simulation', request_id=source.scenario.id,
             ruleset='towr-pg1.4-gmg1.1', scenario=scenario_document(source.scenario),
             simulation=dict(master_seed=str(source.master_seed), trials=source.trials), execution=dict(mode='sequential')))
@@ -223,14 +273,20 @@ def candidate_document(candidate):
 def encode_dynamic_encounter_result(command, result):
     if type(result) is not DynamicEncounterResult or result.source != command.request:
         raise ValueError('dynamic result belongs to another request')
+    if type(command.execution) is not SimulationExecutionOptions:
+        raise TypeError('dynamic execution options must be typed')
+    replace(command.execution)
     admitted = parse_dynamic_encounter_request(command.source_json)
-    if admitted.request != command.request or admitted.request_id != command.request_id:
+    if (admitted.request != command.request or admitted.request_id != command.request_id
+            or admitted.execution != command.execution):
         raise ValueError('wire source differs from executable request')
     validate_dynamic_encounter_result(result)
     document = dict(schema_version='1', kind='dynamic_encounter_search_result', request_id=command.request_id,
         source_request=json.loads(command.source_json), resolved_search_space=asdict(command.request.space),
-        explored=[candidate_document(c) for c in result.explored],
-        validations=[candidate_document(c) for c in result.validations],
+        target_criteria=dict(basis='point_estimates',win_rate_tolerance=WIN_RATE_TOLERANCE,
+            started_rounds_tolerance=STARTED_ROUNDS_TOLERANCE),target_match_found=result.target_match_found,
+        explored=[candidate_document(result.source,c) for c in result.explored],
+        validations=[candidate_document(result.source,c) for c in result.validations],
         selected=[c.summary.source_request.scenario.id for c in result.finalists], total_trials=result.total_trials,
         proposal_attempts=result.proposal_attempts, proposal_limit_reached=result.proposal_limit_reached)
     # JSON schema types are lists, never native tuples (intervals/abilities).

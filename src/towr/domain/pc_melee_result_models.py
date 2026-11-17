@@ -1145,18 +1145,20 @@ def build_pc_melee_recover(state: PcMeleeState) -> RecoverActionExecutionRequest
     member = state.participant(actor)
     action_id = pc_melee_action_id(state, actor)
     from towr.domain.pc_ally_recover_models import pc_recover_targets
+    from towr.domain.pc_weapon_inventory import pc_weapon_pickup_member
     staggered_target,prone_target = pc_recover_targets(state)
+    weapon_pickup = (member.weapon_hand is None and pc_preferred_weapon_hand(state,actor) is not None
+        and (member.weapon_inventory is None
+            or pc_weapon_pickup_member(state,actor,pc_active_weapon_item_id(state,actor)) is not None))
     choice = RecoverStandardChoice(member.magic if member.magic is not None else WizardMagicState(),
         staggered_target=staggered_target,
         prone_target=prone_target,
         object_interaction=(RecoverObjectInteractionFollowUp(action_id + ':pickup',actor,
-            pc_active_weapon_item_id(state,actor),True) if member.weapon_hand is None
-            and pc_preferred_weapon_hand(state,actor) is not None else
+            pc_active_weapon_item_id(state,actor),True) if weapon_pickup else
             RecoverObjectInteractionFollowUp(action_id+':pickup-shield',actor,actor+':shield',True)
             if pc_shield_recover_hand(member) is not None else None))
     if state.source.participant(actor).policy is PcMeleePolicy.AUTOMATIC_COMBAT:
         from towr.domain.pc_tactical_models import select_pc_tactic
-        from towr.domain.pc_weapon_inventory import pc_weapon_pickup_member
         pickup=select_pc_tactic(state,actor).pickup_item_id
         if pickup is not None:
             if pc_weapon_pickup_member(state,actor,pickup) is None:

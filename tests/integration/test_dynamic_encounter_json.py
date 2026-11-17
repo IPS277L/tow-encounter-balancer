@@ -7,6 +7,7 @@ import subprocess
 import sys
 import unittest
 from unittest.mock import patch
+from jsonschema import ValidationError
 
 from towr.adapters.dynamic_encounter_json import (
     DynamicEncounterInputError, DynamicEncounterExecutionError,
@@ -39,6 +40,63 @@ class DynamicEncounterJsonTests(unittest.TestCase):
         self.assertEqual(result['total_trials'], 12)
         self.assertEqual(len(result['explored']), 3)
         self.assertEqual(len(result['validations']), 2)
+
+    def test_current_joint_goal_metadata_describes_native_point_estimates(self):
+        report=json.loads(encode_dynamic_encounter_result(self.command,self.result))
+        self.assertEqual(report['target_criteria'],dict(basis='point_estimates',
+            win_rate_tolerance=.1,started_rounds_tolerance=1))
+        self.assertEqual(report['target_match_found'],self.result.target_match_found)
+        for stage in ('explored','validations'):
+            for candidate in report[stage]:
+                assessment=candidate['target_assessment']
+                self.assertAlmostEqual(assessment['win_rate_deviation'],
+                    abs(candidate['win_rate']-self.command.request.target_win_rate))
+                self.assertAlmostEqual(assessment['started_rounds_deviation'],
+                    abs(candidate['mean_started_rounds']-self.command.request.target_rounds))
+                self.assertEqual(assessment['status']=='unsupported',
+                    candidate['outcomes']['unsupported_path']>0)
+        validate_dynamic_encounter_document(report,'result')
+
+    def test_forged_joint_metadata_is_rejected_without_another_simulation(self):
+        report=json.loads(encode_dynamic_encounter_result(self.command,self.result))
+        changes=[lambda d:d.pop('target_criteria'),lambda d:d.pop('target_match_found'),
+            lambda d:d['target_criteria'].update(win_rate_tolerance=.2),
+            lambda d:d.update(target_match_found=not d['target_match_found']),
+            lambda d:d['validations'][0].pop('target_assessment'),
+            lambda d:d['validations'][0]['target_assessment'].update(status='unsupported'),
+            lambda d:d['validations'][0]['target_assessment'].update(
+                win_rate_in_range=not d['validations'][0]['target_assessment']['win_rate_in_range']),
+            lambda d:d['validations'][0]['target_assessment'].update(win_rate_deviation=.123456),
+            lambda d:d['validations'][0]['target_assessment'].update(normalized_max_deviation=float('nan')),
+            lambda d:d.update(selected=[]),
+            lambda d:d['validations'][0].update(win_rate=.123456),
+            lambda d:d['validations'][0]['outcomes'].update(
+                party_defeated=d['validations'][0]['outcomes']['party_defeated']+1),
+            lambda d:d['validations'][0].update(mean_started_rounds=d['source_request']['max_rounds']+1)]
+        with patch('towr.adapters.dynamic_encounter_json.search_dynamic_encounter') as simulate:
+            for change in changes:
+                raw=deepcopy(report)
+                change(raw)
+                with self.subTest(change=change),self.assertRaises(ValidationError):
+                    validate_dynamic_encounter_document(raw,'result')
+            simulate.assert_not_called()
+
+    def test_variable_count_proposals_keep_json_source_replay_and_budget(self):
+        raw=deepcopy(self.document)
+        raw['npc_count']=dict(minimum=1,maximum=5)
+        raw['max_rounds']=1
+        raw['targets']['started_rounds']=dict(numerator=1,denominator=1)
+        raw['search'].update(max_candidates=4,exploration_trials=1,
+            finalist_trials=1,top_k=2,max_total_trials=6)
+        command=parse_dynamic_encounter_request(json.dumps(raw))
+        report=json.loads(encode_dynamic_encounter_result(command,execute_dynamic_encounter(command)))
+        self.assertEqual(report['source_request'],raw)
+        self.assertEqual(report['total_trials'],6)
+        validate_dynamic_encounter_document(report,'result')
+        for candidate in report['explored']+report['validations']:
+            self.assertTrue(1<=len(candidate['npcs'])<=5)
+            replay=parse_pc_melee_simulation_request(json.dumps(candidate['replay'])).request
+            self.assertEqual(len(replay.scenario.enemies),len(candidate['npcs']))
 
     def test_character_facts_compile_without_internal_policies(self):
         member = self.document['party'][0]

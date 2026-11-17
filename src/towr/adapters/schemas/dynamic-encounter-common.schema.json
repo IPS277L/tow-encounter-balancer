@@ -560,6 +560,9 @@
           "items": {
             "$ref": "urn:towr:pc-melee:common:1#/$defs/pcRangedCount"
           }
+        },
+        "target_assessment": {
+          "$ref": "#/$defs/target_assessment"
         }
       },
       "required": [
@@ -570,7 +573,8 @@
         "rounds_interval_95",
         "outcomes",
         "trials",
-        "replay"
+        "replay",
+        "target_assessment"
       ],
       "additionalProperties": false,
       "allOf": [
@@ -1029,6 +1033,50 @@
         "has_blackpowder_kit"
       ],
       "additionalProperties": false
+    },
+    "target_assessment": {
+      "type": "object",
+      "properties": {
+        "status": {
+          "enum": [
+            "within_targets",
+            "outside_targets",
+            "unsupported"
+          ]
+        },
+        "win_rate_in_range": {
+          "type": "boolean"
+        },
+        "started_rounds_in_range": {
+          "type": "boolean"
+        },
+        "win_rate_deviation": {
+          "type": "number",
+          "minimum": 0
+        },
+        "started_rounds_deviation": {
+          "type": "number",
+          "minimum": 0
+        },
+        "normalized_max_deviation": {
+          "type": "number",
+          "minimum": 0
+        },
+        "normalized_total_deviation": {
+          "type": "number",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "win_rate_in_range",
+        "started_rounds_in_range",
+        "win_rate_deviation",
+        "started_rounds_deviation",
+        "normalized_max_deviation",
+        "normalized_total_deviation"
+      ]
     }
   }
 }

@@ -88,9 +88,9 @@ small{color:var(--muted)}.hidden{display:none}fieldset{border:0;padding:0;margin
 </fieldset>
 <fieldset class="control-group goals"><legend>Цели боя</legend>
 <div class="fields">
-<div class="field"><label>Цель, раунды (Rounds)<input id="rounds" type="number" min="1" step="any" aria-describedby="rounds-hint"></label><small id="rounds-hint" class="field-hint">Желаемая средняя длительность боя.</small></div>
+<div class="field"><label>Цель, раунды (Rounds)<input id="rounds" type="number" min="1" step="any" aria-describedby="rounds-hint"></label><small id="rounds-hint" class="field-hint">Желаемая средняя длительность. Допуск ±1 раунд по оценке выборки.</small></div>
 <div class="field"><label>Лимит раундов (Rounds)<input id="maxRounds" type="number" min="1" step="1" aria-describedby="maxRounds-hint"></label><small id="maxRounds-hint" class="field-hint">После этого раунда бой останавливается. Лимит не считается победой.</small></div>
-<div class="field"><label>Победа игроков, %<input id="win" type="number" min="0" max="100" step="any" aria-describedby="win-hint"></label><small id="win-hint" class="field-hint">Желаемая доля побед партии. Ниже процент — сложнее бой.</small></div>
+<div class="field"><label>Победа игроков, %<input id="win" type="number" min="0" max="100" step="any" aria-describedby="win-hint"></label><small id="win-hint" class="field-hint">Желаемая доля побед. Допуск ±10 п.п. по оценке выборки. Ниже процент — сложнее бой.</small></div>
 </div>
 </fieldset>
 <fieldset class="control-group reproducibility"><legend>Воспроизводимость</legend>
@@ -149,8 +149,9 @@ function fraction(text,scale=1){
  if(!Number.isSafeInteger(n)||!Number.isSafeInteger(d))throw Error('Слишком большое число.');
  let a=n,b=d;while(b){const r=a%b;a=b;b=r;}return {numerator:n/a,denominator:d/a};
 }
-function syncForm(commit=true){
- const data=read(),before=JSON.stringify(data.search);applySearchPlan(data);
+function syncForm(commit=true,requirePlan=false){
+ const data=read(),before=JSON.stringify(data.search);let planFailure=null;
+ try{applySearchPlan(data);}catch(error){planFailure=error;}
  if(commit&&before!==JSON.stringify(data.search))byId('request').value=pretty(data);
  markResultStale();
  for(const [id,path] of Object.entries(paths))byId(id).value=get(data,path)??'';
@@ -159,10 +160,13 @@ function syncForm(commit=true){
  byId('rounds').value=rounds?Number((rounds.numerator/rounds.denominator).toFixed(6)):'';
  const search=data.search;
  const timeText=formatSearchTime(estimatedSearchTime(data));
- byId('cost').textContent=search?'План: '+search.max_candidates+' составов × '+search.exploration_trials+' боёв + '+search.top_k+' финалиста × '+search.finalist_trials+' боёв = до '+search.max_total_trials+' симуляций · '+timeText+'.':'';
+ byId('cost').textContent=planFailure?'План: '+planFailure.message:search?'План: '+search.max_candidates+' составов × '+search.exploration_trials+' боёв + '+search.top_k+' финалиста × '+search.finalist_trials+' боёв = до '+search.max_total_trials+' симуляций · '+timeText+'.':'';
  updatePlanControls();
  byId('settings-preview').textContent=data.npc_count&&win?data.npc_count.minimum+'–'+data.npc_count.maximum+' NPC · '+byId('rounds').value+' раундов · победа игроков '+byId('win').value+'% · до '+(search?.max_total_trials??'—')+' симуляций · '+timeText:'';
  renderRequestVisual(data);
+ // An unfinished character must remain editable even when planning fails.
+ // Callers starting execution still receive the error after the form updates.
+ if(planFailure&&requirePlan)throw planFailure;
 }
 function changed(id){
  try{const data=read();
@@ -178,7 +182,7 @@ function setBusy(value){busy=value;byId('controls').disabled=value;byId('visual-
 async function run(){
  if(busy)return;
  if(visualEditError){message('Исправьте поле: '+visualEditError,'error');return;}
- try{syncForm();}catch(error){message(error.message,'error');return;}
+ try{syncForm(true,true);}catch(error){message(error.message,'error');return;}
  fileLoadVersion++;resultFileLoadVersion++;resetCharacterFiles();activeRunId=crypto.randomUUID();cancelling=false;setBusy(true);lastResult=null;byId('download').disabled=true;byId('result').textContent='Выполняется расчёт…';
  byId('result-stale').classList.add('hidden');byId('result-visual').replaceChildren(document.createTextNode('Выполняется расчёт…'));
  syncResultCardHeading();
@@ -210,8 +214,9 @@ byId('result-file').onchange=async event=>{
   const raw=(await file.text()).replace(/^\uFEFF/,'');if(version!==resultFileLoadVersion||busy)return;const data=JSON.parse(raw);
   if(!data||data.kind!=='dynamic_encounter_search_result'||data.schema_version!=='1'||data.source_request?.kind!=='dynamic_encounter_search'||!Array.isArray(data.explored)||!Array.isArray(data.validations)||!Array.isArray(data.selected)||!data.selected.every(id=>typeof id==='string')||!Number.isSafeInteger(data.total_trials)||data.total_trials<0)throw Error('Выберите JSON результата динамического генератора (формат 1).');
   for(const candidate of [...data.explored,...data.validations]){
-   if(!candidate||!Array.isArray(candidate.npcs)||!candidate.npcs.every(npc=>npc&&typeof npc==='object'&&!Array.isArray(npc))||typeof candidate.replay?.scenario?.id!=='string'||!Number.isFinite(candidate.win_rate)||candidate.win_rate<0||candidate.win_rate>1||!Number.isFinite(candidate.mean_started_rounds)||!Number.isSafeInteger(candidate.trials)||candidate.trials<0||!candidate.outcomes||['objective_achieved','party_defeated','round_limit','unsupported_path'].some(key=>!Number.isSafeInteger(candidate.outcomes[key])||candidate.outcomes[key]<0))throw Error('Некорректные данные состава в JSON результата.');
+   if(!candidate||!Array.isArray(candidate.npcs)||!candidate.npcs.every(npc=>npc&&typeof npc==='object'&&!Array.isArray(npc))||typeof candidate.replay?.scenario?.id!=='string'||!Number.isFinite(candidate.win_rate)||candidate.win_rate<0||candidate.win_rate>1||!Number.isFinite(candidate.mean_started_rounds)||!Number.isSafeInteger(candidate.trials)||candidate.trials<1||!candidate.outcomes||['objective_achieved','party_defeated','round_limit','unsupported_path'].some(key=>!Number.isSafeInteger(candidate.outcomes[key])||candidate.outcomes[key]<0))throw Error('Некорректные данные состава в JSON результата.');
   }
+  validateTargetMetadata(data);
   const preview=document.createElement('div');renderResultVisual(data,preview);
   resetCharacterFiles();lastResult=data;byId('result').textContent=raw;byId('result-visual').replaceChildren(...preview.childNodes);syncResultCardHeading();byId('generation-progress').classList.add('hidden');markResultStale();updateFileActions();message('');
  }catch(error){message(error.message,'error');}finally{event.target.value='';}

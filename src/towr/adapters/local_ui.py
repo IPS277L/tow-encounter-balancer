@@ -1,6 +1,7 @@
 """Loopback-only UI adapter over the existing dynamic JSON contract."""
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
+import os
 from pathlib import Path
 from dataclasses import asdict, dataclass, field
 from threading import Event, Lock
@@ -234,12 +235,20 @@ class LocalUiHandler(BaseHTTPRequestHandler):
             self.server.generation_lock.release()
 
 
+def _default_dynamic_request():
+    example = Path('docs/examples/dynamic/ui.request.json')
+    if not example.is_file():
+        return b'{}'
+    source = json.loads(example.read_bytes())
+    workers = min(4, max(1, (os.cpu_count() or 1) - 1))
+    source['execution'] = ({'mode': 'process', 'workers': workers}
+        if workers >= 2 else {'mode': 'sequential'})
+    return json.dumps(source, ensure_ascii=False, allow_nan=False).encode('utf-8')
+
+
 def serve_local_ui(*, port=8765, request_path=None):
-    if request_path is None:
-        example = Path('docs/examples/dynamic/ui.request.json')
-        initial = example.read_bytes() if example.is_file() else b'{}'
-    else:
-        initial = Path(request_path).read_bytes()
+    initial = (_default_dynamic_request() if request_path is None
+        else Path(request_path).read_bytes())
     with LocalUiServer(port, initial, manual=request_path is not None) as server:
         print(f'TOWR UI: http://127.0.0.1:{server.server_port}/ (Ctrl+C to stop)', flush=True)
         try:

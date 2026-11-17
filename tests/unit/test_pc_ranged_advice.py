@@ -1,5 +1,6 @@
 """Prepared automatic PC ranged choices; no fabricated complete battle journals."""
 from dataclasses import replace
+from itertools import product
 import unittest
 from unittest.mock import patch
 
@@ -149,7 +150,7 @@ class RangedActionChoiceTests(unittest.TestCase):
         self.assertIs(select_pc_tactic(state).action,CombatActionKind.RECOVER)
         self.assertIsNone(pc_ranged_unsupported(state))
 
-    def test_no_hands_and_no_pickup_exposes_grip_boundary_instead_of_recover(self):
+    def test_no_hands_and_no_pickup_uses_standard_recover(self):
         from towr.domain.pc_heavy_wound_models import PcBodyFact,PcBodyFactKind
         from towr.domain.injury_models import WoundRecord,WoundEntryId
         from towr.domain.pc_ranged_models import pc_ranged_unsupported
@@ -162,8 +163,61 @@ class RangedActionChoiceTests(unittest.TestCase):
         member=replace(member,injury=replace(member.injury,wounds=wounds),body_facts=facts,
             weapon_hand=None,weapon_inventory=inventory)
         state=replace(state,party=(member,))
-        self.assertIs(select_pc_tactic(state).action,CombatActionKind.ATTACK)
-        self.assertEqual(pc_ranged_unsupported(state).reason,'ranged_grip_unavailable')
+        self.assertIs(select_pc_tactic(state).action,CombatActionKind.RECOVER)
+        self.assertEqual(select_pc_tactic(state).reason,'recover_without_usable_hands')
+        self.assertIsNone(pc_ranged_unsupported(state))
+
+    def test_slashed_arm_and_clutch_block_carried_backup_in_both_wound_orders(self):
+        from towr.domain.pc_heavy_wound_models import PcBodyFact,PcBodyFactKind,usable_hands
+        from towr.domain.injury_models import WoundRecord,WoundEntryId
+        from towr.domain.pc_ranged_models import pc_ranged_unsupported
+        from towr.domain.pc_weapon_inventory import expected_pc_weapon_swap,pc_weapon_pickup_view
+        for order,loaded,backup_location,weapon in product(((16,18),(18,16)),(True,False),
+                (PcItemLocation.CARRIED,PcItemLocation.DROPPED),
+                (PcMeleeWeapon.PISTOL,PcMeleeWeapon.REPEATER_PISTOL,PcMeleeWeapon.REPEATER_HANDBOW)):
+            with self.subTest(order=order,loaded=loaded,backup_location=backup_location,weapon=weapon):
+                state=tactical_snapshot(ranged_source(backup=True,weapon=weapon),'pc1');member=state.party[0]
+                if not loaded:
+                    state=empty(state);member=state.party[0]
+                entries={16:WoundEntryId.SLASHED_FOREARMS,18:WoundEntryId.SPILLING_GUTS}
+                wounds=tuple(WoundRecord(n,entries[total],total,(total//2,)*2,effect_resolved=True)
+                    for n,total in enumerate(order,1))
+                facts=tuple(PcBodyFact(PcBodyFactKind.UNUSABLE_ARM if total==16 else PcBodyFactKind.CLUTCH_STOMACH,
+                    n,PcWeaponHand.RIGHT if total==16 else PcWeaponHand.LEFT)
+                    for n,total in enumerate(order,1))
+                gun,sword=member.weapon_inventory.items
+                sword=replace(sword,location=backup_location)
+                inventory=replace(member.weapon_inventory,items=(replace(gun,location=PcItemLocation.DROPPED,hand=None),sword))
+                member=replace(member,injury=replace(member.injury,wounds=wounds),body_facts=facts,
+                    weapon_hand=None,weapon_inventory=inventory)
+                state=replace(state,party=(member,))
+                self.assertEqual(usable_hands(member),())
+                self.assertIs(member.ranged.loaded,loaded)
+                self.assertIsNone(pc_weapon_inventory_view(state,'pc1',sword.id))
+                self.assertIsNone(pc_weapon_pickup_view(state,'pc1',gun.id))
+                self.assertIsNone(expected_pc_weapon_swap(state))
+                self.assertIsNone(pc_ranged_unsupported(state))
+                choice=select_pc_tactic(state)
+                self.assertIs(choice.action,CombatActionKind.RECOVER)
+                self.assertFalse(choice.ranged_reload)
+                self.assertIsNone(choice.weapon_item_id)
+                self.assertIsNone(choice.pickup_item_id)
+
+    def test_one_remaining_hand_still_permits_carried_melee_backup(self):
+        from towr.domain.pc_heavy_wound_models import PcBodyFact,PcBodyFactKind
+        from towr.domain.injury_models import WoundRecord,WoundEntryId
+        from towr.domain.pc_ranged_models import pc_ranged_unsupported
+        state=empty(tactical_snapshot(ranged_source(backup=True,ws=4,melee=6),'pc1'));member=state.party[0]
+        injury=replace(member.injury,wounds=(WoundRecord(1,WoundEntryId.SLASHED_FOREARMS,16,(8,8),effect_resolved=True),))
+        member=replace(member,injury=injury,
+            body_facts=(PcBodyFact(PcBodyFactKind.UNUSABLE_ARM,1,PcWeaponHand.RIGHT),))
+        state=replace(state,party=(member,))
+        self.assertIsNotNone(pc_weapon_inventory_view(state,'pc1','sword'))
+        choice=select_pc_tactic(state)
+        self.assertIs(choice.action,CombatActionKind.ATTACK)
+        self.assertEqual(choice.weapon_item_id,'sword')
+        self.assertFalse(choice.ranged_reload)
+        self.assertIsNone(pc_ranged_unsupported(state))
 
     def test_shield_release_pins_reload_through_reservation_and_clears_after_its_test(self):
         from tests.support.pc_shield_scenarios import shield_loadout

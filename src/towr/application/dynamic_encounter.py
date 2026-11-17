@@ -6,15 +6,40 @@ defines the search space. Existing JSON families are unchanged.
 from dataclasses import dataclass, fields, replace
 from enum import Enum
 from hashlib import sha256
-from math import isfinite, log, sqrt
+from math import exp, isfinite, log, sqrt
 from random import Random
 
+from towr.application.ranged_simulation_models import SimulationExecutionMode,SimulationExecutionOptions
 from towr.domain.generated_npc_models import (GeneratedNpc,GeneratedWeapon,GeneratedAbility,
     GeneratedTalent,generated_talent_requirements_met,GeneratedRangedFacts,GENERATED_RANGED_WEAPONS)
 from towr.domain.minion_defeat_models import MinionDefeatDecision, NpcDefeatDisposition
 from towr.domain.pc_melee_models import PcMeleeFacts, PcMeleeParticipant, PcMeleeScenario, PC_RANGED_WEAPONS
 from towr.simulation.pc_melee_models import PcMeleeSimulationRequest
 from towr.simulation.pc_melee_summary_models import PcMeleeSimulationSummary
+
+
+@dataclass(frozen=True, slots=True)
+class NumericCompositionSample:
+    """Generated numeric sources and their actual freedom/change counts."""
+    composition: tuple[GeneratedNpc, ...]
+    bias: float
+    variable_fields: int
+    changed_members: int
+
+
+def _sample_numeric_value(values: tuple[int, ...], rng: Random, bias: float) -> int:
+    if len(values) == 1:
+        return values[0]
+    ordered = sorted(values)
+    if bias == 0:
+        return rng.choice(ordered)
+    weights = tuple(exp(log(9)*bias*i/(len(ordered)-1)) for i in range(len(ordered)))
+    ticket = rng.random()*sum(weights)
+    for value, weight in zip(ordered, weights):
+        if ticket < weight:
+            return value
+        ticket -= weight
+    return ordered[-1]
 
 
 @dataclass(frozen=True, slots=True)
@@ -151,6 +176,38 @@ class NpcSearchSpace:
             and (npc.ranged is None or all(getattr(npc.ranged,name) in getattr(self,name)
                 for name in self._ranged_names()))
             and set(npc.talents) <= set(self.allowed_talents))
+
+    def resample_numeric(self, composition: tuple[GeneratedNpc, ...], rng: Random, *,
+            bias: float = 0.) -> NumericCompositionSample:
+        """Preserve gear/Talents while sampling admitted numeric values for a cohort."""
+        if type(bias) not in (int, float) or not -1 <= bias <= 1 or not isfinite(bias):
+            raise ValueError('numeric sampling bias must be finite in -1..1, excluding bool')
+        if (type(composition) is not tuple or not composition
+                or any(not self.contains(member) for member in composition)):
+            raise ValueError('numeric sampling requires a nonempty admitted composition tuple')
+        members = []
+        variable_fields = 0
+        ordinary = ('weapon_skill','strength','toughness','agility','melee','athletics','defence')
+        for member in composition:
+            current = member
+            names = ordinary + (self._ranged_names() if member.ranged is not None else ())
+            for name in names:
+                candidates = {}
+                for value in getattr(self, name):
+                    try:
+                        candidate = (replace(current, ranged=replace(current.ranged, **{name:value}))
+                            if name in self._ranged_names() else replace(current, **{name:value}))
+                    except ValueError:
+                        continue
+                    candidates[value] = candidate
+                if len(candidates) > 1:
+                    variable_fields += 1
+                selected = _sample_numeric_value(tuple(candidates), rng, float(bias))
+                current = candidates[selected]
+            members.append(current)
+        result = tuple(members)
+        return NumericCompositionSample(result, float(bias), variable_fields,
+            sum(a != b for a, b in zip(composition, result)))
 
 
 def automatic_npc_search_space(party: tuple[PcMeleeParticipant, ...]) -> NpcSearchSpace:
@@ -319,15 +376,142 @@ class DynamicEncounterResult:
     def finalists(self):
         return tuple(c for c in self.validations if not c.summary.outcome_counts.unsupported_path)
 
+    @property
+    def target_match_found(self):
+        return any(assess_dynamic_candidate(self.source,c).status is DynamicTargetStatus.WITHIN_TARGETS
+            for c in self.finalists)
+
+
+WIN_RATE_TOLERANCE = .1
+STARTED_ROUNDS_TOLERANCE = 1.
+
+
+class DynamicTargetStatus(str, Enum):
+    WITHIN_TARGETS = 'within_targets'
+    OUTSIDE_TARGETS = 'outside_targets'
+    UNSUPPORTED = 'unsupported'
+
+
+@dataclass(frozen=True, slots=True)
+class DynamicTargetAssessment:
+    """Point estimates under the current trial/tactics budget, not certification."""
+    status: DynamicTargetStatus
+    win_rate_in_range: bool
+    started_rounds_in_range: bool
+    win_rate_deviation: float
+    started_rounds_deviation: float
+    normalized_max_deviation: float
+    normalized_total_deviation: float
+
+
+def assess_dynamic_targets(target_win_rate, target_rounds, win_rate, mean_started_rounds,
+        unsupported_path) -> DynamicTargetAssessment:
+    values = (target_win_rate,target_rounds,win_rate,mean_started_rounds)
+    if (any(type(v) not in (int,float) or not isfinite(v) for v in values)
+            or not 0 <= target_win_rate <= 1 or not 0 <= win_rate <= 1
+            or target_rounds < 1 or mean_started_rounds < 1
+            or type(unsupported_path) is not int or unsupported_path < 0):
+        raise ValueError('joint target assessment requires finite admitted aggregates')
+    win_error = abs(win_rate-target_win_rate)
+    rounds_error = abs(mean_started_rounds-target_rounds)
+    # One numerical convention for both inclusion and ranking. Rounding only
+    # removes floating arithmetic noise at 1e-12 of a tolerance unit.
+    def normalized(error,tolerance):
+        value = error/tolerance
+        return 1. if abs(value-1) <= 1e-12 else round(value,12)
+    win_distance = normalized(win_error,WIN_RATE_TOLERANCE)
+    round_distance = normalized(rounds_error,STARTED_ROUNDS_TOLERANCE)
+    win_match,round_match = win_distance <= 1,round_distance <= 1
+    status = (DynamicTargetStatus.UNSUPPORTED if unsupported_path else
+        DynamicTargetStatus.WITHIN_TARGETS if win_match and round_match else
+        DynamicTargetStatus.OUTSIDE_TARGETS)
+    return DynamicTargetAssessment(status,win_match,round_match,win_error,rounds_error,
+        max(win_distance,round_distance),win_distance+round_distance)
+
+
+def assess_dynamic_candidate(request, candidate) -> DynamicTargetAssessment:
+    return assess_dynamic_targets(request.target_win_rate,request.target_rounds,
+        candidate.win_rate,candidate.mean_started_rounds,candidate.summary.outcome_counts.unsupported_path)
+
 
 def _seed(master: int, stage: str, index: int) -> int:
     return int.from_bytes(sha256(f'towr:dynamic:v1:{master}:{stage}:{index}'.encode()).digest()[:8], 'big')
 
 
 def _score(request, candidate):
-    return (bool(candidate.summary.outcome_counts.unsupported_path),
-        abs(candidate.win_rate-request.target_win_rate),
-        abs(candidate.mean_started_rounds-request.target_rounds))
+    assessment = assess_dynamic_candidate(request,candidate)
+    return (assessment.status is DynamicTargetStatus.UNSUPPORTED,
+        assessment.normalized_max_deviation,assessment.normalized_total_deviation)
+
+
+def _directed_count_parent(request, explored):
+    """Advance an observed win-rate plateau without pruning any count range.
+
+    This only chooses a proposal parent. Final ranking uses the joint-target
+    score; independent trials must check whether the proposed resize helped.
+    """
+    eligible = [c for c in explored if not c.summary.outcome_counts.unsupported_path]
+    if not eligible:
+        return None
+    best = min(eligible, key=lambda c: _score(request, c))
+    if best.win_rate == request.target_win_rate:
+        return None
+    plateau = [c for c in eligible if c.win_rate == best.win_rate]
+    if best.win_rate > request.target_win_rate:
+        parent = max(plateau, key=lambda c: len(c.composition))
+        return parent if len(parent.composition) < request.maximum_npcs else None
+    parent = min(plateau, key=lambda c: len(c.composition))
+    return parent if len(parent.composition) > request.minimum_npcs else None
+
+
+class _ProposalOperation(str, Enum):
+    COUNT = 'count'
+    COMPONENT = 'component'
+    RESTART = 'restart'
+
+
+@dataclass(frozen=True, slots=True)
+class _Proposal:
+    requested: _ProposalOperation
+    applied: _ProposalOperation
+    composition: tuple[GeneratedNpc, ...]
+
+
+def _select_proposal_operation(request: DynamicEncounterRequest, explored_count: int,
+        attempt_number: int, rng: Random) -> _ProposalOperation:
+    if explored_count and rng.random() < .7:
+        return (_ProposalOperation.COUNT
+            if request.minimum_npcs != request.maximum_npcs and explored_count % 2
+            else _ProposalOperation.COMPONENT)
+    return _ProposalOperation.RESTART
+
+
+def _propose(request: DynamicEncounterRequest, explored: list[GeneratedCandidate],
+        rng: Random, operation: _ProposalOperation) -> _Proposal:
+    if type(operation) is not _ProposalOperation:
+        raise TypeError('proposal operation must be typed')
+    if operation is _ProposalOperation.RESTART:
+        composition = tuple(request.space.sample(rng)
+            for _ in range(rng.randint(request.minimum_npcs, request.maximum_npcs)))
+        return _Proposal(operation, operation, composition)
+    if not explored:
+        raise ValueError('adaptive proposal requires observations')
+    elite = sorted(explored, key=lambda candidate: _score(request, candidate))[:max(1, request.top_k)]
+    composition = list(rng.choice(elite).composition)
+    parent = (_directed_count_parent(request, explored)
+        if operation is _ProposalOperation.COUNT and request.minimum_npcs != request.maximum_npcs else None)
+    if parent is not None:
+        composition = list(parent.composition)
+        if parent.win_rate > request.target_win_rate:
+            composition.append(request.space.sample(rng))
+        else:
+            composition.pop(rng.randrange(len(composition)))
+        applied = _ProposalOperation.COUNT
+    else:
+        index = rng.randrange(len(composition))
+        composition[index] = request.space.mutate(composition[index], rng)
+        applied = _ProposalOperation.COMPONENT
+    return _Proposal(operation, applied, tuple(composition))
 
 
 def validate_dynamic_encounter_result(result: DynamicEncounterResult) -> None:
@@ -427,11 +611,35 @@ class DynamicEncounterProgress:
 
 
 def search_dynamic_encounter(request: DynamicEncounterRequest, simulator=None, *,
-        cancel_requested=None, on_progress=None) -> DynamicEncounterResult:
+        cancel_requested=None,on_progress=None,execution: SimulationExecutionOptions | None=None) -> DynamicEncounterResult:
+    """Preserve ordered adaptive search while a process pool runs its trials."""
+    if execution is not None:
+        if not isinstance(execution,SimulationExecutionOptions):
+            raise TypeError('execution requires typed simulation options')
+        replace(execution)
+        if simulator is not None:
+            raise ValueError('custom simulator and execution options cannot be combined')
+        if execution.mode is SimulationExecutionMode.PROCESS and execution.batch_size!=1:
+            raise ValueError('dynamic process execution requires one-trial batches')
+    if execution is not None and execution.mode is SimulationExecutionMode.PROCESS:
+        from towr.simulation.pc_melee_process import PcMeleeProcessSession,PcMeleeSimulationCancelled
+        try:
+            with PcMeleeProcessSession(workers=execution.workers,batch_size=execution.batch_size,
+                    cancel_requested=cancel_requested) as session:
+                return _search_dynamic_encounter(request,cancel_requested=cancel_requested,
+                    on_progress=on_progress,process_session=session)
+        except PcMeleeSimulationCancelled as error:
+            raise DynamicEncounterCancelled('dynamic encounter search cancelled') from error
+    return _search_dynamic_encounter(request,simulator,cancel_requested=cancel_requested,
+        on_progress=on_progress)
+
+
+def _search_dynamic_encounter(request: DynamicEncounterRequest, simulator=None, *,
+        cancel_requested=None,on_progress=None,process_session=None) -> DynamicEncounterResult:
     """Explore random restarts and local mutations, then independently validate.
 
-    Ranking: no unsupported observations, distance to win target, distance to
-    duration target, proposal order. The result makes no global-optimum claim.
+    Ranking: no unsupported observations, worst normalized joint deviation,
+    total normalized deviation, proposal order. Point matches are not certified.
     """
     if type(request) is not DynamicEncounterRequest:
         raise TypeError('expected a DynamicEncounterRequest')
@@ -460,12 +668,13 @@ def search_dynamic_encounter(request: DynamicEncounterRequest, simulator=None, *
         from towr.simulation.pc_melee_simulation import run_pc_melee_simulation
         from towr.simulation.pc_melee_summary import summarize_pc_melee_simulation
         from towr.domain.pc_melee_result_models import PcMeleeOutcome
-        class InterruptibleRandom(Random):
-            def randint(self, start, end):
-                checkpoint()
-                return super().randint(start, end)
+        if process_session is None:
+            class InterruptibleRandom(Random):
+                def randint(self, start, end):
+                    checkpoint()
+                    return super().randint(start, end)
 
-        rng_factory = Random if cancel_requested is None else InterruptibleRandom
+            rng_factory = Random if cancel_requested is None else InterruptibleRandom
     elif not callable(simulator):
         raise TypeError('simulator must be callable')
     rng = Random(_seed(request.master_seed, 'proposals', 0))
@@ -492,8 +701,13 @@ def search_dynamic_encounter(request: DynamicEncounterRequest, simulator=None, *
                 len(composition), completed, trials, wins, unsupported)
 
         if default_simulator:
-            summary = summarize_pc_melee_simulation(run_pc_melee_simulation(source,
-                rng_factory=rng_factory, on_trial_complete=observed if on_progress is not None else None))
+            if process_session is None:
+                result=run_pc_melee_simulation(source,rng_factory=rng_factory,
+                    on_trial_complete=observed if on_progress is not None else None)
+            else:
+                result=process_session.run(source,
+                    on_trial_complete=observed if on_progress is not None else None)
+            summary = summarize_pc_melee_simulation(result)
         else:
             summary = simulator(source)
         checkpoint()
@@ -517,20 +731,8 @@ def search_dynamic_encounter(request: DynamicEncounterRequest, simulator=None, *
             announced_candidate = len(explored)
             emit(DynamicProgressPhase.GENERATING, 'explore', len(explored)+1, request.max_candidates)
         attempts += 1
-        if explored and rng.random() < .7:
-            elite = sorted(explored, key=score)[:max(1, request.top_k)]
-            composition = list(rng.choice(elite).composition)
-            if request.minimum_npcs != request.maximum_npcs and rng.random() < .25:
-                if len(composition) < request.maximum_npcs and (len(composition) == request.minimum_npcs or rng.random() < .5):
-                    composition.append(request.space.sample(rng))
-                else:
-                    composition.pop(rng.randrange(len(composition)))
-            else:
-                index = rng.randrange(len(composition))
-                composition[index] = request.space.mutate(composition[index], rng)
-            composition = tuple(composition)
-        else:
-            composition = tuple(request.space.sample(rng) for _ in range(rng.randint(request.minimum_npcs, request.maximum_npcs)))
+        operation = _select_proposal_operation(request, len(explored), attempts, rng)
+        composition = _propose(request, explored, rng, operation).composition
         if composition in seen:
             continue
         seen.add(composition)

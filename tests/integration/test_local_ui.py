@@ -157,6 +157,8 @@ class LocalUiTests(unittest.TestCase):
         self.assertIn('text/html', content_type)
         self.assertIn('<textarea', body.decode('utf-8'))
         self.assertIn('fetch(\'/api/generate\'', body.decode('utf-8'))
+        self.assertIn('Допуск ±1 раунд по оценке выборки', body.decode('utf-8'))
+        self.assertIn('Допуск ±10 п.п. по оценке выборки', body.decode('utf-8'))
         self.assertEqual(self.request('GET', '/api/request')[2], self.raw)
 
     def test_real_generation_returns_full_current_result(self):
@@ -168,6 +170,11 @@ class LocalUiTests(unittest.TestCase):
         self.assertEqual(result['source_request'], json.loads(self.raw))
         self.assertEqual(result['total_trials'], 12)
         self.assertEqual(len(result['selected']), 2)
+        self.assertEqual(result['target_criteria'],dict(basis='point_estimates',
+            win_rate_tolerance=.1,started_rounds_tolerance=1))
+        self.assertIs(type(result['target_match_found']),bool)
+        self.assertTrue(all(candidate['target_assessment']['status'] in
+            ('within_targets','outside_targets','unsupported') for candidate in result['validations']))
 
     def test_invalid_json_and_values_do_not_execute(self):
         for raw in (b'{', b'{"a":1,"a":2}', b'{}'):
@@ -239,6 +246,46 @@ class LocalUiTests(unittest.TestCase):
         status,_,body=self.post(self.raw,{'X-TOWR-Run-ID':'after-cancel'})
         self.assertEqual(status,200)
         validate_dynamic_encounter_document(json.loads(body),'result')
+
+    def test_process_http_progress_cancel_and_next_run(self):
+        source=json.loads(self.raw)
+        source['execution']={'mode':'process','workers':2}
+        raw=json.dumps(source).encode()
+        entered,release=Event(),Event()
+        responses=[]
+
+        def tracked(command, *, cancel_requested, on_progress):
+            def forward(progress):
+                on_progress(progress)
+                if (progress.phase is DynamicProgressPhase.SIMULATING
+                        and progress.completed_trials==1 and not entered.is_set()):
+                    entered.set()
+                    if not release.wait(15):
+                        raise RuntimeError('test did not release process progress')
+            return execute_dynamic_encounter(command,cancel_requested=cancel_requested,on_progress=forward)
+
+        with patch('towr.adapters.local_ui.execute_dynamic_encounter',side_effect=tracked):
+            worker=Thread(target=lambda:responses.append(self.post(raw,{'X-TOWR-Run-ID':'process-cancel'})),daemon=True)
+            worker.start()
+            try:
+                self.assertTrue(entered.wait(15))
+                snapshot=json.loads(self.progress('process-cancel')[2])
+                self.assertEqual(snapshot['current']['total_completed_trials'],1)
+                self.assertEqual(self.cancel('process-cancel')[0],202)
+                self.assertEqual(self.post(raw,{'X-TOWR-Run-ID':'premature-process'})[0],409)
+            finally:
+                release.set()
+                worker.join(20)
+        self.assertFalse(worker.is_alive())
+        self.assertEqual(responses[0][0],200)
+        self.assertEqual(json.loads(responses[0][2]),{'kind':'dynamic_encounter_cancelled'})
+        self.assertFalse(self.server.generation_lock.locked())
+        self.assertIsNone(self.server.active_generation)
+        status,_,body=self.post(raw,{'X-TOWR-Run-ID':'process-after-cancel'})
+        self.assertEqual(status,200)
+        result=json.loads(body)
+        validate_dynamic_encounter_document(result,'result')
+        self.assertEqual(result['source_request']['execution'],source['execution'])
 
     def test_cancel_before_generation_arrives_skips_execution(self):
         self.assertEqual(self.cancel('early-run')[0],202)
