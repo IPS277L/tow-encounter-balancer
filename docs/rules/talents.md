@@ -72,7 +72,7 @@ Talent выбирается при создании персонажа либо 
 | 81 | Vanguard | 3 / Ag 4+ | Move Quietly/Carefully в Manoeuvre также перемещает в соседнюю Zone | нет |
 | 81 | Vouch For Them | 3 / Silver/Gold, Fel 4+ | NPC применяет ожидания вашего Status к представленному союзнику; disgrace отражается на вас | нет |
 | 81 | Wild Attack | 3 / S 4+ | Если не Staggered, делает следующую Melee Glorious ценой Staggered до броска | generated NPC и automatic melee PC Attack/Melee Help: source-bound цена, committed intent и one-use Glorious; PC сравнивает пользу/риск/Fate |
-| 81 | Wizard | 4 / не Dwarf/Halfling, Magic Lore | Разрешает improvised/memorised/formalised spells; до четырёх покупок задают Wizard Level | частично: magic state/pipeline есть, Talent ownership нет |
+| 81 | Wizard | 4 / не Dwarf/Halfling, Magic Lore | Разрешает improvised/memorised/formalised spells; до четырёх покупок задают Wizard Level | частично: PC ownership/profile Wizard1–4 и две memorised Elementalism spells исполняются; общего приобретения/развития и improvised spell execution нет |
 
 ### Три таланта generated NPC
 

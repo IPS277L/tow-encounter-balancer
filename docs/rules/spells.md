@@ -1,6 +1,6 @@
 # Improvised и Formal Spells
 
-Источник: `BOOK-PLAYER-GUIDE`, версия 1.4, глава Magic in the Old World, страницы 160–174. Статус области: `draft`; весь каталог проверен, end-to-end casting/effect orchestration отсутствует.
+Источник: `BOOK-PLAYER-GUIDE`, версия 1.4, глава Magic in the Old World, страницы 160–174. Статус области: `partially implemented`; каталог проверен, непрерывные пути исполняют PC Lightning Blast/Fire Breath и M8 Curse of Cowardly Flight в своих ограниченных сценах. Общего исполнения каталога и improvised spells нет; [покрытие по слоям](../implementation-coverage.md#magic-and-faith).
 
 ## RULE-SPELL-001 — improvised spell scale
 

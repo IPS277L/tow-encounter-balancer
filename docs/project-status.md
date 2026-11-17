@@ -1,6 +1,6 @@
 # Текущее состояние проекта
 
-Дата: 2026-11-18. **Ограниченный контроль совместных целей завершён: совпадений обеих оценок не найдено; далее — один полный текущий UI-автоплан.** Нормативные книги — Player’s Guide1.4 и Gamemaster’s Guide1.1. [CLI генератора](examples/dynamic/README.md), [результаты joint-контроля](benchmarks/joint-target-control-2026-11-18.md), [действующий поиск](decisions/ADR-0128-directed-count-proposals.md), [очередь](roadmap.md#после-m70), [вопросы](open-questions.md).
+Дата: 2026-11-18. **Текущий приоритет — полнота боевых возможностей динамического генератора. Матрица покрытия готова; вехи охватывают целые области для всех применимых сторон. Дальнейшая настройка поиска отложена.** Нормативные книги — Player’s Guide1.4 и Gamemaster’s Guide1.1. [Покрытие](implementation-coverage.md), [CLI генератора](examples/dynamic/README.md), [действующий поиск](decisions/ADR-0128-directed-count-proposals.md), [очередь](roadmap.md#очередь-расширения-боевых-возможностей), [вопросы](open-questions.md).
 
 ## Приоритет после уточнения цели
 
@@ -8,13 +8,23 @@
 
 Прежний PC count-search перебирает количества supplied definitions и остаётся отдельной возможностью. Действующий динамический Python/JSON1-путь сам создаёт новые профили из компонентов и проверяет их Monte Carlo; входного reserve/каталога для этого не нужно. Сохраняются книжная механика, строгая валидация source и независимая проверка финалистов; [граница и решение](decisions/ADR-0113-dynamic-npc-generation-and-adaptive-search.md).
 
+2026-11-18 пользователь подтвердил переход от подробной настройки качества поиска к расширению исполняемой боевой модели, затем выбрал вехи по полным областям для всех применимых сторон: всё2H оружие, вся броня, все Talents, вся Magic. Внутренние небольшие шаги не считаются завершением всей области; политика сохранена в AGENTS.md. Полный UI-контроль mixed-magic505отложен и не запускался. Совместные цели ADR-0137, работающий поиск и независимая validation сохраняются; новые функции проверяются на корректность/воспроизводимость/малых сквозных примерах. Отсутствие всех внебоевых правил не блокирует разработку генератора.
+
+## Текущий этап: покрытие и очередь реализации
+
+[Матрица](implementation-coverage.md) разделяет ядро, отдельные непрерывные бои, dynamic PC и generated NPC. Проверены реальные admission/owners и репрезентативные тесты; независимые read-only сверки снаряжения (Equipment), талантов (Talents) и магии (Magic) объединены в одном документе. Это инвентаризация существующего исполнения, не повторный полный аудит книг.
+
+Важное уточнение: семь двуручных PC-оружий (Weapons,2H) уже допускаются динамическим вводом, включая backup; подключать их нужно прежде всего как общие компоненты генерируемых NPC. Heavy Armour пока сохраняется только в draft, общего исполнения её Agility/Burdened effects нет. Каталоги59Talents/42Formal Spells и21Miscast entry не означают полного исполнения; generated caster отсутствует. Устаревшие общие формулировки Wizard ownership и spell orchestration исправлены.
+
+Production/схемы/пользовательские JSON не менялись. Матрица ранее прошла независимое read-only ревью; политика и очередь затем расширены по прямому решению пользователя до целых областей. Проверены11файлов инструкций/документации:127добавленных локальных ссылок,15anchors, UTF-8/whitespace и `git diff --check` — OK. Игровые тесты/Monte Carlo/full/wheel ради документации не запускались. Ближайшая полная веха и её приёмка — [в roadmap](roadmap.md#all-two-handed-weapons).
+
 ## Динамический генератор — первый срез
 
 `GeneratedNpc` хранит WS/S/T/Agility, Melee/Defence/Athletics, шесть melee и три ranged1H weapons, Light Armour/Shield для melee, три книжных Talent и optional authored Drained-on-hit. Conditional ranged facts содержат BS/Shooting/I/Dexterity и необходимые scene confirmations. Builder выводит attack/Protection/Damage/Resilience и независимый Minion state без ID dispatch. Application принимает партию/пространство параметров без готового NPC reserve; random restarts и мутации элиты создают новые составы, включая разные профили при фиксированном числе. Финалисты проходят независимую validation выборку; итог хранит полный source, компоненты, outcomes, интервалы, фактическую стоимость и proposal limit. [Пример](examples/dynamic/README.md), [ADR-0113](decisions/ADR-0113-dynamic-npc-generation-and-adaptive-search.md).
 
-Граница NPC: stationary all-Close melee/ranged/magic PCs против Minions, автоматическая Defence/Athletics Protection, одно1H weapon с настоящими Traits и optional Shield/Light Armour у melee; generated Shooting без Shield и с полным Reload подключена. NPC spellcasting и таланты вне принятого набора не добавлены. PC equipment/Lucky/potions и первый магический путь описаны ниже. Authored Drained требует явного допуска, не является автоматически выданным талантом. Сохраняются Wounds/Fate/Recover и unsupported базового simulator. Duration = started rounds, включая censored prefix; ранжирование по худшему нормированному отклонению от двух целей, затем сумме отклонений (ADR-0137). Это ограниченный поиск, не доказательство оптимума и не полный генератор книги. Старый каталог не переносился массово; kernel/backend не менялись.
+Граница NPC: stationary all-Close melee/ranged/magic PCs против Minions, автоматическая Defence/Athletics Protection, одно1H weapon с настоящими Traits, Light Armour у melee/ranged и optional Shield только у melee; generated Shooting без Shield и с полным Reload подключена. NPC spellcasting и таланты вне принятого набора не добавлены. PC equipment/Lucky/potions и первый магический путь описаны ниже. Authored Drained требует явного допуска, не является автоматически выданным талантом. Сохраняются Wounds/Fate/Recover и unsupported базового simulator. Duration = started rounds, включая censored prefix; ранжирование по худшему нормированному отклонению от двух целей, затем сумме отклонений (ADR-0137). Это ограниченный поиск, не доказательство оптимума и не полный генератор книги. Старый каталог не переносился массово; kernel/backend не менялись.
 
-## Текущий этап: ограниченный контроль joint-objective завершён
+## Предыдущий этап: ограниченный контроль joint-objective завершён
 
 [Протокол и все результаты](benchmarks/joint-target-control-2026-11-18.md): три fullauto партии, count1–10, master505, process4последовательно. Завершены336MC trials за231.113s search+encoding, ноль ошибок исполнения/unsupported/diagnostic replays; один отдельный ROUND_LIMIT в mixed exploration. Среди18screening и6validation составов совместных point-matches нет. Это не доказательство недостижимости целей и не установление причины; retention при нуле screening matches не определён. Production source не менялся.
 
@@ -546,9 +556,10 @@ Named NPC/Abilities/Brutes/Champions сохраняются в прежних al
 
 ## Следующий шаг
 
-Выполнить один полный **текущий UI-автоплан на mixed-magic505** после смены objective. До первого боя извлечь фактические C/E/V из общего planner, заморозить точный input/максимальный расход; исполнить один раз без изменений score/proposals/kernel и без diagnostic replays. Проверить partitions, полные screening→validation пары, выбранные оценки/интервалы, стоимость, actual unsupported/ROUND_LIMIT. Этот поиск ещё не запускался и не входил в завершённую336-trial серию. Исторический fullUI202относится к win-first score.
+Начать веху **«Всё двуручное оружие (Weapons,2H) для PC, союзников и NPC»**. Первый шаг — сверить полный книжный перечень, применимость и зависимости, затем продолжать реализацию по этому перечню. Семь существующих PC2H являются основой переиспользования, но не границей всей вехи. Greatsword и его неоднозначная запись включены в остаток; вопрос требуется разрешить по источникам/пользовательскому решению. Нужные переменный хват/Charge/mounted механики входят в зависимости при их применимости к перечню.
 
-Это проверка обычного пользовательского режима на development-case, не новый независимый seed-контроль и не изоляция эффекта одного C/E/V. При том же source/stage/index возможны повторные trial prefixes; не складывать два плана в увеличенную независимую выборку. После измерения определить следующий шаг поиска по полному режиму. Новый precision/reserve из toy-панели не переносить автоматически: допуск цели не является требованием статистической certification. Игровые правила/неподдержанные GM/spatial Miscasts сохраняются.
+[Полная граница и критерии](roadmap.md#all-two-handed-weapons) охватывают source/Traits/Damage/caps, инвентарь/руки, тактику обеих сторон, generator admission/JSON/UI/replay и проверки. Реализацию можно вести несколькими небольшими изменениями и сессиями, сохраняя незавершённый остаток; не объявлять область готовой после семи NPC-профилей. Книжные ограничения и необходимость согласовать существенную неоднозначность сохраняются; house rules не вводились. Затем — вся броня (Armour), остальные Weapons/инвентарь и полные области Talents/Magic по зависимостям. Полный контроль505и новый solver сейчас не назначены.
+
 
 Magic Resistance у PC и NPC spellcasting требуют полезного общего caster/target пути; текущий чанк их не добавил. Для партий с магами по-прежнему сохранять долю/причины unsupported; GM/spatial Miscasts не стали no-op. ADR-0124 завершён, дополнительных решений для него нет.
 
