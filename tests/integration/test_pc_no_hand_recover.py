@@ -21,8 +21,8 @@ def scene(*,party=1,endurance=4,automatic=True):
     member=replace(member,pc=replace(member.pc,endurance=endurance,
         ranged=replace(member.pc.ranged,ballistic_skill=6,shooting=6)),
         policy=PcMeleePolicy.AUTOMATIC_COMBAT if automatic else PcMeleePolicy.ATTACK_OR_RECOVER_SELF,
-        combat_equipment=(PcWeaponItem('gun:owned',PcMeleeWeapon.PISTOL,PcItemLocation.HELD,PcWeaponHand.LEFT),
-            PcWeaponItem('sword:owned',PcMeleeWeapon.SWORD,PcItemLocation.CARRIED,None)) if automatic else None,
+        combat_equipment=(PcWeaponItem('gun:owned',PcMeleeWeapon.PISTOL,PcItemLocation.HELD,PcWeaponHand.LEFT,initially_loaded=True),
+            PcWeaponItem('sword:owned',PcMeleeWeapon.SWORD,PcItemLocation.CARRIED,None)) if automatic else member.combat_equipment,
         backup_weapon_policy=PcBackupWeaponPolicy(PcMeleeWeapon.SWORD,PcWeaponHand.LEFT) if automatic else None)
     enemies=[]
     for enemy in source.enemies:

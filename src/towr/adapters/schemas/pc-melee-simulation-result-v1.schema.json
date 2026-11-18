@@ -48,19 +48,21 @@
                   "party": {
                     "contains": {
                       "properties": {
-                        "pc": {
-                          "properties": {
-                            "weapon": {
-                              "const": "hochland_long_rifle"
-                            }
-                          },
-                          "required": [
-                            "weapon"
-                          ]
+                        "combat_equipment": {
+                          "contains": {
+                            "properties": {
+                              "weapon": {
+                                "const": "hochland_long_rifle"
+                              }
+                            },
+                            "required": [
+                              "weapon"
+                            ]
+                          }
                         }
                       },
                       "required": [
-                        "pc"
+                        "combat_equipment"
                       ]
                     }
                   }

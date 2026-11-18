@@ -44,16 +44,18 @@ from towr.rules.turn_resolution import reserve_combat_action_slot, start_combat_
 
 
 def ranged_source(weapon):
+    from tests.support.pc_weapon_sources import initial_weapon_items
     source = make_pc_melee_party_scenario(pc_count=2, enemy_count=1, max_rounds=4)
     free = weapon is PcMeleeWeapon.SHORTBOW
     profile = PcRangedProfile(ballistic_skill=3, shooting=4,
         ammunition_supply_confirmed=True, initiative=None if free else 2,
-        dexterity=None if free else 6, initially_loaded=None if free else True,
+        dexterity=None if free else 6,
         has_blackpowder_lore=None if free else True, has_blackpowder_kit=None if free else True,
         reload_hand_policy=None if free else PcRangedReloadHandPolicy.TWO_AVAILABLE_HANDS,
         repeater_bonus_policy=None if free else PcRepeaterBonusPolicy.WHEN_AVAILABLE)
     party = tuple(replace(member, pc=replace(member.pc, weapon=weapon, ranged=profile),
-        initial_weapon_hand=PcTwoHandedGrip.BOTH)
+        initial_weapon_hand=PcTwoHandedGrip.BOTH,combat_equipment=initial_weapon_items(
+            weapon,PcTwoHandedGrip.BOTH,initially_loaded=None if free else True))
         for member in source.party)
     enemies = tuple(replace(enemy, definition=replace(enemy.definition,
         protection=(replace(enemy.definition.protection[0], skill=Skill.ATHLETICS),)))
@@ -168,9 +170,11 @@ class PcTwoHandedHelpTests(unittest.TestCase):
         self.assertEqual(use.weapon_state.reload_cycle_ids, (use.next_reload_cycle_id,))
         self.assertEqual(execution.bonus.bonus_dice, 6)
         current = use.weapon_state
+        from towr.domain.pc_weapon_inventory import replace_pc_member
+        current_member=replace_pc_member(initial.participant('pc1'),ranged=current)
         results = []
         for round_number in (2, 3, 4):
-            party = (replace(initial.participant('pc1'), ranged=current), initial.participant('pc2'))
+            party = (current_member, initial.participant('pc2'))
             reload_state = boundary(initial, 'pc1', None,
                 round_number=round_number, party=party)
             reload_request = build_pc_ranged_reload(reload_state)
@@ -184,6 +188,7 @@ class PcTwoHandedHelpTests(unittest.TestCase):
             self.assertEqual(result.state.weapon_instance_id, use.previous_weapon_state.weapon_instance_id)
             self.assertEqual(result.state.reload_cycle_ids, use.weapon_state.reload_cycle_ids)
             current = result.state
+            current_member=replace_pc_member(current_member,ranged=current)
             results.append(result)
         self.assertEqual(tuple(result.state.loaded for result in results), (False, False, True))
         self.assertEqual(len({result.slot.execution.id for result in results}), 3)
@@ -204,7 +209,8 @@ class PcTwoHandedHelpTests(unittest.TestCase):
         self.assertEqual(weighted_net_for_actor(state, 'pc1'), helper)
         self.assertIs(execution.slot.declaration.kind, CombatActionKind.HELP)
         self.assertEqual(execution.bonus.bonus_dice, 2)
-        proof = PcHelpProof(request, execution, None, beneficiary_weapon_item_id='net:pc2')
+        proof = PcHelpProof(request, execution, None,
+            beneficiary_weapon_item_id=initial.participant('pc2').weapon_inventory.active_item_id)
         recipient = boundary(initial, 'pc2', CombatActionDeclaration(CombatActionKind.ATTACK), history=(proof,))
         recipient_test = _pc_test(recipient, 'pc2', pc_melee_action_id(recipient, 'pc2') + ':attack', Skill.THROWING)
         assisted, applications = build_pc_test_help(recipient, 'pc2', Skill.THROWING, recipient_test)

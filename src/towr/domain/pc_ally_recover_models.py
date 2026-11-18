@@ -1,4 +1,5 @@
 """Bounded standard Recover choices and exact multi-PC consequences; no RNG."""
+from towr.domain.pc_weapon_inventory import replace_pc_member
 from dataclasses import replace
 
 from towr.domain.condition_models import Condition
@@ -101,7 +102,9 @@ def pc_after_standard_recover(state, request, result):
         if picked is None:
             raise ValueError('weapon Recover must interact with its actually dropped item')
     from towr.domain.pc_potion_models import pc_potion_hand
-    used_hand = (pc_potion_hand(member) if drinking else pc_shield_recover_hand(member) if shield_pickup else
+    if shield_pickup and pc_shield_recover_hand(member, state=state) is None:
+        raise ValueError('Recover cannot pick up a distant or unavailable Shield')
+    used_hand = (pc_potion_hand(member) if drinking else pc_shield_recover_hand(member, state=state) if shield_pickup else
         picked.weapon_hand if picked is not None else pc_preferred_weapon_hand(state,actor) if interaction is not None else None)
     hand = used_hand if interaction is not None and not shield_pickup and not drinking else member.weapon_hand
     shield = PcShieldState(PcShieldLocation.HELD,used_hand) if shield_pickup else member.shield
@@ -110,7 +113,7 @@ def pc_after_standard_recover(state, request, result):
         removes_prone=(request.choice.prone_target is not None
             and request.choice.prone_target.entity_id==actor),
         used_hand=used_hand)
-    return tuple(replace(picked if picked is not None and member.actor_id==actor else member,
+    return tuple(replace_pc_member(picked if picked is not None and member.actor_id==actor else member,
         injury=updated.get(member.actor_id,member.injury),
         weapon_hand=hand if member.actor_id==actor else member.weapon_hand,
         shield=shield if member.actor_id==actor else member.shield,

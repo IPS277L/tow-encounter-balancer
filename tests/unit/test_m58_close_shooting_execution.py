@@ -1,5 +1,6 @@
 """Literal protective Melee uses generic bonuses, never Attack-only abilities."""
 from copy import deepcopy
+from tests.support.pc_weapon_sources import initial_weapon_items
 from dataclasses import replace
 import unittest
 
@@ -45,7 +46,7 @@ def special_scene(profile=PcBookNpcProfile.BESTIGOR_MASSIVE_AXE, skill=Skill.MEL
     base = book_pc_scenario(footpads=0,townsfolk=0,pc_count=pc_count,
         max_rounds=rounds,**{keyword:1})
     party = tuple(member if member.actor_id in melee_actor_ids else replace(member,
-        pc=replace(member.pc,weapon=PcMeleeWeapon.PISTOL,ranged=pistol_profile()))
+        pc=replace(member.pc,weapon=PcMeleeWeapon.PISTOL,ranged=pistol_profile()),combat_equipment=initial_weapon_items(PcMeleeWeapon.PISTOL,member.initial_weapon_hand,member.backup_weapon_policy,initially_loaded=True))
         for member in base.party)
     return replace(base,party=party,facts=replace(base.facts,outnumbering_bonus_approved=False),
         npc_grudge_policies=() if grudge_focus is None else (PcNpcGrudgePolicy(actor,grudge_focus),),

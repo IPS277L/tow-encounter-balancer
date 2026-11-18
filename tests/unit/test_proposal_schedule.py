@@ -11,7 +11,7 @@ from towr.application.dynamic_encounter import (
 
 def request(**changes):
     return SimpleNamespace(**(dict(minimum_npcs=1,maximum_npcs=10,target_win_rate=.5,
-        target_rounds=5,top_k=2,space=NpcSearchSpace())|changes))
+        target_rounds=5,top_k=2,space=NpcSearchSpace(weapon_count=(1,), ))|changes))
 
 
 def observation(composition,win=.75,unsupported=0):

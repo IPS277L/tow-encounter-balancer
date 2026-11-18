@@ -1,4 +1,6 @@
 """Real Zone movement, separate Short approach and ordinary Recover receipts."""
+from tests.support.generated_weapon_sources import initial_generated_weapons
+from tests.support.armour_fixtures import light_loadout
 from dataclasses import replace
 import unittest
 
@@ -55,7 +57,7 @@ def movement_snapshot(source):
 def waiting_net_holders():
     source=automatic_source(pc_count=1,enemy_count=3,rounds=4)
     member=replace(source.party[0],pc=replace(source.party[0].pc,weapon_skill=1,melee=2))
-    npc=GeneratedNpc(3,3,4,2,3,3,GeneratedWeapon.WEIGHTED_NET,False,defence=3,shield=False,
+    npc=GeneratedNpc(3,3,4,2,3,3,initial_generated_weapons(GeneratedWeapon.WEIGHTED_NET),light_loadout(light=False, shield=False),defence=3,
         ballistic_skill=3,throwing=4,brawn=3)
     return replace(source,party=(member,),enemies=tuple(npc.participant(actor)
         for actor in source.enemy_activation_order))

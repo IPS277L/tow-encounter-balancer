@@ -1,5 +1,7 @@
 """Source-bound PC ranged shots, optional Repeater bonus and Exacting reload."""
 from __future__ import annotations
+from towr.domain.weapon_inventory_models import weapon_reload_cycle_id
+from towr.domain.pc_weapon_inventory import initial_pc_weapon_inventory, pc_member_ranged
 
 from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING
@@ -133,52 +135,63 @@ def complete_pc_ranged_help(state: PcMeleeState,base_request: HelpActionExecutio
     if execution.source_request!=effective_request:
         raise ValueError('ranged Help execution changed its exact effective request')
     validate_pc_melee_source_types(execution.source_request,effective_request)
-    cycle=pc_melee_action_id(state,actor)+':ranged:help-cycle' if bonus else None
+    cycle=weapon_reload_cycle_id(weapon.weapon_instance_id,len(weapon.reload_cycle_ids)+1) if bonus else None
     after=begin_reload_cycle(weapon,cycle) if bonus else weapon
     return PcRangedHelpUseProof(actor,base_request.id,prepared,execution,weapon,after,bonus,cycle)
 
 
 def initial_pc_ranged(source: PcMeleeParticipant) -> FreeReloadWeaponState | ReloadableWeaponState | None:
-    if source.pc.weapon not in PC_RANGED_WEAPONS:
-        return None
-    result = create_initial_ranged_weapon_reload_state(pc_ranged_instance_id(source), RangedWeaponId(source.pc.weapon.value))
-    assert type(result) in (FreeReloadWeaponState, ReloadableWeaponState)
-    return result
+    """Initial item view retained for source comparisons, never a runtime bank."""
+    from towr.domain.weapon_catalog import WeaponGroup, weapon_profile
+    from towr.domain.pc_npc_ranged_models import npc_ranged_weapon_from_unit
+    inventory=initial_pc_weapon_inventory(source)
+    item=next((item for item in inventory.items
+        if weapon_profile(item.kind).group is WeaponGroup.SHOOTING),None)
+    return None if item is None else npc_ranged_weapon_from_unit(item)
 
 
 def pc_ranged_instance_id(source):
-    return source.actor_id+(':weapon:'+source.combat_equipment[0].id
-        if source.combat_equipment is not None else ':weapon')
+    ranged=initial_pc_ranged(source)
+    if ranged is None:
+        raise ValueError('source has no actual Shooting item')
+    return ranged.weapon_instance_id
 
 
 def _held_pc_ranged(state: PcMeleeState, actor: str, *, loaded: bool) -> FreeReloadWeaponState | ReloadableWeaponState:
-    source = state.source.participant(actor)
-    member = state.participant(actor)
-    weapon = member.ranged
-    if (source.pc.weapon not in PC_RANGED_WEAPONS or source.pc.ranged is None
-            or member.using_backup_weapon
-            or type(weapon) not in (FreeReloadWeaponState, ReloadableWeaponState)
-            or weapon.weapon_id is not RangedWeaponId(source.pc.weapon.value)
-            or weapon.weapon_instance_id != pc_ranged_instance_id(source)
+    source=state.source.participant(actor)
+    member=state.participant(actor)
+    item=member.weapon_inventory.active
+    weapon=None if item is None else pc_member_ranged(member,item.id)
+    from towr.domain.weapon_inventory_models import WeaponItemLocation
+    if (item is None or item.weapon not in PC_RANGED_WEAPONS or item.location is not WeaponItemLocation.HELD
+            or source.pc.ranged is None
+            or type(weapon) not in (FreeReloadWeaponState,ReloadableWeaponState)
+            or weapon.weapon_id.value!=item.kind.value or weapon.weapon_instance_id!=item.id
             or (type(weapon) is ReloadableWeaponState and weapon.loaded is not loaded)
             or (type(weapon) is FreeReloadWeaponState and not loaded)
-            or type(usable_weapon_hand(member)) not in (PcWeaponHand, PcTwoHandedGrip)
-            or loaded and not pc_weapon_allows_close_shooting(source.pc.weapon) and pc_has_close_enemy(state,actor)
+            or type(usable_weapon_hand(member)) not in (PcWeaponHand,PcTwoHandedGrip)
+            or loaded and not pc_weapon_allows_close_shooting(item.weapon) and pc_has_close_enemy(state,actor)
             or member.injury.dead or member.injury.conditions.has(Condition.DEFENCELESS)):
-        raise ValueError('PC ranged action requires its actual held weapon and loaded state')
+        raise ValueError('PC ranged action requires its actual held item and loaded state')
     return weapon
 
 
 def pc_repeater_bonus_selected(state: PcMeleeState, actor: str) -> bool:
-    """Fixed source choice before the initial roll; never reconsider after Fate."""
-    member = state.participant(actor)
-    source = state.source.participant(actor).pc
-    if source.ranged is not None and source.ranged.repeater_bonus_policy is PcRepeaterBonusPolicy.AUTOMATIC:
+    """Choose the actual item's mode before its Test, independently of source order."""
+    from towr.domain.pc_melee_models import PcMeleePolicy, PcMeleeWeapon
+    member=state.participant(actor)
+    source=state.source.participant(actor)
+    item=member.weapon_inventory.active
+    if item is None or item.weapon not in (PcMeleeWeapon.REPEATER_PISTOL,
+            PcMeleeWeapon.REPEATER_HANDBOW,PcMeleeWeapon.REPEATER_CROSSBOW,PcMeleeWeapon.REPEATER_HANDGUN):
+        return False
+    if member.injury.conditions.has(Condition.DRAINED) or source.pc.ranged is None:
+        return False
+    if (source.policy is PcMeleePolicy.AUTOMATIC_COMBAT
+            or source.pc.ranged.repeater_bonus_policy is PcRepeaterBonusPolicy.AUTOMATIC):
         from towr.domain.pc_tactical_models import select_pc_tactic
-        return select_pc_tactic(state,actor).ranged_bonus and not member.injury.conditions.has(Condition.DRAINED)
-    return (not member.using_backup_weapon and source.ranged is not None
-        and source.ranged.repeater_bonus_policy is PcRepeaterBonusPolicy.WHEN_AVAILABLE
-        and not member.injury.conditions.has(Condition.DRAINED))
+        return select_pc_tactic(state,actor).ranged_bonus
+    return source.pc.ranged.repeater_bonus_policy is PcRepeaterBonusPolicy.WHEN_AVAILABLE
 
 
 def pc_repeater_attack_modifiers(state: PcMeleeState, actor: str) -> tuple[DiceModifier, ...]:
@@ -194,7 +207,7 @@ def pc_ranged_profile_modifiers(state: PcMeleeState, actor: str, target: str,
     profile = ranged_weapon_combat_profile(weapon.weapon_id)
     distance = pc_enemy_range(state,actor,target)
     modifiers = []
-    if not _within_optimum(profile,distance):
+    if not _within_optimum(profile,distance, strength=state.source.participant(actor).pc.strength):
         modifiers.append(DiceModifier(OUTSIDE_OPTIMUM_RANGE_RULE_ID,-1))
     if distance is RangedWeaponRange.SHORT and profile.short_range_shooting_bonus_dice:
         modifiers.append(DiceModifier(SHORT_RANGE_SHOOTING_BONUS_RULE_ID,profile.short_range_shooting_bonus_dice))
@@ -252,7 +265,7 @@ def prepare_pc_ranged_shot(
         attacker_strength=source.strength,
         has_blackpowder_lore=source.ranged.has_blackpowder_lore is True,
         has_enemy_in_close_range=pc_has_close_enemy(state,actor),
-        next_reload_cycle_id=pc_melee_action_id(state, actor)+':ranged:cycle' if consumes else None,
+        next_reload_cycle_id=weapon_reload_cycle_id(weapon.weapon_instance_id,len(weapon.reload_cycle_ids)+1) if consumes else None,
         uses_optional_reload_bonus=bonus,
         aim=aim,
         range_approved_by_gm=(state.source.battlefield is not None and
@@ -330,8 +343,11 @@ def build_pc_ranged_reload(state: PcMeleeState) -> ReloadActionExecutionRequest:
     weapon = _held_pc_ranged(state, actor, loaded=False)
     assert type(weapon) is ReloadableWeaponState
     member = state.participant(actor)
-    if len(usable_hands(member)) != 2 or (member.shield is not None
-            and member.shield.location is PcShieldLocation.HELD):
+    from towr.domain.weapon_inventory_models import WeaponItemLocation
+    if (len(usable_hands(member)) != 2 or (member.shield is not None
+            and member.shield.location is not PcShieldLocation.DROPPED)
+            or any(item.location is WeaponItemLocation.HELD and item.id!=weapon.weapon_instance_id
+                for item in member.weapon_inventory.items)):
         raise ValueError('PC ranged Reload requires two available hands')
     action = pc_melee_action_id(state, actor)
     return ReloadActionExecutionRequest(
@@ -358,8 +374,10 @@ def pc_ranged_unsupported(state: PcMeleeState) -> PcMeleeUnsupported | PcRangedC
     member = state.participant(actor)
     weapon = member.ranged
     from towr.domain.pc_melee_models import PcMeleePolicy
+    from towr.domain.pc_backup_weapon_models import pc_active_weapon
     source=state.source.participant(actor)
-    if (state.source.participant(actor).pc.weapon not in PC_RANGED_WEAPONS
+    primary=pc_active_weapon(state,actor)
+    if (primary not in PC_RANGED_WEAPONS
             or member.using_backup_weapon and source.policy is not PcMeleePolicy.AUTOMATIC_COMBAT
             or weapon is None or member.injury.dead
             or member.injury.conditions.has(Condition.DEFENCELESS)):
@@ -367,8 +385,8 @@ def pc_ranged_unsupported(state: PcMeleeState) -> PcMeleeUnsupported | PcRangedC
     if source.policy is PcMeleePolicy.AUTOMATIC_COMBAT:
         from towr.domain.pc_tactical_models import select_pc_tactic
         choice=select_pc_tactic(state,actor)
-        primary_id=source.combat_equipment[0].id if source.combat_equipment is not None else None
-        if ((choice.weapon_item_id is not None and choice.weapon_item_id!=primary_id)
+        primary_id=member.weapon_inventory.active_item_id
+        if (choice.mount_attack or (choice.weapon_item_id is not None and choice.weapon_item_id!=primary_id)
                 or choice.potion is not None or choice.pickup_item_id is not None
                 or (choice.action is not CombatActionKind.ATTACK and not choice.ranged_reload)):
             return None
@@ -377,7 +395,6 @@ def pc_ranged_unsupported(state: PcMeleeState) -> PcMeleeUnsupported | PcRangedC
     if pc_backup_candidate_hand(state,actor) is not None:
         return None
     hands = usable_hands(member)
-    primary = state.source.participant(actor).pc.weapon
     required_hands = 2 if primary in PC_TWO_HANDED_RANGED_WEAPONS else 1
     if (not pc_weapon_allows_close_shooting(primary) and len(hands) >= required_hands
             and pc_has_close_enemy(state,actor)):
@@ -388,7 +405,7 @@ def pc_ranged_unsupported(state: PcMeleeState) -> PcMeleeUnsupported | PcRangedC
         from towr.domain.pc_melee_result_models import pc_melee_action_id
         return PcRangedCloseUnsupported(actor,pc_melee_action_id(state,actor)+':ranged:close',close,
             state.round_state.round_number)
-    if not hands or state.source.participant(actor).pc.weapon in PC_TWO_HANDED_RANGED_WEAPONS and len(hands) < 2:
+    if not hands or primary in PC_TWO_HANDED_RANGED_WEAPONS and len(hands) < 2:
         reason = 'ranged_grip_unavailable'
     elif (type(weapon) is ReloadableWeaponState and not weapon.loaded and len(hands) == 1
             and usable_weapon_hand(member) is not None and not _pc_recover_needed(member)):

@@ -8,6 +8,7 @@ from tests.support.pc_melee_scripted import ScriptedD10, first_wound_script
 from tests.unit.test_m12_pc_heavy_wounds import heavy_prefix
 from towr.domain.attack_models import ImpactOutcome, ResilienceProfile
 from towr.domain.condition_models import Condition
+from towr.domain.pc_briarroot_weapon_models import PcBriarrootWeaponDropProof
 from towr.domain.pc_heavy_wound_models import PcBodyFactKind, usable_weapon_hand
 from towr.domain.pc_melee_models import (PcMeleeWeapon, PcWeaponHand, PcTwoHandedGrip,
     PcFatePolicy, PcNearMissPolicy, PcGloriousPolicy, PcMeleePolicy, PcHelpPolicy, PcHelpTarget)
@@ -15,6 +16,7 @@ from towr.domain.pc_melee_result_models import (PcAttackProof, PcHandDropProof, 
     PcBodyConsequenceProof, PcMeleeOutcome,
     PcMeleeUnsupported, PcTurnEndProof, PcHelpProof, initial_pc_melee_state)
 from towr.domain.test_models import DiceModifier, Skill
+from towr.domain.weapon_inventory_models import WeaponGrip,WeaponItemLocation
 from towr.engine.pc_melee_runner import run_pc_melee_scenario, apply_pc_melee_step
 
 
@@ -190,14 +192,25 @@ class PcTwoHandedNativeTests(unittest.TestCase):
                     self.assertTrue(member.injury.wounds[-1].effect_resolved)
                     self.assertIn(kind,tuple(fact.kind for fact in member.body_facts))
                     self.assertIsNone(usable_weapon_hand(member))
-                    if total in (16,20):
+                    if total==16:
                         self.assertIs(member.weapon_hand,PcTwoHandedGrip.BOTH)
                     else:
                         self.assertIsNone(member.weapon_hand)
+                        self.assertIs(member.weapon_inventory.active.location,WeaponItemLocation.DROPPED)
                     self.assertEqual(result.state.pending,())
                     self.assertIsNone(result.state.pending_wound)
                     self.assertEqual(result.executed_actions,4)
-                    self.assertIsInstance(result.steps[-1].proof,PcBodyConsequenceProof)
+                    if total==16:
+                        self.assertIsInstance(result.steps[-1].proof,PcBodyConsequenceProof)
+                    else:
+                        loss=result.steps[-1].proof
+                        self.assertIsInstance(loss,PcBriarrootWeaponDropProof)
+                        self.assertIsInstance(loss.loss_witness,PcBodyConsequenceProof)
+                        self.assertIs(loss.loss_witness,result.steps[-2].proof)
+                        self.assertEqual(loss.loss_witness_history_index,len(result.steps)-2)
+                        self.assertEqual(loss.weapon_id,member.weapon_inventory.active.id)
+                        self.assertEqual(loss.binding_ids,())
+                        self.assertIsNotNone(loss.item.ground)
                     self.assertEqual(result.state.round_state.active_turn.actor_id,'minion3')
                     self.assertEqual(result.state.round_state.round_number,1)
                     self.assertFalse(any(isinstance(step.proof,PcAttackProof)
@@ -210,6 +223,10 @@ class PcTwoHandedNativeTests(unittest.TestCase):
         for step in result.steps:
             current = apply_pc_melee_step(current,step)
         self.assertEqual(current,result.state)
+        consequence=next(step for step in reversed(result.steps) if isinstance(step.proof,PcBodyConsequenceProof))
+        with self.assertRaises(ValueError):
+            replace(result,steps=tuple(step for step in result.steps if step is not consequence))
+        self.assertIsInstance(result.steps[-1].proof,PcBriarrootWeaponDropProof)
         with self.assertRaises(ValueError):
             replace(result,steps=result.steps[:-1])
         with self.assertRaises(ValueError):
@@ -240,10 +257,13 @@ class PcTwoHandedNativeTests(unittest.TestCase):
         result = execute(two_handed_source(rounds=2),first_wound_script(8)+[10,10]+[1]*3)
         recover = next(step for step in result.steps if isinstance(step.proof,PcRecoverProof))
         with self.assertRaises(ValueError):
-            replace(recover.state,party=(replace(recover.state.party[0],weapon_hand=PcWeaponHand.LEFT),))
+            member=recover.state.party[0]
+            inventory=replace(member.weapon_inventory,items=tuple(replace(item,grip=WeaponGrip.LEFT)
+                if item.id==member.weapon_inventory.active_item_id else item for item in member.weapon_inventory.items))
+            replace(recover.state,party=(replace(member,weapon_inventory=inventory),))
         forged = deepcopy(result)
         forged_recover = next(step for step in forged.steps if isinstance(step.proof,PcRecoverProof))
-        object.__setattr__(forged_recover.state.party[0],'weapon_hand',PcWeaponHand.RIGHT)
+        object.__setattr__(forged_recover.state.party[0].weapon_inventory.active,'grip',WeaponGrip.RIGHT)
         with self.assertRaises(ValueError):
             replace(forged)
         with self.assertRaises(ValueError):

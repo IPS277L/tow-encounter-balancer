@@ -4,6 +4,7 @@ from functools import lru_cache
 from towr.adapters._json_common import read_request
 from towr.adapters.dynamic_encounter_json import DynamicEncounterInputError, _validator,pc_combat_talent_facts
 from towr.adapters.ranged_json_errors import RangedInputErrorCode as Code
+from towr.adapters._pc_melee_scenario_json import parse_generated_components
 
 
 @lru_cache(maxsize=2)
@@ -36,4 +37,11 @@ def parse_character_file(text: str | bytes, kind: str) -> dict:
             raise DynamicEncounterInputError(Code.INVALID_INPUT,
                 'Таланты не должны повторяться.', path='/talents')
         pc_combat_talent_facts(document)
+    else:
+        try:
+            parse_generated_components(document, path_prefix='/', error_type=DynamicEncounterInputError)
+        except DynamicEncounterInputError:
+            raise
+        except (ValueError, TypeError) as error:
+            raise DynamicEncounterInputError(Code.INVALID_INPUT, str(error), path='/') from error
     return document

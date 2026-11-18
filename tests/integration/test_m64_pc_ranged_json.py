@@ -1,4 +1,6 @@
 """One weapon-specific ranged source crosses current JSON, trials and search."""
+from towr.domain.weapon_catalog import WeaponKind
+from tests.support.generated_weapon_sources import initial_generated_weapons
 from copy import deepcopy
 from dataclasses import replace
 from enum import Enum
@@ -25,6 +27,8 @@ from towr.domain.pc_melee_models import (
 from towr.domain.pc_npc_catalog import PcBookNpcProfile, create_pc_book_npc
 from towr.domain.pc_npc_ranged_source_models import PcNpcRangedPolicy, PcNpcRangedReloadHandPolicy
 from towr.domain.pc_npc_close_shooting_models import PcNpcCloseShootingProtectionPolicy
+from towr.domain.pc_weapon_inventory import initial_pc_weapon_inventory
+from towr.domain.weapon_inventory_models import WEAPON_COUNT_BURDEN_RULE_ID,carrying_burden_rule_ids
 from towr.domain.test_models import Skill
 from towr.simulation.pc_melee_models import PcMeleeSimulationRequest
 from towr.simulation.pc_melee_simulation import run_pc_melee_trial
@@ -38,10 +42,13 @@ def source(*, weapon=PcMeleeWeapon.REPEATER_HANDBOW,
         hand=PcWeaponHand.RIGHT, enemies=1):
     scene = make_pc_ranged_scenario(weapon=weapon, repeater_bonus_policy=mode,
         enemy_count=enemies, max_rounds=4)
+    from tests.support.pc_weapon_sources import initial_weapon_items
+    backup_policy=PcBackupWeaponPolicy(PcMeleeWeapon.SWORD,hand) if backup else None
     member = replace(scene.party[0], initial_weapon_hand=hand,
         shield=shield_loadout(PcWeaponHand.LEFT if hand is PcWeaponHand.RIGHT else PcWeaponHand.RIGHT)
             if shield else None,
-        backup_weapon_policy=PcBackupWeaponPolicy(PcMeleeWeapon.SWORD, hand) if backup else None,
+        backup_weapon_policy=backup_policy,combat_equipment=initial_weapon_items(
+            weapon,hand,backup_policy,initially_loaded=True),
         close_shooting_protection_skill=Skill.MELEE)
     return replace(scene, party=(member,))
 
@@ -90,22 +97,23 @@ class PcRangedJsonTests(unittest.TestCase):
             PcRangedProfile(3,4,3,4)
         for changes in ({'repeater_bonus_policy':'never'}, {'repeater_bonus_policy':Alias.NEVER},
                 {'reload_hand_policy':'two_available_hands'}, {'shooting':True},
-                {'ammunition_supply_confirmed':False}, {'initially_loaded':False}):
+                {'ammunition_supply_confirmed':False}):
             with self.subTest(changes=changes), self.assertRaises((TypeError, ValueError)):
                 replace(profile, **changes)
-        pc = source().party[0].pc
+        member = source().party[0]
+        pc = member.pc
         for weapon, changed in ((PcMeleeWeapon.REPEATER_HANDBOW, replace(profile, has_blackpowder_lore=True)),
                 (PcMeleeWeapon.REPEATER_HANDBOW, replace(profile, has_blackpowder_kit=True)),
                 (PcMeleeWeapon.REPEATER_HANDBOW, replace(profile, repeater_bonus_policy=None)),
                 (PcMeleeWeapon.REPEATER_PISTOL, profile), (PcMeleeWeapon.PISTOL, profile),
                 (PcMeleeWeapon.SWORD, profile)):
             with self.subTest(weapon=weapon, changed=changed), self.assertRaises((TypeError, ValueError)):
-                replace(pc, weapon=weapon, ranged=changed)
+                replace(member,pc=replace(pc,weapon=weapon,ranged=changed))
         pistol = ranged_profile(weapon=PcMeleeWeapon.PISTOL, repeater_bonus_policy=None)
         with self.assertRaises(ValueError):
-            replace(pc, weapon=PcMeleeWeapon.PISTOL,
-                ranged=replace(pistol, repeater_bonus_policy=PcRepeaterBonusPolicy.NEVER))
-        self.assertIs(PcRangedProfile(3,4,3,4,True,True,True,True,
+            replace(member,pc=replace(pc,weapon=PcMeleeWeapon.PISTOL,
+                ranged=replace(pistol,repeater_bonus_policy=PcRepeaterBonusPolicy.NEVER)))
+        self.assertIs(PcRangedProfile(3,4,3,4,True,True,True,
             PcRangedReloadHandPolicy.TWO_AVAILABLE_HANDS).reload_hand_policy,
             PcRangedReloadHandPolicy.TWO_AVAILABLE_HANDS)
 
@@ -156,8 +164,11 @@ class PcRangedJsonTests(unittest.TestCase):
     def test_roles_carry_backup_and_opposite_hand_guards_apply_to_both_repeaters(self):
         for weapon in (PcMeleeWeapon.REPEATER_HANDBOW, PcMeleeWeapon.REPEATER_PISTOL):
             member = source(weapon=weapon, shield=True, backup=True).party[0]
-            for changes in ({'pc':replace(member.pc, strength=1)},
-                    {'initial_weapon_hand':member.shield.initial_hand},
+            over=replace(member,pc=replace(member.pc,strength=1))
+            inventory=initial_pc_weapon_inventory(over)
+            self.assertEqual(len(inventory.items),2)
+            self.assertEqual(carrying_burden_rule_ids(inventory,1),(WEAPON_COUNT_BURDEN_RULE_ID,))
+            for changes in ({'initial_weapon_hand':member.shield.initial_hand},
                     {'policy':PcMeleePolicy.HELP_ALLY_OR_ATTACK_OR_RECOVER_SELF,
                         'help_policy':PcHelpPolicy('ally', PcHelpTarget.ATTACK, Skill.MELEE)}):
                 with self.subTest(weapon=weapon, changes=changes), self.assertRaises(ValueError):
@@ -182,7 +193,7 @@ class PcRangedJsonTests(unittest.TestCase):
         scene = source()
         enemy = create_pc_book_npc(PcBookNpcProfile.IMPERIAL_OGRE_PISTOL, 'minion1')
         scene = replace(scene, enemies=(enemy,), npc_ranged_policies=(PcNpcRangedPolicy('minion1',
-            True,True,True,True,PcNpcRangedReloadHandPolicy.TWO_AVAILABLE_HANDS),))
+            True,True,True,PcNpcRangedReloadHandPolicy.TWO_AVAILABLE_HANDS,initial_weapon=initial_generated_weapons(WeaponKind.OGRE_PISTOL,gm_fit_confirmed=True)[0]),))
         raw = document()
         raw['scenario'] = scenario_document(scene)
         command = wire.parse_pc_melee_simulation_request(json.dumps(raw))

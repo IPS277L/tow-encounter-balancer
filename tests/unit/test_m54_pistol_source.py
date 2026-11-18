@@ -9,6 +9,7 @@ from unittest.mock import patch
 from tests.support.pc_melee_fixtures import make_pc_melee_scenario
 from tests.support.pc_pistol_scenarios import make_pc_pistol_scenario, pistol_profile
 from tests.support.pc_shield_scenarios import shield_loadout
+from tests.support.pc_weapon_sources import initial_weapon_items
 from towr.domain.pc_melee_models import (
     PcAllyRecoverPolicy, PcBackupWeaponPolicy, PcFatePolicy, PcGloriousPolicy,
     PcHelpPolicy, PcHelpTarget, PcMeleeDefinition, PcMeleePolicy, PcMeleeWeapon,
@@ -19,6 +20,8 @@ from towr.domain.pc_npc_catalog import PcBookNpcProfile, create_pc_book_npc
 from towr.domain.test_models import Skill, TestProfile
 from towr.simulation.pc_melee_models import PcMeleeSimulationRequest
 from towr.simulation.pc_melee_simulation import run_pc_melee_trial
+from towr.domain.pc_weapon_inventory import initial_pc_weapon_inventory
+from towr.domain.weapon_inventory_models import WEAPON_COUNT_BURDEN_RULE_ID,carrying_burden_rule_ids
 
 
 class PistolSourceTests(unittest.TestCase):
@@ -41,7 +44,7 @@ class PistolSourceTests(unittest.TestCase):
         with self.assertRaises(TypeError):
             replace(ordinary, weapon=PcMeleeWeapon.PISTOL)
         with self.assertRaises(ValueError):
-            replace(ordinary, ranged=pistol_profile())
+            replace(make_pc_melee_scenario().party[0],pc=replace(ordinary,ranged=pistol_profile()))
         source = make_pc_pistol_scenario(ballistic_skill=2, initiative=5)
         self.assertEqual(source.party[0].pc.weapon_skill, 3)
         self.assertEqual(source.party[0].pc.agility, 3)
@@ -62,7 +65,7 @@ class PistolSourceTests(unittest.TestCase):
             with self.subTest(name=name), self.assertRaises(ValueError):
                 replace(profile, **{name: 11})
         for name in ('has_blackpowder_lore', 'has_blackpowder_kit',
-                'ammunition_supply_confirmed', 'initially_loaded'):
+                'ammunition_supply_confirmed'):
             for invalid in (False, 1, 'true', None):
                 with self.subTest(name=name, invalid=invalid), self.assertRaises((TypeError, ValueError)):
                     replace(make_pc_pistol_scenario().party[0].pc, ranged=replace(profile, **{name: invalid}))
@@ -70,12 +73,15 @@ class PistolSourceTests(unittest.TestCase):
             with self.subTest(invalid=invalid), self.assertRaises(TypeError):
                 replace(profile, reload_hand_policy=invalid)
         self.assertIs(profile.reload_hand_policy, PcRangedReloadHandPolicy.TWO_AVAILABLE_HANDS)
+        item=make_pc_pistol_scenario().party[0].combat_equipment[0]
+        for invalid in (None,1,'true',[]):
+            with self.subTest(item_loaded=invalid),self.assertRaises((TypeError,ValueError)):
+                replace(item,initially_loaded=invalid)
+        self.assertFalse(replace(item,initially_loaded=False).initially_loaded)
 
     def test_same_hand_shield_overcarry_backup_help_and_two_handed_grip_are_prohibited(self):
         member = make_pc_pistol_scenario().party[0]
         changes = ({'shield': shield_loadout(PcWeaponHand.LEFT)},
-            {'pc': replace(member.pc,strength=1),
-                'backup_weapon_policy': PcBackupWeaponPolicy(PcMeleeWeapon.SWORD, PcWeaponHand.RIGHT)},
             {'initial_weapon_hand': PcTwoHandedGrip.BOTH},
             {'policy': PcMeleePolicy.HELP_ALLY_OR_ATTACK_OR_RECOVER_SELF,
                 'help_policy': PcHelpPolicy('ally', PcHelpTarget.ATTACK, Skill.MELEE)},
@@ -86,12 +92,18 @@ class PistolSourceTests(unittest.TestCase):
                 replace(member, **change)
         with self.assertRaises(ValueError):
             PcBackupWeaponPolicy(PcMeleeWeapon.PISTOL, PcWeaponHand.RIGHT)
+        backup=PcBackupWeaponPolicy(PcMeleeWeapon.SWORD,PcWeaponHand.RIGHT)
+        weak=replace(member,pc=replace(member.pc,strength=1),backup_weapon_policy=backup,
+            combat_equipment=initial_weapon_items(PcMeleeWeapon.PISTOL,member.initial_weapon_hand,
+                backup,initially_loaded=True))
+        self.assertEqual(carrying_burden_rule_ids(initial_pc_weapon_inventory(weak),1),
+            (WEAPON_COUNT_BURDEN_RULE_ID,))
 
     def test_full_party_can_mix_pistol_and_melee_shield_with_glorious_skills(self):
         source = make_pc_pistol_scenario(pc_count=2)
         first, second = source.party
         second = replace(second, pc=replace(second.pc, weapon=PcMeleeWeapon.SWORD, ranged=None),
-            shield=shield_loadout(PcWeaponHand.RIGHT))
+            combat_equipment=None,shield=shield_loadout(PcWeaponHand.RIGHT))
         first = replace(first, fate_policy=PcFatePolicy.CONFIGURED,
             glorious_policy=PcGloriousPolicy((Skill.SHOOTING, Skill.DEXTERITY), 1, 0))
         validate_pc_melee_scenario_admission(replace(source, party=(first, second)))
@@ -113,7 +125,7 @@ class PistolSourceTests(unittest.TestCase):
     def test_nested_forgery_rejected_before_rng_factory(self):
         request = PcMeleeSimulationRequest(make_pc_pistol_scenario(), 42, 1)
         changes = (('ballistic_skill', True), ('shooting', 11), ('initiative', 0),
-            ('has_blackpowder_kit', False), ('initially_loaded', False),
+            ('has_blackpowder_kit', False),
             ('reload_hand_policy', 'two_available_hands'))
         for name, value in changes:
             forged = deepcopy(request)
@@ -122,6 +134,11 @@ class PistolSourceTests(unittest.TestCase):
                 with self.subTest(name=name), self.assertRaises((TypeError, ValueError)):
                     run_pc_melee_trial(forged, 0, rng_factory=rng)
                 rng.assert_not_called()
+        forged=deepcopy(request)
+        object.__setattr__(forged.scenario.party[0].combat_equipment[0],'initially_loaded',1)
+        with patch('towr.simulation.pc_melee_simulation.Random') as rng:
+            with self.assertRaises(TypeError):run_pc_melee_trial(forged,0,rng_factory=rng)
+            rng.assert_not_called()
 
     def test_unshielded_defence_forgery_rejected_before_rng(self):
         source = make_pc_pistol_scenario(enemy_count=2)

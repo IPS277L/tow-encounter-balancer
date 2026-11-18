@@ -22,6 +22,8 @@ from towr.domain.pc_melee_models import (
     PC_BOW_WEAPONS, PC_FREE_RELOAD_WEAPONS, PC_RANGED_WEAPONS, PC_TWO_HANDED_RANGED_WEAPONS,
     PcMeleeWeapon, PcRangedReloadHandPolicy, PcRepeaterBonusPolicy, PcTwoHandedGrip, PcWeaponHand,
 )
+from towr.domain.pc_weapon_inventory import initial_pc_weapon_inventory
+from towr.domain.weapon_inventory_models import WEAPON_COUNT_BURDEN_RULE_ID,carrying_burden_rule_ids
 from towr.simulation.pc_melee_models import PcMeleeSimulationRequest
 from towr.simulation.pc_melee_simulation import run_pc_melee_trial
 
@@ -104,8 +106,10 @@ class PcSlingJsonTests(unittest.TestCase):
             replace(member, initial_weapon_hand=PcTwoHandedGrip.BOTH)
         with self.assertRaises(ValueError):
             replace(member, shield=replace(member.shield, initial_hand=member.initial_weapon_hand))
-        with self.assertRaises(ValueError):
-            replace(member, pc=replace(member.pc, strength=1))
+        over = replace(member,pc=replace(member.pc,strength=1))
+        inventory=initial_pc_weapon_inventory(over)
+        self.assertEqual(len(inventory.items),2)
+        self.assertEqual(carrying_burden_rule_ids(inventory,1),(WEAPON_COUNT_BURDEN_RULE_ID,))
         one = make_pc_sling_scenario(strength=1, backup=False, shield=True)
         self.assertEqual(one.party[0].pc.strength, 1)
         self.assertIsNone(one.party[0].backup_weapon_policy)
@@ -115,17 +119,16 @@ class PcSlingJsonTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             replace(source, short_range_opening=None,
                 facts=replace(source.facts, all_opponents_close=True))
-        for changes in ({'initiative':3,'dexterity':4,'initially_loaded':True,
-                    'reload_hand_policy':PcRangedReloadHandPolicy.TWO_AVAILABLE_HANDS}, {'initially_loaded':True},
+        for changes in ({'initiative':3,'dexterity':4,
+                    'reload_hand_policy':PcRangedReloadHandPolicy.TWO_AVAILABLE_HANDS},
                 {'reload_hand_policy':PcRangedReloadHandPolicy.TWO_AVAILABLE_HANDS},
                 {'repeater_bonus_policy':PcRepeaterBonusPolicy.NEVER},
                 {'has_blackpowder_lore':True}, {'has_blackpowder_kit':True}):
             with self.subTest(changes=changes), self.assertRaises(ValueError):
-                replace(member.pc, ranged=replace(member.pc.ranged, **changes))
+                replace(member,pc=replace(member.pc, ranged=replace(member.pc.ranged, **changes)))
         base = request_document(shield=True)
         changes = [lambda raw:raw['scenario']['party'][0].update(initial_weapon_hand='both'),
             lambda raw:raw['scenario']['party'][0]['shield'].update(initial_hand='right'),
-            lambda raw:raw['scenario']['party'][0]['pc'].update(strength=1),
             lambda raw:raw['scenario'].pop('short_range_opening')]
         for index, change in enumerate(changes):
             raw = deepcopy(base)

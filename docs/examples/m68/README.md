@@ -19,7 +19,7 @@
 }
 ```
 
-I/Dexterity/Lore/kit/initially_loaded/reload_hand_policy/repeater_bonus_policy не передаются. Sling1H, initial grip left/right; shield optional на другой руке. Для carried backup требуется Strength≥2, без него допустим Strength1.
+В показанном Sling-наборе I/Dexterity/Lore/kit/initially_loaded/reload_hand_policy/repeater_bonus_policy не передаются. Sling1H, initial grip left/right; shield optional на другой руке. Strength1 допускается и с carried backup: превышение переноски накладывает Обременён (Burdened), а не запрещает source.
 
 NPC подходят на своём ходу. При любом Close enemy Sling стрелять не может, даже по другой Short-цели; на своём ходу PC достаёт declared Sword. Если выбранная пригодная рука backup занята щитом, weapon-first release записывается до draw. Затем dropped shield возвращается отдельным standard Recover только в свободную здоровую руку. Actual wound/drop/clutch/mandatory/CI/Defenceless priorities прежние. У Sling нет Exacting Reload action/cycle или поля loaded; free state и instance сохраняются отдельно от active melee. После draw Sword использует Melee, range penalty Sling не переносится.
 

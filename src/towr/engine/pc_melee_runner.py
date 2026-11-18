@@ -9,6 +9,21 @@ from towr.domain.pc_potion_models import selected_pc_potion, build_pc_potion_rec
 
 from towr.domain.pc_melee_models import PcWeaponHand
 from towr.domain.pc_mount_models import expected_pc_dismount
+from towr.domain.pc_demigryph_models import (PcDemigryphStrikeProof,
+    expected_pc_demigryph_intent,build_pc_demigryph_strike,latest_pc_kernel_attack)
+from towr.domain.pc_falling_models import (PcFallingProof,expected_pc_falling_request,
+    falling_hazard_request,falling_acknowledgement_source,build_pc_falling_acknowledgement,
+    falling_npc_disposition)
+from towr.domain.pc_briarroot_models import expected_briarroot_update
+from towr.domain.pc_briarroot_models import build_briarroot_release,PcBriarrootReleaseProof
+from towr.domain.pc_melee_result_models import (pc_melee_briarroot_recovery,
+    pc_melee_briarroot_weapon_drop,pc_melee_briarroot_weapon_recovery)
+from towr.domain.pc_briarroot_weapon_models import (expected_briarroot_weapon_loss,
+    expected_briarroot_weapon_approach,can_pickup_briarroot_weapon,
+    build_briarroot_weapon_pickup,complete_briarroot_weapon_pickup,complete_briarroot_pc_pickup)
+from towr.domain.pc_npc_shield_models import (
+    expected_npc_shield_drop,build_npc_shield_pickup,complete_npc_shield_pickup,
+)
 from towr.domain.pc_weighted_net_models import (PcNetReleaseProof,PcNetPickupProof,PcNetRecoverKind,
     complete_weighted_net_throw,complete_weighted_net_equipment_proof,
     expected_weighted_net_incidental_pickup,expected_weighted_net_approach,
@@ -17,7 +32,8 @@ from towr.domain.pc_weighted_net_models import (PcNetReleaseProof,PcNetPickupPro
 from towr.domain.recover_models import _expected_recover_execution
 from towr.rules.recover_resolution import _complete_condition_removal_after_test
 from towr.domain.pc_net_models import expected_pc_npc_net_draw
-from towr.domain.pc_shield_models import expected_pc_shield_release
+from towr.domain.pc_shield_models import (expected_pc_shield_release, expected_pc_shield_drop,
+    expected_pc_shield_approach, complete_pc_shield_pickup)
 from towr.domain.pc_weapon_inventory import expected_pc_weapon_swap
 from towr.domain.pc_ranged_models import PcRangedReloadProof,build_pc_ranged_reload,complete_pc_ranged_shot
 from towr.domain.pc_aim_models import (PcAimProof,PcAimSecondActionProof,build_pc_aim,
@@ -86,7 +102,7 @@ from towr.rules.dice import RandomSource
 from towr.rules.kernel import _resolve_kernel_attack_after_test
 from towr.rules.protection_preparation import prepare_protection
 from towr.rules.recover_resolution import execute_recover_action
-from towr.rules.test_resolution import KeepAllFailures, RerollAllFailures, resolve_test, roll_test_initial, complete_test
+from towr.rules.test_resolution import RerollAllFailures, resolve_test, roll_test_initial, complete_test
 from towr.rules.fate_resolution import spend_fate_for_glorious
 from towr.rules.turn_resolution import start_combat_turn, reserve_combat_action_slot, end_combat_turn, advance_combat_round
 from towr.rules.wound_effect_resolution import resolve_wound_endurance_test, resolve_wound_choice
@@ -105,10 +121,11 @@ from towr.domain.pc_warped_form_models import (
     expected_pc_warped_form_activation, next_warped_form_target, WarpedFormDecisions,
 )
 from towr.rules.stagger_impact_resolution import resolve_stagger_impact
+from towr.rules.hazard_resolution import resolve_hazard
 from towr.rules.injury_resolution import resolve_profile_wound
 
 
-class _Decisions(KeepAllFailures):
+class _Decisions(RerollAllFailures):
     def choose_repeated_stagger(self, *, request, allowed_choices):
         if StaggerChoice.SUFFER_WOUND not in allowed_choices:
             raise ValueError('selected Wound strategy is unavailable')
@@ -137,6 +154,33 @@ def _resolve_pc_test(state, actor_id, skill, request, rng, decisions):
         return complete_test(initial,rng,decisions=decisions),_decline(state,actor_id,request.id,'test'),None,request
     spend = spend_fate_for_glorious(selected)
     return complete_test(initial,rng,request=spend.test,decisions=RerollAllFailures()),None,spend,spend.test
+
+
+def _execute_demigryph_strike(state, request, protection_request, rng, decisions):
+    """Resolve the mount's K1 strike without executing its parent's action again."""
+    protection=prepare_protection(protection_request)
+    actor=request.actor_id
+    pc_actor=actor if actor in state.source.pc_activation_order else request.target_id
+    attack_request=request.kernel_request.attack
+    decline=glorious=None
+    if actor==pc_actor:
+        attacker,decline,glorious,effective=_resolve_pc_test(state,pc_actor,Skill.MELEE,
+            attack_request.attacker_test,rng,decisions)
+        defender=(None if attack_request.defender_test is None else
+            resolve_test(attack_request.defender_test,rng,decisions=decisions))
+        attack_request=replace(attack_request,attacker_test=effective)
+    else:
+        attacker=resolve_test(attack_request.attacker_test,rng,decisions=decisions)
+        if attack_request.defender_test is None:
+            defender=None
+        else:
+            defender,decline,glorious,effective=_resolve_pc_test(state,pc_actor,
+                protection_request.selected_skill,attack_request.defender_test,rng,decisions)
+            attack_request=replace(attack_request,defender_test=effective)
+    attack=_resolve_attack_after_tests(attack_request,attacker,defender)
+    kernel=replace(request.kernel_request,attack=attack_request)
+    resolution=_resolve_kernel_attack_after_test(kernel,attack,rng,decisions=decisions)
+    return PcDemigryphStrikeProof(request,protection,resolution,decline,glorious)
 
 
 def apply_pc_melee_step(current: PcMeleeState, step: PcMeleeStep) -> PcMeleeState:
@@ -202,15 +246,52 @@ def run_pc_melee_scenario(scenario, rng: RandomSource) -> PcMeleeScenarioResult:
             consume(PcTurnEndProof(result,decline,critical))
 
     while True:
+        shield_drop = expected_pc_shield_drop(state)
+        if shield_drop is not None:
+            consume(shield_drop)
+            continue
         consumption = expected_pc_aim_consumption(state)
         if consumption is None:
             consumption = expected_npc_aim_consumption(state)
         if consumption is not None:
             consume(consumption)
             continue
+        lost_weapon=expected_briarroot_weapon_loss(state)
+        if lost_weapon is not None:
+            consume(lost_weapon)
+            continue
         dismount=expected_pc_dismount(state)
         if dismount is not None:
             consume(dismount)
+            continue
+        if falling_acknowledgement_source(state) is not None:
+            consume(build_pc_falling_acknowledgement(state))
+            continue
+        falling=expected_pc_falling_request(state)
+        if falling is not None:
+            test=decline=glorious=result=disposition=None
+            if falling.avoidance_test is not None:
+                if falling.actor_id in scenario.pc_activation_order:
+                    test,decline,glorious,_=_resolve_pc_test(state,falling.actor_id,Skill.ATHLETICS,
+                        falling.avoidance_test,rng,decisions)
+                else:
+                    test=resolve_test(falling.avoidance_test,rng,decisions=decisions)
+                result=resolve_hazard(falling_hazard_request(falling,test),rng,decisions=decisions)
+                if falling.actor_id in scenario.enemy_activation_order and result.profile_wound is not None:
+                    disposition=falling_npc_disposition(scenario,falling.actor_id)
+            consume(PcFallingProof(falling,test,result,decline,glorious,disposition))
+            continue
+        briarroot=expected_briarroot_update(state)
+        if briarroot is not None:
+            consume(briarroot)
+            continue
+        npc_shield_drop=expected_npc_shield_drop(state)
+        if npc_shield_drop is not None:
+            consume(npc_shield_drop)
+            continue
+        weapon_drop=pc_melee_briarroot_weapon_drop(state)
+        if weapon_drop is not None:
+            consume(weapon_drop)
             continue
         magic_stop = pc_magic_unsupported(state)
         if magic_stop is not None:
@@ -325,7 +406,7 @@ def run_pc_melee_scenario(scenario, rng: RandomSource) -> PcMeleeScenarioResult:
             elif type(pending) is MinionStaggerDefeatCause:
                 consume(PcMinionStaggerDefeatProof(pending))
             elif isinstance(pending,ProfileStateChangeRequest):
-                attack = next(p for p in reversed(state.history) if isinstance(p,PcAttackProof))
+                attack = latest_pc_kernel_attack(state)
                 decision = (scenario.participant(attack.request.actor_id).defeat_decision(attack.request.target_id)
                     if pending.defeated else None)
                 consume(PcProfileWoundProof(pending,decision))
@@ -404,6 +485,11 @@ def run_pc_melee_scenario(scenario, rng: RandomSource) -> PcMeleeScenarioResult:
         actor = combat.active_turn.actor_id
         action_id = pc_melee_action_id(state,actor)
         if not combat.active_turn.action_slots:
+            from towr.domain.pc_npc_weapon_inventory import expected_npc_weapon_equip
+            npc_equip=expected_npc_weapon_equip(state)
+            if npc_equip is not None:
+                consume(npc_equip)
+                continue
             exit_request = build_pc_npc_exit(state,actor)
             if exit_request is not None:
                 consume(PcNpcExitProof(exit_request,resolve_free_movement(exit_request)))
@@ -446,7 +532,21 @@ def run_pc_melee_scenario(scenario, rng: RandomSource) -> PcMeleeScenarioResult:
                 if approach is not None:
                     consume(approach)
                     continue
-            movement = expected_pc_battlefield_move(state) if recovery is None else None
+            weapon_recovery=pc_melee_briarroot_weapon_recovery(state)
+            if weapon_recovery is not None:
+                approach=expected_briarroot_weapon_approach(state,actor,weapon_recovery.weapon_id)
+                if approach is not None:
+                    consume(approach)
+                    continue
+            shield_approach = expected_pc_shield_approach(state) if recovery is None and weapon_recovery is None else None
+            if shield_approach is not None:
+                consume(shield_approach)
+                continue
+            movement = (expected_pc_battlefield_move(state) if recovery is None
+                and weapon_recovery is None
+                and shield_approach is None
+                and pc_melee_briarroot_recovery(state) is None
+                and build_npc_shield_pickup(state) is None else None)
             if movement is not None:
                 consume(movement)
                 continue
@@ -454,6 +554,10 @@ def run_pc_melee_scenario(scenario, rng: RandomSource) -> PcMeleeScenarioResult:
                 pc_melee_action_declaration(state),ActionSlotGrant.STANDARD)))
             continue
         if not combat.active_turn.action_slots[-1].executed:
+            demigryph_intent=expected_pc_demigryph_intent(state)
+            if demigryph_intent is not None:
+                consume(demigryph_intent)
+                continue
             wild=expected_wild_attack(state)
             if wild is not None:
                 consume(wild)
@@ -524,7 +628,36 @@ def run_pc_melee_scenario(scenario, rng: RandomSource) -> PcMeleeScenarioResult:
                     consume(PcRangedReloadProof(request,result,decline,glorious))
             elif pc_melee_selected_action(state) is CombatActionKind.RECOVER:
                 recovery=pc_melee_net_recovery(state)
-                if recovery is not None and not recovery.requires_approach:
+                weapon_recovery=pc_melee_briarroot_weapon_recovery(state)
+                briarroot=pc_melee_briarroot_recovery(state)
+                if briarroot is not None:
+                    request=build_briarroot_release(state,briarroot.id)
+                    decline=glorious=None
+                    effective=request.choice.test
+                    if actor in scenario.pc_activation_order:
+                        test,decline,glorious,effective=_resolve_pc_test(state,actor,Skill.BRAWN,
+                            request.choice.test,rng,decisions)
+                    else:
+                        test=resolve_test(effective,rng,decisions=decisions)
+                    choice=replace(request.choice,test=effective)
+                    result=_expected_recover_execution(replace(request,choice=choice),
+                        _complete_condition_removal_after_test(choice,test))
+                    bindings=tuple(item for item in state.briarroot_bindings if item.id!=briarroot.id)
+                    consume(PcBriarrootReleaseProof(request,result,briarroot.id,
+                        state.briarroot_bindings,bindings if result.resolution.removed else state.briarroot_bindings,
+                        decline,glorious))
+                    continue
+                if (actor in scenario.enemy_activation_order and weapon_recovery is not None
+                        and can_pickup_briarroot_weapon(state,actor,weapon_recovery.weapon_id)):
+                    request=build_briarroot_weapon_pickup(state,actor,weapon_recovery.weapon_id)
+                    actual=execute_recover_action(request,rng)
+                    consume(complete_briarroot_weapon_pickup(state,request,actual,weapon_recovery.weapon_id))
+                    continue
+                shield_pickup=build_npc_shield_pickup(state)
+                if shield_pickup is not None:
+                    consume(complete_npc_shield_pickup(state,shield_pickup,execute_recover_action(shield_pickup,rng)))
+                    continue
+                elif recovery is not None and not recovery.requires_approach:
                     item=weighted_net_item(state,recovery.item_id)
                     if recovery.kind is PcNetRecoverKind.RELEASE:
                         request=build_weighted_net_release(state,recovery.target_id,recovery.item_id)
@@ -565,7 +698,10 @@ def run_pc_melee_scenario(scenario, rng: RandomSource) -> PcMeleeScenarioResult:
                         flagellant_recovered_injury(before)))
                 else:
                     request = build_pc_melee_recover(state)
-                    consume(PcRecoverProof(execute_recover_action(request,rng,decisions=decisions)))
+                    actual=execute_recover_action(request,rng,decisions=decisions)
+                    consume(PcRecoverProof(actual,
+                        briarroot_weapon_pickup=complete_briarroot_pc_pickup(state,actual),
+                        pc_shield_pickup=complete_pc_shield_pickup(state,actual)))
             elif pc_melee_selected_action(state) is CombatActionKind.HELP:
                 if actor in scenario.enemy_activation_order:
                     request = build_pc_npc_help_action(state)
@@ -590,6 +726,9 @@ def run_pc_melee_scenario(scenario, rng: RandomSource) -> PcMeleeScenarioResult:
                     consume(net_draw)
                     continue
                 request, protection_request = build_pc_melee_attack(state)
+                from towr.domain.pc_mount_attack_models import pc_uses_mount_attack,build_pc_mounted_attack_intent
+                mount_attack=(build_pc_mounted_attack_intent(state,actor,request.target_id)
+                    if pc_uses_mount_attack(state,actor) else None)
                 protection = prepare_protection(protection_request)
                 _validate_attack_action_slot(request)
                 pc_actor = actor if actor in scenario.pc_activation_order else request.target_id
@@ -598,7 +737,8 @@ def run_pc_melee_scenario(scenario, rng: RandomSource) -> PcMeleeScenarioResult:
                 decline,glorious = None,None
                 attack_request = request.kernel_request.attack
                 if actor == pc_actor:
-                    attacker,decline,glorious,effective = _resolve_pc_test(state,pc_actor,pc_attack_skill(state,pc_actor),
+                    attacker,decline,glorious,effective = _resolve_pc_test(state,pc_actor,
+                        Skill.MELEE if mount_attack is not None else pc_attack_skill(state,pc_actor),
                         pc_test,rng,decisions)
                     defender = resolve_test(attack_request.defender_test,rng,decisions=decisions)
                     attack_request = replace(attack_request,attacker_test=effective)
@@ -621,17 +761,21 @@ def run_pc_melee_scenario(scenario, rng: RandomSource) -> PcMeleeScenarioResult:
                 execution = _complete_attack_action(replace(request,kernel_request=effective_kernel),resolution)
                 ranged_shot = (complete_pc_ranged_shot(state,request,
                     replace(request,kernel_request=effective_kernel),execution)
-                    if actor==pc_actor and pc_attack_skill(state,actor) is Skill.SHOOTING else None)
+                    if mount_attack is None and actor==pc_actor and pc_attack_skill(state,actor) is Skill.SHOOTING else None)
                 npc_ranged_shot = (complete_pc_npc_ranged_shot(state,request,
                     replace(request,kernel_request=effective_kernel),execution)
-                    if actor!=pc_actor and pc_npc_ranged_weapon(state,actor) is not None else None)
+                    if mount_attack is None and actor!=pc_actor and pc_npc_ranged_weapon(state,actor) is not None else None)
                 proof = PcAttackProof(request,protection,execution,decline,glorious,
-                    pc_attack_help_applications(state,request.kernel_request.attack),
+                    pc_attack_help_applications(state,request.kernel_request.attack,mount_attack=mount_attack is not None),
                     pc_npc_attack_help_applications(state,request.kernel_request.attack),
                     npc_glorious_source=pc_bestigor_glorious_source(state, actor),ranged_shot=ranged_shot,
-                    npc_ranged_shot=npc_ranged_shot)
+                    npc_ranged_shot=npc_ranged_shot,mount_attack=mount_attack)
                 proof=replace(proof,weighted_net_landing=complete_weighted_net_throw(state,request,execution))
                 consume(replace(proof,nearby_snapshot=pc_blunderbuss_snapshot(state,proof)))
+            continue
+        demigryph_strike=build_pc_demigryph_strike(state)
+        if demigryph_strike is not None:
+            consume(_execute_demigryph_strike(state,*demigryph_strike,rng,decisions))
             continue
         net_draw = expected_pc_npc_net_draw(state)
         if net_draw is not None:

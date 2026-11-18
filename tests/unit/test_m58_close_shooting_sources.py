@@ -1,5 +1,6 @@
 """Book-backed M58 profiles retain full sources and true Characteristic caps."""
 from copy import deepcopy
+from tests.support.pc_weapon_sources import initial_weapon_items
 from dataclasses import replace
 from enum import Enum
 import unittest
@@ -40,7 +41,7 @@ def configured_source(skill=Skill.MELEE):
     base = book_source()
     member = base.party[0]
     member = replace(member,pc=replace(member.pc,weapon=PcMeleeWeapon.PISTOL,
-        ranged=pistol_profile()))
+        ranged=pistol_profile()),combat_equipment=initial_weapon_items(PcMeleeWeapon.PISTOL,member.initial_weapon_hand,member.backup_weapon_policy,initially_loaded=True))
     return replace(base,party=(member,),npc_close_shooting_protection_policies=tuple(
         Policy(actor,skill) for actor in base.enemy_activation_order))
 

@@ -33,10 +33,10 @@ class PcMeleeModelTests(unittest.TestCase):
 
     def test_required_source_and_optional_equipment_fields(self):
         for cls in (PcMeleeDefinition, PcMeleeFacts, PcMeleeParticipant, PcMeleeScenario):
-            self.assertTrue(all((field.default is MISSING and field.default_factory is MISSING for field in fields(cls) if field.name not in ("npc_net_policies", "npc_ranged_policies", "shield", "ranged", "npc_close_shooting_protection_policies", "close_shooting_protection_skill", "short_range_opening", "blunderbuss_nearby", "aim_second_action_policy", "consumables", "wizard", "armour_worn", "daylight_confirmed", "combat_talents", "throwing", "brawn", "ballistic_skill", "combat_equipment", "mount", "battlefield"))))
+            self.assertTrue(all((field.default is MISSING and field.default_factory is MISSING for field in fields(cls) if field.name not in ("npc_net_policies", "npc_ranged_policies", "shield", "ranged", "npc_close_shooting_protection_policies", "close_shooting_protection_skill", "short_range_opening", "blunderbuss_nearby", "aim_second_action_policy", "consumables", "wizard", "armour_worn", "daylight_confirmed", "combat_talents", "throwing", "brawn", "ballistic_skill", "combat_equipment", "mount", "battlefield", "armour", "rider_kind", "agilulf_code_confirmed"))))
         self.assertEqual(tuple((field.name for field in fields(PcMeleeScenario))), ('id', 'party', 'day_id', 'enemies', 'facts', 'pc_activation_order', 'enemy_activation_order', 'enemy_target_priority', 'max_rounds','npc_broken_exit_policy','npc_help_policies','npc_extra_attack_actor_ids','npc_grudge_policies','npc_blood_rage_actor_ids','npc_flagellant_policies','npc_warped_form_policies','npc_net_policies','npc_ranged_policies','npc_close_shooting_protection_policies','short_range_opening', 'blunderbuss_nearby','battlefield'))
         for cls,names in ((PcMeleeDefinition,('throwing','brawn','ballistic_skill')),
-                (PcMeleeParticipant,('combat_equipment','mount')),(PcMeleeScenario,('battlefield',))):
+                (PcMeleeParticipant,('combat_equipment','mount','armour','rider_kind','agilulf_code_confirmed')),(PcMeleeScenario,('battlefield',))):
             for name in names:
                 self.assertIsNone(cls.__dataclass_fields__[name].default)
                 self.assertTrue(cls.__dataclass_fields__[name].kw_only)

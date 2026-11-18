@@ -188,7 +188,7 @@ class K1RangedWeaponAttackPreparationTests(unittest.TestCase):
         self.assertEqual(impact.damage.base, 4)
         self.assertEqual(
             impact.damage_modifiers,
-            (DamageModifier(ARMOURED_TARGET_DAMAGE_BONUS_RULE_ID, 1),),
+            (DamageModifier(ARMOURED_TARGET_DAMAGE_BONUS_RULE_ID, 1, armour_specific=True),),
         )
         executed = execute_ranged_weapon_attack(
             result.execution,

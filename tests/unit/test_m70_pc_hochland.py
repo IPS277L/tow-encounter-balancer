@@ -322,7 +322,9 @@ class PcHochlandTests(unittest.TestCase):
         self.assertEqual(tuple(step.proof.request.actor_id for step in steps(result,PcAimProof)),('pc1','pc2'))
         self.assertEqual(tuple(step.proof.result.state.actor_id for step in steps(result,PcAimSecondActionProof)),('pc1','pc2'))
         self.assertEqual(tuple(member.fate.remaining_spends for member in result.state.party),(0,0))
-        self.assertEqual(tuple(member.ranged.weapon_instance_id for member in result.state.party),('pc1:weapon','pc2:weapon'))
+        from towr.domain.weapon_inventory_models import weapon_unit_id
+        self.assertEqual(tuple(member.ranged.weapon_instance_id for member in result.state.party),
+            tuple(weapon_unit_id(actor,'weapon',0) for actor in ('pc1','pc2')))
         self.assertEqual(tuple(member.ranged.required_successes for member in result.state.party),(4,4))
         self.assertEqual(len(steps(result,PcAimConsumptionProof)),2)
         self.assertEqual(result.executed_actions,6)

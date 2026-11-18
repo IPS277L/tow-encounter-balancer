@@ -3,6 +3,8 @@
 Forecast snapshots below inspect decisions only. Native receipt assertions use
 literal d10 runs and replay the complete real source-bound journal.
 """
+from tests.support.generated_weapon_sources import initial_generated_weapons
+from tests.support.armour_fixtures import light_loadout
 from copy import deepcopy
 from dataclasses import replace
 import unittest
@@ -29,8 +31,8 @@ from towr.rules.stone_troll import MAGIC_RESISTANCE_RULE_ID
 
 
 def npc(*,resistant=True,toughness=5,weapon_skill=1,shield=False):
-    return GeneratedNpc(weapon_skill,1,toughness,1,2,2,GeneratedWeapon.STAFF,False,
-        defence=6,shield=shield,
+    return GeneratedNpc(weapon_skill,1,toughness,1,2,2,initial_generated_weapons(GeneratedWeapon.STAFF),light_loadout(light=False, shield=shield),
+        defence=6,
         talents=(GeneratedTalent.MAGIC_RESISTANCE,) if resistant else ())
 
 

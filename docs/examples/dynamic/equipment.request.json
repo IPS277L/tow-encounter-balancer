@@ -102,10 +102,6 @@
       "warhammer",
       "morning_star"
     ],
-    "light_armour": [
-      false,
-      true
-    ],
     "abilities": [
       []
     ],
@@ -115,8 +111,8 @@
       5
     ],
     "shield": [
-      false,
-      true
+      null,
+      "shield"
     ],
     "allowed_talents": [],
     "ballistic_skill": [
@@ -138,6 +134,18 @@
       3,
       4,
       5
+    ],
+    "armour": [
+      null,
+      "light_armour"
+    ],
+    "weapon_count": [
+      1,
+      2,
+      3
+    ],
+    "initial_loaded": [
+      true
     ]
   },
   "npc_count": {

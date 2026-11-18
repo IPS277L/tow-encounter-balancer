@@ -28,6 +28,7 @@ from towr.domain.ranged_weapon_profiles import RangedWeaponId, RangedWeaponRange
 from towr.domain.reload_models import FreeReloadWeaponState
 from towr.domain.test_models import Skill, TestQuality
 from towr.domain.turn_models import CombatRoundAdvanceRequest, CombatTurnStartRequest
+from towr.domain.weapon_inventory_models import weapon_unit_id
 from towr.engine.pc_melee_runner import apply_pc_melee_step, run_pc_melee_scenario
 from towr.rules.attack_action_execution import execute_attack_action
 from towr.rules.turn_resolution import advance_combat_round, start_combat_turn
@@ -262,7 +263,7 @@ class PcSlingTests(unittest.TestCase):
             SLING_MISS+NPC_HIT+[8,10]+NPC_MISS)
         recover, = steps(result,PcRecoverProof)
         self.assertEqual(recover.source.round_state.round_number,2)
-        self.assertEqual(object_id(recover),'pc1:weapon')
+        self.assertEqual(object_id(recover),weapon_unit_id('pc1','weapon',0))
         self.assertIsNone(recover.source.party[0].weapon_hand)
         self.assertIs(recover.state.party[0].weapon_hand,PcWeaponHand.RIGHT)
         self.assertIs(result.outcome,PcMeleeOutcome.UNSUPPORTED_PATH)

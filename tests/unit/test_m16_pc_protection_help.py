@@ -144,7 +144,8 @@ class PcProtectionHelpTests(unittest.TestCase):
         self.assertEqual(incoming.proof.help_applications,())
         # Keep the genuine earlier Athletics receipt, then exercise preparation
         # for an ally who remained unarmed. This is a pure boundary test.
-        state = replace(incoming.source,party=tuple(replace(member,weapon_hand=None)
+        from towr.domain.pc_weapon_inventory import replace_pc_member
+        state = replace(incoming.source,party=tuple(replace_pc_member(member,weapon_hand=None)
             if member.actor_id=='pc2' else member for member in incoming.source.party))
         prepared,protection = build_pc_melee_attack(state)
         self.assertIs(protection.selected_skill,Skill.ATHLETICS)

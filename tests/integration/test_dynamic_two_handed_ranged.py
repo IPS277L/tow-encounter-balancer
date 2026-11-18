@@ -71,17 +71,16 @@ def dynamic_document(weapon):
     member['skills'] = dict(melee=2, defence=2, athletics=6, endurance=6,
         shooting=2, dexterity=6, awareness=4)
     member['equipment'] = dict(weapons=[dict(id='ranged:owned', weapon=weapon,
-        location='both_hands')], armour=[])
+        location='both_hands',**({} if weapon in FREE_BOWS else dict(initially_loaded=True)))], armour=[])
     member['talents'] = []
     member['consumables'] = []
     member['resources'] = dict(fate=0)
-    member['ranged'] = dict(initially_loaded=None if weapon in FREE_BOWS else True,
-        ammunition_supply_confirmed=True,
+    member['ranged'] = dict(ammunition_supply_confirmed=True,
         has_blackpowder_lore=True if weapon in FIREARMS else None,
         has_blackpowder_kit=True if weapon in FIREARMS else None)
-    raw['search_space'] = dict(weapon_skill=[2], strength=[3], toughness=[10], agility=[10],
-        melee=[2], defence=[2], athletics=[6], weapon=[weapon], light_armour=[False],
-        shield=[False], abilities=[[]], allowed_talents=[], ballistic_skill=[2], shooting=[2],
+    raw['search_space'] = dict(weapon_count=[1], initial_loaded=[True],weapon_skill=[2], strength=[3], toughness=[10], agility=[10],
+        melee=[2], defence=[2], athletics=[6], weapon=[weapon], armour=[None],
+        shield=[None], abilities=[[]], allowed_talents=[], ballistic_skill=[2], shooting=[2],
         initiative=[10], dexterity=[6], awareness=[4], mount=[None])
     raw['npc_count'] = dict(minimum=1, maximum=1)
     raw['targets'] = dict(win_rate=dict(numerator=1, denominator=2),
@@ -119,7 +118,8 @@ class DynamicTwoHandedRangedTests(unittest.TestCase):
                 npc = command.request.space.sample(Random(42))
                 scenario = command.request.scenario((npc,), 'battle:' + weapon)
                 pc_ranged = scenario.party[0].pc.ranged
-                self.assertEqual(pc_ranged.initially_loaded, None if weapon in FREE_BOWS else True)
+                self.assertEqual(scenario.party[0].combat_equipment[0].initially_loaded,
+                    None if weapon in FREE_BOWS else True)
                 self.assertTrue(pc_ranged.ammunition_supply_confirmed)
                 self.assertEqual(pc_ranged.has_blackpowder_lore, True if weapon in FIREARMS else None)
                 self.assertEqual(npc.ranged.has_blackpowder_kit, True if weapon in FIREARMS else None)
@@ -233,7 +233,7 @@ class DynamicTwoHandedRangedTests(unittest.TestCase):
         raw['scene']['range'] = 'short'
         raw['party'][0]['equipment']['armour'] = [dict(
             id='armour:owned', kind='light_armour', location='worn')]
-        raw['search_space']['light_armour'] = [True]
+        raw['search_space']['armour'] = ['light_armour']
         raw['max_rounds'] = 1
         raw['targets']['started_rounds'] = dict(numerator=1, denominator=1)
         command = parse_dynamic_encounter_request(json.dumps(raw))

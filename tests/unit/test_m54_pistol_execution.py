@@ -7,6 +7,7 @@ from tests.support.pc_melee_fixtures import with_pc_melee_brute
 from tests.support.pc_book_npc_scenarios import book_pc_scenario
 from tests.support.pc_melee_scripted import ScriptedD10
 from tests.support.pc_pistol_scenarios import make_pc_pistol_scenario
+from tests.support.pc_weapon_sources import initial_weapon_items
 from towr.domain.attack_models import AttackOutcome, MissConsequence, ResilienceProfile
 from towr.domain.condition_models import Condition
 from towr.domain.pc_melee_models import (
@@ -22,6 +23,7 @@ from towr.domain.ranged_weapon_profiles import RangedWeaponId, RangedWeaponRange
 from towr.domain.test_models import Skill, TestQuality
 from towr.domain.turn_models import CombatActionKind, ImproviseKind
 from towr.engine.pc_melee_runner import apply_pc_melee_step, run_pc_melee_scenario
+from towr.domain.weapon_inventory_models import weapon_unit_id
 
 
 SHOT_HIT = [1, 1, 1, 10, 10]
@@ -77,7 +79,7 @@ class PcPistolExecutionTests(unittest.TestCase):
         self.assertIs(raw(shot).outcome, AttackOutcome.HIT)
         self.assertTrue(shot.source.participant('pc1').ranged.loaded)
         self.assertFalse(shot.state.participant('pc1').ranged.loaded)
-        self.assertEqual(shot.state.participant('pc1').ranged.weapon_instance_id, 'pc1:weapon')
+        self.assertEqual(shot.state.participant('pc1').ranged.weapon_instance_id, weapon_unit_id('pc1','weapon',0))
         self.assertIs(shot.state.participant('pc1').ranged.weapon_id, RangedWeaponId.PISTOL)
         self.assertEqual(steps(result, PcRangedReloadProof), ())
         self.assertEqual(result.executed_actions, 1)
@@ -143,7 +145,8 @@ class PcPistolExecutionTests(unittest.TestCase):
             pc_count=2, max_rounds=1)
         pistol = scene().party[0].pc
         source = replace(source, party=tuple(replace(member, pc=replace(pistol,
-            id=member.pc.id)) for member in source.party),
+            id=member.pc.id),combat_equipment=initial_weapon_items(
+                pistol.weapon,member.initial_weapon_hand,initially_loaded=True)) for member in source.party),
             facts=replace(source.facts, outnumbering_bonus_approved=False))
         result = execute(source, [1]*3 + [10]*4 + [1]*2 + [10]*4)
         first, shot = shots(result)
@@ -240,15 +243,15 @@ class PcPistolExecutionTests(unittest.TestCase):
         class IdAlias(str):
             pass
         forged = deepcopy(reload.proof)
-        object.__setattr__(forged.request.weapon_state, 'weapon_instance_id', IdAlias('pc1:weapon'))
+        object.__setattr__(forged.request.weapon_state, 'weapon_instance_id', IdAlias(weapon_unit_id('pc1','weapon',0)))
         with self.assertRaises((TypeError, ValueError)):
             PcMeleeStep(reload.source, forged)
         # Shape-valid raw snapshots cannot admit an ammunition reset without
         # rebuilding the actual history that consumed the loaded Pistol.
         following = result.steps[result.steps.index(shot) + 1]
-        member = following.source.participant('pc1')
-        forged_source = replace(following.source, party=(replace(member,
-            ranged=shot.source.participant('pc1').ranged),))
+        forged_source = deepcopy(following.source)
+        object.__setattr__(forged_source.participant('pc1').weapon_inventory.active,
+            'reload', shot.source.participant('pc1').ranged)
         with self.assertRaises((TypeError, ValueError)):
             forged_step = PcMeleeStep(forged_source, following.proof)
             apply_pc_melee_step(forged_source, forged_step)
@@ -260,7 +263,7 @@ class PcPistolExecutionTests(unittest.TestCase):
         second = execute(source, script)
         self.assertEqual(first, second)
         self.assertEqual(tuple(m.ranged.weapon_instance_id for m in first.state.party),
-            ('pc1:weapon', 'pc2:weapon'))
+            (weapon_unit_id('pc1','weapon',0), weapon_unit_id('pc2','weapon',0)))
         self.assertTrue(all(not m.ranged.loaded for m in first.state.party))
         self.assertIsNot(first.state.party[0].ranged, first.state.party[1].ranged)
         self.assertEqual(len(first.state.party[0].ranged.reload_cycle_ids), 1)
@@ -280,7 +283,7 @@ class PcPistolExecutionTests(unittest.TestCase):
         self.assertEqual(first.state.participant('pc1').ranged.exacting.accumulated_successes, 0)
         self.assertEqual(second.state.participant('pc1').ranged.exacting.accumulated_successes, 1)
         self.assertFalse(second.state.participant('pc1').ranged.loaded)
-        self.assertEqual(second.proof.result.source_request.choice.object_interaction.object_id, 'pc1:weapon')
+        self.assertEqual(second.proof.result.source_request.choice.object_interaction.object_id, weapon_unit_id('pc1','weapon',0))
         self.assertEqual(first.state.participant('pc1').ranged.reload_cycle_id,
             second.state.participant('pc1').ranged.reload_cycle_id)
         loaded = execute(scene(rounds=4, durable=True), SHOT_HIT + NPC_MISS
@@ -329,7 +332,7 @@ class PcPistolExecutionTests(unittest.TestCase):
                 self.assertEqual(result.unsupported.reason, 'ranged_reload_hands_unavailable')
                 self.assertEqual(result.unsupported.table_total, total)
                 self.assertEqual(result.unsupported.wound_sequence, 3)
-                self.assertIn('pc1:weapon', result.unsupported.source_id)
+                self.assertIn(weapon_unit_id('pc1','weapon',0), result.unsupported.source_id)
                 self.assertIn(result.state.participant('pc1').ranged.reload_cycle_id,
                     result.unsupported.source_id)
                 self.assertEqual(result.state.round_state.round_number, 4)
@@ -364,6 +367,7 @@ class PcPistolExecutionTests(unittest.TestCase):
         source = scene(pc_count=2, durable=True)
         helper = source.party[0]
         helper = replace(helper, pc=replace(helper.pc, weapon=PcMeleeWeapon.STAFF, ranged=None),
+            combat_equipment=None,
             policy=PcMeleePolicy.HELP_ALLY_OR_ATTACK_OR_RECOVER_SELF,
             help_policy=PcHelpPolicy('pc2', PcHelpTarget.ATTACK, Skill.MELEE))
         source = replace(source, party=(helper, source.party[1]))
@@ -379,6 +383,7 @@ class PcPistolExecutionTests(unittest.TestCase):
         source = scene(pc_count=2, durable=True)
         helper = source.party[0]
         helper = replace(helper, pc=replace(helper.pc, weapon=PcMeleeWeapon.STAFF, ranged=None),
+            combat_equipment=None,
             policy=PcMeleePolicy.HELP_ALLY_OR_ATTACK_OR_RECOVER_SELF,
             help_policy=PcHelpPolicy('pc2', PcHelpTarget.FIRST_INCOMING_PROTECTION, Skill.DEFENCE))
         source = replace(source, party=(helper, source.party[1]),

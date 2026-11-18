@@ -4,6 +4,7 @@ import unittest
 
 from tests.helpers import SequenceRandom
 from tests.support.pc_melee_fixtures import make_pc_melee_scenario
+from tests.support.pc_weapon_sources import initial_weapon_items
 from tests.unit.test_k1_reload_resolution import reload_request, weapon_state
 from towr.domain.action_execution_models import AttackActionExecutionRequest
 from towr.domain.attack_models import AttackRequest, DamageImpactSpec, DamageProfile
@@ -29,6 +30,8 @@ from towr.rules.attack_action_execution import execute_attack_action
 from towr.rules.reload_resolution import execute_reload_action
 from towr.rules.test_resolution import resolve_test
 from towr.rules.turn_resolution import reserve_combat_action_slot, start_combat_turn
+from towr.domain.pc_weapon_inventory import replace_pc_member
+from towr.domain.weapon_inventory_models import weapon_unit_id, weapon_reload_cycle_id
 
 
 def pistol_source():
@@ -36,10 +39,11 @@ def pistol_source():
     enemy = source.enemies[0]
     protection = replace(enemy.definition.protection[0], skill=Skill.ATHLETICS)
     enemy = replace(enemy, definition=replace(enemy.definition, protection=(protection,)))
-    profile = PcRangedProfile(2, 4, 3, 5, True, True, True, True,
+    profile = PcRangedProfile(2, 4, 3, 5, True, True, True,
         PcRangedReloadHandPolicy.TWO_AVAILABLE_HANDS)
     pc = replace(source.party[0].pc, weapon=PcMeleeWeapon.PISTOL, ranged=profile)
-    return replace(source, party=(replace(source.party[0], pc=pc),), enemies=(enemy,))
+    return replace(source, party=(replace(source.party[0],pc=pc,combat_equipment=initial_weapon_items(
+        pc.weapon,source.party[0].initial_weapon_hand,initially_loaded=True)),), enemies=(enemy,))
 
 
 def pistol_state(*, empty=False):
@@ -47,8 +51,9 @@ def pistol_state(*, empty=False):
     round_state = start_combat_turn(CombatTurnStartRequest('turn:pc', state.round_state, 'pc')).state
     state = replace(state, round_state=round_state)
     if empty:
-        state = replace(state, party=(replace(state.party[0], ranged=weapon_state(
-            weapon_instance_id='pc:weapon', reload_cycle_id='pc:first:cycle')),))
+        identifier = weapon_unit_id('pc','weapon',0)
+        state = replace(state, party=(replace_pc_member(state.party[0], ranged=weapon_state(
+            weapon_instance_id=identifier, reload_cycle_id=weapon_reload_cycle_id(identifier,1))),))
     return state
 
 
@@ -91,8 +96,8 @@ class M54PistolCoreTests(unittest.TestCase):
             defeat_decisions=tuple(replace(d, attacker_id='other') for d in source.defeat_decisions)))
         self.assertTrue(first.loaded)
         self.assertIsNone(first.exacting)
-        self.assertEqual(first.weapon_instance_id, 'pc:weapon')
-        self.assertEqual(second.weapon_instance_id, 'other:weapon')
+        self.assertEqual(first.weapon_instance_id, weapon_unit_id('pc','weapon',0))
+        self.assertEqual(second.weapon_instance_id, weapon_unit_id('other','weapon',0))
         self.assertIsNone(initial_pc_ranged(make_pc_melee_scenario().party[0]))
 
     def test_preparation_is_close_pistol_without_aim_and_does_not_spend(self):
@@ -101,7 +106,8 @@ class M54PistolCoreTests(unittest.TestCase):
         prepared = prepare_pc_ranged_shot(state, request)
         self.assertIs(prepared.source_request.attack, request)
         self.assertIsNone(prepared.aim_follow_up)
-        self.assertEqual(prepared.execution.next_reload_cycle_id, 'pc-melee:r1:pc:ranged:cycle')
+        self.assertEqual(prepared.execution.next_reload_cycle_id,
+            weapon_reload_cycle_id(weapon_unit_id('pc','weapon',0),1))
         self.assertEqual(prepared.execution.attack, request)
         self.assertTrue(state.party[0].ranged.loaded)
         self.assertIn('RULE-EQUIPMENT-004:ignores-armour', prepared.applied_rule_ids)
@@ -172,14 +178,15 @@ class M54PistolCoreTests(unittest.TestCase):
             stop = pc_ranged_unsupported(empty)
             self.assertEqual(stop.reason, 'ranged_reload_hands_unavailable')
             self.assertEqual(stop.table_total, total)
-            self.assertIn('pc:weapon:pc:first:cycle', stop.source_id)
+            self.assertIn(weapon_unit_id('pc','weapon',0)+':'+
+                weapon_reload_cycle_id(weapon_unit_id('pc','weapon',0),1), stop.source_id)
             with self.assertRaises(ValueError):
                 build_pc_ranged_reload(reserve(empty, ranged_reload_declaration(empty, 'pc')))
 
     def test_stop_waits_for_recover_pending_and_own_unreserved_live_turn(self):
         state = block_hand(pistol_state(empty=True), PcWeaponHand.RIGHT)
         member = state.party[0]
-        dropped = replace(state, party=(replace(member, weapon_hand=None),))
+        dropped = replace(state, party=(replace_pc_member(member, weapon_hand=None),))
         self.assertIsNone(pc_ranged_unsupported(dropped))
         prone = replace(state, party=(replace(member, injury=replace(member.injury,
             conditions=member.injury.conditions.with_condition(Condition.PRONE))),))
@@ -198,7 +205,7 @@ class M54PistolCoreTests(unittest.TestCase):
         stop = pc_ranged_unsupported(state)
         self.assertEqual(stop.reason, 'ranged_grip_unavailable')
         self.assertEqual((stop.wound_sequence, stop.table_total), (2, 20))
-        self.assertIn('pc:weapon:initial-loaded', stop.source_id)
+        self.assertIn(weapon_unit_id('pc','weapon',0)+':initial-loaded', stop.source_id)
 
 
 if __name__ == '__main__':

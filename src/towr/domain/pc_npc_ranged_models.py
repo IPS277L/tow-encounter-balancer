@@ -7,7 +7,10 @@ from typing import TYPE_CHECKING
 from towr.domain.action_execution_models import AttackActionExecutionRequest, AttackActionExecutionResult
 from towr.domain.attack_models import DamageImpactSpec
 from towr.domain.condition_models import Condition
-from towr.domain.pc_npc_ranged_source_models import pc_npc_ranged_profile
+from towr.domain.pc_npc_ranged_source_models import (
+    PC_NPC_RANGED_DEFINITION_IDS, pc_npc_ranged_profile,
+)
+from towr.domain.npc_roster_models import NpcParticipantSnapshot
 from towr.domain.ranged_weapon_attack_models import (
     ReloadableRangedAttackExecutionRequest, ReloadableRangedAttackExecutionResult, _spent_weapon_state,
     RangedWeaponAttackExecutionResult,
@@ -18,7 +21,7 @@ from towr.domain.ranged_weapon_attack_preparation_models import (
     OUTSIDE_OPTIMUM_RANGE_RULE_ID,SHORT_RANGE_SHOOTING_BONUS_RULE_ID,
     ARMOURED_TARGET_DAMAGE_BONUS_RULE_ID,BLUNDERBUSS_NEARBY_STAGGER_RULE_ID,WOUNDS_TABLE_BONUS_RULE_ID,
 )
-from towr.domain.ranged_weapon_profiles import (RangedWeaponRange, RangedWeaponHands,ranged_weapon_combat_profile,
+from towr.domain.ranged_weapon_profiles import (RangedWeaponId,RangedWeaponRange, RangedWeaponHands,ranged_weapon_combat_profile,
     ranged_weapon_reload_profile,RangedReloadTrigger,REPEATER_SHOOTING_BONUS_RULE_ID)
 from towr.domain.reload_models import (
     FreeReloadWeaponState, RangedWeaponReloadState, ReloadableWeaponState,
@@ -28,25 +31,14 @@ from towr.domain.reload_models import (
 from towr.domain.test_models import DiceModifier, Skill, TestRequest
 from towr.domain.pc_short_opening_models import pc_enemy_range,pc_has_close_enemy
 from towr.domain.turn_models import CombatActionDeclaration, CombatActionKind, ImproviseKind
+from towr.domain.weapon_catalog import WeaponGroup, WeaponKind, weapon_profile
+from towr.domain.weapon_inventory_models import (
+    WeaponGrip, WeaponInventoryState, WeaponItemLocation, WeaponItemSource, WeaponUnitState,
+    initial_weapon_inventory, weapon_reload_cycle_id, weapon_reload_target, weapon_unit_id,
+)
 
 if TYPE_CHECKING:
     from towr.domain.pc_melee_result_models import PcMeleeState
-
-
-@dataclass(frozen=True, slots=True)
-class PcNpcRangedState:
-    actor_id: str
-    attack_profile_id: str
-    weapon_state: RangedWeaponReloadState
-
-    def __post_init__(self):
-        if any(type(value) is not str or not value.strip() for value in (self.actor_id,self.attack_profile_id)):
-            raise TypeError('NPC ranged weapon state requires its actual actor and attack profile')
-        if type(self.weapon_state) not in (FreeReloadWeaponState,ReloadableWeaponState):
-            raise TypeError('NPC ranged weapon requires its exact reload state')
-        replace(self.weapon_state)
-        if self.weapon_state.weapon_instance_id != self.actor_id+':weapon':
-            raise ValueError('NPC ranged weapon instance belongs to another actor')
 
 
 @dataclass(frozen=True, slots=True)
@@ -61,18 +53,81 @@ class PcNpcRangedReloadProof:
     result: ReloadActionExecutionResult
 
 
-def initial_pc_npc_ranged_weapons(source) -> tuple[PcNpcRangedState, ...]:
+def initial_pc_npc_weapon_inventories(source) -> tuple[NpcParticipantSnapshot, ...]:
+    """Admit physical items from complete components or canonical Shooting only.
+
+    Opaque authored and natural profiles retain their profile-owned availability;
+    numeric Damage and a weapon-like name do not prove a physical item source.
+    Every generated item retains its own immutable origin and resource state.
+    """
     result = []
-    for policy in source.npc_ranged_policies:
-        definition = source.enemy(policy.actor_id).definition
-        profile = pc_npc_ranged_profile(definition)
-        weapon = create_initial_ranged_weapon_reload_state(policy.actor_id+':weapon',profile.weapon_id)
-        result.append(PcNpcRangedState(policy.actor_id,definition.attacks[0].id,weapon))
+    for enemy in source.enemies:
+        actor = enemy.state.actor_id
+        components = enemy.definition.generated_components
+        policy = next((value for value in source.npc_ranged_policies if value.actor_id == actor), None)
+        if components is not None:
+            from towr.domain.generated_npc_models import validate_generated_definition,generated_initial_weapon_inventory
+            validate_generated_definition(enemy.definition)
+            if components.ranged is not None and policy is None:
+                raise ValueError('generated NPC Shooting requires its actual initial resource policy')
+            inventory=generated_initial_weapon_inventory(components,actor)
+        elif policy is not None or enemy.definition.id in PC_NPC_RANGED_DEFINITION_IDS:
+            # This helper checks the entire admitted canonical loadout. It is
+            # deliberately not an inferred registry of ordinary NPC weapons.
+            ranged = pc_npc_ranged_profile(enemy.definition)
+            if policy is None:
+                raise ValueError('canonical NPC Shooting requires its actual initial resource policy')
+            item=policy.initial_weapon
+            if type(item) is not WeaponItemSource or item.kind.value!=ranged.weapon_id.value:
+                raise ValueError('canonical firearm requires its complete physical item source')
+            inventory=initial_weapon_inventory(actor,(item,),active_item_id=weapon_unit_id(actor,item.id,0),
+                shield_hand=WeaponGrip.RIGHT if enemy.state.holds_shield else None)
+        else:
+            if enemy.state.weapon_inventory is not None:
+                raise ValueError('an opaque NPC source cannot claim an inferred weapon inventory')
+            result.append(enemy)
+            continue
+        if enemy.state.weapon_inventory is not None and enemy.state.weapon_inventory != inventory:
+            raise ValueError('initial NPC inventory differs from its complete physical source')
+        injury=enemy.state.injury
+        from towr.domain.weapon_inventory_models import carrying_burden_rule_ids
+        if components is not None and carrying_burden_rule_ids(inventory,components.strength):
+            injury=replace(injury,conditions=injury.conditions.with_condition(Condition.BURDENED))
+        result.append(replace(enemy,state=replace(enemy.state,weapon_inventory=inventory,injury=injury)))
     return tuple(result)
 
 
-def pc_npc_ranged_weapon(state: PcMeleeState, actor: str) -> RangedWeaponReloadState | None:
-    return next((entry.weapon_state for entry in state.npc_ranged_weapons if entry.actor_id == actor),None)
+def npc_ranged_weapon_from_unit(item: WeaponUnitState) -> RangedWeaponReloadState | None:
+    """A K1 view of one item; free weapons have no duplicate persistent state."""
+    if type(item) is not WeaponUnitState:
+        raise TypeError('NPC ranged resources require the actual typed physical unit')
+    replace(item)
+    if weapon_profile(item.kind).group is not WeaponGroup.SHOOTING:
+        return None
+    if item.reload is not None:
+        return item.reload
+    weapon = create_initial_ranged_weapon_reload_state(item.id,RangedWeaponId(item.kind.value))
+    if type(weapon) is not FreeReloadWeaponState:
+        raise ValueError('an Exacting weapon cannot lose its persistent K1 state')
+    return weapon
+
+
+def pc_npc_ranged_weapon(state: PcMeleeState, actor: str,
+        item_id: str | None = None) -> RangedWeaponReloadState | None:
+    inventory = state.enemy(actor).state.weapon_inventory
+    if inventory is None:
+        if item_id is not None:
+            raise ValueError('NPC has no admitted physical weapon inventory')
+        return None
+    item = inventory.active if item_id is None else inventory.item(item_id)
+    return None if item is None else npc_ranged_weapon_from_unit(item)
+
+
+def pc_active_npc_ranged_profile(state,actor):
+    enemy=state.enemy(actor)
+    inventory=enemy.state.weapon_inventory
+    item=None if inventory is None else inventory.active
+    return pc_npc_ranged_profile(enemy.definition,None if item is None else item.kind)
 
 
 def npc_ranged_is_loaded(weapon: RangedWeaponReloadState) -> bool:
@@ -80,53 +135,99 @@ def npc_ranged_is_loaded(weapon: RangedWeaponReloadState) -> bool:
     return ranged_weapon_is_loaded(weapon)
 
 
-def updated_pc_npc_ranged_weapons(state: PcMeleeState, actor: str, weapon: RangedWeaponReloadState):
-    return tuple(replace(entry,weapon_state=weapon) if entry.actor_id == actor else entry
-        for entry in state.npc_ranged_weapons)
+def npc_ranged_inventory_update(state: PcMeleeState, actor: str,
+        weapon: RangedWeaponReloadState) -> tuple[NpcParticipantSnapshot, ...]:
+    return npc_ranged_inventory_update_enemies(state.enemies,actor,weapon)
+
+
+def npc_ranged_inventory_update_enemies(enemies: tuple[NpcParticipantSnapshot, ...], actor: str,
+        weapon: RangedWeaponReloadState) -> tuple[NpcParticipantSnapshot, ...]:
+    """Retain full K1 state on exactly the source-bound unit, including 0 work."""
+    if type(weapon) not in (FreeReloadWeaponState,ReloadableWeaponState):
+        raise TypeError('NPC ranged update requires its exact K1 weapon state')
+    replace(weapon)
+    enemy = next((value for value in enemies if value.state.actor_id == actor),None)
+    if enemy is None:
+        raise ValueError('NPC ranged update requires its actual existing actor')
+    inventory = enemy.state.weapon_inventory
+    if inventory is None:
+        raise ValueError('NPC ranged update requires its physical weapon inventory')
+    item = inventory.item(weapon.weapon_instance_id)
+    previous = npc_ranged_weapon_from_unit(item)
+    if previous is None or previous.weapon_id is not weapon.weapon_id:
+        raise ValueError('NPC ranged update belongs to another physical weapon')
+    if type(previous) is FreeReloadWeaponState:
+        if weapon != previous:
+            raise ValueError('a free-reload item cannot acquire Exacting progress')
+        following = inventory
+    else:
+        following = inventory.with_item(replace(item,reload=weapon))
+    updated = replace(enemy,state=replace(enemy.state,weapon_inventory=following))
+    return tuple(updated if value.state.actor_id == actor else value for value in enemies)
 
 
 def validate_pc_npc_ranged_weapons(state: PcMeleeState) -> None:
-    if type(state.npc_ranged_weapons) is not tuple:
-        raise TypeError('NPC ranged weapon bank requires a canonical tuple')
-    initial = initial_pc_npc_ranged_weapons(state.source)
-    if len(initial) != len(state.npc_ranged_weapons):
-        raise ValueError('NPC ranged weapon bank changed source membership')
+    initial = initial_pc_npc_weapon_inventories(state.source)
+    if tuple(enemy.state.actor_id for enemy in state.enemies) != tuple(enemy.state.actor_id for enemy in initial):
+        raise ValueError('NPC physical inventories changed source actor membership')
     from towr.domain.pc_melee_result_models import PcAttackProof, validate_pc_melee_source_types
-    for actual, original in zip(state.npc_ranged_weapons,initial,strict=True):
-        if type(actual) is not PcNpcRangedState:
-            raise TypeError('NPC ranged weapon bank requires exact typed states')
+    for enemy, original in zip(state.enemies,initial,strict=True):
+        actual, expected = enemy.state.weapon_inventory, original.state.weapon_inventory
+        if expected is None:
+            if actual is not None:
+                raise ValueError('NPC acquired an inventory without a physical source')
+            continue
+        if type(actual) is not WeaponInventoryState:
+            raise TypeError('NPC physical source requires its exact common inventory')
         replace(actual)
-        expected = original.weapon_state
+        if tuple(item.id for item in actual.items) != tuple(item.id for item in expected.items):
+            raise ValueError('NPC inventory changed its finite source membership')
+        actor = original.state.actor_id
         for proof in state.history:
             if type(proof) is PcAttackProof and proof.npc_ranged_shot is not None:
                 shot = proof.npc_ranged_shot.execution
-                if shot.source_request.attack.actor_id != original.actor_id:
+                if shot.source_request.attack.actor_id != actor:
                     continue
                 previous, current = shot.previous_weapon_state,shot.weapon_state
-            elif type(proof) is PcNpcRangedReloadProof and proof.request.actor_id == original.actor_id:
+            elif type(proof) is PcNpcRangedReloadProof and proof.request.actor_id == actor:
                 previous,current = proof.result.previous_state,proof.result.state
             else:
                 continue
-            if previous != expected:
+            item = expected.item(previous.weapon_instance_id)
+            expected_weapon = npc_ranged_weapon_from_unit(item)
+            if previous != expected_weapon:
                 raise ValueError('NPC ranged weapon progress detached from its actual history')
-            validate_pc_melee_source_types(previous,expected)
-            expected = current
-        canonical = replace(original,weapon_state=expected)
-        if actual != canonical:
-            raise ValueError('NPC ranged weapon state changed its actual instance/cycle/progress')
-        validate_pc_melee_source_types(actual,canonical)
+            validate_pc_melee_source_types(previous,expected_weapon)
+            if type(previous) is FreeReloadWeaponState:
+                if current != previous:
+                    raise ValueError('free NPC shot changed its stateless weapon resource')
+                validate_pc_melee_source_types(current,previous)
+            else:
+                expected = expected.with_item(replace(item,reload=current))
+        for actual_item, expected_item in zip(actual.items,expected.items,strict=True):
+            # Location, grip and selection are replayed by the physical owner;
+            # this owner authenticates origin and full Shooting resources only.
+            canonical = replace(expected_item,location=actual_item.location,grip=actual_item.grip)
+            if actual_item != canonical:
+                raise ValueError('NPC weapon changed source, instance or actual K1 resource history')
+            validate_pc_melee_source_types(actual_item,canonical)
 
 
 def _held_npc_ranged(state: PcMeleeState, actor: str, *, loaded: bool) -> RangedWeaponReloadState:
     if actor not in state.source.enemy_activation_order:
         raise ValueError('NPC ranged weapon requires an opposition actor')
     enemy = state.enemy(actor)
-    profile = pc_npc_ranged_profile(enemy.definition)
+    profile = pc_active_npc_ranged_profile(state,actor)
     weapon = pc_npc_ranged_weapon(state,actor)
+    inventory = enemy.state.weapon_inventory
+    item = inventory.active if inventory is not None else None
     combat_profile = ranged_weapon_combat_profile(profile.weapon_id)
     if (weapon is None or npc_ranged_is_loaded(weapon) is not loaded or weapon.weapon_id is not profile.weapon_id
-            or weapon.weapon_instance_id != actor+':weapon'
-            or not enemy.state.wields_weapon or enemy.state.holds_shield
+            or item is None or item.location is not WeaponItemLocation.HELD
+            or weapon.weapon_instance_id != item.id
+            or not enemy.state.wields_weapon or (not loaded and enemy.state.holds_shield)
+            or not loaded and any(other.id!=item.id and other.location is WeaponItemLocation.HELD
+                for other in inventory.items)
             or loaded and combat_profile.optimum_range_min is not RangedWeaponRange.CLOSE
                 and pc_has_close_enemy(state,actor)
             or enemy.state.injury.defeated or actor in state.exited_npc_ids
@@ -142,7 +243,8 @@ def pc_npc_ranged_profile_modifiers(state: PcMeleeState, actor: str,
     profile = ranged_weapon_combat_profile(weapon.weapon_id)
     distance = pc_enemy_range(state,actor,target)
     modifiers = []
-    if not _within_optimum(profile,distance):
+    if not _within_optimum(profile,distance,
+            strength=pc_active_npc_ranged_profile(state,actor).strength):
         modifiers.append(DiceModifier(OUTSIDE_OPTIMUM_RANGE_RULE_ID,-1))
     if distance is RangedWeaponRange.SHORT and profile.short_range_shooting_bonus_dice:
         modifiers.append(DiceModifier(SHORT_RANGE_SHOOTING_BONUS_RULE_ID,
@@ -166,7 +268,7 @@ def prepare_pc_npc_ranged_shot(state: PcMeleeState, request: AttackActionExecuti
     from towr.domain.pc_melee_result_models import pc_melee_action_id
     actor = request.actor_id
     weapon = _held_npc_ranged(state,actor,loaded=True)
-    profile = pc_npc_ranged_profile(state.enemy(actor).definition)
+    profile = pc_active_npc_ranged_profile(state,actor)
     policy = next(policy for policy in state.source.npc_ranged_policies if policy.actor_id == actor)
     reload_profile=ranged_weapon_reload_profile(weapon.weapon_id)
     test=request.kernel_request.attack.attacker_test
@@ -186,7 +288,7 @@ def prepare_pc_npc_ranged_shot(state: PcMeleeState, request: AttackActionExecuti
         if selected != npc_repeater_bonus(state,actor,ordinary,
                 defender,target,defender_skill=defender_skill):
             raise ValueError('NPC Repeater mode differs from its committed automatic choice')
-    cycle=(pc_melee_action_id(state,actor)+':ranged:cycle'
+    cycle=(weapon_reload_cycle_id(weapon.weapon_instance_id,len(weapon.reload_cycle_ids)+1)
         if reload_profile.trigger is RangedReloadTrigger.AFTER_EVERY_SHOT or selected else None)
     from towr.domain.aim_models import AIM_FOLLOW_UP_RULE_ID
     from towr.domain.pc_npc_aim_models import current_npc_aim
@@ -282,7 +384,7 @@ def npc_ranged_reload_test(state: PcMeleeState,actor_id: str,test_id: str) -> Te
     from towr.domain.pc_npc_distraction_models import pc_npc_distraction_test_modifiers
     from towr.domain.pc_magic_models import magic_test_modifiers
     enemy=state.enemy(actor_id)
-    profile=pc_npc_ranged_profile(enemy.definition)
+    profile=pc_active_npc_ranged_profile(state,actor_id)
     if ranged_weapon_reload_profile(profile.weapon_id).trigger is RangedReloadTrigger.FREE_WITH_ATTACK:
         raise ValueError('Free-with-Attack bows have no Exacting Dexterity Test')
     modifiers=pc_npc_distraction_test_modifiers(state,actor_id,None)

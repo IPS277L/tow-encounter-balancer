@@ -18,6 +18,8 @@ from towr.domain.pc_melee_result_models import initial_pc_melee_state, pc_melee_
 from towr.domain.pc_ranged_models import complete_pc_ranged_help, PcRangedHelpUseProof, pc_repeater_attack_modifiers, pc_ranged_unsupported
 from towr.domain.ranged_weapon_profiles import REPEATER_SHOOTING_BONUS_RULE_ID
 from towr.domain.reload_models import begin_reload_cycle
+from towr.domain.pc_weapon_inventory import replace_pc_member
+from towr.domain.weapon_inventory_models import weapon_unit_id,weapon_reload_cycle_id
 from towr.domain.test_models import InlineProfile, QualityModifier, Skill, TestQuality
 from towr.domain.turn_models import (
     ActionSlotGrant, CombatActionDeclaration, CombatActionKind,
@@ -73,7 +75,7 @@ def automatic_help_boundary(weapon):
             repeater_bonus_policy=None if selected is PcMeleeWeapon.PISTOL else PcRepeaterBonusPolicy.AUTOMATIC)
         party.append(replace(member,pc=replace(member.pc,weapon=selected,ranged=ranged,toughness=20),
             policy=PcMeleePolicy.AUTOMATIC_COMBAT,combat_equipment=(PcWeaponItem(
-                'owned:'+str(index),selected,PcItemLocation.HELD,member.initial_weapon_hand),)))
+                'owned:'+str(index),selected,PcItemLocation.HELD,member.initial_weapon_hand,initially_loaded=True),)))
     enemy=source.enemies[0]
     resilience=ResilienceProfile(20)
     enemy=replace(enemy,definition=replace(enemy.definition,resilience=resilience,
@@ -122,7 +124,7 @@ class PcRangedHelpUseTests(unittest.TestCase):
                 # BS1 caps the entire bonus pool at two dice.
                 execution=execute_help(request,[10]*(2 if bonus else 1))
                 proof=complete_pc_ranged_help(state,request,request,execution)
-                self.assertEqual(proof.previous_weapon_state.weapon_instance_id,'pc1:weapon:owned:0')
+                self.assertEqual(proof.previous_weapon_state.weapon_instance_id,weapon_unit_id('pc1','owned:0',0))
                 self.assertEqual(proof.uses_optional_reload_bonus,bonus)
                 self.assertEqual(proof.weapon_state.loaded,not bonus)
 
@@ -217,8 +219,9 @@ class PcRangedHelpUseTests(unittest.TestCase):
         state,request = prepared_help(PcMeleeWeapon.REPEATER_PISTOL)
         execution = execute_help(request,[10]*5)
         member = state.party[0]
-        for changed in (replace(member,ranged=begin_reload_cycle(member.ranged,'already-used')),
-                replace(member,weapon_hand=None)):
+        cycle=weapon_reload_cycle_id(member.ranged.weapon_instance_id,len(member.ranged.reload_cycle_ids)+1)
+        for changed in (replace_pc_member(member,ranged=begin_reload_cycle(member.ranged,cycle)),
+                replace_pc_member(member,weapon_hand=None)):
             with self.assertRaises(ValueError):
                 complete_pc_ranged_help(replace(state,party=(changed,state.party[1])),request,request,execution)
 

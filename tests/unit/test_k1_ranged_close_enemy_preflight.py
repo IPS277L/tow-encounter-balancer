@@ -116,7 +116,9 @@ class K1RangedCloseEnemyPreflightTests(unittest.TestCase):
                         preparation.execution.attack.kernel_request.attack.is_close_range,
                         is_close,
                     )
-                    dice = 3 if is_close else 2  # Outside Optimum penalty is independent.
+                    # Ogre Pistol's printed Optimum includes Medium; the
+                    # three ordinary Close weapons incur their penalty there.
+                    dice = 3 if is_close or weapon is RangedWeaponId.OGRE_PISTOL else 2
                     rng = SequenceRandom([10] * dice + [7])
                     result = execute_prepared_ranged_weapon_attack(
                         PreparedRangedWeaponAttackExecutionRequest(
@@ -131,7 +133,7 @@ class K1RangedCloseEnemyPreflightTests(unittest.TestCase):
                     self.assertTrue(result.ranged_attack.attack.slot.executed)
                     self.assertEqual(
                         result.ranged_attack.weapon_state.loaded,
-                        weapon is not RangedWeaponId.PISTOL,
+                        weapon not in (RangedWeaponId.PISTOL, RangedWeaponId.OGRE_PISTOL),
                     )
                     self.assertIn(CLOSE_ENEMY_RANGED_RESTRICTION_RULE_ID, result.applied_rule_ids)
 

@@ -1333,6 +1333,9 @@
         "bonus": {
           "type": "integer",
           "minimum": 0
+        },
+        "mundane_armour_ward": {
+          "type": "boolean"
         }
       },
       "required": [

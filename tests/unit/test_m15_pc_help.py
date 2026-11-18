@@ -164,7 +164,8 @@ class PcHelpTests(unittest.TestCase):
                 self.assertIsNone(pc_help_beneficiary(current))
                 self.assertIs(pc_melee_selected_action(current),CombatActionKind.ATTACK)
         for actor in ('pc1','pc2'):
-            current = replace(state,party=tuple(replace(member,weapon_hand=None) if member.actor_id == actor else member
+            from towr.domain.pc_weapon_inventory import replace_pc_member
+            current = replace(state,party=tuple(replace_pc_member(member,weapon_hand=None) if member.actor_id == actor else member
                 for member in state.party))
             self.assertIsNone(pc_help_beneficiary(current))
             self.assertIs(pc_melee_selected_action(current),CombatActionKind.RECOVER if actor == 'pc1' else CombatActionKind.ATTACK)

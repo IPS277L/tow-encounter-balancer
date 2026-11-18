@@ -8,7 +8,7 @@ Pistol стреляет в Close через Shooting на Ballistic Skill: Damag
 
 ```json
 "weapon": "pistol",
-"pistol": {
+"ranged": {
   "ballistic_skill": 3,
   "shooting": 4,
   "initiative": 3,
@@ -16,12 +16,11 @@ Pistol стреляет в Close через Shooting на Ballistic Skill: Damag
   "has_blackpowder_lore": true,
   "has_blackpowder_kit": true,
   "ammunition_supply_confirmed": true,
-  "initially_loaded": true,
   "reload_hand_policy": "two_available_hands"
 }
 ```
 
-Это авторский пример PC, числа не являются общими значениями по умолчанию. Объект полный и закрытый; missing/null/false preconditions отвергаются. Для других weapons объект запрещён;180прежнихJSON M9–M53 сохранены побайтно.
+Это авторский пример PC, числа не являются общими значениями по умолчанию. Текущий `ranged` хранит только общую подготовку всего инвентаря. Начальный заряд задаётся отдельно у каждого предмета в `party[].combat_equipment[]` через обязательный `initially_loaded:true|false`; массив обязателен для стрелка. Полный предметный source находится в request ниже. Старые actor-level `pistol` и `initially_loaded` не принимаются.
 
 Принятая GM/scenario policy требует две пригодные руки для Reload: одна держит Pistol, другая свободна. Книга не определяет это число рук. Травмированная12рука допустима с Critical. Loaded shot одной оставшейся рукой разрешён; UNSUPPORTED_PATH возникает лишь перед действительно требуемым недоступным Reload на своём незанятом ходу. Drop/Recover не сбрасывают заряд/цикл/progress; terminal objective не требует перезарядки. Aim/Rapid Reload/Pistol+Shield и новый ranged Help вне среза.
 

@@ -7,7 +7,8 @@ from collections import Counter
 from dataclasses import dataclass, field, replace
 from hashlib import sha256
 
-from towr.domain.pc_melee_models import PcMeleeScenario, validate_pc_melee_scenario_admission
+from towr.domain.pc_melee_models import PcMeleeScenario, PcMeleeWeapon, validate_pc_melee_scenario_admission
+from towr.domain.pc_combat_equipment_models import pc_initial_weapon_kinds
 from towr.domain.pc_melee_result_models import PcMeleeOutcome
 
 
@@ -15,7 +16,8 @@ SEED_SCHEME = 'towr:pc-melee-trial:v1'
 
 
 def pc_has_aim_capability(scenario) -> bool:
-    return any(member.pc.weapon.value == 'hochland_long_rifle' for member in scenario.party)
+    return any(PcMeleeWeapon.HOCHLAND_LONG_RIFLE in pc_initial_weapon_kinds(member)
+        for member in scenario.party)
 
 
 @dataclass(frozen=True, slots=True)
@@ -78,7 +80,8 @@ def validate_aim_counts(counts, scenario, *, trials, actions, started_rounds, gl
     for member,aim,second in zip(scenario.party,counts.action_counts,counts.second_action_spend_counts,strict=True):
         if aim.count > min(started_rounds,trials*scenario.max_rounds):
             raise ValueError('Aim count exceeds the one-Aim-per-own-turn budget')
-        if member.pc.weapon.value != 'hochland_long_rifle' and (aim.count or second.count):
+        if (PcMeleeWeapon.HOCHLAND_LONG_RIFLE not in pc_initial_weapon_kinds(member)
+                and (aim.count or second.count)):
             raise ValueError('only the admitted Hochland actor can Aim or fund this Second Action')
         if second.count > aim.count:
             raise ValueError('Second Action count requires its actual preceding Aim')

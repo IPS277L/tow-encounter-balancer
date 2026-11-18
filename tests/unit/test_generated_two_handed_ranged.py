@@ -1,4 +1,7 @@
 """Literal PG95 generated Shooting sources, free bows and real Reload costs."""
+from tests.support.generated_weapon_sources import initial_generated_weapons
+from tests.support.armour_fixtures import light_loadout
+from towr.domain.armour_models import BodyArmour, ShieldKind
 from copy import deepcopy
 from dataclasses import replace
 from random import Random
@@ -19,8 +22,7 @@ from towr.domain.pc_melee_models import (
     PcShieldLoadout, PcShieldHandConflictPolicy, PcShieldRecoveryPolicy, PcWeaponHand,
 )
 from towr.domain.pc_npc_ranged_models import (
-    PcNpcRangedState, initial_pc_npc_ranged_weapons, npc_ranged_is_loaded,
-    npc_ranged_reload_test,
+    pc_npc_ranged_weapon, npc_ranged_is_loaded, npc_ranged_reload_test,
 )
 from towr.domain.pc_npc_ranged_source_models import (
     pc_npc_ranged_policy_for_generated, pc_npc_ranged_profile,
@@ -28,6 +30,7 @@ from towr.domain.pc_npc_ranged_source_models import (
 from towr.domain.ranged_weapon_profiles import RangedWeaponHands, RangedWeaponId, RangedWeaponRange
 from towr.domain.reload_models import FreeReloadWeaponState, ReloadableWeaponState, begin_reload_cycle
 from towr.domain.test_models import InlineProfile, Skill
+from towr.domain.weapon_inventory_models import weapon_reload_cycle_id, weapon_unit_id
 
 
 R = RangedWeaponRange
@@ -50,22 +53,24 @@ FIREARMS = frozenset((GeneratedWeapon.HANDGUN,GeneratedWeapon.BLUNDERBUSS,
 
 def component(weapon=GeneratedWeapon.SHORTBOW, **changes):
     firearm = weapon in FIREARMS
-    facts = GeneratedRangedFacts(4,5,2,4,True,True,
+    facts = GeneratedRangedFacts(4,5,2,None if weapon in (GeneratedWeapon.SHORTBOW,GeneratedWeapon.WARBOW,GeneratedWeapon.LONGBOW) else 4,True,
         True if firearm else None, True if firearm else None,
         awareness=4 if weapon in GENERATED_TWO_HANDED_RANGED_WEAPONS else None)
     values = dict(weapon_skill=3,strength=3,toughness=4,agility=2,melee=4,
         athletics=3,defence=4,weapon=weapon,light_armour=False,shield=False,ranged=facts)
     values.update(changes)
+    values['armour'] = light_loadout(light=values.pop('light_armour'), shield=values.pop('shield'))
+    values['weapons'] = initial_generated_weapons(values.pop('weapon'), values.pop('weapon_grip', None))
     return GeneratedNpc(**values)
 
 
 def space(**changes):
     values = dict(weapon_skill=(3,),strength=(3,),toughness=(4,),agility=(2,),
-        melee=(4,),athletics=(3,),defence=(4,),light_armour=(False,),shield=(False,),
+        melee=(4,),athletics=(3,),defence=(4,),armour=(None,),shield=(None,),
         weapon=GENERATED_TWO_HANDED_RANGED_WEAPONS,allowed_talents=(),
         ballistic_skill=(4,),shooting=(5,),initiative=(2,),dexterity=(4,),awareness=(4,))
     values.update(changes)
-    return NpcSearchSpace(**values)
+    return NpcSearchSpace(weapon_count=(1,), **values)
 
 
 def battle_source(weapons=(GeneratedWeapon.SHORTBOW,), *, initial=R.SHORT, maximum=R.LONG):
@@ -101,7 +106,7 @@ class FirstChoice:
 class GeneratedTwoHandedShootingSourceTests(unittest.TestCase):
     def test_complete_inventory_has_nine_literal_profiles_without_catalogue_identity(self):
         self.assertEqual(GENERATED_TWO_HANDED_RANGED_WEAPONS,tuple(row[0] for row in WEAPONS))
-        for weapon,damage,minimum,maximum,ignores,_ in WEAPONS:
+        for weapon,damage,minimum,maximum,ignores,target in WEAPONS:
             with self.subTest(weapon=weapon):
                 npc = component(weapon)
                 definition = npc.participant('arbitrary-actor').definition
@@ -118,7 +123,7 @@ class GeneratedTwoHandedShootingSourceTests(unittest.TestCase):
                 validate_generated_definition(definition)
                 derived = pc_npc_ranged_profile(definition)
                 self.assertIs(derived.weapon_id,RangedWeaponId(weapon.value))
-                self.assertEqual(derived.dexterity_profile,InlineProfile(2,4))
+                self.assertEqual(derived.dexterity_profile,None if target is None else InlineProfile(2,4))
                 self.assertEqual(derived.awareness_profile,InlineProfile(2,4))
 
     def test_every_two_handed_shooter_requires_actual_awareness_and_no_shield(self):
@@ -128,7 +133,7 @@ class GeneratedTwoHandedShootingSourceTests(unittest.TestCase):
                 with self.assertRaises(ValueError):
                     replace(npc,ranged=replace(npc.ranged,awareness=None))
                 with self.assertRaises(ValueError):
-                    replace(npc,shield=True)
+                    replace(npc,armour=replace(npc.armour,shield=ShieldKind.SHIELD))
         for value in (True,1,7,4.,'4'):
             with self.subTest(value=value),self.assertRaises(ValueError):
                 replace(component().ranged,awareness=value)
@@ -164,7 +169,7 @@ class GeneratedTwoHandedShootingSourceTests(unittest.TestCase):
 class GeneratedTwoHandedShootingSpaceTests(unittest.TestCase):
     def test_stationary_python_default_excludes_two_handed_shooting_until_scene_is_explicit(self):
         source = automatic_source(pc_count=1)
-        self.assertEqual(NpcSearchSpace().weapon,GENERATED_CLOSE_WEAPONS)
+        self.assertEqual(NpcSearchSpace(weapon_count=(1,), ).weapon,GENERATED_CLOSE_WEAPONS)
         self.assertEqual(automatic_npc_search_space(source.party).weapon,GENERATED_CLOSE_WEAPONS)
         full = automatic_npc_search_space(source.party,battlefield=PcBattlefieldSpec(R.SHORT,R.LONG))
         self.assertEqual(full.weapon,tuple(GeneratedWeapon))
@@ -201,7 +206,7 @@ class GeneratedTwoHandedShootingSpaceTests(unittest.TestCase):
             self.assertTrue(envelope.contains(mutated))
             sampled, = envelope.resample_numeric((original,),Random(18),bias=.5).composition
             self.assertTrue(envelope.contains(sampled))
-            self.assertEqual((sampled.weapon,sampled.weapon_grip,sampled.shield,sampled.light_armour),
+            self.assertEqual((sampled.weapon,sampled.weapon_grip,sampled.shield,(BodyArmour.LIGHT in sampled.armour.body)),
                 (original.weapon,None,False,False))
             self.assertEqual(original,component(weapon))
         fixed = space()
@@ -215,23 +220,30 @@ class GeneratedTwoHandedShootingSpaceTests(unittest.TestCase):
 class GeneratedTwoHandedShootingStateTests(unittest.TestCase):
     def test_bows_keep_free_state_and_exacting_weapons_keep_literal_two_to_five_targets(self):
         source = battle_source(tuple(row[0] for row in WEAPONS))
-        states = initial_pc_npc_ranged_weapons(source)
-        for entry,row in zip(states,WEAPONS,strict=True):
+        from towr.domain.pc_melee_result_models import initial_pc_melee_state
+        state = initial_pc_melee_state(source)
+        for actor,row in zip(source.enemy_activation_order,WEAPONS,strict=True):
             with self.subTest(weapon=row[0]):
-                self.assertTrue(npc_ranged_is_loaded(entry.weapon_state))
+                weapon = pc_npc_ranged_weapon(state,actor)
+                self.assertEqual(weapon.weapon_instance_id,weapon_unit_id(actor,'weapon',0))
+                self.assertTrue(npc_ranged_is_loaded(weapon))
                 if row[-1] is None:
-                    self.assertIs(type(entry.weapon_state),FreeReloadWeaponState)
-                    self.assertFalse(hasattr(entry.weapon_state,'loaded'))
-                    self.assertFalse(hasattr(entry.weapon_state,'exacting'))
+                    self.assertIs(type(weapon),FreeReloadWeaponState)
+                    self.assertFalse(hasattr(weapon,'loaded'))
+                    self.assertFalse(hasattr(weapon,'exacting'))
                 else:
-                    self.assertIs(type(entry.weapon_state),ReloadableWeaponState)
-                    self.assertEqual(entry.weapon_state.required_successes,row[-1])
-                    unloaded = begin_reload_cycle(entry.weapon_state,'actual:'+row[0].value)
+                    self.assertIs(type(weapon),ReloadableWeaponState)
+                    self.assertEqual(weapon.required_successes,row[-1])
+                    unloaded = begin_reload_cycle(weapon,weapon_reload_cycle_id(weapon.weapon_instance_id,1))
                     self.assertFalse(npc_ranged_is_loaded(unloaded))
                     self.assertEqual(unloaded.exacting.required_successes,row[-1])
                     self.assertEqual(unloaded.exacting.accumulated_successes,0)
         with self.assertRaises(ValueError):
-            PcNpcRangedState('other','primary',states[0].weapon_state)
+            foreign = state.enemy('minion1').state.weapon_inventory
+            other = state.enemy('minion2')
+            changed = replace(other,state=replace(other.state,weapon_inventory=foreign))
+            replace(state,enemies=tuple(changed if enemy.state.actor_id=='minion2' else enemy
+                for enemy in state.enemies))
 
     def test_bow_has_no_separate_exacting_test_while_crossbow_uses_actual_dexterity(self):
         source = battle_source((GeneratedWeapon.SHORTBOW,GeneratedWeapon.CROSSBOW))

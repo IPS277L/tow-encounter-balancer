@@ -1,4 +1,6 @@
 """Component-bound NPC equipment, actual protection choices and literal battles."""
+from tests.support.generated_weapon_sources import initial_generated_weapons
+from tests.support.armour_fixtures import light_loadout
 from copy import deepcopy
 from dataclasses import replace
 import unittest
@@ -33,7 +35,7 @@ def component(weapon=GeneratedWeapon.STAFF, *, weapon_skill=1, strength=3,
               toughness=20, agility=1, melee=4, defence=2, athletics=2,
               light_armour=False, shield=False):
     return GeneratedNpc(weapon_skill, strength, toughness, agility, melee, athletics,
-        weapon, light_armour, defence=defence, shield=shield)
+        initial_generated_weapons(weapon), light_loadout(light=light_armour, shield=shield), defence=defence)
 
 
 def source_for(npc, *, rounds=1):
@@ -131,10 +133,12 @@ class GeneratedNpcEquipmentTests(unittest.TestCase):
 
     def test_new_component_values_are_exact_and_cannot_be_mutated_through_readmission(self):
         npc = component()
-        for field, value in (('defence',True), ('defence',1), ('defence',7),
-                ('shield',1), ('shield','true')):
+        for field, value in (('defence',True), ('defence',1), ('defence',7)):
             with self.subTest(field=field, value=value), self.assertRaises((TypeError,ValueError)):
                 replace(npc, **{field:value})
+        for value in (1, 'true'):
+            with self.subTest(shield=value), self.assertRaises((TypeError,ValueError)):
+                replace(npc, armour=replace(npc.armour, shield=value))
         malformed = deepcopy(npc)
         object.__setattr__(malformed,'defence',True)
         with self.assertRaises((TypeError,ValueError)):
@@ -149,7 +153,7 @@ class GeneratedNpcEquipmentTests(unittest.TestCase):
                 definition = enemy.definition
                 if kind == 'component':
                     object.__setattr__(definition,'generated_components',
-                        replace(definition.generated_components,weapon=GeneratedWeapon.AXE))
+                        replace(definition.generated_components,weapons=initial_generated_weapons(GeneratedWeapon.AXE)))
                 elif kind == 'attack':
                     object.__setattr__(definition.attacks[0].damage,'base',30)
                 elif kind == 'protection':
@@ -239,7 +243,7 @@ class GeneratedNpcEquipmentTests(unittest.TestCase):
                 self.assertEqual(attack.damage,4 if armour=='none' else 5)
                 self.assertEqual(attack.effective_resilience,20+int(armour in ('body','shield')))
                 self.assertEqual(attack.impact_spec.damage_modifiers,
-                    () if armour=='none' else (DamageModifier(AXE_ARMOUR_RULE_ID,1),))
+                    () if armour=='none' else (DamageModifier(AXE_ARMOUR_RULE_ID,1,armour_specific=True),))
                 if armour=='helmet':
                     forged = deepcopy(step.proof)
                     object.__setattr__(forged.request.kernel_request.attack.impact_spec,

@@ -4,6 +4,7 @@ from pathlib import Path
 from threading import Event, Thread
 import unittest
 from unittest.mock import patch
+from tests.support.armour_fixtures import armour_document
 
 from towr.adapters.local_ui import LocalUiServer, serve_local_ui
 from towr.adapters.dynamic_encounter_json import DynamicEncounterExecutionError, validate_dynamic_encounter_document, parse_dynamic_encounter_request, execute_dynamic_encounter
@@ -48,8 +49,9 @@ class LocalUiTests(unittest.TestCase):
     def test_character_file_validation_is_stateless_and_does_not_generate(self):
         player = json.loads(self.raw)['party'][0]
         npc = dict(weapon_skill=3, strength=3, toughness=3, agility=3, melee=4,
-            athletics=3, defence=4, shield=False, weapon='staff', light_armour=False, abilities=[],talents=[],
-            weapon_grip=None,mount=None,throwing=None,brawn=None,ballistic_skill=None)
+            athletics=3, defence=4, weapon='staff', armour=armour_document(), abilities=[],talents=[],
+            weapon_grip=None,mount=None,rider_kind=None,agilulf_code_confirmed=None,
+            throwing=None,brawn=None,ballistic_skill=None)
         with patch('towr.adapters.local_ui.execute_dynamic_encounter') as execute:
             for kind, document in [('player', player), ('npc', npc)]:
                 status, _, body = self.request('POST', '/api/character',

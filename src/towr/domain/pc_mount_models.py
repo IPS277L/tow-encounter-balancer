@@ -1,4 +1,4 @@
-"""Shared Horse facts and forced dismounts (PG1.4 V, Mounted Combat124).
+"""Shared trained mounts and forced dismounts (PG1.4 V124, GM1.1 VII135/175–176).
 
 The rider and trained Horse are one combat entity while mounted. The scene's
 explicit GM policy sends the Horse away after a forced dismount; no independent
@@ -10,11 +10,12 @@ from dataclasses import dataclass, replace
 from enum import Enum
 from typing import TYPE_CHECKING
 
-from towr.domain.attack_models import ProneBeforeGiveGroundSpec
+from towr.domain.attack_models import ProneBeforeGiveGroundSpec, ConditionAfterGiveGroundSpec, SecondaryEffectSpec
 from towr.domain.condition_models import Condition
 from towr.domain.injury_models import CharacterInjuryState, ProfileInjuryState
 from towr.domain.movement_models import MovementSpeed
 from towr.domain.resolution_models import TargetInjuryPolicy
+from towr.domain.test_models import DiceModifier, Skill
 
 if TYPE_CHECKING:
     from towr.domain.pc_melee_models import PcMeleeScenario
@@ -22,10 +23,55 @@ if TYPE_CHECKING:
 
 
 HORSE_NOBLE_STEED_RULE_ID = 'RULE-MOUNT-002:noble-steed'
+PEGASUS_KNIGHTS_RULE_ID = 'BOOK-GM-GUIDE:1.1:p176:pegasus-knights'
+ELVEN_STEED_RULE_ID = 'RULE-MOUNT-002:elven-steed'
+DEMIGRYPH_FEARSOME_RULE_ID = 'BOOK-GM-GUIDE:1.1:p175:demigryph-knights:fearsome'
+SKELETAL_STEED_FRIGHTENING_RULE_ID = 'BOOK-GM-GUIDE:1.1:p135:skeletal-steed:frightening'
 
 
 class CombatMount(str, Enum):
     HORSE = 'horse'
+    BRETONNIAN_WARHORSE = 'bretonnian_warhorse'
+    ELVEN_STEED = 'elven_steed'
+    SKELETAL_STEED = 'skeletal_steed'
+    DEMIGRYPH = 'demigryph'
+    PEGASUS = 'pegasus'
+
+
+class RiderKind(str, Enum):
+    HUMAN = 'human'
+    ELF = 'elf'
+    OTHER = 'other'
+
+
+def validate_mount_rider(mount: CombatMount | None, rider_kind: RiderKind | None) -> None:
+    """Admit the explicit book eligibility, without an implicit Human default.
+
+    Ordinary horses do not have a rider-kind requirement, so their source omits
+    this conditional fact. The beastly rider benefits are restricted by GM175–176.
+    """
+    if mount is not None and type(mount) is not CombatMount:
+        raise TypeError('mount requires its exact supported typed component or None')
+    if rider_kind is not None and type(rider_kind) is not RiderKind:
+        raise TypeError('rider kind requires its exact typed fact or None')
+    if mount not in (CombatMount.DEMIGRYPH, CombatMount.PEGASUS):
+        if rider_kind is not None:
+            raise ValueError('rider kind belongs to the Demigryph/Pegasus source')
+        return
+    if mount is CombatMount.DEMIGRYPH and rider_kind is not RiderKind.HUMAN:
+        raise ValueError('Demigryph rider benefits require an explicit Human rider')
+    if mount is CombatMount.PEGASUS and rider_kind not in (RiderKind.HUMAN, RiderKind.ELF):
+        raise ValueError('Pegasus rider benefits require an explicit Human or Elf rider')
+
+
+def mount_source_resilience_bonus(mount: CombatMount | None) -> int:
+    """Base printed rider bonus; source admission separately checks rider kind.
+
+    Barding is a distinct equipment source and is not implied by the mount.
+    """
+    if mount is not None and type(mount) is not CombatMount:
+        raise TypeError('mount requires its exact supported typed component or None')
+    return 0 if mount is None else 2 if mount is CombatMount.DEMIGRYPH else 1
 
 
 def _identifier(value, label):
@@ -81,11 +127,13 @@ def initial_pc_mounts(source: PcMeleeScenario) -> tuple[PcMountedState, ...]:
     mounted = []
     for member in source.party:
         mount = getattr(member, 'mount', None)
+        validate_mount_rider(mount, getattr(member, 'rider_kind', None))
         if mount is not None:
             mounted.append(PcMountedState(member.actor_id, mount, True))
     for enemy in source.enemies:
         components = enemy.definition.generated_components
         mount = getattr(components, 'mount', None) if components is not None else None
+        validate_mount_rider(mount, getattr(components, 'rider_kind', None))
         if mount is not None:
             mounted.append(PcMountedState(enemy.state.actor_id, mount, True))
     if len({member.actor_id for member in mounted}) != len(mounted):
@@ -106,14 +154,86 @@ def _mounted_entry(state, actor):
     return next((member for member in state.mounts if member.actor_id == actor), None)
 
 
-def pc_is_mounted(state: PcMeleeState, actor: str) -> bool:
+def _rider_source(state, actor):
+    _known_actor(state.source, actor)
+    return (state.source.participant(actor) if actor in state.source.pc_activation_order
+        else state.enemy(actor).definition.generated_components)
+
+
+def _active_mount(state, actor):
     member = _mounted_entry(state, actor)
-    return member is not None and member.mounted
+    source = _rider_source(state, actor)
+    mount = getattr(source, 'mount', None)
+    validate_mount_rider(mount, getattr(source, 'rider_kind', None))
+    if member is None:
+        if mount is not None:
+            raise ValueError('mounted source must retain its actual mount state')
+        return None
+    replace(member)
+    if member.mount is not mount:
+        raise ValueError('mount state differs from the rider source component')
+    return member.mount if member.mounted else None
+
+
+def pc_is_mounted(state: PcMeleeState, actor: str) -> bool:
+    return _active_mount(state, actor) is not None
 
 
 def mount_resilience_bonus(state: PcMeleeState, actor: str) -> int:
     """PG97: this bonus counts as armoured, but is not physically worn armour."""
-    return int(pc_is_mounted(state, actor))
+    mount = _active_mount(state, actor)
+    if mount is None:
+        return 0
+    from towr.domain.armour_models import ArmourLoadout
+    armour = getattr(_rider_source(state, actor), 'armour', None)
+    if armour is not None:
+        if type(armour) is not ArmourLoadout:
+            raise TypeError('mounted armour requires its exact typed equipment source')
+        replace(armour)
+    return mount_source_resilience_bonus(mount) + int(armour is not None and armour.barding)
+
+
+def mounted_armour_test_exemptions(state: PcMeleeState, actor: str, skill: Skill,
+        *, oppose_attack: bool = False, control_mount: bool = False) -> dict[str, bool]:
+    """Return only printed exemptions; they neither change Agility nor its cap."""
+    if type(skill) is not Skill:
+        raise TypeError('mounted Test requires its exact typed Skill')
+    if type(oppose_attack) is not bool or type(control_mount) is not bool:
+        raise TypeError('mounted Test context requires exact bool facts')
+    mount = _active_mount(state, actor)
+    bretonnian = (mount is CombatMount.BRETONNIAN_WARHORSE
+        and (oppose_attack or control_mount))
+    demigryph = mount is CombatMount.DEMIGRYPH
+    return dict(ignore_heavy=bretonnian or demigryph,
+        ignore_full_plate=demigryph, ignore_barding=bretonnian,
+        mounted=mount is not None)
+
+
+def mounted_test_modifiers(state: PcMeleeState, actor: str, skill: Skill,
+        *, oppose_attack: bool = False, control_mount: bool = False) -> tuple[DiceModifier, ...]:
+    """PG124: an Elven Steed helps only Athletics control/opposition Tests."""
+    if type(skill) is not Skill:
+        raise TypeError('mounted Test requires its exact typed Skill')
+    if type(oppose_attack) is not bool or type(control_mount) is not bool:
+        raise TypeError('mounted Test context requires exact bool facts')
+    mount = _active_mount(state, actor)
+    return ((DiceModifier(ELVEN_STEED_RULE_ID, 1),)
+        if mount is CombatMount.ELVEN_STEED and skill is Skill.ATHLETICS
+            and (oppose_attack or control_mount) else ())
+
+
+def mounted_can_fly(state: PcMeleeState, actor: str) -> bool:
+    """Actual current Fly capability, distinct from permission for a move."""
+    return _active_mount(state, actor) is CombatMount.PEGASUS
+
+
+def mounted_give_ground_broken(state: PcMeleeState, actor: str, attack_skill: Skill) -> bool:
+    """GM175 Fearsome; GM135 Skeletal Steed grants Frightening, not all attacks."""
+    if type(attack_skill) is not Skill:
+        raise TypeError('mounted attack requires its exact typed Skill')
+    mount = _active_mount(state, actor)
+    return mount is CombatMount.DEMIGRYPH or (mount is CombatMount.SKELETAL_STEED
+        and attack_skill in (Skill.MELEE, Skill.BRAWN))
 
 
 def pc_mount_speed(state: PcMeleeState, actor: str, base_speed: MovementSpeed) -> MovementSpeed:
@@ -125,19 +245,35 @@ def pc_mount_speed(state: PcMeleeState, actor: str, base_speed: MovementSpeed) -
 
 
 def pc_mounted_attack_effects(state: PcMeleeState, actor: str, target: str,
-        *, is_charge: bool) -> tuple[ProneBeforeGiveGroundSpec, ...]:
+        *, is_charge: bool, attack_skill: Skill = Skill.MELEE) -> tuple[SecondaryEffectSpec, ...]:
     """The action owner supplies actual Charge, never a voluntary modifier flag."""
     _known_actor(state.source, target)
     if actor == target:
         raise ValueError('mounted attack target must differ from its actor')
     if type(is_charge) is not bool:
         raise TypeError('mounted attack needs an exact actual-Charge bool')
-    mounted = pc_is_mounted(state, actor)
-    if (not mounted or not is_charge or target in state.source.enemy_activation_order
-            and state.enemy(target).definition.injury_policy is TargetInjuryPolicy.MONSTROSITY):
+    if type(attack_skill) is not Skill:
+        raise TypeError('mounted attack needs its exact actual Skill')
+    mount = _active_mount(state, actor)
+    if mount is None:
         return ()
-    return (ProneBeforeGiveGroundSpec(HORSE_NOBLE_STEED_RULE_ID,
-        affects_monstrosities=False),)
+    after_ground = ()
+    if mounted_give_ground_broken(state, actor, attack_skill):
+        # PG76: Frightening does not affect an enemy that is Fearsome. The
+        # current generated source grants Fearsome through a real Demigryph.
+        immune = mount is CombatMount.SKELETAL_STEED and _active_mount(state, target) is CombatMount.DEMIGRYPH
+        if not immune:
+            after_ground = (ConditionAfterGiveGroundSpec(Condition.BROKEN,
+                DEMIGRYPH_FEARSOME_RULE_ID if mount is CombatMount.DEMIGRYPH else SKELETAL_STEED_FRIGHTENING_RULE_ID),)
+    if mount is CombatMount.DEMIGRYPH or not is_charge:
+        return after_ground
+    pegasus = mount is CombatMount.PEGASUS
+    if (not pegasus and target in state.source.enemy_activation_order
+            and state.enemy(target).definition.injury_policy is TargetInjuryPolicy.MONSTROSITY):
+        return after_ground
+    return (ProneBeforeGiveGroundSpec(
+        PEGASUS_KNIGHTS_RULE_ID if pegasus else HORSE_NOBLE_STEED_RULE_ID,
+        affects_monstrosities=pegasus), *after_ground)
 
 
 def _source_id(source, actor, history_index):

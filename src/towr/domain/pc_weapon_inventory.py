@@ -1,14 +1,19 @@
 """Actual PC weapon locations and source-bound reversible incidental swaps."""
 from __future__ import annotations
 
-from dataclasses import dataclass,replace
+from dataclasses import dataclass,replace,field
 from typing import TYPE_CHECKING
 
 from towr.domain.condition_models import Condition
 from towr.domain.pc_combat_equipment_models import (
-    PcItemLocation,PcWeaponItem,PcWeaponInventoryState,validate_pc_weapon_inventory,
-    validate_pc_combat_equipment,
+    PcItemLocation as SourceItemLocation, PcWeaponItem, validate_pc_weapon_inventory,
 )
+
+from towr.domain.weapon_inventory_models import (
+    WeaponGrip, WeaponItemLocation, WeaponItemSource, WeaponInventoryState,
+    initial_weapon_inventory, weapon_reload_target,
+)
+from towr.domain.weapon_catalog import WeaponKind, WeaponGroup, weapon_profile
 
 if TYPE_CHECKING:
     from towr.domain.pc_tactical_models import PcTacticalChoice
@@ -18,81 +23,263 @@ if TYPE_CHECKING:
 class PcWeaponSwapProof:
     actor_id: str
     action_id: str
-    previous: PcWeaponInventoryState
-    state: PcWeaponInventoryState
+    previous: WeaponInventoryState
+    state: WeaponInventoryState
     intent: PcTacticalChoice
+    round_number: int = field(kw_only=True)
 
     def __post_init__(self):
         from towr.domain.pc_tactical_models import PcTacticalChoice
         if any(type(v) is not str or not v.strip() for v in (self.actor_id,self.action_id)):
             raise TypeError('weapon swap needs exact actor/action identifiers')
-        if type(self.previous) is not PcWeaponInventoryState or type(self.state) is not PcWeaponInventoryState:
+        if type(self.previous) is not WeaponInventoryState or type(self.state) is not WeaponInventoryState:
             raise TypeError('weapon swap needs its actual typed before/after inventories')
         replace(self.previous);replace(self.state)
         if type(self.intent) is not PcTacticalChoice or self.intent.actor_id!=self.actor_id:
             raise TypeError('weapon swap must commit the actual actor tactical choice')
         if getattr(self.intent,'weapon_item_id',None)!=self.state.active_item_id:
             raise ValueError('weapon swap must commit its actual next weapon item')
-        if self.previous.active_item_id==self.state.active_item_id:
-            raise ValueError('weapon swap must change the active item')
-        if tuple((i.id,i.weapon) for i in self.previous.items)!=tuple((i.id,i.weapon) for i in self.state.items):
-            raise ValueError('weapon swap cannot change source item membership')
-        incoming=next(i for i in self.previous.items if i.id==self.state.active_item_id)
-        if incoming.location is not PcItemLocation.CARRIED or self.state.active.location is not PcItemLocation.HELD:
-            raise ValueError('free swap only draws an actually carried item')
-        for before,after in zip(self.previous.items,self.state.items,strict=True):
-            if before.id==incoming.id:
-                continue
-            expected=(replace(before,location=PcItemLocation.CARRIED,hand=None)
-                if before.location is PcItemLocation.HELD else before)
-            if after!=expected:
-                raise ValueError('weapon swap may only stow an actually held previous weapon')
+        from towr.domain.weapon_equip_models import WeaponEquipTransition
+        WeaponEquipTransition(self.actor_id,self.round_number,self.previous,self.state)
+        if self.previous==self.state:
+            raise ValueError('equip must change actual equipment or selection')
+
+    @property
+    def changes_equipment(self):
+        return any((a.location,a.grip)!=(b.location,b.grip)
+            for a,b in zip(self.previous.items,self.state.items,strict=True))
+
+
+def pc_grip(hand):
+    from towr.domain.pc_melee_models import PcWeaponHand, PcTwoHandedGrip
+    if hand is None:
+        return None
+    if hand is PcTwoHandedGrip.BOTH:
+        return WeaponGrip.BOTH
+    if type(hand) is not PcWeaponHand:
+        raise TypeError('a weapon grip requires its actual PC hand')
+    return WeaponGrip(hand.value)
+
+
+def pc_hand(grip):
+    from towr.domain.pc_melee_models import PcWeaponHand, PcTwoHandedGrip
+    if grip is None:
+        return None
+    if type(grip) is not WeaponGrip:
+        raise TypeError('a PC hand view requires its actual weapon grip')
+    return PcTwoHandedGrip.BOTH if grip is WeaponGrip.BOTH else PcWeaponHand(grip.value)
+
+
+def pc_item_weapon(item):
+    from towr.domain.pc_melee_models import PcMeleeWeapon
+    return PcMeleeWeapon(item.kind.value)
 
 
 def initial_pc_weapon_inventory(source):
-    validate_pc_combat_equipment(source)
-    items=getattr(source,'combat_equipment',None)
-    return None if items is None else PcWeaponInventoryState(items,items[0].id)
+    """Compile immutable initial facts once; never synchronize from runtime flags."""
+    from towr.domain.pc_melee_models import PcMeleeWeapon
+    items = source.combat_equipment
+    if items is None:
+        items = (PcWeaponItem('weapon',source.pc.weapon,SourceItemLocation.HELD,source.initial_weapon_hand),)
+        if source.backup_weapon_policy is not None:
+            items += (PcWeaponItem('backup-weapon',source.backup_weapon_policy.weapon,
+                SourceItemLocation.CARRIED,None),)
+    primary = next(item for item in items if item.location is SourceItemLocation.HELD)
+    sources=[]
+    for item in items:
+        kind=WeaponKind(item.weapon.value)
+        sources.append(WeaponItemSource(item.id,kind,WeaponItemLocation(item.location.value),
+            pc_grip(item.hand),initially_loaded=item.initially_loaded))
+    shield=None if source.shield is None else pc_grip(source.shield.initial_hand)
+    inventory=initial_weapon_inventory(source.actor_id,tuple(sources),shield_hand=shield)
+    selected=next(unit.id for unit in inventory.items if unit.source_item_id==primary.id)
+    return replace(inventory,active_item_id=selected)
 
 
-def sync_pc_weapon_inventory(before_member,after_member,source):
-    """Mirror actual drop/recover/legacy draw updates without inventing pickup.
+def pc_member_ranged(member,item_id=None):
+    """Read-only K1 resource view, without asserting that the unit is usable.
 
-    Called by the owning projection after it has validated the actual action.
-    An explicit inventory transition is checked, rather than overwritten.
+    The selected Shooting unit takes precedence. Otherwise the first Shooting
+    unit witnesses retained source membership, including a stowed or dropped
+    gun. Action decisions must additionally check the actual selected weapon.
     """
-    inventory=getattr(before_member,'weapon_inventory',None)
-    if inventory is None:
-        if getattr(after_member,'weapon_inventory',None) is not None:
-            validate_pc_weapon_inventory(after_member,source)
-        return after_member
-    if after_member.weapon_inventory!=inventory:
-        validate_pc_weapon_inventory(after_member,source)
-        return after_member
-    initial=source.combat_equipment
-    if type(after_member.using_backup_weapon) is not bool or (after_member.using_backup_weapon and len(initial)!=2):
-        raise ValueError('backup mirror requires its actual second source item')
-    active=initial[1].id if after_member.using_backup_weapon else initial[0].id
-    items=[]
+    from towr.domain.reload_models import FreeReloadWeaponState
+    from towr.domain.ranged_weapon_profiles import RangedWeaponId
+    inventory=member.weapon_inventory
+    item=(inventory.item(item_id) if item_id is not None else inventory.active)
+    if item is None or weapon_profile(item.kind).group is not WeaponGroup.SHOOTING:
+        if item_id is not None:
+            return None
+        item=next((unit for unit in inventory.items
+            if weapon_profile(unit.kind).group is WeaponGroup.SHOOTING),None)
+    if item is None:
+        return None
+    return item.reload if item.reload is not None else FreeReloadWeaponState(item.id,RangedWeaponId(item.kind.value))
+
+
+def replace_pc_member(member, **changes):
+    """Apply an owner's checked item/Shield changes atomically.
+
+    Location and resources live only in the inventory. Hand and ranged kwargs
+    are commands from validated proof owners, never independent state fields.
+    """
+    from towr.domain.pc_shield_models import PcShieldLocation
+    from towr.domain.reload_models import ReloadableWeaponState, FreeReloadWeaponState
+    inventory=changes.pop('weapon_inventory',member.weapon_inventory)
+    if type(inventory) is not WeaponInventoryState:
+        raise TypeError('PC equipment update requires its actual common inventory')
+    identity=lambda value: tuple((item.id,item.source,item.initial_actor_id,item.source_item_id,item.unit_index)
+        for item in value.items)
+    if identity(inventory)!=identity(member.weapon_inventory):
+        raise ValueError('an equipment update cannot replace source membership')
+    items=list(inventory.items)
+    if 'using_backup_weapon' in changes:
+        raise TypeError('select the actual inventory item, not a backup flag')
+    if 'ranged' in changes:
+        ranged=changes.pop('ranged')
+        if type(ranged) not in (ReloadableWeaponState,FreeReloadWeaponState):
+            raise TypeError('a ranged update must retain its real K1 resource source')
+        item=inventory.item(ranged.weapon_instance_id)
+        if ranged.weapon_id.value!=item.kind.value:
+            raise ValueError('ranged update belongs to a different physical weapon')
+        inventory=inventory.with_item(replace(item,reload=ranged if type(ranged) is ReloadableWeaponState else None))
+        items=list(inventory.items)
+    if 'weapon_hand' in changes:
+        hand=changes.pop('weapon_hand')
+        selected=inventory.active
+        if selected is None:
+            raise ValueError('a hand update requires its selected physical item')
+        grip=pc_grip(hand)
+        location=(WeaponItemLocation.HELD if grip is not None else
+            WeaponItemLocation.DROPPED if selected.location is WeaponItemLocation.HELD else selected.location)
+        items=[replace(item,grip=grip,location=location) if item.id==selected.id else item for item in items]
+    shield=changes.get('shield',member.shield)
+    shield_hand=(None if shield is None or shield.location is PcShieldLocation.DROPPED else pc_grip(shield.hand))
+    inventory=WeaponInventoryState(tuple(items),inventory.active_item_id,shield_hand)
+    return replace(member,weapon_inventory=inventory,**changes)
+
+
+def drop_pc_weapons_in_hand(member,side):
+    """A wound drops every actual item held by the affected anatomical hand."""
+    grip=pc_grip(side)
+    items=tuple(replace(item,location=WeaponItemLocation.DROPPED,grip=None)
+        if item.location is WeaponItemLocation.HELD and item.grip in (grip,WeaponGrip.BOTH)
+        else item for item in member.weapon_inventory.items)
+    return replace_pc_member(member,weapon_inventory=replace(member.weapon_inventory,items=items))
+
+
+def _usable_pc_grips(member):
+    from towr.domain.pc_heavy_wound_models import usable_hands
+    return tuple(WeaponGrip(side.value) for side in usable_hands(member))
+
+
+def pc_attack_weapon_use(state,actor,target=None):
+    """Select actual Attack contributors; a spare hand is not an automatic bonus."""
+    from towr.domain.weapon_use_models import build_weapon_use
+    from towr.domain.weapon_effect_preparation import weapon_test_modifiers,weapon_damage_preparation
+    from towr.domain.pc_heavy_wound_models import injured_hands
+    from towr.domain.pc_mount_models import pc_is_mounted
+    from towr.domain.pc_potion_models import pc_effective_definition
+    from towr.domain.attack_models import DamageImpactSpec,effective_damage_modifiers
+    member=state.participant(actor)
+    inventory=member.weapon_inventory
+    primary=inventory.active
+    if primary is None or primary.location is not WeaponItemLocation.HELD:
+        return None
+    from towr.domain.pc_armour_models import actor_bound_to_chivalric_combat
+    if (weapon_profile(primary.kind).group in (WeaponGroup.SHOOTING,WeaponGroup.THROWING)
+            and actor_bound_to_chivalric_combat(state,actor)):
+        return None
+    try:
+        base=build_weapon_use(actor,inventory,primary.id,usable_hands=_usable_pc_grips(member))
+    except ValueError:
+        return None
+    if target is None or target not in state.source.enemy_activation_order:
+        return base
+    enemy=state.enemy(target)
+    pc=pc_effective_definition(state,actor)
+    injured={WeaponGrip(hand.value) for hand in injured_hands(member)}
+    def value(use):
+        dice=weapon_test_modifiers(use,member.injury.conditions,
+            target_conditions=enemy.state.injury.conditions,target_mounted=pc_is_mounted(state,target)).modifiers
+        prepared=weapon_damage_preparation(use,pc.strength,enemy.state.current_resilience)
+        damage=(() if prepared.damage is None else effective_damage_modifiers(DamageImpactSpec(
+            prepared.damage,enemy.state.current_resilience,damage_modifiers=prepared.modifiers,
+            magical_source=prepared.magical_source)))
+        bonuses=sum(mod.amount for mod in dice if mod.amount<0 or not member.injury.conditions.has(Condition.DRAINED))
+        return .25*bonuses+sum(mod.amount for mod in damage)-len(injured & set(use.used_hands))
+    best,best_value=base,value(base)
     for item in inventory.items:
-        if item.id==active:
-            if after_member.weapon_hand is not None:
-                item=replace(item,location=PcItemLocation.HELD,hand=after_member.weapon_hand)
-            elif item.location is PcItemLocation.HELD:
-                item=replace(item,location=PcItemLocation.DROPPED,hand=None)
-        elif item.location is PcItemLocation.HELD:
-            item=replace(item,location=PcItemLocation.CARRIED,hand=None)
-        items.append(item)
-    result=replace(after_member,weapon_inventory=PcWeaponInventoryState(tuple(items),active))
-    validate_pc_weapon_inventory(result,source)
-    return result
+        if item.id==primary.id or item.location is not WeaponItemLocation.HELD:
+            continue
+        try:
+            candidate=build_weapon_use(actor,inventory,primary.id,(item.id,),_usable_pc_grips(member))
+        except ValueError:
+            continue
+        score=value(candidate)
+        if score>best_value+1e-12:
+            best,best_value=candidate,score
+    return best
+
+
+def pc_protection_weapon_use(member,skill,attack_skill=None):
+    """Prepare Defence implements independently from the selected Attack item."""
+    from towr.domain.weapon_use_models import build_weapon_protection_use
+    from towr.domain.weapon_effect_preparation import weapon_test_modifiers
+    from towr.domain.pc_heavy_wound_models import injured_hands
+    from towr.domain.pc_shield_models import pc_has_working_shield
+    from towr.domain.test_models import Skill
+    if skill not in (Skill.DEFENCE,Skill.MELEE):
+        return None
+    inventory=member.weapon_inventory
+    shield=pc_has_working_shield(member)
+    required_shield=skill is Skill.DEFENCE and attack_skill in (Skill.SHOOTING,Skill.THROWING)
+    if required_shield and not shield:
+        return None
+    usable=_usable_pc_grips(member)
+    held=tuple(item.id for item in inventory.items if item.location is WeaponItemLocation.HELD
+        and all(side in usable for side in ((WeaponGrip.LEFT,WeaponGrip.RIGHT)
+            if item.grip is WeaponGrip.BOTH else (item.grip,))))
+    # The admitted Close-Shooting tactic uses a usable held implement, then
+    # falls back to an unarmed Melee counter only when none is available.
+    # An empty use must not silently evade that implement's printed penalties
+    # or the actual injured-hand consequences.
+    sets=[*(((),) if skill is Skill.DEFENCE or not held else ()),
+        *((identifier,) for identifier in held)]
+    if len(held)==2:
+        sets.append(held)
+    injured={WeaponGrip(side.value) for side in injured_hands(member)}
+    best=None
+    best_score=None
+    for ids in sets:
+        use_shield=required_shield or (not ids and shield and skill is Skill.DEFENCE)
+        try:
+            candidate=build_weapon_protection_use(member.actor_id,inventory,skill,ids,use_shield,usable)
+        except ValueError:
+            continue
+        modifiers=weapon_test_modifiers(candidate,member.injury.conditions).modifiers
+        delta=sum(mod.amount for mod in modifiers if mod.amount<0 or not member.injury.conditions.has(Condition.DRAINED))
+        score=(.25*delta-len(injured & set(candidate.used_hands)),-len(candidate.used_hands))
+        if best_score is None or score>best_score:
+            best,best_score=candidate,score
+    return best
+
+
+def pc_weapon_target_modifiers(use,target_conditions,*,target_mounted=False):
+    from towr.domain.weapon_effect_preparation import weapon_kind_target_test_modifiers
+    from towr.domain.test_models import DiceModifier
+    totals={}
+    for item_id in use.item_ids:
+        for modifier in weapon_kind_target_test_modifiers(use.inventory.item(item_id).kind,
+                use.skill,target_conditions,target_mounted=target_mounted):
+            totals[modifier.rule_id]=totals.get(modifier.rule_id,0)+modifier.amount
+    return tuple(DiceModifier(rule,amount) for rule,amount in totals.items() if amount)
 
 
 def pc_weapon_swap_used(state,actor_id):
-    from towr.domain.pc_melee_result_models import pc_melee_action_id
-    action=pc_melee_action_id(state,actor_id)
     return any(type(proof) is PcWeaponSwapProof and proof.actor_id==actor_id
-        and proof.action_id==action for proof in state.history)
+        and proof.round_number==state.round_state.round_number and proof.changes_equipment
+        for proof in state.history)
 
 
 def pending_pc_weapon_swap(state,actor_id=None):
@@ -126,12 +313,13 @@ def pc_weapon_swap_hand(state,actor_id,item_id):
     if item is None:
         return None
     hands=usable_hands(member)
-    if pc_weapon_requires_two_hands(item.weapon):
+    if pc_weapon_requires_two_hands(pc_item_weapon(item)):
         return PcTwoHandedGrip.BOTH if len(hands)==2 else None
     source=state.source.participant(actor_id)
-    preferred=(source.initial_weapon_hand if item.id==source.combat_equipment[0].id
-        else source.backup_weapon_policy.preferred_hand)
-    if pc_weapon_supports_variable_grip(item.weapon):
+    preferred=(pc_hand(item.grip) or (source.backup_weapon_policy.preferred_hand
+        if source.backup_weapon_policy is not None and pc_item_weapon(item) is source.backup_weapon_policy.weapon
+        else source.initial_weapon_hand))
+    if pc_weapon_supports_variable_grip(pc_item_weapon(item)):
         from towr.domain.pc_backup_weapon_models import preferred_variable_weapon_hand
         return preferred_variable_weapon_hand(member,preferred)
     order=(preferred,*(side for side in PcWeaponHand if side is not preferred))
@@ -142,7 +330,8 @@ def pc_weapon_swap_hand(state,actor_id,item_id):
         for side in order if side in hands and (side==shield)==occupied and (side in injured)==hurt),None)
 
 
-def _swapped_member(state,actor_id,item_id,*,forecast,allow_dropped=False):
+def _swapped_member(state,actor_id,item_id,*,forecast,allow_dropped=False,for_reload=False,
+        stow_other_weapons=False):
     from towr.domain.pc_shield_models import PcShieldLocation,PcShieldState
     from towr.domain.pc_melee_models import PcTwoHandedGrip
     member=state.participant(actor_id)
@@ -150,47 +339,67 @@ def _swapped_member(state,actor_id,item_id,*,forecast,allow_dropped=False):
     if inventory is None:
         return None
     target=next((item for item in inventory.items if item.id==item_id),None)
-    if (target is None or target.location is PcItemLocation.DEPLOYED
-            or (target.location is PcItemLocation.DROPPED and not allow_dropped)):
+    if (target is None or target.location is WeaponItemLocation.DEPLOYED
+            or (target.location is WeaponItemLocation.DROPPED and not allow_dropped)):
         return None
+    from towr.domain.pc_heavy_wound_models import usable_hands
+    usable=tuple(WeaponGrip(side.value) for side in usable_hands(member))
+    if target.location is WeaponItemLocation.HELD:
+        needed=(WeaponGrip.LEFT,WeaponGrip.RIGHT) if target.grip is WeaponGrip.BOTH else (target.grip,)
+        if all(side in usable for side in needed) and not for_reload and not stow_other_weapons:
+            return replace(member,weapon_inventory=replace(inventory,active_item_id=item_id))
     hand=pc_weapon_swap_hand(state,actor_id,item_id)
     if hand is None:
         return None
+    grip=pc_grip(hand)
+    if for_reload and len(usable)!=2:
+        return None
+    occupied={WeaponGrip.LEFT,WeaponGrip.RIGHT} if grip is WeaponGrip.BOTH or for_reload else {grip}
     shield=member.shield
-    if shield is not None and shield.location is PcShieldLocation.HELD and (hand is PcTwoHandedGrip.BOTH or hand is shield.hand):
+    if for_reload and shield is not None and shield.location is PcShieldLocation.UNAVAILABLE:
+        return None
+    if shield is not None and shield.location is PcShieldLocation.HELD and pc_grip(shield.hand) in occupied:
         if not forecast:
             return None
         shield=PcShieldState(PcShieldLocation.DROPPED,None)
-    items=tuple(replace(item,location=PcItemLocation.HELD,hand=hand) if item.id==item_id else
-        replace(item,location=PcItemLocation.CARRIED,hand=None) if item.location is PcItemLocation.HELD else item
-        for item in inventory.items)
-    result=replace(member,weapon_hand=hand,using_backup_weapon=item_id!=state.source.participant(actor_id).combat_equipment[0].id,
-        weapon_inventory=PcWeaponInventoryState(items,item_id),shield=shield)
+    trapped={binding.weapon_id for binding in getattr(state,'briarroot_bindings',())
+        if binding.attacker_id==actor_id}
+    items=[]
+    for item in inventory.items:
+        if item.id==item_id:
+            item=replace(item,location=WeaponItemLocation.HELD,grip=grip)
+        elif item.location is WeaponItemLocation.HELD:
+            item_hands={WeaponGrip.LEFT,WeaponGrip.RIGHT} if item.grip is WeaponGrip.BOTH else {item.grip}
+            if stow_other_weapons or item_hands & occupied:
+                if item.id in trapped:
+                    return None
+                item=replace(item,location=WeaponItemLocation.CARRIED,grip=None)
+        items.append(item)
+    result=replace_pc_member(member,weapon_inventory=WeaponInventoryState(tuple(items),item_id,
+        None if shield is None or shield.location is PcShieldLocation.DROPPED else pc_grip(shield.hand)),shield=shield)
     validate_pc_weapon_inventory(result,state.source.participant(actor_id))
     return result
 
 
-def pc_weapon_inventory_view(state,actor_id,item_id):
+def pc_weapon_inventory_view(state,actor_id,item_id,*,for_reload=False,future_turn=False):
     """Prepared carry→held view for advice; no history, resource or RNG mutation."""
     member=state.participant(actor_id)
     inventory=getattr(member,'weapon_inventory',None)
     if inventory is None:
         return None
-    if inventory.active_item_id==item_id:
+    if inventory.active_item_id==item_id and not for_reload:
         return state
-    if pc_weapon_swap_used(state,actor_id):
+    if not future_turn and pc_weapon_swap_used(state,actor_id) and inventory.item(item_id).location is not WeaponItemLocation.HELD:
         return None
-    view=_swapped_member(state,actor_id,item_id,forecast=True)
+    view=_swapped_member(state,actor_id,item_id,forecast=True,for_reload=for_reload)
     if view is None:
         return None
+    physical=any((a.location,a.grip)!=(b.location,b.grip) for a,b in zip(inventory.items,view.weapon_inventory.items,strict=True))
+    if physical and not future_turn and pc_weapon_swap_used(state,actor_id):
+        return None
     party=tuple(view if m.actor_id==actor_id else m for m in state.party)
-    from towr.domain.pc_melee_models import PC_THROWING_WEAPONS
-    if state.source.participant(actor_id).pc.weapon in PC_THROWING_WEAPONS:
-        # A hypothetical draw/stow is advice, not a physical Net receipt. Keep
-        # the real bank/history untouched and never admit this as a battle state.
-        base=state.base if type(state) is _PcInventoryAdviceView else state
-        return _PcInventoryAdviceView(base,party)
-    return replace(state,party=party)
+    base=state.base if type(state) is _PcInventoryAdviceView else state
+    return _PcInventoryAdviceView(base,party)
 
 
 @dataclass(frozen=True,slots=True)
@@ -216,12 +425,19 @@ def pc_weapon_pickup_view(state,actor_id,item_id):
     supplies a swap proof and cannot make that item eligible for free draw.
     """
     member=state.participant(actor_id)
+    from towr.domain.pc_briarroot_weapon_models import can_pickup_pc_weapon
+    if not can_pickup_pc_weapon(state,actor_id,item_id):
+        return None
     inventory=getattr(member,'weapon_inventory',None)
-    if inventory is None or not any(item.id==item_id and item.location is PcItemLocation.DROPPED
+    if inventory is None or not any(item.id==item_id and item.location is WeaponItemLocation.DROPPED
             for item in inventory.items):
         return None
     view=_swapped_member(state,actor_id,item_id,forecast=True,allow_dropped=True)
-    return None if view is None else replace(state,party=tuple(view if m.actor_id==actor_id else m for m in state.party))
+    if view is None:
+        return None
+    party = tuple(view if m.actor_id == actor_id else m for m in state.party)
+    base = state.base if type(state) is _PcInventoryAdviceView else state
+    return _PcInventoryAdviceView(base, party)
 
 
 def pc_weapon_pickup_member(state,actor_id,item_id,*,injury=None):
@@ -234,8 +450,11 @@ def pc_weapon_pickup_member(state,actor_id,item_id,*,injury=None):
     """
     from towr.domain.pc_heavy_wound_models import critical_for_incidental_hand_use
     member=state.participant(actor_id)
+    from towr.domain.pc_briarroot_weapon_models import can_pickup_pc_weapon
+    if not can_pickup_pc_weapon(state,actor_id,item_id):
+        return None
     inventory=getattr(member,'weapon_inventory',None)
-    if inventory is None or not any(item.id==item_id and item.location is PcItemLocation.DROPPED
+    if inventory is None or not any(item.id==item_id and item.location is WeaponItemLocation.DROPPED
             for item in inventory.items):
         return None
     updated=_swapped_member(state,actor_id,item_id,forecast=False,allow_dropped=True)
@@ -243,7 +462,7 @@ def pc_weapon_pickup_member(state,actor_id,item_id,*,injury=None):
         return None
     if injury is not None:
         updated=replace(updated,injury=injury)
-    if any(item.location is PcItemLocation.HELD and item.id!=item_id for item in inventory.items):
+    if any(item.location is WeaponItemLocation.HELD and item.id!=item_id for item in inventory.items):
         updated=replace(updated,injury=critical_for_incidental_hand_use(
             replace(member,injury=updated.injury),updated.weapon_hand))
     return updated
@@ -262,17 +481,36 @@ def expected_pc_weapon_swap(state):
     source=state.source.participant(actor)
     member=state.participant(actor)
     inventory=getattr(member,'weapon_inventory',None)
-    if (source.policy is not PcMeleePolicy.AUTOMATIC_COMBAT or source.pc.weapon not in (*PC_RANGED_WEAPONS,*PC_THROWING_WEAPONS)
-            or inventory is None or member.injury.dead or member.injury.conditions.has(Condition.DEFENCELESS)
-            or pc_weapon_swap_used(state,actor)):
+    if inventory is None or member.injury.dead or member.injury.conditions.has(Condition.DEFENCELESS):
         return None
-    intent=select_pc_tactic(state,actor)
+    if source.policy is PcMeleePolicy.AUTOMATIC_COMBAT:
+        intent=select_pc_tactic(state,actor)
+    else:
+        from towr.domain.pc_melee_result_models import _pc_recover_needed
+        from towr.domain.pc_tactical_models import PcTacticalChoice
+        from towr.domain.reload_models import ReloadableWeaponState
+        from towr.domain.turn_models import CombatActionKind
+        from towr.domain.pc_heavy_wound_models import usable_hands
+        item=inventory.active
+        # A fixed Shoot/Reload policy still owns a real inventory. Preparing
+        # its already-selected Reload may stow another held implement; it does
+        # not choose a different weapon or invent a second action.
+        if (item is None or item.location is not WeaponItemLocation.HELD
+                or type(item.reload) is not ReloadableWeaponState or item.reload.loaded
+                or len(usable_hands(member))!=2 or _pc_recover_needed(member)
+                or not any(other.id!=item.id and other.location is WeaponItemLocation.HELD
+                    for other in inventory.items)):
+            return None
+        intent=PcTacticalChoice(actor,CombatActionKind.IMPROVISE,actor,None,0.0,
+            'prepare_fixed_reload_hands',weapon_item_id=item.id,ranged_reload=True)
     item=getattr(intent,'weapon_item_id',None)
-    if item is None or item==inventory.active_item_id:
+    if item is None:
         return None
-    swapped=_swapped_member(state,actor,item,forecast=False)
-    return None if swapped is None else PcWeaponSwapProof(actor,pc_melee_action_id(state,actor),inventory,
-        swapped.weapon_inventory,intent)
+    if pc_weapon_swap_used(state,actor) and inventory.item(item).location is not WeaponItemLocation.HELD:
+        return None
+    swapped=_swapped_member(state,actor,item,forecast=False,for_reload=intent.ranged_reload)
+    return None if swapped is None or swapped.weapon_inventory==inventory else PcWeaponSwapProof(actor,pc_melee_action_id(state,actor),inventory,
+        swapped.weapon_inventory,intent,round_number=state.round_state.round_number)
 
 
 def apply_pc_weapon_swap(state,proof):
@@ -285,6 +523,13 @@ def apply_pc_weapon_swap(state,proof):
     if expected is None or proof!=expected:
         raise ValueError('weapon swap changed its actual source, item, hand or committed intent')
     validate_pc_melee_source_types(proof,expected)
-    member=_swapped_member(state,proof.actor_id,proof.state.active_item_id,forecast=False)
-    injury=critical_for_incidental_hand_use(member,member.weapon_hand)
+    member=_swapped_member(state,proof.actor_id,proof.state.active_item_id,forecast=False,for_reload=proof.intent.ranged_reload)
+    if not proof.changes_equipment:
+        return member
+    touched={hand for before,after in zip(proof.previous.items,proof.state.items,strict=True)
+        if (before.location,before.grip)!=(after.location,after.grip)
+        for grip in (before.grip,after.grip) if grip is not None
+        for hand in ((WeaponGrip.LEFT,WeaponGrip.RIGHT) if grip is WeaponGrip.BOTH else (grip,))}
+    used=pc_hand(WeaponGrip.BOTH if len(touched)==2 else next(iter(touched)))
+    injury=critical_for_incidental_hand_use(member,used)
     return replace(member,injury=injury)

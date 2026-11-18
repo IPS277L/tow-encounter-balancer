@@ -80,6 +80,7 @@ def expected_pc_npc_blood_rage(state):
 def pc_bestigor_glorious_source(state, actor_id):
     """Replay the ACK/Attack prefix; remaining W1 alone never grants a new charge."""
     from towr.domain.pc_melee_result_models import PcAttackProof, PcProfileWoundProof
+    from towr.domain.pc_demigryph_models import PcDemigryphStrikeProof,pc_kernel_resolution
     from towr.domain.pc_warped_form_models import PcWarpedFormProfileProof
     if actor_id not in state.source.enemy_activation_order:
         return None
@@ -92,14 +93,14 @@ def pc_bestigor_glorious_source(state, actor_id):
     last_attack = None
     entitlement = None
     for index,proof in enumerate(state.history):
-        if type(proof) is PcAttackProof:
+        if type(proof) in (PcAttackProof,PcDemigryphStrikeProof):
             last_attack = proof
             if proof.request.actor_id == actor_id:
                 entitlement = None
         elif (type(proof) is PcProfileWoundProof and last_attack is not None
                 and last_attack.request.target_id == actor_id
                 and proof.source.previous_wounds == 0 and proof.source.current_wounds == 1):
-            wound = last_attack.execution.resolution.profile_wound
+            wound = pc_kernel_resolution(last_attack).profile_wound
             if wound is None or proof.source != wound.state_change:
                 raise ValueError('Bestigor Glorious detached from its actual profile-Wound ACK')
             entitlement = PcBestigorGloriousSource(actor_id, last_attack.request.id, proof.source)

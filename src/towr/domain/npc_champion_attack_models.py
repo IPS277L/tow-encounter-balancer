@@ -9,7 +9,11 @@ from dataclasses import dataclass, field, replace
 from typing import TYPE_CHECKING
 
 from towr.domain.action_execution_models import AttackActionExecutionRequest, AttackActionExecutionResult
-from towr.domain.attack_models import AttackOutcome, AttackResult, DamageImpactSpec, ImpactOutcome, MissConsequence
+from towr.domain.attack_models import (
+    AttackOutcome, AttackResult, DamageImpactSpec, ImpactOutcome, MissConsequence,
+    effective_damage_modifiers, effective_ignores_armour, armour_ward_cancels_effects,
+)
+from towr.domain.armour_models import METEORIC_PROTECTION_RULE_ID
 from towr.domain.condition_models import Condition, ConditionState, StaggerOutcome, StaggerResult
 from towr.domain.crushed_rib_test_models import (
     CrushedRibTestPreparationResult, CrushedRibTestResult, CrushedRibCastingResult,
@@ -315,6 +319,7 @@ def _normal_test_source(request: TestRequest) -> None:
 def _damage_spec(spec) -> None:
     _typed(spec, DamageImpactSpec)
     _boolean(spec.ignores_armour)
+    _boolean(spec.magical_source)
     replace(spec.damage)
     replace(spec.resilience)
     for values in (spec.damage_modifiers, spec.resilience_modifiers):
@@ -508,12 +513,20 @@ def _actual_attack(request, actual: AttackResult) -> None:
     else:
         spec = request.impact_spec
         _typed(spec, DamageImpactSpec)
-        damage = spec.damage.base + margin * spec.damage.success_multiplier
-        resilience = spec.resilience.toughness if spec.ignores_armour else spec.resilience.total
+        modifiers=effective_damage_modifiers(spec)
+        damage = (spec.damage.base + margin * spec.damage.success_multiplier
+            +sum(modifier.amount for modifier in modifiers))
+        resilience = ((spec.resilience.toughness if effective_ignores_armour(spec) else spec.resilience.total)
+            +sum(modifier.amount for modifier in spec.resilience_modifiers))
+        rules=tuple(modifier.rule_id for modifier in (*modifiers,*spec.resilience_modifiers))
+        if armour_ward_cancels_effects(spec):
+            rules=(*rules,METEORIC_PROTECTION_RULE_ID)
+        if tie:
+            rules=(*rules,'RULE-COMBAT-006:attack-tie')
         expected = AttackResult(request.id, actual.attacker_test, actual.defender_test,
             AttackOutcome.HIT, margin, spec, damage, resilience,
             ImpactOutcome.WOUND if damage > resilience else ImpactOutcome.STAGGERED,
-            MissConsequence.NONE, tie, ('RULE-COMBAT-006:attack-tie',) if tie else ())
+            MissConsequence.NONE, tie, rules)
     if actual.impact is not None:
         _typed(actual.impact, ImpactOutcome)
     if actual != expected:

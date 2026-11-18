@@ -19,6 +19,7 @@ if TYPE_CHECKING:
     from towr.domain.npc_roster_models import NpcDefinition
     from towr.domain.pc_melee_result_models import PcMeleeState
     from towr.domain.pc_tactical_models import PcTacticalChoice
+    from towr.domain.pc_mount_attack_models import PcMountedAttackIntent
 
 WILD_ATTACK_RULE_ID = 'RULE-TALENT-002:wild-attack'
 DEFENSIVE_STANCE_RULE_ID = 'RULE-TALENT-002:defensive-stance'
@@ -34,10 +35,16 @@ class PcWildAttackProof:
     actor_id: str
     action_id: str
     intent: PcTacticalChoice | None = field(default=None,kw_only=True)
+    mount_intent: PcMountedAttackIntent | None = field(default=None,kw_only=True)
 
     def __post_init__(self) -> None:
         _identifier(self.actor_id)
         _identifier(self.action_id)
+        if self.mount_intent is not None:
+            from towr.domain.pc_mount_attack_models import PcMountedAttackIntent
+            if type(self.mount_intent) is not PcMountedAttackIntent or self.mount_intent.actor_id!=self.actor_id:
+                raise TypeError('Wild Attack mount mode requires its exact committed source')
+            replace(self.mount_intent)
         if self.intent is not None:
             from towr.domain.pc_tactical_models import PcTacticalChoice
             from towr.domain.pc_melee_models import PcHelpTarget
@@ -142,10 +149,22 @@ def expected_wild_attack(state: PcMeleeState) -> PcWildAttackProof | None:
     if turn.action_slots[-1].declaration.kind is not CombatActionKind.ATTACK or not state.live_party:
         return None
     enemy = state.enemy(turn.actor_id)
-    if (enemy.state.injury.defeated or enemy.definition.attacks[0].skill is not Skill.MELEE
+    from towr.domain.pc_melee_result_models import pc_selected_npc_attack_profile
+    if (enemy.state.injury.defeated or pc_selected_npc_attack_profile(state,turn.actor_id).skill is not Skill.MELEE
             or not wild_attack_available(enemy.definition,enemy.state.injury.conditions)):
         return None
-    return PcWildAttackProof(turn.actor_id,pc_melee_action_id(state,turn.actor_id))
+    from towr.domain.pc_mount_attack_models import (pc_uses_mount_attack,available_pc_attack_mount,
+        build_pc_mounted_attack_intent,PcMountedAttackMode)
+    if pc_uses_mount_attack(state,turn.actor_id):
+        return None
+    intent=None
+    if available_pc_attack_mount(state,turn.actor_id) is not None:
+        from towr.domain.pc_short_opening_models import pc_enemy_range
+        from towr.domain.ranged_weapon_profiles import RangedWeaponRange
+        target=next(actor for actor in state.source.enemy_target_priority if not state.participant(actor).injury.dead)
+        if pc_enemy_range(state,turn.actor_id,target) is RangedWeaponRange.CLOSE:
+            intent=build_pc_mounted_attack_intent(state,turn.actor_id,target,mode=PcMountedAttackMode.RIDER)
+    return PcWildAttackProof(turn.actor_id,pc_melee_action_id(state,turn.actor_id),mount_intent=intent)
 
 
 def generated_attack_quality(state: PcMeleeState,actor_id: str) -> tuple[QualityModifier,...]:
@@ -157,18 +176,19 @@ def generated_attack_quality(state: PcMeleeState,actor_id: str) -> tuple[Quality
 
 def expected_defensive_stance(state: PcMeleeState) -> PcDefensiveStanceProof | None:
     from towr.domain.pc_melee_result_models import PcAttackProof
+    from towr.domain.pc_demigryph_models import PcDemigryphStrikeProof,pc_kernel_resolution
     if (state.pending_wound is not None or not state.pending
             or type(state.pending[0]) is not AttackerStaggerRequest):
         return None
     pending = state.pending[0]
     attack = next((proof for proof in reversed(state.history)
-        if type(proof) is PcAttackProof
+        if type(proof) in (PcAttackProof,PcDemigryphStrikeProof)
         and proof.request.kernel_request.attack.id == pending.attack_id),None)
     if attack is None:
         return None
     defender=attack.request.target_id
     request = attack.protection.source_request
-    result = attack.execution.resolution.attack
+    result = pc_kernel_resolution(attack).attack
     if (not actor_has_combat_talent(state,defender,GeneratedTalent.DEFENSIVE_STANCE)
             or not actor_stagger_removable(state,defender)
             or request.attack_skill is not Skill.MELEE or request.selected_skill is not Skill.DEFENCE

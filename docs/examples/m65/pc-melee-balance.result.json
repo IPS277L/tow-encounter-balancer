@@ -85,7 +85,23 @@
           "backup_weapon_policy": {
             "weapon": "sword",
             "preferred_hand": "right"
-          }
+          },
+          "combat_equipment": [
+            {
+              "id": "weapon",
+              "weapon": "shortbow",
+              "location": "held",
+              "hand": "both",
+              "initially_loaded": null
+            },
+            {
+              "id": "backup-weapon",
+              "weapon": "sword",
+              "location": "carried",
+              "hand": null,
+              "initially_loaded": null
+            }
+          ]
         },
         {
           "actor_id": "pc2",
@@ -163,7 +179,23 @@
           "backup_weapon_policy": {
             "weapon": "sword",
             "preferred_hand": "right"
-          }
+          },
+          "combat_equipment": [
+            {
+              "id": "weapon",
+              "weapon": "warbow",
+              "location": "held",
+              "hand": "both",
+              "initially_loaded": null
+            },
+            {
+              "id": "backup-weapon",
+              "weapon": "sword",
+              "location": "carried",
+              "hand": null,
+              "initially_loaded": null
+            }
+          ]
         },
         {
           "actor_id": "pc3",
@@ -241,7 +273,23 @@
           "backup_weapon_policy": {
             "weapon": "sword",
             "preferred_hand": "right"
-          }
+          },
+          "combat_equipment": [
+            {
+              "id": "weapon",
+              "weapon": "longbow",
+              "location": "held",
+              "hand": "both",
+              "initially_loaded": null
+            },
+            {
+              "id": "backup-weapon",
+              "weapon": "sword",
+              "location": "carried",
+              "hand": null,
+              "initially_loaded": null
+            }
+          ]
         }
       ],
       "day_id": "day",
@@ -589,7 +637,23 @@
               "backup_weapon_policy": {
                 "weapon": "sword",
                 "preferred_hand": "right"
-              }
+              },
+              "combat_equipment": [
+                {
+                  "id": "weapon",
+                  "weapon": "shortbow",
+                  "location": "held",
+                  "hand": "both",
+                  "initially_loaded": null
+                },
+                {
+                  "id": "backup-weapon",
+                  "weapon": "sword",
+                  "location": "carried",
+                  "hand": null,
+                  "initially_loaded": null
+                }
+              ]
             },
             {
               "actor_id": "pc2",
@@ -660,7 +724,23 @@
               "backup_weapon_policy": {
                 "weapon": "sword",
                 "preferred_hand": "right"
-              }
+              },
+              "combat_equipment": [
+                {
+                  "id": "weapon",
+                  "weapon": "warbow",
+                  "location": "held",
+                  "hand": "both",
+                  "initially_loaded": null
+                },
+                {
+                  "id": "backup-weapon",
+                  "weapon": "sword",
+                  "location": "carried",
+                  "hand": null,
+                  "initially_loaded": null
+                }
+              ]
             },
             {
               "actor_id": "pc3",
@@ -731,7 +811,23 @@
               "backup_weapon_policy": {
                 "weapon": "sword",
                 "preferred_hand": "right"
-              }
+              },
+              "combat_equipment": [
+                {
+                  "id": "weapon",
+                  "weapon": "longbow",
+                  "location": "held",
+                  "hand": "both",
+                  "initially_loaded": null
+                },
+                {
+                  "id": "backup-weapon",
+                  "weapon": "sword",
+                  "location": "carried",
+                  "hand": null,
+                  "initially_loaded": null
+                }
+              ]
             }
           ],
           "day_id": "day",
@@ -1190,7 +1286,23 @@
               "backup_weapon_policy": {
                 "weapon": "sword",
                 "preferred_hand": "right"
-              }
+              },
+              "combat_equipment": [
+                {
+                  "id": "weapon",
+                  "weapon": "shortbow",
+                  "location": "held",
+                  "hand": "both",
+                  "initially_loaded": null
+                },
+                {
+                  "id": "backup-weapon",
+                  "weapon": "sword",
+                  "location": "carried",
+                  "hand": null,
+                  "initially_loaded": null
+                }
+              ]
             },
             {
               "actor_id": "pc2",
@@ -1268,7 +1380,23 @@
               "backup_weapon_policy": {
                 "weapon": "sword",
                 "preferred_hand": "right"
-              }
+              },
+              "combat_equipment": [
+                {
+                  "id": "weapon",
+                  "weapon": "warbow",
+                  "location": "held",
+                  "hand": "both",
+                  "initially_loaded": null
+                },
+                {
+                  "id": "backup-weapon",
+                  "weapon": "sword",
+                  "location": "carried",
+                  "hand": null,
+                  "initially_loaded": null
+                }
+              ]
             },
             {
               "actor_id": "pc3",
@@ -1346,7 +1474,23 @@
               "backup_weapon_policy": {
                 "weapon": "sword",
                 "preferred_hand": "right"
-              }
+              },
+              "combat_equipment": [
+                {
+                  "id": "weapon",
+                  "weapon": "longbow",
+                  "location": "held",
+                  "hand": "both",
+                  "initially_loaded": null
+                },
+                {
+                  "id": "backup-weapon",
+                  "weapon": "sword",
+                  "location": "carried",
+                  "hand": null,
+                  "initially_loaded": null
+                }
+              ]
             }
           ],
           "day_id": "day",

@@ -31,7 +31,6 @@
               "has_blackpowder_lore": true,
               "has_blackpowder_kit": true,
               "ammunition_supply_confirmed": true,
-              "initially_loaded": true,
               "reload_hand_policy": "two_available_hands"
             }
           },
@@ -81,7 +80,16 @@
           "glorious_policy": null,
           "help_policy": null,
           "ally_recover_policy": null,
-          "backup_weapon_policy": null
+          "backup_weapon_policy": null,
+          "combat_equipment": [
+            {
+              "id": "weapon",
+              "weapon": "pistol",
+              "location": "held",
+              "hand": "left",
+              "initially_loaded": true
+            }
+          ]
         }
       ],
       "day_id": "day",

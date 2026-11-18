@@ -31,7 +31,6 @@
               "has_blackpowder_lore": true,
               "has_blackpowder_kit": true,
               "ammunition_supply_confirmed": true,
-              "initially_loaded": true,
               "reload_hand_policy": "two_available_hands"
             }
           },
@@ -93,7 +92,16 @@
             "initial_hand": "left",
             "hand_conflict_policy": "weapon_first",
             "recovery_policy": "restore_before_attack"
-          }
+          },
+          "combat_equipment": [
+            {
+              "id": "weapon",
+              "weapon": "pistol",
+              "location": "held",
+              "hand": "right",
+              "initially_loaded": true
+            }
+          ]
         },
         {
           "actor_id": "pc2",
@@ -514,7 +522,6 @@
                   "has_blackpowder_lore": true,
                   "has_blackpowder_kit": true,
                   "ammunition_supply_confirmed": true,
-                  "initially_loaded": true,
                   "reload_hand_policy": "two_available_hands"
                 }
               },
@@ -562,7 +569,16 @@
                 "initial_hand": "left",
                 "hand_conflict_policy": "weapon_first",
                 "recovery_policy": "restore_before_attack"
-              }
+              },
+              "combat_equipment": [
+                {
+                  "id": "weapon",
+                  "weapon": "pistol",
+                  "location": "held",
+                  "hand": "right",
+                  "initially_loaded": true
+                }
+              ]
             },
             {
               "actor_id": "pc2",
@@ -955,7 +971,6 @@
                   "has_blackpowder_lore": true,
                   "has_blackpowder_kit": true,
                   "ammunition_supply_confirmed": true,
-                  "initially_loaded": true,
                   "reload_hand_policy": "two_available_hands"
                 }
               },
@@ -1010,7 +1025,16 @@
                 "initial_hand": "left",
                 "hand_conflict_policy": "weapon_first",
                 "recovery_policy": "restore_before_attack"
-              }
+              },
+              "combat_equipment": [
+                {
+                  "id": "weapon",
+                  "weapon": "pistol",
+                  "location": "held",
+                  "hand": "right",
+                  "initially_loaded": true
+                }
+              ]
             },
             {
               "actor_id": "pc2",
@@ -1479,7 +1503,6 @@
                   "has_blackpowder_lore": true,
                   "has_blackpowder_kit": true,
                   "ammunition_supply_confirmed": true,
-                  "initially_loaded": true,
                   "reload_hand_policy": "two_available_hands"
                 }
               },
@@ -1534,7 +1557,16 @@
                 "initial_hand": "left",
                 "hand_conflict_policy": "weapon_first",
                 "recovery_policy": "restore_before_attack"
-              }
+              },
+              "combat_equipment": [
+                {
+                  "id": "weapon",
+                  "weapon": "pistol",
+                  "location": "held",
+                  "hand": "right",
+                  "initially_loaded": true
+                }
+              ]
             },
             {
               "actor_id": "pc2",
@@ -2003,7 +2035,6 @@
                   "has_blackpowder_lore": true,
                   "has_blackpowder_kit": true,
                   "ammunition_supply_confirmed": true,
-                  "initially_loaded": true,
                   "reload_hand_policy": "two_available_hands"
                 }
               },
@@ -2065,7 +2096,16 @@
                 "initial_hand": "left",
                 "hand_conflict_policy": "weapon_first",
                 "recovery_policy": "restore_before_attack"
-              }
+              },
+              "combat_equipment": [
+                {
+                  "id": "weapon",
+                  "weapon": "pistol",
+                  "location": "held",
+                  "hand": "right",
+                  "initially_loaded": true
+                }
+              ]
             },
             {
               "actor_id": "pc2",

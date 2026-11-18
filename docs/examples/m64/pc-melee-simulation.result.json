@@ -29,7 +29,6 @@
               "initiative": 3,
               "dexterity": 4,
               "ammunition_supply_confirmed": true,
-              "initially_loaded": true,
               "reload_hand_policy": "two_available_hands",
               "repeater_bonus_policy": "when_available"
             }
@@ -81,7 +80,23 @@
             "initial_hand": "left",
             "hand_conflict_policy": "weapon_first",
             "recovery_policy": "restore_before_attack"
-          }
+          },
+          "combat_equipment": [
+            {
+              "id": "weapon",
+              "weapon": "repeater_handbow",
+              "location": "held",
+              "hand": "right",
+              "initially_loaded": true
+            },
+            {
+              "id": "backup-weapon",
+              "weapon": "sword",
+              "location": "carried",
+              "hand": null,
+              "initially_loaded": null
+            }
+          ]
         },
         {
           "actor_id": "pc2",
@@ -105,7 +120,6 @@
               "has_blackpowder_lore": true,
               "has_blackpowder_kit": true,
               "ammunition_supply_confirmed": true,
-              "initially_loaded": true,
               "reload_hand_policy": "two_available_hands",
               "repeater_bonus_policy": "when_available"
             }
@@ -157,7 +171,23 @@
             "initial_hand": "left",
             "hand_conflict_policy": "weapon_first",
             "recovery_policy": "restore_before_attack"
-          }
+          },
+          "combat_equipment": [
+            {
+              "id": "weapon",
+              "weapon": "repeater_pistol",
+              "location": "held",
+              "hand": "right",
+              "initially_loaded": true
+            },
+            {
+              "id": "backup-weapon",
+              "weapon": "sword",
+              "location": "carried",
+              "hand": null,
+              "initially_loaded": null
+            }
+          ]
         },
         {
           "actor_id": "pc3",
@@ -179,7 +209,6 @@
               "initiative": 3,
               "dexterity": 4,
               "ammunition_supply_confirmed": true,
-              "initially_loaded": true,
               "reload_hand_policy": "two_available_hands",
               "repeater_bonus_policy": "never"
             }
@@ -231,7 +260,23 @@
             "initial_hand": "left",
             "hand_conflict_policy": "weapon_first",
             "recovery_policy": "restore_before_attack"
-          }
+          },
+          "combat_equipment": [
+            {
+              "id": "weapon",
+              "weapon": "repeater_handbow",
+              "location": "held",
+              "hand": "right",
+              "initially_loaded": true
+            },
+            {
+              "id": "backup-weapon",
+              "weapon": "sword",
+              "location": "carried",
+              "hand": null,
+              "initially_loaded": null
+            }
+          ]
         },
         {
           "actor_id": "pc4",
@@ -255,7 +300,6 @@
               "has_blackpowder_lore": true,
               "has_blackpowder_kit": true,
               "ammunition_supply_confirmed": true,
-              "initially_loaded": true,
               "reload_hand_policy": "two_available_hands",
               "repeater_bonus_policy": "never"
             }
@@ -307,7 +351,23 @@
             "initial_hand": "left",
             "hand_conflict_policy": "weapon_first",
             "recovery_policy": "restore_before_attack"
-          }
+          },
+          "combat_equipment": [
+            {
+              "id": "weapon",
+              "weapon": "repeater_pistol",
+              "location": "held",
+              "hand": "right",
+              "initially_loaded": true
+            },
+            {
+              "id": "backup-weapon",
+              "weapon": "sword",
+              "location": "carried",
+              "hand": null,
+              "initially_loaded": null
+            }
+          ]
         }
       ],
       "day_id": "day",

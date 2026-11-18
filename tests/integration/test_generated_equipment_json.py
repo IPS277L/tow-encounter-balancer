@@ -27,9 +27,9 @@ def equipment_request():
     document['targets']['started_rounds']=dict(numerator=1,denominator=1)
     document['search'].update(max_candidates=1,exploration_trials=1,finalist_trials=1,
         top_k=1,max_total_trials=2)
-    document['search_space']=dict(weapon_skill=[2],strength=[3],toughness=[3],agility=[3],
-        melee=[4],defence=[6],athletics=[2],weapon=['sword'],light_armour=[False],
-        shield=[True],abilities=[[]],allowed_talents=[],
+    document['search_space']=dict(weapon_count=[1],initial_loaded=[True],weapon_skill=[2],strength=[3],toughness=[3],agility=[3],
+        melee=[4],defence=[6],athletics=[2],weapon=['sword'],armour=[None],
+        shield=['shield'],abilities=[[]],allowed_talents=[],
         ballistic_skill=[2],shooting=[4],initiative=[3],dexterity=[4])
     return document
 
@@ -41,7 +41,7 @@ class GeneratedEquipmentJsonTests(unittest.TestCase):
         for weapon,damage in expected_damage.items():
             with self.subTest(weapon=weapon):
                 raw=equipment_request()
-                raw['search_space'].update(weapon=[weapon],shield=[False])
+                raw['search_space'].update(weapon=[weapon],shield=[None])
                 player=raw['party'][0]
                 player['equipment']['weapons']=[{'id':'two-hander','weapon':'greatsword','location':'both_hands'}]
                 player['equipment']['armour']=[]
@@ -52,7 +52,7 @@ class GeneratedEquipmentJsonTests(unittest.TestCase):
                 self.assertEqual(report['source_request'],raw)
                 for candidate in report['explored']+report['validations']:
                     npc=candidate['npcs'][0]
-                    self.assertEqual((npc['weapon'],npc['shield']),(weapon,False))
+                    self.assertEqual((npc['weapons'][0]['weapon'],npc['armour']['shield']),(weapon,None))
                     self.assertEqual(parse_character_file(json.dumps(npc),'npc'),npc)
                     replay=candidate['replay']
                     native=parse_pc_melee_simulation_request(json.dumps(replay))
@@ -63,12 +63,13 @@ class GeneratedEquipmentJsonTests(unittest.TestCase):
                     self.assertEqual((attack.damage.base,attack.hands.value),(damage,'2h'))
                     self.assertEqual(attack.test_profile.maximum_dice,4)
                     forged=deepcopy(replay)
-                    forged['scenario']['enemies'][0]['definition']['attack']['hands']='1h'
+                    forged['scenario']['enemies'][0]['definition']['attacks'][0]['hands']='1h'
                     with self.assertRaises(PcMeleeInputError):
                         parse_pc_melee_simulation_request(json.dumps(forged))
 
     def test_two_handed_character_file_rejects_shield_instead_of_silently_discarding_it(self):
-        npc=dict(self.report['explored'][0]['npcs'][0],weapon='greatsword',shield=True)
+        source=self.report['explored'][0]['npcs'][0]
+        npc=dict(source,weapons=[dict(id='weapon',weapon='greatsword',location='held',hand='both')],armour=dict(source['armour'],shield='shield'))
         with self.assertRaises(DynamicEncounterInputError):
             parse_character_file(json.dumps(npc),'npc')
 
@@ -85,7 +86,7 @@ class GeneratedEquipmentJsonTests(unittest.TestCase):
         self.assertEqual(self.report['source_request'],self.document)
         for candidate in self.report['explored']+self.report['validations']:
             npc=candidate['npcs'][0]
-            self.assertEqual((npc['weapon'],npc['defence'],npc['shield']),('sword',6,True))
+            self.assertEqual((npc['weapons'][0]['weapon'],npc['defence'],npc['armour']['shield']),('sword',6,'shield'))
             enemy=candidate['replay']['scenario']['enemies'][0]
             definition=enemy['definition']
             self.assertEqual(definition['generated_components'],npc)
@@ -104,7 +105,8 @@ class GeneratedEquipmentJsonTests(unittest.TestCase):
             return raw
         original=self.replay['scenario']['enemies'][0]['definition']
         variants=[change('generated_components',dict(original['generated_components'],defence=5)),
-            change('generated_components',dict(original['generated_components'],shield=False)),
+            change('generated_components',dict(original['generated_components'],
+                armour=dict(original['generated_components']['armour'],shield=None))),
             change('alternate_protection',dict(original['alternate_protection'],skill='defence')),
             change('protection',dict(original['protection'],source_rule_id='forged'))]
         for removed in ('generated_components','alternate_protection'):

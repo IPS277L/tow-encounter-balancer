@@ -16,6 +16,7 @@ from towr.domain.pc_heavy_wound_models import PcBodyFactKind
 from towr.domain.pc_shield_models import PcShieldLocation
 from towr.domain.potion_models import ConsumableItem, ConsumableKind
 from towr.domain.turn_models import CombatActionSlotResult, CombatActionKind, CombatActionDeclaration
+from towr.domain.weapon_inventory_models import weapon_unit_id
 from towr.engine.pc_melee_runner import run_pc_melee_scenario, apply_pc_melee_step
 from towr.simulation.pc_melee_models import PcMeleeSimulationRequest, PcPotionUseCount
 from towr.simulation.pc_melee_simulation import run_pc_melee_trial
@@ -202,7 +203,7 @@ class PcPotionExecutionTests(unittest.TestCase):
                 replace(request, choice=replace(request.choice, object_interaction=interaction))
 
     def test_inventory_ids_cannot_disguise_weapon_or_shield_pickup_as_drinking(self):
-        for item_id, side in (('pc:weapon', 1), ('pc:shield', 10)):
+        for item_id, side in ((weapon_unit_id('pc','weapon',0), 1), ('pc:shield', 10)):
             with self.subTest(item_id=item_id):
                 source = healing_source()
                 source = replace(source, max_rounds=5, party=(replace(source.party[0],

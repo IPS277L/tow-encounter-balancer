@@ -36,6 +36,8 @@ from towr.domain.reload_models import (
 from towr.domain.resolution_models import TargetInjuryPolicy
 from towr.domain.test_models import DiceModifier, Skill
 from towr.domain.turn_models import CombatActionDeclaration, CombatActionKind
+from towr.domain.weapon_catalog import WeaponKind
+from towr.domain.weapon_range_models import weapon_target_within_optimum
 
 
 RANGED_WEAPON_ATTACK_PREPARATION_RULE_ID = (
@@ -201,7 +203,7 @@ def _profile_prepared_attack(
     assert isinstance(impact, DamageImpactSpec)
 
     dice_modifiers = list(attack.attacker_test.dice_modifiers)
-    if not _within_optimum(profile, request.target_range):
+    if not _within_optimum(profile, request.target_range, strength=request.attacker_strength):
         dice_modifiers.append(DiceModifier(OUTSIDE_OPTIMUM_RANGE_RULE_ID, -1))
     if (
         request.target_range is RangedWeaponRange.SHORT
@@ -226,6 +228,7 @@ def _profile_prepared_attack(
             DamageModifier(
                 ARMOURED_TARGET_DAMAGE_BONUS_RULE_ID,
                 profile.armoured_target_damage_bonus,
+                armour_specific=True,
             )
         )
     prepared_impact = replace(
@@ -397,13 +400,10 @@ def _validate_no_profile_effects(attack: AttackActionExecutionRequest) -> None:
 def _within_optimum(
     profile: RangedWeaponCombatProfile,
     target_range: RangedWeaponRange,
+    *, strength: int,
 ) -> bool:
-    value = _range_rank(target_range)
-    return (
-        _range_rank(profile.optimum_range_min)
-        <= value
-        <= _range_rank(profile.optimum_range_max)
-    )
+    return weapon_target_within_optimum(WeaponKind(profile.weapon_id.value),
+        target_range, strength=strength)
 
 
 def _range_rank(value: RangedWeaponRange) -> int:
@@ -420,7 +420,7 @@ def _applied_rule_ids(
         RANGED_WEAPON_PROFILE_RULE_ID,
         CLOSE_ENEMY_RANGED_RESTRICTION_RULE_ID,
     ]
-    if not _within_optimum(profile, request.target_range):
+    if not _within_optimum(profile, request.target_range, strength=request.attacker_strength):
         rules.append(OUTSIDE_OPTIMUM_RANGE_RULE_ID)
     if (
         request.target_range is RangedWeaponRange.SHORT

@@ -47,7 +47,7 @@ class PistolJsonTests(unittest.TestCase):
                     self.assertEqual(raw[key]['party'][0]['pc']['ranged'], {
                         'ballistic_skill': 3, 'shooting': 4, 'initiative': 3, 'dexterity': 4,
                         'has_blackpowder_lore': True, 'has_blackpowder_kit': True,
-                        'ammunition_supply_confirmed': True, 'initially_loaded': True,
+                        'ammunition_supply_confirmed': True,
                         'reload_hand_policy': 'two_available_hands'})
 
     def test_closed_required_profile_and_exact_scalars_are_rejected_before_runner(self):
@@ -56,10 +56,10 @@ class PistolJsonTests(unittest.TestCase):
             changes.extend((field, value) for value in (None, True, '3', 0))
         changes.extend((field, 11) for field in ('shooting', 'dexterity'))
         for field in ('has_blackpowder_lore', 'has_blackpowder_kit',
-                'ammunition_supply_confirmed', 'initially_loaded'):
+                'ammunition_supply_confirmed'):
             changes.extend((field, value) for value in (False, None, 1, 'true'))
         changes.extend((('reload_hand_policy', 'weapon_hand_only'), ('reload_hand_policy', None),
-            ('damage', 5), ('rapid_reload', True)))
+            ('damage', 5), ('rapid_reload', True), ('initially_loaded', True)))
         for balance in (False, True):
             key = 'template' if balance else 'scenario'
             parse = wire.parse_pc_melee_balance_request if balance else wire.parse_pc_melee_simulation_request
@@ -77,6 +77,13 @@ class PistolJsonTests(unittest.TestCase):
                 else:
                     raw[key]['party'][0]['pc']['ranged'][field] = value
                 malformed.append(raw)
+            for value in (None,1,'true'):
+                raw=deepcopy(base)
+                raw[key]['party'][0]['combat_equipment'][0]['initially_loaded']=value
+                malformed.append(raw)
+            raw=deepcopy(base)
+            del raw[key]['party'][0]['combat_equipment'][0]['initially_loaded']
+            malformed.append(raw)
             with patch('towr.engine.pc_melee_runner.run_pc_melee_scenario') as runner:
                 for raw in malformed:
                     with self.subTest(balance=balance, profile=raw[key]['party'][0]['pc']['ranged']), self.assertRaises(error):

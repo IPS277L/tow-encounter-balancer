@@ -6,6 +6,7 @@ from pathlib import Path
 from random import Random
 import unittest
 from unittest.mock import patch
+from tests.support.armour_fixtures import armour_document
 
 from towr.adapters.character_files import parse_character_file
 from towr.adapters.dynamic_encounter_json import (
@@ -29,8 +30,8 @@ def talent_request():
     raw['max_rounds']=1
     raw['targets']['started_rounds']=dict(numerator=1,denominator=1)
     raw['search'].update(max_candidates=1,exploration_trials=1,finalist_trials=1,top_k=1,max_total_trials=2)
-    raw['search_space'].update(weapon_skill=[3],strength=[4],toughness=[5],agility=[2],
-        melee=[3],defence=[4],athletics=[3],weapon=['sword'],shield=[True],light_armour=[False])
+    raw['search_space'].update(weapon_count=[1],weapon_skill=[3],strength=[4],toughness=[5],agility=[2],
+        melee=[3],defence=[4],athletics=[3],weapon=['sword'],shield=['shield'],armour=[None])
     return raw
 
 
@@ -69,9 +70,14 @@ class GeneratedTalentJsonTests(unittest.TestCase):
         _,npc=source_with_all_talents()
         raw=dict(weapon_skill=npc.weapon_skill,strength=npc.strength,toughness=npc.toughness,
             agility=npc.agility,melee=npc.melee,defence=npc.defence,athletics=npc.athletics,
-            weapon=npc.weapon.value,light_armour=npc.light_armour,shield=npc.shield,
+            weapons=[dict(id='weapon',weapon=npc.weapon.value,location='held',hand='left')],armour=armour_document(
+                body=tuple(piece.value for piece in npc.armour.body),
+                benefit=None if npc.armour.benefit is None else npc.armour.benefit.value,
+                helmet=None if npc.armour.helmet is None else npc.armour.helmet.value,
+                shield=None if npc.armour.shield is None else npc.armour.shield.value,barding=npc.armour.barding),
             abilities=[],talents=[talent.value for talent in npc.talents],
-            weapon_grip=None,mount=None,throwing=None,brawn=npc.brawn,ballistic_skill=None)
+            mount=None,rider_kind=None,agilulf_code_confirmed=None,
+            throwing=None,brawn=npc.brawn,ballistic_skill=None)
         self.assertEqual(parse_character_file(json.dumps(raw),'npc'),raw)
         for changes in (dict(weapon_skill=2),dict(strength=3),dict(talents=['wild_attack']*2),
                 dict(talents=['unknown']),dict(talents=[dict(id='wild_attack',rank=1)])):

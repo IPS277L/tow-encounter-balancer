@@ -1,4 +1,6 @@
 """Fresh canonical helpers and one firearm receiver, with explicit pair order."""
+from towr.domain.weapon_catalog import WeaponKind
+from tests.support.generated_weapon_sources import initial_generated_weapons
 from dataclasses import replace
 
 from tests.support.pc_melee_fixtures import make_pc_melee_scenario
@@ -20,8 +22,8 @@ def make_npc_shooting_help_scenario(*,
         facts=replace(source.facts, outnumbering_bonus_approved=False),
         npc_help_policies=tuple(PcNpcHelpPolicy(actor, receiver)
             for actor in source.enemy_activation_order[:-1]),
-        npc_ranged_policies=(PcNpcRangedPolicy(receiver, True, True, True, True,
-            PcNpcRangedReloadHandPolicy.TWO_AVAILABLE_HANDS),),
+        npc_ranged_policies=(PcNpcRangedPolicy(receiver,  True, True, True,
+            PcNpcRangedReloadHandPolicy.TWO_AVAILABLE_HANDS,initial_weapon=initial_generated_weapons(WeaponKind.OGRE_PISTOL if shooter is PcBookNpcProfile.IMPERIAL_OGRE_PISTOL else WeaponKind.PISTOL, gm_fit_confirmed=True if shooter is PcBookNpcProfile.IMPERIAL_OGRE_PISTOL else None)[0]),),
         npc_net_policies=tuple(PcNpcNetPolicy(actor, 1, PcNpcNetMode.THROW_ONCE_THEN_SPEAR)
             for profile, actor in zip(profiles, source.enemy_activation_order, strict=True)
             if profile is PcBookNpcProfile.NIGHT_GOBLIN_NET_SPEAR))

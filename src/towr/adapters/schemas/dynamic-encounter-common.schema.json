@@ -124,6 +124,9 @@
               "items": {
                 "$ref": "#/$defs/armour_item"
               }
+            },
+            "armour_benefit_id": {
+              "$ref": "urn:towr:pc-melee:common:1#/$defs/identifier"
             }
           },
           "required": [
@@ -187,7 +190,26 @@
         "mount": {
           "enum": [
             null,
-            "horse"
+            "horse",
+            "bretonnian_warhorse",
+            "elven_steed",
+            "skeletal_steed",
+            "demigryph",
+            "pegasus"
+          ]
+        },
+        "rider_kind": {
+          "enum": [
+            null,
+            "human",
+            "elf",
+            "other"
+          ]
+        },
+        "agilulf_code_confirmed": {
+          "enum": [
+            null,
+            true
           ]
         }
       },
@@ -298,6 +320,79 @@
               }
             }
           }
+        },
+        {
+          "if": {
+            "required": [
+              "mount"
+            ],
+            "properties": {
+              "mount": {
+                "const": "demigryph"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "rider_kind"
+            ],
+            "properties": {
+              "rider_kind": {
+                "enum": [
+                  "human"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "mount"
+            ],
+            "properties": {
+              "mount": {
+                "const": "pegasus"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "rider_kind"
+            ],
+            "properties": {
+              "rider_kind": {
+                "enum": [
+                  "human",
+                  "elf"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "not": {
+              "required": [
+                "mount"
+              ],
+              "properties": {
+                "mount": {
+                  "enum": [
+                    "demigryph",
+                    "pegasus"
+                  ]
+                }
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "rider_kind": {
+                "type": "null"
+              }
+            }
+          }
         }
       ]
     },
@@ -398,14 +493,6 @@
           "minItems": 1,
           "uniqueItems": true
         },
-        "light_armour": {
-          "type": "array",
-          "items": {
-            "type": "boolean"
-          },
-          "minItems": 1,
-          "uniqueItems": true
-        },
         "abilities": {
           "type": "array",
           "items": {
@@ -433,7 +520,11 @@
         "shield": {
           "type": "array",
           "items": {
-            "type": "boolean"
+            "enum": [
+              null,
+              "shield",
+              "briarroot_shield"
+            ]
           },
           "minItems": 1,
           "uniqueItems": true
@@ -509,7 +600,12 @@
           "items": {
             "enum": [
               null,
-              "horse"
+              "horse",
+              "bretonnian_warhorse",
+              "elven_steed",
+              "skeletal_steed",
+              "demigryph",
+              "pegasus"
             ]
           },
           "minItems": 1,
@@ -534,6 +630,93 @@
           },
           "minItems": 1,
           "uniqueItems": true
+        },
+        "armour": {
+          "type": "array",
+          "items": {
+            "enum": [
+              null,
+              "light_armour",
+              "heavy_armour",
+              "full_plate_armour",
+              "armour_of_agilulf",
+              "armour_of_meteoric_iron",
+              "mantle_of_ithilmar"
+            ]
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "secondary_armour": {
+          "type": "array",
+          "items": {
+            "enum": [
+              null,
+              "light_armour",
+              "heavy_armour",
+              "full_plate_armour",
+              "armour_of_agilulf",
+              "armour_of_meteoric_iron",
+              "mantle_of_ithilmar"
+            ]
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "helmet": {
+          "type": "array",
+          "items": {
+            "enum": [
+              null,
+              "helmet",
+              "helm_of_the_hunt"
+            ]
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "rider_kind": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "human",
+              "elf",
+              "other"
+            ]
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "barding": {
+          "type": "array",
+          "items": {
+            "type": "boolean"
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "agilulf_code_confirmed": {
+          "enum": [
+            null,
+            true
+          ]
+        },
+        "weapon_count": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "integer",
+            "minimum": 1
+          }
+        },
+        "initial_loaded": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "boolean"
+          }
         }
       },
       "required": [
@@ -544,7 +727,7 @@
         "melee",
         "athletics",
         "weapon",
-        "light_armour",
+        "armour",
         "abilities",
         "defence",
         "shield",
@@ -552,7 +735,9 @@
         "ballistic_skill",
         "initiative",
         "shooting",
-        "dexterity"
+        "dexterity",
+        "weapon_count",
+        "initial_loaded"
       ],
       "additionalProperties": false
     },
@@ -882,6 +1067,9 @@
             "long",
             "extreme"
           ]
+        },
+        "airspace": {
+          "$ref": "urn:towr:pc-melee:common:1#/$defs/airspace"
         }
       },
       "required": [
@@ -896,6 +1084,12 @@
     "weapon_item": {
       "type": "object",
       "properties": {
+        "initially_loaded": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
         "id": {
           "$ref": "urn:towr:pc-melee:common:1#/$defs/identifier"
         },
@@ -947,7 +1141,45 @@
         "weapon",
         "location"
       ],
-      "additionalProperties": false
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "weapon": {
+                "enum": [
+                  "pistol",
+                  "repeater_handbow",
+                  "repeater_pistol",
+                  "crossbow",
+                  "repeater_crossbow",
+                  "handgun",
+                  "repeater_handgun",
+                  "blunderbuss",
+                  "hochland_long_rifle"
+                ]
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "initially_loaded"
+            ],
+            "properties": {
+              "initially_loaded": {
+                "type": "boolean"
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "initially_loaded": {
+                "type": "null"
+              }
+            }
+          }
+        }
+      ]
     },
     "armour_item": {
       "type": "object",
@@ -959,8 +1191,15 @@
           "enum": [
             "light_armour",
             "heavy_armour",
+            "full_plate_armour",
+            "armour_of_agilulf",
+            "armour_of_meteoric_iron",
+            "mantle_of_ithilmar",
             "helmet",
-            "shield"
+            "helm_of_the_hunt",
+            "shield",
+            "briarroot_shield",
+            "barding"
           ]
         },
         "location": {
@@ -983,7 +1222,10 @@
           "if": {
             "properties": {
               "kind": {
-                "const": "shield"
+                "enum": [
+                  "shield",
+                  "briarroot_shield"
+                ]
               }
             }
           },
@@ -1129,12 +1371,6 @@
     "player_ranged_preparation": {
       "type": "object",
       "properties": {
-        "initially_loaded": {
-          "type": [
-            "boolean",
-            "null"
-          ]
-        },
         "ammunition_supply_confirmed": {
           "type": "boolean"
         },
@@ -1152,7 +1388,6 @@
         }
       },
       "required": [
-        "initially_loaded",
         "ammunition_supply_confirmed",
         "has_blackpowder_lore",
         "has_blackpowder_kit"

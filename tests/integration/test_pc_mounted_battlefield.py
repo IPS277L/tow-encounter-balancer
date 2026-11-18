@@ -1,4 +1,6 @@
 """Horse components affect actual shared attacks and forced dismounts once."""
+from tests.support.generated_weapon_sources import initial_generated_weapons
+from tests.support.armour_fixtures import light_loadout
 from dataclasses import replace
 import unittest
 
@@ -29,8 +31,8 @@ def scene(*,distance=RangedWeaponRange.MEDIUM,rounds=1,billhook=False,pc_spear=F
             weapon=PcMeleeWeapon.BILLHOOK if billhook else PcMeleeWeapon.FOOT_SPEAR,
             weapon_skill=2 if pc_spear else pc.pc.weapon_skill),initial_weapon_hand=PcTwoHandedGrip.BOTH)
     pc=replace(pc,mount=CombatMount.HORSE)
-    npc=GeneratedNpc(3,3,20,2,4,3,GeneratedWeapon.STAFF,False,
-        defence=4,shield=False,mount=CombatMount.HORSE)
+    npc=GeneratedNpc(3,3,20,2,4,3,initial_generated_weapons(GeneratedWeapon.STAFF),light_loadout(light=False, shield=False),
+        defence=4,mount=CombatMount.HORSE)
     return replace(source,party=(pc,),enemies=(npc.participant('minion1'),),
         facts=replace(source.facts,all_opponents_close=False,can_leave_zone=True,unmounted=False),
         battlefield=PcBattlefieldSpec(distance,RangedWeaponRange.LONG))

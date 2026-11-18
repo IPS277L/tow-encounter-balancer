@@ -31,7 +31,6 @@
               "has_blackpowder_lore": true,
               "has_blackpowder_kit": true,
               "ammunition_supply_confirmed": true,
-              "initially_loaded": true,
               "reload_hand_policy": "two_available_hands"
             }
           },
@@ -91,7 +90,23 @@
           "backup_weapon_policy": {
             "weapon": "sword",
             "preferred_hand": "right"
-          }
+          },
+          "combat_equipment": [
+            {
+              "id": "weapon",
+              "weapon": "blunderbuss",
+              "location": "held",
+              "hand": "both",
+              "initially_loaded": true
+            },
+            {
+              "id": "backup-weapon",
+              "weapon": "sword",
+              "location": "carried",
+              "hand": null,
+              "initially_loaded": null
+            }
+          ]
         },
         {
           "actor_id": "pc2",
@@ -115,7 +130,6 @@
               "has_blackpowder_lore": true,
               "has_blackpowder_kit": true,
               "ammunition_supply_confirmed": true,
-              "initially_loaded": true,
               "reload_hand_policy": "two_available_hands"
             }
           },
@@ -175,7 +189,23 @@
           "backup_weapon_policy": {
             "weapon": "sword",
             "preferred_hand": "right"
-          }
+          },
+          "combat_equipment": [
+            {
+              "id": "weapon",
+              "weapon": "blunderbuss",
+              "location": "held",
+              "hand": "both",
+              "initially_loaded": true
+            },
+            {
+              "id": "backup-weapon",
+              "weapon": "sword",
+              "location": "carried",
+              "hand": null,
+              "initially_loaded": null
+            }
+          ]
         }
       ],
       "day_id": "day",
@@ -487,7 +517,6 @@
                   "has_blackpowder_lore": true,
                   "has_blackpowder_kit": true,
                   "ammunition_supply_confirmed": true,
-                  "initially_loaded": true,
                   "reload_hand_policy": "two_available_hands"
                 }
               },
@@ -540,7 +569,23 @@
               "backup_weapon_policy": {
                 "weapon": "sword",
                 "preferred_hand": "right"
-              }
+              },
+              "combat_equipment": [
+                {
+                  "id": "weapon",
+                  "weapon": "blunderbuss",
+                  "location": "held",
+                  "hand": "both",
+                  "initially_loaded": true
+                },
+                {
+                  "id": "backup-weapon",
+                  "weapon": "sword",
+                  "location": "carried",
+                  "hand": null,
+                  "initially_loaded": null
+                }
+              ]
             },
             {
               "actor_id": "pc2",
@@ -564,7 +609,6 @@
                   "has_blackpowder_lore": true,
                   "has_blackpowder_kit": true,
                   "ammunition_supply_confirmed": true,
-                  "initially_loaded": true,
                   "reload_hand_policy": "two_available_hands"
                 }
               },
@@ -617,7 +661,23 @@
               "backup_weapon_policy": {
                 "weapon": "sword",
                 "preferred_hand": "right"
-              }
+              },
+              "combat_equipment": [
+                {
+                  "id": "weapon",
+                  "weapon": "blunderbuss",
+                  "location": "held",
+                  "hand": "both",
+                  "initially_loaded": true
+                },
+                {
+                  "id": "backup-weapon",
+                  "weapon": "sword",
+                  "location": "carried",
+                  "hand": null,
+                  "initially_loaded": null
+                }
+              ]
             }
           ],
           "day_id": "day",
@@ -1011,7 +1071,6 @@
                   "has_blackpowder_lore": true,
                   "has_blackpowder_kit": true,
                   "ammunition_supply_confirmed": true,
-                  "initially_loaded": true,
                   "reload_hand_policy": "two_available_hands"
                 }
               },
@@ -1071,7 +1130,23 @@
               "backup_weapon_policy": {
                 "weapon": "sword",
                 "preferred_hand": "right"
-              }
+              },
+              "combat_equipment": [
+                {
+                  "id": "weapon",
+                  "weapon": "blunderbuss",
+                  "location": "held",
+                  "hand": "both",
+                  "initially_loaded": true
+                },
+                {
+                  "id": "backup-weapon",
+                  "weapon": "sword",
+                  "location": "carried",
+                  "hand": null,
+                  "initially_loaded": null
+                }
+              ]
             },
             {
               "actor_id": "pc2",
@@ -1095,7 +1170,6 @@
                   "has_blackpowder_lore": true,
                   "has_blackpowder_kit": true,
                   "ammunition_supply_confirmed": true,
-                  "initially_loaded": true,
                   "reload_hand_policy": "two_available_hands"
                 }
               },
@@ -1155,7 +1229,23 @@
               "backup_weapon_policy": {
                 "weapon": "sword",
                 "preferred_hand": "right"
-              }
+              },
+              "combat_equipment": [
+                {
+                  "id": "weapon",
+                  "weapon": "blunderbuss",
+                  "location": "held",
+                  "hand": "both",
+                  "initially_loaded": true
+                },
+                {
+                  "id": "backup-weapon",
+                  "weapon": "sword",
+                  "location": "carried",
+                  "hand": null,
+                  "initially_loaded": null
+                }
+              ]
             }
           ],
           "day_id": "day",

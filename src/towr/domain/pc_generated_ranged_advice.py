@@ -40,7 +40,7 @@ def pc_shooting_protection(state, target_id, attacker_id, test_id, *,
     candidates = []
     for skill in skills:
         modifiers = (DiceModifier('tactics:prospective-help', extra_dice),) if extra_dice else ()
-        request = _pc_test(state, target_id, test_id, skill, modifiers)
+        request = _pc_test(state, target_id, test_id, skill, modifiers,oppose_attack=True)
         if conditions != actual_conditions and usable_weapon_hand(member) is not None:
             weapon = pc_active_weapon(state, target_id)
             old_ids = {modifier.rule_id for modifier in pc_weapon_test_modifiers(weapon, skill, actual_conditions)}
@@ -52,6 +52,8 @@ def pc_shooting_protection(state, target_id, attacker_id, test_id, *,
         if enhancement is not None:
             pc = pc_effective_definition(state, target_id)
             pc = replace(pc, **{enhancement: getattr(pc, enhancement)+1})
+            from towr.domain.pc_armour_models import pc_effective_armour_ratings
+            pc=pc_effective_armour_ratings(state.source.participant(target_id),pc)
             profile = {Skill.DEFENCE: pc.defence_profile, Skill.MELEE: pc.melee_profile,
                 Skill.ATHLETICS: pc.athletics_profile}[skill]
             request = replace(request, profile=profile)
@@ -110,7 +112,10 @@ def npc_repeater_bonus(state, actor_id, attacker: TestRequest,
     components = enemy.definition.generated_components
     if components is None or components.ranged is None:
         return False
-    weapon_id = RangedWeaponId(components.weapon.value)
+    from towr.domain.pc_npc_ranged_models import pc_npc_ranged_weapon
+    actual=pc_npc_ranged_weapon(state,actor_id)
+    if actual is None:return False
+    weapon_id = actual.weapon_id
     reload_profile = ranged_weapon_reload_profile(weapon_id)
     if reload_profile.trigger is not RangedReloadTrigger.AFTER_OPTIONAL_BONUS:
         return False
@@ -123,13 +128,14 @@ def npc_repeater_bonus(state, actor_id, attacker: TestRequest,
     conditions = target.injury.conditions if target_conditions is None else target_conditions
     resilience = pc_shield_resilience(state,target_id) if resilience is None else resilience
     profile = ranged_weapon_combat_profile(weapon_id)
-    resistance = resilience.toughness if profile.ignores_armour else resilience.total
-    attack_profile = enemy.definition.attacks[0]
+    resistance = resilience.toughness if profile.ignores_armour and not resilience.mundane_armour_ward else resilience.total
+    from towr.domain.pc_melee_result_models import pc_selected_npc_attack_profile
+    attack_profile = pc_selected_npc_attack_profile(state,actor_id)
     protection = ((1.0,) if defender is None else _distribution(defender) if defender_skill is None
         else pc_test_distribution(state,target_id,defender_skill,defender,include_policy=True))
     def utility(request):
         damage = attack_profile.damage.base + (profile.armoured_target_damage_bonus
-            if resilience.is_armoured else 0)
+            if resilience.is_armoured and not resilience.mundane_armour_ward else 0)
         return _impact_value(_distribution(request),protection,damage,
             resistance,attack_profile.damage.success_multiplier,
             conditions.has(Condition.STAGGERED),conditions.has(Condition.DEFENCELESS))

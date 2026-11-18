@@ -10,10 +10,11 @@ from functools import lru_cache
 from collections import defaultdict
 
 from towr.domain.condition_models import Condition
-from towr.domain.test_models import Skill,TestRequest,DiceModifier,TestQuality,_expected_initial_roll_parameters
+from towr.domain.test_models import Skill,DiceModifier,TestQuality,_expected_initial_roll_parameters
 from towr.domain.turn_models import CombatActionKind
-from towr.domain.ranged_weapon_profiles import (RangedWeaponId,ranged_weapon_combat_profile,
-    ranged_weapon_reload_profile,RangedReloadTrigger,REPEATER_SHOOTING_BONUS_RULE_ID)
+from towr.domain.ranged_weapon_profiles import (
+    RangedWeaponId,ranged_weapon_reload_profile,RangedReloadTrigger,
+)
 
 
 def initial_fate_budget(state,actor):
@@ -58,7 +59,9 @@ def pc_attack_value(state,actor,*,extra=0,enhancement=None,wild=False,bonus=Fals
     from towr.domain.pc_backup_weapon_models import pc_active_weapon
     from towr.domain.pc_potion_models import pc_effective_definition
     from towr.domain.pc_help_models import build_pc_test_help
-    from towr.domain.pc_weapon_models import pc_weapon_damage,pc_weapon_damage_modifiers,pc_weapon_attack_modifiers
+    from towr.domain.pc_weapon_inventory import pc_attack_weapon_use,pc_weapon_target_modifiers
+    from towr.domain.weapon_effect_preparation import weapon_damage_preparation
+    from towr.domain.attack_models import DamageImpactSpec,effective_damage_modifiers,effective_ignores_armour
     from towr.domain.pc_generated_equipment import npc_protection_test
     from towr.domain.pc_npc_ability_models import pc_npc_allows_enemy_higher_ground
     from towr.domain.pc_mount_models import pc_is_mounted
@@ -84,6 +87,8 @@ def pc_attack_value(state,actor,*,extra=0,enhancement=None,wild=False,bonus=Fals
         enemy=state.enemy(target)
         if enemy.state.injury.defeated or target in state.exited_npc_ids:continue
         if not pc_battlefield_attack_available(state,actor,target):continue
+        use=pc_attack_weapon_use(state,actor,target)
+        if use is None:continue
         modifiers=[]
         if shooting:
             from towr.domain.pc_ranged_models import pc_ranged_profile_modifiers
@@ -97,10 +102,10 @@ def pc_attack_value(state,actor,*,extra=0,enhancement=None,wild=False,bonus=Fals
             if pc_battlefield_allows_outnumbering(state,actor):
                 modifiers.append(DiceModifier('RULE-COMBAT-007:outnumbering',1))
             if enemy.state.injury.conditions.has(Condition.PRONE) and pc_npc_allows_enemy_higher_ground(enemy.definition):modifiers.append(DiceModifier('RULE-COMBAT-007:higher-ground',1))
-            modifiers.extend(pc_weapon_attack_modifiers(weapon,enemy.state.injury.conditions,
-                target_mounted=pc_is_mounted(state,target)))
+        modifiers.extend(pc_weapon_target_modifiers(use,enemy.state.injury.conditions,
+            target_mounted=pc_is_mounted(state,target)))
         if extra:modifiers.append(DiceModifier('tactics:prospective-help',extra))
-        request=_pc_test(state,actor,pc_melee_action_id(state,actor)+':attack',skill,tuple(modifiers))
+        request=_pc_test(state,actor,pc_melee_action_id(state,actor)+':attack',skill,tuple(modifiers),weapon_use=use)
         if enhancement is not None and skill is Skill.MELEE:request=replace(request,profile=pc.melee_profile)
         request,_=build_pc_test_help(state,actor,skill,request)
         if wild and not shooting:request=pc_wild_test_variant(request,weapon,member.injury.conditions)
@@ -114,11 +119,13 @@ def pc_attack_value(state,actor,*,extra=0,enhancement=None,wild=False,bonus=Fals
                 for successes,chance in enumerate(attack_values) if successes)
             if best[1] is None or value>best[0]+1e-12:best=value,target
             continue
-        from towr.domain.pc_melee_models import PcTwoHandedGrip
-        damage=pc_weapon_damage(weapon,pc.strength,
-            two_handed=member.weapon_hand is PcTwoHandedGrip.BOTH)
-        base=damage.base+sum(m.amount for m in pc_weapon_damage_modifiers(weapon,enemy.state.current_resilience))
-        ignores=shooting and ranged_weapon_combat_profile(RangedWeaponId(weapon.value)).ignores_armour
+        prepared=weapon_damage_preparation(use,pc.strength,enemy.state.current_resilience)
+        damage=prepared.damage
+        if damage is None:continue
+        impact=DamageImpactSpec(damage,enemy.state.current_resilience,
+            prepared.ignores_armour,prepared.modifiers,magical_source=prepared.magical_source)
+        base=damage.base+sum(m.amount for m in effective_damage_modifiers(impact))
+        ignores=effective_ignores_armour(impact)
         resistance=enemy.state.current_resilience.toughness if ignores else enemy.state.current_resilience.total
         stance=(skill is Skill.MELEE and not defenceless and protection_profile.skill is Skill.DEFENCE
             and enemy.state.injury.conditions.has(Condition.STAGGERED) and not wild
@@ -145,7 +152,8 @@ def net_inventory_action_choices(state,actor,*,incoming_risk=None):
     current_risk=incoming_risk(state) if incoming_risk is not None else 0.0
     for item in member.weapon_inventory.items:
         if item.location not in (PcItemLocation.HELD,PcItemLocation.CARRIED):continue
-        if pc_weapon_swap_used(state,actor) and item.id!=member.weapon_inventory.active_item_id:continue
+        if (pc_weapon_swap_used(state,actor) and item.id!=member.weapon_inventory.active_item_id
+                and item.location is not PcItemLocation.HELD):continue
         view=pc_weapon_inventory_view(state,actor,item.id)
         if view is None:continue
         value,target=pc_attack_value(view,actor)
@@ -171,18 +179,28 @@ def _distribution_request_value(state,actor,request,skill,target,*,budget):
     """Separate final successes from Fate budget to value a future shot."""
     from towr.domain.pc_tactical_models import _distribution,_impact_value
     from towr.domain.pc_generated_equipment import npc_protection_test
-    from towr.domain.pc_backup_weapon_models import pc_active_weapon
     from towr.domain.pc_potion_models import pc_effective_definition
-    from towr.domain.pc_weapon_models import pc_weapon_damage,pc_weapon_damage_modifiers
-    from towr.domain.pc_melee_models import PC_RANGED_WEAPONS
-    enemy=state.enemy(target);weapon=pc_active_weapon(state,actor)
+    from towr.domain.pc_weapon_inventory import pc_attack_weapon_use
+    from towr.domain.weapon_effect_preparation import weapon_damage_preparation
+    from towr.domain.attack_models import DamageImpactSpec,effective_damage_modifiers,effective_ignores_armour
+    enemy=state.enemy(target)
     selected,protection=npc_protection_test(state,target,actor,'tactics:protection',attack_skill=skill)
     defenceless=enemy.state.injury.conditions.has(Condition.DEFENCELESS)
-    from towr.domain.pc_melee_models import PcTwoHandedGrip
-    damage=pc_weapon_damage(weapon,pc_effective_definition(state,actor).strength,
-        two_handed=state.participant(actor).weapon_hand is PcTwoHandedGrip.BOTH)
-    base=damage.base+sum(m.amount for m in pc_weapon_damage_modifiers(weapon,enemy.state.current_resilience))
-    ignores=weapon in PC_RANGED_WEAPONS and ranged_weapon_combat_profile(RangedWeaponId(weapon.value)).ignores_armour
+    if skill is Skill.THROWING:
+        protection_values=(1.0,) if defenceless else _distribution(protection)
+        burdened=enemy.state.injury.conditions.has(Condition.BURDENED)
+        return tuple((0.0 if burdened or not successes else .2*sum(protection_values[:successes+1]),after,chance)
+            for successes,after,chance in pc_fate_branches(state,actor,skill,request,budget))
+    use=pc_attack_weapon_use(state,actor,target)
+    if use is None:return ()
+    prepared=weapon_damage_preparation(use,pc_effective_definition(state,actor).strength,
+        enemy.state.current_resilience)
+    damage=prepared.damage
+    if damage is None:return ()
+    impact=DamageImpactSpec(damage,enemy.state.current_resilience,
+        prepared.ignores_armour,prepared.modifiers,magical_source=prepared.magical_source)
+    base=damage.base+sum(m.amount for m in effective_damage_modifiers(impact))
+    ignores=effective_ignores_armour(impact)
     resilience=enemy.state.current_resilience.toughness if ignores else enemy.state.current_resilience.total
     distribution=(1.0,) if defenceless else _distribution(protection)
     from towr.domain.pc_generated_talents import has_generated_talent
@@ -200,13 +218,32 @@ def _distribution_request_value(state,actor,request,skill,target,*,budget):
     return tuple(rows)
 
 
-def ranged_action_choices(state,actor,*,incoming_risk=None,_budget=None,_left=None,_horizon=None):
+def _ranged_remaining(member):
+    """Forecast counters keyed by real units; actual K1 histories stay untouched."""
+    from towr.domain.weapon_catalog import WeaponGroup,weapon_profile
+    return tuple((item.id,0 if item.reload is None or item.reload.loaded else
+        max(1,item.reload.required_successes-item.reload.exacting.accumulated_successes))
+        for item in member.weapon_inventory.items if weapon_profile(item.kind).group is WeaponGroup.SHOOTING)
+
+
+def _remaining_for(remaining,item_id):
+    return next((left for identifier,left in remaining if identifier==item_id),0)
+
+
+def _remaining_after(remaining,item_id,value):
+    return tuple((identifier,value if identifier==item_id else left) for identifier,left in remaining)
+
+
+def ranged_action_choices(state,actor,*,incoming_risk=None,_budget=None,_remaining=None,_horizon=None,
+        _future_turn=False):
     """Comparable immediate choices with a finite continuation per Fate branch."""
     from towr.domain.pc_tactical_models import PcTacticalChoice
     from towr.domain.pc_melee_result_models import _pc_test,pc_melee_action_id
     from towr.domain.pc_backup_weapon_models import pc_active_weapon
     from towr.domain.pc_melee_models import PC_RANGED_WEAPONS
-    from towr.domain.pc_weapon_inventory import (pc_weapon_inventory_view,pc_weapon_pickup_view,pc_weapon_swap_used)
+    from towr.domain.pc_weapon_inventory import (
+        pc_weapon_inventory_view,pc_weapon_pickup_view,pc_attack_weapon_use,pc_weapon_target_modifiers,
+    )
     from towr.domain.pc_combat_equipment_models import PcItemLocation
     from towr.domain.pc_heavy_wound_models import usable_hands,usable_weapon_hand
     from towr.domain.pc_shield_models import PcShieldLocation
@@ -216,21 +253,23 @@ def ranged_action_choices(state,actor,*,incoming_risk=None,_budget=None,_left=No
     if inventory is None:return ()
     horizon=min(3,max(1,state.source.max_rounds-state.round_state.round_number+1)) if _horizon is None else _horizon
     if horizon<=0:return ()
-    views={}
-    swapped=pc_weapon_swap_used(state,actor)
+    views={};current_views={}
     for item in inventory.items:
-        if swapped and item.id!=inventory.active_item_id:continue
-        view=pc_weapon_inventory_view(state,actor,item.id)
+        if item.location not in (PcItemLocation.HELD,PcItemLocation.CARRIED):continue
+        current=pc_weapon_inventory_view(state,actor,item.id,future_turn=_future_turn)
+        if current is not None:current_views[item.id]=current
+        view=pc_weapon_inventory_view(state,actor,item.id,future_turn=True)
         if view is not None and usable_weapon_hand(view.participant(actor)) is not None:views[item.id]=view
-    ranged_id=state.source.participant(actor).combat_equipment[0].id
-    ranged=member.ranged
-    remaining=(0 if ranged_weapon_is_loaded(ranged) else max(1,ranged.required_successes-ranged.exacting.accumulated_successes)) if _left is None else _left
+    remaining=_ranged_remaining(member) if _remaining is None else _remaining
     targets=tuple(t for t in state.source.participant(actor).target_priority
         if not state.enemy(t).state.injury.defeated and t not in state.exited_npc_ids)
     budget=initial_fate_budget(state,actor) if _budget is None else _budget
-    shot_rows={};shot_targets={}
+    shot_rows={}
     for item_id,view in views.items():
-        weapon=pc_active_weapon(view,actor);skill=Skill.SHOOTING if weapon in PC_RANGED_WEAPONS else Skill.MELEE
+        weapon=pc_active_weapon(view,actor)
+        base_use=pc_attack_weapon_use(view,actor)
+        if base_use is None:continue
+        skill=base_use.skill
         modes=(False,True) if (skill is Skill.SHOOTING and ranged_weapon_reload_profile(RangedWeaponId(weapon.value)).trigger is RangedReloadTrigger.AFTER_OPTIONAL_BONUS
             and not member.injury.conditions.has(Condition.DRAINED)) else (False,)
         for bonus in modes:
@@ -239,6 +278,8 @@ def ranged_action_choices(state,actor,*,incoming_risk=None,_budget=None,_left=No
             if target is None and skill is Skill.SHOOTING:
                 target=next((target for target in targets if pc_battlefield_attack_available(view,actor,target)),None)
             if target is None:continue
+            use=pc_attack_weapon_use(view,actor,target)
+            if use is None:continue
             modifiers=[]
             if skill is Skill.SHOOTING:
                 from towr.domain.pc_ranged_models import pc_ranged_profile_modifiers
@@ -248,67 +289,89 @@ def ranged_action_choices(state,actor,*,incoming_risk=None,_budget=None,_left=No
             if skill is Skill.SHOOTING and state.enemy(target).state.injury.conditions.has(Condition.PRONE):modifiers.append(DiceModifier('RULE-HEALTH-008:prone-shooting',-1))
             if bonus:modifiers.append(ranged_weapon_reload_profile(RangedWeaponId(weapon.value)).optional_bonus_modifier())
             if skill is Skill.MELEE:
-                from towr.domain.pc_weapon_models import pc_weapon_attack_modifiers
                 if pc_battlefield_allows_outnumbering(view,actor):modifiers.append(DiceModifier('RULE-COMBAT-007:outnumbering',1))
-                if state.enemy(target).state.injury.conditions.has(Condition.PRONE):modifiers.append(DiceModifier('RULE-COMBAT-007:higher-ground',1))
-                from towr.domain.pc_mount_models import pc_is_mounted
-                modifiers.extend(pc_weapon_attack_modifiers(weapon,state.enemy(target).state.injury.conditions,
-                    target_mounted=pc_is_mounted(view,target)))
-            request=_pc_test(view,actor,pc_melee_action_id(view,actor)+':attack',skill,tuple(modifiers))
+                from towr.domain.pc_npc_ability_models import pc_npc_allows_enemy_higher_ground
+                if (state.enemy(target).state.injury.conditions.has(Condition.PRONE)
+                        and pc_npc_allows_enemy_higher_ground(state.enemy(target).definition)):
+                    modifiers.append(DiceModifier('RULE-COMBAT-007:higher-ground',1))
+            from towr.domain.pc_mount_models import pc_is_mounted
+            modifiers.extend(pc_weapon_target_modifiers(use,state.enemy(target).state.injury.conditions,
+                target_mounted=pc_is_mounted(view,target)))
+            request=_pc_test(view,actor,pc_melee_action_id(view,actor)+':attack',skill,tuple(modifiers),weapon_use=use)
             request,_=build_pc_test_help(view,actor,skill,request)
             shot_rows[item_id,bonus]=request,skill,target
-            shot_targets[item_id,bonus]=target
-    reload_view=views.get(ranged_id)
-    reload_test=(_pc_test(reload_view,actor,'tactics:pc-reload',Skill.DEXTERITY)
-        if type(ranged) is ReloadableWeaponState and reload_view is not None and len(usable_hands(member))==2 else None)
+    reload_views={};reload_tests={};current_reload_ids=set()
+    if len(usable_hands(member))==2:
+        for item in inventory.items:
+            if item.id not in views or type(item.reload) is not ReloadableWeaponState:continue
+            if pc_weapon_inventory_view(state,actor,item.id,for_reload=True,future_turn=_future_turn) is not None:
+                current_reload_ids.add(item.id)
+            view=pc_weapon_inventory_view(state,actor,item.id,for_reload=True,future_turn=True)
+            if view is not None:
+                reload_views[item.id]=view
+                reload_tests[item.id]=_pc_test(view,actor,'tactics:pc-reload:'+item.id,Skill.DEXTERITY)
     source_shield=state.source.participant(actor).shield is not None
     held_shield=member.shield is not None and member.shield.location is PcShieldLocation.HELD
-    can_restore=source_shield and len(usable_hands(member))==2
+    from towr.domain.weapon_inventory_models import WeaponGrip
+    can_restore={item_id:source_shield and len(usable_hands(member))==2
+        and view.participant(actor).weapon_inventory.active.grip is not WeaponGrip.BOTH
+        for item_id,view in views.items()}
+    can_keep_shield={item_id:view.participant(actor).weapon_inventory.active.grip is not WeaponGrip.BOTH
+        for item_id,view in views.items()}
     @lru_cache(maxsize=None)
     def attack_rows(item_id,bonus,remaining_budget):
         request,skill,target=shot_rows[item_id,bonus]
         return _distribution_request_value(views[item_id],actor,request,skill,target,budget=remaining_budget)
     @lru_cache(maxsize=None)
-    def reload_rows(remaining_budget):
-        return pc_fate_branches(reload_view,actor,Skill.DEXTERITY,reload_test,remaining_budget)
+    def reload_rows(item_id,remaining_budget):
+        return pc_fate_branches(reload_views[item_id],actor,Skill.DEXTERITY,reload_tests[item_id],remaining_budget)
     @lru_cache(maxsize=None)
-    def continuation(turns,left,active,shield,remaining_budget):
+    def continuation(turns,remaining,active,shield,remaining_budget):
         if turns<=0:return 0.0
         options=[]
         for item_id,view in views.items():
             weapon=pc_active_weapon(view,actor);shooting=weapon in PC_RANGED_WEAPONS
+            left=_remaining_for(remaining,item_id)
             if shooting and left:
-                if reload_test is not None:
-                    value=sum(chance*continuation(turns-1,max(0,left-successes),item_id,False,after)
-                        for successes,after,chance in reload_rows(remaining_budget))
+                if item_id in reload_tests:
+                    value=sum(chance*continuation(turns-1,
+                            _remaining_after(remaining,item_id,max(0,left-successes)),item_id,False,after)
+                        for successes,after,chance in reload_rows(item_id,remaining_budget))
                     options.append(value)
                 continue
-            if not shield and can_restore:
-                options.append(continuation(turns-1,left,item_id,True,remaining_budget));continue
+            if not shield and can_restore[item_id]:
+                options.append(continuation(turns-1,remaining,item_id,True,remaining_budget));continue
             for bonus in (False,True):
                 spec=shot_rows.get((item_id,bonus))
                 if spec is None:continue
                 request,skill,target=spec
                 profile=ranged_weapon_reload_profile(RangedWeaponId(weapon.value)) if shooting else None
-                next_left=(profile.required_successes if shooting and (bonus or profile.trigger is RangedReloadTrigger.AFTER_EVERY_SHOT) else left)
-                value=sum(chance*(utility+continuation(turns-1,next_left,item_id,shield,after))
+                next_remaining=(_remaining_after(remaining,item_id,profile.required_successes)
+                    if shooting and (bonus or profile.trigger is RangedReloadTrigger.AFTER_EVERY_SHOT) else remaining)
+                value=sum(chance*(utility+continuation(turns-1,next_remaining,item_id,
+                        shield and can_keep_shield[item_id],after))
                     for utility,after,chance in attack_rows(item_id,bonus,remaining_budget))
                 options.append(value)
         return max(options,default=0.0)
     result=[]
     current_risk=incoming_risk(state) if incoming_risk is not None else 0.0
     for item_id,view in views.items():
+        if item_id not in current_views:continue
         weapon=pc_active_weapon(view,actor);shooting=weapon in PC_RANGED_WEAPONS
         viewed_member=view.participant(actor)
         switch=item_id!=inventory.active_item_id
         cost=(max(0.0,incoming_risk(view)-current_risk) if incoming_risk is not None and switch else 0.0)
-        if shooting and remaining:
-            if reload_test is not None:
-                value=sum(chance*continuation(horizon-1,max(0,remaining-successes),item_id,False,after)
-                    for successes,after,chance in pc_fate_branches(view,actor,Skill.DEXTERITY,reload_test,budget))/horizon-cost
+        left=_remaining_for(remaining,item_id)
+        if shooting and left:
+            if item_id in current_reload_ids:
+                reload_cost=(max(0.0,incoming_risk(reload_views[item_id])-current_risk)
+                    if incoming_risk is not None else 0.0)
+                value=sum(chance*continuation(horizon-1,
+                        _remaining_after(remaining,item_id,max(0,left-successes)),item_id,False,after)
+                    for successes,after,chance in reload_rows(item_id,budget))/horizon-reload_cost
                 result.append(PcTacticalChoice(actor,CombatActionKind.IMPROVISE,actor,None,value,'reload_selected_weapon',weapon_item_id=item_id,ranged_reload=True))
             continue
-        if (viewed_member.shield is not None and viewed_member.shield.location is PcShieldLocation.DROPPED and can_restore):
+        if (viewed_member.shield is not None and viewed_member.shield.location is PcShieldLocation.DROPPED and can_restore[item_id]):
             value=continuation(horizon-1,remaining,item_id,True,budget)/horizon-cost
             result.append(PcTacticalChoice(actor,CombatActionKind.RECOVER,actor,None,value,'restore_selected_weapon_shield',weapon_item_id=item_id));continue
         for bonus in (False,True):
@@ -328,8 +391,10 @@ def ranged_action_choices(state,actor,*,incoming_risk=None,_budget=None,_left=No
                             'aim_required_before_shot',weapon_item_id=item_id))
                     continue
             profile=ranged_weapon_reload_profile(RangedWeaponId(weapon.value)) if shooting else None
-            next_left=(profile.required_successes if shooting and (bonus or profile.trigger is RangedReloadTrigger.AFTER_EVERY_SHOT) else remaining)
-            value=sum(chance*(utility+continuation(horizon-1,next_left,item_id,held_shield,after))
+            next_remaining=(_remaining_after(remaining,item_id,profile.required_successes)
+                if shooting and (bonus or profile.trigger is RangedReloadTrigger.AFTER_EVERY_SHOT) else remaining)
+            value=sum(chance*(utility+continuation(horizon-1,next_remaining,item_id,
+                    held_shield and can_keep_shield[item_id],after))
                 for utility,after,chance in attack_rows(item_id,bonus,budget))/horizon-cost
             result.append(PcTacticalChoice(actor,CombatActionKind.ATTACK,target,None,value,'best_prepared_weapon_attack',weapon_item_id=item_id,ranged_bonus=bonus))
             if skill is Skill.MELEE and not bonus:
@@ -344,7 +409,8 @@ def ranged_action_choices(state,actor,*,incoming_risk=None,_budget=None,_left=No
                     wild_value=0.0
                     for utility,after,chance in _distribution_request_value(view,actor,wild_request,skill,target,budget=budget):
                         if after not in future:
-                            choices=ranged_action_choices(after_price,actor,_budget=after,_left=remaining,_horizon=horizon-1)
+                            choices=ranged_action_choices(after_price,actor,_budget=after,_remaining=remaining,
+                                _horizon=horizon-1,_future_turn=True)
                             future[after]=max((c.utility for c in choices),default=0.0)*(horizon-1)
                         wild_value+=chance*(utility+future[after])
                     wild_value=wild_value/horizon-cost-penalty
@@ -354,11 +420,14 @@ def ranged_action_choices(state,actor,*,incoming_risk=None,_budget=None,_left=No
         if item.location is not PcItemLocation.DROPPED:continue
         view=pc_weapon_pickup_view(state,actor,item.id)
         if view is None:continue
-        future=ranged_action_choices(view,actor,_budget=budget,_left=remaining,_horizon=horizon-1)
+        future=ranged_action_choices(view,actor,_budget=budget,_remaining=remaining,
+            _horizon=horizon-1,_future_turn=True)
         score=max((choice.utility for choice in future),default=0.0)*(horizon-1)/horizon
         if incoming_risk is not None:score-=max(0.0,incoming_risk(view)-current_risk)
         result.append(PcTacticalChoice(actor,CombatActionKind.RECOVER,actor,None,score,'recover_selected_weapon',weapon_item_id=inventory.active_item_id,pickup_item_id=item.id))
-    return tuple(result)
+    # A ready Attack wins an exactly equal forecast against buying Reload
+    # first. Otherwise source order would reload gun A while gun B is ready.
+    return tuple(sorted(result,key=lambda choice:choice.ranged_reload))
 
 
 def pc_help_mode_values(state,actor,skill,request,benefit,*,future_cache=None):
@@ -372,19 +441,22 @@ def pc_help_mode_values(state,actor,skill,request,benefit,*,future_cache=None):
     from towr.domain.pc_heavy_wound_models import usable_weapon_hand
     member=state.participant(actor);weapon=pc_active_weapon(state,actor)
     if usable_weapon_hand(member) is None:return ()
+    from towr.domain.pc_armour_models import actor_bound_to_chivalric_combat
+    if skill in (Skill.SHOOTING,Skill.THROWING) and actor_bound_to_chivalric_combat(state,actor):return ()
     if skill is Skill.SHOOTING and (weapon not in PC_RANGED_WEAPONS or member.ranged is None or not ranged_weapon_is_loaded(member.ranged)):return ()
     modes=(False,)
     if (skill is Skill.SHOOTING and not member.injury.conditions.has(Condition.DRAINED)
             and ranged_weapon_reload_profile(RangedWeaponId(weapon.value)).trigger is RangedReloadTrigger.AFTER_OPTIONAL_BONUS):modes=(False,True)
     horizon=min(3,max(1,state.source.max_rounds-state.round_state.round_number+1))
-    left=0 if ranged_weapon_is_loaded(member.ranged) else max(1,member.ranged.required_successes-member.ranged.exacting.accumulated_successes)
+    remaining=_ranged_remaining(member)
     budget=initial_fate_budget(state,actor)
     cache={} if future_cache is None else future_cache
     def future(remaining,after):
         key=(actor,member.weapon_inventory.active_item_id,remaining,after,horizon-1,
             member.injury.conditions,member.weapon_hand,member.shield.location if member.shield is not None else None)
         if key not in cache:
-            choices=ranged_action_choices(state,actor,_budget=after,_left=remaining,_horizon=horizon-1)
+            choices=ranged_action_choices(state,actor,_budget=after,_remaining=remaining,
+                _horizon=horizon-1,_future_turn=True)
             cache[key]=max((choice.utility for choice in choices),default=0.0)*(horizon-1)
         return cache[key]
     values=[]
@@ -393,8 +465,9 @@ def pc_help_mode_values(state,actor,skill,request,benefit,*,future_cache=None):
         if bonus:
             modifier=ranged_weapon_reload_profile(RangedWeaponId(weapon.value)).optional_bonus_modifier()
             test=replace(test,dice_modifiers=(*test.dice_modifiers,modifier))
-        remaining=ranged_weapon_reload_profile(RangedWeaponId(weapon.value)).required_successes if bonus else left
-        value=sum(chance*(benefit(successes)+future(remaining,after))
+        after_test=(_remaining_after(remaining,member.weapon_inventory.active_item_id,
+            ranged_weapon_reload_profile(RangedWeaponId(weapon.value)).required_successes) if bonus else remaining)
+        value=sum(chance*(benefit(successes)+future(after_test,after))
             for successes,after,chance in pc_fate_branches(state,actor,skill,test,budget))/horizon
         values.append((bonus,value))
     return tuple(values)

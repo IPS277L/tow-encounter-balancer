@@ -12,6 +12,7 @@ from towr.domain.pc_melee_result_models import (
     PcRecoverProof, PcWoundCompletionProof,
 )
 from towr.domain.recover_models import RecoverConditionChange
+from towr.domain.pc_weapon_inventory import replace_pc_member
 from towr.engine.pc_melee_runner import apply_pc_melee_step, run_pc_melee_scenario
 from towr.rules.wound_lifecycle_resolution import roll_character_wound_lifecycle
 
@@ -47,7 +48,7 @@ class PcMeleeExecutionTests(unittest.TestCase):
         for steps in (result.steps[1:],result.steps[:2]+result.steps[3:],tuple(reversed(result.steps))):
             with self.assertRaises(ValueError):
                 replace(result,steps=steps)
-        stale = replace(step.source,party=(replace(step.source.party[0],weapon_hand=None),))
+        stale = replace(step.source,party=(replace_pc_member(step.source.party[0],weapon_hand=None),))
         with self.assertRaises(ValueError):
             apply_pc_melee_step(stale,step)
 
@@ -71,7 +72,7 @@ class PcMeleeExecutionTests(unittest.TestCase):
     def test_equal_raw_weapon_hand_and_separate_damage_spec_leaf_are_refused(self):
         result = win_result()
         forged = deepcopy(result)
-        object.__setattr__(forged.steps[-1].state.party[0],'weapon_hand','left')
+        object.__setattr__(forged.steps[-1].state.party[0].weapon_inventory.active,'grip','left')
         with self.assertRaises(TypeError):
             replace(forged)
         step = next(s for s in result.steps if isinstance(s.proof,PcAttackProof))

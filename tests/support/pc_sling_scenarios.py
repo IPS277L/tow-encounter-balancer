@@ -2,6 +2,7 @@
 from dataclasses import replace
 
 from tests.support.pc_bow_scenarios import make_pc_bow_scenario
+from tests.support.pc_weapon_sources import initial_weapon_items
 from tests.support.pc_shield_scenarios import shield_loadout
 from towr.domain.attack_models import ResilienceProfile
 from towr.domain.pc_melee_models import (
@@ -24,10 +25,12 @@ def make_pc_sling_scenario(*, pc_count: int = 1, enemy_count: int = 1,
     source = make_pc_bow_scenario(pc_count=pc_count, enemy_count=enemy_count,
         max_rounds=max_rounds, backup=backup)
     shield_hand = PcWeaponHand.LEFT if initial_hand is PcWeaponHand.RIGHT else PcWeaponHand.RIGHT
+    backup_policy=PcBackupWeaponPolicy(PcMeleeWeapon.SWORD,backup_hand) if backup else None
     party = tuple(replace(member, pc=replace(member.pc, weapon=PcMeleeWeapon.SLING,
         strength=strength, ranged=sling_profile(ballistic_skill=ballistic_skill, shooting=shooting)),
         initial_weapon_hand=initial_hand,
-        backup_weapon_policy=PcBackupWeaponPolicy(PcMeleeWeapon.SWORD, backup_hand) if backup else None,
+        backup_weapon_policy=backup_policy,combat_equipment=initial_weapon_items(
+            PcMeleeWeapon.SLING,initial_hand,backup_policy),
         shield=shield_loadout(shield_hand) if shield else None) for member in source.party)
     resilience = ResilienceProfile(npc_toughness, npc_armour_bonus, armoured=npc_armoured)
     enemies = tuple(replace(enemy, definition=replace(enemy.definition, resilience=resilience),

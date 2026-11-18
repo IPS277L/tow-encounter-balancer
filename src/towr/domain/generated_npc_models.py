@@ -7,17 +7,30 @@ from dataclasses import dataclass, field, replace
 from enum import Enum
 
 from towr.domain.attack_models import ConditionOnHitSpec, DamageProfile, ResilienceProfile
-from towr.domain.condition_models import Condition
+from towr.domain.armour_models import (
+    ArmourLoadout, BodyArmour, body_resilience_bonus, helmet_resilience_bonus,
+    armour_is_worn, active_agilulf, armour_burden_sources,
+    protects_against_mundane_armour_effects,
+)
+from towr.domain.condition_models import Condition,ConditionState
 from towr.domain.injury_models import ProfileInjuryState
 from towr.domain.npc_attack_preparation_models import NpcAttackProfile
 from towr.domain.npc_roster_models import NpcDefinition, NpcParticipantSnapshot, NpcParticipantState, NpcProtectionProfile
-from towr.domain.pc_mount_models import CombatMount
+from towr.domain.pc_mount_models import (
+    CombatMount, RiderKind, mount_source_resilience_bonus, validate_mount_rider,
+)
 from towr.domain.ranged_weapon_profiles import (
     RangedWeaponHands, RangedWeaponRange, RangedWeaponId, ranged_weapon_combat_profile,
 )
 from towr.domain.resolution_models import TargetInjuryPolicy
 from towr.domain.test_models import InlineProfile, Skill
 from towr.domain.turn_models import CombatSide
+from towr.domain.weapon_catalog import WeaponKind, weapon_profile, weapon_printed_damage
+from towr.domain.weapon_capability_models import weapon_ranged_requirements
+from towr.domain.weapon_inventory_models import (
+    WeaponGrip, WeaponItemLocation, WeaponItemSource, WeaponInventoryState,
+    initial_weapon_inventory, weapon_unit_id,
+)
 
 
 class GeneratedWeapon(str, Enum):
@@ -97,36 +110,33 @@ def generated_weapon_allows_shield(weapon: GeneratedWeapon,
         raise ValueError('variable weapons require their actual grip; fixed weapons forbid it')
     if weapon in GENERATED_VARIABLE_GRIP_WEAPONS:
         return weapon_grip is RangedWeaponHands.ONE_HANDED
-    if weapon in GENERATED_RANGED_WEAPONS:
-        # These generated shooters must keep their second hand free for Reload.
-        return False
-    from towr.domain.pc_melee_models import PcMeleeWeapon
-    from towr.domain.pc_weapon_models import pc_weapon_requires_two_hands
-    return not pc_weapon_requires_two_hands(PcMeleeWeapon(weapon.value))
+    # The same printed hands govern all roles. A real Reload still has to
+    # free the Shield hand through its source-bound equipment owner.
+    return weapon_profile(WeaponKind(weapon.value)).hands is RangedWeaponHands.ONE_HANDED
 
 
 @dataclass(frozen=True, slots=True)
 class GeneratedRangedFacts:
     ballistic_skill: int
     shooting: int
-    initiative: int
-    dexterity: int
-    initially_loaded: bool
+    initiative: int | None
+    dexterity: int | None
     ammunition_supply_confirmed: bool
     has_blackpowder_lore: bool | None
     has_blackpowder_kit: bool | None
     awareness: int | None = field(default=None,kw_only=True)
 
     def __post_init__(self):
-        for name in ('ballistic_skill', 'initiative'):
-            if type(getattr(self,name)) is not int or getattr(self,name) < 1:
-                raise ValueError(f'{name} must be a positive integer')
-        for name in ('shooting', 'dexterity'):
-            if type(getattr(self,name)) is not int or not 2 <= getattr(self,name) <= 6:
-                raise ValueError(f'{name} must be an integer in 2..6')
-        for name in ('initially_loaded', 'ammunition_supply_confirmed'):
-            if type(getattr(self,name)) is not bool or not getattr(self,name):
-                raise ValueError(f'generated ranged source requires confirmed {name}')
+        if type(self.ballistic_skill) is not int or self.ballistic_skill < 1:
+            raise ValueError('ballistic_skill must be a positive exact integer')
+        if type(self.shooting) is not int or not 2 <= self.shooting <= 6:
+            raise ValueError('shooting must be an exact integer in 2..6')
+        if self.initiative is not None and (type(self.initiative) is not int or self.initiative < 1):
+            raise ValueError('initiative must be a positive exact integer or None')
+        if self.dexterity is not None and (type(self.dexterity) is not int or not 2 <= self.dexterity <= 6):
+            raise ValueError('dexterity must be an exact integer in 2..6 or None')
+        if self.ammunition_supply_confirmed is not True:
+            raise ValueError('generated Shooting requires confirmed ammunition supply')
         for name in ('has_blackpowder_lore', 'has_blackpowder_kit'):
             value=getattr(self,name)
             if value is not None and type(value) is not bool:
@@ -165,15 +175,15 @@ class GeneratedNpc:
     agility: int
     melee: int
     athletics: int
-    weapon: GeneratedWeapon
-    light_armour: bool
+    weapons: tuple[WeaponItemSource, ...]
+    armour: ArmourLoadout
     abilities: tuple[GeneratedAbility, ...] = ()
     defence: int = field(kw_only=True)
-    shield: bool = field(kw_only=True)
     talents: tuple[GeneratedTalent, ...] = field(default=(),kw_only=True)
     ranged: GeneratedRangedFacts | None = field(default=None,kw_only=True)
-    weapon_grip: RangedWeaponHands | None = field(default=None,kw_only=True)
     mount: CombatMount | None = field(default=None,kw_only=True)
+    rider_kind: RiderKind | None = field(default=None,kw_only=True)
+    agilulf_code_confirmed: bool | None = field(default=None,kw_only=True)
     throwing: int | None = field(default=None,kw_only=True)
     brawn: int | None = field(default=None,kw_only=True)
     ballistic_skill: int | None = field(default=None,kw_only=True)
@@ -191,37 +201,65 @@ class GeneratedNpc:
             value = getattr(self,name)
             if value is not None and (type(value) is not int or not 2 <= value <= 6):
                 raise ValueError(f'{name} must be an exact Skill rating in 2..6 or None')
-        if (self.weapon is GeneratedWeapon.WEIGHTED_NET) != (self.throwing is not None):
-            raise ValueError('Weighted Net requires its explicit Throwing source; other generated weapons forbid it')
+        if (type(self.weapons) is not tuple or not self.weapons
+                or any(type(item) is not WeaponItemSource for item in self.weapons)):
+            raise TypeError('generated equipment needs its complete ordered physical sources')
+        for item in self.weapons:
+            replace(item)
+            if item.kind.value not in GeneratedWeapon._value2member_map_:
+                raise ValueError('generated weapon item has no implemented encounter owner')
+        if len({item.id for item in self.weapons}) != len(self.weapons):
+            raise ValueError('generated initial weapon item IDs must be unique')
+        if not any(item.initial_location is WeaponItemLocation.HELD for item in self.weapons):
+            raise ValueError('generated equipment requires an initially held primary')
+        has_net = any(item.kind is WeaponKind.WEIGHTED_NET for item in self.weapons)
+        if has_net != (self.throwing is not None):
+            raise ValueError('Throwing belongs to the complete inventory containing Weighted Nets')
         if self.ballistic_skill is not None and (type(self.ballistic_skill) is not int or self.ballistic_skill < 1):
             raise ValueError('Net Ballistic Skill must be an exact positive integer or None')
-        if (self.weapon is GeneratedWeapon.WEIGHTED_NET) != (self.ballistic_skill is not None):
-            raise ValueError('Net requires its own explicit Ballistic Skill; other weapons keep their existing source')
-        if self.weapon is GeneratedWeapon.WEIGHTED_NET and self.abilities:
-            raise ValueError('primary Net Condition has no authored Damage secondary effects')
-        if type(self.weapon) is not GeneratedWeapon or type(self.light_armour) is not bool:
-            raise TypeError('equipment requires supported typed weapon and explicit armour bool')
-        if type(self.shield) is not bool:
-            raise TypeError('Shield requires an exact equipment bool')
-        if self.mount is not None and type(self.mount) is not CombatMount:
-            raise TypeError('Mount requires an exact supported component or None')
-        allows_shield = generated_weapon_allows_shield(self.weapon,self.weapon_grip)
-        if self.shield and not allows_shield:
-            raise ValueError('generated weapon requires both hands or a free second hand, without Shield')
-        if self.weapon in GENERATED_RANGED_WEAPONS:
+        if not has_net and self.ballistic_skill is not None:
+            raise ValueError('a separate Throwing Ballistic Skill requires a Net inventory item')
+        if type(self.armour) is not ArmourLoadout:
+            raise TypeError('equipment requires its full typed ArmourLoadout')
+        replace(self.armour)
+        if self.armour.barding and self.mount is None:
+            raise ValueError('Barding requires its actual compatible mount')
+        if BodyArmour.AGILULF in self.armour.body:
+            if self.agilulf_code_confirmed is not True:
+                raise ValueError('Agilulf requires an explicit confirmed chivalric scene')
+            if self.weapon in (*GENERATED_RANGED_WEAPONS,GeneratedWeapon.WEIGHTED_NET):
+                raise ValueError('Agilulf prohibits an initial Shooting/Throwing Attack')
+        elif self.agilulf_code_confirmed is not None:
+            raise ValueError('chivalric confirmation belongs to actually worn Agilulf')
+        validate_mount_rider(self.mount,self.rider_kind)
+        requirements = weapon_ranged_requirements(tuple(item.kind for item in self.weapons))
+        if requirements is None:
+            if self.ranged is not None:
+                raise ValueError('Shooting preparation requires an actual Shooting item')
+        else:
             if type(self.ranged) is not GeneratedRangedFacts:
-                raise TypeError('ranged weapon requires its complete typed ranged facts')
+                raise TypeError('Shooting inventory requires its complete typed actor facts')
             replace(self.ranged)
-            blackpowder=ranged_weapon_combat_profile(
-                RangedWeaponId(self.weapon.value)).requires_blackpowder_lore
-            if ((self.ranged.has_blackpowder_lore is not True or self.ranged.has_blackpowder_kit is not True)
-                    if blackpowder else (self.ranged.has_blackpowder_lore is not None
-                        or self.ranged.has_blackpowder_kit is not None)):
-                raise ValueError('firearm requires Lore/Kit; other ranged weapons forbid Blackpowder facts')
-            if self.weapon in GENERATED_TWO_HANDED_RANGED_WEAPONS and self.ranged.awareness is None:
-                raise ValueError('two-handed generated Shooting requires its actual Awareness for Aim')
-        elif self.ranged is not None:
-            raise ValueError('melee generated source must not contain ranged facts')
+            for name in ('has_blackpowder_lore','has_blackpowder_kit'):
+                if getattr(self.ranged,name) is not (True if requirements.firearm else None):
+                    raise ValueError('Blackpowder facts must match the whole firearm inventory')
+            if requirements.exacting:
+                if self.ranged.initiative is None or self.ranged.dexterity is None:
+                    raise ValueError('Exacting inventory requires actual Initiative and Dexterity')
+            elif self.ranged.dexterity is not None:
+                raise ValueError('free-reload-only inventory has no Exacting Dexterity')
+            if (any(GeneratedWeapon(item.kind.value) in GENERATED_TWO_HANDED_RANGED_WEAPONS
+                    for item in self.weapons) and self.ranged.awareness is None):
+                raise ValueError('two-handed generated Shooting requires actual Awareness for Aim')
+            if self.ranged.awareness is not None and self.ranged.initiative is None:
+                raise ValueError('actual NPC Aim requires Initiative with Awareness')
+        if has_net:
+            if self.ranged is None and self.ballistic_skill is None:
+                raise ValueError('Net inventory requires its actual Ballistic Skill')
+            if (self.ranged is not None and self.ballistic_skill is not None
+                    and self.ballistic_skill != self.ranged.ballistic_skill):
+                raise ValueError('Shooting and Throwing share the same Ballistic Skill')
+        _initial_generated_inventory(self,'generated:source-validation')
         if (type(self.abilities) is not tuple or len(set(self.abilities)) != len(self.abilities)
                 or any(type(a) is not GeneratedAbility for a in self.abilities)):
             raise TypeError('abilities must be unique supported typed components')
@@ -236,61 +274,157 @@ class GeneratedNpc:
     def participant(self, actor_id: str) -> NpcParticipantSnapshot:
         """Build fresh state; identity never selects a mechanic."""
         definition_id = 'generated:' + actor_id
-        resilience, attack, protection = generated_npc_profiles(self)
+        resilience, attacks, protection = generated_npc_profiles(self)
         definition = NpcDefinition(definition_id, 'authored:generated-minion', TargetInjuryPolicy.MINION,
-            1, resilience, (attack,), protection, generated_components=self)
+            1, resilience, attacks, protection, generated_components=self)
+        conditions=ConditionState(frozenset((Condition.BURDENED,))
+            if armour_burden_sources(self.armour,self.strength) else frozenset())
         state = NpcParticipantState(actor_id, definition_id, CombatSide.OPPOSITION,
-            ProfileInjuryState(0, 1), (attack.id,), resilience, True, self.shield)
+            ProfileInjuryState(0, 1,conditions), tuple(attack.id for attack in attacks), resilience, True, self.shield)
         return NpcParticipantSnapshot(definition, state)
+
+    @property
+    def weapon(self) -> GeneratedWeapon:
+        """The initially selected item kind; runtime use belongs to the inventory."""
+        primary = next(item for item in self.weapons
+            if item.initial_location is WeaponItemLocation.HELD)
+        return GeneratedWeapon(primary.kind.value)
+
+    @property
+    def weapon_grip(self) -> RangedWeaponHands | None:
+        """Initial printed grip view, never a mutable combat selection."""
+        primary = next(item for item in self.weapons
+            if item.initial_location is WeaponItemLocation.HELD)
+        if not weapon_profile(primary.kind).variable_grip:
+            return None
+        return (RangedWeaponHands.TWO_HANDED if primary.initial_grip is WeaponGrip.BOTH
+            else RangedWeaponHands.ONE_HANDED)
+
+    @property
+    def shield(self) -> bool:
+        """Held Shield presence is derived from its complete source item."""
+        return self.armour.shield is not None
+
+
+def generated_npc_combat_ratings(npc: GeneratedNpc) -> tuple[int,int,int]:
+    """Current WS/Melee/Defence benefits without rewriting their source facts."""
+    if type(npc) is not GeneratedNpc:
+        raise TypeError('generated ratings require the complete typed facts')
+    replace(npc)
+    return ((5,5,5) if active_agilulf(npc.armour)
+        else (npc.weapon_skill,npc.melee,npc.defence))
+
+
+def _initial_generated_inventory(npc: GeneratedNpc, actor_id: str) -> WeaponInventoryState:
+    primary = next(item for item in npc.weapons
+        if item.initial_location is WeaponItemLocation.HELD)
+    occupied = set()
+    for item in npc.weapons:
+        if item.initial_location is WeaponItemLocation.HELD:
+            occupied.update((WeaponGrip.LEFT,WeaponGrip.RIGHT) if item.initial_grip is WeaponGrip.BOTH
+                else (item.initial_grip,))
+    shield_hand = None
+    if npc.shield:
+        shield_hand = next((hand for hand in (WeaponGrip.RIGHT,WeaponGrip.LEFT)
+            if hand not in occupied),None)
+        if shield_hand is None:
+            raise ValueError('a held Shield requires its own free physical hand')
+    return initial_weapon_inventory(actor_id,npc.weapons,
+        active_item_id=weapon_unit_id(actor_id,primary.id,0),shield_hand=shield_hand)
+
+
+def generated_initial_weapon_inventory(npc: GeneratedNpc, actor_id: str) -> WeaponInventoryState:
+    """Expand complete physical sources once, with a source-derived Shield hand."""
+    if type(npc) is not GeneratedNpc:
+        raise TypeError('generated inventory requires its complete exact source')
+    replace(npc)
+    return _initial_generated_inventory(npc,actor_id)
+
+
+def _generated_item_grips(item: WeaponItemSource) -> tuple[WeaponGrip,...]:
+    profile = weapon_profile(item.kind)
+    if profile.variable_grip:
+        return (WeaponGrip.LEFT,WeaponGrip.RIGHT,WeaponGrip.BOTH)
+    return ((WeaponGrip.BOTH,) if profile.hands is RangedWeaponHands.TWO_HANDED
+        else (WeaponGrip.LEFT,WeaponGrip.RIGHT))
+
+
+def generated_weapon_attack_id(item_id: str, grip: WeaponGrip) -> str:
+    """Injective source identity; equal kinds remain distinct physical choices."""
+    if type(item_id) is not str or not item_id.strip():
+        raise TypeError('generated Attack requires its exact source item ID')
+    if type(grip) is not WeaponGrip:
+        raise TypeError('generated Attack requires its exact physical grip')
+    return 'generated-weapon:'+str(len(item_id))+':'+item_id+':'+grip.value
+
+
+def _generated_weapon_attack(npc: GeneratedNpc, item: WeaponItemSource,
+        grip: WeaponGrip) -> NpcAttackProfile:
+    identifier = generated_weapon_attack_id(item.id,grip)
+    if grip not in _generated_item_grips(item):
+        raise ValueError('generated Attack grip differs from its physical item')
+    if item.kind is WeaponKind.WEIGHTED_NET:
+        from towr.domain.pc_weighted_net_models import weighted_net_profile
+        ballistic_skill = npc.ballistic_skill if npc.ballistic_skill is not None else npc.ranged.ballistic_skill
+        return replace(weighted_net_profile(ballistic_skill,npc.throwing,npc.strength),id=identifier)
+    secondary = tuple(ConditionOnHitSpec(Condition.DRAINED,'authored:drained-on-hit')
+        for ability in npc.abilities if ability is GeneratedAbility.DRAINED_ON_HIT)
+    if GeneratedWeapon(item.kind.value) in GENERATED_RANGED_WEAPONS:
+        weapon = ranged_weapon_combat_profile(RangedWeaponId(item.kind.value))
+        damage = weapon_printed_damage(item.kind,strength=npc.strength)
+        assert damage is not None
+        return NpcAttackProfile(identifier,'RULE-EQUIPMENT-004:'+item.kind.value,Skill.SHOOTING,
+            InlineProfile(npc.ranged.ballistic_skill,npc.ranged.shooting),DamageProfile(damage),
+            weapon.optimum_range_min,weapon.optimum_range_max,weapon.hands,
+            ignores_armour=weapon.ignores_armour,secondary_effects=secondary)
+    profile = weapon_profile(item.kind)
+    hands = RangedWeaponHands.TWO_HANDED if grip is WeaponGrip.BOTH else RangedWeaponHands.ONE_HANDED
+    damage = weapon_printed_damage(item.kind,strength=npc.strength,
+        two_handed=hands is RangedWeaponHands.TWO_HANDED)
+    assert damage is not None and profile.maximum_range is not None
+    weapon_skill,melee,_ = generated_npc_combat_ratings(npc)
+    return NpcAttackProfile(identifier,'RULE-EQUIPMENT-003:'+item.kind.value,Skill.MELEE,
+        InlineProfile(weapon_skill,melee),DamageProfile(damage),RangedWeaponRange.CLOSE,
+        profile.maximum_range,hands,secondary_effects=secondary)
+
+
+def generated_weapon_attack_profile(npc: GeneratedNpc, item_id: str,
+        grip: WeaponGrip) -> NpcAttackProfile:
+    """Rederive one exact source-item/grip profile, not permission to use it.
+
+    Runtime owners pass the actual unit's source_item_id and prove that unit's
+    current location, grip, readiness and selected action separately.
+    """
+    if type(npc) is not GeneratedNpc:
+        raise TypeError('generated Attack requires the complete typed facts')
+    replace(npc)
+    generated_weapon_attack_id(item_id,grip)
+    item = next((item for item in npc.weapons if item.id == item_id),None)
+    if item is None:
+        raise ValueError('generated Attack source item does not belong to this definition')
+    return _generated_weapon_attack(npc,item,grip)
 
 
 def generated_npc_profiles(npc: GeneratedNpc) -> tuple[
-        ResilienceProfile,NpcAttackProfile,tuple[NpcProtectionProfile,...]]:
-    """Derive the complete admitted combat source from facts, without identity."""
+        ResilienceProfile,tuple[NpcAttackProfile,...],tuple[NpcProtectionProfile,...]]:
+    """Derive every physical item/grip choice without choosing a runtime use."""
     if type(npc) is not GeneratedNpc:
         raise TypeError('generated components require the complete typed facts')
     replace(npc)
-    # PG97 includes any Resilience bonus in "armoured", including Horse124.
-    # This does not turn the mount into physically worn Casting armour.
-    resilience = ResilienceProfile(npc.toughness,
-        int(npc.light_armour)+int(npc.shield)+int(npc.mount is CombatMount.HORSE))
-    secondary=tuple(ConditionOnHitSpec(Condition.DRAINED, 'authored:drained-on-hit')
-        for ability in npc.abilities if ability is GeneratedAbility.DRAINED_ON_HIT)
-    if npc.weapon is GeneratedWeapon.WEIGHTED_NET:
-        from towr.domain.pc_weighted_net_models import weighted_net_profile
-        attack = weighted_net_profile(npc.ballistic_skill,npc.throwing,npc.strength)
-    elif npc.ranged is not None:
-        weapon=ranged_weapon_combat_profile(RangedWeaponId(npc.weapon.value))
-        attack=NpcAttackProfile('primary','RULE-EQUIPMENT-004:'+npc.weapon.value,Skill.SHOOTING,
-            InlineProfile(npc.ranged.ballistic_skill,npc.ranged.shooting),DamageProfile(weapon.damage_value),
-            weapon.optimum_range_min,weapon.optimum_range_max,weapon.hands,
-            ignores_armour=weapon.ignores_armour,secondary_effects=secondary)
-    else:
-        from towr.domain.pc_melee_models import PcMeleeWeapon
-        from towr.domain.pc_weapon_models import pc_weapon_damage, pc_weapon_requires_two_hands
-        melee_weapon = PcMeleeWeapon(npc.weapon.value)
-        if npc.weapon in GENERATED_VARIABLE_GRIP_WEAPONS:
-            hands = npc.weapon_grip
-            assert hands is not None
-            damage = pc_weapon_damage(melee_weapon,npc.strength,
-                two_handed=hands is RangedWeaponHands.TWO_HANDED)
-            maximum_range = RangedWeaponRange.SHORT
-        else:
-            hands = (RangedWeaponHands.TWO_HANDED if pc_weapon_requires_two_hands(melee_weapon)
-                else RangedWeaponHands.ONE_HANDED)
-            damage = pc_weapon_damage(melee_weapon,npc.strength)
-            maximum_range = RangedWeaponRange.CLOSE
-        attack = NpcAttackProfile(
-            'primary', 'RULE-EQUIPMENT-003:' + npc.weapon.value, Skill.MELEE,
-            InlineProfile(npc.weapon_skill, npc.melee), damage,
-            RangedWeaponRange.CLOSE, maximum_range, hands,
-            secondary_effects=secondary)
+    bonus = (body_resilience_bonus(npc.armour)+helmet_resilience_bonus(npc.armour)
+        +int(npc.shield)+mount_source_resilience_bonus(npc.mount)+int(npc.armour.barding))
+    resilience = ResilienceProfile(npc.toughness,bonus,
+        armoured=True if armour_is_worn(npc.armour) and bonus == 0 else None,
+        mundane_armour_ward=protects_against_mundane_armour_effects(npc.armour))
+    weapon_skill,_,defence = generated_npc_combat_ratings(npc)
+    attacks = tuple(_generated_weapon_attack(npc,item,grip)
+        for item in npc.weapons for grip in _generated_item_grips(item))
     protection = (
-        NpcProtectionProfile('RULE-COMBAT-006:generated-defence', Skill.DEFENCE,
-            InlineProfile(npc.weapon_skill,npc.defence)),
-        NpcProtectionProfile('RULE-COMBAT-006:generated-athletics', Skill.ATHLETICS,
+        NpcProtectionProfile('RULE-COMBAT-006:generated-defence',Skill.DEFENCE,
+            InlineProfile(weapon_skill,defence)),
+        NpcProtectionProfile('RULE-COMBAT-006:generated-athletics',Skill.ATHLETICS,
             InlineProfile(npc.agility,npc.athletics)))
-    return resilience, attack, protection
+    return resilience,attacks,protection
 
 
 def validate_generated_definition(definition: NpcDefinition) -> None:
@@ -300,10 +434,10 @@ def validate_generated_definition(definition: NpcDefinition) -> None:
         if definition.source_rule_id == 'authored:generated-minion':
             raise ValueError('generated NPC source must retain its complete components')
         return
-    resilience,attack,protection = generated_npc_profiles(npc)
+    resilience,attacks,protection = generated_npc_profiles(npc)
     if (definition.source_rule_id != 'authored:generated-minion'
             or definition.injury_policy is not TargetInjuryPolicy.MINION
             or type(definition.wound_limit) is not int or definition.wound_limit != 1
-            or definition.resilience != resilience or definition.attacks != (attack,)
+            or definition.resilience != resilience or definition.attacks != attacks
             or definition.protection != protection):
         raise ValueError('NPC combat source differs from its complete generated components')

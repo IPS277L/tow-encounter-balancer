@@ -3,6 +3,8 @@
 The small namespace contexts below deliberately exercise pure preparation and
 projection boundaries. They do not claim to be completed native journals.
 """
+from tests.support.generated_weapon_sources import initial_generated_weapons
+from tests.support.armour_fixtures import light_loadout
 from copy import deepcopy
 from dataclasses import fields,replace
 from random import Random
@@ -62,6 +64,8 @@ def component(*,bs=2,strength=3,**changes):
         defence=4,weapon=GeneratedWeapon.WEIGHTED_NET,light_armour=False,shield=False,
         ballistic_skill=bs,throwing=4,brawn=4)
     values.update(changes)
+    values['armour'] = light_loadout(light=values.pop('light_armour'), shield=values.pop('shield'))
+    values['weapons'] = initial_generated_weapons(values.pop('weapon'), values.pop('weapon_grip', None))
     return GeneratedNpc(**values)
 
 
@@ -104,8 +108,8 @@ class WeightedNetSourceTests(unittest.TestCase):
         validate_weighted_net_bank(prepared)
         member = prepared.participant('pc1')
         inventory = replace(member.weapon_inventory,items=tuple(replace(item,
-            location=PcItemLocation.CARRIED,hand=None) for item in member.weapon_inventory.items))
-        prepared.party = tuple(replace(member,weapon_hand=None,weapon_inventory=inventory)
+            location=PcItemLocation.CARRIED,grip=None) for item in member.weapon_inventory.items))
+        prepared.party = tuple(replace(member,weapon_inventory=inventory)
             if current.actor_id == member.actor_id else current for current in prepared.party)
         with self.assertRaises(ValueError):
             validate_weighted_net_bank(prepared)
@@ -145,7 +149,7 @@ class WeightedNetSourceTests(unittest.TestCase):
             validate_generated_definition(forged)
 
     def test_generation_and_numeric_resampling_keep_net_and_admitted_bs_throwing_brawn(self):
-        envelope = NpcSearchSpace(weapon=(GeneratedWeapon.WEIGHTED_NET,),shield=(False,),
+        envelope = NpcSearchSpace(weapon_count=(1,), weapon=(GeneratedWeapon.WEIGHTED_NET,),shield=(None,),
             allowed_talents=(),ballistic_skill=(1,2,4),strength=(1,4),throwing=(2,5),brawn=(3,5))
         for seed in range(12):
             npc = envelope.sample(Random(seed))
@@ -162,7 +166,7 @@ class WeightedNetSourceTests(unittest.TestCase):
     def test_active_inventory_uid_wins_over_an_earlier_carried_net(self):
         first = PcWeightedNetState('pc:weapon:first','pc',PcNetLocation.CARRIED)
         active = PcWeightedNetState('pc:weapon:active','pc',PcNetLocation.HELD)
-        member = SimpleNamespace(weapon_inventory=SimpleNamespace(active_item_id='active'))
+        member = SimpleNamespace(weapon_inventory=SimpleNamespace(active_item_id=active.item_id))
         prepared = SimpleNamespace(source=SimpleNamespace(pc_activation_order=('pc',)),
             weighted_nets=(first,active),participant=lambda actor:member)
         self.assertIs(weighted_net_for_actor(prepared,'pc'),active)

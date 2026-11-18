@@ -1,4 +1,6 @@
 """Indexed identity admission preserves source claims and fresh canonical guards."""
+from tests.support.generated_weapon_sources import initial_generated_weapons
+from tests.support.armour_fixtures import light_loadout
 from copy import deepcopy
 from dataclasses import replace
 from enum import Enum
@@ -10,7 +12,7 @@ from towr.domain.generated_npc_models import GeneratedNpc,GeneratedWeapon
 
 
 def generated_definition():
-    return GeneratedNpc(3,3,3,3,4,4,GeneratedWeapon.STAFF,False,defence=4,shield=False).participant('generated').definition
+    return GeneratedNpc(3,3,3,3,4,4,initial_generated_weapons(GeneratedWeapon.STAFF),light_loadout(light=False, shield=False),defence=4).participant('generated').definition
 
 
 class CatalogIdentityIndexTests(unittest.TestCase):

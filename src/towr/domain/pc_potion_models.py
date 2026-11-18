@@ -53,8 +53,10 @@ def pc_potion_hand(member: PcMeleeParticipantState) -> PcWeaponHand | None:
 
 def pc_effective_definition(state: PcMeleeState, actor: str) -> PcMeleeDefinition:
     pc = state.source.participant(actor).pc
-    return (replace(pc, **{name: getattr(pc, name)+1 for name in state.participant(actor).enhancements})
+    pc=(replace(pc, **{name: getattr(pc, name)+1 for name in state.participant(actor).enhancements})
         if state.participant(actor).enhancements else pc)
+    from towr.domain.pc_armour_models import pc_effective_armour_ratings
+    return pc_effective_armour_ratings(state.source.participant(actor),pc)
 
 
 def potion_options(member: PcMeleeParticipantState) -> tuple[PcPotionSelection, ...]:
@@ -107,6 +109,13 @@ def build_pc_potion_recover(state: PcMeleeState) -> PcPotionRecoverProof:
         other_sources = frozenset((Condition.DRAINED,) if after.hit_condition_sources else ())
         from towr.domain.pc_magic_models import external_magic_conditions
         other_sources |= external_magic_conditions(state,actor)
+        from towr.domain.pc_armour_models import external_armour_conditions
+        other_sources |= external_armour_conditions(state,actor)
+        from towr.domain.pc_briarroot_models import external_briarroot_conditions
+        other_sources |= external_briarroot_conditions(state,actor)
+        from towr.domain.pc_inventory_conditions import external_inventory_conditions,_ProposedPartyView
+        proposal=_ProposedPartyView(state,tuple(after if member.actor_id==actor else member for member in state.party))
+        other_sources |= external_inventory_conditions(proposal,actor)
         if after.net_condition_sources:
             other_sources |= frozenset((Condition.BURDENED,))
         injury = heal_potion_wound(after.injury, selection.wound_sequence, other_sources)
@@ -124,6 +133,8 @@ def build_pc_potion_recover(state: PcMeleeState) -> PcPotionRecoverProof:
             after = replace(after, shield=PcShieldState(PcShieldLocation.HELD, after.shield.hand))
     else:
         after = replace(after, enhancements=(*after.enhancements, item.characteristic))
+        from towr.domain.pc_armour_models import pc_after_armour_enhancement
+        after=pc_after_armour_enhancement(state,actor,after)
     after = replace(after, potions=tuple(replace(current, quantity=current.quantity-1)
         if current.id == item.id else current for current in after.potions
         if current.id != item.id or current.quantity > 1))

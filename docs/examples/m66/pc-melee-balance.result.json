@@ -29,7 +29,6 @@
               "initiative": 3,
               "dexterity": 4,
               "ammunition_supply_confirmed": true,
-              "initially_loaded": true,
               "reload_hand_policy": "two_available_hands"
             }
           },
@@ -89,7 +88,23 @@
           "backup_weapon_policy": {
             "weapon": "sword",
             "preferred_hand": "right"
-          }
+          },
+          "combat_equipment": [
+            {
+              "id": "weapon",
+              "weapon": "crossbow",
+              "location": "held",
+              "hand": "both",
+              "initially_loaded": true
+            },
+            {
+              "id": "backup-weapon",
+              "weapon": "sword",
+              "location": "carried",
+              "hand": null,
+              "initially_loaded": null
+            }
+          ]
         },
         {
           "actor_id": "pc2",
@@ -111,7 +126,6 @@
               "initiative": 3,
               "dexterity": 4,
               "ammunition_supply_confirmed": true,
-              "initially_loaded": true,
               "reload_hand_policy": "two_available_hands",
               "repeater_bonus_policy": "when_available"
             }
@@ -172,7 +186,23 @@
           "backup_weapon_policy": {
             "weapon": "sword",
             "preferred_hand": "right"
-          }
+          },
+          "combat_equipment": [
+            {
+              "id": "weapon",
+              "weapon": "repeater_crossbow",
+              "location": "held",
+              "hand": "both",
+              "initially_loaded": true
+            },
+            {
+              "id": "backup-weapon",
+              "weapon": "sword",
+              "location": "carried",
+              "hand": null,
+              "initially_loaded": null
+            }
+          ]
         },
         {
           "actor_id": "pc3",
@@ -194,7 +224,6 @@
               "initiative": 3,
               "dexterity": 4,
               "ammunition_supply_confirmed": true,
-              "initially_loaded": true,
               "reload_hand_policy": "two_available_hands",
               "repeater_bonus_policy": "never"
             }
@@ -255,7 +284,23 @@
           "backup_weapon_policy": {
             "weapon": "sword",
             "preferred_hand": "right"
-          }
+          },
+          "combat_equipment": [
+            {
+              "id": "weapon",
+              "weapon": "repeater_crossbow",
+              "location": "held",
+              "hand": "both",
+              "initially_loaded": true
+            },
+            {
+              "id": "backup-weapon",
+              "weapon": "sword",
+              "location": "carried",
+              "hand": null,
+              "initially_loaded": null
+            }
+          ]
         }
       ],
       "day_id": "day",
@@ -558,7 +603,6 @@
                   "initiative": 3,
                   "dexterity": 4,
                   "ammunition_supply_confirmed": true,
-                  "initially_loaded": true,
                   "reload_hand_policy": "two_available_hands"
                 }
               },
@@ -611,7 +655,23 @@
               "backup_weapon_policy": {
                 "weapon": "sword",
                 "preferred_hand": "right"
-              }
+              },
+              "combat_equipment": [
+                {
+                  "id": "weapon",
+                  "weapon": "crossbow",
+                  "location": "held",
+                  "hand": "both",
+                  "initially_loaded": true
+                },
+                {
+                  "id": "backup-weapon",
+                  "weapon": "sword",
+                  "location": "carried",
+                  "hand": null,
+                  "initially_loaded": null
+                }
+              ]
             },
             {
               "actor_id": "pc2",
@@ -633,7 +693,6 @@
                   "initiative": 3,
                   "dexterity": 4,
                   "ammunition_supply_confirmed": true,
-                  "initially_loaded": true,
                   "reload_hand_policy": "two_available_hands",
                   "repeater_bonus_policy": "when_available"
                 }
@@ -687,7 +746,23 @@
               "backup_weapon_policy": {
                 "weapon": "sword",
                 "preferred_hand": "right"
-              }
+              },
+              "combat_equipment": [
+                {
+                  "id": "weapon",
+                  "weapon": "repeater_crossbow",
+                  "location": "held",
+                  "hand": "both",
+                  "initially_loaded": true
+                },
+                {
+                  "id": "backup-weapon",
+                  "weapon": "sword",
+                  "location": "carried",
+                  "hand": null,
+                  "initially_loaded": null
+                }
+              ]
             },
             {
               "actor_id": "pc3",
@@ -709,7 +784,6 @@
                   "initiative": 3,
                   "dexterity": 4,
                   "ammunition_supply_confirmed": true,
-                  "initially_loaded": true,
                   "reload_hand_policy": "two_available_hands",
                   "repeater_bonus_policy": "never"
                 }
@@ -763,7 +837,23 @@
               "backup_weapon_policy": {
                 "weapon": "sword",
                 "preferred_hand": "right"
-              }
+              },
+              "combat_equipment": [
+                {
+                  "id": "weapon",
+                  "weapon": "repeater_crossbow",
+                  "location": "held",
+                  "hand": "both",
+                  "initially_loaded": true
+                },
+                {
+                  "id": "backup-weapon",
+                  "weapon": "sword",
+                  "location": "carried",
+                  "hand": null,
+                  "initially_loaded": null
+                }
+              ]
             }
           ],
           "day_id": "day",
@@ -1169,7 +1259,6 @@
                   "initiative": 3,
                   "dexterity": 4,
                   "ammunition_supply_confirmed": true,
-                  "initially_loaded": true,
                   "reload_hand_policy": "two_available_hands"
                 }
               },
@@ -1229,7 +1318,23 @@
               "backup_weapon_policy": {
                 "weapon": "sword",
                 "preferred_hand": "right"
-              }
+              },
+              "combat_equipment": [
+                {
+                  "id": "weapon",
+                  "weapon": "crossbow",
+                  "location": "held",
+                  "hand": "both",
+                  "initially_loaded": true
+                },
+                {
+                  "id": "backup-weapon",
+                  "weapon": "sword",
+                  "location": "carried",
+                  "hand": null,
+                  "initially_loaded": null
+                }
+              ]
             },
             {
               "actor_id": "pc2",
@@ -1251,7 +1356,6 @@
                   "initiative": 3,
                   "dexterity": 4,
                   "ammunition_supply_confirmed": true,
-                  "initially_loaded": true,
                   "reload_hand_policy": "two_available_hands",
                   "repeater_bonus_policy": "when_available"
                 }
@@ -1312,7 +1416,23 @@
               "backup_weapon_policy": {
                 "weapon": "sword",
                 "preferred_hand": "right"
-              }
+              },
+              "combat_equipment": [
+                {
+                  "id": "weapon",
+                  "weapon": "repeater_crossbow",
+                  "location": "held",
+                  "hand": "both",
+                  "initially_loaded": true
+                },
+                {
+                  "id": "backup-weapon",
+                  "weapon": "sword",
+                  "location": "carried",
+                  "hand": null,
+                  "initially_loaded": null
+                }
+              ]
             },
             {
               "actor_id": "pc3",
@@ -1334,7 +1454,6 @@
                   "initiative": 3,
                   "dexterity": 4,
                   "ammunition_supply_confirmed": true,
-                  "initially_loaded": true,
                   "reload_hand_policy": "two_available_hands",
                   "repeater_bonus_policy": "never"
                 }
@@ -1395,7 +1514,23 @@
               "backup_weapon_policy": {
                 "weapon": "sword",
                 "preferred_hand": "right"
-              }
+              },
+              "combat_equipment": [
+                {
+                  "id": "weapon",
+                  "weapon": "repeater_crossbow",
+                  "location": "held",
+                  "hand": "both",
+                  "initially_loaded": true
+                },
+                {
+                  "id": "backup-weapon",
+                  "weapon": "sword",
+                  "location": "carried",
+                  "hand": null,
+                  "initially_loaded": null
+                }
+              ]
             }
           ],
           "day_id": "day",

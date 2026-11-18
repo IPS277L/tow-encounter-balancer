@@ -16,10 +16,11 @@ from towr.domain.movement_models import (
     MovementSpeed, RunActionExecutionRequest, RunActionExecutionResult,
     RunAthleticsExtensionRequest, RunAthleticsExtensionResult,
 )
-from towr.domain.pc_battlefield_models import PcBattlefieldState, battlefield_range, with_actor_placement
+from towr.domain.pc_battlefield_models import PcBattlefieldState, battlefield_range, with_actor_placement, battlefield_is_midair
 from towr.domain.pc_battlefield_movement_models import (
     PcBattlefieldMoveProof, _conditions, _enemies, _has_close_enemy, _ranges, _rank, _zone_distance,
     pc_battlefield_attack_available,
+    aerialmovement_permission, battlefield_path_available, _ranged_flight_preference,
 )
 from towr.domain.reload_models import ranged_weapon_is_loaded
 from towr.domain.ranged_weapon_profiles import RangedWeaponRange
@@ -74,6 +75,9 @@ def _began_close(state,actor):
 
 
 def _attack_skill(state,actor):
+    from towr.domain.pc_mount_attack_models import pc_mount_primary_needed
+    if pc_mount_primary_needed(state, actor):
+        return Skill.MELEE
     if actor in state.source.pc_activation_order:
         from towr.domain.pc_melee_result_models import pc_attack_skill
         return pc_attack_skill(state,actor)
@@ -101,6 +105,8 @@ def proposed_pc_battlefield_manoeuvre(state: PcMeleeState, *,
     if turn is None or len(turn.action_slots) > 1 or any(slot.executed for slot in turn.action_slots):
         return None
     actor = turn.actor_id
+    from towr.domain.pc_mount_attack_models import pc_mount_primary_needed
+    mount_attack = pc_mount_primary_needed(state, actor)
     conditions = _conditions(state,actor)
     actual_speed = _speed(state,actor,speed)
     if actual_speed is MovementSpeed.SLOW or any(conditions.has(condition) for condition in (
@@ -111,15 +117,18 @@ def proposed_pc_battlefield_manoeuvre(state: PcMeleeState, *,
         from towr.domain.pc_melee_result_models import _pc_recover_needed
         from towr.domain.pc_backup_weapon_models import pc_preferred_weapon_hand
         member = state.participant(actor)
-        if (_pc_recover_needed(member) or usable_weapon_hand(member) is None
+        if not mount_attack and (_pc_recover_needed(member) or usable_weapon_hand(member) is None
                 or pc_preferred_weapon_hand(state,actor) != member.weapon_hand):
             return None
-        if member.ranged is not None and not member.using_backup_weapon and not ranged_weapon_is_loaded(member.ranged):
+        from towr.domain.pc_backup_weapon_models import pc_active_weapon
+        from towr.domain.pc_melee_models import PC_RANGED_WEAPONS
+        if (not mount_attack and pc_active_weapon(state,actor) in PC_RANGED_WEAPONS
+                and member.ranged is not None and not ranged_weapon_is_loaded(member.ranged)):
             return None
     else:
         from towr.domain.pc_npc_ranged_models import pc_npc_ranged_weapon
         weapon = pc_npc_ranged_weapon(state,actor)
-        if weapon is not None and not ranged_weapon_is_loaded(weapon):
+        if not mount_attack and weapon is not None and not ranged_weapon_is_loaded(weapon):
             return None
     targets = _enemies(state,actor)
     if not targets or any(pc_battlefield_attack_available(state,actor,target) for target in targets):
@@ -132,7 +141,8 @@ def proposed_pc_battlefield_manoeuvre(state: PcMeleeState, *,
             if distance in (RangedWeaponRange.SHORT,RangedWeaponRange.MEDIUM) or (
                     distance is RangedWeaponRange.LONG and not free_available
                     and _has_athletics_source(state,actor)):
-                return PcBattlefieldManoeuvreProposal(actor,target,ManoeuvreKind.CHARGE)
+                if _charge_route(state, actor, target) is not None:
+                    return PcBattlefieldManoeuvreProposal(actor,target,ManoeuvreKind.CHARGE)
     if free_available:
         return None
     target = targets[0]
@@ -156,9 +166,11 @@ def _ready(state,target,kind,speed):
 
 
 def _athletics(state,actor,test_id):
+    from towr.domain.pc_mount_models import pc_is_mounted
+    mounted = pc_is_mounted(state, actor)
     if actor in state.source.pc_activation_order:
         from towr.domain.pc_melee_result_models import _pc_test
-        return _pc_test(state,actor,test_id,Skill.ATHLETICS)
+        return _pc_test(state,actor,test_id,Skill.ATHLETICS,control_mount=mounted)
     from towr.domain.pc_magic_models import magic_test_modifiers
     from towr.domain.pc_npc_distraction_models import pc_npc_distraction_test_modifiers
     enemy = state.enemy(actor)
@@ -169,7 +181,27 @@ def _athletics(state,actor,test_id):
     if _conditions(state,actor).has(Condition.DRAINED):
         modifiers = tuple(item for item in modifiers if item.amount <= 0)
     magic_dice,qualities = magic_test_modifiers(state,actor,Skill.ATHLETICS)
-    return TestRequest(test_id,option.test_profile,(*modifiers,*magic_dice),qualities)
+    from towr.domain.pc_armour_models import actor_armour_test_modifiers
+    return TestRequest(test_id,option.test_profile,(*modifiers,*magic_dice,
+        *actor_armour_test_modifiers(state,actor,Skill.ATHLETICS,control_mount=mounted)),qualities)
+
+
+def _charge_route(state, actor, target):
+    battlefield = state.battlefield
+    graph = battlefield.spatial.graph
+    origin, destination = (battlefield.spatial.placement_for(item).zone_id for item in (actor, target))
+    distance = battlefield_range(battlefield, actor, target)
+    if distance is RangedWeaponRange.SHORT:
+        options = ((),)
+    elif distance is RangedWeaponRange.MEDIUM:
+        options = ((destination,),)
+    elif distance is RangedWeaponRange.LONG:
+        options = tuple((middle, destination) for middle in graph.adjacent_zone_ids(origin)
+            if graph.are_adjacent(middle, destination))
+    else:
+        return None
+    return next((path for path in options if battlefield_path_available(state, actor, path,
+        close_to_ids=(target,))), None)
 
 
 def build_pc_battlefield_charge(state: PcMeleeState,target_id: str, *, speed=None) -> ChargeMovementRequest:
@@ -178,12 +210,13 @@ def build_pc_battlefield_charge(state: PcMeleeState,target_id: str, *, speed=Non
     action = pc_melee_action_id(state,actor)+':battlefield:charge'
     distance = battlefield_range(state.battlefield,actor,target_id)
     spatial = state.battlefield.spatial
+    route = _charge_route(state, actor, target_id)
+    if route is None:
+        raise ValueError('Charge route violates actual flight or bound Close restrictions')
     intermediate = None
     test = None
     if distance is RangedWeaponRange.LONG:
-        origin,target = (spatial.placement_for(entity).zone_id for entity in (actor,target_id))
-        intermediate = next(zone for zone in spatial.graph.adjacent_zone_ids(origin)
-            if spatial.graph.are_adjacent(zone,target))
+        intermediate = route[0]
         test = _athletics(state,actor,action+':athletics')
     return ChargeMovementRequest(action,state.round_state,spatial,actor,target_id,
         len(state.round_state.active_turn.action_slots),speed,_conditions(state,actor),distance,
@@ -218,8 +251,13 @@ def _run_destination(state,actor,target,spatial):
         if zone == target_zone and high is RangedWeaponRange.CLOSE:
             distance = 0
         return max(_rank(low)-distance,0,distance-_rank(high))
-    options = spatial.graph.adjacent_zone_ids(origin)
-    destination = min(options,key=deviation) if options else None
+    current = replace(with_actor_placement(state.battlefield, actor, origin), spatial=spatial)
+    options = tuple(zone for zone in spatial.graph.adjacent_zone_ids(origin)
+        if battlefield_path_available(state, actor, (zone,), battlefield=current,
+            close_to_ids=(target,) if zone == target_zone and high is RangedWeaponRange.CLOSE else ()))
+    flight = _ranged_flight_preference(state, actor)
+    destination = min(options, key=lambda zone: (deviation(zone), 0 if flight
+        and battlefield_is_midair(current, zone, zone=True) else 1)) if options else None
     return destination if destination is not None and deviation(destination) < deviation(origin) else None
 
 
@@ -234,6 +272,21 @@ def build_pc_battlefield_run(state: PcMeleeState,target_id: str, *, speed=None) 
         speed,_conditions(state,actor),destination)
 
 
+def _run_athletics(state, base_run, destination, target_id):
+    if type(base_run) is not RunActionExecutionResult:
+        raise TypeError('Run Athletics requires its exact executed base Run')
+    test = _athletics(state,base_run.actor_id,base_run.request_id+':extension:athletics')
+    spatial = base_run.spatial_state
+    origin, target = (spatial.placement_for(actor).zone_id for actor in (base_run.actor_id, target_id))
+    if target_id not in _enemies(state,base_run.actor_id) or not spatial.graph.are_adjacent(origin,destination):
+        raise ValueError('Run Athletics context requires its actual enemy and adjacent destination')
+    pursuing = _zone_distance(spatial.graph,destination,target) < _zone_distance(spatial.graph,origin,target)
+    from towr.domain.pc_armour_models import actor_armour_quality_modifiers
+    qualities = actor_armour_quality_modifiers(state,base_run.actor_id,tracking_or_pursuit=pursuing)
+    test = replace(test,quality_modifiers=(*test.quality_modifiers,*qualities))
+    return test
+
+
 def build_pc_battlefield_run_extension(state: PcMeleeState,base_run: RunActionExecutionResult,
         target_id: str) -> RunAthleticsExtensionRequest | None:
     if not _has_athletics_source(state,base_run.actor_id):
@@ -241,8 +294,8 @@ def build_pc_battlefield_run_extension(state: PcMeleeState,base_run: RunActionEx
     destination = _run_destination(state,base_run.actor_id,target_id,base_run.spatial_state)
     if destination is None:
         return None
-    return RunAthleticsExtensionRequest(base_run.request_id+':extension',base_run,
-        _athletics(state,base_run.actor_id,base_run.request_id+':extension:athletics'),
+    test = _run_athletics(state,base_run,destination,target_id)
+    return RunAthleticsExtensionRequest(base_run.request_id+':extension',base_run,test,
         _conditions(state,base_run.actor_id),destination)
 
 
@@ -251,7 +304,11 @@ def _after(state,spatial,actor,target,*,charge=False):
     destination = spatial.placement_for(actor).zone_id
     _,high,_,_ = _ranges(state,actor)
     close = (target,) if charge or destination == target_zone and high is RangedWeaponRange.CLOSE else ()
-    return with_actor_placement(replace(state.battlefield,spatial=spatial),actor,destination,close_to_ids=close)
+    after = replace(with_actor_placement(state.battlefield,actor,destination,close_to_ids=close), spatial=spatial)
+    from towr.domain.pc_battlefield_movement_models import movement_keeps_briarroot_close
+    if not movement_keeps_briarroot_close(state, actor, after):
+        raise ValueError('Manoeuvre cannot move a bound weapon out of Close')
+    return after
 
 
 def battlefield_after_manoeuvre(state: PcMeleeState,result,target_id: str, *, extension_result=None):

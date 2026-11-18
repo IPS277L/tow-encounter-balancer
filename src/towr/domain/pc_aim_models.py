@@ -144,8 +144,8 @@ def expected_pc_aim_consumption(state):
 
 def pc_hochland_needs_aim(state, actor):
     member = state.participant(actor)
-    if (state.source.participant(actor).pc.weapon is not PcMeleeWeapon.HOCHLAND_LONG_RIFLE
-            or member.using_backup_weapon):
+    from towr.domain.pc_backup_weapon_models import pc_active_weapon
+    if pc_active_weapon(state,actor) is not PcMeleeWeapon.HOCHLAND_LONG_RIFLE:
         return False
     target = next(a for a in state.source.participant(actor).target_priority
         if not state.enemy(a).state.injury.defeated and a not in state.exited_npc_ids)
@@ -183,7 +183,10 @@ def build_pc_aim(state):
     actor = turn.actor_id
     member = state.participant(actor)
     source = state.source.participant(actor)
-    if (source.pc.ranged is None or source.pc.ranged.awareness is None or member.using_backup_weapon
+    from towr.domain.pc_backup_weapon_models import pc_active_weapon
+    from towr.domain.pc_melee_models import PC_RANGED_WEAPONS
+    if (source.pc.ranged is None or source.pc.ranged.awareness is None
+            or pc_active_weapon(state,actor) not in PC_RANGED_WEAPONS
             or usable_weapon_hand(member) is None
             or not ranged_weapon_is_loaded(member.ranged) or pc_has_close_enemy(state,actor)
             or restriction_sources(member.injury,WoundRestriction.CANNOT_AIM)
@@ -218,7 +221,8 @@ def build_pc_aim_second_action(state):
     source, member = state.source.participant(actor), state.participant(actor)
     policy = source.aim_second_action_policy
     aim = current_pc_aim(state,actor)
-    if (policy is None or member.using_backup_weapon or aim is None
+    from towr.domain.pc_backup_weapon_models import pc_active_weapon
+    if (policy is None or pc_active_weapon(state,actor) is not PcMeleeWeapon.HOCHLAND_LONG_RIFLE or aim is None
             or aim.request_id != turn.action_slots[0].execution.id
             or member.injury.conditions.has(Condition.DEFENCELESS)
             or usable_weapon_hand(member) is not PcTwoHandedGrip.BOTH

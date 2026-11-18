@@ -1,5 +1,6 @@
 """Aim resource observations cross compact records, reports and JSON1 echoes."""
 from copy import deepcopy
+from tests.support.pc_weapon_sources import initial_weapon_items
 from dataclasses import replace
 import json
 import pickle
@@ -122,7 +123,7 @@ class PcHochlandJsonTests(unittest.TestCase):
         member = source.party[1]
         source = replace(source,party=(source.party[0],replace(member,
             pc=replace(member.pc,weapon=PcMeleeWeapon.HANDGUN,ranged=handgun_profile()),
-            fate_policy=PcFatePolicy.DECLINE_OPTIONAL_FATE,aim_second_action_policy=None)))
+            fate_policy=PcFatePolicy.DECLINE_OPTIONAL_FATE,aim_second_action_policy=None,combat_equipment=initial_weapon_items(PcMeleeWeapon.HANDGUN,member.initial_weapon_hand,member.backup_weapon_policy,initially_loaded=True))))
         result = run_pc_melee_simulation(PcMeleeSimulationRequest(source,42,1))
         record, = result.records
         self.assertEqual(record.aim.action_counts,(PcAimCount('pc1',1),PcAimCount('pc2',0)))

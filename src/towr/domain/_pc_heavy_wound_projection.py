@@ -1,5 +1,6 @@
 """Pure projections for the closed M12 consequences; no rule execution/RNG."""
 from dataclasses import replace
+from towr.domain.pc_weapon_inventory import replace_pc_member, drop_pc_weapons_in_hand
 
 from towr.domain.condition_models import Condition
 from towr.domain.injury_models import (
@@ -18,7 +19,7 @@ from towr.domain.pc_shield_models import PcShieldLocation, PcShieldState
 def _drop_shield_in_hand(member, side):
     if (member.shield is not None and member.shield.location is PcShieldLocation.HELD
             and member.shield.hand is side):
-        return replace(member,shield=PcShieldState(PcShieldLocation.DROPPED,None))
+        return replace_pc_member(member,shield=PcShieldState(PcShieldLocation.DROPPED,None))
     return member
 
 
@@ -130,8 +131,7 @@ def reconcile_clutch(member):
             facts.append(replace(old,side=replacement))
             member = _drop_shield_in_hand(member,replacement)
             member = replace(member,injury=critical_for_incidental_hand_use(member,replacement))
-            if member.weapon_hand is replacement or member.weapon_hand is PcTwoHandedGrip.BOTH:
-                member = replace(member,weapon_hand=None)
+            member = drop_pc_weapons_in_hand(member,replacement)
     return replace(member,body_facts=tuple(facts))
 
 
@@ -151,7 +151,7 @@ def body_consequence(member, proof):
             raise ValueError('clutch must select an available hand under the chosen fighting policy')
         fact = PcBodyFact(Body.CLUTCH_STOMACH,request.wound_sequence,side)
         member = _drop_shield_in_hand(member,side)
-        member = replace(member,weapon_hand=None if member.weapon_hand is side or member.weapon_hand is PcTwoHandedGrip.BOTH else member.weapon_hand,
+        member = replace(drop_pc_weapons_in_hand(member,side),
             injury=critical_for_incidental_hand_use(member,side))
     else:
         side = _side(request,member,proof.die,proof.side)
@@ -159,7 +159,7 @@ def body_consequence(member, proof):
             raise ValueError('a sided consequence concerns exactly one body part')
         if kind is WoundConsequence.DROP_RANDOM_HAND_ITEM:
             member = _drop_shield_in_hand(member,side)
-            member = replace(member,weapon_hand=None if member.weapon_hand is side or member.weapon_hand is PcTwoHandedGrip.BOTH else member.weapon_hand)
+            member = drop_pc_weapons_in_hand(member,side)
             if member.injury.wounds[request.wound_sequence-1].table_total != 12:
                 return member
             if side is None:
@@ -177,9 +177,9 @@ def body_consequence(member, proof):
             if (kind in (WoundConsequence.RANDOMISE_INJURED_ARM,WoundConsequence.RANDOMISE_SEVERED_ARM)
                     and member.shield is not None and member.shield.location is PcShieldLocation.HELD
                     and member.shield.hand is side):
-                member = replace(member,shield=PcShieldState(PcShieldLocation.UNAVAILABLE,side))
-            if kind is WoundConsequence.RANDOMISE_SEVERED_ARM and member.weapon_hand is side:
-                member = replace(member,weapon_hand=None)
+                member = replace_pc_member(member,shield=PcShieldState(PcShieldLocation.UNAVAILABLE,side))
+            if kind is WoundConsequence.RANDOMISE_SEVERED_ARM:
+                member = drop_pc_weapons_in_hand(member,side)
     if fact in member.body_facts:
         raise ValueError('anatomical consequence cannot be replayed')
     return reconcile_clutch(replace(member,body_facts=(*member.body_facts,fact)))

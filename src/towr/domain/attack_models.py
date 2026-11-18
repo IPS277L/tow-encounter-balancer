@@ -41,12 +41,14 @@ class ResilienceProfile:
     toughness: int
     bonus: int = 0
     armoured: bool | None = field(default=None, kw_only=True)
+    mundane_armour_ward: bool = field(default=False, kw_only=True)
 
     def __post_init__(self) -> None:
         _validate_non_negative_int(self.toughness, "toughness")
         _validate_non_negative_int(self.bonus, "resilience bonus")
         if self.armoured is not None and type(self.armoured) is not bool:
             raise TypeError("armoured must be an exact boolean or None")
+        _validate_bool(self.mundane_armour_ward, "mundane_armour_ward")
 
     @property
     def total(self) -> int:
@@ -61,10 +63,14 @@ class ResilienceProfile:
 class DamageModifier:
     rule_id: str
     amount: int
+    armour_specific: bool = field(default=False, kw_only=True)
+    magical_source: bool = field(default=False, kw_only=True)
 
     def __post_init__(self) -> None:
         _validate_rule_id(self.rule_id)
         _validate_non_zero_int(self.amount, "damage modifier amount")
+        _validate_bool(self.armour_specific, "armour_specific")
+        _validate_bool(self.magical_source, "magical_source")
 
 
 @dataclass(frozen=True, slots=True)
@@ -79,6 +85,11 @@ class ResilienceModifier:
 
 @dataclass(frozen=True, slots=True)
 class DamageImpactSpec:
+    """Base weapon impact; contributor modifiers retain their own origins.
+
+    ``magical_source`` describes this primary Damage/ignores-armour source. It
+    never grants magical provenance to another weapon's DamageModifier.
+    """
     damage: DamageProfile
     resilience: ResilienceProfile
     ignores_armour: bool = False
@@ -86,6 +97,7 @@ class DamageImpactSpec:
     resilience_modifiers: tuple[ResilienceModifier, ...] = field(
         default_factory=tuple
     )
+    magical_source: bool = field(default=False, kw_only=True)
 
     def __post_init__(self) -> None:
         if not isinstance(self.damage, DamageProfile):
@@ -93,6 +105,7 @@ class DamageImpactSpec:
         if not isinstance(self.resilience, ResilienceProfile):
             raise TypeError("resilience must be a ResilienceProfile")
         _validate_bool(self.ignores_armour, "ignores_armour")
+        _validate_bool(self.magical_source, "magical_source")
         object.__setattr__(self, "damage_modifiers", tuple(self.damage_modifiers))
         object.__setattr__(
             self,
@@ -110,6 +123,51 @@ class DamageImpactSpec:
             raise TypeError(
                 "resilience_modifiers must contain ResilienceModifier values"
             )
+
+
+def _target_armour_ward(spec: DamageImpactSpec) -> bool:
+    """Read exact target protection without combining independent origins."""
+    if not isinstance(spec, DamageImpactSpec):
+        raise TypeError('armour protection requires a DamageImpactSpec')
+    _validate_bool(spec.magical_source, 'magical_source')
+    _validate_bool(spec.ignores_armour, 'ignores_armour')
+    if not isinstance(spec.resilience, ResilienceProfile):
+        raise TypeError('armour protection requires its full ResilienceProfile')
+    _validate_bool(spec.resilience.mundane_armour_ward, 'mundane_armour_ward')
+    return spec.resilience.mundane_armour_ward
+
+
+def effective_damage_modifiers(spec: DamageImpactSpec) -> tuple[DamageModifier, ...]:
+    """GM85 Meteoric Iron cancels mundane bonuses against armoured targets.
+
+    Each modifier owns its origin independently of the primary weapon. Other
+    damage (including penalties) and the original prepared source remain intact.
+    The same projection serves actual damage and tactical estimates.
+    """
+    ward = _target_armour_ward(spec)
+    modifiers = tuple(spec.damage_modifiers)
+    for modifier in modifiers:
+        if not isinstance(modifier, DamageModifier):
+            raise TypeError('damage protection requires typed DamageModifiers')
+        _validate_bool(modifier.armour_specific, 'armour_specific')
+        _validate_bool(modifier.magical_source, 'magical_source')
+    return tuple(modifier for modifier in modifiers
+        if not (ward and modifier.armour_specific and modifier.amount > 0
+            and not modifier.magical_source))
+
+
+def effective_ignores_armour(spec: DamageImpactSpec) -> bool:
+    """Retain a weapon's printed trait, cancel only its mundane application."""
+    ward = _target_armour_ward(spec)
+    return spec.ignores_armour and (spec.magical_source or not ward)
+
+
+def armour_ward_cancels_effects(spec: DamageImpactSpec) -> bool:
+    """Whether this damage event actually invokes the GM85 protection rule."""
+    ward = _target_armour_ward(spec)
+    modifiers = effective_damage_modifiers(spec)
+    return ward and ((spec.ignores_armour and not spec.magical_source)
+        or len(modifiers) != len(spec.damage_modifiers))
 
 
 @dataclass(frozen=True, slots=True)

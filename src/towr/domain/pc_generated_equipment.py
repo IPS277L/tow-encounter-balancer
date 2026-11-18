@@ -21,18 +21,25 @@ if TYPE_CHECKING:
 
 
 def generated_attack_modifiers(definition: NpcDefinition, conditions: ConditionState,
-        target_conditions: ConditionState, *, target_mounted: bool = False) -> tuple[DiceModifier,...]:
+        target_conditions: ConditionState, *, target_mounted: bool = False,weapon_use=None) -> tuple[DiceModifier,...]:
     components = definition.generated_components
     if components is None:
         return ()
+    if weapon_use is not None:
+        from towr.domain.weapon_effect_preparation import weapon_test_modifiers
+        return weapon_test_modifiers(weapon_use,conditions,target_conditions=target_conditions,
+            target_mounted=target_mounted).modifiers
     weapon = PcMeleeWeapon(components.weapon.value)
     return (pc_weapon_test_modifiers(weapon,Skill.MELEE,conditions)
         + pc_weapon_attack_modifiers(weapon,target_conditions,target_mounted=target_mounted))
 
 
 def generated_damage_modifiers(definition: NpcDefinition,
-        target_resilience: ResilienceProfile) -> tuple[DamageModifier,...]:
+        target_resilience: ResilienceProfile,*,weapon_use=None) -> tuple[DamageModifier,...]:
     components = definition.generated_components
+    if components is not None and weapon_use is not None:
+        from towr.domain.weapon_effect_preparation import weapon_damage_preparation
+        return weapon_damage_preparation(weapon_use,components.strength,target_resilience).modifiers
     return (() if components is None else
         pc_weapon_damage_modifiers(PcMeleeWeapon(components.weapon.value),target_resilience))
 
@@ -57,8 +64,10 @@ def npc_protection_test(state: PcMeleeState, defender_id: str, attacker_id: str,
         from towr.domain.pc_short_opening_models import pc_enemy_range
         from towr.domain.ranged_weapon_profiles import RangedWeaponRange
         from towr.domain.test_models import InlineProfile
+        from towr.domain.generated_npc_models import generated_npc_combat_ratings
+        weapon_skill,melee_rating,_=generated_npc_combat_ratings(components)
         melee=NpcProtectionProfile('RULE-EQUIPMENT-004:generated-close-melee',Skill.MELEE,
-            InlineProfile(components.weapon_skill,components.melee))
+            InlineProfile(weapon_skill,melee_rating))
         profiles=((*((enemy.definition.protection[0],) if enemy.state.holds_shield else ()),
             *((melee,) if pc_enemy_range(state,attacker_id,defender_id) is RangedWeaponRange.CLOSE else ()),
             enemy.definition.protection[1]))
@@ -69,13 +78,21 @@ def npc_protection_test(state: PcMeleeState, defender_id: str, attacker_id: str,
     charge=current_pc_charge(state,attacker_id)
     against_charge=charge is not None and charge.target_id == defender_id
     for option in profiles:
+        from towr.domain.pc_npc_weapon_inventory import npc_protection_weapon_use
+        actual_use=(npc_protection_weapon_use(state,defender_id,option.skill,attack_skill)
+            if components is not None and option.skill in (Skill.DEFENCE,Skill.MELEE) else None)
+        if components is not None and option.skill is Skill.DEFENCE and actual_use is None:
+            continue
         modifiers = list(pc_npc_distraction_test_modifiers(state,defender_id,attacker_id))
         if option.skill is Skill.MELEE:
             modifiers.extend(pc_npc_grudge_melee_modifiers(state,defender_id,attacker_id))
-        if components is not None and enemy.state.wields_weapon:
-            modifiers.extend(pc_weapon_test_modifiers(PcMeleeWeapon(components.weapon.value),
-                option.skill,enemy.state.injury.conditions,against_charge=against_charge))
+        if actual_use is not None:
+            from towr.domain.weapon_effect_preparation import weapon_test_modifiers
+            modifiers.extend(weapon_test_modifiers(actual_use,enemy.state.injury.conditions,
+                against_charge=against_charge).modifiers)
         modifiers.extend(magic_test_modifiers(state,defender_id,option.skill)[0])
+        from towr.domain.pc_armour_models import actor_armour_test_modifiers
+        modifiers.extend(actor_armour_test_modifiers(state,defender_id,option.skill,oppose_attack=True))
         if enemy.state.injury.conditions.has(Condition.DRAINED):
             modifiers = [item for item in modifiers if item.amount <= 0]
         tests.append((option,TestRequest(test_id,option.test_profile,tuple(modifiers))))

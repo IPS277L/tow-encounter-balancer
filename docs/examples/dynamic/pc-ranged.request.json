@@ -27,7 +27,8 @@
           {
             "id": "weapon:1",
             "weapon": "repeater_pistol",
-            "location": "left_hand"
+            "location": "left_hand",
+            "initially_loaded": true
           },
           {
             "id": "weapon:backup",
@@ -49,7 +50,6 @@
       },
       "consumables": [],
       "ranged": {
-        "initially_loaded": true,
         "ammunition_supply_confirmed": true,
         "has_blackpowder_lore": true,
         "has_blackpowder_kit": true

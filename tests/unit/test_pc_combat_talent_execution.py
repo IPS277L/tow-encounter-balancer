@@ -3,6 +3,8 @@
 Full runs use continuous literal d10 input. Explicitly named prepared snapshots
 exercise local reducer/query boundaries, not fabricated complete battles.
 """
+from tests.support.generated_weapon_sources import initial_generated_weapons
+from tests.support.armour_fixtures import light_loadout
 from dataclasses import replace
 import unittest
 
@@ -39,8 +41,8 @@ def scenario(*, talents=(GeneratedTalent.WILD_ATTACK,), rounds=1, defensive=Fals
         near_miss_policy=None, glorious_policy=None,
         combat_talents=tuple(PcCombatTalent(talent) for talent in talents))
     npc = GeneratedNpc(3 if npc_talents else 1, 4 if npc_talents else 1,
-        20, 1, 2, 2, GeneratedWeapon.STAFF, False,
-        defence=2, shield=False, talents=npc_talents)
+        20, 1, 2, 2, initial_generated_weapons(GeneratedWeapon.STAFF), light_loadout(light=False, shield=False),
+        defence=2,  talents=npc_talents)
     return replace(source, party=(member,), enemies=(npc.participant('minion1'),))
 
 

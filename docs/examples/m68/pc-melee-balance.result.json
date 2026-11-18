@@ -90,7 +90,23 @@
             "initial_hand": "left",
             "hand_conflict_policy": "weapon_first",
             "recovery_policy": "restore_before_attack"
-          }
+          },
+          "combat_equipment": [
+            {
+              "id": "weapon",
+              "weapon": "sling",
+              "location": "held",
+              "hand": "right",
+              "initially_loaded": null
+            },
+            {
+              "id": "backup-weapon",
+              "weapon": "sword",
+              "location": "carried",
+              "hand": null,
+              "initially_loaded": null
+            }
+          ]
         },
         {
           "actor_id": "pc2",
@@ -173,7 +189,23 @@
             "initial_hand": "right",
             "hand_conflict_policy": "weapon_first",
             "recovery_policy": "restore_before_attack"
-          }
+          },
+          "combat_equipment": [
+            {
+              "id": "weapon",
+              "weapon": "sling",
+              "location": "held",
+              "hand": "left",
+              "initially_loaded": null
+            },
+            {
+              "id": "backup-weapon",
+              "weapon": "sword",
+              "location": "carried",
+              "hand": null,
+              "initially_loaded": null
+            }
+          ]
         },
         {
           "actor_id": "pc3",
@@ -251,7 +283,23 @@
           "backup_weapon_policy": {
             "weapon": "sword",
             "preferred_hand": "right"
-          }
+          },
+          "combat_equipment": [
+            {
+              "id": "weapon",
+              "weapon": "sling",
+              "location": "held",
+              "hand": "right",
+              "initially_loaded": null
+            },
+            {
+              "id": "backup-weapon",
+              "weapon": "sword",
+              "location": "carried",
+              "hand": null,
+              "initially_loaded": null
+            }
+          ]
         }
       ],
       "day_id": "day",
@@ -608,7 +656,23 @@
                 "initial_hand": "left",
                 "hand_conflict_policy": "weapon_first",
                 "recovery_policy": "restore_before_attack"
-              }
+              },
+              "combat_equipment": [
+                {
+                  "id": "weapon",
+                  "weapon": "sling",
+                  "location": "held",
+                  "hand": "right",
+                  "initially_loaded": null
+                },
+                {
+                  "id": "backup-weapon",
+                  "weapon": "sword",
+                  "location": "carried",
+                  "hand": null,
+                  "initially_loaded": null
+                }
+              ]
             },
             {
               "actor_id": "pc2",
@@ -684,7 +748,23 @@
                 "initial_hand": "right",
                 "hand_conflict_policy": "weapon_first",
                 "recovery_policy": "restore_before_attack"
-              }
+              },
+              "combat_equipment": [
+                {
+                  "id": "weapon",
+                  "weapon": "sling",
+                  "location": "held",
+                  "hand": "left",
+                  "initially_loaded": null
+                },
+                {
+                  "id": "backup-weapon",
+                  "weapon": "sword",
+                  "location": "carried",
+                  "hand": null,
+                  "initially_loaded": null
+                }
+              ]
             },
             {
               "actor_id": "pc3",
@@ -755,7 +835,23 @@
               "backup_weapon_policy": {
                 "weapon": "sword",
                 "preferred_hand": "right"
-              }
+              },
+              "combat_equipment": [
+                {
+                  "id": "weapon",
+                  "weapon": "sling",
+                  "location": "held",
+                  "hand": "right",
+                  "initially_loaded": null
+                },
+                {
+                  "id": "backup-weapon",
+                  "weapon": "sword",
+                  "location": "carried",
+                  "hand": null,
+                  "initially_loaded": null
+                }
+              ]
             }
           ],
           "day_id": "day",
@@ -1222,7 +1318,23 @@
                 "initial_hand": "left",
                 "hand_conflict_policy": "weapon_first",
                 "recovery_policy": "restore_before_attack"
-              }
+              },
+              "combat_equipment": [
+                {
+                  "id": "weapon",
+                  "weapon": "sling",
+                  "location": "held",
+                  "hand": "right",
+                  "initially_loaded": null
+                },
+                {
+                  "id": "backup-weapon",
+                  "weapon": "sword",
+                  "location": "carried",
+                  "hand": null,
+                  "initially_loaded": null
+                }
+              ]
             },
             {
               "actor_id": "pc2",
@@ -1305,7 +1417,23 @@
                 "initial_hand": "right",
                 "hand_conflict_policy": "weapon_first",
                 "recovery_policy": "restore_before_attack"
-              }
+              },
+              "combat_equipment": [
+                {
+                  "id": "weapon",
+                  "weapon": "sling",
+                  "location": "held",
+                  "hand": "left",
+                  "initially_loaded": null
+                },
+                {
+                  "id": "backup-weapon",
+                  "weapon": "sword",
+                  "location": "carried",
+                  "hand": null,
+                  "initially_loaded": null
+                }
+              ]
             },
             {
               "actor_id": "pc3",
@@ -1383,7 +1511,23 @@
               "backup_weapon_policy": {
                 "weapon": "sword",
                 "preferred_hand": "right"
-              }
+              },
+              "combat_equipment": [
+                {
+                  "id": "weapon",
+                  "weapon": "sling",
+                  "location": "held",
+                  "hand": "right",
+                  "initially_loaded": null
+                },
+                {
+                  "id": "backup-weapon",
+                  "weapon": "sword",
+                  "location": "carried",
+                  "hand": null,
+                  "initially_loaded": null
+                }
+              ]
             }
           ],
           "day_id": "day",

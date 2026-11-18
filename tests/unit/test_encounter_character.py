@@ -4,7 +4,8 @@ import unittest
 
 from tests.support.pc_melee_fixtures import make_pc_melee_scenario
 from tests.support.pc_melee_scripted import ScriptedD10
-from towr.application.encounter_character import EncounterCharacter, EncounterArmour, EncounterTalent
+from towr.application.encounter_character import EncounterCharacter, EncounterTalent
+from towr.domain.armour_models import ArmourLoadout,BodyArmour,ShieldKind
 from towr.application.dynamic_encounter import automatic_npc_search_space
 from towr.domain.minion_defeat_models import NpcDefeatDisposition
 from towr.domain.pc_melee_models import PcMeleeWeapon, PcWeaponHand, PcTwoHandedGrip
@@ -21,7 +22,7 @@ from towr.simulation.pc_melee_simulation import run_pc_melee_trial
 
 def character(**changes):
     return replace(EncounterCharacter('pc', 3, 3, 3, 3, 5, 5, 4, 4,
-        PcMeleeWeapon.SWORD, EncounterArmour.NONE, False, PcWeaponHand.RIGHT, (), 3), **changes)
+        PcMeleeWeapon.SWORD, ArmourLoadout(), False, PcWeaponHand.RIGHT, (), 3), **changes)
 
 
 def scenario(character):
@@ -33,7 +34,8 @@ def scenario(character):
 
 class EncounterCharacterTests(unittest.TestCase):
     def test_armour_and_shield_are_separate_executable_equipment(self):
-        state = initial_pc_melee_state(scenario(character(armour=EncounterArmour.LIGHT, shield=True)))
+        state = initial_pc_melee_state(scenario(character(armour=ArmourLoadout(
+            (BodyArmour.LIGHT,),BodyArmour.LIGHT,shield=ShieldKind.SHIELD), shield=True)))
         self.assertEqual(pc_shield_resilience(state, 'pc').total, 5)
         self.assertEqual(state.source.party[0].pc.armour_bonus, 1)
         self.assertIs(pc_defence_hand(state.party[0], Skill.SHOOTING), PcWeaponHand.LEFT)

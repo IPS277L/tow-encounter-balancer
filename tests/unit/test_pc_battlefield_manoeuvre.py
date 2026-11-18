@@ -1,4 +1,6 @@
 """Deterministic Manoeuvre phases and source-bound use of the ordinary Attack."""
+from tests.support.generated_weapon_sources import initial_generated_weapons
+from tests.support.armour_fixtures import light_loadout
 from copy import deepcopy
 from dataclasses import replace
 import unittest
@@ -83,7 +85,7 @@ def kernel():
 
 def native_source(distance=R.MEDIUM,*,configured=False):
     original = automatic_source(pc_count=1,rounds=3)
-    npc = GeneratedNpc(3,3,4,3,4,4,GeneratedWeapon.STAFF,False,defence=4,shield=False)
+    npc = GeneratedNpc(3,3,4,3,4,4,initial_generated_weapons(GeneratedWeapon.STAFF),light_loadout(light=False, shield=False),defence=4)
     member = original.party[0]
     if configured:
         member = replace(member,fate_policy=PcFatePolicy.CONFIGURED,

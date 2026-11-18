@@ -10,6 +10,7 @@ from tests.unit.test_m55_pistol_shield_execution import (
     critical_sources, heavy_hits, recover_object, scene as shield_scene,
 )
 from tests.support.pc_book_npc_scenarios import book_pc_scenario
+from tests.support.pc_weapon_sources import initial_weapon_items
 from towr.domain.condition_models import Condition
 from towr.domain.pc_backup_weapon_models import pc_active_weapon, pc_active_weapon_item_id
 from towr.domain.pc_heavy_wound_models import usable_hands
@@ -30,6 +31,7 @@ from towr.domain.test_models import Skill, TestQuality
 from towr.domain.turn_models import (
     ActionSlotGrant, CombatActionDeclaration, CombatActionKind, CombatActionSlotRequest,
 )
+from towr.domain.weapon_inventory_models import weapon_unit_id
 from towr.engine.pc_melee_runner import apply_pc_melee_step
 from towr.rules.turn_resolution import reserve_combat_action_slot
 
@@ -40,9 +42,11 @@ MELEE_HIT = [1, 1, 1, 10, 10]
 
 def scene(*, shield=False, weapon=PcMeleeWeapon.SWORD, preferred=PcWeaponHand.LEFT, **kwargs):
     source = shield_scene(**kwargs)
+    backup=PcBackupWeaponPolicy(weapon,preferred)
     return replace(source, party=tuple(replace(member,
         shield=member.shield if shield else None,
-        backup_weapon_policy=PcBackupWeaponPolicy(weapon, preferred)) for member in source.party))
+        backup_weapon_policy=backup,combat_equipment=initial_weapon_items(
+            member.pc.weapon,member.initial_weapon_hand,backup,initially_loaded=True)) for member in source.party))
 
 
 def own_melee(result):
@@ -84,7 +88,7 @@ class PcPistolBackupExecutionTests(unittest.TestCase):
                     self.assertTrue(draw.state.participant('pc1').using_backup_weapon)
                     self.assertEqual(draw.source.participant('pc1').ranged, draw.state.participant('pc1').ranged)
                     self.assertEqual(draw.state.participant('pc1').ranged, result.state.participant('pc1').ranged)
-                    self.assertEqual(pc_active_weapon_item_id(result.state, 'pc1'), 'pc1:backup-weapon')
+                    self.assertEqual(pc_active_weapon_item_id(result.state, 'pc1'),weapon_unit_id('pc1','backup-weapon',0))
                     self.assertEqual(raw(attack).attacker_test.trace.threshold, 5)
                     self.assertEqual(raw(attack).impact_spec.damage.base, 3)
                     self.assertFalse(raw(attack).impact_spec.ignores_armour)
@@ -137,7 +141,7 @@ class PcPistolBackupExecutionTests(unittest.TestCase):
             + NPC_MISS*2 + [1]*3 + SWORD_DEFENCE_MISS*3)
         draw, = steps(result, PcBackupWeaponDrawProof)
         recover, = steps(result, PcRecoverProof)
-        self.assertEqual(recover_object(recover), 'pc1:backup-weapon')
+        self.assertEqual(recover_object(recover),weapon_unit_id('pc1','backup-weapon',0))
         self.assertIsNone(recover.source.participant('pc1').weapon_hand)
         self.assertIs(recover.state.participant('pc1').weapon_hand, PcWeaponHand.LEFT)
         self.assertTrue(recover.state.participant('pc1').using_backup_weapon)
@@ -213,7 +217,7 @@ class PcPistolBackupExecutionTests(unittest.TestCase):
         source = scene(rounds=3, enemies=3, pc_count=2)
         primary, helper = source.party
         helper = replace(helper, pc=replace(helper.pc, weapon=PcMeleeWeapon.SWORD, ranged=None),
-            backup_weapon_policy=None,
+            backup_weapon_policy=None,combat_equipment=None,
             policy=PcMeleePolicy.HELP_ALLY_OR_ATTACK_OR_RECOVER_SELF,
             help_policy=PcHelpPolicy('pc1', PcHelpTarget.ATTACK, Skill.MELEE))
         source = replace(source, party=(primary, helper), pc_activation_order=('pc2', 'pc1'))
@@ -241,7 +245,8 @@ class PcPistolBackupExecutionTests(unittest.TestCase):
                 pc = replace(pistol.pc, toughness=1) if profile == 'thief' else pistol.pc
                 source = replace(source,
                     party=(replace(member, pc=pc, initial_weapon_hand=PcWeaponHand.RIGHT,
-                        backup_weapon_policy=pistol.backup_weapon_policy),),
+                        backup_weapon_policy=pistol.backup_weapon_policy,combat_equipment=initial_weapon_items(
+                            pc.weapon,PcWeaponHand.RIGHT,pistol.backup_weapon_policy,initially_loaded=True)),),
                     facts=replace(source.facts, outnumbering_bonus_approved=False),
                     npc_close_shooting_protection_policies=tuple(
                         PcNpcCloseShootingProtectionPolicy(actor, Skill.ATHLETICS)
@@ -305,7 +310,8 @@ class PcPistolBackupExecutionTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             prepare_pc_ranged_shot(draw.state, shots(result)[0].proof.request)
         foreign = deepcopy(draw)
-        object.__setattr__(foreign.state.participant('pc1'), 'using_backup_weapon', False)
+        object.__setattr__(foreign.state.participant('pc1').weapon_inventory,
+            'active_item_id',weapon_unit_id('pc1','weapon',0))
         with self.assertRaises(ValueError):
             apply_pc_melee_step(draw.source, foreign)
 

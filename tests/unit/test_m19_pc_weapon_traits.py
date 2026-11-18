@@ -31,9 +31,14 @@ class PcTwoHandedWeaponPreparationTests(unittest.TestCase):
                 self.assertEqual(pc_weapon_test_modifiers(PcMeleeWeapon.GREATSWORD,Skill.ATHLETICS,conditions),())
 
     def test_exact_hand_requirements_leave_existing_weapons_one_handed(self):
+        magic_two_handed=(PcMeleeWeapon.DRAGON_BOW,PcMeleeWeapon.DUELLIST_BLADES,
+            PcMeleeWeapon.GROTARGGS_HAMMER,PcMeleeWeapon.HEADSMANS_AXE,
+            PcMeleeWeapon.UNWAVERING_SPEAR)
         for weapon in PcMeleeWeapon:
             with self.subTest(weapon=weapon):
-                self.assertIs(pc_weapon_requires_two_hands(weapon),weapon in (*TWO_HANDED,*PC_TWO_HANDED_RANGED_WEAPONS,PcMeleeWeapon.WEIGHTED_NET))
+                self.assertIs(pc_weapon_requires_two_hands(weapon),weapon in (
+                    *TWO_HANDED,*PC_TWO_HANDED_RANGED_WEAPONS,
+                    PcMeleeWeapon.WEIGHTED_NET,*magic_two_handed))
 
     def test_all_eight_damage_profiles_at_low_and_ordinary_strength(self):
         offsets = ((PcMeleeWeapon.PICKAXE,1),(PcMeleeWeapon.FLAIL,3),
@@ -82,9 +87,9 @@ class PcTwoHandedWeaponPreparationTests(unittest.TestCase):
                 (PcMeleeWeapon.GREATAXE,GREATAXE_ARMOUR_RULE_ID)):
             with self.subTest(weapon=weapon):
                 self.assertEqual(pc_weapon_damage_modifiers(weapon,ResilienceProfile(3,1)),
-                    (DamageModifier(rule_id,1),))
+                    (DamageModifier(rule_id,1,armour_specific=True),))
                 self.assertEqual(pc_weapon_damage_modifiers(weapon,ResilienceProfile(3,5)),
-                    (DamageModifier(rule_id,1),))
+                    (DamageModifier(rule_id,1,armour_specific=True),))
                 self.assertEqual(pc_weapon_damage_modifiers(weapon,ResilienceProfile(9,0)),())
         for weapon in TWO_HANDED:
             if weapon not in (PcMeleeWeapon.HALBERD,PcMeleeWeapon.GREATAXE):

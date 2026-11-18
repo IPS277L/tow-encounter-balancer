@@ -21,6 +21,8 @@ from towr.domain.pc_melee_models import (
     PC_HANDGUN_WEAPONS, PC_RANGED_WEAPONS, PC_TWO_HANDED_RANGED_WEAPONS,
     PcMeleeWeapon, PcRepeaterBonusPolicy, PcTwoHandedGrip, PcWeaponHand,
 )
+from towr.domain.pc_weapon_inventory import initial_pc_weapon_inventory
+from towr.domain.weapon_inventory_models import WEAPON_COUNT_BURDEN_RULE_ID,carrying_burden_rule_ids
 from towr.simulation.pc_melee_models import PcMeleeSimulationRequest
 from towr.simulation.pc_melee_simulation import run_pc_melee_trial
 
@@ -62,7 +64,7 @@ class PcHandgunJsonTests(unittest.TestCase):
                     self.assertIs(scene.party[0].initial_weapon_hand, PcTwoHandedGrip.BOTH)
                     expected = {'ballistic_skill':3, 'shooting':4, 'initiative':3,
                         'dexterity':4, 'has_blackpowder_lore':True, 'has_blackpowder_kit':True,
-                        'ammunition_supply_confirmed':True, 'initially_loaded':True,
+                        'ammunition_supply_confirmed':True,
                         'reload_hand_policy':'two_available_hands'}
                     if mode is not None:
                         expected['repeater_bonus_policy'] = mode.value
@@ -107,19 +109,20 @@ class PcHandgunJsonTests(unittest.TestCase):
             for field, value in (('has_blackpowder_lore',None), ('has_blackpowder_kit',None),
                     ('shooting',True), ('reload_hand_policy','two_available_hands')):
                 with self.subTest(weapon=weapon, field=field), self.assertRaises((TypeError, ValueError)):
-                    replace(member.pc, ranged=replace(member.pc.ranged, **{field:value}))
+                    replace(member,pc=replace(member.pc, ranged=replace(member.pc.ranged, **{field:value})))
             with self.assertRaises(ValueError):
                 replace(member, shield=shield_loadout())
             with self.assertRaises(TypeError):
                 replace(member, initial_weapon_hand=PcWeaponHand.RIGHT)
-            with self.assertRaises(ValueError):
-                replace(member, pc=replace(member.pc, strength=1))
+            over = replace(member,pc=replace(member.pc,strength=1))
+            inventory=initial_pc_weapon_inventory(over)
+            self.assertEqual(len(inventory.items),2)
+            self.assertEqual(carrying_burden_rule_ids(inventory,1),(WEAPON_COUNT_BURDEN_RULE_ID,))
             with self.assertRaises(ValueError):
                 replace(scene, short_range_opening=None,
                     facts=replace(scene.facts, all_opponents_close=True))
             base = request_document(weapon=weapon, mode=mode)
             changes = [lambda raw:raw['scenario']['party'][0].update(initial_weapon_hand='right'),
-                lambda raw:raw['scenario']['party'][0]['pc'].update(strength=1),
                 lambda raw:raw['scenario']['party'][0].update(shield={
                     'initial_hand':'left', 'hand_conflict_policy':'weapon_first',
                     'recovery_policy':'restore_before_attack'}),
@@ -138,10 +141,12 @@ class PcHandgunJsonTests(unittest.TestCase):
             request = PcMeleeSimulationRequest(make_pc_handgun_scenario(
                 weapon=weapon, repeater_bonus_policy=mode), 42, 1)
             for field, value in (('has_blackpowder_lore',None), ('has_blackpowder_kit',False),
-                    ('ballistic_skill',True), ('initially_loaded',False),
+                    ('ballistic_skill',True), ('initially_loaded',1),
                     ('repeater_bonus_policy',PcRepeaterBonusPolicy.NEVER if mode is None else None)):
                 forged = deepcopy(request)
-                object.__setattr__(forged.scenario.party[0].pc.ranged, field, value)
+                target=(forged.scenario.party[0].combat_equipment[0] if field=='initially_loaded'
+                    else forged.scenario.party[0].pc.ranged)
+                object.__setattr__(target,field,value)
                 with patch('towr.simulation.pc_melee_simulation.Random') as rng:
                     with self.subTest(weapon=weapon, field=field), self.assertRaises((TypeError, ValueError)):
                         run_pc_melee_trial(forged, 0, rng_factory=rng)

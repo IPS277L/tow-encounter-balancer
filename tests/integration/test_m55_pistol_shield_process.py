@@ -1,5 +1,6 @@
 """One spawn representative preserves actual Pistol/shield reload cycles."""
 from dataclasses import replace
+from tests.support.pc_weapon_sources import initial_weapon_items
 from random import Random
 import unittest
 
@@ -20,7 +21,8 @@ def process_request():
     request = pistol_process_request()
     scenario = request.scenario
     scenario = replace(scenario, max_rounds=12, party=tuple(replace(member,
-        initial_weapon_hand=PcWeaponHand.RIGHT, shield=shield_loadout()) for member in scenario.party))
+        initial_weapon_hand=PcWeaponHand.RIGHT, shield=shield_loadout(),
+        combat_equipment=initial_weapon_items(member.pc.weapon,PcWeaponHand.RIGHT,initially_loaded=True)) for member in scenario.party))
     return replace(request, scenario=scenario)
 
 

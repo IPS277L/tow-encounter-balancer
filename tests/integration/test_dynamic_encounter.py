@@ -1,3 +1,5 @@
+from tests.support.generated_weapon_sources import initial_generated_weapons
+from tests.support.armour_fixtures import light_loadout
 from dataclasses import replace
 from pathlib import Path
 from random import Random
@@ -20,7 +22,7 @@ from towr.simulation.pc_melee_summary import summarize_pc_melee_simulation
 def request(**changes):
     source = parse_pc_melee_simulation_request(Path('docs/examples/m10/pc-melee-simulation.request.json').read_bytes()).request.scenario
     return replace(DynamicEncounterRequest(source.party, source.facts, source.day_id,
-        NpcSearchSpace(allowed_talents=()), 1, 1, .6, 2., 42, 4, 1, 2, 2, 8, 3,
+        NpcSearchSpace(weapon_count=(1,), allowed_talents=()), 1, 1, .6, 2., 42, 4, 1, 2, 2, 8, 3,
         NpcDefeatDisposition.KILLED), **changes)
 
 
@@ -44,8 +46,8 @@ class DynamicEncounterTests(unittest.TestCase):
         self.assertEqual(search_dynamic_encounter(source),search_dynamic_encounter(source,cancel_requested=lambda:False))
 
     def test_builder_derives_values_and_identity_does_not_select_effects(self):
-        npc = GeneratedNpc(4, 1, 3, 2, 5, 4, GeneratedWeapon.DAGGER, True,
-            (GeneratedAbility.DRAINED_ON_HIT,),defence=4,shield=False)
+        npc = GeneratedNpc(4, 1, 3, 2, 5, 4, initial_generated_weapons(GeneratedWeapon.DAGGER), light_loadout(light=True, shield=False),
+            (GeneratedAbility.DRAINED_ON_HIT,),defence=4)
         a, b = npc.participant('a'), npc.participant('b')
         self.assertEqual(a.definition.attacks, b.definition.attacks)
         attack = a.definition.attacks[0]
@@ -60,7 +62,7 @@ class DynamicEncounterTests(unittest.TestCase):
         for change in ({'weapon': ('axe',)}, {'melee': (True,)}, {'strength': (0,)},
                 {'athletics': (7,)}, {'abilities': (('unknown',),)}):
             with self.subTest(change=change), self.assertRaises((ValueError, TypeError)):
-                NpcSearchSpace(**change)
+                NpcSearchSpace(weapon_count=(1,), **change)
 
     def test_budget_and_targets_rejected_before_simulation(self):
         for change in ({'max_total_trials': 7}, {'target_win_rate': float('nan')},
@@ -87,16 +89,16 @@ class DynamicEncounterTests(unittest.TestCase):
         self.assertFalse(explored_seeds & {c.summary.source_request.master_seed for c in first.validations})
 
     def test_single_configuration_stops_without_filling_duplicates(self):
-        space = NpcSearchSpace(weapon_skill=(2,),strength=(2,),toughness=(2,),agility=(2,),
+        space = NpcSearchSpace(weapon_count=(1,), weapon_skill=(2,),strength=(2,),toughness=(2,),agility=(2,),
             melee=(4,),athletics=(4,),defence=(4,),weapon=(GeneratedWeapon.STAFF,),
-            light_armour=(False,),shield=(False,),abilities=((),),allowed_talents=(),brawn=(4,))
+            armour=(None,),shield=(None,),abilities=((),),allowed_talents=(),brawn=(4,))
         result = search_dynamic_encounter(request(space=space))
         self.assertEqual(len(result.explored), 1)
         self.assertTrue(result.proposal_limit_reached)
         self.assertEqual(result.total_trials, 3)
 
     def test_drained_component_admitted_and_executed_without_catalog_id(self):
-        source = request(space=replace(NpcSearchSpace(),weapon=(GeneratedWeapon.STAFF,),
+        source = request(space=replace(NpcSearchSpace(weapon_count=(1,), ),weapon=(GeneratedWeapon.STAFF,),
             abilities=((GeneratedAbility.DRAINED_ON_HIT,),)),
             max_candidates=1, top_k=1, max_total_trials=3)
         result = search_dynamic_encounter(source)
@@ -116,19 +118,28 @@ class DynamicEncounterTests(unittest.TestCase):
         pc = replace(pc, pc=replace(pc.pc, weapon_skill=1, strength=1, toughness=20,
             defence=2, weapon=PcMeleeWeapon.STAFF), near_miss_policy=None, glorious_policy=None)
         source = replace(source, party=(pc,), max_rounds=1, target_rounds=1)
-        npc = GeneratedNpc(10, 1, 20, 1, 6, 2, GeneratedWeapon.STAFF, False,
-            (GeneratedAbility.DRAINED_ON_HIT,),defence=2,shield=False)
+        npc = GeneratedNpc(10, 1, 20, 1, 6, 2, initial_generated_weapons(GeneratedWeapon.STAFF), light_loadout(light=False, shield=False),
+            (GeneratedAbility.DRAINED_ON_HIT,),defence=2)
         battle = run_pc_melee_scenario(source.scenario((npc,), 'actual-effect'), Random(42))
         state = battle.state.participant(pc.actor_id)
         self.assertTrue(state.injury.conditions.has(Condition.DRAINED))
         self.assertEqual(len(state.hit_condition_sources), 1)
 
     def test_mutation_changes_one_allowed_component(self):
-        space, rng = NpcSearchSpace(), Random(7)
+        space, rng = NpcSearchSpace(weapon_count=(1,), ), Random(7)
         npc = space.sample(rng)
         mutated = space.mutate(npc, rng)
-        self.assertEqual(sum(getattr(npc, name) != getattr(mutated, name)
-            for name in npc.__dataclass_fields__), 1)
+        # Changing an implement also changes the actor preparation it needs;
+        # both facts are one admitted equipment mutation, not two independent edits.
+        self.assertNotEqual(mutated.weapons,npc.weapons)
+        self.assertNotEqual(mutated.ranged,npc.ranged)
+        self.assertEqual(replace(npc,weapons=mutated.weapons,ranged=mutated.ranged),mutated)
+        self.assertTrue(space.contains(mutated))
+        from towr.domain.generated_npc_models import GENERATED_RANGED_WEAPONS,validate_generated_definition
+        self.assertEqual(mutated.ranged is not None,
+            any(item.kind.value in {kind.value for kind in GENERATED_RANGED_WEAPONS}
+                for item in mutated.weapons))
+        validate_generated_definition(mutated.participant('mutated-source').definition)
 
     def test_variable_count_and_ordered_distinct_profiles(self):
         result = search_dynamic_encounter(request(minimum_npcs=1, maximum_npcs=3,

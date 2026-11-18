@@ -151,6 +151,7 @@ def pc_npc_broken_turn_unsupported(state: PcMeleeState) -> PcNpcBrokenTurnUnsupp
             or combat.round_complete or not state.live_party or not state.live_enemies):
         return None
     from towr.domain.pc_melee_result_models import PcAttackProof, PcProfileWoundProof, pc_melee_next_actor
+    from towr.domain.pc_demigryph_models import PcDemigryphStrikeProof,pc_kernel_resolution
     actor = pc_melee_next_actor(state)
     if actor not in state.source.enemy_activation_order:
         return None
@@ -171,12 +172,12 @@ def pc_npc_broken_turn_unsupported(state: PcMeleeState) -> PcNpcBrokenTurnUnsupp
                 raise ValueError('Official first-Wound Broken was acknowledged twice')
             cause=(proof.activation_id,proof.source)
             wave_cause = True
-        if type(proof) is PcAttackProof:
+        if type(proof) in (PcAttackProof,PcDemigryphStrikeProof):
             attack = proof
         elif (type(proof) is PcProfileWoundProof and attack is not None
                 and attack.request.target_id==actor and _first_wound(proof.source)):
-            if (proof.decision is not None or attack.execution.resolution.profile_wound is None
-                    or proof.source!=attack.execution.resolution.profile_wound.state_change):
+            wound=pc_kernel_resolution(attack).profile_wound
+            if (proof.decision is not None or wound is None or proof.source!=wound.state_change):
                 raise ValueError('Broken-turn cause lacks its exact profile-Wound acknowledgement')
             if cause is not None:
                 raise ValueError('Official first-Wound Broken cause cannot be acknowledged twice')

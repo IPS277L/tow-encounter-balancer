@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -13,6 +13,7 @@ from towr.domain.protection_models import PROTECTION_SKILLS, ProtectionTestOptio
 from towr.domain.resolution_models import TargetInjuryPolicy
 from towr.domain.test_models import InlineProfile, Skill, TestRequest
 from towr.domain.turn_models import CombatSide, CombatTurnParticipant
+from towr.domain.weapon_inventory_models import WeaponInventoryState
 
 
 @dataclass(frozen=True, slots=True)
@@ -92,6 +93,7 @@ class NpcParticipantState:
     current_resilience: ResilienceProfile
     wields_weapon: bool
     holds_shield: bool
+    weapon_inventory: WeaponInventoryState | None = field(default=None, kw_only=True)
 
     def __post_init__(self) -> None:
         _identifier(self.actor_id, "NPC actor id")
@@ -104,6 +106,12 @@ class NpcParticipantState:
             raise TypeError("current_resilience must be a ResilienceProfile")
         if not isinstance(self.wields_weapon, bool) or not isinstance(self.holds_shield, bool):
             raise TypeError("NPC equipment facts must be explicit booleans")
+        if self.weapon_inventory is not None:
+            if type(self.weapon_inventory) is not WeaponInventoryState:
+                raise TypeError("NPC weapon inventory requires its exact typed state")
+            # Readmit the actual items, immutable sources and complete K1 Reload
+            # states. Equipment views are checked by the battle transition owner.
+            replace(self.weapon_inventory)
         available = tuple(self.available_attack_ids)
         for identifier in available:
             _identifier(identifier, "available attack id")

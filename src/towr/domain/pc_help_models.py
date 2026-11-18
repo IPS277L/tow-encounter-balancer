@@ -35,6 +35,9 @@ def eligible_pc_help_beneficiary(state, strategy, actor=None, *, planned_choice=
         return None
     if strategy is None:
         return None
+    from towr.domain.pc_armour_models import actor_bound_to_chivalric_combat
+    if strategy.skill in (Skill.SHOOTING,Skill.THROWING) and actor_bound_to_chivalric_combat(state,actor):
+        return None
     member = state.participant(actor)
     if (member.injury.dead or member.injury.conditions.has(Condition.DEFENCELESS)
             or member.injury.conditions.has(Condition.DEAFENED)
@@ -178,10 +181,12 @@ def build_pc_test_help(state, actor, skill, test):
     return test,tuple(applications)
 
 
-def pc_attack_help_applications(state, attack):
+def pc_attack_help_applications(state, attack, *, mount_attack=False):
     """Recover the exact receipt chain for a prepared PC Attack, before Fate."""
     actor = state.round_state.active_turn.actor_id
     if actor in state.source.pc_activation_order:
+        if mount_attack:
+            return ()
         from towr.domain.pc_melee_result_models import pc_attack_skill
         skill,test = pc_attack_skill(state,actor),attack.attacker_test
     else:
@@ -192,11 +197,11 @@ def pc_attack_help_applications(state, attack):
         actor = (grant.target_id if grant is not None
             else next(pc for pc in state.source.enemy_target_priority if not state.participant(pc).injury.dead))
         from towr.domain.pc_melee_result_models import pc_protection_skill,pc_selected_npc_attack_profile
-        skill = pc_protection_skill(state.participant(actor),
-            pc_selected_npc_attack_profile(state,state.round_state.active_turn.actor_id).skill,
+        actual_skill=Skill.MELEE if mount_attack else pc_selected_npc_attack_profile(state,state.round_state.active_turn.actor_id).skill
+        skill = pc_protection_skill(state.participant(actor),actual_skill,
             state.source.participant(actor).close_shooting_protection_skill)
         test = attack.defender_test
-        if (pc_selected_npc_attack_profile(state,state.round_state.active_turn.actor_id).skill in (Skill.SHOOTING,Skill.THROWING)
+        if (actual_skill in (Skill.SHOOTING,Skill.THROWING)
                 and state.source.participant(actor).policy is PcMeleePolicy.AUTOMATIC_COMBAT):
             from towr.domain.pc_generated_ranged_advice import pc_close_shooting_protection
             skill,_=pc_close_shooting_protection(state,actor,state.round_state.active_turn.actor_id,test.id)

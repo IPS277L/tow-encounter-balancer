@@ -18,12 +18,11 @@
   "initiative": 3,
   "dexterity": 4,
   "ammunition_supply_confirmed": true,
-  "initially_loaded": true,
   "reload_hand_policy": "two_available_hands"
 }
 ```
 
-У Repeater Crossbow дополнительно обязателен `repeater_bonus_policy`: `when_available` либо `never`; у обычного Crossbow это поле запрещено. Оба запрещают firearm Lore/kit поля. Shared K1 задаёт2successes для Crossbow и3после бонуса Repeater; характеристики Reload передаются явно.
+У Repeater Crossbow дополнительно обязателен `repeater_bonus_policy`: `when_available` либо `never`; у обычного Crossbow это поле запрещено. В показанных комплектах нет firearms, поэтому Lore/kit не передаются. Начальный `initially_loaded:true|false` принадлежит каждому предмету обязательного `party[].combat_equipment[]`, а не `ranged`; полные предметы и backup сохранены в request ниже. Shared K1 задаёт2successes для Crossbow и3после бонуса Repeater; характеристики Reload передаются явно.
 
 Поведение NPC остаётся M65: approach → Close. После этого оба арбалета не могут стрелять даже по другой Short-цели; на собственном ходу PC выбирает backup независимо от оставшегося заряда. Empty/loaded primary сохраняется после draw, active Sword использует Melee/Strength и не наследует Crossbow armour Trait. Без backup действует точный stop после обязательных последствий и нужного Recover.
 

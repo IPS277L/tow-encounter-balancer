@@ -4,7 +4,7 @@ from functools import partial
 
 from towr.adapters.mixed_json_errors import MixedInputError
 from towr.adapters.ranged_json_errors import RangedInputErrorCode as Code
-from towr.adapters._json_common import build_value
+from towr.adapters._json_common import build_value, resilience_document
 from towr.domain.attack_models import DamageProfile, ResilienceProfile
 from towr.domain.condition_models import StaggerChoice
 from towr.domain.injury_models import ProfileInjuryState
@@ -119,7 +119,7 @@ def scenario_document(scenario: NpcMixedScenario, definition_order: tuple[str, .
         if type(attack.hands) is not Hands:
             raise TypeError("bounded Mixed JSON requires an explicit weapon grip")
         profiles.append({"id": identifier, "source_rule_id": definition.source_rule_id,
-            "resilience": {"toughness": definition.resilience.toughness, "bonus": definition.resilience.bonus},
+            "resilience": resilience_document(definition.resilience),
             "attack": {"id": attack.id, "source_rule_id": attack.source_rule_id,
                        "skill": attack.skill.value, "range_min": attack.range_min.value,
                        "range_max": attack.range_max.value, "dice": attack.test_profile.dice,

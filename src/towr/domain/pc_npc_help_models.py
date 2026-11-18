@@ -162,6 +162,8 @@ def build_pc_npc_attack_help(state,actor,test):
 def pc_npc_attack_help_applications(state,attack):
     actor=state.round_state.active_turn.actor_id
     if actor not in state.source.enemy_activation_order or not state.source.npc_help_policies:return ()
+    from towr.domain.pc_mount_attack_models import pc_uses_mount_attack
+    if pc_uses_mount_attack(state,actor):return ()
     from towr.domain.pc_net_models import is_net_impact
     if is_net_impact(attack.impact_spec):return ()
     test=attack.attacker_test

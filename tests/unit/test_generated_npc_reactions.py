@@ -1,4 +1,6 @@
 """Literal Wild Attack/Defensive Stance receipts and source-bound reactions."""
+from tests.support.generated_weapon_sources import initial_generated_weapons
+from tests.support.armour_fixtures import light_loadout
 from dataclasses import replace
 import unittest
 
@@ -27,8 +29,8 @@ def scenario(*,weapon=GeneratedWeapon.STAFF,talents=(GeneratedTalent.WILD_ATTACK
         fate_policy=PcFatePolicy.DECLINE_OPTIONAL_FATE,near_miss_policy=None,glorious_policy=None,
         pc=replace(member.pc,weapon_skill=1,melee=1,defence=1,agility=1,athletics=1,
             strength=1,toughness=20,weapon=PcMeleeWeapon.STAFF))
-    npc=GeneratedNpc(3,4,20,agility,2,athletics,weapon,False,
-        defence=defence,shield=False,talents=talents)
+    npc=GeneratedNpc(3,4,20,agility,2,athletics,initial_generated_weapons(weapon),light_loadout(light=False, shield=False),
+        defence=defence,talents=talents)
     return replace(source,party=(member,),enemies=(npc.participant('minion1'),))
 
 

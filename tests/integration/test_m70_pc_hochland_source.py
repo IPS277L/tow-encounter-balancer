@@ -40,7 +40,7 @@ def request_document(*, balance=False, use_second_action=True):
 
 
 class PcHochlandSourceTests(unittest.TestCase):
-    def test_ten_explicit_fields_policy_and_decline_roundtrip_in_both_families(self):
+    def test_nine_actor_facts_and_item_charge_policy_roundtrip_in_both_families(self):
         self.assertEqual((len(PC_RANGED_WEAPONS), len(PC_TWO_HANDED_RANGED_WEAPONS),
             len(PC_FREE_RELOAD_WEAPONS)), (13,9,4))
         for balance in (False,True):
@@ -55,7 +55,8 @@ class PcHochlandSourceTests(unittest.TestCase):
                     self.assertEqual(scenario_document(scene),raw[key])
                     self.assertEqual(member.pc.ranged.awareness_profile,TestProfile(3,4))
                     self.assertIs(member.initial_weapon_hand,PcTwoHandedGrip.BOTH)
-                    self.assertEqual(len(raw[key]['party'][0]['pc']['ranged']),10)
+                    self.assertEqual(len(raw[key]['party'][0]['pc']['ranged']),9)
+                    self.assertIs(raw[key]['party'][0]['combat_equipment'][0]['initially_loaded'],True)
                     self.assertEqual(raw[key]['party'][0]['pc']['ranged']['awareness'],4)
                     self.assertEqual(member.aim_second_action_policy,PcAimSecondActionPolicy(0) if use_policy else None)
                     self.assertIs(member.fate_policy,PcFatePolicy.CONFIGURED if use_policy else PcFatePolicy.DECLINE_OPTIONAL_FATE)
@@ -115,7 +116,7 @@ class PcHochlandSourceTests(unittest.TestCase):
             aim_second_action_policy=PcAimSecondActionPolicy(0),fate_policy=PcFatePolicy.CONFIGURED)
         raw = request_document()
         raw['scenario'] = scenario_document(old)
-        self.assertEqual(len(raw['scenario']['party'][0]['pc']['ranged']),9)
+        self.assertEqual(len(raw['scenario']['party'][0]['pc']['ranged']),8)
         wire.parse_pc_melee_simulation_request(json.dumps(raw))
         for field,value in (('awareness',4),):
             aware = deepcopy(raw);aware['scenario']['party'][0]['pc']['ranged'][field] = value

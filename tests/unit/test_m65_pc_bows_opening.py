@@ -1,6 +1,7 @@
 """Literal Short volley, source-bound NPC approach and actual melee continuation."""
 from copy import deepcopy
 from dataclasses import replace
+from tests.support.pc_weapon_sources import initial_weapon_items
 import unittest
 
 from tests.support.pc_bow_scenarios import make_pc_bow_scenario
@@ -294,7 +295,8 @@ class PcBowShortOpeningTests(unittest.TestCase):
             member = source.party[0]
             member = replace(member,pc=replace(member.pc,weapon=weapon,
                 ranged=ranged_profile(weapon=weapon,repeater_bonus_policy=mode)),
-                initial_weapon_hand=PcWeaponHand.RIGHT)
+                initial_weapon_hand=PcWeaponHand.RIGHT,combat_equipment=initial_weapon_items(
+                    weapon,PcWeaponHand.RIGHT,member.backup_weapon_policy,initially_loaded=True))
             source = replace(source,party=(member,))
             second = [1,1,1] if reloads else [10,10,10,1,1]
             with self.subTest(weapon=weapon):

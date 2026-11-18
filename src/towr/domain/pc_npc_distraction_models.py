@@ -71,12 +71,13 @@ def distraction_from_profile_wound(source,attack,change):
     if enemy.definition.id!=BREWGUARD_DEFINITION_ID or not _first_wound(change):
         return None
     validate_pc_book_npc_definition(enemy.definition)
-    result=attack.execution.resolution.profile_wound
+    from towr.domain.pc_demigryph_models import pc_kernel_resolution
+    result=pc_kernel_resolution(attack).profile_wound
     if (attack.request.actor_id not in source.pc_activation_order or result is None
-            or result.state_change!=change or attack.execution.target_id!=enemy.state.actor_id):
+            or result.state_change!=change or attack.request.target_id!=enemy.state.actor_id):
         raise ValueError('Brewguard distraction requires its actual attacker/profile Wound')
     return PcNpcDistractionSource(enemy.state.actor_id,attack.request.actor_id,
-        attack.execution.request_id,change)
+        attack.request.id,change)
 
 
 def wave_distraction_from_profile_wound(source,activation,ack):
@@ -153,8 +154,18 @@ def _confirmed_death_source(history,actor):
         PcWoundCompletionProof,PcTurnEndProof,PcIncapacitatedTurnEndProof,PcProfileWoundProof,PcAttackProof,
     )
     from towr.domain.pc_warped_form_models import PcWarpedFormProfileProof
+    from towr.domain.pc_demigryph_models import PcDemigryphStrikeProof,pc_kernel_resolution
+    from towr.domain.pc_falling_models import PcFallingProof
     for index in range(len(history)-1,-1,-1):
         proof=history[index]
+        if type(proof) is PcFallingProof:
+            decision=proof.npc_disposition
+            if (proof.actor_id==actor and decision is NpcDefeatDisposition.KILLED
+                    and proof.result is not None and proof.result.profile_wound is not None
+                    and proof.result.state.defeated):
+                # Falling's validated journal entry stores the agreed disposition
+                # directly; it has no Attack/MinionDefeatDecision receipt.
+                return proof.request.id+':defeat'
         if type(proof) in (PcProfileWoundProof,PcWarpedFormProfileProof):
             decision=proof.decision
             if (type(decision) is not MinionDefeatDecision or decision.target_id!=actor
@@ -167,12 +178,13 @@ def _confirmed_death_source(history,actor):
                 if decision.attacker_id!=activation.actor_id or proof.target_id!=actor:
                     raise ValueError('NPC focus death has a detached wave disposition')
                 return activation.activation_id+':'+actor+':defeat'
-            attack=next((item for item in reversed(history[:index]) if type(item) is PcAttackProof),None)
+            attack=next((item for item in reversed(history[:index])
+                if type(item) in (PcAttackProof,PcDemigryphStrikeProof)),None)
             if (attack is None or attack.request.actor_id!=decision.attacker_id
-                    or attack.request.target_id!=actor or attack.execution.resolution.profile_wound is None
-                    or attack.execution.resolution.profile_wound.state_change!=proof.source):
+                    or attack.request.target_id!=actor or pc_kernel_resolution(attack).profile_wound is None
+                    or pc_kernel_resolution(attack).profile_wound.state_change!=proof.source):
                 raise ValueError('NPC focus death has a detached Attack disposition')
-            return attack.execution.request_id+':defeat'
+            return attack.request.id+':defeat'
 
         if (type(proof) is PcWoundCompletionProof and proof.completion.state.dead
                 and proof.completion.source_request.roll.source_request.target_id==actor):
@@ -219,6 +231,7 @@ def pc_npc_distraction_test_modifiers(state,actor_id,target_id):
 
 def validate_pc_npc_distractions(state):
     from towr.domain.pc_melee_result_models import PcAttackProof,PcProfileWoundProof
+    from towr.domain.pc_demigryph_models import PcDemigryphStrikeProof
     from towr.domain.pc_warped_form_models import PcWarpedFormProfileProof
     if type(state.npc_distractions) is not tuple:
         raise TypeError('NPC distraction bank must be an exact tuple')
@@ -246,7 +259,7 @@ def validate_pc_npc_distractions(state):
         if not ordinary_started and tuple(encountered)!=encounter_order:
             raise ValueError('ordinary combat cannot skip selected grudge encounters')
         ordinary_started=True
-        if type(proof) is PcAttackProof:
+        if type(proof) in (PcAttackProof,PcDemigryphStrikeProof):
             attack=proof
         elif type(proof) is PcProfileWoundProof:
             if attack is None:

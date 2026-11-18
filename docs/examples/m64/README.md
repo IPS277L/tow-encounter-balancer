@@ -9,7 +9,7 @@
 
 `repeater_bonus_policy: "when_available"` выбирает бонус до броска, если PC не Drained; `"never"` оставляет обычный выстрел без нового Reload cycle. Это фиксированная тактика, включая расход при насыщенном cap. Начатая зарядка завершается и после получения Drained. Reload занимает отдельное действие, completion не даёт бесплатного выстрела.
 
-PC `pistol` заменён на `ranged` без compatibility aliases, версия PC JSON1 прежняя. Обычный Pistol использует тот же объект без `repeater_bonus_policy`, но с обязательными true Blackpowder Lore/kit. Handbow эти два поля запрещает, Repeater Pistol требует. Пример Handbow:
+PC `pistol` заменён на `ranged` без compatibility aliases, версия PC JSON1 прежняя. Обычный Pistol использует тот же объект без `repeater_bonus_policy`, но с обязательными true Blackpowder Lore/kit. В показанном Handbow-наборе эти два поля отсутствуют; при переносимом firearm они определяются всем инвентарём. Пример Handbow:
 
 ```json
 "weapon": "repeater_handbow",
@@ -19,11 +19,12 @@ PC `pistol` заменён на `ranged` без compatibility aliases, верс�
   "initiative": 3,
   "dexterity": 4,
   "ammunition_supply_confirmed": true,
-  "initially_loaded": true,
   "reload_hand_policy": "two_available_hands",
   "repeater_bonus_policy": "when_available"
 }
 ```
+
+Начальный заряд задаётся в обязательном `party[].combat_equipment[]` у соответствующего предмета через `initially_loaded:true|false`, а не внутри `ranged`. Полные предметы и backup сохранены в request ниже.
 
 Четыре PC показывают оба оружия и режима: PC1 Handbow/when_available, PC2 Repeater Pistol/when_available, PC3 Handbow/never, PC4 Repeater Pistol/never. У всех shield в левой руке и carried Sword backup. Они встречают Imperial Ogre/Greathammer и пешего Empire Knight/Lance+Shield. Щит освобождает руку только для действительно необходимого Reload и возвращается отдельным Recover после зарядки. Loaded shot одной рукой имеет приоритет; backup применяется только при пустом оружии и недоступном Reload из-за одной пригодной руки.
 

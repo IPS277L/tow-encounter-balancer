@@ -9,7 +9,7 @@ from jsonschema import Draft202012Validator, ValidationError
 from referencing import Registry, Resource
 
 from towr.adapters._json_common import build_value, parse_seed, read_request
-from towr.adapters._pc_melee_scenario_json import scenario_document
+from towr.adapters._pc_melee_scenario_json import scenario_document,parse_airspace,generated_components_document
 from towr.adapters.ranged_json_errors import RangedInputError, RangedInputErrorCode as Code
 from towr.application.dynamic_encounter import (
     DynamicEncounterRequest, DynamicEncounterResult, NpcSearchSpace,
@@ -25,14 +25,16 @@ from towr.application.encounter_inventory import (
 )
 from towr.domain.generated_npc_models import GeneratedAbility, GeneratedWeapon, GeneratedTalent
 from towr.domain.minion_defeat_models import NpcDefeatDisposition
-from towr.domain.pc_melee_models import (PcMeleeFacts,PcMeleeWeapon,PcRangedProfile,PC_RANGED_WEAPONS,PC_FREE_RELOAD_WEAPONS,PC_THROWING_WEAPONS,
+from towr.domain.pc_melee_models import (PcMeleeFacts,PcMeleeWeapon,PcRangedProfile,PC_THROWING_WEAPONS,
     PcRangedReloadHandPolicy,PcRepeaterBonusPolicy)
 from towr.domain.pc_magic_source_models import PcWizardProfile, PcSpellId
 from towr.domain.pc_battlefield_models import PcBattlefieldSpec
-from towr.domain.pc_mount_models import CombatMount
+from towr.domain.pc_mount_models import CombatMount, RiderKind
+from towr.domain.armour_models import BodyArmour, HelmetKind, ShieldKind, armour_is_worn
 from towr.domain.ranged_weapon_profiles import RangedWeaponRange
 from towr.domain.pc_combat_talent_models import PcCombatTalent,TalentAcquisition
 from towr.domain.ranged_weapon_profiles import RangedWeaponHands
+from towr.domain.weapon_capability_models import weapon_ranged_requirements
 
 
 class DynamicEncounterInputError(RangedInputError):
@@ -147,8 +149,10 @@ def parse_dynamic_encounter_request(text: str | bytes) -> DynamicEncounterComman
             path = f'/party/{index}'
             gear = raw['equipment']
             equipment = build_value(DynamicEncounterInputError, path + '/equipment', EncounterEquipment,
+                armour_benefit_id=gear.get('armour_benefit_id'),
                 weapons=tuple(build_value(DynamicEncounterInputError, f'{path}/equipment/weapons/{i}', WeaponItem,
-                    id=w['id'], weapon=PcMeleeWeapon(w['weapon']), location=ItemLocation(w['location']))
+                    id=w['id'], weapon=PcMeleeWeapon(w['weapon']), location=ItemLocation(w['location']),
+                    initially_loaded=w.get('initially_loaded'))
                     for i, w in enumerate(gear['weapons'])),
                 armour=tuple(build_value(DynamicEncounterInputError, f'{path}/equipment/armour/{i}', ArmourItem,
                     id=a['id'], kind=ArmourItemKind(a['kind']), location=ItemLocation(a['location']))
@@ -169,19 +173,22 @@ def parse_dynamic_encounter_request(text: str | bytes) -> DynamicEncounterComman
                 raise DynamicEncounterInputError(Code.INVALID_INPUT,
                     'Таланты пока не поддержаны симуляцией: ' + ', '.join(unsupported), path=path + '/talents')
             loadout = build_value(DynamicEncounterInputError, path + '/equipment', equipment.combat_loadout,
-                raw['characteristics']['strength'])
+                raw['characteristics']['strength'],
+                mount=None if raw.get('mount') is None else CombatMount(raw['mount']))
             wizard = None
             characteristics, skills = dict(raw['characteristics']), dict(raw['skills'])
             ranged=None
-            if loadout['weapon'] in PC_RANGED_WEAPONS:
+            requirements=weapon_ranged_requirements(tuple(item.weapon for item in loadout['combat_equipment']))
+            throwing_inventory=any(item.weapon in PC_THROWING_WEAPONS for item in loadout['combat_equipment'])
+            supplied_bs=characteristics.get('ballistic_skill')
+            if requirements is not None:
                 if 'ranged' not in raw:
                     raise DynamicEncounterInputError(Code.INVALID_INPUT,
                         'Для стрелкового оружия нужны факты подготовки (Ranged preparation).',path=path+'/ranged')
                 prep=raw['ranged']
-                free_reload=loadout['weapon'] in PC_FREE_RELOAD_WEAPONS
-                required_stats={'ballistic_skill'} | (set() if free_reload else {'initiative'})
-                required_skills={'shooting'} | (set() if free_reload else {'dexterity'})
-                if loadout['weapon'] is PcMeleeWeapon.HOCHLAND_LONG_RIFLE or 'awareness' in skills:
+                required_stats={'ballistic_skill'} | ({'initiative'} if requirements.exacting else set())
+                required_skills={'shooting'} | ({'dexterity'} if requirements.exacting else set())
+                if requirements.requires_aim or 'awareness' in skills:
                     required_stats.add('initiative')
                     required_skills.add('awareness')
                 if not required_stats<=characteristics.keys() or not required_skills<=skills.keys():
@@ -190,30 +197,32 @@ def parse_dynamic_encounter_request(text: str | bytes) -> DynamicEncounterComman
                 awareness=skills.pop('awareness',None)
                 initiative=characteristics.pop('initiative',None)
                 dexterity=skills.pop('dexterity',None)
-                if free_reload:
-                    if any(prep.get(key) is not None for key in ('initially_loaded','has_blackpowder_lore','has_blackpowder_kit')):
-                        raise DynamicEncounterInputError(Code.INVALID_INPUT,'Лук не использует состояние заряда или Blackpowder Lore/Kit.',path=path+'/ranged')
-                    if awareness is None:
-                        initiative=None
+                if not requirements.exacting:
+                    dexterity=None
+                    if awareness is None:initiative=None
+                if not requirements.firearm and any(prep.get(key) is not None
+                        for key in ('has_blackpowder_lore','has_blackpowder_kit')):
+                    raise DynamicEncounterInputError(Code.INVALID_INPUT,
+                        'Lore/Kit относятся к огнестрельному оружию (Firearms) в инвентаре.',path=path+'/ranged')
                 ranged=build_value(DynamicEncounterInputError,path+'/ranged',PcRangedProfile,
                     ballistic_skill=characteristics.pop('ballistic_skill'),initiative=initiative,
-                    shooting=skills.pop('shooting'),dexterity=None if free_reload else dexterity,awareness=awareness,
-                    **prep,reload_hand_policy=None if free_reload else PcRangedReloadHandPolicy.TWO_AVAILABLE_HANDS,
-                    repeater_bonus_policy=(PcRepeaterBonusPolicy.AUTOMATIC
-                        if loadout['weapon'] in (PcMeleeWeapon.REPEATER_HANDBOW,PcMeleeWeapon.REPEATER_PISTOL,
-                            PcMeleeWeapon.REPEATER_CROSSBOW,PcMeleeWeapon.REPEATER_HANDGUN) else None))
+                    shooting=skills.pop('shooting'),dexterity=dexterity,awareness=awareness,
+                    **prep,reload_hand_policy=PcRangedReloadHandPolicy.TWO_AVAILABLE_HANDS if requirements.exacting else None,
+                    repeater_bonus_policy=PcRepeaterBonusPolicy.AUTOMATIC if requirements.repeater else None)
             elif 'ranged' in raw:
                 raise DynamicEncounterInputError(Code.INVALID_INPUT,
-                    'Стрелковая подготовка относится к начальному стрелковому оружию.',path=path+'/ranged')
-            elif loadout['weapon'] not in PC_THROWING_WEAPONS:
+                    'Стрелковая подготовка требует оружия (Shooting Weapon) в инвентаре.',path=path+'/ranged')
+            elif not throwing_inventory:
                 # Inactive character facts remain in the editable source echo
                 # and individual character file; this loadout cannot use them.
                 for name in ('ballistic_skill','initiative'):characteristics.pop(name,None)
                 for name in ('shooting','dexterity','awareness'):skills.pop(name,None)
-            if loadout['weapon'] in PC_THROWING_WEAPONS:
-                characteristics.pop('initiative',None)
-                for name in ('shooting','dexterity','awareness'):
-                    skills.pop(name,None)
+            if throwing_inventory:
+                characteristics.pop('ballistic_skill',None)
+                if requirements is None:
+                    characteristics.pop('initiative',None)
+                    for name in ('shooting','dexterity','awareness'):
+                        skills.pop(name,None)
             throwing=skills.pop('throwing',None)
             if 'magic' in raw:
                 magic = raw['magic']
@@ -222,30 +231,37 @@ def parse_dynamic_encounter_request(text: str | bytes) -> DynamicEncounterComman
                         lores=tuple(magic['lores']), memorised_spells=tuple(PcSpellId(value)
                             for value in magic['memorised_spells'])))
             character = build_value(DynamicEncounterInputError, f'/party/{index}', EncounterCharacter,
-                throwing=throwing if loadout['weapon'] in PC_THROWING_WEAPONS else None,
-                ballistic_skill=characteristics.pop('ballistic_skill',None) if loadout['weapon'] in PC_THROWING_WEAPONS else None,
+                throwing=throwing if throwing_inventory else None,
+                ballistic_skill=supplied_bs if throwing_inventory else None,
                 brawn=skills.pop('brawn',None),
                 actor_id=raw['actor_id'], **characteristics, **skills,
                 **loadout,
                 talents=tuple(EncounterTalent(t) for t in raw['talents']), fate=raw['resources']['fate'],
                 combat_talents=pc_combat_talent_facts(raw,path_prefix=path),
                 mount=None if raw.get('mount') is None else CombatMount(raw['mount']),
+                rider_kind=None if raw.get('rider_kind') is None else RiderKind(raw['rider_kind']),
+                agilulf_code_confirmed=raw.get('agilulf_code_confirmed'),
                 ranged=ranged,
                 consumables=consumables, wizard=wizard,
-                armour_worn=any(item.location is ItemLocation.WORN
-                    and item.kind in (ArmourItemKind.LIGHT, ArmourItemKind.HEAVY, ArmourItemKind.HELMET)
-                    for item in equipment.armour))
+                armour_worn=armour_is_worn(loadout['armour']))
             party.append(character.participant(document['request_id'] + ':session', disposition))
         battlefield=build_value(DynamicEncounterInputError,'/scene',PcBattlefieldSpec,
-            RangedWeaponRange(document['scene']['range']),RangedWeaponRange(document['scene']['two_handed_max_range']))
+            RangedWeaponRange(document['scene']['range']),RangedWeaponRange(document['scene']['two_handed_max_range']),
+            airspace=parse_airspace(document['scene'].get('airspace'),path='/scene/airspace',
+                error_type=DynamicEncounterInputError))
         options = document.get('search_space')
         space = automatic_npc_search_space(tuple(party),battlefield=battlefield) if options is None else build_value(
             DynamicEncounterInputError, '/search_space', NpcSearchSpace,
             **{name: (tuple(GeneratedWeapon(v) for v in values) if name == 'weapon' else
                 tuple(RangedWeaponHands(v) for v in values) if name == 'weapon_grip' else
                 tuple(None if v is None else CombatMount(v) for v in values) if name == 'mount' else
+                tuple(None if v is None else BodyArmour(v) for v in values) if name in ('armour','secondary_armour') else
+                tuple(None if v is None else HelmetKind(v) for v in values) if name == 'helmet' else
+                tuple(None if v is None else ShieldKind(v) for v in values) if name == 'shield' else
+                tuple(RiderKind(v) for v in values) if name == 'rider_kind' else
                 tuple(tuple(GeneratedAbility(a) for a in group) for group in values) if name == 'abilities' else
-                tuple(GeneratedTalent(v) for v in values) if name == 'allowed_talents' else tuple(values))
+                tuple(GeneratedTalent(v) for v in values) if name == 'allowed_talents' else
+                values if name == 'agilulf_code_confirmed' else tuple(values))
                 for name, values in options.items()})
         search = dict(document['search'])
         search['master_seed'] = parse_seed(search['master_seed'], DynamicEncounterInputError, '/search/master_seed')
@@ -280,7 +296,7 @@ def execute_dynamic_encounter(command: DynamicEncounterCommand, *, cancel_reques
 
 def candidate_document(request,candidate):
     source = candidate.summary.source_request
-    document = dict(npcs=[asdict(n) for n in candidate.composition],
+    document = dict(npcs=[generated_components_document(n) for n in candidate.composition],
         win_rate=candidate.win_rate, win_interval_95=candidate.win_interval_95,
         mean_started_rounds=candidate.mean_started_rounds, rounds_interval_95=candidate.rounds_interval_95,
         outcomes=asdict(candidate.summary.outcome_counts), trials=candidate.summary.trials,

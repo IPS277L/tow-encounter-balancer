@@ -1,124 +1,66 @@
-"""Explicit preparation for the admitted PC melee/ranged weapons (PG 92–95)."""
+"""Admitted PC/generated weapon bridge to shared PG/GM item preparation."""
 from towr.domain.attack_models import DamageModifier, DamageProfile, ResilienceProfile
-from towr.domain.condition_models import Condition, ConditionState
-from towr.domain.pc_melee_models import PC_TWO_HANDED_RANGED_WEAPONS, PC_RANGED_WEAPONS, PcMeleeWeapon
+from towr.domain.condition_models import ConditionState
+from towr.domain.pc_melee_models import PC_RANGED_WEAPONS, PcMeleeWeapon
 from towr.domain.test_models import DiceModifier, Skill
+from towr.domain.ranged_weapon_profiles import RangedWeaponHands, RangedWeaponRange
+from towr.domain.weapon_catalog import WeaponKind, weapon_profile, weapon_printed_damage
 
 
-AXE_ARMOUR_RULE_ID = 'RULE-EQUIPMENT-003:axe-armour'
-WARHAMMER_STAGGERED_RULE_ID = 'RULE-EQUIPMENT-003:warhammer-staggered-target'
-MORNING_STAR_STAGGERED_RULE_ID = 'RULE-EQUIPMENT-003:morning-star-staggered'
-FLAIL_STAGGERED_RULE_ID = 'RULE-EQUIPMENT-003:flail-staggered'
-GREATAXE_MELEE_RULE_ID = 'RULE-EQUIPMENT-003:greataxe-melee'
-GREATHAMMER_MELEE_RULE_ID = 'RULE-EQUIPMENT-003:greathammer-melee'
-HALBERD_ARMOUR_RULE_ID = 'RULE-EQUIPMENT-003:halberd-armour'
-GREATAXE_ARMOUR_RULE_ID = 'RULE-EQUIPMENT-003:greataxe-armour'
-GLAIVE_DEFENCE_RULE_ID = 'RULE-EQUIPMENT-003:glaive-defence'
-GREATHAMMER_STAGGERED_RULE_ID = 'RULE-EQUIPMENT-003:greathammer-staggered-target'
-GREATSWORD_MELEE_RULE_ID = 'RULE-EQUIPMENT-003:greatsword-melee'
-# PG93 prints "+1 to Defence". The user explicitly chose the missing-d reading.
-GREATSWORD_DEFENCE_RULE_ID = 'RULE-EQUIPMENT-003:greatsword-defence'
-FOOT_SPEAR_CHARGE_DEFENCE_RULE_ID = 'RULE-EQUIPMENT-003:foot-spear-charge-defence'
-BILLHOOK_MOUNTED_RULE_ID = 'RULE-EQUIPMENT-003:billhook-mounted-target'
+from towr.domain.weapon_effect_preparation import (
+    AXE_ARMOUR_RULE_ID, WARHAMMER_STAGGERED_RULE_ID,
+    MORNING_STAR_STAGGERED_RULE_ID, FLAIL_STAGGERED_RULE_ID,
+    GREATAXE_MELEE_RULE_ID, GREATHAMMER_MELEE_RULE_ID,
+    HALBERD_ARMOUR_RULE_ID, GREATAXE_ARMOUR_RULE_ID, GLAIVE_DEFENCE_RULE_ID,
+    GREATHAMMER_STAGGERED_RULE_ID, GREATSWORD_MELEE_RULE_ID,
+    GREATSWORD_DEFENCE_RULE_ID, FOOT_SPEAR_CHARGE_DEFENCE_RULE_ID,
+    BILLHOOK_MOUNTED_RULE_ID, weapon_kind_test_modifiers,
+    weapon_kind_target_test_modifiers, weapon_kind_damage_modifiers,
+)
+
+
+def _weapon_kind(weapon: PcMeleeWeapon) -> WeaponKind:
+    """Role admission remains explicit while printed facts have one source."""
+    if type(weapon) is not PcMeleeWeapon:
+        raise TypeError('PC weapon preparation requires its admitted typed weapon')
+    return WeaponKind(weapon.value)
 
 
 def pc_weapon_requires_two_hands(weapon: PcMeleeWeapon) -> bool:
-    return weapon in (*PC_TWO_HANDED_RANGED_WEAPONS, PcMeleeWeapon.PICKAXE, PcMeleeWeapon.FLAIL, PcMeleeWeapon.BILLHOOK,
-        PcMeleeWeapon.HALBERD, PcMeleeWeapon.GLAIVE, PcMeleeWeapon.GREATAXE,
-        PcMeleeWeapon.GREATSWORD, PcMeleeWeapon.GREATHAMMER, PcMeleeWeapon.WEIGHTED_NET)
+    return weapon_profile(_weapon_kind(weapon)).hands is RangedWeaponHands.TWO_HANDED
 
 
 def pc_weapon_allows_close_shooting(weapon: PcMeleeWeapon) -> bool:
     """PG94 permission belongs to the optimum range, independently of hands."""
-    from towr.domain.ranged_weapon_profiles import RangedWeaponId, RangedWeaponRange, ranged_weapon_combat_profile
     return (weapon in PC_RANGED_WEAPONS and
-        ranged_weapon_combat_profile(RangedWeaponId(weapon.value)).optimum_range_min is RangedWeaponRange.CLOSE)
+        weapon_profile(_weapon_kind(weapon)).optimum_range_min is RangedWeaponRange.CLOSE)
 
 
 def pc_weapon_supports_variable_grip(weapon: PcMeleeWeapon) -> bool:
-    return weapon in (PcMeleeWeapon.FOOT_SPEAR, PcMeleeWeapon.POLEARM)
+    return weapon_profile(_weapon_kind(weapon)).variable_grip
 
 
 def pc_weapon_damage(weapon: PcMeleeWeapon, strength: int, *, two_handed: bool = False) -> DamageProfile:
-    if type(two_handed) is not bool:
-        raise TypeError('two-handed Damage context must be an exact bool')
-    if weapon is PcMeleeWeapon.WEIGHTED_NET:
+    damage = weapon_printed_damage(_weapon_kind(weapon), strength=strength, two_handed=two_handed)
+    if damage is None:
         raise ValueError('Weighted Net inflicts Burdened instead of a Damage profile')
-    if weapon in PC_RANGED_WEAPONS:
-        from towr.domain.ranged_weapon_profiles import RangedWeaponId, RangedWeaponDamageKind, ranged_weapon_combat_profile
-        profile = ranged_weapon_combat_profile(RangedWeaponId(weapon.value))
-        base = strength if profile.damage_kind is RangedWeaponDamageKind.STRENGTH else profile.damage_value
-        assert base is not None
-        return DamageProfile(base)
-    if weapon is PcMeleeWeapon.FOOT_SPEAR:
-        offset = int(two_handed)
-    elif weapon is PcMeleeWeapon.POLEARM:
-        offset = 2 * int(two_handed)
-    elif weapon is PcMeleeWeapon.DAGGER:
-        offset = -1
-    elif weapon in (PcMeleeWeapon.MORNING_STAR, PcMeleeWeapon.PICKAXE):
-        offset = 1
-    elif weapon in (PcMeleeWeapon.BILLHOOK, PcMeleeWeapon.HALBERD, PcMeleeWeapon.GLAIVE):
-        offset = 2
-    elif weapon in (PcMeleeWeapon.FLAIL, PcMeleeWeapon.GREATAXE, PcMeleeWeapon.GREATSWORD,
-            PcMeleeWeapon.GREATHAMMER):
-        offset = 3
-    else:
-        offset = 0
-    return DamageProfile(strength + offset)
+    return DamageProfile(damage)
 
 
 def pc_weapon_test_modifiers(weapon: PcMeleeWeapon, skill: Skill,
         conditions: ConditionState, *, against_charge: bool = False) -> tuple[DiceModifier, ...]:
-    """Actor traits apply to the actual Test, including an unopposed Help Test."""
-    if type(against_charge) is not bool:
-        raise TypeError('Charge context must be an exact bool')
-    if weapon is PcMeleeWeapon.FOOT_SPEAR and skill is Skill.DEFENCE and against_charge:
-        return (DiceModifier(FOOT_SPEAR_CHARGE_DEFENCE_RULE_ID,1),)
-    if skill is Skill.MELEE and weapon is PcMeleeWeapon.MORNING_STAR and conditions.has(Condition.STAGGERED):
-        return (DiceModifier(MORNING_STAR_STAGGERED_RULE_ID, -1),)
-    if skill is Skill.MELEE and weapon is PcMeleeWeapon.FLAIL and conditions.has(Condition.STAGGERED):
-        return (DiceModifier(FLAIL_STAGGERED_RULE_ID, -2),)
-    if skill is Skill.MELEE and weapon is PcMeleeWeapon.GREATAXE:
-        return (DiceModifier(GREATAXE_MELEE_RULE_ID, -1),)
-    if skill is Skill.MELEE and weapon is PcMeleeWeapon.GREATHAMMER:
-        return (DiceModifier(GREATHAMMER_MELEE_RULE_ID, -1),)
-    if skill is Skill.MELEE and weapon is PcMeleeWeapon.GREATSWORD:
-        return (DiceModifier(GREATSWORD_MELEE_RULE_ID, -1),)
-    if skill is Skill.DEFENCE and weapon is PcMeleeWeapon.SWORD and not conditions.has(Condition.STAGGERED):
-        return (DiceModifier('RULE-EQUIPMENT-003:sword-defence', 1),)
-    if skill is Skill.DEFENCE and weapon is PcMeleeWeapon.GLAIVE and not conditions.has(Condition.STAGGERED):
-        return (DiceModifier(GLAIVE_DEFENCE_RULE_ID, 1),)
-    if skill is Skill.DEFENCE and weapon is PcMeleeWeapon.GREATSWORD and not conditions.has(Condition.STAGGERED):
-        return (DiceModifier(GREATSWORD_DEFENCE_RULE_ID, 1),)
-    return ()
+    """Own Test/Help properties use the same implementation as actual item use."""
+    return weapon_kind_test_modifiers(_weapon_kind(weapon), skill, conditions,
+        against_charge=against_charge)
 
 
 def pc_weapon_attack_modifiers(weapon: PcMeleeWeapon,
         target_conditions: ConditionState, *, target_mounted: bool = False) -> tuple[DiceModifier, ...]:
-    """This target trait belongs only to Attack; Help has no enemy target."""
-    if type(target_mounted) is not bool:
-        raise TypeError('mounted target context must be an exact bool')
-    if weapon is PcMeleeWeapon.BILLHOOK and target_mounted:
-        return (DiceModifier(BILLHOOK_MOUNTED_RULE_ID,1),)
-    if weapon is PcMeleeWeapon.WARHAMMER and target_conditions.has(Condition.STAGGERED):
-        return (DiceModifier(WARHAMMER_STAGGERED_RULE_ID, 1),)
-    if weapon is PcMeleeWeapon.GREATHAMMER and target_conditions.has(Condition.STAGGERED):
-        return (DiceModifier(GREATHAMMER_STAGGERED_RULE_ID, 1),)
-    return ()
+    """Target bonuses require the actual enemy; an unopposed Help has none."""
+    return weapon_kind_target_test_modifiers(_weapon_kind(weapon), Skill.MELEE,
+        target_conditions, target_mounted=target_mounted)
 
 
 def pc_weapon_damage_modifiers(weapon: PcMeleeWeapon,
         target_resilience: ResilienceProfile) -> tuple[DamageModifier, ...]:
-    if weapon is PcMeleeWeapon.CROSSBOW and target_resilience.is_armoured:
-        from towr.domain.ranged_weapon_profiles import RangedWeaponId, ranged_weapon_combat_profile
-        from towr.domain.ranged_weapon_attack_preparation_models import ARMOURED_TARGET_DAMAGE_BONUS_RULE_ID
-        return (DamageModifier(ARMOURED_TARGET_DAMAGE_BONUS_RULE_ID,
-            ranged_weapon_combat_profile(RangedWeaponId.CROSSBOW).armoured_target_damage_bonus),)
-    if weapon is PcMeleeWeapon.AXE and target_resilience.is_armoured:
-        return (DamageModifier(AXE_ARMOUR_RULE_ID, 1),)
-    if weapon is PcMeleeWeapon.HALBERD and target_resilience.is_armoured:
-        return (DamageModifier(HALBERD_ARMOUR_RULE_ID, 1),)
-    if weapon is PcMeleeWeapon.GREATAXE and target_resilience.is_armoured:
-        return (DamageModifier(GREATAXE_ARMOUR_RULE_ID, 1),)
-    return ()
+    return weapon_kind_damage_modifiers(_weapon_kind(weapon), target_resilience)

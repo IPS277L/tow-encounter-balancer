@@ -24,6 +24,7 @@ from towr.domain.ranged_weapon_attack_preparation_models import BLUNDERBUSS_NEAR
 from towr.domain.ranged_weapon_profiles import RangedWeaponRange
 from towr.domain.resolution_models import NearbyTargetsStaggerRequest
 from towr.domain.test_models import Skill, TestQuality
+from towr.domain.weapon_inventory_models import weapon_unit_id
 from towr.engine.pc_melee_runner import apply_pc_melee_step, run_pc_melee_scenario
 from towr.rules.attack_action_execution import execute_attack_action
 
@@ -193,7 +194,8 @@ class PcBlunderbussTests(unittest.TestCase):
         self.assertEqual(steps(result,PcNpcApproachProof),())
         self.assertEqual(steps(result,PcRangedReloadProof),())
         owners = tuple(member.ranged for member in result.state.party)
-        self.assertEqual(tuple(owner.weapon_instance_id for owner in owners),('pc1:weapon','pc2:weapon'))
+        self.assertEqual(tuple(owner.weapon_instance_id for owner in owners),
+            (weapon_unit_id('pc1','weapon',0),weapon_unit_id('pc2','weapon',0)))
         self.assertNotEqual(owners[0].reload_cycle_id,owners[1].reload_cycle_id)
         self.assertTrue(all(owner.required_successes==3 and not owner.loaded for owner in owners))
 

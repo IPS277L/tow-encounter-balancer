@@ -1,0 +1,202 @@
+{
+  "schema_version": "1",
+  "kind": "dynamic_encounter_search",
+  "request_id": "dynamic:armour",
+  "ruleset": "towr-pg1.4-gmg1.1",
+  "party": [
+    {
+      "actor_id": "pc",
+      "characteristics": {
+        "weapon_skill": 3,
+        "strength": 4,
+        "toughness": 3,
+        "agility": 3
+      },
+      "skills": {
+        "melee": 5,
+        "defence": 5,
+        "athletics": 4,
+        "endurance": 4
+      },
+      "equipment": {
+        "weapons": [
+          {
+            "id": "weapon:1",
+            "weapon": "sword",
+            "location": "left_hand"
+          }
+        ],
+        "armour": [
+          {
+            "id": "armour:plate",
+            "kind": "full_plate_armour",
+            "location": "worn"
+          },
+          {
+            "id": "armour:hunt",
+            "kind": "helm_of_the_hunt",
+            "location": "worn"
+          },
+          {
+            "id": "armour:shield",
+            "kind": "shield",
+            "location": "right_hand"
+          }
+        ]
+      },
+      "talents": [],
+      "resources": {
+        "fate": 3
+      },
+      "consumables": []
+    }
+  ],
+  "search_space": {
+    "weapon_skill": [
+      2,
+      3,
+      4
+    ],
+    "strength": [
+      2,
+      3,
+      4
+    ],
+    "toughness": [
+      2,
+      3,
+      4
+    ],
+    "agility": [
+      2,
+      3,
+      4
+    ],
+    "melee": [
+      3,
+      4,
+      5
+    ],
+    "athletics": [
+      3,
+      4,
+      5
+    ],
+    "weapon": [
+      "axe",
+      "sword",
+      "morning_star"
+    ],
+    "abilities": [
+      []
+    ],
+    "defence": [
+      3,
+      4,
+      5
+    ],
+    "shield": [
+      null,
+      "shield",
+      "briarroot_shield"
+    ],
+    "allowed_talents": [],
+    "ballistic_skill": [
+      2,
+      3,
+      4
+    ],
+    "initiative": [
+      2,
+      3,
+      4
+    ],
+    "shooting": [
+      3,
+      4,
+      5
+    ],
+    "dexterity": [
+      3,
+      4,
+      5
+    ],
+    "armour": [
+      null,
+      "light_armour",
+      "heavy_armour",
+      "full_plate_armour",
+      "armour_of_agilulf",
+      "armour_of_meteoric_iron",
+      "mantle_of_ithilmar"
+    ],
+    "secondary_armour": [
+      null
+    ],
+    "helmet": [
+      null,
+      "helmet",
+      "helm_of_the_hunt"
+    ],
+    "barding": [
+      false,
+      true
+    ],
+    "mount": [
+      null,
+      "horse",
+      "bretonnian_warhorse",
+      "elven_steed",
+      "demigryph",
+      "pegasus"
+    ],
+    "rider_kind": [
+      "human",
+      "elf"
+    ],
+    "agilulf_code_confirmed": true,
+    "weapon_count": [
+      1,
+      2,
+      3
+    ],
+    "initial_loaded": [
+      true
+    ]
+  },
+  "npc_count": {
+    "minimum": 1,
+    "maximum": 2
+  },
+  "targets": {
+    "win_rate": {
+      "numerator": 1,
+      "denominator": 2
+    },
+    "started_rounds": {
+      "numerator": 2,
+      "denominator": 1
+    }
+  },
+  "search": {
+    "master_seed": "42",
+    "max_candidates": 2,
+    "exploration_trials": 1,
+    "finalist_trials": 2,
+    "top_k": 1,
+    "max_total_trials": 4
+  },
+  "max_rounds": 3,
+  "defeat_disposition": "killed",
+  "execution": {
+    "mode": "sequential"
+  },
+  "scene": {
+    "range": "short",
+    "ambush": "none",
+    "terrain": "open",
+    "session_start": "fresh",
+    "two_handed_max_range": "long",
+    "airspace": null
+  }
+}

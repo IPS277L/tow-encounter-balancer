@@ -23,6 +23,8 @@ from towr.domain.pc_melee_models import (
 )
 from towr.domain.pc_npc_catalog import PcBookNpcProfile, create_pc_book_npc
 from towr.domain.pc_npc_close_shooting_models import PcNpcCloseShootingProtectionPolicy
+from towr.domain.pc_weapon_inventory import initial_pc_weapon_inventory
+from towr.domain.weapon_inventory_models import WEAPON_COUNT_BURDEN_RULE_ID,carrying_burden_rule_ids
 from towr.domain.test_models import Skill
 from towr.simulation.pc_melee_models import PcMeleeSimulationRequest
 from towr.simulation.pc_melee_simulation import run_pc_melee_trial
@@ -68,14 +70,14 @@ class PcShortOpeningJsonTests(unittest.TestCase):
         member = make_pc_bow_scenario().party[0]
         for weapon in PC_BOW_WEAPONS:
             for field, value in (('has_blackpowder_lore',True), ('has_blackpowder_kit',True),
-                    ('initiative',3), ('dexterity',4), ('initially_loaded',True),
+                    ('initiative',3), ('dexterity',4),
                     ('reload_hand_policy','two_available_hands'), ('repeater_bonus_policy','never'),
                     ('ballistic_skill',True), ('shooting',True), ('ammunition_supply_confirmed',1)):
                 raw = request_document(weapon=weapon)
                 raw['scenario']['party'][0]['pc']['ranged'][field] = value
                 with self.subTest(weapon=weapon,field=field), self.assertRaises((TypeError, ValueError)):
                     changed = replace(member.pc.ranged, **{field:value})
-                    replace(member.pc, ranged=changed)
+                    replace(member,pc=replace(member.pc,ranged=changed))
                 with self.assertRaises(PcMeleeSimulationInputError):
                     wire.parse_pc_melee_simulation_request(json.dumps(raw))
         for weapon in ('shortbow', Alias.SHORTBOW):
@@ -145,8 +147,10 @@ class PcShortOpeningJsonTests(unittest.TestCase):
             replace(member,shield=shield_loadout())
         with self.assertRaises(TypeError):
             replace(member,initial_weapon_hand=PcWeaponHand.RIGHT)
-        with self.assertRaises(ValueError):
-            replace(member,pc=replace(member.pc,strength=1))
+        over = replace(member,pc=replace(member.pc,strength=1))
+        inventory=initial_pc_weapon_inventory(over)
+        self.assertEqual(len(inventory.items),2)
+        self.assertEqual(carrying_burden_rule_ids(inventory,1),(WEAPON_COUNT_BURDEN_RULE_ID,))
         no_backup = replace(member,backup_weapon_policy=None)
         self.assertEqual(replace(source,party=(no_backup,)).party[0].backup_weapon_policy,None)
         for raw_change in (lambda s:s['party'][0]['pc'].update(weapon='staff'),
@@ -180,7 +184,7 @@ class PcShortOpeningJsonTests(unittest.TestCase):
         for mutate in (
                 lambda s:object.__setattr__(s.short_range_opening,'party_clustered_confirmed',1),
                 lambda s:object.__setattr__(s.facts,'all_opponents_close',True),
-                lambda s:object.__setattr__(s.party[0].pc.ranged,'initially_loaded',True),
+                lambda s:object.__setattr__(s.party[0].combat_equipment[0],'initially_loaded',True),
                 lambda s:object.__setattr__(s.party[0].pc.ranged,'shooting',True),
                 lambda s:object.__setattr__(s,'short_range_opening',None)):
             forged = deepcopy(request)

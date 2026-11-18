@@ -9,7 +9,7 @@ responsible for those rules and their source-bound receipts.
 from __future__ import annotations
 
 from collections import deque
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from itertools import combinations
 
 from towr.domain.ranged_weapon_profiles import RangedWeaponRange
@@ -70,9 +70,24 @@ def _close_key(first: str, second: str) -> tuple[str, str]:
 
 
 @dataclass(frozen=True, slots=True)
+class PcAirspaceSpec:
+    fall_hazard_rating: int = 2
+    open_sky_confirmed: bool = True
+
+    def __post_init__(self):
+        if type(self.fall_hazard_rating) is not int or self.fall_hazard_rating < 1:
+            raise ValueError('airspace requires an exact positive GM fall Hazard rating')
+        if type(self.open_sky_confirmed) is not bool:
+            raise TypeError('open sky confirmation must be an exact bool')
+        if self.open_sky_confirmed is not True:
+            raise ValueError('airspace requires the explicit open sky confirmation')
+
+
+@dataclass(frozen=True, slots=True)
 class PcBattlefieldSpec:
     initial_range: RangedWeaponRange
     two_handed_max_range: RangedWeaponRange
+    airspace: PcAirspaceSpec | None = field(default=None, kw_only=True)
 
     def __post_init__(self) -> None:
         for name in ('initial_range', 'two_handed_max_range'):
@@ -80,18 +95,38 @@ class PcBattlefieldSpec:
                 raise TypeError(f'{name} requires a typed Range')
         if self.two_handed_max_range is RangedWeaponRange.CLOSE:
             raise ValueError('two-handed shooting maximum must be Short or further')
+        if self.airspace is not None:
+            if type(self.airspace) is not PcAirspaceSpec:
+                raise TypeError('airspace requires its exact typed scene premise or None')
+            replace(self.airspace)
 
 
 @dataclass(frozen=True, slots=True)
 class PcBattlefieldState:
     spatial: SpatialBattleState
     close_pairs: tuple[tuple[str, str], ...]
+    air_to_ground: tuple[tuple[str, str], ...] = field(default=(), kw_only=True)
 
     def __post_init__(self) -> None:
         if type(self.spatial) is not SpatialBattleState:
             raise TypeError('battlefield requires a SpatialBattleState')
         # Keep the K1 placement/round/usage contract even for readmitted facts.
         replace(self.spatial)
+        if type(self.air_to_ground) is not tuple:
+            raise TypeError('airspace mapping must retain its source-ordered tuple')
+        air_ids, ground_ids = [], []
+        for pair in self.air_to_ground:
+            if type(pair) is not tuple or len(pair) != 2:
+                raise TypeError('airspace mapping requires exact air/ground Zone pairs')
+            air, ground = pair
+            _identifier(air, 'midair Zone'); _identifier(ground, 'ground Zone')
+            if (not self.spatial.graph.contains(air) or not self.spatial.graph.contains(ground)
+                    or not self.spatial.graph.are_adjacent(air, ground)):
+                raise ValueError('each midair Zone must connect to its actual ground below')
+            air_ids.append(air); ground_ids.append(ground)
+        if (len(set(air_ids)) != len(air_ids) or len(set(ground_ids)) != len(ground_ids)
+                or set(air_ids) & set(ground_ids)):
+            raise ValueError('air/ground layers must be disjoint and map one-to-one')
         if type(self.close_pairs) is not tuple:
             raise TypeError('Close pairs must be a tuple')
         normalised = set()
@@ -135,8 +170,12 @@ def build_pc_battlefield(spec: PcBattlefieldSpec, party_ids: tuple[str, ...],
     _identifier(arena_id, 'arena ID')
     offset = _INITIAL_ZONE_OFFSETS[spec.initial_range]
     zone_ids = tuple(f'{arena_id}:zone:{index}' for index in range(-3, offset + 4))
-    graph = ZoneGraph(zone_ids, tuple(
-        ZoneConnection(first, second) for first, second in zip(zone_ids, zone_ids[1:])))
+    ground_edges = tuple(ZoneConnection(first, second) for first, second in zip(zone_ids, zone_ids[1:]))
+    air_ids = tuple(f'{arena_id}:air:{index}' for index in range(-3, offset + 4)) if spec.airspace else ()
+    mapping = tuple(zip(air_ids, zone_ids)) if air_ids else ()
+    graph = ZoneGraph((*zone_ids, *air_ids), (*ground_edges,
+        *(ZoneConnection(air, ground) for air, ground in mapping),
+        *(ZoneConnection(first, second) for first, second in zip(air_ids, air_ids[1:]))))
     placements = tuple(
         SpatialEntityPlacement(actor_id, 'players_and_allies', f'{arena_id}:zone:0')
         for actor_id in party_ids) + tuple(
@@ -145,12 +184,39 @@ def build_pc_battlefield(spec: PcBattlefieldSpec, party_ids: tuple[str, ...],
     groups = ((party_ids + enemy_ids,) if spec.initial_range is RangedWeaponRange.CLOSE
         else (party_ids, enemy_ids))
     close_pairs = tuple(pair for group in groups for pair in combinations(group, 2))
-    return PcBattlefieldState(SpatialBattleState(graph, placements), close_pairs)
+    return PcBattlefieldState(SpatialBattleState(graph, placements), close_pairs, air_to_ground=mapping)
 
 
 def _state(value: PcBattlefieldState) -> None:
     if type(value) is not PcBattlefieldState:
         raise TypeError('battlefield requires a PcBattlefieldState')
+
+
+def battlefield_is_midair(state: PcBattlefieldState, entity_or_zone: str, *, zone: bool = False) -> bool:
+    """Query actual placement; an explicit Zone query avoids ID-name heuristics."""
+    _state(state); _identifier(entity_or_zone, 'airspace query ID')
+    if type(zone) is not bool:
+        raise TypeError('airspace Zone-query selector must be an exact bool')
+    if zone:
+        zone_id = entity_or_zone
+        if not state.spatial.graph.contains(zone_id):
+            raise ValueError('airspace query requires an actual battlefield Zone')
+    else:
+        placement = next((item for item in state.spatial.placements if item.entity_id == entity_or_zone), None)
+        if placement is not None:
+            zone_id = placement.zone_id
+        elif state.spatial.graph.contains(entity_or_zone):
+            zone_id = entity_or_zone
+        else:
+            raise ValueError('airspace query requires an actual entity or Zone')
+    return any(air == zone_id for air, _ in state.air_to_ground)
+
+
+def battlefield_ground_below(state: PcBattlefieldState, zone_id: str) -> str:
+    _state(state); _identifier(zone_id, 'falling source Zone')
+    if not state.spatial.graph.contains(zone_id):
+        raise ValueError('ground below requires an actual battlefield Zone')
+    return next((ground for air, ground in state.air_to_ground if air == zone_id), zone_id)
 
 
 def battlefield_range(state: PcBattlefieldState, first_id: str,
@@ -213,4 +279,4 @@ def with_actor_placement(state: PcBattlefieldState, actor_id: str, zone_id: str,
         else item for item in state.spatial.placements)
     close_pairs = tuple(pair for pair in state.close_pairs if actor_id not in pair) + tuple(
         (actor_id, other_id) for other_id in close_to_ids)
-    return PcBattlefieldState(replace(state.spatial, placements=placements), close_pairs)
+    return replace(state, spatial=replace(state.spatial, placements=placements), close_pairs=close_pairs)

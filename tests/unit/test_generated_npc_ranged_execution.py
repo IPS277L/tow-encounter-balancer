@@ -3,6 +3,8 @@
 Prepared Condition snapshots exercise request boundaries, not invented legal
 complete battle histories. Full runs retain actual prices, cycles and receipts.
 """
+from tests.support.generated_weapon_sources import initial_generated_weapons
+from tests.support.armour_fixtures import light_loadout
 from copy import deepcopy
 from dataclasses import replace
 import unittest
@@ -33,11 +35,11 @@ from towr.rules.test_resolution import resolve_test
 def component(weapon=GeneratedWeapon.PISTOL, *, bs=2, shooting=2, initiative=2,
         dexterity=3, ws=1, strength=1, talents=()):
     blackpowder=weapon is not GeneratedWeapon.REPEATER_HANDBOW
-    ranged=(GeneratedRangedFacts(bs,shooting,initiative,dexterity,True,True,
+    ranged=(GeneratedRangedFacts(bs,shooting,initiative,dexterity,True,
         True if blackpowder else None,True if blackpowder else None)
         if weapon in GENERATED_RANGED_WEAPONS else None)
-    return GeneratedNpc(ws,strength,20,1,2,2,weapon,False,
-        defence=2,shield=False,talents=talents,ranged=ranged)
+    return GeneratedNpc(ws,strength,20,1,2,2,initial_generated_weapons(weapon),light_loadout(light=False, shield=False),
+        defence=2,talents=talents,ranged=ranged)
 
 
 def scene(*, weapons=(GeneratedWeapon.PISTOL,), rounds=1, automatic=False,
@@ -174,7 +176,8 @@ class GeneratedRangedExecutionTests(unittest.TestCase):
         self.assertEqual(attack(melee).attacker_test.trace.regular_dice_delta,1)
         self.assertEqual(attack(shot).attacker_test.trace.regular_dice_delta,0)
         self.assertEqual(result.executed_actions,3)
-        self.assertEqual(len(result.state.npc_ranged_weapons),1)
+        self.assertEqual(sum(pc_npc_ranged_weapon(result.state,enemy.state.actor_id) is not None
+            for enemy in result.state.enemies),1)
         self.assert_replays(result)
 
     def test_actual_firearm_ignores_body_and_shield_armour_but_handbow_does_not(self):
@@ -230,10 +233,14 @@ class GeneratedRangedExecutionTests(unittest.TestCase):
         object.__setattr__(forged.request.weapon_state,'weapon_instance_id','foreign:weapon')
         with self.assertRaises((TypeError,ValueError)):
             PcMeleeStep(reload.source,forged)
-        forged=deepcopy(shot.state.npc_ranged_weapons)
-        object.__setattr__(forged[0].weapon_state,'reload_cycle_id','foreign:cycle')
+        forged=deepcopy(shot.state.enemies)
+        object.__setattr__(forged[0].state.weapon_inventory.active.reload,'reload_cycle_id','foreign:cycle')
         with self.assertRaises((TypeError,ValueError)):
-            replace(shot.state,npc_ranged_weapons=forged)
+            replace(shot.state,enemies=forged)
+        enemy=shot.state.enemies[0]
+        for inventory in (None,replace(enemy.state.weapon_inventory,items=(),active_item_id=None)):
+            with self.subTest(erased_inventory=inventory),self.assertRaises((TypeError,ValueError)):
+                replace(shot.state,enemies=(replace(enemy,state=replace(enemy.state,weapon_inventory=inventory)),))
         self.assert_replays(result)
 
     def test_missing_policy_and_forged_ranged_component_fail_before_rng(self):
@@ -291,7 +298,7 @@ class GeneratedRangedExecutionTests(unittest.TestCase):
         proof=PcNpcRangedReloadProof(request,_complete_reload_action_after_test(request,test))
         after=PcMeleeStep(prepared,proof).state
         self.assertEqual(after.magic_modifiers,(other,))
-        self.assertEqual(after.npc_ranged_weapons[0].weapon_state.exacting.accumulated_successes,1)
+        self.assertEqual(pc_npc_ranged_weapon(after,'minion1').exacting.accumulated_successes,1)
         later=npc_ranged_reload_test(after,'minion1','prepared:later')
         self.assertFalse(any(m.rule_id==penalty.source_id for m in later.dice_modifiers))
 

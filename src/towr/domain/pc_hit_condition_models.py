@@ -4,10 +4,12 @@ from __future__ import annotations
 from dataclasses import dataclass,replace
 from typing import TYPE_CHECKING
 
-from towr.domain.attack_models import AttackOutcome,ConditionOnHitSpec,ProneBeforeGiveGroundSpec,NearbyTargetsStaggerSpec
+from towr.domain.attack_models import (AttackOutcome,ConditionOnHitSpec,ProneBeforeGiveGroundSpec,
+    NearbyTargetsStaggerSpec,ConditionAfterGiveGroundSpec)
 from towr.domain.condition_models import Condition,ConditionApplicationResult,ConditionState,EffectClassification
 from towr.domain.resolution_models import TargetInjuryPolicy
-from towr.domain.pc_mount_models import HORSE_NOBLE_STEED_RULE_ID
+from towr.domain.pc_mount_models import (HORSE_NOBLE_STEED_RULE_ID,PEGASUS_KNIGHTS_RULE_ID,
+    DEMIGRYPH_FEARSOME_RULE_ID,SKELETAL_STEED_FRIGHTENING_RULE_ID)
 
 if TYPE_CHECKING:
     from towr.domain.action_execution_models import AttackActionExecutionRequest
@@ -32,7 +34,8 @@ def validate_pc_hit_effects(effects: tuple[ConditionOnHitSpec | ProneBeforeGiveG
             if type(effect.affects_monstrosities) is not bool:
                 raise TypeError('pre-Stagger Prone requires its exact bool flag')
             if not ((effect.rule_id==CRUSHING_WEIGHT_PRONE_RULE_ID and effect.affects_monstrosities)
-                    or (effect.rule_id==HORSE_NOBLE_STEED_RULE_ID and not effect.affects_monstrosities)):
+                    or (effect.rule_id==HORSE_NOBLE_STEED_RULE_ID and not effect.affects_monstrosities)
+                    or (effect.rule_id==PEGASUS_KNIGHTS_RULE_ID and effect.affects_monstrosities)):
                 raise ValueError('pre-Stagger Prone requires its complete Crushing Weight or Noble Steed source')
         elif (type(effect.condition) is not Condition or effect.condition is not Condition.DRAINED
                 or type(effect.classification) is not EffectClassification
@@ -43,11 +46,27 @@ def validate_pc_hit_effects(effects: tuple[ConditionOnHitSpec | ProneBeforeGiveG
 def _primary_hit_effects(effects):
     # Nearby has a separate ordered target owner; it never modifies primary again.
     from towr.domain.ranged_weapon_attack_preparation_models import BLUNDERBUSS_NEARBY_STAGGER_RULE_ID
-    if (type(effects) is tuple and len(effects) == 1 and type(effects[0]) is NearbyTargetsStaggerSpec
-            and type(effects[0].rule_id) is str and effects[0].rule_id == BLUNDERBUSS_NEARBY_STAGGER_RULE_ID):
-        return ()
-    validate_pc_hit_effects(effects)
-    return effects
+    if type(effects) is not tuple or len({type(effect) for effect in effects})!=len(effects):
+        raise ValueError('primary hit effects require unique exact typed sources')
+    primary=[]
+    for effect in effects:
+        if type(effect) is NearbyTargetsStaggerSpec:
+            replace(effect)
+            if effect.rule_id!=BLUNDERBUSS_NEARBY_STAGGER_RULE_ID:
+                raise ValueError('nearby effect lost its actual Blunderbuss source')
+        elif type(effect) is ConditionAfterGiveGroundSpec:
+            replace(effect)
+            if (effect.condition is not Condition.BROKEN or effect.rule_id not in
+                    (DEMIGRYPH_FEARSOME_RULE_ID,SKELETAL_STEED_FRIGHTENING_RULE_ID)):
+                raise ValueError('after-Give-Ground Condition lost its actual mounted ability')
+            # The current controller chooses Wound instead of Give Ground.
+            # Its exact Stagger receipt is validated by the shared projection;
+            # this effect therefore has no on-hit Condition application.
+        else:
+            primary.append(effect)
+    result=tuple(primary)
+    validate_pc_hit_effects(result)
+    return result
 
 
 def pc_pre_stagger_target(kernel: KernelAttackRequest,outcome: AttackOutcome):
@@ -57,7 +76,8 @@ def pc_pre_stagger_target(kernel: KernelAttackRequest,outcome: AttackOutcome):
     effect=next((effect for effect in effects if type(effect) is ProneBeforeGiveGroundSpec),None)
     if outcome is not AttackOutcome.HIT or effect is None:
         return before,()
-    if ((kernel.target_policy is not TargetInjuryPolicy.PLAYER and effect.rule_id!=HORSE_NOBLE_STEED_RULE_ID)
+    if ((kernel.target_policy is not TargetInjuryPolicy.PLAYER
+            and effect.rule_id not in (HORSE_NOBLE_STEED_RULE_ID,PEGASUS_KNIGHTS_RULE_ID))
             or kernel.target_effect_immunities):
         raise ValueError('bounded early Prone requires its ordinary PLAYER target without immunities')
     if kernel.target_policy is TargetInjuryPolicy.MONSTROSITY and not effect.affects_monstrosities:

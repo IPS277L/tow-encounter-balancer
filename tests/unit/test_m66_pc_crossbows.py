@@ -268,7 +268,8 @@ class PcCrossbowTests(unittest.TestCase):
                 self.assertTrue(reloaded.slot.executed)
                 with self.assertRaises((TypeError,ValueError)):
                     replace(request.weapon_state,required_successes=3 if target==2 else 2)
-                member = replace(state.party[0],ranged=reloaded.state)
+                from towr.domain.pc_weapon_inventory import replace_pc_member
+                member = replace_pc_member(state.party[0],ranged=reloaded.state)
                 still_close = replace(state,party=(member,),round_state=reloaded.round_state)
                 with self.assertRaises((TypeError,ValueError)):
                     build_pc_melee_attack(still_close)
@@ -307,7 +308,9 @@ class PcCrossbowTests(unittest.TestCase):
         source = make_pc_crossbow_scenario(pc_count=2,enemy_count=2,max_rounds=1)
         first,second = source.party
         second = replace(second,pc=replace(second.pc,weapon=REPEATER,
-            ranged=crossbow_profile(weapon=REPEATER,repeater_bonus_policy=NEVER)))
+            ranged=crossbow_profile(weapon=REPEATER,repeater_bonus_policy=NEVER)),
+            combat_equipment=(replace(second.combat_equipment[0],weapon=REPEATER),
+                *second.combat_equipment[1:]))
         source = replace(source,party=(first,second))
         result = execute(source,shot_values()*2+NPC_MISS*2)
         a,b = (member.ranged for member in result.state.party)

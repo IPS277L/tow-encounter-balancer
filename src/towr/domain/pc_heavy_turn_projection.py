@@ -80,8 +80,14 @@ def project_heavy_turn_end(state,proof,finish):
     conditions = injury.conditions
     for effect in expired:
         from towr.domain.pc_magic_models import external_magic_conditions
+        from towr.domain.pc_armour_models import external_armour_conditions
+        from towr.domain.pc_briarroot_models import external_briarroot_conditions
+        from towr.domain.pc_inventory_conditions import external_inventory_conditions
         if (not any(isinstance(other,WoundConditionEffect) and other.condition is effect.condition for other in effects)
-                and effect.condition not in external_magic_conditions(state,turn.actor_id)):
+                and effect.condition not in (external_magic_conditions(state,turn.actor_id)
+                    | external_armour_conditions(state,turn.actor_id)
+                    | external_briarroot_conditions(state,turn.actor_id)
+                    | external_inventory_conditions(state,turn.actor_id))):
             conditions = conditions.without_condition(effect.condition)
     injury = replace(injury,active_wound_effects=effects,conditions=conditions)
     return finish(round_state=expected_clock,party=_party_update(state,turn.actor_id,injury=injury,fate=fate,

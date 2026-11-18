@@ -1,5 +1,6 @@
 """One representative spawn path preserves an actual one-way Pistol fallback."""
 from dataclasses import replace
+from tests.support.pc_weapon_sources import initial_weapon_items
 from pathlib import Path
 from random import Random
 import unittest
@@ -18,7 +19,9 @@ def process_request():
     example = Path(__file__).resolve().parents[2] / 'docs/examples/m58/pc-melee-simulation.request.json'
     request = parse_pc_melee_simulation_request(example.read_bytes()).request
     scenario = replace(request.scenario, party=tuple(replace(member,
-        backup_weapon_policy=PcBackupWeaponPolicy(PcMeleeWeapon.SWORD, PcWeaponHand.LEFT))
+        backup_weapon_policy=PcBackupWeaponPolicy(PcMeleeWeapon.SWORD, PcWeaponHand.LEFT),
+        combat_equipment=initial_weapon_items(member.pc.weapon,member.initial_weapon_hand,
+            PcBackupWeaponPolicy(PcMeleeWeapon.SWORD,PcWeaponHand.LEFT),initially_loaded=True))
         if member.actor_id == 'pc1' else member for member in request.scenario.party))
     return replace(request, scenario=scenario, trials=3)
 

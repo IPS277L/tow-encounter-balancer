@@ -2,6 +2,7 @@
 from dataclasses import replace
 
 from tests.support.pc_melee_fixtures import make_pc_melee_party_scenario
+from tests.support.pc_weapon_sources import initial_weapon_items
 from towr.domain.pc_melee_models import (
     PcMeleeWeapon, PcRangedProfile, PcRangedReloadHandPolicy, PcRepeaterBonusPolicy,
     PcWeaponHand,
@@ -18,7 +19,7 @@ def ranged_profile(*,weapon: PcMeleeWeapon = PcMeleeWeapon.REPEATER_HANDBOW,
         initiative=initiative,dexterity=dexterity,
         has_blackpowder_lore=True if firearm else None,
         has_blackpowder_kit=True if firearm else None,
-        ammunition_supply_confirmed=True,initially_loaded=True,
+        ammunition_supply_confirmed=True,
         reload_hand_policy=PcRangedReloadHandPolicy.TWO_AVAILABLE_HANDS,
         repeater_bonus_policy=repeater_bonus_policy)
 
@@ -33,7 +34,8 @@ def make_pc_ranged_scenario(*,weapon: PcMeleeWeapon = PcMeleeWeapon.REPEATER_HAN
         initiative=initiative,dexterity=dexterity,repeater_bonus_policy=repeater_bonus_policy)
         if profile is None else profile)
     party = tuple(replace(member,pc=replace(member.pc,weapon=weapon,ranged=selected),
-        initial_weapon_hand=PcWeaponHand.RIGHT) for member in source.party)
+        initial_weapon_hand=PcWeaponHand.RIGHT,combat_equipment=initial_weapon_items(
+            weapon,PcWeaponHand.RIGHT,initially_loaded=True)) for member in source.party)
     enemies = tuple(replace(enemy,definition=replace(enemy.definition,
         protection=(replace(enemy.definition.protection[0],skill=Skill.ATHLETICS),)))
         for enemy in source.enemies)

@@ -3,10 +3,11 @@ from dataclasses import dataclass, field, replace
 from enum import Enum
 from towr.domain.pc_combat_equipment_models import PcWeaponItem
 from towr.domain.pc_battlefield_models import PcBattlefieldSpec
-from towr.domain.pc_mount_models import CombatMount, initial_pc_mounts
+from towr.domain.pc_mount_models import CombatMount, RiderKind, initial_pc_mounts
+from towr.domain.armour_models import ArmourLoadout
 
 from towr.domain.attack_models import ConditionImpactSpec, DamageProfile, ResilienceProfile, ProneBeforeGiveGroundSpec
-from towr.domain.condition_models import ConditionState
+from towr.domain.condition_models import Condition,ConditionState
 from towr.domain.potion_models import ConsumableItem, ConsumableKind
 from towr.domain.pc_magic_source_models import PcWizardProfile
 from towr.domain.pc_combat_talent_models import PcCombatTalent
@@ -40,37 +41,45 @@ from towr.domain.turn_models import CombatSide
 from towr.domain.pc_hit_condition_models import validate_pc_hit_effects
 
 
-class PcMeleeWeapon(str, Enum):
-    STAFF = "staff"
-    SWORD = "sword"
-    DAGGER = "dagger"
-    AXE = "axe"
-    WARHAMMER = "warhammer"
-    MORNING_STAR = "morning_star"
-    FOOT_SPEAR = "foot_spear"
-    POLEARM = "polearm"
-    PICKAXE = "pickaxe"
-    FLAIL = "flail"
-    BILLHOOK = "billhook"
-    HALBERD = "halberd"
-    GLAIVE = "glaive"
-    GREATAXE = "greataxe"
-    GREATSWORD = "greatsword"
-    GREATHAMMER = "greathammer"
-    PISTOL = "pistol"
-    REPEATER_HANDBOW = "repeater_handbow"
-    REPEATER_PISTOL = "repeater_pistol"
-    SHORTBOW = "shortbow"
-    WARBOW = "warbow"
-    LONGBOW = "longbow"
-    CROSSBOW = "crossbow"
-    REPEATER_CROSSBOW = "repeater_crossbow"
-    HANDGUN = "handgun"
-    REPEATER_HANDGUN = "repeater_handgun"
-    SLING = "sling"
-    BLUNDERBUSS = "blunderbuss"
-    HOCHLAND_LONG_RIFLE = "hochland_long_rifle"
-    WEIGHTED_NET = "weighted_net"
+from towr.domain.weapon_catalog import WeaponKind as PcMeleeWeapon
+from towr.domain.weapon_inventory_models import (
+    WeaponHand as PcWeaponHand, WeaponTwoHandedGrip as PcTwoHandedGrip,
+)
+
+# Source admission follows implemented owners, not the presence of a catalogue
+# enum. New Magic/Throwing effects join this set only with full execution.
+PC_EXECUTABLE_WEAPONS = (
+    PcMeleeWeapon.STAFF,
+    PcMeleeWeapon.SWORD,
+    PcMeleeWeapon.DAGGER,
+    PcMeleeWeapon.AXE,
+    PcMeleeWeapon.WARHAMMER,
+    PcMeleeWeapon.MORNING_STAR,
+    PcMeleeWeapon.FOOT_SPEAR,
+    PcMeleeWeapon.POLEARM,
+    PcMeleeWeapon.PICKAXE,
+    PcMeleeWeapon.FLAIL,
+    PcMeleeWeapon.BILLHOOK,
+    PcMeleeWeapon.HALBERD,
+    PcMeleeWeapon.GLAIVE,
+    PcMeleeWeapon.GREATAXE,
+    PcMeleeWeapon.GREATSWORD,
+    PcMeleeWeapon.GREATHAMMER,
+    PcMeleeWeapon.PISTOL,
+    PcMeleeWeapon.REPEATER_HANDBOW,
+    PcMeleeWeapon.REPEATER_PISTOL,
+    PcMeleeWeapon.SHORTBOW,
+    PcMeleeWeapon.WARBOW,
+    PcMeleeWeapon.LONGBOW,
+    PcMeleeWeapon.CROSSBOW,
+    PcMeleeWeapon.REPEATER_CROSSBOW,
+    PcMeleeWeapon.HANDGUN,
+    PcMeleeWeapon.REPEATER_HANDGUN,
+    PcMeleeWeapon.SLING,
+    PcMeleeWeapon.BLUNDERBUSS,
+    PcMeleeWeapon.HOCHLAND_LONG_RIFLE,
+    PcMeleeWeapon.WEIGHTED_NET,
+)
 
 
 PC_THROWING_WEAPONS = (PcMeleeWeapon.WEIGHTED_NET,)
@@ -165,11 +174,6 @@ class PcHeavyWoundPolicy(str, Enum):
     CONTINUE_FIGHTING = "continue_fighting"
 
 
-class PcWeaponHand(str, Enum):
-    LEFT = "left"
-    RIGHT = "right"
-
-
 class PcShieldHandConflictPolicy(str, Enum):
     WEAPON_FIRST = "weapon_first"
 
@@ -189,9 +193,6 @@ class PcShieldLoadout:
         _typed(self.hand_conflict_policy, PcShieldHandConflictPolicy, "shield hand conflict policy")
         _typed(self.recovery_policy, PcShieldRecoveryPolicy, "shield recovery policy")
 
-
-class PcTwoHandedGrip(str, Enum):
-    BOTH = "both"
 
 
 @dataclass(frozen=True, slots=True)
@@ -234,7 +235,6 @@ class PcRangedProfile:
     has_blackpowder_lore: bool | None = None
     has_blackpowder_kit: bool | None = None
     ammunition_supply_confirmed: bool = False
-    initially_loaded: bool | None = None
     reload_hand_policy: PcRangedReloadHandPolicy | None = None
     repeater_bonus_policy: PcRepeaterBonusPolicy | None = field(default=None, kw_only=True)
     awareness: int | None = field(default=None, kw_only=True)
@@ -259,17 +259,12 @@ class PcRangedProfile:
         _typed(self.ammunition_supply_confirmed, bool, "ammunition_supply_confirmed")
         if not self.ammunition_supply_confirmed:
             raise ValueError("ranged source requires ammunition_supply_confirmed")
-        if self.initially_loaded is not None:
-            _typed(self.initially_loaded, bool, "initially_loaded")
-            if not self.initially_loaded:
-                raise ValueError("ranged source requires initially_loaded")
         if self.reload_hand_policy is not None:
             _typed(self.reload_hand_policy, PcRangedReloadHandPolicy, "ranged reload hand policy")
         if any(value is not None for value in (
-                self.dexterity, self.initially_loaded, self.reload_hand_policy)):
+                self.dexterity, self.reload_hand_policy)):
             if self.initiative is None or self.dexterity is None:
                 raise ValueError('Exacting source requires Initiative and Dexterity')
-            _typed(self.initially_loaded, bool, 'initially_loaded')
             _typed(self.reload_hand_policy, PcRangedReloadHandPolicy, 'ranged reload hand policy')
         if self.repeater_bonus_policy is not None:
             _typed(self.repeater_bonus_policy, PcRepeaterBonusPolicy, "Repeater bonus policy")
@@ -325,6 +320,8 @@ class PcMeleeDefinition:
         ):
             TestProfile(characteristic, skill)
         _typed(self.weapon, PcMeleeWeapon, "PC weapon")
+        if self.weapon not in PC_EXECUTABLE_WEAPONS:
+            raise ValueError("this weapon requires its unfinished encounter effect owner")
         for name in ('throwing','brawn'):
             value=getattr(self,name)
             if value is not None:
@@ -342,35 +339,25 @@ class PcMeleeDefinition:
         if self.weapon in PC_THROWING_WEAPONS and self.throwing is None:
             raise ValueError('Weighted Net requires explicit BS and Throwing')
         _integer(self.armour_bonus, "PC armour bonus", minimum=0)
+        if self.ranged is not None:
+            _typed(self.ranged,PcRangedProfile,'actor Shooting facts')
+            replace(self.ranged)
+            if self.ballistic_skill is not None and self.ballistic_skill!=self.ranged.ballistic_skill:
+                raise ValueError('Shooting and Throwing must use the same Ballistic Skill')
         if self.weapon in PC_RANGED_WEAPONS:
             _typed(self.ranged, PcRangedProfile, "PC ranged profile")
-            replace(self.ranged)
-            free_reload = self.weapon in PC_FREE_RELOAD_WEAPONS
-            if self.weapon is PcMeleeWeapon.HOCHLAND_LONG_RIFLE:
+            from towr.domain.weapon_capability_models import weapon_ranged_requirements
+            requirements=weapon_ranged_requirements((self.weapon,))
+            if requirements.requires_aim:
                 self.ranged.awareness_profile
-            firearm = self.weapon in (PcMeleeWeapon.PISTOL, PcMeleeWeapon.REPEATER_PISTOL,
-                *PC_HANDGUN_WEAPONS, PcMeleeWeapon.BLUNDERBUSS, PcMeleeWeapon.HOCHLAND_LONG_RIFLE)
-            for name in ('has_blackpowder_lore', 'has_blackpowder_kit'):
-                value = getattr(self.ranged, name)
-                if (firearm and value is not True) or (not firearm and value is not None):
-                    raise ValueError('Blackpowder Lore/kit are required only for firearm PC loadouts')
-            if free_reload:
-                if any(getattr(self.ranged, name) is not None for name in (
-                        'dexterity', 'initially_loaded', 'reload_hand_policy',
-                        'repeater_bonus_policy')):
-                    raise ValueError('free-reload ranged source forbids Exacting/Repeater fields')
-            else:
+            if requirements.firearm and (self.ranged.has_blackpowder_lore is not True
+                    or self.ranged.has_blackpowder_kit is not True):
+                raise ValueError('a firearm requires actual Blackpowder Lore and Kit')
+            if requirements.exacting:
                 self.ranged.dexterity_profile
-                if self.ranged.initially_loaded is not True:
-                    raise ValueError('Exacting ranged source requires an initially loaded weapon')
                 _typed(self.ranged.reload_hand_policy, PcRangedReloadHandPolicy, 'ranged reload hand policy')
-            if self.weapon in (PcMeleeWeapon.PISTOL, PcMeleeWeapon.CROSSBOW, PcMeleeWeapon.HANDGUN, PcMeleeWeapon.BLUNDERBUSS, PcMeleeWeapon.HOCHLAND_LONG_RIFLE):
-                if self.ranged.repeater_bonus_policy is not None:
-                    raise ValueError(f'ordinary {self.weapon.value.title()} cannot carry Repeater bonus policy')
-            elif not free_reload:
+            if requirements.repeater:
                 _typed(self.ranged.repeater_bonus_policy, PcRepeaterBonusPolicy, 'Repeater bonus policy')
-        elif self.ranged is not None:
-            raise ValueError("ranged profile requires an admitted ranged primary weapon")
 
     @property
     def melee_profile(self) -> TestProfile:
@@ -464,6 +451,9 @@ class PcMeleeParticipant:
     combat_talents: tuple[PcCombatTalent,...] = field(default=(),kw_only=True)
     combat_equipment: tuple[PcWeaponItem,...] | None = field(default=None,kw_only=True)
     mount: CombatMount | None = field(default=None,kw_only=True)
+    armour: ArmourLoadout | None = field(default=None,kw_only=True)
+    rider_kind: RiderKind | None = field(default=None,kw_only=True)
+    agilulf_code_confirmed: bool | None = field(default=None,kw_only=True)
 
     def __post_init__(self) -> None:
         _identifier(self.actor_id, "PC actor")
@@ -471,6 +461,31 @@ class PcMeleeParticipant:
             _typed(self.mount,CombatMount,'trained mount component')
         _typed(self.pc, PcMeleeDefinition, "PC definition")
         replace(self.pc)
+        if self.armour is not None:
+            from towr.domain.armour_models import (ArmourLoadout,body_resilience_bonus,
+                helmet_resilience_bonus,armour_is_worn,active_agilulf)
+            _typed(self.armour,ArmourLoadout,'complete armour equipment')
+            replace(self.armour)
+            if self.pc.armour_bonus != body_resilience_bonus(self.armour)+helmet_resilience_bonus(self.armour):
+                raise ValueError('PC armour bonus must match its complete item source')
+            if (self.shield is not None) != (self.armour.shield is not None):
+                raise ValueError('PC held Shield loadout must match its armour item source')
+            if self.armour_worn is not None and self.armour_worn != armour_is_worn(self.armour):
+                raise ValueError('PC worn armour fact must match its actual items')
+            if self.armour.barding and self.mount is None:
+                raise ValueError('Barding requires its actual compatible mount')
+            from towr.domain.armour_models import BodyArmour
+            if BodyArmour.AGILULF in self.armour.body:
+                if self.agilulf_code_confirmed is not True:
+                    raise ValueError('Agilulf requires explicit GM confirmation of the chivalric scene')
+                if self.pc.weapon in (*PC_RANGED_WEAPONS,*PC_THROWING_WEAPONS):
+                    raise ValueError('Agilulf forbids a ranged combat loadout under the chivalric code')
+            elif self.agilulf_code_confirmed is not None:
+                raise ValueError('Agilulf code confirmation belongs only to worn Agilulf armour')
+        elif self.agilulf_code_confirmed is not None:
+            raise ValueError('Agilulf code confirmation requires its actual armour source')
+        from towr.domain.pc_mount_models import validate_mount_rider
+        validate_mount_rider(self.mount,self.rider_kind)
         from towr.domain.pc_combat_talent_models import validate_pc_combat_talents
         validate_pc_combat_talents(self.combat_talents,self.pc)
         if self.combat_talents and self.policy is not PcMeleePolicy.AUTOMATIC_COMBAT:
@@ -532,9 +547,8 @@ class PcMeleeParticipant:
         if self.backup_weapon_policy is not None:
             _typed(self.backup_weapon_policy,PcBackupWeaponPolicy,"backup weapon policy")
             replace(self.backup_weapon_policy)
-            if (grip_type is not PcTwoHandedGrip and self.pc.weapon not in PC_RANGED_WEAPONS
-                    or self.pc.strength < 2):
-                raise ValueError("backup requires a two-handed or ranged primary and Strength to carry two weapons")
+            if grip_type is not PcTwoHandedGrip and self.pc.weapon not in PC_RANGED_WEAPONS:
+                raise ValueError("fixed backup policy requires a two-handed or ranged initial primary")
         for value, cls in ((self.near_miss_policy,PcNearMissPolicy),(self.glorious_policy,PcGloriousPolicy)):
             if value is not None:
                 _typed(value,cls,"Fate strategy")
@@ -544,7 +558,8 @@ class PcMeleeParticipant:
         if self.aim_second_action_policy is not None:
             _typed(self.aim_second_action_policy, PcAimSecondActionPolicy, "Aim Second Action policy")
             replace(self.aim_second_action_policy)
-            if self.pc.weapon is not PcMeleeWeapon.HOCHLAND_LONG_RIFLE:
+            from towr.domain.pc_combat_equipment_models import pc_initial_weapon_kinds
+            if PcMeleeWeapon.HOCHLAND_LONG_RIFLE not in pc_initial_weapon_kinds(self):
                 raise ValueError('Aim Second Action policy requires Hochland')
         configured = (self.near_miss_policy is not None or self.glorious_policy is not None
             or self.aim_second_action_policy is not None)
@@ -585,18 +600,11 @@ class PcMeleeParticipant:
             raise ValueError("defeat decisions must follow the full PC target priority")
         object.__setattr__(self, "target_priority", targets)
         object.__setattr__(self, "defeat_decisions", decisions)
-        if self.combat_equipment is not None:
-            from towr.domain.pc_combat_equipment_models import validate_pc_combat_equipment
-            validate_pc_combat_equipment(self)
+        from towr.domain.pc_combat_equipment_models import validate_pc_combat_equipment
+        validate_pc_combat_equipment(self)
         if self.pc.ranged is not None and self.pc.ranged.repeater_bonus_policy is PcRepeaterBonusPolicy.AUTOMATIC:
             if self.policy is not PcMeleePolicy.AUTOMATIC_COMBAT:
                 raise ValueError('automatic Repeater mode requires automatic combat policy')
-        if self.policy is PcMeleePolicy.AUTOMATIC_COMBAT and self.pc.weapon in PC_RANGED_WEAPONS:
-            if self.combat_equipment is None:
-                raise ValueError('automatic ranged source requires the complete weapon inventory')
-            if (self.pc.weapon in (PcMeleeWeapon.REPEATER_HANDBOW,PcMeleeWeapon.REPEATER_PISTOL)
-                    and self.pc.ranged.repeater_bonus_policy is not PcRepeaterBonusPolicy.AUTOMATIC):
-                raise ValueError('automatic combat requires an automatic Repeater mode')
         if self.pc.weapon in PC_THROWING_WEAPONS and (self.policy is not PcMeleePolicy.AUTOMATIC_COMBAT
                 or self.combat_equipment is None):
             raise ValueError('Weighted Net requires automatic decisions and its concrete source item')
@@ -710,7 +718,9 @@ class PcMeleeScenario:
             if definition.id in definitions and definitions[definition.id] != definition:
                 raise ValueError("conflicting Minion definitions with the same ID")
             definitions[definition.id] = definition
-        has_ranged = any(member.pc.weapon in (*PC_RANGED_WEAPONS,*PC_THROWING_WEAPONS) for member in party)
+        from towr.domain.pc_combat_equipment_models import pc_initial_weapon_kinds
+        has_ranged = any(kind in (*PC_RANGED_WEAPONS,*PC_THROWING_WEAPONS)
+            for member in party for kind in pc_initial_weapon_kinds(member))
         close_shooting_profiles = {}
         policies = self.npc_close_shooting_protection_policies
         if policies is not None:
@@ -790,7 +800,7 @@ class PcMeleeScenario:
                 raise ValueError('NPC extra Attack requires a canonical Bear or Great Stag opponent')
         if len(set(self.npc_extra_attack_actor_ids))!=len(self.npc_extra_attack_actor_ids):
             raise ValueError('NPC extra Attack actors must be unique')
-        has_blunderbuss = any(member.pc.weapon is PcMeleeWeapon.BLUNDERBUSS for member in party)
+        has_blunderbuss = any(PcMeleeWeapon.BLUNDERBUSS in pc_initial_weapon_kinds(member) for member in party)
         if self.battlefield is not None:
             if self.blunderbuss_nearby is not None:
                 raise ValueError('battlefield Blunderbuss uses actual Close relations instead of a legacy cluster')
@@ -802,6 +812,10 @@ class PcMeleeScenario:
         elif self.blunderbuss_nearby is not None:
             raise ValueError('Blunderbuss nearby source requires a Blunderbuss PC')
         _validate_short_range_opening(self)
+        from towr.domain.pc_falling_models import validate_pc_falling_scene
+        validate_pc_falling_scene(self)
+        from towr.domain.pc_armour_models import validate_agilulf_defeat_policies
+        validate_agilulf_defeat_policies(self)
 
     def participant(self, actor_id: str) -> PcMeleeParticipant:
         _identifier(actor_id, "PC actor")
@@ -920,9 +934,27 @@ def _readmit_profile_enemy(enemy: NpcParticipantSnapshot) -> None:
     _readmit_resilience(state.current_resilience)
     attacks = _canonical_tuple(definition.attacks, "Minion attacks")
     protection = _canonical_tuple(definition.protection, "Minion protection")
+    if definition.generated_components is not None:
+        from towr.domain.generated_npc_models import GeneratedNpc,validate_generated_definition
+        _typed(definition.generated_components,GeneratedNpc,'complete generated source')
+        validate_generated_definition(definition)
+        expected=definition.generated_components.participant(state.actor_id)
+        expected=replace(expected,definition=replace(expected.definition,id=definition.id),
+            state=replace(expected.state,definition_id=definition.id))
+        from towr.domain.pc_npc_catalog import validate_pc_book_npc_definition
+        validate_pc_book_npc_definition(definition)
+        from towr.domain.pc_melee_result_models import validate_pc_melee_source_types
+        if enemy!=expected:
+            raise ValueError('generated NPC must retain its complete fresh item/profile source')
+        validate_pc_melee_source_types(enemy,expected)
+        return
     great_stag = definition.id == 'pc-book-npc:great_stag'
     net_goblin = definition.id == NET_DEFINITION_ID
     generated = definition.generated_components is not None
+    if definition.resilience.mundane_armour_ward or state.current_resilience.mundane_armour_ward:
+        from towr.domain.armour_models import BodyArmour
+        if not generated or definition.generated_components.armour.benefit is not BodyArmour.METEORIC_IRON:
+            raise ValueError('Meteoric protection requires its complete generated armour item source')
     generated_net = generated and definition.generated_components.weapon.value == 'weighted_net'
     npc_ranged = (definition.id in PC_NPC_RANGED_DEFINITION_IDS
         or (generated and definition.generated_components.ranged is not None))
@@ -1026,7 +1058,12 @@ def _readmit_profile_enemy(enemy: NpcParticipantSnapshot) -> None:
     replace(state)
     replace(definition)
     replace(enemy)
-    if (injury.wounds or injury.defeated or injury.defeat_cause is not None or injury.conditions.conditions
+    from towr.domain.armour_models import armour_burden_sources
+    expected_initial_conditions=(frozenset((Condition.BURDENED,)) if generated
+        and armour_burden_sources(definition.generated_components.armour,definition.generated_components.strength)
+        else frozenset())
+    if (injury.wounds or injury.defeated or injury.defeat_cause is not None
+            or injury.conditions.conditions != expected_initial_conditions
             or state.wields_weapon is not (attack.hands is not None)
             or state.holds_shield and attack.hands is not RangedWeaponHands.ONE_HANDED
             or state.current_resilience != definition.resilience

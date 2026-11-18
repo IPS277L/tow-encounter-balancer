@@ -1,4 +1,6 @@
 """Automatic Charge/Run use one actual slot and the shared Attack owner."""
+from tests.support.generated_weapon_sources import initial_generated_weapons
+from tests.support.armour_fixtures import light_loadout
 from dataclasses import replace
 import unittest
 
@@ -25,7 +27,7 @@ class Misses:
 
 def scene(distance=RangedWeaponRange.MEDIUM):
     source=automatic_source(pc_count=1,rounds=1)
-    npc=GeneratedNpc(3,3,4,3,4,4,GeneratedWeapon.STAFF,False,defence=4,shield=False)
+    npc=GeneratedNpc(3,3,4,3,4,4,initial_generated_weapons(GeneratedWeapon.STAFF),light_loadout(light=False, shield=False),defence=4)
     return replace(source,enemies=(npc.participant('minion1'),),
         facts=replace(source.facts,all_opponents_close=False,can_leave_zone=True),
         battlefield=PcBattlefieldSpec(distance,RangedWeaponRange.LONG))
@@ -93,8 +95,8 @@ class NativeBattlefieldManoeuvreTests(unittest.TestCase):
 
     def test_generated_foot_spear_defence_receives_actual_charge_context(self):
         source=scene()
-        npc=GeneratedNpc(3,3,4,2,4,3,GeneratedWeapon.FOOT_SPEAR,False,
-            defence=5,shield=False,weapon_grip=RangedWeaponHands.TWO_HANDED)
+        npc=GeneratedNpc(3,3,4,2,4,3,initial_generated_weapons(GeneratedWeapon.FOOT_SPEAR, grip=RangedWeaponHands.TWO_HANDED),light_loadout(light=False, shield=False),
+            defence=5)
         result=self.execute(replace(source,enemies=(npc.participant('minion1'),)))
         attack=next(step.proof for step in result.steps if type(step.proof) is PcAttackProof
             and step.proof.request.actor_id=='pc1')

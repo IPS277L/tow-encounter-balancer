@@ -30,7 +30,7 @@ from towr.domain.fate_models import (
     FATE_GLORIOUS_RULE_ID, FateBurnKind, FateBurnRecord, FateRefreshRecord,
     FateSessionState, FateSpendKind, FateSpendRecord,
 )
-from towr.domain.pc_melee_models import PcMeleeWeapon
+from towr.domain.pc_melee_models import PcMeleeWeapon, PC_EXECUTABLE_WEAPONS
 from towr.simulation.pc_melee_models import PcMeleeOutcomeCounts, PcNearMissBurnCount, PcGloriousSpendCount, PcHelpActionCount, PcAllyRecoverActionCount
 from towr.simulation.pc_melee_summary_models import PcMeleeDefeatCount, PcMeleeSimulationSummary
 
@@ -134,7 +134,7 @@ class PcMeleeJsonTests(unittest.TestCase):
         weapons=('staff','sword','dagger','axe','warhammer','morning_star','foot_spear','polearm',
             'pickaxe','flail','billhook','halberd','glaive','greataxe','greatsword','greathammer',
             'pistol','repeater_handbow','repeater_pistol')
-        self.assertEqual(tuple(weapon.value for weapon in PcMeleeWeapon),weapons+('shortbow','warbow','longbow','crossbow','repeater_crossbow','handgun','repeater_handgun','sling','blunderbuss','hochland_long_rifle','weighted_net'))
+        self.assertEqual(tuple(weapon.value for weapon in PC_EXECUTABLE_WEAPONS),weapons+('shortbow','warbow','longbow','crossbow','repeater_crossbow','handgun','repeater_handgun','sling','blunderbuss','hochland_long_rifle','weighted_net'))
         for balance,variable_grip in ((balance,grip) for balance in (False,True)
                 for grip in ('left','right','both')):
             with self.subTest(balance=balance,variable_grip=variable_grip):
@@ -191,7 +191,8 @@ class PcMeleeJsonTests(unittest.TestCase):
 
     def test_weapon_input_rejects_unknown_case_aliases_and_nonstrings(self):
         for balance in (False,True):
-            for weapon in ('unknown_weapon','DAGGER','Morning Star','morning-star','',True,1,None,[],{}):
+            unfinished=tuple(weapon.value for weapon in PcMeleeWeapon if weapon not in PC_EXECUTABLE_WEAPONS)
+            for weapon in ('unknown_weapon','DAGGER','Morning Star','morning-star','',True,1,None,[],{})+unfinished:
                 with self.subTest(balance=balance,weapon=weapon):
                     raw=document(balance=balance)
                     key='template' if balance else 'scenario'

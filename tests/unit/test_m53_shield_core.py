@@ -18,6 +18,8 @@ from towr.domain.pc_melee_models import (
 from towr.domain.pc_melee_result_models import (
     PcBodyConsequenceProof, initial_pc_melee_state,
 )
+from towr.domain.pc_weapon_inventory import replace_pc_member
+from towr.domain.weapon_inventory_models import WeaponGrip
 from towr.domain.pc_shield_models import (
     PcShieldLocation as Location, PcShieldReleaseProof, PcShieldState,
     expected_pc_shield_release, initial_pc_shield, pc_defence_hand,
@@ -80,12 +82,12 @@ class M53ShieldCoreTests(unittest.TestCase):
             pc=replace(state.source.party[0].pc,armour_bonus=2)),))
         state = replace(state,source=source)
         self.assertEqual(pc_shield_resilience(state,'pc'),ResilienceProfile(3,3))
-        dropped = replace(state.party[0],shield=PcShieldState(Location.DROPPED,None))
+        dropped = replace_pc_member(state.party[0],shield=PcShieldState(Location.DROPPED,None))
         state = replace(state,party=(dropped,))
         self.assertEqual(pc_shield_resilience(state,'pc'),ResilienceProfile(3,2))
         bare = shield_state()
         self.assertTrue(pc_shield_resilience(bare,'pc').is_armoured)
-        bare = replace(bare,party=(replace(bare.party[0],shield=PcShieldState(Location.DROPPED,None)),))
+        bare = replace(bare,party=(replace_pc_member(bare.party[0],shield=PcShieldState(Location.DROPPED,None)),))
         self.assertFalse(pc_shield_resilience(bare,'pc').is_armoured)
 
     def test_defence_uses_actual_attack_skill_and_available_equipment(self):
@@ -93,9 +95,9 @@ class M53ShieldCoreTests(unittest.TestCase):
         self.assertIs(pc_defence_hand(member,Skill.MELEE),Hand.LEFT)
         self.assertIs(pc_defence_hand(member,Skill.THROWING),Hand.RIGHT)
         self.assertIsNone(pc_defence_hand(member,Skill.BRAWN))
-        unarmed = replace(member,weapon_hand=None)
+        unarmed = replace_pc_member(member,weapon_hand=None)
         self.assertIs(pc_defence_hand(unarmed,Skill.MELEE),Hand.RIGHT)
-        dropped = replace(member,shield=PcShieldState(Location.DROPPED,None))
+        dropped = replace_pc_member(member,shield=PcShieldState(Location.DROPPED,None))
         self.assertIs(pc_defence_hand(dropped,Skill.MELEE),Hand.LEFT)
         self.assertIsNone(pc_defence_hand(dropped,Skill.THROWING))
 
@@ -104,19 +106,21 @@ class M53ShieldCoreTests(unittest.TestCase):
         for total,kind in ((16,Body.UNUSABLE_ARM),(20,Body.LOST_ARM),(18,Body.CLUTCH_STOMACH)):
             blocked = replace(wounded(member,total),body_facts=(PcBodyFact(kind,1,Hand.RIGHT),))
             self.assertFalse(pc_has_working_shield(blocked))
-        self.assertFalse(pc_has_working_shield(replace(member,weapon_hand=Hand.RIGHT)))
-        self.assertFalse(pc_has_working_shield(replace(member,shield=PcShieldState(Location.UNAVAILABLE,Hand.RIGHT))))
+        colliding = deepcopy(member)
+        object.__setattr__(colliding.weapon_inventory.active,'grip',WeaponGrip.RIGHT)
+        self.assertFalse(pc_has_working_shield(colliding))
+        self.assertFalse(pc_has_working_shield(replace_pc_member(member,shield=PcShieldState(Location.UNAVAILABLE,Hand.RIGHT))))
 
     def test_recover_uses_free_healthy_hand_after_weapon_priority(self):
-        member = replace(shield_state().party[0],shield=PcShieldState(Location.DROPPED,None))
+        member = replace_pc_member(shield_state().party[0],shield=PcShieldState(Location.DROPPED,None))
         self.assertIs(pc_shield_recover_hand(member),Hand.RIGHT)
         self.assertTrue(pc_shield_recover_needed(member))
-        self.assertFalse(pc_shield_recover_needed(replace(member,weapon_hand=None)))
-        self.assertIsNone(pc_shield_recover_hand(replace(member,shield=PcShieldState(Location.UNAVAILABLE,Hand.RIGHT))))
-        self.assertIsNone(pc_shield_recover_hand(replace(member,shield=PcShieldState(Location.HELD,Hand.RIGHT))))
+        self.assertFalse(pc_shield_recover_needed(replace_pc_member(member,weapon_hand=None)))
+        self.assertIsNone(pc_shield_recover_hand(replace_pc_member(member,shield=PcShieldState(Location.UNAVAILABLE,Hand.RIGHT))))
+        self.assertIsNone(pc_shield_recover_hand(replace_pc_member(member,shield=PcShieldState(Location.HELD,Hand.RIGHT))))
 
     def test_recover_never_reuses_injured_unusable_lost_or_clutch_hand(self):
-        member = replace(shield_state().party[0],shield=PcShieldState(Location.DROPPED,None))
+        member = replace_pc_member(shield_state().party[0],shield=PcShieldState(Location.DROPPED,None))
         for total,kind in ((12,Body.INJURED_HAND),(16,Body.UNUSABLE_ARM),
                 (20,Body.LOST_ARM),(18,Body.CLUTCH_STOMACH)):
             blocked = wounded(member,total)
@@ -145,10 +149,10 @@ class M53ShieldCoreTests(unittest.TestCase):
                     self.assertEqual(changed.body_facts,(PcBodyFact(Body.INJURED_HAND,1,side),) if total==12 else ())
 
     def test_empty_selected_hand_does_not_drop_other_item(self):
-        member = replace(wounded(shield_state().party[0],8),weapon_hand=None)
+        member = replace_pc_member(wounded(shield_state().party[0],8),weapon_hand=None)
         changed = consequence(member,WoundConsequence.DROP_RANDOM_HAND_ITEM,Hand.LEFT)
         self.assertEqual(changed.shield,member.shield)
-        member = replace(member,weapon_hand=Hand.LEFT,shield=PcShieldState(Location.DROPPED,None))
+        member = replace_pc_member(member,weapon_hand=Hand.LEFT,shield=PcShieldState(Location.DROPPED,None))
         changed = consequence(member,WoundConsequence.DROP_RANDOM_HAND_ITEM,Hand.RIGHT)
         self.assertIs(changed.weapon_hand,Hand.LEFT)
 
@@ -166,7 +170,7 @@ class M53ShieldCoreTests(unittest.TestCase):
                 self.assertIs(changed.weapon_hand,None if total==20 and side is Hand.LEFT else Hand.LEFT)
 
     def test_lost_arm_does_not_move_already_dropped_shield_to_unavailable(self):
-        member = replace(wounded(shield_state().party[0],20),shield=PcShieldState(Location.DROPPED,None))
+        member = replace_pc_member(wounded(shield_state().party[0],20),shield=PcShieldState(Location.DROPPED,None))
         changed = consequence(member,WoundConsequence.RANDOMISE_SEVERED_ARM,Hand.RIGHT)
         self.assertEqual(changed.shield,member.shield)
 
@@ -180,7 +184,7 @@ class M53ShieldCoreTests(unittest.TestCase):
 
     def test_clutch_relocation_drops_colliding_shield_without_third_hand(self):
         member = wounded(shield_state().party[0],18,16)
-        member = replace(member,weapon_hand=None,body_facts=(
+        member = replace_pc_member(member,weapon_hand=None,body_facts=(
             PcBodyFact(Body.CLUTCH_STOMACH,1,Hand.LEFT),PcBodyFact(Body.UNUSABLE_ARM,2,Hand.LEFT)))
         changed = reconcile_clutch(member)
         self.assertEqual(changed.shield,PcShieldState(Location.DROPPED,None))
@@ -189,7 +193,7 @@ class M53ShieldCoreTests(unittest.TestCase):
 
     def test_clutch_relocation_without_any_arm_preserves_defenceless_consequence(self):
         member = wounded(shield_state().party[0],18,16,20)
-        member = replace(member,weapon_hand=None,shield=PcShieldState(Location.UNAVAILABLE,Hand.RIGHT),
+        member = replace_pc_member(member,weapon_hand=None,shield=PcShieldState(Location.UNAVAILABLE,Hand.RIGHT),
             body_facts=(PcBodyFact(Body.CLUTCH_STOMACH,1,Hand.LEFT),
                 PcBodyFact(Body.UNUSABLE_ARM,2,Hand.LEFT),PcBodyFact(Body.LOST_ARM,3,Hand.RIGHT)))
         changed = reconcile_clutch(member)
@@ -233,7 +237,7 @@ class M53ShieldCoreTests(unittest.TestCase):
         member = wounded(initial_pc_melee_state(make_pc_melee_scenario()).party[0],8)
         self.assertEqual(consequence(member,WoundConsequence.DROP_RANDOM_HAND_ITEM,Hand.RIGHT),member)
         self.assertEqual(consequence(member,WoundConsequence.DROP_RANDOM_HAND_ITEM,Hand.LEFT),
-            replace(member,weapon_hand=None))
+            replace_pc_member(member,weapon_hand=None))
 
 
 if __name__ == '__main__':

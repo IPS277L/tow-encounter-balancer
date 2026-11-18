@@ -1,4 +1,7 @@
 """Literal variable-grip sources and conditional generated equipment choices."""
+from tests.support.generated_weapon_sources import initial_generated_weapons
+from tests.support.armour_fixtures import light_loadout
+from towr.domain.armour_models import BodyArmour, ShieldKind
 from copy import deepcopy
 from dataclasses import replace
 import pickle
@@ -24,16 +27,18 @@ def component(weapon=GeneratedWeapon.FOOT_SPEAR, *, grip=ONE, **changes):
         melee=4, defence=4, athletics=3, weapon=weapon, light_armour=False,
         shield=False, weapon_grip=grip)
     facts.update(changes)
+    facts['armour'] = light_loadout(light=facts.pop('light_armour'), shield=facts.pop('shield'))
+    facts['weapons'] = initial_generated_weapons(facts.pop('weapon'), facts.pop('weapon_grip', None))
     return GeneratedNpc(**facts)
 
 
 def space(**changes):
     facts = dict(weapon_skill=(3,), strength=(3,), toughness=(4,), agility=(2,),
         melee=(4,), defence=(4,), athletics=(3,),
-        weapon=(GeneratedWeapon.FOOT_SPEAR,), light_armour=(False,),
-        shield=(False,), abilities=((),), allowed_talents=(), weapon_grip=(ONE,TWO))
+        weapon=(GeneratedWeapon.FOOT_SPEAR,), armour=(None,),
+        shield=(None,), abilities=((),), allowed_talents=(), weapon_grip=(ONE,TWO))
     facts.update(changes)
-    return NpcSearchSpace(**facts)
+    return NpcSearchSpace(weapon_count=(1,), **facts)
 
 
 class FirstChoice:
@@ -43,6 +48,15 @@ class FirstChoice:
     def choice(self, values):
         self.choices.append(tuple(values))
         return values[0]
+
+
+class ChooseWeapon:
+    """Select a named legal mutation instead of depending on candidate order."""
+    def __init__(self,weapon):
+        self.weapon=weapon
+
+    def choice(self,values):
+        return next(candidate for candidate in values if candidate.weapon is self.weapon)
 
 
 class NoChoice:
@@ -64,7 +78,8 @@ class GeneratedVariableGripSourceTests(unittest.TestCase):
                     with self.subTest(weapon=weapon,grip=grip,strength=strength,ws=ws):
                         npc = component(weapon,grip=grip,strength=strength,weapon_skill=ws)
                         definition = npc.participant('not-a-catalogue-entry').definition
-                        attack, = definition.attacks
+                        attack = next(attack for attack in definition.attacks
+                            if attack.id.endswith(':'+npc.weapons[0].initial_grip.value))
                         self.assertIs(attack.skill,Skill.MELEE)
                         self.assertIs(attack.hands,grip)
                         self.assertEqual(attack.damage.base,damage)
@@ -105,9 +120,9 @@ class GeneratedVariableGripSourceTests(unittest.TestCase):
     def test_full_definition_readmission_binds_grip_to_derived_profile(self):
         for changed in ('grip','hands','damage','range','cap'):
             definition = deepcopy(component().participant('literal-source').definition)
-            attack, = definition.attacks
+            attack = definition.attacks[0]
             if changed == 'grip':
-                object.__setattr__(definition.generated_components,'weapon_grip',TWO)
+                object.__setattr__(definition.generated_components.weapons[0],'initial_grip',None)
             elif changed == 'hands':
                 object.__setattr__(attack,'hands',TWO)
             elif changed == 'damage':
@@ -135,15 +150,16 @@ class GeneratedVariableGripSpaceTests(unittest.TestCase):
                 space(weapon_grip=grips)
 
     def test_unreachable_grip_and_shield_choices_are_rejected_before_rng(self):
-        for grips,shields in (((ONE,TWO),(True,)),((TWO,),(True,)),((TWO,),(False,True))):
+        for grips,shields in (((ONE,TWO),(ShieldKind.SHIELD,)),
+                ((TWO,),(ShieldKind.SHIELD,)),((TWO,),(None,ShieldKind.SHIELD))):
             with self.subTest(grips=grips,shields=shields),self.assertRaises(ValueError):
                 space(weapon_grip=grips,shield=shields)
-        one_handed = space(weapon_grip=(ONE,),shield=(True,))
+        one_handed = space(weapon_grip=(ONE,),shield=(ShieldKind.SHIELD,))
         self.assertTrue(one_handed.contains(component(grip=ONE,shield=True)))
         self.assertFalse(one_handed.contains(component(grip=TWO)))
 
     def test_fixed_weapons_ignore_the_conditional_axis_without_spending_rng(self):
-        first = space(weapon=(GeneratedWeapon.SWORD,),weapon_grip=(ONE,),shield=(True,))
+        first = space(weapon=(GeneratedWeapon.SWORD,),weapon_grip=(ONE,),shield=(ShieldKind.SHIELD,))
         second = replace(first,weapon_grip=(TWO,))
         first_rng,second_rng = FirstChoice(),FirstChoice()
         a,b = first.sample(first_rng),second.sample(second_rng)
@@ -156,28 +172,28 @@ class GeneratedVariableGripSpaceTests(unittest.TestCase):
         self.assertTrue(fixed_two.contains(component(GeneratedWeapon.GREATAXE,grip=None)))
 
     def test_sampling_draws_a_compatible_branch_without_discarding_shield(self):
-        two_handed = space(weapon_grip=(TWO,ONE),shield=(False,True))
+        two_handed = space(weapon_grip=(TWO,ONE),shield=(None,ShieldKind.SHIELD))
         rng = FirstChoice()
         npc = two_handed.sample(rng)
         self.assertIs(npc.weapon_grip,TWO)
         self.assertFalse(npc.shield)
         self.assertNotIn((False,True),rng.choices)
-        one_handed = space(weapon_grip=(ONE,),shield=(True,False))
+        one_handed = space(weapon_grip=(ONE,),shield=(ShieldKind.SHIELD,None))
         npc = one_handed.sample(FirstChoice())
         self.assertIs(npc.weapon_grip,ONE)
         self.assertTrue(npc.shield)
 
     def test_weapon_mutation_supplies_or_removes_only_the_conditional_grip(self):
         pool = space(weapon=(GeneratedWeapon.SWORD,GeneratedWeapon.FOOT_SPEAR),
-            shield=(False,True))
+            shield=(None,ShieldKind.SHIELD))
         original = component(GeneratedWeapon.SWORD,grip=None,shield=True)
-        changed = pool.mutate(original,FirstChoice())
+        changed = pool.mutate(original,ChooseWeapon(GeneratedWeapon.FOOT_SPEAR))
         self.assertIs(changed.weapon,GeneratedWeapon.FOOT_SPEAR)
         self.assertIs(changed.weapon_grip,ONE)
         self.assertTrue(changed.shield)
         self.assertIsNone(original.weapon_grip)
         original = component(grip=TWO)
-        changed = pool.mutate(original,FirstChoice())
+        changed = pool.mutate(original,ChooseWeapon(GeneratedWeapon.SWORD))
         self.assertIs(changed.weapon,GeneratedWeapon.SWORD)
         self.assertIsNone(changed.weapon_grip)
         self.assertFalse(changed.shield)
@@ -187,11 +203,11 @@ class GeneratedVariableGripSpaceTests(unittest.TestCase):
         pool = space()
         original = component(grip=ONE)
         changed = pool.mutate(original,FirstChoice())
-        self.assertEqual(changed,replace(original,weapon_grip=TWO))
-        shielded_pool = space(shield=(False,True))
+        self.assertEqual(changed,replace(original,weapons=initial_generated_weapons(original.weapon,TWO)))
+        shielded_pool = space(shield=(None,ShieldKind.SHIELD))
         original = component(grip=ONE,shield=True)
         changed = shielded_pool.mutate(original,FirstChoice())
-        self.assertEqual(changed,replace(original,shield=False))
+        self.assertEqual(changed,replace(original,armour=replace(original.armour,shield=None)))
         self.assertIs(changed.weapon_grip,ONE)
         self.assertTrue(original.shield)
 
@@ -200,11 +216,11 @@ class GeneratedVariableGripSpaceTests(unittest.TestCase):
         shooter = pool.sample(FirstChoice())
         self.assertIsNone(shooter.weapon_grip)
         self.assertIsNotNone(shooter.ranged)
-        spear = pool.mutate(shooter,FirstChoice())
+        spear = pool.mutate(shooter,ChooseWeapon(GeneratedWeapon.FOOT_SPEAR))
         self.assertIs(spear.weapon,GeneratedWeapon.FOOT_SPEAR)
         self.assertIs(spear.weapon_grip,ONE)
         self.assertIsNone(spear.ranged)
-        changed = pool.mutate(spear,FirstChoice())
+        changed = pool.mutate(spear,ChooseWeapon(GeneratedWeapon.PISTOL))
         self.assertIs(changed.weapon,GeneratedWeapon.PISTOL)
         self.assertIsNone(changed.weapon_grip)
         self.assertIsNotNone(changed.ranged)
@@ -213,19 +229,20 @@ class GeneratedVariableGripSpaceTests(unittest.TestCase):
         pool = space(weapon_grip=(ONE,))
         self.assertFalse(pool.contains(component(grip=TWO)))
         forged = deepcopy(component(grip=ONE,shield=True))
-        object.__setattr__(forged,'weapon_grip',TWO)
+        from towr.domain.weapon_inventory_models import WeaponGrip
+        object.__setattr__(forged.weapons[0],'initial_grip',WeaponGrip.BOTH)
         self.assertFalse(pool.contains(forged))
         with self.assertRaises(ValueError):
             pool.mutate(forged,NoChoice())
 
     def test_numeric_resampling_preserves_actual_grip_and_inventory_facts(self):
-        pool = space(strength=(1,3,4),weapon_skill=(1,3,5),light_armour=(False,True))
+        pool = space(strength=(1,3,4),weapon_skill=(1,3,5),armour=(None,BodyArmour.LIGHT))
         for grip in (ONE,TWO):
             source = component(grip=grip,light_armour=True)
             saved = deepcopy(source)
             sampled, = pool.resample_numeric((source,),Random(18),bias=0.75).composition
             with self.subTest(grip=grip):
-                self.assertEqual((sampled.weapon,sampled.weapon_grip,sampled.light_armour,sampled.shield),
+                self.assertEqual((sampled.weapon,sampled.weapon_grip,(BodyArmour.LIGHT in sampled.armour.body),sampled.shield),
                     (source.weapon,grip,True,False))
                 self.assertEqual(source,saved)
                 self.assertTrue(pool.contains(sampled))

@@ -13,7 +13,13 @@
 
 ```json
 "ranged": {
-  "initially_loaded": true,
+  "initial_weapon": {
+    "id": "weapon",
+    "weapon": "pistol",
+    "location": "held",
+    "hand": "left",
+    "initially_loaded": true
+  },
   "has_blackpowder_lore": true,
   "has_blackpowder_kit": true,
   "ammunition_supply_confirmed": true,
@@ -21,7 +27,7 @@
 }
 ```
 
-Это явные условия сцены и выбранная тактика. У NPC одна рука держит Pistol, вторая свободна; нет shield/carried melee. Бой остаётся fixed Close без движения, кроме прежнего явного Broken exit. PC защищается Defence с рабочим shield, иначе Athletics. Defenceless не Opposes; Fate/Protection Help/Near Miss и последствия ран сохраняются. NPC Reload не является Recover/Help, входит в общее число действий; отдельного нового публичного counter нет.
+Для Ogre в `initial_weapon` указывается `weapon:"ogre_pistol"` и подтверждённое `gm_fit_confirmed:true`. Начальный заряд относится к предмету, а не `ranged` actor facts; все приведённые JSON-примеры обновлены. Это явные условия сцены и выбранная тактика. У этих canonical NPC одна рука держит Pistol, вторая свободна; нет shield/carried melee. Бой остаётся fixed Close без движения, кроме прежнего явного Broken exit. PC защищается Defence с рабочим shield, иначе Athletics. Defenceless не Opposes; Fate/Protection Help/Near Miss и последствия ран сохраняются. NPC Reload не является Recover/Help, входит в общее число действий; отдельного нового публичного counter нет.
 
 ```powershell
 $env:PYTHONPATH = 'src'

@@ -3,6 +3,8 @@
 Prepared clocks isolate the NPC action boundary. Shot and follow-up tests use
 real K1 executions; the full runner integration is checked by its owner tests.
 """
+from tests.support.generated_weapon_sources import initial_generated_weapons
+from tests.support.armour_fixtures import light_loadout
 from copy import deepcopy
 from dataclasses import fields, replace
 from types import SimpleNamespace
@@ -34,7 +36,7 @@ from towr.domain.pc_npc_aim_models import (
     project_npc_aim_step, validate_pc_npc_aim_history,
 )
 from towr.domain.pc_npc_ranged_models import (
-    complete_pc_npc_ranged_shot, updated_pc_npc_ranged_weapons,
+    complete_pc_npc_ranged_shot, npc_ranged_inventory_update,
 )
 from towr.domain.pc_npc_ranged_source_models import pc_npc_ranged_policy_for_generated
 from towr.domain.ranged_weapon_profiles import RangedWeaponRange as Range
@@ -63,10 +65,10 @@ def source(weapon=GeneratedWeapon.HOCHLAND_LONG_RIFLE, *, distance=Range.MEDIUM,
     scene = make_pc_melee_party_scenario(pc_count=party, enemy_count=1, max_rounds=4)
     blackpowder = weapon in (GeneratedWeapon.HANDGUN, GeneratedWeapon.BLUNDERBUSS,
         GeneratedWeapon.HOCHLAND_LONG_RIFLE, GeneratedWeapon.REPEATER_HANDGUN)
-    facts = GeneratedRangedFacts(1, 2, 2, 3, True, True,
+    facts = GeneratedRangedFacts(1, 2, 2, None if weapon in (GeneratedWeapon.SHORTBOW,GeneratedWeapon.WARBOW,GeneratedWeapon.LONGBOW) else 3, True,
         True if blackpowder else None, True if blackpowder else None, awareness=3)
-    npc = GeneratedNpc(1, 3, 20, 1, 2, 2, weapon, False,
-        defence=2, shield=False, ranged=facts)
+    npc = GeneratedNpc(1, 3, 20, 1, 2, 2, initial_generated_weapons(weapon), light_loadout(light=False, shield=False),
+        defence=2,  ranged=facts)
     return replace(scene, party=tuple(replace(member, policy=PcMeleePolicy.AUTOMATIC_COMBAT)
         for member in scene.party), enemies=(npc.participant('minion1'),),
         npc_ranged_policies=(pc_npc_ranged_policy_for_generated(npc, 'minion1'),),
@@ -217,7 +219,7 @@ class PcNpcAimTests(unittest.TestCase):
         shot = complete_pc_npc_ranged_shot(state, request, request, execution)
         proof = PcAttackProof(request, protection, execution, None, npc_ranged_shot=shot)
         after = replace(state, round_state=execution.state,
-            history=(*state.history, proof), npc_ranged_weapons=updated_pc_npc_ranged_weapons(
+            history=(*state.history, proof), enemies=npc_ranged_inventory_update(
                 state, 'minion1', shot.execution.weapon_state))
         pending = expected_npc_aim_consumption(after)
         self.assertIs(type(pending), PcNpcAimConsumptionProof)

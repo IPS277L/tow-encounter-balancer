@@ -129,6 +129,9 @@
         },
         "armoured": {
           "type": "boolean"
+        },
+        "mundane_armour_ward": {
+          "type": "boolean"
         }
       },
       "required": [
@@ -331,6 +334,23 @@
             },
             "alternate_protection": {
               "$ref": "#/$defs/protection"
+            },
+            "attacks": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "oneOf": [
+                  {
+                    "$ref": "urn:towr:pc-melee:common:1#/$defs/attack"
+                  },
+                  {
+                    "$ref": "urn:towr:pc-melee:common:1#/$defs/npc_ranged_attack"
+                  },
+                  {
+                    "$ref": "#/$defs/generated_net_attack"
+                  }
+                ]
+              }
             }
           },
           "required": [
@@ -339,7 +359,6 @@
             "injury_policy",
             "wound_limit",
             "resilience",
-            "attack",
             "protection"
           ],
           "additionalProperties": false,
@@ -354,7 +373,10 @@
                       }
                     }
                   }
-                }
+                },
+                "required": [
+                  "attack"
+                ]
               },
               "then": {
                 "properties": {
@@ -501,70 +523,6 @@
             },
             {
               "if": {
-                "anyOf": [
-                  {
-                    "properties": {
-                      "id": {
-                        "enum": [
-                          "pc-book-npc:empire_official_pistol",
-                          "pc-book-npc:imperial_ogre_pistol"
-                        ]
-                      }
-                    }
-                  },
-                  {
-                    "required": [
-                      "generated_components"
-                    ],
-                    "properties": {
-                      "generated_components": {
-                        "properties": {
-                          "weapon": {
-                            "enum": [
-                              "pistol",
-                              "repeater_pistol",
-                              "repeater_handbow",
-                              "shortbow",
-                              "warbow",
-                              "longbow",
-                              "crossbow",
-                              "handgun",
-                              "blunderbuss",
-                              "hochland_long_rifle",
-                              "repeater_crossbow",
-                              "repeater_handgun"
-                            ]
-                          }
-                        }
-                      }
-                    }
-                  }
-                ]
-              },
-              "then": {
-                "properties": {
-                  "attack": {
-                    "$ref": "urn:towr:pc-melee:common:1#/$defs/npc_ranged_attack"
-                  }
-                }
-              },
-              "else": {
-                "properties": {
-                  "attack": {
-                    "oneOf": [
-                      {
-                        "$ref": "#/$defs/attack"
-                      },
-                      {
-                        "$ref": "#/$defs/generated_net_attack"
-                      }
-                    ]
-                  }
-                }
-              }
-            },
-            {
-              "if": {
                 "required": [
                   "generated_components"
                 ]
@@ -599,6 +557,68 @@
                     "alternate_protection"
                   ]
                 }
+              }
+            },
+            {
+              "if": {
+                "required": [
+                  "generated_components"
+                ]
+              },
+              "then": {
+                "required": [
+                  "attacks"
+                ],
+                "not": {
+                  "required": [
+                    "attack"
+                  ]
+                }
+              },
+              "else": {
+                "required": [
+                  "attack"
+                ],
+                "not": {
+                  "required": [
+                    "attacks"
+                  ]
+                },
+                "allOf": [
+                  {
+                    "if": {
+                      "properties": {
+                        "id": {
+                          "enum": [
+                            "pc-book-npc:empire_official_pistol",
+                            "pc-book-npc:imperial_ogre_pistol"
+                          ]
+                        }
+                      }
+                    },
+                    "then": {
+                      "properties": {
+                        "attack": {
+                          "$ref": "#/$defs/npc_ranged_attack"
+                        }
+                      }
+                    },
+                    "else": {
+                      "properties": {
+                        "attack": {
+                          "oneOf": [
+                            {
+                              "$ref": "#/$defs/attack"
+                            },
+                            {
+                              "$ref": "#/$defs/generated_net_attack"
+                            }
+                          ]
+                        }
+                      }
+                    }
+                  }
+                ]
               }
             }
           ]
@@ -646,30 +666,71 @@
           "if": {
             "properties": {
               "definition": {
-                "properties": {
-                  "attack": {
+                "anyOf": [
+                  {
                     "required": [
-                      "skill"
+                      "generated_components"
                     ],
                     "properties": {
-                      "skill": {
-                        "const": "shooting"
+                      "generated_components": {
+                        "required": [
+                          "weapons"
+                        ],
+                        "properties": {
+                          "weapons": {
+                            "contains": {
+                              "required": [
+                                "weapon"
+                              ],
+                              "properties": {
+                                "weapon": {
+                                  "enum": [
+                                    "pistol",
+                                    "repeater_pistol",
+                                    "repeater_handbow",
+                                    "shortbow",
+                                    "warbow",
+                                    "longbow",
+                                    "crossbow",
+                                    "handgun",
+                                    "blunderbuss",
+                                    "hochland_long_rifle",
+                                    "repeater_crossbow",
+                                    "repeater_handgun"
+                                  ]
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "required": [
+                      "attack"
+                    ],
+                    "properties": {
+                      "attack": {
+                        "required": [
+                          "skill"
+                        ],
+                        "properties": {
+                          "skill": {
+                            "const": "shooting"
+                          }
+                        }
                       }
                     }
                   }
-                }
+                ]
               }
             }
           },
           "then": {
             "required": [
               "ranged"
-            ],
-            "properties": {
-              "holds_shield": {
-                "const": false
-              }
-            }
+            ]
           },
           "else": {
             "not": {
@@ -685,36 +746,17 @@
               "definition": {
                 "required": [
                   "generated_components"
-                ],
-                "properties": {
-                  "generated_components": {
-                    "properties": {
-                      "weapon": {
-                        "enum": [
-                          "repeater_handbow",
-                          "shortbow",
-                          "warbow",
-                          "longbow",
-                          "crossbow",
-                          "repeater_crossbow"
-                        ]
-                      }
-                    }
-                  }
-                }
+                ]
               }
             }
           },
           "then": {
             "properties": {
               "ranged": {
-                "properties": {
-                  "has_blackpowder_lore": {
-                    "type": "null"
-                  },
-                  "has_blackpowder_kit": {
-                    "type": "null"
-                  }
+                "not": {
+                  "required": [
+                    "initial_weapon"
+                  ]
                 }
               }
             }
@@ -722,12 +764,18 @@
           "else": {
             "properties": {
               "ranged": {
+                "required": [
+                  "initial_weapon"
+                ],
                 "properties": {
                   "has_blackpowder_lore": {
                     "const": true
                   },
                   "has_blackpowder_kit": {
                     "const": true
+                  },
+                  "reload_hand_policy": {
+                    "const": "two_available_hands"
                   }
                 }
               }
@@ -848,217 +896,6 @@
         "armour_bonus"
       ],
       "additionalProperties": false,
-      "if": {
-        "properties": {
-          "weapon": {
-            "enum": [
-              "pistol",
-              "repeater_handbow",
-              "repeater_pistol",
-              "shortbow",
-              "warbow",
-              "longbow",
-              "crossbow",
-              "repeater_crossbow",
-              "handgun",
-              "repeater_handgun",
-              "sling",
-              "blunderbuss",
-              "hochland_long_rifle"
-            ]
-          }
-        }
-      },
-      "then": {
-        "required": [
-          "ranged"
-        ]
-      },
-      "else": {
-        "not": {
-          "required": [
-            "ranged"
-          ]
-        }
-      },
-      "allOf": [
-        {
-          "if": {
-            "properties": {
-              "weapon": {
-                "enum": [
-                  "pistol",
-                  "repeater_pistol",
-                  "handgun",
-                  "repeater_handgun",
-                  "blunderbuss",
-                  "hochland_long_rifle"
-                ]
-              }
-            }
-          },
-          "then": {
-            "properties": {
-              "ranged": {
-                "required": [
-                  "has_blackpowder_lore",
-                  "has_blackpowder_kit"
-                ]
-              }
-            }
-          },
-          "else": {
-            "properties": {
-              "ranged": {
-                "not": {
-                  "anyOf": [
-                    {
-                      "required": [
-                        "has_blackpowder_lore"
-                      ]
-                    },
-                    {
-                      "required": [
-                        "has_blackpowder_kit"
-                      ]
-                    }
-                  ]
-                }
-              }
-            }
-          }
-        },
-        {
-          "if": {
-            "properties": {
-              "weapon": {
-                "enum": [
-                  "repeater_handbow",
-                  "repeater_pistol",
-                  "repeater_crossbow",
-                  "repeater_handgun"
-                ]
-              }
-            }
-          },
-          "then": {
-            "properties": {
-              "ranged": {
-                "required": [
-                  "repeater_bonus_policy"
-                ]
-              }
-            }
-          },
-          "else": {
-            "properties": {
-              "ranged": {
-                "not": {
-                  "anyOf": [
-                    {
-                      "required": [
-                        "repeater_bonus_policy"
-                      ]
-                    }
-                  ]
-                }
-              }
-            }
-          }
-        },
-        {
-          "if": {
-            "properties": {
-              "weapon": {
-                "enum": [
-                  "shortbow",
-                  "warbow",
-                  "longbow",
-                  "sling"
-                ]
-              }
-            }
-          },
-          "then": {
-            "properties": {
-              "ranged": {
-                "not": {
-                  "anyOf": [
-                    {
-                      "required": [
-                        "dexterity"
-                      ]
-                    },
-                    {
-                      "required": [
-                        "initially_loaded"
-                      ]
-                    },
-                    {
-                      "required": [
-                        "reload_hand_policy"
-                      ]
-                    }
-                  ]
-                },
-                "dependentRequired": {
-                  "awareness": [
-                    "initiative"
-                  ],
-                  "initiative": [
-                    "awareness"
-                  ]
-                }
-              }
-            }
-          },
-          "else": {
-            "properties": {
-              "ranged": {
-                "required": [
-                  "initiative",
-                  "dexterity",
-                  "initially_loaded",
-                  "reload_hand_policy"
-                ]
-              }
-            }
-          }
-        },
-        {
-          "if": {
-            "properties": {
-              "weapon": {
-                "const": "hochland_long_rifle"
-              }
-            }
-          },
-          "then": {
-            "properties": {
-              "ranged": {
-                "required": [
-                  "awareness"
-                ]
-              }
-            }
-          }
-        },
-        {
-          "if": {
-            "properties": {
-              "weapon": {
-                "const": "weighted_net"
-              }
-            }
-          },
-          "then": {
-            "required": [
-              "throwing",
-              "ballistic_skill"
-            ]
-          }
-        }
-      ],
       "dependentRequired": {
         "throwing": [
           "ballistic_skill"
@@ -1095,10 +932,6 @@
           "const": true
         },
         "ammunition_supply_confirmed": {
-          "type": "boolean",
-          "const": true
-        },
-        "initially_loaded": {
           "type": "boolean",
           "const": true
         },
@@ -2636,13 +2469,34 @@
           "items": {
             "$ref": "urn:towr:pc-melee:common:1#/$defs/combat_weapon_item"
           },
-          "minItems": 1,
-          "maxItems": 2
+          "minItems": 1
         },
         "mount": {
           "enum": [
-            "horse"
+            "horse",
+            "bretonnian_warhorse",
+            "elven_steed",
+            "skeletal_steed",
+            "demigryph",
+            "pegasus"
           ]
+        },
+        "rider_kind": {
+          "enum": [
+            null,
+            "human",
+            "elf",
+            "other"
+          ]
+        },
+        "agilulf_code_confirmed": {
+          "enum": [
+            null,
+            true
+          ]
+        },
+        "armour": {
+          "$ref": "urn:towr:pc-melee:common:1#/$defs/armour_loadout"
         }
       },
       "required": [
@@ -3028,11 +2882,19 @@
             ]
           },
           "then": {
+            "required": [
+              "combat_equipment"
+            ],
             "properties": {
-              "pc": {
-                "properties": {
-                  "weapon": {
-                    "const": "hochland_long_rifle"
+              "combat_equipment": {
+                "contains": {
+                  "required": [
+                    "weapon"
+                  ],
+                  "properties": {
+                    "weapon": {
+                      "const": "hochland_long_rifle"
+                    }
                   }
                 }
               }
@@ -3135,25 +2997,23 @@
         {
           "if": {
             "properties": {
-              "policy": {
-                "const": "automatic_combat"
-              },
               "pc": {
                 "properties": {
                   "weapon": {
                     "enum": [
                       "pistol",
-                      "repeater_pistol",
                       "repeater_handbow",
+                      "repeater_pistol",
                       "shortbow",
                       "warbow",
                       "longbow",
                       "crossbow",
-                      "handgun",
-                      "blunderbuss",
-                      "hochland_long_rifle",
                       "repeater_crossbow",
-                      "repeater_handgun"
+                      "handgun",
+                      "repeater_handgun",
+                      "sling",
+                      "blunderbuss",
+                      "hochland_long_rifle"
                     ]
                   }
                 }
@@ -3168,21 +3028,39 @@
         },
         {
           "if": {
-            "properties": {
-              "policy": {
-                "const": "automatic_combat"
-              },
-              "pc": {
+            "allOf": [
+              {
+                "required": [
+                  "combat_equipment"
+                ],
                 "properties": {
-                  "weapon": {
-                    "enum": [
-                      "repeater_pistol",
-                      "repeater_handbow"
-                    ]
+                  "combat_equipment": {
+                    "contains": {
+                      "required": [
+                        "weapon"
+                      ],
+                      "properties": {
+                        "weapon": {
+                          "enum": [
+                            "repeater_handbow",
+                            "repeater_pistol",
+                            "repeater_crossbow",
+                            "repeater_handgun"
+                          ]
+                        }
+                      }
+                    }
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "policy": {
+                    "const": "automatic_combat"
                   }
                 }
               }
-            }
+            ]
           },
           "then": {
             "properties": {
@@ -3226,6 +3104,471 @@
             "properties": {
               "policy": {
                 "const": "automatic_combat"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "mount"
+            ],
+            "properties": {
+              "mount": {
+                "const": "demigryph"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "rider_kind"
+            ],
+            "properties": {
+              "rider_kind": {
+                "enum": [
+                  "human"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "mount"
+            ],
+            "properties": {
+              "mount": {
+                "const": "pegasus"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "rider_kind"
+            ],
+            "properties": {
+              "rider_kind": {
+                "enum": [
+                  "human",
+                  "elf"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "not": {
+              "required": [
+                "mount"
+              ],
+              "properties": {
+                "mount": {
+                  "enum": [
+                    "demigryph",
+                    "pegasus"
+                  ]
+                }
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "rider_kind": {
+                "type": "null"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "armour"
+            ],
+            "properties": {
+              "armour": {
+                "properties": {
+                  "barding": {
+                    "const": true
+                  }
+                }
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "mount"
+            ],
+            "properties": {
+              "mount": {
+                "enum": [
+                  "horse",
+                  "bretonnian_warhorse",
+                  "elven_steed",
+                  "skeletal_steed",
+                  "demigryph",
+                  "pegasus"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "armour"
+            ],
+            "properties": {
+              "armour": {
+                "properties": {
+                  "body": {
+                    "contains": {
+                      "const": "armour_of_agilulf"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "agilulf_code_confirmed"
+            ],
+            "properties": {
+              "agilulf_code_confirmed": {
+                "const": true
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "agilulf_code_confirmed": {
+                "type": "null"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "combat_equipment"
+            ],
+            "properties": {
+              "combat_equipment": {
+                "contains": {
+                  "required": [
+                    "weapon"
+                  ],
+                  "properties": {
+                    "weapon": {
+                      "enum": [
+                        "pistol",
+                        "repeater_handbow",
+                        "repeater_pistol",
+                        "shortbow",
+                        "warbow",
+                        "longbow",
+                        "crossbow",
+                        "repeater_crossbow",
+                        "handgun",
+                        "repeater_handgun",
+                        "sling",
+                        "blunderbuss",
+                        "hochland_long_rifle"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "pc": {
+                "required": [
+                  "ranged"
+                ]
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "pc": {
+                "not": {
+                  "required": [
+                    "ranged"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "combat_equipment"
+            ],
+            "properties": {
+              "combat_equipment": {
+                "contains": {
+                  "required": [
+                    "weapon"
+                  ],
+                  "properties": {
+                    "weapon": {
+                      "enum": [
+                        "pistol",
+                        "repeater_handbow",
+                        "repeater_pistol",
+                        "crossbow",
+                        "repeater_crossbow",
+                        "handgun",
+                        "repeater_handgun",
+                        "blunderbuss",
+                        "hochland_long_rifle"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "pc": {
+                "properties": {
+                  "ranged": {
+                    "required": [
+                      "initiative",
+                      "dexterity",
+                      "reload_hand_policy"
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "pc": {
+                "properties": {
+                  "ranged": {
+                    "not": {
+                      "anyOf": [
+                        {
+                          "required": [
+                            "dexterity"
+                          ]
+                        },
+                        {
+                          "required": [
+                            "reload_hand_policy"
+                          ]
+                        }
+                      ]
+                    },
+                    "dependentRequired": {
+                      "initiative": [
+                        "awareness"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "combat_equipment"
+            ],
+            "properties": {
+              "combat_equipment": {
+                "contains": {
+                  "required": [
+                    "weapon"
+                  ],
+                  "properties": {
+                    "weapon": {
+                      "enum": [
+                        "pistol",
+                        "repeater_pistol",
+                        "handgun",
+                        "repeater_handgun",
+                        "blunderbuss",
+                        "hochland_long_rifle"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "pc": {
+                "properties": {
+                  "ranged": {
+                    "required": [
+                      "has_blackpowder_lore",
+                      "has_blackpowder_kit"
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "pc": {
+                "properties": {
+                  "ranged": {
+                    "not": {
+                      "anyOf": [
+                        {
+                          "required": [
+                            "has_blackpowder_lore"
+                          ]
+                        },
+                        {
+                          "required": [
+                            "has_blackpowder_kit"
+                          ]
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "combat_equipment"
+            ],
+            "properties": {
+              "combat_equipment": {
+                "contains": {
+                  "required": [
+                    "weapon"
+                  ],
+                  "properties": {
+                    "weapon": {
+                      "enum": [
+                        "repeater_handbow",
+                        "repeater_pistol",
+                        "repeater_crossbow",
+                        "repeater_handgun"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "pc": {
+                "properties": {
+                  "ranged": {
+                    "required": [
+                      "repeater_bonus_policy"
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "pc": {
+                "properties": {
+                  "ranged": {
+                    "not": {
+                      "anyOf": [
+                        {
+                          "required": [
+                            "repeater_bonus_policy"
+                          ]
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "combat_equipment"
+            ],
+            "properties": {
+              "combat_equipment": {
+                "contains": {
+                  "required": [
+                    "weapon"
+                  ],
+                  "properties": {
+                    "weapon": {
+                      "enum": [
+                        "hochland_long_rifle"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "pc": {
+                "properties": {
+                  "ranged": {
+                    "required": [
+                      "initiative",
+                      "awareness"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "combat_equipment"
+            ],
+            "properties": {
+              "combat_equipment": {
+                "contains": {
+                  "required": [
+                    "weapon"
+                  ],
+                  "properties": {
+                    "weapon": {
+                      "enum": [
+                        "weighted_net"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "pc": {
+                "required": [
+                  "throwing",
+                  "ballistic_skill"
+                ]
               }
             }
           }
@@ -3856,9 +4199,6 @@
     "npc_ranged_source": {
       "type": "object",
       "properties": {
-        "initially_loaded": {
-          "const": true
-        },
         "has_blackpowder_lore": {
           "enum": [
             true,
@@ -3875,11 +4215,16 @@
           "const": true
         },
         "reload_hand_policy": {
-          "const": "two_available_hands"
+          "enum": [
+            null,
+            "two_available_hands"
+          ]
+        },
+        "initial_weapon": {
+          "$ref": "#/$defs/canonical_ranged_weapon_item"
         }
       },
       "required": [
-        "initially_loaded",
         "has_blackpowder_lore",
         "has_blackpowder_kit",
         "ammunition_supply_confirmed",
@@ -4244,42 +4589,6 @@
           "minimum": 2,
           "maximum": 6
         },
-        "weapon": {
-          "enum": [
-            "staff",
-            "dagger",
-            "foot_spear",
-            "polearm",
-            "axe",
-            "sword",
-            "warhammer",
-            "morning_star",
-            "pickaxe",
-            "flail",
-            "billhook",
-            "halberd",
-            "glaive",
-            "greataxe",
-            "greatsword",
-            "greathammer",
-            "pistol",
-            "repeater_pistol",
-            "repeater_handbow",
-            "shortbow",
-            "warbow",
-            "longbow",
-            "crossbow",
-            "handgun",
-            "blunderbuss",
-            "hochland_long_rifle",
-            "repeater_crossbow",
-            "repeater_handgun",
-            "weighted_net"
-          ]
-        },
-        "light_armour": {
-          "type": "boolean"
-        },
         "abilities": {
           "type": "array",
           "items": {
@@ -4293,9 +4602,6 @@
           "type": "integer",
           "minimum": 2,
           "maximum": 6
-        },
-        "shield": {
-          "type": "boolean"
         },
         "talents": {
           "type": "array",
@@ -4314,17 +4620,15 @@
             }
           ]
         },
-        "weapon_grip": {
-          "enum": [
-            null,
-            "1h",
-            "2h"
-          ]
-        },
         "mount": {
           "enum": [
             null,
-            "horse"
+            "horse",
+            "bretonnian_warhorse",
+            "elven_steed",
+            "skeletal_steed",
+            "demigryph",
+            "pegasus"
           ]
         },
         "throwing": {
@@ -4349,6 +4653,37 @@
             "null"
           ],
           "minimum": 1
+        },
+        "rider_kind": {
+          "enum": [
+            null,
+            "human",
+            "elf",
+            "other"
+          ]
+        },
+        "agilulf_code_confirmed": {
+          "enum": [
+            null,
+            true
+          ]
+        },
+        "armour": {
+          "$ref": "urn:towr:pc-melee:common:1#/$defs/armour_loadout"
+        },
+        "weapons": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/generated_weapon_item"
+          },
+          "contains": {
+            "properties": {
+              "location": {
+                "const": "held"
+              }
+            }
+          }
         }
       },
       "required": [
@@ -4358,17 +4693,17 @@
         "agility",
         "melee",
         "athletics",
-        "weapon",
-        "light_armour",
         "abilities",
         "defence",
-        "shield",
         "talents",
-        "weapon_grip",
         "mount",
         "throwing",
         "brawn",
-        "ballistic_skill"
+        "ballistic_skill",
+        "armour",
+        "rider_kind",
+        "agilulf_code_confirmed",
+        "weapons"
       ],
       "additionalProperties": false,
       "allOf": [
@@ -4416,22 +4751,140 @@
         },
         {
           "if": {
+            "required": [
+              "mount"
+            ],
             "properties": {
-              "weapon": {
+              "mount": {
+                "const": "demigryph"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "rider_kind"
+            ],
+            "properties": {
+              "rider_kind": {
                 "enum": [
-                  "pistol",
-                  "repeater_pistol",
-                  "repeater_handbow",
-                  "shortbow",
-                  "warbow",
-                  "longbow",
-                  "crossbow",
-                  "handgun",
-                  "blunderbuss",
-                  "hochland_long_rifle",
-                  "repeater_crossbow",
-                  "repeater_handgun"
+                  "human"
                 ]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "mount"
+            ],
+            "properties": {
+              "mount": {
+                "const": "pegasus"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "rider_kind"
+            ],
+            "properties": {
+              "rider_kind": {
+                "enum": [
+                  "human",
+                  "elf"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "not": {
+              "required": [
+                "mount"
+              ],
+              "properties": {
+                "mount": {
+                  "enum": [
+                    "demigryph",
+                    "pegasus"
+                  ]
+                }
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "rider_kind": {
+                "type": "null"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "armour"
+            ],
+            "properties": {
+              "armour": {
+                "properties": {
+                  "barding": {
+                    "const": true
+                  }
+                }
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "mount"
+            ],
+            "properties": {
+              "mount": {
+                "enum": [
+                  "horse",
+                  "bretonnian_warhorse",
+                  "elven_steed",
+                  "skeletal_steed",
+                  "demigryph",
+                  "pegasus"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "weapons"
+            ],
+            "properties": {
+              "weapons": {
+                "contains": {
+                  "required": [
+                    "weapon"
+                  ],
+                  "properties": {
+                    "weapon": {
+                      "enum": [
+                        "pistol",
+                        "repeater_pistol",
+                        "repeater_handbow",
+                        "shortbow",
+                        "warbow",
+                        "longbow",
+                        "crossbow",
+                        "handgun",
+                        "blunderbuss",
+                        "hochland_long_rifle",
+                        "repeater_crossbow",
+                        "repeater_handgun"
+                      ]
+                    }
+                  }
+                }
               }
             }
           },
@@ -4442,9 +4895,6 @@
             "properties": {
               "ranged": {
                 "$ref": "#/$defs/generated_ranged_facts"
-              },
-              "shield": {
-                "const": false
               }
             }
           },
@@ -4458,144 +4908,293 @@
         },
         {
           "if": {
-            "properties": {
-              "weapon": {
-                "enum": [
-                  "pistol",
-                  "repeater_pistol",
-                  "repeater_handbow",
-                  "shortbow",
-                  "warbow",
-                  "longbow",
-                  "crossbow",
-                  "handgun",
-                  "blunderbuss",
-                  "hochland_long_rifle",
-                  "repeater_crossbow",
-                  "repeater_handgun"
-                ]
-              }
-            }
-          },
-          "then": {
-            "if": {
-              "properties": {
-                "weapon": {
-                  "enum": [
-                    "repeater_handbow",
-                    "shortbow",
-                    "warbow",
-                    "longbow",
-                    "crossbow",
-                    "repeater_crossbow"
-                  ]
-                }
-              }
-            },
-            "then": {
-              "properties": {
-                "ranged": {
-                  "properties": {
-                    "has_blackpowder_lore": {
-                      "type": "null"
-                    },
-                    "has_blackpowder_kit": {
-                      "type": "null"
-                    }
-                  }
-                }
-              }
-            },
-            "else": {
-              "properties": {
-                "ranged": {
-                  "properties": {
-                    "has_blackpowder_lore": {
-                      "const": true
-                    },
-                    "has_blackpowder_kit": {
-                      "const": true
-                    }
-                  }
-                }
-              }
-            }
-          }
-        },
-        {
-          "if": {
-            "properties": {
-              "weapon": {
-                "enum": [
-                  "pickaxe",
-                  "flail",
-                  "billhook",
-                  "halberd",
-                  "glaive",
-                  "greataxe",
-                  "greatsword",
-                  "greathammer",
-                  "weighted_net"
-                ]
-              }
-            },
             "required": [
-              "weapon"
-            ]
-          },
-          "then": {
+              "weapons"
+            ],
             "properties": {
-              "shield": {
-                "const": false
-              }
-            }
-          }
-        },
-        {
-          "if": {
-            "properties": {
-              "weapon": {
-                "enum": [
-                  "foot_spear",
-                  "polearm"
-                ]
-              }
-            },
-            "required": [
-              "weapon"
-            ]
-          },
-          "then": {
-            "properties": {
-              "weapon_grip": {
-                "enum": [
-                  "1h",
-                  "2h"
-                ]
-              }
-            },
-            "allOf": [
-              {
-                "if": {
+              "weapons": {
+                "contains": {
+                  "required": [
+                    "weapon"
+                  ],
                   "properties": {
-                    "shield": {
-                      "const": true
-                    }
-                  }
-                },
-                "then": {
-                  "properties": {
-                    "weapon_grip": {
-                      "const": "1h"
+                    "weapon": {
+                      "enum": [
+                        "pistol",
+                        "repeater_pistol",
+                        "handgun",
+                        "repeater_handgun",
+                        "blunderbuss",
+                        "hochland_long_rifle"
+                      ]
                     }
                   }
                 }
               }
-            ]
+            }
+          },
+          "then": {
+            "properties": {
+              "ranged": {
+                "properties": {
+                  "has_blackpowder_lore": {
+                    "const": true
+                  },
+                  "has_blackpowder_kit": {
+                    "const": true
+                  }
+                }
+              }
+            }
           },
           "else": {
             "properties": {
-              "weapon_grip": {
+              "ranged": {
+                "properties": {
+                  "has_blackpowder_lore": {
+                    "type": "null"
+                  },
+                  "has_blackpowder_kit": {
+                    "type": "null"
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "weapons"
+            ],
+            "properties": {
+              "weapons": {
+                "contains": {
+                  "required": [
+                    "weapon"
+                  ],
+                  "properties": {
+                    "weapon": {
+                      "enum": [
+                        "pistol",
+                        "repeater_pistol",
+                        "repeater_handbow",
+                        "crossbow",
+                        "handgun",
+                        "blunderbuss",
+                        "hochland_long_rifle",
+                        "repeater_crossbow",
+                        "repeater_handgun"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "ranged": {
+                "properties": {
+                  "initiative": {
+                    "type": "integer"
+                  },
+                  "dexterity": {
+                    "type": "integer"
+                  }
+                }
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "ranged": {
+                "properties": {
+                  "dexterity": {
+                    "type": "null"
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "weapons"
+            ],
+            "properties": {
+              "weapons": {
+                "contains": {
+                  "required": [
+                    "weapon"
+                  ],
+                  "properties": {
+                    "weapon": {
+                      "enum": [
+                        "shortbow",
+                        "warbow",
+                        "longbow",
+                        "crossbow",
+                        "handgun",
+                        "blunderbuss",
+                        "hochland_long_rifle",
+                        "repeater_crossbow",
+                        "repeater_handgun"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "ranged": {
+                "properties": {
+                  "initiative": {
+                    "type": "integer"
+                  },
+                  "awareness": {
+                    "type": "integer"
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "weapons"
+            ],
+            "properties": {
+              "weapons": {
+                "contains": {
+                  "required": [
+                    "weapon"
+                  ],
+                  "properties": {
+                    "weapon": {
+                      "enum": [
+                        "weighted_net"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "throwing": {
+                "type": "integer"
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "throwing": {
+                "type": "null"
+              },
+              "ballistic_skill": {
+                "type": "null"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "allOf": [
+              {
+                "required": [
+                  "weapons"
+                ],
+                "properties": {
+                  "weapons": {
+                    "contains": {
+                      "required": [
+                        "weapon"
+                      ],
+                      "properties": {
+                        "weapon": {
+                          "enum": [
+                            "weighted_net"
+                          ]
+                        }
+                      }
+                    }
+                  }
+                }
+              },
+              {
+                "not": {
+                  "required": [
+                    "weapons"
+                  ],
+                  "properties": {
+                    "weapons": {
+                      "contains": {
+                        "required": [
+                          "weapon"
+                        ],
+                        "properties": {
+                          "weapon": {
+                            "enum": [
+                              "pistol",
+                              "repeater_pistol",
+                              "repeater_handbow",
+                              "shortbow",
+                              "warbow",
+                              "longbow",
+                              "crossbow",
+                              "handgun",
+                              "blunderbuss",
+                              "hochland_long_rifle",
+                              "repeater_crossbow",
+                              "repeater_handgun"
+                            ]
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          },
+          "then": {
+            "properties": {
+              "ballistic_skill": {
+                "type": "integer"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "armour": {
+                "properties": {
+                  "body": {
+                    "contains": {
+                      "const": "armour_of_agilulf"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "agilulf_code_confirmed": {
+                "const": true
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "agilulf_code_confirmed": {
                 "type": "null"
               }
             }
@@ -4640,7 +5239,10 @@
           "minimum": 1
         },
         "initiative": {
-          "type": "integer",
+          "type": [
+            "integer",
+            "null"
+          ],
           "minimum": 1
         },
         "shooting": {
@@ -4649,12 +5251,12 @@
           "maximum": 6
         },
         "dexterity": {
-          "type": "integer",
+          "type": [
+            "integer",
+            "null"
+          ],
           "minimum": 2,
           "maximum": 6
-        },
-        "initially_loaded": {
-          "const": true
         },
         "ammunition_supply_confirmed": {
           "const": true
@@ -4685,12 +5287,32 @@
         "shooting",
         "initiative",
         "dexterity",
-        "initially_loaded",
         "ammunition_supply_confirmed",
         "has_blackpowder_lore",
         "has_blackpowder_kit"
       ],
-      "additionalProperties": false
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "required": [
+              "awareness"
+            ],
+            "properties": {
+              "awareness": {
+                "type": "integer"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "initiative": {
+                "type": "integer"
+              }
+            }
+          }
+        }
+      ]
     },
     "npcRangedCount": {
       "type": "object",
@@ -4780,6 +5402,12 @@
         "id": {
           "$ref": "urn:towr:pc-melee:common:1#/$defs/identifier"
         },
+        "initially_loaded": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
         "weapon": {
           "enum": [
             "staff",
@@ -4860,7 +5488,45 @@
             ]
           }
         }
-      }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "weapon": {
+                "enum": [
+                  "pistol",
+                  "repeater_handbow",
+                  "repeater_pistol",
+                  "crossbow",
+                  "repeater_crossbow",
+                  "handgun",
+                  "repeater_handgun",
+                  "blunderbuss",
+                  "hochland_long_rifle"
+                ]
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "initially_loaded"
+            ],
+            "properties": {
+              "initially_loaded": {
+                "type": "boolean"
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "initially_loaded": {
+                "type": "null"
+              }
+            }
+          }
+        }
+      ]
     },
     "pcRangedCount": {
       "type": "object",
@@ -4989,6 +5655,9 @@
             "long",
             "extreme"
           ]
+        },
+        "airspace": {
+          "$ref": "#/$defs/airspace"
         }
       },
       "required": [
@@ -5060,6 +5729,535 @@
         "impact"
       ],
       "additionalProperties": false
+    },
+    "armour_loadout": {
+      "type": "object",
+      "properties": {
+        "body": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "light_armour",
+              "heavy_armour",
+              "full_plate_armour",
+              "armour_of_agilulf",
+              "armour_of_meteoric_iron",
+              "mantle_of_ithilmar"
+            ]
+          },
+          "maxItems": 2,
+          "uniqueItems": true,
+          "allOf": [
+            {
+              "contains": {
+                "enum": [
+                  "light_armour",
+                  "heavy_armour",
+                  "full_plate_armour"
+                ]
+              },
+              "minContains": 0,
+              "maxContains": 1
+            },
+            {
+              "contains": {
+                "enum": [
+                  "armour_of_agilulf",
+                  "armour_of_meteoric_iron",
+                  "mantle_of_ithilmar"
+                ]
+              },
+              "minContains": 0,
+              "maxContains": 1
+            }
+          ]
+        },
+        "benefit": {
+          "enum": [
+            null,
+            "light_armour",
+            "heavy_armour",
+            "full_plate_armour",
+            "armour_of_agilulf",
+            "armour_of_meteoric_iron",
+            "mantle_of_ithilmar"
+          ]
+        },
+        "helmet": {
+          "enum": [
+            null,
+            "helmet",
+            "helm_of_the_hunt"
+          ]
+        },
+        "shield": {
+          "enum": [
+            null,
+            "shield",
+            "briarroot_shield"
+          ]
+        },
+        "barding": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "body",
+        "benefit",
+        "helmet",
+        "shield",
+        "barding"
+      ],
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "body": {
+                "maxItems": 0
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "benefit": {
+                "type": "null"
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "benefit": {
+                "enum": [
+                  "light_armour",
+                  "heavy_armour",
+                  "full_plate_armour",
+                  "armour_of_agilulf",
+                  "armour_of_meteoric_iron",
+                  "mantle_of_ithilmar"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "benefit": {
+                "const": "light_armour"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "body": {
+                "contains": {
+                  "const": "light_armour"
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "benefit": {
+                "const": "heavy_armour"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "body": {
+                "contains": {
+                  "const": "heavy_armour"
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "benefit": {
+                "const": "full_plate_armour"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "body": {
+                "contains": {
+                  "const": "full_plate_armour"
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "benefit": {
+                "const": "armour_of_agilulf"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "body": {
+                "contains": {
+                  "const": "armour_of_agilulf"
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "benefit": {
+                "const": "armour_of_meteoric_iron"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "body": {
+                "contains": {
+                  "const": "armour_of_meteoric_iron"
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "benefit": {
+                "const": "mantle_of_ithilmar"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "body": {
+                "contains": {
+                  "const": "mantle_of_ithilmar"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "airspace": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "open_sky_confirmed": {
+              "const": true
+            },
+            "fall_hazard_rating": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          "required": [
+            "open_sky_confirmed",
+            "fall_hazard_rating"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "generated_weapon_item": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/identifier"
+        },
+        "weapon": {
+          "enum": [
+            "staff",
+            "dagger",
+            "foot_spear",
+            "polearm",
+            "axe",
+            "sword",
+            "warhammer",
+            "morning_star",
+            "pickaxe",
+            "flail",
+            "billhook",
+            "halberd",
+            "glaive",
+            "greataxe",
+            "greatsword",
+            "greathammer",
+            "pistol",
+            "repeater_pistol",
+            "repeater_handbow",
+            "shortbow",
+            "warbow",
+            "longbow",
+            "crossbow",
+            "handgun",
+            "blunderbuss",
+            "hochland_long_rifle",
+            "repeater_crossbow",
+            "repeater_handgun",
+            "weighted_net"
+          ]
+        },
+        "location": {
+          "enum": [
+            "held",
+            "carried"
+          ]
+        },
+        "hand": {
+          "enum": [
+            null,
+            "left",
+            "right",
+            "both"
+          ]
+        },
+        "initially_loaded": {
+          "type": "boolean"
+        },
+        "quantity": {
+          "type": "integer",
+          "minimum": 1
+        }
+      },
+      "required": [
+        "id",
+        "weapon",
+        "location",
+        "hand"
+      ],
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "weapon": {
+                "enum": [
+                  "pistol",
+                  "repeater_pistol",
+                  "repeater_handbow",
+                  "crossbow",
+                  "handgun",
+                  "blunderbuss",
+                  "hochland_long_rifle",
+                  "repeater_crossbow",
+                  "repeater_handgun"
+                ]
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "initially_loaded"
+            ]
+          },
+          "else": {
+            "not": {
+              "required": [
+                "initially_loaded"
+              ]
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "location": {
+                "const": "carried"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "hand": {
+                "type": "null"
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "hand": {
+                "enum": [
+                  "left",
+                  "right",
+                  "both"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "location": {
+                "const": "held"
+              },
+              "weapon": {
+                "enum": [
+                  "pickaxe",
+                  "flail",
+                  "billhook",
+                  "halberd",
+                  "glaive",
+                  "greataxe",
+                  "greatsword",
+                  "greathammer",
+                  "weighted_net",
+                  "shortbow",
+                  "warbow",
+                  "longbow",
+                  "crossbow",
+                  "handgun",
+                  "blunderbuss",
+                  "hochland_long_rifle",
+                  "repeater_crossbow",
+                  "repeater_handgun"
+                ]
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "hand": {
+                "const": "both"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "location": {
+                "const": "held"
+              },
+              "weapon": {
+                "not": {
+                  "enum": [
+                    "pickaxe",
+                    "flail",
+                    "billhook",
+                    "halberd",
+                    "glaive",
+                    "greataxe",
+                    "greatsword",
+                    "greathammer",
+                    "weighted_net",
+                    "shortbow",
+                    "warbow",
+                    "longbow",
+                    "crossbow",
+                    "handgun",
+                    "blunderbuss",
+                    "hochland_long_rifle",
+                    "repeater_crossbow",
+                    "repeater_handgun",
+                    "foot_spear",
+                    "polearm"
+                  ]
+                }
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "hand": {
+                "enum": [
+                  "left",
+                  "right"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "weapon": {
+                "const": "weighted_net"
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "quantity": {
+                "const": 1
+              }
+            }
+          }
+        }
+      ]
+    },
+    "canonical_ranged_weapon_item": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/identifier"
+        },
+        "weapon": {
+          "enum": [
+            "pistol",
+            "ogre_pistol"
+          ]
+        },
+        "location": {
+          "const": "held"
+        },
+        "hand": {
+          "const": "left"
+        },
+        "initially_loaded": {
+          "type": "boolean"
+        },
+        "gm_fit_confirmed": {
+          "const": true
+        }
+      },
+      "required": [
+        "id",
+        "weapon",
+        "location",
+        "hand",
+        "initially_loaded"
+      ],
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "weapon": {
+                "const": "ogre_pistol"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "gm_fit_confirmed"
+            ]
+          },
+          "else": {
+            "not": {
+              "required": [
+                "gm_fit_confirmed"
+              ]
+            }
+          }
+        }
+      ]
     }
   }
 }

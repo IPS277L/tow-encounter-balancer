@@ -11,18 +11,18 @@ from towr.application.pc_melee_balance_models import (
     PcMeleeBalanceRequest,PcMeleeCompositionGroup,project_pc_melee_candidate,
 )
 from towr.balance.ranged_assessment_models import ObjectiveRateWindow
-from towr.domain.pc_melee_models import PcMeleeWeapon, PcWeaponHand, PcTwoHandedGrip
+from towr.domain.pc_melee_models import PcMeleeWeapon, PcWeaponHand, PcTwoHandedGrip, PC_EXECUTABLE_WEAPONS
 from towr.simulation.pc_melee_models import PcMeleeSimulationRequest
 
 
 class PcWeaponAdmissionTests(unittest.TestCase):
     def test_current_typed_weapons_share_single_weapon_input_with_correlated_grip(self):
         source=make_pc_melee_scenario()
-        self.assertEqual({weapon.value for weapon in PcMeleeWeapon},
+        self.assertEqual({weapon.value for weapon in PC_EXECUTABLE_WEAPONS},
             {'staff','sword','dagger','axe','warhammer','morning_star',
              'pickaxe','flail','billhook','halberd','glaive','greataxe','greatsword','greathammer',
              'foot_spear','polearm','weighted_net','pistol','repeater_handbow','repeater_pistol','shortbow','warbow','longbow','crossbow','repeater_crossbow','handgun','repeater_handgun','sling','blunderbuss','hochland_long_rifle'})
-        for weapon in PcMeleeWeapon:
+        for weapon in PC_EXECUTABLE_WEAPONS:
             if weapon is PcMeleeWeapon.WEIGHTED_NET:
                 from tests.unit.test_pc_weighted_net import source as weighted_net_source
                 request=PcMeleeSimulationRequest(weighted_net_source(),42,1)
@@ -80,6 +80,19 @@ class PcWeaponAdmissionTests(unittest.TestCase):
                     request=PcMeleeSimulationRequest(replace(source,party=(member,)),42,1)
                     self.assertIs(request.scenario.party[0].pc.weapon,weapon)
                     self.assertIs(request.scenario.party[0].initial_weapon_hand,grip)
+
+    def test_catalogue_entries_without_executable_owners_are_refused_before_trial(self):
+        source=make_pc_melee_scenario()
+        unfinished=tuple(weapon for weapon in PcMeleeWeapon if weapon not in PC_EXECUTABLE_WEAPONS)
+        self.assertTrue(unfinished)
+        for weapon in unfinished:
+            with self.subTest(weapon=weapon):
+                with self.assertRaises(ValueError):
+                    replace(source.party[0].pc,weapon=weapon)
+                forged=deepcopy(source)
+                object.__setattr__(forged.party[0].pc,'weapon',weapon)
+                with self.assertRaises(ValueError):
+                    PcMeleeSimulationRequest(forged,42,1)
 
     def test_cached_weapon_enum_alias_and_raw_strings_are_refused_before_trial(self):
         source=varied_weapon_source()

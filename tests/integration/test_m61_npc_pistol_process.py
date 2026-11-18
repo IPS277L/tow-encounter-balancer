@@ -7,6 +7,7 @@ from tests.integration.test_m61_npc_pistol_json import request_document
 from towr.adapters.pc_melee_json import parse_pc_melee_simulation_request
 from towr.domain.pc_melee_result_models import PcAttackProof
 from towr.domain.pc_npc_ranged_models import PcNpcRangedReloadProof, pc_npc_ranged_weapon
+from towr.domain.weapon_inventory_models import weapon_unit_id
 from towr.engine.pc_melee_runner import run_pc_melee_scenario
 from towr.simulation.pc_melee_parallel import run_pc_melee_simulation_parallel
 from towr.simulation.pc_melee_simulation import run_pc_melee_simulation
@@ -28,7 +29,7 @@ class NpcPistolProcessTests(unittest.TestCase):
         self.assertTrue(any(step.proof.result.state.loaded for step in reloads))
         self.assertTrue(any(not step.proof.result.state.loaded for step in reloads))
         self.assertTrue(all(step.proof.result.previous_state.weapon_instance_id
-            == step.proof.request.actor_id+':weapon' for step in reloads))
+            == weapon_unit_id(step.proof.request.actor_id,'weapon',0) for step in reloads))
         for journal in journals:
             shots = tuple(step for step in journal.steps if type(step.proof) is PcAttackProof
                 and step.proof.npc_ranged_shot is not None)

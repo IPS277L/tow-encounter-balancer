@@ -4,6 +4,7 @@ from functools import partial
 
 from towr.adapters.ranged_json_errors import RangedInputError, RangedInputErrorCode as Code
 from towr.adapters._ranged_json_common import build_value
+from towr.adapters._json_common import resilience_document
 from towr.domain.attack_models import DamageProfile, ResilienceProfile
 from towr.domain.condition_models import StaggerChoice
 from towr.domain.injury_models import ProfileInjuryState
@@ -102,7 +103,7 @@ def scenario_document(scenario: NpcRangedScenario, definition_order: tuple[str, 
         definition = definitions[identifier]
         attack, protection = definition.attacks[0], definition.protection[0]
         profiles.append({"id": identifier, "source_rule_id": definition.source_rule_id,
-            "resilience": {"toughness": definition.resilience.toughness, "bonus": definition.resilience.bonus},
+            "resilience": resilience_document(definition.resilience),
             "attack": {"id": attack.id, "source_rule_id": attack.source_rule_id, "dice": attack.test_profile.dice,
                        "threshold": attack.test_profile.threshold, "damage": attack.damage.base},
             "protection": {"source_rule_id": protection.source_rule_id, "dice": protection.test_profile.dice,

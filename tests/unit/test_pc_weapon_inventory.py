@@ -9,9 +9,10 @@ from unittest.mock import patch
 
 from tests.support.pc_pistol_scenarios import make_pc_pistol_scenario
 from tests.support.pc_tactics_fixtures import tactical_snapshot
+from tests.support.weapon_reload import execute_scripted_weapon_reload
 from towr.domain.condition_models import Condition
 from towr.domain.pc_combat_equipment_models import (
-    PcItemLocation,PcWeaponItem,PcWeaponInventoryState,validate_pc_weapon_inventory,
+    PcItemLocation as SourceLocation,PcWeaponItem,validate_pc_weapon_inventory,
 )
 from towr.domain.pc_melee_models import (
     PcMeleePolicy,PcMeleeWeapon,PcWeaponHand,PcBackupWeaponPolicy,
@@ -19,17 +20,27 @@ from towr.domain.pc_melee_models import (
 )
 from towr.domain.pc_tactical_models import PcTacticalChoice
 from towr.domain.pc_weapon_inventory import (
-    initial_pc_weapon_inventory,sync_pc_weapon_inventory,pc_weapon_inventory_view,
+    initial_pc_weapon_inventory,replace_pc_member,pc_weapon_inventory_view,
     pc_weapon_pickup_view,pc_weapon_pickup_member,pc_weapon_swap_hand,
     expected_pc_weapon_swap,apply_pc_weapon_swap,pending_pc_weapon_swap,pc_weapon_swap_used,
 )
 from towr.domain.turn_models import CombatActionKind
+from towr.domain.weapon_catalog import WeaponKind
+from towr.domain.weapon_inventory_models import (
+    WeaponInventoryState,WeaponGrip,WeaponItemLocation,weapon_unit_id,
+)
+from towr.domain.weapon_resource_models import prepare_weapon_shot_resources
+from towr.domain.weapon_use_models import build_weapon_use
+
+
+GUN_ID=weapon_unit_id('pc1','gun:owned',0)
+SWORD_ID=weapon_unit_id('pc1','sword:owned',0)
 
 
 def participant(*,shield=False):
     member=make_pc_pistol_scenario(pc_count=1).party[0]
-    items=(PcWeaponItem('gun:owned',PcMeleeWeapon.PISTOL,PcItemLocation.HELD,PcWeaponHand.LEFT),
-        PcWeaponItem('sword:owned',PcMeleeWeapon.SWORD,PcItemLocation.CARRIED,None))
+    items=(PcWeaponItem('gun:owned',PcMeleeWeapon.PISTOL,SourceLocation.HELD,PcWeaponHand.LEFT,initially_loaded=True),
+        PcWeaponItem('sword:owned',PcMeleeWeapon.SWORD,SourceLocation.CARRIED,None))
     return replace(member,policy=PcMeleePolicy.AUTOMATIC_COMBAT,
         backup_weapon_policy=PcBackupWeaponPolicy(PcMeleeWeapon.SWORD,PcWeaponHand.LEFT),
         combat_equipment=items,shield=(PcShieldLoadout(PcWeaponHand.RIGHT,
@@ -55,61 +66,76 @@ class PcWeaponItemSourceTests(unittest.TestCase):
     def test_exact_item_types_and_hand_location_are_required(self):
         item=participant().combat_equipment[0]
         for changes in ({'id':True},{'weapon':'pistol'},{'location':'held'},
-                {'location':PcItemLocation.CARRIED},{'hand':True},{'hand':None}):
+                {'location':SourceLocation.CARRIED},{'hand':True},{'hand':None}):
             with self.subTest(changes=changes),self.assertRaises((TypeError,ValueError)):
                 replace(item,**changes)
-        carried=replace(item,location=PcItemLocation.CARRIED,hand=None)
+        carried=replace(item,location=SourceLocation.CARRIED,hand=None)
         self.assertIsNone(carried.hand)
         self.assertEqual(carried.id,item.id)
 
-    def test_inventory_has_ordered_unique_members_and_only_active_can_be_held(self):
-        gun,sword=participant().combat_equipment
+    def test_common_inventory_requires_typed_unique_units_and_actual_distinct_hands(self):
+        gun,sword=initial_pc_weapon_inventory(participant()).items
         for items,active in (([gun,sword],gun.id),((gun,gun),gun.id),((gun,sword),'foreign'),
-                ((gun,replace(sword,location=PcItemLocation.HELD,hand=PcWeaponHand.RIGHT)),gun.id),
-                ((gun,sword),sword.id)):
+                ((gun,replace(sword,location=WeaponItemLocation.HELD,grip=WeaponGrip.LEFT)),gun.id)):
             with self.subTest(items=items,active=active),self.assertRaises((TypeError,ValueError)):
-                PcWeaponInventoryState(items,active)
+                WeaponInventoryState(items,active)
+        two_held=WeaponInventoryState((gun,replace(sword,location=WeaponItemLocation.HELD,
+            grip=WeaponGrip.RIGHT)),gun.id)
+        self.assertEqual(tuple(unit.grip for unit in two_held.items),(WeaponGrip.LEFT,WeaponGrip.RIGHT))
+        selected_carried=WeaponInventoryState((gun,sword),sword.id)
+        with self.assertRaises(ValueError):build_weapon_use('pc1',selected_carried,sword.id)
 
     def test_source_rederives_primary_backup_grip_and_membership(self):
         member=participant()
-        self.assertEqual(initial_pc_weapon_inventory(member).items,member.combat_equipment)
+        inventory=initial_pc_weapon_inventory(member)
+        self.assertEqual(tuple(item.source_item_id for item in inventory.items),('gun:owned','sword:owned'))
+        self.assertEqual(tuple(item.kind for item in inventory.items),(WeaponKind.PISTOL,WeaponKind.SWORD))
+        self.assertEqual(tuple(item.id for item in inventory.items),(GUN_ID,SWORD_ID))
+        self.assertEqual(tuple(item.grip for item in inventory.items),(WeaponGrip.LEFT,None))
+        self.assertTrue(inventory.items[0].reload.loaded)
         gun,sword=member.combat_equipment
-        for changes in ({'combat_equipment':member.combat_equipment[::-1]},
-                {'combat_equipment':(replace(gun,weapon=PcMeleeWeapon.REPEATER_PISTOL),sword)},
+        for changes in ({'combat_equipment':(replace(gun,weapon=PcMeleeWeapon.REPEATER_PISTOL),sword)},
                 {'combat_equipment':(replace(gun,hand=PcWeaponHand.RIGHT),sword)},
-                {'combat_equipment':(gun,)},{'backup_weapon_policy':None},
                 {'policy':PcMeleePolicy.ATTACK_OR_RECOVER_SELF},{'combat_equipment':None}):
             with self.subTest(changes=changes),self.assertRaises((TypeError,ValueError)):
                 replace(member,**changes)
+        # Explicit items no longer require a second-item backup policy; their
+        # physical source and first actual held primary still rederive exactly.
+        explicit=replace(member,backup_weapon_policy=None)
+        self.assertEqual(initial_pc_weapon_inventory(explicit),inventory)
+        reordered=replace(explicit,combat_equipment=(sword,gun))
+        self.assertEqual(initial_pc_weapon_inventory(reordered).active.id,GUN_ID)
 
 
 class PcWeaponInventoryBoundaryTests(unittest.TestCase):
-    def test_actual_hand_drop_and_recover_sync_only_the_active_item(self):
-        state=prepared();member=state.participant('pc1');source_member=state.source.party[0]
-        dropped=sync_pc_weapon_inventory(member,replace(member,weapon_hand=None),source_member)
-        self.assertIs(dropped.weapon_inventory.active.location,PcItemLocation.DROPPED)
-        self.assertIs(dropped.weapon_inventory.items[1].location,PcItemLocation.CARRIED)
-        restored=sync_pc_weapon_inventory(dropped,replace(dropped,weapon_hand=PcWeaponHand.RIGHT),source_member)
-        self.assertIs(restored.weapon_inventory.active.location,PcItemLocation.HELD)
-        self.assertIs(restored.weapon_inventory.active.hand,PcWeaponHand.RIGHT)
+    def test_owner_hand_commands_change_only_the_selected_physical_unit(self):
+        state=prepared();member=state.participant('pc1')
+        dropped=replace_pc_member(member,weapon_hand=None)
+        self.assertIs(dropped.weapon_inventory.active.location,WeaponItemLocation.DROPPED)
+        self.assertIs(dropped.weapon_inventory.items[1].location,WeaponItemLocation.CARRIED)
+        self.assertEqual(dropped.weapon_inventory.active_item_id,GUN_ID)
+        restored=replace_pc_member(dropped,weapon_hand=PcWeaponHand.RIGHT)
+        self.assertIs(restored.weapon_inventory.active.location,WeaponItemLocation.HELD)
+        self.assertIs(restored.weapon_inventory.active.grip,WeaponGrip.RIGHT)
+        self.assertIs(restored.weapon_inventory.active.reload,member.weapon_inventory.active.reload)
         self.assertEqual(restored.weapon_inventory.items[1],member.weapon_inventory.items[1])
 
     def test_carry_forecast_is_pure_and_dropped_target_requires_recover(self):
         state=prepared();member=state.participant('pc1')
-        view=pc_weapon_inventory_view(state,'pc1','sword:owned')
+        view=pc_weapon_inventory_view(state,'pc1',SWORD_ID)
         self.assertTrue(view.participant('pc1').using_backup_weapon)
-        self.assertIs(view.participant('pc1').weapon_inventory.items[0].location,PcItemLocation.CARRIED)
+        self.assertIs(view.participant('pc1').weapon_inventory.items[0].location,WeaponItemLocation.CARRIED)
         self.assertEqual(state.participant('pc1'),member)
         dropped=replace(member.weapon_inventory,items=(member.weapon_inventory.items[0],
-            replace(member.weapon_inventory.items[1],location=PcItemLocation.DROPPED)))
+            replace(member.weapon_inventory.items[1],location=WeaponItemLocation.DROPPED)))
         state=replace(state,party=(replace(member,weapon_inventory=dropped),))
-        self.assertIsNone(pc_weapon_inventory_view(state,'pc1','sword:owned'))
-        after=pc_weapon_pickup_view(state,'pc1','sword:owned')
-        self.assertIs(after.participant('pc1').weapon_inventory.active.location,PcItemLocation.HELD)
-        self.assertIs(state.participant('pc1').weapon_inventory.items[1].location,PcItemLocation.DROPPED)
+        self.assertIsNone(pc_weapon_inventory_view(state,'pc1',SWORD_ID))
+        after=pc_weapon_pickup_view(state,'pc1',SWORD_ID)
+        self.assertIs(after.participant('pc1').weapon_inventory.active.location,WeaponItemLocation.HELD)
+        self.assertIs(state.participant('pc1').weapon_inventory.items[1].location,WeaponItemLocation.DROPPED)
 
     def test_swap_retains_committed_choice_and_cannot_repeat_this_turn(self):
-        state=prepared();choice=planned(state,'sword:owned')
+        state=prepared();choice=planned(state,SWORD_ID)
         with patch('towr.domain.pc_tactical_models.select_pc_tactic',return_value=choice):
             proof=expected_pc_weapon_swap(state)
             after_member=apply_pc_weapon_swap(state,proof)
@@ -129,54 +155,55 @@ class PcWeaponInventoryBoundaryTests(unittest.TestCase):
         self.assertEqual(after_member.potions,state.participant('pc1').potions)
 
     def test_second_turn_reverse_keeps_partial_ranged_cycle_and_actual_identity(self):
-        from towr.domain.exacting_test_models import ExactingTestProgress,ExactingTestContribution
         state=prepared();member=state.participant('pc1')
-        progress=ExactingTestProgress('prepared:cycle:exacting',3,
-            (ExactingTestContribution('r','t','pc1',1),))
-        weapon=replace(member.ranged,loaded=False,reload_cycle_id='prepared:cycle',
-            reload_cycle_ids=('prepared:cycle',),exacting=progress)
-        state=replace(state,party=(replace(member,ranged=weapon),))
-        with patch('towr.domain.pc_tactical_models.select_pc_tactic',return_value=planned(state,'sword:owned')):
+        shot=prepare_weapon_shot_resources(build_weapon_use('pc1',member.weapon_inventory,GUN_ID))
+        member=replace_pc_member(member,weapon_inventory=shot.after_inventory)
+        partial=execute_scripted_weapon_reload(member.ranged,(1,10),actor='pc1')
+        weapon=partial.state
+        member=replace_pc_member(member,ranged=weapon)
+        state=replace(state,party=(member,))
+        with patch('towr.domain.pc_tactical_models.select_pc_tactic',return_value=planned(state,SWORD_ID)):
             proof=expected_pc_weapon_swap(state);after_member=apply_pc_weapon_swap(state,proof)
         later=replace(state,round_state=replace(state.round_state,round_number=2),
             party=(after_member,),history=(*state.history,proof))
-        with patch('towr.domain.pc_tactical_models.select_pc_tactic',return_value=planned(later,'gun:owned')):
+        with patch('towr.domain.pc_tactical_models.select_pc_tactic',return_value=planned(later,GUN_ID)):
             reverse=expected_pc_weapon_swap(later);restored=apply_pc_weapon_swap(later,reverse)
         self.assertFalse(restored.using_backup_weapon)
         self.assertIs(restored.ranged,weapon)
         self.assertFalse(restored.ranged.loaded)
         self.assertEqual(restored.ranged.exacting.accumulated_successes,1)
-        self.assertEqual(restored.weapon_inventory.active.id,'gun:owned')
+        self.assertEqual(restored.weapon_inventory.active.id,GUN_ID)
+        self.assertEqual(restored.ranged.exacting.contributions,(partial.exacting.contribution,))
 
     def test_switch_from_dropped_primary_never_stows_it_or_makes_free_return(self):
         state=prepared();member=state.participant('pc1')
-        dropped=sync_pc_weapon_inventory(member,replace(member,weapon_hand=None),state.source.party[0])
+        dropped=replace_pc_member(member,weapon_hand=None)
         state=replace(state,party=(dropped,))
-        with patch('towr.domain.pc_tactical_models.select_pc_tactic',return_value=planned(state,'sword:owned')):
+        with patch('towr.domain.pc_tactical_models.select_pc_tactic',return_value=planned(state,SWORD_ID)):
             proof=expected_pc_weapon_swap(state);after=apply_pc_weapon_swap(state,proof)
-        self.assertIs(after.weapon_inventory.items[0].location,PcItemLocation.DROPPED)
+        self.assertIs(after.weapon_inventory.items[0].location,WeaponItemLocation.DROPPED)
         next_state=replace(state,round_state=replace(state.round_state,round_number=2),party=(after,))
-        self.assertIsNone(pc_weapon_inventory_view(next_state,'pc1','gun:owned'))
-        recovered=pc_weapon_pickup_member(next_state,'pc1','gun:owned')
-        self.assertEqual(recovered.weapon_inventory.active.id,'gun:owned')
-        self.assertIs(recovered.weapon_inventory.items[1].location,PcItemLocation.CARRIED)
+        self.assertIsNone(pc_weapon_inventory_view(next_state,'pc1',GUN_ID))
+        recovered=pc_weapon_pickup_member(next_state,'pc1',GUN_ID)
+        self.assertEqual(recovered.weapon_inventory.active.id,GUN_ID)
+        self.assertIs(recovered.weapon_inventory.items[1].location,WeaponItemLocation.CARRIED)
 
-    def test_actor_membership_mirror_and_inactive_drop_are_not_interchangeable(self):
+    def test_actor_membership_and_removed_mirrors_cannot_replace_actual_items(self):
         state=prepared();member=state.participant('pc1');source_member=state.source.party[0]
-        for changes in ({'actor_id':'foreign'},{'using_backup_weapon':True}):
-            with self.subTest(changes=changes),self.assertRaises(ValueError):
-                validate_pc_weapon_inventory(replace(member,**changes),source_member)
+        with self.assertRaises(ValueError):validate_pc_weapon_inventory(replace(member,actor_id='foreign'),source_member)
+        with self.assertRaises(TypeError):replace(member,using_backup_weapon=True)
+        with self.assertRaises(TypeError):replace_pc_member(member,using_backup_weapon=True)
         changed=replace(member.weapon_inventory,items=(member.weapon_inventory.items[0],
-            replace(member.weapon_inventory.items[1],weapon=PcMeleeWeapon.AXE)))
+            replace(member.weapon_inventory.items[1],source=replace(member.weapon_inventory.items[1].source,kind=WeaponKind.AXE))))
         with self.assertRaises(ValueError):
             validate_pc_weapon_inventory(replace(member,weapon_inventory=changed),source_member)
 
     def test_swap_proof_rejects_foreign_action_hand_and_changed_committed_target(self):
-        state=prepared();choice=planned(state,'sword:owned')
+        state=prepared();choice=planned(state,SWORD_ID)
         with patch('towr.domain.pc_tactical_models.select_pc_tactic',return_value=choice):
             proof=expected_pc_weapon_swap(state)
-            wrong_hand=replace(proof.state,items=tuple(replace(item,hand=PcWeaponHand.RIGHT)
-                if item.id=='sword:owned' else item for item in proof.state.items))
+            wrong_hand=replace(proof.state,items=tuple(replace(item,grip=WeaponGrip.RIGHT)
+                if item.id==SWORD_ID else item for item in proof.state.items))
             for forged in (replace(proof,action_id='foreign'),replace(proof,state=wrong_hand),
                     replace(proof,intent=replace(choice,target_id='foreign-target'))):
                 with self.subTest(forged=forged),self.assertRaises(ValueError):
@@ -191,7 +218,7 @@ class PcWeaponInventoryBoundaryTests(unittest.TestCase):
                 conditions=member.injury.conditions.with_condition(Condition.STAGGERED),
                 active_wound_effects=(WoundRestrictionEffect(1,restriction,WoundEffectDuration.UNTIL_TREATED),))
             state=replace(state,party=(replace(member,injury=injury),))
-            with self.subTest(entry=entry),patch('towr.domain.pc_tactical_models.select_pc_tactic',return_value=planned(state,'sword:owned')):
+            with self.subTest(entry=entry),patch('towr.domain.pc_tactical_models.select_pc_tactic',return_value=planned(state,SWORD_ID)):
                 proof=expected_pc_weapon_swap(state);changed=apply_pc_weapon_swap(state,proof)
                 self.assertTrue(changed.injury.conditions.has(Condition.CRITICALLY_INJURED))
                 self.assertTrue(changed.injury.conditions.has(Condition.STAGGERED))
@@ -204,13 +231,13 @@ class PcWeaponInventoryBoundaryTests(unittest.TestCase):
         injury=replace(member.injury,wounds=(WoundRecord(1,WoundEntryId.INTERNAL_INJURY,14,(7,7),effect_resolved=True),),
             active_wound_effects=(WoundRestrictionEffect(1,WoundRestriction.NON_RECOVER_ACTION_CAUSES_CRITICAL,WoundEffectDuration.UNTIL_TREATED),))
         inventory=replace(member.weapon_inventory,items=(member.weapon_inventory.items[0],
-            replace(member.weapon_inventory.items[1],location=PcItemLocation.DROPPED)))
+            replace(member.weapon_inventory.items[1],location=WeaponItemLocation.DROPPED)))
         member=replace(member,injury=injury,weapon_inventory=inventory)
         held_state=replace(state,party=(member,))
-        picked=pc_weapon_pickup_member(held_state,'pc1','sword:owned')
+        picked=pc_weapon_pickup_member(held_state,'pc1',SWORD_ID)
         self.assertTrue(picked.injury.conditions.has(Condition.CRITICALLY_INJURED))
-        empty=sync_pc_weapon_inventory(member,replace(member,weapon_hand=None),state.source.party[0])
-        picked=pc_weapon_pickup_member(replace(state,party=(empty,)),'pc1','sword:owned')
+        empty=replace_pc_member(member,weapon_hand=None)
+        picked=pc_weapon_pickup_member(replace(state,party=(empty,)),'pc1',SWORD_ID)
         self.assertFalse(picked.injury.conditions.has(Condition.CRITICALLY_INJURED))
 
     def test_injured_primary_hand_prefers_healthy_shield_hand_before_a_critical_swap(self):
@@ -221,10 +248,10 @@ class PcWeaponInventoryBoundaryTests(unittest.TestCase):
             active_wound_effects=(WoundRestrictionEffect(1,WoundRestriction.USING_INJURED_HAND_CAUSES_CRITICAL,WoundEffectDuration.UNTIL_TREATED),))
         member=replace(member,injury=injury,body_facts=(PcBodyFact(PcBodyFactKind.INJURED_HAND,1,PcWeaponHand.LEFT),))
         state=replace(state,party=(member,))
-        self.assertIs(pc_weapon_swap_hand(state,'pc1','sword:owned'),PcWeaponHand.RIGHT)
-        view=pc_weapon_inventory_view(state,'pc1','sword:owned')
+        self.assertIs(pc_weapon_swap_hand(state,'pc1',SWORD_ID),PcWeaponHand.RIGHT)
+        view=pc_weapon_inventory_view(state,'pc1',SWORD_ID)
         self.assertIs(view.participant('pc1').weapon_hand,PcWeaponHand.RIGHT)
-        with patch('towr.domain.pc_tactical_models.select_pc_tactic',return_value=planned(state,'sword:owned')):
+        with patch('towr.domain.pc_tactical_models.select_pc_tactic',return_value=planned(state,SWORD_ID)):
             self.assertIsNone(expected_pc_weapon_swap(state))
         self.assertEqual(state.participant('pc1').shield,member.shield)
 
@@ -255,13 +282,13 @@ class PcWeaponInventoryNativeTests(unittest.TestCase):
         self.assertEqual(len(swaps),1)
         swap=swaps[0]
         self.assertEqual((swap.source.round_state.round_number,swap.proof.previous.active_item_id,
-            swap.proof.state.active_item_id),(1,'gun:owned','sword:owned'))
+            swap.proof.state.active_item_id),(1,GUN_ID,SWORD_ID))
         self.assertEqual(swap.source.round_state,swap.state.round_state)
         self.assertTrue(result.state.party[0].ranged.loaded)
         self.assertEqual(result.executed_actions,10)
         self.assertFalse(any(step.proof.ranged_shot is not None for step in result.steps
             if type(step.proof) is PcAttackProof))
-        self.assertIs(result.state.party[0].weapon_inventory.items[0].location,PcItemLocation.CARRIED)
+        self.assertIs(result.state.party[0].weapon_inventory.items[0].location,WeaponItemLocation.CARRIED)
 
     def test_actual_controller_reverses_after_target_changes_and_keeps_the_same_gun(self):
         from towr.domain.attack_models import ResilienceProfile
@@ -281,14 +308,14 @@ class PcWeaponInventoryNativeTests(unittest.TestCase):
         result=self.execute(scene,[1,1,1,10,10,1,1,10,10,10,10,1,1,1,10,10])
         swaps=tuple(step for step in result.steps if type(step.proof) is PcWeaponSwapProof)
         self.assertEqual([(s.proof.previous.active_item_id,s.proof.state.active_item_id) for s in swaps],
-            [('gun:owned','sword:owned'),('sword:owned','gun:owned')])
+            [(GUN_ID,SWORD_ID),(SWORD_ID,GUN_ID)])
         self.assertEqual([s.source.round_state.round_number for s in swaps],[1,2])
         self.assertEqual(swaps[1].source.party[0].ranged,swaps[1].state.party[0].ranged)
         self.assertTrue(swaps[1].state.party[0].ranged.loaded)
         shots=tuple(step for step in result.steps if type(step.proof) is PcAttackProof
             and step.proof.ranged_shot is not None)
         self.assertEqual(len(shots),1)
-        self.assertEqual(shots[0].source.party[0].weapon_inventory.active_item_id,'gun:owned')
+        self.assertEqual(shots[0].source.party[0].weapon_inventory.active_item_id,GUN_ID)
         self.assertFalse(result.state.party[0].ranged.loaded)
         self.assertEqual(result.executed_actions,3)
 
@@ -339,9 +366,9 @@ class PcWeaponInventoryNativeTests(unittest.TestCase):
         values=[10]*8+[1,1]+[10]*3+[1]+[1,1]+[10]*3+[2,10,1]+[1]*3+[10]*15
         result=self.execute(self.wounded_scene(),values)
         swap,=tuple(step for step in result.steps if type(step.proof) is PcWeaponSwapProof)
-        self.assertIs(swap.proof.previous.active.location,PcItemLocation.DROPPED)
+        self.assertIs(swap.proof.previous.active.location,WeaponItemLocation.DROPPED)
         self.assertIs(swap.state.party[0].weapon_hand,PcWeaponHand.RIGHT)
-        self.assertIs(result.state.party[0].weapon_inventory.items[0].location,PcItemLocation.DROPPED)
+        self.assertIs(result.state.party[0].weapon_inventory.items[0].location,WeaponItemLocation.DROPPED)
         self.assertFalse(result.state.party[0].ranged.loaded)
         self.assertEqual(result.state.party[0].injury.wounds[1].table_total,12)
         self.assertFalse(any(step.proof.critical is not None for step in result.steps if type(step.proof) is PcTurnEndProof))
@@ -375,19 +402,19 @@ class PcWeaponInventoryNativeTests(unittest.TestCase):
             round_number=state.round_state.round_number
             if round_number==3:
                 return PcTacticalChoice(actor,CombatActionKind.RECOVER,actor,None,1.0,
-                    'scripted:recover-owned-gun',pickup_item_id='gun:owned')
+                    'scripted:recover-owned-gun',pickup_item_id=GUN_ID)
             return PcTacticalChoice(actor,CombatActionKind.ATTACK,'minion1',None,1.0,
-                'scripted:shoot-then-backup',weapon_item_id='gun:owned' if round_number==1 else 'sword:owned')
+                'scripted:shoot-then-backup',weapon_item_id=GUN_ID if round_number==1 else SWORD_ID)
 
         with patch('towr.domain.pc_tactical_models.select_pc_tactic',side_effect=advice):
             result=self.execute(scene,values)
         recover,=tuple(step for step in result.steps if type(step.proof) is PcRecoverProof)
         before,after=recover.source.party[0],recover.state.party[0]
-        self.assertIs(before.weapon_inventory.items[0].location,PcItemLocation.DROPPED)
-        self.assertEqual(before.weapon_inventory.active_item_id,'sword:owned')
-        self.assertEqual(after.weapon_inventory.active_item_id,'gun:owned')
-        self.assertIs(after.weapon_inventory.items[0].location,PcItemLocation.HELD)
-        self.assertIs(after.weapon_inventory.items[1].location,PcItemLocation.CARRIED)
+        self.assertIs(before.weapon_inventory.items[0].location,WeaponItemLocation.DROPPED)
+        self.assertEqual(before.weapon_inventory.active_item_id,SWORD_ID)
+        self.assertEqual(after.weapon_inventory.active_item_id,GUN_ID)
+        self.assertIs(after.weapon_inventory.items[0].location,WeaponItemLocation.HELD)
+        self.assertIs(after.weapon_inventory.items[1].location,WeaponItemLocation.CARRIED)
         self.assertEqual(before.ranged,after.ranged)
         self.assertFalse(after.ranged.loaded)
         self.assertEqual(after.ranged.exacting.accumulated_successes,0)
@@ -419,7 +446,7 @@ class PcWeaponInventoryNativeTests(unittest.TestCase):
                 action,target=CombatActionKind.RECOVER,actor
                 extra['potion']=PcPotionSelection('heal',2,PcWeaponHand.LEFT)
             else:
-                extra['weapon_item_id']='sword:owned' if round_number==3 else 'gun:owned'
+                extra['weapon_item_id']=SWORD_ID if round_number==3 else GUN_ID
             return PcTacticalChoice(actor,action,target,None,1.0,'scripted:healing-return',**extra)
 
         with patch('towr.domain.pc_tactical_models.select_pc_tactic',side_effect=advice):
@@ -434,7 +461,7 @@ class PcWeaponInventoryNativeTests(unittest.TestCase):
         self.assertTrue(after.injury.wounds[1].healed)
         self.assertEqual(after.potions,())
         self.assertEqual([(step.source.round_state.round_number,step.proof.state.active_item_id) for step in swaps],
-            [(3,'sword:owned'),(5,'gun:owned')])
+            [(3,SWORD_ID),(5,GUN_ID)])
         partial=reloads[0].state.party[0].ranged
         self.assertEqual(partial.exacting.accumulated_successes,1)
         self.assertEqual(before.ranged,partial)

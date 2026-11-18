@@ -1,4 +1,6 @@
 """Full generated Shooting sources through current JSON and character files."""
+from tests.support.generated_weapon_sources import initial_generated_weapons
+from tests.support.armour_fixtures import light_loadout
 from copy import deepcopy
 from dataclasses import asdict
 import json
@@ -13,7 +15,7 @@ from towr.adapters.dynamic_encounter_json import (
     DynamicEncounterInputError, parse_dynamic_encounter_request,
     execute_dynamic_encounter, encode_dynamic_encounter_result,
 )
-from towr.adapters._pc_melee_scenario_json import scenario_document
+from towr.adapters._pc_melee_scenario_json import scenario_document,generated_components_document
 from towr.adapters.pc_melee_json import parse_pc_melee_simulation_request
 from towr.adapters.pc_melee_json_errors import PcMeleeInputError
 from towr.domain.generated_npc_models import GeneratedNpc, GeneratedWeapon, GeneratedRangedFacts
@@ -29,15 +31,15 @@ def ranged_request(weapon='pistol'):
     raw['targets']['started_rounds']=dict(numerator=1,denominator=1)
     raw['npc_count']=dict(minimum=1,maximum=1)
     raw['search'].update(exploration_trials=1,finalist_trials=1,max_total_trials=2)
-    raw['search_space'].update(weapon=[weapon],shield=[False],allowed_talents=[],
+    raw['search_space'].update(weapon_count=[1],weapon=[weapon],shield=[None],allowed_talents=[],
         ballistic_skill=[2],shooting=[3],initiative=[4],dexterity=[5])
     return raw
 
 
 def character(weapon):
     firearm=weapon!='repeater_handbow'
-    return GeneratedNpc(3,4,5,2,3,4,GeneratedWeapon(weapon),False,defence=5,shield=False,
-        ranged=GeneratedRangedFacts(2,3,4,5,True,True,True if firearm else None,True if firearm else None))
+    return GeneratedNpc(3,4,5,2,3,4,initial_generated_weapons(GeneratedWeapon(weapon)),light_loadout(light=False, shield=False),defence=5,
+        ranged=GeneratedRangedFacts(2,3,4,5,True,True if firearm else None,True if firearm else None))
 
 
 def native_document(raw):
@@ -52,7 +54,7 @@ def native_document(raw):
 class GeneratedRangedJsonTests(unittest.TestCase):
     def test_character_files_keep_exact_conditional_component_and_arbitrary_stats(self):
         for weapon in WEAPONS:
-            raw=asdict(character(weapon))
+            raw=generated_components_document(character(weapon))
             raw=json.loads(json.dumps(raw))
             with self.subTest(weapon=weapon):
                 self.assertEqual(parse_character_file(json.dumps(raw),'npc'),raw)
@@ -62,19 +64,19 @@ class GeneratedRangedJsonTests(unittest.TestCase):
 
     def test_character_files_reject_missing_false_and_foreign_ranged_facts(self):
         changes=[lambda n:n.pop('ranged'),lambda n:n.update(ranged=None),
-            lambda n:n.update(shield=True),lambda n:n['ranged'].update(shooting=True),
-            lambda n:n['ranged'].update(initially_loaded=False),
+            lambda n:n['armour'].update(shield=1),lambda n:n['ranged'].update(shooting=True),
+            lambda n:n['weapons'][0].update(initially_loaded=1),
             lambda n:n['ranged'].update(ammunition_supply_confirmed=False),
             lambda n:n['ranged'].update(has_blackpowder_kit=False),
             lambda n:n['ranged'].update(has_blackpowder_lore=None),
             lambda n:n['ranged'].update(untracked_bonus=2),
-            lambda n:n.update(weapon='staff')]
+            lambda n:n['weapons'][0].update(weapon='staff')]
         for change in changes:
-            raw=json.loads(json.dumps(asdict(character('pistol'))))
+            raw=json.loads(json.dumps(generated_components_document(character('pistol'))))
             change(raw)
             with self.subTest(raw=raw),self.assertRaises(DynamicEncounterInputError):
                 parse_character_file(json.dumps(raw),'npc')
-        raw=json.loads(json.dumps(asdict(character('repeater_handbow'))))
+        raw=json.loads(json.dumps(generated_components_document(character('repeater_handbow'))))
         raw['ranged']['has_blackpowder_lore']=True
         with self.assertRaises(DynamicEncounterInputError):
             parse_character_file(json.dumps(raw),'npc')
@@ -86,15 +88,15 @@ class GeneratedRangedJsonTests(unittest.TestCase):
                 enemy=raw['scenario']['enemies'][0]
                 self.assertIn('ranged',enemy)
                 self.assertNotIn('pistol',enemy)
-                self.assertEqual(enemy['definition']['attack']['skill'],'shooting')
-                self.assertEqual(enemy['definition']['attack']['ignores_armour'],weapon!='repeater_handbow')
+                self.assertEqual(enemy['definition']['attacks'][0]['skill'],'shooting')
+                self.assertEqual(enemy['definition']['attacks'][0]['ignores_armour'],weapon!='repeater_handbow')
                 self.assertEqual(parse_pc_melee_simulation_request(json.dumps(raw)).request.scenario,scenario)
                 self.assertEqual(enemy['definition']['generated_components']['ranged']['dexterity'],5)
 
     def test_native_rejects_component_derived_forgeries_old_key_and_disagreeing_facts(self):
         changes=[lambda e:e.update(pistol=e.pop('ranged')),
-            lambda e:e['definition']['attack']['test_profile'].update(dice=9),
-            lambda e:e['definition']['attack'].update(ignores_armour=False),
+            lambda e:e['definition']['attacks'][0]['test_profile'].update(dice=9),
+            lambda e:e['definition']['attacks'][0].update(ignores_armour=False),
             lambda e:e['definition']['generated_components'].update(ranged=None),
             lambda e:e['ranged'].update(has_blackpowder_kit=None),
             lambda e:e.update(holds_shield=True)]
@@ -127,7 +129,7 @@ class GeneratedRangedJsonTests(unittest.TestCase):
         self.assertEqual(report['total_trials'],2)
         for candidate in report['explored']+report['validations']:
             npc=candidate['npcs'][0]
-            self.assertEqual(npc['weapon'],'repeater_handbow')
+            self.assertEqual(npc['weapons'][0]['weapon'],'repeater_handbow')
             self.assertEqual([row['actor_id'] for row in candidate['npc_ranged_counts']],
                 ['generated-npc:1'])
             self.assertTrue(all(row['bonus_shots']<=row['shots'] for row in candidate['npc_ranged_counts']))
@@ -154,8 +156,14 @@ class GeneratedRangedProcessTests(unittest.TestCase):
         raw['party'][0]['characteristics'].update(strength=1,toughness=20)
         raw['max_rounds']=4
         command=parse_dynamic_encounter_request(json.dumps(raw))
-        melee=GeneratedNpc(2,1,8,2,3,3,GeneratedWeapon.STAFF,False,defence=3,shield=False)
-        scenario=command.request.scenario((*tuple(character(w) for w in WEAPONS),melee),'mixed:ranged:process')
+        melee=GeneratedNpc(2,1,8,2,3,3,initial_generated_weapons(GeneratedWeapon.STAFF),light_loadout(light=False, shield=False),defence=3)
+        from towr.domain.weapon_inventory_models import WeaponItemSource,WeaponItemLocation
+        from towr.domain.weapon_catalog import WeaponKind
+        shooters=tuple(character(w) for w in WEAPONS)
+        first_shooter=replace(shooters[0],weapons=(*shooters[0].weapons,
+            WeaponItemSource('carried-empty-pistol',WeaponKind.PISTOL,WeaponItemLocation.CARRIED,None,
+                initially_loaded=False)))
+        scenario=command.request.scenario((first_shooter,*shooters[1:],melee),'mixed:ranged:process')
         request=PcMeleeSimulationRequest(scenario,42,2)
         sequential=run_pc_melee_simulation(request)
         parallel=run_pc_melee_simulation_parallel(request,workers=2,batch_size=1)
@@ -168,6 +176,8 @@ class GeneratedRangedProcessTests(unittest.TestCase):
         self.assertGreater(sum(row.reload_actions for row in second.npc_ranged_counts),0)
         self.assertTrue(all(row.shots>0 for row in second.npc_ranged_counts))
         self.assertEqual(second.source_request.scenario.enemies[3].definition.generated_components,melee)
+        self.assertEqual(second.source_request.scenario.enemies[0].definition.generated_components.weapons,first_shooter.weapons)
+        self.assertFalse(second.source_request.scenario.enemies[0].definition.generated_components.weapons[1].initially_loaded)
 
 
 if __name__=='__main__':

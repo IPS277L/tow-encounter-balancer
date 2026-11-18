@@ -1,4 +1,6 @@
 """Physical Net identities, paid/free pickup and one-binding Brawn recovery."""
+from tests.support.generated_weapon_sources import initial_generated_weapons
+from tests.support.armour_fixtures import light_loadout
 from dataclasses import replace
 import unittest
 
@@ -20,6 +22,7 @@ from towr.domain.pc_weighted_net_models import (
 from towr.domain.ranged_weapon_profiles import RangedWeaponRange as R,RangedWeaponHands
 from towr.domain.recover_models import RecoverMode
 from towr.domain.test_models import Skill
+from towr.domain.weapon_inventory_models import WeaponItemLocation,weapon_unit_id
 from towr.engine.pc_melee_runner import run_pc_melee_scenario,apply_pc_melee_step
 from towr.simulation.pc_melee_models import PcMeleeSimulationRequest
 from towr.simulation.pc_melee_simulation import run_pc_melee_trial
@@ -38,13 +41,12 @@ class Dice:
 
 def npc(weapon=GeneratedWeapon.STAFF,*,mount=None):
     if weapon is GeneratedWeapon.WEIGHTED_NET:
-        return GeneratedNpc(3,3,20,2,3,3,weapon,False,defence=3,shield=False,
+        return GeneratedNpc(3,3,20,2,3,3,initial_generated_weapons(weapon),light_loadout(light=False, shield=False),defence=3,
             brawn=3,ballistic_skill=3,throwing=4,mount=mount)
-    ranged=(GeneratedRangedFacts(4,5,2,4,True,True,None,None,awareness=4)
+    ranged=(GeneratedRangedFacts(4,5,2,None,True,None,None,awareness=4)
         if weapon is GeneratedWeapon.LONGBOW else None)
-    return GeneratedNpc(2,2,4,2,3,3,weapon,False,defence=3,shield=False,
-        brawn=3,ranged=ranged,mount=mount,
-        weapon_grip=RangedWeaponHands.TWO_HANDED if weapon is GeneratedWeapon.FOOT_SPEAR else None)
+    return GeneratedNpc(2,2,4,2,3,3,initial_generated_weapons(weapon, grip=RangedWeaponHands.TWO_HANDED if weapon is GeneratedWeapon.FOOT_SPEAR else None),light_loadout(light=False, shield=False),defence=3,
+        brawn=3,ranged=ranged,mount=mount)
 
 
 def pc_net_scene(*,rounds=3,enemy_weapon=GeneratedWeapon.STAFF,mounted=False):
@@ -74,7 +76,7 @@ def two_bindings_scene():
         initial_weapon_hand=PcTwoHandedGrip.BOTH,
         combat_equipment=(PcWeaponItem('bow',PcMeleeWeapon.SHORTBOW,PcItemLocation.HELD,PcTwoHandedGrip.BOTH),),
         fate_policy=PcFatePolicy.CONFIGURED,glorious_policy=PcGloriousPolicy((Skill.BRAWN,),0,0))
-    weak=GeneratedNpc(1,30,20,1,3,3,GeneratedWeapon.STAFF,False,defence=3,shield=False,brawn=3)
+    weak=GeneratedNpc(1,30,20,1,3,3,initial_generated_weapons(GeneratedWeapon.STAFF),light_loadout(light=False, shield=False),defence=3,brawn=3)
     enemies=(npc(GeneratedWeapon.WEIGHTED_NET),npc(GeneratedWeapon.WEIGHTED_NET),weak)
     return replace(source,party=(member,),enemies=tuple(item.participant(actor)
         for item,actor in zip(enemies,source.enemy_activation_order)),
@@ -97,7 +99,7 @@ class PhysicalNetNativeTests(unittest.TestCase):
         shots=[step for step in result.steps if type(step.proof) is PcAttackProof
             and step.proof.weighted_net_landing is not None]
         self.assertEqual(len(shots),2)
-        self.assertEqual({step.proof.weighted_net_landing.item_id for step in shots},{'pc1:weapon:net'})
+        self.assertEqual({step.proof.weighted_net_landing.item_id for step in shots},{weapon_unit_id('pc1','net',0)})
         release,=[step for step in result.steps if type(step.proof) is PcNetReleaseProof]
         pickup,=[step for step in result.steps if type(step.proof) is PcNetPickupProof]
         self.assertEqual(release.proof.request.mode,RecoverMode.REMOVE_CONDITION)
@@ -133,7 +135,7 @@ class PhysicalNetNativeTests(unittest.TestCase):
         self.assertNotEqual(pickup.source.battlefield.spatial.placement_for('minion1').zone_id,
             pickup.proof.previous_item.ground.zone_id)
         self.assertEqual(pickup.source.round_state,pickup.state.round_state)
-        self.assertEqual(pickup.proof.item_id,'pc1:weapon:net')
+        self.assertEqual(pickup.proof.item_id,weapon_unit_id('pc1','net',0))
         self.assertEqual(result.executed_actions,4)
 
     def test_one_successful_brawn_recover_releases_one_binding_and_preserves_other(self):
@@ -159,8 +161,8 @@ class PhysicalNetNativeTests(unittest.TestCase):
             ballistic_skill=1,throwing=2,brawn=4),initial_weapon_hand=PcTwoHandedGrip.BOTH,
             combat_equipment=(PcWeaponItem('net',PcMeleeWeapon.WEIGHTED_NET,
                 PcItemLocation.HELD,PcTwoHandedGrip.BOTH),))
-        opponent=GeneratedNpc(1,30,100,1,3,3,GeneratedWeapon.STAFF,False,
-            defence=3,shield=False,brawn=3)
+        opponent=GeneratedNpc(1,30,100,1,3,3,initial_generated_weapons(GeneratedWeapon.STAFF),light_loadout(light=False, shield=False),
+            defence=3,brawn=3)
         source=replace(source,party=(member,),enemies=(opponent.participant('minion1'),),
             facts=replace(source.facts,can_leave_zone=True),battlefield=PcBattlefieldSpec(R.CLOSE,R.LONG))
         dice=Dice([1]*5+[8,1])
@@ -168,13 +170,13 @@ class PhysicalNetNativeTests(unittest.TestCase):
         self.assertEqual(dice.index,7)
         drop,=[step for step in result.steps if type(step.proof) is PcHandDropProof]
         receipt,=drop.proof.weighted_net_drops
-        self.assertEqual(receipt.item_id,'pc1:weapon:net')
+        self.assertEqual(receipt.item_id,weapon_unit_id('pc1','net',0))
         self.assertEqual(receipt.previous_item.location,PcNetLocation.HELD)
         self.assertEqual(receipt.item.location,PcNetLocation.FREE)
         self.assertEqual(receipt.previous,drop.source.battlefield)
         self.assertEqual(receipt.state,drop.state.battlefield)
         self.assertIsNone(drop.state.participant('pc1').weapon_hand)
-        self.assertEqual(drop.state.participant('pc1').weapon_inventory.items[0].location,PcItemLocation.DEPLOYED)
+        self.assertIs(drop.state.participant('pc1').weapon_inventory.items[0].location,WeaponItemLocation.DEPLOYED)
         with self.assertRaises(ValueError):
             PcMeleeStep(drop.source,replace(drop.proof,weighted_net_drops=()))
 
@@ -190,7 +192,13 @@ class PhysicalNetNativeTests(unittest.TestCase):
         self.assertEqual(trial.npc_recover_action_counts[0].count,1)
 
     def test_horse_net_charge_applies_prone_then_burdened_without_damage(self):
-        result=self.execute(pc_net_scene(rounds=1,mounted=True))
+        source=pc_net_scene(rounds=1,mounted=True)
+        # Make the actual Net attack preferable to the newly available Hooves:
+        # this remains an automatic tactic, using a fully derived strong defender.
+        member=replace(source.party[0],pc=replace(source.party[0].pc,ballistic_skill=10,throwing=6))
+        enemy=replace(source.enemies[0].definition.generated_components,weapon_skill=10,defence=6)
+        source=replace(source,party=(member,),enemies=(enemy.participant('minion1'),))
+        result=self.execute(source)
         shot=next(step for step in result.steps if type(step.proof) is PcAttackProof
             and step.proof.weighted_net_landing is not None)
         outcome=shot.proof.execution.resolution

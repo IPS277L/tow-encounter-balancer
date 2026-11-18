@@ -63,7 +63,7 @@ class PcBlunderbussJsonTests(unittest.TestCase):
             self.assertEqual(raw[key]['party'][0]['pc']['ranged'],{
                 'ballistic_skill':3,'shooting':4,'initiative':3,'dexterity':4,
                 'has_blackpowder_lore':True,'has_blackpowder_kit':True,
-                'ammunition_supply_confirmed':True,'initially_loaded':True,
+                'ammunition_supply_confirmed':True,
                 'reload_hand_policy':'two_available_hands'})
             self.assertIs(source.party[0].initial_weapon_hand,PcTwoHandedGrip.BOTH)
             changed = replace(source,blunderbuss_nearby=PcBlunderbussNearby(True,tuple(reversed(ORDER))))
@@ -140,12 +140,13 @@ class PcBlunderbussJsonTests(unittest.TestCase):
             ('nearby','target_priority',['minion1','minion2','minion3']),
             ('nearby','target_priority',('minion1','minion1','minion3')),
             ('nearby','target_priority',('minion1','minion2','pc1')),
-            ('ranged','has_blackpowder_lore',None),('ranged','initially_loaded',False),
+            ('ranged','has_blackpowder_lore',None),('item','initially_loaded',1),
             ('ranged','repeater_bonus_policy',PcRepeaterBonusPolicy.NEVER),
             ('pc','weapon',ForeignWeapon.BLUNDERBUSS))
         for owner,field,value in cases:
             forged = deepcopy(request)
-            target = (forged.scenario.blunderbuss_nearby if owner=='nearby' else
+            target = (forged.scenario.party[0].combat_equipment[0] if owner=='item' else
+                forged.scenario.blunderbuss_nearby if owner=='nearby' else
                 forged.scenario.party[0].pc.ranged if owner=='ranged' else forged.scenario.party[0].pc)
             object.__setattr__(target,field,value)
             with patch('towr.simulation.pc_melee_simulation.Random') as rng:

@@ -8,9 +8,23 @@ from towr.adapters.ranged_json_errors import RangedInputError, RangedInputErrorC
 from towr.adapters.melee_json_errors import MeleeInputError
 from towr.adapters.mixed_json_errors import MixedInputError
 from towr.adapters.magic_json_errors import MagicInputError
+from towr.domain.attack_models import ResilienceProfile
 
 
 InputErrorType = type[RangedInputError] | type[MeleeInputError] | type[MixedInputError] | type[MagicInputError]
+
+
+def resilience_document(profile: ResilienceProfile) -> dict:
+    """Preserve admitted protection properties without manufacturing item facts."""
+    if type(profile) is not ResilienceProfile:
+        raise TypeError('Resilience serialization requires its exact typed profile')
+    profile.__post_init__()
+    document = {'toughness': profile.toughness, 'bonus': profile.bonus}
+    if profile.armoured is not None:
+        document['armoured'] = profile.armoured
+    if profile.mundane_armour_ward:
+        document['mundane_armour_ward'] = True
+    return document
 
 
 def _object(pairs, error_type):

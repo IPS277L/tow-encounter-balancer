@@ -1,5 +1,6 @@
 """Literal Orc/Big 'Un Close Shooting opposition and Attack-only Waaagh Help."""
 from copy import deepcopy
+from tests.support.pc_weapon_sources import initial_weapon_items
 from dataclasses import replace
 import unittest
 
@@ -40,7 +41,7 @@ def greenskin_scene(profile=PcBookNpcProfile.BIG_UN_CHOPPAS, skill=Skill.MELEE,
     base = book_pc_scenario(footpads=0,townsfolk=0,pc_count=pc_count,
         max_rounds=rounds,**{keyword:1})
     party = tuple(member if member.actor_id in melee_actor_ids else replace(member,
-        pc=replace(member.pc,weapon=PcMeleeWeapon.PISTOL,ranged=pistol_profile()))
+        pc=replace(member.pc,weapon=PcMeleeWeapon.PISTOL,ranged=pistol_profile()),combat_equipment=initial_weapon_items(PcMeleeWeapon.PISTOL,member.initial_weapon_hand,member.backup_weapon_policy,initially_loaded=True))
         for member in base.party)
     return replace(base,party=party,facts=replace(base.facts,outnumbering_bonus_approved=False),
         npc_close_shooting_protection_policies=tuple(Policy(enemy.state.actor_id,skill)
@@ -129,7 +130,7 @@ class GreenskinCloseShootingTests(unittest.TestCase):
         member = base.party[0]
         priority = ('big_un1','orc1')
         member = replace(member,pc=replace(member.pc,weapon=PcMeleeWeapon.PISTOL,ranged=pistol_profile()),
-            target_priority=priority,defeat_decisions=tuple(member.defeat_decision(actor) for actor in priority))
+            target_priority=priority,defeat_decisions=tuple(member.defeat_decision(actor) for actor in priority),combat_equipment=initial_weapon_items(PcMeleeWeapon.PISTOL,member.initial_weapon_hand,member.backup_weapon_policy,initially_loaded=True))
         source = replace(base,party=(member,),enemy_activation_order=('orc1','big_un1'),
             facts=replace(base.facts,outnumbering_bonus_approved=False),
             npc_help_policies=(PcNpcHelpPolicy('orc1','big_un1'),),

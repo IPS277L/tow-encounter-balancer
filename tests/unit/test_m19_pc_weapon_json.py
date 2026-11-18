@@ -12,7 +12,7 @@ from towr.adapters import pc_melee_json as wire
 from towr.adapters import pc_melee_json_schema as schema
 from towr.adapters._pc_melee_scenario_json import scenario_document
 from towr.adapters.pc_melee_json_errors import PcMeleeBalanceInputError, PcMeleeSimulationInputError
-from towr.domain.pc_melee_models import PcMeleeWeapon, PcTwoHandedGrip, PcWeaponHand
+from towr.domain.pc_melee_models import PcMeleeWeapon, PcTwoHandedGrip, PcWeaponHand, PC_EXECUTABLE_WEAPONS
 
 
 ONE_HANDED=('staff','sword','dagger','axe','warhammer','morning_star')
@@ -35,7 +35,7 @@ class PcTwoHandedWeaponJsonTests(unittest.TestCase):
             .read_text(encoding='utf-8'))
         self.assertEqual(common['$defs']['pc']['properties']['weapon'],
             {'enum':list(ONE_HANDED+VARIABLE_GRIP+TWO_HANDED+('pistol','repeater_handbow','repeater_pistol','shortbow','warbow','longbow','crossbow','repeater_crossbow','handgun','repeater_handgun','sling','blunderbuss','hochland_long_rifle','weighted_net'))})
-        self.assertEqual(tuple(weapon.value for weapon in PcMeleeWeapon),ONE_HANDED+VARIABLE_GRIP+TWO_HANDED+('pistol','repeater_handbow','repeater_pistol','shortbow','warbow','longbow','crossbow','repeater_crossbow','handgun','repeater_handgun','sling','blunderbuss','hochland_long_rifle','weighted_net'))
+        self.assertEqual(tuple(weapon.value for weapon in PC_EXECUTABLE_WEAPONS),ONE_HANDED+VARIABLE_GRIP+TWO_HANDED+('pistol','repeater_handbow','repeater_pistol','shortbow','warbow','longbow','crossbow','repeater_crossbow','handgun','repeater_handgun','sling','blunderbuss','hochland_long_rifle','weighted_net'))
         for balance in (False,True):
             raw=armed_document(balance=balance)
             key='template' if balance else 'scenario'

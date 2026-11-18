@@ -1,6 +1,9 @@
 """Literal PC repeater choices, ordinary shots, Reload and retained equipment."""
+from towr.domain.weapon_catalog import WeaponKind
+from tests.support.generated_weapon_sources import initial_generated_weapons
 from copy import deepcopy
 from dataclasses import replace
+from tests.support.pc_weapon_sources import initial_weapon_items
 import unittest
 
 from tests.support.pc_melee_fixtures import with_pc_melee_brute
@@ -211,7 +214,9 @@ class PcRangedExecutionTests(unittest.TestCase):
             with self.subTest(weapon=weapon):
                 source = scene(weapon=weapon,bonus=NEVER,rounds=2,enemies=3)
                 source = replace(source,party=(replace(source.party[0],
-                    backup_weapon_policy=PcBackupWeaponPolicy(PcMeleeWeapon.SWORD,PcWeaponHand.LEFT)),))
+                    backup_weapon_policy=PcBackupWeaponPolicy(PcMeleeWeapon.SWORD,PcWeaponHand.LEFT),
+                    combat_equipment=initial_weapon_items(weapon,source.party[0].initial_weapon_hand,
+                        PcBackupWeaponPolicy(PcMeleeWeapon.SWORD,PcWeaponHand.LEFT),initially_loaded=True)),))
                 loaded = execute(source,ORDINARY_HIT+heavy_hits()
                     +ORDINARY_HIT+[1]*3+NPC_MISS*3)
                 self.assertEqual(steps(loaded,PcBackupWeaponDrawProof),())
@@ -221,7 +226,9 @@ class PcRangedExecutionTests(unittest.TestCase):
                 self.assertEqual(loaded.state.participant('pc1').ranged.reload_cycle_ids,())
                 source = scene(weapon=weapon,rounds=2,enemies=3)
                 source = replace(source,party=(replace(source.party[0],
-                    backup_weapon_policy=PcBackupWeaponPolicy(PcMeleeWeapon.SWORD,PcWeaponHand.LEFT)),))
+                    backup_weapon_policy=PcBackupWeaponPolicy(PcMeleeWeapon.SWORD,PcWeaponHand.LEFT),
+                    combat_equipment=initial_weapon_items(weapon,source.party[0].initial_weapon_hand,
+                        PcBackupWeaponPolicy(PcMeleeWeapon.SWORD,PcWeaponHand.LEFT),initially_loaded=True)),))
                 empty = execute(source,bonus_hit(weapon)+heavy_hits()
                     +ORDINARY_HIT+[1]*3+[10,10,1,1,1,1]*3)
                 draw, = steps(empty,PcBackupWeaponDrawProof)
@@ -260,7 +267,8 @@ class PcRangedExecutionTests(unittest.TestCase):
         class Alias(str):
             pass
         forged = deepcopy(first.proof)
-        object.__setattr__(forged.ranged_shot.execution.previous_weapon_state,'weapon_instance_id',Alias('pc1:weapon'))
+        previous=forged.ranged_shot.execution.previous_weapon_state
+        object.__setattr__(previous,'weapon_instance_id',Alias(previous.weapon_instance_id))
         with self.assertRaises((TypeError,ValueError)):
             PcMeleeStep(first.source,forged)
 
@@ -268,7 +276,8 @@ class PcRangedExecutionTests(unittest.TestCase):
         source = scene(pc_count=2,rounds=2)
         first,second = source.party
         source = replace(source,party=(first,replace(second,pc=replace(second.pc,weapon=PISTOL,
-            ranged=ranged_profile(weapon=PISTOL,repeater_bonus_policy=NEVER)))))
+            ranged=ranged_profile(weapon=PISTOL,repeater_bonus_policy=NEVER)),
+                combat_equipment=initial_weapon_items(PISTOL,second.initial_weapon_hand,initially_loaded=True))))
         result = execute(source,bonus_hit(HANDBOW)+ORDINARY_HIT+NPC_MISS
             +[1]*3+ORDINARY_HIT+NPC_MISS)
         a,b = (result.state.participant(actor).ranged for actor in ('pc1','pc2'))
@@ -285,8 +294,8 @@ class PcRangedExecutionTests(unittest.TestCase):
     def test_melee_opposition_does_not_activate_repeater_bonus_or_consume_owned_state(self):
         source = scene(weapon=PISTOL)
         enemy = create_pc_book_npc(PcBookNpcProfile.IMPERIAL_OGRE_PISTOL,'minion1')
-        npc_policy = PcNpcRangedPolicy('minion1',True,True,True,True,
-            PcNpcRangedReloadHandPolicy.TWO_AVAILABLE_HANDS)
+        npc_policy = PcNpcRangedPolicy('minion1',True,True,True,
+            PcNpcRangedReloadHandPolicy.TWO_AVAILABLE_HANDS,initial_weapon=initial_generated_weapons(WeaponKind.OGRE_PISTOL,gm_fit_confirmed=True)[0])
         source = replace(source,enemies=(enemy,),npc_ranged_policies=(npc_policy,),
             party=(replace(source.party[0],close_shooting_protection_skill=Skill.MELEE),))
         result = execute(source,[10]*5+[1]*3+[10]*3+[1]*3)

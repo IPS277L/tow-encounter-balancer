@@ -17,6 +17,7 @@ from towr.domain.injury_models import WoundConditionEffect
 from towr.domain.test_models import Skill
 from towr.domain.turn_models import (CombatActionSlotRequest, CombatActionDeclaration,
     CombatActionKind, ActionSlotGrant)
+from towr.domain.weapon_inventory_models import WeaponGrip,weapon_unit_id
 from towr.engine.pc_melee_runner import run_pc_melee_scenario, apply_pc_melee_step
 from towr.rules.turn_resolution import reserve_combat_action_slot
 
@@ -47,7 +48,7 @@ class PcBackupWeaponTests(unittest.TestCase):
         self.assertEqual(draw.proof,PcBackupWeaponDrawProof('pc',PcTwoHandedGrip.BOTH,PcWeaponHand.RIGHT))
         self.assertEqual(draw.source.round_state.round_number,2)
         self.assertEqual(draw.source.round_state,draw.state.round_state)
-        self.assertTrue(draw.state.party[0].using_backup_weapon)
+        self.assertEqual(draw.state.party[0].weapon_inventory.active_item_id,weapon_unit_id('pc','backup-weapon',0))
         self.assertIs(pc_active_weapon(draw.state,'pc'),PcMeleeWeapon.SWORD)
         before = next(step.proof for step in result.steps if isinstance(step.proof,PcAttackProof)
             and step.proof.request.actor_id=='minion5' and step.source.round_state.round_number==1)
@@ -72,7 +73,7 @@ class PcBackupWeaponTests(unittest.TestCase):
         result = execute(source(),heavy_prefix(20)+[1]*3+[10]*9)
         self.assertIs(result.outcome,PcMeleeOutcome.ROUND_LIMIT)
         self.assertEqual(draws(result),())
-        self.assertFalse(result.state.party[0].using_backup_weapon)
+        self.assertEqual(result.state.party[0].weapon_inventory.active_item_id,weapon_unit_id('pc','weapon',0))
         self.assertTrue(result.state.party[0].injury.conditions.has(Condition.DEFENCELESS))
         self.assertEqual(result.executed_actions,7)
 
@@ -83,17 +84,17 @@ class PcBackupWeaponTests(unittest.TestCase):
         draw, = draws(result)
         recover, = tuple(step for step in result.steps if isinstance(step.proof,PcRecoverProof))
         interaction = recover.proof.result.source_request.choice.object_interaction
-        self.assertEqual(interaction.object_id,'pc:backup-weapon')
-        self.assertEqual(pc_active_weapon_item_id(recover.source,'pc'),'pc:backup-weapon')
+        self.assertEqual(interaction.object_id,weapon_unit_id('pc','backup-weapon',0))
+        self.assertEqual(pc_active_weapon_item_id(recover.source,'pc'),weapon_unit_id('pc','backup-weapon',0))
         self.assertIsNone(recover.source.party[0].weapon_hand)
         self.assertIs(recover.state.party[0].weapon_hand,PcWeaponHand.RIGHT)
-        self.assertTrue(recover.state.party[0].using_backup_weapon)
+        self.assertEqual(recover.state.party[0].weapon_inventory.active_item_id,weapon_unit_id('pc','backup-weapon',0))
         self.assertEqual(draws(result),(draw,))
 
     def test_smashed_hand_does_not_trigger_fallback_or_avoid_two_handed_critical_use(self):
         result = execute(source(),heavy_prefix(12)+[1]*3+[10,10,10,1,1,1]*3)
         self.assertEqual(draws(result),())
-        self.assertFalse(result.state.party[0].using_backup_weapon)
+        self.assertEqual(result.state.party[0].weapon_inventory.active_item_id,weapon_unit_id('pc','weapon',0))
         self.assertIs(result.state.party[0].weapon_hand,PcTwoHandedGrip.BOTH)
         self.assertTrue(result.state.party[0].injury.conditions.has(Condition.CRITICALLY_INJURED))
 
@@ -121,7 +122,7 @@ class PcBackupWeaponTests(unittest.TestCase):
         result = execute(source(),heavy_prefix(16)+[1]*3+[10]*2+[1]*3
             +[1]*3+[10]*4+[1,1,4,10,10]+[10]*3+[1]*3)
         self.assertEqual(len(draws(result)),1)
-        self.assertTrue(result.state.party[0].using_backup_weapon)
+        self.assertEqual(result.state.party[0].weapon_inventory.active_item_id,weapon_unit_id('pc','backup-weapon',0))
         self.assertIsNone(usable_weapon_hand(result.state.party[0]))
         self.assertEqual(usable_hands(result.state.party[0]),())
         self.assertIsNone(result.unsupported)
@@ -165,7 +166,8 @@ class PcBackupWeaponTests(unittest.TestCase):
         draw, = draws(result)
         self.assertEqual(draw.proof.actor_id,'pc1')
         helped = tuple(step for step in result.steps if isinstance(step.proof,PcHelpProof))[-1]
-        self.assertTrue(helped.source.participant('pc1').using_backup_weapon)
+        self.assertEqual(helped.source.participant('pc1').weapon_inventory.active_item_id,
+            weapon_unit_id('pc1','backup-weapon',0))
         self.assertIs(pc_active_weapon(helped.source,'pc1'),PcMeleeWeapon.MORNING_STAR)
         self.assertEqual(helped.proof.execution.help_test_result.trace.rolled_dice,3)
 
@@ -191,11 +193,13 @@ class PcBackupWeaponTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             replace(result,steps=tuple(step for step in result.steps if step is not draw))
         with self.assertRaises(ValueError):
-            replace(draw.state,party=(replace(draw.state.party[0],using_backup_weapon=False),))
+            member=draw.state.party[0]
+            replace(draw.state,party=(replace(member,weapon_inventory=replace(member.weapon_inventory,
+                active_item_id=weapon_unit_id('pc','weapon',0))),))
         with self.assertRaises(TypeError):
-            replace(draw.state.party[0],using_backup_weapon=1)
+            replace(draw.state.party[0].weapon_inventory,active_item_id=1)
         foreign = deepcopy(draw)
-        object.__setattr__(foreign.state.party[0],'weapon_hand',PcTwoHandedGrip.BOTH)
+        object.__setattr__(foreign.state.party[0].weapon_inventory.active,'grip',WeaponGrip.BOTH)
         with self.assertRaises(ValueError):
             apply_pc_melee_step(draw.source,foreign)
 

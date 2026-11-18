@@ -115,13 +115,15 @@ def planning_document():
     inputs={name:json.loads((folder/file).read_text('utf-8')) for name,file in (
         ('melee','search.request.json'),('mixed','pc-ranged.request.json'),('mage','elemental-mage.request.json'))}
     inputs['generated_weapon_ids']=[weapon.value for weapon in GeneratedWeapon]
-    # Reuse the actual editor's active-item predicate; no simulated equipment parser.
-    ranged_set=re.search(r'pcCloseRangedWeapons=new Set\(\[[^\n]+?\]\)',VISUAL_SCRIPT).group()
-    ranged_function=re.search(r'function playerInitialRangedWeapon\(member\)\{[^\n]+\}',VISUAL_SCRIPT).group()
+    # Reuse the actual editor's whole-inventory predicate and its source sets.
+    ranged_function=VISUAL_SCRIPT.split('function playerRangedRequirements(member){',1)[1].split('\n}',1)[0]
+    ranged_function='function playerRangedRequirements(member){'+ranged_function+'\n}'
+    ranged_sets=VISUAL_SCRIPT.split('const pcRangedWeapons=',1)[1].split('function playerThrowingWeapons',1)[0]
+    close_set=re.search(r'pcCloseRangedWeapons=new Set\(\[[^\n]+?\]\)',VISUAL_SCRIPT).group()
+    ranged_sets='const '+close_set+';const pcRangedWeapons='+ranged_sets
     dependencies="const controls={};const byId=id=>controls[id]||(controls[id]={checked:false});let busy=false;const syncForm=()=>{},message=()=>{};"
-    ranged_all=re.search(r'const pcRangedWeapons=new Set\(\[[^\n]+?\]\);',VISUAL_SCRIPT).group()
-    program=dependencies+'const '+ranged_set+';'+ranged_all+ranged_function+PLANNING_SCRIPT
-    program+='const inputs='+json.dumps(inputs)+';try{'+CHECK+"}catch(error){document.body.dataset.planningError=error.stack;document.body.textContent=error.stack;}"
+    program='try{'+dependencies+ranged_sets+ranged_function+PLANNING_SCRIPT
+    program+='const inputs='+json.dumps(inputs)+';'+CHECK+"}catch(error){document.body.dataset.planningError=error.stack;document.body.textContent=error.stack;}"
     return '<!doctype html><html><body><script>'+program+'</script></body></html>'
 
 

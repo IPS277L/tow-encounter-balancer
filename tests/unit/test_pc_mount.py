@@ -3,6 +3,9 @@
 Small views isolate the bank rule; the native owner separately replays each
 injury witness against its real Near Miss, spell and condition prefix.
 """
+from tests.support.generated_weapon_sources import initial_generated_weapons
+from tests.support.armour_fixtures import light_loadout
+from towr.domain.armour_models import BodyArmour
 from copy import deepcopy
 from dataclasses import FrozenInstanceError, replace
 import pickle
@@ -38,6 +41,8 @@ def component(**changes):
         athletics=4, defence=4, weapon=GeneratedWeapon.STAFF,
         light_armour=False, shield=False)
     values.update(changes)
+    values['armour'] = light_loadout(light=values.pop('light_armour'), shield=values.pop('shield'))
+    values['weapons'] = initial_generated_weapons(values.pop('weapon'), values.pop('weapon_grip', None))
     return GeneratedNpc(**values)
 
 
@@ -73,9 +78,9 @@ def snapshot(source=None, *, prone=(), mounts=None, history=(), pending=(),
 def search_space(**changes):
     values = dict(weapon_skill=(3,), strength=(3,), toughness=(3,), agility=(3,),
         melee=(4,), athletics=(4,), defence=(4,), weapon=(GeneratedWeapon.STAFF,),
-        light_armour=(False,), shield=(False,), abilities=((),), allowed_talents=())
+        armour=(None,), shield=(None,), abilities=((),), allowed_talents=())
     values.update(changes)
-    return NpcSearchSpace(**values)
+    return NpcSearchSpace(weapon_count=(1,), **values)
 
 
 def request(source, space):
@@ -136,7 +141,7 @@ class PcMountTests(unittest.TestCase):
         enemy = source.participant('rider')
         self.assertEqual(enemy.state.current_resilience, ResilienceProfile(3, 1))
         self.assertTrue(enemy.state.current_resilience.is_armoured)
-        self.assertFalse(source.light_armour)
+        self.assertFalse((BodyArmour.LIGHT in source.armour.body))
         self.assertFalse(source.shield)
         for weapon in (PcMeleeWeapon.AXE, PcMeleeWeapon.CROSSBOW):
             with self.subTest(weapon=weapon):
@@ -267,7 +272,7 @@ class PcMountTests(unittest.TestCase):
         source = scene(pc_mount=None, npc_mount=None)
         self.assertEqual(automatic_npc_search_space(source.party).mount, (None,))
         self.assertEqual(automatic_npc_search_space(source.party, battlefield=source.battlefield).mount,
-            (None, CombatMount.HORSE))
+            (None, CombatMount.HORSE, CombatMount.BRETONNIAN_WARHORSE, CombatMount.ELVEN_STEED))
         configured = request(source, search_space(mount=(None, CombatMount.HORSE)))
         foot = configured.scenario((component(),), 'foot')
         horse = configured.scenario((component(mount=CombatMount.HORSE),), 'horse')

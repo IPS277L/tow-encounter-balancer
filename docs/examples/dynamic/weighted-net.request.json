@@ -110,10 +110,6 @@
       "foot_spear",
       "greatsword"
     ],
-    "light_armour": [
-      false,
-      true
-    ],
     "abilities": [
       []
     ],
@@ -123,7 +119,7 @@
       5
     ],
     "shield": [
-      false
+      null
     ],
     "allowed_talents": [],
     "ballistic_skill": [
@@ -162,6 +158,18 @@
     ],
     "mount": [
       null
+    ],
+    "armour": [
+      null,
+      "light_armour"
+    ],
+    "weapon_count": [
+      1,
+      2,
+      3
+    ],
+    "initial_loaded": [
+      true
     ]
   },
   "npc_count": {

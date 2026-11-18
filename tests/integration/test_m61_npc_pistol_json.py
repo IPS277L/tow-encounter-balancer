@@ -1,4 +1,6 @@
 """Canonical NPC firearm source facts survive JSON, services and count search."""
+from towr.domain.weapon_catalog import WeaponKind
+from tests.support.generated_weapon_sources import initial_generated_weapons
 from copy import deepcopy
 from dataclasses import replace
 import json
@@ -35,8 +37,8 @@ def firearm_source(*, rounds=8):
     return replace(source, party=(member,), enemies=enemies,
         facts=replace(source.facts, can_leave_zone=True),
         npc_broken_exit_policy=PcAdjacentNpcExitPolicy('outside', True, True),
-        npc_ranged_policies=tuple(PcNpcRangedPolicy(actor, True, True, True, True,
-            PcNpcRangedReloadHandPolicy.TWO_AVAILABLE_HANDS) for actor in source.enemy_activation_order))
+        npc_ranged_policies=tuple(PcNpcRangedPolicy(actor,  True, True, True,
+            PcNpcRangedReloadHandPolicy.TWO_AVAILABLE_HANDS,initial_weapon=initial_generated_weapons(WeaponKind.OGRE_PISTOL if actor==source.enemy_activation_order[1] else WeaponKind.PISTOL,gm_fit_confirmed=True if actor==source.enemy_activation_order[1] else None)[0]) for actor in source.enemy_activation_order))
 
 
 def request_document(*, balance=False):
@@ -68,7 +70,7 @@ class NpcPistolJsonTests(unittest.TestCase):
                 self.assertEqual((attack['skill'], attack['range_min'], attack['range_max']),
                     ('shooting', 'close', 'short' if index == 0 else 'medium'))
                 self.assertIs(attack['ignores_armour'], True)
-                self.assertEqual(set(enemy['ranged']), {'initially_loaded', 'has_blackpowder_lore',
+                self.assertEqual(set(enemy['ranged']), {'initial_weapon', 'has_blackpowder_lore',
                     'has_blackpowder_kit', 'ammunition_supply_confirmed', 'reload_hand_policy'})
 
     def test_partial_facts_numeric_forgeries_and_foreign_loadouts_fail_before_rng(self):
@@ -76,7 +78,7 @@ class NpcPistolJsonTests(unittest.TestCase):
             lambda enemy: enemy.pop('ranged'),
             lambda enemy: enemy.update(ranged={}),
             lambda enemy: enemy['ranged'].pop('has_blackpowder_kit'),
-            lambda enemy: enemy['ranged'].update(initially_loaded=False),
+            lambda enemy: enemy['ranged']['initial_weapon'].update(initially_loaded=1),
             lambda enemy: enemy['ranged'].update(has_blackpowder_lore=1),
             lambda enemy: enemy['ranged'].update(has_blackpowder_kit=False),
             lambda enemy: enemy['ranged'].update(ammunition_supply_confirmed=False),

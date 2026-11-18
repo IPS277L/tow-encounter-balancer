@@ -18,18 +18,22 @@ from towr.domain.pc_melee_models import (
 )
 from towr.domain.pc_melee_result_models import build_pc_melee_recover
 from towr.domain.pc_tactical_models import PcTacticalChoice
-from towr.domain.pc_weapon_inventory import sync_pc_weapon_inventory,pc_weapon_pickup_member
+from towr.domain.pc_weapon_inventory import replace_pc_member,pc_weapon_pickup_member
 from towr.domain.recover_models import RecoverObjectInteractionFollowUp
 from towr.domain.turn_models import (
     CombatActionKind,CombatActionSlotRequest,CombatActionDeclaration,ActionSlotGrant,
 )
 from towr.rules.turn_resolution import reserve_combat_action_slot
+from towr.domain.weapon_inventory_models import WeaponItemLocation,weapon_unit_id
+
+
+GUN_ID=weapon_unit_id('pc1','gun:owned',0)
 
 
 def recover_state(*,injured=True):
     source=make_pc_pistol_scenario(pc_count=1)
     member=source.party[0]
-    items=(PcWeaponItem('gun:owned',PcMeleeWeapon.PISTOL,PcItemLocation.HELD,PcWeaponHand.LEFT),
+    items=(PcWeaponItem('gun:owned',PcMeleeWeapon.PISTOL,PcItemLocation.HELD,PcWeaponHand.LEFT,initially_loaded=True),
         PcWeaponItem('sword:owned',PcMeleeWeapon.SWORD,PcItemLocation.CARRIED,None))
     member=replace(member,policy=PcMeleePolicy.AUTOMATIC_COMBAT,combat_equipment=items,
         backup_weapon_policy=PcBackupWeaponPolicy(PcMeleeWeapon.SWORD,PcWeaponHand.LEFT),
@@ -47,8 +51,7 @@ def recover_state(*,injured=True):
             active_wound_effects=(WoundRestrictionEffect(1,
                 WoundRestriction.USING_INJURED_HAND_CAUSES_CRITICAL,WoundEffectDuration.UNTIL_TREATED),))
         body=(PcBodyFact(PcBodyFactKind.INJURED_HAND,1,PcWeaponHand.LEFT),)
-    dropped=sync_pc_weapon_inventory(member,replace(member,injury=injury,body_facts=body,
-        weapon_hand=None),source.party[0])
+    dropped=replace_pc_member(member,injury=injury,body_facts=body,weapon_hand=None)
     clock=reserve_combat_action_slot(CombatActionSlotRequest('pure:reserve',state.round_state,'pc1',
         CombatActionDeclaration(CombatActionKind.RECOVER),ActionSlotGrant.STANDARD)).state
     return replace(state,party=(dropped,),round_state=clock)
@@ -62,7 +65,7 @@ def self_recover(*,pickup=None):
 class PcRecoverIncidentalPickupTests(unittest.TestCase):
     def test_injured_hand_and_held_shield_do_not_invent_incidental_pickup(self):
         state=recover_state();before=state.party[0]
-        self.assertIsNone(pc_weapon_pickup_member(state,'pc1','gun:owned'))
+        self.assertIsNone(pc_weapon_pickup_member(state,'pc1',GUN_ID))
         with patch('towr.domain.pc_tactical_models.select_pc_tactic',return_value=self_recover()):
             request=build_pc_melee_recover(state)
             self.assertIsNone(request.choice.object_interaction)
@@ -80,10 +83,12 @@ class PcRecoverIncidentalPickupTests(unittest.TestCase):
         state=recover_state(injured=False)
         with patch('towr.domain.pc_tactical_models.select_pc_tactic',return_value=self_recover()):
             request=build_pc_melee_recover(state)
-            self.assertEqual(request.choice.object_interaction.object_id,'gun:owned')
+            self.assertEqual(request.choice.object_interaction.object_id,GUN_ID)
             after,=pc_after_standard_recover(state,request,expected_pc_standard_recover(request))
-        self.assertEqual(after.weapon_inventory.active.id,'gun:owned')
-        self.assertIs(after.weapon_inventory.active.location,PcItemLocation.HELD)
+        self.assertEqual(after.weapon_inventory.active.id,GUN_ID)
+        self.assertIs(after.weapon_inventory.active.location,WeaponItemLocation.HELD)
+        self.assertEqual(after.weapon_inventory.active.source_item_id,'gun:owned')
+        self.assertIs(after.weapon_inventory.active.reload,state.party[0].weapon_inventory.active.reload)
         self.assertIs(after.weapon_hand,PcWeaponHand.LEFT)
         self.assertEqual(after.weapon_inventory.items[1],state.party[0].weapon_inventory.items[1])
         self.assertEqual(after.shield,state.party[0].shield)
@@ -91,7 +96,7 @@ class PcRecoverIncidentalPickupTests(unittest.TestCase):
     def test_explicit_unavailable_pickup_remains_rejected(self):
         state=recover_state()
         with patch('towr.domain.pc_tactical_models.select_pc_tactic',
-                return_value=self_recover(pickup='gun:owned')):
+                return_value=self_recover(pickup=GUN_ID)):
             with self.assertRaisesRegex(ValueError,'actual available pickup hand'):
                 build_pc_melee_recover(state)
 
@@ -100,7 +105,7 @@ class PcRecoverIncidentalPickupTests(unittest.TestCase):
         with patch('towr.domain.pc_tactical_models.select_pc_tactic',return_value=self_recover()):
             request=build_pc_melee_recover(state)
         forged=replace(request,choice=replace(request.choice,object_interaction=
-            RecoverObjectInteractionFollowUp('forged:pickup','pc1','gun:owned',True)))
+            RecoverObjectInteractionFollowUp('forged:pickup','pc1',GUN_ID,True)))
         with self.assertRaisesRegex(ValueError,'actually dropped item'):
             pc_after_standard_recover(state,forged,expected_pc_standard_recover(forged))
 

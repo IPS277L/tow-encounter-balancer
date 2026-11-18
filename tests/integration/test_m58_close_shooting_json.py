@@ -7,6 +7,7 @@ from unittest.mock import patch
 
 from tests.support.pc_book_npc_scenarios import book_pc_scenario
 from tests.support.pc_pistol_scenarios import pistol_profile
+from tests.support.pc_weapon_sources import initial_weapon_items
 from tests.unit.test_m9_pc_melee_json import document
 from tests.unit.test_m58_close_shooting_execution import PROFILES, special_scene
 from towr.adapters import pc_melee_json as wire
@@ -30,7 +31,8 @@ def chunk_source():
     base = book_pc_scenario(footpads=1,townsfolk=0,skulkers=1,brewguards=1,
         miners=1,bestigors=1,pc_count=1,max_rounds=2)
     party = tuple(replace(member,pc=replace(member.pc,weapon=PcMeleeWeapon.PISTOL,
-        ranged=pistol_profile())) for member in base.party)
+        ranged=pistol_profile()),combat_equipment=initial_weapon_items(
+            PcMeleeWeapon.PISTOL,member.initial_weapon_hand,initially_loaded=True)) for member in base.party)
     choices = tuple(Policy(actor,skill) for actor,skill in (
         ('skulker1',Skill.MELEE),('brewguard1',Skill.ATHLETICS),
         ('miner1',Skill.MELEE),('bestigor1',Skill.ATHLETICS)))

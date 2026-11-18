@@ -5,16 +5,29 @@
   "agility": 3,
   "melee": 4,
   "athletics": 3,
-  "weapon": "staff",
-  "light_armour": false,
   "abilities": [],
   "defence": 3,
-  "shield": false,
   "talents": [],
   "ranged": null,
-  "weapon_grip": null,
   "mount": null,
   "throwing": null,
   "brawn": null,
-  "ballistic_skill": null
+  "ballistic_skill": null,
+  "armour": {
+    "body": [],
+    "benefit": null,
+    "helmet": null,
+    "shield": null,
+    "barding": false
+  },
+  "rider_kind": null,
+  "agilulf_code_confirmed": null,
+  "weapons": [
+    {
+      "id": "item:1",
+      "weapon": "staff",
+      "location": "held",
+      "hand": "left"
+    }
+  ]
 }

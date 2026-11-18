@@ -5,6 +5,7 @@ import os
 from pathlib import Path
 import subprocess
 import sys
+import tempfile
 import unittest
 from unittest.mock import patch
 from jsonschema import ValidationError
@@ -29,7 +30,13 @@ class DynamicEncounterJsonTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.document = json.loads(EXAMPLE.read_bytes())
-        cls.command = parse_dynamic_encounter_request(EXAMPLE.read_bytes())
+        # Codec/source coverage keeps the full search accounting while each
+        # trial exercises one small real battle rather than search quality.
+        cls.document['max_rounds'] = 1
+        cls.document['npc_count'] = dict(minimum=1,maximum=1)
+        cls.document['targets']['started_rounds'] = dict(numerator=1,denominator=1)
+        cls.payload = json.dumps(cls.document).encode('utf-8')
+        cls.command = parse_dynamic_encounter_request(cls.payload)
         cls.result = execute_dynamic_encounter(cls.command)
 
     def test_party_without_enemy_reserve_and_exact_source_echo(self):
@@ -154,7 +161,7 @@ class DynamicEncounterJsonTests(unittest.TestCase):
         self.assertEqual(summary.outcome_counts, result.validations[0].summary.outcome_counts)
 
     def test_unimplemented_character_and_scene_features_are_not_silently_ignored(self):
-        for path, value in ((('party',0,'equipment','armour'),[dict(id='heavy',kind='heavy_armour',location='worn')]),
+        for path, value in ((('party',0,'equipment','armour'),[dict(id='unknown',kind='unknown_armour',location='worn')]),
                 (('party',0,'talents'),['wizard']), (('party',0,'spells'),['fireball']),
                 (('party',0,'consumables'),['potion']), (('party',0,'policy'),'attack_or_recover_self'),
                 (('scene','ambush'),'players'), (('scene','range'),'beyond_extreme'),
@@ -180,7 +187,7 @@ class DynamicEncounterJsonTests(unittest.TestCase):
         with self.assertRaises(DynamicEncounterInputError):
             parse_dynamic_encounter_request(json.dumps(raw))
 
-    def test_inventory_draft_preserves_unsupported_items_but_does_not_execute_them(self):
+    def test_multiple_held_and_carried_items_compile_without_ignoring_unsupported_features(self):
         raw = deepcopy(self.document)
         raw['party'][0]['equipment']['weapons'] = [
             dict(id='sword-left',weapon='sword',location='left_hand'),
@@ -188,10 +195,17 @@ class DynamicEncounterJsonTests(unittest.TestCase):
             dict(id='glaive-back',weapon='glaive',location='carried')]
         validate_dynamic_encounter_document(raw)
         with patch('towr.adapters.dynamic_encounter_json.search_dynamic_encounter') as search:
-            with self.assertRaises(DynamicEncounterInputError) as caught:
-                parse_dynamic_encounter_request(json.dumps(raw))
-            self.assertEqual(caught.exception.path, '/party/0/equipment')
+            command = parse_dynamic_encounter_request(json.dumps(raw))
             search.assert_not_called()
+        member = command.request.party[0]
+        self.assertEqual([(item.id,item.weapon.value,item.location.value,
+            None if item.hand is None else item.hand.value) for item in member.combat_equipment],
+            [('sword-left','sword','held','left'),('sword-right','sword','held','right'),
+                ('glaive-back','glaive','carried',None)])
+        self.assertEqual(member.pc.weapon.value,'sword')
+        self.assertEqual(member.initial_weapon_hand.value,'left')
+        self.assertIsNone(member.backup_weapon_policy)
+        self.assertEqual(json.loads(command.source_json),raw)
         for field, value in (('talents',['lucky','Mighty Blow']), ('consumables',[
                 dict(id='potion',kind='enhancement_potion',quantity=2,characteristic='ballistic_skill')])):
             raw = deepcopy(self.document)
@@ -201,14 +215,19 @@ class DynamicEncounterJsonTests(unittest.TestCase):
                 parse_dynamic_encounter_request(json.dumps(raw))
             self.assertEqual(caught.exception.path, '/party/0/' + field)
 
-    def test_spare_weapon_uses_existing_backup_instead_of_ignoring_inventory(self):
+    def test_spare_weapon_keeps_generic_inventory_without_fixed_backup_policy(self):
         raw = deepcopy(self.document)
         raw['party'][0]['equipment']['weapons'] = [
             dict(id='glaive',weapon='glaive',location='both_hands'),
             dict(id='sword',weapon='sword',location='carried')]
-        member = parse_dynamic_encounter_request(json.dumps(raw)).request.party[0]
+        command = parse_dynamic_encounter_request(json.dumps(raw))
+        member = command.request.party[0]
         self.assertEqual(member.initial_weapon_hand.value, 'both')
-        self.assertEqual(member.backup_weapon_policy.weapon.value, 'sword')
+        self.assertIsNone(member.backup_weapon_policy)
+        self.assertEqual([(item.id,item.weapon.value,item.location.value,
+            None if item.hand is None else item.hand.value) for item in member.combat_equipment],
+            [('glaive','glaive','held','both'),('sword','sword','carried',None)])
+        self.assertEqual(json.loads(command.source_json),raw)
 
     def test_inventory_ids_and_potion_parameters_are_not_repaired(self):
         for change in ('duplicate','quantity','characteristic'):
@@ -291,12 +310,15 @@ class DynamicEncounterJsonTests(unittest.TestCase):
     def test_module_cli_file_and_stdin_produce_same_complete_result(self):
         env = dict(os.environ, PYTHONPATH='src')
         expected = encode_dynamic_encounter_result(self.command, self.result).encode('utf-8')
-        for name in (str(EXAMPLE), '-'):
-            process = subprocess.run([sys.executable, '-m', 'towr', 'generate-encounter', name],
-                input=EXAMPLE.read_bytes() if name == '-' else None, capture_output=True, env=env, timeout=40)
-            self.assertEqual(process.returncode, 0, process.stderr)
-            self.assertEqual(process.stdout, expected)
-            self.assertEqual(process.stderr, b'')
+        with tempfile.TemporaryDirectory(dir=Path.cwd()) as directory:
+            fixture = Path(directory)/'dynamic.request.json'
+            fixture.write_bytes(self.payload)
+            for name in (str(fixture), '-'):
+                process = subprocess.run([sys.executable, '-m', 'towr', 'generate-encounter', name],
+                    input=self.payload if name == '-' else None, capture_output=True, env=env, timeout=40)
+                self.assertEqual(process.returncode, 0, process.stderr)
+                self.assertEqual(process.stdout, expected)
+                self.assertEqual(process.stderr, b'')
 
     def test_cli_invalid_input_is_structured_and_nonzero(self):
         process = subprocess.run([sys.executable, '-m', 'towr', 'generate-encounter', '-'],

@@ -32,17 +32,25 @@ Magic item считается Asset, но не покупается обычны
 
 Источник: страницы 82–84.
 
+Уточнения Weapons/Equipment приняты в [ADR-0140](../decisions/ADR-0140-all-weapons-and-shared-inventory.md): основное Damage/Skill и stacking Defence при Dual Wield; расход огненной стрелы при реальном выстреле, включая MISS; один disarm от Fracasse; лечение одной собственной раны за3заряда Scarab через предметное взаимодействие standard Recover; отдельный alternate Recover/Brawn−2d для Grotargg; порядок Grim→Glorious и предел двух действий Duellist; автоматический изолированный1v1 и подтверждённые GM-пары single combat. Эти решения не требуют повторного согласования.
+
+Общая [подготовка качества Attack](../../src/towr/domain/weapon_quality_preparation.py) сохраняет конкретные источники применяемых предметов. Лук дракона (Dragon Bow) нельзя применить к невидимой цели; отмена отрицательных кубов и Мрачного (Grim) не снимает reroll locks, не удаляет потраченную Судьбу (Fate) и не меняет предел дальности. При Drained новые предметные Glorious не действуют, а добровольная Grim-цена сохраняется. Фактический Prone даёт преимущество higher ground для Grotargg по PG123. Подготовка Test ещё не исполняет второе действие, заряд, лечение или HIT consequence; вся область остаётся в работе.
+
 ## RULE-MAGIC-ITEM-004 — Magic Armour
 
 | Предмет | Resilience | Нормативный эффект |
 |---|---:|---|
-| Armour of Agilulf | `T+2` | Weapon Skill, Melee и Defence устанавливаются ровно в `5`; Bretonnian language; доспех физически запрещает Code Chivalric/Rules of Knightly Honour и при упорстве покидает владельца |
+| Armour of Agilulf | `T+2` | Weapon Skill, Melee и Defence устанавливаются ровно в `5`; Bretonnian language; доспех физически препятствует нарушению Code Chivalric/Rules of Knightly Honour и при упорстве покидает владельца |
 | Armour of Meteoric Iron | `T+3` | mundane weapon effects, игнорирующие armour или дающие bonus damage против брони, отменяются |
 | Briarroot Shield | `+1` | несётся, не надевается; Defence может oppose Shooting; успешная Defence против Melee накладывает Burdened, а атакующий не может покинуть Close Range с оружием до снятия Condition либо ухода владельца щита |
 | Helm of the Hunt | `+1` | Charge Attack Tests и Tests преследования/выслеживания Glorious; запрещает burn Fate для Near Miss |
 | Mantle of Ithilmar | `T+3` | `+1d` против environmental Hazards и Conditions; Wizard может cast spells в этой armour |
 
 Источник: страницы 85–86.
+
+Принятые трактовки для исполнения Magic Armour: Helm of the Hunt складывается с body armour; Briarroot Shield хранит независимые связи конкретных щита и оружия. Освобождение, фактический сброс захваченного оружия или уход shield-bearer снимают только соответствующую связь и её Burdened. Один успешный Brawn Recover освобождает от одного выбранного щита. Это решения пользователя, не официальная errata; [полный контракт](../decisions/ADR-0139-all-armour-and-protection.md).
+
+Пользователь также подтвердил, что падение (Falling Damage) после вынужденного спешивания является environmental Hazard для Mantle of Ithilmar. Выбранная мантия даёт +1d к настоящему Athletics Test обеим сторонам; Drained подавляет положительный куб. Причина спешивания не меняет эту классификацию. Прочие Hazards не становятся environmental автоматически; погода/пожар в сцену этим решением не добавляются.
 
 ## RULE-MAGIC-ITEM-005 — Talismans
 

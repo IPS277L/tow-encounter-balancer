@@ -7,7 +7,11 @@ from towr.domain.attack_models import (
     DamageImpactSpec,
     ImpactOutcome,
     MissConsequence,
+    effective_damage_modifiers,
+    effective_ignores_armour,
+    armour_ward_cancels_effects,
 )
+from towr.domain.armour_models import METEORIC_PROTECTION_RULE_ID
 from towr.domain.test_models import (
     RollTrace,
     TestRequest,
@@ -99,7 +103,8 @@ def _resolve_attack_after_tests(
         )
 
     spec = request.impact_spec
-    damage_delta = sum(modifier.amount for modifier in spec.damage_modifiers)
+    damage_modifiers = effective_damage_modifiers(spec)
+    damage_delta = sum(modifier.amount for modifier in damage_modifiers)
     total_damage = (
         spec.damage.base
         + success_margin * spec.damage.success_multiplier
@@ -110,7 +115,7 @@ def _resolve_attack_after_tests(
 
     base_resilience = (
         spec.resilience.toughness
-        if spec.ignores_armour
+        if effective_ignores_armour(spec)
         else spec.resilience.total
     )
     resilience_delta = sum(
@@ -128,11 +133,13 @@ def _resolve_attack_after_tests(
     applied_rule_ids = tuple(
         modifier.rule_id
         for modifiers in (
-            spec.damage_modifiers,
+            damage_modifiers,
             spec.resilience_modifiers,
         )
         for modifier in modifiers
     )
+    if armour_ward_cancels_effects(spec):
+        applied_rule_ids = (*applied_rule_ids, METEORIC_PROTECTION_RULE_ID)
     if tie_break_applied:
         applied_rule_ids = (*applied_rule_ids, ATTACK_TIE_RULE_ID)
     return AttackResult(

@@ -26,6 +26,8 @@ from towr.domain.recover_models import (
 )
 from towr.domain.spatial_models import SpatialEntityPlacement
 from towr.domain.test_models import InlineProfile, Skill, TestRequest
+from towr.domain.weapon_catalog import WeaponKind
+from towr.domain.weapon_range_models import weapon_optimum_range
 from towr.domain.turn_models import CombatActionKind, CombatRoundState
 from towr.rules.free_movement_resolution import resolve_free_movement
 from towr.rules.recover_resolution import _complete_condition_removal_after_test, _resolve_standard
@@ -102,9 +104,9 @@ def weighted_net_profile(ballistic_skill: int,throwing: int,strength: int):
             raise ValueError(f'Net {name} must be a positive exact integer')
     if type(throwing) is not int or not 1 <= throwing <= 10:
         raise ValueError('Net Throwing must be an explicit Skill rating')
+    minimum, maximum = weapon_optimum_range(WeaponKind.WEIGHTED_NET, strength=strength)
     return NpcAttackProfile('primary','RULE-EQUIPMENT-005:weighted-net',Skill.THROWING,
-        InlineProfile(ballistic_skill,throwing),None,RangedWeaponRange.CLOSE,
-        RangedWeaponRange.MEDIUM if strength >= 4 else RangedWeaponRange.SHORT,
+        InlineProfile(ballistic_skill,throwing),None,minimum,maximum,
         RangedWeaponHands.TWO_HANDED,condition_impact=ConditionImpactSpec(Condition.BURDENED,NET_RULE_ID))
 
 
@@ -112,19 +114,23 @@ def initial_weighted_nets(source):
     from towr.domain.pc_melee_models import PcMeleeWeapon
     from towr.domain.pc_combat_equipment_models import PcItemLocation
     result = []
+    from towr.domain.pc_weapon_inventory import initial_pc_weapon_inventory
+    from towr.domain.weapon_inventory_models import weapon_unit_id
     for member in source.party:
-        if member.pc.weapon is not PcMeleeWeapon.WEIGHTED_NET:
-            continue
-        if member.combat_equipment is None:
-            raise ValueError('PC Net requires its actual concrete equipment item')
-        for item in member.combat_equipment:
+        for item in initial_pc_weapon_inventory(member).items:
             if item.weapon is PcMeleeWeapon.WEIGHTED_NET:
-                location = PcNetLocation.HELD if item.location is PcItemLocation.HELD else PcNetLocation.CARRIED
-                result.append(PcWeightedNetState(member.actor_id+':weapon:'+item.id,member.actor_id,location))
+                location=PcNetLocation.HELD if item.location is PcItemLocation.HELD else PcNetLocation.CARRIED
+                result.append(PcWeightedNetState(item.id,member.actor_id,location))
     for enemy in source.enemies:
-        components = enemy.definition.generated_components
-        if enemy.definition.id == NET_DEFINITION_ID or components is not None and components.weapon.value == 'weighted_net':
+        components=enemy.definition.generated_components
+        if enemy.definition.id==NET_DEFINITION_ID:
             result.append(PcWeightedNetState(enemy.state.actor_id+':weapon',enemy.state.actor_id,PcNetLocation.HELD))
+        elif components is not None:
+            from towr.domain.generated_npc_models import generated_initial_weapon_inventory
+            for unit in generated_initial_weapon_inventory(components,enemy.state.actor_id).items:
+                if unit.kind.value=='weighted_net':
+                    result.append(PcWeightedNetState(unit.id,enemy.state.actor_id,
+                        PcNetLocation.HELD if unit.location is PcItemLocation.HELD else PcNetLocation.CARRIED))
     if len({item.item_id for item in result}) != len(result):
         raise ValueError('physical Net instances must have distinct source-bound identities')
     if {item.marker_id for item in result} & {*source.pc_activation_order,*source.enemy_activation_order}:
@@ -141,9 +147,14 @@ def weighted_net_for_actor(state,actor):
         member = state.participant(actor)
         if member.weapon_inventory is not None:
             active = member.weapon_inventory.active_item_id
-            found = weighted_net_item(state,actor+':weapon:'+active)
+            found = weighted_net_item(state,active)
             if found is not None:
                 return found
+    elif actor in state.source.enemy_activation_order:
+        inventory=state.enemy(actor).state.weapon_inventory
+        if inventory is not None:
+            found=weighted_net_item(state,inventory.active_item_id)
+            if found is not None:return found
     return next((item for item in state.weighted_nets if item.owner_id == actor),None)
 
 
@@ -164,6 +175,9 @@ def _ground_position(state,anchor):
             raise ValueError('stationary Net geometry requires the explicit all-Close scene')
         return PcNetGroundPosition(state.source.facts.zone_id,actors)
     zone = state.battlefield.spatial.placement_for(anchor).zone_id
+    from towr.domain.pc_battlefield_models import battlefield_is_midair,battlefield_ground_below
+    if battlefield_is_midair(state.battlefield,zone,zone=True):
+        return PcNetGroundPosition(battlefield_ground_below(state.battlefield,zone),())
     close = tuple(actor for actor in actors if actor == anchor or
         battlefield_range(state.battlefield,anchor,actor) is RangedWeaponRange.CLOSE)
     return PcNetGroundPosition(zone,close)
@@ -178,7 +192,7 @@ def _add_marker(battlefield,item):
     spatial = replace(battlefield.spatial,placements=(*battlefield.spatial.placements,placement))
     pairs = (*battlefield.close_pairs,*(tuple(sorted((item.marker_id,actor)))
         for actor in item.ground.initial_close_actor_ids))
-    return PcBattlefieldState(spatial,pairs)
+    return replace(battlefield,spatial=spatial,close_pairs=pairs)
 
 
 def _remove_marker(battlefield,item):
@@ -187,9 +201,9 @@ def _remove_marker(battlefield,item):
     marker = battlefield.spatial.placement_for(item.marker_id)
     if marker.side_id != 'objects' or marker.zone_id != item.ground.zone_id:
         raise ValueError('Net ground marker changed its static item identity or location')
-    return PcBattlefieldState(replace(battlefield.spatial,placements=tuple(
+    return replace(battlefield,spatial=replace(battlefield.spatial,placements=tuple(
         placement for placement in battlefield.spatial.placements if placement.entity_id != item.marker_id)),
-        tuple(pair for pair in battlefield.close_pairs if item.marker_id not in pair))
+        close_pairs=tuple(pair for pair in battlefield.close_pairs if item.marker_id not in pair))
 
 
 def weighted_net_item_close(state,actor,item_id):
@@ -466,6 +480,10 @@ def selected_weighted_net_recovery(state,actor):
             return option
     if actor in state.source.enemy_activation_order and state.enemy(actor).definition.id == NET_DEFINITION_ID:
         return None  # Keep the explicit printed Throw-once-then-Spear tactic.
+    if actor in state.source.enemy_activation_order:
+        from towr.domain.pc_npc_weapon_inventory import npc_attack_weapon_use
+        if state.enemy(actor).definition.generated_components is not None and npc_attack_weapon_use(state,actor) is not None:
+            return None  # A ready alternate implement remains a genuine Attack choice.
     return next((option for option in options if option.kind is PcNetRecoverKind.PICKUP),None)
 
 
@@ -556,7 +574,9 @@ def expected_weighted_net_approach(state,actor,item_id):
         return None
     from towr.domain.pc_melee_result_models import pc_melee_action_id
     from towr.domain.pc_battlefield_manoeuvre_models import pc_battlefield_actor_speed
-    from towr.domain.pc_battlefield_movement_models import _zone_distance
+    from towr.domain.pc_battlefield_movement_models import (
+        _zone_distance,aerialmovement_permission,battlefield_path_available,
+    )
     previous = state.battlefield
     spatial = previous.spatial
     origin = spatial.placement_for(actor).zone_id
@@ -566,6 +586,8 @@ def expected_weighted_net_approach(state,actor,item_id):
     close = (item.marker_id,*(other for other in _actors(state) if other != actor
         and battlefield_range(previous,item.marker_id,other) is RangedWeaponRange.CLOSE))
     if origin == destination:
+        if not battlefield_path_available(state,actor,(),close_to_ids=close):
+            return None
         after = with_actor_placement(previous,actor,destination,close_to_ids=close)
         return PcNetApproachProof(actor,item_id,state.round_state,previous,after,None,None)
     if actor in spatial.free_move_used_entity_ids:
@@ -574,7 +596,11 @@ def expected_weighted_net_approach(state,actor,item_id):
     route = []
     current = origin
     for _ in range(speed.free_move_zone_limit):
-        following = min(spatial.graph.adjacent_zone_ids(current),
+        options = tuple(zone for zone in spatial.graph.adjacent_zone_ids(current)
+            if aerialmovement_permission(state,actor,(*route,zone)))
+        if not options:
+            break
+        following = min(options,
             key=lambda zone:_zone_distance(spatial.graph,zone,destination))
         if _zone_distance(spatial.graph,following,destination) >= _zone_distance(spatial.graph,current,destination):
             break
@@ -583,16 +609,26 @@ def expected_weighted_net_approach(state,actor,item_id):
             break
     if not route:
         return None
+    if not battlefield_path_available(state,actor,tuple(route),
+            close_to_ids=close if current==destination else ()):
+        return None
     request = FreeMovementRequest(pc_melee_action_id(state,actor)+':net:approach:'+item_id,
         state.round_state,spatial,actor,speed,_conditions(state,actor),tuple(route))
     result = resolve_free_movement(request)
-    after = with_actor_placement(replace(previous,spatial=result.state),actor,current,
-        close_to_ids=close if current == destination else ())
+    after = replace(with_actor_placement(previous,actor,current,
+        close_to_ids=close if current == destination else ()),spatial=result.state)
     return PcNetApproachProof(actor,item_id,state.round_state,previous,after,request,result)
 
 
 def _independent_burden(state,target):
     from towr.domain.injury_models import WoundConditionEffect
+    from towr.domain.pc_armour_models import external_armour_conditions
+    from towr.domain.pc_inventory_conditions import external_inventory_conditions
+    from towr.domain.pc_briarroot_models import external_briarroot_conditions
+    from towr.domain.pc_magic_models import external_magic_conditions
+    if Condition.BURDENED in (external_inventory_conditions(state,target) | external_armour_conditions(state,target)
+            | external_briarroot_conditions(state,target) | external_magic_conditions(state,target)):
+        return True
     injury = _injury(state,target)
     if target in state.source.pc_activation_order:
         return any(type(effect) is WoundConditionEffect and effect.condition is Condition.BURDENED
@@ -613,22 +649,19 @@ def _release_target_injury(state,target,bank):
 def _pc_pickup_member(state,member,item_id,injury,*,incidental=False):
     """The one paid object interaction also stows the actual held backup."""
     from towr.domain.pc_melee_models import PcTwoHandedGrip
-    from towr.domain.pc_combat_equipment_models import PcItemLocation,PcWeaponInventoryState
+    from towr.domain.weapon_inventory_models import WeaponItemLocation as PcItemLocation, WeaponInventoryState, WeaponGrip
     from towr.domain.pc_heavy_wound_models import critical_for_incidental_hand_use,critical_for_hand
     source = state.source.participant(member.actor_id)
-    actual_id = next(item.id for item in source.combat_equipment
-        if member.actor_id+':weapon:'+item.id == item_id)
+    actual_id = item_id
     inventory = member.weapon_inventory
     if any(item.location is PcItemLocation.HELD and item.id != actual_id for item in inventory.items):
         injury = critical_for_incidental_hand_use(replace(member,injury=injury),member.weapon_hand)
     injury = (critical_for_incidental_hand_use(replace(member,injury=injury),PcTwoHandedGrip.BOTH)
         if incidental else critical_for_hand(replace(member,injury=injury),PcTwoHandedGrip.BOTH))
-    items = tuple(replace(item,location=PcItemLocation.HELD,hand=PcTwoHandedGrip.BOTH)
-        if item.id == actual_id else replace(item,location=PcItemLocation.CARRIED,hand=None)
+    items = tuple(replace(item,location=PcItemLocation.HELD,grip=WeaponGrip.BOTH)
+        if item.id == actual_id else replace(item,location=PcItemLocation.CARRIED,grip=None)
         if item.location is PcItemLocation.HELD else item for item in inventory.items)
-    return replace(member,injury=injury,weapon_hand=PcTwoHandedGrip.BOTH,
-        using_backup_weapon=actual_id != source.combat_equipment[0].id,
-        weapon_inventory=PcWeaponInventoryState(items,actual_id))
+    return replace(member,injury=injury,weapon_inventory=WeaponInventoryState(items,actual_id,inventory.shield_hand))
 
 
 def project_weighted_net_step(state,proof):
@@ -805,14 +838,13 @@ def weighted_nets_after_equipment(state,proof,updates):
         for item_index,weapon_item in enumerate(items):
             if weapon_item.weapon is not PcMeleeWeapon.WEIGHTED_NET:
                 continue
-            physical = next(item for item in bank if item.item_id == member.actor_id+':weapon:'+weapon_item.id)
+            physical = next(item for item in bank if item.item_id == weapon_item.id)
             if physical.location in (PcNetLocation.FREE,PcNetLocation.BOUND):
                 if weapon_item.location is PcItemLocation.HELD:
                     original = weighted_net_item(state,physical.item_id)
                     if original.location in (PcNetLocation.FREE,PcNetLocation.BOUND):
                         raise ValueError('generic equipment changes cannot silently retrieve a deployed Net')
-                    member = replace(member,weapon_hand=None)
-                items[item_index] = replace(weapon_item,location=PcItemLocation.DEPLOYED,hand=None)
+                items[item_index] = replace(weapon_item,location=PcItemLocation.DEPLOYED,grip=None)
             elif weapon_item.location in (PcItemLocation.HELD,PcItemLocation.CARRIED):
                 physical = replace(physical,location=PcNetLocation.HELD if weapon_item.location is PcItemLocation.HELD else PcNetLocation.CARRIED)
                 bank = _replace_item(bank,physical)
@@ -825,10 +857,28 @@ def weighted_nets_after_equipment(state,proof,updates):
     enemies = []
     for enemy in values.get('enemies',state.enemies):
         physical = next((item for item in bank if item.owner_id == enemy.state.actor_id),None)
-        if physical is not None and enemy.definition.generated_components is not None:
-            available = physical.location is PcNetLocation.HELD
+        if enemy.definition.generated_components is not None:
+            inventory=enemy.state.weapon_inventory
+            if inventory is not None:
+                for unit in inventory.items:
+                    if unit.kind.value!='weighted_net':continue
+                    physical=next(item for item in bank if item.item_id==unit.id)
+                    if physical.location in (PcNetLocation.FREE,PcNetLocation.BOUND):
+                        inventory=inventory.with_item(replace(unit,location=PcItemLocation.DEPLOYED,grip=None))
+                    elif unit.location in (PcItemLocation.HELD,PcItemLocation.CARRIED):
+                        physical=replace(physical,location=PcNetLocation.HELD
+                            if unit.location is PcItemLocation.HELD else PcNetLocation.CARRIED)
+                        bank=_replace_item(bank,physical)
+                    elif (physical.location is PcNetLocation.HELD
+                            and type(proof) in (PcNetPickupProof,PcNetIncidentalPickupProof)):
+                        from towr.domain.weapon_inventory_models import WeaponGrip
+                        inventory=inventory.with_item(replace(unit,location=PcItemLocation.HELD,
+                            grip=unit.source.initial_grip or WeaponGrip.BOTH))
+                    else:raise ValueError('NPC Net must retain its actual finite item lifecycle')
+            available=inventory is not None and any(unit.location is PcItemLocation.HELD for unit in inventory.items)
             enemy = replace(enemy,state=replace(enemy.state,wields_weapon=available,
-                available_attack_ids=tuple(profile.id for profile in enemy.definition.attacks) if available else ()))
+                available_attack_ids=tuple(profile.id for profile in enemy.definition.attacks) if available else (),
+                weapon_inventory=inventory))
         elif physical is not None and enemy.definition.id == NET_DEFINITION_ID:
             from towr.domain.pc_net_models import net_stock_and_held
             # The existing printed Spear draw remains a distinct validated
@@ -854,7 +904,7 @@ weighted_nets_after_drop = weighted_nets_after_equipment
 
 def validate_weighted_net_bank(state):
     """Retain each physical item and the complete ordered receipt prefix."""
-    from towr.domain.pc_combat_equipment_models import PcItemLocation,PcWeaponInventoryState
+    from towr.domain.weapon_inventory_models import WeaponItemLocation as PcItemLocation, WeaponInventoryState, WeaponGrip
     source = initial_weighted_nets(state.source)
     if type(state.weighted_nets) is not tuple or len(source) != len(state.weighted_nets):
         raise TypeError('Net bank must retain its exact source-ordered physical item tuple')
@@ -869,10 +919,10 @@ def validate_weighted_net_bank(state):
             raise ValueError('Net binding targets a source-less actor')
         if actual.owner_id in state.source.pc_activation_order:
             inventory = state.participant(actual.owner_id).weapon_inventory
-            if type(inventory) is not PcWeaponInventoryState:
+            if type(inventory) is not WeaponInventoryState:
                 raise TypeError('PC physical Net requires its actual source inventory state')
             weapon = next((item for item in inventory.items
-                if actual.owner_id+':weapon:'+item.id == actual.item_id),None)
+                if item.id == actual.item_id),None)
             expected_location = (PcItemLocation.HELD if actual.location is PcNetLocation.HELD else
                 PcItemLocation.CARRIED if actual.location is PcNetLocation.CARRIED else PcItemLocation.DEPLOYED)
             if weapon is None or weapon.location is not expected_location:
@@ -899,6 +949,7 @@ def _weighted_net_history_bank(state,source):
     from towr.domain.pc_melee_result_models import PcAttackProof
     from towr.domain.pc_net_models import PcNpcNetDrawProof
     from towr.domain.pc_weapon_inventory import PcWeaponSwapProof
+    from towr.domain.pc_npc_weapon_inventory import PcNpcWeaponEquipProof
     from towr.domain.pc_combat_equipment_models import PcItemLocation
     from towr.domain.pc_melee_models import PcMeleeWeapon
     bank = source
@@ -964,11 +1015,13 @@ def _weighted_net_history_bank(state,source):
                 bank = _replace_item(bank,replace(item,location=PcNetLocation.HELD))
             elif item.location is PcNetLocation.HELD:
                 bank = _replace_item(bank,replace(item,location=PcNetLocation.CARRIED))
-        elif type(proof) is PcWeaponSwapProof:
-            for before,after in zip(proof.previous.items,proof.state.items,strict=True):
+        elif type(proof) in (PcWeaponSwapProof,PcNpcWeaponEquipProof):
+            previous=proof.previous if type(proof) is PcWeaponSwapProof else proof.transition.before
+            following=proof.state if type(proof) is PcWeaponSwapProof else proof.transition.after
+            for before,after in zip(previous.items,following.items,strict=True):
                 if before.weapon is not PcMeleeWeapon.WEIGHTED_NET:
                     continue
-                item = current(proof.actor_id+':weapon:'+before.id)
+                item = current(before.id)
                 if before.location in (PcItemLocation.HELD,PcItemLocation.CARRIED):
                     _same(item.location,PcNetLocation(before.location.value))
                 elif item.location not in (PcNetLocation.FREE,PcNetLocation.BOUND):

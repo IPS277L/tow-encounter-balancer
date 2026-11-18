@@ -1,6 +1,7 @@
 """Close Shooting opposition selects actual PC Skills, equipment, Fate and Help."""
 from copy import deepcopy
 from dataclasses import replace
+from tests.support.pc_weapon_sources import initial_weapon_items
 import unittest
 
 from tests.support.pc_melee_fixtures import make_pc_melee_party_scenario
@@ -22,6 +23,7 @@ from towr.domain.pc_melee_result_models import (
 from towr.domain.pc_npc_catalog import create_pc_book_npc
 from towr.domain.pc_shield_models import PcShieldLocation, pc_protection_hand
 from towr.domain.pc_weapon_models import pc_weapon_requires_two_hands
+from towr.domain.pc_weapon_inventory import replace_pc_member
 from towr.domain.test_models import Skill, TestQuality
 from towr.engine.pc_melee_runner import apply_pc_melee_step
 
@@ -78,7 +80,8 @@ class PcCloseShootingProtectionTests(unittest.TestCase):
     def test_owned_pistol_opposes_with_melee_without_spending_a_second_charge_or_action(self):
         source = scene()
         pistol = make_pc_pistol_scenario().party[0].pc
-        source = replace(source,party=(replace(source.party[0],pc=pistol,initial_weapon_hand=PcWeaponHand.RIGHT),))
+        source = replace(source,party=(replace(source.party[0],pc=pistol,initial_weapon_hand=PcWeaponHand.RIGHT,
+            combat_equipment=initial_weapon_items(pistol.weapon,PcWeaponHand.RIGHT,initially_loaded=True)),))
         result = execute(source,PC_MISS+[10]*2+[1]*3)
         incoming, = shots(result)
         owned_before = incoming.source.participant('pc').ranged
@@ -200,7 +203,7 @@ class PcCloseShootingProtectionTests(unittest.TestCase):
         self.assertFalse(injured.injury.conditions.has(Condition.CRITICALLY_INJURED))
         # Focused equipment use on a real W12/body record. The public journal
         # above dropped its weapon; this does not claim a free pickup.
-        held = replace(injured,weapon_hand=PcTwoHandedGrip.BOTH)
+        held = replace_pc_member(injured,weapon_hand=PcTwoHandedGrip.BOTH)
         hand = pc_protection_hand(held,Skill.SHOOTING,Skill.MELEE)
         self.assertIs(hand,PcTwoHandedGrip.BOTH)
         self.assertTrue(critical_for_hand(held,hand).conditions.has(Condition.CRITICALLY_INJURED))

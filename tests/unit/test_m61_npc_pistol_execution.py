@@ -1,6 +1,7 @@
 """Literal NPC firearm journals: Shoot/Reload, PC consequences and replay bounds."""
 from copy import deepcopy
 from dataclasses import replace
+from tests.support.pc_weapon_sources import initial_weapon_items
 import unittest
 
 from tests.support.pc_melee_scripted import ScriptedD10
@@ -23,6 +24,7 @@ from towr.domain.pc_ranged_models import PcRangedReloadProof
 from towr.domain.ranged_weapon_profiles import RangedWeaponId
 from towr.domain.test_models import Skill, TestQuality
 from towr.domain.turn_models import CombatActionKind, ImproviseKind
+from towr.domain.weapon_inventory_models import weapon_unit_id
 from towr.engine.pc_melee_runner import apply_pc_melee_step, run_pc_melee_scenario
 
 
@@ -66,7 +68,7 @@ class NpcPistolExecutionTests(unittest.TestCase):
         after = pc_npc_ranged_weapon(shot.state,'minion1')
         self.assertTrue(before.loaded)
         self.assertFalse(after.loaded)
-        self.assertEqual(after.weapon_instance_id,'minion1:weapon')
+        self.assertEqual(after.weapon_instance_id,weapon_unit_id('minion1','weapon',0))
         self.assertEqual(after.exacting.accumulated_successes,0)
         self.assertTrue(result.state.enemy('minion1').state.injury.conditions.has(Condition.STAGGERED))
         self.assertIs(shot.proof.npc_ranged_shot.execution.source_request.attack_skill,Skill.SHOOTING)
@@ -112,20 +114,22 @@ class NpcPistolExecutionTests(unittest.TestCase):
     def test_multiple_npc_and_pc_firearms_keep_independent_instances_and_reload_dice(self):
         source = scene(profiles=(OFFICIAL,OGRE),rounds=4)
         pc = make_pc_pistol_scenario().party[0].pc
-        source = replace(source,party=(replace(source.party[0],pc=pc,initial_weapon_hand=PcWeaponHand.LEFT),))
+        source = replace(source,party=(replace(source.party[0],pc=pc,initial_weapon_hand=PcWeaponHand.LEFT,
+            combat_equipment=initial_weapon_items(pc.weapon,PcWeaponHand.LEFT,initially_loaded=True)),))
         result = execute(source,PC_MISS+OFFICIAL_MISS+OGRE_MISS
             +[1]*3+[1]*3+[1,1]
             +PC_MISS+OFFICIAL_MISS+[1,10]
             +[10]*3+[10]*3+OGRE_MISS)
         self.assertEqual(result.executed_actions,12)
         self.assertEqual(len(steps(result,PcRangedReloadProof)),2)
-        bank = result.state.npc_ranged_weapons
-        self.assertEqual(tuple(entry.actor_id for entry in bank),('minion1','minion2'))
-        self.assertEqual(tuple(entry.weapon_state.weapon_id for entry in bank),
+        actors=tuple(enemy.state.actor_id for enemy in result.state.enemies)
+        weapons=tuple(pc_npc_ranged_weapon(result.state,actor) for actor in actors)
+        self.assertEqual(actors,('minion1','minion2'))
+        self.assertEqual(tuple(weapon.weapon_id for weapon in weapons),
             (RangedWeaponId.PISTOL,RangedWeaponId.OGRE_PISTOL))
-        self.assertEqual(tuple(entry.weapon_state.exacting.accumulated_successes for entry in bank),(0,0))
-        self.assertTrue(all(not entry.weapon_state.loaded for entry in bank))
-        instances = {entry.weapon_state.weapon_instance_id for entry in bank}
+        self.assertEqual(tuple(weapon.exacting.accumulated_successes for weapon in weapons),(0,0))
+        self.assertTrue(all(not weapon.loaded for weapon in weapons))
+        instances = {weapon.weapon_instance_id for weapon in weapons}
         instances.add(result.state.participant('pc').ranged.weapon_instance_id)
         self.assertEqual(len(instances),3)
         reloads = steps(result,PcNpcRangedReloadProof)
@@ -254,16 +258,25 @@ class NpcPistolExecutionTests(unittest.TestCase):
             PcMeleeStep(shot.source,replace(shot.proof,npc_ranged_shot=None))
         class IdAlias(str):
             pass
-        for value in ('other:weapon',IdAlias('minion1:weapon')):
+        for value in ('other:weapon',IdAlias(pc_npc_ranged_weapon(reload.source,'minion1').weapon_instance_id)):
             forged = deepcopy(reload.proof)
             object.__setattr__(forged.request.weapon_state,'weapon_instance_id',value)
             with self.subTest(value=value),self.assertRaises((TypeError,ValueError)):
                 PcMeleeStep(reload.source,forged)
         for value in (True,1):
-            bank = deepcopy(shot.state.npc_ranged_weapons)
-            object.__setattr__(bank[0].weapon_state,'loaded',value)
+            enemies = deepcopy(shot.state.enemies)
+            object.__setattr__(enemies[0].state.weapon_inventory.active.reload,'loaded',value)
             with self.subTest(value=value),self.assertRaises((TypeError,ValueError)):
-                replace(shot.state,npc_ranged_weapons=bank)
+                replace(shot.state,enemies=enemies)
+        enemies=deepcopy(shot.state.enemies)
+        object.__setattr__(enemies[0].state.weapon_inventory.active,'reload',
+            pc_npc_ranged_weapon(shot.source,'minion1'))
+        with self.assertRaises(ValueError):
+            replace(shot.state,enemies=enemies)
+        enemy=shot.state.enemies[0]
+        for inventory in (None,replace(enemy.state.weapon_inventory,items=(),active_item_id=None)):
+            with self.subTest(erased_inventory=inventory),self.assertRaises((TypeError,ValueError)):
+                replace(shot.state,enemies=(replace(enemy,state=replace(enemy.state,weapon_inventory=inventory)),))
         forged = deepcopy(shot.proof)
         object.__setattr__(forged.npc_ranged_shot.execution.weapon_state,'reload_cycle_id','foreign-cycle')
         with self.assertRaises((TypeError,ValueError)):

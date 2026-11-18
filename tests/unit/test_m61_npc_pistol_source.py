@@ -1,4 +1,6 @@
 """GM98/103: complete firearm loadouts, derived Reload and fresh scene facts."""
+from towr.domain.weapon_catalog import WeaponKind
+from tests.support.generated_weapon_sources import initial_generated_weapons
 from copy import deepcopy
 from dataclasses import FrozenInstanceError, fields, replace
 from enum import Enum
@@ -30,16 +32,16 @@ OFFICIAL = PcBookNpcProfile.EMPIRE_OFFICIAL_PISTOL
 OGRE = PcBookNpcProfile.IMPERIAL_OGRE_PISTOL
 
 
-def policy(actor):
-    return PcNpcRangedPolicy(actor,True,True,True,True,
-        PcNpcRangedReloadHandPolicy.TWO_AVAILABLE_HANDS)
+def policy(actor,kind=WeaponKind.PISTOL):
+    return PcNpcRangedPolicy(actor,True,True,True,
+        PcNpcRangedReloadHandPolicy.TWO_AVAILABLE_HANDS,initial_weapon=initial_generated_weapons(kind,gm_fit_confirmed=True if kind is WeaponKind.OGRE_PISTOL else None)[0])
 
 
 def scenario(profiles=(OFFICIAL,OGRE)):
     source = make_pc_melee_scenario(enemy_count=len(profiles))
     enemies = tuple(create_pc_book_npc(profile,old.state.actor_id)
         for profile,old in zip(profiles,source.enemies))
-    return replace(source,enemies=enemies,npc_ranged_policies=tuple(policy(e.state.actor_id)
+    return replace(source,enemies=enemies,npc_ranged_policies=tuple(policy(e.state.actor_id,WeaponKind(pc_npc_ranged_profile(e.definition).weapon_id.value))
         for e in enemies if e.definition.id in PC_NPC_RANGED_DEFINITION_IDS))
 
 
@@ -123,7 +125,7 @@ class NpcPistolSourceTests(unittest.TestCase):
         class Alias(str,Enum):
             HANDS='two_available_hands'
         complete = policy('npc')
-        for name in ('initially_loaded','has_blackpowder_lore','has_blackpowder_kit','ammunition_supply_confirmed'):
+        for name in ('has_blackpowder_lore','has_blackpowder_kit','ammunition_supply_confirmed'):
             for value in (False,1,'true',None):
                 if value is None and name in ('has_blackpowder_lore','has_blackpowder_kit'):
                     # Non-firearms carry null access facts; a canonical firearm
@@ -135,9 +137,19 @@ class NpcPistolSourceTests(unittest.TestCase):
                 else:
                     with self.subTest(name=name,value=value),self.assertRaises((TypeError,ValueError)):
                         replace(complete,**{name:value})
-        for value in ('two_available_hands',Alias.HANDS,True,None):
+        for value in ('two_available_hands',Alias.HANDS,True):
             with self.subTest(value=value),self.assertRaises(TypeError):
                 replace(complete,reload_hand_policy=value)
+        source = scenario((OFFICIAL,))
+        unprepared = replace(source.npc_ranged_policies[0],reload_hand_policy=None)
+        with self.assertRaises((TypeError,ValueError)):
+            replace(source,npc_ranged_policies=(unprepared,))
+        for loaded in (None,1,'true'):
+            with self.subTest(loaded=loaded),self.assertRaises((TypeError,ValueError)):
+                replace(complete.initial_weapon,initially_loaded=loaded)
+        self.assertFalse(replace(complete.initial_weapon,initially_loaded=False).initially_loaded)
+        with self.assertRaises(TypeError):
+            replace(complete,initially_loaded=True)
         for value in ('',None,1):
             with self.assertRaises(TypeError):
                 replace(complete,actor_id=value)

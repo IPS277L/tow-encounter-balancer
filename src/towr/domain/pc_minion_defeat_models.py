@@ -12,6 +12,7 @@ def validate_pc_minion_defeat_equipment(state) -> None:
     if any(enemy.definition.id in ('pc-book-npc:goblin_warrior_spear',
             'pc-book-npc:night_goblin_spear','pc-book-npc:night_goblin_net_spear') for enemy in state.source.enemies):
         from towr.domain.pc_melee_result_models import PcAttackProof,PcMinionStaggerDefeatProof
+        from towr.domain.pc_demigryph_models import PcDemigryphStrikeProof,pc_kernel_resolution
         from towr.domain.pc_warped_form_models import PcWarpedFormTargetProof,PcWarpedFormMinionDefeatProof
         for proof in state.history:
             if type(proof) is PcWarpedFormTargetProof and proof.result.minion_stagger_defeat is not None:
@@ -29,8 +30,8 @@ def validate_pc_minion_defeat_equipment(state) -> None:
                 if routed[target].request_id!=proof.activation_id+':target:'+target+':minion-stagger-defeat':
                     raise ValueError('wave fleeing drop changed its activation source')
                 acknowledged.add(target)
-            if type(proof) is PcAttackProof and proof.execution.resolution.minion_stagger_defeat is not None:
-                defeat=proof.execution.resolution.minion_stagger_defeat
+            if type(proof) in (PcAttackProof,PcDemigryphStrikeProof) and pc_kernel_resolution(proof).minion_stagger_defeat is not None:
+                defeat=pc_kernel_resolution(proof).minion_stagger_defeat
                 if type(defeat) is not MinionStaggerDefeatResult:
                     raise TypeError('fleeing defeat requires its exact result')
                 replace(defeat)
@@ -64,23 +65,43 @@ def validate_pc_minion_defeat_equipment(state) -> None:
         expected=old.state
         if (old.definition.generated_components is not None
                 and old.definition.generated_components.mount is not None):
-            from towr.domain.pc_mount_models import pc_is_mounted
+            from towr.domain.pc_mount_models import pc_is_mounted,mount_source_resilience_bonus
             if not pc_is_mounted(state,target):
+                components=old.definition.generated_components
                 expected=replace(expected,current_resilience=replace(expected.current_resilience,
-                    bonus=expected.current_resilience.bonus-1))
-        if (old.definition.generated_components is not None
-                and old.definition.generated_components.weapon.value == 'weighted_net'):
-            from towr.domain.pc_weighted_net_models import weighted_net_for_actor,PcNetLocation
-            item=weighted_net_for_actor(state,target)
-            if item is None:
-                raise ValueError('generated Net must retain its physical source item')
-            held=item.location is PcNetLocation.HELD
+                    bonus=expected.current_resilience.bonus-mount_source_resilience_bonus(components.mount)
+                        -int(components.armour.barding)))
+        if old.definition.generated_components is not None:
+            from towr.domain.pc_npc_shield_models import NpcShieldLocation
+            shield=next((item for item in state.npc_shields if item.actor_id==target),None)
+            if shield is not None:
+                held=shield.location is NpcShieldLocation.HELD
+                expected=replace(expected,holds_shield=held,current_resilience=replace(
+                    expected.current_resilience,bonus=expected.current_resilience.bonus
+                        -int(old.state.holds_shield)+int(held)))
+            from towr.domain.armour_models import armour_is_worn
+            expected=replace(expected,current_resilience=replace(expected.current_resilience,
+                armoured=True if expected.current_resilience.bonus==0
+                    and armour_is_worn(old.definition.generated_components.armour) else None))
+        if old.definition.generated_components is not None:
+            from towr.domain.weapon_inventory_models import WeaponItemLocation
+            inventory=enemy.state.weapon_inventory
+            held=inventory is not None and any(item.location is WeaponItemLocation.HELD for item in inventory.items)
             expected=replace(expected,wields_weapon=held,
-                available_attack_ids=old.state.available_attack_ids if held else ())
+                available_attack_ids=tuple(profile.id for profile in old.definition.attacks) if held else ())
         if old.definition.id=='pc-book-npc:night_goblin_net_spear':
             from towr.domain.pc_net_models import expected_pc_npc_net_equipment
             expected=expected_pc_npc_net_equipment(state,target)
+        if any(item.owner_id==target and item.ground is not None
+                for item in getattr(state,'briarroot_dropped_weapons',())):
+            expected=replace(expected,wields_weapon=False,available_attack_ids=())
         if target in acknowledged:
             expected=replace(expected,wields_weapon=False,available_attack_ids=())
-        if replace(enemy.state,injury=old.state.injury)!=expected:
+        # This owner authenticates the equipment/availability consequences of
+        # defeat, Net, Shield and mount receipts. The common inventory has its
+        # own source/history validator in PcMeleeState; Reload progress and
+        # physical item transitions must not be reclassified as a fleeing drop
+        # merely because they add/change this independent runtime field.
+        equipment=replace(enemy.state,injury=old.state.injury,weapon_inventory=None)
+        if equipment!=replace(expected,weapon_inventory=None):
             raise ValueError('PC owner changed NPC equipment outside the actual fleeing weapon drop')

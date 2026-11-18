@@ -1,4 +1,6 @@
 """Optional PC Shooting opposition and Melee Protection Help keep full sources."""
+from towr.domain.weapon_catalog import WeaponKind
+from tests.support.generated_weapon_sources import initial_generated_weapons
 from copy import deepcopy
 from dataclasses import replace
 from enum import Enum
@@ -8,6 +10,7 @@ from unittest.mock import patch
 
 from tests.support.pc_melee_fixtures import make_pc_melee_scenario, make_pc_melee_party_scenario
 from tests.support.pc_pistol_scenarios import make_pc_pistol_scenario
+from tests.support.pc_weapon_sources import initial_weapon_items
 from tests.support.pc_shield_scenarios import make_pc_shield_scenario, shield_loadout
 from tests.unit.test_m9_pc_melee_json import document
 from towr.adapters import pc_melee_json as wire
@@ -20,7 +23,7 @@ from towr.application.pc_melee_balance_models import project_pc_melee_candidate
 from towr.application.pc_melee_service import execute_pc_melee_balance, execute_pc_melee_simulation
 from towr.domain.pc_melee_models import (
     PcBackupWeaponPolicy, PcHelpPolicy, PcHelpTarget, PcMeleePolicy,
-    PcMeleeWeapon, PcWeaponHand,PC_RANGED_WEAPONS,PC_THROWING_WEAPONS,
+    PcMeleeWeapon, PcWeaponHand,PC_RANGED_WEAPONS,PC_THROWING_WEAPONS,PC_EXECUTABLE_WEAPONS,
 )
 from towr.domain.pc_npc_catalog import PcBookNpcProfile, create_pc_book_npc
 from towr.domain.pc_npc_ranged_source_models import PcNpcRangedPolicy, PcNpcRangedReloadHandPolicy
@@ -33,7 +36,7 @@ FIELD = 'close_shooting_protection_skill'
 
 
 def source_loadouts():
-    for weapon in PcMeleeWeapon:
+    for weapon in PC_EXECUTABLE_WEAPONS:
         if weapon not in (*PC_RANGED_WEAPONS,*PC_THROWING_WEAPONS):
             yield make_pc_melee_scenario(weapon=weapon)
     yield make_pc_pistol_scenario()
@@ -41,7 +44,9 @@ def source_loadouts():
     pistol = make_pc_pistol_scenario()
     member = replace(pistol.party[0], shield=shield_loadout(PcWeaponHand.RIGHT))
     yield replace(pistol, party=(member,))
-    member = replace(member, backup_weapon_policy=PcBackupWeaponPolicy(PcMeleeWeapon.SWORD, PcWeaponHand.LEFT))
+    backup=PcBackupWeaponPolicy(PcMeleeWeapon.SWORD,PcWeaponHand.LEFT)
+    member = replace(member,backup_weapon_policy=backup,combat_equipment=initial_weapon_items(
+        member.pc.weapon,member.initial_weapon_hand,backup,initially_loaded=True))
     yield replace(pistol, party=(member,))
     two_handed = make_pc_melee_scenario(weapon=PcMeleeWeapon.GREATAXE)
     yield replace(two_handed, party=(replace(two_handed.party[0],
@@ -62,8 +67,8 @@ def service_source(*, choice=Skill.MELEE):
         for member in (helper, receiver))
     return replace(source, party=party, enemies=enemies, enemy_target_priority=('pc2','pc1'),
         facts=replace(source.facts, outnumbering_bonus_approved=False),
-        npc_ranged_policies=(PcNpcRangedPolicy('minion1', True, True, True, True,
-            PcNpcRangedReloadHandPolicy.TWO_AVAILABLE_HANDS),))
+        npc_ranged_policies=(PcNpcRangedPolicy('minion1',  True, True, True,
+            PcNpcRangedReloadHandPolicy.TWO_AVAILABLE_HANDS,initial_weapon=initial_generated_weapons(WeaponKind.OGRE_PISTOL,gm_fit_confirmed=True)[0]),))
 
 
 def request_document(*, balance=False):

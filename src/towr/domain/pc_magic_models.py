@@ -201,6 +201,9 @@ def build_pc_casting_request(state):
     actor = state.round_state.active_turn.actor_id
     wizard = state.source.participant(actor).wizard
     member = state.participant(actor)
+    from towr.domain.pc_armour_models import actor_bound_to_chivalric_combat
+    if actor_bound_to_chivalric_combat(state,actor):
+        raise ValueError('Agilulf chivalric combat cannot replace hand-to-hand combat with an offensive spell')
     if wizard is None or member.injury.dead or member.injury.conditions.has(Condition.DEFENCELESS) or magic_hand(state,actor) is None:
         raise ValueError('Casting requires a living able Wizard and a usable hand')
     action_id = pc_melee_action_id(state,actor)
@@ -346,6 +349,9 @@ def expected_magic_interruption(state):
     consumed = tuple(p.source_action_id for p in state.history if type(p) is PcMagicInterruptionProof)
     if source_id in consumed:
         return None
+    from towr.domain.pc_demigryph_models import build_pc_demigryph_strike
+    if build_pc_demigryph_strike(state) is not None:
+        return None  # The same Attack action still has its committed mount strike.
     identifier = source_id+':skipped-casting'
     if receipt is not None:
         result = resolve_skipped_casting_test_after_action(SkippedCastingTestAfterActionRequest(

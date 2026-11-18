@@ -1,4 +1,7 @@
 """Numeric cohort sampling preserves facts and uses explicit, bounded RNG."""
+from tests.support.generated_weapon_sources import initial_generated_weapons
+from tests.support.armour_fixtures import light_loadout
+from towr.domain.armour_models import BodyArmour, ShieldKind
 from collections import Counter
 from copy import deepcopy
 from dataclasses import FrozenInstanceError, replace
@@ -15,9 +18,9 @@ from towr.domain.generated_npc_models import (
 
 
 def numeric_space(**changes):
-    return NpcSearchSpace(**(dict(weapon_skill=(3,), strength=(4,), toughness=(5,2,3),
+    return NpcSearchSpace(weapon_count=(1,), **(dict(weapon_skill=(3,), strength=(4,), toughness=(5,2,3),
         agility=(3,), melee=(4,), athletics=(4,), defence=(4,), brawn=(4,),
-        weapon=(GeneratedWeapon.SWORD,), light_armour=(True,), shield=(True,),
+        weapon=(GeneratedWeapon.SWORD,), armour=(BodyArmour.LIGHT,), shield=(ShieldKind.SHIELD,),
         abilities=((),), allowed_talents=(), ballistic_skill=(3,), shooting=(4,),
         initiative=(3,), dexterity=(4,)) | changes))
 
@@ -76,16 +79,16 @@ class NumericCompositionSamplingTests(unittest.TestCase):
         space=numeric_space(weapon_skill=(2,3,5),strength=(3,4,6),agility=(2,3,5),
             melee=(2,4,6),athletics=(2,4,6),defence=(2,4,6),
             weapon=(GeneratedWeapon.SWORD,GeneratedWeapon.PISTOL,GeneratedWeapon.REPEATER_HANDBOW),
-            light_armour=(False,True),shield=(False,True),
+            armour=(None,BodyArmour.LIGHT),shield=(None,ShieldKind.SHIELD),
             abilities=((),(GeneratedAbility.DRAINED_ON_HIT,)),allowed_talents=(stance,wild,resistance),
             ballistic_skill=(2,3,5),shooting=(2,4,6),initiative=(2,3,5),dexterity=(2,4,6))
-        melee=GeneratedNpc(3,4,3,3,4,4,GeneratedWeapon.SWORD,True,
-            (GeneratedAbility.DRAINED_ON_HIT,),defence=4,shield=True,talents=(stance,wild))
-        pistol=GeneratedNpc(3,4,3,3,4,4,GeneratedWeapon.PISTOL,False,(),defence=4,shield=False,
-            talents=(resistance,),ranged=GeneratedRangedFacts(3,4,3,4,True,True,True,True))
-        handbow=GeneratedNpc(3,4,3,3,4,4,GeneratedWeapon.REPEATER_HANDBOW,True,(),
-            defence=4,shield=False,talents=(stance,wild),
-            ranged=GeneratedRangedFacts(3,4,3,4,True,True,None,None))
+        melee=GeneratedNpc(3,4,3,3,4,4,initial_generated_weapons(GeneratedWeapon.SWORD),light_loadout(light=True, shield=True),
+            (GeneratedAbility.DRAINED_ON_HIT,),defence=4,talents=(stance,wild))
+        pistol=GeneratedNpc(3,4,3,3,4,4,initial_generated_weapons(GeneratedWeapon.PISTOL),light_loadout(light=False, shield=False),(),defence=4,
+            talents=(resistance,),ranged=GeneratedRangedFacts(3,4,3,4,True,True,True))
+        handbow=GeneratedNpc(3,4,3,3,4,4,initial_generated_weapons(GeneratedWeapon.REPEATER_HANDBOW),light_loadout(light=True, shield=False),(),
+            defence=4,talents=(stance,wild),
+            ranged=GeneratedRangedFacts(3,4,3,4,True,None,None))
         composition=(melee,pistol,handbow)
         original=deepcopy(composition)
         rng=Random(42)
@@ -95,7 +98,7 @@ class NumericCompositionSamplingTests(unittest.TestCase):
         self.assertEqual(result.changed_members,3)
         for before,after in zip(composition,result.composition):
             self.assertTrue(space.contains(after))
-            for field in ('weapon','light_armour','shield','abilities','talents'):
+            for field in ('weapon','armour','abilities','talents'):
                 self.assertEqual(getattr(after,field),getattr(before,field))
             self.assertEqual((after.weapon_skill,after.strength,after.toughness,after.agility),
                 (5,6,5,5))

@@ -8,6 +8,7 @@ from unittest.mock import patch
 
 from tests.support.pc_melee_fixtures import make_pc_melee_scenario
 from tests.support.pc_pistol_scenarios import make_pc_pistol_scenario
+from tests.support.pc_weapon_sources import initial_weapon_items
 from tests.support.pc_shield_scenarios import shield_loadout
 from tests.unit.test_m9_pc_melee_json import document
 from towr.adapters import pc_melee_json as wire
@@ -23,6 +24,8 @@ from towr.domain.pc_melee_models import (
     PcMeleePolicy, PcMeleeWeapon, PcWeaponHand, validate_pc_melee_scenario_admission,
 )
 from towr.domain.test_models import Skill
+from towr.domain.pc_weapon_inventory import initial_pc_weapon_inventory
+from towr.domain.weapon_inventory_models import WEAPON_COUNT_BURDEN_RULE_ID,carrying_burden_rule_ids
 from towr.simulation.pc_melee_models import PcMeleeSimulationRequest
 from towr.simulation.pc_melee_simulation import run_pc_melee_trial
 
@@ -37,6 +40,8 @@ def backup_source(*, weapon=PcMeleeWeapon.SWORD, shield=False,
     opposite = PcWeaponHand.LEFT if hand is PcWeaponHand.RIGHT else PcWeaponHand.RIGHT
     member = replace(source.party[0],pc=replace(source.party[0].pc,strength=2),
         initial_weapon_hand=hand,backup_weapon_policy=PcBackupWeaponPolicy(weapon,hand),
+        combat_equipment=initial_weapon_items(PcMeleeWeapon.PISTOL,hand,
+            PcBackupWeaponPolicy(weapon,hand),initially_loaded=True),
         shield=shield_loadout(opposite) if shield else None)
     return replace(source,party=(member,))
 
@@ -64,14 +69,13 @@ class PistolBackupJsonTests(unittest.TestCase):
                         self.assertEqual(member.pc.strength,2)
                         self.assertEqual(member.backup_weapon_policy,PcBackupWeaponPolicy(weapon,hand))
                         self.assertEqual(member.shield is not None,shield)
-                        self.assertTrue(member.pc.ranged.initially_loaded)
+                        self.assertTrue(member.combat_equipment[0].initially_loaded)
 
     def test_typed_source_keeps_carry_primary_role_and_hand_restrictions(self):
         class Alias(str,Enum):
             RIGHT = 'right'
         member = backup_source(shield=True).party[0]
         changes = (
-            {'pc':replace(member.pc,strength=1)},
             {'initial_weapon_hand':member.shield.initial_hand},
             {'backup_weapon_policy':{'weapon':'sword','preferred_hand':'right'}},
             {'policy':PcMeleePolicy.HELP_ALLY_OR_ATTACK_OR_RECOVER_SELF,
@@ -82,6 +86,9 @@ class PistolBackupJsonTests(unittest.TestCase):
         for change in changes:
             with self.subTest(change=change),self.assertRaises((TypeError,ValueError)):
                 replace(member,**change)
+        weak=replace(member,pc=replace(member.pc,strength=1))
+        self.assertEqual(carrying_burden_rule_ids(initial_pc_weapon_inventory(weak),1),
+            (WEAPON_COUNT_BURDEN_RULE_ID,))
         with self.assertRaises(TypeError):
             PcBackupWeaponPolicy(PcMeleeWeapon.SWORD,Alias.RIGHT)
         for weapon in (PcMeleeWeapon.PISTOL,PcMeleeWeapon.GREATAXE):
@@ -125,12 +132,11 @@ class PistolBackupJsonTests(unittest.TestCase):
             lambda member: member['backup_weapon_policy'].update(weapon='pickaxe'),
             lambda member: member['backup_weapon_policy'].update(preferred_hand='both'),
             lambda member: member['backup_weapon_policy'].update(trigger='after_first_shot'),
-            lambda member: member['pc'].update(strength=1),
             lambda member: member['pc'].update(strength=True),
             lambda member: member.update(initial_weapon_hand='both'),
             lambda member: member['pc']['ranged'].update(has_blackpowder_kit=False),
             lambda member: member['pc']['ranged'].update(has_blackpowder_lore=False),
-            lambda member: member['pc']['ranged'].update(initially_loaded=False),
+            lambda member: member['combat_equipment'][0].update(initially_loaded=1),
         )
         for balance in (False,True):
             key = 'template' if balance else 'scenario'

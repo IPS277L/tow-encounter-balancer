@@ -1,4 +1,6 @@
 """Finite Shooting/Reload advice and prepared automatic PC Protection."""
+from tests.support.generated_weapon_sources import initial_generated_weapons
+from tests.support.armour_fixtures import light_loadout
 from dataclasses import replace
 import unittest
 from unittest.mock import patch
@@ -15,6 +17,7 @@ from towr.domain.pc_melee_models import (
 )
 from towr.domain.pc_melee_result_models import _pc_test, initial_pc_melee_state
 from towr.domain.pc_npc_ranged_source_models import pc_npc_ranged_policy_for_generated
+from towr.domain.pc_npc_ranged_models import pc_npc_ranged_weapon
 from towr.domain.test_models import Skill, TestRequest, TestProfile
 
 
@@ -23,9 +26,9 @@ def source(*, weapon=GeneratedWeapon.REPEATER_PISTOL, rounds=3, initiative=1, de
     member=replace(original.party[0],pc=replace(original.party[0].pc,
         weapon_skill=1,agility=1,melee=2,defence=2,athletics=2,toughness=20))
     firearm=weapon is not GeneratedWeapon.REPEATER_HANDBOW
-    facts=GeneratedRangedFacts(1,2,initiative,dexterity,True,True,
+    facts=GeneratedRangedFacts(1,2,initiative,dexterity,True,
         True if firearm else None,True if firearm else None)
-    npc=GeneratedNpc(2,3,3,2,3,3,weapon,False,defence=3,shield=False,ranged=facts)
+    npc=GeneratedNpc(2,3,3,2,3,3,initial_generated_weapons(weapon),light_loadout(light=False, shield=False),defence=3,ranged=facts)
     return replace(original,party=(member,),enemies=(npc.participant('minion1'),),
         npc_ranged_policies=(pc_npc_ranged_policy_for_generated(npc,'minion1'),))
 
@@ -162,7 +165,7 @@ class GeneratedNpcShootingModeTests(unittest.TestCase):
         result=run_pc_melee_scenario(source(weapon=GeneratedWeapon.PISTOL,rounds=1),Tens())
         shot=next(step for step in result.steps if type(step.proof) is PcAttackProof
             and step.proof.npc_ranged_shot is not None)
-        self.assertFalse(shot.state.npc_ranged_weapons[0].weapon_state.loaded)
+        self.assertFalse(pc_npc_ranged_weapon(shot.state,'minion1').loaded)
         with patch('towr.domain.pc_tactical_models._impact_value',wraps=_impact_value) as impact:
             select_pc_tactic(shot.state,'pc1')
         self.assertFalse([call for call in impact.call_args_list if call.args[2]==5])

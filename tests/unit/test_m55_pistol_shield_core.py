@@ -20,6 +20,8 @@ from towr.domain.pc_shield_models import (
 from towr.domain.turn_models import CombatActionKind as Action, CombatTurnStartRequest
 from towr.rules.reload_resolution import execute_reload_action
 from towr.rules.turn_resolution import start_combat_turn
+from towr.domain.pc_weapon_inventory import replace_pc_member
+from towr.domain.weapon_inventory_models import weapon_unit_id, weapon_reload_cycle_id
 
 
 def shield_state(*, empty=False, dropped=False):
@@ -29,10 +31,11 @@ def shield_state(*, empty=False, dropped=False):
     combat = start_combat_turn(CombatTurnStartRequest('turn:pc',state.round_state,'pc')).state
     member = state.party[0]
     if empty:
-        member = replace(member,ranged=weapon_state(weapon_instance_id='pc:weapon',
-            reload_cycle_id='pc:first:cycle'))
+        identifier = weapon_unit_id('pc','weapon',0)
+        member = replace_pc_member(member,ranged=weapon_state(weapon_instance_id=identifier,
+            reload_cycle_id=weapon_reload_cycle_id(identifier,1)))
     if dropped:
-        member = replace(member,shield=PcShieldState(Location.DROPPED,None))
+        member = replace_pc_member(member,shield=PcShieldState(Location.DROPPED,None))
     return replace(state,party=(member,),round_state=combat)
 
 
@@ -67,7 +70,7 @@ class M55PistolShieldCoreTests(unittest.TestCase):
                 state = shield_state(empty=True,dropped=True)
                 reserved = reserve(state,pc_melee_action_declaration(state))
                 result = execute_reload_action(build_pc_ranged_reload(reserved),SequenceRandom(rolls))
-                member = replace(state.party[0],ranged=result.state)
+                member = replace_pc_member(state.party[0],ranged=result.state)
                 state = replace(state,party=(member,))
                 self.assertIs(pc_shield_recover_needed(member),loaded)
                 self.assertIs(pc_melee_selected_action(state),Action.RECOVER if loaded else Action.IMPROVISE)
@@ -86,19 +89,19 @@ class M55PistolShieldCoreTests(unittest.TestCase):
 
     def test_weapon_pickup_precedes_reload_and_does_not_reset_cycle(self):
         state = shield_state(empty=True,dropped=True)
-        member = replace(state.party[0],weapon_hand=None)
+        member = replace_pc_member(state.party[0],weapon_hand=None)
         state = replace(state,party=(member,))
         self.assertIs(pc_melee_selected_action(state),Action.RECOVER)
         self.assertIsNone(expected_pc_shield_release(state))
-        self.assertEqual(build_pc_melee_recover(state).choice.object_interaction.object_id,'pc:weapon')
-        self.assertEqual(member.ranged.reload_cycle_id,'pc:first:cycle')
+        self.assertEqual(build_pc_melee_recover(state).choice.object_interaction.object_id,weapon_unit_id('pc','weapon',0))
+        self.assertEqual(member.ranged.reload_cycle_id,weapon_reload_cycle_id(weapon_unit_id('pc','weapon',0),1))
 
     def test_unavailable_reload_does_not_release_or_pick_up_shield(self):
         for total in (16,18,20):
             state = block_hand(shield_state(empty=True),Hand.RIGHT,total=total)
             shield = (PcShieldState(Location.DROPPED,None) if total==18
                 else PcShieldState(Location.UNAVAILABLE,Hand.RIGHT))
-            state = replace(state,party=(replace(state.party[0],shield=shield),))
+            state = replace(state,party=(replace_pc_member(state.party[0],shield=shield),))
             self.assertIsNone(expected_pc_shield_release(state))
             self.assertIsNone(pc_shield_recover_hand(state.party[0]))
             self.assertEqual(pc_ranged_unsupported(state).reason,'ranged_reload_hands_unavailable')

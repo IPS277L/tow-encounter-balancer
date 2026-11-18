@@ -7,6 +7,7 @@ import unittest
 from unittest.mock import patch
 
 from tests.support.pc_pistol_scenarios import make_pc_pistol_scenario
+from tests.support.pc_weapon_sources import initial_weapon_items
 from tests.support.pc_shield_scenarios import shield_loadout
 from tests.unit.test_m9_pc_melee_json import document
 from towr.adapters import pc_melee_json as wire
@@ -29,7 +30,8 @@ from towr.simulation.pc_melee_simulation import run_pc_melee_trial
 def pistol_shield_source(*, enemies=1, hand=PcWeaponHand.RIGHT):
     source = make_pc_pistol_scenario(enemy_count=enemies, max_rounds=5)
     opposite = PcWeaponHand.LEFT if hand is PcWeaponHand.RIGHT else PcWeaponHand.RIGHT
-    member = replace(source.party[0], initial_weapon_hand=hand, shield=shield_loadout(opposite))
+    member = replace(source.party[0], initial_weapon_hand=hand, shield=shield_loadout(opposite),
+        combat_equipment=initial_weapon_items(PcMeleeWeapon.PISTOL,hand,initially_loaded=True))
     return replace(source, party=(member,))
 
 
@@ -64,8 +66,7 @@ class PistolShieldJsonTests(unittest.TestCase):
             {'initial_weapon_hand': member.shield.initial_hand},
             {'initial_weapon_hand': Alias.RIGHT},
             {'shield': {'initial_hand': 'left'}},
-            {'pc': replace(member.pc,strength=1),
-                'backup_weapon_policy': PcBackupWeaponPolicy(PcMeleeWeapon.DAGGER, PcWeaponHand.RIGHT)},
+            {'backup_weapon_policy': PcBackupWeaponPolicy(PcMeleeWeapon.DAGGER, PcWeaponHand.RIGHT)},
             {'policy': PcMeleePolicy.HELP_ALLY_OR_ATTACK_OR_RECOVER_SELF,
                 'help_policy': PcHelpPolicy('ally', PcHelpTarget.ATTACK, Skill.MELEE)},
             {'policy': PcMeleePolicy.RECOVER_ALLY_OR_ATTACK_OR_RECOVER_SELF,
@@ -93,8 +94,7 @@ class PistolShieldJsonTests(unittest.TestCase):
                 self.assertEqual(source.party[0].pc.ranged, pistol_shield_source().party[0].pc.ranged)
 
     def test_closed_combined_source_rejects_invalid_hand_policy_and_profile_before_rng(self):
-        def overcarry_backup(member):
-            member['pc']['strength'] = 1
+        def undeclared_backup(member):
             member['backup_weapon_policy'] = {'weapon': 'dagger', 'preferred_hand': 'right'}
         changes = (
             lambda member: member.update(initial_weapon_hand='left'),
@@ -104,8 +104,8 @@ class PistolShieldJsonTests(unittest.TestCase):
             lambda member: member['shield'].update(reload_priority=True),
             lambda member: member['pc']['ranged'].update(reload_hand_policy='weapon_hand_only'),
             lambda member: member['pc']['ranged'].pop('has_blackpowder_kit'),
-            lambda member: member['pc']['ranged'].update(initially_loaded=False),
-            overcarry_backup,
+            lambda member: member['combat_equipment'][0].update(initially_loaded=1),
+            undeclared_backup,
         )
         for balance in (False, True):
             key = 'template' if balance else 'scenario'

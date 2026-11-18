@@ -172,5 +172,21 @@ class DynamicProcessJsonSmokeTests(unittest.TestCase):
             json.loads(encode_dynamic_encounter_result(self.command, self.result)))
 
 
+class ArmourProcessTransportTests(unittest.TestCase):
+    def test_armour_and_airspace_have_equal_results_across_spawn_boundary(self):
+        raw = json.loads(Path('docs/examples/dynamic/armour.request.json').read_bytes())
+        raw['scene']['airspace'] = dict(open_sky_confirmed=True, fall_hazard_rating=2)
+        sequential = parse_dynamic_encounter_request(json.dumps(raw))
+        expected = execute_dynamic_encounter(sequential)
+        raw['execution'] = dict(mode='process', workers=2)
+        command = parse_dynamic_encounter_request(json.dumps(raw))
+        actual = execute_dynamic_encounter(command)
+        self.assertEqual(actual, expected)
+        report = json.loads(encode_dynamic_encounter_result(command, actual))
+        validate_dynamic_encounter_document(report, 'result')
+        self.assertEqual(report['source_request'], raw)
+        self.assertEqual(report['total_trials'], 4)
+
+
 if __name__ == '__main__':
     unittest.main()

@@ -13,6 +13,7 @@ from towr.domain.pc_ally_recover_models import (
     expected_pc_standard_recover,pc_after_standard_recover,pc_ally_recover_beneficiary,
 )
 from towr.domain.pc_melee_models import PcAllyRecoverPolicy,PcMeleePolicy
+from towr.domain.pc_weapon_inventory import replace_pc_member
 from towr.domain.pc_melee_result_models import (
     PcRecoverProof,PcAttackProof,PcTurnEndProof,PcMeleeOutcome,PcMeleeStep,
     initial_pc_melee_state,build_pc_melee_recover,pc_melee_selected_action,
@@ -62,7 +63,7 @@ def pure_member(state,actor,*,conditions=(),effects=(),hand='unchanged',dead=Fal
     if effects and not injury.wounds:
         actual=execute(make_pc_melee_scenario(enemy_count=3,max_rounds=1),heavy_prefix(13))
         injury=replace(injury,wounds=actual.state.party[0].injury.wounds)
-    changed=replace(member,injury=replace(injury,conditions=ConditionState(frozenset(conditions)),
+    changed=replace_pc_member(member,injury=replace(injury,conditions=ConditionState(frozenset(conditions)),
         active_wound_effects=effects,dead=dead),
         weapon_hand=member.weapon_hand if hand=='unchanged' else hand)
     return replace(state,party=tuple(changed if item.actor_id==actor else item for item in state.party))

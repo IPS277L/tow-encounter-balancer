@@ -13,22 +13,29 @@ if TYPE_CHECKING:
 
 
 def pc_active_weapon(state: PcMeleeState, actor_id: str) -> PcMeleeWeapon:
-    participant = state.source.participant(actor_id)
-    return (participant.backup_weapon_policy.weapon if state.participant(actor_id).using_backup_weapon
-        else participant.pc.weapon)
+    member=state.participant(actor_id)
+    item=member.weapon_inventory.active
+    if item is None:
+        raise ValueError('the actual weapon selection is empty')
+    return PcMeleeWeapon(item.kind.value)
 
 
 def pc_preferred_weapon_hand(state: PcMeleeState, actor_id: str) -> PcWeaponHand | PcTwoHandedGrip | None:
     participant = state.source.participant(actor_id)
     initial = (participant.backup_weapon_policy.preferred_hand if state.participant(actor_id).using_backup_weapon
-        else participant.initial_weapon_hand)
-    from towr.domain.pc_weapon_models import pc_weapon_supports_variable_grip
+        and participant.backup_weapon_policy is not None else participant.initial_weapon_hand)
+    from towr.domain.pc_weapon_models import pc_weapon_supports_variable_grip,pc_weapon_requires_two_hands
     member=state.participant(actor_id)
     if (member.weapon_inventory is not None and member.weapon_inventory.active.weapon is PcMeleeWeapon.WEIGHTED_NET
             and member.weapon_inventory.active.location.value == 'deployed'):
         return None
-    if pc_weapon_supports_variable_grip(pc_active_weapon(state,actor_id)):
+    weapon=pc_active_weapon(state,actor_id)
+    if pc_weapon_supports_variable_grip(weapon):
         return preferred_variable_weapon_hand(member,initial)
+    if pc_weapon_requires_two_hands(weapon):
+        return preferred_weapon_hand(member,PcTwoHandedGrip.BOTH)
+    if initial is PcTwoHandedGrip.BOTH:
+        initial=(member.weapon_hand if type(member.weapon_hand) is PcWeaponHand else PcWeaponHand.LEFT)
     return preferred_weapon_hand(member,initial)
 
 
@@ -54,10 +61,7 @@ def preferred_variable_weapon_hand(member, initial_hand):
 
 
 def pc_active_weapon_item_id(state: PcMeleeState, actor_id: str) -> str:
-    inventory=state.participant(actor_id).weapon_inventory
-    if inventory is not None:
-        return inventory.active_item_id
-    return actor_id + (':backup-weapon' if state.participant(actor_id).using_backup_weapon else ':weapon')
+    return state.participant(actor_id).weapon_inventory.active_item_id
 
 
 def pc_backup_candidate_hand(state: PcMeleeState, actor_id: str) -> PcWeaponHand | None:
@@ -66,9 +70,7 @@ def pc_backup_candidate_hand(state: PcMeleeState, actor_id: str) -> PcWeaponHand
     participant = state.source.participant(actor_id)
     member = state.participant(actor_id)
     from towr.domain.pc_melee_models import PcMeleePolicy
-    if (participant.policy is PcMeleePolicy.AUTOMATIC_COMBAT and (participant.pc.ranged is not None
-            or participant.pc.weapon is PcMeleeWeapon.WEIGHTED_NET)
-            and member.weapon_inventory is not None):
+    if participant.policy is PcMeleePolicy.AUTOMATIC_COMBAT:
         return None
     policy = participant.backup_weapon_policy
     if (policy is None or member.using_backup_weapon or member.injury.dead
@@ -86,7 +88,7 @@ def pc_backup_candidate_hand(state: PcMeleeState, actor_id: str) -> PcWeaponHand
             return None
     elif len(usable_hands(member)) != 1:
         return None
-    elif participant.pc.ranged is not None:
+    elif participant.pc.weapon in PC_RANGED_WEAPONS:
         if member.ranged is None or member.ranged.loaded:
             return None
     else:
@@ -95,7 +97,12 @@ def pc_backup_candidate_hand(state: PcMeleeState, actor_id: str) -> PcWeaponHand
             return None
     # The carried weapon has no held hand yet: a healthy primary hand must not
     # silently override the caller's explicit backup preference.
-    return preferred_weapon_hand(replace(member,weapon_hand=None),policy.preferred_hand)
+    from towr.domain.pc_heavy_wound_models import injured_hands
+    order=(policy.preferred_hand,*(side for side in PcWeaponHand if side is not policy.preferred_hand))
+    usable=usable_hands(member)
+    injured=injured_hands(member)
+    return next((side for side in order if side in usable and side not in injured),
+        next((side for side in order if side in usable),None))
 
 
 def pc_backup_draw_hand(state: PcMeleeState, actor_id: str) -> PcWeaponHand | None:

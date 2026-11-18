@@ -14,9 +14,13 @@ from towr.domain.generated_npc_models import (GeneratedNpc,GeneratedWeapon,Gener
     GeneratedTalent,generated_talent_requirements_met,GeneratedRangedFacts,GENERATED_RANGED_WEAPONS,
     generated_weapon_allows_shield,generated_weapon_grips,GENERATED_VARIABLE_GRIP_WEAPONS,
     GENERATED_TWO_HANDED_RANGED_WEAPONS,GENERATED_CLOSE_WEAPONS)
+from towr.domain.armour_models import ArmourLoadout,BodyArmour,HelmetKind,ShieldKind
+from towr.domain.weapon_catalog import WeaponKind,WeaponGroup,weapon_profile
+from towr.domain.weapon_inventory_models import WeaponItemSource,WeaponItemLocation,WeaponGrip,weapon_reload_target
+from towr.domain.weapon_capability_models import weapon_ranged_requirements
 from towr.domain.ranged_weapon_profiles import RangedWeaponHands,RangedWeaponId,ranged_weapon_combat_profile
 from towr.domain.pc_battlefield_models import PcBattlefieldSpec
-from towr.domain.pc_mount_models import CombatMount
+from towr.domain.pc_mount_models import CombatMount,RiderKind
 from towr.domain.minion_defeat_models import MinionDefeatDecision, NpcDefeatDisposition
 from towr.domain.pc_melee_models import PcMeleeFacts, PcMeleeParticipant, PcMeleeScenario, PC_RANGED_WEAPONS
 from towr.simulation.pc_melee_models import PcMeleeSimulationRequest
@@ -58,8 +62,13 @@ class NpcSearchSpace:
     athletics: tuple[int, ...] = (3, 4, 5)
     defence: tuple[int, ...] = (3, 4, 5)
     weapon: tuple[GeneratedWeapon, ...] = GENERATED_CLOSE_WEAPONS
-    light_armour: tuple[bool, ...] = (False, True)
-    shield: tuple[bool, ...] = (False, True)
+    weapon_count: tuple[int, ...] = (1,2,3)
+    initial_loaded: tuple[bool, ...] = (True,)
+    armour: tuple[BodyArmour | None, ...] = (None,BodyArmour.LIGHT,BodyArmour.HEAVY,BodyArmour.FULL_PLATE)
+    secondary_armour: tuple[BodyArmour | None, ...] = (None,)
+    helmet: tuple[HelmetKind | None, ...] = (None,)
+    shield: tuple[ShieldKind | None, ...] = (None,ShieldKind.SHIELD)
+    barding: tuple[bool, ...] = (False,)
     abilities: tuple[tuple[GeneratedAbility, ...], ...] = ((),)
     allowed_talents: tuple[GeneratedTalent,...] = tuple(GeneratedTalent)
     ballistic_skill: tuple[int, ...] = (2, 3, 4)
@@ -72,8 +81,26 @@ class NpcSearchSpace:
     mount: tuple[CombatMount | None, ...] = (None,)
     throwing: tuple[int, ...] = (3,4,5)
     brawn: tuple[int, ...] = (3,4,5)
+    rider_kind: tuple[RiderKind, ...] = tuple(RiderKind)
+    agilulf_code_confirmed: bool | None = None
 
     def __post_init__(self):
+        for name in ('weapon','weapon_count','initial_loaded'):
+            choices=getattr(self,name)
+            if type(choices) is not tuple or not choices or len(set(choices)) != len(choices):
+                raise ValueError(name+' requires nonempty distinct tuple choices')
+        if any(type(value) is not GeneratedWeapon for value in self.weapon):
+            raise ValueError('weapon choices must be supported typed weapons')
+        if any(type(value) is not int or value < 1 for value in self.weapon_count):
+            raise ValueError('weapon_count choices must be exact positive integers')
+        if any(type(value) is not bool for value in self.initial_loaded):
+            raise ValueError('initial_loaded choices must be exact booleans')
+        if (type(self.rider_kind) is not tuple or not self.rider_kind
+                or any(type(kind) is not RiderKind for kind in self.rider_kind)
+                or len(set(self.rider_kind)) != len(self.rider_kind)):
+            raise ValueError('rider_kind requires nonempty distinct typed ancestry choices')
+        if self.agilulf_code_confirmed is not None and type(self.agilulf_code_confirmed) is not bool:
+            raise TypeError('Agilulf scene confirmation must be an exact bool or None')
         if (type(self.weapon_grip) is not tuple or not self.weapon_grip
                 or any(type(grip) is not RangedWeaponHands for grip in self.weapon_grip)
                 or len(set(self.weapon_grip)) != len(self.weapon_grip)):
@@ -95,8 +122,14 @@ class NpcSearchSpace:
                         raise ValueError(f'{name} choices must be integers in 2..6')
                 elif name == 'weapon' and type(value) is not GeneratedWeapon:
                     raise ValueError('weapon choices must be supported typed weapons')
-                elif name in ('light_armour','shield') and type(value) is not bool:
-                    raise ValueError('equipment choices must be exact booleans')
+                elif name in ('armour','secondary_armour') and value is not None and type(value) is not BodyArmour:
+                    raise ValueError('body armour choices require typed items or None')
+                elif name == 'helmet' and value is not None and type(value) is not HelmetKind:
+                    raise ValueError('helmet choices require typed items or None')
+                elif name == 'shield' and value is not None and type(value) is not ShieldKind:
+                    raise ValueError('shield choices require typed items or None')
+                elif name == 'barding' and type(value) is not bool:
+                    raise ValueError('Barding choices must be exact booleans')
                 elif name == 'mount' and value is not None and type(value) is not CombatMount:
                     raise ValueError('mount choices require supported typed components or None')
                 elif name == 'abilities':
@@ -105,189 +138,340 @@ class NpcSearchSpace:
                         raise ValueError('ability groups must be unique supported typed tuples')
         equipment_branches = tuple((weapon,grip) for weapon in self.weapon
             for grip in self._weapon_grips(weapon))
-        if any(not generated_weapon_allows_shield(weapon,grip)
-                for weapon,grip in equipment_branches) and False not in self.shield:
-            raise ValueError('weapon choices need an admissible no-Shield loadout')
-        if True in self.shield and not any(generated_weapon_allows_shield(weapon,grip)
+        if (any(not generated_weapon_allows_shield(weapon,grip) for weapon,grip in equipment_branches)
+                and None not in self.shield and max(self.weapon_count) == 1):
+            raise ValueError('two-handed pool items need a no-Shield or carried-item branch')
+        if any(shield is not None for shield in self.shield) and not any(generated_weapon_allows_shield(weapon,grip)
                 for weapon,grip in equipment_branches):
-            raise ValueError('Shield choice has no admissible one-handed melee weapon')
-        if GeneratedWeapon.WEIGHTED_NET in self.weapon and () not in self.abilities:
+            raise ValueError('Shield choice has no admissible one-handed weapon')
+        if self.weapon == (GeneratedWeapon.WEIGHTED_NET,) and () not in self.abilities:
             raise ValueError('Net proposal needs an admitted empty Damage-secondary group')
         if all(weapon is GeneratedWeapon.WEIGHTED_NET for weapon in self.weapon) and any(self.abilities):
             raise ValueError('Damage-secondary choices have no admissible non-Net weapon')
+        if any(not self._body_choices(weapon) for weapon in self.weapon):
+            raise ValueError('each weapon choice requires an admissible body-armour combination')
+        if any(not any(self._secondary_choices(body,weapon) for weapon in self.weapon)
+                for body in self.armour):
+            raise ValueError('each body armour choice requires an admissible secondary layer')
+        if any(not any(layer in self._secondary_choices(body,weapon)
+                    for body in self.armour for weapon in self.weapon)
+                for layer in self.secondary_armour):
+            raise ValueError('secondary armour choice has no admissible body armour')
+        if (BodyArmour.AGILULF in (*self.armour,*self.secondary_armour)
+                ) != (self.agilulf_code_confirmed is True):
+            raise ValueError('worn Agilulf choice requires its explicit confirmed chivalric scene')
+        if self.agilulf_code_confirmed is False:
+            raise ValueError('an unconfirmed chivalric scene cannot enable an Agilulf proposal')
+        if None in self.mount and False not in self.barding:
+            raise ValueError('unmounted choices require an admissible no-Barding loadout')
+        if True in self.barding and not any(mount is not None for mount in self.mount):
+            raise ValueError('Barding choice has no admissible mounted participant')
+        if any(not self._rider_choices(mount) for mount in self.mount):
+            raise ValueError('mount choice has no admissible explicit rider ancestry')
 
     @staticmethod
-    def _ranged_names(weapon=None):
-        names = ('ballistic_skill','shooting','initiative','dexterity')
-        return names + (('awareness',) if weapon in GENERATED_TWO_HANDED_RANGED_WEAPONS else ())
+    def _ranged_names(weapons=None):
+        if weapons is None:
+            return ('ballistic_skill','shooting','initiative','dexterity')
+        requirements=weapon_ranged_requirements(tuple(item.kind for item in weapons))
+        if requirements is None:
+            return ()
+        two_handed=any(GeneratedWeapon(item.kind.value) in GENERATED_TWO_HANDED_RANGED_WEAPONS
+            for item in weapons)
+        return (('ballistic_skill','shooting')
+            + (('initiative',) if requirements.exacting or two_handed else ())
+            + (('dexterity',) if requirements.exacting else ())
+            + (('awareness',) if two_handed else ()))
 
     @staticmethod
     def _ordinary_names():
         return ('weapon_skill','strength','toughness','agility','melee','athletics','defence',
-            'weapon','light_armour','shield','abilities','mount','brawn')
+            'armour','secondary_armour','helmet','shield','barding','abilities','mount','brawn')
+
+    def _secondary_choices(self, body, weapon=None):
+        choices=[]
+        for layer in self.secondary_armour:
+            if not any(self._initial_grips(kind,shield,
+                    chivalric=BodyArmour.AGILULF in (body,layer))
+                    for kind in self.weapon for shield in self.shield):
+                continue
+            # A one-item proposal must be able to select this exact pool member.
+            if (max(self.weapon_count)==1 and weapon is not None
+                    and BodyArmour.AGILULF in (body,layer)
+                    and weapon in (*GENERATED_RANGED_WEAPONS,GeneratedWeapon.WEIGHTED_NET)):
+                continue
+            try:
+                ArmourLoadout(tuple(item for item in (body,layer) if item is not None),body)
+            except (ValueError,TypeError):
+                continue
+            choices.append(layer)
+        return tuple(choices)
+
+    def _body_choices(self, weapon=None):
+        return tuple(body for body in self.armour if self._secondary_choices(body,weapon))
+
+    def _rider_choices(self, mount):
+        if mount is CombatMount.DEMIGRYPH:
+            return tuple(kind for kind in self.rider_kind if kind is RiderKind.HUMAN)
+        if mount is CombatMount.PEGASUS:
+            return tuple(kind for kind in self.rider_kind if kind in (RiderKind.HUMAN,RiderKind.ELF))
+        return (None,)
+
+    @staticmethod
+    def _source_facts(npc):
+        return {**{name:getattr(npc,name) for name in NpcSearchSpace._ordinary_names()
+                if name not in ('armour','secondary_armour','helmet','shield','barding')},
+            'armour':npc.armour.benefit,
+            'secondary_armour':next((body for body in npc.armour.body
+                if body is not npc.armour.benefit),None),
+            'helmet':npc.armour.helmet,'shield':npc.armour.shield,'barding':npc.armour.barding}
 
     def _weapon_grips(self, weapon):
-        # This conditional dimension is inactive for fixed melee/ranged items.
         return (self.weapon_grip if weapon in GENERATED_VARIABLE_GRIP_WEAPONS
             else generated_weapon_grips(weapon))
 
-    def _build(self, facts, talents=(), ranged_values=None, *, weapon_grip=None,throwing=None,ballistic_skill=None):
-        ranged=None
-        if facts['weapon'] in GENERATED_RANGED_WEAPONS:
-            names = self._ranged_names(facts['weapon'])
-            values = {name:(ranged_values[name] if ranged_values is not None
-                and name in ranged_values else getattr(self,name)[0]) for name in names}
-            if ballistic_skill is not None:
-                values['ballistic_skill'] = ballistic_skill
-            blackpowder=ranged_weapon_combat_profile(
-                RangedWeaponId(facts['weapon'].value)).requires_blackpowder_lore
-            ranged=GeneratedRangedFacts(**values,initially_loaded=True,ammunition_supply_confirmed=True,
-                has_blackpowder_lore=True if blackpowder else None,
-                has_blackpowder_kit=True if blackpowder else None)
-        throwing = (self.throwing[0] if throwing is None else throwing
-            ) if facts['weapon'] is GeneratedWeapon.WEIGHTED_NET else None
-        ballistic_skill = ((ballistic_skill if ballistic_skill is not None else
-            ranged_values['ballistic_skill'] if ranged_values is not None else self.ballistic_skill[0])
-            if facts['weapon'] is GeneratedWeapon.WEIGHTED_NET else None)
-        return GeneratedNpc(**facts,talents=talents,ranged=ranged,weapon_grip=weapon_grip,
-            throwing=throwing,ballistic_skill=ballistic_skill)
+    def _initial_grips(self,kind,shield,*,chivalric=False):
+        if chivalric and kind in (*GENERATED_RANGED_WEAPONS,GeneratedWeapon.WEIGHTED_NET):
+            return ()
+        profile=weapon_profile(WeaponKind(kind.value))
+        grips=(tuple(WeaponGrip.BOTH if grip is RangedWeaponHands.TWO_HANDED else WeaponGrip.LEFT
+                for grip in self.weapon_grip) if profile.variable_grip else
+            (WeaponGrip.BOTH,) if profile.hands is RangedWeaponHands.TWO_HANDED else (WeaponGrip.LEFT,))
+        return tuple(grip for grip in grips if shield is None or grip is not WeaponGrip.BOTH)
 
-    def sample(self, rng: Random) -> GeneratedNpc:
-        # Select a legal equipment branch before its conditional source facts.
-        # No Shield is drawn then discarded, and melee sources draw no unused
-        # ranged characteristics or skills.
-        weapon=rng.choice(self.weapon)
-        weapon_grip = rng.choice(self.weapon_grip) if weapon in GENERATED_VARIABLE_GRIP_WEAPONS else None
+    @staticmethod
+    def _has_net(weapons):
+        return any(item.kind is WeaponKind.WEIGHTED_NET for item in weapons)
+
+    def _pose(self,items,shield,*,chivalric=False):
+        """Choose a legal initial pose, retaining physical IDs and charges."""
+        primary=next((item for item in items if item.initial_location is WeaponItemLocation.HELD
+            and self._initial_grips(GeneratedWeapon(item.kind.value),shield,chivalric=chivalric)),None)
+        if primary is None:
+            primary=next((item for item in items
+                if self._initial_grips(GeneratedWeapon(item.kind.value),shield,chivalric=chivalric)),None)
+        if primary is None:
+            raise ValueError('inventory has no legal initially selected implement')
+        grips=self._initial_grips(GeneratedWeapon(primary.kind.value),shield,chivalric=chivalric)
+        grip=(primary.initial_grip if primary.initial_grip in grips or
+            primary.initial_grip is WeaponGrip.RIGHT and WeaponGrip.LEFT in grips else grips[0])
+        used={WeaponGrip.LEFT,WeaponGrip.RIGHT} if grip is WeaponGrip.BOTH else {grip}
+        if shield is not None:
+            used.add(WeaponGrip.LEFT if grip is WeaponGrip.RIGHT else WeaponGrip.RIGHT)
+        result=[]
+        # The first HELD source is the primary, even when an old primary was removed.
+        ordered=(primary,)+tuple(item for item in items if item is not primary)
+        for item in ordered:
+            if item is primary:
+                current=replace(item,initial_location=WeaponItemLocation.HELD,initial_grip=grip)
+            else:
+                single=next((hand for hand in (WeaponGrip.LEFT,WeaponGrip.RIGHT) if hand not in used),None)
+                can_hold=(single is not None and WeaponGrip.LEFT in self._initial_grips(
+                    GeneratedWeapon(item.kind.value),None,chivalric=chivalric))
+                current=replace(item,initial_location=WeaponItemLocation.HELD if can_hold else WeaponItemLocation.CARRIED,
+                    initial_grip=single if can_hold else None)
+                if can_hold:
+                    used.add(single)
+            result.append(current)
+        return tuple(result)
+
+    def _build(self,facts,weapons,talents=(),ranged_values=None,*,throwing=None,ballistic_skill=None,rider_kind=None):
+        requirements=weapon_ranged_requirements(tuple(item.kind for item in weapons))
+        names=self._ranged_names(weapons)
+        values={name:(ranged_values[name] if ranged_values is not None and name in ranged_values
+                and ranged_values[name] is not None else getattr(self,name)[0]) for name in names}
+        if ballistic_skill is not None and 'ballistic_skill' in values:
+            values['ballistic_skill']=ballistic_skill
+        ranged=(None if requirements is None else GeneratedRangedFacts(
+            values['ballistic_skill'],values['shooting'],values.get('initiative'),values.get('dexterity'),
+            True,True if requirements.firearm else None,True if requirements.firearm else None,
+            awareness=values.get('awareness')))
+        has_net=self._has_net(weapons)
+        throwing=(self.throwing[0] if throwing is None else throwing) if has_net else None
+        ballistic_skill=((ranged.ballistic_skill if ranged is not None else
+            self.ballistic_skill[0] if ballistic_skill is None else ballistic_skill) if has_net else None)
+        main,secondary=facts['armour'],facts['secondary_armour']
+        armour=ArmourLoadout(tuple(body for body in (main,secondary) if body is not None),main,
+            facts['helmet'],facts['shield'],facts['barding'])
+        ordinary={name:value for name,value in facts.items()
+            if name not in ('armour','secondary_armour','helmet','shield','barding')}
+        rider_choices=self._rider_choices(facts['mount'])
+        rider_kind=rider_kind if rider_kind in rider_choices else rider_choices[0]
+        return GeneratedNpc(**ordinary,weapons=weapons,armour=armour,talents=talents,ranged=ranged,
+            throwing=throwing,ballistic_skill=ballistic_skill,rider_kind=rider_kind,
+            agilulf_code_confirmed=self.agilulf_code_confirmed if BodyArmour.AGILULF in armour.body else None)
+
+    def sample(self,rng:Random)->GeneratedNpc:
         facts={name:rng.choice(getattr(self,name)) for name in self._ordinary_names()
-            if name not in ('weapon','shield','mount','abilities')}
-        # A disabled singleton axis spends no additional RNG in pedestrian scenes.
-        facts['mount'] = self.mount[0] if len(self.mount) == 1 else rng.choice(self.mount)
-        facts['weapon']=weapon
-        facts['abilities'] = rng.choice(((),) if weapon is GeneratedWeapon.WEIGHTED_NET else self.abilities)
-        facts['shield']=rng.choice(tuple(value for value in self.shield
-            if generated_weapon_allows_shield(weapon,weapon_grip) or value is False))
-        ranged_values=({name:rng.choice(getattr(self,name)) for name in self._ranged_names(weapon)}
-            if weapon in GENERATED_RANGED_WEAPONS else None)
+            if name not in ('shield','mount','abilities','armour','secondary_armour','barding')}
+        facts['mount']=self.mount[0] if len(self.mount)==1 else rng.choice(self.mount)
+        bodies=self._body_choices()
+        facts['armour']=rng.choice(bodies)
+        facts['secondary_armour']=rng.choice(self._secondary_choices(facts['armour']))
+        chivalric=BodyArmour.AGILULF in (facts['armour'],facts['secondary_armour'])
+        shields=tuple(shield for shield in self.shield if any(
+            self._initial_grips(kind,shield,chivalric=chivalric) for kind in self.weapon))
+        facts['shield']=rng.choice(shields)
+        primary=rng.choice(tuple(kind for kind in self.weapon
+            if self._initial_grips(kind,facts['shield'],chivalric=chivalric)))
+        grip=rng.choice(self._initial_grips(primary,facts['shield'],chivalric=chivalric))
+        count=rng.choice(self.weapon_count)
+        kinds=(primary,)+tuple(rng.choice(self.weapon) for _ in range(count-1))
+        items=tuple(WeaponItemSource('item:'+str(index+1),WeaponKind(kind.value),
+            WeaponItemLocation.HELD if index==0 else WeaponItemLocation.CARRIED,grip if index==0 else None,
+            initially_loaded=rng.choice(self.initial_loaded) if weapon_reload_target(WeaponKind(kind.value)) is not None else None)
+            for index,kind in enumerate(kinds))
+        weapons=self._pose(items,facts['shield'],chivalric=chivalric)
+        facts['abilities']=rng.choice(((),) if all(kind is GeneratedWeapon.WEIGHTED_NET for kind in kinds) else self.abilities)
+        facts['barding']=rng.choice(tuple(value for value in self.barding if not value or facts['mount'] is not None))
+        riders=self._rider_choices(facts['mount'])
+        ranged_values={name:rng.choice(getattr(self,name)) for name in self._ranged_names(weapons)}
         talents=tuple(t for t in self.allowed_talents if generated_talent_requirements_met(t,
             weapon_skill=facts['weapon_skill'],strength=facts['strength']) and rng.randrange(2))
-        throwing = rng.choice(self.throwing) if weapon is GeneratedWeapon.WEIGHTED_NET else None
-        ballistic = rng.choice(self.ballistic_skill) if weapon is GeneratedWeapon.WEIGHTED_NET else None
-        return self._build(facts,talents,ranged_values,weapon_grip=weapon_grip,
-            throwing=throwing,ballistic_skill=ballistic)
+        return self._build(facts,weapons,talents,ranged_values,
+            throwing=rng.choice(self.throwing) if self._has_net(weapons) else None,
+            ballistic_skill=(ranged_values.get('ballistic_skill',rng.choice(self.ballistic_skill))
+                if self._has_net(weapons) else None),rider_kind=rng.choice(riders))
 
-    def mutate(self, npc: GeneratedNpc, rng: Random) -> GeneratedNpc:
+    def mutate(self,npc:GeneratedNpc,rng:Random)->GeneratedNpc:
         if type(npc) is not GeneratedNpc or not self.contains(npc):
             raise ValueError('mutation requires an admitted member of this component space')
-        replace(npc)
-        facts={name:getattr(npc,name) for name in self._ordinary_names()}
-        ranged_values=({name:getattr(npc.ranged,name) for name in self._ranged_names(npc.weapon)}
-            if npc.ranged is not None else None)
+        facts=self._source_facts(npc)
+        ranged_values=None if npc.ranged is None else {
+            name:getattr(npc.ranged,name) for name in self._ranged_names(npc.weapons)}
         variable=[]
+        def admit(label,newfacts=facts,items=None,**kwargs):
+            try:
+                weapons=npc.weapons if items is None else items
+                if label in ('weapon','grip','add','remove','shield','armour','secondary_armour'):
+                    weapons=self._pose(weapons,newfacts['shield'],chivalric=BodyArmour.AGILULF in (
+                        newfacts['armour'],newfacts['secondary_armour']))
+                candidate=self._build(newfacts,weapons,npc.talents,ranged_values,
+                    throwing=npc.throwing,ballistic_skill=npc.ballistic_skill,rider_kind=npc.rider_kind,**kwargs)
+                if candidate!=npc and self.contains(candidate):
+                    variable.append(candidate)
+            except (ValueError,TypeError):
+                pass
         for name in self._ordinary_names():
-            if name == 'brawn' and npc.brawn is None:
-                continue  # An explicitly absent optional capability is not invented by mutation.
-            values=[]
+            if name=='brawn' and npc.brawn is None:
+                continue
             for value in getattr(self,name):
-                if value == getattr(npc,name):
-                    continue
-                grips = self._weapon_grips(value) if name == 'weapon' else (npc.weapon_grip,)
-                for grip in grips:
-                    try:
-                        candidate=self._build(facts | {name:value},npc.talents,ranged_values,
-                            weapon_grip=grip,throwing=npc.throwing,ballistic_skill=npc.ballistic_skill)
-                    except ValueError:
-                        continue
-                    values.append(candidate)
-            if values:
-                variable.append((name,tuple(values)))
-        if npc.weapon in GENERATED_VARIABLE_GRIP_WEAPONS:
-            grip_options = []
-            for grip in self.weapon_grip:
-                if grip is npc.weapon_grip:
-                    continue
-                try:
-                    grip_options.append(replace(npc,weapon_grip=grip))
-                except ValueError:
-                    continue
-            if grip_options:
-                variable.append(('weapon_grip',tuple(grip_options)))
+                if value!=facts[name]:
+                    admit(name,facts|{name:value})
+        for index,item in enumerate(npc.weapons):
+            for kind in self.weapon:
+                if kind.value!=item.kind.value:
+                    loaded=(item.initially_loaded if item.initially_loaded in self.initial_loaded else self.initial_loaded[0]
+                        ) if weapon_reload_target(WeaponKind(kind.value)) is not None else None
+                    new=WeaponItemSource(item.id,WeaponKind(kind.value),WeaponItemLocation.CARRIED,None,initially_loaded=loaded)
+                    admit('weapon',items=npc.weapons[:index]+(new,)+npc.weapons[index+1:])
+            if item.initially_loaded is not None:
+                for loaded in self.initial_loaded:
+                    if loaded is not item.initially_loaded:
+                        admit('charge',items=npc.weapons[:index]+(replace(item,initially_loaded=loaded),)+npc.weapons[index+1:])
+            if item.initial_location is WeaponItemLocation.HELD and weapon_profile(item.kind).variable_grip:
+                for grip in self._initial_grips(GeneratedWeapon(item.kind.value),facts['shield']):
+                    if grip is not item.initial_grip:
+                        admit('grip',items=npc.weapons[:index]+(replace(item,initial_grip=grip),)+npc.weapons[index+1:])
+        size=len(npc.weapons)
+        for count in self.weapon_count:
+            if count>size:
+                # One finite add proposal per pool kind, without a Cartesian loadout grid.
+                next_id=max((int(item.id.split(':')[1]) for item in npc.weapons
+                    if item.id.startswith('item:') and item.id[5:].isdigit()),default=0)+1
+                for kind in self.weapon:
+                    added=tuple(WeaponItemSource('item:'+str(next_id+i),WeaponKind(kind.value),WeaponItemLocation.CARRIED,None,
+                        initially_loaded=self.initial_loaded[0] if weapon_reload_target(WeaponKind(kind.value)) is not None else None)
+                        for i in range(count-size))
+                    admit('add',items=npc.weapons+added)
+            elif count<size:
+                for start in range(size-count+1):
+                    admit('remove',items=npc.weapons[:start]+npc.weapons[start+size-count:])
+        for kind in self._rider_choices(npc.mount):
+            if kind is not npc.rider_kind:
+                variable.append(replace(npc,rider_kind=kind))
         if npc.ranged is not None:
-            for name in self._ranged_names(npc.weapon):
-                values=tuple(replace(npc,ranged=replace(npc.ranged,**{name:value}))
-                    for value in getattr(self,name) if value != getattr(npc.ranged,name))
-                if values:
-                    variable.append((name,values))
-        if npc.weapon is GeneratedWeapon.WEIGHTED_NET:
-            for name in ('throwing','ballistic_skill'):
-                options = tuple(replace(npc,**{name:value}) for value in getattr(self,name)
-                    if value != getattr(npc,name))
-                if options:
-                    variable.append((name,options))
-        talent_options=[]
+            for name in self._ranged_names(npc.weapons):
+                for value in getattr(self,name):
+                    if value!=getattr(npc.ranged,name):
+                        changes={'ranged':replace(npc.ranged,**{name:value})}
+                        if name=='ballistic_skill' and npc.ballistic_skill is not None:
+                            changes['ballistic_skill']=value
+                        variable.append(replace(npc,**changes))
+        if self._has_net(npc.weapons):
+            for value in self.throwing:
+                if value!=npc.throwing:
+                    variable.append(replace(npc,throwing=value))
+            if npc.ranged is None:
+                for value in self.ballistic_skill:
+                    if value!=npc.ballistic_skill:
+                        variable.append(replace(npc,ballistic_skill=value))
         for talent in self.allowed_talents:
-            selected=tuple(t for t in self.allowed_talents if (t in npc.talents) != (t is talent))
-            if all(generated_talent_requirements_met(t,weapon_skill=npc.weapon_skill,
-                    strength=npc.strength) for t in selected):
-                talent_options.append(replace(npc,talents=selected))
-        if talent_options:
-            variable.append(('talents',tuple(talent_options)))
-        if not variable:
-            return npc
-        _,values=rng.choice(variable)
-        return rng.choice(values)
+            selected=tuple(t for t in self.allowed_talents if (t in npc.talents)!=(t is talent))
+            if all(generated_talent_requirements_met(t,weapon_skill=npc.weapon_skill,strength=npc.strength) for t in selected):
+                variable.append(replace(npc,talents=selected))
+        return rng.choice(variable) if variable else npc
 
-    def contains(self,npc: GeneratedNpc) -> bool:
+    def contains(self,npc:GeneratedNpc)->bool:
         if type(npc) is not GeneratedNpc:
             return False
         try:
             replace(npc)
         except (ValueError,TypeError):
             return False
-        return (all(getattr(npc,name) in getattr(self,name) or name == 'brawn' and npc.brawn is None
-                for name in self._ordinary_names())
-            and (npc.weapon is not GeneratedWeapon.WEIGHTED_NET or npc.throwing in self.throwing
-                and npc.ballistic_skill in self.ballistic_skill)
-            and (npc.weapon not in GENERATED_VARIABLE_GRIP_WEAPONS or npc.weapon_grip in self.weapon_grip)
+        facts=self._source_facts(npc)
+        return (all(facts[name] in getattr(self,name) or name=='brawn' and npc.brawn is None for name in self._ordinary_names())
+            and len(npc.weapons) in self.weapon_count
+            and all(GeneratedWeapon(item.kind.value) in self.weapon and item.quantity==1
+                and (item.initially_loaded is None or item.initially_loaded in self.initial_loaded)
+                and (not weapon_profile(item.kind).variable_grip or item.initial_grip is None
+                    or (RangedWeaponHands.TWO_HANDED if item.initial_grip is WeaponGrip.BOTH
+                        else RangedWeaponHands.ONE_HANDED) in self.weapon_grip) for item in npc.weapons)
+            and npc.rider_kind in self._rider_choices(npc.mount)
+            and (not self._has_net(npc.weapons) or npc.throwing in self.throwing
+                and (npc.ranged is not None or npc.ballistic_skill in self.ballistic_skill))
             and (npc.ranged is None or all(getattr(npc.ranged,name) in getattr(self,name)
-                for name in self._ranged_names(npc.weapon)))
-            and (npc.ranged is None or npc.weapon in GENERATED_TWO_HANDED_RANGED_WEAPONS
-                or npc.ranged.awareness is None)
-            and set(npc.talents) <= set(self.allowed_talents))
+                for name in self._ranged_names(npc.weapons)))
+            and (npc.ranged is None or npc.ranged.awareness is None
+                or 'awareness' in self._ranged_names(npc.weapons) and npc.ranged.awareness in self.awareness)
+            and set(npc.talents)<=set(self.allowed_talents))
 
-    def resample_numeric(self, composition: tuple[GeneratedNpc, ...], rng: Random, *,
-            bias: float = 0.) -> NumericCompositionSample:
-        """Preserve gear/Talents while sampling admitted numeric values for a cohort."""
-        if type(bias) not in (int, float) or not -1 <= bias <= 1 or not isfinite(bias):
+    def resample_numeric(self,composition:tuple[GeneratedNpc,...],rng:Random,*,bias:float=0.)->NumericCompositionSample:
+        """Resample ratings only; preserve every physical source and its readiness."""
+        if type(bias) not in (int,float) or not -1<=bias<=1 or not isfinite(bias):
             raise ValueError('numeric sampling bias must be finite in -1..1, excluding bool')
-        if (type(composition) is not tuple or not composition
-                or any(not self.contains(member) for member in composition)):
+        if type(composition) is not tuple or not composition or any(not self.contains(member) for member in composition):
             raise ValueError('numeric sampling requires a nonempty admitted composition tuple')
-        members = []
-        variable_fields = 0
-        ordinary = ('weapon_skill','strength','toughness','agility','melee','athletics','defence')
+        members=[]
+        variable_fields=0
         for member in composition:
-            current = member
-            names = (ordinary + (('brawn',) if member.brawn is not None else ())
-                + (('ballistic_skill','throwing') if member.weapon is GeneratedWeapon.WEIGHTED_NET else ())
-                + (self._ranged_names(member.weapon) if member.ranged is not None else ()))
+            current=member
+            ranged_names=self._ranged_names(member.weapons)
+            names=('weapon_skill','strength','toughness','agility','melee','athletics','defence')
+            names+=(('brawn',) if member.brawn is not None else ())
+            names+=(('throwing',) if self._has_net(member.weapons) else ())
+            names+=(('ballistic_skill',) if self._has_net(member.weapons) and not ranged_names else ())
+            names+=ranged_names
             for name in names:
-                candidates = {}
-                for value in getattr(self, name):
+                candidates={}
+                for value in getattr(self,name):
                     try:
-                        candidate = (replace(current, ranged=replace(current.ranged, **{name:value}))
-                            if current.ranged is not None and name in self._ranged_names(member.weapon)
-                            else replace(current, **{name:value}))
+                        if name in ranged_names:
+                            changes={'ranged':replace(current.ranged,**{name:value})}
+                            if name=='ballistic_skill' and current.ballistic_skill is not None:
+                                changes['ballistic_skill']=value
+                            candidate=replace(current,**changes)
+                        else:
+                            candidate=replace(current,**{name:value})
                     except ValueError:
                         continue
-                    candidates[value] = candidate
-                if len(candidates) > 1:
-                    variable_fields += 1
-                selected = _sample_numeric_value(tuple(candidates), rng, float(bias))
-                current = candidates[selected]
+                    candidates[value]=candidate
+                if len(candidates)>1:
+                    variable_fields+=1
+                current=candidates[_sample_numeric_value(tuple(candidates),rng,float(bias))]
             members.append(current)
-        result = tuple(members)
-        return NumericCompositionSample(result, float(bias), variable_fields,
-            sum(a != b for a, b in zip(composition, result)))
+        result=tuple(members)
+        return NumericCompositionSample(result,float(bias),variable_fields,sum(a!=b for a,b in zip(composition,result)))
 
 
 def automatic_npc_search_space(party: tuple[PcMeleeParticipant, ...], *,
@@ -340,7 +524,10 @@ def automatic_npc_search_space(party: tuple[PcMeleeParticipant, ...], *,
             high=max(low,min(ceiling,max(values)+1))
             choices[name]=tuple(range(low,high+1))
     choices['weapon'] = tuple(GeneratedWeapon) if battlefield is not None else GENERATED_CLOSE_WEAPONS
-    choices['mount'] = (None, CombatMount.HORSE) if battlefield is not None else (None,)
+    choices['mount'] = ((None,CombatMount.HORSE,CombatMount.BRETONNIAN_WARHORSE,CombatMount.ELVEN_STEED)
+        if battlefield is not None else (None,))
+    choices['helmet'] = (None,HelmetKind.HELMET)
+    choices['barding'] = (False,True) if battlefield is not None else (False,)
     return NpcSearchSpace(**choices)
 
 
@@ -392,6 +579,9 @@ class DynamicEncounterRequest:
             raise ValueError('day ID is required')
         if type(self.defeat_disposition) is not NpcDefeatDisposition:
             raise TypeError('an explicit GM defeat disposition is required')
+        if (self.defeat_disposition is NpcDefeatDisposition.DISARMED_AND_SURRENDERED
+                and BodyArmour.AGILULF in (*self.space.armour,*self.space.secondary_armour)):
+            raise ValueError('Agilulf cannot be generated with a surrendered/captive defeat disposition')
         for name in ('minimum_npcs', 'maximum_npcs', 'max_candidates', 'exploration_trials',
                 'finalist_trials', 'top_k', 'max_total_trials', 'max_rounds'):
             if type(getattr(self, name)) is not int or getattr(self, name) < 1:

@@ -7,6 +7,7 @@ from unittest.mock import patch
 
 from tests.support.pc_book_npc_scenarios import book_pc_scenario
 from tests.support.pc_pistol_scenarios import pistol_profile
+from tests.support.pc_weapon_sources import initial_weapon_items
 from tests.unit.test_m9_pc_melee_json import document
 from towr.adapters import pc_melee_json as wire
 from towr.adapters._pc_melee_scenario_json import scenario_document
@@ -22,7 +23,8 @@ from towr.domain.pc_melee_models import PcMeleeWeapon
 def request_document(*, balance=False):
     source = book_pc_scenario(footpads=1,townsfolk=0,thieves=2,pc_count=1,max_rounds=4)
     source = replace(source,party=tuple(replace(member,pc=replace(member.pc,
-        weapon=PcMeleeWeapon.PISTOL,ranged=pistol_profile())) for member in source.party))
+        weapon=PcMeleeWeapon.PISTOL,ranged=pistol_profile()),combat_equipment=initial_weapon_items(
+            PcMeleeWeapon.PISTOL,member.initial_weapon_hand,initially_loaded=True)) for member in source.party))
     raw = document(balance=balance)
     raw['template' if balance else 'scenario'] = scenario_document(source)
     if balance:

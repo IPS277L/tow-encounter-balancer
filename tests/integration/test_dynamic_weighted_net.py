@@ -22,7 +22,7 @@ from towr.domain.pc_ranged_advice import pc_attack_value
 
 def document():
     raw=json.loads(Path('docs/examples/dynamic/weighted-net.request.json').read_text('utf-8'))
-    raw['search_space'].update(weapon=['weighted_net'],ballistic_skill=[2],strength=[4],throwing=[5])
+    raw['search_space'].update(weapon_count=[1],weapon=['weighted_net'],ballistic_skill=[2],strength=[4],throwing=[5])
     return raw
 
 

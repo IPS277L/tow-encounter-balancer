@@ -2,6 +2,7 @@
 from dataclasses import replace
 
 from tests.support.pc_melee_fixtures import make_pc_melee_party_scenario
+from tests.support.pc_weapon_sources import initial_weapon_items
 from towr.domain.attack_models import ResilienceProfile
 from towr.domain.pc_melee_models import (
     PcBackupWeaponPolicy, PcMeleeWeapon, PcRangedProfile, PcShortRangeOpening,
@@ -21,11 +22,12 @@ def make_pc_bow_scenario(*, weapon: PcMeleeWeapon = PcMeleeWeapon.SHORTBOW,
         npc_toughness: int = 3, npc_armour_bonus: int = 0):
     source = make_pc_melee_party_scenario(pc_count=pc_count,
         enemy_count=enemy_count, max_rounds=max_rounds)
+    backup_policy=PcBackupWeaponPolicy(PcMeleeWeapon.SWORD,PcWeaponHand.RIGHT) if backup else None
     party = tuple(replace(member, pc=replace(member.pc, weapon=weapon,
         ranged=bow_profile(ballistic_skill=ballistic_skill, shooting=shooting)),
         initial_weapon_hand=PcTwoHandedGrip.BOTH,
-        backup_weapon_policy=PcBackupWeaponPolicy(PcMeleeWeapon.SWORD, PcWeaponHand.RIGHT)
-            if backup else None) for member in source.party)
+        backup_weapon_policy=backup_policy,combat_equipment=initial_weapon_items(
+            weapon,PcTwoHandedGrip.BOTH,backup_policy)) for member in source.party)
     resilience = ResilienceProfile(npc_toughness, npc_armour_bonus)
     enemies = tuple(replace(enemy, definition=replace(enemy.definition,
         resilience=resilience,

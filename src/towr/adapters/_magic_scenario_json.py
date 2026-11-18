@@ -6,7 +6,7 @@ in the existing typed scenario/scene constructors (ADR-0037/0043).
 from dataclasses import asdict, replace
 from functools import partial
 
-from towr.adapters._json_common import build_value
+from towr.adapters._json_common import build_value, resilience_document
 from towr.adapters.magic_json_errors import MagicInputError, MagicSimulationInputError
 from towr.adapters.ranged_json_errors import RangedInputErrorCode as Code
 from towr.domain.attack_models import DamageProfile, ResilienceProfile
@@ -316,7 +316,7 @@ def scenario_document(scenario: NpcMagicScenario, definition_order: tuple[str, .
     wizard, caster = state.wizard, state.wizard.caster
     document = {'scenario_id': scenario.id,
         'definitions': [{'id': d.id, 'source_rule_id': d.source_rule_id, 'injury_policy': d.injury_policy.value,
-            'wound_limit': d.wound_limit, 'resilience': {'toughness': d.resilience.toughness, 'bonus': d.resilience.bonus},
+            'wound_limit': d.wound_limit, 'resilience': resilience_document(d.resilience),
             'attacks': [{'id': a.id, 'source_rule_id': a.source_rule_id, 'skill': a.skill.value,
                 **_profile_document(a.test_profile), 'damage': a.damage.base, 'range_min': a.range_min.value,
                 'range_max': a.range_max.value, 'hands': a.hands.value} for a in d.attacks],

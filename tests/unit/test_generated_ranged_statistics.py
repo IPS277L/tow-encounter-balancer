@@ -5,6 +5,7 @@ import unittest
 from tests.unit.test_generated_ranged_advice import source
 from tests.support.pc_tactics_fixtures import automatic_source
 from towr.domain.generated_npc_models import GeneratedWeapon
+from towr.domain.pc_npc_ranged_models import pc_npc_ranged_weapon
 from towr.simulation.pc_melee_models import PcMeleeSimulationRequest
 from towr.simulation.pc_melee_simulation import run_pc_melee_simulation
 from towr.simulation.pc_melee_summary import summarize_pc_melee_simulation
@@ -30,7 +31,7 @@ class GeneratedRangedStatisticsTests(unittest.TestCase):
         self.assertEqual(len(helps),1)
         fallback=next(step for step in result.steps if type(step.proof) is PcAttackProof
             and step.proof.request.actor_id=='pc1')
-        self.assertFalse(fallback.source.npc_ranged_weapons[0].weapon_state.loaded)
+        self.assertFalse(pc_npc_ranged_weapon(fallback.source,'minion1').loaded)
         self.assertIsNone(pc_help_incoming_actor(fallback.source,scenario.party[0].help_policy))
 
     def test_actual_empty_reload_actions_are_separate_from_shots_in_independent_trials(self):

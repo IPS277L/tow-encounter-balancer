@@ -8,7 +8,7 @@
 | pc2 | Repeater Handgun / when_available | Damage5, ignores armour, +3d Shooting | empty / cycle5 |
 | pc3 | Repeater Handgun / never | Damage5, ignores armour, без бонуса | loaded / без нового cycle |
 
-Все2H, initial grip=`both`, без shield, с Sword/right backup. Handgun использует9обязательных полей:
+Все2H, initial grip=`both`, без shield, с Sword/right backup. Общая подготовка Handgun использует8обязательных полей:
 
 ```json
 "weapon": "handgun",
@@ -20,12 +20,11 @@
   "has_blackpowder_lore": true,
   "has_blackpowder_kit": true,
   "ammunition_supply_confirmed": true,
-  "initially_loaded": true,
   "reload_hand_policy": "two_available_hands"
 }
 ```
 
-Repeater дополнительно требует `repeater_bonus_policy`: `when_available` либо `never`; обычный Handgun запрещает это поле. Blackpowder Lore/kit/supplies подтверждаются явно. Бонус выбирается до броска и Fate с обычным cap; Drained запрещает бонус Repeater и сохраняет отрицательный range modifier Handgun. Оба игнорируют armour bonus, но не Toughness, и не получают Crossbow Damage Trait.
+Начальный `initially_loaded:true|false` принадлежит каждому предмету обязательного `party[].combat_equipment[]`, а не `ranged`; полные предметы и backup сохранены в request ниже. Repeater дополнительно требует `repeater_bonus_policy`: `when_available` либо `never`; обычный Handgun запрещает это поле. Blackpowder Lore/kit/supplies подтверждаются явно. Бонус выбирается до броска и Fate с обычным cap; Drained запрещает бонус Repeater и сохраняет отрицательный range modifier Handgun. Оба игнорируют armour bonus, но не Toughness, и не получают Crossbow Damage Trait.
 
 После подхода любого живого NPC оба оружия не могут стрелять; на собственном ходу PC выбирает backup даже при loaded Repeater. Состояние primary сохраняется отдельно, Sword использует Melee/Strength без firearm Traits. Без backup возникает точный `ranged_close_enemy` stop; mandatory последствия и уже необходимый standard Recover сохраняют приоритет. Полный повторный Shoot→Reload→Shoot в fresh encounter не заявляется, Reload3vs5 проверяется отдельно на реальном spent source.
 

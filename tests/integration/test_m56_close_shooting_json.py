@@ -8,6 +8,7 @@ from unittest.mock import patch
 
 from tests.support.pc_book_npc_scenarios import book_pc_scenario
 from tests.support.pc_pistol_scenarios import pistol_profile
+from tests.support.pc_weapon_sources import initial_weapon_items
 from tests.unit.test_m9_pc_melee_json import document
 from tests.integration.test_m55_pistol_shield_json import pistol_shield_document
 from towr.adapters import pc_melee_json as wire
@@ -32,7 +33,8 @@ def source():
     base = book_pc_scenario(footpads=1,townsfolk=0,troopers=1,spear_troopers=1,
         empire_knights=1,wolf_knights=1,pc_count=1,max_rounds=3)
     party = tuple(replace(member,pc=replace(member.pc,weapon=PcMeleeWeapon.PISTOL,
-        ranged=pistol_profile())) for member in base.party)
+        ranged=pistol_profile()),combat_equipment=initial_weapon_items(
+            PcMeleeWeapon.PISTOL,member.initial_weapon_hand,initially_loaded=True)) for member in base.party)
     choices = tuple(Policy(actor,skill) for actor,skill in (
         ('trooper1',Skill.MELEE),('spear_trooper1',Skill.ATHLETICS),
         ('empire_knight1',Skill.ATHLETICS),('wolf_knight1',Skill.MELEE)))

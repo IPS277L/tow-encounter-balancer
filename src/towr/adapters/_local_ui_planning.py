@@ -8,7 +8,7 @@ function planningSearchSpace(data){
  // Client estimate for planning/manual initialization. Execution derives its
  // authoritative automatic envelope on the server from the admitted party.
  if(data.search_space)return data.search_space;
- const space={weapon:[...generatedWeaponIds],light_armour:[false,true],shield:[false,true],weapon_grip:['1h','2h'],mount:[null,'horse'],abilities:[[]],allowed_talents:['magic_resistance','defensive_stance','wild_attack']};
+ const space={weapon:[...generatedWeaponIds],weapon_count:[1,2,3],initial_loaded:[true],armour:[null,'light_armour','heavy_armour','full_plate_armour'],secondary_armour:[null],helmet:[null,'helmet'],shield:[null,'shield'],barding:[false,true],rider_kind:['human','elf','other'],agilulf_code_confirmed:null,weapon_grip:['1h','2h'],mount:[null,'horse','bretonnian_warhorse','elven_steed'],abilities:[[]],allowed_talents:['magic_resistance','defensive_stance','wild_attack']};
  for(const key of ['weapon_skill','strength','toughness','agility','melee','defence','athletics']){
   const skill=['melee','defence','athletics'].includes(key),floor=skill?2:1,ceiling=skill?6:10;
   const values=data.party.map(m=>Number((skill?m.skills:m.characteristics)?.[key]));
@@ -51,22 +51,23 @@ function simulationCostEstimate(data){
  const count=(min+max)/2,actors=count+data.party.length;
  if(!Array.isArray(space.weapon)||!space.weapon.length||!Array.isArray(space.abilities)||!space.abilities.length||space.abilities.some(group=>!Array.isArray(group)))return null;
  const rangedWeapons=new Set(['pistol','repeater_pistol','repeater_handbow','shortbow','warbow','longbow','crossbow','repeater_crossbow','handgun','repeater_handgun','blunderbuss','hochland_long_rifle']);
- const npcRanged=space.weapon.filter(weapon=>rangedWeapons.has(weapon)).length/space.weapon.length;
- const partyDice=mean(data.party.map(member=>Math.max(Number(member.characteristics?.weapon_skill)+Number(member.characteristics?.agility),
-  playerInitialRangedWeapon(member)?Number(member.characteristics?.ballistic_skill)+Number(member.characteristics?.initiative):0,
-  member.magic?.memorised_spells?.length?Number(member.characteristics?.reason)+Number(member.characteristics?.agility):0)));
+ const weaponCounts=space.weapon_count,meanWeapons=mean(weaponCounts),rangedShare=space.weapon.filter(weapon=>rangedWeapons.has(weapon)).length/space.weapon.length;
+ const npcRanged=weaponCounts.reduce((sum,n)=>sum+1-Math.pow(1-rangedShare,n),0)/weaponCounts.length;
+ const partyDice=mean(data.party.map(member=>{const ranged=playerRangedRequirements(member);return Math.max(Number(member.characteristics?.weapon_skill)+Number(member.characteristics?.agility),
+  ranged?Number(member.characteristics?.ballistic_skill)+Number(ranged.exacting||member.skills?.awareness?member.characteristics?.initiative:member.characteristics?.agility):0,
+  member.magic?.memorised_spells?.length?Number(member.characteristics?.reason)+Number(member.characteristics?.agility):0);}));
  const npcMeleeDice=mean(space.weapon_skill)+mean(space.agility);
  const npcDice=(1-npcRanged)*npcMeleeDice+(npcRanged?npcRanged*(mean(space.ballistic_skill)+mean(space.initiative)):0);
- const pcRanged=data.party.filter(member=>playerInitialRangedWeapon(member)).length/data.party.length;
+ const pcRanged=data.party.filter(member=>playerRangedRequirements(member)).length/data.party.length;
  const pcMagic=data.party.reduce((total,member)=>total+(member.magic?.memorised_spells?.length||0),0)/data.party.length;
- const equipment=data.party.reduce((total,member)=>total+Number(Boolean(playerInitialRangedWeapon(member))&&(member.equipment?.weapons?.length||0)>1)+Number((member.equipment?.armour||[]).some(item=>item.kind==='shield'&&['left_hand','right_hand'].includes(item.location))),0)/data.party.length;
+ const equipment=data.party.reduce((total,member)=>total+Number(Boolean(playerRangedRequirements(member))&&(member.equipment?.weapons?.length||0)>1)+Number((member.equipment?.armour||[]).some(item=>['shield','briarroot_shield'].includes(item.kind)&&['left_hand','right_hand'].includes(item.location))),0)/data.party.length;
  const pcTalents=data.party.reduce((total,member)=>total+(member.talents||[]).filter(talent=>['defensive_stance','wild_attack'].includes(talent)).length,0)/data.party.length;
  const npcTalents=Array.isArray(space.allowed_talents)?space.allowed_talents.length:0;
  const abilities=Math.max(...space.abilities.map(group=>group.length));
  const m=searchCostModel;
  const seconds=m.actorRoundSeconds*Math.pow(actors,m.actorExponent)*rounds*Math.pow(cap/15,m.capExponent)*Math.sqrt((npcDice+partyDice)/12)
   *(1+m.npcRangedWeight*npcRanged)*(1+m.pcRangedWeight*pcRanged)*(1+m.pcMagicWeight*pcMagic)
-  *(1+m.equipmentWeight*equipment)*(1+m.npcTalentWeight*npcTalents+m.pcTalentWeight*pcTalents+m.abilityWeight*abilities);
+  *(1+m.equipmentWeight*(equipment+Math.max(0,meanWeapons-1)))*(1+m.npcTalentWeight*npcTalents+m.pcTalentWeight*pcTalents+m.abilityWeight*abilities);
  if(!Number.isFinite(seconds)||seconds<=0)return null;
  return {seconds,low:seconds*m.lowFactor,high:seconds*m.highFactor};
 }
@@ -103,10 +104,12 @@ function automaticSearchPlan(data){
  const rounds=data.targets?.started_rounds?.numerator/data.targets?.started_rounds?.denominator;
  if(min>max||!Number.isFinite(p)||p<0||p>1||!Number.isFinite(rounds)||rounds<1||rounds>cap||!Array.isArray(data.party)||!data.party.length)throw Error('Проверьте состав и цели боя для автоплана.');
  let profiles=1,bits=0;
- for(const key of ['weapon_skill','strength','toughness','agility','melee','defence','athletics','weapon','light_armour','shield','abilities']){
+ for(const key of ['weapon_skill','strength','toughness','agility','melee','defence','athletics','weapon','armour','shield','abilities']){
   const values=space[key];if(!Array.isArray(values)||!values.length)throw Error('Задайте допустимые значения: '+key);
   profiles=Math.min(1e12,profiles*values.length);bits+=Math.log2(values.length);
  }
+ for(const [key,fallback] of [['secondary_armour',[null]],['helmet',[null]],['barding',[false]],['mount',[null]],['weapon_count',[1,2,3]],['initial_loaded',[true]]]){const values=space[key]||fallback;if(!Array.isArray(values)||!values.length)throw Error('Задайте допустимые значения: '+key);profiles=Math.min(1e12,profiles*values.length);bits+=Math.log2(values.length);}
+ const extraWeaponBits=Math.max(0,Math.max(...space.weapon_count)-1)*Math.log2(space.weapon.length);profiles=Math.min(1e12,profiles*Math.pow(2,Math.min(40,extraWeaponBits)));bits+=extraWeaponBits;
  if(space.weapon.some(weapon=>['pistol','repeater_pistol','repeater_handbow','shortbow','warbow','longbow','crossbow','repeater_crossbow','handgun','repeater_handgun','blunderbuss','hochland_long_rifle'].includes(weapon))){
   for(const key of ['ballistic_skill','initiative','shooting','dexterity',...(space.weapon.some(weapon=>!['pistol','repeater_pistol','repeater_handbow'].includes(weapon))?['awareness']:[])]){const values=space[key]||(key==='awareness'?[3,4,5]:null);if(!Array.isArray(values)||!values.length)throw Error('Задайте допустимые значения: '+key);profiles=Math.min(1e12,profiles*values.length);bits+=Math.log2(values.length);}
  }

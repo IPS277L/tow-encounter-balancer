@@ -10,7 +10,7 @@
 
 У всех carried Sword/right backup. Hochland/BOTH без shield: Damage6/ignores armour, Short−1d, mandatory Aim, Reload4. Shared Wounds Table+1d не применяется к numeric Minions и не превращается в Damage. Два настоящих действия и ресурс записываются отдельно; Aim с0success тоже разрешает попытку второго действия. У третьего PC одноручный Sling и прежний free-reload путь.
 
-Hochland ranged содержит10обязательных полей:
+Hochland ranged содержит9обязательных полей общей подготовки:
 
 ```json
 "weapon": "hochland_long_rifle",
@@ -23,10 +23,11 @@ Hochland ranged содержит10обязательных полей:
   "has_blackpowder_lore": true,
   "has_blackpowder_kit": true,
   "ammunition_supply_confirmed": true,
-  "initially_loaded": true,
   "reload_hand_policy": "two_available_hands"
 }
 ```
+
+Начальный `initially_loaded:true|false` принадлежит каждому предмету обязательного `party[].combat_equipment[]`, а не `ranged`; полные предметы и backup сохранены в request ниже.
 
 Per-participant policy в обоих Hochland loadouts:
 

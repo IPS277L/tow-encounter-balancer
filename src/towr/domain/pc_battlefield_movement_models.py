@@ -11,6 +11,7 @@ from towr.domain.magic_models import WizardMagicState
 from towr.domain.movement_models import FreeMovementRequest, FreeMovementResult, MovementSpeed
 from towr.domain.pc_battlefield_models import (
     PcBattlefieldState, battlefield_range, build_pc_battlefield, with_actor_placement,
+    battlefield_is_midair,
 )
 from towr.domain.ranged_weapon_profiles import (
     RangedWeaponId, RangedWeaponRange, RangedWeaponHands, ranged_weapon_combat_profile,
@@ -61,6 +62,81 @@ def _has_close_enemy(state, actor):
         for target in _enemies(state, actor))
 
 
+def aerialmovement_permission(state, actor: str, path: tuple[str, ...], *, battlefield=None) -> bool:
+    """Validate an entire actual move, not just its destination or turn start.
+
+    ``battlefield`` supplies the current route origin for a Run extension. The
+    original owner's battlefield still supplies that Run's beginning: crossing
+    one ground Zone does not launder a forbidden takeoff in its second phase.
+    A separately paid Run after an earlier free move has its own actual source.
+    """
+    _identifier(actor)
+    if actor not in (*state.source.pc_activation_order, *state.source.enemy_activation_order):
+        raise ValueError('aerial movement requires an actual encounter actor')
+    if type(path) is not tuple or any(type(zone) is not str or not zone.strip() for zone in path):
+        raise TypeError('aerial movement requires an exact ordered Zone path')
+    original = state.battlefield
+    current = original if battlefield is None else battlefield
+    if type(current) is not PcBattlefieldState or type(original) is not PcBattlefieldState:
+        return False
+    if current.air_to_ground != original.air_to_ground or current.spatial.graph != original.spatial.graph:
+        raise ValueError('aerial route cannot replace the actual airspace geometry')
+    origin = current.spatial.placement_for(actor).zone_id
+    previous = origin
+    for zone in path:
+        if not current.spatial.graph.contains(zone):
+            raise ValueError('aerial route names a Zone outside the actual battlefield')
+        if not current.spatial.graph.are_adjacent(previous, zone):
+            return False
+        previous = zone
+    needs_flight = battlefield_is_midair(current, origin, zone=True) or any(
+        battlefield_is_midair(current, zone, zone=True) for zone in path)
+    if not needs_flight:
+        return True
+    from towr.domain.pc_mount_models import mounted_can_fly
+    if not mounted_can_fly(state, actor):
+        return False
+    if any(battlefield_is_midair(current, zone, zone=True) for zone in path):
+        if any(not battlefield_is_midair(original, target)
+                and battlefield_range(original, actor, target) is RangedWeaponRange.CLOSE
+                for target in _enemies(state, actor)):
+            return False
+    return True
+
+
+def movement_keeps_briarroot_close(state, actor, after):
+    if not getattr(state, 'briarroot_bindings', ()):
+        return True
+    from towr.domain.pc_briarroot_models import briarroot_movement_keeps_close
+    return briarroot_movement_keeps_close(state, actor, after)
+
+
+def battlefield_path_available(state, actor, path, *, battlefield=None, close_to_ids=()):
+    """Geometry-only proposal check; does not spend movement or fake owner state."""
+    current = state.battlefield if battlefield is None else battlefield
+    if not aerialmovement_permission(state, actor, path, battlefield=current):
+        return False
+    destination = path[-1] if path else current.spatial.placement_for(actor).zone_id
+    after = with_actor_placement(current, actor, destination, close_to_ids=close_to_ids)
+    return movement_keeps_briarroot_close(state, actor, after)
+
+
+def _ranged_flight_preference(state, actor):
+    if not state.battlefield.air_to_ground:
+        return False
+    from towr.domain.pc_mount_models import mounted_can_fly
+    if not mounted_can_fly(state, actor):
+        return False
+    from towr.domain.pc_mount_attack_models import pc_mount_primary_needed
+    if pc_mount_primary_needed(state, actor):
+        return False
+    if actor in state.source.pc_activation_order:
+        from towr.domain.pc_melee_result_models import pc_attack_skill
+        return pc_attack_skill(state, actor) is Skill.SHOOTING
+    from towr.domain.pc_melee_result_models import pc_selected_npc_attack_profile
+    return pc_selected_npc_attack_profile(state, actor).skill is Skill.SHOOTING
+
+
 def pc_battlefield_allows_outnumbering(state: PcMeleeState, actor: str) -> bool:
     """Compare able participants in the actor's actual Zone, or the legacy arena."""
     def same_zone(actor_id):
@@ -79,6 +155,9 @@ def pc_battlefield_allows_outnumbering(state: PcMeleeState, actor: str) -> bool:
 
 def _ranges(state, actor, weapon=None):
     """Return preferred min/max, legal max and whether Close shooting is allowed."""
+    from towr.domain.pc_mount_attack_models import pc_mount_primary_needed
+    if weapon is None and pc_mount_primary_needed(state, actor):
+        return (RangedWeaponRange.CLOSE,)*3 + (True,)
     from towr.domain.pc_melee_models import PC_RANGED_WEAPONS, PC_THROWING_WEAPONS, PcMeleeWeapon
     if actor in state.source.pc_activation_order:
         from towr.domain.pc_backup_weapon_models import pc_active_weapon
@@ -98,8 +177,8 @@ def _ranges(state, actor, weapon=None):
         selected = pc_selected_npc_attack_profile(state, actor)
         if selected.skill is not Skill.SHOOTING:
             return selected.range_min, selected.range_max, selected.range_max, True
-        from towr.domain.pc_npc_ranged_source_models import pc_npc_ranged_profile
-        profile = ranged_weapon_combat_profile(pc_npc_ranged_profile(state.enemy(actor).definition).weapon_id)
+        from towr.domain.pc_npc_ranged_models import pc_npc_ranged_weapon
+        profile = ranged_weapon_combat_profile(pc_npc_ranged_weapon(state,actor).weapon_id)
     maximum = profile.maximum_range or state.source.battlefield.two_handed_max_range
     if profile.hands is RangedWeaponHands.TWO_HANDED:
         maximum=min(maximum,state.source.battlefield.two_handed_max_range,key=_rank)
@@ -112,6 +191,22 @@ def pc_battlefield_attack_available(state: PcMeleeState, actor: str, target: str
         *, weapon=None) -> bool:
     """Range eligibility only; actual tests/hands/charge still belong to their owners."""
     if state.source.battlefield is None:
+        # A carried bow is a legal source item in a stationary melee scene.
+        # Its presence does not make a two-handed shot legal beside an enemy.
+        if actor in state.source.pc_activation_order:
+            from towr.domain.pc_backup_weapon_models import pc_active_weapon
+            from towr.domain.pc_melee_models import PC_RANGED_WEAPONS
+            from towr.domain.pc_weapon_models import pc_weapon_allows_close_shooting
+            selected=pc_active_weapon(state,actor) if weapon is None else weapon
+            if (selected in PC_RANGED_WEAPONS and not pc_weapon_allows_close_shooting(selected)
+                    and _has_close_enemy(state,actor)):
+                return False
+        elif actor in state.source.enemy_activation_order:
+            from towr.domain.pc_melee_result_models import pc_selected_npc_attack_profile
+            selected=pc_selected_npc_attack_profile(state,actor)
+            if (selected.skill is Skill.SHOOTING and selected.range_min is not RangedWeaponRange.CLOSE
+                    and _has_close_enemy(state,actor)):
+                return False
         return True
     if state.battlefield is None:
         raise ValueError('configured battlefield must retain its actual spatial state')
@@ -191,8 +286,8 @@ class PcBattlefieldMoveProof:
                 raise ValueError('movement changed its actual K1 source, route, Conditions or result')
             spatial = self.movement_result.state
             destination = request.destination_zone_id
-        expected = with_actor_placement(replace(self.previous, spatial=spatial),
-            self.actor_id, destination, close_to_ids=self.close_to_ids)
+        expected = replace(with_actor_placement(self.previous,
+            self.actor_id, destination, close_to_ids=self.close_to_ids), spatial=spatial)
         if self.state != expected:
             raise ValueError('movement changed another placement, Close link or usage')
 
@@ -211,12 +306,14 @@ def expected_pc_battlefield_move(state: PcMeleeState) -> PcBattlefieldMoveProof 
     if proposal is not None and proposal.kind is ManoeuvreKind.CHARGE:
         return None
     actor = turn.actor_id
+    from towr.domain.pc_mount_attack_models import pc_mount_primary_needed
+    mount_attack = pc_mount_primary_needed(state, actor)
     if actor in state.source.pc_activation_order:
         from towr.domain.pc_heavy_wound_models import usable_weapon_hand
-        if usable_weapon_hand(state.participant(actor)) is None:
+        if not mount_attack and usable_weapon_hand(state.participant(actor)) is None:
             return None  # A missing/unusable held weapon cannot supply a ranged shot.
     from towr.domain.pc_weighted_net_models import weighted_net_has_usable_attack
-    if not weighted_net_has_usable_attack(state,actor):
+    if not mount_attack and not weighted_net_has_usable_attack(state,actor):
         return None
     conditions = _conditions(state, actor)
     if any(conditions.has(condition) for condition in (Condition.DEFENCELESS, Condition.PRONE, Condition.BROKEN)):
@@ -229,10 +326,11 @@ def expected_pc_battlefield_move(state: PcMeleeState) -> PcBattlefieldMoveProof 
     if not targets:
         return None
     low, high, _, allows_close = _ranges(state, actor)
+    seek_air = _ranged_flight_preference(state, actor) and not battlefield_is_midair(state.battlefield, actor)
     retreat=close_enemy and not allows_close
     if close_enemy and not retreat:
         return None
-    if not retreat and any(_rank(low) <= _rank(battlefield_range(state.battlefield, actor, target)) <= _rank(high)
+    if not retreat and not seek_air and any(_rank(low) <= _rank(battlefield_range(state.battlefield, actor, target)) <= _rank(high)
             for target in targets):
         return None
     target=(next(target for target in targets if battlefield_range(state.battlefield,actor,target)
@@ -246,9 +344,13 @@ def expected_pc_battlefield_move(state: PcMeleeState) -> PcBattlefieldMoveProof 
     from towr.domain.pc_battlefield_manoeuvre_models import pc_battlefield_actor_speed
     speed=pc_battlefield_actor_speed(state,actor)
     if retreat and high is RangedWeaponRange.SHORT:
+        if not battlefield_path_available(state, actor, ()):
+            return None
         return PcBattlefieldMoveProof(actor,action_id,target,state.round_state,
             previous,conditions,speed,(),None,None,with_actor_placement(previous,actor,origin))
     if origin == target_zone and high is RangedWeaponRange.CLOSE:
+        if not battlefield_path_available(state, actor, (), close_to_ids=(target,)):
+            return None
         return PcBattlefieldMoveProof(actor, action_id, target, state.round_state,
             previous, conditions, speed, (target,), None, None,
             with_actor_placement(previous, actor, origin, close_to_ids=(target,)))
@@ -259,6 +361,10 @@ def expected_pc_battlefield_move(state: PcMeleeState) -> PcBattlefieldMoveProof 
         if distance == 1 and high is RangedWeaponRange.CLOSE:
             distance = 0  # Arriving at this chosen melee target establishes Close explicitly.
         return max(_rank(low)-distance, 0, distance-_rank(high))
+    def preference(zone):
+        mismatch = deviation(zone)
+        return (mismatch, 0 if seek_air and mismatch == 0
+            and battlefield_is_midair(previous, zone, zone=True) else 1)
     options=[]
     queue=deque(((origin,()),))
     while queue:
@@ -269,19 +375,24 @@ def expected_pc_battlefield_move(state: PcMeleeState) -> PcBattlefieldMoveProof 
             if adjacent==origin or adjacent in route:
                 continue
             extended=(*route,adjacent)
+            close = (target,) if adjacent == target_zone and high is RangedWeaponRange.CLOSE else ()
+            if not battlefield_path_available(state, actor, extended, close_to_ids=close):
+                continue
             options.append(extended)
             queue.append((adjacent,extended))
-    route=min(options,key=lambda path:deviation(path[-1]))
+    if not options:
+        return None
+    route=min(options,key=lambda path:preference(path[-1]))
     destination=route[-1]
     origin_deviation=(max(_rank(low),0,-_rank(high)) if retreat else deviation(origin))
-    if deviation(destination) >= origin_deviation:
+    if preference(destination) >= (origin_deviation, 1):
         return None
     request = FreeMovementRequest(action_id, state.round_state, spatial, actor,
         speed, conditions, route)
     result = resolve_free_movement(request)
     close = (target,) if destination == target_zone and high is RangedWeaponRange.CLOSE else ()
-    after = with_actor_placement(replace(previous, spatial=result.state), actor,
-        destination, close_to_ids=close)
+    after = replace(with_actor_placement(previous, actor,
+        destination, close_to_ids=close), spatial=result.state)
     return PcBattlefieldMoveProof(actor, action_id, target, state.round_state,
         previous, conditions, speed, close, request, result, after)
 
@@ -290,6 +401,48 @@ def pc_battlefield_after_proof(current: PcBattlefieldState,proof) -> PcBattlefie
     """Fold actual spatial receipts; shared by the owner and HIT snapshots."""
     from towr.domain.pc_battlefield_manoeuvre_models import BATTLEFIELD_MANOEUVRE_PROOFS
     from towr.domain.pc_weighted_net_models import NET_PROOFS
+    from towr.domain.pc_npc_shield_models import (
+        PcNpcShieldDropProof, PcNpcShieldRecoverProof, _add_marker, _remove_marker,
+    )
+    from towr.domain.pc_briarroot_weapon_models import (
+        PcBriarrootWeaponDropProof, PcBriarrootWeaponPickupProof,
+        PcBriarrootWeaponApproachProof, PcBriarrootWeaponPickup,
+    )
+    from towr.domain.pc_falling_models import PcFallingProof
+    from towr.domain.pc_shield_models import PcShieldDropProof, PcShieldApproachProof, PcShieldPickup
+    if type(proof) in (PcShieldDropProof, PcShieldApproachProof):
+        if proof.previous != current:
+            raise ValueError('Shield interaction changed its actual spatial prefix')
+        return proof.state
+    shield_pickup = getattr(proof, 'pc_shield_pickup', None)
+    if shield_pickup is not None:
+        if type(shield_pickup) is not PcShieldPickup or shield_pickup.previous != current:
+            raise ValueError('Shield Recover changed its actual spatial prefix')
+        current = shield_pickup.state
+    if type(proof) is PcFallingProof:
+        replace(proof.request)
+        if proof.request.previous_battlefield != current:
+            raise ValueError('falling changed its actual airborne spatial prefix')
+        return proof.request.battlefield
+    pickup = getattr(proof, 'briarroot_weapon_pickup', None)
+    if pickup is not None:
+        if type(pickup) is not PcBriarrootWeaponPickup:
+            raise TypeError('Recover must retain its exact physical weapon pickup')
+        replace(pickup)
+        if pickup.previous != current:
+            raise ValueError('weapon pickup changed its actual spatial prefix')
+        current = pickup.state
+    if type(proof) in (PcBriarrootWeaponDropProof, PcBriarrootWeaponPickupProof, PcBriarrootWeaponApproachProof):
+        replace(proof)
+        if proof.previous != current:
+            raise ValueError('weapon interaction changed its actual spatial prefix')
+        return proof.state
+    if type(proof) is PcNpcShieldDropProof:
+        replace(proof)
+        return _add_marker(current, proof.state)
+    if type(proof) is PcNpcShieldRecoverProof:
+        replace(proof)
+        return _remove_marker(current, proof.previous)
     for drop in getattr(proof,'weighted_net_drops',()):
         replace(drop)
         if drop.previous!=current:
@@ -323,10 +476,13 @@ def validate_pc_battlefield_history(state: PcMeleeState) -> None:
                 for p in state.history):
             raise ValueError('legacy encounter cannot acquire battlefield state or movement')
         return
-    expected = build_pc_battlefield(state.source.battlefield, state.source.pc_activation_order,
+    initial = build_pc_battlefield(state.source.battlefield, state.source.pc_activation_order,
         state.source.enemy_activation_order, state.source.facts.zone_id)
+    expected = initial
     for proof in state.history:
         expected=pc_battlefield_after_proof(expected,proof)
+    if expected.air_to_ground != initial.air_to_ground or expected.spatial.graph != initial.spatial.graph:
+        raise ValueError('battlefield transition lost or replaced the source airspace geometry')
     if (type(state.battlefield) is not PcBattlefieldState or state.battlefield != expected
             or state.battlefield.spatial.round_number != state.round_state.round_number):
         raise ValueError('battlefield differs from its source, movement history or round usage')
@@ -340,10 +496,13 @@ def pc_battlefield_npc_recover_selected(state: PcMeleeState) -> bool:
         return False
     from towr.domain.pc_weighted_net_models import weighted_net_actor_waits
     net_wait=weighted_net_actor_waits(state,actor)
-    if state.source.battlefield is None and not net_wait:
-        return False
     conditions = _conditions(state, actor)
     if conditions.has(Condition.DEFENCELESS):
+        return False
+    from towr.domain.pc_briarroot_weapon_models import briarroot_weapon_on_ground
+    if not state.enemy(actor).state.wields_weapon and briarroot_weapon_on_ground(state,actor) is not None:
+        return True  # A real approach/pickup precedes this standard waiting action.
+    if state.source.battlefield is None and not net_wait:
         return False
     if conditions.has(Condition.PRONE):
         return True  # Stand before the existing empty-weapon Reload cycle.

@@ -54,9 +54,9 @@ class DynamicPcRangedSourceTests(unittest.TestCase):
         with self.assertRaises(DynamicEncounterInputError):parse_dynamic_encounter_request(json.dumps(raw))
 
     def test_bad_source_facts_fail_before_any_simulation(self):
-        alterations=[('ranged',None),('ranged',dict(initially_loaded=True)),
-            ('ranged',dict(initially_loaded=False,ammunition_supply_confirmed=True,has_blackpowder_lore=True,has_blackpowder_kit=True)),
-            ('ranged',dict(initially_loaded=True,ammunition_supply_confirmed=True,has_blackpowder_lore=False,has_blackpowder_kit=True))]
+        alterations=[('ranged',None),('ranged',{}),
+            ('ranged',dict(ammunition_supply_confirmed=False,has_blackpowder_lore=True,has_blackpowder_kit=True)),
+            ('ranged',dict(ammunition_supply_confirmed=True,has_blackpowder_lore=False,has_blackpowder_kit=True))]
         for key,value in alterations:
             raw=request();raw['party'][0][key]=value
             with self.subTest(value=value),patch('towr.application.dynamic_encounter.Random.randint') as roll:
@@ -80,7 +80,7 @@ class DynamicPcRangedSourceTests(unittest.TestCase):
         document,scenario=native(request())
         self.assertEqual(parse_pc_melee_simulation_request(json.dumps(document)).request.scenario,scenario)
         source=document['scenario']['party'][0]
-        self.assertEqual(source['combat_equipment'][0],dict(id='weapon:1',weapon='repeater_pistol',location='held',hand='left'))
+        self.assertEqual(source['combat_equipment'][0],dict(id='weapon:1',weapon='repeater_pistol',location='held',hand='left',initially_loaded=True))
         self.assertEqual(source['pc']['ranged']['repeater_bonus_policy'],'automatic')
         invalid=deepcopy(document);invalid['scenario']['party'][0]['policy']='automatic_melee'
         with self.assertRaises(PcMeleeInputError):parse_pc_melee_simulation_request(json.dumps(invalid))

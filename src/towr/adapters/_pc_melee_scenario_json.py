@@ -3,11 +3,11 @@ from dataclasses import asdict
 from enum import Enum
 from functools import partial
 
-from towr.adapters._json_common import build_value
+from towr.adapters._json_common import build_value, resilience_document
 from towr.adapters.pc_melee_json_errors import PcMeleeInputError
 from towr.adapters.ranged_json_errors import RangedInputErrorCode as Code
 from towr.domain.attack_models import ConditionImpactSpec, ConditionOnHitSpec, DamageProfile, ResilienceProfile, ProneBeforeGiveGroundSpec
-from towr.domain.condition_models import Condition, EffectClassification
+from towr.domain.condition_models import Condition, ConditionState, EffectClassification
 from towr.domain.fate_models import (
     FateBurnKind, FateBurnRecord, FateRefreshRecord, FateSessionState,
     FateSpendFunding, FateSpendKind, FateSpendRecord,
@@ -36,18 +36,22 @@ from towr.domain.pc_melee_models import (
     PcFatePolicy, PcNearMissPolicy, PcGloriousPolicy, PcHelpPolicy, PcHelpTarget, PcAllyRecoverPolicy, PcMeleeDefinition, PcMeleeFacts, PcMeleeParticipant, PcMeleePolicy, PcMeleeScenario,
     PcMeleeWeapon, PcRandomSidePolicy, PcHeavyWoundPolicy, PcWeaponHand, PcTwoHandedGrip, PcBackupWeaponPolicy, PcAdjacentNpcExitPolicy, validate_pc_melee_scenario_admission,
     PcShieldLoadout, PcShieldHandConflictPolicy, PcShieldRecoveryPolicy,
-    PC_RANGED_WEAPONS, PC_FREE_RELOAD_WEAPONS, PcRangedProfile, PcRangedReloadHandPolicy, PcRepeaterBonusPolicy,
+    PC_RANGED_WEAPONS, PcRangedProfile, PcRangedReloadHandPolicy, PcRepeaterBonusPolicy,
     PcShortRangeOpening, PcBlunderbussNearby, PcAimSecondActionPolicy,
 )
 from towr.domain.ranged_weapon_profiles import RangedWeaponHands, RangedWeaponRange
-from towr.domain.pc_battlefield_models import PcBattlefieldSpec
-from towr.domain.pc_mount_models import CombatMount
+from towr.domain.weapon_capability_models import weapon_ranged_requirements
+from towr.domain.weapon_catalog import WeaponKind
+from towr.domain.weapon_inventory_models import WeaponItemSource,WeaponItemLocation,WeaponGrip
+from towr.domain.pc_battlefield_models import PcBattlefieldSpec,PcAirspaceSpec
+from towr.domain.pc_mount_models import CombatMount, RiderKind
+from towr.domain.armour_models import ArmourLoadout, BodyArmour, HelmetKind, ShieldKind
 from towr.domain.resolution_models import TargetInjuryPolicy
 from towr.domain.test_models import InlineProfile, Skill
 from towr.domain.turn_models import CombatSide
 
 
-_NPC_RANGED_FIELDS = ('initially_loaded', 'has_blackpowder_lore',
+_NPC_RANGED_FIELDS = ('has_blackpowder_lore',
     'has_blackpowder_kit', 'ammunition_supply_confirmed', 'reload_hand_policy')
 
 
@@ -59,6 +63,69 @@ def _plain(value):
     if isinstance(value, (tuple, list)):
         return [_plain(child) for child in value]
     return value
+
+
+def parse_armour_loadout(raw, *, path_prefix, error_type):
+    """Read the one closed item-source shape shared by native and dynamic JSON."""
+    expected = {'body', 'benefit', 'helmet', 'shield', 'barding'}
+    if type(raw) is not dict or set(raw) != expected or type(raw['body']) is not list:
+        raise error_type(Code.INVALID_INPUT, 'armour requires its complete closed equipment source',
+            path=path_prefix)
+    try:
+        return build_value(error_type, path_prefix, ArmourLoadout,
+            tuple(BodyArmour(value) for value in raw['body']),
+            None if raw['benefit'] is None else BodyArmour(raw['benefit']),
+            None if raw['helmet'] is None else HelmetKind(raw['helmet']),
+            None if raw['shield'] is None else ShieldKind(raw['shield']), raw['barding'])
+    except error_type:
+        raise
+    except (ValueError, TypeError) as error:
+        raise error_type(Code.INVALID_INPUT, str(error), path=path_prefix) from error
+
+
+def parse_generated_components(raw, *, path_prefix, error_type):
+    """Readmit the complete generated source without rebuilding or dropping facts."""
+    return build_value(error_type, path_prefix, GeneratedNpc,
+        **dict(raw, weapons=tuple(parse_weapon_item_source(item,
+                path_prefix=f'{path_prefix}/weapons/{index}',error_type=error_type)
+            for index,item in enumerate(raw['weapons'])),
+            armour=parse_armour_loadout(raw.get('armour'),
+                path_prefix=path_prefix+'/armour', error_type=error_type),
+            mount=None if raw.get('mount') is None else CombatMount(raw['mount']),
+            rider_kind=None if raw.get('rider_kind') is None else RiderKind(raw['rider_kind']),
+            ranged=None if raw.get('ranged') is None else build_value(error_type,
+                path_prefix+'/ranged', GeneratedRangedFacts, **raw['ranged']),
+            abilities=tuple(GeneratedAbility(value) for value in raw['abilities']),
+            talents=tuple(GeneratedTalent(value) for value in raw['talents'])))
+
+
+def parse_weapon_item_source(raw,*,path_prefix,error_type):
+    required={'id','weapon','location','hand'}
+    if type(raw) is not dict or not required <= raw.keys() or raw.keys()-required-{'initially_loaded','gm_fit_confirmed','quantity'}:
+        raise error_type(Code.INVALID_INPUT,'weapon item needs its complete closed initial source',path=path_prefix)
+    return build_value(error_type,path_prefix,WeaponItemSource,raw['id'],WeaponKind(raw['weapon']),
+        WeaponItemLocation(raw['location']),None if raw['hand'] is None else WeaponGrip(raw['hand']),
+        quantity=raw.get('quantity',1),initially_loaded=raw.get('initially_loaded'),gm_fit_confirmed=raw.get('gm_fit_confirmed'))
+
+
+def weapon_item_source_document(item):
+    if item.initial_charges:
+        raise ValueError('this initial weapon JSON source cannot carry stored magic charges')
+    document=dict(id=item.id,weapon=item.kind.value,location=item.initial_location.value,
+        hand=None if item.initial_grip is None else item.initial_grip.value)
+    if item.initially_loaded is not None:
+        document['initially_loaded']=item.initially_loaded
+    if item.quantity!=1:
+        document['quantity']=item.quantity
+    if item.gm_fit_confirmed is not None:
+        document['gm_fit_confirmed']=item.gm_fit_confirmed
+    return document
+
+
+def generated_components_document(npc):
+    document=_plain(asdict(npc))
+    document['weapons']=[weapon_item_source_document(item) for item in npc.weapons]
+    return document
 
 
 def parse_facts(data: dict) -> PcMeleeFacts:
@@ -116,10 +183,20 @@ def _parse_battlefield(data, *, path_prefix, error_type):
     if raw is None:
         return None
     path = path_prefix + '/battlefield'
-    if type(raw) is not dict or set(raw) != {'initial_range', 'two_handed_max_range'}:
+    if (type(raw) is not dict or not {'initial_range','two_handed_max_range'} <= raw.keys()
+            or set(raw)-{'initial_range','two_handed_max_range','airspace'}):
         raise error_type(Code.INVALID_INPUT, 'Battlefield requires its complete scene ranges', path=path)
     return build_value(error_type, path, PcBattlefieldSpec,
-        RangedWeaponRange(raw['initial_range']), RangedWeaponRange(raw['two_handed_max_range']))
+        RangedWeaponRange(raw['initial_range']), RangedWeaponRange(raw['two_handed_max_range']),
+        airspace=parse_airspace(raw.get('airspace'),path=path+'/airspace',error_type=error_type))
+
+
+def parse_airspace(raw,*,path,error_type):
+    if raw is None:
+        return None
+    if type(raw) is not dict or set(raw)!={'open_sky_confirmed','fall_hazard_rating'}:
+        raise error_type(Code.INVALID_INPUT,'Airspace requires explicit open sky and falling Hazard facts',path=path)
+    return build_value(error_type,path,PcAirspaceSpec,**raw)
 
 
 def _parse_blunderbuss_nearby(data, *, path_prefix, error_type):
@@ -141,7 +218,8 @@ def _parse_combat_equipment(raw,*,path,error_type):
     return tuple(build_value(error_type,f'{path}/{index}',PcWeaponItem,
         item['id'],PcMeleeWeapon(item['weapon']),PcItemLocation(item['location']),
         None if item['hand'] is None else PcTwoHandedGrip.BOTH if item['hand']=='both'
-        else PcWeaponHand(item['hand'])) for index,item in enumerate(raw))
+        else PcWeaponHand(item['hand']),initially_loaded=item.get('initially_loaded'))
+        for index,item in enumerate(raw))
 
 
 def _parse_participant(data, *, path_prefix, error_type):
@@ -173,29 +251,36 @@ def _parse_participant(data, *, path_prefix, error_type):
             raise error_type(Code.INVALID_INPUT, 'Aim Second Action requires its complete closed policy',
                 path=path_prefix + '/aim_second_action_policy')
         aim_second_action_policy = build(path_prefix + '/aim_second_action_policy', PcAimSecondActionPolicy, **raw)
+    combat_equipment=_parse_combat_equipment(data.get('combat_equipment'),
+        path=path_prefix+'/combat_equipment',error_type=error_type)
+    requirements=weapon_ranged_requirements(tuple(item.weapon for item in combat_equipment or ()))
     pc_raw = dict(data["pc"])
     pc_raw["weapon"] = PcMeleeWeapon(pc_raw["weapon"])
     if 'pistol' in pc_raw:
         raise error_type(Code.INVALID_INPUT, 'PC pistol profile key was replaced by ranged',
             path=path_prefix + '/pc/pistol')
+    if pc_raw['weapon'] in PC_RANGED_WEAPONS and combat_equipment is None:
+        raise error_type(Code.INVALID_INPUT,'Shooting requires its complete physical weapon inventory',
+            path=path_prefix+'/combat_equipment')
+    if requirements is not None and 'ranged' not in pc_raw:
+        raise error_type(Code.INVALID_INPUT,'Shooting inventory requires its complete actor ranged profile',
+            path=path_prefix+'/pc/ranged')
     if 'ranged' in pc_raw:
-        weapon = pc_raw['weapon']
         raw = pc_raw['ranged']
+        if requirements is None or type(raw) is not dict:
+            raise error_type(Code.INVALID_INPUT,'ranged requires an actual Shooting inventory',
+                path=path_prefix+'/pc/ranged')
         fields = {'ballistic_skill', 'shooting', 'ammunition_supply_confirmed'}
-        if weapon not in PC_FREE_RELOAD_WEAPONS:
-            fields.update(('initiative', 'dexterity', 'initially_loaded', 'reload_hand_policy'))
-        if weapon in (PcMeleeWeapon.PISTOL, PcMeleeWeapon.REPEATER_PISTOL,
-                PcMeleeWeapon.HANDGUN, PcMeleeWeapon.REPEATER_HANDGUN, PcMeleeWeapon.BLUNDERBUSS, PcMeleeWeapon.HOCHLAND_LONG_RIFLE):
+        if requirements.exacting:
+            fields.update(('initiative', 'dexterity', 'reload_hand_policy'))
+        if requirements.firearm:
             fields.update(('has_blackpowder_lore', 'has_blackpowder_kit'))
-        if weapon in (PcMeleeWeapon.REPEATER_HANDBOW, PcMeleeWeapon.REPEATER_PISTOL,
-                PcMeleeWeapon.REPEATER_CROSSBOW, PcMeleeWeapon.REPEATER_HANDGUN):
+        if requirements.repeater:
             fields.add('repeater_bonus_policy')
-        if weapon is PcMeleeWeapon.HOCHLAND_LONG_RIFLE or 'awareness' in raw:
-            fields.add('awareness')
-            if weapon in PC_FREE_RELOAD_WEAPONS:
-                fields.add('initiative')
-        if weapon not in PC_RANGED_WEAPONS or type(raw) is not dict or set(raw) != fields:
-            raise error_type(Code.INVALID_INPUT, 'ranged requires its complete closed weapon-specific profile',
+        if requirements.requires_aim or 'awareness' in raw:
+            fields.update(('awareness','initiative'))
+        if set(raw) != fields:
+            raise error_type(Code.INVALID_INPUT, 'ranged requires the complete closed profile for its whole inventory',
                 path=path_prefix + '/pc/ranged')
         options = dict(raw)
         if 'reload_hand_policy' in raw:
@@ -249,9 +334,12 @@ def _parse_participant(data, *, path_prefix, error_type):
         near_miss_policy=near_miss,glorious_policy=glorious,help_policy=help_policy,
         aim_second_action_policy=aim_second_action_policy,
         wizard=wizard, armour_worn=data.get('armour_worn'),
+        armour=None if 'armour' not in data else parse_armour_loadout(data['armour'],
+            path_prefix=path_prefix+'/armour', error_type=error_type),
+        rider_kind=None if data.get('rider_kind') is None else RiderKind(data['rider_kind']),
+        agilulf_code_confirmed=data.get('agilulf_code_confirmed'),
         mount=None if data.get('mount') is None else CombatMount(data['mount']),
-        combat_equipment=_parse_combat_equipment(data.get('combat_equipment'),
-            path=path_prefix+'/combat_equipment',error_type=error_type),
+        combat_equipment=combat_equipment,
         combat_talents=tuple(build(f'{path_prefix}/combat_talents/{index}',PcCombatTalent,
             GeneratedTalent(value['talent']),TalentAcquisition(value['acquisition']))
             for index,value in enumerate(data.get('combat_talents',[]))),
@@ -356,28 +444,40 @@ def _parse_scenario(data, *, path_prefix, error_type):
     for index, enemy in enumerate(data["enemies"]):
         path = f"{path_prefix}/enemies/{index}"
         definition_raw = enemy["definition"]
-        attack_raw = definition_raw["attack"]
+        generated_source='generated_components' in definition_raw
+        if generated_source:
+            if 'attack' in definition_raw or not definition_raw.get('attacks'):
+                raise error_type(Code.INVALID_INPUT,'generated NPC requires its complete attacks array',path=path+'/definition')
+            raw_attacks=definition_raw['attacks']
+        else:
+            if 'attacks' in definition_raw:
+                raise error_type(Code.INVALID_INPUT,'attacks array belongs only to generated equipment',path=path+'/definition/attacks')
+            raw_attacks=(definition_raw['attack'],)
+        attack_raw = raw_attacks[0]
         protection_raw = definition_raw["protection"]
-        shooting = attack_raw.get('skill') == 'shooting'
+        shooting = any(raw.get('skill') == 'shooting' for raw in raw_attacks)
         if ('ranged' in enemy) != shooting:
             raise error_type(Code.INVALID_INPUT,'ranged source is required exactly for NPC Shooting',path=path+'/ranged')
         if shooting:
             raw = enemy['ranged']
-            if type(raw) is not dict or set(raw) != set(_NPC_RANGED_FIELDS):
+            if type(raw) is not dict or not set(_NPC_RANGED_FIELDS) <= raw.keys() or raw.keys()-set(_NPC_RANGED_FIELDS)-{'initial_weapon'}:
                 raise error_type(Code.INVALID_INPUT,'NPC ranged requires its complete closed source facts',path=path+'/ranged')
             ranged_policies.append(build(path+'/ranged',PcNpcRangedPolicy,
-                enemy['actor_id'],raw['initially_loaded'],raw['has_blackpowder_lore'],
+                enemy['actor_id'],raw['has_blackpowder_lore'],
                 raw['has_blackpowder_kit'],raw['ammunition_supply_confirmed'],
-                PcNpcRangedReloadHandPolicy(raw['reload_hand_policy'])))
-        attack = (_parse_net_attack(attack_raw,path_prefix=path+'/definition/attack',error_type=error_type)
-            if attack_raw.get('skill') == 'throwing' else _parse_npc_attack(attack_raw,
-                skill=Skill.SHOOTING if shooting else Skill.MELEE,
-                path_prefix=path+'/definition/attack',error_type=error_type,shooting=shooting))
+                None if raw['reload_hand_policy'] is None else PcNpcRangedReloadHandPolicy(raw['reload_hand_policy']),
+                initial_weapon=None if raw.get('initial_weapon') is None else parse_weapon_item_source(
+                    raw['initial_weapon'],path_prefix=path+'/ranged/initial_weapon',error_type=error_type)))
+        attacks=tuple(_parse_net_attack(raw,path_prefix=path+f'/definition/attacks/{i}',error_type=error_type)
+            if raw.get('skill')=='throwing' else _parse_npc_attack(raw,
+                skill=Skill.SHOOTING if raw.get('skill')=='shooting' else Skill.MELEE,
+                path_prefix=path+f'/definition/attacks/{i}' if generated_source else path+'/definition/attack',
+                error_type=error_type,shooting=raw.get('skill')=='shooting') for i,raw in enumerate(raw_attacks))
+        attack=attacks[0]
         has_trample = 'trample_attack' in definition_raw
         if has_trample != (definition_raw['id']=='pc-book-npc:great_stag'):
             raise error_type(Code.INVALID_INPUT,'trample_attack is required only for canonical Great Stag',
                 path=path+'/definition/trample_attack')
-        attacks = (attack,)
         net_goblin = definition_raw['id']==NET_DEFINITION_ID
         if ('net_attack' in definition_raw)!=net_goblin or ('net_policy' in enemy)!=net_goblin:
             raise error_type(Code.INVALID_INPUT,'net_attack and net_policy are required only for canonical Net loadouts',path=path)
@@ -411,13 +511,8 @@ def _parse_scenario(data, *, path_prefix, error_type):
             Skill(protection_raw["skill"]), InlineProfile(**protection_raw["test_profile"])),)
         if 'generated_components' in definition_raw:
             raw = definition_raw['generated_components']
-            generated = build(path + '/definition/generated_components', GeneratedNpc,
-                **dict(raw, weapon=GeneratedWeapon(raw['weapon']),
-                    mount=None if raw.get('mount') is None else CombatMount(raw['mount']),
-                    weapon_grip=None if raw.get('weapon_grip') is None else RangedWeaponHands(raw['weapon_grip']),
-                    ranged=None if raw.get('ranged') is None else build(path + '/definition/generated_components/ranged', GeneratedRangedFacts, **raw['ranged']),
-                    abilities=tuple(GeneratedAbility(value) for value in raw['abilities']),
-                    talents=tuple(GeneratedTalent(value) for value in raw['talents'])))
+            generated = parse_generated_components(raw,
+                path_prefix=path+'/definition/generated_components', error_type=error_type)
             alternate = definition_raw['alternate_protection']
             protection_profiles += (NpcProtectionProfile(alternate['source_rule_id'],
                 Skill(alternate['skill']), InlineProfile(**alternate['test_profile'])),)
@@ -425,8 +520,12 @@ def _parse_scenario(data, *, path_prefix, error_type):
             definition_raw["id"], definition_raw["source_rule_id"],
             TargetInjuryPolicy(definition_raw["injury_policy"]), definition_raw["wound_limit"],
             resilience, attacks, protection_profiles, generated_components=generated)
+        from towr.domain.armour_models import armour_burden_sources
+        initial_conditions=ConditionState(frozenset((Condition.BURDENED,))
+            if generated is not None and armour_burden_sources(generated.armour,generated.strength)
+            else frozenset())
         state = build(path, NpcParticipantState, enemy["actor_id"], definition.id,
-            CombatSide.OPPOSITION, ProfileInjuryState(0, definition.wound_limit), tuple(profile.id for profile in attacks),
+            CombatSide.OPPOSITION, ProfileInjuryState(0, definition.wound_limit,initial_conditions), tuple(profile.id for profile in attacks),
             resilience, attack.hands is not None, enemy["holds_shield"])
         enemies.append(NpcParticipantSnapshot(definition, state))
     return build(path_prefix, PcMeleeScenario, data["id"], party,
@@ -463,6 +562,9 @@ def scenario_document(scenario: PcMeleeScenario) -> dict:
     validate_pc_melee_scenario_admission(scenario)
     party = _plain([asdict(member) for member in scenario.party])
     for member in party:
+        for name in ('armour','rider_kind','agilulf_code_confirmed'):
+            if member[name] is None:
+                del member[name]
         for name in ('throwing','brawn','ballistic_skill'):
             if member['pc'][name] is None:
                 del member['pc'][name]
@@ -497,14 +599,14 @@ def scenario_document(scenario: PcMeleeScenario) -> dict:
         enemies.append({"actor_id": enemy.state.actor_id, "holds_shield": enemy.state.holds_shield, "definition": {
             "id": definition.id, "source_rule_id": definition.source_rule_id,
             "injury_policy": definition.injury_policy.value, "wound_limit": definition.wound_limit,
-            "resilience": {"toughness":definition.resilience.toughness,"bonus":definition.resilience.bonus},
+            "resilience": resilience_document(definition.resilience),
             "attack": _npc_attack_document(attack),
             "protection": {"source_rule_id": protection.source_rule_id,
                 "skill": protection.skill.value,"test_profile": asdict(protection.test_profile)}}})
-        if definition.resilience.armoured is not None:
-            enemies[-1]['definition']['resilience']['armoured'] = definition.resilience.armoured
         if definition.generated_components is not None:
-            enemies[-1]['definition']['generated_components'] = _plain(asdict(definition.generated_components))
+            del enemies[-1]['definition']['attack']
+            enemies[-1]['definition']['attacks']=[_npc_attack_document(profile) for profile in definition.attacks]
+            enemies[-1]['definition']['generated_components'] = generated_components_document(definition.generated_components)
             alternate = definition.protection[1]
             enemies[-1]['definition']['alternate_protection'] = {
                 'source_rule_id':alternate.source_rule_id,'skill':alternate.skill.value,
@@ -513,10 +615,12 @@ def scenario_document(scenario: PcMeleeScenario) -> dict:
             enemies[-1]['definition']['net_attack'] = _net_attack_document(definition.attacks[1])
             policy = next(policy for policy in scenario.npc_net_policies if policy.actor_id==enemy.state.actor_id)
             enemies[-1]['net_policy'] = {'initial_count':policy.initial_count,'mode':policy.mode.value}
-        elif attack.skill is Skill.SHOOTING:
+        if any(profile.skill is Skill.SHOOTING for profile in definition.attacks):
             policy = next(policy for policy in scenario.npc_ranged_policies if policy.actor_id==enemy.state.actor_id)
             enemies[-1]['ranged'] = _plain({name:getattr(policy,name) for name in _NPC_RANGED_FIELDS})
-        elif len(definition.attacks)==2:
+            if policy.initial_weapon is not None:
+                enemies[-1]['ranged']['initial_weapon']=weapon_item_source_document(policy.initial_weapon)
+        elif definition.generated_components is None and len(definition.attacks)==2 and definition.id!=NET_DEFINITION_ID:
             trample = definition.attacks[1]
             enemies[-1]['definition']['trample_attack'] = dict(_npc_attack_document(trample),skill=trample.skill.value)
     document = {"id": scenario.id, "party": party,

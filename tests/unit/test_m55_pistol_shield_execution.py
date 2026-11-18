@@ -1,6 +1,7 @@
 """Literal Pistol/shield journals prove reload priority and actual equipment."""
 from copy import deepcopy
 from dataclasses import replace
+from tests.support.pc_weapon_sources import initial_weapon_items
 import unittest
 
 from tests.support.pc_book_npc_scenarios import book_pc_scenario
@@ -25,12 +26,15 @@ from towr.domain.pc_ranged_models import PcRangedReloadProof
 from towr.domain.pc_shield_models import PcShieldLocation, PcShieldReleaseProof
 from towr.domain.test_models import Skill, TestQuality
 from towr.engine.pc_melee_runner import apply_pc_melee_step
+from towr.domain.pc_weapon_inventory import replace_pc_member
+from towr.domain.weapon_inventory_models import weapon_unit_id
 
 
 def scene(*, rounds=1, enemies=1, durable=True, **kwargs):
     source = pistol_scene(rounds=rounds, enemies=enemies, durable=durable, **kwargs)
     party = tuple(replace(member, initial_weapon_hand=PcWeaponHand.RIGHT,
-        shield=shield_loadout()) for member in source.party)
+        shield=shield_loadout(),combat_equipment=initial_weapon_items(
+            member.pc.weapon,PcWeaponHand.RIGHT,initially_loaded=True)) for member in source.party)
     # Strong authored blows guarantee one Wound when a scripted hit lands,
     # independently of the shield's actual +1 Resilience.
     enemies = tuple(replace(enemy, definition=replace(enemy.definition,
@@ -50,7 +54,8 @@ def book_scene(*, pc_count=1, **counts):
     pistol = scene().party[0].pc
     return replace(source, facts=replace(source.facts, outnumbering_bonus_approved=False),
         party=tuple(replace(member, pc=replace(pistol, id=member.pc.id),
-            initial_weapon_hand=PcWeaponHand.RIGHT, shield=shield_loadout()) for member in source.party))
+            initial_weapon_hand=PcWeaponHand.RIGHT, shield=shield_loadout(),combat_equipment=initial_weapon_items(
+            pistol.weapon,PcWeaponHand.RIGHT,initially_loaded=True)) for member in source.party))
 
 
 def recover_object(step):
@@ -128,7 +133,7 @@ class PcPistolShieldExecutionTests(unittest.TestCase):
             + NPC_MISS + [1, 1, 1] + NPC_MISS + NPC_MISS)
         pickup, shield = steps(result, PcRecoverProof)
         reload, = steps(result, PcRangedReloadProof)
-        self.assertEqual((recover_object(pickup), recover_object(shield)), ('pc1:weapon', 'pc1:shield'))
+        self.assertEqual((recover_object(pickup), recover_object(shield)), (weapon_unit_id('pc1','weapon',0), 'pc1:shield'))
         self.assertEqual(tuple(step.source.round_state.round_number for step in (pickup, reload, shield)),
             (2, 3, 4))
         self.assertIs(pickup.state.participant('pc1').shield.location, PcShieldLocation.HELD)
@@ -143,7 +148,7 @@ class PcPistolShieldExecutionTests(unittest.TestCase):
             + [1, 1, 1] + NPC_HIT + [8, 10] + NPC_HIT + [4, 4, 1]
             + NPC_MISS*2 + NPC_MISS*2)
         recovers = steps(result, PcRecoverProof)
-        self.assertEqual(tuple(recover_object(step) for step in recovers), ('pc1:weapon', 'pc1:shield'))
+        self.assertEqual(tuple(recover_object(step) for step in recovers), (weapon_unit_id('pc1','weapon',0), 'pc1:shield'))
         self.assertTrue(all(step.source.participant('pc1').ranged.loaded for step in recovers))
         self.assertEqual(len(steps(result, PcRangedReloadProof)), 1)
         self.assertEqual(len(steps(result, PcShieldReleaseProof)), 1)
@@ -167,7 +172,7 @@ class PcPistolShieldExecutionTests(unittest.TestCase):
         release, = steps(result, PcShieldReleaseProof)
         recover, = steps(result, PcRecoverProof)
         reload, = steps(result, PcRangedReloadProof)
-        self.assertEqual(recover_object(recover), 'pc1:weapon')
+        self.assertEqual(recover_object(recover), weapon_unit_id('pc1','weapon',0))
         self.assertEqual(tuple(step.source.round_state.round_number for step in (release, recover, reload)),
             (2, 2, 3))
         self.assertIs(recover.state.participant('pc1').weapon_hand, PcWeaponHand.LEFT)
@@ -285,6 +290,7 @@ class PcPistolShieldExecutionTests(unittest.TestCase):
         source = book_scene(pc_count=2, net_goblins=1)
         helper = source.party[0]
         helper = replace(helper, pc=replace(helper.pc, weapon=PcMeleeWeapon.SWORD, ranged=None),
+            combat_equipment=None,
             policy=PcMeleePolicy.HELP_ALLY_OR_ATTACK_OR_RECOVER_SELF,
             help_policy=PcHelpPolicy('pc2', PcHelpTarget.FIRST_INCOMING_PROTECTION, Skill.DEFENCE))
         source = replace(source, party=(helper, source.party[1]), enemy_target_priority=('pc2', 'pc1'))
@@ -322,13 +328,14 @@ class PcPistolShieldExecutionTests(unittest.TestCase):
             with self.subTest(changes=changes), self.assertRaises((TypeError, ValueError)):
                 PcMeleeStep(release.source, replace(release.proof, **changes))
         forged = deepcopy(recover.proof)
-        object.__setattr__(forged.result.source_request.choice.object_interaction, 'object_id', 'pc1:weapon')
+        object.__setattr__(forged.result.source_request.choice.object_interaction, 'object_id', weapon_unit_id('pc1','weapon',0))
         with self.assertRaises((TypeError, ValueError)):
             PcMeleeStep(recover.source, forged)
         following = result.steps[result.steps.index(reload)+1]
-        member = following.source.participant('pc1')
-        forged_source = replace(following.source, party=(replace(member,
-            shield=recover.state.participant('pc1').shield),))
+        forged_source = deepcopy(following.source)
+        object.__setattr__(forged_source,'party',tuple(replace_pc_member(member,
+            shield=recover.state.participant('pc1').shield) if member.actor_id=='pc1' else member
+            for member in forged_source.party))
         with self.assertRaises((TypeError, ValueError)):
             apply_pc_melee_step(forged_source, PcMeleeStep(forged_source, following.proof))
 

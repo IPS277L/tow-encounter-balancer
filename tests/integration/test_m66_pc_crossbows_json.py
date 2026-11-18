@@ -23,6 +23,8 @@ from towr.domain.pc_melee_models import (
     PcRepeaterBonusPolicy, PcTwoHandedGrip, PcWeaponHand,
 )
 from towr.domain.pc_npc_catalog import PcBookNpcProfile, create_pc_book_npc
+from towr.domain.pc_weapon_inventory import initial_pc_weapon_inventory
+from towr.domain.weapon_inventory_models import WEAPON_COUNT_BURDEN_RULE_ID,carrying_burden_rule_ids
 from towr.simulation.pc_melee_models import PcMeleeSimulationRequest
 from towr.simulation.pc_melee_simulation import run_pc_melee_trial
 
@@ -62,7 +64,7 @@ class PcCrossbowJsonTests(unittest.TestCase):
                     member = scene.party[0]
                     self.assertIs(member.initial_weapon_hand,PcTwoHandedGrip.BOTH)
                     expected = {'ballistic_skill':3,'shooting':4,'initiative':3,'dexterity':4,
-                        'ammunition_supply_confirmed':True,'initially_loaded':True,
+                        'ammunition_supply_confirmed':True,
                         'reload_hand_policy':'two_available_hands'}
                     if mode is not None:
                         expected['repeater_bonus_policy'] = mode.value
@@ -81,7 +83,7 @@ class PcCrossbowJsonTests(unittest.TestCase):
                     lambda pc:pc['ranged'].update(has_blackpowder_lore=True),
                     lambda pc:pc['ranged'].update(has_blackpowder_kit=False),
                     lambda pc:pc['ranged'].update(has_blackpowder_kit=None),
-                    lambda pc:pc['ranged'].update(initially_loaded=False),
+                    lambda pc:pc['ranged'].update(initially_loaded=True),
                     lambda pc:pc['ranged'].update(ballistic_skill=True),
                     lambda pc:pc['ranged'].update(reload_hand_policy='weapon_hand_only')]
                 changes += [lambda pc,field=field:pc['ranged'].pop(field) for field in profile]
@@ -104,18 +106,20 @@ class PcCrossbowJsonTests(unittest.TestCase):
                     {'ammunition_supply_confirmed':1},{'shooting':True},
                     {'reload_hand_policy':'two_available_hands'}):
                 with self.subTest(weapon=weapon,changes=changes),self.assertRaises((TypeError,ValueError)):
-                    replace(member.pc,ranged=replace(member.pc.ranged,**changes))
+                    replace(member,pc=replace(member.pc,ranged=replace(member.pc.ranged,**changes)))
             with self.assertRaises(ValueError):
                 replace(member,shield=shield_loadout())
             with self.assertRaises(TypeError):
                 replace(member,initial_weapon_hand=PcWeaponHand.RIGHT)
-            with self.assertRaises(ValueError):
-                replace(member,pc=replace(member.pc,strength=1))
+            over = replace(member,pc=replace(member.pc,strength=1))
+            inventory=initial_pc_weapon_inventory(over)
+            self.assertEqual(len(inventory.items),2)
+            self.assertEqual(carrying_burden_rule_ids(inventory,1),(WEAPON_COUNT_BURDEN_RULE_ID,))
             with self.assertRaises(ValueError):
                 replace(scene,short_range_opening=None,facts=replace(scene.facts,all_opponents_close=True))
         with self.assertRaises(ValueError):
             member = make_pc_crossbow_scenario().party[0]
-            replace(member.pc,ranged=replace(member.pc.ranged,repeater_bonus_policy=PcRepeaterBonusPolicy.NEVER))
+            replace(member,pc=replace(member.pc,ranged=replace(member.pc.ranged,repeater_bonus_policy=PcRepeaterBonusPolicy.NEVER)))
         with self.assertRaises(TypeError):
             member = make_pc_crossbow_scenario().party[0]
             replace(member.pc,weapon=Alias.CROSSBOW)
@@ -195,10 +199,12 @@ class PcCrossbowJsonTests(unittest.TestCase):
             request = PcMeleeSimulationRequest(make_pc_crossbow_scenario(
                 weapon=weapon,repeater_bonus_policy=mode),42,1)
             for field,value in (('has_blackpowder_lore',True),('shooting',True),
-                    ('initially_loaded',False),('repeater_bonus_policy',
+                    ('initially_loaded',1),('repeater_bonus_policy',
                         PcRepeaterBonusPolicy.NEVER if mode is None else None)):
                 forged = deepcopy(request)
-                object.__setattr__(forged.scenario.party[0].pc.ranged,field,value)
+                target=(forged.scenario.party[0].combat_equipment[0] if field=='initially_loaded'
+                    else forged.scenario.party[0].pc.ranged)
+                object.__setattr__(target,field,value)
                 with patch('towr.simulation.pc_melee_simulation.Random') as rng:
                     with self.subTest(weapon=weapon,field=field),self.assertRaises((TypeError,ValueError)):
                         run_pc_melee_trial(forged,0,rng_factory=rng)

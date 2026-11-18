@@ -1,4 +1,6 @@
 """Actual Close discovery and complete ordered Blunderbuss friendly fire."""
+from tests.support.generated_weapon_sources import initial_generated_weapons
+from tests.support.armour_fixtures import light_loadout
 from dataclasses import replace
 import unittest
 
@@ -36,10 +38,10 @@ class FirstMissesThenOnes:
 
 
 def component(weapon):
-    ranged=(GeneratedRangedFacts(4,5,2,4,True,True,True,True,awareness=4)
+    ranged=(GeneratedRangedFacts(4,5,2,4,True,True,True,awareness=4)
         if weapon is GeneratedWeapon.BLUNDERBUSS else None)
-    return GeneratedNpc(1 if weapon is GeneratedWeapon.FLAIL else 3,3,4,2,4,3,weapon,False,
-        defence=4,shield=False,ranged=ranged)
+    return GeneratedNpc(1 if weapon is GeneratedWeapon.FLAIL else 3,3,4,2,4,3,initial_generated_weapons(weapon),light_loadout(light=False, shield=False),
+        defence=4,ranged=ranged)
 
 
 def scene(*,npc_weapons=(GeneratedWeapon.BLUNDERBUSS,GeneratedWeapon.BLUNDERBUSS),
@@ -50,7 +52,7 @@ def scene(*,npc_weapons=(GeneratedWeapon.BLUNDERBUSS,GeneratedWeapon.BLUNDERBUSS
         ranged=blunderbuss_profile(ballistic_skill=4,shooting=5) if pc_shooters else None),
         initial_weapon_hand=PcTwoHandedGrip.BOTH,
         combat_equipment=(PcWeaponItem(member.actor_id+':held',PcMeleeWeapon.BLUNDERBUSS,
-            PcItemLocation.HELD,PcTwoHandedGrip.BOTH),) if pc_shooters else None) for member in source.party)
+            PcItemLocation.HELD,PcTwoHandedGrip.BOTH,initially_loaded=True),) if pc_shooters else None) for member in source.party)
     if near_miss:
         party=(party[0],replace(party[1],fate_policy=PcFatePolicy.CONFIGURED,
             near_miss_policy=PcNearMissPolicy(1,0)))

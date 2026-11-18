@@ -83,7 +83,7 @@ class PcWeaponTests(unittest.TestCase):
         step, = attacks(result)
         attack = step.proof.execution.resolution.attack
         self.assertEqual((attack.damage, attack.effective_resilience), (5,4))
-        self.assertEqual(attack.impact_spec.damage_modifiers, (DamageModifier(AXE_ARMOUR_RULE_ID,1),))
+        self.assertEqual(attack.impact_spec.damage_modifiers, (DamageModifier(AXE_ARMOUR_RULE_ID,1,armour_specific=True),))
         self.assertEqual(attack.applied_rule_ids, (AXE_ARMOUR_RULE_ID,))
         self.assertFalse(attack.impact_spec.ignores_armour)
         # Exact source arithmetic and trait receipt must survive replay validation.
@@ -112,7 +112,7 @@ class PcWeaponTests(unittest.TestCase):
         attack = attacks(missed)[0].proof.execution.resolution.attack
         self.assertIsNone(attack.damage)
         self.assertEqual(attack.applied_rule_ids, ())
-        self.assertEqual(attack.impact_spec.damage_modifiers, (DamageModifier(AXE_ARMOUR_RULE_ID,1),))
+        self.assertEqual(attack.impact_spec.damage_modifiers, (DamageModifier(AXE_ARMOUR_RULE_ID,1,armour_specific=True),))
 
     def test_pure_axe_preparation_tracks_actual_current_target_armour(self):
         state = pure_active(armoured(make_pc_melee_scenario(weapon=PcMeleeWeapon.AXE)))
