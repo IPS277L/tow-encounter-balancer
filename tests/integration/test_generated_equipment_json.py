@@ -29,11 +29,49 @@ def equipment_request():
         top_k=1,max_total_trials=2)
     document['search_space']=dict(weapon_skill=[2],strength=[3],toughness=[3],agility=[3],
         melee=[4],defence=[6],athletics=[2],weapon=['sword'],light_armour=[False],
-        shield=[True],abilities=[[]],allowed_talents=[])
+        shield=[True],abilities=[[]],allowed_talents=[],
+        ballistic_skill=[2],shooting=[4],initiative=[3],dexterity=[4])
     return document
 
 
 class GeneratedEquipmentJsonTests(unittest.TestCase):
+    def test_fixed_two_handed_components_execute_and_roundtrip_with_a_greatsword_pc(self):
+        expected_damage={'pickaxe':4,'flail':6,'billhook':5,'halberd':5,
+            'glaive':5,'greataxe':6,'greatsword':6,'greathammer':6}
+        for weapon,damage in expected_damage.items():
+            with self.subTest(weapon=weapon):
+                raw=equipment_request()
+                raw['search_space'].update(weapon=[weapon],shield=[False])
+                player=raw['party'][0]
+                player['equipment']['weapons']=[{'id':'two-hander','weapon':'greatsword','location':'both_hands'}]
+                player['equipment']['armour']=[]
+                command=parse_dynamic_encounter_request(json.dumps(raw))
+                result=execute_dynamic_encounter(command)
+                report=json.loads(encode_dynamic_encounter_result(command,result))
+                self.assertEqual(report['total_trials'],2)
+                self.assertEqual(report['source_request'],raw)
+                for candidate in report['explored']+report['validations']:
+                    npc=candidate['npcs'][0]
+                    self.assertEqual((npc['weapon'],npc['shield']),(weapon,False))
+                    self.assertEqual(parse_character_file(json.dumps(npc),'npc'),npc)
+                    replay=candidate['replay']
+                    native=parse_pc_melee_simulation_request(json.dumps(replay))
+                    self.assertEqual(scenario_document(native.request.scenario),replay['scenario'])
+                    participant=native.request.scenario.party[0]
+                    self.assertEqual((participant.pc.weapon.value,participant.initial_weapon_hand.value),('greatsword','both'))
+                    attack=native.request.scenario.enemies[0].definition.attacks[0]
+                    self.assertEqual((attack.damage.base,attack.hands.value),(damage,'2h'))
+                    self.assertEqual(attack.test_profile.maximum_dice,4)
+                    forged=deepcopy(replay)
+                    forged['scenario']['enemies'][0]['definition']['attack']['hands']='1h'
+                    with self.assertRaises(PcMeleeInputError):
+                        parse_pc_melee_simulation_request(json.dumps(forged))
+
+    def test_two_handed_character_file_rejects_shield_instead_of_silently_discarding_it(self):
+        npc=dict(self.report['explored'][0]['npcs'][0],weapon='greatsword',shield=True)
+        with self.assertRaises(DynamicEncounterInputError):
+            parse_character_file(json.dumps(npc),'npc')
+
     @classmethod
     def setUpClass(cls):
         cls.document=equipment_request()
@@ -84,7 +122,7 @@ class GeneratedEquipmentJsonTests(unittest.TestCase):
             with self.subTest(missing=field),self.assertRaises(DynamicEncounterInputError):
                 parse_dynamic_encounter_request(json.dumps(raw))
         for changes in (dict(defence=[True]),dict(defence=[7]),dict(shield=[1]),
-                dict(weapon=['greatsword'])):
+                dict(weapon=['great_sword'])):
             raw=deepcopy(self.document)
             raw['search_space'].update(changes)
             with self.subTest(changes=changes),self.assertRaises(DynamicEncounterInputError):

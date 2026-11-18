@@ -129,9 +129,12 @@ class DynamicMagicObservationSchemaTests(unittest.TestCase):
             source = replace(source,party=(replace(source.party[0],wizard=profile),),
                 facts=replace(source.facts,daylight_confirmed=True))
         return dict(npcs=[dict(weapon_skill=3,strength=3,toughness=3,agility=3,
-                melee=3,defence=3,shield=False,athletics=3,weapon='staff',light_armour=False,abilities=[],talents=[])],
+                melee=3,defence=3,shield=False,athletics=3,weapon='staff',light_armour=False,abilities=[],talents=[],
+                ranged=None,weapon_grip=None,mount=None,throwing=None,brawn=None,ballistic_skill=None)],
             win_rate=0.5,win_interval_95=[0.1,0.9],mean_started_rounds=1,
             rounds_interval_95=[1,1],outcomes=dict(objective_achieved=1,party_defeated=1,round_limit=0,unsupported_path=0),
+            target_assessment=dict(status='within_targets',win_rate_in_range=True,started_rounds_in_range=True,
+                win_rate_deviation=0,started_rounds_deviation=0,normalized_max_deviation=0,normalized_total_deviation=0),
             trials=2,replay=dict(schema_version='1',kind='pc_melee_simulation',request_id='observations',
                 ruleset='towr-pg1.4-gmg1.1',scenario=scenario_document(source),
                 simulation=dict(master_seed='42',trials=2),execution=dict(mode='sequential')))

@@ -89,14 +89,15 @@ class DynamicEncounterTests(unittest.TestCase):
     def test_single_configuration_stops_without_filling_duplicates(self):
         space = NpcSearchSpace(weapon_skill=(2,),strength=(2,),toughness=(2,),agility=(2,),
             melee=(4,),athletics=(4,),defence=(4,),weapon=(GeneratedWeapon.STAFF,),
-            light_armour=(False,),shield=(False,),abilities=((),),allowed_talents=())
+            light_armour=(False,),shield=(False,),abilities=((),),allowed_talents=(),brawn=(4,))
         result = search_dynamic_encounter(request(space=space))
         self.assertEqual(len(result.explored), 1)
         self.assertTrue(result.proposal_limit_reached)
         self.assertEqual(result.total_trials, 3)
 
     def test_drained_component_admitted_and_executed_without_catalog_id(self):
-        source = request(space=replace(NpcSearchSpace(), abilities=((GeneratedAbility.DRAINED_ON_HIT,),)),
+        source = request(space=replace(NpcSearchSpace(),weapon=(GeneratedWeapon.STAFF,),
+            abilities=((GeneratedAbility.DRAINED_ON_HIT,),)),
             max_candidates=1, top_k=1, max_total_trials=3)
         result = search_dynamic_encounter(source)
         self.assertEqual(result.explored[0].summary.outcome_counts.unsupported_path, 0)

@@ -24,6 +24,8 @@ def project_warped_form_step(state, proof):
         validate_pc_melee_source_types(actual, expected)
 
     def finish(**updates):
+        from towr.domain.pc_weighted_net_models import weighted_nets_after_equipment
+        updates=weighted_nets_after_equipment(state,proof,updates)
         pending = updates.get('pending', state.pending)
         wound = updates.get('pending_wound', state.pending_wound)
         if not pending and wound is None:

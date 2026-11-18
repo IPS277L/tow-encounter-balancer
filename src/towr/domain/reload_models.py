@@ -121,6 +121,17 @@ class ReloadableWeaponState:
 RangedWeaponReloadState = FreeReloadWeaponState | ReloadableWeaponState
 
 
+def ranged_weapon_is_loaded(weapon: RangedWeaponReloadState | None) -> bool:
+    """Free reload is part of a shot; it never acquires an Exacting cycle."""
+    if weapon is None:
+        return False
+    if type(weapon) is FreeReloadWeaponState:
+        return True
+    if type(weapon) is ReloadableWeaponState:
+        return weapon.loaded
+    raise TypeError('weapon readiness requires an exact ranged reload state')
+
+
 def create_initial_ranged_weapon_reload_state(
     weapon_instance_id: str,
     weapon_id: RangedWeaponId,

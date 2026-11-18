@@ -1,6 +1,6 @@
 # Mounts и Vehicles
 
-Источник: `BOOK-PLAYER-GUIDE`, версия 1.4, глава Rules — Mounts & Vehicles, страницы 124–127. Статус области: `draft`; spatial, rider и vehicle state в коде отсутствуют.
+Источник: `BOOK-PLAYER-GUIDE`, версия 1.4, глава Rules — Mounts & Vehicles, страницы 124–127. Общая область остаётся неполной. Для PC и генерируемых NPC подключён компонент обученной лошади (Horse): один ход всадника, Fast, +1 Resilience, Noble Steed и принудительное спешивание при Prone. По согласованной GM-policy после спешивания лошадь покидает поле; отдельный боевой ход/Hooves не создаётся. [Решение](../decisions/ADR-0138-all-two-handed-weapons.md), [модель](../../src/towr/domain/pc_mount_models.py), [реальный бой](../../tests/integration/test_pc_mounted_battlefield.py). Другие mounts, vehicles и управление ими не добавлены.
 
 ## RULE-MOUNT-001 — mounted entity
 

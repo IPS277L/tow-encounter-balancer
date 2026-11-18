@@ -117,7 +117,7 @@ def pc_weapon_swap_hand(state,actor_id,item_id):
     from towr.domain.pc_heavy_wound_models import usable_hands,injured_hands
     from towr.domain.pc_melee_models import PcWeaponHand,PcTwoHandedGrip
     from towr.domain.pc_shield_models import PcShieldLocation
-    from towr.domain.pc_weapon_models import pc_weapon_requires_two_hands
+    from towr.domain.pc_weapon_models import pc_weapon_requires_two_hands, pc_weapon_supports_variable_grip
     member=state.participant(actor_id)
     inventory=getattr(member,'weapon_inventory',None)
     if inventory is None:
@@ -131,6 +131,9 @@ def pc_weapon_swap_hand(state,actor_id,item_id):
     source=state.source.participant(actor_id)
     preferred=(source.initial_weapon_hand if item.id==source.combat_equipment[0].id
         else source.backup_weapon_policy.preferred_hand)
+    if pc_weapon_supports_variable_grip(item.weapon):
+        from towr.domain.pc_backup_weapon_models import preferred_variable_weapon_hand
+        return preferred_variable_weapon_hand(member,preferred)
     order=(preferred,*(side for side in PcWeaponHand if side is not preferred))
     shield=(member.shield.hand if member.shield is not None
         and member.shield.location is PcShieldLocation.HELD else None)
@@ -147,7 +150,8 @@ def _swapped_member(state,actor_id,item_id,*,forecast,allow_dropped=False):
     if inventory is None:
         return None
     target=next((item for item in inventory.items if item.id==item_id),None)
-    if target is None or (target.location is PcItemLocation.DROPPED and not allow_dropped):
+    if (target is None or target.location is PcItemLocation.DEPLOYED
+            or (target.location is PcItemLocation.DROPPED and not allow_dropped)):
         return None
     hand=pc_weapon_swap_hand(state,actor_id,item_id)
     if hand is None:
@@ -177,7 +181,32 @@ def pc_weapon_inventory_view(state,actor_id,item_id):
     if pc_weapon_swap_used(state,actor_id):
         return None
     view=_swapped_member(state,actor_id,item_id,forecast=True)
-    return None if view is None else replace(state,party=tuple(view if m.actor_id==actor_id else m for m in state.party))
+    if view is None:
+        return None
+    party=tuple(view if m.actor_id==actor_id else m for m in state.party)
+    from towr.domain.pc_melee_models import PC_THROWING_WEAPONS
+    if state.source.participant(actor_id).pc.weapon in PC_THROWING_WEAPONS:
+        # A hypothetical draw/stow is advice, not a physical Net receipt. Keep
+        # the real bank/history untouched and never admit this as a battle state.
+        base=state.base if type(state) is _PcInventoryAdviceView else state
+        return _PcInventoryAdviceView(base,party)
+    return replace(state,party=party)
+
+
+@dataclass(frozen=True,slots=True)
+class _PcInventoryAdviceView:
+    base: object
+    party: tuple
+
+    def __getattr__(self,name):
+        return getattr(self.base,name)
+
+    def participant(self,actor_id):
+        return next(member for member in self.party if member.actor_id==actor_id)
+
+    @property
+    def live_party(self):
+        return tuple(member for member in self.party if not member.injury.dead)
 
 
 def pc_weapon_pickup_view(state,actor_id,item_id):
@@ -221,7 +250,7 @@ def pc_weapon_pickup_member(state,actor_id,item_id,*,injury=None):
 
 
 def expected_pc_weapon_swap(state):
-    from towr.domain.pc_melee_models import PcMeleePolicy,PC_RANGED_WEAPONS
+    from towr.domain.pc_melee_models import PcMeleePolicy,PC_RANGED_WEAPONS,PC_THROWING_WEAPONS
     from towr.domain.pc_melee_result_models import pc_melee_action_id
     from towr.domain.pc_tactical_models import select_pc_tactic
     turn=state.round_state.active_turn
@@ -233,7 +262,7 @@ def expected_pc_weapon_swap(state):
     source=state.source.participant(actor)
     member=state.participant(actor)
     inventory=getattr(member,'weapon_inventory',None)
-    if (source.policy is not PcMeleePolicy.AUTOMATIC_COMBAT or source.pc.weapon not in PC_RANGED_WEAPONS
+    if (source.policy is not PcMeleePolicy.AUTOMATIC_COMBAT or source.pc.weapon not in (*PC_RANGED_WEAPONS,*PC_THROWING_WEAPONS)
             or inventory is None or member.injury.dead or member.injury.conditions.has(Condition.DEFENCELESS)
             or pc_weapon_swap_used(state,actor)):
         return None

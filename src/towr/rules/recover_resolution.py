@@ -27,6 +27,7 @@ from towr.domain.recover_models import (
     _expected_recover_execution,
 )
 from towr.rules.dice import RandomSource
+from towr.domain.test_models import TestResult
 from towr.rules.test_resolution import TestDecisionProvider, resolve_test
 
 
@@ -198,6 +199,19 @@ def _resolve_condition_removal(
     if not choice.underlying_cause_allows_removal:
         raise ValueError("an ongoing cause prevents Condition removal")
     result = resolve_test(choice.test, rng, decisions=decisions)
+    return _complete_condition_removal_after_test(choice,result)
+
+
+def _complete_condition_removal_after_test(choice: RecoverConditionRemovalChoice,
+        result: TestResult) -> RecoverConditionRemovalResult:
+    """Finish one source-bound alternative Recover after the PC Fate window."""
+    if type(choice) is not RecoverConditionRemovalChoice or type(result) is not TestResult:
+        raise TypeError('Condition Recover requires its exact choice and actual Test result')
+    replace(choice)
+    if not choice.underlying_cause_allows_removal:
+        raise ValueError('an ongoing cause prevents Condition removal')
+    if result.trace.request_id != choice.test.id:
+        raise ValueError('Condition Recover result belongs to another actual Test')
     removed = result.succeeded
     return RecoverConditionRemovalResult(
         source=choice,

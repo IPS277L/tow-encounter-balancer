@@ -108,8 +108,9 @@ class PcHochlandSourceTests(unittest.TestCase):
             facts=replace(source.facts,all_opponents_close=True))
         with self.assertRaises(ValueError):PcGloriousPolicy((Skill.AWARENESS,),0,0)
         old = make_pc_handgun_scenario()
-        with self.assertRaises(ValueError):replace(old.party[0].pc,
+        with_awareness=replace(old.party[0].pc,
             ranged=replace(old.party[0].pc.ranged,awareness=4))
+        self.assertEqual(with_awareness.ranged.awareness,4)
         with self.assertRaises(ValueError):replace(old.party[0],
             aim_second_action_policy=PcAimSecondActionPolicy(0),fate_policy=PcFatePolicy.CONFIGURED)
         raw = request_document()
@@ -117,8 +118,9 @@ class PcHochlandSourceTests(unittest.TestCase):
         self.assertEqual(len(raw['scenario']['party'][0]['pc']['ranged']),9)
         wire.parse_pc_melee_simulation_request(json.dumps(raw))
         for field,value in (('awareness',4),):
-            malformed = deepcopy(raw);malformed['scenario']['party'][0]['pc']['ranged'][field] = value
-            with self.assertRaises(PcMeleeSimulationInputError):wire.parse_pc_melee_simulation_request(json.dumps(malformed))
+            aware = deepcopy(raw);aware['scenario']['party'][0]['pc']['ranged'][field] = value
+            parsed=wire.parse_pc_melee_simulation_request(json.dumps(aware))
+            self.assertEqual(parsed.request.scenario.party[0].pc.ranged.awareness,value)
         malformed = deepcopy(raw);malformed['scenario']['party'][0]['aim_second_action_policy'] = {'minimum_remaining_session_spends':0}
         malformed['scenario']['party'][0]['fate_policy'] = 'configured'
         with self.assertRaises(PcMeleeSimulationInputError):wire.parse_pc_melee_simulation_request(json.dumps(malformed))

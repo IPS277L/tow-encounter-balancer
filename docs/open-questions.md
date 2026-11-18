@@ -144,9 +144,9 @@ M24 задаёт конечный clear/fastest adjacent exit без пресл�
 
 GM148 перечисляет shield в Typical Trappings, но не в Protection; для2H loadout пока не выбрана трактовка printed Res8 без shield или7 после вычитания. Профиль исключён из M45 до уточнения. [Подробности](open-questions-details.md#dragon-ogre-shield-resilience).
 
-## Бонус Greatsword
+## Бонус Greatsword — решение принято
 
-PG1.4 Equipment93 содержит `+1 to Defence` без `d`. Тип модификатора пока не определён; Greatsword исключён из M19, положительное решение не подставлять. [Подробности](open-questions-details.md#бонус-greatsword).
+Пользователь выбрал пропущенную `d`: +1d к Защите (Defence), пока нет Staggered. Это явная пользовательская трактовка, не подтверждённая errata. Также приняты Net→Defenceless только Burdened, явные Short/Long scene defaults, automatic2H Recover, Horse/dismount→уход, Net landing/recovery и освобождение одной выбранной сети за успешный Brawn Recover. Другие сети и независимые причины Burdened сохраняются. [ADR-0138](decisions/ADR-0138-all-two-handed-weapons.md) реализован и проверен; решений пользователя по этой области не осталось.
 
 ## Выбранная стратегия M12
 

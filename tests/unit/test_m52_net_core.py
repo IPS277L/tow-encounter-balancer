@@ -91,6 +91,25 @@ class M52NetCoreTests(unittest.TestCase):
         self.assertEqual(repeated.target_state.conditions, result.target_state.conditions)
         self.assertEqual(repeated.target_state.wounds, ())
 
+    def test_user_ruling_net_on_defenceless_preserves_burdened_without_wound(self):
+        from towr.domain.injury_models import ProfileInjuryState
+        from towr.domain.resolution_models import TargetInjuryPolicy
+        from towr.domain.pc_net_models import expected_net_resolution
+        prepared=prepare_npc_attack(net_request())
+        original=replace(kernel_request(),target_id='target',attack=prepared.attack)
+        for policy,injury in ((TargetInjuryPolicy.PLAYER,original.target_state),
+                (TargetInjuryPolicy.MINION,ProfileInjuryState(0,1))):
+            before=replace(injury,conditions=injury.conditions.with_condition(Condition.DEFENCELESS))
+            source=replace(original,target_policy=policy,target_state=before)
+            result=resolve_kernel_attack(source,SequenceRandom([1,10]))
+            self.assertTrue(result.target_state.conditions.has(Condition.BURDENED))
+            self.assertTrue(result.target_state.conditions.has(Condition.DEFENCELESS))
+            self.assertEqual(result.target_state.wounds,before.wounds)
+            self.assertIsNone(result.character_wound)
+            self.assertIsNone(result.profile_wound)
+            self.assertIsNone(result.stagger)
+            self.assertEqual(expected_net_resolution(source,result.attack),result)
+
     def test_miss_has_no_condition_and_close_miss_staggers_once(self):
         for distance, staggered, expected in (
             (Range.CLOSE, False, MissConsequence.STAGGER_ATTACKER),

@@ -38,7 +38,7 @@ def candidate_protection(source: NpcAttackSelectionRequest, candidate: NpcAttack
         actor.state.injury.conditions.has(Condition.STAGGERED))
     return ProtectionPreparationRequest(source.id + ":protect", target.state.actor_id, baseline, Skill.SHOOTING,
         candidate.defender_is_aware, target.state.injury.conditions.has(Condition.DEFENCELESS),
-        target.state.wields_weapon, target.state.holds_shield, candidate.skill, candidate.protection_options)
+        target.state.wields_weapon, target.state.holds_shield, candidate.protection_skill, candidate.protection_options)
 
 
 def candidate_preparation(

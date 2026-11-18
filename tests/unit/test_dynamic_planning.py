@@ -11,6 +11,7 @@ import unittest
 
 from towr.adapters._local_ui_planning import PLANNING_SCRIPT
 from towr.adapters._local_ui_visual import VISUAL_SCRIPT
+from towr.domain.generated_npc_models import GeneratedWeapon
 
 
 BROWSER=os.environ.get('TOWR_UI_BROWSER') or shutil.which('chromium') or shutil.which('google-chrome')
@@ -25,6 +26,7 @@ const canonical=value=>JSON.stringify(value);
 const assert=(condition,name)=>{if(!condition)throw Error(name);};
 const budget=plan=>plan.max_candidates*plan.exploration_trials+plan.top_k*plan.finalist_trials;
 const standard=copy(inputs.melee);standard.npc_count={minimum:1,maximum:10};standard.max_rounds=15;
+assert(canonical(generatedWeaponIds)===canonical(inputs.generated_weapon_ids),'UI and server expose the same ordered generated weapons');
 standard.targets={win_rate:{numerator:1,denominator:2},started_rounds:{numerator:5,denominator:1}};
 standard.search.max_total_trials=100;
 const original=canonical(standard),baseTime=estimatedSearchTime(standard),basePlan=automaticSearchPlan(standard);
@@ -112,11 +114,13 @@ def planning_document():
     folder=Path('docs/examples/dynamic')
     inputs={name:json.loads((folder/file).read_text('utf-8')) for name,file in (
         ('melee','search.request.json'),('mixed','pc-ranged.request.json'),('mage','elemental-mage.request.json'))}
+    inputs['generated_weapon_ids']=[weapon.value for weapon in GeneratedWeapon]
     # Reuse the actual editor's active-item predicate; no simulated equipment parser.
     ranged_set=re.search(r'pcCloseRangedWeapons=new Set\(\[[^\n]+?\]\)',VISUAL_SCRIPT).group()
     ranged_function=re.search(r'function playerInitialRangedWeapon\(member\)\{[^\n]+\}',VISUAL_SCRIPT).group()
     dependencies="const controls={};const byId=id=>controls[id]||(controls[id]={checked:false});let busy=false;const syncForm=()=>{},message=()=>{};"
-    program=dependencies+'const '+ranged_set+';'+ranged_function+PLANNING_SCRIPT
+    ranged_all=re.search(r'const pcRangedWeapons=new Set\(\[[^\n]+?\]\);',VISUAL_SCRIPT).group()
+    program=dependencies+'const '+ranged_set+';'+ranged_all+ranged_function+PLANNING_SCRIPT
     program+='const inputs='+json.dumps(inputs)+';try{'+CHECK+"}catch(error){document.body.dataset.planningError=error.stack;document.body.textContent=error.stack;}"
     return '<!doctype html><html><body><script>'+program+'</script></body></html>'
 

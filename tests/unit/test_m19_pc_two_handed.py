@@ -19,7 +19,7 @@ from towr.engine.pc_melee_runner import run_pc_melee_scenario, apply_pc_melee_st
 
 
 TWO_HANDED = (PcMeleeWeapon.PICKAXE,PcMeleeWeapon.FLAIL,PcMeleeWeapon.BILLHOOK,
-    PcMeleeWeapon.HALBERD,PcMeleeWeapon.GLAIVE,PcMeleeWeapon.GREATAXE,PcMeleeWeapon.GREATHAMMER)
+    PcMeleeWeapon.HALBERD,PcMeleeWeapon.GLAIVE,PcMeleeWeapon.GREATAXE,PcMeleeWeapon.GREATSWORD,PcMeleeWeapon.GREATHAMMER)
 
 
 def execute(source, values):
@@ -34,10 +34,10 @@ def two_handed_source(*, enemies=1, rounds=1, weapon=PcMeleeWeapon.PICKAXE):
 
 
 class PcTwoHandedNativeTests(unittest.TestCase):
-    def test_all_seven_native_attacks_use_both_hands_and_exact_damage(self):
+    def test_all_eight_native_attacks_use_both_hands_and_exact_damage(self):
         cases = ((PcMeleeWeapon.PICKAXE,4,3),(PcMeleeWeapon.FLAIL,6,3),
             (PcMeleeWeapon.BILLHOOK,5,3),(PcMeleeWeapon.HALBERD,5,3),
-            (PcMeleeWeapon.GLAIVE,5,3),(PcMeleeWeapon.GREATAXE,6,2),(PcMeleeWeapon.GREATHAMMER,6,2))
+            (PcMeleeWeapon.GLAIVE,5,3),(PcMeleeWeapon.GREATAXE,6,2),(PcMeleeWeapon.GREATSWORD,6,2),(PcMeleeWeapon.GREATHAMMER,6,2))
         for weapon,base,dice in cases:
             with self.subTest(weapon=weapon):
                 result = execute(two_handed_source(weapon=weapon),[1]*dice+[10,10])

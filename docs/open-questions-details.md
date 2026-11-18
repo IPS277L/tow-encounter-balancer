@@ -128,7 +128,7 @@ Player’s Guide 1.4 на странице 122 отдельно перечисл
 
 ## Бонус Greatsword
 
-BOOK-PLAYER-GUIDE1.4, гл.IV Equipment93: в таблице буквально `+1 to Defence` при отсутствии Staggered; у Sword/Glaive явно стоит `+1d`. Без уточнения нельзя автоматически выбрать dice modifier либо изменение Skill threshold. Greatsword не входит в [M19](decisions/ADR-0074-pc-two-handed-close-weapons.md). Для следующего расширения сверить верстку/контекст и доступное официальное уточнение; при отсутствии нормативного решения запросить явный house rule пользователя.
+BOOK-PLAYER-GUIDE1.4, гл.IV Equipment93: буквально `+1 to Defence`, у Sword/Glaive явно `+1d`. Пользователь2026-11-18 выбрал пропущенную `d`: +1d к Защите (Defence), пока нет Staggered. Это явная пользовательская трактовка, не подтверждённая официальная errata. [ADR-0138](decisions/ADR-0138-all-two-handed-weapons.md).
 
 ## Продолжение Broken NPC
 

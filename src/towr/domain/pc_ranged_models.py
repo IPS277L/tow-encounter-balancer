@@ -32,6 +32,7 @@ from towr.domain.reload_models import (
     FreeReloadWeaponState, ReloadableWeaponState, ReloadActionExecutionRequest, ReloadActionExecutionResult,
     create_initial_ranged_weapon_reload_state, reload_approach_id,begin_reload_cycle,
 )
+from towr.domain.reload_models import ranged_weapon_is_loaded
 from towr.domain.test_models import DiceModifier, Skill,TestRequest
 from towr.domain.turn_models import CombatActionDeclaration, CombatActionKind, ImproviseKind
 
@@ -60,8 +61,8 @@ class PcRangedHelpUseProof:
     request_id: str
     source_test: TestRequest
     execution: HelpActionExecutionResult
-    previous_weapon_state: ReloadableWeaponState
-    weapon_state: ReloadableWeaponState
+    previous_weapon_state: FreeReloadWeaponState | ReloadableWeaponState
+    weapon_state: FreeReloadWeaponState | ReloadableWeaponState
     uses_optional_reload_bonus: bool
     next_reload_cycle_id: str | None
 
@@ -70,21 +71,20 @@ class PcRangedHelpUseProof:
             raise TypeError('ranged Help use requires exact actor and request identifiers')
         if type(self.source_test) is not TestRequest or type(self.execution) is not HelpActionExecutionResult:
             raise TypeError('ranged Help use requires its exact prepared Test and actual execution')
-        if (type(self.previous_weapon_state) is not ReloadableWeaponState
-                or type(self.weapon_state) is not ReloadableWeaponState):
+        if (type(self.previous_weapon_state) not in (FreeReloadWeaponState,ReloadableWeaponState)
+                or type(self.weapon_state) is not type(self.previous_weapon_state)):
             raise TypeError('ranged Help use requires its exact before/after weapon states')
         for value in (self.source_test,self.execution,self.previous_weapon_state,self.weapon_state):
             replace(value)
-        if self.previous_weapon_state.weapon_id not in (
-                RangedWeaponId.PISTOL,RangedWeaponId.REPEATER_PISTOL,RangedWeaponId.REPEATER_HANDBOW):
-            raise ValueError('ranged Help receipt requires a supported Close ranged weapon')
+        if self.previous_weapon_state.weapon_id.value not in tuple(w.value for w in PC_RANGED_WEAPONS):
+            raise ValueError('ranged Help receipt requires its supported weapon')
         if type(self.uses_optional_reload_bonus) is not bool:
             raise TypeError('ranged Help mode must be an exact bool')
         if (self.execution.request_id!=self.request_id
                 or self.execution.source_request.actor_id!=self.actor_id
                 or self.execution.source_request.help_skill is not Skill.SHOOTING
                 or self.execution.source_request.help_test.id!=self.source_test.id
-                or not self.previous_weapon_state.loaded):
+                or not ranged_weapon_is_loaded(self.previous_weapon_state)):
             raise ValueError('ranged Help receipt changed its actor/Test/request/loaded source')
         profile=ranged_weapon_combat_profile(self.previous_weapon_state.weapon_id)
         modifiers=tuple(m for m in self.source_test.dice_modifiers
@@ -118,9 +118,6 @@ def complete_pc_ranged_help(state: PcMeleeState,base_request: HelpActionExecutio
     from towr.domain.pc_melee_result_models import _pc_test,pc_melee_action_id,validate_pc_melee_source_types
     actor=base_request.actor_id
     weapon=_held_pc_ranged(state,actor,loaded=True)
-    if type(weapon) is not ReloadableWeaponState or weapon.weapon_id not in (
-            RangedWeaponId.PISTOL,RangedWeaponId.REPEATER_PISTOL,RangedWeaponId.REPEATER_HANDBOW):
-        raise ValueError('Shooting Help requires its held loaded supported Close ranged weapon')
     if base_request.round_state!=state.round_state or base_request.id!=pc_melee_action_id(state,actor)+':help:execute':
         raise ValueError('ranged Help changed its actual actor/slot/action source')
     prepared=_pc_test(state,actor,pc_melee_action_id(state,actor)+':help:test',Skill.SHOOTING)
@@ -191,8 +188,9 @@ def pc_repeater_attack_modifiers(state: PcMeleeState, actor: str) -> tuple[DiceM
     return (ranged_weapon_combat_profile(weapon.weapon_id).reload.optional_bonus_modifier(),)
 
 
-def pc_ranged_profile_modifiers(state: PcMeleeState, actor: str, target: str) -> tuple[DiceModifier, ...]:
-    weapon = _held_pc_ranged(state,actor,loaded=True)
+def pc_ranged_profile_modifiers(state: PcMeleeState, actor: str, target: str,
+        *, require_loaded: bool = True) -> tuple[DiceModifier, ...]:
+    weapon = _held_pc_ranged(state,actor,loaded=True) if require_loaded else state.participant(actor).ranged
     profile = ranged_weapon_combat_profile(weapon.weapon_id)
     distance = pc_enemy_range(state,actor,target)
     modifiers = []
@@ -257,6 +255,10 @@ def prepare_pc_ranged_shot(
         next_reload_cycle_id=pc_melee_action_id(state, actor)+':ranged:cycle' if consumes else None,
         uses_optional_reload_bonus=bonus,
         aim=aim,
+        range_approved_by_gm=(state.source.battlefield is not None and
+            (pc_enemy_range(state,actor,request.target_id) is RangedWeaponRange.EXTREME or
+                profile.has_gm_defined_maximum_range and tuple(RangedWeaponRange).index(
+                    pc_enemy_range(state,actor,request.target_id)) > tuple(RangedWeaponRange).index(profile.optimum_range_max))),
     )
     attack = _profile_prepared_attack(preparation)
     follow_up = _aim_follow_up_for(preparation,attack)

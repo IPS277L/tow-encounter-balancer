@@ -62,6 +62,21 @@ def validate_pc_minion_defeat_equipment(state) -> None:
         if defeat is not None and enemy.state.injury!=defeat.state:
             raise ValueError('fleeing NPC injury changed after its actual defeat')
         expected=old.state
+        if (old.definition.generated_components is not None
+                and old.definition.generated_components.mount is not None):
+            from towr.domain.pc_mount_models import pc_is_mounted
+            if not pc_is_mounted(state,target):
+                expected=replace(expected,current_resilience=replace(expected.current_resilience,
+                    bonus=expected.current_resilience.bonus-1))
+        if (old.definition.generated_components is not None
+                and old.definition.generated_components.weapon.value == 'weighted_net'):
+            from towr.domain.pc_weighted_net_models import weighted_net_for_actor,PcNetLocation
+            item=weighted_net_for_actor(state,target)
+            if item is None:
+                raise ValueError('generated Net must retain its physical source item')
+            held=item.location is PcNetLocation.HELD
+            expected=replace(expected,wields_weapon=held,
+                available_attack_ids=old.state.available_attack_ids if held else ())
         if old.definition.id=='pc-book-npc:night_goblin_net_spear':
             from towr.domain.pc_net_models import expected_pc_npc_net_equipment
             expected=expected_pc_npc_net_equipment(state,target)

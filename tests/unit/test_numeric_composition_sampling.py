@@ -16,7 +16,7 @@ from towr.domain.generated_npc_models import (
 
 def numeric_space(**changes):
     return NpcSearchSpace(**(dict(weapon_skill=(3,), strength=(4,), toughness=(5,2,3),
-        agility=(3,), melee=(4,), athletics=(4,), defence=(4,),
+        agility=(3,), melee=(4,), athletics=(4,), defence=(4,), brawn=(4,),
         weapon=(GeneratedWeapon.SWORD,), light_armour=(True,), shield=(True,),
         abilities=((),), allowed_talents=(), ballistic_skill=(3,), shooting=(4,),
         initiative=(3,), dexterity=(4,)) | changes))

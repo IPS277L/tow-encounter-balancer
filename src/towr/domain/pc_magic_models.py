@@ -171,7 +171,7 @@ def consume_magic_modifiers(modifiers, proof):
     from towr.domain.recover_models import RecoverStandardResult
     used, removed, visited = set(), set(), set()
     paths = {'execution','resolution','result','casting','test','test_result','attack',
-        'attacker_test','defender_test','critical','completion','wound_effect','exacting'}
+        'attacker_test','defender_test','critical','completion','wound_effect','exacting','awareness_test_result','athletics_test_result'}
     def visit(value):
         if id(value) in visited:
             return
@@ -221,6 +221,11 @@ def spell_choice(state, actor, potency):
         definition = pc_spell_definition(spell)
         values = []
         for enemy in live:
+            if state.battlefield is not None:
+                from towr.domain.pc_battlefield_models import battlefield_range
+                from towr.domain.ranged_weapon_profiles import RangedWeaponRange
+                if tuple(RangedWeaponRange).index(battlefield_range(state.battlefield,actor,enemy.state.actor_id)) > tuple(RangedWeaponRange).index(RangedWeaponRange(definition.range.value)):
+                    continue
             modifiers = generated_spell_potency_modifiers(enemy)
             effective_potency = potency
             if modifiers:
@@ -234,7 +239,14 @@ def spell_choice(state, actor, potency):
                     or enemy.state.injury.conditions.has(Condition.STAGGERED)) else 0.5)
             values.append((enemy.state.actor_id,value))
         values.sort(key=lambda item:-item[1])
-        selected = values[:potency if spell is PcSpellId.FIRE_BREATH else 1]
+        if spell is PcSpellId.FIRE_BREATH and state.battlefield is not None:
+            spatial=state.battlefield.spatial
+            zones=tuple(dict.fromkeys(spatial.placement_for(target).zone_id for target,_ in values))
+            groups=tuple(tuple(item for item in values if spatial.placement_for(item[0]).zone_id == zone)[:potency]
+                for zone in zones)
+            selected=max(groups,key=lambda group:sum(value for _,value in group),default=())
+        else:
+            selected = values[:potency if spell is PcSpellId.FIRE_BREATH else 1]
         utility = sum(value for _,value in selected)
         if utility > best[2]+1e-12:
             best = spell, tuple(target for target,_ in selected), utility
@@ -288,7 +300,9 @@ def complete_pc_casting(state, test, decline, glorious):
         definition = pc_spell_definition(spell)
         affected = tuple(IdentifiedSpellTarget(target,
             generated_spell_potency_modifiers(state.enemy(target))) for target in targets)
-        subject = state.source.facts.zone_id if spell is PcSpellId.FIRE_BREATH else targets[0]
+        subject = ((state.battlefield.spatial.placement_for(targets[0]).zone_id
+            if state.battlefield is not None else state.source.facts.zone_id)
+            if spell is PcSpellId.FIRE_BREATH else targets[0])
         preflight = resolve_spell_target_preflight(SpellTargetPreflightRequest(request.id+':preflight',source,
             definition,subject,definition.target_kind,True,affected))
         resolved = resolve_spell_cast_targets(preflight.execution_request)

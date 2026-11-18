@@ -1,10 +1,10 @@
 """Complete generated/canonical NPC ranged sources and scene confirmations."""
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from enum import Enum
 
 from towr.domain.npc_roster_models import NpcDefinition
 from towr.domain.pc_npc_catalog import validate_pc_book_npc_definition
-from towr.domain.ranged_weapon_profiles import RangedWeaponId
+from towr.domain.ranged_weapon_profiles import RangedWeaponId,RangedWeaponHands,ranged_weapon_combat_profile
 from towr.domain.test_models import InlineProfile
 
 
@@ -49,15 +49,27 @@ class PcNpcRangedProfile:
     weapon_id: RangedWeaponId
     dexterity_profile: InlineProfile
     strength: int
+    awareness_profile: InlineProfile | None = field(default=None,kw_only=True)
 
     def __post_init__(self):
         if type(self.weapon_id) is not RangedWeaponId or self.weapon_id not in (
                 RangedWeaponId.PISTOL,RangedWeaponId.OGRE_PISTOL,
-                RangedWeaponId.REPEATER_PISTOL,RangedWeaponId.REPEATER_HANDBOW):
-            raise TypeError('NPC ranged weapon profile requires its exact firearm kind')
+                RangedWeaponId.REPEATER_PISTOL,RangedWeaponId.REPEATER_HANDBOW,
+                RangedWeaponId.SHORTBOW,RangedWeaponId.WARBOW,RangedWeaponId.LONGBOW,
+                RangedWeaponId.CROSSBOW,RangedWeaponId.HANDGUN,RangedWeaponId.BLUNDERBUSS,
+                RangedWeaponId.HOCHLAND_LONG_RIFLE,RangedWeaponId.REPEATER_CROSSBOW,
+                RangedWeaponId.REPEATER_HANDGUN):
+            raise TypeError('NPC ranged weapon profile requires its exact supported kind')
         if type(self.dexterity_profile) is not InlineProfile:
             raise TypeError('NPC ranged weapon Dexterity requires an exact InlineProfile')
         replace(self.dexterity_profile)
+        if self.awareness_profile is not None:
+            if type(self.awareness_profile) is not InlineProfile:
+                raise TypeError('NPC ranged Awareness requires an exact InlineProfile or None')
+            replace(self.awareness_profile)
+        if (ranged_weapon_combat_profile(self.weapon_id).hands is RangedWeaponHands.TWO_HANDED
+                and self.awareness_profile is None):
+            raise ValueError('two-handed NPC Shooting requires its actual Awareness for Aim')
         if type(self.strength) is not int:
             raise TypeError('NPC ranged weapon Strength must be an exact integer')
         if self.strength < 1:
@@ -76,7 +88,9 @@ def pc_npc_ranged_profile(definition: NpcDefinition) -> PcNpcRangedProfile:
             raise ValueError('generated ranged capability requires its full source facts')
         facts=npc.ranged
         return PcNpcRangedProfile(RangedWeaponId(npc.weapon.value),
-            InlineProfile(facts.initiative,facts.dexterity),npc.strength)
+            InlineProfile(facts.initiative,facts.dexterity),npc.strength,
+            awareness_profile=(InlineProfile(facts.initiative,facts.awareness)
+                if facts.awareness is not None else None))
     validate_pc_book_npc_definition(definition)
     if definition.id == PC_NPC_RANGED_DEFINITION_IDS[0]:
         return PcNpcRangedProfile(RangedWeaponId.PISTOL,InlineProfile(3,3),3)

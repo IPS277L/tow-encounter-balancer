@@ -85,6 +85,21 @@
               "type": "integer",
               "minimum": 1,
               "maximum": 10
+            },
+            "awareness": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 10
+            },
+            "throwing": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 10
+            },
+            "brawn": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 10
             }
           },
           "required": [
@@ -168,6 +183,12 @@
         },
         "ranged": {
           "$ref": "#/$defs/player_ranged_preparation"
+        },
+        "mount": {
+          "enum": [
+            null,
+            "horse"
+          ]
         }
       },
       "required": [
@@ -345,13 +366,33 @@
             "enum": [
               "staff",
               "dagger",
+              "foot_spear",
+              "polearm",
               "axe",
               "sword",
               "warhammer",
               "morning_star",
+              "pickaxe",
+              "flail",
+              "billhook",
+              "halberd",
+              "glaive",
+              "greataxe",
+              "greatsword",
+              "greathammer",
               "pistol",
               "repeater_pistol",
-              "repeater_handbow"
+              "repeater_handbow",
+              "shortbow",
+              "warbow",
+              "longbow",
+              "crossbow",
+              "handgun",
+              "blunderbuss",
+              "hochland_long_rifle",
+              "repeater_crossbow",
+              "repeater_handgun",
+              "weighted_net"
             ]
           },
           "minItems": 1,
@@ -433,6 +474,58 @@
           "uniqueItems": true
         },
         "dexterity": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 2,
+            "maximum": 6
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "weapon_grip": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "1h",
+              "2h"
+            ]
+          }
+        },
+        "awareness": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 2,
+            "maximum": 6
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "mount": {
+          "type": "array",
+          "items": {
+            "enum": [
+              null,
+              "horse"
+            ]
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "throwing": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 2,
+            "maximum": 6
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "brawn": {
           "type": "array",
           "items": {
             "type": "integer",
@@ -765,7 +858,13 @@
       "type": "object",
       "properties": {
         "range": {
-          "const": "close"
+          "enum": [
+            "close",
+            "short",
+            "medium",
+            "long",
+            "extreme"
+          ]
         },
         "ambush": {
           "const": "none"
@@ -775,13 +874,22 @@
         },
         "session_start": {
           "const": "fresh"
+        },
+        "two_handed_max_range": {
+          "enum": [
+            "short",
+            "medium",
+            "long",
+            "extreme"
+          ]
         }
       },
       "required": [
         "range",
         "ambush",
         "terrain",
-        "session_start"
+        "session_start",
+        "two_handed_max_range"
       ],
       "additionalProperties": false
     },
@@ -799,16 +907,30 @@
             "axe",
             "warhammer",
             "morning_star",
+            "foot_spear",
+            "polearm",
             "pickaxe",
             "flail",
             "billhook",
             "halberd",
             "glaive",
             "greataxe",
+            "greatsword",
             "greathammer",
             "pistol",
+            "repeater_handbow",
             "repeater_pistol",
-            "repeater_handbow"
+            "shortbow",
+            "warbow",
+            "longbow",
+            "crossbow",
+            "repeater_crossbow",
+            "handgun",
+            "repeater_handgun",
+            "sling",
+            "blunderbuss",
+            "hochland_long_rifle",
+            "weighted_net"
           ]
         },
         "location": {
@@ -1008,7 +1130,10 @@
       "type": "object",
       "properties": {
         "initially_loaded": {
-          "type": "boolean"
+          "type": [
+            "boolean",
+            "null"
+          ]
         },
         "ammunition_supply_confirmed": {
           "type": "boolean"

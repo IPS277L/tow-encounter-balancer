@@ -10,6 +10,7 @@ from towr.domain.charge_models import (
     LongChargeActionExecutionRequest,
     LongChargeActionExecutionResult,
     LongChargeOutcome,
+    ChargeMovementRequest,ChargeMovementResult,_charge_movement_parts,
 )
 from towr.domain.condition_models import (
     Condition,
@@ -17,6 +18,7 @@ from towr.domain.condition_models import (
     ConditionState,
 )
 from towr.domain.movement_models import MovementSpeed
+from towr.domain.ranged_weapon_profiles import RangedWeaponRange
 from towr.domain.spatial_models import SpatialEntityPlacement
 from towr.domain.test_models import DiceModifier, Skill
 from towr.domain.turn_models import (
@@ -44,6 +46,31 @@ DIFFICULT_TERRAIN_CHARGE_ACTION_EXECUTION_RULE_ID = (
 LONG_CHARGE_ACTION_EXECUTION_RULE_ID = (
     "RULE-COMBAT-014:long-charge-action-execution"
 )
+
+
+def _complete_charge_movement_after_test(request: ChargeMovementRequest, test_result=None) -> ChargeMovementResult:
+    """Project the one real movement/Test; leave a successful Charge slot unused."""
+    succeeded,conditions,application,spatial,combat = _charge_movement_parts(request,test_result)
+    if not succeeded:
+        application = resolve_condition_application(ConditionApplicationRequest(
+            id=request.id+':staggered',
+            state=request.actor_conditions,
+            condition=Condition.STAGGERED,
+            source_rule_id=request.rule_id,
+        ))
+        conditions = application.state
+    return ChargeMovementResult(request,test_result,request.actor_conditions,conditions,
+        application,spatial,combat,succeeded)
+
+
+def execute_charge_movement(request: ChargeMovementRequest, rng: RandomSource, *, decisions=None):
+    """The standalone K1 phase; phased PC owners may supply their Fate-owned Test."""
+    if type(request) is not ChargeMovementRequest:
+        raise TypeError('Charge movement requires its exact request')
+    replace(request)  # Reject malformed source/Conditions before any RNG.
+    test = (resolve_test(request.athletics_test,rng,decisions=decisions)
+        if request.athletics_test is not None else None)
+    return _complete_charge_movement_after_test(request,test)
 
 
 def execute_charge_action(
@@ -96,8 +123,8 @@ def execute_charge_action(
     spatial_state = request.spatial_state
     actor = spatial_state.placement_for(request.actor_id)
     target = spatial_state.placement_for(request.target_id)
-    if not spatial_state.graph.are_adjacent(actor.zone_id, target.zone_id):
-        raise ValueError("base Charge target must be at Medium Range")
+    if actor.zone_id != target.zone_id and not spatial_state.graph.are_adjacent(actor.zone_id, target.zone_id):
+        raise ValueError("base Charge target must be within Medium Range")
     for entity_id in request.path_entity_ids:
         crossed = spatial_state.placement_for(entity_id)
         if crossed.side_id != actor.side_id:
@@ -137,20 +164,13 @@ def execute_charge_action(
             ),
         )
 
-    updated_placements = tuple(
-        SpatialEntityPlacement(
-            entity_id=placement.entity_id,
-            side_id=placement.side_id,
-            zone_id=target.zone_id,
-        )
-        if placement.entity_id == request.actor_id
-        else placement
-        for placement in spatial_state.placements
-    )
-    updated_spatial_state = replace(
-        spatial_state,
-        placements=updated_placements,
-    )
+    movement = _complete_charge_movement_after_test(ChargeMovementRequest(
+        request.id,request.round_state,spatial_state,request.actor_id,request.target_id,
+        request.slot_index,request.speed,request.actor_conditions,
+        RangedWeaponRange.SHORT if actor.zone_id == target.zone_id else RangedWeaponRange.MEDIUM,
+        request.actor_began_turn_in_enemy_close_range,path_entity_ids=request.path_entity_ids,
+        rule_id=request.rule_id))
+    updated_spatial_state = movement.spatial_state
 
     resolution = resolve_kernel_attack(
         prepared_kernel_request,
@@ -447,11 +467,13 @@ def execute_long_charge_action(
     ):
         raise ValueError("Charge Melee bonus is already present")
 
-    athletics_result = resolve_test(
-        request.athletics_test,
-        rng,
-        decisions=decisions,
-    )
+    movement = execute_charge_movement(ChargeMovementRequest(
+        request.id,request.round_state,spatial_state,request.actor_id,request.target_id,
+        request.slot_index,request.speed,request.actor_conditions,RangedWeaponRange.LONG,
+        request.actor_began_turn_in_enemy_close_range,request.athletics_test,
+        request.intermediate_zone_id,request.path_entity_ids,rule_id=request.rule_id),
+        rng,decisions=decisions)
+    athletics_result = movement.athletics_test_result
     stagger_application = None
     conditions = request.actor_conditions
     melee_bonus = None
@@ -483,20 +505,7 @@ def execute_long_charge_action(
     else:
         final_zone_id = request.intermediate_zone_id
 
-    updated_placements = tuple(
-        SpatialEntityPlacement(
-            entity_id=placement.entity_id,
-            side_id=placement.side_id,
-            zone_id=final_zone_id,
-        )
-        if placement.entity_id == request.actor_id
-        else placement
-        for placement in spatial_state.placements
-    )
-    updated_spatial_state = replace(
-        spatial_state,
-        placements=updated_placements,
-    )
+    updated_spatial_state = movement.spatial_state
 
     if athletics_result.succeeded:
         resolution = resolve_kernel_attack(
@@ -506,15 +515,8 @@ def execute_long_charge_action(
         )
         receipt_result_id = resolution.request_id
     else:
-        stagger_application = resolve_condition_application(
-            ConditionApplicationRequest(
-                id=f"{request.id}:staggered",
-                state=request.actor_conditions,
-                condition=Condition.STAGGERED,
-                source_rule_id=request.rule_id,
-            )
-        )
-        conditions = stagger_application.state
+        stagger_application = movement.stagger_application
+        conditions = movement.conditions
         outcome = (
             LongChargeOutcome.STOPPED_SHORT_ALREADY_STAGGERED
             if stagger_application.was_already_present

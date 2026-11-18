@@ -8,18 +8,42 @@ from towr.rules.miscast_resolution import resolve_miscast_roll
 from towr.domain.pc_potion_models import selected_pc_potion, build_pc_potion_recover
 
 from towr.domain.pc_melee_models import PcWeaponHand
+from towr.domain.pc_mount_models import expected_pc_dismount
+from towr.domain.pc_weighted_net_models import (PcNetReleaseProof,PcNetPickupProof,PcNetRecoverKind,
+    complete_weighted_net_throw,complete_weighted_net_equipment_proof,
+    expected_weighted_net_incidental_pickup,expected_weighted_net_approach,
+    build_weighted_net_release,build_weighted_net_pickup,weighted_net_item,
+    weighted_net_release_item,weighted_net_pickup_item)
+from towr.domain.recover_models import _expected_recover_execution
+from towr.rules.recover_resolution import _complete_condition_removal_after_test
 from towr.domain.pc_net_models import expected_pc_npc_net_draw
 from towr.domain.pc_shield_models import expected_pc_shield_release
 from towr.domain.pc_weapon_inventory import expected_pc_weapon_swap
 from towr.domain.pc_ranged_models import PcRangedReloadProof,build_pc_ranged_reload,complete_pc_ranged_shot
 from towr.domain.pc_aim_models import (PcAimProof,PcAimSecondActionProof,build_pc_aim,
     expected_pc_aim_consumption,build_pc_aim_second_action)
+from towr.domain.pc_npc_aim_models import (PcNpcAimProof,build_npc_aim,expected_npc_aim_consumption)
 from towr.rules.aim_resolution import execute_aim_action
 from towr.rules.fate_resolution import spend_fate_for_second_action
 from towr.domain.pc_blunderbuss_models import PcBlunderbussNearbyProof, build_pc_blunderbuss_nearby, PcNearbyDecisions, pc_blunderbuss_snapshot
+from towr.domain.pc_blunderbuss_models import (PcBlunderbussTargetProof,PcBlunderbussProfileProof,
+    PcBlunderbussEndProof,current_pc_blunderbuss_wave,next_pc_blunderbuss_target,
+    pc_blunderbuss_pending_npc_target,pc_blunderbuss_profile_decision)
 from towr.domain.resolution_models import NearbyTargetsStaggerRequest
 from towr.rules.secondary_target_resolution import resolve_nearby_targets_stagger
 from towr.domain.pc_short_opening_models import expected_pc_npc_approach
+from towr.domain.pc_battlefield_movement_models import (
+    PcBattlefieldRecoverProof, expected_pc_battlefield_move,
+    pc_battlefield_npc_recover_selected, build_pc_battlefield_npc_recover,
+    battlefield_recovered_injury,
+)
+from towr.domain.pc_battlefield_manoeuvre_models import (
+    PcBattlefieldChargeProof,PcBattlefieldRunProof,proposed_pc_battlefield_manoeuvre,
+    current_pc_charge,build_pc_battlefield_charge,build_pc_battlefield_run,
+    build_pc_battlefield_run_extension,battlefield_after_manoeuvre,
+)
+from towr.rules.charge_action_execution import _complete_charge_movement_after_test
+from towr.rules.run_action_execution import execute_run_action,_complete_run_athletics_extension_after_test
 from towr.domain.pc_npc_ranged_models import (
     PcNpcRangedReloadProof, build_pc_npc_ranged_reload, complete_pc_npc_ranged_shot, pc_npc_ranged_weapon,
 )
@@ -33,6 +57,7 @@ from towr.domain.pc_melee_result_models import (
     pc_melee_action_id, pc_melee_next_actor, pc_melee_selected_action, pc_melee_unsupported,pc_is_casting_action,
     project_pc_melee_step, pc_melee_round_participants, validate_pc_melee_state_shape,
     validate_pc_melee_source_types, _pc_test,
+    pc_melee_net_recovery,
 )
 from towr.domain.condition_models import StaggerChoice, Condition
 from towr.domain.pc_backup_weapon_models import pc_backup_draw_hand, pc_preferred_weapon_hand
@@ -53,6 +78,7 @@ from towr.domain.test_models import Skill
 from towr.domain.turn_models import (
     ActionSlotGrant, CombatActionDeclaration, CombatActionKind, CombatActionSlotRequest,
     CombatRoundAdvanceRequest, CombatTurnEndRequest, CombatTurnEndResult, CombatTurnParticipant, CombatTurnStartRequest, CombatSide,
+    ManoeuvreKind,
 )
 from towr.rules.attack_action_execution import _complete_attack_action, _validate_attack_action_slot
 from towr.rules.attack_resolution import _resolve_attack_after_tests
@@ -143,6 +169,7 @@ def run_pc_melee_scenario(scenario, rng: RandomSource) -> PcMeleeScenarioResult:
 
     def consume(proof):
         nonlocal state
+        proof=complete_weighted_net_equipment_proof(state,proof)
         step = PcMeleeStep(state,proof)
         steps.append(step)
         state = step.state
@@ -175,6 +202,16 @@ def run_pc_melee_scenario(scenario, rng: RandomSource) -> PcMeleeScenarioResult:
             consume(PcTurnEndProof(result,decline,critical))
 
     while True:
+        consumption = expected_pc_aim_consumption(state)
+        if consumption is None:
+            consumption = expected_npc_aim_consumption(state)
+        if consumption is not None:
+            consume(consumption)
+            continue
+        dismount=expected_pc_dismount(state)
+        if dismount is not None:
+            consume(dismount)
+            continue
         magic_stop = pc_magic_unsupported(state)
         if magic_stop is not None:
             return PcMeleeScenarioResult(scenario,tuple(steps),PcMeleeOutcome.UNSUPPORTED_PATH,magic_stop)
@@ -191,10 +228,6 @@ def run_pc_melee_scenario(scenario, rng: RandomSource) -> PcMeleeScenarioResult:
                     resolve_miscast_roll(phase.miscast_request,state.participant(phase.caster_id).magic,rng)))
             else:
                 consume(PcMagicCleanupProof(phase.source_id))
-            continue
-        consumption = expected_pc_aim_consumption(state)
-        if consumption is not None:
-            consume(consumption)
             continue
         grudge_encounter=expected_pc_npc_grudge_encounter(state)
         if grudge_encounter is not None:
@@ -216,6 +249,14 @@ def run_pc_melee_scenario(scenario, rng: RandomSource) -> PcMeleeScenarioResult:
         if state.pending:
             pending = state.pending[0]
             pc_actor = state.pending_actor_id
+            blunderbuss=current_pc_blunderbuss_wave(state)
+            nearby_target=pc_blunderbuss_pending_npc_target(state)
+            if nearby_target is not None:
+                if type(pending) is not ProfileStateChangeRequest:
+                    raise ValueError('unexpected ordinary nearby Minion continuation')
+                consume(PcBlunderbussProfileProof(blunderbuss.request.kernel_request.id,pc_actor,
+                    pending,pc_blunderbuss_profile_decision(state,nearby_target)))
+                continue
             wave = current_warped_form(state)
             if wave is not None and pc_actor in scenario.enemy_activation_order:
                 if type(pending) is MinionStaggerDefeatCause:
@@ -229,6 +270,14 @@ def run_pc_melee_scenario(scenario, rng: RandomSource) -> PcMeleeScenarioResult:
                     raise ValueError('unexpected wave NPC continuation')
                 continue
             if type(pending) is NearbyTargetsStaggerRequest:
+                if blunderbuss is not None:
+                    target=next_pc_blunderbuss_target(state)
+                    if target is None:
+                        consume(PcBlunderbussEndProof(blunderbuss.request.kernel_request.id))
+                    else:
+                        consume(PcBlunderbussTargetProof(blunderbuss.request.kernel_request.id,
+                            target,resolve_stagger_impact(target,rng,decisions=WarpedFormDecisions())))
+                    continue
                 request = build_pc_blunderbuss_nearby(state)
                 result = resolve_nearby_targets_stagger(request,rng,decisions=PcNearbyDecisions())
                 attack = next(p for p in reversed(state.history) if type(p) is PcAttackProof
@@ -282,6 +331,15 @@ def run_pc_melee_scenario(scenario, rng: RandomSource) -> PcMeleeScenarioResult:
                 consume(PcProfileWoundProof(pending,decision))
             else:
                 raise ValueError('unexpected mandatory PC continuation')
+            continue
+        blunderbuss=current_pc_blunderbuss_wave(state)
+        if blunderbuss is not None:
+            target=next_pc_blunderbuss_target(state)
+            if target is None:
+                consume(PcBlunderbussEndProof(blunderbuss.request.kernel_request.id))
+            else:
+                consume(PcBlunderbussTargetProof(blunderbuss.request.kernel_request.id,
+                    target,resolve_stagger_impact(target,rng,decisions=WarpedFormDecisions())))
             continue
         distraction_expiry=expected_pc_npc_distraction_expiry(state)
         if distraction_expiry is not None:
@@ -376,6 +434,22 @@ def run_pc_melee_scenario(scenario, rng: RandomSource) -> PcMeleeScenarioResult:
                 if member.weapon_hand is not None and hand is not None and hand is not member.weapon_hand:
                     consume(PcHandSwapProof(member.weapon_hand,hand))
                     continue
+            # Position from actual held equipment after its mandatory
+            # draw/swap/regrip receipts, before reserving the ordinary action.
+            incidental_net=expected_weighted_net_incidental_pickup(state)
+            if incidental_net is not None:
+                consume(incidental_net)
+                continue
+            recovery=pc_melee_net_recovery(state)
+            if recovery is not None and recovery.requires_approach:
+                approach=expected_weighted_net_approach(state,actor,recovery.item_id)
+                if approach is not None:
+                    consume(approach)
+                    continue
+            movement = expected_pc_battlefield_move(state) if recovery is None else None
+            if movement is not None:
+                consume(movement)
+                continue
             consume(reserve_combat_action_slot(CombatActionSlotRequest(action_id+':reserve',combat,actor,
                 pc_melee_action_declaration(state),ActionSlotGrant.STANDARD)))
             continue
@@ -384,15 +458,59 @@ def run_pc_melee_scenario(scenario, rng: RandomSource) -> PcMeleeScenarioResult:
             if wild is not None:
                 consume(wild)
                 continue
+            if (pc_melee_selected_action(state) is CombatActionKind.MANOEUVRE
+                    and current_pc_charge(state,actor) is None):
+                proposal=proposed_pc_battlefield_manoeuvre(state)
+                if proposal is None:
+                    raise ValueError('reserved Manoeuvre lost its actual positioning proposal')
+                target=proposal.target_id
+                previous=state.battlefield
+                decline=glorious=None
+                if proposal.kind is ManoeuvreKind.CHARGE:
+                    request=build_pc_battlefield_charge(state,target)
+                    effective=request.athletics_test
+                    test=None
+                    if effective is not None:
+                        if actor in scenario.pc_activation_order:
+                            test,decline,glorious,effective=_resolve_pc_test(state,actor,Skill.ATHLETICS,
+                                request.athletics_test,rng,decisions)
+                        else:
+                            test=resolve_test(effective,rng,decisions=decisions)
+                    result=_complete_charge_movement_after_test(replace(request,athletics_test=effective),test)
+                    consume(PcBattlefieldChargeProof(request,result,previous,
+                        battlefield_after_manoeuvre(state,result,target),decline,glorious))
+                else:
+                    request=build_pc_battlefield_run(state,target)
+                    result=execute_run_action(request)
+                    extension=build_pc_battlefield_run_extension(state,result,target)
+                    completed=None
+                    if extension is not None:
+                        effective=extension.athletics_test
+                        if actor in scenario.pc_activation_order:
+                            test,decline,glorious,effective=_resolve_pc_test(state,actor,Skill.ATHLETICS,
+                                extension.athletics_test,rng,decisions)
+                        else:
+                            test=resolve_test(effective,rng,decisions=decisions)
+                        completed=_complete_run_athletics_extension_after_test(
+                            replace(extension,athletics_test=effective),test)
+                    consume(PcBattlefieldRunProof(request,result,previous,
+                        battlefield_after_manoeuvre(state,result,target,extension_result=completed),
+                        extension_request=extension,extension_result=completed,
+                        fate_decline=decline,glorious=glorious,target_id=target))
+                continue
             if pc_is_casting_action(state):
                 request = build_pc_casting_request(state)
                 test,decline,glorious,_ = _resolve_pc_test(state,actor,Skill.WILLPOWER,
                     guarded_casting_test(request.casting_request),rng,decisions)
                 consume(complete_pc_casting(state,test,decline,glorious))
             elif pc_melee_selected_action(state) is CombatActionKind.AIM:
-                request = build_pc_aim(state)
-                consume(PcAimProof(request,execute_aim_action(request,rng,decisions=decisions),
-                    _decline(state,actor,request.awareness_test.id,'test')))
+                if actor in scenario.enemy_activation_order:
+                    request=build_npc_aim(state)
+                    consume(PcNpcAimProof(request,execute_aim_action(request,rng,decisions=decisions)))
+                else:
+                    request = build_pc_aim(state)
+                    consume(PcAimProof(request,execute_aim_action(request,rng,decisions=decisions),
+                        _decline(state,actor,request.awareness_test.id,'test')))
             elif pc_melee_selected_action(state) is CombatActionKind.IMPROVISE:
                 if actor in scenario.enemy_activation_order:
                     request = build_pc_npc_ranged_reload(state)
@@ -405,10 +523,42 @@ def run_pc_melee_scenario(scenario, rng: RandomSource) -> PcMeleeScenarioResult:
                     result = _complete_reload_action_after_test(replace(request,dexterity_test=effective),test)
                     consume(PcRangedReloadProof(request,result,decline,glorious))
             elif pc_melee_selected_action(state) is CombatActionKind.RECOVER:
+                recovery=pc_melee_net_recovery(state)
+                if recovery is not None and not recovery.requires_approach:
+                    item=weighted_net_item(state,recovery.item_id)
+                    if recovery.kind is PcNetRecoverKind.RELEASE:
+                        request=build_weighted_net_release(state,recovery.target_id,recovery.item_id)
+                        decline=glorious=None
+                        effective=request.choice.test
+                        if actor in scenario.pc_activation_order:
+                            test,decline,glorious,effective=_resolve_pc_test(state,actor,Skill.BRAWN,
+                                request.choice.test,rng,decisions)
+                        else:
+                            test=resolve_test(effective,rng,decisions=decisions)
+                        choice=replace(request.choice,test=effective)
+                        result=_expected_recover_execution(replace(request,choice=choice),
+                            _complete_condition_removal_after_test(choice,test))
+                        after,battlefield=weighted_net_release_item(state,item.item_id,result)
+                        consume(PcNetReleaseProof(request,result,item.item_id,item,after,
+                            state.battlefield,battlefield,decline,glorious))
+                    else:
+                        request=build_weighted_net_pickup(state,recovery.item_id)
+                        result=execute_recover_action(request,rng,decisions=decisions)
+                        after,battlefield=weighted_net_pickup_item(state,item.item_id)
+                        consume(PcNetPickupProof(request,result,item.item_id,item,after,
+                            state.battlefield,battlefield))
+                    continue
                 if selected_pc_potion(state) is not None:
                     consume(build_pc_potion_recover(state))
                     continue
                 if actor in scenario.enemy_activation_order:
+                    if pc_battlefield_npc_recover_selected(state):
+                        request = build_pc_battlefield_npc_recover(state)
+                        before = state.enemy(actor).state.injury
+                        actual = execute_recover_action(request,rng)
+                        consume(PcBattlefieldRecoverProof(request,actual,before,
+                            battlefield_recovered_injury(before,actual)))
+                        continue
                     request = build_pc_npc_recover(state)
                     before = state.enemy(actor).state.injury
                     consume(PcNpcRecoverProof(request,execute_recover_action(request,rng),before,
@@ -480,6 +630,7 @@ def run_pc_melee_scenario(scenario, rng: RandomSource) -> PcMeleeScenarioResult:
                     pc_npc_attack_help_applications(state,request.kernel_request.attack),
                     npc_glorious_source=pc_bestigor_glorious_source(state, actor),ranged_shot=ranged_shot,
                     npc_ranged_shot=npc_ranged_shot)
+                proof=replace(proof,weighted_net_landing=complete_weighted_net_throw(state,request,execution))
                 consume(replace(proof,nearby_snapshot=pc_blunderbuss_snapshot(state,proof)))
             continue
         net_draw = expected_pc_npc_net_draw(state)

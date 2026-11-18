@@ -1,6 +1,7 @@
 """Actual Aim actions, one-use follow-ups and paid second-slot PC shots."""
 from __future__ import annotations
 
+from towr.domain.reload_models import ranged_weapon_is_loaded
 from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING
 
@@ -45,14 +46,26 @@ class PcAimConsumptionProof:
 def _action(proof):
     from towr.domain.pc_melee_result_models import PcAttackProof, PcRecoverProof, PcHelpProof
     from towr.domain.pc_ranged_models import PcRangedReloadProof
+    from towr.domain.pc_potion_models import PcPotionRecoverProof
+    from towr.domain.pc_magic_models import PcCastingProof
+    from towr.domain.pc_battlefield_manoeuvre_models import PcBattlefieldChargeProof,PcBattlefieldRunProof
+    from towr.domain.pc_weighted_net_models import PcNetReleaseProof,PcNetPickupProof
+    if type(proof) is PcBattlefieldRunProof:
+        return proof.result.slot.execution
+    if type(proof) is PcBattlefieldChargeProof and not proof.result.attack_allowed:
+        return proof.result.round_state.active_turn.action_slots[proof.request.slot_index-1].execution
     if type(proof) is PcAimProof:
         return proof.result.slot.execution
     if type(proof) is PcAttackProof:
         return proof.execution.state.active_turn.action_slots[proof.execution.slot_index-1].execution
-    if type(proof) in (PcRecoverProof, PcRangedReloadProof):
+    if type(proof) in (PcRecoverProof, PcRangedReloadProof,PcNetReleaseProof,PcNetPickupProof):
         return proof.result.slot.execution
     if type(proof) is PcHelpProof:
         return proof.execution.slot.execution
+    if type(proof) is PcCastingProof:
+        return proof.execution.slot.execution
+    if type(proof) is PcPotionRecoverProof:
+        return proof.result.slot.execution
     return None
 
 
@@ -65,7 +78,7 @@ def _consumption(aim, proof, receipt):
                 or follow_up.outcome is not AimFollowUpOutcome.APPLIED_TO_RANGED_ATTACK):
             raise ValueError('PC ranged shot lost its actual one-use Aim follow-up')
     else:
-        attack = proof.request if type(proof) is PcAttackProof else None
+        attack = proof.request if type(proof) is PcAttackProof and receipt.declaration.kind is CombatActionKind.ATTACK else None
         follow_up = resolve_aim_follow_up(AimFollowUpRequest(
             aim.request_id+':consume:'+receipt.id, aim, receipt.actor_id, receipt.id,
             receipt.declaration, Skill.MELEE if attack is not None else None, attack))
@@ -79,10 +92,10 @@ def _consumption(aim, proof, receipt):
 def _journal(state):
     """A single next-action consumption is completed before any other transition."""
     from towr.domain.pc_melee_result_models import validate_pc_melee_source_types
-    enabled = any(m.pc.weapon is PcMeleeWeapon.HOCHLAND_LONG_RIFLE for m in state.source.party)
+    enabled = any(m.pc.ranged is not None and m.pc.ranged.awareness is not None for m in state.source.party)
     if not enabled:
         if any(type(p) in (PcAimProof,PcAimSecondActionProof,PcAimConsumptionProof) for p in state.history):
-            raise ValueError('Aim receipts require an admitted Hochland participant')
+            raise ValueError('Aim receipts require an admitted ranged Awareness source')
         return {}, None
     bank, consumed = {}, set()
     pending = None
@@ -109,7 +122,8 @@ def _journal(state):
         fresh = proof.result if type(proof) is PcAimProof else None
         if fresh is not None:
             replace(fresh)
-            if (state.source.participant(actor).pc.weapon is not PcMeleeWeapon.HOCHLAND_LONG_RIFLE
+            if (state.source.participant(actor).pc.ranged is None
+                    or state.source.participant(actor).pc.ranged.awareness is None
                     or fresh.request_id in consumed or fresh.bonus.actor_id != actor):
                 raise ValueError('Aim source belongs to another actor, loadout or consumed action')
         if previous is not None:
@@ -139,6 +153,27 @@ def pc_hochland_needs_aim(state, actor):
     return aim is None or aim.bonus.target_id != target
 
 
+def pc_ranged_needs_aim(state, actor, target):
+    from towr.domain.pc_backup_weapon_models import pc_active_weapon
+    from towr.domain.pc_melee_models import PC_RANGED_WEAPONS
+    from towr.domain.pc_short_opening_models import pc_enemy_range
+    from towr.domain.ranged_weapon_profiles import RangedWeaponRange
+    weapon=pc_active_weapon(state,actor)
+    if weapon not in PC_RANGED_WEAPONS:
+        return False
+    required=(weapon is PcMeleeWeapon.HOCHLAND_LONG_RIFLE
+        or pc_enemy_range(state,actor,target) is RangedWeaponRange.EXTREME)
+    aim=current_pc_aim(state,actor)
+    return required and (aim is None or aim.bonus.target_id != target)
+
+
+def pc_aim_target(state, actor):
+    from towr.domain.pc_battlefield_movement_models import pc_battlefield_attack_available
+    return next((target for target in state.source.participant(actor).target_priority
+        if not state.enemy(target).state.injury.defeated and target not in state.exited_npc_ids
+        and pc_battlefield_attack_available(state,actor,target)),None)
+
+
 def build_pc_aim(state):
     from towr.domain.pc_melee_result_models import _pc_test, pc_melee_action_id, _ready
     _ready(state)
@@ -148,13 +183,15 @@ def build_pc_aim(state):
     actor = turn.actor_id
     member = state.participant(actor)
     source = state.source.participant(actor)
-    if (source.pc.weapon is not PcMeleeWeapon.HOCHLAND_LONG_RIFLE or member.using_backup_weapon
-            or usable_weapon_hand(member) is not PcTwoHandedGrip.BOTH
-            or not member.ranged.loaded or pc_has_close_enemy(state,actor)
+    if (source.pc.ranged is None or source.pc.ranged.awareness is None or member.using_backup_weapon
+            or usable_weapon_hand(member) is None
+            or not ranged_weapon_is_loaded(member.ranged) or pc_has_close_enemy(state,actor)
             or restriction_sources(member.injury,WoundRestriction.CANNOT_AIM)
             or member.injury.conditions.has(Condition.DEFENCELESS)):
-        raise ValueError('Aim requires the actual held loaded Hochland and clear Short range')
-    target = next(a for a in source.target_priority if not state.enemy(a).state.injury.defeated)
+        raise ValueError('Aim requires its actual held ready ranged weapon and Awareness source')
+    target = pc_aim_target(state,actor)
+    if target is None:
+        raise ValueError('Aim requires a living target inside the scene maximum')
     action = pc_melee_action_id(state,actor)+':aim'
     return AimActionExecutionRequest(action,state.round_state,actor,target,len(turn.action_slots) or 1,
         _pc_test(state,actor,action+':awareness',Skill.AWARENESS))
@@ -185,7 +222,7 @@ def build_pc_aim_second_action(state):
             or aim.request_id != turn.action_slots[0].execution.id
             or member.injury.conditions.has(Condition.DEFENCELESS)
             or usable_weapon_hand(member) is not PcTwoHandedGrip.BOTH
-            or not member.ranged.loaded or pc_has_close_enemy(state,actor)
+            or not ranged_weapon_is_loaded(member.ranged) or pc_has_close_enemy(state,actor)
             or state.enemy(aim.bonus.target_id).state.injury.defeated
             or pc_hochland_needs_aim(state,actor)):
         return None
@@ -250,7 +287,9 @@ def project_pc_aim_step(state, proof):
     member = state.participant(request.actor_id)
     injury = pc_after_test(state,request.actor_id,critical_for_action(member,CombatActionKind.AIM,
         used_hand=usable_weapon_hand(member)))
+    from towr.domain.pc_magic_models import consume_magic_modifiers
     return replace(state,history=(*state.history,proof),round_state=combat,
+        magic_modifiers=consume_magic_modifiers(state.magic_modifiers,proof),
         party=_party_update(state,request.actor_id,injury=injury))
 
 

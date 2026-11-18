@@ -7,8 +7,8 @@ from dataclasses import dataclass
 from enum import Enum
 
 from towr.application.encounter_character import EncounterArmour
-from towr.domain.pc_melee_models import PcMeleeWeapon, PcWeaponHand, PcBackupWeaponPolicy
-from towr.domain.pc_weapon_models import pc_weapon_requires_two_hands
+from towr.domain.pc_melee_models import PcMeleeWeapon, PcWeaponHand, PcBackupWeaponPolicy, PC_RANGED_WEAPONS
+from towr.domain.pc_weapon_models import pc_weapon_requires_two_hands, pc_weapon_supports_variable_grip
 from towr.domain.potion_models import ConsumableKind, ConsumableItem
 from towr.domain.pc_combat_equipment_models import PcWeaponItem,PcItemLocation
 
@@ -92,7 +92,8 @@ class EncounterEquipment:
         if len(active) != 1:
             raise ValueError('Для симуляции пока нужно одно активное оружие; бой двумя оружиями ещё не реализован.')
         primary, = active
-        two_hands = pc_weapon_requires_two_hands(primary.weapon)
+        two_hands = (primary.location is ItemLocation.BOTH if pc_weapon_supports_variable_grip(primary.weapon)
+            else pc_weapon_requires_two_hands(primary.weapon))
         if (primary.location is ItemLocation.BOTH) != two_hands:
             raise ValueError('Начальный хват не соответствует числу рук оружия.')
         hand = PcWeaponHand.LEFT if primary.location is ItemLocation.LEFT else PcWeaponHand.RIGHT
@@ -110,9 +111,9 @@ class EncounterEquipment:
         if any(a.kind is ArmourItemKind.HEAVY for a in body):
             raise ValueError('Heavy Armour требует Agility/Burdened effects; симуляция пока не поддержана.')
         backup = tuple(w for w in self.weapons if w.location is ItemLocation.CARRIED)
-        if len(backup) > 1 or (backup and not two_hands and primary.weapon not in CLOSE_RANGED_WEAPONS):
+        if len(backup) > 1 or (backup and not two_hands and primary.weapon not in PC_RANGED_WEAPONS):
             raise ValueError('Смена этого набора запасного оружия пока не поддержана симуляцией.')
-        if primary.weapon in CLOSE_RANGED_WEAPONS and backup and backup[0].weapon not in MELEE_BACKUP_WEAPONS:
+        if primary.weapon in PC_RANGED_WEAPONS and backup and backup[0].weapon not in MELEE_BACKUP_WEAPONS:
             raise ValueError('Запасное оружие стрелка должно быть одним из шести поддержанных melee-оружий.')
         backup_policy = None
         if backup:

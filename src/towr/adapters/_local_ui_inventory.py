@@ -41,7 +41,7 @@ const pcCombatTalentIds=['defensive_stance','wild_attack'],supportedPlayerTalent
 const pcCombatTalentHints={defensive_stance:'Боевое мастерство (WS) 3+. Успешная Защита (Defence) может снять собственное Пошатывание (Staggered) вместо доступного нового Staggered атакующему. Постоянная причина состояния сохраняется.',wild_attack:'Сила (S) 4+. Автоматический выбор для атаки или Помощи (Help) в Ближнем бою (Melee): получить Пошатывание (Staggered) до проверки ради Блистательного (Glorious) Test. Не используется при Staggered или Истощении (Drained).'};
 const talentLabel=value=>talentNames[value.toLowerCase()]||value;
 const heldLocations={carried:'Убрано / за спиной',left_hand:'В левой руке',right_hand:'В правой руке',both_hands:'В обеих руках'};
-const twoHandedInventoryWeapons=new Set(['pickaxe','flail','billhook','halberd','glaive','greataxe','greathammer']);
+const twoHandedInventoryWeapons=new Set(['pickaxe','flail','billhook','halberd','glaive','greataxe','greatsword','greathammer','shortbow','warbow','longbow','crossbow','repeater_crossbow','handgun','repeater_handgun','blunderbuss','hochland_long_rifle','weighted_net']);
 function actionButton(kind,title,iconOnly=false){
  const button=node('button',undefined,kind==='add'?'action-add':'action-remove');button.type='button';button.title=title;button.setAttribute('aria-label',title);
  if(kind==='add'){button.textContent='Добавить';return button;}
@@ -53,6 +53,7 @@ function inventoryRemove(row,path,index,title){const remove=actionButton('remove
 function inventoryAdd(parent,title,path,make){const button=actionButton('add',title);button.classList.add('inventory-add');button.dataset.action='add-'+path.at(-1);button.onclick=()=>{const data=read(),member=data.party[path[1]];editRequest(path,[...(get(data,path)||[]),make(member)]);};parent.append(button);}
 function renderInventory(parent,member,index){
  const gear=member.equipment||{};
+ inputField(parent,'Ездовое животное (Mount)',['party',index,'mount'],member.mount||'none',{none:'Пешком',horse:'Лошадь (Horse)'},value=>editRequest(['party',index,'mount'],value==='none'?null:value));
  parent.append(node('h4','Оружие (Weapons)'));
  parent.append(node('p','Каждая строка — отдельный предмет. Положение указывает, что активно на начало боя.','visual-note'));
  for(const [i,item] of (gear.weapons||[]).entries()){
@@ -93,7 +94,7 @@ function renderInventory(parent,member,index){
  inventoryAdd(parent,'Добавить расходник',['party',index,'consumables'],m=>({id:inventoryId(m,'consumable'),kind:'healing_potion',quantity:1,characteristic:null}));
  const warnings=[],active=(gear.weapons||[]).filter(w=>w.location!=='carried'),spares=(gear.weapons||[]).filter(w=>w.location==='carried');
  if(active.length!==1)warnings.push('Симуляция пока требует одно активное оружие; бой двумя оружиями ещё не реализован.');
- if(spares.length && !(spares.length===1 && active.length===1 && (twoHandedInventoryWeapons.has(active[0].weapon)||pcCloseRangedWeapons.has(active[0].weapon)) && ['staff','sword','dagger','axe','warhammer','morning_star'].includes(spares[0].weapon)))warnings.push('Смена этого набора запасного оружия пока не реализована.');
+ if(spares.length && !(spares.length===1 && active.length===1 && (twoHandedInventoryWeapons.has(active[0].weapon)||pcRangedWeapons.has(active[0].weapon)||(['foot_spear','polearm'].includes(active[0].weapon)&&active[0].location==='both_hands')) && ['staff','sword','dagger','axe','warhammer','morning_star'].includes(spares[0].weapon)))warnings.push('Смена этого набора запасного оружия пока не реализована.');
  if((gear.armour||[]).some(a=>a.kind==='heavy_armour'||a.location==='carried'))warnings.push('Тяжёлая или запасная броня/щит пока не подключены к симуляции.');
  if((member.consumables||[]).some(item=>item.kind==='enhancement_potion'&&!['weapon_skill','strength','toughness','agility'].includes(item.characteristic)))warnings.push('Усиление (Enhancement Potion) пока поддерживает WS, Strength, Toughness и Agility.');
  if(warnings.length)parent.append(node('p',warnings.join(' ')+' Инвентарь можно редактировать и сохранять; неподдержанные возможности блокируют расчёт.','inventory-warning'));
@@ -101,18 +102,18 @@ function renderInventory(parent,member,index){
 function syncPlayerRangedPreparation(member){
  const primary=playerInitialRangedWeapon(member);if(!primary){delete member.ranged;return;}
  if(!member.ranged || typeof member.ranged!=='object' || Array.isArray(member.ranged))member.ranged={initially_loaded:true,ammunition_supply_confirmed:false,has_blackpowder_lore:false,has_blackpowder_kit:false};
- const firearm=primary.weapon!=='repeater_handbow';for(const key of ['has_blackpowder_lore','has_blackpowder_kit'])member.ranged[key]=firearm?(member.ranged[key]??false):null;
+ const firearm=pcFirearms.has(primary.weapon);member.ranged.initially_loaded=pcFreeReloadWeapons.has(primary.weapon)?null:(member.ranged.initially_loaded??true);for(const key of ['has_blackpowder_lore','has_blackpowder_kit'])member.ranged[key]=firearm?(member.ranged[key]??false):null;
 }
 function setPlayerWeapon(index,itemIndex,key,value){const member=read().party[index];member.equipment.weapons[itemIndex][key]=value;syncPlayerRangedPreparation(member);editRequest(['party',index],member);}
 function renderPlayerRangedPreparation(parent,member,index){
  const primary=playerInitialRangedWeapon(member);if(!primary)return;
  parent.append(node('h4','Подготовка к стрельбе (Ranged Preparation)'));
  const prep=member.ranged||{},grid=node('div',undefined,'visual-fields'),path=['party',index,'ranged'];
- for(const [key,title] of [['initially_loaded','Оружие заряжено (Loaded)'],['ammunition_supply_confirmed','Боезапас подготовлен (Ammunition)'],...(primary.weapon==='repeater_handbow'?[]:[['has_blackpowder_lore','Знание пороха (Lore: Blackpowder)'],['has_blackpowder_kit','Пороховой набор (Blackpowder Kit)']])]){
+ for(const [key,title] of [...(pcFreeReloadWeapons.has(primary.weapon)?[]:[['initially_loaded','Оружие заряжено (Loaded)']]),['ammunition_supply_confirmed','Боезапас подготовлен (Ammunition)'],...(pcFirearms.has(primary.weapon)?[['has_blackpowder_lore','Знание пороха (Lore: Blackpowder)'],['has_blackpowder_kit','Пороховой набор (Blackpowder Kit)']]:[])]){
   const input=inputField(grid,title,[...path,key],prep[key]===true,null,value=>{const current=read().party[index];syncPlayerRangedPreparation(current);current.ranged[key]=value;editRequest(['party',index],current);});input.title='Факт персонажа или подготовки сцены. Не добавляет бонусный куб.';
  }
- parent.append(grid);parent.append(node('p','Заполните Меткость (BS), Инициативу (I), Стрельбу (Shooting) и Ловкость рук (Dexterity) выше. Режим выстрела, Перезарядку (Reload) и смену оружия выбирает симулятор.','visual-note'));
- if(!member.ranged || !prep.initially_loaded || !prep.ammunition_supply_confirmed || (primary.weapon!=='repeater_handbow'&&(!prep.has_blackpowder_lore||!prep.has_blackpowder_kit)))parent.append(node('p','Для расчёта подтвердите заряженное оружие, боезапас и необходимые Lore/Kit; неполный черновик можно сохранить.','inventory-warning'));
+ parent.append(grid);parent.append(node('p',pcFreeReloadWeapons.has(primary.weapon)?'Выстрел включает подготовку стрелы. Инициатива (I) и Внимательность (Awareness) нужны для Прицеливания (Aim) на Extreme Range.':'Перезарядка (Reload) использует Инициативу (I) и Ловкость рук (Dexterity). Для Прицеливания (Aim) задайте Внимательность (Awareness).','visual-note'));
+ if(!member.ranged || (!pcFreeReloadWeapons.has(primary.weapon)&&!prep.initially_loaded) || !prep.ammunition_supply_confirmed || (pcFirearms.has(primary.weapon)&&(!prep.has_blackpowder_lore||!prep.has_blackpowder_kit)))parent.append(node('p','Для расчёта подтвердите подготовку оружия, боезапас и необходимые Lore/Kit; неполный черновик можно сохранить.','inventory-warning'));
 }
 function renderTalentTags(parent,member,index){
  parent.append(node('h4','Таланты (Talents)'));const tags=node('div',undefined,'talent-tags');

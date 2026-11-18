@@ -7,20 +7,42 @@ from towr.domain.condition_models import Condition, StaggerChoice
 from towr.domain.minion_defeat_models import MinionDefeatDecision
 from towr.domain.ranged_weapon_attack_preparation_models import BLUNDERBUSS_NEARBY_STAGGER_RULE_ID
 from towr.domain.ranged_weapon_profiles import RangedWeaponId
+from towr.domain.pc_battlefield_models import PcBattlefieldState, battlefield_nearby
 from towr.domain.resolution_models import (
     IdentifiedStaggerTarget, NearbyTargetsStaggerRequest,
     NearbyTargetsStaggerResolutionRequest, NearbyTargetsStaggerResolutionResult,
-    StaggerImpactRequest, TargetInjuryPolicy,
+    StaggerImpactRequest, StaggerImpactResult, TargetInjuryPolicy,
 )
+from towr.domain.injury_models import ProfileStateChangeRequest
+
+
+@dataclass(frozen=True, slots=True)
+class PcBattlefieldNearbySource:
+    actor_id: str
+    battlefield: PcBattlefieldState
+    target_ids: tuple[str, ...]
+
+    def __post_init__(self):
+        if type(self.actor_id) is not str or not self.actor_id.strip():
+            raise TypeError('nearby shot requires its actual shooting actor')
+        if type(self.battlefield) is not PcBattlefieldState:
+            raise TypeError('nearby shot requires its actual spatial snapshot')
+        replace(self.battlefield)
+        if (type(self.target_ids) is not tuple or len(set(self.target_ids)) != len(self.target_ids)
+                or any(type(actor) is not str or not actor.strip() for actor in self.target_ids)):
+            raise TypeError('nearby shot retains exact ordered distinct actor IDs')
+        self.battlefield.spatial.placement_for(self.actor_id)
+        for actor in self.target_ids:
+            self.battlefield.spatial.placement_for(actor)
 
 
 @dataclass(frozen=True, slots=True)
 class PcBlunderbussSnapshot:
-    cluster: PcBlunderbussNearby
+    cluster: PcBlunderbussNearby | PcBattlefieldNearbySource
     request: NearbyTargetsStaggerResolutionRequest
 
     def __post_init__(self):
-        if type(self.cluster) is not PcBlunderbussNearby or type(self.request) is not NearbyTargetsStaggerResolutionRequest:
+        if type(self.cluster) not in (PcBlunderbussNearby,PcBattlefieldNearbySource) or type(self.request) is not NearbyTargetsStaggerResolutionRequest:
             raise TypeError('HIT snapshot requires its exact cluster source and ordered request')
         replace(self.cluster)
         replace(self.request)
@@ -67,10 +89,27 @@ def _request(source, primary, order, injuries, approached):
 
 
 def pc_blunderbuss_snapshot(state, attack):
-    shot = attack.ranged_shot
+    shot = attack.ranged_shot or attack.npc_ranged_shot
     if (shot is None or shot.execution.previous_weapon_state.weapon_id is not RangedWeaponId.BLUNDERBUSS
             or attack.execution.resolution.attack.outcome is not AttackOutcome.HIT):
         return None
+    if state.battlefield is not None:
+        live = {member.actor_id for member in state.live_party} | {enemy.state.actor_id for enemy in state.live_enemies}
+        order = (*state.source.pc_activation_order,*state.source.enemy_activation_order)
+        targets = battlefield_nearby(state.battlefield,attack.request.target_id,
+            tuple(actor for actor in order if actor in live))
+        source, = tuple(f for f in attack.execution.resolution.follow_ups if type(f) is NearbyTargetsStaggerRequest)
+        identified = []
+        for actor in targets:
+            pc = actor in state.source.pc_activation_order
+            injury = state.participant(actor).injury if pc else state.enemy(actor).state.injury
+            policy = TargetInjuryPolicy.PLAYER if pc else state.enemy(actor).definition.injury_policy
+            identified.append(IdentifiedStaggerTarget(actor,StaggerImpactRequest(
+                source.resolution_id+':nearby:'+actor,actor,policy,injury,
+                state.source.facts.can_leave_zone,False)))
+        return PcBlunderbussSnapshot(PcBattlefieldNearbySource(attack.request.actor_id,
+            state.battlefield,targets),NearbyTargetsStaggerResolutionRequest(
+                source.resolution_id+':nearby',source,attack.request.target_id,tuple(identified)))
     policy = state.source.blunderbuss_nearby
     if policy is None:
         raise ValueError('HIT snapshot requires its admitted cluster')
@@ -114,6 +153,9 @@ def validate_pc_blunderbuss_history(state):
         PcAttackProof, PcAttackerStaggerProof, PcProfileWoundProof, validate_pc_melee_source_types,
     )
     from towr.domain.pc_short_opening_models import PcNpcApproachProof
+    if state.source.battlefield is not None:
+        validate_pc_battlefield_blunderbuss_history(state)
+        return
     policy = state.source.blunderbuss_nearby
     if policy is None:
         if any(type(p) is PcBlunderbussNearbyProof for p in state.history):
@@ -209,3 +251,207 @@ def project_pc_blunderbuss_nearby(state, proof):
     return replace(state, history=(*state.history,proof), enemies=enemies,
         round_state=replace(combat,excluded_turn_entity_ids=tuple(excluded)),
         pending=state.pending[1:], pending_actor_id=state.pending_actor_id if state.pending[1:] else None)
+
+
+@dataclass(frozen=True, slots=True)
+class PcBlunderbussTargetProof:
+    resolution_id: str
+    request: StaggerImpactRequest
+    result: StaggerImpactResult
+
+    def __post_init__(self):
+        if type(self.resolution_id) is not str or not self.resolution_id.strip():
+            raise TypeError('nearby target requires its actual source resolution')
+        if type(self.request) is not StaggerImpactRequest or type(self.result) is not StaggerImpactResult:
+            raise TypeError('nearby target requires its exact Stagger impact and receipt')
+        replace(self.request); replace(self.result)
+
+
+@dataclass(frozen=True, slots=True)
+class PcBlunderbussProfileProof:
+    resolution_id: str
+    target_id: str
+    source: ProfileStateChangeRequest
+    decision: MinionDefeatDecision | None
+
+    def __post_init__(self):
+        if any(type(value) is not str or not value.strip() for value in (self.resolution_id,self.target_id)):
+            raise TypeError('nearby NPC acknowledgement requires exact source and target IDs')
+        if type(self.source) is not ProfileStateChangeRequest:
+            raise TypeError('nearby NPC acknowledgement requires its actual profile change')
+        replace(self.source)
+        if self.decision is not None:
+            if type(self.decision) is not MinionDefeatDecision:
+                raise TypeError('nearby NPC disposition must be a typed GM source')
+            replace(self.decision)
+
+
+@dataclass(frozen=True, slots=True)
+class PcBlunderbussEndProof:
+    resolution_id: str
+
+    def __post_init__(self):
+        if type(self.resolution_id) is not str or not self.resolution_id.strip():
+            raise TypeError('nearby completion requires its actual source resolution')
+
+
+BATTLEFIELD_NEARBY_PROOFS = (PcBlunderbussTargetProof,PcBlunderbussProfileProof,PcBlunderbussEndProof)
+
+
+def current_pc_blunderbuss_wave(state):
+    from towr.domain.pc_melee_result_models import PcAttackProof
+    for proof in reversed(state.history):
+        if type(proof) is PcBlunderbussEndProof:
+            return None
+        if (type(proof) is PcAttackProof and proof.nearby_snapshot is not None
+                and type(proof.nearby_snapshot.cluster) is PcBattlefieldNearbySource):
+            return proof
+    return None
+
+
+def next_pc_blunderbuss_target(state):
+    attack = current_pc_blunderbuss_wave(state)
+    if attack is None or state.pending_wound is not None:
+        return None
+    snapshot = attack.nearby_snapshot
+    if state.pending not in ((),(snapshot.request.source,)):
+        return None
+    resolution_id = attack.request.kernel_request.id
+    completed = tuple(proof.request.target_id for proof in state.history
+        if type(proof) is PcBlunderbussTargetProof and proof.resolution_id==resolution_id)
+    ids = snapshot.cluster.target_ids
+    if completed != ids[:len(completed)]:
+        raise ValueError('nearby impacts changed their committed target order')
+    if len(completed)==len(ids):
+        return None
+    request = snapshot.request.targets[len(completed)].impact
+    injury = (state.participant(request.target_id).injury if request.target_policy is TargetInjuryPolicy.PLAYER
+        else state.enemy(request.target_id).state.injury)
+    if request.target_state != injury:
+        raise ValueError('nearby target injury detached from its committed HIT snapshot')
+    return request
+
+
+def pc_blunderbuss_pending_npc_target(state):
+    attack = current_pc_blunderbuss_wave(state)
+    if attack is None:
+        return None
+    target = next((proof for proof in reversed(state.history) if type(proof) is PcBlunderbussTargetProof
+        and proof.resolution_id==attack.request.kernel_request.id),None)
+    if (target is not None and target.request.target_id in state.source.enemy_activation_order
+            and state.pending_actor_id==target.request.target_id and state.pending_wound is None
+            and state.pending==target.result.follow_ups and state.pending):
+        return target
+    return None
+
+
+def pc_blunderbuss_profile_decision(state,target):
+    attack = current_pc_blunderbuss_wave(state)
+    change = target.result.profile_wound.state_change
+    if change.defeated and attack.request.actor_id in state.source.pc_activation_order:
+        return state.source.participant(attack.request.actor_id).defeat_decision(target.request.target_id)
+    # An NPC's friendly-fire profile defeat does not invent killed/knocked_out
+    # or a GM disposition. K1 defeat/exclusion is sufficient in this scene.
+    return None
+
+
+def project_pc_battlefield_nearby(state,proof):
+    from towr.domain.pc_melee_result_models import _party_update,_enemy_update,validate_pc_melee_source_types
+    from towr.domain.pc_warped_form_models import canonical_warped_form_impact
+    replace(proof)
+    attack = current_pc_blunderbuss_wave(state)
+    if attack is None or proof.resolution_id != attack.request.kernel_request.id:
+        raise ValueError('nearby continuation requires its unique open shot')
+    def same(actual,expected):
+        if actual!=expected:
+            raise ValueError('nearby impact changed its actual source, result or continuation')
+        validate_pc_melee_source_types(actual,expected)
+    def finish(**changes):
+        pending=changes.get('pending',state.pending)
+        wound=changes.get('pending_wound',state.pending_wound)
+        if not pending and wound is None:
+            changes['pending_actor_id']=None
+        return replace(state,history=(*state.history,proof),**changes)
+    if type(proof) is PcBlunderbussTargetProof:
+        request=next_pc_blunderbuss_target(state)
+        if request is None:
+            raise ValueError('nearby target cannot skip pending consequences or invent a target')
+        same(proof.request,request)
+        canonical=canonical_warped_form_impact(request,proof.result)
+        same(proof.result,canonical)
+        target=request.target_id
+        changes=dict(pending=canonical.follow_ups,pending_wound=canonical.pending_character_wound,
+            pending_actor_id=target if canonical.follow_ups or canonical.pending_character_wound is not None else None)
+        if target in state.source.pc_activation_order:
+            changes['party']=_party_update(state,target,injury=canonical.state)
+        else:
+            changes['enemies']=_enemy_update(state,target,canonical.state)
+        return finish(**changes)
+    if type(proof) is PcBlunderbussEndProof:
+        if (state.pending_wound is not None or state.pending not in ((),(attack.nearby_snapshot.request.source,))
+                or next_pc_blunderbuss_target(state) is not None):
+            raise ValueError('nearby completion omitted a target or its mandatory consequences')
+        return finish(pending=())
+    target=pc_blunderbuss_pending_npc_target(state)
+    if type(proof) is not PcBlunderbussProfileProof or target is None or target.result.profile_wound is None:
+        raise ValueError('nearby NPC acknowledgement requires its actual profile Wound')
+    expected=PcBlunderbussProfileProof(proof.resolution_id,target.request.target_id,
+        target.result.profile_wound.state_change,pc_blunderbuss_profile_decision(state,target))
+    same(proof,expected)
+    same(state.pending,(proof.source,))
+    combat=state.round_state
+    if proof.source.defeated and proof.target_id not in (*combat.completed_turn_entity_ids,*combat.excluded_turn_entity_ids):
+        combat=replace(combat,excluded_turn_entity_ids=(*combat.excluded_turn_entity_ids,proof.target_id))
+    return finish(pending=(),round_state=combat)
+
+
+def validate_pc_battlefield_blunderbuss_history(state):
+    """Retain the spatial HIT source and ordered per-target lifecycle cursors."""
+    from towr.domain.pc_melee_result_models import PcAttackProof
+    from towr.domain.pc_battlefield_models import build_pc_battlefield
+    from towr.domain.pc_battlefield_movement_models import pc_battlefield_after_proof
+    spatial=build_pc_battlefield(state.source.battlefield,state.source.pc_activation_order,
+        state.source.enemy_activation_order,state.source.facts.zone_id)
+    opened=None
+    completed=[]
+    for proof in state.history:
+        spatial=pc_battlefield_after_proof(spatial,proof)
+        if type(proof) is PcAttackProof:
+            if opened is not None:
+                raise ValueError('another Attack skipped the open nearby wave')
+            snapshot=proof.nearby_snapshot
+            shot=proof.ranged_shot or proof.npc_ranged_shot
+            blunderbuss=(shot is not None and shot.execution.previous_weapon_state.weapon_id is RangedWeaponId.BLUNDERBUSS)
+            hit=proof.execution.resolution.attack.outcome is AttackOutcome.HIT
+            if snapshot is None:
+                if blunderbuss and hit:
+                    raise ValueError('Blunderbuss HIT omitted its committed actual nearby snapshot')
+                continue
+            if not(blunderbuss and hit) or type(snapshot.cluster) is not PcBattlefieldNearbySource:
+                raise ValueError('actual battlefield nearby source requires a Blunderbuss HIT')
+            replace(snapshot)
+            source=NearbyTargetsStaggerRequest(proof.request.kernel_request.id,BLUNDERBUSS_NEARBY_STAGGER_RULE_ID)
+            if (snapshot.cluster.actor_id!=proof.request.actor_id or snapshot.cluster.battlefield!=spatial
+                    or snapshot.request.source!=source or snapshot.request.primary_target_id!=proof.request.target_id
+                    or tuple(target.target_id for target in snapshot.request.targets)!=snapshot.cluster.target_ids
+                    or snapshot.cluster.target_ids!=battlefield_nearby(spatial,proof.request.target_id,snapshot.cluster.target_ids)):
+                raise ValueError('nearby snapshot changed its shooting actor, spatial source or exact Close links')
+            opened=proof
+            completed=[]
+        elif type(proof) in BATTLEFIELD_NEARBY_PROOFS:
+            if opened is None or proof.resolution_id!=opened.request.kernel_request.id:
+                raise ValueError('nearby continuation has no unique actual shot')
+            replace(proof)
+            if type(proof) is PcBlunderbussTargetProof:
+                ids=opened.nearby_snapshot.cluster.target_ids
+                if len(completed)==len(ids) or proof.request!=opened.nearby_snapshot.request.targets[len(completed)].impact:
+                    raise ValueError('nearby target changed its committed order or injury source')
+                completed.append(proof.request.target_id)
+            elif type(proof) is PcBlunderbussEndProof:
+                if tuple(completed)!=opened.nearby_snapshot.cluster.target_ids:
+                    raise ValueError('nearby completion lost a target')
+                opened=None
+    nearby=tuple(value for value in state.pending if type(value) is NearbyTargetsStaggerRequest)
+    expected=((opened.nearby_snapshot.request.source,) if opened is not None and not completed else ())
+    if nearby!=expected:
+        raise ValueError('nearby trigger was lost, forged or completed twice')

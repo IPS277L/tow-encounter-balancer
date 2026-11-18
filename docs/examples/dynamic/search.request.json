@@ -168,6 +168,7 @@
     "range": "close",
     "ambush": "none",
     "terrain": "open",
-    "session_start": "fresh"
+    "session_start": "fresh",
+    "two_handed_max_range": "long"
   }
 }

@@ -17,6 +17,7 @@ from towr.domain.movement_models import (
     RunActionExecutionResult,
 )
 from towr.domain.spatial_models import SpatialEntityPlacement
+from towr.domain.test_models import TestResult
 from towr.domain.turn_models import (
     ActionExecutionReceipt,
     CombatActionKind,
@@ -227,13 +228,11 @@ def execute_difficult_terrain_run_action(
     )
 
 
-def resolve_run_athletics_extension(
-    request: RunAthleticsExtensionRequest,
-    rng: RandomSource,
-    *,
-    decisions: TestDecisionProvider | None = None,
-) -> RunAthleticsExtensionResult:
-    """Resolve the optional Athletics Test for Run's second extra Zone."""
+def _validate_run_athletics_extension(request: RunAthleticsExtensionRequest) -> None:
+    """The same pre-RNG admission for direct and Fate-owned phased Tests."""
+    if type(request) is not RunAthleticsExtensionRequest:
+        raise TypeError('Run extension requires its exact request')
+    replace(request)
     if request.rule_id != RUN_ATHLETICS_EXTENSION_RULE_ID:
         raise ValueError("Run Athletics request uses an unknown source rule")
     if (
@@ -270,11 +269,16 @@ def resolve_run_athletics_extension(
         if crossed.side_id != actor.side_id:
             raise ValueError("Run extension cannot pass through an enemy")
 
-    test_result = resolve_test(
-        request.athletics_test,
-        rng,
-        decisions=decisions,
-    )
+
+
+def _complete_run_athletics_extension_after_test(request: RunAthleticsExtensionRequest,
+        test_result) -> RunAthleticsExtensionResult:
+    """Apply the canonical extension without rolling an already owned Test again."""
+    _validate_run_athletics_extension(request)
+    if type(test_result) is not TestResult or test_result.trace.request_id != request.athletics_test.id:
+        raise ValueError('Run extension requires the result of its actual Athletics Test')
+    spatial_state = request.base_run.spatial_state
+    actor = spatial_state.placement_for(request.base_run.actor_id)
     if test_result.succeeded:
         outcome = RunAthleticsOutcome.MOVED_EXTRA_ZONE
         updated_placements = tuple(
@@ -335,3 +339,11 @@ def resolve_run_athletics_extension(
             )
         ),
     )
+
+
+def resolve_run_athletics_extension(request: RunAthleticsExtensionRequest,
+        rng: RandomSource, *, decisions: TestDecisionProvider | None = None) -> RunAthleticsExtensionResult:
+    """Resolve the optional Athletics Test once, then reuse the pure projection."""
+    _validate_run_athletics_extension(request)
+    test_result = resolve_test(request.athletics_test,rng,decisions=decisions)
+    return _complete_run_athletics_extension_after_test(request,test_result)

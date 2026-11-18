@@ -63,6 +63,11 @@ class PcRangedCloseUnsupported:
 
 
 def pc_enemy_range(state: PcMeleeState, actor: str, target: str) -> RangedWeaponRange:
+    if state.source.battlefield is not None:
+        from towr.domain.pc_battlefield_models import battlefield_range
+        if state.battlefield is None:
+            raise ValueError('configured battlefield requires its actual spatial state')
+        return battlefield_range(state.battlefield,actor,target)
     if actor in state.source.pc_activation_order and target in state.source.enemy_activation_order:
         npc = target
     elif actor in state.source.enemy_activation_order and target in state.source.pc_activation_order:

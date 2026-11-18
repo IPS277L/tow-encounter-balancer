@@ -136,7 +136,7 @@ class M56CloseShootingSourceTests(unittest.TestCase):
             validate_pc_melee_scenario_admission(configured)
             self.assertEqual(configured.enemies,source.enemies)
             self.assertEqual(len(configured.npc_close_shooting_protection_policies),4)
-        with self.assertRaisesRegex(ValueError,'ranged opponents'):
+        with self.assertRaisesRegex(ValueError,'Shooting/Throwing opponents'):
             replace(configured_source(),npc_close_shooting_protection_policies=None)
 
     def test_policies_require_existing_opposition_actors_a_pistol_and_unique_actors(self):

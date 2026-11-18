@@ -276,10 +276,15 @@ def validate_npc_recover_counts(counts,scenario,*,trials:int,recover_trials:int|
     if type(recover_trials) is not int:
         raise TypeError('NPC Recover trial count must be an integer')
     wave_wound_budget=warped_form_target_budget(scenario,warped_form_counts,pc_targets=False)
+    from towr.domain.pc_weighted_net_models import initial_weighted_nets
+    ordinary_recover=scenario.battlefield is not None or bool(initial_weighted_nets(scenario))
     if (not 0<=recover_trials<=trials or not recover_trials<=total<=actions
-            or 2*total>actions+wave_wound_budget or (total>0)!=(recover_trials>0)):
+            or (not ordinary_recover and 2*total>actions+wave_wound_budget)
+            or (total>0)!=(recover_trials>0)):
         raise ValueError('NPC Recover counts contradict trials/actions')
     actors={policy.actor_id for policy in scenario.npc_flagellant_policies if policy.recover_when_wounded}
+    if ordinary_recover:
+        actors = {enemy.state.actor_id for enemy in scenario.enemies}
     # Every non-Recover trial still starts at least one round. Each configured NPC
     # can execute at most one ordinary action per started round in this family.
     budget=min(started_rounds-(trials-recover_trials),recover_trials*scenario.max_rounds)

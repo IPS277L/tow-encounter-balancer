@@ -34,7 +34,7 @@ def npc(weapon=GeneratedWeapon.PISTOL, **changes):
 
 def space(**changes):
     values=dict(weapon_skill=(2,),strength=(3,),toughness=(4,),agility=(3,),melee=(4,),
-        athletics=(3,),defence=(5,),weapon=(GeneratedWeapon.STAFF,GeneratedWeapon.PISTOL,
+        athletics=(3,),defence=(5,),brawn=(4,),weapon=(GeneratedWeapon.STAFF,GeneratedWeapon.PISTOL,
             GeneratedWeapon.REPEATER_PISTOL,GeneratedWeapon.REPEATER_HANDBOW),
         light_armour=(False,True),shield=(False,True),abilities=((),),allowed_talents=(),
         ballistic_skill=(1,4),shooting=(2,5),initiative=(2,5),dexterity=(3,6))
@@ -44,7 +44,7 @@ def space(**changes):
 
 class GeneratedRangedFactsTests(unittest.TestCase):
     def test_three_weapon_profiles_derive_from_components_without_actor_identity(self):
-        for weapon in GENERATED_RANGED_WEAPONS:
+        for weapon in (GeneratedWeapon.PISTOL,GeneratedWeapon.REPEATER_PISTOL,GeneratedWeapon.REPEATER_HANDBOW):
             with self.subTest(weapon=weapon):
                 source=npc(weapon,abilities=(GeneratedAbility.DRAINED_ON_HIT,))
                 first,other=source.participant('one'),source.participant('renamed')
@@ -63,7 +63,7 @@ class GeneratedRangedFactsTests(unittest.TestCase):
                 validate_generated_definition(first.definition)
 
     def test_complete_facts_are_required_only_for_ranged_and_shield_is_not_discarded(self):
-        for weapon in GENERATED_RANGED_WEAPONS:
+        for weapon in (GeneratedWeapon.PISTOL,GeneratedWeapon.REPEATER_PISTOL,GeneratedWeapon.REPEATER_HANDBOW):
             with self.subTest(weapon=weapon):
                 for changes in (dict(ranged=None),dict(shield=True),dict(ranged={})):
                     with self.assertRaises((TypeError,ValueError)):
@@ -170,7 +170,7 @@ class GeneratedRangedSearchTests(unittest.TestCase):
         self.assertEqual(source.initiative,(2,3,4))
         self.assertEqual(source.shooting,(3,4,5))
         self.assertEqual(source.dexterity,(3,4,5))
-        self.assertTrue(set(GENERATED_RANGED_WEAPONS)<=set(source.weapon))
+        self.assertTrue({GeneratedWeapon.PISTOL,GeneratedWeapon.REPEATER_PISTOL,GeneratedWeapon.REPEATER_HANDBOW}<=set(source.weapon))
 
 
 if __name__=='__main__':

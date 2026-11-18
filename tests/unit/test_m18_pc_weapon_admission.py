@@ -20,8 +20,15 @@ class PcWeaponAdmissionTests(unittest.TestCase):
         source=make_pc_melee_scenario()
         self.assertEqual({weapon.value for weapon in PcMeleeWeapon},
             {'staff','sword','dagger','axe','warhammer','morning_star',
-             'pickaxe','flail','billhook','halberd','glaive','greataxe','greathammer','pistol','repeater_handbow','repeater_pistol','shortbow','warbow','longbow','crossbow','repeater_crossbow','handgun','repeater_handgun','sling','blunderbuss','hochland_long_rifle'})
+             'pickaxe','flail','billhook','halberd','glaive','greataxe','greatsword','greathammer',
+             'foot_spear','polearm','weighted_net','pistol','repeater_handbow','repeater_pistol','shortbow','warbow','longbow','crossbow','repeater_crossbow','handgun','repeater_handgun','sling','blunderbuss','hochland_long_rifle'})
         for weapon in PcMeleeWeapon:
+            if weapon is PcMeleeWeapon.WEIGHTED_NET:
+                from tests.unit.test_pc_weighted_net import source as weighted_net_source
+                request=PcMeleeSimulationRequest(weighted_net_source(),42,1)
+                self.assertIs(request.scenario.party[0].pc.weapon,weapon)
+                self.assertIs(request.scenario.party[0].initial_weapon_hand,PcTwoHandedGrip.BOTH)
+                continue
             if weapon is PcMeleeWeapon.HOCHLAND_LONG_RIFLE:
                 from tests.support.pc_hochland_scenarios import make_pc_hochland_scenario
                 request=PcMeleeSimulationRequest(make_pc_hochland_scenario(),42,1)
@@ -61,11 +68,18 @@ class PcWeaponAdmissionTests(unittest.TestCase):
                 request=PcMeleeSimulationRequest(make_pc_ranged_scenario(weapon=weapon, **({'repeater_bonus_policy':None} if weapon is PcMeleeWeapon.PISTOL else {})),42,1)
                 self.assertIs(request.scenario.party[0].pc.weapon,weapon)
                 continue
-            two_handed=weapon.value in ('pickaxe','flail','billhook','halberd','glaive','greataxe','greathammer')
-            member=replace(source.party[0],pc=replace(source.party[0].pc,weapon=weapon),
-                initial_weapon_hand=PcTwoHandedGrip.BOTH if two_handed else PcWeaponHand.LEFT)
-            request=PcMeleeSimulationRequest(replace(source,party=(member,)),42,1)
-            self.assertIs(request.scenario.party[0].pc.weapon,weapon)
+            two_handed=weapon.value in ('pickaxe','flail','billhook','halberd','glaive','greataxe','greatsword','greathammer')
+            if weapon in (PcMeleeWeapon.FOOT_SPEAR,PcMeleeWeapon.POLEARM):
+                grips=(PcWeaponHand.LEFT,PcWeaponHand.RIGHT,PcTwoHandedGrip.BOTH)
+            else:
+                grips=(PcTwoHandedGrip.BOTH if two_handed else PcWeaponHand.LEFT,)
+            for grip in grips:
+                with self.subTest(weapon=weapon,grip=grip):
+                    member=replace(source.party[0],pc=replace(source.party[0].pc,weapon=weapon),
+                        initial_weapon_hand=grip)
+                    request=PcMeleeSimulationRequest(replace(source,party=(member,)),42,1)
+                    self.assertIs(request.scenario.party[0].pc.weapon,weapon)
+                    self.assertIs(request.scenario.party[0].initial_weapon_hand,grip)
 
     def test_cached_weapon_enum_alias_and_raw_strings_are_refused_before_trial(self):
         source=varied_weapon_source()

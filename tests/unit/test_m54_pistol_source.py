@@ -106,7 +106,7 @@ class PistolSourceTests(unittest.TestCase):
             if admitted:
                 validate_pc_melee_scenario_admission(replace(source, enemies=(source.enemies[0], enemy)))
             else:
-                with self.subTest(profile=profile), self.assertRaisesRegex(ValueError, 'ranged opponents'):
+                with self.subTest(profile=profile), self.assertRaisesRegex(ValueError, 'Shooting/Throwing opponents'):
                     replace(source, enemies=(source.enemies[0], enemy))
         self.assertEqual(len(PcBookNpcProfile), 59)
 
@@ -129,6 +129,6 @@ class PistolSourceTests(unittest.TestCase):
         for enemy in forged.scenario.enemies:
             object.__setattr__(enemy.definition.protection[0], 'skill', Skill.DEFENCE)
         with patch('towr.simulation.pc_melee_simulation.Random') as rng:
-            with self.assertRaisesRegex(ValueError, 'ranged opponents'):
+            with self.assertRaisesRegex(ValueError, 'Shooting/Throwing opponents'):
                 run_pc_melee_trial(forged, 0, rng_factory=rng)
             rng.assert_not_called()

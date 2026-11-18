@@ -1,5 +1,11 @@
 """Source-bound Skin Wolf end phase; an ordered wave is not an Attack action."""
-from dataclasses import dataclass, replace
+from __future__ import annotations
+
+from dataclasses import dataclass, field, replace
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from towr.domain.pc_weighted_net_models import PcNetDrop
 
 from towr.domain.condition_models import Condition, StaggerChoice
 from towr.domain.injury_models import ProfileInjuryState, ProfileStateChangeRequest
@@ -74,6 +80,7 @@ class PcWarpedFormProfileProof:
 class PcWarpedFormMinionDefeatProof:
     activation_id: str
     target_id: str
+    weighted_net_drops: tuple[PcNetDrop, ...] = field(default=(),kw_only=True)
 
     def __post_init__(self):
         _ids(self.activation_id, self.target_id)

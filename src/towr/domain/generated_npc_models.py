@@ -11,6 +11,7 @@ from towr.domain.condition_models import Condition
 from towr.domain.injury_models import ProfileInjuryState
 from towr.domain.npc_attack_preparation_models import NpcAttackProfile
 from towr.domain.npc_roster_models import NpcDefinition, NpcParticipantSnapshot, NpcParticipantState, NpcProtectionProfile
+from towr.domain.pc_mount_models import CombatMount
 from towr.domain.ranged_weapon_profiles import (
     RangedWeaponHands, RangedWeaponRange, RangedWeaponId, ranged_weapon_combat_profile,
 )
@@ -22,18 +23,86 @@ from towr.domain.turn_models import CombatSide
 class GeneratedWeapon(str, Enum):
     STAFF = 'staff'
     DAGGER = 'dagger'
+    FOOT_SPEAR = 'foot_spear'
+    POLEARM = 'polearm'
     AXE = 'axe'
     SWORD = 'sword'
     WARHAMMER = 'warhammer'
     MORNING_STAR = 'morning_star'
+    PICKAXE = 'pickaxe'
+    FLAIL = 'flail'
+    BILLHOOK = 'billhook'
+    HALBERD = 'halberd'
+    GLAIVE = 'glaive'
+    GREATAXE = 'greataxe'
+    GREATSWORD = 'greatsword'
+    GREATHAMMER = 'greathammer'
     PISTOL = 'pistol'
     REPEATER_PISTOL = 'repeater_pistol'
     REPEATER_HANDBOW = 'repeater_handbow'
+    SHORTBOW = 'shortbow'
+    WARBOW = 'warbow'
+    LONGBOW = 'longbow'
+    CROSSBOW = 'crossbow'
+    HANDGUN = 'handgun'
+    BLUNDERBUSS = 'blunderbuss'
+    HOCHLAND_LONG_RIFLE = 'hochland_long_rifle'
+    REPEATER_CROSSBOW = 'repeater_crossbow'
+    REPEATER_HANDGUN = 'repeater_handgun'
+    WEIGHTED_NET = 'weighted_net'
+
+
+GENERATED_TWO_HANDED_RANGED_WEAPONS = (
+    GeneratedWeapon.SHORTBOW, GeneratedWeapon.WARBOW, GeneratedWeapon.LONGBOW,
+    GeneratedWeapon.CROSSBOW, GeneratedWeapon.HANDGUN, GeneratedWeapon.BLUNDERBUSS,
+    GeneratedWeapon.HOCHLAND_LONG_RIFLE, GeneratedWeapon.REPEATER_CROSSBOW,
+    GeneratedWeapon.REPEATER_HANDGUN,
+)
 
 
 GENERATED_RANGED_WEAPONS = (
     GeneratedWeapon.PISTOL, GeneratedWeapon.REPEATER_PISTOL, GeneratedWeapon.REPEATER_HANDBOW,
+    *GENERATED_TWO_HANDED_RANGED_WEAPONS,
 )
+
+
+# Stationary Python callers retain their explicitly Close-capable proposal pool.
+# A battlefield-enabled request opts into the full enum, rather than silently
+# proposing an unusable two-handed shot in the old stationary scene.
+GENERATED_CLOSE_WEAPONS = tuple(weapon for weapon in GeneratedWeapon
+    if weapon not in GENERATED_TWO_HANDED_RANGED_WEAPONS)
+
+
+GENERATED_VARIABLE_GRIP_WEAPONS = (
+    GeneratedWeapon.FOOT_SPEAR, GeneratedWeapon.POLEARM,
+)
+
+
+def generated_weapon_grips(weapon: GeneratedWeapon) -> tuple[RangedWeaponHands | None, ...]:
+    """Explicit alternative grips; fixed weapons have no separate grip fact."""
+    if type(weapon) is not GeneratedWeapon:
+        raise TypeError('generated weapon grip requires its typed identifier')
+    return ((RangedWeaponHands.ONE_HANDED, RangedWeaponHands.TWO_HANDED)
+        if weapon in GENERATED_VARIABLE_GRIP_WEAPONS else (None,))
+
+
+def generated_weapon_allows_shield(weapon: GeneratedWeapon,
+        weapon_grip: RangedWeaponHands | None = None) -> bool:
+    """Equipment compatibility shared by explicit facts and proposal sampling."""
+    if type(weapon) is not GeneratedWeapon:
+        raise TypeError('generated weapon compatibility requires its typed identifier')
+    if weapon_grip is not None and type(weapon_grip) is not RangedWeaponHands:
+        raise TypeError('generated weapon grip requires exact weapon hands or None')
+    if weapon_grip not in generated_weapon_grips(weapon):
+        raise ValueError('variable weapons require their actual grip; fixed weapons forbid it')
+    if weapon in GENERATED_VARIABLE_GRIP_WEAPONS:
+        return weapon_grip is RangedWeaponHands.ONE_HANDED
+    if weapon in GENERATED_RANGED_WEAPONS:
+        # These generated shooters must keep their second hand free for Reload.
+        return False
+    from towr.domain.pc_melee_models import PcMeleeWeapon
+    from towr.domain.pc_weapon_models import pc_weapon_requires_two_hands
+    return not pc_weapon_requires_two_hands(PcMeleeWeapon(weapon.value))
 
 
 @dataclass(frozen=True, slots=True)
@@ -46,6 +115,7 @@ class GeneratedRangedFacts:
     ammunition_supply_confirmed: bool
     has_blackpowder_lore: bool | None
     has_blackpowder_kit: bool | None
+    awareness: int | None = field(default=None,kw_only=True)
 
     def __post_init__(self):
         for name in ('ballistic_skill', 'initiative'):
@@ -61,6 +131,9 @@ class GeneratedRangedFacts:
             value=getattr(self,name)
             if value is not None and type(value) is not bool:
                 raise TypeError(f'{name} must be an exact bool or None')
+        if self.awareness is not None and (type(self.awareness) is not int
+                or not 2 <= self.awareness <= 6):
+            raise ValueError('Awareness must be an exact Skill rating in 2..6 or None')
 
 
 class GeneratedAbility(str, Enum):
@@ -99,6 +172,11 @@ class GeneratedNpc:
     shield: bool = field(kw_only=True)
     talents: tuple[GeneratedTalent, ...] = field(default=(),kw_only=True)
     ranged: GeneratedRangedFacts | None = field(default=None,kw_only=True)
+    weapon_grip: RangedWeaponHands | None = field(default=None,kw_only=True)
+    mount: CombatMount | None = field(default=None,kw_only=True)
+    throwing: int | None = field(default=None,kw_only=True)
+    brawn: int | None = field(default=None,kw_only=True)
+    ballistic_skill: int | None = field(default=None,kw_only=True)
 
     def __post_init__(self):
         for name in ('weapon_skill', 'strength', 'toughness', 'agility'):
@@ -109,21 +187,39 @@ class GeneratedNpc:
             value = getattr(self, name)
             if type(value) is not int or not 2 <= value <= 6:
                 raise ValueError(f'{name} must be an integer in 2..6')
+        for name in ('throwing','brawn'):
+            value = getattr(self,name)
+            if value is not None and (type(value) is not int or not 2 <= value <= 6):
+                raise ValueError(f'{name} must be an exact Skill rating in 2..6 or None')
+        if (self.weapon is GeneratedWeapon.WEIGHTED_NET) != (self.throwing is not None):
+            raise ValueError('Weighted Net requires its explicit Throwing source; other generated weapons forbid it')
+        if self.ballistic_skill is not None and (type(self.ballistic_skill) is not int or self.ballistic_skill < 1):
+            raise ValueError('Net Ballistic Skill must be an exact positive integer or None')
+        if (self.weapon is GeneratedWeapon.WEIGHTED_NET) != (self.ballistic_skill is not None):
+            raise ValueError('Net requires its own explicit Ballistic Skill; other weapons keep their existing source')
+        if self.weapon is GeneratedWeapon.WEIGHTED_NET and self.abilities:
+            raise ValueError('primary Net Condition has no authored Damage secondary effects')
         if type(self.weapon) is not GeneratedWeapon or type(self.light_armour) is not bool:
             raise TypeError('equipment requires supported typed weapon and explicit armour bool')
         if type(self.shield) is not bool:
             raise TypeError('Shield requires an exact equipment bool')
+        if self.mount is not None and type(self.mount) is not CombatMount:
+            raise TypeError('Mount requires an exact supported component or None')
+        allows_shield = generated_weapon_allows_shield(self.weapon,self.weapon_grip)
+        if self.shield and not allows_shield:
+            raise ValueError('generated weapon requires both hands or a free second hand, without Shield')
         if self.weapon in GENERATED_RANGED_WEAPONS:
             if type(self.ranged) is not GeneratedRangedFacts:
                 raise TypeError('ranged weapon requires its complete typed ranged facts')
             replace(self.ranged)
-            if self.shield:
-                raise ValueError('generated ranged weapon requires the second hand free, without Shield')
-            blackpowder=self.weapon is not GeneratedWeapon.REPEATER_HANDBOW
+            blackpowder=ranged_weapon_combat_profile(
+                RangedWeaponId(self.weapon.value)).requires_blackpowder_lore
             if ((self.ranged.has_blackpowder_lore is not True or self.ranged.has_blackpowder_kit is not True)
                     if blackpowder else (self.ranged.has_blackpowder_lore is not None
                         or self.ranged.has_blackpowder_kit is not None)):
-                raise ValueError('firearm requires Lore/Kit; Handbow has no Blackpowder facts')
+                raise ValueError('firearm requires Lore/Kit; other ranged weapons forbid Blackpowder facts')
+            if self.weapon in GENERATED_TWO_HANDED_RANGED_WEAPONS and self.ranged.awareness is None:
+                raise ValueError('two-handed generated Shooting requires its actual Awareness for Aim')
         elif self.ranged is not None:
             raise ValueError('melee generated source must not contain ranged facts')
         if (type(self.abilities) is not tuple or len(set(self.abilities)) != len(self.abilities)
@@ -154,21 +250,40 @@ def generated_npc_profiles(npc: GeneratedNpc) -> tuple[
     if type(npc) is not GeneratedNpc:
         raise TypeError('generated components require the complete typed facts')
     replace(npc)
-    resilience = ResilienceProfile(npc.toughness, int(npc.light_armour)+int(npc.shield))
-    offset = -1 if npc.weapon is GeneratedWeapon.DAGGER else int(npc.weapon is GeneratedWeapon.MORNING_STAR)
+    # PG97 includes any Resilience bonus in "armoured", including Horse124.
+    # This does not turn the mount into physically worn Casting armour.
+    resilience = ResilienceProfile(npc.toughness,
+        int(npc.light_armour)+int(npc.shield)+int(npc.mount is CombatMount.HORSE))
     secondary=tuple(ConditionOnHitSpec(Condition.DRAINED, 'authored:drained-on-hit')
         for ability in npc.abilities if ability is GeneratedAbility.DRAINED_ON_HIT)
-    if npc.ranged is not None:
+    if npc.weapon is GeneratedWeapon.WEIGHTED_NET:
+        from towr.domain.pc_weighted_net_models import weighted_net_profile
+        attack = weighted_net_profile(npc.ballistic_skill,npc.throwing,npc.strength)
+    elif npc.ranged is not None:
         weapon=ranged_weapon_combat_profile(RangedWeaponId(npc.weapon.value))
         attack=NpcAttackProfile('primary','RULE-EQUIPMENT-004:'+npc.weapon.value,Skill.SHOOTING,
             InlineProfile(npc.ranged.ballistic_skill,npc.ranged.shooting),DamageProfile(weapon.damage_value),
             weapon.optimum_range_min,weapon.optimum_range_max,weapon.hands,
             ignores_armour=weapon.ignores_armour,secondary_effects=secondary)
     else:
+        from towr.domain.pc_melee_models import PcMeleeWeapon
+        from towr.domain.pc_weapon_models import pc_weapon_damage, pc_weapon_requires_two_hands
+        melee_weapon = PcMeleeWeapon(npc.weapon.value)
+        if npc.weapon in GENERATED_VARIABLE_GRIP_WEAPONS:
+            hands = npc.weapon_grip
+            assert hands is not None
+            damage = pc_weapon_damage(melee_weapon,npc.strength,
+                two_handed=hands is RangedWeaponHands.TWO_HANDED)
+            maximum_range = RangedWeaponRange.SHORT
+        else:
+            hands = (RangedWeaponHands.TWO_HANDED if pc_weapon_requires_two_hands(melee_weapon)
+                else RangedWeaponHands.ONE_HANDED)
+            damage = pc_weapon_damage(melee_weapon,npc.strength)
+            maximum_range = RangedWeaponRange.CLOSE
         attack = NpcAttackProfile(
             'primary', 'RULE-EQUIPMENT-003:' + npc.weapon.value, Skill.MELEE,
-            InlineProfile(npc.weapon_skill, npc.melee), DamageProfile(npc.strength+offset),
-            RangedWeaponRange.CLOSE, RangedWeaponRange.CLOSE, RangedWeaponHands.ONE_HANDED,
+            InlineProfile(npc.weapon_skill, npc.melee), damage,
+            RangedWeaponRange.CLOSE, maximum_range, hands,
             secondary_effects=secondary)
     protection = (
         NpcProtectionProfile('RULE-COMBAT-006:generated-defence', Skill.DEFENCE,

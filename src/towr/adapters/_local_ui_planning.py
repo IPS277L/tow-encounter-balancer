@@ -3,11 +3,12 @@
 PLANNING_SCRIPT = r'''
 let planningError=null;
 const precisionIds=['candidates','exploration','top','finalTrials'];
+const generatedWeaponIds=Object.freeze(['staff','dagger','foot_spear','polearm','axe','sword','warhammer','morning_star','pickaxe','flail','billhook','halberd','glaive','greataxe','greatsword','greathammer','pistol','repeater_pistol','repeater_handbow','shortbow','warbow','longbow','crossbow','handgun','blunderbuss','hochland_long_rifle','repeater_crossbow','repeater_handgun','weighted_net']);
 function planningSearchSpace(data){
  // Client estimate for planning/manual initialization. Execution derives its
  // authoritative automatic envelope on the server from the admitted party.
  if(data.search_space)return data.search_space;
- const space={weapon:['staff','dagger','axe','sword','warhammer','morning_star','pistol','repeater_pistol','repeater_handbow'],light_armour:[false,true],shield:[false,true],abilities:[[]],allowed_talents:['magic_resistance','defensive_stance','wild_attack']};
+ const space={weapon:[...generatedWeaponIds],light_armour:[false,true],shield:[false,true],weapon_grip:['1h','2h'],mount:[null,'horse'],abilities:[[]],allowed_talents:['magic_resistance','defensive_stance','wild_attack']};
  for(const key of ['weapon_skill','strength','toughness','agility','melee','defence','athletics']){
   const skill=['melee','defence','athletics'].includes(key),floor=skill?2:1,ceiling=skill?6:10;
   const values=data.party.map(m=>Number((skill?m.skills:m.characteristics)?.[key]));
@@ -16,9 +17,9 @@ function planningSearchSpace(data){
   const high=Math.max(low,Math.min(ceiling,Math.max(...values)+1));
   space[key]=Array.from({length:high-low+1},(_,i)=>low+i);
  }
- for(const key of ['ballistic_skill','initiative','shooting','dexterity']){
-  const skill=['shooting','dexterity'].includes(key),floor=skill?2:1,ceiling=skill?6:10;
-  const values=data.party.filter(m=>playerInitialRangedWeapon(m)).map(m=>Number((skill?m.skills:m.characteristics)?.[key])).filter(Number.isSafeInteger);
+ for(const key of ['ballistic_skill','initiative','shooting','dexterity','awareness','throwing','brawn']){
+  const skill=['shooting','dexterity','awareness','throwing','brawn'].includes(key),floor=skill?2:1,ceiling=skill?6:10;
+  const values=data.party.map(m=>Number((skill?m.skills:m.characteristics)?.[key])).filter(Number.isSafeInteger);
   if(!values.length){space[key]=skill?[3,4,5]:[2,3,4];continue;}
   const low=Math.max(floor,Math.min(ceiling,Math.min(...values)-1));
   const high=Math.max(low,Math.min(ceiling,Math.max(...values)+1));
@@ -49,7 +50,7 @@ function simulationCostEstimate(data){
  const mean=values=>{if(!Array.isArray(values)||!values.length||values.some(value=>!Number.isFinite(value)||value<=0))throw Error('Проверьте характеристики участников.');return values.reduce((sum,value)=>sum+value,0)/values.length;};
  const count=(min+max)/2,actors=count+data.party.length;
  if(!Array.isArray(space.weapon)||!space.weapon.length||!Array.isArray(space.abilities)||!space.abilities.length||space.abilities.some(group=>!Array.isArray(group)))return null;
- const rangedWeapons=new Set(['pistol','repeater_pistol','repeater_handbow']);
+ const rangedWeapons=new Set(['pistol','repeater_pistol','repeater_handbow','shortbow','warbow','longbow','crossbow','repeater_crossbow','handgun','repeater_handgun','blunderbuss','hochland_long_rifle']);
  const npcRanged=space.weapon.filter(weapon=>rangedWeapons.has(weapon)).length/space.weapon.length;
  const partyDice=mean(data.party.map(member=>Math.max(Number(member.characteristics?.weapon_skill)+Number(member.characteristics?.agility),
   playerInitialRangedWeapon(member)?Number(member.characteristics?.ballistic_skill)+Number(member.characteristics?.initiative):0,
@@ -106,8 +107,8 @@ function automaticSearchPlan(data){
   const values=space[key];if(!Array.isArray(values)||!values.length)throw Error('Задайте допустимые значения: '+key);
   profiles=Math.min(1e12,profiles*values.length);bits+=Math.log2(values.length);
  }
- if(space.weapon.some(weapon=>['pistol','repeater_pistol','repeater_handbow'].includes(weapon))){
-  for(const key of ['ballistic_skill','initiative','shooting','dexterity']){const values=space[key];if(!Array.isArray(values)||!values.length)throw Error('Задайте допустимые значения: '+key);profiles=Math.min(1e12,profiles*values.length);bits+=Math.log2(values.length);}
+ if(space.weapon.some(weapon=>['pistol','repeater_pistol','repeater_handbow','shortbow','warbow','longbow','crossbow','repeater_crossbow','handgun','repeater_handgun','blunderbuss','hochland_long_rifle'].includes(weapon))){
+  for(const key of ['ballistic_skill','initiative','shooting','dexterity',...(space.weapon.some(weapon=>!['pistol','repeater_pistol','repeater_handbow'].includes(weapon))?['awareness']:[])]){const values=space[key]||(key==='awareness'?[3,4,5]:null);if(!Array.isArray(values)||!values.length)throw Error('Задайте допустимые значения: '+key);profiles=Math.min(1e12,profiles*values.length);bits+=Math.log2(values.length);}
  }
  if(!Array.isArray(space.allowed_talents)||new Set(space.allowed_talents).size!==space.allowed_talents.length||space.allowed_talents.some(t=>!['magic_resistance','defensive_stance','wild_attack'].includes(t)))throw Error('Проверьте разрешённые таланты (Talents) NPC.');
  // Upper bound only: Requirements filter the sampled subsets on the server.

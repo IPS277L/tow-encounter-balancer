@@ -9,6 +9,7 @@ from towr.domain.action_execution_models import (
 from towr.domain.turn_models import (
     ActionExecutionReceipt,
     CombatActionKind,
+    ManoeuvreKind,
 )
 from towr.domain.resolution_models import ResolutionResult
 from towr.rules.dice import RandomSource
@@ -55,8 +56,16 @@ def _validate_attack_action_slot(request: AttackActionExecutionRequest) -> None:
             raise TypeError('Crown Attack requires its exact target ID')
         if request.target_id != slot.crown_of_antlers.target_id:
             raise ValueError('Crown Attack requires its granted same target')
-    if slot.declaration.kind is not CombatActionKind.ATTACK:
-        raise ValueError("only an Attack action slot can use this executor")
+    if slot.declaration.kind is CombatActionKind.ATTACK:
+        if request.charge_movement is not None:
+            raise ValueError('a Charge movement cannot grant an ordinary Attack slot')
+    elif (slot.declaration.kind is CombatActionKind.MANOEUVRE
+            and slot.declaration.manoeuvre is ManoeuvreKind.CHARGE):
+        if request.charge_movement is None:
+            raise ValueError('a Charge attack requires its completed source-bound movement phase')
+        replace(request)
+    else:
+        raise ValueError("only an Attack or proven Charge attack can use this executor")
     if slot.executed:
         raise ValueError("the Attack action slot has already been executed")
     if slot.enduring_strength is not None and request.target_id != slot.enduring_strength.target_id:

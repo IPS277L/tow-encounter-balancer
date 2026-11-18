@@ -9,6 +9,7 @@ from towr.domain.help_models import (
 from towr.domain.pc_heavy_wound_models import usable_weapon_hand
 from towr.domain.pc_melee_models import PcHelpTarget, PcMeleePolicy
 from towr.domain.test_models import Skill
+from towr.domain.reload_models import ranged_weapon_is_loaded
 
 
 def pc_help_beneficiary(state):
@@ -67,7 +68,20 @@ def eligible_pc_help_beneficiary(state, strategy, actor=None, *, planned_choice=
             from towr.domain.pc_melee_models import PC_RANGED_WEAPONS
             from towr.domain.pc_backup_weapon_models import pc_active_weapon
             if (pc_active_weapon(state,actor) not in PC_RANGED_WEAPONS
-                    or member.ranged is None or not member.ranged.loaded):
+                    or member.ranged is None or not ranged_weapon_is_loaded(member.ranged)):
+                return None
+            from towr.domain.pc_short_opening_models import pc_has_close_enemy
+            from towr.domain.pc_weapon_models import pc_weapon_allows_close_shooting
+            if not pc_weapon_allows_close_shooting(pc_active_weapon(state,actor)) and pc_has_close_enemy(state,actor):
+                return None
+        elif strategy.skill is Skill.THROWING:
+            from towr.domain.pc_melee_models import PC_THROWING_WEAPONS
+            from towr.domain.pc_backup_weapon_models import pc_active_weapon
+            if pc_active_weapon(state,actor) not in PC_THROWING_WEAPONS:
+                return None
+        if strategy.skill in (Skill.SHOOTING,Skill.THROWING) and planned_choice is not None:
+            from towr.domain.pc_battlefield_movement_models import pc_battlefield_attack_available
+            if not pc_battlefield_attack_available(state,actor,planned_choice.target_id):
                 return None
         if (_pc_recover_needed(view.participant(ally.actor_id)) or strategy.beneficiary_id in (
                 *state.round_state.completed_turn_entity_ids,*state.round_state.excluded_turn_entity_ids)):
@@ -78,7 +92,7 @@ def eligible_pc_help_beneficiary(state, strategy, actor=None, *, planned_choice=
         skill = (pc_protection_skill(ally,pc_selected_npc_attack_profile(state,incoming).skill,
             state.source.participant(ally.actor_id).close_shooting_protection_skill)
             if incoming is not None else None)
-        if (incoming is not None and pc_selected_npc_attack_profile(state,incoming).skill is Skill.SHOOTING
+        if (incoming is not None and pc_selected_npc_attack_profile(state,incoming).skill in (Skill.SHOOTING,Skill.THROWING)
                 and state.source.participant(ally.actor_id).policy is PcMeleePolicy.AUTOMATIC_COMBAT):
             from towr.domain.pc_generated_ranged_advice import pc_close_shooting_protection
             from towr.domain.pc_melee_result_models import pc_melee_action_id
@@ -100,10 +114,11 @@ def pc_help_incoming_actor(state, strategy=None):
         return None
     unavailable = (*state.round_state.completed_turn_entity_ids,*state.round_state.excluded_turn_entity_ids)
     from towr.domain.pc_npc_ranged_models import pc_npc_ranged_weapon
+    from towr.domain.reload_models import ranged_weapon_is_loaded
     return next((enemy for enemy in state.source.enemy_activation_order
         if not state.enemy(enemy).state.injury.defeated and enemy not in state.exited_npc_ids
         and enemy not in unavailable and (pc_npc_ranged_weapon(state,enemy) is None
-            or pc_npc_ranged_weapon(state,enemy).loaded)),None)
+            or ranged_weapon_is_loaded(pc_npc_ranged_weapon(state,enemy)))),None)
 
 
 def build_pc_help_action(state):
@@ -181,7 +196,7 @@ def pc_attack_help_applications(state, attack):
             pc_selected_npc_attack_profile(state,state.round_state.active_turn.actor_id).skill,
             state.source.participant(actor).close_shooting_protection_skill)
         test = attack.defender_test
-        if (pc_selected_npc_attack_profile(state,state.round_state.active_turn.actor_id).skill is Skill.SHOOTING
+        if (pc_selected_npc_attack_profile(state,state.round_state.active_turn.actor_id).skill in (Skill.SHOOTING,Skill.THROWING)
                 and state.source.participant(actor).policy is PcMeleePolicy.AUTOMATIC_COMBAT):
             from towr.domain.pc_generated_ranged_advice import pc_close_shooting_protection
             skill,_=pc_close_shooting_protection(state,actor,state.round_state.active_turn.actor_id,test.id)

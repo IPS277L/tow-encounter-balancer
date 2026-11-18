@@ -16,7 +16,8 @@
         "melee": 5,
         "defence": 5,
         "athletics": 4,
-        "endurance": 4
+        "endurance": 4,
+        "brawn": 4
       },
       "equipment": {
         "weapons": [
@@ -93,9 +94,10 @@
     "mode": "sequential"
   },
   "scene": {
-    "range": "close",
+    "range": "short",
     "ambush": "none",
     "terrain": "open",
-    "session_start": "fresh"
+    "session_start": "fresh",
+    "two_handed_max_range": "long"
   }
 }

@@ -7,7 +7,7 @@ from towr.domain.pc_melee_models import PC_TWO_HANDED_RANGED_WEAPONS, PcMeleeWea
 from towr.domain.pc_weapon_models import (
     FLAIL_STAGGERED_RULE_ID, GREATAXE_MELEE_RULE_ID, GREATHAMMER_MELEE_RULE_ID,
     HALBERD_ARMOUR_RULE_ID, GREATAXE_ARMOUR_RULE_ID, GLAIVE_DEFENCE_RULE_ID,
-    GREATHAMMER_STAGGERED_RULE_ID,
+    GREATHAMMER_STAGGERED_RULE_ID, GREATSWORD_MELEE_RULE_ID, GREATSWORD_DEFENCE_RULE_ID,
     pc_weapon_requires_two_hands, pc_weapon_damage, pc_weapon_test_modifiers,
     pc_weapon_attack_modifiers, pc_weapon_damage_modifiers,
 )
@@ -15,21 +15,30 @@ from towr.domain.test_models import DiceModifier, Skill
 
 
 TWO_HANDED = (PcMeleeWeapon.PICKAXE, PcMeleeWeapon.FLAIL, PcMeleeWeapon.BILLHOOK,
-    PcMeleeWeapon.HALBERD, PcMeleeWeapon.GLAIVE, PcMeleeWeapon.GREATAXE, PcMeleeWeapon.GREATHAMMER)
+    PcMeleeWeapon.HALBERD, PcMeleeWeapon.GLAIVE, PcMeleeWeapon.GREATAXE, PcMeleeWeapon.GREATSWORD, PcMeleeWeapon.GREATHAMMER)
 HEALTHY = ConditionState()
 STAGGERED = ConditionState(frozenset({Condition.STAGGERED}))
 
 
 class PcTwoHandedWeaponPreparationTests(unittest.TestCase):
+    def test_greatsword_user_ruling_adds_defence_die_without_changing_its_melee_penalty(self):
+        for conditions in (HEALTHY, STAGGERED, ConditionState(frozenset({Condition.DRAINED}))):
+            with self.subTest(conditions=conditions):
+                self.assertEqual(pc_weapon_test_modifiers(PcMeleeWeapon.GREATSWORD,Skill.MELEE,conditions),
+                    (DiceModifier(GREATSWORD_MELEE_RULE_ID,-1),))
+                expected=() if conditions.has(Condition.STAGGERED) else (DiceModifier(GREATSWORD_DEFENCE_RULE_ID,1),)
+                self.assertEqual(pc_weapon_test_modifiers(PcMeleeWeapon.GREATSWORD,Skill.DEFENCE,conditions),expected)
+                self.assertEqual(pc_weapon_test_modifiers(PcMeleeWeapon.GREATSWORD,Skill.ATHLETICS,conditions),())
+
     def test_exact_hand_requirements_leave_existing_weapons_one_handed(self):
         for weapon in PcMeleeWeapon:
             with self.subTest(weapon=weapon):
-                self.assertIs(pc_weapon_requires_two_hands(weapon),weapon in (*TWO_HANDED,*PC_TWO_HANDED_RANGED_WEAPONS))
+                self.assertIs(pc_weapon_requires_two_hands(weapon),weapon in (*TWO_HANDED,*PC_TWO_HANDED_RANGED_WEAPONS,PcMeleeWeapon.WEIGHTED_NET))
 
-    def test_all_seven_damage_profiles_at_low_and_ordinary_strength(self):
+    def test_all_eight_damage_profiles_at_low_and_ordinary_strength(self):
         offsets = ((PcMeleeWeapon.PICKAXE,1),(PcMeleeWeapon.FLAIL,3),
             (PcMeleeWeapon.BILLHOOK,2),(PcMeleeWeapon.HALBERD,2),(PcMeleeWeapon.GLAIVE,2),
-            (PcMeleeWeapon.GREATAXE,3),(PcMeleeWeapon.GREATHAMMER,3))
+            (PcMeleeWeapon.GREATAXE,3),(PcMeleeWeapon.GREATSWORD,3),(PcMeleeWeapon.GREATHAMMER,3))
         for weapon, offset in offsets:
             for strength in (1,3):
                 with self.subTest(weapon=weapon,strength=strength):

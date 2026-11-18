@@ -16,7 +16,8 @@ from towr.domain.pc_melee_models import PcMeleeWeapon, PcTwoHandedGrip, PcWeapon
 
 
 ONE_HANDED=('staff','sword','dagger','axe','warhammer','morning_star')
-TWO_HANDED=('pickaxe','flail','billhook','halberd','glaive','greataxe','greathammer')
+VARIABLE_GRIP=('foot_spear','polearm')
+TWO_HANDED=('pickaxe','flail','billhook','halberd','glaive','greataxe','greatsword','greathammer')
 
 
 def armed_document(*,balance=False):
@@ -33,8 +34,8 @@ class PcTwoHandedWeaponJsonTests(unittest.TestCase):
         common=json.loads(files('towr.adapters.schemas').joinpath('pc-melee-common.schema.json')
             .read_text(encoding='utf-8'))
         self.assertEqual(common['$defs']['pc']['properties']['weapon'],
-            {'enum':list(ONE_HANDED+TWO_HANDED+('pistol','repeater_handbow','repeater_pistol','shortbow','warbow','longbow','crossbow','repeater_crossbow','handgun','repeater_handgun','sling','blunderbuss','hochland_long_rifle'))})
-        self.assertEqual(tuple(weapon.value for weapon in PcMeleeWeapon),ONE_HANDED+TWO_HANDED+('pistol','repeater_handbow','repeater_pistol','shortbow','warbow','longbow','crossbow','repeater_crossbow','handgun','repeater_handgun','sling','blunderbuss','hochland_long_rifle'))
+            {'enum':list(ONE_HANDED+VARIABLE_GRIP+TWO_HANDED+('pistol','repeater_handbow','repeater_pistol','shortbow','warbow','longbow','crossbow','repeater_crossbow','handgun','repeater_handgun','sling','blunderbuss','hochland_long_rifle','weighted_net'))})
+        self.assertEqual(tuple(weapon.value for weapon in PcMeleeWeapon),ONE_HANDED+VARIABLE_GRIP+TWO_HANDED+('pistol','repeater_handbow','repeater_pistol','shortbow','warbow','longbow','crossbow','repeater_crossbow','handgun','repeater_handgun','sling','blunderbuss','hochland_long_rifle','weighted_net'))
         for balance in (False,True):
             raw=armed_document(balance=balance)
             key='template' if balance else 'scenario'
@@ -88,7 +89,7 @@ class PcTwoHandedWeaponJsonTests(unittest.TestCase):
             parse=wire.parse_pc_melee_balance_request if balance else wire.parse_pc_melee_simulation_request
             error=PcMeleeBalanceInputError if balance else PcMeleeSimulationInputError
             for field,values in (
-                    ('weapon',('greatsword','great_axe','great axe','GREATHAMMER','unknown_weapon',True,1,None,[],{})),
+                    ('weapon',('great_sword','great_axe','great axe','GREATHAMMER','unknown_weapon',True,1,None,[],{})),
                     ('initial_weapon_hand',('BOTH','two_handed','both_hands','',True,1,None,[],{}))):
                 for value in values:
                     raw=document(balance=balance)

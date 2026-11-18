@@ -1,5 +1,5 @@
 from copy import deepcopy
-from dataclasses import replace
+from dataclasses import replace, asdict
 import json
 import os
 from pathlib import Path
@@ -127,7 +127,7 @@ class DynamicEncounterJsonTests(unittest.TestCase):
         stronger = parse_dynamic_encounter_request(json.dumps(raw))
         self.assertGreater(max(stronger.request.space.strength), max(auto.request.space.strength))
         report = json.loads(encode_dynamic_encounter_result(self.command, self.result))
-        self.assertEqual(report['resolved_search_space'], self.document['search_space'])
+        self.assertEqual(report['resolved_search_space'],json.loads(json.dumps(asdict(self.command.request.space))))
 
     def test_automatic_space_executes_with_compiled_equipment_and_replay(self):
         raw = deepcopy(self.document)
@@ -157,7 +157,7 @@ class DynamicEncounterJsonTests(unittest.TestCase):
         for path, value in ((('party',0,'equipment','armour'),[dict(id='heavy',kind='heavy_armour',location='worn')]),
                 (('party',0,'talents'),['wizard']), (('party',0,'spells'),['fireball']),
                 (('party',0,'consumables'),['potion']), (('party',0,'policy'),'attack_or_recover_self'),
-                (('scene','ambush'),'players'), (('scene','range'),'short'),
+                (('scene','ambush'),'players'), (('scene','range'),'beyond_extreme'),
                 (('scene','session_start'),'mid_session')):
             raw = deepcopy(self.document)
             owner = raw
@@ -252,7 +252,7 @@ class DynamicEncounterJsonTests(unittest.TestCase):
 
     def test_closed_shapes_and_supported_components(self):
         cases = [dict(enemies=[]), dict(party=[dict(self.document['party'][0], target_priority=['npc'])]),
-            dict(search_space=dict(self.document['search_space'], weapon=['greatsword'])),
+            dict(search_space=dict(self.document['search_space'], weapon=['great_sword'])),
             dict(search_space=dict(self.document['search_space'], abilities=[['blood_rage']])),
             dict(search_space=dict(self.document['search_space'], melee=[True])),
             dict(execution=dict(mode='process'))]

@@ -22,7 +22,35 @@ def pc_preferred_weapon_hand(state: PcMeleeState, actor_id: str) -> PcWeaponHand
     participant = state.source.participant(actor_id)
     initial = (participant.backup_weapon_policy.preferred_hand if state.participant(actor_id).using_backup_weapon
         else participant.initial_weapon_hand)
-    return preferred_weapon_hand(state.participant(actor_id),initial)
+    from towr.domain.pc_weapon_models import pc_weapon_supports_variable_grip
+    member=state.participant(actor_id)
+    if (member.weapon_inventory is not None and member.weapon_inventory.active.weapon is PcMeleeWeapon.WEIGHTED_NET
+            and member.weapon_inventory.active.location.value == 'deployed'):
+        return None
+    if pc_weapon_supports_variable_grip(pc_active_weapon(state,actor_id)):
+        return preferred_variable_weapon_hand(member,initial)
+    return preferred_weapon_hand(member,initial)
+
+
+def preferred_variable_weapon_hand(member, initial_hand):
+    """Use both free healthy hands, otherwise a real usable single hand.
+
+    This is the simulator's grip preference. It never changes equipment or
+    body facts; the existing source-bound hand-swap/pickup owner applies it.
+    """
+    from towr.domain.pc_heavy_wound_models import injured_hands
+    from towr.domain.pc_shield_models import PcShieldLocation
+    shield=(member.shield.hand if member.shield is not None
+        and member.shield.location is PcShieldLocation.HELD else None)
+    available=tuple(side for side in usable_hands(member) if side is not shield)
+    healthy=tuple(side for side in available if side not in injured_hands(member))
+    if len(healthy)==2:
+        return PcTwoHandedGrip.BOTH
+    preferred=(member.weapon_hand, initial_hand, *PcWeaponHand)
+    all_healthy=tuple(side for side in usable_hands(member) if side not in injured_hands(member))
+    # A healthy Shield hand may be chosen only when no free healthy hand
+    # exists; the existing weapon-first release must then happen before use.
+    return next((side for pool in (healthy,all_healthy,available) for side in preferred if side in pool),None)
 
 
 def pc_active_weapon_item_id(state: PcMeleeState, actor_id: str) -> str:
@@ -38,7 +66,8 @@ def pc_backup_candidate_hand(state: PcMeleeState, actor_id: str) -> PcWeaponHand
     participant = state.source.participant(actor_id)
     member = state.participant(actor_id)
     from towr.domain.pc_melee_models import PcMeleePolicy
-    if (participant.policy is PcMeleePolicy.AUTOMATIC_COMBAT and participant.pc.ranged is not None
+    if (participant.policy is PcMeleePolicy.AUTOMATIC_COMBAT and (participant.pc.ranged is not None
+            or participant.pc.weapon is PcMeleeWeapon.WEIGHTED_NET)
             and member.weapon_inventory is not None):
         return None
     policy = participant.backup_weapon_policy

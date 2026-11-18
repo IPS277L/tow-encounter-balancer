@@ -47,10 +47,10 @@ def is_net_impact(impact):
 
 def expected_net_resolution(kernel, attack):
     if (not is_net_impact(kernel.attack.impact_spec)
-            or kernel.attack.impact_spec.condition is not Condition.BURDENED
-            or kernel.target_state.conditions.has(Condition.DEFENCELESS)):
-        raise ValueError('bounded Net requires its Burdened impact and non-Defenceless PC')
-    target = kernel.target_state
+            or kernel.attack.impact_spec.condition is not Condition.BURDENED):
+        raise ValueError('Net requires its exact Burdened impact')
+    from towr.domain.pc_hit_condition_models import pc_pre_stagger_target
+    target,early_rules = pc_pre_stagger_target(kernel,attack.outcome)
     applications = ()
     replacement = None
     followups = ()
@@ -64,7 +64,7 @@ def expected_net_resolution(kernel, attack):
     elif attack.miss_consequence is MissConsequence.STAGGER_ATTACKER:
         followups = (AttackerStaggerRequest(kernel.attack.id),)
     return ResolutionResult(kernel.id,attack,replacement,target,None,None,None,None,None,
-        followups,condition_applications=applications)
+        followups,condition_applications=applications,applied_secondary_rule_ids=early_rules)
 
 
 def net_condition_sources_from_attack(request, result):
@@ -82,21 +82,24 @@ def net_condition_sources_from_attack(request, result):
 
 
 def net_stock_and_held(state, actor):
-    """Derive only finite stock/equipment; full owner replay certifies each proof."""
+    """Query the one shared physical bank; the printed policy remains separate."""
     from towr.domain.pc_melee_result_models import PcAttackProof
-    policy = next(p for p in state.source.npc_net_policies if p.actor_id==actor)
-    remaining, held = policy.initial_count, 'weighted_net'
+    from towr.domain.pc_weighted_net_models import weighted_net_for_actor,PcNetLocation
+    item = weighted_net_for_actor(state,actor)
+    if item is None:
+        raise ValueError('canonical Net stock must retain its one actual physical item')
+    remaining = int(item.location in (PcNetLocation.HELD,PcNetLocation.CARRIED))
+    held = 'weighted_net'
     for proof in state.history:
         if type(proof) is PcNpcNetDrawProof and proof.actor_id==actor:
-            replace(proof)
-            if proof.attack_id==held or proof.attack_id=='weighted_net' and not remaining:
-                raise ValueError('Net free draw repeated current equipment or restored spent stock')
             held = proof.attack_id
         elif (type(proof) is PcAttackProof and proof.request.actor_id==actor
                 and is_net_impact(proof.request.kernel_request.attack.impact_spec)):
-            if remaining!=1 or held!='weighted_net':
-                raise ValueError('Net throw lacks its one held unspent Net')
-            remaining,held = 0,None
+            held = None
+    if item.location is PcNetLocation.HELD:
+        held = 'weighted_net'
+    elif held == 'weighted_net':
+        held = None
     return remaining,held
 
 
@@ -106,9 +109,12 @@ def selected_pc_npc_net_attack(state, actor):
     from towr.domain.pc_npc_net_policy_models import PcNpcNetMode
     policy = next(p for p in state.source.npc_net_policies if p.actor_id==actor)
     remaining,_ = net_stock_and_held(state,actor)
+    from towr.domain.pc_melee_result_models import PcAttackProof
+    thrown = any(type(proof) is PcAttackProof and proof.request.actor_id == actor
+        and is_net_impact(proof.request.kernel_request.attack.impact_spec) for proof in state.history)
     target = next((state.participant(a) for a in state.source.enemy_target_priority
         if not state.participant(a).injury.dead),None)
-    return ('weighted_net' if remaining and policy.mode is PcNpcNetMode.THROW_ONCE_THEN_SPEAR
+    return ('weighted_net' if remaining and not thrown and policy.mode is PcNpcNetMode.THROW_ONCE_THEN_SPEAR
         and target is not None and not any(target.injury.conditions.has(c)
             for c in (Condition.BURDENED,Condition.DEFENCELESS)) else 'jagged_spear')
 
@@ -140,13 +146,11 @@ def expected_pc_npc_net_equipment(state, actor):
 
 
 def spend_pc_npc_net(state, enemies, request):
+    """Physical consumption/landing is atomic in the common Net owner."""
     if not is_net_impact(request.kernel_request.attack.impact_spec):
         return enemies
-    actor = request.actor_id
-    if state.source.enemy(actor).definition.id!=NET_DEFINITION_ID:
-        raise ValueError('Net stock belongs to its full canonical loadout')
-    remaining,held = net_stock_and_held(state,actor)
-    if remaining!=1 or held!='weighted_net':
-        raise ValueError('Net Attack cannot consume unavailable equipment')
-    return tuple(replace(e,state=replace(e.state,available_attack_ids=('jagged_spear',),wields_weapon=False))
-        if e.state.actor_id==actor else e for e in enemies)
+    from towr.domain.pc_weighted_net_models import weighted_net_for_actor,PcNetLocation
+    item = weighted_net_for_actor(state,request.actor_id)
+    if item is None or item.location is not PcNetLocation.HELD:
+        raise ValueError('Net Attack requires the same actual held physical item')
+    return enemies

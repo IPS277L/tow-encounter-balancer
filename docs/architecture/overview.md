@@ -18,6 +18,10 @@ Application принимает execution options отдельно от игро�
 
 ## Компоненты снаряжения NPC
 
+Полная область двуручного оружия подключена по [ADR-0138](../decisions/ADR-0138-all-two-handed-weapons.md). `PcMeleeScenario.battlefield` хранит явные условия сцены; `PcBattlefieldState` — фактические placements, movement usage и нетранзитивные Close pairs. Общие movement/Manoeuvre proofs выполняют существующие K1 Free Movement/Run/Charge, затем передают успешный Charge в тот же Attack owner. Они не создают фиктивный Attack slot. Dynamic всегда задаёт battlefield; отдельные прежние stationary native-сценарии сохраняют свой явный допуск.
+
+Компонент Horse и finite Net bank принадлежат состоянию боя, исходные mount/grip/BS/Throwing/Brawn — описанию участника. Net landing атомарно связан с Attack proof; release/pickup/approach имеют собственные typed proofs. Один физический UID не восстанавливается из имени оружия или append-only Condition history. Только актуальные независимые binding causes дают Burdened; успешный Brawn Recover снимает один binding, без standard benefits. Source/replay guards проверяют исходный предмет, реальный предыдущий банк и геометрию. Actor и объект на земле различаются: marker сети не получает Combat Turn.
+
 `NpcDefinition.generated_components` хранит полный GeneratedNpc; `generated_npc_profiles` заново выводит Attack, обе защиты и Resilience, roster/PC admission проверяют факты и исходные руки/Shield. Компоненты не восстанавливаются по canonical ID или одной source string. Именные/numeric источники без компонентов сохраняют прежний допуск и один Protection profile.
 
 `pc_generated_equipment` переиспользует общие weapon modifiers и выбирает реально подготовленную Defence/Athletics по точному ожидаемому числу успехов, с Defence при равенстве. Один helper обслуживает native и advisor, учитывая текущие Conditions, cap и one-use magic penalty без расхода RNG. Прогноз Recover использует prospective Conditions, чтобы не сохранять исчезающий Warhammer bonus. Derived baseline Damage и условные modifiers не складываются повторно.
@@ -26,11 +30,11 @@ Current native JSON1 хранит `generated_components` и условный `al
 
 ## Общий Shooting-компонент generated NPC
 
-`GeneratedNpc.ranged` хранит `GeneratedRangedFacts` только для трёх разрешённых Close-оружий; melee source сохраняет None. Builder выводит Shooting/Damage/Protection из полных фактов. NpcSearchSpace использует условную генерацию и атомарные совместимые мутации weapon/component, без декартова reserve; Shield не удаляется ради исправления входа. Automatic envelope использует известные PC ranged facts либо явную ограниченную fallback область.
+`GeneratedNpc.ranged` хранит `GeneratedRangedFacts` для трёх1H и девяти2H Shooting-оружий; melee/Net source сохраняет None. У Net отдельно заданы BS/Throwing, Brawn опционален для освобождения. Builder выводит Shooting/Condition Impact/Damage/Protection из полных фактов. NpcSearchSpace использует условную генерацию и атомарные совместимые мутации weapon/component, без декартова reserve; Shield не удаляется ради исправления входа. Automatic envelope использует известные PC факты либо явную ограниченную fallback область.
 
 `pc_npc_ranged_source_models` выводит полный профиль/scene policy по generated components; canonical Official/Ogre сохраняют прежнюю полную сверку. `pc_npc_ranged_models` владеет loaded/cycle/progress и actual shot/Reload proofs; старый NPC Pistol owner обобщён, второй pipeline не создан. Native `enemies[].ranged` и Python `npc_ranged_policies` заменили прежние имена без aliases. Source readmission/replay связывают выбранный режим с подготовленным Test до Fate и настоящим оружием.
 
-`pc_generated_ranged_advice` считает конечную loaded/Reload1–3 динамическую программу с горизонтом≤3 без RNG/ресурсов. Общий helper PC Close Protection обслуживает native и прогноз, включая actual Help/Fate. Melee/Shooting/modifiers/Reload учитываются PC planner раздельно. Simulation/summary `npc_ranged_counts` source-ordered, включая нули, и проверяются против turn/action budgets; effects не становятся дополнительными действиями. [ADR-0124](../decisions/ADR-0124-generated-npc-close-shooting-and-reload.md).
+`pc_generated_ranged_advice` считает конечную loaded/Reload2–5 динамическую программу с горизонтом≤3 без RNG/ресурсов. Общий helper PC Close Protection обслуживает native и прогноз, включая actual Help/Fate. Melee/Shooting/modifiers/Reload учитываются PC planner раздельно. Simulation/summary `npc_ranged_counts` source-ordered, включая нули, и проверяются против turn/action budgets; effects не становятся дополнительными действиями. [ADR-0124](../decisions/ADR-0124-generated-npc-close-shooting-and-reload.md).
 
 ## Автоматическая стрельба PC и предметный инвентарь
 

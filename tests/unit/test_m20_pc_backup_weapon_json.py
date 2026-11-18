@@ -76,7 +76,7 @@ class PcBackupWeaponJsonTests(unittest.TestCase):
             {'weapon':'sword'}, {'preferred_hand':'left'},
             {'weapon':'sword','preferred_hand':'left','extra':0},
             *({'weapon':value,'preferred_hand':'left'} for value in
-                ('pickaxe','flail','billhook','halberd','glaive','greataxe','greathammer',
+                ('pickaxe','flail','billhook','halberd','glaive','greataxe','greatsword','greathammer',
                  'unknown','SWORD','morning-star',False,None,1,[])),
             *({'weapon':'sword','preferred_hand':value} for value in
                 ('both','LEFT','dominant','',False,None,1,[])))

@@ -41,6 +41,18 @@ RULE-EQUIPMENT-002/004, Player’s Guide1.4 IV92/94–95, V108/110/116–119 и�
 Текущий inventory-вход dynamic generator: [ADR-0115](../decisions/ADR-0115-inventory-draft-and-talent-tags.md). Предметы имеют instance IDs и начальное положение, body/обычный helmet/shield разделены. PG92–93 dual wield/carry и97–98 armour не упрощаются удалением предметов: unsupported наборы отклоняются до MC. Обычный helmet описан как часть комплекта без дополнительного числового бонуса. Dual wield пока описывается в запросе, но не исполняется; прежний2H→1H backup подключён.
 
 
+## Всё двуручное оружие: реализовано
+
+[ADR-0138](../decisions/ADR-0138-all-two-handed-weapons.md) задаёт одну общую веху20предметов PG1.4 Equipment92–96для всех применимых сторон. Восемь fixed2H Melee доступны как generated components, PC дополнен Greatsword; Damage/руки выводятся общими helpers, Shield+2H отвергается. Flail/Greataxe/Greatsword/Greathammer/Glaive/Halberd применяют существующие Traits/Conditions/броню без повторного сложения. Greatsword +1d Defence при отсутствии Staggered — явная трактовка пользователя, не подтверждённое официальное исправление. [Пример](../examples/dynamic/two-handed.request.json).
+
+Общие Foot Spear/Polearm сохраняют один физический предмет при переменном хвате, Short reach и Shield только при1H. Урон Foot Spear при2H увеличен на1, Polearm — на2; Foot Spear даёт +1d Defence против настоящего Charge. Billhook получает свой бонус против фактически верховой цели; Horse добавляет +1 Resilience и ранний Prone при успешном Charge. Принудительное спешивание снимает бонусы. Числовые бонусы снаряжения не добавляются повторно к напечатанным named NPC attacks (GM93).
+
+Девять Shooting2H имеют настоящие Free Reload/Exacting2–5, ограничения Close/Optimum/GM maximum, Aim на Extreme и обязательный Aim Hochland. Реальные nearby-цели Blunderbuss включают союзников, последовательно получают Staggered со всеми последствиями; автоматического исключения дружественного огня нет. Дистанции и перемещения входят в явную сцену, а не подменяются оружием.
+
+Weighted Net использует **BS/Throwing** (PG68); Strength≥4 расширяет Optimum до Medium (PG96), но не меняет характеристику проверки. Попадание накладывает только Burdened, включая Defenceless; Damage/Wound/Staggered от обычного попадания отсутствуют. Конечная сеть остаётся связанной с целью либо лежит на фактической позиции; повторный бросок требует подбора того же предмета. Успешный альтернативный Recover/Brawn освобождает **одну выбранную сеть**, сохраняя другие причины Burdened и не давая стандартных преимуществ Recover. Noble Steed на успешном Net Charge отдельно даёт Prone; это не превращает Net в урон. [Публичный пример](../examples/dynamic/weighted-net.request.json), [общий владелец предмета](../../src/towr/domain/pc_weighted_net_models.py).
+
+Сквозная приёмка всей области завершена; фактические результаты и ограничения — в [статусе](../project-status.md). Mining-бонус Pickaxe к Toil относится к добыче ресурсов, а не к боевой атаке. Он сохраняется правилом, но отдельной добычи ресурсов генератор боёв не симулирует.
+
 ## PC Hochland, Aim и Fate Second Action (M70)
 
 <a id="pc-hochland-m70"></a>
@@ -272,7 +284,7 @@ Damage `S` использует Strength; `S±N` модифицирует её. 
 | Greathammer | Gold | Close | S+3 | 2H | `-1d` Melee; `+1d` Melee против Staggered |
 | Lance | Gold | Close | S+1 | 1H | `+1d` Melee и `+1 Damage` на mounted Charge; нельзя dual wield |
 
-`Greatsword` намеренно записан как `+1 to Defence`, без `d`, как в актуальном источнике. Тип модификатора требует отдельной сверки с контекстом/версткой перед кодированием.
+`Greatsword` в нормативной таблице сохраняет напечатанное `+1 to Defence` без `d`.2026-11-18 пользователь явно выбрал трактовку пропущенной `d`: +1dк Защите (Defence) при отсутствии Staggered; это пользовательское решение, не подтверждённая официальная errata. PC/generated NPC используют S+3,2H,−1dMelee и этот условный Defence bonus. [ADR-0138](../decisions/ADR-0138-all-two-handed-weapons.md) фиксирует источник/трактовку и незавершённый полный scope.
 
 ### Исполняемая PC-граница M18
 

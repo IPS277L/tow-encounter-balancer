@@ -1,6 +1,10 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from towr.domain.charge_models import ChargeMovementResult
 
 from towr.domain.magic_models import (
     CastingDecisionRequest,
@@ -33,6 +37,7 @@ class AttackActionExecutionRequest:
     target_id: str
     slot_index: int
     kernel_request: KernelAttackRequest
+    charge_movement: ChargeMovementResult | None = field(default=None,kw_only=True)
 
     def __post_init__(self) -> None:
         _validate_non_empty_string(self.id, "attack action execution id")
@@ -51,6 +56,17 @@ class AttackActionExecutionRequest:
             raise TypeError("kernel_request must be a KernelAttackRequest")
         if self.kernel_request.target_id != self.target_id:
             raise ValueError("kernel request belongs to another target")
+        if self.charge_movement is not None:
+            from towr.domain.charge_models import ChargeMovementResult
+            if type(self.charge_movement) is not ChargeMovementResult:
+                raise TypeError('Charge attack requires its exact completed movement phase')
+            phase = replace(self.charge_movement)
+            from towr.domain.condition_models import Condition
+            if (not phase.attack_allowed or phase.actor_id != self.actor_id
+                    or phase.target_id != self.target_id or phase.slot_index != self.slot_index
+                    or phase.round_state != self.state or not self.kernel_request.attack.is_close_range
+                    or self.kernel_request.attack.attacker_is_staggered is not phase.conditions.has(Condition.STAGGERED)):
+                raise ValueError('Charge attack is detached from its actual movement, actor, target or slot')
 
 
 @dataclass(frozen=True, slots=True)

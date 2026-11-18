@@ -89,6 +89,20 @@ def document(*, balance=False, party_size=1, mixed=False):
     return result
 
 
+def weighted_net_document(*, balance=False):
+    """Use the admitted physical Net source, including its BS/Throwing facts."""
+    from tests.unit.test_pc_weighted_net import source as weighted_net_source
+    raw=document(balance=balance)
+    key='template' if balance else 'scenario'
+    raw[key]=scenario_document(weighted_net_source())
+    if balance:
+        raw['generation']['facts']=deepcopy(raw[key]['facts'])
+        raw['generation']['groups']=[{
+            'group_id':'nets','actor_ids':['minion1'],'minimum_count':0,'maximum_count':1,
+        }]
+    return raw
+
+
 def aggregate(request, *, unsupported=False):
     trials=request.trials
     counts=PcMeleeOutcomeCounts(0 if unsupported else trials,0,0,trials if unsupported else 0)
@@ -112,20 +126,25 @@ def balance_result(command):
 
 
 def melee_help(beneficiary):
-    return {'beneficiary_id':beneficiary,'target':'melee_attack','protection_skill':None}
+    return {'beneficiary_id':beneficiary,'target':'attack','skill':'melee'}
 
 
 class PcMeleeJsonTests(unittest.TestCase):
     def test_current_weapons_roundtrip_and_full_sources_preserve_mixed_party(self):
-        weapons=('staff','sword','dagger','axe','warhammer','morning_star','pickaxe','flail','billhook','halberd','glaive','greataxe','greathammer','pistol','repeater_handbow','repeater_pistol')
-        self.assertEqual(tuple(weapon.value for weapon in PcMeleeWeapon),weapons+('shortbow','warbow','longbow','crossbow','repeater_crossbow','handgun','repeater_handgun','sling','blunderbuss','hochland_long_rifle'))
-        for balance in (False,True):
-            with self.subTest(balance=balance):
+        weapons=('staff','sword','dagger','axe','warhammer','morning_star','foot_spear','polearm',
+            'pickaxe','flail','billhook','halberd','glaive','greataxe','greatsword','greathammer',
+            'pistol','repeater_handbow','repeater_pistol')
+        self.assertEqual(tuple(weapon.value for weapon in PcMeleeWeapon),weapons+('shortbow','warbow','longbow','crossbow','repeater_crossbow','handgun','repeater_handgun','sling','blunderbuss','hochland_long_rifle','weighted_net'))
+        for balance,variable_grip in ((balance,grip) for balance in (False,True)
+                for grip in ('left','right','both')):
+            with self.subTest(balance=balance,variable_grip=variable_grip):
                 raw=document(balance=balance,party_size=len(weapons),mixed=True)
                 key='template' if balance else 'scenario'
                 for member,weapon in zip(raw[key]['party'],weapons):
                     member['pc']['weapon']=weapon
-                    member['initial_weapon_hand']='both' if weapon in ('pickaxe','flail','billhook','halberd','glaive','greataxe','greathammer') else 'left'
+                    member['initial_weapon_hand']='both' if weapon in ('pickaxe','flail','billhook','halberd','glaive','greataxe','greatsword','greathammer') else 'left'
+                    if weapon in ('foot_spear','polearm'):
+                        member['initial_weapon_hand']=variable_grip
                     if weapon in ('pistol','repeater_handbow','repeater_pistol'):
                         from tests.support.pc_ranged_scenarios import ranged_profile
                         profile = ranged_profile(weapon=PcMeleeWeapon(weapon), **({'repeater_bonus_policy':None} if weapon=='pistol' else {}))
@@ -147,6 +166,28 @@ class PcMeleeJsonTests(unittest.TestCase):
                 else:
                     encoded=json.loads(wire.encode_pc_melee_simulation_result(command,aggregate(command.request)))
                 self.assertEqual(encoded['request'],raw)
+
+    def test_weighted_net_roundtrip_preserves_actual_profiles_and_physical_inventory(self):
+        for balance in (False,True):
+            with self.subTest(balance=balance):
+                raw=weighted_net_document(balance=balance)
+                key='template' if balance else 'scenario'
+                parse=wire.parse_pc_melee_balance_request if balance else wire.parse_pc_melee_simulation_request
+                command=parse(json.dumps(raw))
+                source=command.request.template if balance else command.request.scenario
+                self.assertIs(source.party[0].pc.weapon,PcMeleeWeapon.WEIGHTED_NET)
+                self.assertEqual(source.party[0].pc.throwing_profile.characteristic,2)
+                self.assertEqual(source.party[0].pc.throwing_profile.skill,4)
+                self.assertEqual(source.party[0].initial_weapon_hand.value,'both')
+                self.assertEqual(scenario_document(source),raw[key])
+                encoded=json.loads(wire.encode_pc_melee_balance_result(command,balance_result(command))
+                    if balance else wire.encode_pc_melee_simulation_result(command,aggregate(command.request)))
+                self.assertEqual(encoded['request'],raw)
+                if balance:
+                    for candidate in encoded['candidates']:
+                        for member,original in zip(candidate['request']['scenario']['party'],raw[key]['party'],strict=True):
+                            for field in ('pc','initial_weapon_hand','combat_equipment'):
+                                self.assertEqual(member.get(field),original.get(field))
 
     def test_weapon_input_rejects_unknown_case_aliases_and_nonstrings(self):
         for balance in (False,True):
@@ -264,7 +305,7 @@ class PcMeleeJsonTests(unittest.TestCase):
                     key='template' if balance else 'scenario'
                     helper=raw[key]['party'][0]
                     helper.update(policy='help_ally_or_attack_or_recover_self',help_policy={
-                        'beneficiary_id':'pc2','target':'first_incoming_protection','protection_skill':skill})
+                        'beneficiary_id':'pc2','target':'first_incoming_protection','skill':skill})
                     self.assertEqual(raw[key]['pc_activation_order'],['pc2','pc'])
                     raw[key]['enemy_target_priority']=['pc2','pc']
                     parse=wire.parse_pc_melee_balance_request if balance else wire.parse_pc_melee_simulation_request
@@ -283,17 +324,17 @@ class PcMeleeJsonTests(unittest.TestCase):
                             self.assertEqual(candidate['summary']['total_help_action_count'],0)
 
     def test_help_target_and_skill_are_explicit_correlated_and_not_coerced(self):
-        base={'beneficiary_id':'pc','target':'first_incoming_protection','protection_skill':'defence'}
+        base={'beneficiary_id':'pc','target':'first_incoming_protection','skill':'defence'}
         invalid=[]
-        for name in ('beneficiary_id','target','protection_skill'):
+        for name in ('beneficiary_id','target','skill'):
             criteria=deepcopy(base)
             del criteria[name]
             invalid.append(criteria)
         for name,value in (('target',True),('target',None),('target','protection'),
-                ('protection_skill',True),('protection_skill',1),('protection_skill',None),
-                ('protection_skill','shooting'),('protection_skill','Defence'),('beneficiary_id',True)):
+                ('skill',True),('skill',1),('skill',None),
+                ('skill','shooting'),('skill','Defence'),('beneficiary_id',True)):
             invalid.append(dict(base,**{name:value}))
-        invalid.extend((dict(base,target='melee_attack'),dict(base,incoming_attacker_id='minion1')))
+        invalid.extend((dict(base,target='attack'),dict(base,incoming_attacker_id='minion1')))
         for criteria in invalid:
             raw=document(party_size=2)
             raw['scenario']['party'][1].update(policy='help_ally_or_attack_or_recover_self',help_policy=criteria)
@@ -304,13 +345,13 @@ class PcMeleeJsonTests(unittest.TestCase):
         for beneficiary in ('pc2','foreign','minion1'):
             raw=document(party_size=2)
             raw['scenario']['party'][1].update(policy='help_ally_or_attack_or_recover_self',help_policy={
-                'beneficiary_id':beneficiary,'target':'first_incoming_protection','protection_skill':'athletics'})
+                'beneficiary_id':beneficiary,'target':'first_incoming_protection','skill':'athletics'})
             with self.subTest(beneficiary=beneficiary),self.assertRaises(PcMeleeSimulationInputError):
                 wire.parse_pc_melee_simulation_request(json.dumps(raw))
         raw=document(party_size=2)
         for member,beneficiary in zip(raw['scenario']['party'],('pc2','pc')):
             member.update(policy='help_ally_or_attack_or_recover_self',help_policy={
-                'beneficiary_id':beneficiary,'target':'first_incoming_protection','protection_skill':'defence'})
+                'beneficiary_id':beneficiary,'target':'first_incoming_protection','skill':'defence'})
         with self.assertRaises(PcMeleeSimulationInputError):
             wire.parse_pc_melee_simulation_request(json.dumps(raw))
 

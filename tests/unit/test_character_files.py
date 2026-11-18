@@ -12,7 +12,8 @@ class CharacterFileTests(unittest.TestCase):
 
     def npc(self):
         return dict(weapon_skill=3, strength=4, toughness=3, agility=2, melee=4,
-            athletics=3, defence=5, shield=True, weapon='dagger', light_armour=True, abilities=['drained_on_hit'],talents=[])
+            athletics=3, defence=5, shield=True, weapon='dagger', light_armour=True, abilities=['drained_on_hit'],talents=[],
+            weapon_grip=None,mount=None,throwing=None,brawn=None,ballistic_skill=None)
 
     def test_player_roundtrip_preserves_inventory_and_unimplemented_draft(self):
         player = self.player()
@@ -45,7 +46,7 @@ class CharacterFileTests(unittest.TestCase):
         cases = [('player', self.npc()), ('npc', self.player()), ('player', []),
             ('npc', {**self.npc(), 'melee': True}), ('npc', {**self.npc(), 'athletics': 7}),
             ('npc', {**self.npc(), 'strength': 0}), ('npc', {**self.npc(), 'abilities': ['unknown']}),
-            ('npc', {**self.npc(), 'weapon': 'greatsword'})]
+            ('npc', {**self.npc(), 'weapon': 'great_sword'})]
         for kind, document in cases:
             with self.subTest(kind=kind, document=document), self.assertRaises(DynamicEncounterInputError):
                 parse_character_file(json.dumps(document), kind)

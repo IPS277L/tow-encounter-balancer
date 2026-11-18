@@ -187,7 +187,7 @@ class PcCloseShootingProtectionTests(unittest.TestCase):
                 self.assertIsNone(protection.selected_skill)
                 self.assertIsNone(prepared.kernel_request.attack.defender_test)
         member = incoming.source.participant('pc2')
-        self.assertIs(pc_protection_skill(member,Skill.THROWING,Skill.MELEE),Skill.ATHLETICS)
+        self.assertIs(pc_protection_skill(member,Skill.THROWING,Skill.MELEE),Skill.MELEE)
         self.assertIs(pc_protection_skill(member,Skill.MELEE,Skill.ATHLETICS),Skill.DEFENCE)
         self.assertIs(pc_protection_skill(member,Skill.BRAWN,Skill.MELEE),Skill.ENDURANCE)
 

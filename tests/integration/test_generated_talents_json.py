@@ -70,7 +70,8 @@ class GeneratedTalentJsonTests(unittest.TestCase):
         raw=dict(weapon_skill=npc.weapon_skill,strength=npc.strength,toughness=npc.toughness,
             agility=npc.agility,melee=npc.melee,defence=npc.defence,athletics=npc.athletics,
             weapon=npc.weapon.value,light_armour=npc.light_armour,shield=npc.shield,
-            abilities=[],talents=[talent.value for talent in npc.talents])
+            abilities=[],talents=[talent.value for talent in npc.talents],
+            weapon_grip=None,mount=None,throwing=None,brawn=npc.brawn,ballistic_skill=None)
         self.assertEqual(parse_character_file(json.dumps(raw),'npc'),raw)
         for changes in (dict(weapon_skill=2),dict(strength=3),dict(talents=['wild_attack']*2),
                 dict(talents=['unknown']),dict(talents=[dict(id='wild_attack',rank=1)])):

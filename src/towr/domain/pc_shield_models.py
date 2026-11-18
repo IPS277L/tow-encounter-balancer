@@ -96,7 +96,8 @@ def pc_shield_resilience(state: PcMeleeState, actor: str) -> ResilienceProfile:
     pc = pc_effective_definition(state, actor)
     source = state.source.participant(actor)
     shield = pc_has_working_shield(state.participant(actor))
-    bonus = pc.armour_bonus+int(shield)
+    from towr.domain.pc_mount_models import mount_resilience_bonus
+    bonus = pc.armour_bonus+int(shield)+mount_resilience_bonus(state,actor)
     # Positive Resilience bonuses already imply armour. Preserve a zero-bonus
     # worn item (e.g. Helmet) without adding imaginary Resilience.
     return ResilienceProfile(pc.toughness,bonus,

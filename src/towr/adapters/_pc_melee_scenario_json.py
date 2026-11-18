@@ -40,6 +40,8 @@ from towr.domain.pc_melee_models import (
     PcShortRangeOpening, PcBlunderbussNearby, PcAimSecondActionPolicy,
 )
 from towr.domain.ranged_weapon_profiles import RangedWeaponHands, RangedWeaponRange
+from towr.domain.pc_battlefield_models import PcBattlefieldSpec
+from towr.domain.pc_mount_models import CombatMount
 from towr.domain.resolution_models import TargetInjuryPolicy
 from towr.domain.test_models import InlineProfile, Skill
 from towr.domain.turn_models import CombatSide
@@ -107,6 +109,17 @@ def _parse_short_range_opening(data, *, path_prefix, error_type):
     if type(raw) is not dict or set(raw) != {'party_clustered_confirmed','npc_approach_clear_confirmed'}:
         raise error_type(Code.INVALID_INPUT, 'Short opening requires its complete closed confirmations', path=path)
     return build_value(error_type, path, PcShortRangeOpening, **raw)
+
+
+def _parse_battlefield(data, *, path_prefix, error_type):
+    raw = data.get('battlefield')
+    if raw is None:
+        return None
+    path = path_prefix + '/battlefield'
+    if type(raw) is not dict or set(raw) != {'initial_range', 'two_handed_max_range'}:
+        raise error_type(Code.INVALID_INPUT, 'Battlefield requires its complete scene ranges', path=path)
+    return build_value(error_type, path, PcBattlefieldSpec,
+        RangedWeaponRange(raw['initial_range']), RangedWeaponRange(raw['two_handed_max_range']))
 
 
 def _parse_blunderbuss_nearby(data, *, path_prefix, error_type):
@@ -177,8 +190,10 @@ def _parse_participant(data, *, path_prefix, error_type):
         if weapon in (PcMeleeWeapon.REPEATER_HANDBOW, PcMeleeWeapon.REPEATER_PISTOL,
                 PcMeleeWeapon.REPEATER_CROSSBOW, PcMeleeWeapon.REPEATER_HANDGUN):
             fields.add('repeater_bonus_policy')
-        if weapon is PcMeleeWeapon.HOCHLAND_LONG_RIFLE:
+        if weapon is PcMeleeWeapon.HOCHLAND_LONG_RIFLE or 'awareness' in raw:
             fields.add('awareness')
+            if weapon in PC_FREE_RELOAD_WEAPONS:
+                fields.add('initiative')
         if weapon not in PC_RANGED_WEAPONS or type(raw) is not dict or set(raw) != fields:
             raise error_type(Code.INVALID_INPUT, 'ranged requires its complete closed weapon-specific profile',
                 path=path_prefix + '/pc/ranged')
@@ -234,6 +249,7 @@ def _parse_participant(data, *, path_prefix, error_type):
         near_miss_policy=near_miss,glorious_policy=glorious,help_policy=help_policy,
         aim_second_action_policy=aim_second_action_policy,
         wizard=wizard, armour_worn=data.get('armour_worn'),
+        mount=None if data.get('mount') is None else CombatMount(data['mount']),
         combat_equipment=_parse_combat_equipment(data.get('combat_equipment'),
             path=path_prefix+'/combat_equipment',error_type=error_type),
         combat_talents=tuple(build(f'{path_prefix}/combat_talents/{index}',PcCombatTalent,
@@ -278,7 +294,7 @@ def _parse_npc_attack(data, *, skill, path_prefix, error_type, shooting=False):
         required = {'id','source_rule_id','skill','test_profile','damage','range_min',
             'range_max','hands','secondary_effects','ignores_armour'}
         if (set(data) != required or type(data['skill']) is not str or data['skill'] != 'shooting'
-                or type(data['range_min']) is not str or data['range_min'] != 'close'
+                or type(data['range_min']) is not str
                 or type(data['ignores_armour']) is not bool):
             raise error_type(Code.INVALID_INPUT,'NPC ranged source requires its complete closed Shooting profile',path=path_prefix)
     elif any(name in data for name in ('range_min', 'ignores_armour')) or (
@@ -287,7 +303,7 @@ def _parse_npc_attack(data, *, skill, path_prefix, error_type, shooting=False):
     return build_value(error_type,path_prefix,NpcAttackProfile,
         data['id'],data['source_rule_id'],skill,
         InlineProfile(**data['test_profile']),DamageProfile(**data['damage']),
-        RangedWeaponRange.CLOSE,RangedWeaponRange(data['range_max']),
+        RangedWeaponRange(data['range_min']) if shooting else RangedWeaponRange.CLOSE,RangedWeaponRange(data['range_max']),
         None if data['hands'] is None else RangedWeaponHands(data['hands']),
         ignores_armour=data['ignores_armour'] if shooting else False,
         secondary_effects=tuple(_parse_attack_effect(effect,
@@ -296,6 +312,8 @@ def _parse_npc_attack(data, *, skill, path_prefix, error_type, shooting=False):
 
 
 def _npc_attack_document(attack):
+    if attack.skill is Skill.THROWING and attack.condition_impact is not None:
+        return _net_attack_document(attack)
     document = {'id':attack.id,'source_rule_id':attack.source_rule_id,
         'test_profile':asdict(attack.test_profile),'damage':asdict(attack.damage),
         'range_max':attack.range_max.value,'hands':None if attack.hands is None else attack.hands.value,
@@ -351,8 +369,10 @@ def _parse_scenario(data, *, path_prefix, error_type):
                 enemy['actor_id'],raw['initially_loaded'],raw['has_blackpowder_lore'],
                 raw['has_blackpowder_kit'],raw['ammunition_supply_confirmed'],
                 PcNpcRangedReloadHandPolicy(raw['reload_hand_policy'])))
-        attack = _parse_npc_attack(attack_raw,skill=Skill.SHOOTING if shooting else Skill.MELEE,
-            path_prefix=path+'/definition/attack',error_type=error_type,shooting=shooting)
+        attack = (_parse_net_attack(attack_raw,path_prefix=path+'/definition/attack',error_type=error_type)
+            if attack_raw.get('skill') == 'throwing' else _parse_npc_attack(attack_raw,
+                skill=Skill.SHOOTING if shooting else Skill.MELEE,
+                path_prefix=path+'/definition/attack',error_type=error_type,shooting=shooting))
         has_trample = 'trample_attack' in definition_raw
         if has_trample != (definition_raw['id']=='pc-book-npc:great_stag'):
             raise error_type(Code.INVALID_INPUT,'trample_attack is required only for canonical Great Stag',
@@ -393,6 +413,8 @@ def _parse_scenario(data, *, path_prefix, error_type):
             raw = definition_raw['generated_components']
             generated = build(path + '/definition/generated_components', GeneratedNpc,
                 **dict(raw, weapon=GeneratedWeapon(raw['weapon']),
+                    mount=None if raw.get('mount') is None else CombatMount(raw['mount']),
+                    weapon_grip=None if raw.get('weapon_grip') is None else RangedWeaponHands(raw['weapon_grip']),
                     ranged=None if raw.get('ranged') is None else build(path + '/definition/generated_components/ranged', GeneratedRangedFacts, **raw['ranged']),
                     abilities=tuple(GeneratedAbility(value) for value in raw['abilities']),
                     talents=tuple(GeneratedTalent(value) for value in raw['talents'])))
@@ -417,6 +439,7 @@ def _parse_scenario(data, *, path_prefix, error_type):
             for index,policy in enumerate(data['npc_help_policies'])),
         npc_extra_attack_actor_ids=tuple(data['npc_extra_attack_actor_ids']),
         short_range_opening=_parse_short_range_opening(data,path_prefix=path_prefix,error_type=error_type),
+        battlefield=_parse_battlefield(data,path_prefix=path_prefix,error_type=error_type),
         blunderbuss_nearby=_parse_blunderbuss_nearby(data,path_prefix=path_prefix,error_type=error_type),
         npc_close_shooting_protection_policies=_parse_close_shooting_policies(data,
             path_prefix=path_prefix,error_type=error_type),
@@ -440,6 +463,11 @@ def scenario_document(scenario: PcMeleeScenario) -> dict:
     validate_pc_melee_scenario_admission(scenario)
     party = _plain([asdict(member) for member in scenario.party])
     for member in party:
+        for name in ('throwing','brawn','ballistic_skill'):
+            if member['pc'][name] is None:
+                del member['pc'][name]
+        if member['mount'] is None:
+            del member['mount']
         if member['combat_equipment'] is None:
             del member['combat_equipment']
         if not member['combat_talents']:
@@ -510,6 +538,8 @@ def scenario_document(scenario: PcMeleeScenario) -> dict:
             asdict(policy) for policy in scenario.npc_close_shooting_protection_policies])
     if scenario.short_range_opening is not None:
         document['short_range_opening'] = asdict(scenario.short_range_opening)
+    if scenario.battlefield is not None:
+        document['battlefield'] = _plain(asdict(scenario.battlefield))
     if scenario.blunderbuss_nearby is not None:
         document['blunderbuss_nearby'] = {
             'initial_npc_clustered_confirmed':scenario.blunderbuss_nearby.initial_npc_clustered_confirmed,

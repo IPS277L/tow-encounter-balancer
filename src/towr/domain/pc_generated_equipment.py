@@ -21,13 +21,13 @@ if TYPE_CHECKING:
 
 
 def generated_attack_modifiers(definition: NpcDefinition, conditions: ConditionState,
-        target_conditions: ConditionState) -> tuple[DiceModifier,...]:
+        target_conditions: ConditionState, *, target_mounted: bool = False) -> tuple[DiceModifier,...]:
     components = definition.generated_components
     if components is None:
         return ()
     weapon = PcMeleeWeapon(components.weapon.value)
     return (pc_weapon_test_modifiers(weapon,Skill.MELEE,conditions)
-        + pc_weapon_attack_modifiers(weapon,target_conditions))
+        + pc_weapon_attack_modifiers(weapon,target_conditions,target_mounted=target_mounted))
 
 
 def generated_damage_modifiers(definition: NpcDefinition,
@@ -53,20 +53,28 @@ def npc_protection_test(state: PcMeleeState, defender_id: str, attacker_id: str,
     components = enemy.definition.generated_components
     profiles = ((profile,) if profile is not None else enemy.definition.protection
         if components is not None else enemy.definition.protection[:1])
-    if profile is None and components is not None and attack_skill is Skill.SHOOTING:
+    if profile is None and components is not None and attack_skill in (Skill.SHOOTING,Skill.THROWING):
+        from towr.domain.pc_short_opening_models import pc_enemy_range
+        from towr.domain.ranged_weapon_profiles import RangedWeaponRange
         from towr.domain.test_models import InlineProfile
         melee=NpcProtectionProfile('RULE-EQUIPMENT-004:generated-close-melee',Skill.MELEE,
             InlineProfile(components.weapon_skill,components.melee))
-        profiles=((enemy.definition.protection[0],) if enemy.state.holds_shield else ())+(
-            melee,enemy.definition.protection[1])
+        profiles=((*((enemy.definition.protection[0],) if enemy.state.holds_shield else ()),
+            *((melee,) if pc_enemy_range(state,attacker_id,defender_id) is RangedWeaponRange.CLOSE else ()),
+            enemy.definition.protection[1]))
+    profiles=tuple(option for option in profiles if option.skill is not Skill.DEFENCE
+        or enemy.state.holds_shield or attack_skill not in (Skill.SHOOTING,Skill.THROWING) and enemy.state.wields_weapon)
     tests = []
+    from towr.domain.pc_battlefield_manoeuvre_models import current_pc_charge
+    charge=current_pc_charge(state,attacker_id)
+    against_charge=charge is not None and charge.target_id == defender_id
     for option in profiles:
         modifiers = list(pc_npc_distraction_test_modifiers(state,defender_id,attacker_id))
         if option.skill is Skill.MELEE:
             modifiers.extend(pc_npc_grudge_melee_modifiers(state,defender_id,attacker_id))
         if components is not None and enemy.state.wields_weapon:
             modifiers.extend(pc_weapon_test_modifiers(PcMeleeWeapon(components.weapon.value),
-                option.skill,enemy.state.injury.conditions))
+                option.skill,enemy.state.injury.conditions,against_charge=against_charge))
         modifiers.extend(magic_test_modifiers(state,defender_id,option.skill)[0])
         if enemy.state.injury.conditions.has(Condition.DRAINED):
             modifiers = [item for item in modifiers if item.amount <= 0]

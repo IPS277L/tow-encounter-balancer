@@ -9,12 +9,12 @@ from functools import lru_cache
 from towr.domain.condition_models import Condition
 from towr.domain.ranged_weapon_profiles import (
     RangedWeaponId, REPEATER_SHOOTING_BONUS_RULE_ID, ranged_weapon_combat_profile,
-    ranged_weapon_reload_profile,
+    ranged_weapon_reload_profile,RangedReloadTrigger,RangedWeaponRange,
 )
 from towr.domain.test_models import DiceModifier, Skill, TestRequest
 
 
-def pc_close_shooting_protection(state, target_id, attacker_id, test_id, *,
+def pc_shooting_protection(state, target_id, attacker_id, test_id, *,
         conditions=None, extra_dice=0, enhancement=None):
     """Choose a legal actual prepared Test; ties prefer Defence, Melee, Athletics.
 
@@ -29,11 +29,14 @@ def pc_close_shooting_protection(state, target_id, attacker_id, test_id, *,
     from towr.domain.pc_shield_models import pc_has_working_shield
     from towr.domain.pc_talent_advice import pc_test_distribution
     from towr.domain.pc_weapon_models import pc_weapon_test_modifiers
+    from towr.domain.pc_short_opening_models import pc_enemy_range
 
     member = state.participant(target_id)
     actual_conditions = member.injury.conditions
     conditions = actual_conditions if conditions is None else conditions
-    skills = ((Skill.DEFENCE,) if pc_has_working_shield(member) else ()) + (Skill.MELEE, Skill.ATHLETICS)
+    close = pc_enemy_range(state,attacker_id,target_id) is RangedWeaponRange.CLOSE
+    skills = (((Skill.DEFENCE,) if pc_has_working_shield(member) else ())
+        + ((Skill.MELEE,) if close else ()) + (Skill.ATHLETICS,))
     candidates = []
     for skill in skills:
         modifiers = (DiceModifier('tactics:prospective-help', extra_dice),) if extra_dice else ()
@@ -63,11 +66,17 @@ def pc_close_shooting_protection(state, target_id, attacker_id, test_id, *,
     return best[1], best[2]
 
 
-@lru_cache(maxsize=4096)
-def _repeater_choice(ordinary_value, bonus_value, reload_distribution, horizon):
-    """Exact finite action forecast, with three required reload successes.
+def pc_close_shooting_protection(state, target_id, attacker_id, test_id, **prospective):
+    """Existing callers share the actual distance-aware Protection choice."""
+    return pc_shooting_protection(state,target_id,attacker_id,test_id,**prospective)
 
-    loaded=0; 1..3 are remaining Exacting successes. On a future loaded turn
+
+@lru_cache(maxsize=4096)
+def _repeater_choice(ordinary_value, bonus_value, reload_distribution, horizon,
+        required_successes=3):
+    """Exact finite action forecast with the actual required reload successes.
+
+    loaded=0; positive values are remaining Exacting successes. On a loaded turn
     the actor may choose anew. A reload action has no immediate hit utility.
     """
     @lru_cache(maxsize=None)
@@ -77,9 +86,10 @@ def _repeater_choice(ordinary_value, bonus_value, reload_distribution, horizon):
         if remaining:
             return sum(chance*value(turns-1,max(0,remaining-successes))
                 for successes,chance in enumerate(reload_distribution))
-        return max(ordinary_value+value(turns-1,0),bonus_value+value(turns-1,3))
+        return max(ordinary_value+value(turns-1,0),
+            bonus_value+value(turns-1,required_successes))
     ordinary = ordinary_value+value(horizon-1,0)
-    bonus = bonus_value+value(horizon-1,3)
+    bonus = bonus_value+value(horizon-1,required_successes)
     return bonus > ordinary+1e-12
 
 
@@ -101,11 +111,11 @@ def npc_repeater_bonus(state, actor_id, attacker: TestRequest,
     if components is None or components.ranged is None:
         return False
     weapon_id = RangedWeaponId(components.weapon.value)
-    if weapon_id not in (RangedWeaponId.REPEATER_PISTOL,RangedWeaponId.REPEATER_HANDBOW):
+    reload_profile = ranged_weapon_reload_profile(weapon_id)
+    if reload_profile.trigger is not RangedReloadTrigger.AFTER_OPTIONAL_BONUS:
         return False
     if enemy.state.injury.conditions.has(Condition.DRAINED):
         return False
-    reload_profile = ranged_weapon_reload_profile(weapon_id)
     bonus_dice = reload_profile.optional_shooting_bonus_dice
     boosted = replace(attacker,dice_modifiers=(*attacker.dice_modifiers,
         DiceModifier(REPEATER_SHOOTING_BONUS_RULE_ID,bonus_dice)))
@@ -118,7 +128,9 @@ def npc_repeater_bonus(state, actor_id, attacker: TestRequest,
     protection = ((1.0,) if defender is None else _distribution(defender) if defender_skill is None
         else pc_test_distribution(state,target_id,defender_skill,defender,include_policy=True))
     def utility(request):
-        return _impact_value(_distribution(request),protection,attack_profile.damage.base,
+        damage = attack_profile.damage.base + (profile.armoured_target_damage_bonus
+            if resilience.is_armoured else 0)
+        return _impact_value(_distribution(request),protection,damage,
             resistance,attack_profile.damage.success_multiplier,
             conditions.has(Condition.STAGGERED),conditions.has(Condition.DEFENCELESS))
     reload = npc_ranged_reload_test(state,actor_id,'tactics:reload')
@@ -127,4 +139,5 @@ def npc_repeater_bonus(state, actor_id, attacker: TestRequest,
         - int(actor_id in unavailable)))
     if not horizon:
         return False
-    return _repeater_choice(utility(attacker),utility(boosted),_distribution(reload),horizon)
+    return _repeater_choice(utility(attacker),utility(boosted),_distribution(reload),horizon,
+        reload_profile.required_successes)

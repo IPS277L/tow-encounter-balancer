@@ -31,6 +31,191 @@ from towr.domain.turn_models import (
     CombatRoundState,
     ManoeuvreKind,
 )
+from towr.domain.ranged_weapon_profiles import RangedWeaponRange
+
+
+CHARGE_MOVEMENT_RULE_ID = 'RULE-COMBAT-014:charge-movement'
+
+
+@dataclass(frozen=True, slots=True)
+class ChargeMovementRequest:
+    """The real Manoeuvre movement phase, before its one ordinary attack pipeline."""
+    id: str
+    round_state: CombatRoundState
+    spatial_state: SpatialBattleState
+    actor_id: str
+    target_id: str
+    slot_index: int
+    speed: MovementSpeed
+    actor_conditions: ConditionState
+    target_range: RangedWeaponRange
+    actor_began_turn_in_enemy_close_range: bool
+    athletics_test: TestRequest | None = None
+    intermediate_zone_id: str | None = None
+    path_entity_ids: tuple[str, ...] = ()
+    crosses_obstacle: bool = False
+    crosses_difficult_terrain: bool = False
+    rule_id: str = CHARGE_MOVEMENT_RULE_ID
+
+    def __post_init__(self):
+        for value,name in ((self.id,'Charge movement id'),(self.actor_id,'actor_id'),
+                (self.target_id,'target_id')):
+            _validate_non_empty_string(value,name)
+        if (type(self.round_state) is not CombatRoundState
+                or type(self.spatial_state) is not SpatialBattleState
+                or type(self.speed) is not MovementSpeed
+                or type(self.actor_conditions) is not ConditionState
+                or type(self.target_range) is not RangedWeaponRange):
+            raise TypeError('Charge movement requires exact round, spatial, Speed, Conditions and Range')
+        replace(self.round_state); replace(self.spatial_state)
+        _validate_slot_index(self.slot_index)
+        for value,name in ((self.actor_began_turn_in_enemy_close_range,'began Close'),
+                (self.crosses_obstacle,'crosses_obstacle'),
+                (self.crosses_difficult_terrain,'crosses_difficult_terrain')):
+            if type(value) is not bool:
+                raise TypeError(f'Charge movement {name} must be an exact boolean')
+        if self.rule_id not in (CHARGE_MOVEMENT_RULE_ID,
+                'RULE-COMBAT-014:charge-action-execution',
+                'RULE-COMBAT-014:long-charge-action-execution'):
+            raise ValueError('Charge movement requires its actual source rule')
+        if self.actor_id == self.target_id:
+            raise ValueError('Charge cannot target its own actor')
+        turn = self.round_state.active_turn
+        if (turn is None or turn.actor_id != self.actor_id
+                or self.round_state.round_number != self.spatial_state.round_number
+                or self.slot_index > len(turn.action_slots)):
+            raise ValueError('Charge movement requires its actual reserved turn and spatial round')
+        slot = turn.action_slots[self.slot_index-1]
+        if (slot.executed or slot.declaration.kind is not CombatActionKind.MANOEUVRE
+                or slot.declaration.manoeuvre is not ManoeuvreKind.CHARGE
+                or any(not earlier.executed for earlier in turn.action_slots[:self.slot_index-1])):
+            raise ValueError('Charge movement requires the unused reserved Charge slot')
+        if (self.speed is MovementSpeed.SLOW or self.actor_began_turn_in_enemy_close_range
+                or any(self.actor_conditions.has(condition) for condition in (
+                    Condition.BURDENED,Condition.PRONE,Condition.DEFENCELESS))):
+            raise ValueError('Charge is unavailable for this Speed, Conditions or beginning-of-turn Close fact')
+        if self.crosses_obstacle or self.crosses_difficult_terrain:
+            raise ValueError('Charge movement requires a clear route or a separate proven terrain crossing')
+        actor = self.spatial_state.placement_for(self.actor_id)
+        target = self.spatial_state.placement_for(self.target_id)
+        if target.side_id == actor.side_id:
+            raise ValueError('Charge must target an actual enemy')
+        graph = self.spatial_state.graph
+        if self.target_range is RangedWeaponRange.SHORT:
+            valid = actor.zone_id == target.zone_id
+        elif self.target_range is RangedWeaponRange.MEDIUM:
+            valid = graph.are_adjacent(actor.zone_id,target.zone_id)
+        elif self.target_range is RangedWeaponRange.LONG:
+            valid = (self.intermediate_zone_id is not None and actor.zone_id != target.zone_id
+                and not graph.are_adjacent(actor.zone_id,target.zone_id)
+                and graph.are_adjacent(actor.zone_id,self.intermediate_zone_id)
+                and graph.are_adjacent(self.intermediate_zone_id,target.zone_id))
+        else:
+            valid = False
+        if not valid:
+            raise ValueError('Charge Range and route must match the actual spatial source')
+        long = self.target_range is RangedWeaponRange.LONG
+        if long:
+            if type(self.athletics_test) is not TestRequest:
+                raise TypeError('Long Charge requires its actual Athletics Test')
+            replace(self.athletics_test)
+            if self.actor_id in self.spatial_state.difficult_terrain_tested_entity_ids:
+                raise ValueError('Long Charge Athletics cannot follow a Difficult Terrain Test')
+        elif self.athletics_test is not None or self.intermediate_zone_id is not None:
+            raise ValueError('Short and Medium Charge have no Athletics Test or intermediate Zone')
+        if (self.rule_id == 'RULE-COMBAT-014:charge-action-execution' and long
+                or self.rule_id == 'RULE-COMBAT-014:long-charge-action-execution' and not long):
+            raise ValueError('Charge movement disagrees with its specialised source executor')
+        if type(self.path_entity_ids) is not tuple or len(set(self.path_entity_ids)) != len(self.path_entity_ids):
+            raise TypeError('Charge path must retain its exact unique entity tuple')
+        for entity_id in self.path_entity_ids:
+            _validate_non_empty_string(entity_id,'Charge path entity')
+            if entity_id in (self.actor_id,self.target_id):
+                raise ValueError('Charge actor and destination are not crossed path entities')
+            if self.spatial_state.placement_for(entity_id).side_id != actor.side_id:
+                raise ValueError('Charge cannot pass through an enemy')
+
+
+def _charge_movement_parts(request: ChargeMovementRequest, result: TestResult | None):
+    """Canonical deterministic projection after the externally owned Test."""
+    if type(request) is not ChargeMovementRequest:
+        raise TypeError('Charge phase requires its exact movement request')
+    replace(request)
+    if request.athletics_test is None:
+        if result is not None:
+            raise ValueError('Short and Medium Charge cannot invent an Athletics roll')
+        succeeded = True
+    else:
+        if type(result) is not TestResult or result.trace.request_id != request.athletics_test.id:
+            raise ValueError('Long Charge must retain the result of its exact Athletics Test')
+        replace(result)
+        succeeded = result.succeeded
+    conditions, application = request.actor_conditions, None
+    turn = request.round_state.active_turn
+    if succeeded:
+        destination = request.spatial_state.placement_for(request.target_id).zone_id
+        combat = request.round_state
+    else:
+        destination = request.intermediate_zone_id
+        conditions = request.actor_conditions.with_condition(Condition.STAGGERED)
+        application = ConditionApplicationResult(
+            request_id=request.id+':staggered',
+            state=conditions,
+            condition=Condition.STAGGERED,
+            was_already_present=request.actor_conditions.has(Condition.STAGGERED),
+            blocked=False,
+            source_rule_id=request.rule_id,
+            blocked_by_rule_id=None,
+            applied_rule_ids=(request.rule_id,),
+        )
+        slot = turn.action_slots[request.slot_index-1]
+        receipt = ActionExecutionReceipt(request.id,request.rule_id,request.id,request.id,
+            request.actor_id,request.round_state.round_number,request.slot_index,slot.declaration)
+        completed = replace(slot,execution=receipt)
+        combat = replace(request.round_state,active_turn=replace(turn,
+            action_slots=tuple(completed if item.index == request.slot_index else item
+                for item in turn.action_slots)))
+    spatial = replace(request.spatial_state,placements=tuple(
+        replace(placement,zone_id=destination) if placement.entity_id == request.actor_id else placement
+        for placement in request.spatial_state.placements))
+    return succeeded,conditions,application,spatial,combat
+
+
+@dataclass(frozen=True, slots=True)
+class ChargeMovementResult:
+    source_request: ChargeMovementRequest
+    athletics_test_result: TestResult | None
+    previous_conditions: ConditionState
+    conditions: ConditionState
+    stagger_application: ConditionApplicationResult | None
+    spatial_state: SpatialBattleState
+    round_state: CombatRoundState
+    attack_allowed: bool
+
+    def __post_init__(self):
+        succeeded,conditions,application,spatial,combat = _charge_movement_parts(
+            self.source_request,self.athletics_test_result)
+        if (type(self.attack_allowed) is not bool or self.attack_allowed is not succeeded
+                or type(self.previous_conditions) is not ConditionState
+                or type(self.conditions) is not ConditionState
+                or type(self.spatial_state) is not SpatialBattleState
+                or type(self.round_state) is not CombatRoundState):
+            raise TypeError('Charge result must retain exact phase outcome and state types')
+        if (self.previous_conditions,self.conditions,self.stagger_application,self.spatial_state,self.round_state) != (
+                self.source_request.actor_conditions,conditions,application,spatial,combat):
+            raise ValueError('Charge movement changed its canonical route, Conditions, Test outcome or action receipt')
+
+    @property
+    def actor_id(self):
+        return self.source_request.actor_id
+
+    @property
+    def target_id(self):
+        return self.source_request.target_id
+
+    @property
+    def slot_index(self):
+        return self.source_request.slot_index
 
 
 _ATTACK_SKILLS = (
@@ -283,11 +468,11 @@ class ChargeActionExecutionResult:
             raise ValueError("previous state does not match Charge origin")
         if target.zone_id != self.destination_zone_id:
             raise ValueError("Charge must enter its target's Zone")
-        if not self.previous_spatial_state.graph.are_adjacent(
+        if self.origin_zone_id != self.destination_zone_id and not self.previous_spatial_state.graph.are_adjacent(
             self.origin_zone_id,
             self.destination_zone_id,
         ):
-            raise ValueError("base Charge target must be at Medium Range")
+            raise ValueError("base Charge target must be within Medium Range")
         expected_placements = tuple(
             SpatialEntityPlacement(
                 entity_id=placement.entity_id,

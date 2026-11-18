@@ -112,7 +112,8 @@ def pc_npc_help_beneficiary(state) -> str | None:
         return None
     from towr.domain.pc_npc_ranged_models import pc_npc_ranged_weapon
     weapon = pc_npc_ranged_weapon(state,policy.beneficiary_id)
-    if weapon is not None and not weapon.loaded:
+    from towr.domain.reload_models import ranged_weapon_is_loaded
+    if weapon is not None and not ranged_weapon_is_loaded(weapon):
         return None  # The named actor will Reload, not make this round's Attack Test.
     return policy.beneficiary_id
 

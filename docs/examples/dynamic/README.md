@@ -1,6 +1,23 @@
 # Динамический генератор: первый сквозной срез
 
-Генератор сам создаёт NPC, варьируя WS/Strength/Toughness/Agility, Melee/Defence/Athletics, шесть одноручных оружий, Light Armour и Shield. Число врагов может быть фиксированным: поиск всё равно меняет их параметры и экипировку. Готовый reserve и книжные NPC не нужны. [Контракт и ограничения](../../decisions/ADR-0113-dynamic-npc-generation-and-adaptive-search.md).
+Генератор сам создаёт NPC из характеристик, навыков и допустимых компонентов снаряжения/талантов. Число врагов может быть фиксированным: поиск всё равно меняет их параметры и экипировку. Готовый reserve и книжные NPC не нужны. В завершённой области двуручного оружия подключены общий переменный хват, стрельба, сети и пространственный бой обеих сторон; [статус приёмки](../../project-status.md), [полный перечень и решения](../../decisions/ADR-0138-all-two-handed-weapons.md).
+
+## Сцена, двуручное оружие и сети
+
+Текущий Dynamic JSON1 требует `scene.range` (Close/Short/Medium/Long/Extreme) и `scene.two_handed_max_range` (Short/Medium/Long/Extreme). Второе поле — явный GM-предел стрельбы двуручным оружием в этой сцене; собственный максимум Blunderbuss остаётся Medium. Новый UI начинает с Short/Long. Расстановка — две исходные группы в открытой линии зон (Zones), без засады (Ambush); это не произвольная карта. Бойцы выполняют реальные перемещения, натиск (Charge), бег (Run), прицеливание (Aim), атаки и перезарядку (Reload). Проверки и движение сохраняются в скачанном native replay. Старые файлы Dynamic без `two_handed_max_range` нужно обновить; compatibility-режима нет.
+
+Все восемь fixed2H Melee, Foot Spear/Polearm с хватом1H/2H и девять Shooting2H доступны игрокам и генерируемым NPC. Полный перечень находится в ADR-0138. В `search_space.weapon_grip` задаются допустимые хваты Foot Spear/Polearm; выбор2H исключает Shield. PC задаёт хват положением предмета `both_hands` либо отдельной рукой. Недоступный хват у автоматического PC допускает настоящий Recover, сохраняющий последствия ран; это не восстановление утраченной руки.
+
+Необязательный `mount:"horse"` задаёт обученную лошадь (Horse); `search_space.mount:[null,"horse"]` разрешает генератору варьировать её наличие. Без этого ограничения автоматический пул включает оба варианта, а прежний ручной пул без поля остаётся пешим. Лошадь даёт Fast/+1 Resilience/Noble Steed; Prone спешивает всадника и лошадь покидает поле по согласованной GM-policy. Это один ход всадника, без отдельного хода лошади.
+
+Для утяжелённой сети (Weighted Net) игроку нужны `characteristics.ballistic_skill`, `skills.throwing` и конкретный предмет в обеих руках. У NPC `search_space.throwing` задаёт навык, а `ballistic_skill` — BS; `ranged` у Net равен `null`. Сила (Strength)≥4 только расширяет дальность. Необязательный `skills.brawn` игрока и `search_space.brawn` NPC разрешают настоящее освобождение себя или близкого союзника: одна успешная альтернативная Recover/Brawn снимает одну выбранную сеть. Без явного навыка проверка не выдумывается. Источники Burdened независимы; обычный Recover сеть не снимает. После освобождения/промаха предмет лежит на реальной позиции и требует подбора. Net не наносит урон, в том числе по Defenceless. [Пример с сетью и запасным Sword](weighted-net.request.json).
+
+Малые примеры проверяют интерфейс и исполнение, а не точность оценки баланса:
+
+```powershell
+.venv/Scripts/python.exe -m towr generate-encounter docs/examples/dynamic/two-handed.request.json
+.venv/Scripts/python.exe -m towr generate-encounter docs/examples/dynamic/weighted-net.request.json
+```
 
 ## Локальный UI
 
@@ -95,11 +112,11 @@ Optional запасное оружие — один carried одноручный
 
 В отчёте `pc_ranged_counts` хранит каждого стрелка в исходном порядке, включая нули: `shots`, `bonus_shots`, `shooting_help_tests`, `bonus_help_tests`, `reload_actions`, `weapon_swaps`. Помощь Стрельбе (Shooting Help) не считается выстрелом. Применённый бонус Repeater требует перезарядки и после Help, даже если проверка не дала успехов. Смена оружия не добавляет основное действие. Native replay сохраняет конкретные item IDs/positions и `automatic_combat`; Help использует `target:"attack"` с `skill:"melee"|"shooting"`, а помощь защите — тот же `skill` при отдельном target. Старые `automatic_melee`/`melee_attack`/Help `protection_skill` не принимаются.
 
-Граница — текущая неподвижная all-Close сцена против Minions. Два пистолета в руках, несколько запасных оружий, другие дальности и полный инвентарь книги пока не исполняются. Ограниченный прогноз до трёх действий не является оптимальным планированием всего боя. [Решение и приёмка](../../decisions/ADR-0125-pc-automatic-close-shooting-and-weapon-switching.md).
+Бой идёт против генерируемых Minions в явной пространственной сцене, описанной выше. Два пистолета в руках, несколько запасных оружий и полный инвентарь книги пока не исполняются. Ограниченный прогноз до трёх действий не является оптимальным планированием всего боя. Исходный Close-срез и принятые правила смены: [ADR-0125](../../decisions/ADR-0125-pc-automatic-close-shooting-and-weapon-switching.md).
 
 ## Снаряжение динамических NPC
 
-Автоматические диапазоны включают Staff, Dagger, Axe, Sword, Warhammer, Morning Star, три описанных ниже ranged weapons, Light Armour и Shield для melee NPC. Генератор сам выбирает компоненты и их комбинации; ручной `search_space` может ограничить их. Каждое оружие одноручное; Shield занимает другую руку и пока разрешён только melee NPC. Два оружия одновременно и Heavy Armour пока не выдаются. Навык Defence варьируется отдельно от Melee/Athletics; Damage и Resilience вычисляются, а не задаются готовым statblock.
+Автоматические диапазоны включают шесть прежних1H Melee, все предметы из текущей области2H, три1H ranged, Light Armour, допустимый Shield и Horse. Генератор сам выбирает компоненты и их комбинации; ручной `search_space` может ограничить их. Shield занимает другую руку и разрешён только совместимому1H Melee. Два оружия одновременно и Heavy Armour пока не выдаются. Навык Defence варьируется отдельно от Melee/Athletics; Damage и Resilience вычисляются, а не задаются готовым statblock.
 
 Свойства исполняются в реальном бою: Axe получает+1Damage против armoured цели, Sword даёт+1d Defence при отсутствии Staggered, Warhammer получает+1d Melee против Staggered цели, Morning Star наносит S+1Damage и получает−1d Melee при собственном Staggered. Drained удаляет положительные кубы, но не Damage bonus Axe. Shield добавляет+1Resilience отдельно от Light Armour. Печатные conceal/terrain свойства Dagger/Staff не дают бонуса к обычной боевой проверке.
 
@@ -122,7 +139,7 @@ $env:PYTHONPATH = 'src'
 
 Pistol исполняет повторные Shoot→Reload3→Shoot, причём успехи Reload набираются настоящими Dexterity Tests. У repeaters программа сама сравнивает обычный выстрел и бонусный залп с будущей ценой Reload. Обычный shot не открывает новый Reload; залп открывает, даже при MISS. Решение не требует пользовательского паттерна или дополнительного Monte Carlo. В статистике состава отдельно показаны средние NPC shots/bonus shots/Reload actions; это наблюдения фактических действий.
 
-Игроки автоматически выбирают законную защиту против Close Shooting: Athletics, Melee либо Defence с работающим Shield. Прежние Fate/Lucky, Help, руки/раны, зелья и два Elementalism spell продолжают действовать. Сцена пока stationary all-Close: луки, другие дальности, движение, NPC Shield+Reload и backup стрелка сюда не включены.
+Игроки автоматически выбирают законную защиту против Close Shooting/Throwing: Athletics, Melee либо Defence с работающим Shield; вне Close защита Melee недоступна. Прежние Fate/Lucky, Help, руки/раны, зелья и два Elementalism spell продолжают действовать. Девять2H Shooting расширяют этот путь реальными дальностями/Aim/Reload; NPC Shield+Reload и backup стрелка не добавлены.
 
 [Пример смешанного пула](ranged.request.json), четыре smoke-симуляции:
 
@@ -211,7 +228,7 @@ $env:PYTHONPATH = 'src'
 
 Маг использует настоящий Exacting Willpower Test: успехи накапливаются, сила (Potency) берётся из последнего броска, девятки нельзя перебросить. Lightning Blast наносит4+Potency Damage, по бронированному —5+Potency; Fire Breath поражает доPotency разных врагов, по3Damage или4без брони. Это прямой урон без Attack/Protection Test. Обычный Recover уменьшает Miscast Pool; прерывание активной попытки даёт свой куб. Эффекты Miscast обязательны и после победного заклинания.
 
-Первая сцена явно дневная, все участники в Close одной Zone, без выхода; NPC — обычные numeric/generated Minions. В скачанном native replay сохраняются полный профиль `wizard` и `facts.daylight_confirmed=true`. Поддержаны боевые строки Miscast1–4/7–16/19–22/25–32/35–36/39+. Результаты5–6/17–18/23–24/33–34/37–38 требуют предметного/пространственного/GM-продолжения: сохраняются настоящий roll и точный `UNSUPPORTED_PATH`. Это не пропущенный эффект. Любой observed unsupported исключает состав из рекомендаций, поэтому `selected` может быть пустым; увеличение trials повышает шанс обнаружить эту границу. Общая магия всей книги и исчерпывающее покрытие Miscasts пока не заявляются.
+Сцена явно дневная; Dynamic использует описанный выше battlefield против генерируемых Minions. Заклинания проверяют настоящую дальность, а Fire Breath — зону основной и дополнительных целей; наличие магии не превращает все цели в Close. Отдельный stationary native-путь сохраняет свою явную сцену. В скачанном native replay сохраняются полный профиль `wizard` и `facts.daylight_confirmed=true`. Поддержаны боевые строки Miscast1–4/7–16/19–22/25–32/35–36/39+. Результаты5–6/17–18/23–24/33–34/37–38 требуют предметного/пространственного/GM-продолжения: сохраняются настоящий roll и точный `UNSUPPORTED_PATH`. Это не пропущенный эффект. Любой observed unsupported исключает состав из рекомендаций, поэтому `selected` может быть пустым; увеличение trials повышает шанс обнаружить эту границу. Общая магия всей книги и исчерпывающее покрытие Miscasts пока не заявляются.
 
 В статистике UI показаны средние Casting/spells/Miscasts/неподдержанные Miscasts за бой. JSON `magic_counts` содержит суммарные целые `casting_actions`, `spell_casts`, `miscasts`, `unsupported_miscasts` для каждого мага в исходном порядке, включая нули. Эффекты заклинания и Miscast не считаются дополнительными действиями. При отсутствии магов поле отсутствует. Начальные накопления/пулы и запас предметов независимы в каждом trial; replay сохраняет факты и воспроизводит расходы. Автоматические диапазоны NPC учитывают Lightning Blast, ручные ограничения не заменяются. [Принятое решение](../../decisions/ADR-0120-pc-elemental-magic-in-dynamic-encounters.md).
 

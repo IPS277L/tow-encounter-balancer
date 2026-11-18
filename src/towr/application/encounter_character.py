@@ -16,7 +16,8 @@ from towr.domain.pc_melee_models import (
     PcRangedProfile,
 )
 from towr.domain.pc_combat_equipment_models import PcWeaponItem
-from towr.domain.pc_weapon_models import pc_weapon_requires_two_hands
+from towr.domain.pc_mount_models import CombatMount
+from towr.domain.pc_weapon_models import pc_weapon_requires_two_hands, pc_weapon_supports_variable_grip
 from towr.domain.test_models import Skill
 from towr.domain.potion_models import ConsumableItem
 from towr.domain.pc_magic_source_models import PcWizardProfile
@@ -60,16 +61,18 @@ class EncounterCharacter:
     combat_talents: tuple[PcCombatTalent,...] = field(default=(),kw_only=True)
     ranged: PcRangedProfile | None = field(default=None,kw_only=True)
     combat_equipment: tuple[PcWeaponItem,...] | None = field(default=None,kw_only=True)
+    mount: CombatMount | None = field(default=None,kw_only=True)
+    throwing: int | None = field(default=None,kw_only=True)
+    brawn: int | None = field(default=None,kw_only=True)
+    ballistic_skill: int | None = field(default=None,kw_only=True)
 
     def __post_init__(self):
         if type(self.actor_id) is not str or not self.actor_id.strip():
             raise ValueError('character actor ID is required')
         if type(self.armour) is not EncounterArmour or type(self.shield) is not bool:
             raise TypeError('character requires typed armour and shield')
-        if type(self.weapon) is not PcMeleeWeapon or (self.weapon in PC_RANGED_WEAPONS
-                and self.weapon not in (PcMeleeWeapon.PISTOL,PcMeleeWeapon.REPEATER_PISTOL,
-                    PcMeleeWeapon.REPEATER_HANDBOW)):
-            raise ValueError('dynamic character input requires melee or supported Close ranged weapon')
+        if type(self.weapon) is not PcMeleeWeapon:
+            raise ValueError('dynamic character input requires a typed supported weapon')
         if (self.weapon in PC_RANGED_WEAPONS) != (self.ranged is not None):
             raise ValueError('ranged preparation must match the initial ranged weapon')
         if self.ranged is not None:
@@ -104,8 +107,11 @@ class EncounterCharacter:
         pc = PcMeleeDefinition('character:' + self.actor_id, self.weapon_skill,
             self.strength, self.toughness, self.agility, self.melee, self.defence,
             self.athletics, self.endurance, self.weapon, int(self.armour is EncounterArmour.LIGHT),
-            ranged=self.ranged)
-        grip = PcTwoHandedGrip.BOTH if pc_weapon_requires_two_hands(self.weapon) else self.weapon_hand
+            ranged=self.ranged,throwing=self.throwing,brawn=self.brawn,ballistic_skill=self.ballistic_skill)
+        both = (pc_weapon_requires_two_hands(self.weapon)
+            or pc_weapon_supports_variable_grip(self.weapon) and self.combat_equipment is not None
+                and self.combat_equipment[0].hand is PcTwoHandedGrip.BOTH)
+        grip = PcTwoHandedGrip.BOTH if both else self.weapon_hand
         shield = None
         if self.shield:
             opposite = PcWeaponHand.RIGHT if self.weapon_hand is PcWeaponHand.LEFT else PcWeaponHand.LEFT
@@ -122,7 +128,9 @@ class EncounterCharacter:
             PcNearMissPolicy(11, 0),
             PcGloriousPolicy((Skill.MELEE, Skill.DEFENCE, Skill.ATHLETICS, Skill.ENDURANCE,
                 *((Skill.SHOOTING,Skill.DEXTERITY) if self.ranged is not None else ()),
+                *((Skill.THROWING,) if self.throwing is not None else ()),
+                *((Skill.BRAWN,) if self.brawn is not None else ()),
                 *((Skill.WILLPOWER,) if self.wizard is not None else ())), 0, 0),
             None, None, self.backup_weapon_policy, shield=shield, consumables=self.consumables,
             wizard=self.wizard,armour_worn=self.armour_worn,combat_talents=self.combat_talents,
-            combat_equipment=self.combat_equipment)
+            combat_equipment=self.combat_equipment,mount=self.mount)

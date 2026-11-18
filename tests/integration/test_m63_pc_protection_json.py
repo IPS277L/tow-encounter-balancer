@@ -20,7 +20,7 @@ from towr.application.pc_melee_balance_models import project_pc_melee_candidate
 from towr.application.pc_melee_service import execute_pc_melee_balance, execute_pc_melee_simulation
 from towr.domain.pc_melee_models import (
     PcBackupWeaponPolicy, PcHelpPolicy, PcHelpTarget, PcMeleePolicy,
-    PcMeleeWeapon, PcWeaponHand,
+    PcMeleeWeapon, PcWeaponHand,PC_RANGED_WEAPONS,PC_THROWING_WEAPONS,
 )
 from towr.domain.pc_npc_catalog import PcBookNpcProfile, create_pc_book_npc
 from towr.domain.pc_npc_ranged_source_models import PcNpcRangedPolicy, PcNpcRangedReloadHandPolicy
@@ -34,7 +34,7 @@ FIELD = 'close_shooting_protection_skill'
 
 def source_loadouts():
     for weapon in PcMeleeWeapon:
-        if weapon.value not in ('pistol','repeater_handbow','repeater_pistol','shortbow','warbow','longbow','crossbow','repeater_crossbow','handgun','repeater_handgun','sling','blunderbuss','hochland_long_rifle'):
+        if weapon not in (*PC_RANGED_WEAPONS,*PC_THROWING_WEAPONS):
             yield make_pc_melee_scenario(weapon=weapon)
     yield make_pc_pistol_scenario()
     yield make_pc_shield_scenario()
@@ -83,7 +83,7 @@ def request_document(*, balance=False):
 class PcProtectionChoiceJsonTests(unittest.TestCase):
     def test_thirteen_melee_pistol_shield_and_backup_sources_roundtrip_choices_and_absence(self):
         loadouts = tuple(source_loadouts())
-        self.assertEqual(len(loadouts), 18)
+        self.assertEqual(len(loadouts), 21)
         for source in loadouts:
             for choice in (None, Skill.MELEE, Skill.ATHLETICS):
                 member = replace(source.party[0], close_shooting_protection_skill=choice)

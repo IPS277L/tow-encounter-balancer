@@ -26,7 +26,7 @@ class FixedChoices:
 
 def space(**changes):
     values=dict(weapon_skill=(3,),strength=(4,),toughness=(3,),agility=(3,),melee=(4,),
-        athletics=(4,),defence=(4,),weapon=(GeneratedWeapon.SWORD,),light_armour=(False,),
+        athletics=(4,),defence=(4,),brawn=(4,),weapon=(GeneratedWeapon.SWORD,),light_armour=(False,),
         shield=(False,),abilities=((),),allowed_talents=tuple(GeneratedTalent))
     values.update(changes)
     return NpcSearchSpace(**values)

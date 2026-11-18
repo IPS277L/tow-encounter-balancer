@@ -2,6 +2,8 @@
 from dataclasses import dataclass, field, replace
 from enum import Enum
 from towr.domain.pc_combat_equipment_models import PcWeaponItem
+from towr.domain.pc_battlefield_models import PcBattlefieldSpec
+from towr.domain.pc_mount_models import CombatMount, initial_pc_mounts
 
 from towr.domain.attack_models import ConditionImpactSpec, DamageProfile, ResilienceProfile, ProneBeforeGiveGroundSpec
 from towr.domain.condition_models import ConditionState
@@ -45,12 +47,15 @@ class PcMeleeWeapon(str, Enum):
     AXE = "axe"
     WARHAMMER = "warhammer"
     MORNING_STAR = "morning_star"
+    FOOT_SPEAR = "foot_spear"
+    POLEARM = "polearm"
     PICKAXE = "pickaxe"
     FLAIL = "flail"
     BILLHOOK = "billhook"
     HALBERD = "halberd"
     GLAIVE = "glaive"
     GREATAXE = "greataxe"
+    GREATSWORD = "greatsword"
     GREATHAMMER = "greathammer"
     PISTOL = "pistol"
     REPEATER_HANDBOW = "repeater_handbow"
@@ -65,8 +70,10 @@ class PcMeleeWeapon(str, Enum):
     SLING = "sling"
     BLUNDERBUSS = "blunderbuss"
     HOCHLAND_LONG_RIFLE = "hochland_long_rifle"
+    WEIGHTED_NET = "weighted_net"
 
 
+PC_THROWING_WEAPONS = (PcMeleeWeapon.WEIGHTED_NET,)
 PC_BOW_WEAPONS = (PcMeleeWeapon.SHORTBOW, PcMeleeWeapon.WARBOW, PcMeleeWeapon.LONGBOW)
 PC_FREE_RELOAD_WEAPONS = (*PC_BOW_WEAPONS, PcMeleeWeapon.SLING)
 PC_CROSSBOW_WEAPONS = (PcMeleeWeapon.CROSSBOW, PcMeleeWeapon.REPEATER_CROSSBOW)
@@ -108,8 +115,8 @@ class PcHelpPolicy:
         _typed(self.target,PcHelpTarget,"Help target")
         _typed(self.skill,Skill,"Help Skill")
         if self.target is PcHelpTarget.ATTACK:
-            if self.skill not in (Skill.MELEE,Skill.SHOOTING):
-                raise ValueError("Attack Help requires Melee or Shooting")
+            if self.skill not in (Skill.MELEE,Skill.SHOOTING,Skill.THROWING):
+                raise ValueError("Attack Help requires Melee, Shooting or Throwing")
         else:
             if self.skill not in (Skill.DEFENCE,Skill.ATHLETICS,Skill.MELEE):
                 raise ValueError("Protection Help requires Defence, Athletics or Melee")
@@ -143,7 +150,7 @@ class PcGloriousPolicy:
         for skill in skills:
             _typed(skill, Skill, "Glorious skill")
             if skill not in (Skill.MELEE, Skill.DEFENCE, Skill.ATHLETICS, Skill.ENDURANCE,
-                    Skill.SHOOTING, Skill.DEXTERITY, Skill.WILLPOWER):
+                    Skill.SHOOTING, Skill.DEXTERITY, Skill.WILLPOWER, Skill.THROWING, Skill.BRAWN):
                 raise ValueError("Glorious skill is outside the PC melee boundary")
         _integer(self.maximum_initial_successes, "Glorious success threshold", minimum=0)
         _integer(self.minimum_remaining_spends, "Glorious session reserve", minimum=0)
@@ -236,10 +243,11 @@ class PcRangedProfile:
         for name in ("ballistic_skill", "shooting"):
             _integer(getattr(self, name), name, minimum=1)
         self.shooting_profile
-        if (self.initiative is None) != (self.dexterity is None):
-            raise ValueError("Reload characteristics and Skills must be supplied together")
+        if self.dexterity is not None and self.initiative is None:
+            raise ValueError("Dexterity requires Initiative")
         if self.initiative is not None:
             _integer(self.initiative, "initiative", minimum=1)
+        if self.dexterity is not None:
             _integer(self.dexterity, "dexterity", minimum=1)
             self.dexterity_profile
         for name in ("has_blackpowder_lore", "has_blackpowder_kit"):
@@ -258,7 +266,7 @@ class PcRangedProfile:
         if self.reload_hand_policy is not None:
             _typed(self.reload_hand_policy, PcRangedReloadHandPolicy, "ranged reload hand policy")
         if any(value is not None for value in (
-                self.initiative, self.dexterity, self.initially_loaded, self.reload_hand_policy)):
+                self.dexterity, self.initially_loaded, self.reload_hand_policy)):
             if self.initiative is None or self.dexterity is None:
                 raise ValueError('Exacting source requires Initiative and Dexterity')
             _typed(self.initially_loaded, bool, 'initially_loaded')
@@ -268,6 +276,8 @@ class PcRangedProfile:
         if self.awareness is not None:
             _integer(self.awareness, "Awareness", minimum=1)
             self.awareness_profile
+        elif self.initiative is not None and self.dexterity is None:
+            raise ValueError('Initiative without Reload requires Awareness for Aim')
 
     @property
     def shooting_profile(self) -> TestProfile:
@@ -301,6 +311,9 @@ class PcMeleeDefinition:
     weapon: PcMeleeWeapon
     armour_bonus: int
     ranged: PcRangedProfile | None = field(default=None, kw_only=True)
+    throwing: int | None = field(default=None,kw_only=True)
+    brawn: int | None = field(default=None,kw_only=True)
+    ballistic_skill: int | None = field(default=None,kw_only=True)
 
     def __post_init__(self) -> None:
         _identifier(self.id, "PC definition")
@@ -312,6 +325,22 @@ class PcMeleeDefinition:
         ):
             TestProfile(characteristic, skill)
         _typed(self.weapon, PcMeleeWeapon, "PC weapon")
+        for name in ('throwing','brawn'):
+            value=getattr(self,name)
+            if value is not None:
+                _integer(value,name,minimum=1)
+                if name == 'brawn':
+                    TestProfile(self.strength,value)
+        if self.ballistic_skill is not None:
+            _integer(self.ballistic_skill,'Throwing Ballistic Skill',minimum=1)
+        if self.throwing is not None:
+            if self.ballistic_skill is None:
+                raise ValueError('Throwing requires its explicit Ballistic Skill')
+            self.throwing_profile
+        elif self.ballistic_skill is not None:
+            raise ValueError('separate Ballistic Skill belongs to the Throwing source')
+        if self.weapon in PC_THROWING_WEAPONS and self.throwing is None:
+            raise ValueError('Weighted Net requires explicit BS and Throwing')
         _integer(self.armour_bonus, "PC armour bonus", minimum=0)
         if self.weapon in PC_RANGED_WEAPONS:
             _typed(self.ranged, PcRangedProfile, "PC ranged profile")
@@ -319,8 +348,6 @@ class PcMeleeDefinition:
             free_reload = self.weapon in PC_FREE_RELOAD_WEAPONS
             if self.weapon is PcMeleeWeapon.HOCHLAND_LONG_RIFLE:
                 self.ranged.awareness_profile
-            elif self.ranged.awareness is not None:
-                raise ValueError('Awareness source is admitted only for Hochland')
             firearm = self.weapon in (PcMeleeWeapon.PISTOL, PcMeleeWeapon.REPEATER_PISTOL,
                 *PC_HANDGUN_WEAPONS, PcMeleeWeapon.BLUNDERBUSS, PcMeleeWeapon.HOCHLAND_LONG_RIFLE)
             for name in ('has_blackpowder_lore', 'has_blackpowder_kit'):
@@ -329,7 +356,7 @@ class PcMeleeDefinition:
                     raise ValueError('Blackpowder Lore/kit are required only for firearm PC loadouts')
             if free_reload:
                 if any(getattr(self.ranged, name) is not None for name in (
-                        'initiative', 'dexterity', 'initially_loaded', 'reload_hand_policy',
+                        'dexterity', 'initially_loaded', 'reload_hand_policy',
                         'repeater_bonus_policy')):
                     raise ValueError('free-reload ranged source forbids Exacting/Repeater fields')
             else:
@@ -348,6 +375,18 @@ class PcMeleeDefinition:
     @property
     def melee_profile(self) -> TestProfile:
         return TestProfile(self.weapon_skill, self.melee)
+
+    @property
+    def throwing_profile(self) -> TestProfile:
+        if self.throwing is None:
+            raise ValueError('Throwing requires its explicit Skill source')
+        return TestProfile(self.ballistic_skill,self.throwing)
+
+    @property
+    def brawn_profile(self) -> TestProfile:
+        if self.brawn is None:
+            raise ValueError('Brawn requires its explicit Skill source')
+        return TestProfile(self.strength,self.brawn)
 
     @property
     def defence_profile(self) -> TestProfile:
@@ -395,7 +434,7 @@ class PcMeleeFacts:
         ):
             value = getattr(self, name)
             _typed(value, bool, name)
-            if name not in ("all_opponents_close", "outnumbering_bonus_approved", "can_leave_zone") and not value:
+            if name not in ("all_opponents_close", "outnumbering_bonus_approved", "can_leave_zone", "unmounted") and not value:
                 raise ValueError(f"unsupported PC melee fact: {name}")
 
 
@@ -424,9 +463,12 @@ class PcMeleeParticipant:
     armour_worn: bool | None = field(default=None, kw_only=True)
     combat_talents: tuple[PcCombatTalent,...] = field(default=(),kw_only=True)
     combat_equipment: tuple[PcWeaponItem,...] | None = field(default=None,kw_only=True)
+    mount: CombatMount | None = field(default=None,kw_only=True)
 
     def __post_init__(self) -> None:
         _identifier(self.actor_id, "PC actor")
+        if self.mount is not None:
+            _typed(self.mount,CombatMount,'trained mount component')
         _typed(self.pc, PcMeleeDefinition, "PC definition")
         replace(self.pc)
         from towr.domain.pc_combat_talent_models import validate_pc_combat_talents
@@ -467,18 +509,23 @@ class PcMeleeParticipant:
                 raise ValueError("ranged PC requires ordinary Attack/self Recover policy")
             if any(value is not None for value in (self.help_policy, self.ally_recover_policy)):
                 raise ValueError("ranged PC cannot carry Help or ally Recover")
-        from towr.domain.pc_weapon_models import pc_weapon_requires_two_hands
-        grip_type = PcTwoHandedGrip if pc_weapon_requires_two_hands(self.pc.weapon) else PcWeaponHand
+        from towr.domain.pc_weapon_models import pc_weapon_requires_two_hands, pc_weapon_supports_variable_grip
+        variable_grip = pc_weapon_supports_variable_grip(self.pc.weapon)
+        grip_type = (type(self.initial_weapon_hand) if variable_grip
+            else PcTwoHandedGrip if pc_weapon_requires_two_hands(self.pc.weapon) else PcWeaponHand)
+        if grip_type not in (PcWeaponHand, PcTwoHandedGrip):
+            raise TypeError('variable weapon grip requires an exact one- or two-handed grip')
         _typed(self.initial_weapon_hand,grip_type,"initial weapon grip")
         if self.shield is not None:
             _typed(self.shield, PcShieldLoadout, "PC shield loadout")
             replace(self.shield)
             if self.pc.weapon not in (PcMeleeWeapon.DAGGER, PcMeleeWeapon.STAFF,
                     PcMeleeWeapon.AXE, PcMeleeWeapon.SWORD, PcMeleeWeapon.WARHAMMER,
+                    PcMeleeWeapon.FOOT_SPEAR, PcMeleeWeapon.POLEARM,
                     PcMeleeWeapon.MORNING_STAR, PcMeleeWeapon.PISTOL,
                     PcMeleeWeapon.REPEATER_HANDBOW, PcMeleeWeapon.REPEATER_PISTOL, PcMeleeWeapon.SLING):
                 raise ValueError("shield requires a supported one-handed primary weapon")
-            if self.shield.initial_hand is self.initial_weapon_hand:
+            if self.initial_weapon_hand is PcTwoHandedGrip.BOTH or self.shield.initial_hand is self.initial_weapon_hand:
                 raise ValueError("shield and weapon require opposite initial hands")
             if self.backup_weapon_policy is not None and self.pc.weapon not in PC_RANGED_WEAPONS:
                 raise ValueError("shield cannot carry a backup weapon policy")
@@ -506,6 +553,8 @@ class PcMeleeParticipant:
         if self.policy is PcMeleePolicy.HELP_ALLY_OR_ATTACK_OR_RECOVER_SELF:
             _typed(self.help_policy,PcHelpPolicy,"Help strategy")
             replace(self.help_policy)
+            if self.help_policy.skill is Skill.THROWING and self.pc.throwing is None:
+                raise ValueError('Throwing Help requires its explicit BS/Throwing source')
             if self.help_policy.beneficiary_id == self.actor_id:
                 raise ValueError("Help requires another PC")
         elif self.help_policy is not None:
@@ -548,6 +597,9 @@ class PcMeleeParticipant:
             if (self.pc.weapon in (PcMeleeWeapon.REPEATER_HANDBOW,PcMeleeWeapon.REPEATER_PISTOL)
                     and self.pc.ranged.repeater_bonus_policy is not PcRepeaterBonusPolicy.AUTOMATIC):
                 raise ValueError('automatic combat requires an automatic Repeater mode')
+        if self.pc.weapon in PC_THROWING_WEAPONS and (self.policy is not PcMeleePolicy.AUTOMATIC_COMBAT
+                or self.combat_equipment is None):
+            raise ValueError('Weighted Net requires automatic decisions and its concrete source item')
 
     def defeat_decision(self, target_id: str) -> MinionDefeatDecision:
         _identifier(target_id, "defeat target")
@@ -623,6 +675,7 @@ class PcMeleeScenario:
     npc_close_shooting_protection_policies: tuple[PcNpcCloseShootingProtectionPolicy, ...] | None = field(default=None,kw_only=True)
     short_range_opening: PcShortRangeOpening | None = field(default=None,kw_only=True)
     blunderbuss_nearby: PcBlunderbussNearby | None = field(default=None,kw_only=True)
+    battlefield: PcBattlefieldSpec | None = field(default=None,kw_only=True)
 
     def __post_init__(self) -> None:
         for name in ("id", "day_id"):
@@ -657,7 +710,7 @@ class PcMeleeScenario:
             if definition.id in definitions and definitions[definition.id] != definition:
                 raise ValueError("conflicting Minion definitions with the same ID")
             definitions[definition.id] = definition
-        has_ranged = any(member.pc.weapon in PC_RANGED_WEAPONS for member in party)
+        has_ranged = any(member.pc.weapon in (*PC_RANGED_WEAPONS,*PC_THROWING_WEAPONS) for member in party)
         close_shooting_profiles = {}
         policies = self.npc_close_shooting_protection_policies
         if policies is not None:
@@ -689,7 +742,7 @@ class PcMeleeScenario:
                     continue
                 if skill is not Skill.ATHLETICS and not (
                         skill is Skill.DEFENCE and enemy.state.holds_shield):
-                    raise ValueError("ranged opponents require Athletics, actual shield Defence or canonical Thief Stealth")
+                    raise ValueError("Shooting/Throwing opponents require Athletics, actual shield Defence or canonical Thief Stealth")
         pc_ids = tuple(member.actor_id for member in party)
         enemy_ids = tuple(enemy.state.actor_id for enemy in enemies)
         all_ids = (*pc_ids, *enemy_ids)
@@ -738,7 +791,10 @@ class PcMeleeScenario:
         if len(set(self.npc_extra_attack_actor_ids))!=len(self.npc_extra_attack_actor_ids):
             raise ValueError('NPC extra Attack actors must be unique')
         has_blunderbuss = any(member.pc.weapon is PcMeleeWeapon.BLUNDERBUSS for member in party)
-        if has_blunderbuss:
+        if self.battlefield is not None:
+            if self.blunderbuss_nearby is not None:
+                raise ValueError('battlefield Blunderbuss uses actual Close relations instead of a legacy cluster')
+        elif has_blunderbuss:
             _typed(self.blunderbuss_nearby, PcBlunderbussNearby, 'Blunderbuss nearby source')
             replace(self.blunderbuss_nearby)
             if set(self.blunderbuss_nearby.target_priority) != set(enemy_ids):
@@ -763,6 +819,26 @@ class PcMeleeScenario:
 
 
 def _validate_short_range_opening(scenario: PcMeleeScenario) -> None:
+    if scenario.facts.unmounted != (not initial_pc_mounts(scenario)):
+        raise ValueError('initial unmounted fact must match the complete actual mount source')
+    if scenario.battlefield is not None:
+        _typed(scenario.battlefield, PcBattlefieldSpec, 'battlefield source')
+        replace(scenario.battlefield)
+        if scenario.short_range_opening is not None:
+            raise ValueError('battlefield and legacy Short opening are different explicit scene sources')
+        if scenario.facts.all_opponents_close != (scenario.battlefield.initial_range is RangedWeaponRange.CLOSE):
+            raise ValueError('initial Close facts must match the actual battlefield source')
+        if not scenario.facts.can_leave_zone:
+            raise ValueError('the open battlefield must retain legal movement between its Zones')
+        if any(member.policy is not PcMeleePolicy.AUTOMATIC_COMBAT for member in scenario.party):
+            raise ValueError('the battlefield requires automatic participant decisions')
+        if (any(enemy.definition.id.startswith('pc-book-npc:') for enemy in scenario.enemies)
+                or scenario.npc_broken_exit_policy is not None or scenario.npc_help_policies
+                or scenario.npc_extra_attack_actor_ids or scenario.npc_grudge_policies
+                or scenario.npc_blood_rage_actor_ids or scenario.npc_flagellant_policies
+                or scenario.npc_warped_form_policies or scenario.npc_net_policies):
+            raise ValueError('the open battlefield currently requires ordinary/generated opponents without canonical tactical policies')
+        return
     opening = scenario.short_range_opening
     if opening is None:
         if not scenario.facts.all_opponents_close:
@@ -847,6 +923,7 @@ def _readmit_profile_enemy(enemy: NpcParticipantSnapshot) -> None:
     great_stag = definition.id == 'pc-book-npc:great_stag'
     net_goblin = definition.id == NET_DEFINITION_ID
     generated = definition.generated_components is not None
+    generated_net = generated and definition.generated_components.weapon.value == 'weighted_net'
     npc_ranged = (definition.id in PC_NPC_RANGED_DEFINITION_IDS
         or (generated and definition.generated_components.ranged is not None))
     expected_ignores_armour=npc_ranged
@@ -880,8 +957,14 @@ def _readmit_profile_enemy(enemy: NpcParticipantSnapshot) -> None:
         _typed(protection[1],NpcProtectionProfile,'generated alternate Protection')
         _readmit_inline(protection[1].test_profile,expected_pool_cap=None)
         replace(protection[1])
-    _typed(attack.damage, DamageProfile, "Minion Damage")
-    replace(attack.damage)
+    if generated_net:
+        if attack.damage is not None:
+            raise ValueError('Weighted Net cannot invent a Damage profile')
+        _typed(attack.condition_impact,ConditionImpactSpec,'Weighted Net condition impact')
+        replace(attack.condition_impact)
+    else:
+        _typed(attack.damage, DamageProfile, "Minion Damage")
+        replace(attack.damage)
     _canonical_tuple(attack.secondary_effects, "Minion secondary effects")
     validate_pc_hit_effects(attack.secondary_effects)
     if (any(type(effect) is ProneBeforeGiveGroundSpec for effect in attack.secondary_effects)
@@ -892,11 +975,11 @@ def _readmit_profile_enemy(enemy: NpcParticipantSnapshot) -> None:
     _typed(attack.ignores_armour, bool, "Minion ignores armour")
     if attack.hands is not None:
         _typed(attack.hands, RangedWeaponHands, "Minion weapon hands")
-    if (attack.skill is not (Skill.SHOOTING if npc_ranged else Skill.MELEE)
-            or attack.range_min is not RangedWeaponRange.CLOSE
-            or attack.range_max not in ((RangedWeaponRange.SHORT,RangedWeaponRange.MEDIUM)
-                if npc_ranged else (RangedWeaponRange.CLOSE,RangedWeaponRange.SHORT))
-            or attack.damage.success_multiplier != 1 or attack.ignores_armour is not expected_ignores_armour
+    if (attack.skill is not (Skill.THROWING if generated_net else Skill.SHOOTING if npc_ranged else Skill.MELEE)
+            or (not (generated and (npc_ranged or generated_net)) and (attack.range_min is not RangedWeaponRange.CLOSE
+                or attack.range_max not in ((RangedWeaponRange.SHORT,RangedWeaponRange.MEDIUM)
+                    if npc_ranged else (RangedWeaponRange.CLOSE,RangedWeaponRange.SHORT))))
+            or (not generated_net and attack.damage.success_multiplier != 1) or attack.ignores_armour is not expected_ignores_armour
             or defence.skill not in ((Skill.STEALTH,) if definition.id=='pc-book-npc:halfling_thief_dagger'
                 else (Skill.DEFENCE,Skill.ATHLETICS))
             or attack.hands is None and defence.skill is not Skill.ATHLETICS):

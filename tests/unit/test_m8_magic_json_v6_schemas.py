@@ -40,14 +40,17 @@ def references(value):
 class MagicJsonV6SchemaTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
+        schema_paths=tuple(path for path in files('towr.adapters.schemas').iterdir()
+            if path.name.endswith('.schema.json'))
+        cls.schema_resource_count=len(schema_paths)
         cls.documents = {schema['$id']: schema
-            for path in files('towr.adapters.schemas').iterdir() if path.name.endswith('.schema.json')
+            for path in schema_paths
             for schema in (json.loads(path.read_text(encoding='utf-8')),)}
         cls.registry = Registry().with_resources(
             (uri, Resource.from_contents(schema)) for uri, schema in cls.documents.items())
 
     def test_six_new_ids_and_every_reference_resolve_from_complete_local_bundle(self):
-        self.assertEqual(len(self.documents), 32)
+        self.assertEqual(len(self.documents), self.schema_resource_count)
         self.assertEqual(sum(uri.startswith('urn:towr:magic-') for uri in self.documents), 6)
         for uri, schema in self.documents.items():
             Draft202012Validator.check_schema(schema)

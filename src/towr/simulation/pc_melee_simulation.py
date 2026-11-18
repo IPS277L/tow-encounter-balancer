@@ -40,6 +40,8 @@ def run_pc_melee_trial(request: PcMeleeSimulationRequest, trial_index: int, *,
     if result.source != request.scenario:
         raise ValueError('PC encounter result belongs to another source')
     from towr.domain.pc_flagellant_models import PcNpcRecoverProof
+    from towr.domain.pc_battlefield_movement_models import PcBattlefieldRecoverProof
+    from towr.domain.pc_weighted_net_models import PcNetReleaseProof,PcNetPickupProof
     from towr.domain.pc_warped_form_models import PcWarpedFormActivationProof
     aim = None
     if pc_has_aim_capability(request.scenario):
@@ -101,7 +103,8 @@ def run_pc_melee_trial(request: PcMeleeSimulationRequest, trial_index: int, *,
                 and step.proof.request.actor_id==enemy.state.actor_id for step in result.steps))
             for enemy in request.scenario.enemies),
         tuple(PcNpcRecoverActionCount(enemy.state.actor_id,
-            sum(type(step.proof) is PcNpcRecoverProof and step.proof.actor_id==enemy.state.actor_id
+            sum(type(step.proof) in (PcNpcRecoverProof,PcBattlefieldRecoverProof,PcNetReleaseProof,PcNetPickupProof)
+                and step.proof.request.actor_id==enemy.state.actor_id
                 for step in result.steps)) for enemy in request.scenario.enemies),
         tuple(PcNpcWarpedFormCount(enemy.state.actor_id,
             sum(type(step.proof) is PcWarpedFormActivationProof and step.proof.actor_id==enemy.state.actor_id

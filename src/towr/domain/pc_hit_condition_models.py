@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 from towr.domain.attack_models import AttackOutcome,ConditionOnHitSpec,ProneBeforeGiveGroundSpec,NearbyTargetsStaggerSpec
 from towr.domain.condition_models import Condition,ConditionApplicationResult,ConditionState,EffectClassification
 from towr.domain.resolution_models import TargetInjuryPolicy
+from towr.domain.pc_mount_models import HORSE_NOBLE_STEED_RULE_ID
 
 if TYPE_CHECKING:
     from towr.domain.action_execution_models import AttackActionExecutionRequest
@@ -18,8 +19,9 @@ CRUSHING_WEIGHT_PRONE_RULE_ID = 'RULE-PROFILE-CREATURE-010:crushing-weight-prone
 
 
 def validate_pc_hit_effects(effects: tuple[ConditionOnHitSpec | ProneBeforeGiveGroundSpec,...]) -> None:
-    if type(effects) is not tuple or len(effects)>1:
-        raise ValueError('PC NPC attacks support at most one admitted hit effect')
+    if (type(effects) is not tuple or len(effects)>2
+            or len({type(effect) for effect in effects}) != len(effects)):
+        raise ValueError('hit effects support one early Prone and one independent Condition')
     for effect in effects:
         if type(effect) not in (ConditionOnHitSpec,ProneBeforeGiveGroundSpec):
             raise TypeError('PC hit effect must retain its exact admitted type')
@@ -29,8 +31,9 @@ def validate_pc_hit_effects(effects: tuple[ConditionOnHitSpec | ProneBeforeGiveG
         if type(effect) is ProneBeforeGiveGroundSpec:
             if type(effect.affects_monstrosities) is not bool:
                 raise TypeError('pre-Stagger Prone requires its exact bool flag')
-            if effect.rule_id!=CRUSHING_WEIGHT_PRONE_RULE_ID or not effect.affects_monstrosities:
-                raise ValueError('PC pre-Stagger Prone requires canonical Crushing Weight semantics')
+            if not ((effect.rule_id==CRUSHING_WEIGHT_PRONE_RULE_ID and effect.affects_monstrosities)
+                    or (effect.rule_id==HORSE_NOBLE_STEED_RULE_ID and not effect.affects_monstrosities)):
+                raise ValueError('pre-Stagger Prone requires its complete Crushing Weight or Noble Steed source')
         elif (type(effect.condition) is not Condition or effect.condition is not Condition.DRAINED
                 or type(effect.classification) is not EffectClassification
                 or effect.classification is not EffectClassification.UNCLASSIFIED):
@@ -51,11 +54,15 @@ def pc_pre_stagger_target(kernel: KernelAttackRequest,outcome: AttackOutcome):
     """Project early Prone before the Stagger/Wound branch, without a late receipt."""
     effects = _primary_hit_effects(kernel.attack.secondary_effects)
     before = kernel.target_state
-    if outcome is not AttackOutcome.HIT or not effects or type(effects[0]) is not ProneBeforeGiveGroundSpec:
+    effect=next((effect for effect in effects if type(effect) is ProneBeforeGiveGroundSpec),None)
+    if outcome is not AttackOutcome.HIT or effect is None:
         return before,()
-    if kernel.target_policy is not TargetInjuryPolicy.PLAYER or kernel.target_effect_immunities:
+    if ((kernel.target_policy is not TargetInjuryPolicy.PLAYER and effect.rule_id!=HORSE_NOBLE_STEED_RULE_ID)
+            or kernel.target_effect_immunities):
         raise ValueError('bounded early Prone requires its ordinary PLAYER target without immunities')
-    return replace(before,conditions=before.conditions.with_condition(Condition.PRONE)),(effects[0].rule_id,)
+    if kernel.target_policy is TargetInjuryPolicy.MONSTROSITY and not effect.affects_monstrosities:
+        return before,()
+    return replace(before,conditions=before.conditions.with_condition(Condition.PRONE)),(effect.rule_id,)
 
 
 @dataclass(frozen=True,slots=True)
@@ -82,17 +89,17 @@ def expected_pc_hit_target(kernel: KernelAttackRequest,outcome: AttackOutcome,ba
     effects = _primary_hit_effects(kernel.attack.secondary_effects)
     if outcome is not AttackOutcome.HIT or not effects:
         return base,(),()
+    early_rules=tuple(effect.rule_id for effect in effects if type(effect) is ProneBeforeGiveGroundSpec)
+    post_effects=tuple(effect for effect in effects if type(effect) is ConditionOnHitSpec)
+    if not post_effects:
+        return base,(),early_rules
     if kernel.target_policy is not TargetInjuryPolicy.PLAYER or kernel.target_effect_immunities:
         raise ValueError('bounded PC hit Condition requires its ordinary PLAYER target without immunities')
-    effect, = effects
-    if type(effect) is ProneBeforeGiveGroundSpec:
-        # Already applied before Stagger/Wound. Reapplying after Damage would
-        # conceal a false Wound source and change the Near Miss retained state.
-        return base,(),(effect.rule_id,)
+    effect, = post_effects
     conditions = base.conditions.with_condition(Condition.DRAINED)
     application = ConditionApplicationResult(kernel.id+':'+effect.rule_id+':on-hit-condition',conditions,
         Condition.DRAINED,base.conditions.has(Condition.DRAINED),False,effect.rule_id,None,(effect.rule_id,))
-    return replace(base,conditions=conditions),(application,),(effect.rule_id,)
+    return replace(base,conditions=conditions),(application,),(*early_rules,effect.rule_id)
 
 
 def hit_condition_sources_from_attack(request: AttackActionExecutionRequest,result: ResolutionResult
@@ -105,7 +112,8 @@ def hit_condition_sources_from_attack(request: AttackActionExecutionRequest,resu
         if result.condition_applications:
             raise ValueError('no successful source hit can invent a Condition application')
         return ()
-    if type(effects[0]) is ProneBeforeGiveGroundSpec:
+    effects=tuple(effect for effect in effects if type(effect) is ConditionOnHitSpec)
+    if not effects:
         if result.condition_applications:
             raise ValueError('pre-Stagger Prone cannot carry a post-Damage application')
         return ()

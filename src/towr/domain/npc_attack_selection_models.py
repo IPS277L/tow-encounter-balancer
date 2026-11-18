@@ -72,7 +72,7 @@ class NpcAttackCandidate:
                       self.can_target_leave_zone, self.target_has_given_ground_this_round):
             if not isinstance(value, bool):
                 raise TypeError("candidate context requires explicit booleans")
-        if self.skill is not None and not isinstance(self.skill, Skill):
+        if self.protection_skill is not None and not isinstance(self.protection_skill, Skill):
             raise TypeError("candidate protection_skill must be a Skill or None")
         options = tuple(self.protection_options)
         if not all(isinstance(item, ProtectionTestOption) for item in options):
@@ -110,7 +110,7 @@ class NpcAttackCandidate:
             attack_skill=npc.selected_profile.skill, defender_is_aware=self.defender_is_aware,
             defender_is_defenceless=target.state.injury.conditions.has(Condition.DEFENCELESS),
             defender_wields_weapon=target.state.wields_weapon, defender_holds_shield=target.state.holds_shield,
-            selected_skill=self.skill, options=self.protection_options,
+            selected_skill=self.protection_skill, options=self.protection_options,
         )
 
 

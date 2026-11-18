@@ -11,5 +11,10 @@
   "defence": 3,
   "shield": false,
   "talents": [],
-  "ranged": null
+  "ranged": null,
+  "weapon_grip": null,
+  "mount": null,
+  "throwing": null,
+  "brawn": null,
+  "ballistic_skill": null
 }

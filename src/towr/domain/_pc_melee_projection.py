@@ -18,10 +18,25 @@ from towr.domain.attack_models import AttackOutcome, DamageImpactSpec, ImpactOut
 from towr.domain.pc_ranged_models import (PcRangedReloadProof,build_pc_ranged_reload,complete_pc_ranged_shot)
 from towr.domain.pc_aim_models import (PcAimProof, PcAimSecondActionProof, PcAimConsumptionProof,
     expected_pc_aim_consumption, project_pc_aim_step, build_pc_aim_second_action)
+from towr.domain.pc_npc_aim_models import (PcNpcAimProof,PcNpcAimConsumptionProof,
+    expected_npc_aim_consumption,project_npc_aim_step)
 from towr.domain.pc_blunderbuss_models import PcBlunderbussNearbyProof, project_pc_blunderbuss_nearby, pc_blunderbuss_snapshot
+from towr.domain.pc_blunderbuss_models import (BATTLEFIELD_NEARBY_PROOFS,
+    current_pc_blunderbuss_wave,project_pc_battlefield_nearby)
 from towr.domain.resolution_models import NearbyTargetsStaggerRequest
 from towr.domain.attack_models import NearbyTargetsStaggerSpec
 from towr.domain.pc_short_opening_models import PcNpcApproachProof, expected_pc_npc_approach
+from towr.domain.pc_battlefield_movement_models import (
+    PcBattlefieldMoveProof, PcBattlefieldRecoverProof, expected_pc_battlefield_move,
+    build_pc_battlefield_npc_recover, battlefield_recovered_injury,
+)
+from towr.domain.pc_battlefield_manoeuvre_models import (BATTLEFIELD_MANOEUVRE_PROOFS,
+    project_pc_battlefield_manoeuvre,current_pc_charge)
+from towr.domain.pc_mount_models import PcDismountProof,expected_pc_dismount,updated_pc_mounts
+from towr.domain.pc_weighted_net_models import (NET_PROOFS,PcNetReleaseProof,PcNetPickupProof,
+    PcNetApproachProof,PcNetIncidentalPickupProof,PcNetRecoverKind,
+    expected_weighted_net_approach,expected_weighted_net_incidental_pickup,
+    project_weighted_net_step,weighted_net_updates_from_attack,weighted_nets_after_equipment)
 from towr.domain.pc_npc_ranged_models import (
     PcNpcRangedReloadProof, build_pc_npc_ranged_reload, complete_pc_npc_ranged_shot,
     pc_npc_ranged_weapon, updated_pc_npc_ranged_weapons,
@@ -222,6 +237,23 @@ def project_pc_step(state, proof):
     if not isinstance(state,PcMeleeState):
         raise TypeError('PC transition requires complete typed owner')
     validate_pc_melee_state_shape(state)
+    dismount=expected_pc_dismount(state)
+    if (dismount is not None and expected_pc_aim_consumption(state) is None
+            and expected_npc_aim_consumption(state) is None):
+        if type(proof) is not PcDismountProof:
+            raise ValueError('actual Prone must force a dismount before continuation')
+        _same(proof,dismount,'dismount changed its actual Prone injury or source prefix')
+        mounts=updated_pc_mounts(state,proof)
+        enemies=state.enemies
+        if proof.actor_id in state.source.enemy_activation_order:
+            enemy=state.enemy(proof.actor_id)
+            resilience=enemy.state.current_resilience
+            resilience=replace(resilience,bonus=resilience.bonus-1)
+            enemies=tuple(replace(item,state=replace(item.state,current_resilience=resilience))
+                if item.state.actor_id==proof.actor_id else item for item in enemies)
+        return replace(state,history=(*state.history,proof),mounts=mounts,enemies=enemies)
+    if type(proof) is PcDismountProof:
+        raise ValueError('no actual settled Prone injury permits this dismount')
     from towr.domain.pc_generated_talents import (PcWildAttackProof,PcDefensiveStanceProof,
         expected_wild_attack,pending_wild_attack,expected_defensive_stance)
     wild = expected_wild_attack(state)
@@ -251,13 +283,23 @@ def project_pc_step(state, proof):
         return project_pc_aim_step(state,proof)
     if expected_pc_aim_consumption(state) is not None:
         raise ValueError('actual Aim consumption must precede another transition')
+    if type(proof) is PcNpcAimConsumptionProof:
+        return project_npc_aim_step(state,proof)
+    if expected_npc_aim_consumption(state) is not None:
+        raise ValueError('actual NPC Aim consumption must precede another transition')
     if type(proof) in (PcAimProof,PcAimSecondActionProof):
         return project_pc_aim_step(state,proof)
     if build_pc_aim_second_action(state) is not None:
         raise ValueError('selected funded Aim Second Action must precede turn end or another transition')
     if type(proof) is PcBlunderbussNearbyProof:
         return project_pc_blunderbuss_nearby(state,proof)
-    if state.pending and type(state.pending[0]) is NearbyTargetsStaggerRequest:
+    if type(proof) in BATTLEFIELD_NEARBY_PROOFS:
+        return project_pc_battlefield_nearby(state,proof)
+    if (current_pc_blunderbuss_wave(state) is not None and not state.pending
+            and state.pending_wound is None):
+        raise ValueError('nearby impacts and target lifecycles must complete before ordinary continuation')
+    if (state.pending_wound is None and state.pending
+            and type(state.pending[0]) is NearbyTargetsStaggerRequest):
         raise ValueError('nearby effects and acknowledgements must complete before another transition')
     combat, scenario = state.round_state, state.source
     approach = expected_pc_npc_approach(state)
@@ -315,12 +357,31 @@ def project_pc_step(state, proof):
     exit_proof = expected_pc_npc_exit(state,exit_actor) if exit_actor is not None else None
     if exit_proof is not None and type(proof) is not PcNpcExitProof:
         raise ValueError('Broken NPC cannot skip its supported incidental exit')
+    # Finish existing mandatory equipment/exit work before choosing actual
+    # positioning from the resulting held weapon and hand state.
+    from towr.domain.pc_melee_result_models import pc_melee_net_recovery
+    recovery=pc_melee_net_recovery(state)
+    incidental_net=expected_weighted_net_incidental_pickup(state) if all(item is None for item in
+        (swap,shield_release,net_draw,draw_hand,exit_proof)) else None
+    if incidental_net is not None and type(proof) is not PcNetIncidentalPickupProof:
+        raise ValueError('selected legal incidental Net pickup must precede ordinary continuation')
+    net_approach=(expected_weighted_net_approach(state,recovery.actor_id,recovery.item_id)
+        if recovery is not None and recovery.requires_approach and incidental_net is None else None)
+    if net_approach is not None and type(proof) is not PcNetApproachProof:
+        raise ValueError('selected Net approach must precede the ordinary action')
+    movement = (expected_pc_battlefield_move(state) if all(item is None for item in
+        (swap,shield_release,net_draw,draw_hand,exit_proof,recovery,incidental_net)) else None)
+    if movement is not None and type(proof) is not PcBattlefieldMoveProof:
+        raise ValueError('selected battlefield positioning must precede the ordinary action')
+    if type(proof) is PcNpcAimProof:
+        return project_npc_aim_step(state,proof)
 
     def finish(**updates):
         if 'party' in updates:
             from towr.domain.pc_weapon_inventory import sync_pc_weapon_inventory
             updates['party']=tuple(sync_pc_weapon_inventory(state.participant(member.actor_id),member,
                 scenario.participant(member.actor_id)) for member in updates['party'])
+        updates=weighted_nets_after_equipment(state,proof,updates)
         updates.setdefault('magic_modifiers',consume_magic_modifiers(state.magic_modifiers,proof))
         pending = updates.get('pending', state.pending)
         pending_wound = updates.get('pending_wound', state.pending_wound)
@@ -329,6 +390,30 @@ def project_pc_step(state, proof):
         elif 'pending_actor_id' not in updates:
             updates['pending_actor_id'] = pc_actor
         return replace(state,history=(*state.history,proof),**updates)
+    if type(proof) in NET_PROOFS:
+        if type(proof) is PcNetApproachProof:
+            _same(proof,net_approach,'Net approach changed its selected physical item')
+        elif type(proof) is PcNetIncidentalPickupProof:
+            _same(proof,incidental_net,'incidental Net pickup changed its selected physical item')
+        else:
+            kind=PcNetRecoverKind.RELEASE if type(proof) is PcNetReleaseProof else PcNetRecoverKind.PICKUP
+            if (recovery is None or recovery.requires_approach or recovery.kind is not kind
+                    or recovery.item_id!=proof.item_id):
+                raise ValueError('Net Recover changed its actual selected physical item or action')
+        return finish(**project_weighted_net_step(state,proof))
+    if type(proof) is PcBattlefieldMoveProof:
+        if movement is None:
+            raise ValueError('no actual battlefield positioning is due')
+        _same(proof,movement,'battlefield movement changed its actor, Conditions, route or spatial source')
+        updates = dict(battlefield=proof.state)
+        if proof.actor_id in scenario.pc_activation_order:
+            moving = state.participant(proof.actor_id)
+            updates['party'] = _party_update(state,proof.actor_id,
+                injury=critical_for_action(moving,None))
+        return finish(**updates)
+    if type(proof) in BATTLEFIELD_MANOEUVRE_PROOFS:
+        _ready(state)
+        return finish(**project_pc_battlefield_manoeuvre(state,proof))
     if type(proof) is PcWeaponSwapProof:
         _ready(state)
         if swap is None:
@@ -468,7 +553,8 @@ def project_pc_step(state, proof):
         turn = combat.active_turn
         if turn is None or not turn.action_slots or turn.action_slots[-1].executed:
             raise ValueError('PC Attack must consume its unused reserved slot once')
-        if pc_melee_selected_action(state) is not CombatActionKind.ATTACK:
+        if (pc_melee_selected_action(state) is not CombatActionKind.ATTACK
+                and current_pc_charge(state,combat.active_turn.actor_id) is None):
             raise ValueError('PC Attack cannot replace the selected Recover')
         expected, protection = build_pc_melee_attack(state)
         _same(proof.npc_glorious_source, pc_bestigor_glorious_source(state, expected.actor_id),
@@ -613,7 +699,8 @@ def project_pc_step(state, proof):
         target,applications,secondary_rules = expected_pc_hit_target(expected.kernel_request,result.attack.outcome,base_target)
         if is_net_impact(expected.kernel_request.attack.impact_spec):
             canonical_net = expected_net_resolution(expected.kernel_request,result.attack)
-            target,applications,secondary_rules = canonical_net.target_state,canonical_net.condition_applications,()
+            target,applications,secondary_rules = (canonical_net.target_state,canonical_net.condition_applications,
+                canonical_net.applied_secondary_rule_ids)
         if forced_defeat is not None:
             secondary_rules = (*forced_defeat.applied_rule_ids,*secondary_rules)
         if (expected.kernel_request.first_stagger_wound is not None and result.attack.outcome is AttackOutcome.HIT
@@ -635,14 +722,16 @@ def project_pc_step(state, proof):
         else:
             enemies = _enemy_update(state,expected.target_id,result.target_state)
             hit_sources = member.hit_condition_sources
-        net_sources = (*member.net_condition_sources,*net_condition_sources_from_attack(expected,result))
+        net_sources = (*member.net_condition_sources,*(net_condition_sources_from_attack(expected,result)
+            if expected.target_id==pc_actor else ()))
         enemies = spend_pc_npc_net(state,enemies,expected)
+        net_updates=weighted_net_updates_from_attack(state,expected,execution,proof.weighted_net_landing)
         return finish(round_state=execution.state,party=_party_update(state,pc_actor,injury=pc_injury,fate=pc_fate,
             hit_condition_sources=hit_sources,net_condition_sources=net_sources,
             ranged=expected_shot.execution.weapon_state if expected_shot is not None else member.ranged),enemies=enemies,
             pending=result.follow_ups,pending_wound=pending_wound,
             npc_ranged_weapons=(updated_pc_npc_ranged_weapons(state,expected.actor_id,expected_npc_shot.execution.weapon_state)
-                if expected_npc_shot is not None else state.npc_ranged_weapons))
+                if expected_npc_shot is not None else state.npc_ranged_weapons),**net_updates)
     if isinstance(proof,PcNpcHelpProof):
         from towr.domain.automatic_help_models import expected_automatic_help_action
         _ready(state)
@@ -933,6 +1022,19 @@ def project_pc_step(state, proof):
         expected = PcNpcRecoverProof(request,canonical,before,flagellant_recovered_injury(before))
         _same(proof,expected,'NPC Recover changed its actor, receipt, heal or source')
         return finish(round_state=canonical.round_state,enemies=_enemy_update(state,actor,expected.injury))
+    if type(proof) is PcBattlefieldRecoverProof:
+        _ready(state)
+        if pc_melee_selected_action(state) is not CombatActionKind.RECOVER:
+            raise ValueError('battlefield NPC Recover must be its actual selected action')
+        request = build_pc_battlefield_npc_recover(state)
+        from towr.domain.pc_ally_recover_models import expected_pc_standard_recover
+        canonical = expected_pc_standard_recover(request)
+        before = state.enemy(request.actor_id).state.injury
+        expected = PcBattlefieldRecoverProof(request,canonical,before,
+            battlefield_recovered_injury(before,canonical))
+        _same(proof,expected,'battlefield NPC Recover changed its full source or standard benefits')
+        return finish(round_state=canonical.round_state,
+            enemies=_enemy_update(state,request.actor_id,expected.injury))
     if type(proof) is PcNpcRangedReloadProof:
         _ready(state)
         actor = combat.active_turn.actor_id
@@ -996,5 +1098,8 @@ def project_pc_step(state, proof):
         expected = CombatRoundState(combat.round_number+1,participants)
         _same((proof.request_id,proof.state),(f'{scenario.id}:r{combat.round_number}:advance',expected),
             'PC round advance changed its live participants, order or clock')
-        return finish(round_state=expected)
+        from towr.rules.spatial_resolution import start_next_spatial_round
+        battlefield = (None if state.battlefield is None else
+            replace(state.battlefield,spatial=start_next_spatial_round(state.battlefield.spatial)))
+        return finish(round_state=expected,battlefield=battlefield)
     raise TypeError('unsupported PC journal proof type')

@@ -8,7 +8,9 @@ from unittest.mock import patch
 from jsonschema import Draft202012Validator, ValidationError
 from referencing import Registry, Resource
 
-from tests.unit.test_m9_pc_melee_json import aggregate, balance_result, document, melee_help
+from tests.unit.test_m9_pc_melee_json import (
+    aggregate, balance_result, document, melee_help, weighted_net_document,
+)
 from towr.adapters import pc_melee_json as wire
 from towr.adapters.pc_melee_json_errors import PcMeleeBalanceInputError, PcMeleeSimulationInputError
 from towr.adapters import pc_melee_json_schema as schema
@@ -36,16 +38,20 @@ def samples():
 
 class PcMeleeJsonSchemaTests(unittest.TestCase):
     def test_weapon_enum_is_exact_and_applies_to_request_and_all_result_sources(self):
-        weapons=['staff','sword','dagger','axe','warhammer','morning_star','pickaxe','flail','billhook','halberd','glaive','greataxe','greathammer']
+        weapons=['staff','sword','dagger','axe','warhammer','morning_star','foot_spear','polearm',
+            'pickaxe','flail','billhook','halberd','glaive','greataxe','greatsword','greathammer']
         common=json.loads(files('towr.adapters.schemas').joinpath('pc-melee-common.schema.json')
             .read_text(encoding='utf-8'))
-        self.assertEqual(common['$defs']['pc']['properties']['weapon'],{'enum':weapons+['pistol','repeater_handbow','repeater_pistol','shortbow','warbow','longbow','crossbow','repeater_crossbow','handgun','repeater_handgun','sling','blunderbuss','hochland_long_rifle']})
-        for balance in (False,True):
+        self.assertEqual(common['$defs']['pc']['properties']['weapon'],{'enum':weapons+['pistol','repeater_handbow','repeater_pistol','shortbow','warbow','longbow','crossbow','repeater_crossbow','handgun','repeater_handgun','sling','blunderbuss','hochland_long_rifle','weighted_net']})
+        for balance,variable_grip in ((balance,grip) for balance in (False,True)
+                for grip in ('left','right','both')):
             raw=document(balance=balance,party_size=len(weapons))
             key='template' if balance else 'scenario'
             for member,weapon in zip(raw[key]['party'],weapons):
                 member['pc']['weapon']=weapon
-                member['initial_weapon_hand']='both' if weapon in ('pickaxe','flail','billhook','halberd','glaive','greataxe','greathammer') else 'left'
+                member['initial_weapon_hand']='both' if weapon in ('pickaxe','flail','billhook','halberd','glaive','greataxe','greatsword','greathammer') else 'left'
+                if weapon in ('foot_spear','polearm'):
+                    member['initial_weapon_hand']=variable_grip
             validate=schema.validate_pc_melee_balance_document if balance else schema.validate_pc_melee_simulation_document
             validate(raw)
             parse=wire.parse_pc_melee_balance_request if balance else wire.parse_pc_melee_simulation_request
@@ -58,6 +64,8 @@ class PcMeleeJsonSchemaTests(unittest.TestCase):
                 result_sources.extend(candidate['request']['scenario'] for candidate in result['candidates'])
             for source in result_sources:
                 self.assertEqual([member['pc']['weapon'] for member in source['party']],weapons)
+                self.assertEqual([member['initial_weapon_hand'] for member in source['party']
+                    if member['pc']['weapon'] in ('foot_spear','polearm')],[variable_grip,variable_grip])
                 for weapon in ('unknown_weapon','AXE','Morning Star','morning-star','',False,1,None,[],{}):
                     saved=source['party'][0]['pc']['weapon']
                     source['party'][0]['pc']['weapon']=weapon
@@ -68,6 +76,32 @@ class PcMeleeJsonSchemaTests(unittest.TestCase):
                 changed=deepcopy(raw)
                 changed[key]['party'][0]['pc']['weapon']=weapon
                 with self.subTest(balance=balance,request_weapon=weapon),self.assertRaises(ValidationError):
+                    validate(changed)
+
+    def test_weighted_net_requires_its_real_profiles_and_two_handed_inventory(self):
+        for balance in (False,True):
+            raw=weighted_net_document(balance=balance)
+            key='template' if balance else 'scenario'
+            validate=schema.validate_pc_melee_balance_document if balance else schema.validate_pc_melee_simulation_document
+            parse=wire.parse_pc_melee_balance_request if balance else wire.parse_pc_melee_simulation_request
+            validate(raw)
+            command=parse(json.dumps(raw))
+            result=json.loads(wire.encode_pc_melee_balance_result(command,balance_result(command)) if balance
+                else wire.encode_pc_melee_simulation_result(command,aggregate(command.request)))
+            validate(result,'result')
+            for field in ('ballistic_skill','throwing'):
+                changed=deepcopy(raw)
+                del changed[key]['party'][0]['pc'][field]
+                with self.subTest(balance=balance,missing=field),self.assertRaises(ValidationError):
+                    validate(changed)
+                changed=deepcopy(raw)
+                changed[key]['party'][0]['pc'][field]=True
+                with self.subTest(balance=balance,boolean=field),self.assertRaises(ValidationError):
+                    validate(changed)
+            for grip in ('left','right'):
+                changed=deepcopy(raw)
+                changed[key]['party'][0]['initial_weapon_hand']=grip
+                with self.subTest(balance=balance,grip=grip),self.assertRaises(ValidationError):
                     validate(changed)
 
     def test_ally_recover_strategy_and_counters_are_current_required_closed_shapes(self):
@@ -108,17 +142,17 @@ class PcMeleeJsonSchemaTests(unittest.TestCase):
         raw=document(party_size=2)
         helper=raw['scenario']['party'][1]
         helper['policy']='help_ally_or_attack_or_recover_self'
-        for target,skill in (('melee_attack',None),('first_incoming_protection','defence'),
+        for target,skill in (('attack','melee'),('first_incoming_protection','defence'),
                 ('first_incoming_protection','athletics'),('first_incoming_protection','melee')):
-            helper['help_policy']={'beneficiary_id':'pc','target':target,'protection_skill':skill}
+            helper['help_policy']={'beneficiary_id':'pc','target':target,'skill':skill}
             schema.validate_pc_melee_simulation_document(raw)
-        for target,skill in (('melee_attack','defence'),('first_incoming_protection',None),
+        for target,skill in (('attack','defence'),('first_incoming_protection',None),
                 ('first_incoming_protection','shooting'),('first_incoming_protection',False),
                 ('protection','defence'),(True,'athletics')):
-            helper['help_policy']={'beneficiary_id':'pc','target':target,'protection_skill':skill}
+            helper['help_policy']={'beneficiary_id':'pc','target':target,'skill':skill}
             with self.subTest(target=target,skill=skill),self.assertRaises(ValidationError):
                 schema.validate_pc_melee_simulation_document(raw)
-        for field in ('beneficiary_id','target','protection_skill'):
+        for field in ('beneficiary_id','target','skill'):
             helper['help_policy']=melee_help('pc')
             del helper['help_policy'][field]
             with self.subTest(missing=field),self.assertRaises(ValidationError):
@@ -162,10 +196,11 @@ class PcMeleeJsonSchemaTests(unittest.TestCase):
         raw=document()
         member=raw['scenario']['party'][0]
         member.update(fate_policy='configured',glorious_policy={
-            'skills':['melee','defence','athletics','endurance'],
+            'skills':['melee','defence','athletics','endurance','shooting','dexterity','willpower','throwing','brawn'],
             'maximum_initial_successes':1,'minimum_remaining_spends':0})
         schema.validate_pc_melee_simulation_document(raw)
-        for field,value in (('skills',[]),('skills',['melee','melee']),('skills',['brawn']),
+        for field,value in (('skills',[]),('skills',['melee','melee']),('skills',['awareness']),
+                ('skills',['unknown']),('skills',['Brawn']),('skills',[True]),
                 ('maximum_initial_successes',True),('minimum_remaining_spends',False),
                 ('maximum_initial_successes',-1),('minimum_remaining_spends',-1)):
             changed=deepcopy(raw)

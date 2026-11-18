@@ -33,6 +33,7 @@ from towr.rules.ranged_weapon_attack_preparation import (
 
 CLOSE_CAPABLE_WEAPONS = {
     RangedWeaponId.PISTOL,
+    RangedWeaponId.OGRE_PISTOL,
     RangedWeaponId.REPEATER_PISTOL,
     RangedWeaponId.REPEATER_HANDBOW,
 }

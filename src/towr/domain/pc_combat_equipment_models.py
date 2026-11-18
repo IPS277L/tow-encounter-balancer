@@ -17,6 +17,7 @@ class PcItemLocation(str,Enum):
     HELD='held'
     CARRIED='carried'
     DROPPED='dropped'
+    DEPLOYED='deployed'
 
 
 def _identifier(value):
@@ -33,14 +34,15 @@ class PcWeaponItem:
 
     def __post_init__(self):
         from towr.domain.pc_melee_models import PcMeleeWeapon,PcWeaponHand,PcTwoHandedGrip
-        from towr.domain.pc_weapon_models import pc_weapon_requires_two_hands
+        from towr.domain.pc_weapon_models import pc_weapon_requires_two_hands, pc_weapon_supports_variable_grip
         _identifier(self.id)
         if type(self.weapon) is not PcMeleeWeapon or type(self.location) is not PcItemLocation:
             raise TypeError('weapon item needs its exact weapon and location enums')
         if self.location is not PcItemLocation.HELD:
             if self.hand is not None:
                 raise ValueError('a carried/dropped weapon has no held hand')
-        elif pc_weapon_requires_two_hands(self.weapon):
+        elif (pc_weapon_requires_two_hands(self.weapon)
+                or pc_weapon_supports_variable_grip(self.weapon) and self.hand is PcTwoHandedGrip.BOTH):
             if self.hand is not PcTwoHandedGrip.BOTH:
                 raise ValueError('a held two-handed weapon needs its actual two-handed grip')
         elif type(self.hand) is not PcWeaponHand:
