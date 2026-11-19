@@ -28,7 +28,7 @@ from towr.domain.resolution_models import NearbyTargetsStaggerRequest
 from towr.domain.attack_models import NearbyTargetsStaggerSpec
 from towr.domain.pc_short_opening_models import PcNpcApproachProof, expected_pc_npc_approach
 from towr.domain.pc_battlefield_movement_models import (
-    PcBattlefieldMoveProof, PcBattlefieldRecoverProof, expected_pc_battlefield_move,
+    PcBattlefieldMoveProof, PcBattlefieldRecoverProof, expected_pc_action_positioning,
     build_pc_battlefield_npc_recover, battlefield_recovered_injury,
 )
 from towr.domain.pc_battlefield_manoeuvre_models import (BATTLEFIELD_MANOEUVRE_PROOFS,
@@ -667,11 +667,19 @@ def project_pc_step(state, proof):
         raise ValueError('own end phase cannot skip the selected Warped Form wave')
     if state.pending_actor_id in scenario.enemy_activation_order:
         raise ValueError('wave NPC pending work requires its target-scoped acknowledgement')
+    selected_attack_intent = None
     pc_actor = state.pending_actor_id
     if pc_actor is None and combat.active_turn is not None:
         actor = combat.active_turn.actor_id
         if actor in scenario.pc_activation_order:
             pc_actor = actor
+        elif isinstance(proof, PcAttackProof):
+            # Spatial availability or a committed weapon intent can select a
+            # later living PC. Bind Protection/Fate to the canonical target,
+            # never to the first alive entry or the untrusted proof's target.
+            from towr.domain.pc_weapon_intent_models import build_pc_attack_weapon_intent
+            selected_attack_intent = build_pc_attack_weapon_intent(state)
+            pc_actor = selected_attack_intent.target_id
         elif (combat.active_turn.action_slots
                 and not combat.active_turn.action_slots[-1].executed
                 and (combat.active_turn.action_slots[-1].enduring_strength is not None
@@ -720,7 +728,7 @@ def project_pc_step(state, proof):
         (swap,shield_release,net_draw,draw_hand,exit_proof,recovery,incidental_net,weapon_recovery)) else None)
     if shield_approach is not None and type(proof) is not PcShieldApproachProof:
         raise ValueError('owned ground Shield approach must precede the ordinary action')
-    movement = (expected_pc_battlefield_move(state) if all(item is None for item in
+    movement = (expected_pc_action_positioning(state) if all(item is None for item in
         (swap,shield_release,net_draw,draw_hand,exit_proof,recovery,incidental_net,weapon_recovery,shield_approach)) else None)
     if movement is not None and type(proof) is not PcBattlefieldMoveProof:
         raise ValueError('selected battlefield positioning must precede the ordinary action')
@@ -972,7 +980,8 @@ def project_pc_step(state, proof):
                 and current_pc_charge(state,combat.active_turn.actor_id) is None):
             raise ValueError('PC Attack cannot replace the selected Recover')
         from towr.domain.pc_weapon_intent_models import build_pc_attack_weapon_intent, weapon_use_hand
-        weapon_intent = build_pc_attack_weapon_intent(state)
+        weapon_intent = (selected_attack_intent if selected_attack_intent is not None
+            else build_pc_attack_weapon_intent(state))
         _same(proof.weapon_intent,weapon_intent,'Attack changed its pre-price weapon/Protection intent')
         expected, protection = build_pc_melee_attack(state,weapon_intent=weapon_intent)
         from towr.domain.pc_mount_attack_models import pc_uses_mount_attack,build_pc_mounted_attack_intent

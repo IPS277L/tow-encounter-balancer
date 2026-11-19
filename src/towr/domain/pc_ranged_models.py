@@ -388,7 +388,8 @@ def pc_ranged_unsupported(state: PcMeleeState) -> PcMeleeUnsupported | PcRangedC
         from towr.domain.pc_tactical_models import select_pc_tactic
         choice=select_pc_tactic(state,actor)
         primary_id=member.weapon_inventory.active_item_id
-        if (choice.mount_attack or (choice.weapon_item_id is not None and choice.weapon_item_id!=primary_id)
+        if (choice.mount_attack or choice.unarmed_attack
+                or (choice.weapon_item_id is not None and choice.weapon_item_id!=primary_id)
                 or choice.potion is not None or choice.pickup_item_id is not None
                 or (choice.action is not CombatActionKind.ATTACK and not choice.ranged_reload)):
             return None

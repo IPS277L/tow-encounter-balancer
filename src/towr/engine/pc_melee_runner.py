@@ -49,7 +49,7 @@ from towr.domain.resolution_models import NearbyTargetsStaggerRequest
 from towr.rules.secondary_target_resolution import resolve_nearby_targets_stagger
 from towr.domain.pc_short_opening_models import expected_pc_npc_approach
 from towr.domain.pc_battlefield_movement_models import (
-    PcBattlefieldRecoverProof, expected_pc_battlefield_move,
+    PcBattlefieldRecoverProof, expected_pc_action_positioning,
     pc_battlefield_npc_recover_selected, build_pc_battlefield_npc_recover,
     battlefield_recovered_injury,
 )
@@ -613,11 +613,9 @@ def run_pc_melee_scenario(scenario, rng: RandomSource) -> PcMeleeScenarioResult:
             if shield_approach is not None:
                 consume(shield_approach)
                 continue
-            movement = (expected_pc_battlefield_move(state) if recovery is None
+            movement = (expected_pc_action_positioning(state) if recovery is None
                 and weapon_recovery is None
-                and shield_approach is None
-                and pc_melee_briarroot_recovery(state) is None
-                and build_npc_shield_pickup(state) is None else None)
+                and shield_approach is None else None)
             if movement is not None:
                 consume(movement)
                 continue

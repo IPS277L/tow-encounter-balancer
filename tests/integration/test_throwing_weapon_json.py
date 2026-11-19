@@ -36,6 +36,24 @@ def native_document(scenario):
 
 
 class ThrowingWeaponJsonTests(unittest.TestCase):
+    def test_one_handed_throwables_with_shield_roundtrip_the_complete_player_source(self):
+        for kind in WEAPONS:
+            with self.subTest(kind=kind):
+                raw=request(kind)
+                raw['party'][0]['equipment']['armour']=[
+                    dict(id='shield',kind='shield',location='right_hand')]
+                command=parse_dynamic_encounter_request(json.dumps(raw))
+                npc=command.request.space.sample(Random(2))
+                scenario=command.request.scenario((npc,),'throwing-shield-source')
+                native=native_document(scenario)
+                restored=parse_pc_melee_simulation_request(json.dumps(native)).request.scenario
+                self.assertEqual(restored,scenario)
+                member=restored.party[0]
+                self.assertEqual(member.pc.weapon.value,kind)
+                self.assertEqual(member.initial_weapon_hand.value,'left')
+                self.assertEqual(member.shield.initial_hand.value,'right')
+                self.assertEqual(scenario_document(restored),native['scenario'])
+
     def test_all_six_sources_roundtrip_players_generated_npcs_and_character_files(self):
         for kind in WEAPONS:
             with self.subTest(kind=kind):

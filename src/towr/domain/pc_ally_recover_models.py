@@ -85,7 +85,6 @@ def pc_after_standard_recover(state, request, result):
                 WoundRestriction.REMOVING_PRONE_CAUSES_CRITICAL))
         updated[member.actor_id] = injury
     member = state.participant(actor)
-    from towr.domain.pc_backup_weapon_models import pc_preferred_weapon_hand
     from towr.domain.pc_shield_models import pc_shield_recover_hand,PcShieldState,PcShieldLocation
     interaction = request.choice.object_interaction
     from towr.domain.pc_potion_models import selected_pc_potion
@@ -108,8 +107,7 @@ def pc_after_standard_recover(state, request, result):
     from towr.domain.pc_weapon_inventory import pc_hand
     used_hand = (pc_hand(member.weapon_inventory.item(interaction.object_id).grip) if scarab else
         pc_potion_hand(member) if drinking else pc_shield_recover_hand(member, state=state) if shield_pickup else
-        picked.weapon_hand if picked is not None else pc_preferred_weapon_hand(state,actor) if interaction is not None else None)
-    hand = used_hand if interaction is not None and not shield_pickup and not drinking and not scarab else member.weapon_hand
+        picked.weapon_hand if picked is not None else None)
     shield = PcShieldState(PcShieldLocation.HELD,used_hand) if shield_pickup else member.shield
     injury = picked.injury if picked is not None else updated.get(actor,member.injury)
     updated[actor] = critical_for_action(replace(picked if picked is not None else member,injury=injury),CombatActionKind.RECOVER,
@@ -118,7 +116,6 @@ def pc_after_standard_recover(state, request, result):
         used_hand=used_hand)
     return tuple(replace_pc_member(picked if picked is not None and member.actor_id==actor else member,
         injury=updated.get(member.actor_id,member.injury),
-        weapon_hand=hand if member.actor_id==actor else member.weapon_hand,
         shield=shield if member.actor_id==actor else member.shield,
         magic=result.resolution.magic_state if member.actor_id==actor and member.magic is not None else member.magic)
         for member in state.party)

@@ -16,6 +16,7 @@ def _file_actions(result=False):
         ('format', 'Форматировать JSON запроса', 'M8 3H6v6l-3 3 3 3v6h2m8-18h2v6l3 3-3 3v6h-2'),
         ('load', 'Загрузить JSON запроса', 'M12 16V4m-5 5 5-5 5 5M4 15v5h16v-5'),
         ('save', 'Скачать запрос', download_path),
+        ('random-request', 'Случайные игроки и параметры боя', 'M5 3h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2M8 8h.01M16 8h.01M12 12h.01M8 16h.01M16 16h.01'),
     )
     html = '<div class="file-actions" role="group" aria-label="Действия с файлом">'
     for identifier, title, path in buttons:
@@ -136,7 +137,7 @@ const byId = id => document.getElementById(id);
 const paths = {minimum:['npc_count','minimum'],maximum:['npc_count','maximum'],
  maxRounds:['max_rounds'],seed:['search','master_seed'],candidates:['search','max_candidates'],
  exploration:['search','exploration_trials'],top:['search','top_k'],finalTrials:['search','finalist_trials']};
-let lastResult=null, busy=false, activeRunId=null, cancelling=false, fileLoadVersion=0, resultFileLoadVersion=0;
+let lastResult=null, busy=false, activeRunId=null, cancelling=false, fileLoadVersion=0, resultFileLoadVersion=0, randomizingRequest=false;
 function message(text,kind=''){byId('status').textContent=kind==='error'?text:'';byId('status').className=kind==='error'?'error':'';}
 function pretty(value){return JSON.stringify(value,null,2)+'\n';}
 function read(){const value=JSON.parse(byId('request').value);if(!value || typeof value!=='object' || Array.isArray(value))throw Error('Запрос должен быть JSON-объектом.');return value;}
@@ -178,7 +179,21 @@ function changed(id){
 }
 function downloadFileName(name){const dot=name.lastIndexOf('.'),stem=dot>0?name.slice(0,dot):name,extension=dot>0?name.slice(dot):'';return stem+'_'+new Date().toISOString().replace(/[:.]/g,'-')+'_'+crypto.randomUUID().slice(0,8)+extension;}
 function download(text,name){const url=URL.createObjectURL(new Blob([text],{type:'application/json;charset=utf-8'}));const a=document.createElement('a');a.href=url;a.download=downloadFileName(name);a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
-function setBusy(value){busy=value;byId('controls').disabled=value;byId('visual-request-controls').disabled=value;byId('request').readOnly=value;for(const id of ['run','load','save','format','file'])byId(id).disabled=value;byId('run').classList.toggle('hidden',value);byId('cancel').classList.toggle('hidden',!value);byId('cancel').disabled=!value||cancelling;byId('cancel').textContent=cancelling?'Отмена…':'Отменить генерацию';updatePlanControls();updateFileActions();}
+function setBusy(value){busy=value;byId('controls').disabled=value;byId('visual-request-controls').disabled=value;byId('request').readOnly=value;for(const id of ['run','load','save','format','file'])byId(id).disabled=value;byId('random-request').disabled=value||randomizingRequest;byId('run').classList.toggle('hidden',value);byId('cancel').classList.toggle('hidden',!value);byId('cancel').disabled=!value||cancelling;byId('cancel').textContent=cancelling?'Отмена…':'Отменить генерацию';updatePlanControls();updateFileActions();}
+async function randomizeRequest(){
+ if(busy||randomizingRequest)return;
+ const previous=byId('request').value,version=++fileLoadVersion;
+ randomizingRequest=true;byId('random-request').disabled=true;byId('random-request').setAttribute('aria-busy','true');
+ try{
+  read();invalidateCharacterImports();
+  const response=await fetch('/api/random-request',{method:'POST',headers:{'Content-Type':'application/json'},body:previous});
+  const data=await response.json();
+  if(version!==fileLoadVersion||busy||byId('request').value!==previous)return;
+  if(!response.ok)throw Error(data.error?.message||'Не удалось создать случайный запрос.');
+  visualEditError=null;byId('request').value=pretty(data);syncForm();message('');
+ }catch(error){if(version===fileLoadVersion&&!busy)message(error.message,'error');}
+ finally{randomizingRequest=false;byId('random-request').disabled=busy;byId('random-request').removeAttribute('aria-busy');}
+}
 async function run(){
  if(busy)return;
  if(visualEditError){message('Исправьте поле: '+visualEditError,'error');return;}
@@ -206,6 +221,7 @@ byId('request').addEventListener('blur',()=>{try{syncForm();}catch(error){markRe
 byId('save').onclick=()=>{try{syncForm();download(byId('request').value,'encounter-request.json');}catch(error){message(error.message,'error');}};
 byId('download').onclick=()=>{if(lastResult)download(pretty(lastResult),'encounter-result.json');};
 byId('load').onclick=()=>byId('file').click();
+byId('random-request').onclick=randomizeRequest;
 byId('load-result').onclick=()=>byId('result-file').click();
 byId('format-result').onclick=()=>{if(busy||!lastResult)return;try{byId('result').textContent=pretty(JSON.parse(byId('result').textContent));message('');}catch(error){message(error.message,'error');}};
 byId('result-file').onchange=async event=>{

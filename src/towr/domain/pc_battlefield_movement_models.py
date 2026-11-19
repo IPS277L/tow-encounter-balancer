@@ -22,7 +22,7 @@ from towr.domain.recover_models import (
 )
 from towr.domain.reload_models import ranged_weapon_is_loaded
 from towr.domain.test_models import Skill
-from towr.domain.turn_models import CombatRoundAdvanceResult, CombatRoundState
+from towr.domain.turn_models import CombatActionKind, CombatRoundAdvanceResult, CombatRoundState
 from towr.rules.free_movement_resolution import resolve_free_movement
 from towr.rules.spatial_resolution import start_next_spatial_round
 
@@ -332,6 +332,25 @@ class PcBattlefieldMoveProof:
             self.actor_id, destination, close_to_ids=self.close_to_ids), spatial=spatial)
         if self.state != expected:
             raise ValueError('movement changed another placement, Close link or usage')
+
+
+def expected_pc_action_positioning(state: PcMeleeState) -> PcBattlefieldMoveProof | None:
+    """Shared execution gate after equipment/approach work, before the action.
+
+    A possible Shield pickup is not necessarily the selected action: a mount
+    Attack can take priority. Keep physical movement queries independent of
+    this action ordering so tactical forecasts do not recurse through it.
+    """
+    from towr.domain.pc_melee_result_models import (
+        pc_melee_briarroot_recovery, pc_melee_selected_action,
+    )
+    from towr.domain.pc_npc_shield_models import build_npc_shield_pickup
+    if pc_melee_briarroot_recovery(state) is not None:
+        return None
+    if (build_npc_shield_pickup(state) is not None
+            and pc_melee_selected_action(state) is CombatActionKind.RECOVER):
+        return None
+    return expected_pc_battlefield_move(state)
 
 
 def expected_pc_battlefield_move(state: PcMeleeState) -> PcBattlefieldMoveProof | None:

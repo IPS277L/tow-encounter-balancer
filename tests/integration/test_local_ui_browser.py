@@ -440,6 +440,21 @@ CHECK = r'''<script>
    await loadProfile(npcKey,JSON.stringify(profileSource.party[0]));check(byId('status').className==='error' && npcDrafts.size===0 && canonical(lastResult)===profileReport,'player file cannot replace an NPC');
    let releaseNpc;const npcPending=profileInput(npcKey).onchange({target:{files:[{text:()=>new Promise(resolve=>{releaseNpc=resolve;})}],value:''}});const profileRun=run();check([...document.querySelectorAll('[data-character-control]')].every(control=>control.disabled),'profile controls disabled while generator runs');await profileRun;releaseNpc(JSON.stringify(changedNpc));await npcPending;check(npcDrafts.size===0 && canonical(lastResult)===profileReport && canonical(read())===canonical(profileSource) && generated===profileRuns+1,'new run ignores late NPC file and preserves reproducible original report');
   }finally{download=realDownload;}
+  const randomButton=byId('random-request'),beforeRandom=canonical(read()),beforeRandomReport=canonical(lastResult),beforeRandomRuns=generated,beforeRandomSearch=canonical(read().search);
+  check(randomButton.previousElementSibling===byId('save') && randomButton.classList.contains('icon-button') && randomButton.getAttribute('aria-label'),'random draft button shares the request file toolbar and accessible icon styling');
+  const randomPending=randomButton.onclick();check(randomButton.disabled && randomButton.getAttribute('aria-busy')==='true','random draft blocks repeated clicks while loading');await randomPending;
+  const randomDraft=read();check(canonical(randomDraft)!==beforeRandom && randomDraft.party.length>=1 && randomDraft.party.length<=5 && randomDraft.search_space===null,'actual random endpoint replaces party and restores automatic NPC ranges');
+  check(canonical(randomDraft.search)===beforeRandomSearch && generated===beforeRandomRuns && canonical(lastResult)===beforeRandomReport && !byId('result-stale').classList.contains('hidden'),'random draft preserves seed precision and report without running simulations');
+  check(document.querySelectorAll('#request-visual>.player-card').length===randomDraft.party.length && Number(byId('maxRounds').value)===randomDraft.max_rounds && !planningError && !randomButton.disabled,'new player cards and battle controls synchronize and remain editable');
+  setRequestView('json');setRequestView('visual');check(canonical(read())===canonical(randomDraft),'random draft survives JSON and card switching');
+  setBusy(true);await randomizeRequest();check(randomButton.disabled && canonical(read())===canonical(randomDraft),'random draft cannot replace a running calculation');setBusy(false);
+  const beforeRandomFailure=canonical(read()),randomFetch=window.fetch;
+  try{
+   window.fetch=async()=>new Response(JSON.stringify({error:{message:'Random draft failed'}}),{status:400,headers:{'Content-Type':'application/json'}});
+   await randomizeRequest();check(canonical(read())===beforeRandomFailure && canonical(lastResult)===beforeRandomReport && byId('status').className==='error' && !randomButton.disabled,'failed random load keeps the original editable draft and report');
+   let releaseRandom;window.fetch=()=>new Promise(resolve=>{releaseRandom=resolve;});const delayedRandom=randomizeRequest();editRequest(['party',0,'resources','fate'],randomDraft.party[0].resources.fate+1);const editedDuringRandom=canonical(read());releaseRandom(new Response(JSON.stringify(randomDraft),{status:200}));await delayedRandom;
+   check(canonical(read())===editedDuringRandom,'late random response cannot overwrite newer user edits');
+  }finally{window.fetch=randomFetch;}
   byId('request-json-tab').click();
   byId('request').value='{';await run();check(byId('status').className==='error' && getComputedStyle(byId('status')).display!=='none' && byId('status').textContent,'invalid JSON error remains visible');
   byId('request-visual-tab').click();check(requestView==='json' && byId('request').value==='{','invalid JSON not overwritten by toggle');

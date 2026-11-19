@@ -1,12 +1,15 @@
 """Loopback-only UI adapter over the existing dynamic JSON contract."""
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
+import logging
 import os
 from pathlib import Path
 from dataclasses import asdict, dataclass, field
 from threading import Event, Lock
+from random import SystemRandom
 
 from towr.adapters._local_ui_page import PAGE
+from towr.adapters._local_ui_random_request import random_ui_request
 from towr.adapters.character_files import parse_character_file
 from towr.adapters.dynamic_encounter_json import (
     DynamicEncounterInputError, DynamicEncounterExecutionError,
@@ -14,6 +17,9 @@ from towr.adapters.dynamic_encounter_json import (
     encode_dynamic_encounter_result, encode_dynamic_encounter_error,
 )
 from towr.application.dynamic_encounter import DynamicEncounterCancelled, DynamicEncounterProgress, DynamicProgressPhase
+
+
+_LOG = logging.getLogger(__name__)
 
 
 @dataclass
@@ -111,7 +117,7 @@ class LocalUiHandler(BaseHTTPRequestHandler):
         if not self._local_request():
             self._error(403, 'Local requests only')
             return
-        if self.path not in ('/api/generate', '/api/cancel', '/api/character'):
+        if self.path not in ('/api/generate', '/api/cancel', '/api/character', '/api/random-request'):
             self._error(404, 'Not found')
             return
         if self.headers.get_content_type() != 'application/json':
@@ -124,6 +130,22 @@ class LocalUiHandler(BaseHTTPRequestHandler):
             return
         if not 0 <= length <= 2*1024*1024:
             self._error(413, 'Request exceeds 2 MiB')
+            return
+        if self.path == '/api/random-request':
+            self.connection.settimeout(30)
+            try:
+                raw = self.rfile.read(length)
+                if len(raw) != length:
+                    self._error(400, 'Incomplete request')
+                    return
+                document = random_ui_request(json.loads(raw), SystemRandom())
+                self._respond(200, json.dumps(document, ensure_ascii=False, allow_nan=False))
+            except DynamicEncounterInputError as error:
+                self._error(400, f'{error.path or "/"}: {error}')
+            except (ValueError, UnicodeError, RecursionError):
+                self._error(400, 'Не удалось создать запрос. Проверьте JSON и настройки поиска.')
+            except (TimeoutError, ConnectionError):
+                self._error(408, 'Request interrupted')
             return
         if self.path == '/api/character':
             self.connection.settimeout(30)
@@ -217,6 +239,7 @@ class LocalUiHandler(BaseHTTPRequestHandler):
             except DynamicEncounterInputError as error:
                 status, output = 400, encode_dynamic_encounter_error(error)
             except DynamicEncounterExecutionError as error:
+                _LOG.exception('Dynamic encounter failed: %s', command.request_id)
                 status, output = 500, encode_dynamic_encounter_error(error)
             with self.server.state_lock:
                 if active.cancel.is_set():
@@ -226,6 +249,7 @@ class LocalUiHandler(BaseHTTPRequestHandler):
         except (TimeoutError, ConnectionError):
             self._error(408, 'Request interrupted')
         except Exception:
+            _LOG.exception('Unexpected local UI generation failure: %s', token)
             # No traceback or partial result is sent to the browser.
             self._error(500, 'Не удалось завершить расчёт.')
         finally:

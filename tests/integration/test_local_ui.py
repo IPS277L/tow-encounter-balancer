@@ -1,6 +1,7 @@
 import http.client
 import json
 from pathlib import Path
+from random import Random
 from threading import Event, Thread
 import unittest
 from unittest.mock import patch
@@ -45,6 +46,32 @@ class LocalUiTests(unittest.TestCase):
 
     def progress(self, token):
         return self.request('GET','/api/progress',headers={'X-TOWR-Run-ID':token})
+
+    def test_random_request_is_valid_stateless_and_does_not_start_a_search(self):
+        with patch('towr.adapters.local_ui.execute_dynamic_encounter') as execute, \
+                patch('towr.adapters.local_ui.SystemRandom', return_value=Random(17)):
+            status, _, body = self.request('POST', '/api/random-request', self.raw,
+                {'Content-Type': 'application/json'})
+            self.assertEqual(status, 200, body)
+            draft = json.loads(body)
+            parse_dynamic_encounter_request(body)
+            self.assertEqual(draft['search'], json.loads(self.raw)['search'])
+            self.assertIsNone(draft['search_space'])
+            execute.assert_not_called()
+        self.assertIsNone(self.server.active_generation)
+        self.assertEqual(self.request('GET', '/api/request')[2], self.raw)
+
+    def test_random_request_uses_the_existing_local_http_guards(self):
+        headers = {'Content-Type': 'application/json'}
+        self.assertEqual(self.request('POST', '/api/random-request', self.raw,
+            {**headers, 'Origin': 'https://example.com'})[0], 403)
+        self.assertEqual(self.request('POST', '/api/random-request', self.raw,
+            {'Content-Type': 'text/plain'})[0], 415)
+        for raw in (b'{', b'[]', b'{}'):
+            with self.subTest(raw=raw):
+                status, _, body = self.request('POST', '/api/random-request', raw, headers)
+                self.assertEqual(status, 400)
+                self.assertIn('message', json.loads(body)['error'])
 
     def test_character_file_validation_is_stateless_and_does_not_generate(self):
         player = json.loads(self.raw)['party'][0]
@@ -219,6 +246,23 @@ class LocalUiTests(unittest.TestCase):
         self.assertEqual(responses[0][0], 500)
         validate_dynamic_encounter_document(json.loads(responses[0][2]), 'error')
         self.assertFalse(self.server.generation_lock.locked())
+
+    def test_execution_failure_retains_the_original_cause_in_server_logs(self):
+        def failed(command, **kwargs):
+            try:
+                raise ValueError('actual battle source mismatch')
+            except ValueError as cause:
+                raise DynamicEncounterExecutionError(command.request_id) from cause
+
+        with patch('towr.adapters.local_ui.execute_dynamic_encounter', side_effect=failed), \
+                self.assertLogs('towr.adapters.local_ui', level='ERROR') as captured:
+            status, _, body = self.post(self.raw)
+        self.assertEqual(status, 500)
+        validate_dynamic_encounter_document(json.loads(body), 'error')
+        self.assertIn('ValueError: actual battle source mismatch', '\n'.join(captured.output))
+        self.assertNotIn(b'actual battle source mismatch', body)
+        self.assertFalse(self.server.generation_lock.locked())
+        self.assertIsNone(self.server.active_generation)
 
     def test_real_cancel_interrupts_dice_and_releases_worker(self):
         entered, release = Event(), Event()
