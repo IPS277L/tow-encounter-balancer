@@ -22,12 +22,16 @@ from towr.domain.condition_models import (
     ConditionApplicationRequest,
     ConditionState,
 )
+from towr.domain.brawn_impact_models import (
+    BrawnDisplacementImpactSpec, BrawnDisplacementImpactResult, BrawnDisplacementRequest,
+)
 from towr.domain.injury_models import (
     CharacterInjuryState,
     CharacterWoundRequest,
     CharacterWoundType,
     MonstrosityImpactRequest,
     ProfileInjuryState,
+    ProfileDecapitationCause,
     ProfileNpcType,
     ProfileWoundRequest,
 )
@@ -128,7 +132,16 @@ def _resolve_kernel_attack_after_test(
     effective_request, applied_secondary_rule_ids = (
         _apply_pre_stagger_secondary(request)
     )
-    if isinstance(attack.impact_spec, ConditionImpactSpec):
+    if isinstance(attack.impact_spec, BrawnDisplacementImpactSpec):
+        if (type(attack.impact_spec) is not BrawnDisplacementImpactSpec
+                or attack.impact_spec != request.attack.impact_spec
+                or attack.request_id != request.attack.id):
+            raise ValueError('Brawn displacement changed its real successful Attack/source')
+        pending = BrawnDisplacementRequest(request.id, request.attack.id,
+            attack.impact_spec, request.target_id)
+        result = ResolutionResult(request.id, attack, BrawnDisplacementImpactResult(pending),
+            effective_request.target_state, None, None, None, None, None, (pending,))
+    elif isinstance(attack.impact_spec, ConditionImpactSpec):
         result = _resolve_condition_impact(
             effective_request,
             attack,
@@ -326,6 +339,7 @@ def _resolve_stagger_impact(
             target_effect_immunities=request.target_effect_immunities,
             minion_stagger_defeat=request.minion_stagger_defeat,
             first_stagger_wound=request.first_stagger_wound,
+            fixed_character_wound=request.fixed_character_wound,
         ),
         rng,
         decisions=decisions,
@@ -473,6 +487,7 @@ def _resolve_wound(
                     subject_type=subject_type,
                     dice_modifiers=request.wound_dice_modifiers,
                     negation_options=request.wound_negation_options,
+                    fixed_entry=request.fixed_character_wound,
                 ),
             ),
             rng,
@@ -522,6 +537,8 @@ def _resolve_wound(
             npc_type=npc_type,
             state=state,
             additional_wounds=request.additional_profile_wounds,
+            decapitation_cause=(ProfileDecapitationCause(f'{request.id}:wound', request.target_id)
+                if request.fixed_character_wound is not None else None),
         )
     )
     follow_ups.append(wound.state_change)

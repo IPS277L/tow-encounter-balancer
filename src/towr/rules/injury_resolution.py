@@ -9,6 +9,7 @@ from towr.domain.injury_models import (
     CharacterWoundResult,
     FixedCharacterWoundRequest,
     FixedCharacterWoundResult,
+    FixedWoundTableSelection,
     ProfileInjuryState,
     ProfileStateChangeRequest,
     ProfileWoundRequest,
@@ -37,7 +38,7 @@ class WoundDecisionProvider(Protocol):
         self,
         *,
         request: CharacterWoundRequest,
-        table_roll: WoundTableRoll,
+        table_roll: WoundTableRoll | FixedWoundTableSelection,
         options: tuple[WoundNegationOption, ...],
     ) -> str | None: ...
 
@@ -55,23 +56,30 @@ def resolve_character_wound(
             "Wound negation options require an explicit WoundDecisionProvider"
         )
 
-    dice_delta = sum(modifier.amount for modifier in request.dice_modifiers)
-    dice = max(
-        1,
-        request.base_dice + request.state.untreated_wounds + dice_delta,
-    )
-    values = tuple(rng.randint(1, 10) for _ in range(dice))
-    total = sum(values)
-    entry = lookup_wound(total)
-    table_roll = WoundTableRoll(
-        dice=dice,
-        values=values,
-        total=total,
-        entry=entry,
-    )
+    if request.fixed_entry is not None:
+        entry = lookup_wound(request.fixed_entry.table_total)
+        table_roll = FixedWoundTableSelection(request.fixed_entry, entry)
+        values, total = table_roll.values, table_roll.total
+    else:
+        dice_delta = sum(modifier.amount for modifier in request.dice_modifiers)
+        dice = max(
+            1,
+            request.base_dice + request.state.untreated_wounds + dice_delta,
+        )
+        values = tuple(rng.randint(1, 10) for _ in range(dice))
+        total = sum(values)
+        entry = lookup_wound(total)
+        table_roll = WoundTableRoll(
+            dice=dice,
+            values=values,
+            total=total,
+            entry=entry,
+        )
 
     negated_by = _choose_negation(request, table_roll, decisions)
     modifier_rule_ids = tuple(item.rule_id for item in request.dice_modifiers)
+    if request.fixed_entry is not None:
+        modifier_rule_ids = (*modifier_rule_ids, request.fixed_entry.rule_id)
     if negated_by is not None:
         return CharacterWoundResult(
             request_id=request.id,
@@ -90,6 +98,8 @@ def resolve_character_wound(
         entry_id=entry.id,
         table_total=total,
         roll_values=values,
+        origin=(WoundRecordOrigin.FIXED_ENTRY if request.fixed_entry is not None
+            else WoundRecordOrigin.TABLE_ROLL),
     )
     conditions = wound_adrenaline_conditions(request.state)
     state = CharacterInjuryState(
@@ -166,12 +176,13 @@ def resolve_profile_wound(request: ProfileWoundRequest) -> ProfileWoundResult:
         request.state.wounds + wounds_requested,
     )
     wounds_inflicted = current_wounds - request.state.wounds
-    defeated = current_wounds >= request.state.wound_limit
+    defeated = current_wounds >= request.state.wound_limit or request.decapitation_cause is not None
     state = ProfileInjuryState(
         wounds=current_wounds,
         wound_limit=request.state.wound_limit,
         conditions=request.state.conditions.without_condition(Condition.STAGGERED),
         defeated=defeated,
+        defeat_cause=request.decapitation_cause,
     )
     state_change = ProfileStateChangeRequest(
         npc_type=request.npc_type,
@@ -185,13 +196,14 @@ def resolve_profile_wound(request: ProfileWoundRequest) -> ProfileWoundResult:
         wounds_requested=wounds_requested,
         wounds_inflicted=wounds_inflicted,
         state_change=state_change,
-        applied_rule_ids=tuple(item.rule_id for item in request.additional_wounds),
+        applied_rule_ids=(*tuple(item.rule_id for item in request.additional_wounds),
+            *((request.decapitation_cause.rule_id,) if request.decapitation_cause is not None else ())),
     )
 
 
 def _choose_negation(
     request: CharacterWoundRequest,
-    table_roll: WoundTableRoll,
+    table_roll: WoundTableRoll | FixedWoundTableSelection,
     decisions: WoundDecisionProvider | None,
 ) -> str | None:
     if not request.negation_options:

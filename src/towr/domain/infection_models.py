@@ -11,6 +11,7 @@ from towr.domain.injury_models import (
     CharacterInjuryState,
     CharacterWoundResult,
     FixedCharacterWoundResult,
+    FixedWoundTableSelection,
     WoundRecord,
     WoundRecordOrigin,
 )
@@ -333,7 +334,8 @@ def _source_wound(source: CharacterWoundSourceResult) -> WoundRecord:
             raise ValueError("accepted Wound result has stale sequence")
         wound = source.state.wounds[effect.wound_sequence - 1]
         if (
-            wound.origin is not WoundRecordOrigin.TABLE_ROLL
+            wound.origin is not (WoundRecordOrigin.FIXED_ENTRY
+                if type(source.table_roll) is FixedWoundTableSelection else WoundRecordOrigin.TABLE_ROLL)
             or wound.entry_id is not source.table_roll.entry.id
             or wound.table_total != source.table_roll.total
             or wound.roll_values != source.table_roll.values

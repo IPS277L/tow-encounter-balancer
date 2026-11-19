@@ -4,6 +4,7 @@ from towr.domain.pc_weapon_inventory import PcWeaponSwapProof
 from towr.domain.pc_ranged_models import PcRangedReloadProof
 
 from towr.simulation.pc_npc_ranged_statistics import PcNpcRangedCount
+from towr.simulation.pc_extra_attack_statistics import PcExtraAttackCount,pc_extra_attack_actors
 from towr.domain.pc_npc_ranged_models import PcNpcRangedReloadProof
 
 from collections.abc import Callable
@@ -40,12 +41,15 @@ def run_pc_melee_trial(request: PcMeleeSimulationRequest, trial_index: int, *,
     if result.source != request.scenario:
         raise ValueError('PC encounter result belongs to another source')
     from towr.domain.pc_flagellant_models import PcNpcRecoverProof
+    from towr.domain.pc_extinguish_models import PcExtinguishProof
     from towr.domain.pc_npc_shield_models import PcNpcShieldRecoverProof
     from towr.domain.pc_briarroot_models import PcBriarrootReleaseProof
     from towr.domain.pc_briarroot_weapon_models import PcBriarrootWeaponPickupProof
     from towr.domain.pc_battlefield_movement_models import PcBattlefieldRecoverProof
     from towr.domain.pc_weighted_net_models import PcNetReleaseProof,PcNetPickupProof
     from towr.domain.pc_warped_form_models import PcWarpedFormActivationProof
+    from towr.domain.pc_scarab_recover_models import PcScarabHealingProof
+    from towr.domain.pc_hammer_recover_models import PcHammerRetrievalProof
     aim = None
     if pc_has_aim_capability(request.scenario):
         from towr.domain.pc_aim_models import PcAimProof
@@ -106,14 +110,19 @@ def run_pc_melee_trial(request: PcMeleeSimulationRequest, trial_index: int, *,
                 and step.proof.request.actor_id==enemy.state.actor_id for step in result.steps))
             for enemy in request.scenario.enemies),
         tuple(PcNpcRecoverActionCount(enemy.state.actor_id,
-            sum(type(step.proof) in (PcNpcRecoverProof,PcBattlefieldRecoverProof,PcNetReleaseProof,PcNetPickupProof,
-                PcNpcShieldRecoverProof,PcBriarrootReleaseProof,PcBriarrootWeaponPickupProof)
+            sum(type(step.proof) in (PcNpcRecoverProof,PcExtinguishProof,PcBattlefieldRecoverProof,PcNetReleaseProof,PcNetPickupProof,
+                PcNpcShieldRecoverProof,PcBriarrootReleaseProof,PcBriarrootWeaponPickupProof,
+                PcScarabHealingProof,PcHammerRetrievalProof)
                 and step.proof.request.actor_id==enemy.state.actor_id
                 for step in result.steps)) for enemy in request.scenario.enemies),
         tuple(PcNpcWarpedFormCount(enemy.state.actor_id,
             sum(type(step.proof) is PcWarpedFormActivationProof and step.proof.actor_id==enemy.state.actor_id
                 for step in result.steps)) for enemy in request.scenario.enemies), aim=aim,potion_use_counts=potion_counts,
         magic_counts=magic_counts,
+        pc_extra_attack_counts=(tuple(PcExtraAttackCount(member.actor_id,
+            sum(type(step.proof) is PcAttackProof and step.proof.request.actor_id==member.actor_id
+                and step.proof.execution.slot.duellist_blades is not None for step in result.steps))
+            for member in request.scenario.party) if pc_extra_attack_actors(request.scenario) else None),
         pc_ranged_counts=(tuple(PcRangedCount(actor,
             sum(type(step.proof) is PcAttackProof and step.proof.request.actor_id==actor
                 and step.proof.ranged_shot is not None for step in result.steps),

@@ -85,7 +85,7 @@ def resolve_free_movement(request: FreeMovementRequest) -> FreeMovementResult:
         raise ValueError("a Defenceless actor cannot move")
     if request.crosses_obstacle:
         raise ValueError("free movement cannot cross a blocking obstacle")
-    if request.crosses_difficult_terrain:
+    if request.crosses_difficult_terrain and not request.terrain_resolution_deferred:
         raise ValueError(
             "Difficult Terrain requires its Athletics movement phase"
         )

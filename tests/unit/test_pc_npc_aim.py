@@ -217,7 +217,9 @@ class PcNpcAimTests(unittest.TestCase):
         execution = execute_attack_action(request, rng)
         rng.assert_exhausted()
         shot = complete_pc_npc_ranged_shot(state, request, request, execution)
-        proof = PcAttackProof(request, protection, execution, None, npc_ranged_shot=shot)
+        from towr.domain.pc_weapon_intent_models import build_pc_attack_weapon_intent
+        proof = PcAttackProof(request, protection, execution, None, npc_ranged_shot=shot,
+            weapon_intent=build_pc_attack_weapon_intent(state))
         after = replace(state, round_state=execution.state,
             history=(*state.history, proof), enemies=npc_ranged_inventory_update(
                 state, 'minion1', shot.execution.weapon_state))

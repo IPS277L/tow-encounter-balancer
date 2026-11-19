@@ -65,7 +65,10 @@ class Observation:
 def actual_attack(*,pc_bearer=False,heavy=False,both_fail=False,athletics=False,attacker_hits=False,inventory=False,
         spatial=False,mount=None,airspace=None):
     source=make_pc_melee_scenario(max_rounds=1)
-    member=replace(source.party[0],pc=replace(source.party[0].pc,brawn=4))
+    # This fixture observes a weapon Defence/binding, while retaining Brawn
+    # for its later release Test. Make the intended physical Attack useful
+    # now that the automatic actor can also choose a genuine Unarmed Attack.
+    member=replace(source.party[0],pc=replace(source.party[0].pc,brawn=4,melee=6))
     if inventory or spatial:
         member=replace(member,policy=PcMeleePolicy.AUTOMATIC_COMBAT)
     if mount is not None:

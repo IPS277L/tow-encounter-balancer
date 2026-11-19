@@ -60,11 +60,11 @@ class PcNpcRangedProfile:
     def __post_init__(self):
         if type(self.weapon_id) is not RangedWeaponId or self.weapon_id not in (
                 RangedWeaponId.PISTOL,RangedWeaponId.OGRE_PISTOL,
-                RangedWeaponId.REPEATER_PISTOL,RangedWeaponId.REPEATER_HANDBOW,
+                RangedWeaponId.REPEATER_PISTOL,RangedWeaponId.REPEATER_HANDBOW,RangedWeaponId.SLING,
                 RangedWeaponId.SHORTBOW,RangedWeaponId.WARBOW,RangedWeaponId.LONGBOW,
                 RangedWeaponId.CROSSBOW,RangedWeaponId.HANDGUN,RangedWeaponId.BLUNDERBUSS,
                 RangedWeaponId.HOCHLAND_LONG_RIFLE,RangedWeaponId.REPEATER_CROSSBOW,
-                RangedWeaponId.REPEATER_HANDGUN):
+                RangedWeaponId.REPEATER_HANDGUN,RangedWeaponId.DRAGON_BOW):
             raise TypeError('NPC ranged weapon profile requires its exact supported kind')
         if self.dexterity_profile is not None and type(self.dexterity_profile) is not InlineProfile:
             raise TypeError('NPC ranged weapon Dexterity requires an exact InlineProfile')

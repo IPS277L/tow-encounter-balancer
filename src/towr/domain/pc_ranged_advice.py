@@ -68,14 +68,16 @@ def pc_attack_value(state,actor,*,extra=0,enhancement=None,wild=False,bonus=Fals
     from towr.domain.pc_talent_advice import pc_test_distribution,pc_wild_test_variant
     from towr.domain.pc_generated_talents import has_generated_talent
     from towr.domain.generated_npc_models import GeneratedTalent
-    member=state.participant(actor);weapon=pc_active_weapon(state,actor)
+    member=state.participant(actor)
+    initial_use=pc_attack_weapon_use(state,actor)
+    if initial_use is None:return 0.0,None
+    weapon=initial_use.kind
     shooting=weapon in PC_RANGED_WEAPONS;throwing=weapon in PC_THROWING_WEAPONS
-    skill=Skill.SHOOTING if shooting else Skill.THROWING if throwing else Skill.MELEE
+    skill=initial_use.skill
     pc=pc_effective_definition(state,actor)
     if enhancement is not None:pc=replace(pc,**{enhancement:getattr(pc,enhancement)+1})
     from towr.domain.pc_heavy_wound_models import usable_weapon_hand
-    if usable_weapon_hand(member) is None:return 0.0,None
-    if throwing:
+    if weapon.value=='weighted_net':
         from towr.domain.pc_weighted_net_models import weighted_net_for_actor,PcNetLocation
         item=weighted_net_for_actor(state,actor)
         if item is None or item.location not in (PcNetLocation.HELD,PcNetLocation.CARRIED):return 0.0,None
@@ -89,6 +91,8 @@ def pc_attack_value(state,actor,*,extra=0,enhancement=None,wild=False,bonus=Fals
         if not pc_battlefield_attack_available(state,actor,target):continue
         use=pc_attack_weapon_use(state,actor,target)
         if use is None:continue
+        if skill is Skill.BRAWN and not any(option.skill in (Skill.ATHLETICS,Skill.ENDURANCE)
+                for option in enemy.definition.protection):continue
         modifiers=[]
         if shooting:
             from towr.domain.pc_ranged_models import pc_ranged_profile_modifiers
@@ -106,19 +110,26 @@ def pc_attack_value(state,actor,*,extra=0,enhancement=None,wild=False,bonus=Fals
             target_mounted=pc_is_mounted(state,target)))
         if extra:modifiers.append(DiceModifier('tactics:prospective-help',extra))
         request=_pc_test(state,actor,pc_melee_action_id(state,actor)+':attack',skill,tuple(modifiers),weapon_use=use)
-        if enhancement is not None and skill is Skill.MELEE:request=replace(request,profile=pc.melee_profile)
+        if enhancement is not None and skill in (Skill.MELEE,Skill.BRAWN):
+            request=replace(request,profile=pc.brawn_profile if skill is Skill.BRAWN else pc.melee_profile)
         request,_=build_pc_test_help(state,actor,skill,request)
         if wild and not shooting:request=pc_wild_test_variant(request,weapon,member.injury.conditions)
         protection_profile,protection=npc_protection_test(state,target,actor,'tactics:protection',attack_skill=skill)
         defenceless=enemy.state.injury.conditions.has(Condition.DEFENCELESS)
-        if throwing:
-            if enemy.state.injury.conditions.has(Condition.BURDENED):continue
-            protection_values=(1.0,) if defenceless else _distribution(protection)
-            attack_values=pc_test_distribution(state,actor,skill,request,include_policy=True)
-            value=.2*sum(chance*sum(protection_values[:successes+1])
-                for successes,chance in enumerate(attack_values) if successes)
+        if use.primary is None:
+            from towr.domain.pc_tactical_models import stagger_attack_value
+            value=stagger_attack_value(pc_test_distribution(state,actor,skill,request,include_policy=True),
+                (1.0,) if defenceless else _distribution(protection),enemy.state.injury.conditions.has(Condition.STAGGERED))
             if best[1] is None or value>best[0]+1e-12:best=value,target
             continue
+        if throwing:
+            protection_values=(1.0,) if defenceless else _distribution(protection)
+            attack_values=pc_test_distribution(state,actor,skill,request,include_policy=True)
+            from towr.domain.pc_weapon_area_models import throwing_special_value
+            value=throwing_special_value(state,actor,target,use.kind,attack_values,protection_values)
+            if value is not None:
+                if best[1] is None or value>best[0]+1e-12:best=value,target
+                continue
         prepared=weapon_damage_preparation(use,pc.strength,enemy.state.current_resilience)
         damage=prepared.damage
         if damage is None:continue

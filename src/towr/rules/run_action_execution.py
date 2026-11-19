@@ -72,7 +72,7 @@ def execute_run_action(
         raise ValueError("Defenceless creatures cannot move")
     if request.crosses_obstacle:
         raise ValueError("Run cannot cross a blocking obstacle")
-    if request.crosses_difficult_terrain:
+    if request.crosses_difficult_terrain and not request.terrain_resolution_deferred:
         raise ValueError(
             "Difficult Terrain requires its Athletics movement phase"
         )

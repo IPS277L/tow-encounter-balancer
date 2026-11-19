@@ -21,9 +21,9 @@ CRUSHING_WEIGHT_PRONE_RULE_ID = 'RULE-PROFILE-CREATURE-010:crushing-weight-prone
 
 
 def validate_pc_hit_effects(effects: tuple[ConditionOnHitSpec | ProneBeforeGiveGroundSpec,...]) -> None:
-    if (type(effects) is not tuple or len(effects)>2
-            or len({type(effect) for effect in effects}) != len(effects)):
-        raise ValueError('hit effects support one early Prone and one independent Condition')
+    if (type(effects) is not tuple or len(set(effects))!=len(effects)
+            or sum(type(effect) is ProneBeforeGiveGroundSpec for effect in effects)>1):
+        raise ValueError('hit effects require distinct complete Condition sources and one early Prone')
     for effect in effects:
         if type(effect) not in (ConditionOnHitSpec,ProneBeforeGiveGroundSpec):
             raise TypeError('PC hit effect must retain its exact admitted type')
@@ -37,17 +37,19 @@ def validate_pc_hit_effects(effects: tuple[ConditionOnHitSpec | ProneBeforeGiveG
                     or (effect.rule_id==HORSE_NOBLE_STEED_RULE_ID and not effect.affects_monstrosities)
                     or (effect.rule_id==PEGASUS_KNIGHTS_RULE_ID and effect.affects_monstrosities)):
                 raise ValueError('pre-Stagger Prone requires its complete Crushing Weight or Noble Steed source')
-        elif (type(effect.condition) is not Condition or effect.condition is not Condition.DRAINED
+        elif (type(effect.condition) is not Condition
+                or (effect.condition is not Condition.DRAINED and not (
+                    effect.condition is Condition.ABLAZE and effect.rule_id=='RULE-MAGIC-ITEM-003:dragon-fire-arrow'))
                 or type(effect.classification) is not EffectClassification
                 or effect.classification is not EffectClassification.UNCLASSIFIED):
-            raise ValueError('PC on-hit effect supports unclassified Drained only')
+            raise ValueError('on-hit effect requires its admitted Drained or Dragon fire source')
 
 
 def _primary_hit_effects(effects):
     # Nearby has a separate ordered target owner; it never modifies primary again.
     from towr.domain.ranged_weapon_attack_preparation_models import BLUNDERBUSS_NEARBY_STAGGER_RULE_ID
-    if type(effects) is not tuple or len({type(effect) for effect in effects})!=len(effects):
-        raise ValueError('primary hit effects require unique exact typed sources')
+    if type(effects) is not tuple or len(set(effects))!=len(effects):
+        raise ValueError('primary hit effects require unique complete typed sources')
     primary=[]
     for effect in effects:
         if type(effect) is NearbyTargetsStaggerSpec:
@@ -113,13 +115,16 @@ def expected_pc_hit_target(kernel: KernelAttackRequest,outcome: AttackOutcome,ba
     post_effects=tuple(effect for effect in effects if type(effect) is ConditionOnHitSpec)
     if not post_effects:
         return base,(),early_rules
-    if kernel.target_policy is not TargetInjuryPolicy.PLAYER or kernel.target_effect_immunities:
-        raise ValueError('bounded PC hit Condition requires its ordinary PLAYER target without immunities')
-    effect, = post_effects
-    conditions = base.conditions.with_condition(Condition.DRAINED)
-    application = ConditionApplicationResult(kernel.id+':'+effect.rule_id+':on-hit-condition',conditions,
-        Condition.DRAINED,base.conditions.has(Condition.DRAINED),False,effect.rule_id,None,(effect.rule_id,))
-    return replace(base,conditions=conditions),(application,),(*early_rules,effect.rule_id)
+    if kernel.target_effect_immunities:
+        raise ValueError('on-hit Condition requires its actual source without unmodelled immunities')
+    conditions,applications,rules=base.conditions,[],list(early_rules)
+    for effect in post_effects:
+        previous=conditions
+        conditions=conditions.with_condition(effect.condition)
+        applications.append(ConditionApplicationResult(kernel.id+':'+effect.rule_id+':on-hit-condition',conditions,
+            effect.condition,previous.has(effect.condition),False,effect.rule_id,None,(effect.rule_id,)))
+        rules.append(effect.rule_id)
+    return replace(base,conditions=conditions),tuple(applications),tuple(rules)
 
 
 def hit_condition_sources_from_attack(request: AttackActionExecutionRequest,result: ResolutionResult
@@ -127,6 +132,12 @@ def hit_condition_sources_from_attack(request: AttackActionExecutionRequest,resu
     from towr.domain.pc_net_models import is_net_impact
     if is_net_impact(request.kernel_request.attack.impact_spec):
         return ()  # Net has its own primary-impact cause bank.
+    from towr.domain.weapon_impact_preparation import is_stagger_weapon_impact,is_oil_impact
+    if (is_stagger_weapon_impact(request.kernel_request.attack.impact_spec)
+            or is_oil_impact(request.kernel_request.attack.impact_spec)) and result.attack.outcome is AttackOutcome.HIT:
+        # The primary application is authenticated by the impact owner; it is
+        # not an additional ongoing Drained source or a second application.
+        result=replace(result,condition_applications=result.condition_applications[1:])
     effects = _primary_hit_effects(request.kernel_request.attack.secondary_effects)
     if result.attack.outcome is not AttackOutcome.HIT or not effects:
         if result.condition_applications:
@@ -137,15 +148,20 @@ def hit_condition_sources_from_attack(request: AttackActionExecutionRequest,resu
         if result.condition_applications:
             raise ValueError('pre-Stagger Prone cannot carry a post-Damage application')
         return ()
-    if type(result.condition_applications) is not tuple or len(result.condition_applications)!=1:
-        raise ValueError('one actual successful on-hit effect requires one application receipt')
-    effect, = effects
-    application, = result.condition_applications
+    if type(result.condition_applications) is not tuple or len(result.condition_applications)!=len(effects):
+        raise ValueError('each actual successful on-hit effect requires its one application receipt')
+    sources=[]
+    for effect,application in zip(effects,result.condition_applications,strict=True):
+        sources.extend(_hit_source(request,effect,application))
+    return tuple(sources)
+
+
+def _hit_source(request,effect,application):
     if type(application) is not ConditionApplicationResult:
         raise TypeError('hit Condition receipt must be its exact typed result')
     if (type(application.was_already_present) is not bool or type(application.blocked) is not bool
             or application.blocked or application.blocked_by_rule_id is not None
-            or application.condition is not Condition.DRAINED
+            or application.condition is not effect.condition
             or application.source_rule_id!=effect.rule_id
             or application.request_id!=request.kernel_request.id+':'+effect.rule_id+':on-hit-condition'
             or type(application.applied_rule_ids) is not tuple or application.applied_rule_ids!=(effect.rule_id,)
@@ -153,8 +169,10 @@ def hit_condition_sources_from_attack(request: AttackActionExecutionRequest,resu
             or type(application.state) is not ConditionState
             or type(application.state.conditions) is not frozenset
             or any(type(condition) is not Condition for condition in application.state.conditions)
-            or not application.state.has(Condition.DRAINED)):
+            or not application.state.has(effect.condition)):
         raise ValueError('hit Condition receipt changed its actual unblocked application source')
+    if effect.condition is not Condition.DRAINED:
+        return ()  # Ablaze has its own mandatory fire owner, not a Drained cause.
     return (PcHitConditionSource(request.id,request.actor_id,request.target_id,
         application.request_id,application.source_rule_id,application.condition),)
 

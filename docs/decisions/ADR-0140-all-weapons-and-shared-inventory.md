@@ -1,6 +1,6 @@
 # ADR-0140: всё оставшееся оружие и общий инвентарь
 
-Дата: 2026-11-18. Статус: **контракт и все трактовки приняты пользователем; реализация идёт**. Область3 [roadmap](../roadmap.md#очередь-расширения-боевых-возможностей), после [брони](ADR-0139-all-armour-and-protection.md). Область целиком ещё не реализована.
+Дата: 2026-11-18. Статус: **контракт и все трактовки приняты; боевая область реализована, контрольная проверка — в статусе**. Область3 [roadmap](../roadmap.md#очередь-расширения-боевых-возможностей), после [брони](ADR-0139-all-armour-and-protection.md). Границы кампании/повествования сохранены ниже.
 
 2026-11-18 пользователь принял полный контракт и все предложенные решения A–D: primary Damage/Skill и Defence stacking; специальные Unarmed/Oil/Blast impacts против Defenceless; весь пакет Magic activations; автоматический изолированный1v1 плюс явные GM-пары, scene features и порядок end phase. Rock/landing/carrying политики также приняты. Это явные проектные трактовки, не официальная errata; повторно их не спрашивать.
 
@@ -10,13 +10,13 @@ Player’s Guide1.4 (PG), IV Equipment92–96/98–99:20строк ближне�
 
 Полные таблицы обычных предметов — [RULE-EQUIPMENT-003/004/005](../rules/equipment.md); девять магических — [RULE-MAGIC-ITEM-003](../rules/magic-items.md). Печатный Damage/Traits не дублируются здесь целиком. Полнота реализации и остаток отмечаются в [матрице покрытия](../implementation-coverage.md#equipment-and-consumables).
 
-- Уже подключённые общие2H/переменный хват/Net не реализуются заново. Ограничение закрытой области ADR-0138 относилось к перечню PG, а не к пяти ещё неисполненным магическим2H.
-- Оставшиеся ordinary-компоненты: Unarmed, Knuckledusters, Cavalry Spear, Lance; Sling для generated NPC; Rock, Throwing Spear, Throwing Axe, Throwing Knives, Oil Flask, Blasting Charge. Utility Traits существующих Staff/Dagger и полный инвентарь также остаются в области.
+- Общие2H/переменный хват/Net переиспользованы. Область ADR-0138 относилась к перечню PG; магические2H подключены здесь.
+- Ordinary-компоненты области: Unarmed, Knuckledusters, Cavalry Spear, Lance; Sling для generated NPC; Rock, Throwing Spear, Throwing Axe, Throwing Knives, Oil Flask, Blasting Charge. Unarmed/Knuckledusters/Cavalry Spear/Lance и generated Sling уже подключены к общему PC/generated исполнению, автоматическому выбору, JSON/UI и replay. Brawn/Endurance используют реальные рейтинги. Оставшиеся шесть ordinary Throwing подключены к обеим сторонам, конечным предметам, настоящим Oil/Blast/fire Hazards и alternate Recover. Альтернативные shove/drag Brawn и предметные utility Tests также подключены; текущее покрытие и границы кампании указаны ниже.
 - Magic Weapons: Dragon Bow, Duellist Blades, Grotargg’s Hammer, Headsman’s Axe, Morning Star of Fracasse, Scarab Knife, Sword of Justice, Trickster Blade, Unwavering Spear.
 - Ogre Pistol — manual GM-вариант для PC/NPC, не автоматическая выдача обычному противнику. GM93 называет диапазон Optimum; Close–Medium/Damage5/1H/ignores armour/Reload3 берутся из GM103, maximum Long — из PG94. Владелец использует собственные BS/Shooting. GM должен подтвердить пригодность конкретному владельцу; отсутствие явного запрета Human не превращается в утверждение об одинаковой эргономике. Ogre Abilities предмету не передаются.
 - Именные natural attacks и способности всех NPC не являются дополнительными предметами этого каталога. Outfits, Talismans, Arcane/Enchanted Items сохраняют свою очередь. В частности, Staff of Power имеет отдельную Arcane-механику, а не становится автоматически обычным новым weapon-профилем.
 
-## Что мешает исполнению сейчас
+## Исходная проблема, устранённая реализацией
 
 Один `weapon` совмещает начальный профиль, единственный активный предмет, источник Traits и состояние Reload. PC compiler допускает1held+1carried; generated NPC имеет один предмет; `using_backup_weapon` выбирает только два заранее известных места. Снятие ограничений длины само по себе это не исправляет.
 
@@ -101,7 +101,21 @@ Sword of Justice даёт Glorious против Champion/PC именно в sing
 
 Дополнительно нужны редактируемые факты зоны (Difficult Terrain, cover/concealment/visibility) и описанный выше порядок end phase. Предлагается расширить нынешнюю линию Zones явными особенностями, сохранив понятные defaults без препятствий; произвольный редактор карт не требуется. Повествовательные маскировка Trickster Blade, регенерация сломанного Spear в Downtime и приобретение Assets сохраняются фактами с соответствующим временем; они не создают бесплатную засаду, бой или промежуток Downtime внутри текущей симуляции.
 
+## Принятое уточнение E: Мантия и огонь
+
+2026-11-19 пользователь выбрал трактовку GM1.1 VI86: пожар от Горящего (Ablaze, PG1.4 V122) считается environmental Hazard независимо от его причины. Мантия из итильмара (Mantle of Ithilmar) даёт `+1d` к настоящему Endurance Test против этого Hazard2. Непосредственный Hazard3 подрывного заряда (Blasting Charge, PG96) — воздействие оружия и бонуса не получает. Истощённый (Drained) подавляет положительный куб. Это явная трактовка пользователя, не официальная errata; прежнее решение о падении остаётся действующим. Бонус к альтернативному Recover/Athletics для тушения этим решением не добавлен.
+
 ## План исполнения и критерий завершения
+
+Реализованы общие source/runtime и все боевые эффекты50каталожных строк для PC/союзников/generated NPC. Полный инвентарь сохраняет origin и фактическое положение, отдельные K1 Reload histories/stock/Scarab charges/Dragon use. Attack и Protection фиксируют реальные implements до цен; эффект не выбирается по имени NPC.
+
+Magic Weapons имеют настоящий owner: Duellist отдельное второе действие и счётчики; Headsman fixed Decapitation27+ через actual Wound/Fate lifecycle; Fracasse один held magic drop/paid Recover; Scarab HIT Drained, actual accepted Wound charge и лечение за3; Grotargg stuck/alternate Recover/Brawn−2d; Dragon один fire shot/Ablaze; Justice actual single combat; Unwavering запрет и once-round события Give Ground. Ogre Pistol использует общий Shooting/Reload и явный GM fit, не получает Ogre Abilities.
+
+Зависимости исполнены: направленные visibility/cover/concealment/darkness; фактический Staff/Difficult Terrain и оплаченный Move Carefully; reactive Give Ground/After Give Ground; вынужденные free movement/Run/blocked turn для Broken; Brawn shove/drag с реальным пространством и Falling. Dagger/Knuckledusters/ Pickaxe utility Tests являются отдельным source-bound API с настоящим Test/RNG и once-ledger. Они не создают добычу/Unaware/длительность без контекста.
+
+Детерминированные rule/source/finite/once/native проверки и небольшой [JSON/CLI пример](../examples/dynamic/magic-weapons.request.json) перечислены в [матрице](../implementation-coverage.md#полная-область-weaponsequipment-после-armour). Sequential/process совпадают; настоящий UI сохраняет49физических видов и item facts. Небольшие trials проверяют путь исполнения, не качество баланса. Последние фактические команды/результаты — в [статусе](../project-status.md).
+
+Граница принятого решения D сохраняется: aware combat scene не включает время кампании, получение Assets, sunset refresh/expiry, разрушение/восстановление Spear в Downtime или раскрытие повествовательной маскировки прикосновением. Нельзя выдавать эти свойства за исполняемый календарь или автоматическую засаду. Счётчики боевых ресурсов не обновляются от смены экипировки, раунда или перезапуска продолжения.
 
 1. Сверенный типизированный каталог и условия допуска/кейсы; без объявления новых wire values готовым исполнением.
 2. Общие item source/state, руки, weapon-use intent и finite lifecycle; миграция текущих PC/generated/schema/примеров без compatibility.

@@ -162,14 +162,18 @@ def _ranges(state, actor, weapon=None):
     if actor in state.source.pc_activation_order:
         from towr.domain.pc_backup_weapon_models import pc_active_weapon
         selected = pc_active_weapon(state, actor) if weapon is None else weapon
+        if weapon is None:
+            from towr.domain.pc_weapon_inventory import pc_attack_weapon_use
+            use=pc_attack_weapon_use(state,actor)
+            if use is not None:selected=use.kind
         if selected in PC_THROWING_WEAPONS:
             from towr.domain.pc_potion_models import pc_effective_definition
-            maximum=(RangedWeaponRange.MEDIUM if pc_effective_definition(state,actor).strength>=4
-                else RangedWeaponRange.SHORT)
-            return RangedWeaponRange.CLOSE,maximum,maximum,True
+            from towr.domain.weapon_range_models import weapon_optimum_range
+            minimum,maximum=weapon_optimum_range(selected,strength=pc_effective_definition(state,actor).strength)
+            return minimum,maximum,maximum,True
         if selected not in PC_RANGED_WEAPONS:
-            maximum = (RangedWeaponRange.SHORT if selected in (
-                PcMeleeWeapon.FOOT_SPEAR, PcMeleeWeapon.POLEARM) else RangedWeaponRange.CLOSE)
+            from towr.domain.weapon_catalog import weapon_profile
+            maximum = weapon_profile(selected).maximum_range
             return RangedWeaponRange.CLOSE, maximum, maximum, True
         profile = ranged_weapon_combat_profile(RangedWeaponId(selected.value))
     else:
@@ -190,7 +194,38 @@ def _ranges(state, actor, weapon=None):
 def pc_battlefield_attack_available(state: PcMeleeState, actor: str, target: str,
         *, weapon=None) -> bool:
     """Range eligibility only; actual tests/hands/charge still belong to their owners."""
+    from towr.domain.weapon_catalog import WeaponKind,weapon_profile
+    from towr.domain.pc_melee_result_models import pc_attack_skill,pc_selected_npc_attack_profile
+    if weapon is not None:
+        selected_kind=WeaponKind(weapon.value)
+        actual_skill=weapon_profile(selected_kind).skill
+    elif actor in state.source.pc_activation_order:
+        from towr.domain.pc_weapon_inventory import pc_attack_weapon_use
+        use=pc_attack_weapon_use(state,actor)
+        selected_kind=None if use is None else use.kind
+        actual_skill=pc_attack_skill(state,actor)
+    else:
+        inventory=state.enemy(actor).state.weapon_inventory
+        selected_kind=None if inventory is None or inventory.active is None else inventory.active.kind
+        actual_skill=pc_selected_npc_attack_profile(state,actor).skill
+    if actual_skill is Skill.SHOOTING and selected_kind is WeaponKind.DRAGON_BOW:
+        from towr.domain.pc_scene_feature_models import scene_attack_visibility
+        if not scene_attack_visibility(state,actor,target,actual_skill).visible:return False
     if state.source.battlefield is None:
+        from towr.domain.pc_melee_result_models import pc_attack_skill,pc_selected_npc_attack_profile
+        skill=(pc_attack_skill(state,actor) if actor in state.source.pc_activation_order
+            else pc_selected_npc_attack_profile(state,actor).skill)
+        if skill is Skill.THROWING:
+            from towr.domain.weapon_range_models import weapon_optimum_range
+            if actor in state.source.pc_activation_order:
+                from towr.domain.pc_weapon_inventory import pc_attack_weapon_use
+                from towr.domain.pc_potion_models import pc_effective_definition
+                use=pc_attack_weapon_use(state,actor,target)
+                if use is None:return False
+                minimum,_=weapon_optimum_range(use.kind,strength=pc_effective_definition(state,actor).strength)
+            else:
+                minimum=pc_selected_npc_attack_profile(state,actor).range_min
+            if minimum is not RangedWeaponRange.CLOSE:return False
         # A carried bow is a legal source item in a stationary melee scene.
         # Its presence does not make a two-handed shot legal beside an enemy.
         if actor in state.source.pc_activation_order:
@@ -212,8 +247,15 @@ def pc_battlefield_attack_available(state: PcMeleeState, actor: str, target: str
         raise ValueError('configured battlefield must retain its actual spatial state')
     if target not in _enemies(state, actor):
         return False
-    _, _, maximum, allows_close = _ranges(state, actor, weapon)
+    minimum, _, maximum, allows_close = _ranges(state, actor, weapon)
     actual = battlefield_range(state.battlefield, actor, target)
+    from towr.domain.pc_melee_result_models import pc_attack_skill,pc_selected_npc_attack_profile
+    skill=(pc_attack_skill(state,actor) if actor in state.source.pc_activation_order
+        else pc_selected_npc_attack_profile(state,actor).skill)
+    if skill is Skill.THROWING and _rank(actual)<_rank(minimum):
+        from towr.domain.pc_battlefield_manoeuvre_models import current_pc_charge
+        charge=current_pc_charge(state,actor)
+        return charge is not None and charge.target_id==target
     return (_rank(actual) <= _rank(maximum)
         and (allows_close or not _has_close_enemy(state, actor)))
 
@@ -303,14 +345,14 @@ def expected_pc_battlefield_move(state: PcMeleeState) -> PcBattlefieldMoveProof 
     from towr.domain.pc_battlefield_manoeuvre_models import proposed_pc_battlefield_manoeuvre
     from towr.domain.turn_models import ManoeuvreKind
     proposal=proposed_pc_battlefield_manoeuvre(state)
-    if proposal is not None and proposal.kind is ManoeuvreKind.CHARGE:
+    if proposal is not None and proposal.kind in (ManoeuvreKind.CHARGE,ManoeuvreKind.MOVE_CAREFULLY):
         return None
     actor = turn.actor_id
     from towr.domain.pc_mount_attack_models import pc_mount_primary_needed
     mount_attack = pc_mount_primary_needed(state, actor)
     if actor in state.source.pc_activation_order:
-        from towr.domain.pc_heavy_wound_models import usable_weapon_hand
-        if not mount_attack and usable_weapon_hand(state.participant(actor)) is None:
+        from towr.domain.pc_weapon_inventory import pc_attack_weapon_use
+        if not mount_attack and pc_attack_weapon_use(state,actor) is None:
             return None  # A missing/unusable held weapon cannot supply a ranged shot.
     from towr.domain.pc_weighted_net_models import weighted_net_has_usable_attack
     if not mount_attack and not weighted_net_has_usable_attack(state,actor):
@@ -387,8 +429,10 @@ def expected_pc_battlefield_move(state: PcMeleeState) -> PcBattlefieldMoveProof 
     origin_deviation=(max(_rank(low),0,-_rank(high)) if retreat else deviation(origin))
     if preference(destination) >= (origin_deviation, 1):
         return None
+    from towr.domain.pc_terrain_models import terrain_test_required_for_route
+    terrain=terrain_test_required_for_route(state,actor,route)
     request = FreeMovementRequest(action_id, state.round_state, spatial, actor,
-        speed, conditions, route)
+        speed, conditions, route,crosses_difficult_terrain=terrain,terrain_resolution_deferred=terrain)
     result = resolve_free_movement(request)
     close = (target,) if destination == target_zone and high is RangedWeaponRange.CLOSE else ()
     after = replace(with_actor_placement(previous, actor,
@@ -400,6 +444,27 @@ def expected_pc_battlefield_move(state: PcMeleeState) -> PcBattlefieldMoveProof 
 def pc_battlefield_after_proof(current: PcBattlefieldState,proof) -> PcBattlefieldState:
     """Fold actual spatial receipts; shared by the owner and HIT snapshots."""
     from towr.domain.pc_battlefield_manoeuvre_models import BATTLEFIELD_MANOEUVRE_PROOFS
+    from towr.domain.pc_terrain_models import PcTerrainTraversalProof
+    from towr.domain.pc_broken_battlefield_models import PcBrokenMoveProof,PcBrokenRunProof
+    if type(proof) in (PcBrokenMoveProof,PcBrokenRunProof):
+        if proof.previous!=current:
+            raise ValueError('Broken movement changed its actual frozen spatial prefix')
+        return proof.state
+    from towr.domain.pc_give_ground_models import PcGiveGroundProof
+    if type(proof) is PcGiveGroundProof:
+        if proof.previous!=current:
+            raise ValueError('Give Ground changed its actual frozen spatial prefix')
+        return proof.state
+    from towr.domain.pc_hammer_recover_models import PcHammerRetrievalProof
+    if type(proof) is PcHammerRetrievalProof:
+        if proof.previous!=current:
+            raise ValueError('Hammer retrieval changed its actual frozen spatial prefix')
+        return proof.state
+    if type(proof) is PcTerrainTraversalProof:
+        replace(proof.request);replace(proof.result)
+        if proof.request.previous!=current:
+            raise ValueError('terrain Test changed its completed movement prefix')
+        return replace(current,spatial=proof.result.state)
     from towr.domain.pc_weighted_net_models import NET_PROOFS
     from towr.domain.pc_npc_shield_models import (
         PcNpcShieldDropProof, PcNpcShieldRecoverProof, _add_marker, _remove_marker,
@@ -454,6 +519,22 @@ def pc_battlefield_after_proof(current: PcBattlefieldState,proof) -> PcBattlefie
         if landing.previous!=current:
             raise ValueError('Net throw changed its actual spatial prefix')
         current=landing.state
+    thrown=getattr(proof,'throwing_inventory',None)
+    if thrown is not None:
+        replace(thrown)
+        if thrown.previous!=current:
+            raise ValueError('Throwing changed its actual frozen battlefield prefix')
+        current=thrown.state
+    magical=getattr(proof,'magic_weapon',None)
+    if magical is not None:
+        if magical.previous!=current:
+            raise ValueError('Magic Weapon consequence changed its actual frozen battlefield prefix')
+        current=magical.state
+    from towr.domain.pc_brawn_displacement_models import PcBrawnShoveProof
+    if type(proof) is PcBrawnShoveProof:
+        if proof.previous!=current:
+            raise ValueError('Brawn shove changed its actual frozen battlefield prefix')
+        return proof.state
     if type(proof) in NET_PROOFS:
         replace(proof)
         if proof.previous!=current:
@@ -494,6 +575,9 @@ def pc_battlefield_npc_recover_selected(state: PcMeleeState) -> bool:
     actor = state.round_state.active_turn.actor_id
     if actor not in state.source.enemy_activation_order:
         return False
+    if state.source.battlefield is not None and _conditions(state,actor).has(Condition.BROKEN):
+        from towr.domain.pc_broken_battlefield_models import pc_broken_standard_recover_selected
+        return pc_broken_standard_recover_selected(state)
     from towr.domain.pc_weighted_net_models import weighted_net_actor_waits
     net_wait=weighted_net_actor_waits(state,actor)
     conditions = _conditions(state, actor)
@@ -502,8 +586,13 @@ def pc_battlefield_npc_recover_selected(state: PcMeleeState) -> bool:
     from towr.domain.pc_briarroot_weapon_models import briarroot_weapon_on_ground
     if not state.enemy(actor).state.wields_weapon and briarroot_weapon_on_ground(state,actor) is not None:
         return True  # A real approach/pickup precedes this standard waiting action.
+    if state.enemy(actor).definition.generated_components is not None:
+        from towr.domain.pc_npc_weapon_inventory import npc_attack_weapon_use
+        if npc_attack_weapon_use(state,actor) is None:
+            return True  # No held unit/Brawn: spend a genuine action, never refill stock.
     if state.source.battlefield is None and not net_wait:
-        return False
+        return (state.enemy(actor).definition.generated_components is not None
+            and not any(pc_battlefield_attack_available(state,actor,target) for target in _enemies(state,actor)))
     if conditions.has(Condition.PRONE):
         return True  # Stand before the existing empty-weapon Reload cycle.
     if net_wait:

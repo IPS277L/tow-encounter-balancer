@@ -20,6 +20,8 @@ if TYPE_CHECKING:
     from towr.domain.pc_melee_result_models import PcMeleeState
     from towr.domain.pc_tactical_models import PcTacticalChoice
     from towr.domain.pc_mount_attack_models import PcMountedAttackIntent
+    from towr.domain.pc_weapon_intent_models import PcAttackWeaponIntent
+    from towr.domain.weapon_use_models import WeaponUse
 
 WILD_ATTACK_RULE_ID = 'RULE-TALENT-002:wild-attack'
 DEFENSIVE_STANCE_RULE_ID = 'RULE-TALENT-002:defensive-stance'
@@ -36,10 +38,26 @@ class PcWildAttackProof:
     action_id: str
     intent: PcTacticalChoice | None = field(default=None,kw_only=True)
     mount_intent: PcMountedAttackIntent | None = field(default=None,kw_only=True)
+    attack_weapon_intent: PcAttackWeaponIntent | None = field(default=None,kw_only=True)
+    help_weapon_use: WeaponUse | None = field(default=None,kw_only=True)
 
     def __post_init__(self) -> None:
         _identifier(self.actor_id)
         _identifier(self.action_id)
+        if self.attack_weapon_intent is not None:
+            from towr.domain.pc_weapon_intent_models import PcAttackWeaponIntent
+            if (type(self.attack_weapon_intent) is not PcAttackWeaponIntent
+                    or self.attack_weapon_intent.actor_id != self.actor_id
+                    or self.attack_weapon_intent.action_id != self.action_id):
+                raise TypeError('Wild Attack requires its exact pre-price weapon intent')
+            replace(self.attack_weapon_intent)
+        if self.help_weapon_use is not None:
+            from towr.domain.weapon_use_models import WeaponUse
+            if type(self.help_weapon_use) is not WeaponUse or self.help_weapon_use.actor_id != self.actor_id:
+                raise TypeError('Wild Help requires its exact pre-price weapon use')
+            replace(self.help_weapon_use)
+        if self.attack_weapon_intent is not None and self.help_weapon_use is not None:
+            raise ValueError('Wild price commits Attack or Help, never both')
         if self.mount_intent is not None:
             from towr.domain.pc_mount_attack_models import PcMountedAttackIntent
             if type(self.mount_intent) is not PcMountedAttackIntent or self.mount_intent.actor_id!=self.actor_id:
@@ -144,8 +162,13 @@ def expected_wild_attack(state: PcMeleeState) -> PcWildAttackProof | None:
             return None
         from towr.domain.pc_tactical_models import select_pc_tactic
         intent=select_pc_tactic(state,turn.actor_id)
-        return (PcWildAttackProof(turn.actor_id,pc_melee_action_id(state,turn.actor_id),intent=intent)
-            if intent.wild_attack else None)
+        if not intent.wild_attack:
+            return None
+        from towr.domain.pc_weapon_intent_models import build_pc_attack_weapon_intent
+        from towr.domain.pc_weapon_inventory import pc_attack_weapon_use
+        return PcWildAttackProof(turn.actor_id,pc_melee_action_id(state,turn.actor_id),intent=intent,
+            attack_weapon_intent=build_pc_attack_weapon_intent(state) if intent.action is CombatActionKind.ATTACK else None,
+            help_weapon_use=pc_attack_weapon_use(state,turn.actor_id) if intent.action is CombatActionKind.HELP else None)
     if turn.action_slots[-1].declaration.kind is not CombatActionKind.ATTACK or not state.live_party:
         return None
     enemy = state.enemy(turn.actor_id)
@@ -164,7 +187,9 @@ def expected_wild_attack(state: PcMeleeState) -> PcWildAttackProof | None:
         target=next(actor for actor in state.source.enemy_target_priority if not state.participant(actor).injury.dead)
         if pc_enemy_range(state,turn.actor_id,target) is RangedWeaponRange.CLOSE:
             intent=build_pc_mounted_attack_intent(state,turn.actor_id,target,mode=PcMountedAttackMode.RIDER)
-    return PcWildAttackProof(turn.actor_id,pc_melee_action_id(state,turn.actor_id),mount_intent=intent)
+    from towr.domain.pc_weapon_intent_models import build_pc_attack_weapon_intent
+    return PcWildAttackProof(turn.actor_id,pc_melee_action_id(state,turn.actor_id),mount_intent=intent,
+        attack_weapon_intent=build_pc_attack_weapon_intent(state))
 
 
 def generated_attack_quality(state: PcMeleeState,actor_id: str) -> tuple[QualityModifier,...]:

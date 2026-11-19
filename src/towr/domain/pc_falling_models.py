@@ -83,6 +83,8 @@ def prepare_hazard_avoidance(state,actor,exposure,*,environmental=False):
         environmental_bonus=tuple(modifier for modifier in actor_armour_test_modifiers(
             state,actor,exposure.avoidance_skill,environmental=environmental)
             if modifier.rule_id==ITHILMAR_ENVIRONMENT_RULE_ID)
+        if state.participant(actor).injury.conditions.has(Condition.DRAINED):
+            environmental_bonus=()
         return replace(request,dice_modifiers=(*request.dice_modifiers,*environmental_bonus))
     enemy=state.enemy(actor)
     profile=next((option.test_profile for option in enemy.definition.protection

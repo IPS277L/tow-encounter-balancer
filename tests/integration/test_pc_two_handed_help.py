@@ -15,7 +15,7 @@ from towr.domain.action_execution_models import AttackActionExecutionRequest
 from towr.domain.attack_models import AttackRequest, AttackOutcome
 from towr.domain.help_models import HELP_BONUS_RULE_ID, HelpActionExecutionRequest
 from towr.domain.pc_combat_equipment_models import PcItemLocation, PcWeaponItem
-from towr.domain.pc_help_models import build_pc_test_help
+from towr.domain.pc_help_models import build_pc_test_help, pc_help_weapon_use
 from towr.domain.pc_melee_models import (
     PcMeleePolicy, PcMeleeWeapon, PcRangedProfile, PcRangedReloadHandPolicy,
     PcRepeaterBonusPolicy, PcShortRangeOpening, PcTwoHandedGrip,
@@ -137,7 +137,7 @@ class PcTwoHandedHelpTests(unittest.TestCase):
         self.assertIsNone(use.next_reload_cycle_id)
         self.assertEqual(execution.bonus.bonus_dice, 3)
         self.assertIs(execution.slot.declaration.kind, CombatActionKind.HELP)
-        proof = PcHelpProof(request, execution, None, ranged_use=use)
+        proof = PcHelpProof(request, execution, None, ranged_use=use,weapon_use=pc_help_weapon_use(state))
         recipient = boundary(initial, 'pc2', CombatActionDeclaration(CombatActionKind.ATTACK), history=(proof,))
         test_id = pc_melee_action_id(recipient, 'pc2') + ':attack'
         base = _pc_test(recipient, 'pc2', test_id, Skill.SHOOTING)
@@ -210,6 +210,7 @@ class PcTwoHandedHelpTests(unittest.TestCase):
         self.assertIs(execution.slot.declaration.kind, CombatActionKind.HELP)
         self.assertEqual(execution.bonus.bonus_dice, 2)
         proof = PcHelpProof(request, execution, None,
+            weapon_use=pc_help_weapon_use(state),
             beneficiary_weapon_item_id=initial.participant('pc2').weapon_inventory.active_item_id)
         recipient = boundary(initial, 'pc2', CombatActionDeclaration(CombatActionKind.ATTACK), history=(proof,))
         recipient_test = _pc_test(recipient, 'pc2', pc_melee_action_id(recipient, 'pc2') + ':attack', Skill.THROWING)

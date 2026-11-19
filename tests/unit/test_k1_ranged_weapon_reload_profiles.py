@@ -101,9 +101,9 @@ def attack_source_with_modifier(
 
 class K1RangedWeaponReloadProfileTests(unittest.TestCase):
     def test_catalog_covers_every_page_95_weapon_exactly(self) -> None:
-        self.assertEqual(len(RANGED_WEAPON_RELOAD_PROFILES), 14)
+        self.assertEqual(len(RANGED_WEAPON_RELOAD_PROFILES), 15)
         self.assertEqual(len(EXPECTED_PROFILES),13)
-        self.assertEqual(set(EXPECTED_PROFILES),set(RangedWeaponId)-{RangedWeaponId.OGRE_PISTOL})
+        self.assertEqual(set(EXPECTED_PROFILES),set(RangedWeaponId)-{RangedWeaponId.OGRE_PISTOL,RangedWeaponId.DRAGON_BOW})
         self.assertEqual(
             {profile.weapon_id for profile in RANGED_WEAPON_RELOAD_PROFILES},
             set(RangedWeaponId),

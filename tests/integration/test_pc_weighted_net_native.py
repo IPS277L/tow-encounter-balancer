@@ -53,11 +53,17 @@ def pc_net_scene(*,rounds=3,enemy_weapon=GeneratedWeapon.STAFF,mounted=False):
     source=automatic_source(pc_count=1,rounds=rounds)
     mount=CombatMount.HORSE if mounted else None
     member=source.party[0]
+    # Known Brawn remains available for release, but the Net lifecycle is the
+    # useful automatic choice rather than the newly executable body Attack.
     member=replace(member,pc=replace(member.pc,weapon=PcMeleeWeapon.WEIGHTED_NET,
-        ballistic_skill=3,throwing=4,brawn=4),initial_weapon_hand=PcTwoHandedGrip.BOTH,
+        ballistic_skill=6,throwing=4,brawn=1),initial_weapon_hand=PcTwoHandedGrip.BOTH,
         combat_equipment=(PcWeaponItem('net',PcMeleeWeapon.WEIGHTED_NET,
             PcItemLocation.HELD,PcTwoHandedGrip.BOTH),),mount=mount)
     enemy=npc(enemy_weapon,mount=mount)
+    if enemy_weapon is GeneratedWeapon.STAFF:
+        # Keep Net useful against a body defender without forcing the automatic
+        # PC to ignore a better Unarmed strike after the real pickup.
+        enemy=replace(enemy,agility=6,athletics=3)
     if mounted:
         enemy=replace(enemy,toughness=20)
     distance=R.MEDIUM if mounted else R.SHORT
@@ -70,14 +76,23 @@ def pc_net_scene(*,rounds=3,enemy_weapon=GeneratedWeapon.STAFF,mounted=False):
 def two_bindings_scene():
     source=automatic_source(pc_count=1,enemy_count=3,rounds=2)
     member=source.party[0]
+    # Low but explicit Brawn keeps the original bow/Wound/release path useful.
+    # The release still rolls3dice; literal10 failures and Glorious1 rerolls
+    # retain exactly the asserted three successes.
     member=replace(member,pc=replace(member.pc,weapon=PcMeleeWeapon.SHORTBOW,
-        weapon_skill=1,agility=1,athletics=2,toughness=20,brawn=4,
+        weapon_skill=1,agility=1,athletics=2,toughness=20,brawn=1,
         ranged=PcRangedProfile(1,2,initiative=2,awareness=3,ammunition_supply_confirmed=True)),
         initial_weapon_hand=PcTwoHandedGrip.BOTH,
         combat_equipment=(PcWeaponItem('bow',PcMeleeWeapon.SHORTBOW,PcItemLocation.HELD,PcTwoHandedGrip.BOTH),),
         fate_policy=PcFatePolicy.CONFIGURED,glorious_policy=PcGloriousPolicy((Skill.BRAWN,),0,0))
-    weak=GeneratedNpc(1,30,20,1,3,3,initial_generated_weapons(GeneratedWeapon.STAFF),light_loadout(light=False, shield=False),defence=3,brawn=3)
-    enemies=(npc(GeneratedWeapon.WEIGHTED_NET),npc(GeneratedWeapon.WEIGHTED_NET),weak)
+    # Short reach leaves a real reason to free movement after the bow falls;
+    # Close enemies would instead make a legal Unarmed attack preferable.
+    weak=GeneratedNpc(1,30,20,1,3,3,initial_generated_weapons(GeneratedWeapon.FOOT_SPEAR,
+        grip=RangedWeaponHands.ONE_HANDED),light_loadout(light=False, shield=False),defence=3)
+    # These source actors have only their supplied weapon Skills. A known Brawn
+    # would correctly offer a different attack once the first Net binds.
+    enemies=(replace(npc(GeneratedWeapon.WEIGHTED_NET),brawn=None),
+        replace(npc(GeneratedWeapon.WEIGHTED_NET),brawn=None),weak)
     return replace(source,party=(member,),enemies=tuple(item.participant(actor)
         for item,actor in zip(enemies,source.enemy_activation_order)),
         facts=replace(source.facts,all_opponents_close=False,can_leave_zone=True),
@@ -141,7 +156,9 @@ class PhysicalNetNativeTests(unittest.TestCase):
     def test_one_successful_brawn_recover_releases_one_binding_and_preserves_other(self):
         # The real first Wound8 drops the bow before turn2. With no held
         # weapon, retreat cannot invent a shot; this is a legal Brawn choice.
-        result=self.execute(two_bindings_scene(),Dice([1]*14+[8,1]+[10]*3+[1]*3))
+        # Miss the opening bow shot: an already Staggered enemy would make
+        # the new real Unarmed option more valuable than releasing the Net.
+        result=self.execute(two_bindings_scene(),Dice([10,10]+[1]*12+[8,1]+[10]*3+[1]*3))
         release,=[step for step in result.steps if type(step.proof) is PcNetReleaseProof
             and step.proof.request.actor_id=='pc1']
         self.assertIsNotNone(release.proof.glorious)
@@ -157,12 +174,14 @@ class PhysicalNetNativeTests(unittest.TestCase):
     def test_real_wound_drop_keeps_same_net_uid_and_requires_typed_spatial_receipt(self):
         source=magic_scenario(reason=3,willpower=4,level=1,rounds=1,enemies=1)
         member=source.party[0]
+        # The intended actual Casting/Wound8 path stays preferable to an
+        # Unarmed Attack; a missing Brawn source would hide that alternative.
         member=replace(member,pc=replace(member.pc,weapon=PcMeleeWeapon.WEIGHTED_NET,
-            ballistic_skill=1,throwing=2,brawn=4),initial_weapon_hand=PcTwoHandedGrip.BOTH,
+            ballistic_skill=1,throwing=2,brawn=1),initial_weapon_hand=PcTwoHandedGrip.BOTH,
             combat_equipment=(PcWeaponItem('net',PcMeleeWeapon.WEIGHTED_NET,
                 PcItemLocation.HELD,PcTwoHandedGrip.BOTH),))
         opponent=GeneratedNpc(1,30,100,1,3,3,initial_generated_weapons(GeneratedWeapon.STAFF),light_loadout(light=False, shield=False),
-            defence=3,brawn=3)
+            defence=3)
         source=replace(source,party=(member,),enemies=(opponent.participant('minion1'),),
             facts=replace(source.facts,can_leave_zone=True),battlefield=PcBattlefieldSpec(R.CLOSE,R.LONG))
         dice=Dice([1]*5+[8,1])
@@ -182,8 +201,8 @@ class PhysicalNetNativeTests(unittest.TestCase):
 
     def test_none_scene_unarmed_npc_waits_without_restoring_a_bound_net(self):
         source=automatic_source(pc_count=1,rounds=2)
-        member=replace(source.party[0],pc=replace(source.party[0].pc,weapon_skill=1,melee=2,brawn=4))
-        source=replace(source,party=(member,),enemies=(npc(GeneratedWeapon.WEIGHTED_NET).participant('minion1'),))
+        member=replace(source.party[0],pc=replace(source.party[0].pc,weapon_skill=1,melee=2))
+        source=replace(source,party=(member,),enemies=(replace(npc(GeneratedWeapon.WEIGHTED_NET),brawn=None).participant('minion1'),))
         result=self.execute(source)
         self.assertEqual(result.state.weighted_nets[0].location,PcNetLocation.BOUND)
         self.assertFalse(result.state.enemy('minion1').state.wields_weapon)

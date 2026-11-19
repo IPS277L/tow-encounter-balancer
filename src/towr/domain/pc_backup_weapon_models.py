@@ -16,7 +16,7 @@ def pc_active_weapon(state: PcMeleeState, actor_id: str) -> PcMeleeWeapon:
     member=state.participant(actor_id)
     item=member.weapon_inventory.active
     if item is None:
-        raise ValueError('the actual weapon selection is empty')
+        return PcMeleeWeapon.UNARMED
     return PcMeleeWeapon(item.kind.value)
 
 
@@ -26,10 +26,13 @@ def pc_preferred_weapon_hand(state: PcMeleeState, actor_id: str) -> PcWeaponHand
         and participant.backup_weapon_policy is not None else participant.initial_weapon_hand)
     from towr.domain.pc_weapon_models import pc_weapon_supports_variable_grip,pc_weapon_requires_two_hands
     member=state.participant(actor_id)
-    if (member.weapon_inventory is not None and member.weapon_inventory.active.weapon is PcMeleeWeapon.WEIGHTED_NET
+    if (member.weapon_inventory is not None and member.weapon_inventory.active is not None
+            and member.weapon_inventory.active.weapon is PcMeleeWeapon.WEIGHTED_NET
             and member.weapon_inventory.active.location.value == 'deployed'):
         return None
     weapon=pc_active_weapon(state,actor_id)
+    if weapon is PcMeleeWeapon.UNARMED:
+        return None
     if pc_weapon_supports_variable_grip(weapon):
         return preferred_variable_weapon_hand(member,initial)
     if pc_weapon_requires_two_hands(weapon):

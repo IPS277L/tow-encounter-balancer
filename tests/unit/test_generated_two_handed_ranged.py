@@ -172,7 +172,8 @@ class GeneratedTwoHandedShootingSpaceTests(unittest.TestCase):
         self.assertEqual(NpcSearchSpace(weapon_count=(1,), ).weapon,GENERATED_CLOSE_WEAPONS)
         self.assertEqual(automatic_npc_search_space(source.party).weapon,GENERATED_CLOSE_WEAPONS)
         full = automatic_npc_search_space(source.party,battlefield=PcBattlefieldSpec(R.SHORT,R.LONG))
-        self.assertEqual(full.weapon,tuple(GeneratedWeapon))
+        from towr.domain.generated_npc_models import GENERATED_ORDINARY_WEAPONS
+        self.assertEqual(full.weapon,GENERATED_ORDINARY_WEAPONS)
         self.assertEqual(full.awareness,(3,4,5))
 
     def test_two_handed_request_requires_scene_before_sampling_and_passes_it_to_native_source(self):

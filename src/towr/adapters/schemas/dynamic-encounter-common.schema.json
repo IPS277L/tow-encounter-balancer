@@ -393,6 +393,67 @@
               }
             }
           }
+        },
+        {
+          "if": {
+            "anyOf": [
+              {
+                "properties": {
+                  "equipment": {
+                    "properties": {
+                      "weapons": {
+                        "not": {
+                          "contains": {
+                            "properties": {
+                              "location": {
+                                "enum": [
+                                  "left_hand",
+                                  "right_hand",
+                                  "both_hands"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "location"
+                            ]
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "equipment": {
+                    "properties": {
+                      "weapons": {
+                        "contains": {
+                          "properties": {
+                            "weapon": {
+                              "const": "knuckledusters"
+                            }
+                          },
+                          "required": [
+                            "weapon"
+                          ]
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          },
+          "then": {
+            "properties": {
+              "skills": {
+                "required": [
+                  "brawn"
+                ]
+              }
+            }
+          }
         }
       ]
     },
@@ -478,6 +539,7 @@
               "pistol",
               "repeater_pistol",
               "repeater_handbow",
+              "sling",
               "shortbow",
               "warbow",
               "longbow",
@@ -487,7 +549,26 @@
               "hochland_long_rifle",
               "repeater_crossbow",
               "repeater_handgun",
-              "weighted_net"
+              "weighted_net",
+              "knuckledusters",
+              "cavalry_spear",
+              "lance",
+              "rock",
+              "throwing_spear",
+              "throwing_axe",
+              "throwing_knives",
+              "oil_flask",
+              "blasting_charge",
+              "dragon_bow",
+              "duellist_blades",
+              "grotarggs_hammer",
+              "headsmans_axe",
+              "morning_star_of_fracasse",
+              "scarab_knife",
+              "trickster_blade",
+              "unwavering_spear",
+              "sword_of_justice",
+              "ogre_pistol"
             ]
           },
           "minItems": 1,
@@ -707,7 +788,7 @@
           "uniqueItems": true,
           "items": {
             "type": "integer",
-            "minimum": 1
+            "minimum": 0
           }
         },
         "initial_loaded": {
@@ -717,6 +798,31 @@
           "items": {
             "type": "boolean"
           }
+        },
+        "endurance": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 2,
+            "maximum": 6
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "scarab_initial_charges": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "ogre_fit_confirmed": {
+          "enum": [
+            null,
+            true
+          ]
         }
       },
       "required": [
@@ -739,7 +845,40 @@
         "weapon_count",
         "initial_loaded"
       ],
-      "additionalProperties": false
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "weapon": {
+                "contains": {
+                  "const": "ogre_pistol"
+                }
+              }
+            },
+            "required": [
+              "weapon"
+            ]
+          },
+          "then": {
+            "required": [
+              "ogre_fit_confirmed"
+            ],
+            "properties": {
+              "ogre_fit_confirmed": {
+                "const": true
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "ogre_fit_confirmed": {
+                "type": "null"
+              }
+            }
+          }
+        }
+      ]
     },
     "candidate": {
       "type": "object",
@@ -1070,6 +1209,30 @@
         },
         "airspace": {
           "$ref": "urn:towr:pc-melee:common:1#/$defs/airspace"
+        },
+        "single_combat_pairs": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "urn:towr:pc-melee:common:1#/$defs/single_combat_pair"
+          }
+        },
+        "zone_features": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "urn:towr:pc-melee:common:1#/$defs/zone_features"
+          }
+        },
+        "visibility": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "urn:towr:pc-melee:common:1#/$defs/visibility_fact"
+          }
+        },
+        "darkness": {
+          "type": "boolean"
         }
       },
       "required": [
@@ -1124,7 +1287,26 @@
             "sling",
             "blunderbuss",
             "hochland_long_rifle",
-            "weighted_net"
+            "weighted_net",
+            "knuckledusters",
+            "cavalry_spear",
+            "lance",
+            "rock",
+            "throwing_spear",
+            "throwing_axe",
+            "throwing_knives",
+            "oil_flask",
+            "blasting_charge",
+            "dragon_bow",
+            "duellist_blades",
+            "grotarggs_hammer",
+            "headsmans_axe",
+            "morning_star_of_fracasse",
+            "scarab_knife",
+            "trickster_blade",
+            "unwavering_spear",
+            "sword_of_justice",
+            "ogre_pistol"
           ]
         },
         "location": {
@@ -1133,6 +1315,20 @@
             "left_hand",
             "right_hand",
             "both_hands"
+          ]
+        },
+        "quantity": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "initial_charges": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "gm_fit_confirmed": {
+          "type": [
+            "boolean",
+            "null"
           ]
         }
       },
@@ -1156,7 +1352,8 @@
                   "handgun",
                   "repeater_handgun",
                   "blunderbuss",
-                  "hochland_long_rifle"
+                  "hochland_long_rifle",
+                  "ogre_pistol"
                 ]
               }
             }
@@ -1174,6 +1371,76 @@
           "else": {
             "properties": {
               "initially_loaded": {
+                "type": "null"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "weapon": {
+                "not": {
+                  "enum": [
+                    "weighted_net",
+                    "rock",
+                    "throwing_spear",
+                    "throwing_axe",
+                    "throwing_knives",
+                    "oil_flask",
+                    "blasting_charge"
+                  ]
+                }
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "quantity": {
+                "const": 1
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "weapon": {
+                "not": {
+                  "const": "scarab_knife"
+                }
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "initial_charges": {
+                "const": 0
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "weapon": {
+                "const": "ogre_pistol"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "gm_fit_confirmed"
+            ],
+            "properties": {
+              "gm_fit_confirmed": {
+                "const": true
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "gm_fit_confirmed": {
                 "type": "null"
               }
             }

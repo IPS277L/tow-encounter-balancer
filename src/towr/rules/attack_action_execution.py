@@ -49,6 +49,13 @@ def _validate_attack_action_slot(request: AttackActionExecutionRequest) -> None:
         raise ValueError("earlier action slots must be executed first")
 
     slot = turn.action_slots[request.slot_index - 1]
+    if slot.duellist_blades is not None:
+        replace(turn)
+        replace(request.state)
+        if type(request.target_id) is not str:
+            raise TypeError('Duellist Attack requires its exact target ID')
+        if request.target_id != slot.duellist_blades.target_id:
+            raise ValueError('Duellist Attack requires its granted target')
     if slot.crown_of_antlers is not None:
         replace(turn)
         replace(request.state)

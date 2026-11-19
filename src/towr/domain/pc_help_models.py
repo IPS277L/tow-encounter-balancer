@@ -39,9 +39,13 @@ def eligible_pc_help_beneficiary(state, strategy, actor=None, *, planned_choice=
     if strategy.skill in (Skill.SHOOTING,Skill.THROWING) and actor_bound_to_chivalric_combat(state,actor):
         return None
     member = state.participant(actor)
+    body_help=strategy.skill in (Skill.BRAWN,Skill.ENDURANCE,Skill.ATHLETICS)
+    if strategy.skill is Skill.BRAWN and state.source.participant(actor).pc.brawn is None:
+        return None
     if (member.injury.dead or member.injury.conditions.has(Condition.DEFENCELESS)
             or member.injury.conditions.has(Condition.DEAFENED)
-            or _pc_recover_needed(member) or usable_weapon_hand(member) is None):
+            or _pc_recover_needed(member,unarmed_available=body_help)
+            or not body_help and usable_weapon_hand(member) is None):
         return None
     ally = state.participant(strategy.beneficiary_id)
     if (ally.injury.dead or ally.injury.conditions.has(Condition.DEFENCELESS)
@@ -60,7 +64,7 @@ def eligible_pc_help_beneficiary(state, strategy, actor=None, *, planned_choice=
                 planned_choice=select_pc_tactic(state,ally.actor_id)
             if planned_choice.action is not CombatActionKind.ATTACK:
                 return None
-            if planned_choice.weapon_item_id is not None:
+            if planned_choice.weapon_item_id is not None or planned_choice.unarmed_attack:
                 from towr.domain.pc_weapon_inventory import pc_weapon_inventory_view
                 view=pc_weapon_inventory_view(state,ally.actor_id,planned_choice.weapon_item_id)
                 if view is None:
@@ -86,7 +90,8 @@ def eligible_pc_help_beneficiary(state, strategy, actor=None, *, planned_choice=
             from towr.domain.pc_battlefield_movement_models import pc_battlefield_attack_available
             if not pc_battlefield_attack_available(state,actor,planned_choice.target_id):
                 return None
-        if (_pc_recover_needed(view.participant(ally.actor_id)) or strategy.beneficiary_id in (
+        if (_pc_recover_needed(view.participant(ally.actor_id),
+                unarmed_available=recipient.pc.brawn is not None) or strategy.beneficiary_id in (
                 *state.round_state.completed_turn_entity_ids,*state.round_state.excluded_turn_entity_ids)):
             return None
     else:
@@ -101,6 +106,11 @@ def eligible_pc_help_beneficiary(state, strategy, actor=None, *, planned_choice=
             from towr.domain.pc_melee_result_models import pc_melee_action_id
             skill,_=pc_close_shooting_protection(state,ally.actor_id,incoming,
                 pc_melee_action_id(state,incoming)+':protection')
+        elif (incoming is not None and pc_selected_npc_attack_profile(state,incoming).skill is Skill.BRAWN
+                and state.source.participant(ally.actor_id).policy is PcMeleePolicy.AUTOMATIC_COMBAT):
+            from towr.domain.pc_generated_ranged_advice import pc_brawn_protection
+            from towr.domain.pc_melee_result_models import pc_melee_action_id
+            skill,_=pc_brawn_protection(state,ally.actor_id,pc_melee_action_id(state,incoming)+':protection')
         if skill is not strategy.skill or incoming is None:
             return None
     return strategy.beneficiary_id
@@ -138,13 +148,34 @@ def build_pc_help_action(state):
     skill = strategy.skill
     intended = (pc_melee_action_id(state,beneficiary)+':attack' if strategy.target is PcHelpTarget.ATTACK else
         pc_melee_action_id(state,pc_help_incoming_actor(state))+':protection')
-    test=_pc_test(state,actor,action_id+':help:test',skill)
+    test=_pc_test(state,actor,action_id+':help:test',skill,weapon_use=pc_help_weapon_use(state))
     if skill is Skill.SHOOTING:
         from towr.domain.pc_ranged_models import pc_repeater_attack_modifiers
         test=replace(test,dice_modifiers=(*test.dice_modifiers,*pc_repeater_attack_modifiers(state,actor)))
     return HelpActionExecutionRequest(action_id+':help:execute',state.round_state,actor,
         state.participant(actor).injury.conditions,beneficiary,
         intended,1,test,skill,skill)
+
+
+def pc_help_weapon_use(state):
+    from towr.domain.pc_generated_talents import pending_wild_attack
+    from towr.domain.pc_weapon_inventory import pc_attack_weapon_use, pc_protection_weapon_use
+    from towr.domain.pc_melee_result_models import pc_attack_skill
+    actor = state.round_state.active_turn.actor_id
+    paid = pending_wild_attack(state)
+    if paid is not None:
+        return paid.help_weapon_use
+    strategy = pc_selected_help_policy(state)
+    if strategy is None:
+        return None
+    if strategy.skill is Skill.DEFENCE:
+        return pc_protection_weapon_use(state.participant(actor), strategy.skill)
+    if strategy.skill is Skill.BRAWN:
+        from towr.domain.weapon_use_models import build_weapon_use
+        from towr.domain.pc_weapon_inventory import _usable_pc_grips
+        member=state.participant(actor)
+        return build_weapon_use(actor,member.weapon_inventory,None,usable_hands=_usable_pc_grips(member))
+    return pc_attack_weapon_use(state, actor) if strategy.skill is pc_attack_skill(state, actor) else None
 
 
 def build_pc_attack_help(state, test):
@@ -217,9 +248,10 @@ def pc_help_beneficiary_weapon(state,strategy):
         return None
     target=strategy.beneficiary_id
     inventory=state.participant(target).weapon_inventory
-    if inventory is None or strategy.skill is Skill.ATHLETICS:
+    if inventory is None or strategy.skill in (Skill.ATHLETICS,Skill.ENDURANCE):
         return None
     if strategy.target is PcHelpTarget.ATTACK and state.source.participant(target).policy is PcMeleePolicy.AUTOMATIC_COMBAT:
         from towr.domain.pc_tactical_models import select_pc_tactic
-        return select_pc_tactic(state,target).weapon_item_id or inventory.active_item_id
+        selected=select_pc_tactic(state,target)
+        return None if selected.unarmed_attack else selected.weapon_item_id or inventory.active_item_id
     return inventory.active_item_id

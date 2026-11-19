@@ -6,7 +6,7 @@ action slot. The native owner validates and projects the complete journal.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from enum import Enum
 from typing import TYPE_CHECKING
 
@@ -20,6 +20,7 @@ from towr.domain.turn_models import ActionExecutionReceipt, CombatActionKind, Co
 if TYPE_CHECKING:
     from towr.domain.fate_models import FateGloriousSpendResult
     from towr.domain.pc_melee_result_models import PcFateDecline, PcMeleeState
+    from towr.domain.pc_weapon_intent_models import PcAttackWeaponIntent
 
 
 DEMIGRYPH_KNIGHTS_RULE_ID = 'BOOK-GM-GUIDE:1.1:p175:demigryph-knights'
@@ -131,6 +132,7 @@ class PcDemigryphStrikeProof:
     resolution: ResolutionResult
     fate_decline: PcFateDecline | None = None
     glorious: FateGloriousSpendResult | None = None
+    weapon_intent: PcAttackWeaponIntent = field(kw_only=True)
 
     def __post_init__(self):
         if (type(self.request) is not PcDemigryphStrikeRequest
@@ -138,6 +140,17 @@ class PcDemigryphStrikeProof:
                 or type(self.resolution) is not ResolutionResult):
             raise TypeError('mount strike proof requires its exact request, Protection and K1 result')
         replace(self.request); replace(self.protection); replace(self.resolution)
+        from towr.domain.pc_weapon_intent_models import PcAttackWeaponIntent
+        if type(self.weapon_intent) is not PcAttackWeaponIntent:
+            raise TypeError('mount strike requires its exact frozen weapon intent')
+        replace(self.weapon_intent)
+        if (self.weapon_intent.action_id != self.request.id
+                or self.weapon_intent.actor_id != self.request.actor_id
+                or self.weapon_intent.target_id != self.request.target_id
+                or not self.weapon_intent.mount_attack
+                or self.weapon_intent.attack_skill is not Skill.MELEE
+                or self.weapon_intent.attack_use is not None):
+            raise ValueError('mount strike changed its committed natural Attack source')
         if self.fate_decline is not None:
             from towr.domain.pc_melee_result_models import PcFateDecline
             if type(self.fate_decline) is not PcFateDecline:
@@ -276,6 +289,9 @@ def build_pc_demigryph_strike(state: PcMeleeState):
     from towr.domain.pc_mount_attack_models import prepare_pc_mounted_attack
     qualities = ((QualityModifier(DEMIGRYPH_GRIM_RULE_ID, TestQuality.GRIM),)
         if intent.grim_leg is DemigryphGrimLeg.CLAWS else ())
+    from towr.domain.pc_weapon_intent_models import build_pc_explicit_attack_weapon_intent
+    weapon_intent = build_pc_explicit_attack_weapon_intent(state, intent.actor_id, target,
+        identifier, mount_attack=True)
     kernel, protection = prepare_pc_mounted_attack(state, intent.actor_id, target, identifier,
-        extra_qualities=qualities)
+        extra_qualities=qualities, weapon_intent=weapon_intent)
     return PcDemigryphStrikeRequest(identifier, intent, receipt, state.round_state, target, kernel), protection

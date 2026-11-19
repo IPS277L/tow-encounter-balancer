@@ -172,6 +172,9 @@ def _summary(summary: PcMeleeSimulationSummary) -> dict:
         document['pc_ranged_counts'] = [asdict(row) for row in summary.pc_ranged_counts]
     if summary.magic_counts is not None:
         document['magic_counts'] = [asdict(row) for row in summary.magic_counts]
+    if summary.pc_extra_attack_counts is not None:
+        document['pc_extra_attack_counts'] = [asdict(row) for row in summary.pc_extra_attack_counts]
+        document['pc_extra_attack_trial_count'] = summary.pc_extra_attack_trial_count
     if summary.aim is not None:
         document['aim'] = {
             'action_counts':[asdict(row) for row in summary.aim.action_counts],

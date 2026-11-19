@@ -3,6 +3,7 @@ from dataclasses import replace
 from towr.simulation.pc_ranged_statistics import PcRangedCount,pc_ranged_count_actors
 
 from towr.simulation.pc_npc_ranged_statistics import PcNpcRangedCount
+from towr.simulation.pc_extra_attack_statistics import PcExtraAttackCount,pc_extra_attack_actors
 
 from towr.simulation.pc_melee_models import PcMeleeSimulationResult, PcNearMissBurnCount, PcGloriousSpendCount, PcHelpActionCount, PcAllyRecoverActionCount, PcNpcExitCount, PcNpcHelpActionCount, PcNpcExtraAttackCount, PcNpcRecoverActionCount, PcNpcWarpedFormCount
 from towr.simulation.pc_melee_models import PcAimCount, PcAimCounts, pc_has_aim_capability, PcPotionUseCount, PcMagicCount
@@ -75,6 +76,12 @@ def summarize_pc_melee_simulation(result: PcMeleeSimulationResult) -> PcMeleeSim
             sum(getattr(record.magic_counts[index],name) for record in result.records)
             for name in ('casting_actions','spell_casts','miscasts','unsupported_miscasts')})
             for index,actor_id in enumerate(wizards)) if wizards else None),
+        pc_extra_attack_counts=(tuple(PcExtraAttackCount(member.actor_id,
+            sum(record.pc_extra_attack_counts[index].count for record in result.records))
+            for index,member in enumerate(result.source_request.scenario.party))
+            if pc_extra_attack_actors(result.source_request.scenario) else None),
+        pc_extra_attack_trial_count=(sum(any(row.count for row in record.pc_extra_attack_counts)
+            for record in result.records) if pc_extra_attack_actors(result.source_request.scenario) else None),
         pc_ranged_counts=(tuple(PcRangedCount(actor,**{name:
             sum(getattr(record.pc_ranged_counts[index],name) for record in result.records)
             for name in ('shots','bonus_shots','shooting_help_tests','bonus_help_tests','reload_actions','weapon_swaps')})

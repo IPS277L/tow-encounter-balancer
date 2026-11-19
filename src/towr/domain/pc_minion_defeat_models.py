@@ -58,7 +58,19 @@ def validate_pc_minion_defeat_equipment(state) -> None:
     for enemy,old in zip(state.enemies,state.source.enemies,strict=True):
         target=enemy.state.actor_id
         defeat=routed.get(target)
-        if enemy.state.injury.defeat_cause!=(defeat.cause if defeat is not None else None):
+        from towr.domain.injury_models import ProfileDecapitationCause
+        cause=enemy.state.injury.defeat_cause
+        if type(cause) is ProfileDecapitationCause:
+            from towr.domain.pc_melee_result_models import PcAttackProof
+            from towr.domain.pc_demigryph_models import pc_kernel_resolution
+            actual=next((proof for proof in state.history if type(proof) is PcAttackProof
+                and proof.request.target_id==target
+                and proof.request.kernel_request.id+':wound'==cause.source_id),None)
+            if (actual is None or actual.request.kernel_request.fixed_character_wound is None
+                    or pc_kernel_resolution(actual).profile_wound is None
+                    or pc_kernel_resolution(actual).profile_wound.state.defeat_cause!=cause):
+                raise ValueError('NPC decapitation lacks its actual fixed-Wound source Attack')
+        elif cause!=(defeat.cause if defeat is not None else None):
             raise ValueError('NPC non-Wound defeat lacks its actual source Attack')
         if defeat is not None and enemy.state.injury!=defeat.state:
             raise ValueError('fleeing NPC injury changed after its actual defeat')
@@ -87,12 +99,13 @@ def validate_pc_minion_defeat_equipment(state) -> None:
             from towr.domain.weapon_inventory_models import WeaponItemLocation
             inventory=enemy.state.weapon_inventory
             held=inventory is not None and any(item.location is WeaponItemLocation.HELD for item in inventory.items)
+            from towr.domain.pc_npc_weapon_inventory import npc_inventory_attack_ids
             expected=replace(expected,wields_weapon=held,
-                available_attack_ids=tuple(profile.id for profile in old.definition.attacks) if held else ())
+                available_attack_ids=npc_inventory_attack_ids(old.definition,inventory))
         if old.definition.id=='pc-book-npc:night_goblin_net_spear':
             from towr.domain.pc_net_models import expected_pc_npc_net_equipment
             expected=expected_pc_npc_net_equipment(state,target)
-        if any(item.owner_id==target and item.ground is not None
+        if enemy.state.weapon_inventory is None and any(item.owner_id==target and item.ground is not None
                 for item in getattr(state,'briarroot_dropped_weapons',())):
             expected=replace(expected,wields_weapon=False,available_attack_ids=())
         if target in acknowledged:

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from enum import Enum
 
 from towr.domain.condition_models import (
@@ -56,6 +56,7 @@ class ChargeMovementRequest:
     crosses_obstacle: bool = False
     crosses_difficult_terrain: bool = False
     rule_id: str = CHARGE_MOVEMENT_RULE_ID
+    terrain_resolution_deferred: bool = field(default=False,kw_only=True)
 
     def __post_init__(self):
         for value,name in ((self.id,'Charge movement id'),(self.actor_id,'actor_id'),
@@ -71,7 +72,8 @@ class ChargeMovementRequest:
         _validate_slot_index(self.slot_index)
         for value,name in ((self.actor_began_turn_in_enemy_close_range,'began Close'),
                 (self.crosses_obstacle,'crosses_obstacle'),
-                (self.crosses_difficult_terrain,'crosses_difficult_terrain')):
+                (self.crosses_difficult_terrain,'crosses_difficult_terrain'),
+                (self.terrain_resolution_deferred,'terrain_resolution_deferred')):
             if type(value) is not bool:
                 raise TypeError(f'Charge movement {name} must be an exact boolean')
         if self.rule_id not in (CHARGE_MOVEMENT_RULE_ID,
@@ -94,7 +96,11 @@ class ChargeMovementRequest:
                 or any(self.actor_conditions.has(condition) for condition in (
                     Condition.BURDENED,Condition.PRONE,Condition.DEFENCELESS))):
             raise ValueError('Charge is unavailable for this Speed, Conditions or beginning-of-turn Close fact')
-        if self.crosses_obstacle or self.crosses_difficult_terrain:
+        if self.terrain_resolution_deferred and not self.crosses_difficult_terrain:
+            raise ValueError('deferred Charge terrain requires an actual crossing')
+        if self.terrain_resolution_deferred and self.target_range is RangedWeaponRange.LONG:
+            raise ValueError('Long Charge Athletics cannot accompany a terrain Test')
+        if self.crosses_obstacle or self.crosses_difficult_terrain and not self.terrain_resolution_deferred:
             raise ValueError('Charge movement requires a clear route or a separate proven terrain crossing')
         actor = self.spatial_state.placement_for(self.actor_id)
         target = self.spatial_state.placement_for(self.target_id)

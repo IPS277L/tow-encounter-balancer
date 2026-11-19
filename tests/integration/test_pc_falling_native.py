@@ -85,7 +85,8 @@ class NativeFallingIntegrationTests(unittest.TestCase):
         # following turn the PC makes a real aerial Hooves Charge, inflicting
         # Prone before Staggered without defeating this high-Toughness Minion.
         source=pc_net_scene(rounds=2)
-        member=replace(source.party[0],mount=CombatMount.PEGASUS,rider_kind=RiderKind.HUMAN)
+        member=replace(source.party[0],mount=CombatMount.PEGASUS,rider_kind=RiderKind.HUMAN,
+            pc=replace(source.party[0].pc,ballistic_skill=3,brawn=None))
         npc=falling_source().enemies[0].definition.generated_components
         npc=replace(npc,armour=ArmourLoadout((BodyArmour.ITHILMAR,),BodyArmour.ITHILMAR),
             mount=CombatMount.PEGASUS,rider_kind=RiderKind.HUMAN)

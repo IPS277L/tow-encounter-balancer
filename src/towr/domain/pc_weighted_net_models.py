@@ -612,8 +612,11 @@ def expected_weighted_net_approach(state,actor,item_id):
     if not battlefield_path_available(state,actor,tuple(route),
             close_to_ids=close if current==destination else ()):
         return None
+    from towr.domain.pc_terrain_models import terrain_test_required_for_route
+    terrain=terrain_test_required_for_route(state,actor,tuple(route))
     request = FreeMovementRequest(pc_melee_action_id(state,actor)+':net:approach:'+item_id,
-        state.round_state,spatial,actor,speed,_conditions(state,actor),tuple(route))
+        state.round_state,spatial,actor,speed,_conditions(state,actor),tuple(route),
+        crosses_difficult_terrain=terrain,terrain_resolution_deferred=terrain)
     result = resolve_free_movement(request)
     after = replace(with_actor_placement(previous,actor,current,
         close_to_ids=close if current == destination else ()),spatial=result.state)
@@ -876,8 +879,9 @@ def weighted_nets_after_equipment(state,proof,updates):
                             grip=unit.source.initial_grip or WeaponGrip.BOTH))
                     else:raise ValueError('NPC Net must retain its actual finite item lifecycle')
             available=inventory is not None and any(unit.location is PcItemLocation.HELD for unit in inventory.items)
+            from towr.domain.pc_npc_weapon_inventory import npc_inventory_attack_ids
             enemy = replace(enemy,state=replace(enemy.state,wields_weapon=available,
-                available_attack_ids=tuple(profile.id for profile in enemy.definition.attacks) if available else (),
+                available_attack_ids=npc_inventory_attack_ids(enemy.definition,inventory),
                 weapon_inventory=inventory))
         elif physical is not None and enemy.definition.id == NET_DEFINITION_ID:
             from towr.domain.pc_net_models import net_stock_and_held

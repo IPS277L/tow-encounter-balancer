@@ -316,7 +316,7 @@
                   "$ref": "urn:towr:pc-melee:common:1#/$defs/npc_ranged_attack"
                 },
                 {
-                  "$ref": "#/$defs/generated_net_attack"
+                  "$ref": "#/$defs/generated_throwing_attack"
                 }
               ]
             },
@@ -347,10 +347,33 @@
                     "$ref": "urn:towr:pc-melee:common:1#/$defs/npc_ranged_attack"
                   },
                   {
-                    "$ref": "#/$defs/generated_net_attack"
+                    "$ref": "#/$defs/generated_throwing_attack"
+                  },
+                  {
+                    "$ref": "#/$defs/generated_brawn_attack"
                   }
                 ]
               }
+            },
+            "endurance_protection": {
+              "type": "object",
+              "properties": {
+                "source_rule_id": {
+                  "$ref": "urn:towr:pc-melee:common:1#/$defs/identifier"
+                },
+                "skill": {
+                  "const": "endurance"
+                },
+                "test_profile": {
+                  "$ref": "urn:towr:pc-melee:common:1#/$defs/inline_profile"
+                }
+              },
+              "required": [
+                "source_rule_id",
+                "skill",
+                "test_profile"
+              ],
+              "additionalProperties": false
             }
           },
           "required": [
@@ -611,7 +634,7 @@
                               "$ref": "#/$defs/attack"
                             },
                             {
-                              "$ref": "#/$defs/generated_net_attack"
+                              "$ref": "#/$defs/generated_throwing_attack"
                             }
                           ]
                         }
@@ -619,6 +642,37 @@
                     }
                   }
                 ]
+              }
+            },
+            {
+              "if": {
+                "required": [
+                  "generated_components"
+                ],
+                "properties": {
+                  "generated_components": {
+                    "required": [
+                      "endurance"
+                    ],
+                    "properties": {
+                      "endurance": {
+                        "type": "integer"
+                      }
+                    }
+                  }
+                }
+              },
+              "then": {
+                "required": [
+                  "endurance_protection"
+                ]
+              },
+              "else": {
+                "not": {
+                  "required": [
+                    "endurance_protection"
+                  ]
+                }
               }
             }
           ]
@@ -688,6 +742,7 @@
                                     "pistol",
                                     "repeater_pistol",
                                     "repeater_handbow",
+                                    "sling",
                                     "shortbow",
                                     "warbow",
                                     "longbow",
@@ -696,7 +751,9 @@
                                     "blunderbuss",
                                     "hochland_long_rifle",
                                     "repeater_crossbow",
-                                    "repeater_handgun"
+                                    "repeater_handgun",
+                                    "dragon_bow",
+                                    "ogre_pistol"
                                   ]
                                 }
                               }
@@ -857,7 +914,27 @@
             "sling",
             "blunderbuss",
             "hochland_long_rifle",
-            "weighted_net"
+            "weighted_net",
+            "unarmed",
+            "knuckledusters",
+            "cavalry_spear",
+            "lance",
+            "rock",
+            "throwing_spear",
+            "throwing_axe",
+            "throwing_knives",
+            "oil_flask",
+            "blasting_charge",
+            "dragon_bow",
+            "duellist_blades",
+            "grotarggs_hammer",
+            "headsmans_axe",
+            "morning_star_of_fracasse",
+            "scarab_knife",
+            "trickster_blade",
+            "unwavering_spear",
+            "sword_of_justice",
+            "ogre_pistol"
           ]
         },
         "armour_bonus": {
@@ -900,7 +977,27 @@
         "throwing": [
           "ballistic_skill"
         ]
-      }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "weapon": {
+                "enum": [
+                  "unarmed",
+                  "knuckledusters",
+                  "grotarggs_hammer"
+                ]
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "brawn"
+            ]
+          }
+        }
+      ]
     },
     "ranged_profile": {
       "type": "object",
@@ -1425,6 +1522,13 @@
         },
         "battlefield": {
           "$ref": "#/$defs/battlefield"
+        },
+        "single_combat_pairs": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/single_combat_pair"
+          }
         }
       },
       "required": [
@@ -1568,7 +1672,9 @@
                               "repeater_handgun",
                               "sling",
                               "blunderbuss",
-                              "hochland_long_rifle"
+                              "hochland_long_rifle",
+                              "dragon_bow",
+                              "ogre_pistol"
                             ]
                           }
                         }
@@ -1667,7 +1773,8 @@
                                 "repeater_handgun",
                                 "sling",
                                 "blunderbuss",
-                                "hochland_long_rifle"
+                                "hochland_long_rifle",
+                                "dragon_bow"
                               ]
                             }
                           }
@@ -2052,6 +2159,17 @@
           "items": {
             "$ref": "urn:towr:pc-melee:common:1#/$defs/pcRangedCount"
           }
+        },
+        "pc_extra_attack_counts": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "urn:towr:pc-melee:common:1#/$defs/npc_extra_attack_count"
+          }
+        },
+        "pc_extra_attack_trial_count": {
+          "type": "integer",
+          "minimum": 0
         }
       },
       "required": [
@@ -2091,7 +2209,15 @@
         "npc_warped_form_counts",
         "total_npc_warped_form_count"
       ],
-      "additionalProperties": false
+      "additionalProperties": false,
+      "dependentRequired": {
+        "pc_extra_attack_counts": [
+          "pc_extra_attack_trial_count"
+        ],
+        "pc_extra_attack_trial_count": [
+          "pc_extra_attack_counts"
+        ]
+      }
     },
     "assessment": {
       "type": "object",
@@ -2204,7 +2330,11 @@
             "dagger",
             "axe",
             "warhammer",
-            "morning_star"
+            "morning_star",
+            "morning_star_of_fracasse",
+            "scarab_knife",
+            "trickster_blade",
+            "sword_of_justice"
           ]
         },
         "preferred_hand": {
@@ -2344,7 +2474,8 @@
           "enum": [
             "left",
             "right",
-            "both"
+            "both",
+            null
           ]
         },
         "target_priority": {
@@ -2469,7 +2600,7 @@
           "items": {
             "$ref": "urn:towr:pc-melee:common:1#/$defs/combat_weapon_item"
           },
-          "minItems": 1
+          "minItems": 0
         },
         "mount": {
           "enum": [
@@ -2590,7 +2721,9 @@
                       "repeater_handgun",
                       "sling",
                       "blunderbuss",
-                      "hochland_long_rifle"
+                      "hochland_long_rifle",
+                      "dragon_bow",
+                      "ogre_pistol"
                     ]
                   }
                 }
@@ -2621,88 +2754,120 @@
             ]
           },
           "then": {
-            "properties": {
-              "pc": {
-                "properties": {
-                  "weapon": {
-                    "enum": [
-                      "dagger",
-                      "staff",
-                      "axe",
-                      "sword",
-                      "warhammer",
-                      "morning_star",
-                      "pistol",
-                      "repeater_handbow",
-                      "repeater_pistol",
-                      "sling",
-                      "foot_spear",
-                      "polearm"
-                    ]
-                  }
-                }
-              },
-              "initial_weapon_hand": {
-                "enum": [
-                  "left",
-                  "right"
-                ]
-              }
-            },
             "if": {
               "properties": {
                 "pc": {
                   "properties": {
                     "weapon": {
-                      "enum": [
-                        "pistol",
-                        "repeater_handbow",
-                        "repeater_pistol",
-                        "sling"
-                      ]
+                      "const": "unarmed"
                     }
                   }
                 }
               }
             },
-            "then": {},
-            "else": {
+            "then": {
               "properties": {
+                "initial_weapon_hand": {
+                  "type": "null"
+                },
                 "backup_weapon_policy": {
                   "type": "null"
                 }
               }
             },
-            "oneOf": [
-              {
+            "else": {
+              "properties": {
+                "pc": {
+                  "properties": {
+                    "weapon": {
+                      "enum": [
+                        "dagger",
+                        "staff",
+                        "axe",
+                        "sword",
+                        "warhammer",
+                        "morning_star",
+                        "pistol",
+                        "repeater_handbow",
+                        "repeater_pistol",
+                        "sling",
+                        "foot_spear",
+                        "polearm",
+                        "knuckledusters",
+                        "cavalry_spear",
+                        "lance",
+                        "ogre_pistol",
+                        "morning_star_of_fracasse",
+                        "scarab_knife",
+                        "trickster_blade",
+                        "sword_of_justice"
+                      ]
+                    }
+                  }
+                },
+                "initial_weapon_hand": {
+                  "enum": [
+                    "left",
+                    "right"
+                  ]
+                }
+              },
+              "if": {
                 "properties": {
-                  "initial_weapon_hand": {
-                    "const": "left"
-                  },
-                  "shield": {
+                  "pc": {
                     "properties": {
-                      "initial_hand": {
-                        "const": "right"
+                      "weapon": {
+                        "enum": [
+                          "pistol",
+                          "repeater_handbow",
+                          "repeater_pistol",
+                          "sling",
+                          "ogre_pistol"
+                        ]
                       }
                     }
                   }
                 }
               },
-              {
+              "then": {},
+              "else": {
                 "properties": {
-                  "initial_weapon_hand": {
-                    "const": "right"
-                  },
-                  "shield": {
-                    "properties": {
-                      "initial_hand": {
-                        "const": "left"
+                  "backup_weapon_policy": {
+                    "type": "null"
+                  }
+                }
+              },
+              "oneOf": [
+                {
+                  "properties": {
+                    "initial_weapon_hand": {
+                      "const": "left"
+                    },
+                    "shield": {
+                      "properties": {
+                        "initial_hand": {
+                          "const": "right"
+                        }
+                      }
+                    }
+                  }
+                },
+                {
+                  "properties": {
+                    "initial_weapon_hand": {
+                      "const": "right"
+                    },
+                    "shield": {
+                      "properties": {
+                        "initial_hand": {
+                          "const": "left"
+                        }
                       }
                     }
                   }
                 }
-              }
-            ]
+              ]
+            }
           }
         },
         {
@@ -2742,7 +2907,13 @@
                       "hochland_long_rifle",
                       "foot_spear",
                       "polearm",
-                      "weighted_net"
+                      "weighted_net",
+                      "dragon_bow",
+                      "duellist_blades",
+                      "grotarggs_hammer",
+                      "headsmans_axe",
+                      "unwavering_spear",
+                      "ogre_pistol"
                     ]
                   },
                   "strength": {
@@ -2777,7 +2948,12 @@
                       "repeater_handgun",
                       "blunderbuss",
                       "hochland_long_rifle",
-                      "weighted_net"
+                      "weighted_net",
+                      "dragon_bow",
+                      "duellist_blades",
+                      "grotarggs_hammer",
+                      "headsmans_axe",
+                      "unwavering_spear"
                     ]
                   }
                 }
@@ -2818,12 +2994,32 @@
               }
             },
             "else": {
-              "properties": {
-                "initial_weapon_hand": {
-                  "enum": [
-                    "left",
-                    "right"
-                  ]
+              "if": {
+                "properties": {
+                  "pc": {
+                    "properties": {
+                      "weapon": {
+                        "const": "unarmed"
+                      }
+                    }
+                  }
+                }
+              },
+              "then": {
+                "properties": {
+                  "initial_weapon_hand": {
+                    "type": "null"
+                  }
+                }
+              },
+              "else": {
+                "properties": {
+                  "initial_weapon_hand": {
+                    "enum": [
+                      "left",
+                      "right"
+                    ]
+                  }
                 }
               }
             }
@@ -3013,7 +3209,9 @@
                       "repeater_handgun",
                       "sling",
                       "blunderbuss",
-                      "hochland_long_rifle"
+                      "hochland_long_rifle",
+                      "dragon_bow",
+                      "ogre_pistol"
                     ]
                   }
                 }
@@ -3275,7 +3473,9 @@
                         "repeater_handgun",
                         "sling",
                         "blunderbuss",
-                        "hochland_long_rifle"
+                        "hochland_long_rifle",
+                        "dragon_bow",
+                        "ogre_pistol"
                       ]
                     }
                   }
@@ -3326,7 +3526,8 @@
                         "handgun",
                         "repeater_handgun",
                         "blunderbuss",
-                        "hochland_long_rifle"
+                        "hochland_long_rifle",
+                        "ogre_pistol"
                       ]
                     }
                   }
@@ -3398,7 +3599,8 @@
                         "handgun",
                         "repeater_handgun",
                         "blunderbuss",
-                        "hochland_long_rifle"
+                        "hochland_long_rifle",
+                        "ogre_pistol"
                       ]
                     }
                   }
@@ -3554,7 +3756,13 @@
                   "properties": {
                     "weapon": {
                       "enum": [
-                        "weighted_net"
+                        "weighted_net",
+                        "rock",
+                        "throwing_spear",
+                        "throwing_axe",
+                        "throwing_knives",
+                        "oil_flask",
+                        "blasting_charge"
                       ]
                     }
                   }
@@ -3568,6 +3776,36 @@
                 "required": [
                   "throwing",
                   "ballistic_skill"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "combat_equipment"
+            ],
+            "properties": {
+              "combat_equipment": {
+                "contains": {
+                  "required": [
+                    "weapon"
+                  ],
+                  "properties": {
+                    "weapon": {
+                      "const": "grotarggs_hammer"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "pc": {
+                "required": [
+                  "brawn"
                 ]
               }
             }
@@ -3697,8 +3935,11 @@
           "enum": [
             "melee",
             "shooting",
+            "throwing",
+            "brawn",
             "defence",
-            "athletics"
+            "athletics",
+            "endurance"
           ]
         }
       },
@@ -3721,7 +3962,8 @@
             "enum": [
               "melee",
               "shooting",
-              "throwing"
+              "throwing",
+              "brawn"
             ]
           }
         }
@@ -3732,7 +3974,8 @@
             "enum": [
               "defence",
               "athletics",
-              "melee"
+              "melee",
+              "endurance"
             ]
           }
         }
@@ -4673,17 +4916,18 @@
         },
         "weapons": {
           "type": "array",
-          "minItems": 1,
+          "minItems": 0,
           "items": {
             "$ref": "#/$defs/generated_weapon_item"
-          },
-          "contains": {
-            "properties": {
-              "location": {
-                "const": "held"
-              }
-            }
           }
+        },
+        "endurance": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 2,
+          "maximum": 6
         }
       },
       "required": [
@@ -4872,6 +5116,7 @@
                         "pistol",
                         "repeater_pistol",
                         "repeater_handbow",
+                        "sling",
                         "shortbow",
                         "warbow",
                         "longbow",
@@ -4880,7 +5125,9 @@
                         "blunderbuss",
                         "hochland_long_rifle",
                         "repeater_crossbow",
-                        "repeater_handgun"
+                        "repeater_handgun",
+                        "dragon_bow",
+                        "ogre_pistol"
                       ]
                     }
                   }
@@ -4925,7 +5172,8 @@
                         "handgun",
                         "repeater_handgun",
                         "blunderbuss",
-                        "hochland_long_rifle"
+                        "hochland_long_rifle",
+                        "ogre_pistol"
                       ]
                     }
                   }
@@ -4984,7 +5232,8 @@
                         "blunderbuss",
                         "hochland_long_rifle",
                         "repeater_crossbow",
-                        "repeater_handgun"
+                        "repeater_handgun",
+                        "ogre_pistol"
                       ]
                     }
                   }
@@ -5040,7 +5289,8 @@
                         "blunderbuss",
                         "hochland_long_rifle",
                         "repeater_crossbow",
-                        "repeater_handgun"
+                        "repeater_handgun",
+                        "dragon_bow"
                       ]
                     }
                   }
@@ -5077,7 +5327,13 @@
                   "properties": {
                     "weapon": {
                       "enum": [
-                        "weighted_net"
+                        "weighted_net",
+                        "rock",
+                        "throwing_spear",
+                        "throwing_axe",
+                        "throwing_knives",
+                        "oil_flask",
+                        "blasting_charge"
                       ]
                     }
                   }
@@ -5119,7 +5375,13 @@
                       "properties": {
                         "weapon": {
                           "enum": [
-                            "weighted_net"
+                            "weighted_net",
+                            "rock",
+                            "throwing_spear",
+                            "throwing_axe",
+                            "throwing_knives",
+                            "oil_flask",
+                            "blasting_charge"
                           ]
                         }
                       }
@@ -5144,6 +5406,7 @@
                               "pistol",
                               "repeater_pistol",
                               "repeater_handbow",
+                              "sling",
                               "shortbow",
                               "warbow",
                               "longbow",
@@ -5152,7 +5415,9 @@
                               "blunderbuss",
                               "hochland_long_rifle",
                               "repeater_crossbow",
-                              "repeater_handgun"
+                              "repeater_handgun",
+                              "dragon_bow",
+                              "ogre_pistol"
                             ]
                           }
                         }
@@ -5196,6 +5461,91 @@
             "properties": {
               "agilulf_code_confirmed": {
                 "type": "null"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "weapons": {
+                "not": {
+                  "contains": {
+                    "properties": {
+                      "location": {
+                        "const": "held"
+                      }
+                    },
+                    "required": [
+                      "location"
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "brawn": {
+                "type": "integer"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "weapons": {
+                "contains": {
+                  "properties": {
+                    "weapon": {
+                      "const": "knuckledusters"
+                    }
+                  },
+                  "required": [
+                    "weapon"
+                  ]
+                }
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "brawn": {
+                "type": "integer"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "weapons"
+            ],
+            "properties": {
+              "weapons": {
+                "contains": {
+                  "required": [
+                    "weapon"
+                  ],
+                  "properties": {
+                    "weapon": {
+                      "const": "grotarggs_hammer"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "brawn"
+            ],
+            "properties": {
+              "brawn": {
+                "type": "integer",
+                "minimum": 2,
+                "maximum": 6
               }
             }
           }
@@ -5439,7 +5789,26 @@
             "sling",
             "blunderbuss",
             "hochland_long_rifle",
-            "weighted_net"
+            "weighted_net",
+            "knuckledusters",
+            "cavalry_spear",
+            "lance",
+            "rock",
+            "throwing_spear",
+            "throwing_axe",
+            "throwing_knives",
+            "oil_flask",
+            "blasting_charge",
+            "dragon_bow",
+            "duellist_blades",
+            "grotarggs_hammer",
+            "headsmans_axe",
+            "morning_star_of_fracasse",
+            "scarab_knife",
+            "trickster_blade",
+            "unwavering_spear",
+            "sword_of_justice",
+            "ogre_pistol"
           ]
         },
         "location": {
@@ -5454,6 +5823,20 @@
             "left",
             "right",
             "both"
+          ]
+        },
+        "quantity": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "initial_charges": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "gm_fit_confirmed": {
+          "type": [
+            "boolean",
+            "null"
           ]
         }
       },
@@ -5503,7 +5886,8 @@
                   "handgun",
                   "repeater_handgun",
                   "blunderbuss",
-                  "hochland_long_rifle"
+                  "hochland_long_rifle",
+                  "ogre_pistol"
                 ]
               }
             }
@@ -5521,6 +5905,76 @@
           "else": {
             "properties": {
               "initially_loaded": {
+                "type": "null"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "weapon": {
+                "not": {
+                  "enum": [
+                    "weighted_net",
+                    "rock",
+                    "throwing_spear",
+                    "throwing_axe",
+                    "throwing_knives",
+                    "oil_flask",
+                    "blasting_charge"
+                  ]
+                }
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "quantity": {
+                "const": 1
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "weapon": {
+                "not": {
+                  "const": "scarab_knife"
+                }
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "initial_charges": {
+                "const": 0
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "weapon": {
+                "const": "ogre_pistol"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "gm_fit_confirmed"
+            ],
+            "properties": {
+              "gm_fit_confirmed": {
+                "const": true
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "gm_fit_confirmed": {
                 "type": "null"
               }
             }
@@ -5658,75 +6112,28 @@
         },
         "airspace": {
           "$ref": "#/$defs/airspace"
+        },
+        "zone_features": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "urn:towr:pc-melee:common:1#/$defs/zone_features"
+          }
+        },
+        "visibility": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "urn:towr:pc-melee:common:1#/$defs/visibility_fact"
+          }
+        },
+        "darkness": {
+          "type": "boolean"
         }
       },
       "required": [
         "initial_range",
         "two_handed_max_range"
-      ],
-      "additionalProperties": false
-    },
-    "generated_net_attack": {
-      "type": "object",
-      "properties": {
-        "id": {
-          "$ref": "#/$defs/identifier"
-        },
-        "source_rule_id": {
-          "$ref": "#/$defs/identifier"
-        },
-        "skill": {
-          "const": "throwing"
-        },
-        "test_profile": {
-          "$ref": "urn:towr:pc-melee:common:1#/$defs/inline_profile"
-        },
-        "range_min": {
-          "const": "close"
-        },
-        "range_max": {
-          "enum": [
-            "short",
-            "medium"
-          ]
-        },
-        "hands": {
-          "const": "2h"
-        },
-        "impact": {
-          "type": "object",
-          "properties": {
-            "kind": {
-              "const": "condition"
-            },
-            "condition": {
-              "const": "burdened"
-            },
-            "rule_id": {
-              "const": "RULE-EQUIPMENT-005:weighted-net-burdened"
-            },
-            "classification": {
-              "const": "unclassified"
-            }
-          },
-          "required": [
-            "kind",
-            "condition",
-            "rule_id",
-            "classification"
-          ],
-          "additionalProperties": false
-        }
-      },
-      "required": [
-        "id",
-        "source_rule_id",
-        "skill",
-        "test_profile",
-        "range_min",
-        "range_max",
-        "hands",
-        "impact"
       ],
       "additionalProperties": false
     },
@@ -6001,6 +6408,7 @@
             "pistol",
             "repeater_pistol",
             "repeater_handbow",
+            "sling",
             "shortbow",
             "warbow",
             "longbow",
@@ -6010,7 +6418,26 @@
             "hochland_long_rifle",
             "repeater_crossbow",
             "repeater_handgun",
-            "weighted_net"
+            "weighted_net",
+            "knuckledusters",
+            "cavalry_spear",
+            "lance",
+            "rock",
+            "throwing_spear",
+            "throwing_axe",
+            "throwing_knives",
+            "oil_flask",
+            "blasting_charge",
+            "dragon_bow",
+            "duellist_blades",
+            "grotarggs_hammer",
+            "headsmans_axe",
+            "morning_star_of_fracasse",
+            "scarab_knife",
+            "trickster_blade",
+            "unwavering_spear",
+            "sword_of_justice",
+            "ogre_pistol"
           ]
         },
         "location": {
@@ -6033,6 +6460,16 @@
         "quantity": {
           "type": "integer",
           "minimum": 1
+        },
+        "initial_charges": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "gm_fit_confirmed": {
+          "type": [
+            "boolean",
+            "null"
+          ]
         }
       },
       "required": [
@@ -6056,7 +6493,8 @@
                   "blunderbuss",
                   "hochland_long_rifle",
                   "repeater_crossbow",
-                  "repeater_handgun"
+                  "repeater_handgun",
+                  "ogre_pistol"
                 ]
               }
             }
@@ -6126,7 +6564,12 @@
                   "blunderbuss",
                   "hochland_long_rifle",
                   "repeater_crossbow",
-                  "repeater_handgun"
+                  "repeater_handgun",
+                  "dragon_bow",
+                  "duellist_blades",
+                  "grotarggs_hammer",
+                  "headsmans_axe",
+                  "unwavering_spear"
                 ]
               }
             }
@@ -6167,7 +6610,12 @@
                     "repeater_crossbow",
                     "repeater_handgun",
                     "foot_spear",
-                    "polearm"
+                    "polearm",
+                    "dragon_bow",
+                    "duellist_blades",
+                    "grotarggs_hammer",
+                    "headsmans_axe",
+                    "unwavering_spear"
                   ]
                 }
               }
@@ -6188,7 +6636,15 @@
           "if": {
             "properties": {
               "weapon": {
-                "const": "weighted_net"
+                "enum": [
+                  "weighted_net",
+                  "rock",
+                  "throwing_spear",
+                  "throwing_axe",
+                  "throwing_knives",
+                  "oil_flask",
+                  "blasting_charge"
+                ]
               }
             }
           },
@@ -6196,6 +6652,50 @@
             "properties": {
               "quantity": {
                 "const": 1
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "weapon": {
+                "not": {
+                  "const": "scarab_knife"
+                }
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "initial_charges": {
+                "const": 0
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "weapon": {
+                "const": "ogre_pistol"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "gm_fit_confirmed"
+            ],
+            "properties": {
+              "gm_fit_confirmed": {
+                "const": true
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "gm_fit_confirmed": {
+                "type": "null"
               }
             }
           }
@@ -6258,6 +6758,389 @@
           }
         }
       ]
+    },
+    "generated_brawn_attack": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/identifier"
+        },
+        "source_rule_id": {
+          "$ref": "#/$defs/identifier"
+        },
+        "skill": {
+          "const": "brawn"
+        },
+        "test_profile": {
+          "$ref": "urn:towr:pc-melee:common:1#/$defs/inline_profile"
+        },
+        "range_min": {
+          "const": "close"
+        },
+        "range_max": {
+          "const": "close"
+        },
+        "hands": {
+          "enum": [
+            null,
+            "1h"
+          ]
+        },
+        "impact": {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "condition"
+            },
+            "condition": {
+              "const": "staggered"
+            },
+            "rule_id": {
+              "const": "RULE-EQUIPMENT-003:unarmed-stagger"
+            },
+            "classification": {
+              "const": "unclassified"
+            }
+          },
+          "required": [
+            "kind",
+            "condition",
+            "rule_id",
+            "classification"
+          ],
+          "additionalProperties": false
+        },
+        "damage": {
+          "type": "object",
+          "properties": {
+            "base": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "success_multiplier": {
+              "const": 1
+            }
+          },
+          "required": [
+            "base",
+            "success_multiplier"
+          ],
+          "additionalProperties": false
+        },
+        "secondary_effects": {
+          "type": "array",
+          "maxItems": 1,
+          "items": {
+            "oneOf": [
+              {
+                "$ref": "urn:towr:pc-melee:common:1#/$defs/on_hit_drained_effect"
+              },
+              {
+                "$ref": "urn:towr:pc-melee:common:1#/$defs/pre_stagger_prone_effect"
+              }
+            ]
+          }
+        }
+      },
+      "required": [
+        "id",
+        "source_rule_id",
+        "skill",
+        "test_profile",
+        "range_min",
+        "range_max",
+        "hands"
+      ],
+      "additionalProperties": false,
+      "oneOf": [
+        {
+          "required": [
+            "impact"
+          ],
+          "properties": {
+            "hands": {
+              "type": "null"
+            }
+          },
+          "not": {
+            "anyOf": [
+              {
+                "required": [
+                  "damage"
+                ]
+              },
+              {
+                "required": [
+                  "secondary_effects"
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "required": [
+            "damage",
+            "secondary_effects"
+          ],
+          "properties": {
+            "hands": {
+              "const": "1h"
+            }
+          },
+          "not": {
+            "required": [
+              "impact"
+            ]
+          }
+        }
+      ]
+    },
+    "generated_throwing_attack": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/identifier"
+        },
+        "source_rule_id": {
+          "$ref": "#/$defs/identifier"
+        },
+        "skill": {
+          "const": "throwing"
+        },
+        "test_profile": {
+          "$ref": "urn:towr:pc-melee:common:1#/$defs/inline_profile"
+        },
+        "range_min": {
+          "enum": [
+            "close",
+            "short",
+            "medium",
+            "long"
+          ]
+        },
+        "range_max": {
+          "enum": [
+            "close",
+            "short",
+            "medium",
+            "long"
+          ]
+        },
+        "hands": {
+          "enum": [
+            "1h",
+            "2h"
+          ]
+        },
+        "impact": {
+          "oneOf": [
+            {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "const": "condition"
+                },
+                "condition": {
+                  "enum": [
+                    "staggered",
+                    "burdened",
+                    "ablaze"
+                  ]
+                },
+                "rule_id": {
+                  "enum": [
+                    "RULE-EQUIPMENT-005:rock-stagger",
+                    "RULE-EQUIPMENT-005:weighted-net-burdened",
+                    "RULE-EQUIPMENT-005:oil-flask-ablaze"
+                  ]
+                },
+                "classification": {
+                  "const": "unclassified"
+                }
+              },
+              "required": [
+                "kind",
+                "condition",
+                "rule_id",
+                "classification"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "const": "hazard"
+                },
+                "rating": {
+                  "const": 3
+                },
+                "avoidance_skill": {
+                  "const": "endurance"
+                },
+                "rule_id": {
+                  "const": "RULE-EQUIPMENT-005:blasting-charge-hazard"
+                },
+                "inflicts_wound": {
+                  "const": true
+                },
+                "failure_conditions": {
+                  "const": []
+                },
+                "classification": {
+                  "const": "unclassified"
+                },
+                "repeated_condition_replacements": {
+                  "const": []
+                }
+              },
+              "additionalProperties": false,
+              "required": [
+                "kind",
+                "rating",
+                "avoidance_skill",
+                "rule_id",
+                "inflicts_wound",
+                "failure_conditions",
+                "classification",
+                "repeated_condition_replacements"
+              ]
+            }
+          ]
+        },
+        "damage": {
+          "type": "object",
+          "properties": {
+            "base": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "success_multiplier": {
+              "const": 1
+            }
+          },
+          "required": [
+            "base",
+            "success_multiplier"
+          ],
+          "additionalProperties": false
+        },
+        "secondary_effects": {
+          "type": "array",
+          "maxItems": 1,
+          "items": {
+            "oneOf": [
+              {
+                "$ref": "urn:towr:pc-melee:common:1#/$defs/on_hit_drained_effect"
+              },
+              {
+                "$ref": "urn:towr:pc-melee:common:1#/$defs/pre_stagger_prone_effect"
+              }
+            ]
+          }
+        }
+      },
+      "required": [
+        "id",
+        "source_rule_id",
+        "skill",
+        "test_profile",
+        "range_min",
+        "range_max",
+        "hands"
+      ],
+      "additionalProperties": false,
+      "oneOf": [
+        {
+          "required": [
+            "impact"
+          ],
+          "not": {
+            "anyOf": [
+              {
+                "required": [
+                  "damage"
+                ]
+              },
+              {
+                "required": [
+                  "secondary_effects"
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "required": [
+            "damage",
+            "secondary_effects"
+          ],
+          "not": {
+            "required": [
+              "impact"
+            ]
+          }
+        }
+      ]
+    },
+    "single_combat_pair": {
+      "type": "object",
+      "required": [
+        "actor_id",
+        "target_id"
+      ],
+      "properties": {
+        "actor_id": {
+          "$ref": "#/$defs/identifier"
+        },
+        "target_id": {
+          "$ref": "#/$defs/identifier"
+        }
+      },
+      "additionalProperties": false
+    },
+    "zone_features": {
+      "type": "object",
+      "properties": {
+        "index": {
+          "type": "integer",
+          "minimum": -3,
+          "maximum": 6
+        },
+        "difficult_terrain": {
+          "type": "boolean"
+        },
+        "cover": {
+          "type": "boolean"
+        },
+        "concealment": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "index"
+      ],
+      "additionalProperties": false
+    },
+    "visibility_fact": {
+      "type": "object",
+      "properties": {
+        "observer_id": {
+          "$ref": "#/$defs/identifier"
+        },
+        "target_id": {
+          "$ref": "#/$defs/identifier"
+        },
+        "visible": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "observer_id",
+        "target_id",
+        "visible"
+      ],
+      "additionalProperties": false
     }
   }
 }

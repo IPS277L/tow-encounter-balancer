@@ -39,6 +39,7 @@ class RecoverMode(str, Enum):
     STANDARD = "standard"
     TREAT_WOUND = "treat_wound"
     REMOVE_CONDITION = "remove_condition"
+    RETRIEVE_HAMMER = "retrieve_hammer"
 
 
 @dataclass(frozen=True, slots=True)
@@ -210,10 +211,39 @@ class RecoverConditionRemovalChoice:
         _validate_non_empty_string(self.rule_id, "Condition removal rule_id")
 
 
+@dataclass(frozen=True, slots=True)
+class RecoverHammerRetrievalChoice:
+    """GM83/ADR-0140: a distinct Brawn−2d action, without standard benefits."""
+    target: RecoverConditionTarget
+    item_id: str
+    test: TestRequest
+    rule_id: str = 'RULE-MAGIC-ITEM-003:grotargg-retrieve'
+
+    def __post_init__(self) -> None:
+        from towr.domain.test_models import DiceModifier
+        from towr.domain.weapon_magic_lifecycle import GROTARGG_RETRIEVE_RULE_ID
+        if type(self.target) is not RecoverConditionTarget or type(self.test) is not TestRequest:
+            raise TypeError('Hammer Recover requires its exact actor snapshot and Brawn Test')
+        replace(self.target)
+        replace(self.test)
+        if type(self.item_id) is not str or not self.item_id.strip():
+            raise TypeError('Hammer Recover requires its exact physical unit ID')
+        if type(self.rule_id) is not str or self.rule_id != GROTARGG_RETRIEVE_RULE_ID:
+            raise ValueError('Hammer Recover requires its canonical printed retrieval rule')
+        difficulty = tuple(mod for mod in self.test.dice_modifiers if mod.rule_id == self.rule_id)
+        if difficulty != (DiceModifier(self.rule_id, -2),):
+            raise ValueError('Hammer Recover requires exactly one actual Very Difficult modifier')
+
+    @property
+    def test_skill(self) -> Skill:
+        return Skill.BRAWN
+
+
 RecoverChoice = (
     RecoverStandardChoice
     | RecoverTreatWoundChoice
     | RecoverConditionRemovalChoice
+    | RecoverHammerRetrievalChoice
 )
 
 
@@ -245,9 +275,16 @@ class RecoverActionExecutionRequest:
             RecoverMode.STANDARD: RecoverStandardChoice,
             RecoverMode.TREAT_WOUND: RecoverTreatWoundChoice,
             RecoverMode.REMOVE_CONDITION: RecoverConditionRemovalChoice,
+            RecoverMode.RETRIEVE_HAMMER: RecoverHammerRetrievalChoice,
         }[self.mode]
         if not isinstance(self.choice, expected_type):
             raise TypeError("Recover mode and choice do not match")
+        if self.mode is RecoverMode.RETRIEVE_HAMMER:
+            if type(self.choice) is not RecoverHammerRetrievalChoice:
+                raise TypeError('Hammer Recover requires its exact typed alternative choice')
+            replace(self.choice)
+            if self.choice.target.entity_id != self.actor_id:
+                raise ValueError('Hammer retrieval is the wielder\'s own Brawn action')
         _validate_non_empty_string(self.rule_id, "Recover rule_id")
         if self.healing_potion is not None:
             if type(self.healing_potion) is not HealingPotionRecoverSource:
@@ -496,10 +533,28 @@ class RecoverConditionRemovalResult:
             raise ValueError("Condition removal changed unrelated Conditions")
 
 
+@dataclass(frozen=True, slots=True)
+class RecoverHammerRetrievalResult:
+    source: RecoverHammerRetrievalChoice
+    test_result: TestResult
+
+    def __post_init__(self) -> None:
+        from towr.domain.weapon_magic_lifecycle import _validate_retrieval_test
+        if type(self.source) is not RecoverHammerRetrievalChoice:
+            raise TypeError('Hammer Recover result requires its exact actual choice')
+        replace(self.source)
+        _validate_retrieval_test(self.source.test, self.test_result)
+
+    @property
+    def succeeded(self) -> bool:
+        return self.test_result.succeeded
+
+
 RecoverResolution = (
     RecoverStandardResult
     | RecoverTreatWoundResult
     | RecoverConditionRemovalResult
+    | RecoverHammerRetrievalResult
 )
 
 
@@ -525,6 +580,7 @@ class RecoverActionExecutionResult:
                 RecoverStandardResult,
                 RecoverTreatWoundResult,
                 RecoverConditionRemovalResult,
+                RecoverHammerRetrievalResult,
             ),
         ):
             raise TypeError("resolution must be a Recover resolution")
@@ -546,6 +602,7 @@ class RecoverActionExecutionResult:
             RecoverMode.STANDARD: RecoverStandardResult,
             RecoverMode.TREAT_WOUND: RecoverTreatWoundResult,
             RecoverMode.REMOVE_CONDITION: RecoverConditionRemovalResult,
+            RecoverMode.RETRIEVE_HAMMER: RecoverHammerRetrievalResult,
         }[source.mode]
         if not isinstance(self.resolution, expected_type):
             raise ValueError("Recover result does not match the selected mode")
@@ -559,7 +616,7 @@ class RecoverActionExecutionResult:
                 required.update(
                     self.resolution.test_result.trace.applied_rule_ids
                 )
-        elif isinstance(self.resolution, RecoverConditionRemovalResult):
+        elif isinstance(self.resolution, (RecoverConditionRemovalResult, RecoverHammerRetrievalResult)):
             required.add(self.resolution.source.rule_id)
             required.update(self.resolution.test_result.trace.applied_rule_ids)
         if not required <= set(rule_ids):
@@ -994,7 +1051,7 @@ def _expected_recover_execution(
     """Complete a resolved Recover without executing its choice or rolling again."""
     _validate_recover_action(request)
     if not isinstance(resolution, (RecoverStandardResult, RecoverTreatWoundResult,
-                                   RecoverConditionRemovalResult)):
+                                   RecoverConditionRemovalResult, RecoverHammerRetrievalResult)):
         raise TypeError("Recover completion requires its typed resolution")
     replace(resolution)
     turn = request.round_state.active_turn
@@ -1021,7 +1078,7 @@ def _expected_recover_execution(
         values.append(resolution.source.rule_id)
         if resolution.test_result is not None:
             values.extend(resolution.test_result.trace.applied_rule_ids)
-    elif isinstance(resolution, RecoverConditionRemovalResult):
+    elif isinstance(resolution, (RecoverConditionRemovalResult, RecoverHammerRetrievalResult)):
         values.append(resolution.source.rule_id)
         values.extend(resolution.test_result.trace.applied_rule_ids)
     return RecoverActionExecutionResult(
@@ -1043,7 +1100,7 @@ def _resolution_result_id(
     if isinstance(resolution, RecoverTreatWoundResult):
         if resolution.test_result is not None:
             return resolution.test_result.trace.request_id
-    elif isinstance(resolution, RecoverConditionRemovalResult):
+    elif isinstance(resolution, (RecoverConditionRemovalResult, RecoverHammerRetrievalResult)):
         return resolution.test_result.trace.request_id
     return request.id
 

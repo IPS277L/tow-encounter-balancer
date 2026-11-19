@@ -19,16 +19,19 @@ from towr.domain.test_models import DiceModifier,Skill,TestRequest,_expected_ini
 if TYPE_CHECKING:
     from towr.domain.pc_melee_result_models import PcMeleeState
 
+_SELECT_USE = object()
+
 
 def generated_attack_modifiers(definition: NpcDefinition, conditions: ConditionState,
-        target_conditions: ConditionState, *, target_mounted: bool = False,weapon_use=None) -> tuple[DiceModifier,...]:
+        target_conditions: ConditionState, *, target_mounted: bool = False,weapon_use=None,
+        actor_mounted: bool = False,charging: bool = False) -> tuple[DiceModifier,...]:
     components = definition.generated_components
     if components is None:
         return ()
     if weapon_use is not None:
         from towr.domain.weapon_effect_preparation import weapon_test_modifiers
         return weapon_test_modifiers(weapon_use,conditions,target_conditions=target_conditions,
-            target_mounted=target_mounted).modifiers
+            target_mounted=target_mounted,actor_mounted=actor_mounted,charging=charging).modifiers
     weapon = PcMeleeWeapon(components.weapon.value)
     return (pc_weapon_test_modifiers(weapon,Skill.MELEE,conditions)
         + pc_weapon_attack_modifiers(weapon,target_conditions,target_mounted=target_mounted))
@@ -45,7 +48,8 @@ def generated_damage_modifiers(definition: NpcDefinition,
 
 
 def npc_protection_test(state: PcMeleeState, defender_id: str, attacker_id: str, test_id: str,
-        profile: NpcProtectionProfile | None = None, *, attack_skill: Skill = Skill.MELEE
+        profile: NpcProtectionProfile | None = None, *, attack_skill: Skill = Skill.MELEE,
+        weapon_use=_SELECT_USE
         ) -> tuple[NpcProtectionProfile,TestRequest]:
     """Select from actual prepared Tests; evaluating alternatives spends no RNG.
 
@@ -60,6 +64,11 @@ def npc_protection_test(state: PcMeleeState, defender_id: str, attacker_id: str,
     components = enemy.definition.generated_components
     profiles = ((profile,) if profile is not None else enemy.definition.protection
         if components is not None else enemy.definition.protection[:1])
+    if attack_skill is Skill.BRAWN:
+        profiles=tuple(option for option in (enemy.definition.protection if profile is None else (profile,))
+            if option.skill in (Skill.ATHLETICS,Skill.ENDURANCE))
+    elif profile is None:
+        profiles=tuple(option for option in profiles if option.skill is not Skill.ENDURANCE)
     if profile is None and components is not None and attack_skill in (Skill.SHOOTING,Skill.THROWING):
         from towr.domain.pc_short_opening_models import pc_enemy_range
         from towr.domain.ranged_weapon_profiles import RangedWeaponRange
@@ -79,9 +88,11 @@ def npc_protection_test(state: PcMeleeState, defender_id: str, attacker_id: str,
     against_charge=charge is not None and charge.target_id == defender_id
     for option in profiles:
         from towr.domain.pc_npc_weapon_inventory import npc_protection_weapon_use
-        actual_use=(npc_protection_weapon_use(state,defender_id,option.skill,attack_skill)
+        actual_use=((npc_protection_weapon_use(state,defender_id,option.skill,attack_skill)
             if components is not None and option.skill in (Skill.DEFENCE,Skill.MELEE) else None)
-        if components is not None and option.skill is Skill.DEFENCE and actual_use is None:
+            if weapon_use is _SELECT_USE else weapon_use)
+        if (components is not None and option.skill is Skill.DEFENCE and actual_use is None
+                and not enemy.state.injury.conditions.has(Condition.DEFENCELESS)):
             continue
         modifiers = list(pc_npc_distraction_test_modifiers(state,defender_id,attacker_id))
         if option.skill is Skill.MELEE:
@@ -96,6 +107,8 @@ def npc_protection_test(state: PcMeleeState, defender_id: str, attacker_id: str,
         if enemy.state.injury.conditions.has(Condition.DRAINED):
             modifiers = [item for item in modifiers if item.amount <= 0]
         tests.append((option,TestRequest(test_id,option.test_profile,tuple(modifiers))))
+    if not tests:
+        raise ValueError('the target has no actual eligible Protection profile for this Attack Skill')
     if len(tests) == 1 or enemy.state.injury.conditions.has(Condition.DEFENCELESS):
         return tests[0]
     def expected_successes_numerator(pair: tuple[NpcProtectionProfile,TestRequest]) -> int:

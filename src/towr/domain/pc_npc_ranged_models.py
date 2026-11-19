@@ -184,6 +184,8 @@ def validate_pc_npc_ranged_weapons(state: PcMeleeState) -> None:
             raise ValueError('NPC inventory changed its finite source membership')
         actor = original.state.actor_id
         for proof in state.history:
+            from towr.domain.pc_magic_weapon_models import magic_resource_history_step
+            expected=magic_resource_history_step(expected,proof,actor)
             if type(proof) is PcAttackProof and proof.npc_ranged_shot is not None:
                 shot = proof.npc_ranged_shot.execution
                 if shot.source_request.attack.actor_id != actor:
@@ -256,6 +258,8 @@ def pc_conditioned_npc_ranged_attack(state: PcMeleeState, actor: str,
         preparation: RangedWeaponAttackPreparationResult) -> AttackActionExecutionRequest:
     """The same real Conditions filter follows K1 traits and actual Aim."""
     attack = preparation.execution.attack
+    from towr.domain.pc_magic_weapon_models import condition_dragon_ranged_attack
+    attack = condition_dragon_ranged_attack(state,actor,attack)
     if not state.enemy(actor).state.injury.conditions.has(Condition.DRAINED):
         return attack
     kernel = attack.kernel_request

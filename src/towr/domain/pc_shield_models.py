@@ -475,8 +475,11 @@ def expected_pc_shield_approach(state):
                 break
         if not route:
             return None
+        from towr.domain.pc_terrain_models import terrain_test_required_for_route
+        terrain=terrain_test_required_for_route(state,actor,route)
         request = FreeMovementRequest(pc_melee_action_id(state, actor)+':shield:approach',
-            state.round_state, spatial, actor, speed, member.injury.conditions, route)
+            state.round_state, spatial, actor, speed, member.injury.conditions, route,
+            crosses_difficult_terrain=terrain,terrain_resolution_deferred=terrain)
         result = resolve_free_movement(request)
     elif not battlefield_path_available(state, actor, (), close_to_ids=close):
         return None

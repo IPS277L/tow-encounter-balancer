@@ -18,6 +18,7 @@ from towr.domain.injury_models import (
     CharacterWoundRequest,
     CharacterWoundType,
     ProfileInjuryState,
+    ProfileDecapitationCause,
     ProfileNpcType,
     ProfileWoundRequest,
     MinionStaggerDefeatCause,
@@ -176,6 +177,7 @@ def _resolve_stagger_wound(
                     subject_type=subject_type,
                     dice_modifiers=request.wound_dice_modifiers,
                     negation_options=request.wound_negation_options,
+                    fixed_entry=request.fixed_character_wound,
                 ),
             ),
             rng,
@@ -223,6 +225,8 @@ def _resolve_stagger_wound(
             npc_type=npc_type,
             state=state,
             additional_wounds=request.additional_profile_wounds,
+            decapitation_cause=(ProfileDecapitationCause(f'{request.id}:wound', request.target_id)
+                if request.fixed_character_wound is not None else None),
         )
     )
     return StaggerImpactResult(

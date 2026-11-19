@@ -19,6 +19,11 @@ from towr.domain.pc_demigryph_models import (
     latest_pc_kernel_attack, pc_kernel_resolution,
 )
 from towr.domain.pc_melee_result_models import PcAttackProof, PcFateDecline, build_pc_melee_attack, initial_pc_melee_state
+from towr.domain.pc_combat_equipment_models import PcItemLocation, PcWeaponItem
+from towr.domain.pc_melee_models import PcMeleeWeapon, PcWeaponHand
+from towr.domain.pc_weapon_intent_models import (
+    build_pc_attack_weapon_intent, build_pc_explicit_attack_weapon_intent,
+)
 from towr.domain.pc_mount_models import CombatMount, RiderKind, expected_pc_dismount, updated_pc_mounts
 from towr.domain.ranged_weapon_profiles import RangedWeaponRange
 from towr.domain.test_models import InlineProfile, QualityModifier, TestQuality
@@ -49,10 +54,14 @@ class TakeWound(KeepAllFailures):
 
 
 def reserved(*, actor='pc1', enemies=1, armour=None, mount=CombatMount.DEMIGRYPH,
-        declaration=None):
+        declaration=None, combat_equipment=None):
     source = automatic_source(pc_count=1, enemy_count=enemies)
     rider = replace(source.party[0], pc=replace(source.party[0].pc, weapon_skill=6), mount=mount,
         rider_kind=RiderKind.HUMAN if mount is CombatMount.DEMIGRYPH else None)
+    if combat_equipment is not None:
+        primary = next(item for item in combat_equipment if item.location is PcItemLocation.HELD)
+        rider = replace(rider, pc=replace(rider.pc, weapon=primary.weapon),
+            initial_weapon_hand=primary.hand, combat_equipment=combat_equipment)
     if armour is not None:
         from towr.domain.armour_models import body_resilience_bonus, helmet_resilience_bonus, armour_is_worn
         rider = replace(rider, armour=armour, armour_worn=armour_is_worn(armour),
@@ -86,7 +95,8 @@ def after_primary(state):
     pc_actor = request.actor_id if request.actor_id in state.source.pc_activation_order else request.target_id
     test = request.kernel_request.attack.attacker_test if request.actor_id == pc_actor else request.kernel_request.attack.defender_test
     decline = PcFateDecline(pc_actor, test.id, 'test', state.source.participant(pc_actor).fate_policy)
-    primary = PcAttackProof(request, protection, execution, decline)
+    primary = PcAttackProof(request, protection, execution, decline,
+        weapon_intent=build_pc_attack_weapon_intent(state))
     if request.target_id in state.source.enemy_activation_order:
         enemies = tuple(replace(enemy, state=replace(enemy.state, injury=execution.resolution.target_state))
             if enemy.state.actor_id == request.target_id else enemy for enemy in state.enemies)
@@ -102,6 +112,47 @@ def after_primary(state):
 
 
 class PcDemigryphTests(unittest.TestCase):
+    def test_frozen_mount_protection_keeps_implements_but_uses_current_conditions(self):
+        from towr.domain.pc_mount_attack_models import prepare_pc_mounted_attack
+        from towr.domain.pc_weapon_inventory import pc_protection_weapon_use
+        from towr.domain.test_models import Skill
+        weapons = tuple(PcWeaponItem('sword:'+hand.value, PcMeleeWeapon.SWORD,
+            PcItemLocation.HELD, hand) for hand in PcWeaponHand)
+        state = reserved(actor='minion1', combat_equipment=weapons)
+        intent = build_pc_explicit_attack_weapon_intent(state, 'minion1', 'pc1', 'mount:prepared',
+            mount_attack=True)
+        self.assertEqual(len(intent.protection_use.item_ids), 2)
+        _, before = prepare_pc_mounted_attack(state, 'minion1', 'pc1', intent.action_id,
+            weapon_intent=intent)
+        member = state.participant('pc1')
+        changed = replace(state, party=(replace(member, injury=replace(member.injury,
+            conditions=member.injury.conditions.with_condition(Condition.STAGGERED))),))
+        # This preparation snapshot separates choice from current modifiers;
+        # it does not claim a journaled reaction that adds the defender's state.
+        self.assertEqual(len(pc_protection_weapon_use(changed.participant('pc1'),
+            Skill.DEFENCE, Skill.MELEE).item_ids), 1)
+        _, after = prepare_pc_mounted_attack(changed, 'minion1', 'pc1', intent.action_id,
+            weapon_intent=intent)
+        self.assertEqual(sum(item.amount for item in before.options[0].test.dice_modifiers), 2)
+        self.assertEqual(sum(item.amount for item in after.options[0].test.dice_modifiers), 0)
+        self.assertEqual(len(intent.protection_use.item_ids), 2)
+
+    def test_frozen_mount_attack_cannot_invent_protection_for_defenceless_target(self):
+        from towr.domain.pc_mount_attack_models import prepare_pc_mounted_attack
+        state = reserved(actor='minion1')
+        member = state.participant('pc1')
+        state = replace(state, party=(replace(member, injury=replace(member.injury,
+            conditions=member.injury.conditions.with_condition(Condition.DEFENCELESS))),))
+        intent = build_pc_explicit_attack_weapon_intent(state, 'minion1', 'pc1', 'mount:prepared',
+            mount_attack=True)
+        self.assertIsNone(intent.protection_skill)
+        self.assertIsNone(intent.protection_use)
+        kernel, protection = prepare_pc_mounted_attack(state, 'minion1', 'pc1', intent.action_id,
+            weapon_intent=intent)
+        self.assertIsNone(kernel.attack.defender_test)
+        self.assertEqual(protection.options, ())
+        self.assertEqual(kernel.target_state, state.participant('pc1').injury)
+
     def test_intent_commits_claws_grim_before_the_actual_primary_roll(self):
         state = reserved()
         intent = expected_pc_demigryph_intent(state)
@@ -181,7 +232,14 @@ class PcDemigryphTests(unittest.TestCase):
         state, _, primary = after_primary(reserved())
         strike, protection = build_pc_demigryph_strike(state)
         result = resolve_kernel_attack(strike.kernel_request, Ones(), decisions=TakeWound())
-        proof = PcDemigryphStrikeProof(strike, prepare_protection(protection), result)
+        weapon_intent = build_pc_explicit_attack_weapon_intent(state, strike.actor_id,
+            strike.target_id, strike.id, mount_attack=True)
+        proof = PcDemigryphStrikeProof(strike, prepare_protection(protection), result,
+            weapon_intent=weapon_intent)
+        for changed in (replace(weapon_intent, action_id='foreign'),
+                replace(weapon_intent, mount_attack=False)):
+            with self.subTest(changed=changed), self.assertRaises(ValueError):
+                replace(proof, weapon_intent=changed)
         consumed = replace(state, history=(*state.history, proof))
         self.assertIsNone(build_pc_demigryph_strike(consumed))
         self.assertIs(latest_pc_kernel_attack(consumed), proof)

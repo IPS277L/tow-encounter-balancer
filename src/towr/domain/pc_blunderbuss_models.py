@@ -100,13 +100,15 @@ def pc_blunderbuss_snapshot(state, attack):
             tuple(actor for actor in order if actor in live))
         source, = tuple(f for f in attack.execution.resolution.follow_ups if type(f) is NearbyTargetsStaggerRequest)
         identified = []
+        from towr.domain.pc_give_ground_models import pc_give_ground_context
         for actor in targets:
             pc = actor in state.source.pc_activation_order
             injury = state.participant(actor).injury if pc else state.enemy(actor).state.injury
             policy = TargetInjuryPolicy.PLAYER if pc else state.enemy(actor).definition.injury_policy
+            ground=pc_give_ground_context(state,actor,attack.request.actor_id,allow_friendly_source=True)
             identified.append(IdentifiedStaggerTarget(actor,StaggerImpactRequest(
                 source.resolution_id+':nearby:'+actor,actor,policy,injury,
-                state.source.facts.can_leave_zone,False)))
+                ground.can_leave,ground.given_this_round)))
         return PcBlunderbussSnapshot(PcBattlefieldNearbySource(attack.request.actor_id,
             state.battlefield,targets),NearbyTargetsStaggerResolutionRequest(
                 source.resolution_id+':nearby',source,attack.request.target_id,tuple(identified)))

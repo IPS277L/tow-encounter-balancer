@@ -60,6 +60,7 @@ class PcBestigorExecutionTests(unittest.TestCase):
         self.assertEqual(rage.state.enemy('bestigor1').state.injury.wounds,1)
         self.assertFalse(rage.source.enemy('bestigor1').state.injury.conditions.has(Condition.STAGGERED))
         self.assertTrue(rage.state.enemy('bestigor1').state.injury.conditions.has(Condition.STAGGERED))
+        self.assertIs(attacks(result)[0].proof.weapon_intent,rage.proof.weapon_intent)
         self.assertEqual(result.executed_actions,4)
 
     def test_selected_rage_cannot_be_skipped_duplicated_retargeted_or_applied_early(self):
@@ -68,8 +69,9 @@ class PcBestigorExecutionTests(unittest.TestCase):
         with self.assertRaises(ValueError):build_pc_melee_attack(rage.source)
         with self.assertRaises(ValueError):apply_pc_melee_step(rage.state,rage)
         with self.assertRaises(ValueError):PcMeleeStep(rage.state,rage.proof)
-        for proof in (replace(rage.proof,actor_id='pc1'),replace(rage.proof,action_id='foreign')):
-            with self.assertRaises(ValueError):PcMeleeStep(rage.source,proof)
+        for changes in ({'actor_id':'pc1'},{'action_id':'foreign'}):
+            with self.subTest(changes=changes), self.assertRaises((TypeError,ValueError)):
+                PcMeleeStep(rage.source,replace(rage.proof,**changes))
         with self.assertRaises(ValueError):PcMeleeStep(result.steps[0].source,rage.proof)
         attack=attacks(result)[0]
         with self.assertRaises(ValueError):PcMeleeStep(rage.source,attack.proof)

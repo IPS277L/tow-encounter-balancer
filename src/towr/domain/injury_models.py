@@ -177,6 +177,22 @@ class WoundNegationOption:
 
 
 @dataclass(frozen=True, slots=True)
+class FixedWoundSelection:
+    """An explicit rule selects a named Wound instead of rolling the table."""
+    entry_id: WoundEntryId
+    table_total: int
+    rule_id: str
+
+    def __post_init__(self) -> None:
+        if type(self.entry_id) is not WoundEntryId:
+            raise TypeError('fixed Wound selection requires an exact named entry')
+        if type(self.table_total) is not int or self.table_total < 1:
+            raise TypeError('fixed Wound selection requires an exact positive table position')
+        if type(self.rule_id) is not str or not self.rule_id.strip():
+            raise TypeError('fixed Wound selection requires its exact source rule ID')
+
+
+@dataclass(frozen=True, slots=True)
 class WoundRecord:
     sequence: int
     entry_id: WoundEntryId
@@ -340,12 +356,17 @@ class CharacterWoundRequest:
     dice_modifiers: tuple[WoundDiceModifier, ...] = field(default_factory=tuple)
     negation_options: tuple[WoundNegationOption, ...] = field(default_factory=tuple)
     base_dice: int = 1
+    fixed_entry: FixedWoundSelection | None = field(default=None, kw_only=True)
 
     def __post_init__(self) -> None:
         _validate_request_id(self.id, "character wound request")
         if not isinstance(self.state, CharacterInjuryState):
             raise TypeError("state must be a CharacterInjuryState")
         _validate_positive_int(self.base_dice, "base_dice")
+        if self.fixed_entry is not None:
+            if type(self.fixed_entry) is not FixedWoundSelection:
+                raise TypeError('fixed_entry must retain its exact explicit Wound source')
+            replace(self.fixed_entry)
         if not isinstance(self.subject_type, CharacterWoundType):
             raise TypeError("subject_type must be a CharacterWoundType")
         object.__setattr__(self, "dice_modifiers", tuple(self.dice_modifiers))
@@ -408,6 +429,33 @@ class WoundTableRoll:
             raise TypeError("entry must be a WoundTableEntry")
         if not self.entry.includes(self.total):
             raise ValueError("entry must include the wound table total")
+
+
+@dataclass(frozen=True, slots=True)
+class FixedWoundTableSelection:
+    """Named entry evidence with no invented Wounds Table dice or RNG work."""
+    source: FixedWoundSelection
+    entry: WoundTableEntry
+
+    def __post_init__(self) -> None:
+        if type(self.source) is not FixedWoundSelection or type(self.entry) is not WoundTableEntry:
+            raise TypeError('fixed Wound result requires its exact selection and table entry')
+        replace(self.source)
+        replace(self.entry)
+        if self.entry.id is not self.source.entry_id or not self.entry.includes(self.source.table_total):
+            raise ValueError('fixed Wound entry differs from its explicit source position')
+
+    @property
+    def dice(self) -> int:
+        return 0
+
+    @property
+    def values(self) -> tuple[int, ...]:
+        return ()
+
+    @property
+    def total(self) -> int:
+        return self.source.table_total
 
 
 @dataclass(frozen=True, slots=True)
@@ -509,7 +557,7 @@ class CharacterWoundResult:
     request_id: str
     subject_type: CharacterWoundType
     state: CharacterInjuryState
-    table_roll: WoundTableRoll
+    table_roll: WoundTableRoll | FixedWoundTableSelection
     wound_accepted: bool
     negated_by_rule_id: str | None
     effect_request: WoundEffectRequest | None
@@ -540,17 +588,30 @@ def validate_character_wound_result_provenance(
         + sum(item.amount for item in request.dice_modifiers),
     )
     table_roll = result.table_roll
-    if (
-        table_roll.dice != dice
-        or len(table_roll.values) != dice
-        or table_roll.total != sum(table_roll.values)
-        or not table_roll.entry.includes(table_roll.total)
-    ):
-        raise ValueError("character Wound roll has stale provenance")
+    if request.fixed_entry is not None:
+        if type(table_roll) is not FixedWoundTableSelection:
+            raise TypeError('a fixed Wound must retain named-entry evidence, not invented rolled dice')
+        replace(request.fixed_entry)
+        replace(table_roll)
+        if table_roll.source != request.fixed_entry:
+            raise ValueError('fixed character Wound lost its actual selection source')
+    else:
+        if type(table_roll) is not WoundTableRoll:
+            raise TypeError('an ordinary character Wound requires its actual Wounds Table roll')
+        replace(table_roll)
+        if (
+            table_roll.dice != dice
+            or len(table_roll.values) != dice
+            or table_roll.total != sum(table_roll.values)
+            or not table_roll.entry.includes(table_roll.total)
+        ):
+            raise ValueError("character Wound roll has stale provenance")
 
     modifier_rule_ids = tuple(
         item.rule_id for item in request.dice_modifiers
     )
+    if request.fixed_entry is not None:
+        modifier_rule_ids = (*modifier_rule_ids, request.fixed_entry.rule_id)
     if not result.wound_accepted:
         option_rule_ids = {
             item.rule_id for item in request.negation_options
@@ -574,6 +635,8 @@ def validate_character_wound_result_provenance(
         entry_id=entry.id,
         table_total=table_roll.total,
         roll_values=table_roll.values,
+        origin=(WoundRecordOrigin.FIXED_ENTRY if request.fixed_entry is not None
+            else WoundRecordOrigin.TABLE_ROLL),
     )
     expected_state = CharacterInjuryState(
         wounds=(*request.state.wounds, wound),
@@ -677,13 +740,30 @@ class MinionStaggerDefeatCause:
             _minion_defeat_id(getattr(self, name), name)
 
 
+HEADSMAN_DECAPITATION_RULE_ID = 'RULE-MAGIC-ITEM-003:headsman-prone-execution'
+
+
+@dataclass(frozen=True, slots=True)
+class ProfileDecapitationCause:
+    """An actual Headsman Wound kills a profile without inventing extra Wounds."""
+    source_id: str
+    target_id: str
+    rule_id: str = HEADSMAN_DECAPITATION_RULE_ID
+
+    def __post_init__(self) -> None:
+        for name in ('source_id', 'target_id', 'rule_id'):
+            _minion_defeat_id(getattr(self, name), name)
+        if self.rule_id != HEADSMAN_DECAPITATION_RULE_ID:
+            raise ValueError('profile Decapitation requires its actual Headsman source rule')
+
+
 @dataclass(frozen=True, slots=True)
 class ProfileInjuryState:
     wounds: int
     wound_limit: int
     conditions: ConditionState = field(default_factory=ConditionState)
     defeated: bool = False
-    defeat_cause: MinionStaggerDefeatCause | None = None
+    defeat_cause: MinionStaggerDefeatCause | ProfileDecapitationCause | None = None
 
     def __post_init__(self) -> None:
         _validate_non_negative_int(self.wounds, "wounds")
@@ -694,10 +774,14 @@ class ProfileInjuryState:
             raise TypeError("conditions must be a ConditionState")
         _validate_bool(self.defeated, "defeated")
         if self.defeat_cause is not None:
-            if type(self.defeat_cause) is not MinionStaggerDefeatCause:
-                raise TypeError("non-Wound Minion defeat requires its exact typed cause")
+            if type(self.defeat_cause) not in (MinionStaggerDefeatCause, ProfileDecapitationCause):
+                raise TypeError("profile defeat requires its exact typed printed cause")
             replace(self.defeat_cause)
-            if (type(self.wounds) is not int or self.wounds != 0
+            if type(self.defeat_cause) is ProfileDecapitationCause:
+                if (type(self.wounds) is not int or self.wounds < 1
+                        or type(self.defeated) is not bool or not self.defeated):
+                    raise ValueError('profile Decapitation requires an actually Wounded defeated target')
+            elif (type(self.wounds) is not int or self.wounds != 0
                     or type(self.wound_limit) is not int or self.wound_limit != 1
                     or type(self.defeated) is not bool or not self.defeated):
                 raise ValueError("Staggered fleeing defeat requires an unwounded defeated Minion")
@@ -748,6 +832,7 @@ class ProfileWoundRequest:
         default_factory=tuple
     )
     base_wounds: int = 1
+    decapitation_cause: ProfileDecapitationCause | None = field(default=None, kw_only=True)
 
     def __post_init__(self) -> None:
         _validate_request_id(self.id, "profile wound request")
@@ -756,6 +841,14 @@ class ProfileWoundRequest:
         if not isinstance(self.state, ProfileInjuryState):
             raise TypeError("state must be a ProfileInjuryState")
         _validate_positive_int(self.base_wounds, "base_wounds")
+        if self.decapitation_cause is not None:
+            if type(self.decapitation_cause) is not ProfileDecapitationCause:
+                raise TypeError('profile lethal Wound requires its exact Decapitation source')
+            replace(self.decapitation_cause)
+            if self.decapitation_cause.source_id != self.id:
+                raise ValueError('profile Decapitation belongs to another actual Wound request')
+            if not self.state.conditions.has(Condition.PRONE):
+                raise ValueError('Headsman profile Decapitation requires its actual Prone target')
         if self.npc_type is ProfileNpcType.MINION and self.state.wound_limit != 1:
             raise ValueError("a Minion must have a wound_limit of 1")
         object.__setattr__(self, "additional_wounds", tuple(self.additional_wounds))

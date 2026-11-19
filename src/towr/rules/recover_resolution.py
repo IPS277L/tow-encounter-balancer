@@ -12,6 +12,8 @@ from towr.domain.recover_models import (
     RecoverActionExecutionResult,
     RecoverConditionRemovalChoice,
     RecoverConditionRemovalResult,
+    RecoverHammerRetrievalChoice,
+    RecoverHammerRetrievalResult,
     RecoverMode,
     RecoverStandardChoice,
     RecoverStandardResult,
@@ -133,6 +135,9 @@ def _resolve_choice(
         return _resolve_standard(choice)
     if isinstance(choice, RecoverTreatWoundChoice):
         return _resolve_treatment(request, choice, rng, decisions=decisions)
+    if isinstance(choice, RecoverHammerRetrievalChoice):
+        result = resolve_test(choice.test, rng, decisions=decisions)
+        return _complete_hammer_retrieval_after_test(choice, result)
     assert isinstance(choice, RecoverConditionRemovalChoice)
     return _resolve_condition_removal(choice, rng, decisions=decisions)
 
@@ -224,3 +229,9 @@ def _complete_condition_removal_after_test(choice: RecoverConditionRemovalChoice
         ),
         removed=removed,
     )
+
+
+def _complete_hammer_retrieval_after_test(choice: RecoverHammerRetrievalChoice,
+        result: TestResult) -> RecoverHammerRetrievalResult:
+    """Finish the real alternate Recover after its owned Test/Fate window."""
+    return RecoverHammerRetrievalResult(choice, result)

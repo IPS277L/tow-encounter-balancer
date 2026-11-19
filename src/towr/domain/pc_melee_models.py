@@ -3,6 +3,7 @@ from dataclasses import dataclass, field, replace
 from enum import Enum
 from towr.domain.pc_combat_equipment_models import PcWeaponItem
 from towr.domain.pc_battlefield_models import PcBattlefieldSpec
+from towr.domain.pc_single_combat_models import PcSingleCombatPair
 from towr.domain.pc_mount_models import CombatMount, RiderKind, initial_pc_mounts
 from towr.domain.armour_models import ArmourLoadout
 
@@ -49,6 +50,10 @@ from towr.domain.weapon_inventory_models import (
 # Source admission follows implemented owners, not the presence of a catalogue
 # enum. New Magic/Throwing effects join this set only with full execution.
 PC_EXECUTABLE_WEAPONS = (
+    PcMeleeWeapon.UNARMED,
+    PcMeleeWeapon.KNUCKLEDUSTERS,
+    PcMeleeWeapon.CAVALRY_SPEAR,
+    PcMeleeWeapon.LANCE,
     PcMeleeWeapon.STAFF,
     PcMeleeWeapon.SWORD,
     PcMeleeWeapon.DAGGER,
@@ -79,18 +84,36 @@ PC_EXECUTABLE_WEAPONS = (
     PcMeleeWeapon.BLUNDERBUSS,
     PcMeleeWeapon.HOCHLAND_LONG_RIFLE,
     PcMeleeWeapon.WEIGHTED_NET,
+    PcMeleeWeapon.ROCK,
+    PcMeleeWeapon.THROWING_SPEAR,
+    PcMeleeWeapon.THROWING_AXE,
+    PcMeleeWeapon.THROWING_KNIVES,
+    PcMeleeWeapon.OIL_FLASK,
+    PcMeleeWeapon.BLASTING_CHARGE,
+    PcMeleeWeapon.DRAGON_BOW,
+    PcMeleeWeapon.DUELLIST_BLADES,
+    PcMeleeWeapon.GROTARGGS_HAMMER,
+    PcMeleeWeapon.HEADSMANS_AXE,
+    PcMeleeWeapon.MORNING_STAR_OF_FRACASSE,
+    PcMeleeWeapon.SCARAB_KNIFE,
+    PcMeleeWeapon.TRICKSTER_BLADE,
+    PcMeleeWeapon.UNWAVERING_SPEAR,
+    PcMeleeWeapon.SWORD_OF_JUSTICE,
+    PcMeleeWeapon.OGRE_PISTOL,
 )
 
 
-PC_THROWING_WEAPONS = (PcMeleeWeapon.WEIGHTED_NET,)
-PC_BOW_WEAPONS = (PcMeleeWeapon.SHORTBOW, PcMeleeWeapon.WARBOW, PcMeleeWeapon.LONGBOW)
+PC_THROWING_WEAPONS = (PcMeleeWeapon.ROCK,PcMeleeWeapon.THROWING_SPEAR,PcMeleeWeapon.THROWING_AXE,
+    PcMeleeWeapon.WEIGHTED_NET,PcMeleeWeapon.THROWING_KNIVES,PcMeleeWeapon.OIL_FLASK,
+    PcMeleeWeapon.BLASTING_CHARGE)
+PC_BOW_WEAPONS = (PcMeleeWeapon.SHORTBOW, PcMeleeWeapon.WARBOW, PcMeleeWeapon.LONGBOW, PcMeleeWeapon.DRAGON_BOW)
 PC_FREE_RELOAD_WEAPONS = (*PC_BOW_WEAPONS, PcMeleeWeapon.SLING)
 PC_CROSSBOW_WEAPONS = (PcMeleeWeapon.CROSSBOW, PcMeleeWeapon.REPEATER_CROSSBOW)
 PC_HANDGUN_WEAPONS = (PcMeleeWeapon.HANDGUN, PcMeleeWeapon.REPEATER_HANDGUN)
 PC_TWO_HANDED_RANGED_WEAPONS = (*PC_BOW_WEAPONS, *PC_CROSSBOW_WEAPONS, *PC_HANDGUN_WEAPONS,
     PcMeleeWeapon.BLUNDERBUSS, PcMeleeWeapon.HOCHLAND_LONG_RIFLE)
 PC_RANGED_WEAPONS = (PcMeleeWeapon.PISTOL, PcMeleeWeapon.REPEATER_HANDBOW,
-    PcMeleeWeapon.REPEATER_PISTOL, *PC_TWO_HANDED_RANGED_WEAPONS, PcMeleeWeapon.SLING)
+    PcMeleeWeapon.REPEATER_PISTOL, PcMeleeWeapon.OGRE_PISTOL, *PC_TWO_HANDED_RANGED_WEAPONS, PcMeleeWeapon.SLING)
 
 
 class PcMeleePolicy(str, Enum):
@@ -124,11 +147,11 @@ class PcHelpPolicy:
         _typed(self.target,PcHelpTarget,"Help target")
         _typed(self.skill,Skill,"Help Skill")
         if self.target is PcHelpTarget.ATTACK:
-            if self.skill not in (Skill.MELEE,Skill.SHOOTING,Skill.THROWING):
-                raise ValueError("Attack Help requires Melee, Shooting or Throwing")
+            if self.skill not in (Skill.MELEE,Skill.SHOOTING,Skill.THROWING,Skill.BRAWN):
+                raise ValueError("Attack Help requires the actual Melee/Brawn/Shooting/Throwing Skill")
         else:
-            if self.skill not in (Skill.DEFENCE,Skill.ATHLETICS,Skill.MELEE):
-                raise ValueError("Protection Help requires Defence, Athletics or Melee")
+            if self.skill not in (Skill.DEFENCE,Skill.ATHLETICS,Skill.MELEE,Skill.ENDURANCE):
+                raise ValueError("Protection Help requires Defence, Athletics, Endurance or Melee")
 
 
 class PcFatePolicy(str, Enum):
@@ -204,7 +227,8 @@ class PcBackupWeaponPolicy:
         _typed(self.weapon,PcMeleeWeapon,"backup weapon")
         _typed(self.preferred_hand,PcWeaponHand,"backup preferred hand")
         from towr.domain.pc_weapon_models import pc_weapon_requires_two_hands
-        if pc_weapon_requires_two_hands(self.weapon) or self.weapon in PC_RANGED_WEAPONS:
+        if (pc_weapon_requires_two_hands(self.weapon) or self.weapon in PC_RANGED_WEAPONS
+                or self.weapon is PcMeleeWeapon.UNARMED):
             raise ValueError("backup weapon must be a supported one-handed melee weapon")
 
 
@@ -337,7 +361,9 @@ class PcMeleeDefinition:
         elif self.ballistic_skill is not None:
             raise ValueError('separate Ballistic Skill belongs to the Throwing source')
         if self.weapon in PC_THROWING_WEAPONS and self.throwing is None:
-            raise ValueError('Weighted Net requires explicit BS and Throwing')
+            raise ValueError('Throwing weapons require explicit BS and Throwing')
+        if self.weapon in (PcMeleeWeapon.UNARMED,PcMeleeWeapon.KNUCKLEDUSTERS,PcMeleeWeapon.GROTARGGS_HAMMER) and self.brawn is None:
+            raise ValueError('Unarmed and Knuckledusters require explicit Brawn')
         _integer(self.armour_bonus, "PC armour bonus", minimum=0)
         if self.ranged is not None:
             _typed(self.ranged,PcRangedProfile,'actor Shooting facts')
@@ -434,7 +460,7 @@ class PcMeleeParticipant:
     fate_policy: PcFatePolicy
     random_side_policy: PcRandomSidePolicy
     heavy_wound_policy: PcHeavyWoundPolicy
-    initial_weapon_hand: PcWeaponHand | PcTwoHandedGrip
+    initial_weapon_hand: PcWeaponHand | PcTwoHandedGrip | None
     target_priority: tuple[str, ...]
     defeat_decisions: tuple[MinionDefeatDecision, ...]
     near_miss_policy: PcNearMissPolicy | None
@@ -530,15 +556,24 @@ class PcMeleeParticipant:
             else PcTwoHandedGrip if pc_weapon_requires_two_hands(self.pc.weapon) else PcWeaponHand)
         if grip_type not in (PcWeaponHand, PcTwoHandedGrip):
             raise TypeError('variable weapon grip requires an exact one- or two-handed grip')
-        _typed(self.initial_weapon_hand,grip_type,"initial weapon grip")
+        if self.pc.weapon is PcMeleeWeapon.UNARMED:
+            if self.initial_weapon_hand is not None:
+                raise ValueError('Unarmed has no physical initial weapon hand')
+        else:
+            _typed(self.initial_weapon_hand,grip_type,"initial weapon grip")
         if self.shield is not None:
             _typed(self.shield, PcShieldLoadout, "PC shield loadout")
             replace(self.shield)
-            if self.pc.weapon not in (PcMeleeWeapon.DAGGER, PcMeleeWeapon.STAFF,
+            if self.pc.weapon not in (PcMeleeWeapon.UNARMED,PcMeleeWeapon.KNUCKLEDUSTERS,
+                    PcMeleeWeapon.CAVALRY_SPEAR,PcMeleeWeapon.LANCE,PcMeleeWeapon.DAGGER, PcMeleeWeapon.STAFF,
                     PcMeleeWeapon.AXE, PcMeleeWeapon.SWORD, PcMeleeWeapon.WARHAMMER,
                     PcMeleeWeapon.FOOT_SPEAR, PcMeleeWeapon.POLEARM,
                     PcMeleeWeapon.MORNING_STAR, PcMeleeWeapon.PISTOL,
-                    PcMeleeWeapon.REPEATER_HANDBOW, PcMeleeWeapon.REPEATER_PISTOL, PcMeleeWeapon.SLING):
+                    PcMeleeWeapon.REPEATER_HANDBOW, PcMeleeWeapon.REPEATER_PISTOL, PcMeleeWeapon.SLING,
+                    PcMeleeWeapon.ROCK,PcMeleeWeapon.THROWING_SPEAR,PcMeleeWeapon.THROWING_AXE,
+                    PcMeleeWeapon.THROWING_KNIVES,PcMeleeWeapon.OIL_FLASK,PcMeleeWeapon.BLASTING_CHARGE,
+                    PcMeleeWeapon.MORNING_STAR_OF_FRACASSE,PcMeleeWeapon.SCARAB_KNIFE,
+                    PcMeleeWeapon.TRICKSTER_BLADE,PcMeleeWeapon.SWORD_OF_JUSTICE,PcMeleeWeapon.OGRE_PISTOL):
                 raise ValueError("shield requires a supported one-handed primary weapon")
             if self.initial_weapon_hand is PcTwoHandedGrip.BOTH or self.shield.initial_hand is self.initial_weapon_hand:
                 raise ValueError("shield and weapon require opposite initial hands")
@@ -607,7 +642,7 @@ class PcMeleeParticipant:
                 raise ValueError('automatic Repeater mode requires automatic combat policy')
         if self.pc.weapon in PC_THROWING_WEAPONS and (self.policy is not PcMeleePolicy.AUTOMATIC_COMBAT
                 or self.combat_equipment is None):
-            raise ValueError('Weighted Net requires automatic decisions and its concrete source item')
+            raise ValueError('Throwing weapons require automatic decisions and their concrete source items')
 
     def defeat_decision(self, target_id: str) -> MinionDefeatDecision:
         _identifier(target_id, "defeat target")
@@ -660,6 +695,22 @@ class PcBlunderbussNearby:
             raise ValueError('Blunderbuss nearby targets cannot repeat')
 
 
+def validate_pc_single_combat_pairs(pairs, pc_actor_ids, npc_actor_ids):
+    """Source admission; orientation is preserved but pair meaning is unordered."""
+    if type(pairs) is not tuple or any(type(pair) is not PcSingleCombatPair for pair in pairs):
+        raise TypeError('single combat pairs require an exact tuple of typed GM facts')
+    pc_ids,npc_ids=set(pc_actor_ids),set(npc_actor_ids)
+    used=set()
+    for pair in pairs:
+        replace(pair)
+        if not ((pair.actor_id in pc_ids and pair.target_id in npc_ids)
+                or (pair.actor_id in npc_ids and pair.target_id in pc_ids)):
+            raise ValueError('single combat pairs require actual opposing actors in this scene')
+        if used.intersection((pair.actor_id,pair.target_id)):
+            raise ValueError('single combat pairs cannot duplicate or overlap actors')
+        used.update((pair.actor_id,pair.target_id))
+
+
 @dataclass(frozen=True, slots=True)
 class PcMeleeScenario:
     id: str
@@ -684,6 +735,7 @@ class PcMeleeScenario:
     short_range_opening: PcShortRangeOpening | None = field(default=None,kw_only=True)
     blunderbuss_nearby: PcBlunderbussNearby | None = field(default=None,kw_only=True)
     battlefield: PcBattlefieldSpec | None = field(default=None,kw_only=True)
+    single_combat_pairs: tuple[PcSingleCombatPair,...] = field(default=(),kw_only=True)
 
     def __post_init__(self) -> None:
         for name in ("id", "day_id"):
@@ -711,6 +763,8 @@ class PcMeleeScenario:
             if member.pc.id in pc_definitions and pc_definitions[member.pc.id] != member.pc:
                 raise ValueError("conflicting PC definitions with the same ID")
             pc_definitions[member.pc.id] = member.pc
+        validate_pc_single_combat_pairs(self.single_combat_pairs,
+            tuple(member.actor_id for member in party),tuple(enemy.state.actor_id for enemy in enemies))
         definitions = {}
         for enemy in enemies:
             _readmit_profile_enemy(enemy)
@@ -721,6 +775,12 @@ class PcMeleeScenario:
         from towr.domain.pc_combat_equipment_models import pc_initial_weapon_kinds
         has_ranged = any(kind in (*PC_RANGED_WEAPONS,*PC_THROWING_WEAPONS)
             for member in party for kind in pc_initial_weapon_kinds(member))
+        if any(member.pc.weapon is PcMeleeWeapon.UNARMED
+                or PcMeleeWeapon.KNUCKLEDUSTERS in pc_initial_weapon_kinds(member) for member in party):
+            for enemy in enemies:
+                if not any(profile.skill in (Skill.ATHLETICS,Skill.ENDURANCE)
+                        for profile in enemy.definition.protection):
+                    raise ValueError('Brawn opponents require explicit Athletics or Endurance Protection facts')
         close_shooting_profiles = {}
         policies = self.npc_close_shooting_protection_policies
         if policies is not None:
@@ -756,6 +816,8 @@ class PcMeleeScenario:
         pc_ids = tuple(member.actor_id for member in party)
         enemy_ids = tuple(enemy.state.actor_id for enemy in enemies)
         all_ids = (*pc_ids, *enemy_ids)
+        from towr.domain.pc_scene_feature_models import validate_scene_visibility_actors
+        validate_scene_visibility_actors(self.battlefield,all_ids)
         if len(set(all_ids)) != len(all_ids):
             raise ValueError("PC and Minion actor IDs must be distinct")
         for name, ids in (("pc_activation_order", pc_ids),
@@ -814,6 +876,8 @@ class PcMeleeScenario:
         _validate_short_range_opening(self)
         from towr.domain.pc_falling_models import validate_pc_falling_scene
         validate_pc_falling_scene(self)
+        from towr.domain.pc_weapon_area_models import validate_weapon_area_scene
+        validate_weapon_area_scene(self)
         from towr.domain.pc_armour_models import validate_agilulf_defeat_policies
         validate_agilulf_defeat_policies(self)
 

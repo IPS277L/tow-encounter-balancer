@@ -6,6 +6,7 @@ Manoeuvre slot unused for the ordinary native Attack/Fate/Help/kernel owner.
 from __future__ import annotations
 
 from dataclasses import dataclass, field, replace
+from collections import deque
 from typing import TYPE_CHECKING
 
 from towr.domain.charge_models import ChargeMovementRequest, ChargeMovementResult
@@ -14,7 +15,8 @@ from towr.domain.fate_models import FateGloriousSpendResult
 from towr.domain.injury_models import WoundRestriction
 from towr.domain.movement_models import (
     MovementSpeed, RunActionExecutionRequest, RunActionExecutionResult,
-    RunAthleticsExtensionRequest, RunAthleticsExtensionResult,
+    RunAthleticsExtensionRequest, RunAthleticsExtensionResult, FreeMovementRequest,
+    MoveCarefullyActionExecutionRequest,MoveCarefullyActionExecutionResult,MoveCarefullySearchChoice,
 )
 from towr.domain.pc_battlefield_models import PcBattlefieldState, battlefield_range, with_actor_placement, battlefield_is_midair
 from towr.domain.pc_battlefield_movement_models import (
@@ -28,6 +30,7 @@ from towr.domain.test_models import DiceModifier, Skill, TestRequest
 from towr.domain.turn_models import CombatActionKind, ManoeuvreKind
 from towr.rules.charge_action_execution import _complete_charge_movement_after_test, CHARGE_MELEE_BONUS_RULE_ID
 from towr.rules.run_action_execution import execute_run_action, _complete_run_athletics_extension_after_test
+from towr.rules.move_carefully_resolution import execute_move_carefully_action
 
 if TYPE_CHECKING:
     from towr.domain.pc_melee_result_models import PcFateDecline, PcMeleeState
@@ -42,7 +45,7 @@ class PcBattlefieldManoeuvreProposal:
     def __post_init__(self):
         if (any(type(value) is not str or not value.strip() for value in (self.actor_id,self.target_id))
                 or self.actor_id == self.target_id or type(self.kind) is not ManoeuvreKind
-                or self.kind not in (ManoeuvreKind.CHARGE,ManoeuvreKind.RUN)):
+                or self.kind not in (ManoeuvreKind.CHARGE,ManoeuvreKind.RUN,ManoeuvreKind.MOVE_CAREFULLY)):
             raise ValueError('battlefield proposal requires an actual actor, target and supported Manoeuvre')
 
 
@@ -90,6 +93,44 @@ def _has_athletics_source(state,actor):
         profile.skill is Skill.ATHLETICS for profile in state.enemy(actor).definition.protection)
 
 
+def _careful_route(state,actor,target,speed):
+    if actor in state.battlefield.spatial.free_move_used_entity_ids:return None
+    spatial=state.battlefield.spatial
+    origin=spatial.placement_for(actor).zone_id
+    target_zone=spatial.placement_for(target).zone_id
+    low,high,_,_=_ranges(state,actor)
+    def deviation(zone):
+        rank=_zone_distance(spatial.graph,zone,target_zone)+1
+        if zone==target_zone and high is RangedWeaponRange.CLOSE:rank=0
+        return max(_rank(low)-rank,0,rank-_rank(high))
+    from towr.domain.pc_terrain_models import terrain_test_required_for_route
+    queue=deque(((origin,()),));options=[]
+    while queue:
+        current,path=queue.popleft()
+        if len(path)>=speed.free_move_zone_limit:continue
+        for zone in spatial.graph.adjacent_zone_ids(current):
+            if zone==origin or zone in path:continue
+            route=(*path,zone)
+            close=(target,) if zone==target_zone and high is RangedWeaponRange.CLOSE else ()
+            if not battlefield_path_available(state,actor,route,close_to_ids=close):continue
+            queue.append((zone,route))
+            if deviation(zone)<deviation(origin) and terrain_test_required_for_route(state,actor,route):
+                options.append(route)
+    return min(options,key=lambda path:(deviation(path[-1]),len(path))) if options else None
+
+
+def _careful_is_useful(state,actor):
+    from towr.domain.pc_terrain_models import _terrain_test,_staff_support
+    test=_terrain_test(state,actor,'tactics:terrain:'+actor,_staff_support(state,actor))
+    if actor in state.source.pc_activation_order:
+        from towr.domain.pc_talent_advice import pc_test_distribution
+        chance=pc_test_distribution(state,actor,Skill.ATHLETICS,test,include_policy=True)[0]
+    else:
+        from towr.domain.pc_tactical_models import _distribution
+        chance=_distribution(test)[0]
+    return chance>=.5
+
+
 def proposed_pc_battlefield_manoeuvre(state: PcMeleeState, *,
         speed: MovementSpeed | None = None) -> PcBattlefieldManoeuvreProposal | None:
     """Conservative deterministic positioning; never call the tactical solver.
@@ -117,8 +158,11 @@ def proposed_pc_battlefield_manoeuvre(state: PcMeleeState, *,
         from towr.domain.pc_melee_result_models import _pc_recover_needed
         from towr.domain.pc_backup_weapon_models import pc_preferred_weapon_hand
         member = state.participant(actor)
-        if not mount_attack and (_pc_recover_needed(member) or usable_weapon_hand(member) is None
-                or pc_preferred_weapon_hand(state,actor) != member.weapon_hand):
+        from towr.domain.pc_weapon_inventory import pc_attack_weapon_use
+        use=pc_attack_weapon_use(state,actor)
+        if not mount_attack and (_pc_recover_needed(member,
+                unarmed_available=state.source.participant(actor).pc.brawn is not None) or use is None
+                or use.primary is not None and pc_preferred_weapon_hand(state,actor) != member.weapon_hand):
             return None
         from towr.domain.pc_backup_weapon_models import pc_active_weapon
         from towr.domain.pc_melee_models import PC_RANGED_WEAPONS
@@ -134,6 +178,10 @@ def proposed_pc_battlefield_manoeuvre(state: PcMeleeState, *,
     if not targets or any(pc_battlefield_attack_available(state,actor,target) for target in targets):
         return None
     free_available = actor not in state.battlefield.spatial.free_move_used_entity_ids
+    if free_available and state.source.battlefield.zone_features:
+        for target in targets:
+            if _careful_route(state,actor,target,actual_speed) is not None and _careful_is_useful(state,actor):
+                return PcBattlefieldManoeuvreProposal(actor,target,ManoeuvreKind.MOVE_CAREFULLY)
     can_charge = _attack_skill(state,actor) in (Skill.MELEE,Skill.BRAWN,Skill.THROWING) and not _began_close(state,actor)
     if can_charge:
         for target in targets:
@@ -200,8 +248,23 @@ def _charge_route(state, actor, target):
             if graph.are_adjacent(middle, destination))
     else:
         return None
+    from towr.domain.pc_terrain_models import terrain_test_required_for_route
+    terrain_used=actor in battlefield.spatial.difficult_terrain_tested_entity_ids
     return next((path for path in options if battlefield_path_available(state, actor, path,
-        close_to_ids=(target,))), None)
+        close_to_ids=(target,)) and (distance is not RangedWeaponRange.LONG or not terrain_used
+            and not terrain_test_required_for_route(state,actor,path))), None)
+
+
+def build_pc_battlefield_careful(state: PcMeleeState,target_id: str, *, speed=None):
+    actor,speed=_ready(state,target_id,ManoeuvreKind.MOVE_CAREFULLY,speed)
+    route=_careful_route(state,actor,target_id,speed)
+    if route is None:raise ValueError('Move Carefully needs actual reachable Difficult Terrain')
+    from towr.domain.pc_melee_result_models import pc_melee_action_id
+    identifier=pc_melee_action_id(state,actor)+':battlefield:careful'
+    movement=FreeMovementRequest(identifier+':movement',state.round_state,state.battlefield.spatial,
+        actor,speed,_conditions(state,actor),route,crosses_difficult_terrain=True)
+    return MoveCarefullyActionExecutionRequest(identifier,movement,len(state.round_state.active_turn.action_slots),
+        MoveCarefullySearchChoice.DECLINE,None,None,state.round_state,state.battlefield.spatial)
 
 
 def build_pc_battlefield_charge(state: PcMeleeState,target_id: str, *, speed=None) -> ChargeMovementRequest:
@@ -218,9 +281,12 @@ def build_pc_battlefield_charge(state: PcMeleeState,target_id: str, *, speed=Non
     if distance is RangedWeaponRange.LONG:
         intermediate = route[0]
         test = _athletics(state,actor,action+':athletics')
+    from towr.domain.pc_terrain_models import terrain_test_required_for_route
+    terrain=terrain_test_required_for_route(state,actor,route)
     return ChargeMovementRequest(action,state.round_state,spatial,actor,target_id,
         len(state.round_state.active_turn.action_slots),speed,_conditions(state,actor),distance,
-        _began_close(state,actor),test,intermediate)
+        _began_close(state,actor),test,intermediate,crosses_difficult_terrain=terrain,
+        terrain_resolution_deferred=terrain)
 
 
 def current_pc_charge(state: PcMeleeState,actor: str) -> ChargeMovementResult | None:
@@ -267,9 +333,12 @@ def build_pc_battlefield_run(state: PcMeleeState,target_id: str, *, speed=None) 
     destination = _run_destination(state,actor,target_id,state.battlefield.spatial)
     if destination is None:
         raise ValueError('Run needs an actual adjacent Zone that improves the selected distance')
+    from towr.domain.pc_terrain_models import terrain_test_required_for_route
+    terrain=terrain_test_required_for_route(state,actor,(destination,))
     return RunActionExecutionRequest(pc_melee_action_id(state,actor)+':battlefield:run',
         state.round_state,state.battlefield.spatial,actor,len(state.round_state.active_turn.action_slots),
-        speed,_conditions(state,actor),destination)
+        speed,_conditions(state,actor),destination,crosses_difficult_terrain=terrain,
+        terrain_resolution_deferred=terrain)
 
 
 def _run_athletics(state, base_run, destination, target_id):
@@ -291,8 +360,16 @@ def build_pc_battlefield_run_extension(state: PcMeleeState,base_run: RunActionEx
         target_id: str) -> RunAthleticsExtensionRequest | None:
     if not _has_athletics_source(state,base_run.actor_id):
         return None  # The extra Test is optional; do not manufacture a Skill.
+    from towr.domain.pc_terrain_models import terrain_test_required_for_route
+    actor=base_run.actor_id
+    if actor in state.battlefield.spatial.difficult_terrain_tested_entity_ids or terrain_test_required_for_route(
+            state,actor,(base_run.destination_zone_id,)):
+        return None  # PG115: a terrain crossing excludes optional extra-Zone Athletics.
     destination = _run_destination(state,base_run.actor_id,target_id,base_run.spatial_state)
     if destination is None:
+        return None
+    current=replace(state.battlefield,spatial=base_run.spatial_state)
+    if terrain_test_required_for_route(state,base_run.actor_id,(destination,),battlefield=current):
         return None
     test = _run_athletics(state,base_run,destination,target_id)
     return RunAthleticsExtensionRequest(base_run.request_id+':extension',base_run,test,
@@ -323,7 +400,10 @@ def battlefield_after_manoeuvre(state: PcMeleeState,result,target_id: str, *, ex
             raise ValueError('Run extension belongs to another actual base Run')
         spatial = result.spatial_state if extension_result is None else extension_result.spatial_state
         return _after(state,spatial,result.actor_id,target_id)
-    raise TypeError('battlefield projection needs its exact Charge or Run phase result')
+    if type(result) is MoveCarefullyActionExecutionResult:
+        if extension_result is not None:raise ValueError('Move Carefully has no optional Run extension')
+        return _after(state,result.spatial_state,result.actor_id,target_id)
+    raise TypeError('battlefield projection needs its exact Charge, Run or Move Carefully phase result')
 
 
 @dataclass(frozen=True, slots=True)
@@ -357,7 +437,19 @@ class PcBattlefieldRunProof:
         return self.request.actor_id
 
 
-BATTLEFIELD_MANOEUVRE_PROOFS = (PcBattlefieldChargeProof,PcBattlefieldRunProof)
+@dataclass(frozen=True,slots=True)
+class PcBattlefieldCarefulProof:
+    request: MoveCarefullyActionExecutionRequest
+    result: MoveCarefullyActionExecutionResult
+    previous: PcBattlefieldState
+    state: PcBattlefieldState
+    target_id: str = field(kw_only=True)
+
+    @property
+    def actor_id(self):return self.request.free_movement.actor_id
+
+
+BATTLEFIELD_MANOEUVRE_PROOFS = (PcBattlefieldChargeProof,PcBattlefieldRunProof,PcBattlefieldCarefulProof)
 
 
 def project_pc_battlefield_manoeuvre(state: PcMeleeState,proof) -> dict:
@@ -373,6 +465,22 @@ def project_pc_battlefield_manoeuvre(state: PcMeleeState,proof) -> dict:
         validate_pc_melee_source_types(actual,expected)
     if type(proof) not in BATTLEFIELD_MANOEUVRE_PROOFS:
         raise TypeError('battlefield Manoeuvre requires an exact supported proof')
+    if type(proof) is PcBattlefieldCarefulProof:
+        actor,target=proof.actor_id,proof.target_id
+        same(proposed_pc_battlefield_manoeuvre(state),PcBattlefieldManoeuvreProposal(actor,target,ManoeuvreKind.MOVE_CAREFULLY))
+        request=build_pc_battlefield_careful(state,target)
+        same(proof.previous,state.battlefield);same(proof.request,request)
+        result=execute_move_carefully_action(request)
+        same(proof.result,result)
+        after=_after(state,result.spatial_state,actor,target)
+        same(proof.state,after)
+        updates=dict(round_state=result.round_state,battlefield=after)
+        if actor in state.source.pc_activation_order:
+            injury=critical_for_action(state.participant(actor),CombatActionKind.MANOEUVRE)
+            updates['party']=_party_update(state,actor,injury=injury)
+        else:
+            updates['enemies']=_enemy_update(state,actor,state.enemy(actor).state.injury)
+        return updates
     actor = proof.actor_id
     target = proof.request.target_id if type(proof) is PcBattlefieldChargeProof else proof.target_id
     proposal = proposed_pc_battlefield_manoeuvre(state)

@@ -42,7 +42,7 @@ Shooting weapon нельзя использовать, пока враг нах�
 
 Brawn используется для grapple и unarmed attack по цели на Close Range. Цель противопоставляет Athletics или Endurance. При победе действующий выбирает один результат: Staggered, перемещение цели в точку на Short Range или стаскивание со mount/vehicle.
 
-Источник: страница 69. Эта ветвь пока отсутствует в action/battle orchestration.
+Источник: страница69. [Общий typed impact](../../src/towr/domain/brawn_impact_models.py) и [боевой owner](../../src/towr/domain/pc_brawn_displacement_models.py) исполняют все три результата для PC/generated NPC. Отталкивание меняет actual Close на Short, не переносит в произвольную Zone. Стягивание снимает mounted-компонент, но само не накладывает Лежащий (Prone); реальное воздушное падение обрабатывается прежним Hazard owner. Выбор фиксируется до Test, HIT без Damage не создаёт фиктивную Wound. [Native-проверки](../../tests/integration/test_brawn_displacement_execution.py).
 
 ## RULE-SKILL-005 — скрытность и unopposed attack
 

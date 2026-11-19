@@ -47,7 +47,7 @@ class EncounterCharacter:
     weapon: PcMeleeWeapon
     armour: ArmourLoadout
     shield: bool
-    weapon_hand: PcWeaponHand
+    weapon_hand: PcWeaponHand | None
     talents: tuple[EncounterTalent, ...]
     fate: int
     backup_weapon_policy: PcBackupWeaponPolicy | None = field(default=None, kw_only=True)
@@ -63,6 +63,7 @@ class EncounterCharacter:
     throwing: int | None = field(default=None,kw_only=True)
     brawn: int | None = field(default=None,kw_only=True)
     ballistic_skill: int | None = field(default=None,kw_only=True)
+    shield_hand: PcWeaponHand | None = field(default=None,kw_only=True)
 
     def __post_init__(self):
         if type(self.actor_id) is not str or not self.actor_id.strip():
@@ -80,8 +81,15 @@ class EncounterCharacter:
             if type(self.ranged) is not PcRangedProfile:
                 raise TypeError('ranged preparation requires its full typed profile')
             replace(self.ranged)
-        if type(self.weapon_hand) is not PcWeaponHand:
+        if self.weapon is PcMeleeWeapon.UNARMED:
+            if self.weapon_hand is not None:
+                raise ValueError('Unarmed has no physical weapon hand')
+        elif type(self.weapon_hand) is not PcWeaponHand:
             raise TypeError('weapon hand must be left or right')
+        if self.shield_hand is not None and type(self.shield_hand) is not PcWeaponHand:
+            raise TypeError('actual shield hand must be left or right')
+        if self.shield_hand is not None and not self.shield:
+            raise ValueError('a shield hand requires an actual held Shield')
         if (type(self.talents) is not tuple or any(type(t) is not EncounterTalent for t in self.talents)
                 or len(set(self.talents)) != len(self.talents)):
             raise ValueError('talents must be a unique tuple of supported talents')
@@ -119,7 +127,8 @@ class EncounterCharacter:
         grip = PcTwoHandedGrip.BOTH if both else self.weapon_hand
         shield = None
         if self.shield:
-            opposite = PcWeaponHand.RIGHT if self.weapon_hand is PcWeaponHand.LEFT else PcWeaponHand.LEFT
+            opposite = (self.shield_hand if self.shield_hand is not None else PcWeaponHand.RIGHT
+                if self.weapon_hand in (None,PcWeaponHand.LEFT) else PcWeaponHand.LEFT)
             shield = PcShieldLoadout(opposite, PcShieldHandConflictPolicy.WEAPON_FIRST,
                 PcShieldRecoveryPolicy.RESTORE_BEFORE_ATTACK)
         return PcMeleeParticipant(self.actor_id, pc,

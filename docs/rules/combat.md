@@ -1,5 +1,11 @@
 # Бой и атаки
 
+## Действующий динамический battlefield
+
+PG1.4 V114–119/122–124, [ADR-0140](../decisions/ADR-0140-all-weapons-and-shared-inventory.md): действующий общий PC/generated owner имеет линию зон, actual Close pairs, особенности Difficult Terrain/cover/concealment, направленную visibility/darkness, реальные движение/Charge/Move Carefully/Give Ground и отдельные After Give Ground последствия. Отступление использует фактическую пригодность маршрута/once-round bank; предметы на земле не считаются врагами. Broken выполняет обязательное движение/Run к безопасной зоне, safe standard Recover сохраняет Condition; blocked turn не создаёт действия и не пропускает Ablaze/раны в конце хода. [Механика и источники](equipment.md#зависимости-сцены-и-предметные-проверки), [покрытие](../implementation-coverage.md#сцена-и-движение-zones-range--movement).
+
+Следующие разделы M63–M65 описывают исторические ограниченные public paths. Их fixed policies/admission сохраняются для этих путей; ограничения исходного Short opening не являются ограничениями общего динамического генератора.
+
 ## PC Short opening и свободный подход NPC (M65)
 
 <a id="pc-short-opening-m65"></a>

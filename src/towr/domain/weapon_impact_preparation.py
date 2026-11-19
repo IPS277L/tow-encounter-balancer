@@ -22,10 +22,30 @@ from towr.domain.weapon_use_models import WeaponUse
 
 
 UNARMED_IMPACT_RULE_ID = 'RULE-EQUIPMENT-003:unarmed-stagger'
+
+
+def is_unarmed_impact(spec) -> bool:
+    return type(spec) is ConditionImpactSpec and spec == ConditionImpactSpec(Condition.STAGGERED,UNARMED_IMPACT_RULE_ID)
+
+
 ROCK_IMPACT_RULE_ID = 'RULE-EQUIPMENT-005:rock-stagger'
 NET_IMPACT_RULE_ID = 'RULE-EQUIPMENT-005:weighted-net-burdened'
 OIL_IMPACT_RULE_ID = 'RULE-EQUIPMENT-005:oil-flask-ablaze'
 BLAST_IMPACT_RULE_ID = 'RULE-EQUIPMENT-005:blasting-charge-hazard'
+
+
+def is_stagger_weapon_impact(spec) -> bool:
+    return type(spec) is ConditionImpactSpec and spec.condition is Condition.STAGGERED and spec.rule_id in (
+        UNARMED_IMPACT_RULE_ID,ROCK_IMPACT_RULE_ID)
+
+
+def is_oil_impact(spec) -> bool:
+    return type(spec) is ConditionImpactSpec and spec == ConditionImpactSpec(Condition.ABLAZE,OIL_IMPACT_RULE_ID)
+
+
+def is_blast_impact(spec) -> bool:
+    return type(spec) is HazardImpactSpec and spec == HazardImpactSpec(3,Skill.ENDURANCE,BLAST_IMPACT_RULE_ID)
+
 SCARAB_DRAINED_RULE_ID = 'RULE-MAGIC-ITEM-003:scarab-hit-drained'
 DRAGON_FIRE_RULE_ID = 'RULE-MAGIC-ITEM-003:dragon-fire-arrow'
 JUSTICE_WOUND_DICE_RULE_ID = 'RULE-MAGIC-ITEM-003:justice-wounds-table'

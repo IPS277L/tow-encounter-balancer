@@ -11,7 +11,7 @@ import unittest
 
 from towr.adapters._local_ui_planning import PLANNING_SCRIPT
 from towr.adapters._local_ui_visual import VISUAL_SCRIPT
-from towr.domain.generated_npc_models import GeneratedWeapon
+from towr.domain.generated_npc_models import GENERATED_PHYSICAL_WEAPONS
 
 
 BROWSER=os.environ.get('TOWR_UI_BROWSER') or shutil.which('chromium') or shutil.which('google-chrome')
@@ -67,8 +67,13 @@ assert(estimatedSearchTime(rangedNpc).high>estimatedSearchTime(meleeNpc).high,'N
 const npcTalent=copy(meleeNpc);npcTalent.search_space.allowed_talents=['wild_attack'];
 assert(estimatedSearchTime(npcTalent).high>estimatedSearchTime(meleeNpc).high,'permitted NPC talents contribute to cost');
 const finite=copy(meleeNpc);finite.npc_count={minimum:1,maximum:1};
+finite.search_space.brawn=[3];finite.search_space.endurance=[3];
 for(const key of Object.keys(finite.search_space))finite.search_space[key]=finite.search_space[key].slice(0,1);
 assert(automaticSearchPlan(finite).max_candidates===1,'finite source space caps candidates');
+const finiteThrowing=copy(finite);finiteThrowing.search_space.weapon=['rock'];finiteThrowing.search_space.throwing=[3];finiteThrowing.search_space.ballistic_skill=[3];
+assert(automaticSearchPlan(finiteThrowing).max_candidates===1,'fixed Throwing source space keeps a single candidate');
+finiteThrowing.search_space.throwing=[3,4];finiteThrowing.search_space.ballistic_skill=[2,3];
+assert(automaticSearchPlan(finiteThrowing).max_candidates===4,'actual Throwing and shared BS both contribute independent source freedom');
 const extreme=copy(standard);extreme.targets.win_rate={numerator:99,denominator:100};
 assert(basePlan.finalist_trials>automaticSearchPlan(extreme).finalist_trials,'central win target reserves more independent precision');
 const reseeded=copy(standard);reseeded.search.master_seed='101';
@@ -105,6 +110,18 @@ assert(automatic.search.master_seed===standard.search.master_seed&&automatic.sea
 const automaticProcess=copy(four);applySearchPlan(automaticProcess);
 assert(canonical(automaticProcess.execution)===canonical(four.execution)&&automaticProcess.search.master_seed===four.search.master_seed,'automatic precision preserves process mode and seed');
 assert(estimatedSearchTime({})===null,'invalid inputs have no invented estimate');
+const unarmed=copy(standard);unarmed.search_space=copy(planningSearchSpace(standard));unarmed.search_space.weapon_count=[0];unarmed.party[0].equipment.weapons=[];unarmed.party[0].skills.brawn=4;
+assert(simulationCostEstimate(unarmed)?.seconds>0&&estimatedSearchTime(unarmed)?.high>0,'zero physical items keep a valid Unarmed simulation plan');
+assert(budget(automaticSearchPlan(unarmed))>0,'Unarmed still spends real simulation trials');
+assert(playerBrawnRequired(unarmed.party[0]),'Unarmed requires an explicit Brawn field');
+for(const kind of ['weighted_net','rock','throwing_spear','throwing_axe','throwing_knives','oil_flask','blasting_charge']){const member=copy(standard.party[0]);member.equipment.weapons=[{id:'throw',weapon:kind,location:'carried'}];assert(playerThrowingWeapons(member).length===1,'all carried Throwing weapons activate genuine BS and Throwing inputs: '+kind);}
+assert(!pcFiniteThrowingWeapons.has('throwing_knives') && ['rock','throwing_spear','throwing_axe','oil_flask','blasting_charge'].every(kind=>pcFiniteThrowingWeapons.has(kind)),'finite item quantities exclude individual Knives within a battle set');
+const knuckles=copy(standard.party[0]);knuckles.equipment.weapons=[{id:'knuckles',weapon:'knuckledusters',location:'carried'},{id:'sword',weapon:'sword',location:'left_hand'}];
+assert(playerBrawnRequired(knuckles),'carried Knuckledusters also require Brawn preparation');
+const sword=copy(knuckles);sword.equipment.weapons=sword.equipment.weapons.filter(item=>item.weapon!=='knuckledusters');
+assert(!playerBrawnRequired(sword),'ordinary held Sword retains optional Brawn');
+const automaticEnvelope=copy(standard);delete automaticEnvelope.search_space;
+assert(planningSearchSpace(automaticEnvelope).endurance.length>0,'automatic client envelope includes real Endurance choices');
 document.body.dataset.planningCheck='passed';
 document.body.textContent=JSON.stringify({basePlan,baseTime,rangedPlan:automaticSearchPlan(ranged),rangedTime:estimatedSearchTime(ranged),mageTime:estimatedSearchTime(mage)});
 '''
@@ -114,7 +131,7 @@ def planning_document():
     folder=Path('docs/examples/dynamic')
     inputs={name:json.loads((folder/file).read_text('utf-8')) for name,file in (
         ('melee','search.request.json'),('mixed','pc-ranged.request.json'),('mage','elemental-mage.request.json'))}
-    inputs['generated_weapon_ids']=[weapon.value for weapon in GeneratedWeapon]
+    inputs['generated_weapon_ids']=[weapon.value for weapon in GENERATED_PHYSICAL_WEAPONS]
     # Reuse the actual editor's whole-inventory predicate and its source sets.
     ranged_function=VISUAL_SCRIPT.split('function playerRangedRequirements(member){',1)[1].split('\n}',1)[0]
     ranged_function='function playerRangedRequirements(member){'+ranged_function+'\n}'
@@ -122,7 +139,9 @@ def planning_document():
     close_set=re.search(r'pcCloseRangedWeapons=new Set\(\[[^\n]+?\]\)',VISUAL_SCRIPT).group()
     ranged_sets='const '+close_set+';const pcRangedWeapons='+ranged_sets
     dependencies="const controls={};const byId=id=>controls[id]||(controls[id]={checked:false});let busy=false;const syncForm=()=>{},message=()=>{};"
-    program='try{'+dependencies+ranged_sets+ranged_function+PLANNING_SCRIPT
+    throwing_function=re.search(r'function playerThrowingWeapons\(member\)\{[^\n]+\}',VISUAL_SCRIPT).group()
+    brawn_function=re.search(r'function playerBrawnRequired\(member\)\{[^\n]+\}',VISUAL_SCRIPT).group()
+    program='try{'+dependencies+ranged_sets+ranged_function+throwing_function+brawn_function+PLANNING_SCRIPT
     program+='const inputs='+json.dumps(inputs)+';'+CHECK+"}catch(error){document.body.dataset.planningError=error.stack;document.body.textContent=error.stack;}"
     return '<!doctype html><html><body><script>'+program+'</script></body></html>'
 

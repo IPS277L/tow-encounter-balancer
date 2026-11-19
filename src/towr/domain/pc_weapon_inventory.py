@@ -80,19 +80,21 @@ def initial_pc_weapon_inventory(source):
     from towr.domain.pc_melee_models import PcMeleeWeapon
     items = source.combat_equipment
     if items is None:
-        items = (PcWeaponItem('weapon',source.pc.weapon,SourceItemLocation.HELD,source.initial_weapon_hand),)
+        items = (() if source.pc.weapon is PcMeleeWeapon.UNARMED else
+            (PcWeaponItem('weapon',source.pc.weapon,SourceItemLocation.HELD,source.initial_weapon_hand),))
         if source.backup_weapon_policy is not None:
             items += (PcWeaponItem('backup-weapon',source.backup_weapon_policy.weapon,
                 SourceItemLocation.CARRIED,None),)
-    primary = next(item for item in items if item.location is SourceItemLocation.HELD)
+    primary = next((item for item in items if item.location is SourceItemLocation.HELD),None)
     sources=[]
     for item in items:
         kind=WeaponKind(item.weapon.value)
         sources.append(WeaponItemSource(item.id,kind,WeaponItemLocation(item.location.value),
-            pc_grip(item.hand),initially_loaded=item.initially_loaded))
+            pc_grip(item.hand),quantity=item.quantity,initially_loaded=item.initially_loaded,
+            initial_charges=item.initial_charges,gm_fit_confirmed=item.gm_fit_confirmed))
     shield=None if source.shield is None else pc_grip(source.shield.initial_hand)
     inventory=initial_weapon_inventory(source.actor_id,tuple(sources),shield_hand=shield)
-    selected=next(unit.id for unit in inventory.items if unit.source_item_id==primary.id)
+    selected=(None if primary is None else next(unit.id for unit in inventory.items if unit.source_item_id==primary.id))
     return replace(inventory,active_item_id=selected)
 
 
@@ -185,7 +187,8 @@ def pc_attack_weapon_use(state,actor,target=None):
     inventory=member.weapon_inventory
     primary=inventory.active
     if primary is None or primary.location is not WeaponItemLocation.HELD:
-        return None
+        return (build_weapon_use(actor,inventory,None,usable_hands=_usable_pc_grips(member))
+            if state.source.participant(actor).pc.brawn is not None else None)
     from towr.domain.pc_armour_models import actor_bound_to_chivalric_combat
     if (weapon_profile(primary.kind).group in (WeaponGroup.SHOOTING,WeaponGroup.THROWING)
             and actor_bound_to_chivalric_combat(state,actor)):
@@ -193,7 +196,8 @@ def pc_attack_weapon_use(state,actor,target=None):
     try:
         base=build_weapon_use(actor,inventory,primary.id,usable_hands=_usable_pc_grips(member))
     except ValueError:
-        return None
+        return (build_weapon_use(actor,inventory,None,usable_hands=_usable_pc_grips(member))
+            if state.source.participant(actor).pc.brawn is not None else None)
     if target is None or target not in state.source.enemy_activation_order:
         return base
     enemy=state.enemy(target)
@@ -207,7 +211,9 @@ def pc_attack_weapon_use(state,actor,target=None):
             prepared.damage,enemy.state.current_resilience,damage_modifiers=prepared.modifiers,
             magical_source=prepared.magical_source)))
         bonuses=sum(mod.amount for mod in dice if mod.amount<0 or not member.injury.conditions.has(Condition.DRAINED))
-        return .25*bonuses+sum(mod.amount for mod in damage)-len(injured & set(use.used_hands))
+        from towr.domain.pc_magic_weapon_models import magic_contributor_value
+        return (.25*bonuses+sum(mod.amount for mod in damage)-len(injured & set(use.used_hands))
+            +magic_contributor_value(state,use,target))
     best,best_value=base,value(base)
     for item in inventory.items:
         if item.id==primary.id or item.location is not WeaponItemLocation.HELD:
@@ -338,6 +344,10 @@ def _swapped_member(state,actor_id,item_id,*,forecast,allow_dropped=False,for_re
     inventory=getattr(member,'weapon_inventory',None)
     if inventory is None:
         return None
+    if item_id is None:
+        if state.source.participant(actor_id).pc.brawn is None or for_reload:
+            return None
+        return replace_pc_member(member,weapon_inventory=replace(inventory,active_item_id=None))
     target=next((item for item in inventory.items if item.id==item_id),None)
     if (target is None or target.location is WeaponItemLocation.DEPLOYED
             or (target.location is WeaponItemLocation.DROPPED and not allow_dropped)):
@@ -389,7 +399,7 @@ def pc_weapon_inventory_view(state,actor_id,item_id,*,for_reload=False,future_tu
         return None
     if inventory.active_item_id==item_id and not for_reload:
         return state
-    if not future_turn and pc_weapon_swap_used(state,actor_id) and inventory.item(item_id).location is not WeaponItemLocation.HELD:
+    if item_id is not None and not future_turn and pc_weapon_swap_used(state,actor_id) and inventory.item(item_id).location is not WeaponItemLocation.HELD:
         return None
     view=_swapped_member(state,actor_id,item_id,forecast=True,for_reload=for_reload)
     if view is None:
@@ -481,7 +491,8 @@ def expected_pc_weapon_swap(state):
     source=state.source.participant(actor)
     member=state.participant(actor)
     inventory=getattr(member,'weapon_inventory',None)
-    if inventory is None or member.injury.dead or member.injury.conditions.has(Condition.DEFENCELESS):
+    if inventory is None or member.injury.dead or any(member.injury.conditions.has(c)
+            for c in (Condition.DEFENCELESS,Condition.BROKEN)):
         return None
     if source.policy is PcMeleePolicy.AUTOMATIC_COMBAT:
         intent=select_pc_tactic(state,actor)
@@ -505,7 +516,11 @@ def expected_pc_weapon_swap(state):
             'prepare_fixed_reload_hands',weapon_item_id=item.id,ranged_reload=True)
     item=getattr(intent,'weapon_item_id',None)
     if item is None:
-        return None
+        if not intent.unarmed_attack or inventory.active_item_id is None:
+            return None
+        swapped=_swapped_member(state,actor,None,forecast=False)
+        return None if swapped is None else PcWeaponSwapProof(actor,pc_melee_action_id(state,actor),inventory,
+            swapped.weapon_inventory,intent,round_number=state.round_state.round_number)
     if pc_weapon_swap_used(state,actor) and inventory.item(item).location is not WeaponItemLocation.HELD:
         return None
     swapped=_swapped_member(state,actor,item,forecast=False,for_reload=intent.ranged_reload)

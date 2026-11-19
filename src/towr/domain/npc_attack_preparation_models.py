@@ -1,9 +1,10 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 
 from towr.domain.attack_models import (
-    AttackRequest, ConditionImpactSpec, DamageImpactSpec, DamageProfile, ResilienceProfile, SecondaryEffectSpec,
+    AttackRequest, ConditionImpactSpec, DamageImpactSpec, DamageProfile, HazardImpactSpec,
+    ResilienceProfile, SecondaryEffectSpec,
 )
 from towr.domain.protection_models import ProtectionPreparationRequest, ProtectionPreparationResult
 from towr.domain.ranged_weapon_profiles import RangedWeaponHands, RangedWeaponRange
@@ -30,6 +31,7 @@ class NpcAttackProfile:
     ignores_armour: bool = False
     secondary_effects: tuple[SecondaryEffectSpec, ...] = ()
     condition_impact: ConditionImpactSpec | None = field(default=None, kw_only=True)
+    hazard_impact: HazardImpactSpec | None = field(default=None, kw_only=True)
 
     def __post_init__(self) -> None:
         _non_empty(self.id, "NPC attack profile id")
@@ -44,13 +46,17 @@ class NpcAttackProfile:
             raise TypeError("NPC attack damage must be a DamageProfile or None")
         if self.condition_impact is not None and type(self.condition_impact) is not ConditionImpactSpec:
             raise TypeError("NPC primary condition must be an exact ConditionImpactSpec or None")
-        if (self.damage is None) == (self.condition_impact is None):
-            raise ValueError("NPC attack requires exactly one numeric DamageProfile or primary ConditionImpactSpec")
+        if self.hazard_impact is not None and type(self.hazard_impact) is not HazardImpactSpec:
+            raise TypeError("NPC primary Hazard must be an exact HazardImpactSpec or None")
+        if self.hazard_impact is not None:
+            replace(self.hazard_impact)
+        if sum(value is not None for value in (self.damage,self.condition_impact,self.hazard_impact)) != 1:
+            raise ValueError("NPC attack requires exactly one primary Damage, Condition or Hazard impact")
         _validate_attack_hands(self.skill,self.hands)
         if not isinstance(self.ignores_armour, bool):
             raise TypeError("ignores_armour must be a boolean")
-        if self.condition_impact is not None and (self.ignores_armour or self.secondary_effects):
-            raise ValueError("primary Condition attacks cannot carry Damage traits or secondary effects")
+        if (self.condition_impact is not None or self.hazard_impact is not None) and (self.ignores_armour or self.secondary_effects):
+            raise ValueError("primary Condition/Hazard attacks cannot carry Damage traits or secondary effects")
         if _rank(self.range_min) > _rank(self.range_max):
             raise ValueError("NPC attack range must be ordered")
         if self.skill is Skill.MELEE and self.range_min is not RangedWeaponRange.CLOSE:
@@ -221,19 +227,21 @@ def _expected_npc_attack(request: NpcAttackPreparationRequest) -> tuple[NpcAttac
     attack = AttackRequest(
         request.attack_id, TestRequest(request.attacker_test_id, profile.test_profile, dice_modifiers=modifiers),
         None, profile.condition_impact if profile.condition_impact is not None else
+        profile.hazard_impact if profile.hazard_impact is not None else
         DamageImpactSpec(profile.damage, request.target_resilience, ignores_armour=profile.ignores_armour),
         target is RangedWeaponRange.CLOSE, request.attacker_is_staggered,
         secondary_effects=profile.secondary_effects,
     )
     return profile, attack, tuple(dict.fromkeys((*rules,
                                              *((profile.condition_impact.rule_id,) if profile.condition_impact is not None else ()),
+                                             *((profile.hazard_impact.rule_id,) if profile.hazard_impact is not None else ()),
                                              *(m.rule_id for m in request.dice_modifiers),
                                              *(effect.rule_id for effect in profile.secondary_effects))))
 
 
 def _validate_attack_hands(skill: Skill, hands: RangedWeaponHands | None) -> None:
-    if skill is Skill.BRAWN and hands is not None:
-        raise ValueError('Brawn attack must be natural and cannot carry weapon hands')
+    if skill is Skill.BRAWN and hands not in (None, RangedWeaponHands.ONE_HANDED):
+        raise ValueError('Brawn requires a natural attack or its actual one-handed implement')
     if hands is None:
         if skill not in (Skill.MELEE, Skill.BRAWN):
             raise ValueError('only a natural Melee/Brawn attack can have no weapon hands')

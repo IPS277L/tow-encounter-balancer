@@ -106,31 +106,7 @@ def build_pc_potion_recover(state: PcMeleeState) -> PcPotionRecoverProof:
     after = next(member for member in pc_after_standard_recover(state, request, result)
         if member.actor_id == actor)
     if item.kind is ConsumableKind.HEALING:
-        other_sources = frozenset((Condition.DRAINED,) if after.hit_condition_sources else ())
-        from towr.domain.pc_magic_models import external_magic_conditions
-        other_sources |= external_magic_conditions(state,actor)
-        from towr.domain.pc_armour_models import external_armour_conditions
-        other_sources |= external_armour_conditions(state,actor)
-        from towr.domain.pc_briarroot_models import external_briarroot_conditions
-        other_sources |= external_briarroot_conditions(state,actor)
-        from towr.domain.pc_inventory_conditions import external_inventory_conditions,_ProposedPartyView
-        proposal=_ProposedPartyView(state,tuple(after if member.actor_id==actor else member for member in state.party))
-        other_sources |= external_inventory_conditions(proposal,actor)
-        if after.net_condition_sources:
-            other_sources |= frozenset((Condition.BURDENED,))
-        injury = heal_potion_wound(after.injury, selection.wound_sequence, other_sources)
-        after = replace(after, injury=injury,
-            timed_wounds=tuple(t for t in after.timed_wounds if t.effect.wound_sequence != selection.wound_sequence),
-            body_facts=tuple(f for f in after.body_facts if f.wound_sequence != selection.wound_sequence))
-        # UNAVAILABLE is the existing attached-shield state from an injured or
-        # severed arm. Healing removes that cause; an actually DROPPED shield
-        # remains on the ground and needs its own later pickup.
-        from towr.domain.pc_shield_models import PcShieldLocation, PcShieldState
-        if (after.shield is not None and after.shield.location is PcShieldLocation.UNAVAILABLE
-                and after.shield.hand in usable_hands(after)
-                and any(f.wound_sequence == selection.wound_sequence and f.side is after.shield.hand
-                    for f in before.body_facts)):
-            after = replace(after, shield=PcShieldState(PcShieldLocation.HELD, after.shield.hand))
+        after = heal_pc_member(state,actor,before,after,selection.wound_sequence)
     else:
         after = replace(after, enhancements=(*after.enhancements, item.characteristic))
         from towr.domain.pc_armour_models import pc_after_armour_enhancement
@@ -139,3 +115,33 @@ def build_pc_potion_recover(state: PcMeleeState) -> PcPotionRecoverProof:
         if current.id == item.id else current for current in after.potions
         if current.id != item.id or current.quantity > 1))
     return PcPotionRecoverProof(selection, result, before, after)
+
+
+def heal_pc_member(state,actor,before,after,sequence):
+    """Heal one actual Wound, retaining unrelated item/Condition causes."""
+    other_sources = frozenset((Condition.DRAINED,) if after.hit_condition_sources else ())
+    from towr.domain.pc_magic_models import external_magic_conditions
+    other_sources |= external_magic_conditions(state,actor)
+    from towr.domain.pc_armour_models import external_armour_conditions
+    other_sources |= external_armour_conditions(state,actor)
+    from towr.domain.pc_briarroot_models import external_briarroot_conditions
+    other_sources |= external_briarroot_conditions(state,actor)
+    from towr.domain.pc_inventory_conditions import external_inventory_conditions,_ProposedPartyView
+    proposal=_ProposedPartyView(state,tuple(after if member.actor_id==actor else member for member in state.party))
+    other_sources |= external_inventory_conditions(proposal,actor)
+    if after.net_condition_sources:
+        other_sources |= frozenset((Condition.BURDENED,))
+    injury = heal_potion_wound(after.injury, sequence, other_sources)
+    after = replace(after, injury=injury,
+        timed_wounds=tuple(t for t in after.timed_wounds if t.effect.wound_sequence != sequence),
+        body_facts=tuple(f for f in after.body_facts if f.wound_sequence != sequence))
+    # UNAVAILABLE is the existing attached-shield state from an injured or
+    # severed arm. Healing removes that cause; an actually DROPPED shield
+    # remains on the ground and needs its own later pickup.
+    from towr.domain.pc_shield_models import PcShieldLocation, PcShieldState
+    if (after.shield is not None and after.shield.location is PcShieldLocation.UNAVAILABLE
+            and after.shield.hand in usable_hands(after)
+            and any(f.wound_sequence == sequence and f.side is after.shield.hand
+                for f in before.body_facts)):
+        after = replace(after, shield=PcShieldState(PcShieldLocation.HELD, after.shield.hand))
+    return after

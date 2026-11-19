@@ -93,9 +93,10 @@ def pc_after_standard_recover(state, request, result):
     selection = (selected_pc_potion(state) if interaction is not None
         and interaction.id == pc_melee_action_id(state, actor)+':drink' else None)
     drinking = selection is not None and interaction.object_id == selection.item_id
-    shield_pickup = not drinking and interaction is not None and interaction.object_id==actor+':shield'
+    scarab=interaction is not None and interaction.id==pc_melee_action_id(state,actor)+':scarab-heal'
+    shield_pickup = not drinking and not scarab and interaction is not None and interaction.object_id==actor+':shield'
     picked=None
-    if not drinking and not shield_pickup and interaction is not None and member.weapon_inventory is not None:
+    if not drinking and not scarab and not shield_pickup and interaction is not None and member.weapon_inventory is not None:
         from towr.domain.pc_weapon_inventory import pc_weapon_pickup_member
         picked=pc_weapon_pickup_member(state,actor,interaction.object_id,
             injury=updated.get(actor,member.injury))
@@ -104,9 +105,11 @@ def pc_after_standard_recover(state, request, result):
     from towr.domain.pc_potion_models import pc_potion_hand
     if shield_pickup and pc_shield_recover_hand(member, state=state) is None:
         raise ValueError('Recover cannot pick up a distant or unavailable Shield')
-    used_hand = (pc_potion_hand(member) if drinking else pc_shield_recover_hand(member, state=state) if shield_pickup else
+    from towr.domain.pc_weapon_inventory import pc_hand
+    used_hand = (pc_hand(member.weapon_inventory.item(interaction.object_id).grip) if scarab else
+        pc_potion_hand(member) if drinking else pc_shield_recover_hand(member, state=state) if shield_pickup else
         picked.weapon_hand if picked is not None else pc_preferred_weapon_hand(state,actor) if interaction is not None else None)
-    hand = used_hand if interaction is not None and not shield_pickup and not drinking else member.weapon_hand
+    hand = used_hand if interaction is not None and not shield_pickup and not drinking and not scarab else member.weapon_hand
     shield = PcShieldState(PcShieldLocation.HELD,used_hand) if shield_pickup else member.shield
     injury = picked.injury if picked is not None else updated.get(actor,member.injury)
     updated[actor] = critical_for_action(replace(picked if picked is not None else member,injury=injury),CombatActionKind.RECOVER,

@@ -68,9 +68,9 @@ EXPECTED_CORE = {
 
 class K1RangedWeaponCombatProfileTests(unittest.TestCase):
     def test_catalog_covers_all_page_95_rows_with_exact_core_values(self) -> None:
-        self.assertEqual(len(RANGED_WEAPON_COMBAT_PROFILES), 14)
+        self.assertEqual(len(RANGED_WEAPON_COMBAT_PROFILES), 15)
         self.assertEqual(len(EXPECTED_CORE),13)
-        self.assertEqual(set(EXPECTED_CORE),set(RangedWeaponId)-{RangedWeaponId.OGRE_PISTOL})
+        self.assertEqual(set(EXPECTED_CORE),set(RangedWeaponId)-{RangedWeaponId.OGRE_PISTOL,RangedWeaponId.DRAGON_BOW})
         self.assertEqual(
             {profile.weapon_id for profile in RANGED_WEAPON_COMBAT_PROFILES},
             set(RangedWeaponId),

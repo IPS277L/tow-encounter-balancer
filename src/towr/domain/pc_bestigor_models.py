@@ -1,5 +1,11 @@
 """Source-bound Bestigor choices and one next-Attack entitlement from actual W1."""
+from __future__ import annotations
+
 from dataclasses import dataclass, replace
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from towr.domain.pc_weapon_intent_models import PcAttackWeaponIntent
 
 from towr.domain.condition_models import Condition
 from towr.domain.injury_models import ProfileNpcType, ProfileStateChangeRequest
@@ -15,10 +21,30 @@ from towr.domain.turn_models import CombatActionKind
 class PcNpcBloodRageProof:
     actor_id: str
     action_id: str
+    weapon_intent: PcAttackWeaponIntent
 
     def __post_init__(self):
         if any(type(v) is not str or not v.strip() for v in (self.actor_id, self.action_id)):
             raise TypeError('Blood Rage requires exact actor and Attack action IDs')
+        from towr.domain.pc_weapon_intent_models import PcAttackWeaponIntent
+        if (type(self.weapon_intent) is not PcAttackWeaponIntent
+                or self.weapon_intent.actor_id != self.actor_id or self.weapon_intent.action_id != self.action_id):
+            raise TypeError('Blood Rage requires its exact pre-price weapon intent')
+        replace(self.weapon_intent)
+
+
+def pending_blood_rage(state):
+    from towr.domain.pc_melee_result_models import PcAttackProof, pc_melee_action_id
+    turn = state.round_state.active_turn
+    if turn is None:
+        return None
+    action = pc_melee_action_id(state, turn.actor_id)
+    for proof in reversed(state.history):
+        if type(proof) is PcAttackProof and proof.request.actor_id == turn.actor_id:
+            return None
+        if type(proof) is PcNpcBloodRageProof and (proof.actor_id, proof.action_id) == (turn.actor_id, action):
+            return proof
+    return None
 
 
 @dataclass(frozen=True, slots=True)
@@ -74,7 +100,9 @@ def expected_pc_npc_blood_rage(state):
         raise ValueError('Blood Rage choice requires its canonical Bestigor or Skin Wolf')
     if enemy.state.injury.defeated or enemy.state.injury.conditions.has(Condition.STAGGERED):
         return None
-    return PcNpcBloodRageProof(turn.actor_id, pc_melee_action_id(state, turn.actor_id))
+    from towr.domain.pc_weapon_intent_models import build_pc_attack_weapon_intent
+    return PcNpcBloodRageProof(turn.actor_id, pc_melee_action_id(state, turn.actor_id),
+        build_pc_attack_weapon_intent(state))
 
 
 def pc_bestigor_glorious_source(state, actor_id):

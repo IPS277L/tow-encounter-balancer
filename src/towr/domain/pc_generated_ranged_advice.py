@@ -15,7 +15,7 @@ from towr.domain.test_models import DiceModifier, Skill, TestRequest
 
 
 def pc_shooting_protection(state, target_id, attacker_id, test_id, *,
-        conditions=None, extra_dice=0, enhancement=None):
+        conditions=None, extra_dice=0, enhancement=None,attack_skill=Skill.SHOOTING):
     """Choose a legal actual prepared Test; ties prefer Defence, Melee, Athletics.
 
     The prospective arguments support Recover/Help/potion advice only. They do
@@ -35,12 +35,16 @@ def pc_shooting_protection(state, target_id, attacker_id, test_id, *,
     actual_conditions = member.injury.conditions
     conditions = actual_conditions if conditions is None else conditions
     close = pc_enemy_range(state,attacker_id,target_id) is RangedWeaponRange.CLOSE
+    if type(attack_skill) is not Skill or attack_skill not in (Skill.SHOOTING,Skill.THROWING):
+        raise ValueError('ranged Protection requires its actual Shooting/Throwing Skill')
+    incoming_skill=attack_skill
     skills = (((Skill.DEFENCE,) if pc_has_working_shield(member) else ())
         + ((Skill.MELEE,) if close else ()) + (Skill.ATHLETICS,))
     candidates = []
     for skill in skills:
         modifiers = (DiceModifier('tactics:prospective-help', extra_dice),) if extra_dice else ()
-        request = _pc_test(state, target_id, test_id, skill, modifiers,oppose_attack=True)
+        request = _pc_test(state, target_id, test_id, skill, modifiers,oppose_attack=True,
+            incoming_attack_skill=incoming_skill)
         if conditions != actual_conditions and usable_weapon_hand(member) is not None:
             weapon = pc_active_weapon(state, target_id)
             old_ids = {modifier.rule_id for modifier in pc_weapon_test_modifiers(weapon, skill, actual_conditions)}
@@ -71,6 +75,22 @@ def pc_shooting_protection(state, target_id, attacker_id, test_id, *,
 def pc_close_shooting_protection(state, target_id, attacker_id, test_id, **prospective):
     """Existing callers share the actual distance-aware Protection choice."""
     return pc_shooting_protection(state,target_id,attacker_id,test_id,**prospective)
+
+
+def pc_brawn_protection(state,target_id,test_id):
+    """PG69: choose the actual Endurance/Athletics Test before any dice."""
+    from towr.domain.pc_melee_result_models import _pc_test
+    from towr.domain.pc_help_models import build_pc_test_help
+    from towr.domain.pc_talent_advice import pc_test_distribution
+    candidates=[]
+    for skill in (Skill.ENDURANCE,Skill.ATHLETICS):
+        request=_pc_test(state,target_id,test_id,skill,oppose_attack=True,
+            incoming_attack_skill=Skill.BRAWN,weapon_use=None)
+        request,_=build_pc_test_help(state,target_id,skill,request)
+        distribution=pc_test_distribution(state,target_id,skill,request,include_policy=True)
+        candidates.append((sum(successes*chance for successes,chance in enumerate(distribution)),skill,request))
+    _,skill,request=max(candidates,key=lambda option:option[0])
+    return skill,request
 
 
 @lru_cache(maxsize=4096)

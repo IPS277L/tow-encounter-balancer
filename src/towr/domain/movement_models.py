@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from enum import Enum
 
 from towr.domain.condition_models import (
@@ -66,6 +66,7 @@ class DifficultTerrainTraversalRequest:
     crosses_obstacle: bool = False
     skill: Skill = Skill.ATHLETICS
     rule_id: str = "RULE-COMBAT-013:difficult-terrain-traversal"
+    completed_crossing: SpatialBattleState | None = field(default=None,kw_only=True)
 
     def __post_init__(self) -> None:
         _validate_non_empty_string(self.id, "Difficult Terrain request id")
@@ -97,6 +98,7 @@ class DifficultTerrainTraversalRequest:
         if active_turn.actor_id != self.actor_id:
             raise ValueError("Difficult Terrain belongs to another turn actor")
         self.state.placement_for(self.actor_id)
+        _validate_completed_terrain_crossing(self)
 
         path_entity_ids = tuple(self.path_entity_ids)
         for entity_id in path_entity_ids:
@@ -107,6 +109,25 @@ class DifficultTerrainTraversalRequest:
         if self.actor_id in path_entity_ids:
             raise ValueError("Difficult Terrain path cannot cross the actor")
         object.__setattr__(self, "path_entity_ids", path_entity_ids)
+
+
+def _validate_completed_terrain_crossing(request):
+    completed=request.completed_crossing
+    if completed is None:return
+    if type(completed) is not SpatialBattleState:
+        raise TypeError('completed terrain crossing requires its exact spatial result')
+    replace(completed)
+    previous=request.state
+    expected_placements=tuple(SpatialEntityPlacement(item.entity_id,item.side_id,request.destination_zone_id)
+        if item.entity_id==request.actor_id else item for item in previous.placements)
+    allowed_usage=(previous.free_move_used_entity_ids,)
+    if request.actor_id not in previous.free_move_used_entity_ids:
+        allowed_usage+=((*previous.free_move_used_entity_ids,request.actor_id),)
+    if completed.free_move_used_entity_ids not in allowed_usage or completed!=replace(previous,
+            placements=expected_placements,free_move_used_entity_ids=completed.free_move_used_entity_ids):
+        raise ValueError('completed crossing changes another actor, geometry, clock or movement usage')
+    if completed.placement_for(request.actor_id).zone_id!=request.destination_zone_id:
+        raise ValueError('completed crossing does not reach its actual destination')
 
 
 @dataclass(frozen=True, slots=True)
@@ -215,11 +236,12 @@ class DifficultTerrainTraversalResult:
         previous_actor = self.previous_state.placement_for(self.actor_id)
         if previous_actor.zone_id != self.origin_zone_id:
             raise ValueError("previous state does not match terrain origin")
-        if not self.previous_state.graph.are_adjacent(
+        if source.completed_crossing is None and not self.previous_state.graph.are_adjacent(
             self.origin_zone_id,
             self.destination_zone_id,
         ):
             raise ValueError("Difficult Terrain must cross one Zone boundary")
+        _validate_completed_terrain_crossing(source)
         expected_placements = tuple(
             SpatialEntityPlacement(
                 entity_id=placement.entity_id,
@@ -230,14 +252,15 @@ class DifficultTerrainTraversalResult:
             else placement
             for placement in self.previous_state.placements
         )
-        previous_usage = self.previous_state.difficult_terrain_tested_entity_ids
+        crossed=source.completed_crossing or self.previous_state
+        previous_usage = crossed.difficult_terrain_tested_entity_ids
         expected_usage = (
             previous_usage
             if self.actor_id in previous_usage
             else (*previous_usage, self.actor_id)
         )
         expected_state = replace(
-            self.previous_state,
+            crossed,
             placements=expected_placements,
             difficult_terrain_tested_entity_ids=expected_usage,
         )
@@ -307,6 +330,7 @@ class FreeMovementRequest:
     path_entity_ids: tuple[str, ...] = ()
     crosses_obstacle: bool = False
     crosses_difficult_terrain: bool = False
+    terrain_resolution_deferred: bool = field(default=False,kw_only=True)
     rule_id: str = "RULE-COMBAT-014:free-movement"
 
     def __post_init__(self) -> None:
@@ -356,6 +380,9 @@ class FreeMovementRequest:
             self.crosses_difficult_terrain,
             "crosses_difficult_terrain",
         )
+        _validate_bool(self.terrain_resolution_deferred,'terrain_resolution_deferred')
+        if self.terrain_resolution_deferred and not self.crosses_difficult_terrain:
+            raise ValueError('deferred terrain resolution requires an actual terrain crossing')
         _validate_non_empty_string(self.rule_id, "rule_id")
 
     @property
@@ -1029,6 +1056,7 @@ class RunActionExecutionRequest:
     path_entity_ids: tuple[str, ...] = ()
     crosses_obstacle: bool = False
     crosses_difficult_terrain: bool = False
+    terrain_resolution_deferred: bool = field(default=False,kw_only=True)
 
     def __post_init__(self) -> None:
         _validate_non_empty_string(self.id, "Run execution request id")
@@ -1069,6 +1097,9 @@ class RunActionExecutionRequest:
             self.crosses_difficult_terrain,
             "crosses_difficult_terrain",
         )
+        _validate_bool(self.terrain_resolution_deferred,'terrain_resolution_deferred')
+        if self.terrain_resolution_deferred and not self.crosses_difficult_terrain:
+            raise ValueError('deferred terrain resolution requires an actual terrain crossing')
 
 
 @dataclass(frozen=True, slots=True)

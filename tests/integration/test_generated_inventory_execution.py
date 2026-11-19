@@ -46,6 +46,76 @@ def scene(items,*,ranged=None,throwing=None,rounds=3):
 
 
 class GeneratedInventoryExecutionTests(unittest.TestCase):
+    def test_generated_sling_respects_close_and_long_bounds_and_its_physical_source(self):
+        import json
+        from random import Random
+        from tests.integration.test_dynamic_two_handed_ranged import dynamic_document
+        from towr.adapters.dynamic_encounter_json import parse_dynamic_encounter_request
+        from towr.domain.pc_battlefield_movement_models import pc_battlefield_attack_available
+        from towr.domain.generated_npc_models import GeneratedWeapon,GENERATED_CLOSE_WEAPONS
+        self.assertNotIn(GeneratedWeapon.SLING,GENERATED_CLOSE_WEAPONS)
+        for distance,allowed in (('close',False),('short',True),('medium',True),('long',True),('extreme',False)):
+            with self.subTest(distance=distance):
+                raw=dynamic_document('sling')
+                raw['party'][0]['equipment']['weapons'][0].update(weapon='sword',location='left_hand')
+                del raw['party'][0]['equipment']['weapons'][0]['initially_loaded']
+                del raw['party'][0]['ranged']
+                raw['scene']['range']=distance
+                command=parse_dynamic_encounter_request(json.dumps(raw))
+                npc=replace(command.request.space.sample(Random(1)),brawn=None)
+                self.assertTrue(command.request.space.contains(npc))
+                source=command.request.scenario((npc,),'sling-bounds')
+                state=initial_pc_melee_state(source)
+                self.assertIsNone(state.enemies[0].state.weapon_inventory.active.reload)
+                self.assertEqual(pc_battlefield_attack_available(state,
+                    source.enemy_activation_order[0],source.pc_activation_order[0]),allowed)
+
+    def test_sling_has_real_strength_damage_free_reload_and_native_transport(self):
+        import json
+        from random import Random
+        from tests.integration.test_dynamic_two_handed_ranged import dynamic_document,native_document,AllThrees
+        from towr.adapters.dynamic_encounter_json import parse_dynamic_encounter_request
+        from towr.adapters.pc_melee_json import parse_pc_melee_simulation_request
+        from towr.domain.pc_ranged_models import PcRangedReloadProof
+        from towr.domain.reload_models import FreeReloadWeaponState
+        from towr.domain.ranged_weapon_profiles import RangedWeaponId,RangedWeaponRange
+        from towr.domain.test_models import Skill
+        raw=dynamic_document('sling')
+        raw['party'][0]['equipment']['weapons'][0]['location']='left_hand'
+        del raw['party'][0]['equipment']['weapons'][0]['initially_loaded']
+        raw['party'][0]['equipment']['armour']=[dict(id='shield',kind='shield',location='right_hand')]
+        raw['search_space']['shield']=['shield']
+        raw['max_rounds']=3
+        raw['targets']['started_rounds']['numerator']=3
+        # A one-handed Sling uses its printed Long maximum, independently of
+        # the explicitly narrower scene limit for two-handed Shooting.
+        raw['scene']['two_handed_max_range']='short'
+        command=parse_dynamic_encounter_request(json.dumps(raw))
+        npc=replace(command.request.space.sample(Random(1)),brawn=None)
+        self.assertIsNone(npc.ranged.initiative)
+        self.assertIsNone(npc.ranged.dexterity)
+        self.assertIsNone(npc.ranged.awareness)
+        source=command.request.scenario((npc,),'sling')
+        restored=parse_pc_melee_simulation_request(json.dumps(native_document(source))).request.scenario
+        self.assertEqual(source,restored)
+        result=run_pc_melee_scenario(restored,AllThrees())
+        self.assertIsNone(result.unsupported)
+        for pc_side,actual_actor in ((True,source.pc_activation_order[0]),(False,source.enemy_activation_order[0])):
+            shots=[step.proof for step in result.steps if type(step.proof) is PcAttackProof
+                and step.proof.request.actor_id==actual_actor]
+            self.assertGreaterEqual(len(shots),2)
+            for proof in shots:
+                self.assertIs(proof.weapon_intent.attack_skill,Skill.SHOOTING)
+                self.assertEqual(proof.request.kernel_request.attack.impact_spec.damage.base,3)
+                shot=proof.ranged_shot if pc_side else proof.npc_ranged_shot
+                self.assertIsInstance(shot.execution.weapon_state,FreeReloadWeaponState)
+                self.assertIs(shot.execution.weapon_state.weapon_id,RangedWeaponId.SLING)
+                self.assertIs(shot.preparation.source_request.target_range,RangedWeaponRange.MEDIUM)
+        self.assertFalse(any(type(step.proof) in (PcRangedReloadProof,PcNpcRangedReloadProof)
+            for step in result.steps))
+        self.assertTrue(result.state.enemy(source.enemy_activation_order[0]).state.holds_shield)
+        self.assert_replay(result)
+
     def test_initially_empty_shielded_pistol_keeps_its_initial_reload_cycle(self):
         from towr.domain.pc_npc_shield_models import NpcShieldLocation
         source=scene((item('empty-gun',W.PISTOL,G.LEFT,loaded=False),),

@@ -14,6 +14,9 @@ from towr.domain.attack_models import (
     DamageImpactSpec,
     ImpactOutcome,
 )
+from towr.domain.brawn_impact_models import (
+    BrawnDisplacementImpactSpec, BrawnDisplacementImpactResult, BrawnDisplacementRequest,
+)
 from towr.domain.condition_models import (
     Condition,
     ConditionApplicationResult,
@@ -28,6 +31,7 @@ from towr.domain.injury_models import (
     AdditionalProfileWound,
     CharacterInjuryState,
     CharacterWoundResult,
+    FixedWoundSelection,
     MonstrosityImpactResult,
     MinionStaggerDefeatCause,
     MinionStaggerDefeatResult,
@@ -38,6 +42,7 @@ from towr.domain.injury_models import (
     WoundChoiceRequest,
     WoundConsequenceRequest,
     WoundDiceModifier,
+    WoundEntryId,
     WoundEffectResult,
     WoundEnduranceTestRequest,
     WoundNegationOption,
@@ -50,7 +55,7 @@ from towr.domain.magic_models import (
 )
 from towr.domain.npc_effect_models import DropHeldHandItemRequest
 from towr.domain.spatial_models import SpatialBattleState, SpatialEntityPlacement
-from towr.domain.test_models import Skill, TestRequest, TestResult
+from towr.domain.test_models import Skill, TestQuality, TestRequest, TestResult
 
 if TYPE_CHECKING:
     from towr.domain.wound_lifecycle_models import (
@@ -150,6 +155,7 @@ class GiveGroundResolutionRequest:
     path_entity_ids: tuple[str, ...] = field(default_factory=tuple)
     crosses_obstacle: bool = False
     crosses_difficult_terrain: bool = False
+    enemy_entity_ids: tuple[str,...] | None = field(default=None,kw_only=True)
 
     def __post_init__(self) -> None:
         if not isinstance(self.source, GiveGroundRequest):
@@ -183,6 +189,26 @@ class GiveGroundResolutionRequest:
             self.crosses_difficult_terrain,
             "crosses_difficult_terrain",
         )
+        if self.enemy_entity_ids is not None:
+            if type(self.enemy_entity_ids) is not tuple:
+                raise TypeError('Give Ground enemies require an exact source-owned tuple')
+            if len(set(self.enemy_entity_ids))!=len(self.enemy_entity_ids):
+                raise ValueError('Give Ground enemy entities must be distinct')
+            mover=self.state.placement_for(self.mover_id)
+            for entity_id in self.enemy_entity_ids:
+                if type(entity_id) is not str or not entity_id.strip():
+                    raise TypeError('Give Ground enemy entities require exact nonempty IDs')
+                placement=self.state.placement_for(entity_id)
+                if entity_id==self.mover_id or placement.side_id==mover.side_id:
+                    raise ValueError('Give Ground enemy entities must belong to an opposing side')
+
+    def is_enemy_entity(self,entity_id: str) -> bool:
+        """Explicit live creatures, or the generic all-foreign-sides assumption."""
+        placement=self.state.placement_for(entity_id)
+        if self.enemy_entity_ids is not None:
+            return entity_id in self.enemy_entity_ids
+        mover=self.state.placement_for(self.mover_id)
+        return entity_id!=self.mover_id and placement.side_id!=mover.side_id
 
 
 @dataclass(frozen=True, slots=True)
@@ -280,8 +306,9 @@ class GiveGroundResolutionResult:
                 )
         _validate_bool(self.entered_enemy_zone, "entered_enemy_zone")
         actual_enemy_zone = any(
-            placement.entity_id != self.mover_id
-            and placement.side_id != mover.side_id
+            (self.source_request.is_enemy_entity(placement.entity_id)
+                if type(self.source_request) is GiveGroundResolutionRequest else
+                placement.entity_id != self.mover_id and placement.side_id != mover.side_id)
             for placement in self.state.placements_in(
                 self.destination_zone_id
             )
@@ -306,6 +333,7 @@ class GiveGroundResolutionResult:
             request = self.source_request
             if not isinstance(request, GiveGroundResolutionRequest):
                 raise TypeError("source_request must be a GiveGroundResolutionRequest")
+            replace(request)
             if (request.source != self.source or request.state != self.previous_state
                     or request.mover_id != self.mover_id or request.destination_zone_id != self.destination_zone_id):
                 raise ValueError("Give Ground result differs from its source request")
@@ -1087,11 +1115,12 @@ class CowardlyFlightWillpowerBatchResult:
     applied_rule_ids: tuple[str, ...]
 
 
-ReplacementImpactResult = ConditionImpactResult | HazardImpactResult
+ReplacementImpactResult = ConditionImpactResult | HazardImpactResult | BrawnDisplacementImpactResult
 
 
 FollowUpRequest = (
     AttackerStaggerRequest
+    | BrawnDisplacementRequest
     | ConditionAfterGiveGroundRequest
     | ConsumeWoundNegationRequest
     | GiveGroundRequest
@@ -1152,11 +1181,13 @@ class StaggerImpactRequest:
     )
     minion_stagger_defeat: MinionStaggerDefeatSpec | None = None
     first_stagger_wound: FirstStaggerWoundSpec | None = field(default=None, kw_only=True)
+    fixed_character_wound: FixedWoundSelection | None = field(default=None, kw_only=True)
 
     def __post_init__(self) -> None:
         _validate_minion_stagger_defeat(self.minion_stagger_defeat, self.target_policy, self.target_state)
         _validate_first_stagger_wound(self.first_stagger_wound, self.target_policy,
             self.target_state, self.minion_stagger_defeat)
+        _validate_fixed_character_wound(self.fixed_character_wound, self.target_policy, self.target_state)
         _validate_non_empty_string(self.id, "Stagger impact request id")
         _validate_non_empty_string(self.target_id, "target_id")
         if not isinstance(self.target_policy, TargetInjuryPolicy):
@@ -1597,11 +1628,13 @@ class KernelAttackRequest:
     physical_attack: bool = False
     minion_stagger_defeat: MinionStaggerDefeatSpec | None = None
     first_stagger_wound: FirstStaggerWoundSpec | None = field(default=None, kw_only=True)
+    fixed_character_wound: FixedWoundSelection | None = field(default=None, kw_only=True)
 
     def __post_init__(self) -> None:
         _validate_minion_stagger_defeat(self.minion_stagger_defeat, self.target_policy, self.target_state)
         _validate_first_stagger_wound(self.first_stagger_wound, self.target_policy,
             self.target_state, self.minion_stagger_defeat)
+        _validate_fixed_character_wound(self.fixed_character_wound, self.target_policy, self.target_state)
         if type(self.physical_attack) is not bool:
             raise TypeError("physical_attack must be a bool")
         if not isinstance(self.id, str):
@@ -1611,6 +1644,16 @@ class KernelAttackRequest:
         _validate_non_empty_string(self.target_id, "target_id")
         if not isinstance(self.attack, AttackRequest):
             raise TypeError("attack must be an AttackRequest")
+        if isinstance(self.attack.impact_spec, BrawnDisplacementImpactSpec):
+            replace(self.attack.impact_spec)
+            if (not self.physical_attack or not self.attack.is_close_range
+                    or self.attack.impact_spec.actor_id == self.target_id):
+                raise ValueError('Brawn displacement requires a real physical Close Attack on another actor')
+        if self.fixed_character_wound is not None and (
+                not self.physical_attack or type(self.attack.impact_spec) is not DamageImpactSpec
+                or not any(mod.rule_id == self.fixed_character_wound.rule_id
+                    and mod.quality is TestQuality.GRIM for mod in self.attack.attacker_test.quality_modifiers)):
+            raise ValueError('Headsman fixed Wound requires its actual physical Damage/Grim source')
         if self.first_stagger_wound is not None and not isinstance(self.attack.impact_spec, DamageImpactSpec):
             raise ValueError("first-Staggered Wound requires a damage Attack")
         if not isinstance(self.target_policy, TargetInjuryPolicy):
@@ -1742,6 +1785,25 @@ class ResolutionResult:
     minion_stagger_defeat: MinionStaggerDefeatResult | None = None
 
 
+def _validate_fixed_character_wound(spec, policy, state) -> None:
+    if spec is None:
+        return
+    if type(spec) is not FixedWoundSelection:
+        raise TypeError('fixed character Wound requires its exact explicit selection')
+    replace(spec)
+    if (spec.rule_id != 'RULE-MAGIC-ITEM-003:headsman-prone-execution'
+            or spec.entry_id is not WoundEntryId.DECAPITATION or spec.table_total != 27):
+        raise ValueError('this Attack fixed Wound requires its exact Headsman Decapitation source')
+    if type(policy) is not TargetInjuryPolicy:
+        raise TypeError('fixed Wound requires its exact actual injury policy')
+    character = policy in (TargetInjuryPolicy.PLAYER, TargetInjuryPolicy.CHAMPION)
+    if type(state) is not (CharacterInjuryState if character else ProfileInjuryState):
+        raise TypeError('fixed Wound requires the exact injury family of its actual target policy')
+    replace(state)
+    if not state.conditions.has(Condition.PRONE):
+        raise ValueError('Headsman execution requires the actual Prone target')
+
+
 def _validate_first_stagger_wound(spec, policy, state, minion_spec) -> None:
     if spec is None:
         return
@@ -1762,7 +1824,7 @@ def _validate_first_stagger_wound(spec, policy, state, minion_spec) -> None:
 
 
 def _validate_minion_stagger_defeat(spec, policy, state) -> None:
-    if isinstance(state, ProfileInjuryState) and state.defeat_cause is not None:
+    if isinstance(state, ProfileInjuryState) and type(state.defeat_cause) is MinionStaggerDefeatCause:
         replace(state)
         if type(policy) is not TargetInjuryPolicy or policy is not TargetInjuryPolicy.MINION:
             raise ValueError("a Minion fleeing-defeat cause cannot be used by another injury policy")

@@ -5,6 +5,7 @@ INVENTORY_STYLE = r'''
 .inventory-row.consumable{grid-template-columns:minmax(0,1fr) var(--consumable-count-width,88px) 36px;margin:0}
 .inventory-row input,.inventory-row select{width:100%;min-width:0;height:var(--item-control-height)}
 .inventory-row.has-charge{grid-template-columns:minmax(0,1fr) minmax(0,1fr) auto var(--item-control-height)}
+.inventory-row.has-quantity{grid-template-columns:minmax(0,1fr) minmax(0,1fr) 76px var(--item-control-height)}
 .inventory-row>.toggle-field{height:var(--item-control-height);display:flex;align-items:center;gap:6px;white-space:nowrap}
 .inventory-row>.toggle-field input{width:auto;height:auto}
 .visual-view .action-add,.visual-card .action-remove{height:36px;display:inline-flex;align-items:center;justify-content:center;gap:8px;font-size:13px;border-radius:5px;flex-shrink:0}
@@ -32,7 +33,7 @@ INVENTORY_STYLE = r'''
 .talent-suggestions .talent-option:hover:not(:disabled),.talent-option[aria-selected="true"]{background:var(--hover)}.talent-option small{display:block;margin-top:3px;font-size:12px;line-height:1.4}
 .inventory-warning{color:var(--warning-text);background:var(--warning-bg);border-radius:4px;padding:8px 10px;font-size:13px;line-height:1.5}
 .magic-spells{display:flex;flex-wrap:wrap;gap:10px 20px;margin:10px 0}.magic-spells label{display:flex;align-items:center;gap:8px}.magic-spells input{width:auto}
-@media(max-width:480px){.inventory-row,.inventory-row.has-charge{grid-template-columns:minmax(0,1fr) var(--item-control-height)}.inventory-row>label:first-child,.inventory-row.has-charge>label:nth-child(2){grid-column:1/-1}.consumable-item{--consumable-count-width:70px}.inventory-row.consumable>label:first-child{grid-column:auto}}
+@media(max-width:480px){.inventory-row,.inventory-row.has-charge,.inventory-row.has-quantity{grid-template-columns:minmax(0,1fr) var(--item-control-height)}.inventory-row>label:first-child,.inventory-row.has-charge>label:nth-child(2),.inventory-row.has-quantity>label:nth-child(2){grid-column:1/-1}.consumable-item{--consumable-count-width:70px}.inventory-row.consumable>label:first-child{grid-column:auto}}
 '''
 
 INVENTORY_SCRIPT = r'''
@@ -49,7 +50,7 @@ const pcCombatTalentIds=['defensive_stance','wild_attack'],supportedPlayerTalent
 const pcCombatTalentHints={defensive_stance:'Боевое мастерство (WS) 3+. Успешная Защита (Defence) может снять собственное Пошатывание (Staggered) вместо доступного нового Staggered атакующему. Постоянная причина состояния сохраняется.',wild_attack:'Сила (S) 4+. Автоматический выбор для атаки или Помощи (Help) в Ближнем бою (Melee): получить Пошатывание (Staggered) до проверки ради Блистательного (Glorious) Test. Не используется при Staggered или Истощении (Drained).'};
 const talentLabel=value=>talentNames[value.toLowerCase()]||value;
 const heldLocations={carried:'Убрано / за спиной',left_hand:'В левой руке',right_hand:'В правой руке',both_hands:'В обеих руках'};
-const twoHandedInventoryWeapons=new Set(['pickaxe','flail','billhook','halberd','glaive','greataxe','greatsword','greathammer','shortbow','warbow','longbow','crossbow','repeater_crossbow','handgun','repeater_handgun','blunderbuss','hochland_long_rifle','weighted_net']);
+const twoHandedInventoryWeapons=new Set(['pickaxe','flail','billhook','halberd','glaive','greataxe','greatsword','greathammer','shortbow','warbow','longbow','crossbow','repeater_crossbow','handgun','repeater_handgun','blunderbuss','hochland_long_rifle','weighted_net','dragon_bow','duellist_blades','grotarggs_hammer','headsmans_axe','unwavering_spear']);
 function actionButton(kind,title,iconOnly=false){
  const button=node('button',undefined,kind==='add'?'action-add':'action-remove');button.type='button';button.title=title;button.setAttribute('aria-label',title);
  if(kind==='add'){button.textContent='Добавить';return button;}
@@ -71,7 +72,10 @@ function renderInventory(parent,member,index){
   inputField(row,'Оружие '+(i+1),[...path,'weapon'],item.weapon,playerWeaponNames,value=>setPlayerWeapon(index,i,'weapon',value));
   inputField(row,'На начало боя',[...path,'location'],item.location,heldLocations,value=>setPlayerWeapon(index,i,'location',value));
   if(pcExactingWeapons.has(item.weapon)){row.classList.add('has-charge');const loaded=inputField(row,'Заряжено (Loaded)',[...path,'initially_loaded'],item.initially_loaded===true,null,value=>setPlayerWeapon(index,i,'initially_loaded',value));loaded.title='Начальный заряд именно этого предмета. Незаряженное оружие требует Перезарядки (Reload).';}
+  if(pcFiniteThrowingWeapons.has(item.weapon)){row.classList.add('has-quantity');const quantity=inputField(row,'Количество',[...path,'quantity'],item.quantity??1,null,value=>setPlayerWeapon(index,i,'quantity',integer(value)));quantity.min='1';quantity.title='Конечное число отдельных метательных предметов (Throwing Weapons). Каждый экземпляр сохраняет собственное положение.';}
+  if(item.weapon==='scarab_knife'){row.classList.add('has-charge');const charges=inputField(row,'Начальные заряды (Charges)',[...path,'initial_charges'],item.initial_charges??0,null,value=>setPlayerWeapon(index,i,'initial_charges',integer(value)));charges.min='0';charges.title='Фактический запас этого Ножа скарабея (Scarab Knife) на начало боя. Не пополняется при смене оружия.';}
   inventoryRemove(row,['party',index,'equipment','weapons'],i,'оружие '+(i+1));parent.append(row);
+  if(item.weapon==='ogre_pistol')inputField(parent,'GM подтвердил пригодность Огрского пистолета (Ogre Pistol)',['party',index,'equipment','weapons',i,'gm_fit_confirmed'],item.gm_fit_confirmed===true,null,value=>setPlayerWeapon(index,i,'gm_fit_confirmed',value?true:null));
  }
  inventoryAdd(parent,'Добавить оружие',['party',index,'equipment','weapons'],m=>({id:inventoryId(m,'weapon'),weapon:'sword',location:'carried'}));
  parent.append(node('h4','Броня (Armour) и защитное снаряжение'));
@@ -112,7 +116,8 @@ function renderInventory(parent,member,index){
  }
  inventoryAdd(parent,'Добавить расходник',['party',index,'consumables'],m=>({id:inventoryId(m,'consumable'),kind:'healing_potion',quantity:1,characteristic:null}));
  const warnings=[],active=(gear.weapons||[]).filter(w=>w.location!=='carried');
- if(!active.length)warnings.push('На начало боя нужно хотя бы одно оружие (Weapon) в руках.');
+ if(!active.length)parent.append(node('p','На начало боя — безоружный бой (Unarmed): проверка Грубой силы (Brawn), без предмета и обязательного использования рук.','visual-note'));
+ if(playerBrawnRequired(member)&&!Number.isSafeInteger(member.skills?.brawn))warnings.push('Для безоружного боя (Unarmed), кастетов (Knuckledusters) и Молота Гротаргга (Grotargg’s Hammer) укажите Грубую силу (Brawn).');
  if((gear.armour||[]).some(a=>a.kind==='barding'&&a.location==='worn')&&!member.mount)warnings.push('Конская броня (Barding) требует настоящего маунта (Mount).');
  if(wornBody.length>1&&!wornBody.some(item=>item.id===gear.armour_benefit_id))warnings.push('Выберите комплект, дающий преимущества брони (Armour Benefits).');
  if(wearingAgilulf&&member.agilulf_code_confirmed!==true)warnings.push('Для Доспеха Агилульфа (Armour of Agilulf) требуется подтверждение GM о рыцарском кодексе.');
@@ -125,7 +130,7 @@ function syncPlayerRangedPreparation(member){
  const current=member.ranged&&typeof member.ranged==='object'&&!Array.isArray(member.ranged)?member.ranged:{};
  member.ranged={ammunition_supply_confirmed:current.ammunition_supply_confirmed??false,has_blackpowder_lore:requirements.firearm?(current.has_blackpowder_lore??false):null,has_blackpowder_kit:requirements.firearm?(current.has_blackpowder_kit??false):null};
 }
-function setPlayerWeapon(index,itemIndex,key,value){const member=read().party[index],item=member.equipment.weapons[itemIndex];item[key]=value;if(key==='weapon'){if(pcExactingWeapons.has(value)){if(typeof item.initially_loaded!=='boolean')item.initially_loaded=true;}else delete item.initially_loaded;}syncPlayerRangedPreparation(member);editRequest(['party',index],member);}
+function setPlayerWeapon(index,itemIndex,key,value){const member=read().party[index],item=member.equipment.weapons[itemIndex];item[key]=value;if(key==='weapon'){if(pcExactingWeapons.has(value)){if(typeof item.initially_loaded!=='boolean')item.initially_loaded=true;}else delete item.initially_loaded;if(!pcFiniteThrowingWeapons.has(value))delete item.quantity;if(value==='scarab_knife')item.initial_charges=item.initial_charges??0;else delete item.initial_charges;if(value!=='ogre_pistol')delete item.gm_fit_confirmed;}syncPlayerRangedPreparation(member);editRequest(['party',index],member);}
 function renderPlayerRangedPreparation(parent,member,index){
  const requirements=playerRangedRequirements(member);if(!requirements)return;
  parent.append(node('h4','Подготовка к стрельбе (Ranged Preparation)'));

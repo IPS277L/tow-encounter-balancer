@@ -57,7 +57,11 @@ class PcBriarrootWeaponIntegrationTests(unittest.TestCase):
 
     def test_actual_wound_drop_then_paid_recover_has_one_atomic_physical_receipt(self):
         setup, _ = actual_attack(inventory=True, spatial=True)
-        source = replace(setup.source, max_rounds=2)
+        # Cause a direct damaging Wound: an automatic PC now legally chooses
+        # Prone instead of a Wound from repeated Staggered when bound in Close.
+        npc = replace(setup.source.enemies[0].definition.generated_components,
+            strength=3, brawn=None)
+        source = replace(setup.source, max_rounds=2, enemies=(npc.participant('minion1'),))
         result = run_pc_melee_scenario(source, SequenceRandom(chain(
             [10, 10, 10, 1, 1, 1, 1, 10, 10, 10, 8, 1], repeat(1))))
         loss, = (step for step in result.steps if type(step.proof) is PcBriarrootWeaponDropProof)

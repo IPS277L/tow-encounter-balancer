@@ -20,6 +20,7 @@ if TYPE_CHECKING:
     from towr.domain.pc_melee_models import PcHelpPolicy, PcMeleeScenario
     from towr.domain.pc_melee_result_models import PcMeleeState
     from towr.domain.pc_potion_models import PcPotionSelection
+    from towr.domain.pc_scarab_recover_models import PcScarabHealingSelection
 
 SuccessDistribution = tuple[float, ...]
 
@@ -66,6 +67,9 @@ class PcTacticalChoice:
     net_item_id: str | None = field(default=None,kw_only=True)
     net_release_target_id: str | None = field(default=None,kw_only=True)
     mount_attack: bool = field(default=False,kw_only=True)
+    unarmed_attack: bool = field(default=False,kw_only=True)
+    scarab_heal: PcScarabHealingSelection | None = field(default=None,kw_only=True)
+    hammer_item_id: str | None = field(default=None,kw_only=True)
 
 
 @lru_cache(maxsize=4096)
@@ -116,6 +120,13 @@ def _impact_value(attack: SuccessDistribution, protection: SuccessDistribution,
     return total
 
 
+def stagger_attack_value(attack: SuccessDistribution, protection: SuccessDistribution,
+        staggered: bool) -> float:
+    """An Unarmed hit keeps its special impact, including against Defenceless."""
+    return (1.0 if staggered else .5)*sum(probability*sum(protection[:successes+1])
+        for successes,probability in enumerate(attack) if successes)
+
+
 def validate_automatic_combat_scenario(scenario: PcMeleeScenario) -> None:
     from towr.domain.pc_melee_models import PcMeleePolicy, PC_RANGED_WEAPONS
     from towr.domain.resolution_models import TargetInjuryPolicy
@@ -128,14 +139,15 @@ def validate_automatic_combat_scenario(scenario: PcMeleeScenario) -> None:
         raise ValueError('automatic combat requires all-Close melee or supported one-handed ranged weapons')
     if any(enemy.definition.injury_policy is not TargetInjuryPolicy.MINION
             or enemy.definition.generated_components is None and len(enemy.definition.attacks) != 1
-            or (enemy.definition.attacks[0].skill is not Skill.MELEE
+            or (enemy.definition.attacks[0].skill not in (Skill.MELEE,Skill.BRAWN)
                 and not (enemy.definition.attacks[0].skill is Skill.SHOOTING
                     and enemy.definition.generated_components is not None
                     and enemy.definition.generated_components.ranged is not None)
                 and not (enemy.definition.attacks[0].skill is Skill.THROWING
                     and enemy.definition.generated_components is not None
-                    and enemy.definition.generated_components.weapon.value == 'weighted_net'))
-            or len(enemy.definition.protection) != (2 if enemy.definition.generated_components is not None else 1)
+                    and enemy.definition.generated_components.throwing is not None))
+            or len(enemy.definition.protection) != ((2+int(enemy.definition.generated_components.endurance is not None))
+                if enemy.definition.generated_components is not None else 1)
             or enemy.definition.protection[0].skill not in (Skill.ATHLETICS, Skill.DEFENCE, Skill.MELEE)
             for enemy in scenario.enemies):
         raise ValueError('automatic melee tactics require ordinary Melee or complete generated Shooting Minions')
@@ -216,7 +228,8 @@ def select_pc_tactic(state: PcMeleeState, actor_id: str | None = None) -> PcTact
                 attacks[key]=(0.0,None)
                 return attacks[key]
         from towr.domain.pc_melee_models import PC_THROWING_WEAPONS
-        if (state.source.participant(actor).pc.ranged is not None
+        from towr.domain.pc_melee_result_models import pc_attack_skill
+        if (pc_attack_skill(view,actor) in (Skill.BRAWN,Skill.THROWING) or state.source.participant(actor).pc.ranged is not None
                 or state.source.participant(actor).pc.weapon in PC_THROWING_WEAPONS):
             attacks[key]=pc_attack_value(view,actor,extra=extra,enhancement=enhancement,
                 wild=wild,bonus=ranged_bonus)
@@ -344,13 +357,13 @@ def select_pc_tactic(state: PcMeleeState, actor_id: str | None = None) -> PcTact
                 continue
             from towr.domain.pc_generated_talents import wild_attack_available,WILD_ATTACK_RULE_ID
             from towr.domain.test_models import QualityModifier
-            wild = wild_attack_available(enemy.definition,enemy.state.injury.conditions)
+            wild = attack.skill is Skill.MELEE and wild_attack_available(enemy.definition,enemy.state.injury.conditions)
             attack_conditions = (enemy.state.injury.conditions.with_condition(Condition.STAGGERED)
                 if wild else enemy.state.injury.conditions)
             modifiers = []
-            if target_conditions.has(Condition.PRONE):
+            if attack.skill is not Skill.THROWING and target_conditions.has(Condition.PRONE):
                 modifiers.append(DiceModifier('RULE-COMBAT-007:higher-ground', 1))
-            if pc_battlefield_allows_outnumbering(forecast,enemy_id):
+            if attack.skill is not Skill.THROWING and pc_battlefield_allows_outnumbering(forecast,enemy_id):
                 modifiers.append(pc_npc_outnumbering_modifier(enemy.definition))
             modifiers.extend(pc_npc_attack_modifiers(enemy.definition, attack_conditions,
                 target_conditions=target_conditions, attacker_wounds=enemy.state.injury.wounds))
@@ -365,12 +378,17 @@ def select_pc_tactic(state: PcMeleeState, actor_id: str | None = None) -> PcTact
                 modifiers = [modifier for modifier in modifiers if modifier.amount <= 0]
             from towr.domain.pc_magic_models import magic_test_modifiers
             attacker = TestRequest('tactics:incoming', attack.test_profile,
-                (*modifiers,*magic_test_modifiers(forecast,enemy_id,Skill.MELEE)[0]),
+                (*modifiers,*magic_test_modifiers(forecast,enemy_id,attack.skill)[0]),
                 (QualityModifier(WILD_ATTACK_RULE_ID,TestQuality.GLORIOUS),) if wild else ())
-            skill = pc_protection_skill(member, Skill.MELEE)
+            if attack.skill is Skill.BRAWN and forecast.source.participant(target).policy is PcMeleePolicy.AUTOMATIC_COMBAT:
+                from towr.domain.pc_generated_ranged_advice import pc_brawn_protection
+                skill,_=pc_brawn_protection(forecast,target,pc_melee_action_id(forecast,enemy_id)+':protection')
+            else:
+                skill = pc_protection_skill(member, attack.skill)
             bonus = protection_bonus if enemy_id == incoming[0] else 0
             defender = _pc_test(forecast, target, pc_melee_action_id(forecast, enemy_id)+':protection', skill,
-                (DiceModifier('tactics:prospective-help', bonus),) if bonus else (),oppose_attack=True)
+                (DiceModifier('tactics:prospective-help', bonus),) if bonus else (),oppose_attack=True,
+                incoming_attack_skill=attack.skill)
             if enhancement is not None:
                 pc = pc_effective_definition(forecast, target)
                 pc = replace(pc, **{enhancement: getattr(pc, enhancement)+1})
@@ -390,6 +408,17 @@ def select_pc_tactic(state: PcMeleeState, actor_id: str | None = None) -> PcTact
                     if modifier.rule_id not in {item.rule_id for item in old})+new)
             damage = attack.damage if enemy.definition.generated_components is not None else pc_npc_damage_profile(enemy.definition, unopposed=False)
             if damage is None:
+                if attack.skill is Skill.THROWING and npc_use is not None:
+                    from towr.domain.pc_weapon_area_models import throwing_special_value
+                    special=throwing_special_value(forecast,enemy_id,target,npc_use.kind,_distribution(attacker),
+                        (1.0,) if target_conditions.has(Condition.DEFENCELESS) else pc_test_distribution(forecast,target,skill,defender))
+                    if special is not None:
+                        value+=max(0.0,special)
+                    continue
+                if attack.condition_impact is not None and attack.condition_impact.condition is Condition.STAGGERED:
+                    value+=stagger_attack_value(_distribution(attacker),
+                        (1.0,) if target_conditions.has(Condition.DEFENCELESS) else pc_test_distribution(forecast,target,skill,defender),
+                        target_conditions.has(Condition.STAGGERED))
                 continue
             from towr.domain.pc_armour_models import advised_damage_modifiers
             resilience=pc_shield_resilience(forecast,target)
@@ -398,7 +427,7 @@ def select_pc_tactic(state: PcMeleeState, actor_id: str | None = None) -> PcTact
                 + generated_damage_modifiers(enemy.definition,resilience,weapon_use=npc_use),resilience))
             from towr.domain.generated_npc_models import GeneratedTalent
             from towr.domain.pc_heavy_wound_models import has_ongoing_condition
-            stance = (skill is Skill.DEFENCE and target_conditions.has(Condition.STAGGERED)
+            stance = (attack.skill is Skill.MELEE and skill is Skill.DEFENCE and target_conditions.has(Condition.STAGGERED)
                 and not has_ongoing_condition(member.injury,Condition.STAGGERED)
                 and not attack_conditions.has(Condition.STAGGERED)
                 and pc_has_combat_talent(forecast,target,GeneratedTalent.DEFENSIVE_STANCE))
@@ -419,6 +448,14 @@ def select_pc_tactic(state: PcMeleeState, actor_id: str | None = None) -> PcTact
         if actor in plans:
             return plans[actor]
         member = state.participant(actor)
+        if state.battlefield is not None and member.injury.conditions.has(Condition.BROKEN):
+            from towr.domain.pc_broken_battlefield_models import pc_broken_has_enemy_in_zone
+            unsafe=pc_broken_has_enemy_in_zone(state,actor)
+            choice=PcTacticalChoice(actor,CombatActionKind.MANOEUVRE if unsafe else CombatActionKind.RECOVER,
+                actor,None,0.0,'broken_move_to_safety' if unsafe else 'broken_recover_in_safe_zone',
+                manoeuvre=ManoeuvreKind.RUN if unsafe else None)
+            plans[actor]=choice
+            return choice
         from towr.domain.pc_heavy_wound_models import usable_weapon_hand,usable_hands
         from towr.domain.pc_backup_weapon_models import pc_preferred_weapon_hand
         from towr.domain.pc_magic_models import magic_hand
@@ -427,7 +464,8 @@ def select_pc_tactic(state: PcMeleeState, actor_id: str | None = None) -> PcTact
             and pc_preferred_weapon_hand(state,actor) is None)
         from towr.domain.pc_mount_attack_models import pc_mount_primary_needed
         mount_needed=pc_mount_primary_needed(state,actor)
-        needs_recover = _pc_recover_needed(member) and not casting_with_unusable_weapon and not mount_needed
+        needs_recover = _pc_recover_needed(member,
+            unarmed_available=state.source.participant(actor).pc.brawn is not None) and not casting_with_unusable_weapon and not mount_needed
         ranged_actor=state.source.participant(actor).pc.ranged is not None
         from towr.domain.pc_melee_models import PC_THROWING_WEAPONS
         net_actor=state.source.participant(actor).pc.weapon in PC_THROWING_WEAPONS
@@ -510,7 +548,31 @@ def select_pc_tactic(state: PcMeleeState, actor_id: str | None = None) -> PcTact
                 reason = 'enhance_for_remaining_turns'
             if value > choice.utility+1e-12:
                 choice = PcTacticalChoice(actor, CombatActionKind.RECOVER, actor, None, value, reason, option)
+        from towr.domain.pc_scarab_recover_models import scarab_healing_options
+        for option in scarab_healing_options(state,actor):
+            wound=member.injury.wounds[option.wound_sequence-1]
+            effects=tuple(effect for effect in member.injury.active_wound_effects
+                if effect.wound_sequence==option.wound_sequence)
+            value=0.2+min(0.5,wound.table_total*.025)+min(.6,len(effects)*.2)+float(needs_recover)
+            if any(getattr(effect,'condition',None) is Condition.CRITICALLY_INJURED for effect in effects):
+                value+=1
+            if value>choice.utility+1e-12:
+                choice=PcTacticalChoice(actor,CombatActionKind.RECOVER,actor,None,value,
+                    'scarab_heal_actual_wound',scarab_heal=option)
+        from towr.domain.pc_hammer_recover_models import hammer_retrieval_option,_test as hammer_test
+        hammer=hammer_retrieval_option(state,actor)
+        if hammer is not None:
+            chance=1-_distribution(hammer_test(state,actor,pc_melee_action_id(state,actor)+':hammer-advice'))[0]
+            horizon=min(2,state.source.max_rounds-state.round_state.round_number)
+            value=chance*horizon
+            if value>choice.utility+1e-12:
+                choice=PcTacticalChoice(actor,CombatActionKind.RECOVER,actor,None,value,
+                    'retrieve_actual_stuck_hammer',hammer_item_id=hammer)
         if (needs_recover and not (ranged_actor or net_actor)) or member.injury.conditions.has(Condition.DEFENCELESS):
+            from towr.domain.pc_extinguish_models import extinguish_value
+            fire_value=extinguish_value(state,actor)
+            if fire_value>choice.utility+1e-12:
+                choice=PcTacticalChoice(actor,CombatActionKind.RECOVER,actor,None,fire_value,'extinguish_ablaze')
             choose_mount()
             plans[actor] = choice
             return choice
@@ -518,15 +580,21 @@ def select_pc_tactic(state: PcMeleeState, actor_id: str | None = None) -> PcTact
         def consider(action: CombatActionKind, target: str | None, utility: float,
                      reason: str, help_policy: PcHelpPolicy | None = None, wild: bool = False,
                      weapon_item_id=None,ranged_bonus=False,ranged_reload=False,pickup_item_id=None,
-                     net_item_id=None,net_release_target_id=None) -> None:
+                     net_item_id=None,net_release_target_id=None,unarmed_attack=False) -> None:
             nonlocal choice
             if (utility > choice.utility+1e-12 or
                     (abs(utility-choice.utility) <= 1e-12 and choice.wild_attack and not wild)):
                 choice = PcTacticalChoice(actor, action, target, help_policy, utility, reason,wild_attack=wild,
                     weapon_item_id=weapon_item_id,ranged_bonus=ranged_bonus,ranged_reload=ranged_reload,pickup_item_id=pickup_item_id,
-                    net_item_id=net_item_id,net_release_target_id=net_release_target_id)
+                    net_item_id=net_item_id,net_release_target_id=net_release_target_id,unarmed_attack=unarmed_attack)
 
-        if net_actor or (not ranged_actor and len(member.weapon_inventory.items)>1):
+        from towr.domain.pc_extinguish_models import extinguish_value
+        fire_value=extinguish_value(state,actor)
+        if fire_value>0:
+            consider(CombatActionKind.RECOVER,actor,fire_value,'extinguish_ablaze')
+
+        if net_actor or (not ranged_actor and (len(member.weapon_inventory.items)>1
+                or member.weapon_inventory.active is None and member.weapon_inventory.items)):
             from towr.domain.pc_ranged_advice import net_inventory_action_choices
             for option in net_inventory_action_choices(state,actor,
                     incoming_risk=lambda prepared:incoming_risk(actor,view=prepared)):
@@ -550,6 +618,15 @@ def select_pc_tactic(state: PcMeleeState, actor_id: str | None = None) -> PcTact
             for option in ranged_action_choices(state,actor,incoming_risk=lambda prepared:incoming_risk(actor,view=prepared)):
                 consider(option.action,option.target_id,option.utility,option.reason,option.help_policy,option.wild_attack,
                     option.weapon_item_id,option.ranged_bonus,option.ranged_reload,option.pickup_item_id)
+
+        if state.source.participant(actor).pc.brawn is not None and not needs_recover:
+            from towr.domain.pc_weapon_inventory import pc_weapon_inventory_view
+            from towr.domain.pc_ranged_advice import pc_attack_value
+            unarmed_view=pc_weapon_inventory_view(state,actor,None)
+            if unarmed_view is not None:
+                value,target=pc_attack_value(unarmed_view,actor)
+                if target is not None:
+                    consider(CombatActionKind.ATTACK,target,value,'use_actual_unarmed_attack',unarmed_attack=True)
 
         choose_mount()
 
@@ -592,7 +669,7 @@ def select_pc_tactic(state: PcMeleeState, actor_id: str | None = None) -> PcTact
                     if intended is not None:
                         if intended.action is not CombatActionKind.ATTACK:continue
                         view=state
-                        if intended.weapon_item_id is not None:
+                        if intended.weapon_item_id is not None or intended.unarmed_attack:
                             from towr.domain.pc_weapon_inventory import pc_weapon_inventory_view
                             view=pc_weapon_inventory_view(state,ally_id,intended.weapon_item_id)
                             if view is None:continue
@@ -603,20 +680,26 @@ def select_pc_tactic(state: PcMeleeState, actor_id: str | None = None) -> PcTact
                     incoming=pc_help_incoming_actor(state,PcHelpPolicy(ally_id,kind,Skill.ATHLETICS))
                     if incoming is None:
                         continue
-                    attack_skill=state.enemy(incoming).definition.attacks[0].skill
+                    from towr.domain.pc_melee_result_models import pc_selected_npc_attack_profile
+                    attack_skill=pc_selected_npc_attack_profile(state,incoming).skill
                     if attack_skill in (Skill.SHOOTING,Skill.THROWING):
                         from towr.domain.pc_generated_ranged_advice import pc_close_shooting_protection
                         skill,_=pc_close_shooting_protection(state,ally_id,incoming,
                             pc_melee_action_id(state,incoming)+':protection')
+                    elif attack_skill is Skill.BRAWN and state.source.participant(ally_id).policy is PcMeleePolicy.AUTOMATIC_COMBAT:
+                        from towr.domain.pc_generated_ranged_advice import pc_brawn_protection
+                        skill,_=pc_brawn_protection(state,ally_id,pc_melee_action_id(state,incoming)+':protection')
                     else:
                         skill=pc_protection_skill(state.participant(ally_id),attack_skill)
                 policy = PcHelpPolicy(ally_id, kind, skill)
                 eligibility_state=state
-                if intended is not None and intended.weapon_item_id is not None:
+                if intended is not None and (intended.weapon_item_id is not None or intended.unarmed_attack):
                     from towr.domain.pc_weapon_inventory import pc_weapon_inventory_view
                     eligibility_state=pc_weapon_inventory_view(state,ally_id,intended.weapon_item_id)
                     if eligibility_state is None:continue
                 if skill is Skill.SHOOTING and state.source.participant(actor).pc.ranged is None:
+                    continue
+                if skill is Skill.BRAWN and state.source.participant(actor).pc.brawn is None:
                     continue
                 if not ranged_actor and eligible_pc_help_beneficiary(eligibility_state, policy, actor,planned_choice=intended) is None:
                     continue

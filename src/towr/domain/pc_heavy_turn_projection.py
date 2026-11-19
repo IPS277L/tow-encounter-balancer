@@ -26,9 +26,13 @@ def project_heavy_turn_end(state,proof,finish):
     is_pc = turn.actor_id in state.source.pc_activation_order
     incapable = isinstance(proof,PcIncapacitatedTurnEndProof)
     if incapable:
-        if not is_pc or turn.action_slots or not state.participant(turn.actor_id).injury.conditions.has(Condition.DEFENCELESS):
-            raise ValueError('only a truly actionless Defenceless PC has this end path')
-        rules = ('RULE-COMBAT-001:rounds-sides-turns','RULE-HEALTH-008:defenceless-turn')
+        from towr.domain.pc_broken_battlefield_models import pc_broken_turn_blocked
+        defenceless=is_pc and state.participant(turn.actor_id).injury.conditions.has(Condition.DEFENCELESS)
+        blocked=pc_broken_turn_blocked(state)
+        if turn.action_slots or not (defenceless or blocked):
+            raise ValueError('actionless end requires actual Defenceless or a source-bound blocked Broken turn')
+        rules = ('RULE-COMBAT-001:rounds-sides-turns',
+            'RULE-HEALTH-008:defenceless-turn' if defenceless else 'RULE-HEALTH-008:broken-blocked-turn')
     else:
         if not turn.action_slots or any(not slot.executed for slot in turn.action_slots):
             raise ValueError('ordinary turn end requires all its reserved actions to be executed')
@@ -41,7 +45,7 @@ def project_heavy_turn_end(state,proof,finish):
         raise ValueError('end phase changed its actor, source, actual action or clock')
     validate_pc_melee_source_types(actual,expected)
     if not is_pc:
-        if proof.fate_decline is not None or proof.critical is not None:
+        if getattr(proof,'fate_decline',None) is not None or proof.critical is not None:
             raise ValueError('NPC end cannot invent PC Fate or Critical Endurance')
         return finish(round_state=expected_clock)
     member = state.participant(turn.actor_id)

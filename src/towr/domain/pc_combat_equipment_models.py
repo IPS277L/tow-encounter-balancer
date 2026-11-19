@@ -10,7 +10,7 @@ from enum import Enum
 from typing import TYPE_CHECKING
 
 from towr.domain.weapon_catalog import WeaponKind
-from towr.domain.weapon_inventory_models import WeaponGrip,WeaponInventoryState,weapon_reload_target
+from towr.domain.weapon_inventory_models import WeaponGrip,WeaponInventoryState,WeaponItemSource,weapon_reload_target
 
 if TYPE_CHECKING:
     from towr.domain.pc_melee_models import PcMeleeWeapon,PcWeaponHand,PcTwoHandedGrip
@@ -31,6 +31,9 @@ class PcWeaponItem:
     location: PcItemLocation
     hand: PcWeaponHand | PcTwoHandedGrip | None
     initially_loaded: bool | None = field(default=None,kw_only=True)
+    quantity: int = field(default=1,kw_only=True)
+    initial_charges: int = field(default=0,kw_only=True)
+    gm_fit_confirmed: bool | None = field(default=None,kw_only=True)
 
     def __post_init__(self):
         from towr.domain.pc_melee_models import PcMeleeWeapon,PcWeaponHand,PcTwoHandedGrip
@@ -38,6 +41,8 @@ class PcWeaponItem:
         _identifier(self.id)
         if type(self.weapon) is not PcMeleeWeapon or type(self.location) is not PcItemLocation:
             raise TypeError('weapon item needs its exact weapon and location enums')
+        if self.weapon is PcMeleeWeapon.UNARMED:
+            raise ValueError('Unarmed is an attack mode, never a physical inventory item')
         if self.location not in (PcItemLocation.HELD,PcItemLocation.CARRIED):
             raise ValueError('an initial weapon item begins held or carried')
         if self.location is not PcItemLocation.HELD:
@@ -56,6 +61,10 @@ class PcWeaponItem:
                 raise ValueError('each Exacting item requires its explicit initial loaded bool')
         elif self.initially_loaded is not None:
             raise ValueError('only an Exacting weapon has an initial loaded flag')
+        WeaponItemSource(self.id,self.weapon,self.location,
+            None if self.hand is None else WeaponGrip(self.hand.value),
+            quantity=self.quantity,initially_loaded=self.initially_loaded,
+            initial_charges=self.initial_charges,gm_fit_confirmed=self.gm_fit_confirmed)
 
 
 def pc_initial_weapon_kinds(participant):
@@ -80,10 +89,12 @@ def validate_pc_combat_equipment(participant):
         raise TypeError('combat equipment requires its exact participant source')
     items=getattr(participant,'combat_equipment',None)
     if items is None:
+        if participant.pc.weapon is WeaponKind.UNARMED:
+            raise ValueError('Unarmed needs an explicit physical inventory, including an empty tuple')
         if participant.pc.ranged is not None or participant.pc.weapon in PC_RANGED_WEAPONS:
             raise ValueError('Shooting facts require the complete concrete source weapon items')
         return
-    if type(items) is not tuple or not items or any(type(item) is not PcWeaponItem for item in items):
+    if type(items) is not tuple or any(type(item) is not PcWeaponItem for item in items):
         raise TypeError('combat equipment needs an ordered typed tuple')
     for item in items:
         replace(item)
@@ -91,14 +102,19 @@ def validate_pc_combat_equipment(participant):
             raise ValueError('this item requires its unfinished encounter effect owner')
         if item.weapon in PC_THROWING_WEAPONS:
             participant.pc.throwing_profile
+        if item.weapon in (WeaponKind.KNUCKLEDUSTERS,WeaponKind.GROTARGGS_HAMMER):
+            participant.pc.brawn_profile
     if len({item.id for item in items})!=len(items):
         raise ValueError('initial combat equipment needs distinct item IDs')
     held=tuple(item for item in items if item.location is PcItemLocation.HELD)
     if not held:
-        raise ValueError('initial combat equipment requires at least one held primary')
-    primary=held[0]
-    if (primary.weapon is not participant.pc.weapon or primary.hand is not participant.initial_weapon_hand):
-        raise ValueError('initial primary item differs from its complete weapon/grip source')
+        if participant.pc.weapon is not WeaponKind.UNARMED or participant.initial_weapon_hand is not None:
+            raise ValueError('an inventory without held weapons requires explicit Unarmed/Brawn')
+        participant.pc.brawn_profile
+    else:
+        primary=held[0]
+        if (primary.weapon is not participant.pc.weapon or primary.hand is not participant.initial_weapon_hand):
+            raise ValueError('initial primary item differs from its complete weapon/grip source')
     requirements=weapon_ranged_requirements(tuple(item.weapon for item in items))
     facts=participant.pc.ranged
     if requirements is None:

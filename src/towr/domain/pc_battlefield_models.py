@@ -13,6 +13,7 @@ from dataclasses import dataclass, field, replace
 from itertools import combinations
 
 from towr.domain.ranged_weapon_profiles import RangedWeaponRange
+from towr.domain.pc_scene_feature_models import (PcZoneFeatures,PcVisibilityFact,validate_scene_feature_source)
 from towr.domain.spatial_models import (
     SpatialBattleState,
     SpatialEntityPlacement,
@@ -88,6 +89,9 @@ class PcBattlefieldSpec:
     initial_range: RangedWeaponRange
     two_handed_max_range: RangedWeaponRange
     airspace: PcAirspaceSpec | None = field(default=None, kw_only=True)
+    zone_features: tuple[PcZoneFeatures,...] = field(default=(),kw_only=True)
+    visibility: tuple[PcVisibilityFact,...] = field(default=(),kw_only=True)
+    darkness: bool = field(default=False,kw_only=True)
 
     def __post_init__(self) -> None:
         for name in ('initial_range', 'two_handed_max_range'):
@@ -95,6 +99,7 @@ class PcBattlefieldSpec:
                 raise TypeError(f'{name} requires a typed Range')
         if self.two_handed_max_range is RangedWeaponRange.CLOSE:
             raise ValueError('two-handed shooting maximum must be Short or further')
+        validate_scene_feature_source(self.zone_features,self.visibility,self.darkness,self.initial_range)
         if self.airspace is not None:
             if type(self.airspace) is not PcAirspaceSpec:
                 raise TypeError('airspace requires its exact typed scene premise or None')

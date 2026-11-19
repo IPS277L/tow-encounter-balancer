@@ -13,13 +13,15 @@ from towr.application.ranged_simulation_models import SimulationExecutionMode,Si
 from towr.domain.generated_npc_models import (GeneratedNpc,GeneratedWeapon,GeneratedAbility,
     GeneratedTalent,generated_talent_requirements_met,GeneratedRangedFacts,GENERATED_RANGED_WEAPONS,
     generated_weapon_allows_shield,generated_weapon_grips,GENERATED_VARIABLE_GRIP_WEAPONS,
-    GENERATED_TWO_HANDED_RANGED_WEAPONS,GENERATED_CLOSE_WEAPONS)
+    GENERATED_TWO_HANDED_RANGED_WEAPONS,GENERATED_CLOSE_WEAPONS,GENERATED_PHYSICAL_WEAPONS,GENERATED_ORDINARY_WEAPONS,
+    GENERATED_NON_CLOSE_RANGED_WEAPONS)
 from towr.domain.armour_models import ArmourLoadout,BodyArmour,HelmetKind,ShieldKind
-from towr.domain.weapon_catalog import WeaponKind,WeaponGroup,weapon_profile
+from towr.domain.weapon_catalog import WeaponKind,WeaponGroup,weapon_profile,weapon_printed_damage
 from towr.domain.weapon_inventory_models import WeaponItemSource,WeaponItemLocation,WeaponGrip,weapon_reload_target
 from towr.domain.weapon_capability_models import weapon_ranged_requirements
 from towr.domain.ranged_weapon_profiles import RangedWeaponHands,RangedWeaponId,ranged_weapon_combat_profile
 from towr.domain.pc_battlefield_models import PcBattlefieldSpec
+from towr.domain.pc_single_combat_models import PcSingleCombatPair
 from towr.domain.pc_mount_models import CombatMount,RiderKind
 from towr.domain.minion_defeat_models import MinionDefeatDecision, NpcDefeatDisposition
 from towr.domain.pc_melee_models import PcMeleeFacts, PcMeleeParticipant, PcMeleeScenario, PC_RANGED_WEAPONS
@@ -64,6 +66,8 @@ class NpcSearchSpace:
     weapon: tuple[GeneratedWeapon, ...] = GENERATED_CLOSE_WEAPONS
     weapon_count: tuple[int, ...] = (1,2,3)
     initial_loaded: tuple[bool, ...] = (True,)
+    scarab_initial_charges: tuple[int, ...] = (0,)
+    ogre_fit_confirmed: bool | None = None
     armour: tuple[BodyArmour | None, ...] = (None,BodyArmour.LIGHT,BodyArmour.HEAVY,BodyArmour.FULL_PLATE)
     secondary_armour: tuple[BodyArmour | None, ...] = (None,)
     helmet: tuple[HelmetKind | None, ...] = (None,)
@@ -81,18 +85,28 @@ class NpcSearchSpace:
     mount: tuple[CombatMount | None, ...] = (None,)
     throwing: tuple[int, ...] = (3,4,5)
     brawn: tuple[int, ...] = (3,4,5)
+    endurance: tuple[int, ...] = (3,4,5)
     rider_kind: tuple[RiderKind, ...] = tuple(RiderKind)
     agilulf_code_confirmed: bool | None = None
 
     def __post_init__(self):
-        for name in ('weapon','weapon_count','initial_loaded'):
+        for name in ('weapon','weapon_count','initial_loaded','scarab_initial_charges'):
             choices=getattr(self,name)
             if type(choices) is not tuple or not choices or len(set(choices)) != len(choices):
                 raise ValueError(name+' requires nonempty distinct tuple choices')
-        if any(type(value) is not GeneratedWeapon for value in self.weapon):
+        if any(type(value) is not GeneratedWeapon or value is GeneratedWeapon.UNARMED for value in self.weapon):
             raise ValueError('weapon choices must be supported typed weapons')
-        if any(type(value) is not int or value < 1 for value in self.weapon_count):
-            raise ValueError('weapon_count choices must be exact positive integers')
+        if any(type(value) is not int or value < 0 for value in self.weapon_count):
+            raise ValueError('weapon_count choices must be exact nonnegative integers')
+        if any(type(value) is not int or value < 0 for value in self.scarab_initial_charges):
+            raise ValueError('Scarab charges must be exact nonnegative integers')
+        if self.ogre_fit_confirmed is not None and type(self.ogre_fit_confirmed) is not bool:
+            raise TypeError('Ogre Pistol fit confirmation must be an exact bool or None')
+        if GeneratedWeapon.OGRE_PISTOL in self.weapon:
+            if self.ogre_fit_confirmed is not True:
+                raise ValueError('Ogre Pistol pool requires explicit GM confirmation of fit')
+        elif self.ogre_fit_confirmed is not None:
+            raise ValueError('Ogre fit confirmation requires an actual Ogre Pistol pool')
         if any(type(value) is not bool for value in self.initial_loaded):
             raise ValueError('initial_loaded choices must be exact booleans')
         if (type(self.rider_kind) is not tuple or not self.rider_kind
@@ -117,7 +131,7 @@ class NpcSearchSpace:
                 if name in ('weapon_skill','strength','toughness','agility','ballistic_skill','initiative'):
                     if type(value) is not int or value < 1:
                         raise ValueError(f'{name} choices must be positive integers')
-                elif name in ('melee','athletics','defence','shooting','dexterity','awareness','throwing','brawn'):
+                elif name in ('melee','athletics','defence','shooting','dexterity','awareness','throwing','brawn','endurance'):
                     if type(value) is not int or not 2 <= value <= 6:
                         raise ValueError(f'{name} choices must be integers in 2..6')
                 elif name == 'weapon' and type(value) is not GeneratedWeapon:
@@ -142,12 +156,14 @@ class NpcSearchSpace:
                 and None not in self.shield and max(self.weapon_count) == 1):
             raise ValueError('two-handed pool items need a no-Shield or carried-item branch')
         if any(shield is not None for shield in self.shield) and not any(generated_weapon_allows_shield(weapon,grip)
-                for weapon,grip in equipment_branches):
+                for weapon,grip in equipment_branches) and max(self.weapon_count)>0:
             raise ValueError('Shield choice has no admissible one-handed weapon')
-        if self.weapon == (GeneratedWeapon.WEIGHTED_NET,) and () not in self.abilities:
-            raise ValueError('Net proposal needs an admitted empty Damage-secondary group')
-        if all(weapon is GeneratedWeapon.WEIGHTED_NET for weapon in self.weapon) and any(self.abilities):
-            raise ValueError('Damage-secondary choices have no admissible non-Net weapon')
+        if all(weapon_printed_damage(WeaponKind(weapon.value),strength=1) is None for weapon in self.weapon) and () not in self.abilities:
+            raise ValueError('non-Damage proposals need an admitted empty Damage-secondary group')
+        if 0 in self.weapon_count and () not in self.abilities:
+            raise ValueError('Unarmed proposal needs an admitted empty Damage-secondary group')
+        if all(weapon_printed_damage(WeaponKind(weapon.value),strength=1) is None for weapon in self.weapon) and any(self.abilities):
+            raise ValueError('Damage-secondary choices have no admissible numeric weapon')
         if any(not self._body_choices(weapon) for weapon in self.weapon):
             raise ValueError('each weapon choice requires an admissible body-armour combination')
         if any(not any(self._secondary_choices(body,weapon) for weapon in self.weapon)
@@ -186,19 +202,19 @@ class NpcSearchSpace:
     @staticmethod
     def _ordinary_names():
         return ('weapon_skill','strength','toughness','agility','melee','athletics','defence',
-            'armour','secondary_armour','helmet','shield','barding','abilities','mount','brawn')
+            'armour','secondary_armour','helmet','shield','barding','abilities','mount','brawn','endurance')
 
     def _secondary_choices(self, body, weapon=None):
         choices=[]
         for layer in self.secondary_armour:
-            if not any(self._initial_grips(kind,shield,
+            if max(self.weapon_count)>0 and not any(self._initial_grips(kind,shield,
                     chivalric=BodyArmour.AGILULF in (body,layer))
                     for kind in self.weapon for shield in self.shield):
                 continue
             # A one-item proposal must be able to select this exact pool member.
             if (max(self.weapon_count)==1 and weapon is not None
                     and BodyArmour.AGILULF in (body,layer)
-                    and weapon in (*GENERATED_RANGED_WEAPONS,GeneratedWeapon.WEIGHTED_NET)):
+                    and weapon_profile(WeaponKind(weapon.value)).group in (WeaponGroup.SHOOTING,WeaponGroup.THROWING)):
                 continue
             try:
                 ArmourLoadout(tuple(item for item in (body,layer) if item is not None),body)
@@ -231,7 +247,7 @@ class NpcSearchSpace:
             else generated_weapon_grips(weapon))
 
     def _initial_grips(self,kind,shield,*,chivalric=False):
-        if chivalric and kind in (*GENERATED_RANGED_WEAPONS,GeneratedWeapon.WEIGHTED_NET):
+        if chivalric and weapon_profile(WeaponKind(kind.value)).group in (WeaponGroup.SHOOTING,WeaponGroup.THROWING):
             return ()
         profile=weapon_profile(WeaponKind(kind.value))
         grips=(tuple(WeaponGrip.BOTH if grip is RangedWeaponHands.TWO_HANDED else WeaponGrip.LEFT
@@ -240,11 +256,13 @@ class NpcSearchSpace:
         return tuple(grip for grip in grips if shield is None or grip is not WeaponGrip.BOTH)
 
     @staticmethod
-    def _has_net(weapons):
-        return any(item.kind is WeaponKind.WEIGHTED_NET for item in weapons)
+    def _has_throwing(weapons):
+        return any(weapon_profile(item.kind).group is WeaponGroup.THROWING for item in weapons)
 
     def _pose(self,items,shield,*,chivalric=False):
         """Choose a legal initial pose, retaining physical IDs and charges."""
+        if not items:
+            return ()
         primary=next((item for item in items if item.initial_location is WeaponItemLocation.HELD
             and self._initial_grips(GeneratedWeapon(item.kind.value),shield,chivalric=chivalric)),None)
         if primary is None:
@@ -286,10 +304,10 @@ class NpcSearchSpace:
             values['ballistic_skill'],values['shooting'],values.get('initiative'),values.get('dexterity'),
             True,True if requirements.firearm else None,True if requirements.firearm else None,
             awareness=values.get('awareness')))
-        has_net=self._has_net(weapons)
-        throwing=(self.throwing[0] if throwing is None else throwing) if has_net else None
+        has_throwing=self._has_throwing(weapons)
+        throwing=(self.throwing[0] if throwing is None else throwing) if has_throwing else None
         ballistic_skill=((ranged.ballistic_skill if ranged is not None else
-            self.ballistic_skill[0] if ballistic_skill is None else ballistic_skill) if has_net else None)
+            self.ballistic_skill[0] if ballistic_skill is None else ballistic_skill) if has_throwing else None)
         main,secondary=facts['armour'],facts['secondary_armour']
         armour=ArmourLoadout(tuple(body for body in (main,secondary) if body is not None),main,
             facts['helmet'],facts['shield'],facts['barding'])
@@ -309,29 +327,51 @@ class NpcSearchSpace:
         facts['armour']=rng.choice(bodies)
         facts['secondary_armour']=rng.choice(self._secondary_choices(facts['armour']))
         chivalric=BodyArmour.AGILULF in (facts['armour'],facts['secondary_armour'])
-        shields=tuple(shield for shield in self.shield if any(
+        count=rng.choice(self.weapon_count)
+        shields=tuple(shield for shield in self.shield if not count or any(
             self._initial_grips(kind,shield,chivalric=chivalric) for kind in self.weapon))
         facts['shield']=rng.choice(shields)
-        primary=rng.choice(tuple(kind for kind in self.weapon
-            if self._initial_grips(kind,facts['shield'],chivalric=chivalric)))
-        grip=rng.choice(self._initial_grips(primary,facts['shield'],chivalric=chivalric))
-        count=rng.choice(self.weapon_count)
-        kinds=(primary,)+tuple(rng.choice(self.weapon) for _ in range(count-1))
+        if count:
+            primary=rng.choice(tuple(kind for kind in self.weapon
+                if self._initial_grips(kind,facts['shield'],chivalric=chivalric)))
+            grip=rng.choice(self._initial_grips(primary,facts['shield'],chivalric=chivalric))
+            kinds=(primary,)+tuple(rng.choice(self.weapon) for _ in range(count-1))
+        else:
+            grip=None
+            kinds=()
+        if () not in self.abilities and all(
+                weapon_printed_damage(WeaponKind(kind.value),strength=1) is None for kind in kinds):
+            # Every chosen ability group needs a genuine numeric implement.
+            # This selects a legal proposal before source construction; it
+            # never silently removes an ability from an admitted character.
+            numeric=tuple(kind for kind in self.weapon
+                if weapon_printed_damage(WeaponKind(kind.value),strength=1) is not None
+                and (count>1 or self._initial_grips(kind,facts['shield'],chivalric=chivalric)))
+            if not numeric:
+                raise ValueError('Damage-secondary proposal has no compatible numeric implement')
+            selected=rng.choice(numeric)
+            if count==1:
+                kinds=(selected,)
+                grip=rng.choice(self._initial_grips(selected,facts['shield'],chivalric=chivalric))
+            else:
+                kinds=(*kinds[:-1],selected)
         items=tuple(WeaponItemSource('item:'+str(index+1),WeaponKind(kind.value),
             WeaponItemLocation.HELD if index==0 else WeaponItemLocation.CARRIED,grip if index==0 else None,
-            initially_loaded=rng.choice(self.initial_loaded) if weapon_reload_target(WeaponKind(kind.value)) is not None else None)
+            initially_loaded=rng.choice(self.initial_loaded) if weapon_reload_target(WeaponKind(kind.value)) is not None else None,
+            initial_charges=rng.choice(self.scarab_initial_charges) if kind is GeneratedWeapon.SCARAB_KNIFE else 0,
+            gm_fit_confirmed=self.ogre_fit_confirmed if kind is GeneratedWeapon.OGRE_PISTOL else None)
             for index,kind in enumerate(kinds))
         weapons=self._pose(items,facts['shield'],chivalric=chivalric)
-        facts['abilities']=rng.choice(((),) if all(kind is GeneratedWeapon.WEIGHTED_NET for kind in kinds) else self.abilities)
+        facts['abilities']=rng.choice(((),) if all(weapon_printed_damage(WeaponKind(kind.value),strength=1) is None for kind in kinds) else self.abilities)
         facts['barding']=rng.choice(tuple(value for value in self.barding if not value or facts['mount'] is not None))
         riders=self._rider_choices(facts['mount'])
         ranged_values={name:rng.choice(getattr(self,name)) for name in self._ranged_names(weapons)}
         talents=tuple(t for t in self.allowed_talents if generated_talent_requirements_met(t,
             weapon_skill=facts['weapon_skill'],strength=facts['strength']) and rng.randrange(2))
         return self._build(facts,weapons,talents,ranged_values,
-            throwing=rng.choice(self.throwing) if self._has_net(weapons) else None,
+            throwing=rng.choice(self.throwing) if self._has_throwing(weapons) else None,
             ballistic_skill=(ranged_values.get('ballistic_skill',rng.choice(self.ballistic_skill))
-                if self._has_net(weapons) else None),rider_kind=rng.choice(riders))
+                if self._has_throwing(weapons) else None),rider_kind=rng.choice(riders))
 
     def mutate(self,npc:GeneratedNpc,rng:Random)->GeneratedNpc:
         if type(npc) is not GeneratedNpc or not self.contains(npc):
@@ -353,7 +393,7 @@ class NpcSearchSpace:
             except (ValueError,TypeError):
                 pass
         for name in self._ordinary_names():
-            if name=='brawn' and npc.brawn is None:
+            if name in ('brawn','endurance') and getattr(npc,name) is None:
                 continue
             for value in getattr(self,name):
                 if value!=facts[name]:
@@ -363,8 +403,14 @@ class NpcSearchSpace:
                 if kind.value!=item.kind.value:
                     loaded=(item.initially_loaded if item.initially_loaded in self.initial_loaded else self.initial_loaded[0]
                         ) if weapon_reload_target(WeaponKind(kind.value)) is not None else None
-                    new=WeaponItemSource(item.id,WeaponKind(kind.value),WeaponItemLocation.CARRIED,None,initially_loaded=loaded)
+                    new=WeaponItemSource(item.id,WeaponKind(kind.value),WeaponItemLocation.CARRIED,None,initially_loaded=loaded,
+                        initial_charges=self.scarab_initial_charges[0] if kind is GeneratedWeapon.SCARAB_KNIFE else 0,
+                        gm_fit_confirmed=self.ogre_fit_confirmed if kind is GeneratedWeapon.OGRE_PISTOL else None)
                     admit('weapon',items=npc.weapons[:index]+(new,)+npc.weapons[index+1:])
+            if item.kind is WeaponKind.SCARAB_KNIFE:
+                for charges in self.scarab_initial_charges:
+                    if charges != item.initial_charges:
+                        admit('scarab',items=npc.weapons[:index]+(replace(item,initial_charges=charges),)+npc.weapons[index+1:])
             if item.initially_loaded is not None:
                 for loaded in self.initial_loaded:
                     if loaded is not item.initially_loaded:
@@ -381,7 +427,9 @@ class NpcSearchSpace:
                     if item.id.startswith('item:') and item.id[5:].isdigit()),default=0)+1
                 for kind in self.weapon:
                     added=tuple(WeaponItemSource('item:'+str(next_id+i),WeaponKind(kind.value),WeaponItemLocation.CARRIED,None,
-                        initially_loaded=self.initial_loaded[0] if weapon_reload_target(WeaponKind(kind.value)) is not None else None)
+                        initially_loaded=self.initial_loaded[0] if weapon_reload_target(WeaponKind(kind.value)) is not None else None,
+                        initial_charges=self.scarab_initial_charges[0] if kind is GeneratedWeapon.SCARAB_KNIFE else 0,
+                        gm_fit_confirmed=self.ogre_fit_confirmed if kind is GeneratedWeapon.OGRE_PISTOL else None)
                         for i in range(count-size))
                     admit('add',items=npc.weapons+added)
             elif count<size:
@@ -398,7 +446,7 @@ class NpcSearchSpace:
                         if name=='ballistic_skill' and npc.ballistic_skill is not None:
                             changes['ballistic_skill']=value
                         variable.append(replace(npc,**changes))
-        if self._has_net(npc.weapons):
+        if self._has_throwing(npc.weapons):
             for value in self.throwing:
                 if value!=npc.throwing:
                     variable.append(replace(npc,throwing=value))
@@ -420,15 +468,18 @@ class NpcSearchSpace:
         except (ValueError,TypeError):
             return False
         facts=self._source_facts(npc)
-        return (all(facts[name] in getattr(self,name) or name=='brawn' and npc.brawn is None for name in self._ordinary_names())
+        return (all(facts[name] in getattr(self,name) or name in ('brawn','endurance')
+                and getattr(npc,name) is None for name in self._ordinary_names())
             and len(npc.weapons) in self.weapon_count
             and all(GeneratedWeapon(item.kind.value) in self.weapon and item.quantity==1
                 and (item.initially_loaded is None or item.initially_loaded in self.initial_loaded)
+                and (item.kind is not WeaponKind.SCARAB_KNIFE or item.initial_charges in self.scarab_initial_charges)
+                and (item.kind is not WeaponKind.OGRE_PISTOL or item.gm_fit_confirmed is self.ogre_fit_confirmed)
                 and (not weapon_profile(item.kind).variable_grip or item.initial_grip is None
                     or (RangedWeaponHands.TWO_HANDED if item.initial_grip is WeaponGrip.BOTH
                         else RangedWeaponHands.ONE_HANDED) in self.weapon_grip) for item in npc.weapons)
             and npc.rider_kind in self._rider_choices(npc.mount)
-            and (not self._has_net(npc.weapons) or npc.throwing in self.throwing
+            and (not self._has_throwing(npc.weapons) or npc.throwing in self.throwing
                 and (npc.ranged is not None or npc.ballistic_skill in self.ballistic_skill))
             and (npc.ranged is None or all(getattr(npc.ranged,name) in getattr(self,name)
                 for name in self._ranged_names(npc.weapons)))
@@ -449,8 +500,9 @@ class NpcSearchSpace:
             ranged_names=self._ranged_names(member.weapons)
             names=('weapon_skill','strength','toughness','agility','melee','athletics','defence')
             names+=(('brawn',) if member.brawn is not None else ())
-            names+=(('throwing',) if self._has_net(member.weapons) else ())
-            names+=(('ballistic_skill',) if self._has_net(member.weapons) and not ranged_names else ())
+            names+=(('endurance',) if member.endurance is not None else ())
+            names+=(('throwing',) if self._has_throwing(member.weapons) else ())
+            names+=(('ballistic_skill',) if self._has_throwing(member.weapons) and not ranged_names else ())
             names+=ranged_names
             for name in names:
                 candidates={}
@@ -488,9 +540,9 @@ def automatic_npc_search_space(party: tuple[PcMeleeParticipant, ...], *,
             raise TypeError('automatic NPC space requires an exact battlefield spec or None')
         replace(battlefield)
     choices = {}
-    for name in ('weapon_skill', 'strength', 'toughness', 'agility', 'melee', 'defence', 'athletics'):
+    for name in ('weapon_skill', 'strength', 'toughness', 'agility', 'melee', 'defence', 'athletics','endurance'):
         values = [getattr(p.pc, name) for p in party]
-        floor, ceiling = (2, 6) if name in ('melee', 'defence', 'athletics') else (1, 10)
+        floor, ceiling = (2, 6) if name in ('melee', 'defence', 'athletics','endurance') else (1, 10)
         low = max(floor, min(ceiling, min(values) - 1))
         high = max(low, min(ceiling, max(values) + 1))
         choices[name] = tuple(range(low, high + 1))
@@ -523,7 +575,7 @@ def automatic_npc_search_space(party: tuple[PcMeleeParticipant, ...], *,
             low=max(floor,min(ceiling,min(values)-1))
             high=max(low,min(ceiling,max(values)+1))
             choices[name]=tuple(range(low,high+1))
-    choices['weapon'] = tuple(GeneratedWeapon) if battlefield is not None else GENERATED_CLOSE_WEAPONS
+    choices['weapon'] = GENERATED_ORDINARY_WEAPONS if battlefield is not None else GENERATED_CLOSE_WEAPONS
     choices['mount'] = ((None,CombatMount.HORSE,CombatMount.BRETONNIAN_WARHORSE,CombatMount.ELVEN_STEED)
         if battlefield is not None else (None,))
     choices['helmet'] = (None,HelmetKind.HELMET)
@@ -550,6 +602,7 @@ class DynamicEncounterRequest:
     max_rounds: int
     defeat_disposition: NpcDefeatDisposition
     battlefield: PcBattlefieldSpec | None = field(default=None,kw_only=True)
+    single_combat_pairs: tuple[PcSingleCombatPair,...] = field(default=(),kw_only=True)
 
     def __post_init__(self):
         if type(self.party) is not tuple or not self.party or any(type(p) is not PcMeleeParticipant for p in self.party):
@@ -566,8 +619,8 @@ class DynamicEncounterRequest:
                 raise ValueError('mounted dynamic encounters require an explicit battlefield')
             if not self.facts.all_opponents_close or self.facts.can_leave_zone:
                 raise ValueError('stationary dynamic request requires the all-Close arena')
-            if any(weapon in GENERATED_TWO_HANDED_RANGED_WEAPONS for weapon in self.space.weapon):
-                raise ValueError('two-handed generated Shooting requires an explicit battlefield')
+            if any(weapon in GENERATED_NON_CLOSE_RANGED_WEAPONS for weapon in self.space.weapon):
+                raise ValueError('non-Close generated Shooting requires an explicit battlefield')
             if any(p.pc.weapon in PC_RANGED_WEAPONS and p.pc.weapon.value not in
                     ('pistol','repeater_pistol','repeater_handbow') for p in self.party):
                 raise ValueError('stationary dynamic request requires supported Close ranged PCs')
@@ -588,6 +641,13 @@ class DynamicEncounterRequest:
                 raise ValueError(f'{name} must be a positive integer')
         if self.minimum_npcs > self.maximum_npcs or self.top_k > self.max_candidates:
             raise ValueError('count bounds/top_k are inconsistent')
+        from towr.domain.pc_melee_models import validate_pc_single_combat_pairs
+        validate_pc_single_combat_pairs(self.single_combat_pairs,
+            tuple(member.actor_id for member in self.party),
+            tuple(f'generated-npc:{index+1}' for index in range(self.minimum_npcs)))
+        from towr.domain.pc_scene_feature_models import validate_scene_visibility_actors
+        validate_scene_visibility_actors(self.battlefield,(*tuple(member.actor_id for member in self.party),
+            *tuple(f'generated-npc:{index+1}' for index in range(self.minimum_npcs))))
         if type(self.master_seed) is not int or not 0 <= self.master_seed < 2**64:
             raise ValueError('master seed must fit uint64')
         for name in ('target_win_rate', 'target_rounds'):
@@ -619,7 +679,7 @@ class DynamicEncounterRequest:
             npc_flagellant_policies=(), npc_warped_form_policies=(),
             npc_ranged_policies=tuple(pc_npc_ranged_policy_for_generated(npc,actor)
                 for npc,actor in zip(composition,actors) if npc.ranged is not None),
-            battlefield=self.battlefield)
+            battlefield=self.battlefield,single_combat_pairs=self.single_combat_pairs)
 
 
 @dataclass(frozen=True, slots=True)

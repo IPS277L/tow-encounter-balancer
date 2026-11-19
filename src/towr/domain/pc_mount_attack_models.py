@@ -56,9 +56,14 @@ def pc_mount_primary_needed(state, actor):
         from towr.domain.pc_melee_models import PcMeleePolicy
         from towr.domain.pc_heavy_wound_models import usable_weapon_hand
         from towr.domain.pc_backup_weapon_models import pc_preferred_weapon_hand
+        from towr.domain.pc_weapon_inventory import pc_attack_weapon_use
+        use=pc_attack_weapon_use(state,actor)
+        if use is not None:
+            return False
         return (state.source.participant(actor).policy is PcMeleePolicy.AUTOMATIC_COMBAT
             and usable_weapon_hand(state.participant(actor)) is None and pc_preferred_weapon_hand(state, actor) is None)
-    return not state.enemy(actor).state.wields_weapon
+    from towr.domain.pc_npc_weapon_inventory import npc_attack_weapon_use
+    return not state.enemy(actor).state.wields_weapon and npc_attack_weapon_use(state,actor) is None
 
 
 @dataclass(frozen=True, slots=True)
@@ -161,11 +166,21 @@ def pc_mounted_attack_test(state, actor, target, identifier, *, extra_qualities=
     return TestRequest(identifier, pc_mount_attack_profile(mount.mount)[1], tuple(modifiers), tuple(qualities))
 
 
-def prepare_pc_mounted_attack(state, actor, target, identifier, *, extra_qualities=(), is_charge=False):
+def prepare_pc_mounted_attack(state, actor, target, identifier, *, extra_qualities=(), is_charge=False,
+        weapon_intent=None):
     """Shared real K1 source for a primary mount Attack or Demigryph follow-up."""
     mount = available_pc_attack_mount(state, actor)
     if mount is None:
         raise ValueError('mount Attack requires its current actual available source')
+    if weapon_intent is not None:
+        from towr.domain.pc_weapon_intent_models import PcAttackWeaponIntent
+        if type(weapon_intent) is not PcAttackWeaponIntent:
+            raise TypeError('mount Attack requires its exact frozen weapon intent')
+        replace(weapon_intent)
+        if (weapon_intent.action_id != identifier or weapon_intent.actor_id != actor
+                or weapon_intent.target_id != target or not weapon_intent.mount_attack
+                or weapon_intent.attack_skill is not Skill.MELEE or weapon_intent.attack_use is not None):
+            raise ValueError('mount Attack changed its actual committed natural source')
     attacker = pc_mounted_attack_test(state, actor, target, identifier+':attack',
         extra_qualities=extra_qualities, is_charge=is_charge)
     is_pc = actor in state.source.pc_activation_order
@@ -174,8 +189,20 @@ def prepare_pc_mounted_attack(state, actor, target, identifier, *, extra_qualiti
         from towr.domain.pc_npc_ability_models import pc_npc_stagger_defeat_spec
         from towr.domain.pc_flagellant_models import pc_flagellant_first_stagger_spec
         enemy = state.enemy(target)
-        profile, defender = npc_protection_test(state, target, actor, identifier+':protection', attack_skill=Skill.MELEE)
-        skill = profile.skill
+        if weapon_intent is None:
+            profile, defender = npc_protection_test(state, target, actor, identifier+':protection', attack_skill=Skill.MELEE)
+            skill = profile.skill
+        elif weapon_intent.protection_skill is None:
+            if not enemy.state.injury.conditions.has(Condition.DEFENCELESS):
+                raise ValueError('a living capable defender cannot lose its committed Protection')
+            skill, defender = None, None
+        else:
+            profile, defender = npc_protection_test(state, target, actor, identifier+':protection',
+                weapon_intent.npc_protection, attack_skill=Skill.MELEE,
+                weapon_use=weapon_intent.protection_use)
+            skill = weapon_intent.protection_skill
+            if profile.skill is not skill:
+                raise ValueError('mount target changed its frozen Protection profile')
         target_injury, resilience = enemy.state.injury, enemy.state.current_resilience
         armed, shield = enemy.state.wields_weapon, enemy.state.holds_shield
         policy = enemy.definition.injury_policy
@@ -187,14 +214,27 @@ def prepare_pc_mounted_attack(state, actor, target, identifier, *, extra_qualiti
         from towr.domain.pc_shield_models import pc_has_working_shield, pc_protection_hand, pc_shield_resilience
         from towr.domain.pc_help_models import build_pc_test_help
         member = state.participant(target)
-        skill = pc_protection_skill(member, Skill.MELEE)
-        defender = _pc_test(state, target, identifier+':protection', skill, oppose_attack=True)
+        skill = (pc_protection_skill(member, Skill.MELEE) if weapon_intent is None
+            else weapon_intent.protection_skill)
+        if skill is None:
+            if not member.injury.conditions.has(Condition.DEFENCELESS):
+                raise ValueError('a living capable defender cannot lose its committed Protection')
+            defender = None
+        else:
+            options = {} if weapon_intent is None else {'weapon_use': weapon_intent.protection_use}
+            defender = _pc_test(state, target, identifier+':protection', skill, oppose_attack=True,
+                incoming_attack_skill=Skill.MELEE, **options)
         if not member.injury.conditions.has(Condition.DEFENCELESS):
             defender, _ = build_pc_test_help(state, target, skill, defender)
+        from towr.domain.pc_weapon_intent_models import weapon_use_hand
+        hand = (pc_protection_hand(member, Skill.MELEE, skill) if weapon_intent is None
+            else weapon_use_hand(weapon_intent.protection_use))
         target_injury = (member.injury if member.injury.conditions.has(Condition.DEFENCELESS)
-            else pc_after_test(state, target, critical_for_hand(member, pc_protection_hand(member, Skill.MELEE, skill))))
+            else pc_after_test(state, target, critical_for_hand(member, hand)))
         resilience = pc_shield_resilience(state, target)
-        armed, shield = usable_weapon_hand(member) is not None, pc_has_working_shield(member)
+        from towr.domain.pc_weapon_inventory import pc_protection_weapon_use
+        defence_use=pc_protection_weapon_use(member,Skill.DEFENCE,Skill.MELEE)
+        armed, shield = defence_use is not None and bool(defence_use.item_ids), pc_has_working_shield(member)
         policy, minion_defeat, first_stagger, permission = TargetInjuryPolicy.PLAYER, None, None, None
     actor_injury = state.participant(actor).injury if is_pc else state.enemy(actor).state.injury
     attack = AttackRequest(identifier+':attack-request', attacker, None,
@@ -206,9 +246,11 @@ def prepare_pc_mounted_attack(state, actor, target, identifier, *, extra_qualiti
         Skill.MELEE, True, defenceless, armed, shield, None if defenceless else skill,
         () if defenceless else (ProtectionTestOption(target, skill, defender),), halfling_stealth_permission=permission)
     from towr.domain.pc_briarroot_models import briarroot_allows_give_ground
+    from towr.domain.pc_give_ground_models import pc_give_ground_context
+    ground=pc_give_ground_context(state,target,actor)
     kernel = KernelAttackRequest(identifier+':kernel', target, _expected_protection(protection)[0],
-        policy, target_injury, state.source.facts.can_leave_zone and briarroot_allows_give_ground(state,target),
-        False, physical_attack=True,
+        policy, target_injury, ground.can_leave and briarroot_allows_give_ground(state,target),
+        ground.given_this_round, physical_attack=True,
         minion_stagger_defeat=minion_defeat, first_stagger_wound=first_stagger)
     return kernel, protection
 
@@ -258,6 +300,11 @@ def pc_npc_mount_primary_selected(state, actor):
     enemy = state.enemy(actor)
     profile = pc_selected_npc_attack_profile(state, actor)
     if profile.damage is None:
+        if enemy.definition.generated_components is not None:
+            from towr.domain.pc_npc_weapon_inventory import npc_attack_weapon_use,_utility
+            if (npc_attack_weapon_use(state,actor,target) is not None
+                    and pc_battlefield_attack_available(state,actor,target)):
+                return mount_value>_utility(state,actor)+1e-12
         return True
     if (not enemy.state.wields_weapon and profile.hands is not None
             or not pc_battlefield_attack_available(state, actor, target)):

@@ -2,6 +2,7 @@
 from towr.simulation.pc_ranged_statistics import PcRangedCount,validate_pc_ranged_counts
 
 from towr.simulation.pc_npc_ranged_statistics import PcNpcRangedCount,validate_npc_ranged_counts
+from towr.simulation.pc_extra_attack_statistics import PcExtraAttackCount,validate_pc_extra_attack_counts
 
 from collections import Counter
 from dataclasses import dataclass, field, replace
@@ -232,8 +233,14 @@ def validate_npc_extra_attack_counts(counts,scenario,*,trials:int,extra_trials:i
             or (total>0)!=(extra_trials>0)):
         raise ValueError('NPC extra Attack counts contradict trials/primary and extra actions')
     budget=min(started_rounds-(trials-extra_trials),extra_trials*scenario.max_rounds)
+    from towr.domain.weapon_catalog import WeaponKind
+    eligible=set(scenario.npc_extra_attack_actor_ids)
+    eligible.update(enemy.state.actor_id for enemy in scenario.enemies
+        if enemy.definition.generated_components is not None
+        and any(item.kind is WeaponKind.DUELLIST_BLADES
+            for item in enemy.definition.generated_components.weapons))
     for item in counts:
-        if (item.count and item.actor_id not in scenario.npc_extra_attack_actor_ids) or item.count>budget:
+        if (item.count and item.actor_id not in eligible) or item.count>budget:
             raise ValueError('NPC extra Attack count exceeds its selected actor/round budget')
 
 
@@ -280,7 +287,8 @@ def validate_npc_recover_counts(counts,scenario,*,trials:int,recover_trials:int|
         raise TypeError('NPC Recover trial count must be an integer')
     wave_wound_budget=warped_form_target_budget(scenario,warped_form_counts,pc_targets=False)
     from towr.domain.pc_weighted_net_models import initial_weighted_nets
-    ordinary_recover=scenario.battlefield is not None or bool(initial_weighted_nets(scenario))
+    ordinary_recover=(scenario.battlefield is not None or bool(initial_weighted_nets(scenario))
+        or any(enemy.definition.generated_components is not None for enemy in scenario.enemies))
     if (not 0<=recover_trials<=trials or not recover_trials<=total<=actions
             or (not ordinary_recover and 2*total>actions+wave_wound_budget)
             or (total>0)!=(recover_trials>0)):
@@ -579,17 +587,36 @@ def validate_potion_use_counts(counts, scenario, *, trials: int, actions: int,
 
 
 def validate_automatic_action_budget(help_counts,recover_counts,scenario,*,started_rounds,
-                                     potion_counts=None, magic_counts=None):
+                                     potion_counts=None, magic_counts=None,
+                                     pc_extra_counts=None, aim_counts=None):
     """An automatic PC cannot count two support actions in its one turn."""
     from towr.domain.pc_melee_models import PcMeleePolicy
     potions = Counter()
     for row in potion_counts or ():
         potions[row.actor_id] += row.count
     casting = {row.actor_id: row.casting_actions for row in magic_counts or ()}
+    extras = {row.actor_id: row.count for row in pc_extra_counts or ()}
+    aiming = {row.actor_id: row.count for row in aim_counts.action_counts} if aim_counts is not None else {}
     for member,helped,recovered in zip(scenario.party,help_counts,recover_counts,strict=True):
+        # A Duellist pair consumes the standard Attack and the only second
+        # action. It cannot share that source turn with Aim/Help/Recover/Cast.
+        if (pc_extra_counts is not None and helped.count+recovered.count
+                +potions[member.actor_id]+casting.get(member.actor_id,0)
+                +extras.get(member.actor_id,0)+aiming.get(member.actor_id,0)>started_rounds):
+            raise ValueError('Duellist pairs and other standard actions exceed the same actor turn budget')
         if (member.policy is PcMeleePolicy.AUTOMATIC_COMBAT
                 and helped.count+recovered.count+potions[member.actor_id]+casting.get(member.actor_id,0)>started_rounds):
             raise ValueError('automatic Help, ally Recover, potions and Casting exceed the same actor turn budget')
+
+
+def validate_npc_action_budget(extra_counts,help_counts,recover_counts,*,started_rounds,ranged_counts=None):
+    """An ability Attack pair cannot borrow another actor's unused turn."""
+    helped={row.actor_id:row.count for row in help_counts}
+    recovered={row.actor_id:row.count for row in recover_counts}
+    ranged={row.actor_id:row.shots+row.reload_actions for row in ranged_counts or ()}
+    for row in extra_counts:
+        if row.count+helped[row.actor_id]+recovered[row.actor_id]+ranged.get(row.actor_id,0)>started_rounds:
+            raise ValueError('NPC Attack pairs and other actions exceed the same actor turn budget')
 
 
 def validate_near_miss_counts(counts, scenario, *, trials: int,
@@ -676,6 +703,7 @@ class PcMeleeTrialRecord:
     magic_counts: tuple[PcMagicCount, ...] | None = field(default=None, kw_only=True)
     npc_ranged_counts: tuple[PcNpcRangedCount, ...] | None = field(default=None,kw_only=True)
     pc_ranged_counts: tuple[PcRangedCount,...] | None = field(default=None,kw_only=True)
+    pc_extra_attack_counts: tuple[PcExtraAttackCount,...] | None = field(default=None,kw_only=True)
 
     def __post_init__(self) -> None:
         validate_pc_melee_scenario_admission(self.source_scenario)
@@ -702,8 +730,11 @@ class PcMeleeTrialRecord:
             started_rounds=self.started_rounds,glorious_counts=self.glorious_spend_counts)
         seconds = self.aim.total_second_action_spend_count if self.aim is not None else 0
         extras=sum(item.count for item in self.npc_extra_attack_counts)
+        validate_pc_extra_attack_counts(self.pc_extra_attack_counts,self.source_scenario,trials=1,
+            extra_trials=None,actions=self.executed_actions,started_rounds=self.started_rounds)
+        pc_extras=sum(item.count for item in self.pc_extra_attack_counts or ())
         actors = len(self.source_scenario.party) + len(self.source_scenario.enemies)
-        if not self.completed_rounds <= self.executed_actions <= actors*self.started_rounds+extras+seconds:
+        if not self.completed_rounds <= self.executed_actions <= actors*self.started_rounds+extras+pc_extras+seconds:
             raise ValueError('actions contradict the round/actor budget')
         if self.outcome is PcMeleeOutcome.ROUND_LIMIT and self.completed_rounds != self.source_scenario.max_rounds:
             raise ValueError('round limit must complete the full source budget')
@@ -744,14 +775,16 @@ class PcMeleeTrialRecord:
             unsupported_trials=int(self.outcome is PcMeleeOutcome.UNSUPPORTED_PATH))
         validate_automatic_action_budget(self.help_action_counts,self.ally_recover_action_counts,
             self.source_scenario,started_rounds=self.started_rounds,potion_counts=self.potion_use_counts,
-            magic_counts=self.magic_counts)
+            magic_counts=self.magic_counts,pc_extra_counts=self.pc_extra_attack_counts,aim_counts=self.aim)
         validate_npc_help_counts(self.npc_help_action_counts,self.source_scenario,trials=1,
             help_trials=None,actions=self.executed_actions,started_rounds=self.started_rounds)
         validate_npc_recover_counts(self.npc_recover_action_counts,self.source_scenario,trials=1,
             recover_trials=None,actions=self.executed_actions,started_rounds=self.started_rounds,
             warped_form_counts=self.npc_warped_form_counts)
+        validate_npc_action_budget(self.npc_extra_attack_counts,self.npc_help_action_counts,
+            self.npc_recover_action_counts,started_rounds=self.started_rounds,ranged_counts=self.npc_ranged_counts)
         if sum(item.count for item in (*self.help_action_counts,*self.ally_recover_action_counts,
-                *self.npc_help_action_counts,*self.npc_recover_action_counts,*(self.potion_use_counts or ())))+2*extras+(self.aim.total_action_count if self.aim is not None else 0)+sum(row.casting_actions for row in self.magic_counts or ())+sum(row.shots+row.reload_actions for row in self.npc_ranged_counts or ())+sum(row.shots+row.reload_actions for row in self.pc_ranged_counts or ())>self.executed_actions:
+                *self.npc_help_action_counts,*self.npc_recover_action_counts,*(self.potion_use_counts or ())))+2*(extras+pc_extras)+(self.aim.total_action_count if self.aim is not None else 0)+sum(row.casting_actions for row in self.magic_counts or ())+sum(row.shots+row.reload_actions for row in self.npc_ranged_counts or ())+sum(row.shots+row.reload_actions for row in self.pc_ranged_counts or ())>self.executed_actions:
             raise ValueError('Help, ally Recover and primary/extra Attacks cannot consume the same action')
         validate_npc_exit_counts(self.npc_exit_counts,self.source_scenario,trials=1,exit_trials=None)
         if sum(item.count for item in self.npc_exit_counts)>npc_injury_budget:

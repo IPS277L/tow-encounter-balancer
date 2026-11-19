@@ -1,0 +1,161 @@
+{
+  "schema_version": "1",
+  "kind": "dynamic_encounter_search",
+  "request_id": "dynamic:magic-weapons",
+  "ruleset": "towr-pg1.4-gmg1.1",
+  "party": [
+    {
+      "actor_id": "pc",
+      "characteristics": {
+        "weapon_skill": 3,
+        "strength": 3,
+        "toughness": 4,
+        "agility": 3
+      },
+      "skills": {
+        "melee": 4,
+        "defence": 4,
+        "athletics": 4,
+        "endurance": 5,
+        "brawn": 4
+      },
+      "equipment": {
+        "weapons": [
+          {
+            "id": "scarab",
+            "weapon": "scarab_knife",
+            "location": "left_hand",
+            "initial_charges": 3
+          },
+          {
+            "id": "sword",
+            "weapon": "sword",
+            "location": "right_hand"
+          }
+        ],
+        "armour": []
+      },
+      "talents": [],
+      "resources": {
+        "fate": 1
+      },
+      "consumables": []
+    }
+  ],
+  "search_space": {
+    "weapon_skill": [
+      2
+    ],
+    "strength": [
+      3
+    ],
+    "toughness": [
+      3
+    ],
+    "agility": [
+      2
+    ],
+    "melee": [
+      3
+    ],
+    "athletics": [
+      3
+    ],
+    "weapon": [
+      "dragon_bow",
+      "duellist_blades",
+      "grotarggs_hammer",
+      "headsmans_axe",
+      "morning_star_of_fracasse",
+      "scarab_knife",
+      "sword_of_justice",
+      "trickster_blade",
+      "unwavering_spear",
+      "ogre_pistol"
+    ],
+    "abilities": [
+      []
+    ],
+    "defence": [
+      3
+    ],
+    "shield": [
+      null
+    ],
+    "allowed_talents": [],
+    "ballistic_skill": [
+      3
+    ],
+    "initiative": [
+      2
+    ],
+    "shooting": [
+      3
+    ],
+    "dexterity": [
+      3
+    ],
+    "armour": [
+      null
+    ],
+    "weapon_count": [
+      1,
+      2
+    ],
+    "initial_loaded": [
+      true
+    ],
+    "brawn": [
+      4
+    ],
+    "endurance": [
+      3,
+      4
+    ],
+    "mount": [
+      null
+    ],
+    "barding": [
+      false
+    ],
+    "scarab_initial_charges": [
+      0,
+      3
+    ],
+    "ogre_fit_confirmed": true
+  },
+  "npc_count": {
+    "minimum": 1,
+    "maximum": 2
+  },
+  "targets": {
+    "win_rate": {
+      "numerator": 1,
+      "denominator": 2
+    },
+    "started_rounds": {
+      "numerator": 2,
+      "denominator": 1
+    }
+  },
+  "search": {
+    "master_seed": "42",
+    "max_candidates": 2,
+    "exploration_trials": 1,
+    "finalist_trials": 1,
+    "top_k": 1,
+    "max_total_trials": 3
+  },
+  "max_rounds": 2,
+  "defeat_disposition": "killed",
+  "execution": {
+    "mode": "sequential"
+  },
+  "scene": {
+    "range": "short",
+    "ambush": "none",
+    "terrain": "open",
+    "session_start": "fresh",
+    "two_handed_max_range": "long"
+  }
+}

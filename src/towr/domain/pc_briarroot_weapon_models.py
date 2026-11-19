@@ -371,8 +371,9 @@ def _npc_drop_snapshot(enemy,weapon_id):
         raise ValueError('NPC abandonment requires its actual held physical unit')
     inventory = inventory.with_item(replace(unit,location=PcItemLocation.DROPPED,grip=None))
     armed = any(item.location is PcItemLocation.HELD for item in inventory.items)
+    from towr.domain.pc_npc_weapon_inventory import npc_inventory_attack_ids
     return replace(enemy,state=replace(enemy.state,weapon_inventory=inventory,wields_weapon=armed,
-        available_attack_ids=enemy.state.available_attack_ids if armed else ()))
+        available_attack_ids=npc_inventory_attack_ids(enemy.definition,inventory)))
 
 
 def _npc_pickup_inventory(enemy,weapon_id):
@@ -449,7 +450,8 @@ def build_briarroot_weapon_drop(state,actor,weapon_id=None):
 
 
 def _latest_wound_loss_witness(state,actor,weapon_id):
-    from towr.domain.pc_melee_result_models import PcHandDropProof,PcBodyConsequenceProof,PcWoundCompletionProof,PcRecoverProof
+    from towr.domain.pc_melee_result_models import (PcHandDropProof,PcBodyConsequenceProof,
+        PcWoundCompletionProof,PcRecoverProof,PcAttackProof)
     after = -1
     for index, proof in enumerate(state.history):
         if (type(proof) is PcBriarrootWeaponDropProof
@@ -457,6 +459,10 @@ def _latest_wound_loss_witness(state,actor,weapon_id):
             after = index
         pickup = proof.briarroot_weapon_pickup if type(proof) is PcRecoverProof else None
         if pickup is not None and (pickup.actor_id,pickup.weapon_id)==(actor,weapon_id):
+            after = index
+        thrown = getattr(proof,'throwing_inventory',None) if type(proof) is PcAttackProof else None
+        if (thrown is not None and thrown.item is not None
+                and (thrown.actor_id,thrown.item.weapon_id)==(actor,weapon_id)):
             after = index
     for index in range(len(state.history)-1,after,-1):
         proof = state.history[index]
@@ -671,8 +677,11 @@ def expected_briarroot_weapon_approach(state,actor,weapon_id):
         if not battlefield_path_available(state,actor,tuple(route),
                 close_to_ids=close if current==destination else ()):
             return None
+        from towr.domain.pc_terrain_models import terrain_test_required_for_route
+        terrain=terrain_test_required_for_route(state,actor,tuple(route))
         request=FreeMovementRequest(pc_melee_action_id(state,actor)+':briarroot:weapon-approach:'+weapon_id,
-            state.round_state,spatial,actor,speed,_injury(state,actor).conditions,tuple(route))
+            state.round_state,spatial,actor,speed,_injury(state,actor).conditions,tuple(route),
+            crosses_difficult_terrain=terrain,terrain_resolution_deferred=terrain)
         result=resolve_free_movement(request)
         after=replace(with_actor_placement(previous,actor,current,
             close_to_ids=close if current==destination else ()),spatial=result.state)
@@ -696,10 +705,39 @@ def apply_briarroot_weapon_approach(state,proof):
 
 def validate_briarroot_dropped_weapons(state):
     """Fold finite item receipts independently from combat/RNG execution."""
-    from towr.domain.pc_melee_result_models import PcRecoverProof
+    from towr.domain.pc_melee_result_models import PcRecoverProof,PcAttackProof
     from towr.domain.pc_briarroot_models import PcBriarrootProof,PcBriarrootReleaseProof
+    from towr.domain.pc_throwing_inventory_models import PcThrowingInventoryReceipt
     bank=(); bindings=()
     for index,proof in enumerate(state.history):
+        from towr.domain.pc_hammer_recover_models import PcHammerRetrievalProof
+        if type(proof) is PcHammerRetrievalProof:
+            previous=next((item for item in bank if (item.owner_id,item.weapon_id)==(proof.actor_id,proof.weapon_id)),None)
+            if previous!=proof.previous_item:
+                raise ValueError('Hammer extraction lost its actual embedded item prefix')
+            bank=_set_item(bank,proof.item)
+        magical=getattr(proof,'magic_weapon',None) if type(proof) is PcAttackProof else None
+        if magical is not None:
+            for previous,item in magical.drops:
+                actual=next((row for row in bank if (row.owner_id,row.weapon_id)==(item.owner_id,item.weapon_id)),None)
+                if previous!=actual:
+                    raise ValueError('Magic disarm/stuck changed its finite ground-item prefix')
+                bank=_set_item(bank,item)
+        if type(proof) is PcAttackProof and getattr(proof,'throwing_inventory',None) is not None:
+            receipt = proof.throwing_inventory
+            if type(receipt) is not PcThrowingInventoryReceipt:
+                raise TypeError('Throwing must retain its exact source-bound inventory receipt')
+            replace(receipt)
+            if (receipt.request_id,receipt.actor_id,receipt.target_id,receipt.weapon_use) != (
+                    proof.request.id,proof.request.actor_id,proof.request.target_id,proof.weapon_intent.attack_use):
+                raise ValueError('Throwing physical history changed its actual Attack or weapon source')
+            if receipt.item is not None:
+                previous = next((item for item in bank if (item.owner_id,item.weapon_id) == (
+                    receipt.actor_id,receipt.item.weapon_id)),None)
+                if previous != receipt.previous_item:
+                    raise ValueError('Throwing landing changed or duplicated its finite item prefix')
+                bank = _set_item(bank,receipt.item)
+            continue
         if type(proof) in (PcBriarrootProof,PcBriarrootReleaseProof):
             if proof.previous!=bindings:
                 raise ValueError('physical weapon history lost its binding-source prefix')
@@ -752,7 +790,7 @@ def validate_briarroot_dropped_weapons(state):
             inventory=state.participant(item.owner_id).weapon_inventory
             if inventory is not None:
                 actual=next(weapon for weapon in inventory.items if weapon.id==item.weapon_id)
-                if item.ground is not None and actual.location is not PcItemLocation.DROPPED:
+                if item.ground is not None and actual.location not in (PcItemLocation.DROPPED,PcItemLocation.STUCK):
                     raise ValueError('a grounded physical PC weapon cannot also be held or carried')
         else:
             source=next(enemy for enemy in state.source.enemies if enemy.state.actor_id==item.owner_id)
@@ -763,7 +801,7 @@ def validate_briarroot_dropped_weapons(state):
                 raise ValueError('physical NPC weapon changed its actual source attack membership')
             if inventory is not None:
                 actual=inventory.item(item.weapon_id)
-                if item.ground is not None and actual.location is not PcItemLocation.DROPPED:
+                if item.ground is not None and actual.location not in (PcItemLocation.DROPPED,PcItemLocation.STUCK):
                     raise ValueError('a grounded physical NPC unit cannot also be held or carried')
             elif item.ground is not None and state.enemy(item.owner_id).state.wields_weapon:
                 raise ValueError('a grounded opaque NPC weapon cannot remain wielded')

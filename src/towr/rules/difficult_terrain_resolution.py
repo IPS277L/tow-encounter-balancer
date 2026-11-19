@@ -31,7 +31,16 @@ def resolve_difficult_terrain_traversal(
     *,
     decisions: TestDecisionProvider | None = None,
 ) -> DifficultTerrainTraversalResult:
-    """Cross one Difficult Terrain boundary, then resolve its Athletics Test."""
+    """Resolve the real crossing's Athletics Test without another move/action."""
+    _terrain_spatial_state(request)  # malformed source fails before RNG
+    athletics_result=resolve_test(request.athletics_test,rng,decisions=decisions)
+    return _complete_difficult_terrain_after_test(request,athletics_result)
+
+
+def _terrain_spatial_state(request):
+    if type(request) is not DifficultTerrainTraversalRequest:
+        raise TypeError('terrain resolution requires its exact typed source')
+    replace(request)
     if request.rule_id != DIFFICULT_TERRAIN_TRAVERSAL_RULE_ID:
         raise ValueError("Difficult Terrain request uses an unknown source rule")
     if request.actor_conditions.has(Condition.PRONE):
@@ -45,7 +54,7 @@ def resolve_difficult_terrain_traversal(
     actor = state.placement_for(request.actor_id)
     if not state.graph.contains(request.destination_zone_id):
         raise ValueError("Difficult Terrain destination is unknown")
-    if not state.graph.are_adjacent(
+    if request.completed_crossing is None and not state.graph.are_adjacent(
         actor.zone_id,
         request.destination_zone_id,
     ):
@@ -65,21 +74,23 @@ def resolve_difficult_terrain_traversal(
         else placement
         for placement in state.placements
     )
-    usage = state.difficult_terrain_tested_entity_ids
+    crossed=request.completed_crossing or state
+    usage = crossed.difficult_terrain_tested_entity_ids
     updated_usage = (
         usage if request.actor_id in usage else (*usage, request.actor_id)
     )
     updated_state = replace(
-        state,
+        crossed,
         placements=updated_placements,
         difficult_terrain_tested_entity_ids=updated_usage,
     )
+    return updated_state
 
-    athletics_result = resolve_test(
-        request.athletics_test,
-        rng,
-        decisions=decisions,
-    )
+
+def _complete_difficult_terrain_after_test(request,athletics_result):
+    updated_state=_terrain_spatial_state(request)
+    state=request.state
+    actor=state.placement_for(request.actor_id)
     if athletics_result.succeeded:
         outcome = DifficultTerrainOutcome.CROSSED_SAFELY
         prone_application = None

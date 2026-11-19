@@ -28,6 +28,7 @@ def resolve_give_ground(
     request: GiveGroundResolutionRequest,
 ) -> GiveGroundResolutionResult:
     """Apply one already chosen legal Give Ground destination."""
+    replace(request)
     state = request.state
     mover = state.placement_for(request.mover_id)
     if not state.graph.contains(request.destination_zone_id):
@@ -50,7 +51,7 @@ def resolve_give_ground(
 
     for entity_id in request.path_entity_ids:
         crossed = state.placement_for(entity_id)
-        if crossed.side_id != mover.side_id:
+        if request.is_enemy_entity(crossed.entity_id):
             raise ValueError("Give Ground cannot move through an enemy")
 
     if request.away_from_entity_id is not None:
@@ -90,8 +91,7 @@ def resolve_give_ground(
     )
 
     entered_enemy_zone = any(
-        placement.entity_id != request.mover_id
-        and placement.side_id != mover.side_id
+        request.is_enemy_entity(placement.entity_id)
         for placement in state.placements_in(request.destination_zone_id)
     )
     condition_application = None

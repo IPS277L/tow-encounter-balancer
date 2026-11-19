@@ -1,6 +1,6 @@
 # Magic Items и wyrdstone
 
-Источник: `BOOK-GM-GUIDE`, версия 1.1, глава Magic Items, страницы 81–90. Статус области: `draft`; ownership, charge/time state, item-granted actions и большинство эффектов в коде отсутствуют.
+Источник: `BOOK-GM-GUIDE`, версия 1.1, глава Magic Items, страницы 81–90. Статус всей области: `draft`. Боевые Magic Weapons/Magic Armour и два вида зелий подключены; остальные группы и кампания с dawn/sunset/Downtime ещё не реализованы.
 
 ## RULE-MAGIC-ITEM-001 — приобретение и классификация
 
@@ -34,7 +34,7 @@ Magic item считается Asset, но не покупается обычны
 
 Уточнения Weapons/Equipment приняты в [ADR-0140](../decisions/ADR-0140-all-weapons-and-shared-inventory.md): основное Damage/Skill и stacking Defence при Dual Wield; расход огненной стрелы при реальном выстреле, включая MISS; один disarm от Fracasse; лечение одной собственной раны за3заряда Scarab через предметное взаимодействие standard Recover; отдельный alternate Recover/Brawn−2d для Grotargg; порядок Grim→Glorious и предел двух действий Duellist; автоматический изолированный1v1 и подтверждённые GM-пары single combat. Эти решения не требуют повторного согласования.
 
-Общая [подготовка качества Attack](../../src/towr/domain/weapon_quality_preparation.py) сохраняет конкретные источники применяемых предметов. Лук дракона (Dragon Bow) нельзя применить к невидимой цели; отмена отрицательных кубов и Мрачного (Grim) не снимает reroll locks, не удаляет потраченную Судьбу (Fate) и не меняет предел дальности. При Drained новые предметные Glorious не действуют, а добровольная Grim-цена сохраняется. Фактический Prone даёт преимущество higher ground для Grotargg по PG123. Подготовка Test ещё не исполняет второе действие, заряд, лечение или HIT consequence; вся область остаётся в работе.
+Общая [подготовка качества Attack](../../src/towr/domain/weapon_quality_preparation.py) сохраняет конкретные источники применяемых предметов. Лук дракона (Dragon Bow) нельзя применить к невидимой цели; отмена отрицательных кубов и Мрачного (Grim) не снимает reroll locks, не удаляет потраченную Судьбу (Fate) и не меняет предел дальности. При Drained новые предметные Glorious не действуют, а добровольная Grim-цена сохраняется. Фактический Prone даёт преимущество higher ground для Grotargg по PG123. Фактические последствия исполняются [Magic Weapon owner](../../src/towr/domain/pc_magic_weapon_models.py): Dragon fire тратится один раз при выстреле; Fracasse выбивает один held magic unit; Scarab учитывает actual Wound после Fate/Near Miss и лечит за3charges настоящим Recover; Grotargg имеет alternate Recover/Brawn−2d. Headsman использует отдельный fixed Decapitation27+ source без фиктивного броска Wounds Table и без убийства от одного HIT. Duellist создаёт настоящее второе действие с общим пределом двух; Justice проверяет actual single combat; Unwavering использует фактический once-round Give Ground bank. [Покрытие и проверки](../implementation-coverage.md#полная-область-weaponsequipment-после-armour). Закат/приобретение/разрушение/Downtime и повествовательный облик не создают событий времени или бесплатную засаду в нынешнем бою.
 
 ## RULE-MAGIC-ITEM-004 — Magic Armour
 

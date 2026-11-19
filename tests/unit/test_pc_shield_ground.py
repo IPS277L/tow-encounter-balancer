@@ -80,8 +80,7 @@ class PcShieldGroundTests(unittest.TestCase):
     def test_stationary_short_opening_keeps_own_dropped_shield_close(self):
         source = actual_pistol_shield_source()
         source = replace(source, battlefield=None,
-            party=(replace(source.party[0], policy=PcMeleePolicy.ATTACK_OR_RECOVER_SELF,
-                combat_equipment=None),),
+            party=(replace(source.party[0], policy=PcMeleePolicy.ATTACK_OR_RECOVER_SELF),),
             short_range_opening=PcShortRangeOpening(True, True),
             facts=replace(source.facts, all_opponents_close=False,
                 can_leave_zone=False))

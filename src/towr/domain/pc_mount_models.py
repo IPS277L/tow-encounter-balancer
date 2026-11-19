@@ -6,7 +6,7 @@ mount turn is manufactured. Physical worn armour remains a separate source fact.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from enum import Enum
 from typing import TYPE_CHECKING
 
@@ -16,6 +16,7 @@ from towr.domain.injury_models import CharacterInjuryState, ProfileInjuryState
 from towr.domain.movement_models import MovementSpeed
 from towr.domain.resolution_models import TargetInjuryPolicy
 from towr.domain.test_models import DiceModifier, Skill
+from towr.domain.brawn_impact_models import BrawnDisplacementRequest, BrawnAttackEffect
 
 if TYPE_CHECKING:
     from towr.domain.pc_melee_models import PcMeleeScenario
@@ -101,6 +102,7 @@ class PcDismountProof:
     previous: PcMountedState
     state: PcMountedState
     source_injury: CharacterInjuryState | ProfileInjuryState
+    brawn_drag: BrawnDisplacementRequest | None = field(default=None, kw_only=True)
 
     def __post_init__(self):
         _identifier(self.actor_id, 'dismounted actor')
@@ -118,7 +120,13 @@ class PcDismountProof:
         if type(self.source_injury) not in (CharacterInjuryState, ProfileInjuryState):
             raise TypeError('dismount requires its exact actual typed injury witness')
         replace(self.source_injury)
-        if not self.source_injury.conditions.has(Condition.PRONE):
+        if self.brawn_drag is not None:
+            if type(self.brawn_drag) is not BrawnDisplacementRequest:
+                raise TypeError('dragged dismount requires its exact actual Brawn consequence')
+            replace(self.brawn_drag)
+            if self.brawn_drag.kind is not BrawnAttackEffect.DISMOUNT or self.brawn_drag.target_id != self.actor_id:
+                raise ValueError('dragged dismount belongs to another actual target or alternative')
+        elif not self.source_injury.conditions.has(Condition.PRONE):
             raise ValueError('forced dismount requires actual Prone after injury resolution')
 
 
@@ -288,7 +296,19 @@ def _injury(state, actor):
 def expected_pc_dismount(state: PcMeleeState) -> PcDismountProof | None:
     # Near Miss and queued injury consequences must settle first. A pending
     # spell, however, must not let an already-Prone rider retain Horse bonuses.
-    if state.pending_wound is not None or state.pending:
+    if state.pending_wound is not None:
+        return None
+    from towr.domain.pc_brawn_displacement_models import _pending, _bound_displacement
+    drag = _pending(state)
+    if drag is not None and drag.kind is BrawnAttackEffect.DISMOUNT:
+        _bound_displacement(state, drag)
+        member = next((member for member in state.mounts if member.actor_id == drag.target_id), None)
+        if member is None or not member.mounted:
+            raise ValueError('actual Brawn drag requires its still-mounted target')
+        index = len(state.history)
+        return PcDismountProof(member.actor_id, _source_id(state.source, member.actor_id, index),
+            index, member, replace(member, mounted=False), _injury(state, member.actor_id), brawn_drag=drag)
+    if state.pending:
         return None
     for member in state.mounts:
         injury = _injury(state, member.actor_id)
@@ -304,7 +324,7 @@ def updated_pc_mounts(state: PcMeleeState, proof: PcDismountProof) -> tuple[PcMo
         raise TypeError('mount transition requires its exact forced-dismount proof')
     replace(proof)
     if proof != expected_pc_dismount(state):
-        raise ValueError('dismount differs from the actual current Prone injury and source prefix')
+        raise ValueError('dismount differs from its actual current Prone/drag source prefix')
     return tuple(proof.state if member.actor_id == proof.actor_id else member
         for member in state.mounts)
 
@@ -331,6 +351,18 @@ def validate_pc_mounts(state: PcMeleeState) -> None:
             if proof.actor_id in state.source.pc_activation_order else ProfileInjuryState)
         if type(proof.source_injury) is not expected_injury_type:
             raise TypeError('dismount injury witness differs from the actual rider kind')
+        if proof.brawn_drag is not None:
+            from towr.domain.pc_melee_result_models import PcAttackProof
+            from towr.domain.pc_demigryph_models import pc_kernel_resolution
+            request = proof.brawn_drag
+            source = next((candidate for candidate in state.history[:index]
+                if type(candidate) is PcAttackProof
+                and candidate.request.kernel_request.id == request.resolution_id), None)
+            if (source is None or source.request.actor_id != request.actor_id
+                    or source.request.target_id != request.target_id
+                    or request not in pc_kernel_resolution(source).follow_ups
+                    or getattr(source.weapon_intent, 'brawn_effect', None) is not BrawnAttackEffect.DISMOUNT):
+                raise ValueError('dragged mount history lacks its actual frozen successful Brawn Attack')
         bank = tuple(proof.state if member.actor_id == proof.actor_id else member for member in bank)
     if state.mounts != bank:
         raise ValueError('mount bank differs from the initial source and actual dismount history')

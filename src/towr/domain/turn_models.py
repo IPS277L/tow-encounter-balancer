@@ -2,11 +2,16 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field, replace
 from enum import Enum
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from towr.domain.weapon_use_models import WeaponUse
 
 
 ACTION_BUDGET_RULE_ID = "RULE-COMBAT-002:action-budget"
 ENDURING_STRENGTH_RULE_ID = "RULE-PROFILE-CREATURE-010:enduring-strength"
 CROWN_OF_ANTLERS_RULE_ID = "RULE-PROFILE-MONSTER-002:crown-of-antlers"
+DUELLIST_BLADES_RULE_ID = "RULE-MAGIC-ITEM-003:duellist-second-attack"
 
 
 class CombatSide(str, Enum):
@@ -238,6 +243,45 @@ class CrownOfAntlersGrant:
 
 
 @dataclass(frozen=True, slots=True)
+class DuellistBladesGrant:
+    """One further Attack with the actual first Duellist Blades unit (GM83)."""
+
+    actor_id: str
+    round_number: int
+    slot_request_id: str
+    first_execution: ActionExecutionReceipt
+    weapon_use: WeaponUse
+    target_id: str
+
+    def __post_init__(self) -> None:
+        from towr.domain.weapon_catalog import WeaponKind
+        from towr.domain.weapon_use_models import WeaponUse
+
+        for value in (self.actor_id, self.slot_request_id, self.target_id):
+            if type(value) is not str or not value.strip():
+                raise TypeError('Duellist grant needs exact actor, slot and target IDs')
+        if type(self.round_number) is not int:
+            raise TypeError('Duellist grant round must be an exact integer')
+        if self.round_number < 1:
+            raise ValueError('Duellist grant requires a positive round')
+        # These existing exact receipt checks also validate the declaration;
+        # they describe a source shape, not a Crown ability authorization.
+        _validate_crown_receipt(self.first_execution)
+        receipt = self.first_execution
+        if (receipt.actor_id != self.actor_id or receipt.round_number != self.round_number
+                or receipt.slot_index != 1
+                or receipt.executor_rule_id != 'RULE-COMBAT-004:attack-action-execution'
+                or receipt.declaration.kind is not CombatActionKind.ATTACK):
+            raise ValueError('Duellist grant requires this actor and round first Attack')
+        if type(self.weapon_use) is not WeaponUse:
+            raise TypeError('Duellist grant requires its exact frozen WeaponUse')
+        use = replace(self.weapon_use)
+        if (use.actor_id != self.actor_id or use.kind is not WeaponKind.DUELLIST_BLADES
+                or use.primary_item_id is None or self.target_id == self.actor_id):
+            raise ValueError('Duellist grant lost its actual weapon, actor or enemy target')
+
+
+@dataclass(frozen=True, slots=True)
 class CombatActionSlot:
     index: int
     declaration: CombatActionDeclaration
@@ -246,6 +290,7 @@ class CombatActionSlot:
     execution: ActionExecutionReceipt | None = None
     enduring_strength: EnduringStrengthGrant | None = None
     crown_of_antlers: CrownOfAntlersGrant | None = field(default=None, kw_only=True)
+    duellist_blades: DuellistBladesGrant | None = field(default=None, kw_only=True)
 
     def __post_init__(self) -> None:
         if not isinstance(self.index, int) or isinstance(self.index, bool):
@@ -262,6 +307,22 @@ class CombatActionSlot:
             _validate_non_empty_string(self.grant_rule_id, "grant_rule_id")
         elif self.grant_rule_id is not None:
             raise ValueError("only an Ability action grant may name a Rule ID")
+        if self.duellist_blades is not None:
+            if self.enduring_strength is not None or self.crown_of_antlers is not None:
+                raise ValueError('Duellist cannot combine with another second-Attack grant')
+            if type(self.duellist_blades) is not DuellistBladesGrant:
+                raise TypeError('Duellist slot requires its exact typed grant')
+            replace(self.duellist_blades)
+            _validate_crown_declaration(self.declaration)
+            if (type(self.index) is not int or type(self.grant) is not ActionSlotGrant
+                    or type(self.grant_rule_id) is not str):
+                raise TypeError('Duellist slot needs exact clock source types')
+            if (self.index != 2 or self.grant is not ActionSlotGrant.ABILITY
+                    or self.grant_rule_id != DUELLIST_BLADES_RULE_ID
+                    or self.declaration.kind is not CombatActionKind.ATTACK):
+                raise ValueError('Duellist only grants an Ability Attack slot2')
+        elif self.grant_rule_id == DUELLIST_BLADES_RULE_ID:
+            raise ValueError('Duellist Rule ID alone cannot authorize an action')
         if self.crown_of_antlers is not None:
             if self.enduring_strength is not None:
                 raise ValueError('an action cannot combine Bear and Crown grants')
@@ -293,7 +354,7 @@ class CombatActionSlot:
         ):
             raise TypeError("execution must be an ActionExecutionReceipt")
         if self.execution is not None:
-            if self.crown_of_antlers is not None:
+            if self.crown_of_antlers is not None or self.duellist_blades is not None:
                 _validate_crown_receipt(self.execution)
             if self.execution.slot_index != self.index:
                 raise ValueError("execution receipt belongs to another slot")
@@ -333,6 +394,15 @@ class CombatTurnState:
         repeated_attack = False
         for slot in slots:
             replace(slot)
+            if slot.duellist_blades is not None:
+                grant = slot.duellist_blades
+                _validate_crown_receipt(slots[0].execution)
+                _validate_crown_declaration(slots[0].declaration)
+                if (type(self.actor_id) is not str or slot.index != 2
+                        or grant.actor_id != self.actor_id
+                        or slots[0].execution != grant.first_execution):
+                    raise ValueError('Duellist belongs to another executed first Attack')
+                repeated_attack = True
             if slot.crown_of_antlers is not None:
                 grant = slot.crown_of_antlers
                 if type(self.actor_id) is not str:
@@ -427,7 +497,8 @@ class CombatRoundState:
         if self.active_turn is not None:
             if not isinstance(self.active_turn, CombatTurnState):
                 raise TypeError("active_turn must be a CombatTurnState")
-            if any(slot.crown_of_antlers is not None for slot in self.active_turn.action_slots):
+            if any(slot.crown_of_antlers is not None or slot.duellist_blades is not None
+                    for slot in self.active_turn.action_slots):
                 replace(self.active_turn)
             participant = _participant_for(
                 participants,
@@ -459,6 +530,16 @@ class CombatRoundState:
                         or slot.crown_of_antlers.round_number != self.round_number)
                     for slot in self.active_turn.action_slots):
                 raise ValueError('Crown grant belongs to another round')
+            if any(slot.duellist_blades is not None
+                    and (type(self.round_number) is not int
+                        or slot.duellist_blades.round_number != self.round_number)
+                    for slot in self.active_turn.action_slots):
+                raise ValueError('Duellist grant belongs to another round')
+            for slot in self.active_turn.action_slots:
+                if slot.duellist_blades is not None:
+                    target = _participant_for(participants, slot.duellist_blades.target_id)
+                    if target.side is self.active_turn.side:
+                        raise ValueError('Duellist target must belong to the opposing side')
 
         object.__setattr__(self, "participants", participants)
         object.__setattr__(self, "side_order", side_order)
@@ -513,6 +594,7 @@ class CombatActionSlotRequest:
     allows_second_improvise: bool = False
     enduring_strength: EnduringStrengthGrant | None = None
     crown_of_antlers: CrownOfAntlersGrant | None = field(default=None, kw_only=True)
+    duellist_blades: DuellistBladesGrant | None = field(default=None, kw_only=True)
 
     def __post_init__(self) -> None:
         _validate_non_empty_string(self.id, "action slot request id")
@@ -531,6 +613,33 @@ class CombatActionSlotRequest:
             raise ValueError("only an Ability action grant may name a Rule ID")
         if not isinstance(self.allows_second_improvise, bool):
             raise TypeError("allows_second_improvise must be a boolean")
+        if self.duellist_blades is not None:
+            if self.enduring_strength is not None or self.crown_of_antlers is not None:
+                raise ValueError('Duellist cannot combine with another action grant')
+            if type(self.duellist_blades) is not DuellistBladesGrant:
+                raise TypeError('Duellist reservation requires its exact typed grant')
+            grant = replace(self.duellist_blades)
+            if type(self.state) is not CombatRoundState:
+                raise TypeError('Duellist reservation requires an exact round clock')
+            if type(self.id) is not str or type(self.actor_id) is not str:
+                raise TypeError('Duellist reservation needs exact source IDs')
+            if (grant.actor_id != self.actor_id or grant.round_number != self.state.round_number
+                    or grant.slot_request_id != self.id):
+                raise ValueError('Duellist belongs to another reservation')
+            turn = self.state.active_turn
+            if (turn is None or type(turn) is not CombatTurnState or turn.actor_id != self.actor_id
+                    or len(turn.action_slots) != 1
+                    or turn.action_slots[0].execution != grant.first_execution):
+                raise ValueError('Duellist requires its actual executed first Attack')
+            _validate_crown_receipt(turn.action_slots[0].execution)
+            _validate_crown_declaration(turn.action_slots[0].declaration)
+            target = self.state.participant_for(grant.target_id)
+            if target.side is turn.side:
+                raise ValueError('Duellist target must belong to the opposing side')
+            CombatActionSlot(2, self.declaration, self.grant, self.grant_rule_id,
+                duellist_blades=grant)
+        elif self.grant_rule_id == DUELLIST_BLADES_RULE_ID:
+            raise ValueError('Duellist Rule ID alone cannot reserve an action')
         if self.crown_of_antlers is not None:
             if self.enduring_strength is not None:
                 raise ValueError('a reservation cannot combine Bear and Crown grants')

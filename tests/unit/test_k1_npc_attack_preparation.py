@@ -124,9 +124,10 @@ class K1NpcAttackPreparationTests(unittest.TestCase):
                     replace(result.source_request, range_approved_by_gm=False)
 
     def test_unsupported_skills_extreme_and_inapplicable_approval_are_explicit(self):
-        for skill in (Skill.BRAWN, Skill.AWARENESS):
-            with self.assertRaisesRegex(ValueError, "natural"):
-                replace(brigand().profiles[0], skill=skill)
+        with self.assertRaisesRegex(ValueError, "natural"):
+            replace(brigand().profiles[0], skill=Skill.BRAWN,hands=Hands.TWO_HANDED)
+        with self.assertRaisesRegex(ValueError, "supports"):
+            replace(brigand().profiles[0], skill=Skill.AWARENESS)
         for approval in (False, True):
             with self.assertRaisesRegex(ValueError, "Extreme/Aim"):
                 request(selected_attack_id="warbow", target_range=Range.EXTREME,

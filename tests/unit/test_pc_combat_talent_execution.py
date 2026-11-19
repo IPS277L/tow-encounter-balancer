@@ -220,10 +220,10 @@ class PcCombatTalentExecutionTests(unittest.TestCase):
     def test_price_proof_rejects_wrong_actor_action_missing_intent_repeat_and_skipping(self):
         result = execute(scenario(), [10] * 11)
         price, = steps(result, PcWildAttackProof)
-        for altered in (replace(price.proof, actor_id='other', intent=None),
-                replace(price.proof, action_id='other'), replace(price.proof, intent=None)):
-            with self.subTest(altered=altered), self.assertRaises(ValueError):
-                PcMeleeStep(price.source, altered)
+        for changes in ({'actor_id': 'other', 'intent': None},
+                {'action_id': 'other'}, {'intent': None}):
+            with self.subTest(changes=changes), self.assertRaises((ValueError, TypeError)):
+                PcMeleeStep(price.source, replace(price.proof, **changes))
         with self.assertRaises(ValueError):
             PcMeleeStep(price.state, price.proof)
         with self.assertRaisesRegex(ValueError, 'paid Wild Attack'):

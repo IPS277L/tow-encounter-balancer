@@ -39,6 +39,18 @@ class ChooseCandidate(Random):
 
 
 class GeneratedInventorySamplingTests(unittest.TestCase):
+    def test_mixed_non_damage_pool_preserves_permitted_ability_without_invalid_proposals(self):
+        from towr.domain.generated_npc_models import GeneratedAbility
+        from towr.domain.weapon_catalog import weapon_printed_damage
+        allowed=space(weapon=(GeneratedWeapon.ROCK,GeneratedWeapon.OIL_FLASK,GeneratedWeapon.SWORD),
+            weapon_count=(1,3),abilities=((GeneratedAbility.DRAINED_ON_HIT,),))
+        for seed in range(20):
+            member=allowed.sample(Random(seed))
+            self.assertTrue(allowed.contains(member))
+            self.assertEqual(member.abilities,(GeneratedAbility.DRAINED_ON_HIT,))
+            self.assertTrue(any(weapon_printed_damage(item.kind,strength=member.strength) is not None
+                for item in member.weapons))
+
     def test_defaults_sample_each_count_with_stable_distinct_ids(self):
         allowed=space()
         members=[allowed.sample(Random(seed)) for seed in range(12)]
@@ -138,7 +150,7 @@ class GeneratedInventorySamplingTests(unittest.TestCase):
         self.assertIn(other.weapon_grip,(RangedWeaponHands.ONE_HANDED,RangedWeaponHands.TWO_HANDED))
 
     def test_axes_and_out_of_space_physical_sources_are_rejected(self):
-        for changes in ({'weapon_count':(True,)},{'weapon_count':(0,)},{'weapon_count':()},
+        for changes in ({'weapon_count':(True,)},{'weapon_count':(-1,)},{'weapon_count':()},
                 {'initial_loaded':(1,)},{'initial_loaded':()}):
             with self.subTest(changes=changes),self.assertRaises((TypeError,ValueError)):
                 space(**changes)

@@ -56,6 +56,10 @@ class AttackActionExecutionRequest:
             raise TypeError("kernel_request must be a KernelAttackRequest")
         if self.kernel_request.target_id != self.target_id:
             raise ValueError("kernel request belongs to another target")
+        from towr.domain.brawn_impact_models import BrawnDisplacementImpactSpec
+        if (type(self.kernel_request.attack.impact_spec) is BrawnDisplacementImpactSpec
+                and self.kernel_request.attack.impact_spec.actor_id!=self.actor_id):
+            raise ValueError('Brawn displacement belongs to another actual Attack actor')
         if self.charge_movement is not None:
             from towr.domain.charge_models import ChargeMovementResult
             if type(self.charge_movement) is not ChargeMovementResult:
@@ -103,6 +107,14 @@ class AttackActionExecutionResult:
         if (self.slot.enduring_strength is not None
                 and self.target_id != self.slot.enduring_strength.target_id):
             raise ValueError("Enduring Strength result requires its granted target")
+        if self.slot.duellist_blades is not None:
+            replace(self.slot)
+            replace(self.previous_state)
+            replace(self.state)
+            if type(self.target_id) is not str:
+                raise TypeError('Duellist result requires its exact target ID')
+            if self.target_id != self.slot.duellist_blades.target_id:
+                raise ValueError('Duellist result requires its granted target')
         if self.slot.crown_of_antlers is not None:
             replace(self.slot)
             if self.previous_state.active_turn is not None:

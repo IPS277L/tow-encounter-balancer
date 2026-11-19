@@ -9,6 +9,7 @@ from towr.domain.condition_models import (
     RepeatedConditionReplacement,
 )
 from towr.domain.test_models import Skill, TestRequest, TestResult
+from towr.domain.brawn_impact_models import BrawnDisplacementImpactSpec
 
 
 class AttackOutcome(str, Enum):
@@ -243,7 +244,7 @@ class HazardImpactSpec:
         )
 
 
-ImpactSpec = DamageImpactSpec | ConditionImpactSpec | HazardImpactSpec
+ImpactSpec = DamageImpactSpec | ConditionImpactSpec | HazardImpactSpec | BrawnDisplacementImpactSpec
 
 
 @dataclass(frozen=True, slots=True)
@@ -369,9 +370,14 @@ class AttackRequest:
             raise TypeError("defender_test must be a TestRequest or None")
         if not isinstance(
             self.impact_spec,
-            (DamageImpactSpec, ConditionImpactSpec, HazardImpactSpec),
+            (DamageImpactSpec, ConditionImpactSpec, HazardImpactSpec, BrawnDisplacementImpactSpec),
         ):
             raise TypeError("impact_spec must be an ImpactSpec")
+        if isinstance(self.impact_spec, BrawnDisplacementImpactSpec):
+            if type(self.impact_spec) is not BrawnDisplacementImpactSpec:
+                raise TypeError('Brawn displacement requires its exact committed source')
+            from dataclasses import replace
+            replace(self.impact_spec)
         _validate_bool(self.is_close_range, "is_close_range")
         _validate_bool(self.attacker_is_staggered, "attacker_is_staggered")
         if self.close_miss_stagger_immunity_rule_id is not None:

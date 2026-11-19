@@ -2,6 +2,9 @@
 from towr.simulation.pc_ranged_statistics import PcRangedCount,validate_pc_ranged_counts
 
 from towr.simulation.pc_npc_ranged_statistics import PcNpcRangedCount,validate_npc_ranged_counts
+from towr.simulation.pc_extra_attack_statistics import (
+    PcExtraAttackCount,pc_extra_attack_actors,validate_pc_extra_attack_counts,
+)
 
 from dataclasses import dataclass, field, replace
 
@@ -9,7 +12,7 @@ from towr.simulation.pc_melee_models import (
     PcMeleeOutcomeCounts, PcMeleeSimulationRequest, PcNearMissBurnCount,
     validate_near_miss_counts, PcGloriousSpendCount, validate_glorious_counts,
     PcHelpActionCount, validate_help_counts, PcAllyRecoverActionCount, validate_ally_recover_counts,
-    validate_automatic_action_budget, PcPotionUseCount, validate_potion_use_counts,
+    validate_automatic_action_budget,validate_npc_action_budget, PcPotionUseCount, validate_potion_use_counts,
     PcMagicCount, validate_magic_counts,
     PcNpcExitCount, validate_npc_exit_counts, PcNpcHelpActionCount, validate_npc_help_counts,
     PcNpcExtraAttackCount, validate_npc_extra_attack_counts,
@@ -68,6 +71,8 @@ class PcMeleeSimulationSummary:
     magic_counts: tuple[PcMagicCount, ...] | None = field(default=None, kw_only=True)
     npc_ranged_counts: tuple[PcNpcRangedCount, ...] | None = field(default=None,kw_only=True)
     pc_ranged_counts: tuple[PcRangedCount,...] | None = field(default=None,kw_only=True)
+    pc_extra_attack_counts: tuple[PcExtraAttackCount,...] | None = field(default=None,kw_only=True)
+    pc_extra_attack_trial_count: int | None = field(default=None,kw_only=True)
 
     def __post_init__(self) -> None:
         if not isinstance(self.source_request, PcMeleeSimulationRequest):
@@ -100,10 +105,16 @@ class PcMeleeSimulationSummary:
         validate_aim_counts(self.aim,self.source_request.scenario,trials=self.trials,
             actions=self.total_action_count,started_rounds=started,glorious_counts=self.glorious_spend_counts)
         seconds = self.aim.total_second_action_spend_count if self.aim is not None else 0
+        if pc_extra_attack_actors(self.source_request.scenario) and type(self.pc_extra_attack_trial_count) is not int:
+            raise TypeError('PC extra Attack trial count must retain its exact observed integer')
+        validate_pc_extra_attack_counts(self.pc_extra_attack_counts,self.source_request.scenario,
+            trials=self.trials,extra_trials=self.pc_extra_attack_trial_count,
+            actions=self.total_action_count,started_rounds=started)
+        pc_extras=sum(row.count for row in self.pc_extra_attack_counts or ())
         terminal = counts.objective_achieved+counts.party_defeated
         members = len(self.source_request.scenario.party)
         if not max(completed, terminal+limited*budget) <= self.total_action_count <= (
-                members+len(self.source_request.scenario.enemies))*started+self.total_npc_extra_attack_count+seconds:
+                members+len(self.source_request.scenario.enemies))*started+self.total_npc_extra_attack_count+pc_extras+seconds:
             raise ValueError('actions contradict outcomes/rounds/actor count')
         if type(self.any_pc_defeated_count) is not int:
             raise TypeError('trials with a confirmed PC death must be an integer')
@@ -164,7 +175,8 @@ class PcMeleeSimulationSummary:
             unsupported_trials=counts.unsupported_path)
         validate_automatic_action_budget(self.help_action_counts,self.ally_recover_action_counts,
             self.source_request.scenario,started_rounds=self.total_started_round_count,
-            potion_counts=self.potion_use_counts,magic_counts=self.magic_counts)
+            potion_counts=self.potion_use_counts,magic_counts=self.magic_counts,
+            pc_extra_counts=self.pc_extra_attack_counts,aim_counts=self.aim)
         if type(self.npc_help_action_trial_count) is not int:
             raise TypeError('NPC Help trial count must be an integer')
         validate_npc_help_counts(self.npc_help_action_counts,self.source_request.scenario,trials=self.trials,
@@ -176,8 +188,11 @@ class PcMeleeSimulationSummary:
             trials=self.trials,recover_trials=self.npc_recover_action_trial_count,
             actions=self.total_action_count,started_rounds=self.total_started_round_count,
             warped_form_counts=self.npc_warped_form_counts)
+        validate_npc_action_budget(self.npc_extra_attack_counts,self.npc_help_action_counts,
+            self.npc_recover_action_counts,started_rounds=self.total_started_round_count,
+            ranged_counts=self.npc_ranged_counts)
         if sum(item.count for item in (*self.help_action_counts,*self.ally_recover_action_counts,
-                *self.npc_help_action_counts,*self.npc_recover_action_counts,*(self.potion_use_counts or ())))+2*self.total_npc_extra_attack_count+(self.aim.total_action_count if self.aim is not None else 0)+self.total_casting_action_count+sum(row.shots+row.reload_actions for row in self.npc_ranged_counts or ())+sum(row.shots+row.reload_actions for row in self.pc_ranged_counts or ())>self.total_action_count:
+                *self.npc_help_action_counts,*self.npc_recover_action_counts,*(self.potion_use_counts or ())))+2*(self.total_npc_extra_attack_count+pc_extras)+(self.aim.total_action_count if self.aim is not None else 0)+self.total_casting_action_count+sum(row.shots+row.reload_actions for row in self.npc_ranged_counts or ())+sum(row.shots+row.reload_actions for row in self.pc_ranged_counts or ())>self.total_action_count:
             raise ValueError('Help, ally Recover and primary/extra Attacks cannot consume the same action')
         validate_npc_exit_counts(self.npc_exit_counts,self.source_request.scenario,
             trials=self.trials,exit_trials=self.npc_exit_trial_count)

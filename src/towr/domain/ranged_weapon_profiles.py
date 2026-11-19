@@ -14,6 +14,7 @@ REPEATER_SHOOTING_BONUS_RULE_ID = (
 
 
 class RangedWeaponId(str, Enum):
+    DRAGON_BOW = "dragon_bow"
     SLING = "sling"
     SHORTBOW = "shortbow"
     WARBOW = "warbow"
@@ -246,6 +247,7 @@ def _validate_bool(value: bool, name: str) -> None:
 
 
 RANGED_WEAPON_RELOAD_PROFILES: tuple[RangedWeaponReloadProfile, ...] = (
+    RangedWeaponReloadProfile(RangedWeaponId.DRAGON_BOW,RangedReloadTrigger.FREE_WITH_ATTACK,None),
     RangedWeaponReloadProfile(
         RangedWeaponId.SLING,
         RangedReloadTrigger.FREE_WITH_ATTACK,
@@ -339,6 +341,8 @@ def ranged_weapon_reload_profile(
 
 
 RANGED_WEAPON_COMBAT_PROFILES: tuple[RangedWeaponCombatProfile, ...] = (
+    RangedWeaponCombatProfile(RangedWeaponId.DRAGON_BOW,RangedWeaponRange.MEDIUM,
+        RangedWeaponRange.EXTREME,RangedWeaponDamageKind.FIXED,6,RangedWeaponHands.TWO_HANDED),
     RangedWeaponCombatProfile(
         weapon_id=RangedWeaponId.SLING,
         optimum_range_min=RangedWeaponRange.MEDIUM,

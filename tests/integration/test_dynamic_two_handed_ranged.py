@@ -115,7 +115,10 @@ class DynamicTwoHandedRangedTests(unittest.TestCase):
                 original = deepcopy(raw)
                 command = parse_dynamic_encounter_request(json.dumps(raw))
                 self.assertEqual(json.loads(command.source_json), raw)
-                npc = command.request.space.sample(Random(42))
+                # This ranged-lifecycle fixture explicitly omits an unarmed Brawn
+                # rating; adding a second legal attack could correctly change
+                # the automatic choice away from the intentionally weak shot.
+                npc = replace(command.request.space.sample(Random(42)), brawn=None)
                 scenario = command.request.scenario((npc,), 'battle:' + weapon)
                 pc_ranged = scenario.party[0].pc.ranged
                 self.assertEqual(scenario.party[0].combat_equipment[0].initially_loaded,
@@ -127,8 +130,11 @@ class DynamicTwoHandedRangedTests(unittest.TestCase):
                 encoded = native_document(scenario)
                 parsed = parse_pc_melee_simulation_request(json.dumps(encoded)).request.scenario
                 self.assertEqual(parsed, scenario)
-                self.assertEqual(encoded['scenario']['enemies'][0]['definition']
-                    ['generated_components']['weapon'], weapon)
+                components = encoded['scenario']['enemies'][0]['definition']['generated_components']
+                self.assertEqual(components['weapons'], [dict(id='item:1', weapon=weapon,
+                    location='held', hand='both',
+                    **({} if weapon in FREE_BOWS else dict(initially_loaded=True)))])
+                self.assertNotIn('weapon', components)
                 rng = AllThrees()
                 result = run_pc_melee_scenario(parsed, rng)
                 self.assertGreater(rng.calls, 0)
@@ -237,7 +243,8 @@ class DynamicTwoHandedRangedTests(unittest.TestCase):
         raw['max_rounds'] = 1
         raw['targets']['started_rounds'] = dict(numerator=1, denominator=1)
         command = parse_dynamic_encounter_request(json.dumps(raw))
-        npc = command.request.space.sample(Random(42))
+        # Omit an unarmed rating to isolate the actual Shooting/Aim path.
+        npc = replace(command.request.space.sample(Random(42)), brawn=None)
         scenario = command.request.scenario((npc,), 'crossbow:armour')
         native = parse_pc_melee_simulation_request(json.dumps(native_document(scenario))).request.scenario
         result = run_pc_melee_scenario(native, AllThrees())
@@ -260,7 +267,8 @@ class DynamicTwoHandedRangedTests(unittest.TestCase):
         raw['max_rounds'] = 2
         raw['targets']['started_rounds'] = dict(numerator=2, denominator=1)
         command = parse_dynamic_encounter_request(json.dumps(raw))
-        npc = command.request.space.sample(Random(42))
+        # Omit an unarmed rating to isolate the actual Shooting/Aim path.
+        npc = replace(command.request.space.sample(Random(42)), brawn=None)
         scenario = command.request.scenario((npc,), 'hochland:zero-aim')
         # Literal5 fails Awareness4 and Shooting2 but succeeds Protection6.
         result = run_pc_melee_scenario(scenario, AllThrees(5))
@@ -290,7 +298,8 @@ class DynamicTwoHandedRangedTests(unittest.TestCase):
                 forged = deepcopy(encoded)
                 definition = forged['scenario']['enemies'][0]['definition']
                 if change == 'damage':
-                    definition['attack']['damage']['base'] += 1
+                    attack = next(item for item in definition['attacks'] if item['skill'] == 'shooting')
+                    attack['damage']['base'] += 1
                 elif change == 'awareness':
                     definition['generated_components']['ranged']['awareness'] = None
                 else:

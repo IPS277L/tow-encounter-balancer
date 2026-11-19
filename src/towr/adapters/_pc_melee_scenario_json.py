@@ -6,7 +6,7 @@ from functools import partial
 from towr.adapters._json_common import build_value, resilience_document
 from towr.adapters.pc_melee_json_errors import PcMeleeInputError
 from towr.adapters.ranged_json_errors import RangedInputErrorCode as Code
-from towr.domain.attack_models import ConditionImpactSpec, ConditionOnHitSpec, DamageProfile, ResilienceProfile, ProneBeforeGiveGroundSpec
+from towr.domain.attack_models import ConditionImpactSpec, HazardImpactSpec, ConditionOnHitSpec, DamageProfile, ResilienceProfile, ProneBeforeGiveGroundSpec
 from towr.domain.condition_models import Condition, ConditionState, EffectClassification
 from towr.domain.fate_models import (
     FateBurnKind, FateBurnRecord, FateRefreshRecord, FateSessionState,
@@ -44,6 +44,8 @@ from towr.domain.weapon_capability_models import weapon_ranged_requirements
 from towr.domain.weapon_catalog import WeaponKind
 from towr.domain.weapon_inventory_models import WeaponItemSource,WeaponItemLocation,WeaponGrip
 from towr.domain.pc_battlefield_models import PcBattlefieldSpec,PcAirspaceSpec
+from towr.domain.pc_single_combat_models import PcSingleCombatPair
+from towr.domain.pc_scene_feature_models import PcZoneFeatures,PcVisibilityFact
 from towr.domain.pc_mount_models import CombatMount, RiderKind
 from towr.domain.armour_models import ArmourLoadout, BodyArmour, HelmetKind, ShieldKind
 from towr.domain.resolution_models import TargetInjuryPolicy
@@ -101,22 +103,23 @@ def parse_generated_components(raw, *, path_prefix, error_type):
 
 def parse_weapon_item_source(raw,*,path_prefix,error_type):
     required={'id','weapon','location','hand'}
-    if type(raw) is not dict or not required <= raw.keys() or raw.keys()-required-{'initially_loaded','gm_fit_confirmed','quantity'}:
+    if type(raw) is not dict or not required <= raw.keys() or raw.keys()-required-{'initially_loaded','gm_fit_confirmed','initial_charges','quantity'}:
         raise error_type(Code.INVALID_INPUT,'weapon item needs its complete closed initial source',path=path_prefix)
     return build_value(error_type,path_prefix,WeaponItemSource,raw['id'],WeaponKind(raw['weapon']),
         WeaponItemLocation(raw['location']),None if raw['hand'] is None else WeaponGrip(raw['hand']),
-        quantity=raw.get('quantity',1),initially_loaded=raw.get('initially_loaded'),gm_fit_confirmed=raw.get('gm_fit_confirmed'))
+        quantity=raw.get('quantity',1),initially_loaded=raw.get('initially_loaded'),
+        initial_charges=raw.get('initial_charges',0),gm_fit_confirmed=raw.get('gm_fit_confirmed'))
 
 
 def weapon_item_source_document(item):
-    if item.initial_charges:
-        raise ValueError('this initial weapon JSON source cannot carry stored magic charges')
     document=dict(id=item.id,weapon=item.kind.value,location=item.initial_location.value,
         hand=None if item.initial_grip is None else item.initial_grip.value)
     if item.initially_loaded is not None:
         document['initially_loaded']=item.initially_loaded
     if item.quantity!=1:
         document['quantity']=item.quantity
+    if item.kind is WeaponKind.SCARAB_KNIFE:
+        document['initial_charges']=item.initial_charges
     if item.gm_fit_confirmed is not None:
         document['gm_fit_confirmed']=item.gm_fit_confirmed
     return document
@@ -184,11 +187,19 @@ def _parse_battlefield(data, *, path_prefix, error_type):
         return None
     path = path_prefix + '/battlefield'
     if (type(raw) is not dict or not {'initial_range','two_handed_max_range'} <= raw.keys()
-            or set(raw)-{'initial_range','two_handed_max_range','airspace'}):
+            or set(raw)-{'initial_range','two_handed_max_range','airspace','zone_features','visibility','darkness'}):
         raise error_type(Code.INVALID_INPUT, 'Battlefield requires its complete scene ranges', path=path)
     return build_value(error_type, path, PcBattlefieldSpec,
         RangedWeaponRange(raw['initial_range']), RangedWeaponRange(raw['two_handed_max_range']),
-        airspace=parse_airspace(raw.get('airspace'),path=path+'/airspace',error_type=error_type))
+        airspace=parse_airspace(raw.get('airspace'),path=path+'/airspace',error_type=error_type),
+        **parse_scene_features(raw,path=path,error_type=error_type))
+
+
+def parse_scene_features(raw,*,path,error_type):
+    return dict(zone_features=tuple(build_value(error_type,f'{path}/zone_features/{index}',
+            PcZoneFeatures,**feature) for index,feature in enumerate(raw.get('zone_features',()))),
+        visibility=tuple(build_value(error_type,f'{path}/visibility/{index}',PcVisibilityFact,**fact)
+            for index,fact in enumerate(raw.get('visibility',()))),darkness=raw.get('darkness',False))
 
 
 def parse_airspace(raw,*,path,error_type):
@@ -218,7 +229,8 @@ def _parse_combat_equipment(raw,*,path,error_type):
     return tuple(build_value(error_type,f'{path}/{index}',PcWeaponItem,
         item['id'],PcMeleeWeapon(item['weapon']),PcItemLocation(item['location']),
         None if item['hand'] is None else PcTwoHandedGrip.BOTH if item['hand']=='both'
-        else PcWeaponHand(item['hand']),initially_loaded=item.get('initially_loaded'))
+        else PcWeaponHand(item['hand']),initially_loaded=item.get('initially_loaded'),quantity=item.get('quantity',1),
+        initial_charges=item.get('initial_charges',0),gm_fit_confirmed=item.get('gm_fit_confirmed'))
         for index,item in enumerate(raw))
 
 
@@ -325,8 +337,8 @@ def _parse_participant(data, *, path_prefix, error_type):
     return build(path_prefix, PcMeleeParticipant, data["actor_id"], pc, fate,
         PcMeleePolicy(data["policy"]), PcFatePolicy(data["fate_policy"]),
         PcRandomSidePolicy(data["random_side_policy"]), PcHeavyWoundPolicy(data["heavy_wound_policy"]),
-        (PcTwoHandedGrip.BOTH if data["initial_weapon_hand"] == "both"
-            else PcWeaponHand(data["initial_weapon_hand"])),
+        (None if data["initial_weapon_hand"] is None else PcTwoHandedGrip.BOTH
+            if data["initial_weapon_hand"] == "both" else PcWeaponHand(data["initial_weapon_hand"])),
         tuple(data["target_priority"]),
         tuple(build(f"{path_prefix}/defeat_decisions/{index}", MinionDefeatDecision,
             **dict(record, disposition=NpcDefeatDisposition(record["disposition"])))
@@ -400,8 +412,20 @@ def _parse_npc_attack(data, *, skill, path_prefix, error_type, shooting=False):
 
 
 def _npc_attack_document(attack):
-    if attack.skill is Skill.THROWING and attack.condition_impact is not None:
-        return _net_attack_document(attack)
+    if attack.skill is Skill.BRAWN:
+        document = {'id':attack.id,'source_rule_id':attack.source_rule_id,'skill':'brawn',
+            'test_profile':asdict(attack.test_profile),'range_min':attack.range_min.value,
+            'range_max':attack.range_max.value,'hands':None if attack.hands is None else attack.hands.value}
+        if attack.condition_impact is not None:
+            impact=attack.condition_impact
+            document['impact']={'kind':'condition','condition':impact.condition.value,
+                'rule_id':impact.rule_id,'classification':impact.classification.value}
+        else:
+            document.update(damage=asdict(attack.damage),secondary_effects=[
+                _attack_effect_document(effect) for effect in attack.secondary_effects])
+        return document
+    if attack.skill is Skill.THROWING:
+        return _throwing_attack_document(attack)
     document = {'id':attack.id,'source_rule_id':attack.source_rule_id,
         'test_profile':asdict(attack.test_profile),'damage':asdict(attack.damage),
         'range_max':attack.range_max.value,'hands':None if attack.hands is None else attack.hands.value,
@@ -432,6 +456,65 @@ def _net_attack_document(attack):
         'range_max':attack.range_max.value,'hands':attack.hands.value,
         'impact':{'kind':'condition','condition':impact.condition.value,
             'rule_id':impact.rule_id,'classification':impact.classification.value}}
+
+
+def _throwing_attack_document(attack):
+    document = {'id':attack.id,'source_rule_id':attack.source_rule_id,'skill':'throwing',
+        'test_profile':asdict(attack.test_profile),'range_min':attack.range_min.value,
+        'range_max':attack.range_max.value,'hands':None if attack.hands is None else attack.hands.value}
+    if attack.condition_impact is not None:
+        document['impact']=dict(kind='condition',**_plain(asdict(attack.condition_impact)))
+    elif attack.hazard_impact is not None:
+        document['impact']=dict(kind='hazard',**_plain(asdict(attack.hazard_impact)))
+    else:
+        document.update(damage=asdict(attack.damage),secondary_effects=[
+            _attack_effect_document(effect) for effect in attack.secondary_effects])
+    return document
+
+
+def _parse_throwing_attack(data, *, path_prefix, error_type):
+    common={'id','source_rule_id','skill','test_profile','range_min','range_max','hands'}
+    expected=common | ({'impact'} if 'impact' in data else {'damage','secondary_effects'})
+    if set(data)!=expected or data['skill']!='throwing':
+        raise error_type(Code.INVALID_INPUT,'Throwing requires its complete physical impact profile',path=path_prefix)
+    condition=hazard=None
+    if 'impact' in data:
+        raw=data['impact']
+        if raw.get('kind')=='condition' and set(raw)=={'kind','condition','rule_id','classification'}:
+            condition=ConditionImpactSpec(Condition(raw['condition']),raw['rule_id'],EffectClassification(raw['classification']))
+        elif (raw.get('kind')=='hazard' and set(raw)=={'kind','rating','avoidance_skill','rule_id','inflicts_wound',
+                'failure_conditions','classification','repeated_condition_replacements'}
+                and raw['repeated_condition_replacements']==[]):
+            hazard=HazardImpactSpec(raw['rating'],Skill(raw['avoidance_skill']),raw['rule_id'],
+                raw['inflicts_wound'],tuple(Condition(value) for value in raw['failure_conditions']),
+                EffectClassification(raw['classification']))
+        else:
+            raise error_type(Code.INVALID_INPUT,'Throwing requires its complete Condition or Hazard source',path=path_prefix+'/impact')
+    return build_value(error_type,path_prefix,NpcAttackProfile,data['id'],data['source_rule_id'],Skill.THROWING,
+        InlineProfile(**data['test_profile']),None if 'impact' in data else DamageProfile(**data['damage']),
+        RangedWeaponRange(data['range_min']),RangedWeaponRange(data['range_max']),
+        None if data['hands'] is None else RangedWeaponHands(data['hands']),condition_impact=condition,hazard_impact=hazard,
+        secondary_effects=tuple(_parse_attack_effect(effect,path_prefix=f'{path_prefix}/secondary_effects/{index}',
+            error_type=error_type) for index,effect in enumerate(data.get('secondary_effects',()))))
+
+
+def _parse_brawn_attack(data, *, path_prefix, error_type):
+    common={'id','source_rule_id','skill','test_profile','range_min','range_max','hands'}
+    expected=common | ({'impact'} if 'impact' in data else {'damage','secondary_effects'})
+    if set(data)!=expected or data['skill']!='brawn':
+        raise error_type(Code.INVALID_INPUT,'Brawn requires its complete physical or Unarmed profile',path=path_prefix)
+    impact=None
+    if 'impact' in data:
+        raw=data['impact']
+        if set(raw)!={'kind','condition','rule_id','classification'} or raw['kind']!='condition':
+            raise error_type(Code.INVALID_INPUT,'Unarmed requires its complete primary Condition impact',path=path_prefix+'/impact')
+        impact=ConditionImpactSpec(Condition(raw['condition']),raw['rule_id'],EffectClassification(raw['classification']))
+    return build_value(error_type,path_prefix,NpcAttackProfile,data['id'],data['source_rule_id'],Skill.BRAWN,
+        InlineProfile(**data['test_profile']),None if impact is not None else DamageProfile(**data['damage']),
+        RangedWeaponRange(data['range_min']),RangedWeaponRange(data['range_max']),
+        None if data['hands'] is None else RangedWeaponHands(data['hands']),condition_impact=impact,
+        secondary_effects=tuple(_parse_attack_effect(effect,path_prefix=f'{path_prefix}/secondary_effects/{index}',
+            error_type=error_type) for index,effect in enumerate(data.get('secondary_effects',()))))
 
 
 def _parse_scenario(data, *, path_prefix, error_type):
@@ -468,7 +551,8 @@ def _parse_scenario(data, *, path_prefix, error_type):
                 None if raw['reload_hand_policy'] is None else PcNpcRangedReloadHandPolicy(raw['reload_hand_policy']),
                 initial_weapon=None if raw.get('initial_weapon') is None else parse_weapon_item_source(
                     raw['initial_weapon'],path_prefix=path+'/ranged/initial_weapon',error_type=error_type)))
-        attacks=tuple(_parse_net_attack(raw,path_prefix=path+f'/definition/attacks/{i}',error_type=error_type)
+        attacks=tuple(_parse_brawn_attack(raw,path_prefix=path+f'/definition/attacks/{i}',error_type=error_type)
+            if raw.get('skill')=='brawn' else _parse_throwing_attack(raw,path_prefix=path+f'/definition/attacks/{i}',error_type=error_type)
             if raw.get('skill')=='throwing' else _parse_npc_attack(raw,
                 skill=Skill.SHOOTING if raw.get('skill')=='shooting' else Skill.MELEE,
                 path_prefix=path+f'/definition/attacks/{i}' if generated_source else path+'/definition/attack',
@@ -516,6 +600,10 @@ def _parse_scenario(data, *, path_prefix, error_type):
             alternate = definition_raw['alternate_protection']
             protection_profiles += (NpcProtectionProfile(alternate['source_rule_id'],
                 Skill(alternate['skill']), InlineProfile(**alternate['test_profile'])),)
+            if 'endurance_protection' in definition_raw:
+                endurance=definition_raw['endurance_protection']
+                protection_profiles += (NpcProtectionProfile(endurance['source_rule_id'],
+                    Skill(endurance['skill']),InlineProfile(**endurance['test_profile'])),)
         definition = build(path + "/definition", NpcDefinition,
             definition_raw["id"], definition_raw["source_rule_id"],
             TargetInjuryPolicy(definition_raw["injury_policy"]), definition_raw["wound_limit"],
@@ -526,7 +614,8 @@ def _parse_scenario(data, *, path_prefix, error_type):
             else frozenset())
         state = build(path, NpcParticipantState, enemy["actor_id"], definition.id,
             CombatSide.OPPOSITION, ProfileInjuryState(0, definition.wound_limit,initial_conditions), tuple(profile.id for profile in attacks),
-            resilience, attack.hands is not None, enemy["holds_shield"])
+            resilience, generated.participant(enemy['actor_id']).state.wields_weapon
+                if generated is not None else attack.hands is not None, enemy["holds_shield"])
         enemies.append(NpcParticipantSnapshot(definition, state))
     return build(path_prefix, PcMeleeScenario, data["id"], party,
         data["day_id"], tuple(enemies), build(path_prefix + "/facts", PcMeleeFacts, **data["facts"]),
@@ -539,6 +628,8 @@ def _parse_scenario(data, *, path_prefix, error_type):
         npc_extra_attack_actor_ids=tuple(data['npc_extra_attack_actor_ids']),
         short_range_opening=_parse_short_range_opening(data,path_prefix=path_prefix,error_type=error_type),
         battlefield=_parse_battlefield(data,path_prefix=path_prefix,error_type=error_type),
+        single_combat_pairs=tuple(build(f'{path_prefix}/single_combat_pairs/{index}',
+            PcSingleCombatPair,**pair) for index,pair in enumerate(data.get('single_combat_pairs',()))),
         blunderbuss_nearby=_parse_blunderbuss_nearby(data,path_prefix=path_prefix,error_type=error_type),
         npc_close_shooting_protection_policies=_parse_close_shooting_policies(data,
             path_prefix=path_prefix,error_type=error_type),
@@ -611,6 +702,11 @@ def scenario_document(scenario: PcMeleeScenario) -> dict:
             enemies[-1]['definition']['alternate_protection'] = {
                 'source_rule_id':alternate.source_rule_id,'skill':alternate.skill.value,
                 'test_profile':asdict(alternate.test_profile)}
+            if len(definition.protection)>2:
+                endurance=definition.protection[2]
+                enemies[-1]['definition']['endurance_protection']={
+                    'source_rule_id':endurance.source_rule_id,'skill':endurance.skill.value,
+                    'test_profile':asdict(endurance.test_profile)}
         if definition.id==NET_DEFINITION_ID:
             enemies[-1]['definition']['net_attack'] = _net_attack_document(definition.attacks[1])
             policy = next(policy for policy in scenario.npc_net_policies if policy.actor_id==enemy.state.actor_id)
@@ -640,6 +736,8 @@ def scenario_document(scenario: PcMeleeScenario) -> dict:
     if scenario.npc_close_shooting_protection_policies is not None:
         document['npc_close_shooting_protection_policies'] = _plain([
             asdict(policy) for policy in scenario.npc_close_shooting_protection_policies])
+    if scenario.single_combat_pairs:
+        document['single_combat_pairs']=[asdict(pair) for pair in scenario.single_combat_pairs]
     if scenario.short_range_opening is not None:
         document['short_range_opening'] = asdict(scenario.short_range_opening)
     if scenario.battlefield is not None:

@@ -11,7 +11,7 @@ from towr.domain.pc_melee_models import PcMeleeWeapon,PcWeaponHand,PcTwoHandedGr
 from towr.domain.potion_models import ConsumableKind, ConsumableItem
 from towr.domain.pc_combat_equipment_models import PcWeaponItem,PcItemLocation
 from towr.domain.weapon_catalog import WeaponKind
-from towr.domain.weapon_inventory_models import weapon_reload_target
+from towr.domain.weapon_inventory_models import weapon_reload_target,WeaponItemSource,WeaponItemLocation,WeaponGrip
 
 
 class ItemLocation(str, Enum):
@@ -47,11 +47,16 @@ class WeaponItem:
     weapon: PcMeleeWeapon
     location: ItemLocation
     initially_loaded: bool | None = field(default=None,kw_only=True)
+    quantity: int = field(default=1,kw_only=True)
+    initial_charges: int = field(default=0,kw_only=True)
+    gm_fit_confirmed: bool | None = field(default=None,kw_only=True)
 
     def __post_init__(self):
         _id(self.id)
         if type(self.weapon) is not PcMeleeWeapon or type(self.location) is not ItemLocation:
             raise TypeError('weapon and location must be typed')
+        if self.weapon is PcMeleeWeapon.UNARMED:
+            raise ValueError('Unarmed is an attack mode, never an inventory item')
         if self.location is ItemLocation.WORN:
             raise ValueError('weapons must be held or carried')
         if self.initially_loaded is not None and type(self.initially_loaded) is not bool:
@@ -61,6 +66,13 @@ class WeaponItem:
                 raise ValueError('each Exacting item requires its explicit initial loaded bool')
         elif self.initially_loaded is not None:
             raise ValueError('only an Exacting weapon has an initial loaded flag')
+        WeaponItemSource(self.id,self.weapon,
+            WeaponItemLocation.CARRIED if self.location is ItemLocation.CARRIED else WeaponItemLocation.HELD,
+            None if self.location is ItemLocation.CARRIED else WeaponGrip.BOTH
+                if self.location is ItemLocation.BOTH else WeaponGrip.LEFT
+                if self.location is ItemLocation.LEFT else WeaponGrip.RIGHT,
+            quantity=self.quantity,initially_loaded=self.initially_loaded,
+            initial_charges=self.initial_charges,gm_fit_confirmed=self.gm_fit_confirmed)
 
 
 @dataclass(frozen=True, slots=True)
@@ -104,17 +116,17 @@ class EncounterEquipment:
         if type(strength) is not int or strength < 1:
             raise ValueError('Strength must be a positive integer')
         active = tuple(w for w in self.weapons if w.location is not ItemLocation.CARRIED)
-        if not active:
-            raise ValueError('Начальный состав требует хотя бы одно оружие в руках (Weapons).')
-        primary = active[0]
-        hand = PcWeaponHand.LEFT if primary.location is ItemLocation.LEFT else PcWeaponHand.RIGHT
-        ordered=(primary,*(item for item in self.weapons if item is not primary))
+        primary = active[0] if active else None
+        hand = (None if primary is None else PcWeaponHand.LEFT
+            if primary.location is ItemLocation.LEFT else PcWeaponHand.RIGHT)
+        ordered=self.weapons if primary is None else (primary,*(item for item in self.weapons if item is not primary))
         combat_equipment=tuple(PcWeaponItem(item.id,item.weapon,
             PcItemLocation.CARRIED if item.location is ItemLocation.CARRIED else PcItemLocation.HELD,
             None if item.location is ItemLocation.CARRIED else PcTwoHandedGrip.BOTH
                 if item.location is ItemLocation.BOTH else PcWeaponHand.LEFT
                 if item.location is ItemLocation.LEFT else PcWeaponHand.RIGHT,
-            initially_loaded=item.initially_loaded) for item in ordered)
+            initially_loaded=item.initially_loaded,quantity=item.quantity,
+            initial_charges=item.initial_charges,gm_fit_confirmed=item.gm_fit_confirmed) for item in ordered)
         occupied=set()
         for item in combat_equipment:
             if item.location is not PcItemLocation.HELD:
@@ -149,6 +161,8 @@ class EncounterEquipment:
             None if selected is None else BodyArmour(selected.kind.value),
             None if not helmets else HelmetKind(helmets[0].kind.value),
             None if not held_shields else ShieldKind(held_shields[0].kind.value),bool(barding))
-        return dict(weapon=primary.weapon, armour=protection,
+        return dict(weapon=PcMeleeWeapon.UNARMED if primary is None else primary.weapon, armour=protection,
             shield=bool(held_shields), weapon_hand=hand, backup_weapon_policy=None,
+            shield_hand=(None if not held_shields else PcWeaponHand.LEFT
+                if held_shields[0].location is ItemLocation.LEFT else PcWeaponHand.RIGHT),
             combat_equipment=combat_equipment)

@@ -29,6 +29,8 @@ from towr.domain.pc_melee_models import (PcMeleeFacts,PcMeleeWeapon,PcRangedProf
     PcRangedReloadHandPolicy,PcRepeaterBonusPolicy)
 from towr.domain.pc_magic_source_models import PcWizardProfile, PcSpellId
 from towr.domain.pc_battlefield_models import PcBattlefieldSpec
+from towr.domain.pc_single_combat_models import PcSingleCombatPair
+from towr.adapters._pc_melee_scenario_json import parse_scene_features
 from towr.domain.pc_mount_models import CombatMount, RiderKind
 from towr.domain.armour_models import BodyArmour, HelmetKind, ShieldKind, armour_is_worn
 from towr.domain.ranged_weapon_profiles import RangedWeaponRange
@@ -152,7 +154,8 @@ def parse_dynamic_encounter_request(text: str | bytes) -> DynamicEncounterComman
                 armour_benefit_id=gear.get('armour_benefit_id'),
                 weapons=tuple(build_value(DynamicEncounterInputError, f'{path}/equipment/weapons/{i}', WeaponItem,
                     id=w['id'], weapon=PcMeleeWeapon(w['weapon']), location=ItemLocation(w['location']),
-                    initially_loaded=w.get('initially_loaded'))
+                    initially_loaded=w.get('initially_loaded'),quantity=w.get('quantity',1),
+                    initial_charges=w.get('initial_charges',0),gm_fit_confirmed=w.get('gm_fit_confirmed'))
                     for i, w in enumerate(gear['weapons'])),
                 armour=tuple(build_value(DynamicEncounterInputError, f'{path}/equipment/armour/{i}', ArmourItem,
                     id=a['id'], kind=ArmourItemKind(a['kind']), location=ItemLocation(a['location']))
@@ -248,7 +251,8 @@ def parse_dynamic_encounter_request(text: str | bytes) -> DynamicEncounterComman
         battlefield=build_value(DynamicEncounterInputError,'/scene',PcBattlefieldSpec,
             RangedWeaponRange(document['scene']['range']),RangedWeaponRange(document['scene']['two_handed_max_range']),
             airspace=parse_airspace(document['scene'].get('airspace'),path='/scene/airspace',
-                error_type=DynamicEncounterInputError))
+                error_type=DynamicEncounterInputError),
+            **parse_scene_features(document['scene'],path='/scene',error_type=DynamicEncounterInputError))
         options = document.get('search_space')
         space = automatic_npc_search_space(tuple(party),battlefield=battlefield) if options is None else build_value(
             DynamicEncounterInputError, '/search_space', NpcSearchSpace,
@@ -261,7 +265,7 @@ def parse_dynamic_encounter_request(text: str | bytes) -> DynamicEncounterComman
                 tuple(RiderKind(v) for v in values) if name == 'rider_kind' else
                 tuple(tuple(GeneratedAbility(a) for a in group) for group in values) if name == 'abilities' else
                 tuple(GeneratedTalent(v) for v in values) if name == 'allowed_talents' else
-                values if name == 'agilulf_code_confirmed' else tuple(values))
+                values if name in ('agilulf_code_confirmed','ogre_fit_confirmed') else tuple(values))
                 for name, values in options.items()})
         search = dict(document['search'])
         search['master_seed'] = parse_seed(search['master_seed'], DynamicEncounterInputError, '/search/master_seed')
@@ -270,6 +274,9 @@ def parse_dynamic_encounter_request(text: str | bytes) -> DynamicEncounterComman
                 True, True, True, True, True, True,
                 daylight_confirmed=True if any(member.wizard is not None for member in party) else None),
             day_id=document['request_id'] + ':day', space=space,battlefield=battlefield,
+            single_combat_pairs=tuple(build_value(DynamicEncounterInputError,
+                f'/scene/single_combat_pairs/{index}',PcSingleCombatPair,**pair)
+                for index,pair in enumerate(document['scene'].get('single_combat_pairs',()))),
             minimum_npcs=document['npc_count']['minimum'], maximum_npcs=document['npc_count']['maximum'],
             target_win_rate=_target(document['targets']['win_rate'], '/targets/win_rate'),
             target_rounds=_target(document['targets']['started_rounds'], '/targets/started_rounds',

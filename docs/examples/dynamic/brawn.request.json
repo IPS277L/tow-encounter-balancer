@@ -1,0 +1,141 @@
+{
+  "schema_version": "1",
+  "kind": "dynamic_encounter_search",
+  "request_id": "dynamic:brawn",
+  "ruleset": "towr-pg1.4-gmg1.1",
+  "party": [
+    {
+      "actor_id": "pc",
+      "characteristics": {
+        "weapon_skill": 3,
+        "strength": 3,
+        "toughness": 3,
+        "agility": 3
+      },
+      "skills": {
+        "melee": 5,
+        "defence": 5,
+        "athletics": 4,
+        "endurance": 4,
+        "brawn": 4
+      },
+      "equipment": {
+        "weapons": [],
+        "armour": [
+          {
+            "id": "shield:left",
+            "kind": "shield",
+            "location": "left_hand"
+          }
+        ]
+      },
+      "talents": [],
+      "resources": {
+        "fate": 3
+      },
+      "consumables": []
+    }
+  ],
+  "search_space": {
+    "weapon_skill": [
+      3
+    ],
+    "strength": [
+      3
+    ],
+    "toughness": [
+      3
+    ],
+    "agility": [
+      3
+    ],
+    "melee": [
+      3
+    ],
+    "athletics": [
+      4
+    ],
+    "weapon": [
+      "knuckledusters",
+      "cavalry_spear",
+      "lance"
+    ],
+    "abilities": [
+      []
+    ],
+    "defence": [
+      4
+    ],
+    "shield": [
+      null
+    ],
+    "allowed_talents": [],
+    "ballistic_skill": [
+      2
+    ],
+    "initiative": [
+      2
+    ],
+    "shooting": [
+      3
+    ],
+    "dexterity": [
+      3
+    ],
+    "armour": [
+      null
+    ],
+    "weapon_count": [
+      0
+    ],
+    "initial_loaded": [
+      true
+    ],
+    "brawn": [
+      4
+    ],
+    "endurance": [
+      4
+    ],
+    "mount": [
+      null
+    ],
+    "barding": [
+      false
+    ]
+  },
+  "npc_count": {
+    "minimum": 1,
+    "maximum": 1
+  },
+  "targets": {
+    "win_rate": {
+      "numerator": 1,
+      "denominator": 2
+    },
+    "started_rounds": {
+      "numerator": 3,
+      "denominator": 1
+    }
+  },
+  "search": {
+    "master_seed": "42",
+    "max_candidates": 1,
+    "exploration_trials": 1,
+    "finalist_trials": 1,
+    "top_k": 1,
+    "max_total_trials": 2
+  },
+  "max_rounds": 3,
+  "defeat_disposition": "killed",
+  "execution": {
+    "mode": "sequential"
+  },
+  "scene": {
+    "range": "close",
+    "ambush": "none",
+    "terrain": "open",
+    "session_start": "fresh",
+    "two_handed_max_range": "long"
+  }
+}

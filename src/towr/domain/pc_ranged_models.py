@@ -218,6 +218,8 @@ def pc_conditioned_ranged_attack(state: PcMeleeState, actor: str,
         preparation: RangedWeaponAttackPreparationResult) -> AttackActionExecutionRequest:
     """Apply the actual PC Conditions after pure K1 weapon traits, before Fate."""
     attack = preparation.execution.attack
+    from towr.domain.pc_magic_weapon_models import condition_dragon_ranged_attack
+    attack = condition_dragon_ranged_attack(state,actor,attack)
     if not state.participant(actor).injury.conditions.has(Condition.DRAINED):
         return attack
     kernel = attack.kernel_request
